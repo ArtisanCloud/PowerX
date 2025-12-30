@@ -32,14 +32,14 @@ func NewMediaAssetServer(deps *shared.Deps) *MediaAssetServer {
 }
 
 func (s *MediaAssetServer) CreateMediaAsset(ctx context.Context, req *corexmediav1.CreateMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return mediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 
 	asset, err := s.svc.CreateAsset(ctx, mediasvc.CreateAssetInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		OperatorID:   operator,
 		Name:         req.GetName(),
 		Description:  req.GetDescription(),
@@ -61,19 +61,19 @@ func (s *MediaAssetServer) CreateMediaAsset(ctx context.Context, req *corexmedia
 }
 
 func (s *MediaAssetServer) ListMediaAssets(ctx context.Context, req *corexmediav1.ListMediaAssetsRequest) (*corexmediav1.ListMediaAssetsResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return listMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return listMediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
 	filter := mediasvc.ListAssetsInput{
-		TenantID:  tenantID,
-		Drivers:   optionalSlice(req.GetDriver()),
-		OwnerType: req.GetOwnerSubjectType(),
-		OwnerID:   req.GetOwnerSubjectId(),
-		Keyword:   req.GetKeyword(),
-		TagsAll:   req.GetTags(),
-		Page:      int(req.GetPage()),
-		PageSize:  int(req.GetPageSize()),
+		TenantUUID: tenantUUID,
+		Drivers:    optionalSlice(req.GetDriver()),
+		OwnerType:  req.GetOwnerSubjectType(),
+		OwnerID:    req.GetOwnerSubjectId(),
+		Keyword:    req.GetKeyword(),
+		TagsAll:    req.GetTags(),
+		Page:       int(req.GetPage()),
+		PageSize:   int(req.GetPageSize()),
 	}
 	if statusEnum := req.GetBusinessStatus(); statusEnum != corexmediav1.BusinessStatus_BUSINESS_STATUS_UNSPECIFIED {
 		filter.BusinessStatus = []string{statusToString(statusEnum)}
@@ -110,11 +110,11 @@ func (s *MediaAssetServer) ListMediaAssets(ctx context.Context, req *corexmediav
 }
 
 func (s *MediaAssetServer) GetMediaAsset(ctx context.Context, req *corexmediav1.GetMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return mediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
-	asset, err := s.svc.GetAsset(ctx, tenantID, req.GetUuid(), false)
+	asset, err := s.svc.GetAsset(ctx, tenantUUID, req.GetUuid(), false)
 	if err != nil {
 		return mediaServiceErrorResponse(ctx, err)
 	}
@@ -125,13 +125,13 @@ func (s *MediaAssetServer) GetMediaAsset(ctx context.Context, req *corexmediav1.
 }
 
 func (s *MediaAssetServer) UpdateMediaAsset(ctx context.Context, req *corexmediav1.UpdateMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return mediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	input := mediasvc.UpdateAssetInput{
-		TenantID:   tenantID,
+		TenantUUID: tenantUUID,
 		UUID:       req.GetUuid(),
 		OperatorID: operator,
 		Tags:       req.GetTags(),
@@ -157,13 +157,13 @@ func (s *MediaAssetServer) UpdateMediaAsset(ctx context.Context, req *corexmedia
 }
 
 func (s *MediaAssetServer) DeleteMediaAsset(ctx context.Context, req *corexmediav1.DeleteMediaAssetRequest) (*corexmediav1.DeleteMediaAssetResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return deleteMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return deleteMediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	err = s.svc.DeleteAsset(ctx, mediasvc.DeleteAssetInput{
-		TenantID:   tenantID,
+		TenantUUID: tenantUUID,
 		UUID:       req.GetUuid(),
 		OperatorID: operator,
 	})
@@ -179,9 +179,9 @@ func (s *MediaAssetServer) DeleteMediaAsset(ctx context.Context, req *corexmedia
 }
 
 func (s *MediaAssetServer) PresignMediaAsset(ctx context.Context, req *corexmediav1.PresignMediaAssetRequest) (*corexmediav1.PresignMediaAssetResponse, error) {
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
-		return presignMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
+		return presignMediaErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	ttl := time.Duration(req.GetExpiresInSeconds()) * time.Second
@@ -194,7 +194,7 @@ func (s *MediaAssetServer) PresignMediaAsset(ctx context.Context, req *corexmedi
 	}
 
 	out, err := s.svc.PresignAsset(ctx, mediasvc.PresignAssetInput{
-		TenantID:   tenantID,
+		TenantUUID: tenantUUID,
 		UUID:       req.GetUuid(),
 		OperatorID: operator,
 		Action:     presignActionToString(req.GetAction()),
@@ -227,7 +227,7 @@ func toPBAsset(asset *mediasvc.Asset) *corexmediav1.MediaAsset {
 	}
 	pb := &corexmediav1.MediaAsset{
 		Uuid:             asset.UUID,
-		TenantId:         strconv.FormatUint(asset.TenantID, 10),
+		TenantUuid:       asset.TenantUUID,
 		Name:             asset.Name,
 		Description:      asset.Description,
 		Driver:           asset.Driver,
@@ -253,14 +253,6 @@ func toPBAsset(asset *mediasvc.Asset) *corexmediav1.MediaAsset {
 		pb.DownloadExpiredAt = asset.DownloadExpiry.Unix()
 	}
 	return pb
-}
-
-func parseTenantID(raw string) (uint64, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0, fmt.Errorf("tenant_id required")
-	}
-	return strconv.ParseUint(raw, 10, 64)
 }
 
 func parseOperatorID(raw string) *uint64 {
@@ -323,6 +315,27 @@ func optionalSlice(value string) []string {
 		return nil
 	}
 	return []string{strings.TrimSpace(value)}
+}
+
+func resolveTenantUUID(ctx context.Context, payload string) (string, error) {
+	if uuidStr := strings.TrimSpace(reqctx.GetTenantUUID(ctx)); uuidStr != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(uuidStr)
+		if err != nil {
+			return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+		}
+		return canonical, nil
+	}
+	if trimmed := strings.TrimSpace(payload); trimmed != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(trimmed)
+		if err != nil {
+			return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+		}
+		return canonical, nil
+	}
+	if _, err := reqctx.RequireTenantUUID(ctx); err != nil {
+		return "", err
+	}
+	return "", errors.New("tenant uuid required")
 }
 
 func headersToMap(headers http.Header) map[string]string {

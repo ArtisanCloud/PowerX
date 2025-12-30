@@ -21,9 +21,9 @@ func NewServiceAccountRepository(db *gorm.DB) *ServiceAccountRepository {
 	}
 }
 
-func (r *ServiceAccountRepository) FindByKey(ctx context.Context, tenantID uint64, key string) (*dbm.ServiceAccount, error) {
+func (r *ServiceAccountRepository) FindByKey(ctx context.Context, tenantUUID string, key string) (*dbm.ServiceAccount, error) {
 	var s dbm.ServiceAccount
-	if err := r.db.WithContext(ctx).Where("tenant_id=? AND key=?", tenantID, key).First(&s).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("tenant_uuid=? AND key=?", tenantUUID, key).First(&s).Error; err != nil {
 		return nil, err
 	}
 	return &s, nil

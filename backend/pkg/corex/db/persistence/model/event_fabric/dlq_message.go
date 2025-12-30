@@ -13,7 +13,6 @@ import (
 type DlqMessage struct {
 	coremodel.PowerUUIDModel
 
-	TenantID        uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_dlq_tenant" json:"tenant_id"`
 	TenantKey       string         `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_dlq_tenant_key" json:"tenant_key"`
 	TopicUUID       uuid.UUID      `gorm:"column:topic_uuid;type:uuid;not null;index:idx_event_dlq_topic" json:"topic_uuid"`
 	EnvelopeUUID    uuid.UUID      `gorm:"column:envelope_uuid;type:uuid;not null;index:idx_event_dlq_envelope" json:"envelope_uuid"`

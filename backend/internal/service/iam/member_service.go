@@ -3,19 +3,18 @@ package iam
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
-	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	repoIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"strings"
-	"time"
-
-	repoIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 )
 
 const ROOT_USERNAME = "root"
@@ -49,7 +48,7 @@ type ListMembersOption struct {
 	Page, PageSize int
 	SortBy         string // "id" | "created_at" | "updated_at"
 	SortOrder      string // "asc" | "desc"
-	TenantID       uint64
+	TenantUUID     string
 	Keyword        string
 	Status         *int16
 	DeptID         *uint64
@@ -72,8 +71,20 @@ type UpdateMemberInput struct {
 	DeptIDs *[]uint64 // nil 不改；空数组清空
 }
 
+func normalizeTenantUUID(tenantUUID string) (string, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return "", errors.New("tenant uuid required")
+	}
+	return tenantUUID, nil
+}
+
 // 列表（按租户/关键词/状态/部门递归筛选），不写 SQL，借助 BaseRepository.FindByCondition 的 callback
 func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) (items []MemberWithProfile, total int64, err error) {
+	tenantUUID, err := normalizeTenantUUID(opt.TenantUUID)
+	if err != nil {
+		return nil, 0, err
+	}
 	cond := map[string]interface{}{} // 这里不再用 cond 传筛选，全部放在回调里
 
 	page, err := s.MemberRepo.FindByCondition(ctx, cond, opt.Page, opt.PageSize,
@@ -81,7 +92,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 			q := db.Table(model.TableIAMMember+" AS m").
 				Joins("LEFT JOIN "+model.TableIAMUser+" AS u ON u.id = m.user_id").
 				// 明确租户、过滤 root、软删
-				Where("m.tenant_id = ?", opt.TenantID).
+				Where("m.tenant_uuid = ?", tenantUUID).
 				Where("m.username <> ?", ROOT_USERNAME).
 				Where("m.deleted_at IS NULL")
 
@@ -106,12 +117,12 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 			if opt.DeptID != nil {
 				if opt.Recursive {
 					q = q.
-						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_id = m.tenant_id").
-						Joins("JOIN "+model.TableIAMDepartmentClosure+" AS dc ON dc.tenant_id = m.tenant_id AND dc.descendant_id = md.department_id").
+						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
+						Joins("JOIN "+model.TableIAMDepartmentClosure+" AS dc ON dc.tenant_uuid = m.tenant_uuid AND dc.descendant_id = md.department_id").
 						Where("dc.ancestor_id = ?", *opt.DeptID)
 				} else {
 					q = q.
-						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_id = m.tenant_id").
+						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
 						Where("md.department_id = ?", *opt.DeptID)
 				}
 			}
@@ -165,7 +176,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 		var rows []row
 		if err := s.DB.WithContext(ctx).Table(model.TableIAMMemberDepartment).
 			Select("member_id, department_id").
-			Where("tenant_id = ? AND member_id IN ?", opt.TenantID, memberIDs).
+			Where("tenant_uuid = ? AND member_id IN ?", tenantUUID, memberIDs).
 			Scan(&rows).Error; err != nil {
 			return nil, 0, err
 		}
@@ -184,10 +195,14 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 	return items, page.Total, nil
 }
 
-func (s *MemberService) GetMember(ctx context.Context, tenantID, memberID uint64) (*MemberWithProfile, error) {
+func (s *MemberService) GetMember(ctx context.Context, tenantUUID string, memberID uint64) (*MemberWithProfile, error) {
+	tenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
 	mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-		model.TableIAMMember + ".tenant_id = ?": tenantID,
-		model.TableIAMMember + ".id = ?":        memberID,
+		model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		model.TableIAMMember + ".id = ?":          memberID,
 	}, nil)
 	if err != nil {
 		return nil, err
@@ -201,16 +216,25 @@ func (s *MemberService) GetMember(ctx context.Context, tenantID, memberID uint64
 	}
 	var deptIDs []uint64
 	if err := s.DB.WithContext(ctx).Table(model.TableIAMMemberDepartment).
-		Where("tenant_id = ? AND member_id = ?", tenantID, mem.ID).
+		Where("tenant_uuid = ? AND member_id = ?", tenantUUID, mem.ID).
 		Pluck("department_id", &deptIDs).Error; err != nil {
 		return nil, err
 	}
 	return &MemberWithProfile{Member: mem, User: u, DeptIDs: deptIDs}, nil
 }
 
-func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in CreateMemberInput) (uint64, error) {
+func (s *MemberService) GetMemberByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64) (*MemberWithProfile, error) {
+	return s.GetMember(ctx, tenantUUID, memberID)
+}
+
+func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in CreateMemberInput) (uint64, error) {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return 0, err
+	}
 	var newID uint64
-	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1) ensure/create user
 		var u *modelIAM.User
 		var err error
@@ -290,7 +314,7 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 		// 3) create member（先兜底 username）
 		mem := in.Member
 		mem.ID = 0
-		mem.TenantID = tenantID
+		mem.TenantUUID = tenantUUID
 		mem.UserID = u.ID
 		if mem.Status == 0 {
 			mem.Status = u.Status
@@ -302,8 +326,8 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 
 		// 可选：显式检查 username 租户内唯一，错误更友好
 		if dup, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-			model.TableIAMMember + ".tenant_id = ?": tenantID,
-			model.TableIAMMember + ".username = ?":  mem.Username,
+			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			model.TableIAMMember + ".username = ?":    mem.Username,
 		}, nil); err != nil {
 			return err
 		} else if dup != nil {
@@ -321,15 +345,15 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 		// 4) 初始部门（覆盖式）
 		if len(in.DeptIDs) > 0 {
 			if _, err := s.MemberDeptRepo.Delete(ctx, map[string]interface{}{
-				"tenant_id = ?": tenantID,
-				"member_id = ?": mem.ID,
+				"tenant_uuid = ?": tenantUUID,
+				"member_id = ?":   mem.ID,
 			}, nil, true); err != nil {
 				return err
 			}
 			rows := make([]*modelIAM.MemberDepartment, 0, len(in.DeptIDs))
 			for _, did := range in.DeptIDs {
 				rows = append(rows, &modelIAM.MemberDepartment{
-					TenantID:     tenantID,
+					TenantUUID:   tenantUUID,
 					MemberID:     mem.ID,
 					DepartmentID: did,
 				})
@@ -343,11 +367,20 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 	return newID, err
 }
 
-func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uint64, in UpdateMemberInput) error {
+func (s *MemberService) CreateMemberByTenantUUID(ctx context.Context, tenantUUID string, in CreateMemberInput) (uint64, error) {
+	return s.CreateMember(ctx, tenantUUID, in)
+}
+
+func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, memberID uint64, in UpdateMemberInput) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-			model.TableIAMMember + ".tenant_id = ?": tenantID,
-			model.TableIAMMember + ".id = ?":        memberID,
+			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			model.TableIAMMember + ".id = ?":          memberID,
 		}, nil)
 		if err != nil {
 			return err
@@ -376,8 +409,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uin
 			if len(fields) > 0 {
 				if _, err := s.MemberRepo.WithDB(tx).Patch(ctx,
 					map[string]interface{}{
-						model.TableIAMMember + ".tenant_id = ?": tenantID,
-						model.TableIAMMember + ".id = ?":        memberID,
+						model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+						model.TableIAMMember + ".id = ?":          memberID,
 					},
 					fields,
 				); err != nil {
@@ -418,8 +451,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uin
 
 		if in.DeptIDs != nil {
 			if _, err := s.MemberDeptRepo.WithDB(tx).Delete(ctx, map[string]interface{}{
-				"tenant_id = ?": tenantID,
-				"member_id = ?": memberID,
+				"tenant_uuid = ?": tenantUUID,
+				"member_id = ?":   memberID,
 			}, nil, true); err != nil {
 				return err
 			}
@@ -427,7 +460,7 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uin
 				rows := make([]*modelIAM.MemberDepartment, 0, len(*in.DeptIDs))
 				for _, did := range *in.DeptIDs {
 					rows = append(rows, &modelIAM.MemberDepartment{
-						TenantID:     tenantID,
+						TenantUUID:   tenantUUID,
 						MemberID:     memberID,
 						DepartmentID: did,
 					})
@@ -441,39 +474,80 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uin
 	})
 }
 
-func (s *MemberService) SetMemberStatus(ctx context.Context, tenantID, memberID uint64, status int16, _ string) error {
-	_, err := s.MemberRepo.Patch(ctx,
+func (s *MemberService) UpdateMemberByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64, in UpdateMemberInput) error {
+	return s.UpdateMember(ctx, tenantUUID, memberID, in)
+}
+
+func (s *MemberService) ListMembersByTenantUUID(ctx context.Context, tenantUUID string, opt ListMembersOption) ([]MemberWithProfile, int64, error) {
+	opt.TenantUUID = tenantUUID
+	return s.ListMembers(ctx, opt)
+}
+
+func (s *MemberService) SetMemberStatus(ctx context.Context, tenantUUID string, memberID uint64, status int16, _ string) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
+	_, err = s.MemberRepo.Patch(ctx,
 		map[string]interface{}{
-			model.TableIAMMember + ".tenant_id": tenantID,
-			model.TableIAMMember + ".id":        memberID,
+			model.TableIAMMember + ".tenant_uuid": tenantUUID,
+			model.TableIAMMember + ".id":          memberID,
 		},
 		map[string]interface{}{"status": status},
 	)
 	return err
 }
 
-func (s *MemberService) DeleteMember(ctx context.Context, tenantID, memberID uint64) error {
-	_, err := s.MemberRepo.Delete(ctx, map[string]interface{}{
-		model.TableIAMMember + ".tenant_id = ?": tenantID,
-		model.TableIAMMember + ".id = ?":        memberID,
+func (s *MemberService) SetMemberStatusByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64, status int16, reason string) error {
+	return s.SetMemberStatus(ctx, tenantUUID, memberID, status, reason)
+}
+
+func (s *MemberService) DeleteMember(ctx context.Context, tenantUUID string, memberID uint64) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
+	_, err = s.MemberRepo.Delete(ctx, map[string]interface{}{
+		model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		model.TableIAMMember + ".id = ?":          memberID,
 	}, nil, true)
 	return err
 }
 
-func (s *MemberService) RestoreMember(ctx context.Context, tenantID, memberID uint64) error {
+func (s *MemberService) DeleteMemberByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64) error {
+	return s.DeleteMember(ctx, tenantUUID, memberID)
+}
+
+func (s *MemberService) RestoreMember(ctx context.Context, tenantUUID string, memberID uint64) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
 	// 用 Unscoped 更新 deleted_at
 	return s.DB.WithContext(ctx).Unscoped().
 		Table(model.TableIAMMember).
-		Where("tenant_id = ? AND id = ?", tenantID, memberID).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).
 		Update("deleted_at", nil).Error
 }
 
-func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantID, memberID uint64, deptIDs []uint64) error {
+func (s *MemberService) RestoreMemberByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64) error {
+	return s.RestoreMember(ctx, tenantUUID, memberID)
+}
+
+func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantUUID string, memberID uint64, deptIDs []uint64) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1) 校验 member 是否存在于本租户
 		mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-			model.TableIAMMember + ".tenant_id = ?": tenantID,
-			model.TableIAMMember + ".id = ?":        memberID,
+			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			model.TableIAMMember + ".id = ?":          memberID,
 		}, nil)
 		if err != nil {
 			return err
@@ -486,7 +560,7 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantID, memb
 		if len(deptIDs) > 0 {
 			var existCnt int64
 			if err = tx.Table(model.TableIAMDepartment).
-				Where("tenant_id = ? AND id IN ?", tenantID, deptIDs).
+				Where("tenant_uuid = ? AND id IN ?", tenantUUID, deptIDs).
 				Count(&existCnt).Error; err != nil {
 				return err
 			}
@@ -497,8 +571,8 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantID, memb
 
 		// 3) 先清空，再覆盖写入
 		if _, err = s.MemberDeptRepo.WithDB(tx).Delete(ctx, map[string]interface{}{
-			"tenant_id": tenantID,
-			"member_id": memberID,
+			"tenant_uuid": tenantUUID,
+			"member_id":   memberID,
 		}, nil, true); err != nil {
 			return err
 		}
@@ -509,7 +583,7 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantID, memb
 		rows := make([]*modelIAM.MemberDepartment, 0, len(deptIDs))
 		for _, did := range deptIDs {
 			rows = append(rows, &modelIAM.MemberDepartment{
-				TenantID:     tenantID,
+				TenantUUID:   tenantUUID,
 				MemberID:     memberID,
 				DepartmentID: did,
 			})
@@ -519,10 +593,19 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantID, memb
 	})
 }
 
-func (s *MemberService) ForceLogout(ctx context.Context, tenantID, memberID uint64, jti string) error {
+func (s *MemberService) PutMemberDepartmentsByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64, deptIDs []uint64) error {
+	return s.PutMemberDepartments(ctx, tenantUUID, memberID, deptIDs)
+}
+
+func (s *MemberService) ForceLogout(ctx context.Context, tenantUUID string, memberID uint64, jti string) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
 	mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-		model.TableIAMMember + ".tenant_id = ?": tenantID,
-		model.TableIAMMember + ".id = ?":        memberID,
+		model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		model.TableIAMMember + ".id = ?":          memberID,
 	}, nil)
 	if err != nil {
 		return err
@@ -550,27 +633,23 @@ func (s *MemberService) ForceLogout(ctx context.Context, tenantID, memberID uint
 	}
 	userUUID := u.UUID.String()
 
-	// 2.2 查询 tenant_uuid（不引 tenantRepo，直接用 GORM 模型取）
-	var tenantUUID string
-	if err := s.DB.WithContext(ctx).
-		Model(&tenantmdl.Tenant{}).
-		Select("uuid").
-		Where("id = ?", mem.TenantID).
-		Scan(&tenantUUID).Error; err != nil {
-		return err
-	}
-	if tenantUUID == "" {
-		return gorm.ErrRecordNotFound
-	}
-
 	return s.RefreshTokenRepo.RevokeAllForUser(ctx, userUUID, tenantUUID, nowMs)
 }
 
+func (s *MemberService) ForceLogoutByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64, jti string) error {
+	return s.ForceLogout(ctx, tenantUUID, memberID, jti)
+}
+
 // ====== 查询某 user 在本租户的 member（仅返回 GORM 模型） ======
-func (s *MemberService) GetMemberByUser(ctx context.Context, tenantID, userID uint64) (*modelIAM.Member, *modelIAM.User, error) {
+func (s *MemberService) GetMemberByUser(ctx context.Context, tenantUUID string, userID uint64) (*modelIAM.Member, *modelIAM.User, error) {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, nil, err
+	}
 	mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-		model.TableIAMMember + ".tenant_id = ?": tenantID,
-		model.TableIAMMember + ".user_id = ?":   userID,
+		model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		model.TableIAMMember + ".user_id = ?":     userID,
 	}, nil)
 	if err != nil {
 		return nil, nil, err
@@ -588,8 +667,17 @@ func (s *MemberService) GetMemberByUser(ctx context.Context, tenantID, userID ui
 	return mem, u, nil
 }
 
+func (s *MemberService) GetMemberByUserTenantUUID(ctx context.Context, tenantUUID string, userID uint64) (*modelIAM.Member, *modelIAM.User, error) {
+	return s.GetMemberByUser(ctx, tenantUUID, userID)
+}
+
 // ====== 批量查询：返回 members 列表 + users 映射（key=user_id） ======
-func (s *MemberService) BatchGetMembersByUsers(ctx context.Context, tenantID uint64, userIDs []uint64) ([]modelIAM.Member, map[uint64]modelIAM.User, error) {
+func (s *MemberService) BatchGetMembersByUsers(ctx context.Context, tenantUUID string, userIDs []uint64) ([]modelIAM.Member, map[uint64]modelIAM.User, error) {
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, nil, err
+	}
 	if len(userIDs) == 0 {
 		return []modelIAM.Member{}, map[uint64]modelIAM.User{}, nil
 	}
@@ -609,7 +697,7 @@ func (s *MemberService) BatchGetMembersByUsers(ctx context.Context, tenantID uin
 	var members []modelIAM.Member
 	if err := s.DB.WithContext(ctx).
 		Table(model.TableIAMMember).
-		Where("tenant_id = ? AND user_id IN ?", tenantID, ids).
+		Where("tenant_uuid = ? AND user_id IN ?", tenantUUID, ids).
 		Where("deleted_at IS NULL").
 		Find(&members).Error; err != nil {
 		return nil, nil, err
@@ -643,10 +731,14 @@ func (s *MemberService) BatchGetMembersByUsers(ctx context.Context, tenantID uin
 	return members, userMap, nil
 }
 
+func (s *MemberService) BatchGetMembersByUsersTenantUUID(ctx context.Context, tenantUUID string, userIDs []uint64) ([]modelIAM.Member, map[uint64]modelIAM.User, error) {
+	return s.BatchGetMembersByUsers(ctx, tenantUUID, userIDs)
+}
+
 // ====== 把已有 user 加入本租户（创建 member）——无入参 struct，纯参数 ======
 func (s *MemberService) AddExistingUserAsMember(
 	ctx context.Context,
-	tenantID uint64,
+	tenantUUID string,
 	userID uint64,
 	username string,
 	displayName string,
@@ -658,13 +750,18 @@ func (s *MemberService) AddExistingUserAsMember(
 	initPassword *string, // 当前 Service 未接凭证仓库，先保留参数位
 ) (uint64, error) {
 
+	var err error
+	tenantUUID, err = normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return 0, err
+	}
 	username = strings.ToLower(strings.TrimSpace(username))
-	if tenantID == 0 || userID == 0 || username == "" {
-		return 0, errors.New("tenant_id/user_id/username required")
+	if userID == 0 || username == "" {
+		return 0, errors.New("tenant_uuid/user_id/username required")
 	}
 
 	var newID uint64
-	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// user 是否存在
 		u, err := s.UserRepo.FindByID(ctx, userID)
 		if err != nil {
@@ -676,8 +773,8 @@ func (s *MemberService) AddExistingUserAsMember(
 
 		// 不可重复加入同一租户
 		if existed, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-			model.TableIAMMember + ".tenant_id = ?": tenantID,
-			model.TableIAMMember + ".user_id = ?":   userID,
+			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			model.TableIAMMember + ".user_id = ?":     userID,
 		}, nil); err != nil {
 			return err
 		} else if existed != nil {
@@ -686,8 +783,8 @@ func (s *MemberService) AddExistingUserAsMember(
 
 		// username 租户内唯一
 		if dup, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-			model.TableIAMMember + ".tenant_id = ?": tenantID,
-			model.TableIAMMember + ".username = ?":  username,
+			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			model.TableIAMMember + ".username = ?":    username,
 		}, nil); err != nil {
 			return err
 		} else if dup != nil {
@@ -695,7 +792,7 @@ func (s *MemberService) AddExistingUserAsMember(
 		}
 
 		mem := &modelIAM.Member{
-			TenantID:    tenantID,
+			TenantUUID:  tenantUUID,
 			UserID:      userID,
 			Username:    username,
 			DisplayName: strings.TrimSpace(utils.FirstNonEmpty(displayName, username)),
@@ -714,7 +811,7 @@ func (s *MemberService) AddExistingUserAsMember(
 		// 主部门（可选）
 		if deptID != nil && *deptID != 0 {
 			rows := []*modelIAM.MemberDepartment{{
-				TenantID:     tenantID,
+				TenantUUID:   tenantUUID,
 				MemberID:     mem.ID,
 				DepartmentID: *deptID,
 			}}
@@ -728,4 +825,20 @@ func (s *MemberService) AddExistingUserAsMember(
 		return nil
 	})
 	return newID, err
+}
+
+func (s *MemberService) AddExistingUserAsMemberByTenantUUID(
+	ctx context.Context,
+	tenantUUID string,
+	userID uint64,
+	username string,
+	displayName string,
+	avatarURL string,
+	status *int16,
+	deptID *uint64,
+	roleIDs []uint64,
+	meta datatypes.JSON,
+	initPassword *string,
+) (uint64, error) {
+	return s.AddExistingUserAsMember(ctx, tenantUUID, userID, username, displayName, avatarURL, status, deptID, roleIDs, meta, initPassword)
 }

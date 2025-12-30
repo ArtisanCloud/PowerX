@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	contextTraceIDKey  = "trace_id"
-	contextTenantIDKey = "tenant_id"
+	contextTraceIDKey   = "trace_id"
+	contextTenantUUIDKey = "tenant_uuid"
 )
 
 // Span 描述一个可结束的追踪跨度。
@@ -69,8 +69,8 @@ func SpanAttributes(ctx context.Context, extra map[string]string) map[string]str
 	if traceID, ok := ctx.Value(contextTraceIDKey).(string); ok && traceID != "" {
 		attrs["trace.id"] = traceID
 	}
-	if tenantID, ok := ctx.Value(contextTenantIDKey).(string); ok && tenantID != "" {
-		attrs["tenant.id"] = tenantID
+	if tenantUUID, ok := ctx.Value(contextTenantUUIDKey).(string); ok && tenantUUID != "" {
+		attrs["tenant.uuid"] = tenantUUID
 	}
 	return attrs
 }

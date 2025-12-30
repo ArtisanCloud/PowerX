@@ -6,7 +6,7 @@ option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1;co
 
 // PowerX 统一资源引用（PRN）
 message ResourceRef {
-  int64  tenant_id = 1;            // 所属租户
+  string tenant_uuid = 1;          // 所属租户
   string domain    = 2;            // "organization"/"iam"/"ecom"...
   string entity    = 3;            // "member"/"team"/"order"...
   string id        = 4;            // ULID/Snowflake 等稳定主键

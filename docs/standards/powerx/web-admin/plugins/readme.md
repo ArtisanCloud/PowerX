@@ -8,7 +8,7 @@
 - 市场（Marketplace）：展示“可安装的插件目录”。当前为本地模拟，未来支持远端索引（index_url）。
 - 系统级（平台维度）：安装/卸载、切换版本、进程启停、反向代理挂载等，全局唯一，与租户无关。
 - 租户级（Tenant 维度）：某租户对某插件的启用态与凭证（client_id/client_secret），独立隔离。
-- 凭证（Credentials）：落库于 `plugin_instance_configs(tenant_id, plugin_id, key="auth.credentials")`，仅存哈希；明文 secret 仅在首次生成或轮换时返回一次。
+- 凭证（Credentials）：落库于 `plugin_instance_configs(tenant_uuid, plugin_id, key="auth.credentials")`，仅存哈希；明文 secret 仅在首次生成或轮换时返回一次。
 - STS（短期令牌）：插件使用 `client_id/secret` 向宿主交换短期 JWT，用于访问宿主 API。
 
 ---
@@ -16,7 +16,7 @@
 **角色与权限（简化）**
 - 平台管理员（root/System Admin）
   - 允许：查看市场；系统级安装/卸载；切换版本；全局启用/停用进程；查看运行状态/日志。
-  - 可在其“默认租户”下，像租户管理员一样进行租户级启用/停用与凭证管理（注意避免 `tenant_id=0` 场景）。
+  - 可在其“默认租户”下，像租户管理员一样进行租户级启用/停用与凭证管理（注意避免出现“无租户上下文/系统租户”场景）。
 - 租户管理员（Tenant Admin）
   - 允许：查看市场与“已安装插件”清单；管理“本租户”启用/停用；查看 `client_id`；轮换密钥；删除本租户配置。
   - 不允许：系统级安装/卸载/切换版本/全局启停/查看其他租户配置。
@@ -66,15 +66,15 @@
 - 系统级安装状态（Registry）：`installed versions`、`current version`、`state=enabled/disabled`。
 - 运行态（Supervisor）：`starting/running/unhealthy/stopped/exited`、`pid/port`、健康计数。
 - 租户级配置（DB）：表 `plugin_instance_configs`
-  - 唯一键：`(tenant_id, plugin_id, key)`，其中 `key="auth.credentials"`
-  - `value_json`（示例）：`{"client_id":"<pluginID>.<tenantID>", "client_secret_hash":"...", "secret_version":1, ...}`
+  - 唯一键：`(tenant_uuid, plugin_id, key)`，其中 `key="auth.credentials"`
+  - `value_json`（示例）：`{"client_id":"<pluginID>.<tenantUUID>", "client_secret_hash":"...", "secret_version":1, ...}`
   - `enabled`：租户侧启用开关。
 
 ---
 
 **启用与凭证生命周期**
 - 首次启用（租户级）：
-  1) 调 `EnsureCredentials(tenantID, pluginID)` 生成 `client_id` 与一次性明文 `client_secret`；
+  1) 调 `EnsureCredentials(tenantUUID, pluginID)` 生成 `client_id` 与一次性明文 `client_secret`；
   2) 仅存 hash 于 DB；明文 `client_secret` 仅本次返回给前端展示；
   3) 置 `enabled=true`。若记录已存在，则不返回明文 secret。
 - 再次启用/停用（租户级）：仅切换 `enabled`，不改密钥。
@@ -180,7 +180,7 @@
 ---
 
 **常见边界情况**
-- 无租户上下文调用租户级接口：返回 400，避免产生 `tenant_id=0` 记录。
+- 无租户上下文调用租户级接口：返回 400，避免产生“空 tenant_uuid”记录。
 - 系统未安装：租户级按钮隐藏或禁用（进程未跑）。
 - 升级/切换版本：不影响租户侧 `enabled` 与凭证；但进程重启期间需注意调用可用性。
 - 卸载（系统级）：会导致所有租户无法访问该插件；与删除租户配置不是一回事。

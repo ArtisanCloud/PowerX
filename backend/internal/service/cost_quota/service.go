@@ -61,7 +61,7 @@ func NewService(opts Options) *Service {
 }
 
 type LedgerInput struct {
-	TenantID          string
+	TenantUUID        string
 	ProviderID        *uuid.UUID
 	BudgetPeriod      string
 	QuotaLimit        float64
@@ -74,19 +74,19 @@ func (s *Service) EnsureLedger(ctx context.Context, env string, input LedgerInpu
 	if s.repo == nil {
 		return nil, errors.New("quota repository is not configured")
 	}
-	if strings.TrimSpace(input.TenantID) == "" {
-		return nil, errors.New("tenant_id required")
+	if strings.TrimSpace(input.TenantUUID) == "" {
+		return nil, errors.New("tenant_uuid required")
 	}
 	if strings.TrimSpace(input.BudgetPeriod) == "" {
 		return nil, errors.New("budget_period required")
 	}
-	sealed, err := s.sealMetadata(ctx, env, input.SensitiveMetadata)
+	sealed, err := s.sealMetadata(ctx, env, input.TenantUUID, input.SensitiveMetadata)
 	if err != nil {
 		return nil, err
 	}
 	ledger := &model.CostQuotaLedger{
 		Env:               env,
-		TenantID:          strings.TrimSpace(input.TenantID),
+		TenantUUID:        strings.TrimSpace(input.TenantUUID),
 		BudgetPeriod:      strings.TrimSpace(input.BudgetPeriod),
 		ProviderProfileID: input.ProviderID,
 		QuotaLimit:        input.QuotaLimit,
@@ -116,14 +116,14 @@ type UsageIngestEvent struct {
 }
 
 type UsageIngestInput struct {
-	TenantID     string
+	TenantUUID   string
 	ProviderID   *uuid.UUID
 	BudgetPeriod string
 	Events       []UsageIngestEvent
 }
 
 type EnforcementInput struct {
-	TenantID    string
+	TenantUUID  string
 	ProviderID  *uuid.UUID
 	Action      string
 	Reason      string
@@ -136,9 +136,20 @@ func (s *Service) ReportUsage(ctx context.Context, env string, report UsageRepor
 	if s.repo == nil {
 		return errors.New("quota repository is not configured")
 	}
-	sealed, err := s.sealMetadata(ctx, env, report.SensitiveMetadata)
-	if err != nil {
-		return err
+	var sealed datatypes.JSONMap
+	if len(report.SensitiveMetadata) > 0 {
+		ledger, err := s.repo.GetByUUID(ctx, report.LedgerID)
+		if err != nil {
+			return err
+		}
+		scopeKey := ""
+		if ledger != nil {
+			scopeKey = ledger.TenantUUID
+		}
+		sealed, err = s.sealMetadata(ctx, env, scopeKey, report.SensitiveMetadata)
+		if err != nil {
+			return err
+		}
 	}
 	if err := s.repo.UpdateUsage(ctx, report.LedgerID, report.UsageActual, report.AnomalyState, report.EnforcementState, timePtr(s.clock())); err != nil {
 		return err
@@ -152,7 +163,7 @@ func (s *Service) ReportUsage(ctx context.Context, env string, report UsageRepor
 	if err == nil && ledger != nil {
 		s.cacheSnapshot(ctx, ledger)
 		labels := map[string]string{
-			"tenant_id":     ledger.TenantID,
+			"tenant_uuid":   ledger.TenantUUID,
 			"provider_id":   providerKey(ledger.ProviderProfileID),
 			"budget_period": ledger.BudgetPeriod,
 		}
@@ -177,15 +188,15 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 	if s.repo == nil {
 		return nil, errors.New("quota repository is not configured")
 	}
-	tenant := strings.TrimSpace(input.TenantID)
-	if tenant == "" {
-		return nil, errors.New("tenant_id required")
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid required")
 	}
 	period := strings.TrimSpace(input.BudgetPeriod)
 	if period == "" {
 		period = "monthly"
 	}
-	ledger, err := s.ensureLedgerExists(ctx, env, tenant, input.ProviderID, period)
+	ledger, err := s.ensureLedgerExists(ctx, env, tenantUUID, input.ProviderID, period)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +219,7 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 		last := s.clock()
 		lastAnomaly = &last
 		alertLabels := map[string]string{
-			"tenant_id":   tenant,
+			"tenant_uuid": tenantUUID,
 			"provider_id": providerKey(input.ProviderID),
 			"type":        "anomaly",
 		}
@@ -227,7 +238,7 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 	}
 
 	labels := map[string]string{
-		"tenant_id":     tenant,
+		"tenant_uuid":   tenantUUID,
 		"provider_id":   providerKey(input.ProviderID),
 		"budget_period": period,
 	}
@@ -248,11 +259,11 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 }
 
 // ListLedgers returns quota ledgers for a tenant.
-func (s *Service) ListLedgers(ctx context.Context, env, tenantID string) ([]model.CostQuotaLedger, error) {
+func (s *Service) ListLedgers(ctx context.Context, env, tenantUUID string) ([]model.CostQuotaLedger, error) {
 	if s.repo == nil {
 		return nil, errors.New("quota repository is not configured")
 	}
-	return s.repo.ListByTenant(ctx, env, tenantID, 0)
+	return s.repo.ListByTenant(ctx, env, tenantUUID, 0)
 }
 
 // EnforceAction records throttle/degrade/disable decisions.
@@ -260,11 +271,11 @@ func (s *Service) EnforceAction(ctx context.Context, env string, input Enforceme
 	if s.repo == nil {
 		return nil, errors.New("quota repository is not configured")
 	}
-	tenant := strings.TrimSpace(input.TenantID)
-	if tenant == "" {
-		return nil, errors.New("tenant_id required")
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid required")
 	}
-	ledger, err := s.ensureLedgerExists(ctx, env, tenant, input.ProviderID, "monthly")
+	ledger, err := s.ensureLedgerExists(ctx, env, tenantUUID, input.ProviderID, "monthly")
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +306,7 @@ func (s *Service) EnforceAction(ctx context.Context, env string, input Enforceme
 	ledger.EnforcementState = enforcement
 	s.cacheSnapshot(ctx, ledger)
 	alertLabels := map[string]string{
-		"tenant_id":   tenant,
+		"tenant_uuid": tenantUUID,
 		"provider_id": providerKey(input.ProviderID),
 		"type":        "enforcement",
 		"action":      action,
@@ -308,8 +319,8 @@ func (s *Service) EnforceAction(ctx context.Context, env string, input Enforceme
 	return ledger, nil
 }
 
-func (s *Service) ensureLedgerExists(ctx context.Context, env, tenantID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
-	ledger, err := s.repo.FindScope(ctx, env, tenantID, providerID, period)
+func (s *Service) ensureLedgerExists(ctx context.Context, env, tenantUUID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
+	ledger, err := s.repo.FindScope(ctx, env, tenantUUID, providerID, period)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +328,7 @@ func (s *Service) ensureLedgerExists(ctx context.Context, env, tenantID string, 
 		return ledger, nil
 	}
 	input := LedgerInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		ProviderID:     providerID,
 		BudgetPeriod:   period,
 		QuotaLimit:     0,
@@ -327,14 +338,14 @@ func (s *Service) ensureLedgerExists(ctx context.Context, env, tenantID string, 
 }
 
 // Snapshot returns cached ledger state if present.
-func (s *Service) Snapshot(ctx context.Context, env, tenantID, providerID string) (*model.CostQuotaLedger, error) {
-	if cached := s.fetchSnapshot(ctx, env, tenantID, providerID); cached != nil {
+func (s *Service) Snapshot(ctx context.Context, env, tenantUUID, providerID string) (*model.CostQuotaLedger, error) {
+	if cached := s.fetchSnapshot(ctx, env, tenantUUID, providerID); cached != nil {
 		return cached, nil
 	}
 	return nil, nil
 }
 
-func (s *Service) sealMetadata(ctx context.Context, env string, data map[string]string) (datatypes.JSONMap, error) {
+func (s *Service) sealMetadata(ctx context.Context, env string, tenantUUID string, data map[string]string) (datatypes.JSONMap, error) {
 	if len(data) == 0 || s.keys == nil {
 		return nil, nil
 	}
@@ -350,7 +361,7 @@ func (s *Service) sealMetadata(ctx context.Context, env string, data map[string]
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	return s.keys.SealSensitive(ctx, env, nil, raw, keys...)
+	return s.keys.SealSensitive(ctx, env, strings.TrimSpace(tenantUUID), raw, keys...)
 }
 
 func (s *Service) cacheSnapshot(ctx context.Context, ledger *model.CostQuotaLedger) {
@@ -361,17 +372,17 @@ func (s *Service) cacheSnapshot(ctx context.Context, ledger *model.CostQuotaLedg
 	if err != nil {
 		return
 	}
-	key := fmt.Sprintf(quotaCacheKey, ledger.Env, ledger.TenantID, providerKey(ledger.ProviderProfileID))
+	key := fmt.Sprintf(quotaCacheKey, ledger.Env, ledger.TenantUUID, providerKey(ledger.ProviderProfileID))
 	if err := s.cache.Set(ctx, key, payload, 10*time.Minute); err != nil {
 		logger.WarnF(ctx, "[cost_quota] cache snapshot failed: %v", err)
 	}
 }
 
-func (s *Service) fetchSnapshot(ctx context.Context, env, tenantID, providerID string) *model.CostQuotaLedger {
+func (s *Service) fetchSnapshot(ctx context.Context, env, tenantUUID, providerID string) *model.CostQuotaLedger {
 	if s.cache == nil {
 		return nil
 	}
-	key := fmt.Sprintf(quotaCacheKey, env, tenantID, providerID)
+	key := fmt.Sprintf(quotaCacheKey, env, tenantUUID, providerID)
 	raw, err := s.cache.Get(ctx, key)
 	if err != nil || len(raw) == 0 {
 		return nil
@@ -391,10 +402,11 @@ func (s *Service) emitAudit(ctx context.Context, op string, ledger *model.CostQu
 	if meta == nil {
 		meta = map[string]any{}
 	}
-	meta["tenant_id"] = ledger.TenantID
+	meta["tenant_uuid"] = ledger.TenantUUID
 	meta["budget_period"] = ledger.BudgetPeriod
 	payload, _ := json.Marshal(meta)
 	_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
+		TenantUUID:   ledger.TenantUUID,
 		Source:       "cost_quota.service",
 		Operation:    op,
 		ResourceType: "agent.cost_quota_ledger",

@@ -35,7 +35,7 @@ npm run build        # 生产构建（需先解决 lint 报错）
 ## 故障排查
 
 1. **菜单不展开**：确认后端菜单 API 返回 `children` 包含 `route: "/settings/ai/cost"`；前端 Sidebar 会根据 `activeRoute.startsWith(parent.route)` 自动展开。
-2. **API 500**：检查后端 `GET /api/v1/internal/provider-quotas` 与 `POST /api/v1/internal/provider-quotas/enforce` 是否带上 `env`/`tenantId`，并查看 `backend/internal/transport/http/admin/agent_model_hub/cost_handler.go` 日志。
+2. **API 500**：检查后端 `GET /api/v1/internal/provider-quotas` 与 `POST /api/v1/internal/provider-quotas/enforce` 是否带上 `env`/`tenantUuid`，并查看 `backend/internal/transport/http/admin/agent_model_hub/cost_handler.go` 日志。
 3. **Grafana 数据缺失**：确保后端 `agent.provider.*` 与 `agent.platform.*` 指标已抓取到 Prometheus；前端只负责展示 API 结果。
 
 如需更多使用示例，可参考 `scripts/qa/provider-drill.mjs` 输出的 JSON 报告与 web-admin 画面做联动验证。*** End Patch***} to=functions.apply_patch

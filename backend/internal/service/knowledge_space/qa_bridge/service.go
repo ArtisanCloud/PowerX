@@ -90,7 +90,7 @@ func NewService(opts Options) *Service {
 
 // PlanInput describes the payload required to generate a retrieval plan.
 type PlanInput struct {
-	TenantID        uuid.UUID
+	TenantUUID      uuid.UUID
 	Intent          string
 	DomainTags      []string
 	SessionID       string
@@ -108,7 +108,7 @@ type CandidateSpace struct {
 
 // PlanOutput is the response envelope for Plan.
 type PlanOutput struct {
-	TenantID        uuid.UUID
+	TenantUUID      uuid.UUID
 	Intent          string
 	DomainTags      []string
 	CandidateSpaces []CandidateSpace
@@ -123,26 +123,27 @@ type PlanOutput struct {
 
 // MemoryInput captures snapshot requests.
 type MemoryInput struct {
-	TenantID  uuid.UUID
-	SessionID string
-	Updates   []context_snapshot.Citation
+	TenantUUID uuid.UUID
+	SessionID  string
+	Updates    []context_snapshot.Citation
 }
 
 // MemoryOutput describes persisted citations.
 type MemoryOutput struct {
-	TenantID  uuid.UUID
-	SessionID string
-	Citations []context_snapshot.Citation
+	TenantUUID uuid.UUID
+	SessionID  string
+	Citations  []context_snapshot.Citation
 }
 
 // Plan builds a cross-space retrieval plan for QA orchestrators.
 func (s *Service) Plan(ctx context.Context, in PlanInput) (*PlanOutput, error) {
-	if in.TenantID == uuid.Nil || strings.TrimSpace(in.Intent) == "" {
+	if in.TenantUUID == uuid.Nil || strings.TrimSpace(in.Intent) == "" {
 		return nil, ErrInvalidInput
 	}
 	var spaces []models.KnowledgeSpace
+	tenantKey := strings.ToLower(in.TenantUUID.String())
 	if err := s.db.WithContext(ctx).
-		Where("tenant_id = ?", in.TenantID).
+		Where("tenant_uuid = ?", tenantKey).
 		Order("created_at ASC").
 		Find(&spaces).Error; err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func (s *Service) Plan(ctx context.Context, in PlanInput) (*PlanOutput, error) {
 			SpaceName: space.SpaceName,
 			Strategy:  "hybrid",
 		}
-		reason := s.guard.Evaluate(in.TenantID, &space)
+		reason := s.guard.Evaluate(in.TenantUUID, &space)
 		if reason != "" {
 			candidate.DegradeReason = reason
 			degradeCount++
@@ -180,7 +181,7 @@ func (s *Service) Plan(ctx context.Context, in PlanInput) (*PlanOutput, error) {
 	traceID := uuid.NewString()
 
 	output := &PlanOutput{
-		TenantID:        in.TenantID,
+		TenantUUID:      in.TenantUUID,
 		Intent:          in.Intent,
 		DomainTags:      uniqueStrings(in.DomainTags),
 		CandidateSpaces: candidates,
@@ -221,14 +222,14 @@ func (s *Service) queryCoverage(ctx context.Context, spaceID uuid.UUID) float64 
 
 // UpsertMemorySnapshot persists deltas and returns the current snapshot.
 func (s *Service) UpsertMemorySnapshot(ctx context.Context, in MemoryInput) (*MemoryOutput, error) {
-	if in.TenantID == uuid.Nil || strings.TrimSpace(in.SessionID) == "" {
+	if in.TenantUUID == uuid.Nil || strings.TrimSpace(in.SessionID) == "" {
 		return nil, ErrInvalidInput
 	}
-	citations := s.snapshots.Upsert(ctx, in.TenantID, in.SessionID, in.Updates)
+	citations := s.snapshots.Upsert(ctx, in.TenantUUID, in.SessionID, in.Updates)
 	return &MemoryOutput{
-		TenantID:  in.TenantID,
-		SessionID: in.SessionID,
-		Citations: citations,
+		TenantUUID: in.TenantUUID,
+		SessionID:  in.SessionID,
+		Citations:  citations,
 	}, nil
 }
 
@@ -239,9 +240,9 @@ func (s *Service) Snapshot(ctx context.Context, tenant uuid.UUID, sessionID stri
 	}
 	citations := s.snapshots.Snapshot(ctx, tenant, sessionID)
 	return &MemoryOutput{
-		TenantID:  tenant,
-		SessionID: sessionID,
-		Citations: citations,
+		TenantUUID: tenant,
+		SessionID:  sessionID,
+		Citations:  citations,
 	}
 }
 
@@ -268,7 +269,7 @@ func (s *Service) writeReport(out *PlanOutput) {
 	}
 	payload := map[string]any{
 		"traceId":        out.TraceID,
-		"tenantId":       out.TenantID.String(),
+		"tenant_uuid":    out.TenantUUID.String(),
 		"intent":         out.Intent,
 		"candidateTotal": len(out.CandidateSpaces),
 		"degradeCount":   out.DegradeCount,

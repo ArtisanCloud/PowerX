@@ -194,7 +194,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed, reactive } from "vue";
+import { storeToRefs } from "pinia";
 import ShowGuideButton from "~/components/ui/ShowGuideButton.vue";
+import { useUserStore } from "~/stores/user";
 
 // 页面元数据
 definePageMeta({
@@ -204,9 +207,11 @@ definePageMeta({
 
 // 国际化
 const localePath = useLocalePath();
+const userStore = useUserStore();
+const { isRoot } = storeToRefs(userStore);
 
 // 设置分类
-const settingCategories = ref([
+const baseSettingCategories = [
   {
     key: "users",
     title: "用户管理",
@@ -261,7 +266,23 @@ const settingCategories = ref([
     iconColor: "text-gray-600",
     path: "/settings/logs",
   },
-]);
+];
+
+const settingCategories = computed(() => {
+  const items = [...baseSettingCategories];
+  if (isRoot.value) {
+    items.push({
+      key: "open-capabilities",
+      title: "开放能力",
+      description: "查看 CoreX 底座能力与调试入口",
+      icon: "i-heroicons-bolt",
+      iconBg: "bg-yellow-50 dark:bg-yellow-900/20",
+      iconColor: "text-yellow-600",
+      path: "/settings/open-capabilities",
+    });
+  }
+  return items;
+});
 
 // 设置数据
 const settings = reactive({

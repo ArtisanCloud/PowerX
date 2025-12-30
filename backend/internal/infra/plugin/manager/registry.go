@@ -32,12 +32,13 @@ type Registry interface {
 }
 
 type regVersionRecord struct {
-	State       plugin_mgr.PluginState      `json:"state"`
-	InstalledAt time.Time                   `json:"installed_at"`
-	Manifest    plugin_mgr.Manifest         `json:"manifest"`
-	Paths       plugin_mgr.InstalledPaths   `json:"paths"`
-	HostConfig  *plugin_mgr.HostConfig      `json:"host_config,omitempty"`
-	Migrations  *plugin_mgr.MigrationRecord `json:"migrations,omitempty"`
+	State           plugin_mgr.PluginState      `json:"state"`
+	InstalledAt     time.Time                   `json:"installed_at"`
+	Manifest        plugin_mgr.Manifest         `json:"manifest"`
+	Paths           plugin_mgr.InstalledPaths   `json:"paths"`
+	HostConfig      *plugin_mgr.HostConfig      `json:"host_config,omitempty"`
+	Migrations      *plugin_mgr.MigrationRecord `json:"migrations,omitempty"`
+	InstallMetadata plugin_mgr.InstallMetadata  `json:"install_metadata,omitempty"`
 }
 
 type regPluginRecord struct {
@@ -126,12 +127,13 @@ func (r *JSONRegistry) Put(ctx context.Context, desc Descriptor, state plugin_mg
 		rec = regPluginRecord{Versions: map[string]regVersionRecord{}}
 	}
 	rec.Versions[ver] = regVersionRecord{
-		State:       state,
-		InstalledAt: time.Now().UTC(),
-		Manifest:    desc.Manifest,
-		Paths:       desc.Paths,
-		HostConfig:  cloneHostConfig(desc.HostConfig),
-		Migrations:  cloneMigrationRecord(desc.Migration),
+		State:           state,
+		InstalledAt:     time.Now().UTC(),
+		Manifest:        desc.Manifest,
+		Paths:           desc.Paths,
+		HostConfig:      cloneHostConfig(desc.HostConfig),
+		Migrations:      cloneMigrationRecord(desc.Migration),
+		InstallMetadata: desc.InstallMetadata,
 	}
 	// 注意：installed 不更新 current；enable 时再更新
 	r.mem.Plugins[id] = rec
@@ -223,9 +225,10 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 		HostConfig:  cloneHostConfig(rr.HostConfig),
 		Migration:   cloneMigrationRecord(rr.Migrations),
 
-		Name:        rr.Manifest.Name,
-		Description: rr.Manifest.Description,
-		Metadata:    rr.Manifest.Metadata,
+		Name:            rr.Manifest.Name,
+		Description:     rr.Manifest.Description,
+		Metadata:        rr.Manifest.Metadata,
+		InstallMetadata: rr.InstallMetadata,
 	}, true
 }
 
@@ -256,26 +259,27 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		return plugin_mgr.Plugin{}, false
 	}
 	return plugin_mgr.Plugin{
-		ID:          vr.Manifest.ID,
-		Version:     vr.Manifest.Version,
-		State:       vr.State,
-		Runtime:     vr.Manifest.Runtime,
-		Frontend:    vr.Manifest.Frontend,
-		Endpoints:   vr.Manifest.Endpoints,
-		RBAC:        vr.Manifest.RBAC,
-		Events:      vr.Manifest.Events,
-		Backend:     vr.Manifest.Backend,
-		Routes:      vr.Manifest.Routes,
-		Permissions: append([]plugin_mgr.PermissionSpec(nil), vr.Manifest.Permissions...),
-		Agents:      append([]plugin_mgr.AgentSpec(nil), vr.Manifest.Agents...),
-		Tools:       append([]plugin_mgr.ToolSpec(nil), vr.Manifest.Tools...),
-		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), vr.Manifest.Workflows...),
-		Paths:       vr.Paths,
-		HostConfig:  cloneHostConfig(vr.HostConfig),
-		Migration:   cloneMigrationRecord(vr.Migrations),
-		Name:        vr.Manifest.Name,
-		Description: vr.Manifest.Description,
-		Metadata:    vr.Manifest.Metadata,
+		ID:              vr.Manifest.ID,
+		Version:         vr.Manifest.Version,
+		State:           vr.State,
+		Runtime:         vr.Manifest.Runtime,
+		Frontend:        vr.Manifest.Frontend,
+		Endpoints:       vr.Manifest.Endpoints,
+		RBAC:            vr.Manifest.RBAC,
+		Events:          vr.Manifest.Events,
+		Backend:         vr.Manifest.Backend,
+		Routes:          vr.Manifest.Routes,
+		Permissions:     append([]plugin_mgr.PermissionSpec(nil), vr.Manifest.Permissions...),
+		Agents:          append([]plugin_mgr.AgentSpec(nil), vr.Manifest.Agents...),
+		Tools:           append([]plugin_mgr.ToolSpec(nil), vr.Manifest.Tools...),
+		Workflows:       append([]plugin_mgr.WorkflowSpec(nil), vr.Manifest.Workflows...),
+		Paths:           vr.Paths,
+		HostConfig:      cloneHostConfig(vr.HostConfig),
+		Migration:       cloneMigrationRecord(vr.Migrations),
+		Name:            vr.Manifest.Name,
+		Description:     vr.Manifest.Description,
+		Metadata:        vr.Manifest.Metadata,
+		InstallMetadata: vr.InstallMetadata,
 	}, true
 }
 

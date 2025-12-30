@@ -258,11 +258,8 @@ components:
   schemas:
     KnowledgeSpaceCreate:
       type: object
-      required: [tenantId, spaceName, departmentCode, quotas, policyTemplateVersionId]
+      required: [spaceName, departmentCode, quotas, policyTemplateVersionId]
       properties:
-        tenantId:
-          type: string
-          format: uuid
         spaceName:
           type: string
         departmentCode:
@@ -294,6 +291,9 @@ components:
         - $ref: '#/components/schemas/KnowledgeSpaceCreate'
         - type: object
           properties:
+            tenant_uuid:
+              type: string
+              format: uuid
             spaceId:
               type: string
               format: uuid
@@ -459,11 +459,8 @@ components:
       required: [pendingIam, active, retired]
     QARetrievalPlanRequest:
       type: object
-      required: [tenantId, intent]
+      required: [intent]
       properties:
-        tenantId:
-          type: string
-          format: uuid
         intent:
           type: string
         domainTags:
@@ -476,9 +473,9 @@ components:
           type: integer
     QARetrievalPlanResponse:
       type: object
-      required: [tenantId, intent, candidateSpaces, telemetry]
+      required: [tenant_uuid, intent, candidateSpaces, telemetry]
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
           format: uuid
         intent:
@@ -542,11 +539,8 @@ components:
           format: date-time
     QAMemorySnapshotRequest:
       type: object
-      required: [tenantId, sessionId]
+      required: [sessionId]
       properties:
-        tenantId:
-          type: string
-          format: uuid
         sessionId:
           type: string
         updates:
@@ -556,7 +550,7 @@ components:
     QAMemorySnapshotResponse:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
           format: uuid
         sessionId:

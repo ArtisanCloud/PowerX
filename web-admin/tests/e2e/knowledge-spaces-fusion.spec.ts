@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/authenticatedTest'
 
 test.describe('融合策略管理', () => {
   const spaceId = 'space-e2e'

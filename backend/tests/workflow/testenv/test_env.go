@@ -14,6 +14,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	ContractTenantUUID = "workflow-contract-tenant"
+)
+
 // TestEnv 提供工作流特性测试所需依赖。
 type TestEnv struct {
 	T       *testing.T
@@ -87,7 +91,7 @@ func bootstrapSchema(db *gorm.DB) error {
 		`CREATE TABLE IF NOT EXISTS main.workflow_definitions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uuid TEXT UNIQUE,
-            tenant_id INTEGER NOT NULL,
+            tenant_uuid TEXT NOT NULL,
             name TEXT NOT NULL,
             description TEXT,
             version INTEGER NOT NULL DEFAULT 1,
@@ -111,7 +115,7 @@ func bootstrapSchema(db *gorm.DB) error {
 		`CREATE TABLE IF NOT EXISTS main.workflow_instances (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uuid TEXT UNIQUE,
-            tenant_id INTEGER NOT NULL,
+            tenant_uuid TEXT NOT NULL,
             definition_uuid TEXT NOT NULL,
             definition_version INTEGER NOT NULL,
             state TEXT NOT NULL,
@@ -183,7 +187,7 @@ func bootstrapSchema(db *gorm.DB) error {
         );`,
 		`CREATE TABLE IF NOT EXISTS main.workflow_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tenant_id INTEGER,
+            tenant_uuid TEXT,
             instance_uuid TEXT,
             event_type TEXT,
             occurred_at DATETIME,

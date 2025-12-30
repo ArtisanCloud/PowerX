@@ -6,6 +6,8 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/google/uuid"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,6 +38,19 @@ func (r *TenantRepository) GetByID(ctx context.Context, id uint64) (*dbm.Tenant,
 func (r *TenantRepository) GetByKey(ctx context.Context, key string) (*dbm.Tenant, error) {
 	var t dbm.Tenant
 	if err := r.db.WithContext(ctx).Where("key = ?", key).First(&t).Error; err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// GetByUUID fetches tenant by UUID.
+func (r *TenantRepository) GetByUUID(ctx context.Context, id string) (*dbm.Tenant, error) {
+	parsed, err := uuid.Parse(strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
+	}
+	var t dbm.Tenant
+	if err := r.db.WithContext(ctx).Where("uuid = ?", parsed).First(&t).Error; err != nil {
 		return nil, err
 	}
 	return &t, nil
@@ -97,6 +112,81 @@ func (r *TenantRepository) MapNamesByIDs(ctx context.Context, ids []uint64) (map
 	return mm, nil
 }
 
+// MapBasicByIDs 返回租户的 name/uuid 等基础信息。
+func (r *TenantRepository) MapBasicByIDs(ctx context.Context, ids []uint64) (map[uint64]dbm.Tenant, error) {
+	out := make(map[uint64]dbm.Tenant, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var ts []dbm.Tenant
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("id IN ?", ids).
+		Find(&ts).Error; err != nil {
+		return out, err
+	}
+	for _, t := range ts {
+		out[t.ID] = t
+	}
+	return out, nil
+}
+
+// MapBasicByUUIDs 根据 UUID 列表批量抓取租户基础信息。
+func (r *TenantRepository) MapBasicByUUIDs(ctx context.Context, uuids []string) (map[string]dbm.Tenant, error) {
+	out := make(map[string]dbm.Tenant, len(uuids))
+	if len(uuids) == 0 {
+		return out, nil
+	}
+	seen := make(map[string]struct{}, len(uuids))
+	var parsed []uuid.UUID
+	for _, raw := range uuids {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		u, err := uuid.Parse(trimmed)
+		if err != nil {
+			continue
+		}
+		seen[key] = struct{}{}
+		parsed = append(parsed, u)
+	}
+	if len(parsed) == 0 {
+		return out, nil
+	}
+	var ts []dbm.Tenant
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("uuid IN ?", parsed).
+		Find(&ts).Error; err != nil {
+		return out, err
+	}
+	for _, t := range ts {
+		out[t.UUID.String()] = t
+	}
+	return out, nil
+}
+
+// ListActiveUUIDs returns all tenant UUIDs with active status.
+func (r *TenantRepository) ListActiveUUIDs(ctx context.Context) ([]string, error) {
+	uuids := make([]string, 0, 32)
+	if r.DB == nil {
+		return uuids, nil
+	}
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("status = ?", dbm.TenantStatusActive).
+		Where("deleted_at IS NULL").
+		Pluck("uuid", &uuids).Error; err != nil {
+		return nil, err
+	}
+	return uuids, nil
+}
+
 // 追加：列表查询条件
 type FindTenantsCond struct {
 	Page, PageSize int
@@ -149,23 +239,23 @@ func (r *TenantRepository) FindTenants(ctx context.Context, c FindTenantsCond) (
 }
 
 // 追加：统计每个租户成员数量
-func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[uint64]int64, error) {
+func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[string]int64, error) {
 	type row struct {
-		TenantID uint64
-		Cnt      int64
+		TenantUUID string
+		Cnt        int64
 	}
 	var rows []row
 	if err := r.DB.WithContext(ctx).
 		Table(model.TableIAMMember).
-		Select("tenant_id AS tenant_id, COUNT(1) AS cnt").
+		Select("tenant_uuid AS tenant_uuid, COUNT(1) AS cnt").
 		Where("deleted_at IS NULL").
-		Group("tenant_id").
+		Group("tenant_uuid").
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	out := make(map[uint64]int64, len(rows))
+	out := make(map[string]int64, len(rows))
 	for _, r := range rows {
-		out[r.TenantID] = r.Cnt
+		out[r.TenantUUID] = r.Cnt
 	}
 	return out, nil
 }

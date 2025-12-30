@@ -35,7 +35,7 @@ type EventTopics struct {
 // Route 表示对外返回的集成入口。
 type Route struct {
 	RouteID         uuid.UUID       `json:"route_id"`
-	TenantID        string          `json:"tenant_id"`
+	TenantUUID      string          `json:"tenant_uuid"`
 	RouteSlug       string          `json:"route_slug"`
 	CapabilityID    string          `json:"capability_id"`
 	ToolGrantIDs    []string        `json:"tool_grant_ids"`

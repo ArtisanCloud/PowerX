@@ -19,6 +19,8 @@ type openaiClient struct{ NoopStream }
 
 func NewOpenAIClient() LLMClient { return &openaiClient{} }
 
+const defaultOpenAIPath = "/v1/chat/completions"
+
 /* ------------ 公共结构 ------------ */
 
 type openAIChatReq struct {
@@ -86,7 +88,8 @@ func (c *openaiClient) buildEndpointAndHeaders(mc *config.ModelConfig, streaming
 	}
 	h.Set("Authorization", "Bearer "+mc.APIKey)
 	h.Set("Content-Type", "application/json")
-	url := base + "/v1/chat/completions"
+	path := resolveAPIPath(mc)
+	url := joinEndpoint(base, path)
 	return url, h, nil
 }
 
@@ -248,4 +251,29 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 		}
 	}
 	return final.String(), nil
+}
+
+func resolveAPIPath(mc *config.ModelConfig) string {
+	if mc != nil && mc.Extra != nil {
+		if raw, ok := mc.Extra["api_path"]; ok {
+			if s, ok2 := raw.(string); ok2 {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					if !strings.HasPrefix(s, "/") {
+						s = "/" + s
+					}
+					return s
+				}
+			}
+		}
+	}
+	return defaultOpenAIPath
+}
+
+func joinEndpoint(base, path string) string {
+	trimmed := strings.TrimRight(base, "/")
+	if trimmed == "" {
+		trimmed = base
+	}
+	return trimmed + path
 }

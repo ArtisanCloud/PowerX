@@ -4,6 +4,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
+
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 
@@ -34,28 +36,28 @@ func NewAgentService(db *gorm.DB) *AgentService {
 func (s *AgentService) List(
 	ctx context.Context,
 	env string,
-	tenantID *uint64,
+	tenantUUID *string,
 	statuses ...string,
 ) ([]dbmodel.Agent, error) {
-	// 如果你的仓储方法签名是：ListByScope(ctx, env, tenantID, statuses []string)
+	// 如果你的仓储方法签名是：ListByScope(ctx, env, tenantUUID, statuses []string)
 	// 就这么调用（不要写 ...）
-	return s.agRepo.ListByScope(ctx, env, tenantID, statuses)
+	return s.agRepo.ListByScope(ctx, env, tenantUUID, statuses)
 }
 
-func (s *AgentService) Create(ctx context.Context, env string, tenantID *uint64, in *dbmodel.Agent) (*dbmodel.Agent, error) {
-	in.Env, in.TenantID = env, tenantID
+func (s *AgentService) Create(ctx context.Context, env string, tenantUUID *string, in *dbmodel.Agent) (*dbmodel.Agent, error) {
+	in.Env, in.TenantUUID = env, tenantUUID
 	if err := s.db.WithContext(ctx).Create(in).Error; err != nil {
 		return nil, err
 	}
 	// 跟创默认空配置（幂等）
-	_ = s.ensureDefaultAgentSetting(ctx, env, tenantID, in.ID)
+	_ = s.ensureDefaultAgentSetting(ctx, env, tenantUUID, in.ID)
 	return in, nil
 }
 
 // 确保存在一条默认的 AgentSetting（空 provider/model，health=unknown）
-func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) error {
+func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string, tenantUUID *string, agentID uint64) error {
 	// 已存在就跳过
-	if _, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID); err == nil {
+	if _, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantUUID, agentID); err == nil {
 		return nil
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
@@ -63,7 +65,7 @@ func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string
 	// 插入默认记录
 	rec := &dbmodel.AgentSetting{
 		Env:           env,
-		TenantID:      tenantID,
+		TenantUUID:      tenantUUID,
 		AgentID:       agentID,
 		Provider:      "",
 		Model:         "",
@@ -90,13 +92,13 @@ type AgentPatch struct {
 	Meta             datatypes.JSONMap
 }
 
-func (s *AgentService) Update(ctx context.Context, env string, tenantID *uint64, agentID uint64, patch AgentPatch) (*dbmodel.Agent, error) {
+func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *string, agentID uint64, patch AgentPatch) (*dbmodel.Agent, error) {
 	exist, err := s.agRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 	// 租户隔离（简单校验）
-	if !equalTenant(tenantID, exist.TenantID) {
+	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
@@ -144,23 +146,23 @@ func (s *AgentService) Update(ctx context.Context, env string, tenantID *uint64,
 	return s.agRepo.GetByID(ctx, agentID)
 }
 
-func (s *AgentService) SetStatus(ctx context.Context, env string, tenantID *uint64, agentID uint64, status string) error {
+func (s *AgentService) SetStatus(ctx context.Context, env string, tenantUUID *string, agentID uint64, status string) error {
 	exist, err := s.agRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
-	if !equalTenant(tenantID, exist.TenantID) {
+	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return gorm.ErrRecordNotFound
 	}
 	return s.agRepo.UpdateStatus(ctx, agentID, status)
 }
 
-func (s *AgentService) Delete(ctx context.Context, env string, tenantID *uint64, agentID uint64) error {
+func (s *AgentService) Delete(ctx context.Context, env string, tenantUUID *string, agentID uint64) error {
 	exist, err := s.agRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
-	if !equalTenant(tenantID, exist.TenantID) {
+	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return gorm.ErrRecordNotFound
 	}
 	// 保护：内置不可删
@@ -172,28 +174,28 @@ func (s *AgentService) Delete(ctx context.Context, env string, tenantID *uint64,
 	return s.agRepo.DeleteSoft(ctx, agentID)
 }
 
-func (s *AgentService) Get(ctx context.Context, env string, tenantID *uint64, agentID uint64) (*dbmodel.Agent, error) {
+func (s *AgentService) Get(ctx context.Context, env string, tenantUUID *string, agentID uint64) (*dbmodel.Agent, error) {
 	out, err := s.agRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
-	if !equalTenant(tenantID, out.TenantID) {
+	if !equalTenant(tenantUUID, out.TenantUUID) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	return out, nil
 }
 
 //func (s *AgentService) List(
-//	ctx context.Context, env string, tenantID *uint64, statuses ...string,
+//	ctx context.Context, env string, tenantUUID *string, statuses ...string,
 //) ([]dbmodel.Agent, error) {
 //	// statuses 在这里是 []string
-//	return s.agRepo.ListByScope(ctx, env, tenantID, statuses...)
+//	return s.agRepo.ListByScope(ctx, env, tenantUUID, statuses...)
 //}
 
 // ---------- Agent Setting（Agent级 AI 覆盖） ----------
 
-func (s *AgentService) GetAgentAISetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) (*dbmodel.AgentSetting, error) {
-	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
+func (s *AgentService) GetAgentAISetting(ctx context.Context, env string, tenantUUID *string, agentID uint64) (*dbmodel.AgentSetting, error) {
+	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantUUID, agentID)
 	if err == nil {
 		return rec, nil
 	}
@@ -201,30 +203,30 @@ func (s *AgentService) GetAgentAISetting(ctx context.Context, env string, tenant
 		return nil, err
 	}
 	// 自动补齐
-	if e := s.ensureDefaultAgentSetting(ctx, env, tenantID, agentID); e != nil {
+	if e := s.ensureDefaultAgentSetting(ctx, env, tenantUUID, agentID); e != nil {
 		return nil, e
 	}
-	return s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
+	return s.setRepo.FindByScopeAgentID(ctx, env, tenantUUID, agentID)
 }
 
 // PATCH/PUT upsert：直接落库（前面 handler 已做校验/规范化）
-func (s *AgentService) UpsertAgentAISetting(ctx context.Context, env string, tenantID *uint64, in *dbmodel.AgentSetting) (*dbmodel.AgentSetting, error) {
-	in.Env, in.TenantID = env, tenantID
+func (s *AgentService) UpsertAgentAISetting(ctx context.Context, env string, tenantUUID *string, in *dbmodel.AgentSetting) (*dbmodel.AgentSetting, error) {
+	in.Env, in.TenantUUID = env, tenantUUID
 	if err := s.setRepo.UpsertByScopeAgentID(ctx, in); err != nil {
 		return nil, err
 	}
-	return s.setRepo.FindByScopeAgentID(ctx, env, tenantID, in.AgentID)
+	return s.setRepo.FindByScopeAgentID(ctx, env, tenantUUID, in.AgentID)
 }
 
 // DELETE
-func (s *AgentService) DeleteAgentAISetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) error {
-	return s.setRepo.DeleteByScopeAgentID(ctx, env, tenantID, agentID)
+func (s *AgentService) DeleteAgentAISetting(ctx context.Context, env string, tenantUUID *string, agentID uint64) error {
+	return s.setRepo.DeleteByScopeAgentID(ctx, env, tenantUUID, agentID)
 }
 
 // 健康检查（最小实现：检查是否具备可解析的 provider/model；真正连通可复用 SettingHandler 的 svc.PingLLM）
 // 健康检查：这里简单从设置里拿 provider/model 做个占位（如需真正 ping，可复用你已有的 LLM ping）
-func (s *AgentService) HealthCheck(ctx context.Context, env string, tenantID *uint64, agentID uint64) (map[string]any, error) {
-	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
+func (s *AgentService) HealthCheck(ctx context.Context, env string, tenantUUID *string, agentID uint64) (map[string]any, error) {
+	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantUUID, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,12 +241,12 @@ func (s *AgentService) HealthCheck(ctx context.Context, env string, tenantID *ui
 }
 
 // ---------- helpers ----------
-func equalTenant(a, b *uint64) bool {
+func equalTenant(a, b *string) bool {
 	if a == nil && b == nil {
 		return true
 	}
 	if a == nil || b == nil {
 		return false
 	}
-	return *a == *b
+	return strings.TrimSpace(*a) == strings.TrimSpace(*b)
 }

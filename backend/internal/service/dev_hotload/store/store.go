@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
@@ -52,8 +53,8 @@ func (s *Store) FindSession(ctx context.Context, id uuid.UUID) (*model.DevHotloa
 	return result, nil
 }
 
-func (s *Store) FindActiveByPlugin(ctx context.Context, pluginID string, tenantID uint64) (*model.DevHotloadSession, error) {
-	result, err := s.repo.FindActiveByPlugin(ctx, pluginID, tenantID)
+func (s *Store) FindActiveByPlugin(ctx context.Context, pluginID string, tenantUUID string) (*model.DevHotloadSession, error) {
+	result, err := s.repo.FindActiveByPlugin(ctx, pluginID, tenantUUID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
@@ -67,8 +68,30 @@ func (s *Store) CountActive(ctx context.Context) (int64, error) {
 	return s.repo.CountActive(ctx)
 }
 
+// ListSessions returns sessions filtered by plugin/tenant/status.
+func (s *Store) ListSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	filter := repository.ListSessionsFilter{
+		PluginID:   strings.TrimSpace(pluginID),
+		TenantUUID: tenantUUID,
+		Statuses:   statuses,
+		Limit:      limit,
+		Offset:     offset,
+	}
+	return s.repo.ListSessions(ctx, filter)
+}
+
 func (s *Store) ListExpired(ctx context.Context, before time.Time) ([]model.DevHotloadSession, error) {
 	return s.repo.ListExpired(ctx, before)
+}
+
+// DeleteSessions deletes sessions by filter and returns deleted records.
+func (s *Store) DeleteSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string) ([]model.DevHotloadSession, error) {
+	filter := repository.DeleteSessionsFilter{
+		PluginID:   strings.TrimSpace(pluginID),
+		TenantUUID: tenantUUID,
+		Statuses:   statuses,
+	}
+	return s.repo.DeleteSessions(ctx, filter)
 }
 
 func (s *Store) AppendEvent(ctx context.Context, sessionID uuid.UUID, eventType string, payload any) error {

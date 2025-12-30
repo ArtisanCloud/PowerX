@@ -41,7 +41,7 @@ func (h *auditHook) CandidateSubmitted(ctx context.Context, candidate *models.Pl
 	}
 	h.logEvent(ctx, "plugin_release.candidate.submitted", map[string]any{
 		"candidate_id": candidate.UUID.String(),
-		"tenant_id":    candidate.TenantID,
+		"tenant_uuid":  candidate.TenantUUID,
 		"plugin_id":    candidate.PluginID,
 		"version":      candidate.Version,
 	})

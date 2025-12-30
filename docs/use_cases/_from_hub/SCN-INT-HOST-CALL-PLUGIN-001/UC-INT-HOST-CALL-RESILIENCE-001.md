@@ -129,7 +129,7 @@ sequenceDiagram
 # Observability & Ops
 
 - 指标：`host.plugin.retry.count`, `host.plugin.retry.success_rate`, `host.plugin.circuit.state`, `host.plugin.degrade.count`, `host.plugin.failover.queue_depth`, `host.plugin.mttr`.
-- 日志：包含 `tenant_id`, `plugin_id`, `capability`, `trace_id`, `policy_id`, `decision`.
+- 日志：包含 `tenant_uuid`, `plugin_id`, `capability`, `trace_id`, `policy_id`, `decision`.
 - 告警：失败率 >5%、熔断持续 >5m、降级任务堆积、审计未记录。
 - Dashboard：`Host→Plugin Resilience`、Runbook 链接。
 

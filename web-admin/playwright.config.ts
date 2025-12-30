@@ -34,5 +34,12 @@ export default defineConfig({
   ],
 
   // 全局设置
-  globalSetup: require.resolve('./tests/e2e/auth.setup.ts'),
+  globalSetup: './tests/e2e/auth.setup.ts',
+
+  webServer: {
+    command: 'NUXT_PUBLIC_E2E_SKIP_AUTH=true pnpm dev --host 127.0.0.1 --port 3000',
+    url: 'http://127.0.0.1:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
 })

@@ -5,20 +5,24 @@ package shared
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	toolstore "github.com/ArtisanCloud/PowerX/internal/agent/toolstore"
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
+	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
@@ -33,11 +37,13 @@ import (
 	deliveryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	dlqService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	manifestService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
+	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
@@ -66,6 +72,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	compatrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_compat"
@@ -81,6 +88,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerX/internal/workflow"
+	workflowengine "github.com/ArtisanCloud/PowerX/internal/workflow/engine"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type auditViolationReporter struct {
@@ -127,24 +137,35 @@ type Deps struct {
 	MediaMgr  *mediamgr.MediaManager
 	MediaSvc  *mediasvc.MediaService
 
-	EventBus               event_bus.EventBus
-	CapabilityRegistrySvc  *capabilityRegistry.Service
-	RouterSvc              *capabilityRouter.Service
-	RouterSandboxSvc       *capabilitySandbox.Service
-	DiscoverySvc           *discoveryService.Service
-	IntegrationGateway     *IntegrationGatewayDeps
-	AgentLifecycle         *AgentLifecycleDeps
-	DevHotloadOptions      DevHotloadOptions
-	PluginReleaseOptions   PluginReleaseOptions
-	PluginReleaseService   *pluginReleaseService.Service
-	DevHotloadService      *devhotloadservice.Service
-	PluginBootstrapService *pluginbootstrap.Service
-	PluginImportService    *pluginimport.Service
-	PluginDebugHost        *plugindebughost.Service
-	PluginDiagnostics      *plugindiag.Service
-	PluginSandbox          *pluginsandbox.Service
-	PluginGovernance       *plugingovernance.Service
-	PluginCompat           *plugincompat.Service
+	EventBus                 event_bus.EventBus
+	CapabilityRegistrySvc    *capabilityRegistry.Service
+	CapabilityCatalogSvc     *capabilitycatalog.RegistryService
+	CapabilityRegistryAudit  *capabilitycatalog.AuditService
+	CapabilityRegistryAlerts capabilitycatalog.CapabilityAlerting
+	CapabilityInvocationSvc  *capabilitycatalog.InvocationService
+	CapabilityAuthorizer     *capabilitycatalog.AuthorizationService
+	CapabilitySelector       *capabilitycatalog.Selector
+	WorkflowCatalog          *capabilitycatalog.WorkflowCatalog
+	ToolStore                *toolstore.Store
+	VersionLockStore         capabilitycatalog.VersionLock
+	RouterSvc                *capabilityRouter.Service
+	RouterSandboxSvc         *capabilitySandbox.Service
+	DiscoverySvc             *discoveryService.Service
+	IntegrationGateway       *IntegrationGatewayDeps
+	AgentLifecycle           *AgentLifecycleDeps
+	DevHotloadOptions        DevHotloadOptions
+	PluginReleaseOptions     PluginReleaseOptions
+	PluginReleaseService     *pluginReleaseService.Service
+	DevHotloadService        *devhotloadservice.Service
+	PluginBootstrapService   *pluginbootstrap.Service
+	PluginImportService      *pluginimport.Service
+	PluginDebugHost          *plugindebughost.Service
+	PluginDiagnostics        *plugindiag.Service
+	PluginSandbox            *pluginsandbox.Service
+	PluginGovernance         *plugingovernance.Service
+	PluginCompat             *plugincompat.Service
+	WorkflowTemplateSvc      *capabilitycatalog.WorkflowTemplateService
+	WorkflowStepAdapter      *workflowengine.CapabilityStepAdapter
 
 	EventFabric    *EventFabricDeps
 	Workflow       *WorkflowDeps
@@ -184,7 +205,6 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
-
 	// --- Media Manager & Service ---
 	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
 
@@ -201,7 +221,49 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:         aud,
 	})
 
+	var capJobRepo *caprepo.CapabilitySyncJobRepository
+	var capEventRepo *caprepo.CapabilityEventPublicationRepository
+	var capTraceRepo *caprepo.InvocationTraceRepository
+	if db != nil {
+		capJobRepo = caprepo.NewCapabilitySyncJobRepository(db)
+		capEventRepo = caprepo.NewCapabilityEventPublicationRepository(db)
+		capTraceRepo = caprepo.NewInvocationTraceRepository(db)
+	}
+
+	capMetrics := capmetrics.NewCapabilityRegistryMetrics(nil)
+
+	capAuditSvc := capabilitycatalog.NewAuditService(capabilitycatalog.AuditServiceOptions{
+		JobRepo:   capJobRepo,
+		EventRepo: capEventRepo,
+		TraceRepo: capTraceRepo,
+		EventBus:  bus,
+		Auditor:   aud,
+		Metrics:   capMetrics,
+		Clock:     time.Now,
+	})
+
+	var capNotifier capabilitycatalog.NotificationSender
+	if strings.TrimSpace(opts.CapabilityRegistry.Notifications.IMWebhook) != "" {
+		capNotifier = imnotify.NewSender(imnotify.Config{
+			WebhookURL:    opts.CapabilityRegistry.Notifications.IMWebhook,
+			RetryInterval: opts.CapabilityRegistry.Notifications.RetryInterval,
+			MaxRetry:      opts.CapabilityRegistry.Notifications.RetryMaxAttempts,
+			HTTPTimeout:   opts.CapabilityRegistry.Notifications.HTTPTimeout,
+		})
+	}
+	capAlerting := capabilitycatalog.NewAlertingService(capabilitycatalog.AlertingOptions{
+		Audit:    svc,
+		Notifier: capNotifier,
+		Logger:   pxlog.GetGlobalLogger(),
+		Clock:    time.Now,
+	})
+
 	discoveryCacheStore := discoverycache.NewStore(cache.NewMemoryCache(), "")
+	var registryRepo *caprepo.CapabilityRegistryRepository
+	if db != nil {
+		registryRepo = caprepo.NewCapabilityRegistryRepository(db)
+	}
+
 	discoverySvc := discoveryService.NewService(discoveryService.ServiceOptions{
 		DB:              db,
 		CacheStore:      discoveryCacheStore,
@@ -210,9 +272,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 
 	routerSvc := capabilityRouter.NewService(capabilityRouter.ServiceOptions{
-		DB:              db,
-		EventBus:        bus,
-		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
+		DB:                 db,
+		RegistryRepository: registryRepo,
+		EventBus:           bus,
+		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
 	})
 	sandboxSvc := capabilitySandbox.NewService(capabilitySandbox.ServiceOptions{
 		DB:            db,
@@ -231,9 +294,170 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			workflowScheduler = workflowsvc.NewScheduler(workflowReliable)
 		}
 	}
-	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
+	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{
+		ReliableQueue: workflowReliable,
+		Scheduler:     workflowScheduler,
+	})
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
+
+	var versionLockRedis redis.UniversalClient
+	if integrationGatewayDeps != nil {
+		versionLockRedis = integrationGatewayDeps.RedisClient
+	}
+	versionLockStore := toolstore.NewVersionLockStore(toolstore.VersionLockStoreOptions{
+		Redis:    versionLockRedis,
+		EventBus: bus,
+		Clock:    time.Now,
+	})
+
+	var capabilityCatalogSvc *capabilitycatalog.RegistryService
+	var capabilityInvocationSvc *capabilitycatalog.InvocationService
+	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
+	var capabilitySelector *capabilitycatalog.Selector
+	var workflowCatalog *capabilitycatalog.WorkflowCatalog
+	var workflowTemplateSvc *capabilitycatalog.WorkflowTemplateService
+	var workflowStepAdapter *workflowengine.CapabilityStepAdapter
+	var workflowTelemetry *workflowengine.WorkflowTelemetry
+	var toolStore *toolstore.Store
+	if db != nil {
+		var redisClient redis.UniversalClient
+		if integrationGatewayDeps != nil {
+			redisClient = integrationGatewayDeps.RedisClient
+		}
+		workflowTemplateRepo := caprepo.NewWorkflowTemplateRepository(db)
+		recordRepo := caprepo.NewCapabilityRecordRepository(db, redisClient)
+		capabilityCatalogSvc = capabilitycatalog.NewRegistryService(capabilitycatalog.RegistryServiceOptions{
+			DB:           db,
+			Redis:        redisClient,
+			TemplateRepo: workflowTemplateRepo,
+		})
+
+		baseCapabilitySeeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
+			RecordRepo:   recordRepo,
+			RegistryRepo: registryRepo,
+			TenantRepo:   tenantSvc.Repo,
+			Logger:       pxlog.GetGlobalLogger(),
+			Clock:        time.Now,
+		})
+		if err := baseCapabilitySeeder.Ensure(ctx); err != nil {
+			pxlog.WarnF(ctx, "[integration_gateway] seed platform capabilities failed: %v", err)
+		}
+
+		policyGenerator := capabilitycatalog.NewPolicyGenerator(capabilitycatalog.PolicyGeneratorOptions{
+			RecordRepo: recordRepo,
+			Cache: capabilitycatalog.NewCacheManager(capabilitycatalog.CacheManagerOptions{
+				Redis: redisClient,
+			}),
+			Clock: time.Now,
+		})
+		toolStore = toolstore.NewStore(toolstore.StoreOptions{
+			Generator: policyGenerator,
+			EventBus:  bus,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+		})
+		toolstore.SetGlobalStore(toolStore)
+
+		httpBaseURL := strings.TrimSpace(os.Getenv("POWERX_HTTP_PROXY_BASE"))
+		if httpBaseURL == "" {
+			httpBaseURL = "http://127.0.0.1:8077"
+		}
+		httpProxyClient := &http.Client{
+			Timeout: 45 * time.Second,
+		}
+		var invocationGRPCConn *grpc.ClientConn
+		grpcTarget := strings.TrimSpace(os.Getenv("POWERX_GRPC_PROXY_ADDR"))
+		if grpcTarget == "" {
+			grpcHost := strings.TrimSpace(opts.Server.GRPC.Host)
+			if grpcHost == "" || grpcHost == "0.0.0.0" || grpcHost == "::" {
+				grpcHost = "127.0.0.1"
+			}
+			grpcPort := opts.Server.GRPC.Port
+			if grpcPort == 0 {
+				grpcPort = 9001
+			}
+			grpcTarget = fmt.Sprintf("%s:%d", grpcHost, grpcPort)
+		}
+		if grpcTarget != "" {
+			conn, err := grpc.DialContext(ctx, grpcTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				pxlog.WarnF(ctx, "[capability_invocation] dial grpc proxy failed: %v", err)
+			} else {
+				invocationGRPCConn = conn
+			}
+		}
+
+		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
+			Catalog:     capabilityCatalogSvc,
+			Router:      routerSvc,
+			Audit:       capAuditSvc,
+			Clock:       time.Now,
+			VersionLock: versionLockStore,
+			HTTPClient:  httpProxyClient,
+			HTTPBaseURL: httpBaseURL,
+			GRPCConn:    invocationGRPCConn,
+		})
+		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
+		if toolStore != nil {
+			snapshotProvider = capabilitycatalog.SnapshotProviderFunc(func(ctx context.Context, tenant string, grants []string) (capabilitycatalog.SelectorPolicySnapshot, error) {
+				snap, err := toolStore.GetSnapshot(ctx, tenant, grants)
+				if err != nil {
+					return capabilitycatalog.SelectorPolicySnapshot{}, err
+				}
+				return snap.ToRegistrySnapshot(), nil
+			})
+		}
+		var safeModeStore capabilitycatalog.SafeModeStore
+		if redisClient != nil {
+			safeModeStore = capabilitycatalog.NewRedisSafeModeStore(capabilitycatalog.SafeModeStoreOptions{
+				Redis: redisClient,
+			})
+		}
+		capabilityAuthorizer = capabilitycatalog.NewAuthorizationService(capabilitycatalog.AuthorizationOptions{
+			Catalog:  capabilityCatalogSvc,
+			SafeMode: safeModeStore,
+		})
+		workflowTelemetry = workflowengine.NewWorkflowTelemetry(capMetrics)
+
+		capabilitySelector = capabilitycatalog.NewSelector(capabilitycatalog.SelectorOptions{
+			Store:      snapshotProvider,
+			Invoker:    capabilityInvocationSvc,
+			EventBus:   bus,
+			Metrics:    capMetrics,
+			Authorizer: capabilityAuthorizer,
+		})
+
+		if capabilitySelector != nil {
+			workflowStepAdapter = workflowengine.NewCapabilityStepAdapter(capabilitySelector, workflowTelemetry)
+		}
+
+		if registry, err := toolstore.NewMCPRegistry(toolstore.MCPRegistryOptions{
+			Catalog:     capabilityCatalogSvc,
+			Invoker:     capabilityInvocationSvc,
+			Clock:       time.Now,
+			VersionLock: versionLockStore,
+		}); err != nil {
+			pxlog.WarnF(ctx, "[mcp] initialize registry failed: %v", err)
+		} else {
+			toolstore.SetGlobalMCPRegistry(registry)
+		}
+
+		workflowCatalog = capabilitycatalog.NewWorkflowCatalog(capabilitycatalog.WorkflowCatalogOptions{
+			TemplateRepo: workflowTemplateRepo,
+			RecordRepo:   recordRepo,
+			Redis:        redisClient,
+			Clock:        time.Now,
+			Telemetry:    workflowTelemetry,
+		})
+
+		workflowTemplateSvc = capabilitycatalog.NewWorkflowTemplateService(capabilitycatalog.WorkflowTemplateServiceOptions{
+			TemplateRepo: workflowTemplateRepo,
+			ApprovalRepo: caprepo.NewWorkflowTemplateApprovalRepository(db),
+			Clock:        time.Now,
+		})
+	}
+
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
 	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc)
 
@@ -311,6 +535,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			MaxConcurrent:   devHotloadOpts.Sessions.MaxConcurrent,
 			CleanupInterval: devHotloadOpts.Sessions.CleanupInterval,
 			KeyPrefix:       "devhotload",
+			Security:        devHotloadOpts.Security,
 		})
 		metrics := devhotloadinstrumentation.New(devHotloadOpts.Observability.MetricsNamespace)
 		devHotloadSvc = devhotloadservice.NewService(devhotloadservice.ServiceDeps{
@@ -411,35 +636,46 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
-		DB:                     db,
-		TenantSvc:              tenantSvc,
-		AuthUser:               authUser,
-		AuthCustomer:           authCustomer,
-		MeService:              meSvc,
-		AuditSvc:               svc,
-		Auditor:                aud,
-		MediaMgr:               mediaManager,
-		MediaSvc:               mediaSvc,
-		EventBus:               bus,
-		CapabilityRegistrySvc:  capRegistrySvc,
-		RouterSvc:              routerSvc,
-		RouterSandboxSvc:       sandboxSvc,
-		DiscoverySvc:           discoverySvc,
-		IntegrationGateway:     integrationGatewayDeps,
-		AgentLifecycle:         agentLifecycleDeps,
-		KnowledgeSpace:         knowledgeDeps,
-		DevHotloadOptions:      opts.DevHotload,
-		PluginReleaseOptions:   opts.PluginRelease,
-		PluginReleaseService:   pluginReleaseSvc,
-		DevHotloadService:      devHotloadSvc,
-		PluginBootstrapService: pluginBootstrapSvc,
-		PluginImportService:    pluginImportSvc,
-		PluginDebugHost:        pluginDebugHostSvc,
-		PluginDiagnostics:      pluginDiagnosticsSvc,
-		PluginSandbox:          pluginSandboxSvc,
-		PluginGovernance:       pluginGovernanceSvc,
-		PluginCompat:           pluginCompatSvc,
-		EventFabric:            eventFabricDeps,
+		DB:                       db,
+		TenantSvc:                tenantSvc,
+		AuthUser:                 authUser,
+		AuthCustomer:             authCustomer,
+		MeService:                meSvc,
+		AuditSvc:                 svc,
+		Auditor:                  aud,
+		MediaMgr:                 mediaManager,
+		MediaSvc:                 mediaSvc,
+		EventBus:                 bus,
+		CapabilityRegistrySvc:    capRegistrySvc,
+		CapabilityCatalogSvc:     capabilityCatalogSvc,
+		CapabilityRegistryAudit:  capAuditSvc,
+		CapabilityRegistryAlerts: capAlerting,
+		CapabilityInvocationSvc:  capabilityInvocationSvc,
+		CapabilityAuthorizer:     capabilityAuthorizer,
+		CapabilitySelector:       capabilitySelector,
+		WorkflowCatalog:          workflowCatalog,
+		WorkflowTemplateSvc:      workflowTemplateSvc,
+		ToolStore:                toolStore,
+		VersionLockStore:         versionLockStore,
+		RouterSvc:                routerSvc,
+		RouterSandboxSvc:         sandboxSvc,
+		DiscoverySvc:             discoverySvc,
+		IntegrationGateway:       integrationGatewayDeps,
+		AgentLifecycle:           agentLifecycleDeps,
+		KnowledgeSpace:           knowledgeDeps,
+		DevHotloadOptions:        opts.DevHotload,
+		PluginReleaseOptions:     opts.PluginRelease,
+		PluginReleaseService:     pluginReleaseSvc,
+		DevHotloadService:        devHotloadSvc,
+		PluginBootstrapService:   pluginBootstrapSvc,
+		PluginImportService:      pluginImportSvc,
+		PluginDebugHost:          pluginDebugHostSvc,
+		PluginDiagnostics:        pluginDiagnosticsSvc,
+		PluginSandbox:            pluginSandboxSvc,
+		PluginGovernance:         pluginGovernanceSvc,
+		PluginCompat:             pluginCompatSvc,
+		WorkflowStepAdapter:      workflowStepAdapter,
+		EventFabric:              eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,
@@ -484,6 +720,12 @@ func convertDevHotloadOptions(src DevHotloadOptions) devhotloadservice.Options {
 			AllowedSubjects: src.Security.AllowedSubjects,
 			PATHeader:       src.Security.PATHeader,
 			TokenTTL:        src.Security.TokenTTL,
+			TokenSecret:     src.Security.TokenSecret,
+			TokenIssuer:     src.Security.TokenIssuer,
+			TokenAudience:   src.Security.TokenAudience,
+			TokenPlatforms:  append([]string{}, src.Security.TokenPlatforms...),
+			TokenRoles:      append([]string{}, src.Security.TokenRoles...),
+			ImpersonateRoot: src.Security.ImpersonateRoot,
 		},
 		Observability: devhotloadservice.ObservabilityOptions{
 			MetricsNamespace: src.Observability.MetricsNamespace,
@@ -501,6 +743,8 @@ type EventFabricDeps struct {
 	Directory     *directoryService.DirectoryService
 	ACL           *aclService.ACLService
 	Enforcer      *aclService.ACLEnforcer
+	Seeder        *manifestService.SeedService
+	BindingStore  manifestService.BindingStore
 	Reliable      event_bus.ReliableQueue
 	Scheduler     *deliveryService.BackoffScheduler
 	Delivery      deliveryService.Service
@@ -683,6 +927,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Clock: time.Now,
 	})
 	aclEnforcer := aclService.NewACLEnforcer(aclSvc)
+	bindingRepo := eventfabricrepo.NewManifestBindingRepository(db)
 
 	auditSvcEF := auditService.NewService(auditService.Options{
 		AuditService: auditSvc,
@@ -693,6 +938,23 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 
 	if securityVerifier != nil {
 		securityVerifier.SetViolationReporter(auditViolationReporter{audit: auditSvcEF})
+	}
+
+	var seedSvc *manifestService.SeedService
+	var bindingStore manifestService.BindingStore
+	if bindingRepo != nil {
+		bindingStore = manifestService.NewBindingStore(bindingRepo)
+	}
+
+	if directorySvc != nil && aclSvc != nil {
+		seedSvc = manifestService.NewSeedService(manifestService.SeedServiceOptions{
+			Directory: directorySvc,
+			ACL:       aclSvc,
+			Audit:     auditSvcEF,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+			Bindings: bindingStore,
+		})
 	}
 
 	var deliverySvc deliveryService.Service
@@ -897,6 +1159,8 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Directory:     directorySvc,
 		ACL:           aclSvc,
 		Enforcer:      aclEnforcer,
+		Seeder:        seedSvc,
+		BindingStore:  bindingStore,
 		Reliable:      reliableQueue,
 		Scheduler:     scheduler,
 		Delivery:      deliverySvc,

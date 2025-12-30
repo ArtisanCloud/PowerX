@@ -20,7 +20,7 @@ func TestLocalEventBus(t *testing.T) {
 	})
 
 	// 发布事件
-	ctx := context.WithValue(context.Background(), "tenant_id", "test-tenant")
+	ctx := context.WithValue(context.Background(), "tenant_uuid", "test-tenant")
 	bus.Publish("test_event", "test payload", ctx)
 
 	// 验证事件接收
@@ -28,7 +28,7 @@ func TestLocalEventBus(t *testing.T) {
 	case event := <-received:
 		assert.Equal(t, "test_event", event.Name)
 		assert.Equal(t, "test payload", event.Payload)
-		assert.Equal(t, "test-tenant", event.TenantID)
+		assert.Equal(t, "test-tenant", event.TenantUUID)
 	case <-time.After(time.Second):
 		t.Fatal("事件未收到")
 	}
@@ -123,7 +123,7 @@ func TestEventWithTraceID(t *testing.T) {
 
 	// 创建带追踪ID的上下文
 	ctx := context.WithValue(context.Background(), "trace_id", "trace-123")
-	ctx = context.WithValue(ctx, "tenant_id", "tenant-456")
+	ctx = context.WithValue(ctx, "tenant_uuid", "tenant-456")
 
 	bus.Publish("trace_event", "trace payload", ctx)
 
@@ -132,7 +132,7 @@ func TestEventWithTraceID(t *testing.T) {
 		assert.Equal(t, "trace_event", event.Name)
 		assert.Equal(t, "trace payload", event.Payload)
 		assert.Equal(t, "trace-123", event.TraceID)
-		assert.Equal(t, "tenant-456", event.TenantID)
+		assert.Equal(t, "tenant-456", event.TenantUUID)
 	case <-time.After(time.Second):
 		t.Fatal("事件未收到")
 	}

@@ -15,7 +15,7 @@ import (
 
 var importOpts = struct {
 	grpcAddr   string
-	tenantID   string
+	tenantUUID string
 	packageURI string
 	checksum   string
 	dryRun     bool
@@ -38,7 +38,7 @@ func init() {
 	Command.AddCommand(importCmd)
 
 	importCmd.Flags().StringVar(&importOpts.grpcAddr, "grpc-addr", importOpts.grpcAddr, "Plugin release gRPC endpoint")
-	importCmd.Flags().StringVar(&importOpts.tenantID, "tenant-id", "", "Target tenant identifier (required)")
+	importCmd.Flags().StringVar(&importOpts.tenantUUID, "tenant-uuid", "", "Target tenant UUID (required)")
 	importCmd.Flags().StringVar(&importOpts.packageURI, "package-uri", "", "Offline package URI (required)")
 	importCmd.Flags().StringVar(&importOpts.checksum, "checksum", "", "Package checksum (required)")
 	importCmd.Flags().BoolVar(&importOpts.dryRun, "dry-run", false, "Validate without applying changes")
@@ -46,7 +46,7 @@ func init() {
 	importCmd.Flags().StringVar(&importOpts.token, "token", "", "Bearer token for Authorization metadata")
 	importCmd.Flags().DurationVar(&importOpts.timeout, "timeout", importOpts.timeout, "RPC timeout")
 
-	_ = importCmd.MarkFlagRequired("tenant-id")
+	_ = importCmd.MarkFlagRequired("tenant-uuid")
 	_ = importCmd.MarkFlagRequired("package-uri")
 	_ = importCmd.MarkFlagRequired("checksum")
 }
@@ -67,7 +67,7 @@ func runPluginImport(cmd *cobra.Command, _ []string) error {
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	callCtx := attachAuth(ctx, importOpts.token)
 	resp, err := client.ImportOfflinePackage(callCtx, &pluginreleasepb.ImportOfflinePackageRequest{
-		TenantId:   strings.TrimSpace(importOpts.tenantID),
+		TenantUuid: strings.TrimSpace(importOpts.tenantUUID),
 		PackageUri: strings.TrimSpace(importOpts.packageURI),
 		Checksum:   strings.TrimSpace(importOpts.checksum),
 		DryRun:     importOpts.dryRun,

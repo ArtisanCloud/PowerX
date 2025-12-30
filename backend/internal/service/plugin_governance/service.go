@@ -22,7 +22,7 @@ type Service struct {
 
 // ScanInput defines parameters for a governance scan.
 type ScanInput struct {
-	TenantID       string `json:"tenantId"`
+	TenantUUID     string `json:"-"`
 	PluginID       string `json:"pluginId"`
 	CurrentVersion string `json:"currentVersion"`
 	TargetVersion  string `json:"targetVersion"`
@@ -30,8 +30,8 @@ type ScanInput struct {
 
 // BoardFilter filters board summary data.
 type BoardFilter struct {
-	TenantID string
-	Limit    int
+	TenantUUID string
+	Limit      int
 }
 
 // BoardSummary aggregates latest reports for board view.
@@ -54,9 +54,9 @@ func (s *Service) Scan(ctx context.Context, input ScanInput) (*govmodel.VersionG
 	if s == nil || s.reports == nil {
 		return nil, errors.New("governance service unavailable")
 	}
-	tenantID := strings.TrimSpace(input.TenantID)
-	if tenantID == "" {
-		return nil, errors.New("tenantId is required")
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid is required")
 	}
 	pluginID := strings.TrimSpace(input.PluginID)
 	if pluginID == "" {
@@ -67,7 +67,7 @@ func (s *Service) Scan(ctx context.Context, input ScanInput) (*govmodel.VersionG
 	var risk string = "info"
 	summary := map[string]any{}
 	if s.candidates != nil {
-		candidate, err := s.candidates.FindLatestByTenantPlugin(ctx, tenantID, pluginID)
+		candidate, err := s.candidates.FindLatestByTenantPlugin(ctx, tenantUUID, pluginID)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +97,7 @@ func (s *Service) Scan(ctx context.Context, input ScanInput) (*govmodel.VersionG
 	}
 
 	report := &govmodel.VersionGovernanceReport{
-		TenantID:           tenantID,
+		TenantUUID:         tenantUUID,
 		PluginID:           pluginID,
 		CurrentVersion:     currentVersion,
 		RecommendedVersion: targetVersion,
@@ -114,7 +114,7 @@ func (s *Service) Board(ctx context.Context, filter BoardFilter) (*BoardSummary,
 	if s == nil || s.reports == nil {
 		return nil, errors.New("governance service unavailable")
 	}
-	reports, err := s.reports.ListRecent(ctx, filter.TenantID, filter.Limit)
+	reports, err := s.reports.ListRecent(ctx, filter.TenantUUID, filter.Limit)
 	if err != nil {
 		return nil, err
 	}

@@ -28,11 +28,15 @@ func (s *TenantServer) ListRoutes(ctx context.Context, req *pbintegration.Tenant
 	if s == nil || s.svc == nil {
 		return nil, status.Error(codes.Unavailable, "tenant service unavailable")
 	}
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid is required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 
-	routes, err := s.svc.ListRoutes(ctx, strings.TrimSpace(req.GetTenantId()), strings.TrimSpace(req.GetCapabilityId()), strings.TrimSpace(req.GetChannel()))
+	routes, err := s.svc.ListRoutes(ctx, tenantUUID, strings.TrimSpace(req.GetCapabilityId()), strings.TrimSpace(req.GetChannel()))
 	if err != nil {
 		return nil, status.Error(codes.Internal, "list routes failed")
 	}
@@ -52,11 +56,18 @@ func (s *TenantServer) GetRoute(ctx context.Context, req *pbintegration.TenantGe
 	if s == nil || s.svc == nil {
 		return nil, status.Error(codes.Unavailable, "tenant service unavailable")
 	}
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" || strings.TrimSpace(req.GetRouteSlug()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id and route_slug are required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid and route_slug are required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.GetRouteSlug()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid and route_slug are required")
 	}
 
-	route, err := s.svc.GetRoute(ctx, strings.TrimSpace(req.GetTenantId()), strings.TrimSpace(req.GetRouteSlug()))
+	route, err := s.svc.GetRoute(ctx, tenantUUID, strings.TrimSpace(req.GetRouteSlug()))
 	if err != nil {
 		return nil, translateTenantError(err)
 	}
@@ -70,8 +81,15 @@ func (s *TenantServer) InvokeRoute(ctx context.Context, req *pbintegration.Tenan
 	if s == nil || s.svc == nil {
 		return nil, status.Error(codes.Unavailable, "tenant service unavailable")
 	}
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" || strings.TrimSpace(req.GetRouteSlug()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id and route_slug are required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid and route_slug are required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.GetRouteSlug()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid and route_slug are required")
 	}
 
 	var payload map[string]any
@@ -82,7 +100,7 @@ func (s *TenantServer) InvokeRoute(ctx context.Context, req *pbintegration.Tenan
 	}
 
 	result, err := s.svc.Invoke(ctx, integrationTenant.InvokeInput{
-		TenantID:       strings.TrimSpace(req.GetTenantId()),
+		TenantUUID:     tenantUUID,
 		RouteSlug:      strings.TrimSpace(req.GetRouteSlug()),
 		Channel:        "http",
 		Payload:        payload,

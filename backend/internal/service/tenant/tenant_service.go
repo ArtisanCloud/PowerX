@@ -43,7 +43,7 @@ type ListTenantsOption struct {
 	Plan           *string
 }
 
-func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items []mdltenant.Tenant, total int64, userCount map[uint64]int64, err error) {
+func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items []mdltenant.Tenant, total int64, userCount map[string]int64, err error) {
 	// 排序白名单，防注入
 	sortBy := sanitizeSortBy(opt.SortBy, []string{"id", "name", "domain", "created_at", "updated_at"})
 	sortOrder := strings.ToLower(opt.SortOrder)
@@ -69,7 +69,7 @@ func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items 
 	userCount, err = s.Repo.CountMembersByTenant(ctx)
 	if err != nil {
 		// 非致命错误：置空 map
-		userCount = map[uint64]int64{}
+		userCount = map[string]int64{}
 	}
 	return
 }
@@ -146,7 +146,7 @@ func (s *TenantService) Create(ctx context.Context, in CreateTenantInput) (uint6
 
 	// 2) 可选：初始化管理员
 	if in.InitAdmin != nil {
-		if err := s.initAdmin(ctx, out.ID, in.InitAdmin); err != nil {
+		if err := s.initAdmin(ctx, out.UUID.String(), in.InitAdmin); err != nil {
 			return out.ID, err // 视需求：出错可回滚或保留租户
 		}
 	}
@@ -196,7 +196,7 @@ func (s *TenantService) Upsert(ctx context.Context, in UpsertTenantInput) (uint6
 	}
 
 	if isCreate && in.InitAdmin != nil {
-		if err := s.initAdmin(ctx, out.ID, in.InitAdmin); err != nil {
+		if err := s.initAdmin(ctx, out.UUID.String(), in.InitAdmin); err != nil {
 			return out.ID, err
 		}
 	}
@@ -204,7 +204,7 @@ func (s *TenantService) Upsert(ctx context.Context, in UpsertTenantInput) (uint6
 }
 
 // ---------- 初始化管理员（复用 AuthService.Register） ----------
-func (s *TenantService) initAdmin(ctx context.Context, tenantID uint64, ia *InitAdminInput) error {
+func (s *TenantService) initAdmin(ctx context.Context, tenantUUID string, ia *InitAdminInput) error {
 	if ia == nil {
 		return nil
 	}
@@ -254,7 +254,7 @@ func (s *TenantService) initAdmin(ctx context.Context, tenantID uint64, ia *Init
 	}
 
 	// 注册：创建/复用 User + 创建 Member + 绑定 role_user
-	m, err := s.Auth.Register(ctx, tenantID, username, identifier, *ia.Password, opt)
+	m, err := s.Auth.Register(ctx, tenantUUID, username, identifier, *ia.Password, opt)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (s *TenantService) initAdmin(ctx context.Context, tenantID uint64, ia *Init
 		assignOwner = *ia.AssignOwner
 	}
 	if assignOwner && s.RoleBindingRepo != nil {
-		_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_owner")
+		_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantUUID, m.ID, "role_owner")
 	}
 	return nil
 }

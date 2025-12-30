@@ -22,7 +22,7 @@ func TestDiscoveryServiceCacheAndFallback(t *testing.T) {
 	registryRepo := testutil.NewMockRegistryRepository([]capabilityRegistryRouter.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Version:      7,
 			Adapters: []capabilityRegistryRouter.AdapterEndpoint{
@@ -63,7 +63,7 @@ func TestDiscoveryServiceCacheAndFallback(t *testing.T) {
 
 	// 首次同步
 	snapshots, err := service.Sync(ctx, discoveryService.SyncRequest{
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		Capabilities: []string{"capabilities.text.translate"},
 		ClientID:     "sdk",
 		Force:        true,
@@ -113,7 +113,7 @@ func TestDiscoveryServiceCacheAndFallback(t *testing.T) {
 	registryRepo.SetError(nil)
 	clock.Advance(30 * time.Second)
 	refreshed, err := service.Sync(ctx, discoveryService.SyncRequest{
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		Capabilities: []string{"capabilities.text.translate"},
 		ClientID:     "sdk",
 		Force:        true,

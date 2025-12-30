@@ -37,9 +37,10 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ipPtr = &ip
 		}
 
+		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
-			TenantID:      reqctx.GetTenantID(c.Request.Context()),
+			TenantUUID:    tenantUUID,
 			Source:        "http",
 			Operation:     "API_CALL",
 			ResourceType:  "core.api",

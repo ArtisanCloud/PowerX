@@ -10,9 +10,9 @@ import (
 type TenantSetting struct {
 	coremodel.PowerModel
 
-	TenantID  uint64         `gorm:"column:tenant_id;not null;index:idx_tenant_setting_tk,priority:1" json:"tenant_id"`
-	Key       string         `gorm:"column:key;type:varchar(128);not null;index:idx_tenant_setting_tk,priority:2;uniqueIndex:uk_tenant_setting_tk,priority:1" json:"key"`
-	ValueJSON datatypes.JSON `gorm:"column:value_json;type:jsonb"                                     json:"value_json,omitempty"`
+	TenantUUID string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_tenant_setting_tk,priority:1;uniqueIndex:uk_tenant_setting_tk,priority:1" json:"tenant_uuid"`
+	Key        string         `gorm:"column:key;type:varchar(128);not null;index:idx_tenant_setting_tk,priority:2;uniqueIndex:uk_tenant_setting_tk,priority:2" json:"key"`
+	ValueJSON  datatypes.JSON `gorm:"column:value_json;type:jsonb"                                     json:"value_json,omitempty"`
 
 	Group       string  `gorm:"column:group;type:varchar(64);index"  json:"group,omitempty"`
 	Description *string `gorm:"column:description;type:varchar(512)" json:"description,omitempty"`

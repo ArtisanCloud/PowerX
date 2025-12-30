@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -104,6 +106,10 @@ func (h *AuthorizationHandler) CreateGrant(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("authorization service unavailable", nil))
 		return
 	}
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
+	}
 
 	var req createGrantDTO
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -111,7 +117,7 @@ func (h *AuthorizationHandler) CreateGrant(c *gin.Context) {
 		return
 	}
 
-	createReq, err := h.buildGrantCreateRequest(req)
+	createReq, err := h.buildGrantCreateRequest(tenantID, req)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("build grant request failed", err))
 		return
@@ -232,6 +238,10 @@ func (h *AuthorizationHandler) InvalidateGrantCache(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("authorization service unavailable", nil))
 		return
 	}
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
+	}
 
 	var req invalidateCacheDTO
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -239,7 +249,7 @@ func (h *AuthorizationHandler) InvalidateGrantCache(c *gin.Context) {
 		return
 	}
 
-	key, err := buildCacheKey(req)
+	key, err := buildCacheKey(tenantID, req)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid cache key", err))
 		return
@@ -263,16 +273,14 @@ func (h *AuthorizationHandler) ListAuthorizationAudit(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("authorization reporting unavailable", nil))
 		return
 	}
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
+	}
 
 	var req auditQueryDTO
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid query parameters", err))
-		return
-	}
-
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant id", err))
 		return
 	}
 
@@ -287,17 +295,12 @@ func (h *AuthorizationHandler) ListAuthorizationAudit(c *gin.Context) {
 		return
 	}
 
-	if header := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant-UUID")); header != "" && !strings.EqualFold(header, tenantID.String()) {
-		dto.RespondErrorFrom(c, dto.NewForbidden("tenant scope mismatch", nil))
-		return
-	}
-
 	filter := authorizationService.ReportingFilter{
-		TenantID: tenantID,
-		From:     from,
-		To:       to,
-		Page:     req.Page,
-		PageSize: req.PageSize,
+		TenantUUID: tenantID,
+		From:       from,
+		To:         to,
+		Page:       req.Page,
+		PageSize:   req.PageSize,
 	}
 
 	if strings.TrimSpace(req.SubjectID) != "" {
@@ -407,21 +410,16 @@ func (h *AuthorizationHandler) ListTemplates(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("template service unavailable", nil))
 		return
 	}
-
-	var tenantID *uuid.UUID
-	if id := strings.TrimSpace(c.Query("tenant_id")); id != "" {
-		parsed, err := uuid.Parse(id)
-		if err != nil {
-			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant id", err))
-			return
-		}
-		tenantID = &parsed
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
 	}
+
 	includeGlobal := c.DefaultQuery("include_global", "true") != "false"
 	sources := c.QueryArray("source")
 
 	opts := authorizationService.TemplateListOptions{
-		TenantID:      tenantID,
+		TenantID:      &tenantID,
 		Sources:       sources,
 		Search:        c.Query("search"),
 		IncludeGlobal: includeGlobal,
@@ -450,6 +448,10 @@ func (h *AuthorizationHandler) CreateTemplate(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("template service unavailable", nil))
 		return
 	}
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
+	}
 
 	var req createTemplateDTO
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -457,21 +459,11 @@ func (h *AuthorizationHandler) CreateTemplate(c *gin.Context) {
 		return
 	}
 
-	var tenantID *uuid.UUID
-	if strings.TrimSpace(req.TenantID) != "" {
-		id, err := uuid.Parse(req.TenantID)
-		if err != nil {
-			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant id", err))
-			return
-		}
-		tenantID = &id
-	}
-
 	template, err := h.templates.Create(c.Request.Context(), authorizationService.TemplateCreateRequest{
 		Name:         req.Name,
 		Description:  req.Description,
 		Source:       req.Source,
-		TenantID:     tenantID,
+		TenantID:     &tenantID,
 		Capabilities: req.Capabilities,
 		Conditions:   toGrantConditions(req.Conditions),
 		TTLSeconds:   req.TTLSeconds,
@@ -543,6 +535,10 @@ func (h *AuthorizationHandler) ApplyTemplate(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("authorization service unavailable", nil))
 		return
 	}
+	tenantID, ok := tenantUUIDValueFromGin(c)
+	if !ok {
+		return
+	}
 	templateID, err := uuid.Parse(c.Param("templateId"))
 	if err != nil || templateID == uuid.Nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid template id", err))
@@ -555,11 +551,6 @@ func (h *AuthorizationHandler) ApplyTemplate(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant id", err))
-		return
-	}
 	subjectID, err := uuid.Parse(req.Subject.ID)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid subject id", err))
@@ -601,10 +592,22 @@ func (h *AuthorizationHandler) ApplyTemplate(c *gin.Context) {
 
 // Helpers --------------------------------------------------------------------
 
-func (h *AuthorizationHandler) buildGrantCreateRequest(req createGrantDTO) (*authorizationService.GrantCreateRequest, error) {
-	tenantID, err := uuid.Parse(req.TenantID)
+func tenantUUIDValueFromGin(c *gin.Context) (uuid.UUID, bool) {
+	tenantID, err := reqctx.RequireTenantUUIDValueFromGin(c)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, reqctx.ErrTenantUUIDMissing) {
+			dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		} else {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant context", err))
+		}
+		return uuid.Nil, false
+	}
+	return tenantID, true
+}
+
+func (h *AuthorizationHandler) buildGrantCreateRequest(tenantID uuid.UUID, req createGrantDTO) (*authorizationService.GrantCreateRequest, error) {
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("tenant id is required")
 	}
 	subjectID, err := uuid.Parse(req.Subject.ID)
 	if err != nil {
@@ -701,9 +704,10 @@ func convertOptionalConditions(input *grantConditionsDTO) *authorizationService.
 }
 
 func buildGrantResponse(grant *eventfabricmodel.AuthorizationGrant, capabilities []*eventfabricmodel.AuthorizationGrantCapability, capMap map[uuid.UUID]*eventfabricmodel.AuthorizationCapability, conditions []*eventfabricmodel.AuthorizationGrantCondition, ticket *eventfabricmodel.AuthorizationApprovalTicket) map[string]any {
+	tenantUUID := resolveGrantTenantUUID(grant)
 	payload := map[string]any{
-		"id":        grant.UUID.String(),
-		"tenant_id": grant.TenantID.String(),
+		"id":          grant.UUID.String(),
+		"tenant_uuid": tenantUUID,
 		"subject": map[string]any{
 			"type": grant.SubjectType,
 			"id":   grant.SubjectID.String(),
@@ -806,8 +810,8 @@ func templateToDTO(tmpl *eventfabricmodel.AuthorizationGrantTemplate) map[string
 		"source":      tmpl.Source,
 		"ttl_seconds": tmpl.TTLSeconds,
 	}
-	if tmpl.TenantID != nil {
-		payload["tenant_id"] = tmpl.TenantID.String()
+	if tenantUUID := resolveTemplateTenantUUID(tmpl); tenantUUID != "" {
+		payload["tenant_uuid"] = tenantUUID
 	}
 	if len(tmpl.Capabilities) > 0 {
 		var caps []string
@@ -830,19 +834,18 @@ func templateToDTO(tmpl *eventfabricmodel.AuthorizationGrantTemplate) map[string
 	return payload
 }
 
-func buildCacheKey(req invalidateCacheDTO) (authorizationService.GrantCacheKey, error) {
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		return authorizationService.GrantCacheKey{}, err
+func buildCacheKey(tenantID uuid.UUID, req invalidateCacheDTO) (authorizationService.GrantCacheKey, error) {
+	if tenantID == uuid.Nil {
+		return authorizationService.GrantCacheKey{}, fmt.Errorf("tenant id is required")
 	}
 	subjectID, err := uuid.Parse(req.Subject.ID)
 	if err != nil {
 		return authorizationService.GrantCacheKey{}, err
 	}
 	return authorizationService.GrantCacheKey{
-		TenantID:    tenantID.String(),
+		TenantUUID:  tenantID.String(),
 		SubjectType: req.Subject.Type,
-		SubjectID:   subjectID.String(),
+		SubjectID:   subjectID,
 	}, nil
 }
 
@@ -868,7 +871,7 @@ func buildAuthorizationAuditCSV(items []authorizationService.ReportingEvent) (st
 		"operation",
 		"decision",
 		"outcome",
-		"tenant_id",
+		"tenant_uuid",
 		"subject_type",
 		"subject_id",
 		"capability",
@@ -885,7 +888,7 @@ func buildAuthorizationAuditCSV(items []authorizationService.ReportingEvent) (st
 			item.Operation,
 			item.Decision,
 			item.Outcome,
-			item.TenantID,
+			item.TenantUUID,
 			item.SubjectType,
 			item.SubjectID,
 			item.Capability,
@@ -901,4 +904,26 @@ func buildAuthorizationAuditCSV(items []authorizationService.ReportingEvent) (st
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func resolveGrantTenantUUID(grant *eventfabricmodel.AuthorizationGrant) string {
+	if grant == nil {
+		return ""
+	}
+	return canonicalTenantKey(grant.TenantUUID)
+}
+
+func resolveTemplateTenantUUID(tmpl *eventfabricmodel.AuthorizationGrantTemplate) string {
+	if tmpl == nil || tmpl.TenantUUID == nil {
+		return ""
+	}
+	return canonicalTenantKey(*tmpl.TenantUUID)
+}
+
+func canonicalTenantKey(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	return strings.ToLower(trimmed)
 }

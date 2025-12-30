@@ -147,7 +147,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`iam_batch_assign_latency_seconds`（P95 ≤ 300s）、`iam_batch_assign_success_total`、`iam_batch_assign_failure_total`、`iam_batch_assign_pending_gauge`。
-- **日志**：INFO 级别记录 `tenant_id`、`task_id`、成员数量、权限包；ERROR 级附 `error_code`、审批节点、失败成员快照；审计以结构化 JSON 推送。
+- **日志**：INFO 级别记录 `tenant_uuid`、`task_id`、成员数量、权限包；ERROR 级附 `error_code`、审批节点、失败成员快照；审计以结构化 JSON 推送。
 - **告警**：
   - `iam_batch_assign_failure_total` 每小时 >2% → PagerDuty `IAM Oncall`。
   - 审批等待 > SLA（15 分钟） → Slack `#iam-alerts`，触发升级。

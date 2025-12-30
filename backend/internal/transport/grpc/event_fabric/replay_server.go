@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	"google.golang.org/grpc"
@@ -37,12 +37,16 @@ func (s *EventReplayServer) CreateReplayTask(ctx context.Context, req *eventfabr
 	if s.service == nil {
 		return nil, status.Error(codes.FailedPrecondition, "replay service unavailable")
 	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	start, end, err := parseWindow(req.GetWindow())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid time window: %v", err)
 	}
 	task, err := s.service.CreateTask(ctx, replay.CreateTaskInput{
-		TenantKey:   req.GetTenantId(),
+		TenantKey:   tenantUUID,
 		Topic:       req.GetTopic(),
 		TraceID:     req.GetTraceId(),
 		WindowStart: start,
@@ -104,7 +108,7 @@ func toProtoTask(task *replay.Task) *eventfabricv1.ReplayTask {
 	}
 	protoTask := &eventfabricv1.ReplayTask{
 		Id:            task.ID,
-		TenantId:      task.TenantKey,
+		TenantUuid:    task.TenantKey,
 		Topic:         task.Topic,
 		TraceId:       task.TraceID,
 		Status:        task.Status,

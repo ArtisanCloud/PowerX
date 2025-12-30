@@ -51,7 +51,7 @@ func TestContractGRPCCreateMediaAsset(t *testing.T) {
 	ctx := context.Background()
 
 	req := &corexmediav1.CreateMediaAssetRequest{
-		TenantId:         "tenant_a",
+		TenantUuid:         "tenant_a",
 		OperatorId:       "op_01",
 		Name:             "homepage-banner",
 		Driver:           "local",
@@ -77,7 +77,7 @@ func TestContractGRPCListMediaAssets(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.ListMediaAssets(ctx, &corexmediav1.ListMediaAssetsRequest{
-		TenantId: "tenant_a",
+		TenantUuid: "tenant_a",
 		Tags:     []string{"homepage"},
 		Page:     1,
 		PageSize: 20,
@@ -99,7 +99,7 @@ func TestContractGRPCGetMediaAsset(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.GetMediaAsset(ctx, &corexmediav1.GetMediaAssetRequest{
-		TenantId: "tenant_a",
+		TenantUuid: "tenant_a",
 		Uuid:     "mas_123",
 	})
 
@@ -117,7 +117,7 @@ func TestContractGRPCUpdateMediaAsset(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.UpdateMediaAsset(ctx, &corexmediav1.UpdateMediaAssetRequest{
-		TenantId:       "tenant_a",
+		TenantUuid:       "tenant_a",
 		Uuid:           "mas_123",
 		OperatorId:     "op_01",
 		Name:           proto.String("updated-banner"),
@@ -141,7 +141,7 @@ func TestContractGRPCDeleteMediaAsset(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.DeleteMediaAsset(ctx, &corexmediav1.DeleteMediaAssetRequest{
-		TenantId:   "tenant_a",
+		TenantUuid:   "tenant_a",
 		Uuid:       "mas_123",
 		OperatorId: "op_01",
 	})
@@ -160,7 +160,7 @@ func TestContractGRPCPresignMediaAsset(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.PresignMediaAsset(ctx, &corexmediav1.PresignMediaAssetRequest{
-		TenantId:         "tenant_a",
+		TenantUuid:         "tenant_a",
 		Uuid:             "mas_123",
 		OperatorId:       "op_01",
 		Action:           corexmediav1.PresignAction_PRESIGN_ACTION_UPLOAD,

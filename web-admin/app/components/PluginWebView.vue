@@ -141,15 +141,18 @@ function onError() {
   applyViewportFill();
 }
 
-/** 归一化 src 为绝对 URL（以 upstream 为基底） */
+/** 归一化 src
+ * - 相对路径一律基于 upstream（http://127.0.0.1:8077），避免宿主自身路由造成画中画
+ * - 绝对路径原样使用
+ */
 const cleanSrc = computed(() => {
   const raw = typeof props.src === 'string' ? props.src : props.src?.href || '/'
 
   try {
-    // 1) 相对路径 → 以后端 upstream 为基准；绝对路径 → 原样解析
+    const base = upstream
     const u = (raw.startsWith('http://') || raw.startsWith('https://'))
       ? new URL(raw)
-      : new URL(raw, upstream)
+      : new URL(raw, base)
 
     // 2) /admin 强制补尾斜杠
     u.pathname = u.pathname.replace(/\/admin(?!\/)/, '/admin/')
@@ -157,9 +160,7 @@ const cleanSrc = computed(() => {
     // 3) 清理重复斜杠（不影响协议头部）
     u.pathname = u.pathname.replace(/\/{2,}/g, '/')
 
-    const full = u.toString()
-    console.log('[WebView] absolute src =', full)
-    return full
+    return u.toString()
   } catch (e) {
     console.warn('[WebView] bad src:', raw, e)
     return raw

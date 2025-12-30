@@ -374,13 +374,25 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		return err
 	}
 	if m.opts.PostEnable != nil {
-		if tid := reqctx.GetTenantID(ctx); tid > 0 {
-			if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
+		if tenantUUID, ok := tenantUUIDFromContext(ctx); ok {
+			if err := m.opts.PostEnable(ctx, tenantUUID, p.ID); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func tenantUUIDFromContext(ctx context.Context) (string, bool) {
+	uuid, err := reqctx.RequireTenantUUID(ctx)
+	if err != nil {
+		return "", false
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(uuid)
+	if err != nil {
+		return "", false
+	}
+	return canonical, true
 }
 
 // Disable: 停用插件 = (卸载路由) + (停进程) + (更新注册表)

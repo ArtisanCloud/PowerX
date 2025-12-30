@@ -19,10 +19,10 @@
 **Purpose**: 建立事件骨干的目录与基础配置，确保后续任务可落地。
 
 - [x] **T001 [P] [Setup]** 在 `pkg/corex/db/persistence/model/event_fabric/`, `pkg/corex/db/persistence/repository/event_fabric/`, `internal/service/event_fabric/{directory,acl,delivery,dlq,replay,audit}`, `internal/transport/http/admin/event_fabric/`, `internal/transport/grpc/event_fabric/` 创建空的 `doc.go`/占位文件与 `go` 包声明。
-- [x] **T002 [Setup]** 更新 `api/grpc/contracts/buf.yaml` 与 `api/grpc/contracts/buf.gen.yaml` 注册 `corex/event_fabric/v1` Proto 包，校验 `managed.go_package_prefix`、`api/grpc/gen` 输出路径，并在 `Makefile` 新增 `proto-event-fabric` 目标触发代码生成。
+- [x] **T002 [Setup]** 更新 `api/grpc/contracts/buf.yaml` 与 `api/grpc/contracts/buf.gen.yaml` 注册 `powerx/event_fabric/v1` Proto 包，校验 `managed.go_package_prefix`、`api/grpc/gen` 输出路径，并在 `Makefile` 新增 `proto-event-fabric` 目标触发代码生成。
 - [x] **T003 [Setup]** 扩展 `config/config.go`, `config/validator.go`，新增 `EventFabricConfig`（含重试/ACK 超时/Redis 配置），并在 `.env.sample` 说明默认值。
 - [x] **T004 [Setup]** 在 `internal/transport/http/admin/routes.go` 注册 `/event-fabric` 路由分组与占位 Handler，便于后续故事挂载。
-- [x] **T005 [Setup]** 在 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto` 定义基础消息与服务骨架（目录、ACL、Publish/Subscribe、Replay、DLQ），确保契约覆盖 FR-003~FR-009 并能通过 `buf lint`。
+- [x] **T005 [Setup]** 在 `api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto` 定义基础消息与服务骨架（目录、ACL、Publish/Subscribe、Replay、DLQ），确保契约覆盖 FR-003~FR-009 并能通过 `buf lint`。
 - [x] **T006 [Setup]** 在 `specs/004-eventbus-message-fabric/contracts/event_fabric_admin.openapi.yaml` 起草 Admin REST OpenAPI 合同骨架，包含 `/topics`, `/acl`, `/publish`, `/dlq`, `/replay` 路由与 `pkg/dto` 响应格式。
 
 ---
@@ -65,7 +65,7 @@
 
 ### Implementation
 
-- [x] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_id`,`topic_id`,`principal_id`,`action`) 与过期时间。
+- [x] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_uuid`,`topic_id`,`principal_id`,`action`) 与过期时间。
 - [x] **T018 [US2]** 增加模型 `pkg/corex/db/persistence/model/event_fabric/acl_binding.go`。
 - [x] **T019 [US2]** 编写仓储 `pkg/corex/db/persistence/repository/event_fabric/acl_repository.go`，支持批量授予/撤销与有效期过滤。
 - [x] **T020 [US2]** 实现 `internal/service/event_fabric/acl/acl_service.go`：整合权限校验、授予/撤销与冲突检测。
@@ -93,7 +93,7 @@
 - [x] **T030 [US3]** 构建 `internal/service/event_fabric/audit/service.go`，封装发布/订阅审计写入（调用审计客户端、覆盖成功/失败场景），并在 `internal/app/shared/deps.go` 注册。
 - [x] **T031 [US3]** 在 `internal/service/event_fabric/delivery/service.go`、`internal/transport/{grpc,http}/event_fabric/*` 集成审计记录；于 `internal/tests/{grpc,http}/event_fabric/audit_contract_test.go` 编写测试验证发布/订阅审计流水与错误回滚。
 - [x] **T032 [US3]** 创建 DLQ 服务 `internal/service/event_fabric/dlq/service.go`，支持查询、重放、告警钩子。
-- [x] **T033 [P] [US3]** 实现 gRPC 服务 `internal/transport/grpc/event_fabric/publisher_server.go` 与 `subscriber_server.go`（使用 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto`），接入拦截器并更新 Proto 契约中的 RPC 定义。
+- [x] **T033 [P] [US3]** 实现 gRPC 服务 `internal/transport/grpc/event_fabric/publisher_server.go` 与 `subscriber_server.go`（使用 `api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto`），接入拦截器并更新 Proto 契约中的 RPC 定义。
 - [x] **T034 [P] [US3]** 编写 Admin REST Handler `internal/transport/http/admin/event_fabric/dlq_handler.go` 与 `/publish` 端点（调用 delivery 服务），同步扩充 OpenAPI 合同。
 - [x] **T035 [P] [US3]** 在 `internal/tests/grpc/event_fabric/delivery_contract_test.go` 覆盖 Publish/Ack/Nack/重试 流程；在 `internal/tests/http/admin/event_fabric/dlq_contract_test.go` 验证 DLQ 操作与审计。
 - [x] **T036 [US3]** 新增后台 worker（可挂载于 `internal/app/shared/workers/event_fabric_retry.go`）周期拉取 Redis 重试队列并调用 delivery 服务。

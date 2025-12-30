@@ -33,7 +33,7 @@ code_refs:
     path: reports/_state/knowledge-decay.json
     description: 巡检输出的指标快照，供 Dashboard 与审计读取
   - repo: powerx
-    path: configs/knowledge/decay_thresholds.yaml
+    path: backend/config/knowledge/decay_thresholds.yaml
     description: 领域阈值、告警级别与误判恢复策略
 feature_flags:
   - PX_KNOWLEDGE_DECAY_GUARD
@@ -110,14 +110,14 @@ sequenceDiagram
 
 - **Inbound APIs / Jobs**
   - `node scripts/qa/workflow-metrics.mjs --target knowledge-decay` — 定时任务，参数支持 `--tenant`, `--domains`, `--since`.
-  - `POST /knowledge/decay/tasks` — 请求体包含 `knowledge_id`, `tenant_id`, `decay_score`, `gap_reason`, `sla_hours`, `assignee`.
+- `POST /knowledge/decay/tasks` — 请求体包含 `knowledge_id`, `tenant_uuid`, `decay_score`, `gap_reason`, `sla_hours`, `assignee`。
   - `POST /knowledge/decay/restore` — 请求体包含 `task_id`, `action` (`restore`/`rollback`), `reason`, `approver`.
 - **Outbound 调用**
   - `POST /task-center/tasks` — 创建/更新任务卡片，写入 SLA、执行者、复核人。
   - `POST /notifications/send` — 通知业务专家、治理团队或触发告警频道。
   - `POST /audit/logs` — 记录巡检、任务、恢复操作（事件类型 `knowledge.decay.*`）。
 - **配置与脚本**
-  - `configs/knowledge/decay_thresholds.yaml` — 按领域设定引用/反馈/更新时间阈值与严重度映射。
+  - `backend/config/knowledge/decay_thresholds.yaml` — 按领域设定引用/反馈/更新时间阈值与严重度映射。
   - `gap_task_template.md` — 任务描述模板、字段说明。
   - `restore_playbook.md` — 误判恢复与回滚 SOP。
 
@@ -178,13 +178,13 @@ sequenceDiagram
 |-----------|------|----------|--------|-----|
 | `decay_thresholds.yaml` 尚未按领域细化 | 容易误报或漏报，影响准确率 | 结合历史指标自动推荐阈值，并引入版本号 + 审批流 | Reliability Squad | 2025-02-23 |
 | Gap Task 看板未与审批中心打通 | 任务无法自动通过审批，延长 SLA | 在 `task_service` 中补充审批钩子，失败自动升级到治理组 | Governance Squad | 2025-02-27 |
-| Dashboard 缺乏租户维度 | 难以定位高风险租户 | 扩展报表与 Grafana 维度，增加 `tenant_id` Filter | Observability Team | 2025-03-01 |
+| Dashboard 缺乏租户维度 | 难以定位高风险租户 | 扩展报表与 Grafana 维度，增加 `tenant_uuid` Filter | Observability Team | 2025-03-01 |
 
 # References & Links
 
 - 场景文档：`docs/scenarios/knowledge/SCN-KNOWLEDGE-UPDATE-001.md`
 - 子场景：`docs/scenarios/knowledge/SCN-KNOWLEDGE-UPDATE-DECAY-001.md`
-- 配置：`configs/knowledge/decay_thresholds.yaml`, `gap_task_template.md`, `restore_playbook.md`
+- 配置：`backend/config/knowledge/decay_thresholds.yaml`, `gap_task_template.md`, `restore_playbook.md`
 - 脚本：`scripts/qa/workflow-metrics.mjs`, `scripts/workflows/mock-knowledge-decay.mjs`（若新增）
 - Dashboard：Grafana《Knowledge Decay Monitor》
 - 发布指引：`npm run publish:usecases -- --scn-id SCN-KNOWLEDGE-UPDATE-001 --validate-only`

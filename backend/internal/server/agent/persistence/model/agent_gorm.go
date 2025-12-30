@@ -42,16 +42,16 @@ const (
 )
 
 // ---------- 1) Agent 主表 ----------
-// 说明：沿用 Env + TenantID 的作用域与索引策略；(Env, TenantID, Key) 在同一租户内唯一。
+// 说明：沿用 Env + TenantUUID 的作用域与索引策略；(Env, TenantUUID, Key) 在同一租户内唯一。
 type Agent struct {
 	coremodel.PowerModel
 
 	// 作用域
-	Env      string  `gorm:"size:32;index:agent_key_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:agent_key_uniq_tenant,unique,priority:1" json:"-"`
-	TenantID *uint64 `gorm:"index:agent_key_uniq_tenant,unique,priority:2" json:"-"` // null 表示 system 级
+	Env         string  `gorm:"size:32;index:agent_key_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:1" json:"-"`
+	TenantUUID  *string `gorm:"column:tenant_uuid;index:agent_key_uniq_tenant,unique,priority:2" json:"-"` // null 表示 system 级
 
 	// 逻辑键与可读信息
-	Key         string `gorm:"size:64;index:agent_key_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:agent_key_uniq_tenant,unique,priority:3" json:"key"`
+	Key         string `gorm:"size:64;index:agent_key_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:3" json:"key"`
 	Name        string `gorm:"size:128" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 
@@ -93,10 +93,10 @@ func (mdl *Agent) GetTableName(needFull bool) string {
 type AgentSetting struct {
 	coremodel.PowerModel
 
-	Env      string  `gorm:"size:32;index:agent_setting_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:agent_setting_uniq_tenant,unique,priority:1" json:"-"`
-	TenantID *uint64 `gorm:"index:agent_setting_uniq_tenant,unique,priority:2" json:"-"`
+	Env        string  `gorm:"size:32;index:agent_setting_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:agent_setting_uniq_tenant,unique,priority:1" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_setting_uniq_tenant,unique,priority:2" json:"-"`
 
-	AgentID uint64 `gorm:"index:agent_setting_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:agent_setting_uniq_tenant,unique,priority:3" json:"agentId"`
+	AgentID uint64 `gorm:"index:agent_setting_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:agent_setting_uniq_tenant,unique,priority:3" json:"agentId"`
 
 	Provider string            `gorm:"size:64"   json:"provider"`
 	Model    string            `gorm:"size:128"  json:"model"`
@@ -127,8 +127,8 @@ func (mdl *AgentSetting) GetTableName(needFull bool) string {
 type AgentKBBinding struct {
 	coremodel.PowerModel
 
-	Env      string  `gorm:"size:32;index" json:"-"`
-	TenantID *uint64 `gorm:"index" json:"-"`
+	Env        string  `gorm:"size:32;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index" json:"-"`
 
 	AgentID uint64 `gorm:"index:agent_kb_uniq,unique,priority:1" json:"agentId"`
 	KBID    uint64 `gorm:"index:agent_kb_uniq,unique,priority:2" json:"kbId"`
@@ -153,8 +153,8 @@ func (mdl *AgentKBBinding) GetTableName(needFull bool) string {
 type AgentPluginLink struct {
 	coremodel.PowerModel
 
-	Env      string  `gorm:"size:32;index:agent_plug_uniq,unique,priority:1" json:"-"`
-	TenantID *uint64 `gorm:"index:agent_plug_uniq,unique,priority:2" json:"-"`
+	Env        string  `gorm:"size:32;index:agent_plug_uniq,unique,priority:1" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_plug_uniq,unique,priority:2" json:"-"`
 
 	AgentID        uint64 `gorm:"index" json:"agentId"`
 	PluginID       string `gorm:"size:128;index:agent_plug_uniq,unique,priority:3" json:"pluginId"`

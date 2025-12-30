@@ -1,13 +1,7 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/authenticatedTest'
 
 test.describe('反馈闭环', () => {
   const spaceId = 'space-feedback'
-
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('token', 'test-token')
-    })
-  })
 
   test('提交反馈并查看列表', async ({ page }) => {
     let capturedPayload: any = null

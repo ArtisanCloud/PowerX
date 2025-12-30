@@ -23,8 +23,8 @@
 
 - ✅ **Article 0 CoreX Module**：事件骨干属于 CoreX，落地在 `internal/service/...` 与 `internal/transport/...`，不使用插件装载。  
 - ✅ **Article II Spec-Driven**：已完成 `spec.md` + Clarifications，本计划严格来源规格。  
-- ✅ **Article III Multi-Tenant**：Topic/Acl/DLQ 全部带 `tenant_id`，ACL 校验与审计覆盖所有调用。  
-- ✅ **Article V Observability**：计划纳入指标（投递成功率、重试次数、DLQ 积压）、trace_id/tenant_id 日志与 OTel。  
+- ✅ **Article III Multi-Tenant**：Topic/Acl/DLQ 全部带 `tenant_uuid`，ACL 校验与审计覆盖所有调用。  
+- ✅ **Article V Observability**：计划纳入指标（投递成功率、重试次数、DLQ 积压）、trace_id/tenant_uuid 日志与 OTel。  
 全部 GATE 条件满足，可进入 Phase 0/Phase 1。
 
 ## Project Structure

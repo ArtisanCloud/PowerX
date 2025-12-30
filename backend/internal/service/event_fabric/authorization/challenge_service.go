@@ -242,12 +242,12 @@ func (s *serviceImpl) ProcessExpiredChallenges(ctx context.Context, tenantID uui
 				"reason":    timeoutReason,
 			})
 			s.emitEvaluationAlert(ctx, EvaluateRequest{
-				TenantID:    refreshedGrant.TenantID,
+				TenantID:    uuid.Nil,
 				SubjectType: refreshedGrant.SubjectType,
 				SubjectID:   refreshedGrant.SubjectID,
 			}, &GrantSnapshot{
 				GrantID:     refreshedGrant.UUID,
-				TenantID:    refreshedGrant.TenantID,
+				TenantUUID:  tenantUUIDFromGrant(refreshedGrant),
 				SubjectType: refreshedGrant.SubjectType,
 				SubjectID:   refreshedGrant.SubjectID,
 				Status:      refreshedGrant.Status,

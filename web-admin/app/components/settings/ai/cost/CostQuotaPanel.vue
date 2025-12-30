@@ -6,7 +6,7 @@
           {{ t("settings.ai.costGuard.tenantLabel") }}
         </label>
         <USelectMenu
-          v-model="tenantId"
+          v-model="tenantUuid"
           :options="tenantOptions"
           :placeholder="t('settings.ai.costGuard.tenantPlaceholder')"
         />
@@ -161,7 +161,12 @@ const tenantOptions = computed(() => {
     return fromConfig
       .map((item: any) => {
         const value =
-          item?.value || item?.tenantId || item?.id || item?.slug || "";
+          item?.value ||
+          item?.tenant_uuid ||
+          item?.tenantUuid ||
+          item?.id ||
+          item?.slug ||
+          "";
         if (!value) {
           return null;
         }
@@ -184,7 +189,7 @@ const tenantOptions = computed(() => {
   ];
 });
 
-const tenantId = ref<string | null>(null);
+const tenantUuid = ref<string | null>(null);
 const selectedAction = reactive<Record<string, string>>({});
 const reasonInputs = reactive<Record<string, string>>({});
 const pendingAction = ref<string | null>(null);
@@ -198,35 +203,41 @@ const actionOptions = computed(() => [
   { label: t("settings.ai.costGuard.actions.disable"), value: "disable" },
 ]);
 
-const resolvedTenantId = computed(
-  () => tenantId.value || tenantOptions.value[0]?.value || ""
+const resolvedTenantUuid = computed(
+  () => tenantUuid.value || tenantOptions.value[0]?.value || ""
 );
 
 watchEffect(() => {
   const options = tenantOptions.value;
   if (!options.length) {
-    tenantId.value = null;
+    tenantUuid.value = null;
     return;
   }
-  if (!tenantId.value || !options.some((opt) => opt.value === tenantId.value)) {
-    tenantId.value = options[0].value;
+  if (
+    !tenantUuid.value ||
+    !options.some((opt) => opt.value === tenantUuid.value)
+  ) {
+    tenantUuid.value = options[0].value;
   }
 });
 
 const dashboardLink = computed(() =>
-  resolvedTenantId.value
+  resolvedTenantUuid.value
     ? localePath(
-        `/dashboards/tenants/${encodeURIComponent(resolvedTenantId.value)}`
+        `/dashboards/tenants/${encodeURIComponent(resolvedTenantUuid.value)}`
       )
     : null
 );
 
 const refresh = async () => {
-  if (!resolvedTenantId.value) {
+  if (!resolvedTenantUuid.value) {
     return;
   }
   try {
-    await quotaStore.fetchQuotas(envStore.currentEnv, resolvedTenantId.value);
+    await quotaStore.fetchQuotas(
+      envStore.currentEnv,
+      resolvedTenantUuid.value
+    );
   } catch (err: any) {
     toast.add({
       color: "red",
@@ -243,7 +254,7 @@ const applyAction = async (quota: (typeof quotas.value)[number]) => {
   try {
     await quotaStore.enforceAction({
       env: envStore.currentEnv,
-      tenantId: resolvedTenantId.value,
+      tenantUuid: resolvedTenantUuid.value,
       providerId: quota.providerId === "tenant" ? undefined : quota.providerId,
       action,
       reason: reasonInputs[quota.providerId],
@@ -324,7 +335,7 @@ const formatTime = (value?: string) => {
 };
 
 watch(
-  () => [envStore.currentEnv, resolvedTenantId.value],
+  () => [envStore.currentEnv, resolvedTenantUuid.value],
   ([, tenant]) => {
     if (tenant) {
       refresh();

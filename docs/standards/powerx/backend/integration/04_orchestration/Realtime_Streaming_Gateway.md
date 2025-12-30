@@ -94,7 +94,7 @@ Header 认证：
 
 ```
 Authorization: Bearer <jwt>
-X-Tenant-ID: t001
+X-Tenant-UUID: t001
 X-Actor-ID: u102
 ```
 
@@ -108,7 +108,7 @@ X-Actor-ID: u102
 | **Workflow**      | `wf:<flow_id>`         | 编排任务进度与状态  |
 | **Plugin Event**  | `plugin:<id>:event`    | 插件定义事件     |
 | **System**        | `sys:notice`           | 系统广播       |
-| **Tenant Custom** | `tenant:<tid>:<topic>` | 租户自定义通道    |
+| **Tenant Custom** | `tenant:<tenant_uuid>:<topic>` | 租户自定义通道    |
 
 > Topic ACL 与 JWT scope 精确绑定。
 
@@ -125,7 +125,7 @@ X-Actor-ID: u102
   "topic": "agent:run_556",
   "data": { "text": "处理中...", "step": "summarize" },
   "trace_id": "trc_ef2b",
-  "tenant_id": "t001",
+  "tenant_uuid": "t001",
   "timestamp": "2025-10-12T10:21:00Z"
 }
 ```
@@ -196,9 +196,9 @@ Realtime Gateway 是**聚合出口层**，不关心来源，只做统一封装�
 
 | 层级       | 策略                                   |
 | -------- | ------------------------------------ |
-| **认证**   | JWT 验证（tenant_id, actor_id, scopes）。 |
+| **认证**   | JWT 验证（tenant_uuid, actor_id, scopes）。 |
 | **授权**   | Topic ACL（scope-topic 映射）。           |
-| **租户隔离** | 每租户独立命名空间 `tenant:<tid>:`。           |
+| **租户隔离** | 每租户独立命名空间 `tenant:<tenant_uuid>:`。           |
 | **限流**   | 每用户最大连接数 & 每 topic 每秒事件速率。           |
 | **加密**   | TLS + WSS 强制。                        |
 | **签名校验** | 可选：系统级事件签名验证。                        |

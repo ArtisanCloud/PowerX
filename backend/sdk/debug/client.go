@@ -39,7 +39,7 @@ func NewClient(baseURL string, opts Options) *Client {
 
 // CreateReportRequest mirrors admin API payload.
 type CreateReportRequest struct {
-	TenantID    uint64            `json:"tenantId"`
+	TenantUUID  string            `json:"tenant_uuid"`
 	PluginID    string            `json:"pluginId"`
 	TraceID     string            `json:"traceId"`
 	Notes       string            `json:"notes"`

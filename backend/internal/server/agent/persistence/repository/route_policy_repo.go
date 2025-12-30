@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -23,15 +22,12 @@ func NewAIRoutePolicyRepository(db *gorm.DB) *AIRoutePolicyRepository {
 }
 
 func (r *AIRoutePolicyRepository) UpsertDefaultByScopeModality(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	modality, provider, model string,
 ) error {
 	rec := &dbmodel.AIRoutePolicy{
-		ScopeRef: coremodel.ScopeRef{
-			Env:      env,
-			TenantID: tenantID,
-		},
-
+		Env:      env,
+		TenantUUID: tenantUUID,
 		Modality: modality,
 		Provider: provider,
 		Model:    model,
@@ -40,12 +36,12 @@ func (r *AIRoutePolicyRepository) UpsertDefaultByScopeModality(
 	return r.UpsertByScopeSelectors(ctx, rec)
 }
 
-// Upsert 唯一键：env + tenant_id + modality + agent_id(NULL 可选) + flow_id(NULL 可选) + purpose(NULL 可选)
+// Upsert 唯一键：env + tenant_uuid + modality + agent_id(NULL 可选) + flow_id(NULL 可选) + purpose(NULL 可选)
 func (r *AIRoutePolicyRepository) UpsertByScopeSelectors(ctx context.Context, in *dbmodel.AIRoutePolicy) error {
 	tx := r.db.WithContext(ctx)
 
 	var old dbmodel.AIRoutePolicy
-	q := tx.Scopes(dbmodel.WithScope(in.Env, in.TenantID)).
+	q := tx.Scopes(dbmodel.WithScope(in.Env, in.TenantUUID)).
 		Where("modality = ?", in.Modality)
 
 	if in.AgentID != nil {
@@ -77,15 +73,15 @@ func (r *AIRoutePolicyRepository) UpsertByScopeSelectors(ctx context.Context, in
 }
 
 func (r *AIRoutePolicyRepository) FindDefaultByScopeModality(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	modality string,
 ) (*dbmodel.AIRoutePolicy, error) {
-	return r.FindByScopeSelectors(ctx, env, tenantID, modality, nil, nil, nil)
+	return r.FindByScopeSelectors(ctx, env, tenantUUID, modality, nil, nil, nil)
 }
 
 func (r *AIRoutePolicyRepository) FindByScopeSelectors(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	modality string,
 	agentID, flowID, purpose *string,
 ) (*dbmodel.AIRoutePolicy, error) {
@@ -93,7 +89,7 @@ func (r *AIRoutePolicyRepository) FindByScopeSelectors(
 	tx := r.db.WithContext(ctx)
 	var out dbmodel.AIRoutePolicy
 
-	q := tx.Scopes(dbmodel.WithScope(env, tenantID)).Where("modality = ?", modality)
+	q := tx.Scopes(dbmodel.WithScope(env, tenantUUID)).Where("modality = ?", modality)
 	if agentID != nil {
 		q = q.Where("agent_id = ?", *agentID)
 	} else {
@@ -116,10 +112,10 @@ func (r *AIRoutePolicyRepository) FindByScopeSelectors(
 	return &out, nil
 }
 
-func (r *AIRoutePolicyRepository) ListByModality(ctx context.Context, env string, tenantID *uint64, modality string) ([]dbmodel.AIRoutePolicy, error) {
+func (r *AIRoutePolicyRepository) ListByModality(ctx context.Context, env string, tenantUUID *string, modality string) ([]dbmodel.AIRoutePolicy, error) {
 	var list []dbmodel.AIRoutePolicy
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("modality = ?", modality).
 		Order("agent_id NULLS FIRST, flow_id NULLS FIRST, purpose NULLS FIRST, id ASC").
 		Find(&list).Error
@@ -133,14 +129,14 @@ func (r *AIRoutePolicyRepository) DeleteByID(ctx context.Context, id uint64) err
 // Resolve：按优先级挑选策略（精确>flow+purpose>agent+purpose>flow>agent>purpose>全 NULL）
 func (r *AIRoutePolicyRepository) Resolve(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	modality string,
 	agentID, flowID, purpose *string,
 ) (*dbmodel.AIRoutePolicy, error) {
 
 	tx := r.db.WithContext(ctx)
 	var out dbmodel.AIRoutePolicy
-	base := tx.Scopes(dbmodel.WithScope(env, tenantID)).Model(&dbmodel.AIRoutePolicy{}).Where("modality = ?", modality)
+	base := tx.Scopes(dbmodel.WithScope(env, tenantUUID)).Model(&dbmodel.AIRoutePolicy{}).Where("modality = ?", modality)
 
 	// 1) agent+flow+purpose
 	if agentID != nil && flowID != nil && purpose != nil {

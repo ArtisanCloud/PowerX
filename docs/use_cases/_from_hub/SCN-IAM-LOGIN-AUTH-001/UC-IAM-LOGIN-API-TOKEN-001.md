@@ -111,7 +111,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound API / Event**
-  - `POST /internal/auth/clients` — 创建客户端，校验 `tenant_id`、作用域、IP 白名单、有效期，失败返回 `INVALID_SCOPE`、`DUPLICATE_NAME`、`TENANT_FROZEN` 等错误码。
+  - `POST /internal/auth/clients` — 创建客户端，校验 `tenant_uuid`、作用域、IP 白名单、有效期，失败返回 `INVALID_SCOPE`、`DUPLICATE_NAME`、`TENANT_FROZEN` 等错误码。
   - `POST /oauth/token` — Client Credentials 交换接口，支持 HTTP Basic 或 body 凭据，默认 TTL 60 分钟，可选 Refresh Token；超时 3 秒，失败重试 1 次。
   - `DELETE /internal/auth/clients/{id}` — 吊销客户端，写入审计并广播缓存失效事件。
   - `POST /internal/auth/clients/{id}/rotate` — Secret 轮换，返回新旧 Secret，旧 Secret 在 `grace_period` 内有效。
@@ -144,7 +144,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`auth.token.issued_total`, `auth.token.revoked_total`, `gateway.api.success_total`, `gateway.api.forbidden_total`, `gateway.api.rate_limit_reject_total`, `security.token.anomaly_total`。
-- **日志**：记录 `client_id`, `tenant_id`, `scope`, `ip`, `user_agent`, `error_code`, `trace_id`；敏感字段脱敏或加密；分类写入业务日志与审计流。
+- **日志**：记录 `client_id`, `tenant_uuid`, `scope`, `ip`, `user_agent`, `error_code`, `trace_id`；敏感字段脱敏或加密；分类写入业务日志与审计流。
 - **告警**：越权请求 ≥10 次/5 分钟触发 PagerDuty；轮换任务失败或缓存刷新超时触发 Slack `#iam-alerts`；Token 续签失败率 >5% 创建工单。
 - **仪表板**：Grafana `API Gateway / Auth`、Datadog `gateway.auth*`、`reports/iam/auth-security-dashboard`。
 

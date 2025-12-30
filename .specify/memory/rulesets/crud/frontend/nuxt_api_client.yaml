@@ -11,6 +11,7 @@ client:
     defaults:
       apiBase: "/_p/<plugin-id>/api/v1"
       powerxProxy: 1
+  # 约定：前端服务统一放置在 web-admin/app/composables/api/services 下
   files:
     - target: web-admin/plugins/api.ts
       template: builtin/nuxt_api_plugin_fetch

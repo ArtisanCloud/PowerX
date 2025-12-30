@@ -24,3 +24,23 @@ func DefaultPluginConfig() PluginConfig {
 		WriteTimeoutSec: 15,
 	}
 }
+
+// PluginAggregateConfig 聚合所有插件相关模块配置，作为单一入口暴露。
+type PluginAggregateConfig struct {
+	PluginConfig `yaml:",inline"`
+	Release      PluginReleaseConfig   `yaml:"release"`
+	DevHotload   DevHotloadConfig      `yaml:"dev_hotload"`
+	Bootstrap    PluginBootstrapConfig `yaml:"bootstrap"`
+	Debug        PluginDebugConfig     `yaml:"debug"`
+}
+
+// DefaultPluginAggregateConfig 返回聚合后的默认配置。
+func DefaultPluginAggregateConfig() PluginAggregateConfig {
+	return PluginAggregateConfig{
+		PluginConfig: DefaultPluginConfig(),
+		Release:      DefaultPluginReleaseConfig(),
+		DevHotload:   DefaultDevHotloadConfig(),
+		Bootstrap:    DefaultPluginBootstrapConfig(),
+		Debug:        DefaultPluginDebugConfig(),
+	}
+}

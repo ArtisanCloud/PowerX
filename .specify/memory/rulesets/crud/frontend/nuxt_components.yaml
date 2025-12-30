@@ -13,4 +13,70 @@ components:
           - { key: "description", label: "Description", type: "textarea" }
           - { key: "content", label: "Content", type: "textarea" }
 
+nuxt_ui:
+  colors: [primary, secondary, success, info, warning, error, neutral]  # palette reference
+  select:
+    syntax: '<USelect v-model="value" :items="items" class="w-48" />'
+    notes:
+      - Use `items` (not `options`) to pass choices.
+      - Add width classes (e.g., `w-full`) when needed.
+  select_menu:
+    syntax: |
+      <USelectMenu
+        v-model="value"
+        :items="items"
+        value-key="value"
+        label-key="label"
+        :portal="false"
+        class="w-full"
+      />
+    notes:
+      - "USelectMenu 支持搜索、多选，列表项仍然用 items 数组；可用于头像/自定义插槽场景。"
+      - "在 UModal、抽屉等容器里必须设置 :portal=\"false\"（或传入 portal={ to: '#id' } 指向弹层外 DOM 节点），防止内容被 Teleport 到 aria-hidden 的祖先之外触发 `descendant retained focus` 告警。"
+      - "如需默认选项结构，可使用 Nuxt UI 示例：const items = ref([{ label: 'xxx', value: 'xxx', avatar: { src: '...' } }]) 并传给 <USelectMenu v-model='value' :avatar='value?.avatar' :items='items' />。"
+  modal:
+    preferUModal: true
+    paddingClass: "p-4 sm:p-5"
+    width: "max-w-3xl w-full"
+    close:
+      useCloseProp: true
+      preventClose: true
+    slots:
+      body: Place form fields in `#body` slot to ensure they render.
+      footer: Place action buttons in `#footer`.
+      contentSlot: content
+    accessibility:
+      - Blur active element before closing to avoid aria-hidden focus warnings.
+      - Provide `title` and `description` for dialog accessibility.
+  form:
+    useFormComponent: true
+    schemaLibrary: valibot
+    submitEvent: FormSubmitEvent
+    layout:
+      spacingClass: space-y-4
+      containerClass: "p-4 sm:p-5"
+      buttonsAlign: end
+    fields:
+      wrapWithFormField: true
+      labelI18nKey: recommended
+      inputs:
+        useModelValue: true
+        textareaRowsDefault: 3
+    buttons:
+      cancel:
+        color: neutral
+        variant: subtle
+        type: button
+      submit:
+        color: primary
+        type: submit
+    dropdown_menu:
+      items:
+        handlerProp: onSelect
+        notes:
+          - "子项点击使用 `onSelect` 回调（Nuxt UI 3 语义），而不是自定义 click。例：`[{ label: '删除', icon: 'i-heroicons-trash', onSelect() { ... } }]`。"
+    errorHandling:
+      schemaValidation: true
+      toastOnError: optional
+
 gates.require: [PG-FE-UI-001]

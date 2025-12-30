@@ -43,7 +43,7 @@ type Options struct {
 
 // SubmitCandidateInput captures metadata submitted by CLI/API.
 type SubmitCandidateInput struct {
-	TenantID        string
+	TenantUUID      string
 	PluginID        string
 	Version         string
 	BuildArtifact   string
@@ -51,7 +51,17 @@ type SubmitCandidateInput struct {
 	ReleaseNotes    string
 	Labels          map[string]string
 	Actor           string
+	ActorToken      string
 	ApprovalContext string
+}
+
+// UpdateCandidateInput enumerates mutable fields on an existing candidate.
+type UpdateCandidateInput struct {
+	CandidateID   uuid.UUID
+	BuildArtifact string
+	ReleaseNotes  string
+	Labels        map[string]string
+	Actor         string
 }
 
 // RunQualityGatesInput describes a gate evaluation request.
@@ -59,6 +69,26 @@ type RunQualityGatesInput struct {
 	CandidateID uuid.UUID
 	Actor       string
 	ForceRescan bool
+}
+
+// ListCandidatesInput filters release candidates for admin views.
+type ListCandidatesInput struct {
+	Page           int
+	Size           int
+	TenantUUID     string
+	PluginID       string
+	VersionPrefix  string
+	ApprovalStatus string
+	GateStatus     string
+	CreatedBy      string
+}
+
+// CandidateSummary enriches a candidate with rollout/distribution metadata.
+type CandidateSummary struct {
+	Candidate            *models.PluginReleaseCandidate
+	PlanStatus           string
+	OfflinePackageStatus string
+	OfflinePackageCount  int64
 }
 
 // GeneratePlanInput contains desired production rollout configuration.
@@ -123,7 +153,7 @@ func (s *Service) SubmitCandidate(ctx context.Context, input SubmitCandidateInpu
 	}
 	now := s.clock()
 	candidate := &models.PluginReleaseCandidate{
-		TenantID:         input.TenantID,
+		TenantUUID:       input.TenantUUID,
 		PluginID:         input.PluginID,
 		Version:          input.Version,
 		BuildArtifactURI: input.BuildArtifact,
@@ -134,6 +164,7 @@ func (s *Service) SubmitCandidate(ctx context.Context, input SubmitCandidateInpu
 		SubmittedAt:      &now,
 		CreatedBy:        input.Actor,
 		UpdatedBy:        input.Actor,
+		ActorToken:       strings.TrimSpace(input.ActorToken),
 	}
 	labelsJSON, err := encodeJSON(input.Labels)
 	if err != nil {
@@ -310,18 +341,103 @@ func (s *Service) GetCandidate(ctx context.Context, candidateID uuid.UUID) (*mod
 	return s.candidates.GetByUUID(ctx, candidateID)
 }
 
+// ListCandidates returns paginated candidates with rollout/distribution summary.
+func (s *Service) ListCandidates(ctx context.Context, input ListCandidatesInput) ([]CandidateSummary, int64, error) {
+	filter := repo.ReleaseCandidateListFilter{
+		Page:           input.Page,
+		Size:           input.Size,
+		TenantUUID:     input.TenantUUID,
+		PluginID:       input.PluginID,
+		VersionPrefix:  input.VersionPrefix,
+		ApprovalStatus: input.ApprovalStatus,
+		GateStatus:     input.GateStatus,
+		CreatedBy:      input.CreatedBy,
+	}
+	raw, total, err := s.candidates.List(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]CandidateSummary, 0, len(raw))
+	for _, item := range raw {
+		itemCopy := item
+		out = append(out, CandidateSummary{
+			Candidate:            &itemCopy.PluginReleaseCandidate,
+			PlanStatus:           itemCopy.PlanStatus,
+			OfflinePackageStatus: itemCopy.OfflinePackageStatus,
+			OfflinePackageCount:  itemCopy.OfflinePackageCount,
+		})
+	}
+	return out, total, nil
+}
+
+// UpdateCandidate mutates the supplied candidate fields and returns the updated row.
+func (s *Service) UpdateCandidate(ctx context.Context, input UpdateCandidateInput) (*models.PluginReleaseCandidate, error) {
+	if input.CandidateID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	candidate, err := s.candidates.GetByUUID(ctx, input.CandidateID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCandidateNotFound
+		}
+		return nil, err
+	}
+	if candidate == nil {
+		return nil, ErrCandidateNotFound
+	}
+	fields := map[string]interface{}{}
+	if strings.TrimSpace(input.BuildArtifact) != "" {
+		fields["build_artifact_uri"] = strings.TrimSpace(input.BuildArtifact)
+	}
+	if strings.TrimSpace(input.ReleaseNotes) != "" {
+		fields["release_notes"] = strings.TrimSpace(input.ReleaseNotes)
+	}
+	if len(input.Labels) > 0 {
+		if data, err := encodeJSON(input.Labels); err == nil {
+			fields["labels"] = data
+		} else {
+			return nil, err
+		}
+	}
+	if len(fields) == 0 {
+		return candidate, nil
+	}
+	now := s.clock()
+	fields["updated_at"] = now
+	if strings.TrimSpace(input.Actor) != "" {
+		fields["updated_by"] = strings.TrimSpace(input.Actor)
+	}
+	if err := s.candidates.UpdateFieldsByUUID(ctx, input.CandidateID, fields); err != nil {
+		return nil, err
+	}
+	updated, err := s.candidates.GetByUUID(ctx, input.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
+}
+
 func validateCandidateInput(input SubmitCandidateInput) error {
 	switch {
-	case strings.TrimSpace(input.TenantID) == "",
+	case strings.TrimSpace(input.TenantUUID) == "",
 		strings.TrimSpace(input.PluginID) == "",
 		strings.TrimSpace(input.Version) == "",
-		strings.TrimSpace(input.BuildArtifact) == "",
-		strings.TrimSpace(input.CommitHash) == "",
-		strings.TrimSpace(input.ReleaseNotes) == "":
+		strings.TrimSpace(input.BuildArtifact) == "":
 		return ErrInvalidInput
 	default:
 		return nil
 	}
+}
+
+// DeleteCandidate removes a candidate by UUID (soft delete).
+func (s *Service) DeleteCandidate(ctx context.Context, candidateID uuid.UUID, actor string) error {
+	if candidateID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	if err := s.candidates.DeleteByUUID(ctx, candidateID, actor); err != nil {
+		return err
+	}
+	return nil
 }
 
 func encodeJSON(value interface{}) (datatypes.JSON, error) {

@@ -2,7 +2,6 @@ package agentlifecycle
 
 import (
 	"errors"
-	"fmt"
 	nethttp "net/http"
 	"strconv"
 
@@ -32,6 +31,10 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 
 	var req registerAgentRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -39,7 +42,7 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.Register(c.Request.Context(), toRegisterInput(req))
+	result, err := h.service.Register(c.Request.Context(), toRegisterInput(req, tenantUUID))
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -53,12 +56,16 @@ func (h *Handler) AutoRegisterManifest(c *gin.Context) {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req autoRegisterManifestRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	result, err := h.service.RegisterManifest(c.Request.Context(), toManifestInput(req))
+	result, err := h.service.RegisterManifest(c.Request.Context(), toManifestInput(req, tenantUUID))
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -93,14 +100,12 @@ func (h *Handler) ListAgents(c *gin.Context) {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-
-	tenantID := c.Query("tenant_id")
-	if tenantID == "" {
-		dto.ResponseValidationError(c, fmt.Errorf("tenant_id is required"))
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 
-	agents, err := h.service.ListByTenant(c.Request.Context(), tenantID)
+	agents, err := h.service.ListByTenant(c.Request.Context(), tenantUUID)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -119,6 +124,10 @@ func (h *Handler) ActivateAgent(c *gin.Context) {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 
 	agentID, err := uuid.Parse(c.Param("agent_id"))
 	if err != nil {
@@ -134,7 +143,7 @@ func (h *Handler) ActivateAgent(c *gin.Context) {
 
 	result, err := h.service.Activate(c.Request.Context(), agent_lifecycle.ActivateInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
 		TraceID:     req.TraceID,
@@ -149,6 +158,10 @@ func (h *Handler) ActivateAgent(c *gin.Context) {
 func (h *Handler) PauseAgent(c *gin.Context) {
 	if h.service == nil {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 
@@ -166,7 +179,7 @@ func (h *Handler) PauseAgent(c *gin.Context) {
 
 	result, err := h.service.Pause(c.Request.Context(), agent_lifecycle.PauseInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
 		TraceID:     req.TraceID,
@@ -181,6 +194,10 @@ func (h *Handler) PauseAgent(c *gin.Context) {
 func (h *Handler) ResumeAgent(c *gin.Context) {
 	if h.service == nil {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 
@@ -198,7 +215,7 @@ func (h *Handler) ResumeAgent(c *gin.Context) {
 
 	result, err := h.service.Resume(c.Request.Context(), agent_lifecycle.ResumeInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
 		TraceID:     req.TraceID,
@@ -213,6 +230,10 @@ func (h *Handler) ResumeAgent(c *gin.Context) {
 func (h *Handler) RetireAgent(c *gin.Context) {
 	if h.service == nil {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 
@@ -230,7 +251,7 @@ func (h *Handler) RetireAgent(c *gin.Context) {
 
 	result, err := h.service.Retire(c.Request.Context(), agent_lifecycle.RetireInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
 		TraceID:     req.TraceID,
@@ -245,6 +266,10 @@ func (h *Handler) RetireAgent(c *gin.Context) {
 func (h *Handler) ScaleAgent(c *gin.Context) {
 	if h.service == nil {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 
@@ -262,7 +287,7 @@ func (h *Handler) ScaleAgent(c *gin.Context) {
 
 	result, err := h.service.Scale(c.Request.Context(), agent_lifecycle.ScaleInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Target:      req.TargetCapacityInstances,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
@@ -324,6 +349,10 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	agentID, err := uuid.Parse(c.Param("agent_id"))
 	if err != nil {
 		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
@@ -334,7 +363,7 @@ func (h *Handler) UpdateSubscription(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	result, err := h.service.UpdateSubscription(c.Request.Context(), toSubscriptionInput(agentID, req))
+	result, err := h.service.UpdateSubscription(c.Request.Context(), toSubscriptionInput(agentID, tenantUUID, req))
 	if err != nil {
 		h.handleError(c, err)
 		return

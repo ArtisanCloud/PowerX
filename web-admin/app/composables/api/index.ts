@@ -11,6 +11,7 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
+import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 
 /** =========================
  * API 客户端配置
@@ -51,6 +52,27 @@ let globalConfig: ApiClientConfig = {
             config.headers = {
               ...config.headers,
               Authorization: `${tokenType} ${token}`,
+            };
+          }
+        }
+        return config;
+      },
+    },
+    // --- 注入租户 UUID 头 ---
+    {
+      onRequest: async (config) => {
+        if (!config.headers) {
+          config.headers = {};
+        }
+        const hasTenantHeader =
+          config.headers["X-Tenant-UUID"] ||
+          (config.headers as Record<string, string>)["x-tenant-uuid"];
+        if (!hasTenantHeader) {
+          const tenantUUID = resolveTenantUUIDForRequest();
+          if (tenantUUID) {
+            config.headers = {
+              ...config.headers,
+              "X-Tenant-UUID": tenantUUID,
             };
           }
         }
@@ -212,6 +234,9 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
         result = e;
       }
     }
+  }
+  if (!result || !result.response) {
+    throw new Error("网络错误，请检查网络连接");
   }
   throw result;
 };
@@ -380,6 +405,18 @@ export const useApiClient = () => {
     return request<T>("POST", url, formData, uploadConfig as any);
   };
 
+  // 统一解包 data（适配后端 SuccessResponse/ResponseList）
+  const unwrap = <T = any>(resp: any): T =>
+    resp && typeof resp === "object" && "data" in resp ? (resp as any).data : resp;
+
+  // 专用于列表：返回 { items, pagination }
+  const unwrapList = <T = any>(resp: any): { items: T[]; pagination?: any } => {
+    const unwrapped: any = unwrap(resp) || {};
+    const items = Array.isArray(unwrapped.items) ? (unwrapped.items as T[]) : [];
+    const pagination = unwrapped.pagination || {};
+    return { items, pagination };
+  };
+
   return {
     request,
     get,
@@ -388,5 +425,7 @@ export const useApiClient = () => {
     delete: del,
     patch,
     upload,
+    unwrap,
+    unwrapList,
   };
 };

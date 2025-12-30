@@ -118,7 +118,12 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
 	setNestedValue(structured, []string{"runtime", "run_migrate"}, true)
 
-	// 插件 API 网关安全配置：默认使用宿主 JWT 模式
+	if seed != nil {
+		selected = mergeStringMapMissing(selected, seed.Values)
+		structured = mergeHostSpecMissing(structured, seed.Spec)
+	}
+
+	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
 	if cfg := m.opts.CoreConfig; cfg != nil {
 		jwtSecret := strings.TrimSpace(cfg.Auth.JWTSecret)
 		issuer := strings.TrimSpace(cfg.Auth.Issuer)
@@ -150,11 +155,6 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			selected["POWERX_CTX_AUDIENCE"] = audience
 			selected["POWERX_CTX_TTL"] = ttl
 		}
-	}
-
-	if seed != nil {
-		selected = mergeStringMapMissing(selected, seed.Values)
-		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
 
 	// 兼容：保留 env 字段供宿主下次启动恢复所需的环境变量
@@ -346,7 +346,7 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 			env["POWERX_REDIS_PASSWORD"] = cacheCfg.Password
 		}
 
-		bus := cfg.EventBus
+		bus := cfg.Event.Bus
 		if bus.Type != "" {
 			env["POWERX_EVENT_BUS_TYPE"] = bus.Type
 		}

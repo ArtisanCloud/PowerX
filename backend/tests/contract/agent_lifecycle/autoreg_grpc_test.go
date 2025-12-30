@@ -51,7 +51,7 @@ func TestAutoRegisterManifestGRPC(t *testing.T) {
 		PluginId:                 "plugins.demo.analytics",
 		PluginVersion:            "1.0.0",
 		ManifestVersion:          "2025-03-01",
-		TenantId:                 "tenant-grpc",
+		TenantUuid:                 "tenant-grpc",
 		Alias:                    "grpc-agent",
 		TelemetryContractVersion: "otel-agent-v1",
 		ToolGrants: []*agentv1.ToolGrant{
@@ -78,7 +78,7 @@ func TestAutoRegisterManifestGRPC(t *testing.T) {
 		PluginId:                 "plugins.demo.analytics",
 		PluginVersion:            "1.0.0",
 		ManifestVersion:          "2025-03-01",
-		TenantId:                 "tenant-grpc",
+		TenantUuid:                 "tenant-grpc",
 		Alias:                    "grpc-agent-2",
 		TelemetryContractVersion: "otel-agent-v1",
 		Signature:                "invalid",

@@ -463,6 +463,7 @@ func (s *Service) emitAudit(ctx context.Context, op string, policy *model.Routin
 	meta["version"] = policy.Version
 	payload, _ := json.Marshal(meta)
 	_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
+		TenantUUID:   strings.TrimSpace(policy.TenantScope),
 		Source:       "model_routing.service",
 		Operation:    op,
 		ResourceType: "agent.routing_policy",

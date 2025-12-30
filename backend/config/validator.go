@@ -44,81 +44,98 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Event Bus ---
-	if c.EventBus.Type != "local" && c.EventBus.Type != "redis" {
+	if c.Event.Bus.Type != "local" && c.Event.Bus.Type != "redis" {
 		errors = append(errors, "event_bus.type 必须是 'local' 或 'redis'")
 	}
-	if c.EventBus.Type == "redis" && strings.TrimSpace(c.EventBus.RedisAddr) == "" {
+	if c.Event.Bus.Type == "redis" && strings.TrimSpace(c.Event.Bus.RedisAddr) == "" {
 		errors = append(errors, "使用 redis 事件总线时，event_bus.redis_addr 不能为空")
 	}
 
 	// --- Event Fabric ---
-	if c.EventFabric.AckTimeoutSeconds <= 0 {
+	if c.Event.Fabric.AckTimeoutSeconds <= 0 {
 		errors = append(errors, "event_fabric.ack_timeout_seconds 必须大于0")
 	}
-	if c.EventFabric.DefaultMaxRetry <= 0 {
+	if c.Event.Fabric.DefaultMaxRetry <= 0 {
 		errors = append(errors, "event_fabric.default_max_retry 必须大于0")
 	}
-	if strings.TrimSpace(c.EventFabric.RetryKeyPrefix) == "" {
+	if strings.TrimSpace(c.Event.Fabric.RetryKeyPrefix) == "" {
 		errors = append(errors, "event_fabric.retry_key_prefix 不能为空")
 	}
-	if strings.TrimSpace(c.EventFabric.ReplayKeyPrefix) == "" {
+	if strings.TrimSpace(c.Event.Fabric.ReplayKeyPrefix) == "" {
 		errors = append(errors, "event_fabric.replay_key_prefix 不能为空")
 	}
-	if c.EventFabric.SchedulerInterval <= 0 {
+	if c.Event.Fabric.SchedulerInterval <= 0 {
 		errors = append(errors, "event_fabric.scheduler_interval 必须大于0")
 	}
-	if strings.TrimSpace(c.EventFabric.RedisAddr) == "" {
+	if strings.TrimSpace(c.Event.Fabric.RedisAddr) == "" {
 		errors = append(errors, "event_fabric.redis_addr 不能为空")
 	}
-	if strings.TrimSpace(c.EventFabric.Security.SignatureSecret) != "" {
-		if strings.TrimSpace(c.EventFabric.Security.SignatureHeader) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Security.SignatureSecret) != "" {
+		if strings.TrimSpace(c.Event.Fabric.Security.SignatureHeader) == "" {
 			errors = append(errors, "event_fabric.security.signature_header 不能为空")
 		}
-		if strings.TrimSpace(c.EventFabric.Security.TimestampHeader) == "" {
+		if strings.TrimSpace(c.Event.Fabric.Security.TimestampHeader) == "" {
 			errors = append(errors, "event_fabric.security.timestamp_header 不能为空")
 		}
-		if c.EventFabric.Security.AllowedClockSkewSeconds <= 0 {
+		if c.Event.Fabric.Security.AllowedClockSkewSeconds <= 0 {
 			errors = append(errors, "event_fabric.security.allowed_clock_skew_seconds 必须大于0")
 		}
 	}
-	if c.EventFabric.Authorization.CacheTTLSeconds <= 0 {
+	if c.Event.Fabric.Authorization.CacheTTLSeconds <= 0 {
 		errors = append(errors, "event_fabric.authorization.cache_ttl_seconds 必须大于0")
 	}
-	if c.EventFabric.Authorization.LocalCacheTTLSeconds <= 0 {
+	if c.Event.Fabric.Authorization.LocalCacheTTLSeconds <= 0 {
 		errors = append(errors, "event_fabric.authorization.local_cache_ttl_seconds 必须大于0")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.RedisAddr) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.RedisAddr) == "" {
 		errors = append(errors, "event_fabric.authorization.redis_addr 不能为空")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.CacheInvalidateChannel) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.CacheInvalidateChannel) == "" {
 		errors = append(errors, "event_fabric.authorization.cache_invalidate_channel 不能为空")
 	}
-	if c.EventFabric.Authorization.ChallengeSLASeconds <= 0 {
+	if c.Event.Fabric.Authorization.ChallengeSLASeconds <= 0 {
 		errors = append(errors, "event_fabric.authorization.challenge_sla_seconds 必须大于0")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.ChallengeTopic) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeTopic) == "" {
 		errors = append(errors, "event_fabric.authorization.challenge_topic 不能为空")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.ChallengeConsumerGroup) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeConsumerGroup) == "" {
 		errors = append(errors, "event_fabric.authorization.challenge_consumer_group 不能为空")
 	}
-	if c.EventFabric.Authorization.TimeoutSweepIntervalSeconds <= 0 {
+	if c.Event.Fabric.Authorization.TimeoutSweepIntervalSeconds <= 0 {
 		errors = append(errors, "event_fabric.authorization.timeout_sweep_interval_seconds 必须大于0")
 	}
-	if c.EventFabric.Authorization.AuditRetentionDays <= 0 {
+	if c.Event.Fabric.Authorization.AuditRetentionDays <= 0 {
 		errors = append(errors, "event_fabric.authorization.audit_retention_days 必须大于0")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.AuditArchiveBucket) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchiveBucket) == "" {
 		errors = append(errors, "event_fabric.authorization.audit_archive_bucket 不能为空")
 	}
-	if strings.TrimSpace(c.EventFabric.Authorization.AuditArchivePrefix) == "" {
+	if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchivePrefix) == "" {
 		errors = append(errors, "event_fabric.authorization.audit_archive_prefix 不能为空")
 	}
-	if c.EventFabric.Authorization.Secrets.CacheTTLSeconds < 0 {
+	if c.Event.Fabric.Authorization.Secrets.CacheTTLSeconds < 0 {
 		errors = append(errors, "event_fabric.authorization.secrets.cache_ttl_seconds 不能为负数")
 	}
-	if c.EventFabric.Authorization.Secrets.RotationIntervalSeconds < 0 {
+	if c.Event.Fabric.Authorization.Secrets.RotationIntervalSeconds < 0 {
 		errors = append(errors, "event_fabric.authorization.secrets.rotation_interval_seconds 不能为负数")
+	}
+
+	// --- Capability Registry ---
+	if strings.TrimSpace(c.CapabilityRegistry.RedisPrefix) == "" {
+		errors = append(errors, "capability_registry.redis_prefix 不能为空")
+	}
+	if strings.TrimSpace(c.CapabilityRegistry.EventTopicPrefix) == "" {
+		errors = append(errors, "capability_registry.event_topic_prefix 不能为空")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.Limit == 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.limit 必须大于0")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.Burst == 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.burst 必须大于0")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.WindowSeconds <= 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.window_seconds 必须大于0")
 	}
 
 	// --- LowCode ---
@@ -169,11 +186,6 @@ func (c *Config) Validate() error {
 			errors = append(errors, "storage.local.base_path 不能为空")
 		}
 	}
-	if c.Storage.Local.EnableUploadEndpoint {
-		if strings.TrimSpace(c.Storage.Local.UploadTokenSecret) == "" {
-			errors = append(errors, "storage.local.upload_token_secret 不能为空（启用 enable_upload_endpoint 时）")
-		}
-	}
 	if strings.EqualFold(c.Storage.DefaultDriver, "s3") {
 		if strings.TrimSpace(c.Storage.S3.Endpoint) == "" {
 			errors = append(errors, "storage.s3.endpoint 不能为空")
@@ -210,122 +222,122 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Plugin Release ---
-	if c.PluginRelease.LocalInstall.SessionTTLMinutes <= 0 {
+	if c.Plugin.Release.LocalInstall.SessionTTLMinutes <= 0 {
 		errors = append(errors, "plugin_release.local_install.session_ttl_minutes 必须大于0")
 	}
-	if c.PluginRelease.LocalInstall.MaxArtifactSizeMB <= 0 {
+	if c.Plugin.Release.LocalInstall.MaxArtifactSizeMB <= 0 {
 		errors = append(errors, "plugin_release.local_install.max_artifact_size_mb 必须大于0")
 	}
-	if c.PluginRelease.Pipeline.ApprovalSLAHours <= 0 {
+	if c.Plugin.Release.Pipeline.ApprovalSLAHours <= 0 {
 		errors = append(errors, "plugin_release.pipeline.approval_sla_hours 必须大于0")
 	}
-	if c.PluginRelease.Pipeline.MaxParallelReleases <= 0 {
+	if c.Plugin.Release.Pipeline.MaxParallelReleases <= 0 {
 		errors = append(errors, "plugin_release.pipeline.max_parallel_releases 必须大于0")
 	}
-	if c.PluginRelease.Pipeline.DefaultRollbackNotice <= 0 {
+	if c.Plugin.Release.Pipeline.DefaultRollbackNotice <= 0 {
 		errors = append(errors, "plugin_release.pipeline.default_rollback_notice_minutes 必须大于0")
 	}
-	if c.PluginRelease.Canary.RollbackTimeoutSeconds <= 0 {
+	if c.Plugin.Release.Canary.RollbackTimeoutSeconds <= 0 {
 		errors = append(errors, "plugin_release.canary.rollback_timeout_seconds 必须大于0")
 	}
-	if c.PluginRelease.Canary.DefaultBatchSize <= 0 {
+	if c.Plugin.Release.Canary.DefaultBatchSize <= 0 {
 		errors = append(errors, "plugin_release.canary.default_batch_size 必须大于0")
 	}
-	if c.PluginRelease.Canary.MaxBatches <= 0 {
+	if c.Plugin.Release.Canary.MaxBatches <= 0 {
 		errors = append(errors, "plugin_release.canary.max_batches 必须大于0")
 	}
-	if strings.TrimSpace(c.PluginRelease.Distribution.OfflineBucket) == "" {
+	if strings.TrimSpace(c.Plugin.Release.Distribution.OfflineBucket) == "" {
 		errors = append(errors, "plugin_release.distribution.offline_bucket 不能为空")
 	}
-	if strings.TrimSpace(c.PluginRelease.Distribution.OfflinePrefix) == "" {
+	if strings.TrimSpace(c.Plugin.Release.Distribution.OfflinePrefix) == "" {
 		errors = append(errors, "plugin_release.distribution.offline_prefix 不能为空")
 	}
-	if c.PluginRelease.Distribution.EscalationThreshold <= 0 {
+	if c.Plugin.Release.Distribution.EscalationThreshold <= 0 {
 		errors = append(errors, "plugin_release.distribution.escalation_threshold 必须大于0")
 	}
-	if c.PluginRelease.Distribution.ArtifactRetentionDays <= 0 {
+	if c.Plugin.Release.Distribution.ArtifactRetentionDays <= 0 {
 		errors = append(errors, "plugin_release.distribution.artifact_retention_days 必须大于0")
 	}
-	if strings.TrimSpace(c.PluginRelease.Observability.DashboardUID) == "" {
+	if strings.TrimSpace(c.Plugin.Release.Observability.DashboardUID) == "" {
 		errors = append(errors, "plugin_release.observability.dashboard_uid 不能为空")
 	}
-	if strings.TrimSpace(c.PluginRelease.Observability.AlertRulePrefix) == "" {
+	if strings.TrimSpace(c.Plugin.Release.Observability.AlertRulePrefix) == "" {
 		errors = append(errors, "plugin_release.observability.alert_rule_prefix 不能为空")
 	}
-	if c.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds <= 0 {
+	if c.Plugin.Release.Observability.KPITargets.CanRollbackWithinSeconds <= 0 {
 		errors = append(errors, "plugin_release.observability.kpi_targets.can_rollback_within_seconds 必须大于0")
 	}
-	if c.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms <= 0 {
+	if c.Plugin.Release.Observability.KPITargets.HotloadLatencyP95Ms <= 0 {
 		errors = append(errors, "plugin_release.observability.kpi_targets.hotload_latency_p95_ms 必须大于0")
 	}
 
 	// --- Dev Hotload ---
-	if c.DevHotload.Sessions.TTLMinutes <= 0 {
+	if c.Plugin.DevHotload.Sessions.TTLMinutes <= 0 {
 		errors = append(errors, "dev_hotload.sessions.ttl_minutes 必须大于0")
 	}
-	if c.DevHotload.Sessions.MaxConcurrentSessions <= 0 {
+	if c.Plugin.DevHotload.Sessions.MaxConcurrentSessions <= 0 {
 		errors = append(errors, "dev_hotload.sessions.max_concurrent_sessions 必须大于0")
 	}
-	if c.DevHotload.Sessions.CleanupIntervalSeconds <= 0 {
+	if c.Plugin.DevHotload.Sessions.CleanupIntervalSeconds <= 0 {
 		errors = append(errors, "dev_hotload.sessions.cleanup_interval_seconds 必须大于0")
 	}
-	if strings.TrimSpace(c.DevHotload.Sandbox.Image) == "" {
+	if strings.TrimSpace(c.Plugin.DevHotload.Sandbox.Image) == "" {
 		errors = append(errors, "dev_hotload.sandbox.image 不能为空")
 	}
-	if c.DevHotload.Sandbox.MaxCPUPercent <= 0 || c.DevHotload.Sandbox.MaxCPUPercent > 100 {
+	if c.Plugin.DevHotload.Sandbox.MaxCPUPercent <= 0 || c.Plugin.DevHotload.Sandbox.MaxCPUPercent > 100 {
 		errors = append(errors, "dev_hotload.sandbox.max_cpu_percent 必须在 1-100 范围内")
 	}
-	if c.DevHotload.Sandbox.MaxMemoryMB <= 0 {
+	if c.Plugin.DevHotload.Sandbox.MaxMemoryMB <= 0 {
 		errors = append(errors, "dev_hotload.sandbox.max_memory_mb 必须大于0")
 	}
-	if c.DevHotload.Sandbox.WatchFileLimit <= 0 {
+	if c.Plugin.DevHotload.Sandbox.WatchFileLimit <= 0 {
 		errors = append(errors, "dev_hotload.sandbox.watch_file_limit 必须大于0")
 	}
-	if strings.TrimSpace(c.DevHotload.Security.PATHeader) == "" {
+	if strings.TrimSpace(c.Plugin.DevHotload.Security.PATHeader) == "" {
 		errors = append(errors, "dev_hotload.security.pat_header 不能为空")
 	}
-	if c.DevHotload.Security.TokenTTLSeconds <= 0 {
+	if c.Plugin.DevHotload.Security.TokenTTLSeconds <= 0 {
 		errors = append(errors, "dev_hotload.security.token_ttl_seconds 必须大于0")
 	}
-	if strings.TrimSpace(c.DevHotload.Observability.MetricsNamespace) == "" {
+	if strings.TrimSpace(c.Plugin.DevHotload.Observability.MetricsNamespace) == "" {
 		errors = append(errors, "dev_hotload.observability.metrics_namespace 不能为空")
 	}
-	if strings.TrimSpace(c.DevHotload.Observability.AuditTopic) == "" {
+	if strings.TrimSpace(c.Plugin.DevHotload.Observability.AuditTopic) == "" {
 		errors = append(errors, "dev_hotload.observability.audit_topic 不能为空")
 	}
-	if c.DevHotload.Observability.SSEBufferSize <= 0 {
+	if c.Plugin.DevHotload.Observability.SSEBufferSize <= 0 {
 		errors = append(errors, "dev_hotload.observability.sse_buffer_size 必须大于0")
 	}
 
 	// --- Plugin Debug ---
-	if strings.TrimSpace(c.PluginDebug.Component) == "" {
+	if strings.TrimSpace(c.Plugin.Debug.Component) == "" {
 		errors = append(errors, "plugin_debug.component 不能为空")
 	}
-	if c.PluginDebug.HostSimulator.Enabled {
-		if strings.TrimSpace(c.PluginDebug.HostSimulator.FeatureFlag) == "" {
+	if c.Plugin.Debug.HostSimulator.Enabled {
+		if strings.TrimSpace(c.Plugin.Debug.HostSimulator.FeatureFlag) == "" {
 			errors = append(errors, "plugin_debug.host_simulator.feature_flag 不能为空")
 		}
-		if strings.TrimSpace(c.PluginDebug.HostSimulator.ConfigPath) == "" {
+		if strings.TrimSpace(c.Plugin.Debug.HostSimulator.ConfigPath) == "" {
 			errors = append(errors, "plugin_debug.host_simulator.config_path 不能为空")
 		}
 	}
-	if strings.TrimSpace(c.PluginDebug.Reports.TemplatePath) == "" {
+	if strings.TrimSpace(c.Plugin.Debug.Reports.TemplatePath) == "" {
 		errors = append(errors, "plugin_debug.reports.template 不能为空")
 	}
-	if strings.TrimSpace(c.PluginDebug.Reports.MaskingRules) == "" {
+	if strings.TrimSpace(c.Plugin.Debug.Reports.MaskingRules) == "" {
 		errors = append(errors, "plugin_debug.reports.masking_rules 不能为空")
 	}
-	if strings.TrimSpace(c.PluginDebug.TicketBridge.Provider) == "" {
+	if strings.TrimSpace(c.Plugin.Debug.TicketBridge.Provider) == "" {
 		errors = append(errors, "plugin_debug.ticket_bridge.provider 不能为空")
 	}
-	if strings.TrimSpace(c.PluginDebug.TicketBridge.Project) == "" {
+	if strings.TrimSpace(c.Plugin.Debug.TicketBridge.Project) == "" {
 		errors = append(errors, "plugin_debug.ticket_bridge.project 不能为空")
 	}
-	if c.PluginDebug.Sandbox.Enabled {
-		if strings.TrimSpace(c.PluginDebug.Sandbox.FeatureFlag) == "" {
+	if c.Plugin.Debug.Sandbox.Enabled {
+		if strings.TrimSpace(c.Plugin.Debug.Sandbox.FeatureFlag) == "" {
 			errors = append(errors, "plugin_debug.sandbox.feature_flag 不能为空（启用 sandbox 时）")
 		}
-		if strings.TrimSpace(c.PluginDebug.Sandbox.DataSuitePath) == "" {
+		if strings.TrimSpace(c.Plugin.Debug.Sandbox.DataSuitePath) == "" {
 			errors = append(errors, "plugin_debug.sandbox.data_suite_path 不能为空（启用 sandbox 时）")
 		}
 	}

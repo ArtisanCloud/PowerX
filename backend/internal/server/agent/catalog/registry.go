@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -148,6 +149,7 @@ func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
 		wd, _ := os.Getwd()
 		return fmt.Errorf("no provider manifests loaded from dirs=%v (wd=%s)", absDirs, wd)
 	}
+	log.Printf("[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
 	return nil
 }
 
@@ -259,9 +261,17 @@ func GetGlobalAIRegister() *Registry {
 
 // InitFromAppConfig：由你的主配置调用
 func InitFromAppConfig(cfg CatalogConfig, embedded fs.FS) error {
+	if len(cfg.Dirs) == 0 {
+		cfg.Dirs = []string{"./config/agents/providers.d"}
+	}
+	log.Printf("[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
 	reg := NewRegistry()
 	if err := reg.LoadByConfig(cfg, embedded); err != nil {
 		return err
+	}
+	if len(reg.providers) == 0 {
+		wd, _ := os.Getwd()
+		log.Printf("[ai.catalog] warning: registry empty after load (wd=%s)", wd)
 	}
 	GlobalAIRegister = reg
 

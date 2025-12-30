@@ -59,8 +59,8 @@ func TestRegistrationActivationFlow(t *testing.T) {
 
 	httpEngine := env.Engine()
 
+	tenantUUID := "tenant-001"
 	registerBody := map[string]any{
-		"tenant_id":                  "tenant-001",
 		"alias":                      "flow-agent",
 		"telemetry_contract_version": "otel-agent-v1",
 	}
@@ -68,6 +68,7 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/agents", bytes.NewReader(registerBytes))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", tenantUUID)
 	resp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -81,11 +82,11 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	agentID := registerResp.Data.ID
 	require.NotEmpty(t, agentID)
 
-	activateBody := map[string]any{"tenant_id": "tenant-001"}
-	activateBytes, _ := json.Marshal(activateBody)
+	activateBytes, _ := json.Marshal(map[string]any{})
 	actReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/activate", agentID), bytes.NewReader(activateBytes))
 	actReq.Header.Set("Authorization", "Bearer token")
 	actReq.Header.Set("Content-Type", "application/json")
+	actReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	actResp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(actResp, actReq)
 	require.Equal(t, http.StatusOK, actResp.Code)
@@ -98,10 +99,11 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	}
 
 	// pause
-	pauseBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
+	pauseBody, _ := json.Marshal(map[string]string{})
 	pauseReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/pause", agentID), bytes.NewReader(pauseBody))
 	pauseReq.Header.Set("Authorization", "Bearer token")
 	pauseReq.Header.Set("Content-Type", "application/json")
+	pauseReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	pauseResp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(pauseResp, pauseReq)
 	require.Equal(t, http.StatusOK, pauseResp.Code)
@@ -114,10 +116,11 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	}
 
 	// resume
-	resumeBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
+	resumeBody, _ := json.Marshal(map[string]string{})
 	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/resume", agentID), bytes.NewReader(resumeBody))
 	resumeReq.Header.Set("Authorization", "Bearer token")
 	resumeReq.Header.Set("Content-Type", "application/json")
+	resumeReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	resumeResp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(resumeResp, resumeReq)
 	require.Equal(t, http.StatusOK, resumeResp.Code)
@@ -130,10 +133,11 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	}
 
 	// scale
-	scaleBody, _ := json.Marshal(map[string]any{"tenant_id": "tenant-001", "target_capacity_instances": 4})
+	scaleBody, _ := json.Marshal(map[string]any{"target_capacity_instances": 4})
 	scaleReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/scale", agentID), bytes.NewReader(scaleBody))
 	scaleReq.Header.Set("Authorization", "Bearer token")
 	scaleReq.Header.Set("Content-Type", "application/json")
+	scaleReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	scaleResp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(scaleResp, scaleReq)
 	require.Equal(t, http.StatusOK, scaleResp.Code)
@@ -155,10 +159,11 @@ func TestRegistrationActivationFlow(t *testing.T) {
 	}
 
 	// retire
-	retireBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
+	retireBody, _ := json.Marshal(map[string]string{})
 	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/retire", agentID), bytes.NewReader(retireBody))
 	retireReq.Header.Set("Authorization", "Bearer token")
 	retireReq.Header.Set("Content-Type", "application/json")
+	retireReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	retireResp := httptest.NewRecorder()
 	httpEngine.ServeHTTP(retireResp, retireReq)
 	require.Equal(t, http.StatusOK, retireResp.Code)

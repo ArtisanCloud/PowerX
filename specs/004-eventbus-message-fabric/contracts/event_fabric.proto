@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package corex.event_fabric.v1;
+package powerx.event_fabric.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/contracts/corex/event_fabric/v1;eventfabric";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/contracts/powerx/event_fabric/v1;eventfabric";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -29,7 +29,7 @@ service EventReplayService {
 }
 
 message TenantContext {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string trace_id = 2;
 }
 

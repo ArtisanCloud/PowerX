@@ -4,12 +4,12 @@ package iam
 import (
 	"context"
 	"errors"
-	"github.com/ArtisanCloud/PowerX/internal/service"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"slices"
 	"strings"
+
+	"github.com/ArtisanCloud/PowerX/internal/service"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 
 	"gorm.io/gorm"
 
@@ -39,7 +39,7 @@ func NewRBACService(db *gorm.DB) *RBACService {
 type PermTriple struct{ Plugin, Resource, Action string }
 
 // A. 通过权限ID授予（最快路径）
-func (s *RBACService) GrantPermsByIDs(ctx context.Context, roleID uint64, permIDs []uint64) error {
+func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, roleID uint64, permIDs []uint64) error {
 	if len(permIDs) == 0 {
 		return nil
 	}
@@ -48,8 +48,12 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, roleID uint64, permID
 		return gorm.ErrRecordNotFound
 	}
 	// 非 root：仅允许给本租户的 tenant 角色授权
-	if !reqctx.IsRoot(ctx) {
-		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != reqctx.GetTenantID(ctx) {
+	if !actor.IsRoot {
+		ctxTenant := strings.TrimSpace(actor.TenantUUID)
+		if ctxTenant == "" {
+			return errors.New("tenant context required")
+		}
+		if strings.ToLower(cur.Scope) != "tenant" || strings.TrimSpace(cur.TenantUUID) == "" || strings.TrimSpace(cur.TenantUUID) != ctxTenant {
 			return errors.New("forbidden")
 		}
 	}
@@ -57,7 +61,7 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, roleID uint64, permID
 }
 
 // B. 通过 (plugin,resource,action) 授予（便于API）
-func (s *RBACService) GrantPermsByTriples(ctx context.Context, roleID uint64, triples []PermTriple) error {
+func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContext, roleID uint64, triples []PermTriple) error {
 	if len(triples) == 0 {
 		return nil
 	}
@@ -77,7 +81,7 @@ func (s *RBACService) GrantPermsByTriples(ctx context.Context, roleID uint64, tr
 		Pluck("id", &permIDs).Error; err != nil {
 		return err
 	}
-	return s.GrantPermsByIDs(ctx, roleID, permIDs)
+	return s.GrantPermsByIDs(ctx, actor, roleID, permIDs)
 }
 
 func (s *RBACService) ListPermsOfRole(ctx context.Context, roleID uint64) ([]dbm.Permission, error) {
@@ -85,7 +89,7 @@ func (s *RBACService) ListPermsOfRole(ctx context.Context, roleID uint64) ([]dbm
 }
 
 // ========== 2) 角色 ⇄ 主体（成员/部门/…） ==========
-func (s *RBACService) BindRoleToMember(ctx context.Context, tenantID, roleID, memberID uint64) error {
+func (s *RBACService) BindRoleToMember(ctx context.Context, actor ActorContext, tenantUUID string, roleID, memberID uint64) error {
 	cur, err := s.rr.GetFirst(ctx, map[string]any{"id": roleID})
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
@@ -94,38 +98,65 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, tenantID, roleID, me
 		return errors.New("cannot bind system-scope role")
 	}
 
-	if !reqctx.IsRoot(ctx) {
-		if tenantID == 0 || tenantID != reqctx.GetTenantID(ctx) || cur.TenantID != tenantID {
+	if !actor.IsRoot {
+		ctxTenant := strings.TrimSpace(actor.TenantUUID)
+		if ctxTenant == "" {
+			return errors.New("tenant context required")
+		}
+		tenantUUID = strings.TrimSpace(tenantUUID)
+		if tenantUUID == "" {
+			tenantUUID = ctxTenant
+		}
+		if tenantUUID == "" || tenantUUID != ctxTenant || strings.TrimSpace(cur.TenantUUID) != ctxTenant {
 			return errors.New("forbidden")
 		}
+	} else {
+		tenantUUID = strings.TrimSpace(tenantUUID)
 	}
+
+	if tenantUUID == "" {
+		return errors.New("tenant uuid required")
+	}
+
 	// subject_type 用你模型里的常量：SubMember
 	return s.rbr.Create(ctx, &dbm.RoleBinding{
-		TenantID: tenantID, RoleID: roleID, SubjectType: dbm.SubMember, SubjectID: memberID,
+		TenantUUID: tenantUUID, RoleID: roleID, SubjectType: dbm.SubMember, SubjectID: memberID,
 	}) // 幂等 on-conflict :contentReference[oaicite:12]{index=12}
 }
 
-func (s *RBACService) UnbindRoleFromMember(ctx context.Context, tenantID, roleBindingID uint64) error {
-	// 你的 repo 的 Delete 是按 (tenant_id, id) 删除
-	if !reqctx.IsRoot(ctx) && tenantID != reqctx.GetTenantID(ctx) {
-		return errors.New("forbidden")
+func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorContext, tenantUUID string, roleBindingID uint64) error {
+	if !actor.IsRoot {
+		ctxTenant := strings.TrimSpace(actor.TenantUUID)
+		if ctxTenant == "" {
+			return errors.New("tenant context required")
+		}
+		tenantUUID = strings.TrimSpace(tenantUUID)
+		if tenantUUID == "" {
+			tenantUUID = ctxTenant
+		}
+		if tenantUUID != ctxTenant {
+			return errors.New("forbidden")
+		}
 	}
-	return s.rbr.Delete(ctx, tenantID, roleBindingID) // :contentReference[oaicite:13]{index=13}
+	if strings.TrimSpace(tenantUUID) == "" {
+		return errors.New("tenant uuid required")
+	}
+	return s.rbr.Delete(ctx, tenantUUID, roleBindingID) // :contentReference[oaicite:13]{index=13}
 }
 
 // ========== 3) 鉴权（root 放行；直绑 + 维度间接绑定） ==========
-func (s *RBACService) Enforce(ctx context.Context, tenantID, memberID uint64, plugin, resource, action string) (bool, error) {
-	if reqctx.IsRoot(ctx) {
+func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUID string, memberID uint64, plugin, resource, action string) (bool, error) {
+	if actor.IsRoot {
 		return true, nil
 	}
-	if tenantID == 0 {
-		tenantID = reqctx.GetTenantID(ctx)
+	if strings.TrimSpace(tenantUUID) == "" {
+		tenantUUID = strings.TrimSpace(actor.TenantUUID)
 	}
-	if tenantID == 0 || memberID == 0 {
+	if strings.TrimSpace(tenantUUID) == "" || memberID == 0 {
 		return false, errors.New("tenant/member required")
 	}
 	// 复用 EXISTS 版绑定鉴权（直绑 + Assignment 聚合）
-	return s.pr.MemberHasPermissionViaBinding(ctx, tenantID, memberID, resource, action) // :contentReference[oaicite:14]{index=14}
+	return s.pr.MemberHasPermissionViaBinding(ctx, tenantUUID, memberID, resource, action) // :contentReference[oaicite:14]{index=14}
 }
 
 func triplesToTuples(ts []PermTriple) [][3]string {
@@ -137,7 +168,7 @@ func triplesToTuples(ts []PermTriple) [][3]string {
 }
 
 // RevokePermissionsFromRole：按权限ID列表撤销角色的权限
-func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, roleID uint64, permIDs []uint64) error {
+func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor ActorContext, roleID uint64, permIDs []uint64) error {
 	if len(permIDs) == 0 {
 		return nil
 	}
@@ -147,8 +178,12 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, roleID uint
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
-	if !reqctx.IsRoot(ctx) {
-		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != reqctx.GetTenantID(ctx) {
+	if !actor.IsRoot {
+		ctxTenant := strings.TrimSpace(actor.TenantUUID)
+		if ctxTenant == "" {
+			return errors.New("tenant context required")
+		}
+		if strings.ToLower(cur.Scope) != "tenant" || strings.TrimSpace(cur.TenantUUID) == "" || strings.TrimSpace(cur.TenantUUID) != ctxTenant {
 			return errors.New("forbidden")
 		}
 	}
@@ -160,9 +195,7 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, roleID uint
 		Delete(nil).Error
 }
 
-func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
-	ac := s.actorFromContext(ctx) // ✅ 直接从 ctx 取
-
+func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
 	// 角色查询：你的 GetFirst 可能返回 (*T,nil)，要判空
 	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
 	if err != nil {
@@ -173,7 +206,7 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantI
 	}
 
 	// 鉴权：非 root 只能改本租户
-	if !ac.IsRoot && role.TenantID != ac.TenantID {
+	if !actor.IsRoot && strings.TrimSpace(role.TenantUUID) != strings.TrimSpace(actor.TenantUUID) {
 		return SetIDsResult{}, service.ErrForbidden
 	}
 	// 如果你模型里有 IsSystem 并且想限制，可加：
@@ -249,21 +282,7 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantI
 	return SetIDsResult{Added: toAdd, Removed: toRemove, Now: now, SkippedDeprecated: skipped}, nil
 }
 
-func (s *RBACService) actorFromContext(ctx context.Context) ActorContext {
-	ac := ActorContext{
-		IsRoot: reqctx.IsRoot(ctx), // 复用你的 helper
-	}
-	if c := reqctx.GetClaims(ctx); c != nil {
-		// 根据你的 claims 定义来取，假设是整数类型
-		if c.TenantID > 0 {
-			ac.TenantID = uint64(c.TenantID)
-		}
-	}
-	return ac
-}
-func (s *RBACService) ListPermissionIDs(ctx context.Context, roleID uint64) ([]uint64, error) {
-	ac := s.actorFromContext(ctx)
-
+func (s *RBACService) ListPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64) ([]uint64, error) {
 	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
 	if err != nil {
 		return nil, err
@@ -272,7 +291,7 @@ func (s *RBACService) ListPermissionIDs(ctx context.Context, roleID uint64) ([]u
 		return nil, service.ErrRoleNotFound
 	}
 
-	if !ac.IsRoot && role.TenantID != ac.TenantID {
+	if !actor.IsRoot && strings.TrimSpace(role.TenantUUID) != strings.TrimSpace(actor.TenantUUID) {
 		return nil, service.ErrForbidden
 	}
 	return s.rpr.ListPermissionIDsOfRole(ctx, roleID)

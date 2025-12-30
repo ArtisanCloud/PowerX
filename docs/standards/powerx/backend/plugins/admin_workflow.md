@@ -10,7 +10,7 @@
 所有路由位于受保护组 `/api/v1/admin/plugins` 下（已加 `AdminOnlyMiddleware`）。
 
 - 市场列表
-  - GET `/marketplace/plugins_v2`
+  - GET `/marketplace/plugins`
   - 返回：已安装插件为主的“本地市场”视图（含 `systemStatus`、`isSystemInstalled`、`isSystemEnabled`、`icon` 等）。
 - 系统级管理
   - GET `/`：插件列表（含 Admin URL、菜单、状态）
@@ -29,11 +29,11 @@
   - POST `/:id/credentials/rotate`：轮换密钥并一次性返回新明文 secret
   - DELETE `/:id/tenant_config`：删除本租户该插件的凭证配置（硬删）
 
-说明：系统启用时若上下文携带了 `tenant_id`，会触发一次租户维度的 PostEnable 钩子（见 `internal/bootstrap/plugin.go`）。
+说明：系统启用时若上下文携带了 `tenant_uuid`，会触发一次租户维度的 PostEnable 钩子（见 `internal/bootstrap/plugin.go`）。
 
 ## 宿主 → 插件 gRPC 推送（可选）
 - Proto：`api/grpc/contracts/powerx/plugin/control/v1/control.proto`
-- 方法：`UpsertTenantCredentials(tenant_id, plugin_id, client_id, client_secret)`
+- 方法：`UpsertTenantCredentials(tenant_uuid, plugin_id, client_id, client_secret)`
 - 触发时机：
   - 租户首次启用成功（有一次性明文 secret）；
   - 租户轮换密钥成功。
@@ -47,7 +47,7 @@
   - 未安装：弹框“从 URL 安装”（输入包地址与可选 SHA256，是否安装后启用）。
   - 已安装：按钮“启用/停用”、“卸载”（二次确认）。
   - 详情抽屉：展示元信息（作者、标签、首页）、系统运行状态与日志入口。
-- 数据源：GET `/marketplace/plugins_v2` + 系统级操作接口。
+- 数据源：GET `/marketplace/plugins` + 系统级操作接口。
 
 2) 插件详情（系统级）
 - 路由：`/admin/plugins/:id`
@@ -70,7 +70,7 @@
 - 获取市场列表：
 ```
 curl -H "Authorization: Bearer <token>" \
-  http://localhost:8077/api/v1/admin/plugins/marketplace/plugins_v2
+  http://localhost:8077/api/v1/admin/plugins/marketplace/plugins
 ```
 - 从 URL 安装并启用：
 ```
@@ -101,4 +101,3 @@ curl -X POST -H "Authorization: Bearer <token>" \
 - `tenant_enable` 在首次创建凭证时会尝试 gRPC 下发（best-effort，失败不阻断）。
 - 明文 secret 仅在“首次创建”或“轮换”响应中出现一次；后续只可通过轮换获取新 secret。
 - 构建时如需启用 gRPC 推送，请使用：`go build -tags plugin_control ./cmd/app`。
-

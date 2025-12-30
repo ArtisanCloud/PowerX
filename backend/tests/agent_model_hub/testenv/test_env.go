@@ -6,6 +6,7 @@ import (
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/crypto"
+	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -20,7 +21,8 @@ type TestEnv struct {
 func New(t *testing.T) *TestEnv {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", uuid.NewString())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -42,6 +44,29 @@ func New(t *testing.T) *TestEnv {
 }
 
 func createTables(db *gorm.DB, schema string) error {
+	tenantTable := fmt.Sprintf("%s.%s", schema, coremodel.TableIAMTenant)
+	createTenants := fmt.Sprintf(`
+CREATE TABLE IF NOT EXISTS %s (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	uuid TEXT NOT NULL UNIQUE,
+	created_at DATETIME,
+	updated_at DATETIME,
+	deleted_at DATETIME,
+	key TEXT,
+	name TEXT,
+	status INTEGER DEFAULT 1,
+	type TEXT,
+	plan TEXT,
+	domain TEXT,
+	description TEXT
+);`, tenantTable)
+	if err := db.Exec(createTenants).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS %s.idx_tenant_uuid ON %s(uuid);`, schema, coremodel.TableIAMTenant)).Error; err != nil {
+		return err
+	}
+
 	providersTable := fmt.Sprintf("%s.%s", schema, "agent_provider_profiles")
 	createProviders := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (
@@ -51,7 +76,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	updated_at DATETIME,
 	deleted_at DATETIME,
 	env TEXT NOT NULL,
-	tenant_id INTEGER,
+	tenant_uuid TEXT DEFAULT '',
 	name TEXT NOT NULL,
 	capabilities TEXT DEFAULT '[]',
 	primary_endpoint TEXT NOT NULL,
@@ -67,7 +92,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	if err := db.Exec(createProviders).Error; err != nil {
 		return err
 	}
-	if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_scope_name ON agent_provider_profiles(env, tenant_id, name);`).Error; err != nil {
+	if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_scope_name ON agent_provider_profiles(env, tenant_uuid, name);`).Error; err != nil {
 		return err
 	}
 
@@ -135,7 +160,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	updated_at DATETIME,
 	deleted_at DATETIME,
 	env TEXT NOT NULL,
-	tenant_id TEXT NOT NULL,
+	tenant_uuid TEXT NOT NULL,
 	budget_period TEXT NOT NULL,
 	provider_profile_id TEXT,
 	quota_limit REAL DEFAULT 0,
@@ -149,7 +174,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	if err := db.Exec(createCostLedgers).Error; err != nil {
 		return err
 	}
-	if err := db.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s.idx_cost_quota_scope ON agent_cost_quota_ledgers(env, tenant_id);`, schema)).Error; err != nil {
+	if err := db.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s.idx_cost_quota_scope ON agent_cost_quota_ledgers(env, tenant_uuid);`, schema)).Error; err != nil {
 		return err
 	}
 
@@ -162,6 +187,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	deleted_at DATETIME,
 	env TEXT NOT NULL,
 	tenant_id INTEGER,
+	tenant_uuid TEXT,
 	k_id TEXT,
 	alg TEXT,
 	public_pem TEXT,
@@ -171,8 +197,23 @@ CREATE TABLE IF NOT EXISTS %s (
 	if err := db.Exec(createTenantKeys).Error; err != nil {
 		return err
 	}
-	if err := db.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s.idx_tenant_keys_scope ON iam_tenant_key_pairs(env, IFNULL(tenant_id, 0));`, schema)).Error; err != nil {
+	if err := db.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s.idx_tenant_keys_scope ON iam_tenant_key_pairs(env, tenant_uuid);`, schema)).Error; err != nil {
 		return err
 	}
 	return nil
+}
+
+// MustInsertTenant ensures sqlite fixtures include a tenant row for UUID-only tests.
+func (e *TestEnv) MustInsertTenant(id uint64, tenantUUID string) {
+	e.T.Helper()
+	if tenantUUID == "" {
+		tenantUUID = uuid.NewString()
+	}
+	key := fmt.Sprintf("tenant-%d", id)
+	name := fmt.Sprintf("Tenant %d", id)
+	stmt := fmt.Sprintf(`INSERT INTO %s.%s (id, uuid, created_at, updated_at, key, name, status, type, plan)
+		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, 1, 'enterprise', 'pro');`, coremodel.PowerXSchema, coremodel.TableIAMTenant)
+	if err := e.DB.Exec(stmt, id, tenantUUID, key, name).Error; err != nil {
+		e.T.Fatalf("insert tenant %s: %v", tenantUUID, err)
+	}
 }

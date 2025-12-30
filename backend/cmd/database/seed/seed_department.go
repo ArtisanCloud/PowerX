@@ -118,25 +118,27 @@ func SeedSMEDepartments(db *gorm.DB, tenantKey string) error {
 	tree := defaultSMETree()
 
 	// 用事务保证一致性（含 Move）
+	tenantUUID := ten.UUID.String()
+
 	return db.WithContext(seedCtx()).Transaction(func(tx *gorm.DB) error {
 		// 递归创建/更新
 		for _, root := range tree {
-			if _, err := ensureDeptNode(tx, deptRepo, ten.ID, nil, root); err != nil {
+			if _, err := ensureDeptNode(tx, deptRepo, tenantUUID, nil, root); err != nil {
 				return err
 			}
 		}
-		fmt.Printf("[seed] departments ready for tenant=%s (id=%d)\n", tenantKey, ten.ID)
+		fmt.Printf("[seed] departments ready for tenant=%s (uuid=%s)\n", tenantKey, tenantUUID)
 		return nil
 	})
 }
 
 // ensureDeptNode：确保一个节点存在且在正确父级下；必要时移动并更新属性。
 // parentID == nil 表示根部门
-func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantID uint64, parentID *uint64, node deptNode) (*dbm.Department, error) {
+func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantUUID string, parentID *uint64, node deptNode) (*dbm.Department, error) {
 	ctx := context.WithValue(seedCtx(), struct{}{}, nil)
 
 	// 1) 先查是否已存在（tenant + key 唯一）
-	exist, err := repo.FindByKey(ctx, tenantID, node.Key)
+	exist, err := repo.FindByKey(ctx, tenantUUID, node.Key)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("find dept key=%s: %w", node.Key, err)
 	}
@@ -152,13 +154,13 @@ func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantID u
 	if exist == nil {
 		// 2) 不存在：创建（使用 CreateWithPath 以生成 path/depth）
 		newDept := &dbm.Department{
-			TenantID: tenantID,
-			Key:      node.Key,
-			Name:     node.Name,
-			ParentID: parentID,
-			Sort:     node.Sort,
-			Status:   node.Status,
-			Meta:     meta,
+			TenantUUID: tenantUUID,
+			Key:        node.Key,
+			Name:       node.Name,
+			ParentID:   parentID,
+			Sort:       node.Sort,
+			Status:     node.Status,
+			Meta:       meta,
 		}
 		if err := repo.CreateWithPath(ctx, newDept); err != nil {
 			return nil, fmt.Errorf("create dept key=%s: %w", node.Key, err)
@@ -176,7 +178,7 @@ func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantID u
 			}
 		}
 		if needMove {
-			if err := repo.Move(ctx, tenantID, exist.ID, parentID); err != nil {
+			if err := repo.Move(ctx, tenantUUID, exist.ID, parentID); err != nil {
 				return nil, fmt.Errorf("move dept key=%s: %w", node.Key, err)
 			}
 		}
@@ -191,7 +193,7 @@ func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantID u
 			updates["meta"] = meta
 		}
 		if err := tx.Model(&dbm.Department{}).
-			Where("tenant_id = ? AND id = ?", tenantID, exist.ID).
+			Where("tenant_uuid = ? AND id = ?", tenantUUID, exist.ID).
 			Updates(updates).Error; err != nil {
 			return nil, fmt.Errorf("update dept key=%s: %w", node.Key, err)
 		}
@@ -199,7 +201,7 @@ func ensureDeptNode(tx *gorm.DB, repo *infraiam.DepartmentRepository, tenantID u
 
 	// 5) 递归处理子节点
 	for _, ch := range node.Children {
-		if _, err := ensureDeptNode(tx, repo, tenantID, &exist.ID, ch); err != nil {
+		if _, err := ensureDeptNode(tx, repo, tenantUUID, &exist.ID, ch); err != nil {
 			return nil, err
 		}
 	}

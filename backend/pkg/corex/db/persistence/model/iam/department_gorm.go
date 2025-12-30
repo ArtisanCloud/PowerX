@@ -8,7 +8,7 @@ import (
 type Department struct {
 	model.PowerModel
 
-	TenantID       uint64         `gorm:"column:tenant_id;not null;index;uniqueIndex:uk_dept_tenant_key" json:"tenant_id"`
+	TenantUUID     string         `gorm:"column:tenant_uuid;type:char(36);not null;index;uniqueIndex:uk_dept_tenant_key" json:"tenant_uuid"`
 	Key            string         `gorm:"column:key;type:varchar(64);not null;uniqueIndex:uk_dept_tenant_key" json:"key"`
 	Name           string         `gorm:"column:name;type:varchar(128);not null"                         json:"name"`
 	ParentID       *uint64        `gorm:"column:parent_id;index"                                         json:"parent_id,omitempty"`

@@ -13,9 +13,11 @@
 ## 🌟 预览图
 
 ### 管理后台
+
 ![管理后台](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-home-zh.png)
 
 ### 插件市场
+
 ![插件市场](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-market-zh.png)
 
 ---
@@ -25,6 +27,7 @@
 PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核心原则：
 
 ### 1. 内核最小化
+
 - 内核只提供通用能力：用户与组织（IAM）、权限与访问控制（RBAC）、事件总线（Event Bus）、审计（Audit）、数据库抽象（DB Layer）、运行时流引擎（Flow）
 - 这些能力作为 SDK (`pkg/corex/*`) 暴露，任何插件和外部系统都可以复用
 
@@ -60,6 +63,7 @@ PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核�
 ## 🔌 插件机制
 
 ### 插件结构
+
 ```
 插件包/
 ├── plugin.yaml          # 插件元数据
@@ -73,6 +77,7 @@ PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核�
 ```
 
 ### 插件生命周期
+
 - **安装**：将插件包放入 `/plugins` 目录
 - **注册**：系统启动时自动扫描并注册插件
 - **加载**：动态加载插件菜单和页面
@@ -110,11 +115,20 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 - **📊 [Perf & Resiliency Validation](docs/guides/knowledge_space/perf_validation.md)** - 压测/降级/反馈风暴验证
 - **✅ [Smoke Checklist](docs/guides/knowledge_space/smoke_checklist.md)** - 发布前的冒烟检查表
 
+## ✅ 能力目录 QA Checklist
+
+1. **能力链路巡检**：执行 `scripts/capability_registry/verify.sh`（需要 `POWERX_BASE_URL`、`ADMIN_TOKEN`、`TENANT_TOKEN`、`TENANT_UUID`、`PLUGIN_ID`、`CAPABILITY_ID`），自动完成 capability-sync、Admin/Tenant API 校验与 `/tenant/invocations` 调用，并输出可追踪的 `trace_id`。
+2. **负载与容错**：在 `backend` 目录运行 `go test ./tests/integration/capability_registry/load`，覆盖 5k+ Selector 调用、Redis 缓存击穿保护与 fallback chaos case，确保 `integration.gateway.invocation.failed` 事件与指标一致。
+3. **Prometheus / OTEL**：以目标配置启动 backend（例如 `LOG_LEVEL=info make dev` 或自定义部署），在执行脚本期间 `curl http://localhost:2112/metrics | grep powerx_capability_invoke_total`，验证 `powerx_capability_invoke_total`、`powerx_capability_invoke_error_total` 等指标；若接入 OTLP，设置 `OTEL_EXPORTER_OTLP_ENDPOINT` 并确认 Trace 可在链路平台检索到步骤 1 的 `trace_id`。
+4. **事件补偿与日志**：订阅或 tail `integration.gateway.invocation.failed`、`capability.catalog.sync_*` 事件，`LOG_LEVEL=debug` 跑巡检脚本，检查 stdout/采集日志均包含 `capability_id`、`plugin_id`、`protocol` 字段，确保异常重试过程与事件内容一致。
+
 ---
 
 ## 📬 联系我们
 
 如需商务合作或社区支持，请扫描下方二维码添加官方微信：
+
+申请添加好友时，请备注产品名称，比如：“我关注PowerX”
 
 <img src="https://powerx.artisan-cloud.com/images/wx-qr-code.jpg" alt="PowerX 微信二维码" width="220" />
 
@@ -129,6 +143,7 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 - 查看 [贡献指南](./CONTRIBUTING.md) 了解更多细节
 
 ### 贡献者
+
 感谢所有为 PowerX 做出贡献的开发者！ 🙏
 
 ---

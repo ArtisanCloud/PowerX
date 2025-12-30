@@ -79,7 +79,7 @@ last_reviewed_at: 2025-02-20
 # Key Interactions & Contracts
 
 - **APIs**：`POST /integration-hub/channels`, `POST /integration-hub/schema/validate`, `POST /events/publish`, `POST /events/replay`, `POST /topics/{id}/acl`.
-- **Headers/Context**：`x-tenant-id`, `x-plugin-id`, `x-event-id`, `x-trace-id`, `x-schema-version`.
+- **Headers/Context**：`x-tenant-uuid`, `x-plugin-id`, `x-event-id`, `x-trace-id`, `x-schema-version`.
 - **Configs**：`integration_channels.yaml`, `event_schema_registry/`, `topic_acl_matrix.yaml`, `flow_monitor_pipelines.yaml`.
 - **Events**：`plugin.comm.channel.created`, `plugin.comm.event.deadletter`, `plugin.comm.topic.acl_blocked`, `plugin.comm.flow.alert`.
 

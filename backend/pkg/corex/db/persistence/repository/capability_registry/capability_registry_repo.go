@@ -3,6 +3,7 @@ package capability_registry
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -52,23 +53,24 @@ func (r *CapabilityRegistryRepository) Update(ctx context.Context, db *gorm.DB, 
 func (r *CapabilityRegistryRepository) Disable(
 	ctx context.Context,
 	db *gorm.DB,
-	capabilityID, tenantID, reason, actor string,
+	capabilityID, tenantUUID, reason, actor string,
 	expectedVersion uint64,
 	next Registration,
 ) (Registration, error) {
 	next.CapabilityID = capabilityID
-	next.TenantID = tenantID
+	next.TenantUUID = canonicalTenantUUID(tenantUUID)
 	next.DisableReason = reason
 	next.UpdatedBy = actor
 	return r.persist(ctx, r.resolveDB(db), next, expectedVersion, false)
 }
 
 // GetLatest 返回最新版本的能力注册快照。
-func (r *CapabilityRegistryRepository) GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantID string) (Registration, error) {
+func (r *CapabilityRegistryRepository) GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string) (Registration, error) {
 	resolved := r.resolveDB(db)
 	var record models.CapabilityRegistration
 	err := resolved.WithContext(ctx).
-		Where("capability_id = ? AND tenant_id = ?", capabilityID, tenantID).
+		Where("capability_id = ?", capabilityID).
+		Scopes(scopeTenant(tenantUUID)).
 		Order("version DESC").
 		Preload("RoutingPolicy").
 		Preload("FallbackPlan").
@@ -86,11 +88,12 @@ func (r *CapabilityRegistryRepository) GetLatest(ctx context.Context, db *gorm.D
 }
 
 // GetVersion 按版本号获取能力注册快照。
-func (r *CapabilityRegistryRepository) GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantID string, version uint64) (Registration, error) {
+func (r *CapabilityRegistryRepository) GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string, version uint64) (Registration, error) {
 	resolved := r.resolveDB(db)
 	var record models.CapabilityRegistration
 	err := resolved.WithContext(ctx).
-		Where("capability_id = ? AND tenant_id = ? AND version = ?", capabilityID, tenantID, version).
+		Where("capability_id = ? AND version = ?", capabilityID, version).
+		Scopes(scopeTenant(tenantUUID)).
 		Preload("RoutingPolicy").
 		Preload("FallbackPlan").
 		Preload("Adapters", func(db *gorm.DB) *gorm.DB {
@@ -107,9 +110,9 @@ func (r *CapabilityRegistryRepository) GetVersion(ctx context.Context, db *gorm.
 }
 
 // ListLatest 按租户分页返回最新版本快照。
-func (r *CapabilityRegistryRepository) ListLatest(ctx context.Context, db *gorm.DB, tenantID string, limit, offset int) ([]Registration, int64, error) {
+func (r *CapabilityRegistryRepository) ListLatest(ctx context.Context, db *gorm.DB, tenantUUID string, limit, offset int) ([]Registration, int64, error) {
 	resolved := r.resolveDB(db)
-	base := resolved.WithContext(ctx).Model(&models.CapabilityRegistration{}).Where("tenant_id = ?", tenantID)
+	base := resolved.WithContext(ctx).Model(&models.CapabilityRegistration{}).Scopes(scopeTenant(tenantUUID))
 
 	var total int64
 	if err := base.Distinct("capability_id").Count(&total).Error; err != nil {
@@ -130,7 +133,7 @@ func (r *CapabilityRegistryRepository) ListLatest(ctx context.Context, db *gorm.
 
 	result := make([]Registration, 0, len(capabilityIDs))
 	for _, capabilityID := range capabilityIDs {
-		item, err := r.GetLatest(ctx, resolved, capabilityID, tenantID)
+		item, err := r.GetLatest(ctx, resolved, capabilityID, tenantUUID)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -144,7 +147,8 @@ func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB,
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var latest models.CapabilityRegistration
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("capability_id = ? AND tenant_id = ?", reg.CapabilityID, reg.TenantID).
+			Where("capability_id = ?", reg.CapabilityID).
+			Scopes(scopeTenant(reg.TenantUUID)).
 			Order("version DESC").
 			Limit(1).
 			First(&latest).Error
@@ -201,9 +205,10 @@ func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB,
 			}
 		}
 
+		tenantUUID := canonicalTenantUUID(reg.TenantUUID)
 		record := models.CapabilityRegistration{
 			CapabilityID:        reg.CapabilityID,
-			TenantID:            reg.TenantID,
+			TenantUUID:          tenantUUID,
 			ContractRef:         reg.ContractRef,
 			Status:              reg.Status,
 			EnvironmentPolicies: envPolicies,
@@ -222,7 +227,7 @@ func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB,
 			return err
 		}
 
-		adapterModels, err := encodeAdapterEndpoints(reg, record.ID)
+		adapterModels, err := encodeAdapterEndpoints(reg, tenantUUID, record.ID)
 		if err != nil {
 			return err
 		}
@@ -252,12 +257,13 @@ func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB,
 }
 
 // DeleteStaleSnapshots 删除指定能力在 version 之前的快照。
-func (r *CapabilityRegistryRepository) DeleteStaleSnapshots(ctx context.Context, db *gorm.DB, capabilityID, tenantID string, beforeVersion uint64) error {
+func (r *CapabilityRegistryRepository) DeleteStaleSnapshots(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string, beforeVersion uint64) error {
 	resolved := r.resolveDB(db)
 	return resolved.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var ids []uint64
 		if err := tx.Model(&models.CapabilityRegistration{}).
-			Where("capability_id = ? AND tenant_id = ? AND version < ?", capabilityID, tenantID, beforeVersion).
+			Where("capability_id = ? AND version < ?", capabilityID, beforeVersion).
+			Scopes(scopeTenant(tenantUUID)).
 			Pluck("id", &ids).Error; err != nil {
 			return err
 		}
@@ -267,10 +273,25 @@ func (r *CapabilityRegistryRepository) DeleteStaleSnapshots(ctx context.Context,
 		if err := tx.Where("registration_id IN ?", ids).Delete(&models.AdapterEndpoint{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("capability_id = ? AND tenant_id = ? AND version < ?", capabilityID, tenantID, beforeVersion).
+		if err := tx.Where("capability_id = ? AND version < ?", capabilityID, beforeVersion).
+			Scopes(scopeTenant(tenantUUID)).
 			Delete(&models.CapabilityRegistration{}).Error; err != nil {
 			return err
 		}
 		return nil
 	})
+}
+
+func scopeTenant(tenantUUID string) func(*gorm.DB) *gorm.DB {
+	tenantUUID = canonicalTenantUUID(tenantUUID)
+	return func(db *gorm.DB) *gorm.DB {
+		if tenantUUID == "" {
+			return db
+		}
+		return db.Where("tenant_uuid = ?", tenantUUID)
+	}
+}
+
+func canonicalTenantUUID(value string) string {
+	return strings.TrimSpace(value)
 }

@@ -74,7 +74,7 @@ func (s *serviceImpl) CreateGrant(ctx context.Context, req GrantCreateRequest) (
 	}
 
 	grant := &eventfabricmodel.AuthorizationGrant{
-		TenantID:     req.TenantID,
+		TenantUUID:   strings.TrimSpace(req.TenantID.String()),
 		SubjectType:  normalizedSubject,
 		SubjectID:    req.SubjectID,
 		Source:       source,
@@ -725,9 +725,10 @@ func (s *serviceImpl) writeGrantCache(ctx context.Context, grant *eventfabricmod
 }
 
 func buildGrantCachePayload(grant *eventfabricmodel.AuthorizationGrant, capabilities []*eventfabricmodel.AuthorizationGrantCapability, capMap map[uuid.UUID]*eventfabricmodel.AuthorizationCapability, conditions []*eventfabricmodel.AuthorizationGrantCondition) map[string]any {
+	tenantUUID := tenantUUIDFromGrant(grant)
 	payload := map[string]any{
 		"grant_id":     grant.UUID.String(),
-		"tenant_id":    grant.TenantID.String(),
+		"tenant_uuid":  tenantUUID,
 		"subject_type": grant.SubjectType,
 		"subject_id":   grant.SubjectID.String(),
 		"status":       grant.Status,
@@ -796,9 +797,9 @@ func buildGrantCachePayload(grant *eventfabricmodel.AuthorizationGrant, capabili
 
 func buildGrantCacheKey(grant *eventfabricmodel.AuthorizationGrant) GrantCacheKey {
 	return GrantCacheKey{
-		TenantID:    grant.TenantID.String(),
+		TenantUUID:  tenantUUIDFromGrant(grant),
 		SubjectType: grant.SubjectType,
-		SubjectID:   grant.SubjectID.String(),
+		SubjectID:   grant.SubjectID,
 	}
 }
 
@@ -846,7 +847,8 @@ func (s *serviceImpl) emitAudit(ctx context.Context, action string, grant *event
 	if meta == nil {
 		meta = map[string]string{}
 	}
-	meta["tenant_id"] = grant.TenantID.String()
+	tenantUUID := tenantUUIDFromGrant(grant)
+	meta["tenant_uuid"] = tenantUUID
 	meta["subject_id"] = grant.SubjectID.String()
 	meta["subject_type"] = strings.ToLower(grant.SubjectType)
 	meta["grant_id"] = grant.UUID.String()
@@ -854,7 +856,7 @@ func (s *serviceImpl) emitAudit(ctx context.Context, action string, grant *event
 	meta["grant_version"] = fmt.Sprintf("%d", grant.Version)
 	record := eventaudit.Record{
 		ID:          grant.UUID.String(),
-		TenantID:    grant.TenantID.String(),
+		TenantID:    tenantUUID,
 		Topic:       auditTopicAuthorization,
 		PrincipalID: "",
 		Action:      strings.ToUpper(action),
@@ -884,9 +886,10 @@ func (s *serviceImpl) createChallengeTicket(ctx context.Context, repo *eventfabr
 
 	fingerprint := uuid.New()
 	slaExpires := s.clock().UTC().Add(s.challengeSLA)
+	tenantUUID := tenantUUIDFromGrant(grant)
 	ticketPayload := map[string]any{
 		"grant_id":     grant.UUID.String(),
-		"tenant_id":    grant.TenantID.String(),
+		"tenant_uuid":  tenantUUID,
 		"subject_id":   grant.SubjectID.String(),
 		"subject_type": grant.SubjectType,
 	}
@@ -906,7 +909,7 @@ func (s *serviceImpl) createChallengeTicket(ctx context.Context, repo *eventfabr
 	}
 
 	ticket := &eventfabricmodel.AuthorizationApprovalTicket{
-		TenantID:           grant.TenantID,
+		TenantUUID:         tenantUUID,
 		GrantID:            &grant.UUID,
 		RequestFingerprint: fingerprint,
 		Status:             eventfabricmodel.ApprovalStatusPending,
@@ -921,7 +924,7 @@ func (s *serviceImpl) createChallengeTicket(ctx context.Context, repo *eventfabr
 
 	payload := ChallengeDispatchPayload{
 		GrantUUID:          &grant.UUID,
-		TenantID:           grant.TenantID,
+		TenantUUID:         tenantUUID,
 		RequestFingerprint: fingerprint,
 		SubjectType:        grant.SubjectType,
 		SubjectID:          grant.SubjectID.String(),

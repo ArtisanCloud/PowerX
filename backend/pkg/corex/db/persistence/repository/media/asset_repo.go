@@ -32,7 +32,7 @@ func NewAssetRepository(db *gorm.DB) *AssetRepository {
 
 // AssetListFilter 定义分页查询时可用的过滤条件。
 type AssetListFilter struct {
-	TenantID       uint64
+	TenantUUID     string
 	UUIDs          []string
 	Drivers        []string
 	OwnerType      string
@@ -53,10 +53,10 @@ type AssetListFilter struct {
 
 // CleanupFilter 定义软删除清理时的筛选条件。
 type CleanupFilter struct {
-	TenantID uint64
-	Drivers  []string
-	Before   time.Time
-	Limit    int
+	TenantUUID string
+	Drivers    []string
+	Before     time.Time
+	Limit      int
 }
 
 const (
@@ -93,8 +93,8 @@ func (r *AssetRepository) List(ctx context.Context, filter AssetListFilter) (ass
 		query = query.Where("deleted_at IS NOT NULL")
 	}
 
-	if filter.TenantID > 0 {
-		query = query.Where("tenant_id = ?", filter.TenantID)
+	if tenant := strings.TrimSpace(filter.TenantUUID); tenant != "" {
+		query = query.Where("tenant_uuid = ?", tenant)
 	}
 	if len(filter.UUIDs) > 0 {
 		query = query.Where("uuid IN ?", filter.UUIDs)
@@ -186,7 +186,7 @@ func sanitizeOrder(input string) string {
 }
 
 // FindByUUID 通过租户与 UUID 查询资产，可选包含软删除记录。
-func (r *AssetRepository) FindByUUID(ctx context.Context, tenantID uint64, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+func (r *AssetRepository) FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
 	if uuid == "" {
 		return nil, errors.New("uuid 不能为空")
 	}
@@ -197,7 +197,24 @@ func (r *AssetRepository) FindByUUID(ctx context.Context, tenantID uint64, uuid 
 	}
 
 	var asset mediamodel.MediaAsset
-	err := query.Where("tenant_id = ? AND uuid = ?", tenantID, uuid).First(&asset).Error
+	err := query.Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), uuid).First(&asset).Error
+	if err != nil {
+		return nil, err
+	}
+	return &asset, nil
+}
+
+// FindByUUIDGlobal 不区分租户地读取资产，适合公开只读场景。
+func (r *AssetRepository) FindByUUIDGlobal(ctx context.Context, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+	if uuid == "" {
+		return nil, errors.New("uuid 不能为空")
+	}
+	query := r.db.WithContext(ctx)
+	if includeDeleted {
+		query = query.Unscoped()
+	}
+	var asset mediamodel.MediaAsset
+	err := query.Where("uuid = ?", strings.TrimSpace(uuid)).First(&asset).Error
 	if err != nil {
 		return nil, err
 	}
@@ -205,18 +222,33 @@ func (r *AssetRepository) FindByUUID(ctx context.Context, tenantID uint64, uuid 
 }
 
 // FindByStorageKey 根据驱动与存储键定位资产。
-func (r *AssetRepository) FindByStorageKey(ctx context.Context, tenantID uint64, driver, storageKey string) (*mediamodel.MediaAsset, error) {
+func (r *AssetRepository) FindByStorageKey(ctx context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error) {
 	if driver == "" || storageKey == "" {
 		return nil, errors.New("driver 与 storageKey 不能为空")
 	}
 	var asset mediamodel.MediaAsset
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND driver = ? AND storage_key = ?", tenantID, driver, storageKey).
+		Where("tenant_uuid = ? AND driver = ? AND storage_key = ?", strings.TrimSpace(tenantUUID), driver, storageKey).
 		First(&asset).Error
 	if err != nil {
 		return nil, err
 	}
 	return &asset, nil
+}
+
+// ListByDriverAndStorageKey 返回同一驱动下共享 storage key 的所有资产（跨租户）。
+func (r *AssetRepository) ListByDriverAndStorageKey(ctx context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
+	if driver == "" || storageKey == "" {
+		return nil, errors.New("driver 与 storageKey 不能为空")
+	}
+	var assets []mediamodel.MediaAsset
+	err := r.db.WithContext(ctx).
+		Where("driver = ? AND storage_key = ?", strings.TrimSpace(driver), strings.TrimSpace(storageKey)).
+		Find(&assets).Error
+	if err != nil {
+		return nil, err
+	}
+	return assets, nil
 }
 
 // CreateAsset 创建新的媒体资产。
@@ -236,7 +268,7 @@ func (r *AssetRepository) UpdateAsset(ctx context.Context, asset *mediamodel.Med
 }
 
 // SoftDeleteByUUID 标记资产为软删除，并可选记录删除人。
-func (r *AssetRepository) SoftDeleteByUUID(ctx context.Context, tenantID uint64, uuid string, deletedBy *uint64) error {
+func (r *AssetRepository) SoftDeleteByUUID(ctx context.Context, tenantUUID string, uuid string, deletedBy *uint64) error {
 	if uuid == "" {
 		return errors.New("uuid 不能为空")
 	}
@@ -248,14 +280,14 @@ func (r *AssetRepository) SoftDeleteByUUID(ctx context.Context, tenantID uint64,
 
 	if deletedBy != nil {
 		if err := tx.Model(&mediamodel.MediaAsset{}).
-			Where("tenant_id = ? AND uuid = ?", tenantID, uuid).
+			Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), uuid).
 			Update("deleted_by", *deletedBy).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
-	result := tx.Where("tenant_id = ? AND uuid = ?", tenantID, uuid).
+	result := tx.Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), uuid).
 		Delete(&mediamodel.MediaAsset{})
 	if result.Error != nil {
 		tx.Rollback()
@@ -270,14 +302,14 @@ func (r *AssetRepository) SoftDeleteByUUID(ctx context.Context, tenantID uint64,
 }
 
 // RestoreByUUID 取消软删除。
-func (r *AssetRepository) RestoreByUUID(ctx context.Context, tenantID uint64, uuid string) error {
+func (r *AssetRepository) RestoreByUUID(ctx context.Context, tenantUUID string, uuid string) error {
 	if uuid == "" {
 		return errors.New("uuid 不能为空")
 	}
 	result := r.db.WithContext(ctx).
 		Unscoped().
 		Model(&mediamodel.MediaAsset{}).
-		Where("tenant_id = ? AND uuid = ?", tenantID, uuid).
+		Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), uuid).
 		Updates(map[string]interface{}{
 			"deleted_at": gorm.Expr("NULL"),
 			"deleted_by": nil,
@@ -305,8 +337,8 @@ func (r *AssetRepository) CleanupCandidates(ctx context.Context, filter CleanupF
 	if !filter.Before.IsZero() {
 		query = query.Where("deleted_at < ?", filter.Before)
 	}
-	if filter.TenantID > 0 {
-		query = query.Where("tenant_id = ?", filter.TenantID)
+	if tenant := strings.TrimSpace(filter.TenantUUID); tenant != "" {
+		query = query.Where("tenant_uuid = ?", tenant)
 	}
 	if len(filter.Drivers) > 0 {
 		query = query.Where("driver IN ?", filter.Drivers)

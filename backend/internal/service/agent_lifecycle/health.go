@@ -65,7 +65,7 @@ func (s *Service) RecordHealthSnapshot(ctx context.Context, input HealthInput) e
 		return fmt.Errorf("load agent: %w", err)
 	}
 
-	ctx = agentinstr.WithTenant(ctx, profile.TenantID)
+	ctx = agentinstr.WithTenant(ctx, profile.TenantUUID)
 
 	window := input.WindowStartedAt
 	if window.IsZero() {
@@ -83,7 +83,7 @@ func (s *Service) RecordHealthSnapshot(ctx context.Context, input HealthInput) e
 
 	record := &agentmodel.AgentHealthSnapshotRecord{
 		AgentUUID:         profile.UUID,
-		TenantID:          profile.TenantID,
+		TenantUUID:        profile.TenantUUID,
 		WindowStartedAt:   window,
 		WindowDurationSec: int32(input.WindowDuration.Seconds()),
 		ThroughputPerMin:  metrics.ThroughputPerMin,
@@ -109,7 +109,7 @@ func (s *Service) RecordHealthSnapshot(ctx context.Context, input HealthInput) e
 
 	payload := map[string]any{
 		"agent_id":            profile.UUID.String(),
-		"tenant_id":           profile.TenantID,
+		"tenant_uuid":         profile.TenantUUID,
 		"status":              status,
 		"health_score":        score,
 		"recommendations":     recommendations,
@@ -137,7 +137,7 @@ func (s *Service) RecordHealthSnapshot(ctx context.Context, input HealthInput) e
 			TraceID:  traceID,
 			Metadata: map[string]any{
 				"agent_id":     profile.UUID.String(),
-				"tenant_id":    profile.TenantID,
+				"tenant_uuid":  profile.TenantUUID,
 				"status":       status,
 				"health_score": score,
 			},

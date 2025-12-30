@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/instrumentation"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"gorm.io/gorm"
 )
@@ -16,6 +17,7 @@ type Options struct {
 	Cache           cache.ICache
 	AuditSvc        audit.Service
 	TenantKeySvc    *tenantkeys.TenantKeyService
+	TenantRepo      *tenantrepo.TenantRepository
 	Instrumentation *instrumentation.Instrumentation
 	Clock           func() time.Time
 }
@@ -27,5 +29,8 @@ func (o *Options) Normalize() {
 	}
 	if o.Instrumentation == nil {
 		o.Instrumentation = instrumentation.NewInstrumentation(nil, nil)
+	}
+	if o.TenantRepo == nil && o.DB != nil {
+		o.TenantRepo = tenantrepo.NewTenantRepository(o.DB)
 	}
 }

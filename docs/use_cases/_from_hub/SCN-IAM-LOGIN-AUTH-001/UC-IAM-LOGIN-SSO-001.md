@@ -110,9 +110,9 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs**
-  - `GET /auth/sso/redirect` — 接收 `tenant_id`, `return_to`，生成 `state`/`nonce` 并缓存。
+  - `GET /auth/sso/redirect` — 接收 `tenant_uuid`, `return_to`，生成 `state`/`nonce` 并缓存。
   - `GET /auth/sso/callback` — 校验 `state`/`nonce`，处理 IdP 错误码 `access_denied`, `interaction_required` 等。
-  - `POST /internal/sessions` — 创建会话，参数包含 `tenant_id`, `user_id`, `device`, `ip`。
+  - `POST /internal/sessions` — 创建会话，参数包含 `tenant_uuid`, `user_id`, `device`, `ip`。
 - **Outbound 调用**
   - `POST /idp/token` — 交换授权码为 Access/ID Token，超时 3 秒，失败重试 1 次。
 - **事件与通知**
@@ -142,7 +142,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`auth.sso.success_rate`, `auth.sso.latency_p95`, `auth.sso.failure_total`（分类）、`auth.session.creation_success_total`。
-- **日志**：记录 `tenant_id`, `user_id`, `state`, `nonce`, `ip`, `ua`, `error_code`, `trace_id`。
+- **日志**：记录 `tenant_uuid`, `user_id`, `state`, `nonce`, `ip`, `ua`, `error_code`, `trace_id`。
 - **告警**：连续 5 次登录失败或成功率 <97% 触发 PagerDuty；授权码交换超时率 >3% 推送 Slack。
 - **仪表板**：Grafana `IAM / Login Overview`、Splunk 登录失败面板、`reports/iam/auth-security-dashboard`。
 

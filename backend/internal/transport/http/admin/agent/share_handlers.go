@@ -47,7 +47,7 @@ func (h *ShareHandler) CreateShare(c *gin.Context) {
 	}
 	input := agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  req.TenantUUID,
 		Quotas:      toShareQuotas(req.Quotas),
 		Metadata:    req.Metadata,
 		RequestedBy: req.RequestedBy,
@@ -106,7 +106,7 @@ func (h *ShareHandler) handleError(c *gin.Context, err error) {
 }
 
 type shareAgentRequest struct {
-	TenantID    string            `json:"tenant_id" binding:"required"`
+	TenantUUID  string            `json:"tenant_uuid" binding:"required,uuid4"`
 	RequestedBy string            `json:"requested_by"`
 	TraceID     string            `json:"trace_id"`
 	Quotas      []shareQuotaDTO   `json:"quotas"`
@@ -125,16 +125,16 @@ type revokeShareRequest struct {
 }
 
 type shareResponse struct {
-	ID        string            `json:"id"`
-	AgentID   string            `json:"agent_id"`
-	TenantID  string            `json:"tenant_id"`
-	Status    string            `json:"status"`
-	Quotas    []shareQuotaDTO   `json:"quotas,omitempty"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
-	CreatedAt string            `json:"created_at"`
-	UpdatedAt string            `json:"updated_at"`
-	RevokedAt *string           `json:"revoked_at,omitempty"`
-	Reason    string            `json:"reason,omitempty"`
+	ID         string            `json:"id"`
+	AgentID    string            `json:"agent_id"`
+	TenantUUID string            `json:"tenant_uuid"`
+	Status     string            `json:"status"`
+	Quotas     []shareQuotaDTO   `json:"quotas,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+	CreatedAt  string            `json:"created_at"`
+	UpdatedAt  string            `json:"updated_at"`
+	RevokedAt  *string           `json:"revoked_at,omitempty"`
+	Reason     string            `json:"reason,omitempty"`
 }
 
 func toShareQuotas(items []shareQuotaDTO) []agent_lifecycle.ShareQuota {
@@ -163,13 +163,13 @@ func fromShare(share *agent_lifecycle.AgentShare) shareResponse {
 		})
 	}
 	resp := shareResponse{
-		ID:       share.ID.String(),
-		AgentID:  share.AgentID.String(),
-		TenantID: share.TenantID,
-		Status:   share.Status,
-		Quotas:   quotas,
-		Metadata: share.Metadata,
-		Reason:   share.Reason,
+		ID:         share.ID.String(),
+		AgentID:    share.AgentID.String(),
+		TenantUUID: share.TenantUUID,
+		Status:     share.Status,
+		Quotas:     quotas,
+		Metadata:   share.Metadata,
+		Reason:     share.Reason,
 	}
 	if share.CreatedAt != "" {
 		resp.CreatedAt = share.CreatedAt

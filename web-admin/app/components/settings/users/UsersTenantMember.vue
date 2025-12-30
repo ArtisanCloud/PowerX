@@ -5,21 +5,21 @@ import { storeToRefs } from "pinia";
 import { useI18n } from "#imports";
 import { useUserStore } from "~/stores/user";
 
-// Member不需要传入tenantId，而是自己选择所属的租户
+// Member 不需要传入 tenantUuid，而是自己选择所属的租户
 const { t, locale } = useI18n();
 
 // 使用用户 Store
 const userStore = useUserStore();
 const {
   memberTenants,
-  currentTenantId,
+  currentTenantUuid,
   isLoading: userLoading,
   displayName,
 } = storeToRefs(userStore);
 
 // 租户相关
 interface UserTenant {
-  id: number;
+  id: string;
   name: string;
   domain: string;
 }
@@ -45,17 +45,17 @@ const isLoading = ref(false);
 // 转换租户数据格式
 const myTenants = computed(() =>
   memberTenants.value.map((tenant) => ({
-    id: tenant.tenant_id,
+    id: tenant.tenant_uuid,
     name: tenant.tenant_name,
     domain: `${tenant.tenant_name.toLowerCase()}.example.com`,
   }))
 );
 
-const selectedTenantId = ref<number | null>(currentTenantId.value);
+const selectedTenantUuid = ref<string | null>(currentTenantUuid.value);
 
 // 计算属性
 const selectedTenant = computed(() =>
-  myTenants.value.find((t) => t.id === selectedTenantId.value)
+  myTenants.value.find((t) => t.id === selectedTenantUuid.value)
 );
 
 const filteredUsers = computed(() => {
@@ -136,18 +136,18 @@ const columns = computed(() => {
 });
 
 // 加载指定租户的用户数据
-async function loadUsersForTenant(tenantId: number) {
+async function loadUsersForTenant(tenantUuid: string) {
   isLoading.value = true;
   try {
     // TODO: 替换为真实API调用
     // const response = await $fetch(`/api/admin/iam/members`, {
-    //   params: { tenant_id: tenantId, page: 1, page_size: 100 }
+    //   params: { tenant_uuid: tenantUuid, page: 1, page_size: 100 }
     // });
     // users.value = response.data || [];
 
     // 模拟不同租户的用户数据
-    const mockData: Record<number, RowUser[]> = {
-      1: [
+    const mockData: Record<string, RowUser[]> = {
+      "demo-tenant": [
         {
           id: 1,
           name: "张三",
@@ -171,7 +171,7 @@ async function loadUsersForTenant(tenantId: number) {
           joinedAt: "2024-02-20",
         },
       ],
-      2: [
+      "ops-tenant": [
         {
           id: 3,
           name: "王五",
@@ -186,7 +186,7 @@ async function loadUsersForTenant(tenantId: number) {
       ],
     };
 
-    users.value = mockData[tenantId] || [];
+    users.value = mockData[tenantUuid] || [];
   } catch (error) {
     console.error("加载用户数据失败:", error);
     users.value = [];
@@ -196,21 +196,21 @@ async function loadUsersForTenant(tenantId: number) {
 }
 
 // 监听租户切换
-watch(selectedTenantId, async (newTenantId) => {
-  if (newTenantId && newTenantId !== currentTenantId.value) {
+watch(selectedTenantUuid, async (newTenantUuid) => {
+  if (newTenantUuid && newTenantUuid !== currentTenantUuid.value) {
     try {
       isLoading.value = true;
-      await userStore.switchTenant(newTenantId);
-      await loadUsersForTenant(newTenantId);
+      await userStore.switchTenant(newTenantUuid);
+      await loadUsersForTenant(newTenantUuid);
     } catch (error: any) {
       console.error("切换租户失败:", error);
       // 切换失败时恢复到原来的租户
-      selectedTenantId.value = currentTenantId.value;
+      selectedTenantUuid.value = currentTenantUuid.value;
     } finally {
       isLoading.value = false;
     }
-  } else if (newTenantId) {
-    await loadUsersForTenant(newTenantId);
+  } else if (newTenantUuid) {
+    await loadUsersForTenant(newTenantUuid);
   }
 });
 
@@ -223,11 +223,11 @@ onMounted(async () => {
     }
 
     // 设置当前选中的租户
-    if (currentTenantId.value) {
-      selectedTenantId.value = currentTenantId.value;
-      await loadUsersForTenant(currentTenantId.value);
+    if (currentTenantUuid.value) {
+      selectedTenantUuid.value = currentTenantUuid.value;
+      await loadUsersForTenant(currentTenantUuid.value);
     } else if (myTenants.value.length > 0) {
-      selectedTenantId.value = myTenants.value[0].id;
+      selectedTenantUuid.value = myTenants.value[0].id;
       await loadUsersForTenant(myTenants.value[0].id);
     }
   } catch (error) {
@@ -257,7 +257,7 @@ onMounted(async () => {
         <div class="flex items-center gap-4">
           <UFormField label="选择租户" class="flex-shrink-0">
             <USelect
-              v-model="selectedTenantId"
+              v-model="selectedTenantUuid"
               :options="myTenants"
               option-attribute="name"
               value-attribute="id"

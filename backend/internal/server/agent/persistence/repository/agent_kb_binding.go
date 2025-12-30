@@ -21,10 +21,10 @@ func NewAgentKBBindingRepository(db *gorm.DB) *AgentKBBindingRepository {
 }
 
 // Attach / Upsert 唯一键：agent_id + kb_id
-func (r *AgentKBBindingRepository) Attach(ctx context.Context, env string, tenantID *uint64, in *dbmodel.AgentKBBinding) error {
+func (r *AgentKBBindingRepository) Attach(ctx context.Context, env string, tenantUUID *string, in *dbmodel.AgentKBBinding) error {
 	tx := r.db.WithContext(ctx)
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"weight":       in.Weight,
@@ -44,10 +44,10 @@ func (r *AgentKBBindingRepository) Detach(ctx context.Context, agentID, kbID uin
 		Delete(&dbmodel.AgentKBBinding{}).Error
 }
 
-func (r *AgentKBBindingRepository) ListByAgent(ctx context.Context, env string, tenantID *uint64, agentID uint64) ([]dbmodel.AgentKBBinding, error) {
+func (r *AgentKBBindingRepository) ListByAgent(ctx context.Context, env string, tenantUUID *string, agentID uint64) ([]dbmodel.AgentKBBinding, error) {
 	var list []dbmodel.AgentKBBinding
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID).
 		Order("kb_id ASC").
 		Find(&list).Error
@@ -55,7 +55,7 @@ func (r *AgentKBBindingRepository) ListByAgent(ctx context.Context, env string, 
 }
 
 // Replace：用新集合替换 agent 的全部绑定（在事务外部控制 tx 更佳）
-func (r *AgentKBBindingRepository) Replace(ctx context.Context, env string, tenantID *uint64, agentID uint64, bindings []dbmodel.AgentKBBinding) error {
+func (r *AgentKBBindingRepository) Replace(ctx context.Context, env string, tenantUUID *string, agentID uint64, bindings []dbmodel.AgentKBBinding) error {
 	tx := r.db.WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -68,7 +68,7 @@ func (r *AgentKBBindingRepository) Replace(ctx context.Context, env string, tena
 	// 统一作用域
 	for i := range bindings {
 		bindings[i].Env = env
-		bindings[i].TenantID = tenantID
+		bindings[i].TenantUUID = tenantUUID
 		bindings[i].AgentID = agentID
 	}
 

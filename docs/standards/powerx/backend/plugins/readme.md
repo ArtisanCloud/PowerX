@@ -104,9 +104,9 @@
 
 ## 7. 上下文与安全（两端一致）
 
-* `Ctx` 统一字段：`tenant_id`、`actor`、`scopes[]`、`trace_id`、`locale/currency`、`idempotency_key`。
+* `Ctx` 统一字段：`tenant_uuid`（必要时宿主可额外注入 `tenant_id` 仅用于兼容审计）、`actor`、`scopes[]`、`trace_id`、`locale/currency`、`idempotency_key`。
 * **鉴权**：PowerX 网关统一校验 `rbac.required[]`；插件→宿主通过 STS/Service Account 获取最小权限。
-* **多租户**：宿主注入 `tenant_id`；插件按 `schema/row` 隔离；日志与审计落**租户维度**。
+* **多租户**：宿主注入 `tenant_uuid`；插件按 `schema/row` 隔离；日志与审计落**租户维度**。
 * **幂等**：写类能力必须支持；宿主负责生成/转发；插件在仓储层实现去重。
 * **审计**：统一事件名=能力名（如 `template.upsert`）；南北向都落账。
 * **配额与限流**：按租户/能力/方向实现令牌桶；AI 推理单列配额。

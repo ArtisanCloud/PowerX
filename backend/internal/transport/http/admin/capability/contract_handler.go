@@ -10,7 +10,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	validator "github.com/ArtisanCloud/PowerX/internal/contract/capability"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/capability"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -35,8 +34,11 @@ func (h *ContractHandler) CreateContract(c *gin.Context) {
 		writeBadRequest(c, "invalid_payload", err.Error())
 		return
 	}
-	tenantID := tenantIDFromRequest(c, req.TenantID)
-	input := req.toUpsertInput(tenantID)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
+	input := req.toUpsertInput(tenantUUID)
 	contract, issues, err := h.svc.UpsertDraft(c.Request.Context(), input)
 	if err != nil {
 		if errorsIsValidation(err) {
@@ -46,7 +48,7 @@ func (h *ContractHandler) CreateContract(c *gin.Context) {
 		writeInternalError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract, tenantUUID))
 }
 
 // UpdateContract 更新契约草稿。
@@ -58,14 +60,17 @@ func (h *ContractHandler) UpdateContract(c *gin.Context) {
 	}
 	capabilityKey := c.Param("capabilityKey")
 	version := c.Param("version")
-	tenantID := tenantIDFromRequest(c, req.TenantID)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	if capabilityKey == "" || version == "" {
 		writeBadRequest(c, "missing_path", "capability key 或 version 缺失")
 		return
 	}
 	req.CapabilityKey = capabilityKey
 	req.Version = version
-	input := req.toUpsertInput(tenantID)
+	input := req.toUpsertInput(tenantUUID)
 	contract, issues, err := h.svc.UpsertDraft(c.Request.Context(), input)
 	if err != nil {
 		if errorsIsValidation(err) {
@@ -75,29 +80,35 @@ func (h *ContractHandler) UpdateContract(c *gin.Context) {
 		writeInternalError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract, tenantUUID))
 }
 
 // GetContract 获取单个契约。
 func (h *ContractHandler) GetContract(c *gin.Context) {
 	capabilityKey := c.Param("capabilityKey")
 	version := c.Param("version")
-	tenantID := tenantIDFromQuery(c.Query("tenant_id"))
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	if capabilityKey == "" || version == "" {
 		writeBadRequest(c, "missing_path", "capability key 或 version 缺失")
 		return
 	}
-	contract, err := h.svc.GetContract(c.Request.Context(), tenantID, capabilityKey, version)
+	contract, err := h.svc.GetContract(c.Request.Context(), tenantUUID, capabilityKey, version)
 	if err != nil {
 		writeServiceError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract, tenantUUID))
 }
 
 // ListContracts 列出契约。
 func (h *ContractHandler) ListContracts(c *gin.Context) {
-	tenantID := tenantIDFromQuery(c.Query("tenant_id"))
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	keyword := c.Query("capability_key")
 	limit := parseIntDefault(c.Query("page_size"), 20)
 	page := parseIntDefault(c.Query("page"), 1)
@@ -108,14 +119,14 @@ func (h *ContractHandler) ListContracts(c *gin.Context) {
 		page = 1
 	}
 	offset := (page - 1) * limit
-	items, total, err := h.svc.ListContracts(c.Request.Context(), tenantID, keyword, limit, offset)
+	items, total, err := h.svc.ListContracts(c.Request.Context(), tenantUUID, keyword, limit, offset)
 	if err != nil {
 		writeInternalError(c, err)
 		return
 	}
 	views := make([]ContractResponse, 0, len(items))
 	for _, item := range items {
-		views = append(views, toContractResponse(item))
+		views = append(views, toContractResponse(item, tenantUUID))
 	}
 	dto.ResponseList(c, views, &dto.PaginationResponse{
 		Total:    total,
@@ -141,9 +152,12 @@ func (h *ContractHandler) PublishContract(c *gin.Context) {
 		writeBadRequest(c, "missing_effective_at", "effective_at 必填，需使用 RFC3339 时间格式")
 		return
 	}
-	tenantID := tenantIDFromRequest(c, nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	input := &svc.PublishInput{
-		TenantID:      tenantID,
+		TenantUUID:    tenantUUID,
 		CapabilityKey: capabilityKey,
 		Version:       version,
 		EffectiveAt:   *req.EffectiveAt,
@@ -158,7 +172,7 @@ func (h *ContractHandler) PublishContract(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract, tenantUUID))
 }
 
 // DeprecateContract 标记契约为废弃。
@@ -178,9 +192,12 @@ func (h *ContractHandler) DeprecateContract(c *gin.Context) {
 		writeBadRequest(c, "missing_deprecated_at", "deprecated_at 必填，需使用 RFC3339 时间格式")
 		return
 	}
-	tenantID := tenantIDFromRequest(c, nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	input := &svc.DeprecateInput{
-		TenantID:              tenantID,
+		TenantUUID:            tenantUUID,
 		CapabilityKey:         capabilityKey,
 		Version:               version,
 		DeprecatedAt:          *req.DeprecatedAt,
@@ -192,13 +209,12 @@ func (h *ContractHandler) DeprecateContract(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract, tenantUUID))
 }
 
 // ---------- 请求/响应结构 ----------
 
 type contractPayload struct {
-	TenantID             *uint64                      `json:"tenant_id,omitempty"`
 	CapabilityKey        string                       `json:"capability_key"`
 	Version              string                       `json:"version"`
 	ProviderID           string                       `json:"provider_id"`
@@ -258,7 +274,7 @@ type deprecateRequest struct {
 type ContractResponse struct {
 	ID                    uint64                          `json:"id"`
 	ContractUUID          string                          `json:"contract_uuid"`
-	TenantID              uint64                          `json:"tenant_id"`
+	TenantUUID            string                          `json:"tenant_uuid"`
 	CapabilityKey         string                          `json:"capability_key"`
 	Version               string                          `json:"version"`
 	ProviderID            string                          `json:"provider_id"`
@@ -279,9 +295,9 @@ type ContractResponse struct {
 	UpdatedAt             time.Time                       `json:"updated_at"`
 }
 
-func (p *contractPayload) toUpsertInput(tenantID uint64) *svc.ContractUpsertInput {
+func (p *contractPayload) toUpsertInput(tenantUUID string) *svc.ContractUpsertInput {
 	return &svc.ContractUpsertInput{
-		TenantID:             tenantID,
+		TenantUUID:           tenantUUID,
 		CapabilityKey:        strings.TrimSpace(p.CapabilityKey),
 		Version:              strings.TrimSpace(p.Version),
 		ProviderID:           p.ProviderID,
@@ -297,14 +313,14 @@ func (p *contractPayload) toUpsertInput(tenantID uint64) *svc.ContractUpsertInpu
 	}
 }
 
-func toContractResponse(model *svc.Contract) ContractResponse {
+func toContractResponse(model *svc.Contract, tenantUUID string) ContractResponse {
 	if model == nil {
-		return ContractResponse{}
+		return ContractResponse{TenantUUID: tenantUUID}
 	}
 	return ContractResponse{
 		ID:                    model.ID,
 		ContractUUID:          model.ContractUUID,
-		TenantID:              model.TenantID,
+		TenantUUID:            tenantUUID,
 		CapabilityKey:         model.CapabilityKey,
 		Version:               model.Version,
 		ProviderID:            model.ProviderID,
@@ -379,30 +395,6 @@ func toErrorTaxonomies(items []errorTaxonomyPayload) []validator.ErrorTaxonomyEn
 }
 
 // ---------- 辅助函数 ----------
-
-func tenantIDFromRequest(c *gin.Context, payloadValue *uint64) uint64 {
-	if payloadValue != nil && *payloadValue > 0 {
-		return *payloadValue
-	}
-	if id := tenantIDFromQuery(c.Query("tenant_id")); id > 0 {
-		return id
-	}
-	if id := reqctx.GetTenantID(c.Request.Context()); id > 0 {
-		return id
-	}
-	return 0
-}
-
-func tenantIDFromQuery(val string) uint64 {
-	if val == "" {
-		return 0
-	}
-	id, err := strconv.ParseUint(val, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return id
-}
 
 func parseIntDefault(val string, def int) int {
 	if val == "" {

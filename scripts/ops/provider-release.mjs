@@ -129,7 +129,7 @@ function buildRolloutBody(args) {
   const tenants = parseTenants(args.tenants);
   const percentage = args.percentage ? Number(args.percentage) : 0;
   if (!tenants.length) {
-    throw new Error("--tenants is required (format tenantId:env,tenantId:env)");
+    throw new Error("--tenants is required (format tenant_uuid:env,tenant_uuid:env)");
   }
   return {
     env,
@@ -158,13 +158,13 @@ function parseTenants(value) {
     .map((pair) => pair.trim())
     .filter(Boolean)
     .map((pair) => {
-      const [tenantId, environment = "default"] = pair.split(":");
+      const [tenant_uuid, environment = "default"] = pair.split(":");
       return {
-        tenantId: tenantId?.trim(),
+        tenant_uuid: tenant_uuid?.trim(),
         environment: environment?.trim(),
       };
     })
-    .filter((ref) => ref.tenantId);
+    .filter((ref) => ref.tenant_uuid);
 }
 
 function printHelp() {
@@ -182,7 +182,7 @@ Commands:
 Options:
   --token <token>             Bearer token for internal APIs
   --payload/--body <file>     JSON file containing request body
-  --tenants <list>            Comma-separated tenantId:env pairs for rollout
+  --tenants <list>            Comma-separated tenant_uuid:env pairs for rollout
   --percentage <int>          Rollout percentage (0-100)
   --note <text>               Annotation for rollout plan
   --reason <text>             Rollback reason

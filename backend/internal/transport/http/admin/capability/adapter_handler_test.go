@@ -11,32 +11,33 @@ import (
 	capb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	capvalidator "github.com/ArtisanCloud/PowerX/internal/contract/capability"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/capability"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
 type stubAdapterService struct {
-	listFunc    func(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]svc.TransportProfile, error)
-	replaceFunc func(ctx context.Context, tenantID uint64, capabilityKey, version string, profiles []capvalidator.TransportProfile) error
-	healthFunc  func(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error)
+	listFunc    func(ctx context.Context, tenantUUID string, capabilityKey, version string) ([]svc.TransportProfile, error)
+	replaceFunc func(ctx context.Context, tenantUUID string, capabilityKey, version string, profiles []capvalidator.TransportProfile) error
+	healthFunc  func(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error)
 }
 
-func (s *stubAdapterService) ListProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]svc.TransportProfile, error) {
+func (s *stubAdapterService) ListProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string) ([]svc.TransportProfile, error) {
 	if s.listFunc != nil {
-		return s.listFunc(ctx, tenantID, capabilityKey, version)
+		return s.listFunc(ctx, tenantUUID, capabilityKey, version)
 	}
 	return nil, nil
 }
 
-func (s *stubAdapterService) ReplaceProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string, profiles []capvalidator.TransportProfile) error {
+func (s *stubAdapterService) ReplaceProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string, profiles []capvalidator.TransportProfile) error {
 	if s.replaceFunc != nil {
-		return s.replaceFunc(ctx, tenantID, capabilityKey, version, profiles)
+		return s.replaceFunc(ctx, tenantUUID, capabilityKey, version, profiles)
 	}
 	return nil
 }
 
-func (s *stubAdapterService) HealthCheck(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error) {
+func (s *stubAdapterService) HealthCheck(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error) {
 	if s.healthFunc != nil {
-		return s.healthFunc(ctx, tenantID, capabilityKey, version, transport)
+		return s.healthFunc(ctx, tenantUUID, capabilityKey, version, transport)
 	}
 	return &svc.TransportHealthReport{Status: "healthy", CheckedAt: time.Now()}, nil
 }
@@ -44,7 +45,7 @@ func (s *stubAdapterService) HealthCheck(ctx context.Context, tenantID uint64, c
 func TestAdapterHandlerListTransportProfiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	stub := &stubAdapterService{
-		listFunc: func(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]svc.TransportProfile, error) {
+		listFunc: func(ctx context.Context, tenantUUID string, capabilityKey, version string) ([]svc.TransportProfile, error) {
 			return []svc.TransportProfile{{
 				Transport:     "http",
 				Mode:          "prefer",
@@ -56,8 +57,11 @@ func TestAdapterHandlerListTransportProfiles(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	req, _ := http.NewRequest(http.MethodGet, "/?tenant_id=1", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	ctx := reqctx.WithTenantUUID(req.Context(), "test-tenant-uuid")
+	req = req.WithContext(ctx)
 	c.Request = req
+	reqctx.CopyCtxToGin(c)
 	c.Params = gin.Params{{Key: "capabilityKey", Value: "demo.cap"}, {Key: "version", Value: "1.0.0"}}
 
 	handler.ListTransportProfiles(c)
@@ -85,7 +89,7 @@ func TestAdapterHandlerListTransportProfiles(t *testing.T) {
 func TestAdapterHandlerRunHealthCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	stub := &stubAdapterService{
-		healthFunc: func(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error) {
+		healthFunc: func(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error) {
 			return &svc.TransportHealthReport{Status: "healthy", CheckedAt: time.Now()}, nil
 		},
 	}
@@ -93,8 +97,11 @@ func TestAdapterHandlerRunHealthCheck(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	req, _ := http.NewRequest(http.MethodPost, "/?tenant_id=1", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/", nil)
+	ctx := reqctx.WithTenantUUID(req.Context(), "test-tenant-uuid")
+	req = req.WithContext(ctx)
 	c.Request = req
+	reqctx.CopyCtxToGin(c)
 	c.Params = gin.Params{
 		{Key: "capabilityKey", Value: "demo.cap"},
 		{Key: "version", Value: "1.0.0"},

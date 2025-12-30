@@ -12,7 +12,6 @@ import (
 type DeliveryAttempt struct {
 	coremodel.PowerUUIDModel
 
-	TenantID      uint64     `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_delivery_attempts_tenant" json:"tenant_id"`
 	TenantKey     string     `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_delivery_attempts_tenant_key;uniqueIndex:uk_event_delivery_attempt,priority:1" json:"tenant_key"`
 	EnvelopeUUID  uuid.UUID  `gorm:"column:envelope_uuid;type:uuid;not null;index:idx_event_delivery_attempts_envelope" json:"envelope_uuid"`
 	EventID       string     `gorm:"column:event_id;type:varchar(128);not null;index:idx_event_delivery_attempts_event;uniqueIndex:uk_event_delivery_attempt,priority:2" json:"event_id"`

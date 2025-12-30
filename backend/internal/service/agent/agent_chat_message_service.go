@@ -22,11 +22,11 @@ func NewAgentChatMessageService(db *gorm.DB) *AgentChatMessageService {
 }
 
 func (s *AgentChatMessageService) AppendUser(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64, text string,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, text string,
 ) (*dbmodel.AgentChatMessage, error) {
 	m := &dbmodel.AgentChatMessage{
 		Env:       env,
-		TenantID:  tenantID,
+		TenantUUID:  tenantUUID,
 		SessionID: sessionID,
 		Role:      "user",
 		Content:   text,
@@ -39,11 +39,11 @@ func (s *AgentChatMessageService) AppendUser(
 }
 
 func (s *AgentChatMessageService) AppendAssistant(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64, text string, meta map[string]any,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, text string, meta map[string]any,
 ) (*dbmodel.AgentChatMessage, error) {
 	m := &dbmodel.AgentChatMessage{
 		Env:       env,
-		TenantID:  tenantID,
+		TenantUUID:  tenantUUID,
 		SessionID: sessionID,
 		Role:      "assistant",
 		Content:   text,

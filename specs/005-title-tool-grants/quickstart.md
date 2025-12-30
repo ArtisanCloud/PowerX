@@ -46,7 +46,7 @@
    curl -X POST http://localhost:8077/api/v1/admin/event-fabric/grants \
      -H 'Content-Type: application/json' \
      -d '{
-       "tenant_id": "00000000-0000-0000-0000-000000000001",
+       "tenant_uuid": "00000000-0000-0000-0000-000000000001",
        "subject": {
          "type": "agent",
          "id": "00000000-0000-0000-0000-000000000101"
@@ -62,16 +62,16 @@
 
 7. 查询授权审计（JSON）：
    ```bash
-   curl "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenantId=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&page=1&pageSize=20"
+   curl "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenant_uuid=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&page=1&pageSize=20"
    ```
 
 8. 导出授权审计（CSV）：
    ```bash
-   curl -o authorization_audit.csv "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenantId=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&format=csv"
+   curl -o authorization_audit.csv "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenant_uuid=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&format=csv"
    ```
 
 ## 验证指标
 
 - 查看 Prometheus 指标 `event_fabric_authorization_latency_ms` 是否满足目标。
 - Kafka 主题 `secops.challenge` 是否收到 Challenge 事件。
-- Redis 键 `grant:{tenant_id}:{subject_id}:*` 在 Grant 失效后立即移除。
+- Redis 键 `grant:{tenant_uuid}:{subject_id}:*` 在 Grant 失效后立即移除。

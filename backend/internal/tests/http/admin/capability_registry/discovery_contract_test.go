@@ -30,7 +30,7 @@ func TestDiscoveryHTTPContract(t *testing.T) {
 	registryRepo := testutil.NewMockRegistryRepository([]capabilityRegistryRouter.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Version:      3,
 			Adapters: []capabilityRegistryRouter.AdapterEndpoint{
@@ -72,7 +72,7 @@ func TestDiscoveryHTTPContract(t *testing.T) {
 	handler := capability_registry.NewDiscoveryHandler(service)
 
 	router := gin.New()
-	router.GET("/discovery/:tenantId/:capabilityId", handler.GetSnapshot)
+	router.GET("/discovery/:tenant_uuid/:capabilityId", handler.GetSnapshot)
 	router.POST("/discovery/sync", handler.Sync)
 
 	// 1. 尚未同步时返回 404
@@ -85,7 +85,7 @@ func TestDiscoveryHTTPContract(t *testing.T) {
 
 	// 2. 触发同步
 	syncPayload := map[string]any{
-		"tenant_id":    "tenant-corex",
+		"tenant_uuid":  "tenant-corex",
 		"capabilities": []string{"capabilities.text.translate"},
 		"client_id":    "sdk-client",
 	}

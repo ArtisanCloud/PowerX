@@ -77,22 +77,22 @@ func NewObservabilityMetrics(inst *domain.Instrumentation, opts ...MetricsOption
 }
 
 // ObserveSync 记录同步指标。
-func (m *ObservabilityMetrics) ObserveSync(ctx context.Context, tenantID, capabilityID string, source SnapshotSource, ttl time.Duration, err error) {
+func (m *ObservabilityMetrics) ObserveSync(ctx context.Context, tenantUUID, capabilityID string, source SnapshotSource, ttl time.Duration, err error) {
 	if err != nil {
 		m.syncFailures.Add(1)
-		m.inst.Logger(ctx).WarnF(ctx, "[discovery.metrics] sync failed: tenant=%s capability=%s source=%s err=%v", tenantID, capabilityID, source, err)
+		m.inst.Logger(ctx).WarnF(ctx, "[discovery.metrics] sync failed: tenant=%s capability=%s source=%s err=%v", tenantUUID, capabilityID, source, err)
 		return
 	}
 	m.syncSuccess.Add(1)
 
 	// TTL 异常时打印提示，便于运维识别配置问题。
 	if ttl > 0 && ttl < (m.ttlExpectation/2) {
-		m.inst.Logger(ctx).WarnF(ctx, "[discovery.metrics] ttl below expectation: tenant=%s capability=%s ttl=%s", tenantID, capabilityID, ttl)
+		m.inst.Logger(ctx).WarnF(ctx, "[discovery.metrics] ttl below expectation: tenant=%s capability=%s ttl=%s", tenantUUID, capabilityID, ttl)
 	}
 }
 
 // ObserveCacheLookup 记录缓存命中率。
-func (m *ObservabilityMetrics) ObserveCacheLookup(ctx context.Context, tenantID, capabilityID, outcome string) {
+func (m *ObservabilityMetrics) ObserveCacheLookup(ctx context.Context, tenantUUID, capabilityID, outcome string) {
 	switch outcome {
 	case "hit":
 		m.cacheHits.Add(1)
@@ -103,7 +103,7 @@ func (m *ObservabilityMetrics) ObserveCacheLookup(ctx context.Context, tenantID,
 		m.cacheMisses.Add(1)
 	}
 
-	m.evaluateHitRate(ctx, tenantID, capabilityID)
+	m.evaluateHitRate(ctx, tenantUUID, capabilityID)
 }
 
 // Snapshot 返回当前指标快照。
@@ -139,7 +139,7 @@ type MetricsSnapshot struct {
 	SamplesObserved uint64
 }
 
-func (m *ObservabilityMetrics) evaluateHitRate(ctx context.Context, tenantID, capabilityID string) {
+func (m *ObservabilityMetrics) evaluateHitRate(ctx context.Context, tenantUUID, capabilityID string) {
 	hits := m.cacheHits.Load()
 	misses := m.cacheMisses.Load()
 	total := hits + misses
@@ -160,10 +160,9 @@ func (m *ObservabilityMetrics) evaluateHitRate(ctx context.Context, tenantID, ca
 	}
 	if m.lastAlertTotal.CompareAndSwap(prev, total) {
 		percentage := math.Round(rate*1000) / 10 // 小数点后1位
-		m.inst.Logger(ctx).WarnF(
-			ctx,
+		m.inst.Logger(ctx).WarnF(ctx,
 			"[discovery.metrics] cache hit rate below threshold: tenant=%s capability=%s hit_rate=%.1f%% threshold=%.0f%% samples=%d",
-			tenantID,
+			tenantUUID,
 			capabilityID,
 			percentage,
 			m.alertThreshold*100,

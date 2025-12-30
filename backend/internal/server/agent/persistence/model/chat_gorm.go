@@ -9,8 +9,8 @@ type AgentChatMessage struct {
 	coremodel.PowerModel
 
 	// 作用域
-	Env      string  `gorm:"size:32;index" json:"-"`
-	TenantID *uint64 `gorm:"index" json:"-"`
+	Env        string  `gorm:"size:32;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index" json:"-"`
 
 	// 关联
 	SessionID uint64 `gorm:"index;not null" json:"sessionId"`

@@ -34,25 +34,27 @@ type Service struct {
 
 // DeployRequest initializes a sandbox run.
 type DeployRequest struct {
-	TenantID uint64 `json:"tenantId"`
-	PluginID string `json:"pluginId"`
-	Dataset  string `json:"dataset"` // dataset ID
+	TenantUUID string `json:"tenant_uuid"`
+	PluginID   string `json:"pluginId"`
+	Dataset    string `json:"dataset"` // dataset ID
 }
 
 // DatasetRequest attaches dataset metadata to a run.
 type DatasetRequest struct {
-	RunID     uuid.UUID `json:"runId"`
-	DatasetID string    `json:"datasetId"`
-	Version   string    `json:"datasetVersion"`
+	RunID      uuid.UUID `json:"runId"`
+	DatasetID  string    `json:"datasetId"`
+	Version    string    `json:"datasetVersion"`
+	TenantUUID string    `json:"-"`
 }
 
 // TestRequest finalizes the sandbox execution.
 type TestRequest struct {
-	RunID    uuid.UUID      `json:"runId"`
-	Outcome  string         `json:"outcome"`
-	Metrics  map[string]any `json:"metrics"`
-	Report   string         `json:"reportUri"`
-	Warnings []string       `json:"warnings"`
+	RunID      uuid.UUID      `json:"runId"`
+	Outcome    string         `json:"outcome"`
+	Metrics    map[string]any `json:"metrics"`
+	Report     string         `json:"reportUri"`
+	Warnings   []string       `json:"warnings"`
+	TenantUUID string         `json:"-"`
 }
 
 // NewService constructs the sandbox service.
@@ -77,8 +79,9 @@ func (s *Service) Deploy(ctx context.Context, req DeployRequest) (*model.Sandbox
 	if s.repo == nil {
 		return nil, errors.New("sandbox repository unavailable")
 	}
-	if req.TenantID == 0 {
-		return nil, errors.New("tenantId is required")
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid is required")
 	}
 	if strings.TrimSpace(req.PluginID) == "" {
 		return nil, errors.New("pluginId is required")
@@ -96,7 +99,7 @@ func (s *Service) Deploy(ctx context.Context, req DeployRequest) (*model.Sandbox
 	}
 	start := s.now()
 	run := &model.SandboxValidationRun{
-		TenantID:      req.TenantID,
+		TenantUUID:    tenantUUID,
 		PluginID:      strings.TrimSpace(req.PluginID),
 		Status:        "deploying",
 		Dataset:       datasetID,
@@ -122,7 +125,11 @@ func (s *Service) LoadDataset(ctx context.Context, req DatasetRequest) error {
 	if req.RunID == uuid.Nil {
 		return errors.New("runId is required")
 	}
-	run, err := s.repo.Get(ctx, req.RunID)
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		return errors.New("tenant_uuid is required")
+	}
+	run, err := s.repo.GetForTenant(ctx, req.RunID, tenantUUID)
 	if err != nil {
 		return err
 	}
@@ -133,7 +140,7 @@ func (s *Service) LoadDataset(ctx context.Context, req DatasetRequest) error {
 		"dataset_version": strings.TrimSpace(req.Version),
 		"status":          "dataset_loaded",
 	}
-	return s.repo.UpdateFields(ctx, req.RunID, values)
+	return s.repo.UpdateFieldsForTenant(ctx, req.RunID, tenantUUID, values)
 }
 
 // RunTests finalizes the sandbox execution.
@@ -143,6 +150,10 @@ func (s *Service) RunTests(ctx context.Context, req TestRequest) (*model.Sandbox
 	}
 	if req.RunID == uuid.Nil {
 		return nil, errors.New("runId is required")
+	}
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid is required")
 	}
 	now := s.now()
 	summary := map[string]any{
@@ -156,13 +167,13 @@ func (s *Service) RunTests(ctx context.Context, req TestRequest) (*model.Sandbox
 		"report_uri":   strings.TrimSpace(req.Report),
 		"completed_at": &now,
 	}
-	if err := s.repo.UpdateFields(ctx, req.RunID, update); err != nil {
+	if err := s.repo.UpdateFieldsForTenant(ctx, req.RunID, tenantUUID, update); err != nil {
 		return nil, err
 	}
 	if s.instruments != nil {
 		s.instruments.RecordTest(ctx, strings.TrimSpace(req.Outcome))
 	}
-	return s.repo.Get(ctx, req.RunID)
+	return s.repo.GetForTenant(ctx, req.RunID, tenantUUID)
 }
 
 // Get fetches a sandbox run.

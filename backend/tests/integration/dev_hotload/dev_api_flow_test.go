@@ -25,6 +25,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const devHotloadTenantUUID = "0bc0189f-2ad1-4d07-94a0-58dcac3c33bd"
+
 func TestDevAPIFlow(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	env := newDevHotloadEnv(t)
@@ -32,7 +34,6 @@ func TestDevAPIFlow(t *testing.T) {
 
 	registerBody := map[string]interface{}{
 		"pluginId":    "com.powerx.dev",
-		"tenantId":    123,
 		"developerId": 456,
 		"buildHash":   "abc123",
 		"entryPoints": []string{"backend", "frontend"},
@@ -89,7 +90,6 @@ func TestDevAPIFlow(t *testing.T) {
 
 	registerBody2 := map[string]interface{}{
 		"pluginId":    "com.powerx.dev2",
-		"tenantId":    999,
 		"developerId": 2025,
 	}
 	registerResp2 := env.doJSONRequest(t, client, http.MethodPost, "/api/internal/dev/plugins/register", registerBody2, http.StatusCreated)
@@ -140,6 +140,7 @@ func newDevHotloadEnv(t *testing.T) *devHotloadEnv {
 		TTL:             opts.Sessions.TTL,
 		MaxConcurrent:   opts.Sessions.MaxConcurrent,
 		CleanupInterval: opts.Sessions.CleanupInterval,
+		Security:        opts.Security,
 	})
 	service := devhotload.NewService(devhotload.ServiceDeps{
 		Store:    store,
@@ -190,7 +191,9 @@ func newDevHotloadEnv(t *testing.T) *devHotloadEnv {
 		}
 		ctx := reqctx.WithClaims(c.Request.Context(), claims)
 		ctx = reqctx.WithIsRoot(ctx, true)
+		ctx = reqctx.WithTenantUUID(ctx, devHotloadTenantUUID)
 		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 

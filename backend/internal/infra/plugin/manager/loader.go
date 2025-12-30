@@ -15,10 +15,11 @@ import (
 const PluginManifestFile = "plugin.yaml"
 
 type Descriptor struct {
-	Manifest   plugin_mgr.Manifest
-	Paths      plugin_mgr.InstalledPaths
-	HostConfig *plugin_mgr.HostConfig
-	Migration  *plugin_mgr.MigrationRecord
+	Manifest        plugin_mgr.Manifest
+	Paths           plugin_mgr.InstalledPaths
+	HostConfig      *plugin_mgr.HostConfig
+	Migration       *plugin_mgr.MigrationRecord
+	InstallMetadata plugin_mgr.InstallMetadata
 }
 
 type Loader interface {

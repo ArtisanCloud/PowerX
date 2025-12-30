@@ -72,7 +72,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Events**
-  - `POST /internal/react/thought`：Body 含 `question`, `tenant_id`, `context`, `risk_profile`，返回 Thought ID、缺口列表。
+  - `POST /internal/react/thought`：Body 含 `question`, `tenant_uuid`, `context`, `risk_profile`，返回 Thought ID、缺口列表。
   - `POST /internal/knowledge/search`：参数 `mode`, `filters`, `max_context_tokens`，返回 `snippets[]`、`score`, `source_ref`。
   - `EVENT react.thought.logged`：包括 Trace ID、策略、置信度、片段 ID，供 Observability 订阅。
 - **Configs / Schemas**

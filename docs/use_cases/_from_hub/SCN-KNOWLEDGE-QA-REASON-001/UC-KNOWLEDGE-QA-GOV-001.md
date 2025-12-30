@@ -60,7 +60,7 @@ last_generated_at: "2025-02-14"
 3. **Frontmatter 填写建议**
 
    - `owners`: Security & Compliance Squad（含 Michael Hu）、Knowledge Ops（Feedback）、SRE（Audit）。
-   - `feature_flags`: 上述 Flag + 指向 `configs/feature_flags.yaml`。
+   - `feature_flags`: 上述 Flag + 指向 `backend/config/feature_flags.yaml`。
    - `code_refs`: `services/security/access/service.go`, `services/security/sensitive/guard.go`, `services/audit/logger.go`, `services/feedback/processor.go`。
 
 4. **正文章节重点**

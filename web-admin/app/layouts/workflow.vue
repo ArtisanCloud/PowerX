@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useColorMode } from '#imports'
 
 // 主题支持
 const colorMode = useColorMode()

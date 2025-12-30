@@ -122,7 +122,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound**
-  - `POST /openapi/v1/events/publish` / `bulk` — Body: `event_type`, `payload`, `tenant_id`, `idempotency_key`, `signature`.
+- `POST /openapi/v1/events/publish` / `bulk` — Body: `event_type`, `payload`, `tenant_uuid`, `idempotency_key`, `signature`.
   - `POST /openapi/v1/events/publish/replay` — 重放失败事件。
   - `POST /openapi/v1/callbacks/ack` — 插件确认回调（可由 SDK 自动完成）。
 - **Outbound**
@@ -159,7 +159,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`plugin.event.publish_rate`, `plugin.event.publish_latency`, `plugin.event.deadletter_rate`, `plugin.callback.success_rate`, `plugin.event.replay_count`.
-- **日志**：publish/回调/重放日志需包含 `tenant_id`, `plugin_id`, `event_id`, `idempotency_key`, `trace_id`.
+- **日志**：publish/回调/重放日志需包含 `tenant_uuid`, `plugin_id`, `event_id`, `idempotency_key`, `trace_id`。
 - **告警**：死信 >100（P1）、回调成功率 <99%（P1）、签名失败 >5/min（P2）、重放失败（P1）。
 - **Dashboards**：Grafana《Plugin Event Mesh》、DLQ Dashboard、`reports/_state/plugin-event.json`。
 

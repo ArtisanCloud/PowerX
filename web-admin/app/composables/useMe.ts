@@ -14,8 +14,8 @@ export const useMe = () => {
       const response = await meService.getMyContext();
       return response.data;
     },
-    switchTenant: async (tenantId: number) => {
-      const response = await meService.switchTenant(tenantId);
+    switchTenant: async (tenantUuid: string) => {
+      const response = await meService.switchTenant(tenantUuid);
       return response.data;
     },
     getMyTenants: async () => {

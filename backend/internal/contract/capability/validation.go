@@ -28,7 +28,7 @@ type ValidationIssue struct {
 
 // CapabilityContractDraft 封装契约发布/更新时需要校验的信息。
 type CapabilityContractDraft struct {
-	TenantID             uint64
+	TenantUUID           string
 	CapabilityKey        string
 	Version              string
 	ProviderID           string
@@ -60,12 +60,12 @@ type TransportPreference struct {
 
 // TransportProfile 描述协议具体的 QoS 与超时策略。
 type TransportProfile struct {
-	Transport       string
-	Mode            string
-	TimeoutMillis   int
-	Streaming       bool
-	Retry           map[string]interface{}
-	QoS             map[string]interface{}
+	Transport        string
+	Mode             string
+	TimeoutMillis    int
+	Streaming        bool
+	Retry            map[string]interface{}
+	QoS              map[string]interface{}
 	EndpointSelector map[string]interface{}
 }
 

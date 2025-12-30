@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,9 +20,9 @@ type credentialListResponse struct {
 }
 
 func TestAgentCredentialListRedactsSecrets(t *testing.T) {
-	baseURL := os.Getenv("CONTRACT_BASE_URL")
+	baseURL := strings.TrimSpace(os.Getenv("CONTRACT_BASE_URL"))
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		t.Skip("CONTRACT_BASE_URL not set; skipping HTTP credential contract test")
 	}
 
 	req, err := http.NewRequest(

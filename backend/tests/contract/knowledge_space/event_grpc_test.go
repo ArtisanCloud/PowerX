@@ -29,26 +29,29 @@ func TestEventHotfixGRPC(t *testing.T) {
 
 	client := knowledgev1.NewKnowledgeSpaceAdminServiceClient(conn)
 	received := timestamppb.New(time.Now())
-	applyResp, err := client.ApplyEvent(context.Background(), &knowledgev1.ApplyEventRequest{
+	ctx := knowledgeGRPCContext(t, env)
+	applyResp, err := client.ApplyEvent(ctx, &knowledgev1.ApplyEventRequest{
 		EventId:    "evt-grpc-1",
 		EventType:  "policy-update",
-		Payload:    map[string]string{"tenant": env.TenantID().String()},
+		Payload:    map[string]string{"tenant": env.TenantUUID().String()},
 		ReceivedAt: received,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "applied", applyResp.GetStatus())
+	assertNoLegacyTenantProto(t, applyResp)
 
-	retryResp, err := client.RetryEvent(context.Background(), &knowledgev1.RetryEventRequest{
+	retryResp, err := client.RetryEvent(ctx, &knowledgev1.RetryEventRequest{
 		EventId:    "evt-grpc-2",
 		EventType:  "policy-update",
-		Payload:    map[string]string{"tenant": env.TenantID().String()},
+		Payload:    map[string]string{"tenant": env.TenantUUID().String()},
 		ReceivedAt: received,
 		RetryCount: 1,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "applied", retryResp.GetStatus())
+	assertNoLegacyTenantProto(t, retryResp)
 
-	_, err = client.ApplyEvent(context.Background(), &knowledgev1.ApplyEventRequest{
+	_, err = client.ApplyEvent(ctx, &knowledgev1.ApplyEventRequest{
 		EventId:   "evt-grpc-1",
 		EventType: "policy-update",
 	})

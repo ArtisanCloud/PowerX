@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	contextTraceIDKey  = "trace_id"
-	contextTenantIDKey = "tenant_id"
+	contextTraceIDKey   = "trace_id"
+	contextTenantUUIDKey = "tenant_uuid"
 )
 
 // Span 定义可结束的追踪跨度。
@@ -58,12 +58,12 @@ func EnsureTraceContext(ctx context.Context) (context.Context, string) {
 	return context.WithValue(ctx, contextTraceIDKey, traceID), traceID
 }
 
-// WithTenant 将 tenant_id 写入上下文。
-func WithTenant(ctx context.Context, tenantID string) context.Context {
+// WithTenant 将 tenant uuid 写入上下文。
+func WithTenant(ctx context.Context, tenantUUID string) context.Context {
 	if ctx == nil {
-		return context.WithValue(context.Background(), contextTenantIDKey, tenantID)
+		return context.WithValue(context.Background(), contextTenantUUIDKey, tenantUUID)
 	}
-	return context.WithValue(ctx, contextTenantIDKey, tenantID)
+	return context.WithValue(ctx, contextTenantUUIDKey, tenantUUID)
 }
 
 // SpanAttributes 合成标准属性，额外标签可通过 extra 传入。
@@ -77,8 +77,8 @@ func SpanAttributes(ctx context.Context, extra map[string]string) map[string]str
 	if traceID, ok := ctx.Value(contextTraceIDKey).(string); ok && traceID != "" {
 		attrs["trace.id"] = traceID
 	}
-	if tenantID, ok := ctx.Value(contextTenantIDKey).(string); ok && tenantID != "" {
-		attrs["tenant.id"] = tenantID
+	if tenantUUID, ok := ctx.Value(contextTenantUUIDKey).(string); ok && tenantUUID != "" {
+		attrs["tenant.id"] = tenantUUID
 	}
 	return attrs
 }

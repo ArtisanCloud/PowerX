@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const healthAlertTenantUUID = "6dab4d59-8a37-4f3a-9bce-0a34be36da93"
+
 func TestHealthAlertFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -22,7 +24,7 @@ func TestHealthAlertFlow(t *testing.T) {
 	svc := env.Deps.AgentLifecycle.Service
 
 	res, err := svc.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-004",
+		TenantUUID:               healthAlertTenantUUID,
 		Alias:                    "alert-agent",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -31,7 +33,7 @@ func TestHealthAlertFlow(t *testing.T) {
 
 	_, err = svc.UpdateSubscription(ctx, agent_lifecycle.SubscriptionUpdateInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-004",
+		TenantUUID:  healthAlertTenantUUID,
 		RequestedBy: "sre-robot",
 		Config: agent_lifecycle.SubscriptionConfig{
 			MetricsFilter:  []string{"error_rate", "p95_latency_ms"},
@@ -50,7 +52,7 @@ func TestHealthAlertFlow(t *testing.T) {
 
 	require.NoError(t, svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        agentID,
-		TenantID:       "tenant-004",
+		TenantUUID:     healthAlertTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "degraded",
 		Metrics: agent_lifecycle.HealthMetricsInput{

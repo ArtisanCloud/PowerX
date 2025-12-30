@@ -16,7 +16,6 @@ export interface LoginParams {
 }
 
 export interface RegisterParams {
-  tenant_id: number;
   username: string;
   email: string;
   phone?: string;
@@ -73,7 +72,7 @@ export interface Member {
   id: string;
   created_at: string;
   updated_at: string;
-  tenant_id: number;
+  tenant_uuid: string;
   user_id: number;
   username: string; // 建议统一小写
   display_name?: string;
@@ -200,7 +199,6 @@ export const useAuthService = () => {
      */
     registerFromForm: (formData: RegisterFormData) => {
       const registerData: RegisterParams = {
-        tenant_id: 1, // 默认租户ID，可以根据需要调整
         username: formData.username,
         email: formData.email,
         phone: formData.phone,

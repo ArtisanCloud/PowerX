@@ -13,13 +13,14 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	locadriver "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local"
+	"github.com/ArtisanCloud/PowerX/internal/service/media"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterLocalUploadEndpoint 注册本地驱动上传写入端点，配合预签名上传使用。
-func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
-	if r == nil || cfg == nil {
+func RegisterLocalUploadEndpoint(group *gin.RouterGroup, cfg *config.Config, mediaSvc *media.MediaService) {
+	if group == nil || cfg == nil {
 		return
 	}
 	localOpts := cfg.Storage.Local
@@ -38,35 +39,35 @@ func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
 		return
 	}
 
-	r.StaticFS("/media", gin.Dir(absBasePath, false))
-
-	if !localOpts.EnableUploadEndpoint {
-		return
-	}
 	secret := strings.TrimSpace(localOpts.UploadTokenSecret)
 	if secret == "" {
-		pxlog.Warn(context.Background(), "未注册本地上传端点：启用 enable_upload_endpoint 时必须配置 upload_token_secret")
-		return
+		pxlog.Warn(context.Background(), "storage.local.upload_token_secret 未配置，本地上传将跳过 Token 校验")
 	}
 	maxSize := localOpts.MaxUploadSizeBytes
 	if maxSize < 0 {
 		maxSize = 0
 	}
-	handler, err := newLocalUploadHandler(absBasePath, secret, maxSize)
+	handler, err := newLocalUploadHandler(absBasePath, secret, maxSize, mediaSvc, "local")
 	if err != nil {
 		pxlog.Warn(context.Background(), "init local upload handler failed: "+err.Error())
 		return
 	}
-	r.PUT("/media/*objectKey", handler.handle)
+	group.PUT("/media/assets/:uuid", handler.handle)
 }
 
 type localUploadHandler struct {
 	basePath    string
 	tokenSecret []byte
 	maxSize     int64
+	mediaSvc    *media.MediaService
+	driverName  string
 }
 
-func newLocalUploadHandler(basePath, secret string, maxSize int64) (*localUploadHandler, error) {
+const uploadFormField = "upload-file"
+
+var errPayloadTooLarge = errors.New("payload exceeds max upload size")
+
+func newLocalUploadHandler(basePath, secret string, maxSize int64, svc *media.MediaService, driverName string) (*localUploadHandler, error) {
 	if strings.TrimSpace(basePath) == "" {
 		return nil, errors.New("base path required")
 	}
@@ -80,10 +81,15 @@ func newLocalUploadHandler(basePath, secret string, maxSize int64) (*localUpload
 	if maxSize < 0 {
 		maxSize = 0
 	}
+	if strings.TrimSpace(driverName) == "" {
+		driverName = "local"
+	}
 	return &localUploadHandler{
 		basePath:    abs,
 		tokenSecret: []byte(strings.TrimSpace(secret)),
 		maxSize:     maxSize,
+		mediaSvc:    svc,
+		driverName:  driverName,
 	}, nil
 }
 
@@ -92,7 +98,7 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 		c.AbortWithStatus(http.StatusMethodNotAllowed)
 		return
 	}
-	objectKey := strings.Trim(c.Param("objectKey"), "/")
+	objectKey := strings.TrimSpace(c.Param("uuid"))
 	if objectKey == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "object key required"})
 		return
@@ -140,32 +146,47 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 	}
 	defer file.Close()
 
-	reader := io.Reader(c.Request.Body)
-	limit := h.maxSize
-	if limit > 0 {
-		reader = io.LimitReader(c.Request.Body, limit+1)
+	var mimeType string
+	contentType := strings.ToLower(strings.TrimSpace(c.GetHeader("Content-Type")))
+	if strings.Contains(contentType, "multipart/form-data") {
+		part, header, formErr := c.Request.FormFile(uploadFormField)
+		if formErr != nil {
+			_ = file.Close()
+			_ = os.Remove(dst)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "upload-file field required"})
+			return
+		}
+		defer part.Close()
+		_, err = h.copyToFile(file, part)
+		if header != nil {
+			if val := strings.TrimSpace(header.Header.Get("Content-Type")); val != "" {
+				mimeType = val
+			}
+		}
+	} else {
+		_, err = h.copyToFile(file, c.Request.Body)
 	}
-	written, err := io.Copy(file, reader)
 	if err != nil {
+		_ = file.Close()
 		_ = os.Remove(dst)
+		if errors.Is(err, errPayloadTooLarge) {
+			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	if h.maxSize > 0 {
-		if written > h.maxSize || (c.Request.ContentLength == -1 && written > h.maxSize) {
-			_ = file.Close()
-			_ = os.Remove(dst)
-			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
-			return
-		}
-		if c.Request.ContentLength > h.maxSize {
-			_ = file.Close()
-			_ = os.Remove(dst)
-			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
-			return
-		}
+
+	info, err := file.Stat()
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	if strings.TrimSpace(mimeType) == "" {
+		mimeType = detectFileContentType(file)
 	}
 
+	h.syncUploadedAsset(c.Request.Context(), objectKey, info.Size(), mimeType)
 	c.Status(http.StatusNoContent)
 }
 
@@ -186,4 +207,50 @@ func (h *localUploadHandler) resolvePath(objectKey string) (string, error) {
 		return "", errors.New("invalid object key")
 	}
 	return full, nil
+}
+
+func detectFileContentType(f *os.File) string {
+	if f == nil {
+		return ""
+	}
+	current, err := f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return ""
+	}
+	defer f.Seek(current, io.SeekStart)
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return ""
+	}
+	buf := make([]byte, 512)
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return ""
+	}
+	if n <= 0 {
+		return ""
+	}
+	return http.DetectContentType(buf[:n])
+}
+
+func (h *localUploadHandler) syncUploadedAsset(ctx context.Context, objectKey string, size int64, mimeType string) {
+	if h.mediaSvc == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := h.mediaSvc.SyncUploadedFileMetadata(ctx, h.driverName, objectKey, size, mimeType); err != nil {
+		pxlog.Warn(ctx, "sync uploaded asset metadata failed: "+err.Error())
+	}
+}
+
+func (h *localUploadHandler) copyToFile(dst *os.File, src io.Reader) (int64, error) {
+	written, err := io.Copy(dst, src)
+	if err != nil {
+		return written, err
+	}
+	if h.maxSize > 0 && written > h.maxSize {
+		return written, errPayloadTooLarge
+	}
+	return written, nil
 }

@@ -29,34 +29,34 @@ type MediaSearchResult struct {
 }
 
 func (env *mediaIntegrationTestEnv) SeedSearchFixtures(ctx context.Context) error {
-	tenantID := env.ensureTenant("tenant_a")
+	tenantUUID := env.ensureTenant("tenant_a")
 	assetA, err := env.service.CreateAsset(ctx, mediasvc.CreateAssetInput{
-		TenantID: tenantID,
-		Name:     "homepage-banner",
-		Driver:   "local",
-		Tags:     []string{"homepage"},
+		TenantUUID: tenantUUID,
+		Name:       "homepage-banner",
+		Driver:     "local",
+		Tags:       []string{"homepage"},
 	})
 	if err != nil {
 		return err
 	}
-	env.assetTenants[assetA.UUID] = tenantID
+	env.assetTenants[assetA.UUID] = tenantUUID
 	env.setFixture("draft", assetA.UUID)
 
 	assetB, err := env.service.CreateAsset(ctx, mediasvc.CreateAssetInput{
-		TenantID: tenantID,
-		Name:     "archived-banner",
-		Driver:   "local",
-		Tags:     []string{"homepage"},
+		TenantUUID: tenantUUID,
+		Name:       "archived-banner",
+		Driver:     "local",
+		Tags:       []string{"homepage"},
 	})
 	if err != nil {
 		return err
 	}
-	env.assetTenants[assetB.UUID] = tenantID
+	env.assetTenants[assetB.UUID] = tenantUUID
 	env.setFixture("archived", assetB.UUID)
 
 	statusArchived := "archived"
 	if _, err := env.service.UpdateAsset(ctx, mediasvc.UpdateAssetInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		UUID:           assetB.UUID,
 		BusinessStatus: &statusArchived,
 	}); err != nil {
@@ -66,9 +66,9 @@ func (env *mediaIntegrationTestEnv) SeedSearchFixtures(ctx context.Context) erro
 }
 
 func (env *mediaIntegrationTestEnv) SearchAssets(ctx context.Context, filter MediaSearchFilter) ([]MediaSearchResult, uint64, error) {
-	tenantID := env.ensureTenant(filter.TenantID)
+	tenantUUID := env.ensureTenant(filter.TenantID)
 	input := mediasvc.ListAssetsInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		Keyword:        filter.Keyword,
 		TagsAll:        filter.Tags,
 		IncludeDeleted: filter.IncludeDeleted,
@@ -97,13 +97,13 @@ func (env *mediaIntegrationTestEnv) SearchAssets(ctx context.Context, filter Med
 }
 
 func (env *mediaIntegrationTestEnv) SoftDeleteAsset(ctx context.Context, uuid string) error {
-	tenantID := env.assetTenants[uuid]
-	if tenantID == 0 {
+	tenantUUID := env.assetTenants[uuid]
+	if tenantUUID == "" {
 		return ErrMediaAssetNotFound
 	}
 	return env.service.DeleteAsset(ctx, mediasvc.DeleteAssetInput{
-		TenantID: tenantID,
-		UUID:     uuid,
+		TenantUUID: tenantUUID,
+		UUID:       uuid,
 	})
 }
 

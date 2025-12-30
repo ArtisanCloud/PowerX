@@ -80,7 +80,7 @@ components:
         definition_id:
           type: string
           format: uuid
-        tenant_id:
+        tenant_uuid:
           type: string
           format: uuid
         name:
@@ -210,7 +210,7 @@ components:
         instance_id:
           type: string
           format: uuid
-        tenant_id:
+        tenant_uuid:
           type: string
           format: uuid
         definition_id:
@@ -416,7 +416,7 @@ components:
         completed_at:
           type: string
           format: date-time
-        tenant_id:
+        tenant_uuid:
           type: string
         correlation_id:
           type: string

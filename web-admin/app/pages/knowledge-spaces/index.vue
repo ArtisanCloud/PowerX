@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
-import { createQaBridgeClient } from "~/services/knowledge-spaces/qaBridgeClient";
+import { createQaBridgeClient } from "~/composables/api/services/knowledge-spaces/qaBridgeClient";
 import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 
@@ -64,13 +64,13 @@ const qaStatus = ref<QaDashboardStatus>({
 });
 
 const refreshQaStatus = async () => {
-  const tenantId = knowledgeStore.lastSpace?.tenantId;
-  if (!tenantId) {
+  const tenantUuid = knowledgeStore.lastSpace?.tenantUuid;
+  if (!tenantUuid) {
     return;
   }
   try {
     const plan = await qaClient.plan({
-      tenantId,
+      tenantUuid,
       intent: "dashboard-health-check",
       domainTags: ["ops"],
       sessionId: "knowledge-dashboard",

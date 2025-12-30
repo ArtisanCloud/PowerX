@@ -15,6 +15,7 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 var (
@@ -357,6 +358,7 @@ func (s *Service) audit(ctx context.Context, action string, payload map[string]a
 	}
 	s.inst.Audit(ctx, &dbm.AuditEvent{
 		OccurredAt:   s.clock(),
+		TenantUUID:   strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		Source:       "knowledge.release",
 		Operation:    action,
 		ResourceType: "knowledge_release",

@@ -6,8 +6,8 @@ import type { ApiResponse } from "../types/types";
  */
 export interface UserContextData {
   is_root: boolean;
-  current_tenant_id: number;
-  current_member_id: number;
+  current_tenant_uuid: string;
+  current_member_id?: number | null;
   user: ContextUser;
   members: ContextMember[];
 }
@@ -22,7 +22,7 @@ export interface ContextUser {
 }
 
 export interface ContextMember {
-  tenant_id: number;
+  tenant_uuid: string;
   tenant_name: string;
   member_id: number;
   is_admin: boolean;
@@ -48,13 +48,13 @@ export const useMeService = () => {
 
     /**
      * 切换当前租户上下文
-     * @param tenantId 要切换到的租户ID
+     * @param tenantUuid 要切换到的租户 UUID
      */
-    switchTenant: (tenantId: number) => {
+    switchTenant: (tenantUuid: string) => {
       return apiClient.post<ApiResponse<UserContextData>>(
         `${baseUrl}/me/switch-tenant`,
         {
-          tenant_id: tenantId,
+          tenant_uuid: tenantUuid,
         }
       );
     },
@@ -162,8 +162,8 @@ export const useUserContext = () => {
   // 计算属性
   const isRoot = computed(() => userContext.value?.is_root ?? false);
   const currentUser = computed(() => userContext.value?.user ?? null);
-  const currentTenantId = computed(
-    () => userContext.value?.current_tenant_id ?? null
+  const currentTenantUuid = computed(
+    () => userContext.value?.current_tenant_uuid || null
   );
   const currentMemberId = computed(
     () => userContext.value?.current_member_id ?? null
@@ -172,9 +172,11 @@ export const useUserContext = () => {
 
   // 当前租户信息
   const currentTenant = computed(() => {
-    if (!userContext.value) return null;
+    if (!userContext.value?.current_tenant_uuid) return null;
     return (
-      myTenants.value.find((m) => m.tenant_id === currentTenantId.value) ?? null
+      myTenants.value.find(
+        (m) => m.tenant_uuid === userContext.value!.current_tenant_uuid
+      ) ?? null
     );
   });
 
@@ -204,14 +206,14 @@ export const useUserContext = () => {
   /**
    * 切换租户
    */
-  const switchTenant = async (tenantId: number) => {
-    if (tenantId === currentTenantId.value) return;
+  const switchTenant = async (tenantUuid: string) => {
+    if (tenantUuid === currentTenantUuid.value) return;
 
     isLoading.value = true;
     error.value = null;
 
     try {
-      const response = await meService.switchTenant(tenantId);
+      const response = await meService.switchTenant(tenantUuid);
       userContext.value = response.data;
 
       // 可以在这里触发页面刷新或路由跳转
@@ -299,7 +301,7 @@ export const useUserContext = () => {
     // 计算属性
     isRoot,
     currentUser,
-    currentTenantId,
+    currentTenantUuid,
     currentMemberId,
     myTenants,
     currentTenant,

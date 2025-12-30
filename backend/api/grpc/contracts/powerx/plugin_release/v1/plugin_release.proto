@@ -20,7 +20,7 @@ service PluginReleaseService {
 }
 
 message CreateReleaseCandidateRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string plugin_id = 2;
   string version = 3;
   string build_artifact_uri = 4;
@@ -31,7 +31,7 @@ message CreateReleaseCandidateRequest {
 
 message ReleaseCandidate {
   string candidate_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string plugin_id = 3;
   string version = 4;
   string gate_status = 5;
@@ -131,7 +131,7 @@ message MarketplaceListing {
 }
 
 message ImportOfflinePackageRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string package_uri = 2;
   string checksum = 3;
   bool dry_run = 4;
@@ -143,7 +143,7 @@ message ImportOfflinePackageResponse {
 }
 
 message StartLocalInstallRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   uint64 developer_id = 2;
   string artifact_uri = 3;
   repeated string feature_flags = 4;
@@ -152,12 +152,12 @@ message StartLocalInstallRequest {
 
 message GetLocalInstallSessionRequest {
   string session_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
 }
 
 message LocalInstallSession {
   string session_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   uint64 developer_id = 3;
   string artifact_uri = 4;
   repeated string feature_flags = 5;

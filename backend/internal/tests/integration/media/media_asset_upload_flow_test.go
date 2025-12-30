@@ -42,8 +42,8 @@ type mediaIntegrationTestEnv struct {
 	manager      *mediamgr.MediaManager
 	service      *mediasvc.MediaService
 	audit        *auditRecorder
-	tenantIDs    map[string]uint64
-	assetTenants map[string]uint64
+	tenantUUIDs  map[string]string
+	assetTenants map[string]string
 	fixtures     map[string]string
 }
 
@@ -71,17 +71,17 @@ func newMediaIntegrationTestEnv(t *testing.T) *mediaIntegrationTestEnv {
 		manager:      manager,
 		service:      service,
 		audit:        audit,
-		tenantIDs:    map[string]uint64{},
-		assetTenants: map[string]uint64{},
+		tenantUUIDs:  map[string]string{},
+		assetTenants: map[string]string{},
 		fixtures:     map[string]string{},
 	}
 }
 
 func (env *mediaIntegrationTestEnv) UploadDraftAsset(ctx context.Context, req MediaUploadRequest) (string, error) {
-	tenantID := env.ensureTenant(req.TenantID)
+	tenantUUID := env.ensureTenant(req.TenantID)
 	operator := parseUint(req.OperatorID)
 	asset, err := env.service.CreateAsset(ctx, mediasvc.CreateAssetInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		OperatorID:   operator,
 		Name:         req.Name,
 		Driver:       req.Driver,
@@ -91,24 +91,24 @@ func (env *mediaIntegrationTestEnv) UploadDraftAsset(ctx context.Context, req Me
 	if err != nil {
 		return "", err
 	}
-	env.assetTenants[asset.UUID] = tenantID
+	env.assetTenants[asset.UUID] = tenantUUID
 	return asset.UUID, nil
 }
 
 func (env *mediaIntegrationTestEnv) TriggerProcessingFailure(ctx context.Context, assetID string) error {
-	tenantID := env.assetTenants[assetID]
-	if tenantID == 0 {
+	tenantUUID := env.assetTenants[assetID]
+	if tenantUUID == "" {
 		return ErrMediaAssetNotFound
 	}
 	return env.service.RollbackAsset(ctx, mediasvc.DeleteAssetInput{
-		TenantID: tenantID,
-		UUID:     assetID,
+		TenantUUID: tenantUUID,
+		UUID:       assetID,
 	})
 }
 
 func (env *mediaIntegrationTestEnv) LookupAsset(ctx context.Context, assetID string) (any, error) {
-	tenantID := env.assetTenants[assetID]
-	asset, err := env.service.GetAsset(ctx, tenantID, assetID, false)
+	tenantUUID := env.assetTenants[assetID]
+	asset, err := env.service.GetAsset(ctx, tenantUUID, assetID, false)
 	if err != nil {
 		return nil, ErrMediaAssetNotFound
 	}
@@ -119,15 +119,15 @@ func (env *mediaIntegrationTestEnv) CollectAuditEvents() []string {
 	return env.audit.Events()
 }
 
-func (env *mediaIntegrationTestEnv) ensureTenant(key string) uint64 {
+func (env *mediaIntegrationTestEnv) ensureTenant(key string) string {
 	if key == "" {
 		key = "default"
 	}
-	if id, ok := env.tenantIDs[key]; ok {
-		return id
+	if uuid, ok := env.tenantUUIDs[key]; ok {
+		return uuid
 	}
-	id := uint64(len(env.tenantIDs) + 1)
-	env.tenantIDs[key] = id
+	id := uuid.NewString()
+	env.tenantUUIDs[key] = id
 	return id
 }
 
@@ -186,7 +186,7 @@ func (m *memoryAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilt
 	defer m.mu.RUnlock()
 	var filtered []mediamodel.MediaAsset
 	for _, asset := range m.assets {
-		if filter.TenantID > 0 && asset.TenantID != filter.TenantID {
+		if tenant := strings.TrimSpace(filter.TenantUUID); tenant != "" && asset.TenantUUID != tenant {
 			continue
 		}
 		if filter.OnlyDeleted && !asset.DeletedAt.Valid {
@@ -226,17 +226,29 @@ func (m *memoryAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilt
 	return filtered[start:end], total, nil
 }
 
-func (m *memoryAssetRepo) FindByUUID(_ context.Context, tenantID uint64, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+func (m *memoryAssetRepo) FindByUUID(_ context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	asset, ok := m.assets[uuid]
-	if !ok || (tenantID > 0 && asset.TenantID != tenantID) {
+	if !ok || (tenantUUID != "" && asset.TenantUUID != tenantUUID) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	if !includeDeleted && asset.DeletedAt.Valid {
 		return nil, gorm.ErrRecordNotFound
 	}
 	return cloneAsset(asset), nil
+}
+
+func (m *memoryAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var matches []mediamodel.MediaAsset
+	for _, asset := range m.assets {
+		if asset.Driver == driver && asset.StorageKey == storageKey {
+			matches = append(matches, *cloneAsset(asset))
+		}
+	}
+	return matches, nil
 }
 
 func (m *memoryAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
@@ -270,11 +282,11 @@ func (m *memoryAssetRepo) UpdateAsset(_ context.Context, asset *mediamodel.Media
 	return cloneAsset(updated), nil
 }
 
-func (m *memoryAssetRepo) SoftDeleteByUUID(_ context.Context, tenantID uint64, uuid string, deletedBy *uint64) error {
+func (m *memoryAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string, uuid string, deletedBy *uint64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	asset, ok := m.assets[uuid]
-	if !ok || (tenantID > 0 && asset.TenantID != tenantID) {
+	if !ok || (tenantUUID != "" && asset.TenantUUID != tenantUUID) {
 		return gorm.ErrRecordNotFound
 	}
 	now := time.Now()
@@ -283,6 +295,19 @@ func (m *memoryAssetRepo) SoftDeleteByUUID(_ context.Context, tenantID uint64, u
 		asset.DeletedBy = deletedBy
 	}
 	return nil
+}
+
+func (m *memoryAssetRepo) FindByUUIDGlobal(_ context.Context, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	asset, ok := m.assets[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if !includeDeleted && asset.DeletedAt.Valid {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return cloneAsset(asset), nil
 }
 
 func cloneAsset(asset *mediamodel.MediaAsset) *mediamodel.MediaAsset {

@@ -32,14 +32,14 @@ func (s *Service) SubmitTenantForm(ctx context.Context, in TenantFormInput) (*Te
 	if s.tenantForms == nil {
 		return nil, errors.New("tenant form repository not configured")
 	}
-	if strings.TrimSpace(in.TenantID) == "" || strings.TrimSpace(in.Alias) == "" {
-		return nil, fmt.Errorf("tenant_id and alias are required")
+	if strings.TrimSpace(in.TenantUUID) == "" || strings.TrimSpace(in.Alias) == "" {
+		return nil, fmt.Errorf("tenant_uuid and alias are required")
 	}
-	if _, err := s.profiles.GetByTenantAlias(ctx, in.TenantID, in.Alias); err == nil {
+	if _, err := s.profiles.GetByTenantAlias(ctx, in.TenantUUID, in.Alias); err == nil {
 		return nil, ErrAliasConflict
 	}
 	conflicts, err := s.policyEngine.Evaluate(ctx, PolicyConflictInput{
-		TenantID:    in.TenantID,
+		TenantUUID:  in.TenantUUID,
 		Alias:       in.Alias,
 		Permissions: in.Permissions,
 		RateLimit:   in.RateLimit,
@@ -52,7 +52,7 @@ func (s *Service) SubmitTenantForm(ctx context.Context, in TenantFormInput) (*Te
 	}
 
 	form := &agentmodel.AgentTenantForm{
-		TenantID:                 in.TenantID,
+		TenantUUID:               in.TenantUUID,
 		Alias:                    strings.TrimSpace(in.Alias),
 		DisplayName:              defaultDisplayName(in.DisplayName, in.Alias),
 		Purpose:                  in.Purpose,
@@ -76,11 +76,11 @@ func (s *Service) SubmitTenantForm(ctx context.Context, in TenantFormInput) (*Te
 	return s.toTenantForm(created)
 }
 
-func (s *Service) ListTenantForms(ctx context.Context, tenantID string, statuses []string) ([]TenantForm, error) {
+func (s *Service) ListTenantForms(ctx context.Context, tenantUUID string, statuses []string) ([]TenantForm, error) {
 	if s.tenantForms == nil {
 		return nil, errors.New("tenant form repository not configured")
 	}
-	forms, err := s.tenantForms.ListByTenant(ctx, tenantID, statuses)
+	forms, err := s.tenantForms.ListByTenant(ctx, tenantUUID, statuses)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (s *Service) toTenantForm(model *agentmodel.AgentTenantForm) (*TenantForm, 
 	}
 	return &TenantForm{
 		ID:                       model.UUID,
-		TenantID:                 model.TenantID,
+		TenantUUID:               model.TenantUUID,
 		Alias:                    model.Alias,
 		DisplayName:              model.DisplayName,
 		Purpose:                  model.Purpose,

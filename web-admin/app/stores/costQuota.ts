@@ -28,14 +28,13 @@ export const useCostQuotaStore = defineStore("cost-quota", {
     lastFetchedAt: null,
   }),
   actions: {
-    async fetchQuotas(env: string, tenantId: string) {
+    async fetchQuotas(env: string, tenantUuid?: string) {
       this.loading = true;
       this.error = null;
       try {
         const snapshot = await CostQuotaService.getQuotaSnapshot({
           env,
-          tenantId,
-        });
+        }, tenantUuid ? { tenantUuid } : undefined);
         this.quotas = snapshot?.quotas
           ? snapshot.quotas.map((quota) => ({
               ...quota,
@@ -55,14 +54,15 @@ export const useCostQuotaStore = defineStore("cost-quota", {
     },
     async enforceAction(payload: {
       env: string;
-      tenantId: string;
+      tenantUuid?: string;
       providerId?: string;
       action: string;
       reason?: string;
       ticketId?: string;
       requestedBy?: string;
     }) {
-      await CostQuotaService.enforceAction(payload);
+      const { tenantUuid, ...rest } = payload;
+      await CostQuotaService.enforceAction(rest, tenantUuid ? { tenantUuid } : undefined);
     },
   },
 });

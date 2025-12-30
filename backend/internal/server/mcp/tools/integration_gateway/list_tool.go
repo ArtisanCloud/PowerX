@@ -19,7 +19,7 @@ func listRoutesTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 
 	args := request.GetArguments()
-	ctx, tenantID, _, traceID, err := deps.Adapter.PrepareContext(ctx, args)
+	ctx, tenantUUID, _, traceID, err := deps.Adapter.PrepareContext(ctx, args)
 	if err != nil {
 		return toolErrorResult(err.Error()), nil
 	}
@@ -30,7 +30,7 @@ func listRoutesTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		channel = "mcp"
 	}
 
-	routes, err := deps.TenantService.ListRoutes(ctx, tenantID, capabilityID, channel)
+	routes, err := deps.TenantService.ListRoutes(ctx, tenantUUID, capabilityID, channel)
 	if err != nil {
 		return toolErrorResult(fmt.Sprintf("list routes failed: %v", err)), nil
 	}
@@ -40,7 +40,7 @@ func listRoutesTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		items = append(items, map[string]interface{}{
 			"route_id":        route.RouteID.String(),
 			"route_slug":      route.RouteSlug,
-			"tenant_id":       route.TenantID,
+			"tenant_uuid":     route.TenantUUID,
 			"capability_id":   route.CapabilityID,
 			"tool_grant_ids":  route.ToolGrantIDs,
 			"channels":        route.Channels,
@@ -53,9 +53,9 @@ func listRoutesTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 
 	body := map[string]interface{}{
-		"routes":    items,
-		"trace_id":  traceID,
-		"tenant_id": tenantID,
+		"routes":      items,
+		"trace_id":    traceID,
+		"tenant_uuid": tenantUUID,
 	}
 	if capabilityID != "" {
 		body["capability_filter"] = capabilityID

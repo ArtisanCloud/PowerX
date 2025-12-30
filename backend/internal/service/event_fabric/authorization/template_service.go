@@ -126,7 +126,8 @@ func (s *templateServiceImpl) Create(ctx context.Context, req TemplateCreateRequ
 		Metadata:     metadataJSON,
 	}
 	if req.TenantID != nil && *req.TenantID != uuid.Nil {
-		template.TenantID = req.TenantID
+		tenantStr := strings.TrimSpace(req.TenantID.String())
+		template.TenantUUID = &tenantStr
 	}
 	if req.CreatedBy != nil && *req.CreatedBy != uuid.Nil {
 		template.CreatedBy = req.CreatedBy

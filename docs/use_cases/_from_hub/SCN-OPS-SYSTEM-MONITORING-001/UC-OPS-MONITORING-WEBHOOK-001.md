@@ -49,7 +49,7 @@ last_reviewed_at: 2025-11-05
 
 - **前置条件**
   - `monitoring-service`, `alert-gateway-v2`, `webhook-delivery-fallback` Feature Flag 已启用。
-  - 日志采集器写入集中日志服务，支持结构化字段（level、tenant_id、plugin_id、trace_id）。
+  - 日志采集器写入集中日志服务，支持结构化字段（level、tenant_uuid、plugin_id、trace_id）。
   - 租户配置了 Webhook endpoint、鉴权方式、备用通知通道。
   - 外部告警平台支持 HMAC 验签与重复请求幂等。
 - **输入/输出**
@@ -102,7 +102,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound**
-  - `STREAM logs.plugin.*` — 包含 `level`, `message`, `tenant_id`, `plugin_id`, `ts`.
+  - `STREAM logs.plugin.*` — 包含 `level`, `message`, `tenant_uuid`, `plugin_id`, `ts`.
   - `config/log_rules/*.yaml` — 配置规则、关键字、阈值、告警等级。
 - **Outbound**
   - `POST <tenant_webhook>` — 带 `X-PowerX-Signature`, `X-PowerX-Alert-ID`, JSON 载荷含租户、插件、错误摘要、建议操作。
@@ -132,7 +132,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`monitoring.webhook.delivery_success_rate`, `monitoring.webhook.retry_total`, `monitoring.alert.downgrade_total`, `monitoring.alert.confirmed_total`.
-- **日志**：记录 `alert_id`, `tenant_id`, `plugin_id`, `attempt`, `channel`, `status`, `latency_ms`.
+- **日志**：记录 `alert_id`, `tenant_uuid`, `plugin_id`, `attempt`, `channel`, `status`, `latency_ms`。
 - **告警**：Webhook 成功率 <95%/15 分钟触发 P1；降级次数 >20/日触发治理任务。
 - **仪表板**：Grafana《Alert Delivery》、Ops 告警中心状态面板。
 

@@ -11,9 +11,9 @@
 ## 概念与数据
 
 - 安装态（系统维度）：通过注册表（`plugins/registry.json`）表示插件包是否安装/启用，和租户无关。
-- 启用态（租户维度）：`plugin_instance_configs(tenant_id, plugin_id, key)` 表记录每个租户对某插件的启用与配置。
+- 启用态（租户维度）：`plugin_instance_configs(tenant_uuid, plugin_id, key)` 表记录每个租户对某插件的启用与配置。
   - `key = "auth.credentials"` 用于存放 `{client_id, client_secret_hash, ...}`（只存 hash）。
-  - `client_id` 约定格式：`<pluginID>.<tenantID>`（例：`com.powerx.demo.hello_world.123`）。
+  - `client_id` 约定格式：`<pluginID>.<tenantUUID>`（例：`com.powerx.demo.hello_world.7423fd59-6bfb-4873-b0da-c9ff6a8930db`）。
   - 明文 `client_secret` 只在创建/轮换时展示一次，需要插件安全保存。
 
 ## 服务端组件
@@ -29,21 +29,21 @@
 ## 令牌交换（Exchange）
 
 请求要点（client_credentials 流程）：
-- `client_id`: 形如 `<pluginID>.<tenantID>`；
+- `client_id`: 形如 `<pluginID>.<tenantUUID>`（旧的 `<pluginID>.<tenantID>` 仍受控兼容，仅供历史凭证使用，生成新凭证时务必使用 UUID）；
 - `client_secret`: 最新轮换得到的明文；
 - `audience`（可选）：默认 `powerx:api`（或按服务端约定）；
 - `scope`（可选）：默认 `access`；
 - `ttl_seconds`（可选）：默认 `300`（建议 120–600 秒）。
 
 服务端校验流程：
-1. 解析 `client_id` → 拆出 `pluginID` 与 `tenantID`；
+1. 解析 `client_id` → 拆出 `pluginID` 与 `tenantUUID`（必要时兼容旧的 `tenantID`，解析后立即查目录换取 UUID）；
 2. 调 `PluginInstanceConfigService.VerifyClient(...)` 比对密钥与能力约束（aud/scope）；
 3. 选取 KeyRing HS 密钥，构造 `CoreXClaims`，签发 HS256 JWT，header 写入 `kid`；
 4. 返回 `access_token/token_type/expires_in/audience/scope/issuer/subject/issued_at`。
 
 令牌内容（要点）：
 - 算法/密钥：HS256（KeyRing），header.kid = 所用密钥的标识；
-- Claims：`tenant_id`（如有）、`scope`、`aud`、`iss`、`sub=client:<client_id>`、`iat/exp`；
+- Claims：`tenant_uuid`（以及 `tenant_id` 仅在仍需兼容时回填）、`scope`、`aud`、`iss`、`sub=client:<client_id>`、`iat/exp`；
 - 仅短期有效（`exp = iat + ttl`）。
 
 ## 使用令牌访问 PowerX
@@ -112,7 +112,7 @@ func (c *Client) CallPowerX(ctx context.Context, req *pb.SomeRequest) (*pb.SomeR
 - 安全存储 client_secret：避免写入日志/前端；轮换后尽快分发并替换；
 - 校验 audience/scope：按场景限制可用范围；
 - 审计：记录 Exchange/业务调用的 tenant/plugin/subject/trace_id；异常（401/403）计数告警；
-- 租户上下文：仅在有 `tenant_id>0` 的上下文中为该租户生成凭证，避免产生 `tenant_id=0` 记录。
+- 租户上下文：仅在明确的 `tenant_uuid` 上下文中为该租户生成凭证，避免产生缺失租户信息的配置记录。
 
 ---
 
@@ -122,4 +122,3 @@ func (c *Client) CallPowerX(ctx context.Context, req *pb.SomeRequest) (*pb.SomeR
 - gRPC 拦截器：`internal/transport/grpc/auth/middleware/auth_interceptor.go`
 - 插件凭证：`internal/service/setting/plugin_instance_config_service.go`
 - 插件启用流程：`internal/infra/plugin/manager/lifecycle.go`
-

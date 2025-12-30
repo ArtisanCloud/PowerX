@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
+	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/datatypes"
@@ -26,6 +28,7 @@ type Registry struct {
 	cleanupInterval time.Duration
 	keyPrefix       string
 	now             func() time.Time
+	security        SecurityOptions
 }
 
 type RegistryOptions struct {
@@ -34,6 +37,7 @@ type RegistryOptions struct {
 	CleanupInterval time.Duration
 	KeyPrefix       string
 	Now             func() time.Time
+	Security        SecurityOptions
 }
 
 func NewRegistry(store *store.Store, redis redis.Cmdable, opts RegistryOptions) *Registry {
@@ -57,12 +61,13 @@ func NewRegistry(store *store.Store, redis redis.Cmdable, opts RegistryOptions) 
 		cleanupInterval: opts.CleanupInterval,
 		keyPrefix:       opts.KeyPrefix,
 		now:             opts.Now,
+		security:        opts.Security,
 	}
 }
 
 type RegisterRequest struct {
 	PluginID        string
-	TenantID        uint64
+	TenantUUID      string
 	DeveloperID     uint64
 	BuildHash       string
 	EntryPoints     []string
@@ -77,8 +82,11 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 	if r.store == nil {
 		return nil, errors.New("dev hotload store missing")
 	}
-	if strings.TrimSpace(req.PluginID) == "" || req.TenantID == 0 || req.DeveloperID == 0 {
+	if strings.TrimSpace(req.PluginID) == "" || req.DeveloperID == 0 {
 		return nil, fmt.Errorf("invalid register request")
+	}
+	if strings.TrimSpace(req.TenantUUID) == "" {
+		return nil, ErrTenantUUIDReq
 	}
 
 	if r.maxConcurrent > 0 {
@@ -91,8 +99,13 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		}
 	}
 
-	lockKey := sessionLockKey(r.keyPrefix, req.PluginID, req.TenantID)
+	lockKey := sessionLockKey(r.keyPrefix, req.PluginID, req.TenantUUID)
 	if err := r.acquireLock(ctx, lockKey); err != nil {
+		if errors.Is(err, ErrSessionConflict) {
+			if active, findErr := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantUUID); findErr == nil {
+				return nil, newSessionConflictError(active)
+			}
+		}
 		return nil, err
 	}
 	defer func() {
@@ -103,9 +116,9 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		}
 	}()
 
-	if _, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); err == nil {
+	if active, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantUUID); err == nil {
 		_ = r.releaseLock(ctx, lockKey)
-		return nil, ErrSessionConflict
+		return nil, newSessionConflictError(active)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		_ = r.releaseLock(ctx, lockKey)
 		return nil, err
@@ -113,10 +126,10 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 
 	session := &model.DevHotloadSession{
 		PluginID:        strings.TrimSpace(req.PluginID),
-		TenantID:        req.TenantID,
+		TenantUUID:      strings.TrimSpace(req.TenantUUID),
 		DeveloperID:     req.DeveloperID,
 		BuildHash:       strings.TrimSpace(req.BuildHash),
-		ReloadToken:     generateReloadToken(),
+		ReloadToken:     randomReloadToken(),
 		Status:          model.DevHotloadSessionStatusActive,
 		SandboxEndpoint: strings.TrimSpace(req.SandboxEndpoint),
 		LogURL:          strings.TrimSpace(req.LogURL),
@@ -130,9 +143,21 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		_ = r.releaseLock(ctx, lockKey)
 		return nil, err
 	}
+	token, err := r.buildReloadToken(ctx, session)
+	if err != nil {
+		_ = r.releaseLock(ctx, lockKey)
+		return nil, err
+	}
+	if token != "" && token != session.ReloadToken {
+		session.ReloadToken = token
+		if err := r.store.SaveSession(ctx, session); err != nil {
+			_ = r.releaseLock(ctx, lockKey)
+			return nil, err
+		}
+	}
 	if err := r.store.AppendEvent(ctx, session.UUID, "session.started", map[string]any{
 		"pluginId":    session.PluginID,
-		"tenantId":    session.TenantID,
+		"tenant_uuid": session.TenantUUID,
 		"developerId": session.DeveloperID,
 	}); err != nil {
 		return nil, err
@@ -202,7 +227,7 @@ func (r *Registry) Terminate(ctx context.Context, id uuid.UUID, note string) err
 		return err
 	}
 	cacheKey := sessionCacheKey(r.keyPrefix, session.UUID)
-	lockKey := sessionLockKey(r.keyPrefix, session.PluginID, session.TenantID)
+	lockKey := sessionLockKey(r.keyPrefix, session.PluginID, session.TenantUUID)
 	_ = r.releaseLock(ctx, lockKey)
 	if r.redis != nil {
 		_ = r.redis.Del(ctx, cacheKey).Err()
@@ -248,8 +273,8 @@ func (r *Registry) releaseLock(ctx context.Context, key string) error {
 	return r.redis.Del(ctx, key).Err()
 }
 
-func sessionLockKey(prefix, pluginID string, tenantID uint64) string {
-	return fmt.Sprintf("%s:lock:%s:%d", prefix, pluginID, tenantID)
+func sessionLockKey(prefix, pluginID string, tenantUUID string) string {
+	return fmt.Sprintf("%s:lock:%s:%s", prefix, pluginID, tenantUUID)
 }
 
 func sessionCacheKey(prefix string, sessionID uuid.UUID) string {
@@ -278,7 +303,41 @@ func jsonMarshal(value any) ([]byte, error) {
 	}
 }
 
-func generateReloadToken() string {
+func (r *Registry) buildReloadToken(ctx context.Context, session *model.DevHotloadSession) (string, error) {
+	if session == nil {
+		return "", errors.New("nil session")
+	}
+	sec := r.security
+	if len(sec.TokenSecret) == 0 || strings.TrimSpace(sec.TokenIssuer) == "" || strings.TrimSpace(sec.TokenAudience) == "" {
+		return session.ReloadToken, nil
+	}
+	ttl := sec.TokenTTL
+	if ttl <= 0 {
+		ttl = r.ttl
+	}
+	claims := reqctx.CoreXClaims{
+		TenantUUID: session.TenantUUID,
+		MemberID:   session.DeveloperID,
+		MemberUUID: fmt.Sprintf("devhotload:%s", session.UUID.String()),
+		Scope:      "access",
+	}
+	if len(sec.TokenRoles) > 0 {
+		claims.Roles = append([]string{}, sec.TokenRoles...)
+	}
+	if len(sec.TokenPlatforms) > 0 {
+		claims.Platforms = append([]string{}, sec.TokenPlatforms...)
+	}
+	if sec.ImpersonateRoot {
+		claims.IsRoot = true
+	}
+	token, err := pkgauth.GenerateAccessJWT(claims, sec.TokenIssuer, []string{sec.TokenAudience}, ttl, sec.TokenSecret)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func randomReloadToken() string {
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		return uuid.NewString()

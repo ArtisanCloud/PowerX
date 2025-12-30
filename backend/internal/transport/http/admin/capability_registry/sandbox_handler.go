@@ -26,7 +26,7 @@ func NewSandboxHandler(service *sandbox.Service) *SandboxHandler {
 
 type sandboxInvokeRequest struct {
 	CapabilityID string                      `json:"capability_id" binding:"required"`
-	TenantID     string                      `json:"tenant_id" binding:"required"`
+	TenantUUID   string                      `json:"tenant_uuid" binding:"required"`
 	Payload      json.RawMessage             `json:"payload"`
 	StickyKey    string                      `json:"sticky_key"`
 	TimeoutMs    int                         `json:"timeout_ms"`
@@ -35,7 +35,7 @@ type sandboxInvokeRequest struct {
 
 type routerOverrideRegistration struct {
 	CapabilityID  string                   `json:"capability_id"`
-	TenantID      string                   `json:"tenant_id"`
+	TenantUUID    string                   `json:"tenant_uuid"`
 	Status        string                   `json:"status"`
 	Adapters      []router.AdapterEndpoint `json:"adapters"`
 	RoutingPolicy router.RoutingPolicy     `json:"routing_policy"`
@@ -60,19 +60,22 @@ func (h *SandboxHandler) Invoke(ctx *gin.Context) {
 	}
 	var override *router.Registration
 	if req.Override != nil {
+		overrideTenant := trimTenantUUID(req.Override.TenantUUID)
 		override = &router.Registration{
 			CapabilityID:  req.Override.CapabilityID,
-			TenantID:      req.Override.TenantID,
+			TenantUUID:    overrideTenant,
 			Status:        req.Override.Status,
 			Adapters:      req.Override.Adapters,
 			RoutingPolicy: req.Override.RoutingPolicy,
 			FallbackPlan:  req.Override.FallbackPlan,
 		}
 	}
-	result, err := h.service.SimulateInvoke(ctx.Request.Context(), req.CapabilityID, req.TenantID, router.InvokeRequest{
-		Payload:   req.Payload,
-		Timeout:   routerTimeDuration(req.TimeoutMs),
-		StickyKey: req.StickyKey,
+	tenantUUID := trimTenantUUID(req.TenantUUID)
+	result, err := h.service.SimulateInvoke(ctx.Request.Context(), req.CapabilityID, tenantUUID, router.InvokeRequest{
+		TenantUUID: tenantUUID,
+		Payload:    req.Payload,
+		Timeout:    routerTimeDuration(req.TimeoutMs),
+		StickyKey:  req.StickyKey,
 	}, override)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": "sandbox.invoke_failed", "message": err.Error()})

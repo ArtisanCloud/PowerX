@@ -26,7 +26,7 @@ func ExampleUsage() {
 
 	// 3. 订阅订单创建事件
 	unsubscribeOrderCreated := bus.Subscribe("order_created", func(event Event) error {
-		fmt.Printf("订单创建事件: 租户=%s, 追踪ID=%s\n", event.TenantID, event.TraceID)
+		fmt.Printf("订单创建事件: 租户=%s, 追踪ID=%s\n", event.TenantUUID, event.TraceID)
 
 		if orderInfo, ok := event.Payload.(map[string]interface{}); ok {
 			fmt.Printf("订单ID: %s, 金额: %v\n", orderInfo["order_id"], orderInfo["amount"])
@@ -36,7 +36,7 @@ func ExampleUsage() {
 	})
 
 	// 4. 发布用户注册事件
-	ctx := context.WithValue(context.Background(), "tenant_id", "tenant-123")
+	ctx := context.WithValue(context.Background(), "tenant_uuid", "tenant-123")
 	ctx = context.WithValue(ctx, "trace_id", "trace-456")
 
 	bus.Publish("user_registered", map[string]interface{}{
@@ -163,16 +163,16 @@ func ExampleMultiTenant() {
 
 	// 订阅所有租户的事件
 	bus.Subscribe("tenant_action", func(event Event) error {
-		fmt.Printf("租户 %s 执行了操作: %v\n", event.TenantID, event.Payload)
+		fmt.Printf("租户 %s 执行了操作: %v\n", event.TenantUUID, event.Payload)
 		return nil
 	})
 
 	// 租户A的操作
-	ctxA := context.WithValue(context.Background(), "tenant_id", "tenant-A")
+	ctxA := context.WithValue(context.Background(), "tenant_uuid", "tenant-A")
 	bus.Publish("tenant_action", "创建用户", ctxA)
 
 	// 租户B的操作
-	ctxB := context.WithValue(context.Background(), "tenant_id", "tenant-B")
+	ctxB := context.WithValue(context.Background(), "tenant_uuid", "tenant-B")
 	bus.Publish("tenant_action", "删除订单", ctxB)
 
 	time.Sleep(100 * time.Millisecond)

@@ -2,10 +2,11 @@ package http
 
 import (
 	"context"
+	"time"
+
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -24,14 +25,14 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		c.Next()
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		tenant := reqctx.GetTenantID(c.Request.Context())
+		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
 		traceID := audit.GetTraceID(c.Request.Context())
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.FullPath()),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
-			zap.Uint64("tenant_id", tenant),
+			zap.String("tenant_uuid", tenantUUID),
 			zap.String("trace_id", traceID),
 		)
 	}

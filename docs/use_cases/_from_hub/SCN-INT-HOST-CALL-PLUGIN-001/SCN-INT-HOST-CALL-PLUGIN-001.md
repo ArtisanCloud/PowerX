@@ -79,7 +79,7 @@ last_reviewed_at: 2025-02-20
 # Key Interactions & Contracts
 
 - **APIs**：`POST /host/plugins/call`, `POST /host/plugins/call/batch`, `GET /host/plugins/tasks/:id`, `POST /host/plugins/callback`.
-- **Headers/Context**：`x-tenant-id`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-route-policy`, `x-region`.
+- **Headers/Context**：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-route-policy`, `x-region`.
 - **Events**：`host.plugin.call.retry`, `host.plugin.circuit.open`, `host.plugin.batch.completed`.
 - **Configs**：`host_plugin_gateway.yaml`, `tenant_route_policy.yaml`, `resilience_policies.yaml`, `async_task_pipeline.yaml`.
 

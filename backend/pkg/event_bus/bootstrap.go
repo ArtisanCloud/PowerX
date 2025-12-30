@@ -3,17 +3,23 @@ package event_bus
 import "fmt"
 
 // InitEventBus 订阅全局事件（示例 plugin 行为）
-func InitEventBus() error {
+func InitEventBus(cfg *Config) error {
 	// 初始化默认事件总线
-	err := InitDefaultEventBus(&Config{Type: "local"})
+	if cfg == nil {
+		cfg = &Config{Type: "local"}
+	}
+	if cfg.Type == "" {
+		cfg.Type = "local"
+	}
+	err := InitDefaultEventBus(cfg)
 	if err != nil {
 		return err
 	}
 	// 订阅认证成功事件
 	Subscribe("auth_succeeded", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			fmt.Printf("[plugin] auth_succeeded: tenant=%v subject=%v platform=%v trace_id=%v scope=%v\n",
-				payload["tenant_id"], payload["subject"], payload["platform"], payload["trace_id"], payload["scope"])
+			fmt.Printf("[plugin] auth_succeeded: tenant_uuid=%v subject=%v platform=%v trace_id=%v scope=%v\n",
+				payload["tenant_uuid"], payload["subject"], payload["platform"], payload["trace_id"], payload["scope"])
 		}
 		return nil
 	})
@@ -21,8 +27,8 @@ func InitEventBus() error {
 	// 订阅流程完成事件
 	Subscribe("flow_completed", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			fmt.Printf("[plugin] flow_completed: tenant=%v flow=%v subject=%v trace_id=%v\n",
-				payload["tenant_id"], payload["flow_name"], payload["subject"], payload["trace_id"])
+			fmt.Printf("[plugin] flow_completed: tenant_uuid=%v flow=%v subject=%v trace_id=%v\n",
+				payload["tenant_uuid"], payload["flow_name"], payload["subject"], payload["trace_id"])
 		}
 		return nil
 	})

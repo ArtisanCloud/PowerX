@@ -4,6 +4,7 @@ package iam
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -24,9 +25,9 @@ func NewRoleBindingRepository(db *gorm.DB) *RoleBindingRepository {
 	}
 }
 
-// 幂等创建绑定（建议你在表上建唯一键：tenant_id,role_id,subject_type,subject_id）
+// 幂等创建绑定（建议你在表上建唯一键：tenant_uuid,role_id,subject_type,subject_id）
 func (r *RoleBindingRepository) Create(ctx context.Context, rb *dbm.RoleBinding) error {
-	if rb == nil || rb.TenantID == 0 || rb.RoleID == 0 || rb.SubjectID == 0 || rb.SubjectType == "" {
+	if rb == nil || strings.TrimSpace(rb.TenantUUID) == "" || rb.RoleID == 0 || rb.SubjectID == 0 || rb.SubjectType == "" {
 		return errors.New("invalid role binding")
 	}
 	return r.db.WithContext(ctx).
@@ -34,38 +35,38 @@ func (r *RoleBindingRepository) Create(ctx context.Context, rb *dbm.RoleBinding)
 		Create(rb).Error
 }
 
-func (r *RoleBindingRepository) Delete(ctx context.Context, tenantID, id uint64) error {
+func (r *RoleBindingRepository) Delete(ctx context.Context, tenantUUID string, id uint64) error {
 	return r.db.WithContext(ctx).
-		Where("tenant_id = ? AND id = ?", tenantID, id).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, id).
 		Delete(&dbm.RoleBinding{}).Error
 }
 
-func (r *RoleBindingRepository) ListBySubject(ctx context.Context, tenantID uint64, st dbm.SubjectType, sid uint64) ([]dbm.RoleBinding, error) {
+func (r *RoleBindingRepository) ListBySubject(ctx context.Context, tenantUUID string, st dbm.SubjectType, sid uint64) ([]dbm.RoleBinding, error) {
 	var out []dbm.RoleBinding
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, st, sid).
+		Where("tenant_uuid = ? AND subject_type = ? AND subject_id = ?", tenantUUID, st, sid).
 		Find(&out).Error
 	return out, err
 }
 
 // （用于授权器预热）拉取某成员“有效”的所有绑定：直绑 + 通过 Assignment 拉来的绑定
-func (r *RoleBindingRepository) ListEffectiveForMember(ctx context.Context, tenantID, memberID uint64) ([]dbm.RoleBinding, error) {
+func (r *RoleBindingRepository) ListEffectiveForMember(ctx context.Context, tenantUUID string, memberID uint64) ([]dbm.RoleBinding, error) {
 	tRB := (&dbm.RoleBinding{}).GetTableName(true)
 	tMA := (&dbm.MemberAssignment{}).GetTableName(true)
 
 	var out []dbm.RoleBinding
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT DISTINCT rb.* FROM `+tRB+` rb
-		WHERE rb.tenant_id = ? AND rb.subject_type = ? AND rb.subject_id = ?
+		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?
 		UNION
 		SELECT DISTINCT rb.* FROM `+tRB+` rb
 		JOIN `+tMA+` ma
-		  ON ma.tenant_id = rb.tenant_id
+		  ON ma.tenant_uuid = rb.tenant_uuid
 		 AND rb.subject_type = ma.dim_type
 		 AND rb.subject_id = ma.dim_id
-		WHERE rb.tenant_id = ? AND ma.member_id = ?`,
-		tenantID, dbm.SubMember, memberID,
-		tenantID, memberID,
+		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`,
+		tenantUUID, dbm.SubMember, memberID,
+		tenantUUID, memberID,
 	).Scan(&out).Error
 	return out, err
 }
@@ -73,13 +74,13 @@ func (r *RoleBindingRepository) ListEffectiveForMember(ctx context.Context, tena
 // —— 修正 1：按“成员”列出其角色（推荐用此函数），不再使用 userID ——
 
 // ListRolesByMember：列出某成员在租户下的所有“直绑”角色（不含间接）
-func (r *RoleBindingRepository) ListRolesByMember(ctx context.Context, tenantID, memberID uint64) ([]dbm.Role, error) {
+func (r *RoleBindingRepository) ListRolesByMember(ctx context.Context, tenantUUID string, memberID uint64) ([]dbm.Role, error) {
 	var roles []dbm.Role
 	err := r.db.WithContext(ctx).
 		Table((&dbm.Role{}).GetTableName(true)+" AS r").
 		Select("r.*").
 		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" AS rb ON rb.role_id = r.id").
-		Where("rb.tenant_id = ? AND rb.subject_type = ? AND rb.subject_id = ?", tenantID, dbm.SubMember, memberID).
+		Where("rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?", tenantUUID, dbm.SubMember, memberID).
 		Find(&roles).Error
 	return roles, err
 }
@@ -87,12 +88,12 @@ func (r *RoleBindingRepository) ListRolesByMember(ctx context.Context, tenantID,
 // —— 修正 2：若你确实需要以 userID 作为入参（兼容旧调用），先映射到 memberID ——
 
 // ListMemberRoles：保持函数名，但含义改为“按 userID 查直绑角色（内部先找 memberID）”
-func (r *RoleBindingRepository) ListMemberRoles(ctx context.Context, tenantID, userID uint64) ([]dbm.Role, error) {
+func (r *RoleBindingRepository) ListMemberRoles(ctx context.Context, tenantUUID string, userID uint64) ([]dbm.Role, error) {
 	// 1) userID -> memberID（一个 user 在一个租户只有一个 member）
 	var memberID uint64
 	if err := r.db.WithContext(ctx).
 		Table((&dbm.Member{}).GetTableName(true)).
-		Where("tenant_id = ? AND user_id = ?", tenantID, userID).
+		Where("tenant_uuid = ? AND user_id = ?", tenantUUID, userID).
 		Pluck("id", &memberID).Error; err != nil {
 		return nil, err
 	}
@@ -100,27 +101,27 @@ func (r *RoleBindingRepository) ListMemberRoles(ctx context.Context, tenantID, u
 		return []dbm.Role{}, nil
 	}
 	// 2) 复用按“成员”查角色
-	return r.ListRolesByMember(ctx, tenantID, memberID)
+	return r.ListRolesByMember(ctx, tenantUUID, memberID)
 }
 
 // —— 修正 3：按 code 绑定角色给成员（走 role_binding） ——
 
 // AssignRolesByCodes：把若干 code 的角色直绑给成员（幂等）
-func (r *RoleBindingRepository) AssignRolesByCodes(ctx context.Context, tenantID, memberID uint64, codes ...string) error {
-	if tenantID == 0 || memberID == 0 || len(codes) == 0 {
+func (r *RoleBindingRepository) AssignRolesByCodes(ctx context.Context, tenantUUID string, memberID uint64, codes ...string) error {
+	if strings.TrimSpace(tenantUUID) == "" || memberID == 0 || len(codes) == 0 {
 		return nil
 	}
 	// 只匹配本租户的 tenant-scope 角色
 	var roles []dbm.Role
 	if err := r.db.WithContext(ctx).
-		Where("scope = ? AND tenant_id = ? AND code IN ?", "tenant", tenantID, codes).
+		Where("scope = ? AND tenant_uuid = ? AND code IN ?", "tenant", tenantUUID, codes).
 		Find(&roles).Error; err != nil {
 		return err
 	}
 	// 逐个 upsert 绑定
 	for _, role := range roles {
 		rb := &dbm.RoleBinding{
-			TenantID:    tenantID,
+			TenantUUID:  tenantUUID,
 			RoleID:      role.ID,
 			SubjectType: dbm.SubMember,
 			SubjectID:   memberID,

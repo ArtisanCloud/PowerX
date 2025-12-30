@@ -62,7 +62,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Events**：`POST /knowledge-spaces`, `PATCH /knowledge-spaces/{id}`, `POST /knowledge-spaces/{id}/owners`, Event `knowledge.space.created`。
-- **Configs / Schemas**：空间 schema（name, tenant_id, dept_scope, storage_quota_gb, refresh_interval, rag_pipeline, audit_policy）。
+- **Configs / Schemas**：空间 schema（name, tenant_uuid, dept_scope, storage_quota_gb, refresh_interval, rag_pipeline, audit_policy）。
 - **Security / Compliance**：租户隔离校验、角色审批流、审计日志不可篡改、默认脱敏策略必须启用。
 
 # Usecase Links

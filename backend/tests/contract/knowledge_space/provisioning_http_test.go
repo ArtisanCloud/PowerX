@@ -22,7 +22,6 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 	policyID := env.SeedPolicyTemplate("default", "v1")
 
 	createBody := map[string]any{
-		"tenantId":       env.TenantID().String(),
 		"spaceName":      "finance-ops",
 		"departmentCode": "FIN-OPS",
 		"quotas": map[string]any{
@@ -34,7 +33,7 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 		"featureFlags":            []string{"masking.strict", "fusion.guardrails"},
 	}
 
-	req := newJSONRequest(http.MethodPost, "/api/admin/knowledge-spaces", createBody)
+	req := newJSONRequest(http.MethodPost, "/api/admin/knowledge-spaces", createBody, env.TenantUUID().String())
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -62,7 +61,7 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 		"status": "active",
 	}
 
-	updateReq := newJSONRequest(http.MethodPatch, fmt.Sprintf("/api/admin/knowledge-spaces/%s", spaceID), updateBody)
+	updateReq := newJSONRequest(http.MethodPatch, fmt.Sprintf("/api/admin/knowledge-spaces/%s", spaceID), updateBody, env.TenantUUID().String())
 	updateResp := httptest.NewRecorder()
 	engine.ServeHTTP(updateResp, updateReq)
 	require.Equal(t, http.StatusOK, updateResp.Code)
@@ -76,7 +75,7 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 
 	retireReq := newJSONRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/retire", spaceID), map[string]any{
 		"reason": "ops sunset",
-	})
+	}, env.TenantUUID().String())
 	retireResp := httptest.NewRecorder()
 	engine.ServeHTTP(retireResp, retireReq)
 	require.Equal(t, http.StatusAccepted, retireResp.Code)
@@ -90,18 +89,19 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, expiry.After(time.Now()))
 
-	dupReq := newJSONRequest(http.MethodPost, "/api/admin/knowledge-spaces", createBody)
+	dupReq := newJSONRequest(http.MethodPost, "/api/admin/knowledge-spaces", createBody, env.TenantUUID().String())
 	dupResp := httptest.NewRecorder()
 	engine.ServeHTTP(dupResp, dupReq)
 	require.Equal(t, http.StatusConflict, dupResp.Code)
 }
 
-func newJSONRequest(method, path string, body map[string]any) *http.Request {
+func newJSONRequest(method, path string, body map[string]any, tenantUUID string) *http.Request {
 	payload, _ := json.Marshal(body)
 	req := httptest.NewRequest(method, path, bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer test-token")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", uuid.NewString())
+	req.Header.Set("X-Tenant-UUID", tenantUUID)
 	return req
 }
 
@@ -113,7 +113,7 @@ type apiResponse[T any] struct {
 
 type knowledgeSpaceView struct {
 	SpaceID             string     `json:"spaceId"`
-	TenantID            string     `json:"tenantId"`
+	TenantUUID          string     `json:"tenant_uuid"`
 	SpaceName           string     `json:"spaceName"`
 	DepartmentCode      string     `json:"departmentCode"`
 	Status              string     `json:"status"`

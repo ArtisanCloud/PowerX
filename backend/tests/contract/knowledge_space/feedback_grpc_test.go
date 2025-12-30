@@ -41,7 +41,8 @@ func TestFeedbackGRPCHandlers(t *testing.T) {
 	policyID := env.SeedPolicyTemplate("grpc-feedback", "v1")
 	space := env.CreateSpaceFixture("grpc-feedback-space", policyID)
 
-	resp, err := client.SubmitFeedback(ctx, &knowledgev1.FeedbackRequest{
+	rpcCtx := knowledgeGRPCContext(t, env)
+	resp, err := client.SubmitFeedback(rpcCtx, &knowledgev1.FeedbackRequest{
 		SpaceId:      space.UUID.String(),
 		Severity:     "critical",
 		IssueType:    "compliance",
@@ -52,10 +53,12 @@ func TestFeedbackGRPCHandlers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp.GetCase())
 	require.Equal(t, "in_progress", resp.GetCase().GetStatus())
+	assertNoLegacyTenantProto(t, resp)
 
-	listResp, err := client.ListFeedbackCases(ctx, &knowledgev1.ListFeedbackCasesRequest{
+	listResp, err := client.ListFeedbackCases(rpcCtx, &knowledgev1.ListFeedbackCasesRequest{
 		SpaceId: space.UUID.String(),
 	})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(listResp.GetCases()), 1)
+	assertNoLegacyTenantProto(t, listResp)
 }

@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const diagnosticsTenantUUID = "a928b03c-5a21-4c61-a4a9-0ce274164a9b"
+
 func TestDiagnosticsLifecycle(t *testing.T) {
 	db, cleanup := openTestDB(t)
 	defer cleanup()
@@ -48,10 +50,10 @@ func TestDiagnosticsLifecycle(t *testing.T) {
 	})
 
 	report, err := svc.CreateReport(context.Background(), CreateRequest{
-		TenantID: 101,
-		PluginID: "plugin.demo",
-		TraceID:  "trace-1",
-		Notes:    "token-SECRET",
+		TenantUUID: diagnosticsTenantUUID,
+		PluginID:   "plugin.demo",
+		TraceID:    "trace-1",
+		Notes:      "token-SECRET",
 		Summary: map[string]any{
 			"severity": "P1",
 			"detail":   "token-SECRET",

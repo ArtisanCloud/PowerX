@@ -2,6 +2,7 @@ package compliance
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -21,7 +22,7 @@ func (g *Guard) Evaluate(tenant uuid.UUID, space *models.KnowledgeSpace) string 
 	if space == nil {
 		return "space_not_found"
 	}
-	if space.TenantID != tenant {
+	if !strings.EqualFold(strings.TrimSpace(space.TenantUUID), strings.TrimSpace(tenant.String())) {
 		return "tenant_mismatch"
 	}
 	if space.Status != models.KnowledgeSpaceStatusActive {

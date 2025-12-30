@@ -44,6 +44,10 @@ func (h *CostHandler) reportUsage(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "cost quota service unavailable", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req usageReportRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -54,7 +58,7 @@ func (h *CostHandler) reportUsage(c *gin.Context) {
 		env = "default"
 	}
 	input := costquota.UsageIngestInput{
-		TenantID:     req.TenantID,
+		TenantUUID:   tenantUUID,
 		BudgetPeriod: req.BudgetPeriod,
 	}
 	if strings.TrimSpace(input.BudgetPeriod) == "" {
@@ -81,16 +85,15 @@ func (h *CostHandler) getQuotaSnapshot(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "cost quota service unavailable", nil)
 		return
 	}
-	tenant := strings.TrimSpace(c.Query("tenantId"))
-	if tenant == "" {
-		dtoRequest.ResponseError(c, http.StatusBadRequest, "tenantId required", nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	env := strings.TrimSpace(c.Query("env"))
 	if env == "" {
 		env = "default"
 	}
-	ledgers, err := h.svc.ListLedgers(c.Request.Context(), env, tenant)
+	ledgers, err := h.svc.ListLedgers(c.Request.Context(), env, tenantUUID)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -106,14 +109,18 @@ func (h *CostHandler) getQuotaSnapshot(c *gin.Context) {
 		})
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{
-		"tenantId": tenant,
-		"quotas":   quotas,
+		"tenant_uuid": tenantUUID,
+		"quotas":      quotas,
 	})
 }
 
 func (h *CostHandler) enforceAction(c *gin.Context) {
 	if h.svc == nil {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "cost quota service unavailable", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	var req enforcementRequest
@@ -126,7 +133,7 @@ func (h *CostHandler) enforceAction(c *gin.Context) {
 		env = "default"
 	}
 	input := costquota.EnforcementInput{
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		Action:      req.Action,
 		Reason:      req.Reason,
 		TicketID:    req.TicketID,
@@ -144,7 +151,6 @@ func (h *CostHandler) enforceAction(c *gin.Context) {
 
 type usageReportRequest struct {
 	Env          string             `json:"env"`
-	TenantID     string             `json:"tenantId" binding:"required"`
 	ProviderID   string             `json:"providerId"`
 	BudgetPeriod string             `json:"budgetPeriod"`
 	Events       []usageReportEvent `json:"events" binding:"required"`
@@ -159,7 +165,6 @@ type usageReportEvent struct {
 
 type enforcementRequest struct {
 	Env         string `json:"env"`
-	TenantID    string `json:"tenantId" binding:"required"`
 	ProviderID  string `json:"providerId"`
 	Action      string `json:"action" binding:"required"`
 	Reason      string `json:"reason"`

@@ -14,8 +14,8 @@ import (
 
 	appshared "github.com/ArtisanCloud/PowerX/internal/app/shared"
 	amhinst "github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/instrumentation"
-	connectorguard "github.com/ArtisanCloud/PowerX/internal/service/connector_guard"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/shared"
+	connectorguard "github.com/ArtisanCloud/PowerX/internal/service/connector_guard"
 	agentmodelhubhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/agent_model_hub"
@@ -31,25 +31,19 @@ func TestConnectorFlowIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	env := ammatestenv.New(t)
+	env.MustInsertTenant(3001, ammatestenv.AgentModelHubTenantUUID)
 
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(ammatestenv.RequireAgentModelHubAuth())
 
 	deps := &appshared.Deps{DB: env.DB}
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	payload := map[string]any{
-		"env":       "default",
-		"tenantId":  "tenant-connector-int",
-		"region":    "us-east-1",
+		"env":    "default",
+		"region": "us-east-1",
 		"mappingTemplate": map[string]any{
 			"workflow": "sync_leads",
 			"fields": map[string]string{
@@ -58,16 +52,14 @@ func TestConnectorFlowIntegration(t *testing.T) {
 		},
 		"rateLimitPerMinute": 90,
 		"secrets": map[string]string{
-			"oauth_token":          "coze-refresh-token-int",
-			"webhook_signing_key":  "coze-webhook-secret-int",
+			"oauth_token":         "coze-refresh-token-int",
+			"webhook_signing_key": "coze-webhook-secret-int",
 		},
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/connector-platforms/coze/instances", bytes.NewReader(mustJSON(t, payload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var resp struct {
@@ -115,9 +107,7 @@ func TestConnectorFlowIntegration(t *testing.T) {
 	// Manual pause endpoint should still succeed (idempotent)
 	pauseReq := httptest.NewRequest(http.MethodPost, "/api/internal/connector-platforms/coze/instances/"+instanceID+"/pause", bytes.NewReader([]byte(`{"reason":"manual confirm"}`)))
 	pauseReq.Header.Set("Content-Type", "application/json")
-	pauseReq.Header.Set("Authorization", "Bearer token")
-	pauseRR := httptest.NewRecorder()
-	engine.ServeHTTP(pauseRR, pauseReq)
+	pauseRR := serveAgentModelHubRequest(t, engine, pauseReq)
 	require.Equal(t, http.StatusOK, pauseRR.Code)
 
 	record, err := repo.NewConnectorInstanceRepository(env.DB).FindByUUID(context.Background(), uuid.MustParse(instanceID))

@@ -58,7 +58,7 @@ func (h *Handler) RebalanceAgent(c *gin.Context) {
 	}
 	result, err := h.service.Scale(c.Request.Context(), agent_lifecycle.ScaleInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  req.TenantUUID,
 		Target:      req.TargetCapacityInstances,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
@@ -92,7 +92,7 @@ func (h *Handler) performLifecycleControl(c *gin.Context, action string) {
 	case "freeze":
 		result, err = h.service.Pause(c.Request.Context(), agent_lifecycle.PauseInput{
 			AgentID:     agentID,
-			TenantID:    req.TenantID,
+			TenantUUID:  req.TenantUUID,
 			Reason:      req.Reason,
 			RequestedBy: req.RequestedBy,
 			TraceID:     req.TraceID,
@@ -100,7 +100,7 @@ func (h *Handler) performLifecycleControl(c *gin.Context, action string) {
 	case "recover":
 		result, err = h.service.Resume(c.Request.Context(), agent_lifecycle.ResumeInput{
 			AgentID:     agentID,
-			TenantID:    req.TenantID,
+			TenantUUID:  req.TenantUUID,
 			Reason:      req.Reason,
 			RequestedBy: req.RequestedBy,
 			TraceID:     req.TraceID,

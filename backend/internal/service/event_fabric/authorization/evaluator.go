@@ -51,7 +51,7 @@ type ChallengeInfo struct {
 // GrantSnapshot 提供授权快照。
 type GrantSnapshot struct {
 	GrantID      uuid.UUID
-	TenantID     uuid.UUID
+	TenantUUID   string
 	SubjectType  string
 	SubjectID    uuid.UUID
 	Status       string
@@ -111,13 +111,13 @@ func (s *serviceImpl) Evaluate(ctx context.Context, req EvaluateRequest) (*Evalu
 	}
 
 	cacheKey := GrantCacheKey{
-		TenantID:    req.TenantID.String(),
+		TenantUUID:  req.TenantID.String(),
 		SubjectType: subjectType,
-		SubjectID:   req.SubjectID.String(),
+		SubjectID:   req.SubjectID,
 	}
 
 	start := s.clock().UTC()
-	snapshot, cacheHit, err := s.loadGrantSnapshot(ctx, cacheKey)
+	snapshot, cacheHit, err := s.loadGrantSnapshot(ctx, cacheKey, req.TenantID)
 	if err != nil {
 		s.emitEvaluationAlert(ctx, req, nil, "authorization.evaluation_failed", "high", err.Error(), nil)
 		return nil, err
@@ -272,11 +272,11 @@ func (s *serviceImpl) GetGrantSnapshot(ctx context.Context, tenantID uuid.UUID, 
 		return nil, err
 	}
 	cacheKey := GrantCacheKey{
-		TenantID:    tenantID.String(),
+		TenantUUID:  tenantID.String(),
 		SubjectType: normalizedType,
-		SubjectID:   subjectID.String(),
+		SubjectID:   subjectID,
 	}
-	snapshot, _, err := s.loadGrantSnapshot(ctx, cacheKey)
+	snapshot, _, err := s.loadGrantSnapshot(ctx, cacheKey, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (s *serviceImpl) GetGrantSnapshot(ctx context.Context, tenantID uuid.UUID, 
 	return snapshot, nil
 }
 
-func (s *serviceImpl) loadGrantSnapshot(ctx context.Context, key GrantCacheKey) (*GrantSnapshot, bool, error) {
+func (s *serviceImpl) loadGrantSnapshot(ctx context.Context, key GrantCacheKey, tenantID uuid.UUID) (*GrantSnapshot, bool, error) {
 	if s.cache != nil {
 		entry, err := s.cache.Get(ctx, key, 0)
 		if err != nil {
@@ -301,27 +301,19 @@ func (s *serviceImpl) loadGrantSnapshot(ctx context.Context, key GrantCacheKey) 
 			_ = s.cache.Invalidate(ctx, key)
 		}
 	}
-	snapshot, err := s.fetchGrantSnapshotFromDB(ctx, key)
+	snapshot, err := s.fetchGrantSnapshotFromDB(ctx, tenantID, key)
 	if err != nil {
 		return nil, false, err
 	}
 	return snapshot, false, nil
 }
 
-func (s *serviceImpl) fetchGrantSnapshotFromDB(ctx context.Context, key GrantCacheKey) (*GrantSnapshot, error) {
+func (s *serviceImpl) fetchGrantSnapshotFromDB(ctx context.Context, tenantID uuid.UUID, key GrantCacheKey) (*GrantSnapshot, error) {
 	if s.repo == nil {
 		return nil, ErrServiceUnavailable
 	}
-	tenantID, err := uuid.Parse(key.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid tenant id")
-	}
-	subjectID, err := uuid.Parse(key.SubjectID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid subject id")
-	}
 
-	grants, err := s.repo.GetGrantBySubject(ctx, tenantID, key.SubjectType, subjectID, []string{
+	grants, err := s.repo.GetGrantBySubject(ctx, tenantID, key.SubjectType, key.SubjectID, []string{
 		eventfabricmodel.GrantStatusActive,
 		eventfabricmodel.GrantStatusPending,
 	})
@@ -345,10 +337,11 @@ func (s *serviceImpl) fetchGrantSnapshotFromDB(ctx context.Context, key GrantCac
 		return nil, nil
 	}
 
+	tenantUUID := tenantUUIDFromGrant(grant)
 	if grant.TTLExpiresAt != nil && s.clock().UTC().After(grant.TTLExpiresAt.UTC()) {
 		if err := s.markGrantExpired(ctx, &GrantSnapshot{
 			GrantID:     grant.UUID,
-			TenantID:    grant.TenantID,
+			TenantUUID:  tenantUUID,
 			SubjectType: grant.SubjectType,
 			SubjectID:   grant.SubjectID,
 			Status:      grant.Status,
@@ -394,7 +387,12 @@ func (s *serviceImpl) fetchGrantSnapshotFromDB(ctx context.Context, key GrantCac
 			s.logger.WarnF(ctx, "[authorization.cache] set grant cache failed key=%s err=%v", key.String(), err)
 		}
 	}
-	return snapshotFromCacheEntry(entry)
+	snapshot, err := snapshotFromCacheEntry(entry)
+	if err != nil {
+		return nil, err
+	}
+	snapshot.TenantUUID = tenantUUID
+	return snapshot, nil
 }
 
 func snapshotFromCacheEntry(entry *GrantCacheEntry) (*GrantSnapshot, error) {
@@ -413,9 +411,9 @@ func (doc grantCacheDocument) toSnapshot(version uint64) (*GrantSnapshot, error)
 	if err != nil {
 		return nil, fmt.Errorf("invalid grant id: %w", err)
 	}
-	tenantID, err := uuid.Parse(doc.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid tenant id: %w", err)
+	tenantValue := canonicalTenantKey(doc.TenantUUID)
+	if tenantValue == "" {
+		return nil, fmt.Errorf("invalid tenant uuid")
 	}
 	subjectID, err := uuid.Parse(doc.SubjectID)
 	if err != nil {
@@ -423,7 +421,7 @@ func (doc grantCacheDocument) toSnapshot(version uint64) (*GrantSnapshot, error)
 	}
 	snapshot := &GrantSnapshot{
 		GrantID:     grantID,
-		TenantID:    tenantID,
+		TenantUUID:  tenantValue,
 		SubjectType: doc.SubjectType,
 		SubjectID:   subjectID,
 		Status:      doc.Status,
@@ -488,9 +486,9 @@ func (s *serviceImpl) markGrantExpired(ctx context.Context, snapshot *GrantSnaps
 	}
 
 	grantKey := GrantCacheKey{
-		TenantID:    snapshot.TenantID.String(),
+		TenantUUID:  snapshot.TenantUUID,
 		SubjectType: snapshot.SubjectType,
-		SubjectID:   snapshot.SubjectID.String(),
+		SubjectID:   snapshot.SubjectID,
 	}
 	_ = s.InvalidateGrantCache(ctx, grantKey)
 	return nil
@@ -611,7 +609,8 @@ func buildRateLimitKey(snapshot *GrantSnapshot, namespace, action string) string
 	if snapshot == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s:%s:%s", strings.ToLower(snapshot.TenantID.String()),
+	tenantUUID := tenantUUIDFromSnapshot(snapshot)
+	return fmt.Sprintf("%s:%s:%s:%s", strings.ToLower(tenantUUID),
 		strings.ToLower(snapshot.SubjectType), strings.ToLower(snapshot.SubjectID.String()),
 		capabilityKey(namespace, action))
 }
@@ -640,10 +639,14 @@ func (s *serviceImpl) emitEvaluationAlert(ctx context.Context, req EvaluateReque
 	if s.alerts == nil {
 		return
 	}
+	tenantUUID := req.TenantID.String()
+	if tenantUUID == "" && snapshot != nil {
+		tenantUUID = strings.TrimSpace(snapshot.TenantUUID)
+	}
 	event := AlertEvent{
 		Type:        alertType,
 		Severity:    severity,
-		TenantID:    req.TenantID.String(),
+		TenantUUID:  tenantUUID,
 		SubjectType: strings.ToLower(req.SubjectType),
 		SubjectID:   req.SubjectID.String(),
 		Capability:  req.Capability,
@@ -657,8 +660,8 @@ func (s *serviceImpl) emitEvaluationAlert(ctx context.Context, req EvaluateReque
 		if event.SubjectType == "" {
 			event.SubjectType = strings.ToLower(snapshot.SubjectType)
 		}
-		if event.TenantID == "" && snapshot.TenantID != uuid.Nil {
-			event.TenantID = snapshot.TenantID.String()
+		if snapUUID := tenantUUIDFromSnapshot(snapshot); snapUUID != "" {
+			event.TenantUUID = snapUUID
 		}
 		if event.SubjectID == "" && snapshot.SubjectID != uuid.Nil {
 			event.SubjectID = snapshot.SubjectID.String()
@@ -672,11 +675,12 @@ func (s *serviceImpl) emitEvaluationAudit(ctx context.Context, req EvaluateReque
 		return ""
 	}
 	eventID := uuid.New().String()
+	requestTenantUUID := req.TenantID.String()
 	meta := map[string]string{
 		"decision":     decision,
 		"reason":       reason,
 		"capability":   req.Capability,
-		"tenant_id":    req.TenantID.String(),
+		"tenant_uuid":  requestTenantUUID,
 		"subject_id":   req.SubjectID.String(),
 		"subject_type": strings.ToLower(req.SubjectType),
 	}
@@ -684,6 +688,9 @@ func (s *serviceImpl) emitEvaluationAudit(ctx context.Context, req EvaluateReque
 		meta["grant_id"] = snapshot.GrantID.String()
 		meta["grant_version"] = fmt.Sprintf("%d", snapshot.Version)
 		meta["grant_status"] = snapshot.Status
+		if snapUUID := tenantUUIDFromSnapshot(snapshot); snapUUID != "" {
+			meta["tenant_uuid"] = snapUUID
+		}
 	}
 	if req.Resource != "" {
 		meta["resource"] = req.Resource
@@ -693,7 +700,7 @@ func (s *serviceImpl) emitEvaluationAudit(ctx context.Context, req EvaluateReque
 	}
 	record := eventaudit.Record{
 		ID:         eventID,
-		TenantID:   req.TenantID.String(),
+		TenantID:   meta["tenant_uuid"],
 		Topic:      auditTopicAuthorization,
 		Action:     fmt.Sprintf("evaluation.%s", decision),
 		Status:     strings.ToUpper(decision),
@@ -718,8 +725,8 @@ func (doc grantCacheDocument) validate() error {
 	if strings.TrimSpace(doc.GrantID) == "" {
 		return fmt.Errorf("missing grant id")
 	}
-	if strings.TrimSpace(doc.TenantID) == "" {
-		return fmt.Errorf("missing tenant id")
+	if strings.TrimSpace(doc.TenantUUID) == "" {
+		return fmt.Errorf("missing tenant uuid")
 	}
 	if strings.TrimSpace(doc.SubjectID) == "" {
 		return fmt.Errorf("missing subject id")
@@ -729,7 +736,7 @@ func (doc grantCacheDocument) validate() error {
 
 type grantCacheDocument struct {
 	GrantID      string                         `json:"grant_id"`
-	TenantID     string                         `json:"tenant_id"`
+	TenantUUID   string                         `json:"tenant_uuid"`
 	SubjectType  string                         `json:"subject_type"`
 	SubjectID    string                         `json:"subject_id"`
 	Status       string                         `json:"status"`

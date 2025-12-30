@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const reactBridgeTenantUUID = "c266a9a7-6a9e-47c8-9cf0-118da2ed2e6e"
+
 func TestReactTaskBridgeFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -29,7 +31,7 @@ func TestReactTaskBridgeFlow(t *testing.T) {
 	engine := env.Engine()
 
 	reg, err := svc.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-bridge",
+		TenantUUID:               reactBridgeTenantUUID,
 		Alias:                    "bridge-agent",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -38,14 +40,14 @@ func TestReactTaskBridgeFlow(t *testing.T) {
 
 	_, err = svc.Activate(ctx, agent_lifecycle.ActivateInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-bridge",
+		TenantUUID:  reactBridgeTenantUUID,
 		RequestedBy: "planner",
 	})
 	require.NoError(t, err)
 
 	require.NoError(t, svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        agentID,
-		TenantID:       "tenant-bridge",
+		TenantUUID:     reactBridgeTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "healthy",
 		Metrics: agent_lifecycle.HealthMetricsInput{
@@ -83,7 +85,7 @@ func TestReactTaskBridgeFlow(t *testing.T) {
 	env.Bus.Subscribe("statebus.agent.lifecycle", captureStateBusEvent(lifecycleCh))
 
 	freezeBody := map[string]any{
-		"tenant_id":    "tenant-bridge",
+		"tenant_uuid":  reactBridgeTenantUUID,
 		"reason":       "react freeze",
 		"requested_by": "react-coordinator",
 	}
@@ -91,7 +93,7 @@ func TestReactTaskBridgeFlow(t *testing.T) {
 	awaitStateBusEvent(t, lifecycleCh, "agent.lifecycle.paused")
 
 	recoverBody := map[string]any{
-		"tenant_id":    "tenant-bridge",
+		"tenant_uuid":  reactBridgeTenantUUID,
 		"reason":       "react resume",
 		"requested_by": "react-coordinator",
 	}
@@ -99,7 +101,7 @@ func TestReactTaskBridgeFlow(t *testing.T) {
 	awaitStateBusEvent(t, lifecycleCh, "agent.lifecycle.resumed")
 
 	rebalanceBody := map[string]any{
-		"tenant_id":                 "tenant-bridge",
+		"tenant_uuid":               reactBridgeTenantUUID,
 		"target_capacity_instances": 5,
 		"reason":                    "rebalance",
 	}

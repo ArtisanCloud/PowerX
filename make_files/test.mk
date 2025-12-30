@@ -5,6 +5,16 @@
 API_BASE_URL ?= http://localhost:8077/api/v1
 TEST_TIMEOUT ?= 30s
 TEST_VERBOSE ?= -v
+API_AUTH_TOKEN ?=
+API_TENANT_UUID ?=
+
+ifdef API_AUTH_TOKEN
+CURL_AUTH_FLAGS := -H "Authorization: Bearer $(API_AUTH_TOKEN)"
+endif
+ifdef API_TENANT_UUID
+CURL_TENANT_FLAGS := -H "X-Tenant-UUID: $(API_TENANT_UUID)"
+endif
+CURL_BASE := curl -s -S $(CURL_AUTH_FLAGS) $(CURL_TENANT_FLAGS)
 
 # 基础测试命令
 .PHONY: test-health test-chat test-plan test-execute test-config test-batch test-all test-quick
@@ -12,45 +22,128 @@ TEST_VERBOSE ?= -v
 # 测试健康检查
 test-health:
 	@echo "🏥 测试健康检查..."
-	@curl -s -f $(API_BASE_URL)/agents/health > /dev/null && echo "✅ 健康检查通过" || echo "❌ 健康检查失败"
+	@tmp=$$(mktemp); \
+	code=$$($(CURL_BASE) $(API_BASE_URL)/health -w "%{http_code}" -o $$tmp); \
+	if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+		rm -f $$tmp; \
+		echo "✅ 健康检查通过"; \
+	else \
+		echo "❌ 健康检查失败 (HTTP $$code)"; \
+		cat $$tmp; \
+		rm -f $$tmp; \
+		exit 1; \
+	fi
+
+.PHONY: ensure-api-auth
+ensure-api-auth:
+	@if [ -z "$(API_AUTH_TOKEN)" ]; then \
+		echo "❌ 缺少 API_AUTH_TOKEN 环境变量，无法访问受保护 API。"; \
+		echo "   请先调用 /api/v1/admin/user/auth/login 获取 token，并执行: export API_AUTH_TOKEN=<token>"; \
+		exit 1; \
+	fi
 
 # 测试基本聊天
-test-chat:
+test-chat: ensure-api-auth
 	@echo "💬 测试基本聊天..."
-	@curl -s -X POST $(API_BASE_URL)/agents/chat \
+	@tmp=$$(mktemp); \
+	code=$$($(CURL_BASE) -X POST $(API_BASE_URL)/agents/invoke \
 		-H "Content-Type: application/json" \
-		-d '{"message":"你好","config":{"model_name":"gpt-3.5-turbo","temperature":0.7}}' \
-		| jq . > /dev/null && echo "✅ 聊天测试通过" || echo "❌ 聊天测试失败"
+		-d '{"message":"你好","config":{"model_name":"demo-chat","temperature":0.5}}' \
+		-w "%{http_code}" -o $$tmp); \
+	if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+		if jq . > /dev/null < $$tmp; then \
+			echo "✅ 聊天测试通过"; \
+		else \
+			echo "❌ 聊天测试失败（响应不是 JSON）"; \
+			cat $$tmp; \
+			rm -f $$tmp; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ 聊天测试失败 (HTTP $$code)"; \
+		cat $$tmp; \
+		rm -f $$tmp; \
+		exit 1; \
+	fi; \
+	rm -f $$tmp
 
 # 测试计划生成
-test-plan:
+test-plan: ensure-api-auth
 	@echo "📋 测试计划生成..."
-	@curl -s -X POST $(API_BASE_URL)/agents/plan \
+	@tmp=$$(mktemp); \
+	code=$$($(CURL_BASE) -X POST $(API_BASE_URL)/agents/intent/plan \
 		-H "Content-Type: application/json" \
-		-d '{"intent":"制定学习计划","context":{"subject":"AI"},"config":{"model_name":"gpt-3.5-turbo"}}' \
-		| jq . > /dev/null && echo "✅ 计划生成测试通过" || echo "❌ 计划生成测试失败"
+		-d '{"message":"制定学习计划","context":{"subject":"AI"},"config":{"model_name":"demo-chat"}}' \
+		-w "%{http_code}" -o $$tmp); \
+	if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+		if jq . > /dev/null < $$tmp; then \
+			echo "✅ 计划生成测试通过"; \
+		else \
+			echo "❌ 计划生成测试失败（响应不是 JSON）"; \
+			cat $$tmp; \
+			rm -f $$tmp; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ 计划生成测试失败 (HTTP $$code)"; \
+		cat $$tmp; \
+		rm -f $$tmp; \
+		exit 1; \
+	fi; \
+	rm -f $$tmp
 
 # 测试执行意图
-test-execute:
+test-execute: ensure-api-auth
 	@echo "🚀 测试执行意图..."
-	@curl -s -X POST $(API_BASE_URL)/agents/execute \
+	@tmp=$$(mktemp); \
+	code=$$($(CURL_BASE) -X POST $(API_BASE_URL)/agents/intent/ \
 		-H "Content-Type: application/json" \
-		-d '{"intent":"分析AI趋势","context":{"focus":"LLM"},"config":{"model_name":"gpt-3.5-turbo"}}' \
-		| jq . > /dev/null && echo "✅ 执行测试通过" || echo "❌ 执行测试失败"
+		-d '{"message":"分析AI趋势","context":{"focus":"LLM"},"config":{"model_name":"demo-chat"}}' \
+		-w "%{http_code}" -o $$tmp); \
+	if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+		if jq . > /dev/null < $$tmp; then \
+			echo "✅ 执行测试通过"; \
+		else \
+			echo "❌ 执行测试失败（响应不是 JSON）"; \
+			cat $$tmp; \
+			rm -f $$tmp; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ 执行测试失败 (HTTP $$code)"; \
+		cat $$tmp; \
+		rm -f $$tmp; \
+		exit 1; \
+	fi; \
+	rm -f $$tmp
 
 # 测试配置验证
-test-config:
+test-config: ensure-api-auth
 	@echo "⚙️ 测试配置验证..."
-	@curl -s -X POST $(API_BASE_URL)/agents/config/test \
-		-H "Content-Type: application/json" \
-		-d '{"model_name":"gpt-3.5-turbo","provider":"openai","temperature":0.7}' \
-		| jq . > /dev/null && echo "✅ 配置测试通过" || echo "❌ 配置测试失败"
+	@tmp=$$(mktemp); \
+	code=$$($(CURL_BASE) "$(API_BASE_URL)/admin/agents/providers?modality=llm" -w "%{http_code}" -o $$tmp); \
+	if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+		if jq . > /dev/null < $$tmp; then \
+			echo "✅ 配置测试通过"; \
+		else \
+			echo "❌ 配置测试失败（响应不是 JSON）"; \
+			cat $$tmp; \
+			rm -f $$tmp; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ 配置测试失败 (HTTP $$code)"; \
+		cat $$tmp; \
+		rm -f $$tmp; \
+		exit 1; \
+	fi; \
+	rm -f $$tmp
 
 # 测试批量请求
 test-batch:
 	@echo "🔄 测试批量请求..."
 	@for i in {1..3}; do \
-		curl -s $(API_BASE_URL)/agents/health > /dev/null && echo "批量测试 $$i: ✅" || echo "批量测试 $$i: ❌"; \
+		curl -s $(API_BASE_URL)/health > /dev/null && echo "批量测试 $$i: ✅" || echo "批量测试 $$i: ❌"; \
 	done
 
 # 运行所有 API 测试
@@ -187,3 +280,15 @@ ci-all:
 	@echo "🚦 运行 CI 入口：go test + 回归套件..."
 	@cd backend && GOFLAGS="" go test ./...
 	@$(MAKE) regression-pxp
+
+.PHONY: check-tenant-id
+check-tenant-id:
+	@echo "🔎 检查 diff 中是否新增 tenant_id ..."
+	@bash scripts/ci/check-no-tenant-id.sh
+	@echo "🔎 校验是否仍在手动 uuid.Parse tenant_uuid ..."
+	@bash scripts/ci/check-tenant-uuid-canonical.sh
+
+.PHONY: check-tenant-migrations
+check-tenant-migrations:
+	@echo "🧪 校验 tenant UUID 迁移脚本..."
+	@bash scripts/ci/check-tenant-migrations.sh

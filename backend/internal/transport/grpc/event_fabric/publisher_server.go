@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
@@ -32,9 +32,9 @@ func (s *EventDeliveryServer) PublishEvent(ctx context.Context, req *eventfabric
 		return nil, status.Error(codes.FailedPrecondition, "event delivery service unavailable")
 	}
 
-	tenant := strings.TrimSpace(req.GetTenantId())
-	if tenant == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenant, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	topic := strings.TrimSpace(req.GetTopic())
 	if topic == "" {
@@ -52,8 +52,8 @@ func (s *EventDeliveryServer) PublishEvent(ctx context.Context, req *eventfabric
 		attributes["principal_id"] = ""
 	}
 
-	err := s.delivery.Publish(ctx, delivery.PublishRequest{
-		TenantID:       tenant,
+	err = s.delivery.Publish(ctx, delivery.PublishRequest{
+		TenantUUID:     tenant,
 		Topic:          topic,
 		EventID:        strings.TrimSpace(req.GetEventId()),
 		TraceID:        strings.TrimSpace(req.GetTraceId()),

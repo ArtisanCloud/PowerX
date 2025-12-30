@@ -13,7 +13,7 @@ import (
 
 // ToolGrantValidator 定义派发前校验 Tool Grant 的接口。
 type ToolGrantValidator interface {
-	ValidateAgentGrant(ctx context.Context, tenantID uint64, agentID uuid.UUID, capability string) (GrantValidationResult, error)
+	ValidateAgentGrant(ctx context.Context, tenantUUID string, agentID uuid.UUID, capability string) (GrantValidationResult, error)
 }
 
 // GrantValidationResult 描述 Grant 校验返回的关键信息。
@@ -25,7 +25,7 @@ type GrantValidationResult struct {
 
 // AssignmentDispatchInput 描述一次派发的上下文。
 type AssignmentDispatchInput struct {
-	TenantID     uint64
+	TenantUUID   string
 	InstanceUUID uuid.UUID
 	StepRecordID uint64
 	StepID       string
@@ -35,8 +35,8 @@ type AssignmentDispatchInput struct {
 
 // TimeoutProcessOptions 描述超时扫描的参数。
 type TimeoutProcessOptions struct {
-	TenantID uint64
-	Limit    int
+	TenantUUID string
+	Limit      int
 }
 
 // TimeoutProcessResult 返回处理超时派发后的结果。
@@ -89,8 +89,9 @@ func (t *AssignmentTracker) Dispatch(ctx context.Context, input AssignmentDispat
 	if t == nil || t.assignments == nil || t.steps == nil {
 		return nil, errors.New("assignment tracker unavailable")
 	}
-	if input.TenantID == 0 {
-		return nil, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	if input.InstanceUUID == uuid.Nil {
 		return nil, errors.New("instance uuid is required")
@@ -111,7 +112,7 @@ func (t *AssignmentTracker) Dispatch(ctx context.Context, input AssignmentDispat
 
 	var grantResult GrantValidationResult
 	if t.validator != nil {
-		grantResult, err = t.validator.ValidateAgentGrant(ctx, input.TenantID, input.AgentUUID, input.Capability)
+		grantResult, err = t.validator.ValidateAgentGrant(ctx, tenantUUID, input.AgentUUID, input.Capability)
 		if err != nil {
 			return nil, err
 		}
@@ -158,8 +159,9 @@ func (t *AssignmentTracker) ProcessTimeouts(ctx context.Context, opts TimeoutPro
 	if t == nil || t.assignments == nil || t.steps == nil {
 		return result, errors.New("assignment tracker unavailable")
 	}
-	if opts.TenantID == 0 {
-		return result, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(opts.TenantUUID)
+	if err != nil {
+		return result, err
 	}
 	limit := opts.Limit
 	if limit <= 0 {
@@ -167,7 +169,7 @@ func (t *AssignmentTracker) ProcessTimeouts(ctx context.Context, opts TimeoutPro
 	}
 
 	now := t.now().UTC()
-	assignments, err := t.assignments.FindTimedOutAssignments(ctx, opts.TenantID, now, limit)
+	assignments, err := t.assignments.FindTimedOutAssignments(ctx, tenantUUID, now, limit)
 	if err != nil {
 		return result, err
 	}

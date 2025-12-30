@@ -47,3 +47,23 @@ func (r *RunRepository) Get(ctx context.Context, id uuid.UUID) (*model.SandboxVa
 	}
 	return &run, nil
 }
+
+// UpdateFieldsForTenant updates columns only when run belongs to tenantUUID.
+func (r *RunRepository) UpdateFieldsForTenant(ctx context.Context, id uuid.UUID, tenantUUID string, values map[string]any) error {
+	return r.DB.WithContext(ctx).
+		Model(&model.SandboxValidationRun{}).
+		Where("uuid = ? AND tenant_uuid = ?", id, tenantUUID).
+		Updates(values).
+		Error
+}
+
+// GetForTenant fetches a run scoped to tenant UUID.
+func (r *RunRepository) GetForTenant(ctx context.Context, id uuid.UUID, tenantUUID string) (*model.SandboxValidationRun, error) {
+	var run model.SandboxValidationRun
+	if err := r.DB.WithContext(ctx).
+		Where("uuid = ? AND tenant_uuid = ?", id, tenantUUID).
+		First(&run).Error; err != nil {
+		return nil, err
+	}
+	return &run, nil
+}

@@ -159,10 +159,10 @@ func (r *AuthorizationRepository) GetTemplateByName(ctx context.Context, tenantI
 	}
 	query := r.db.WithContext(ctx).Where("LOWER(name) = ?", strings.ToLower(name))
 	if tenantID != nil && *tenantID != uuid.Nil {
-		query = query.Where("(tenant_id = ? OR tenant_id IS NULL)", *tenantID)
+		query = applyTenantOrGlobalScope(query, *tenantID)
 	}
 	var template eventfabricmodel.AuthorizationGrantTemplate
-	err := query.Order("tenant_id DESC").Take(&template).Error
+	err := query.Order("tenant_uuid DESC").Take(&template).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -177,12 +177,12 @@ func (r *AuthorizationRepository) ListTemplates(ctx context.Context, filter Temp
 
 	if filter.TenantID != nil && *filter.TenantID != uuid.Nil {
 		if filter.IncludeGlobal {
-			query = query.Where("(tenant_id = ? OR tenant_id IS NULL)", *filter.TenantID)
+			query = applyTenantOrGlobalScope(query, *filter.TenantID)
 		} else {
-			query = query.Where("tenant_id = ?", *filter.TenantID)
+			query = applyTenantScope(query, *filter.TenantID)
 		}
 	} else if !filter.IncludeGlobal {
-		query = query.Where("tenant_id IS NULL")
+		query = query.Where("(tenant_uuid = '' OR tenant_uuid IS NULL)")
 	}
 
 	if len(filter.Sources) > 0 {
@@ -206,7 +206,7 @@ func (r *AuthorizationRepository) ListTemplates(ctx context.Context, filter Temp
 	}
 
 	var templates []*eventfabricmodel.AuthorizationGrantTemplate
-	if err := query.Order("tenant_id NULLS FIRST, name ASC").Find(&templates).Error; err != nil {
+	if err := query.Order("tenant_uuid NULLS FIRST, name ASC").Find(&templates).Error; err != nil {
 		return nil, 0, err
 	}
 	return templates, total, nil
@@ -268,7 +268,8 @@ func (r *AuthorizationRepository) GetGrantBySubject(ctx context.Context, tenantI
 	}
 
 	query := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, subjectType, subjectID)
+		Where("subject_type = ? AND subject_id = ?", subjectType, subjectID)
+	query = applyTenantScope(query, tenantID)
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
 	}
@@ -281,9 +282,7 @@ func (r *AuthorizationRepository) GetGrantBySubject(ctx context.Context, tenantI
 
 func (r *AuthorizationRepository) ListGrants(ctx context.Context, tenantID uuid.UUID, filters map[string]interface{}, page, pageSize int) ([]*eventfabricmodel.AuthorizationGrant, int64, error) {
 	query := r.db.WithContext(ctx).Model(&eventfabricmodel.AuthorizationGrant{})
-	if tenantID != uuid.Nil {
-		query = query.Where("tenant_id = ?", tenantID)
-	}
+	query = applyTenantScope(query, tenantID)
 	if v, ok := filters["status"]; ok {
 		switch vv := v.(type) {
 		case string:
@@ -463,7 +462,7 @@ func (r *AuthorizationRepository) ListTicketsByStatus(ctx context.Context, tenan
 		return nil, fmt.Errorf("tenant id is required")
 	}
 
-	query := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID)
+	query := applyTenantScope(r.db.WithContext(ctx), tenantID)
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
 	}
@@ -520,6 +519,34 @@ func (r *AuthorizationRepository) GetLatestTicketByGrant(ctx context.Context, gr
 
 func (r *AuthorizationRepository) GetPendingTicketByGrant(ctx context.Context, grantUUID uuid.UUID) (*eventfabricmodel.AuthorizationApprovalTicket, error) {
 	return r.GetTicketByGrantAndStatus(ctx, grantUUID, []string{eventfabricmodel.ApprovalStatusPending})
+}
+
+func applyTenantScope(db *gorm.DB, tenantID uuid.UUID) *gorm.DB {
+	if tenantID == uuid.Nil {
+		return db
+	}
+	return db.Where("tenant_uuid = ?", tenantUUIDString(tenantID))
+}
+
+func applyOptionalTenantScope(db *gorm.DB, tenantID *uuid.UUID) *gorm.DB {
+	if tenantID == nil || *tenantID == uuid.Nil {
+		return db
+	}
+	return db.Where("tenant_uuid = ?", tenantUUIDString(*tenantID))
+}
+
+func applyTenantOrGlobalScope(db *gorm.DB, tenantID uuid.UUID) *gorm.DB {
+	if tenantID == uuid.Nil {
+		return db.Where("(tenant_uuid = '' OR tenant_uuid IS NULL)")
+	}
+	return db.Where("(tenant_uuid = ? OR tenant_uuid = '' OR tenant_uuid IS NULL)", tenantUUIDString(tenantID))
+}
+
+func tenantUUIDString(tenantID uuid.UUID) string {
+	if tenantID == uuid.Nil {
+		return ""
+	}
+	return strings.TrimSpace(tenantID.String())
 }
 
 // Transaction helpers --------------------------------------------------------

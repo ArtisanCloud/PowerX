@@ -11,7 +11,7 @@ import (
 type IntegrationRoute struct {
 	coremodel.PowerUUIDModel
 
-	TenantID        string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_integration_route_tenant_slug,priority:1" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_integration_route_tenant_slug,priority:1" json:"tenant_uuid"`
 	RouteSlug       string         `gorm:"column:route_slug;type:varchar(128);not null;index:idx_integration_route_tenant_slug,priority:2" json:"route_slug"`
 	CapabilityID    string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_integration_route_capability" json:"capability_id"`
 	ToolGrantIDs    datatypes.JSON `gorm:"column:tool_grant_ids;type:jsonb;default:'[]'" json:"tool_grant_ids,omitempty"`
@@ -41,5 +41,5 @@ func (IntegrationRoute) TableName() string {
 
 // EnsureUniqueConstraint 返回联合唯一索引字段。
 func (IntegrationRoute) EnsureUniqueConstraint() []string {
-	return []string{"tenant_id", "route_slug"}
+	return []string{"tenant_uuid", "route_slug"}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/env"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type ctxKey string
@@ -47,25 +48,27 @@ type CoreXClaims struct {
 
 // —— 统一键（建议业务层优先使用这一组）——
 const (
-	KeyClaims     ctxKey = "corex.claims"
-	KeyTenantID   ctxKey = "corex.tenant_id"
-	KeyTenantUUID ctxKey = "corex.tenant_uuid"
-	KeyUserID     ctxKey = "corex.user_id"
-	KeyMemberID   ctxKey = "corex.member_id"
-	KeyIsRoot     ctxKey = "corex.is_root"
-	KeySubject    ctxKey = "corex.subject"
-	KeyAudience   ctxKey = "corex.audience"
-	KeyPlatform   ctxKey = "corex.platform"
-	KeyTraceID    ctxKey = "corex.trace_id"
+	KeyClaims          ctxKey = "corex.claims"
+	KeyTenantID        ctxKey = "corex.tenant_id"
+	KeyTenantUUID      ctxKey = "corex.tenant_uuid"
+	KeyTenantUUIDValue ctxKey = "corex.tenant_uuid_value"
+	KeyUserID          ctxKey = "corex.user_id"
+	KeyMemberID        ctxKey = "corex.member_id"
+	KeyIsRoot          ctxKey = "corex.is_root"
+	KeySubject         ctxKey = "corex.subject"
+	KeyAudience        ctxKey = "corex.audience"
+	KeyPlatform        ctxKey = "corex.platform"
+	KeyTraceID         ctxKey = "corex.trace_id"
 
 	KeyEnv  ctxKey = "corex.env"
 	KeyEnvs ctxKey = "corex.envs"
 )
 
 var (
-	ErrTenantMissing = errors.New("tenant_id missing")
-	ErrEnvMissing    = errors.New("env missing")
-	ErrClaimsMissing = errors.New("jwt claims missing")
+	ErrTenantMissing     = errors.New("tenant_id missing")
+	ErrTenantUUIDMissing = errors.New("tenant_uuid missing")
+	ErrEnvMissing        = errors.New("env missing")
+	ErrClaimsMissing     = errors.New("jwt claims missing")
 )
 
 /* ===================== Setters（中间件使用） ===================== */
@@ -78,6 +81,12 @@ func WithTenantID(ctx context.Context, v uint64) context.Context {
 }
 func WithTenantUUID(ctx context.Context, v string) context.Context {
 	return context.WithValue(ctx, KeyTenantUUID, v)
+}
+func WithTenantUUIDValue(ctx context.Context, v uuid.UUID) context.Context {
+	if v == uuid.Nil {
+		return ctx
+	}
+	return context.WithValue(ctx, KeyTenantUUIDValue, v)
 }
 func WithUserID(ctx context.Context, v uint64) context.Context {
 	return context.WithValue(ctx, KeyUserID, v)
@@ -165,6 +174,40 @@ func GetTenantUUID(ctx context.Context) string {
 		return c.TenantUUID
 	}
 	return ""
+}
+
+func RequireTenantUUID(ctx context.Context) (string, error) {
+	if uuid := GetTenantUUID(ctx); uuid != "" {
+		return uuid, nil
+	}
+	return "", ErrTenantUUIDMissing
+}
+
+func TenantUUIDValue(ctx context.Context) uuid.UUID {
+	if v, ok := ctx.Value(KeyTenantUUIDValue).(uuid.UUID); ok && v != uuid.Nil {
+		return v
+	}
+	if raw := GetTenantUUID(ctx); raw != "" {
+		if parsed, err := uuid.Parse(raw); err == nil {
+			return parsed
+		}
+	}
+	return uuid.Nil
+}
+
+func RequireTenantUUIDValue(ctx context.Context) (uuid.UUID, error) {
+	if v, ok := ctx.Value(KeyTenantUUIDValue).(uuid.UUID); ok && v != uuid.Nil {
+		return v, nil
+	}
+	raw := GetTenantUUID(ctx)
+	if raw == "" {
+		return uuid.Nil, ErrTenantUUIDMissing
+	}
+	parsed, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid tenant uuid in context: %w", err)
+	}
+	return parsed, nil
 }
 
 func GetUserID(ctx context.Context) uint64 {

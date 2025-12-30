@@ -2,18 +2,16 @@ package iam
 
 import (
 	"errors"
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	orgsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type DepartmentHandler struct {
@@ -28,6 +26,10 @@ func NewDepartmentHandler(deps *shared.Deps) *DepartmentHandler {
 	}
 }
 
+func (h *DepartmentHandler) tenantUUIDFromContext(c *gin.Context) (string, bool) {
+	return requireTenantUUIDFromContext(c)
+}
+
 // POST /api/v1/admin/organization/departments
 func (h *DepartmentHandler) Create(c *gin.Context) {
 	var req CreateDepartmentReq
@@ -36,12 +38,11 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
+	tenantUUID, ok := h.tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
+	ctx := c.Request.Context()
 
 	// 可选兼容：把 0 视为根（不需要可去掉）
 	if req.ParentID != nil && *req.ParentID == 0 {
@@ -49,7 +50,7 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 	}
 
 	dept := &m.Department{
-		TenantID:       tid,
+		TenantUUID:     tenantUUID,
 		Name:           req.Name,
 		Key:            "", // 若允许后端生成 key，这里留空；前端传了就用
 		ParentID:       req.ParentID,
@@ -71,7 +72,7 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "创建部门失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, toDTO(dept))
+	dto.ResponseSuccess(c, toDTO(dept, tenantUUID))
 }
 
 // PATCH /api/v1/admin/organization/departments/:id
@@ -89,14 +90,13 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		req.NewParentID = nil
 	}
 
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
+	tenantUUID, ok := h.tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
+	ctx := c.Request.Context()
 
-	err := h.Svc.UpdateDepartment(ctx, tid, id, orgsvc.UpdateDepartmentOpts{
+	err := h.Svc.UpdateDepartment(ctx, tenantUUID, id, orgsvc.UpdateDepartmentOpts{
 		Name:           req.Name,
 		Key:            req.Key,
 		NewParentID:    req.NewParentID,
@@ -111,7 +111,7 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		return
 	}
 
-	dept, err := h.DeptRepo.FindByID(ctx, tid, id)
+	dept, err := h.DeptRepo.FindByID(ctx, tenantUUID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dto.ResponseError(c, http.StatusNotFound, "department not found", nil)
@@ -120,22 +120,21 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询部门失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, toDTO(dept))
+	dto.ResponseSuccess(c, toDTO(dept, tenantUUID))
 }
 
 // DELETE /api/v1/admin/organization/departments/:id[?force=true]
 func (h *DepartmentHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
+	tenantUUID, ok := h.tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
+	ctx := c.Request.Context()
 
 	force := c.Query("force") == "true"
-	if err := h.Svc.DeleteDepartment(ctx, tid, id, force); err != nil {
+	if err := h.Svc.DeleteDepartment(ctx, tenantUUID, id, force); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "删除部门失败", err)
 		return
 	}
@@ -144,14 +143,13 @@ func (h *DepartmentHandler) Delete(c *gin.Context) {
 
 // GET /api/v1/admin/organization/departments/tree
 func (h *DepartmentHandler) Tree(c *gin.Context) {
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
+	tenantUUID, ok := h.tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
+	ctx := c.Request.Context()
 
-	nodes, err := h.Svc.GetDepartmentTree(ctx, tid)
+	nodes, err := h.Svc.GetDepartmentTree(ctx, tenantUUID)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询部门树失败", err)
 		return
@@ -160,9 +158,10 @@ func (h *DepartmentHandler) Tree(c *gin.Context) {
 }
 
 // DTO 映射
-func toDTO(d *m.Department) *DepartmentDTO {
+func toDTO(d *m.Department, tenantUUID string) *DepartmentDTO {
 	return &DepartmentDTO{
-		ID: d.ID, TenantID: d.TenantID, Name: d.Name, Key: d.Key,
+		ID: d.ID, TenantUUID: tenantUUID,
+		Name: d.Name, Key: d.Key,
 		ParentID: d.ParentID, Path: d.Path, Depth: d.Depth,
 		Sort: d.Sort, LeaderMemberID: d.LeaderMemberID, Status: d.Status,
 		Meta: d.Meta,

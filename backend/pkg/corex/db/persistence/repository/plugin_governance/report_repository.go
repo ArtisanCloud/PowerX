@@ -28,13 +28,13 @@ func (r *ReportRepository) Create(ctx context.Context, report *model.VersionGove
 }
 
 // ListRecent returns latest reports ordered by time.
-func (r *ReportRepository) ListRecent(ctx context.Context, tenantID string, limit int) ([]model.VersionGovernanceReport, error) {
+func (r *ReportRepository) ListRecent(ctx context.Context, tenantUUID string, limit int) ([]model.VersionGovernanceReport, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 	query := r.DB.WithContext(ctx).Order("generated_at DESC")
-	if tenantID != "" {
-		query = query.Where("tenant_id = ?", tenantID)
+	if tenantUUID != "" {
+		query = query.Where("tenant_uuid = ?", tenantUUID)
 	}
 	var reports []model.VersionGovernanceReport
 	if err := query.Limit(limit).Find(&reports).Error; err != nil {
@@ -44,10 +44,10 @@ func (r *ReportRepository) ListRecent(ctx context.Context, tenantID string, limi
 }
 
 // GetLatestByPlugin fetches the most recent report for tenant/plugin.
-func (r *ReportRepository) GetLatestByPlugin(ctx context.Context, tenantID, pluginID string) (*model.VersionGovernanceReport, error) {
+func (r *ReportRepository) GetLatestByPlugin(ctx context.Context, tenantUUID, pluginID string) (*model.VersionGovernanceReport, error) {
 	var report model.VersionGovernanceReport
 	err := r.DB.WithContext(ctx).
-		Where("tenant_id = ? AND plugin_id = ?", tenantID, pluginID).
+		Where("tenant_uuid = ? AND plugin_id = ?", tenantUUID, pluginID).
 		Order("generated_at DESC").
 		Take(&report).Error
 	if err != nil {

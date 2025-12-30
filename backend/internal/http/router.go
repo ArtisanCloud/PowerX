@@ -2,13 +2,14 @@ package http
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin"
+	httpOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
-	"strings"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,9 +29,14 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
 		nil,
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
+			RequireUUID: cfg.Tenants.RequireUUID,
+		}),
 	)
-	// 给外部注册 CoreX 相关 routes（discovery / sample orchestrator/tool 等）
+	// 给外部注册 CoreX Admin 相关路由
 	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)
+	// 给外部注册开放平台（Tenant/OpenAPI）路由
+	httpOpenAPI.RegisterAPIRoutes(r, authUser, cfg, deps)
 
 	// 给外部注册 Web 相关 routes（web 端）
 	//authUserMW := auth.JwtMiddleware(

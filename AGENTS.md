@@ -3,6 +3,9 @@
 Auto-generated from all feature plans. Last updated: 2025-11-05
 
 ## Active Technologies
+- Go 1.24（backend 单体，Buf toolchain） + Gin HTTP 栈、google.golang.org/grpc、Buf、GORM、Redis、PostgreSQL、EventBus、OpenTelemetry、px-plugin CLI (007-integration-gateway-and-mcp)
+- PostgreSQL（CapabilityRecord, CapabilitySyncJob, InvocationTrace）、Redis（Capability cache、ToolStore、RateLimit、SelectorPolicySnapshot）、MinIO/S3（插件 workflow/composite 资产引用，仅存 URI） (007-integration-gateway-and-mcp)
+
 - Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI） + Gin HTTP 栈、google.golang.org/grpc、Buf toolchain、GORM + PostgreSQL、Redis（队列与 Feature Flag）、MinIO/S3 SDK（离线包存储）、OpenTelemetry + Prometheus Exporter、PowerX CLI (`powerx`, `px-plugin`) (001-install-plugin-pxp)
 - Go 1.24 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI) + Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters (010-agent-model-setting)
 - PostgreSQL (provider profiles, routing policies, quota config), Redis (health scores, safe-mode, feature flags), MinIO/S3 (validator artifacts), Vault-backed secret store (010-agent-model-setting)
@@ -11,21 +14,33 @@ Auto-generated from all feature plans. Last updated: 2025-11-05
 - Go 1.24 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI, Nuxt 4, Vue 3, Pinia, Nuxt UI, VueUse, Playwright, Vites (011-docs-use-cases)
 
 ## Project Structure
+
 ```
 src/
 tests/
 ```
 
 ## Commands
+
 # Add commands for Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）
 
+## QA & Observability Checklist
+
+- 运行 `scripts/capability_registry/verify.sh`（需要 `POWERX_BASE_URL/ADMIN_TOKEN/TENANT_TOKEN` 等环境变量），串联 capability-sync → Admin/Tenant API 巡检 → `/tenant/invocations` 调用，输出 trace_id 供后续链路排查。
+- `cd backend && go test ./tests/integration/capability_registry/load`：覆盖 5k+ Selector 调用、Redis 缓存击穿保护与 fallback chaos 测试，上线前必须通过。
+- Prometheus/Otel：启动 backend（`LOG_LEVEL=info make dev` 或目标环境），在脚本执行期间 `curl http://localhost:2112/metrics | grep powerx_capability_invoke_total`，确认 `powerx_capability_invoke_total`/`powerx_capability_invoke_error_total` 呈现递增；同时设置 `OTEL_EXPORTER_OTLP_ENDPOINT`（或接入现有 collector）确认 Trace 透传。
+- 事件补偿与日志：关注 `integration.gateway.invocation.failed`/`capability.catalog.sync_*` 事件，`LOG_LEVEL=debug` 跑一次 `scripts/capability_registry/verify.sh`，确认 stdout/采集日志都包含 `capability_id/plugin_id/protocol` 字段，异常重试应在日志与事件中一致可见。
+
 ## Code Style
+
 Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）: Follow standard conventions
 
 ## Recent Changes
+- 007-integration-gateway-and-mcp: Added Go 1.24（backend 单体，Buf toolchain） + Gin HTTP 栈、google.golang.org/grpc、Buf、GORM、Redis、PostgreSQL、EventBus、OpenTelemetry、px-plugin CLI
+- 007-integration-gateway-and-mcp: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+
 - 011-docs-use-cases: Added Go 1.24 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI, Nuxt 4, Vue 3, Pinia, Nuxt UI, VueUse, Playwright, Vites
-- 011-docs-use-cases: Added Go 1.24 (backend services, CLIs) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI
-- 010-agent-model-setting: Added Go 1.24 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI) + Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters
 
 <!-- MANUAL ADDITIONS START -->
+Always respond in Chinese-simplified
 <!-- MANUAL ADDITIONS END -->

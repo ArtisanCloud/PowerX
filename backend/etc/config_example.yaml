@@ -39,7 +39,7 @@ server:
     limits:
       max_concurrent_streams: 0
 
-security:
+http_security:
   frame_ancestors:
     - "'self'"
     - "http://localhost:3030"
@@ -48,6 +48,11 @@ security:
 
 feature_gate:
   license_key: demo-license-xyz
+  enable_event_fabric: true
+  enable_workflow: true
+  enable_knowledge_space: true
+  enable_media_platform: true
+  enable_experimental_features: true
 
 database:
   driver: postgres
@@ -64,6 +69,15 @@ database:
   max_open_conns: 100
   conn_max_lifetime_minutes: 60
   log_level: info
+  cluster_mode: single
+  replicas:
+    # - role: read
+    #   dsn: ""
+    #   host: replica-host
+    #   port: 5432
+    #   username: postgres
+    #   password: postgres
+    #   database: corex
 
 cache:
   driver: redis
@@ -115,19 +129,84 @@ auth:
   access_ttl: "720h"
   refresh_ttl: "336h"
 
-event_bus:
-  type: local
-  redis_addr: localhost:6379
-  redis_password: ""
-  dedupe_ttl_sec: 30
+event:
+  bus:
+    type: local
+    redis_addr: ""
+    redis_password: ""
+    redis_db: 0
+    dedupe_ttl_sec: 30
+  fabric:
+    ack_timeout_seconds: 30
+    default_max_retry: 5
+    redis_addr: ""          # 留空则复用 queue.redis.addr
+    redis_password: ""      # 留空则复用 queue.redis.password
+    redis_db: 0             # 0 表示复用 queue.redis.db
+    retry_key_prefix: event_fabric:retry
+    replay_key_prefix: event_fabric:replay
+    scheduler_interval: 0   # 0 表示复用 scheduler.interval_seconds
+    security:
+      require_tls: false
+      signature_secret: ""
+      signature_header: X-PowerX-Signature
+      timestamp_header: X-PowerX-Timestamp
+      signature_key_id: event-fabric
+      allowed_clock_skew_seconds: 300
+      sandbox:
+        enforce: false
+        allowed_outbound_hosts: []
+        blocked_http_paths: []
+        blocked_grpc_methods: []
+        forbidden_headers: []
+    authorization:
+      cache_ttl_seconds: 60
+      local_cache_ttl_seconds: 30
+      redis_addr: ""                   # 可单独指定，留空则复用 queue.redis
+      redis_password: ""
+      redis_db: 0
+      cache_invalidate_channel: event_fabric:authorization:invalidate
+      challenge_sla_seconds: 60
+      challenge_topic: event_fabric.authorization.challenge
+      challenge_consumer_group: event_fabric.authorization.default
+      alert_topic: event_fabric.authorization.alert
+      rate_limit_prefix: event_fabric:authorization:rl
+      timeout_sweep_interval_seconds: 60
+      audit_retention_days: 7
+      audit_archive_bucket: ""
+      audit_archive_prefix: ""
+      secrets:
+        provider: ""
+        key_id: ""
+        rotation_interval_seconds: 0
+        cache_ttl_seconds: 0
 
-dynamic_form:
+queue:
+  driver: redis
+  redis:
+    addr: localhost:6379
+    password: ""
+    db: 5
+
+scheduler:
+  driver: builtin
+  interval_seconds: 5
+
+capability_registry:
+  redis_prefix: "capability_registry:cache"
+  event_topic_prefix: "capability.catalog"
+  default_rate_limit:
+    limit: 60
+    burst: 120
+    window_seconds: 60
+
+low_code:
   max_concurrent_flows: 10
   default_timeout_sec: 60
 
 ai:
   catalog:
-    dirs: []
+    dirs:
+      - "./config/agents/providers.d"
     include_embedded: true
     fail_if_empty: false
     hot_reload: false
@@ -215,11 +294,28 @@ agent:
     jitter: true
     max_interval: "10s"
   options: {}
+  mcp:
+    server:
+      host: 0.0.0.0
+      port: 8078
+      launch_mode: standalone
+    flow_spec:
+      blueprints: ./blueprints/
+      capabilities: ./capabilities/
+      feedbacks: ./feedbacks/
+    tool_spec:
+      core_dir: CoreX/services/mcp/tool_specs
+      app_dirs:
+        - PowerX/mcp/tool_specs
+    templates_dir: ./mcp/templates/
+    endpoints:
+      sse: /mcp/sse
+      message: /mcp/message
 
 knowledge_space:
-  redis_addr: localhost:6379
+  redis_addr: ""      # 留空则复用 queue.redis
   redis_password: ""
-  redis_db: 4
+  redis_db: 0
   lock_key_prefix: knowledge_space:lock
   metrics_key_prefix: knowledge_space:metrics
   default_retention_months: 13
@@ -235,44 +331,36 @@ knowledge_space:
     retry_interval_seconds: 60
     retry_max_attempts: 3
     http_timeout_seconds: 5
-  vector_store:
-    driver: ""
-    pgvector:
-      dsn: "postgres://vector_user:vector_pass@localhost:5432/vector_db?sslmode=disable"
-      schema: public
-      table: knowledge_vectors
-      dimensions: 1536
-      enable_migrations: false
-      batch_size: 128
-      ivfflat_lists: 100
-      timeout_seconds: 30
-    milvus:
-      endpoint: ""
-      api_key: ""
-      project: ""
-    pinecone:
-      endpoint: ""
-      api_key: ""
-      index: ""
-      namespace: ""
+  delta:
+    sources_config: configs/knowledge/delta_sources.yaml
+    partial_release_config: configs/knowledge/partial_release.yaml
+    report_path: backend/reports/_state/knowledge-delta.json
+    aggregate_report_path: reports/_state/knowledge-update.json
+    sla_minutes: 30
+    approval_minutes: 15
+    default_diff_accuracy: 98
+  reports:
+    feedback_path: backend/reports/_state/knowledge-feedback.json
+    qa_bridge_path: reports/_state/qa-reasoning.json
+  event_hotfix:
+    policies_path: configs/knowledge/event_hotfix_policies.yaml
+    agent_weight_matrix_path: configs/knowledge/agent_weight_matrix.yaml
+    report_path: backend/reports/_state/knowledge-event.json
+    aggregate_report_path: reports/_state/knowledge-update.json
+    retry_max: 3
+    replay_window_seconds: 300
+  decay:
+    threshold_path: configs/knowledge/decay_thresholds.yaml
+    report_path: backend/reports/_state/knowledge-decay.json
+    aggregate_report_path: reports/_state/knowledge-update.json
+  release:
+    matrix_path: configs/knowledge/tenant_release_matrix.yaml
+    guardrails_doc: docs/ops/release_guardrails.md
+    report_path: backend/reports/_state/knowledge-release.json
+    aggregate_report_path: reports/_state/knowledge-update.json
 
-mcp:
-  server:
-    host: 0.0.0.0
-    port: 8086
-    launch_mode: standalone
-  flow_spec:
-    blueprints: ./blueprints/
-    capabilities: ./capabilities/
-    feedbacks: ./feedbacks/
-  tool_spec:
-    core_dir: CoreX/services/mcp/tool_specs
-    app_dirs:
-      - PowerX/mcp/tool_specs
-  templates_dir: ./mcp/templates/
-  endpoints:
-    sse: /mcp/sse
-    message: /mcp/message
+
+
 
 plugin:
   enabled: false
@@ -283,58 +371,81 @@ plugin:
   read_timeout_sec: 15
   write_timeout_sec: 15
   dev_mode: false
-
-plugin_release:
-  feature_flags:
-    enable_local_install: true
-    enable_pipeline_deployment: true
-    enable_offline_distribution: true
-  local_install:
-    session_ttl_minutes: 30
-    max_artifact_size_mb: 512
-  pipeline:
-    approval_sla_hours: 24
-    max_parallel_releases: 4
-    default_rollback_notice_minutes: 15
-  canary:
-    rollback_timeout_seconds: 300
-    default_batch_size: 10
-    max_batches: 5
-  distribution:
-    offline_bucket: plugin-release-artifacts
-    offline_prefix: packages
-    escalation_threshold: 2
-    artifact_retention_days: 30
-  observability:
-    dashboard_uid: plugin-release
-    alert_rule_prefix: plugin_release
-    kpi_targets:
-      can_rollback_within_seconds: 300
-      hotload_latency_p95_ms: 600
-
-dev_hotload:
-  feature_flags:
-    enabled: true
-    gateway_flag: PX_DEV_PLUGIN_HOTLOAD
-    session_audit_flag: PX_DEV_SESSION_AUDIT
-  sessions:
-    ttl_minutes: 15
-    max_concurrent_sessions: 25
-    cleanup_interval_seconds: 30
-  sandbox:
-    image: ghcr.io/artisancloud/powerx/dev-hotload-host:latest
-    max_cpu_percent: 25
-    max_memory_mb: 512
-    watch_file_limit: 10000
-  security:
-    require_mtls: false
-    allowed_subjects: []
-    pat_header: X-PowerX-Dev-Token
-    token_ttl_seconds: 900
-  observability:
-    metrics_namespace: dev.hotload
-    sse_buffer_size: 128
-    audit_topic: dev.hotload.sessions
+  release:
+    feature_flags:
+      enable_local_install: true
+      enable_pipeline_deployment: true
+      enable_offline_distribution: true
+    local_install:
+      session_ttl_minutes: 30
+      max_artifact_size_mb: 512
+    pipeline:
+      approval_sla_hours: 24
+      max_parallel_releases: 4
+      default_rollback_notice_minutes: 15
+    canary:
+      rollback_timeout_seconds: 300
+      default_batch_size: 10
+      max_batches: 5
+    distribution:
+      offline_bucket: plugin-release-artifacts
+      offline_prefix: packages
+      escalation_threshold: 2
+      artifact_retention_days: 30
+    observability:
+      dashboard_uid: plugin-release
+      alert_rule_prefix: plugin_release
+      kpi_targets:
+        can_rollback_within_seconds: 300
+        hotload_latency_p95_ms: 600
+  dev_hotload:
+    feature_flags:
+      enabled: true
+      gateway_flag: PX_DEV_PLUGIN_HOTLOAD
+      session_audit_flag: PX_DEV_SESSION_AUDIT
+    sessions:
+      ttl_minutes: 15
+      max_concurrent_sessions: 25
+      cleanup_interval_seconds: 30
+    sandbox:
+      image: ghcr.io/artisancloud/powerx/dev-hotload-host:latest
+      max_cpu_percent: 25
+      max_memory_mb: 512
+      watch_file_limit: 10000
+    security:
+      require_mtls: false
+      allowed_subjects: []
+      pat_header: X-PowerX-Dev-Token
+      token_ttl_seconds: 900
+    observability:
+      metrics_namespace: dev.hotload
+      sse_buffer_size: 128
+      audit_topic: dev.hotload.sessions
+  bootstrap:
+    templates_index: ./config/plugins/templates/index.yaml
+    default_template: fullstack-go-nuxt
+    allowlisted_hosts:
+      - git.powerx.io
+      - gitlab.internal
+      - github.com
+  debug:
+    component: plugin_debug
+    host_simulator:
+      enabled: true
+      feature_flag: PX_PLUGIN_HOST_SIMULATOR
+      config_path: ./config/plugins/debug/host_simulator.yaml
+    reports:
+      template: ./config/plugins/debug/report_template.yaml
+      masking_rules: ./config/security/data_masking_rules.yaml
+      fallback_log_base: ""
+    ticket_bridge:
+      provider: noop
+      endpoint: ""
+      project: plugin-debug
+    sandbox:
+      enabled: true
+      feature_flag: plugin-sandbox-suite
+      data_suite_path: ./config/plugins/debug/data_suite.yaml
 
 storage:
   default_driver: local
@@ -342,8 +453,7 @@ storage:
   local:
     base_path: ./storage/media
     public_base_url: http://localhost:8077/media
-    enable_upload_endpoint: false
-    upload_token_secret: ""  # 启用上传端点时必须显式配置强随机密钥
+    upload_token_secret: ""  # 建议配置强随机密钥，用于校验 PUT 上传请求
     max_upload_size_bytes: 104857600
   s3:
     endpoint: http://127.0.0.1:9000

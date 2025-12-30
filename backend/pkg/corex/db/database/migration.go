@@ -5,6 +5,7 @@ import (
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelCapabilityRegistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
@@ -90,6 +91,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateCapabilityRegistryModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateIntegrationGatewayModels(db); err != nil {
 		return err
 	}
@@ -105,8 +110,18 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migratePluginReleaseModels(db); err != nil {
 		return err
 	}
+	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
+		return err
+	}
+	if err = migration.EnsurePluginReleaseActorToken(db); err != nil {
+		return err
+	}
 
 	if err = migrateDevHotloadModels(db); err != nil {
+		return err
+	}
+
+	if err = migration.EnsureDevHotloadReloadTokenText(db); err != nil {
 		return err
 	}
 
@@ -163,6 +178,23 @@ func migrateCapabilityModels(db *gorm.DB) error {
 	)
 }
 
+func migrateCapabilityRegistryModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelCapabilityRegistry.CapabilityRegistration{},
+		&modelCapabilityRegistry.AdapterEndpoint{},
+		&modelCapabilityRegistry.RoutingPolicy{},
+		&modelCapabilityRegistry.FallbackPlan{},
+		&modelCapabilityRegistry.HealthProbeResult{},
+		&modelCapabilityRegistry.DiscoveryCacheEntry{},
+		&modelCapabilityRegistry.CapabilityRecord{},
+		&modelCapabilityRegistry.WorkflowTemplateRef{},
+		&modelCapabilityRegistry.WorkflowTemplateApproval{},
+		&modelCapabilityRegistry.CapabilitySyncJob{},
+		&modelCapabilityRegistry.InvocationTrace{},
+		&modelCapabilityRegistry.CapabilityEventPublication{},
+	)
+}
+
 func migrateIntegrationGatewayModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelIntegrationGateway.IntegrationRoute{},
@@ -176,6 +208,8 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&modelEventFabric.TopicDefinition{},
 		&modelEventFabric.AclBinding{},
+		&modelEventFabric.TopicManifestBinding{},
+		&modelEventFabric.AclManifestBinding{},
 		&modelEventFabric.AuthorizationCapability{},
 		&modelEventFabric.AuthorizationGrantTemplate{},
 		&modelEventFabric.AuthorizationGrant{},

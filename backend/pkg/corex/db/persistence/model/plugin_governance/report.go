@@ -12,7 +12,7 @@ import (
 type VersionGovernanceReport struct {
 	coremodel.PowerUUIDModel
 
-	TenantID           string         `gorm:"column:tenant_id;type:varchar(128);index" json:"tenant_id"`
+	TenantUUID         string         `gorm:"column:tenant_uuid;type:varchar(128);index" json:"tenant_uuid"`
 	PluginID           string         `gorm:"column:plugin_id;type:varchar(128);index" json:"plugin_id"`
 	CurrentVersion     string         `gorm:"column:current_version;type:varchar(64)" json:"current_version"`
 	RecommendedVersion string         `gorm:"column:recommended_version;type:varchar(64)" json:"recommended_version"`

@@ -10,6 +10,7 @@ import (
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -33,16 +34,16 @@ func (s *Server) CreateDefinition(ctx context.Context, req *workflowv1.CreateDef
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(req.GetName()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
 
 	input := workflowsvc.CreateDefinitionInput{
-		TenantID:           tenantID,
+		TenantUUID:         tenantUUID,
 		Name:               strings.TrimSpace(req.GetName()),
 		Description:        strings.TrimSpace(req.GetDescription()),
 		CreatedBy:          memberUUIDFromContext(req.GetCtx()),
@@ -60,7 +61,7 @@ func (s *Server) CreateDefinition(ctx context.Context, req *workflowv1.CreateDef
 
 	return &workflowv1.CreateDefinitionResponse{
 		Meta:       okMeta(ctx),
-		Definition: modelDefinitionToPB(definition),
+		Definition: modelDefinitionToPB(definition, tenantUUID),
 	}, nil
 }
 
@@ -68,9 +69,9 @@ func (s *Server) PublishDefinition(ctx context.Context, req *workflowv1.PublishD
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	defUUID, err := uuid.Parse(req.GetDefinitionId())
 	if err != nil {
@@ -78,7 +79,7 @@ func (s *Server) PublishDefinition(ctx context.Context, req *workflowv1.PublishD
 	}
 
 	result, err := s.svc.PublishDefinition(ctx, workflowsvc.PublishDefinitionInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		DefinitionUUID: defUUID,
 		PublishedBy:    memberUUIDFromContext(req.GetCtx()),
 		ChangeNote:     req.GetChangeNote(),
@@ -89,7 +90,7 @@ func (s *Server) PublishDefinition(ctx context.Context, req *workflowv1.PublishD
 
 	return &workflowv1.PublishDefinitionResponse{
 		Meta:       okMeta(ctx),
-		Definition: modelDefinitionToPB(result),
+		Definition: modelDefinitionToPB(result, tenantUUID),
 	}, nil
 }
 
@@ -101,9 +102,9 @@ func (s *Server) ListDefinitions(ctx context.Context, req *workflowv1.ListDefini
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 
 	statusFilter := []string{}
@@ -122,14 +123,14 @@ func (s *Server) ListDefinitions(ctx context.Context, req *workflowv1.ListDefini
 		}
 	}
 
-	defs, total, err := s.svc.ListDefinitions(ctx, tenantID, statusFilter, req.GetKeyword(), limit, offset)
+	defs, total, err := s.svc.ListDefinitions(ctx, tenantUUID, statusFilter, req.GetKeyword(), limit, offset)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	items := make([]*workflowv1.WorkflowDefinition, 0, len(defs))
 	for i := range defs {
-		items = append(items, modelDefinitionToPB(&defs[i]))
+		items = append(items, modelDefinitionToPB(&defs[i], tenantUUID))
 	}
 
 	return &workflowv1.ListDefinitionsResponse{
@@ -145,9 +146,9 @@ func (s *Server) GetDefinition(ctx context.Context, req *workflowv1.GetDefinitio
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	defUUID, err := uuid.Parse(req.GetDefinitionId())
 	if err != nil {
@@ -159,14 +160,14 @@ func (s *Server) GetDefinition(ctx context.Context, req *workflowv1.GetDefinitio
 		versionPtr = &version
 	}
 
-	definition, err := s.svc.GetDefinition(ctx, tenantID, defUUID, versionPtr)
+	definition, err := s.svc.GetDefinition(ctx, tenantUUID, defUUID, versionPtr)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	return &workflowv1.GetDefinitionResponse{
 		Meta:       okMeta(ctx),
-		Definition: modelDefinitionToPB(definition),
+		Definition: modelDefinitionToPB(definition, tenantUUID),
 	}, nil
 }
 
@@ -174,9 +175,9 @@ func (s *Server) StartInstance(ctx context.Context, req *workflowv1.StartInstanc
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	defUUID, err := uuid.Parse(req.GetDefinitionId())
 	if err != nil {
@@ -184,7 +185,7 @@ func (s *Server) StartInstance(ctx context.Context, req *workflowv1.StartInstanc
 	}
 
 	instance, err := s.svc.StartInstance(ctx, workflowsvc.StartInstanceInput{
-		TenantID:          tenantID,
+		TenantUUID:        tenantUUID,
 		DefinitionUUID:    defUUID,
 		DefinitionVersion: req.GetDefinitionVersion(),
 		Input:             structToMap(req.GetInput()),
@@ -197,7 +198,7 @@ func (s *Server) StartInstance(ctx context.Context, req *workflowv1.StartInstanc
 
 	return &workflowv1.StartInstanceResponse{
 		Meta:     okMeta(ctx),
-		Instance: modelInstanceToPB(instance, nil),
+		Instance: modelInstanceToPB(instance, nil, tenantUUID),
 	}, nil
 }
 
@@ -205,23 +206,23 @@ func (s *Server) GetInstance(ctx context.Context, req *workflowv1.GetInstanceReq
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	instUUID, err := uuid.Parse(req.GetInstanceId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
 	}
 
-	inst, steps, err := s.svc.GetInstance(ctx, tenantID, instUUID, req.GetIncludeSteps())
+	inst, steps, err := s.svc.GetInstance(ctx, tenantUUID, instUUID, req.GetIncludeSteps())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	return &workflowv1.GetInstanceResponse{
 		Meta:     okMeta(ctx),
-		Instance: modelInstanceToPB(inst, steps),
+		Instance: modelInstanceToPB(inst, steps, tenantUUID),
 	}, nil
 }
 
@@ -229,15 +230,15 @@ func (s *Server) ListInstances(ctx context.Context, req *workflowv1.ListInstance
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 
 	filter := workflowrepo.InstanceListFilter{
-		TenantID: tenantID,
-		PageSize: 20,
-		Page:     1,
+		TenantUUID: tenantUUID,
+		PageSize:   20,
+		Page:       1,
 	}
 	if pageReq := req.GetPage(); pageReq != nil {
 		if pageReq.GetPageSize() > 0 {
@@ -268,13 +269,13 @@ func (s *Server) ListInstances(ctx context.Context, req *workflowv1.ListInstance
 	items := make([]*workflowv1.WorkflowInstance, 0, len(instances))
 	for i := range instances {
 		if req.GetIncludeSteps() {
-			inst, steps, err := s.svc.GetInstance(ctx, tenantID, instances[i].UUID, true)
+			inst, steps, err := s.svc.GetInstance(ctx, tenantUUID, instances[i].UUID, true)
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, err.Error())
 			}
-			items = append(items, modelInstanceToPB(inst, steps))
+			items = append(items, modelInstanceToPB(inst, steps, tenantUUID))
 		} else {
-			items = append(items, modelInstanceToPB(&instances[i], nil))
+			items = append(items, modelInstanceToPB(&instances[i], nil, tenantUUID))
 		}
 	}
 
@@ -291,9 +292,9 @@ func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlIns
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 	instUUID, err := uuid.Parse(req.GetInstanceId())
 	if err != nil {
@@ -305,7 +306,7 @@ func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlIns
 	operator := memberUUIDFromContext(req.GetCtx())
 
 	_, err = s.svc.ControlInstance(ctx, workflowsvc.ControlInstanceInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		InstanceUUID: instUUID,
 		Action:       action,
 		Operator:     operator,
@@ -318,14 +319,14 @@ func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlIns
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	instDetail, steps, err := s.svc.GetInstance(ctx, tenantID, instUUID, true)
+	instDetail, steps, err := s.svc.GetInstance(ctx, tenantUUID, instUUID, true)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	return &workflowv1.ControlInstanceResponse{
 		Meta:     okMeta(ctx),
-		Instance: modelInstanceToPB(instDetail, steps),
+		Instance: modelInstanceToPB(instDetail, steps, tenantUUID),
 	}, nil
 }
 
@@ -333,13 +334,13 @@ func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInst
 	if s.svc == nil {
 		return nil, status.Error(codes.Internal, "workflow service unavailable")
 	}
-	tenantID := tenantIDFromContext(req.GetCtx())
-	if tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
 	}
 
 	filter := workflowsvc.ExportFilter{
-		TenantID:           tenantID,
+		TenantUUID:         tenantUUID,
 		IncludeStepDetails: req.GetIncludeStepDetails(),
 		Format:             protoFormatToInternal(req.GetFormat()),
 	}
@@ -368,12 +369,29 @@ func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInst
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	rows := convertExportRowsToPB(result.Rows)
+	rows := convertExportRowsToPB(result.Rows, tenantUUID)
 	return &workflowv1.ExportInstancesResponse{
 		Meta:        okMeta(ctx),
 		Rows:        rows,
 		DownloadUrl: result.DownloadURL,
 	}, nil
+}
+
+func (s *Server) requireTenantContext(ctx context.Context, rpcCtx *commonv1.RequestContext) (string, error) {
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	if tenantUUID == "" && rpcCtx != nil {
+		if attrs := rpcCtx.GetAttributes(); attrs != nil {
+			tenantUUID = strings.TrimSpace(attrs["tenant_uuid"])
+		}
+	}
+	if tenantUUID == "" {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is required")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+	}
+	return canonical, nil
 }
 
 func okMeta(ctx context.Context) *commonv1.ResponseMeta {
@@ -447,7 +465,7 @@ func protoFormatToInternal(format workflowv1.ExportFormat) workflowsvc.ExportFor
 	}
 }
 
-func convertExportRowsToPB(rows []workflowsvc.ExportRow) []*workflowv1.WorkflowInstanceExportRow {
+func convertExportRowsToPB(rows []workflowsvc.ExportRow, tenantUUID string) []*workflowv1.WorkflowInstanceExportRow {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -458,7 +476,7 @@ func convertExportRowsToPB(rows []workflowsvc.ExportRow) []*workflowv1.WorkflowI
 			DefinitionId:      row.DefinitionID,
 			DefinitionVersion: row.DefinitionVersion,
 			State:             workflowInstanceState(row.State),
-			TenantId:          strconv.FormatUint(row.TenantID, 10),
+			TenantUuid:        row.TenantUUID,
 			CorrelationId:     row.CorrelationID,
 		}
 		if row.StartedAt != nil {

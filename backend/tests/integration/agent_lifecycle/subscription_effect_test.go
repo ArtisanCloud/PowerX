@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const subscriptionTenantUUID = "aecd4245-7f64-4da0-9efb-9ce1c7386fc6"
+
 func TestSubscriptionEffect(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -21,7 +23,7 @@ func TestSubscriptionEffect(t *testing.T) {
 	svc := env.Deps.AgentLifecycle.Service
 
 	reg, err := svc.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-005",
+		TenantUUID:               subscriptionTenantUUID,
 		Alias:                    "subscription-effect",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -31,8 +33,8 @@ func TestSubscriptionEffect(t *testing.T) {
 
 	// 初始化订阅：退化与不可用都触发告警
 	_, err = svc.UpdateSubscription(ctx, agent_lifecycle.SubscriptionUpdateInput{
-		AgentID:  agentID,
-		TenantID: "tenant-005",
+		AgentID:    agentID,
+		TenantUUID: subscriptionTenantUUID,
 		Config: agent_lifecycle.SubscriptionConfig{
 			MetricsFilter:  []string{"error_rate"},
 			HealthStatuses: []string{"degraded", "unavailable"},
@@ -59,7 +61,7 @@ func TestSubscriptionEffect(t *testing.T) {
 	// 退化快照 -> 触发通知与事件
 	require.NoError(t, svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        agentID,
-		TenantID:       "tenant-005",
+		TenantUUID:     subscriptionTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "degraded",
 		Metrics: agent_lifecycle.HealthMetricsInput{
@@ -85,8 +87,8 @@ func TestSubscriptionEffect(t *testing.T) {
 	// 调整订阅，仅在不可用时发送通知
 	env.Notifier.Reset()
 	_, err = svc.UpdateSubscription(ctx, agent_lifecycle.SubscriptionUpdateInput{
-		AgentID:  agentID,
-		TenantID: "tenant-005",
+		AgentID:    agentID,
+		TenantUUID: subscriptionTenantUUID,
 		Config: agent_lifecycle.SubscriptionConfig{
 			MetricsFilter:  []string{"success_rate"},
 			HealthStatuses: []string{"unavailable"},
@@ -97,7 +99,7 @@ func TestSubscriptionEffect(t *testing.T) {
 	// 再次退化 -> 仍发布事件，但不应有通知
 	require.NoError(t, svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        agentID,
-		TenantID:       "tenant-005",
+		TenantUUID:     subscriptionTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "degraded",
 		Metrics: agent_lifecycle.HealthMetricsInput{
@@ -122,7 +124,7 @@ func TestSubscriptionEffect(t *testing.T) {
 	// 不可用 -> 应再次触发通知
 	require.NoError(t, svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        agentID,
-		TenantID:       "tenant-005",
+		TenantUUID:     subscriptionTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "unavailable",
 		Metrics: agent_lifecycle.HealthMetricsInput{

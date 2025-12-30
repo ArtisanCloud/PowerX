@@ -30,7 +30,7 @@ const (
 
 // CacheKey 表示缓存键，按照租户/能力/客户端划分。
 type CacheKey struct {
-	TenantID     string
+	TenantUUID   string
 	CapabilityID string
 	ClientID     string
 }
@@ -38,7 +38,7 @@ type CacheKey struct {
 // Snapshot 表示下发给客户端的能力快照。
 type Snapshot struct {
 	CapabilityID   string                     `json:"capability_id"`
-	TenantID       string                     `json:"tenant_id"`
+	TenantUUID     string                     `json:"tenant_uuid"`
 	Version        uint64                     `json:"version"`
 	IssuedAt       time.Time                  `json:"issued_at"`
 	ExpiresAt      time.Time                  `json:"expires_at"`
@@ -55,7 +55,7 @@ type Snapshot struct {
 // CacheKey 返回快照对应的缓存键。
 func (s Snapshot) CacheKey() CacheKey {
 	return CacheKey{
-		TenantID:     s.TenantID,
+		TenantUUID:   s.TenantUUID,
 		CapabilityID: s.CapabilityID,
 		ClientID:     normalizeClientID(s.ClientID),
 	}
@@ -71,7 +71,7 @@ func (s Snapshot) RemainingTTL(ref time.Time) time.Duration {
 
 // SyncRequest 描述批量同步的输入。
 type SyncRequest struct {
-	TenantID     string
+	TenantUUID   string
 	Capabilities []string
 	ClientID     string
 	Force        bool
@@ -87,7 +87,7 @@ type CacheStore interface {
 // Repository 为持久化元数据的接口，允许根据需要落地数据库。
 type Repository interface {
 	SaveSnapshot(ctx context.Context, snapshot Snapshot) error
-	ListSnapshots(ctx context.Context, tenantID string, capabilityIDs []string, clientID string) ([]Snapshot, error)
+	ListSnapshots(ctx context.Context, tenantUUID string, capabilityIDs []string, clientID string) ([]Snapshot, error)
 }
 
 // Replicator 负责将最新快照广播到其他区域。
@@ -97,8 +97,8 @@ type Replicator interface {
 
 // MetricsRecorder 定义观测指标接口。
 type MetricsRecorder interface {
-	ObserveSync(ctx context.Context, tenantID, capabilityID string, source SnapshotSource, ttl time.Duration, err error)
-	ObserveCacheLookup(ctx context.Context, tenantID, capabilityID string, outcome string)
+	ObserveSync(ctx context.Context, tenantUUID, capabilityID string, source SnapshotSource, ttl time.Duration, err error)
+	ObserveCacheLookup(ctx context.Context, tenantUUID, capabilityID string, outcome string)
 }
 
 type noopMetricsRecorder struct{}

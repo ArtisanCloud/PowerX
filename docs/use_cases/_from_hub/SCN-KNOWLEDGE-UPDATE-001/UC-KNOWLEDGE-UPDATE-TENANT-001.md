@@ -154,7 +154,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`knowledge.release.gray_state`, `knowledge.release.rollback_count`, `knowledge.release.tenant_coverage`, `knowledge.release.alerts`, `knowledge.release.latency`.
-- **日志**：`release_policy.log`, `gray_pipeline.log`, `rollback_service.log`，记录 `tenant_id`, `batch_id`, `version`, `decision`, `approver`.
+- **日志**：`release_policy.log`, `gray_pipeline.log`, `rollback_service.log`，记录 `tenant_uuid`, `batch_id`, `version`, `decision`, `approver`.
 - **告警**：
   - 灰度失败率 > 5%（P1）、连续回滚 ≥ 2（P1）、租户版本不一致 > 1%（P1）。
   - 策略同步失败或审计写入失败立即触发 P0。

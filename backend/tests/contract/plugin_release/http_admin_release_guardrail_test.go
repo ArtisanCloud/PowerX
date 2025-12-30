@@ -33,13 +33,14 @@ func TestAdminReleaseGuardrailLifecycle(t *testing.T) {
 			IsRoot: true,
 			Roles:  []string{"system_admin"},
 		})
+		ctx = reqctx.WithTenantUUID(ctx, adminGuardrailTenantUUID)
 		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
 
 	candidatePayload := map[string]any{
-		"tenantId":         "tenant-admin",
 		"pluginId":         "px.demo",
 		"version":          "v2.0.0",
 		"buildArtifactUri": "s3://bucket/releases/v2.0.0.zip",
@@ -89,7 +90,7 @@ func TestAdminReleaseGuardrailLifecycle(t *testing.T) {
 		"canaryBatches": []map[string]any{
 			{
 				"name":        "batch-a",
-				"tenantScope": []string{"tenant-x"},
+				"tenantScope": []string{adminGuardrailScopeTenantUUID},
 				"metricThresholds": map[string]float64{
 					"error_rate": 0.01,
 				},

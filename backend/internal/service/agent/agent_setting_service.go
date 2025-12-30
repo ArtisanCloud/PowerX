@@ -13,6 +13,7 @@ import (
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"gorm.io/datatypes"
@@ -28,22 +29,24 @@ type ModelRule struct {
 var sensitiveCredentialKeys = []string{"api_key", "secret", "client_secret", "access_token"}
 
 type AgentSettingService struct {
-	db        *gorm.DB
-	credRepo  *repoai.AIProviderCredentialRepository
-	profRepo  *repoai.AIModelProfileRepository
-	routeRepo *repoai.AIRoutePolicyRepository
-	usageRepo *repoai.AIUsageLogRepository
-	tks       *tenantkeys.TenantKeyService
+	db         *gorm.DB
+	credRepo   *repoai.AIProviderCredentialRepository
+	profRepo   *repoai.AIModelProfileRepository
+	routeRepo  *repoai.AIRoutePolicyRepository
+	usageRepo  *repoai.AIUsageLogRepository
+	tks        *tenantkeys.TenantKeyService
+	tenantRepo *tenantrepo.TenantRepository
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
 	return &AgentSettingService{
-		db:        db,
-		credRepo:  repoai.NewAIProviderCredentialRepository(db),
-		profRepo:  repoai.NewAIModelProfileRepository(db),
-		routeRepo: repoai.NewAIRoutePolicyRepository(db),
-		usageRepo: repoai.NewAIUsageLogRepository(db),
-		tks:       tenantkeys.NewTenantKeyService(db),
+		db:         db,
+		credRepo:   repoai.NewAIProviderCredentialRepository(db),
+		profRepo:   repoai.NewAIModelProfileRepository(db),
+		routeRepo:  repoai.NewAIRoutePolicyRepository(db),
+		usageRepo:  repoai.NewAIUsageLogRepository(db),
+		tks:        tenantkeys.NewTenantKeyService(db),
+		tenantRepo: tenantrepo.NewTenantRepository(db),
 	}
 }
 
@@ -69,17 +72,24 @@ func (s *AgentSettingService) Models(modality, provider string) ([]string, error
 	return out, nil
 }
 
+func (s *AgentSettingService) tenantScopeKey(tenantUUID *string) string {
+	if tenantUUID == nil {
+		return ""
+	}
+	return strings.TrimSpace(*tenantUUID)
+}
+
 // ---------------- Settings 持久化 ----------------
 // internal/service/agent/agent_setting_service.go
 func (s *AgentSettingService) SaveCredentialAndProfile(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	cred *dbmodel.AIProviderCredential,
 	prof *dbmodel.AIModelProfile,
 	setActive bool, // ← 新增开关，通常传 true
 ) error {
-	cred.Env, cred.TenantID = env, tenantID
-	prof.Env, prof.TenantID = env, tenantID
+	cred.Env, cred.TenantUUID = env, tenantUUID
+	prof.Env, prof.TenantUUID = env, tenantUUID
 	s.applyManifestToProfile(prof)
 
 	// 是否提交了新密钥？
@@ -107,7 +117,7 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 		}
 	} else {
 		// 没提新密钥：保留旧的 __sealed 和 base_url（如有）
-		if old, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantID, cred.Name, cred.Provider); err == nil && old != nil {
+		if old, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
 			if cred.Data != nil {
 				if cred.Data["__sealed"] == nil && old.Data != nil && old.Data["__sealed"] != nil {
 					cred.Data["__sealed"] = old.Data["__sealed"]
@@ -122,7 +132,8 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	}
 
 	// 加密敏感键
-	enc, err := s.tks.SealSensitive(ctx, env, tenantID, cred.Data, sensKeys...)
+	scopeKey := s.tenantScopeKey(tenantUUID)
+	enc, err := s.tks.SealSensitive(ctx, env, scopeKey, cred.Data, sensKeys...)
 	if err != nil {
 		return err
 	}
@@ -131,16 +142,16 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	// 事务：凭据 + 画像 +（可选）激活项
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := repoai.NewAIProviderCredentialRepository(tx).
-			UpsertByScopeNameProvider(ctx, env, tenantID, cred); err != nil {
+			UpsertByScopeNameProvider(ctx, env, tenantUUID, cred); err != nil {
 			return err
 		}
 		if err := repoai.NewAIModelProfileRepository(tx).
-			UpsertByScopeModalityProviderModel(ctx, env, tenantID, prof); err != nil {
+			UpsertByScopeModalityProviderModel(ctx, env, tenantUUID, prof); err != nil {
 			return err
 		}
 		if setActive {
 			if err := repoai.NewAIRoutePolicyRepository(tx).
-				UpsertDefaultByScopeModality(ctx, env, tenantID, prof.Modality, prof.Provider, prof.Model); err != nil {
+				UpsertDefaultByScopeModality(ctx, env, tenantUUID, prof.Modality, prof.Provider, prof.Model); err != nil {
 				return err
 			}
 		}
@@ -150,14 +161,14 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 
 // 从库里解密出 api_key/base_url 作为回退
 func (s *AgentSettingService) resolveConnFromStore(
-	ctx context.Context, env string, tenantID *uint64, provider string,
+	ctx context.Context, env string, tenantUUID *string, provider string,
 	baseURLIn, apiKeyIn string,
 ) (baseURL, apiKey string, err error) {
 	baseURL, apiKey = baseURLIn, apiKeyIn
 	// 名称规则与你 handler 构造时一致
 	name := utils.Slug(env + "-" + provider)
 
-	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantID, name, provider)
+	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
 		return baseURL, apiKey, err
 	}
@@ -173,7 +184,7 @@ func (s *AgentSettingService) resolveConnFromStore(
 			APIKey string `json:"api_key"`
 			Secret string `json:"secret"`
 		}
-		if e := s.tks.UnsealSensitive(ctx, env, tenantID, cred.Data, &sec); e == nil {
+		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 			apiKey = sec.APIKey
 		}
 	}
@@ -218,7 +229,7 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 // 逻辑：如果提交里有 baseURL 或 apiKey（任一非空），就用提交参数“严格直连”；
 // 否则从库里读取已保存配置（含密钥解封）后再 ping。
 func (s *AgentSettingService) TestConnectionPreferInput(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	modality, provider, model, baseURL, apiKey string,
 ) error {
 
@@ -228,27 +239,28 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 	switch contract.Modality(mod) {
 	case contract.ModLLM:
 		req := catalog.AuthReqFromCatalog(prov)
-		bu, ak, err := s.prepareAuthInputs(ctx, env, tenantID, prov, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+		bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, prov, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 		if err != nil {
 			return err
 		}
 		return s.PingStrict(ctx, mod, prov, model, bu, ak)
 
 	default:
-		return s.PingGeneric(ctx, env, tenantID, contract.Modality(mod), provider, model, baseURL, apiKey)
+		return s.PingGeneric(ctx, env, tenantUUID, contract.Modality(mod), provider, model, baseURL, apiKey)
 	}
 }
 
 // 对非 LLM 模态的基础校验，暂不做真实连通测试
 func (s *AgentSettingService) RotateTenantCredentials(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 ) error {
-	creds, err := s.credRepo.ListByScope(ctx, env, tenantID)
+	scopeKey := s.tenantScopeKey(tenantUUID)
+	creds, err := s.credRepo.ListByScope(ctx, env, tenantUUID)
 	if err != nil {
 		return err
 	}
 	if len(creds) == 0 {
-		_, err := s.tks.RotateKeyPair(ctx, env, tenantID)
+		_, err := s.tks.RotateKeyPair(ctx, env, scopeKey)
 		return err
 	}
 
@@ -260,7 +272,7 @@ func (s *AgentSettingService) RotateTenantCredentials(
 	for i := range creds {
 		clone := utils.CloneJSONMap(creds[i].Data)
 		secret := map[string]any{}
-		if err := s.tks.UnsealSensitive(ctx, env, tenantID, clone, &secret); err != nil {
+		if err := s.tks.UnsealSensitive(ctx, env, scopeKey, clone, &secret); err != nil {
 			return err
 		}
 		items = append(items, rotationItem{cred: &creds[i], secrets: secret})
@@ -269,7 +281,7 @@ func (s *AgentSettingService) RotateTenantCredentials(
 		return nil
 	}
 
-	if _, err := s.tks.RotateKeyPair(ctx, env, tenantID); err != nil {
+	if _, err := s.tks.RotateKeyPair(ctx, env, scopeKey); err != nil {
 		return err
 	}
 
@@ -281,20 +293,20 @@ func (s *AgentSettingService) RotateTenantCredentials(
 		for k, v := range item.secrets {
 			item.cred.Data[k] = v
 		}
-		sealed, err := s.tks.SealSensitive(ctx, env, tenantID, item.cred.Data, sensitiveCredentialKeys...)
+		sealed, err := s.tks.SealSensitive(ctx, env, scopeKey, item.cred.Data, sensitiveCredentialKeys...)
 		if err != nil {
 			return err
 		}
 		item.cred.Data = sealed
-		if err := s.credRepo.UpsertByScopeNameProvider(ctx, env, tenantID, item.cred); err != nil {
+		if err := s.credRepo.UpsertByScopeNameProvider(ctx, env, tenantUUID, item.cred); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// 修改 PingLLM：多两个参数 env/tenantID，并支持回退解密
-func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID *uint64,
+// 修改 PingLLM：多两个参数 env/tenantUUID，并支持回退解密
+func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUID *string,
 	provider, model, baseURL, apiKey string,
 ) error {
 	if err := ensureModelExists(string(contract.ModLLM), provider, model); err != nil {
@@ -302,7 +314,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 	}
 	req := catalog.AuthReqFromCatalog(provider)
 	var err error
-	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 	if err != nil {
 		return err
 	}
@@ -318,6 +330,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 		Temperature:  0.0,
 		MaxTokens:    8,
 		AccessToken:  apiKey,
+		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -328,14 +341,14 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 }
 
 func (s *AgentSettingService) PingGeneric(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	modality contract.Modality, provider, model, baseURL, apiKey string,
 ) error {
 	if err := ensureModelExists(string(modality), provider, model); err != nil {
 		return err
 	}
 	req := catalog.AuthReqFromCatalog(provider)
-	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 	if err != nil {
 		return err
 	}
@@ -346,9 +359,9 @@ func (s *AgentSettingService) PingGeneric(
 	return nil
 }
 
-// 修改 QuickCallLLM：同样带 env/tenantID + 回退解密
+// 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
 func (s *AgentSettingService) QuickCallLLM(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	provider, model, baseURL, apiKey string,
 	temperature float64, maxTokens int,
 	prompt string,
@@ -358,7 +371,7 @@ func (s *AgentSettingService) QuickCallLLM(
 	}
 	// 回退解密
 	var err error
-	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantID, provider, baseURL, apiKey)
+	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
 	if err != nil { /* 忽略错误，尽量继续 */
 	}
 
@@ -371,6 +384,7 @@ func (s *AgentSettingService) QuickCallLLM(
 		Temperature:  temperature,
 		MaxTokens:    utils.MaxInt(maxTokens, 64),
 		AccessToken:  apiKey,
+		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -401,7 +415,7 @@ func (s *AgentSettingService) applyManifestToProfile(prof *dbmodel.AIModelProfil
 }
 
 func (s *AgentSettingService) prepareAuthInputs(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	provider, baseURL, apiKey string,
 	needBase bool, defaultBase string, needKey bool,
 ) (string, string, error) {
@@ -409,7 +423,7 @@ func (s *AgentSettingService) prepareAuthInputs(
 	ak := strings.TrimSpace(apiKey)
 
 	if bu == "" || ak == "" {
-		if resolvedBase, resolvedKey, err := s.resolveConnFromStore(ctx, env, tenantID, provider, bu, ak); err == nil {
+		if resolvedBase, resolvedKey, err := s.resolveConnFromStore(ctx, env, tenantUUID, provider, bu, ak); err == nil {
 			if bu == "" && strings.TrimSpace(resolvedBase) != "" {
 				bu = strings.TrimSpace(resolvedBase)
 			}
@@ -451,6 +465,19 @@ func ensureModelExists(modality, provider, model string) error {
 	}
 	if manifest := findModelManifest(modality, provider, model); manifest == nil {
 		return fmt.Errorf("provider %s 不包含模型 %s (%s)", provider, model, modality)
+	}
+	return nil
+}
+
+func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provider, model string) map[string]any {
+	manifest := findModelManifest(string(modality), provider, model)
+	if manifest == nil || manifest.Defaults == nil {
+		return nil
+	}
+	if raw, ok := manifest.Defaults["api_path"]; ok {
+		if path, ok2 := raw.(string); ok2 && strings.TrimSpace(path) != "" {
+			return map[string]any{"api_path": path}
+		}
 	}
 	return nil
 }
@@ -543,30 +570,30 @@ func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
 }
 
 func (s *AgentSettingService) ListProfiles(
-	ctx context.Context, env string, tenantID *uint64, modalities ...string,
+	ctx context.Context, env string, tenantUUID *string, modalities ...string,
 ) ([]dbmodel.AIModelProfile, error) {
 
-	return s.profRepo.ListByScope(ctx, env, tenantID, modalities...)
+	return s.profRepo.ListByScope(ctx, env, tenantUUID, modalities...)
 
 }
 
 // （可选）拉本租户的凭据列表
 func (s *AgentSettingService) ListCredentials(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 ) ([]dbmodel.AIProviderCredential, error) {
 
-	return s.credRepo.ListByScope(ctx, env, tenantID)
+	return s.credRepo.ListByScope(ctx, env, tenantUUID)
 }
 
 func (s *AgentSettingService) GetActiveProfile(
-	ctx context.Context, env string, tenantID *uint64, modality string,
+	ctx context.Context, env string, tenantUUID *string, modality string,
 ) (*dbmodel.AIModelProfile, error) {
-	rp, err := s.routeRepo.FindDefaultByScopeModality(ctx, env, tenantID, modality) // Name="__default"
+	rp, err := s.routeRepo.FindDefaultByScopeModality(ctx, env, tenantUUID, modality) // Name="__default"
 	if err == nil && rp != nil && rp.Provider != "" && rp.Model != "" {
-		return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantID, modality, rp.Provider, rp.Model)
+		return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, modality, rp.Provider, rp.Model)
 	}
 	// 没设置默认时可选一个兜底（例如最近更新的）
-	list, err := s.profRepo.ListByScope(ctx, env, tenantID, modality)
+	list, err := s.profRepo.ListByScope(ctx, env, tenantUUID, modality)
 	if err != nil || len(list) == 0 {
 		return nil, err
 	}
@@ -581,9 +608,9 @@ func (s *AgentSettingService) GetActiveProfile(
 
 // service：设置某模态的“当前激活”
 func (s *AgentSettingService) SetActiveProfile(
-	ctx context.Context, env string, tenantID *uint64, modality, provider, model string,
+	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
 ) error {
-	return s.routeRepo.UpsertDefaultByScopeModality(ctx, env, tenantID, modality, provider, model)
+	return s.routeRepo.UpsertDefaultByScopeModality(ctx, env, tenantUUID, modality, provider, model)
 }
 
 // 统一解析规则：优先从 catalog 读取；否则按常见 provider 兜底。

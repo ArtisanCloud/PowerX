@@ -62,7 +62,7 @@ last_reviewed_at: 2025-02-20
   - Agent 签到服务 `agent-notify` 可接收权重/模板更新。
   - 审计服务 `audit-ledger` 可记录事件 ID、处理耗时、结果与操作者。
 - **输入/输出**
-  - 输入：`knowledge.event.received`（包含 `event_id`, `event_type`, `tenant_id`, `payload_hash`）、补丁文档、API 回调。
+  - 输入：`knowledge.event.received`（包含 `event_id`, `event_type`, `tenant_uuid`, `payload_hash`）、补丁文档、API 回调。
   - 输出：`knowledge.event.applied`/`knowledge.event.failed` 事件、热更新后的索引标识、Agent 通知、审计日志。
 - **边界**
   - 不负责大批量增量包（交由 `UC-KNOWLEDGE-UPDATE-SYNC-001`）或用户反馈再加工。
@@ -108,10 +108,10 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `knowledge.event.received` — EventBus 消息，字段含 `event_id`, `tenant_id`, `event_type`, `source`, `payload`, `signature`.
+  - `knowledge.event.received` — EventBus 消息，字段含 `event_id`, `tenant_uuid`, `event_type`, `source`, `payload`, `signature`。
   - `POST /knowledge/events/apply` — 手动触发或重放事件，支持 `idempotency_key`.
 - **Outbound 调用**
-  - `POST /knowledge/index/hot-update` — 请求 `knowledge_id`, `tenant_id`, `playbook`, `event_id`。
+- `POST /knowledge/index/hot-update` — 请求 `knowledge_id`, `tenant_uuid`, `playbook`, `event_id`。
   - `POST /agent/weights/refresh` — Body 包含 `agent_id`, `knowledge_version`, `weight_patch`。
   - `POST /audit/logs` — 记录事件、耗时、重试次数、幂等状态。
 - **配置与脚本**
@@ -147,7 +147,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`knowledge.event.latency`, `knowledge.event.retry_count`, `knowledge.event.idempotent_skips`, `agent.refresh.success_rate`, `knowledge.event.failures`.
-- **日志**：Intake/Orchestrator 分别记录 `event_id`, `tenant_id`, `playbook`, `retry`, `duration_ms`, `result`; Agent 同步需记录引用版本。
+- **日志**：Intake/Orchestrator 分别记录 `event_id`, `tenant_uuid`, `playbook`, `retry`, `duration_ms`, `result`; Agent 同步需记录引用版本。
 - **告警**：
   - `event.latency_p95 > 5m`（P1），自动升级值班；
   - `retry_count >= 3` 或 `agent.refresh.success_rate < 99%`（P1）；

@@ -14,9 +14,9 @@ service ControlService {
 }
 
 message UpsertTenantCredentialsRequest {
-  common.v1.RequestContext ctx = 1; // 建议携带 tenant_id + request_id
+  common.v1.RequestContext ctx = 1; // 建议携带 tenant_uuid + request_id
 
-  uint64 tenant_id = 10;
+  string tenant_uuid = 10;
   string plugin_id = 11;
 
   string client_id = 20;
@@ -28,4 +28,3 @@ message UpsertTenantCredentialsResponse {
   common.v1.ResponseMeta           meta = 1;
   UpsertTenantCredentialsData      data = 2;
 }
-

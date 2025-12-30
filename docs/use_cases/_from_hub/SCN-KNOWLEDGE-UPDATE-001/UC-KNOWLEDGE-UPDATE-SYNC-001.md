@@ -62,7 +62,7 @@ last_reviewed_at: 2025-02-20
 
 - **前置条件**
   - Feature Flags `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_VERSIONED_STORAGE`, `PX_KNOWLEDGE_PARTIAL_RELEASE` 已开启。
-  - 数据源凭据、调度策略在 `configs/knowledge/delta_sources.yaml` 中配置完毕。
+  - 数据源凭据、调度策略在 `backend/config/knowledge/delta_sources.yaml` 中配置完毕。
   - `ingestion-orchestrator`, `approval-center`, `version-store`, `audit-ledger`、`release-controller` 均可用。
   - 审批人、回滚授权人在 IAM 中完成授权，被写入审批中心的审批流。
   - `reports/_state/knowledge-delta.json` 作为指标快照，需要具备读写权限。
@@ -124,9 +124,9 @@ sequenceDiagram
   - `POST /knowledge/version/rollback` — 回滚操作，要求 `reason`, `approver`, `previous_version`.
   - `POST /audit/logs` — 写入 `knowledge.delta.generated`, `knowledge.delta.approved`, `knowledge.delta.rollback`.
 - **配置与脚本**
-  - `configs/knowledge/delta_sources.yaml` — 数据源、抓取策略、认证信息。
+  - `backend/config/knowledge/delta_sources.yaml` — 数据源、抓取策略、认证信息。
   - `delta_diff_schema.json` — 差异报告字段定义。
-  - `configs/knowledge/partial_release.yaml` — 租户/空间的部分发布策略。
+  - `backend/config/knowledge/partial_release.yaml` — 租户/空间的部分发布策略。
 
 # Implementation Checklist
 
@@ -163,7 +163,7 @@ sequenceDiagram
 - **日志**
   - `delta_orchestrator.log`: 记录 source、delta_id、耗时、结果。
   - `version_store.log`: 记录版本生成、索引刷新、回滚动作。
-  - 所有日志需包含 `tenant_id`, `knowledge_space_id`, `job_id`, `approver`.
+- 所有日志需包含 `tenant_uuid`, `knowledge_space_id`, `job_id`, `approver`.
 - **告警**
   - SLA > 30m（P1）、审批 > 15m（P2）、diff 精度 < 98%（P2）、当日回滚 > 2 次（P1）。
   - 无法写入审计或版本血缘时立即触发 P0 告警。
@@ -197,6 +197,6 @@ sequenceDiagram
 
 - 场景：`docs/scenarios/knowledge/SCN-KNOWLEDGE-UPDATE-001.md`
 - 子场景：`docs/scenarios/knowledge/SCN-KNOWLEDGE-UPDATE-SYNC-001.md`
-- 配置：`configs/knowledge/delta_sources.yaml`, `delta_diff_schema.json`, `configs/knowledge/partial_release.yaml`
+- 配置：`backend/config/knowledge/delta_sources.yaml`, `delta_diff_schema.json`, `backend/config/knowledge/partial_release.yaml`
 - 脚本：`scripts/knowledge/run_delta_job.mjs`, `scripts/knowledge/diff_report.mjs`
 - 发布指引：`npm run publish:usecases -- --scn-id SCN-KNOWLEDGE-UPDATE-001 --validate-only`

@@ -52,7 +52,7 @@
               class="rounded-md border border-[var(--border-color)] p-3 space-y-3"
             >
               <div class="text-sm font-medium text-[var(--text-primary)]">
-                安装包来源
+                安装包来源（支持 px-plugin build 产物）
               </div>
               <UInput
                 v-if="state.installMode === '远程URL'"
@@ -73,11 +73,11 @@
 
               <div v-if="state.installMode === '本地上传'" class="space-y-2">
                 <label class="block text-sm text-[var(--text-secondary)]"
-                  >选择安装包（.zip）</label
+                  >选择安装包（.px-plugin/build/&lt;timestamp&gt;/package.tar.gz）</label
                 >
                 <input
                   type="file"
-                  accept=".zip"
+                  accept=".tar.gz,.tgz,application/gzip"
                   @change="onFileChange"
                   class="block w-full text-sm"
                 />
@@ -90,7 +90,7 @@
               </div>
 
               <div class="text-xs text-[var(--text-secondary)]">
-                不填写 URL 且不选择本地包将不会发起安装请求。
+                可直接上传 <code>.px-plugin/build/&lt;timestamp&gt;/package.tar.gz</code>；不填写 URL 且不选择本地包将不会发起安装请求。
               </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -100,7 +100,7 @@
                 >
                 <USelect
                   v-model="state.scope"
-                  :items="scopes"
+                  :items="scopeOptions"
                   icon="i-heroicons-cog-6-tooth"
                 />
               </div>
@@ -210,8 +210,16 @@ const open = computed({
   set: (v: boolean) => emit("update:modelValue", v),
 });
 
-const scopes = ["用户级", "组织级", "系统级"];
-const envOptions = ["default", "staging", "production"];
+const scopeOptions = [
+  { label: "用户级", value: "user" },
+  { label: "组织级", value: "org" },
+  { label: "系统级", value: "system" },
+];
+const envOptions = [
+  { label: "default", value: "default" },
+  { label: "staging", value: "staging" },
+  { label: "production", value: "production" },
+];
 
 const state = reactive({
   installMode: "远程URL" as "远程URL" | "本地上传",
@@ -220,9 +228,9 @@ const state = reactive({
   enableAfterInstall: true,
   file: null as File | null,
   fileName: "",
-  scope: "用户级",
+  scope: scopeOptions[0].value,
   namespace: "",
-  env: "default",
+  env: envOptions[0].value,
   autoUpdate: true,
   perms: {
     network: true,
@@ -236,6 +244,21 @@ const installing = ref(false);
 
 function close() {
   open.value = false;
+}
+
+function buildInstallMetadataPayload() {
+  return {
+    scope: state.scope || "system",
+    namespace: (state.namespace || "").trim(),
+    environment: state.env || "default",
+    auto_update: Boolean(state.autoUpdate),
+    permissions: {
+      network: Boolean(state.perms.network),
+      storage: Boolean(state.perms.storage),
+      files: Boolean(state.perms.files),
+    },
+    notes: (state.notes || "").trim(),
+  };
 }
 
 function onFileChange(e: Event) {
@@ -279,6 +302,7 @@ async function confirmInstall() {
         url: state.url,
         sha256: state.sha256 || undefined,
         enable: !!state.enableAfterInstall,
+        metadata: buildInstallMetadataPayload(),
       });
 
       toast.add({ title: "成功", description: "插件安装成功", color: "green" });
@@ -290,6 +314,7 @@ async function confirmInstall() {
       const fd = new FormData();
       fd.append("file", state.file);
       fd.append("enable", String(!!state.enableAfterInstall));
+      fd.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
       await svc.installFromLocal(fd);
 
       toast.add({ title: "成功", description: "插件安装成功", color: "green" });

@@ -70,7 +70,7 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 	for i := range items {
 		out = append(out, tenantView{
 			Tenant:    items[i],
-			UserCount: userCountMap[items[i].ID],
+			UserCount: userCountMap[items[i].UUID.String()],
 		})
 	}
 

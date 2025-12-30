@@ -11,14 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	isolationTenantUUIDA = "workflow-tenant-a"
+	isolationTenantUUIDB = "workflow-tenant-b"
+)
+
 func TestWorkflowTenantIsolation(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
 
 	definition, err := env.Service.CreateDefinition(ctx, workflow.CreateDefinitionInput{
-		TenantID:  4101,
-		Name:      "tenant-a-demo",
-		CreatedBy: uuid.New(),
+		TenantUUID: isolationTenantUUIDA,
+		Name:       "tenant-a-demo",
+		CreatedBy:  uuid.New(),
 		Steps: []workflow.StepDefinition{
 			{
 				ID:          "start",
@@ -44,14 +49,14 @@ func TestWorkflowTenantIsolation(t *testing.T) {
 	require.NotNil(t, definition)
 
 	_, err = env.Service.PublishDefinition(ctx, workflow.PublishDefinitionInput{
-		TenantID:       4101,
+		TenantUUID:     isolationTenantUUIDA,
 		DefinitionUUID: definition.UUID,
 		PublishedBy:    uuid.New(),
 	})
 	require.NoError(t, err)
 
 	instance, err := env.Service.StartInstance(ctx, workflow.StartInstanceInput{
-		TenantID:       4101,
+		TenantUUID:     isolationTenantUUIDA,
 		DefinitionUUID: definition.UUID,
 		Input:          map[string]any{"ref": "tenant-a"},
 	})
@@ -59,24 +64,24 @@ func TestWorkflowTenantIsolation(t *testing.T) {
 	require.NotNil(t, instance)
 
 	list, total, err := env.Service.ListInstances(ctx, workflowrepo.InstanceListFilter{
-		TenantID: 4101,
+		TenantUUID: isolationTenantUUIDA,
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Len(t, list, 1)
 
 	listOther, totalOther, err := env.Service.ListInstances(ctx, workflowrepo.InstanceListFilter{
-		TenantID: 8202,
+		TenantUUID: isolationTenantUUIDB,
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(0), totalOther)
 	require.Empty(t, listOther)
 
-	_, _, err = env.Service.GetInstance(ctx, 8202, instance.UUID, false)
+	_, _, err = env.Service.GetInstance(ctx, isolationTenantUUIDB, instance.UUID, false)
 	require.Error(t, err)
 
 	_, err = env.Service.ControlInstance(ctx, workflow.ControlInstanceInput{
-		TenantID:     8202,
+		TenantUUID:   isolationTenantUUIDB,
 		InstanceUUID: instance.UUID,
 		Action:       "pause",
 	})

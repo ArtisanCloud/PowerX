@@ -22,21 +22,21 @@ func NewAgentChatService(db *gorm.DB) *AgentChatService {
 // 打通最小闭环：确保会话 → 落用户消息 → 根据策略裁剪
 func (s *AgentChatService) EnsureAndAppendUser(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	agentID uint64, userID uint64,
 	singleton bool,
 	defaults dbmodel.AgentChatSession,
 	text string,
 ) (*dbmodel.AgentChatSession, *dbmodel.AgentChatMessage, error) {
-	sess, _, err := s.sessions.Ensure(ctx, env, tenantID, agentID, userID, singleton, defaults)
+	sess, _, err := s.sessions.Ensure(ctx, env, tenantUUID, agentID, userID, singleton, defaults)
 	if err != nil {
 		return nil, nil, err
 	}
-	msg, err := s.msgs.AppendUser(ctx, env, tenantID, sess.ID, text)
+	msg, err := s.msgs.AppendUser(ctx, env, tenantUUID, sess.ID, text)
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = s.sessions.Touch(ctx, env, tenantID, sess.ID)
-	_ = s.sessions.TrimByPolicy(ctx, env, tenantID, sess)
+	_ = s.sessions.Touch(ctx, env, tenantUUID, sess.ID)
+	_ = s.sessions.TrimByPolicy(ctx, env, tenantUUID, sess)
 	return sess, msg, nil
 }

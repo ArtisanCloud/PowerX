@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const definitionLaunchTenantUUID = "workflow-integration-tenant-001"
+
 func TestDefinitionLaunchFlow(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
@@ -21,7 +23,7 @@ func TestDefinitionLaunchFlow(t *testing.T) {
 	}
 
 	def, err := env.Service.CreateDefinition(ctx, workflowsvc.CreateDefinitionInput{
-		TenantID:    1001,
+		TenantUUID:  definitionLaunchTenantUUID,
 		Name:        "integration",
 		Description: "service level flow",
 		CreatedBy:   uuid.New(),
@@ -30,14 +32,14 @@ func TestDefinitionLaunchFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = env.Service.PublishDefinition(ctx, workflowsvc.PublishDefinitionInput{
-		TenantID:       1001,
+		TenantUUID:     definitionLaunchTenantUUID,
 		DefinitionUUID: def.UUID,
 		PublishedBy:    uuid.New(),
 	})
 	require.NoError(t, err)
 
 	instance, err := env.Service.StartInstance(ctx, workflowsvc.StartInstanceInput{
-		TenantID:       1001,
+		TenantUUID:     definitionLaunchTenantUUID,
 		DefinitionUUID: def.UUID,
 		Input:          map[string]any{"case": "A"},
 	})

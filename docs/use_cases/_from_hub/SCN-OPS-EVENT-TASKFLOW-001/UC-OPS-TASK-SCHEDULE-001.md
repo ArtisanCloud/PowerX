@@ -137,7 +137,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`task.scheduler.on_time_rate`、`task.scheduler.missed_total`、`task.execution.success_total`、`task.execution.retry_total`、`task.sla.breach_total`。
-- **日志**：记录 `task_id`, `tenant_id`, `trigger_time`, `actual_start`, `duration_ms`, `status`, `retry_count`, `error_code`。
+- **日志**：记录 `task_id`, `tenant_uuid`, `trigger_time`, `actual_start`, `duration_ms`, `status`, `retry_count`, `error_code`。
 - **告警**：调度失败率 >5%/5 分钟触发 PagerDuty；连续 3 次 SLA 违约升级到运维经理；锁争用 >70% 时提示扩容。
 - **Dashboards**：Grafana `Runtime Ops / Scheduler Overview`、Datadog `task.scheduler.*`、Ops 控制台任务时间线。
 

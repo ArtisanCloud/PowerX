@@ -118,7 +118,7 @@ sequenceDiagram
   - `POST /auth/mfa/verify` — 提交验证码/签名，返回 `verification_id` 与状态；失败时返回 `LOCKED`, `INVALID_CODE`, `EXPIRED` 等错误码。
   - `POST /internal/security/mfa/lock` / `unlock` — 锁定或解锁用户，供管理员或风控调用。
 - **Events**
-  - `security.mfa.assigned`、`security.mfa.verified`、`security.mfa.locked`、`security.mfa.recovered` — 审计事件，包含 `tenant_id`, `user_id`, `method`, `plugin`, `status`, `trace_id`。
+- `security.mfa.assigned`、`security.mfa.verified`、`security.mfa.locked`、`security.mfa.recovered` — 审计事件，包含 `tenant_uuid`, `user_id`, `method`, `plugin`, `status`, `trace_id`。
 - **配置与脚本**
   - `config/mfa/policies.yaml` — 默认策略、阈值、失败宽限。
   - `config/mfa/providers.yaml` — 各验证器的容差、重试及依赖配置。
@@ -144,7 +144,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`auth.mfa.enroll_success_total`, `auth.mfa.verify_success_total`, `auth.mfa.verify_fail_total`, `auth.mfa.locked_total`, `auth.mfa.reset_total`。
-- **日志**：记录 `tenant_id`, `user_id`, `plugin`, `method`, `status`, `error_code`, `trace_id`（敏感信息脱敏）。
+- **日志**：记录 `tenant_uuid`, `user_id`, `plugin`, `method`, `status`, `error_code`, `trace_id`（敏感信息脱敏）。
 - **告警**：验证失败率 >5%/5 分钟触发 PagerDuty；锁定事件 >5 次/租户/10 分钟推送 Slack；恢复失败触发工单。
 - **仪表板**：Grafana `IAM / MFA Overview`、Datadog `auth-mfa-*`、`reports/iam/auth-security-dashboard`。
 

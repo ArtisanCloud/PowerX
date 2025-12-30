@@ -17,7 +17,7 @@ type ToolGrant struct {
 // Agent 表示对外返回的代理档案。
 type Agent struct {
 	ID                       uuid.UUID `json:"id"`
-	TenantID                 string    `json:"tenant_id"`
+	TenantUUID               string    `json:"tenant_uuid"`
 	Alias                    string    `json:"alias"`
 	DisplayName              string    `json:"display_name"`
 	Status                   string    `json:"status"`
@@ -35,7 +35,7 @@ type Agent struct {
 
 // RegisterInput 注册代理所需信息。
 type RegisterInput struct {
-	TenantID                 string
+	TenantUUID               string
 	Alias                    string
 	DisplayName              string
 	ToolGrants               []ToolGrant
@@ -54,7 +54,7 @@ type ManifestRegistrationInput struct {
 	PluginID                 string
 	PluginVersion            string
 	ManifestVersion          string
-	TenantID                 string
+	TenantUUID               string
 	Alias                    string
 	DisplayName              string
 	ToolGrants               []ToolGrant
@@ -104,7 +104,7 @@ type SandboxRunResult struct {
 // ActivateInput 激活代理的输入。
 type ActivateInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Reason      string
 	RequestedBy string
 	TraceID     string
@@ -112,7 +112,7 @@ type ActivateInput struct {
 
 type PauseInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Reason      string
 	RequestedBy string
 	TraceID     string
@@ -120,7 +120,7 @@ type PauseInput struct {
 
 type ResumeInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Reason      string
 	RequestedBy string
 	TraceID     string
@@ -128,7 +128,7 @@ type ResumeInput struct {
 
 type RetireInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Reason      string
 	RequestedBy string
 	TraceID     string
@@ -136,7 +136,7 @@ type RetireInput struct {
 
 type ScaleInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Target      int32
 	Reason      string
 	RequestedBy string
@@ -151,7 +151,7 @@ type LifecycleResult struct {
 // HealthInput 描述健康快照写入参数。
 type HealthInput struct {
 	AgentID         uuid.UUID
-	TenantID        string
+	TenantUUID      string
 	WindowStartedAt time.Time
 	WindowDuration  time.Duration
 	Metrics         HealthMetricsInput
@@ -191,7 +191,7 @@ type SubscriptionConfig struct {
 // SubscriptionUpdateInput 更新订阅的输入。
 type SubscriptionUpdateInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Config      SubscriptionConfig
 	RequestedBy string
 	TraceID     string
@@ -199,7 +199,7 @@ type SubscriptionUpdateInput struct {
 
 // TenantFormInput 描述租户提交表单内容。
 type TenantFormInput struct {
-	TenantID                 string
+	TenantUUID               string
 	Alias                    string
 	DisplayName              string
 	Purpose                  string
@@ -216,7 +216,7 @@ type TenantFormInput struct {
 
 // PolicyConflictInput 传递给策略冲突检测。
 type PolicyConflictInput struct {
-	TenantID    string
+	TenantUUID  string
 	Alias       string
 	Permissions []string
 	RateLimit   int32
@@ -225,7 +225,7 @@ type PolicyConflictInput struct {
 // TenantForm 表示对外返回的租户表单。
 type TenantForm struct {
 	ID                       uuid.UUID         `json:"id"`
-	TenantID                 string            `json:"tenant_id"`
+	TenantUUID               string            `json:"tenant_uuid"`
 	Alias                    string            `json:"alias"`
 	DisplayName              string            `json:"display_name"`
 	Purpose                  string            `json:"purpose"`

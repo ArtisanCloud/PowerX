@@ -25,7 +25,7 @@ func (defaultManifestValidator) Validate(_ context.Context, in ManifestRegistrat
 	if strings.TrimSpace(in.PluginID) == "" ||
 		strings.TrimSpace(in.PluginVersion) == "" ||
 		strings.TrimSpace(in.ManifestVersion) == "" ||
-		strings.TrimSpace(in.TenantID) == "" ||
+		strings.TrimSpace(in.TenantUUID) == "" ||
 		strings.TrimSpace(in.Alias) == "" ||
 		strings.TrimSpace(in.TelemetryContractVersion) == "" {
 		return ErrInvalidManifestPayload
@@ -144,7 +144,7 @@ func (s *Service) buildRegisterInputFromManifest(in ManifestRegistrationInput) R
 	}
 
 	return RegisterInput{
-		TenantID:                 in.TenantID,
+		TenantUUID:               in.TenantUUID,
 		Alias:                    strings.TrimSpace(in.Alias),
 		DisplayName:              defaultDisplayName(in.DisplayName, in.Alias),
 		ToolGrants:               in.ToolGrants,

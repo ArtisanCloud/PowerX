@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,11 +24,13 @@ import (
 	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -303,6 +306,13 @@ func (e *Env) Engine() *gin.Engine {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		if tenantUUID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-Tenant-UUID header"})
+			return
+		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
 	adminhttp.RegisterAPIRoutes(public, protected, e.Deps)
@@ -312,13 +322,44 @@ func (e *Env) Engine() *gin.Engine {
 
 // GRPCServer composes a gRPC server with the Knowledge Space service mounted.
 func (e *Env) GRPCServer() *grpc.Server {
-	server := grpc.NewServer()
+	unary := func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		ctx = e.injectTenantIntoContext(ctx)
+		return handler(ctx, req)
+	}
+	stream := func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := e.injectTenantIntoContext(ss.Context())
+		wrapped := &tenantAwareStream{ServerStream: ss, ctx: ctx}
+		return handler(srv, wrapped)
+	}
+	server := grpc.NewServer(grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
 	knowledgegrpc.Register(server, knowledgegrpc.NewServer(e.Deps))
 	return server
 }
 
-// TenantID returns the shared tenant ID for fixtures.
-func (e *Env) TenantID() uuid.UUID {
+func (e *Env) injectTenantIntoContext(ctx context.Context) context.Context {
+	md, _ := metadata.FromIncomingContext(ctx)
+	tenantUUID := strings.TrimSpace(e.tenantID.String())
+	if md != nil {
+		if values := md.Get("x-tenant-uuid"); len(values) > 0 {
+			if trimmed := strings.TrimSpace(values[0]); trimmed != "" {
+				tenantUUID = trimmed
+			}
+		}
+	}
+	return reqctx.WithTenantUUID(ctx, tenantUUID)
+}
+
+type tenantAwareStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (s *tenantAwareStream) Context() context.Context {
+	return s.ctx
+}
+
+// TenantUUID returns the shared tenant UUID for fixtures.
+func (e *Env) TenantUUID() uuid.UUID {
 	return e.tenantID
 }
 
@@ -342,7 +383,7 @@ func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.Knowledge
 	require.NotNil(e.T, svc)
 
 	space, err := svc.CreateSpace(context.Background(), knowledgeService.CreateSpaceInput{
-		TenantID:       e.tenantID,
+		TenantUUID:     e.tenantID.String(),
 		SpaceName:      name,
 		DepartmentCode: "RD",
 		QuotaCPU:       4,

@@ -12,7 +12,7 @@ func (s *Service) activateTenantForm(ctx context.Context, form *agentmodel.Agent
 	toolGrants := decodeToolGrantsJSON(form.ToolGrants)
 	metadata := decodeStringMap(form.Metadata)
 	registerInput := RegisterInput{
-		TenantID:                 form.TenantID,
+		TenantUUID:               form.TenantUUID,
 		Alias:                    form.Alias,
 		DisplayName:              form.DisplayName,
 		ToolGrants:               toolGrants,
@@ -37,7 +37,7 @@ func (s *Service) activateTenantForm(ctx context.Context, form *agentmodel.Agent
 
 	_, err = s.Activate(ctx, ActivateInput{
 		AgentID:     result.Agent.ID,
-		TenantID:    form.TenantID,
+		TenantUUID:  form.TenantUUID,
 		Reason:      "tenant-form-approved",
 		RequestedBy: operator,
 	})

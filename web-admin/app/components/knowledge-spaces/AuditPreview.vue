@@ -24,8 +24,8 @@ const props = defineProps<{
 
     <dl class="grid gap-4 md:grid-cols-2">
       <div>
-        <dt class="text-xs uppercase text-gray-500">租户 ID</dt>
-        <dd class="text-sm text-gray-900">{{ payload.tenantId || "未填写" }}</dd>
+        <dt class="text-xs uppercase text-gray-500">租户 UUID</dt>
+        <dd class="text-sm text-gray-900">{{ payload.tenantUuid || "未填写" }}</dd>
       </div>
       <div>
         <dt class="text-xs uppercase text-gray-500">部门编码</dt>

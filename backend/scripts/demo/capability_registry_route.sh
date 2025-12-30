@@ -23,7 +23,7 @@ CONTENT_HEADERS=(-H "Content-Type: application/json" -H "Accept: application/jso
 ACCEPT_HEADER=(-H "Accept: application/json")
 
 CAPABILITY_ID="${CAPABILITY_ID:-capabilities.search.demo}"
-TENANT_ID="${TENANT_ID:-tenant-demo}"
+TENANT_UUID="${TENANT_UUID:-tenant-demo}"
 PRIMARY_ADAPTER="${PRIMARY_ADAPTER:-search-http-primary}"
 PRIMARY_ENDPOINT="${PRIMARY_ENDPOINT:-https://svc-primary/search}"
 BACKUP_ADAPTER="${BACKUP_ADAPTER:-search-grpc-backup}"
@@ -102,7 +102,7 @@ log "Using API base: ${BASE_URL}"
 log "Creating capability registration..."
 REGISTRATION_PAYLOAD="$(jq -n \
 	--arg capability "${CAPABILITY_ID}" \
-	--arg tenant "${TENANT_ID}" \
+	--arg tenant "${TENANT_UUID}" \
 	--arg contract "contracts/search#v1.2.0" \
 	--arg primary "${PRIMARY_ADAPTER}" \
 	--arg primaryEndpoint "${PRIMARY_ENDPOINT}" \
@@ -110,7 +110,7 @@ REGISTRATION_PAYLOAD="$(jq -n \
 	--arg backupEndpoint "${BACKUP_ENDPOINT}" \
 	'{
 		capability_id: $capability,
-		tenant_id: $tenant,
+		tenant_uuid: $tenant,
 		contract_ref: $contract,
 		status: "published",
 		adapters: [
@@ -152,25 +152,25 @@ log "Capability created with version ${VERSION}"
 
 log "Updating capability weights (optimistic lock)..."
 UPDATED_PAYLOAD="$(echo "${REGISTRATION_PAYLOAD}" | jq '.adapters[0].weight = 70 | .adapters[1].weight = 30 | .version = '"${VERSION}"')"
-call_api "PUT" "${BASE_URL}/admin/capability-registry/capabilities/${CAPABILITY_ID}/tenants/${TENANT_ID}" "${UPDATED_PAYLOAD}" -H "If-Match: W/\"${VERSION}\""
+call_api "PUT" "${BASE_URL}/admin/capability-registry/capabilities/${CAPABILITY_ID}/tenants/${TENANT_UUID}" "${UPDATED_PAYLOAD}" -H "If-Match: W/\"${VERSION}\""
 assert_status "200"
 VERSION="$(echo "${RESPONSE}" | jq -r '.version')"
 log "Capability updated to version ${VERSION}"
 
 log "Invoking router (expect primary adapter)..."
-INVOKE_PAYLOAD="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_ID}" '{capability_id: $capability, tenant_id: $tenant}')"
+INVOKE_PAYLOAD="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_UUID}" '{capability_id: $capability, tenant_uuid: $tenant}')"
 call_api "POST" "${BASE_URL}/admin/router/invoke" "${INVOKE_PAYLOAD}"
 assert_status "200"
 PRIMARY_SELECTED="$(echo "${RESPONSE}" | jq -r '.adapter_id')"
 log "Router selected adapter: ${PRIMARY_SELECTED}"
 
 log "Marking primary adapter unhealthy..."
-HEALTH_BODY="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_ID}" --arg adapter "${PRIMARY_ADAPTER}" '{capability_id: $capability, tenant_id: $tenant, adapter_id: $adapter, status: "unhealthy", reason: "demo-failure"}')"
+HEALTH_BODY="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_UUID}" --arg adapter "${PRIMARY_ADAPTER}" '{capability_id: $capability, tenant_uuid: $tenant, adapter_id: $adapter, status: "unhealthy", reason: "demo-failure"}')"
 call_api "POST" "${BASE_URL}/admin/router/health" "${HEALTH_BODY}"
 assert_status "202"
 
 log "Marking backup adapter unhealthy to trigger fallback..."
-HEALTH_BODY_BACKUP="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_ID}" --arg adapter "${BACKUP_ADAPTER}" '{capability_id: $capability, tenant_id: $tenant, adapter_id: $adapter, status: "unhealthy", reason: "demo-failure"}')"
+HEALTH_BODY_BACKUP="$(jq -n --arg capability "${CAPABILITY_ID}" --arg tenant "${TENANT_UUID}" --arg adapter "${BACKUP_ADAPTER}" '{capability_id: $capability, tenant_uuid: $tenant, adapter_id: $adapter, status: "unhealthy", reason: "demo-failure"}')"
 call_api "POST" "${BASE_URL}/admin/router/health" "${HEALTH_BODY_BACKUP}"
 assert_status "202"
 
@@ -184,13 +184,13 @@ fi
 log "Fallback payload: $(echo "${RESPONSE}" | jq -c '.payload')"
 
 log "Syncing discovery cache..."
-SYNC_PAYLOAD="$(jq -n --arg tenant "${TENANT_ID}" --arg capability "${CAPABILITY_ID}" --arg client "${CLIENT_ID}" '{tenant_id: $tenant, capabilities: [$capability], client_id: $client, force: true}')"
+SYNC_PAYLOAD="$(jq -n --arg tenant "${TENANT_UUID}" --arg capability "${CAPABILITY_ID}" --arg client "${CLIENT_ID}" '{tenant_uuid: $tenant, capabilities: [$capability], client_id: $client, force: true}')"
 call_api "POST" "${BASE_URL}/discovery/sync" "${SYNC_PAYLOAD}"
 assert_status "200"
 log "Discovery sync completed"
 
 log "Fetching cached snapshot..."
-call_api_with_headers "GET" "${BASE_URL}/discovery/${TENANT_ID}/${CAPABILITY_ID}?client_id=${CLIENT_ID}"
+call_api_with_headers "GET" "${BASE_URL}/discovery/${TENANT_UUID}/${CAPABILITY_ID}?client_id=${CLIENT_ID}"
 assert_status "200"
 CACHE_CONTROL="$(printf '%s\n' "${HEADERS}" | awk 'BEGIN{IGNORECASE=1} /^Cache-Control:/ {print $2}' | tr -d '\r')"
 if [[ -z "${CACHE_CONTROL}" ]]; then

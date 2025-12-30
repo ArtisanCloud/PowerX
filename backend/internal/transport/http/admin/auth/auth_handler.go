@@ -2,14 +2,14 @@
 package auth
 
 import (
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
 )
 
 type AuthUserHandler struct {
@@ -25,7 +25,6 @@ func NewAuthUserHandler(deps *shared.Deps) *AuthUserHandler {
 // ---------- DTO ----------
 
 type RegisterReq struct {
-	TenantID uint64 `json:"tenant_id"     binding:"required"`
 	UserName string `json:"username"      binding:"required,min=3,max=64"` // 租户内唯一，后端统一转小写
 	Password string `json:"password"      binding:"required,min=6,max=64"`
 
@@ -58,11 +57,29 @@ type LoginResp struct {
 
 // ---------- Handlers ----------
 
+func (h *AuthUserHandler) tenantUUIDFromGin(c *gin.Context) (string, bool) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return "", false
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "tenant_uuid 无效", err)
+		return "", false
+	}
+	return canonical, true
+}
+
 func (h *AuthUserHandler) RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RegisterReq
 		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 			dtoRequest.ResponseValidationError(c, err)
+			return
+		}
+		tenantUUID, ok := h.tenantUUIDFromGin(c)
+		if !ok {
 			return
 		}
 
@@ -81,7 +98,7 @@ func (h *AuthUserHandler) RegisterHandler(s *authsvc.AuthService) gin.HandlerFun
 			MemberAvatarURL:   req.AvatarURL,   // 租户内覆盖头像（可选）
 		}
 
-		m, err := s.Register(c.Request.Context(), req.TenantID, username, identifier, req.Password, opt)
+		m, err := s.Register(c.Request.Context(), tenantUUID, username, identifier, req.Password, opt)
 		if err != nil {
 			// 常见业务错误归为 400；如果你有更细的错误码可在这里分支
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
@@ -89,7 +106,7 @@ func (h *AuthUserHandler) RegisterHandler(s *authsvc.AuthService) gin.HandlerFun
 		}
 
 		dtoRequest.ResponseSuccess(c, gin.H{
-			"tenant_id":    m.TenantID,
+			"tenant_uuid":  tenantUUID,
 			"member_id":    m.ID,
 			"user_id":      m.UserID,
 			"username":     m.Username,

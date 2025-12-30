@@ -6,7 +6,7 @@
 
 - 路径：`api/grpc/contracts/powerx/plugin/control/v1/control.proto`
 - 服务：`powerx.plugin.control.v1.ControlService`
-- 方法：`UpsertTenantCredentials(tenant_id, plugin_id, client_id, client_secret)`
+- 方法：`UpsertTenantCredentials(tenant_uuid, plugin_id, client_id, client_secret)`
 - 统一返回：`common.v1.ResponseMeta` + `data.ok`
 
 插件侧应实现该服务；宿主侧已内置客户端调用逻辑（见“宿主实现”）。
@@ -20,20 +20,20 @@
 - 插件侧 gRPC 拦截器需校验：
   - 仅接受来自 127.0.0.1 的请求（可选）
   - 校验 `authorization` Bearer 值与 `os.Getenv("POWERX_INTERNAL_TOKEN")` 一致
-  - 按需校验 `ctx.tenant_id` 与 `plugin_id` 格式/范围
+  - 按需校验 `ctx.tenant_uuid` 与 `plugin_id` 格式/范围
 
 注：首次下发前插件尚未具备 STS 能力，故不使用 STS 校验。
 
 ## 宿主实现（PowerX Core）
 
 - 生成与注入内部令牌：在 `Enable` 启动子进程前，生成随机 token 并注入 `POWERX_INTERNAL_TOKEN`、`POWERX_PLUGIN_ID`；令牌仅保存在内存映射中（`pluginID -> token`）。
-- 自动推送凭证：
+- 自动推送凭证（UUID-only）：
   - 租户首次启用（EnsureCredentials 返回明文 secret）时：通过 gRPC 调用 `UpsertTenantCredentials` 下发 `client_id/secret`。
   - 轮换密钥成功后：同样触发一次下发。
 - 代码位置：
   - 令牌注入：`internal/infra/plugin/manager/lifecycle.go`
   - 令牌内存存储与获取：`internal/infra/plugin/manager/manager.go`、`helpers.go`
-  - gRPC 客户端调用：`internal/infra/plugin/manager/notify/notify.go` → `PushTenantCredentials`
+  - gRPC 客户端调用：`internal/infra/plugin/manager/notify/notify.go` → `PushTenantCredentials`（`RequestContext.tenant_uuid` 与 `tenant_uuid` 字段仅接受字符串 UUID，禁止再传 `tenant_id`）
 
 ## 插件实现示例（Go）
 
@@ -77,4 +77,3 @@ func unaryAuthInterceptor(ctx context.Context, req any, info *grpc.UnaryServerIn
 - 内部令牌每次进程启动随机化；不要写日志与磁盘。
 - 插件端限制仅本机访问，或进一步使用 UDS/mTLS 加固。
 - 插件端持久化 `client_secret` 时注意加密与最小权限；避免通过前端接口回读。
-

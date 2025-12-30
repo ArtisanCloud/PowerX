@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
@@ -18,16 +18,20 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-const grpcBufSize = 1024 * 1024
+const (
+	grpcBufSize      = 1024 * 1024
+	sampleTenantUUID = "00000000-0000-0000-0000-000000000001"
+)
 
 func TestEventDeliveryGRPCContracts(t *testing.T) {
 	env := newEventDeliveryGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
-	ctx := context.Background()
+	baseCtx := context.Background()
+	tenantCtx := eventFabricGRPCContext(t, baseCtx, sampleTenantUUID)
 
-	_, err := env.deliveryClient.PublishEvent(ctx, &eventfabricv1.PublishEventRequest{
-		TenantId:      "tenant-corex",
+	pubResp, err := env.deliveryClient.PublishEvent(tenantCtx, &eventfabricv1.PublishEventRequest{
+		TenantUuid:    sampleTenantUUID,
 		Topic:         "tenant-corex.corex.workflow.approved",
 		EventId:       "evt-001",
 		TraceId:       "trace-abc",
@@ -39,20 +43,22 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PublishEvent unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, pubResp)
 	if len(env.stub.publishRequests) != 1 {
 		t.Fatalf("expected 1 publish call got %d", len(env.stub.publishRequests))
 	}
 
-	_, err = env.deliveryClient.AckDelivery(ctx, &eventfabricv1.AckDeliveryRequest{
+	ackResp, err := env.deliveryClient.AckDelivery(tenantCtx, &eventfabricv1.AckDeliveryRequest{
 		DeliveryId:   "delivery-001",
 		SubscriberId: "svc-sub",
 	})
 	if err != nil {
 		t.Fatalf("AckDelivery unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, ackResp)
 
 	env.stub.nackPlan = delivery.RetryPlan{MaxAttempts: 5, RemainingAttempts: 3, NextDelay: 2 * time.Second, Strategy: "exponential-jitter"}
-	nackResp, err := env.deliveryClient.NackDelivery(ctx, &eventfabricv1.NackDeliveryRequest{
+	nackResp, err := env.deliveryClient.NackDelivery(tenantCtx, &eventfabricv1.NackDeliveryRequest{
 		DeliveryId:   "delivery-001",
 		SubscriberId: "svc-sub",
 		Reason:       "temporary failure",
@@ -60,6 +66,7 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NackDelivery unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, nackResp)
 	if nackResp.GetRemainingAttempts() != 3 || nackResp.GetNextDelaySeconds() != 2 {
 		t.Fatalf("unexpected nack response: %+v", nackResp)
 	}
@@ -70,7 +77,7 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	env.stub.ackErr = sharedsvc.ErrUnauthorized
-	_, err := env.deliveryClient.AckDelivery(context.Background(), &eventfabricv1.AckDeliveryRequest{
+	_, err := env.deliveryClient.AckDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.AckDeliveryRequest{
 		DeliveryId:   "delivery-err",
 		SubscriberId: "svc-sub",
 	})
@@ -79,7 +86,7 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 	}
 
 	env.stub.nackErr = sharedsvc.ErrRetryExhausted
-	_, err = env.deliveryClient.NackDelivery(context.Background(), &eventfabricv1.NackDeliveryRequest{
+	_, err = env.deliveryClient.NackDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.NackDeliveryRequest{
 		DeliveryId:   "delivery-err",
 		SubscriberId: "svc-sub",
 		Reason:       "exhausted",
@@ -112,10 +119,10 @@ func TestEventSubscriberStream(t *testing.T) {
 		message.EventID: {message},
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID))
 	defer cancel()
 	stream, err := env.subscriberClient.Subscribe(ctx, &eventfabricv1.SubscribeRequest{
-		TenantId:          "tenant-corex",
+		TenantUuid:        sampleTenantUUID,
 		SubscriberId:      "svc-sub",
 		BatchSize:         10,
 		CompatibilityMode: eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD,
@@ -132,6 +139,7 @@ func TestEventSubscriberStream(t *testing.T) {
 	if msg.GetDeliveryId() != "attempt-001" || msg.GetEventId() != "evt-001" {
 		t.Fatalf("unexpected message payload: %+v", msg)
 	}
+	assertNoEventFabricTenantLeakProto(t, msg)
 	if msg.GetSubscriberId() != "svc-sub" || msg.GetTopic() != "tenant-corex.corex.workflow.approved" {
 		t.Fatalf("unexpected subscriber/topic: %+v", msg)
 	}

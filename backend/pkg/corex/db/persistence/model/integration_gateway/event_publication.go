@@ -14,7 +14,7 @@ type IntegrationEventPublication struct {
 	coremodel.PowerUUIDModel
 
 	RouteUUID   uuid.UUID      `gorm:"column:route_uuid;type:uuid;not null;index:idx_integration_event_route" json:"route_uuid"`
-	TenantID    string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_integration_event_tenant" json:"tenant_id"`
+	TenantUUID  string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_integration_event_tenant" json:"tenant_uuid"`
 	Topic       string         `gorm:"column:topic;type:varchar(256);not null;index:idx_integration_event_topic" json:"topic"`
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb;not null" json:"payload"`
 	Status      string         `gorm:"column:status;type:varchar(32);not null;index:idx_integration_event_status" json:"status"`

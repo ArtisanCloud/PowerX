@@ -1,53 +1,28 @@
 openapi: 3.0.3
 info:
-  title: Integration Gateway API (Design Draft)
-  version: 0.1.0
+  title: Capability Registry & Integration Gateway API (Design Draft)
+  version: 0.2.0
 servers:
   - url: https://api.powerx.local
 paths:
-  /admin/integration/routes:
-    post:
-      summary: Create a new integration route for tenant
-      tags: [IntegrationGatewayAdmin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IntegrationRouteCreateRequest'
-      responses:
-        '201':
-          description: Route created
-          headers:
-            ETag:
-              schema:
-                type: string
-              description: Version tag for optimistic concurrency
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-        '409':
-          description: Duplicate route slug under tenant
-        '422':
-          description: Validation failed (missing Tool Grant / Capability)
+  /admin/capabilities:
     get:
-      summary: List routes across tenants (filterable)
-      tags: [IntegrationGatewayAdmin]
+      summary: List capabilities from registry (Admin)
+      tags: [CapabilityRegistryAdmin]
       parameters:
         - in: query
-          name: tenant_id
+          name: plugin_id
           schema:
             type: string
         - in: query
-          name: lifecycle_state
+          name: intent
           schema:
             type: string
-            enum: [pending, active, suspended, retired]
         - in: query
-          name: capability_id
+          name: protocol
           schema:
             type: string
+            enum: [rest, grpc, mcp, workflow, composite]
         - in: query
           name: page
           schema:
@@ -59,538 +34,580 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 100
-          default: 20
+            maximum: 200
+          default: 50
       responses:
         '200':
-          description: Routes page
+          description: Capability list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntegrationRouteListResponse'
-  /admin/integration/routes/{routeId}:
+                $ref: '#/components/schemas/CapabilityListResponse'
+  /admin/capabilities/{capabilityId}:
     get:
-      summary: Fetch latest snapshot of route by ID
-      tags: [IntegrationGatewayAdmin]
+      summary: Fetch single capability metadata (Admin)
+      tags: [CapabilityRegistryAdmin]
       parameters:
-        - $ref: '#/components/parameters/RouteId'
+        - $ref: '#/components/parameters/CapabilityId'
         - in: query
-          name: version
+          name: include_workflows
+          schema:
+            type: boolean
+          description: When true, return workflow/composite templates
+      responses:
+        '200':
+          description: Capability found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityDetailResponse'
+        '404':
+          description: Capability not found
+  /admin/capability-sync/jobs:
+    get:
+      summary: Inspect latest capability sync jobs per plugin
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - in: query
+          name: plugin_id
           schema:
             type: string
-            enum: [latest, draft]
-          description: Defaults to latest published version
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, running, succeeded, failed]
       responses:
         '200':
-          description: Snapshot found
-          headers:
-            ETag:
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-        '404':
-          description: Route not found
-    patch:
-      summary: Update route configuration (optimistic concurrency)
-      tags: [IntegrationGatewayAdmin]
-      parameters:
-        - $ref: '#/components/parameters/RouteId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IntegrationRouteUpdateRequest'
-      responses:
-        '200':
-          description: Route updated
-          headers:
-            ETag:
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-        '412':
-          description: Version mismatch (ETag required)
-  /admin/integration/routes/{routeId}/suspend:
-    post:
-      summary: Transition route to Suspended
-      tags: [IntegrationGatewayAdmin]
-      parameters:
-        - $ref: '#/components/parameters/RouteId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Route suspended
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-  /admin/integration/routes/{routeId}/resume:
-    post:
-      summary: Resume a suspended route to Active
-      tags: [IntegrationGatewayAdmin]
-      parameters:
-        - $ref: '#/components/parameters/RouteId'
-      responses:
-        '200':
-          description: Route resumed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-  /admin/integration/routes/{routeId}/retire:
-    post:
-      summary: Retire a route permanently
-      tags: [IntegrationGatewayAdmin]
-      parameters:
-        - $ref: '#/components/parameters/RouteId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                notify_subscribers:
-                  type: boolean
-                  default: true
-      responses:
-        '200':
-          description: Route retired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IntegrationRouteResponse'
-  /admin/integration/routes/{routeId}/versions:
-    get:
-      summary: List historical versions for auditing
-      tags: [IntegrationGatewayAdmin]
-      parameters:
-        - $ref: '#/components/parameters/RouteId'
-      responses:
-        '200':
-          description: Version history
+          description: Job list
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  code:
-                    type: integer
-                    example: 0
-                  message:
-                    type: string
-                    example: ok
-                  data:
+                  items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/IntegrationRouteVersion'
-                  trace_id:
-                    type: string
-        '404':
-          description: Route not found
-  /tenant/integration/routes:
+                      $ref: '#/components/schemas/CapabilitySyncJobDTO'
+  /admin/workflow-templates:
     get:
-      summary: List accessible routes for current tenant
-      tags: [IntegrationGatewayTenant]
+      summary: List workflow templates from catalog
+      tags: [CapabilityRegistryAdmin]
       parameters:
+        - in: query
+          name: plugin_id
+          schema:
+            type: string
         - in: query
           name: capability_id
           schema:
             type: string
-        - in: query
-          name: channel
-          schema:
-            type: string
-            enum: [http, mcp]
       responses:
         '200':
-          description: Routes available to tenant
+          description: Workflow templates snapshot
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  code:
-                    type: integer
-                    example: 0
-                  message:
+                  version:
                     type: string
-                    example: ok
-                  data:
+                  generated_at:
+                    type: string
+                    format: date-time
+                  items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/IntegrationRouteSummary'
-                  trace_id:
-                    type: string
-  /tenant/integration/routes/{routeSlug}:
-    get:
-      summary: Inspect route metadata before invoking
-      tags: [IntegrationGatewayTenant]
-      parameters:
-        - $ref: '#/components/parameters/RouteSlug'
-      responses:
-        '200':
-          description: Route metadata
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                  message:
-                    type: string
-                  data:
-                    $ref: '#/components/schemas/IntegrationRouteTenantView'
-                  trace_id:
-                    type: string
-        '404':
-          description: Route not accessible
-  /tenant/integration/routes/{routeSlug}/invoke:
+                      $ref: '#/components/schemas/WorkflowCatalogTemplateDTO'
+  /admin/workflow-templates/{templateId}/upgrade:
     post:
-      summary: Invoke capability through integration route
-      tags: [IntegrationGatewayTenant]
+      summary: Promote workflow template to latest capability hash
+      tags: [CapabilityRegistryAdmin]
       parameters:
-        - $ref: '#/components/parameters/RouteSlug'
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IntegrationInvokeRequest'
+              type: object
+              properties:
+                capabilities_hash:
+                  type: string
+                reason:
+                  type: string
+              required: [capabilities_hash]
       responses:
         '200':
-          description: Invocation succeeded
+          description: Template upgraded
+        '409':
+          description: Provided hash does not match latest snapshot
+  /admin/platform-capabilities:
+    get:
+      summary: List CoreX platform capabilities grouped by module
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - in: query
+          name: module
+          schema:
+            type: string
+          description: Filter by module key（如 media、event_fabric、workflow）
+      responses:
+        '200':
+          description: Platform capability modules
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntegrationInvokeResponse'
+                $ref: '#/components/schemas/PlatformCapabilityModuleListResponse'
+  /admin/platform-capabilities/{moduleKey}:
+    get:
+      summary: Get a single platform capability module
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - name: moduleKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Module key（如 media、event_fabric、workflow）
+      responses:
+        '200':
+          description: Module found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCapabilityModuleResponse'
+        '404':
+          description: Module not found
+  /tenant/capabilities:
+    get:
+      summary: List capabilities granted to tenant (Tenant API)
+      tags: [CapabilityRegistryTenant]
+      parameters:
+        - in: query
+          name: channel
+          schema:
+            type: string
+            enum: [agent, workflow, api]
+          description: Filter by exposure channel
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [corex, plugin]
+          description: Filter by capability source (`corex` for platform, `plugin` otherwise)
+      responses:
+        '200':
+          description: Authorized capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityListResponse'
+  /tenant/invocations:
+    post:
+      summary: Invoke capability via Integration Gateway (Tenant API)
+      tags: [IntegrationGatewayTenant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapabilityInvokeRequest'
+      responses:
+        '200':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityInvokeResponse'
         '202':
-          description: Invocation accepted async
+          description: Workflow/composite invocation queued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntegrationInvokeResponse'
+                $ref: '#/components/schemas/CapabilityInvokeResponse'
+        '409':
+          description: Capability version mismatch (manual upgrade pending)
         '429':
           description: Rate limit exceeded
+  /tenant/invocations/{traceId}:
+    get:
+      summary: Fetch invocation status by trace id
+      tags: [IntegrationGatewayTenant]
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invocation status
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RateLimitError'
-        '403':
-          description: Tool Grant missing or revoked
-        '424':
-          description: Capability unavailable / router downgrade failed
+                $ref: '#/components/schemas/InvocationStatusResponse'
+        '404':
+          description: Trace not found
 
 components:
   parameters:
-    RouteId:
+    CapabilityId:
+      name: capabilityId
       in: path
-      name: routeId
       required: true
       schema:
         type: string
-        format: uuid
-    RouteSlug:
-      in: path
-      name: routeSlug
-      required: true
-      schema:
-        type: string
-        pattern: '^[a-z0-9-]{3,63}$'
   schemas:
-    IntegrationRouteCreateRequest:
-      type: object
-      required: [tenant_id, route_slug, capability_id, tool_grant_ids]
-      properties:
-        tenant_id:
-          type: string
-        route_slug:
-          type: string
-          pattern: '^[a-z0-9-]{3,63}$'
-        capability_id:
-          type: string
-        tool_grant_ids:
-          type: array
-          items:
-            type: string
-        channels:
-          type: array
-          items:
-            type: string
-            enum: [http, mcp]
-          default: [http]
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitPolicy'
-        event_topics:
-          $ref: '#/components/schemas/EventTopicConfig'
-        description:
-          type: string
-          maxLength: 512
-    IntegrationRouteUpdateRequest:
+    CapabilityListResponse:
       type: object
       properties:
-        tool_grant_ids:
+        items:
           type: array
           items:
-            type: string
-        channels:
-          type: array
-          items:
-            type: string
-            enum: [http, mcp]
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitPolicy'
-        event_topics:
-          $ref: '#/components/schemas/EventTopicConfig'
-        lifecycle_state:
-          type: string
-          enum: [pending, active, suspended, retired]
-        description:
-          type: string
-    IntegrationRouteResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          example: 0
-        message:
-          type: string
-          example: ok
-        data:
-          $ref: '#/components/schemas/IntegrationRoute'
-        trace_id:
-          type: string
-    IntegrationRouteListResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-        message:
-          type: string
-        data:
+            $ref: '#/components/schemas/CapabilityRecordDTO'
+        pagination:
           type: object
           properties:
-            items:
-              type: array
-              items:
-                $ref: '#/components/schemas/IntegrationRouteSummary'
             page:
               type: integer
             page_size:
               type: integer
             total:
               type: integer
-        trace_id:
-          type: string
-    IntegrationRoute:
+    CapabilityDetailResponse:
       type: object
       properties:
-        route_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-        route_slug:
-          type: string
+        capability:
+          $ref: '#/components/schemas/CapabilityRecordDTO'
+        workflow_templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowTemplateDTO'
+        composite_graphs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    CapabilityRecordDTO:
+      type: object
+      properties:
         capability_id:
           type: string
-        tool_grant_ids:
+        plugin_id:
+          type: string
+        source:
+          type: string
+          enum: [corex, plugin]
+        title:
+          type: string
+        description:
+          type: string
+        intents:
           type: array
           items:
             type: string
-        channels:
+        tool_scope:
           type: array
           items:
             type: string
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitPolicy'
-        event_topics:
-          $ref: '#/components/schemas/EventTopicConfig'
-        lifecycle_state:
+        policy:
+          type: object
+          properties:
+            prefer:
+              type: string
+            fallback:
+              type: array
+              items:
+                type: string
+            rollback_capability_id:
+              type: string
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolBindingDTO'
+        capabilities_hash:
+          type: string
+        protocol_hash:
           type: string
         status:
           type: string
-          enum: [enabled, disabled]
-        current_version:
-          type: integer
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-    IntegrationRouteSummary:
+    ProtocolBindingDTO:
       type: object
       properties:
-        route_id:
+        channel:
           type: string
-          format: uuid
-        tenant_id:
+          enum: [rest, grpc, mcp, workflow, composite]
+        endpoint:
           type: string
-        route_slug:
+        schema_ref:
           type: string
-        capability_id:
+        method:
           type: string
-        lifecycle_state:
+        rpc:
           type: string
-        channels:
+        tool_ref:
+          type: string
+        auth_type:
+          type: string
+        health_state:
+          type: string
+        last_checked_at:
+          type: string
+          format: date-time
+    WorkflowTemplateDTO:
+      type: object
+      properties:
+        template_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        steps:
           type: array
           items:
-            type: string
-        last_modified_at:
+            type: object
+            additionalProperties: true
+        params_schema:
+          type: object
+        requires_manual_upgrade:
+          type: boolean
+        capabilities_hash_snapshot:
           type: string
-          format: date-time
-    IntegrationRouteTenantView:
+    CapabilityInvokeRequest:
       type: object
+      required: [capability_id, tenant_uuid]
       properties:
-        route_slug:
-          type: string
         capability_id:
           type: string
-        schema:
-          type: object
-          description: Input/output schema derived from capability contract
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitPolicy'
-        lifecycle_state:
+        tenant_uuid:
           type: string
-        events:
-          type: object
-          properties:
-            on_success:
-              type: string
-            on_failure:
-              type: string
-        trace_id:
-          type: string
-    IntegrationRouteVersion:
-      type: object
-      properties:
-        version:
-          type: integer
-        change_type:
-          type: string
-        change_summary:
-          type: string
-        changed_by:
-          type: string
-        changed_at:
-          type: string
-          format: date-time
-        snapshot:
-          $ref: '#/components/schemas/IntegrationRoute'
-        trace_id:
-          type: string
-    RateLimitPolicy:
-      type: object
-      properties:
-        limit:
-          type: integer
-          minimum: 1
-        burst:
-          type: integer
-          minimum: 0
-        window_seconds:
-          type: integer
-          minimum: 10
-          maximum: 3600
-        scope:
-          type: string
-          enum: [per_route, per_tenant, per_route_per_tenant]
-      example:
-        limit: 120
-        burst: 120
-        window_seconds: 60
-        scope: per_route_per_tenant
-    EventTopicConfig:
-      type: object
-      properties:
-        created:
-          type: string
-        updated:
-          type: string
-        invocation_succeeded:
-          type: string
-        invocation_failed:
-          type: string
-    IntegrationInvokeRequest:
-      type: object
-      required: [payload]
-      properties:
-        payload:
-          type: object
-          description: Arbitrary JSON payload passed to capability router
         idempotency_key:
           type: string
-          maxLength: 64
+        preferred_protocol:
+          type: string
+          enum: [mcp, grpc, rest, workflow]
+        trace_id:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
         context:
           type: object
           properties:
-            locale:
+            tool_scope:
               type: string
-            currency:
+            workflow_instance_id:
               type: string
-            metadata:
-              type: object
-              additionalProperties: true
-    IntegrationInvokeResponse:
+    CapabilityInvokeResponse:
       type: object
       properties:
-        code:
-          type: integer
-          example: 0
-        message:
-          type: string
-          example: ok
-        data:
+        payload:
           type: object
-          properties:
-            result:
-              type: object
-            routed_capability_id:
-              type: string
-            routed_adapter:
-              type: string
-            trace_id:
-              type: string
-            dispatched_at:
-              type: string
-              format: date-time
+          additionalProperties: true
+          description: Real business payload proxied from REST/gRPC/MCP responses.
         trace_id:
           type: string
-    RateLimitError:
+        status:
+          type: string
+          enum: [accepted, completed, failed, queued]
+        protocol_used:
+          type: string
+        result:
+          type: object
+          additionalProperties: true
+          description: Deprecated alias of payload kept for backward compatibility.
+          deprecated: true
+        fallback_used:
+          type: boolean
+    InvocationStatusResponse:
       type: object
       properties:
-        code:
-          type: integer
-          example: 42901
-        message:
-          type: string
-          example: rate limit exceeded
-        data:
-          type: object
-          properties:
-            retry_after:
-              type: string
-              example: 15s
-            quota_scope:
-              type: string
-              enum: [per_route, per_tenant, per_route_per_tenant]
         trace_id:
           type: string
+        capability_id:
+          type: string
+        tenant_uuid:
+          type: string
+        protocol_used:
+          type: string
+        fallback_used:
+          type: boolean
+        status:
+          type: string
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        latency_ms:
+          type: integer
+        event_published:
+          type: boolean
+    CapabilitySyncJobDTO:
+      type: object
+      properties:
+        job_id:
+          type: string
+        plugin_id:
+          type: string
+        plugin_version:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed]
+        hash_before:
+          type: string
+        hash_after:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    WorkflowTemplateApprovalDTO:
+      type: object
+      properties:
+        template_id:
+          type: string
+        capability_id:
+          type: string
+        capabilities_hash:
+          type: string
+        reason:
+          type: string
+        approved_by:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+    WorkflowCatalogTemplateDTO:
+      type: object
+      properties:
+        template_id:
+          type: string
+        capability_id:
+          type: string
+        capability_title:
+          type: string
+        plugin_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        steps:
+          type: object
+        params_schema:
+          type: object
+        protocol_requirements:
+          type: object
+        capabilities_hash:
+          type: string
+        template_hash:
+          type: string
+        requires_manual_upgrade:
+          type: boolean
+        approved:
+          $ref: '#/components/schemas/WorkflowTemplateApprovalDTO'
+        needs_upgrade:
+          type: boolean
+        last_synced_at:
+          type: string
+          format: date-time
+        error_summary:
+          type: string
+
+    PlatformCapabilityModuleListResponse:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        total_modules:
+          type: integer
+        total_capabilities:
+          type: integer
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityModuleDTO'
+
+    PlatformCapabilityModuleResponse:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        module:
+          $ref: '#/components/schemas/PlatformCapabilityModuleDTO'
+
+    PlatformCapabilityModuleDTO:
+      type: object
+      properties:
+        module:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        capability_count:
+          type: integer
+        protocol_channels:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityDTO'
+
+    PlatformCapabilityDTO:
+      type: object
+      properties:
+        capability_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+        source:
+          type: string
+          enum: [corex]
+        plugin_id:
+          type: string
+        plugin_version:
+          type: string
+        docs:
+          type: array
+          items:
+            type: string
+        capabilities_hash:
+          type: string
+        preferred_protocol:
+          type: string
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolBindingDTO'
+        debug_examples:
+          $ref: '#/components/schemas/PlatformCapabilityDebugExamples'
+
+    PlatformCapabilityDebugExamples:
+      type: object
+      properties:
+        tenant_invocation_curl:
+          type: string
+        tenant_invocation_payload:
+          type: object
+          additionalProperties: true

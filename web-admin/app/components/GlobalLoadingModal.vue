@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useColorMode } from "#imports";
+import { LOGO_M_URL } from "~/utils/assets";
+
 const props = defineProps<{
   message?: string;
   progress?: number; // 0-100 的百分比，如果提供则显示进度条，否则显示跳动点
@@ -115,7 +118,7 @@ const progressValue = computed(() =>
               class="absolute inset-3 w-26 h-26 flex items-center justify-center"
             >
               <img
-                src="/images/logo-m.png"
+                :src="LOGO_M_URL"
                 alt="PowerX Logo"
                 class="w-22 h-22 drop-shadow-2xl animate-pulse-gentle"
               />

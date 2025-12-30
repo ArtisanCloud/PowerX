@@ -9,6 +9,7 @@ import (
 	compat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
 	gov "github.com/ArtisanCloud/PowerX/internal/service/plugin_governance"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,11 +41,17 @@ func (h *handler) scan(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "version governance disabled", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return
+	}
 	var req gov.ScanInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	req.TenantUUID = strings.TrimSpace(tenantUUID)
 	report, err := h.gov.Scan(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -58,10 +65,15 @@ func (h *handler) board(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "version governance disabled", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return
+	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	filter := gov.BoardFilter{
-		TenantID: strings.TrimSpace(c.Query("tenantId")),
-		Limit:    limit,
+		TenantUUID: strings.TrimSpace(tenantUUID),
+		Limit:      limit,
 	}
 	summary, err := h.gov.Board(c.Request.Context(), filter)
 	if err != nil {
@@ -76,11 +88,17 @@ func (h *handler) check(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "compatibility service disabled", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return
+	}
 	var req compat.CheckRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	req.TenantUUID = strings.TrimSpace(tenantUUID)
 	result, err := h.compat.Check(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -94,11 +112,17 @@ func (h *handler) createException(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "compatibility service disabled", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return
+	}
 	var req compat.ExceptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	req.TenantUUID = strings.TrimSpace(tenantUUID)
 	entity, err := h.compat.CreateException(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -132,4 +156,3 @@ func (h *handler) approveException(c *gin.Context) {
 	}
 	dto.ResponseSuccess(c, entity)
 }
-

@@ -20,15 +20,15 @@ func NewAIModelProfileRepository(db *gorm.DB) *AIModelProfileRepository {
 	}
 }
 
-// Upsert 唯一键：env + tenant_id + modality + provider + model
+// Upsert 唯一键：env + tenant_uuid + modality + provider + model
 func (r *AIModelProfileRepository) UpsertByScopeModalityProviderModel(
-	ctx context.Context, env string, tenantID *uint64, in *dbmodel.AIModelProfile,
+	ctx context.Context, env string, tenantUUID *string, in *dbmodel.AIModelProfile,
 ) error {
 	tx := r.db.WithContext(ctx)
 
 	// 写库前强制回写作用域
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"label":      in.Label,
@@ -39,10 +39,10 @@ func (r *AIModelProfileRepository) UpsertByScopeModalityProviderModel(
 
 	// 根据是否有租户，选择对应的冲突列集（匹配上面两条部分唯一索引）
 	var conflict clause.OnConflict
-	if tenantID != nil {
+	if tenantUUID != nil {
 		conflict = clause.OnConflict{
 			Columns: []clause.Column{
-				{Name: "env"}, {Name: "tenant_id"},
+				{Name: "env"}, {Name: "tenant_uuid"},
 				{Name: "modality"}, {Name: "provider"}, {Name: "model"},
 			},
 			DoUpdates: assign,
@@ -60,10 +60,10 @@ func (r *AIModelProfileRepository) UpsertByScopeModalityProviderModel(
 	return tx.Clauses(conflict).Create(in).Error
 }
 
-func (r *AIModelProfileRepository) FindByScopeModalityProviderModel(ctx context.Context, env string, tenantID *uint64, modality, provider, model string) (*dbmodel.AIModelProfile, error) {
+func (r *AIModelProfileRepository) FindByScopeModalityProviderModel(ctx context.Context, env string, tenantUUID *string, modality, provider, model string) (*dbmodel.AIModelProfile, error) {
 	var out dbmodel.AIModelProfile
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("modality = ? AND provider = ? AND model = ?", modality, provider, model).
 		First(&out).Error
 	if err != nil {
@@ -73,10 +73,10 @@ func (r *AIModelProfileRepository) FindByScopeModalityProviderModel(ctx context.
 }
 
 func (r *AIModelProfileRepository) ListByScope(
-	ctx context.Context, env string, tenantID *uint64, modalities ...string,
+	ctx context.Context, env string, tenantUUID *string, modalities ...string,
 ) ([]dbmodel.AIModelProfile, error) {
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Model(&dbmodel.AIModelProfile{})
 
 	if len(modalities) > 0 {

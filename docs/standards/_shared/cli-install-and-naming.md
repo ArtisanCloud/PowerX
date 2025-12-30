@@ -198,7 +198,7 @@ px-plugin dev --watch \
   --grpc-addr localhost:9090 \
   --host-api http://localhost:8077/api \
   --token "$POWERX_ADMIN_TOKEN" \
-  --tenant-id 101 \
+  --tenant-uuid 101 \
   --developer-id 2025 \
   --artifact ./dist/plugin.zip \
   --artifact-uri file://$(pwd)/dist/plugin.zip \
@@ -220,7 +220,7 @@ px-plugin dev --watch \
 px-plugin dev --watch \
   --dev-api http://localhost:8077/api/v1 \
   --token "$POWERX_ADMIN_TOKEN" \
-  --tenant-id 101 \
+  --tenant-uuid 101 \
   --developer-id 2025 \
   --entry . \
   --artifact ./dist/plugin.zip

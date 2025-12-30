@@ -184,14 +184,14 @@ func NewService(opts ServiceOptions) *Service {
 // Register 创建新代理档案并记录初始生命周期事件。
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*LifecycleResult, error) {
 	start := s.clock()
-	if strings.TrimSpace(in.TenantID) == "" || strings.TrimSpace(in.Alias) == "" {
-		return nil, fmt.Errorf("tenant_id and alias are required")
+	if strings.TrimSpace(in.TenantUUID) == "" || strings.TrimSpace(in.Alias) == "" {
+		return nil, fmt.Errorf("tenant_uuid and alias are required")
 	}
 
 	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
-	ctx = agentinstr.WithTenant(ctx, in.TenantID)
+	ctx = agentinstr.WithTenant(ctx, in.TenantUUID)
 
-	if _, err := s.profiles.GetByTenantAlias(ctx, in.TenantID, in.Alias); err == nil {
+	if _, err := s.profiles.GetByTenantAlias(ctx, in.TenantUUID, in.Alias); err == nil {
 		return nil, ErrAliasConflict
 	} else if err != nil && !errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
 		return nil, err
@@ -217,7 +217,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*LifecycleRes
 	}
 
 	profile := &agentmodel.AgentProfileLifecycle{
-		TenantID:                 in.TenantID,
+		TenantUUID:               in.TenantUUID,
 		Alias:                    in.Alias,
 		DisplayName:              defaultDisplayName(in.DisplayName, in.Alias),
 		Status:                   "pending",
@@ -247,12 +247,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*LifecycleRes
 	}
 
 	s.publishLifecycle(ctx, "registered", map[string]any{
-		"agent_id":  created.UUID.String(),
-		"tenant_id": created.TenantID,
-		"status":    created.Status,
+		"agent_id":    created.UUID.String(),
+		"tenant_uuid": created.TenantUUID,
+		"status":      created.Status,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, in.TenantID, created.UUID.String(), "REGISTER_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, in.TenantUUID, created.UUID.String(), "REGISTER_AGENT", "SUCCESS", map[string]any{
 		"alias": in.Alias,
 	})
 
@@ -278,11 +278,11 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*LifecycleRes
 		}
 		return nil, err
 	}
-	tenantID := strings.TrimSpace(in.TenantID)
-	if tenantID == "" {
-		tenantID = profile.TenantID
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = profile.TenantUUID
 	}
-	ctx = agentinstr.WithTenant(ctx, tenantID)
+	ctx = agentinstr.WithTenant(ctx, tenantUUID)
 
 	if profile.Status == "active" {
 		return &LifecycleResult{Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata))}, nil
@@ -307,13 +307,13 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*LifecycleRes
 	}
 
 	s.publishLifecycle(ctx, "activated", map[string]any{
-		"agent_id":  profile.UUID.String(),
-		"tenant_id": profile.TenantID,
-		"from":      fromStatus,
-		"to":        profile.Status,
+		"agent_id":    profile.UUID.String(),
+		"tenant_uuid": profile.TenantUUID,
+		"from":        fromStatus,
+		"to":          profile.Status,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "ACTIVATE_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, profile.UUID.String(), "ACTIVATE_AGENT", "SUCCESS", map[string]any{
 		"from": fromStatus,
 		"to":   profile.Status,
 	})
@@ -338,11 +338,11 @@ func (s *Service) Pause(ctx context.Context, in PauseInput) (*LifecycleResult, e
 		return nil, err
 	}
 
-	tenantID := strings.TrimSpace(in.TenantID)
-	if tenantID == "" {
-		tenantID = profile.TenantID
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = profile.TenantUUID
 	}
-	ctx = agentinstr.WithTenant(ctx, tenantID)
+	ctx = agentinstr.WithTenant(ctx, tenantUUID)
 
 	if profile.Status != "active" {
 		return nil, ErrInvalidStatusTransition
@@ -365,14 +365,14 @@ func (s *Service) Pause(ctx context.Context, in PauseInput) (*LifecycleResult, e
 	}
 
 	s.publishLifecycle(ctx, "paused", map[string]any{
-		"agent_id":  profile.UUID.String(),
-		"tenant_id": tenantID,
-		"from":      fromStatus,
-		"to":        profile.Status,
-		"reason":    in.Reason,
+		"agent_id":    profile.UUID.String(),
+		"tenant_uuid": tenantUUID,
+		"from":        fromStatus,
+		"to":          profile.Status,
+		"reason":      in.Reason,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "PAUSE_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, profile.UUID.String(), "PAUSE_AGENT", "SUCCESS", map[string]any{
 		"from":   fromStatus,
 		"to":     profile.Status,
 		"reason": in.Reason,
@@ -398,11 +398,11 @@ func (s *Service) Resume(ctx context.Context, in ResumeInput) (*LifecycleResult,
 		return nil, err
 	}
 
-	tenantID := strings.TrimSpace(in.TenantID)
-	if tenantID == "" {
-		tenantID = profile.TenantID
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = profile.TenantUUID
 	}
-	ctx = agentinstr.WithTenant(ctx, tenantID)
+	ctx = agentinstr.WithTenant(ctx, tenantUUID)
 
 	if profile.Status != "paused" {
 		return nil, ErrInvalidStatusTransition
@@ -425,13 +425,13 @@ func (s *Service) Resume(ctx context.Context, in ResumeInput) (*LifecycleResult,
 	}
 
 	s.publishLifecycle(ctx, "resumed", map[string]any{
-		"agent_id":  profile.UUID.String(),
-		"tenant_id": tenantID,
-		"from":      fromStatus,
-		"to":        profile.Status,
+		"agent_id":    profile.UUID.String(),
+		"tenant_uuid": tenantUUID,
+		"from":        fromStatus,
+		"to":          profile.Status,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "RESUME_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, profile.UUID.String(), "RESUME_AGENT", "SUCCESS", map[string]any{
 		"from": fromStatus,
 		"to":   profile.Status,
 	})
@@ -456,11 +456,11 @@ func (s *Service) Retire(ctx context.Context, in RetireInput) (*LifecycleResult,
 		return nil, err
 	}
 
-	tenantID := strings.TrimSpace(in.TenantID)
-	if tenantID == "" {
-		tenantID = profile.TenantID
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = profile.TenantUUID
 	}
-	ctx = agentinstr.WithTenant(ctx, tenantID)
+	ctx = agentinstr.WithTenant(ctx, tenantUUID)
 
 	if profile.Status == "retired" {
 		return &LifecycleResult{Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata))}, nil
@@ -488,14 +488,14 @@ func (s *Service) Retire(ctx context.Context, in RetireInput) (*LifecycleResult,
 	}
 
 	s.publishLifecycle(ctx, "retired", map[string]any{
-		"agent_id":  profile.UUID.String(),
-		"tenant_id": tenantID,
-		"from":      fromStatus,
-		"to":        profile.Status,
-		"reason":    in.Reason,
+		"agent_id":    profile.UUID.String(),
+		"tenant_uuid": tenantUUID,
+		"from":        fromStatus,
+		"to":          profile.Status,
+		"reason":      in.Reason,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "RETIRE_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, profile.UUID.String(), "RETIRE_AGENT", "SUCCESS", map[string]any{
 		"from":   fromStatus,
 		"to":     profile.Status,
 		"reason": in.Reason,
@@ -524,11 +524,11 @@ func (s *Service) Scale(ctx context.Context, in ScaleInput) (*LifecycleResult, e
 		return nil, err
 	}
 
-	tenantID := strings.TrimSpace(in.TenantID)
-	if tenantID == "" {
-		tenantID = profile.TenantID
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = profile.TenantUUID
 	}
-	ctx = agentinstr.WithTenant(ctx, tenantID)
+	ctx = agentinstr.WithTenant(ctx, tenantUUID)
 
 	if profile.Status != "active" {
 		return nil, ErrInvalidStatusTransition
@@ -556,13 +556,13 @@ func (s *Service) Scale(ctx context.Context, in ScaleInput) (*LifecycleResult, e
 
 	s.publishLifecycle(ctx, "scaled", map[string]any{
 		"agent_id":      profile.UUID.String(),
-		"tenant_id":     tenantID,
+		"tenant_uuid":   tenantUUID,
 		"from_capacity": fromCapacity,
 		"to_capacity":   in.Target,
 		"reason":        in.Reason,
 	}, traceID)
 
-	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "SCALE_AGENT", "SUCCESS", map[string]any{
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, profile.UUID.String(), "SCALE_AGENT", "SUCCESS", map[string]any{
 		"from_capacity": fromCapacity,
 		"to_capacity":   in.Target,
 		"reason":        in.Reason,
@@ -587,8 +587,8 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*Agent, error) {
 }
 
 // ListByTenant 返回租户下的代理集合。
-func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]*Agent, error) {
-	items, _, err := s.profiles.ListByTenant(ctx, tenantID, 0, 0)
+func (s *Service) ListByTenant(ctx context.Context, tenantUUID string) ([]*Agent, error) {
+	items, _, err := s.profiles.ListByTenant(ctx, tenantUUID, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -734,7 +734,7 @@ func (s *Service) UpdateSubscription(ctx context.Context, input SubscriptionUpda
 		}
 		return nil, err
 	}
-	if strings.TrimSpace(input.TenantID) != "" && !strings.EqualFold(profile.TenantID, input.TenantID) {
+	if strings.TrimSpace(input.TenantUUID) != "" && !strings.EqualFold(profile.TenantUUID, input.TenantUUID) {
 		return nil, fmt.Errorf("tenant mismatch")
 	}
 
@@ -784,7 +784,7 @@ func (s *Service) appendLifecycleEvent(ctx context.Context, profile *agentmodel.
 	}
 	evt := &agentmodel.AgentLifecycleEventRecord{
 		AgentUUID:         profile.UUID,
-		TenantID:          profile.TenantID,
+		TenantUUID:        profile.TenantUUID,
 		EventType:         eventType,
 		FromStatus:        fromStatus,
 		ToStatus:          toStatus,
@@ -861,7 +861,7 @@ func toAgent(model *agentmodel.AgentProfileLifecycle, toolGrants []ToolGrant, me
 	}
 	return &Agent{
 		ID:                       model.UUID,
-		TenantID:                 model.TenantID,
+		TenantUUID:               model.TenantUUID,
 		Alias:                    model.Alias,
 		DisplayName:              model.DisplayName,
 		Status:                   model.Status,

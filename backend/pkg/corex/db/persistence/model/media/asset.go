@@ -19,7 +19,7 @@ type MediaAsset struct {
 
 	AuditMixin
 
-	TenantID   uint64 `gorm:"column:tenant_id;not null;index:idx_media_asset_tenant_status,priority:1;index:idx_media_asset_owner,priority:1;uniqueIndex:uk_media_asset_tenant_driver_key,priority:1" json:"tenant_id"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_media_asset_tenant_status,priority:1;index:idx_media_asset_owner,priority:1;uniqueIndex:uk_media_asset_tenant_driver_key,priority:1" json:"tenant_uuid"`
 	Name       string `gorm:"column:name;type:varchar(255);not null;index" json:"name"`
 	Driver     string `gorm:"column:driver;type:varchar(32);not null;index;uniqueIndex:uk_media_asset_tenant_driver_key,priority:2" json:"driver"`
 	StorageKey string `gorm:"column:storage_key;type:varchar(1024);not null;uniqueIndex:uk_media_asset_tenant_driver_key,priority:3" json:"storage_key"`

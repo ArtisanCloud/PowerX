@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
+	"github.com/gin-gonic/gin"
 )
 
 // RouterHandler 处理 Router 相关 HTTP 请求。
@@ -25,7 +25,7 @@ func NewRouterHandler(service *router.Service) *RouterHandler {
 
 type invokeRequest struct {
 	CapabilityID string            `json:"capability_id" binding:"required"`
-	TenantID     string            `json:"tenant_id" binding:"required"`
+	TenantUUID   string            `json:"tenant_uuid" binding:"required"`
 	Payload      json.RawMessage   `json:"payload"`
 	StickyKey    string            `json:"sticky_key"`
 	TimeoutMs    int               `json:"timeout_ms"`
@@ -43,7 +43,7 @@ type invokeResponse struct {
 
 type reportHealthRequest struct {
 	CapabilityID string `json:"capability_id" binding:"required"`
-	TenantID     string `json:"tenant_id" binding:"required"`
+	TenantUUID   string `json:"tenant_uuid" binding:"required"`
 	AdapterID    string `json:"adapter_id" binding:"required"`
 	Status       string `json:"status" binding:"required"`
 	Reason       string `json:"reason"`
@@ -54,18 +54,18 @@ type reportHealthRequest struct {
 func (h *RouterHandler) Invoke(ctx *gin.Context) {
 	var req invokeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": "router.invalid_request", "message": err.Error()})
+		capability_registrydto.RespondError(ctx, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	result, err := h.service.Invoke(ctx.Request.Context(), router.InvokeRequest{
 		CapabilityID: req.CapabilityID,
-		TenantID:     req.TenantID,
+		TenantUUID:   trimTenantUUID(req.TenantUUID),
 		Payload:      req.Payload,
 		Timeout:      timeDuration(req.TimeoutMs),
 		StickyKey:    req.StickyKey,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": "router.invoke_failed", "message": err.Error()})
+		capability_registrydto.RespondError(ctx, capability_registrydto.ErrInvokeFailed, err)
 		return
 	}
 	var payload any
@@ -91,18 +91,18 @@ func (h *RouterHandler) Invoke(ctx *gin.Context) {
 func (h *RouterHandler) ReportHealth(ctx *gin.Context) {
 	var req reportHealthRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": "router.invalid_request", "message": err.Error()})
+		capability_registrydto.RespondError(ctx, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	if err := h.service.ReportHealth(ctx.Request.Context(), router.ReportHealthInput{
 		CapabilityID: req.CapabilityID,
-		TenantID:     req.TenantID,
+		TenantUUID:   trimTenantUUID(req.TenantUUID),
 		AdapterID:    req.AdapterID,
 		Status:       req.Status,
 		Reason:       req.Reason,
 		Failures:     req.Failures,
 	}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": "router.report_failed", "message": err.Error()})
+		capability_registrydto.RespondError(ctx, capability_registrydto.ErrInternal, err)
 		return
 	}
 	ctx.Status(http.StatusAccepted)

@@ -827,13 +827,13 @@ paths:
             summary: GET /api/v1/admin/plugins/marketplace/plugins
             tags:
                 - api
-    /api/v1/admin/plugins/marketplace/plugins_v2:
+    /api/v1/admin/plugins/marketplace/plugins:
         get:
-            operationId: GET /api/v1/admin/plugins/marketplace/plugins_v2
+            operationId: GET /api/v1/admin/plugins/marketplace/plugins
             responses:
                 "200":
                     description: OK
-            summary: GET /api/v1/admin/plugins/marketplace/plugins_v2
+            summary: GET /api/v1/admin/plugins/marketplace/plugins
             tags:
                 - api
     /api/v1/admin/plugins/menus:
@@ -888,38 +888,38 @@ paths:
             summary: PUT /api/v1/admin/system/settings/system/_key
             tags:
                 - api
-    /api/v1/admin/system/settings/tenant/:tenant_id:
+    /api/v1/admin/system/settings/tenant:
         get:
-            operationId: GET /api/v1/admin/system/settings/tenant/_tenant_id
+            operationId: GET /api/v1/admin/system/settings/tenant
             responses:
                 "200":
                     description: OK
-            summary: GET /api/v1/admin/system/settings/tenant/_tenant_id
+            summary: GET /api/v1/admin/system/settings/tenant
             tags:
                 - api
-    /api/v1/admin/system/settings/tenant/:tenant_id/:key:
+    /api/v1/admin/system/settings/tenant/:key:
         delete:
-            operationId: DELETE /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            operationId: DELETE /api/v1/admin/system/settings/tenant/_key
             responses:
                 "200":
                     description: OK
-            summary: DELETE /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            summary: DELETE /api/v1/admin/system/settings/tenant/_key
             tags:
                 - api
         get:
-            operationId: GET /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            operationId: GET /api/v1/admin/system/settings/tenant/_key
             responses:
                 "200":
                     description: OK
-            summary: GET /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            summary: GET /api/v1/admin/system/settings/tenant/_key
             tags:
                 - api
         put:
-            operationId: PUT /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            operationId: PUT /api/v1/admin/system/settings/tenant/_key
             responses:
                 "200":
                     description: OK
-            summary: PUT /api/v1/admin/system/settings/tenant/_tenant_id/_key
+            summary: PUT /api/v1/admin/system/settings/tenant/_key
             tags:
                 - api
     /api/v1/admin/system/sts/:pluginId:
@@ -1247,5 +1247,47 @@ paths:
             summary: GET /ws/agents/stream/ws
             tags:
                 - ws
+    /api/v1/internal/plugins/releases:
+        get:
+            operationId: GET /api/v1/internal/plugins/releases
+            summary: GET /api/v1/internal/plugins/releases
+            parameters:
+                - in: query
+                  name: page
+                  schema:
+                      type: integer
+                - in: query
+                  name: size
+                  schema:
+                      type: integer
+                - in: query
+                  name: tenantId
+                  schema:
+                      type: string
+                - in: query
+                  name: pluginId
+                  schema:
+                      type: string
+                - in: query
+                  name: version
+                  schema:
+                      type: string
+                - in: query
+                  name: approvalStatus
+                  schema:
+                      type: string
+                - in: query
+                  name: gateStatus
+                  schema:
+                      type: string
+                - in: query
+                  name: createdBy
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: OK
+            tags:
+                - api
 servers:
     - url: /

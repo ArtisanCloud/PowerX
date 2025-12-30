@@ -2,7 +2,9 @@ package media
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -29,7 +32,11 @@ func (h *Handler) CreateAsset(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	operatorID := operatorIDFromRequest(c)
 	size := int64(0)
 	if req.SizeBytes != nil {
@@ -37,7 +44,7 @@ func (h *Handler) CreateAsset(c *gin.Context) {
 	}
 
 	asset, err := h.svc.CreateAsset(c.Request.Context(), mediasvc.CreateAssetInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		OperatorID:   operatorID,
 		Name:         req.Name,
 		Description:  req.Description,
@@ -74,14 +81,18 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	var drivers []string
 	if driver := strings.TrimSpace(req.Driver); driver != "" {
 		drivers = []string{driver}
 	}
 
 	assets, total, err := h.svc.ListAssets(c.Request.Context(), mediasvc.ListAssetsInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		UUIDs:          req.UUIDs,
 		Drivers:        drivers,
 		OwnerType:      req.OwnerSubjectType,
@@ -106,9 +117,13 @@ func (h *Handler) ListAssets(c *gin.Context) {
 }
 
 func (h *Handler) GetAsset(c *gin.Context) {
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	uuid := c.Param("uuid")
-	asset, err := h.svc.GetAsset(c.Request.Context(), tenantID, uuid, false)
+	asset, err := h.svc.GetAsset(c.Request.Context(), tenantUUID, uuid, false)
 	if err != nil {
 		dto.ResponseError(c, http.StatusNotFound, "媒体资产不存在", err)
 		return
@@ -122,12 +137,16 @@ func (h *Handler) UpdateAsset(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	operatorID := operatorIDFromRequest(c)
 	uuid := c.Param("uuid")
 
 	asset, err := h.svc.UpdateAsset(c.Request.Context(), mediasvc.UpdateAssetInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		UUID:           uuid,
 		OperatorID:     operatorID,
 		Name:           req.Name,
@@ -148,11 +167,15 @@ func (h *Handler) UpdateAsset(c *gin.Context) {
 }
 
 func (h *Handler) DeleteAsset(c *gin.Context) {
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	operatorID := operatorIDFromRequest(c)
 	uuid := c.Param("uuid")
-	err := h.svc.DeleteAsset(c.Request.Context(), mediasvc.DeleteAssetInput{
-		TenantID:   tenantID,
+	err = h.svc.DeleteAsset(c.Request.Context(), mediasvc.DeleteAssetInput{
+		TenantUUID: tenantUUID,
 		UUID:       uuid,
 		OperatorID: operatorID,
 	})
@@ -173,7 +196,11 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := tenantIDFromRequest(c)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	operatorID := operatorIDFromRequest(c)
 	uuid := c.Param("uuid")
 
@@ -193,7 +220,7 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 		headers.Set("Content-Type", ct)
 	}
 	out, err := h.svc.PresignAsset(c.Request.Context(), mediasvc.PresignAssetInput{
-		TenantID:    tenantID,
+		TenantUUID:  tenantUUID,
 		UUID:        uuid,
 		OperatorID:  operatorID,
 		Action:      req.Action,
@@ -223,15 +250,46 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 	})
 }
 
-func tenantIDFromRequest(c *gin.Context) uint64 {
-	for _, key := range []string{"X-PowerX-Tenant-ID", "X-Tenant-ID", "Tenant-ID"} {
-		if value := strings.TrimSpace(c.GetHeader(key)); value != "" {
-			if id, err := strconv.ParseUint(value, 10, 64); err == nil {
-				return id
-			}
-		}
+func (h *Handler) Resource(c *gin.Context) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
 	}
-	return 1
+	uuid := c.Param("uuid")
+	asset, object, err := h.svc.OpenAssetResource(c.Request.Context(), tenantUUID, uuid)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, "打开资源失败", err)
+		return
+	}
+	if asset == nil {
+		dto.ResponseError(c, http.StatusNotFound, "媒体资产不存在", nil)
+		return
+	}
+	if asset.ExternalURL != "" {
+		c.Redirect(http.StatusTemporaryRedirect, asset.ExternalURL)
+		return
+	}
+	if object == nil || object.Body == nil {
+		dto.ResponseError(c, http.StatusNotFound, "媒资内容不存在", nil)
+		return
+	}
+	defer object.Body.Close()
+
+	mimeType := deriveAdminMime(asset, object.ContentType)
+	fileName := deriveAdminFileName(asset)
+	disposition := sanitizeDisposition(c.DefaultQuery("disposition", "inline"))
+
+	headers := map[string]string{
+		"Content-Disposition":    fmt.Sprintf("%s; filename=%q", disposition, fileName),
+		"X-Content-Type-Options": "nosniff",
+	}
+	length := object.Size
+	c.DataFromReader(http.StatusOK, length, mimeType, object.Body, headers)
 }
 
 func operatorIDFromRequest(c *gin.Context) *uint64 {
@@ -248,7 +306,7 @@ func operatorIDFromRequest(c *gin.Context) *uint64 {
 
 type assetResponse struct {
 	UUID              string         `json:"uuid"`
-	TenantID          string         `json:"tenantId"`
+	TenantUUID        string         `json:"tenant_uuid"`
 	Name              string         `json:"name"`
 	Description       string         `json:"description,omitempty"`
 	Driver            string         `json:"driver"`
@@ -275,7 +333,7 @@ func assetView(asset *mediasvc.Asset) assetResponse {
 	}
 	resp := assetResponse{
 		UUID:              asset.UUID,
-		TenantID:          strconv.FormatUint(asset.TenantID, 10),
+		TenantUUID:        asset.TenantUUID,
 		Name:              asset.Name,
 		Description:       asset.Description,
 		Driver:            asset.Driver,
@@ -327,4 +385,43 @@ func flattenHeaders(headers http.Header) map[string]string {
 		return nil
 	}
 	return result
+}
+
+func deriveAdminMime(asset *mediasvc.Asset, fallback string) string {
+	if asset != nil {
+		if mt := strings.TrimSpace(asset.MimeType); mt != "" {
+			return mt
+		}
+	}
+	if trimmed := strings.TrimSpace(fallback); trimmed != "" {
+		return trimmed
+	}
+	return "application/octet-stream"
+}
+
+func deriveAdminFileName(asset *mediasvc.Asset) string {
+	if asset == nil {
+		return "media.bin"
+	}
+	if key := strings.TrimSpace(asset.StorageKey); key != "" {
+		if base := path.Base(key); base != "" && base != "." && base != "/" {
+			return base
+		}
+	}
+	if name := strings.TrimSpace(asset.Name); name != "" {
+		return name
+	}
+	if asset.UUID != "" {
+		return asset.UUID
+	}
+	return "media.bin"
+}
+
+func sanitizeDisposition(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "attachment":
+		return "attachment"
+	default:
+		return "inline"
+	}
 }

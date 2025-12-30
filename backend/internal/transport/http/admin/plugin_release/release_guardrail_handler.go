@@ -9,6 +9,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -27,7 +28,6 @@ func newReleaseGuardrailHandler(p *pipeline.Service) *releaseGuardrailHandler {
 }
 
 type createCandidateRequest struct {
-	TenantID     string            `json:"tenantId" binding:"required"`
 	PluginID     string            `json:"pluginId" binding:"required"`
 	Version      string            `json:"version" binding:"required"`
 	ArtifactURI  string            `json:"buildArtifactUri" binding:"required"`
@@ -62,8 +62,13 @@ func (h *releaseGuardrailHandler) createCandidate(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
 	candidate, err := h.pipeline.SubmitCandidate(c.Request.Context(), pipeline.SubmitCandidateInput{
-		TenantID:      strings.TrimSpace(req.TenantID),
+		TenantUUID:    strings.TrimSpace(tenantUUID),
 		PluginID:      strings.TrimSpace(req.PluginID),
 		Version:       strings.TrimSpace(req.Version),
 		BuildArtifact: strings.TrimSpace(req.ArtifactURI),
@@ -170,7 +175,7 @@ func (h *releaseGuardrailHandler) createPlan(c *gin.Context) {
 
 type candidateResponse struct {
 	ID             string            `json:"candidateId"`
-	TenantID       string            `json:"tenantId"`
+	TenantUUID     string            `json:"tenant_uuid"`
 	PluginID       string            `json:"pluginId"`
 	Version        string            `json:"version"`
 	BuildArtifact  string            `json:"buildArtifactUri"`
@@ -178,16 +183,19 @@ type candidateResponse struct {
 	ReleaseNotes   string            `json:"releaseNotes"`
 	GateStatus     string            `json:"gateStatus"`
 	ApprovalStatus string            `json:"approvalStatus"`
+	CreatedBy      string            `json:"createdBy,omitempty"`
 	SubmittedAt    string            `json:"submittedAt,omitempty"`
 	GatesCheckedAt string            `json:"gatesCheckedAt,omitempty"`
 	ApprovedAt     string            `json:"approvedAt,omitempty"`
+	CreatedAt      string            `json:"createdAt,omitempty"`
+	UpdatedAt      string            `json:"updatedAt,omitempty"`
 	Labels         map[string]string `json:"labels,omitempty"`
 }
 
 func toCandidateResponse(candidate *models.PluginReleaseCandidate) candidateResponse {
 	resp := candidateResponse{
 		ID:             candidate.UUID.String(),
-		TenantID:       candidate.TenantID,
+		TenantUUID:     candidate.TenantUUID,
 		PluginID:       candidate.PluginID,
 		Version:        candidate.Version,
 		BuildArtifact:  candidate.BuildArtifactURI,
@@ -204,6 +212,17 @@ func toCandidateResponse(candidate *models.PluginReleaseCandidate) candidateResp
 	}
 	if candidate.ApprovedAt != nil {
 		resp.ApprovedAt = candidate.ApprovedAt.UTC().Format(time.RFC3339)
+	}
+	if strings.TrimSpace(candidate.CreatedBy) != "" {
+		resp.CreatedBy = strings.TrimSpace(candidate.CreatedBy)
+	} else {
+		resp.CreatedBy = "system"
+	}
+	if !candidate.CreatedAt.IsZero() {
+		resp.CreatedAt = candidate.CreatedAt.UTC().Format(time.RFC3339)
+	}
+	if !candidate.UpdatedAt.IsZero() {
+		resp.UpdatedAt = candidate.UpdatedAt.UTC().Format(time.RFC3339)
 	}
 	resp.Labels = decodeStringMap(candidate.Labels)
 	return resp

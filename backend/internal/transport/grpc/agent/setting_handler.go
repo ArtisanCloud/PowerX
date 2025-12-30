@@ -2,14 +2,13 @@ package agentgrpc
 
 import (
 	"context"
-	settingv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	"strings"
 	"time"
 
+	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
+	settingv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	"github.com/jinzhu/copier"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -27,7 +26,9 @@ type SettingAIServiceServer struct {
 }
 
 func NewSettingAIServiceServer(deps *shared.Deps) *SettingAIServiceServer {
-	return &SettingAIServiceServer{svc: agentSvc.NewAgentSettingService(deps.DB)}
+	return &SettingAIServiceServer{
+		svc: agentSvc.NewAgentSettingService(deps.DB),
+	}
 }
 
 /*************** Meta helpers ***************/
@@ -79,27 +80,34 @@ func (s *SettingAIServiceServer) ListModels(ctx context.Context, req *settingv1.
 /*************** SaveSettings ***************/
 func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv1.SaveSettingsRequest) (*settingv1.SaveSettingsResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.SaveSettingsResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.SaveSettingsData{Ok: false},
+		}, nil
+	}
+	tenantRef := tenantUUID
 	mod := modalityToString(req.GetModality())
 
 	// 直连校验（以 LLM 为例）
 	if req.GetLlm() != nil {
 		base := req.GetLlm().GetBase()
-		if err := s.svc.PingLLM(ctx, env, &tid, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey()); err != nil {
+		if err := s.svc.PingLLM(ctx, env, &tenantRef, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey()); err != nil {
 			return &settingv1.SaveSettingsResponse{
 				Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
 				Data: &settingv1.SaveSettingsData{Ok: false},
 			}, nil
 		}
 	}
-	cred, prof := buildCredentialAndProfileFromSaveReq(env, tid, mod, req)
+	cred, prof := buildCredentialAndProfileFromSaveReq(env, &tenantRef, mod, req)
 	if cred == nil || prof == nil {
 		return &settingv1.SaveSettingsResponse{
 			Meta: badMeta(ctx, 400, "invalid setting payload", req.GetCtx().GetRequestId()),
 			Data: &settingv1.SaveSettingsData{Ok: false},
 		}, nil
 	}
-	if err := s.svc.SaveCredentialAndProfile(ctx, env, &tid, cred, prof, true); err != nil {
+	if err := s.svc.SaveCredentialAndProfile(ctx, env, &tenantRef, cred, prof, true); err != nil {
 		return &settingv1.SaveSettingsResponse{
 			Meta: badMeta(ctx, 500, err.Error(), req.GetCtx().GetRequestId()),
 			Data: &settingv1.SaveSettingsData{Ok: false},
@@ -114,9 +122,16 @@ func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv
 /*************** TestConnection ***************/
 func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settingv1.TestConnectionRequest) (*settingv1.TestConnectionResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.TestConnectionResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.TestConnectionData{Ok: false},
+		}, nil
+	}
+	tenantRef := tenantUUID
 	provider, model, baseURL, apiKey := pickProviderModelConn(req.GetModality(), req)
-	if err := s.svc.TestConnectionPreferInput(ctx, env, &tid, modalityToString(req.GetModality()), provider, model, baseURL, apiKey); err != nil {
+	if err := s.svc.TestConnectionPreferInput(ctx, env, &tenantRef, modalityToString(req.GetModality()), provider, model, baseURL, apiKey); err != nil {
 		return &settingv1.TestConnectionResponse{
 			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
 			Data: &settingv1.TestConnectionData{Ok: false},
@@ -131,7 +146,14 @@ func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settin
 /*************** TestQuickCall（LLM） ***************/
 func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *settingv1.TestQuickCallRequest) (*settingv1.TestQuickCallResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.TestQuickCallResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.TestQuickCallData{Ok: false},
+		}, nil
+	}
+	tenantRef := tenantUUID
 	if req.GetLlm() == nil {
 		return &settingv1.TestQuickCallResponse{
 			Meta: badMeta(ctx, 400, "llm setting required", req.GetCtx().GetRequestId()),
@@ -140,7 +162,7 @@ func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *setting
 	}
 	b := req.GetLlm().GetBase()
 	out, err := s.svc.QuickCallLLM(
-		ctx, env, &tid,
+		ctx, env, &tenantRef,
 		b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey(),
 		req.GetLlm().GetTemperature(), int(req.GetLlm().GetMaxTokens()),
 		strings.TrimSpace(req.GetPrompt()),
@@ -160,8 +182,14 @@ func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *setting
 /*************** Profiles/Credentials ***************/
 func (s *SettingAIServiceServer) GetActiveProfile(ctx context.Context, req *settingv1.GetActiveProfileRequest) (*settingv1.GetActiveProfileResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	prof, err := s.svc.GetActiveProfile(ctx, env, &tid, modalityToString(req.GetModality()))
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.GetActiveProfileResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+		}, nil
+	}
+	tenantRef := tenantUUID
+	prof, err := s.svc.GetActiveProfile(ctx, env, &tenantRef, modalityToString(req.GetModality()))
 	if err != nil || prof == nil {
 		return &settingv1.GetActiveProfileResponse{
 			Meta: badMeta(ctx, 404, "not found", req.GetCtx().GetRequestId()),
@@ -177,8 +205,15 @@ func (s *SettingAIServiceServer) GetActiveProfile(ctx context.Context, req *sett
 
 func (s *SettingAIServiceServer) SetActiveProfile(ctx context.Context, req *settingv1.SetActiveProfileRequest) (*settingv1.SetActiveProfileResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	if err := s.svc.SetActiveProfile(ctx, env, &tid,
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.SetActiveProfileResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.SetActiveProfileData{Ok: false},
+		}, nil
+	}
+	tenantRef := tenantUUID
+	if err := s.svc.SetActiveProfile(ctx, env, &tenantRef,
 		strings.TrimSpace(req.GetModality()),
 		strings.TrimSpace(req.GetProvider()),
 		strings.TrimSpace(req.GetModel()),
@@ -196,12 +231,18 @@ func (s *SettingAIServiceServer) SetActiveProfile(ctx context.Context, req *sett
 
 func (s *SettingAIServiceServer) ListProfiles(ctx context.Context, req *settingv1.ListProfilesRequest) (*settingv1.ListProfilesResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.ListProfilesResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+		}, nil
+	}
+	tenantRef := tenantUUID
 	var mods []string
 	for _, m := range req.GetModalities() {
 		mods = append(mods, modalityToString(m))
 	}
-	out, err := s.svc.ListProfiles(ctx, env, &tid, mods...)
+	out, err := s.svc.ListProfiles(ctx, env, &tenantRef, mods...)
 	if err != nil {
 		return &settingv1.ListProfilesResponse{
 			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
@@ -220,8 +261,14 @@ func (s *SettingAIServiceServer) ListProfiles(ctx context.Context, req *settingv
 
 func (s *SettingAIServiceServer) ListCredentials(ctx context.Context, req *settingv1.ListCredentialsRequest) (*settingv1.ListCredentialsResponse, error) {
 	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	out, err := s.svc.ListCredentials(ctx, env, &tid)
+	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
+	if err != nil {
+		return &settingv1.ListCredentialsResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+		}, nil
+	}
+	tenantRef := tenantUUID
+	out, err := s.svc.ListCredentials(ctx, env, &tenantRef)
 	if err != nil {
 		return &settingv1.ListCredentialsResponse{
 			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
@@ -240,16 +287,7 @@ func (s *SettingAIServiceServer) ListCredentials(ctx context.Context, req *setti
 	return resp, nil
 }
 
-/*************** helpers ***************/
-func tenantFromReqOrCtx(ctx context.Context, rctx *commonv1.RequestContext) uint64 {
-	if rctx != nil && rctx.GetTenantId() > 0 {
-		return uint64(rctx.GetTenantId())
-	}
-	if tid := reqctx.GetTenantID(ctx); tid > 0 {
-		return tid
-	}
-	return 0
-}
+/* ************** helpers ************** */
 func modalityToString(m settingv1.Modality) string {
 	switch m {
 	case settingv1.Modality_MODALITY_LLM:
@@ -282,7 +320,7 @@ func toProtoProfile(p *dbmodel.AIModelProfile) *settingv1.AIModelProfile {
 		Tags: []string(p.Tags), Defaults: jsonMapToStruct(p.Defaults),
 	}
 }
-func buildCredentialAndProfileFromSaveReq(env string, tenantID uint64, mod string, req *settingv1.SaveSettingsRequest) (*dbmodel.AIProviderCredential, *dbmodel.AIModelProfile) {
+func buildCredentialAndProfileFromSaveReq(env string, tenantUUID *string, mod string, req *settingv1.SaveSettingsRequest) (*dbmodel.AIProviderCredential, *dbmodel.AIModelProfile) {
 	var provider, model, baseURL, apiKey string
 	data := datatypes.JSONMap{}
 	defaults := datatypes.JSONMap{}
@@ -376,11 +414,11 @@ func buildCredentialAndProfileFromSaveReq(env string, tenantID uint64, mod strin
 	}
 
 	cred := &dbmodel.AIProviderCredential{
-		Env: env, TenantID: &tenantID, Name: utils.Slug(env + "-" + provider),
+		Env: env, TenantUUID: tenantUUID, Name: utils.Slug(env + "-" + provider),
 		Provider: provider, AuthScheme: "bearer", Data: data,
 	}
 	prof := &dbmodel.AIModelProfile{
-		Env: env, TenantID: &tenantID, Modality: mod, Provider: provider, Model: model,
+		Env: env, TenantUUID: tenantUUID, Modality: mod, Provider: provider, Model: model,
 		Defaults: defaults, Tags: datatypes.JSONSlice[string]{mod},
 	}
 	return cred, prof

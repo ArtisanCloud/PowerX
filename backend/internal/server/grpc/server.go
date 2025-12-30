@@ -133,6 +133,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	if deps.DiscoverySvc != nil {
 		capabilityRegistryGRPC.RegisterCapabilityDiscoveryServer(s, deps.DiscoverySvc)
 	}
+	capabilityRegistryGRPC.RegisterIntegrationGatewayServer(s, deps)
 
 	integrationGatewayGRPC.RegisterServers(s, deps)
 	pluginreleasegrpc.RegisterServer(s, deps)
@@ -186,7 +187,13 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 
 	if deps.EventFabric != nil {
-		eventfabricgrpc.RegisterAuthorizationServer(deps)(s)
+		eventfabricgrpc.RegisterServices(
+			s,
+			eventfabricgrpc.RegisterAuthorizationServer(deps),
+			eventfabricgrpc.RegisterEventDeliveryServer(deps),
+			eventfabricgrpc.RegisterEventSubscriberServer(deps),
+			eventfabricgrpc.RegisterEventReplayServer(deps),
+		)
 	}
 
 	// ===== 反射 =====

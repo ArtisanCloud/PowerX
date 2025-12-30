@@ -10,13 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	integrationGuardrailTenantUUID  = "6fb4a7c2-4b52-47ad-ae34-1de1818a31c9"
+	integrationGuardrailScopeTenant = "b2b708bb-5f90-4cf0-80b6-a1fa51fac65c"
+)
+
 func TestReleaseGuardrailPipelineFlow(t *testing.T) {
 	env := newPluginReleaseEnv(t)
 	pipelineSvc := env.Service.Pipeline()
 	require.NotNil(t, pipelineSvc)
 
 	candidate, err := pipelineSvc.SubmitCandidate(context.Background(), pipeline.SubmitCandidateInput{
-		TenantID:      "tenant-integration",
+		TenantUUID:    integrationGuardrailTenantUUID,
 		PluginID:      "px.demo.integration",
 		Version:       "v3.0.0",
 		BuildArtifact: "s3://bucket/releases/v3.0.0.zip",
@@ -26,7 +31,7 @@ func TestReleaseGuardrailPipelineFlow(t *testing.T) {
 			"channel":  "integration",
 			"coverage": "97",
 		},
-		Actor:         "integration-test",
+		Actor: "integration-test",
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.PluginReleaseGateStatusPending, candidate.GateStatus)
@@ -48,7 +53,7 @@ func TestReleaseGuardrailPipelineFlow(t *testing.T) {
 		CanaryBatches: []pipeline.CanaryBatchInput{
 			{
 				Name:                "batch-1",
-				TenantScope:         []string{"tenant-east"},
+				TenantScope:         []string{integrationGuardrailScopeTenant},
 				MetricThresholds:    map[string]float64{"error_rate": 0.02},
 				RollbackTimeoutMins: 10,
 			},

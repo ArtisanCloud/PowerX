@@ -14,7 +14,7 @@
    px-plugin build --target local
    px-plugin dev --watch \
      --grpc-addr localhost:9090 \
-     --tenant-id 101 --developer-id 2025 \
+     --tenant-uuid 101 --developer-id 2025 \
      --artifact ./dist/plugin-bundle.zip \
      --feature-flag beta_ui
    ```
@@ -25,7 +25,7 @@
 1. 使用 `px publish create` 提交候选：
    ```bash
    px publish create \
-     --tenant-id tenant-dev \
+     --tenant-uuid tenant-dev \
      --plugin-id px.demo \
      --version v1.2.3 \
      --artifact-uri s3://bucket/px-demo-v1.2.3.zip \
@@ -110,7 +110,7 @@ PowerX Web Admin 提供了完整的图形化操作界面，操作步骤更直观
    - `POST /api/admin/plugin-release/marketplace/listings/:id/reviews`
 
 3. 企业租户自助导入：
-   - CLI：`px plugin import --offline --tenant-id <tid> --package-uri <uri> --checksum <sha>`
+   - CLI：`px plugin import --offline --tenant-uuid <tid> --package-uri <uri> --checksum <sha>`
    - OpenAPI：`POST /api/tenant/offline-imports`
 
 ### 4.3 部署菜单配置
@@ -147,3 +147,50 @@ web-admin/app/services/menuConfig.ts
 - 安全基线：`docs/guides/plugin_release/security_baseline.md`
 
 完成以上步骤即可覆盖 spec 中的全部阶段，确保插件发布能力在实践中可被开发、审核、运维、租户多角色复用。
+
+## 8. 宿主 ↔ 插件 iframe 会话桥接（postMessage）
+
+背景与 origin 说明：宿主前端常在 `localhost:3030`，插件 iframe 默认直连网关 `127.0.0.1:8077/_p/<pluginId>/admin/...`（不依赖 3030 代理）。只有在你自行配置 Nuxt dev 反代时，iframe 才可能经过 3030。浏览器按实际 origin 隔离 localStorage，宿主无法跨域直接写入插件存储，必须通过 postMessage 传递 token（与 theme/locale 共用同一桥）。
+
+数据流（主 → 从）：
+- 宿主在 `PluginWebView` 注册 iframe，`usePluginBridge` 立即发送 `sync`（locale/theme/hostOrigin）和 `auth-token`，targetOrigin 统一用 `'*'` 规避 127/localhost 差异。
+- 插件 `powerx-bridge-client.ts` 收到 `ready/request-sync` 后，宿主再次补发 `sync`+`auth-token`。插件 `onAuthToken` 经 `useHostBridgeAdapter.applyAuthToken -> useAuth.setAuth` 将 token 写入 iframe 所在 origin 的 localStorage。
+- `resolveApiBase` 根据当前路径拼 `/api/v1`，`useApiClient` 从 localStorage 读 `access_token` 并加 `Authorization`，必要时从 JWT 解出 `X-Tenant-UUID`。
+
+登录跳转规则（嵌入模式）：
+- 插件内的 `useAuth.syncFromStorage` 需检测嵌入 PowerX（`insidePowerX` 或 `__PX_ADAPTER_BOUND__`）；在嵌入模式且本地无 token 时，不应跳 `/users/login`，而是等待宿主注入 token。
+- 若看到仍跳转登录，优先检查运行时配置是否标记了嵌入模式；修正后刷新即可，避免依赖手动跳转。
+
+调试提示：
+- 插件 Console 看到 `[Bridge][Plugin] onAuthToken <- ...` 且 `after setAuth localStorage.access_token ...` 表示 token 已写入；localStorage 的 key 会落在 iframe 实际 origin（可能是 3030 而非 8077）。
+- 静态资源 `/_p/.../admin/assets/...` 不带 Authorization，不影响登录态；检查业务接口 `/api/v1/...` 的请求头是否包含 Authorization/X-Tenant-UUID 以判定会话是否生效。
+
+### 流程速查（token/locale/theme/ctx）
+- 会话来源：宿主登录后，后端会在 `/api/v1/admin/auth/me/context` 返回 `ctx/ctx_sig/ctx_jwt`（或响应头同名）；需要配好 `auth.jwt_secret`，否则不会生成签名上下文。
+- 宿主桥接：`usePluginBridge` 从 token/localStorage/cookie/window 读取 token/locale/theme/ctx，构造 `auth-token`/`sync`，`postMessage('*')` 给 iframe。
+- 插件接收：`powerx-bridge-client` 收到后调用 `useHostBridgeAdapter`，`useAuth.setAuth` 写入本域 localStorage，ctx 存 Pinia `hostCtx`。
+- API 发起：插件 `useApiClient` 自动附带 `Authorization`、`X-Tenant-UUID`、以及 `X-PowerX-CTX/CTX-SIG/CTX-JWT`（若 hostCtx 有值）直连 8077。
+- 渲染同步：`sync` 内的 locale/theme 直接应用到 i18n/colorMode，保持宿主与插件一致。
+
+#### 流程图（文本）
+```mermaid
+flowchart LR
+  subgraph Host[宿主 3030]
+    H1[登录 @3030<br>拿 token / tid]
+    H2[调用 /api/v1/admin/auth/me/context<br>取 ctx / ctx_sig / ctx_jwt<br>存 localStorage / cookie]
+    H3[usePluginBridge<br>构造 sync + auth-token<br>带 locale / theme / token / ctx]
+  end
+  subgraph Bridge[postMessage]
+    M[postMessage '*' 到 iframe<br>sync + auth-token<br>含 locale / theme / token / ctx]
+  end
+  subgraph Plugin[插件 8077]
+    P1[powerx-bridge-client<br>接收消息]
+    P2[useHostBridgeAdapter<br>setAuth 写本域 token<br>hostCtx 保存 ctx]
+    P3[useApiClient<br>带 Authorization<br>X-Tenant-UUID 解自 token tid<br>X-PowerX-CTX / CTX-SIG / CTX-JWT from hostCtx<br>请求 8077]
+    P4[渲染同步<br>locale / theme]
+  end
+  H1 --> H2 --> H3 --> M --> P1 --> P2 --> P3
+  M --> P4
+```
+
+注意：如果 `/api/v1/admin/auth/me/context` 未返回 `ctx/ctx_sig/ctx_jwt`（后端未生成签名上下文），插件请求缺少 `X-PowerX-CTX*` 会被判 “tenant context missing”。

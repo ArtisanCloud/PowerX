@@ -10,9 +10,9 @@ import (
 
 // MetricsRecorder 定义 Router 领域需要上报的指标。
 type MetricsRecorder interface {
-	ObserveInvocation(ctx context.Context, mode string, capabilityID, tenantID, adapterID, transport string, latency time.Duration, fallback bool, err error)
-	ObserveFallback(ctx context.Context, capabilityID, tenantID, reason string)
-	ObserveHealthReport(ctx context.Context, capabilityID, tenantID, adapterID, status string, err error)
+	ObserveInvocation(ctx context.Context, mode string, capabilityID, tenantUUID, adapterID, transport string, latency time.Duration, fallback bool, err error)
+	ObserveFallback(ctx context.Context, capabilityID, tenantUUID, reason string)
+	ObserveHealthReport(ctx context.Context, capabilityID, tenantUUID, adapterID, status string, err error)
 }
 
 type noopMetricsRecorder struct{}
@@ -53,39 +53,39 @@ func NewRouterMetrics(inst *domain.Instrumentation) *RouterMetrics {
 }
 
 // ObserveInvocation 记录调用指标。
-func (m *RouterMetrics) ObserveInvocation(ctx context.Context, mode string, capabilityID, tenantID, adapterID, transport string, latency time.Duration, fallback bool, err error) {
+func (m *RouterMetrics) ObserveInvocation(ctx context.Context, mode string, capabilityID, tenantUUID, adapterID, transport string, latency time.Duration, fallback bool, err error) {
 	m.totalInvocations.Add(1)
 	m.updateMax(&m.maxLatencyNS, latency)
 
 	if err != nil {
 		m.errorCount.Add(1)
-		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] invocation failed: tenant=%s capability=%s mode=%s err=%v", tenantID, capabilityID, mode, err)
+		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] invocation failed: tenant_uuid=%s capability=%s mode=%s err=%v", tenantUUID, capabilityID, mode, err)
 	}
 
 	if fallback {
 		m.fallbackInvocations.Add(1)
 		m.updateMax(&m.maxFallbackLatencyNS, latency)
 		if latency > m.fallbackThreshold {
-			m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] fallback latency exceeds target: tenant=%s capability=%s latency=%s threshold=%s", tenantID, capabilityID, latency, m.fallbackThreshold)
+			m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] fallback latency exceeds target: tenant_uuid=%s capability=%s latency=%s threshold=%s", tenantUUID, capabilityID, latency, m.fallbackThreshold)
 		}
 	}
 }
 
 // ObserveFallback 记录触发降级的原因。
-func (m *RouterMetrics) ObserveFallback(ctx context.Context, capabilityID, tenantID, reason string) {
-	m.inst.Logger(ctx).InfoF(ctx, "[router.metrics] fallback triggered: tenant=%s capability=%s reason=%s", tenantID, capabilityID, reason)
+func (m *RouterMetrics) ObserveFallback(ctx context.Context, capabilityID, tenantUUID, reason string) {
+	m.inst.Logger(ctx).InfoF(ctx, "[router.metrics] fallback triggered: tenant_uuid=%s capability=%s reason=%s", tenantUUID, capabilityID, reason)
 }
 
 // ObserveHealthReport 记录健康状态上报。
-func (m *RouterMetrics) ObserveHealthReport(ctx context.Context, capabilityID, tenantID, adapterID, status string, err error) {
+func (m *RouterMetrics) ObserveHealthReport(ctx context.Context, capabilityID, tenantUUID, adapterID, status string, err error) {
 	m.healthReports.Add(1)
 	if err != nil {
-		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] health report failed: tenant=%s capability=%s adapter=%s err=%v", tenantID, capabilityID, adapterID, err)
+		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] health report failed: tenant_uuid=%s capability=%s adapter=%s err=%v", tenantUUID, capabilityID, adapterID, err)
 		return
 	}
 	if status != "" && status != "healthy" {
 		m.unhealthyReports.Add(1)
-		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] adapter marked unhealthy: tenant=%s capability=%s adapter=%s status=%s", tenantID, capabilityID, adapterID, status)
+		m.inst.Logger(ctx).WarnF(ctx, "[router.metrics] adapter marked unhealthy: tenant_uuid=%s capability=%s adapter=%s status=%s", tenantUUID, capabilityID, adapterID, status)
 	}
 }
 

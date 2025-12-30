@@ -29,9 +29,10 @@ func TestTenantGRPCWorkflow(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	ctx := context.Background()
+	const tenantGRPCUUID = "13c28bbf-941f-45b2-90a0-02930fe05fa3"
 
 	route, err := env.Service.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-grpc",
+		TenantUUID:   tenantGRPCUUID,
 		Actor:        "tenant-grpc-test",
 		RouteSlug:    "grpc-sync",
 		CapabilityID: "cap.grpc.sync",
@@ -110,35 +111,40 @@ func TestTenantGRPCWorkflow(t *testing.T) {
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := pbintegration.NewIntegrationGatewayTenantServiceClient(conn)
+	rpcCtx := integrationGatewayGRPCContext(t, tenantGRPCUUID)
 
-	listResp, err := client.ListRoutes(ctx, &pbintegration.TenantListRoutesRequest{
-		TenantId: "tenant-grpc",
+	listResp, err := client.ListRoutes(rpcCtx, &pbintegration.TenantListRoutesRequest{
+		TenantUuid: tenantGRPCUUID,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, listResp.Items)
+	assertIGNoLegacyProto(t, listResp)
 
-	getResp, err := client.GetRoute(ctx, &pbintegration.TenantGetRouteRequest{
-		TenantId:  "tenant-grpc",
-		RouteSlug: "grpc-sync",
+	getResp, err := client.GetRoute(rpcCtx, &pbintegration.TenantGetRouteRequest{
+		TenantUuid: tenantGRPCUUID,
+		RouteSlug:  "grpc-sync",
 	})
 	require.NoError(t, err)
 	require.Equal(t, route.RouteSlug, getResp.Route.RouteSlug)
+	assertIGNoLegacyProto(t, getResp)
 
-	invokeResp, err := client.InvokeRoute(ctx, &pbintegration.TenantInvokeRequest{
-		TenantId:    "tenant-grpc",
+	invokeResp, err := client.InvokeRoute(rpcCtx, &pbintegration.TenantInvokeRequest{
+		TenantUuid:  tenantGRPCUUID,
 		RouteSlug:   "grpc-sync",
 		PayloadJson: []byte(`{"action":"test"}`),
 	})
 	require.NoError(t, err)
 	require.Equal(t, pbintegration.TenantInvokeResponse_OK, invokeResp.Status)
 	require.Contains(t, string(invokeResp.ResultJson), "grpc")
+	assertIGNoLegacyProto(t, invokeResp)
 
 	limiter.limit = 1
-	secondResp, err := client.InvokeRoute(ctx, &pbintegration.TenantInvokeRequest{
-		TenantId:    "tenant-grpc",
+	secondResp, err := client.InvokeRoute(rpcCtx, &pbintegration.TenantInvokeRequest{
+		TenantUuid:  tenantGRPCUUID,
 		RouteSlug:   "grpc-sync",
 		PayloadJson: []byte(`{"action":"again"}`),
 	})
 	require.NoError(t, err)
 	require.Equal(t, pbintegration.TenantInvokeResponse_RATE_LIMITED, secondResp.Status)
+	assertIGNoLegacyProto(t, secondResp)
 }

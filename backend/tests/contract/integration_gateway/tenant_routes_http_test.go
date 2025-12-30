@@ -22,6 +22,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	modelig "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	repoig "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/tests/integration_gateway/testenv"
 	"github.com/gin-gonic/gin"
@@ -104,9 +105,10 @@ func TestTenantHTTPWorkflow(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	ctx := context.Background()
+	const tenantHTTPUUID = "0e1dbd87-49c7-4804-ace6-59c18c911fa4"
 
 	route, err := env.Service.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   tenantHTTPUUID,
 		Actor:        "tenant-test",
 		RouteSlug:    "crm-sync",
 		CapabilityID: "cap.crm.sync",
@@ -153,16 +155,16 @@ func TestTenantHTTPWorkflow(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantHTTPUUID)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 	integration_gateway.RegisterTenantRoutes(protected, deps)
 
 	// list routes
 	listReq := httptest.NewRequest(http.MethodGet, "/api/tenant/integration/routes", nil)
-	listReq.Header.Set("Authorization", "Bearer tenant")
-	listReq.Header.Set("X-PowerX-Tenant", "tenant-001")
-	listResp := httptest.NewRecorder()
-	engine.ServeHTTP(listResp, listReq)
+	listResp := serveIntegrationHTTPRequest(t, engine, listReq, tenantHTTPUUID)
 	require.Equal(t, http.StatusOK, listResp.Code)
 
 	var listPayload struct {
@@ -180,10 +182,7 @@ func TestTenantHTTPWorkflow(t *testing.T) {
 
 	// get route
 	getReq := httptest.NewRequest(http.MethodGet, "/api/tenant/integration/routes/crm-sync", nil)
-	getReq.Header.Set("Authorization", "Bearer tenant")
-	getReq.Header.Set("X-PowerX-Tenant", "tenant-001")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
+	getResp := serveIntegrationHTTPRequest(t, engine, getReq, tenantHTTPUUID)
 	require.Equal(t, http.StatusOK, getResp.Code)
 
 	var getPayload struct {
@@ -204,11 +203,8 @@ func TestTenantHTTPWorkflow(t *testing.T) {
 	}
 	bodyBytes, _ := json.Marshal(invokeBody)
 	invokeReq := httptest.NewRequest(http.MethodPost, "/api/tenant/integration/routes/crm-sync/invoke", bytes.NewBuffer(bodyBytes))
-	invokeReq.Header.Set("Authorization", "Bearer tenant")
 	invokeReq.Header.Set("Content-Type", "application/json")
-	invokeReq.Header.Set("X-PowerX-Tenant", "tenant-001")
-	invokeResp := httptest.NewRecorder()
-	engine.ServeHTTP(invokeResp, invokeReq)
+	invokeResp := serveIntegrationHTTPRequest(t, engine, invokeReq, tenantHTTPUUID)
 	require.Equal(t, http.StatusOK, invokeResp.Code)
 
 	var invokePayload struct {
@@ -224,11 +220,8 @@ func TestTenantHTTPWorkflow(t *testing.T) {
 	// third call should hit rate limiter
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/api/tenant/integration/routes/crm-sync/invoke", bytes.NewBuffer(bodyBytes))
-		req.Header.Set("Authorization", "Bearer tenant")
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-PowerX-Tenant", "tenant-001")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveIntegrationHTTPRequest(t, engine, req, tenantHTTPUUID)
 		if i == 0 {
 			require.Equal(t, http.StatusOK, resp.Code)
 		} else {

@@ -61,7 +61,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- `POST /host/plugins/call` — 参数：`plugin_id`, `capability`, `protocol`, `payload`, `trace_id`, `tenant_id`.
+- `POST /host/plugins/call` — 参数：`plugin_id`, `capability`, `protocol`, `payload`, `trace_id`, `tenant_uuid`.
 - `POST /host/plugins/call/schema/validate` — 可选预检。
 - Configs：`host_plugin_gateway.yaml`, `protocol_mapping.json`.
 - Audit：`host.plugin.entry.audit`（含租户/插件/trace/status）。

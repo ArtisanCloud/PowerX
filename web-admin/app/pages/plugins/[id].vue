@@ -245,21 +245,25 @@ import {
   LazyPluginsLogsModal,
   LazyPluginsSwitchVersionModal,
 } from "#components";
+import { useToast } from "#imports";
 
 definePageMeta({
   layout: "default",
 });
 
 const route = useRoute();
+const router = useRouter();
 const id = computed(() => String(route.params.id || ""));
 const plugin = ref<MarketplacePlugin | undefined>(undefined);
 
 const installOpen = ref(false);
+const toast = useToast();
 
 // 系统状态
 const sysEnabled = ref<boolean>(false);
 const sysInstalled = ref<boolean>(false);
 const sysStatus = ref<string>("");
+const currentVersion = ref<string>("");
 const tenantEnabled = ref<boolean>(false);
 const clientId = ref<string>("");
 
@@ -274,12 +278,16 @@ async function refreshStatus() {
     const svc = useAdminPluginsService();
     const s: any = await svc.status(id.value);
     sysStatus.value = typeof s === "string" ? s : s?.state || s?.status || "";
-    // 如果 marketplace 提供了 isSystemEnabled，可补充；否则从状态推断
-    sysEnabled.value = Boolean(
-      s?.enabled ??
-        s?.isSystemEnabled ??
-        (sysStatus.value && sysStatus.value !== "disabled")
-    );
+    currentVersion.value = typeof s?.version === "string" ? s.version : "";
+    // 优先后端字段，其次根据状态推断：仅 enabled/running 视为启用，installed/default 视为未启用
+    if (s?.enabled !== undefined) {
+      sysEnabled.value = Boolean(s.enabled);
+    } else if (s?.isSystemEnabled !== undefined) {
+      sysEnabled.value = Boolean(s.isSystemEnabled);
+    } else {
+      const st = (sysStatus.value || "").toLowerCase();
+      sysEnabled.value = st === "enabled" || st === "running" || st === "active";
+    }
   } catch (e) {
     console.warn("load status failed:", e);
   }
@@ -307,14 +315,41 @@ async function toggleEnable() {
       if (!ok) return;
       await svc.disable(id.value);
     } else {
-      // 启用时直接执行
+      // 启用：先提示，再调用接口并轮询状态
+      const pending = toast.add({
+        title: "正在启用插件…",
+        color: "info",
+        icon: "i-heroicons-arrow-path",
+        timeout: 0,
+      });
       await svc.enable(id.value);
+      await pollStatusUntil(true);
+      toast.remove(pending.id);
+      toast.add({
+        title: "插件已启用",
+        color: "success",
+        icon: "i-heroicons-check-circle",
+      });
     }
 
     await refreshStatus();
     await refreshMeta();
   } catch (e) {
     console.error("toggle enable failed:", e);
+    toast.add({
+      title: "操作失败",
+      description: e?.message || String(e),
+      color: "error",
+    });
+  }
+}
+
+async function pollStatusUntil(targetEnabled: boolean, maxAttempts = 15, delayMs = 2000) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await refreshStatus();
+    const ok = targetEnabled ? sysEnabled.value : !sysEnabled.value;
+    if (ok) return;
+    await new Promise((res) => setTimeout(res, delayMs));
   }
 }
 
@@ -325,7 +360,7 @@ onMounted(async () => {
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    const list = await svc.getMarketplaceV2();
+    const list = await svc.getMarketplace();
     const item = Array.isArray(list)
       ? (list as any[]).find(
           (p) => String(p.id || p.slug || p.name || "") === id.value
@@ -361,7 +396,7 @@ async function refreshMeta() {
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    const list = await svc.getMarketplaceV2();
+    const list = await svc.getMarketplace();
     const item = Array.isArray(list)
       ? (list as any[]).find(
           (p) => String(p.id || p.slug || p.name || "") === id.value
@@ -561,14 +596,28 @@ async function uninstallPlugin() {
     tone: "danger",
   });
   if (!ok) return;
+  const purge = await confirm({
+    title: "清理磁盘产物？",
+    description: "选择“清理”将删除该插件的安装目录，操作不可恢复。",
+    message: "是否在卸载后同时删除磁盘产物？",
+    confirmLabel: "清理并卸载",
+    cancelLabel: "仅卸载",
+    tone: "warning",
+  });
   try {
     const { useAdminPluginsService } = await import(
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    await svc.uninstall(id.value);
+    const version = (currentVersion.value || plugin.value?.version || "").trim();
+    const payload: Record<string, any> = { purge };
+    if (version && version !== "-") {
+      payload.version = version;
+    }
+    await svc.uninstall(id.value, payload);
     await refreshMeta();
     await refreshStatus();
+    router.push("/plugins/market");
   } catch (e) {
     console.error("uninstall failed:", e);
   }

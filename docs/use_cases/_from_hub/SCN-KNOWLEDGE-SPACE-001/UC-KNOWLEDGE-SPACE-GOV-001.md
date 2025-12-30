@@ -26,7 +26,7 @@ last_generated_at: "2025-11-12"
 - docmap：`scope: powerx`, `layer: service`, `domain: knowledge`, `path: docs/usecases-seeds/SCN-KNOWLEDGE-SPACE-001/UC-KNOWLEDGE-SPACE-GOV-001.md`。
 - repos：`docs/_data/repos.yaml` 中 `key: powerx`（`usecase_seed_root = docs/use_cases/_from_hub`, `usecase_seed_legacy_root = docs/usecases-seeds`）。
 - 必需 Feature Flags：`knowledge-space-v1`, `iam-sync-v2`, `audit-streaming`, `default-pipeline-registry`。
-- 依赖：IAM 同步服务、审计日志写入、配置模板 `configs/knowledge_space/default_pipelines.yaml`、指标脚本 `scripts/qa/workflow-metrics.mjs`。
+- 依赖：IAM 同步服务、审计日志写入、配置模板 `backend/config/knowledge_space/default_pipelines.yaml`、指标脚本 `scripts/qa/workflow-metrics.mjs`。
 
 > **额外依赖**：需要访问租户/部门目录、配额管理 API、KMS 加密的策略模板存储。
 

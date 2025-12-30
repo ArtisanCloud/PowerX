@@ -60,7 +60,7 @@ func (h *auditHooks) OnSessionStarted(ctx context.Context, session *models.Local
 		"developer_id":    session.DeveloperID,
 		"hotload_started": time.Now().UTC().Format(time.RFC3339Nano),
 		"hotload_expires": session.ExpiredAt,
-		"tenant_id":       session.TenantID,
+		"tenant_uuid":     strings.TrimSpace(session.TenantUUID),
 		"actor":           actorFromContext(ctx),
 	}
 	h.emit(ctx, "plugin_release.local_install.start", metaPayload)
@@ -71,7 +71,7 @@ func (h *auditHooks) OnSessionStopped(ctx context.Context, session *models.Local
 		"session_id":       session.UUID.String(),
 		"status":           session.Status,
 		"force":            meta.Force,
-		"tenant_id":        session.TenantID,
+		"tenant_uuid":      strings.TrimSpace(session.TenantUUID),
 		"developer_id":     session.DeveloperID,
 		"hotload_finished": time.Now().UTC().Format(time.RFC3339Nano),
 		"actor":            actorFromContext(ctx),

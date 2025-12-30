@@ -19,7 +19,7 @@ interface WizardState {
 }
 
 const DEFAULT_FORM: KnowledgeSpacePayload = {
-  tenantId: "",
+  tenantUuid: "",
   spaceName: "",
   departmentCode: "",
   policyTemplateVersionId: "default-v1",
@@ -52,7 +52,7 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     },
     isBasicInfoValid(state): boolean {
       return Boolean(
-        state.form.tenantId &&
+        state.form.tenantUuid &&
           state.form.spaceName &&
           state.form.departmentCode,
       );

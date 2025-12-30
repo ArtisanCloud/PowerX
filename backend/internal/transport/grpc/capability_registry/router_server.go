@@ -37,9 +37,13 @@ func (s *RouterServer) Invoke(ctx context.Context, req *capabilityRegistryPB.Inv
 	if req.GetCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "capability id required")
 	}
+	tenantUUID, err := tenantUUIDFromScopedID(req.GetCapability())
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Invoke(ctx, routerService.InvokeRequest{
 		CapabilityID: req.GetCapability().GetCapabilityId(),
-		TenantID:     req.GetCapability().GetTenantId(),
+		TenantUUID:   tenantUUID,
 		Payload:      req.GetPayload(),
 		Timeout:      time.Duration(req.GetTimeoutMs()) * time.Millisecond,
 		StickyKey:    req.GetStickyKey(),
@@ -95,9 +99,13 @@ func (s *RouterServer) ReportHealth(ctx context.Context, req *capabilityRegistry
 	if req.GetId() == nil {
 		return nil, status.Error(codes.InvalidArgument, "capability id required")
 	}
+	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
+	if err != nil {
+		return nil, err
+	}
 	if err := s.service.ReportHealth(ctx, routerService.ReportHealthInput{
 		CapabilityID: req.GetId().GetCapabilityId(),
-		TenantID:     req.GetId().GetTenantId(),
+		TenantUUID:   tenantUUID,
 		AdapterID:    req.GetAdapterId(),
 		Status:       req.GetStatus(),
 		Reason:       req.GetReason(),

@@ -41,7 +41,7 @@ docs/knowledge_base
 
 - **鉴权与多租户**：所有请求必须携带
   - `Authorization: Bearer <token>`
-  - `X-Tenant-Id: <uuid>`
+  - `X-Tenant-UUID: <uuid>`
 - **字段风格**：REST 使用 `snake_case`；UI 层保持与接口字段同名（除非有明确映射）。
 - **调参覆盖**：面向单次查询的 `rank_profile_override`，**不修改**空间默认配置。
 - **审计与追溯**：重要操作与检索返回包含 `trace_id`、`query_id`、`document_id/version_no/chunk_id`。

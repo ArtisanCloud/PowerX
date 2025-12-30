@@ -3,6 +3,11 @@ syntax = "proto3";
 package powerx.agent.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1;agentv1";
+option java_package = "com.powerx.agent.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Agent.V1";
+option php_namespace = "PowerX\\Agent\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
 
 // AgentLifecycleService 定义注册、生命周期控制与健康查询接口。
 service AgentLifecycleService {
@@ -26,7 +31,7 @@ service AgentLifecycleService {
 
 message RegisterAgentRequest {
   string alias = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   repeated ToolGrant tool_grants = 3;
   string telemetry_contract_version = 4;
   int32 default_capacity_instances = 5;
@@ -102,7 +107,7 @@ message ListHealthSnapshotsResponse {
 message Agent {
   string id = 1;
   string alias = 2;
-  string tenant_id = 3;
+  string tenant_uuid = 3;
   AgentStatus status = 4;
   repeated ToolGrant tool_grants = 5;
   string telemetry_contract_version = 6;
@@ -198,7 +203,7 @@ message SubscriptionConfig {
 
 message UpdateSubscriptionRequest {
   string agent_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   SubscriptionConfig config = 3;
   string trace_id = 4;
 }
@@ -219,7 +224,7 @@ message RegisterManifestRequest {
   string plugin_id = 1;
   string plugin_version = 2;
   string manifest_version = 3;
-  string tenant_id = 4;
+  string tenant_uuid = 4;
   string alias = 5;
   string display_name = 6;
   string telemetry_contract_version = 7;
@@ -265,7 +270,7 @@ message RunSandboxResponse {
 
 message CreateAgentShareRequest {
   string agent_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string requested_by = 3;
   string trace_id = 4;
   repeated ShareQuota quotas = 5;
@@ -282,7 +287,7 @@ message AgentShareResponse {
   string status = 2;
   string issued_at = 3;
   string revoked_at = 4;
-  string tenant_id = 5;
+  string tenant_uuid = 5;
 }
 
 message RevokeAgentShareRequest {

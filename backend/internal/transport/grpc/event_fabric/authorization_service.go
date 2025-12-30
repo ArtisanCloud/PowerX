@@ -37,7 +37,7 @@ func (s *AuthorizationServer) Evaluate(ctx context.Context, req *authorizationpb
 		return nil, status.Error(codes.InvalidArgument, "request payload required")
 	}
 
-	tenantID, err := parseUUID(req.GetTenant().GetTenantId(), "tenant_id")
+	tenantID, err := parseUUID(req.GetTenant().GetTenantUuid(), "tenant_uuid")
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (s *AuthorizationServer) InvalidateGrantCache(ctx context.Context, req *aut
 		return nil, status.Error(codes.InvalidArgument, "request payload required")
 	}
 
-	tenantID, err := parseUUID(req.GetTenant().GetTenantId(), "tenant_id")
+	tenantID, err := parseUUID(req.GetTenant().GetTenantUuid(), "tenant_uuid")
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +99,9 @@ func (s *AuthorizationServer) InvalidateGrantCache(ctx context.Context, req *aut
 	}
 
 	key := authorizationservice.GrantCacheKey{
-		TenantID:    tenantID.String(),
+		TenantUUID:  tenantID.String(),
 		SubjectType: subjectType,
-		SubjectID:   subjectID.String(),
+		SubjectID:   subjectID,
 	}
 	if err := s.service.InvalidateGrantCache(ctx, key); err != nil {
 		return nil, mapServiceError("invalidate_cache", err)
@@ -122,7 +122,7 @@ func (s *AuthorizationServer) GetGrantSnapshot(ctx context.Context, req *authori
 		return nil, status.Error(codes.InvalidArgument, "request payload required")
 	}
 
-	tenantID, err := parseUUID(req.GetTenant().GetTenantId(), "tenant_id")
+	tenantID, err := parseUUID(req.GetTenant().GetTenantUuid(), "tenant_uuid")
 	if err != nil {
 		return nil, err
 	}

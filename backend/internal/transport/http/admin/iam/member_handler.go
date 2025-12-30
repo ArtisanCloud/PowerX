@@ -2,12 +2,11 @@ package iam
 
 import (
 	"encoding/json"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 
 	svc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -18,7 +17,9 @@ type MemberHandler struct {
 	S *svc.MemberService
 }
 
-func NewMemberHandler(s *svc.MemberService) *MemberHandler { return &MemberHandler{S: s} }
+func NewMemberHandler(s *svc.MemberService) *MemberHandler {
+	return &MemberHandler{S: s}
+}
 
 // -------- 请求结构（仅 Handler 层） --------
 
@@ -63,13 +64,15 @@ func (h *MemberHandler) List(c *gin.Context) {
 	req.SetDefaultPagination()
 
 	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-	items, total, err := h.S.ListMembers(ctx, svc.ListMembersOption{
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	items, total, err := h.S.ListMembersByTenantUUID(ctx, tenantUUID, svc.ListMembersOption{
 		Page:      req.Page,
 		PageSize:  req.PageSize,
 		SortBy:    req.SortBy,
 		SortOrder: req.SortOrder,
-		TenantID:  tid,
 		Keyword:   req.Q,
 		Status:    req.Status,
 		DeptID:    req.DeptID,
@@ -85,10 +88,11 @@ func (h *MemberHandler) List(c *gin.Context) {
 // GET /api/v1/admin/iam/members/:id
 func (h *MemberHandler) Get(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	res, err := h.S.GetMember(ctx, tid, id)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	res, err := h.S.GetMemberByTenantUUID(c.Request.Context(), tenantUUID, id)
 	if err != nil {
 		dto.ResponseError(c, http.StatusNotFound, "member not found", err)
 		return
@@ -103,10 +107,11 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	id, err := h.S.CreateMember(ctx, tid, svc.CreateMemberInput{
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, err := h.S.CreateMemberByTenantUUID(c.Request.Context(), tenantUUID, svc.CreateMemberInput{
 		Member:          req.Member,
 		User:            req.User,
 		DeptIDs:         req.DeptIDs,
@@ -127,10 +132,11 @@ func (h *MemberHandler) Update(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.UpdateMember(ctx, tid, id, svc.UpdateMemberInput{
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.UpdateMemberByTenantUUID(c.Request.Context(), tenantUUID, id, svc.UpdateMemberInput{
 		Member:  req.Member,
 		User:    req.User,
 		DeptIDs: req.DeptIDs,
@@ -149,10 +155,11 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.SetMemberStatus(ctx, tid, id, *req.Status, req.Reason); err != nil {
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.SetMemberStatusByTenantUUID(c.Request.Context(), tenantUUID, id, *req.Status, req.Reason); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置状态失败", err)
 		return
 	}
@@ -162,10 +169,11 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 // DELETE /api/v1/admin/iam/members/:id
 func (h *MemberHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.DeleteMember(ctx, tid, id); err != nil {
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.DeleteMemberByTenantUUID(c.Request.Context(), tenantUUID, id); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "删除失败", err)
 		return
 	}
@@ -175,10 +183,11 @@ func (h *MemberHandler) Delete(c *gin.Context) {
 // PUT /api/v1/admin/iam/members/:id/restore
 func (h *MemberHandler) Restore(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.RestoreMember(ctx, tid, id); err != nil {
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.RestoreMemberByTenantUUID(c.Request.Context(), tenantUUID, id); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "恢复失败", err)
 		return
 	}
@@ -193,10 +202,11 @@ func (h *MemberHandler) PutDepartments(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.PutMemberDepartments(ctx, tid, id, req.DeptIDs); err != nil {
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.PutMemberDepartmentsByTenantUUID(c.Request.Context(), tenantUUID, id, req.DeptIDs); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置失败", err)
 		return
 	}
@@ -211,10 +221,11 @@ func (h *MemberHandler) ForceMemberLogout(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	if err := h.S.ForceLogout(ctx, tid, id, req.JTI); err != nil {
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.S.ForceLogoutByTenantUUID(c.Request.Context(), tenantUUID, id, req.JTI); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "强制下线失败", err)
 		return
 	}
@@ -243,10 +254,11 @@ type AddExistingUserReq struct {
 // GET /api/v1/admin/iam/users/:user_id/member
 func (h *MemberHandler) GetMemberByUser(c *gin.Context) {
 	userID, _ := strconv.ParseUint(c.Param("user_id"), 10, 64)
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	mem, usr, err := h.S.GetMemberByUser(ctx, tid, userID)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	mem, usr, err := h.S.GetMemberByUserTenantUUID(c.Request.Context(), tenantUUID, userID)
 	if err != nil {
 		dto.ResponseError(c, http.StatusNotFound, "member not found in this tenant", err)
 		return
@@ -265,10 +277,11 @@ func (h *MemberHandler) BatchGetMembersByUsers(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
-
-	members, usersByID, err := h.S.BatchGetMembersByUsers(ctx, tid, req.UserIDs)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	members, usersByID, err := h.S.BatchGetMembersByUsersTenantUUID(c.Request.Context(), tenantUUID, req.UserIDs)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
 		return
@@ -295,18 +308,20 @@ func (h *MemberHandler) AddExistingUser(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	ctx := c.Request.Context()
-	tid := reqctx.GetTenantID(ctx)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
 
-	// datatypes.JSON -> map[string]any（可为空）
+	ctx := c.Request.Context()
 	var meta datatypes.JSON
 	if len(req.Meta) > 0 {
 		_ = json.Unmarshal(req.Meta, &meta)
 	}
 
-	id, err := h.S.AddExistingUserAsMember(
+	id, err := h.S.AddExistingUserAsMemberByTenantUUID(
 		ctx,
-		tid,
+		tenantUUID,
 		userID,
 		req.UserName,
 		req.DisplayName,

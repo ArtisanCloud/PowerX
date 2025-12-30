@@ -1,1252 +1,500 @@
 {
-  "welcome": "Welcome to",
-  "login": "Login",
-  "register": "Register",
-  "logout": "Logout",
-  "common": {
-    "language": "Language",
-    "reload": "Reload",
-    "scrollToBottom": "Scroll to Bottom",
-    "newMessages": "New Messages",
-    "save": "Save",
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "delete": "Delete",
-    "edit": "Edit",
-    "add": "Add",
-    "search": "Search",
-    "reset": "Reset",
-    "submit": "Submit",
-    "back": "Back",
-    "next": "Next",
-    "previous": "Previous",
-    "loading": "Loading...",
-    "noData": "No data",
-    "error": "Error",
-    "success": "Success",
-    "warning": "Warning",
-    "info": "Info",
-    "yes": "Yes",
-    "no": "No",
-    "ok": "OK",
-    "close": "Close",
-    "view": "View",
-    "create": "Create",
-    "update": "Update",
-    "actions": "Actions",
-    "status": "Status",
-    "name": "Name",
-    "description": "Description",
-    "createdAt": "Created At",
-    "updatedAt": "Updated At",
-    "filter": "Filter",
-    "sort": "Sort",
-    "up": "Move Up",
-    "down": "Move Down",
-    "none": "None",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "expand": "Expand",
-    "collapse": "Collapse",
-    "toggleDensity": "Toggle Density",
-    "loadMore": "Load More",
-    "refresh": "Refresh",
-    "settings": "Settings",
-    "trash": "Trash"
-  },
   "menu": {
-    "dashboard": "Dashboard",
-    "groups": {
-      "pinned": "Pinned",
-      "system": "System Functions",
-      "plugins": "Plugins"
-    },
-    "agent": "AI Agent",
+    "openMarket": "Open Market",
+    "openCapabilities": "Platform Capabilities",
+    "pluginMarketplace": "Plugin Marketplace",
+    "pluginReleaseCandidates": "Release Candidates",
+    "agent": "Agent",
+    "aiSettings": "AI Settings",
+    "aiSettingsModel": "Model Settings",
+    "aiSettingsCost": "Cost Settings",
+    "aiSettingsRegistry": "Capability Registry",
+    "badge": "Badge",
+    "customers": "Customers",
+    "customerList": "Customer List",
+    "customerGroups": "Customer Groups",
+    "products": "Products",
+    "productList": "Product List",
+    "productCategories": "Product Categories",
+    "orders": "Orders",
+    "knowledgeSpace": "Knowledge Space",
     "workflow": "Workflow",
-    "knowledgeSpace": "Knowledge Spaces",
-    "pluginMarketplace": "Marketplace",
-    "pluginsInstalled": "Installed",
-    "pluginsMarket": "Marketplace",
-    "plugins": "Plugins",
+    "dashboard": "Dashboard",
     "settings": "Settings",
     "userManagement": "User Management",
     "roleManagement": "Role Management",
-    "systemConfig": "System Configuration",
-    "aiSettings": "AI Settings",
-    "aiSettingsModel": "Model Configuration",
-    "aiSettingsCost": "Cost & Quota Guard",
-    "loadFailed": "Menu loading failed",
-    "loadFailedDesc": "Unable to load menu data, please check network connection or contact administrator",
-    "noItemsFound": "No menu items found",
-    "itemCount": "Menu item count",
-    "noItemsWarning": "Warning: No menu items found",
-    "notifications": "Notifications",
-    "customers": "Customer Management",
-    "customerList": "Customer List",
-    "customerGroups": "Customer Groups",
-    "products": "Product Management",
-    "productList": "Product List",
-    "productCategories": "Product Categories",
-    "orders": "Order Management",
-    "badge": {
-      "new": "New"
+    "systemConfig": "System Config",
+    "pluginsMarket": "Plugins Market",
+    "pluginsInstalled": "Installed Plugins",
+    "loadFailed": "Menu failed to load",
+    "loadFailedDesc": "Unable to load menu data. Please check your network connection.",
+    "noItemsWarning": "No menu items found",
+    "itemCount": "{count} items",
+    "untitled": "Untitled",
+    "section": {
+      "untitled": "Untitled Section"
     }
   },
-  "knowledgeSpaces": {
-    "head": {
-      "title": "Knowledge Spaces",
-      "description": "Plan, provision, and observe multi-tenant knowledge spaces across ingestion, fusion, and feedback."
-    },
-    "hero": {
-      "badge": "Knowledge Space",
-      "title": "Knowledge Space Workbench",
-      "description": "Create and govern multi-tenant knowledge spaces, keeping ingestion, fusion, and feedback loops aligned.",
-      "actions": {
-        "create": "Create Knowledge Space",
-        "createDesc": "Configure tenant, policy, quota, and IAM via the wizard.",
-        "docs": "Operations Guide",
-        "docsDesc": "Review rollout procedures and guardrails."
-      }
-    },
-    "qaCard": {
-      "badge": "QA Bridge",
-      "title": "Retrieval Health Monitor",
-      "refresh": "Refresh",
-      "degrade": "{count} space(s) degraded",
-      "metrics": {
-        "latency": "Retrieval P95",
-        "coverage": "Citation coverage",
-        "toolSuccess": "Tool success rate"
-      },
-      "audit": "Last audit: {id}",
-      "updatedAt": "Updated at {time}",
-      "loadError": "Unable to fetch QA status"
-    },
-    "governance": {
-      "title": "Governance Guide",
-      "description": "Additional cross-space metrics and alerts will appear here soon."
-    },
-    "ingestion": {
-      "title": "Ingestion Orchestrator",
-      "subtitle": "Submit documents or APIs to produce chunks and embeddings automatically.",
-      "recentSpace": "Recent space",
-      "recentSpaceHint": "Synced from the wizard for quick triggers.",
-      "spaceId": "Space ID",
-      "sourceType": "Source type",
-      "mode": "Ingestion mode",
-      "modeDocument": "Document upload",
-      "modeApi": "API / URL",
-      "uploadFile": "Upload file",
-      "uploadHint": "Files are uploaded to object storage before entering the chunk pipeline.",
-      "selectedFile": "Selected: {name}",
-      "sourceUri": "Source URI",
-      "maskingProfile": "Masking profile",
-      "priority": "Priority",
-      "sourceOptions": {
-        "pdf": "PDF",
-        "markdown": "Markdown",
-        "table": "Spreadsheet / Table",
-        "api": "API"
-      },
-      "priorityOptions": {
-        "normal": "Standard",
-        "high": "High priority"
-      },
-      "errors": {
-        "missingSpaceId": "Enter a space ID first",
-        "missingSource": "Provide source information before running",
-        "runFailed": "Failed to trigger ingestion"
-      },
-      "actions": {
-        "ingestNow": "Run Ingestion"
-      },
-      "result": {
-        "latestTitle": "Latest task",
-        "jobSummary": "Job {jobId} · Status {status} · Chunks {chunkTotal}",
-        "metricSummary": "Coverage {coverage}% · Embedding {embedding}% · Masking {masking}%"
-      },
-      "history": "Recent tasks",
-      "historyEntry": "{job} · {status} · {time}"
-    },
-    "placeholders": {
-      "spaces": {
-        "title": "Space overview",
-        "description": "Tenant-level quotas and health snapshots will be shown here."
-      },
-      "fusion": {
-        "title": "Fusion summary",
-        "description": "Recent fusion jobs and conflict alerts will surface here."
-      },
-      "feedback": {
-        "title": "Feedback & Alerts",
-        "description": "Track SLA breaches, escalations, and reprocessing tasks here."
-      }
-    },
-    "timeline": {
-      "title": "Space activity",
-      "description": "Live fusion and telemetry cards will be added soon.",
-      "badge": "Planned"
-    }
-  },
-  "navigation": {
-    "dashboard": "Dashboard",
-    "users": "Users",
+  "common": {
+    "collapse": "Collapse",
+    "backToList": "Back to list",
+    "toggleDensity": "Toggle density",
     "settings": "Settings",
-    "profile": "Profile",
-    "logout": "Logout",
-    "home": "Home",
-    "about": "About",
-    "contact": "Contact",
-    "analytics": "Analytics",
-    "content": "Content",
-    "customers": "Customers",
-    "customerGroups": "Customer Groups",
-    "ecommerce": "E-commerce",
-    "marketing": "Marketing",
-    "notifications": "Notifications",
-    "orders": "Orders",
-    "plugins": "Plugins",
-    "productCategories": "Product Categories",
-    "products": "Products",
-    "workflow": "Workflow",
-    "agent": "Agent"
-  },
-  "user": {
-    "admin": "Administrator"
-  },
-  "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome back!",
-    "description": "System overview and key metrics",
-    "stats": {
-      "totalUsers": "Total Users",
-      "activeUsers": "Active Users",
-      "totalOrders": "Total Orders",
-      "revenue": "Revenue",
-      "todayVisits": "Today's Visits",
-      "totalRevenue": "Total Revenue",
-      "vsLastMonth": "vs Last Month"
-    },
-    "charts": {
-      "visitTrend": "Visit Trend",
-      "chartArea": "Chart Area",
-      "integration": "Chart.js or other chart libraries can be integrated here"
-    },
-    "activities": {
-      "title": "Recent Activities",
-      "viewAll": "View All Activities",
-      "users": {
-        "zhangsan": "Zhang San",
-        "lisi": "Li Si",
-        "wangwu": "Wang Wu"
-      },
-      "actions": {
-        "createArticle": "created a new article",
-        "updateProfile": "updated user profile",
-        "deleteComment": "deleted a comment"
-      },
-      "targets": {
-        "vueBestPractices": "\"Vue 3 Best Practices\"",
-        "onTechShare": "in \"Tech Share\""
-      },
-      "times": {
-        "minutesAgo": "{minutes} minutes ago"
-      }
-    },
-    "quickActions": {
-      "title": "Quick Actions",
-      "addUser": "Add User",
-      "createArticle": "Create Article",
-      "viewAnalytics": "View Analytics",
-      "systemSettings": "System Settings"
-    },
-    "common": {
-      "viewDetails": "View Details"
-    }
-  },
-  "dashboards": {
-    "tenantCost": {
-      "title": "Tenant {tenant} cost dashboard",
-      "environmentLabel": "Environment: {env}",
-      "lastSynced": "Last sync {time}",
-      "errorTitle": "Failed to load quotas",
-      "errorDesc": "Please refresh to try again.",
-      "cards": {
-        "limit": "Budget limit",
-        "usage": "Usage",
-        "remaining": "Remaining"
-      },
-      "tables": {
-        "quota": "Quota list",
-        "history": "Enforcement history"
-      },
-      "columns": {
-        "provider": "Provider",
-        "limit": "Budget",
-        "usage": "Usage",
-        "status": "Status",
-        "timestamp": "Time",
-        "action": "Action",
-        "reason": "Reason",
-        "actor": "Actor"
-      },
-      "badges": {
-        "breached": "Breach {count}",
-        "warning": "Warning {count}"
-      },
-      "historyEmpty": "No governance history yet",
-      "reasonFallback": "Not provided",
-      "actorFallback": "system",
-      "status": {
-        "breached": "Breach",
-        "warning": "Warning",
-        "throttle": "Throttle",
-        "degrade": "Degrade",
-        "disable": "Disable",
-        "healthy": "Healthy"
-      }
-    }
-  },
-  "home": {
-    "subtitle": "Modern enterprise management system to boost your business",
-    "learnMore": "Learn More",
-    "getStarted": "Get Started",
-    "dashboardDesc": "Modern management interface",
-    "footer": "All rights reserved"
-  },
-  "auth": {
-    "backToHome": "Back to Home",
-    "welcomeBack": "Welcome Back",
-    "loginSubtitle": "Sign in to your account",
-    "identifier": "Username or Email",
-    "password": "Password",
-    "signUpNow": "Sign Up Now",
-    "remember": "Remember me",
-    "hasAccount": "Already have an account?",
-    "email": "Email",
-    "agreeTerms": "I agree to the Terms of Service and Privacy Policy",
-    "signInNow": "Sign In Now",
-    "createAccount": "Create Account",
-    "registerSubtitle": "Create your new account",
-    "and": "and",
-    "termsInfo": "Click the links to view Terms of Service and Privacy Policy",
-    "passwordStrength": {
-      "weak": "Weak",
-      "medium": "Medium",
-      "strong": "Strong"
-    },
-    "login": {
-      "title": "Login",
-      "username": "Username",
-      "password": "Password",
-      "rememberMe": "Remember me",
-      "forgotPassword": "Forgot password?",
-      "loginButton": "Login",
-      "noAccount": "Don't have an account?",
-      "signUp": "Sign up"
-    },
-    "register": {
-      "title": "Register",
-      "username": "Username",
-      "email": "Email",
-      "password": "Password",
-      "confirmPassword": "Confirm Password",
-      "registerButton": "Register",
-      "haveAccount": "Already have an account?",
-      "signIn": "Sign in"
-    },
-    "forgotPassword": {
-      "title": "Forgot Password",
-      "email": "Email",
-      "sendButton": "Send Reset Link",
-      "backToLogin": "Back to login"
-    }
-  },
-  "notifications": {
-    "title": "Notification Center",
-    "description": "View and manage system notifications",
-    "totalMessages": "Total Messages",
-    "unreadMessages": "Unread Messages",
-    "importantMessages": "Important Messages",
-    "markAsRead": "Mark as Read",
-    "markAllAsRead": "Mark All as Read",
-    "allNotifications": "All Notifications",
-    "unreadOnly": "Unread Only",
-    "importantOnly": "Important Only",
-    "noNotifications": "No notifications",
-    "markAllRead": "Mark All Read",
-    "noMessages": "No message notifications",
-    "loading": "Loading...",
-    "loadError": "Load failed",
-    "retry": "Retry",
-    "categories": {
-      "all": "All Categories",
-      "system": "System Notifications",
-      "agent": "Agent Notifications",
-      "workflow": "Workflow Notifications",
-      "user": "User Notifications",
-      "order": "Order Notifications",
-      "plugin": "Plugin Notifications"
-    },
-    "types": {
-      "all": "All Types",
-      "info": "Info",
-      "success": "Success",
-      "warning": "Warning",
-      "error": "Error",
-      "system": "System"
-    },
-    "status": {
-      "all": "All Status",
-      "unread": "Unread",
-      "read": "Read"
-    },
-    "filters": {
-      "importantOnly": "Important Only",
-      "clear": "Clear"
-    },
-    "detail": {
-      "title": "Message Details",
-      "back": "Back",
-      "close": "Close",
-      "relatedInfo": "Related Information",
-      "resourceId": "Related Resource ID",
-      "resourceType": "Resource Type",
-      "userId": "User ID",
-      "availableActions": "Available Actions",
-      "createdAt": "Created At",
-      "updatedAt": "Updated At",
-      "selectMessage": "Please select a notification to view details"
-    },
-    "badges": {
-      "important": "Important",
-      "unread": "Unread"
-    },
-    "timeAgo": {
-      "justNow": "Just now",
-      "minutesAgo": "{minutes} minutes ago",
-      "hoursAgo": "{hours} hours ago",
-      "daysAgo": "{days} days ago",
-      "weeksAgo": "{weeks} weeks ago",
-      "monthsAgo": "{months} months ago"
-    }
+    "trash": "Trash",
+    "cancel": "Cancel",
+    "save": "Save",
+    "reload": "Reload",
+    "reset": "Reset"
   },
   "organization": {
-    "title": "Organization",
-    "tabs": {
-      "departments": "Department Management",
-      "users": "User Management",
-      "permissions": "Permission Management"
-    },
-    "description": "Manage organizational structure, users, and permissions",
-    "department": {
-      "title": "Department Management",
-      "description": "Manage organizational departments and structure",
-      "add": "Add Department",
-      "edit": "Edit Department",
-      "delete": "Delete Department",
-      "confirmDelete": "Are you sure you want to delete this department?",
-      "form": {
-        "name": "Department Name",
-        "code": "Department Code",
-        "key": "Unique Key",
-        "keyPlaceholder": "English/hyphen/underscore",
-        "leader": "Leader",
-        "parent": "Parent Department",
-        "noParent": "No Parent Department",
-        "moveParent": "Move to New Parent",
-        "sort": "Sort Order",
-        "sortPlaceholder": "Lower numbers appear first",
-        "status": "Status",
-        "meta": "Extended Meta (JSON)",
-        "description": "Description",
-        "namePlaceholder": "Enter department name",
-        "codePlaceholder": "Enter department code",
-        "leaderPlaceholder": "Enter leader name",
-        "parentPlaceholder": "Select parent department",
-        "descriptionPlaceholder": "Enter department description"
-      },
-      "messages": {
-        "loadFailed": "Load failed",
-        "saveFailed": "Save failed",
-        "metaJsonError": "Invalid Meta JSON, please check JSON syntax."
-      },
-      "help": {
-        "metaField": "Leave blank to keep unchanged; clear and save to set empty."
-      },
-      "table": {
-        "name": "Department Name",
-        "code": "Department Code",
-        "leader": "Leader",
-        "memberCount": "Member Count",
-        "description": "Description",
-        "actions": "Actions"
-      },
-      "empty": {
-        "title": "No department data",
-        "noResults": "No matching departments found, please try other search terms",
-        "create": "Click the 'Add Department' button to create the first department"
-      },
-      "pagination": {
-        "showing": "Showing {start} - {end} of {total} departments"
-      },
-      "search": "Search department name, code or leader..."
-    },
-    "user": {
-      "title": "User Management",
-      "description": "Manage system users and their permissions",
-      "add": "Add User",
-      "edit": "Edit User",
-      "delete": "Delete User",
-      "disable": "Disable",
-      "enable": "Enable",
-      "confirmDelete": "Are you sure you want to delete this user?",
-      "importExport": "Import/Export",
-      "import": {
-        "title": "Import User Data",
-        "button": "Import User Data",
-        "success": "Successfully imported {count} users",
-        "error": "Import failed: {message}",
-        "invalidFormat": "Invalid user data format",
-        "missingFields": "Imported data missing required fields (name, username or email)"
-      },
-      "export": {
-        "csv": "Export User Data (CSV)",
-        "json": "Export User Data (JSON)"
-      },
-      "role": {
-        "admin": "Administrator",
-        "editor": "Editor",
-        "user": "User"
-      },
-      "form": {
-        "name": "Name",
-        "username": "Username",
-        "email": "Email",
-        "phone": "Phone",
-        "department": "Department",
-        "role": "Role",
-        "password": "Password",
-        "newPassword": "New Password (leave blank to keep unchanged)",
-        "confirmPassword": "Confirm Password",
-        "confirmNewPassword": "Confirm New Password",
-        "status": "Status",
-        "active": "Active",
-        "inactive": "Inactive",
-        "namePlaceholder": "Enter name",
-        "usernamePlaceholder": "Enter username",
-        "emailPlaceholder": "Enter email address",
-        "phonePlaceholder": "Enter phone number",
-        "passwordPlaceholder": "Enter password",
-        "selectDepartment": "Select Department",
-        "selectRole": "Select Role",
-        "addUser": "Add User",
-        "addUserDesc": "Create new user account",
-        "editUser": "Edit User",
-        "editUserDesc": "Modify user information"
-      },
-      "table": {
-        "avatar": "",
-        "name": "Name",
-        "username": "Username",
-        "email": "Email",
-        "phone": "Phone",
-        "department": "Department",
-        "role": "Role",
-        "status": "Status",
-        "actions": "Actions"
-      },
-      "filter": {
-        "allDepartments": "All Departments",
-        "allRoles": "All Roles",
-        "allStatus": "All Status",
-        "allPlans": "All Plans",
-        "status": "Filter by Status",
-        "plan": "Filter by Plan",
-        "active": "Active",
-        "inactive": "Inactive",
-        "reset": "Reset"
-      },
-      "plan": {
-        "free": "Free",
-        "pro": "Pro",
-        "enterprise": "Enterprise"
-      },
-      "status": {
-        "active": "Active",
-        "inactive": "Inactive",
-        "suspended": "Suspended"
-      },
-      "messages": {
-        "deleteConfirm": "Are you sure you want to delete this user?",
-        "deleteSuccess": "User deleted successfully",
-        "createSuccess": "User created successfully",
-        "updateSuccess": "User updated successfully",
-        "loadFailed": "Failed to load user list"
-      },
-      "search": "Search username, email...",
-      "validation": {
-        "requiredFields": "Please fill in required fields",
-        "passwordMismatch": "Passwords do not match"
-      },
-      "rootManagement": "Root Management",
-      "selectTenantDesc": "Select a tenant to manage and view its user information",
-      "searchTenants": "Search tenant name or domain...",
-      "loadFailed": "Failed to load tenant list",
-      "noTenantsFound": "No matching tenants found",
-      "noDomain": "No domain",
-      "userCount": "Users",
-      "createdAt": "Created At",
-      "backToTenantList": "Back to Tenant List",
-      "userCountText": "{count} users",
-      "empty": {
-        "title": "No user data",
-        "noResults": "No matching users found, please try adjusting the filter conditions",
-        "create": "Click the 'Add User' button to create the first user"
-      }
-    },
-    "tenant": {
-      "add": "Add Tenant",
-      "tooltips": {
-        "saasSupport": "SaaS version supports adding tenants"
-      },
-      "filter": {
-        "status": "Filter by Status",
-        "plan": "Filter by Plan",
-        "allPlans": "All Plans",
-        "suspended": "Suspended"
-      },
-      "status": {
-        "active": "Active",
-        "inactive": "Inactive",
-        "suspended": "Suspended"
-      },
-      "plan": {
-        "free": "Free",
-        "pro": "Pro",
-        "enterprise": "Enterprise"
-      },
-      "pagination": {
-        "showing": "Showing {start} - {end} of {total} tenants",
-        "previous": "Previous",
-        "next": "Next"
-      }
-    },
-    "permission": {
-      "title": "Permission Management",
-      "description": "Manage system roles and permissions",
-      "roleList": "Role List",
-      "addRole": "Add Role",
-      "editRole": "Edit Role",
-      "deleteRole": "Delete Role",
-      "permissions": "Permissions",
-      "assignPermissions": "Assign Permissions",
-      "roleConfig": "Permission Configuration",
-      "configDesc": "Configure the functions and operations that this role can access",
-      "add": "Add Role",
-      "edit": "Edit Role",
-      "delete": "Delete Role",
-      "systemRole": "System",
-      "userCount": "users",
-      "confirmDelete": "Are you sure you want to delete this role?",
-      "systemRoleError": "System roles cannot be deleted",
-      "form": {
-        "name": "Role Name",
-        "code": "Role Code",
-        "description": "Description",
-        "permissions": "Permissions",
-        "namePlaceholder": "Enter role name",
-        "codePlaceholder": "Enter role code",
-        "descriptionPlaceholder": "Enter role description"
-      },
-      "empty": {
-        "title": "No role data",
-        "noResults": "No matching roles found, please try other search terms",
-        "create": "Click the [Add Role] button to create the first role"
-      },
-      "search": "Search roles..."
-    },
+    "description": "Manage your organization, members and permissions.",
     "common": {
-      "save": "Save",
       "cancel": "Cancel",
+      "save": "Save",
+      "reset": "Reset",
+      "up": "Up",
+      "down": "Down",
       "edit": "Edit",
       "delete": "Delete",
-      "actions": "Actions",
-      "search": "Search",
-      "filter": "Filter",
-      "reset": "Reset",
-      "up": "Move Up",
-      "down": "Move Down",
       "none": "None",
       "enabled": "Enabled",
       "disabled": "Disabled"
-    }
-  },
-  "header": {
-    "profile": "Profile",
-    "settings": "Settings",
-    "logout": "Logout",
-    "searchPlaceholder": "Search users, content, products...",
-    "searchSuggestions": "Search Suggestions"
-  },
-  "search": {
-    "title": "Search Center",
-    "subtitle": "Search anything in the system",
-    "description": "Powerful global search functionality",
-    "placeholder": "Enter search keywords...",
-    "searchButton": "Search",
-    "suggestions": "Search Suggestions",
-    "history": "Search History",
-    "clearHistory": "Clear History",
-    "filters": "Filters",
-    "resetFilters": "Reset Filters",
-    "resultType": "Result Type",
-    "category": "Category",
-    "sortBy": "Sort By",
-    "sortRelevance": "Relevance",
-    "sortDate": "Date",
-    "sortTitle": "Title",
-    "sortDesc": "Descending",
-    "sortAsc": "Ascending",
-    "applyFilters": "Apply Filters",
-    "searching": "Searching...",
-    "resultsCount": "Found {total} results for \"{query}\"",
-    "noResults": "No results found",
-    "noResultsDesc": "Try adjusting your search terms or filters",
-    "tryAgain": "Try Again",
-    "tryDifferentFilters": "Try different filter conditions",
-    "startSearching": "Start searching",
-    "startSearchingDesc": "Enter keywords to start searching system content",
-    "categories": {
-      "all": "All Categories",
+    },
+    "tabs": {
+      "departments": "Departments",
       "users": "Users",
-      "content": "Content",
-      "products": "Products",
-      "orders": "Orders",
-      "customers": "Customers"
+      "permissions": "Permissions"
     },
-    "types": {
-      "all": "All Types",
-      "exact": "Exact Match",
-      "fuzzy": "Fuzzy Match",
-      "partial": "Partial Match"
+    "department": {
+      "title": "Departments",
+      "description": "Organize teams and hierarchy.",
+      "search": "Search departments…",
+      "add": "Add department",
+      "edit": "Edit department",
+      "empty": {
+        "title": "No departments yet",
+        "noResults": "No departments found"
+      },
+      "table": {
+        "name": "Name",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "parent": "Parent",
+        "noParent": "No parent",
+        "moveParent": "Move to parent",
+        "key": "Key",
+        "sort": "Sort order",
+        "leader": "Leader",
+        "status": "Status",
+        "meta": "Meta (JSON)"
+      },
+      "confirmDelete": "Delete this department?",
+      "pagination": {
+        "showing": "Showing {start}-{end} of {total}"
+      }
+    },
+    "user": {
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      },
+      "title": "Tenant management",
+      "rootManagement": "Root management",
+      "selectTenantDesc": "Select a tenant to manage its users and roles.",
+      "searchTenants": "Search tenants…",
+      "filter": {
+        "status": "Status",
+        "plan": "Plan",
+        "allStatus": "All status",
+        "allPlans": "All plans"
+      },
+      "plan": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "noTenantsFound": "No tenants found",
+      "noDomain": "No domain",
+      "userCount": "Users",
+      "createdAt": "Created at",
+      "loadFailed": "Failed to load tenants"
     }
   },
-  "intro": {
-    "nav": {
-      "features": "Features",
-      "products": "Products",
-      "about": "About"
-    },
-    "hero": {
-      "welcomeTo": "Welcome to",
-      "dashboardPreview": "Modern management interface"
-    },
-    "features": {
-      "title": "Core Features",
-      "subtitle": "We provide comprehensive enterprise solutions to boost your business",
-      "performance": {
-        "title": "High Performance",
-        "description": "Built on Nuxt 4 for ultimate performance experience"
-      },
-      "design": {
-        "title": "Modern Design",
-        "description": "Latest UI design concepts with clean and beautiful interface"
-      },
-      "usability": {
-        "title": "Easy to Use",
-        "description": "Intuitive interface makes management simple"
-      },
-      "security": {
-        "title": "Secure & Reliable",
-        "description": "Enterprise-grade security ensures data safety"
-      }
-    },
-    "products": {
-      "title": "Product Suite",
-      "subtitle": "Complete enterprise product ecosystem for different business needs",
-      "learnMore": "Learn More",
-      "admin": {
-        "description": "Powerful backend management system for enterprise digital transformation",
-        "features": {
-          "userManagement": "User Management",
-          "permissionControl": "Permission Control",
-          "dataAnalysis": "Data Analysis",
-          "systemMonitoring": "System Monitoring"
-        }
-      },
-      "analytics": {
-        "description": "Intelligent data analysis platform for business growth insights",
-        "features": {
-          "realTimeAnalysis": "Real-time Analysis",
-          "visualReports": "Visual Reports",
-          "predictiveModels": "Predictive Models",
-          "customDashboard": "Custom Dashboard"
-        }
-      },
-      "cloud": {
-        "description": "Cloud solutions for accessing your data anytime, anywhere",
-        "features": {
-          "cloudStorage": "Cloud Storage",
-          "multiDeviceSync": "Multi-device Sync",
-          "elasticScaling": "Elastic Scaling",
-          "support247": "24/7 Support"
-        }
-      }
-    },
-    "about": {
-      "title": "About Us",
-      "subtitle": "We are committed to providing the best digital solutions for enterprises",
-      "mission": {
-        "title": "Our Mission",
-        "paragraph1": "PowerX is committed to providing the most advanced digital management solutions for enterprises. We believe technology can transform business operations, improve efficiency, and create value.",
-        "paragraph2": "Through continuous innovation and optimization, we provide stable, secure, and user-friendly product experiences. Our team consists of experienced engineers and designers focused on creating world-class enterprise software.",
-        "paragraph3": "We always adhere to a customer-centric philosophy, listening to customer needs, continuously improving products, and working for customer success."
-      },
-      "stats": {
-        "companies": "Enterprise Clients",
-        "users": "Active Users",
-        "uptime": "System Availability"
-      },
-      "enterprise": {
-        "title": "Enterprise Solutions",
-        "description": "Professional solutions tailored for large enterprises"
-      },
-      "values": {
-        "title": "Our Values",
-        "innovation": {
-          "title": "Continuous Innovation",
-          "description": "Constantly exploring new technologies to provide cutting-edge solutions"
-        },
-        "userFirst": {
-          "title": "User First",
-          "description": "Always user-oriented, providing the best product experience"
-        },
-        "excellence": {
-          "title": "Pursuit of Excellence",
-          "description": "Never compromise on product quality and service level, pursuing perfection"
-        }
-      }
-    },
-    "cta": {
-      "title": "Ready to Get Started?",
-      "subtitle": "Experience PowerX's powerful features now and start your digital transformation journey",
-      "getStarted": "Get Started",
-      "signIn": "Sign In"
-    },
-    "footer": {
-      "aboutUs": "About Us",
-      "contactUs": "Contact Us",
-      "copyright": "© 2024 PowerX. All rights reserved."
+  "tenant": {
+    "add": "Add tenant",
+    "tooltips": {
+      "saasSupport": "SaaS onboarding is coming soon"
     }
-  },
-  "privacyPolicy": "Privacy Policy",
-  "termsOfService": "Terms of Service",
-  "error": {
-    "tip": "Something went wrong with this page",
-    "goBack": "Go Back",
-    "goHome": "Go Home",
-    "occurred": "Error Occurred",
-    "networkError": "Network Error",
-    "serverError": "Server Error",
-    "unknownError": "Unknown Error",
-    "tryAgain": "Please try again"
-  },
-  "agent": {
-    "selector": {
-      "title": "AI Agent",
-      "create": "Create",
-      "searchPlaceholder": "Search Agent...",
-      "noResults": "No matching Agent found",
-      "noAgents": "No Agents, click create to add the first one",
-      "active": "Active",
-      "inactive": "Inactive",
-      "current": "Current",
-      "available": "Available",
-      "capabilities": "capabilities",
-      "edit": "Edit",
-      "delete": "Delete",
-      "totalCount": "Total {count} Agents",
-      "sessions": "Recent Sessions",
-      "newSession": "New Session",
-      "newAgent": "New Agent",
-      "editAgent": "Edit Agent",
-      "noSessions": "No sessions",
-      "untitledSession": "Untitled Session",
-      "searchSessions": "Search sessions...",
-      "pickAgentToSeeSessions": "Please select an Agent to view session list",
-      "pinned": "Pinned",
-      "recents": "Recent",
-      "pin": "Pin",
-      "unpin": "Unpin",
-      "rename": "Rename",
-      "renameSession": "Rename Session",
-      "pickAgent": "Select Agent"
-    },
-    "message": {
-      "justNow": "Just now",
-      "minutesAgo": "{minutes} minutes ago",
-      "hoursAgo": "{hours} hours ago",
-      "you": "You",
-      "assistant": "Assistant",
-      "system": "System",
-      "typing": "Typing...",
-      "thinking": "Thinking...",
-      "metadata": "Metadata",
-      "sendFailed": "Send failed",
-      "retry": "Retry",
-      "copy": "Copy",
-      "delete": "Delete"
-    },
-    "chat": {
-      "defaultAgent": "Default Assistant",
-      "disconnected": "Disconnected",
-      "connected": "Connected",
-      "responding": "Responding",
-      "typing": "Typing",
-      "generating": "Generating",
-      "clear": "Clear",
-      "realtimeFailed": "Real-time connection failed",
-      "welcomeTitle": "Start Conversation",
-      "welcomeMessage": "Select an Agent to start intelligent conversation and experience the power of AI assistant.",
-      "agentTyping": "Assistant is typing...",
-      "inputPlaceholder": "Type a message...",
-      "disconnectedPlaceholder": "Connection lost, cannot send message",
-      "enterToSend": "Enter to send",
-      "shiftEnterNewLine": "Shift+Enter for new line",
-      "ctrlEnterToSend": "Ctrl/Cmd+Enter to send",
-      "enterNewLine": "Enter for new line",
-      "model": "Model",
-      "temperature": "Temperature",
-      "cancel": "Cancel",
-      "newSession": "New Session",
-      "untitledSession": "Untitled Session",
-      "you": "You",
-      "agent": "Agent",
-      "errors": {
-        "loadSessionsFailed": "Failed to load sessions",
-        "loadMoreSessionsFailed": "Failed to load more sessions",
-        "createSessionFailed": "Failed to create session",
-        "createSessionFailedNoData": "Failed to create session: No response data",
-        "deleteSessionFailed": "Failed to delete session",
-        "renameSessionFailed": "Failed to rename session",
-        "archiveSessionFailed": "Failed to archive session",
-        "loadMessagesFailed": "Failed to load messages",
-        "loadMoreMessagesFailed": "Failed to load more messages"
-      }
-    },
-    "config": {
-      "title": "Agent Configuration",
-      "editTitle": "Edit Agent",
-      "createTitle": "Create Agent",
-      "basicInfo": "Basic Information",
-      "name": "Name",
-      "namePlaceholder": "Enter Agent name",
-      "description": "Description",
-      "descriptionPlaceholder": "Describe this Agent's functions and features",
-      "avatar": "Avatar",
-      "avatarPlaceholder": "Enter avatar image URL",
-      "status": "Status",
-      "active": "Active",
-      "inactive": "Inactive",
-      "modelConfig": "Model Configuration",
-      "model": "Model",
-      "selectModel": "Select Model",
-      "selectProvider": "Select Provider",
-      "temperature": "Temperature",
-      "conservative": "Conservative",
-      "creative": "Creative",
-      "maxTokens": "Max Tokens",
-      "maxTokensPlaceholder": "Enter max tokens",
-      "systemPrompt": "System Prompt",
-      "systemPromptPlaceholder": "Enter system prompt to define Agent's behavior and role",
-      "usePreset": "Use Preset",
-      "capability": "Capability",
-      "advancedSettings": "Advanced Settings",
-      "contextWindow": "Context Window",
-      "contextWindowPlaceholder": "Enter context window size",
-      "responseFormat": "Response Format",
-      "selectFormat": "Select Format",
-      "streaming": "Streaming Response",
-      "streamingEnabled": "Enabled",
-      "streamingDisabled": "Disabled",
-      "reset": "Reset",
-      "cancel": "Cancel",
-      "save": "Save",
-      "capabilities": {
-        "textGeneration": "Text Generation",
-        "codeGeneration": "Code Generation",
-        "imageAnalysis": "Image Analysis",
-        "webSearch": "Web Search",
-        "fileProcessing": "File Processing",
-        "dataAnalysis": "Data Analysis",
-        "translation": "Translation",
-        "summarization": "Summarization"
-      },
-      "presets": {
-        "assistant": "General Assistant",
-        "assistantPrompt": "You are a helpful, harmless, and honest AI assistant. Please answer user questions in a friendly and professional manner.",
-        "coder": "Programming Assistant",
-        "coderPrompt": "You are a professional programming assistant skilled in multiple programming languages and technologies. Please provide clear, executable code solutions.",
-        "translator": "Translation Assistant",
-        "translatorPrompt": "You are a professional translation assistant capable of accurately translating multiple languages. Please maintain the tone and meaning of the original text.",
-        "analyst": "Analyst",
-        "analystPrompt": "You are a data analysis expert skilled at extracting insights from data. Please provide detailed analysis and recommendations."
-      },
-      "formats": {
-        "text": "Plain Text",
-        "markdown": "Markdown",
-        "json": "JSON"
-      }
-    },
-    "confirmDelete": "Are you sure you want to delete this Agent? This action cannot be undone."
-  },
-  "env": {
-    "title": "Environment Configuration",
-    "current": "Current Environment",
-    "switch": "Switch Environment",
-    "dev": "Development",
-    "staging": "Staging",
-    "prod": "Production",
-    "canary": "Canary",
-    "blue": "Blue",
-    "green": "Green"
-  },
-  "system": {
-    "info": {
-      "title": "System Information",
-      "appName": "Application Name",
-      "appVersion": "Application Version"
-    },
-    "language": {
-      "title": "Language Settings",
-      "current": "Current Language",
-      "available": "Available Languages",
-      "forced": "Forced Language"
-    },
-    "theme": {
-      "title": "Theme Settings",
-      "current": "Current Theme",
-      "available": "Available Themes",
-      "forced": "Forced Theme"
-    },
-    "debug": {
-      "title": "Debug Information",
-      "languageSwitch": "Language Switch",
-      "themeSwitch": "Theme Switch",
-      "userPreferences": "User Preferences"
-    },
-    "actions": {
-      "reset": "Reset Configuration",
-      "showConfig": "Show Configuration"
-    }
-  },
-
-  "workflow": {
-    "title": "Workflow Editor",
-    "newWorkflow": "New Workflow",
-    "openWorkflow": "Open Workflow",
-    "saveWorkflow": "Save Workflow",
-    "runWorkflow": "Run Workflow",
-    "undo": "Undo",
-    "redo": "Redo",
-    "fitView": "Fit View",
-    "empty": {
-      "title": "Start Creating Workflow",
-      "description": "Create new workflow or open existing workflow"
-    },
-    "palette": {
-      "title": "Node Palette",
-      "searchPlaceholder": "Search nodes..."
-    },
-    "properties": {
-      "title": "Node Properties"
-    },
-    "dialog": {
-      "newWorkflow": {
-        "title": "New Workflow",
-        "name": "Workflow Name",
-        "namePlaceholder": "Enter workflow name",
-        "description": "Description",
-        "descriptionPlaceholder": "Enter workflow description (optional)",
-        "cancel": "Cancel",
-        "create": "Create"
-      },
-      "openWorkflow": {
-        "title": "Open Workflow",
-        "noWorkflows": "No available workflows",
-        "columns": {
-          "name": "Name",
-          "description": "Description",
-          "updatedAt": "Updated At",
-          "actions": "Actions"
-        },
-        "open": "Open",
-        "cancel": "Cancel"
-      }
-    },
-    "nodes": {
-      "llm": "LLM",
-      "http": "HTTP Request",
-      "selector": "Condition",
-      "properties": "properties"
-    },
-    "messages": {
-      "loadKindsFailed": "Failed to load node types",
-      "loadPaletteFailed": "Failed to load node templates",
-      "loadWorkflowFailed": "Failed to load workflow",
-      "saveWorkflowFailed": "Failed to save workflow",
-      "templateNotFound": "Template not found",
-      "unknownKind": "Unknown node type",
-      "jsonParseError": "Unable to parse JSON"
-    }
-  },
-  "profile": {
-    "title": "Profile",
-    "subtitle": "Manage your personal information and account settings",
-    "personalInfo": "Personal Information",
-    "editProfile": "Edit Profile",
-    "edit": "Edit",
-    "save": "Save",
-    "cancel": "Cancel",
-    "name": "Name",
-    "email": "Email",
-    "phone": "Phone",
-    "department": "Department",
-    "position": "Position",
-    "bio": "Bio",
-    "bioPlaceholder": "Enter your bio...",
-    "loginCount": "Login Count",
-    "activeDays": "Active Days",
-    "quickActions": "Quick Actions",
-    "changePassword": "Change Password",
-    "notifications": "Notification Settings",
-    "settings": "System Settings",
-    "security": "Security Settings",
-    "twoFactorAuth": "Two-Factor Authentication",
-    "twoFactorAuthDesc": "Add extra security protection to your account",
-    "emailNotifications": "Email Notifications",
-    "emailNotificationsDesc": "Receive important system notification emails",
-    "lastLogin": "Last Login",
-    "recentActivity": "Recent Activity",
-    "currentPassword": "Current Password",
-    "newPassword": "New Password",
-    "confirmPassword": "Confirm Password",
-    "passwordChanged": "Password changed successfully",
-    "profileUpdated": "Profile updated successfully"
   },
   "settings": {
-    "title": "Settings",
-    "general": "General",
-    "security": "Security",
-    "notifications": "Notifications",
-    "appearance": "Appearance",
-    "language": "Language",
-    "theme": "Theme",
     "ai": {
       "title": "AI Settings",
-      "description": "Configure multimodal providers, credentials, and parameters.",
+      "description": "Configure providers, models and parameters.",
       "environment": "Environment",
-      "modalityTabs": "Modalities",
-      "providers": "AI Providers",
-      "models": "Models",
-      "testPanel": "Test Panel",
+      "modalityTabsLabel": "Modalities",
+      "modalityTabs": {
+        "llm": "LLM",
+        "embedding": "Embedding",
+        "speech": "Speech",
+        "vision": "Vision"
+      },
       "sections": {
         "general": "General",
         "parameters": "Parameters"
       },
       "actions": {
         "openCostGuard": "Open Cost Guard",
-        "backToModels": "Back to Model Configuration"
+        "backToModels": "Back to models",
+        "openCapabilityRegistry": "Capability Registry"
       },
-      "costGuardPageTitle": "Cost & Quota Guard",
-      "costGuardPageDesc": "Monitor tenant budgets, investigate anomalies, and run throttle / degrade actions.",
+      "costGuardPageTitle": "Cost Guard",
+      "costGuardPageDesc": "Manage quota and throttling for AI usage.",
+      "registryPageTitle": "Capability Registry",
+      "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
       "costGuard": {
-        "panelTitle": "Realtime budget snapshot",
-        "panelDesc": "Select a tenant to view usage and trigger governance actions.",
-        "tenantLabel": "Target tenant",
-        "tenantPlaceholder": "Select a tenant",
+        "panelTitle": "Cost guard policies",
+        "panelDesc": "Configure quotas, throttles and fallbacks.",
+        "tenantLabel": "Tenant",
+        "tenantPlaceholder": "Select tenant",
         "refresh": "Refresh",
-        "openDashboard": "Open tenant dashboard",
+        "openDashboard": "Open dashboard",
         "lastUpdated": "Last updated",
-        "errorTitle": "Failed to load quotas",
         "emptyTitle": "No quota data",
-        "emptyDesc": "Select a tenant and refresh to load budget usage.",
-        "actionPlaceholder": "Choose an action",
-        "reasonPlaceholder": "Action notes (optional)",
-        "executeAction": "Execute governance action",
-        "historyTitle": "Recent actions",
-        "historyEmpty": "No enforcement history yet",
-        "reasonFallback": "Not provided",
-        "defaultTenants": {
-          "demo": "Demo tenant",
-          "ops": "Ops tenant"
-        },
-        "actions": {
-          "throttle": "Throttle",
-          "degrade": "Degrade",
-          "disable": "Disable"
-        },
-        "status": {
-          "breached": "Breach",
-          "warning": "Warning",
-          "throttle": "Throttle",
-          "healthy": "Healthy",
-          "default": "Healthy"
-        },
-        "toast": {
-          "loadFailedTitle": "Refresh failed",
-          "loadFailedDesc": "Unable to load quota snapshot",
-          "actionSuccessTitle": "Action executed",
-          "actionSuccessDesc": "Applied {action} to {provider}",
-          "actionFailedTitle": "Action failed",
-          "actionFailedDesc": "Please try again later"
-        },
-        "playbookTitle": "Governance playbooks",
+        "emptyDesc": "Add quota rules to start tracking usage.",
+        "playbookTitle": "Playbooks",
         "playbooks": {
           "throttle": {
             "title": "Throttle",
-            "desc": "Lower TPS temporarily and observe recovery for 30 minutes."
+            "desc": "Rate limit requests when budget is tight."
           },
           "degrade": {
             "title": "Degrade",
-            "desc": "Switch routing to lower-cost providers while preserving core capabilities."
+            "desc": "Fallback to cheaper models automatically."
           },
           "disable": {
             "title": "Disable",
-            "desc": "Shut down the provider when leakage or severe overruns happen. Always link to an incident ticket."
+            "desc": "Turn off the service when budget is exceeded."
           }
+        },
+        "defaultTenants": {
+          "demo": "Demo",
+          "ops": "Ops"
         }
+      },
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "Search capability ID, title or intent",
+          "pluginPlaceholder": "Plugin ID",
+          "statusAll": "All statuses",
+          "protocolAll": "All protocols",
+          "sourcePlugin": "Plugin capabilities",
+          "sourcePlatform": "Platform capabilities",
+          "sourceAll": "All sources",
+          "apply": "Apply filters",
+          "reset": "Reset"
+        },
+        "columns": {
+          "capability": "Capability",
+          "plugin": "Plugin",
+          "policy": "Policy",
+          "protocols": "Channels",
+          "hash": "Hashes",
+          "publishedAt": "Published / synced"
+        },
+        "summary": "{total} records",
+        "manualUpgrade": "Manual upgrade required",
+        "empty": "No capability records yet",
+        "noAccess": {
+          "title": "Root access required",
+          "description": "Only root users can view the capability registry. Please sign in with a root account."
+        },
+        "syncJobs": {
+          "title": "Recent sync jobs",
+          "empty": "No sync jobs recorded",
+          "more": "Showing latest {count} jobs",
+          "status": {
+            "pending": "Pending",
+            "running": "Running",
+            "succeeded": "Succeeded",
+            "failed": "Failed"
+          }
+        },
+        "toast": {
+          "loadFailed": "Failed to load registry",
+          "jobsFailed": "Failed to load sync jobs"
+        }
+      }
+    },
+    "openCapabilities": {
+      "title": "Platform Capabilities",
+      "description": "Inspect CoreX platform modules, protocols, and debugging entry points.",
+      "actions": {
+        "refresh": "Refresh data",
+        "syncNow": "Sync now",
+        "copyCurl": "Copy cURL",
+        "copyInsomnia": "Copy Insomnia",
+        "openDoc": "Open docs",
+        "openMediaEntry": "Open Media API"
+      },
+      "noAccess": {
+        "title": "Root access required",
+        "description": "Only root administrators can view platform capability details."
+      },
+      "summary": {
+        "modules": "Modules: {count}",
+        "capabilities": "Capabilities: {count}",
+        "generatedAt": "Snapshot: {time}",
+        "lastLoadedAt": "Last refresh: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "Search capability ID, title, or description",
+        "reset": "Clear filters",
+        "moduleAll": "All modules",
+        "protocolAll": "All protocols"
+      },
+      "empty": {
+        "title": "No platform capabilities yet",
+        "description": "CoreX platform capabilities are not available yet or the registry snapshot is still syncing.",
+        "filtered": "No capability matches the current filters"
+      },
+      "loading": "Loading platform capabilities...",
+      "defaultModuleDescription": "CoreX built-in capabilities shared with host and skeleton plugins.",
+      "status": {
+        "active": "Active",
+        "degraded": "Degraded",
+        "offline": "Offline"
+      },
+      "labels": {
+        "preferred": "Preferred protocol",
+        "hash": "Capability hash",
+        "plugin": "Source plugin",
+        "payloadSample": "Sample payload"
+      },
+      "toast": {
+        "loadFailed": "Failed to load platform capabilities",
+        "copySuccess": "Snippet copied to clipboard",
+        "copyFailed": "Copy failed"
       }
     }
   },
-  "plugins": {
-    "title": "Plugins",
-    "installed": "Installed",
-    "available": "Available",
-    "install": "Install",
-    "uninstall": "Uninstall",
-    "enable": "Enable",
-    "disable": "Disable",
-    "settings": "Settings"
-  },
-  "errors": {
-    "404": "Page not found",
-    "500": "Internal server error",
-    "networkError": "Network error",
-    "unauthorized": "Unauthorized access",
-    "forbidden": "Access forbidden"
-  },
-  "theme": {
-    "title": "Theme",
-    "settings": "Theme Settings",
-    "light": "Light",
-    "dark": "Dark",
-    "auto": "Auto"
-  },
   "connection": {
     "chatSignal": "Chat Signal",
-    "commandChannel": "Command Channel",
-    "reconnect": "Reconnect"
+    "commandChannel": "Command Channel"
+  },
+  "intro": {
+    "footer": {
+      "contactUs": "Contact Us",
+      "aboutUs": "About Us"
+    }
+  },
+  "privacyPolicy": "Privacy Policy",
+  "header": {
+    "searchPlaceholder": "Search…",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "home": {
+    "footer": "Home footer",
+    "subtitle": "Your workspace to start",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More"
+  },
+  "welcome": "Welcome",
+  "login": "Login",
+  "register": "Register",
+  "auth": {
+    "backToHome": "Back to home",
+    "welcomeBack": "Welcome back",
+    "loginSubtitle": "Sign in with your account to continue.",
+    "identifier": "Email or phone",
+    "password": "Password",
+    "remember": "Remember me",
+    "signUpNow": "Sign up now",
+    "login": {
+      "noAccount": "Don’t have an account?",
+      "forgotPassword": "Forgot password?"
+    }
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "Knowledge Spaces",
+      "description": "Manage knowledge spaces and ingestion"
+    },
+    "hero": {
+      "badge": "Knowledge",
+      "title": "Knowledge Space Overview",
+      "description": "Create and manage knowledge spaces",
+      "actions": {
+        "create": "Create Space",
+        "createDesc": "Start a new knowledge space",
+        "docs": "Docs",
+        "docsDesc": "Read the guide"
+      }
+    },
+    "governance": {
+      "title": "Governance",
+      "description": "Policies and permissions"
+    },
+    "qaCard": {
+      "badge": "QA",
+      "title": "QA Bridge",
+      "refresh": "Refresh",
+      "metrics": {
+        "latency": "Latency",
+        "coverage": "Coverage",
+        "toolSuccess": "Tool success"
+      }
+    },
+    "ingestion": {
+      "title": "Ingestion",
+      "subtitle": "Import content into spaces",
+      "spaceId": "Space ID",
+      "sourceType": "Source Type",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "Table",
+        "api": "API"
+      },
+      "mode": "Mode",
+      "modeDocument": "Document",
+      "modeApi": "API",
+      "uploadFile": "Upload file",
+      "uploadHint": "Support PDF/Markdown/Table",
+      "priority": "Priority",
+      "priorityOptions": {
+        "normal": "Normal",
+        "high": "High"
+      },
+      "actions": {
+        "ingestNow": "Ingest now"
+      }
+    },
+    "timeline": {
+      "title": "Timeline",
+      "description": "Recent activities",
+      "badge": "Log"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "No spaces yet",
+        "description": "Create your first knowledge space"
+      },
+      "fusion": {
+        "title": "Fusion not configured",
+        "description": "Connect data sources to start"
+      },
+      "feedback": {
+        "title": "No feedback",
+        "description": "Collect feedback to improve"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of key metrics",
+    "stats": {
+      "totalUsers": "Total Users",
+      "todayVisits": "Today Visits",
+      "totalRevenue": "Total Revenue",
+      "activeUsers": "Active Users",
+      "vsLastMonth": "vs last month"
+    },
+    "activities": {
+      "title": "Recent Activities",
+      "viewAll": "View all",
+      "users": {
+        "zhangsan": "Zhangsan",
+        "lisi": "Lisi",
+        "wangwu": "Wangwu"
+      },
+      "actions": {
+        "createArticle": "created an article",
+        "updateProfile": "updated profile",
+        "deleteComment": "deleted a comment"
+      },
+      "targets": {
+        "vueBestPractices": "Vue best practices",
+        "onTechShare": "Tech share"
+      },
+      "times": {
+        "minutesAgo": "{n} minutes ago"
+      }
+    }
+  },
+  "agent": {
+    "selector": {
+      "pickAgent": "Pick an agent",
+      "editAgent": "Edit agent",
+      "newAgent": "New agent",
+      "searchSessions": "Search sessions",
+      "pickAgentToSeeSessions": "Pick an agent to see sessions",
+      "totalCount": "Total",
+      "newSession": "New session",
+      "recents": "Recent sessions",
+      "noSessions": "No sessions"
+    },
+    "config": {
+      "capabilities": {
+        "textGeneration": "Text generation",
+        "codeGeneration": "Code generation",
+        "imageAnalysis": "Image analysis",
+        "webSearch": "Web search",
+        "fileProcessing": "File processing",
+        "dataAnalysis": "Data analysis",
+        "translation": "Translation",
+        "summarization": "Summarization"
+      },
+      "presets": {
+        "assistant": "Assistant",
+        "assistantPrompt": "Assistant prompt",
+        "coder": "Coder",
+        "coderPrompt": "Coder prompt",
+        "translator": "Translator",
+        "translatorPrompt": "Translator prompt",
+        "analyst": "Analyst",
+        "analystPrompt": "Analyst prompt"
+      },
+      "title": "Title",
+      "description": "Description",
+      "selectProvider": "Select provider",
+      "selectModel": "Select model"
+    },
+    "chat": {
+      "defaultAgent": "Default agent",
+      "connected": "Connected",
+      "disconnected": "Connection lost",
+      "welcomeTitle": "Welcome",
+      "welcomeMessage": "Ask me anything to get started",
+      "disconnectedPlaceholder": "Disconnected",
+      "inputPlaceholder": "Type a message",
+      "model": "Model",
+      "temperature": "Temperature",
+      "ctrlEnterToSend": "Ctrl+Enter to send",
+      "enterNewLine": "Enter new line"
+    }
+  },
+  "pluginRelease": {
+    "detailTitle": "Release Candidate",
+    "detailSubtitle": "View metadata and current status",
+    "approval": "Approval",
+    "gate": "Gate",
+    "tenant": "Tenant",
+    "createdBy": "Submitted By",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "artifact": "Build Artifact",
+    "submittedAt": "Submitted At",
+    "releaseNotes": "Release Notes",
+    "labels": "Labels",
+    "pluginVersion": "Plugin / Version",
+    "commitHash": "Commit Hash",
+    "editTitle": "Update Release Candidate",
+    "buildArtifact": "Build Artifact URI",
+    "labelsHelp": "JSON object, e.g. channel=dev"
   }
 }

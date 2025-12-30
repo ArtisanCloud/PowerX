@@ -103,15 +103,20 @@ func NewAuthService(db *gorm.DB, opts AuthOptions) *AuthService {
 }
 
 // Register 在 tenant 下注册一个新成员（可能复用已存在的全局 User）
-func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, identifier, password string, opt *RegisterOptions) (*model.Member, error) {
+func (s *AuthService) Register(ctx context.Context, tenantUUID, username, identifier, password string, opt *RegisterOptions) (*model.Member, error) {
 	if opt == nil {
 		opt = &RegisterOptions{}
 	}
 	username = strings.ToLower(strings.TrimSpace(username))
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
+	ten, err := s.tenantByUUID(ctx, tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	tenantUUIDStr := ten.UUID.String()
 
 	// 1) 租户内 username 唯一
-	if _, err := s.MemberRepo.FindByTenantAndUserName(ctx, tenantID, username); err == nil {
+	if _, err := s.MemberRepo.FindByTenantAndUserName(ctx, tenantUUIDStr, username); err == nil {
 		return nil, errors.New("username exists")
 	}
 
@@ -164,7 +169,7 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 
 	// 4) 创建租户成员（支持昵称/头像覆盖）
 	m := &model.Member{
-		TenantID:    tenantID,
+		TenantUUID:  tenantUUIDStr,
 		UserID:      userID,
 		Username:    username,
 		DisplayName: utils.FirstNonEmpty(opt.MemberDisplayName, username),
@@ -182,19 +187,19 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 	}
 
 	// 5) 绑定默认角色
-	_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_user")
+	_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantUUIDStr, m.ID, "role_user")
 
-	if _, err := tenantkeys.NewTenantKeyService(s.DB).EnsureActiveKeyPair(ctx, "default", &tenantID); err != nil {
+	if _, err := tenantkeys.NewTenantKeyService(s.DB).EnsureActiveKeyPair(ctx, "default", ten.UUID.String()); err != nil {
 		// 线上建议：不要阻塞注册，只记录告警即可
-		// log.Warn("ensure tenant keypair failed", "tenant", tenantID, "err", err)
+		// log.Warn("ensure tenant keypair failed", "tenant", ten.ID, "err", err)
 		return nil, err
 	}
 
 	return m, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password string) (access, refresh string, err error) {
-	tenantRef = strings.TrimSpace(tenantRef)
+func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, password string) (access, refresh string, err error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
 
 	// 1) 用 identifier 原样去找凭证（邮箱/手机/用户名都行）
@@ -212,12 +217,12 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 	// 2) 选择租户/成员（不从 identifier 猜租户）
 	var ten *tenantmdl.Tenant
 	var m *model.Member
-	if tenantRef != "" {
-		ten, err = s.resolveTenant(ctx, tenantRef) // 支持 key/uuid
+	if tenantUUID != "" {
+		ten, err = s.tenantByUUID(ctx, tenantUUID)
 		if err != nil {
 			return "", "", err
 		}
-		m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.ID, u.ID)
+		m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
 		if err != nil {
 			return "", "", errors.New("no membership in tenant")
 		}
@@ -232,12 +237,15 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 			return "", "", errors.New("no membership found")
 		case 1:
 			m = members[0]
-			ten, err = s.tenantRepo.GetByID(ctx, m.TenantID)
+			if strings.TrimSpace(m.TenantUUID) == "" {
+				return "", "", errors.New("member missing tenant uuid")
+			}
+			ten, err = s.tenantRepo.GetByUUID(ctx, m.TenantUUID)
 			if err != nil {
 				return "", "", err
 			}
 		default:
-			return "", "", errors.New("tenant required")
+			return "", "", errors.New("tenant uuid required")
 		}
 	}
 	if m.Status != 1 {
@@ -303,18 +311,26 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 	return access, refresh, nil
 }
 
-// 解析 tenantRef（支持 key/uuid；为空时回退默认租户）
-func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*tenantmdl.Tenant, error) {
-	if ref == "" {
-		if s.DefaultTenantKey == "" {
-			return nil, errors.New("tenant is required")
+// tenantByUUID 解析并加载租户记录（仅接受 UUID）
+func (s *AuthService) tenantByUUID(ctx context.Context, tenantUUID string) (*tenantmdl.Tenant, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant uuid required")
+	}
+	if !looksLikeUUID(tenantUUID) {
+		return nil, errors.New("tenant uuid invalid")
+	}
+	ten, err := s.tenantRepo.GetByUUID(ctx, tenantUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("tenant not found")
 		}
-		return s.tenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default", tenantmdl.TenantPlanFree, tenantmdl.TenantTypePersonal)
+		return nil, err
 	}
-	if len(ref) >= 32 && looksLikeUUID(ref) {
-		return s.tenantRepo.GetByUUID(ctx, ref, nil)
+	if ten == nil || ten.ID == 0 {
+		return nil, errors.New("tenant not found")
 	}
-	return s.tenantRepo.EnsureByKey(ctx, ref, ref, tenantmdl.TenantPlanFree, tenantmdl.TenantTypePersonal)
+	return ten, nil
 }
 
 func looksLikeUUID(s string) bool {
@@ -342,20 +358,20 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	}
 
 	// 3) 从仓库加载 user / member / tenant（用于后续快照写缓存）
+	ten, err := s.tenantByUUID(ctx, claims.TenantUUID)
+	if err != nil {
+		return "", err
+	}
 	u, err := s.UserRepo.FindByID(ctx, claims.UserID)
 	if err != nil || u == nil {
 		return "", errors.New("user not found")
 	}
 	m, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
-		"id = ?":        claims.MemberID,
-		"tenant_id = ?": claims.TenantID, // 双重约束，防串租户
+		"id = ?":          claims.MemberID,
+		"tenant_uuid = ?": ten.UUID.String(), // 双重约束，防串租户
 	}, nil)
 	if err != nil || m == nil {
 		return "", errors.New("member not found")
-	}
-	ten, err := s.tenantRepo.GetByID(ctx, claims.TenantID)
-	if err != nil || ten == nil {
-		return "", errors.New("tenant not found")
 	}
 	if u.Status != 1 {
 		return "", errors.New("user disabled")
@@ -368,6 +384,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	}
 
 	// 4) 重新签发新的 access（沿用 claims 的主体信息，刷新有效期）
+	claims.TenantID = ten.ID
 	access, err := pkgauth.GenerateAccessJWT(
 		*claims, // Tenant/User/Member/Platforms/Env 都沿用
 		s.Issuer,
@@ -394,14 +411,14 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 			"meta":          u.Meta,
 		}), ttl)
 		_ = s.Cache.Set(ctx, middleware.KMember(m.ID), utils.MustJSONBytes(map[string]any{
-			"id":         m.ID,
-			"tenant_id":  m.TenantID,
-			"user_id":    m.UserID,
-			"status":     m.Status,
-			"username":   m.Username,
-			"name":       m.DisplayName,
-			"avatar_url": m.AvatarURL,
-			"meta":       m.Meta,
+			"id":          m.ID,
+			"tenant_uuid": m.TenantUUID,
+			"user_id":     m.UserID,
+			"status":      m.Status,
+			"username":    m.Username,
+			"name":        m.DisplayName,
+			"avatar_url":  m.AvatarURL,
+			"meta":        m.Meta,
 		}), ttl)
 		_ = s.Cache.Set(ctx, middleware.KTenant(ten.ID), utils.MustJSONBytes(map[string]any{
 			"id":     ten.ID,

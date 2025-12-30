@@ -2,14 +2,14 @@ package system
 
 import (
 	"encoding/json"
-	"gorm.io/datatypes"
 	"net/http"
-	"strconv"
 	"strings"
 
 	settingsvc "github.com/ArtisanCloud/PowerX/internal/service/system"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +42,7 @@ type ListTenantSettingsReq struct {
 }
 
 type GetEffectiveReq struct {
-	TenantID *uint64 `form:"tenant_id"`
+	TenantUUID *string `form:"tenant_uuid"`
 }
 
 // ===== 系统级 KV =====
@@ -102,14 +102,17 @@ func (h *SettingHandler) DeleteSystem(c *gin.Context) {
 
 // ===== 租户级 KV =====
 func (h *SettingHandler) ListTenant(c *gin.Context) {
-	tenantID, _ := strconv.ParseUint(c.Param("tenant_id"), 10, 64)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
 	var req ListTenantSettingsReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
 	req.SetDefaultPagination()
-	items, total, err := h.S.ListTenant(c.Request.Context(), tenantID, strings.TrimSpace(req.Prefix), req.Page, req.PageSize)
+	items, total, err := h.S.ListTenant(c.Request.Context(), tenantUUID, strings.TrimSpace(req.Prefix), req.Page, req.PageSize)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询租户设置失败", err)
 		return
@@ -118,9 +121,12 @@ func (h *SettingHandler) ListTenant(c *gin.Context) {
 }
 
 func (h *SettingHandler) GetTenant(c *gin.Context) {
-	tenantID, _ := strconv.ParseUint(c.Param("tenant_id"), 10, 64)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
 	key := strings.TrimSpace(c.Param("key"))
-	item, err := h.S.GetTenant(c.Request.Context(), tenantID, key)
+	item, err := h.S.GetTenant(c.Request.Context(), tenantUUID, key)
 	if err != nil {
 		dto.ResponseError(c, http.StatusNotFound, "未找到租户设置", err)
 		return
@@ -129,14 +135,17 @@ func (h *SettingHandler) GetTenant(c *gin.Context) {
 }
 
 func (h *SettingHandler) UpsertTenant(c *gin.Context) {
-	tenantID, _ := strconv.ParseUint(c.Param("tenant_id"), 10, 64)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
 	key := strings.TrimSpace(c.Param("key"))
 	var req UpsertSystemSettingReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	if err := h.S.UpsertTenant(c.Request.Context(), tenantID, key, req.ValueJSON, req.Group, req.Description, req.Editable); err != nil {
+	if err := h.S.UpsertTenant(c.Request.Context(), tenantUUID, key, req.ValueJSON, req.Group, req.Description, req.Editable); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "写入租户设置失败", err)
 		return
 	}
@@ -144,7 +153,10 @@ func (h *SettingHandler) UpsertTenant(c *gin.Context) {
 }
 
 func (h *SettingHandler) DeleteTenant(c *gin.Context) {
-	tenantID, _ := strconv.ParseUint(c.Param("tenant_id"), 10, 64)
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
 	key := strings.TrimSpace(c.Param("key"))
 	var req UpsertSystemSettingReq
 	_ = c.ShouldBindJSON(&req)
@@ -152,7 +164,7 @@ func (h *SettingHandler) DeleteTenant(c *gin.Context) {
 	if req.Soft != nil {
 		soft = *req.Soft
 	}
-	if err := h.S.DeleteTenant(c.Request.Context(), tenantID, key, soft); err != nil {
+	if err := h.S.DeleteTenant(c.Request.Context(), tenantUUID, key, soft); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "删除租户设置失败", err)
 		return
 	}
@@ -167,10 +179,35 @@ func (h *SettingHandler) GetEffective(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	val, source, err := h.S.GetEffectiveFromDB(c.Request.Context(), req.TenantID, key)
+	var tenantUUID *string
+	rawTenant := ""
+	if req.TenantUUID != nil {
+		rawTenant = strings.TrimSpace(*req.TenantUUID)
+	}
+	if rawTenant == "" {
+		rawTenant = strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
+	}
+	if rawTenant != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(rawTenant)
+		if err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid 格式错误", err)
+			return
+		}
+		tenantUUID = &canonical
+	}
+	val, source, err := h.S.GetEffectiveFromDB(c.Request.Context(), tenantUUID, key)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "读取生效值失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"source": source, "value_json": json.RawMessage(val)})
+}
+
+func requireTenantUUIDFromContext(c *gin.Context) (string, bool) {
+	tenantUUID, err := reqctx.RequireTenantUUIDValueFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return "", false
+	}
+	return tenantUUID.String(), true
 }

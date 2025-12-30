@@ -77,7 +77,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- `EVENT security.login.detected` — 风险评估输入，字段含 `tenant_id`, `user_id`, `session_id`, `ip`, `geo`, `device`, `result`, `latency_ms`。
+- `EVENT security.login.detected` — 风险评估输入，字段含 `tenant_uuid`, `user_id`, `session_id`, `ip`, `geo`, `device`, `result`, `latency_ms`。
 - `POST /internal/risk/login/incidents` — 手动创建或重放风险事件，便于调试。
 - `POST /internal/risk/login/incidents/{id}/ack` — 管理员确认高危事件（`status=confirmed|false_positive`）。
 - `POST /internal/risk/login/incidents/{id}/rollback` — 触发会话恢复、账号解冻、阈值调优。

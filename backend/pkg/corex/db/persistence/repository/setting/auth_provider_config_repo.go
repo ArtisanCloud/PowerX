@@ -3,6 +3,8 @@ package setting
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
@@ -24,10 +26,15 @@ func (r *AuthProviderConfigRepository) with(ctx context.Context) *gorm.DB {
 	return db
 }
 
-func (r *AuthProviderConfigRepository) Get(ctx context.Context, tenantID uint64, typ string) (*dbsetting.AuthProviderConfig, error) {
+func (r *AuthProviderConfigRepository) Get(ctx context.Context, tenantUUID string, typ string) (*dbsetting.AuthProviderConfig, error) {
+	return r.GetByScope(ctx, TenantScope{TenantUUID: tenantUUID}, typ)
+}
+
+func (r *AuthProviderConfigRepository) GetByScope(ctx context.Context, scope TenantScope, typ string) (*dbsetting.AuthProviderConfig, error) {
 	var m dbsetting.AuthProviderConfig
-	err := r.with(ctx).
-		Where("tenant_id = ? AND type = ?", tenantID, typ).
+	query := scope.apply(r.with(ctx))
+	err := query.
+		Where("type = ?", typ).
 		First(&m).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -39,21 +46,35 @@ func (r *AuthProviderConfigRepository) Get(ctx context.Context, tenantID uint64,
 }
 
 func (r *AuthProviderConfigRepository) Upsert(ctx context.Context, m *dbsetting.AuthProviderConfig) error {
+	tenantUUID := strings.TrimSpace(strings.ToLower(m.TenantUUID))
+	if tenantUUID == "" {
+		return fmt.Errorf("tenant uuid is required")
+	}
+	m.TenantUUID = tenantUUID
 	return r.with(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "type"}},
+		Columns:   []clause.Column{{Name: "tenant_uuid"}, {Name: "type"}},
 		DoUpdates: clause.AssignmentColumns([]string{"config_json", "enabled", "verified", "verify_note", "updated_at"}),
 	}).Create(m).Error
 }
 
-func (r *AuthProviderConfigRepository) SetEnabled(ctx context.Context, tenantID uint64, typ string, enabled bool) error {
-	return r.with(ctx).
-		Model(&dbsetting.AuthProviderConfig{}).
-		Where("tenant_id = ? AND type = ?", tenantID, typ).
+func (r *AuthProviderConfigRepository) SetEnabled(ctx context.Context, tenantUUID string, typ string, enabled bool) error {
+	return r.SetEnabledByScope(ctx, TenantScope{TenantUUID: tenantUUID}, typ, enabled)
+}
+
+func (r *AuthProviderConfigRepository) SetEnabledByScope(ctx context.Context, scope TenantScope, typ string, enabled bool) error {
+	return scope.apply(r.with(ctx).Model(&dbsetting.AuthProviderConfig{})).
+		Where("type = ?", typ).
 		Update("enabled", enabled).Error
 }
 
-func (r *AuthProviderConfigRepository) ListEnabledByTenant(ctx context.Context, tenantID uint64) ([]*dbsetting.AuthProviderConfig, error) {
+func (r *AuthProviderConfigRepository) ListEnabled(ctx context.Context, tenantUUID string) ([]*dbsetting.AuthProviderConfig, error) {
+	return r.ListEnabledByScope(ctx, TenantScope{TenantUUID: tenantUUID})
+}
+
+func (r *AuthProviderConfigRepository) ListEnabledByScope(ctx context.Context, scope TenantScope) ([]*dbsetting.AuthProviderConfig, error) {
 	var list []*dbsetting.AuthProviderConfig
-	err := r.with(ctx).Where("tenant_id = ? AND enabled = ?", tenantID, true).Find(&list).Error
+	err := scope.apply(r.with(ctx)).
+		Where("enabled = ?", true).
+		Find(&list).Error
 	return list, err
 }

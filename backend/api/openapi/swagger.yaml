@@ -37,12 +37,12 @@ components:
                     type: integer
                 region:
                     type: string
-                tenantId:
+                tenant_uuid:
                     type: string
                 webhookSigningKeyRef:
                     type: string
             required:
-                - tenantId
+                - tenant_uuid
                 - oauthRef
                 - webhookSigningKeyRef
             type: object
@@ -58,12 +58,12 @@ components:
                     type: string
                 reason:
                     type: string
-                tenantId:
+                tenant_uuid:
                     type: string
                 ticketId:
                     type: string
             required:
-                - tenantId
+                - tenant_uuid
                 - action
             type: object
         ProviderProfile:
@@ -142,7 +142,7 @@ components:
                     items:
                         $ref: '#/components/schemas/QuotaEntry'
                     type: array
-                tenantId:
+                tenant_uuid:
                     type: string
             type: object
         RoutingDecision:
@@ -163,10 +163,10 @@ components:
                 taskContext:
                     additionalProperties: true
                     type: object
-                tenantId:
+                tenant_uuid:
                     type: string
             required:
-                - tenantId
+                - tenant_uuid
                 - taskContext
             type: object
         RoutingPolicy:
@@ -242,10 +242,10 @@ components:
             properties:
                 environment:
                     type: string
-                tenantId:
+                tenant_uuid:
                     type: string
             required:
-                - tenantId
+                - tenant_uuid
                 - environment
             type: object
         UsageReport:
@@ -266,10 +266,10 @@ components:
                     type: array
                 providerId:
                     type: string
-                tenantId:
+                tenant_uuid:
                     type: string
             required:
-                - tenantId
+                - tenant_uuid
                 - events
             type: object
 info:
@@ -384,7 +384,7 @@ paths:
         get:
             parameters:
                 - in: query
-                  name: tenantId
+                  name: tenant_uuid
                   required: true
                   schema:
                     type: string

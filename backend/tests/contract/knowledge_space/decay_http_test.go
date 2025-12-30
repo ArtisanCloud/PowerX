@@ -31,10 +31,8 @@ func TestDecayHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/decay/tasks", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusCreated, resp.Code)
 
 		var apiResp struct {
@@ -58,9 +56,7 @@ func TestDecayHTTPFlow(t *testing.T) {
 
 	t.Run("list decay tasks", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/knowledge/decay/status?spaceId=%s", space.UUID), nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 
 		var apiResp struct {
@@ -83,10 +79,8 @@ func TestDecayHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/decay/restore", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 
 		var apiResp struct {
@@ -104,9 +98,7 @@ func TestDecayHTTPFlow(t *testing.T) {
 
 	t.Run("status reflects open backlog", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/knowledge/decay/status?spaceId=%s", space.UUID), nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 
 		var apiResp struct {
@@ -125,9 +117,7 @@ func TestDecayHTTPFlow(t *testing.T) {
 
 	t.Run("tenant isolation", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/knowledge/decay/status?spaceId=%s", otherSpace.UUID), nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 
 		var apiResp struct {
@@ -139,6 +129,20 @@ func TestDecayHTTPFlow(t *testing.T) {
 		}
 		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
 		require.Len(t, apiResp.Data.Tasks, 0)
+	})
+
+	t.Run("missing tenant header rejected", func(t *testing.T) {
+		payload := map[string]any{
+			"spaceId":  space.UUID.String(),
+			"detected": 1,
+		}
+		body, _ := json.Marshal(payload)
+		missingReq := httptest.NewRequest(http.MethodPost, "/api/knowledge/decay/tasks", bytes.NewReader(body))
+		missingReq.Header.Set("Content-Type", "application/json")
+		missingReq.Header.Set("Authorization", "Bearer token")
+		missingResp := httptest.NewRecorder()
+		engine.ServeHTTP(missingResp, missingReq)
+		require.Equal(t, http.StatusUnauthorized, missingResp.Code)
 	})
 
 	t.Run("metrics snapshot recorded", func(t *testing.T) {

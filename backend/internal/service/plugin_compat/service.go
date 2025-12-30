@@ -23,7 +23,7 @@ type Service struct {
 type CheckRequest struct {
 	HostVersion   string `json:"hostVersion"`
 	PluginVersion string `json:"pluginVersion"`
-	TenantID      string `json:"tenantId"`
+	TenantUUID    string `json:"tenant_uuid"`
 	PluginID      string `json:"pluginId"`
 }
 
@@ -36,7 +36,7 @@ type CheckResponse struct {
 
 // ExceptionRequest captures exception creation payload.
 type ExceptionRequest struct {
-	TenantID       string `json:"tenantId"`
+	TenantUUID     string `json:"tenant_uuid"`
 	PluginID       string `json:"pluginId"`
 	CurrentVersion string `json:"currentVersion"`
 	TargetVersion  string `json:"targetVersion"`
@@ -90,7 +90,7 @@ func (s *Service) CreateException(ctx context.Context, req ExceptionRequest) (*c
 		return nil, errors.New("pluginId is required")
 	}
 	entity := &compatmodel.CompatException{
-		TenantID:       strings.TrimSpace(req.TenantID),
+		TenantUUID:     strings.TrimSpace(req.TenantUUID),
 		PluginID:       strings.TrimSpace(req.PluginID),
 		CurrentVersion: strings.TrimSpace(req.CurrentVersion),
 		TargetVersion:  strings.TrimSpace(req.TargetVersion),

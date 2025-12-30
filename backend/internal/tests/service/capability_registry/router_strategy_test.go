@@ -19,7 +19,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []router.AdapterEndpoint{
 				{
@@ -64,7 +64,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	// Initial invocation chooses primary adapter
 	result, err := service.Invoke(ctx, router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 	})
 	assertNoError(t, err)
 	assertEqual(t, "adapter-primary", result.AdapterID, "initial selection")
@@ -72,7 +72,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	// Sticky key should keep adapter stable
 	resultSticky, err := service.Invoke(ctx, router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		StickyKey:    "user-1",
 	})
 	assertNoError(t, err)
@@ -81,7 +81,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	// mark primary unhealthy, expect backup
 	err = service.ReportHealth(ctx, router.ReportHealthInput{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		AdapterID:    "adapter-primary",
 		Status:       "unhealthy",
 		Reason:       "timeout",
@@ -91,7 +91,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 
 	resultAfterFailure, err := service.Invoke(ctx, router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 	})
 	assertNoError(t, err)
 	assertEqual(t, "adapter-backup", resultAfterFailure.AdapterID, "fallback adapter")
@@ -99,7 +99,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	// mark backup unhealthy to trigger static fallback
 	err = service.ReportHealth(ctx, router.ReportHealthInput{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		AdapterID:    "adapter-backup",
 		Status:       "unhealthy",
 		Reason:       "circuit-open",
@@ -109,7 +109,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 
 	fallbackResult, err := service.Invoke(ctx, router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 	})
 	assertNoError(t, err)
 	assertBoolTrue(t, fallbackResult.FallbackUsed, "fallback triggered")

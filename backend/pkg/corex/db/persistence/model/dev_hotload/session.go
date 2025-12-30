@@ -14,13 +14,13 @@ type DevHotloadSession struct {
 	coremodel.PowerUUIDModel
 
 	PluginID        string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_dev_hotload_plugin_tenant,priority:1" json:"plugin_id"`
-	TenantID        uint64         `gorm:"column:tenant_id;not null;index:idx_dev_hotload_plugin_tenant,priority:2" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_dev_hotload_plugin_tenant,priority:2" json:"tenant_uuid"`
 	DeveloperID     uint64         `gorm:"column:developer_id;not null" json:"developer_id"`
 	BuildHash       string         `gorm:"column:build_hash;type:varchar(128)" json:"build_hash,omitempty"`
 	EntryPoints     datatypes.JSON `gorm:"column:entry_points;type:jsonb;default:'[]'" json:"entry_points,omitempty"`
 	Manifest        datatypes.JSON `gorm:"column:manifest;type:jsonb;default:'{}'" json:"manifest,omitempty"`
 	Metadata        datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'" json:"metadata,omitempty"`
-	ReloadToken     string         `gorm:"column:reload_token;type:varchar(128);not null" json:"reload_token"`
+	ReloadToken     string         `gorm:"column:reload_token;type:text;not null" json:"reload_token"`
 	Status          string         `gorm:"column:status;type:varchar(32);not null;index" json:"status"`
 	SandboxEndpoint string         `gorm:"column:sandbox_endpoint;type:text" json:"sandbox_endpoint,omitempty"`
 	LogURL          string         `gorm:"column:log_url;type:text" json:"log_url,omitempty"`

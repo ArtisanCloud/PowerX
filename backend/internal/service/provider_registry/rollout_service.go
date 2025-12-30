@@ -188,7 +188,7 @@ func tenantRefsToAny(refs []TenantRef) []map[string]string {
 	out := make([]map[string]string, 0, len(refs))
 	for _, r := range refs {
 		out = append(out, map[string]string{
-			"tenantId":    r.TenantID,
+			"tenant_uuid": r.TenantUUID,
 			"environment": r.Environment,
 		})
 	}
@@ -203,23 +203,31 @@ func parseTenantRefs(raw any) []TenantRef {
 	case []interface{}:
 		for _, item := range val {
 			if m, ok := item.(map[string]any); ok {
+				tenant := strings.TrimSpace(getString(m["tenant_uuid"]))
+				if tenant == "" {
+					tenant = strings.TrimSpace(getString(m["tenantUuid"]))
+				}
 				refs = append(refs, TenantRef{
-					TenantID:    strings.TrimSpace(getString(m["tenantId"])),
+					TenantUUID:  tenant,
 					Environment: strings.TrimSpace(getString(m["environment"])),
 				})
 			}
 		}
 	case []map[string]string:
 		for _, m := range val {
+			tenant := strings.TrimSpace(m["tenant_uuid"])
+			if tenant == "" {
+				tenant = strings.TrimSpace(m["tenantUuid"])
+			}
 			refs = append(refs, TenantRef{
-				TenantID:    strings.TrimSpace(m["tenantId"]),
+				TenantUUID:  tenant,
 				Environment: strings.TrimSpace(m["environment"]),
 			})
 		}
 	}
 	out := make([]TenantRef, 0, len(refs))
 	for _, ref := range refs {
-		if ref.TenantID != "" {
+		if ref.TenantUUID != "" {
 			out = append(out, ref)
 		}
 	}

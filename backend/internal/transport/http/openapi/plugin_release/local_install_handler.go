@@ -10,6 +10,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ type localInstallHandler struct {
 }
 
 type startLocalInstallRequest struct {
-	TenantID     string   `json:"tenantId" binding:"required"`
+	TenantUUID   string   `json:"tenant_uuid" binding:"required"`
 	DeveloperID  uint64   `json:"developerId" binding:"required"`
 	ArtifactURI  string   `json:"artifactUri" binding:"required"`
 	FeatureFlags []string `json:"featureFlags"`
@@ -30,7 +31,7 @@ type startLocalInstallRequest struct {
 
 type localInstallSessionResponse struct {
 	SessionID    string   `json:"sessionId"`
-	TenantID     string   `json:"tenantId"`
+	TenantUUID   string   `json:"tenant_uuid"`
 	DeveloperID  uint64   `json:"developerId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags,omitempty"`
@@ -59,24 +60,18 @@ func (h *localInstallHandler) startSession(c *gin.Context) {
 		return
 	}
 
-	tenantID := strings.TrimSpace(req.TenantID)
-	if tenantID == "" {
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
 		dto.ResponseValidationError(c, gin.Error{
-			Err:  errTenantIDRequired,
+			Err:  errTenantUUIDRequired,
 			Type: gin.ErrorTypeBind,
 		})
 		return
 	}
 
-	numericTenantID, err := strconv.ParseUint(tenantID, 10, 64)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenantId must be numeric", err)
-		return
-	}
-
 	actor := c.GetHeader("Authorization")
 	session, err := h.svc.Start(c.Request.Context(), local.StartInput{
-		TenantID:     numericTenantID,
+		TenantUUID:   tenantUUID,
 		DeveloperID:  req.DeveloperID,
 		ArtifactURI:  req.ArtifactURI,
 		FeatureFlags: req.FeatureFlags,
@@ -133,10 +128,20 @@ func (h *localInstallHandler) stopSession(c *gin.Context) {
 		}
 	}
 
+	tenantUUID, err := resolveTenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseValidationError(c, gin.Error{
+			Err:  err,
+			Type: gin.ErrorTypeBind,
+		})
+		return
+	}
+
 	if err := h.svc.Stop(c.Request.Context(), local.StopInput{
-		SessionID: sessionUUID,
-		Force:     force,
-		Actor:     c.GetHeader("Authorization"),
+		SessionID:  sessionUUID,
+		TenantUUID: tenantUUID,
+		Force:      force,
+		Actor:      c.GetHeader("Authorization"),
 	}); err != nil {
 		h.writeError(c, err)
 		return
@@ -145,7 +150,25 @@ func (h *localInstallHandler) stopSession(c *gin.Context) {
 	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{"sessionId": sessionUUID.String()})
 }
 
-var errTenantIDRequired = errors.New("tenantId is required")
+var errTenantUUIDRequired = errors.New("tenant_uuid is required")
+
+func resolveTenantUUIDFromRequest(c *gin.Context) (string, error) {
+	candidates := []string{
+		c.Query("tenant_uuid"),
+		c.Query("tenantUuid"), // legacy fallback
+		reqctx.TenantUUIDFromGin(c),
+	}
+	for _, v := range candidates {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			canonical, err := reqctx.CanonicalTenantUUID(trimmed)
+			if err != nil {
+				return "", err
+			}
+			return canonical, nil
+		}
+	}
+	return "", errTenantUUIDRequired
+}
 
 func (h *localInstallHandler) writeError(c *gin.Context, err error) {
 	switch {
@@ -176,7 +199,7 @@ func (h *localInstallHandler) toResponse(session *models.LocalInstallSession) lo
 
 	return localInstallSessionResponse{
 		SessionID:   session.UUID.String(),
-		TenantID:    strconv.FormatUint(session.TenantID, 10),
+		TenantUUID:  sessionTenantUUID(session),
 		DeveloperID: session.DeveloperID,
 		ArtifactURI: session.ArtifactURI,
 		FeatureFlags: func() []string {
@@ -208,6 +231,13 @@ func extractLogURL(raw datatypes.JSON) string {
 		return v
 	}
 	return ""
+}
+
+func sessionTenantUUID(session *models.LocalInstallSession) string {
+	if session == nil {
+		return ""
+	}
+	return strings.TrimSpace(session.TenantUUID)
 }
 
 func parseSessionID(value string) (uuid.UUID, error) {

@@ -21,7 +21,7 @@ service MediaAssetAdminService {
 
 message MediaAsset {
   string uuid = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string name = 3;
   string description = 4;
   string driver = 5;
@@ -56,7 +56,7 @@ enum BusinessStatus {
 }
 
 message CreateMediaAssetRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string operator_id = 2;
   string name = 3;
   string description = 4;
@@ -87,7 +87,7 @@ message PresignUploadToken {
 }
 
 message ListMediaAssetsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string keyword = 2;
   string driver = 3;
   string owner_subject_type = 4;
@@ -111,7 +111,7 @@ message ListMediaAssetsData {
 }
 
 message GetMediaAssetRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string uuid = 2;
 }
 
@@ -122,7 +122,7 @@ message MediaAssetResponse {
 }
 
 message UpdateMediaAssetRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string uuid = 2;
   string operator_id = 3;
   optional string name = 4;
@@ -132,7 +132,7 @@ message UpdateMediaAssetRequest {
 }
 
 message DeleteMediaAssetRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string uuid = 2;
   string operator_id = 3;
   bool force = 4; // true 表示立即物理删除
@@ -150,7 +150,7 @@ message DeleteMediaAssetData {
 }
 
 message PresignMediaAssetRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string uuid = 2;
   string operator_id = 3;
   PresignAction action = 4;

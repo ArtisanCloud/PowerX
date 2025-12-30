@@ -53,7 +53,7 @@ last_reviewed_at: 2025-02-20
   - Feature Flags `PX_HOST_TENANT_POLICY`, `PX_HOST_TENANT_ROUTER`, `PX_HOST_LIMIT_GUARD` 已启用。
   - IAM/Policy Engine 存在最新的租户授权、限流、地域策略；服务 Mesh/插件网关可按策略路由。
   - 投产环境区分测试/生产实例池；审计系统可写入租户级日志。
-  - Entry 子场景提供完整上下文（`tenant_id`, `plugin_id`, `capability`）。
+- Entry 子场景提供完整上下文（`tenant_uuid`, `plugin_id`, `capability`）。
 - **输入/输出**
   - 输入：调用上下文（租户、用户、标签）、策略配置（授权、限流、地域、配额）、实例注册信息。
   - 输出：授权结果、限流/拒绝响应、路由指令、隔离 Header/Token、租户级指标与审计记录。
@@ -74,7 +74,7 @@ last_reviewed_at: 2025-02-20
 
 ## 流程与时序
 
-1. **Policy Lookup**：Entry 传入 `tenant_id + capability`，授权服务检查策略（缓存→权威源），返回 `allowed`, `limits`, `route`.
+1. **Policy Lookup**：Entry 传入 `tenant_uuid + capability`，授权服务检查策略（缓存→权威源），返回 `allowed`, `limits`, `route`.
 2. **Rate Limit & Isolation**：根据租户限流/配额执行限流；注入 `x-tenant-token`, `x-route-policy`, `x-region`.
 3. **Routing**：Router 将请求发送到策略匹配的实例池（地域/环境/租户隔离），若目标不可用触发降级（备用实例或 mock）。
 4. **Audit**：所有授权/限流/路由决策写入审计与指标。
@@ -86,7 +86,7 @@ sequenceDiagram
   participant Router
   participant Plugin
 
-  Entry->>AuthSvc: tenant_id + capability
+  Entry->>AuthSvc: tenant_uuid + capability
   AuthSvc-->>Entry: allow + limits + route
   Entry->>Router: request + policy
   Router-->>Plugin: route with isolation
@@ -95,7 +95,7 @@ sequenceDiagram
 
 # Contracts & Interfaces
 
-- `POST /tenant-policy/authorize` — Body：`tenant_id`, `plugin_id`, `capability`, `region`, `context`.
+- `POST /tenant-policy/authorize` — Body：`tenant_uuid`, `plugin_id`, `capability`, `region`, `context`.
 - `POST /tenant-policy/limits/report` — 汇报限流命中/使用量。
 - `POST /tenant-policy/route/override` — 手动切换实例池（紧急）。
 - Configs：`tenant_route_policy.yaml`, `tenant_limit_matrix.yaml`, `tenant_region_mapping.yaml`.

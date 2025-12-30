@@ -146,7 +146,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`plugin.auth.success_rate`, `plugin.auth.latency_ms`, `plugin.auth.rate_limit_hits`, `plugin.secret.rotation_time`.
-- **日志**：Registry/OAuth/Gateway 鉴权日志需包含 `tenant_id`, `plugin_id`, `client_id`, `trace_id`, `decision`.
+- **日志**：Registry/OAuth/Gateway 鉴权日志需包含 `tenant_uuid`, `plugin_id`, `client_id`, `trace_id`, `decision`。
 - **告警**：
   - 成功率 <99%（P1）
   - 限流连续触发 >10 次/分钟（P2）

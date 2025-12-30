@@ -3,6 +3,7 @@ package audit
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -59,7 +60,7 @@ func (r *AuditEventRepository) FindByID(ctx context.Context, id uint64) (*dbm.Au
 
 // 列表过滤器（按需增减）
 type ListFilter struct {
-	TenantID      int64
+	TenantUUID    string
 	ResourceType  string
 	ResourceID    string
 	Operation     string
@@ -77,8 +78,8 @@ type ListFilter struct {
 func (r *AuditEventRepository) List(ctx context.Context, f ListFilter) (list []dbm.AuditEvent, total int64, err error) {
 	q := r.db.WithContext(ctx).Model(&dbm.AuditEvent{})
 
-	if f.TenantID > 0 {
-		q = q.Where("tenant_id = ?", f.TenantID)
+	if tenant := strings.TrimSpace(f.TenantUUID); tenant != "" {
+		q = q.Where("tenant_uuid = ?", tenant)
 	}
 	if f.ResourceType != "" {
 		q = q.Where("resource_type = ?", f.ResourceType)

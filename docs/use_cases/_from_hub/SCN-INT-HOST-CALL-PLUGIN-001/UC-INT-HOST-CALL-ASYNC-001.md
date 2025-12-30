@@ -105,7 +105,7 @@ sequenceDiagram
 
 # Contracts & Interfaces
 
-- `POST /host/plugins/tasks` — Body：`batch_id?`, `tasks[]`, `tenant_id`, `callback_url`, `timeout`, `cancel_token`.
+- `POST /host/plugins/tasks` — Body：`batch_id?`, `tasks[]`, `tenant_uuid`, `callback_url`, `timeout`, `cancel_token`.
 - `GET /host/plugins/tasks/:id` — 返回进度、成功/失败列表、回调状态。
 - `POST /host/plugins/tasks/:id/cancel` — 取消或暂停批次。
 - `POST /host/plugins/callback` — 插件回调（Header: `x-signature`, `x-batch-id`, `x-task-id`）。
@@ -138,7 +138,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`host.plugin.async.throughput`, `host.plugin.async.backlog`, `host.plugin.callback.success_rate`, `host.plugin.deadletter.count`, `host.plugin.task.cancel_rate`.
-- **日志**：Task/Callback/DLQ 日志需打 `batch_id`, `task_id`, `tenant_id`, `trace_id`, `status`.
+- **日志**：Task/Callback/DLQ 日志需打 `batch_id`, `task_id`, `tenant_uuid`, `trace_id`, `status`.
 - **告警**：积压深度 > 阈值（P1）、回调成功率 <99%（P1）、死信 >100（P1）、取消失败（P2）。
 - **Dashboards**：`Host↔Plugin Async Hub`, DLQ 面板、`reports/_state/host-call-plugin.json`.
 

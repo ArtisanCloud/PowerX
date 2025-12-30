@@ -179,8 +179,8 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 		if traceID, ok := ctx.Value("trace_id").(string); ok {
 			evt.TraceID = traceID
 		}
-		if tenantID, ok := ctx.Value("tenant_id").(string); ok {
-			evt.TenantID = tenantID
+		if tenant := tenantUUIDFromContext(ctx); tenant != "" {
+			evt.TenantUUID = tenant
 		}
 	}
 

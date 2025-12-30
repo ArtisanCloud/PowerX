@@ -10,7 +10,7 @@ import { useUserStore } from "~/stores/user";
 
 // 使用用户状态 Store
 const userStore = useUserStore();
-const { isRoot, isCurrentTenantAdmin, currentTenantId, isLoading, error } =
+const { isRoot, isCurrentTenantAdmin, currentTenantUuid, isLoading, error } =
   storeToRefs(userStore);
 
 // 计算当前视图类型
@@ -129,7 +129,7 @@ onMounted(async () => {
       <div v-else>
         <div class="bg-white rounded-lg shadow">
           <div class="p-6">
-            <PermissionTenant :tenant-id="currentTenantId!" />
+            <PermissionTenant :tenant-uuid="currentTenantUuid!" />
           </div>
         </div>
       </div>

@@ -41,17 +41,17 @@ var ErrArtifactTooLarge = errors.New("plugin_release.local_install: artifact exc
 
 // SignatureVerifier encapsulates artifact signing verification.
 type SignatureVerifier interface {
-	Verify(ctx context.Context, tenantID uint64, artifactURI string) error
+	Verify(ctx context.Context, tenantUUID string, artifactURI string) error
 }
 
 // PermissionChecker validates tenant/developer combinations.
 type PermissionChecker interface {
-	EnsureDeveloperAllowed(ctx context.Context, tenantID, developerID uint64) error
+	EnsureDeveloperAllowed(ctx context.Context, tenantUUID string, developerID uint64) error
 }
 
 // CacheController coordinates cache invalidation for hotload assets.
 type CacheController interface {
-	ResetDeveloperCache(ctx context.Context, tenantID, developerID uint64) error
+	ResetDeveloperCache(ctx context.Context, tenantUUID string, developerID uint64) error
 	OnSessionStarted(ctx context.Context, session *models.LocalInstallSession) error
 	OnSessionStopped(ctx context.Context, sessionID uuid.UUID, status string) error
 }
@@ -65,7 +65,7 @@ type ArtifactMetadata struct {
 
 // ArtifactMetadataResolver fetches metadata for artifacts prior to installation.
 type ArtifactMetadataResolver interface {
-	Resolve(ctx context.Context, tenantID uint64, artifactURI string) (*ArtifactMetadata, error)
+	Resolve(ctx context.Context, tenantUUID string, artifactURI string) (*ArtifactMetadata, error)
 }
 
 // InstallServiceDeps bundles runtime dependencies required by InstallService.
@@ -103,7 +103,7 @@ type InstallService struct {
 
 // StartInput contains data necessary to start a local hotload session.
 type StartInput struct {
-	TenantID     uint64
+	TenantUUID   string
 	DeveloperID  uint64
 	ArtifactURI  string
 	FeatureFlags []string
@@ -113,9 +113,10 @@ type StartInput struct {
 
 // StopInput captures information for stopping a session.
 type StopInput struct {
-	SessionID uuid.UUID
-	Force     bool
-	Actor     string
+	SessionID  uuid.UUID
+	TenantUUID string
+	Force      bool
+	Actor      string
 }
 
 // NewInstallService constructs the local install service with validated dependencies.
@@ -161,9 +162,10 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	if err := s.validateStartInput(input); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
 
 	if s.perm != nil {
-		if err := s.perm.EnsureDeveloperAllowed(ctx, input.TenantID, input.DeveloperID); err != nil {
+		if err := s.perm.EnsureDeveloperAllowed(ctx, tenantUUID, input.DeveloperID); err != nil {
 			if errors.Is(err, ErrPermissionDenied) {
 				return nil, ErrPermissionDenied
 			}
@@ -172,7 +174,7 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	if s.signatures != nil {
-		if err := s.signatures.Verify(ctx, input.TenantID, strings.TrimSpace(input.ArtifactURI)); err != nil {
+		if err := s.signatures.Verify(ctx, tenantUUID, strings.TrimSpace(input.ArtifactURI)); err != nil {
 			if errors.Is(err, ErrSignatureInvalid) {
 				return nil, ErrSignatureInvalid
 			}
@@ -182,7 +184,7 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 
 	var artifactMeta *ArtifactMetadata
 	if s.metadata != nil {
-		meta, err := s.metadata.Resolve(ctx, input.TenantID, input.ArtifactURI)
+		meta, err := s.metadata.Resolve(ctx, tenantUUID, input.ArtifactURI)
 		if err != nil {
 			return nil, err
 		}
@@ -198,13 +200,13 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	if input.ResetCache && s.cache != nil {
-		if err := s.cache.ResetDeveloperCache(ctx, input.TenantID, input.DeveloperID); err != nil {
+		if err := s.cache.ResetDeveloperCache(ctx, tenantUUID, input.DeveloperID); err != nil {
 			return nil, err
 		}
 	}
 
 	// prevent duplicate in-progress sessions for same developer within tenant
-	existing, err := s.repo.GetActiveSession(ctx, input.TenantID, input.DeveloperID)
+	existing, err := s.repo.GetActiveSession(ctx, tenantUUID, input.DeveloperID)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +226,7 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	session := &models.LocalInstallSession{
-		TenantID:     input.TenantID,
+		TenantUUID:   tenantUUID,
 		DeveloperID:  input.DeveloperID,
 		ArtifactURI:  strings.TrimSpace(input.ArtifactURI),
 		Status:       models.LocalInstallStatusInProgress,
@@ -262,12 +264,19 @@ func (s *InstallService) Stop(ctx context.Context, input StopInput) error {
 	if input.SessionID == uuid.Nil {
 		return fmt.Errorf("%w: session_id is required", ErrInvalidInput)
 	}
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
+	if tenantUUID == "" {
+		return fmt.Errorf("%w: tenant_uuid is required", ErrInvalidInput)
+	}
 
 	session, err := s.repo.GetSessionByUUID(ctx, input.SessionID)
 	if err != nil {
 		return err
 	}
 	if session == nil {
+		return ErrSessionNotFound
+	}
+	if !strings.EqualFold(session.TenantUUID, tenantUUID) {
 		return ErrSessionNotFound
 	}
 
@@ -277,7 +286,7 @@ func (s *InstallService) Stop(ctx context.Context, input StopInput) error {
 	}
 
 	now := s.now()
-	if err := s.repo.UpdateSessionStatus(ctx, input.SessionID, targetStatus, nil, &now); err != nil {
+	if err := s.repo.UpdateSessionStatusForTenant(ctx, input.SessionID, tenantUUID, targetStatus, nil, &now); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrSessionNotFound
 		}
@@ -301,8 +310,8 @@ func (s *InstallService) Stop(ctx context.Context, input StopInput) error {
 }
 
 func (s *InstallService) validateStartInput(input StartInput) error {
-	if input.TenantID == 0 {
-		return errors.New("tenant_id must be positive")
+	if strings.TrimSpace(input.TenantUUID) == "" {
+		return errors.New("tenant_uuid must be provided")
 	}
 	if input.DeveloperID == 0 {
 		return errors.New("developer_id must be positive")

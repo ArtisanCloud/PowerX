@@ -82,7 +82,7 @@ last_reviewed_at: 2025-02-14
 
 - **APIs / Jobs**：`POST /knowledge/delta/start`, `GET /knowledge/delta/reports/:id`, `POST /knowledge/feedback`, `POST /knowledge/reprocess`, `POST /knowledge/events/apply`, `POST /knowledge/gray-release`, `POST /audit/logs`。
 - **Events**：`knowledge.delta.generated`, `knowledge.feedback.created`, `knowledge.event.received`, `knowledge.decay.detected`, `knowledge.release.state_changed`。
-- **Configs**：`configs/knowledge/delta.yaml`, `feedback_playbook.yaml`, `event_hotfix_policies.yaml`, `decay_thresholds.yaml`, `tenant_release_matrix.yaml`。
+- **Configs**：`backend/config/knowledge/delta.yaml`, `feedback_playbook.yaml`, `event_hotfix_policies.yaml`, `decay_thresholds.yaml`, `tenant_release_matrix.yaml`。
 
 # Validation Workflow
 

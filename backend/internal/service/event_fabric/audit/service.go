@@ -3,7 +3,6 @@ package audit
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
@@ -100,13 +99,13 @@ func (s *serviceImpl) Write(ctx context.Context, record Record) error {
 	}
 
 	metaBytes, _ := json.Marshal(meta)
-	tenantUint := parseTenant(record.TenantID)
+	tenantUUID := strings.TrimSpace(record.TenantID)
 	outcome := normalizeOutcome(record.Status)
 	severity := severityFromOutcome(outcome, record.ErrorMessage)
 
 	auditEvent := &dbmaudit.AuditEvent{
 		OccurredAt:    eventTime,
-		TenantID:      tenantUint,
+		TenantUUID:    tenantUUID,
 		CorrelationID: record.TraceID,
 		Source:        s.source,
 		Operation:     record.Action,
@@ -121,16 +120,6 @@ func (s *serviceImpl) Write(ctx context.Context, record Record) error {
 	}
 
 	return s.svc.Emit(ctx, auditEvent)
-}
-
-func parseTenant(tenant string) uint64 {
-	if tenant == "" {
-		return 0
-	}
-	if v, err := strconv.ParseUint(tenant, 10, 64); err == nil {
-		return v
-	}
-	return 0
 }
 
 func normalizeOutcome(status string) string {

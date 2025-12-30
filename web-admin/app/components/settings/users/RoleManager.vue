@@ -19,7 +19,7 @@ const { notifyOnce, visible, title, description, color, variant, hide } =
   useOneShotAlert();
 
 /* ================= 租户相关 ================= */
-type Option = { label: string; value: number; description?: string };
+type Option = { label: string; value: string; description?: string };
 
 const tenants = ref<Tenant[]>([]);
 const loadingTenants = ref(false);
@@ -35,8 +35,8 @@ const tenantKeyword = ref("");
 const tenantOptions = computed<Option[]>(() => {
   const list = tenants.value.map((t) => ({
     label: t.name,
-    value: t.id,
-    description: t.domain || `租户 ID: ${t.id}`,
+    value: t.uuid || String(t.id),
+    description: t.domain || `租户: ${t.name}`,
   }));
   if (
     selectedTenant.value &&
@@ -51,7 +51,7 @@ const tenantOptions = computed<Option[]>(() => {
 watchDebounced(
   selectedTenant,
   (opt) => {
-    roleForm.tenant_id = opt?.value ?? undefined;
+    roleForm.tenant_uuid = opt?.value ?? undefined;
   },
   { debounce: 300 }
 );
@@ -118,7 +118,7 @@ const editingId = ref<number | null>(null);
 
 const roleForm = reactive<RoleCreateParams & { id?: number }>({
   scope: "tenant",
-  tenant_id: undefined,
+  tenant_uuid: undefined,
   code: "",
   name: "",
   description: "",
@@ -172,7 +172,7 @@ const loadRoles = async () => {
 /* ================= 动作 ================= */
 const resetForm = () => {
   roleForm.scope = "tenant";
-  roleForm.tenant_id = undefined;
+  roleForm.tenant_uuid = undefined;
   roleForm.code = "";
   roleForm.name = "";
   roleForm.description = "";
@@ -213,7 +213,7 @@ const saveRole = async () => {
     } else {
       const createData: RoleCreateParams = {
         scope: roleForm.scope,
-        tenant_id: roleForm.tenant_id,
+        tenant_uuid: roleForm.tenant_uuid,
         code: roleForm.code,
         name: roleForm.name,
         description: roleForm.description,

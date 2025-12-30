@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FooterBar from "~/components/layout/FooterBar.vue";
 import { useAuth } from "~/composables/useAuth";
+import { LOGO_M_URL } from "~/utils/assets";
 
 definePageMeta({
   alias: ["/"], // 让 /home 这个页面同时匹配 "/"
@@ -266,7 +267,7 @@ onUnmounted(() => {
       <div class="flex justify-between items-center p-6 animate-fade-in">
         <!-- Logo -->
         <div class="flex items-center space-x-3">
-          <img src="/images/logo-m.png" alt="PowerX Logo" class="w-10 h-10" />
+          <img :src="LOGO_M_URL" alt="PowerX Logo" class="w-10 h-10" />
           <h1
             class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
           >
@@ -535,7 +536,7 @@ onUnmounted(() => {
                                       class="absolute inset-0 flex items-center justify-center"
                                     >
                                       <img
-                                        src="/images/logo-m.png"
+                                        :src="LOGO_M_URL"
                                         alt="PowerX Logo"
                                         class="w-40 h-40 drop-shadow-2xl filter brightness-110 hover:brightness-125 transition-all duration-300 animate-float-gentle"
                                       />

@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	sandboxsvc "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,6 +41,12 @@ func (h *handler) deploy(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	req.TenantUUID = tenantUUID
 	run, err := h.svc.Deploy(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -66,6 +73,12 @@ func (h *handler) loadDataset(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "datasetId is required", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	req.TenantUUID = tenantUUID
 	if err := h.svc.LoadDataset(c.Request.Context(), req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -87,6 +100,12 @@ func (h *handler) runTests(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "runId is required", nil)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	req.TenantUUID = tenantUUID
 	run, err := h.svc.RunTests(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
