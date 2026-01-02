@@ -4,6 +4,7 @@ package dto
 // 传输无关（SSE/WS 共用的事件名）
 const (
 	EventStart     = "start"
+	EventMeta      = "meta"
 	EventIntent    = "intent"
 	EventPlan      = "plan"
 	EventToken     = "token"

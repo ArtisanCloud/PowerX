@@ -12,6 +12,7 @@ export interface AgentConfig {
   name: string;
   description: string;
   avatar?: string;
+  provider?: string;
   model: string;
   systemPrompt: string;
   temperature: number;
@@ -20,6 +21,7 @@ export interface AgentConfig {
   frequencyPenalty: number;
   presencePenalty: number;
   isActive: boolean;
+  useSystemModelConfig?: boolean;
   capabilities: Array<{
     name: string;
     description: string;

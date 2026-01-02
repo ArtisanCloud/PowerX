@@ -4,8 +4,18 @@ PowerX 的「AI 设置」页面提供了统一的 Provider/模型管理；理解
 
 ## 默认配置
 
-1. **后端默认值**：若从未在后台保存任何配置，Agent 将使用 `backend/etc/config_example.yaml` 中 `ai.defaults` 段配置的 provider / model / endpoint。这是编译期的静态兜底，适合本地开发。
+1. **开发期种子默认值**：`backend/etc/config_example.yaml` 的 `ai.defaults` 主要用于“本地开发/初次启动”的演示默认（例如默认选中哪个 provider/model）。在生产环境里，如果数据库里没有保存任何 AI Settings（含凭据），系统应提示用户先完成安装/配置，而不是静默使用 config.yaml 的值继续执行。
 2. **环境隔离**：页面左侧的环境切换（默认 `default`）会把不同环境的数据保存在各自的 scope 下，后端通过 `env + tenant` 二元索引区分，同一个 provider 可以在不同环境配置不同的 key。
+
+## 聊天时的 LLM 生效优先级（人话版）
+
+一次“发送消息”真正用哪个 provider/model/参数，会按从高到低依次覆盖：
+
+1. **Flow 节点级配置（node params）**：某个 flow 的某个 LLM 节点写死的参数（例如强制 `model=xxx`）。这是最高优先级。
+2. **本次请求临时配置（ChatConfig）**：前端在本次发送里临时指定（例如用户临时切模型/温度），只影响这一次或这一会话。
+3. **智能体自身配置（AgentSetting，DB）**：在「智能体配置」里给某个智能体单独设置的 provider/model（以及可选参数），只影响这个智能体。
+4. **AI Settings 默认（Active Profile，DB）**：在「AI 设置」里选中的默认 provider/model（按 env + tenant 隔离），作为系统默认。
+5. **开发期种子默认（config.yaml）**：仅用于没有任何 DB 配置时的“演示默认”。如果缺少凭据/不可连通，运行时应返回明确错误并引导去 AI Settings 配置。
 
 ## 保存一次 = 落两个实体
 
@@ -27,6 +37,13 @@ PowerX 的「AI 设置」页面提供了统一的 Provider/模型管理；理解
 3. 点击「保存」。这一步不仅更新 profile/credential，还会把该 provider/model 写入默认路由，后端随即改用新的组合。
 
 > ⚠️ **仅切换下拉框不生效**：如果你仅切换 provider 但没有点击「保存」，前端状态会改变，但数据库里的默认路由不会更新，Agent 仍然调用旧模型。
+
+## 智能体级覆盖（AgentSetting）
+
+如果你希望某个智能体使用不同于系统默认的模型（例如“营销智能体用 deepseek-reasoner、客服智能体用 gpt-4o-mini”），请在智能体的配置面板里设置 provider/model（并保存）。
+
+- 这会写入 `agent_settings`（按 env + tenant + agent 作用域）
+- 运行时会先读取 AI Settings 的默认，再读取该智能体的覆盖；如果智能体选择“系统默认”，则会删除该覆盖记录并回退到 AI Settings 默认
 
 ## 多 provider 场景
 

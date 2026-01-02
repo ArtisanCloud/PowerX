@@ -44,7 +44,9 @@
     "cancel": "Cancel",
     "save": "Save",
     "reload": "Reload",
-    "reset": "Reset"
+    "reset": "Reset",
+    "scrollToBottom": "Scroll to bottom",
+    "newMessages": "{count} new messages"
   },
   "organization": {
     "description": "Manage your organization, members and permissions.",
@@ -475,7 +477,32 @@
       "model": "Model",
       "temperature": "Temperature",
       "ctrlEnterToSend": "Ctrl+Enter to send",
-      "enterNewLine": "Enter new line"
+      "enterNewLine": "Enter new line",
+      "enterToSend": "Enter to send",
+      "shiftEnterNewLine": "Shift+Enter new line",
+      "newSession": "New session",
+      "untitledSession": "Untitled session",
+      "responding": "Responding",
+      "generating": "Generating",
+      "you": "You",
+      "assistant": "Assistant",
+      "system": "System",
+      "typing": "Typing",
+      "agentTyping": "Agent is typing...",
+      "cancel": "Cancel",
+      "clear": "Clear",
+      "realtimeFailed": "Realtime connection failed",
+      "errors": {
+        "loadSessionsFailed": "Failed to load sessions",
+        "loadMoreSessionsFailed": "Failed to load more sessions",
+        "createSessionFailed": "Failed to create session",
+        "createSessionFailedNoData": "Failed to create session: empty response",
+        "deleteSessionFailed": "Failed to delete session",
+        "renameSessionFailed": "Failed to rename session",
+        "archiveSessionFailed": "Failed to archive session",
+        "loadMessagesFailed": "Failed to load messages",
+        "loadMoreMessagesFailed": "Failed to load more messages"
+      }
     }
   },
   "pluginRelease": {

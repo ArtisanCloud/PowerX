@@ -238,6 +238,28 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
   if (!result || !result.response) {
     throw new Error("网络错误，请检查网络连接");
   }
+
+  // 统一把后端 ErrorResponse.error 显示出来，避免前端只看到 “400 Bad Request”
+  const data = (result && (result.data ?? result.response?._data ?? result.response?.data)) as any;
+  if (data) {
+    let msg = "";
+    if (typeof data === "string") {
+      msg = data;
+    } else if (typeof data === "object") {
+      msg =
+        (typeof data.error === "string" && data.error) ||
+        (typeof data.message === "string" && data.message) ||
+        (typeof data.detail === "string" && data.detail) ||
+        "";
+    }
+    msg = String(msg || "").trim();
+    if (msg) {
+      const e = new Error(msg);
+      (e as any).cause = result;
+      throw e;
+    }
+  }
+
   throw result;
 };
 

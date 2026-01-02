@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
@@ -46,7 +47,10 @@ type baseConn struct {
 	Name            string `form:"name"`
 	Provider        string `json:"provider" validate:"required"`
 	Model           string `json:"model"    validate:"required"`
+	AuthMode        string `json:"authMode"`
 	APIKey          string `json:"apiKey"`
+	SecretID        string `json:"secretId"`
+	SecretKey       string `json:"secretKey"`
 	BaseURL         string `json:"baseURL"`
 	Region          string `json:"region"`
 	Organization    string `json:"organization"`
@@ -83,6 +87,12 @@ type modVideo struct {
 	PromptHint     string `json:"promptHint"`
 }
 
+type modModel3D struct {
+	baseConn
+	OutputFormat string `json:"outputFormat"`
+	PromptHint   string `json:"promptHint"`
+}
+
 type modAudioTTS struct {
 	baseConn
 	Voice   string  `json:"voice"`
@@ -113,6 +123,7 @@ type saveSettingsReq struct {
 	Image     *modImage         `json:"image,omitempty"`
 	Embedding *modEmbed         `json:"embedding,omitempty"`
 	Video     *modVideo         `json:"video,omitempty"`
+	Model3D   *modModel3D       `json:"model3d,omitempty"`
 	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
 	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
 	Rerank    *modRerank        `json:"rerank,omitempty"`
@@ -125,6 +136,7 @@ type testReq struct {
 	Image     *modImage         `json:"image,omitempty"`
 	Embedding *modEmbed         `json:"embedding,omitempty"`
 	Video     *modVideo         `json:"video,omitempty"`
+	Model3D   *modModel3D       `json:"model3d,omitempty"`
 	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
 	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
 	Rerank    *modRerank        `json:"rerank,omitempty"`
@@ -138,6 +150,7 @@ type testCallReq struct {
 	Image     *modImage         `json:"image,omitempty"`
 	Embedding *modEmbed         `json:"embedding,omitempty"`
 	Video     *modVideo         `json:"video,omitempty"`
+	Model3D   *modModel3D       `json:"model3d,omitempty"`
 	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
 	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
 	Rerank    *modRerank        `json:"rerank,omitempty"`
@@ -146,16 +159,183 @@ type testCallReq struct {
 // ---------- Providers / Models ----------
 
 func (h *AgentSettingHandler) listProviders(c *gin.Context) {
-	mod := c.Query("modality")
+	env := c.DefaultQuery("env", "dev")
+	mod := strings.TrimSpace(strings.ToLower(c.Query("modality")))
+	if mod == "" {
+		mod = "llm"
+	}
 	list := h.svc.Providers(mod)
-	dtoRequest.ResponseSuccess(c, gin.H{"providers": list})
+	reg := catalog.GetGlobalAIRegister()
+
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
+	tenantUUID := tenantCtx.UUID()
+
+	// 1) 已配置：credentials 是否存在（仅按 provider 维度）
+	creds, err := h.svc.ListCredentials(c.Request.Context(), env, tenantRef)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询凭据失败", err)
+		return
+	}
+	configured := map[string]struct{}{}
+	for i := range creds {
+		p := strings.ToLower(strings.TrimSpace(creds[i].Provider))
+		if p != "" {
+			// 兼容历史 provider/别名（例如 yuanbao -> hunyuan）
+			if canon := reg.CanonicalProvider(p); canon != "" {
+				p = canon
+			}
+			configured[p] = struct{}{}
+		}
+	}
+
+	// 2) 连接测试：记录在租户设置里（env+modality 维度）
+	healthMap, _, err := h.svc.GetTenantProviderHealthMap(c.Request.Context(), tenantUUID, env, mod)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询连接测试结果失败", err)
+		return
+	}
+	// 同样把 healthMap key 规范化到 canonical provider id
+	healthNorm := map[string]agentSvc.ProviderHealthRecord{}
+	for k, v := range healthMap {
+		p := strings.ToLower(strings.TrimSpace(k))
+		if p == "" {
+			continue
+		}
+		if canon := reg.CanonicalProvider(p); canon != "" {
+			p = canon
+		}
+		// 冲突时保留第一次写入（更贴近用户原始配置）
+		if _, ok := healthNorm[p]; ok {
+			continue
+		}
+		healthNorm[p] = v
+	}
+
+	type providerView struct {
+		ID         string                         `json:"ID"`
+		Name       string                         `json:"Name"`
+		Configured bool                           `json:"configured"`
+		Health     *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
+		Auth       *struct {
+			Scheme   string            `json:"scheme,omitempty"`
+			Fields   []string          `json:"fields,omitempty"`
+			Defaults map[string]string `json:"defaults,omitempty"`
+			Modes    []struct {
+				ID       string            `json:"id"`
+				Label    string            `json:"label,omitempty"`
+				Scheme   string            `json:"scheme,omitempty"`
+				Fields   []string          `json:"fields,omitempty"`
+				Defaults map[string]string `json:"defaults,omitempty"`
+			} `json:"modes,omitempty"`
+		} `json:"auth,omitempty"`
+	}
+	out := make([]providerView, 0, len(list))
+	for _, it := range list {
+		p := strings.ToLower(strings.TrimSpace(it.ID))
+		_, ok := configured[p]
+		var hr *agentSvc.ProviderHealthRecord
+		if v, hit := healthNorm[p]; hit {
+			clone := v
+			hr = &clone
+		}
+		var authView *struct {
+			Scheme   string            `json:"scheme,omitempty"`
+			Fields   []string          `json:"fields,omitempty"`
+			Defaults map[string]string `json:"defaults,omitempty"`
+			Modes    []struct {
+				ID       string            `json:"id"`
+				Label    string            `json:"label,omitempty"`
+				Scheme   string            `json:"scheme,omitempty"`
+				Fields   []string          `json:"fields,omitempty"`
+				Defaults map[string]string `json:"defaults,omitempty"`
+			} `json:"modes,omitempty"`
+		}
+		if m, ok2 := reg.Manifest(it.ID); ok2 && m != nil {
+			authView = &struct {
+				Scheme   string            `json:"scheme,omitempty"`
+				Fields   []string          `json:"fields,omitempty"`
+				Defaults map[string]string `json:"defaults,omitempty"`
+				Modes    []struct {
+					ID       string            `json:"id"`
+					Label    string            `json:"label,omitempty"`
+					Scheme   string            `json:"scheme,omitempty"`
+					Fields   []string          `json:"fields,omitempty"`
+					Defaults map[string]string `json:"defaults,omitempty"`
+				} `json:"modes,omitempty"`
+			}{
+				Scheme:   m.Auth.Scheme,
+				Fields:   m.Auth.Fields,
+				Defaults: m.Auth.Defaults,
+				Modes: func() []struct {
+					ID       string            `json:"id"`
+					Label    string            `json:"label,omitempty"`
+					Scheme   string            `json:"scheme,omitempty"`
+					Fields   []string          `json:"fields,omitempty"`
+					Defaults map[string]string `json:"defaults,omitempty"`
+				} {
+					if len(m.Auth.Modes) == 0 {
+						return nil
+					}
+					out := make([]struct {
+						ID       string            `json:"id"`
+						Label    string            `json:"label,omitempty"`
+						Scheme   string            `json:"scheme,omitempty"`
+						Fields   []string          `json:"fields,omitempty"`
+						Defaults map[string]string `json:"defaults,omitempty"`
+					}, 0, len(m.Auth.Modes))
+					for _, md := range m.Auth.Modes {
+						out = append(out, struct {
+							ID       string            `json:"id"`
+							Label    string            `json:"label,omitempty"`
+							Scheme   string            `json:"scheme,omitempty"`
+							Fields   []string          `json:"fields,omitempty"`
+							Defaults map[string]string `json:"defaults,omitempty"`
+						}{
+							ID:       md.ID,
+							Label:    md.Label,
+							Scheme:   md.Scheme,
+							Fields:   md.Fields,
+							Defaults: md.Defaults,
+						})
+					}
+					return out
+				}(),
+			}
+		}
+		out = append(out, providerView{
+			ID:         it.ID,
+			Name:       it.Name,
+			Configured: ok,
+			Health:     hr,
+			Auth:       authView,
+		})
+	}
+
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"env":       env,
+		"modality":  mod,
+		"providers": out,
+	})
 	return
 }
 
 func (h *AgentSettingHandler) listModels(c *gin.Context) {
+	env := c.DefaultQuery("env", "dev")
 	mod := c.Query("modality")
 	prov := c.Query("provider")
-	models, err := h.svc.Models(mod, prov)
+
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	models, err := h.svc.ModelsForTenant(c.Request.Context(), env, tenantCtx.UUIDPtr(), mod, prov)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -194,7 +374,21 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 			req.LLM.Model,
 			req.LLM.BaseURL,
 			req.LLM.APIKey,
+			req.LLM.SecretID,
+			req.LLM.SecretKey,
+			req.LLM.Region,
+			req.LLM.AuthMode,
 		); err != nil {
+			// 记录最近一次测试状态（便于智能体配置页筛选/排障）
+			_ = h.svc.UpsertTenantProviderHealth(
+				c.Request.Context(),
+				tenantUUID,
+				req.Env,
+				string(req.Modality),
+				req.LLM.Provider,
+				"unhealthy",
+				err.Error(),
+			)
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连通性校验失败", err)
 			return
 		}
@@ -211,6 +405,11 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 	case contract.ModVideo:
 		if req.Video == nil || strings.TrimSpace(req.Video.Provider) == "" || strings.TrimSpace(req.Video.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "video.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModModel3D:
+		if req.Model3D == nil || strings.TrimSpace(req.Model3D.Provider) == "" || strings.TrimSpace(req.Model3D.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "model3d.provider/model 不能为空", nil)
 			return
 		}
 	case contract.ModAudioTTS:
@@ -241,12 +440,34 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		TenantUUID: tenantRef,
 		Name:       credName,
 		Provider:   credProvider,
-		AuthScheme: "bearer",
+		AuthScheme: func() string {
+			scheme := "bearer"
+			if m, ok := catalog.GetGlobalAIRegister().Manifest(credProvider); ok && m != nil {
+				if s := strings.TrimSpace(m.Auth.Scheme); s != "" {
+					scheme = s
+				}
+			}
+			return scheme
+		}(),
 		Data:       credData,
 	}
 	if err := h.svc.SaveCredentialAndProfile(c.Request.Context(), req.Env, tenantRef, cred, prof, true); err != nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "保存失败", err)
 		return
+	}
+	// ✅ 产品语义：当 LLM 配置保存成功，更新“租户当前 AI 环境”
+	if req.Modality == contract.ModLLM {
+		// 保存成功代表连通性校验通过：同步写入“可用 Provider”缓存
+		_ = h.svc.UpsertTenantProviderHealth(
+			c.Request.Context(),
+			tenantUUID,
+			req.Env,
+			string(req.Modality),
+			req.LLM.Provider,
+			"healthy",
+			"ok",
+		)
+		_ = h.svc.SetTenantCurrentAIEnv(c.Request.Context(), tenantUUID, req.Env)
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "tenant_uuid": tenantUUID})
 }
@@ -267,6 +488,37 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	tenantUUID := tenantCtx.UUID()
 
+	saveVerifiedCredential := func(provider, apiKey, secretID, secretKey, baseURL, region, organization, azureDeployment, authMode string) error {
+		p := strings.TrimSpace(provider)
+		if p == "" {
+			return nil
+		}
+		scheme := "bearer"
+		if m, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && m != nil {
+			if s := strings.TrimSpace(m.Auth.Scheme); s != "" {
+				scheme = s
+			}
+		}
+		cred := &dbmodel.AIProviderCredential{
+			Env:        req.Env,
+			TenantUUID: tenantRef,
+			Name:       utils.Slug(req.Env + "-" + p),
+			Provider:   p,
+			AuthScheme: scheme,
+			Data: datatypes.JSONMap{
+				"api_key":          apiKey,
+				"secret_id":        secretID,
+				"secret_key":       secretKey,
+				"auth_mode":        authMode,
+				"base_url":         baseURL,
+				"region":           region,
+				"organization":     organization,
+				"azure_deployment": azureDeployment,
+			},
+		}
+		return h.svc.SaveCredentialOnly(c.Request.Context(), req.Env, tenantRef, cred)
+	}
+
 	switch req.Modality {
 	case contract.ModLLM:
 		if req.LLM == nil {
@@ -279,13 +531,17 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			c.Request.Context(),
 			req.Env, tenantRef,
 			string(req.Modality),
-			provider, model, req.LLM.BaseURL, req.LLM.APIKey,
+			provider, model, req.LLM.BaseURL, req.LLM.APIKey, req.LLM.SecretID, req.LLM.SecretKey, req.LLM.Region, req.LLM.AuthMode,
 		)
 		if err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, provider, model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 			return
 		}
+		// ✅ 测试通过：自动保存该 provider 的凭据（不激活默认路由）
+		_ = saveVerifiedCredential(provider, req.LLM.APIKey, req.LLM.SecretID, req.LLM.SecretKey, req.LLM.BaseURL, req.LLM.Region, req.LLM.Organization, req.LLM.AzureDeployment, req.LLM.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, provider, model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModImage:
@@ -294,10 +550,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Image.Provider, req.Image.Model, req.Image.BaseURL, req.Image.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Image.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.Image.Provider, req.Image.APIKey, "", "", req.Image.BaseURL, req.Image.Region, req.Image.Organization, req.Image.AzureDeployment, req.Image.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Image.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModEmbed:
@@ -306,10 +565,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Embedding.Provider, req.Embedding.Model, req.Embedding.BaseURL, req.Embedding.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.Embedding.Provider, req.Embedding.APIKey, "", "", req.Embedding.BaseURL, req.Embedding.Region, req.Embedding.Organization, req.Embedding.AzureDeployment, req.Embedding.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModVideo:
@@ -318,11 +580,29 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Video.Provider, req.Video.Model, req.Video.BaseURL, req.Video.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Video.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.Video.Provider, req.Video.APIKey, "", "", req.Video.BaseURL, req.Video.Region, req.Video.Organization, req.Video.AzureDeployment, req.Video.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Video.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, true, "ok")
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModModel3D:
+		if req.Model3D == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "model3d 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Model3D.Provider, req.Model3D.Model, req.Model3D.BaseURL, req.Model3D.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Model3D.Provider, "unhealthy", err.Error())
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Model3D.Provider, req.Model3D.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		_ = saveVerifiedCredential(req.Model3D.Provider, req.Model3D.APIKey, req.Model3D.SecretID, req.Model3D.SecretKey, req.Model3D.BaseURL, req.Model3D.Region, req.Model3D.Organization, req.Model3D.AzureDeployment, req.Model3D.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Model3D.Provider, "healthy", "ok")
+		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Model3D.Provider, req.Model3D.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModAudioTTS:
 		if req.AudioTTS == nil {
@@ -330,10 +610,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, req.AudioTTS.BaseURL, req.AudioTTS.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioTTS.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.AudioTTS.Provider, req.AudioTTS.APIKey, "", "", req.AudioTTS.BaseURL, req.AudioTTS.Region, req.AudioTTS.Organization, req.AudioTTS.AzureDeployment, req.AudioTTS.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioTTS.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModAudioASR:
@@ -342,10 +625,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, req.AudioASR.BaseURL, req.AudioASR.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioASR.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.AudioASR.Provider, req.AudioASR.APIKey, "", "", req.AudioASR.BaseURL, req.AudioASR.Region, req.AudioASR.Organization, req.AudioASR.AzureDeployment, req.AudioASR.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioASR.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModRerank:
@@ -354,10 +640,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Rerank.Provider, req.Rerank.Model, req.Rerank.BaseURL, req.Rerank.APIKey); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Rerank.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		_ = saveVerifiedCredential(req.Rerank.Provider, req.Rerank.APIKey, "", "", req.Rerank.BaseURL, req.Rerank.Region, req.Rerank.Organization, req.Rerank.AzureDeployment, req.Rerank.AuthMode)
+		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Rerank.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	default:
@@ -387,7 +676,7 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		out, err := h.svc.QuickCallLLM(
 			c.Request.Context(),
 			req.Env, tenantRef,
-			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
+			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey, req.LLM.SecretID, req.LLM.SecretKey, req.LLM.Region, req.LLM.AuthMode,
 			req.LLM.Temperature, req.LLM.MaxTokens,
 			req.Prompt,
 		)
@@ -436,6 +725,19 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		}
 		msg := describeVideoQuickCall(req.Video, req.Prompt)
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestQuickCall, req.Modality, req.Video.Provider, req.Video.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModModel3D:
+		if req.Model3D == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "model3d 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Model3D.Provider, req.Model3D.Model, req.Model3D.BaseURL, req.Model3D.APIKey); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestQuickCall, req.Modality, req.Model3D.Provider, req.Model3D.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeModel3DQuickCall(req.Model3D, req.Prompt)
+		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestQuickCall, req.Modality, req.Model3D.Provider, req.Model3D.Model, true, msg)
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
 	case contract.ModAudioTTS:
 		if req.AudioTTS == nil {
@@ -502,6 +804,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.LLM.Provider) // e.g. "default-ollama"
 		cred = datatypes.JSONMap{
 			"api_key":          req.LLM.APIKey, // 允许为空（本地 ollama 不需要）
+			"secret_id":        req.LLM.SecretID,
+			"secret_key":       req.LLM.SecretKey,
+			"auth_mode":        req.LLM.AuthMode,
 			"base_url":         req.LLM.BaseURL,
 			"region":           req.LLM.Region,
 			"organization":     req.LLM.Organization,
@@ -535,6 +840,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.Image.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.Image.APIKey,
+			"secret_id":        req.Image.SecretID,
+			"secret_key":       req.Image.SecretKey,
+			"auth_mode":        req.Image.AuthMode,
 			"base_url":         req.Image.BaseURL,
 			"region":           req.Image.Region,
 			"organization":     req.Image.Organization,
@@ -568,6 +876,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.Embedding.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.Embedding.APIKey,
+			"secret_id":        req.Embedding.SecretID,
+			"secret_key":       req.Embedding.SecretKey,
+			"auth_mode":        req.Embedding.AuthMode,
 			"base_url":         req.Embedding.BaseURL,
 			"region":           req.Embedding.Region,
 			"organization":     req.Embedding.Organization,
@@ -600,6 +911,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.Video.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.Video.APIKey,
+			"secret_id":        req.Video.SecretID,
+			"secret_key":       req.Video.SecretKey,
+			"auth_mode":        req.Video.AuthMode,
 			"base_url":         req.Video.BaseURL,
 			"region":           req.Video.Region,
 			"organization":     req.Video.Organization,
@@ -619,6 +933,39 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 			},
 			Tags: []string{"video"},
 		}
+	case contract.ModModel3D:
+		if req.Model3D == nil {
+			return
+		}
+		p := strings.TrimSpace(req.Model3D.Provider)
+		m := strings.TrimSpace(req.Model3D.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.Model3D.Provider
+		credName = utils.Slug(req.Env + "-" + req.Model3D.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.Model3D.APIKey,
+			"secret_id":        req.Model3D.SecretID,
+			"secret_key":       req.Model3D.SecretKey,
+			"auth_mode":        req.Model3D.AuthMode,
+			"base_url":         req.Model3D.BaseURL,
+			"region":           req.Model3D.Region,
+			"organization":     req.Model3D.Organization,
+			"azure_deployment": req.Model3D.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:        req.Env,
+			TenantUUID: tenantUUID,
+			Modality:   "model3d",
+			Provider:   req.Model3D.Provider,
+			Model:      req.Model3D.Model,
+			Defaults: datatypes.JSONMap{
+				"outputFormat": req.Model3D.OutputFormat,
+				"promptHint":   req.Model3D.PromptHint,
+			},
+			Tags: []string{"model3d"},
+		}
 
 	case contract.ModAudioTTS:
 		if req.AudioTTS == nil {
@@ -633,6 +980,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.AudioTTS.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.AudioTTS.APIKey,
+			"secret_id":        req.AudioTTS.SecretID,
+			"secret_key":       req.AudioTTS.SecretKey,
+			"auth_mode":        req.AudioTTS.AuthMode,
 			"base_url":         req.AudioTTS.BaseURL,
 			"region":           req.AudioTTS.Region,
 			"organization":     req.AudioTTS.Organization,
@@ -666,6 +1016,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.AudioASR.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.AudioASR.APIKey,
+			"secret_id":        req.AudioASR.SecretID,
+			"secret_key":       req.AudioASR.SecretKey,
+			"auth_mode":        req.AudioASR.AuthMode,
 			"base_url":         req.AudioASR.BaseURL,
 			"region":           req.AudioASR.Region,
 			"organization":     req.AudioASR.Organization,
@@ -699,6 +1052,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credName = utils.Slug(req.Env + "-" + req.Rerank.Provider)
 		cred = datatypes.JSONMap{
 			"api_key":          req.Rerank.APIKey,
+			"secret_id":        req.Rerank.SecretID,
+			"secret_key":       req.Rerank.SecretKey,
+			"auth_mode":        req.Rerank.AuthMode,
 			"base_url":         req.Rerank.BaseURL,
 			"region":           req.Rerank.Region,
 			"organization":     req.Rerank.Organization,
@@ -734,6 +1090,11 @@ func describeEmbeddingQuickCall(m *modEmbed) string {
 func describeVideoQuickCall(m *modVideo, prompt string) string {
 	return fmt.Sprintf("已校验 Video provider=%s model=%s res=%s fps=%d maxDuration=%ds prompt=%s",
 		m.Provider, m.Model, defaultIfEmpty(m.Resolution, "720p"), m.FPS, m.MaxDurationSec, snippet(prompt, 60))
+}
+
+func describeModel3DQuickCall(m *modModel3D, prompt string) string {
+	return fmt.Sprintf("已校验 3D provider=%s model=%s outputFormat=%s prompt=%s",
+		m.Provider, m.Model, defaultIfEmpty(m.OutputFormat, "glb"), snippet(prompt, 60))
 }
 
 func describeAudioTTSQuickCall(m *modAudioTTS, prompt string) string {
@@ -800,6 +1161,56 @@ func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 		"profile":    prof, // ✅ 只有一条
 		"configured": true,
 	})
+}
+
+type setCurrentEnvReq struct {
+	Env string `json:"env" validate:"required"`
+}
+
+func (h *AgentSettingHandler) getCurrentEnv(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	tenantUUID := tenantCtx.UUID()
+	env, configured, err := h.svc.GetTenantCurrentAIEnv(c.Request.Context(), tenantUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
+		return
+	}
+	if !configured {
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"configured": false,
+			"env":        "",
+			"fallback":   "dev",
+			"message":    "租户尚未设置当前 AI 环境，将使用默认值。",
+		})
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"configured": true,
+		"env":        env,
+	})
+}
+
+func (h *AgentSettingHandler) setCurrentEnv(c *gin.Context) {
+	var req setCurrentEnvReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	tenantUUID := tenantCtx.UUID()
+	if err := h.svc.SetTenantCurrentAIEnv(c.Request.Context(), tenantUUID, req.Env); err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "设置失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "env": req.Env})
 }
 
 type setActiveReq struct {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	config2 "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/loader"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 
 	"github.com/cloudwego/eino/schema"
 )
@@ -409,6 +411,26 @@ func (a *AgentClient) Stream(ctx context.Context, flowID string, params flowsche
 	sr, sw := agent.NewResultPipe(16)
 	go func() {
 		defer sw.Close()
+		defer func() {
+			if r := recover(); r != nil {
+				err := fmt.Errorf("panic in stream: %v", r)
+				_ = sw.Send(nil, err)
+				fin := time.Now().UTC()
+				a.setStatus(execID, &agentschema.ExecutionStatus{
+					PlanID:      execID,
+					Status:      "failed",
+					Progress:    0,
+					CurrentStep: "panic",
+					StartedAt:   a.getStart(execID),
+					CompletedAt: &fin,
+					Error:       err.Error(),
+					Metadata: map[string]any{
+						"flow_id": flowID,
+						"stack":   string(debug.Stack()),
+					},
+				})
+			}
+		}()
 
 		_ = sw.Send(&agentschema.ExecutionResult{
 			Success:   true,
@@ -656,7 +678,19 @@ func execLLM(a *AgentClient) NodeExec {
 		}
 
 		// 2) client & config
-		mc := config2.MergeConfig(a.config.LLMConfig, nil)
+		if a == nil || a.config == nil {
+			return nil, fmt.Errorf("llm config missing: agent client not initialized")
+		}
+		mc, err := resolveLLMConfig(node, in, a)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(mc.Provider) == "" {
+			return nil, fmt.Errorf("llm config missing provider")
+		}
+		if strings.TrimSpace(mc.Model) == "" {
+			return nil, fmt.Errorf("llm config missing model")
+		}
 		cli, err := llm.NewClient(mc.Provider)
 		if err != nil {
 			return nil, fmt.Errorf("llm provider init failed: %w", err)
@@ -678,7 +712,7 @@ func execLLM(a *AgentClient) NodeExec {
 			// 5) 原生流不可用 -> 回退到同步 + 本地分块回放
 			content, invErr := cli.Invoke(ctx, mc, prompt)
 			if invErr != nil {
-				return flowschema.Result{"content": "", "llm_error": invErr.Error()}, nil
+				return nil, fmt.Errorf("llm invoke failed: %w", invErr)
 			}
 
 			// 分块配置：优先节点参数，可不配就用默认
@@ -717,10 +751,179 @@ func execLLM(a *AgentClient) NodeExec {
 		// 6) 上层不需要流式 -> 直接同步调用
 		content, err := cli.Invoke(ctx, mc, prompt)
 		if err != nil {
-			return flowschema.Result{"content": "", "llm_error": err.Error()}, nil
+			return nil, fmt.Errorf("llm invoke failed: %w", err)
 		}
 		return flowschema.Result{"content": content}, nil
 	}
+}
+
+func resolveLLMConfig(node *flowschema.Node, in flowschema.Context, a *AgentClient) (*config2.ModelConfig, error) {
+	// Priority (low -> high):
+	// 1) driver-level fallback: agent.llm (config.yaml) —— 仅用于“调用方未注入 config”的兜底
+	// 2) runtime request: dto.ChatConfig (in["config"]) —— 通常已包含「AI settings 默认 + Agent 自身配置 + 本次请求覆盖」
+	// 3) node params overrides —— 节点级最高优先级
+	var mc *config2.ModelConfig
+
+	// 2) runtime request config (ChatConfig)
+	if in != nil {
+		if v := in["config"]; v != nil {
+			switch vv := v.(type) {
+			case *dto.ChatConfig:
+				mc = config2.MergeConfig(mc, modelConfigFromChatConfig(vv))
+			case dto.ChatConfig:
+				tmp := vv
+				mc = config2.MergeConfig(mc, modelConfigFromChatConfig(&tmp))
+			case map[string]any:
+				mc = config2.MergeConfig(mc, modelConfigFromChatConfig(mapToChatConfig(vv)))
+			}
+		}
+	}
+
+	// 1) driver-level fallback (only when caller didn't inject config)
+	if mc == nil && a != nil && a.config != nil {
+		mc = config2.MergeConfig(mc, a.config.LLMConfig)
+	}
+
+	// 3) node params overrides
+	if node != nil && len(node.Params) > 0 {
+		mc = config2.MergeConfig(mc, modelConfigFromNodeParams(node.Params))
+	}
+
+	if mc == nil {
+		return nil, fmt.Errorf("llm config missing")
+	}
+	return mc, nil
+}
+
+func modelConfigFromChatConfig(c *dto.ChatConfig) *config2.ModelConfig {
+	if c == nil {
+		return nil
+	}
+	return &config2.ModelConfig{
+		Provider:     strings.TrimSpace(c.Provider),
+		Endpoint:     strings.TrimSpace(c.Endpoint),
+		APIKey:       strings.TrimSpace(c.APIKey),
+		Model:        strings.TrimSpace(c.ModelName),
+		SystemPrompt: strings.TrimSpace(c.SystemPrompt),
+		Temperature:  c.Temperature,
+		MaxTokens:    c.MaxTokens,
+	}
+}
+
+func mapToChatConfig(m map[string]any) *dto.ChatConfig {
+	if m == nil {
+		return nil
+	}
+	getStr := func(key string) string {
+		if v, ok := m[key]; ok {
+			if s, ok2 := v.(string); ok2 {
+				return s
+			}
+		}
+		return ""
+	}
+	getF := func(key string) float64 {
+		if v, ok := m[key]; ok {
+			switch vv := v.(type) {
+			case float64:
+				return vv
+			case float32:
+				return float64(vv)
+			case int:
+				return float64(vv)
+			case int64:
+				return float64(vv)
+			}
+		}
+		return 0
+	}
+	getI := func(key string) int {
+		if v, ok := m[key]; ok {
+			switch vv := v.(type) {
+			case int:
+				return vv
+			case int64:
+				return int(vv)
+			case float64:
+				return int(vv)
+			}
+		}
+		return 0
+	}
+	return &dto.ChatConfig{
+		ModelName:    strings.TrimSpace(getStr("model_name")),
+		Provider:     strings.TrimSpace(getStr("provider")),
+		Endpoint:     strings.TrimSpace(getStr("endpoint")),
+		APIKey:       strings.TrimSpace(getStr("api_key")),
+		Temperature:  getF("temperature"),
+		MaxTokens:    getI("max_tokens"),
+		SystemPrompt: strings.TrimSpace(getStr("system_prompt")),
+	}
+}
+
+func modelConfigFromNodeParams(params map[string]any) *config2.ModelConfig {
+	if params == nil {
+		return nil
+	}
+	out := &config2.ModelConfig{}
+
+	setStr := func(dst *string, keys ...string) {
+		for _, k := range keys {
+			if v, ok := params[k]; ok {
+				if s, ok2 := v.(string); ok2 && strings.TrimSpace(s) != "" {
+					*dst = strings.TrimSpace(s)
+					return
+				}
+			}
+		}
+	}
+	setFloat := func(dst *float64, keys ...string) {
+		for _, k := range keys {
+			if v, ok := params[k]; ok {
+				switch vv := v.(type) {
+				case float64:
+					*dst = vv
+					return
+				case float32:
+					*dst = float64(vv)
+					return
+				case int:
+					*dst = float64(vv)
+					return
+				case int64:
+					*dst = float64(vv)
+					return
+				}
+			}
+		}
+	}
+	setInt := func(dst *int, keys ...string) {
+		for _, k := range keys {
+			if v, ok := params[k]; ok {
+				switch vv := v.(type) {
+				case int:
+					*dst = vv
+					return
+				case int64:
+					*dst = int(vv)
+					return
+				case float64:
+					*dst = int(vv)
+					return
+				}
+			}
+		}
+	}
+
+	setStr(&out.Provider, "provider", "llm_provider")
+	setStr(&out.Endpoint, "endpoint", "base_url", "llm_endpoint")
+	setStr(&out.APIKey, "api_key", "apikey", "llm_api_key")
+	setStr(&out.Model, "model", "model_name", "llm_model")
+	setStr(&out.SystemPrompt, "system_prompt", "prompt_system")
+	setFloat(&out.Temperature, "temperature", "temp")
+	setInt(&out.MaxTokens, "max_tokens", "maxTokens")
+
+	return out
 }
 
 // 子工作流：use 或 params.flow_id 指定子 flow

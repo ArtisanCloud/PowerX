@@ -30,6 +30,6 @@ type LLMClient interface {
 // 对“不支持流式”的 provider：嵌入 NoopStream 即可满足接口
 type NoopStream struct{}
 
-func (NoopStream) Stream(ctx context.Context, mc config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
+func (NoopStream) Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
 	return "", ErrStreamNotSupported
 }

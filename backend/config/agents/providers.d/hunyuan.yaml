@@ -1,0 +1,128 @@
+id: hunyuan
+name: 腾讯混元 (Hunyuan)
+aliases:
+  # “元宝”是产品侧名称，这里作为别名兼容历史配置/输入
+  - "Hunyuan"
+  - "hunyuan"
+  - "腾讯混元"
+  - "Tencent Hunyuan"
+  - "Yuanbao"
+  - "yuanbao"
+  - "腾讯元宝"
+  - "Tencent Yuanbao"
+
+drivers:
+  llm: hunyuan
+  image: external
+  video: external
+
+auth:
+  # 同时支持两种接入方式：
+  # 1) OpenAI SDK 兼容：API KEY（优先推荐，前端默认）
+  # 2) 腾讯云 SDK：SecretId/SecretKey（TC3 签名）
+  modes:
+    - id: openai
+      label: "OpenAI SDK（API Key）"
+      scheme: bearer
+      fields: ["api_key", "base_url"]
+      defaults:
+        # 腾讯云大模型 API（OpenAI SDK 兼容）
+        base_url: "https://api.hunyuan.cloud.tencent.com/v1"
+    - id: tc3
+      label: "腾讯云 SDK（SecretId/SecretKey）"
+      scheme: tc3
+      fields: ["secret_id", "secret_key", "region", "base_url"]
+      defaults:
+        base_url: "https://hunyuan.tencentcloudapi.com"
+        region: "ap-guangzhou"
+
+modalities:
+  llm:
+    note: "目录占位：用于在 UI 中预置混元模型列表；实际调用需要补齐 llm driver（或接入 OpenAI-compatible 网关）。"
+    models:
+      - id: hunyuan-lite
+        label: "混元 Lite (placeholder)"
+        tags: ["llm","tencent","placeholder"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          # OpenAI SDK 模式的 base_url 默认带 /v1，因此这里用相对路径
+          api_path: "/chat/completions"
+      - id: hunyuan-standard
+        label: "混元 Standard (placeholder)"
+        tags: ["llm","tencent","placeholder"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 2048
+          api_path: "/chat/completions"
+      - id: hunyuan-standard-256K
+        label: "混元 Standard 256K (placeholder)"
+        tags: ["llm","tencent","placeholder","long-context"]
+        defaults:
+          temperature: 0.6
+          max_tokens: 4096
+          api_path: "/chat/completions"
+      - id: hunyuan-turbo
+        label: "混元 Turbo (placeholder)"
+        tags: ["llm","tencent","placeholder"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/chat/completions"
+      - id: hunyuan-turbo-latest
+        label: "混元 Turbo Latest (placeholder)"
+        tags: ["llm","tencent","placeholder"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/chat/completions"
+      - id: hunyuan-pro
+        label: "混元 Pro (placeholder)"
+        tags: ["llm","tencent","placeholder"]
+        defaults:
+          temperature: 0.6
+          max_tokens: 2048
+          api_path: "/chat/completions"
+      - id: hunyuan-code
+        label: "混元 Code (placeholder)"
+        tags: ["llm","tencent","placeholder","code"]
+        defaults:
+          temperature: 0.3
+          max_tokens: 2048
+          api_path: "/chat/completions"
+
+  model3d:
+    note: "腾讯混元 3D 生成模型（UI 目录）。"
+    models:
+      - id: HY-3D-Express
+        label: "HY-3D-Express"
+        tags: ["3d","tencent","hunyuan"]
+      - id: HY-3D-UVWrap-1.5
+        label: "HY-3D-UVWrap-1.5"
+        tags: ["3d","tencent","hunyuan"]
+      - id: HY 3D Texture Generation
+        label: "HY 3D Texture Generation"
+        tags: ["3d","tencent","hunyuan","texture"]
+      - id: HY 3D Smart Topology
+        label: "HY 3D Smart Topology"
+        tags: ["3d","tencent","hunyuan","topology"]
+      - id: HY 3D Part Generation
+        label: "HY 3D Part Generation"
+        tags: ["3d","tencent","hunyuan","part"]
+      - id: HY-3D-Profession
+        label: "HY-3D-Profession"
+        tags: ["3d","tencent","hunyuan"]
+
+  image:
+    note: "目录占位：用于在 UI 中预置混元图像生成入口；实际调用需要补齐 image driver。"
+    models:
+      - id: hunyuan-image
+        label: "混元 图像生成 (placeholder)"
+        tags: ["image","tencent","placeholder"]
+
+  video:
+    note: "目录占位：用于在 UI 中预置混元视频生成入口；实际调用需要补齐 video driver。"
+    models:
+      - id: hunyuan-video
+        label: "混元 视频生成 (placeholder)"
+        tags: ["video","tencent","placeholder"]

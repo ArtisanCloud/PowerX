@@ -56,9 +56,12 @@
     "settings": "设置",
     "trash": "回收站",
     "cancel": "取消",
+    "delete": "删除",
     "save": "保存",
     "reload": "重新加载",
-    "reset": "重置"
+    "reset": "重置",
+    "scrollToBottom": "回到底部",
+    "newMessages": "{count} 条新消息"
   },
   "organization": {
     "description": "管理组织、成员与权限。",
@@ -530,6 +533,7 @@
     }
   },
   "agent": {
+    "confirmDelete": "确定删除吗？",
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",
@@ -539,6 +543,11 @@
       "totalCount": "总数",
       "newSession": "新建会话",
       "recents": "最近会话",
+      "pin": "置顶",
+      "pinned": "已置顶",
+      "rename": "重命名",
+      "renameSession": "重命名会话",
+      "delete": "删除",
       "noSessions": "暂无会话"
     },
     "config": {
@@ -562,10 +571,56 @@
         "analyst": "分析助手",
         "analystPrompt": "分析助手提示词"
       },
+      "createTitle": "新建智能体",
+      "editTitle": "编辑智能体",
+      "basicInfo": "基本信息",
+      "name": "名称",
+      "namePlaceholder": "请输入名称",
       "title": "标题",
       "description": "描述",
+      "descriptionPlaceholder": "请输入描述（可选）",
+      "avatar": "头像",
+      "avatarPlaceholder": "请输入头像 URL（可选）",
+      "status": "状态",
+      "active": "启用",
+      "inactive": "停用",
+      "modelConfig": "模型配置",
+      "useSystemModelConfig": "使用系统默认模型配置",
+      "onlyShowConfigured": "仅显示已配置（测试通过）",
+      "onlyConfigured": "仅已配置",
+      "showAll": "显示全部",
+      "noConfiguredHint": "暂无已配置项，筛选可能为空",
+      "notConfigured": "未配置",
+      "inheritEnabled": "已启用",
+      "inheritDisabled": "已关闭",
       "selectProvider": "选择提供商",
-      "selectModel": "选择模型"
+      "model": "模型",
+      "selectModel": "选择模型",
+      "temperature": "随机性",
+      "conservative": "更保守",
+      "creative": "更创意",
+      "maxTokens": "最大 Tokens",
+      "maxTokensPlaceholder": "例如 2048",
+      "systemPrompt": "系统提示词",
+      "usePreset": "使用预设",
+      "systemPromptPlaceholder": "请输入系统提示词（可选）",
+      "capability": "能力",
+      "advancedSettings": "高级设置",
+      "contextWindow": "上下文窗口",
+      "contextWindowPlaceholder": "例如 8k / 32k（可选）",
+      "responseFormat": "响应格式",
+      "formats": {
+        "text": "纯文本",
+        "markdown": "Markdown",
+        "json": "JSON"
+      },
+      "streaming": "流式输出",
+      "streamingEnabled": "已开启",
+      "streamingDisabled": "已关闭",
+      "reset": "重置",
+      "cancel": "取消",
+      "save": "保存",
+      "update": "更新"
     },
     "chat": {
       "defaultAgent": "默认智能体",
@@ -578,7 +633,32 @@
       "model": "模型",
       "temperature": "随机性",
       "ctrlEnterToSend": "Ctrl+Enter 发送",
-      "enterNewLine": "Enter 换行"
+      "enterNewLine": "Enter 换行",
+      "enterToSend": "Enter 发送",
+      "shiftEnterNewLine": "Shift+Enter 换行",
+      "newSession": "新会话",
+      "untitledSession": "未命名会话",
+      "responding": "正在回复",
+      "generating": "生成中",
+      "you": "你",
+      "assistant": "助手",
+      "system": "系统",
+      "typing": "输入中",
+      "agentTyping": "智能体正在输入...",
+      "cancel": "取消",
+      "clear": "清空",
+      "realtimeFailed": "实时连接失败",
+      "errors": {
+        "loadSessionsFailed": "加载会话列表失败",
+        "loadMoreSessionsFailed": "加载更多会话失败",
+        "createSessionFailed": "创建会话失败",
+        "createSessionFailedNoData": "创建会话失败：响应数据为空",
+        "deleteSessionFailed": "删除会话失败",
+        "renameSessionFailed": "重命名会话失败",
+        "archiveSessionFailed": "归档会话失败",
+        "loadMessagesFailed": "加载会话消息失败",
+        "loadMoreMessagesFailed": "加载更多消息失败"
+      }
     }
   },
   "pluginRelease": {

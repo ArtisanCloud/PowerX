@@ -2,6 +2,10 @@
 import { reactive, watch, ref, computed } from "vue";
 import type { AgentConfig } from "~/composables/agent/useAgentManager";
 import type { Agent } from "~/types/agent";
+import { AISettingService, type Provider } from "~/composables/api/services/aiSettingService";
+import { useSettingsService } from "~/composables/api/services/settingsService";
+import { useApiClient } from "~/composables/api";
+import { useAISettingsStore } from "~/stores/aiSettings";
 
 type AgentConfigEx = AgentConfig & {
   contextWindow?: number;
@@ -26,18 +30,106 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const debugPanel = process.env.NUXT_PUBLIC_AGENT_DEBUG === "true";
 
-// ------- 选项 -------
-const modelOptions = [
-  { label: "GPT-4", value: "gpt-4" },
-  { label: "GPT-4 Turbo", value: "gpt-4-turbo" },
-  { label: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
-  { label: "Claude-3 Opus", value: "claude-3-opus" },
-  { label: "Claude-3 Sonnet", value: "claude-3-sonnet" },
-  { label: "Claude-3 Haiku", value: "claude-3-haiku" },
-  { label: "Gemini Pro", value: "gemini-pro" },
-  { label: "Gemini Pro Vision", value: "gemini-pro-vision" },
-];
+const ENV = "dev";
+const MODALITY = "llm";
+const { get } = useApiClient();
+
+// ------- Provider/Model 联动数据 -------
+const providers = ref<Provider[]>([]);
+const modelItems = ref<{ label: string; value: string }[]>([]);
+const showOnlyConfigured = ref(true);
+const aiSettingsStore = useAISettingsStore();
+const defaults = reactive<{
+  provider: string;
+  model: string;
+  source: "agent" | "ai-settings" | "config" | "unknown";
+}>({
+  provider: "",
+  model: "",
+  source: "unknown",
+});
+
+const providerItems = computed(() =>
+  (providers.value || []).map((p) => ({
+    label: p.Name || p.ID,
+    value: p.ID,
+  }))
+);
+
+const configuredProviderSet = computed(() => {
+  const creds = aiSettingsStore.credentials || [];
+  const profiles = aiSettingsStore.profiles || [];
+  const set = new Set<string>();
+  for (const prof of profiles) {
+    if (String(prof?.modality || "").toLowerCase() !== MODALITY) continue;
+    const provider = String(prof?.provider || "").trim();
+    if (!provider) continue;
+    const hasCred = creds.some(
+      (c) => String(c?.provider || "").toLowerCase() === provider.toLowerCase()
+    );
+    if (hasCred) set.add(provider);
+  }
+  return set;
+});
+
+const configuredModelsForProvider = computed(() => {
+  const profiles = aiSettingsStore.profiles || [];
+  const map = new Map<string, Set<string>>();
+  for (const prof of profiles) {
+    if (String(prof?.modality || "").toLowerCase() !== MODALITY) continue;
+    const provider = String(prof?.provider || "").trim();
+    const model = String(prof?.model || "").trim();
+    if (!provider || !model) continue;
+    if (!map.has(provider)) map.set(provider, new Set());
+    map.get(provider)!.add(model);
+  }
+  return map;
+});
+
+const filteredProviderItems = computed(() => {
+  const all = providerItems.value || [];
+  if (!showOnlyConfigured.value) return all;
+
+  const allow = configuredProviderSet.value;
+  const filtered = all.filter((it) => allow.has(String(it.value)));
+
+  // 如果当前展示的 provider 不在已配置集合里，也要显示出来，避免 UI 丢失选择
+  const cur = String(effectiveProvider.value || form.provider || "").trim();
+  if (cur && !filtered.some((it) => String(it.value) === cur)) {
+    const hit = all.find((it) => String(it.value) === cur);
+    filtered.unshift(
+      hit
+        ? {
+            ...hit,
+            label: `${hit.label} (${t("agent.config.notConfigured") || "未配置"})`,
+          }
+        : {
+            label: `${cur} (${t("agent.config.notConfigured") || "未配置"})`,
+            value: cur,
+          }
+    );
+  }
+  return filtered;
+});
+
+const showConfiguredEmptyHint = computed(() => {
+  return (
+    showOnlyConfigured.value &&
+    (filteredProviderItems.value || []).length === 0 &&
+    (providerItems.value || []).length > 0
+  );
+});
+
+const effectiveProvider = computed(() => {
+  if (!form.useSystemModelConfig && form.provider) return String(form.provider);
+  return defaults.provider || "";
+});
+const effectiveModel = computed(() => {
+  if (!form.useSystemModelConfig && form.model) return String(form.model);
+  return defaults.model || "";
+});
 
 // 统一的能力字典（用 key 作为 id）
 const capabilityDict = [
@@ -66,7 +158,10 @@ const form = reactive<Partial<AgentConfigEx>>({
   name: "",
   description: "",
   avatar: "",
-  model: "gpt-4",
+  // 模型配置（可选覆盖：provider/model；未覆盖时回退到系统默认）
+  useSystemModelConfig: true,
+  provider: "",
+  model: "",
   systemPrompt: "",
   temperature: 0.7,
   topP: 1,
@@ -86,18 +181,130 @@ const selectedCaps = ref<string[]>([]);
 // 是否编辑：只看 form.id 是否有值
 const isEdit = computed(() => !!form.id && String(form.id).trim() !== "");
 
+async function loadProvidersOnce() {
+  if (providers.value.length) return;
+  providers.value = await AISettingService.getProviders(MODALITY, ENV);
+}
+
+async function ensureAISettingsEnv() {
+  if (!aiSettingsStore.initialized) {
+    await aiSettingsStore.initialize(ENV);
+  }
+  if (aiSettingsStore.currentEnv !== ENV) {
+    await aiSettingsStore.refreshEnvData(ENV, [MODALITY]);
+  } else {
+    // 只拉一次 llm profile/cred，避免无关模态噪声
+    await aiSettingsStore.refreshEnvData(ENV, [MODALITY]);
+  }
+}
+
+async function loadModelsForProvider(provider: string) {
+  const p = String(provider || "").trim();
+  if (!p) {
+    modelItems.value = [];
+    return;
+  }
+  const models = await AISettingService.getModels(p, MODALITY, ENV);
+  const all = (models || []).map((m) => ({ label: m, value: m }));
+
+  if (!showOnlyConfigured.value) {
+    modelItems.value = all;
+    return;
+  }
+
+  const allow = configuredModelsForProvider.value.get(p) || new Set<string>();
+  const filtered = all.filter((it) => allow.has(String(it.value)));
+
+  // 保底：当前选择的 model 不在已配置集合里，也要显示出来（系统默认/自定义都需要）
+  const cur = String(effectiveModel.value || form.model || "").trim();
+  if (cur && !filtered.some((it) => String(it.value) === cur)) {
+    const hit = all.find((it) => String(it.value) === cur);
+    filtered.unshift(
+      hit
+        ? { ...hit, label: `${hit.label} (${t("agent.config.notConfigured") || "未配置"})` }
+        : { label: `${cur} (${t("agent.config.notConfigured") || "未配置"})`, value: cur }
+    );
+  }
+
+  modelItems.value = filtered;
+}
+
+async function resolveSystemDefaults() {
+  // 1) 优先：系统 AI Settings 里“激活”的默认模态配置
+  try {
+    const res = await AISettingService.getActiveProfile(ENV, MODALITY);
+    const prof = res?.data?.profile;
+    if (prof?.provider && prof?.model) {
+      defaults.provider = String(prof.provider);
+      defaults.model = String(prof.model);
+      defaults.source = "ai-settings";
+      return;
+    }
+  } catch {}
+
+  // 2) 兜底：/settings/ai（来自 config.yaml 的系统默认）
+  try {
+    const settingsSvc = useSettingsService();
+    const res = await settingsSvc.getAISettings();
+    const ai = (res as any)?.data;
+    const defProvider = String(ai?.defaultProvider || "").trim();
+    const defModel =
+      String(
+        (ai?.providers || []).find?.((p: any) => p?.id === defProvider)
+          ?.defaultModel || ""
+      ).trim();
+    if (defProvider && defModel) {
+      defaults.provider = defProvider;
+      defaults.model = defModel;
+      defaults.source = "config";
+      return;
+    }
+  } catch {}
+
+  defaults.provider = "";
+  defaults.model = "";
+  defaults.source = "unknown";
+}
+
+async function loadAgentOverride(agentId: number | string) {
+  const id = String(agentId || "").trim();
+  if (!id) return false;
+  try {
+    const res = await get<any>(`/admin/agents/${id}/ai-setting`, {
+      params: { env: ENV },
+      useGlobalLoading: false,
+    });
+    if (res?.code === 200 && res?.data) {
+      const s = res.data as any;
+      const p = String(s.provider || "").trim();
+      const m = String(s.model || "").trim();
+      if (p && m) {
+        form.useSystemModelConfig = false;
+        form.provider = p;
+        await loadModelsForProvider(p);
+        form.model = m;
+        defaults.source = "agent";
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
 // 把 props.agent → 表单
 watch(
   () => props.agent,
-  (a) => {
-    console.log("[config-panel] incoming agent:", a);
+  async (a) => {
+    if (debugPanel) console.info("[config-panel] incoming agent:", a);
     // 1) 先重置为默认
     Object.assign(form, {
       id: "",
       name: "",
       description: "",
       avatar: "",
-      model: "gpt-4",
+      useSystemModelConfig: true,
+      provider: "",
+      model: "",
       systemPrompt: "",
       temperature: 0.7,
       topP: 1,
@@ -127,7 +334,7 @@ watch(
             : true;
 
       // 可选：如果前端传了高级字段就用前端的
-      form.model = anyA.model ?? form.model;
+      // 注意：真正落库的是 Agent AI Setting（/admin/agents/:id/ai-setting）
       form.systemPrompt = anyA.systemPrompt ?? form.systemPrompt;
       form.temperature = anyA.temperature ?? form.temperature;
       form.topP = anyA.topP ?? form.topP;
@@ -155,8 +362,74 @@ watch(
       // 创建态：清空选择
       selectedCaps.value = [];
     }
+
+    // 3) 初始化 provider/model：按 你定义的三层回退规则
+    try {
+      await loadProvidersOnce();
+      await ensureAISettingsEnv();
+      await resolveSystemDefaults();
+
+      const hasOverride = form.id ? await loadAgentOverride(form.id) : false;
+      if (!hasOverride) {
+        form.useSystemModelConfig = true;
+        form.provider = defaults.provider;
+        await loadModelsForProvider(defaults.provider);
+        form.model = defaults.model;
+      }
+    } catch (e) {
+      console.warn("[config-panel] init provider/model failed:", e);
+    }
   },
   { immediate: true }
+);
+
+watch(
+  () => form.useSystemModelConfig,
+  async (useDefault) => {
+    if (useDefault) {
+      // 切回“系统默认”时，把显示值回填为默认（但保存时会走 delete override）
+      form.provider = defaults.provider;
+      await loadModelsForProvider(defaults.provider);
+      form.model = defaults.model;
+      return;
+    }
+    // 切到“自定义”时：确保 provider/model 有值，并刷新 models
+    if (!String(form.provider || "").trim()) {
+      form.provider = defaults.provider;
+    }
+    await loadModelsForProvider(String(form.provider || "").trim());
+    if (!String(form.model || "").trim()) {
+      form.model = modelItems.value[0]?.value || defaults.model || "";
+    }
+  }
+);
+
+watch(
+  () => showOnlyConfigured.value,
+  async () => {
+    // 切换筛选模式后，重新拉一次 model 列表以应用过滤规则
+    const p = String(form.provider || defaults.provider || "").trim();
+    if (!p) return;
+    await loadModelsForProvider(p);
+  }
+);
+
+watch(
+  () => form.provider,
+  async (p, prev) => {
+    if (form.useSystemModelConfig) return;
+    const cur = String(p || "").trim();
+    const old = String(prev || "").trim();
+    if (cur === old) return;
+    await loadModelsForProvider(cur);
+    // provider 变更时，如果当前 model 不在新列表里，重置为第一项
+    if (cur && modelItems.value.length) {
+      const hit = modelItems.value.some((it) => it.value === form.model);
+      if (!hit) {
+        form.model = modelItems.value[0]?.value || "";
+      }
+    }
+  }
 );
 
 // 名称 → key（兜底用）
@@ -231,7 +504,9 @@ function resetForm() {
     form.description = a.description ?? "";
     form.isActive = a.status ? a.status === "active" : true;
     // 其余字段按需回填/保持默认
-    form.model = a.model ?? "gpt-4";
+    form.useSystemModelConfig = true;
+    form.provider = defaults.provider;
+    form.model = defaults.model;
     form.systemPrompt = a.systemPrompt ?? "";
     form.temperature = a.temperature ?? 0.7;
     form.topP = a.topP ?? 1;
@@ -249,7 +524,9 @@ function resetForm() {
       name: "",
       description: "",
       avatar: "",
-      model: "gpt-4",
+      useSystemModelConfig: true,
+      provider: defaults.provider,
+      model: defaults.model,
       systemPrompt: "",
       temperature: 0.7,
       topP: 1,
@@ -362,10 +639,55 @@ function cancelConfig() {
               {{ t("agent.config.modelConfig") }}
             </h3>
 
+            <UFormField :label="t('agent.config.onlyShowConfigured') || '仅显示已配置（测试通过）'">
+              <div class="flex items-center justify-between gap-3">
+                <USwitch
+                  v-model="showOnlyConfigured"
+                  :label="
+                    showOnlyConfigured
+                      ? (t('agent.config.onlyConfigured') || '仅已配置')
+                      : (t('agent.config.showAll') || '显示全部')
+                  "
+                />
+                <div v-if="showConfiguredEmptyHint" class="text-xs text-amber-500">
+                  {{ t("agent.config.noConfiguredHint") || "暂无已配置项，已配置筛选可能为空" }}
+                </div>
+              </div>
+            </UFormField>
+
+            <UFormField :label="t('agent.config.useSystemModelConfig') || '使用系统默认'">
+              <div class="flex items-center justify-between gap-3">
+                <USwitch
+                  v-model="form.useSystemModelConfig"
+                  :label="
+                    form.useSystemModelConfig
+                      ? (t('agent.config.inheritEnabled') || '已启用')
+                      : (t('agent.config.inheritDisabled') || '已关闭')
+                  "
+                />
+                <div class="text-xs text-gray-500 truncate">
+                  <span v-if="effectiveProvider && effectiveModel">
+                    {{ effectiveProvider }}/{{ effectiveModel }}
+                  </span>
+                </div>
+              </div>
+            </UFormField>
+
+            <UFormField :label="t('agent.config.selectProvider') || '选择提供商'">
+              <USelect
+                v-model="form.provider"
+                :items="filteredProviderItems"
+                :disabled="!!form.useSystemModelConfig"
+                :placeholder="t('agent.config.selectProvider')"
+                class="w-full"
+              />
+            </UFormField>
+
             <UFormField :label="t('agent.config.model')">
               <USelect
                 v-model="form.model"
-                :items="modelOptions"
+                :items="modelItems"
+                :disabled="!!form.useSystemModelConfig || !form.provider"
                 :placeholder="t('agent.config.selectModel')"
                 class="w-full"
               />

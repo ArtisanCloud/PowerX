@@ -30,6 +30,10 @@ func InitGlobalConfig(configPath string) error {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
 
+	// AI: default fill + global snapshot (read-only)
+	config.AI.SetDefaults()
+	agentCfg.SetGlobalAIConfig(&config.AI)
+
 	GlobalConfig = &config
 	return nil
 }

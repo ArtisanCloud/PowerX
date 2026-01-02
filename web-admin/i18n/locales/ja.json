@@ -4,7 +4,9 @@
   "register": "登録",
   "common": {
     "language": "言語",
-    "reload": "再読み込み"
+    "reload": "再読み込み",
+    "scrollToBottom": "一番下へ",
+    "newMessages": "新着 {count} 件"
   },
   "user": {
     "admin": "管理者"

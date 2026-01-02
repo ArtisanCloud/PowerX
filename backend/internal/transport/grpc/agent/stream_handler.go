@@ -22,12 +22,14 @@ import (
 /******** server ********/
 type AgentStreamServer struct {
 	v1.UnimplementedAgentStreamServiceServer
-	his *agentSvc.ChatHistoryService
+	his         *agentSvc.ChatHistoryService
+	cfgResolver *agentSvc.ChatConfigResolver
 }
 
 func NewAgentStreamServer(deps *shared.Deps) *AgentStreamServer {
 	return &AgentStreamServer{
-		his: agentSvc.NewChatHistoryService(deps.DB),
+		his:         agentSvc.NewChatHistoryService(deps.DB),
+		cfgResolver: agentSvc.NewChatConfigResolver(deps.DB),
 	}
 }
 
@@ -107,7 +109,20 @@ func (s *AgentStreamServer) Stream(req *v1.StreamRequest, srv v1.AgentStreamServ
 	hist := newTokenHistory(s.his, ctx, env, tenantUUID, sess, agentID)
 	engineSink := eventChain(sink, hist)
 
-	cfg := &dto.ChatConfig{} // 与 HTTP 保持一致
+	cfg, cfgErr := s.cfgResolver.ResolveForAgentChat(ctx, env, tenantUUID, agentID, nil)
+	if cfgErr != nil {
+		_ = srv.Send(&v1.StreamResponse{
+			Type:      dto.EventError,
+			Timestamp: now(),
+			Payload:   &v1.StreamResponse_EvError{EvError: &v1.EventError{Message: cfgErr.Error()}},
+		})
+		_ = srv.Send(&v1.StreamResponse{
+			Type:      dto.EventEnd,
+			Timestamp: now(),
+			Payload:   &v1.StreamResponse_EvEnd{EvEnd: &v1.EventEnd{Message: "failed"}},
+		})
+		return nil
+	}
 	return runtime.NewEngine().Run(ctx, msg, cfg, strings.TrimSpace(req.GetFlowId()), engineSink)
 }
 

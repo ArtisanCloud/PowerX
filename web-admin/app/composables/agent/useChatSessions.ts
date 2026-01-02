@@ -81,6 +81,26 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   const messageStore = useMessageStore();
   const { t } = useI18n();
 
+  const LAST_AGENT_ID_KEY = "powerx.agent.lastSelectedAgentId";
+  const readLastAgentId = (): number | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const v = localStorage.getItem(LAST_AGENT_ID_KEY);
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeLastAgentId = (agentId: number | null) => {
+    if (typeof window === "undefined") return;
+    try {
+      if (!agentId) localStorage.removeItem(LAST_AGENT_ID_KEY);
+      else localStorage.setItem(LAST_AGENT_ID_KEY, String(agentId));
+    } catch {}
+  };
+
   /**
    * 将后端数据转换为前端格式
    */
@@ -221,6 +241,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
       if (response) {
         const newSession = mapSessionDTO(response);
         sessionStore.addSession(agentId, newSession);
+        writeLastAgentId(agentId);
         return newSession;
       }
       throw new Error(t("agent.chat.errors.createSessionFailedNoData"));
@@ -242,6 +263,8 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         params: {
           env: "dev",
         },
+        timeout: 60000,
+        useGlobalLoading: false,
       });
 
       sessionStore.removeSession(agentId, sessionId);
@@ -420,8 +443,15 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
     loadMoreMessages,
 
     // Store 方法的直接暴露
-    selectSession: sessionStore.selectSession,
-    selectAgent: sessionStore.selectAgent,
+    selectSession: (agentId: number, sessionId: number | string) => {
+      sessionStore.selectSession(agentId, sessionId);
+      writeLastAgentId(agentId);
+    },
+    selectAgent: (agentId: number) => {
+      sessionStore.selectAgent(agentId);
+      writeLastAgentId(agentId);
+    },
+    getLastSelectedAgentId: readLastAgentId,
     clearError: sessionStore.clearError,
     clear: sessionStore.clear,
   };

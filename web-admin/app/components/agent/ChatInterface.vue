@@ -52,6 +52,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: "send-message", content: string): void;
   (e: "retry-message"): void;
+  (e: "regenerate-from", messageId: string | number): void;
   (e: "clear-messages"): void;
 }>();
 
@@ -517,6 +518,7 @@ function onSendClick() {
             "
             :agent-name="currentAgent?.name"
             @retry="$emit('retry-message')"
+            @regenerate="(id) => $emit('regenerate-from', id)"
             @copy="() => {}"
             @delete="() => {}"
           />

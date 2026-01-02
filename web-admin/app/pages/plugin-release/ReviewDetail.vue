@@ -171,7 +171,11 @@
     </div>
 
     <!-- 审核操作模态框 -->
-    <UModal v-model="isReviewModalOpen">
+    <UModal
+      v-model="isReviewModalOpen"
+      title="plugin-release-review-title"
+      description="plugin-release-review-desc"
+    >
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">

@@ -357,11 +357,13 @@ function fmtTime(ts?: string | number | Date) {
                           label: t('agent.selector.unpin') || '取消置顶',
                           icon: 'i-heroicons-bookmark-slash',
                           click: () => onTogglePin(s.id, false),
+                          onSelect: () => onTogglePin(s.id, false),
                         },
                         {
                           label: t('agent.selector.rename') || '重命名',
                           icon: 'i-heroicons-pencil',
                           click: () => onRenameSession(s.id),
+                          onSelect: () => onRenameSession(s.id),
                         },
                       ],
                       [
@@ -370,6 +372,7 @@ function fmtTime(ts?: string | number | Date) {
                           icon: 'i-heroicons-trash',
                           color: 'error',
                           click: () => onDeleteSession(s.id),
+                          onSelect: () => onDeleteSession(s.id),
                         },
                       ],
                     ]"
@@ -451,11 +454,13 @@ function fmtTime(ts?: string | number | Date) {
                           label: t('agent.selector.pin') || '置顶',
                           icon: 'i-heroicons-bookmark',
                           click: () => onTogglePin(s.id, true),
+                          onSelect: () => onTogglePin(s.id, true),
                         },
                         {
                           label: t('agent.selector.rename') || '重命名',
                           icon: 'i-heroicons-pencil',
                           click: () => onRenameSession(s.id),
+                          onSelect: () => onRenameSession(s.id),
                         },
                       ],
                       [
@@ -464,6 +469,7 @@ function fmtTime(ts?: string | number | Date) {
                           icon: 'i-heroicons-trash',
                           color: 'error',
                           click: () => onDeleteSession(s.id),
+                          onSelect: () => onDeleteSession(s.id),
                         },
                       ],
                     ]"

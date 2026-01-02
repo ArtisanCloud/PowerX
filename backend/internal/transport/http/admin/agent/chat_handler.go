@@ -22,12 +22,14 @@ import (
 )
 
 type AgentChatHandler struct {
-	his *agentSvc.ChatHistoryService
+	his         *agentSvc.ChatHistoryService
+	cfgResolver *agentSvc.ChatConfigResolver
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 	return &AgentChatHandler{
-		his: agentSvc.NewChatHistoryService(dep.DB),
+		his:         agentSvc.NewChatHistoryService(dep.DB),
+		cfgResolver: agentSvc.NewChatConfigResolver(dep.DB),
 	}
 }
 
@@ -146,7 +148,8 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	// 2) 解析入参 & 会话（保持你现有逻辑）
 	env := c.DefaultQuery("env", "default")
 	q := strings.TrimSpace(utils.FirstNonEmpty(c.Query("q"), c.Query("message")))
-	if q == "" {
+	regenFromID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("regen_from_message_id")))
+	if q == "" && regenFromID == 0 {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
@@ -175,16 +178,56 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		}
 	}
 
-	// 写入 user 消息
-	_, _ = h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
-
 	// 3) 适配器 + Engine
 	runtime.SetSSEHeaders(c)
 	baseSink := runtime.NewSSESink(c)
 	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
 
-	cfg := &dto.ChatConfig{}                             // 如需从 query/form 取开关可补
-	_ = runtime.NewEngine().Run(c, q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
+	// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
+	if regenFromID > 0 {
+		msgRec, err := h.his.FindMessageByID(c, env, tenantRef, regenFromID)
+		if err != nil || msgRec == nil || msgRec.SessionID != sess.ID || strings.ToLower(strings.TrimSpace(msgRec.Role)) != "user" {
+			_ = histSink.Emit(dto.EventError, map[string]any{"message": "regen_from_message_id 无效或不属于该会话"})
+			_ = histSink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return
+		}
+		// 允许前端传 q 作为“编辑后的问题”，并更新这条 user 消息内容
+		if strings.TrimSpace(q) != "" && strings.TrimSpace(q) != strings.TrimSpace(msgRec.Content) {
+			if err := h.his.UpdateMessageContent(c, env, tenantRef, regenFromID, q); err == nil {
+				msgRec.Content = strings.TrimSpace(q)
+			}
+		}
+		_, _ = h.his.TruncateMessagesAfter(c, env, tenantRef, sess.ID, regenFromID)
+		q = strings.TrimSpace(msgRec.Content)
+		_ = histSink.Emit(dto.EventMeta, map[string]any{
+			"session_id":              sess.ID,
+			"agent_id":                agentID,
+			"regen_from_message_id":   regenFromID,
+			"regen_from_message_role": "user",
+		})
+	} else {
+		// 正常发送：先写入 user 消息，并把 DB message_id 回传给前端用于“从此问题重新生成”
+		clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
+		userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
+		if userMsg != nil {
+			_ = histSink.Emit(dto.EventMeta, map[string]any{
+				"session_id":        sess.ID,
+				"agent_id":          agentID,
+				"user_message_id":   userMsg.ID,
+				"client_msg_id":     clientMsgID,
+				"user_message_role": "user",
+			})
+		}
+	}
+
+	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
+	if cfgErr != nil {
+		_ = histSink.Emit(dto.EventError, map[string]any{"message": cfgErr.Error()})
+		_ = histSink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return
+	}
+
+	_ = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
 }
 
 // ---- 核心 ----

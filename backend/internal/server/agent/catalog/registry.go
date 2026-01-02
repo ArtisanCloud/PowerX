@@ -35,9 +35,18 @@ type Manifest struct {
 }
 
 type AuthSpec struct {
-	Scheme   string            `yaml:"scheme" json:"scheme"`                         // bearer|aksk|oauth2|...
+	Scheme   string            `yaml:"scheme" json:"scheme"`                         // bearer|aksk|oauth2|tc3|...
 	Fields   []string          `yaml:"fields,omitempty" json:"fields,omitempty"`     // ["api_key","base_url",...]
-	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"` // e.g. {"base_url": "https://api.openai.com/v1"}
+	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"` // e.g. {"base_url": "https://api.openai.com"}
+	Modes    []AuthModeSpec    `yaml:"modes,omitempty" json:"modes,omitempty"`       // optional multi-mode auth
+}
+
+type AuthModeSpec struct {
+	ID       string            `yaml:"id" json:"id"`
+	Label    string            `yaml:"label,omitempty" json:"label,omitempty"`
+	Scheme   string            `yaml:"scheme" json:"scheme"`
+	Fields   []string          `yaml:"fields,omitempty" json:"fields,omitempty"`
+	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 }
 
 type ModalityManifest struct {
@@ -171,6 +180,9 @@ func NormalizeModality(s string) string {
 	// Video
 	case "video", "vid", "视频", "视频生成":
 		return "video"
+	// 3D Model Generation
+	case "model3d", "3d", "3d生成", "3d 生成", "3d模型", "3d模型生成", "模型3d", "模型3d生成":
+		return "model3d"
 	// Audio（预留）
 	case "audio", "speech", "声音", "语音":
 		return "audio"

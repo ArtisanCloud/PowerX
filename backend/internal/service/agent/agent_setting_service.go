@@ -2,18 +2,25 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	agentconf "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"gorm.io/datatypes"
@@ -22,11 +29,22 @@ import (
 
 type ModelRule struct {
 	RequireAPIKey  bool
+	RequireSecretID  bool
+	RequireSecretKey bool
 	RequireBaseURL bool
 	DefaultBaseURL string
 }
 
-var sensitiveCredentialKeys = []string{"api_key", "secret", "client_secret", "access_token"}
+var sensitiveCredentialKeys = []string{"api_key", "secret_id", "secret_key", "secret", "client_secret", "access_token"}
+
+const TenantSettingKeyAICurrentEnv = "ai.current_env"
+const tenantSettingKeyAIProviderHealthPrefix = "ai.provider_health"
+
+type ProviderHealthRecord struct {
+	Status    string `json:"status"`    // healthy|unhealthy|unknown
+	CheckedAt int64  `json:"checkedAt"` // unix seconds
+	Message   string `json:"message"`   // error or "ok"
+}
 
 type AgentSettingService struct {
 	db         *gorm.DB
@@ -36,6 +54,7 @@ type AgentSettingService struct {
 	usageRepo  *repoai.AIUsageLogRepository
 	tks        *tenantkeys.TenantKeyService
 	tenantRepo *tenantrepo.TenantRepository
+	settingRepo *settingrepo.TenantSettingRepository
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
@@ -47,7 +66,136 @@ func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
 		usageRepo:  repoai.NewAIUsageLogRepository(db),
 		tks:        tenantkeys.NewTenantKeyService(db),
 		tenantRepo: tenantrepo.NewTenantRepository(db),
+		settingRepo: settingrepo.NewTenantSettingRepository(db),
 	}
+}
+
+// ---------------- Tenant Current AI Env ----------------
+
+func (s *AgentSettingService) GetTenantCurrentAIEnv(
+	ctx context.Context, tenantUUID string,
+) (env string, configured bool, err error) {
+	out, err := s.settingRepo.GetByTenantAndKey(ctx, tenantUUID, TenantSettingKeyAICurrentEnv)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if out == nil || len(out.ValueJSON) == 0 {
+		return "", false, nil
+	}
+	var v string
+	if e := json.Unmarshal(out.ValueJSON, &v); e != nil {
+		return "", false, nil
+	}
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", false, nil
+	}
+	return v, true, nil
+}
+
+func (s *AgentSettingService) SetTenantCurrentAIEnv(
+	ctx context.Context, tenantUUID string, env string,
+) error {
+	e := strings.TrimSpace(env)
+	if e == "" {
+		return fmt.Errorf("env 不能为空")
+	}
+	raw, _ := json.Marshal(e)
+	return s.settingRepo.Upsert(ctx, &dbsetting.TenantSetting{
+		TenantUUID: tenantUUID,
+		Key:        TenantSettingKeyAICurrentEnv,
+		ValueJSON:  datatypes.JSON(raw),
+		Group:      "ai",
+		Editable:   true,
+	})
+}
+
+// ---------------- Tenant Provider Health (per env+modality) ----------------
+
+func tenantProviderHealthKey(env string, modality string) string {
+	e := strings.TrimSpace(env)
+	m := strings.TrimSpace(strings.ToLower(modality))
+	if e == "" {
+		e = "default"
+	}
+	if m == "" {
+		m = "llm"
+	}
+	return fmt.Sprintf("%s.%s.%s", tenantSettingKeyAIProviderHealthPrefix, e, m)
+}
+
+func (s *AgentSettingService) GetTenantProviderHealthMap(
+	ctx context.Context, tenantUUID string, env string, modality string,
+) (map[string]ProviderHealthRecord, bool, error) {
+	key := tenantProviderHealthKey(env, modality)
+	out, err := s.settingRepo.GetByTenantAndKey(ctx, tenantUUID, key)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return map[string]ProviderHealthRecord{}, false, nil
+		}
+		return nil, false, err
+	}
+	if out == nil || len(out.ValueJSON) == 0 {
+		return map[string]ProviderHealthRecord{}, false, nil
+	}
+	var m map[string]ProviderHealthRecord
+	if e := json.Unmarshal(out.ValueJSON, &m); e != nil {
+		return map[string]ProviderHealthRecord{}, false, nil
+	}
+	if m == nil {
+		return map[string]ProviderHealthRecord{}, false, nil
+	}
+	// normalize keys
+	norm := map[string]ProviderHealthRecord{}
+	for k, v := range m {
+		p := strings.ToLower(strings.TrimSpace(k))
+		if p == "" {
+			continue
+		}
+		norm[p] = v
+	}
+	return norm, true, nil
+}
+
+func (s *AgentSettingService) UpsertTenantProviderHealth(
+	ctx context.Context, tenantUUID string, env string, modality string,
+	provider string, status string, message string,
+) error {
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		return fmt.Errorf("provider 不能为空")
+	}
+	key := tenantProviderHealthKey(env, modality)
+
+	m, _, err := s.GetTenantProviderHealthMap(ctx, tenantUUID, env, modality)
+	if err != nil {
+		return err
+	}
+	if m == nil {
+		m = map[string]ProviderHealthRecord{}
+	}
+	st := strings.ToLower(strings.TrimSpace(status))
+	switch st {
+	case "healthy", "unhealthy", "unknown":
+	default:
+		st = "unknown"
+	}
+	m[p] = ProviderHealthRecord{
+		Status:    st,
+		CheckedAt: time.Now().Unix(),
+		Message:   strings.TrimSpace(message),
+	}
+	raw, _ := json.Marshal(m)
+	return s.settingRepo.Upsert(ctx, &dbsetting.TenantSetting{
+		TenantUUID: tenantUUID,
+		Key:        key,
+		ValueJSON:  datatypes.JSON(raw),
+		Group:      "ai",
+		Editable:   true,
+	})
 }
 
 // ---------------- Providers / Models ----------------
@@ -72,6 +220,105 @@ func (s *AgentSettingService) Models(modality, provider string) ([]string, error
 	return out, nil
 }
 
+// ModelsForTenant：给 HTTP handler 用；针对 OpenRouter 支持远端拉取模型列表，失败则回退到本地 catalog。
+func (s *AgentSettingService) ModelsForTenant(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	modality string,
+	provider string,
+) ([]string, error) {
+	mod := strings.TrimSpace(strings.ToLower(modality))
+	prov := strings.TrimSpace(strings.ToLower(provider))
+
+	// OpenRouter：模型目录变化快，优先走远端 /models；失败则回退到本地目录（占位/示例）。
+	if prov == "openrouter" && (mod == "llm" || mod == "embedding") {
+		if remote, err := s.fetchOpenRouterModels(ctx, env, tenantUUID, mod); err == nil && len(remote) > 0 {
+			return remote, nil
+		}
+	}
+	return s.Models(mod, prov)
+}
+
+type openRouterModelsResponse struct {
+	Data   []struct{ ID string `json:"id"` } `json:"data"`
+	Models []struct{ ID string `json:"id"` } `json:"models"`
+}
+
+func (s *AgentSettingService) fetchOpenRouterModels(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	modality string,
+) ([]string, error) {
+	req := catalog.AuthReqFromCatalog("openrouter")
+	// 拉模型列表通常不要求 key，但如果已配置 key，我们也带上，避免账号维度过滤导致列表不全。
+	baseURL, apiKey, err := s.prepareAuthInputs(ctx, env, tenantUUID, "openrouter", "", "", true, req.DefaultBaseURL, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(baseURL); err != nil {
+		return nil, err
+	}
+
+	modelsURL := strings.TrimRight(baseURL, "/") + "/models"
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Set("Accept", "application/json")
+	if strings.TrimSpace(apiKey) != "" {
+		r.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKey))
+	}
+	// OpenRouter 建议携带（可选）
+	r.Header.Set("X-Title", "PowerX")
+	// 部分场景下 OpenRouter 会建议提供来源（可选，但对某些网关/策略更友好）
+	r.Header.Set("HTTP-Referer", "https://powerx.local")
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	resp, err := client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("openrouter models status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var out openRouterModelsResponse
+	if e := json.Unmarshal(body, &out); e != nil {
+		return nil, fmt.Errorf("openrouter models parse failed: %w (body=%s)", e, strings.TrimSpace(string(body)))
+	}
+
+	raw := out.Data
+	if len(raw) == 0 && len(out.Models) > 0 {
+		raw = out.Models
+	}
+
+	ids := make([]string, 0, len(raw))
+	seen := map[string]struct{}{}
+	for _, it := range raw {
+		id := strings.TrimSpace(it.ID)
+		if id == "" {
+			continue
+		}
+		// 轻度过滤：按模态做保守筛选（embedding 更偏向 openai/* embedding）
+		if strings.EqualFold(modality, "embedding") {
+			if !strings.Contains(strings.ToLower(id), "embedding") && !strings.HasSuffix(strings.ToLower(id), "-embed") {
+				// 不强过滤（很多 provider 不按 embedding 命名）；先放过
+			}
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 func (s *AgentSettingService) tenantScopeKey(tenantUUID *string) string {
 	if tenantUUID == nil {
 		return ""
@@ -93,7 +340,7 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	s.applyManifestToProfile(prof)
 
 	// 是否提交了新密钥？
-	sensKeys := []string{"api_key", "access_token", "client_secret", "secret"}
+	sensKeys := []string{"api_key", "secret_id", "secret_key", "access_token", "client_secret", "secret"}
 	hasNewSecret := false
 	for _, k := range sensKeys {
 		if v, _ := cred.Data[k].(string); strings.TrimSpace(v) != "" {
@@ -109,11 +356,58 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 
 	// 有新密钥则严格直连校验（只用这次入参，不读库）
 	if hasNewSecret {
-		if err := s.PingStrict(ctx, prof.Modality, prof.Provider, prof.Model,
-			baseURL,
-			utils.FirstJSONNonEmpty(cred.Data, sensKeys...),
-		); err != nil {
-			return fmt.Errorf("连通性校验失败: %w", err)
+		// LLM：真实连通性校验（会实际调用第三方）
+		if strings.EqualFold(prof.Modality, "llm") {
+			apiKey := ""
+			if v, _ := cred.Data["api_key"].(string); strings.TrimSpace(v) != "" {
+				apiKey = strings.TrimSpace(v)
+			}
+			secretID := ""
+			if v, _ := cred.Data["secret_id"].(string); strings.TrimSpace(v) != "" {
+				secretID = strings.TrimSpace(v)
+			}
+			secretKey := ""
+			if v, _ := cred.Data["secret_key"].(string); strings.TrimSpace(v) != "" {
+				secretKey = strings.TrimSpace(v)
+			}
+			region := ""
+			if v, _ := cred.Data["region"].(string); strings.TrimSpace(v) != "" {
+				region = strings.TrimSpace(v)
+			}
+			// 腾讯混元：支持两种接入方式（OpenAI SDK / 腾讯云 SDK）
+			if strings.EqualFold(strings.TrimSpace(prof.Provider), "hunyuan") {
+				mode := ""
+				if v, _ := cred.Data["auth_mode"].(string); strings.TrimSpace(v) != "" {
+					mode = strings.TrimSpace(v)
+				}
+				if err := s.PingHunyuan(ctx, env, tenantUUID, mode, prof.Model, baseURL, apiKey, secretID, secretKey, region); err != nil {
+					return fmt.Errorf("连通性校验失败: %w", err)
+				}
+			} else {
+				if err := s.PingStrict(ctx, prof.Modality, prof.Provider, prof.Model,
+					baseURL,
+					apiKey,
+					secretID,
+					secretKey,
+					region,
+				); err != nil {
+					return fmt.Errorf("连通性校验失败: %w", err)
+				}
+			}
+		} else {
+			// 非 LLM：目前只做结构校验（模型是否存在、base_url 是否合法、鉴权字段是否齐）
+			if err := s.PingGeneric(
+				ctx,
+				env,
+				tenantUUID,
+				contract.Modality(strings.ToLower(strings.TrimSpace(prof.Modality))),
+				prof.Provider,
+				prof.Model,
+				baseURL,
+				utils.FirstJSONNonEmpty(cred.Data, sensKeys...),
+			); err != nil {
+				return fmt.Errorf("连通性校验失败: %w", err)
+			}
 		}
 	} else {
 		// 没提新密钥：保留旧的 __sealed 和 base_url（如有）
@@ -159,6 +453,66 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	})
 }
 
+// SaveCredentialOnly：用于“连接测试成功后自动保存凭据”（不写画像、不激活默认路由）
+// - 会 SealSensitive（api_key/secret/...）
+// - 若未提交新密钥，则保留旧的 __sealed / base_url
+func (s *AgentSettingService) SaveCredentialOnly(
+	ctx context.Context,
+	env string, tenantUUID *string,
+	cred *dbmodel.AIProviderCredential,
+) error {
+	if cred == nil {
+		return fmt.Errorf("credential 不能为空")
+	}
+	cred.Env, cred.TenantUUID = env, tenantUUID
+
+	// 是否提交了新密钥？
+	sensKeys := []string{"api_key", "access_token", "client_secret", "secret"}
+	hasNewSecret := false
+	for _, k := range sensKeys {
+		if cred.Data != nil {
+			if v, _ := cred.Data[k].(string); strings.TrimSpace(v) != "" {
+				hasNewSecret = true
+				break
+			}
+		}
+	}
+
+	baseURL := ""
+	if cred.Data != nil {
+		if v, _ := cred.Data["base_url"].(string); v != "" {
+			baseURL = v
+		}
+	}
+
+	// 没提新密钥：保留旧的 __sealed 和 base_url（如有）
+	if !hasNewSecret {
+		if old, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
+			if cred.Data == nil {
+				cred.Data = datatypes.JSONMap{}
+			}
+			if cred.Data["__sealed"] == nil && old.Data != nil && old.Data["__sealed"] != nil {
+				cred.Data["__sealed"] = old.Data["__sealed"]
+			}
+			if baseURL == "" && old.Data != nil {
+				if bu, _ := old.Data["base_url"].(string); strings.TrimSpace(bu) != "" {
+					cred.Data["base_url"] = bu
+				}
+			}
+		}
+	}
+
+	// 加密敏感键
+	scopeKey := s.tenantScopeKey(tenantUUID)
+	enc, err := s.tks.SealSensitive(ctx, env, scopeKey, cred.Data, sensKeys...)
+	if err != nil {
+		return err
+	}
+	cred.Data = enc
+
+	return s.credRepo.UpsertByScopeNameProvider(ctx, env, tenantUUID, cred)
+}
+
 // 从库里解密出 api_key/base_url 作为回退
 func (s *AgentSettingService) resolveConnFromStore(
 	ctx context.Context, env string, tenantUUID *string, provider string,
@@ -180,19 +534,37 @@ func (s *AgentSettingService) resolveConnFromStore(
 	}
 	// 再补 api_key（仅后端内部使用，不回前端）
 	if apiKey == "" {
+		// 兼容：历史记录可能未加密 api_key（明文存放）
+		if v, ok := cred.Data["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+			apiKey = strings.TrimSpace(v)
+		} else if v, ok := cred.Data["apiKey"].(string); ok && strings.TrimSpace(v) != "" {
+			apiKey = strings.TrimSpace(v)
+		}
+
 		var sec struct {
 			APIKey string `json:"api_key"`
 			Secret string `json:"secret"`
 		}
 		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
-			apiKey = sec.APIKey
+			if apiKey == "" {
+				apiKey = strings.TrimSpace(sec.APIKey)
+			}
 		}
 	}
 	return baseURL, apiKey, nil
 }
 
+// ResolveConnFromStore 用于运行时读取已保存的 credential（含解密）来补全 base_url/api_key。
+// 注意：该方法仅在后端内部使用，严禁把返回的 apiKey 透传给前端。
+func (s *AgentSettingService) ResolveConnFromStore(
+	ctx context.Context, env string, tenantUUID *string, provider string,
+	baseURLIn, apiKeyIn string,
+) (baseURL, apiKey string, err error) {
+	return s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURLIn, apiKeyIn)
+}
+
 // 只用“这次提交的表单值”直连一次（不读库、不回退、不解封）
-func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider, model, baseURL, apiKey string) error {
+func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider, model, baseURL, apiKey, secretID, secretKey, region string) error {
 	if strings.TrimSpace(provider) == "" || strings.TrimSpace(model) == "" {
 		return fmt.Errorf("provider/model 不能为空")
 	}
@@ -202,6 +574,12 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 	if rule.RequireAPIKey && strings.TrimSpace(apiKey) == "" {
 		return fmt.Errorf("%s/%s 需要 apiKey", provider, model)
 	}
+	if rule.RequireSecretID && strings.TrimSpace(secretID) == "" {
+		return fmt.Errorf("%s/%s 需要 secretId", provider, model)
+	}
+	if rule.RequireSecretKey && strings.TrimSpace(secretKey) == "" {
+		return fmt.Errorf("%s/%s 需要 secretKey", provider, model)
+	}
 	if strings.TrimSpace(baseURL) == "" {
 		if rule.DefaultBaseURL != "" {
 			baseURL = rule.DefaultBaseURL
@@ -209,11 +587,16 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 			return fmt.Errorf("%s/%s 需要 baseURL", provider, model)
 		}
 	}
+	if err := validateEndpoint(baseURL); err != nil {
+		return err
+	}
 
 	mc := agentcfg.ModelConfig{
 		Provider: provider, Endpoint: baseURL, APIKey: apiKey,
+		SecretID: secretID, SecretKey: secretKey, Region: region,
 		Model: model, SystemPrompt: "You are a health check probe.",
 		Temperature: 0, MaxTokens: 8, AccessToken: apiKey,
+		Extra: s.buildModelExtras(contract.Modality(strings.ToLower(strings.TrimSpace(modality))), provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -222,6 +605,18 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 	c2, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	_, err = cli.Invoke(c2, &mc, "ping")
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	// 常见：请求到了 HTML 页面（如 404/反爬/网关错误页），导致 JSON 解析报 '<'
+	if strings.Contains(msg, "invalid character '<' looking for beginning of value") {
+		return fmt.Errorf("上游返回非 JSON（疑似 HTML 错误页）；请检查 base_url 是否正确，以及是否被网关/反爬拦截：%w", err)
+	}
+	if strings.EqualFold(strings.TrimSpace(provider), "openrouter") &&
+		strings.Contains(msg, "is not a valid model ID") {
+		return fmt.Errorf("OpenRouter 模型 ID 无效（可能已更名或你账号无权限）：%s；建议在“模型”下拉刷新后重选，或到 OpenRouter 控制台确认可用模型 ID：%w", model, err)
+	}
 	return err
 }
 
@@ -230,7 +625,7 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 // 否则从库里读取已保存配置（含密钥解封）后再 ping。
 func (s *AgentSettingService) TestConnectionPreferInput(
 	ctx context.Context, env string, tenantUUID *string,
-	modality, provider, model, baseURL, apiKey string,
+	modality, provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 ) error {
 
 	mod := strings.ToLower(strings.TrimSpace(modality))
@@ -238,12 +633,20 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 
 	switch contract.Modality(mod) {
 	case contract.ModLLM:
+		if strings.EqualFold(strings.TrimSpace(prov), "hunyuan") {
+			return s.PingHunyuan(ctx, env, tenantUUID, authMode, model, baseURL, apiKey, secretID, secretKey, region)
+		}
+
+		// 其他 provider：要求具备可用 driver
+		if _, err := agentllm.NewClient(prov); err != nil {
+			return fmt.Errorf("Provider %s 暂未实现 LLM 直连驱动，无法测试连接", prov)
+		}
 		req := catalog.AuthReqFromCatalog(prov)
 		bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, prov, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 		if err != nil {
 			return err
 		}
-		return s.PingStrict(ctx, mod, prov, model, bu, ak)
+		return s.PingStrict(ctx, mod, prov, model, bu, ak, "", "", "")
 
 	default:
 		return s.PingGeneric(ctx, env, tenantUUID, contract.Modality(mod), provider, model, baseURL, apiKey)
@@ -307,11 +710,16 @@ func (s *AgentSettingService) RotateTenantCredentials(
 
 // 修改 PingLLM：多两个参数 env/tenantUUID，并支持回退解密
 func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUID *string,
-	provider, model, baseURL, apiKey string,
+	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 ) error {
 	if err := ensureModelExists(string(contract.ModLLM), provider, model); err != nil {
 		return err
 	}
+	p := strings.TrimSpace(strings.ToLower(provider))
+	if p == "hunyuan" {
+		return s.PingHunyuan(ctx, env, tenantUUID, authMode, model, baseURL, apiKey, secretID, secretKey, region)
+	}
+
 	req := catalog.AuthReqFromCatalog(provider)
 	var err error
 	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
@@ -362,18 +770,73 @@ func (s *AgentSettingService) PingGeneric(
 // 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
 func (s *AgentSettingService) QuickCallLLM(
 	ctx context.Context, env string, tenantUUID *string,
-	provider, model, baseURL, apiKey string,
+	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 	temperature float64, maxTokens int,
 	prompt string,
 ) (string, error) {
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Say hello in one short sentence."
 	}
-	// 回退解密
+	p := strings.TrimSpace(strings.ToLower(provider))
+	if p == "hunyuan" {
+		mode := authMode
+		if strings.TrimSpace(mode) == "" {
+			mode = "openai"
+		}
+		if strings.EqualFold(strings.TrimSpace(mode), "tc3") {
+			bu, sid, sk, rg, err := s.prepareHunyuanTC3Inputs(ctx, env, tenantUUID, baseURL, secretID, secretKey, region)
+			if err != nil {
+				return "", err
+			}
+			mc := agentcfg.ModelConfig{
+				Provider:     "hunyuan",
+				Endpoint:     bu,
+				SecretID:     sid,
+				SecretKey:    sk,
+				Region:       rg,
+				Model:        model,
+				SystemPrompt: "You are a helpful assistant.",
+				Temperature:  temperature,
+				MaxTokens:    utils.MaxInt(maxTokens, 64),
+				Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
+			}
+			cli, err := agentllm.NewClient("hunyuan")
+			if err != nil {
+				return "", err
+			}
+			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			return cli.Invoke(ctx, &mc, prompt)
+		}
+		// OpenAI SDK 兼容：走 openai client
+		bu, ak, err := s.prepareHunyuanOpenAIInputs(ctx, env, tenantUUID, baseURL, apiKey)
+		if err != nil {
+			return "", err
+		}
+		mc := agentcfg.ModelConfig{
+			Provider:     "openai",
+			Endpoint:     bu,
+			APIKey:       ak,
+			Model:        model,
+			SystemPrompt: "You are a helpful assistant.",
+			Temperature:  temperature,
+			MaxTokens:    utils.MaxInt(maxTokens, 64),
+			AccessToken:  ak,
+			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
+		}
+		cli, err := agentllm.NewClient("openai")
+		if err != nil {
+			return "", err
+		}
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		return cli.Invoke(ctx, &mc, prompt)
+	}
+
+	// 回退解密（OpenAI-compatible 等）
 	var err error
 	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略错误，尽量继续 */
-	}
+	if err != nil { /* 忽略错误，尽量继续 */ }
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
@@ -443,6 +906,246 @@ func (s *AgentSettingService) prepareAuthInputs(
 		return bu, ak, fmt.Errorf("缺少 API Key（%s 要求 api_key）", provider)
 	}
 	return bu, ak, nil
+}
+
+func (s *AgentSettingService) resolveHunyuanFromStore(
+	ctx context.Context, env string, tenantUUID *string,
+) (baseURL string, secretID string, secretKey string, region string, err error) {
+	name := utils.Slug(env + "-hunyuan")
+	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, "hunyuan")
+	if err != nil {
+		return "", "", "", "", err
+	}
+	if v, ok := cred.Data["base_url"].(string); ok {
+		baseURL = strings.TrimSpace(v)
+	}
+	if v, ok := cred.Data["region"].(string); ok {
+		region = strings.TrimSpace(v)
+	}
+
+	// 兼容：历史记录可能未加密 secret_id/secret_key（明文存放）
+	if v, ok := cred.Data["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
+		secretID = strings.TrimSpace(v)
+	} else if v, ok := cred.Data["secretId"].(string); ok && strings.TrimSpace(v) != "" {
+		secretID = strings.TrimSpace(v)
+	}
+	if v, ok := cred.Data["secret_key"].(string); ok && strings.TrimSpace(v) != "" {
+		secretKey = strings.TrimSpace(v)
+	} else if v, ok := cred.Data["secretKey"].(string); ok && strings.TrimSpace(v) != "" {
+		secretKey = strings.TrimSpace(v)
+	}
+
+	var sec struct {
+		SecretID  string `json:"secret_id"`
+		SecretKey string `json:"secret_key"`
+	}
+	if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+		if secretID == "" {
+			secretID = strings.TrimSpace(sec.SecretID)
+		}
+		if secretKey == "" {
+			secretKey = strings.TrimSpace(sec.SecretKey)
+		}
+	}
+	return baseURL, secretID, secretKey, region, nil
+}
+
+func (s *AgentSettingService) hunyuanModeDefaults(mode string) (defaultBaseURL string, defaultRegion string) {
+	reg := catalog.GetGlobalAIRegister()
+	m, ok := reg.Manifest("hunyuan")
+	if !ok || m == nil {
+		return "", ""
+	}
+	target := strings.ToLower(strings.TrimSpace(mode))
+	for _, md := range m.Auth.Modes {
+		if strings.ToLower(strings.TrimSpace(md.ID)) == target {
+			if md.Defaults != nil {
+				return strings.TrimSpace(md.Defaults["base_url"]), strings.TrimSpace(md.Defaults["region"])
+			}
+			return "", ""
+		}
+	}
+	return "", ""
+}
+
+func (s *AgentSettingService) prepareHunyuanTC3Inputs(
+	ctx context.Context, env string, tenantUUID *string,
+	baseURLIn string, secretIDIn string, secretKeyIn string, regionIn string,
+) (baseURL string, secretID string, secretKey string, region string, err error) {
+	baseURL = strings.TrimSpace(baseURLIn)
+	secretID = strings.TrimSpace(secretIDIn)
+	secretKey = strings.TrimSpace(secretKeyIn)
+	region = strings.TrimSpace(regionIn)
+
+	defBase, defRegion := s.hunyuanModeDefaults("tc3")
+	// 兼容：用户在 UI 从 OpenAI 模式切到 tc3 时，可能仍保留 openai 的 base_url（带 /v1 或 hunyuan.cloud.tencent.com）。
+	// tc3 模式必须使用腾讯云 API endpoint（hunyuan.tencentcloudapi.com 风格），否则会出现 404/缺公共参数等问题。
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = strings.TrimSpace(defBase)
+	} else {
+		buIn := strings.TrimSpace(baseURL)
+		if u, e := url.Parse(buIn); e == nil {
+			host := strings.ToLower(strings.TrimSpace(u.Host))
+			// openai 兼容域名 → 强制切回 tc3 默认 endpoint
+			if strings.Contains(host, "hunyuan.cloud.tencent.com") {
+				baseURL = strings.TrimSpace(defBase)
+			} else if u.Path != "" && u.Path != "/" {
+				// tc3 endpoint 不需要 path，避免把 /v1 之类带进去
+				baseURL = strings.TrimRight(fmt.Sprintf("%s://%s", u.Scheme, u.Host), "/")
+			}
+		}
+	}
+
+	// fallback from store
+	if baseURL == "" || secretID == "" || secretKey == "" || region == "" {
+		if bu, sid, sk, rg, e := s.resolveHunyuanFromStore(ctx, env, tenantUUID); e == nil {
+			if baseURL == "" {
+				baseURL = strings.TrimSpace(bu)
+			}
+			if secretID == "" {
+				secretID = strings.TrimSpace(sid)
+			}
+			if secretKey == "" {
+				secretKey = strings.TrimSpace(sk)
+			}
+			if region == "" {
+				region = strings.TrimSpace(rg)
+			}
+		}
+	}
+
+	// apply defaults & validate
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(defBase)
+	}
+	if baseURL == "" {
+		return "", "", "", "", fmt.Errorf("缺少 BaseURL（hunyuan 要求 base_url）")
+	}
+	if err := validateEndpoint(baseURL); err != nil {
+		return "", "", "", "", err
+	}
+	if secretID == "" {
+		return "", "", "", "", fmt.Errorf("缺少 SecretID（hunyuan 要求 secret_id）")
+	}
+	if secretKey == "" {
+		return "", "", "", "", fmt.Errorf("缺少 SecretKey（hunyuan 要求 secret_key）")
+	}
+	if region == "" {
+		region = defRegion
+	}
+	if region == "" {
+		region = "ap-guangzhou"
+	}
+	return baseURL, secretID, secretKey, region, nil
+}
+
+func (s *AgentSettingService) prepareHunyuanOpenAIInputs(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	baseURLIn string,
+	apiKeyIn string,
+) (baseURL string, apiKey string, err error) {
+	defBase, _ := s.hunyuanModeDefaults("openai")
+	// OpenAI SDK 兼容：要求 api_key + base_url
+	// 兼容：用户可能误把 tc3 endpoint（*.tencentcloudapi.com）填进来；此时强制回退到 openai 默认 base_url
+	buIn := strings.TrimSpace(baseURLIn)
+	// 关键兜底：如果用户不填 base_url，必须使用 OpenAI 模式默认值；
+	// 不能从已保存的 tc3 凭据里回填（否则会打到 hunyuan.tencentcloudapi.com 并要求 X-TC-Version）。
+	if buIn == "" {
+		buIn = strings.TrimSpace(defBase)
+	}
+	if buIn != "" {
+		if u, e := url.Parse(buIn); e == nil {
+			host := strings.ToLower(u.Host)
+			if strings.Contains(host, "tencentcloudapi.com") {
+				buIn = strings.TrimSpace(defBase)
+			} else if u.Path == "" || u.Path == "/" {
+				// 常见：只填 host，忘了 /v1
+				buIn = strings.TrimRight(buIn, "/") + "/v1"
+			}
+		} else {
+			// 非法 URL：让后续 validateEndpoint 报错更明确
+		}
+	}
+
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, "hunyuan", buIn, apiKeyIn, true, defBase, true)
+	if err != nil && strings.Contains(err.Error(), "缺少 BaseURL") {
+		return "", "", fmt.Errorf("缺少 BaseURL（混元 OpenAI SDK/API Key 模式需要 base_url；请到腾讯云大模型 API 控制台的“OpenAI SDK 方式接入”复制 Base URL）")
+	}
+	return bu, ak, err
+}
+
+func (s *AgentSettingService) PingHunyuan(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	authMode string,
+	model string,
+	baseURL string,
+	apiKey string,
+	secretID string,
+	secretKey string,
+	region string,
+) error {
+	mode := strings.ToLower(strings.TrimSpace(authMode))
+	if mode == "" {
+		mode = "openai" // 默认优先 API Key（OpenAI SDK 兼容）
+	}
+	switch mode {
+	case "tc3":
+		bu, sid, sk, rg, err := s.prepareHunyuanTC3Inputs(ctx, env, tenantUUID, baseURL, secretID, secretKey, region)
+		if err != nil {
+			return err
+		}
+		mc := agentcfg.ModelConfig{
+			Provider:     "hunyuan",
+			Endpoint:     bu,
+			SecretID:     sid,
+			SecretKey:    sk,
+			Region:       rg,
+			Model:        model,
+			SystemPrompt: "You are a health check probe.",
+			Temperature:  0,
+			MaxTokens:    8,
+			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
+		}
+		cli, err := agentllm.NewClient("hunyuan")
+		if err != nil {
+			return err
+		}
+		c2, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		_, err = cli.Invoke(c2, &mc, "ping")
+		return err
+	default:
+		bu, ak, err := s.prepareHunyuanOpenAIInputs(ctx, env, tenantUUID, baseURL, apiKey)
+		if err != nil {
+			return err
+		}
+		if err := validateEndpoint(bu); err != nil {
+			return err
+		}
+		mc := agentcfg.ModelConfig{
+			Provider:     "openai",
+			Endpoint:     bu,
+			APIKey:       ak,
+			Model:        model,
+			SystemPrompt: "You are a health check probe.",
+			Temperature:  0,
+			MaxTokens:    8,
+			AccessToken:  ak,
+			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
+		}
+		cli, err := agentllm.NewClient("openai")
+		if err != nil {
+			return err
+		}
+		c2, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		_, err = cli.Invoke(c2, &mc, "ping")
+		return err
+	}
 }
 
 func validateEndpoint(raw string) error {
@@ -550,7 +1253,30 @@ type aiModelItem struct {
 
 // 这两个函数直接调用你现有的 catalog，全局注册器：catalog.GetGlobalAIRegister()
 func catalogGetProviders(mod string) []aiProviderItem {
-	items := catalog.GetGlobalAIRegister().Providers(mod)
+	m := strings.TrimSpace(strings.ToLower(mod))
+	reg := catalog.GetGlobalAIRegister()
+
+	// ✅ 对齐：图像/视频两套 Provider 列表保持一致：image ∪ video
+	var items []catalog.ProviderItem
+	if m == "video" || m == "image" {
+		seen := map[string]struct{}{}
+		add := func(list []catalog.ProviderItem) {
+			for _, it := range list {
+				if it.ID == "" {
+					continue
+				}
+				if _, ok := seen[it.ID]; ok {
+					continue
+				}
+				seen[it.ID] = struct{}{}
+				items = append(items, it)
+			}
+		}
+		add(reg.Providers("image"))
+		add(reg.Providers("video"))
+	} else {
+		items = reg.Providers(m)
+	}
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
 		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name})
@@ -558,9 +1284,25 @@ func catalogGetProviders(mod string) []aiProviderItem {
 	return out
 }
 func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
-	ms, err := catalog.GetGlobalAIRegister().Models(mod, prov)
+	m := strings.TrimSpace(strings.ToLower(mod))
+	reg := catalog.GetGlobalAIRegister()
+
+	// ✅ 对齐：图像/视频如果该模态没模型，则回退到另一模态（避免下拉为空）
+	ms, err := reg.Models(m, prov)
 	if err != nil {
 		return nil, err
+	}
+	if len(ms) == 0 {
+		if m == "video" {
+			if fallback, e := reg.Models("image", prov); e == nil && len(fallback) > 0 {
+				ms = fallback
+			}
+		}
+		if m == "image" {
+			if fallback, e := reg.Models("video", prov); e == nil && len(fallback) > 0 {
+				ms = fallback
+			}
+		}
 	}
 	out := make([]aiModelItem, 0, len(ms))
 	for _, m := range ms {
@@ -595,7 +1337,91 @@ func (s *AgentSettingService) GetActiveProfile(
 	// 没设置默认时可选一个兜底（例如最近更新的）
 	list, err := s.profRepo.ListByScope(ctx, env, tenantUUID, modality)
 	if err != nil || len(list) == 0 {
-		return nil, err
+		// 最后兜底：读取 config.yaml 的 ai.defaults（仅作为“系统默认值”，不代表已完成凭据配置）
+		cfg := agentconf.GetGlobalAIConfig()
+		if cfg == nil {
+			return nil, err
+		}
+		mod := strings.TrimSpace(strings.ToLower(modality))
+		switch mod {
+		case "llm":
+			p := strings.TrimSpace(cfg.Defaults.LLM.Provider)
+			m := strings.TrimSpace(cfg.Defaults.LLM.Model)
+			if p == "" || m == "" {
+				return nil, err
+			}
+			return &dbmodel.AIModelProfile{
+				Modality: "llm",
+				Provider: p,
+				Model:    m,
+				Label:    "config.default.llm",
+				Defaults: datatypes.JSONMap{
+					"temperature": cfg.Defaults.LLM.Temperature,
+					"maxTokens":   cfg.Defaults.LLM.MaxTokens,
+					"topP":        cfg.Defaults.LLM.TopP,
+					"stream":      cfg.Defaults.LLM.Stream,
+				},
+				Tags: []string{"llm", "config_default"},
+			}, nil
+		case "image":
+			p := strings.TrimSpace(cfg.Defaults.Image.Provider)
+			m := strings.TrimSpace(cfg.Defaults.Image.Model)
+			if p == "" || m == "" {
+				return nil, err
+			}
+			return &dbmodel.AIModelProfile{
+				Modality: "image",
+				Provider: p,
+				Model:    m,
+				Label:    "config.default.image",
+				Defaults: datatypes.JSONMap{
+					"size":       cfg.Defaults.Image.Size,
+					"quality":    cfg.Defaults.Image.Quality,
+					"format":     cfg.Defaults.Image.Format,
+					"promptHint": cfg.Defaults.Image.PromptHint,
+				},
+				Tags: []string{"image", "config_default"},
+			}, nil
+		case "embedding":
+			p := strings.TrimSpace(cfg.Defaults.Embedding.Provider)
+			m := strings.TrimSpace(cfg.Defaults.Embedding.Model)
+			if p == "" || m == "" {
+				return nil, err
+			}
+			return &dbmodel.AIModelProfile{
+				Modality: "embedding",
+				Provider: p,
+				Model:    m,
+				Label:    "config.default.embedding",
+				Defaults: datatypes.JSONMap{
+					"dimensions": cfg.Defaults.Embedding.Dimensions,
+					"truncate":   cfg.Defaults.Embedding.Truncate,
+					"batch":      cfg.Defaults.Embedding.Batch,
+				},
+				Tags: []string{"embedding", "config_default"},
+			}, nil
+		case "video":
+			p := strings.TrimSpace(cfg.Defaults.Video.Provider)
+			m := strings.TrimSpace(cfg.Defaults.Video.Model)
+			if p == "" || m == "" {
+				return nil, err
+			}
+			return &dbmodel.AIModelProfile{
+				Modality: "video",
+				Provider: p,
+				Model:    m,
+				Label:    "config.default.video",
+				Defaults: datatypes.JSONMap{
+					"resolution":     cfg.Defaults.Video.Resolution,
+					"fps":            cfg.Defaults.Video.FPS,
+					"maxDurationSec": cfg.Defaults.Video.MaxDurationSec,
+					"promptHint":     cfg.Defaults.Video.PromptHint,
+				},
+				Tags: []string{"video", "config_default"},
+			}, nil
+		default:
+			return nil, err
+		}
 	}
 	latest := list[0]
 	for i := 1; i < len(list); i++ {
@@ -619,11 +1445,19 @@ func (s *AgentSettingService) resolveModelRule(modality, provider, model string)
 	if m, ok := reg.Manifest(provider); ok && m != nil {
 		// 1) 必填项来自 auth.fields
 		reqAPI := false
+		reqSID := false
+		reqSKey := false
 		reqBase := false
 		for _, f := range m.Auth.Fields {
 			lf := strings.ToLower(strings.TrimSpace(f))
 			if lf == "api_key" {
 				reqAPI = true
+			}
+			if lf == "secret_id" {
+				reqSID = true
+			}
+			if lf == "secret_key" {
+				reqSKey = true
 			}
 			if lf == "base_url" {
 				reqBase = true
@@ -648,7 +1482,13 @@ func (s *AgentSettingService) resolveModelRule(modality, provider, model string)
 				def = v
 			}
 		}
-		return ModelRule{RequireAPIKey: reqAPI, RequireBaseURL: reqBase, DefaultBaseURL: def}
+		return ModelRule{
+			RequireAPIKey:    reqAPI,
+			RequireSecretID:  reqSID,
+			RequireSecretKey: reqSKey,
+			RequireBaseURL:   reqBase,
+			DefaultBaseURL:   def,
+		}
 	}
 	// 兜底（避免 catalog 未配置时不可用）
 	//switch strings.ToLower(provider) {

@@ -164,9 +164,11 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 获取供应商列表
      */
-    async fetchProviders() {
+    async fetchProviders(modality?: string, env?: string) {
       try {
-        const providers = await AISettingService.getProviders();
+        const targetEnv = env || this.currentEnv || "default";
+        const normModality = modality ? this.mapModality(modality) : undefined;
+        const providers = await AISettingService.getProviders(normModality, targetEnv);
         this.providers = providers;
       } catch (error) {
         console.error("获取供应商列表失败:", error);
@@ -219,23 +221,39 @@ export const useAISettingsStore = defineStore("aiSettings", {
      * 模态映射
      */
     mapModality(modality: string): string {
-      switch (modality) {
+      const v = String(modality || "").trim().toLowerCase();
+      switch (v) {
+        // 后端 contract.Modality
         case "llm":
-          return "chat"; // 或 'text' / 'completion'
+          return "llm";
         case "image":
           return "image";
         case "embedding":
           return "embedding";
         case "audio_tts":
-          return "tts";
+          return "audio_tts";
         case "audio_asr":
-          return "asr";
+          return "audio_asr";
         case "video":
           return "video";
+        case "model3d":
+        case "model_3d":
+        case "3d":
+          return "model3d";
         case "rerank":
           return "rerank";
+
+        // 兼容旧/别名输入
+        case "chat":
+        case "text":
+        case "completion":
+          return "llm";
+        case "tts":
+          return "audio_tts";
+        case "asr":
+          return "audio_asr";
         default:
-          return modality;
+          return v || modality;
       }
     },
 

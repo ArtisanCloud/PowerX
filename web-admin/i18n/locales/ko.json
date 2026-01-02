@@ -4,7 +4,9 @@
   "register": "회원가입",
   "common": {
     "language": "언어",
-    "reload": "새로고침"
+    "reload": "새로고침",
+    "scrollToBottom": "맨 아래로",
+    "newMessages": "새 메시지 {count}개"
   },
   "user": {
     "admin": "관리자"

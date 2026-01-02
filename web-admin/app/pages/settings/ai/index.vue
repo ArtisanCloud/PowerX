@@ -105,9 +105,16 @@
           <div class="mb-4 font-medium text-[var(--text-primary)]">
             {{ currentTitle }} - {{ $t("settings.ai.sections.general") }}
           </div>
+          <p
+            v-if="modality === 'image' || modality === 'video'"
+            class="mb-3 text-xs text-[var(--text-secondary)]"
+          >
+            图像/视频的 Provider 列表已对齐；若某 Provider 在当前模态暂无专用模型，会自动回退展示另一模态的模型（占位）。
+          </p>
           <ProviderModelForm
             :provider-options="providerOptions"
             :model-options="modelOptions"
+            :active-provider="activeProviderForForm"
             :state="currentState"
             @provider-changed="onProviderChanged"
           />
@@ -127,12 +134,14 @@
             :audio-tts="audioTTS"
             :audio-asr="audioASR"
             :video="video"
+            :model3d="model3d"
             :rerank="rerank"
             :image-size-options="imageSizeOptions"
             :image-quality-options="imageQualityOptions"
             :image-format-options="imageFormatOptions"
             :truncate-options="truncateOptions"
             :video-resolution-options="videoResolutionOptions"
+            :model3d-format-options="model3dFormatOptions"
             :voice-options="voiceOptions"
             :audio-format-options="audioFormatOptions"
             :audio-quality-options="audioQualityOptions"
@@ -177,6 +186,7 @@ type Modality =
   | "audio_tts"
   | "audio_asr"
   | "video"
+  | "model3d"
   | "rerank";
 
 // 使用 AI 设置 store
@@ -215,6 +225,7 @@ const modalityTabs = [
   { key: "audio_tts", label: "语音合成", icon: "i-heroicons-speaker-wave" },
   { key: "audio_asr", label: "语音识别", icon: "i-heroicons-microphone" },
   { key: "video", label: "视频生成", icon: "i-heroicons-video-camera" },
+  { key: "model3d", label: "3D 生成", icon: "i-heroicons-cube" },
   { key: "rerank", label: "重排序", icon: "i-heroicons-arrows-up-down" },
 ] as const;
 
@@ -274,6 +285,21 @@ const providerOptions = computed<SelectOption[]>(() => {
   return [placeholder, ...options];
 });
 
+const activeProviderForForm = computed(() => {
+  const pid = String(currentState.value.provider ?? "").trim();
+  if (!pid) return null;
+  const hit =
+    (aiSettingsStore.providers ?? []).find(
+      (p: Provider) => String(p.ID ?? "").trim().toLowerCase() === pid.toLowerCase()
+    ) ?? null;
+  if (!hit) return null;
+  return {
+    id: hit.ID,
+    name: hit.Name,
+    auth: hit.auth ?? undefined,
+  };
+});
+
 // 当前选中的 Provider
 const activeProvider = computed(
   () => aiSettingsStore.activeProfile?.provider || null
@@ -289,7 +315,10 @@ const activeModel = computed(
 type BaseConn = {
   provider: string | null;
   model: string | null;
+  authMode: string;
   apiKey: string;
+  secretId: string;
+  secretKey: string;
   baseURL: string;
   region: string;
   organization: string;
@@ -306,7 +335,10 @@ const llm = reactive<
 >({
   provider: null,
   model: null,
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -324,9 +356,12 @@ const image = reactive<
     promptHint: string;
   }
 >({
-  provider: "OpenAI",
+  provider: "openai",
   model: "gpt-image-1",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -339,9 +374,12 @@ const image = reactive<
 const embedding = reactive<
   BaseConn & { dimensions: number; truncate: string; batch: number }
 >({
-  provider: "OpenAI",
+  provider: "openai",
   model: "text-embedding-3-small",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -358,9 +396,12 @@ const audioTTS = reactive<
     quality: string;
   }
 >({
-  provider: "OpenAI",
-  model: "tts-1",
+  provider: "openai",
+  model: "gpt-4o-mini-tts",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -378,9 +419,12 @@ const audioASR = reactive<
     prompt: string;
   }
 >({
-  provider: "OpenAI",
+  provider: "openai",
   model: "whisper-1",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -398,15 +442,37 @@ const video = reactive<
     promptHint: string;
   }
 >({
-  provider: "OpenAI",
+  provider: "openai",
   model: "sora-preview",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
   resolution: "1080p",
   fps: 24,
   maxDurationSec: 10,
+  promptHint: "",
+});
+
+const model3d = reactive<
+  BaseConn & {
+    outputFormat: string;
+    promptHint: string;
+  }
+>({
+  provider: "hunyuan",
+  model: "HY-3D-Express",
+  authMode: "openai",
+  apiKey: "",
+  secretId: "",
+  secretKey: "",
+  baseURL: "",
+  region: "",
+  organization: "",
+  outputFormat: "glb",
   promptHint: "",
 });
 
@@ -417,9 +483,12 @@ const rerank = reactive<
     maxChunksPerDoc: number;
   }
 >({
-  provider: "OpenAI",
+  provider: "openai",
   model: "text-embedding-3-large",
+  authMode: "",
   apiKey: "",
+  secretId: "",
+  secretKey: "",
   baseURL: "",
   region: "",
   organization: "",
@@ -445,6 +514,8 @@ const currentTitle = computed(() => {
       return "语音识别";
     case "video":
       return "视频生成";
+    case "model3d":
+      return "3D 生成";
     case "rerank":
       return "重排序";
     default:
@@ -467,6 +538,8 @@ const currentState = computed<any>({
         return audioASR;
       case "video":
         return video;
+      case "model3d":
+        return model3d;
       case "rerank":
         return rerank;
       default:
@@ -504,86 +577,223 @@ const modelOptions = computed<SelectOption[]>(() => {
   return [placeholder, ...options];
 });
 
+const draftByProviderKey = reactive<Record<string, Record<string, any>>>({});
+
+function normalizeProviderKey(provider?: string | null) {
+  return String(provider ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function draftKey(
+  provider?: string | null,
+  envVal?: string | null,
+  modalityVal?: string | null
+) {
+  const p = normalizeProviderKey(provider);
+  const e = String(envVal || "default").trim();
+  const m = String(modalityVal || "llm").trim();
+  return `${e}::${m}::${p}`;
+}
+
+function getDraftableFields(modalityVal?: string | null): string[] {
+  const m = String(modalityVal || "").trim();
+  const base = [
+    "model",
+    "authMode",
+    "apiKey",
+    "secretId",
+    "secretKey",
+    "baseURL",
+    "organization",
+    "region",
+    "azureDeployment",
+  ];
+  switch (m) {
+    case "llm":
+      return [...base, "temperature", "maxTokens", "topP", "stream"];
+    case "image":
+      return [...base, "size", "quality", "format", "promptHint"];
+    case "embedding":
+      return [...base, "dimensions", "truncate", "batch"];
+    case "audio_tts":
+      return [...base, "voice", "speed", "format", "quality"];
+    case "audio_asr":
+      return [...base, "language", "responseFormat", "temperature", "prompt"];
+    case "video":
+      return [...base, "resolution", "fps", "maxDurationSec", "promptHint"];
+    case "model3d":
+      return [...base, "outputFormat", "promptHint"];
+    case "rerank":
+      return [...base, "topK", "returnDocuments", "maxChunksPerDoc"];
+    default:
+      return base;
+  }
+}
+
+function applyModalityDefaults(state: Record<string, any>, modalityVal?: string | null) {
+  const m = String(modalityVal || "").trim();
+  switch (m) {
+    case "llm":
+      state.temperature = 0.7;
+      state.maxTokens = 4096;
+      state.topP = 1;
+      state.stream = true;
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "image":
+      state.size = "1024x1024";
+      state.quality = "standard";
+      state.format = "png";
+      state.promptHint = "";
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "embedding":
+      state.dimensions = 0;
+      state.truncate = "none";
+      state.batch = 1;
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "audio_tts":
+      state.voice = "alloy";
+      state.speed = 1.0;
+      state.format = "mp3";
+      state.quality = "standard";
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "audio_asr":
+      state.language = "auto";
+      state.responseFormat = "json";
+      state.temperature = 0;
+      state.prompt = "";
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "video":
+      state.resolution = "1080p";
+      state.fps = 24;
+      state.maxDurationSec = 10;
+      state.promptHint = "";
+      if ("authMode" in state) state.authMode = "";
+      break;
+    case "model3d":
+      state.outputFormat = "glb";
+      state.promptHint = "";
+      if ("authMode" in state) state.authMode = "openai";
+      break;
+    case "rerank":
+      state.topK = 10;
+      state.returnDocuments = true;
+      state.maxChunksPerDoc = 10;
+      if ("authMode" in state) state.authMode = "";
+      break;
+  }
+}
+
+function persistProviderDraft(
+  provider?: string | null,
+  envVal?: string | null,
+  modalityVal?: string | null,
+  stateOverride?: Record<string, any>
+) {
+  const p = normalizeProviderKey(provider);
+  if (!p) return;
+  const state = (stateOverride || (currentState.value as any)) as Record<string, any>;
+  const k = draftKey(p, envVal, modalityVal);
+  const fields = getDraftableFields(modalityVal);
+  const snapshot: Record<string, any> = {};
+  for (const f of fields) {
+    snapshot[f] = state[f];
+  }
+  draftByProviderKey[k] = snapshot;
+}
+
+function restoreProviderDraft(
+  provider?: string | null,
+  envVal?: string | null,
+  modalityVal?: string | null,
+  stateOverride?: Record<string, any>
+) {
+  const p = normalizeProviderKey(provider);
+  const state = (stateOverride || (currentState.value as any)) as Record<string, any>;
+  if (!p) return;
+
+  // 1) 优先使用“该 provider 的草稿”（避免切换 provider 时把别人的 key 带过去）
+  const draft = draftByProviderKey[draftKey(p, envVal, modalityVal)];
+  if (draft) {
+    const fields = getDraftableFields(modalityVal);
+    for (const f of fields) {
+      if (f in draft) state[f] = draft[f];
+    }
+    return;
+  }
+
+  // 2) 没有草稿：重置为默认参数 + 回填已保存的非敏感字段（注意：后端会脱敏，不会返回 api_key）
+  applyModalityDefaults(state, modalityVal);
+
+  const getter =
+    typeof aiSettingsStore.getCredentialByProvider === "function"
+      ? aiSettingsStore.getCredentialByProvider
+      : null;
+  const data = (getter ? getter(p)?.data ?? {} : {}) as Record<string, any>;
+  const getString = (key: string) => (typeof data[key] === "string" ? data[key] : "");
+
+  // 由 ProviderModelForm 兜底选择默认 authMode；这里仅在后端返回时回填
+  state.authMode = getString("auth_mode");
+  state.apiKey = ""; // 关键：不同 provider 的 key 必须隔离
+  state.secretKey = ""; // 关键：敏感字段不从后端回填
+  state.secretId = getString("secret_id");
+  state.baseURL = getString("base_url");
+  state.organization = getString("organization");
+  state.region = getString("region");
+  if ("azureDeployment" in state) state.azureDeployment = getString("azure_deployment");
+}
+
 async function onProviderChanged(nextProvider?: string) {
   const rawProvider = nextProvider ?? currentState.value.provider;
   const currentModality = modality.value;
+  const envSnapshot = env.value;
+  const modalitySnapshot = modality.value;
 
   // 关键：参数不全就短路，但不清空 models
   if (!rawProvider || !currentModality) {
-    syncCredentialFieldsForProvider(rawProvider);
+    restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
     return;
   }
 
   try {
     // ✅ 直接传原始值，让 store 内部处理规范化
     await aiSettingsStore.fetchModels(rawProvider, currentModality, env.value);
-    const models = aiSettingsStore.models ?? [];
-    if (models.length && !models.includes(currentState.value.model)) {
-      currentState.value.model = models[0];
-    }
   } catch (error) {
     console.error("获取模型列表失败:", error);
     // 这里不清空，保持上一次成功值
   }
 
-  syncCredentialFieldsForProvider(rawProvider);
-}
+  restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
 
-function syncCredentialFieldsForProvider(provider?: string | null) {
-  const targetProvider = (provider ?? "").trim();
-  const state = currentState.value as BaseConn & Record<string, any>;
-  const getter =
-    typeof aiSettingsStore.getCredentialByProvider === "function"
-      ? aiSettingsStore.getCredentialByProvider
-      : null;
-  const data = (getter ? getter(targetProvider)?.data ?? {} : {}) as Record<
-    string,
-    any
-  >;
-  const assign = (field: string, value: string) => {
-    state[field] = value;
-  };
-
-  const clearConnectionFields = () => {
-    assign("baseURL", "");
-    assign("organization", "");
-    assign("region", "");
-    if ("azureDeployment" in state) {
-      assign("azureDeployment", "");
+  // restoreDraft 可能会把旧 model 带回来；这里再做一次兜底校验
+  const models = aiSettingsStore.models ?? [];
+  if (models.length) {
+    const curModel = currentState.value.model;
+    if (!curModel || !models.includes(curModel)) {
+      currentState.value.model = models[0];
     }
-  };
-
-  if (!targetProvider) {
-    clearConnectionFields();
-    return;
-  }
-
-  const getString = (key: string) => {
-    const val = data[key];
-    return typeof val === "string" ? val : "";
-  };
-
-  const baseURL = getString("base_url");
-  const organization = getString("organization");
-  const region = getString("region");
-  const azureDeployment = getString("azure_deployment");
-
-  assign("baseURL", baseURL);
-  assign("organization", organization);
-  assign("region", region);
-  if ("azureDeployment" in state) {
-    assign("azureDeployment", azureDeployment);
+  } else {
+    // ✅ 该 provider 在当前模态下没有可用模型：清空，避免出现 provider=Coze 但 model=OpenAI 的错配显示
+    currentState.value.model = "";
   }
 }
+
+// 旧实现：syncCredentialFieldsForProvider（已用 restoreProviderDraft 替代，避免 apiKey/参数串台）
 
 /**
  * 选项集合（传给 ModalityParamsForm）
  */
 const imageSizeOptions = ["256x256", "512x512", "1024x1024"];
 const imageQualityOptions = ["standard", "hd"];
-const imageFormatOptions = ["png", "jpeg", "webp"];
+  const imageFormatOptions = ["png", "jpeg", "webp"];
 const truncateOptions = ["none", "start", "end"];
 const videoResolutionOptions = ["720p", "1080p", "4k"];
+const model3dFormatOptions = ["glb", "gltf", "obj", "fbx"];
 
 // 新增音频TTS选项
 const voiceOptions = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
@@ -601,7 +811,10 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
   const baseConn = {
     provider: currentState.value.provider ?? "",
     model: currentState.value.model ?? "",
+    authMode: currentState.value.authMode ?? "",
     apiKey: currentState.value.apiKey ?? "",
+    secretId: currentState.value.secretId ?? "",
+    secretKey: currentState.value.secretKey ?? "",
     baseURL: currentState.value.baseURL ?? "",
     organization: currentState.value.organization ?? "",
     region: currentState.value.region ?? "",
@@ -666,6 +879,13 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
         promptHint: video.promptHint,
       };
       break;
+    case "model3d":
+      body = {
+        ...baseConn,
+        outputFormat: model3d.outputFormat,
+        promptHint: model3d.promptHint,
+      };
+      break;
     case "rerank":
       body = {
         ...baseConn,
@@ -717,13 +937,14 @@ async function saveSettings() {
 
 async function resetSettings() {
   const resetMap: Record<Modality, { provider: string; model: string }> = {
-    llm: { provider: "OpenAI", model: "gpt-4o-mini" },
-    image: { provider: "OpenAI", model: "dall-e-3" },
-    embedding: { provider: "OpenAI", model: "text-embedding-3-small" },
-    audio_tts: { provider: "OpenAI", model: "tts-1" },
-    audio_asr: { provider: "OpenAI", model: "whisper-1" },
-    video: { provider: "OpenAI", model: "sora-preview" },
-    rerank: { provider: "OpenAI", model: "text-embedding-3-large" },
+    llm: { provider: "openai", model: "gpt-4o-mini" },
+    image: { provider: "openai", model: "gpt-image-1" },
+    embedding: { provider: "openai", model: "text-embedding-3-small" },
+    audio_tts: { provider: "openai", model: "gpt-4o-mini-tts" },
+    audio_asr: { provider: "openai", model: "whisper-1" },
+    video: { provider: "openai", model: "sora-preview" },
+    model3d: { provider: "hunyuan", model: "HY-3D-Express" },
+    rerank: { provider: "openai", model: "text-embedding-3-large" },
   };
   const cur = currentState.value as BaseConn;
   const def = resetMap[modality.value];
@@ -745,9 +966,13 @@ async function testConnection() {
       currentState.value.provider || "",
       payload
     );
+    // 测试成功后后端会自动保存该 provider 的凭据（不激活默认路由），这里刷新一下非敏感凭据元数据
+    try {
+      await aiSettingsStore.fetchCredentials(env.value);
+    } catch {}
     toast.add({
       title: "连接测试成功",
-      description: `${currentTitle.value} 连接正常`,
+      description: `${currentTitle.value} 连接正常（凭据已保存，未改变默认路由）`,
       color: "success",
     });
   } catch (error) {
@@ -789,6 +1014,15 @@ async function testQuickCall() {
 }
 async function refreshStateForEnvAndModality() {
   aiSettingsStore.setCurrentEnv(env.value);
+  try {
+    await aiSettingsStore.fetchProviders(modality.value, env.value);
+  } catch (error) {
+    toast.add({
+      title: "加载 Provider 列表失败",
+      description: getErrorMessage(error),
+      color: "error",
+    });
+  }
   await loadActiveConfiguration();
   if (!currentState.value.provider) {
     loadExistingConfiguration();
@@ -852,6 +1086,9 @@ function loadExistingConfiguration() {
   // credential.data 也兜底
   const cd = credential.data ?? {};
   currentState.value.apiKey = cd.api_key ?? currentState.value.apiKey ?? "";
+  currentState.value.secretId = cd.secret_id ?? currentState.value.secretId ?? "";
+  // SecretKey 不会从后端回填（脱敏/不回传）
+  currentState.value.secretKey = "";
   currentState.value.baseURL = cd.base_url ?? currentState.value.baseURL ?? "";
   currentState.value.organization =
     cd.organization ?? currentState.value.organization ?? "";
@@ -899,10 +1136,55 @@ async function loadActiveConfiguration() {
 // 监听 provider 改变（初始化已手动调用过）
 watch(
   () => currentState.value.provider,
-  (p) => {
-    if (p) onProviderChanged(p);
+  (next, prev) => {
+    const envSnapshot = env.value;
+    const modalitySnapshot = modality.value;
+    // 在 provider 切换前，先把旧 provider 的输入保存为草稿（避免切回时丢失）
+    if (prev) {
+      persistProviderDraft(prev, envSnapshot, modalitySnapshot);
+    }
+    if (next) onProviderChanged(next);
   },
   { immediate: false }
+);
+
+watch(
+  () => [currentState.value.provider, modality.value, aiSettingsStore.providers] as const,
+  () => {
+    const ap = activeProviderForForm.value;
+    const modes = ap?.auth?.modes ?? [];
+    if (!Array.isArray(modes) || modes.length === 0) return;
+    if (!currentState.value.authMode) {
+      // 默认优先第一个（hunyuan.yaml 里把 openai 放第一个）
+      currentState.value.authMode = modes[0].id;
+    }
+  }
+);
+
+watch(
+  () => [currentState.value.provider, currentState.value.authMode, modality.value, aiSettingsStore.providers] as const,
+  () => {
+    const ap = activeProviderForForm.value;
+    const modes = ap?.auth?.modes ?? [];
+    if (!Array.isArray(modes) || modes.length === 0) return;
+
+    const modeId = String(currentState.value.authMode || "").trim();
+    if (!modeId) return;
+    const hit = modes.find((m: any) => String(m?.id || "").trim() === modeId);
+    const defBase = String(hit?.defaults?.base_url || "").trim();
+    if (!defBase) return;
+
+    const curBase = String(currentState.value.baseURL || "").trim();
+    // 仅在明显需要时覆盖：空 / 误填 tc3 endpoint / 忘了 /v1
+    const lower = curBase.toLowerCase();
+    const isTC3 = lower.includes("tencentcloudapi.com");
+    const isHunyuanOpenAIHost = lower.includes("hunyuan.cloud.tencent.com");
+    const missingV1 = modeId === "openai" && curBase && !lower.includes("/v1");
+    const needSwitchToTC3 = modeId === "tc3" && curBase && (isHunyuanOpenAIHost || lower.includes("/v1"));
+    if (!curBase || (modeId === "openai" && (isTC3 || missingV1)) || needSwitchToTC3) {
+      currentState.value.baseURL = defBase;
+    }
+  }
 );
 
 // 监听模态切换，重新加载配置
