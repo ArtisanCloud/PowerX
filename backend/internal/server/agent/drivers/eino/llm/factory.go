@@ -1,12 +1,17 @@
 package llm
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // NewClient：按 provider 返回具体实现（都满足 LLMClient）
 func NewClient(provider string) (LLMClient, error) {
 	switch normalize(provider) {
 	case "openai":
 		return NewOpenAIClient(), nil
+	case "hunyuan":
+		return NewHunyuanClient(), nil
 	case "ollama":
 		return NewOllamaClient(), nil
 	case "baidu", "qianfan":
@@ -18,6 +23,14 @@ func NewClient(provider string) (LLMClient, error) {
 }
 
 func normalize(s string) string {
-	// 简单归一化，省略实现
-	return s
+	p := strings.ToLower(strings.TrimSpace(s))
+	if p == "" {
+		return ""
+	}
+	// OpenAI-compatible providers → reuse openai client
+	switch p {
+	case "openrouter", "vllm", "deepseek", "moonshot":
+		return "openai"
+	}
+	return p
 }

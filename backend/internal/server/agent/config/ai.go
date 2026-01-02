@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"sync/atomic"
 	"time"
 )
 
@@ -16,6 +17,29 @@ type AIConfig struct {
 
 	// 路由/缓存/容错（可选）
 	Routing AIRouting `yaml:"routing" mapstructure:"routing"`
+}
+
+// ---------- Global AI Config (read-only snapshot) ----------
+//
+// 用于在运行时（service/handler）读取 config.yaml 里的 ai.defaults 兜底，
+// 避免在 service 层引入顶层 config 包导致循环依赖。
+var globalAIConfig atomic.Value // stores *AIConfig
+
+func SetGlobalAIConfig(cfg *AIConfig) {
+	if cfg == nil {
+		return
+	}
+	// 存一份指针快照（只读使用）
+	globalAIConfig.Store(cfg)
+}
+
+func GetGlobalAIConfig() *AIConfig {
+	if v := globalAIConfig.Load(); v != nil {
+		if cfg, ok := v.(*AIConfig); ok {
+			return cfg
+		}
+	}
+	return nil
 }
 
 // ---------- Defaults ----------

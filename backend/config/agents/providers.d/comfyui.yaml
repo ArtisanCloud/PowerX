@@ -1,0 +1,29 @@
+id: comfyui
+name: ComfyUI
+aliases: ["Comfy UI", "comfy-ui", "Stable Diffusion (ComfyUI)"]
+
+drivers:
+  # 目前后端 image driver 仍在演进，这里先用 external 占位，确保 UI 可选
+  image: external
+  video: external
+
+# ComfyUI 常见为本地服务，无鉴权；若你有反代鉴权，可在 UI 里配 base_url + api_key 并由网关处理。
+auth:
+  scheme: none
+  fields: ["base_url"]
+  defaults:
+    base_url: "http://127.0.0.1:8188"
+
+modalities:
+  image:
+    note: "ComfyUI Image（UI 目录占位）。实际调用需接入 external/image driver。"
+    models:
+      - id: sdxl
+        label: "SDXL (ComfyUI)"
+        tags: ["image","sd","comfyui","placeholder"]
+      - id: flux
+        label: "FLUX (ComfyUI)"
+        tags: ["image","comfyui","placeholder"]
+  video:
+    note: "ComfyUI Video（UI 目录占位）。"
+    models: []

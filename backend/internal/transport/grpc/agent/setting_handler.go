@@ -93,7 +93,7 @@ func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv
 	// 直连校验（以 LLM 为例）
 	if req.GetLlm() != nil {
 		base := req.GetLlm().GetBase()
-		if err := s.svc.PingLLM(ctx, env, &tenantRef, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey()); err != nil {
+		if err := s.svc.PingLLM(ctx, env, &tenantRef, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey(), "", "", base.GetRegion(), ""); err != nil {
 			return &settingv1.SaveSettingsResponse{
 				Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
 				Data: &settingv1.SaveSettingsData{Ok: false},
@@ -131,7 +131,7 @@ func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settin
 	}
 	tenantRef := tenantUUID
 	provider, model, baseURL, apiKey := pickProviderModelConn(req.GetModality(), req)
-	if err := s.svc.TestConnectionPreferInput(ctx, env, &tenantRef, modalityToString(req.GetModality()), provider, model, baseURL, apiKey); err != nil {
+	if err := s.svc.TestConnectionPreferInput(ctx, env, &tenantRef, modalityToString(req.GetModality()), provider, model, baseURL, apiKey, "", "", "", ""); err != nil {
 		return &settingv1.TestConnectionResponse{
 			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
 			Data: &settingv1.TestConnectionData{Ok: false},
@@ -163,7 +163,7 @@ func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *setting
 	b := req.GetLlm().GetBase()
 	out, err := s.svc.QuickCallLLM(
 		ctx, env, &tenantRef,
-		b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey(),
+		b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey(), "", "", b.GetRegion(), "",
 		req.GetLlm().GetTemperature(), int(req.GetLlm().GetMaxTokens()),
 		strings.TrimSpace(req.GetPrompt()),
 	)

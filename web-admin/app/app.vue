@@ -17,6 +17,8 @@ onMounted(() => {
   // 800ms 后确保隐藏
   setTimeout(() => {
     gl.hide();
+    gl.setMessage("加载中…");
+    gl.setProgress(undefined);
     // 重置所有状态，确保完全清理
     const lockCount = useGL_LockCount();
     const manualVisible = useGL_ManualVisible();

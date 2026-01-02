@@ -154,10 +154,24 @@ func (s *ChatHistoryService) ArchiveSession(
 func (s *ChatHistoryService) DeleteSession(
 	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) error {
-	if err := s.msg.DeleteBySession(ctx, env, tenantUUID, id); err != nil {
+	// 先软删会话，保证前端“删除”动作能快速返回（从列表中消失）。
+	// 会话内消息清理由后台异步 best-effort 完成，避免消息量大时阻塞 HTTP 请求直至超时。
+	if err := s.sess.DeleteSoft(ctx, id); err != nil {
 		return err
 	}
-	return s.sess.DeleteSoft(ctx, id)
+
+	go func() {
+		var tenantCopy *string
+		if tenantUUID != nil {
+			v := *tenantUUID
+			tenantCopy = &v
+		}
+		ctx2, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		_ = s.msg.DeleteBySession(ctx2, env, tenantCopy, id)
+	}()
+
+	return nil
 }
 
 // ListMessages：会话内分页拉取消息（支持 afterID 游标）
@@ -202,6 +216,57 @@ func (s *ChatHistoryService) AppendMessage(
 	// 续期 latest/expired_at
 	_ = s.sess.TouchLatest(ctx, env, tenantUUID, sessionID, time.Now().UTC())
 	return m, nil
+}
+
+// FindMessageByID：读取单条消息（带 scope），用于“从某条 user 消息重新生成”等场景。
+func (s *ChatHistoryService) FindMessageByID(
+	ctx context.Context, env string, tenantUUID *string, id uint64,
+) (*dbmodel.AgentChatMessage, error) {
+	var out dbmodel.AgentChatMessage
+	err := s.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatMessage{}).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("id = ?", id).
+		First(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// TruncateMessagesAfter：删除会话内 id > afterID 的消息，用于“从此问题重新生成”（裁剪后续对话）。
+func (s *ChatHistoryService) TruncateMessagesAfter(
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, afterID uint64,
+) (int64, error) {
+	affected, err := s.msg.DeleteAfterID(ctx, env, tenantUUID, sessionID, afterID)
+	if err != nil {
+		return 0, err
+	}
+	_ = s.sess.TouchLatest(ctx, env, tenantUUID, sessionID, time.Now().UTC())
+	return affected, nil
+}
+
+// UpdateMessageContent：更新单条消息内容（带 scope），用于“编辑问题后重新生成”等场景。
+func (s *ChatHistoryService) UpdateMessageContent(
+	ctx context.Context, env string, tenantUUID *string, id uint64, content string,
+) error {
+	content = strings.TrimSpace(content)
+	ct := "text/plain"
+	if content == "" {
+		ct = "text/plain"
+	}
+	return s.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatMessage{}).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"content":     content,
+			"size_bytes":  len([]byte(content)),
+			"updated_at":  time.Now().UTC(),
+			"is_error":    false,
+			"tokens":      0,
+			"content_type": ct,
+		}).Error
 }
 
 // SummarizeIfNeeded：当消息/体量超过阈值或会话过期时，生成滚动摘要并续期

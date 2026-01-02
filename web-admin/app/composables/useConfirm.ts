@@ -1,5 +1,5 @@
 import { useOverlay } from '#imports'
-import { LazyCommonConfirmModal } from '#components'
+import { CommonConfirmModal } from '#components'
 
 export type ConfirmOptions = {
   title?: string
@@ -14,7 +14,8 @@ export type ConfirmOptions = {
 
 export const useConfirm = () => {
   const overlay = useOverlay()
-  const modal = overlay.create(LazyCommonConfirmModal)
+  // 不使用 Lazy 版本，避免点击时再去拉取组件 chunk 导致 pending/卡死
+  const modal = overlay.create(CommonConfirmModal)
 
   const confirm = async (opts: ConfirmOptions = {}) => {
     const instance = modal.open({

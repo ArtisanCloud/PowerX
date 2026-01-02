@@ -7,6 +7,7 @@ import { useI18n } from "#imports";
 import { useThinkParser } from "~/composables/agent/useThinkParser";
 import { useMessageTypewriter } from "~/composables/agent/useTypewriter";
 import ThinkBlock from "~/components/agent/ThinkBlock.vue";
+import AgentMarkdown from "~/components/agent/AgentMarkdown.vue";
 import { MESSAGE_TYPES } from "~/types/message";
 
 declare global {
@@ -25,9 +26,19 @@ const emit = defineEmits<{
   (e: "retry"): void;
   (e: "copy", content: string): void;
   (e: "delete"): void;
+  (e: "regenerate", messageId: string | number): void;
 }>();
 
 const { t } = useI18n();
+
+const canRegenerateFromThisUserMessage = computed(() => {
+  const m: any = props.message as any;
+  if (m?.role !== "user") return false;
+  // 仅支持已落库的消息 id（number 或纯数字字符串）
+  if (typeof m?.id === "number") return true;
+  if (typeof m?.id === "string" && /^\d+$/.test(m.id)) return true;
+  return false;
+});
 
 // 原始完整文本
 const normalizedRawContent = computed(() => {
@@ -270,6 +281,16 @@ const processedContent = computed<MessageContent[]>(() => {
   return text ? [{ type: MESSAGE_TYPES.TEXT, data: { text } }] : [];
 });
 
+const isAwaitingFirstContent = computed(() => {
+  const m: any = props.message as any;
+  if (props.message.role !== "assistant") return false;
+  if (m?.isError) return false;
+  const streaming = !!(m?.isStreaming || props.isStreaming);
+  if (!streaming) return false;
+  const content = String(normalizedRawContent.value || "").trim();
+  return content.length === 0;
+});
+
 // 工具函数 & 展示辅助
 const copyToClipboard = async (text: string) => {
   try {
@@ -325,73 +346,6 @@ const openExternalLink = (url: string) => {
 };
 const downloadFile = (url: string, downloadUrl?: string) => {
   if (typeof window !== "undefined") window.open(downloadUrl || url, "_blank");
-};
-
-// 简单 Markdown 渲染（保持你的原逻辑）
-const renderMarkdown = (markdown: string) => {
-  let html = markdown;
-
-  // 1) 标题：允许最多 3 个空格缩进 & 允许 # 号后无空格
-  //    例：###1. 生死观  或  ### 1. 生死观  都能匹配
-  html = html.replace(
-    /^\s{0,3}(#{1,6})\s*(.*)$/gm,
-    (_m, hashes: string, text: string) => {
-      const level = Math.min(hashes.length, 6);
-      return `<h${level}>${text.trim()}</h${level}>`;
-    }
-  );
-
-  // 2) 粗体 / 斜体 / 行内代码 / 链接（保持你的原逻辑）
-  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" class="text-blue-600 hover:underline">$1</a>'
-  );
-
-  // 3) 引用（允许缩进）
-  html = html.replace(/^\s*>\s+(.*)$/gm, "<blockquote>$1</blockquote>");
-
-  // 4) 表格（保持你的原逻辑）
-  const tableRegex = /\|(.+)\|\n\|[-\s|:]+\|\n((?:\|.+\|\n?)*)/g;
-  html = html.replace(tableRegex, (match, header, rows) => {
-    const headerCells = String(header)
-      .split("|")
-      .map((c: string) => c.trim())
-      .filter(Boolean);
-    const headerRow =
-      "<tr>" +
-      headerCells.map((c: string) => `<th>${c}</th>`).join("") +
-      "</tr>";
-    const bodyRows = String(rows)
-      .trim()
-      .split("\n")
-      .map((row: string) => {
-        const cells = row
-          .split("|")
-          .map((c: string) => c.trim())
-          .filter(Boolean);
-        return (
-          "<tr>" + cells.map((c: string) => `<td>${c}</td>`).join("") + "</tr>"
-        );
-      })
-      .join("");
-    return `<table class="border-collapse border border-gray-300"><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>`;
-  });
-
-  // 5) 无序列表：允许缩进（- * +），先每行各自包一层 <ul>，再合并相邻的 <ul>
-  html = html.replace(/^\s*[-*+]\s+(.*)$/gm, "<ul><li>$1</li></ul>");
-  html = html.replace(/<\/ul>\s*<ul>/g, "");
-
-  // 6) 有序列表：允许缩进（1. 2. ...），同样先包 <ol> 再合并
-  html = html.replace(/^\s*\d+\.\s+(.*)$/gm, "<ol><li>$1</li></ol>");
-  html = html.replace(/<\/ol>\s*<ol>/g, "");
-
-  // 7) 换行（放到最后）
-  html = html.replace(/\n/g, "<br>");
-
-  return html;
 };
 </script>
 
@@ -449,15 +403,15 @@ const renderMarkdown = (markdown: string) => {
 
         <!-- “正在思考…” 提示：仅在没有可显示的 ThinkBlock 时出现 -->
         <div
-          v-if="(message as any).isThinking && !showThink"
+          v-if="((message as any).isThinking || isAwaitingFirstContent) && !showThink"
           class="flex items-center space-x-3 py-3"
         >
           <div class="flex space-x-1 items-center">
-            <div class="w-2 h-2 bg-gray-400 rounded-full thinking-dot"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full thinking-dot"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full thinking-dot"></div>
+            <div class="w-2 h-2 bg-gray-300 rounded-full thinking-dot"></div>
+            <div class="w-2 h-2 bg-gray-300 rounded-full thinking-dot"></div>
+            <div class="w-2 h-2 bg-gray-300 rounded-full thinking-dot"></div>
           </div>
-          <span class="text-sm text-gray-500 italic">
+          <span class="text-sm text-gray-400 italic">
             {{ agentName || t("agent.chat.assistant") }} 正在思考...
           </span>
         </div>
@@ -496,12 +450,17 @@ const renderMarkdown = (markdown: string) => {
             <!-- 文本（保持原样式容器，只把插值改成 v-html） -->
             <div
               v-if="content.type === MESSAGE_TYPES.TEXT"
-              class="prose prose-sm max-w-none"
+              class="prose prose-sm max-w-none dark:prose-invert text-sm leading-6 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-headings:mt-4 prose-headings:mb-2 prose-blockquote:my-3 prose-hr:my-4 prose-a:underline prose-a:underline-offset-4 prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-400 dark:hover:prose-a:text-blue-300"
             >
-              <div
-                class="text-gray-800 whitespace-pre-wrap markdown-content"
-                v-html="renderMarkdown(content.data.text)"
-              ></div>
+              <AgentMarkdown
+                class="markdown-content"
+                :source="content.data.text"
+                :streaming="
+                  (message as any).role === 'assistant' &&
+                  ((message as any).isStreaming || isStreaming) &&
+                  !(message as any).isThinking
+                "
+              />
               <span
                 v-if="
                   (message as any).role === 'assistant' &&
@@ -516,9 +475,9 @@ const renderMarkdown = (markdown: string) => {
             <!-- Markdown -->
             <div
               v-else-if="content.type === MESSAGE_TYPES.MARKDOWN"
-              class="prose prose-sm max-w-none"
+              class="prose prose-sm max-w-none dark:prose-invert text-sm leading-6 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-headings:mt-4 prose-headings:mb-2 prose-blockquote:my-3 prose-hr:my-4 prose-a:underline prose-a:underline-offset-4 prose-a:text-blue-600 hover:prose-a:text-blue-500 dark:prose-a:text-blue-400 dark:hover:prose-a:text-blue-300"
             >
-              <div class="bg-gray-50 rounded-lg p-4 border">
+              <div class="bg-gray-50 dark:bg-white/5 rounded-lg p-4 border border-gray-200 dark:border-white/10">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs font-medium text-gray-600 uppercase"
                     >Markdown</span
@@ -531,7 +490,7 @@ const renderMarkdown = (markdown: string) => {
                   />
                 </div>
                 <div class="markdown-content">
-                  <div v-html="renderMarkdown(content.data.markdown)"></div>
+                  <AgentMarkdown class="markdown-content" :source="content.data.markdown" />
                 </div>
               </div>
             </div>
@@ -779,6 +738,14 @@ const renderMarkdown = (markdown: string) => {
           class="flex items-center space-x-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <UButton
+            v-if="canRegenerateFromThisUserMessage"
+            size="xs"
+            variant="ghost"
+            icon="i-heroicons-pencil-square"
+            @click="emit('regenerate', (message as any).id)"
+            >重新编辑</UButton
+          >
+          <UButton
             v-if="message.role === 'assistant'"
             size="xs"
             variant="ghost"
@@ -818,50 +785,46 @@ const renderMarkdown = (markdown: string) => {
   opacity: 1;
 }
 
-.markdown-content {
-  color: #1f2937;
+/* 统一 MDC/Prose 的间距与分割线（避免“字太大、段落太松、横线太粗”） */
+:deep(.prose hr) {
+  border-color: rgba(255, 255, 255, 0.12);
+  margin: 1rem 0;
 }
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3,
-.markdown-content h4,
-.markdown-content h5,
-.markdown-content h6 {
-  font-weight: 600;
-  color: #111827;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
+:global(html:not(.dark)) :deep(.prose hr) {
+  border-color: rgba(17, 24, 39, 0.14);
 }
-.markdown-content p {
-  margin-bottom: 0.75rem;
+
+/* 链接必须“看起来像链接”：下划线 + 颜色 + hover */
+:deep(.prose a) {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(96, 165, 250, 0.55); /* blue-400 */
+  color: rgb(96, 165, 250);
 }
-.markdown-content ul,
-.markdown-content ol {
-  margin-left: 1rem;
-  margin-bottom: 0.75rem;
+:deep(.prose a:hover) {
+  text-decoration-color: rgba(96, 165, 250, 0.85);
+  color: rgb(147, 197, 253); /* blue-300 */
 }
-.markdown-content li {
-  margin-bottom: 0.25rem;
+:global(html:not(.dark)) :deep(.prose a) {
+  text-decoration-color: rgba(37, 99, 235, 0.35); /* blue-600 */
+  color: rgb(37, 99, 235);
 }
-.markdown-content code {
-  background-color: #f3f4f6;
-  color: #1f2937;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+:global(html:not(.dark)) :deep(.prose a:hover) {
+  text-decoration-color: rgba(37, 99, 235, 0.6);
+  color: rgb(29, 78, 216); /* blue-700 */
 }
-.markdown-content pre {
-  background-color: #f3f4f6;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-}
-.markdown-content blockquote {
-  border-left: 4px solid #d1d5db;
-  padding-left: 1rem;
-  font-style: italic;
-  color: #4b5563;
+
+/* 即便将来又开启了 heading anchor，也不要让标题看起来像链接 */
+:deep(.prose h1 a),
+:deep(.prose h2 a),
+:deep(.prose h3 a),
+:deep(.prose h4 a),
+:deep(.prose h5 a),
+:deep(.prose h6 a) {
+  text-decoration: none;
+  color: inherit;
 }
 
 /* 思考动画 */

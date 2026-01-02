@@ -26,6 +26,12 @@ type Engine struct {
 func NewEngine() *Engine { return &Engine{mgr: agent.GetAgentManager()} }
 
 func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) error {
+	// 统一超时：避免 LLM/下游卡死导致“前端永远生成中”
+	// - 目标体验是“不断开连接、持续可见”，但也要有上限兜底（默认 10 分钟）。
+	execTimeout := 10 * time.Minute
+	ctx, cancel := context.WithTimeout(ctx, execTimeout)
+	defer cancel()
+
 	// 1) 多意图识别
 	tasks, err := e.mgr.DetectTasks(ctx, msg)
 	if err != nil {
@@ -67,7 +73,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		"config":  reqCfg,
 	}, agentschema.ExecutionMeta{
 		RequestID: execID,
-		Timeout:   60,
+		Timeout:   execTimeout,
 		Metadata:  map[string]any{"transport": "engine"},
 	})
 	if err != nil {
@@ -76,40 +82,82 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 
 	// 4) 转发流事件
 	defer sr.Close()
+	type recvItem struct {
+		ch  *agentschema.ExecutionResult
+		err error
+	}
+	recvCh := make(chan recvItem, 1)
+
+	go func() {
+		defer close(recvCh)
+		for {
+			ch, err := sr.Recv()
+			recvCh <- recvItem{ch: ch, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	hb := time.NewTicker(15 * time.Second)
+	defer hb.Stop()
+	lastRecvAt := time.Now()
+
 	for {
-		ch, err := sr.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
+		select {
+		case <-ctx.Done():
+			_ = sink.Emit(dto.EventError, map[string]any{"message": "请求超时或已取消", "detail": ctx.Err().Error()})
+			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return ctx.Err()
+		case <-hb.C:
+			// 心跳：让前端/网关确认连接仍然活着（前端可选择忽略，仅用于避免“看似挂死”）。
+			_ = sink.Emit(dto.EventHeartbeat, map[string]any{
+				"ts":           time.Now().UTC().Unix(),
+				"idle_seconds": int(time.Since(lastRecvAt).Seconds()),
+			})
+		case it, ok := <-recvCh:
+			if !ok {
 				_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 				return nil
 			}
-			_ = sink.Emit(dto.EventError, map[string]any{"message": err.Error()})
-			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
-			return err
-		}
+			if it.err != nil {
+				if errors.Is(it.err, io.EOF) {
+					_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+					return nil
+				}
+				_ = sink.Emit(dto.EventError, map[string]any{"message": it.err.Error()})
+				_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+				return it.err
+			}
+			lastRecvAt = time.Now()
+			ch := it.ch
+			if ch == nil {
+				continue
+			}
 
-		if delta, ok := ch.Metadata["delta_text"].(string); ok && delta != "" {
-			_ = sink.Emit(dto.EventToken, map[string]any{"delta": delta, "step_id": ch.StepID, "timestamp": ch.Timestamp})
-			continue
-		}
+			if delta, ok := ch.Metadata["delta_text"].(string); ok && delta != "" {
+				_ = sink.Emit(dto.EventToken, map[string]any{"delta": delta, "step_id": ch.StepID, "timestamp": ch.Timestamp})
+				continue
+			}
 
-		_ = sink.Emit(dto.EventData, map[string]any{
-			"success":   ch.Success,
-			"data":      ch.Data,
-			"step_id":   ch.StepID,
-			"timestamp": ch.Timestamp,
-			"metadata":  ch.Metadata,
-		})
-
-		if isFinal, _ := ch.Metadata["is_final"].(bool); isFinal {
-			_ = sink.Emit(dto.EventFinal, map[string]any{
+			_ = sink.Emit(dto.EventData, map[string]any{
 				"success":   ch.Success,
 				"data":      ch.Data,
-				"metadata":  ch.Metadata,
+				"step_id":   ch.StepID,
 				"timestamp": ch.Timestamp,
+				"metadata":  ch.Metadata,
 			})
-			_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
-			return nil
+
+			if isFinal, _ := ch.Metadata["is_final"].(bool); isFinal {
+				_ = sink.Emit(dto.EventFinal, map[string]any{
+					"success":   ch.Success,
+					"data":      ch.Data,
+					"metadata":  ch.Metadata,
+					"timestamp": ch.Timestamp,
+				})
+				_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+				return nil
+			}
 		}
 	}
 }

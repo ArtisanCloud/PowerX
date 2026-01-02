@@ -110,6 +110,18 @@ func (r *AgentChatMessageRepository) DeleteBySession(
 		Delete(&dbmodel.AgentChatMessage{}).Error
 }
 
+// DeleteAfterID：裁剪会话消息（删除 id > afterID 的所有消息）
+func (r *AgentChatMessageRepository) DeleteAfterID(
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, afterID uint64,
+) (int64, error) {
+	res := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("session_id = ?", sessionID).
+		Where("id > ?", afterID).
+		Delete(&dbmodel.AgentChatMessage{})
+	return res.RowsAffected, res.Error
+}
+
 // StatsBySession：汇总消息体积/令牌数
 type SessionMsgStats struct {
 	Count       int

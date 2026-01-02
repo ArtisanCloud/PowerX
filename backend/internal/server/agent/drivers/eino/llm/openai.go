@@ -41,6 +41,12 @@ type openAINonStreamResp struct {
 			Role    string `json:"role"`
 		} `json:"message"`
 	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+		Type    string `json:"type,omitempty"`
+		Code    any    `json:"code,omitempty"`
+		Param   any    `json:"param,omitempty"`
+	} `json:"error,omitempty"`
 }
 
 type openAIStreamDelta struct {
@@ -128,7 +134,9 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 func (c *openaiClient) httpClient(mc *config.ModelConfig) *http.Client {
 	to := mc.Timeout
 	if to <= 0 {
-		to = 30 * time.Second
+		// Chat/SSE 场景默认要足够长，避免“模型慢一点就被 30s 掐断”
+		// 由上层 ctx 超时兜底（Engine 默认 10min）。
+		to = 10 * time.Minute
 	}
 	return &http.Client{Timeout: to}
 }
@@ -154,17 +162,43 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 	}
 	defer resp.Body.Close()
 
+	bt, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode/100 != 2 {
-		bt, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("openai invoke status=%d body=%s", resp.StatusCode, string(bt))
+		return "", fmt.Errorf("openai invoke url=%s status=%d body=%s", url, resp.StatusCode, string(bt))
 	}
 
 	var jr openAINonStreamResp
-	if err := json.NewDecoder(resp.Body).Decode(&jr); err != nil {
-		return "", err
+	if err := json.Unmarshal(bt, &jr); err != nil {
+		return "", fmt.Errorf("openai decode failed: %w (body=%s)", err, string(bt))
+	}
+	if jr.Error != nil && strings.TrimSpace(jr.Error.Message) != "" {
+		return "", fmt.Errorf("openai error: %s", strings.TrimSpace(jr.Error.Message))
 	}
 	if len(jr.Choices) == 0 {
-		return "", errors.New("openai: no choices")
+		// 兼容诊断：部分 OpenAI-compatible 网关会返回腾讯云 TC3 风格结构（Response.Error.*）
+		// 此时 choices 为空但 StatusCode 可能仍为 2xx，容易误判为 “no choices”。
+		var tr struct {
+			Response struct {
+				Error *struct {
+					Code    string `json:"Code"`
+					Message string `json:"Message"`
+				} `json:"Error"`
+			} `json:"Response"`
+		}
+		if e := json.Unmarshal(bt, &tr); e == nil && tr.Response.Error != nil && strings.TrimSpace(tr.Response.Error.Message) != "" {
+			code := strings.TrimSpace(tr.Response.Error.Code)
+			msg := strings.TrimSpace(tr.Response.Error.Message)
+			if code != "" {
+				return "", fmt.Errorf("openai-compatible: unexpected tencent response url=%s code=%s message=%s", url, code, msg)
+			}
+			return "", fmt.Errorf("openai-compatible: unexpected tencent response url=%s message=%s", url, msg)
+		}
+
+		trim := string(bt)
+		if len(trim) > 2000 {
+			trim = trim[:2000] + "…"
+		}
+		return "", fmt.Errorf("openai: empty choices (url=%s body=%s)", url, trim)
 	}
 	return jr.Choices[0].Message.Content, nil
 }
@@ -274,6 +308,13 @@ func joinEndpoint(base, path string) string {
 	trimmed := strings.TrimRight(base, "/")
 	if trimmed == "" {
 		trimmed = base
+	}
+	// 兼容 OpenAI-compatible 网关：base_url 常见自带 /v1
+	// 若同时使用默认 path "/v1/..."，会拼出 "/v1/v1/..." 进而返回非预期 schema（choices 为空）。
+	if strings.HasSuffix(trimmed, "/v1") && strings.HasPrefix(path, "/v1/") {
+		path = strings.TrimPrefix(path, "/v1")
+	} else if strings.HasSuffix(trimmed, "/v1") && path == "/v1" {
+		path = ""
 	}
 	return trimmed + path
 }

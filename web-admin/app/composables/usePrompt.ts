@@ -8,6 +8,8 @@ export type PromptOptions = {
   defaultValue?: string
   confirmLabel?: string
   cancelLabel?: string
+  multiline?: boolean
+  rows?: number
 }
 
 export const usePrompt = () => {
@@ -22,6 +24,8 @@ export const usePrompt = () => {
       defaultValue: opts.defaultValue,
       confirmLabel: opts.confirmLabel,
       cancelLabel: opts.cancelLabel,
+      multiline: opts.multiline,
+      rows: opts.rows,
     })
     const result = await instance.result
     // null 表示取消
@@ -30,4 +34,3 @@ export const usePrompt = () => {
 
   return { prompt }
 }
-

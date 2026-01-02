@@ -7,15 +7,23 @@ export default defineNuxtPlugin((nuxtApp) => {
     autoVisible.value = navPending.value || reqPending.value > 0;
   };
 
+  const clearNavPending = () => {
+    navPending.value = false;
+    recalc();
+  };
+
   // 路由开始/结束
   nuxtApp.hook("page:start", () => {
     navPending.value = true;
     recalc();
   });
   nuxtApp.hook("page:finish", () => {
-    navPending.value = false;
-    recalc();
+    clearNavPending();
   });
+  // 兜底：导航/渲染过程如果抛错，避免全局 Loading 永久挂起
+  nuxtApp.hook("page:error", () => clearNavPending());
+  nuxtApp.hook("app:error", () => clearNavPending());
+  nuxtApp.hook("vue:error", () => clearNavPending());
 
   // 监听 useFetch/asyncData 等
   nuxtApp.hook("app:fetch:before", () => {

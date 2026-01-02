@@ -335,6 +335,32 @@
       </div>
     </div>
 
+    <!-- 3D 生成参数 -->
+    <div v-else-if="activeModality === 'model3d'" class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            class="block text-sm font-medium text-[var(--text-primary)] mb-2"
+          >
+            输出格式
+          </label>
+          <USelect
+            v-model="model3d.outputFormat"
+            :options="model3dFormatOptions"
+            placeholder="选择格式"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-sm font-medium text-[var(--text-primary)] mb-2"
+          >
+            提示词增强
+          </label>
+          <UInput v-model="model3d.promptHint" placeholder="可选的提示词前缀" />
+        </div>
+      </div>
+    </div>
+
     <!-- 重排序参数 -->
     <div v-else-if="activeModality === 'rerank'" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
@@ -384,6 +410,7 @@ type Modality =
   | "audio_tts"
   | "audio_asr"
   | "video"
+  | "model3d"
   | "rerank";
 
 interface Props {
@@ -394,12 +421,14 @@ interface Props {
   audioTts: any;
   audioAsr: any;
   video: any;
+  model3d: any;
   rerank: any;
   imageSizeOptions: string[];
   imageQualityOptions: string[];
   imageFormatOptions: string[];
   truncateOptions: string[];
   videoResolutionOptions: string[];
+  model3dFormatOptions: string[];
   voiceOptions: string[];
   audioFormatOptions: string[];
   audioQualityOptions: string[];

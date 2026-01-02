@@ -12,6 +12,7 @@ const (
 	ModAudioTTS Modality = "audio_tts"
 	ModAudioASR Modality = "audio_asr"
 	ModVideo    Modality = "video"
+	ModModel3D  Modality = "model3d"
 	ModRerank   Modality = "rerank"
 )
 

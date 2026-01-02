@@ -139,10 +139,16 @@ export class AISettingService {
   /**
    * 获取可用的供应商列表
    */
-  static async getProviders(): Promise<Provider[]> {
+  static async getProviders(modality?: string, env?: string): Promise<Provider[]> {
     const { get } = useApiClient();
+    const params = new URLSearchParams();
+    if (modality) params.append("modality", modality);
+    if (env) params.append("env", env);
+    const url = params.toString()
+      ? `${ApiEndpoints.ADMIN_AGENTS.PROVIDERS}?${params.toString()}`
+      : ApiEndpoints.ADMIN_AGENTS.PROVIDERS;
     const response = await get<ApiResponse<Provider[]>>(
-      ApiEndpoints.ADMIN_AGENTS.PROVIDERS
+      url
     );
     return response.data.providers || [];
   }
@@ -166,7 +172,11 @@ export class AISettingService {
       : ApiEndpoints.ADMIN_AGENTS.MODELS;
 
     const response = await get<ApiResponse<string[]>>(url);
-    return response.data || [];
+    const data: any = response.data as any;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.models)) return data.models;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
   }
 
   /**

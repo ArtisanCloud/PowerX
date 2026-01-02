@@ -101,7 +101,14 @@ modalities:
         tags: ["audio","asr","legacy"]
 
   video:
-    models: []   # 目前无公开 API 可用的视频生成模型；留空以便后续补齐
+    # 预置 UI 可选项（部分环境通过网关/代理支持）
+    models:
+      - id: sora
+        label: "Sora"
+        tags: ["video","gen","placeholder"]
+      - id: sora-preview
+        label: "Sora Preview"
+        tags: ["video","gen","placeholder"]
 
   rerank:
     models: []   # OpenAI 暂无独立 rerank 模型；通常用 LLM/Embedding 组合处理

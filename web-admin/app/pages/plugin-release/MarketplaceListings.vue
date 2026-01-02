@@ -116,7 +116,11 @@
     </UCard>
 
     <!-- 审核操作模态框 -->
-    <UModal v-model="isReviewModalOpen">
+    <UModal
+      v-model="isReviewModalOpen"
+      title="marketplace-listing-review-title"
+      description="marketplace-listing-review-desc"
+    >
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">

@@ -79,8 +79,20 @@ export default defineNuxtConfig({
     "@nuxt/ui",
     "@nuxt/icon",
     "@nuxtjs/i18n",
+    "@nuxtjs/mdc",
     "@pinia/nuxt",
   ],
+  mdc: {
+    // 开启 GFM：自动识别裸 URL 为链接（如 https://golang.org/doc/）
+    remarkPlugins: {
+      "remark-emoji": {},
+      "remark-gfm": {},
+    },
+    // 聊天场景不需要“标题锚点链接”，否则会让标题看起来像超链接
+    headings: {
+      anchorLinks: false,
+    },
+  },
   css: ["~/assets/css/main.css", "@/assets/scss/main.scss"],
   compatibilityDate: "2024-11-01",
   ui: { fonts: false },
@@ -94,12 +106,15 @@ export default defineNuxtConfig({
   i18n: {
     defaultLocale: process.env.NUXT_DEFAULT_LANGUAGE || "zh",
     strategy: "no_prefix",
+    lazy: true,
     locales: [
       { code: "zh", name: "简体中文", file: "zh.json" },
       { code: "en", name: "English", file: "en.json" },
       { code: "ja", name: "日本語", file: "ja.json" },
       { code: "ko", name: "한국어", file: "ko.json" },
     ],
+    // 注意：langDir 是相对于 i18nDir（默认是 `i18n/`）的
+    // 语言包实际目录：`web-admin/i18n/locales/*.json`
     langDir: "locales",
     detectBrowserLanguage: {
       enabled: false,
