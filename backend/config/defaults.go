@@ -280,7 +280,7 @@ func GetDefaults() *Config {
 		},
 		FeatureGate: FeatureGateConfig{
 			LicenseKey:                 "demo-license-xyz",
-			EnableEventFabric:          true,
+			EnableEventFabric:          false,
 			EnableWorkflow:             true,
 			EnableKnowledgeSpace:       true,
 			EnableMediaPlatform:        true,

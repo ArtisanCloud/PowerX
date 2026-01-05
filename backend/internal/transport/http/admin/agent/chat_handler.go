@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
@@ -19,17 +19,20 @@ import (
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AgentChatHandler struct {
 	his         *agentSvc.ChatHistoryService
 	cfgResolver *agentSvc.ChatConfigResolver
+	ag          *agentSvc.AgentService
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 	return &AgentChatHandler{
 		his:         agentSvc.NewChatHistoryService(dep.DB),
 		cfgResolver: agentSvc.NewChatConfigResolver(dep.DB),
+		ag:          agentSvc.NewAgentService(dep.DB),
 	}
 }
 
@@ -153,7 +156,6 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
-	agentID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
@@ -161,6 +163,27 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 	tenantRef := tenantCtx.UUIDPtr()
 	uid := reqctx.GetUserID(c.Request.Context())
+	var agentID uint64
+	if agentUUIDStr := strings.TrimSpace(c.Query("agent_uuid")); agentUUIDStr != "" {
+		agentUUID, err := uuid.Parse(agentUUIDStr)
+		if err != nil {
+			dto.ResponseError(c, 400, "agent_uuid 非法", err)
+			return
+		}
+		exist, err := h.ag.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+		if err != nil {
+			dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+			return
+		}
+		agentID = exist.ID
+	} else {
+		id, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
+		agentID = id
+	}
+	if agentID == 0 {
+		dto.ResponseError(c, 400, "agent_uuid 必填", nil)
+		return
+	}
 
 	// 会话：session_id 优先，否则 sticky
 	var sess *dbmodel.AgentChatSession
@@ -176,6 +199,11 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 			dto.ResponseError(c, 500, "创建会话失败", err)
 			return
 		}
+	}
+	// 若会话标题为空，则用首个问题生成标题（ChatGPT 风格）
+	if sess != nil && strings.TrimSpace(sess.Title) == "" && strings.TrimSpace(q) != "" {
+		title := runtime.MakeDefaultSessionTitle(q, 24)
+		_ = h.his.RenameSession(c, env, tenantRef, sess.ID, title)
 	}
 
 	// 3) 适配器 + Engine
@@ -226,6 +254,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		_ = histSink.Emit(dto.EventEnd, map[string]any{"success": false})
 		return
 	}
+	// 让前端/排障能看到“实际执行用的 provider/model”，避免把模型自报当成事实。
+	_ = histSink.Emit(dto.EventMeta, map[string]any{
+		"env":          env,
+		"llm_provider": strings.TrimSpace(cfg.Provider),
+		"llm_model":    strings.TrimSpace(cfg.ModelName),
+	})
 
 	_ = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
 }

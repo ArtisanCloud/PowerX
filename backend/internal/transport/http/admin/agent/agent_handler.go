@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"strings"
 	"time"
@@ -30,7 +31,9 @@ func NewAgentHandler(dep *shared.Deps) *AgentHandler {
 }
 
 type AgentStatusRequest struct {
-	AgentID string `form:"agent_id" json:"agent_id,omitempty"` // GET 用 form/query
+	// 兼容字段：历史实现要求 agent_id（运行期 manager key），但前端不会传。
+	AgentID   string `form:"agent_id" json:"agent_id,omitempty"`
+	AgentUUID string `form:"agent_uuid" json:"agent_uuid,omitempty"`
 }
 
 type AgentStatusResponse struct {
@@ -55,35 +58,16 @@ func (h *AgentHandler) Status(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	if strings.TrimSpace(req.AgentID) == "" {
-		dtoRequest.ResponseError(c, 400, "agent_id 不能为空", nil)
-		return
-	}
+	// 该接口用于前端“启动阶段探活”，必须允许无 agent_id/agent_uuid 的调用。
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"status":  "ok",
+		"message": "success",
+	})
+}
 
-	mgr := agent.GetAgentManager()
-	sysAg, _, rt, err := mgr.Get(req.AgentID)
-	if err != nil {
-		// Not found 更合适
-		dtoRequest.ResponseError(c, 404, "未找到指定的 Agent", err)
-		return
-	}
-
-	resp := &AgentStatusResponse{
-		AgentInfo: &agentschema.AgentInfo{
-			AgentID:     sysAg.AgentID,
-			Name:        sysAg.Name,
-			Description: sysAg.Description,
-			Status:      string(sysAg.Status),
-			Config:      sysAg.Config,
-			CreatedAt:   sysAg.CreatedAt,
-			UpdatedAt:   sysAg.UpdatedAt,
-			LastBeatAt:  sysAg.LastBeatAt,
-			Runtime:     rt,
-			Extras:      sysAg.Extras,
-		},
-	}
-	dtoRequest.ResponseSuccess(c, resp)
-	return
+func parseAgentUUIDParam(c *gin.Context) (uuid.UUID, error) {
+	raw := strings.TrimSpace(utils.FirstNonEmpty(c.Param("uuid"), c.Param("id")))
+	return uuid.Parse(raw)
 }
 
 // /api/agents/intent  支持单意图(默认) 或 多任务(?multi=1)
@@ -294,12 +278,12 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	out, err := h.srv.Get(c.Request.Context(), env, tenantRef, agentID)
+	out, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
@@ -320,9 +304,14 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
+		return
+	}
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
 	}
 
@@ -339,7 +328,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		KBStrategy:       req.KBStrategy,
 		Meta:             req.Meta,
 	}
-	out, err := h.srv.Update(c.Request.Context(), env, tenantRef, agentID, patch)
+	out, err := h.srv.Update(c.Request.Context(), env, tenantRef, exist.ID, patch)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -357,12 +346,17 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	if err := h.srv.SetStatus(c.Request.Context(), env, tenantRef, agentID, status); err != nil {
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	if err := h.srv.SetStatus(c.Request.Context(), env, tenantRef, exist.ID, status); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -377,12 +371,17 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, agentID); err != nil {
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, exist.ID); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -408,12 +407,17 @@ func (h *AgentHandler) GetAgentAISetting(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	setting, err := h.srv.GetAgentAISetting(c.Request.Context(), env, tenantRef, agentID)
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	setting, err := h.srv.GetAgentAISetting(c.Request.Context(), env, tenantRef, exist.ID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
@@ -433,15 +437,20 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
+		return
+	}
+	exist, err := h.srv.GetByUUID(c.Request.Context(), req.Env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
 	}
 
 	in := &dbmodel.AgentSetting{
 		Env:           req.Env,
-		AgentID:       agentID,
+		AgentID:       exist.ID,
 		Provider:      strings.TrimSpace(req.Provider),
 		Model:         strings.TrimSpace(req.Model),
 		Params:        req.Params,
@@ -466,12 +475,17 @@ func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	if err := h.srv.DeleteAgentAISetting(c.Request.Context(), env, tenantRef, agentID); err != nil {
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	if err := h.srv.DeleteAgentAISetting(c.Request.Context(), env, tenantRef, exist.ID); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -486,12 +500,17 @@ func (h *AgentHandler) AgentHealthCheck(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.Param("id"))
+	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
 		return
 	}
-	info, err := h.srv.HealthCheck(c.Request.Context(), env, tenantRef, agentID)
+	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	info, err := h.srv.HealthCheck(c.Request.Context(), env, tenantRef, exist.ID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "检查失败", err)
 		return

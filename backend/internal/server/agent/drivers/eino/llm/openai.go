@@ -8,16 +8,27 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // 兼容现有接口
-type openaiClient struct{ NoopStream }
+type openaiClient struct {
+	NoopStream
+	rawProvider string
+}
 
-func NewOpenAIClient() LLMClient { return &openaiClient{} }
+func NewOpenAIClient(rawProvider string) LLMClient {
+	return &openaiClient{rawProvider: strings.TrimSpace(rawProvider)}
+}
 
 const defaultOpenAIPath = "/v1/chat/completions"
 
@@ -131,6 +142,43 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 	return json.Marshal(m)
 }
 
+func sanitizeLLMURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u == nil {
+		if len(raw) > 300 {
+			return raw[:300] + "…"
+		}
+		return raw
+	}
+	u.Fragment = ""
+	s := u.String()
+	if len(s) > 300 {
+		return s[:300] + "…"
+	}
+	return s
+}
+
+func (c *openaiClient) logRequest(ctx context.Context, reqURL string, mc *config.ModelConfig, streaming bool) {
+	provider := strings.TrimSpace(c.rawProvider)
+	if provider == "" {
+		provider = "openai"
+	}
+	logger.Info(ctx, "llm_request",
+		zap.String("trace_id", audit.GetTraceID(ctx)),
+		zap.String("tenant_uuid", reqctx.GetTenantUUID(ctx)),
+		zap.String("driver", "openai"),
+		zap.String("provider", provider),
+		zap.String("model", strings.TrimSpace(mc.Model)),
+		zap.Bool("stream", streaming),
+		zap.Bool("azure", strings.TrimSpace(mc.AzureDeployment) != ""),
+		zap.String("url", sanitizeLLMURL(reqURL)),
+	)
+}
+
 func (c *openaiClient) httpClient(mc *config.ModelConfig) *http.Client {
 	to := mc.Timeout
 	if to <= 0 {
@@ -144,10 +192,12 @@ func (c *openaiClient) httpClient(mc *config.ModelConfig) *http.Client {
 /* ------------ Invoke（非流） ------------ */
 
 func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (string, error) {
+	start := time.Now()
 	url, headers, err := c.buildEndpointAndHeaders(mc, false)
 	if err != nil {
 		return "", err
 	}
+	c.logRequest(ctx, url, mc, false)
 	body, err := c.makeBody(mc, userMessage, false)
 	if err != nil {
 		return "", err
@@ -158,20 +208,58 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", false),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("error", err.Error()),
+		)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	bt, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode/100 != 2 {
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", false),
+			zap.Int("status", resp.StatusCode),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+		)
 		return "", fmt.Errorf("openai invoke url=%s status=%d body=%s", url, resp.StatusCode, string(bt))
 	}
 
 	var jr openAINonStreamResp
 	if err := json.Unmarshal(bt, &jr); err != nil {
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", false),
+			zap.Int("status", resp.StatusCode),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("error", err.Error()),
+		)
 		return "", fmt.Errorf("openai decode failed: %w (body=%s)", err, string(bt))
 	}
 	if jr.Error != nil && strings.TrimSpace(jr.Error.Message) != "" {
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", false),
+			zap.Int("status", resp.StatusCode),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("error", strings.TrimSpace(jr.Error.Message)),
+		)
 		return "", fmt.Errorf("openai error: %s", strings.TrimSpace(jr.Error.Message))
 	}
 	if len(jr.Choices) == 0 {
@@ -198,19 +286,40 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 		if len(trim) > 2000 {
 			trim = trim[:2000] + "…"
 		}
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", false),
+			zap.Int("status", resp.StatusCode),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("error", "empty choices"),
+		)
 		return "", fmt.Errorf("openai: empty choices (url=%s body=%s)", url, trim)
 	}
+	logger.Info(ctx, "llm_response",
+		zap.String("trace_id", audit.GetTraceID(ctx)),
+		zap.String("driver", "openai"),
+		zap.String("provider", strings.TrimSpace(c.rawProvider)),
+		zap.String("model", strings.TrimSpace(mc.Model)),
+		zap.Bool("stream", false),
+		zap.Int("status", resp.StatusCode),
+		zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+	)
 	return jr.Choices[0].Message.Content, nil
 }
 
 /* ------------ Stream（优先流；不支持时自动回退） ------------ */
 
 func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
+	start := time.Now()
 	// 若上层“配置禁用流”，你可以在外部判断；这里即便请求流，也能自动回退到 Invoke
 	url, headers, err := c.buildEndpointAndHeaders(mc, true)
 	if err != nil {
 		return "", err
 	}
+	c.logRequest(ctx, url, mc, true)
 	body, err := c.makeBody(mc, prompt, true)
 	if err != nil {
 		return "", err
@@ -221,6 +330,15 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", true),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("error", err.Error()),
+		)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -236,6 +354,17 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 			// 仍然尝试回退
 			_ = bt
 		}
+		logger.Info(ctx, "llm_response",
+			zap.String("trace_id", audit.GetTraceID(ctx)),
+			zap.String("driver", "openai"),
+			zap.String("provider", strings.TrimSpace(c.rawProvider)),
+			zap.String("model", strings.TrimSpace(mc.Model)),
+			zap.Bool("stream", true),
+			zap.Int("status", resp.StatusCode),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.Bool("fallback_invoke", true),
+			zap.String("content_type", resp.Header.Get("Content-Type")),
+		)
 		// 回退
 		return c.Invoke(ctx, mc, prompt)
 	}
@@ -284,6 +413,15 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 			final.WriteString(delta)
 		}
 	}
+	logger.Info(ctx, "llm_response",
+		zap.String("trace_id", audit.GetTraceID(ctx)),
+		zap.String("driver", "openai"),
+		zap.String("provider", strings.TrimSpace(c.rawProvider)),
+		zap.String("model", strings.TrimSpace(mc.Model)),
+		zap.Bool("stream", true),
+		zap.Int("status", resp.StatusCode),
+		zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+	)
 	return final.String(), nil
 }
 

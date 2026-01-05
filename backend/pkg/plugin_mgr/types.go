@@ -64,6 +64,7 @@ const (
 	KeySettings       MenuKey = "settings"
 	KeyDashboard      MenuKey = "dashboard"
 	KeyWorkflow       MenuKey = "workflow"
+	KeyMedia          MenuKey = "media"
 	KeyAgent          MenuKey = "agent"
 	KeyKnowledgeSpace MenuKey = "knowledge_space"
 

@@ -93,6 +93,7 @@
     "openCapabilities": "プラットフォーム能力",
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
+    "media": "メディア",
     "pluginMarketplace": "マーケット",
     "pluginsInstalled": "インストール済み",
     "pluginsMarket": "マーケット"
@@ -515,7 +516,8 @@
       "sessions": "最近のセッション",
       "newSession": "新しいセッション",
       "noSessions": "セッションがありません",
-      "untitledSession": "無題のセッション"
+      "untitledSession": "無題のセッション",
+      "clearSessions": "このエージェントの全セッションを削除"
     },
     "message": {
       "justNow": "たった今",
@@ -661,9 +663,18 @@
         "emptyDesc": "ポリシーを追加してください。",
         "playbookTitle": "プレイブック",
         "playbooks": {
-          "throttle": { "title": "スロットル", "desc": "予算逼迫時にリクエストを制限。" },
-          "degrade": { "title": "段階的縮小", "desc": "低コストモデルへ切替。" },
-          "disable": { "title": "停止", "desc": "予算超過時に停止。" }
+          "throttle": {
+            "title": "スロットル",
+            "desc": "予算逼迫時にリクエストを制限。"
+          },
+          "degrade": {
+            "title": "段階的縮小",
+            "desc": "低コストモデルへ切替。"
+          },
+          "disable": {
+            "title": "停止",
+            "desc": "予算超過時に停止。"
+          }
         },
         "defaultTenants": {
           "demo": "デモ",

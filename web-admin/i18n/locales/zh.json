@@ -19,6 +19,7 @@
     "orders": "订单管理",
     "knowledgeSpace": "知识空间",
     "workflow": "流程",
+    "media": "媒体",
     "dashboard": "仪表盘",
     "settings": "设置",
     "userManagement": "用户管理",
@@ -547,6 +548,7 @@
       "pinned": "已置顶",
       "rename": "重命名",
       "renameSession": "重命名会话",
+      "clearSessions": "清空该智能体全部会话",
       "delete": "删除",
       "noSessions": "暂无会话"
     },

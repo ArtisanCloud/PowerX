@@ -13,38 +13,38 @@ export interface ChatSession {
 
 interface Props {
   agents?: Agent[];
-  currentAgentId?: number;
+  currentAgentId?: string;
   loading?: boolean;
   // ✅ 外部传入的会话数据/状态（推荐做"单一事实来源"）
-  sessionsByAgent?: Record<number, ChatSession[]>;
-  sessionsLoadingByAgent?: Record<number, boolean>;
-  hasMoreByAgent?: Record<number, boolean>;
+  sessionsByAgent?: Record<string, ChatSession[]>;
+  sessionsLoadingByAgent?: Record<string, boolean>;
+  hasMoreByAgent?: Record<string, boolean>;
   // （可选）如果你希望在子组件里直接触发加载，也可传入这个函数
-  fetchSessions?: (agentId: number) => Promise<void>;
+  fetchSessions?: (agentId: string) => Promise<void>;
 }
 interface Emits {
-  (e: "select", agentId: number): void;
+  (e: "select", agentId: string): void;
   (e: "create"): void;
-  (e: "edit", agentId: number): void;
-  (e: "delete", agentId: number): void;
+  (e: "edit", agentId: string): void;
+  (e: "delete", agentId: string): void;
   // ✅ 新增会话相关事件
   (
     e: "select-session",
-    payload: { agentId: number; sessionId: number | string }
+    payload: { agentId: string; sessionId: number | string }
   ): void;
-  (e: "create-session", agentId: number): void;
+  (e: "create-session", agentId: string): void;
   (
     e: "delete-session",
-    payload: { agentId: number; sessionId: number | string }
+    payload: { agentId: string; sessionId: number | string }
   ): void;
-  (e: "load-sessions", agentId: number): void; // 若不传 fetchSessions，用这个让父组件去拉
-  (e: "load-more-sessions", agentId: number): void; // 翻页
+  (e: "load-sessions", agentId: string): void; // 若不传 fetchSessions，用这个让父组件去拉
+  (e: "load-more-sessions", agentId: string): void; // 翻页
 }
 
 const props = withDefaults(defineProps<Props>(), {
   agents: () => [],
   loading: false,
-  currentAgentId: 0,
+  currentAgentId: "",
   sessionsByAgent: () => ({}),
   sessionsLoadingByAgent: () => ({}),
   hasMoreByAgent: () => ({}),
@@ -85,7 +85,7 @@ const groupedAgents = computed(() => {
   return { active, inactive };
 });
 
-const selectAgent = async (id: number) => {
+const selectAgent = async (id: string) => {
   emit("select", id);
   // 选中即展开
   if (!isExpanded(id)) {
@@ -99,7 +99,7 @@ const selectAgent = async (id: number) => {
 
 const getStatusColor = (agent: Agent) => {
   if (agent.status === "inactive") return "neutral";
-  if (agent.id === props.currentAgentId) return "primary";
+  if (agent.uuid === props.currentAgentId) return "primary";
   return "success";
 };
 
@@ -140,7 +140,7 @@ const makeMenuItems = (agent: Agent): any[][] => {
       {
         label: t("agent.selector.edit"),
         icon: "i-heroicons-pencil",
-        onSelect: () => emit("edit", agent.id),
+        onSelect: () => emit("edit", agent.uuid),
       },
     ],
   ];
@@ -154,7 +154,7 @@ const makeMenuItems = (agent: Agent): any[][] => {
         onSelect: (e?: Event) => {
           // 可选：阻止某些默认行为，比如复用快捷键时
           e?.preventDefault?.();
-          emit("delete", agent.id);
+          emit("delete", agent.uuid);
         },
       },
     ]);
@@ -164,16 +164,16 @@ const makeMenuItems = (agent: Agent): any[][] => {
 
 const onDropdownSelect = (item: any, agent: Agent) => {
   console.log(item);
-  if (item?.value === "edit") emit("edit", agent.id);
-  if (item?.value === "delete") emit("delete", agent.id);
+  if (item?.value === "edit") emit("edit", agent.uuid);
+  if (item?.value === "delete") emit("delete", agent.uuid);
 };
 
 // ✅ 记录哪些行处于展开态
-const expandedIds = ref<Set<number>>(new Set());
+const expandedIds = ref<Set<string>>(new Set());
 
-const isExpanded = (id: number) => expandedIds.value.has(id);
+const isExpanded = (id: string) => expandedIds.value.has(id);
 
-const toggleExpand = async (id: number) => {
+const toggleExpand = async (id: string) => {
   // 用新 Set 触发响应式
   const s = new Set(expandedIds.value);
   s.has(id) ? s.delete(id) : s.add(id);
@@ -185,15 +185,15 @@ const toggleExpand = async (id: number) => {
 };
 
 // 工具：取会话/加载/更多标识
-const getSessions = (agentId: number): ChatSession[] =>
+const getSessions = (agentId: string): ChatSession[] =>
   props.sessionsByAgent?.[agentId] ?? [];
-const isSessionsLoading = (agentId: number): boolean =>
+const isSessionsLoading = (agentId: string): boolean =>
   !!props.sessionsLoadingByAgent?.[agentId];
-const hasMoreSessions = (agentId: number): boolean =>
+const hasMoreSessions = (agentId: string): boolean =>
   !!props.hasMoreByAgent?.[agentId];
 
 // 首次展开时加载
-async function ensureSessionsLoaded(agentId: number) {
+async function ensureSessionsLoaded(agentId: string) {
   if (getSessions(agentId)?.length) return; // 已有缓存
   if (props.fetchSessions) {
     try {
@@ -291,15 +291,15 @@ watch(
           <div class="space-y-1 mt-2">
             <div
               v-for="agent in groupedAgents.active"
-              :key="agent.id"
+              :key="agent.uuid"
               class="group relative p-3 rounded-lg cursor-pointer transition-colors duration-200"
               :class="{
                 'bg-blue-50 border border-blue-200':
-                  agent.id === currentAgentId,
-                'hover:bg-gray-50': agent.id !== currentAgentId,
+                  agent.uuid === currentAgentId,
+                'hover:bg-gray-50': agent.uuid !== currentAgentId,
               }"
-              @click="selectAgent(agent.id)"
-              @dblclick.stop="emit('edit', agent.id)"
+              @click="selectAgent(agent.uuid)"
+              @dblclick.stop="emit('edit', agent.uuid)"
             >
               <div class="flex items-start gap-3">
                 <!-- 左侧头像/图标 -->
@@ -325,8 +325,8 @@ watch(
                       size="xs"
                       variant="ghost"
                       class="transition-transform ml-1"
-                      :class="{ 'rotate-180': isExpanded(agent.id) }"
-                      @click.stop="toggleExpand(agent.id)"
+                      :class="{ 'rotate-180': isExpanded(agent.uuid) }"
+                      @click.stop="toggleExpand(agent.uuid)"
                     />
 
                     <!-- 右侧工具区：贴右对齐，避免覆盖 current 徽标 -->
@@ -337,7 +337,7 @@ watch(
                         class="whitespace-nowrap min-w-fit"
                       >
                         {{
-                          agent.id === currentAgentId
+                          agent.uuid === currentAgentId
                             ? t("agent.selector.current")
                             : t("agent.selector.available")
                         }}
@@ -349,7 +349,7 @@ watch(
                         size="xs"
                         variant="outline"
                         class="hidden sm:inline-flex"
-                        @click.stop="emit('edit', agent.id)"
+                        @click.stop="emit('edit', agent.uuid)"
                       />
 
                       <!-- Kebab 菜单 -->
@@ -367,7 +367,7 @@ watch(
 
                   <!-- 精简信息行（收起时显示） -->
                   <p
-                    v-if="!isExpanded(agent.id)"
+                    v-if="!isExpanded(agent.uuid)"
                     class="text-xs text-gray-500 mt-1 line-clamp-2"
                   >
                     {{ agent.description }}
@@ -375,7 +375,7 @@ watch(
 
                   <!-- 展开区（详尽信息 + 小屏操作按钮） -->
                   <div
-                    v-show="agent.id === currentAgentId || isExpanded(agent.id)"
+                    v-show="agent.uuid === currentAgentId || isExpanded(agent.uuid)"
                     class="mt-2 space-y-2"
                   >
                     <p class="text-xs text-gray-600">{{ agent.description }}</p>
@@ -401,7 +401,7 @@ watch(
                         size="xs"
                         icon="i-heroicons-pencil"
                         variant="outline"
-                        @click.stop="emit('edit', agent.id)"
+                        @click.stop="emit('edit', agent.uuid)"
                       >
                         {{ t("agent.selector.edit") }}
                       </UButton>
@@ -410,7 +410,7 @@ watch(
                         size="xs"
                         icon="i-heroicons-trash"
                         variant="outline"
-                        @click.stop="emit('delete', agent.id)"
+                        @click.stop="emit('delete', agent.uuid)"
                       >
                         {{ t("agent.selector.delete") }}
                       </UButton>
@@ -428,13 +428,13 @@ watch(
                           size="xs"
                           variant="ghost"
                           icon="i-heroicons-plus"
-                          @click.stop="emit('create-session', agent.id)"
+                          @click.stop="emit('create-session', agent.uuid)"
                         >
                           {{ t("agent.selector.newSession") || "新建会话" }}
                         </UButton>
                       </div>
 
-                      <div v-if="isSessionsLoading(agent.id)" class="space-y-2">
+                      <div v-if="isSessionsLoading(agent.uuid)" class="space-y-2">
                         <USkeleton
                           class="h-10 w-full"
                           v-for="i in 3"
@@ -444,7 +444,7 @@ watch(
 
                       <template v-else>
                         <div
-                          v-if="getSessions(agent.id).length === 0"
+                          v-if="getSessions(agent.uuid).length === 0"
                           class="text-xs text-gray-400 py-2"
                         >
                           {{ t("agent.selector.noSessions") || "暂无会话" }}
@@ -455,12 +455,12 @@ watch(
                           class="divide-y divide-gray-200 rounded-md bg-white"
                         >
                           <li
-                            v-for="s in getSessions(agent.id)"
+                            v-for="s in getSessions(agent.uuid)"
                             :key="String(s.id)"
                             class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
                             @click.stop="
                               emit('select-session', {
-                                agentId: agent.id,
+                                agentId: agent.uuid,
                                 sessionId: s.id,
                               })
                             "
@@ -495,7 +495,7 @@ watch(
                                 variant="ghost"
                                 @click.stop="
                                   emit('delete-session', {
-                                    agentId: agent.id,
+                                    agentId: agent.uuid,
                                     sessionId: s.id,
                                   })
                                 "
@@ -504,12 +504,12 @@ watch(
                           </li>
                         </ul>
 
-                        <div v-if="hasMoreSessions(agent.id)" class="pt-2">
+                        <div v-if="hasMoreSessions(agent.uuid)" class="pt-2">
                           <UButton
                             size="xs"
                             variant="outline"
                             block
-                            @click.stop="emit('load-more-sessions', agent.id)"
+                            @click.stop="emit('load-more-sessions', agent.uuid)"
                           >
                             {{ t("common.loadMore") || "加载更多" }}
                           </UButton>
@@ -533,10 +533,10 @@ watch(
           <div class="space-y-1 mt-2">
             <div
               v-for="agent in groupedAgents.inactive"
-              :key="agent.id"
+              :key="agent.uuid"
               class="group relative p-3 rounded-lg cursor-pointer transition-colors duration-200 hover:bg-gray-50 opacity-60"
-              @click="selectAgent(agent.id)"
-              @dblclick.stop="emit('edit', agent.id)"
+              @click="selectAgent(agent.uuid)"
+              @dblclick.stop="emit('edit', agent.uuid)"
             >
               <div class="flex items-start gap-3">
                 <!-- 左侧头像/图标 -->
@@ -562,8 +562,8 @@ watch(
                       size="xs"
                       variant="ghost"
                       class="transition-transform ml-1"
-                      :class="{ 'rotate-180': isExpanded(agent.id) }"
-                      @click.stop="toggleExpand(agent.id)"
+                      :class="{ 'rotate-180': isExpanded(agent.uuid) }"
+                      @click.stop="toggleExpand(agent.uuid)"
                     />
 
                     <!-- 右侧工具区：贴右对齐，避免覆盖 current 徽标 -->
@@ -578,7 +578,7 @@ watch(
                         size="xs"
                         variant="outline"
                         class="hidden sm:inline-flex"
-                        @click.stop="emit('edit', agent.id)"
+                        @click.stop="emit('edit', agent.uuid)"
                       />
 
                       <!-- Kebab 菜单 -->
@@ -599,7 +599,7 @@ watch(
 
                   <!-- 精简信息行（收起时显示） -->
                   <p
-                    v-if="!isExpanded(agent.id)"
+                    v-if="!isExpanded(agent.uuid)"
                     class="text-xs text-gray-400 mt-1 line-clamp-2"
                   >
                     {{ agent.description }}
@@ -607,7 +607,7 @@ watch(
 
                   <!-- 展开区（详尽信息 + 小屏操作按钮） -->
                   <div
-                    v-show="agent.id === currentAgentId || isExpanded(agent.id)"
+                    v-show="agent.uuid === currentAgentId || isExpanded(agent.uuid)"
                     class="mt-2 space-y-2"
                   >
                     <p class="text-xs text-gray-500">{{ agent.description }}</p>
@@ -633,7 +633,7 @@ watch(
                         size="xs"
                         icon="i-heroicons-pencil"
                         variant="outline"
-                        @click.stop="emit('edit', agent.id)"
+                        @click.stop="emit('edit', agent.uuid)"
                       >
                         {{ t("agent.selector.edit") }}
                       </UButton>
@@ -642,7 +642,7 @@ watch(
                         size="xs"
                         icon="i-heroicons-trash"
                         variant="outline"
-                        @click.stop="emit('delete', agent.id)"
+                        @click.stop="emit('delete', agent.uuid)"
                       >
                         {{ t("agent.selector.delete") }}
                       </UButton>
@@ -660,13 +660,13 @@ watch(
                           size="xs"
                           variant="ghost"
                           icon="i-heroicons-plus"
-                          @click.stop="emit('create-session', agent.id)"
+                          @click.stop="emit('create-session', agent.uuid)"
                         >
                           {{ t("agent.selector.newSession") || "新建会话" }}
                         </UButton>
                       </div>
 
-                      <div v-if="isSessionsLoading(agent.id)" class="space-y-2">
+                      <div v-if="isSessionsLoading(agent.uuid)" class="space-y-2">
                         <USkeleton
                           class="h-10 w-full"
                           v-for="i in 3"
@@ -676,7 +676,7 @@ watch(
 
                       <template v-else>
                         <div
-                          v-if="getSessions(agent.id).length === 0"
+                          v-if="getSessions(agent.uuid).length === 0"
                           class="text-xs text-gray-400 py-2"
                         >
                           {{ t("agent.selector.noSessions") || "暂无会话" }}
@@ -687,12 +687,12 @@ watch(
                           class="divide-y divide-gray-200 rounded-md bg-white"
                         >
                           <li
-                            v-for="s in getSessions(agent.id)"
+                            v-for="s in getSessions(agent.uuid)"
                             :key="String(s.id)"
                             class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
                             @click.stop="
                               emit('select-session', {
-                                agentId: agent.id,
+                                agentId: agent.uuid,
                                 sessionId: s.id,
                               })
                             "
@@ -727,7 +727,7 @@ watch(
                                 variant="ghost"
                                 @click.stop="
                                   emit('delete-session', {
-                                    agentId: agent.id,
+                                    agentId: agent.uuid,
                                     sessionId: s.id,
                                   })
                                 "
@@ -736,12 +736,12 @@ watch(
                           </li>
                         </ul>
 
-                        <div v-if="hasMoreSessions(agent.id)" class="pt-2">
+                        <div v-if="hasMoreSessions(agent.uuid)" class="pt-2">
                           <UButton
                             size="xs"
                             variant="outline"
                             block
-                            @click.stop="emit('load-more-sessions', agent.id)"
+                            @click.stop="emit('load-more-sessions', agent.uuid)"
                           >
                             {{ t("common.loadMore") || "加载更多" }}
                           </UButton>

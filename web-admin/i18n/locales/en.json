@@ -19,6 +19,7 @@
     "orders": "Orders",
     "knowledgeSpace": "Knowledge Space",
     "workflow": "Workflow",
+    "media": "Media",
     "dashboard": "Dashboard",
     "settings": "Settings",
     "userManagement": "User Management",
@@ -438,7 +439,8 @@
       "totalCount": "Total",
       "newSession": "New session",
       "recents": "Recent sessions",
-      "noSessions": "No sessions"
+      "noSessions": "No sessions",
+      "clearSessions": "Clear all sessions for this agent"
     },
     "config": {
       "capabilities": {

@@ -6,6 +6,7 @@ import type {
   UpdateAgentRequest,
 } from "~/types/agent";
 import { useApiClient } from "~/composables/api/index";
+import { useEnvStore } from "~/stores/envStore";
 
 export interface AgentConfig {
   id: string;
@@ -33,9 +34,11 @@ export const useAgentManager = () => {
   const agents = ref<Agent[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const envStore = useEnvStore();
+  const ENV = computed(() => envStore.currentEnv || "dev");
 
   // 使用封装的 API 客户端
-  const { get, post, put, delete: del } = useApiClient();
+  const { get, post, patch, delete: del } = useApiClient();
 
   // 获取 Agent 列表
   const fetchAgents = async () => {
@@ -45,7 +48,7 @@ export const useAgentManager = () => {
     try {
       const response = await get<AgentListResponse>("/admin/agents", {
         params: {
-          env: "dev",
+          env: ENV.value,
           status: "active",
         },
       });
@@ -65,13 +68,13 @@ export const useAgentManager = () => {
   };
 
   // 获取单个 Agent 详情
-  const fetchAgentDetail = async (agentId: number) => {
+  const fetchAgentDetail = async (agentUUID: string) => {
     try {
       const response = await get<AgentDetailResponse>(
-        `/admin/agents/${agentId}`,
+        `/admin/agents/${agentUUID}`,
         {
           params: {
-            modality: "llm",
+            env: ENV.value,
           },
         }
       );
@@ -92,7 +95,7 @@ export const useAgentManager = () => {
     try {
       const response = await post<AgentDetailResponse>(
         "/admin/agents",
-        agentData
+        { env: ENV.value, ...agentData }
       );
 
       if (response.code === 200) {
@@ -110,13 +113,22 @@ export const useAgentManager = () => {
 
   // 更新 Agent
   const updateAgent = async (
-    agentId: number,
+    agentUUID: string,
     agentData: UpdateAgentRequest
   ) => {
     try {
-      const response = await put<AgentDetailResponse>(
-        `/admin/agents/${agentId}`,
-        agentData
+      // 后端是 PATCH /admin/agents/:uuid?env=xxx（PUT 会 404）
+      const payload: any = {};
+      if (typeof agentData.name === "string") payload.name = agentData.name;
+      if (typeof agentData.description === "string")
+        payload.description = agentData.description;
+      if (typeof agentData.status === "string") payload.status = agentData.status;
+      if (agentData.meta && typeof agentData.meta === "object")
+        payload.meta = agentData.meta;
+      const response = await patch<AgentDetailResponse>(
+        `/admin/agents/${agentUUID}`,
+        payload,
+        { params: { env: ENV.value } }
       );
 
       if (response.code === 200) {
@@ -133,9 +145,11 @@ export const useAgentManager = () => {
   };
 
   // 删除 Agent
-  const deleteAgent = async (agentId: number) => {
+  const deleteAgent = async (agentUUID: string) => {
     try {
-      const response = await del(`/admin/agents/${agentId}`);
+      const response = await del(`/admin/agents/${agentUUID}`, {
+        params: { env: ENV.value },
+      });
 
       // 重新获取列表
       await fetchAgents();

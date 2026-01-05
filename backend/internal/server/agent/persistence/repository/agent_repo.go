@@ -8,6 +8,7 @@ import (
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -72,6 +73,18 @@ func (r *AgentRepository) FindByScopeKey(ctx context.Context, env string, tenant
 	err := r.db.WithContext(ctx).
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where(`key = ?`, key).
+		First(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (r *AgentRepository) FindByScopeUUID(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID) (*dbmodel.Agent, error) {
+	var out dbmodel.Agent
+	err := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("uuid = ?", agentUUID).
 		First(&out).Error
 	if err != nil {
 		return nil, err

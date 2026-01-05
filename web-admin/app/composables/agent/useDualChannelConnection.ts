@@ -13,6 +13,7 @@ import { useMessageStore } from "~/stores/message";
 import { SSE_EVENT_TYPES } from "~/types/message";
 import { BaseFlowKey } from "../api/types/agent";
 import { useStreamingThinkParser } from "./useThinkParser";
+import { useEnvStore } from "~/stores/envStore";
 
 export interface DualChannelConnection {
   sseActive: Ref<boolean>;
@@ -41,11 +42,12 @@ export interface DualChannelConnection {
 }
 
 export function useDualChannelConnection(
-  agentId?: Ref<number | null>,
+  agentId?: Ref<string | null>,
   sessionId?: Ref<string | null>
 ): DualChannelConnection {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
+  const envStore = useEnvStore();
 
   const sseActive = ref(false);
   const wsActive = ref(false);
@@ -56,6 +58,8 @@ export function useDualChannelConnection(
 
   let pendingAssistantId: string | null = null;
   let currentSseAbort: AbortController | null = null;
+  let sseProbeAbort: AbortController | null = null;
+  let lastSseProbeAt = 0;
 
   watch(sessionId, (newSessionId, oldSessionId) => {
     if (oldSessionId && messages.value.length > 0) {
@@ -72,6 +76,7 @@ export function useDualChannelConnection(
   let onErrorCallback: ((error: any) => void) | undefined;
 
   const getEnv = () => {
+    if (envStore.currentEnv) return envStore.currentEnv;
     if (typeof window === "undefined") return "dev";
     try {
       const envStore = localStorage.getItem("env-store");
@@ -127,20 +132,59 @@ export function useDualChannelConnection(
   };
 
   const reconnectSSE = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      sseActive.value = false;
+      return;
+    }
+
+    // 防抖：避免 focus/visibility 等触发过于频繁，导致堆积大量 pending 请求
+    const now = Date.now();
+    if (now - lastSseProbeAt < 1500) return;
+    lastSseProbeAt = now;
+
+    // 重要：SSE 探针必须“读取并关闭”响应体，否则浏览器会把连接长期显示为 pending，甚至耗尽并发连接数
     try {
-      const res = await fetch(
-        buildHttpUrl("/agents/stream/sse", { probe: 1 }),
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `${getTokenType()} ${getAuthToken()}`,
-          },
-        }
-      );
+      sseProbeAbort?.abort();
+    } catch {}
+    const abortController = new AbortController();
+    sseProbeAbort = abortController;
+
+    const timeoutId = setTimeout(() => {
+      try {
+        abortController.abort();
+      } catch {}
+    }, 2000);
+
+    try {
+      const res = await fetch(buildHttpUrl("/agents/stream/sse", { probe: 1 }), {
+        method: "GET",
+        headers: {
+          Accept: "text/event-stream",
+          "Cache-Control": "no-cache",
+          Authorization: `${getTokenType()} ${token}`,
+        },
+        signal: abortController.signal,
+      });
       sseActive.value = res.ok;
+      if (!res.ok) return;
+
+      // 读取一个 chunk 即可判定链路可用，然后立刻关闭连接，避免 pending
+      try {
+        const reader = res.body?.getReader();
+        if (reader) {
+          await reader.read();
+          await reader.cancel();
+        } else {
+          // fallback：消费一次文本
+          await res.text();
+        }
+      } catch {}
     } catch {
       sseActive.value = false;
+    } finally {
+      clearTimeout(timeoutId);
+      if (sseProbeAbort === abortController) sseProbeAbort = null;
     }
   };
   const reconnectWS = async () => {
@@ -258,15 +302,15 @@ export function useDualChannelConnection(
       env: getEnv(),
       flow_id: flowId,
     };
-    if (agentId?.value) params.agent_id = agentId.value;
+    if (agentId?.value) params.agent_uuid = agentId.value;
     if (sessionId?.value) params.session_id = sessionId.value;
     if (meta) {
-      // 兼容前端历史字段：sessionId/agentId -> session_id/agent_id
+      // 兼容前端历史字段：sessionId/agentId -> session_id/agent_uuid
       if ((meta as any).session_id == null && (meta as any).sessionId != null) {
         (meta as any).session_id = (meta as any).sessionId;
       }
-      if ((meta as any).agent_id == null && (meta as any).agentId != null) {
-        (meta as any).agent_id = (meta as any).agentId;
+      if ((meta as any).agent_uuid == null && (meta as any).agentId != null) {
+        (meta as any).agent_uuid = (meta as any).agentId;
       }
       Object.assign(params, meta);
     }

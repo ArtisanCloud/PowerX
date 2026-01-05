@@ -609,6 +609,8 @@ func indexSystemSlots(sys []admdto.AdminMenuItem) map[plugin_mgr.MenuKey]*admdto
 			idx[plugin_mgr.KeyDashboard] = it
 		case plugin_mgr.KeyWorkflow:
 			idx[plugin_mgr.KeyWorkflow] = it
+		case plugin_mgr.KeyMedia:
+			idx[plugin_mgr.KeyMedia] = it
 		case plugin_mgr.KeyKnowledgeSpace:
 			idx[plugin_mgr.KeyKnowledgeSpace] = it
 		case plugin_mgr.KeyAgent:
@@ -657,7 +659,7 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 		item := origin
 		if item.Origin == plugin_mgr.OriginSystem {
 			switch item.Key {
-			case plugin_mgr.KeyAgent, plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyDashboard:
+			case plugin_mgr.KeyAgent, plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
 				byID[catPinnedKey].Children = append(byID[catPinnedKey].Children, item)
 			case plugin_mgr.KeyPlugins:
 				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, item)

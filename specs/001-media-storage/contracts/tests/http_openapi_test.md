@@ -1,6 +1,6 @@
 # 契约测试计划：公开版 Media OpenAPI
 
-用于校验 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 的对外能力接口，测试覆盖宿主/插件通过 `/api/v1/media/assets` 调用的关键断言。
+用于校验 `specs/001-media-storage/contracts/http-openapi.yaml` 的对外能力接口，测试覆盖宿主/插件通过 `/api/v1/media/assets` 调用的关键断言。
 
 ## POST /media/assets
 - 期望 201 响应，字段 `uuid`、`driver`、`businessStatus` 存在。

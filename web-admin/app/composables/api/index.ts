@@ -235,7 +235,16 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
       }
     }
   }
+  // ofetch/$fetch 超时/主动取消会抛 AbortError（或作为 cause），此时没有 response
+  const isAbort =
+    result?.name === "AbortError" ||
+    result?.cause?.name === "AbortError" ||
+    String(result?.message || "").toLowerCase().includes("aborted") ||
+    String(result?.message || "").toLowerCase().includes("timeout");
   if (!result || !result.response) {
+    if (isAbort) {
+      throw new Error("请求超时，请稍后重试");
+    }
     throw new Error("网络错误，请检查网络连接");
   }
 

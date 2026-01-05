@@ -59,8 +59,12 @@ export class AgentService {
    * 获取Agent状态
    */
   static async getStatus(): Promise<AgentStatus> {
-    const response = await $fetch<AgentStatus>(ApiEndpoints.AGENTS.STATUS);
-    return response;
+    const response: any = await $fetch<any>(ApiEndpoints.AGENTS.STATUS);
+    // 兼容后端统一响应体：{ code, message, data, timestamp }
+    if (response && typeof response === "object" && "code" in response) {
+      return (response.data || {}) as AgentStatus;
+    }
+    return (response || {}) as AgentStatus;
   }
 
   /**

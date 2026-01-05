@@ -93,6 +93,7 @@
     "openCapabilities": "플랫폼 능력",
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
+    "media": "미디어",
     "pluginMarketplace": "마켓",
     "pluginsInstalled": "설치됨",
     "pluginsMarket": "마켓"
@@ -322,7 +323,8 @@
       "sessions": "최근 세션",
       "newSession": "새 세션",
       "noSessions": "세션이 없습니다",
-      "untitledSession": "제목 없는 세션"
+      "untitledSession": "제목 없는 세션",
+      "clearSessions": "이 에이전트의 모든 세션 삭제"
     },
     "message": {
       "justNow": "방금 전",
@@ -468,9 +470,18 @@
         "emptyDesc": "정책을 추가해 주세요.",
         "playbookTitle": "플레이북",
         "playbooks": {
-          "throttle": { "title": "스로틀", "desc": "예산이 부족할 때 요청을 제한합니다." },
-          "degrade": { "title": "디그레이드", "desc": "저비용 모델로 전환합니다." },
-          "disable": { "title": "비활성화", "desc": "예산 초과 시 서비스를 중지합니다." }
+          "throttle": {
+            "title": "스로틀",
+            "desc": "예산이 부족할 때 요청을 제한합니다."
+          },
+          "degrade": {
+            "title": "디그레이드",
+            "desc": "저비용 모델로 전환합니다."
+          },
+          "disable": {
+            "title": "비활성화",
+            "desc": "예산 초과 시 서비스를 중지합니다."
+          }
         },
         "defaultTenants": {
           "demo": "데모",

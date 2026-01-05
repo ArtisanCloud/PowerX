@@ -52,73 +52,75 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Event Fabric ---
-	if c.Event.Fabric.AckTimeoutSeconds <= 0 {
-		errors = append(errors, "event_fabric.ack_timeout_seconds 必须大于0")
-	}
-	if c.Event.Fabric.DefaultMaxRetry <= 0 {
-		errors = append(errors, "event_fabric.default_max_retry 必须大于0")
-	}
-	if strings.TrimSpace(c.Event.Fabric.RetryKeyPrefix) == "" {
-		errors = append(errors, "event_fabric.retry_key_prefix 不能为空")
-	}
-	if strings.TrimSpace(c.Event.Fabric.ReplayKeyPrefix) == "" {
-		errors = append(errors, "event_fabric.replay_key_prefix 不能为空")
-	}
-	if c.Event.Fabric.SchedulerInterval <= 0 {
-		errors = append(errors, "event_fabric.scheduler_interval 必须大于0")
-	}
-	if strings.TrimSpace(c.Event.Fabric.RedisAddr) == "" {
-		errors = append(errors, "event_fabric.redis_addr 不能为空")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Security.SignatureSecret) != "" {
-		if strings.TrimSpace(c.Event.Fabric.Security.SignatureHeader) == "" {
-			errors = append(errors, "event_fabric.security.signature_header 不能为空")
+	if c.FeatureGate.EnableEventFabric {
+		if c.Event.Fabric.AckTimeoutSeconds <= 0 {
+			errors = append(errors, "event_fabric.ack_timeout_seconds 必须大于0")
 		}
-		if strings.TrimSpace(c.Event.Fabric.Security.TimestampHeader) == "" {
-			errors = append(errors, "event_fabric.security.timestamp_header 不能为空")
+		if c.Event.Fabric.DefaultMaxRetry <= 0 {
+			errors = append(errors, "event_fabric.default_max_retry 必须大于0")
 		}
-		if c.Event.Fabric.Security.AllowedClockSkewSeconds <= 0 {
-			errors = append(errors, "event_fabric.security.allowed_clock_skew_seconds 必须大于0")
+		if strings.TrimSpace(c.Event.Fabric.RetryKeyPrefix) == "" {
+			errors = append(errors, "event_fabric.retry_key_prefix 不能为空")
 		}
-	}
-	if c.Event.Fabric.Authorization.CacheTTLSeconds <= 0 {
-		errors = append(errors, "event_fabric.authorization.cache_ttl_seconds 必须大于0")
-	}
-	if c.Event.Fabric.Authorization.LocalCacheTTLSeconds <= 0 {
-		errors = append(errors, "event_fabric.authorization.local_cache_ttl_seconds 必须大于0")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.RedisAddr) == "" {
-		errors = append(errors, "event_fabric.authorization.redis_addr 不能为空")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.CacheInvalidateChannel) == "" {
-		errors = append(errors, "event_fabric.authorization.cache_invalidate_channel 不能为空")
-	}
-	if c.Event.Fabric.Authorization.ChallengeSLASeconds <= 0 {
-		errors = append(errors, "event_fabric.authorization.challenge_sla_seconds 必须大于0")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeTopic) == "" {
-		errors = append(errors, "event_fabric.authorization.challenge_topic 不能为空")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeConsumerGroup) == "" {
-		errors = append(errors, "event_fabric.authorization.challenge_consumer_group 不能为空")
-	}
-	if c.Event.Fabric.Authorization.TimeoutSweepIntervalSeconds <= 0 {
-		errors = append(errors, "event_fabric.authorization.timeout_sweep_interval_seconds 必须大于0")
-	}
-	if c.Event.Fabric.Authorization.AuditRetentionDays <= 0 {
-		errors = append(errors, "event_fabric.authorization.audit_retention_days 必须大于0")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchiveBucket) == "" {
-		errors = append(errors, "event_fabric.authorization.audit_archive_bucket 不能为空")
-	}
-	if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchivePrefix) == "" {
-		errors = append(errors, "event_fabric.authorization.audit_archive_prefix 不能为空")
-	}
-	if c.Event.Fabric.Authorization.Secrets.CacheTTLSeconds < 0 {
-		errors = append(errors, "event_fabric.authorization.secrets.cache_ttl_seconds 不能为负数")
-	}
-	if c.Event.Fabric.Authorization.Secrets.RotationIntervalSeconds < 0 {
-		errors = append(errors, "event_fabric.authorization.secrets.rotation_interval_seconds 不能为负数")
+		if strings.TrimSpace(c.Event.Fabric.ReplayKeyPrefix) == "" {
+			errors = append(errors, "event_fabric.replay_key_prefix 不能为空")
+		}
+		if c.Event.Fabric.SchedulerInterval <= 0 {
+			errors = append(errors, "event_fabric.scheduler_interval 必须大于0")
+		}
+		if strings.TrimSpace(c.Event.Fabric.RedisAddr) == "" {
+			errors = append(errors, "event_fabric.redis_addr 不能为空")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Security.SignatureSecret) != "" {
+			if strings.TrimSpace(c.Event.Fabric.Security.SignatureHeader) == "" {
+				errors = append(errors, "event_fabric.security.signature_header 不能为空")
+			}
+			if strings.TrimSpace(c.Event.Fabric.Security.TimestampHeader) == "" {
+				errors = append(errors, "event_fabric.security.timestamp_header 不能为空")
+			}
+			if c.Event.Fabric.Security.AllowedClockSkewSeconds <= 0 {
+				errors = append(errors, "event_fabric.security.allowed_clock_skew_seconds 必须大于0")
+			}
+		}
+		if c.Event.Fabric.Authorization.CacheTTLSeconds <= 0 {
+			errors = append(errors, "event_fabric.authorization.cache_ttl_seconds 必须大于0")
+		}
+		if c.Event.Fabric.Authorization.LocalCacheTTLSeconds <= 0 {
+			errors = append(errors, "event_fabric.authorization.local_cache_ttl_seconds 必须大于0")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.RedisAddr) == "" {
+			errors = append(errors, "event_fabric.authorization.redis_addr 不能为空")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.CacheInvalidateChannel) == "" {
+			errors = append(errors, "event_fabric.authorization.cache_invalidate_channel 不能为空")
+		}
+		if c.Event.Fabric.Authorization.ChallengeSLASeconds <= 0 {
+			errors = append(errors, "event_fabric.authorization.challenge_sla_seconds 必须大于0")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeTopic) == "" {
+			errors = append(errors, "event_fabric.authorization.challenge_topic 不能为空")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.ChallengeConsumerGroup) == "" {
+			errors = append(errors, "event_fabric.authorization.challenge_consumer_group 不能为空")
+		}
+		if c.Event.Fabric.Authorization.TimeoutSweepIntervalSeconds <= 0 {
+			errors = append(errors, "event_fabric.authorization.timeout_sweep_interval_seconds 必须大于0")
+		}
+		if c.Event.Fabric.Authorization.AuditRetentionDays <= 0 {
+			errors = append(errors, "event_fabric.authorization.audit_retention_days 必须大于0")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchiveBucket) == "" {
+			errors = append(errors, "event_fabric.authorization.audit_archive_bucket 不能为空")
+		}
+		if strings.TrimSpace(c.Event.Fabric.Authorization.AuditArchivePrefix) == "" {
+			errors = append(errors, "event_fabric.authorization.audit_archive_prefix 不能为空")
+		}
+		if c.Event.Fabric.Authorization.Secrets.CacheTTLSeconds < 0 {
+			errors = append(errors, "event_fabric.authorization.secrets.cache_ttl_seconds 不能为负数")
+		}
+		if c.Event.Fabric.Authorization.Secrets.RotationIntervalSeconds < 0 {
+			errors = append(errors, "event_fabric.authorization.secrets.rotation_interval_seconds 不能为负数")
+		}
 	}
 
 	// --- Capability Registry ---

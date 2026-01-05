@@ -1,0 +1,74 @@
+<template>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <UCard
+      v-for="asset in items"
+      :key="asset.uuid"
+      class="cursor-pointer hover:shadow-md transition-shadow"
+      @click="$emit('select', asset.uuid)"
+    >
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold text-[var(--text-primary)]">
+            {{ asset.name || "-" }}
+          </div>
+          <div class="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--text-secondary)]">
+            <span>{{ asset.mimeType || "unknown" }}</span>
+            <span v-if="asset.sizeBytes != null">· {{ formatBytes(asset.sizeBytes) }}</span>
+          </div>
+        </div>
+        <UBadge :color="statusColor(asset.businessStatus)" variant="soft" class="shrink-0">
+          {{ asset.businessStatus || "-" }}
+        </UBadge>
+      </div>
+
+      <div class="mt-3 flex items-center justify-between text-xs text-[var(--text-tertiary)]">
+        <span>{{ asset.driver || "-" }}</span>
+        <span>{{ formatTime(asset.updatedAt) }}</span>
+      </div>
+    </UCard>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+
+defineProps<{
+  items: MediaAssetAdminView[];
+}>();
+
+defineEmits<{
+  (e: "select", uuid: string): void;
+}>();
+
+function statusColor(status: string) {
+  switch (String(status || "").toLowerCase()) {
+    case "draft":
+      return "gray";
+    case "under_review":
+      return "amber";
+    case "published":
+      return "green";
+    case "archived":
+      return "blue";
+    default:
+      return "gray";
+  }
+}
+
+function formatBytes(value: number) {
+  const size = Number(value);
+  if (!Number.isFinite(size) || size <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const idx = Math.min(Math.floor(Math.log(size) / Math.log(1024)), units.length - 1);
+  const num = size / Math.pow(1024, idx);
+  return `${num.toFixed(num >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function formatTime(value: string) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString();
+}
+</script>
+

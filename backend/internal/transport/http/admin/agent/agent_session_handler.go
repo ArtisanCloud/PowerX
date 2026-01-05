@@ -8,19 +8,23 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
 // ===== Service holder =====
 type AgentSessionHandler struct {
 	his *agentSvc.ChatHistoryService
+	ag  *agentSvc.AgentService
 }
 
 func NewAgentSessionHandler(dep *shared.Deps) *AgentSessionHandler {
 	return &AgentSessionHandler{
 		his: agentSvc.NewChatHistoryService(dep.DB),
+		ag:  agentSvc.NewAgentService(dep.DB),
 	}
 }
 
@@ -28,7 +32,8 @@ func NewAgentSessionHandler(dep *shared.Deps) *AgentSessionHandler {
 
 type createSessionReq struct {
 	Env       string            `json:"env" validate:"required"`
-	AgentID   uint64            `json:"agentId" validate:"required"`
+	AgentID   uint64            `json:"agentId"`
+	AgentUUID string            `json:"agentUuid"`
 	Title     string            `json:"title"`
 	UserID    uint64            `json:"userId"`              // 可选；没有就由后端取鉴权上下文（此处留空也行）
 	Singleton *bool             `json:"singleton,omitempty"` // 不传就按 Agent 策略；这里只作直传
@@ -73,6 +78,28 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	agentID := req.AgentID
+	if strings.TrimSpace(req.AgentUUID) != "" {
+		agentUUID, err := uuid.Parse(strings.TrimSpace(req.AgentUUID))
+		if err != nil {
+			dto.ResponseError(c, 400, "agentUuid 非法", err)
+			return
+		}
+		exist, err := h.ag.GetByUUID(c.Request.Context(), req.Env, tenantRef, agentUUID)
+		if err != nil {
+			dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+			return
+		}
+		agentID = exist.ID
+	}
+	if agentID == 0 {
+		dto.ResponseError(c, 400, "agentId/agentUuid 必填", nil)
+		return
+	}
+	userID := req.UserID
+	if userID == 0 {
+		userID = reqctx.GetUserID(c.Request.Context())
+	}
 
 	// 单例标志：如果没传，默认 false（可在上层读取 Agent 配置再传入）
 	singleton := false
@@ -88,7 +115,7 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		Meta:      req.Meta,
 	}
 
-	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, tenantRef, req.AgentID, req.UserID, singleton, &def)
+	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, tenantRef, agentID, userID, singleton, &def)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -105,10 +132,26 @@ func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	agentID, err := utils.ParseUintID(c.DefaultQuery("agent_id", "0"))
-	if err != nil || agentID == 0 {
-		dto.ResponseError(c, 400, "agent_id 必填", nil)
-		return
+	var agentID uint64
+	if agentUUIDStr := strings.TrimSpace(c.Query("agent_uuid")); agentUUIDStr != "" {
+		agentUUID, err := uuid.Parse(agentUUIDStr)
+		if err != nil {
+			dto.ResponseError(c, 400, "agent_uuid 非法", err)
+			return
+		}
+		exist, err := h.ag.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+		if err != nil {
+			dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+			return
+		}
+		agentID = exist.ID
+	} else {
+		id, err := utils.ParseUintID(c.DefaultQuery("agent_id", "0"))
+		if err != nil || id == 0 {
+			dto.ResponseError(c, 400, "agent_uuid/agent_id 必填", nil)
+			return
+		}
+		agentID = id
 	}
 
 	var statuses []string

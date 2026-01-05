@@ -9,7 +9,8 @@ export default defineNuxtPlugin(() => {
 
   setApiConfig({
     baseURL: config.public.apiBase || "/api",
-    timeout: 10000,
+    // 默认超时：Agent 会话/配置拉取在本地冷启动或 DB 慢查询时可能超过 10s，过短会被浏览器 Abort 掉并误报“网络错误”
+    timeout: 30000,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
