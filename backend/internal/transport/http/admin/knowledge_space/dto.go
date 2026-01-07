@@ -211,6 +211,8 @@ type fusionStrategyResponse struct {
 	RerankerModel   string     `json:"rerankerModel"`
 	ConflictPolicy  string     `json:"conflictPolicy"`
 	DeploymentState string     `json:"deploymentState"`
+	Degraded        bool       `json:"degraded"`
+	DegradeReasons  []string   `json:"degradeReasons,omitempty"`
 	PublishedAt     *time.Time `json:"publishedAt,omitempty"`
 }
 
@@ -292,6 +294,13 @@ func toFusionStrategyResponse(strategy *models.FusionStrategyVersion) fusionStra
 	if strategy == nil {
 		return fusionStrategyResponse{}
 	}
+	var snap struct {
+		DegradeReasons []string `json:"degrade_reasons"`
+	}
+	if len(strategy.BenchmarkMetrics) > 0 {
+		_ = json.Unmarshal(strategy.BenchmarkMetrics, &snap)
+	}
+	degraded := len(snap.DegradeReasons) > 0
 	return fusionStrategyResponse{
 		StrategyID:      strategyIDString(strategy.ID),
 		SpaceID:         strategy.SpaceUUID.String(),
@@ -302,6 +311,8 @@ func toFusionStrategyResponse(strategy *models.FusionStrategyVersion) fusionStra
 		RerankerModel:   strategy.RerankerModel,
 		ConflictPolicy:  strategy.ConflictPolicy,
 		DeploymentState: strategy.DeploymentState,
+		Degraded:        degraded,
+		DegradeReasons:  snap.DegradeReasons,
 		PublishedAt:     strategy.PublishedAt,
 	}
 }

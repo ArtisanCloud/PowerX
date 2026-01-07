@@ -43,6 +43,7 @@ type Env struct {
 	Bus                       event_bus.EventBus
 	tenantID                  uuid.UUID
 	VectorStore               *VectorStoreStub
+	SparseIndex               *SparseIndexStub
 	Pipeline                  *ReprocessPipelineStub
 	FeedbackReportPath        string
 	KnowledgeUpdateReportPath string
@@ -84,6 +85,7 @@ func New(t testing.TB) *Env {
 	bus := event_bus.NewLocalEventBus()
 	inst := knowledgeinstr.New(knowledgeinstr.Options{})
 	vectorStore := NewVectorStoreStub()
+	sparseIndex := NewSparseIndexStub()
 
 	cfg := shared.KnowledgeSpaceRuntimeConfig{
 		LockKeyPrefix:          "test:knowledge:lock",
@@ -196,6 +198,7 @@ func New(t testing.TB) *Env {
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
+		SparseIndex:     sparseIndex,
 		EventBus:        bus,
 		EventTopic:      cfg.EventTopics.Fusion,
 		Clock:           time.Now,
@@ -278,6 +281,7 @@ func New(t testing.TB) *Env {
 		Bus:                       bus,
 		tenantID:                  uuid.New(),
 		VectorStore:               vectorStore,
+		SparseIndex:               sparseIndex,
 		Pipeline:                  pipelineStub,
 		FeedbackReportPath:        feedbackReportPath,
 		KnowledgeUpdateReportPath: updateReportPath,

@@ -104,19 +104,19 @@
 
 ### 测试
 
-- [ ] **T037 [P] [US3]** 在 `backend/tests/contract/knowledge_space/fusion_http_test.go` 编写 HTTP 合同测试（发布、回滚、冲突队列、降级原因）。
-- [ ] **T038 [P] [US3]** 在 `.../fusion_grpc_test.go` 编写 gRPC 合同测试。
-- [ ] **T039 [P] [US3]** 在 `backend/tests/integration/knowledge_space/fusion_strategy_flow_test.go` 验证发布→（多源召回）→降级→回滚（至少覆盖 vector+bM25；可选 KG/hier）。
-- [ ] **T040 [P] [US3]** 在 `web-admin/tests/e2e/knowledge-spaces-fusion.spec.ts` 覆盖权重调节、降级提示、回滚按钮。
+- [X] **T037 [P] [US3]** 在 `backend/tests/contract/knowledge_space/fusion_http_test.go` 编写 HTTP 合同测试（发布、回滚、冲突队列、降级原因）。
+- [X] **T038 [P] [US3]** 在 `.../fusion_grpc_test.go` 编写 gRPC 合同测试。
+- [X] **T039 [P] [US3]** 在 `backend/tests/integration/knowledge_space/fusion_strategy_flow_test.go` 验证发布→（多源召回）→降级→回滚（至少覆盖 vector+bM25；可选 KG/hier）。
+- [X] **T040 [P] [US3]** 在 `web-admin/tests/e2e/knowledge-spaces-fusion.spec.ts` 覆盖权重调节、降级提示、回滚按钮。
 
 ### 实现
 
-- [ ] **T041 [US3]** 在 `backend/internal/service/knowledge_space/fusion_service.go` 实现策略 CRUD、权重归一化、回滚令牌，并扩展到 multi-source（vector+sparse+hier+kg）可选融合与归一化。
-- [ ] **T042 [US3]** 在 `backend/internal/transport/http/admin/knowledge_space/fusion_handlers.go` 提供 HTTP 接口。
-- [ ] **T043 [US3]** 在 `backend/internal/transport/grpc/knowledge_space/fusion_service.go` 提供 gRPC 接口及降级触发。
-- [ ] **T044 [US3]** 在 `web-admin/app/pages/knowledge-spaces/fusion.vue` 构建策略管理界面：权重编辑、冲突队列、降级原因、版本对比与回滚确认。
-- [ ] **T045 [US3]** 添加 `scripts/fusion/rollback_strategy.mjs` 等运维脚本，并在后端事件/告警中接入 `fusion.source.failed`（携带 space_id/strategy_id/degrade_reason/trace_id）。
-- [ ] **T043A [US3]** 在服务层检索路径对接 `VectorStore.Query` + `SparseIndex.Query` + `KG.Query`（可选）并输出可解释候选集（source、raw_score、normalized_score、provenance），为 rerank/CRAG/Self-RAG 提供输入。
+- [X] **T041 [US3]** 在 `backend/internal/service/knowledge_space/fusion_service.go` 实现策略 CRUD、权重归一化、回滚令牌，并扩展到 multi-source（vector+sparse+hier+kg）可选融合与归一化。
+- [X] **T042 [US3]** 在 `backend/internal/transport/http/admin/knowledge_space/fusion_handlers.go` 提供 HTTP 接口。
+- [X] **T043 [US3]** 在 `backend/internal/transport/grpc/knowledge_space/fusion_service.go` 提供 gRPC 接口及降级触发。
+- [X] **T044 [US3]** 在 `web-admin/app/pages/knowledge-spaces/fusion.vue` 构建策略管理界面：权重编辑、冲突队列、降级原因、版本对比与回滚确认。
+- [X] **T045 [US3]** 添加 `scripts/fusion/rollback_strategy.mjs` 等运维脚本，并在后端事件/告警中接入 `fusion.source.failed`（携带 space_id/strategy_id/degrade_reason/trace_id）。
+- [X] **T043A [US3]** 在服务层检索路径对接 `VectorStore.Query` + `SparseIndex.Query` + `KG.Query`（可选）并输出可解释候选集（source、raw_score、normalized_score、provenance），为 rerank/CRAG/Self-RAG 提供输入。
 
 ---
 

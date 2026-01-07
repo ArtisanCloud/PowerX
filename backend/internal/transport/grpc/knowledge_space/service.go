@@ -144,64 +144,6 @@ func (s *Server) RetireKnowledgeSpace(ctx context.Context, req *knowledgev1.Reti
 	return &knowledgev1.RetireKnowledgeSpaceResponse{Space: toProto(space)}, nil
 }
 
-func (s *Server) PublishFusionStrategy(ctx context.Context, req *knowledgev1.FusionStrategyRequest) (*knowledgev1.FusionStrategyResponse, error) {
-	if s.fusion == nil {
-		return nil, status.Error(codes.Unimplemented, "fusion service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	strategy, err := s.fusion.PublishStrategy(ctx, ksvc.PublishStrategyInput{
-		SpaceID:         spaceID,
-		Label:           req.GetLabel(),
-		BM25Weight:      req.GetBm25Weight(),
-		VectorWeight:    req.GetVectorWeight(),
-		GraphConstraint: req.GetGraphConstraint(),
-		RerankerModel:   req.GetRerankerModel(),
-		ConflictPolicy:  req.GetConflictPolicy(),
-	})
-	if err != nil {
-		return nil, mapFusionError(err)
-	}
-	return &knowledgev1.FusionStrategyResponse{Strategy: toProtoFusionStrategy(strategy)}, nil
-}
-
-func (s *Server) ListFusionStrategies(ctx context.Context, req *knowledgev1.ListFusionStrategiesRequest) (*knowledgev1.ListFusionStrategiesResponse, error) {
-	if s.fusion == nil {
-		return nil, status.Error(codes.Unimplemented, "fusion service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	strategies, err := s.fusion.ListStrategies(ctx, spaceID, int(req.GetLimit()))
-	if err != nil {
-		return nil, mapFusionError(err)
-	}
-	return &knowledgev1.ListFusionStrategiesResponse{
-		Strategies: toProtoFusionStrategyList(strategies),
-	}, nil
-}
-
-func (s *Server) RollbackFusionStrategy(ctx context.Context, req *knowledgev1.RollbackFusionStrategyRequest) (*knowledgev1.FusionStrategyResponse, error) {
-	if s.fusion == nil {
-		return nil, status.Error(codes.Unimplemented, "fusion service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	strategy, err := s.fusion.RollbackStrategy(ctx, ksvc.RollbackStrategyInput{
-		SpaceID:    spaceID,
-		StrategyID: req.GetStrategyId(),
-	})
-	if err != nil {
-		return nil, mapFusionError(err)
-	}
-	return &knowledgev1.FusionStrategyResponse{Strategy: toProtoFusionStrategy(strategy)}, nil
-}
-
 func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrievalPlanRequest) (*knowledgev1.QARetrievalPlanResponse, error) {
 	if s.qa == nil {
 		return nil, status.Error(codes.Unavailable, "qa bridge not available")
@@ -437,6 +379,12 @@ func toProtoFusionStrategy(strategy *models.FusionStrategyVersion) *knowledgev1.
 	if strategy.PublishedAt != nil {
 		publishedAt = timestamppb.New(*strategy.PublishedAt)
 	}
+	var snap struct {
+		DegradeReasons []string `json:"degrade_reasons"`
+	}
+	if len(strategy.BenchmarkMetrics) > 0 {
+		_ = json.Unmarshal(strategy.BenchmarkMetrics, &snap)
+	}
 	return &knowledgev1.FusionStrategy{
 		StrategyId:      strategy.ID,
 		SpaceId:         strategy.SpaceUUID.String(),
@@ -448,6 +396,7 @@ func toProtoFusionStrategy(strategy *models.FusionStrategyVersion) *knowledgev1.
 		ConflictPolicy:  strategy.ConflictPolicy,
 		DeploymentState: protoDeploymentState(strategy.DeploymentState),
 		PublishedAt:     publishedAt,
+		DegradeReasons:  snap.DegradeReasons,
 	}
 }
 

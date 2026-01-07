@@ -145,6 +145,9 @@ const rollbackStrategy = async (strategy: FusionStrategyRecord) => {
               BM25 {{ strategy.bm25Weight }} ｜ 向量
               {{ strategy.vectorWeight }} ｜ 模型 {{ strategy.rerankerModel }}
             </p>
+            <p v-if="strategy.degraded" class="text-xs text-orange-600">
+              已降级：{{ strategy.degradeReasons?.join("；") || "unknown" }}
+            </p>
             <p class="text-xs text-gray-500">
               状态：{{ strategy.deploymentState }} ｜ 冲突策略
               {{ strategy.conflictPolicy }}

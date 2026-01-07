@@ -409,6 +409,12 @@ components:
         deploymentState:
           type: string
           enum: [draft, active, rollback]
+        degraded:
+          type: boolean
+        degradeReasons:
+          type: array
+          items:
+            type: string
         publishedAt:
           type: string
           format: date-time

@@ -16,6 +16,8 @@ type VectorStoreStub struct {
 	queryResponses map[uuid.UUID]vectorstore.QueryResponse
 	lastQuery      vectorstore.QueryRequest
 	upsertFailures int
+	queryFailures  int
+	healthErr      error
 }
 
 // NewVectorStoreStub 构造内存驱动。
@@ -95,6 +97,10 @@ func (s *VectorStoreStub) Query(_ context.Context, req vectorstore.QueryRequest)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastQuery = req
+	if s.queryFailures > 0 {
+		s.queryFailures--
+		return vectorstore.QueryResponse{}, errors.New("vectorstore stub: forced query failure")
+	}
 	if resp, ok := s.queryResponses[req.SpaceID]; ok {
 		return resp, nil
 	}
@@ -116,7 +122,11 @@ func (s *VectorStoreStub) LastQuery() vectorstore.QueryRequest {
 }
 
 // Health reports stub availability.
-func (s *VectorStoreStub) Health(context.Context) error { return nil }
+func (s *VectorStoreStub) Health(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.healthErr
+}
 
 // Close releases resources (noop for stub).
 func (s *VectorStoreStub) Close(context.Context) error { return nil }
@@ -131,4 +141,27 @@ func (s *VectorStoreStub) Records(space uuid.UUID) []vectorstore.VectorRecord {
 		out = append(out, rec)
 	}
 	return out
+}
+
+// SetQueryFailures configures how many upcoming Query calls should fail.
+func (s *VectorStoreStub) SetQueryFailures(n int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if n < 0 {
+		n = 0
+	}
+	s.queryFailures = n
+}
+
+// SetHealthError configures Health() to return the given error.
+func (s *VectorStoreStub) SetHealthError(err error) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.healthErr = err
 }

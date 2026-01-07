@@ -132,6 +132,7 @@ message FusionStrategy {
   string conflict_policy = 8;
   DeploymentState deployment_state = 9;
   google.protobuf.Timestamp published_at = 10;
+  repeated string degrade_reasons = 11;
 }
 
 message FeedbackRequest {

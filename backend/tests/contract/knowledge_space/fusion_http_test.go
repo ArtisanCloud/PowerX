@@ -3,6 +3,7 @@ package knowledge_space_contract
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +14,14 @@ import (
 )
 
 type fusionStrategyPayload struct {
-	StrategyID      string  `json:"strategyId"`
-	Label           string  `json:"label"`
-	DeploymentState string  `json:"deploymentState"`
-	ConflictPolicy  string  `json:"conflictPolicy"`
-	BM25Weight      float64 `json:"bm25Weight"`
-	VectorWeight    float64 `json:"vectorWeight"`
+	StrategyID      string   `json:"strategyId"`
+	Label           string   `json:"label"`
+	DeploymentState string   `json:"deploymentState"`
+	ConflictPolicy  string   `json:"conflictPolicy"`
+	BM25Weight      float64  `json:"bm25Weight"`
+	VectorWeight    float64  `json:"vectorWeight"`
+	Degraded        bool     `json:"degraded"`
+	DegradeReasons  []string `json:"degradeReasons"`
 }
 
 func TestFusionHTTPHandlers(t *testing.T) {
@@ -54,6 +57,7 @@ func TestFusionHTTPHandlers(t *testing.T) {
 		}, http.StatusCreated)
 		require.Equal(t, "active", strategy.DeploymentState)
 		require.NotEmpty(t, strategy.StrategyID)
+		require.False(t, strategy.Degraded)
 	})
 
 	t.Run("queue strategy when conflict policy is queue", func(t *testing.T) {
@@ -66,6 +70,34 @@ func TestFusionHTTPHandlers(t *testing.T) {
 			"conflictPolicy":  "queue",
 		}, http.StatusAccepted)
 		require.Equal(t, "draft", strategy.DeploymentState)
+	})
+
+	t.Run("block publish when conflict policy is block", func(t *testing.T) {
+		_ = postStrategy(map[string]any{
+			"label":           "block-me",
+			"bm25Weight":      0.5,
+			"vectorWeight":    0.5,
+			"graphConstraint": "tenant:default",
+			"rerankerModel":   "cross-encoder-v1",
+			"conflictPolicy":  "block",
+		}, http.StatusConflict)
+	})
+
+	t.Run("degrades when vector source unavailable", func(t *testing.T) {
+		env.VectorStore.SetHealthError(errors.New("vector down"))
+		strategy := postStrategy(map[string]any{
+			"label":           "bm25-only",
+			"bm25Weight":      0.2,
+			"vectorWeight":    0.8,
+			"graphConstraint": "tenant:default",
+			"rerankerModel":   "cross-encoder-v1",
+			"conflictPolicy":  "queue",
+		}, http.StatusAccepted)
+		require.True(t, strategy.Degraded)
+		require.NotEmpty(t, strategy.DegradeReasons)
+		require.Greater(t, strategy.BM25Weight, 0.9)
+		require.Less(t, strategy.VectorWeight, 0.01)
+		env.VectorStore.SetHealthError(nil)
 	})
 
 	var strategyList []fusionStrategyPayload

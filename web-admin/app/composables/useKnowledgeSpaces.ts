@@ -66,6 +66,8 @@ export interface FusionStrategyRecord {
   rerankerModel: string;
   conflictPolicy: string;
   deploymentState: string;
+  degraded?: boolean;
+  degradeReasons?: string[];
   publishedAt?: string;
 }
 

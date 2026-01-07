@@ -1433,6 +1433,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
+		SparseIndex:     nil,
 		EventBus:        bus,
 		EventTopic:      cfg.EventTopics.Fusion,
 		Clock:           time.Now,
