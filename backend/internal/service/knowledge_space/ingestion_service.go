@@ -2,9 +2,8 @@ package knowledge_space
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,9 +17,15 @@ import (
 )
 
 var (
-	allowedSourceTypes = map[string]bool{
+	allowedFormats = map[string]bool{
 		"pdf":      true,
+		"docx":     true,
+		"xlsx":     true,
+		"csv":      true,
 		"markdown": true,
+		"html":     true,
+		"sql":      true,
+		"image":    true,
 		"table":    true,
 		"api":      true,
 	}
@@ -37,6 +42,10 @@ type IngestionService struct {
 	inst        *instrumentation.Instrumentation
 	vectorStore vectorstore.Store
 	metrics     *IngestionMetricsWriter
+
+	processors    *ProcessorRegistry
+	artifactStore *ArtifactStore
+	maxRetries    int
 }
 
 // IngestionServiceOptions configures the ingestion service runtime.
@@ -45,16 +54,25 @@ type IngestionServiceOptions struct {
 	Instrumentation *instrumentation.Instrumentation
 	VectorStore     vectorstore.Store
 	MetricsWriter   *IngestionMetricsWriter
+
+	Processors    *ProcessorRegistry
+	ArtifactStore *ArtifactStore
+	MaxRetries    int
 }
 
 // TriggerIngestionInput captures API payload used to start an ingestion job.
 type TriggerIngestionInput struct {
-	SpaceID        uuid.UUID
-	SourceType     string
-	SourceURI      string
-	MaskingProfile string
-	Priority       string
-	RequestedBy    string
+	SpaceID uuid.UUID
+	// Format is the preferred field. SourceType is kept for backward compatibility.
+	Format           string
+	SourceType       string
+	SourceURI        string
+	IngestionProfile string
+	ProcessorProfile string
+	OCRRequired      bool
+	MaskingProfile   string
+	Priority         string
+	RequestedBy      string
 }
 
 // NewIngestionService constructs a service instance.
@@ -66,13 +84,26 @@ func NewIngestionService(opts IngestionServiceOptions) *IngestionService {
 		opts.Instrumentation = instrumentation.New(instrumentation.Options{})
 	}
 	if opts.MetricsWriter == nil {
-		opts.MetricsWriter = NewIngestionMetricsWriter(defaultMetricsPath)
+		opts.MetricsWriter = NewIngestionMetricsWriter("")
+	}
+	if opts.Processors == nil {
+		opts.Processors = NewProcessorRegistry()
+	}
+	if opts.ArtifactStore == nil {
+		opts.ArtifactStore = NewArtifactStore(ArtifactStoreOptions{})
+	}
+	maxRetries := opts.MaxRetries
+	if maxRetries < 0 {
+		maxRetries = 0
 	}
 	return &IngestionService{
-		db:          opts.DB,
-		inst:        opts.Instrumentation,
-		vectorStore: opts.VectorStore,
-		metrics:     opts.MetricsWriter,
+		db:            opts.DB,
+		inst:          opts.Instrumentation,
+		vectorStore:   opts.VectorStore,
+		metrics:       opts.MetricsWriter,
+		processors:    opts.Processors,
+		artifactStore: opts.ArtifactStore,
+		maxRetries:    maxRetries,
 	}
 }
 
@@ -81,8 +112,11 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 	if in.SpaceID == uuid.Nil || strings.TrimSpace(in.SourceURI) == "" {
 		return nil, ErrInvalidInput
 	}
-	sourceType := strings.ToLower(in.SourceType)
-	if !allowedSourceTypes[sourceType] {
+	format := strings.ToLower(strings.TrimSpace(in.Format))
+	if format == "" {
+		format = strings.ToLower(strings.TrimSpace(in.SourceType))
+	}
+	if !allowedFormats[format] {
 		return nil, ErrInvalidInput
 	}
 	priority := strings.ToLower(strings.TrimSpace(in.Priority))
@@ -94,120 +128,210 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 	}
 
 	logger := s.inst.Logger(ctx)
-	logger.InfoF(ctx, "[ingestion] trigger space=%s source=%s type=%s", in.SpaceID, in.SourceURI, sourceType)
+	logger.InfoF(ctx, "[ingestion] trigger space=%s source=%s format=%s", in.SpaceID, in.SourceURI, format)
 
-	chunkSet := synthesizeChunks(in.SpaceID)
-	var job *knowledge.IngestionJob
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		spaces := repo.NewKnowledgeSpaceRepository(tx)
+	spaceRepo := repo.NewKnowledgeSpaceRepository(s.db)
+	space, err := spaceRepo.FindByUUID(ctx, in.SpaceID)
+	if err != nil {
+		return nil, err
+	}
+	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
+		return nil, ErrSpaceNotFound
+	}
+
+	now := time.Now()
+	job := &knowledge.IngestionJob{
+		SpaceUUID:   in.SpaceID,
+		SourceID:    fmt.Sprintf("src-%s", uuid.NewString()),
+		SourceType:  format,
+		Status:      knowledge.IngestionStatusRunning,
+		Priority:    priority,
+		SubmittedBy: in.RequestedBy,
+		StartedAt:   &now,
+	}
+	bundle := &knowledge.ArtifactBundle{
+		IngestionJobID:    0,
+		ChunkManifestURI:  "minio://powerx-knowledge/pending/chunks.json",
+		VectorManifestURI: "minio://powerx-knowledge/pending/vectors.json",
+		MaskingReportURI:  "minio://powerx-knowledge/pending/masking.json",
+		Checksum:          strings.Repeat("0", 64),
+		StorageClass:      "standard",
+		Status:            knowledge.ArtifactBundleStatusActive,
+	}
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		jobs := repo.NewIngestionJobRepository(tx)
 		bundles := repo.NewArtifactBundleRepository(tx)
 
-		space, err := spaces.FindByUUID(ctx, in.SpaceID)
+		createdJob, err := jobs.Create(ctx, job)
 		if err != nil {
 			return err
 		}
-		if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
-			return ErrSpaceNotFound
-		}
 
-		now := time.Now()
-		job = &knowledge.IngestionJob{
-			SpaceUUID:           in.SpaceID,
-			SourceID:            fmt.Sprintf("src-%s", uuid.NewString()),
-			SourceType:          sourceType,
-			Status:              knowledge.IngestionStatusRunning,
-			Priority:            priority,
-			SubmittedBy:         in.RequestedBy,
-			StartedAt:           &now,
-			ChunkTotal:          chunkSet.total,
-			SummaryChunkCount:   chunkSet.summaryCount,
-			ParagraphChunkCount: chunkSet.paragraphCount,
-			ChunkCoveredPct:     100.0,
-			EmbeddingSuccessPct: 0,
-			MaskingCoveragePct:  100.0,
-		}
-		if job, err = jobs.Create(ctx, job); err != nil {
+		bundle.IngestionJobID = createdJob.ID
+		createdBundle, err := bundles.Create(ctx, bundle)
+		if err != nil {
 			return err
 		}
-
-		bundle := &knowledge.ArtifactBundle{
-			IngestionJobID:      job.ID,
-			ChunkManifestURI:    fmt.Sprintf("memory://knowledge/%s/jobs/%d/chunks.json", in.SpaceID, job.ID),
-			VectorManifestURI:   fmt.Sprintf("memory://knowledge/%s/jobs/%d/vectors.json", in.SpaceID, job.ID),
-			GraphManifestURI:    "",
-			MaskingReportURI:    fmt.Sprintf("memory://knowledge/%s/jobs/%d/masking.json", in.SpaceID, job.ID),
-			SummaryChunkCount:   chunkSet.summaryCount,
-			ParagraphChunkCount: chunkSet.paragraphCount,
-			Checksum:            chunkSet.checksum,
-			StorageClass:        "standard",
-		}
-		if bundle, err = bundles.Create(ctx, bundle); err != nil {
+		createdJob.ArtifactBundleID = &createdBundle.ID
+		updatedJob, err := jobs.Update(ctx, createdJob)
+		if err != nil {
 			return err
 		}
-		job.ArtifactBundleID = &bundle.ID
-		if job, err = jobs.Update(ctx, job); err != nil {
-			return err
-		}
+		job = updatedJob
+		bundle = createdBundle
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	vectorErr := s.persistVectors(ctx, in.SpaceID, chunkSet.records)
+	outcome, chunks, vectorRecords := s.runPipeline(ctx, pipelineInput{
+		space:            space,
+		job:              job,
+		bundle:           bundle,
+		format:           format,
+		sourceURI:        in.SourceURI,
+		ingestionProfile: in.IngestionProfile,
+		processorProfile: in.ProcessorProfile,
+		ocrRequired:      in.OCRRequired,
+		maskingProfile:   in.MaskingProfile,
+	})
+
+	if s.artifactStore != nil && bundle != nil {
+		if artifactUpdate, err := s.artifactStore.Write(ctx, ArtifactWriteInput{
+			SpaceID:        in.SpaceID,
+			JobUUID:        job.UUID,
+			JobID:          job.ID,
+			Format:         format,
+			SourceURI:      in.SourceURI,
+			Chunks:         chunks,
+			VectorRecords:  vectorRecords,
+			MaskingProfile: in.MaskingProfile,
+			Outcome:        outcome,
+		}); err == nil {
+			bundle.ChunkManifestURI = artifactUpdate.ChunkManifestURI
+			bundle.VectorManifestURI = artifactUpdate.VectorManifestURI
+			bundle.MaskingReportURI = artifactUpdate.MaskingReportURI
+			bundle.Checksum = artifactUpdate.Checksum
+			bundle.SummaryChunkCount = outcome.summaryCount
+			bundle.ParagraphChunkCount = outcome.chunkCount
+			_, _ = repo.NewArtifactBundleRepository(s.db).Update(ctx, bundle)
+		}
+	}
+
+	vectorErr := s.persistWithRetry(ctx, in.SpaceID, vectorRecords, job, outcome)
 	completed := time.Now()
 	job.CompletedAt = &completed
-	if vectorErr != nil {
+
+	job.ChunkTotal = outcome.totalChunks
+	job.SummaryChunkCount = outcome.summaryCount
+	job.ParagraphChunkCount = outcome.chunkCount
+	job.ChunkCoveredPct = outcome.coveragePct
+	job.MaskingCoveragePct = outcome.maskingPct
+	job.EmbeddingSuccessPct = outcome.embeddingPct
+
+	if outcome.status == knowledge.IngestionStatusBlocked {
+		job.Status = knowledge.IngestionStatusBlocked
+		job.ErrorCode = outcome.errorCode
+		job.BlockedReason = outcome.reason
+		job.EmbeddingSuccessPct = 0
+		job.MetricsSnapshot = mustJSON(outcome.snapshot(completed))
+		_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
+		s.emitMetrics(job, outcome)
+		return job, nil
+	}
+
+	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) {
 		job.Status = knowledge.IngestionStatusFailed
 		job.ErrorCode = "vector_upsert_failed"
 		job.BlockedReason = vectorErr.Error()
 		job.EmbeddingSuccessPct = 0
-	} else {
-		job.Status = knowledge.IngestionStatusCompleted
-		job.EmbeddingSuccessPct = 100.0
-		job.ErrorCode = ""
-		job.BlockedReason = ""
 	}
-	job.MetricsSnapshot = mustJSON(map[string]any{
-		"source_uri":  in.SourceURI,
-		"chunk_total": chunkSet.total,
-		"completed":   completed,
-	})
+	if job.Status != knowledge.IngestionStatusFailed {
+		job.Status = knowledge.IngestionStatusCompleted
+		if outcome.degraded {
+			job.ErrorCode = outcome.errorCode
+			job.BlockedReason = outcome.reason
+		} else {
+			job.ErrorCode = ""
+			job.BlockedReason = ""
+		}
+	}
+
+	job.MetricsSnapshot = mustJSON(outcome.snapshot(completed))
 
 	if _, err := repo.NewIngestionJobRepository(s.db).Update(ctx, job); err != nil {
 		return nil, err
 	}
-	s.emitMetrics(job)
+	s.emitMetrics(job, outcome)
 
-	if vectorErr != nil {
+	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) {
 		return job, vectorErr
 	}
 	return job, nil
 }
 
-func (s *IngestionService) persistVectors(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord) error {
-	if s.vectorStore == nil || len(records) == 0 {
+var ErrIngestionDegraded = errors.New("ingestion degraded")
+
+func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord, job *knowledge.IngestionJob, outcome pipelineOutcome) error {
+	if outcome.status == knowledge.IngestionStatusBlocked || s.vectorStore == nil || len(records) == 0 {
 		return nil
 	}
-	return s.vectorStore.Upsert(ctx, space, records)
+	var lastErr error
+	for attempt := 0; attempt <= s.maxRetries; attempt++ {
+		if attempt > 0 && job != nil {
+			job.RetryCount = attempt
+			job.Status = knowledge.IngestionStatusRetrying
+			_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
+		}
+		if err := s.vectorStore.Upsert(ctx, space, records); err != nil {
+			lastErr = err
+			if attempt < s.maxRetries {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			// Best-effort compensation.
+			var chunkIDs []uuid.UUID
+			for _, rec := range records {
+				chunkIDs = append(chunkIDs, rec.ChunkID)
+			}
+			_ = s.vectorStore.DeleteByChunkIDs(ctx, space, chunkIDs)
+			return err
+		}
+		lastErr = nil
+		break
+	}
+
+	if outcome.degraded {
+		return ErrIngestionDegraded
+	}
+	return lastErr
 }
 
-func (s *IngestionService) emitMetrics(job *knowledge.IngestionJob) {
+func (s *IngestionService) emitMetrics(job *knowledge.IngestionJob, outcome pipelineOutcome) {
 	if job == nil {
 		return
 	}
 	if s.metrics != nil {
 		_ = s.metrics.Store(IngestionSnapshot{
-			SpaceID:             job.SpaceUUID.String(),
-			JobID:               job.UUID.String(),
-			ChunkTotal:          job.ChunkTotal,
-			SummaryChunkCount:   job.SummaryChunkCount,
-			ParagraphChunkCount: job.ParagraphChunkCount,
-			CoveragePct:         job.ChunkCoveredPct,
-			EmbeddingPct:        job.EmbeddingSuccessPct,
-			MaskingPct:          job.MaskingCoveragePct,
-			CompletedAt:         job.CompletedAt,
+			SpaceID:              job.SpaceUUID.String(),
+			JobID:                job.UUID.String(),
+			Status:               job.Status,
+			RetryCount:           job.RetryCount,
+			ChunkTotal:           job.ChunkTotal,
+			SummaryChunkCount:    job.SummaryChunkCount,
+			ParagraphChunkCount:  job.ParagraphChunkCount,
+			CoveragePct:          job.ChunkCoveredPct,
+			EmbeddingPct:         job.EmbeddingSuccessPct,
+			MaskingPct:           job.MaskingCoveragePct,
+			OCRRequired:          outcome.ocrRequired,
+			OCRUsed:              outcome.ocrUsed,
+			OCRCoveragePct:       outcome.ocrCoveragePct,
+			OCRConfidenceBuckets: outcome.ocrConfidenceBuckets,
+			Degraded:             outcome.degraded,
+			ErrorCode:            job.ErrorCode,
+			Reason:               job.BlockedReason,
+			CompletedAt:          job.CompletedAt,
 		})
 	}
 	s.inst.RecordIngestionCoverage(job.ChunkCoveredPct)
@@ -229,64 +353,6 @@ func (s *IngestionService) DropSpaceVectors(ctx context.Context, space uuid.UUID
 	return s.vectorStore.DropSpace(ctx, space)
 }
 
-type chunkBatch struct {
-	records        []vectorstore.VectorRecord
-	summaryCount   int
-	paragraphCount int
-	total          int
-	checksum       string
-}
-
-func synthesizeChunks(space uuid.UUID) chunkBatch {
-	summary := 3
-	paragraph := 6
-	records := make([]vectorstore.VectorRecord, 0, summary+paragraph)
-	var hashes []byte
-	for i := 0; i < summary; i++ {
-		chunkID := uuid.New()
-		records = append(records, vectorstore.VectorRecord{
-			ChunkID:   chunkID,
-			Embedding: fakeEmbedding(i, 32),
-			Metadata: map[string]any{
-				"chunk_kind": "summary",
-				"space_id":   space.String(),
-			},
-		})
-		hashes = append(hashes, chunkID[:]...)
-	}
-	for i := 0; i < paragraph; i++ {
-		chunkID := uuid.New()
-		records = append(records, vectorstore.VectorRecord{
-			ChunkID:   chunkID,
-			Embedding: fakeEmbedding(summary+i, 32),
-			Metadata: map[string]any{
-				"chunk_kind": "paragraph",
-				"space_id":   space.String(),
-			},
-		})
-		hashes = append(hashes, chunkID[:]...)
-	}
-	sum := sha256.Sum256(hashes)
-	return chunkBatch{
-		records:        records,
-		summaryCount:   summary,
-		paragraphCount: paragraph,
-		total:          len(records),
-		checksum:       hex.EncodeToString(sum[:]),
-	}
-}
-
-func fakeEmbedding(seed int, dim int) []float32 {
-	if dim <= 0 {
-		dim = 32
-	}
-	vec := make([]float32, dim)
-	for i := 0; i < dim; i++ {
-		vec[i] = float32((seed + i%7)) / 10.0
-	}
-	return vec
-}
-
 func mustJSON(v any) []byte {
 	if v == nil {
 		return []byte("{}")
@@ -296,4 +362,203 @@ func mustJSON(v any) []byte {
 		return []byte("{}")
 	}
 	return buf
+}
+
+type pipelineInput struct {
+	space            *knowledge.KnowledgeSpace
+	job              *knowledge.IngestionJob
+	bundle           *knowledge.ArtifactBundle
+	format           string
+	sourceURI        string
+	ingestionProfile string
+	processorProfile string
+	ocrRequired      bool
+	maskingProfile   string
+}
+
+type pipelineOutcome struct {
+	status               string
+	degraded             bool
+	errorCode            string
+	reason               string
+	totalChunks          int
+	summaryCount         int
+	chunkCount           int
+	coveragePct          float64
+	embeddingPct         float64
+	maskingPct           float64
+	ocrRequired          bool
+	ocrNeeded            bool
+	ocrUsed              bool
+	ocrCoveragePct       float64
+	ocrConfidenceBuckets map[string]int
+}
+
+func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
+	return map[string]any{
+		"status":           o.status,
+		"degraded":         o.degraded,
+		"error_code":       o.errorCode,
+		"reason":           o.reason,
+		"chunk_total":      o.totalChunks,
+		"summary_chunks":   o.summaryCount,
+		"content_chunks":   o.chunkCount,
+		"coverage_pct":     o.coveragePct,
+		"embedding_pct":    o.embeddingPct,
+		"masking_pct":      o.maskingPct,
+		"ocr_required":     o.ocrRequired,
+		"ocr_needed":       o.ocrNeeded,
+		"ocr_used":         o.ocrUsed,
+		"ocr_coverage_pct": o.ocrCoveragePct,
+		"ocr_confidence":   o.ocrConfidenceBuckets,
+		"completed":        completed,
+	}
+}
+
+type IngestionChunk struct {
+	ID         uuid.UUID
+	Kind       string
+	Content    string
+	Metadata   map[string]any
+	Confidence float64
+	Masked     bool
+}
+
+func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord) {
+	format := strings.ToLower(strings.TrimSpace(in.format))
+	sourceURI := strings.TrimSpace(in.sourceURI)
+	out := pipelineOutcome{
+		status:               knowledge.IngestionStatusCompleted,
+		coveragePct:          100,
+		embeddingPct:         100,
+		maskingPct:           100,
+		ocrRequired:          in.ocrRequired,
+		ocrConfidenceBuckets: map[string]int{"0.0-0.5": 0, "0.5-0.8": 0, "0.8-1.0": 0},
+	}
+
+	needsOCR := in.ocrRequired
+	if format == "image" {
+		needsOCR = true
+	}
+	if format == "pdf" && strings.Contains(strings.ToLower(sourceURI), "scan") {
+		needsOCR = true
+	}
+
+	processor, resolution := s.processors.Resolve(format, needsOCR, in.ocrRequired, in.processorProfile)
+	out.ocrNeeded = needsOCR
+	out.ocrUsed = resolution.OCRUsed
+	if resolution.Decision == ProcessorDecisionBlocked {
+		out.status = knowledge.IngestionStatusBlocked
+		out.errorCode = resolution.ErrorCode
+		out.reason = resolution.Reason
+		out.coveragePct = 0
+		out.embeddingPct = 0
+		out.maskingPct = 0
+		return out, nil, nil
+	}
+	if resolution.Decision == ProcessorDecisionDegraded {
+		out.degraded = true
+		out.errorCode = resolution.ErrorCode
+		out.reason = resolution.Reason
+		out.coveragePct = 40
+	}
+
+	docUnits, ocrStats := processor.Process(ctx, DocumentProcessInput{
+		Format:       format,
+		SourceURI:    sourceURI,
+		NeedOCR:      needsOCR,
+		OCRAvailable: resolution.OCRAvailable,
+	})
+	out.ocrCoveragePct = ocrStats.CoveragePct
+	out.ocrConfidenceBuckets = ocrStats.ConfidenceBuckets
+
+	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits)
+	if len(chunks) == 0 || !hasContentChunks(chunks) {
+		chunks = append(chunks, IngestionChunk{
+			ID:      uuid.NewSHA1(in.space.UUID, []byte("section_summary|placeholder|"+format+"|"+sourceURI)),
+			Kind:    "section_summary",
+			Content: "Section 1 summary (placeholder)",
+			Metadata: map[string]any{
+				"format":     format,
+				"source_uri": sourceURI,
+				"provenance": map[string]any{},
+				"section":    1,
+			},
+		})
+		chunks = append(chunks, IngestionChunk{
+			ID:      uuid.NewSHA1(in.space.UUID, []byte("chunk|placeholder|"+format+"|"+sourceURI)),
+			Kind:    "chunk",
+			Content: "content unavailable",
+			Metadata: map[string]any{
+				"format":     format,
+				"source_uri": sourceURI,
+				"provenance": map[string]any{},
+			},
+		})
+		out.degraded = true
+		if out.errorCode == "" {
+			out.errorCode = "degraded"
+		}
+		if out.reason == "" {
+			out.reason = "empty_content"
+		}
+		out.coveragePct = 0
+	}
+
+	// Masking.
+	masker := NewMasker(in.maskingProfile)
+	maskedChunks, maskingPct, maskBlock := masker.Apply(chunks)
+	out.maskingPct = maskingPct
+	if maskBlock {
+		out.status = knowledge.IngestionStatusBlocked
+		out.errorCode = "masking_required"
+		out.reason = "masking_blocked"
+		out.coveragePct = 0
+		out.embeddingPct = 0
+		return out, maskedChunks, nil
+	}
+
+	summaryCount, contentCount := countChunkKinds(maskedChunks)
+	out.summaryCount = summaryCount
+	out.chunkCount = contentCount
+	out.totalChunks = len(maskedChunks)
+
+	records := make([]vectorstore.VectorRecord, 0, len(maskedChunks))
+	for _, chunk := range maskedChunks {
+		embedding := HashEmbedding(chunk.Content, 32)
+		meta := make(map[string]any, len(chunk.Metadata)+2)
+		for k, v := range chunk.Metadata {
+			meta[k] = v
+		}
+		meta["chunk_kind"] = chunk.Kind
+		meta["content_hash"] = ContentHash(chunk.Content)
+		records = append(records, vectorstore.VectorRecord{
+			ChunkID:   chunk.ID,
+			Embedding: embedding,
+			Metadata:  meta,
+		})
+	}
+
+	return out, maskedChunks, records
+}
+
+func countChunkKinds(chunks []IngestionChunk) (summaryCount int, contentCount int) {
+	for _, c := range chunks {
+		switch c.Kind {
+		case "doc_summary", "section_summary":
+			summaryCount++
+		default:
+			contentCount++
+		}
+	}
+	return summaryCount, contentCount
+}
+
+func hasContentChunks(chunks []IngestionChunk) bool {
+	for _, c := range chunks {
+		if c.Kind != "doc_summary" && c.Kind != "section_summary" {
+			return true
+		}
+	}
+	return false
 }

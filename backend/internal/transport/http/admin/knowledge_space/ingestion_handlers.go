@@ -3,6 +3,7 @@ package knowledge_space
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,13 +40,24 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	format := strings.TrimSpace(req.Format)
+	if format == "" {
+		format = strings.TrimSpace(req.SourceType)
+	}
+	if format == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "缺少文档格式(format/sourceType)", errors.New("missing format"))
+		return
+	}
 	job, err := h.svc.Trigger(c.Request.Context(), ksvc.TriggerIngestionInput{
-		SpaceID:        spaceID,
-		SourceType:     req.SourceType,
-		SourceURI:      req.SourceURI,
-		MaskingProfile: req.MaskingProfile,
-		Priority:       req.Priority,
-		RequestedBy:    req.RequestedBy,
+		SpaceID:          spaceID,
+		Format:           format,
+		SourceURI:        req.SourceURI,
+		IngestionProfile: req.IngestionProfile,
+		ProcessorProfile: req.ProcessorProfile,
+		OCRRequired:      req.OCRRequired,
+		MaskingProfile:   req.MaskingProfile,
+		Priority:         req.Priority,
+		RequestedBy:      req.RequestedBy,
 	})
 	if err != nil {
 		switch {

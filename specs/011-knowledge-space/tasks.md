@@ -78,22 +78,22 @@
 
 ### 测试
 
-- [ ] **T028 [P] [US2]** 在 `backend/tests/contract/knowledge_space/ingestion_http_test.go` 编写 HTTP 合同测试（正常、重试、脱敏阻断、OCR/Processor 降级/阻塞）。
-- [ ] **T029 [P] [US2]** 在 `.../ingestion_grpc_test.go` 编写 gRPC 合同测试（同上）。
-- [ ] **T030 [P] [US2]** 在 `backend/tests/integration/knowledge_space/ingestion_flow_test.go` 编写集成测试：覆盖至少 PDF（文本层+扫描）、Word、Excel/CSV、HTML、SQL；断言多粒度 chunk（summary/section/chunk）、coverage、embedding、masking、artifact bundle URI（MinIO/S3）与 checksum。
-- [ ] **T031 [P] [US2]** 在 `web-admin/tests/unit/knowledge-spaces/ingestion.spec.ts` 使用 Vitest 覆盖入库触发组件（含 Processor 状态提示与降级原因）。
+- [X] **T028 [P] [US2]** 在 `backend/tests/contract/knowledge_space/ingestion_http_test.go` 编写 HTTP 合同测试（正常、重试、脱敏阻断、OCR/Processor 降级/阻塞）。
+- [X] **T029 [P] [US2]** 在 `.../ingestion_grpc_test.go` 编写 gRPC 合同测试（同上）。
+- [X] **T030 [P] [US2]** 在 `backend/tests/integration/knowledge_space/ingestion_flow_test.go` 编写集成测试：覆盖至少 PDF（文本层+扫描）、Word、Excel/CSV、HTML、SQL；断言多粒度 chunk（summary/section/chunk）、coverage、embedding、masking、artifact bundle URI（MinIO/S3）与 checksum。
+- [X] **T031 [P] [US2]** 在 `web-admin/tests/unit/knowledge-spaces/ingestion.spec.ts` 使用 Vitest 覆盖入库触发组件（含 Processor 状态提示与降级原因）。
 
 ### 实现
 
-- [ ] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现真实 orchestrator：Loader/Parser/Transformer/Masking/Embedding/多索引写入；产出 ArtifactBundle（MinIO/S3 URI + checksum），并支持 retry/blocked/degraded（对齐 `docs/plan/AI_engineering/rag.md` 的 OCR/Processor 策略）。
-- [ ] **T033 [US2]** 在 `backend/internal/transport/http/admin/knowledge_space/ingestion_handlers.go` 实现 HTTP Handler + DTO 校验（包含 format、processor_profile、ocr_required、masking_profile 等字段）。
-- [ ] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler（同上）。
-- [ ] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
-- [ ] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
-- [ ] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
-- [ ] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，并同步清理 sparse/hier/kg 资产（如启用）。
-- [ ] **T032C [US2]** 新增 Processor Registry（接口固化在底座，具体实现可由插件提供）：支持 OCR/格式转换（推荐 `com.powerx.plugin.data_forge`），并定义 `ocr_required=true` 时的 blocked 行为与非强制时 degraded 行为（对齐 `docs/plan/AI_engineering/rag.md:363`）。
-- [ ] **T032D [US2]** 增加“多格式解析策略”：Word/HTML/邮件/IM/SQL/图片（OCR）/表格行级抽取，统一 provenance（page/row/bbox/line_range/timecode）写入 chunk metadata（对齐 `docs/plan/AI_engineering/rag.md:33`）。
+- [X] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现真实 orchestrator：Loader/Parser/Transformer/Masking/Embedding/多索引写入；产出 ArtifactBundle（MinIO/S3 URI + checksum），并支持 retry/blocked/degraded（对齐 `docs/plan/AI_engineering/rag.md` 的 OCR/Processor 策略）。
+- [X] **T033 [US2]** 在 `backend/internal/transport/http/admin/knowledge_space/ingestion_handlers.go` 实现 HTTP Handler + DTO 校验（包含 format、processor_profile、ocr_required、masking_profile 等字段）。
+- [X] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler（同上）。
+- [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
+- [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
+- [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
+- [X] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，并同步清理 sparse/hier/kg 资产（如启用）。
+- [X] **T032C [US2]** 新增 Processor Registry（接口固化在底座，具体实现可由插件提供）：支持 OCR/格式转换（推荐 `com.powerx.plugin.data_forge`），并定义 `ocr_required=true` 时的 blocked 行为与非强制时 degraded 行为（对齐 `docs/plan/AI_engineering/rag.md:363`）。
+- [X] **T032D [US2]** 增加“多格式解析策略”：Word/HTML/邮件/IM/SQL/图片（OCR）/表格行级抽取，统一 provenance（page/row/bbox/line_range/timecode）写入 chunk metadata（对齐 `docs/plan/AI_engineering/rag.md:33`）。
 
 ---
 

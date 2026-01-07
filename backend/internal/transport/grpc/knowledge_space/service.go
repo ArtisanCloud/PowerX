@@ -144,34 +144,6 @@ func (s *Server) RetireKnowledgeSpace(ctx context.Context, req *knowledgev1.Reti
 	return &knowledgev1.RetireKnowledgeSpaceResponse{Space: toProto(space)}, nil
 }
 
-func (s *Server) TriggerIngestion(ctx context.Context, req *knowledgev1.IngestionJobRequest) (*knowledgev1.IngestionJobResponse, error) {
-	if s.ingestion == nil {
-		return nil, status.Error(codes.Unimplemented, "ingestion service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	job, err := s.ingestion.Trigger(ctx, ksvc.TriggerIngestionInput{
-		SpaceID:        spaceID,
-		SourceType:     req.GetSourceType(),
-		SourceURI:      req.GetSourceUri(),
-		MaskingProfile: req.GetMaskingProfile(),
-		Priority:       req.GetPriority(),
-	})
-	if err != nil {
-		switch {
-		case errors.Is(err, ksvc.ErrInvalidInput):
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case errors.Is(err, ksvc.ErrSpaceNotFound):
-			return nil, status.Error(codes.NotFound, err.Error())
-		default:
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-	return &knowledgev1.IngestionJobResponse{Job: toProtoIngestionJob(job)}, nil
-}
-
 func (s *Server) PublishFusionStrategy(ctx context.Context, req *knowledgev1.FusionStrategyRequest) (*knowledgev1.FusionStrategyResponse, error) {
 	if s.fusion == nil {
 		return nil, status.Error(codes.Unimplemented, "fusion service not available")
@@ -422,6 +394,9 @@ func toProtoIngestionJob(job *models.IngestionJob) *knowledgev1.IngestionJobStat
 		ChunkCoveredPct:     float32(job.ChunkCoveredPct),
 		EmbeddingSuccessPct: float32(job.EmbeddingSuccessPct),
 		MaskingCoveragePct:  float32(job.MaskingCoveragePct),
+		RetryCount:          uint32(job.RetryCount),
+		ErrorCode:           job.ErrorCode,
+		BlockedReason:       job.BlockedReason,
 	}
 }
 

@@ -91,8 +91,11 @@ const refreshQaStatus = async () => {
 
 const ingestionForm = reactive({
 	spaceId: "",
-	sourceType: "pdf",
+	format: "pdf",
 	sourceUri: "",
+	ingestionProfile: "builtin/default",
+	processorProfile: "builtin/default",
+	ocrRequired: false,
 	maskingProfile: "",
 	priority: "normal",
 });
@@ -101,7 +104,17 @@ const ingestionMode = ref<"document" | "api">("document");
 const selectedFile = ref<File | null>(null);
 const ingestionSubmitting = ref(false);
 const ingestionError = ref("");
-const ingestionResult = ref<{ jobId: string; status: string; chunkTotal: number; chunkCoveragePct: number; embeddingSuccessPct: number; maskingCoveragePct: number } | null>(null);
+const ingestionResult = ref<{
+	jobId: string;
+	status: string;
+	retryCount: number;
+	errorCode?: string;
+	reason?: string;
+	chunkTotal: number;
+	chunkCoveragePct: number;
+	embeddingSuccessPct: number;
+	maskingCoveragePct: number;
+} | null>(null);
 const ingestionHistory = ref<Array<{ jobId: string; status: string; completedAt: string }>>([]);
 const recentSpaces = computed(() =>
 	knowledgeStore.lastSpace ? [knowledgeStore.lastSpace] : [],
@@ -120,7 +133,13 @@ watch(
 
 const sourceOptions = computed(() => [
 	{ label: t("knowledgeSpaces.ingestion.sourceOptions.pdf"), value: "pdf" },
+	{ label: "Word (docx)", value: "docx" },
+	{ label: "Excel (xlsx)", value: "xlsx" },
+	{ label: "CSV", value: "csv" },
 	{ label: t("knowledgeSpaces.ingestion.sourceOptions.markdown"), value: "markdown" },
+	{ label: "HTML", value: "html" },
+	{ label: "SQL", value: "sql" },
+	{ label: "Image (OCR)", value: "image" },
 	{ label: t("knowledgeSpaces.ingestion.sourceOptions.table"), value: "table" },
 	{ label: t("knowledgeSpaces.ingestion.sourceOptions.api"), value: "api" },
 ]);
@@ -144,6 +163,14 @@ const handleFileChange = (event: Event) => {
 	selectedFile.value = file;
 	if (file) {
 		ingestionForm.sourceUri = `file://${file.name}`;
+		const lower = file.name.toLowerCase();
+		if (lower.endsWith(".pdf")) ingestionForm.format = "pdf";
+		else if (lower.endsWith(".docx")) ingestionForm.format = "docx";
+		else if (lower.endsWith(".xlsx")) ingestionForm.format = "xlsx";
+		else if (lower.endsWith(".csv")) ingestionForm.format = "csv";
+		else if (lower.endsWith(".md") || lower.endsWith(".markdown")) ingestionForm.format = "markdown";
+		else if (lower.endsWith(".html") || lower.endsWith(".htm")) ingestionForm.format = "html";
+		else if (lower.endsWith(".sql")) ingestionForm.format = "sql";
 	}
 };
 
@@ -169,8 +196,11 @@ const submitIngestion = async () => {
 				? `file://${selectedFile.value.name}`
 				: ingestionForm.sourceUri;
 		const payload = {
-			sourceType: ingestionForm.sourceType,
+			format: ingestionForm.format,
 			sourceUri: resolvedSource,
+			ingestionProfile: ingestionForm.ingestionProfile,
+			processorProfile: ingestionForm.processorProfile,
+			ocrRequired: ingestionForm.ocrRequired,
 			maskingProfile: ingestionForm.maskingProfile,
 			priority: ingestionForm.priority,
 		};
@@ -267,7 +297,7 @@ const submitIngestion = async () => {
         <label class="flex flex-col gap-2">
           <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.sourceType") }}</span>
           <select
-            v-model="ingestionForm.sourceType"
+            v-model="ingestionForm.format"
             class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
           >
             <option v-for="opt in sourceOptions" :key="opt.value" :value="opt.value">
@@ -334,6 +364,28 @@ const submitIngestion = async () => {
               class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
             />
           </label>
+          <label class="flex flex-col gap-2">
+            <span class="text-sm font-medium text-gray-700">Processor Profile</span>
+            <input
+              v-model="ingestionForm.processorProfile"
+              type="text"
+              placeholder="builtin/default"
+              class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            />
+          </label>
+          <label class="flex flex-col gap-2">
+            <span class="text-sm font-medium text-gray-700">Ingestion Profile</span>
+            <input
+              v-model="ingestionForm.ingestionProfile"
+              type="text"
+              placeholder="builtin/default"
+              class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            />
+          </label>
+          <label class="flex items-center gap-2 md:col-span-2">
+            <input v-model="ingestionForm.ocrRequired" type="checkbox" class="rounded border-gray-300" />
+            <span class="text-sm text-gray-700">OCR required (blocked if unavailable)</span>
+          </label>
         </template>
 
         <label class="flex flex-col gap-2">
@@ -366,6 +418,9 @@ const submitIngestion = async () => {
               chunkTotal: ingestionResult.chunkTotal,
             })
           }}
+        </p>
+        <p v-if="ingestionResult.errorCode" class="text-primary-600">
+          error={{ ingestionResult.errorCode }} · retry={{ ingestionResult.retryCount }}<span v-if="ingestionResult.reason"> · {{ ingestionResult.reason }}</span>
         </p>
         <p class="text-primary-600">
           {{

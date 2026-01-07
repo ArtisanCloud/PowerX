@@ -91,16 +91,24 @@ func parseUUID(id string) (uuid.UUID, error) {
 }
 
 type ingestionJobRequest struct {
-	SourceType     string `json:"sourceType" binding:"required,oneof=pdf markdown table api"`
-	SourceURI      string `json:"sourceUri" binding:"required"`
-	MaskingProfile string `json:"maskingProfile"`
-	Priority       string `json:"priority" binding:"omitempty,oneof=normal high"`
-	RequestedBy    string `json:"requestedBy"`
+	// Format is the preferred field; sourceType is kept for compatibility.
+	Format           string `json:"format" binding:"omitempty,oneof=pdf docx xlsx csv markdown html sql image table api"`
+	SourceType       string `json:"sourceType" binding:"omitempty,oneof=pdf docx xlsx csv markdown html sql image table api"`
+	SourceURI        string `json:"sourceUri" binding:"required"`
+	IngestionProfile string `json:"ingestionProfile"`
+	ProcessorProfile string `json:"processorProfile"`
+	OCRRequired      bool   `json:"ocrRequired"`
+	MaskingProfile   string `json:"maskingProfile"`
+	Priority         string `json:"priority" binding:"omitempty,oneof=normal high"`
+	RequestedBy      string `json:"requestedBy"`
 }
 
 type ingestionJobView struct {
 	JobID               string  `json:"jobId"`
 	Status              string  `json:"status"`
+	RetryCount          int     `json:"retryCount"`
+	ErrorCode           string  `json:"errorCode,omitempty"`
+	Reason              string  `json:"reason,omitempty"`
 	ChunkTotal          int     `json:"chunkTotal"`
 	ChunkCoveragePct    float64 `json:"chunkCoveragePct"`
 	EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
@@ -114,6 +122,9 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 	return ingestionJobView{
 		JobID:               job.UUID.String(),
 		Status:              job.Status,
+		RetryCount:          job.RetryCount,
+		ErrorCode:           job.ErrorCode,
+		Reason:              job.BlockedReason,
 		ChunkTotal:          job.ChunkTotal,
 		ChunkCoveragePct:    job.ChunkCoveredPct,
 		EmbeddingSuccessPct: job.EmbeddingSuccessPct,

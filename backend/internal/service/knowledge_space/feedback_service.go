@@ -61,7 +61,7 @@ func NewFeedbackService(opts FeedbackServiceOptions) *FeedbackService {
 		opts.Clock = time.Now
 	}
 	if opts.MetricsWriter == nil {
-		opts.MetricsWriter = NewIngestionMetricsWriter(defaultMetricsPath)
+		opts.MetricsWriter = NewIngestionMetricsWriter("")
 	}
 	if opts.FeedbackMetrics == nil {
 		opts.FeedbackMetrics = NewFeedbackMetricsWriter(defaultFeedbackMetricsPath, defaultKnowledgeUpdatePath)

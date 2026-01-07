@@ -319,13 +319,22 @@ components:
           minimum: 1
     IngestionJobRequest:
       type: object
-      required: [sourceType, sourceUri]
+      required: [sourceUri]
       properties:
+        format:
+          type: string
+          enum: [pdf, docx, xlsx, csv, markdown, html, sql, image, table, api]
         sourceType:
           type: string
-          enum: [pdf, markdown, table, api]
+          enum: [pdf, docx, xlsx, csv, markdown, html, sql, image, table, api]
         sourceUri:
           type: string
+        ingestionProfile:
+          type: string
+        processorProfile:
+          type: string
+        ocrRequired:
+          type: boolean
         maskingProfile:
           type: string
         priority:
@@ -339,6 +348,14 @@ components:
         status:
           type: string
           enum: [pending, running, retrying, paused, completed, failed, blocked]
+        retryCount:
+          type: integer
+        errorCode:
+          type: string
+        reason:
+          type: string
+        chunkTotal:
+          type: integer
         chunkCoveragePct:
           type: number
         embeddingSuccessPct:

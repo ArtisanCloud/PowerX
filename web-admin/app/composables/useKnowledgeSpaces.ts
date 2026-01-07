@@ -25,8 +25,11 @@ export interface KnowledgeSpaceRecord {
 }
 
 export interface IngestionJobPayload {
-  sourceType: "pdf" | "markdown" | "table" | "api";
+  format: "pdf" | "docx" | "xlsx" | "csv" | "markdown" | "html" | "sql" | "image" | "table" | "api";
   sourceUri: string;
+  ingestionProfile?: string;
+  processorProfile?: string;
+  ocrRequired?: boolean;
   maskingProfile?: string;
   priority?: "normal" | "high";
 }
@@ -34,6 +37,9 @@ export interface IngestionJobPayload {
 export interface IngestionJobRecord {
   jobId: string;
   status: string;
+  retryCount: number;
+  errorCode?: string;
+  reason?: string;
   chunkTotal: number;
   chunkCoveragePct: number;
   embeddingSuccessPct: number;

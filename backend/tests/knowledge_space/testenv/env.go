@@ -126,7 +126,8 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	tempDir := t.TempDir()
+	tempDir := filepath.Join(findProjectRoot(t), "tmp", "test-runs", uuid.NewString())
+	require.NoError(t, os.MkdirAll(tempDir, 0o755))
 	ingestionReportPath := filepath.Join(tempDir, "ingestion-metrics.json")
 	feedbackReportPath := filepath.Join(tempDir, "knowledge-feedback.json")
 	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
@@ -178,11 +179,16 @@ func New(t testing.TB) *Env {
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, updateReportPath)
 	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, updateReportPath)
+	artifactStore := knowledgeService.NewArtifactStore(knowledgeService.ArtifactStoreOptions{
+		BaseDir: filepath.Join(findProjectRoot(t), "tmp", "knowledge-artifacts"),
+	})
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		MetricsWriter:   metricsWriter,
+		ArtifactStore:   artifactStore,
+		MaxRetries:      1,
 	})
 	service.AttachIngestion(ingestionSvc)
 
@@ -279,6 +285,26 @@ func New(t testing.TB) *Env {
 		EventReportPath:           eventReportPath,
 		DecayReportPath:           decayReportPath,
 		ReleaseReportPath:         releaseReportPath,
+	}
+}
+
+func findProjectRoot(t testing.TB) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	dir := filepath.Clean(wd)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".specify")); err == nil {
+			return dir
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir || next == "" || next == "." || next == string(filepath.Separator) {
+			return wd
+		}
+		dir = next
 	}
 }
 

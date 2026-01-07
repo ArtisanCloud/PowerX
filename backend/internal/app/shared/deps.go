@@ -953,7 +953,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Audit:     auditSvcEF,
 			Logger:    pxlog.GetGlobalLogger(),
 			Clock:     time.Now,
-			Bindings: bindingStore,
+			Bindings:  bindingStore,
 		})
 	}
 
@@ -1425,6 +1425,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		MetricsWriter:   metricsWriter,
+		MaxRetries:      1,
 	})
 	svc.AttachIngestion(ingestionSvc)
 

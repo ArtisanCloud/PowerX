@@ -27,6 +27,7 @@ afterEach(() => {
       data: {
         jobId: "job-1",
         status: "completed",
+        retryCount: 0,
         chunkTotal: 9,
         chunkCoveragePct: 100,
         embeddingSuccessPct: 100,
@@ -38,7 +39,7 @@ afterEach(() => {
 
     const api = useKnowledgeSpaces();
     const result = await api.triggerIngestion("space-1", {
-      sourceType: "pdf",
+      format: "pdf",
       sourceUri: "s3://bucket/doc.pdf",
       priority: "high",
     });
@@ -47,7 +48,7 @@ afterEach(() => {
       {
         method: "POST",
         body: {
-          sourceType: "pdf",
+          format: "pdf",
           sourceUri: "s3://bucket/doc.pdf",
           priority: "high",
         },
@@ -60,7 +61,7 @@ afterEach(() => {
     const api = useKnowledgeSpaces();
     await expect(
       api.triggerIngestion("", {
-        sourceType: "pdf",
+        format: "pdf",
         sourceUri: "s3://bucket/doc.pdf",
       }),
     ).rejects.toThrow("spaceId is required");

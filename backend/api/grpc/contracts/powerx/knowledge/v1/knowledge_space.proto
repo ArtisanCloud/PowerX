@@ -63,6 +63,11 @@ message IngestionJobRequest {
   string priority = 4;
   string source_uri = 5;
   string masking_profile = 6;
+  string format = 7;
+  string ingestion_profile = 8;
+  string processor_profile = 9;
+  bool ocr_required = 10;
+  string requested_by = 11;
 }
 
 message IngestionJobStatus {
@@ -72,6 +77,9 @@ message IngestionJobStatus {
   float chunk_covered_pct = 4;
   float embedding_success_pct = 5;
   float masking_coverage_pct = 6;
+  uint32 retry_count = 7;
+  string error_code = 8;
+  string blocked_reason = 9;
 }
 
 message IngestionJobResponse {

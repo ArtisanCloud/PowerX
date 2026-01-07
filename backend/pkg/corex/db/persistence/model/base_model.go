@@ -20,8 +20,7 @@ type PowerUUIDModel struct {
 	//ID        uint64         `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
 	ID uint64 `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 
-	//UUID      uuid.UUID      `gorm:"type:uuid;primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
-	UUID uuid.UUID `gorm:"type:uuid;primaryKey;column:uuid;index" json:"uuid"`
+	UUID uuid.UUID `gorm:"type:uuid;column:uuid;uniqueIndex;index" json:"uuid"`
 
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`

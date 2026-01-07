@@ -8,19 +8,33 @@ import (
 	"time"
 )
 
-const defaultMetricsPath = "reports/_state/knowledge-spaces.json"
+func defaultMetricsPath() string {
+	if isTestBinary() {
+		return filepath.Join(projectTmpDir(), "reports", "_state", "knowledge-spaces.json")
+	}
+	return filepath.Join("reports", "_state", "knowledge-spaces.json")
+}
 
 // IngestionSnapshot captures lightweight job stats for reporting.
 type IngestionSnapshot struct {
-	SpaceID             string     `json:"spaceId"`
-	JobID               string     `json:"jobId"`
-	ChunkTotal          int        `json:"chunkTotal"`
-	SummaryChunkCount   int        `json:"summaryChunkCount"`
-	ParagraphChunkCount int        `json:"paragraphChunkCount"`
-	CoveragePct         float64    `json:"coveragePct"`
-	EmbeddingPct        float64    `json:"embeddingPct"`
-	MaskingPct          float64    `json:"maskingPct"`
-	CompletedAt         *time.Time `json:"completedAt"`
+	SpaceID              string         `json:"spaceId"`
+	JobID                string         `json:"jobId"`
+	Status               string         `json:"status"`
+	RetryCount           int            `json:"retryCount"`
+	ChunkTotal           int            `json:"chunkTotal"`
+	SummaryChunkCount    int            `json:"summaryChunkCount"`
+	ParagraphChunkCount  int            `json:"paragraphChunkCount"`
+	CoveragePct          float64        `json:"coveragePct"`
+	EmbeddingPct         float64        `json:"embeddingPct"`
+	MaskingPct           float64        `json:"maskingPct"`
+	OCRRequired          bool           `json:"ocrRequired"`
+	OCRUsed              bool           `json:"ocrUsed"`
+	OCRCoveragePct       float64        `json:"ocrCoveragePct"`
+	OCRConfidenceBuckets map[string]int `json:"ocrConfidenceBuckets,omitempty"`
+	Degraded             bool           `json:"degraded"`
+	ErrorCode            string         `json:"errorCode,omitempty"`
+	Reason               string         `json:"reason,omitempty"`
+	CompletedAt          *time.Time     `json:"completedAt"`
 }
 
 // FeedbackSnapshot captures feedback loop state.
@@ -50,7 +64,7 @@ type IngestionMetricsWriter struct {
 
 func NewIngestionMetricsWriter(path string) *IngestionMetricsWriter {
 	if path == "" {
-		path = defaultMetricsPath
+		path = defaultMetricsPath()
 	}
 	return &IngestionMetricsWriter{path: path}
 }
