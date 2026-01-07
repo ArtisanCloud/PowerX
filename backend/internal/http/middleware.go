@@ -2,6 +2,9 @@ package http
 
 import (
 	"context"
+	"net/url"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -27,15 +30,85 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		status := c.Writer.Status()
 		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
 		traceID := audit.GetTraceID(c.Request.Context())
+		query := sanitizeQuery(c.Request.URL.Query())
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.FullPath()),
+			zap.String("query", query),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
 			zap.String("tenant_uuid", tenantUUID),
 			zap.String("trace_id", traceID),
 		)
 	}
+}
+
+func sanitizeQuery(v url.Values) string {
+	if len(v) == 0 {
+		return ""
+	}
+	// 避免把用户内容/敏感信息写入日志（SSE 的 q/message、token 等）
+	redactKeys := map[string]struct{}{
+		"q":              {},
+		"message":        {},
+		"prompt":         {},
+		"system_prompt":  {},
+		"systemPrompt":   {},
+		"api_key":        {},
+		"apiKey":         {},
+		"authorization":  {},
+		"access_token":   {},
+		"refresh_token":  {},
+		"token":          {},
+		"bearer":         {},
+		"password":       {},
+		"secret":         {},
+		"client_secret":  {},
+		"private_key":    {},
+		"signature":      {},
+		"sig":            {},
+		"x-api-key":      {},
+		"x_api_key":      {},
+		"apikey":         {},
+		"openai_api_key": {},
+	}
+
+	// clone + redact
+	out := make(url.Values, len(v))
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		kl := strings.ToLower(strings.TrimSpace(k))
+		if _, ok := redactKeys[kl]; ok {
+			out[k] = []string{"<redacted>"}
+			continue
+		}
+		vals := v[k]
+		clean := make([]string, 0, len(vals))
+		for _, s := range vals {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+			// 单个值也做截断，避免日志过长
+			if len(s) > 200 {
+				s = s[:200] + "…"
+			}
+			clean = append(clean, s)
+		}
+		if len(clean) > 0 {
+			out[k] = clean
+		}
+	}
+
+	encoded := out.Encode()
+	if len(encoded) > 800 {
+		return encoded[:800] + "…"
+	}
+	return encoded
 }
 
 // TraceInjectionMiddleware 确保每个请求都有 trace_id（从 header 继承或新建）并注入 context

@@ -13,6 +13,8 @@ PowerX 底座将媒资读写能力注册为统一的能力记录，Tool Scope `m
 
 OpenAPI 契约：`specs/001-docs-media-storage/contracts/http-openapi.yaml`（默认前缀 `/api/v1`）。
 
+> 若你希望在 `draft/under_review/archived` 状态下也能通过公开入口进行“短期可分享访问”，需配置 `storage.local.public_token_secret`（用于 presign(download) 生成 `token+exp`）。
+
 ```bash
 export API_PREFIX="http://127.0.0.1:8077/api/v1"
 export TENANT_TOKEN="<tenant-jwt>"
@@ -129,7 +131,10 @@ export TENANT_UUID="<tenant-uuid>"
    curl -L "http://127.0.0.1:8077/media/$ASSET_UUID/resource" -o demo.png
    ```
 
-   - 第一个示例为租户鉴权接口，第二个示例为 **公开只读入口**（`GET /media/{uuid}/resource`），适合在外部页面直接嵌入；公开入口只要 UUID 正确即可访问，无需 token，但仍会尊重 404/302 行为。
+   - 说明：鉴权资源接口必须带 `Authorization` 与 `X-Tenant-UUID`，因此**直接把 `$API_PREFIX/.../resource` 粘贴到浏览器地址栏会提示 `missing or invalid Authorization header`**（浏览器不会自动附加这些 Header）。请用 `curl`/Postman，或改用下方的公开只读入口/预签名下载链接。
+   - 第一个示例为租户鉴权接口，第二个示例为 **公开只读入口**（`GET /media/{uuid}/resource`）。
+   - 公开入口默认仅允许 `published` 匿名访问；若资源仍为 `draft/under_review/archived`，需要先通过 `POST .../presign`（`action=download`）拿到带 `token+exp` 的短期链接再访问。
+   - 若通过 presign 返回相对路径（例如 `/media/{uuid}/resource`），它是相对 **后端服务 origin**（如 `http://127.0.0.1:8077`），不要误拼到前端站点 origin（如 `http://127.0.0.1:3030`），否则会 404。
    - `disposition` 支持 `inline`（默认）与 `attachment`，可按需让浏览器直接预览或强制下载。
    - 对于外链资产，两种接口都会返回 **302** 跳转到 `externalUrl`。
    - Root 调试可使用 `GET /api/v1/admin/media/assets/{uuid}/resource`，只需把 Header 替换为 `ADMIN_TOKEN`。

@@ -1,6 +1,6 @@
 # Tasks: Media Asset Admin Capabilities (CoreX Module)
 
-**Input**: 设计资产 `specs/001-docs-media-storage/`（plan.md、research.md、data-model.md、contracts/、quickstart.md）  
+**Input**: 设计资产 `specs/001-media-storage/`（plan.md、research.md、data-model.md、contracts/、quickstart.md）  
 **目标**: 依据最新计划，将媒体管理功能落地于 CoreX 内核
 
 ## 执行节奏
@@ -15,8 +15,8 @@
 
 ## Phase 3: 任务列表
 
-- [X] **T001** 将 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 重命名并整理为 `specs/001-docs-media-storage/contracts/http-admin.yaml`，`servers.url` 与 `server.api_prefix` 保持一致（默认 `/api/v1`）并同步标签说明及引用链接。
-- [X] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/contracts/powerx/media/v1/media_asset.proto`，修改 package 为 `powerx.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/media/v1;corexmediav1`。
+- [X] **T001** 将 `specs/001-media-storage/contracts/http-openapi.yaml` 重命名并整理为 `specs/001-media-storage/contracts/http-admin.yaml`，`servers.url` 与 `server.api_prefix` 保持一致（默认 `/api/v1`）并同步标签说明及引用链接。
+- [X] **T002** 将 `specs/001-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/contracts/powerx/media/v1/media_asset.proto`，修改 package 为 `powerx.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/media/v1;corexmediav1`。
 - [X] **T003** 在仓库根目录新增/更新 `buf.yaml`、`buf.gen.yaml`，纳入 `api/grpc/contracts/powerx`，并在 `Makefile` 添加 `proto-gen`、`proto-lint`、`proto-clean`、`contracts-test` 目标（含 CI 钩子）。
 - [X] **T004 [P]** 在 `internal/transport/http/admin/media/contract_media_asset_test.go` 编写失败的 HTTP 契约测试（6 个端点），使用 `httpexpect` 校验状态码与响应体。
 - [X] **T005 [P]** 在 `internal/transport/grpc/media/contract_media_asset_test.go` 编写失败的 gRPC 契约测试，覆盖 `MediaAssetAdminService` 六个 RPC（`bufconn` + `testify`）。
@@ -46,11 +46,28 @@
 - [X] **T029** 新建 `cmd/media_tool/main.go`，实现媒资工具集入口，包含软删除清理子命令：扫描过期资产、调用驱动删除、写审计事件。
 - [X] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。
 - [X] **T031 [P]** 在 `internal/service/media/service_test.go` 编写单元测试，覆盖状态流转、RBAC 拒绝、审计记录。
-- [X] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-docs-media-storage/quickstart.md` 的命令示例/说明。
+- [X] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-media-storage/quickstart.md` 的命令示例/说明。
 - [X] **T033** 扩展 `internal/infra/media/driver/local/local.go` 预签名逻辑，支持上传动作（PUT）、HMAC Token、限流配置。
 - [X] **T034** 在 `internal/http` 新增本地读写端点 `GET/PUT /media/*objectKey`，校验 Token/过期时间、限制 `Content-Length`，并确保目录与 `local.public_base_url`/`base_path` 一致。
 - [X] **T035** 调整 `POST /admin/media/assets/{uuid}/presign` 请求/响应契约，接入 `content_type`/`expires_in` 字段并返回统一 `storageKey`、`expiresAt` 信息。
 - [X] **T036** 强化媒资下载安全：在 `external_link`/本地上传的元数据校验基础上，再新增统一受控的资源访问入口（REST `GET /api/v1/media/assets/{uuid}/resource` 及 Admin 对应端点），禁止直接暴露 `/media/*` 给外部。该 Handler 必须复用 `MediaService` 读取资产记录，检查权限、业务状态、`mimeType`/`sizeBytes` 白名单，动态设置 `Content-Type`、`Content-Disposition` 并根据 `uploadMethod` 选择读取本地驱动或 302 到 `externalUrl`。同步更新 contracts、docs、quickstart，说明 `/media/*` 仅用于开发调试，正式访问都走 `resource` 接口，可选支持 `attachment`/`inline` header。
+
+## Phase 4: Web Admin UI（内容管理 / 媒体库）
+
+> UI 方案与页面流：`docs/plan/content/media.md`
+
+- [X] **T037** 新增 `web-admin/app/pages/content/media/index.vue`：媒体库列表（网格/表格切换、筛选条、分页、回收站开关）。
+- [X] **T038** 新增 `web-admin/app/pages/content/media/[uuid].vue`：媒体资产详情页（预览、编辑、状态流转、删除/下载/复制链接）。
+- [X] **T039** 新增 `web-admin/app/composables/api/services/mediaAssetService.ts`：封装 Admin 媒体资产 API（list/create/get/update/delete/presign/resource）。
+- [X] **T040 [P]** 新增 UI 组件：`MediaFilterBar`、`MediaUploadDrawer`、`MediaGrid`/`MediaTable`、`MediaPreview`、`MediaAssetDetailPanel`（按 `docs/plan/content/media.md` 拆分）。
+- [X] **T041** 实现“预签名上传”闭环：create(asset) → presign(upload) → upload(file) → refresh(list/detail)，包含进度/失败重试与错误提示。
+- [X] **T042** 实现“外链入库”：通过 external URL 创建资产并在详情页可预览/跳转。
+- [X] **T043** 实现“安全预览/下载默认策略”：默认走鉴权资源入口（Admin `/resource`）进行预览/下载；提供复制链接策略（鉴权链接/公开链接可配置）。
+- [X] **T044 [P]** 增加测试：
+  - 最低要求：`mediaAssetService` 的单测（参数拼装、错误透传）。
+  - 可选：Playwright e2e（登录态 fixture → 打开媒体库 → 触发列表请求并渲染空态/列表）。
+- [X] **T045** 更新文档：在 `specs/001-media-storage/quickstart.md` 增加“Web Admin 手工验收步骤”（路由、上传、筛选、详情编辑、删除）。
+- [X] **T046** 后台系统菜单追加“媒体”入口：`/content/media`，并确保在 Admin `GET /admin/menus` 的置顶分组中稳定出现在“流程”和“仪表盘”之间（按 `order` 排序）。
 
 ## 依赖关系
 

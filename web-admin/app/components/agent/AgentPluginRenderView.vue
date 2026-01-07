@@ -13,7 +13,7 @@ const currentAgentId = chatSessions.currentAgentId;
 
 const selectedAgent = computed(() => {
   return (
-    agents.value.find((agent) => agent.id === currentAgentId.value) || null
+    agents.value.find((agent) => agent.uuid === currentAgentId.value) || null
   );
 });
 
@@ -40,7 +40,7 @@ const togglePluginPanel = () => {
   const chatSessions = useChatSessions();
 
   watch(
-    () => selectedAgent.value?.id,
+    () => selectedAgent.value?.uuid,
     () => {
       isPluginPanelCollapsed.value = false;
     }
@@ -50,7 +50,7 @@ const togglePluginPanel = () => {
 
   const selectedAgent = computed(() => {
     return (
-      agents.value.find((agent) => agent.id === currentAgentId.value) || null
+      agents.value.find((agent) => agent.uuid === currentAgentId.value) || null
     );
   });
 };

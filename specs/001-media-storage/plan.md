@@ -1,10 +1,10 @@
 ```markdown
 # Implementation Plan: Media Asset Admin Capabilities (CoreX Module)
 
-**Branch**: `001-docs-media-storage`  
+**Branch**: `001-media-storage`  
 **Date**: 2025-10-10  
-**Spec**: `specs/001-docs-media-storage/spec.md`  
-**Input**: Feature specification from `specs/001-docs-media-storage/spec.md`
+**Spec**: `specs/001-media-storage/spec.md`  
+**Input**: Feature specification from `specs/001-media-storage/spec.md`
 
 > 本计划为 **CoreX 内核模块** 的实现方案（非插件）。所有路径均为**相对仓库根目录**，不再使用绝对路径。
 
@@ -41,6 +41,8 @@
 为后台运营人员提供统一的媒体资产管理能力，支持上传、筛选、详情、业务属性变更、软删除与 **12 小时**预签名链接。  
 **实现位置**：作为 **PowerX CoreX 内核模块** 落地，代码直接进入主工程（非 plugins 目录），沿用 CoreX 的多租户、RBAC、审计与迁移框架。
 
+同时，为 Web Admin 控制台补齐“媒体库（Media Library）”UI 页面与上传闭环（预签名上传/外链入库），UI 设计与页面流落盘于：`docs/plan/content/media.md`。
+
 ---
 
 ## Technical Context
@@ -60,9 +62,9 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **HTTP_PRESENT ✅**：内部管理端 REST 契约放置于 `specs/001-docs-media-storage/contracts/http-admin.yaml`  
+- **HTTP_PRESENT ✅**：内部管理端 REST 契约放置于 `specs/001-media-storage/contracts/http-admin.yaml`  
   （**行动**：将现有 `http-openapi.yaml` 重命名为 `http-admin.yaml`，仅保留内部接口，`servers.url` 使用 `/api/v1` 或 `/admin/...`）
-- **GRPC_PRESENT ✅**：gRPC 契约位于 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto`（服务名示例：`media.v1.MediaAssetAdminService`）
+- **GRPC_PRESENT ✅**：gRPC 契约位于 `specs/001-media-storage/contracts/grpc-media-asset.proto`（服务名示例：`media.v1.MediaAssetAdminService`）
 - **PROTOBUF_DEFINED ✅**：`buf.yaml`/`buf.gen.yaml` 在主工程下维护，`go_package_prefix` 指向 `api/grpc/gen`
 - **SERVER_DEFINED ✅**：HTTP/GRPC 入口在 **主工程**（非插件）下：  
   - HTTP：`internal/transport/http/admin/media/`  
@@ -78,7 +80,7 @@
 
 ```
 
-specs/001-docs-media-storage/
+specs/001-media-storage/
 ├── plan.md              # 本文件（/plan 输出）
 ├── research.md          # Phase 0（/plan 输出）
 ├── data-model.md        # Phase 1（/plan 输出）
@@ -87,6 +89,9 @@ specs/001-docs-media-storage/
 ├── http-admin.yaml                # 由 http-openapi.yaml 重命名/修订
 ├── grpc-media-asset.proto
 └── tests/
+
+docs/plan/content/
+└── media.md             # Web Admin 媒体库 UI 方案与页面流
 
 ```
 
@@ -137,6 +142,9 @@ internal/transport/grpc/auth/middleware/
 api/grpc/contracts/powerx/media/v1/media_asset.proto
 Makefile                              # proto-gen / contracts-test / etc.
 
+web-admin/
+└── app/pages/content/media/           # 媒体库与详情页面（新增）
+
 ```
 
 **Structure Decision**：媒体资产作为 **CoreX 内核能力** 常驻主进程；统一复用主工程的鉴权、租户、审计、迁移与观测组件；不创建插件工程，不在 `plugins/` 目录下放置任何实现代码。
@@ -149,7 +157,7 @@ Makefile                              # proto-gen / contracts-test / etc.
 - 在 `research.md` 归档 **Decision / Rationale / Alternatives**  
 - 结论：采用 PostgreSQL + 软删除 + JSONB 元数据；MediaManager 统一驱动；预签名默认 12h，可配置
 
-**Output**: `specs/001-docs-media-storage/research.md`
+**Output**: `specs/001-media-storage/research.md`
 
 ---
 
@@ -179,9 +187,17 @@ Makefile                              # proto-gen / contracts-test / etc.
 - 本地启动、迁移、样例上传/预签名/筛选验证步骤
 
 **Output**:  
-- `specs/001-docs-media-storage/data-model.md`  
-- `specs/001-docs-media-storage/contracts/`  
-- `specs/001-docs-media-storage/quickstart.md`
+- `specs/001-media-storage/data-model.md`  
+- `specs/001-media-storage/contracts/`  
+- `specs/001-media-storage/quickstart.md`
+
+### Phase 1.5: Web Admin UI Design (Content/Media)
+
+- 将“媒体库 UI 设计方案”落盘为：`docs/plan/content/media.md`
+- UI 与现有 Admin API 的映射策略：
+  - 列表/详情/编辑/删除：走 `/api/admin/media/assets...`
+  - 上传：以 “create → presign → upload → refresh” 为主流程
+  - 资源预览/下载：默认走鉴权资源入口（Admin `/resource`），避免误用匿名 `/media/:uuid/resource`
 
 ---
 

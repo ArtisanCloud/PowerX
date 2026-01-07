@@ -1,6 +1,7 @@
 // Agent 相关类型定义
 export interface Agent {
   id: number;
+  uuid: string;
   createdAt: string;
   updatedAt: string;
   DeletedAt: string | null;
@@ -10,7 +11,7 @@ export interface Agent {
   source: string;
   scope: string;
   visibility: string;
-  status: "active" | "inactive";
+  status: string;
   defaultPersonaId?: number;
   blueprintRefs?: Array<{
     id: string;
@@ -55,13 +56,15 @@ export interface AgentDetailResponse {
 
 // 用于创建/更新 Agent 的类型
 export interface CreateAgentRequest {
+  env?: string;
   key: string;
   name: string;
   description: string;
-  status: "active" | "inactive";
+  status: "draft" | "active" | "disabled";
   meta?: Record<string, any>;
 }
 
 export interface UpdateAgentRequest extends Partial<CreateAgentRequest> {
-  id: number;
+  id?: number;
+  uuid?: string;
 }

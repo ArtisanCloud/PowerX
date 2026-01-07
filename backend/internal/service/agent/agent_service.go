@@ -9,6 +9,7 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -176,6 +177,17 @@ func (s *AgentService) Delete(ctx context.Context, env string, tenantUUID *strin
 
 func (s *AgentService) Get(ctx context.Context, env string, tenantUUID *string, agentID uint64) (*dbmodel.Agent, error) {
 	out, err := s.agRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if !equalTenant(tenantUUID, out.TenantUUID) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return out, nil
+}
+
+func (s *AgentService) GetByUUID(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID) (*dbmodel.Agent, error) {
+	out, err := s.agRepo.FindByScopeUUID(ctx, env, tenantUUID, agentUUID)
 	if err != nil {
 		return nil, err
 	}

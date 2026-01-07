@@ -9,7 +9,7 @@ import (
 func NewClient(provider string) (LLMClient, error) {
 	switch normalize(provider) {
 	case "openai":
-		return NewOpenAIClient(), nil
+		return NewOpenAIClient(provider), nil
 	case "hunyuan":
 		return NewHunyuanClient(), nil
 	case "ollama":

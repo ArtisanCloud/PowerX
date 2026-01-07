@@ -218,7 +218,49 @@ func (h *Handler) StreamAssetResource(c *gin.Context) {
 
 // StreamAssetResourcePublic 提供无需租户上下文的公开访问。
 func (h *Handler) StreamAssetResourcePublic(c *gin.Context) {
-	h.streamResource(c, "")
+	uuid := c.Param("uuid")
+	asset, object, err := h.svc.OpenAssetResource(c.Request.Context(), "", uuid)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		respondError(c, status, "open media asset resource failed", err)
+		return
+	}
+	if asset == nil {
+		respondError(c, http.StatusNotFound, "media asset not found", nil)
+		return
+	}
+	// 默认仅允许 published 匿名访问；非 published 需带 token+exp（presign download 生成）
+	if !h.svc.CanAccessPublicResource(asset, c.Query("exp"), c.Query("token")) {
+		respondError(c, http.StatusNotFound, "media asset not found", nil)
+		return
+	}
+	if asset.ExternalURL != "" {
+		c.Redirect(http.StatusTemporaryRedirect, asset.ExternalURL)
+		return
+	}
+	if object == nil || object.Body == nil {
+		respondError(c, http.StatusNotFound, "media object not found", nil)
+		return
+	}
+	defer object.Body.Close()
+
+	mimeType := deriveMimeType(asset, object.ContentType)
+	filename := ensureFileExtension(deriveFileName(asset), mimeType)
+	disposition := sanitizeDisposition(c.DefaultQuery("disposition", "inline"))
+
+	if object.Size > 0 {
+		c.Header("Content-Length", strconv.FormatInt(object.Size, 10))
+	}
+	c.Header("Content-Type", mimeType)
+	c.Header("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, filename))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, object.Body); err != nil {
+		c.Error(err)
+	}
 }
 
 func (h *Handler) streamResource(c *gin.Context, tenantUUID string) {

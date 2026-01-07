@@ -1,6 +1,27 @@
 import tailwindcss from "@tailwindcss/vite";
 
-const UPSTREAM_BASE = process.env.UPSTREAM || "http://127.0.0.1:8077";
+/**
+ * UPSTREAM 支持两种写法：
+ * 1) 仅 origin：  http://127.0.0.1:8077
+ * 2) 含 API 前缀： http://127.0.0.1:8077/api/v1
+ *
+ * 若 UPSTREAM 含 path，则自动把该 path 作为 apiBase（可被 NUXT_PUBLIC_API_BASE 覆盖）。
+ */
+const UPSTREAM_RAW = process.env.UPSTREAM || "http://127.0.0.1:8077";
+let upstreamOrigin = UPSTREAM_RAW;
+let inferredApiBase = "";
+try {
+  const u = new URL(UPSTREAM_RAW);
+  upstreamOrigin = u.origin;
+  const p = (u.pathname || "/").replace(/\/+$/, "");
+  if (p && p !== "/") inferredApiBase = p;
+} catch {
+  // ignore: keep raw string
+}
+
+const API_BASE =
+  process.env.NUXT_PUBLIC_API_BASE || inferredApiBase || "/api/v1";
+const API_BASE_PREFIX = API_BASE.replace(/\/+$/, "");
 
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -20,12 +41,13 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // 仅服务端可见
-    upstream: UPSTREAM_BASE,
+    upstream: upstreamOrigin,
     wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077", // 你的 WS 服务
     public: {
+      upstreamOrigin, // 公开：用于拼接 presign 返回的相对 URL（如 /media/:uuid/resource）
       // 注意这里直接给"完整前缀"，包含 /api
       wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api",
-      apiBase: "/api/v1", // 前端请求 /api/**，对应后台的 /api/**
+      apiBase: API_BASE_PREFIX, // 前端请求前缀（可由 UPSTREAM path 推断）
       wsUrl: "/ws", // 如果要同域 WS，可再配反代；暂时可用你现有的 ws://localhost:3001/ws
 
       // 语言配置
@@ -63,9 +85,9 @@ export default defineNuxtConfig({
 
 
     devProxy: {
-      "/api/_nuxt_icon": {},
-      "/api/": {
-        target: `${UPSTREAM_BASE}/api`,
+      // 仅代理 API 前缀，避免误伤其它路径；并确保不会出现 /api/api/v1 的双拼
+      [`${API_BASE_PREFIX}/`]: {
+        target: upstreamOrigin,
         changeOrigin: true,
         prependPath: true,
         ws: true, // 必须：让 dev 代理支持 WebSocket
@@ -125,5 +147,15 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()], // ✅ 官方 v4 推荐做法
+    // dev 下浏览器请求会先打到 Vite dev server；加一层代理，避免 nitro.devProxy 在某些模式/版本下未生效导致 404。
+    server: {
+      proxy: {
+        [API_BASE_PREFIX]: {
+          target: upstreamOrigin,
+          changeOrigin: true,
+          ws: true,
+        },
+      },
+    },
   },
 });

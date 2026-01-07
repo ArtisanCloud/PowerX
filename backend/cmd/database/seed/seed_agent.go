@@ -8,6 +8,7 @@ import (
 	agentr "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -30,6 +31,7 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 	const (
 		agentKey  = "core.system.default"
 		agentName = "System Default Agent"
+		agentUUID = "6b31adf3-4f7d-4c77-9d1d-c58fb3a7cf2a"
 	)
 
 	// 已存在直接返回（幂等）
@@ -66,6 +68,7 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 			"tags":                []string{"system", "default"},
 		},
 	}
+	a.UUID = uuid.MustParse(agentUUID)
 
 	// 用仓库 Upsert（租户级唯一：env + tenant_id + key）
 	if err := agentRepo.UpsertByScopeKey(ctx, env, &tenantUUID, a); err != nil {

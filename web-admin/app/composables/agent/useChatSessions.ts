@@ -3,6 +3,7 @@ import { useApiClient } from "~/composables/api";
 import { useAgentSessionStore } from "~/stores/agentSession";
 import { useMessageStore } from "~/stores/message";
 import { useI18n } from "vue-i18n";
+import { useEnvStore } from "~/stores/envStore";
 
 // 后端会话数据结构
 interface SessionDTO {
@@ -80,20 +81,21 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   const sessionStore = useAgentSessionStore();
   const messageStore = useMessageStore();
   const { t } = useI18n();
+  const envStore = useEnvStore();
+  const ENV = computed(() => envStore.currentEnv || "dev");
 
-  const LAST_AGENT_ID_KEY = "powerx.agent.lastSelectedAgentId";
-  const readLastAgentId = (): number | null => {
+  const LAST_AGENT_ID_KEY = "powerx.agent.lastSelectedAgentUuid";
+  const readLastAgentId = (): string | null => {
     if (typeof window === "undefined") return null;
     try {
       const v = localStorage.getItem(LAST_AGENT_ID_KEY);
       if (!v) return null;
-      const n = Number(v);
-      return Number.isFinite(n) && n > 0 ? n : null;
+      return String(v || "").trim() || null;
     } catch {
       return null;
     }
   };
-  const writeLastAgentId = (agentId: number | null) => {
+  const writeLastAgentId = (agentId: string | null) => {
     if (typeof window === "undefined") return;
     try {
       if (!agentId) localStorage.removeItem(LAST_AGENT_ID_KEY);
@@ -105,14 +107,28 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 将后端数据转换为前端格式
    */
   function mapSessionDTO(dto: SessionDTO): ChatSession {
+    const id =
+      (dto as any)?.id ??
+      (dto as any)?.ID ??
+      (dto as any)?.sessionId ??
+      (dto as any)?.session_id;
     return {
-      id: dto.id,
-      title: dto.title || t("agent.chat.untitledSession"),
-      lastMessage: dto.summary || "",
-      updatedAt: new Date(dto.latestAt || dto.updatedAt),
+      id,
+      title: (dto as any)?.title || t("agent.chat.untitledSession"),
+      lastMessage: (dto as any)?.summary || "",
+      updatedAt: new Date((dto as any)?.latestAt || (dto as any)?.updatedAt),
       unread: 0, // 后端暂无此字段，默认为0
       pinned: false, // 后端暂无此字段，默认为false
     };
+  }
+
+  function unwrapApiData<T = any>(resp: any): T | null {
+    if (!resp) return null;
+    // 常见后端形态：{ code, data, message }
+    if (typeof resp === "object" && "data" in resp) {
+      return (resp as any).data as T;
+    }
+    return resp as T;
   }
 
   /**
@@ -136,7 +152,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   /**
    * 加载指定 agent 的会话列表
    */
-  async function listSessions(agentId: number, force = false) {
+  async function listSessions(agentId: string, force = false) {
     // 如果已有缓存且不强制刷新，则跳过
     if (!force && sessionStore.getSessionsByAgent(agentId).length > 0) {
       return;
@@ -150,10 +166,10 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         `/agents/sessions`,
         {
           params: {
-            agent_id: agentId,
+            agent_uuid: agentId,
             status: "active",
             limit: pageSize,
-            env: "dev",
+            env: ENV.value,
           },
         }
       );
@@ -179,7 +195,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   /**
    * 加载更多会话（分页）
    */
-  async function loadMore(agentId: number) {
+  async function loadMore(agentId: string) {
     if (
       !sessionStore.getHasMoreByAgent(agentId) ||
       sessionStore.isLoadingByAgent(agentId)
@@ -198,11 +214,11 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         `/agents/sessions`,
         {
           params: {
-            agent_id: agentId,
+            agent_uuid: agentId,
             status: "active",
             limit: pageSize,
             offset: offset,
-            env: "dev",
+            env: ENV.value,
           },
         }
       );
@@ -228,18 +244,23 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 创建新会话
    */
   async function createSession(
-    agentId: number,
+    agentId: string,
     title?: string
   ): Promise<ChatSession> {
     try {
-      const response = await apiClient.post<SessionDTO>(`/agents/sessions`, {
-        env: "dev",
-        agentId: agentId,
-        title: title || t("agent.chat.newSession"),
+      const response = await apiClient.post<any>(`/agents/sessions`, {
+        env: ENV.value,
+        agentUuid: agentId,
+        // 置空：让后端在首条消息时自动生成标题（ChatGPT 风格）
+        title: title || "",
       });
 
-      if (response) {
-        const newSession = mapSessionDTO(response);
+      const payload = unwrapApiData<SessionDTO>(response);
+      if (payload) {
+        const newSession = mapSessionDTO(payload);
+        if (newSession?.id == null || String(newSession.id) === "") {
+          throw new Error(t("agent.chat.errors.createSessionFailedNoData"));
+        }
         sessionStore.addSession(agentId, newSession);
         writeLastAgentId(agentId);
         return newSession;
@@ -257,11 +278,11 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   /**
    * 删除会话
    */
-  async function deleteSession(agentId: number, sessionId: number | string) {
+  async function deleteSession(agentId: string, sessionId: number | string) {
     try {
       await apiClient.delete(`/agents/sessions/${sessionId}`, {
         params: {
-          env: "dev",
+          env: ENV.value,
         },
         timeout: 60000,
         useGlobalLoading: false,
@@ -281,7 +302,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 重命名会话
    */
   async function renameSession(
-    agentId: number,
+    agentId: string,
     sessionId: number | string,
     title: string
   ) {
@@ -291,7 +312,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         { title },
         {
           params: {
-            env: "dev",
+            env: ENV.value,
           },
         }
       );
@@ -309,11 +330,11 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
   /**
    * 归档会话
    */
-  async function archiveSession(agentId: number, sessionId: number | string) {
+  async function archiveSession(agentId: string, sessionId: number | string) {
     try {
       await apiClient.post(`/agents/sessions/${sessionId}/archive`, undefined, {
         params: {
-          env: "dev",
+          env: ENV.value,
         },
       });
 
@@ -354,9 +375,13 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         `/agents/sessions/${sessionId}/messages`,
         {
           params: {
-            env: "dev",
+            env: ENV.value,
             limit: 200,
           },
+          // 历史消息加载不应阻塞全局启动/页面渲染
+          useGlobalLoading: false,
+          // 大会话在本地 DB 冷启动/慢查询时可能超过默认超时
+          timeout: 60000,
         }
       );
 
@@ -398,10 +423,12 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         `/agents/sessions/${sessionId}/messages`,
         {
           params: {
-            env: "dev",
+            env: ENV.value,
             after_id: lastMessageId,
             limit: 50,
           },
+          useGlobalLoading: false,
+          timeout: 60000,
         }
       );
 
@@ -423,6 +450,35 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
     }
   }
 
+  /**
+   * 清空指定 Agent 的全部会话（逐个调用删除接口）
+   */
+  async function clearAllSessions(agentId: string) {
+    if (!agentId) return;
+    // 确保列表是最新的
+    await listSessions(agentId, true);
+    const sessions = sessionStore.getSessionsByAgent(agentId) || [];
+    // 先清掉本地缓存（即使后端部分失败也不影响 UI 卡死）
+    for (const s of sessions) {
+      messageStore.clearMessages(String(s.id));
+    }
+    sessionStore.clearSessionsForAgent(agentId);
+
+    // 再逐个删除后端会话
+    for (const s of sessions) {
+      try {
+        await apiClient.delete(`/agents/sessions/${s.id}`, {
+          params: { env: ENV.value },
+          timeout: 60000,
+          useGlobalLoading: false,
+        });
+      } catch (e) {
+        // 忽略单个失败，避免“一键清空”半途卡死
+        console.warn("清空会话失败:", s.id, e);
+      }
+    }
+  }
+
   return {
     // 状态（从 store 获取）
     sessionsByAgent: computed(() => sessionStore.sessionsByAgent),
@@ -439,15 +495,16 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
     deleteSession,
     renameSession,
     archiveSession,
+    clearAllSessions,
     loadSessionMessages,
     loadMoreMessages,
 
     // Store 方法的直接暴露
-    selectSession: (agentId: number, sessionId: number | string) => {
+    selectSession: (agentId: string, sessionId: number | string) => {
       sessionStore.selectSession(agentId, sessionId);
       writeLastAgentId(agentId);
     },
-    selectAgent: (agentId: number) => {
+    selectAgent: (agentId: string) => {
       sessionStore.selectAgent(agentId);
       writeLastAgentId(agentId);
     },

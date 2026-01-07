@@ -13,6 +13,9 @@ type LocalStorageConfig struct {
 	BasePath           string `yaml:"base_path"`
 	PublicBaseURL      string `yaml:"public_base_url"`
 	UploadTokenSecret  string `yaml:"upload_token_secret"`
+	// PublicTokenSecret 用于公开资源入口（/media/:uuid/resource）的临时访问 token（HMAC）签名与校验。
+	// 为空时：公开入口仅允许 published 资源访问；非 published 资源无法生成可直接打开的 presign(download) 链接。
+	PublicTokenSecret  string `yaml:"public_token_secret"`
 	MaxUploadSizeBytes int64  `yaml:"max_upload_size_bytes"`
 }
 

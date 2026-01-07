@@ -3,7 +3,9 @@ package model
 
 import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // ---------- 表名常量 ----------
@@ -44,7 +46,7 @@ const (
 // ---------- 1) Agent 主表 ----------
 // 说明：沿用 Env + TenantUUID 的作用域与索引策略；(Env, TenantUUID, Key) 在同一租户内唯一。
 type Agent struct {
-	coremodel.PowerModel
+	coremodel.PowerUUIDModel
 
 	// 作用域
 	Env         string  `gorm:"size:32;index:agent_key_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:1" json:"-"`
@@ -75,6 +77,13 @@ type Agent struct {
 	// 知识库策略与扩展元信息
 	KBStrategy string            `gorm:"size:16;default:'union'" json:"kbStrategy"` // none|union|weighted
 	Meta       datatypes.JSONMap `gorm:"type:jsonb;default:'{}'::jsonb" json:"meta"`
+}
+
+func (mdl *Agent) BeforeCreate(tx *gorm.DB) error {
+	if mdl.UUID == uuid.Nil {
+		mdl.UUID = uuid.New()
+	}
+	return nil
 }
 
 // 表名（带 schema）

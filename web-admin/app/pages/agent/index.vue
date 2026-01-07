@@ -11,6 +11,7 @@ import { useChatSessions } from "~/composables/agent/useChatSessions";
 import { useConfirm } from "~/composables/useConfirm";
 import { useApiClient } from "~/composables/api";
 import { usePrompt } from "~/composables/usePrompt";
+import { useEnvStore } from "~/stores/envStore";
 
 definePageMeta({
   title: "Agent 对话",
@@ -22,6 +23,8 @@ const { t } = useI18n();
 const { confirm } = useConfirm();
 const { prompt } = usePrompt();
 const { get, put, delete: del } = useApiClient();
+const envStore = useEnvStore();
+const ENV = computed(() => envStore.currentEnv || "dev");
 
 // 会话状态管理
 const chatSessions = useChatSessions();
@@ -68,17 +71,18 @@ const isConnected = computed(() => chat.sseActive.value || chat.wsActive.value);
 const isStreaming = computed(() => chat.isGenerating.value);
 const isTyping = ref(false);
 const isSending = ref(false);
+const isUiBusy = computed(() => isSending.value || isStreaming.value);
 let createSessionInFlight: Promise<any> | null = null;
 
-// Agent 级模型覆盖（来自 /admin/agents/:id/ai-setting）
+// Agent 级模型覆盖（来自 /admin/agents/:uuid/ai-setting）
 const agentAiSetting = ref<{ provider?: string; model?: string; params?: any } | null>(
   null
 );
 
-const loadAgentAISetting = async (agentId: number) => {
+const loadAgentAISetting = async (agentId: string) => {
   try {
     const res: any = await get(`/admin/agents/${agentId}/ai-setting`, {
-      params: { env: "dev" },
+      params: { env: ENV.value },
       useGlobalLoading: false,
     });
     const payload = res?.data ?? res;
@@ -92,9 +96,9 @@ const loadAgentAISetting = async (agentId: number) => {
   }
 };
 
-const ensureSessionForSend = async () => {
-  if (currentSessionId.value) return;
-  if (!currentAgentId.value) return;
+const ensureSessionForSend = async (): Promise<string | number | null> => {
+  if (currentSessionId.value) return currentSessionId.value;
+  if (!currentAgentId.value) return null;
   if (!createSessionInFlight) {
     createSessionInFlight = chatSessions
       .createSession(currentAgentId.value)
@@ -102,7 +106,13 @@ const ensureSessionForSend = async () => {
         createSessionInFlight = null;
       });
   }
-  await createSessionInFlight;
+  const sess: any = await createSessionInFlight;
+  const id = sess?.id ?? null;
+  // 兜底：确保 store 的 currentSessionId 已指向新会话（避免并发/响应形态异常导致 session_id 丢失）
+  if (id != null && currentAgentId.value && currentSessionId.value !== id) {
+    chatSessions.selectSession(currentAgentId.value, id);
+  }
+  return id;
 };
 
 const retryLastMessage = async () => {
@@ -115,9 +125,9 @@ onMounted(async () => {
     await agentManager.fetchAgents();
     if (agents.value && agents.value.length > 0) {
       const last = chatSessions.getLastSelectedAgentId?.() ?? null;
-      const fallbackId = agents.value[0].id;
+      const fallbackId = agents.value[0].uuid;
       const pickId =
-        last && agents.value.some((a) => a.id === last) ? last : fallbackId;
+        last && agents.value.some((a) => a.uuid === last) ? last : fallbackId;
       await handleAgentSelect(pickId);
     }
   } catch (e: any) {
@@ -141,7 +151,7 @@ const agentsList = computed(() =>
 
 // ===== 会话事件处理 =====
 const handleSelectSession = async (payload: {
-  agentId: number;
+  agentId: string;
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
@@ -177,7 +187,7 @@ const handleNewSession = async () => {
 };
 
 const handleDeleteSession = async (payload: {
-  agentId: number;
+  agentId: string;
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
@@ -203,7 +213,7 @@ const handleDeleteSession = async (payload: {
 };
 
 const handlePinSession = async (payload: {
-  agentId: number;
+  agentId: string;
   sessionId: string | number;
   pinned: boolean;
 }) => {
@@ -221,8 +231,26 @@ const handleLoadMoreSessions = async () => {
   }
 };
 
+const handleClearAllSessions = async (agentId: string) => {
+  const ok = await confirm({
+    title: "清空该智能体的全部会话？",
+    description: "该操作不可恢复，将删除该智能体下的所有历史会话与消息。",
+    tone: "danger",
+    confirmColor: "red",
+    confirmLabel: t("common.delete") || "删除",
+    cancelLabel: t("common.cancel") || "取消",
+  });
+  if (!ok) return;
+  try {
+    await chatSessions.clearAllSessions(agentId);
+    chat.clearMessages();
+  } catch (e: any) {
+    notifyOnce("清空会话失败", e?.message || "");
+  }
+};
+
 const handleRenameSession = async (payload: {
-  agentId: number;
+  agentId: string;
   sessionId: string | number;
   title: string;
 }) => {
@@ -235,7 +263,7 @@ const handleRenameSession = async (payload: {
   }
 };
 
-const handleAgentSelect = async (agentId: number) => {
+const handleAgentSelect = async (agentId: string) => {
   try {
     chatSessions.selectAgent(agentId);
     await chatSessions.listSessions(agentId);
@@ -254,8 +282,29 @@ const handleSendMessage = async (content: string) => {
   isSending.value = true;
   const meta: any = {};
   try {
-    await ensureSessionForSend();
-    if (currentSessionId.value) meta.sessionId = currentSessionId.value;
+    const ensuredSessionId = await ensureSessionForSend();
+    // 若当前会话仍是“未命名”，用首条问题自动命名（ChatGPT 风格）
+    if (currentAgentId.value && currentSessionId.value && content?.trim()) {
+      const sessions = sessionsByAgent.value?.[currentAgentId.value] || [];
+      const sess = sessions.find((s: any) => s.id === currentSessionId.value);
+      const sessTitle = String(sess?.title || "").trim();
+      const isUntitled =
+        !sessTitle ||
+        sessTitle === t("agent.chat.untitledSession") ||
+        sessTitle.includes("未命名");
+      if (isUntitled) {
+        const title = String(content).trim().slice(0, 24);
+        if (title) {
+          await chatSessions.renameSession(
+            currentAgentId.value,
+            currentSessionId.value,
+            title
+          );
+        }
+      }
+    }
+    if (ensuredSessionId != null) meta.sessionId = ensuredSessionId;
+    else if (currentSessionId.value) meta.sessionId = currentSessionId.value;
     if (currentAgentId.value) meta.agentId = currentAgentId.value;
     await chat.sendMessage(content, "chat", meta);
   } finally {
@@ -306,12 +355,20 @@ const handleClearMessages = () => {
 
 // 创建/编辑/保存/删除 Agent
 const handleCreateAgent = () => {
+  if (isUiBusy.value) {
+    notifyOnce("智能体正在响应中", "请等待本次生成结束后再新建智能体。");
+    return;
+  }
   editingAgent.value = null;
   showConfigPanel.value = true;
 };
 
-const handleEditAgent = (agentId: number) => {
-  const agent = agents.value.find((a) => a.id === agentId);
+const handleEditAgent = (agentId: string) => {
+  if (isUiBusy.value) {
+    notifyOnce("智能体正在响应中", "请等待本次生成结束后再编辑智能体。");
+    return;
+  }
+  const agent = agents.value.find((a) => a.uuid === agentId);
   if (agent) {
     editingAgent.value = JSON.parse(JSON.stringify(agent)) as Agent;
     showConfigPanel.value = true;
@@ -325,7 +382,7 @@ const handleCloseConfig = () => {
   editingAgent.value = null;
 };
 
-const handleDeleteAgent = async (agentId: number) => {
+const handleDeleteAgent = async (agentId: string) => {
   const ok = await confirm({
     title: t("agent.confirmDelete") || "确定删除该会话？",
     tone: "danger",
@@ -341,7 +398,7 @@ const handleDeleteAgent = async (agentId: number) => {
       chatSessions.clear();
       if (agents.value.length > 0) {
         const first = agents.value[0];
-        if (first) await handleAgentSelect(first.id);
+        if (first) await handleAgentSelect(first.uuid);
       }
     }
   } catch (error) {
@@ -350,28 +407,79 @@ const handleDeleteAgent = async (agentId: number) => {
 };
 
 const handleSaveAgent = async (config: any) => {
+  if (isUiBusy.value) {
+    notifyOnce("智能体正在响应中", "请等待本次生成结束后再保存配置。");
+    return;
+  }
   try {
-    if (config.id) {
-      const updated = await agentManager.updateAgent(parseInt(config.id), config);
-      const agentId = updated?.id ?? parseInt(config.id);
+    const capabilityKeys = Array.isArray(config?.capabilities)
+      ? config.capabilities
+          .map((c: any) => String(c?.id || c?.key || c?.name || "").trim())
+          .filter(Boolean)
+      : [];
+
+    const aiParams = {
+      systemPrompt: String(config?.systemPrompt || "").trim(),
+      temperature:
+        typeof config?.temperature === "number" ? config.temperature : undefined,
+      topP: typeof config?.topP === "number" ? config.topP : undefined,
+      maxTokens:
+        typeof config?.maxTokens === "number" ? config.maxTokens : undefined,
+      frequencyPenalty:
+        typeof config?.frequencyPenalty === "number"
+          ? config.frequencyPenalty
+          : undefined,
+      presencePenalty:
+        typeof config?.presencePenalty === "number"
+          ? config.presencePenalty
+          : undefined,
+      contextWindow:
+        typeof config?.contextWindow === "number" ? config.contextWindow : undefined,
+      responseFormat: config?.responseFormat || undefined,
+      streaming:
+        typeof config?.streaming === "boolean" ? config.streaming : undefined,
+    };
+
+    const agentUUID = String(config.uuid || config.id || "").trim();
+    if (agentUUID) {
+      const exist = agents.value.find((a) => a.uuid === agentUUID);
+      const nextMeta = {
+        ...(exist?.meta || {}),
+        ...(config.meta || {}),
+        ...(capabilityKeys.length ? { capabilities: capabilityKeys } : {}),
+      };
+
+      const updated = await agentManager.updateAgent(agentUUID, {
+        name: config.name,
+        description: config.description,
+        status: config.isActive ? "active" : "disabled",
+        meta: nextMeta,
+      });
+      const updatedUUID = String(updated?.uuid || agentUUID);
 
       // Agent 级 provider/model 覆盖：有选就 upsert；选“系统默认”就 delete（回退）
       if (config.useSystemModelConfig || !config.provider || !config.model) {
         try {
-          await del(`/admin/agents/${agentId}/ai-setting`, {
-            params: { env: "dev" },
+          await del(`/admin/agents/${updatedUUID}/ai-setting`, {
+            params: { env: ENV.value },
             useGlobalLoading: false,
           });
         } catch {}
       } else {
         await put(
-          `/admin/agents/${agentId}/ai-setting`,
+          `/admin/agents/${updatedUUID}/ai-setting`,
           {
-            env: "dev",
+            env: ENV.value,
             provider: String(config.provider),
             model: String(config.model),
-            params: {},
-            overrideFlags: { provider: true, model: true },
+            params: aiParams,
+            overrideFlags: {
+              provider: true,
+              model: true,
+              ...Object.fromEntries(
+                Object.entries(aiParams).map(([k, v]) => [k, v !== undefined])
+              ),
+            },
             quotaPolicy: {},
           },
           { useGlobalLoading: false }
@@ -379,26 +487,35 @@ const handleSaveAgent = async (config: any) => {
       }
 
       await agentManager.fetchAgents();
-      await loadAgentAISetting(agentId);
+      await loadAgentAISetting(updatedUUID);
     } else {
       const newAgent = await agentManager.createAgent({
         key: config.key || `agent_${Date.now()}`,
         name: config.name || "新建 Agent",
         description: config.description || "",
-        status: config.isActive ? "active" : "inactive",
-        meta: config.meta || {},
+        status: config.isActive ? "active" : "disabled",
+        meta: {
+          ...(config.meta || {}),
+          ...(capabilityKeys.length ? { capabilities: capabilityKeys } : {}),
+        },
       });
       // 新建后可选写入 agent 级模型覆盖
       if (!config.useSystemModelConfig && config.provider && config.model) {
         try {
           await put(
-            `/admin/agents/${newAgent.id}/ai-setting`,
+            `/admin/agents/${newAgent.uuid}/ai-setting`,
             {
-              env: "dev",
+              env: ENV.value,
               provider: String(config.provider),
               model: String(config.model),
-              params: {},
-              overrideFlags: { provider: true, model: true },
+              params: aiParams,
+              overrideFlags: {
+                provider: true,
+                model: true,
+                ...Object.fromEntries(
+                  Object.entries(aiParams).map(([k, v]) => [k, v !== undefined])
+                ),
+              },
               quotaPolicy: {},
             },
             { useGlobalLoading: false }
@@ -406,7 +523,7 @@ const handleSaveAgent = async (config: any) => {
         } catch {}
       }
 
-      await handleAgentSelect(newAgent.id);
+      await handleAgentSelect(newAgent.uuid);
     }
     handleCloseConfig();
   } catch (error) {
@@ -417,7 +534,7 @@ const handleSaveAgent = async (config: any) => {
 // 当前 Agent
 const selectedAgent = computed(() => {
   return (
-    agents.value.find((agent) => agent.id === currentAgentId.value) || null
+    agents.value.find((agent) => agent.uuid === currentAgentId.value) || null
   );
 });
 
@@ -427,17 +544,17 @@ const currentAgentForChat = computed(() => {
   if (!agent) return null;
   const cfg = agentAiSetting.value;
   return {
-    id: agent.id.toString(),
+    id: agent.uuid,
     name: agent.name,
     description: agent.description,
     avatar: "",
     model: cfg?.model || "gpt-3.5-turbo",
-    systemPrompt: "",
+    systemPrompt: cfg?.params?.systemPrompt ?? "",
     temperature: cfg?.params?.temperature ?? 0.7,
-    maxTokens: 2000,
-    topP: 1,
-    frequencyPenalty: 0,
-    presencePenalty: 0,
+    maxTokens: cfg?.params?.maxTokens ?? 2000,
+    topP: cfg?.params?.topP ?? 1,
+    frequencyPenalty: cfg?.params?.frequencyPenalty ?? 0,
+    presencePenalty: cfg?.params?.presencePenalty ?? 0,
     isActive: agent.status === "active",
     capabilities: [],
   };
@@ -501,6 +618,7 @@ const getAgentIcon = (agent: Agent) => {
             :agents="agentsList"
             :current-agent-id="currentAgentId || undefined"
             :current-session-id="currentSessionId || undefined"
+            :busy="isUiBusy"
             :sessions-by-agent="sessionsByAgent"
             :sessions-loading-by-agent="sessionsLoadingByAgent"
             :has-more-by-agent="hasMoreByAgent"
@@ -508,17 +626,10 @@ const getAgentIcon = (agent: Agent) => {
             @create-agent="handleCreateAgent"
             @edit-agent="handleEditAgent"
             @new-session="handleNewSession"
+            @clear-sessions="handleClearAllSessions"
             @select-session="handleSelectSession"
             @delete-session="handleDeleteSession"
             @pin-session="handlePinSession"
-            @unpin-session="
-              (sessionId: string) =>
-                handlePinSession({
-                  agentId: Number(currentAgentId),
-                  sessionId,
-                  pinned: false,
-                })
-            "
             @load-more-sessions="handleLoadMoreSessions"
             @rename-session="handleRenameSession"
           />
@@ -542,6 +653,7 @@ const getAgentIcon = (agent: Agent) => {
               variant="ghost"
               class="w-8 h-8 p-0 flex items-center justify-center"
               :title="'新建 Agent'"
+              :disabled="isUiBusy"
               @click="handleCreateAgent"
             />
           </div>

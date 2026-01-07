@@ -1,6 +1,6 @@
 # Feature Specification: Media Asset Admin Capabilities
 
-**Feature Branch**: `001-docs-media-storage`  
+**Feature Branch**: `001-media-storage`  
 **Created**: 2025-10-07  
 **Status**: Draft  
 **Input**: User description: "Refer to docs/media_storage_design.md docs/media_storage_admin_api.md"
@@ -15,6 +15,7 @@ As an ops/content admin, I want to upload, search, update, and retire media asse
 
 1. **Given** the admin has console access and storage drivers are configured, **When** the admin uploads a local file or provides an external file URL, **Then** the system validates the request, persists media metadata, and returns an accessible resource payload.
 2. **Given** the admin needs to locate historical assets, **When** the admin filters the media list by keyword, storage driver, or owner subject, **Then** the system returns a paginated result set with total count and allows viewing full details.
+3. **Given** the admin uses the Web Admin console, **When** the admin completes a presigned upload flow (create → presign → upload → refresh), **Then** the console shows the updated asset (including size/mime) and supports preview/download via controlled resource access.
 
 ### Edge Cases
 
@@ -35,6 +36,17 @@ As an ops/content admin, I want to upload, search, update, and retire media asse
 - **FR-007**: Generate time-limited presigned links for an existing or to-be-uploaded resource; links must expire automatically after 12 hours by default and only authorized admins may generate them.
 - **FR-008**: Persist auditable trails for upload/update/delete/presign operations to trace actor, source, and parameters.
 
+### Console UI Requirements (Web Admin)
+
+> UI 设计与页面流详见：`docs/plan/content/media.md`
+
+- **FR-UI-001**: Provide a “Media Library” entry in the admin console for tenant-scoped media asset management (list / detail / edit / delete).
+- **FR-UI-002**: Support search and filtering in the console by keyword, tags (AND semantics), business status, storage driver, and recycle-bin mode (only deleted / include deleted).
+- **FR-UI-003**: Support presigned upload in the console as the primary upload path (create asset → presign → upload → refresh), including progress, retry, and clear failure messages.
+- **FR-UI-004**: Support external-link ingestion in the console (register an asset by URL and preview/open it safely).
+- **FR-UI-005**: Provide safe preview/download behaviors by default (prefer controlled, authenticated resource access; avoid accidental exposure through public anonymous endpoints).
+- **FR-UI-006**: Provide basic batch operations in the console (minimum: batch soft-delete; optional: batch tag edits).
+
 ### Key Entities
 
 - **Media Asset**: A single file or external resource managed by the platform, including name, storage driver, access URL, size, owner subject, tags, business status (Draft / Under Review / Published / Archived), timestamps, and soft-delete marker.
@@ -48,6 +60,7 @@ As an ops/content admin, I want to upload, search, update, and retire media asse
 - Unified tagging and owner subject standards exist; asset creation/update must comply with them.
 - An operations-maintained scheduled task will process soft-deleted assets for physical removal according to retention policies.
 - Maximum upload size is governed by each storage driver; the admin console will not impose an additional global cap.
+- The Web Admin console can resolve tenant context and attach it to requests consistently (tenant isolation is mandatory).
 
 ## Clarifications
 

@@ -69,6 +69,28 @@ go run ./cmd/media_tool cleanup --dry-run --before=24h --limit=50
 
 生产环境建议去掉 `--dry-run` 参数，并结合 Cron/任务编排按需执行。运行 `go run ./cmd/media_tool help` 查看更多子命令与参数说明。
 
+## Web Admin 手工验收（UI）
+
+> 适用于本仓库 `web-admin`（Nuxt）控制台页面：`/content/media`
+
+1. 启动后端：`make dev`（默认 `http://localhost:8077`），并确保已能登录管理端拿到 `access_token`。
+2. 启动 Web Admin：在 `web-admin/` 执行 `npm run dev`。
+3. 打开媒体库：
+   - 进入 `内容管理 → 媒体库`（路由：`/content/media`）
+   - 验证列表请求能返回并渲染（支持 keyword/状态/驱动/标签/回收站筛选，分页可切换）
+4. 预签名上传（推荐）：
+   - 点击“上传” → 选择“预签名上传”
+   - 选择文件 → 填写名称（可默认文件名）→ 开始上传
+   - 预期：创建成功后列表出现新资产；点击进入详情页能预览/下载（本地上传会回填 size/mime）
+5. 外链入库：
+   - 点击“上传” → 选择“外链入库”
+   - 填写名称与外链 URL → 创建
+   - 预期：详情页显示外链并可跳转打开
+6. 编辑与删除：
+   - 进入详情页（路由：`/content/media/{uuid}`）
+   - 修改名称/描述/标签/业务状态并保存
+   - 点击删除（软删）后可在列表勾选“回收站（仅软删）”筛选到该记录
+
 ## 回滚策略
 
 1. 通过 `DELETE {APIPrefix}/admin/media/assets/{uuid}` 恢复至软删除状态再重试。
