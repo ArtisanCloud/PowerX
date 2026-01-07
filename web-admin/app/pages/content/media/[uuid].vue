@@ -26,9 +26,18 @@
           size="sm"
           variant="outline"
           :disabled="!uuid"
-          @click="copyResourceLink"
+          @click="copyDownloadLink"
         >
-          复制资源链接
+          复制下载链接
+        </UButton>
+        <UButton
+          icon="i-lucide-shield"
+          size="sm"
+          variant="ghost"
+          :disabled="!uuid"
+          @click="copyAuthResourceLink"
+        >
+          复制鉴权链接
         </UButton>
         <UButton
           icon="i-lucide-download"
@@ -120,6 +129,10 @@
 <script setup lang="ts">
 import { useToast } from "#imports";
 import { useApiClient } from "~/composables/api";
+import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
+import { useConfirm } from "~/composables/useConfirm";
+import MediaAssetDetailPanel from "~/components/content/media/MediaAssetDetailPanel.vue";
+import MediaPreview from "~/components/content/media/MediaPreview.vue";
 
 definePageMeta({
   title: "媒体详情",
@@ -158,6 +171,8 @@ interface MediaAssetAdminView {
 
 const toast = useToast();
 const apiClient = useApiClient();
+const media = useMediaAssetService();
+const { confirm } = useConfirm();
 const localePath = useLocalePath();
 const route = useRoute();
 
@@ -294,12 +309,46 @@ async function loadPreview() {
   }
 }
 
-function copyResourceLink() {
+async function copyDownloadLink() {
   if (!process.client || !uuid.value) return;
-  const url = `${location.origin}/api/admin/media/assets/${encodeURIComponent(uuid.value)}/resource`;
+  try {
+    const cfg = useRuntimeConfig();
+    const upstreamOrigin = String(cfg.public?.upstreamOrigin || "").replace(/\/+$/, "");
+    const presign = await media.presign(uuid.value, {
+      action: "download",
+      method: "GET",
+      expiresInSeconds: 3600,
+    });
+    let url = String(presign?.url || "").trim();
+    if (!url) throw new Error("预签名返回空链接");
+    if (url.startsWith("/")) {
+      const base = upstreamOrigin || location.origin;
+      url = `${base}${url}`;
+    }
+    await navigator.clipboard.writeText(url);
+    toast.add({ title: "已复制下载链接", description: url });
+  } catch (e: any) {
+    toast.add({ title: "复制失败", description: String(e?.message || ""), color: "red" });
+  }
+}
+
+function copyAuthResourceLink() {
+  if (!process.client || !uuid.value) return;
+  const cfg = useRuntimeConfig();
+  const apiBase = String(cfg.public?.apiBase || "/api").replace(/\/+$/, "");
+  const apiPrefix =
+    apiBase.startsWith("http://") || apiBase.startsWith("https://")
+      ? apiBase
+      : `${location.origin}${apiBase.startsWith("/") ? "" : "/"}${apiBase}`;
+  const url = `${apiPrefix}/admin/media/assets/${encodeURIComponent(uuid.value)}/resource`;
   navigator.clipboard
     .writeText(url)
-    .then(() => toast.add({ title: "已复制资源链接", description: url }))
+    .then(() =>
+      toast.add({
+        title: "已复制鉴权链接",
+        description: "该链接需携带 Authorization/X-Tenant-UUID 才可访问",
+      })
+    )
     .catch(() => toast.add({ title: "复制失败", color: "red" }));
 }
 
@@ -384,7 +433,16 @@ async function deleteAsset() {
   if (!uuid.value || !asset.value) return;
   if (!process.client) return;
 
-  const ok = window.confirm("确认删除该媒体资产？（软删除）");
+  const ok = await confirm({
+    title: "删除媒体资产",
+    description: "软删除（可在回收站查看）",
+    message: `确认删除 ${asset.value.name || asset.value.uuid}？`,
+    confirmLabel: "删除",
+    cancelLabel: "取消",
+    confirmColor: "red",
+    tone: "danger",
+    showIcon: true,
+  });
   if (!ok) return;
 
   deleting.value = true;

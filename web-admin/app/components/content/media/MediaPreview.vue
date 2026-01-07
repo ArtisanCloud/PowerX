@@ -30,12 +30,13 @@
         </div>
       </div>
       <div v-else-if="previewUrl" class="space-y-2">
-        <img
-          v-if="kind === 'image'"
-          :src="previewUrl"
-          class="max-h-[520px] w-full rounded-md object-contain bg-black/5"
-          alt="media preview"
-        />
+        <div v-if="kind === 'image'" class="flex justify-center">
+          <img
+            :src="previewUrl"
+            class="max-h-[520px] max-w-full h-auto w-auto rounded-md object-contain bg-black/5"
+            alt="media preview"
+          />
+        </div>
         <video
           v-else-if="kind === 'video'"
           :src="previewUrl"
@@ -72,4 +73,3 @@ defineEmits<{
   (e: "openExternal"): void;
 }>();
 </script>
-

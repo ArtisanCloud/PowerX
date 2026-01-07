@@ -52,7 +52,7 @@
           :items="rows"
           :loading="loading"
           @select="openDetail"
-          @copyLink="copyResourceLink"
+          @copyLink="copyDownloadLink"
         />
       </div>
 
@@ -79,7 +79,12 @@
 <script setup lang="ts">
 import { useToast } from "#imports";
 import { useApiClient } from "~/composables/api";
+import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
 import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+import MediaFilterBar from "~/components/content/media/MediaFilterBar.vue";
+import MediaGrid from "~/components/content/media/MediaGrid.vue";
+import MediaTable from "~/components/content/media/MediaTable.vue";
+import MediaUploadDrawer from "~/components/content/media/MediaUploadDrawer.vue";
 
 definePageMeta({
   title: "媒体库",
@@ -103,6 +108,7 @@ type MediaFilterState = {
 
 const toast = useToast();
 const apiClient = useApiClient();
+const media = useMediaAssetService();
 const localePath = useLocalePath();
 
 const loading = ref(false);
@@ -155,13 +161,27 @@ function openDetail(uuid: string) {
   navigateTo(localePath(`/content/media/${uuid}`));
 }
 
-function copyResourceLink(uuid: string) {
+async function copyDownloadLink(uuid: string) {
   if (!process.client || !uuid) return;
-  const url = `${location.origin}/api/admin/media/assets/${encodeURIComponent(uuid)}/resource`;
-  navigator.clipboard
-    .writeText(url)
-    .then(() => toast.add({ title: "已复制资源链接", description: url }))
-    .catch(() => toast.add({ title: "复制失败", color: "red" }));
+  try {
+    const cfg = useRuntimeConfig();
+    const upstreamOrigin = String(cfg.public?.upstreamOrigin || "").replace(/\/+$/, "");
+    const presign = await media.presign(uuid, {
+      action: "download",
+      method: "GET",
+      expiresInSeconds: 3600,
+    });
+    let url = String(presign?.url || "").trim();
+    if (!url) throw new Error("预签名返回空链接");
+    if (url.startsWith("/")) {
+      const base = upstreamOrigin || location.origin;
+      url = `${base}${url}`;
+    }
+    await navigator.clipboard.writeText(url);
+    toast.add({ title: "已复制下载链接", description: url });
+  } catch (e: any) {
+    toast.add({ title: "复制失败", description: String(e?.message || ""), color: "red" });
+  }
 }
 
 async function fetchList() {

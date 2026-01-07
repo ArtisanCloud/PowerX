@@ -6,24 +6,28 @@
       class="cursor-pointer hover:shadow-md transition-shadow"
       @click="$emit('select', asset.uuid)"
     >
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <div class="truncate text-sm font-semibold text-[var(--text-primary)]">
-            {{ asset.name || "-" }}
-          </div>
-          <div class="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--text-secondary)]">
-            <span>{{ asset.mimeType || "unknown" }}</span>
-            <span v-if="asset.sizeBytes != null">· {{ formatBytes(asset.sizeBytes) }}</span>
-          </div>
-        </div>
-        <UBadge :color="statusColor(asset.businessStatus)" variant="soft" class="shrink-0">
-          {{ asset.businessStatus || "-" }}
-        </UBadge>
-      </div>
+      <div class="space-y-3">
+        <MediaThumbnail :asset="asset" container-class="h-36 w-full" />
 
-      <div class="mt-3 flex items-center justify-between text-xs text-[var(--text-tertiary)]">
-        <span>{{ asset.driver || "-" }}</span>
-        <span>{{ formatTime(asset.updatedAt) }}</span>
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="truncate text-sm font-semibold text-[var(--text-primary)]">
+              {{ asset.name || "-" }}
+            </div>
+            <div class="mt-1 flex flex-wrap items-center gap-1 text-xs text-[var(--text-secondary)]">
+              <span>{{ asset.mimeType || "unknown" }}</span>
+              <span v-if="asset.sizeBytes != null">· {{ formatBytes(asset.sizeBytes) }}</span>
+            </div>
+          </div>
+          <UBadge :color="statusColor(asset.businessStatus)" variant="soft" class="shrink-0">
+            {{ asset.businessStatus || "-" }}
+          </UBadge>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-[var(--text-tertiary)]">
+          <span>{{ asset.driver || "-" }}</span>
+          <span>{{ formatTime(asset.updatedAt) }}</span>
+        </div>
       </div>
     </UCard>
   </div>
@@ -31,6 +35,7 @@
 
 <script setup lang="ts">
 import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+import MediaThumbnail from "~/components/content/media/MediaThumbnail.vue";
 
 defineProps<{
   items: MediaAssetAdminView[];
@@ -71,4 +76,3 @@ function formatTime(value: string) {
   return d.toLocaleString();
 }
 </script>
-

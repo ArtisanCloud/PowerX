@@ -11,6 +11,7 @@
 <script setup lang="ts">
 import { h, resolveComponent } from "vue";
 import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+import MediaThumbnail from "~/components/content/media/MediaThumbnail.vue";
 
 const props = defineProps<{
   items: MediaAssetAdminView[];
@@ -27,19 +28,25 @@ const columns = [
     accessorKey: "name",
     header: "名称/类型",
     cell: ({ row }: any) =>
-      h("div", { class: "space-y-1" }, [
-        h(
-          "div",
-          { class: "font-semibold text-sm text-[var(--text-primary)]" },
-          row.original.name || "-"
-        ),
-        h(
-          "div",
-          { class: "text-xs text-[var(--text-secondary)]" },
-          `${row.original.mimeType || "unknown"} · ${
-            row.original.sizeBytes != null ? formatBytes(row.original.sizeBytes) : "-"
-          }`
-        ),
+      h("div", { class: "flex items-center gap-3" }, [
+        h(MediaThumbnail, {
+          asset: row.original as MediaAssetAdminView,
+          containerClass: "h-10 w-10 shrink-0",
+        }),
+        h("div", { class: "min-w-0 space-y-1" }, [
+          h(
+            "div",
+            { class: "truncate font-semibold text-sm text-[var(--text-primary)]" },
+            row.original.name || "-"
+          ),
+          h(
+            "div",
+            { class: "text-xs text-[var(--text-secondary)]" },
+            `${row.original.mimeType || "unknown"} · ${
+              row.original.sizeBytes != null ? formatBytes(row.original.sizeBytes) : "-"
+            }`
+          ),
+        ]),
       ]),
   },
   {
@@ -85,7 +92,7 @@ const columns = [
         h(
           resolveComponent("UButton"),
           { size: "xs", variant: "ghost", onClick: () => emit("copyLink", row.original.uuid) },
-          () => "复制链接"
+          () => "复制下载链接"
         ),
       ]),
   },
@@ -124,4 +131,3 @@ function formatTime(value: string) {
 
 const loading = computed(() => !!props.loading);
 </script>
-

@@ -63,6 +63,7 @@ func BuildMediaStack(ctx context.Context, db *gorm.DB, audit auditsvc.Service, o
 
 	ttl := time.Duration(opts.TTLSeconds) * time.Second
 	svc := NewMediaService(db, nil, manager, audit, ttl)
+	svc.SetPublicResourceTokenSecret(opts.Local.PublicTokenSecret)
 
 	return manager, svc
 }

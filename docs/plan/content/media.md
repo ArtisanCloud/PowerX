@@ -39,22 +39,27 @@
 
 ### 2.2 后端接口（Admin）
 
-统一前缀：`/api`（由后端 `server.api_prefix` 决定，默认配置为 `/api`；部分契约文档中示例为 `/api/v1`，以实际部署为准）
+统一前缀：Web Admin 侧以 `runtimeConfig.public.apiBase` 为准（见 `web-admin/nuxt.config.ts`；默认 `/api/v1`，可通过 `NUXT_PUBLIC_API_BASE` 或 `UPSTREAM` path 推断/覆盖）。本文下文用 `<apiBase>` 代表该前缀。
 
-- 列表：`GET /api/admin/media/assets`
-- 创建：`POST /api/admin/media/assets`
-- 详情：`GET /api/admin/media/assets/:uuid`
-- 更新：`PATCH /api/admin/media/assets/:uuid`
-- 删除（软删）：`DELETE /api/admin/media/assets/:uuid`
-- 预签名：`POST /api/admin/media/assets/:uuid/presign`
-- 资源（鉴权）：`GET /api/admin/media/assets/:uuid/resource?disposition=inline|attachment`
-- 本地上传写入端点（鉴权）：`PUT /api/admin/media/assets/:uuid`
+- 列表：`GET <apiBase>/admin/media/assets`
+- 创建：`POST <apiBase>/admin/media/assets`
+- 详情：`GET <apiBase>/admin/media/assets/:uuid`
+- 更新：`PATCH <apiBase>/admin/media/assets/:uuid`
+- 删除（软删）：`DELETE <apiBase>/admin/media/assets/:uuid`
+- 预签名：`POST <apiBase>/admin/media/assets/:uuid/presign`
+- 资源（鉴权）：`GET <apiBase>/admin/media/assets/:uuid/resource?disposition=inline|attachment`
+- 说明：
+  - 该资源接口需要 `Authorization: Bearer <access_token>`（Admin）以及 `X-Tenant-UUID`，**直接在浏览器地址栏打开通常会报 `missing or invalid Authorization header` 属正常现象**。
+  - 若希望“复制后可直接打开/外部分发”，应使用 **预签名下载链接**（`POST <apiBase>/admin/media/assets/:uuid/presign`，`action=download`）或公开入口（见 2.3）。
+- 本地上传写入端点（鉴权）：`PUT <apiBase>/media/assets/:uuid`
+  - 说明：上传写入端点的最终 URL 以“预签名接口返回”为准，UI 不应硬编码 `/api` 或 `/api/v1`。
   - 需透传预签名返回的头：`X-CoreX-Upload-Expires`、`X-CoreX-Upload-Token`（若配置了 `storage.local.upload_token_secret`）
 
 ### 2.3 资源公开入口（安全提醒）
 
-后端存在匿名资源入口：`GET /media/:uuid/resource`。这意味着“知道 uuid 即可访问”。  
-UI 第一阶段建议 **默认走鉴权资源接口**（`/api/admin/.../resource`）进行预览/下载，避免误用匿名入口导致泄露风险。
+后端存在公开资源入口：`GET /media/:uuid/resource`。  
+默认策略：**仅 `published` 允许匿名访问**；`draft/under_review/archived` 需要携带 `token+exp`（由 `presign(action=download)` 生成）才可短期访问，用于安全分发/预览。
+UI 第一阶段建议 **默认走鉴权资源接口**（`<apiBase>/admin/.../resource`）进行预览/下载；对外分发则使用 `presign(download)` 返回的链接或公开入口（仅 published）。
 
 ---
 
@@ -97,6 +102,11 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`/api/admin/.../resource
 单条：
 - 打开详情
 - 复制链接（默认复制鉴权资源 URL；若启用公开入口，可复制公开 URL）
+- 复制链接建议拆分为两类：
+  - 复制下载链接（推荐）：通过 `presign(action=download)` 获取可直接访问的 URL（外链/S3 为带签名 URL；local 驱动通常返回 `/media/:uuid/resource`）。
+  - 复制鉴权链接（调试用）：`<apiBase>/admin/media/assets/:uuid/resource`，需要带 `Authorization/X-Tenant-UUID`。
+
+> 本地开发常见坑：`presign(action=download)` 在 local 驱动下返回的 `/media/:uuid/resource` 是 **后端服务**的相对路径；若 Web Admin 与后端不在同一域（例如 3030 ↔ 8077），需要用后端 `UPSTREAM` 的 origin 去拼接，否则会在前端站点上 404。
 - 下载（`disposition=attachment`）
 - 改状态（按状态机约束）
 - 删除（软删）
@@ -137,14 +147,14 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`/api/admin/.../resource
 #### 4.3.1 预签名上传（推荐，闭环完整）
 
 1) 创建资产（进入 draft）  
-`POST /api/admin/media/assets`，`uploadMethod=presign_upload`
+`POST <apiBase>/admin/media/assets`，`uploadMethod=presign_upload`
 
 2) 生成上传预签名  
-`POST /api/admin/media/assets/:uuid/presign`  
+`POST <apiBase>/admin/media/assets/:uuid/presign`  
 请求：`{ action: 'upload', method: 'PUT', content_type: file.type, expiresInSeconds?: number }`
 
 3) 执行上传  
-- 若返回 URL 为站内相对路径（例如 `/api/admin/media/assets/:uuid`）：  
+- 若返回 URL 为站内相对路径（例如 `<apiBase>/media/assets/:uuid`）：  
   - 以 `PUT` 上传文件内容，合并预签名返回的 `headers`（包含 `X-CoreX-Upload-*`）并带上 Authorization
 - 若返回 URL 为外部对象存储（S3/MinIO）绝对地址：  
   - 使用返回的 `method + headers` 直传，不附加自定义 Authorization
@@ -154,7 +164,7 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`/api/admin/.../resource
 
 #### 4.3.2 外链入库（External Link）
 
-`POST /api/admin/media/assets`，`uploadMethod=external_link` + `externalUrl`  
+`POST <apiBase>/admin/media/assets`，`uploadMethod=external_link` + `externalUrl`  
 后端会探测 size/mime（HEAD/Range GET），UI 直接展示即可。
 
 #### 4.3.3 直传（Direct Upload）
@@ -204,4 +214,3 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`/api/admin/.../resource
 - 能在详情页编辑 name/description/tags/status 并正确保存
 - 能删除资产（软删）并在回收站筛选到记录
 - 默认不依赖匿名 `/media/:uuid/resource` 进行预览/下载
-

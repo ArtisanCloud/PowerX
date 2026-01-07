@@ -293,6 +293,7 @@ func GetDefaults() *Config {
 				BasePath:           "./storage/media",
 				PublicBaseURL:      "http://localhost:8077/media",
 				UploadTokenSecret:  "",
+				PublicTokenSecret:  "",
 				MaxUploadSizeBytes: 100 << 20, // 100MB
 			},
 			S3: S3StorageConfig{

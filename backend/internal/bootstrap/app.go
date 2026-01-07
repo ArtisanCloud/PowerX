@@ -101,6 +101,16 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	if localTokenSecret == "" {
 		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点将跳过 Token 校验，不建议在生产环境使用")
 	}
+	publicTokenSecret := strings.TrimSpace(cfg.Storage.Local.PublicTokenSecret)
+	if publicTokenSecret == "" {
+		// 兼容：未显式配置时，优先复用 upload_token_secret，其次回退到 JWTSecret（避免本地环境“复制下载链接”不可用）。
+		if localTokenSecret != "" {
+			publicTokenSecret = localTokenSecret
+		} else if strings.TrimSpace(cfg.Auth.JWTSecret) != "" {
+			publicTokenSecret = strings.TrimSpace(cfg.Auth.JWTSecret)
+			logger.WarnF(ctx, "storage.local.public_token_secret 未配置，已回退使用 auth.jwt_secret 作为公开下载 token 密钥（建议在生产环境显式配置 public_token_secret）")
+		}
+	}
 	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
 	if maxUploadSize < 0 {
 		maxUploadSize = 0
@@ -175,6 +185,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				BasePath:           cfg.Storage.Local.BasePath,
 				PublicBaseURL:      cfg.Storage.Local.PublicBaseURL,
 				UploadTokenSecret:  localTokenSecret,
+				PublicTokenSecret:  publicTokenSecret,
 				MaxUploadSizeBytes: maxUploadSize,
 			},
 			S3: mediasvc.StorageS3Options{

@@ -1,14 +1,14 @@
 <template>
-  <USlideover v-model="open">
-    <UCard class="flex flex-col h-full">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-medium text-[var(--text-primary)]">上传/入库</div>
-          <UButton icon="i-heroicons-x-mark" variant="ghost" size="sm" @click="open = false" />
-        </div>
-      </template>
-
-      <div class="space-y-4">
+  <UModal
+    v-model:open="open"
+    title="上传/入库"
+    description="预签名上传（推荐）或外链入库"
+    :close="{ onClick: close }"
+    :ui="{ footer: 'justify-end' }"
+    prevent-close
+  >
+    <template #body>
+      <div class="p-4 sm:p-5 max-w-3xl w-full space-y-4 max-h-[75vh] overflow-y-auto">
         <UTabs v-model="tab" :items="tabs" />
 
         <UAlert
@@ -47,18 +47,44 @@
             </div>
             <div class="space-y-1">
               <div class="text-xs text-[var(--text-tertiary)]">驱动（可选）</div>
-              <USelect v-model="presignForm.driver" :disabled="busy" :items="driverOptions" placeholder="默认驱动" />
+              <USelect
+                v-model="presignForm.driver"
+                :disabled="busy"
+                :items="driverOptions"
+                placeholder="默认驱动"
+                class="w-full"
+              />
             </div>
           </div>
 
           <div class="space-y-1">
             <div class="text-xs text-[var(--text-tertiary)]">标签（可选）</div>
-            <UInput v-model="presignForm.tagsText" :disabled="busy" placeholder="逗号分隔，例如: marketing,hero" />
+            <UInput
+              v-model="presignForm.tagsText"
+              :disabled="busy"
+              placeholder="逗号分隔，例如: marketing,hero"
+            />
           </div>
 
           <div class="flex items-center justify-end gap-2">
-            <UButton variant="ghost" :disabled="busy" @click="resetPresign">重置</UButton>
-            <UButton :loading="busy" :disabled="!file" @click="startPresignUpload">开始上传</UButton>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              type="button"
+              :disabled="busy"
+              @click="resetPresign"
+            >
+              重置
+            </UButton>
+            <UButton
+              color="primary"
+              type="button"
+              :loading="busy"
+              :disabled="!file"
+              @click="startPresignUpload"
+            >
+              开始上传
+            </UButton>
           </div>
         </div>
 
@@ -69,33 +95,71 @@
           </div>
           <div class="space-y-1">
             <div class="text-xs text-[var(--text-tertiary)]">外链 URL</div>
-            <UInput v-model="externalForm.externalUrl" :disabled="busy" placeholder="https://example.com/file.png" />
+            <UInput
+              v-model="externalForm.externalUrl"
+              :disabled="busy"
+              placeholder="https://example.com/file.png"
+            />
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div class="space-y-1">
               <div class="text-xs text-[var(--text-tertiary)]">驱动（可选）</div>
-              <USelect v-model="externalForm.driver" :disabled="busy" :items="driverOptions" placeholder="默认驱动" />
+              <USelect
+                v-model="externalForm.driver"
+                :disabled="busy"
+                :items="driverOptions"
+                placeholder="默认驱动"
+                class="w-full"
+              />
             </div>
             <div class="space-y-1">
               <div class="text-xs text-[var(--text-tertiary)]">标签（可选）</div>
-              <UInput v-model="externalForm.tagsText" :disabled="busy" placeholder="逗号分隔，例如: marketing,hero" />
+              <UInput
+                v-model="externalForm.tagsText"
+                :disabled="busy"
+                placeholder="逗号分隔，例如: marketing,hero"
+              />
             </div>
           </div>
 
           <div class="flex items-center justify-end gap-2">
-            <UButton variant="ghost" :disabled="busy" @click="resetExternal">重置</UButton>
-            <UButton :loading="busy" @click="createExternalAsset">创建</UButton>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              type="button"
+              :disabled="busy"
+              @click="resetExternal"
+            >
+              重置
+            </UButton>
+            <UButton
+              color="primary"
+              type="button"
+              :loading="busy"
+              :disabled="busy"
+              @click="createExternalAsset"
+            >
+              创建
+            </UButton>
           </div>
         </div>
       </div>
+    </template>
 
-      <template #footer>
-        <div class="flex items-center justify-end gap-2">
-          <UButton variant="ghost" @click="open = false">关闭</UButton>
-        </div>
-      </template>
-    </UCard>
-  </USlideover>
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton
+          color="neutral"
+          variant="subtle"
+          type="button"
+          :disabled="busy"
+          @click="close"
+        >
+          关闭
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -133,7 +197,8 @@ const tabs = [
 const tab = ref<"presign" | "external">("presign");
 
 const driverOptions = [
-  { label: "默认驱动", value: "" },
+  // reka-ui 的 SelectItem 禁止 value=""，空值用 null 表示
+  { label: "默认驱动", value: null },
   { label: "local", value: "local" },
   { label: "s3", value: "s3" },
 ];
@@ -147,16 +212,28 @@ const file = ref<File | null>(null);
 
 const presignForm = reactive({
   name: "",
-  driver: "",
+  driver: null as string | null,
   tagsText: "",
 });
 
 const externalForm = reactive({
   name: "",
   externalUrl: "",
-  driver: "",
+  driver: null as string | null,
   tagsText: "",
 });
+
+function close(force = false) {
+  if (!force && busy.value) {
+    toast.add({ title: "上传中，暂不可关闭", color: "warning" });
+    return;
+  }
+  if (process.client) {
+    const active = document.activeElement as HTMLElement | null;
+    active?.blur?.();
+  }
+  open.value = false;
+}
 
 function setBusy(label: string, value: number) {
   progressLabel.value = label;
@@ -192,7 +269,7 @@ function onFileChange(e: Event) {
 function resetPresign() {
   file.value = null;
   presignForm.name = "";
-  presignForm.driver = "";
+  presignForm.driver = null;
   presignForm.tagsText = "";
   error.value = null;
   progress.value = 0;
@@ -202,7 +279,7 @@ function resetPresign() {
 function resetExternal() {
   externalForm.name = "";
   externalForm.externalUrl = "";
-  externalForm.driver = "";
+  externalForm.driver = null;
   externalForm.tagsText = "";
   error.value = null;
   progress.value = 0;
@@ -287,7 +364,7 @@ async function startPresignUpload() {
     setBusy("完成", 100);
     toast.add({ title: "上传成功" });
     emit("done", created);
-    open.value = false;
+    close(true);
     resetPresign();
   } catch (e: any) {
     const msg = String(e?.message || "上传失败");
@@ -321,7 +398,7 @@ async function createExternalAsset() {
     setBusy("完成", 100);
     toast.add({ title: "创建成功" });
     emit("done", created);
-    open.value = false;
+    close(true);
     resetExternal();
   } catch (e: any) {
     error.value = String(e?.message || "创建失败");
