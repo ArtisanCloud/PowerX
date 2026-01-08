@@ -127,21 +127,22 @@
 
 ### 测试
 
-- [ ] **T046 [P] [US4]** 在 `backend/tests/contract/knowledge_space/feedback_http_test.go` 编写 HTTP 合同测试：提交/列表/关闭/升级、退役空间阻断、审计字段与 trace_id 回传。
-- [ ] **T047 [P] [US4]** 在 `.../feedback_grpc_test.go` 编写 gRPC 合同测试（同上）。
-- [ ] **T048 [P] [US4]** 在 `backend/tests/integration/knowledge_space/feedback_loop_test.go` 验证闭环：反馈→再加工（重分块/重向量化/更新 KG/更新 sparse/hier）→热更新发布→失败回滚；覆盖“针对已删除/退役空间的反馈被拒绝并提示迁移”。
-- [ ] **T049 [P] [US4]** 在 `web-admin/tests/e2e/knowledge-spaces-feedback.spec.ts` 覆盖反馈看板、SLA 倒计时、升级流程、回滚按钮与告警提示。
+- [X] **T046 [P] [US4]** 在 `backend/tests/contract/knowledge_space/feedback_http_test.go` 编写 HTTP 合同测试：提交/列表/关闭/升级、退役空间阻断、审计字段与 trace_id 回传。
+- [X] **T047 [P] [US4]** 在 `.../feedback_grpc_test.go` 编写 gRPC 合同测试（同上）。
+- [X] **T048 [P] [US4]** 在 `backend/tests/integration/knowledge_space/feedback_loop_test.go` 验证闭环：反馈→再加工（重分块/重向量化/更新 KG/更新 sparse/hier）→热更新发布→失败回滚；覆盖“针对已删除/退役空间的反馈被拒绝并提示迁移”。
+- [X] **T049 [P] [US4]** 在 `web-admin/tests/e2e/knowledge-spaces-feedback.spec.ts` 覆盖反馈看板、SLA 倒计时、升级流程、回滚按钮与告警提示。
 
 ### 实现
 
-- [ ] **T050 [US4]** 在 `backend/internal/service/knowledge_space/feedback_service.go` 实现反馈接收、质量评分、PII 处理，并对退役/已删除空间的反馈进行拦截与指引；将 `trace_id`、候选引用（chunk_id/citation）与 feedback case 关联，支撑回放。
-- [ ] **T051 [US4]** 在 `backend/internal/transport/http/admin/knowledge_space/feedback_handlers.go` 实现 HTTP 接口（含筛选/导出/升级/关闭）。
-- [ ] **T052 [US4]** 在 `backend/internal/transport/grpc/knowledge_space/feedback_service.go` 实现 gRPC 接口（同上）。
-- [ ] **T053 [US4]** 在 `backend/internal/workflow/knowledge_space/reprocess_pipeline.go` 实现再加工与热更新编排：按 case 绑定的 chunk/source 执行重分块/重向量化/多索引写入（dense+sparse+hier+kg），产出新 ArtifactBundle，并支持失败回滚到上一 bundle/策略版本。
-- [ ] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 增强：case 详情（trace/citations）、一键 reprocess、回滚/升级、SLA 解释与通知记录。
-- [ ] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`（如存在）/聚合 `reports/_state/knowledge-update.json`，并补齐 `knowledge.feedback.*` 指标的告警阈值。
-- [ ] **T055A [US4]** 在 `backend/internal/service/knowledge_space/feedback_metrics.go` 维护 `knowledge.feedback.{loop_time,fix_accuracy,auto_rate,backlog}` 指标：落盘 `backend/reports/_state/knowledge-feedback.json`，并更新聚合 `reports/_state/knowledge-update.json`（与 Ops 脚本一致）。
-- [ ] **T055B [US4]** 在 `backend/config/knowledge/feedback_playbook.yaml`、`scripts/ops/knowledge-feedback-loop.mjs` 固化严重等级→SLA→处理路线与回归脚本；要求输出审计链路（audit-ledger）与可复现报告（含 trace_id/space_id/case_id）。
+- [X] **T050 [US4]** 在 `backend/internal/service/knowledge_space/feedback_service.go` 实现反馈接收、质量评分、PII 处理，并对退役/已删除空间的反馈进行拦截与指引；将 `trace_id`、候选引用（chunk_id/citation）与 feedback case 关联，支撑回放。
+- [X] **T051 [US4]** 在 `backend/internal/transport/http/admin/knowledge_space/feedback_handlers.go` 实现 HTTP 接口（含筛选/导出/升级/关闭）。
+- [X] **T052 [US4]** 在 `backend/internal/transport/grpc/knowledge_space/feedback_service.go` 实现 gRPC 接口（同上）。
+- [X] **T053 [US4]** 在 `backend/internal/workflow/knowledge_space/reprocess_pipeline.go` 实现再加工与热更新编排：按 case 绑定的 chunk/source 执行重分块/重向量化/多索引写入（dense+sparse+hier+kg），产出新 ArtifactBundle，并支持失败回滚到上一 bundle/策略版本。
+- [X] **T053A [US4]** 再加工任务治理：优先使用 PowerX `event_fabric` 投递/重试/DLQ（topic 形态：`<tenant>.knowledge.space.feedback.reprocess`，subscriber：`core.knowledge_space.reprocess`）；可通过 `GET /api/event-fabric/overview` 或 Web Admin「系统设置 → 异步任务」查看 DLQ/投递状态并发起 replay。
+- [X] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 增强：case 详情（trace/citations）、一键 reprocess、回滚/升级、SLA 解释与通知记录。
+- [X] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`（如存在）/聚合 `reports/_state/knowledge-update.json`，并补齐 `knowledge.feedback.*` 指标的告警阈值。
+- [X] **T055A [US4]** 在 `backend/internal/service/knowledge_space/feedback_metrics.go` 维护 `knowledge.feedback.{loop_time,fix_accuracy,auto_rate,backlog}` 指标：落盘 `backend/reports/_state/knowledge-feedback.json`，并更新聚合 `reports/_state/knowledge-update.json`（与 Ops 脚本一致）。
+- [X] **T055B [US4]** 在 `backend/config/knowledge/feedback_playbook.yaml`、`scripts/ops/knowledge-feedback-loop.mjs` 固化严重等级→SLA→处理路线与回归脚本；要求输出审计链路（audit-ledger）与可复现报告（含 trace_id/space_id/case_id）。
 
 ---
 

@@ -158,6 +158,45 @@ message ListFeedbackCasesResponse {
   repeated FeedbackCase cases = 1;
 }
 
+message CloseFeedbackCaseRequest {
+  string space_id = 1;
+  string case_id = 2;
+  string requested_by = 3;
+  string resolution_notes = 4;
+}
+
+message EscalateFeedbackCaseRequest {
+  string space_id = 1;
+  string case_id = 2;
+  string requested_by = 3;
+  string reason = 4;
+}
+
+message ReprocessFeedbackCaseRequest {
+  string space_id = 1;
+  string case_id = 2;
+  string requested_by = 3;
+}
+
+message RollbackFeedbackCaseRequest {
+  string space_id = 1;
+  string case_id = 2;
+  string requested_by = 3;
+  string reason = 4;
+}
+
+message ExportFeedbackCasesRequest {
+  string space_id = 1;
+  string status = 2;
+  string severity = 3;
+  uint32 limit = 4;
+}
+
+message ExportFeedbackCasesResponse {
+  repeated FeedbackCase cases = 1;
+  string export_json = 2;
+}
+
 message FeedbackCase {
   string case_id = 1;
   string space_id = 2;
@@ -172,6 +211,9 @@ message FeedbackCase {
   google.protobuf.Timestamp sla_due_at = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp escalated_at = 14;
+  google.protobuf.Timestamp closed_at = 15;
+  string resolution_notes = 16;
 }
 
 message DeltaJob {
@@ -384,6 +426,11 @@ service KnowledgeSpaceAdminService {
   rpc RollbackFusionStrategy(RollbackFusionStrategyRequest) returns (FusionStrategyResponse);
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
   rpc ListFeedbackCases(ListFeedbackCasesRequest) returns (ListFeedbackCasesResponse);
+  rpc CloseFeedbackCase(CloseFeedbackCaseRequest) returns (FeedbackResponse);
+  rpc EscalateFeedbackCase(EscalateFeedbackCaseRequest) returns (FeedbackResponse);
+  rpc ReprocessFeedbackCase(ReprocessFeedbackCaseRequest) returns (FeedbackResponse);
+  rpc RollbackFeedbackCase(RollbackFeedbackCaseRequest) returns (FeedbackResponse);
+  rpc ExportFeedbackCases(ExportFeedbackCasesRequest) returns (ExportFeedbackCasesResponse);
   rpc StartDeltaJob(StartDeltaJobRequest) returns (StartDeltaJobResponse);
   rpc GetDeltaReport(GetDeltaReportRequest) returns (GetDeltaReportResponse);
   rpc PublishDeltaJob(PublishDeltaJobRequest) returns (PublishDeltaJobResponse);

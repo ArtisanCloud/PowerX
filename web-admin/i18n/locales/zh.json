@@ -2,6 +2,7 @@
   "menu": {
     "openMarket": "开放市场",
     "openCapabilities": "开放能力",
+    "eventFabric": "异步任务",
     "pluginMarketplace": "插件市场",
     "pluginReleaseCandidates": "发布候选",
     "agent": "智能体",

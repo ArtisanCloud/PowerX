@@ -44,6 +44,11 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		if feedbackHandler != nil {
 			group.GET("/:spaceId/feedback", feedbackHandler.List)
 			group.POST("/:spaceId/feedback", feedbackHandler.Submit)
+			group.POST("/:spaceId/feedback/:caseId/close", feedbackHandler.Close)
+			group.POST("/:spaceId/feedback/:caseId/escalate", feedbackHandler.Escalate)
+			group.POST("/:spaceId/feedback/:caseId/reprocess", feedbackHandler.Reprocess)
+			group.POST("/:spaceId/feedback/:caseId/rollback", feedbackHandler.Rollback)
+			group.GET("/:spaceId/feedback/export", feedbackHandler.Export)
 		}
 	}
 	if deltaHandler != nil {

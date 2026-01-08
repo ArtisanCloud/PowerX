@@ -91,6 +91,7 @@
     "aiSettingsCost": "코스트 설정",
     "aiSettingsRegistry": "능력 레지스트리",
     "openCapabilities": "플랫폼 능력",
+    "eventFabric": "비동기 작업",
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
     "media": "미디어",

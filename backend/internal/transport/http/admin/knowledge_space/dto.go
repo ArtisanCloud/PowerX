@@ -141,6 +141,12 @@ type feedbackRequest struct {
 	ReportedBy   string   `json:"reportedBy"`
 }
 
+type feedbackCaseActionRequest struct {
+	RequestedBy     string `json:"requestedBy"`
+	ResolutionNotes string `json:"resolutionNotes"`
+	Reason          string `json:"reason"`
+}
+
 type feedbackResponse struct {
 	CaseID        string     `json:"caseId"`
 	Status        string     `json:"status"`
@@ -151,7 +157,11 @@ type feedbackResponse struct {
 	SlaDueAt      *time.Time `json:"slaDueAt,omitempty"`
 	QualityScore  float64    `json:"qualityScore"`
 	ReprocessJob  string     `json:"reprocessJobId,omitempty"`
+	TraceID       string     `json:"traceId,omitempty"`
 	ToolTraceRef  string     `json:"toolTraceRef,omitempty"`
+	EscalatedAt   *time.Time `json:"escalatedAt,omitempty"`
+	ClosedAt      *time.Time `json:"closedAt,omitempty"`
+	Resolution    string     `json:"resolutionNotes,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	LastUpdatedAt time.Time  `json:"updatedAt"`
 }
@@ -170,7 +180,11 @@ func toFeedbackResponse(caseModel *models.FeedbackCase) feedbackResponse {
 		ReportedBy:    caseModel.ReportedBy,
 		SlaDueAt:      caseModel.SLADueAt,
 		QualityScore:  caseModel.QualityScore,
+		TraceID:       caseModel.ToolTraceRef,
 		ToolTraceRef:  caseModel.ToolTraceRef,
+		EscalatedAt:   caseModel.EscalatedAt,
+		ClosedAt:      caseModel.ClosedAt,
+		Resolution:    caseModel.ResolutionNotes,
 		CreatedAt:     caseModel.CreatedAt,
 		LastUpdatedAt: caseModel.UpdatedAt,
 	}

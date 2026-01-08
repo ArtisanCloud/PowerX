@@ -91,6 +91,7 @@
     "aiSettingsCost": "コスト設定",
     "aiSettingsRegistry": "能力レジストリ",
     "openCapabilities": "プラットフォーム能力",
+    "eventFabric": "非同期タスク",
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
     "media": "メディア",

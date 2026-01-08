@@ -2,6 +2,7 @@
   "menu": {
     "openMarket": "Open Market",
     "openCapabilities": "Platform Capabilities",
+    "eventFabric": "Async Tasks",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",

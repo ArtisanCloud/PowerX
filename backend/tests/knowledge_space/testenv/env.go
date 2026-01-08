@@ -22,6 +22,7 @@ import (
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
+	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -45,6 +46,8 @@ type Env struct {
 	VectorStore               *VectorStoreStub
 	SparseIndex               *SparseIndexStub
 	Pipeline                  *ReprocessPipelineStub
+	feedbackReprocessTopic    string
+	feedbackUnsub             func()
 	FeedbackReportPath        string
 	KnowledgeUpdateReportPath string
 	DeltaReportPath           string
@@ -204,7 +207,13 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	pipelineStub := NewReprocessPipelineStub()
+	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
+	pipelineInner := knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
+		EventBus:    bus,
+		EventTopic:  reprocessTopic,
+		Clock:       time.Now,
+	})
+	pipelineStub := NewReprocessPipelineStub().WithInner(pipelineInner)
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -283,6 +292,8 @@ func New(t testing.TB) *Env {
 		VectorStore:               vectorStore,
 		SparseIndex:               sparseIndex,
 		Pipeline:                  pipelineStub,
+		feedbackReprocessTopic:    reprocessTopic,
+		feedbackUnsub:             nil,
 		FeedbackReportPath:        feedbackReportPath,
 		KnowledgeUpdateReportPath: updateReportPath,
 		DeltaReportPath:           deltaReportPath,
@@ -312,6 +323,10 @@ func findProjectRoot(t testing.TB) string {
 	}
 }
 
+func ProjectRoot(t testing.TB) string {
+	return findProjectRoot(t)
+}
+
 func writeSeedJSON(t testing.TB, path string, payload any) {
 	t.Helper()
 	data, err := json.Marshal(payload)
@@ -321,9 +336,32 @@ func writeSeedJSON(t testing.TB, path string, payload any) {
 
 // Close releases resources created for the environment.
 func (e *Env) Close() {
+	if e.feedbackUnsub != nil {
+		e.feedbackUnsub()
+		e.feedbackUnsub = nil
+	}
 	if e.Bus != nil {
 		_ = e.Bus.Close()
 	}
+}
+
+func (e *Env) EnableFeedbackReprocessWorker() {
+	if e == nil || e.feedbackUnsub != nil {
+		return
+	}
+	if e.Bus == nil || e.DB == nil || e.VectorStore == nil {
+		return
+	}
+	if strings.TrimSpace(e.feedbackReprocessTopic) == "" {
+		return
+	}
+	e.feedbackUnsub = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
+		DB:          e.DB,
+		VectorStore: e.VectorStore,
+		EventBus:    e.Bus,
+		EventTopic:  e.feedbackReprocessTopic,
+		Clock:       time.Now,
+	}).Start()
 }
 
 // Engine returns a gin engine with admin routes registered.

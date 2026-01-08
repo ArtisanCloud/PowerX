@@ -90,8 +90,25 @@ export interface FeedbackCaseRecord {
   slaDueAt?: string;
   qualityScore: number;
   reprocessJobId?: string;
+  traceId?: string;
+  toolTraceRef?: string;
+  escalatedAt?: string;
+  closedAt?: string;
+  resolutionNotes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FeedbackCaseActionPayload {
+  requestedBy?: string;
+  resolutionNotes?: string;
+  reason?: string;
+}
+
+export interface FeedbackExportPayload {
+  cases: FeedbackCaseRecord[];
+  audits: any[];
+  meta: Record<string, any>;
 }
 
 interface ApiResponse<T> {
@@ -213,6 +230,90 @@ export const useKnowledgeSpaces = () => {
     return response.data;
   };
 
+  const closeFeedbackCase = async (
+    spaceId: string,
+    caseId: string,
+    payload: FeedbackCaseActionPayload,
+  ): Promise<FeedbackCaseRecord> => {
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
+      `${adminPath(`/${spaceId}/feedback/${caseId}/close`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
+  const escalateFeedbackCase = async (
+    spaceId: string,
+    caseId: string,
+    payload: FeedbackCaseActionPayload,
+  ): Promise<FeedbackCaseRecord> => {
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
+      `${adminPath(`/${spaceId}/feedback/${caseId}/escalate`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
+  const reprocessFeedbackCase = async (
+    spaceId: string,
+    caseId: string,
+    payload: FeedbackCaseActionPayload,
+  ): Promise<FeedbackCaseRecord> => {
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
+      `${adminPath(`/${spaceId}/feedback/${caseId}/reprocess`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
+  const rollbackFeedbackCase = async (
+    spaceId: string,
+    caseId: string,
+    payload: FeedbackCaseActionPayload,
+  ): Promise<FeedbackCaseRecord> => {
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
+      `${adminPath(`/${spaceId}/feedback/${caseId}/rollback`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
+  const exportFeedbackCases = async (
+    spaceId: string,
+    query?: { status?: string; severity?: string; limit?: number },
+  ): Promise<FeedbackExportPayload> => {
+    const params = new URLSearchParams();
+    if (query?.status) {
+      params.set("status", query.status);
+    }
+    if (query?.severity) {
+      params.set("severity", query.severity);
+    }
+    if (query?.limit) {
+      params.set("limit", String(query.limit));
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await $fetch<ApiResponse<FeedbackExportPayload>>(
+      `${adminPath(`/${spaceId}/feedback/export`)}${suffix}`,
+      {
+        method: "GET",
+      },
+    );
+    return response.data;
+  };
+
   const fetchStatus = async (): Promise<StatusSnapshot> => {
     return await $fetch<StatusSnapshot>(
       `${baseURL}/openapi/knowledge-spaces/status`,
@@ -228,5 +329,10 @@ export const useKnowledgeSpaces = () => {
     rollbackFusionStrategy,
     listFeedbackCases,
     submitFeedbackCase,
+    closeFeedbackCase,
+    escalateFeedbackCase,
+    reprocessFeedbackCase,
+    rollbackFeedbackCase,
+    exportFeedbackCases,
   };
 };

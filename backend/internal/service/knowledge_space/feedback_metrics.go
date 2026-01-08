@@ -18,6 +18,8 @@ import (
 const (
 	defaultFeedbackMetricsPath = "backend/reports/_state/knowledge-feedback.json"
 	defaultKnowledgeUpdatePath = "reports/_state/knowledge-update.json"
+	defaultFeedbackLedgerName  = "knowledge-feedback-ledger.json"
+	defaultKnowledgeSpacesPath = "backend/reports/_state/knowledge-spaces.json"
 )
 
 // FeedbackMetrics aggregates fleet-wide feedback signals for dashboards + audits.
@@ -64,6 +66,9 @@ func (w *FeedbackMetricsWriter) Refresh(ctx context.Context, db *gorm.DB) (Feedb
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.persistSnapshot(w.path, stats); err != nil {
+		return metrics, err
+	}
+	if err := w.persistLedger(ctx, db); err != nil {
 		return metrics, err
 	}
 	if err := w.persistAggregate(stats); err != nil {
@@ -169,4 +174,120 @@ func (w *FeedbackMetricsWriter) persistAggregate(metrics FeedbackMetrics) error 
 		return err
 	}
 	return os.WriteFile(w.aggregatePath, buf, 0o644)
+}
+
+func (w *FeedbackMetricsWriter) persistLedger(ctx context.Context, db *gorm.DB) error {
+	if strings.TrimSpace(w.path) == "" {
+		return nil
+	}
+	dir := filepath.Dir(w.path)
+	ledgerPath := filepath.Join(dir, defaultFeedbackLedgerName)
+
+	var cases []models.FeedbackCase
+	if err := db.WithContext(ctx).
+		Order("created_at DESC").
+		Limit(100).
+		Find(&cases).Error; err != nil {
+		return err
+	}
+	type caseView struct {
+		CaseID       string     `json:"case_id"`
+		SpaceID      string     `json:"space_id"`
+		Status       string     `json:"status"`
+		Severity     string     `json:"severity"`
+		IssueType    string     `json:"issue_type"`
+		TraceID      string     `json:"trace_id,omitempty"`
+		ReprocessJob *uint64    `json:"reprocess_job_id,omitempty"`
+		SLADueAt     *time.Time `json:"sla_due_at,omitempty"`
+		EscalatedAt  *time.Time `json:"escalated_at,omitempty"`
+		ClosedAt     *time.Time `json:"closed_at,omitempty"`
+		CreatedAt    time.Time  `json:"created_at"`
+		UpdatedAt    time.Time  `json:"updated_at"`
+	}
+	views := make([]caseView, 0, len(cases))
+	for _, c := range cases {
+		views = append(views, caseView{
+			CaseID:       c.UUID.String(),
+			SpaceID:      c.SpaceUUID.String(),
+			Status:       c.Status,
+			Severity:     c.Severity,
+			IssueType:    c.IssueType,
+			TraceID:      c.ToolTraceRef,
+			ReprocessJob: c.ReprocessJobID,
+			SLADueAt:     c.SLADueAt,
+			EscalatedAt:  c.EscalatedAt,
+			ClosedAt:     c.ClosedAt,
+			CreatedAt:    c.CreatedAt,
+			UpdatedAt:    c.UpdatedAt,
+		})
+	}
+
+	var audits []models.AuditTrailEntry
+	if err := db.WithContext(ctx).
+		Where("action LIKE ?", "feedback.%").
+		Order("occurred_at DESC").
+		Limit(200).
+		Find(&audits).Error; err != nil {
+		return err
+	}
+	type auditView struct {
+		ID        uint64    `json:"id"`
+		SpaceID   string    `json:"space_id"`
+		Action    string    `json:"action"`
+		Actor     string    `json:"actor"`
+		Hash      string    `json:"payload_hash"`
+		Occurred  time.Time `json:"occurred_at"`
+		Token     string    `json:"rollback_token,omitempty"`
+		Metadata  any       `json:"metadata,omitempty"`
+	}
+	auditViews := make([]auditView, 0, len(audits))
+	for _, a := range audits {
+		var meta any
+		if len(a.Metadata) > 0 {
+			_ = json.Unmarshal(a.Metadata, &meta)
+		}
+		auditViews = append(auditViews, auditView{
+			ID:       a.ID,
+			SpaceID:  a.SpaceUUID.String(),
+			Action:   a.Action,
+			Actor:    a.Actor,
+			Hash:     a.PayloadHash,
+			Occurred: a.OccurredAt,
+			Token:    a.RollbackToken,
+			Metadata: meta,
+		})
+	}
+
+	payload := map[string]any{
+		"recorded_at": time.Now().UTC(),
+		"cases":       views,
+		"audits":      auditViews,
+	}
+	if err := os.MkdirAll(filepath.Dir(ledgerPath), 0o755); err != nil {
+		return err
+	}
+	buf, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(ledgerPath, buf, 0o644); err != nil {
+		return err
+	}
+
+	// Optional: update knowledge-spaces.json if present.
+	if _, err := os.Stat(defaultKnowledgeSpacesPath); err == nil {
+		state := make(map[string]any)
+		if data, err := os.ReadFile(defaultKnowledgeSpacesPath); err == nil {
+			_ = json.Unmarshal(data, &state)
+		}
+		state["feedback"] = payload
+		buf, err := json.MarshalIndent(state, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(defaultKnowledgeSpacesPath, buf, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }

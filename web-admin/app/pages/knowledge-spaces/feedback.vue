@@ -17,10 +17,14 @@ const store = useKnowledgeSpaceStore();
 const spaceId = ref("");
 const loadingCases = ref(false);
 const submitting = ref(false);
+const acting = ref(false);
 const statusMessage = ref("");
 const errorMessage = ref("");
 const cases = ref<FeedbackCaseRecord[]>([]);
 const chunkInput = ref("");
+const selectedCaseId = ref<string>("");
+const actionBy = ref<string>("");
+const actionNotes = ref<string>("");
 
 const form = reactive<FeedbackCasePayload>({
   severity: "medium",
@@ -45,6 +49,26 @@ const issueOptions = [
 ];
 
 const recentSpaceId = computed(() => store.lastSpace?.spaceId ?? "");
+const selectedCase = computed(() =>
+  cases.value.find(item => item.caseId === selectedCaseId.value),
+);
+
+const slaCountdown = computed(() => {
+  const due = selectedCase.value?.slaDueAt;
+  if (!due) {
+    return "";
+  }
+  const dueAt = new Date(due).getTime();
+  const now = Date.now();
+  const delta = dueAt - now;
+  if (Number.isNaN(dueAt)) {
+    return "";
+  }
+  const hours = Math.floor(delta / 36e5);
+  const minutes = Math.floor((delta % 36e5) / 6e4);
+  const sign = delta < 0 ? "-" : "";
+  return `${sign}${Math.abs(hours)}h ${Math.abs(minutes)}m`;
+});
 
 watch(
   () => recentSpaceId.value,
@@ -65,6 +89,9 @@ const loadCases = async () => {
   loadingCases.value = true;
   try {
     cases.value = await api.listFeedbackCases(spaceId.value);
+    if (!selectedCaseId.value && cases.value.length > 0) {
+      selectedCaseId.value = cases.value[0].caseId;
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "加载反馈失败";
     errorMessage.value = message;
@@ -95,12 +122,125 @@ const submitFeedback = async () => {
     statusMessage.value = `反馈 ${record.caseId.slice(0, 8)} 已进入再加工`;
     chunkInput.value = "";
     form.notes = "";
+    selectedCaseId.value = record.caseId;
     await loadCases();
   } catch (error) {
     const message = error instanceof Error ? error.message : "提交失败";
     errorMessage.value = message;
   } finally {
     submitting.value = false;
+  }
+};
+
+const doReprocess = async () => {
+  if (!spaceId.value || !selectedCase.value) {
+    return;
+  }
+  acting.value = true;
+  statusMessage.value = "";
+  errorMessage.value = "";
+  try {
+    const record = await api.reprocessFeedbackCase(spaceId.value, selectedCase.value.caseId, {
+      requestedBy: actionBy.value || form.reportedBy,
+    });
+    statusMessage.value = `已触发再加工：${record.caseId.slice(0, 8)}`;
+    await loadCases();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "触发再加工失败";
+    errorMessage.value = message;
+  } finally {
+    acting.value = false;
+  }
+};
+
+const doEscalate = async () => {
+  if (!spaceId.value || !selectedCase.value) {
+    return;
+  }
+  acting.value = true;
+  statusMessage.value = "";
+  errorMessage.value = "";
+  try {
+    const record = await api.escalateFeedbackCase(spaceId.value, selectedCase.value.caseId, {
+      requestedBy: actionBy.value || form.reportedBy,
+      reason: actionNotes.value,
+    });
+    statusMessage.value = `已升级案例：${record.caseId.slice(0, 8)}`;
+    await loadCases();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "升级失败";
+    errorMessage.value = message;
+  } finally {
+    acting.value = false;
+  }
+};
+
+const doRollback = async () => {
+  if (!spaceId.value || !selectedCase.value) {
+    return;
+  }
+  acting.value = true;
+  statusMessage.value = "";
+  errorMessage.value = "";
+  try {
+    const record = await api.rollbackFeedbackCase(spaceId.value, selectedCase.value.caseId, {
+      requestedBy: actionBy.value || form.reportedBy,
+      reason: actionNotes.value,
+    });
+    statusMessage.value = `已回滚并关闭案例：${record.caseId.slice(0, 8)}`;
+    await loadCases();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "回滚失败";
+    errorMessage.value = message;
+  } finally {
+    acting.value = false;
+  }
+};
+
+const doClose = async () => {
+  if (!spaceId.value || !selectedCase.value) {
+    return;
+  }
+  acting.value = true;
+  statusMessage.value = "";
+  errorMessage.value = "";
+  try {
+    const record = await api.closeFeedbackCase(spaceId.value, selectedCase.value.caseId, {
+      requestedBy: actionBy.value || form.reportedBy,
+      resolutionNotes: actionNotes.value,
+    });
+    statusMessage.value = `已关闭案例：${record.caseId.slice(0, 8)}`;
+    await loadCases();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "关闭失败";
+    errorMessage.value = message;
+  } finally {
+    acting.value = false;
+  }
+};
+
+const doExport = async () => {
+  if (!spaceId.value) {
+    return;
+  }
+  acting.value = true;
+  statusMessage.value = "";
+  errorMessage.value = "";
+  try {
+    const payload = await api.exportFeedbackCases(spaceId.value, { limit: 200 });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `knowledge-feedback-${spaceId.value}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    statusMessage.value = "已导出反馈报告";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "导出失败";
+    errorMessage.value = message;
+  } finally {
+    acting.value = false;
   }
 };
 </script>
@@ -136,7 +276,9 @@ const submitFeedback = async () => {
         <div
           v-for="item in cases"
           :key="item.caseId"
-          class="rounded-lg border border-gray-200 p-4"
+          class="rounded-lg border border-gray-200 p-4 cursor-pointer hover:border-primary-300"
+          :class="item.caseId === selectedCaseId ? 'border-primary-400 bg-primary-50/30' : ''"
+          @click="selectedCaseId = item.caseId"
         >
           <div class="flex flex-wrap items-center gap-2 text-sm">
             <span class="font-medium text-gray-900">案例 {{ item.caseId.slice(0, 8) }}</span>
@@ -152,9 +294,80 @@ const submitFeedback = async () => {
             SLA 截止：
             {{ item.slaDueAt ? new Date(item.slaDueAt).toLocaleString() : "计算中" }}
           </p>
+          <p v-if="item.traceId || item.toolTraceRef" class="text-xs text-gray-500">
+            Trace：{{ item.traceId || item.toolTraceRef }}
+          </p>
         </div>
         <p v-if="!cases.length" class="text-sm text-gray-500">
           尚未加载反馈或该空间暂无案例。
+        </p>
+      </div>
+    </UCard>
+
+    <UCard v-if="selectedCase">
+      <template #header>
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">案例详情</h2>
+            <p class="text-sm text-gray-500">
+              Case {{ selectedCase.caseId }} · 状态 {{ selectedCase.status }} · SLA {{ slaCountdown || "N/A" }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UButton size="sm" :loading="acting" @click="doReprocess">一键 Reprocess</UButton>
+            <UButton size="sm" color="yellow" variant="soft" :loading="acting" @click="doEscalate">升级</UButton>
+            <UButton size="sm" color="red" variant="soft" :loading="acting" @click="doRollback">回滚</UButton>
+            <UButton size="sm" color="green" variant="soft" :loading="acting" @click="doClose">关闭</UButton>
+            <UButton size="sm" color="gray" variant="outline" :loading="acting" @click="doExport">导出</UButton>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-3 text-sm">
+        <div class="grid gap-2 md:grid-cols-2">
+          <div class="rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">Trace / Job</p>
+            <p class="mt-1 text-gray-900 break-all">
+              {{ selectedCase.traceId || selectedCase.toolTraceRef || "未提供" }}
+            </p>
+            <p v-if="selectedCase.reprocessJobId" class="text-xs text-gray-500 mt-1">
+              Reprocess Job：{{ selectedCase.reprocessJobId }}
+            </p>
+          </div>
+          <div class="rounded-lg border border-gray-200 p-3">
+            <p class="text-xs text-gray-500">SLA 解释</p>
+            <p class="mt-1 text-gray-700">
+              以严重级别计算 SLA 截止时间；超时会建议升级并触发告警策略。
+            </p>
+          </div>
+        </div>
+        <div class="rounded-lg border border-gray-200 p-3">
+          <p class="text-xs text-gray-500">Citations / Chunks</p>
+          <p class="mt-1 text-gray-900 break-all">
+            {{ selectedCase.linkedChunks?.join(", ") || "未提供" }}
+          </p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="flex flex-col gap-1 text-sm text-gray-700">
+            操作人（用于审计/通知）
+            <input
+              v-model="actionBy"
+              type="text"
+              class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+              placeholder="ops@powerx.local"
+            />
+          </label>
+          <label class="flex flex-col gap-1 text-sm text-gray-700 md:col-span-2">
+            处理记录 / 升级原因 / 回滚说明（会写入审计）
+            <textarea
+              v-model="actionNotes"
+              rows="3"
+              class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+              placeholder="例如：已回滚至 bundle-xxx，并通知业务方…"
+            />
+          </label>
+        </div>
+        <p class="text-xs text-gray-500">
+          通知记录：当前版本仅保留审计条目（export 中 audits）；后续可接入 IM/Webhook。
         </p>
       </div>
     </UCard>

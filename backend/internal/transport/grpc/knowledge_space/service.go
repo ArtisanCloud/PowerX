@@ -227,56 +227,6 @@ func tenantUUIDFromContext(ctx context.Context, candidate string) (uuid.UUID, er
 	return parsed, nil
 }
 
-func (s *Server) SubmitFeedback(ctx context.Context, req *knowledgev1.FeedbackRequest) (*knowledgev1.FeedbackResponse, error) {
-	if s.feedback == nil {
-		return nil, status.Error(codes.Unimplemented, "feedback service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	chunkIDs := make([]uuid.UUID, 0, len(req.GetLinkedChunks()))
-	for _, chunk := range req.GetLinkedChunks() {
-		id, err := uuid.Parse(strings.TrimSpace(chunk))
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid chunk id: %v", err)
-		}
-		chunkIDs = append(chunkIDs, id)
-	}
-	caseModel, err := s.feedback.SubmitFeedback(ctx, ksvc.SubmitFeedbackInput{
-		SpaceID:      spaceID,
-		ReportedBy:   req.GetReportedBy(),
-		Severity:     req.GetSeverity(),
-		IssueType:    req.GetIssueType(),
-		Notes:        req.GetNotes(),
-		ToolTraceRef: req.GetToolTraceRef(),
-		LinkedChunks: chunkIDs,
-	})
-	if err != nil {
-		return nil, mapFeedbackError(err)
-	}
-	return &knowledgev1.FeedbackResponse{Case: toProtoFeedbackCase(caseModel)}, nil
-}
-
-func (s *Server) ListFeedbackCases(ctx context.Context, req *knowledgev1.ListFeedbackCasesRequest) (*knowledgev1.ListFeedbackCasesResponse, error) {
-	if s.feedback == nil {
-		return nil, status.Error(codes.Unimplemented, "feedback service not available")
-	}
-	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
-	}
-	cases, err := s.feedback.ListCases(ctx, spaceID, int(req.GetLimit()))
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	resp := make([]*knowledgev1.FeedbackCase, 0, len(cases))
-	for _, item := range cases {
-		resp = append(resp, toProtoFeedbackCase(item))
-	}
-	return &knowledgev1.ListFeedbackCasesResponse{Cases: resp}, nil
-}
-
 func parsePolicy(v string) (uint64, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -339,35 +289,6 @@ func toProtoIngestionJob(job *models.IngestionJob) *knowledgev1.IngestionJobStat
 		RetryCount:          uint32(job.RetryCount),
 		ErrorCode:           job.ErrorCode,
 		BlockedReason:       job.BlockedReason,
-	}
-}
-
-func toProtoFeedbackCase(caseModel *models.FeedbackCase) *knowledgev1.FeedbackCase {
-	if caseModel == nil {
-		return nil
-	}
-	var chunks []string
-	if len(caseModel.LinkedChunks) > 0 {
-		_ = json.Unmarshal(caseModel.LinkedChunks, &chunks)
-	}
-	var slaDue *timestamppb.Timestamp
-	if caseModel.SLADueAt != nil {
-		slaDue = timestamppb.New(*caseModel.SLADueAt)
-	}
-	return &knowledgev1.FeedbackCase{
-		CaseId:       caseModel.UUID.String(),
-		SpaceId:      caseModel.SpaceUUID.String(),
-		Status:       caseModel.Status,
-		Severity:     caseModel.Severity,
-		IssueType:    caseModel.IssueType,
-		LinkedChunks: chunks,
-		ReportedBy:   caseModel.ReportedBy,
-		Notes:        caseModel.Notes,
-		ToolTraceRef: caseModel.ToolTraceRef,
-		QualityScore: caseModel.QualityScore,
-		SlaDueAt:     slaDue,
-		CreatedAt:    timestamppb.New(caseModel.CreatedAt),
-		UpdatedAt:    timestamppb.New(caseModel.UpdatedAt),
 	}
 }
 
@@ -646,17 +567,6 @@ func toEventInput(eventID, eventType string, payload map[string]string, ts *time
 		Payload:    converted,
 		ReceivedAt: received,
 		RetryCount: retry,
-	}
-}
-
-func mapFeedbackError(err error) error {
-	switch {
-	case errors.Is(err, ksvc.ErrInvalidInput):
-		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, ksvc.ErrSpaceNotFound):
-		return status.Error(codes.NotFound, err.Error())
-	default:
-		return status.Error(codes.Internal, err.Error())
 	}
 }
 

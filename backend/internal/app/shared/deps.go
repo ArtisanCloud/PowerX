@@ -459,7 +459,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc)
+	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps, tenantSvc)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -1263,7 +1263,7 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	}
 }
 
-func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service) *KnowledgeSpaceDeps {
+func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, eventFabric *EventFabricDeps, tenantSvc *tenantsvc.TenantService) *KnowledgeSpaceDeps {
 	var redisClient *redis.Client
 	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
 		redisClient = redis.NewClient(&redis.Options{
@@ -1439,7 +1439,69 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 	})
 
-	reprocessPipeline := knowledgeworkflow.NewReprocessPipeline(bus, time.Now)
+	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
+	var reprocessPipeline knowledgeworkflow.ReprocessPipeline
+	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
+		reprocessPipeline = knowledgeworkflow.NewEventFabricReprocessPipeline(knowledgeworkflow.EventFabricReprocessPipelineOptions{
+			Delivery:      eventFabric.Delivery,
+			Directory:     eventFabric.Directory,
+			ACL:           eventFabric.ACL,
+			SubscriberID:  "core.knowledge_space.reprocess",
+			Namespace:     cfg.EventTopics.Feedback,
+			Name:          "reprocess",
+			PayloadFormat: "json",
+			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			Clock:         time.Now,
+		})
+		tenantProvider := func(ctx context.Context) ([]string, error) {
+			if tenantSvc == nil {
+				return []string{"global"}, nil
+			}
+			items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
+			if err != nil {
+				return nil, err
+			}
+			keys := make([]string, 0, len(items)+1)
+			for _, item := range items {
+				if key := strings.TrimSpace(item.Key); key != "" {
+					keys = append(keys, key)
+				}
+			}
+			keys = append(keys, "global")
+			return keys, nil
+		}
+		knowledgeworkflow.NewEventFabricReprocessConsumer(knowledgeworkflow.EventFabricReprocessConsumerOptions{
+			Delivery:      eventFabric.Delivery,
+			DB:            db,
+			VectorStore:   vectorStore,
+			Directory:     eventFabric.Directory,
+			ACL:           eventFabric.ACL,
+			SubscriberID:  "core.knowledge_space.reprocess",
+			Namespace:     cfg.EventTopics.Feedback,
+			Name:          "reprocess",
+			PayloadFormat: "json",
+			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			TenantProvider: tenantProvider,
+			Interval:      250 * time.Millisecond,
+			BatchSize:     50,
+			Clock:         time.Now,
+		}).Start()
+	} else {
+		reprocessPipeline = knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
+			EventBus:   bus,
+			EventTopic: reprocessTopic,
+			Clock:      time.Now,
+		})
+		_ = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
+			DB:          db,
+			VectorStore: vectorStore,
+			EventBus:    bus,
+			EventTopic:  reprocessTopic,
+			Clock:       time.Now,
+		}).Start()
+	}
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
 		DB:              db,
 		Instrumentation: inst,

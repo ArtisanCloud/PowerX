@@ -280,6 +280,15 @@ const settingCategories = computed(() => {
       iconColor: "text-yellow-600",
       path: "/settings/open-capabilities",
     });
+    items.push({
+      key: "event-fabric",
+      title: "异步任务",
+      description: "Event Fabric 投递/重试/DLQ 监管",
+      icon: "i-heroicons-queue-list",
+      iconBg: "bg-indigo-50 dark:bg-indigo-900/20",
+      iconColor: "text-indigo-600",
+      path: "/settings/event-fabric",
+    });
   }
   return items;
 });
