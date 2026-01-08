@@ -12,16 +12,23 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		return
 	}
 
+	// 兼容两套路由：
+	// 1) 历史/插件侧：/event-fabric/*（可选签名校验）
+	// 2) Web Admin：/admin/event-fabric/*（仅走 Bearer 鉴权 + Root 可见菜单）
 	group := protected.Group("/event-fabric")
 	if deps.EventFabric != nil && deps.EventFabric.Security != nil {
 		group.Use(deps.EventFabric.Security.GinMiddleware())
 	}
+	adminGroup := protected.Group("/admin/event-fabric")
 
 	if deps.EventFabric != nil && deps.EventFabric.Directory != nil {
 		dirHandler := NewAdminDirectoryHandler(AdminDirectoryHandlerOptions{Service: deps.EventFabric.Directory})
 		group.POST("/topics", dirHandler.CreateTopic)
 		group.GET("/topics", dirHandler.ListTopics)
 		group.PATCH("/topics/:topic_id/lifecycle", dirHandler.UpdateLifecycle)
+
+		// Web Admin 需要 topics 列表用于筛选/选择 DLQ topic
+		adminGroup.GET("/topics", dirHandler.ListTopics)
 	}
 
 	if deps.EventFabric != nil && deps.EventFabric.ACL != nil && deps.EventFabric.Directory != nil {
@@ -49,6 +56,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		Enabled: deps.EventFabric != nil,
 	})
 	group.GET("/overview", overviewHandler.GetOverview)
+	adminGroup.GET("/overview", overviewHandler.GetOverview)
 
 	if deps.EventFabric != nil && deps.EventFabric.Authorization != nil && deps.EventFabric.Authorization.Service != nil {
 		authHandler := NewAuthorizationHandler(AuthorizationHandlerOptions{
@@ -77,6 +85,10 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		group.GET("/dlq/messages", dlqHandler.ListMessages)
 		group.POST("/dlq/messages:replay", dlqHandler.ReplayMessages)
 		group.DELETE("/dlq/messages", dlqHandler.PurgeMessages)
+
+		// Web Admin 只暴露 DLQ 列表 + replay（不暴露 purge）
+		adminGroup.GET("/dlq/messages", dlqHandler.ListMessages)
+		adminGroup.POST("/dlq/messages:replay", dlqHandler.ReplayMessages)
 	}
 
 	if deps.EventFabric != nil && deps.EventFabric.Replay != nil {
@@ -84,5 +96,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		group.POST("/replay/tasks", replayHandler.CreateTask)
 		group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
 		group.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
+
+		adminGroup.POST("/replay/tasks", replayHandler.CreateTask)
+		adminGroup.GET("/replay/tasks/:task_id", replayHandler.GetTask)
+		adminGroup.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
 	}
 }

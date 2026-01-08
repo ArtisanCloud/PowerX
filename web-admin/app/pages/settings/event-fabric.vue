@@ -206,6 +206,7 @@ const filters = reactive({
 
 const topicColumns = [
   {
+    id: "full_topic",
     accessorKey: "full_topic",
     header: "Full Topic",
     cell: ({ row }: any) =>
@@ -215,11 +216,11 @@ const topicColumns = [
         row.original.full_topic || "-"
       ),
   },
-  { accessorKey: "lifecycle", header: "Lifecycle" },
-  { accessorKey: "max_retry", header: "MaxRetry" },
-  { accessorKey: "ack_timeout_sec", header: "AckTimeout(s)" },
-  { accessorKey: "dlq", header: "DLQ" },
-  { accessorKey: "attempts", header: "Attempts" },
+  { id: "lifecycle", accessorKey: "lifecycle", header: "Lifecycle" },
+  { id: "max_retry", accessorKey: "max_retry", header: "MaxRetry" },
+  { id: "ack_timeout_sec", accessorKey: "ack_timeout_sec", header: "AckTimeout(s)" },
+  { id: "dlq", accessorKey: "dlq", header: "DLQ" },
+  { id: "attempts", accessorKey: "attempts", header: "Attempts" },
 ];
 
 const topicRows = computed(() => {
@@ -283,12 +284,14 @@ const dlq = reactive<{
 
 const dlqTopicOptions = computed(() => {
   const topics = overview.value?.topics || [];
-  const opts = topics.map((t) => ({ label: t.full_topic, value: t.uuid }));
-  return opts;
+  return topics
+    .map((t) => ({ label: t.full_topic, value: t.uuid }))
+    .filter((x) => typeof x.value === "string" && x.value.trim().length > 0);
 });
 
 const dlqColumns = [
   {
+    id: "id",
     accessorKey: "id",
     header: "Message ID",
     cell: ({ row }: any) =>
@@ -299,6 +302,7 @@ const dlqColumns = [
       ),
   },
   {
+    id: "event_id",
     accessorKey: "event_id",
     header: "Event ID",
     cell: ({ row }: any) =>
@@ -308,9 +312,10 @@ const dlqColumns = [
         row.original.event_id || "-"
       ),
   },
-  { accessorKey: "retry_count", header: "Retry" },
-  { accessorKey: "failed_at", header: "FailedAt" },
+  { id: "retry_count", accessorKey: "retry_count", header: "Retry" },
+  { id: "failed_at", accessorKey: "failed_at", header: "FailedAt" },
   {
+    id: "actions",
     accessorKey: "actions",
     header: "操作",
     cell: ({ row }: any) => {
@@ -381,6 +386,7 @@ async function replayOne(messageId: string) {
 
 const replayColumns = [
   {
+    id: "id",
     accessorKey: "id",
     header: "Task ID",
     cell: ({ row }: any) =>
@@ -391,6 +397,7 @@ const replayColumns = [
       ),
   },
   {
+    id: "full_topic",
     accessorKey: "full_topic",
     header: "Topic",
     cell: ({ row }: any) =>
@@ -401,6 +408,7 @@ const replayColumns = [
       ),
   },
   {
+    id: "status",
     accessorKey: "status",
     header: "Status",
     cell: ({ row }: any) => {
@@ -417,9 +425,9 @@ const replayColumns = [
       );
     },
   },
-  { accessorKey: "submitted_at", header: "SubmittedAt" },
-  { accessorKey: "completed_at", header: "CompletedAt" },
-  { accessorKey: "result_count", header: "Result" },
+  { id: "submitted_at", accessorKey: "submitted_at", header: "SubmittedAt" },
+  { id: "completed_at", accessorKey: "completed_at", header: "CompletedAt" },
+  { id: "result_count", accessorKey: "result_count", header: "Result" },
 ];
 
 function replayStatusColor(status: string) {

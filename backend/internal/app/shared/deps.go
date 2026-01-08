@@ -784,6 +784,7 @@ type KnowledgeSpaceDeps struct {
 	Ingestion       *knowledgeService.IngestionService
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
+	CorpusCheck     *knowledgeService.CorpusCheckService
 	Delta           *ksdelta.Service
 	EventHotfix     *event_hotfix.Service
 	DecayGuard      *decay_guard.Service
@@ -1440,6 +1441,23 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
+	tenantProvider := func(ctx context.Context) ([]string, error) {
+		if tenantSvc == nil {
+			return []string{"global"}, nil
+		}
+		items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
+		if err != nil {
+			return nil, err
+		}
+		keys := make([]string, 0, len(items)+1)
+		for _, item := range items {
+			if key := strings.TrimSpace(item.Key); key != "" {
+				keys = append(keys, key)
+			}
+		}
+		keys = append(keys, "global")
+		return keys, nil
+	}
 	var reprocessPipeline knowledgeworkflow.ReprocessPipeline
 	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
 		reprocessPipeline = knowledgeworkflow.NewEventFabricReprocessPipeline(knowledgeworkflow.EventFabricReprocessPipelineOptions{
@@ -1454,23 +1472,6 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
 			Clock:         time.Now,
 		})
-		tenantProvider := func(ctx context.Context) ([]string, error) {
-			if tenantSvc == nil {
-				return []string{"global"}, nil
-			}
-			items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
-			if err != nil {
-				return nil, err
-			}
-			keys := make([]string, 0, len(items)+1)
-			for _, item := range items {
-				if key := strings.TrimSpace(item.Key); key != "" {
-					keys = append(keys, key)
-				}
-			}
-			keys = append(keys, "global")
-			return keys, nil
-		}
 		knowledgeworkflow.NewEventFabricReprocessConsumer(knowledgeworkflow.EventFabricReprocessConsumerOptions{
 			Delivery:      eventFabric.Delivery,
 			DB:            db,
@@ -1509,6 +1510,53 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		MetricsWriter:   metricsWriter,
 		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
+	})
+
+	var corpusCheckPipeline knowledgeworkflow.CorpusCheckPipeline
+	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
+		corpusCheckPipeline = knowledgeworkflow.NewEventFabricCorpusCheckPipeline(knowledgeworkflow.EventFabricCorpusCheckPipelineOptions{
+			Delivery:      eventFabric.Delivery,
+			Directory:     eventFabric.Directory,
+			ACL:           eventFabric.ACL,
+			SubscriberID:  "core.knowledge_space.corpus_check",
+			Namespace:     "knowledge.space.corpus_check",
+			Name:          "run",
+			PayloadFormat: "json",
+			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			Clock:         time.Now,
+		})
+		knowledgeworkflow.NewEventFabricCorpusCheckConsumer(knowledgeworkflow.EventFabricCorpusCheckConsumerOptions{
+			Delivery:       eventFabric.Delivery,
+			DB:             db,
+			Directory:      eventFabric.Directory,
+			ACL:            eventFabric.ACL,
+			SubscriberID:   "core.knowledge_space.corpus_check",
+			Namespace:      "knowledge.space.corpus_check",
+			Name:           "run",
+			PayloadFormat:  "json",
+			TenantProvider: tenantProvider,
+			Interval:       500 * time.Millisecond,
+			BatchSize:      50,
+			Clock:          time.Now,
+		}).Start()
+	} else {
+		corpusCheckPipeline = knowledgeworkflow.NewCorpusCheckPipeline(knowledgeworkflow.CorpusCheckPipelineOptions{
+			EventBus:   bus,
+			EventTopic: "knowledge.corpus_check.run",
+			Clock:      time.Now,
+		})
+		_ = knowledgeworkflow.NewCorpusCheckWorker(knowledgeworkflow.CorpusCheckWorkerOptions{
+			DB:         db,
+			EventBus:   bus,
+			EventTopic: "knowledge.corpus_check.run",
+			Clock:      time.Now,
+		}).Start()
+	}
+	corpusCheckSvc := knowledgeService.NewCorpusCheckService(knowledgeService.CorpusCheckServiceOptions{
+		DB:       db,
+		Pipeline: corpusCheckPipeline,
+		Clock:    time.Now,
 	})
 
 	deltaSvc := ksdelta.NewService(ksdelta.Options{
@@ -1568,6 +1616,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Ingestion:       ingestionSvc,
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
+		CorpusCheck:     corpusCheckSvc,
 		Delta:           deltaSvc,
 		EventHotfix:     eventHotfixSvc,
 		DecayGuard:      decaySvc,

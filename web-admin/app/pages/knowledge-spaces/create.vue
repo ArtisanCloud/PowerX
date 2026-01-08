@@ -168,6 +168,14 @@ const submitWizard = async () => {
           :iam-email="store.iamEmail"
           :sla-remaining="store.slaRemaining"
         />
+        <div class="mt-4 space-y-2 rounded-lg border border-dashed border-gray-200 p-4">
+          <UCheckbox v-model="store.runCorpusCheckAfterCreate">
+            创建后立即运行语料体检（Corpus Check）
+          </UCheckbox>
+          <p class="text-xs text-gray-500">
+            体检会统计 OCR/格式分布，并给出推荐策略与插件提示（如扫描件占比高将建议启用 OCR 插件）。
+          </p>
+        </div>
       </div>
 
       <div class="flex items-center justify-between border-t border-gray-100 pt-4">
@@ -217,6 +225,22 @@ const submitWizard = async () => {
       <IamStatusBadge
         status="pending_iam"
         :audit-token="store.lastSpace?.auditToken"
+      />
+      <UAlert
+        v-if="store.lastCorpusCheckJob"
+        :color="store.lastCorpusCheckJob.status === 'completed' ? 'green' : 'amber'"
+        variant="subtle"
+        icon="i-heroicons-sparkles"
+        :title="`Corpus Check：${store.lastCorpusCheckJob.status}`"
+        :description="store.lastCorpusCheckJob.trace_id ? `trace_id: ${store.lastCorpusCheckJob.trace_id}` : '已提交语料体检任务，可在 Playground 中做检索对比。'"
+      />
+      <UAlert
+        v-if="store.lastCorpusCheckJob?.recommendations?.some((r: any) => r?.plugin === 'com.powerx.plugin.data_forge')"
+        color="amber"
+        variant="soft"
+        icon="i-heroicons-exclamation-triangle"
+        title="建议启用 OCR 扩展"
+        description="Corpus Check 检测到扫描件占比较高：推荐安装/启用 com.powerx.plugin.data_forge（OCR/Processor），否则可能出现入库 blocked/degraded 与召回下降。"
       />
     </div>
   </section>

@@ -83,7 +83,8 @@ export interface EventFabricDlqListResult {
 
 export const useEventFabricService = () => {
   const apiClient = useApiClient();
-  const baseUrl = "/event-fabric";
+  // Event Fabric 监管属于 Admin 能力（Root 可见），后端路由在 /api/v1/admin/event-fabric/*
+  const baseUrl = "/admin/event-fabric";
 
   return {
     getOverview: (params?: {
@@ -131,4 +132,3 @@ export const useEventFabricService = () => {
     },
   };
 };
-

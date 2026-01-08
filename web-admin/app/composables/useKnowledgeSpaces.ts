@@ -20,8 +20,57 @@ export interface KnowledgeSpaceRecord {
   departmentCode: string;
   status: string;
   policyTemplateVersionId: string;
+  ingestionProfileKey?: string;
+  indexProfileKey?: string;
+  ragProfileKey?: string;
   auditToken: string;
   quotas: KnowledgeSpacePayload["quotas"];
+}
+
+export interface ProfileVersionRecord {
+  uuid: string;
+  profileKey: string;
+  version: number;
+  status: string;
+  displayName: string;
+  config: Record<string, any>;
+  rollbackFromId?: string | number;
+  publishedAt?: string;
+  publishedBy?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CorpusCheckJobRecord {
+  uuid: string;
+  tenant_uuid: string;
+  space_uuid: string;
+  status: string;
+  sample_job_uuids: string[];
+  metrics: Record<string, any>;
+  recommendations: any[];
+  trace_id?: string;
+  error_reason?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface RetrievalCandidateRecord {
+  chunkId: string;
+  score: number;
+  metadata?: Record<string, any>;
+  text?: string;
+}
+
+export interface RetrievalPlaygroundRecord {
+  traceId: string;
+  spaceId: string;
+  query: string;
+  profile: Record<string, any>;
+  stages: Array<{ name: string; candidateCount: number; latencyMs: number; degradeReason?: string }>;
+  candidates: RetrievalCandidateRecord[];
+  context_pack: Record<string, any>;
 }
 
 export interface IngestionJobPayload {
@@ -128,6 +177,7 @@ export const useKnowledgeSpaces = () => {
   const baseURL = config.public?.apiBase || "/api";
 
   const adminPath = (path: string) => `${baseURL}/admin/knowledge-spaces${path}`;
+  const profilePath = (path: string) => `${baseURL}/admin/knowledge/profiles${path}`;
 
   const createSpace = async (
     payload: KnowledgeSpacePayload,
@@ -138,6 +188,59 @@ export const useKnowledgeSpaces = () => {
         method: "POST",
         body: payload,
       },
+    );
+    return response.data;
+  };
+
+  const listRagProfiles = async (
+    profileKey = "default",
+    status = "",
+  ): Promise<ProfileVersionRecord[]> => {
+    const params = new URLSearchParams();
+    params.set("profile_key", profileKey);
+    if (status) params.set("status", status);
+    const response = await $fetch<ApiResponse<ProfileVersionRecord[]>>(
+      `${profilePath(`/rag/versions`)}?${params.toString()}`,
+      { method: "GET" },
+    );
+    return response.data ?? [];
+  };
+
+  const startCorpusCheck = async (
+    spaceId: string,
+    requestedBy?: string,
+  ): Promise<CorpusCheckJobRecord> => {
+    const response = await $fetch<ApiResponse<CorpusCheckJobRecord>>(
+      `${adminPath(`/${spaceId}/corpus-check/jobs`)}`,
+      { method: "POST", body: { requestedBy } },
+    );
+    return response.data;
+  };
+
+  const getCorpusCheckJob = async (
+    spaceId: string,
+    jobId: string,
+  ): Promise<CorpusCheckJobRecord> => {
+    const response = await $fetch<ApiResponse<CorpusCheckJobRecord>>(
+      `${adminPath(`/${spaceId}/corpus-check/jobs/${jobId}`)}`,
+      { method: "GET" },
+    );
+    return response.data;
+  };
+
+  const retrievalPlayground = async (
+    spaceId: string,
+    payload: {
+      query: string;
+      ragProfileUuid?: string;
+      topK?: number;
+      minScore?: number;
+      filters?: Record<string, string>;
+    },
+  ): Promise<RetrievalPlaygroundRecord> => {
+    const response = await $fetch<ApiResponse<RetrievalPlaygroundRecord>>(
+      `${adminPath(`/${spaceId}/playground/retrieval`)}`,
+      { method: "POST", body: payload },
     );
     return response.data;
   };
@@ -323,6 +426,10 @@ export const useKnowledgeSpaces = () => {
   return {
     createSpace,
     fetchStatus,
+    listRagProfiles,
+    startCorpusCheck,
+    getCorpusCheckJob,
+    retrievalPlayground,
     triggerIngestion,
     listFusionStrategies,
     publishFusionStrategy,

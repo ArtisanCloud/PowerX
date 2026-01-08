@@ -25,6 +25,12 @@ const quickActions = computed(() => [
     primary: true,
   },
   {
+    icon: "i-heroicons-magnifying-glass",
+    title: "Playground",
+    description: "对比不同 RAG Profile 的检索效果",
+    to: "/knowledge-spaces/playground",
+  },
+  {
     icon: "i-heroicons-book-open",
     title: t("knowledgeSpaces.hero.actions.docs"),
     description: t("knowledgeSpaces.hero.actions.docsDesc"),

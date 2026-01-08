@@ -21,6 +21,9 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		return
 	}
 	handler := &Handler{svc: deps.KnowledgeSpace.Service}
+	profileHandler := newProfileHandler(deps.DB)
+	corpusCheckHandler := newCorpusCheckHandler(deps.KnowledgeSpace.CorpusCheck)
+	playgroundHandler := newPlaygroundHandler(deps.DB, deps.KnowledgeSpace.VectorStore)
 	ingestionHandler := NewIngestionHandler(deps)
 	fusionHandler := NewFusionHandler(deps)
 	feedbackHandler := NewFeedbackHandler(deps)
@@ -33,6 +36,13 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("", handler.create)
 		group.PATCH("/:spaceId", handler.update)
 		group.POST("/:spaceId/retire", handler.retire)
+		if corpusCheckHandler != nil {
+			group.POST("/:spaceId/corpus-check/jobs", corpusCheckHandler.Start)
+			group.GET("/:spaceId/corpus-check/jobs/:jobId", corpusCheckHandler.Get)
+		}
+		if playgroundHandler != nil {
+			group.POST("/:spaceId/playground/retrieval", playgroundHandler.Retrieve)
+		}
 		if ingestionHandler != nil {
 			group.POST("/:spaceId/ingestion-jobs", ingestionHandler.Trigger)
 		}
@@ -50,6 +60,10 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 			group.POST("/:spaceId/feedback/:caseId/rollback", feedbackHandler.Rollback)
 			group.GET("/:spaceId/feedback/export", feedbackHandler.Export)
 		}
+	}
+	if profileHandler != nil {
+		profileGroup := protected.Group("/admin/knowledge/profiles")
+		profileHandler.routes(profileGroup)
 	}
 	if deltaHandler != nil {
 		deltaGroup := protected.Group("/knowledge/delta")

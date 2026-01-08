@@ -48,6 +48,9 @@ type knowledgeSpaceResponse struct {
 	DepartmentCode     string       `json:"departmentCode"`
 	Status             string       `json:"status"`
 	PolicyTemplateID   string       `json:"policyTemplateVersionId"`
+	IngestionProfileKey string      `json:"ingestionProfileKey"`
+	IndexProfileKey     string      `json:"indexProfileKey"`
+	RAGProfileKey       string      `json:"ragProfileKey"`
 	FeatureFlags       []string     `json:"featureFlags"`
 	AuditToken         string       `json:"auditToken"`
 	RetentionExpiresAt *time.Time   `json:"retentionExpiresAt,omitempty"`
@@ -67,6 +70,9 @@ func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
 		DepartmentCode:     space.DepartmentCode,
 		Status:             space.Status,
 		PolicyTemplateID:   ksvc.PolicyIDString(space.PolicyTemplateVersionID),
+		IngestionProfileKey: strings.TrimSpace(space.IngestionProfileKey),
+		IndexProfileKey:     strings.TrimSpace(space.IndexProfileKey),
+		RAGProfileKey:       strings.TrimSpace(space.RAGProfileKey),
 		FeatureFlags:       flags,
 		AuditToken:         space.AuditToken,
 		RetentionExpiresAt: space.RetentionExpiresAt,

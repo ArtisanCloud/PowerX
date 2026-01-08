@@ -244,6 +244,10 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelKnowledge.KnowledgeSpace{},
 		&modelKnowledge.PolicyTemplateVersion{},
+		&modelKnowledge.IngestionProfileVersion{},
+		&modelKnowledge.IndexProfileVersion{},
+		&modelKnowledge.RAGProfileVersion{},
+		&modelKnowledge.CorpusCheckJob{},
 		&modelKnowledge.IngestionJob{},
 		&modelKnowledge.ArtifactBundle{},
 		&modelKnowledge.FusionStrategyVersion{},

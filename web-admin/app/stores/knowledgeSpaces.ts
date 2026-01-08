@@ -16,6 +16,8 @@ interface WizardState {
   error: string | null;
   status: "idle" | "success" | "error";
   lastSpace: KnowledgeSpaceRecord | null;
+  runCorpusCheckAfterCreate: boolean;
+  lastCorpusCheckJob: any | null;
 }
 
 const DEFAULT_FORM: KnowledgeSpacePayload = {
@@ -43,6 +45,8 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     error: null,
     status: "idle",
     lastSpace: null,
+    runCorpusCheckAfterCreate: true,
+    lastCorpusCheckJob: null,
   }),
   getters: {
     slaRemaining(state) {
@@ -130,6 +134,16 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
         this.lastSpace = response;
         this.status = "success";
         this.startSLAClock();
+        if (this.runCorpusCheckAfterCreate && response?.spaceId) {
+          try {
+            this.lastCorpusCheckJob = await api.startCorpusCheck(
+              response.spaceId,
+              this.iamEmail || "ops@powerx.local",
+            );
+          } catch (e) {
+            console.warn("start corpus check failed", e);
+          }
+        }
       } catch (err) {
         this.error =
           err instanceof Error ? err.message : "提交失败，请稍后再试。";
