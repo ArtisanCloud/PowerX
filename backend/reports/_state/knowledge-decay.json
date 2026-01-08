@@ -3,5 +3,11 @@
   "falsePositive": 0,
   "backlog": 0,
   "avgFillHours": 0,
+  "metrics": {
+    "knowledge.decay.detected": 0,
+    "knowledge.decay.false_positive": 0,
+    "knowledge.gap.backlog": 0,
+    "knowledge.decay.fill_time_hours": 0
+  },
   "recordedAt": "1970-01-01T00:00:00Z"
 }

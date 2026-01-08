@@ -411,6 +411,30 @@ func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UU
 	return tasks, nil
 }
 
+func (r *DecayTaskRepository) ListOpenByTenant(ctx context.Context, tenantUUID string, severity string) ([]*models.DecayTask, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	tasks := make([]*models.DecayTask, 0)
+	taskTable := models.DecayTask{}.TableName()
+	spaceTable := models.KnowledgeSpace{}.TableName()
+
+	query := r.db.WithContext(ctx).
+		Table(taskTable + " AS dt").
+		Joins("JOIN "+spaceTable+" AS ks ON ks.uuid = dt.space_uuid").
+		Where("ks.tenant_uuid = ?", tenantUUID).
+		Where("dt.status IN ?", []string{"open", "assigned"}).
+		Order("dt.sla_due_at ASC")
+	if strings.TrimSpace(severity) != "" {
+		query = query.Where("LOWER(dt.severity) = LOWER(?)", strings.TrimSpace(severity))
+	}
+	if err := query.Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 // IAMSyncTaskRepository 管理 IAM 同步任务。
 type IAMSyncTaskRepository struct {
 	*baseRepo.BaseRepository[models.IAMSyncTask]

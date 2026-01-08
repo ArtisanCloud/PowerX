@@ -1606,6 +1606,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		MetricsWriter:   decayMetricsWriter,
 		ThresholdsPath:  opts.Decay.ThresholdPath,
+		EventBus:        bus,
 		Clock:           time.Now,
 	})
 

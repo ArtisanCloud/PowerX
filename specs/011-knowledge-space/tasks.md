@@ -231,16 +231,16 @@
 
 ### 测试
 
-- [ ] **T086 [P] [US8]** 在 `backend/tests/contract/knowledge_space/decay_http_test.go` 覆盖 `POST /knowledge/decay/tasks`、`POST /knowledge/decay/restore`、`GET /knowledge/decay/status`，含租户隔离、误判恢复 ≤10 分钟、`knowledge.decay.*` 指标写入断言。
-- [ ] **T087 [US8]** 在 `backend/tests/integration/knowledge_space/decay_guard_flow_test.go` 演练巡检→任务→补齐→误判撤回，验证 7 天 SLA 计算、false-positive <10% 告警与 `task-center` 审批联动。
+- [X] **T086 [P] [US8]** 在 `backend/tests/contract/knowledge_space/decay_http_test.go` 覆盖 `POST /knowledge/decay/tasks`、`POST /knowledge/decay/restore`、`GET /knowledge/decay/status`，含租户隔离、误判恢复 ≤10 分钟、`knowledge.decay.*` 指标写入断言。
+- [X] **T087 [US8]** 在 `backend/tests/integration/knowledge_space/decay_guard_flow_test.go` 演练巡检→任务→补齐→误判撤回，验证 7 天 SLA 计算、false-positive <10% 告警与 `task-center` 审批联动。
 
 ### 实现
 
-- [ ] **T088 [US8]** 在 `backend/internal/service/knowledge_space/decay_guard/service.go` 实现巡检调度、阈值计算、任务派发、恢复/误判处理、audit 记录，并复用 `task-center`/`audit-ledger`/`vectorstore` 依赖注入模式，确保 `reports/_state/knowledge-update.json` 聚合更新。
-- [ ] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出、flag 校验），返回任务 ID、SLA 倒计时与 `knowledge.decay` 指标片段。
-- [ ] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用，包括 Run/List/Restore 方法及租户隔离校验。
-- [ ] **T091 [US8]** 校验并增强 `scripts/ops/knowledge-decay-scan.mjs`，并补齐 `docs/ops/gap_task_template.md`：任务模板、审批字段、恢复/误判剧本、dry-run 与报告导出。
-- [ ] **T092 [US8]** 对齐 `backend/config/knowledge/decay_thresholds.yaml`，生成/更新 `backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 并更新聚合 `knowledge-update.json`。
+- [X] **T088 [US8]** 在 `backend/internal/service/knowledge_space/decay_guard/service.go` 实现巡检调度、阈值计算、任务派发、恢复/误判处理、audit 记录，并复用 `task-center`/`audit-ledger`/`vectorstore` 依赖注入模式，确保 `reports/_state/knowledge-update.json` 聚合更新。
+- [X] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出、flag 校验），返回任务 ID、SLA 倒计时与 `knowledge.decay` 指标片段。
+- [X] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用，包括 Run/List/Restore 方法及租户隔离校验。
+- [X] **T091 [US8]** 校验并增强 `scripts/ops/knowledge-decay-scan.mjs`，并补齐 `docs/ops/gap_task_template.md`：任务模板、审批字段、恢复/误判剧本、dry-run 与报告导出。
+- [X] **T092 [US8]** 对齐 `backend/config/knowledge/decay_thresholds.yaml`，生成/更新 `backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 并更新聚合 `knowledge-update.json`。
 
 ---
 
