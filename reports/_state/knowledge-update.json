@@ -38,7 +38,15 @@
     "grayState": "idle",
     "rollbackCount": 0,
     "tenantCoverage": 0,
+    "versionDrift": 0,
     "alerts": [],
+    "metrics": {
+      "knowledge.release.gray_state": "idle",
+      "knowledge.release.rollback_count": 0,
+      "knowledge.release.tenant_coverage": 0,
+      "knowledge.release.version_drift": 0,
+      "knowledge.release.alerts": []
+    },
     "recordedAt": "1970-01-01T00:00:00Z"
   }
 }

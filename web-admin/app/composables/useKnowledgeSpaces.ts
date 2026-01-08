@@ -163,6 +163,68 @@ export interface FeedbackExportPayload {
   meta: Record<string, any>;
 }
 
+export interface ReleasePolicyPayload {
+  matrixVersion: string;
+  pilotTenants: string[];
+  batches: Array<{ name: string; tenants: string[] }>;
+  guardrails?: Record<string, string>;
+  approvedBy?: string;
+  createdBy?: string;
+}
+
+export interface ReleasePolicyRecord {
+  id: number;
+  matrixVersion: string;
+  pilotTenants: string[];
+  batches: any[];
+  guardrails: Record<string, any>;
+  approvedBy?: string;
+  createdBy?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReleasePublishResponse {
+  releaseId: string;
+  versionId: string;
+  batchToken: string;
+  batchIndex: number;
+  tenants: string[];
+}
+
+export interface ReleasePromoteResponse {
+  batchToken: string;
+  batchIndex: number;
+  tenants: string[];
+  state: string;
+  tenantCoverage: number;
+}
+
+export interface ReleaseRollbackResponse {
+  status: string;
+}
+
+export interface ReleaseStatusView {
+  policyId: number;
+  versionId: string;
+  grayState: string;
+  tenantCoverage: number;
+  versionDrift: number;
+  alerts: string[];
+  batches: Array<{
+    batchToken: string;
+    batchIndex: number;
+    state: string;
+    tenants: string[];
+    alerts: string[];
+    promotedAt?: string;
+    completedAt?: string;
+    rolledBackAt?: string;
+  }>;
+  recordedAt: string;
+}
+
 interface ApiResponse<T> {
   code: number;
   message: string;
@@ -181,6 +243,7 @@ export const useKnowledgeSpaces = () => {
 
   const adminPath = (path: string) => `${baseURL}/admin/knowledge-spaces${path}`;
   const profilePath = (path: string) => `${baseURL}/admin/knowledge/profiles${path}`;
+  const releasePath = (path: string) => `${baseURL}/knowledge/release${path}`;
 
   const createSpace = async (
     payload: KnowledgeSpacePayload,
@@ -426,6 +489,79 @@ export const useKnowledgeSpaces = () => {
     );
   };
 
+  const listReleasePolicies = async (limit = 20): Promise<ReleasePolicyRecord[]> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    const response = await $fetch<ApiResponse<{ policies: ReleasePolicyRecord[] }>>(
+      `${releasePath(`/policies`)}?${params.toString()}`,
+      { method: "GET" },
+    );
+    return response.data?.policies ?? [];
+  };
+
+  const upsertReleasePolicy = async (
+    payload: ReleasePolicyPayload,
+  ): Promise<{ policyId: number; status: string }> => {
+    const response = await $fetch<ApiResponse<{ policyId: number; status: string }>>(
+      releasePath(`/policies`),
+      { method: "POST", body: payload },
+    );
+    return response.data;
+  };
+
+  const publishRelease = async (payload: {
+    policyId: string;
+    versionId: string;
+    requestedBy?: string;
+  }): Promise<ReleasePublishResponse> => {
+    const response = await $fetch<ApiResponse<ReleasePublishResponse>>(
+      releasePath(`/publish`),
+      { method: "POST", body: payload },
+    );
+    return response.data;
+  };
+
+  const promoteRelease = async (payload: {
+    policyId: string;
+    versionId: string;
+    batchToken: string;
+    alerts?: string[];
+    requestedBy?: string;
+  }): Promise<ReleasePromoteResponse> => {
+    const response = await $fetch<ApiResponse<ReleasePromoteResponse>>(
+      releasePath(`/promote`),
+      { method: "POST", body: payload },
+    );
+    return response.data;
+  };
+
+  const rollbackRelease = async (payload: {
+    policyId: string;
+    versionId: string;
+    reason?: string;
+    requestedBy?: string;
+  }): Promise<ReleaseRollbackResponse> => {
+    const response = await $fetch<ApiResponse<ReleaseRollbackResponse>>(
+      releasePath(`/rollback`),
+      { method: "POST", body: payload },
+    );
+    return response.data;
+  };
+
+  const getReleaseStatus = async (
+    policyId: string,
+    versionId?: string,
+  ): Promise<ReleaseStatusView | null> => {
+    const params = new URLSearchParams({ policyId });
+    if (versionId) {
+      params.set("versionId", versionId);
+    }
+    const response = await $fetch<ApiResponse<{ status: ReleaseStatusView | null }>>(
+      `${releasePath(`/status`)}?${params.toString()}`,
+      { method: "GET" },
+    );
+    return response.data?.status ?? null;
+  };
+
   return {
     createSpace,
     fetchStatus,
@@ -444,5 +580,11 @@ export const useKnowledgeSpaces = () => {
     reprocessFeedbackCase,
     rollbackFeedbackCase,
     exportFeedbackCases,
+    listReleasePolicies,
+    upsertReleasePolicy,
+    publishRelease,
+    promoteRelease,
+    rollbackRelease,
+    getReleaseStatus,
   };
 };

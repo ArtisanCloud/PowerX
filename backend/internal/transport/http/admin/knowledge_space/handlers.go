@@ -94,6 +94,8 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	if releaseHandler != nil {
 		releaseGroup := protected.Group("/knowledge/release")
 		{
+			releaseGroup.GET("/policies", releaseHandler.ListPolicies)
+			releaseGroup.GET("/status", releaseHandler.Status)
 			releaseGroup.POST("/policies", releaseHandler.UpsertPolicy)
 			releaseGroup.POST("/publish", releaseHandler.Publish)
 			releaseGroup.POST("/promote", releaseHandler.Promote)

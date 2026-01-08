@@ -77,6 +77,12 @@ export const knowledgeSpaceMenuConfig: MenuConfig = {
       path: '/knowledge-spaces/create',
       icon: 'i-heroicons-plus-circle',
       order: 2
+    },
+    {
+      title: '租户灰度发布',
+      path: '/knowledge-spaces/release',
+      icon: 'i-heroicons-adjustments-horizontal',
+      order: 3
     }
   ]
 }

@@ -56,6 +56,10 @@ type rollbackRequest struct {
 }
 
 func (h *ReleaseHandler) UpsertPolicy(c *gin.Context) {
+	if !flagEnabled("PX_TENANT_RELEASE_MATRIX") {
+		dto.ResponseError(c, http.StatusForbidden, "tenant release matrix disabled", nil)
+		return
+	}
 	var req releasePolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -80,6 +84,10 @@ func (h *ReleaseHandler) UpsertPolicy(c *gin.Context) {
 }
 
 func (h *ReleaseHandler) Publish(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_GRAY_RELEASE") {
+		dto.ResponseError(c, http.StatusForbidden, "gray release disabled", nil)
+		return
+	}
 	var req publishRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -109,6 +117,10 @@ func (h *ReleaseHandler) Publish(c *gin.Context) {
 }
 
 func (h *ReleaseHandler) Promote(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_GRAY_RELEASE") {
+		dto.ResponseError(c, http.StatusForbidden, "gray release disabled", nil)
+		return
+	}
 	var req promoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -140,6 +152,15 @@ func (h *ReleaseHandler) Promote(c *gin.Context) {
 }
 
 func (h *ReleaseHandler) Rollback(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_GRAY_RELEASE") {
+		dto.ResponseError(c, http.StatusForbidden, "gray release disabled", nil)
+		return
+	}
+	if !flagEnabled("PX_KNOWLEDGE_RELEASE_GUARD") && strings.TrimSpace(c.GetHeader("X-Bypass-Guard")) == "" {
+		// 允许在 guard 关闭时显式绕过（便于 CI/ops 场景控制），否则要求 guard 打开。
+		dto.ResponseError(c, http.StatusForbidden, "release guard disabled", nil)
+		return
+	}
 	var req rollbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -163,4 +184,58 @@ func (h *ReleaseHandler) Rollback(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{
 		"status": res.Status,
 	})
+}
+
+func (h *ReleaseHandler) ListPolicies(c *gin.Context) {
+	if !flagEnabled("PX_TENANT_RELEASE_MATRIX") {
+		dto.ResponseError(c, http.StatusForbidden, "tenant release matrix disabled", nil)
+		return
+	}
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	items, err := h.svc.ListPolicies(c.Request.Context(), limit)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"policies": items})
+}
+
+func (h *ReleaseHandler) Status(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_GRAY_RELEASE") {
+		dto.ResponseError(c, http.StatusForbidden, "gray release disabled", nil)
+		return
+	}
+	policyRaw := strings.TrimSpace(c.Query("policyId"))
+	versionID := strings.TrimSpace(c.Query("versionId"))
+	if policyRaw == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "missing policyId", tenant_release.ErrInvalidInput)
+		return
+	}
+	policyID, err := strconv.ParseUint(policyRaw, 10, 64)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid policyId", err)
+		return
+	}
+	if versionID == "" {
+		versionID, err = h.svc.LatestVersion(c.Request.Context(), policyID)
+		if err != nil {
+			dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
+			return
+		}
+		if versionID == "" {
+			dto.ResponseSuccess(c, gin.H{"status": nil})
+			return
+		}
+	}
+	statusView, err := h.svc.Status(c.Request.Context(), policyID, versionID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"status": statusView})
 }

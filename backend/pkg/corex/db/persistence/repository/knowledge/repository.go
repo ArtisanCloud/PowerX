@@ -327,6 +327,35 @@ func (r *TenantReleasePolicyRepository) FindByID(ctx context.Context, id uint64)
 	return policy, nil
 }
 
+func (r *TenantReleasePolicyRepository) FindLatestByMatrixVersion(ctx context.Context, matrixVersion string) (*models.TenantReleasePolicy, error) {
+	matrixVersion = strings.TrimSpace(matrixVersion)
+	if matrixVersion == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	var policy models.TenantReleasePolicy
+	if err := r.db.WithContext(ctx).
+		Where("matrix_version = ?", matrixVersion).
+		Order("id DESC").
+		Take(&policy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &policy, nil
+}
+
+func (r *TenantReleasePolicyRepository) ListLatest(ctx context.Context, limit int) ([]*models.TenantReleasePolicy, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	items := make([]*models.TenantReleasePolicy, 0, limit)
+	if err := r.db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // TenantReleaseBatchRepository 管理灰度批次执行状态。
 type TenantReleaseBatchRepository struct {
 	*baseRepo.BaseRepository[models.TenantReleaseBatch]
@@ -359,6 +388,24 @@ func (r *TenantReleaseBatchRepository) ListByPolicyAndVersion(ctx context.Contex
 	if err := r.db.WithContext(ctx).
 		Where("policy_id = ? AND version_id = ?", policyID, strings.TrimSpace(versionID)).
 		Order("batch_index ASC").Find(&batches).Error; err != nil {
+		return nil, err
+	}
+	return batches, nil
+}
+
+func (r *TenantReleaseBatchRepository) ListLatestByPolicy(ctx context.Context, policyID uint64, limit int) ([]*models.TenantReleaseBatch, error) {
+	if policyID == 0 {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	batches := make([]*models.TenantReleaseBatch, 0, limit)
+	if err := r.db.WithContext(ctx).
+		Where("policy_id = ?", policyID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&batches).Error; err != nil {
 		return nil, err
 	}
 	return batches, nil

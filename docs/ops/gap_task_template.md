@@ -42,10 +42,12 @@
    - 任务状态变更为 `closed`
    - `knowledge.decay.false_positive` 递增
    - `knowledge.gap.backlog` 递减
-   - `reports/_state/knowledge-decay.json` 与 `reports/_state/knowledge-update.json` 的 `decay` 段更新
+   - `backend/reports/_state/knowledge-decay.json` 与 `reports/_state/knowledge-update.json` 的 `decay` 段更新
 
 ## Dry-run 与报告导出
 
 - Dry-run：`node scripts/ops/knowledge-decay-scan.mjs --dry-run --space=<space_uuid> --detected=3`
 - 触发巡检（创建任务 + 读取本地报表）：`node scripts/ops/knowledge-decay-scan.mjs --base-url=$POWERX_BASE_URL --token=$ADMIN_TOKEN --tenant-uuid=$TENANT_UUID --space=<space_uuid> --detected=3`
 - 导出 CSV：`GET /api/knowledge/decay/status?export=csv`（自动按租户上下文隔离）
+
+> 报表目录约定见：`docs/ops/reports_layout.md`
