@@ -24,6 +24,9 @@ type createSpaceRequest struct {
 	DepartmentCode          string       `json:"departmentCode" binding:"required"`
 	Quotas                  quotaPayload `json:"quotas" binding:"required"`
 	PolicyTemplateVersionID string       `json:"policyTemplateVersionId" binding:"required"`
+	IngestionProfileKey     string       `json:"ingestionProfileKey"`
+	IndexProfileKey         string       `json:"indexProfileKey"`
+	RAGProfileKey           string       `json:"ragProfileKey"`
 	FeatureFlags            []string     `json:"featureFlags"`
 	RequestedBy             string       `json:"requestedBy"`
 }

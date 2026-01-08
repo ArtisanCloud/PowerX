@@ -169,12 +169,12 @@
 
 ### 追加：RAG 策略产品化（Profile + Playground + Corpus Check）
 
-- [ ] **T101 [US5]** 定义并落库三类 Profile：`IngestionProfile`、`IndexProfile`、`RAGProfile`（可版本化/可回滚），并与 `KnowledgeSpace` 绑定默认 profile（对齐 `docs/plan/AI_engineering/rag.md:251`）。
-- [ ] **T102 [US5]** 实现 `Corpus Check`（语料体检）作业：统计格式占比、OCR 占比、表格/代码占比、语言分布、重复率，并输出推荐策略卡片（规则集）与成本/风险提示（对齐 `docs/plan/AI_engineering/rag.md:301`）。
-- [ ] **T103 [US5]** 增加 `Retrieval Playground` API：给定 `space_id + rag_profile_id + query + filters` 返回 `RetrievalPlan + candidates + context_pack + trace_id`。
-- [ ] **T104 [US5]** 在 `web-admin/app/pages/knowledge-spaces/playground.vue` 新增 Playground：支持选择 profile、A/B 对比（默认 vs 草稿）、展示各阶段耗时/候选数/降级原因、候选来源（vector/bm25/kg/hier）与最终 citations。
-- [ ] **T105 [US5]** 在 `web-admin/app/pages/knowledge-spaces/create.vue` 向导中增加“场景模板/默认策略”选择，并在导入样本文档后触发 Corpus Check，引导用户采用推荐组合（默认式 + 引导式）。
-- [ ] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/rag.md:363`）。
+- [X] **T101 [US5]** 定义并落库三类 Profile：`IngestionProfile`、`IndexProfile`、`RAGProfile`（可版本化/可回滚），并与 `KnowledgeSpace` 绑定默认 profile（对齐 `docs/plan/AI_engineering/rag.md:251`）。
+- [X] **T102 [US5]** 实现 `Corpus Check`（语料体检）作业：统计格式占比、OCR 占比、表格/代码占比、语言分布、重复率，并输出推荐策略卡片（规则集）与成本/风险提示（对齐 `docs/plan/AI_engineering/rag.md:301`）。
+- [X] **T103 [US5]** 增加 `Retrieval Playground` API：给定 `space_id + rag_profile_id + query + filters` 返回 `RetrievalPlan + candidates + context_pack + trace_id`。
+- [X] **T104 [US5]** 在 `web-admin/app/pages/knowledge-spaces/playground.vue` 新增 Playground：支持选择 profile、A/B 对比（默认 vs 草稿）、展示各阶段耗时/候选数/降级原因、候选来源（vector/bm25/kg/hier）与最终 citations。
+- [X] **T105 [US5]** 在 `web-admin/app/pages/knowledge-spaces/create.vue` 向导中增加“场景模板/默认策略”选择，并在导入样本文档后触发 Corpus Check，引导用户采用推荐组合（默认式 + 引导式）。
+- [X] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/rag.md:363`）。
 
 ---
 

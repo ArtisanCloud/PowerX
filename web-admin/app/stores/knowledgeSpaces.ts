@@ -3,12 +3,21 @@ import {
   useKnowledgeSpaces,
   type KnowledgeSpacePayload,
   type KnowledgeSpaceRecord,
+  type IngestionJobPayload,
+  type IngestionJobRecord,
 } from "~/composables/useKnowledgeSpaces";
 
 interface WizardState {
   step: number;
   form: KnowledgeSpacePayload;
   iamEmail: string;
+  scenarioTemplate: "default" | "guided";
+  sampleDoc: {
+    enabled: boolean;
+    format: IngestionJobPayload["format"];
+    sourceUri: string;
+    ocrRequired: boolean;
+  };
   slaSeconds: number;
   slaStartedAt: number | null;
   intervalId: ReturnType<typeof setInterval> | null;
@@ -18,6 +27,7 @@ interface WizardState {
   lastSpace: KnowledgeSpaceRecord | null;
   runCorpusCheckAfterCreate: boolean;
   lastCorpusCheckJob: any | null;
+  lastIngestionJob: IngestionJobRecord | null;
 }
 
 const DEFAULT_FORM: KnowledgeSpacePayload = {
@@ -25,6 +35,9 @@ const DEFAULT_FORM: KnowledgeSpacePayload = {
   spaceName: "",
   departmentCode: "",
   policyTemplateVersionId: "default-v1",
+  ingestionProfileKey: "default",
+  indexProfileKey: "default",
+  ragProfileKey: "default",
   featureFlags: [],
   quotas: {
     cpuCores: 4,
@@ -38,6 +51,13 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     step: 1,
     form: { ...DEFAULT_FORM },
     iamEmail: "",
+    scenarioTemplate: "default",
+    sampleDoc: {
+      enabled: false,
+      format: "pdf",
+      sourceUri: "",
+      ocrRequired: false,
+    },
     slaSeconds: 120,
     slaStartedAt: null,
     intervalId: null,
@@ -47,6 +67,7 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     lastSpace: null,
     runCorpusCheckAfterCreate: true,
     lastCorpusCheckJob: null,
+    lastIngestionJob: null,
   }),
   getters: {
     slaRemaining(state) {
@@ -86,6 +107,20 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     reset() {
       this.$reset();
       this.form = { ...DEFAULT_FORM };
+    },
+    setScenarioTemplate(template: "default" | "guided") {
+      this.scenarioTemplate = template;
+      if (template === "guided") {
+        this.form.ingestionProfileKey = "default";
+        this.form.indexProfileKey = "default";
+        this.form.ragProfileKey = "guided";
+        this.setFeatureFlag("rag.guided", true);
+      } else {
+        this.form.ingestionProfileKey = "default";
+        this.form.indexProfileKey = "default";
+        this.form.ragProfileKey = "default";
+        this.setFeatureFlag("rag.guided", false);
+      }
     },
     setFeatureFlag(flag: string, enabled: boolean) {
       const normalized = flag.trim().toLowerCase();
@@ -134,12 +169,35 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
         this.lastSpace = response;
         this.status = "success";
         this.startSLAClock();
+        if (response?.spaceId && this.sampleDoc.enabled && this.sampleDoc.sourceUri) {
+          try {
+            this.lastIngestionJob = await api.triggerIngestion(response.spaceId, {
+              format: this.sampleDoc.format,
+              sourceUri: this.sampleDoc.sourceUri,
+              ocrRequired: this.sampleDoc.ocrRequired,
+              priority: "normal",
+            });
+          } catch (e) {
+            console.warn("sample ingestion failed", e);
+          }
+        }
+
         if (this.runCorpusCheckAfterCreate && response?.spaceId) {
           try {
             this.lastCorpusCheckJob = await api.startCorpusCheck(
               response.spaceId,
               this.iamEmail || "ops@powerx.local",
             );
+            for (let i = 0; i < 12; i++) {
+              if (!this.lastCorpusCheckJob?.uuid) break;
+              const latest = await api.getCorpusCheckJob(
+                response.spaceId,
+                this.lastCorpusCheckJob.uuid,
+              );
+              this.lastCorpusCheckJob = latest;
+              if (latest?.status === "completed" || latest?.status === "failed") break;
+              await new Promise((r) => setTimeout(r, 1000));
+            }
           } catch (e) {
             console.warn("start corpus check failed", e);
           }

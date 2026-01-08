@@ -101,6 +101,9 @@ type CreateSpaceInput struct {
 	QuotaCPU       int
 	QuotaStorageGB int
 	PolicyVersion  uint64
+	IngestionProfileKey string
+	IndexProfileKey     string
+	RAGProfileKey       string
 	FeatureFlags   []string
 	RequestedBy    string
 }

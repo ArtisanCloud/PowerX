@@ -61,6 +61,7 @@ type retrievalPlaygroundResponse struct {
 	SpaceID      string              `json:"spaceId"`
 	Query        string              `json:"query"`
 	Profile      map[string]any      `json:"profile"`
+	RetrievalPlan map[string]any     `json:"retrievalPlan"`
 	Stages       []retrievalStage    `json:"stages"`
 	Candidates   []retrievalCandidate `json:"candidates"`
 	ContextPack  map[string]any      `json:"context_pack"`
@@ -143,6 +144,7 @@ func (h *playgroundHandler) Retrieve(c *gin.Context) {
 	}
 
 	traceID := uuid.NewString()
+	queryHash := sha256Sum(strings.TrimSpace(req.Query))
 	start := time.Now()
 	embedding := hashEmbedding(strings.TrimSpace(req.Query), 32)
 	resp, err := h.vector.Query(c.Request.Context(), vectorstore.QueryRequest{
@@ -183,6 +185,13 @@ func (h *playgroundHandler) Retrieve(c *gin.Context) {
 		SpaceID: spaceID.String(),
 		Query:   req.Query,
 		Profile: profileInfo,
+		RetrievalPlan: map[string]any{
+			"driver":        "vector",
+			"top_k":         topK,
+			"min_score":     minScore,
+			"filters":       req.Filters,
+			"embedding_dim": len(embedding),
+		},
 		Stages: []retrievalStage{
 			{Name: "vector_search", CandidateCount: len(candidates), LatencyMs: latencyMs},
 		},
@@ -191,6 +200,7 @@ func (h *playgroundHandler) Retrieve(c *gin.Context) {
 			"chunk_count": len(candidates),
 			"min_score":   minScore,
 			"top_k":       topK,
+			"query_hash":  fmt.Sprintf("%x", queryHash),
 		},
 	})
 }

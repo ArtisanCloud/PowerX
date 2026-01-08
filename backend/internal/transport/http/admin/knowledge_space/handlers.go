@@ -130,6 +130,9 @@ func (h *Handler) create(c *gin.Context) {
 		QuotaCPU:       req.Quotas.CPUCores,
 		QuotaStorageGB: req.Quotas.StorageGB,
 		PolicyVersion:  policyID,
+		IngestionProfileKey: strings.TrimSpace(req.IngestionProfileKey),
+		IndexProfileKey:     strings.TrimSpace(req.IndexProfileKey),
+		RAGProfileKey:       strings.TrimSpace(req.RAGProfileKey),
 		FeatureFlags:   flags,
 		RequestedBy:    req.RequestedBy,
 	})

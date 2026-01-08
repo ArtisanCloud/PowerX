@@ -77,6 +77,13 @@ const candidateColumns = [
     cell: ({ row }: any) => h("div", { class: "text-xs text-gray-600 line-clamp-2" }, row.original.text || "-"),
   },
 ];
+
+const stageColumns = [
+  { accessorKey: "name", header: "Stage" },
+  { accessorKey: "candidateCount", header: "Candidates" },
+  { accessorKey: "latencyMs", header: "Latency(ms)" },
+  { accessorKey: "degradeReason", header: "Degrade" },
+];
 </script>
 
 <template>
@@ -116,6 +123,16 @@ const candidateColumns = [
           </div>
         </template>
         <UTable v-if="resultDefault" :columns="candidateColumns" :data="resultDefault.candidates" row-key="chunkId" />
+        <div v-if="resultDefault" class="mt-4 grid gap-3 md:grid-cols-2">
+          <UCard :ui="{ body: { padding: 'p-3 space-y-2' } }">
+            <p class="text-sm font-medium text-gray-800">Stages</p>
+            <UTable :columns="stageColumns" :data="resultDefault.stages" />
+          </UCard>
+          <UCard :ui="{ body: { padding: 'p-3 space-y-2' } }">
+            <p class="text-sm font-medium text-gray-800">Context Pack</p>
+            <pre class="max-h-48 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-700">{{ JSON.stringify(resultDefault.context_pack, null, 2) }}</pre>
+          </UCard>
+        </div>
         <UAlert v-else variant="subtle" title="暂无结果" description="运行后这里显示默认 profile 的候选列表。" />
       </UCard>
 
@@ -127,6 +144,16 @@ const candidateColumns = [
           </div>
         </template>
         <UTable v-if="resultSelected" :columns="candidateColumns" :data="resultSelected.candidates" row-key="chunkId" />
+        <div v-if="resultSelected" class="mt-4 grid gap-3 md:grid-cols-2">
+          <UCard :ui="{ body: { padding: 'p-3 space-y-2' } }">
+            <p class="text-sm font-medium text-gray-800">Stages</p>
+            <UTable :columns="stageColumns" :data="resultSelected.stages" />
+          </UCard>
+          <UCard :ui="{ body: { padding: 'p-3 space-y-2' } }">
+            <p class="text-sm font-medium text-gray-800">Context Pack</p>
+            <pre class="max-h-48 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-700">{{ JSON.stringify(resultSelected.context_pack, null, 2) }}</pre>
+          </UCard>
+        </div>
         <UAlert v-else variant="subtle" title="暂无结果" description="选择 profile 版本并运行后这里显示候选列表。" />
       </UCard>
     </div>

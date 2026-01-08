@@ -23,6 +23,19 @@ const policyOptions = [
   },
 ];
 
+const scenarioOptions = [
+  {
+    label: "默认式（Default）",
+    value: "default",
+    description: "沿用默认 ProfileKey（default），适合大多数通用空间。",
+  },
+  {
+    label: "引导式（Guided）",
+    value: "guided",
+    description: "绑定 ragProfileKey=guided，用于更强的引导/约束策略（可在 Profiles/Playground 中继续调参）。",
+  },
+];
+
 const loadStatus = async () => {
   try {
     statusSnapshot.value = await fetchStatus();
@@ -151,6 +164,26 @@ const submitWizard = async () => {
           @update:model-value="store.form.policyTemplateVersionId = $event"
           @update:feature-flags="store.form.featureFlags = $event"
         />
+
+        <div class="mt-6 grid gap-3 md:grid-cols-2">
+          <UCard :ui="{ body: { padding: 'p-4 space-y-3' } }">
+            <p class="text-sm font-medium text-gray-800">场景模板 / 默认策略</p>
+            <USelect
+              :items="scenarioOptions"
+              :model-value="store.scenarioTemplate"
+              @update:model-value="store.setScenarioTemplate($event)"
+            />
+            <p class="text-xs text-gray-500">
+              当前绑定：ingestion={{ store.form.ingestionProfileKey }} · index={{ store.form.indexProfileKey }} · rag={{ store.form.ragProfileKey }}
+            </p>
+          </UCard>
+          <UCard :ui="{ body: { padding: 'p-4 space-y-2' } }">
+            <p class="text-sm font-medium text-gray-800">提示</p>
+            <p class="text-xs text-gray-500">
+              创建后可在 Retrieval Playground 中对比“空间默认 profile”与“草稿/其他版本”，并结合 Corpus Check 推荐卡片做调参。
+            </p>
+          </UCard>
+        </div>
       </div>
 
       <div v-else-if="store.step === 3">
@@ -168,6 +201,41 @@ const submitWizard = async () => {
           :iam-email="store.iamEmail"
           :sla-remaining="store.slaRemaining"
         />
+        <div class="mt-4 space-y-3 rounded-lg border border-dashed border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-medium text-gray-800">导入样本文档（可选）</p>
+            <UCheckbox v-model="store.sampleDoc.enabled">启用</UCheckbox>
+          </div>
+          <div v-if="store.sampleDoc.enabled" class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <USelect
+              v-model="store.sampleDoc.format"
+              :items="[
+                { label: 'PDF', value: 'pdf' },
+                { label: 'DOCX', value: 'docx' },
+                { label: 'XLSX', value: 'xlsx' },
+                { label: 'CSV', value: 'csv' },
+                { label: 'Markdown', value: 'markdown' },
+                { label: 'HTML', value: 'html' },
+                { label: 'SQL', value: 'sql' },
+                { label: 'Image', value: 'image' },
+                { label: 'Table', value: 'table' },
+              ]"
+              placeholder="格式"
+            />
+            <UInput
+              v-model="store.sampleDoc.sourceUri"
+              class="md:col-span-2"
+              placeholder="sourceUri（用于生成样本入库记录，随后触发 Corpus Check）"
+              icon="i-heroicons-link"
+            />
+            <div class="md:col-span-3">
+              <UCheckbox v-model="store.sampleDoc.ocrRequired">强制 OCR（用于验证 blocked/degraded 指引）</UCheckbox>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">
+            若启用：提交创建后会先触发一次样本入库，再运行 Corpus Check 生成推荐策略卡片。
+          </p>
+        </div>
         <div class="mt-4 space-y-2 rounded-lg border border-dashed border-gray-200 p-4">
           <UCheckbox v-model="store.runCorpusCheckAfterCreate">
             创建后立即运行语料体检（Corpus Check）
@@ -227,6 +295,14 @@ const submitWizard = async () => {
         :audit-token="store.lastSpace?.auditToken"
       />
       <UAlert
+        v-if="store.lastIngestionJob"
+        :color="store.lastIngestionJob.status === 'blocked' ? 'red' : store.lastIngestionJob.status === 'failed' ? 'red' : 'green'"
+        variant="subtle"
+        icon="i-heroicons-document-text"
+        :title="`样本入库：${store.lastIngestionJob.status}`"
+        :description="store.lastIngestionJob.reason ? store.lastIngestionJob.reason : '样本文档已生成入库记录，可用于 Corpus Check 统计与 Playground 对比。'"
+      />
+      <UAlert
         v-if="store.lastCorpusCheckJob"
         :color="store.lastCorpusCheckJob.status === 'completed' ? 'green' : 'amber'"
         variant="subtle"
@@ -234,6 +310,25 @@ const submitWizard = async () => {
         :title="`Corpus Check：${store.lastCorpusCheckJob.status}`"
         :description="store.lastCorpusCheckJob.trace_id ? `trace_id: ${store.lastCorpusCheckJob.trace_id}` : '已提交语料体检任务，可在 Playground 中做检索对比。'"
       />
+      <UCard v-if="store.lastCorpusCheckJob?.status === 'completed'" :ui="{ body: { padding: 'p-4 space-y-3' } }">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-medium text-gray-800">推荐策略卡片</p>
+          <UButton to="/knowledge-spaces/playground" variant="ghost" size="xs">打开 Playground</UButton>
+        </div>
+        <div v-if="Array.isArray(store.lastCorpusCheckJob.recommendations) && store.lastCorpusCheckJob.recommendations.length" class="space-y-2">
+          <div
+            v-for="(rec, idx) in store.lastCorpusCheckJob.recommendations"
+            :key="idx"
+            class="rounded-lg border border-gray-100 bg-white p-3"
+          >
+            <p class="text-sm font-medium text-gray-900">{{ rec.title || rec.key }}</p>
+            <p v-if="rec.risk" class="text-xs text-gray-500">风险：{{ rec.risk }}</p>
+            <p v-if="rec.cost" class="text-xs text-gray-500">成本：{{ rec.cost }}</p>
+            <p v-if="rec.plugin" class="text-xs text-amber-700">插件：{{ rec.plugin }}</p>
+          </div>
+        </div>
+        <UAlert v-else variant="subtle" title="暂无推荐卡片" description="当前样本不足或未触发体检建议。" />
+      </UCard>
       <UAlert
         v-if="store.lastCorpusCheckJob?.recommendations?.some((r: any) => r?.plugin === 'com.powerx.plugin.data_forge')"
         color="amber"

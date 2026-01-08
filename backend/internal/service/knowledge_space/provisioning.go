@@ -67,9 +67,9 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 			QuotaCPU:                in.QuotaCPU,
 			QuotaStorageGB:          in.QuotaStorageGB,
 			PolicyTemplateVersionID: in.PolicyVersion,
-			IngestionProfileKey:     "default",
-			IndexProfileKey:         "default",
-			RAGProfileKey:           "default",
+			IngestionProfileKey:     normalizeProfileKey(in.IngestionProfileKey),
+			IndexProfileKey:         normalizeProfileKey(in.IndexProfileKey),
+			RAGProfileKey:           normalizeProfileKey(in.RAGProfileKey),
 			FeatureFlags:            datatypes.JSON(rawFlags),
 			AuditToken:              "ks-" + uuid.NewString(),
 			CreatedBy:               in.RequestedBy,
@@ -118,6 +118,29 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	s.inst.RecordProvisioning(true, s.clock().Sub(start))
 	s.publishEvent(ctx, "created", created)
 	return created, nil
+}
+
+func normalizeProfileKey(key string) string {
+	key = strings.ToLower(strings.TrimSpace(key))
+	if key == "" {
+		return "default"
+	}
+	// Keep it URL-safe and storage-friendly.
+	out := make([]rune, 0, len(key))
+	for _, r := range key {
+		switch {
+		case r >= 'a' && r <= 'z':
+			out = append(out, r)
+		case r >= '0' && r <= '9':
+			out = append(out, r)
+		case r == '-' || r == '_':
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return "default"
+	}
+	return string(out)
 }
 
 // UpdateSpace mutates quotas/features/status.

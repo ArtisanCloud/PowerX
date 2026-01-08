@@ -142,7 +142,7 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 	now := time.Now()
 	job := &knowledge.IngestionJob{
 		SpaceUUID:   in.SpaceID,
-		SourceID:    fmt.Sprintf("src-%s", uuid.NewString()),
+		SourceID:    stableSourceID(in.SourceURI),
 		SourceType:  format,
 		Status:      knowledge.IngestionStatusRunning,
 		Priority:    priority,
@@ -387,6 +387,7 @@ type pipelineOutcome struct {
 	coveragePct          float64
 	embeddingPct         float64
 	maskingPct           float64
+	language             string
 	ocrRequired          bool
 	ocrNeeded            bool
 	ocrUsed              bool
@@ -406,6 +407,7 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"coverage_pct":     o.coveragePct,
 		"embedding_pct":    o.embeddingPct,
 		"masking_pct":      o.maskingPct,
+		"language":         o.language,
 		"ocr_required":     o.ocrRequired,
 		"ocr_needed":       o.ocrNeeded,
 		"ocr_used":         o.ocrUsed,
@@ -518,6 +520,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		return out, maskedChunks, nil
 	}
 
+	out.language = detectLanguage(maskedChunks)
 	summaryCount, contentCount := countChunkKinds(maskedChunks)
 	out.summaryCount = summaryCount
 	out.chunkCount = contentCount
@@ -540,6 +543,62 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	}
 
 	return out, maskedChunks, records
+}
+
+func stableSourceID(sourceURI string) string {
+	normalized := strings.ToLower(strings.TrimSpace(sourceURI))
+	if normalized == "" {
+		return fmt.Sprintf("src-%s", uuid.NewString())
+	}
+	return "src-" + ContentHash(normalized)
+}
+
+func detectLanguage(chunks []IngestionChunk) string {
+	if len(chunks) == 0 {
+		return "unknown"
+	}
+	sample := ""
+	for _, c := range chunks {
+		if strings.TrimSpace(c.Content) != "" {
+			sample += " " + c.Content
+		}
+		if len(sample) > 4096 {
+			break
+		}
+	}
+	sample = strings.TrimSpace(sample)
+	if sample == "" {
+		return "unknown"
+	}
+
+	var han, latin, other int
+	for _, r := range sample {
+		switch {
+		case r >= 0x4E00 && r <= 0x9FFF:
+			han++
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z'):
+			latin++
+		case r <= 0x7F:
+			// ignore ASCII punctuation/space
+		default:
+			other++
+		}
+	}
+
+	total := han + latin + other
+	if total == 0 {
+		return "unknown"
+	}
+	if han*100/total >= 20 {
+		if latin*100/total >= 20 {
+			return "mixed"
+		}
+		return "zh"
+	}
+	if latin*100/total >= 20 {
+		return "en"
+	}
+	return "unknown"
 }
 
 func countChunkKinds(chunks []IngestionChunk) (summaryCount int, contentCount int) {

@@ -3,6 +3,9 @@ export interface KnowledgeSpacePayload {
   spaceName: string;
   departmentCode: string;
   policyTemplateVersionId: string;
+  ingestionProfileKey?: string;
+  indexProfileKey?: string;
+  ragProfileKey?: string;
   featureFlags: string[];
   quotas: {
     cpuCores: number;
