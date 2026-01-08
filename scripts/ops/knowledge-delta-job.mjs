@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
-const sourcesPath = path.join(repoRoot, 'configs', 'knowledge', 'delta_sources.yaml');
+const sourcesPath = path.join(repoRoot, 'backend', 'config', 'knowledge', 'delta_sources.yaml');
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
@@ -17,13 +17,12 @@ async function main() {
 		throw new Error(`未在 ${sourcesPath} 找到源 ${sourceName}`);
 	}
 	const job = {
-		jobId: cryptoRandom(),
 		spaceId: args.space || '00000000-0000-0000-0000-000000000000',
 		source: source.name,
 		packageUri: args.package || source.endpoint,
 		generatedAt: new Date().toISOString(),
 	};
-	const outPath = args.output || path.join(repoRoot, 'tmp', `${job.jobId}.delta.json`);
+	const outPath = args.output || path.join(repoRoot, 'tmp', `delta-start-${Date.now()}.json`);
 	await mkdir(path.dirname(outPath), {recursive: true});
 	await writeFile(outPath, JSON.stringify(job, null, 2));
 	console.log(`✅ delta job draft written to ${outPath}`);

@@ -489,6 +489,8 @@ func mapDeltaError(err error) error {
 	switch {
 	case errors.Is(err, ksdelta.ErrInvalidInput), errors.Is(err, ksdelta.ErrUnknownSource):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, ksdelta.ErrJobConflict):
+		return status.Error(codes.Aborted, err.Error())
 	case errors.Is(err, ksdelta.ErrSpaceNotFound), errors.Is(err, ksdelta.ErrJobNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, ksdelta.ErrPartialReleaseDenied):
