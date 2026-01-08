@@ -209,17 +209,17 @@
 
 ### 测试
 
-- [ ] **T078 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_http_test.go` 覆盖 `POST /knowledge/events/apply`、`POST /knowledge/events/retry`、`POST /knowledge/index/hot-update`、`POST /agent/weights/refresh`（含签名校验/幂等/重放窗口）。
-- [ ] **T079 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_grpc_test.go` 覆盖 gRPC 事件处理接口与幂等键冲突。
-- [ ] **T080 [US7]** 在 `backend/tests/integration/knowledge_space/event_hotfix_flow_test.go` 模拟事件→策略→热修（bundle/索引更新）→Agent 通知→失败重试→幂等忽略，并断言 ≤5m latency 与审计写入。
+- [X] **T078 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_http_test.go` 覆盖 `POST /knowledge/events/apply`、`POST /knowledge/events/retry`、`POST /knowledge/index/hot-update`、`POST /agent/weights/refresh`（含签名校验/幂等/重放窗口）。
+- [X] **T079 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_grpc_test.go` 覆盖 gRPC 事件处理接口与幂等键冲突。
+- [X] **T080 [US7]** 在 `backend/tests/integration/knowledge_space/event_hotfix_flow_test.go` 模拟事件→策略→热修（bundle/索引更新）→Agent 通知→失败重试→幂等忽略，并断言 ≤5m latency 与审计写入。
 
 ### 实现
 
-- [ ] **T081 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/service.go` 实现事件 intake、策略匹配、热更新（对索引/ArtifactBundle 产生可追溯变更）、幂等/重试控制与 `audit-ledger` 写入；支持 YAML/JSON policy 解析一致。
-- [ ] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema，并把幂等结果/审计 ID 返回给调用方。
-- [ ] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
-- [ ] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 实现真正的 Agent 刷新动作（权重/模板/路由缓存），并将结果写入 `agent.refresh.success_rate` 与审计。
-- [ ] **T085 [US7]** 校验并增强 `backend/config/knowledge/event_hotfix_policies.yaml`、`backend/config/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`；生成 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
+- [X] **T081 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/service.go` 实现事件 intake、策略匹配、热更新（对索引/ArtifactBundle 产生可追溯变更）、幂等/重试控制与 `audit-ledger` 写入；支持 YAML/JSON policy 解析一致。
+- [X] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema，并把幂等结果/审计 ID 返回给调用方。
+- [X] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
+- [X] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 实现真正的 Agent 刷新动作（权重/模板/路由缓存），并将结果写入 `agent.refresh.success_rate` 与审计。
+- [X] **T085 [US7]** 校验并增强 `backend/config/knowledge/event_hotfix_policies.yaml`、`backend/config/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`；生成 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
 
 ---
 

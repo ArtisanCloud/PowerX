@@ -13,10 +13,13 @@ import (
 type EventMetricsSnapshot struct {
 	EventID        string    `json:"eventId"`
 	EventType      string    `json:"eventType"`
+	PolicySeverity string    `json:"policySeverity,omitempty"`
+	Actions        []string  `json:"actions,omitempty"`
 	LatencyMs      int64     `json:"latencyMs"`
 	RetryCount     int       `json:"retryCount"`
 	IdempotentSkip bool      `json:"idempotentSkip"`
 	AgentRefreshOK bool      `json:"agentRefreshOk"`
+	HotUpdateOK    bool      `json:"hotUpdateOk"`
 	RecordedAt     time.Time `json:"recordedAt"`
 }
 

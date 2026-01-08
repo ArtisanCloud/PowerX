@@ -225,6 +225,7 @@ func New(t testing.TB) *Env {
 	})
 	agentNotifier := event_hotfix.NewAgentNotifier(agentMatrixPath)
 	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		DB:              db,
 		Instrumentation: inst,
 		EventBus:        bus,
 		MetricsWriter:   eventMetricsWriter,
@@ -233,6 +234,7 @@ func New(t testing.TB) *Env {
 		ReportPath:      eventReportPath,
 		Clock:           time.Now,
 		RetryMax:        3,
+		ReplayWindow:    5 * time.Minute,
 	})
 	deltaSvc := ksdelta.NewService(ksdelta.Options{
 		DB:                       db,

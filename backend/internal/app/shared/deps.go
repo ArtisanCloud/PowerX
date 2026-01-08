@@ -1584,6 +1584,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 
 	agentNotifier := event_hotfix.NewAgentNotifier(opts.EventHotfix.AgentMatrixPath)
 	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		DB:              db,
 		Instrumentation: inst,
 		EventBus:        bus,
 		MetricsWriter:   eventMetricsWriter,
@@ -1592,6 +1593,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		ReportPath:      eventReportPath,
 		Clock:           time.Now,
 		RetryMax:        opts.EventHotfix.RetryMax,
+		ReplayWindow:    opts.EventHotfix.ReplayWindow,
 	})
 	releaseSvc := tenant_release.NewService(tenant_release.Options{
 		DB:              db,
