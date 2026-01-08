@@ -4,6 +4,7 @@ package powerx.knowledge.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1;knowledgev1";
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 message KnowledgeSpace {
@@ -476,6 +477,13 @@ message QATelemetry {
   google.protobuf.Timestamp recorded_at = 2;
 }
 
+message QAPlanStage {
+  string name = 1;
+  int32 candidate_count = 2;
+  int32 latency_ms = 3;
+  string degrade_reason = 4;
+}
+
 message QARetrievalPlanResponse {
   string tenant_uuid = 1;
   string intent = 2;
@@ -486,6 +494,9 @@ message QARetrievalPlanResponse {
   int32 degrade_count = 7;
   string session_id = 8;
   int32 latency_budget_ms = 9;
+  repeated QAPlanStage stages = 10;
+  map<string, string> policy_version_snapshot = 11;
+  google.protobuf.Struct metadata = 12;
 }
 
 message QAMemoryUpdate {
@@ -502,6 +513,7 @@ message QAMemorySnapshotRequest {
   string tenant_uuid = 1;
   string session_id = 2;
   repeated QAMemoryUpdate updates = 3;
+  string trace_id = 4;
 }
 
 message QACitationSummary {
@@ -518,6 +530,7 @@ message QAMemorySnapshotResponse {
   string tenant_uuid = 1;
   string session_id = 2;
   repeated QACitationSummary citations = 3;
+  google.protobuf.Struct metadata = 4;
 }
 
 service KnowledgeSpaceQABridgeService {

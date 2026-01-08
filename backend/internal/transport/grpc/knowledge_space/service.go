@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -182,6 +183,18 @@ func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrieval
 		DegradeCount:    int32(out.DegradeCount),
 		SessionId:       out.SessionID,
 		LatencyBudgetMs: int32(out.LatencyBudgetMs),
+		Stages:          toProtoPlanStages(out.Stages),
+		PolicyVersionSnapshot: out.PolicySnapshot,
+		Metadata: func() *structpb.Struct {
+			if len(out.Metadata) == 0 {
+				return nil
+			}
+			st, err := structpb.NewStruct(out.Metadata)
+			if err != nil {
+				return nil
+			}
+			return st
+		}(),
 	}, nil
 }
 
@@ -197,6 +210,7 @@ func (s *Server) UpsertMemorySnapshot(ctx context.Context, req *knowledgev1.QAMe
 		TenantUUID: tenantUUID,
 		SessionID:  req.GetSessionId(),
 		Updates:    fromProtoUpdates(req.GetUpdates()),
+		TraceID:    req.GetTraceId(),
 	})
 	if err != nil {
 		if errors.Is(err, qaBridge.ErrInvalidInput) {
@@ -208,6 +222,16 @@ func (s *Server) UpsertMemorySnapshot(ctx context.Context, req *knowledgev1.QAMe
 		TenantUuid: out.TenantUUID.String(),
 		SessionId:  out.SessionID,
 		Citations:  toProtoCitations(out.Citations),
+		Metadata: func() *structpb.Struct {
+			if len(out.Metadata) == 0 {
+				return nil
+			}
+			st, err := structpb.NewStruct(out.Metadata)
+			if err != nil {
+				return nil
+			}
+			return st
+		}(),
 	}, nil
 }
 
@@ -383,6 +407,22 @@ func toProtoCitations(items []context_snapshot.Citation) []*knowledgev1.QACitati
 			SourceType:  item.SourceType,
 			Confidence:  item.Confidence,
 			DeltaReason: item.DeltaReason,
+		})
+	}
+	return out
+}
+
+func toProtoPlanStages(items []qaBridge.PlanStage) []*knowledgev1.QAPlanStage {
+	if len(items) == 0 {
+		return []*knowledgev1.QAPlanStage{}
+	}
+	out := make([]*knowledgev1.QAPlanStage, 0, len(items))
+	for _, item := range items {
+		out = append(out, &knowledgev1.QAPlanStage{
+			Name:           item.Name,
+			CandidateCount: int32(item.CandidateCount),
+			LatencyMs:      int32(item.LatencyMs),
+			DegradeReason:  item.DegradeReason,
 		})
 	}
 	return out

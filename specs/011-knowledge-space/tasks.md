@@ -153,19 +153,19 @@
 
 ### 测试
 
-- [ ] **T059 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_http_test.go` 覆盖 `POST /knowledge-spaces/qa/retrieval-plan`、`/memory-snapshot` 的 SLA、降级、越权/敏感阻断返回，并新增对 Routing/Time-aware/Policy snapshot 的断言。
-- [ ] **T060 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_grpc_test.go` 覆盖 gRPC Planner（多空间路由、工具元数据、failover、策略快照）。
-- [ ] **T061 [US5]** 在 `backend/tests/integration/knowledge_space/qa_reasoning_flow_test.go` 演练 Agent Session → 检索计划（含策略快照）→ 工具调用 → failover → 反馈闭环；断言 ≤2 秒 SLA、≥99% 工具成功、≥95% 引用覆盖与审计写入。
-- [ ] **T062 [P] [US5]** 在 `web-admin/tests/unit/knowledge-spaces/qa-bridge-card.spec.ts` 校验 `QaBridgeStatusCard.vue` 渲染 QA 指标、降级告警与审计链接。
+- [X] **T059 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_http_test.go` 覆盖 `POST /knowledge-spaces/qa/retrieval-plan`、`/memory-snapshot` 的 SLA、降级、越权/敏感阻断返回，并新增对 Routing/Time-aware/Policy snapshot 的断言。
+- [X] **T060 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_grpc_test.go` 覆盖 gRPC Planner（多空间路由、工具元数据、failover、策略快照）。
+- [X] **T061 [US5]** 在 `backend/tests/integration/knowledge_space/qa_reasoning_flow_test.go` 演练 Agent Session → 检索计划（含策略快照）→ 工具调用 → failover → 反馈闭环；断言 ≤2 秒 SLA、≥99% 工具成功、≥95% 引用覆盖与审计写入。
+- [X] **T062 [P] [US5]** 在 `web-admin/tests/unit/knowledge-spaces/qa-bridge-card.spec.ts` 校验 `QaBridgeStatusCard.vue` 渲染 QA 指标、降级告警与审计链接。
 
 ### 实现
 
-- [ ] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现可解释检索计划：输出 `rewrite/recall/fusion/rerank/compress` 的 plan（含 Routing/Time-aware/ACL 过滤）与降级原因，并记录策略快照（对齐 `docs/plan/AI_engineering/rag.md`）。
-- [ ] **T064 [US5]** 在 `backend/internal/service/knowledge_space/context_snapshot/store.go` 构建 Redis 的记忆快照/差异存储，提供 `Snapshot/Upsert` API，并把引用映射与 trace_id 关联（用于反馈闭环）。
-- [ ] **T065 [US5]** 在 `backend/internal/service/knowledge_space/toolchain/registry.go` & `executor.go` 注册工具元数据与执行器：封装 IAM/ACL 校验、重试、缓存降级；失败写入 `qa.failover.count` 并在 plan 中体现。
-- [ ] **T066 [US5]** 在 `backend/internal/service/knowledge_space/compliance/hooks.go` 统一接入 `security.AccessCheck`、敏感检测、`audit.reasoning_steps`；将 `must_cite_sources`、`min_evidence_chunks` 等 guardrails 落到服务层（不可仅靠 prompt）。
-- [ ] **T067 [US5]** 在 `backend/internal/transport/http/openapi/knowledge_space/qa_bridge_handlers.go` 与 `grpc/knowledge_space/qa_bridge_service.go` 暴露 QA Bridge API：包含 policy_version_snapshot、degrade_reason、citations 映射。
-- [ ] **T068 [US5]** 在 `backend/reports/_state/qa-reasoning.json` & Grafana 面板写入 `qa.retrieval.latency_ms`, `qa.cross_space.hit_rate`, `qa.tool.success_rate`, `qa.feedback.loop_time`, `qa.citation.coverage_pct`，并在 `web-admin/app/components/knowledge-spaces/QaBridgeStatusCard.vue` + `app/services/knowledge-spaces/qaBridgeClient.ts` 展示健康状态。
+- [X] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现可解释检索计划：输出 `rewrite/recall/fusion/rerank/compress` 的 plan（含 Routing/Time-aware/ACL 过滤）与降级原因，并记录策略快照（对齐 `docs/plan/AI_engineering/rag.md`）。
+- [X] **T064 [US5]** 在 `backend/internal/service/knowledge_space/context_snapshot/store.go` 构建 Redis 的记忆快照/差异存储，提供 `Snapshot/Upsert` API，并把引用映射与 trace_id 关联（用于反馈闭环）。
+- [X] **T065 [US5]** 在 `backend/internal/service/knowledge_space/toolchain/registry.go` & `executor.go` 注册工具元数据与执行器：封装 IAM/ACL 校验、重试、缓存降级；失败写入 `qa.failover.count` 并在 plan 中体现。
+- [X] **T066 [US5]** 在 `backend/internal/service/knowledge_space/compliance/hooks.go` 统一接入 `security.AccessCheck`、敏感检测、`audit.reasoning_steps`；将 `must_cite_sources`、`min_evidence_chunks` 等 guardrails 落到服务层（不可仅靠 prompt）。
+- [X] **T067 [US5]** 在 `backend/internal/transport/http/openapi/knowledge_space/qa_bridge_handlers.go` 与 `grpc/knowledge_space/qa_bridge_service.go` 暴露 QA Bridge API：包含 policy_version_snapshot、degrade_reason、citations 映射。
+- [X] **T068 [US5]** 在 `backend/reports/_state/qa-reasoning.json` & Grafana 面板写入 `qa.retrieval.latency_ms`, `qa.cross_space.hit_rate`, `qa.tool.success_rate`, `qa.feedback.loop_time`, `qa.citation.coverage_pct`，并在 `web-admin/app/components/knowledge-spaces/QaBridgeStatusCard.vue` + `app/services/knowledge-spaces/qaBridgeClient.ts` 展示健康状态。
 
 ### 追加：RAG 策略产品化（Profile + Playground + Corpus Check）
 

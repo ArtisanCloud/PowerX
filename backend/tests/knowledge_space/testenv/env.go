@@ -54,6 +54,7 @@ type Env struct {
 	EventReportPath           string
 	DecayReportPath           string
 	ReleaseReportPath         string
+	QABridgeReportPath        string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -241,12 +242,13 @@ func New(t testing.TB) *Env {
 		PartialReleaseConfigPath: partialReleasePath,
 		Clock:                    time.Now,
 	})
+	qaBridgeReportPath := filepath.Join(t.TempDir(), "qa-reasoning.json")
 	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		Clock:           time.Now,
-		ReportPath:      filepath.Join(t.TempDir(), "qa-reasoning.json"),
+		ReportPath:      qaBridgeReportPath,
 	})
 	decaySvc := decay_guard.NewService(decay_guard.Options{
 		DB:              db,
@@ -300,6 +302,7 @@ func New(t testing.TB) *Env {
 		EventReportPath:           eventReportPath,
 		DecayReportPath:           decayReportPath,
 		ReleaseReportPath:         releaseReportPath,
+		QABridgeReportPath:        qaBridgeReportPath,
 	}
 }
 
