@@ -56,3 +56,70 @@
 ## Event + Audit Entities (logical)
 - **IAMSyncTask**: Tracks provisioning-time role propagation, keyed by `(space_id, iam_system)` with status + retry fields.
 - **AuditTrailEntry**: Append-only log referencing `space_id`, `action`, `payload_hash`, `actor`, `timestamp`, `rollback_token`.
+
+---
+
+## Vector Store（pgvector）
+
+> 说明：业务侧通过 `VectorStore` 抽象写入；当 driver 选择 `pgvector` 时，默认落表为 `public.knowledge_vectors`。
+
+### knowledge_vectors
+
+- **PK**: `(space_uuid, chunk_uuid)`
+- **核心字段**:
+  - `embedding vector(1536)`（维度与模型配置一致）
+  - `metadata jsonb`（包含 `source_uri/format/provenance/anchors` 等）
+  - `updated_at timestamptz`
+- **索引建议**:
+  - `space_uuid` btree
+  - `embedding` 近邻索引（`ivfflat` 或 `hnsw`，按环境策略）
+
+---
+
+## KG Assist Tables（最小图谱存储）
+
+> 说明：用于 `K_kg` 等策略的“协助表”，为后续图谱抽取/回滚/审计提供持久化面。
+
+### knowledge_kg_nodes
+
+- **PK**: `(space_uuid, node_id)`
+- **字段**:
+  - `node_type`（entity/object/etc）
+  - `props jsonb`（实体属性、来源、别名等）
+  - `created_at / updated_at`
+
+### knowledge_kg_edges
+
+- **PK**: `(space_uuid, edge_id)`
+- **字段**:
+  - `src_node_id / dst_node_id`
+  - `predicate`（关系谓词）
+  - `props jsonb`
+  - `created_at / updated_at`
+
+---
+
+## Chunk Store（用于 sparse/hier/structured）
+
+> 说明：这是“在线检索加速”的存储面；ArtifactBundle 仍负责离线产物版本化与 lineage。
+
+### knowledge_chunks
+
+- **PK**: `(space_uuid, chunk_uuid)`
+- **字段**:
+  - `kind`：`doc_summary/section_summary/chunk/...`
+  - `content text`：用于 FTS/BM25
+  - `metadata jsonb`：`provenance/anchors/time_fields/structured_fields/...`
+  - `created_at / updated_at`
+- **索引建议**:
+  - `to_tsvector(content)` 的 GIN（FTS）
+  - `metadata` 的 GIN（jsonb_path_ops）
+  - `(space_uuid, kind)` btree
+
+### knowledge_chunk_links（可选）
+
+- **PK**: `(space_uuid, src_chunk_uuid, dst_chunk_uuid, rel_type)`
+- **字段**:
+  - `rel_type`：`parent/next/prev/derived_from/...`
+  - `props jsonb`
+  - `created_at`

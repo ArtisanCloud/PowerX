@@ -160,6 +160,28 @@ Knowledge governance operators run the continuous-update control room described 
 - **FR-023**: Tenant release governance per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` MUST manage `tenant_release_matrix.yaml`, pilot selection, automated expansion, failure-induced rollback (<5 minutes), and cross-tenant audit/export capabilities accessible via HTTP/gRPC + CLI + Web Admin surfaces.
 - **FR-024**: All knowledge-update flows (delta, feedback, event, decay, tenant release) MUST emit metrics (`knowledge.delta.*`, `knowledge.feedback.*`, `knowledge.event.*`, `knowledge.decay.*`, `knowledge.release.*`) into OpenTelemetry, Grafana dashboards, and JSON exports (`backend/reports/_state/knowledge-{delta,feedback,event,decay,release}.json` + aggregated `knowledge-update.json`).
 
+### Scene & Strategy Bundles (RAG Productization)
+
+This feature MUST implement the scene-driven strategy selection model described in:
+- `docs/plan/AI_engineering/knowledge/rag.md`
+- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+
+Definitions:
+- **Scene** (L1 selection): the knowledge base category + typical query intents (e.g., SOP, contract, research, ledger, SQL/KG).
+- **Strategy bundle** (L2 selection): a versioned combination of `IngestionProfile + IndexProfile + RAGProfile + Guardrails`.
+
+Non-goal: Do **not** expose a full Cartesian product of “scenes × all strategies”. Only show strategy bundles that match the scene’s index/asset prerequisites.
+
+- **FR-025**: The Web Admin MUST offer a unified, guided entry that supports two-level selection: `Scene → Strategy bundle`, plus a “Custom scene (expert)” option that can unlock all modules with dependency validation.
+- **FR-026**: The platform MUST enforce strategy prerequisites before allowing activation/publish (e.g., KG bundles require KG indexes/tables; high-accuracy bundles require sparse index + evidence guardrails), and MUST surface actionable remediation in UI.
+- **FR-027**: Each scene MUST map to a biased (non-full) set of strategy bundles and strategy modules as defined in `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`, including:
+  - KG as the default for the “SQL/config/dependency” scene (KG-strong), and optional KG-lite for contract scenarios.
+  - Contract/quote scenes default to evidence-first (sparse-heavy + CRAG + must-cite + time-aware).
+- **FR-028**: Ingestion profiles MUST support configurable chunking parameters (e.g., chunk size, overlap/delta, separators) with scene defaults and safe bounds, and MUST capture provenance fields required by retrieval citations.
+- **FR-029**: `make db-migrate` MUST provision knowledge-space persistence prerequisites in PostgreSQL: when `knowledge_space.vector_store.driver=pgvector`, it MUST ensure `pgvector` extension + `knowledge_vectors` table (and required indexes) exist; it MUST also provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently so KG-enabled strategy bundles can be activated without manual SQL.
+- **FR-030**: The system MUST fail fast with actionable errors when migrations cannot create required extensions/tables (e.g. missing `CREATE EXTENSION vector` privilege), and MUST skip pgvector-only migrations when non-pgvector drivers (Milvus/Pinecone) are configured.
+- **FR-031**: The system MUST map `scene_strategy_catalog.yaml` index prerequisites to concrete storage readiness checks. When a scene/strategy enables `index.sparse`/`index.hier`/`index.structured_fields` using the Postgres-backed implementation, `make db-migrate` MUST provision the corresponding assist tables (e.g. `knowledge_chunks`, `knowledge_chunk_links`) and indexes idempotently.
+
 ### Key Entities *(include if feature involves data)*
 
 - **Knowledge Space**: Logical container tying tenant, department, quotas, policy templates, feature flags, and status (`draft`, `active`, `pending-iam`, `retired`); names must be unique within the tenant scope while system IDs remain global, and retired spaces keep read-only artifacts for 13 months before purge.

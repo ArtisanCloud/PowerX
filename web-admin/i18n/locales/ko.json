@@ -4,6 +4,7 @@
   "register": "회원가입",
   "common": {
     "language": "언어",
+    "back": "뒤로",
     "reload": "새로고침",
     "scrollToBottom": "맨 아래로",
     "newMessages": "새 메시지 {count}개"
@@ -136,13 +137,58 @@
     "ingestion": {
       "title": "입고 오케스트레이터",
       "subtitle": "문서 또는 API 소스를 제출하면 자동으로 청크와 임베딩을 생성합니다.",
+      "selectedSpace": "현재 공간: {name}({dept})",
+      "wizard": {
+        "step": "단계 {n}/3",
+        "stepBadge": "{n}단계",
+        "prev": "이전",
+        "next": "다음"
+      },
+      "strategyTemplate": "전략 템플릿(시나리오)",
+      "strategyPreview": "적용될 전략(고급 설정에서 변경 가능)",
+      "templates": {
+        "general": { "title": "일반", "desc": "대부분 문서에 적합한 기본값" },
+        "hr": { "title": "HR / 정책 / 컴플라이언스", "desc": "컴플라이언스 중심 기본값" },
+        "it": { "title": "IT / 엔지니어링 문서", "desc": "기술 문서/코드/표에 적합" },
+        "support": { "title": "고객지원 FAQ / 운영", "desc": "QA 단위와 적중률을 중시" }
+      },
+      "advanced": {
+        "show": "고급 설정",
+        "hide": "고급 설정 닫기"
+      },
+      "confirm": {
+        "title": "입고 확인",
+        "space": "공간",
+        "source": "소스",
+        "template": "템플릿"
+      },
       "recentSpace": "최근 공간",
       "recentSpaceHint": "위저드에서 동기화된 최신 공간입니다.",
       "spaceId": "공간 ID",
+      "selectSpace": "공간 선택",
       "sourceType": "소스 유형",
-      "mode": "입고 모드",
-      "modeDocument": "문서 업로드",
-      "modeApi": "API / URL",
+      "mode": {
+        "label": "입고 모드",
+        "options": {
+          "document": "문서 업로드",
+          "api": "API / URL"
+        }
+      },
+      "modal": {
+        "title": "입고 작업",
+        "desc": "공간과 소스를 선택해 입고 작업을 실행합니다"
+      },
+      "hints": {
+        "noSpace": "사용 가능한 공간이 없습니다. 먼저 지식 공간을 생성하세요.",
+        "urlPublic": "URL은 백엔드가 직접 가져올 수 있어야 합니다(공개 URL 또는 서명된 URL). 인증이 필요한 API는 커넥터/동기화 작업/자격 증명 관리를 사용하세요."
+      },
+      "sourceMethod": {
+        "label": "소스 방식",
+        "options": {
+          "upload": "로컬 업로드",
+          "url": "원격 URL"
+        }
+      },
       "uploadFile": "파일 업로드",
       "uploadHint": "파일은 객체 스토리지에 업로드된 후 파이프라인으로 전송됩니다.",
       "selectedFile": "선택됨: {name}",
@@ -161,11 +207,17 @@
       },
       "errors": {
         "missingSpaceId": "공간 ID를 입력하세요",
-        "missingSource": "소스 정보를 입력하세요",
+        "missingSource": "파일을 업로드하거나 URL을 입력하세요",
         "runFailed": "입고 실행에 실패했습니다"
       },
       "actions": {
+        "open": "입고 열기",
         "ingestNow": "입고 실행"
+      },
+      "toast": {
+        "successTitle": "입고가 제출되었습니다",
+        "successDesc": "입고 작업이 트리거되었습니다. 진행 상황은 작업 목록/타임라인에서 확인하세요.",
+        "errorTitle": "입고 실패"
       },
       "result": {
         "latestTitle": "최근 작업",
@@ -174,6 +226,109 @@
       },
       "history": "최근 작업",
       "historyEntry": "{job} · {status} · {time}"
+    },
+    "spaces": {
+      "title": "공간 목록",
+      "subtitle": "각 공간 행에서 입고/Playground 를 실행할 수 있습니다.",
+      "search": "공간 검색…",
+      "empty": "일치하는 공간이 없습니다",
+      "filters": {
+        "allDepartments": "전체 부서",
+        "allStatus": "전체 상태"
+      },
+      "table": {
+        "name": "공간",
+        "status": "상태",
+        "actions": "작업"
+      },
+      "pagination": {
+        "summary": "{start}-{end} / 총 {total}개",
+        "pageSize": "페이지당",
+        "prev": "이전",
+        "next": "다음"
+      },
+      "actions": {
+        "create": "공간 생성",
+        "select": "선택",
+        "selected": "선택됨",
+        "ingest": "입고",
+        "sources": "데이터 소스 연결"
+      },
+      "status": {
+        "active": "사용 가능",
+        "pendingIam": "IAM 대기",
+        "retired": "보관됨",
+        "unknown": "알 수 없음"
+      }
+    },
+    "systemPanels": {
+      "show": "시스템 패널 표시",
+      "hide": "시스템 패널 숨기기"
+    },
+    "sources": {
+      "head": {
+        "title": "데이터 소스",
+        "description": "외부 소스를 연결하고 동기화 작업을 생성"
+      },
+      "badge": "데이터 소스",
+      "title": "데이터 소스 연결",
+      "subtitle": "Notion/Feishu 같은 인증이 필요한 시스템은 커넥터 + 증분 동기화 작업으로 지속 업데이트합니다.",
+      "spaceHint": "현재 공간: {id}",
+      "list": {
+        "title": "연결된 데이터 소스",
+        "desc": "커넥터 인스턴스, 동기화 범위, 최근 동기화 상태가 여기에 표시됩니다."
+      },
+      "actions": {
+        "connect": "연결 추가"
+      },
+      "stub": {
+        "title": "준비 중",
+        "desc": "다음: Notion/Feishu 커넥터(테넌트 범위 자격 증명 재사용 + 공간 범위 증분 스케줄)."
+      },
+      "providers": {
+        "notion": "Notion",
+        "feishu": "Feishu"
+      },
+      "connect": {
+        "head": { "title": "데이터 소스 연결 추가" },
+        "title": "연결 추가",
+        "subtitle": "위저드: 소스 선택 → 인증(테넌트 범위) → 범위 선택 → 증분 동기화 작업 생성.",
+        "provider": "소스 유형",
+        "providerHint": "Notion/Feishu는 인증 API 소스입니다. 커넥터 + 동기화 작업으로 가져옵니다.",
+        "wizard": {
+          "step": "단계 {n}/4",
+          "stepBadge": "단계 {n}",
+          "prev": "이전",
+          "next": "다음",
+          "finish": "완료"
+        },
+        "auth": {
+          "title": "인증(테넌트 범위)",
+          "desc": "OAuth/Token 관리는 여기에 통합됩니다. 같은 테넌트 내 여러 공간에서 재사용할 수 있습니다."
+        },
+        "scope": {
+          "title": "동기화 범위 선택",
+          "desc": "Notion: pages/databases; Feishu: 지식베이스/폴더/문서. 필터/필드 매핑은 추후 지원."
+        },
+        "job": {
+          "title": "증분 동기화 작업 생성",
+          "desc": "권장 기본값: 정기 증분 동기화 + 재시도 + 감사/버전 거버넌스(추후 Corpus Check 추천과 연결)."
+        }
+      }
+    },
+    "timelinePlaceholders": {
+      "ingestion": {
+        "title": "입고 기록 없음",
+        "description": "입고를 시작하면 작업과 요약이 여기에 표시됩니다."
+      },
+      "fusion": {
+        "title": "융합 미설정",
+        "description": "융합 전략을 설정하면 상태와 충돌이 여기에 표시됩니다."
+      },
+      "feedback": {
+        "title": "피드백 없음",
+        "description": "피드백 진행 및 재처리/롤백 기록이 여기에 표시됩니다."
+      }
     },
     "placeholders": {
       "spaces": {
@@ -614,6 +769,7 @@
     "department": {
       "title": "부서 관리",
       "description": "회사 부서 구조 관리",
+      "modalDesc": "부서 정보를 추가하거나 편집합니다",
       "add": "부서 추가",
       "edit": "부서 편집",
       "delete": "부서 삭제",

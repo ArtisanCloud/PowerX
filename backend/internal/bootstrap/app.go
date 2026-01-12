@@ -308,6 +308,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			DefaultRetentionMonths: cfg.KnowledgeSpace.DefaultRetentionMonths,
 			ProvisioningSLA:        time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
 			IngestionSLA:           time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
+			SceneStrategyCatalogPath: cfg.KnowledgeSpace.SceneStrategyCatalogPath,
 			EventTopics: shared.KnowledgeSpaceEventTopicsOptions{
 				Provisioning: cfg.KnowledgeSpace.EventTopics.Provisioning,
 				Ingestion:    cfg.KnowledgeSpace.EventTopics.Ingestion,

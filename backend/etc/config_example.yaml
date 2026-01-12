@@ -321,6 +321,7 @@ knowledge_space:
   default_retention_months: 13
   provisioning_sla_seconds: 120
   ingestion_sla_seconds: 14400
+  scene_strategy_catalog_path: backend/config/knowledge/scene_strategy_catalog.yaml
   event_topics:
     provisioning: knowledge.space.provisioning
     ingestion: knowledge.space.ingestion
@@ -331,6 +332,31 @@ knowledge_space:
     retry_interval_seconds: 60
     retry_max_attempts: 3
     http_timeout_seconds: 5
+  vector_store:
+    driver: "" # pgvector / milvus / pinecone
+    pgvector:
+      dsn: "" # 留空则复用 database.dsn
+      schema: public
+      table: knowledge_vectors
+      dimensions: 1536
+      enable_migrations: false
+      batch_size: 128
+      ivfflat_lists: 100
+      timeout_seconds: 30
+    milvus:
+      endpoint: ""
+      api_key: ""
+      project: ""
+    pinecone:
+      endpoint: ""
+      api_key: ""
+      index: ""
+      namespace: ""
+  index_backends:
+    sparse: postgres_fts              # or external
+    hier: postgres_links              # or external
+    structured_fields: postgres_jsonb # or external
+    kg: postgres                      # or external
   delta:
     sources_config: configs/knowledge/delta_sources.yaml
     partial_release_config: configs/knowledge/partial_release.yaml

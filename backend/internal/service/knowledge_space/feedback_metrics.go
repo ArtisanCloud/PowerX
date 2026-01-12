@@ -19,7 +19,7 @@ const (
 	defaultFeedbackMetricsPath = "backend/reports/_state/knowledge-feedback.json"
 	defaultKnowledgeUpdatePath = "reports/_state/knowledge-update.json"
 	defaultFeedbackLedgerName  = "knowledge-feedback-ledger.json"
-	defaultKnowledgeSpacesPath = "backend/reports/_state/knowledge-spaces.json"
+	defaultKnowledgeSpacesPath = "reports/_state/knowledge-spaces.json"
 )
 
 // FeedbackMetrics aggregates fleet-wide feedback signals for dashboards + audits.

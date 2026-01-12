@@ -73,9 +73,9 @@ type Config struct {
 	KnowledgeSpace     KnowledgeSpaceConfig     `yaml:"knowledge_space"`     // 知识空间治理
 	LowCode            LowCodeConfig            `yaml:"low_code"`            // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
-	Database           dbCfg.DatabaseConfig     `yaml:"database"` // 数据库配置
-	Cache              cacheCfg.CacheConfig     `yaml:"cache"`    // 缓存配置
-	LogConfig          logCfg.LogConfig         `yaml:"log"`      // 输出配置
+	Database           dbCfg.DatabaseConfig     `yaml:"database"`            // 数据库配置
+	Cache              cacheCfg.CacheConfig     `yaml:"cache"`               // 缓存配置
+	LogConfig          logCfg.LogConfig         `yaml:"log"`                 // 输出配置
 	AI                 agentCfg.AIConfig        `yaml:"ai"`
 	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
 	Plugin             PluginAggregateConfig    `yaml:"plugin"`
@@ -296,22 +296,24 @@ type AgentLifecycleNotificationConfig struct {
 
 // KnowledgeSpaceConfig 描述知识空间模块运行参数。
 type KnowledgeSpaceConfig struct {
-	RedisAddr              string                           `yaml:"redis_addr"`
-	RedisPassword          string                           `yaml:"redis_password"`
-	RedisDB                int                              `yaml:"redis_db"`
-	LockKeyPrefix          string                           `yaml:"lock_key_prefix"`
-	MetricsKeyPrefix       string                           `yaml:"metrics_key_prefix"`
-	DefaultRetentionMonths int                              `yaml:"default_retention_months"`
-	ProvisioningSLASeconds int                              `yaml:"provisioning_sla_seconds"`
-	IngestionSLASeconds    int                              `yaml:"ingestion_sla_seconds"`
-	EventTopics            KnowledgeSpaceEventTopics        `yaml:"event_topics"`
-	Notifications          KnowledgeSpaceNotificationConfig `yaml:"notifications"`
-	VectorStore            KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
-	Delta                  KnowledgeSpaceDeltaConfig        `yaml:"delta"`
-	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
-	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
-	Decay                  KnowledgeSpaceDecayConfig        `yaml:"decay"`
-	Release                KnowledgeSpaceReleaseConfig      `yaml:"release"`
+	RedisAddr                string                           `yaml:"redis_addr"`
+	RedisPassword            string                           `yaml:"redis_password"`
+	RedisDB                  int                              `yaml:"redis_db"`
+	LockKeyPrefix            string                           `yaml:"lock_key_prefix"`
+	MetricsKeyPrefix         string                           `yaml:"metrics_key_prefix"`
+	DefaultRetentionMonths   int                              `yaml:"default_retention_months"`
+	ProvisioningSLASeconds   int                              `yaml:"provisioning_sla_seconds"`
+	IngestionSLASeconds      int                              `yaml:"ingestion_sla_seconds"`
+	SceneStrategyCatalogPath string                           `yaml:"scene_strategy_catalog_path"`
+	EventTopics              KnowledgeSpaceEventTopics        `yaml:"event_topics"`
+	Notifications            KnowledgeSpaceNotificationConfig `yaml:"notifications"`
+	VectorStore              KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
+	IndexBackends            KnowledgeSpaceIndexBackendConfig `yaml:"index_backends"`
+	Delta                    KnowledgeSpaceDeltaConfig        `yaml:"delta"`
+	Reports                  KnowledgeSpaceReportConfig       `yaml:"reports"`
+	EventHotfix              KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
+	Decay                    KnowledgeSpaceDecayConfig        `yaml:"decay"`
+	Release                  KnowledgeSpaceReleaseConfig      `yaml:"release"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -336,6 +338,19 @@ type KnowledgeSpaceVectorStoreConfig struct {
 	PgVector KnowledgeSpaceVectorStorePGVectorConfig `yaml:"pgvector"`
 	Milvus   KnowledgeSpaceVectorStoreMilvusConfig   `yaml:"milvus"`
 	Pinecone KnowledgeSpaceVectorStorePineconeConfig `yaml:"pinecone"`
+}
+
+// KnowledgeSpaceIndexBackendConfig defines storage backends for non-dense indices.
+// Values are intentionally explicit so `make db-migrate` can decide whether to create assist tables.
+type KnowledgeSpaceIndexBackendConfig struct {
+	// Sparse index backend (for `index.sparse`): `postgres_fts` or `external`.
+	Sparse string `yaml:"sparse"`
+	// Hier index backend (for `index.hier`): `postgres_links` or `external`.
+	Hier string `yaml:"hier"`
+	// Structured field filtering backend (for `index.structured_fields`): `postgres_jsonb` or `external`.
+	StructuredFields string `yaml:"structured_fields"`
+	// KG backend (for `index.kg`): `postgres` or `external`.
+	KG string `yaml:"kg"`
 }
 
 type KnowledgeSpaceDeltaConfig struct {

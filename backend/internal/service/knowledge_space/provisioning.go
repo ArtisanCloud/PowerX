@@ -171,6 +171,29 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 			quotaStorageChanged = true
 		}
 		policyChanged := false
+		profileChanged := false
+		if strings.TrimSpace(in.IngestionProfileKey) != "" {
+			val := normalizeProfileKey(in.IngestionProfileKey)
+			if val != space.IngestionProfileKey {
+				space.IngestionProfileKey = val
+				profileChanged = true
+			}
+		}
+		if strings.TrimSpace(in.IndexProfileKey) != "" {
+			val := normalizeProfileKey(in.IndexProfileKey)
+			if val != space.IndexProfileKey {
+				space.IndexProfileKey = val
+				profileChanged = true
+			}
+		}
+		if strings.TrimSpace(in.RAGProfileKey) != "" {
+			val := normalizeProfileKey(in.RAGProfileKey)
+			if val != space.RAGProfileKey {
+				space.RAGProfileKey = val
+				profileChanged = true
+			}
+		}
+
 		if in.PolicyVersion > 0 && in.PolicyVersion != space.PolicyTemplateVersionID {
 			tpl, err := policies.GetByID(ctx, in.PolicyVersion)
 			if err != nil {
@@ -194,10 +217,17 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 		}
 		statusChanged := false
 		if strings.TrimSpace(in.Status) != "" && strings.TrimSpace(in.Status) != space.Status {
-			if !isValidTransition(space.Status, in.Status) {
+			nextStatus := strings.TrimSpace(in.Status)
+			if !isValidTransition(space.Status, nextStatus) {
 				return ErrInvalidStatusTransition
 			}
-			space.Status = strings.TrimSpace(in.Status)
+			if nextStatus == models.KnowledgeSpaceStatusActive {
+				sceneKey, bundleKey := inferSceneAndBundle(space)
+				if err := s.EnforceStrategyPrereqsOnActivate(sceneKey, bundleKey); err != nil {
+					return err
+				}
+			}
+			space.Status = nextStatus
 			statusChanged = true
 		}
 		if in.UpdatedBy != "" {
@@ -212,6 +242,11 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 		}
 		if policyChanged {
 			updates["policy_template_version_id"] = space.PolicyTemplateVersionID
+		}
+		if profileChanged {
+			updates["ingestion_profile_key"] = space.IngestionProfileKey
+			updates["index_profile_key"] = space.IndexProfileKey
+			updates["rag_profile_key"] = space.RAGProfileKey
 		}
 		if featureChanged {
 			updates["feature_flags"] = space.FeatureFlags

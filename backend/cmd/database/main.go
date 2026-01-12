@@ -36,7 +36,7 @@ func main() {
 
 	switch cmd {
 	case "migrate":
-		if err := MigrateDatabase(ctx, db); err != nil {
+		if err := MigrateDatabase(ctx, db, cfg); err != nil {
 			log.Fatal("migrate failed:", err)
 		}
 		fmt.Println("migrate ok")
@@ -55,7 +55,7 @@ func main() {
 		fmt.Println("reset ok")
 
 		// 再 migrate
-		if err := MigrateDatabase(ctx, db); err != nil {
+		if err := MigrateDatabase(ctx, db, cfg); err != nil {
 			log.Fatal("migrate failed:", err)
 		}
 		fmt.Println("migrate ok")

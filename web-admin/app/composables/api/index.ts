@@ -145,6 +145,16 @@ let globalConfig: ApiClientConfig = {
  * 设置全局 API 配置（浅合并 + headers 深合并）
  */
 export const setApiConfig = (config: Partial<ApiClientConfig>) => {
+  const nextRequestInterceptors =
+    config.requestInterceptors && config.requestInterceptors.length
+      ? [...(globalConfig.requestInterceptors || []), ...config.requestInterceptors]
+      : globalConfig.requestInterceptors;
+
+  const nextResponseInterceptors =
+    config.responseInterceptors && config.responseInterceptors.length
+      ? [...(globalConfig.responseInterceptors || []), ...config.responseInterceptors]
+      : globalConfig.responseInterceptors;
+
   globalConfig = {
     ...globalConfig,
     ...config,
@@ -152,6 +162,8 @@ export const setApiConfig = (config: Partial<ApiClientConfig>) => {
       ...globalConfig.headers,
       ...config.headers,
     },
+    requestInterceptors: nextRequestInterceptors,
+    responseInterceptors: nextResponseInterceptors,
   };
 };
 

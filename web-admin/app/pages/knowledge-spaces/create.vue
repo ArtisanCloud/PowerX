@@ -1,283 +1,437 @@
 <script setup lang="ts">
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
-import PolicySelector from "~/components/knowledge-spaces/PolicySelector.vue";
-import QuotaForm from "~/components/knowledge-spaces/QuotaForm.vue";
-import AuditPreview from "~/components/knowledge-spaces/AuditPreview.vue";
-import IamStatusBadge from "~/components/knowledge-spaces/IamStatusBadge.vue";
-import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
+import { useUserStore } from "~/stores/user";
+import { useDepartmentService, type Department } from "~/composables/api/services/departmentService";
+import { useKnowledgeSpaces, type StrategyValidationResult } from "~/composables/useKnowledgeSpaces";
+import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
 
 const store = useKnowledgeSpaceStore();
-const { fetchStatus } = useKnowledgeSpaces();
-const statusSnapshot = ref<{ pendingIam: number; active: number; retired: number } | null>(null);
+const userStore = useUserStore();
+const toast = useToast();
 
-const policyOptions = [
-  {
-    label: "默认模版 v1",
-    value: "default-v1",
-    description: "启用必需的 RAG / Masking / Alerting 组合。",
-  },
-  {
-    label: "严苛模版 v2",
-    value: "strict-v2",
-    description: "针对合规租户，强化 IAM 审批与脱敏审计。",
-  },
-];
+const api = useKnowledgeSpaces();
+const strategyValidation = ref<StrategyValidationResult | null>(null);
+const strategyValidationLoading = ref(false);
+const strategyValidationError = ref<string | null>(null);
 
-const scenarioOptions = [
-  {
-    label: "默认式（Default）",
-    value: "default",
-    description: "沿用默认 ProfileKey（default），适合大多数通用空间。",
-  },
-  {
-    label: "引导式（Guided）",
-    value: "guided",
-    description: "绑定 ragProfileKey=guided，用于更强的引导/约束策略（可在 Profiles/Playground 中继续调参）。",
-  },
-];
 
-const loadStatus = async () => {
+const recommendationApplying = ref(false);
+const recommendationApplyError = ref<string | null>(null);
+const lastApplied = ref<{ sceneKey: SceneKey; bundleKey: StrategyBundleKey } | null>(null);
+
+const corpusRecommendations = computed(() => {
+  const list = (store.lastCorpusCheckJob as any)?.recommendations;
+  return Array.isArray(list) ? list : [];
+});
+
+const corpusSceneBundleRec = computed(() =>
+  corpusRecommendations.value.find((r: any) => r && r.type === "scene_bundle" && r.sceneKey && r.bundleKey),
+);
+
+const applyCorpusRecommendation = async (rec: any) => {
+  if (!rec?.sceneKey || !rec?.bundleKey) return;
+  if (!store.lastSpace?.spaceId) return;
+  recommendationApplying.value = true;
+  recommendationApplyError.value = null;
+  lastApplied.value = { sceneKey: store.sceneKey, bundleKey: store.bundleKey };
   try {
-    statusSnapshot.value = await fetchStatus();
-  } catch (error) {
-    console.warn("failed to fetch status", error);
+    store.setSceneAndBundle(rec.sceneKey as SceneKey, rec.bundleKey as StrategyBundleKey);
+    const updated = await api.updateSpace(store.lastSpace.spaceId, {
+      ingestionProfileKey: store.form.ingestionProfileKey,
+      indexProfileKey: store.form.indexProfileKey,
+      ragProfileKey: store.form.ragProfileKey,
+      featureFlags: store.form.featureFlags,
+      updatedBy: store.iamEmail || userStore.user?.email || "ops@powerx.local",
+    });
+    store.lastSpace = updated as any;
+    toast.add({
+      color: "success",
+      title: "已应用推荐策略",
+      description: "已将推荐的场景/策略包写入该空间配置。",
+    });
+  } catch (e: any) {
+    recommendationApplyError.value = e?.message || "应用失败";
+    toast.add({ color: "error", title: "应用推荐失败", description: recommendationApplyError.value });
+  } finally {
+    recommendationApplying.value = false;
   }
 };
 
-onMounted(() => {
-  loadStatus();
-});
-
-const stepTitle = computed(() => {
-  switch (store.step) {
-    case 1:
-      return "基础信息";
-    case 2:
-      return "策略模版";
-    case 3:
-      return "配额与 IAM";
-    default:
-      return "审阅与创建";
+const rollbackCorpusRecommendation = async () => {
+  if (!lastApplied.value) return;
+  if (!store.lastSpace?.spaceId) return;
+  recommendationApplying.value = true;
+  recommendationApplyError.value = null;
+  try {
+    store.setSceneAndBundle(lastApplied.value.sceneKey, lastApplied.value.bundleKey);
+    const updated = await api.updateSpace(store.lastSpace.spaceId, {
+      ingestionProfileKey: store.form.ingestionProfileKey,
+      indexProfileKey: store.form.indexProfileKey,
+      ragProfileKey: store.form.ragProfileKey,
+      featureFlags: store.form.featureFlags,
+      updatedBy: store.iamEmail || userStore.user?.email || "ops@powerx.local",
+    });
+    store.lastSpace = updated as any;
+    toast.add({ color: "success", title: "已回滚", description: "已回滚到应用推荐前的选择。" });
+    lastApplied.value = null;
+  } catch (e: any) {
+    recommendationApplyError.value = e?.message || "回滚失败";
+    toast.add({ color: "error", title: "回滚失败", description: recommendationApplyError.value });
+  } finally {
+    recommendationApplying.value = false;
   }
+};
+
+const refreshStrategyValidation = async () => {
+  strategyValidationLoading.value = true;
+  strategyValidationError.value = null;
+  try {
+    strategyValidation.value = await api.validateStrategy({
+      sceneKey: store.sceneKey,
+      bundleKey: store.bundleKey,
+    });
+  } catch (e: any) {
+    strategyValidationError.value = e?.message || "策略依赖校验失败";
+    strategyValidation.value = null;
+  } finally {
+    strategyValidationLoading.value = false;
+  }
+};
+
+type MyDepartment = { id: number; name: string; code: string; parent_id?: number };
+const departments = ref<MyDepartment[]>([]);
+const departmentsLoading = ref(false);
+const departmentsError = ref<string | null>(null);
+
+const departmentItems = computed(() => {
+  const byParent = new Map<number | null, MyDepartment[]>();
+  for (const dept of departments.value) {
+    const parent = typeof dept.parent_id === "number" ? dept.parent_id : null;
+    const list = byParent.get(parent) ?? [];
+    list.push(dept);
+    byParent.set(parent, list);
+  }
+  const sortByName = (a: MyDepartment, b: MyDepartment) => a.name.localeCompare(b.name);
+  for (const [k, list] of byParent) {
+    list.sort(sortByName);
+    byParent.set(k, list);
+  }
+
+  const out: Array<{ label: string; value: string }> = [];
+  const walk = (parent: number | null, depth: number) => {
+    const children = byParent.get(parent) ?? [];
+    for (const child of children) {
+      const prefix = depth > 0 ? `${"—".repeat(Math.min(depth, 4))} ` : "";
+      out.push({ label: `${prefix}${child.name}`, value: child.code });
+      walk(child.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
 });
 
-const canSubmit = computed(
-  () =>
-    store.isBasicInfoValid &&
-    store.isPolicyStepValid &&
-    store.isQuotaStepValid &&
-    !store.loading,
+const canSubmit = computed(() => store.isBasicInfoValid && !store.loading);
+
+const sceneItems = computed(() =>
+  (Object.entries(SCENE_STRATEGY_CATALOG.scenes) as Array<[SceneKey, any]>).map(([key, scene]) => ({
+    label: scene.label,
+    value: key,
+  })),
 );
 
-const submitWizard = async () => {
-  await store.submit();
+const bundleItems = computed(() => {
+  const scene = SCENE_STRATEGY_CATALOG.scenes[store.sceneKey];
+  const allowed = scene?.allowedBundles ?? [];
+  return allowed.map((key: StrategyBundleKey) => ({
+    label: SCENE_STRATEGY_CATALOG.bundles[key].label,
+    value: key,
+  }));
+});
+
+const selectedScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[store.sceneKey]);
+const selectedBundle = computed(() => SCENE_STRATEGY_CATALOG.bundles[store.bundleKey]);
+
+const enabledIndexChannels = computed(() => store.computeEnabledIndexChannels());
+
+watch([() => store.sceneKey, () => store.bundleKey], async () => {
+  await refreshStrategyValidation();
+});
+const channelLabel = (ch: string) => {
+  switch (ch) {
+    case "dense":
+      return "Dense";
+    case "sparse":
+      return "Sparse(BM25)";
+    case "hier":
+      return "Hier";
+    case "kg":
+      return "KG";
+    case "time":
+      return "Time";
+    case "structured":
+      return "Structured";
+    default:
+      return ch;
+  }
+};
+
+const loadDepartments = async () => {
+  departmentsLoading.value = true;
+  departmentsError.value = null;
+  try {
+    const svc = useDepartmentService();
+    const tree = await svc.getDepartmentTree();
+    const flat: MyDepartment[] = [];
+    const walk = (nodes: Department[], parentId?: number) => {
+      for (const node of nodes) {
+        flat.push({
+          id: Number(node.id),
+          name: String(node.name || ""),
+          code: String(node.key || node.id),
+          parent_id: typeof parentId === "number" ? parentId : node.parent_id ?? undefined,
+        });
+        if (node.children?.length) {
+          walk(node.children, Number(node.id));
+        }
+      }
+    };
+    walk(tree);
+    departments.value = flat;
+    if (!store.form.departmentCode && departmentItems.value.length) {
+      store.form.departmentCode = departmentItems.value[0].value;
+    }
+  } catch (e: any) {
+    departmentsError.value = e?.message || "加载部门失败";
+    departments.value = [];
+  } finally {
+    departmentsLoading.value = false;
+  }
+};
+
+onMounted(async () => {
+  try {
+    await userStore.fetchUserContext();
+    if (!store.iamEmail && userStore.user?.email) {
+      store.iamEmail = userStore.user.email;
+    }
+  } catch {
+    // ignore
+  }
+  store.setSceneAndBundle(store.sceneKey, store.bundleKey);
+  await refreshStrategyValidation();
+  await loadDepartments();
+});
+
+const submit = async () => {
+  try {
+    await store.submit();
+    if (process.client && store.lastSpace?.spaceId) {
+      localStorage.setItem("px_last_space_id", store.lastSpace.spaceId);
+    }
+    toast.add({
+      color: "success",
+      title: "空间创建成功",
+      description: "下一步：回到总览页打开入库，导入文档/URL。",
+    });
+  } catch {
+    // store.error already set
+  }
+};
+
+const goIngestion = async (opts?: { ocr?: boolean }) => {
+  // 通过 query 触发总览页自动打开入库 modal
+  await navigateTo({
+    path: "/knowledge-spaces",
+    query: {
+      openIngestion: "1",
+      spaceId: store.lastSpace?.spaceId || "",
+      ocr: opts?.ocr ? "1" : undefined,
+    },
+  });
+};
+
+const openPluginMarket = (pluginId: string) => {
+  navigateTo(`/plugins/market?pluginId=${encodeURIComponent(pluginId)}`);
 };
 </script>
 
 <template>
-  <section class="space-y-6 px-6 py-8">
-    <header class="space-y-2">
-      <p class="text-sm text-gray-500">Knowledge Space</p>
-      <h1 class="text-2xl font-semibold text-gray-900">创建知识空间</h1>
-      <p class="text-gray-600">
-        通过下列四个步骤完成租户级空间的配置、策略绑定与配额校验。
+  <section class="mx-auto max-w-5xl space-y-6 px-6 py-8">
+    <header class="rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] p-6 shadow-sm">
+      <p class="text-sm text-[var(--text-secondary)]">Knowledge Space</p>
+      <h1 class="mt-1 text-2xl font-semibold text-[var(--text-primary)]">创建知识空间</h1>
+      <p class="mt-2 text-sm text-[var(--text-secondary)]">
+        空间用于承载你的知识内容（文档/URL/API）。创建空间后，再回到“知识空间总览”进行入库与检索验证。
       </p>
     </header>
 
-    <div class="grid gap-4 md:grid-cols-3">
-      <UCard>
-        <div class="space-y-1">
-          <p class="text-sm text-gray-500">当前步骤</p>
-          <p class="text-lg font-semibold text-gray-900">
-            第 {{ store.step }} 步 · {{ stepTitle }}
-          </p>
-        </div>
-      </UCard>
-      <UCard v-if="statusSnapshot">
-        <p class="text-sm text-gray-500">全局概览</p>
-        <p class="text-lg font-semibold text-gray-900">
-          等待 IAM {{ statusSnapshot.pendingIam }} · 运行中
-          {{ statusSnapshot.active }} · 已退役 {{ statusSnapshot.retired }}
-        </p>
-      </UCard>
-      <UCard v-else>
-        <p class="text-sm text-gray-500">全局概览</p>
-        <p class="text-lg font-semibold text-gray-900">加载中…</p>
-      </UCard>
-    </div>
-
-    <UCard :ui="{ body: { padding: 'p-6 space-y-6' } }">
+    <UCard :ui="{ body: { padding: 'p-6' } }">
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-xl font-semibold text-gray-900">{{ stepTitle }}</h2>
-            <p class="text-sm text-gray-500">完成所有字段以进入下一步</p>
+            <h2 class="text-lg font-semibold text-[var(--text-primary)]">基本信息</h2>
+            <p class="text-sm text-[var(--text-secondary)]">无需填写租户 UUID，系统会使用当前登录租户上下文。</p>
           </div>
-          <div class="flex items-center gap-2 text-sm text-gray-500">
-            <span>步骤 {{ store.step }}/4</span>
-          </div>
+          <UButton color="neutral" variant="subtle" to="/knowledge-spaces">
+            返回列表
+          </UButton>
         </div>
       </template>
 
-      <div v-if="store.step === 1" class="space-y-4">
-        <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-800">租户 UUID</span>
-          <input
-            type="text"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
-            placeholder="d86c5da9-35f4-4db8-9c2e-d879ed2b9e10"
-            :value="store.form.tenantUuid"
-            @input="store.form.tenantUuid = String(($event.target as HTMLInputElement).value)"
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <UFormField label="空间名称" required>
+          <UInput
+            v-model="store.form.spaceName"
+            class="w-full"
+            placeholder="例如：运营手册 / 产品知识库"
+            icon="i-heroicons-rectangle-stack"
           />
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-800">空间名称</span>
-          <input
-            type="text"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
-            placeholder="ops-handbook"
-            :value="store.form.spaceName"
-            @input="store.form.spaceName = String(($event.target as HTMLInputElement).value)"
+        </UFormField>
+
+        <UFormField label="所属部门" required>
+          <USelectMenu
+            v-model="store.form.departmentCode"
+            :items="departmentItems"
+            value-key="value"
+            label-key="label"
+            class="w-full"
+            :loading="departmentsLoading"
+            placeholder="请选择部门"
           />
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-800">部门编码</span>
-          <input
-            type="text"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
-            placeholder="OPS-01"
-            :value="store.form.departmentCode"
-            @input="
-              store.form.departmentCode = String(
-                ($event.target as HTMLInputElement).value,
-              )
-            "
-          />
-        </label>
+          <template #help>
+            <span v-if="departmentsError" class="text-red-500">{{ departmentsError }}</span>
+            <span v-else-if="!departmentsLoading && departmentItems.length === 0">当前租户暂无部门，请先在“组织架构”中配置。</span>
+          </template>
+        </UFormField>
       </div>
 
-      <div v-else-if="store.step === 2">
-        <PolicySelector
-          :model-value="store.form.policyTemplateVersionId"
-          :feature-flags="store.form.featureFlags"
-          :options="policyOptions"
-          @update:model-value="store.form.policyTemplateVersionId = $event"
-          @update:feature-flags="store.form.featureFlags = $event"
-        />
-
-        <div class="mt-6 grid gap-3 md:grid-cols-2">
-          <UCard :ui="{ body: { padding: 'p-4 space-y-3' } }">
-            <p class="text-sm font-medium text-gray-800">场景模板 / 默认策略</p>
-            <USelect
-              :items="scenarioOptions"
-              :model-value="store.scenarioTemplate"
-              @update:model-value="store.setScenarioTemplate($event)"
-            />
-            <p class="text-xs text-gray-500">
-              当前绑定：ingestion={{ store.form.ingestionProfileKey }} · index={{ store.form.indexProfileKey }} · rag={{ store.form.ragProfileKey }}
-            </p>
-          </UCard>
-          <UCard :ui="{ body: { padding: 'p-4 space-y-2' } }">
-            <p class="text-sm font-medium text-gray-800">提示</p>
-            <p class="text-xs text-gray-500">
-              创建后可在 Retrieval Playground 中对比“空间默认 profile”与“草稿/其他版本”，并结合 Corpus Check 推荐卡片做调参。
-            </p>
-          </UCard>
-        </div>
-      </div>
-
-      <div v-else-if="store.step === 3">
-        <QuotaForm
-          :quotas="store.form.quotas"
-          :iam-email="store.iamEmail"
-          @update:quotas="store.form.quotas = $event"
-          @update:iam-email="store.iamEmail = $event"
-        />
-      </div>
-
-      <div v-else>
-        <AuditPreview
-          :payload="store.form"
-          :iam-email="store.iamEmail"
-          :sla-remaining="store.slaRemaining"
-        />
-        <div class="mt-4 space-y-3 rounded-lg border border-dashed border-gray-200 p-4">
-          <div class="flex items-center justify-between">
-            <p class="text-sm font-medium text-gray-800">导入样本文档（可选）</p>
-            <UCheckbox v-model="store.sampleDoc.enabled">启用</UCheckbox>
-          </div>
-          <div v-if="store.sampleDoc.enabled" class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <USelect
-              v-model="store.sampleDoc.format"
-              :items="[
-                { label: 'PDF', value: 'pdf' },
-                { label: 'DOCX', value: 'docx' },
-                { label: 'XLSX', value: 'xlsx' },
-                { label: 'CSV', value: 'csv' },
-                { label: 'Markdown', value: 'markdown' },
-                { label: 'HTML', value: 'html' },
-                { label: 'SQL', value: 'sql' },
-                { label: 'Image', value: 'image' },
-                { label: 'Table', value: 'table' },
-              ]"
-              placeholder="格式"
-            />
-            <UInput
-              v-model="store.sampleDoc.sourceUri"
-              class="md:col-span-2"
-              placeholder="sourceUri（用于生成样本入库记录，随后触发 Corpus Check）"
-              icon="i-heroicons-link"
-            />
-            <div class="md:col-span-3">
-              <UCheckbox v-model="store.sampleDoc.ocrRequired">强制 OCR（用于验证 blocked/degraded 指引）</UCheckbox>
-            </div>
-          </div>
-          <p class="text-xs text-gray-500">
-            若启用：提交创建后会先触发一次样本入库，再运行 Corpus Check 生成推荐策略卡片。
-          </p>
-        </div>
-        <div class="mt-4 space-y-2 rounded-lg border border-dashed border-gray-200 p-4">
-          <UCheckbox v-model="store.runCorpusCheckAfterCreate">
-            创建后立即运行语料体检（Corpus Check）
-          </UCheckbox>
-          <p class="text-xs text-gray-500">
-            体检会统计 OCR/格式分布，并给出推荐策略与插件提示（如扫描件占比高将建议启用 OCR 插件）。
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between border-t border-gray-100 pt-4">
-        <UButton
-          variant="ghost"
-          :disabled="store.step === 1 || store.loading"
-          @click="store.prevStep()"
-        >
-          上一步
+      <div class="mt-6 flex items-center justify-end gap-2">
+        <span v-if="store.error" class="mr-auto text-sm text-red-500">{{ store.error }}</span>
+        <UButton color="neutral" variant="subtle" type="button" @click="store.reset()" :disabled="store.loading">
+          重置
         </UButton>
-        <div class="flex items-center gap-3">
-          <p v-if="store.error" class="text-sm text-red-500">{{ store.error }}</p>
-          <UButton
-            v-if="store.step < 4"
-            color="primary"
-            :disabled="
-              store.loading ||
-              (store.step === 1 && !store.isBasicInfoValid) ||
-              (store.step === 2 && !store.isPolicyStepValid) ||
-              (store.step === 3 && !store.isQuotaStepValid)
-            "
-            @click="store.nextStep()"
+        <UButton color="primary" :loading="store.loading" :disabled="!canSubmit" @click="submit">
+          创建空间
+        </UButton>
+      </div>
+    </UCard>
+
+    <UCard :ui="{ body: { padding: 'p-6' } }">
+      <template #header>
+        <div>
+          <h2 class="text-lg font-semibold text-[var(--text-primary)]">场景与策略包</h2>
+          <p class="text-sm text-[var(--text-secondary)]">
+            先选择你的业务场景（L1），再选择该场景允许的策略包（L2）。系统会自动绑定空间的 Ingestion/Index/RAG Profile。
+          </p>
+        </div>
+      </template>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <UFormField label="场景（L1）" required>
+          <USelect
+            :model-value="store.sceneKey"
+            :items="sceneItems"
+            class="w-full"
+            @update:model-value="(v) => store.setSceneAndBundle(v as SceneKey)"
+          />
+          <template #help>
+            <span class="text-xs text-[var(--text-secondary)]">{{ selectedScene?.description }}</span>
+          </template>
+        </UFormField>
+
+        <UFormField label="策略包（L2）" required>
+          <USelect
+            :model-value="store.bundleKey"
+            :items="bundleItems"
+            class="w-full"
+            @update:model-value="(v) => store.setSceneAndBundle(store.sceneKey, v as StrategyBundleKey)"
+          />
+          <template #help>
+            <span class="text-xs text-[var(--text-secondary)]">{{ selectedBundle?.description }}</span>
+          </template>
+        </UFormField>
+      </div>
+
+      <div class="mt-4 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-4">
+        <div class="mb-3">
+          <UAlert
+            v-if="strategyValidationError"
+            color="error"
+            variant="soft"
+            title="策略依赖校验失败"
+            :description="strategyValidationError"
+          />
+          <UAlert
+            v-else-if="strategyValidation && !strategyValidation.ok"
+            color="warning"
+            variant="soft"
+            title="当前选择的策略依赖未满足"
+            description="请按下方提示补齐能力，或切换到不依赖该能力的策略包。"
           >
-            下一步
-          </UButton>
-          <UButton
+            <template #description>
+              <div class="space-y-2">
+                <div
+                  v-for="item in strategyValidation.missing"
+                  :key="item.code + item.key"
+                  class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-3"
+                >
+                  <div class="font-medium text-[var(--text-primary)]">{{ item.message }}</div>
+                  <div class="mt-2 text-sm text-[var(--text-secondary)]">
+                    <ul class="list-disc pl-5">
+                      <li v-for="(r, i) in item.remediation" :key="i">{{ r }}</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                    v-if="strategyValidation.missing.some((m) => m.code === 'evidence_checker_required')"
+                    color="primary"
+                    size="sm"
+                    to="/settings/ai"
+                    icon="i-heroicons-cog-6-tooth"
+                  >
+                    去配置 AI Provider
+                  </UButton>
+                </div>
+              </div>
+            </template>
+          </UAlert>
+          <UAlert
+            v-else-if="strategyValidation && strategyValidation.ok"
+            color="success"
+            variant="soft"
+            title="策略依赖校验通过"
+          />
+          <UAlert
             v-else
-            color="primary"
-            :loading="store.loading"
-            :disabled="!canSubmit"
-            @click="submitWizard"
+            color="neutral"
+            variant="soft"
+            title="正在校验策略依赖"
+            :description="strategyValidationLoading ? '加载中…' : ''"
+          />
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium text-[var(--text-primary)]">将启用的索引通道：</span>
+          <UBadge
+            v-for="ch in enabledIndexChannels"
+            :key="ch"
+            color="neutral"
+            variant="soft"
           >
-            提交创建
-          </UButton>
+            {{ channelLabel(ch) }}
+          </UBadge>
+        </div>
+
+        <div class="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
+          <div class="text-[var(--text-secondary)]">
+            IngestionProfileKey：<span class="text-[var(--text-primary)]">{{ store.form.ingestionProfileKey }}</span>
+          </div>
+          <div class="text-[var(--text-secondary)]">
+            IndexProfileKey：<span class="text-[var(--text-primary)]">{{ store.form.indexProfileKey }}</span>
+          </div>
+          <div class="text-[var(--text-secondary)]">
+            RAGProfileKey：<span class="text-[var(--text-primary)]">{{ store.form.ragProfileKey }}</span>
+          </div>
         </div>
       </div>
     </UCard>
@@ -288,55 +442,97 @@ const submitWizard = async () => {
         variant="soft"
         icon="i-heroicons-check-circle"
         title="空间创建成功"
-        description="正在等待 IAM 确认，完成后可继续入库和融合。"
+        description="下一步：点击“立即入库”，导入文档/URL/API。"
       />
-      <IamStatusBadge
-        status="pending_iam"
-        :audit-token="store.lastSpace?.auditToken"
-      />
-      <UAlert
-        v-if="store.lastIngestionJob"
-        :color="store.lastIngestionJob.status === 'blocked' ? 'red' : store.lastIngestionJob.status === 'failed' ? 'red' : 'green'"
-        variant="subtle"
-        icon="i-heroicons-document-text"
-        :title="`样本入库：${store.lastIngestionJob.status}`"
-        :description="store.lastIngestionJob.reason ? store.lastIngestionJob.reason : '样本文档已生成入库记录，可用于 Corpus Check 统计与 Playground 对比。'"
-      />
-      <UAlert
-        v-if="store.lastCorpusCheckJob"
-        :color="store.lastCorpusCheckJob.status === 'completed' ? 'green' : 'amber'"
-        variant="subtle"
-        icon="i-heroicons-sparkles"
-        :title="`Corpus Check：${store.lastCorpusCheckJob.status}`"
-        :description="store.lastCorpusCheckJob.trace_id ? `trace_id: ${store.lastCorpusCheckJob.trace_id}` : '已提交语料体检任务，可在 Playground 中做检索对比。'"
-      />
-      <UCard v-if="store.lastCorpusCheckJob?.status === 'completed'" :ui="{ body: { padding: 'p-4 space-y-3' } }">
-        <div class="flex items-center justify-between">
-          <p class="text-sm font-medium text-gray-800">推荐策略卡片</p>
-          <UButton to="/knowledge-spaces/playground" variant="ghost" size="xs">打开 Playground</UButton>
-        </div>
-        <div v-if="Array.isArray(store.lastCorpusCheckJob.recommendations) && store.lastCorpusCheckJob.recommendations.length" class="space-y-2">
+      <div class="flex flex-wrap gap-2">
+        <UButton color="primary" icon="i-heroicons-arrow-up-tray" @click="goIngestion()">立即入库</UButton>
+        <UButton color="neutral" variant="subtle" to="/knowledge-spaces" icon="i-heroicons-arrow-left">
+          稍后再说
+        </UButton>
+      </div>
+    
+      <UCard v-if="store.lastCorpusCheckJob" :ui="{ body: { padding: 'p-6' } }">
+        <template #header>
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold text-[var(--text-primary)]">Corpus Check 推荐</h2>
+              <p class="text-sm text-[var(--text-secondary)]">基于最近入库样本的分布，给出场景/策略包与成本/风险提示。</p>
+            </div>
+            <UBadge color="neutral" variant="soft">{{ (store.lastCorpusCheckJob as any)?.status || 'unknown' }}</UBadge>
+          </div>
+        </template>
+
+        <UAlert
+          v-if="recommendationApplyError"
+          color="error"
+          variant="soft"
+          title="操作失败"
+          :description="recommendationApplyError"
+          class="mb-4"
+        />
+
+        <div class="space-y-3">
           <div
-            v-for="(rec, idx) in store.lastCorpusCheckJob.recommendations"
-            :key="idx"
-            class="rounded-lg border border-gray-100 bg-white p-3"
+            v-for="rec in corpusRecommendations"
+            :key="rec.key || rec.title"
+            class="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
-            <p class="text-sm font-medium text-gray-900">{{ rec.title || rec.key }}</p>
-            <p v-if="rec.risk" class="text-xs text-gray-500">风险：{{ rec.risk }}</p>
-            <p v-if="rec.cost" class="text-xs text-gray-500">成本：{{ rec.cost }}</p>
-            <p v-if="rec.plugin" class="text-xs text-amber-700">插件：{{ rec.plugin }}</p>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-medium text-[var(--text-primary)]">{{ rec.title }}</div>
+                <div v-if="rec.risk" class="mt-1 text-sm text-[var(--text-secondary)]">风险：{{ rec.risk }}</div>
+                <div v-if="rec.cost" class="mt-1 text-sm text-[var(--text-secondary)]">成本：{{ rec.cost }}</div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  v-if="rec.type === 'scene_bundle' && rec.sceneKey && rec.bundleKey"
+                  color="primary"
+                  size="sm"
+                  :loading="recommendationApplying"
+                  :disabled="recommendationApplying"
+                  @click="applyCorpusRecommendation(rec)"
+                >
+                  应用推荐
+                </UButton>
+                <UButton
+                  v-if="rec.key === 'enable_ocr' && rec.plugin"
+                  color="primary"
+                  size="sm"
+                  variant="soft"
+                  icon="i-heroicons-shopping-bag"
+                  @click="openPluginMarket(rec.plugin)"
+                >
+                  安装 OCR 插件
+                </UButton>
+                <UButton
+                  v-if="rec.key === 'enable_ocr'"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  @click="goIngestion({ ocr: true })"
+                >
+                  打开入库并启用 OCR
+                </UButton>
+                <UButton
+                  v-if="rec.type === 'scene_bundle' && lastApplied"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  :loading="recommendationApplying"
+                  :disabled="recommendationApplying"
+                  @click="rollbackCorpusRecommendation"
+                >
+                  回滚
+                </UButton>
+              </div>
+            </div>
+            <div v-if="rec.type === 'scene_bundle'" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <UBadge color="primary" variant="soft">场景：{{ rec.sceneLabel || rec.sceneKey }}</UBadge>
+              <UBadge color="primary" variant="soft">策略包：{{ rec.bundleLabel || rec.bundleKey }}</UBadge>
+            </div>
           </div>
         </div>
-        <UAlert v-else variant="subtle" title="暂无推荐卡片" description="当前样本不足或未触发体检建议。" />
       </UCard>
-      <UAlert
-        v-if="store.lastCorpusCheckJob?.recommendations?.some((r: any) => r?.plugin === 'com.powerx.plugin.data_forge')"
-        color="amber"
-        variant="soft"
-        icon="i-heroicons-exclamation-triangle"
-        title="建议启用 OCR 扩展"
-        description="Corpus Check 检测到扫描件占比较高：推荐安装/启用 com.powerx.plugin.data_forge（OCR/Processor），否则可能出现入库 blocked/degraded 与召回下降。"
-      />
-    </div>
+</div>
   </section>
 </template>

@@ -2,14 +2,21 @@ package corpus_check
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"gorm.io/datatypes"
 
+	strategy_catalog "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/strategy_catalog"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 )
 
+const defaultSceneStrategyCatalogPath = "backend/config/knowledge/scene_strategy_catalog.yaml"
+
 // BuildMetrics 根据 ingestion_jobs 的 metrics_snapshot 生成最小体检指标与推荐卡片。
+//
+// T110：必须输出“推荐场景 + 推荐策略包 + 推荐理由 + 成本/风险提示”，并确保推荐只落在该场景允许的策略包集合里。
 func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, recommendations datatypes.JSON) {
 	type ocrStats struct {
 		Required int `json:"required"`
@@ -81,11 +88,13 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 	tableLikeRatio := 0.0
 	codeLikeRatio := 0.0
 	duplicateRatio := 0.0
+	pdfRatio := 0.0
 	if total > 0 {
 		ocrNeededRatio = float64(ocr.Needed) / float64(total)
 		tableLikeRatio = float64(sourceDist["table_like"]) / float64(total)
 		codeLikeRatio = float64(sourceDist["code_like"]) / float64(total)
 		duplicateRatio = float64(dups) / float64(total)
+		pdfRatio = formatRatio["pdf"]
 	}
 
 	metricsMap := map[string]any{
@@ -101,12 +110,13 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 			return langDist
 		}(),
 		"language_ratio": langRatio,
-		"ocr":          ocr,
+		"ocr":            ocr,
 		"ratios": map[string]any{
-			"ocr_needed":  ocrNeededRatio,
-			"table_like":  tableLikeRatio,
-			"code_like":   codeLikeRatio,
-			"duplicate":   duplicateRatio,
+			"ocr_needed": ocrNeededRatio,
+			"table_like": tableLikeRatio,
+			"code_like":  codeLikeRatio,
+			"duplicate":  duplicateRatio,
+			"pdf":        pdfRatio,
 		},
 		"duplicate": map[string]any{
 			"count": dups,
@@ -114,7 +124,24 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 		},
 	}
 
-	recs := make([]map[string]any, 0, 3)
+	catalog := loadCatalog()
+	sceneKey, bundleKey, reason, risk, cost := recommendSceneBundle(total, ocrNeededRatio, tableLikeRatio, codeLikeRatio, pdfRatio)
+	sceneKey, bundleKey, sceneLabel, bundleLabel := constrainToCatalog(catalog, sceneKey, bundleKey)
+
+	recs := make([]map[string]any, 0, 6)
+	recs = append(recs, map[string]any{
+		"key":         "scene_bundle",
+		"type":        "scene_bundle",
+		"title":       fmt.Sprintf("推荐：%s × %s", sceneLabel, bundleLabel),
+		"sceneKey":    sceneKey,
+		"sceneLabel":  sceneLabel,
+		"bundleKey":   bundleKey,
+		"bundleLabel": bundleLabel,
+		"reason":      reason,
+		"risk":        risk,
+		"cost":        cost,
+	})
+
 	if total > 0 && ocrNeededRatio >= 0.3 {
 		recs = append(recs, map[string]any{
 			"key":   "enable_ocr",
@@ -160,17 +187,136 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 			"cost": "切换模型可能影响成本与延迟；建议先在 Playground 做 A/B 对比。",
 		})
 	}
-	if len(recs) == 0 {
+	if total == 0 {
 		recs = append(recs, map[string]any{
 			"key":   "default",
-			"title": "语料分布正常：可沿用默认 RAG 策略",
-			"risk":  "建议在 Playground 中做 A/B 检索对比，确认召回与引用覆盖。",
+			"title": "暂无入库样本：建议先导入少量代表性文档后再运行体检",
+			"risk":  "未进行体检前，默认按通用策略运行。",
 		})
 	}
 
 	metricsBytes, _ := json.Marshal(metricsMap)
 	recsBytes, _ := json.Marshal(recs)
 	return datatypes.JSON(metricsBytes), datatypes.JSON(recsBytes)
+}
+
+func recommendSceneBundle(total int, ocrNeededRatio, tableLikeRatio, codeLikeRatio, pdfRatio float64) (sceneKey string, bundleKey string, reason map[string]any, risk string, cost string) {
+	sceneKey = "sop"
+	bundleKey = "p1_general"
+	reason = map[string]any{
+		"signals": map[string]any{
+			"sample_total":     total,
+			"ocr_needed_ratio": ocrNeededRatio,
+			"table_like_ratio": tableLikeRatio,
+			"code_like_ratio":  codeLikeRatio,
+			"pdf_ratio":        pdfRatio,
+		},
+		"summary": "默认推荐：SOP/制度 × P1 通用（企业默认）",
+	}
+	risk = "建议在 Playground 做一次 A/B 检索对比，确认召回与引用覆盖。"
+	cost = "P1 默认开 hybrid + rerank（轻量），成本/延迟适中。"
+
+	if total > 0 && tableLikeRatio >= 0.3 {
+		sceneKey = "ledger_table"
+		bundleKey = "p2_high_accuracy"
+		reason["summary"] = "表格/结构化占比偏高：偏向台账场景，并建议证据优先策略包。"
+		risk = "结构化字段抽取不足会导致过滤/命中不稳定。"
+		cost = "行级/字段级切分会增加索引与存储成本。"
+		return
+	}
+	if total > 0 && codeLikeRatio >= 0.2 {
+		sceneKey = "sql_kg"
+		bundleKey = "p3_kg_strong"
+		reason["summary"] = "代码/SQL 占比偏高：偏向依赖关系查询，建议 KG 约束策略包。"
+		risk = "若缺少 KG/依赖抽取，容易出现‘看似相关但不可执行’的回答。"
+		cost = "KG 构建与维护有额外成本；建议先小范围试点。"
+		return
+	}
+	if total > 0 && ocrNeededRatio >= 0.3 {
+		sceneKey = "contract_quote"
+		bundleKey = "p2_high_accuracy"
+		reason["summary"] = "扫描件/图片占比偏高：偏向合同/报价类证据查找，建议证据优先策略包。"
+		risk = "未启用 OCR/证据链会导致引用覆盖下降与合规风险。"
+		cost = "OCR + 证据校验会提升入库与推理成本。"
+		return
+	}
+	if total > 0 && pdfRatio >= 0.6 {
+		sceneKey = "research_longdoc"
+		bundleKey = "p1_general"
+		reason["summary"] = "PDF 长文占比偏高：偏向论文/长报告，建议层次索引 + 通用策略包。"
+		risk = "若切分过粗，长文回答可能遗漏关键段落。"
+		cost = "层次索引需要额外摘要/结构化产物。"
+		return
+	}
+	return
+}
+
+func loadCatalog() *strategy_catalog.Catalog {
+	path := strings.TrimSpace(os.Getenv("PX_SCENE_STRATEGY_CATALOG_PATH"))
+	if path == "" {
+		path = defaultSceneStrategyCatalogPath
+	}
+	loader := strategy_catalog.NewLoader(path)
+	cat, err := loader.Load()
+	if err != nil {
+		return nil
+	}
+	return cat
+}
+
+func constrainToCatalog(cat *strategy_catalog.Catalog, sceneKey, bundleKey string) (outSceneKey, outBundleKey, sceneLabel, bundleLabel string) {
+	outSceneKey = strings.TrimSpace(sceneKey)
+	outBundleKey = strings.TrimSpace(bundleKey)
+	if outSceneKey == "" {
+		outSceneKey = "sop"
+	}
+	if outBundleKey == "" {
+		outBundleKey = "p1_general"
+	}
+	if cat == nil {
+		return outSceneKey, outBundleKey, outSceneKey, outBundleKey
+	}
+
+	sc, ok := cat.Scenes[outSceneKey]
+	if !ok {
+		outSceneKey = "sop"
+		sc = cat.Scenes[outSceneKey]
+	}
+
+	// bundle 必须存在
+	if _, ok := cat.Bundles[outBundleKey]; !ok {
+		outBundleKey = sc.DefaultBundle
+	}
+
+	// bundle 必须在 allowed 内
+	if len(sc.AllowedBundles) > 0 {
+		allowed := false
+		for _, k := range sc.AllowedBundles {
+			if k == outBundleKey {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			if sc.DefaultBundle != "" {
+				outBundleKey = sc.DefaultBundle
+			} else {
+				outBundleKey = sc.AllowedBundles[0]
+			}
+		}
+	}
+
+	sceneLabel = sc.Label
+	if sceneLabel == "" {
+		sceneLabel = outSceneKey
+	}
+	bundleLabel = outBundleKey
+	if b, ok := cat.Bundles[outBundleKey]; ok {
+		if strings.TrimSpace(b.Label) != "" {
+			bundleLabel = b.Label
+		}
+	}
+	return
 }
 
 func formatCategory(format string) string {

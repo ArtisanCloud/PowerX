@@ -6,12 +6,19 @@ import {
   type IngestionJobPayload,
   type IngestionJobRecord,
 } from "~/composables/useKnowledgeSpaces";
+import {
+  SCENE_STRATEGY_CATALOG,
+  type SceneKey,
+  type StrategyBundleKey,
+  type IndexPrereqKey,
+} from "~/constants/sceneStrategyCatalog";
 
 interface WizardState {
   step: number;
   form: KnowledgeSpacePayload;
   iamEmail: string;
-  scenarioTemplate: "default" | "guided";
+  sceneKey: SceneKey;
+  bundleKey: StrategyBundleKey;
   sampleDoc: {
     enabled: boolean;
     format: IngestionJobPayload["format"];
@@ -31,13 +38,12 @@ interface WizardState {
 }
 
 const DEFAULT_FORM: KnowledgeSpacePayload = {
-  tenantUuid: "",
   spaceName: "",
   departmentCode: "",
   policyTemplateVersionId: "default-v1",
-  ingestionProfileKey: "default",
-  indexProfileKey: "default",
-  ragProfileKey: "default",
+  ingestionProfileKey: "p1_general",
+  indexProfileKey: "p1_general",
+  ragProfileKey: "p1_general",
   featureFlags: [],
   quotas: {
     cpuCores: 4,
@@ -51,7 +57,8 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     step: 1,
     form: { ...DEFAULT_FORM },
     iamEmail: "",
-    scenarioTemplate: "default",
+    sceneKey: "sop",
+    bundleKey: "p1_general",
     sampleDoc: {
       enabled: false,
       format: "pdf",
@@ -77,9 +84,7 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     },
     isBasicInfoValid(state): boolean {
       return Boolean(
-        state.form.tenantUuid &&
-          state.form.spaceName &&
-          state.form.departmentCode,
+        state.form.spaceName && state.form.departmentCode,
       );
     },
     isPolicyStepValid(state): boolean {
@@ -108,19 +113,32 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       this.$reset();
       this.form = { ...DEFAULT_FORM };
     },
-    setScenarioTemplate(template: "default" | "guided") {
-      this.scenarioTemplate = template;
-      if (template === "guided") {
-        this.form.ingestionProfileKey = "default";
-        this.form.indexProfileKey = "default";
-        this.form.ragProfileKey = "guided";
-        this.setFeatureFlag("rag.guided", true);
-      } else {
-        this.form.ingestionProfileKey = "default";
-        this.form.indexProfileKey = "default";
-        this.form.ragProfileKey = "default";
-        this.setFeatureFlag("rag.guided", false);
-      }
+    setSceneAndBundle(sceneKey: SceneKey, bundleKey?: StrategyBundleKey) {
+      const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey];
+      if (!scene) return;
+
+      const nextBundle = bundleKey && scene.allowedBundles.includes(bundleKey)
+        ? bundleKey
+        : scene.defaultBundle;
+
+      this.sceneKey = sceneKey;
+      this.bundleKey = nextBundle;
+
+      // 绑定/切换三类 Profile（与策略包同 key：p0/p1/p2/p3）。
+      this.form.ingestionProfileKey = nextBundle;
+      this.form.indexProfileKey = nextBundle;
+      this.form.ragProfileKey = nextBundle;
+
+      // 记录为 feature flags（后端可用来做校验/推荐/审计）。
+      // 保持单值：先清理旧的 scene/bundle 标记。
+      this.form.featureFlags = (this.form.featureFlags || []).filter(
+        (f) => !f.startsWith("rag.scene:") && !f.startsWith("rag.bundle:"),
+      );
+      this.setFeatureFlag("rag.scene:" + sceneKey, true);
+      this.setFeatureFlag("rag.bundle:" + nextBundle, true);
+
+      // 兼容旧字段：仍保留 rag.guided 标志，但不再作为主入口。
+      this.setFeatureFlag("rag.guided", sceneKey === "custom_expert");
     },
     setFeatureFlag(flag: string, enabled: boolean) {
       const normalized = flag.trim().toLowerCase();
@@ -133,6 +151,39 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       if (!enabled && index !== -1) {
         this.form.featureFlags.splice(index, 1);
       }
+    },
+    computeEnabledIndexChannels(): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> {
+      const scene = SCENE_STRATEGY_CATALOG.scenes[this.sceneKey];
+      const bundle = SCENE_STRATEGY_CATALOG.bundles[this.bundleKey];
+      const idx = new Set<string>();
+      for (const k of scene?.prerequisites.index ?? []) idx.add(k);
+      for (const k of bundle?.prerequisites ?? []) idx.add(k);
+
+      const map = (key: IndexPrereqKey): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> => {
+        switch (key) {
+          case "index.dense":
+            return ["dense"];
+          case "index.sparse":
+            return ["sparse"];
+          case "index.hier":
+            return ["hier"];
+          case "index.kg":
+            return ["kg"];
+          case "index.time_fields":
+            return ["time"];
+          case "index.structured_fields":
+            return ["structured"];
+        }
+      };
+
+      const out: Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> = [];
+      for (const k of idx) {
+        if (k.startsWith("index.")) {
+          out.push(...map(k as IndexPrereqKey));
+        }
+      }
+      const order = ["dense", "sparse", "hier", "kg", "time", "structured"] as const;
+      return order.filter((x) => out.includes(x));
     },
     setQuota(key: keyof KnowledgeSpacePayload["quotas"], value: number) {
       this.form.quotas[key] = value;

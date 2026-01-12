@@ -156,6 +156,24 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - Documents prerequisites (Go 1.24, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
 - Provides step-by-step smoke flow covering provisioning → ingestion → fusion → feedback plus observability checkpoints.
 
+### Scene → Strategy Bundle Productization (align `docs/plan/AI_engineering/knowledge/rag.md`)
+
+This plan MUST align the implementation with the scene-driven strategy model in:
+- `docs/plan/AI_engineering/knowledge/rag.md`
+- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+
+Key decisions and implications:
+- **Two-level selection** in UI: `Scene (L1) → Strategy bundle (L2)`.
+- **Non-full mapping**: each scene only exposes a biased subset of bundles/modules to prevent misuse.
+- **Prerequisite validation**: bundles are publishable only when their index/asset prerequisites exist (e.g., KG requires graph tables + provenance; contract evidence-first requires sparse index + time fields).
+- **Profiles are the delivery vehicle**: `IngestionProfile + IndexProfile + RAGProfile` are versioned, rollback-capable, and can be recommended by Corpus Check.
+
+Deliverables (minimum):
+1. Define the scene catalog (5 default scenes + “Custom/Expert”) and the allowed bundle/module matrix.
+2. Wire Corpus Check recommendations to “scene + bundle” (recommend only bundles permitted by the selected scene).
+3. Enforce dependency checks in backend and surface remediation steps in Web Admin (e.g., “KG index not ready, run build job / enable plugin / create tables”).
+4. Standardize chunking controls (chunk size, overlap/delta, separators) as part of ingestion profiles with safe bounds and scene defaults.
+
 ## Phase 2 – QA Orchestrator & Reasoning Alignment
 
 - **QA Bridge Service Layer**: Implement `backend/internal/service/knowledge_space/qa_bridge` with planners that read routing configs, compute multi-space retrieval plans, encode degrade reasons, and stream telemetry (`qa.retrieval.*`). HTTP/gRPC transports expose `POST /knowledge-spaces/qa/retrieval-plan`, `POST /knowledge-spaces/qa/memory-snapshot`, `POST /knowledge-spaces/qa/tool-metadata`.
@@ -196,6 +214,20 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 
 ### Agent Context Update
 - Command executed: `.specify/scripts/bash/update-agent-context.sh codex` (see terminal output in this run) to persist new technology mentions for Codex agent memory.
+
+---
+
+## Addendum — DB Migration Readiness (Vector Store / KG Assist Tables)
+
+The ingestion pipeline already calls `VectorStore.Upsert`, but `make db-migrate` currently does not guarantee pgvector extension/table readiness in fresh environments. This addendum scopes a cross-cutting requirement:
+
+- `make db-migrate` must provision `pgvector` extension + `knowledge_vectors` table (when `knowledge_space.vector_store.driver = pgvector`) and always provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently.
+
+Detailed spec & DDL live in:
+- `specs/011-knowledge-space/db-migrations.md`
+
+Scope note:
+- Treat `backend/config/knowledge/scene_strategy_catalog.yaml` as prerequisites SSOT (dense/sparse/hier/kg/time/structured). DB migrations should provision only what the selected implementation needs (e.g. Postgres-backed sparse/hier uses `knowledge_chunks`/`knowledge_chunk_links`; external search backends skip these).
 
 ## Constitution Re-check
 

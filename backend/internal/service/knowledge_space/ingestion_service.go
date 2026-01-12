@@ -48,6 +48,39 @@ type IngestionService struct {
 	maxRetries    int
 }
 
+func (s *IngestionService) GetJob(ctx context.Context, spaceID uuid.UUID, jobUUID uuid.UUID) (*knowledge.IngestionJob, error) {
+	if spaceID == uuid.Nil || jobUUID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	j, err := repo.NewIngestionJobRepository(s.db).FindByUUID(ctx, jobUUID)
+	if err != nil {
+		return nil, err
+	}
+	if j == nil || j.SpaceUUID != spaceID {
+		return nil, nil
+	}
+	return j, nil
+}
+
+func (s *IngestionService) ListJobs(ctx context.Context, spaceID uuid.UUID, limit int) ([]knowledge.IngestionJob, error) {
+	if spaceID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	var jobs []knowledge.IngestionJob
+	err := s.db.WithContext(ctx).
+		Where("space_uuid = ?", spaceID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&jobs).Error
+	return jobs, err
+}
+
 // IngestionServiceOptions configures the ingestion service runtime.
 type IngestionServiceOptions struct {
 	DB              *gorm.DB
@@ -73,6 +106,19 @@ type TriggerIngestionInput struct {
 	MaskingProfile   string
 	Priority         string
 	RequestedBy      string
+	// L1/L2/L3 snapshot (best-effort).
+	RagSceneKey  string
+	RagBundleKey string
+	RagPrimary   string
+	SegmentMode      string
+	ChunkSize        int
+	ChunkOverlap     int
+	Separators       []string
+	AnchorHeadingPath  bool
+	AnchorClauseID     bool
+	AnchorRowNumber    bool
+	AnchorSpeaker      bool
+	AnchorSentenceIndex bool
 }
 
 // NewIngestionService constructs a service instance.
@@ -195,7 +241,259 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 		processorProfile: in.ProcessorProfile,
 		ocrRequired:      in.OCRRequired,
 		maskingProfile:   in.MaskingProfile,
+		ragSceneKey:      strings.TrimSpace(in.RagSceneKey),
+		ragBundleKey:     strings.TrimSpace(in.RagBundleKey),
+		ragPrimary:       strings.TrimSpace(in.RagPrimary),
+		segmentMode:      in.SegmentMode,
+		chunkSize:        in.ChunkSize,
+		chunkOverlap:     in.ChunkOverlap,
+		separators:       in.Separators,
+		anchorHeadingPath:  in.AnchorHeadingPath,
+		anchorClauseID:     in.AnchorClauseID,
+		anchorRowNumber:    in.AnchorRowNumber,
+		anchorSpeaker:      in.AnchorSpeaker,
+		anchorSentenceIndex: in.AnchorSentenceIndex,
 	})
+	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords)
+}
+
+// TriggerWithDocUnits runs ingestion using already-normalized document units (e.g. API connectors).
+// This is used by SpaceSyncJob runners so external sources can reuse the same chunking/masking/vectorstore pipeline.
+func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIngestionInput, docUnits []DocumentUnit) (*knowledge.IngestionJob, error) {
+	if in.SpaceID == uuid.Nil || strings.TrimSpace(in.SourceURI) == "" {
+		return nil, ErrInvalidInput
+	}
+	format := strings.ToLower(strings.TrimSpace(in.Format))
+	if format == "" {
+		format = strings.ToLower(strings.TrimSpace(in.SourceType))
+	}
+	if !allowedFormats[format] {
+		return nil, ErrInvalidInput
+	}
+	priority := strings.ToLower(strings.TrimSpace(in.Priority))
+	if priority == "" {
+		priority = "normal"
+	}
+	if !allowedPriority[priority] {
+		return nil, ErrInvalidInput
+	}
+
+	logger := s.inst.Logger(ctx)
+	logger.InfoF(ctx, "[ingestion] trigger(units) space=%s source=%s format=%s units=%d", in.SpaceID, in.SourceURI, format, len(docUnits))
+
+	spaceRepo := repo.NewKnowledgeSpaceRepository(s.db)
+	space, err := spaceRepo.FindByUUID(ctx, in.SpaceID)
+	if err != nil {
+		return nil, err
+	}
+	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
+		return nil, ErrSpaceNotFound
+	}
+
+	now := time.Now()
+	job := &knowledge.IngestionJob{
+		SpaceUUID:   in.SpaceID,
+		SourceID:    stableSourceID(in.SourceURI),
+		SourceType:  format,
+		Status:      knowledge.IngestionStatusRunning,
+		Priority:    priority,
+		SubmittedBy: in.RequestedBy,
+		StartedAt:   &now,
+	}
+	bundle := &knowledge.ArtifactBundle{
+		IngestionJobID:    0,
+		ChunkManifestURI:  "minio://powerx-knowledge/pending/chunks.json",
+		VectorManifestURI: "minio://powerx-knowledge/pending/vectors.json",
+		MaskingReportURI:  "minio://powerx-knowledge/pending/masking.json",
+		Checksum:          strings.Repeat("0", 64),
+		StorageClass:      "standard",
+		Status:            knowledge.ArtifactBundleStatusActive,
+	}
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		jobs := repo.NewIngestionJobRepository(tx)
+		bundles := repo.NewArtifactBundleRepository(tx)
+
+		createdJob, err := jobs.Create(ctx, job)
+		if err != nil {
+			return err
+		}
+		bundle.IngestionJobID = createdJob.ID
+		createdBundle, err := bundles.Create(ctx, bundle)
+		if err != nil {
+			return err
+		}
+		createdJob.ArtifactBundleID = &createdBundle.ID
+		updatedJob, err := jobs.Update(ctx, createdJob)
+		if err != nil {
+			return err
+		}
+		job = updatedJob
+		bundle = createdBundle
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	outcome, chunks, vectorRecords := s.runPipelineFromUnits(ctx, pipelineUnitsInput{
+		space:          space,
+		job:            job,
+		bundle:         bundle,
+		format:         format,
+		sourceURI:      in.SourceURI,
+		docUnits:       docUnits,
+		maskingProfile: in.MaskingProfile,
+		ocrRequired:    in.OCRRequired,
+		ragSceneKey:    strings.TrimSpace(in.RagSceneKey),
+		ragBundleKey:   strings.TrimSpace(in.RagBundleKey),
+		ragPrimary:     strings.TrimSpace(in.RagPrimary),
+		segmentMode:    in.SegmentMode,
+		chunkSize:      in.ChunkSize,
+		chunkOverlap:   in.ChunkOverlap,
+		separators:     in.Separators,
+		anchorHeadingPath:  in.AnchorHeadingPath,
+		anchorClauseID:     in.AnchorClauseID,
+		anchorRowNumber:    in.AnchorRowNumber,
+		anchorSpeaker:      in.AnchorSpeaker,
+		anchorSentenceIndex: in.AnchorSentenceIndex,
+	})
+	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords)
+}
+
+// TriggerAsync creates an ingestion job and runs the pipeline in background.
+// It is intended for HTTP/API usage so UI can poll job status asynchronously.
+func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestionInput) (*knowledge.IngestionJob, error) {
+	if in.SpaceID == uuid.Nil || strings.TrimSpace(in.SourceURI) == "" {
+		return nil, ErrInvalidInput
+	}
+	format := strings.ToLower(strings.TrimSpace(in.Format))
+	if format == "" {
+		format = strings.ToLower(strings.TrimSpace(in.SourceType))
+	}
+	if !allowedFormats[format] {
+		return nil, ErrInvalidInput
+	}
+	priority := strings.ToLower(strings.TrimSpace(in.Priority))
+	if priority == "" {
+		priority = "normal"
+	}
+	if !allowedPriority[priority] {
+		return nil, ErrInvalidInput
+	}
+
+	spaceRepo := repo.NewKnowledgeSpaceRepository(s.db)
+	space, err := spaceRepo.FindByUUID(ctx, in.SpaceID)
+	if err != nil {
+		return nil, err
+	}
+	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
+		return nil, ErrSpaceNotFound
+	}
+
+	job := &knowledge.IngestionJob{
+		SpaceUUID:   in.SpaceID,
+		SourceID:    stableSourceID(in.SourceURI),
+		SourceType:  format,
+		Status:      knowledge.IngestionStatusPending,
+		Priority:    priority,
+		SubmittedBy: in.RequestedBy,
+	}
+	bundle := &knowledge.ArtifactBundle{
+		IngestionJobID:    0,
+		ChunkManifestURI:  "minio://powerx-knowledge/pending/chunks.json",
+		VectorManifestURI: "minio://powerx-knowledge/pending/vectors.json",
+		MaskingReportURI:  "minio://powerx-knowledge/pending/masking.json",
+		Checksum:          strings.Repeat("0", 64),
+		StorageClass:      "standard",
+		Status:            knowledge.ArtifactBundleStatusActive,
+	}
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		jobs := repo.NewIngestionJobRepository(tx)
+		bundles := repo.NewArtifactBundleRepository(tx)
+
+		createdJob, err := jobs.Create(ctx, job)
+		if err != nil {
+			return err
+		}
+		bundle.IngestionJobID = createdJob.ID
+		createdBundle, err := bundles.Create(ctx, bundle)
+		if err != nil {
+			return err
+		}
+		createdJob.ArtifactBundleID = &createdBundle.ID
+		updatedJob, err := jobs.Update(ctx, createdJob)
+		if err != nil {
+			return err
+		}
+		job = updatedJob
+		bundle = createdBundle
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Run ingestion in background. Do not inherit request context cancellation.
+	go func() {
+		bg := context.Background()
+		logger := s.inst.Logger(bg)
+		logger.InfoF(bg, "[ingestion] async start space=%s job=%s source=%s format=%s", in.SpaceID, job.UUID, in.SourceURI, format)
+		// Run the same pipeline and update job in DB.
+		outcome, chunks, vectors := s.runPipeline(bg, pipelineInput{
+			space:            space,
+			job:              job,
+			bundle:           bundle,
+			format:           format,
+			sourceURI:        in.SourceURI,
+			ingestionProfile: in.IngestionProfile,
+			processorProfile: in.ProcessorProfile,
+			ocrRequired:      in.OCRRequired,
+			maskingProfile:   in.MaskingProfile,
+			ragSceneKey:      strings.TrimSpace(in.RagSceneKey),
+			ragBundleKey:     strings.TrimSpace(in.RagBundleKey),
+			ragPrimary:       strings.TrimSpace(in.RagPrimary),
+			segmentMode:      in.SegmentMode,
+			chunkSize:        in.ChunkSize,
+			chunkOverlap:     in.ChunkOverlap,
+			separators:       in.Separators,
+			anchorHeadingPath:  in.AnchorHeadingPath,
+			anchorClauseID:     in.AnchorClauseID,
+			anchorRowNumber:    in.AnchorRowNumber,
+			anchorSpeaker:      in.AnchorSpeaker,
+			anchorSentenceIndex: in.AnchorSentenceIndex,
+		})
+		if _, err := s.finalizeIngestion(bg, space, job, bundle, format, in, outcome, chunks, vectors); err != nil {
+			logger.ErrorF(bg, "[ingestion] async finalize failed job=%s err=%v", job.UUID, err)
+		}
+	}()
+
+	return job, nil
+}
+
+var ErrIngestionDegraded = errors.New("ingestion degraded")
+
+func (s *IngestionService) finalizeIngestion(
+	ctx context.Context,
+	space *knowledge.KnowledgeSpace,
+	job *knowledge.IngestionJob,
+	bundle *knowledge.ArtifactBundle,
+	format string,
+	in TriggerIngestionInput,
+	outcome pipelineOutcome,
+	chunks []IngestionChunk,
+	vectorRecords []vectorstore.VectorRecord,
+) (*knowledge.IngestionJob, error) {
+	if job == nil {
+		return nil, ErrInvalidInput
+	}
+	if job.StartedAt == nil {
+		now := time.Now()
+		job.StartedAt = &now
+	}
+	if strings.TrimSpace(job.Status) == "" || job.Status == knowledge.IngestionStatusPending {
+		job.Status = knowledge.IngestionStatusRunning
+		_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
+	}
 
 	if s.artifactStore != nil && bundle != nil {
 		if artifactUpdate, err := s.artifactStore.Write(ctx, ArtifactWriteInput{
@@ -270,8 +568,6 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 	}
 	return job, nil
 }
-
-var ErrIngestionDegraded = errors.New("ingestion degraded")
 
 func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord, job *knowledge.IngestionJob, outcome pipelineOutcome) error {
 	if outcome.status == knowledge.IngestionStatusBlocked || s.vectorStore == nil || len(records) == 0 {
@@ -364,6 +660,35 @@ func mustJSON(v any) []byte {
 	return buf
 }
 
+func sanitizeSeparators(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(raw))
+	out := make([]string, 0, len(raw))
+	for _, s := range raw {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if len([]rune(s)) > 16 {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+		if len(out) >= 32 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 type pipelineInput struct {
 	space            *knowledge.KnowledgeSpace
 	job              *knowledge.IngestionJob
@@ -374,6 +699,41 @@ type pipelineInput struct {
 	processorProfile string
 	ocrRequired      bool
 	maskingProfile   string
+	ragSceneKey      string
+	ragBundleKey     string
+	ragPrimary       string
+	segmentMode      string
+	chunkSize        int
+	chunkOverlap     int
+	separators       []string
+	anchorHeadingPath  bool
+	anchorClauseID     bool
+	anchorRowNumber    bool
+	anchorSpeaker      bool
+	anchorSentenceIndex bool
+}
+
+type pipelineUnitsInput struct {
+	space          *knowledge.KnowledgeSpace
+	job            *knowledge.IngestionJob
+	bundle         *knowledge.ArtifactBundle
+	format         string
+	sourceURI      string
+	docUnits       []DocumentUnit
+	maskingProfile string
+	ocrRequired    bool
+	ragSceneKey    string
+	ragBundleKey   string
+	ragPrimary     string
+	segmentMode    string
+	chunkSize      int
+	chunkOverlap   int
+	separators     []string
+	anchorHeadingPath  bool
+	anchorClauseID     bool
+	anchorRowNumber    bool
+	anchorSpeaker      bool
+	anchorSentenceIndex bool
 }
 
 type pipelineOutcome struct {
@@ -393,6 +753,15 @@ type pipelineOutcome struct {
 	ocrUsed              bool
 	ocrCoveragePct       float64
 	ocrConfidenceBuckets map[string]int
+	// config snapshot (best-effort, for audit/debug)
+	ragSceneKey   string
+	ragBundleKey  string
+	ragPrimary    string
+	segmentMode   string
+	chunkSize     int
+	chunkOverlap  int
+	separators    []string
+	chunkAnchors  map[string]bool
 }
 
 func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
@@ -413,6 +782,14 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"ocr_used":         o.ocrUsed,
 		"ocr_coverage_pct": o.ocrCoveragePct,
 		"ocr_confidence":   o.ocrConfidenceBuckets,
+		"rag_scene_key":    o.ragSceneKey,
+		"rag_bundle_key":   o.ragBundleKey,
+		"rag_primary":      o.ragPrimary,
+		"segment_mode":     o.segmentMode,
+		"chunk_size":       o.chunkSize,
+		"chunk_overlap":    o.chunkOverlap,
+		"separators":       o.separators,
+		"chunk_anchors":    o.chunkAnchors,
 		"completed":        completed,
 	}
 }
@@ -429,6 +806,7 @@ type IngestionChunk struct {
 func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord) {
 	format := strings.ToLower(strings.TrimSpace(in.format))
 	sourceURI := strings.TrimSpace(in.sourceURI)
+	separators := sanitizeSeparators(in.separators)
 	out := pipelineOutcome{
 		status:               knowledge.IngestionStatusCompleted,
 		coveragePct:          100,
@@ -436,6 +814,20 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		maskingPct:           100,
 		ocrRequired:          in.ocrRequired,
 		ocrConfidenceBuckets: map[string]int{"0.0-0.5": 0, "0.5-0.8": 0, "0.8-1.0": 0},
+		ragSceneKey:          strings.TrimSpace(in.ragSceneKey),
+		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
+		ragPrimary:           strings.TrimSpace(in.ragPrimary),
+		segmentMode:          strings.TrimSpace(in.segmentMode),
+		chunkSize:            in.chunkSize,
+		chunkOverlap:         in.chunkOverlap,
+		separators:           separators,
+		chunkAnchors: map[string]bool{
+			"heading_path":  in.anchorHeadingPath,
+			"clause_id":     in.anchorClauseID,
+			"row_number":    in.anchorRowNumber,
+			"speaker":       in.anchorSpeaker,
+			"sentence_idx":  in.anchorSentenceIndex,
+		},
 	}
 
 	needsOCR := in.ocrRequired
@@ -474,7 +866,147 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	out.ocrCoveragePct = ocrStats.CoveragePct
 	out.ocrConfidenceBuckets = ocrStats.ConfidenceBuckets
 
-	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits)
+	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
+		Mode:         in.segmentMode,
+		ChunkSize:    in.chunkSize,
+		ChunkOverlap: in.chunkOverlap,
+		Separators:   separators,
+		Anchors: ChunkAnchors{
+			HeadingPath:  in.anchorHeadingPath,
+			ClauseID:     in.anchorClauseID,
+			RowNumber:    in.anchorRowNumber,
+			Speaker:      in.anchorSpeaker,
+			SentenceIndex: in.anchorSentenceIndex,
+		},
+	})
+	if len(chunks) == 0 || !hasContentChunks(chunks) {
+		chunks = append(chunks, IngestionChunk{
+			ID:      uuid.NewSHA1(in.space.UUID, []byte("section_summary|placeholder|"+format+"|"+sourceURI)),
+			Kind:    "section_summary",
+			Content: "Section 1 summary (placeholder)",
+			Metadata: map[string]any{
+				"format":     format,
+				"source_uri": sourceURI,
+				"provenance": map[string]any{},
+				"section":    1,
+			},
+		})
+		chunks = append(chunks, IngestionChunk{
+			ID:      uuid.NewSHA1(in.space.UUID, []byte("chunk|placeholder|"+format+"|"+sourceURI)),
+			Kind:    "chunk",
+			Content: "content unavailable",
+			Metadata: map[string]any{
+				"format":     format,
+				"source_uri": sourceURI,
+				"provenance": map[string]any{},
+			},
+		})
+		out.degraded = true
+		if out.errorCode == "" {
+			out.errorCode = "degraded"
+		}
+		if out.reason == "" {
+			out.reason = "empty_content"
+		}
+		out.coveragePct = 0
+	}
+
+	// Masking.
+	masker := NewMasker(in.maskingProfile)
+	maskedChunks, maskingPct, maskBlock := masker.Apply(chunks)
+	out.maskingPct = maskingPct
+	if maskBlock {
+		out.status = knowledge.IngestionStatusBlocked
+		out.errorCode = "masking_required"
+		out.reason = "masking_blocked"
+		out.coveragePct = 0
+		out.embeddingPct = 0
+		return out, maskedChunks, nil
+	}
+
+	out.language = detectLanguage(maskedChunks)
+	summaryCount, contentCount := countChunkKinds(maskedChunks)
+	out.summaryCount = summaryCount
+	out.chunkCount = contentCount
+	out.totalChunks = len(maskedChunks)
+
+	records := make([]vectorstore.VectorRecord, 0, len(maskedChunks))
+	for _, chunk := range maskedChunks {
+		embedding := HashEmbedding(chunk.Content, 32)
+		meta := make(map[string]any, len(chunk.Metadata)+2)
+		for k, v := range chunk.Metadata {
+			meta[k] = v
+		}
+		meta["chunk_kind"] = chunk.Kind
+		meta["content_hash"] = ContentHash(chunk.Content)
+		records = append(records, vectorstore.VectorRecord{
+			ChunkID:   chunk.ID,
+			Embedding: embedding,
+			Metadata:  meta,
+		})
+	}
+
+	return out, maskedChunks, records
+}
+
+func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipelineUnitsInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord) {
+	format := strings.ToLower(strings.TrimSpace(in.format))
+	sourceURI := strings.TrimSpace(in.sourceURI)
+	separators := sanitizeSeparators(in.separators)
+	out := pipelineOutcome{
+		status:               knowledge.IngestionStatusCompleted,
+		coveragePct:          100,
+		embeddingPct:         100,
+		maskingPct:           100,
+		ocrRequired:          in.ocrRequired,
+		ocrConfidenceBuckets: map[string]int{"0.0-0.5": 0, "0.5-0.8": 0, "0.8-1.0": 0},
+		ragSceneKey:          strings.TrimSpace(in.ragSceneKey),
+		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
+		ragPrimary:           strings.TrimSpace(in.ragPrimary),
+		segmentMode:          strings.TrimSpace(in.segmentMode),
+		chunkSize:            in.chunkSize,
+		chunkOverlap:         in.chunkOverlap,
+		separators:           separators,
+		chunkAnchors: map[string]bool{
+			"heading_path":  in.anchorHeadingPath,
+			"clause_id":     in.anchorClauseID,
+			"row_number":    in.anchorRowNumber,
+			"speaker":       in.anchorSpeaker,
+			"sentence_idx":  in.anchorSentenceIndex,
+		},
+	}
+
+	docUnits := in.docUnits
+	if len(docUnits) == 0 {
+		// Keep behavior consistent with runPipeline: empty content yields degraded path.
+		docUnits = []DocumentUnit{{
+			Content: "content unavailable",
+			Provenance: map[string]any{
+				"format":     format,
+				"source_uri": sourceURI,
+				"reason":     "empty_units",
+			},
+			Confidence: 0.2,
+		}}
+		out.degraded = true
+		out.errorCode = "degraded"
+		out.reason = "empty_content"
+		out.coveragePct = 0
+	}
+
+	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
+		Mode:         in.segmentMode,
+		ChunkSize:    in.chunkSize,
+		ChunkOverlap: in.chunkOverlap,
+		Separators:   separators,
+		Anchors: ChunkAnchors{
+			HeadingPath:  in.anchorHeadingPath,
+			ClauseID:     in.anchorClauseID,
+			RowNumber:    in.anchorRowNumber,
+			Speaker:      in.anchorSpeaker,
+			SentenceIndex: in.anchorSentenceIndex,
+		},
+	})
 	if len(chunks) == 0 || !hasContentChunks(chunks) {
 		chunks = append(chunks, IngestionChunk{
 			ID:      uuid.NewSHA1(in.space.UUID, []byte("section_summary|placeholder|"+format+"|"+sourceURI)),

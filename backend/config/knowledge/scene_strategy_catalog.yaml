@@ -1,0 +1,553 @@
+version: 1
+kind: scene_strategy_catalog
+
+# 单一事实来源（SSOT）：Web Admin 的“场景（L1）→策略包（L2）”选择、以及后端的前置依赖校验/推荐规则，都应以此文件为准。
+# 设计依据：
+# - docs/plan/AI_engineering/knowledge/rag.md
+# - docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md
+
+modules:
+  # A: Simple RAG（简单切块 + 向量召回）
+  A_simple:
+    label: "Simple RAG"
+    requires: ["index.dense"]
+  # A1: Query Routing（查询路由）
+  A1_routing:
+    label: "Query Routing"
+    requires: []
+  # A2: Time-aware RAG（时间感知）
+  A2_time_aware:
+    label: "Time-aware"
+    requires: ["index.time_fields"]
+  # B: Semantic Chunking（语义切块）
+  B_semantic_chunking:
+    label: "Semantic Chunking"
+    requires: ["asset.section_summaries"]
+  # C: Context Enriched Retrieval（上下文扩展）
+  C_context_enriched:
+    label: "Context Enriched"
+    requires: ["index.hier"]
+  # D: Document Augmentation（离线增强）
+  D_doc_augmentation:
+    label: "Document Augmentation"
+    requires: ["asset.augmented_fields"]
+  # E: Query Transformation（查询转换）
+  E_query_transform:
+    label: "Query Transformation"
+    requires: []
+  # F: Reranker（重排）
+  F_rerank:
+    label: "Reranker"
+    requires: ["runtime.rerank"]
+  # G: RSE（语义扩展重排）
+  G_rse:
+    label: "RSE"
+    requires: ["asset.domain_lexicon"]
+  # H: Fusion（融合：vector+bm25+kg+hier）
+  H_fusion:
+    label: "Fusion (Hybrid/RRF)"
+    requires: ["index.dense", "index.sparse"]
+  # I: HyDE
+  I_hyde:
+    label: "HyDE"
+    requires: ["runtime.llm", "index.dense"]
+  # J: Hierarchical Indices（层次索引）
+  J_hier:
+    label: "Hierarchical Indices"
+    requires: ["index.hier", "asset.section_summaries"]
+  # K: Knowledge Graph（知识图谱）
+  K_kg:
+    label: "Knowledge Graph"
+    requires: ["index.kg"]
+  # L: Feedback Loop（反馈闭环）
+  L_feedback:
+    label: "Feedback Loop"
+    requires: ["runtime.feedback"]
+  # M: Adaptive RAG（自适应）
+  M_adaptive:
+    label: "Adaptive RAG"
+    requires: ["runtime.policy_router"]
+  # N: Self RAG（自反思回路）
+  N_self_rag:
+    label: "Self RAG"
+    requires: ["runtime.llm", "runtime.evidence_checker"]
+  # O: CRAG（纠错）
+  O_crag:
+    label: "CRAG"
+    requires: ["runtime.evidence_checker", "index.sparse"]
+
+strategy_bundles:
+  p0_basic:
+    label: "P0 基础（最小闭环）"
+    description: "最少干预：仅 dense 召回 + 引用返回；不开 multiquery/HyDE/rerank/KG/self-check。"
+    prerequisites: ["index.dense"]
+    default_modules: ["A_simple", "L_feedback"]
+    guardrails:
+      must_cite_sources: true
+      max_queries: 1
+      rerank_topk: 0
+      self_rag_max_loops: 0
+      hyde_enabled: false
+
+  p1_general:
+    label: "P1 通用推荐（企业默认）"
+    description: "hybrid + RRF + 轻量 rerank + contextual（按场景启用 hier）。"
+    prerequisites: ["index.dense", "index.sparse"]
+    default_modules: ["H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    guardrails:
+      must_cite_sources: true
+      max_queries: 3
+      rerank_topk: 10
+      self_rag_max_loops: 0
+      hyde_enabled: false
+
+  p2_high_accuracy:
+    label: "P2 高准确/合规（证据优先）"
+    description: "sparse 优先 + hybrid + CRAG/可选 self-check + time-aware（按场景）。"
+    prerequisites: ["index.dense", "index.sparse", "runtime.evidence_checker"]
+    default_modules: ["H_fusion", "O_crag", "F_rerank", "L_feedback"]
+    guardrails:
+      must_cite_sources: true
+      min_evidence_chunks: 2
+      max_queries: 3
+      rerank_topk: 10
+      self_rag_max_loops: 1
+      hyde_enabled: false
+
+  p3_kg_strong:
+    label: "P3 KG 约束（关系驱动）"
+    description: "KG recall/filter + hybrid + cite，适用于依赖/约束/关系查询。"
+    prerequisites: ["index.kg", "index.sparse", "index.dense"]
+    default_modules: ["K_kg", "H_fusion", "C_context_enriched", "L_feedback"]
+    guardrails:
+      must_cite_sources: true
+      max_queries: 2
+      rerank_topk: 10
+      self_rag_max_loops: 0
+      hyde_enabled: false
+
+scenes:
+  product_specs:
+    label: "产品库 / 规格参数查询"
+    description: "参数/型号/价格/口径等事实精确型查询；混合数据源常见（DB+文档）。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "O_crag", "F_rerank", "E_query_transform", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.structured_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured_fields_card"
+        unit: "chars"
+        chunk_size: 700
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "。", "；", ":", "："]
+
+  product_compat:
+    label: "产品库 / 兼容性与配件关系"
+    description: "兼容矩阵/配件关系/约束条件；可选 KG 强化解释与过滤。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "O_crag", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.structured_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured_compat"
+        unit: "chars"
+        chunk_size: 800
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "兼容", "不兼容", "支持", "不支持", "：", ":"]
+
+  product_selection:
+    label: "产品库 / 选型对比与推荐理由"
+    description: "方案对比/选型决策；更偏解释归纳，但仍需可追溯引用。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "对比", "推荐", "理由", "。", "；"]
+
+  sop:
+    label: "SOP/制度/产品说明"
+    description: "Markdown/Word 为主，结构清晰，常见查询为流程/解释归纳。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "F_rerank", "C_context_enriched", "J_hier", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 800
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "。", "！", "？", "；"]
+
+  contract_quote:
+    label: "合同/报价"
+    description: "PDF/Word/Excel 表格多；事实查找+合规风险高，默认证据优先。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "A2_time_aware", "O_crag", "F_rerank", "D_doc_augmentation", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.time_fields", "index.structured_fields"]
+      assets: ["asset.augmented_fields"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured_clause_table"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "条", "款", "。", "；"]
+
+  research_longdoc:
+    label: "论文/研究/长报告"
+    description: "PDF 长文；需要语义切块与层次索引，支持 hier-first 与 HyDE（可选）。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["B_semantic_chunking", "J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "semantic"
+        unit: "chars"
+        chunk_size: 1200
+        overlap: 200
+        separators: ["\\n\\n", "\\n", "。", "！", "？"]
+
+  ledger_table:
+    label: "台账/清单（表格）"
+    description: "Excel/CSV 结构化行；以精确过滤/字段查询为主。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "F_rerank", "O_crag", "L_feedback"]
+    prerequisites:
+      index: ["index.sparse", "index.structured_fields", "index.dense"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "row"
+        unit: "records"
+        chunk_size: 1
+        overlap: 0
+        separators: []
+
+  support_faq:
+    label: "客服 / FAQ 与使用说明"
+    description: "问答粒度、同义表达多；强调命中率与可解释引用。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "E_query_transform", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "qna"
+        unit: "chars"
+        chunk_size: 500
+        overlap: 80
+        separators: ["\\n\\n", "\\n", "Q:", "A:", "？", "。"]
+
+  support_policy:
+    label: "客服 / 售后政策与规则"
+    description: "退款/保修/条款政策；高风险答复需要强证据与纠错。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "O_crag", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "policy_clause"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "条", "款", "。", "；"]
+
+  support_troubleshooting:
+    label: "客服 / 故障现象与排查"
+    description: "现象→原因→处理步骤；需要步骤链路与上下文补齐。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured_steps"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "步骤", "Step", "。", "；"]
+
+  eng_runbook:
+    label: "工程 / Runbook 与标准操作"
+    description: "标准操作/手册；章节与步骤链路清晰，强调上下文。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured_steps"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "步骤", "Step", "。", "；"]
+
+  eng_incident:
+    label: "工程 / 故障排查与应急响应"
+    description: "应急响应/故障处理；需要时间线、步骤链路与降级策略（可选）。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured_steps"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "现象", "原因", "处理", "步骤", "。", "；"]
+
+  eng_change:
+    label: "工程 / 变更与发布"
+    description: "变更评审/发布/回滚；高风险需要证据优先与版本/时间过滤。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "A2_time_aware", "O_crag", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.time_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "change_log"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "变更", "发布", "回滚", "风险", "。", "；"]
+
+  api_reference:
+    label: "API/接口文档 / 参数与返回"
+    description: "字段/参数/返回值/示例为主；事实精确优先，适合接口问答。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "O_crag", "E_query_transform", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.structured_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "api_section"
+        unit: "chars"
+        chunk_size: 800
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "参数", "字段", "返回", "示例", "：", ":"]
+
+  data_dictionary:
+    label: "数据字典 / 表结构与字段口径"
+    description: "表/字段/口径/示例；精确定位字段含义，支持结构化过滤。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "O_crag", "E_query_transform", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.structured_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "schema_table"
+        unit: "chars"
+        chunk_size: 800
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "表", "字段", "类型", "口径", "：", ":"]
+
+  sales_enablement:
+    label: "销售材料 / 话术与竞品"
+    description: "销售话术、竞品对比、案例材料；偏解释归纳，但仍需可追溯引用。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "对比", "优势", "劣势", "。", "；"]
+
+  marketing_promo_rules:
+    label: "市场活动 / 促销规则"
+    description: "活动规则、优惠口径、例外条款；高风险答复需要强证据。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "O_crag", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "policy_clause"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "规则", "例外", "不适用", "。", "；"]
+
+  compliance_regulation:
+    label: "法规/监管政策 / 口径与约束"
+    description: "法规/监管/政策口径；时效强，建议启用时间字段过滤。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "A2_time_aware", "O_crag", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.time_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "policy_clause"
+        unit: "chars"
+        chunk_size: 1100
+        overlap: 180
+        separators: ["\\n\\n", "\\n", "条", "款", "。", "；"]
+
+  billing_pricing:
+    label: "计费/价格规则 / 口径与例外"
+    description: "计费口径、价格规则、版本差异与例外；事实精确 + 时效要求高。"
+    default_bundle: "p2_high_accuracy"
+    allowed_bundles: ["p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "A2_time_aware", "O_crag", "F_rerank", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.structured_fields", "index.time_fields"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured_fields_card"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "价格", "计费", "规则", "例外", "：", ":"]
+
+  meeting_minutes:
+    label: "会议纪要 / 决议与行动项"
+    description: "会议纪要、决议、行动项；偏总结归纳并要求引用定位。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "minutes"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "决议", "行动项", "Owner", "Due", "。", "；"]
+
+  project_docs:
+    label: "项目方案 / 交付文档"
+    description: "项目方案、需求、设计与交付资料；章节上下文与引用定位重要。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 1000
+        overlap: 180
+        separators: ["\\n\\n", "\\n", "。", "！", "？", "；"]
+
+  ticket_conversations:
+    label: "工单/聊天记录 / 问题追踪"
+    description: "工单对话、聊天记录、问题追踪；需要按话题/时间窗聚合与可追溯引用。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["H_fusion", "E_query_transform", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "conversation_window"
+        unit: "chars"
+        chunk_size: 700
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "时间", "用户", "客服", "：", ":"]
+
+  onboarding_training:
+    label: "入职/培训资料 / 学习路径"
+    description: "培训课件、学习资料、入职手册；强调归纳总结与引用定位。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy"]
+    default_modules: ["J_hier", "H_fusion", "F_rerank", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.dense", "index.sparse", "index.hier"]
+      assets: ["asset.section_summaries"]
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 900
+        overlap: 150
+        separators: ["\\n\\n", "\\n", "课程", "章节", "。", "；"]
+
+  sql_kg:
+    label: "SQL/配置/依赖关系（KG 强）"
+    description: "关系/依赖驱动：KG 为主召回/约束通道，dense 作为摘要补充。"
+    default_bundle: "p3_kg_strong"
+    allowed_bundles: ["p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["K_kg", "H_fusion", "C_context_enriched", "L_feedback"]
+    prerequisites:
+      index: ["index.kg", "index.sparse", "index.dense"]
+      assets: ["asset.kg_entities", "asset.kg_relations", "asset.kg_provenance"]
+    ingestion_defaults:
+      chunking:
+        mode: "ast_object"
+        unit: "objects"
+        chunk_size: 1
+        overlap: 0
+        separators: []
+
+  custom_expert:
+    label: "自定义（专家）"
+    description: "允许选择全部策略模块与策略包，但必须进行依赖校验与成本护栏。"
+    default_bundle: "p1_general"
+    allowed_bundles: ["p0_basic", "p1_general", "p2_high_accuracy", "p3_kg_strong"]
+    default_modules: ["H_fusion", "L_feedback"]
+    prerequisites:
+      index: ["index.dense"]
+      assets: []
+    ingestion_defaults:
+      chunking:
+        mode: "structured"
+        unit: "chars"
+        chunk_size: 800
+        overlap: 120
+        separators: ["\\n\\n", "\\n", "。", "！", "？", "；"]

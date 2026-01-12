@@ -3,6 +3,8 @@
 > 版本：v0.1（草稿）  
 > 适用范围：PowerX Core（后端知识空间 + Web Admin）与任意智能体框架适配（默认 `backend/internal/server/agent/drivers/eino`）  
 > 相关规范/参考：`specs/011-knowledge-space/*`、`docs/guides/knowledge_space/*`、`backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto`、Eino `components/retriever|indexer|embedding|document`
+>
+> 目录调整：本方案文档已归档到 `docs/plan/AI_engineering/knowledge/`。
 
 ---
 
@@ -359,4 +361,3 @@ UI 的“管理面”优先走 gRPC（更一致的 schema 与权限模型），H
 3. **Hybrid 的 text index 选型**（Postgres FTS/Elastic/RedisSearch；与 pgvector 共存策略）
 4. **权限模型落在哪一层**（建议 Query 层强制 enforce ACL，避免上层漏传）
 5. **反馈触发 reprocess/rollback 的阈值与流程**（需要产品/合规对齐）
-

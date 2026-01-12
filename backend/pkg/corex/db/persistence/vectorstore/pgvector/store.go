@@ -188,7 +188,23 @@ func (s *store) Query(ctx context.Context, req vectorstore.QueryRequest) (vector
 func (s *store) Health(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.TimeoutSeconds)*time.Second)
 	defer cancel()
-	return s.pool.Ping(ctx)
+	if err := s.pool.Ping(ctx); err != nil {
+		return err
+	}
+	// 额外检查 pgvector 扩展是否可用。仅用于更早、更明确地暴露环境问题：
+	// - EnableMigrations=true 时，会尝试 CREATE EXTENSION IF NOT EXISTS vector（需要权限）
+	// - EnableMigrations=false 时，这里至少能提示“vector 扩展缺失”
+	var ok int
+	err := s.pool.QueryRow(ctx, `SELECT 1 FROM pg_extension WHERE extname = 'vector' LIMIT 1`).Scan(&ok)
+	if err == nil && ok == 1 {
+		return nil
+	}
+	// 如果未命中，Scan 会返回 pgx.ErrNoRows：这就是“缺少 vector 扩展”，应明确报错。
+	if err == pgx.ErrNoRows {
+		return fmt.Errorf("pgvector: extension \"vector\" not found (install pgvector or enable migrations to create it)")
+	}
+	// 其它查询错误（权限/兼容性等）不要误报，让 Ping 结果决定健康。
+	return nil
 }
 
 func (s *store) runMigrations(ctx context.Context) error {

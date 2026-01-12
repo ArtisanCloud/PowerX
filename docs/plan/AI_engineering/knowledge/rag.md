@@ -2,7 +2,7 @@
 
 > 版本：v0.1（草稿）  
 > 目标：在 PowerX Knowledge Space 底座上，支持企业多类型文档入库与多种 RAG 策略可配置组合；上层智能体框架可替换（Eino 只是默认适配之一）。  
-> 关联文档：`docs/plan/AI_engineering/knowledage_base.md`、`specs/011-knowledge-space/*`
+> 关联文档：`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`specs/011-knowledge-space/*`
 
 ---
 

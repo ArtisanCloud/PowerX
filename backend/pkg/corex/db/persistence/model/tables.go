@@ -111,3 +111,6 @@ const TableKnowledgeIngestionProfileVersions = "knowledge_ingestion_profile_vers
 const TableKnowledgeIndexProfileVersions = "knowledge_index_profile_versions"
 const TableKnowledgeRAGProfileVersions = "knowledge_rag_profile_versions"
 const TableKnowledgeCorpusCheckJobs = "knowledge_corpus_check_jobs"
+const TableKnowledgeSourceCredentials = "knowledge_source_credentials"
+const TableKnowledgeSourceConnectorInstances = "knowledge_source_connector_instances"
+const TableKnowledgeSpaceSyncJobs = "knowledge_space_sync_jobs"

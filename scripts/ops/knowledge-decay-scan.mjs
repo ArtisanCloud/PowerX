@@ -183,7 +183,7 @@ async function runRemoteScan(args, payload) {
 	if (!args.tenantUuid) {
 		throw new Error('缺少 --tenant-uuid 或 TENANT_UUID/POWERX_TENANT_UUID');
 	}
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/decay/tasks`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/decay/tasks`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -202,7 +202,7 @@ async function runRemoteScan(args, payload) {
 }
 
 async function runRemoteRestore(args, taskId) {
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/decay/restore`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/decay/restore`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -222,6 +222,16 @@ async function runRemoteRestore(args, taskId) {
 		throw new Error(`remote restore failed: ${resp.status} ${await resp.text()}`);
 	}
 	return resp.json();
+}
+
+function normalizeApiBase(raw) {
+	const trimmed = String(raw || '').trim().replace(/\/$/, '');
+	if (!trimmed) return 'http://127.0.0.1:8077/api/v1';
+	if (trimmed.endsWith('/api/v1')) return trimmed;
+	if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
+	if (trimmed.includes('/api/v1/')) return trimmed.replace(/\/$/, '');
+	if (trimmed.includes('/api/')) return trimmed.replace(/\/$/, '');
+	return `${trimmed}/api/v1`;
 }
 
 async function printLocalReports(reportPath, aggregatePath) {

@@ -159,6 +159,7 @@ type KnowledgeSpaceOptions struct {
 	DefaultRetentionMonths int
 	ProvisioningSLA        time.Duration
 	IngestionSLA           time.Duration
+	SceneStrategyCatalogPath string
 	EventTopics            KnowledgeSpaceEventTopicsOptions
 	Notifications          KnowledgeSpaceNotificationOptions
 	VectorStore            KnowledgeSpaceVectorStoreOptions

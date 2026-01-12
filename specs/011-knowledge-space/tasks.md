@@ -7,7 +7,7 @@
 - 任务格式：`[编号] [P?] [所属故事] 描述`
 - `[P]` 代表可并行执行（不同文件、无依赖）
 - 状态约定：`[ ]` = 待开发（含需按新方案重做/补齐），`[X]` = 已完成（与最新方案一致且可验收）
-- 本任务清单需与以下方案对齐：`docs/plan/AI_engineering/knowledage_base.md`、`docs/plan/AI_engineering/rag.md`；若现有实现为 stub/占位或与方案不一致，应回退为“待开发”并更新描述。
+- 本任务清单需与以下方案对齐：`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`docs/plan/AI_engineering/knowledge/rag.md`；若现有实现为 stub/占位或与方案不一致，应回退为“待开发”并更新描述。
 - 故事标签：`Setup`、`Foundational`、`US1`（Web 管理台配置向导）、`US2`（多模态入库基线）、`US3`（多源融合策略管理）、`US4`（反馈驱动再加工与热更新 / SCN-KNOWLEDGE-UPDATE-FEEDBACK-001）、`US5`（QA 推理桥接）、`US6`（增量同步与版本治理 / SCN-KNOWLEDGE-UPDATE-SYNC-001）、`US7`（事件热更新 / SCN-KNOWLEDGE-UPDATE-EVENT-001）、`US8`（衰减巡检与空白治理 / SCN-KNOWLEDGE-UPDATE-DECAY-001）、`US9`（租户灰度发布 / SCN-KNOWLEDGE-UPDATE-TENANT-001）、`Polish`
 - 所有路径均为仓库内真实路径，确保可直接执行
 
@@ -85,15 +85,36 @@
 
 ### 实现
 
-- [X] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现真实 orchestrator：Loader/Parser/Transformer/Masking/Embedding/多索引写入；产出 ArtifactBundle（MinIO/S3 URI + checksum），并支持 retry/blocked/degraded（对齐 `docs/plan/AI_engineering/rag.md` 的 OCR/Processor 策略）。
+- [X] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现真实 orchestrator：Loader/Parser/Transformer/Masking/Embedding/多索引写入；产出 ArtifactBundle（MinIO/S3 URI + checksum），并支持 retry/blocked/degraded（对齐 `docs/plan/AI_engineering/knowledge/rag.md` 的 OCR/Processor 策略）。
 - [X] **T033 [US2]** 在 `backend/internal/transport/http/admin/knowledge_space/ingestion_handlers.go` 实现 HTTP Handler + DTO 校验（包含 format、processor_profile、ocr_required、masking_profile 等字段）。
 - [X] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler（同上）。
 - [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
 - [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
 - [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
 - [X] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，并同步清理 sparse/hier/kg 资产（如启用）。
-- [X] **T032C [US2]** 新增 Processor Registry（接口固化在底座，具体实现可由插件提供）：支持 OCR/格式转换（推荐 `com.powerx.plugin.data_forge`），并定义 `ocr_required=true` 时的 blocked 行为与非强制时 degraded 行为（对齐 `docs/plan/AI_engineering/rag.md:363`）。
-- [X] **T032D [US2]** 增加“多格式解析策略”：Word/HTML/邮件/IM/SQL/图片（OCR）/表格行级抽取，统一 provenance（page/row/bbox/line_range/timecode）写入 chunk metadata（对齐 `docs/plan/AI_engineering/rag.md:33`）。
+- [X] **T032C [US2]** 新增 Processor Registry（接口固化在底座，具体实现可由插件提供）：支持 OCR/格式转换（推荐 `com.powerx.plugin.data_forge`），并定义 `ocr_required=true` 时的 blocked 行为与非强制时 degraded 行为（对齐 `docs/plan/AI_engineering/knowledge/rag.md:363`）。
+- [X] **T032D [US2]** 增加“多格式解析策略”：Word/HTML/邮件/IM/SQL/图片（OCR）/表格行级抽取，统一 provenance（page/row/bbox/line_range/timecode）写入 chunk metadata（对齐 `docs/plan/AI_engineering/knowledge/rag.md:33`）。
+
+#### 追加：向量表 / KG 协助表迁移（P1）
+
+> 背景：当前 `make db-migrate` 不会创建 `pgvector` 扩展与 `knowledge_vectors` 表，导致本地/新环境无法完成向量落表；KG 策略也缺少最小协助表。
+> 规格与 DDL：`specs/011-knowledge-space/db-migrations.md`
+
+- [X] **T206 [P] [US2]** 在 `backend/pkg/corex/db/migration/*` 增加 pgvector 迁移：`CREATE EXTENSION vector` + `public.knowledge_vectors`（含 `space_idx` + `embedding_idx`），并保证幂等。
+- [X] **T207 [P] [US2]** 增加 KG 协助表迁移：`public.knowledge_kg_nodes` / `public.knowledge_kg_edges`（含必要索引），并为后续 `VectorStore.DropSpace`/空间退役提供清理入口（后续任务实现）。
+- [X] **T208 [P] [US2]** 对齐 `make db-migrate`：在 `backend/cmd/database/migrate.go` 的迁移流程中，按 `knowledge_space.vector_store.*` 配置决定是否执行 pgvector 迁移（非 pgvector 驱动跳过），并明确 DSN 选择规则（`pgvector.dsn` 为空时复用 `database.dsn`）。
+- [X] **T209 [P] [US2]** 增加迁移验证测试（建议 integration）：启动临时 Postgres（或复用 testenv），执行 `go run ./cmd/database migrate` 后断言 `to_regclass('public.knowledge_vectors')`（driver=pgvector）以及 `knowledge_kg_*` 存在；重复执行应无报错。
+
+#### 追加：Sparse/Hier/Structured 的“统一 Chunk Store”迁移（P1）
+
+> 背景：`H_fusion`（index.sparse）与 `J_hier/C_context_enriched`（index.hier）在 `scene_strategy_catalog.yaml` 中已声明 prerequisites，但目前缺少 Postgres-backed 的统一落表（无法做 FTS/邻接扩展/结构化过滤）。
+> 规格与建议 DDL：`specs/011-knowledge-space/db-migrations.md`
+
+- [X] **T210 [P] [US2]** 确认 `index.sparse/index.hier/index.structured_fields` 的存储选型（Postgres FTS + jsonb + relations vs 外部搜索/索引服务），并在 spec 中固化“默认实现”与可替换点（驱动/配置开关）。
+- [X] **T211 [P] [US2]** 若采用 Postgres 方案：新增迁移创建 `public.knowledge_chunks`（content+metadata）以及必要索引（FTS GIN + metadata GIN + kind 索引），幂等可重复执行。
+- [X] **T212 [P] [US2]** （可选）新增迁移创建 `public.knowledge_chunk_links`（parent/next/prev 等关系），为 Context Enriched / Hier 扩展提供在线邻接关系存储。
+- [X] **T213 [P] [US2]** 对齐 `make db-migrate` 的“按 prerequisites 执行”：解析 `backend/config/knowledge/scene_strategy_catalog.yaml`（或 IndexProfile 配置）决定是否创建 `knowledge_chunks/links`，避免在未启用 sparse/hier 的环境引入无用表。
+- [X] **T214 [P] [US2]** 增加迁移验证测试：在启用/禁用 sparse/hier 的两套配置下分别执行 `go run ./cmd/database migrate`，断言对应表存在/缺失符合预期，并确保重复执行幂等。
 
 ---
 
@@ -160,7 +181,7 @@
 
 ### 实现
 
-- [X] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现可解释检索计划：输出 `rewrite/recall/fusion/rerank/compress` 的 plan（含 Routing/Time-aware/ACL 过滤）与降级原因，并记录策略快照（对齐 `docs/plan/AI_engineering/rag.md`）。
+- [X] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现可解释检索计划：输出 `rewrite/recall/fusion/rerank/compress` 的 plan（含 Routing/Time-aware/ACL 过滤）与降级原因，并记录策略快照（对齐 `docs/plan/AI_engineering/knowledge/rag.md`）。
 - [X] **T064 [US5]** 在 `backend/internal/service/knowledge_space/context_snapshot/store.go` 构建 Redis 的记忆快照/差异存储，提供 `Snapshot/Upsert` API，并把引用映射与 trace_id 关联（用于反馈闭环）。
 - [X] **T065 [US5]** 在 `backend/internal/service/knowledge_space/toolchain/registry.go` & `executor.go` 注册工具元数据与执行器：封装 IAM/ACL 校验、重试、缓存降级；失败写入 `qa.failover.count` 并在 plan 中体现。
 - [X] **T066 [US5]** 在 `backend/internal/service/knowledge_space/compliance/hooks.go` 统一接入 `security.AccessCheck`、敏感检测、`audit.reasoning_steps`；将 `must_cite_sources`、`min_evidence_chunks` 等 guardrails 落到服务层（不可仅靠 prompt）。
@@ -169,12 +190,23 @@
 
 ### 追加：RAG 策略产品化（Profile + Playground + Corpus Check）
 
-- [X] **T101 [US5]** 定义并落库三类 Profile：`IngestionProfile`、`IndexProfile`、`RAGProfile`（可版本化/可回滚），并与 `KnowledgeSpace` 绑定默认 profile（对齐 `docs/plan/AI_engineering/rag.md:251`）。
-- [X] **T102 [US5]** 实现 `Corpus Check`（语料体检）作业：统计格式占比、OCR 占比、表格/代码占比、语言分布、重复率，并输出推荐策略卡片（规则集）与成本/风险提示（对齐 `docs/plan/AI_engineering/rag.md:301`）。
+- [X] **T101 [US5]** 定义并落库三类 Profile：`IngestionProfile`、`IndexProfile`、`RAGProfile`（可版本化/可回滚），并与 `KnowledgeSpace` 绑定默认 profile（对齐 `docs/plan/AI_engineering/knowledge/rag.md:251`）。
+- [X] **T102 [US5]** 实现 `Corpus Check`（语料体检）作业：统计格式占比、OCR 占比、表格/代码占比、语言分布、重复率，并输出推荐策略卡片（规则集）与成本/风险提示（对齐 `docs/plan/AI_engineering/knowledge/rag.md:301`）。
 - [X] **T103 [US5]** 增加 `Retrieval Playground` API：给定 `space_id + rag_profile_id + query + filters` 返回 `RetrievalPlan + candidates + context_pack + trace_id`。
 - [X] **T104 [US5]** 在 `web-admin/app/pages/knowledge-spaces/playground.vue` 新增 Playground：支持选择 profile、A/B 对比（默认 vs 草稿）、展示各阶段耗时/候选数/降级原因、候选来源（vector/bm25/kg/hier）与最终 citations。
-- [X] **T105 [US5]** 在 `web-admin/app/pages/knowledge-spaces/create.vue` 向导中增加“场景模板/默认策略”选择，并在导入样本文档后触发 Corpus Check，引导用户采用推荐组合（默认式 + 引导式）。
-- [X] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/rag.md:363`）。
+- [X] **T105 [US5]** 在 Web 管理台策略配置入口实现“场景模板/默认策略（两层选择）”：先选场景（SOP/合同/研究/台账/SQL-KG/自定义），再选该场景允许的策略包，并在导入首批样本文档后触发 Corpus Check 输出推荐卡片（对齐 `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md` 的非全量映射）。
+- [X] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/knowledge/rag.md:363`）。当前仅后端支持，前端引导与修复指引待补齐。
+
+### 追加：场景 → 策略包（两层选择）产品化（对齐 `rag_scene_strategy_mode.md`）
+
+> 目标：把 “场景（L1）→ 策略包（L2）→ 三类 Profile + Guardrails” 做成可用的产品模型，并实现“非全量映射 + 前置依赖校验 + Corpus Check 推荐”。
+> 参考：`docs/plan/AI_engineering/knowledge/rag.md`、`docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+
+- [X] **T107 [US5]** 定义 SceneCatalog（5 个预置场景 + 自定义场景）与 StrategyBundleCatalog（P0/P1/P2/P3），并落地“场景→策略模块（A1/A2…O）→策略包”的允许矩阵（非全量映射），作为 UI 与后端校验的单一事实来源（已落地：`backend/config/knowledge/scene_strategy_catalog.yaml`）。
+- [X] **T108 [US5]** Web 管理台：在 Space 的策略配置入口（可先在入库向导内）实现两层选择：先选场景，再只展示该场景允许的策略包；选择后自动绑定/切换 `IngestionProfile + IndexProfile + RAGProfile`（并展示“将启用的索引通道：dense/sparse/hier/kg”摘要）。
+- [X] **T109 [US5]** 后端：实现 StrategyBundle 前置依赖校验与错误码（例如 `kg_required`, `sparse_required`, `hier_required`, `time_fields_required`），并在 UI 显示可操作的修复指引（创建索引/跑体检/安装 OCR 插件/补齐版本字段等）；阻止“策略发布/激活”在依赖不满足时进入 active。
+- [X] **T110 [US5]** Corpus Check：在体检结果里输出“推荐场景 + 推荐策略包 + 推荐理由 + 成本/风险提示”，并保证推荐结果只落在该场景允许的策略包集合里；UI 用“推荐卡片”呈现并支持一键应用/回滚。
+- [X] **T111 [US5]** 为上述两层选择与依赖校验补齐契约测试/前端单测：覆盖“合同场景默认 P2、KG 场景默认 P3、合同不允许 P0、KG 场景缺索引时阻止发布”等关键规则。
 
 ---
 
@@ -268,9 +300,9 @@
 
 ## 阶段 12：Polish & Cross-Cutting
 
-- [ ] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致，并补齐新引入的 Profile/Playground/OCR 插件化说明。
-- [ ] **T057 [Polish]** 进行性能 / 弹性验证：批量创建/入库、多索引融合、OCR/Processor 降级、事件热修、回滚演练；并调整告警阈值与 SLO。
-- [ ] **T058 [Polish]** 按 quickstart 执行全链路冒烟（后端 + Nuxt + Playwright），并验证关键指标/告警 <5 分钟触发、`reports/_state/*` 与审计日志完整性，输出报告供 QA / 发布使用。
+- [X] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致，并补齐新引入的 Profile/Playground/OCR 插件化说明。
+- [X] **T057 [Polish]** 进行性能 / 弹性验证：批量创建/入库、多索引融合、OCR/Processor 降级、事件热修、回滚演练；并调整告警阈值与 SLO。
+- [X] **T058 [Polish]** 按 quickstart 执行全链路冒烟（后端 + Nuxt + Playwright），并验证关键指标/告警 <5 分钟触发、`reports/_state/*` 与审计日志完整性，输出报告供 QA / 发布使用。
 
 ---
 
@@ -300,3 +332,16 @@ wait
 ```
 
 确保所有任务严格遵循依赖关系，保持每个用户故事可独立测试与交付。
+
+---
+
+## 追加：多源 API 接入（Notion / 飞书）— 连接器 + 凭据 + 增量同步（租户级复用）
+
+> 说明：Notion/飞书属于“鉴权 API 数据源”，不应复用 `ingestion-jobs` 的 `sourceUri` 一次性入库合同；需要独立的连接器/凭据/同步任务模型与 UI 引导页（租户级凭据复用、空间级同步任务绑定）。
+
+- [X] **T200 [US3]** 明确数据模型与权限边界：`Credential（租户级）`、`ConnectorInstance（租户级）`、`SpaceSyncJob（空间级）` 的复用关系与审计字段。
+- [X] **T201 [US3]** Web 管理台：在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加“连接数据源”行操作，并新增 `/knowledge-spaces/:spaceId/sources` 页面展示连接与最近同步状态。
+- [X] **T202 [US3]** Web 管理台：新增 `/knowledge-spaces/:spaceId/sources/connect` 向导（4 步）：选择数据源 → 授权（OAuth/Token，租户级复用）→ 选择同步范围 → 创建定时增量同步任务（含重试/速率限制）。
+- [X] **T203 [US3]** 后端：新增连接器/同步任务 API（含合同测试）：创建/更新/禁用（pause）连接器实例、绑定凭据、创建/暂停/手动触发同步任务、查询最近一次同步摘要（last_run_at/status/error）。
+- [X] **T204 [US3]** Notion 连接器：最小可用抓取（pages/database）+ 增量游标/更新时间过滤 + 速率限制 + 重试；产物转换为标准化文档单元供入库管线处理，并写入审计。
+- [X] **T205 [US3]** 飞书 连接器：最小可用抓取（知识库/目录/文档）+ 增量游标/更新时间过滤 + 速率限制 + 重试；同上产物转换与审计。

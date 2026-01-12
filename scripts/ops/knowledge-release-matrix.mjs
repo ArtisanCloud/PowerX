@@ -215,7 +215,7 @@ async function upsertPolicy(args, matrix) {
 	if (!args.baseUrl) throw new Error('missing --base-url / POWERX_BASE_URL');
 	if (!args.token) throw new Error('missing --token / ADMIN_TOKEN');
 	if (!args.tenantUuid) throw new Error('missing --tenant-uuid / TENANT_UUID');
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/release/policies`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/release/policies`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -238,7 +238,7 @@ async function upsertPolicy(args, matrix) {
 }
 
 async function publishRelease(args, policyId, versionId) {
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/release/publish`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/release/publish`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -254,7 +254,7 @@ async function publishRelease(args, policyId, versionId) {
 }
 
 async function promoteRelease(args, policyId, versionId, batchToken, alerts) {
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/release/promote`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/release/promote`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -271,7 +271,7 @@ async function promoteRelease(args, policyId, versionId, batchToken, alerts) {
 
 async function rollbackRelease(args, policyId, versionId, reason) {
 	if (!versionId) throw new Error('missing versionId for rollback');
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/release/rollback`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/release/rollback`;
 	const resp = await fetch(url, {
 		method: 'POST',
 		headers: {
@@ -287,7 +287,7 @@ async function rollbackRelease(args, policyId, versionId, reason) {
 
 async function fetchStatus(args, policyId, versionId) {
 	const params = new URLSearchParams({policyId, versionId});
-	const url = `${args.baseUrl.replace(/\\/$/, '')}/api/knowledge/release/status?${params.toString()}`;
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/release/status?${params.toString()}`;
 	const resp = await fetch(url, {
 		method: 'GET',
 		headers: {
@@ -298,6 +298,16 @@ async function fetchStatus(args, policyId, versionId) {
 	if (!resp.ok) throw new Error(`status failed: ${resp.status} ${await resp.text()}`);
 	const data = await resp.json();
 	return data?.data?.status || null;
+}
+
+function normalizeApiBase(raw) {
+	const trimmed = String(raw || '').trim().replace(/\/$/, '');
+	if (!trimmed) return 'http://127.0.0.1:8077/api/v1';
+	if (trimmed.endsWith('/api/v1')) return trimmed;
+	if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
+	if (trimmed.includes('/api/v1/')) return trimmed.replace(/\/$/, '');
+	if (trimmed.includes('/api/')) return trimmed.replace(/\/$/, '');
+	return `${trimmed}/api/v1`;
 }
 
 async function printLocalReports(releaseReportPath, aggregateReportPath) {

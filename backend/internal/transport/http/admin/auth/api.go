@@ -28,5 +28,9 @@ func RegisterAPIRoutes(
 	gMeContext := protectedGroup.Group("/admin/auth")
 	{
 		gMeContext.GET("/me/context", hMeContext.GetMeContext)
+		hMeExtra := NewMeExtraHandler(deps)
+		gMeContext.POST("/me/switch-tenant", hMeExtra.SwitchTenant)
+		gMeContext.GET("/me/tenants", hMeExtra.ListTenants)
+		gMeContext.GET("/me/departments", hMeExtra.ListDepartments)
 	}
 }

@@ -4,6 +4,7 @@
   "register": "登録",
   "common": {
     "language": "言語",
+    "back": "戻る",
     "reload": "再読み込み",
     "scrollToBottom": "一番下へ",
     "newMessages": "新着 {count} 件"
@@ -136,13 +137,58 @@
     "ingestion": {
       "title": "取り込みオーケストレーター",
       "subtitle": "ドキュメントや API を投入すると自動でチャンクと埋め込みを生成します。",
+      "selectedSpace": "現在のスペース：{name}（{dept}）",
+      "wizard": {
+        "step": "ステップ {n}/3",
+        "stepBadge": "第 {n} ステップ",
+        "prev": "戻る",
+        "next": "次へ"
+      },
+      "strategyTemplate": "戦略テンプレート（シナリオ）",
+      "strategyPreview": "適用する戦略（詳細設定で上書き可能）",
+      "templates": {
+        "general": { "title": "汎用", "desc": "多くのドキュメントに適したデフォルト" },
+        "hr": { "title": "HR / 規程 / コンプラ", "desc": "コンプライアンス寄りのデフォルト" },
+        "it": { "title": "IT / 技術ドキュメント", "desc": "技術文書・コード・表に適した設定" },
+        "support": { "title": "サポート FAQ / 運用", "desc": "QA 粒度と命中率を重視" }
+      },
+      "advanced": {
+        "show": "詳細設定",
+        "hide": "詳細設定を閉じる"
+      },
+      "confirm": {
+        "title": "取り込み確認",
+        "space": "スペース",
+        "source": "ソース",
+        "template": "テンプレート"
+      },
       "recentSpace": "最近のスペース",
       "recentSpaceHint": "ウィザードから同期された最新スペースです。",
       "spaceId": "スペース ID",
+      "selectSpace": "スペースを選択",
       "sourceType": "ソース種別",
-      "mode": "取り込みモード",
-      "modeDocument": "ドキュメントアップロード",
-      "modeApi": "API / URL",
+      "mode": {
+        "label": "取り込みモード",
+        "options": {
+          "document": "ドキュメントアップロード",
+          "api": "API / URL"
+        }
+      },
+      "modal": {
+        "title": "取り込みジョブ",
+        "desc": "スペースとソースを選択して取り込みジョブを実行します"
+      },
+      "hints": {
+        "noSpace": "利用可能なスペースがありません。先にナレッジスペースを作成してください。",
+        "urlPublic": "URL はバックエンドが直接取得できる必要があります（公開 URL または署名付き URL）。認証が必要な API はコネクタ/同期ジョブ/資格情報管理をご利用ください。"
+      },
+      "sourceMethod": {
+        "label": "取り込み元",
+        "options": {
+          "upload": "ローカルアップロード",
+          "url": "リモート URL"
+        }
+      },
       "uploadFile": "ファイルをアップロード",
       "uploadHint": "ファイルはオブジェクトストレージに保存後、チャンクパイプラインに入ります。",
       "selectedFile": "選択済み: {name}",
@@ -161,11 +207,17 @@
       },
       "errors": {
         "missingSpaceId": "スペース ID を入力してください",
-        "missingSource": "ソース情報を入力してください",
+        "missingSource": "ファイルをアップロードするか URL を入力してください",
         "runFailed": "取り込みの実行に失敗しました"
       },
       "actions": {
+        "open": "取り込みを開く",
         "ingestNow": "取り込みを実行"
+      },
+      "toast": {
+        "successTitle": "取り込みを送信しました",
+        "successDesc": "取り込みジョブを開始しました。進捗はジョブ一覧/タイムラインで確認できます。",
+        "errorTitle": "取り込みに失敗しました"
       },
       "result": {
         "latestTitle": "最新タスク",
@@ -174,6 +226,109 @@
       },
       "history": "最近のタスク",
       "historyEntry": "{job} · {status} · {time}"
+    },
+    "spaces": {
+      "title": "スペース一覧",
+      "subtitle": "各スペース行から取り込み/Playground を実行できます。",
+      "search": "スペースを検索…",
+      "empty": "一致するスペースがありません",
+      "filters": {
+        "allDepartments": "全部門",
+        "allStatus": "全ステータス"
+      },
+      "table": {
+        "name": "スペース",
+        "status": "ステータス",
+        "actions": "操作"
+      },
+      "pagination": {
+        "summary": "{start}-{end} / 全 {total} 件",
+        "pageSize": "表示件数",
+        "prev": "前へ",
+        "next": "次へ"
+      },
+      "actions": {
+        "create": "スペース作成",
+        "select": "選択",
+        "selected": "選択中",
+        "ingest": "取り込み",
+        "sources": "データソース接続"
+      },
+      "status": {
+        "active": "利用可",
+        "pendingIam": "IAM 待ち",
+        "retired": "アーカイブ済み",
+        "unknown": "不明"
+      }
+    },
+    "systemPanels": {
+      "show": "システムパネルを表示",
+      "hide": "システムパネルを非表示"
+    },
+    "sources": {
+      "head": {
+        "title": "データソース",
+        "description": "外部ソースを接続し同期ジョブを作成"
+      },
+      "badge": "データソース",
+      "title": "データソース接続",
+      "subtitle": "Notion/飛書など認証が必要なシステムは、コネクタ＋増分同期ジョブで継続的に更新します。",
+      "spaceHint": "現在のスペース：{id}",
+      "list": {
+        "title": "接続済みデータソース",
+        "desc": "コネクタのインスタンス、同期範囲、直近の同期ステータスをここに表示します。"
+      },
+      "actions": {
+        "connect": "接続を追加"
+      },
+      "stub": {
+        "title": "準備中",
+        "desc": "次：Notion/飛書コネクタ（テナント単位の資格情報再利用＋スペース単位の増分スケジュール）。"
+      },
+      "providers": {
+        "notion": "Notion",
+        "feishu": "飛書"
+      },
+      "connect": {
+        "head": { "title": "データソース接続を追加" },
+        "title": "接続を追加",
+        "subtitle": "ウィザード：ソース選択 → 認可（テナント単位）→ 範囲選択 → 増分同期ジョブ作成。",
+        "provider": "ソース種別",
+        "providerHint": "Notion/飛書は認証 API ソースです。コネクタ＋同期ジョブで取り込みます。",
+        "wizard": {
+          "step": "ステップ {n}/4",
+          "stepBadge": "ステップ {n}",
+          "prev": "戻る",
+          "next": "次へ",
+          "finish": "完了"
+        },
+        "auth": {
+          "title": "認可（テナント単位）",
+          "desc": "OAuth/Token 管理はここに統合されます。同一テナント内で複数スペースに再利用できます。"
+        },
+        "scope": {
+          "title": "同期範囲を選択",
+          "desc": "Notion：pages/database；飛書：ナレッジベース/フォルダ/ドキュメント。フィルタ/フィールドマッピングは後続対応。"
+        },
+        "job": {
+          "title": "増分同期ジョブを作成",
+          "desc": "推奨デフォルト：定期増分同期 + リトライ + 監査/バージョンガバナンス（後続で Corpus Check 推奨に接続）。"
+        }
+      }
+    },
+    "timelinePlaceholders": {
+      "ingestion": {
+        "title": "取り込み履歴なし",
+        "description": "取り込みを開始すると、ジョブと要約がここに表示されます。"
+      },
+      "fusion": {
+        "title": "融合未設定",
+        "description": "融合戦略を設定すると、状態と衝突がここに表示されます。"
+      },
+      "feedback": {
+        "title": "フィードバックなし",
+        "description": "フィードバックの進捗や再処理/ロールバック履歴がここに表示されます。"
+      }
     },
     "placeholders": {
       "spaces": {
@@ -322,6 +477,7 @@
     "department": {
       "title": "部門管理",
       "description": "会社の部門構造を管理",
+      "modalDesc": "部門情報を追加または編集します",
       "add": "部門追加",
       "edit": "部門編集",
       "delete": "部門削除",

@@ -183,14 +183,15 @@ func GetDefaults() *Config {
 			},
 		},
 		KnowledgeSpace: KnowledgeSpaceConfig{
-			RedisAddr:              "",
-			RedisPassword:          "",
-			RedisDB:                0,
-			LockKeyPrefix:          "knowledge_space:lock",
-			MetricsKeyPrefix:       "knowledge_space:metrics",
-			DefaultRetentionMonths: 13,
-			ProvisioningSLASeconds: 120,
-			IngestionSLASeconds:    4 * 3600,
+			RedisAddr:                "",
+			RedisPassword:            "",
+			RedisDB:                  0,
+			LockKeyPrefix:            "knowledge_space:lock",
+			MetricsKeyPrefix:         "knowledge_space:metrics",
+			DefaultRetentionMonths:   13,
+			ProvisioningSLASeconds:   120,
+			IngestionSLASeconds:      4 * 3600,
+			SceneStrategyCatalogPath: "backend/config/knowledge/scene_strategy_catalog.yaml",
 			EventTopics: KnowledgeSpaceEventTopics{
 				Provisioning: "knowledge.space.provisioning",
 				Ingestion:    "knowledge.space.ingestion",
@@ -214,6 +215,13 @@ func GetDefaults() *Config {
 					Lists:            100,
 					TimeoutSeconds:   30,
 				},
+			},
+			// B 方案默认：使用 Postgres-backed 的 sparse/hier/structured/kg（外部实现可覆盖为 external）。
+			IndexBackends: KnowledgeSpaceIndexBackendConfig{
+				Sparse:           "postgres_fts",
+				Hier:             "postgres_links",
+				StructuredFields: "postgres_jsonb",
+				KG:               "postgres",
 			},
 			Delta: KnowledgeSpaceDeltaConfig{
 				SourcesConfig:        "backend/config/knowledge/delta_sources.yaml",

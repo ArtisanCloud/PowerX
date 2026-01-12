@@ -34,6 +34,9 @@ type createSpaceRequest struct {
 type updateSpaceRequest struct {
 	Quotas                  *quotaPayload `json:"quotas"`
 	PolicyTemplateVersionID string        `json:"policyTemplateVersionId"`
+	IngestionProfileKey     string        `json:"ingestionProfileKey"`
+	IndexProfileKey         string        `json:"indexProfileKey"`
+	RAGProfileKey           string        `json:"ragProfileKey"`
 	FeatureFlags            []string      `json:"featureFlags"`
 	Status                  string        `json:"status"`
 	UpdatedBy               string        `json:"updatedBy"`
@@ -45,20 +48,20 @@ type retireSpaceRequest struct {
 }
 
 type knowledgeSpaceResponse struct {
-	SpaceID            string       `json:"spaceId"`
-	TenantUUID         string       `json:"tenant_uuid"`
-	SpaceName          string       `json:"spaceName"`
-	DepartmentCode     string       `json:"departmentCode"`
-	Status             string       `json:"status"`
-	PolicyTemplateID   string       `json:"policyTemplateVersionId"`
-	IngestionProfileKey string      `json:"ingestionProfileKey"`
-	IndexProfileKey     string      `json:"indexProfileKey"`
-	RAGProfileKey       string      `json:"ragProfileKey"`
-	FeatureFlags       []string     `json:"featureFlags"`
-	AuditToken         string       `json:"auditToken"`
-	RetentionExpiresAt *time.Time   `json:"retentionExpiresAt,omitempty"`
-	Quotas             quotaPayload `json:"quotas"`
-	IAMStatus          string       `json:"iamStatus"`
+	SpaceID             string       `json:"spaceId"`
+	TenantUUID          string       `json:"tenant_uuid"`
+	SpaceName           string       `json:"spaceName"`
+	DepartmentCode      string       `json:"departmentCode"`
+	Status              string       `json:"status"`
+	PolicyTemplateID    string       `json:"policyTemplateVersionId"`
+	IngestionProfileKey string       `json:"ingestionProfileKey"`
+	IndexProfileKey     string       `json:"indexProfileKey"`
+	RAGProfileKey       string       `json:"ragProfileKey"`
+	FeatureFlags        []string     `json:"featureFlags"`
+	AuditToken          string       `json:"auditToken"`
+	RetentionExpiresAt  *time.Time   `json:"retentionExpiresAt,omitempty"`
+	Quotas              quotaPayload `json:"quotas"`
+	IAMStatus           string       `json:"iamStatus"`
 }
 
 func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
@@ -67,18 +70,18 @@ func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
 	}
 	flags := ksvc.FeatureFlagsFromJSON(space.FeatureFlags)
 	return knowledgeSpaceResponse{
-		SpaceID:            space.UUID.String(),
-		TenantUUID:         space.TenantUUID,
-		SpaceName:          space.SpaceName,
-		DepartmentCode:     space.DepartmentCode,
-		Status:             space.Status,
-		PolicyTemplateID:   ksvc.PolicyIDString(space.PolicyTemplateVersionID),
+		SpaceID:             space.UUID.String(),
+		TenantUUID:          space.TenantUUID,
+		SpaceName:           space.SpaceName,
+		DepartmentCode:      space.DepartmentCode,
+		Status:              space.Status,
+		PolicyTemplateID:    ksvc.PolicyIDString(space.PolicyTemplateVersionID),
 		IngestionProfileKey: strings.TrimSpace(space.IngestionProfileKey),
 		IndexProfileKey:     strings.TrimSpace(space.IndexProfileKey),
 		RAGProfileKey:       strings.TrimSpace(space.RAGProfileKey),
-		FeatureFlags:       flags,
-		AuditToken:         space.AuditToken,
-		RetentionExpiresAt: space.RetentionExpiresAt,
+		FeatureFlags:        flags,
+		AuditToken:          space.AuditToken,
+		RetentionExpiresAt:  space.RetentionExpiresAt,
 		Quotas: quotaPayload{
 			CPUCores:             space.QuotaCPU,
 			StorageGB:            space.QuotaStorageGB,
@@ -110,6 +113,22 @@ type ingestionJobRequest struct {
 	MaskingProfile   string `json:"maskingProfile"`
 	Priority         string `json:"priority" binding:"omitempty,oneof=normal high"`
 	RequestedBy      string `json:"requestedBy"`
+	// L1/L2/L3 selection snapshot (for audit / mapping / future profiles).
+	RagSceneKey  string `json:"ragSceneKey"`
+	RagBundleKey string `json:"ragBundleKey"`
+	RagPrimary   string `json:"ragPrimary"`
+	// Chunking controls (optional). When set, they are applied on top of processor output.
+	SegmentMode  string `json:"segmentMode" binding:"omitempty,oneof=unit heading clause semantic table_row code_block conversation"`
+	ChunkSize    int `json:"chunkSize" binding:"omitempty,min=0,max=20000"`
+	ChunkOverlap int `json:"chunkOverlap" binding:"omitempty,min=0,max=5000"`
+	// Separators are preferred boundaries applied before windowing; supports punctuation and newline tokens.
+	Separators []string `json:"separators" binding:"omitempty,dive,max=16"`
+	// Anchors: included in chunk metadata (best-effort).
+	AnchorHeadingPath  bool `json:"anchorHeadingPath"`
+	AnchorClauseID     bool `json:"anchorClauseId"`
+	AnchorRowNumber    bool `json:"anchorRowNumber"`
+	AnchorSpeaker      bool `json:"anchorSpeaker"`
+	AnchorSentenceIndex bool `json:"anchorSentenceIndex"`
 }
 
 type ingestionJobView struct {

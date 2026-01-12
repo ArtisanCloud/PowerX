@@ -1,5 +1,6 @@
+import { useApiClient } from "~/composables/api";
+
 export interface KnowledgeSpacePayload {
-  tenantUuid: string;
   spaceName: string;
   departmentCode: string;
   policyTemplateVersionId: string;
@@ -16,9 +17,20 @@ export interface KnowledgeSpacePayload {
   iamEmail?: string;
 }
 
+export interface KnowledgeSpaceUpdatePayload {
+  policyTemplateVersionId?: string;
+  ingestionProfileKey?: string;
+  indexProfileKey?: string;
+  ragProfileKey?: string;
+  featureFlags?: string[];
+  status?: string;
+  quotas?: { cpuCores: number; storageGb: number; ingestionConcurrency: number };
+  updatedBy?: string;
+}
+
 export interface KnowledgeSpaceRecord {
   spaceId: string;
-  tenantUuid?: string;
+  tenant_uuid: string;
   spaceName: string;
   departmentCode: string;
   status: string;
@@ -26,8 +38,11 @@ export interface KnowledgeSpaceRecord {
   ingestionProfileKey?: string;
   indexProfileKey?: string;
   ragProfileKey?: string;
+  featureFlags?: string[];
   auditToken: string;
   quotas: KnowledgeSpacePayload["quotas"];
+  iamStatus?: string;
+  retentionExpiresAt?: string | null;
 }
 
 export interface ProfileVersionRecord {
@@ -59,6 +74,16 @@ export interface CorpusCheckJobRecord {
   completed_at?: string;
 }
 
+export interface StrategyValidationResult {
+  ok: boolean;
+  sceneKey: string;
+  bundleKey: string;
+  enabledChannels: string[];
+  missing: Array<{ code: string; key: string; message: string; remediation: string[] }>;
+  capabilities: Record<string, boolean>;
+  checkedAt: string;
+}
+
 export interface RetrievalCandidateRecord {
   chunkId: string;
   score: number;
@@ -84,6 +109,19 @@ export interface IngestionJobPayload {
   ocrRequired?: boolean;
   maskingProfile?: string;
   priority?: "normal" | "high";
+  // L1/L2/L3：用于审计与默认值映射（后端可存入 metrics_snapshot/config_snapshot）
+  ragSceneKey?: string;
+  ragBundleKey?: string;
+  ragPrimary?: string;
+  segmentMode?: "unit" | "heading" | "clause" | "semantic" | "table_row" | "code_block" | "conversation";
+  chunkSize?: number;
+  chunkOverlap?: number;
+  // Anchors: 写入 chunk metadata，用于引用定位/层次索引/KG provenance
+  anchorHeadingPath?: boolean;
+  anchorClauseId?: boolean;
+  anchorRowNumber?: boolean;
+  anchorSpeaker?: boolean;
+  anchorSentenceIndex?: boolean;
 }
 
 export interface IngestionJobRecord {
@@ -238,47 +276,101 @@ interface StatusSnapshot {
 }
 
 export const useKnowledgeSpaces = () => {
-  const config = useRuntimeConfig();
-  const baseURL = config.public?.apiBase || "/api";
+  const apiClient = useApiClient();
 
-  const adminPath = (path: string) => `${baseURL}/admin/knowledge-spaces${path}`;
-  const profilePath = (path: string) => `${baseURL}/admin/knowledge/profiles${path}`;
-  const releasePath = (path: string) => `${baseURL}/knowledge/release${path}`;
+  const adminBase = "/admin/knowledge-spaces";
+  const profileBase = "/admin/knowledge/profiles";
+  const releaseBase = "/knowledge/release";
 
   const createSpace = async (
     payload: KnowledgeSpacePayload,
   ): Promise<KnowledgeSpaceRecord> => {
-    const response = await $fetch<ApiResponse<KnowledgeSpaceRecord>>(
-      adminPath(""),
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<KnowledgeSpaceRecord>>(
+      adminBase,
+      payload,
     );
     return response.data;
   };
 
-  const listRagProfiles = async (
+  const listSpaces = async (opts?: { limit?: number; status?: string }): Promise<KnowledgeSpaceRecord[]> => {
+    const params = new URLSearchParams();
+    if (opts?.limit) params.set("limit", String(opts.limit));
+    if (opts?.status) params.set("status", String(opts.status));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiClient.get<ApiResponse<KnowledgeSpaceRecord[]>>(
+      `${adminBase}${suffix}`,
+      { useGlobalLoading: false } as any,
+    );
+    return response.data ?? [];
+  };
+
+    const updateSpace = async (
+    spaceId: string,
+    payload: KnowledgeSpaceUpdatePayload,
+  ): Promise<KnowledgeSpaceRecord> => {
+    const response = await apiClient.patch<ApiResponse<KnowledgeSpaceRecord>>(
+      `${adminBase}/${spaceId}`,
+      payload,
+    );
+    return response.data;
+  };
+
+const listRagProfiles = async (
     profileKey = "default",
     status = "",
   ): Promise<ProfileVersionRecord[]> => {
     const params = new URLSearchParams();
     params.set("profile_key", profileKey);
     if (status) params.set("status", status);
-    const response = await $fetch<ApiResponse<ProfileVersionRecord[]>>(
-      `${profilePath(`/rag/versions`)}?${params.toString()}`,
-      { method: "GET" },
+    const response = await apiClient.get<ApiResponse<ProfileVersionRecord[]>>(
+      `${profileBase}/rag/versions?${params.toString()}`,
     );
     return response.data ?? [];
   };
+
+  const listIndexProfiles = async (
+    profileKey = "default",
+    status = "",
+  ): Promise<ProfileVersionRecord[]> => {
+    const params = new URLSearchParams();
+    params.set("profile_key", profileKey);
+    if (status) params.set("status", status);
+    const response = await apiClient.get<ApiResponse<ProfileVersionRecord[]>>(
+      `${profileBase}/index/versions?${params.toString()}`,
+    );
+    return response.data ?? [];
+  };
+
+  const listIngestionProfiles = async (
+    profileKey = "default",
+    status = "",
+  ): Promise<ProfileVersionRecord[]> => {
+    const params = new URLSearchParams();
+    params.set("profile_key", profileKey);
+    if (status) params.set("status", status);
+    const response = await apiClient.get<ApiResponse<ProfileVersionRecord[]>>(
+      `${profileBase}/ingestion/versions?${params.toString()}`,
+    );
+    return response.data ?? [];
+  };
+
+
+  const validateStrategy = async (payload: { sceneKey: string; bundleKey: string }): Promise<StrategyValidationResult> => {
+    const response = await apiClient.post<ApiResponse<StrategyValidationResult>>(
+      `${adminBase}/strategy/validate`,
+      payload,
+    );
+    return response.data;
+  };
+
 
   const startCorpusCheck = async (
     spaceId: string,
     requestedBy?: string,
   ): Promise<CorpusCheckJobRecord> => {
-    const response = await $fetch<ApiResponse<CorpusCheckJobRecord>>(
-      `${adminPath(`/${spaceId}/corpus-check/jobs`)}`,
-      { method: "POST", body: { requestedBy } },
+    const response = await apiClient.post<ApiResponse<CorpusCheckJobRecord>>(
+      `${adminBase}/${spaceId}/corpus-check/jobs`,
+      { requestedBy },
     );
     return response.data;
   };
@@ -287,9 +379,8 @@ export const useKnowledgeSpaces = () => {
     spaceId: string,
     jobId: string,
   ): Promise<CorpusCheckJobRecord> => {
-    const response = await $fetch<ApiResponse<CorpusCheckJobRecord>>(
-      `${adminPath(`/${spaceId}/corpus-check/jobs/${jobId}`)}`,
-      { method: "GET" },
+    const response = await apiClient.get<ApiResponse<CorpusCheckJobRecord>>(
+      `${adminBase}/${spaceId}/corpus-check/jobs/${jobId}`,
     );
     return response.data;
   };
@@ -304,9 +395,9 @@ export const useKnowledgeSpaces = () => {
       filters?: Record<string, string>;
     },
   ): Promise<RetrievalPlaygroundRecord> => {
-    const response = await $fetch<ApiResponse<RetrievalPlaygroundRecord>>(
-      `${adminPath(`/${spaceId}/playground/retrieval`)}`,
-      { method: "POST", body: payload },
+    const response = await apiClient.post<ApiResponse<RetrievalPlaygroundRecord>>(
+      `${adminBase}/${spaceId}/playground/retrieval`,
+      payload,
     );
     return response.data;
   };
@@ -318,14 +409,31 @@ export const useKnowledgeSpaces = () => {
     if (!spaceId) {
       throw new Error("spaceId is required");
     }
-    const response = await $fetch<ApiResponse<IngestionJobRecord>>(
-      `${adminPath(`/${spaceId}/ingestion-jobs`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<IngestionJobRecord>>(
+      `${adminBase}/${spaceId}/ingestion-jobs`,
+      payload,
     );
     return response.data;
+  };
+
+  const getIngestionJob = async (
+    spaceId: string,
+    jobId: string,
+  ): Promise<IngestionJobRecord> => {
+    const response = await apiClient.get<ApiResponse<IngestionJobRecord>>(
+      `${adminBase}/${spaceId}/ingestion-jobs/${jobId}`,
+    );
+    return response.data;
+  };
+
+  const listIngestionJobs = async (
+    spaceId: string,
+    limit = 20,
+  ): Promise<IngestionJobRecord[]> => {
+    const response = await apiClient.get<ApiResponse<IngestionJobRecord[]>>(
+      `${adminBase}/${spaceId}/ingestion-jobs?limit=${encodeURIComponent(String(limit))}`,
+    );
+    return response.data ?? [];
   };
 
   const listFusionStrategies = async (
@@ -334,11 +442,8 @@ export const useKnowledgeSpaces = () => {
     if (!spaceId) {
       return [];
     }
-    const response = await $fetch<ApiResponse<FusionStrategyRecord[]>>(
-      `${adminPath(`/${spaceId}/fusion-strategies`)}`,
-      {
-        method: "GET",
-      },
+    const response = await apiClient.get<ApiResponse<FusionStrategyRecord[]>>(
+      `${adminBase}/${spaceId}/fusion-strategies`,
     );
     return response.data ?? [];
   };
@@ -347,12 +452,9 @@ export const useKnowledgeSpaces = () => {
     spaceId: string,
     payload: FusionStrategyPayload,
   ): Promise<FusionStrategyRecord> => {
-    const response = await $fetch<ApiResponse<FusionStrategyRecord>>(
-      `${adminPath(`/${spaceId}/fusion-strategies`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FusionStrategyRecord>>(
+      `${adminBase}/${spaceId}/fusion-strategies`,
+      payload,
     );
     return response.data;
   };
@@ -361,11 +463,8 @@ export const useKnowledgeSpaces = () => {
     spaceId: string,
     strategyId: string,
   ): Promise<FusionStrategyRecord> => {
-    const response = await $fetch<ApiResponse<FusionStrategyRecord>>(
-      `${adminPath(`/${spaceId}/fusion-strategies/${strategyId}/rollback`)}`,
-      {
-        method: "POST",
-      },
+    const response = await apiClient.post<ApiResponse<FusionStrategyRecord>>(
+      `${adminBase}/${spaceId}/fusion-strategies/${strategyId}/rollback`,
     );
     return response.data;
   };
@@ -376,11 +475,8 @@ export const useKnowledgeSpaces = () => {
     if (!spaceId) {
       return [];
     }
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord[]>>(
-      `${adminPath(`/${spaceId}/feedback`)}`,
-      {
-        method: "GET",
-      },
+    const response = await apiClient.get<ApiResponse<FeedbackCaseRecord[]>>(
+      `${adminBase}/${spaceId}/feedback`,
     );
     return response.data ?? [];
   };
@@ -389,12 +485,9 @@ export const useKnowledgeSpaces = () => {
     spaceId: string,
     payload: FeedbackCasePayload,
   ): Promise<FeedbackCaseRecord> => {
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
-      `${adminPath(`/${spaceId}/feedback`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FeedbackCaseRecord>>(
+      `${adminBase}/${spaceId}/feedback`,
+      payload,
     );
     return response.data;
   };
@@ -404,12 +497,9 @@ export const useKnowledgeSpaces = () => {
     caseId: string,
     payload: FeedbackCaseActionPayload,
   ): Promise<FeedbackCaseRecord> => {
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
-      `${adminPath(`/${spaceId}/feedback/${caseId}/close`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FeedbackCaseRecord>>(
+      `${adminBase}/${spaceId}/feedback/${caseId}/close`,
+      payload,
     );
     return response.data;
   };
@@ -419,12 +509,9 @@ export const useKnowledgeSpaces = () => {
     caseId: string,
     payload: FeedbackCaseActionPayload,
   ): Promise<FeedbackCaseRecord> => {
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
-      `${adminPath(`/${spaceId}/feedback/${caseId}/escalate`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FeedbackCaseRecord>>(
+      `${adminBase}/${spaceId}/feedback/${caseId}/escalate`,
+      payload,
     );
     return response.data;
   };
@@ -434,12 +521,9 @@ export const useKnowledgeSpaces = () => {
     caseId: string,
     payload: FeedbackCaseActionPayload,
   ): Promise<FeedbackCaseRecord> => {
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
-      `${adminPath(`/${spaceId}/feedback/${caseId}/reprocess`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FeedbackCaseRecord>>(
+      `${adminBase}/${spaceId}/feedback/${caseId}/reprocess`,
+      payload,
     );
     return response.data;
   };
@@ -449,12 +533,9 @@ export const useKnowledgeSpaces = () => {
     caseId: string,
     payload: FeedbackCaseActionPayload,
   ): Promise<FeedbackCaseRecord> => {
-    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
-      `${adminPath(`/${spaceId}/feedback/${caseId}/rollback`)}`,
-      {
-        method: "POST",
-        body: payload,
-      },
+    const response = await apiClient.post<ApiResponse<FeedbackCaseRecord>>(
+      `${adminBase}/${spaceId}/feedback/${caseId}/rollback`,
+      payload,
     );
     return response.data;
   };
@@ -474,26 +555,23 @@ export const useKnowledgeSpaces = () => {
       params.set("limit", String(query.limit));
     }
     const suffix = params.toString() ? `?${params.toString()}` : "";
-    const response = await $fetch<ApiResponse<FeedbackExportPayload>>(
-      `${adminPath(`/${spaceId}/feedback/export`)}${suffix}`,
-      {
-        method: "GET",
-      },
+    const response = await apiClient.get<ApiResponse<FeedbackExportPayload>>(
+      `${adminBase}/${spaceId}/feedback/export${suffix}`,
     );
     return response.data;
   };
 
   const fetchStatus = async (): Promise<StatusSnapshot> => {
-    return await $fetch<StatusSnapshot>(
-      `${baseURL}/openapi/knowledge-spaces/status`,
+    return await apiClient.get<StatusSnapshot>(
+      "/openapi/knowledge-spaces/status",
+      { skipAuth: true, useGlobalLoading: false } as any,
     );
   };
 
   const listReleasePolicies = async (limit = 20): Promise<ReleasePolicyRecord[]> => {
     const params = new URLSearchParams({ limit: String(limit) });
-    const response = await $fetch<ApiResponse<{ policies: ReleasePolicyRecord[] }>>(
-      `${releasePath(`/policies`)}?${params.toString()}`,
-      { method: "GET" },
+    const response = await apiClient.get<ApiResponse<{ policies: ReleasePolicyRecord[] }>>(
+      `${releaseBase}/policies?${params.toString()}`,
     );
     return response.data?.policies ?? [];
   };
@@ -501,9 +579,9 @@ export const useKnowledgeSpaces = () => {
   const upsertReleasePolicy = async (
     payload: ReleasePolicyPayload,
   ): Promise<{ policyId: number; status: string }> => {
-    const response = await $fetch<ApiResponse<{ policyId: number; status: string }>>(
-      releasePath(`/policies`),
-      { method: "POST", body: payload },
+    const response = await apiClient.post<ApiResponse<{ policyId: number; status: string }>>(
+      `${releaseBase}/policies`,
+      payload,
     );
     return response.data;
   };
@@ -513,9 +591,9 @@ export const useKnowledgeSpaces = () => {
     versionId: string;
     requestedBy?: string;
   }): Promise<ReleasePublishResponse> => {
-    const response = await $fetch<ApiResponse<ReleasePublishResponse>>(
-      releasePath(`/publish`),
-      { method: "POST", body: payload },
+    const response = await apiClient.post<ApiResponse<ReleasePublishResponse>>(
+      `${releaseBase}/publish`,
+      payload,
     );
     return response.data;
   };
@@ -527,9 +605,9 @@ export const useKnowledgeSpaces = () => {
     alerts?: string[];
     requestedBy?: string;
   }): Promise<ReleasePromoteResponse> => {
-    const response = await $fetch<ApiResponse<ReleasePromoteResponse>>(
-      releasePath(`/promote`),
-      { method: "POST", body: payload },
+    const response = await apiClient.post<ApiResponse<ReleasePromoteResponse>>(
+      `${releaseBase}/promote`,
+      payload,
     );
     return response.data;
   };
@@ -540,9 +618,9 @@ export const useKnowledgeSpaces = () => {
     reason?: string;
     requestedBy?: string;
   }): Promise<ReleaseRollbackResponse> => {
-    const response = await $fetch<ApiResponse<ReleaseRollbackResponse>>(
-      releasePath(`/rollback`),
-      { method: "POST", body: payload },
+    const response = await apiClient.post<ApiResponse<ReleaseRollbackResponse>>(
+      `${releaseBase}/rollback`,
+      payload,
     );
     return response.data;
   };
@@ -555,21 +633,27 @@ export const useKnowledgeSpaces = () => {
     if (versionId) {
       params.set("versionId", versionId);
     }
-    const response = await $fetch<ApiResponse<{ status: ReleaseStatusView | null }>>(
-      `${releasePath(`/status`)}?${params.toString()}`,
-      { method: "GET" },
+    const response = await apiClient.get<ApiResponse<{ status: ReleaseStatusView | null }>>(
+      `${releaseBase}/status?${params.toString()}`,
     );
     return response.data?.status ?? null;
   };
 
   return {
     createSpace,
+    updateSpace,
+    listSpaces,
     fetchStatus,
     listRagProfiles,
+    listIndexProfiles,
+    validateStrategy,
+    listIngestionProfiles,
     startCorpusCheck,
     getCorpusCheckJob,
     retrievalPlayground,
     triggerIngestion,
+    getIngestionJob,
+    listIngestionJobs,
     listFusionStrategies,
     publishFusionStrategy,
     rollbackFusionStrategy,

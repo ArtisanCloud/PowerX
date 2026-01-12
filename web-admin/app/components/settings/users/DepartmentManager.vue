@@ -17,6 +17,7 @@ import {
   type DepartmentUpdateParams,
 } from "~/composables/api/services/departmentService";
 import { useDepartmentStore } from "~/stores/department";
+import { useUserStore } from "~/stores/user";
 import { useMemberService } from "~/composables/api/services/memberService";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
 import * as v from "valibot";
@@ -39,6 +40,10 @@ const UButton = resolveComponent("UButton");
 
 /** ================== 状态 ================== */
 const deptService = useDepartmentService();
+const userStore = useUserStore();
+const tenantRecovering = ref(false);
+const tenantRecoveryAttempted = ref(false);
+const formSubmitting = ref(false);
 
 const activeNodeId = ref<number | null>(null); // UTree 当前选中部门 id
 const activeNode = computed(
@@ -53,7 +58,7 @@ const loadMembers = async () => {
   members.value = list.map((m: any) => ({ label: m.name, value: m.id }));
 };
 onMounted(() => {
-  fetchTree();
+  ensureTenantAndTree().catch(() => {});
   loadMembers().catch(() => {});
 });
 
@@ -117,6 +122,7 @@ const resetForm = () => {
 
 const openAddForm = () => {
   resetForm();
+  clearErrors();
   showForm.value = true;
 };
 
@@ -135,7 +141,17 @@ const openEditForm = (dept: Department & any) => {
   isEditing.value = true;
   editingId.value = full.id;
   originalEditing.value = JSON.parse(JSON.stringify(full));
+  clearErrors();
   showForm.value = true;
+};
+
+const closeFormModal = () => {
+  if (process.client) {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+  }
+  showForm.value = false;
+  resetForm();
+  clearErrors();
 };
 
 /** ================== 数据获取 & 工具 ================== */
@@ -154,9 +170,9 @@ const flat = computed(() => storeFlat.value);
 const isLoadingTree = computed(() => status.value === "loading");
 const loadError = computed(() => error.value);
 
-const fetchTree = async () => {
+const fetchTree = async ({ force = false }: { force?: boolean } = {}) => {
   try {
-    await deptStore.fetchTree();
+    await deptStore.fetchTree({ force });
 
     // 默认选择第一个根节点
     if (!activeNodeId.value) {
@@ -208,7 +224,48 @@ watch(selectedValue, (vals) => {
   pagination.page = 1;
 });
 
-onMounted(fetchTree);
+const pickPreferredTenant = () => {
+  const members = userStore.memberTenants || [];
+  if (!members.length) return null;
+  const byName = members.find((m) => /sme|system/i.test(m.tenant_name || ""));
+  return byName?.tenant_uuid || members[0]?.tenant_uuid || null;
+};
+
+const ensureTenantAndTree = async () => {
+  // db-refresh 后本地 tenant uuid/token 可能仍指向旧租户，导致部门树为空但不报错。
+  if (!userStore.isLoggedIn) {
+    try {
+      await userStore.fetchUserContext({ force: true });
+    } catch {
+      // ignore
+    }
+  } else {
+    try {
+      await userStore.fetchUserContext({ force: true });
+    } catch {
+      // ignore
+    }
+  }
+
+  await fetchTree({ force: true });
+
+  if (treeItems.value.length > 0 || tenantRecoveryAttempted.value) {
+    return;
+  }
+  tenantRecoveryAttempted.value = true;
+
+  const preferred = pickPreferredTenant();
+  if (!preferred) return;
+  if (userStore.currentTenantUuid === preferred) return;
+
+  tenantRecovering.value = true;
+  try {
+    await userStore.switchTenant(preferred);
+    await fetchTree({ force: true });
+  } finally {
+    tenantRecovering.value = false;
+  }
+};
 
 const onFormSubmit = async (
   _e: FormSubmitEvent<v.InferOutput<typeof schema>>
@@ -373,7 +430,7 @@ const columns = computed(() => {
               onClick: async () => {
                 const cur = (d.sort ?? 0) - 1;
                 await deptService.updateDepartment(d.id, { sort: cur });
-                await fetchTree();
+                await fetchTree({ force: true });
               },
             },
             { default: () => t("organization.common.up") }
@@ -387,7 +444,7 @@ const columns = computed(() => {
               onClick: async () => {
                 const cur = (d.sort ?? 0) + 1;
                 await deptService.updateDepartment(d.id, { sort: cur });
-                await fetchTree();
+                await fetchTree({ force: true });
               },
             },
             { default: () => t("organization.common.down") }
@@ -481,6 +538,8 @@ const schema = v.object({
 });
 
 const saveDepartment = async () => {
+  if (formSubmitting.value) return;
+  formSubmitting.value = true;
   let success = false; // 标记是否成功
   try {
     if (isEditing.value && editingId.value) {
@@ -519,9 +578,10 @@ const saveDepartment = async () => {
       reset(); // 允许成功提示出现
       notifyOnce("保存成功", "部门信息已成功保存", "success", "solid");
       showForm.value = false;
-      await fetchTree();
+      await fetchTree({ force: true });
       resetForm();
     }
+    formSubmitting.value = false;
   }
 };
 
@@ -788,183 +848,189 @@ function buildUpdatePayload(): DepartmentUpdateParams {
     <!-- 表单 -->
     <UModal
       v-model:open="showForm"
-      title="department - title"
-      description="department - description"
-      :ui="{ content: 'sm:max-w-3xl' }"
+      :title="isEditing ? $t('organization.department.edit') : $t('organization.department.add')"
+      :description="$t('organization.department.modalDesc', '新增或编辑部门信息')"
+      :ui="{ width: 'max-w-3xl w-full', body: 'p-4 sm:p-5', footer: 'justify-end' }"
+      :close="{ onClick: closeFormModal }"
+      prevent-close
     >
-      <template #content>
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-medium text-gray-900">
-              {{
-                isEditing
-                  ? $t("organization.department.edit")
-                  : $t("organization.department.add")
-              }}
-            </h3>
-          </template>
+      <template #body>
+        <UForm
+          id="department-form"
+          :schema="schema"
+          :state="departmentForm"
+          class="space-y-4"
+          @submit="onFormSubmit"
+        >
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <UFormField
+              name="name"
+              :label="$t('organization.department.form.name')"
+              required
+            >
+              <UInput v-model="departmentForm.name" class="w-full" />
+            </UFormField>
 
-          <UForm
-            :schema="schema"
-            :state="departmentForm"
-            @submit="onFormSubmit"
+            <UFormField
+              name="parent_id"
+              :label="$t('organization.department.form.parent')"
+            >
+              <USelect
+                :model-value="departmentForm.parent_id"
+                :items="parentOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                :placeholder="$t('organization.department.form.noParent')"
+                @update:model-value="
+                  (v) =>
+                    (departmentForm.parent_id =
+                      v === undefined || v === null || v === ''
+                        ? undefined
+                        : Number(v))
+                "
+              />
+            </UFormField>
+
+            <UFormField
+              name="key"
+              :label="$t('organization.department.form.key') || '唯一键 Key'"
+            >
+              <UInput
+                v-model="departmentForm.key"
+                class="w-full"
+                placeholder="英文/短横线/下划线"
+              />
+            </UFormField>
+
+            <UFormField
+              v-if="isEditing"
+              name="new_parent_id"
+              :label="
+                $t('organization.department.form.moveParent') ||
+                '移动到新上级'
+              "
+            >
+              <USelect
+                :model-value="departmentForm.new_parent_id"
+                :items="[
+                  {
+                    label: $t('organization.department.form.noParent'),
+                    value: null,
+                  },
+                  ...parentOptions,
+                ]"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                :placeholder="$t('organization.department.form.noParent')"
+                @update:model-value="
+                  (v) =>
+                    (departmentForm.new_parent_id =
+                      v === '' ? null : v === null ? null : Number(v))
+                "
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                不选择则不移动；选择“无上级”将把部门提升为根节点。
+              </p>
+            </UFormField>
+
+            <UFormField
+              name="sort"
+              :label="$t('organization.department.form.sort') || '排序'"
+            >
+              <UInput
+                type="number"
+                :min="0"
+                v-model.number="departmentForm.sort"
+                class="w-full"
+                placeholder="数字越小越靠前"
+              />
+            </UFormField>
+
+            <UFormField
+              name="leader_member_id"
+              :label="
+                $t('organization.department.form.leader') || '部门负责人'
+              "
+            >
+              <USelect
+                :model-value="departmentForm.leader_member_id"
+                :items="[
+                  {
+                    label: $t('organization.common.none') || '无',
+                    value: null,
+                  },
+                  ...members,
+                ]"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                @update:model-value="
+                  (v) =>
+                    (departmentForm.leader_member_id =
+                      v === '' ? null : v === null ? null : Number(v))
+                "
+              />
+            </UFormField>
+
+            <UFormField
+              name="status"
+              :label="$t('organization.department.form.status') || '状态'"
+            >
+              <URadioGroup
+                v-model="departmentForm.status"
+                :items="[
+                  {
+                    label: $t('organization.common.enabled') || '启用',
+                    value: 1,
+                  },
+                  {
+                    label: $t('organization.common.disabled') || '停用',
+                    value: 0,
+                  },
+                ]"
+              />
+            </UFormField>
+
+            <UFormField
+              name="metaText"
+              :label="
+                $t('organization.department.form.meta') || '扩展 Meta(JSON)'
+              "
+              help="留空表示不修改；清空并保存表示置空。"
+              class="md:col-span-2"
+            >
+              <UTextarea
+                v-model="departmentForm.metaText"
+                :rows="6"
+                placeholder='{"color":"#fff","bizTag":"x"}'
+              />
+            </UFormField>
+          </div>
+        </UForm>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton
+            color="neutral"
+            variant="subtle"
+            type="button"
+            :disabled="formSubmitting"
+            @click="closeFormModal"
           >
-            <div class="grid grid-cols-2 gap-4">
-              <UFormField
-                name="name"
-                :label="$t('organization.department.form.name')"
-                required
-              >
-                <UInput v-model="departmentForm.name" />
-              </UFormField>
-
-              <UFormField
-                name="parent_id"
-                :label="$t('organization.department.form.parent')"
-              >
-                <USelect
-                  :model-value="departmentForm.parent_id"
-                  :items="parentOptions"
-                  option-attribute="label"
-                  value-attribute="value"
-                  :placeholder="$t('organization.department.form.noParent')"
-                  @update:model-value="
-                    (v) =>
-                      (departmentForm.parent_id =
-                        v === undefined || v === null || v === ''
-                          ? undefined
-                          : Number(v))
-                  "
-                />
-              </UFormField>
-
-              <UFormField
-                name="key"
-                :label="$t('organization.department.form.key') || '唯一键 Key'"
-              >
-                <UInput
-                  v-model="departmentForm.key"
-                  placeholder="英文/短横线/下划线"
-                />
-              </UFormField>
-
-              <UFormField
-                v-if="isEditing"
-                name="new_parent_id"
-                :label="
-                  $t('organization.department.form.moveParent') ||
-                  '移动到新上级'
-                "
-              >
-                <USelect
-                  :model-value="departmentForm.new_parent_id"
-                  :items="[
-                    {
-                      label: $t('organization.department.form.noParent'),
-                      value: null,
-                    },
-                    ...parentOptions,
-                  ]"
-                  option-attribute="label"
-                  value-attribute="value"
-                  :placeholder="$t('organization.department.form.noParent')"
-                  @update:model-value="
-                    (v) =>
-                      (departmentForm.new_parent_id =
-                        v === '' ? null : v === null ? null : Number(v))
-                  "
-                />
-                <p class="text-xs text-gray-500 mt-1">
-                  不选择则不移动；选择“无上级”将把部门提升为根节点。
-                </p>
-              </UFormField>
-
-              <UFormField
-                name="sort"
-                :label="$t('organization.department.form.sort') || '排序'"
-              >
-                <!-- 用 v-model.number 确保是 number，配合 schema 的 number 校验 -->
-                <UInput
-                  type="number"
-                  :min="0"
-                  v-model.number="departmentForm.sort"
-                  placeholder="数字越小越靠前"
-                />
-              </UFormField>
-
-              <UFormField
-                name="leader_member_id"
-                :label="
-                  $t('organization.department.form.leader') || '部门负责人'
-                "
-              >
-                <USelect
-                  :model-value="departmentForm.leader_member_id"
-                  :items="[
-                    {
-                      label: $t('organization.common.none') || '无',
-                      value: null,
-                    },
-                    ...members,
-                  ]"
-                  option-attribute="label"
-                  value-attribute="value"
-                  @update:model-value="
-                    (v) =>
-                      (departmentForm.leader_member_id =
-                        v === '' ? null : v === null ? null : Number(v))
-                  "
-                />
-              </UFormField>
-
-              <UFormField
-                name="status"
-                :label="$t('organization.department.form.status') || '状态'"
-              >
-                <URadioGroup
-                  v-model="departmentForm.status"
-                  :items="[
-                    {
-                      label: $t('organization.common.enabled') || '启用',
-                      value: 1,
-                    },
-                    {
-                      label: $t('organization.common.disabled') || '停用',
-                      value: 0,
-                    },
-                  ]"
-                />
-              </UFormField>
-
-              <UFormField
-                name="metaText"
-                :label="
-                  $t('organization.department.form.meta') || '扩展 Meta(JSON)'
-                "
-                help="留空表示不修改；清空并保存表示置空。"
-              >
-                <UTextarea
-                  v-model="departmentForm.metaText"
-                  :rows="6"
-                  placeholder='{"color":"#fff","bizTag":"x"}'
-                />
-              </UFormField>
-            </div>
-
-            <div class="mt-6 flex justify-end space-x-3">
-              <UButton
-                color="neutral"
-                variant="outline"
-                @click="showForm = false"
-              >
-                {{ $t("organization.common.cancel") }}
-              </UButton>
-              <UButton type="submit" color="primary">
-                {{ $t("organization.common.save") }}
-              </UButton>
-            </div>
-          </UForm>
-        </UCard>
+            {{ $t("organization.common.cancel") }}
+          </UButton>
+          <UButton
+            color="primary"
+            type="submit"
+            form="department-form"
+            :loading="formSubmitting"
+          >
+            {{ $t("organization.common.save") }}
+          </UButton>
+        </div>
       </template>
     </UModal>
   </div>

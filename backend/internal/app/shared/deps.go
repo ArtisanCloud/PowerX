@@ -800,6 +800,7 @@ type KnowledgeSpaceRuntimeConfig struct {
 	DefaultRetentionMonths int
 	ProvisioningSLA        time.Duration
 	IngestionSLA           time.Duration
+	SceneStrategyCatalogPath string
 	EventTopics            KnowledgeSpaceEventTopicsOptions
 	Notifications          KnowledgeSpaceNotificationOptions
 }
@@ -1312,6 +1313,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		DefaultRetentionMonths: opts.DefaultRetentionMonths,
 		ProvisioningSLA:        opts.ProvisioningSLA,
 		IngestionSLA:           opts.IngestionSLA,
+		SceneStrategyCatalogPath: strings.TrimSpace(opts.SceneStrategyCatalogPath),
 		EventTopics:            opts.EventTopics,
 		Notifications:          opts.Notifications,
 	}
@@ -1330,6 +1332,9 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	}
 	if cfg.IngestionSLA <= 0 {
 		cfg.IngestionSLA = 4 * time.Hour
+	}
+	if cfg.SceneStrategyCatalogPath == "" {
+		cfg.SceneStrategyCatalogPath = "backend/config/knowledge/scene_strategy_catalog.yaml"
 	}
 	if cfg.EventTopics.Provisioning == "" {
 		cfg.EventTopics.Provisioning = "knowledge.space.provisioning"
@@ -1354,9 +1359,10 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	}
 
 	serviceCfg := knowledgeService.RuntimeConfig{
-		LockKeyPrefix:          cfg.LockKeyPrefix,
-		DefaultRetentionMonths: cfg.DefaultRetentionMonths,
-		ProvisioningSLA:        cfg.ProvisioningSLA,
+		LockKeyPrefix:            cfg.LockKeyPrefix,
+		DefaultRetentionMonths:   cfg.DefaultRetentionMonths,
+		ProvisioningSLA:          cfg.ProvisioningSLA,
+		SceneStrategyCatalogPath: strings.TrimSpace(cfg.SceneStrategyCatalogPath),
 		EventTopics: knowledgeService.EventTopics{
 			Provisioning: cfg.EventTopics.Provisioning,
 			Ingestion:    cfg.EventTopics.Ingestion,
@@ -1421,11 +1427,18 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, releaseAggregatePath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, decayAggregatePath)
 
+	processors := knowledgeService.NewProcessorRegistry()
+	ocrFlag := strings.ToLower(strings.TrimSpace(os.Getenv("PX_KNOWLEDGE_OCR_AVAILABLE")))
+	if ocrFlag != "" && ocrFlag != "0" && ocrFlag != "false" && ocrFlag != "disabled" && ocrFlag != "off" && ocrFlag != "no" {
+		processors.SetOCRAvailable(true)
+	}
+
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		MetricsWriter:   metricsWriter,
+		Processors:      processors,
 		MaxRetries:      1,
 	})
 	svc.AttachIngestion(ingestionSvc)
@@ -1473,21 +1486,21 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			Clock:         time.Now,
 		})
 		knowledgeworkflow.NewEventFabricReprocessConsumer(knowledgeworkflow.EventFabricReprocessConsumerOptions{
-			Delivery:      eventFabric.Delivery,
-			DB:            db,
-			VectorStore:   vectorStore,
-			Directory:     eventFabric.Directory,
-			ACL:           eventFabric.ACL,
-			SubscriberID:  "core.knowledge_space.reprocess",
-			Namespace:     cfg.EventTopics.Feedback,
-			Name:          "reprocess",
-			PayloadFormat: "json",
-			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
-			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			Delivery:       eventFabric.Delivery,
+			DB:             db,
+			VectorStore:    vectorStore,
+			Directory:      eventFabric.Directory,
+			ACL:            eventFabric.ACL,
+			SubscriberID:   "core.knowledge_space.reprocess",
+			Namespace:      cfg.EventTopics.Feedback,
+			Name:           "reprocess",
+			PayloadFormat:  "json",
+			MaxRetry:       int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec:  int32(eventFabric.Config.AckTimeout / time.Second),
 			TenantProvider: tenantProvider,
-			Interval:      250 * time.Millisecond,
-			BatchSize:     50,
-			Clock:         time.Now,
+			Interval:       250 * time.Millisecond,
+			BatchSize:      50,
+			Clock:          time.Now,
 		}).Start()
 	} else {
 		reprocessPipeline = knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{

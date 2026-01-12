@@ -43,17 +43,16 @@ afterEach(() => {
       sourceUri: "s3://bucket/doc.pdf",
       priority: "high",
     });
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/admin/knowledge-spaces/space-1/ingestion-jobs",
-      {
-        method: "POST",
-        body: {
-          format: "pdf",
-          sourceUri: "s3://bucket/doc.pdf",
-          priority: "high",
-        },
-      },
-    );
+    expect(fetchSpy).toHaveBeenCalled();
+    const [url, options] = fetchSpy.mock.calls[0] as any[];
+    expect(url).toBe("/api/admin/knowledge-spaces/space-1/ingestion-jobs");
+    expect(options.method).toBe("POST");
+    const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
+    expect(body).toEqual({
+      format: "pdf",
+      sourceUri: "s3://bucket/doc.pdf",
+      priority: "high",
+    });
     expect(result.jobId).toBe("job-1");
   });
 

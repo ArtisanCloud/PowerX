@@ -1,29 +1,40 @@
 # Quickstart — Knowledge Space Provisioning & Lifecycle Governance
 
 ## 1. Prerequisites
-- Go 1.24 toolchain + `buf` CLI + `powerx` CLI installed.
+- Go 1.24+ toolchain + `buf` CLI + `powerx` CLI installed.
 - Node 20 + npm (per constitution) for the Web Admin workspace.
 - Local PostgreSQL + Redis instances (see `config/docker-compose.*`), plus MinIO for artifact staging.
-- Feature flags enabled in `config/config.yaml`: `knowledge-space-v1`, `knowledge-ingestion`, `structured-ingestion`, `fusion.pipeline`, `feedback.loop`.
+- 确认 `backend/etc/config.yaml` 已配置可用的 DB/Redis，并启用 `feature_gate.enable_knowledge_space: true`。
 
 ## 2. Generate contracts & mocks
 ```bash
 make proto-gen
 make proto-lint
 ```
-OpenAPI contract lives at `specs/011-docs-use-cases/contracts/http-openapi.yaml`. Regenerate SDKs via `make api-http`.
+OpenAPI contract lives at `specs/011-knowledge-space/contracts/http-openapi.yaml`.
 
 ## 3. Apply database migrations
 ```bash
-go run ./cmd/database migrate --modules knowledge_space
+make db-migrate
+make db-seed
 ```
 This registers new models (KnowledgeSpace, PolicyTemplateVersion, etc.) inside the CoreX migration pipeline.
 
+### 3.1 Vector store (pgvector) & KG assist tables
+
+若需要在本地直接看到并使用向量表（默认 `public.knowledge_vectors`）与 KG 协助表（`public.knowledge_kg_nodes` / `public.knowledge_kg_edges`），`make db-migrate` 需要包含相应迁移（幂等、可重复执行）。
+
+规格与 DDL 说明：
+- `specs/011-knowledge-space/db-migrations.md`
+
+同理，若你启用了 `index.sparse`（hybrid/BM25/FTS）或 `index.hier`（层次化检索/邻接扩展）并选择 Postgres-backed 实现，则应一并创建 `public.knowledge_chunks`（以及可选 `public.knowledge_chunk_links`）。
+
 ## 4. Run targeted services
 ```bash
-go run ./cmd/server --modules knowledge_space
+cd backend
+go run ./cmd/app
 ```
-Ensure `internal/app/shared/deps.go` wiring includes Redis, EventBus, Audit, Telemetry for the new module.
+Ensure `backend/internal/app/shared/deps.go` wiring includes Redis, EventBus, Audit, Telemetry for the new module.
 
 ## 5. Launch Web Admin workspace
 ```bash
@@ -31,29 +42,51 @@ cd web-admin
 npm install
 npm run dev
 ```
-Navigate to `/knowledge-spaces` for provisioning、`/knowledge-spaces/fusion` 管理融合策略、`/knowledge-spaces/feedback` 监控反馈闭环。使用 `.env` / `.env.local` 指向本地 API，组合式调用位于 `app/composables/useKnowledgeSpaces.ts`。
+默认端口：
+- Admin API：`http://127.0.0.1:8077/api/v1/admin`
+- Web Admin：`http://127.0.0.1:3030`
+
+常用页面：
+- `/knowledge-spaces`：空间总览（入库 / Playground / 策略 / 数据源入口）
+- `/knowledge-spaces/create`：创建空间
+- `/knowledge-spaces/strategy`：场景（L1）→ 策略包（L2）配置 + 依赖校验 + Corpus Check 推荐
+- `/knowledge-spaces/playground`：Retrieval Playground（Profile A/B 对比）
+- `/knowledge-spaces/release`：租户灰度发布
+- `/knowledge-spaces/:spaceId/sources`：连接数据源（Notion/飞书等鉴权接入的占位入口）
+
+组合式调用位于 `web-admin/app/composables/useKnowledgeSpaces.ts`。
 
 ## 6. Execute tests
 ```bash
-go test ./internal/service/knowledge_space/...
-go test ./internal/transport/http/admin/knowledge_space/...
+cd backend
 go test ./tests/contract/knowledge_space/...
 go test ./tests/integration/knowledge_space/...
-cd web-admin && npm run test:unit -- knowledge-spaces/ingestion.spec.ts
+cd web-admin && npm run test:unit -- tests/unit/knowledge-spaces/ingestion.spec.ts
 cd web-admin && npm run test:e2e -- --grep "knowledge-spaces"
 cd web-admin && npm run test:e2e -- --grep "knowledge-spaces-fusion"
 cd web-admin && npm run test:e2e -- --grep "knowledge-spaces-feedback"
 ```
-Contract tests rely on `specs/011-docs-use-cases/contracts/http-openapi.yaml` and the gRPC proto in `api/grpc/contracts/powerx/knowledge/v1/`.
+Contract tests rely on `specs/011-knowledge-space/contracts/http-openapi.yaml` and the gRPC proto in `backend/api/grpc/contracts/powerx/knowledge/v1/`.
 
 ## 7. End-to-end smoke
 1. Use the Nuxt Web Admin “Create Knowledge Space” wizard to submit a new space并确认 SLA + 审计徽章。
-2. Trigger ingestion job via `POST /knowledge-spaces/{id}/ingestion-jobs`（或 UI CTA），使用 PDF/Excel 样本。
+2. Trigger ingestion job via `POST /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs`（或 UI CTA），使用 PDF/Excel 样本。
+   - 入库完成后会自动触发一次 Corpus Check（推荐场景/策略包与成本/风险提示），可在 `/knowledge-spaces/strategy` 查看与一键应用。
+   - 若提示需要 OCR：建议安装 `com.powerx.plugin.data_forge`，或在入库高级设置中启用/关闭 `OCR required`。
 3. Publish a fusion strategy `POST /knowledge-spaces/{id}/fusion-strategies` 或 `/knowledge-spaces/fusion`，如需回滚执行 `node scripts/fusion/rollback_strategy.mjs <space> <strategy>`.
 4. Submit feedback `POST /knowledge-spaces/{id}/feedback` 或 `/knowledge-spaces/feedback`，观察 SLA 倒计时与 `knowledge.feedback.reprocess` 事件。
-5. 检查 `reports/_state/knowledge-spaces.json` 中 `ingestion` 与 `feedback` 节点均更新，Grafana `Knowledge Space` / `fusion-pipeline` / `feedback-loop` Dashboard 无红色告警。
+5. 运行 US6–US9 的 ops 脚本（可选但建议）：
+   - `node scripts/ops/knowledge-delta-job.mjs --space=<space> --source=default`
+   - `node scripts/ops/knowledge-event-replay.mjs`
+   - `node scripts/ops/knowledge-decay-scan.mjs --dry-run --space=<space> --detected=3`
+   - `node scripts/ops/knowledge-release-matrix.mjs --matrix=backend/config/knowledge/tenant_release_matrix.yaml`
+6. 检查 `reports/_state/knowledge-spaces.json`、`reports/_state/knowledge-update.json` 的相关段落更新；并确认 Grafana `Knowledge Space` / `fusion-pipeline` / `feedback-loop` / `Knowledge Delta Sync` / `Event Hotfix` / `Knowledge Decay Monitor` / `Tenant Release Control` 无红色告警。
 
 更多运维/弹性细节见：
 - [Knowledge Space Runbook](../../docs/guides/knowledge_space/runbook.md)
 - [Perf & Resiliency Validation](../../docs/guides/knowledge_space/perf_validation.md)
 - [Smoke Checklist](../../docs/guides/knowledge_space/smoke_checklist.md)
+
+策略设计参考（场景 → 策略包）：
+- [RAG Strategy Modules](../../docs/plan/AI_engineering/knowledge/rag.md)
+- [Scene → Strategy Bundle Model](../../docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md)

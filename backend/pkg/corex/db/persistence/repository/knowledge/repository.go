@@ -62,6 +62,30 @@ func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tena
 	return &space, nil
 }
 
+func (r *KnowledgeSpaceRepository) ListByTenant(ctx context.Context, tenantUUID string, status string, limit int) ([]models.KnowledgeSpace, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	status = strings.TrimSpace(status)
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID)
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	var out []models.KnowledgeSpace
+	if err := q.Order("created_at DESC, id DESC").Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeltaJobRepository 管理增量同步任务。
 type DeltaJobRepository struct {
 	*baseRepo.BaseRepository[models.DeltaJob]
@@ -468,7 +492,7 @@ func (r *DecayTaskRepository) ListOpenByTenant(ctx context.Context, tenantUUID s
 	spaceTable := models.KnowledgeSpace{}.TableName()
 
 	query := r.db.WithContext(ctx).
-		Table(taskTable + " AS dt").
+		Table(taskTable+" AS dt").
 		Joins("JOIN "+spaceTable+" AS ks ON ks.uuid = dt.space_uuid").
 		Where("ks.tenant_uuid = ?", tenantUUID).
 		Where("dt.status IN ?", []string{"open", "assigned"}).
@@ -542,4 +566,152 @@ func (r *AuditTrailRepository) ListBySpace(ctx context.Context, space uuid.UUID,
 		return nil, err
 	}
 	return items, nil
+}
+
+// SourceCredentialRepository 管理租户级数据源凭据（仅存引用与元数据）。
+type SourceCredentialRepository struct {
+	*baseRepo.BaseRepository[models.SourceCredential]
+	db *gorm.DB
+}
+
+func NewSourceCredentialRepository(db *gorm.DB) *SourceCredentialRepository {
+	return &SourceCredentialRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SourceCredential](db),
+		db:             db,
+	}
+}
+
+func (r *SourceCredentialRepository) ListByTenant(ctx context.Context, tenantUUID string, provider string, limit int) ([]models.SourceCredential, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID).Order("created_at desc")
+	if provider != "" {
+		q = q.Where("provider = ?", provider)
+	}
+	var out []models.SourceCredential
+	if err := q.Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SourceCredentialRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SourceCredential, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SourceCredential
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SourceConnectorInstanceRepository 管理租户级连接器实例（绑定凭据，可被多个空间复用）。
+type SourceConnectorInstanceRepository struct {
+	*baseRepo.BaseRepository[models.SourceConnectorInstance]
+	db *gorm.DB
+}
+
+func NewSourceConnectorInstanceRepository(db *gorm.DB) *SourceConnectorInstanceRepository {
+	return &SourceConnectorInstanceRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SourceConnectorInstance](db),
+		db:             db,
+	}
+}
+
+func (r *SourceConnectorInstanceRepository) ListByTenant(ctx context.Context, tenantUUID string, provider string, limit int) ([]models.SourceConnectorInstance, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID).Order("created_at desc")
+	if provider != "" {
+		q = q.Where("provider = ?", provider)
+	}
+	var out []models.SourceConnectorInstance
+	if err := q.Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SourceConnectorInstanceRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SourceConnectorInstance, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SourceConnectorInstance
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SpaceSyncJobRepository 管理空间级增量同步任务。
+type SpaceSyncJobRepository struct {
+	*baseRepo.BaseRepository[models.SpaceSyncJob]
+	db *gorm.DB
+}
+
+func NewSpaceSyncJobRepository(db *gorm.DB) *SpaceSyncJobRepository {
+	return &SpaceSyncJobRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SpaceSyncJob](db),
+		db:             db,
+	}
+}
+
+func (r *SpaceSyncJobRepository) ListBySpace(ctx context.Context, space uuid.UUID, limit int) ([]models.SpaceSyncJob, error) {
+	if space == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	var out []models.SpaceSyncJob
+	if err := r.db.WithContext(ctx).
+		Where("space_uuid = ?", space).
+		Order("created_at desc").
+		Limit(limit).
+		Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SpaceSyncJobRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SpaceSyncJob, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SpaceSyncJob
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
 }

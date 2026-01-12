@@ -3,6 +3,7 @@ package knowledge_space
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,59 @@ func NewIngestionHandler(deps *shared.Deps) *IngestionHandler {
 		return nil
 	}
 	return &IngestionHandler{svc: deps.KnowledgeSpace.Ingestion}
+}
+
+func (h *IngestionHandler) List(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		c.Status(http.StatusNotImplemented)
+		return
+	}
+	spaceID, err := uuid.Parse(c.Param("spaceId"))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "空间 ID 无效", err)
+		return
+	}
+	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
+	if limit <= 0 {
+		limit = 20
+	}
+	jobs, err := h.svc.ListJobs(c.Request.Context(), spaceID, limit)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "获取入库任务失败", err)
+		return
+	}
+	views := make([]ingestionJobView, 0, len(jobs))
+	for i := range jobs {
+		views = append(views, toIngestionJobView(&jobs[i]))
+	}
+	dto.ResponseSuccess(c, views)
+}
+
+func (h *IngestionHandler) Get(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		c.Status(http.StatusNotImplemented)
+		return
+	}
+	spaceID, err := uuid.Parse(c.Param("spaceId"))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "空间 ID 无效", err)
+		return
+	}
+	jobID, err := uuid.Parse(c.Param("jobId"))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "任务 ID 无效", err)
+		return
+	}
+	job, err := h.svc.GetJob(c.Request.Context(), spaceID, jobID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "获取入库任务失败", err)
+		return
+	}
+	if job == nil {
+		dto.ResponseError(c, http.StatusNotFound, "入库任务不存在", errors.New("not found"))
+		return
+	}
+	dto.ResponseSuccess(c, toIngestionJobView(job))
 }
 
 func (h *IngestionHandler) Trigger(c *gin.Context) {
@@ -48,7 +102,7 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "缺少文档格式(format/sourceType)", errors.New("missing format"))
 		return
 	}
-	job, err := h.svc.Trigger(c.Request.Context(), ksvc.TriggerIngestionInput{
+	job, err := h.svc.TriggerAsync(c.Request.Context(), ksvc.TriggerIngestionInput{
 		SpaceID:          spaceID,
 		Format:           format,
 		SourceURI:        req.SourceURI,
@@ -58,6 +112,18 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		MaskingProfile:   req.MaskingProfile,
 		Priority:         req.Priority,
 		RequestedBy:      req.RequestedBy,
+		RagSceneKey:      req.RagSceneKey,
+		RagBundleKey:     req.RagBundleKey,
+		RagPrimary:       req.RagPrimary,
+		SegmentMode:      req.SegmentMode,
+		ChunkSize:        req.ChunkSize,
+		ChunkOverlap:     req.ChunkOverlap,
+		Separators:       req.Separators,
+		AnchorHeadingPath:  req.AnchorHeadingPath,
+		AnchorClauseID:     req.AnchorClauseID,
+		AnchorRowNumber:    req.AnchorRowNumber,
+		AnchorSpeaker:      req.AnchorSpeaker,
+		AnchorSentenceIndex: req.AnchorSentenceIndex,
 	})
 	if err != nil {
 		switch {
