@@ -23,17 +23,22 @@ export TENANT_UUID="<tenant-uuid>"
 
 > 说明：仓库脚本会把 `POWERX_BASE_URL` 规范化为 `.../api/v1` 后再拼接路由；也兼容传入 `http://127.0.0.1:8077/api/v1`。
 
-### 1.2 可选：开启 OCR 可用性（用于降级/修复演练）
+### 1.2 可选：开启 OCR / PDF 文本抽取（用于降级/修复演练）
 
 默认 OCR 处理器不可用，会导致：
 - `format=image` 或 `pdf + sourceUri 包含 scan` 时触发 **degraded / `ocr_unavailable`**
 - `OCR required=true` 时触发 **blocked / `ocr_required`**
 
-如需演练“安装 OCR 后恢复”的路径，可在启动后端时设置：
+如需演练“安装依赖后恢复”的路径，推荐在 `etc/config.yaml` 显式配置（优先级高于自动探测）：
 
-```bash
-export PX_KNOWLEDGE_OCR_AVAILABLE=1
+```yaml
+knowledge_space:
+  ingestion_processors:
+    pdf_text_available: true
+    ocr_available: true
 ```
+
+依赖安装方式见：`docs/guides/deploy/knowledge_pdf_ocr.md:1`。
 
 ## 2. 批量入库压测
 

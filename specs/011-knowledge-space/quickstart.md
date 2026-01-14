@@ -5,6 +5,26 @@
 - Node 20 + npm (per constitution) for the Web Admin workspace.
 - Local PostgreSQL + Redis instances (see `config/docker-compose.*`), plus MinIO for artifact staging.
 - 确认 `backend/etc/config.yaml` 已配置可用的 DB/Redis，并启用 `feature_gate.enable_knowledge_space: true`。
+- 如需验收 PDF 入库的“真实正文”与/或扫描件 OCR，请先安装系统依赖并配置开关（见 `docs/guides/deploy/knowledge_pdf_ocr.md:1`）。
+
+### 1.1 本地（macOS）可选安装
+
+```bash
+brew install poppler tesseract
+# 如缺少中文简体模型（chi_sim），再安装：
+brew install tesseract-lang
+```
+
+### 1.2 配置开关（config.yaml）
+
+`backend/etc/config.yaml`：
+
+```yaml
+knowledge_space:
+  ingestion_processors:
+    pdf_text_available: null # true/false/null(自动探测)
+    ocr_available: null      # true/false/null(自动探测)
+```
 
 ## 2. Generate contracts & mocks
 ```bash
@@ -23,6 +43,12 @@ This registers new models (KnowledgeSpace, PolicyTemplateVersion, etc.) inside t
 ### 3.1 Vector store (pgvector) & KG assist tables
 
 若需要在本地直接看到并使用向量表（默认 `public.knowledge_vectors`）与 KG 协助表（`public.knowledge_kg_nodes` / `public.knowledge_kg_edges`），`make db-migrate` 需要包含相应迁移（幂等、可重复执行）。
+
+#### 3.1.1 Embedding 默认值与模型选择
+
+- 默认安装会配置 `ai.defaults.embedding` 为 OpenAI `text-embedding-3-small`（1536 维）；需要你在 Web Admin 的 **AI Settings**（或 `config.yaml`）里补齐 `api_key` 才会真正生成语义向量。
+- 若未配置 embedding（例如缺少 api_key / 未设置 active profile），入库会继续完成，但会标记为 `embedding_not_configured`（不会写入向量表）。
+- 维度必须对齐：`knowledge_space.vector_store.pgvector.dimensions` 必须等于 embedding 模型输出维度（例如 OpenAI `text-embedding-3-small` 为 1536）。不一致时会在入库任务里报 `embedding_dim_mismatch` 并提示如何修复。
 
 规格与 DDL 说明：
 - `specs/011-knowledge-space/db-migrations.md`
@@ -73,6 +99,9 @@ Contract tests rely on `specs/011-knowledge-space/contracts/http-openapi.yaml` a
 2. Trigger ingestion job via `POST /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs`（或 UI CTA），使用 PDF/Excel 样本。
    - 入库完成后会自动触发一次 Corpus Check（推荐场景/策略包与成本/风险提示），可在 `/knowledge-spaces/strategy` 查看与一键应用。
    - 若提示需要 OCR：建议安装 `com.powerx.plugin.data_forge`，或在入库高级设置中启用/关闭 `OCR required`。
+   - 验收入库质量（切块预览/编辑）：
+     - UI（推荐）：入库记录 ` /knowledge-spaces/{spaceId}/ingestions` → 切块预览/编辑 ` /knowledge-spaces/{spaceId}/ingestions/{jobId}`
+     - API：`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs?limit=20`、`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks?page=1&pageSize=50`、`PATCH /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks/{chunkId}`、`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/pages/{pageNumber}/image`（bbox 叠框预览用）
 3. Publish a fusion strategy `POST /knowledge-spaces/{id}/fusion-strategies` 或 `/knowledge-spaces/fusion`，如需回滚执行 `node scripts/fusion/rollback_strategy.mjs <space> <strategy>`.
 4. Submit feedback `POST /knowledge-spaces/{id}/feedback` 或 `/knowledge-spaces/feedback`，观察 SLA 倒计时与 `knowledge.feedback.reprocess` 事件。
 5. 运行 US6–US9 的 ops 脚本（可选但建议）：

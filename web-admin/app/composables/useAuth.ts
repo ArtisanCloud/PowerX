@@ -109,7 +109,10 @@ export const useAuth = () => {
     try {
       // 可以调用后端登出API
       const { logout: apiLogout } = useAuthService();
-      await apiLogout();
+      const refreshToken = process.client ? localStorage.getItem("refresh_token") : null;
+      if (refreshToken) {
+        await apiLogout({ refresh_token: refreshToken });
+      }
     } catch (error) {
       console.error("登出API调用失败:", error);
     } finally {

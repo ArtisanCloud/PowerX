@@ -57,6 +57,8 @@ type knowledgeSpaceResponse struct {
 	IngestionProfileKey string       `json:"ingestionProfileKey"`
 	IndexProfileKey     string       `json:"indexProfileKey"`
 	RAGProfileKey       string       `json:"ragProfileKey"`
+	EmbeddingProfileKey string       `json:"embeddingProfileKey"`
+	ActiveVectorIndexKey string      `json:"activeVectorIndexKey"`
 	FeatureFlags        []string     `json:"featureFlags"`
 	AuditToken          string       `json:"auditToken"`
 	RetentionExpiresAt  *time.Time   `json:"retentionExpiresAt,omitempty"`
@@ -79,6 +81,8 @@ func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
 		IngestionProfileKey: strings.TrimSpace(space.IngestionProfileKey),
 		IndexProfileKey:     strings.TrimSpace(space.IndexProfileKey),
 		RAGProfileKey:       strings.TrimSpace(space.RAGProfileKey),
+		EmbeddingProfileKey: strings.TrimSpace(space.EmbeddingProfileKey),
+		ActiveVectorIndexKey: strings.TrimSpace(space.ActiveVectorIndexKey),
 		FeatureFlags:        flags,
 		AuditToken:          space.AuditToken,
 		RetentionExpiresAt:  space.RetentionExpiresAt,

@@ -38,6 +38,8 @@ export interface KnowledgeSpaceRecord {
   ingestionProfileKey?: string;
   indexProfileKey?: string;
   ragProfileKey?: string;
+  embeddingProfileKey?: string;
+  activeVectorIndexKey?: string;
   featureFlags?: string[];
   auditToken: string;
   quotas: KnowledgeSpacePayload["quotas"];
@@ -82,6 +84,30 @@ export interface StrategyValidationResult {
   missing: Array<{ code: string; key: string; message: string; remediation: string[] }>;
   capabilities: Record<string, boolean>;
   checkedAt: string;
+}
+
+export interface KnowledgeVectorIndexRecord {
+  id: number;
+  space_uuid: string;
+  index_key: string;
+  table_name: string;
+  dimensions: number;
+  embedding_provider: string;
+  embedding_model: string;
+  embedding_profile_ref?: string;
+  status: string;
+  last_used_at?: string | null;
+  last_error?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VectorIndexStatus {
+  spaceId: string;
+  embeddingProfileKey: string;
+  activeVectorIndexKey: string;
+  active?: KnowledgeVectorIndexRecord | null;
+  indexes: KnowledgeVectorIndexRecord[];
 }
 
 export interface RetrievalCandidateRecord {
@@ -134,6 +160,43 @@ export interface IngestionJobRecord {
   chunkCoveragePct: number;
   embeddingSuccessPct: number;
   maskingCoveragePct: number;
+  startedAt?: string;
+  completedAt?: string;
+  sourceId?: string;
+  sourceType?: string;
+}
+
+export interface IngestionChunkRecord {
+  chunkId: string;
+  kind: string;
+  content: string;
+  metadata?: Record<string, any>;
+  confidence: number;
+  masked: boolean;
+}
+
+export interface IngestionChunkListResult {
+  spaceId: string;
+  jobId: string;
+  format?: string;
+  sourceUri?: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  items: IngestionChunkRecord[];
+}
+
+export interface UpdateIngestionChunkPayload {
+  content: string;
+  editedBy?: string;
+  editReason?: string;
+}
+
+export interface DeleteIngestionJobResult {
+  deleted: boolean;
+  deletedChunks: number;
+  deletedVectors: number;
+  deletedArtifacts: boolean;
 }
 
 export interface FusionStrategyPayload {
@@ -304,6 +367,17 @@ export const useKnowledgeSpaces = () => {
     return response.data ?? [];
   };
 
+  const getSpace = async (spaceId: string): Promise<KnowledgeSpaceRecord> => {
+    if (!spaceId) {
+      throw new Error("spaceId is required");
+    }
+    const response = await apiClient.get<ApiResponse<KnowledgeSpaceRecord>>(
+      `${adminBase}/${encodeURIComponent(spaceId)}`,
+      { useGlobalLoading: false } as any,
+    );
+    return response.data;
+  };
+
     const updateSpace = async (
     spaceId: string,
     payload: KnowledgeSpaceUpdatePayload,
@@ -358,6 +432,24 @@ const listRagProfiles = async (
   const validateStrategy = async (payload: { sceneKey: string; bundleKey: string }): Promise<StrategyValidationResult> => {
     const response = await apiClient.post<ApiResponse<StrategyValidationResult>>(
       `${adminBase}/strategy/validate`,
+      payload,
+    );
+    return response.data;
+  };
+
+  const getVectorIndexStatus = async (spaceId: string): Promise<VectorIndexStatus> => {
+    const response = await apiClient.get<ApiResponse<VectorIndexStatus>>(
+      `${adminBase}/${spaceId}/vector-index`,
+    );
+    return response.data;
+  };
+
+  const activateVectorIndex = async (
+    spaceId: string,
+    payload: { embeddingProfileKey: string; requestedBy?: string },
+  ): Promise<any> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `${adminBase}/${spaceId}/vector-index/activate`,
       payload,
     );
     return response.data;
@@ -434,6 +526,59 @@ const listRagProfiles = async (
       `${adminBase}/${spaceId}/ingestion-jobs?limit=${encodeURIComponent(String(limit))}`,
     );
     return response.data ?? [];
+  };
+
+  const listIngestionChunks = async (
+    spaceId: string,
+    jobId: string,
+    params: { page?: number; pageSize?: number } = {},
+  ): Promise<IngestionChunkListResult> => {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const response = await apiClient.get<ApiResponse<IngestionChunkListResult>>(
+      `${adminBase}/${spaceId}/ingestion-jobs/${jobId}/chunks?page=${encodeURIComponent(String(page))}&pageSize=${encodeURIComponent(String(pageSize))}`,
+    );
+    return response.data;
+  };
+
+  const updateIngestionChunk = async (
+    spaceId: string,
+    jobId: string,
+    chunkId: string,
+    payload: UpdateIngestionChunkPayload,
+  ): Promise<{ updated: boolean; updatedAt?: string }> => {
+    const response = await apiClient.patch<ApiResponse<{ updated: boolean; updatedAt?: string }>>(
+      `${adminBase}/${spaceId}/ingestion-jobs/${jobId}/chunks/${chunkId}`,
+      payload,
+    );
+    return response.data;
+  };
+
+  const deleteIngestionJob = async (
+    spaceId: string,
+    jobId: string,
+  ): Promise<DeleteIngestionJobResult> => {
+    const response = await apiClient.delete<ApiResponse<DeleteIngestionJobResult>>(
+      `${adminBase}/${spaceId}/ingestion-jobs/${jobId}`,
+    );
+    return response.data;
+  };
+
+  const getIngestionPageImageBlob = async (
+    spaceId: string,
+    jobId: string,
+    pageNumber: number,
+  ): Promise<Blob> => {
+    const p = Number(pageNumber);
+    if (!spaceId || !jobId || !Number.isFinite(p) || p <= 0) {
+      throw new Error("spaceId/jobId/pageNumber is required");
+    }
+    const url = `${adminBase}/${spaceId}/ingestion-jobs/${jobId}/pages/${encodeURIComponent(String(p))}/image`;
+    return apiClient.request<Blob>("GET", url, undefined, {
+      responseType: "blob",
+      headers: { Accept: "image/*" },
+      useGlobalLoading: false,
+    } as any);
   };
 
   const listFusionStrategies = async (
@@ -643,10 +788,13 @@ const listRagProfiles = async (
     createSpace,
     updateSpace,
     listSpaces,
+    getSpace,
     fetchStatus,
     listRagProfiles,
     listIndexProfiles,
     validateStrategy,
+    getVectorIndexStatus,
+    activateVectorIndex,
     listIngestionProfiles,
     startCorpusCheck,
     getCorpusCheckJob,
@@ -654,6 +802,10 @@ const listRagProfiles = async (
     triggerIngestion,
     getIngestionJob,
     listIngestionJobs,
+    listIngestionChunks,
+    deleteIngestionJob,
+    updateIngestionChunk,
+    getIngestionPageImageBlob,
     listFusionStrategies,
     publishFusionStrategy,
     rollbackFusionStrategy,

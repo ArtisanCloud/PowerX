@@ -43,7 +43,17 @@ func (h *corpusCheckHandler) Start(c *gin.Context) {
 	}
 	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
 	job, err := h.svc.Start(c.Request.Context(), tenantUUID, spaceID, req.RequestedBy)
-	if err != nil && !errors.Is(err, ksvc.ErrInvalidInput) {
+	if err != nil {
+		if errors.Is(err, ksvc.ErrInvalidInput) {
+			dto.ResponseError(c, http.StatusBadRequest, "入参不合法", err)
+			return
+		}
+		// Best-effort: even if scheduling fails (e.g. Event Fabric misconfig), the job record is created and updated to failed.
+		// Return 202 so the UI can continue (space creation should not be blocked by corpus-check).
+		if job != nil {
+			dto.ResponseSuccessWithStatus(c, http.StatusAccepted, job)
+			return
+		}
 		dto.ResponseError(c, http.StatusInternalServerError, "启动失败", err)
 		return
 	}

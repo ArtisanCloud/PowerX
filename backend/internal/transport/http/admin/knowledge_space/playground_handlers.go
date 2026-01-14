@@ -328,7 +328,34 @@ func resolveArtifactURIToLocalPath(uri string) string {
 	}
 	bucket := parts[0]
 	key := parts[1]
-	// 与 ArtifactStore 的默认落盘路径保持一致
+	// 与 ArtifactStore 的默认落盘路径保持一致（避免因进程工作目录不同导致 backend/backend/...）
+	wd, err := os.Getwd()
+	if err == nil {
+		if root := findRepoRootFrom(wd); root != "" {
+			baseDir := filepath.Join(root, "backend", "reports", "_state", "knowledge-artifacts")
+			return filepath.Join(baseDir, bucket, filepath.FromSlash(key))
+		}
+	}
 	baseDir := filepath.Join("backend", "reports", "_state", "knowledge-artifacts")
 	return filepath.Join(baseDir, bucket, filepath.FromSlash(key))
+}
+
+func findRepoRootFrom(start string) string {
+	dir := filepath.Clean(start)
+	for {
+		if dir == "" || dir == string(filepath.Separator) || dir == "." {
+			return ""
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".specify")); err == nil {
+			return dir
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			return ""
+		}
+		dir = next
+	}
 }

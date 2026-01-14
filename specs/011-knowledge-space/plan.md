@@ -31,6 +31,7 @@ Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped 
 **Storage**: PostgreSQL (knowledge space metadata, quota, policy versions), Redis (workflow queues, throttles, conversation-memory cache), MinIO/S3 (artifact staging), pgvector driver (vector store abstraction)  
 **Testing**: go test + testify for units, buf + make proto targets, contract tests under `tests/contract/knowledge_space`, integration flows under `tests/integration/knowledge_space`, Vitest unit suites for Nuxt pages/components, Playwright E2E focused on `/knowledge-spaces` wizard, QA bridge contract + failover simulations under `tests/contract/knowledge_space/qa_bridge_*`  
 **Target Platform**: Linux container workloads (Kubernetes)  
+**OS Dependencies (PDF)**: `poppler-utils`（`pdftotext`/`pdftoppm`）用于 PDF 文本抽取/渲染；扫描件 OCR 需要 `tesseract`（含 `chi_sim` 语言包）+ `pdftoppm` 或 `mutool`（详见 `docs/guides/deploy/knowledge_pdf_ocr.md`）。  
 **Project Type**: CoreX backend module + Nuxt 4 Web Admin console feature + QA Orchestrator bridge APIs  
 **Performance Goals**: Provisioning p95 ≤120s, ingestion TTR ≤4h, fusion rollback ≤5m, feedback closure ≤24h, cross-space retrieval-plan p95 ≤2s, real-time tool success ≥99%  
 **Constraints**: IAM sync success ≥99.5%, masking coverage 100%, retention 13 months read-only, dashboards update latency ≤5m, QA degrade notices must include audit IDs with 100% coverage  
@@ -218,6 +219,34 @@ Deliverables (minimum):
 ---
 
 ## Addendum — DB Migration Readiness (Vector Store / KG Assist Tables)
+
+## Addendum — Plan B: 扫描 PDF OCR（Tesseract）+ bbox provenance + 跨页内容切分
+
+> 适用场景：扫描件/图片型 PDF 占比高，需要“可定位（页+框）验收 + 人工修订 + 局部重建索引”，且切分必须按内容而非按页。
+
+### 目标
+- **OCR 不是可选项**：扫描 PDF 无文本层，必须 OCR 才能向量化与检索。
+- **切分按内容**：段落/条款可能跨 2～3 页，页码仅作为 provenance（定位），不能作为 segment 边界。
+- **强 provenance**：每个 chunk 必须携带 `page_number + bbox`（可跨页多框），用于 Web Admin 叠框预览验收与引用定位。
+- **局部修订**：支持编辑单个 chunk 文本并仅重建该 chunk 的向量索引（不重跑全文档）。
+
+### 设计文档
+- 方案权威说明：`specs/011-knowledge-space/ocr_scan_pdf_plan_b.md`
+
+### 任务拆解（与实现节奏对齐）
+- 任务入口：`specs/011-knowledge-space/tasks.md`（`T106B~T106G`）
+  - `T106B`：PDF→逐页渲染→Tesseract TSV/hOCR→内容级（跨页）合并→chunking
+  - `T106C`：产物 URI 与 provenance/bbox 写入规范
+  - `T106D`：`knowledge_chunks` 真相源（可编辑）+ 向量索引同步
+  - `T106F`：页预览叠框（page image + bbox）
+  - `T106G`：OCR 资源治理（超时/并发/失败率/指标）
+
+### 已落地的最小验收入口（用于产品验收与迭代）
+- Web Admin：
+  - 空间→入库记录：`/knowledge-spaces/:spaceId/ingestions`
+  - 任务→切块预览/编辑：`/knowledge-spaces/:spaceId/ingestions/:jobId`
+  - 右下角“入库任务”面板：completed 任务可直接跳“预览切块”
+
 
 The ingestion pipeline already calls `VectorStore.Upsert`, but `make db-migrate` currently does not guarantee pgvector extension/table readiness in fresh environments. This addendum scopes a cross-cutting requirement:
 

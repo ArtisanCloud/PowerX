@@ -8,6 +8,7 @@ import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { findEnableOcrRecommendation } from "~/utils/knowledge-spaces/recommendations";
 import { buildIngestionRemediation, type IngestionRemediation } from "~/utils/knowledge-spaces/ingestionRemediation";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
+import { pollCorpusCheckJob } from "~/utils/corpusCheckPolling";
 import {
 	SCENE_STRATEGY_CATALOG,
 	type SceneKey,
@@ -183,7 +184,7 @@ const ingestionForm = reactive({
 	ocrRequired: false,
 	maskingProfile: "",
 	priority: "normal",
-	segmentMode: "heading" as SegmentMode,
+	segmentMode: "unit" as SegmentMode,
 	chunkSize: 800,
 	chunkOverlap: 120,
 	anchorHeadingPath: true,
@@ -371,11 +372,18 @@ const separatorOptions: SeparatorOption[] = [
 const separatorSelected = ref<string>(SEPARATOR_NONE_VALUE);
 const separatorCustomText = ref("");
 
-const normalizeSeparatorToken = (raw: string) => {
-	const token = String(raw || "").trim();
-	if (!token) return "";
-	return token.replaceAll("\\n", "\n").replaceAll("\\t", "\t");
-};
+	const normalizeSeparatorToken = (raw: string) => {
+		const token = String(raw ?? "");
+		if (!token) return "";
+
+		// 分隔符可能就是换行本身（`\n`/`\n\n`），不能用 `trim()` 否则会被当成空串。
+		const trimmed = token.replace(/^[ \t]+|[ \t]+$/g, "");
+		const normalized = trimmed.replaceAll("\\n", "\n").replaceAll("\\t", "\t");
+
+		// 仅当输入只包含空格/制表符时视为无效；保留换行作为合法分隔符。
+		if (/^[ \t]*$/.test(normalized)) return "";
+		return normalized;
+	};
 
 const effectiveSeparators = computed(() => {
 	const selected = String(separatorSelected.value || "");
@@ -410,15 +418,15 @@ const segmentModeOptions = computed(() => {
 	// 根据场景/格式给一组“推荐可选项”
 	const format = String(ingestionForm.format || "").toLowerCase();
 	const sceneKey = ingestionSceneKey.value;
-	const base: Array<{ label: string; value: SegmentMode }> = [
-		{ label: "按结构（标题/段落）", value: "heading" },
-		{ label: "按语义（句子）", value: "semantic" },
-		{ label: "按条款/编号", value: "clause" },
-		{ label: "按表格行/记录", value: "table_row" },
-		{ label: "按代码/块", value: "code_block" },
-		{ label: "按对话轮次", value: "conversation" },
-		{ label: "按处理器输出（legacy）", value: "unit" },
-	];
+		const base: Array<{ label: string; value: SegmentMode }> = [
+			{ label: "按结构（标题/段落）", value: "heading" },
+			{ label: "按语义（句子）", value: "semantic" },
+			{ label: "按条款/编号", value: "clause" },
+			{ label: "按表格行/记录", value: "table_row" },
+			{ label: "按代码/块", value: "code_block" },
+			{ label: "按对话轮次", value: "conversation" },
+			{ label: "按长度窗口（推荐）", value: "unit" },
+		];
 
 	// scene 强约束：让“最常用的模式”排前，避免误选
 	const prefer: SegmentMode[] = [];
@@ -439,7 +447,7 @@ const segmentModeOptions = computed(() => {
 });
 
 const segmentModeHint = computed(() => {
-	switch (ingestionForm.segmentMode) {
+		switch (ingestionForm.segmentMode) {
 		case "heading":
 			return "适合 SOP/说明文档：按标题/段落保留结构锚点。";
 		case "clause":
@@ -452,11 +460,11 @@ const segmentModeHint = computed(() => {
 			return "适合 SQL/配置：按块/段落切分（后续可升级为 AST/对象级）。";
 		case "conversation":
 			return "适合工单/聊天：按“发言人: 内容”轮次切分。";
-		case "unit":
-		default:
-			return "沿用处理器输出的段落，不做额外分割（legacy）。";
-	}
-});
+			case "unit":
+			default:
+				return "按长度窗口切分，并在窗口边界优先用分隔符（如换行/句号）对齐，避免截断句子。";
+		}
+	});
 const selectedSpaceHasSceneBundle = computed(() => {
 	const id = ingestionForm.spaceId;
 	if (!id) return false;
@@ -713,13 +721,15 @@ const setSpaceAndOpenIngestion = (spaceId: string) => {
 	openIngestionModal();
 };
 
-const openPlayground = (spaceId: string) =>
-	navigateTo({ path: "/knowledge-spaces/playground", query: { spaceId } });
+	const openPlayground = (spaceId: string) =>
+		navigateTo({ path: "/knowledge-spaces/playground", query: { spaceId } });
 
-const openSources = (spaceId: string) => navigateTo(`/knowledge-spaces/${spaceId}/sources`);
+	const openSources = (spaceId: string) => navigateTo(`/knowledge-spaces/${spaceId}/sources`);
 
-const openStrategy = (spaceId: string) =>
-	navigateTo({ path: "/knowledge-spaces/strategy", query: { spaceId } });
+	const openIngestions = (spaceId: string) => navigateTo(`/knowledge-spaces/${spaceId}/ingestions`);
+
+	const openStrategy = (spaceId: string) =>
+		navigateTo({ path: "/knowledge-spaces/strategy", query: { spaceId } });
 
 const taskSpaceLabel = (spaceId: string) => {
 	const space = spaces.value.find((s) => s.spaceId === spaceId);
@@ -793,16 +803,27 @@ const tableColumns = computed(() => {
 						},
 						() => t("knowledgeSpaces.spaces.actions.sources", "连接数据源"),
 					),
-					h(
-						UButton as any,
-						{
-							size: "xs",
-							color: "neutral",
-							variant: "soft",
-							icon: "i-heroicons-adjustments-horizontal",
-							onClick: () => openStrategy(row.original.spaceId),
-						},
-						() => t("knowledgeSpaces.spaces.actions.strategy", "策略"),
+						h(
+							UButton as any,
+							{
+								size: "xs",
+								color: "neutral",
+								variant: "soft",
+								icon: "i-heroicons-list-bullet",
+								onClick: () => openIngestions(row.original.spaceId),
+							},
+							() => "入库记录",
+						),
+						h(
+							UButton as any,
+							{
+								size: "xs",
+								color: "neutral",
+								variant: "soft",
+								icon: "i-heroicons-adjustments-horizontal",
+								onClick: () => openStrategy(row.original.spaceId),
+							},
+							() => t("knowledgeSpaces.spaces.actions.strategy", "策略"),
 					),
 					h(
 						UButton as any,
@@ -1010,6 +1031,8 @@ const mapChunkingModeToSegmentMode = (chunkingMode: string, format: string): Seg
 	if (m.includes("semantic")) return "semantic";
 	if (m.includes("table") || m.includes("row")) return "table_row";
 	if (m.includes("ast") || m.includes("code") || m.includes("object")) return "code_block";
+	// PDF/docx 的文本抽取常见没有明确 heading 标记，默认用“长度窗口 + 分隔符边界”更稳。
+	if (f === "pdf" || f === "docx" || f === "markdown" || f === "html") return "unit";
 	return "heading";
 };
 
@@ -1358,22 +1381,22 @@ const applyOcrSuggestion = () => {
 	ingestionAdvancedOpen.value = true;
 };
 
-const buildAbsoluteUrl = (url: string) => {
-	const raw = String(url || "").trim();
-	if (!raw) return "";
-	if (!process.client) return raw;
-	if (!raw.startsWith("/")) return raw;
-	const cfg = useRuntimeConfig();
-	const upstreamOrigin = String(cfg.public?.upstreamOrigin || "").replace(/\/+$/, "");
-	const base = upstreamOrigin || location.origin;
-	return `${base}${raw}`;
-};
+	const buildAbsoluteUrl = (url: string) => {
+		const raw = String(url || "").trim();
+		if (!raw) return "";
+		if (!process.client) return raw;
+		if (!raw.startsWith("/")) return raw;
+		const cfg = useRuntimeConfig();
+		const upstreamOrigin = String(cfg.public?.upstreamOrigin || "").replace(/\/+$/, "");
+		const base = upstreamOrigin || location.origin;
+		return `${base}${raw}`;
+	};
 
-const uploadSelectedFileToMedia = async (spaceId: string, file: File) => {
-	const name = (file.name || "upload").trim();
-	const tenantUuid = resolveTenantUUIDForRequest();
-	const tags = [
-		"knowledge_space",
+	const uploadSelectedFileToMedia = async (spaceId: string, file: File) => {
+		const name = (file.name || "upload").trim();
+		const tenantUuid = resolveTenantUUIDForRequest();
+		const tags = [
+			"knowledge_space",
 		"knowledge_ingestion_source",
 		...(ingestionRetainSource.value ? [] : ["ephemeral"]),
 	];
@@ -1398,31 +1421,28 @@ const uploadSelectedFileToMedia = async (spaceId: string, file: File) => {
 		action: "upload",
 		method: "PUT",
 		expiresInSeconds: 3600,
-		filename: name,
-		content_type: file.type || undefined,
-	});
-	const uploadUrl = buildAbsoluteUrl(presign.url);
-	if (!uploadUrl) throw new Error("预签名上传返回空链接");
-
-	const method = String(presign.method || "PUT").toUpperCase();
-	const headers = { ...(presign.headers || {}) } as Record<string, string>;
-	if (file.type && !headers["Content-Type"] && !headers["content-type"]) {
-		headers["Content-Type"] = file.type;
-	}
-	const uploadResp = await fetch(uploadUrl, { method, headers, body: file });
-	if (!uploadResp.ok) {
-		throw new Error(`上传失败：${uploadResp.status} ${uploadResp.statusText}`);
-	}
-
-	// best-effort：更新 media 资产状态（是否“保留到媒体库”）
-	try {
-		await media.updateAsset(created.uuid, {
-			businessStatus: ingestionRetainSource.value ? "published" : "archived",
-			tags,
+			filename: name,
+			content_type: file.type || undefined,
 		});
-	} catch {
-		// ignore
-	}
+
+		const uploadHeaders = { ...(presign.headers || {}) } as Record<string, string>;
+		if (file.type && !uploadHeaders["Content-Type"] && !uploadHeaders["content-type"]) {
+			uploadHeaders["Content-Type"] = file.type;
+		}
+		await media.uploadPresigned({ ...presign, headers: uploadHeaders }, file);
+
+		// best-effort：更新 media 资产状态（是否“保留到媒体库”）
+		try {
+			// 状态机：draft 不能直接流转到 published（需要 under_review → published）。
+			// “保留源文件”默认先进入 under_review，后续可在媒体库中再发布。
+			const nextStatus = ingestionRetainSource.value ? "under_review" : "archived";
+			await media.updateAsset(created.uuid, {
+				businessStatus: nextStatus,
+				tags,
+			});
+		} catch {
+			// ignore
+		}
 
 	// 入库 Worker 需要一个可抓取的 URL，这里用 presign download 避免鉴权。
 	const download = await media.presign(created.uuid, {
@@ -1441,12 +1461,12 @@ const startCorpusCheckBestEffort = async (spaceId: string) => {
 	try {
 		const created = await api.startCorpusCheck(spaceId, "");
 		knowledgeStore.lastCorpusCheckJob = created as any;
-		for (let i = 0; i < 12; i++) {
-			const latest = await api.getCorpusCheckJob(spaceId, created.uuid);
-			knowledgeStore.lastCorpusCheckJob = latest as any;
-			if (latest?.status === "completed" || latest?.status === "failed") break;
-			await new Promise((r) => setTimeout(r, 1000));
-		}
+		await pollCorpusCheckJob(
+			() => api.getCorpusCheckJob(spaceId, created.uuid),
+			(latest) => {
+				knowledgeStore.lastCorpusCheckJob = latest as any;
+			},
+		);
 	} catch {
 		// ignore: best-effort
 	}
@@ -2311,7 +2331,7 @@ const applyRemediationAction = (action: any) => {
                   color="warning"
                   variant="soft"
                   title="提示"
-                  description="已落地标题/条款/行号/发言人/句子序号等锚点到 chunk metadata；页码/坐标等更强 provenance 仍依赖 processor/profile（如 PDF/OCR）。"
+                  description="我们会把“标题路径/条款号/行号/发言人/句子序号”等结构锚点写进每个 chunk 的 metadata，方便检索命中后快速回到原文位置。如果你希望做到更精确的定位（例如 PDF 第几页、OCR 框选坐标/bbox 叠框），需要选用支持 PDF/OCR 的 processor/profile。"
                 />
 
                 <div class="flex flex-wrap gap-2 pt-1">
@@ -2477,27 +2497,38 @@ const applyRemediationAction = (action: any) => {
         />
 
         <div v-else class="space-y-2">
-          <div
-            v-for="t in ingestionTasks"
-            :key="t.jobId"
-            class="rounded-lg border border-gray-200 bg-white p-3 space-y-1"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-sm font-medium truncate">{{ taskSpaceLabel(t.spaceId) }}</div>
-                <div class="text-xs text-[var(--text-secondary)] truncate">来源：{{ t.sourceLabel }}</div>
-              </div>
-              <UBadge
-                :color="t.status === 'completed' ? 'success' : t.status === 'failed' ? 'error' : t.status === 'blocked' ? 'warning' : 'neutral'"
-                variant="soft"
-              >
-                {{ t.status }}
-              </UBadge>
-            </div>
-            <div class="text-xs text-[var(--text-tertiary)]">任务：{{ t.jobId.slice(0, 8) }}… · 更新：{{ new Date(t.updatedAt).toLocaleTimeString() }}</div>
-          </div>
-        </div>
-      </template>
-    </USlideover>
+	          <div
+	            v-for="t in ingestionTasks"
+	            :key="t.jobId"
+	            class="rounded-lg border border-gray-200 bg-white p-3 space-y-1"
+	          >
+	            <div class="flex items-start justify-between gap-2">
+	              <div class="min-w-0">
+	                <div class="text-sm font-medium truncate">{{ taskSpaceLabel(t.spaceId) }}</div>
+	                <div class="text-xs text-[var(--text-secondary)] truncate">来源：{{ t.sourceLabel }}</div>
+	              </div>
+	              <div class="flex items-center gap-2">
+	                <UBadge
+	                  :color="t.status === 'completed' ? 'success' : t.status === 'failed' ? 'error' : t.status === 'blocked' ? 'warning' : 'neutral'"
+	                  variant="soft"
+	                >
+	                  {{ t.status }}
+	                </UBadge>
+	                <UButton
+	                  v-if="t.status === 'completed'"
+	                  size="xs"
+	                  color="primary"
+	                  variant="soft"
+	                  @click="navigateTo(`/knowledge-spaces/${encodeURIComponent(t.spaceId)}/ingestions/${encodeURIComponent(t.jobId)}`)"
+	                >
+	                  预览切块
+	                </UButton>
+	              </div>
+	            </div>
+	            <div class="text-xs text-[var(--text-tertiary)]">任务：{{ t.jobId.slice(0, 8) }}… · 更新：{{ new Date(t.updatedAt).toLocaleTimeString() }}</div>
+	          </div>
+	        </div>
+	      </template>
+	    </USlideover>
   </section>
 </template>

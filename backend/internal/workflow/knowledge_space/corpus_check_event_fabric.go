@@ -56,7 +56,9 @@ func NewEventFabricCorpusCheckPipeline(opts EventFabricCorpusCheckPipelineOption
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
-		namespace = "knowledge.space.corpus_check"
+		// Event Fabric namespace pattern: ^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$
+		// underscores are not allowed.
+		namespace = "knowledge.space.corpuscheck"
 	}
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
@@ -111,21 +113,21 @@ func (p *EventFabricCorpusCheckPipeline) Schedule(ctx context.Context, input Cor
 
 	fullTopic := fmt.Sprintf("%s.%s.%s", tenantKey, strings.TrimSpace(p.namespace), strings.TrimSpace(p.name))
 	payload := map[string]any{
-		"job_uuid":     input.JobUUID.String(),
-		"space_id":     input.SpaceID.String(),
-		"requestedBy":  input.RequestedBy,
+		"job_uuid":    input.JobUUID.String(),
+		"space_id":    input.SpaceID.String(),
+		"requestedBy": input.RequestedBy,
 	}
 	body, _ := json.Marshal(payload)
 	traceID := strings.TrimSpace(reqctx.GetTraceID(ctx))
 
 	if err := p.delivery.Publish(ctx, delivery.PublishRequest{
-		TenantUUID:    tenantKey,
-		Topic:         fullTopic,
-		EventID:       fmt.Sprintf("knowledge-corpus-check-%s", input.JobUUID.String()),
-		TraceID:       traceID,
-		Version:       "v1",
-		Payload:       body,
-		PayloadFormat: p.format,
+		TenantUUID:     tenantKey,
+		Topic:          fullTopic,
+		EventID:        fmt.Sprintf("knowledge-corpus-check-%s", input.JobUUID.String()),
+		TraceID:        traceID,
+		Version:        "v1",
+		Payload:        body,
+		PayloadFormat:  p.format,
 		IdempotencyKey: input.JobUUID.String(),
 		Attributes: map[string]string{
 			"subscriber_id": p.subscriberID,
@@ -225,6 +227,8 @@ type EventFabricCorpusCheckConsumer struct {
 	batchSize      int
 	clock          func() time.Time
 	cancel         context.CancelFunc
+	ensuredTenants map[string]time.Time
+	ensureEvery    time.Duration
 }
 
 func NewEventFabricCorpusCheckConsumer(opts EventFabricCorpusCheckConsumerOptions) *EventFabricCorpusCheckConsumer {
@@ -245,7 +249,9 @@ func NewEventFabricCorpusCheckConsumer(opts EventFabricCorpusCheckConsumerOption
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
-		namespace = "knowledge.space.corpus_check"
+		// Event Fabric namespace pattern: ^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$
+		// underscores are not allowed.
+		namespace = "knowledge.space.corpuscheck"
 	}
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
@@ -255,6 +261,7 @@ func NewEventFabricCorpusCheckConsumer(opts EventFabricCorpusCheckConsumerOption
 	if provider == nil {
 		provider = func(context.Context) ([]string, error) { return []string{"global"}, nil }
 	}
+	ensureEvery := 10 * time.Minute
 	return &EventFabricCorpusCheckConsumer{
 		delivery:       opts.Delivery,
 		db:             opts.DB,
@@ -267,6 +274,8 @@ func NewEventFabricCorpusCheckConsumer(opts EventFabricCorpusCheckConsumerOption
 		interval:       interval,
 		batchSize:      batch,
 		clock:          opts.Clock,
+		ensuredTenants: map[string]time.Time{},
+		ensureEvery:    ensureEvery,
 	}
 }
 
@@ -304,7 +313,13 @@ func (c *EventFabricCorpusCheckConsumer) loop(ctx context.Context) {
 				if tenantKey == "" {
 					continue
 				}
-				_ = c.ensureTopic(ctx, tenantKey)
+				// Avoid re-ensuring topic/ACL bindings on every poll tick (can spam audit logs).
+				// Ensure at most once per TTL per tenant; on failure we retry on next tick.
+				if last, ok := c.ensuredTenants[tenantKey]; !ok || time.Since(last) >= c.ensureEvery {
+					if err := c.ensureTopic(ctx, tenantKey); err == nil {
+						c.ensuredTenants[tenantKey] = time.Now()
+					}
+				}
 				fullTopic := fmt.Sprintf("%s.%s.%s", tenantKey, strings.TrimSpace(c.namespace), strings.TrimSpace(c.name))
 				runCtx := context.WithValue(ctx, sharedsvc.ContextTenantKey, tenantKey)
 				runCtx = context.WithValue(runCtx, sharedsvc.ContextSubscriberKey, c.subscriberID)

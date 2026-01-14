@@ -208,7 +208,7 @@ func GetDefaults() *Config {
 				Driver: "",
 				PgVector: KnowledgeSpaceVectorStorePGVectorConfig{
 					Schema:           "public",
-					Table:            "knowledge_vectors",
+					Table:            "knowledge_vectors_v1_1536",
 					Dimensions:       1536,
 					EnableMigrations: false,
 					BatchSize:        128,

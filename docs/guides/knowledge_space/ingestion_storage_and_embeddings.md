@@ -30,6 +30,20 @@ Web Admin 的“上传”会先把文件 **上传到 Media（对象存储）**�
 
 > 说明：OCR 与切块实现由后端的 processor/profile 体系承担；UI 的场景/策略包主要决定“推荐的 processor/索引前置/线上 RAG 模块组合”。
 
+### 2.1 扫描件（图片型 PDF）推荐方案：Plan B（Tesseract + bbox）
+
+当扫描件占比高且需要“叠框验收 + 可人工修订”时，推荐采用 `specs/011-knowledge-space/ocr_scan_pdf_plan_b.md` 描述的 Plan B：
+- PDF 逐页渲染为图片
+- Tesseract 输出 TSV/hOCR（包含文字 + bbox）
+- 内容级（段落/条款）跨页合并，再执行 chunking（**不是按页切**）
+- chunk 的 `metadata.provenance` 写入 `page_number + bbox_norm`，用于 Web Admin 预览叠框与引用定位
+
+Web Admin 当前已提供最小验收链路：
+- 空间 → 入库记录：`/knowledge-spaces/:spaceId/ingestions`
+- 任务 → 切块预览/编辑：`/knowledge-spaces/:spaceId/ingestions/:jobId`
+
+> 注意：页预览叠框与 `knowledge_chunks` 持久化仍在任务清单中（见 `specs/011-knowledge-space/tasks.md` 的 `T106B~T106G`）。
+
 ## 3) Embedding / 向量 / 图谱等数据落在哪里？
 
 ### 3.1 元数据（Postgres）
@@ -41,10 +55,36 @@ Web Admin 的“上传”会先把文件 **上传到 Media（对象存储）**�
 - `ArtifactBundle.*_manifest_uri` 以 `minio://` 开头（集成测试已断言），用于承载切块/向量/图谱等产物文件的“可回放清单”。
 
 ### 3.3 Dense 向量（pgvector in Postgres）
-- Dense embedding 写入 pgvector 表（由 `backend/pkg/corex/db/persistence/vectorstore/pgvector/store.go` 管理）：
+- Dense embedding 写入 pgvector 表（由 `backend/pkg/corex/db/persistence/vectorstore/pgvector/store.go` 管理），采用 **“全局共享 + 按维度分表（带版本）”** 的策略：
   - 表结构：`(space_uuid, chunk_uuid, embedding vector(D), metadata jsonb, updated_at)`
-  - Upsert 主键：`(space_uuid, chunk_uuid)`
+  - Upsert 主键：`(space_uuid, chunk_uuid)`（通过 `space_uuid` 隔离不同空间）
   - 召回：`embedding <=> query_vector`（L2 距离）
+
+#### 3.3.1 表命名规则（重要）
+
+- 默认/推荐表：`public.knowledge_vectors_v1_1536`
+- 动态表族：`public.knowledge_vectors_v1_<D>`（例如 `public.knowledge_vectors_v1_1024`）
+  - `D` 为 embedding 维度；不同维度必须落在不同表（因为 `vector(D)` 类型不同）。
+
+#### 3.3.2 索引登记表（SSOT）：`knowledge_vector_indexes`
+
+系统会为每个 space 维护一张登记表（用于路由、回滚与治理）：
+- 表：`powerx.knowledge_vector_indexes`
+- 关键字段：
+  - `space_uuid`
+  - `index_key`（例如 `dense_v1_1536_xxxxxxxx`）
+  - `table_name`（例如 `knowledge_vectors_v1_1536`）
+  - `dimensions`
+  - `embedding_provider / embedding_model / embedding_profile_ref`
+  - `status`（`creating|active|retired|failed`）
+
+#### 3.3.3 “AI Settings 测试连接” vs “Space 激活向量索引”
+
+为避免“测试连接就建表/垃圾表爆炸”，这两步被强制拆分：
+- **AI Settings（测试连接）**：只做 provider/model 的连通性校验，并执行一次 **probe** 得到 `dimensions` 写回 profile（不建任何向量表）。
+- **Space（激活向量索引）**：才会执行 `probe → CREATE TABLE IF NOT EXISTS → 写入 knowledge_vector_indexes → 更新 knowledge_spaces.embedding_profile_key/active_vector_index_key`。
+
+> 结果：只有在空间明确绑定 embedding profile 之后，该空间的入库才会写入向量；否则会以 “degraded（无向量）” 方式完成入库，避免误判为“成功写入”。
 
 ### 3.4 KG / Sparse / Hier 等
 - **KG（知识图谱）**：当前以 `ArtifactBundle.graph_manifest_uri` 为“产物入口”预留；若启用 KG 模块，会在产物与检索侧增加实体/关系约束与召回（实现会按任务逐步落地）。
@@ -57,6 +97,10 @@ Web Admin 的“上传”会先把文件 **上传到 Media（对象存储）**�
 
 ### 自动创建（可选）
 - 若配置 `EnableMigrations=true`，后端会执行 `CREATE EXTENSION IF NOT EXISTS vector`（需要 DB 用户有权限）。
+
+### 默认建表（db-migrate/db-refresh）
+- `make db-migrate` / `make db-refresh` 会按 `knowledge_space.vector_store.pgvector.schema/table/dimensions` 创建默认向量表（通常是 `public.knowledge_vectors_v1_1536`）。
+- 其他维度表（如 `knowledge_vectors_v1_1024`）不会在迁移阶段批量创建，而是在 **Space 激活** 时按需幂等创建。
 
 ### 运行时检查（已增强）
 - `pgvector` store 的 `Health()` 现在会在 `Ping()` 之后额外检查 `pg_extension` 是否存在 `vector`：

@@ -112,6 +112,59 @@ func (s *Service) ValidateStrategy(ctx context.Context, in ValidateStrategyInput
 	return res, nil
 }
 
+// ValidateStrategyForSpace validates prerequisites with space-scoped capability checks.
+// 主要用于 UI：同一 bundle 的 index.dense 是否就绪取决于该 space 是否已绑定 embedding profile + 激活 dense index。
+func (s *Service) ValidateStrategyForSpace(ctx context.Context, space *models.KnowledgeSpace) (*strategy_catalog.ValidationResult, error) {
+	if s == nil || s.strategyCatalog == nil {
+		return nil, dto.NewError(http.StatusInternalServerError, "strategy catalog unavailable", nil)
+	}
+	cat, err := s.strategyCatalog.Load()
+	if err != nil {
+		return nil, dto.NewError(http.StatusInternalServerError, "加载策略目录失败", err)
+	}
+
+	sceneKey, bundleKey := inferSceneAndBundle(space)
+	sceneKey = strings.TrimSpace(sceneKey)
+	bundleKey = strings.TrimSpace(bundleKey)
+	if sceneKey == "" {
+		sceneKey = "sop"
+	}
+	scene, ok := cat.Scenes[sceneKey]
+	if !ok {
+		return nil, dto.NewBadRequest("未知场景", nil)
+	}
+	if bundleKey == "" {
+		bundleKey = scene.DefaultBundle
+	}
+	bundle, ok := cat.Bundles[bundleKey]
+	if !ok {
+		if strings.EqualFold(bundleKey, "default") {
+			bundleKey = scene.DefaultBundle
+			bundle, ok = cat.Bundles[bundleKey]
+		}
+	}
+	if !ok {
+		return nil, dto.NewBadRequest("未知策略包", nil)
+	}
+
+	required := make([]string, 0, len(scene.Prerequisites.Index)+len(bundle.Prerequisites))
+	required = append(required, scene.Prerequisites.Index...)
+	required = append(required, bundle.Prerequisites...)
+
+	caps := computeStrategyCapabilitiesForSpace(space)
+	missing := computeMissingPrereqs(required, caps)
+
+	return &strategy_catalog.ValidationResult{
+		OK:              len(missing) == 0,
+		SceneKey:        sceneKey,
+		BundleKey:       bundleKey,
+		EnabledChannels: computeEnabledChannels(required),
+		Missing:         missing,
+		Capabilities:    caps,
+		CheckedAt:       time.Now(),
+	}, nil
+}
+
 func (s *Service) EnforceStrategyPrereqsOnActivate(sceneKey, bundleKey string) error {
 	res, err := s.ValidateStrategy(context.Background(), ValidateStrategyInput{SceneKey: sceneKey, BundleKey: bundleKey})
 	if err != nil {
@@ -174,6 +227,17 @@ func computeStrategyCapabilities() map[string]bool {
 	return caps
 }
 
+func computeStrategyCapabilitiesForSpace(space *models.KnowledgeSpace) map[string]bool {
+	caps := computeStrategyCapabilities()
+	spaceDenseReady := false
+	if space != nil {
+		spaceDenseReady = strings.TrimSpace(space.ActiveVectorIndexKey) != "" && strings.TrimSpace(space.EmbeddingProfileKey) != ""
+	}
+	// index.dense = 环境开关 AND space 激活状态
+	caps["index.dense"] = caps["index.dense"] && spaceDenseReady
+	return caps
+}
+
 func computeEnabledChannels(required []string) []string {
 	seen := map[string]struct{}{}
 	order := []string{"dense", "sparse", "hier", "kg", "time", "structured"}
@@ -230,6 +294,11 @@ func computeMissingPrereqs(required []string, caps map[string]bool) []strategy_c
 
 func prereqToError(key string) (code string, msg string, remediation []string) {
 	switch key {
+	case "index.dense":
+		return "dense_required", "当前策略包需要 Dense（向量）索引能力", []string{
+			"在该空间「策略配置」页激活向量索引：绑定 embedding profile 并执行激活（会自动创建对应维度的 pgvector 表）",
+			"或切换到不依赖 Dense 的策略/场景（不推荐）",
+		}
 	case "index.kg":
 		return "kg_required", "当前策略包需要 KG（知识图谱）索引能力", []string{
 			"启用 KG 索引：设置 PX_KNOWLEDGE_INDEX_KG=1 并完成相关迁移/索引构建",

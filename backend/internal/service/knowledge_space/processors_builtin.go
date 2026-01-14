@@ -2,6 +2,7 @@ package knowledge_space
 
 import (
 	"context"
+	"errors"
 	"hash/crc32"
 	"regexp"
 	"strings"
@@ -11,23 +12,26 @@ type TextProcessor struct{}
 
 func (TextProcessor) Name() string { return "builtin/text" }
 
-func (TextProcessor) Process(_ context.Context, in DocumentProcessInput) ([]DocumentUnit, OCRStats) {
+func (TextProcessor) Process(_ context.Context, in DocumentProcessInput) (DocumentProcessResult, error) {
 	format := strings.ToLower(strings.TrimSpace(in.Format))
 	src := strings.TrimSpace(in.SourceURI)
 	content := syntheticContentFor(format, src)
-	return []DocumentUnit{{
-		Content: content,
-		Provenance: map[string]any{
-			"line_range": "1:200",
-		},
-	}}, OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()}
+	return DocumentProcessResult{
+		Units: []DocumentUnit{{
+			Content: content,
+			Provenance: map[string]any{
+				"line_range": "1:200",
+			},
+		}},
+		OCR: OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()},
+	}, nil
 }
 
 type TableProcessor struct{}
 
 func (TableProcessor) Name() string { return "builtin/table" }
 
-func (TableProcessor) Process(_ context.Context, in DocumentProcessInput) ([]DocumentUnit, OCRStats) {
+func (TableProcessor) Process(_ context.Context, in DocumentProcessInput) (DocumentProcessResult, error) {
 	src := strings.TrimSpace(in.SourceURI)
 	rows := 5
 	units := make([]DocumentUnit, 0, rows)
@@ -40,17 +44,20 @@ func (TableProcessor) Process(_ context.Context, in DocumentProcessInput) ([]Doc
 			},
 		})
 	}
-	return units, OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()}
+	return DocumentProcessResult{
+		Units: units,
+		OCR:   OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()},
+	}, nil
 }
 
 type PDFProcessor struct{}
 
 func (PDFProcessor) Name() string { return "builtin/pdf" }
 
-func (PDFProcessor) Process(_ context.Context, in DocumentProcessInput) ([]DocumentUnit, OCRStats) {
+func (PDFProcessor) Process(_ context.Context, in DocumentProcessInput) (DocumentProcessResult, error) {
 	src := strings.TrimSpace(in.SourceURI)
 	if in.NeedOCR && !in.OCRAvailable {
-		return nil, OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()}
+		return DocumentProcessResult{OCR: OCRStats{CoveragePct: 0, ConfidenceBuckets: defaultConfidenceBuckets()}}, nil
 	}
 	pages := 3
 	units := make([]DocumentUnit, 0, pages)
@@ -72,8 +79,11 @@ func (PDFProcessor) Process(_ context.Context, in DocumentProcessInput) ([]Docum
 			Confidence: conf,
 		})
 	}
-	return units, stats
+	stats.PageCount = pages
+	return DocumentProcessResult{Units: units, OCR: stats}, nil
 }
+
+var ErrOCRUnavailable = errors.New("ocr unavailable")
 
 func defaultConfidenceBuckets() map[string]int {
 	return map[string]int{"0.0-0.5": 0, "0.5-0.8": 0, "0.8-1.0": 0}

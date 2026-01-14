@@ -71,3 +71,13 @@ export const resolveTenantUUIDForRequest = () =>
 
     return stored || undefined;
   })();
+
+export const extractTenantUUIDFromJWT = (token?: string | null) => {
+  const claims = decodeJwtPayload(token);
+  const raw =
+    (typeof claims?.tid === "string" && claims.tid) ||
+    (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||
+    "";
+  const normalized = raw ? normalize(raw) : "";
+  return normalized || undefined;
+};

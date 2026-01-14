@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	knowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
@@ -46,6 +47,9 @@ type IngestionService struct {
 	processors    *ProcessorRegistry
 	artifactStore *ArtifactStore
 	maxRetries    int
+
+	agentSettings   *agentSvc.AgentSettingService
+	vectorDimension int
 }
 
 func (s *IngestionService) GetJob(ctx context.Context, spaceID uuid.UUID, jobUUID uuid.UUID) (*knowledge.IngestionJob, error) {
@@ -91,6 +95,9 @@ type IngestionServiceOptions struct {
 	Processors    *ProcessorRegistry
 	ArtifactStore *ArtifactStore
 	MaxRetries    int
+
+	AgentSettings   *agentSvc.AgentSettingService
+	VectorDimension int
 }
 
 // TriggerIngestionInput captures API payload used to start an ingestion job.
@@ -107,17 +114,17 @@ type TriggerIngestionInput struct {
 	Priority         string
 	RequestedBy      string
 	// L1/L2/L3 snapshot (best-effort).
-	RagSceneKey  string
-	RagBundleKey string
-	RagPrimary   string
-	SegmentMode      string
-	ChunkSize        int
-	ChunkOverlap     int
-	Separators       []string
-	AnchorHeadingPath  bool
-	AnchorClauseID     bool
-	AnchorRowNumber    bool
-	AnchorSpeaker      bool
+	RagSceneKey         string
+	RagBundleKey        string
+	RagPrimary          string
+	SegmentMode         string
+	ChunkSize           int
+	ChunkOverlap        int
+	Separators          []string
+	AnchorHeadingPath   bool
+	AnchorClauseID      bool
+	AnchorRowNumber     bool
+	AnchorSpeaker       bool
 	AnchorSentenceIndex bool
 }
 
@@ -150,6 +157,13 @@ func NewIngestionService(opts IngestionServiceOptions) *IngestionService {
 		processors:    opts.Processors,
 		artifactStore: opts.ArtifactStore,
 		maxRetries:    maxRetries,
+		agentSettings: opts.AgentSettings,
+		vectorDimension: func() int {
+			if opts.VectorDimension > 0 {
+				return opts.VectorDimension
+			}
+			return 0
+		}(),
 	}
 }
 
@@ -231,30 +245,30 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 		return nil, err
 	}
 
-	outcome, chunks, vectorRecords := s.runPipeline(ctx, pipelineInput{
-		space:            space,
-		job:              job,
-		bundle:           bundle,
-		format:           format,
-		sourceURI:        in.SourceURI,
-		ingestionProfile: in.IngestionProfile,
-		processorProfile: in.ProcessorProfile,
-		ocrRequired:      in.OCRRequired,
-		maskingProfile:   in.MaskingProfile,
-		ragSceneKey:      strings.TrimSpace(in.RagSceneKey),
-		ragBundleKey:     strings.TrimSpace(in.RagBundleKey),
-		ragPrimary:       strings.TrimSpace(in.RagPrimary),
-		segmentMode:      in.SegmentMode,
-		chunkSize:        in.ChunkSize,
-		chunkOverlap:     in.ChunkOverlap,
-		separators:       in.Separators,
-		anchorHeadingPath:  in.AnchorHeadingPath,
-		anchorClauseID:     in.AnchorClauseID,
-		anchorRowNumber:    in.AnchorRowNumber,
-		anchorSpeaker:      in.AnchorSpeaker,
+	outcome, chunks, vectorRecords, ocrArtifacts := s.runPipeline(ctx, pipelineInput{
+		space:               space,
+		job:                 job,
+		bundle:              bundle,
+		format:              format,
+		sourceURI:           in.SourceURI,
+		ingestionProfile:    in.IngestionProfile,
+		processorProfile:    in.ProcessorProfile,
+		ocrRequired:         in.OCRRequired,
+		maskingProfile:      in.MaskingProfile,
+		ragSceneKey:         strings.TrimSpace(in.RagSceneKey),
+		ragBundleKey:        strings.TrimSpace(in.RagBundleKey),
+		ragPrimary:          strings.TrimSpace(in.RagPrimary),
+		segmentMode:         in.SegmentMode,
+		chunkSize:           in.ChunkSize,
+		chunkOverlap:        in.ChunkOverlap,
+		separators:          in.Separators,
+		anchorHeadingPath:   in.AnchorHeadingPath,
+		anchorClauseID:      in.AnchorClauseID,
+		anchorRowNumber:     in.AnchorRowNumber,
+		anchorSpeaker:       in.AnchorSpeaker,
 		anchorSentenceIndex: in.AnchorSentenceIndex,
 	})
-	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords)
+	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords, ocrArtifacts)
 }
 
 // TriggerWithDocUnits runs ingestion using already-normalized document units (e.g. API connectors).
@@ -336,28 +350,28 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 	}
 
 	outcome, chunks, vectorRecords := s.runPipelineFromUnits(ctx, pipelineUnitsInput{
-		space:          space,
-		job:            job,
-		bundle:         bundle,
-		format:         format,
-		sourceURI:      in.SourceURI,
-		docUnits:       docUnits,
-		maskingProfile: in.MaskingProfile,
-		ocrRequired:    in.OCRRequired,
-		ragSceneKey:    strings.TrimSpace(in.RagSceneKey),
-		ragBundleKey:   strings.TrimSpace(in.RagBundleKey),
-		ragPrimary:     strings.TrimSpace(in.RagPrimary),
-		segmentMode:    in.SegmentMode,
-		chunkSize:      in.ChunkSize,
-		chunkOverlap:   in.ChunkOverlap,
-		separators:     in.Separators,
-		anchorHeadingPath:  in.AnchorHeadingPath,
-		anchorClauseID:     in.AnchorClauseID,
-		anchorRowNumber:    in.AnchorRowNumber,
-		anchorSpeaker:      in.AnchorSpeaker,
+		space:               space,
+		job:                 job,
+		bundle:              bundle,
+		format:              format,
+		sourceURI:           in.SourceURI,
+		docUnits:            docUnits,
+		maskingProfile:      in.MaskingProfile,
+		ocrRequired:         in.OCRRequired,
+		ragSceneKey:         strings.TrimSpace(in.RagSceneKey),
+		ragBundleKey:        strings.TrimSpace(in.RagBundleKey),
+		ragPrimary:          strings.TrimSpace(in.RagPrimary),
+		segmentMode:         in.SegmentMode,
+		chunkSize:           in.ChunkSize,
+		chunkOverlap:        in.ChunkOverlap,
+		separators:          in.Separators,
+		anchorHeadingPath:   in.AnchorHeadingPath,
+		anchorClauseID:      in.AnchorClauseID,
+		anchorRowNumber:     in.AnchorRowNumber,
+		anchorSpeaker:       in.AnchorSpeaker,
 		anchorSentenceIndex: in.AnchorSentenceIndex,
 	})
-	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords)
+	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords, nil)
 }
 
 // TriggerAsync creates an ingestion job and runs the pipeline in background.
@@ -439,30 +453,30 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 		logger := s.inst.Logger(bg)
 		logger.InfoF(bg, "[ingestion] async start space=%s job=%s source=%s format=%s", in.SpaceID, job.UUID, in.SourceURI, format)
 		// Run the same pipeline and update job in DB.
-		outcome, chunks, vectors := s.runPipeline(bg, pipelineInput{
-			space:            space,
-			job:              job,
-			bundle:           bundle,
-			format:           format,
-			sourceURI:        in.SourceURI,
-			ingestionProfile: in.IngestionProfile,
-			processorProfile: in.ProcessorProfile,
-			ocrRequired:      in.OCRRequired,
-			maskingProfile:   in.MaskingProfile,
-			ragSceneKey:      strings.TrimSpace(in.RagSceneKey),
-			ragBundleKey:     strings.TrimSpace(in.RagBundleKey),
-			ragPrimary:       strings.TrimSpace(in.RagPrimary),
-			segmentMode:      in.SegmentMode,
-			chunkSize:        in.ChunkSize,
-			chunkOverlap:     in.ChunkOverlap,
-			separators:       in.Separators,
-			anchorHeadingPath:  in.AnchorHeadingPath,
-			anchorClauseID:     in.AnchorClauseID,
-			anchorRowNumber:    in.AnchorRowNumber,
-			anchorSpeaker:      in.AnchorSpeaker,
+		outcome, chunks, vectors, ocrArtifacts := s.runPipeline(bg, pipelineInput{
+			space:               space,
+			job:                 job,
+			bundle:              bundle,
+			format:              format,
+			sourceURI:           in.SourceURI,
+			ingestionProfile:    in.IngestionProfile,
+			processorProfile:    in.ProcessorProfile,
+			ocrRequired:         in.OCRRequired,
+			maskingProfile:      in.MaskingProfile,
+			ragSceneKey:         strings.TrimSpace(in.RagSceneKey),
+			ragBundleKey:        strings.TrimSpace(in.RagBundleKey),
+			ragPrimary:          strings.TrimSpace(in.RagPrimary),
+			segmentMode:         in.SegmentMode,
+			chunkSize:           in.ChunkSize,
+			chunkOverlap:        in.ChunkOverlap,
+			separators:          in.Separators,
+			anchorHeadingPath:   in.AnchorHeadingPath,
+			anchorClauseID:      in.AnchorClauseID,
+			anchorRowNumber:     in.AnchorRowNumber,
+			anchorSpeaker:       in.AnchorSpeaker,
 			anchorSentenceIndex: in.AnchorSentenceIndex,
 		})
-		if _, err := s.finalizeIngestion(bg, space, job, bundle, format, in, outcome, chunks, vectors); err != nil {
+		if _, err := s.finalizeIngestion(bg, space, job, bundle, format, in, outcome, chunks, vectors, ocrArtifacts); err != nil {
 			logger.ErrorF(bg, "[ingestion] async finalize failed job=%s err=%v", job.UUID, err)
 		}
 	}()
@@ -482,6 +496,7 @@ func (s *IngestionService) finalizeIngestion(
 	outcome pipelineOutcome,
 	chunks []IngestionChunk,
 	vectorRecords []vectorstore.VectorRecord,
+	ocrArtifacts *OCRArtifacts,
 ) (*knowledge.IngestionJob, error) {
 	if job == nil {
 		return nil, ErrInvalidInput
@@ -495,6 +510,47 @@ func (s *IngestionService) finalizeIngestion(
 		_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
 	}
 
+	// Persist online chunk store (best-effort). This is the editable truth source for chunk text + metadata.
+	// If the chunk store is not enabled in this environment, ingestion should continue (manifest remains available).
+	if len(chunks) > 0 {
+		now := time.Now()
+		rows := make([]knowledge.KnowledgeChunk, 0, len(chunks))
+		for i := range chunks {
+			ch := &chunks[i]
+			meta := make(map[string]any, len(ch.Metadata)+3)
+			for k, v := range ch.Metadata {
+				meta[k] = v
+			}
+			meta["job_uuid"] = job.UUID.String()
+			meta["masked"] = ch.Masked
+			meta["confidence"] = ch.Confidence
+
+			metaBytes, err := json.Marshal(meta)
+			if err != nil {
+				metaBytes = []byte(`{}`)
+			}
+			rows = append(rows, knowledge.KnowledgeChunk{
+				SpaceUUID: in.SpaceID,
+				ChunkUUID: ch.ID,
+				JobUUID:   &job.UUID,
+				Kind:      ch.Kind,
+				Content:   ch.Content,
+				Metadata:  metaBytes,
+				CreatedAt: now,
+				UpdatedAt: now,
+			})
+			// Reflect back to in-memory chunk metadata so manifests and vector metadata stay aligned.
+			ch.Metadata = meta
+		}
+		if err := repo.NewKnowledgeChunkRepository(s.db).UpsertMany(ctx, rows); err != nil {
+			if !isUndefinedTableError(err) {
+				if s.inst != nil {
+					s.inst.Logger(ctx).WarnF(ctx, "[ingestion] upsert knowledge_chunks failed: %v", err)
+				}
+			}
+		}
+	}
+
 	if s.artifactStore != nil && bundle != nil {
 		if artifactUpdate, err := s.artifactStore.Write(ctx, ArtifactWriteInput{
 			SpaceID:        in.SpaceID,
@@ -506,10 +562,14 @@ func (s *IngestionService) finalizeIngestion(
 			VectorRecords:  vectorRecords,
 			MaskingProfile: in.MaskingProfile,
 			Outcome:        outcome,
+			OCRArtifacts:   ocrArtifacts,
 		}); err == nil {
 			bundle.ChunkManifestURI = artifactUpdate.ChunkManifestURI
 			bundle.VectorManifestURI = artifactUpdate.VectorManifestURI
 			bundle.MaskingReportURI = artifactUpdate.MaskingReportURI
+			bundle.OCRPageImagesURI = artifactUpdate.OCRPageImagesURI
+			bundle.OCRRawManifestURI = artifactUpdate.OCRRawManifestURI
+			bundle.OCRSearchablePDFURI = artifactUpdate.OCRSearchablePDFURI
 			bundle.Checksum = artifactUpdate.Checksum
 			bundle.SummaryChunkCount = outcome.summaryCount
 			bundle.ParagraphChunkCount = outcome.chunkCount
@@ -518,6 +578,15 @@ func (s *IngestionService) finalizeIngestion(
 	}
 
 	vectorErr := s.persistWithRetry(ctx, in.SpaceID, vectorRecords, job, outcome)
+	if errors.Is(vectorErr, ErrVectorIndexNotActivated) && !outcome.degraded {
+		outcome.degraded = true
+		if strings.TrimSpace(outcome.errorCode) == "" {
+			outcome.errorCode = "vector_index_not_activated"
+		}
+		if strings.TrimSpace(outcome.reason) == "" {
+			outcome.reason = "no_active_vector_index"
+		}
+	}
 	completed := time.Now()
 	job.CompletedAt = &completed
 
@@ -539,7 +608,7 @@ func (s *IngestionService) finalizeIngestion(
 		return job, nil
 	}
 
-	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) {
+	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) && !errors.Is(vectorErr, ErrVectorIndexNotActivated) {
 		job.Status = knowledge.IngestionStatusFailed
 		job.ErrorCode = "vector_upsert_failed"
 		job.BlockedReason = vectorErr.Error()
@@ -563,7 +632,7 @@ func (s *IngestionService) finalizeIngestion(
 	}
 	s.emitMetrics(job, outcome)
 
-	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) {
+	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) && !errors.Is(vectorErr, ErrVectorIndexNotActivated) {
 		return job, vectorErr
 	}
 	return job, nil
@@ -581,6 +650,10 @@ func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID
 			_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
 		}
 		if err := s.vectorStore.Upsert(ctx, space, records); err != nil {
+			// Space 未激活 dense index：允许入库完成，但标记为 degraded（不写向量）。
+			if errors.Is(err, ErrVectorIndexNotActivated) {
+				return ErrVectorIndexNotActivated
+			}
 			lastErr = err
 			if attempt < s.maxRetries {
 				time.Sleep(10 * time.Millisecond)
@@ -624,6 +697,10 @@ func (s *IngestionService) emitMetrics(job *knowledge.IngestionJob, outcome pipe
 			OCRUsed:              outcome.ocrUsed,
 			OCRCoveragePct:       outcome.ocrCoveragePct,
 			OCRConfidenceBuckets: outcome.ocrConfidenceBuckets,
+			OCRLatencyMs:         outcome.ocrLatencyMs,
+			OCRPages:             outcome.ocrPageCount,
+			OCRFailedPages:       outcome.ocrFailedPages,
+			OCRBboxCoveragePct:   outcome.ocrBboxCoveragePct,
 			Degraded:             outcome.degraded,
 			ErrorCode:            job.ErrorCode,
 			Reason:               job.BlockedReason,
@@ -647,6 +724,94 @@ func (s *IngestionService) DropSpaceVectors(ctx context.Context, space uuid.UUID
 		return nil
 	}
 	return s.vectorStore.DropSpace(ctx, space)
+}
+
+type DeleteIngestionJobResult struct {
+	Deleted          bool `json:"deleted"`
+	DeletedChunks    int  `json:"deletedChunks"`
+	DeletedVectors   int  `json:"deletedVectors"`
+	DeletedArtifacts bool `json:"deletedArtifacts"`
+}
+
+// DeleteJobPurge removes an ingestion job and best-effort clears derived data:
+// - knowledge_chunks rows for the job (when table exists)
+// - vector records for those chunks (when vector store is enabled)
+// - artifact bundle record
+// - local artifact directory (filesystem-backed ArtifactStore)
+//
+// This is intended for admin-only tooling / UI cleanup.
+func (s *IngestionService) DeleteJobPurge(ctx context.Context, spaceID uuid.UUID, jobUUID uuid.UUID) (DeleteIngestionJobResult, error) {
+	if s == nil || s.db == nil {
+		return DeleteIngestionJobResult{}, errors.New("service unavailable")
+	}
+	if spaceID == uuid.Nil || jobUUID == uuid.Nil {
+		return DeleteIngestionJobResult{}, ErrInvalidInput
+	}
+
+	job, err := s.GetJob(ctx, spaceID, jobUUID)
+	if err != nil {
+		return DeleteIngestionJobResult{}, err
+	}
+	if job == nil {
+		return DeleteIngestionJobResult{Deleted: false}, nil
+	}
+
+	out := DeleteIngestionJobResult{Deleted: false}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1) Collect chunk IDs (best effort).
+		var chunkIDs []uuid.UUID
+		if err := tx.Model(&knowledge.KnowledgeChunk{}).
+			Select("chunk_uuid").
+			Where("space_uuid = ? AND job_uuid = ?", spaceID, jobUUID).
+			Scan(&chunkIDs).Error; err != nil {
+			// If the table doesn't exist (index backend not provisioned), keep going.
+			msg := strings.ToLower(err.Error())
+			if !strings.Contains(msg, "does not exist") && !strings.Contains(msg, "relation") {
+				return err
+			}
+		}
+
+		// 2) Delete vectors first (best effort).
+		if s.vectorStore != nil && len(chunkIDs) > 0 {
+			if err := s.vectorStore.DeleteByChunkIDs(ctx, spaceID, chunkIDs); err == nil {
+				out.DeletedVectors = len(chunkIDs)
+			}
+		}
+
+		// 3) Delete chunk rows (ignore missing table).
+		if err := tx.Where("space_uuid = ? AND job_uuid = ?", spaceID, jobUUID).Delete(&knowledge.KnowledgeChunk{}).Error; err != nil {
+			msg := strings.ToLower(err.Error())
+			if !strings.Contains(msg, "does not exist") && !strings.Contains(msg, "relation") {
+				return err
+			}
+		} else {
+			out.DeletedChunks = len(chunkIDs)
+		}
+
+		// 4) Delete artifact bundle record (by ingestion_job_id).
+		_ = tx.Where("ingestion_job_id = ?", job.ID).Delete(&knowledge.ArtifactBundle{}).Error
+
+		// 5) Delete job record.
+		if err := tx.Where("uuid = ? AND space_uuid = ?", jobUUID, spaceID).Delete(&knowledge.IngestionJob{}).Error; err != nil {
+			return err
+		}
+
+		out.Deleted = true
+		return nil
+	})
+	if err != nil {
+		return DeleteIngestionJobResult{}, err
+	}
+
+	// 6) Remove local artifacts after DB deletion (best-effort).
+	if out.Deleted && s.artifactStore != nil {
+		if ok, err := s.artifactStore.DeleteJobArtifacts(spaceID, jobUUID); err == nil {
+			out.DeletedArtifacts = ok
+		}
+	}
+
+	return out, nil
 }
 
 func mustJSON(v any) []byte {
@@ -689,50 +854,64 @@ func sanitizeSeparators(raw []string) []string {
 	return out
 }
 
+func defaultSeparatorsFor(format string, mode string) []string {
+	f := strings.ToLower(strings.TrimSpace(format))
+	m := strings.ToLower(strings.TrimSpace(mode))
+	// 通用分隔符：段落/换行优先，其次中文/英文句末标点，再到分号/冒号与 bullet。
+	base := []string{"\n\n", "\n", "。", "！", "？", ".", "!", "?", "；", ";", "：", ":", "•"}
+	if f == "sql" || m == "code_block" {
+		return []string{"\n\n", "\n", ";", "}", "。"}
+	}
+	if f == "csv" || f == "xlsx" || f == "table" || m == "table_row" {
+		return nil
+	}
+	return base
+}
+
 type pipelineInput struct {
-	space            *knowledge.KnowledgeSpace
-	job              *knowledge.IngestionJob
-	bundle           *knowledge.ArtifactBundle
-	format           string
-	sourceURI        string
-	ingestionProfile string
-	processorProfile string
-	ocrRequired      bool
-	maskingProfile   string
-	ragSceneKey      string
-	ragBundleKey     string
-	ragPrimary       string
-	segmentMode      string
-	chunkSize        int
-	chunkOverlap     int
-	separators       []string
-	anchorHeadingPath  bool
-	anchorClauseID     bool
-	anchorRowNumber    bool
-	anchorSpeaker      bool
+	space               *knowledge.KnowledgeSpace
+	job                 *knowledge.IngestionJob
+	bundle              *knowledge.ArtifactBundle
+	format              string
+	sourceURI           string
+	ingestionProfile    string
+	processorProfile    string
+	ocrRequired         bool
+	maskingProfile      string
+	ragSceneKey         string
+	ragBundleKey        string
+	ragPrimary          string
+	segmentMode         string
+	chunkSize           int
+	chunkOverlap        int
+	separators          []string
+	anchorHeadingPath   bool
+	anchorClauseID      bool
+	anchorRowNumber     bool
+	anchorSpeaker       bool
 	anchorSentenceIndex bool
 }
 
 type pipelineUnitsInput struct {
-	space          *knowledge.KnowledgeSpace
-	job            *knowledge.IngestionJob
-	bundle         *knowledge.ArtifactBundle
-	format         string
-	sourceURI      string
-	docUnits       []DocumentUnit
-	maskingProfile string
-	ocrRequired    bool
-	ragSceneKey    string
-	ragBundleKey   string
-	ragPrimary     string
-	segmentMode    string
-	chunkSize      int
-	chunkOverlap   int
-	separators     []string
-	anchorHeadingPath  bool
-	anchorClauseID     bool
-	anchorRowNumber    bool
-	anchorSpeaker      bool
+	space               *knowledge.KnowledgeSpace
+	job                 *knowledge.IngestionJob
+	bundle              *knowledge.ArtifactBundle
+	format              string
+	sourceURI           string
+	docUnits            []DocumentUnit
+	maskingProfile      string
+	ocrRequired         bool
+	ragSceneKey         string
+	ragBundleKey        string
+	ragPrimary          string
+	segmentMode         string
+	chunkSize           int
+	chunkOverlap        int
+	separators          []string
+	anchorHeadingPath   bool
+	anchorClauseID      bool
+	anchorRowNumber     bool
+	anchorSpeaker       bool
 	anchorSentenceIndex bool
 }
 
@@ -753,15 +932,19 @@ type pipelineOutcome struct {
 	ocrUsed              bool
 	ocrCoveragePct       float64
 	ocrConfidenceBuckets map[string]int
+	ocrLatencyMs         int64
+	ocrPageCount         int
+	ocrFailedPages       int
+	ocrBboxCoveragePct   float64
 	// config snapshot (best-effort, for audit/debug)
-	ragSceneKey   string
-	ragBundleKey  string
-	ragPrimary    string
-	segmentMode   string
-	chunkSize     int
-	chunkOverlap  int
-	separators    []string
-	chunkAnchors  map[string]bool
+	ragSceneKey  string
+	ragBundleKey string
+	ragPrimary   string
+	segmentMode  string
+	chunkSize    int
+	chunkOverlap int
+	separators   []string
+	chunkAnchors map[string]bool
 }
 
 func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
@@ -782,6 +965,10 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"ocr_used":         o.ocrUsed,
 		"ocr_coverage_pct": o.ocrCoveragePct,
 		"ocr_confidence":   o.ocrConfidenceBuckets,
+		"ocr_latency_ms":   o.ocrLatencyMs,
+		"ocr_pages":        o.ocrPageCount,
+		"ocr_failed_pages": o.ocrFailedPages,
+		"ocr_bbox_pct":     o.ocrBboxCoveragePct,
 		"rag_scene_key":    o.ragSceneKey,
 		"rag_bundle_key":   o.ragBundleKey,
 		"rag_primary":      o.ragPrimary,
@@ -803,10 +990,19 @@ type IngestionChunk struct {
 	Masked     bool
 }
 
-func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord) {
+func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord, *OCRArtifacts) {
 	format := strings.ToLower(strings.TrimSpace(in.format))
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
+	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	if mode == "" {
+		mode = "unit"
+	}
+	// 当调用方未显式传 separators 且启用了 chunkSize 窗口切分时，给一组“安全默认分隔符”，
+	// 以便窗口边界尽量对齐句子/换行，避免硬截断。
+	if in.chunkSize > 0 && mode != "table_row" && len(separators) == 0 {
+		separators = defaultSeparatorsFor(format, mode)
+	}
 	out := pipelineOutcome{
 		status:               knowledge.IngestionStatusCompleted,
 		coveragePct:          100,
@@ -822,11 +1018,11 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		chunkOverlap:         in.chunkOverlap,
 		separators:           separators,
 		chunkAnchors: map[string]bool{
-			"heading_path":  in.anchorHeadingPath,
-			"clause_id":     in.anchorClauseID,
-			"row_number":    in.anchorRowNumber,
-			"speaker":       in.anchorSpeaker,
-			"sentence_idx":  in.anchorSentenceIndex,
+			"heading_path": in.anchorHeadingPath,
+			"clause_id":    in.anchorClauseID,
+			"row_number":   in.anchorRowNumber,
+			"speaker":      in.anchorSpeaker,
+			"sentence_idx": in.anchorSentenceIndex,
 		},
 	}
 
@@ -848,7 +1044,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.coveragePct = 0
 		out.embeddingPct = 0
 		out.maskingPct = 0
-		return out, nil, nil
+		return out, nil, nil, nil
 	}
 	if resolution.Decision == ProcessorDecisionDegraded {
 		out.degraded = true
@@ -857,14 +1053,54 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.coveragePct = 40
 	}
 
-	docUnits, ocrStats := processor.Process(ctx, DocumentProcessInput{
+	res, err := processor.Process(ctx, DocumentProcessInput{
+		SpaceID:      in.space.UUID.String(),
+		JobID:        in.job.UUID.String(),
 		Format:       format,
 		SourceURI:    sourceURI,
 		NeedOCR:      needsOCR,
 		OCRAvailable: resolution.OCRAvailable,
 	})
-	out.ocrCoveragePct = ocrStats.CoveragePct
-	out.ocrConfidenceBuckets = ocrStats.ConfidenceBuckets
+	if err != nil {
+		// PDF 处理器的优先级：如果选择了 pdftotext，但 sourceURI scheme 不支持（例如 s3://、minio://），
+		// 则回退到 builtin/pdf（合成内容），避免在“可用二进制存在但 URI 不可达”时误判为 degraded。
+		if format == "pdf" && !needsOCR && errors.Is(err, ErrUnsupportedSourceURIScheme) {
+			res, err = (PDFProcessor{}).Process(ctx, DocumentProcessInput{
+				SpaceID:      in.space.UUID.String(),
+				JobID:        in.job.UUID.String(),
+				Format:       format,
+				SourceURI:    sourceURI,
+				NeedOCR:      needsOCR,
+				OCRAvailable: resolution.OCRAvailable,
+			})
+		}
+	}
+	if err != nil {
+		if needsOCR && in.ocrRequired {
+			out.status = knowledge.IngestionStatusBlocked
+			out.errorCode = "ocr_failed"
+			out.reason = err.Error()
+			out.coveragePct = 0
+			out.embeddingPct = 0
+			out.maskingPct = 0
+			return out, nil, nil, nil
+		}
+		out.degraded = true
+		if out.errorCode == "" {
+			out.errorCode = "degraded"
+		}
+		if out.reason == "" {
+			out.reason = "processor_failed"
+		}
+		out.coveragePct = 40
+	}
+	docUnits := res.Units
+	out.ocrCoveragePct = res.OCR.CoveragePct
+	out.ocrConfidenceBuckets = res.OCR.ConfidenceBuckets
+	out.ocrLatencyMs = res.OCR.LatencyMs
+	out.ocrPageCount = res.OCR.PageCount
+	out.ocrFailedPages = res.OCR.FailedPages
+	out.ocrBboxCoveragePct = res.OCR.BboxCoveragePct
 
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
@@ -872,10 +1108,10 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		ChunkOverlap: in.chunkOverlap,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
-			HeadingPath:  in.anchorHeadingPath,
-			ClauseID:     in.anchorClauseID,
-			RowNumber:    in.anchorRowNumber,
-			Speaker:      in.anchorSpeaker,
+			HeadingPath:   in.anchorHeadingPath,
+			ClauseID:      in.anchorClauseID,
+			RowNumber:     in.anchorRowNumber,
+			Speaker:       in.anchorSpeaker,
 			SentenceIndex: in.anchorSentenceIndex,
 		},
 	})
@@ -921,7 +1157,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.reason = "masking_blocked"
 		out.coveragePct = 0
 		out.embeddingPct = 0
-		return out, maskedChunks, nil
+		return out, maskedChunks, nil, res.Artifacts
 	}
 
 	out.language = detectLanguage(maskedChunks)
@@ -930,29 +1166,44 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	out.chunkCount = contentCount
 	out.totalChunks = len(maskedChunks)
 
-	records := make([]vectorstore.VectorRecord, 0, len(maskedChunks))
-	for _, chunk := range maskedChunks {
-		embedding := HashEmbedding(chunk.Content, 32)
-		meta := make(map[string]any, len(chunk.Metadata)+2)
-		for k, v := range chunk.Metadata {
-			meta[k] = v
+	// Make job linkage explicit in chunk metadata (used by online chunk store + UI/API filtering).
+	for i := range maskedChunks {
+		if maskedChunks[i].Metadata == nil {
+			maskedChunks[i].Metadata = map[string]any{}
 		}
-		meta["chunk_kind"] = chunk.Kind
-		meta["content_hash"] = ContentHash(chunk.Content)
-		records = append(records, vectorstore.VectorRecord{
-			ChunkID:   chunk.ID,
-			Embedding: embedding,
-			Metadata:  meta,
-		})
+		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
 	}
 
-	return out, maskedChunks, records
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+		ctx,
+		in.space,
+		maskedChunks,
+	)
+	out.embeddingPct = embeddingPct
+	if embedDegraded {
+		out.degraded = true
+		if out.errorCode == "" {
+			out.errorCode = embedErrCode
+		}
+		if out.reason == "" {
+			out.reason = embedReason
+		}
+	}
+
+	return out, maskedChunks, records, res.Artifacts
 }
 
 func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipelineUnitsInput) (pipelineOutcome, []IngestionChunk, []vectorstore.VectorRecord) {
 	format := strings.ToLower(strings.TrimSpace(in.format))
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
+	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	if mode == "" {
+		mode = "unit"
+	}
+	if in.chunkSize > 0 && mode != "table_row" && len(separators) == 0 {
+		separators = defaultSeparatorsFor(format, mode)
+	}
 	out := pipelineOutcome{
 		status:               knowledge.IngestionStatusCompleted,
 		coveragePct:          100,
@@ -968,11 +1219,11 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		chunkOverlap:         in.chunkOverlap,
 		separators:           separators,
 		chunkAnchors: map[string]bool{
-			"heading_path":  in.anchorHeadingPath,
-			"clause_id":     in.anchorClauseID,
-			"row_number":    in.anchorRowNumber,
-			"speaker":       in.anchorSpeaker,
-			"sentence_idx":  in.anchorSentenceIndex,
+			"heading_path": in.anchorHeadingPath,
+			"clause_id":    in.anchorClauseID,
+			"row_number":   in.anchorRowNumber,
+			"speaker":      in.anchorSpeaker,
+			"sentence_idx": in.anchorSentenceIndex,
 		},
 	}
 
@@ -1000,10 +1251,10 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		ChunkOverlap: in.chunkOverlap,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
-			HeadingPath:  in.anchorHeadingPath,
-			ClauseID:     in.anchorClauseID,
-			RowNumber:    in.anchorRowNumber,
-			Speaker:      in.anchorSpeaker,
+			HeadingPath:   in.anchorHeadingPath,
+			ClauseID:      in.anchorClauseID,
+			RowNumber:     in.anchorRowNumber,
+			Speaker:       in.anchorSpeaker,
 			SentenceIndex: in.anchorSentenceIndex,
 		},
 	})
@@ -1058,20 +1309,27 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 	out.chunkCount = contentCount
 	out.totalChunks = len(maskedChunks)
 
-	records := make([]vectorstore.VectorRecord, 0, len(maskedChunks))
-	for _, chunk := range maskedChunks {
-		embedding := HashEmbedding(chunk.Content, 32)
-		meta := make(map[string]any, len(chunk.Metadata)+2)
-		for k, v := range chunk.Metadata {
-			meta[k] = v
+	for i := range maskedChunks {
+		if maskedChunks[i].Metadata == nil {
+			maskedChunks[i].Metadata = map[string]any{}
 		}
-		meta["chunk_kind"] = chunk.Kind
-		meta["content_hash"] = ContentHash(chunk.Content)
-		records = append(records, vectorstore.VectorRecord{
-			ChunkID:   chunk.ID,
-			Embedding: embedding,
-			Metadata:  meta,
-		})
+		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
+	}
+
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+		ctx,
+		in.space,
+		maskedChunks,
+	)
+	out.embeddingPct = embeddingPct
+	if embedDegraded {
+		out.degraded = true
+		if out.errorCode == "" {
+			out.errorCode = embedErrCode
+		}
+		if out.reason == "" {
+			out.reason = embedReason
+		}
 	}
 
 	return out, maskedChunks, records

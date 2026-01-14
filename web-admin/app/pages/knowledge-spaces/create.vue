@@ -11,76 +11,8 @@ const toast = useToast();
 
 const api = useKnowledgeSpaces();
 const strategyValidation = ref<StrategyValidationResult | null>(null);
-const strategyValidationLoading = ref(false);
-const strategyValidationError = ref<string | null>(null);
-
-
-const recommendationApplying = ref(false);
-const recommendationApplyError = ref<string | null>(null);
-const lastApplied = ref<{ sceneKey: SceneKey; bundleKey: StrategyBundleKey } | null>(null);
-
-const corpusRecommendations = computed(() => {
-  const list = (store.lastCorpusCheckJob as any)?.recommendations;
-  return Array.isArray(list) ? list : [];
-});
-
-const corpusSceneBundleRec = computed(() =>
-  corpusRecommendations.value.find((r: any) => r && r.type === "scene_bundle" && r.sceneKey && r.bundleKey),
-);
-
-const applyCorpusRecommendation = async (rec: any) => {
-  if (!rec?.sceneKey || !rec?.bundleKey) return;
-  if (!store.lastSpace?.spaceId) return;
-  recommendationApplying.value = true;
-  recommendationApplyError.value = null;
-  lastApplied.value = { sceneKey: store.sceneKey, bundleKey: store.bundleKey };
-  try {
-    store.setSceneAndBundle(rec.sceneKey as SceneKey, rec.bundleKey as StrategyBundleKey);
-    const updated = await api.updateSpace(store.lastSpace.spaceId, {
-      ingestionProfileKey: store.form.ingestionProfileKey,
-      indexProfileKey: store.form.indexProfileKey,
-      ragProfileKey: store.form.ragProfileKey,
-      featureFlags: store.form.featureFlags,
-      updatedBy: store.iamEmail || userStore.user?.email || "ops@powerx.local",
-    });
-    store.lastSpace = updated as any;
-    toast.add({
-      color: "success",
-      title: "已应用推荐策略",
-      description: "已将推荐的场景/策略包写入该空间配置。",
-    });
-  } catch (e: any) {
-    recommendationApplyError.value = e?.message || "应用失败";
-    toast.add({ color: "error", title: "应用推荐失败", description: recommendationApplyError.value });
-  } finally {
-    recommendationApplying.value = false;
-  }
-};
-
-const rollbackCorpusRecommendation = async () => {
-  if (!lastApplied.value) return;
-  if (!store.lastSpace?.spaceId) return;
-  recommendationApplying.value = true;
-  recommendationApplyError.value = null;
-  try {
-    store.setSceneAndBundle(lastApplied.value.sceneKey, lastApplied.value.bundleKey);
-    const updated = await api.updateSpace(store.lastSpace.spaceId, {
-      ingestionProfileKey: store.form.ingestionProfileKey,
-      indexProfileKey: store.form.indexProfileKey,
-      ragProfileKey: store.form.ragProfileKey,
-      featureFlags: store.form.featureFlags,
-      updatedBy: store.iamEmail || userStore.user?.email || "ops@powerx.local",
-    });
-    store.lastSpace = updated as any;
-    toast.add({ color: "success", title: "已回滚", description: "已回滚到应用推荐前的选择。" });
-    lastApplied.value = null;
-  } catch (e: any) {
-    recommendationApplyError.value = e?.message || "回滚失败";
-    toast.add({ color: "error", title: "回滚失败", description: recommendationApplyError.value });
-  } finally {
-    recommendationApplying.value = false;
-  }
-};
+	const strategyValidationLoading = ref(false);
+	const strategyValidationError = ref<string | null>(null);
 
 const refreshStrategyValidation = async () => {
   strategyValidationLoading.value = true;
@@ -451,88 +383,13 @@ const openPluginMarket = (pluginId: string) => {
         </UButton>
       </div>
     
-      <UCard v-if="store.lastCorpusCheckJob" :ui="{ body: { padding: 'p-6' } }">
-        <template #header>
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-[var(--text-primary)]">Corpus Check 推荐</h2>
-              <p class="text-sm text-[var(--text-secondary)]">基于最近入库样本的分布，给出场景/策略包与成本/风险提示。</p>
-            </div>
-            <UBadge color="neutral" variant="soft">{{ (store.lastCorpusCheckJob as any)?.status || 'unknown' }}</UBadge>
-          </div>
-        </template>
-
-        <UAlert
-          v-if="recommendationApplyError"
-          color="error"
-          variant="soft"
-          title="操作失败"
-          :description="recommendationApplyError"
-          class="mb-4"
-        />
-
-        <div class="space-y-3">
-          <div
-            v-for="rec in corpusRecommendations"
-            :key="rec.key || rec.title"
-            class="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="font-medium text-[var(--text-primary)]">{{ rec.title }}</div>
-                <div v-if="rec.risk" class="mt-1 text-sm text-[var(--text-secondary)]">风险：{{ rec.risk }}</div>
-                <div v-if="rec.cost" class="mt-1 text-sm text-[var(--text-secondary)]">成本：{{ rec.cost }}</div>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <UButton
-                  v-if="rec.type === 'scene_bundle' && rec.sceneKey && rec.bundleKey"
-                  color="primary"
-                  size="sm"
-                  :loading="recommendationApplying"
-                  :disabled="recommendationApplying"
-                  @click="applyCorpusRecommendation(rec)"
-                >
-                  应用推荐
-                </UButton>
-                <UButton
-                  v-if="rec.key === 'enable_ocr' && rec.plugin"
-                  color="primary"
-                  size="sm"
-                  variant="soft"
-                  icon="i-heroicons-shopping-bag"
-                  @click="openPluginMarket(rec.plugin)"
-                >
-                  安装 OCR 插件
-                </UButton>
-                <UButton
-                  v-if="rec.key === 'enable_ocr'"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                  @click="goIngestion({ ocr: true })"
-                >
-                  打开入库并启用 OCR
-                </UButton>
-                <UButton
-                  v-if="rec.type === 'scene_bundle' && lastApplied"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                  :loading="recommendationApplying"
-                  :disabled="recommendationApplying"
-                  @click="rollbackCorpusRecommendation"
-                >
-                  回滚
-                </UButton>
-              </div>
-            </div>
-            <div v-if="rec.type === 'scene_bundle'" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <UBadge color="primary" variant="soft">场景：{{ rec.sceneLabel || rec.sceneKey }}</UBadge>
-              <UBadge color="primary" variant="soft">策略包：{{ rec.bundleLabel || rec.bundleKey }}</UBadge>
-            </div>
-          </div>
-        </div>
-      </UCard>
-</div>
+	      <UAlert
+	        color="neutral"
+	        variant="soft"
+	        icon="i-heroicons-information-circle"
+	        title="提示"
+	        description="Corpus Check 推荐依赖入库样本文档；空间创建本身不会触发。首次入库后将自动生成（可在“策略配置”查看）。"
+	      />
+	</div>
   </section>
 </template>

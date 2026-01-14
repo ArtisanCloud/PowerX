@@ -220,8 +220,8 @@ export const useAuthService = () => {
     /**
      * 用户登出
      */
-    logout: () => {
-      return apiClient.post<ApiResponse<null>>(`${baseUrl}/logout`);
+    logout: (data?: { refresh_token: string }) => {
+      return apiClient.post<ApiResponse<null>>(`${baseUrl}/logout`, data);
     },
 
     /**

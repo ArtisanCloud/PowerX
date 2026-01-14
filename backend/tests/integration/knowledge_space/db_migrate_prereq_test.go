@@ -50,7 +50,7 @@ func TestDBMigrateProvisionsVectorAndKGTables(t *testing.T) {
 		require.NotNil(t, got, "expected table to exist: %s", name)
 	}
 
-	assertRegclass("public.knowledge_vectors")
+	assertRegclass("public.knowledge_vectors_v1_1536")
 	assertRegclass("public.knowledge_kg_nodes")
 	assertRegclass("public.knowledge_kg_edges")
 }
@@ -73,7 +73,7 @@ knowledge_space:
     pgvector:
       dsn: "` + escapeYAMLString(dsn) + `"
       schema: public
-      table: knowledge_vectors
+      table: knowledge_vectors_v1_1536
       dimensions: 1536
       ivfflat_lists: 10
 `)

@@ -10,6 +10,13 @@
 - **性能 / 弹性验证**：`docs/guides/knowledge_space/perf_validation.md`
 - **规格与合同（研发对齐）**：`specs/011-knowledge-space/quickstart.md`、`specs/011-knowledge-space/spec.md`
 
+## 1.1 新增能力提示（Dense 向量索引动态分表）
+
+从 011-knowledge-space 的最新实现开始：
+- Dense 向量表采用 **按维度分表**（例如 `knowledge_vectors_v1_1536`、`knowledge_vectors_v1_1024`），并且是 **全局共享表**（通过 `space_uuid` 隔离）。
+- 只有当某个 space 显式 **激活向量索引（Dense）** 后，该 space 的入库才会写入向量；否则入库会以 “degraded（无向量）” 完成。
+- AI Settings 的 “测试连接” **不会建表**，只会 probe 维度并写回 profile（避免误操作产生大量垃圾表）。
+
 ## 2. 创建知识空间（/knowledge-spaces/create）
 
 目标：只创建“空间容器”，不在此页做入库。
@@ -73,6 +80,25 @@
    - candidates
    - degrade_reason
    - citations 覆盖率
+
+## 4.1 策略配置 + 激活向量索引（Dense）（/knowledge-spaces/strategy）
+
+目标：把 “场景/策略包（L1/L2）” 写入 space，并在需要时激活 Dense 向量索引。
+
+1. 在「知识空间总览」中选择目标空间，点击 **策略**
+2. 选择业务场景（L1）与策略包（L2），点击 **保存到空间**
+3. 在同一页面的「激活向量索引（Dense）」面板：
+   - 填写 `EmbeddingProfileKey`（格式：`provider/model`，例如 `openai/text-embedding-3-small`）
+   - 点击 **激活**
+
+激活时后端会自动执行：
+- probe embedding 维度（真实调用 embedding）
+- `CREATE TABLE IF NOT EXISTS public.knowledge_vectors_v1_<D>`
+- 写入 `powerx.knowledge_vector_indexes`
+- 更新 `powerx.knowledge_spaces.embedding_profile_key` 与 `active_vector_index_key`
+
+如果你看到“Dense 依赖未满足（dense_required）”，通常代表：
+- 该 space 还没激活向量索引（未绑定 embedding profile / 未创建表）
 
 ## 5. 常见问题（先看现象 → 再看入口）
 

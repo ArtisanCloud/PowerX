@@ -114,6 +114,62 @@ Knowledge governance operators run the continuous-update control room described 
 
 **Implementation Notes**: Delta + event flows reuse the shared multi-driver vectorstore abstraction defined in `backend/pkg/corex/db/persistence/vectorstore` instead of bespoke embedding clients, so pgvector/milvus/pinecone drivers stay centrally configurable. Task orchestration reuses the existing approval-center connectors, audit-ledger client, and `task-center` integration for decay gap workloads.
 
+---
+
+## Dense 向量索引：全局表 + 按维度分表（方案补充）
+
+### 背景
+
+pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一旦你把表定义成 `vector(1536)`，写入 `1024/768/3072` 都会失败或产生不一致。
+
+同时，embedding provider/model 在真实运营中一定会变化（成本、合规、性能、中文效果等原因），如果把向量表固定为单一 `knowledge_vectors`，就会在“切模型/切维度”时反复重建全量索引，影响上线节奏。
+
+### 目标
+
+1. **避免按 tenant/space 建表爆炸**：仍然采用全局共享表，通过 `space_uuid` 隔离。
+2. **支持未来切换 embedding provider/model/维度**：通过按维度分表实现 `vector(D)` 的硬约束兼容。
+3. **把复杂性收敛到“空间级配置”**：一个 space 锁定一个 active embedding profile，不允许同 space 混模型。
+4. **管理员不需要知道维度**：通过 probe 探测维度并在激活时校验。
+
+### 方案概要
+
+- 向量表族：`public.knowledge_vectors_{D}`（例如 `knowledge_vectors_1536`、`knowledge_vectors_1024`）
+- 向量表族：`public.knowledge_vectors_v{N}_{D}`（例如 `knowledge_vectors_v1_1536`、`knowledge_vectors_v1_1024`）
+- 索引登记表：`public.knowledge_vector_indexes`（space→(D/table/provider/model/profile_ref) 的 SSOT）
+- 空间级绑定：
+  - `knowledge_spaces.embedding_profile_key`（逻辑键，引用 AI Settings 的 embedding profile）
+  - `knowledge_spaces.active_vector_index_key`（指向 `knowledge_vector_indexes.index_key`）
+
+### 运维与治理规则（强约束）
+
+1. **Probe gating**：embedding profile 设为 active 前必须 probe 成功，探测出 `dimensions`，并记录到 profile/defaults 或 index registry。
+2. **按维度建表**：只允许创建有限的维度表（如 1536/1024/768 等），不按 model 建表，避免“垃圾表爆炸”。
+3. **建表时机**：仅在“切换 space 的 embedding profile / 激活向量索引”时按需创建新维度表；入库时不做 DDL。
+4. **垃圾回收**：基于 `knowledge_vector_indexes.last_used_at/status` 清理长期未使用的索引版本（保留最近 N 个版本/可回滚窗口）。
+
+### 操作时序（你截图里的页面如何参与）
+
+1. **AI Settings 页面（租户/环境级）**
+   - “测试连接/试跑一次”只做两件事：连通性校验 + probe 探测维度（D）。
+   - 探测成功后将 `dimensions` 写回到该 embedding profile（或其 defaults），用于后续 space 绑定时的强校验。
+   - **这里不创建任何向量表**（因为尚未绑定到具体 space，无法确定要创建哪个 space 的 index/version，也避免误操作制造垃圾表）。
+2. **Space 页面（空间级）**
+   - 管理员把某个 embedding profile 绑定到 space，并执行“激活/应用”：
+     - 后端读取该 profile 的 `dimensions`（若缺失则要求先 probe）
+     - 计算目标表名 `knowledge_vectors_v{N}_{D}`
+     - `CREATE TABLE IF NOT EXISTS ...`：表已存在则忽略（幂等）
+     - 写入/更新 `knowledge_vector_indexes`，并将 `knowledge_spaces.active_vector_index_key` 指向该 index
+3. **入库/检索（运行时）**
+   - 入库写向量、检索读向量都按 `space_uuid -> active_vector_index_key -> table_name` 路由，禁止绕过（避免同 space 混模型）。
+
+### 独立验收
+
+1. 管理员在 AI Settings 里配置一个 embedding profile（provider/model/credential），点击 probe，UI 显示维度。
+2. 管理员把该 profile 绑定到某个 space 并激活：
+   - 若该版本+维度表不存在：系统创建 `knowledge_vectors_v{N}_{D}` + 必要索引，并写入 `knowledge_vector_indexes`。
+3. 触发该 space 入库：向量写入正确的 `knowledge_vectors_v{N}_{D}` 表，并且 metadata 中包含 `embedding_provider/model`。
+4. 切换到另一个维度模型：生成新的 `knowledge_vectors_v{N}_{D2}`（若不存在），并把 `active_vector_index_key` 指向新索引；旧索引仍保留可回滚。
+
 **Acceptance Scenarios**:
 
 1. **Given** a delta job referencing updated PDFs + API sources, **When** operators run the approval flow, **Then** the system enforces ≤30 minute detect→publish SLA, emits `knowledge.delta.{sla,diff_accuracy,partial_release}` (target ≥98% diff accuracy), stores partial-release + rollback tokens, reuses the vectorstore driver registry for embedding comparisons, and writes audit IDs matching `SCN-KNOWLEDGE-UPDATE-SYNC-001`.
@@ -141,7 +197,7 @@ Knowledge governance operators run the continuous-update control room described 
 - **FR-004**: IAM role synchronization MUST complete with ≥99.5% success; unresolved sync tasks must block ingestion and emit operational alerts.
 - **FR-005**: Every provisioning, policy change, and approval action MUST write to the audit stream with actor, payload hash, template versions, and rollback tokens.
 - **FR-006**: The ingestion orchestrator MUST accept PDF/Markdown/Excel/CSV/API inputs, perform OCR + chunking + embedding + masking + graph linking, and finish the first ingestion cycle within four hours.
-- **FR-007**: Long-document ingestion MUST deterministically produce dual-granularity chunks (≈800-token semantic summaries + ≈300-token paragraphs) with ≥95% coverage, 100% embedding success, explicit provenance (doc + page), and automated validation reports surfaced to operators.
+- **FR-007**: Long-document ingestion MUST deterministically produce dual-granularity chunks (≈800-token semantic summaries + ≈300-token paragraphs) with ≥95% coverage, 100% embedding success, explicit provenance (doc + page). For scanned/image-based PDFs, provenance MUST additionally include page-region coordinates (bbox) suitable for UI highlight overlays, and automated validation reports surfaced to operators.
 - **FR-008**: Structured ingestion MUST detect schema elements (keys, timestamp, enumerations), enforce masking coverage 100%, and block publication when sensitivity checks fail.
 - **FR-009**: Every ingestion job MUST provide retries (up to three automatic attempts) with exponential backoff and emit `knowledge.ingestion.*` events for success, failure, and manual review states.
 - **FR-010**: Fusion pipelines MUST support configurable combinations of lexical, vector, and graph constraints, allow operators to version weights, and guarantee rollback to any prior version within five minutes.

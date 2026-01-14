@@ -1,0 +1,52 @@
+{
+  "53f37648-341f-4f91-aa5f-8573efefe150": {
+    "ingestion": {
+      "spaceId": "53f37648-341f-4f91-aa5f-8573efefe150",
+      "jobId": "3457bb59-ebec-4ce2-ab88-57c6dcf4b918",
+      "status": "completed",
+      "retryCount": 0,
+      "chunkTotal": 7,
+      "summaryChunkCount": 4,
+      "paragraphChunkCount": 3,
+      "coveragePct": 100,
+      "embeddingPct": 100,
+      "maskingPct": 100,
+      "ocrRequired": false,
+      "ocrUsed": false,
+      "ocrCoveragePct": 0,
+      "ocrConfidenceBuckets": {
+        "0.0-0.5": 0,
+        "0.5-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "degraded": false,
+      "completedAt": "2026-01-13T12:50:47.37092+08:00"
+    }
+  },
+  "9374840a-7e8c-4109-a02b-17c4f5e7382d": {
+    "ingestion": {
+      "spaceId": "9374840a-7e8c-4109-a02b-17c4f5e7382d",
+      "jobId": "6061e28c-760e-4c42-81a0-cbfa71d9b53c",
+      "status": "completed",
+      "retryCount": 0,
+      "chunkTotal": 108,
+      "summaryChunkCount": 2,
+      "paragraphChunkCount": 106,
+      "coveragePct": 100,
+      "embeddingPct": 100,
+      "maskingPct": 100,
+      "ocrRequired": false,
+      "ocrUsed": false,
+      "ocrCoveragePct": 0,
+      "ocrConfidenceBuckets": {
+        "0.0-0.5": 0,
+        "0.5-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "ocrLatencyMs": 203,
+      "ocrPages": 1,
+      "degraded": false,
+      "completedAt": "2026-01-14T12:48:01.923354+08:00"
+    }
+  }
+}

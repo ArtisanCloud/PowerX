@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"gorm.io/gorm"
 )
 
@@ -28,12 +29,24 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 	// - KG assist tables are cheap and enable `index.kg` readiness.
 	// - pgvector is conditional on driver=pgvector.
 	if cfg != nil && cfg.FeatureGate.EnableKnowledgeSpace {
+		driver := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.Driver)
+		fmt.Printf("[migrate] knowledge_space enabled=true vector_store.driver=%q db=%s@%s:%d/%s\n",
+			driver,
+			strings.TrimSpace(cfg.Database.UserName),
+			strings.TrimSpace(cfg.Database.Host),
+			cfg.Database.Port,
+			strings.TrimSpace(cfg.Database.Database),
+		)
+
 		if err := migration.EnsureKnowledgeKGAssistTables(db); err != nil {
 			return fmt.Errorf("Knowledge Space KG 表迁移失败: %w", err)
 		}
 
-		driver := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.Driver)
 		if driver == "pgvector" {
+			fmt.Printf("[migrate] pgvector migration target=%s.%s\n",
+				coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Schema), "public"),
+				coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Table), "knowledge_vectors_v1_1536"),
+			)
 			dsn := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.DSN)
 			if dsn == "" {
 				dsn = strings.TrimSpace(cfg.Database.DSN)
@@ -52,8 +65,32 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 				)
 			}
 
-			if err := migration.EnsureKnowledgeVectorsPGVector(ctx, dsn, cfg.KnowledgeSpace.VectorStore.PgVector); err != nil {
+			pgCfg := pgvectorcfg.Config{
+				DSN:              strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.DSN),
+				Schema:           strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Schema),
+				Table:            strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Table),
+				Dimensions:       cfg.KnowledgeSpace.VectorStore.PgVector.Dimensions,
+				EnableMigrations: cfg.KnowledgeSpace.VectorStore.PgVector.EnableMigrations,
+				BatchSize:        cfg.KnowledgeSpace.VectorStore.PgVector.BatchSize,
+				Lists:            cfg.KnowledgeSpace.VectorStore.PgVector.Lists,
+				TimeoutSeconds:   cfg.KnowledgeSpace.VectorStore.PgVector.TimeoutSeconds,
+			}
+			if err := migration.EnsureKnowledgeVectorsPGVector(ctx, dsn, pgCfg); err != nil {
 				return fmt.Errorf("Knowledge Space pgvector 迁移失败: %w", err)
+			}
+
+			// Sanity check for local Postgres: ensure the vectors table is actually visible.
+			if strings.EqualFold(strings.TrimSpace(cfg.Database.Driver), "postgres") {
+				schema := coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Schema), "public")
+				table := coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Table), "knowledge_vectors_v1_1536")
+				var regclass string
+				if err := db.WithContext(ctx).Raw(`SELECT to_regclass(?)`, fmt.Sprintf("%s.%s", schema, table)).Scan(&regclass).Error; err != nil {
+					return fmt.Errorf("pgvector 表可见性检查失败: %w", err)
+				}
+				if strings.TrimSpace(regclass) == "" {
+					return fmt.Errorf("pgvector 迁移已执行但未发现表：%s.%s（请检查 schema/search_path/权限）", schema, table)
+				}
+				fmt.Printf("[migrate] pgvector table ready: %s\n", strings.TrimSpace(regclass))
 			}
 		}
 

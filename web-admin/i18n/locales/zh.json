@@ -55,6 +55,7 @@
     "collapse": "收起",
     "back": "返回",
     "backToList": "返回列表",
+    "refresh": "刷新",
     "toggleDensity": "切换紧凑模式",
     "settings": "设置",
     "trash": "回收站",
@@ -429,10 +430,37 @@
   "login": "登录",
   "register": "注册"
   ,
+  "common": {
+    "save": "保存",
+    "reset": "重置",
+    "refresh": "刷新",
+    "backToList": "返回列表",
+    "collapse": "收起",
+    "toggleDensity": "切换密度"
+  },
   "knowledgeSpaces": {
     "head": {
       "title": "知识空间",
       "description": "管理知识空间与入库"
+    },
+    "strategy": {
+      "head": {
+        "title": "策略配置",
+        "description": "选择场景与策略包，并将配置应用到指定知识空间。"
+      },
+      "subtitle": "选择场景与策略包，并将配置应用到指定知识空间。",
+      "scene": "业务场景（L1）",
+      "bundle": "策略包（L2）",
+      "actions": {
+        "save": "保存到空间"
+      },
+      "validation": {
+        "loading": "正在校验策略依赖…",
+        "ok": "依赖满足：可以发布/激活。",
+        "blocked": "依赖不满足：将阻止激活/发布。",
+        "remediation": "修复建议：",
+        "failed": "策略依赖校验失败"
+      }
     },
     "hero": {
       "badge": "知识",
@@ -633,28 +661,31 @@
         "unknown": "未知"
       }
     },
-    "strategy": {
-      "head": {
-        "title": "策略配置",
-        "description": "选择场景与策略包，并将配置应用到指定知识空间。"
-      },
-      "title": "策略配置",
-      "subtitle": "先选择空间，再选择业务场景（L1）与策略包（L2）。保存后会同步更新该空间的 Ingestion/Index/RAG Profile。",
-      "loadFailed": "加载空间失败",
-      "space": {
-        "title": "选择空间",
-        "desc": "策略配置是租户级复用，但会写入到某个具体空间。",
-        "label": "空间",
-        "current": "当前空间配置",
-        "id": "空间 ID"
-      },
-      "l1l2": {
-        "title": "场景（L1）→ 策略包（L2）",
-        "desc": "先选场景，再只展示该场景允许的策略包。"
-      },
-      "actions": {
-        "save": "保存到空间"
-      },
+	    "strategy": {
+	      "head": {
+	        "title": "策略配置",
+	        "description": "选择场景与策略包，并将配置应用到指定知识空间。"
+	      },
+	      "title": "策略配置",
+	      "subtitle": "先选择空间，再选择业务场景（L1）与策略包（L2）。保存后会同步更新该空间的 Ingestion/Index/RAG Profile。",
+	      "loadFailed": "加载空间失败",
+	      "space": {
+	        "title": "选择空间",
+	        "desc": "策略配置是租户级复用，但会写入到某个具体空间。",
+	        "label": "空间",
+	        "current": "当前空间配置",
+	        "id": "空间 ID",
+	        "unnamed": "未命名空间"
+	      },
+	      "l1l2": {
+	        "title": "场景（L1）→ 策略包（L2）",
+	        "desc": "先选场景，再只展示该场景允许的策略包。"
+	      },
+	      "scene": "业务场景（L1）",
+	      "bundle": "策略包（L2）",
+	      "actions": {
+	        "save": "保存到空间"
+	      },
       "channels": {
         "title": "将启用的索引通道",
         "desc": "用于判断依赖是否满足，以及后续策略推荐的成本/风险。"

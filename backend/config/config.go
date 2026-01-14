@@ -296,24 +296,34 @@ type AgentLifecycleNotificationConfig struct {
 
 // KnowledgeSpaceConfig 描述知识空间模块运行参数。
 type KnowledgeSpaceConfig struct {
-	RedisAddr                string                           `yaml:"redis_addr"`
-	RedisPassword            string                           `yaml:"redis_password"`
-	RedisDB                  int                              `yaml:"redis_db"`
-	LockKeyPrefix            string                           `yaml:"lock_key_prefix"`
-	MetricsKeyPrefix         string                           `yaml:"metrics_key_prefix"`
-	DefaultRetentionMonths   int                              `yaml:"default_retention_months"`
-	ProvisioningSLASeconds   int                              `yaml:"provisioning_sla_seconds"`
-	IngestionSLASeconds      int                              `yaml:"ingestion_sla_seconds"`
-	SceneStrategyCatalogPath string                           `yaml:"scene_strategy_catalog_path"`
-	EventTopics              KnowledgeSpaceEventTopics        `yaml:"event_topics"`
-	Notifications            KnowledgeSpaceNotificationConfig `yaml:"notifications"`
-	VectorStore              KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
-	IndexBackends            KnowledgeSpaceIndexBackendConfig `yaml:"index_backends"`
-	Delta                    KnowledgeSpaceDeltaConfig        `yaml:"delta"`
-	Reports                  KnowledgeSpaceReportConfig       `yaml:"reports"`
-	EventHotfix              KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
-	Decay                    KnowledgeSpaceDecayConfig        `yaml:"decay"`
-	Release                  KnowledgeSpaceReleaseConfig      `yaml:"release"`
+	RedisAddr                string                                 `yaml:"redis_addr"`
+	RedisPassword            string                                 `yaml:"redis_password"`
+	RedisDB                  int                                    `yaml:"redis_db"`
+	LockKeyPrefix            string                                 `yaml:"lock_key_prefix"`
+	MetricsKeyPrefix         string                                 `yaml:"metrics_key_prefix"`
+	DefaultRetentionMonths   int                                    `yaml:"default_retention_months"`
+	ProvisioningSLASeconds   int                                    `yaml:"provisioning_sla_seconds"`
+	IngestionSLASeconds      int                                    `yaml:"ingestion_sla_seconds"`
+	SceneStrategyCatalogPath string                                 `yaml:"scene_strategy_catalog_path"`
+	IngestionProcessors      KnowledgeSpaceIngestionProcessorConfig `yaml:"ingestion_processors"`
+	EventTopics              KnowledgeSpaceEventTopics              `yaml:"event_topics"`
+	Notifications            KnowledgeSpaceNotificationConfig       `yaml:"notifications"`
+	VectorStore              KnowledgeSpaceVectorStoreConfig        `yaml:"vector_store"`
+	IndexBackends            KnowledgeSpaceIndexBackendConfig       `yaml:"index_backends"`
+	Delta                    KnowledgeSpaceDeltaConfig              `yaml:"delta"`
+	Reports                  KnowledgeSpaceReportConfig             `yaml:"reports"`
+	EventHotfix              KnowledgeSpaceEventHotfixConfig        `yaml:"event_hotfix"`
+	Decay                    KnowledgeSpaceDecayConfig              `yaml:"decay"`
+	Release                  KnowledgeSpaceReleaseConfig            `yaml:"release"`
+}
+
+// KnowledgeSpaceIngestionProcessorConfig 控制入库处理器能力开关（用于部署环境可控启停）。
+// 留空则使用运行时自动探测（PATH 中是否存在对应命令）。
+type KnowledgeSpaceIngestionProcessorConfig struct {
+	// PDF 内嵌文本抽取：依赖 `pdftotext`（poppler-utils）
+	PDFTextAvailable *bool `yaml:"pdf_text_available"`
+	// OCR Plan B：依赖 `tesseract` + (`pdftoppm` 或 `mutool`)
+	OCRAvailable *bool `yaml:"ocr_available"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。

@@ -44,15 +44,21 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	releaseHandler := NewReleaseHandler(deps)
 	strategyHandler := NewStrategyHandler(deps)
 	sourceHandler := NewSourceHandler(deps)
+	vectorIndexHandler := NewVectorIndexHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.GET("", handler.list)
+		group.GET("/:spaceId", handler.get)
 		group.POST("", handler.create)
 		group.PATCH("/:spaceId", handler.update)
 		group.POST("/:spaceId/retire", handler.retire)
 		if strategyHandler != nil {
 			group.POST("/strategy/validate", strategyHandler.Validate)
 			group.GET("/:spaceId/strategy/validate", strategyHandler.ValidateForSpace)
+		}
+		if vectorIndexHandler != nil {
+			group.GET("/:spaceId/vector-index", vectorIndexHandler.GetStatus)
+			group.POST("/:spaceId/vector-index/activate", vectorIndexHandler.Activate)
 		}
 		if corpusCheckHandler != nil {
 			group.POST("/:spaceId/corpus-check/jobs", corpusCheckHandler.Start)
@@ -64,6 +70,10 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		if ingestionHandler != nil {
 			group.GET("/:spaceId/ingestion-jobs", ingestionHandler.List)
 			group.GET("/:spaceId/ingestion-jobs/:jobId", ingestionHandler.Get)
+			group.DELETE("/:spaceId/ingestion-jobs/:jobId", ingestionHandler.DeleteJob)
+			group.GET("/:spaceId/ingestion-jobs/:jobId/chunks", ingestionHandler.Chunks)
+			group.GET("/:spaceId/ingestion-jobs/:jobId/pages/:pageNumber/image", ingestionHandler.PageImage)
+			group.PATCH("/:spaceId/ingestion-jobs/:jobId/chunks/:chunkId", ingestionHandler.UpdateChunk)
 			group.POST("/:spaceId/ingestion-jobs", ingestionHandler.Trigger)
 		}
 		if fusionHandler != nil {
@@ -178,6 +188,33 @@ func (h *Handler) list(c *gin.Context) {
 		out = append(out, toResponse(&items[i]))
 	}
 	dto.ResponseSuccess(c, out)
+}
+
+func (h *Handler) get(c *gin.Context) {
+	tenantUUID, ok := tenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	spaceID, err := uuid.Parse(c.Param("spaceId"))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "无效的空间 ID", err)
+		return
+	}
+
+	if h.spaces == nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "服务异常", errors.New("spaces repository unavailable"))
+		return
+	}
+	space, err := h.spaces.FindByUUID(c.Request.Context(), spaceID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "服务异常", err)
+		return
+	}
+	if space == nil || strings.ToLower(strings.TrimSpace(space.TenantUUID)) != strings.ToLower(strings.TrimSpace(tenantUUID.String())) {
+		dto.ResponseError(c, http.StatusNotFound, "知识空间不存在", errors.New("not found"))
+		return
+	}
+	dto.ResponseSuccess(c, toResponse(space))
 }
 
 func (h *Handler) create(c *gin.Context) {

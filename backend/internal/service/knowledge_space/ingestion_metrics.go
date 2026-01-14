@@ -31,6 +31,10 @@ type IngestionSnapshot struct {
 	OCRUsed              bool           `json:"ocrUsed"`
 	OCRCoveragePct       float64        `json:"ocrCoveragePct"`
 	OCRConfidenceBuckets map[string]int `json:"ocrConfidenceBuckets,omitempty"`
+	OCRLatencyMs         int64          `json:"ocrLatencyMs,omitempty"`
+	OCRPages             int            `json:"ocrPages,omitempty"`
+	OCRFailedPages       int            `json:"ocrFailedPages,omitempty"`
+	OCRBboxCoveragePct   float64        `json:"ocrBboxCoveragePct,omitempty"`
 	Degraded             bool           `json:"degraded"`
 	ErrorCode            string         `json:"errorCode,omitempty"`
 	Reason               string         `json:"reason,omitempty"`

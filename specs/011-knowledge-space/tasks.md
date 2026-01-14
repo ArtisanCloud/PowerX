@@ -91,9 +91,14 @@
 - [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
 - [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
 - [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
+- [X] **T032G [US2]** 将 Knowledge Space 的向量化与 Web Admin「AI Settings」打通：入库时按租户当前 env 读取 active embedding profile（provider/model + credential），复用后端 OpenAI/Ollama vectorizer；无可用配置时使用 `hash`（非语义）作为“零依赖”兜底，并在 pgvector 维度不一致时给出明确错误提示（指导对齐 `knowledge_space.vector_store.pgvector.dimensions`）。
+- [X] **T032H [P] [US2]** Dense 向量索引“按维度分表 + 全局共享”：新增 `knowledge_vector_indexes` 登记表与 `knowledge_vectors_{D}` 表族；space 绑定 `embedding_profile_key + active_vector_index_key`，并实现 probe→创建表→激活→写入/查询路由；支持保留旧索引用于回滚，并提供清理未使用索引的治理入口。
+- [X] **T032H-1 [US2]** UI/接口时序约束：AI Settings 的“测试连接/试跑”仅做连通性校验与维度 probe（写回 profile）；真正的建表与索引登记仅在 “Space 绑定/激活 embedding profile” 时发生，且对已存在表必须幂等忽略。
 - [X] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，并同步清理 sparse/hier/kg 资产（如启用）。
 - [X] **T032C [US2]** 新增 Processor Registry（接口固化在底座，具体实现可由插件提供）：支持 OCR/格式转换（推荐 `com.powerx.plugin.data_forge`），并定义 `ocr_required=true` 时的 blocked 行为与非强制时 degraded 行为（对齐 `docs/plan/AI_engineering/knowledge/rag.md:363`）。
 - [X] **T032D [US2]** 增加“多格式解析策略”：Word/HTML/邮件/IM/SQL/图片（OCR）/表格行级抽取，统一 provenance（page/row/bbox/line_range/timecode）写入 chunk metadata（对齐 `docs/plan/AI_engineering/knowledge/rag.md:33`）。
+- [X] **T032E [US2]** PDF 文本抽取与 OCR 能力可控：新增 `pdftotext` 文本抽取处理器（用于非扫描 PDF），并把 `ocr_available/pdf_text_available` 开关纳入 `config.yaml`（`knowledge_space.ingestion_processors`），用于部署环境显式启停/自动探测。
+- [X] **T032F [US2]** 支持删除入库任务：新增 `DELETE /admin/knowledge-spaces/:spaceId/ingestion-jobs/:jobId`，清理该 job 的 `knowledge_chunks`、向量记录与本地产物目录；Web Admin 在入库记录列表与切块预览页提供“删除入库”按钮（带二次确认与结果提示），并更新 OpenAPI 合同 `specs/011-knowledge-space/contracts/http-openapi.yaml`。
 
 #### 追加：向量表 / KG 协助表迁移（P1）
 
@@ -196,6 +201,12 @@
 - [X] **T104 [US5]** 在 `web-admin/app/pages/knowledge-spaces/playground.vue` 新增 Playground：支持选择 profile、A/B 对比（默认 vs 草稿）、展示各阶段耗时/候选数/降级原因、候选来源（vector/bm25/kg/hier）与最终 citations。
 - [X] **T105 [US5]** 在 Web 管理台策略配置入口实现“场景模板/默认策略（两层选择）”：先选场景（SOP/合同/研究/台账/SQL-KG/自定义），再选该场景允许的策略包，并在导入首批样本文档后触发 Corpus Check 输出推荐卡片（对齐 `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md` 的非全量映射）。
 - [X] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/knowledge/rag.md:363`）。当前仅后端支持，前端引导与修复指引待补齐。
+- [X] **T106B [US2/US5]** 落地 “Plan B：扫描 PDF OCR（Tesseract）+ bbox provenance + 跨页内容切分” 的 processor/profile 与产物落盘（设计见 `specs/011-knowledge-space/ocr_scan_pdf_plan_b.md`）。包含：PDF→逐页渲染（page images）→ Tesseract TSV/hOCR → unit 序列（line/block）→ 段落/条款跨页合并 → chunking。
+- [X] **T106C [US2]** 产物与数据模型补齐：在 `ArtifactBundle` 增加 OCR 相关产物 URI（pages/image + raw tsv/hocr + searchable.pdf 可选），并把 `page+bbox` 写入 chunk `metadata.provenance`（归一化坐标、左上原点、支持跨页）。
+- [X] **T106D [US2]** 写入在线 chunk store：实现 `knowledge_chunks` 表（对齐 `specs/011-knowledge-space/data-model.md`），入库时把每个 chunk 的 `content + metadata` 写入 DB；向量依旧写入 `knowledge_vectors`（vectorstore）。编辑 chunk 时同步更新 DB + 向量索引，并记录审计字段（edited_at/by/reason）。
+- [X] **T106E [US5]** Web Admin 验收链路：空间→入库记录→chunk 列表预览→编辑→反馈跳转。已落地最小闭环（chunk 列表预览 + 编辑 + 单 chunk 重建向量索引），后续需对齐 `knowledge_chunks` 真相源与页预览叠框。
+- [X] **T106F [US5]** 页预览叠框：新增 Admin API 提供 page image 可访问 URL（presign）与 chunk 的 `pages[]/regions[]` 定位信息；Web Admin 在 chunk 预览页支持“打开对应页并高亮 bbox”，跨页 chunk 支持多页跳转。
+- [X] **T106G [US2]** OCR worker 化与资源治理：将 OCR 执行迁移到 worker/processor 层，增加超时/并发/大小限制、失败重试与降级策略，并补齐 `knowledge.ocr.*` 指标（耗时、失败率、bbox 覆盖率）。
 
 ### 追加：场景 → 策略包（两层选择）产品化（对齐 `rag_scene_strategy_mode.md`）
 

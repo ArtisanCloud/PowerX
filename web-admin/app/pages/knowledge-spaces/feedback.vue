@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import {
   useKnowledgeSpaces,
   type FeedbackCasePayload,
@@ -13,6 +13,7 @@ useHead({
 
 const api = useKnowledgeSpaces();
 const store = useKnowledgeSpaceStore();
+const route = useRoute();
 
 const spaceId = ref("");
 const loadingCases = ref(false);
@@ -79,6 +80,17 @@ watch(
   },
   { immediate: true },
 );
+
+onMounted(() => {
+  const qSpaceId = String(route.query.spaceId || "").trim();
+  const qChunks = String(route.query.chunks || "").trim();
+  if (qSpaceId && !spaceId.value) {
+    spaceId.value = qSpaceId;
+  }
+  if (qChunks && !chunkInput.value) {
+    chunkInput.value = qChunks;
+  }
+});
 
 const loadCases = async () => {
   if (!spaceId.value) {

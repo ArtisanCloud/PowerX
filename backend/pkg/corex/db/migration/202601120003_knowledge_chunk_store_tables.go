@@ -30,6 +30,7 @@ func EnsureKnowledgeChunkStoreTables(db *gorm.DB) error {
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
   space_uuid uuid NOT NULL,
   chunk_uuid uuid NOT NULL,
+  job_uuid uuid,
   kind text NOT NULL DEFAULT 'chunk',
   content text NOT NULL,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -37,11 +38,14 @@ func EnsureKnowledgeChunkStoreTables(db *gorm.DB) error {
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (space_uuid, chunk_uuid)
 )`, chunksTable),
+		// Backfill / upgrade for existing installs.
+		fmt.Sprintf(`ALTER TABLE %s ADD COLUMN IF NOT EXISTS job_uuid uuid`, chunksTable),
 		// Postgres FTS: using 'simple' config keeps multilingual content usable without custom dictionaries.
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS knowledge_chunks_fts_idx ON %s USING gin (to_tsvector('simple', content))`, chunksTable),
 		// Structured filtering: jsonb contains/path ops.
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS knowledge_chunks_meta_idx ON %s USING gin (metadata jsonb_path_ops)`, chunksTable),
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS knowledge_chunks_kind_idx ON %s (space_uuid, kind)`, chunksTable),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS knowledge_chunks_job_idx ON %s (space_uuid, job_uuid)`, chunksTable),
 	}
 
 	for _, stmt := range stmts {

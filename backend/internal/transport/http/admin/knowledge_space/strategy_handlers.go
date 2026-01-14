@@ -69,8 +69,7 @@ func (h *StrategyHandler) ValidateForSpace(c *gin.Context) {
 		dto.ResponseError(c, http.StatusNotFound, "知识空间不存在", ksvc.ErrSpaceNotFound)
 		return
 	}
-	sceneKey, bundleKey := ksvc.InferSceneAndBundleForSpace(space)
-	res, err := h.svc.ValidateStrategy(c.Request.Context(), ksvc.ValidateStrategyInput{SceneKey: sceneKey, BundleKey: bundleKey})
+	res, err := h.svc.ValidateStrategyForSpace(c.Request.Context(), space)
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return

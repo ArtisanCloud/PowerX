@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useKnowledgeSpaces, type CorpusCheckJobRecord, type KnowledgeSpaceRecord, type StrategyValidationResult } from "~/composables/useKnowledgeSpaces";
+import { useKnowledgeSpaces, type KnowledgeSpaceRecord, type StrategyValidationResult, type VectorIndexStatus } from "~/composables/useKnowledgeSpaces";
 import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 import { useUserStore } from "~/stores/user";
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 
 useHead(() => ({
   title: t("knowledgeSpaces.strategy.head.title", "策略配置"),
@@ -30,6 +31,9 @@ const spaces = ref<KnowledgeSpaceRecord[]>([]);
 const selectedSpaceId = ref<string>("");
 const selectedSpace = computed(() => spaces.value.find((s) => s.spaceId === selectedSpaceId.value) ?? null);
 
+const querySpaceId = computed(() => String(route.query.spaceId || "").trim());
+const spaceLocked = computed(() => Boolean(querySpaceId.value));
+
 const sceneKey = ref<SceneKey>("sop");
 const bundleKey = ref<StrategyBundleKey>("p1_general");
 
@@ -40,13 +44,22 @@ const strategyValidation = ref<StrategyValidationResult | null>(null);
 const strategyValidationLoading = ref(false);
 const strategyValidationError = ref<string | null>(null);
 
-const corpusCheckJob = ref<CorpusCheckJobRecord | null>(null);
-const corpusCheckLoading = ref(false);
-const corpusCheckError = ref<string | null>(null);
+const vectorIndexStatus = ref<VectorIndexStatus | null>(null);
+const vectorIndexLoading = ref(false);
+const vectorIndexError = ref<string | null>(null);
+const embeddingProfileKeyInput = ref<string>("openai/text-embedding-3-small");
+
+const shortId = (id: string | null | undefined) => (id ? String(id).slice(0, 8) : "-");
+
+const spaceLabel = (s: KnowledgeSpaceRecord | null) => {
+  if (!s) return "-";
+  const name = String(s.spaceName || "").trim() || t("knowledgeSpaces.strategy.space.unnamed", "未命名空间");
+  return `${name}（${shortId(s.spaceId)}）`;
+};
 
 const spaceItems = computed(() =>
   spaces.value.map((s) => ({
-    label: s.spaceName ? `${s.spaceName}（${s.departmentCode}）` : s.spaceId,
+    label: spaceLabel(s),
     value: s.spaceId,
   })),
 );
@@ -70,60 +83,102 @@ const bundleItems = computed(() => {
 const selectedScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[sceneKey.value]);
 const selectedBundle = computed(() => SCENE_STRATEGY_CATALOG.bundles[bundleKey.value]);
 
-const enabledIndexChannels = computed(() => {
-  const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey.value];
-  const bundle = SCENE_STRATEGY_CATALOG.bundles[bundleKey.value];
-  const idx = new Set<string>();
-  for (const k of scene?.prerequisites.index ?? []) idx.add(k);
-  for (const k of bundle?.prerequisites ?? []) idx.add(k);
+type IndexChannel = "dense" | "sparse" | "hier" | "kg" | "time" | "structured";
 
-  const out: Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> = [];
-  const mapKey = (key: string) => {
-    switch (key) {
-      case "index.dense":
-        out.push("dense");
-        break;
-      case "index.sparse":
-        out.push("sparse");
-        break;
-      case "index.hier":
-        out.push("hier");
-        break;
-      case "index.kg":
-        out.push("kg");
-        break;
-      case "index.time_fields":
-        out.push("time");
-        break;
-      case "index.structured_fields":
-        out.push("structured");
-        break;
-    }
-  };
-  for (const k of idx) {
-    if (k.startsWith("index.")) mapKey(k);
+const mapIndexPrereqToChannel = (key: string): IndexChannel | null => {
+  switch (key) {
+    case "index.dense":
+      return "dense";
+    case "index.sparse":
+      return "sparse";
+    case "index.hier":
+      return "hier";
+    case "index.kg":
+      return "kg";
+    case "index.time_fields":
+      return "time";
+    case "index.structured_fields":
+      return "structured";
+    default:
+      return null;
   }
-  const order = ["dense", "sparse", "hier", "kg", "time", "structured"] as const;
-  return order.filter((x) => out.includes(x));
+};
+
+const indexChannelOrder: IndexChannel[] = ["dense", "sparse", "hier", "kg", "time", "structured"];
+
+const sceneIndexChannels = computed<IndexChannel[]>(() => {
+  const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey.value];
+  const set = new Set<IndexChannel>();
+  for (const k of scene?.prerequisites.index ?? []) {
+    const ch = mapIndexPrereqToChannel(k);
+    if (ch) set.add(ch);
+  }
+  return indexChannelOrder.filter((x) => set.has(x));
 });
+
+const bundleIndexChannels = computed<IndexChannel[]>(() => {
+  const bundle = SCENE_STRATEGY_CATALOG.bundles[bundleKey.value];
+  const set = new Set<IndexChannel>();
+  for (const k of bundle?.prerequisites ?? []) {
+    if (!String(k).startsWith("index.")) continue;
+    const ch = mapIndexPrereqToChannel(k);
+    if (ch) set.add(ch);
+  }
+  return indexChannelOrder.filter((x) => set.has(x));
+});
+
+const extraIndexChannels = computed<IndexChannel[]>(() => {
+  const base = new Set(sceneIndexChannels.value);
+  return bundleIndexChannels.value.filter((x) => !base.has(x));
+});
+
+const bundleRuntimePrereqs = computed<string[]>(() => {
+  const bundle = SCENE_STRATEGY_CATALOG.bundles[bundleKey.value];
+  return (bundle?.prerequisites ?? []).filter((k) => String(k).startsWith("runtime."));
+});
+
+const runtimeLabel = (key: string) => {
+  switch (key) {
+    case "runtime.evidence_checker":
+      return "证据校验器（Evidence Checker）";
+    default:
+      return key;
+  }
+};
 
 const channelLabel = (ch: string) => {
   switch (ch) {
     case "dense":
-      return "Dense";
+      return "向量（Dense）";
     case "sparse":
-      return "Sparse(BM25)";
+      return "稀疏（BM25）";
     case "hier":
-      return "Hier";
+      return "层次（Hier）";
     case "kg":
-      return "KG";
+      return "知识图谱（KG）";
     case "time":
-      return "Time";
+      return "时间字段（Time）";
     case "structured":
-      return "Structured";
+      return "结构化字段（Structured）";
     default:
       return ch;
   }
+};
+
+const profileLabel = (profileKey: string | null | undefined) => {
+  const key = String(profileKey || "").trim();
+  if (!key) return "-";
+  const bundle = (SCENE_STRATEGY_CATALOG.bundles as any)?.[key];
+  if (bundle?.label) return `${bundle.label}（${key}）`;
+  return key;
+};
+
+const goBack = async () => {
+  if (process.client && window.history.length > 1) {
+    router.back();
+    return;
+  }
+  await navigateTo("/knowledge-spaces");
 };
 
 const inferFromSpace = (space: KnowledgeSpaceRecord | null) => {
@@ -192,62 +247,55 @@ const persistToSpace = async () => {
   }
 };
 
-const runCorpusCheck = async () => {
-  if (!selectedSpace.value) return;
-  corpusCheckLoading.value = true;
-  corpusCheckError.value = null;
+const refreshVectorIndex = async () => {
+  if (!selectedSpace.value) {
+    vectorIndexStatus.value = null;
+    return;
+  }
+  vectorIndexLoading.value = true;
+  vectorIndexError.value = null;
   try {
-    const created = await api.startCorpusCheck(selectedSpace.value.spaceId, userStore.user?.email || wizardStore.iamEmail || "");
-    corpusCheckJob.value = created;
-    wizardStore.lastCorpusCheckJob = created as any;
-    for (let i = 0; i < 12; i++) {
-      const latest = await api.getCorpusCheckJob(selectedSpace.value.spaceId, created.uuid);
-      corpusCheckJob.value = latest;
-      wizardStore.lastCorpusCheckJob = latest as any;
-      if (latest?.status === "completed" || latest?.status === "failed") break;
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    toast.add({
-      color: "success",
-      title: t("knowledgeSpaces.strategy.corpus.toast.title", "Corpus Check 已完成"),
-      description: t("knowledgeSpaces.strategy.corpus.toast.desc", "已生成推荐卡片，可一键应用到当前空间。"),
-    });
+    vectorIndexStatus.value = await api.getVectorIndexStatus(selectedSpace.value.spaceId);
   } catch (e: any) {
-    corpusCheckError.value = e?.message || t("knowledgeSpaces.strategy.corpus.toast.failed", "启动 Corpus Check 失败");
-    toast.add({ color: "error", title: t("knowledgeSpaces.strategy.corpus.toast.failed", "启动 Corpus Check 失败"), description: corpusCheckError.value });
+    vectorIndexError.value = e?.message || "获取向量索引状态失败";
+    vectorIndexStatus.value = null;
   } finally {
-    corpusCheckLoading.value = false;
+    vectorIndexLoading.value = false;
   }
 };
 
-const applyRecommendation = async (rec: any) => {
-  if (!rec?.sceneKey || !rec?.bundleKey) return;
-  sceneKey.value = rec.sceneKey as SceneKey;
-  bundleKey.value = rec.bundleKey as StrategyBundleKey;
-  await refreshStrategyValidation();
-  await persistToSpace();
+const activateDenseIndex = async () => {
+  if (!selectedSpace.value) return;
+  const key = String(embeddingProfileKeyInput.value || "").trim();
+  if (!key) {
+    toast.add({ color: "error", title: "参数错误", description: "embeddingProfileKey 不能为空" });
+    return;
+  }
+  saving.value = true;
+  savingError.value = null;
+  try {
+    await api.activateVectorIndex(selectedSpace.value.spaceId, {
+      embeddingProfileKey: key,
+      requestedBy: userStore.user?.email || wizardStore.iamEmail || "ops@powerx.local",
+    });
+    await loadSpaces();
+    await refreshVectorIndex();
+    await refreshStrategyValidation();
+    toast.add({ color: "success", title: "向量索引已激活", description: "已为该空间绑定 embedding profile 并创建/启用向量表。" });
+  } catch (e: any) {
+    savingError.value = e?.message || "激活失败";
+    toast.add({ color: "error", title: "激活失败", description: savingError.value });
+  } finally {
+    saving.value = false;
+  }
 };
-
-const openPluginMarket = (pluginId: string) => {
-  navigateTo(`/plugins/market?pluginId=${encodeURIComponent(pluginId)}`);
-};
-
-const openIngestionWithOcr = () => {
-  if (!selectedSpace.value?.spaceId) return;
-  navigateTo({ path: "/knowledge-spaces", query: { openIngestion: "1", spaceId: selectedSpace.value.spaceId, ocr: "1" } });
-};
-
-const recommendations = computed(() => {
-  const list = corpusCheckJob.value?.recommendations ?? (wizardStore.lastCorpusCheckJob as any)?.recommendations;
-  return Array.isArray(list) ? list : [];
-});
 
 const loadSpaces = async () => {
   spacesLoading.value = true;
   spacesError.value = null;
   try {
     spaces.value = await api.listSpaces({ limit: 200 });
-    const preferred = String(route.query.spaceId || "").trim();
+    const preferred = querySpaceId.value;
     if (preferred && spaces.value.some((s) => s.spaceId === preferred)) {
       selectedSpaceId.value = preferred;
     } else if (!selectedSpaceId.value && spaces.value[0]?.spaceId) {
@@ -265,12 +313,8 @@ watch(
   () => selectedSpace.value,
   (space) => {
     inferFromSpace(space);
-    const last = wizardStore.lastCorpusCheckJob as any;
-    if (space && last?.space_uuid === space.spaceId) {
-      corpusCheckJob.value = last;
-    } else {
-      corpusCheckJob.value = null;
-    }
+    embeddingProfileKeyInput.value = String(space?.embeddingProfileKey || "").trim() || "openai/text-embedding-3-small";
+    refreshVectorIndex();
   },
   { immediate: true },
 );
@@ -287,93 +331,188 @@ onMounted(async () => {
   }
   await loadSpaces();
   await refreshStrategyValidation();
+  await refreshVectorIndex();
 });
 </script>
 
 <template>
   <section class="px-6 py-8 space-y-8 lg:px-10">
     <header class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h1 class="text-2xl font-semibold text-gray-900">{{ t("knowledgeSpaces.strategy.title", "策略配置") }}</h1>
-      <p class="text-gray-600 mt-2">
-        {{ t("knowledgeSpaces.strategy.subtitle", "先选择空间，再选择业务场景（L1）与策略包（L2）。保存后会同步更新该空间的 Ingestion/Index/RAG Profile。") }}
-      </p>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <UButton color="neutral" variant="ghost" icon="i-heroicons-arrow-left" @click="goBack">
+            {{ t("common.backToList", "返回列表") }}
+          </UButton>
+          <div>
+            <h1 class="text-2xl font-semibold text-gray-900">{{ t("knowledgeSpaces.strategy.title", "策略配置") }}</h1>
+          </div>
+        </div>
+      </div>
     </header>
 
     <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.strategy.space.title", "选择空间") }}</h2>
-            <p class="text-sm text-[var(--text-secondary)]">{{ t("knowledgeSpaces.strategy.space.desc", "策略配置是租户级复用，但会写入到某个具体空间。") }}</p>
+            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.strategy.title", "策略配置") }}</h2>
+            <p class="text-sm text-[var(--text-secondary)]">{{ t("knowledgeSpaces.strategy.subtitle") }}</p>
           </div>
-          <UButton color="neutral" variant="soft" icon="i-heroicons-arrow-path" :loading="spacesLoading" @click="loadSpaces">
-            {{ t("common.refresh", "刷新") }}
-          </UButton>
+          <div class="flex items-center gap-2">
+            <UButton color="neutral" variant="soft" icon="i-heroicons-arrow-path" :loading="spacesLoading" @click="loadSpaces">
+              {{ t("common.refresh", "刷新") }}
+            </UButton>
+            <UButton color="primary" icon="i-heroicons-check" :loading="saving" :disabled="!selectedSpace" @click="persistToSpace">
+              {{ t("knowledgeSpaces.strategy.actions.save", "保存到空间") }}
+            </UButton>
+          </div>
         </div>
       </template>
 
-      <div v-if="spacesError" class="text-sm text-red-500">{{ spacesError }}</div>
-      <div v-else class="grid gap-4 md:grid-cols-2">
-        <UFormField :label="t('knowledgeSpaces.strategy.space.label', '空间')" required>
-          <USelectMenu v-model="selectedSpaceId" :items="spaceItems" class="w-full" />
-        </UFormField>
-        <div class="rounded-lg border border-[var(--border-color)] p-4 text-sm">
-          <div class="font-medium text-[var(--text-primary)]">{{ t("knowledgeSpaces.strategy.space.current", "当前空间配置") }}</div>
-          <div class="mt-2 text-[var(--text-secondary)]">
-            <div>IngestionProfileKey：{{ selectedSpace?.ingestionProfileKey || "-" }}</div>
-            <div>IndexProfileKey：{{ selectedSpace?.indexProfileKey || "-" }}</div>
-            <div>RAGProfileKey：{{ selectedSpace?.ragProfileKey || "-" }}</div>
-            <div class="mt-2">
-              {{ t("knowledgeSpaces.strategy.space.id", "空间 ID") }}：{{ selectedSpace?.spaceId?.slice(0, 8) }}…
+      <UAlert
+        v-if="!spaceLocked"
+        color="warning"
+        variant="soft"
+        :title="t('knowledgeSpaces.strategy.space.title', '选择空间')"
+        description="请从空间列表点击“策略”进入（URL 需要携带 spaceId）。"
+      />
+      <div v-else-if="spacesError" class="text-sm text-red-500">{{ spacesError }}</div>
+      <div v-else class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded-lg border border-[var(--border-color)] p-4 text-sm">
+            <div class="font-medium text-[var(--text-primary)]">{{ t("knowledgeSpaces.strategy.space.label", "空间") }}</div>
+            <div class="mt-1 text-[var(--text-secondary)]">
+              {{ spaceLabel(selectedSpace) }}
+            </div>
+            <div class="mt-2 text-[var(--text-secondary)]">
+              {{ t("knowledgeSpaces.strategy.space.id", "空间 ID") }}：{{ shortId(selectedSpace?.spaceId) }}…
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-[var(--border-color)] space-y-1 text-[var(--text-secondary)]">
+              <div class="font-medium text-[var(--text-primary)]">当前（已写入空间）</div>
+              <div>入库 Profile：{{ profileLabel(selectedSpace?.ingestionProfileKey) }}</div>
+              <div>索引 Profile：{{ profileLabel(selectedSpace?.indexProfileKey) }}</div>
+              <div>RAG Profile：{{ profileLabel(selectedSpace?.ragProfileKey) }}</div>
+              <div class="pt-2 mt-2 border-t border-[var(--border-color)]">
+                <div class="font-medium text-[var(--text-primary)]">向量索引（Dense）</div>
+                <div>Embedding Profile：{{ selectedSpace?.embeddingProfileKey || "-" }}</div>
+                <div>Active Index Key：{{ selectedSpace?.activeVectorIndexKey || "-" }}</div>
+                <div v-if="vectorIndexLoading" class="text-xs text-[var(--text-secondary)]">加载中…</div>
+                <div v-else-if="vectorIndexError" class="text-xs text-red-500">{{ vectorIndexError }}</div>
+                <div v-else-if="vectorIndexStatus?.active" class="text-xs text-[var(--text-secondary)]">
+                  dims={{ vectorIndexStatus.active.dimensions }} · table={{ vectorIndexStatus.active.table_name }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-[var(--border-color)] p-4">
+            <div class="grid gap-4 md:grid-cols-2">
+              <UFormField :label="t('knowledgeSpaces.strategy.scene', '业务场景（L1）')" required>
+                <USelectMenu
+                  v-model="sceneKey"
+                  :items="sceneItems"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                />
+                <template #help>
+                  <div class="text-[var(--text-secondary)]">{{ selectedScene?.description }}</div>
+                </template>
+              </UFormField>
+              <UFormField :label="t('knowledgeSpaces.strategy.bundle', '策略包（L2）')" required>
+                <USelectMenu
+                  v-model="bundleKey"
+                  :items="bundleItems"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                />
+                <template #help>
+                  <div class="text-[var(--text-secondary)]">{{ selectedBundle?.description }}</div>
+                </template>
+              </UFormField>
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-[var(--border-color)] text-sm text-[var(--text-secondary)] space-y-1">
+              <div class="font-medium text-[var(--text-primary)]">将写入（点击“保存到空间”后）</div>
+              <div>业务场景（L1）：{{ selectedScene?.label }}（{{ sceneKey }}）</div>
+              <div>策略包（L2）：{{ selectedBundle?.label }}（{{ bundleKey }}）</div>
+              <div>三类 Profile：{{ selectedBundle?.label }}（{{ bundleKey }}）</div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-[var(--border-color)]">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="font-medium text-[var(--text-primary)]">激活向量索引（Dense）</div>
+                  <div class="text-sm text-[var(--text-secondary)]">
+                    只在空间层面绑定/激活（不会在 AI Settings 测试时建表）。
+                  </div>
+                </div>
+                <UButton
+                  color="primary"
+                  icon="i-heroicons-bolt"
+                  :loading="saving"
+                  :disabled="!selectedSpace"
+                  @click="activateDenseIndex"
+                >
+                  激活
+                </UButton>
+              </div>
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
+                <UFormField label="EmbeddingProfileKey（provider/model）" required>
+                  <UInput v-model="embeddingProfileKeyInput" placeholder="openai/text-embedding-3-small" />
+                  <template #help>
+                    <div class="text-[var(--text-secondary)]">示例：openai/text-embedding-3-small</div>
+                  </template>
+                </UFormField>
+                <div class="text-sm text-[var(--text-secondary)] rounded-lg border border-[var(--border-color)] p-3">
+                  <div class="font-medium text-[var(--text-primary)]">说明</div>
+                  <div class="mt-1">激活时后端会：probe 维度 → `CREATE TABLE IF NOT EXISTS` → 写入索引登记表 → 更新 space 绑定。</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </UCard>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.strategy.l1l2.title", "场景（L1）→ 策略包（L2）") }}</h2>
-            <p class="text-sm text-[var(--text-secondary)]">{{ t("knowledgeSpaces.strategy.l1l2.desc", "先选场景，再只展示该场景允许的策略包。") }}</p>
-          </div>
-          <UButton color="primary" icon="i-heroicons-check" :loading="saving" :disabled="!selectedSpace" @click="persistToSpace">
-            {{ t("knowledgeSpaces.strategy.actions.save", "保存到空间") }}
-          </UButton>
+        <div class="rounded-lg border border-[var(--border-color)] p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+            <div class="font-medium text-[var(--text-primary)]">依赖摘要</div>
+            <div class="text-sm text-[var(--text-secondary)]">用于提示该组合需要的索引通道/运行时能力，并影响下方校验结果。</div>
+            </div>
+            <div class="flex flex-wrap gap-2" />
         </div>
-      </template>
-
-      <div class="grid gap-4 md:grid-cols-2">
-        <UFormField :label="t('knowledgeSpaces.strategy.scene', '业务场景（L1）')" required>
-          <USelectMenu v-model="sceneKey" :items="sceneItems" class="w-full" />
-          <template #help>
-            <div class="text-[var(--text-secondary)]">{{ selectedScene?.description }}</div>
-          </template>
-        </UFormField>
-        <UFormField :label="t('knowledgeSpaces.strategy.bundle', '策略包（L2）')" required>
-          <USelectMenu v-model="bundleKey" :items="bundleItems" class="w-full" />
-          <template #help>
-            <div class="text-[var(--text-secondary)]">{{ selectedBundle?.description }}</div>
-          </template>
-        </UFormField>
+          <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
+            <div class="rounded-lg border border-[var(--border-color)] p-3">
+              <div class="font-medium text-[var(--text-primary)]">L1 场景基线索引</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <UBadge v-for="ch in sceneIndexChannels" :key="ch" color="primary" variant="soft">
+                  {{ channelLabel(ch) }}
+                </UBadge>
+              </div>
+            </div>
+            <div class="rounded-lg border border-[var(--border-color)] p-3">
+              <div class="font-medium text-[var(--text-primary)]">L2 额外索引</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <UBadge v-for="ch in extraIndexChannels" :key="ch" color="primary" variant="soft">
+                  {{ channelLabel(ch) }}
+                </UBadge>
+                <span v-if="!extraIndexChannels.length" class="text-[var(--text-secondary)]">无</span>
+              </div>
+            </div>
+            <div class="rounded-lg border border-[var(--border-color)] p-3">
+              <div class="font-medium text-[var(--text-primary)]">L2 运行时依赖</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <UBadge v-for="k in bundleRuntimePrereqs" :key="k" color="neutral" variant="soft">
+                  {{ runtimeLabel(k) }}
+                </UBadge>
+                <span v-if="!bundleRuntimePrereqs.length" class="text-[var(--text-secondary)]">无</span>
+              </div>
+            </div>
+          </div>
       </div>
 
-      <div class="mt-4 rounded-lg border border-[var(--border-color)] p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div class="font-medium text-[var(--text-primary)]">{{ t("knowledgeSpaces.strategy.channels.title", "将启用的索引通道") }}</div>
-            <div class="text-sm text-[var(--text-secondary)]">{{ t("knowledgeSpaces.strategy.channels.desc", "用于判断依赖是否满足，以及后续策略推荐的成本/风险。") }}</div>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <UBadge v-for="ch in enabledIndexChannels" :key="ch" color="primary" variant="soft">
-              {{ channelLabel(ch) }}
-            </UBadge>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4">
+        <div>
         <div v-if="strategyValidationLoading" class="text-sm text-[var(--text-secondary)]">
           {{ t("knowledgeSpaces.strategy.validation.loading", "正在校验策略依赖…") }}
         </div>
@@ -400,78 +539,6 @@ onMounted(async () => {
 
         <div v-if="savingError" class="mt-3 text-sm text-red-500">{{ savingError }}</div>
       </div>
-    </UCard>
-
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.strategy.corpus.title", "Corpus Check 推荐") }}</h2>
-            <p class="text-sm text-[var(--text-secondary)]">
-              {{ t("knowledgeSpaces.strategy.corpus.desc", "导入首批样本文档后建议跑一次体检，系统会给出推荐的场景/策略包（非全量映射）。") }}
-            </p>
-          </div>
-          <UButton color="secondary" variant="soft" icon="i-heroicons-beaker" :loading="corpusCheckLoading" :disabled="!selectedSpace" @click="runCorpusCheck">
-            {{ t("knowledgeSpaces.strategy.corpus.actions.run", "开始体检") }}
-          </UButton>
-        </div>
-      </template>
-
-      <div v-if="corpusCheckError" class="text-sm text-red-500">{{ corpusCheckError }}</div>
-      <div v-else-if="!selectedSpace" class="text-sm text-[var(--text-secondary)]">
-        {{ t("knowledgeSpaces.strategy.corpus.hint.noSpace", "请先选择空间。") }}
-      </div>
-      <div v-else-if="!recommendations.length" class="text-sm text-[var(--text-secondary)]">
-        {{ t("knowledgeSpaces.strategy.corpus.hint.empty", "暂无推荐。你可以先入库一份样本文档，再点击“开始体检”。") }}
-      </div>
-      <div v-else class="space-y-3">
-        <div
-          v-for="rec in recommendations"
-          :key="rec.type + ':' + (rec.sceneKey || '') + ':' + (rec.bundleKey || '')"
-          class="rounded-lg border border-[var(--border-color)] p-4"
-        >
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="space-y-2">
-              <div class="flex flex-wrap gap-2">
-                <UBadge v-if="rec.type" color="neutral" variant="soft">{{ rec.type }}</UBadge>
-                <UBadge v-if="rec.sceneKey" color="primary" variant="soft">场景：{{ rec.sceneLabel || rec.sceneKey }}</UBadge>
-                <UBadge v-if="rec.bundleKey" color="primary" variant="soft">策略包：{{ rec.bundleLabel || rec.bundleKey }}</UBadge>
-              </div>
-              <div v-if="rec.reason" class="text-sm text-[var(--text-secondary)]">{{ rec.reason }}</div>
-              <div v-if="rec.cost || rec.risk" class="text-xs text-[var(--text-secondary)]">
-                <span v-if="rec.cost">成本：{{ rec.cost }}</span>
-                <span v-if="rec.cost && rec.risk">｜</span>
-                <span v-if="rec.risk">风险：{{ rec.risk }}</span>
-              </div>
-            </div>
-            <UButton
-              v-if="rec.type === 'scene_bundle' && rec.sceneKey && rec.bundleKey"
-              size="sm"
-              color="primary"
-              variant="soft"
-              icon="i-heroicons-sparkles"
-              :disabled="saving || corpusCheckLoading"
-              @click="applyRecommendation(rec)"
-            >
-              {{ t("knowledgeSpaces.strategy.corpus.actions.apply", "一键应用") }}
-            </UButton>
-            <div v-else-if="rec.key === 'enable_ocr'" class="flex flex-wrap gap-2">
-              <UButton
-                v-if="rec.plugin"
-                size="sm"
-                color="primary"
-                variant="soft"
-                icon="i-heroicons-shopping-bag"
-                @click="openPluginMarket(rec.plugin)"
-              >
-                去安装 OCR 插件
-              </UButton>
-              <UButton size="sm" color="neutral" variant="soft" @click="openIngestionWithOcr">
-                打开入库并启用 OCR
-              </UButton>
-            </div>
-          </div>
-        </div>
       </div>
     </UCard>
   </section>

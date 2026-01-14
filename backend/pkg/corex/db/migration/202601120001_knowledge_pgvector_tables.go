@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ArtisanCloud/PowerX/config"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // EnsureKnowledgeVectorsPGVector provisions the pgvector extension + vectors table for Knowledge Space.
 // It is designed to be called by `make db-migrate` (via `cmd/database migrate`) and MUST be idempotent.
-func EnsureKnowledgeVectorsPGVector(ctx context.Context, dsn string, cfg config.KnowledgeSpaceVectorStorePGVectorConfig) error {
+func EnsureKnowledgeVectorsPGVector(ctx context.Context, dsn string, cfg pgvectorcfg.Config) error {
 	dsn = strings.TrimSpace(dsn)
 	if dsn == "" {
 		return fmt.Errorf("pgvector migration: dsn is empty")
@@ -23,13 +23,40 @@ func EnsureKnowledgeVectorsPGVector(ctx context.Context, dsn string, cfg config.
 		schema = "public"
 	}
 	if table == "" {
-		table = "knowledge_vectors"
+		table = "knowledge_vectors_v1_1536"
 	}
 	if cfg.Dimensions <= 0 {
 		cfg.Dimensions = 1536
 	}
 	if cfg.Lists <= 0 {
 		cfg.Lists = 100
+	}
+
+	return EnsureKnowledgeVectorsPGVectorTable(ctx, dsn, schema, table, cfg.Dimensions, cfg.Lists)
+}
+
+// EnsureKnowledgeVectorsPGVectorTable provisions a single pgvector table (schema+table+dimensions) idempotently.
+// This is used by:
+// - `make db-migrate`: create the default table.
+// - Space 激活 dense index：按维度创建对应表（例如 knowledge_vectors_v1_1024）。
+func EnsureKnowledgeVectorsPGVectorTable(ctx context.Context, dsn, schema, table string, dimensions, lists int) error {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		return fmt.Errorf("pgvector migration: dsn is empty")
+	}
+	schema = strings.TrimSpace(schema)
+	table = strings.TrimSpace(table)
+	if schema == "" {
+		schema = "public"
+	}
+	if table == "" {
+		table = "knowledge_vectors_v1_1536"
+	}
+	if dimensions <= 0 {
+		dimensions = 1536
+	}
+	if lists <= 0 {
+		lists = 100
 	}
 
 	poolCfg, err := pgxpool.ParseConfig(dsn)
@@ -53,10 +80,10 @@ func EnsureKnowledgeVectorsPGVector(ctx context.Context, dsn string, cfg config.
             metadata jsonb,
             updated_at timestamptz NOT NULL DEFAULT NOW(),
             PRIMARY KEY (space_uuid, chunk_uuid)
-        )`, tableName, cfg.Dimensions),
+        )`, tableName, dimensions),
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s_space_idx ON %s (space_uuid)`, sanitizeIdentifier(table)+"_space_idx", tableName),
 		// Note: IVFFLAT requires `vector` extension; keep it optional but idempotent.
-		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s_embedding_idx ON %s USING ivfflat (embedding vector_l2_ops) WITH (lists = %d)`, sanitizeIdentifier(table)+"_embedding_idx", tableName, cfg.Lists),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s_embedding_idx ON %s USING ivfflat (embedding vector_l2_ops) WITH (lists = %d)`, sanitizeIdentifier(table)+"_embedding_idx", tableName, lists),
 	}
 
 	for _, stmt := range statements {

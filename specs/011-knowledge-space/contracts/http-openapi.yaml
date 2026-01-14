@@ -73,6 +73,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /knowledge-spaces/{spaceId}/ingestion-jobs:
+    get:
+      summary: List ingestion jobs for a space
+      operationId: listIngestionJobs
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+      responses:
+        '200':
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IngestionJob'
     post:
       summary: Trigger multimodal ingestion
       operationId: createIngestionJob
@@ -92,6 +114,129 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IngestionJob'
+  /knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}:
+    get:
+      summary: Get ingestion job by id
+      operationId: getIngestionJob
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionJob'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete an ingestion job and its derived artifacts
+      operationId: deleteIngestionJob
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteIngestionJobResult'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks:
+    get:
+      summary: List chunks for an ingestion job (preview)
+      operationId: listIngestionJobChunks
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/JobId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Chunk page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionChunkList'
+  /knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks/{chunkId}:
+    patch:
+      summary: Update a chunk and rebuild its vector index
+      operationId: updateIngestionJobChunk
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/ChunkId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChunkRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateChunkResponse'
+  /knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/pages/{pageNumber}/image:
+    get:
+      summary: Fetch OCR page image for overlay preview
+      operationId: getIngestionJobPageImage
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/JobId'
+        - name: pageNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Page image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /knowledge-spaces/{spaceId}/fusion-strategies:
     post:
       summary: Publish a fusion strategy version
@@ -249,6 +394,20 @@ components:
       schema:
         type: string
         format: uuid
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ChunkId:
+      name: chunkId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     StrategyId:
       name: strategyId
       in: path
@@ -362,6 +521,84 @@ components:
           type: number
         maskingCoveragePct:
           type: number
+    IngestionChunk:
+      type: object
+      required: [chunkId, kind, content]
+      properties:
+        chunkId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        content:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        confidence:
+          type: number
+        masked:
+          type: boolean
+    IngestionChunkList:
+      type: object
+      required: [spaceId, jobId, total, page, pageSize, items]
+      properties:
+        spaceId:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        format:
+          type: string
+        sourceUri:
+          type: string
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngestionChunk'
+    UpdateChunkRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        editedBy:
+          type: string
+        editReason:
+          type: string
+    UpdateChunkResponse:
+      type: object
+      properties:
+        updated:
+          type: boolean
+        chunkId:
+          type: string
+        jobId:
+          type: string
+        spaceId:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    DeleteIngestionJobResult:
+      type: object
+      required: [deleted, deletedChunks, deletedVectors, deletedArtifacts]
+      properties:
+        deleted:
+          type: boolean
+        deletedChunks:
+          type: integer
+        deletedVectors:
+          type: integer
+        deletedArtifacts:
+          type: boolean
     FusionStrategyRequest:
       type: object
       required: [label, bm25Weight, vectorWeight, graphConstraint, rerankerModel]

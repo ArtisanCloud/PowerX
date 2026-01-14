@@ -300,15 +300,19 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		KnowledgeSpace: shared.KnowledgeSpaceOptions{
-			RedisAddr:              knowledgeRedisAddr,
-			RedisPassword:          knowledgeRedisPassword,
-			RedisDB:                knowledgeRedisDB,
-			LockKeyPrefix:          cfg.KnowledgeSpace.LockKeyPrefix,
-			MetricsKeyPrefix:       cfg.KnowledgeSpace.MetricsKeyPrefix,
-			DefaultRetentionMonths: cfg.KnowledgeSpace.DefaultRetentionMonths,
-			ProvisioningSLA:        time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
-			IngestionSLA:           time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
+			RedisAddr:                knowledgeRedisAddr,
+			RedisPassword:            knowledgeRedisPassword,
+			RedisDB:                  knowledgeRedisDB,
+			LockKeyPrefix:            cfg.KnowledgeSpace.LockKeyPrefix,
+			MetricsKeyPrefix:         cfg.KnowledgeSpace.MetricsKeyPrefix,
+			DefaultRetentionMonths:   cfg.KnowledgeSpace.DefaultRetentionMonths,
+			ProvisioningSLA:          time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
+			IngestionSLA:             time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
 			SceneStrategyCatalogPath: cfg.KnowledgeSpace.SceneStrategyCatalogPath,
+			IngestionProcessors: shared.KnowledgeSpaceIngestionProcessorOptions{
+				PDFTextAvailable: cfg.KnowledgeSpace.IngestionProcessors.PDFTextAvailable,
+				OCRAvailable:     cfg.KnowledgeSpace.IngestionProcessors.OCRAvailable,
+			},
 			EventTopics: shared.KnowledgeSpaceEventTopicsOptions{
 				Provisioning: cfg.KnowledgeSpace.EventTopics.Provisioning,
 				Ingestion:    cfg.KnowledgeSpace.EventTopics.Ingestion,
@@ -324,7 +328,13 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			VectorStore: shared.KnowledgeSpaceVectorStoreOptions{
 				Driver: cfg.KnowledgeSpace.VectorStore.Driver,
 				PGVector: pgvectorcfg.Config{
-					DSN:              cfg.KnowledgeSpace.VectorStore.PgVector.DSN,
+					DSN: func() string {
+						dsn := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.DSN)
+						if dsn != "" {
+							return dsn
+						}
+						return strings.TrimSpace(cfg.Database.DSN)
+					}(),
 					Schema:           cfg.KnowledgeSpace.VectorStore.PgVector.Schema,
 					Table:            cfg.KnowledgeSpace.VectorStore.PgVector.Table,
 					Dimensions:       cfg.KnowledgeSpace.VectorStore.PgVector.Dimensions,

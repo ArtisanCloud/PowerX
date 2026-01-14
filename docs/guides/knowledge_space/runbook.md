@@ -32,8 +32,8 @@
      sourceType=pdf sourceUri=s3://bucket/doc.pdf priority=high
    ```
    OCR/Processor 常见分支：
-   - **blocked / `errorCode=ocr_required`**：当前文档需要 OCR，但后端没有 OCR 处理器。建议安装 `com.powerx.plugin.data_forge`，或在 UI 的入库高级设置里关闭 `OCR required`（会降级）。
-   - **completed + `errorCode=degraded` / `reason=ocr_unavailable`**：OCR 不可用导致降级，可能出现内容为空/引用覆盖下降；建议安装 OCR 插件后重跑入库。
+   - **blocked / `errorCode=ocr_required`**：当前文档需要 OCR，但后端 OCR 能力不可用。先确认系统依赖已安装（`tesseract` + `pdftoppm` 或 `mutool`），并在 `etc/config.yaml` 设置 `knowledge_space.ingestion_processors.ocr_available: true` 后重跑；或在 UI 的入库高级设置里关闭 `OCR required`（会降级）。
+   - **completed + `errorCode=degraded` / `reason=ocr_unavailable`**：OCR 不可用导致降级，可能出现内容为空/引用覆盖下降；按上面步骤启用 OCR 后重跑入库。
 
 3. **校验指标**  
    - `cat reports/_state/knowledge-spaces.json | jq '."space-id".ingestion'`

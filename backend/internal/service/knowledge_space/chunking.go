@@ -3,6 +3,7 @@ package knowledge_space
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -20,14 +21,14 @@ type ChunkingOptions struct {
 	// Separators are preferred boundaries applied after mode splitting and before windowing.
 	// It supports punctuation and newline tokens (e.g. "\n\n", "。", ";").
 	Separators []string
-	Anchors     ChunkAnchors
+	Anchors    ChunkAnchors
 }
 
 type ChunkAnchors struct {
-	HeadingPath  bool
-	ClauseID     bool
-	RowNumber    bool
-	Speaker      bool
+	HeadingPath   bool
+	ClauseID      bool
+	RowNumber     bool
+	Speaker       bool
 	SentenceIndex bool
 }
 
@@ -94,7 +95,9 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 			}
 
 			subParts := []segmentPart{{Text: partText, Meta: partMeta}}
-			if mode != "table_row" && len(opts.Separators) > 0 {
+			// 当 chunkSize<=0 时，仍然允许用 separators 做硬拆分（便于按行/段落落块）。
+			// 当 chunkSize>0 时，不在这里硬拆分；窗口切分阶段会“优先在 separators 边界收尾”，避免把一句话截断。
+			if opts.ChunkSize <= 0 && mode != "table_row" && len(opts.Separators) > 0 {
 				subParts = splitByCustomSeparatorsWithMeta(partText, partMeta, opts.Separators)
 			}
 
@@ -123,10 +126,10 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 					}
 					applyAnchors(meta, sub.Meta, opts.Anchors)
 					chunks = append(chunks, IngestionChunk{
-						ID:      uuid.NewSHA1(spaceID, []byte(contentKey)),
-						Kind:    "chunk",
-						Content:  subText,
-						Metadata: meta,
+						ID:         uuid.NewSHA1(spaceID, []byte(contentKey)),
+						Kind:       "chunk",
+						Content:    subText,
+						Metadata:   meta,
 						Confidence: unit.Confidence,
 					})
 					continue
@@ -139,12 +142,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 				if overlap >= opts.ChunkSize {
 					overlap = opts.ChunkSize / 4
 				}
-				step := opts.ChunkSize - overlap
-				if step <= 0 {
-					step = opts.ChunkSize
-				}
-
-				segments := splitByRuneWindow(subText, opts.ChunkSize, step)
+				segments := splitByRuneWindowPreferSeparators(subText, opts.ChunkSize, overlap, opts.Separators)
 				for _, seg := range segments {
 					chunkCounter++
 					contentKey := fmt.Sprintf("chunk|%s|%s|%d|%d", normalizedFormat, src, idx+1, chunkCounter)
@@ -164,10 +162,10 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 					}
 					applyAnchors(meta, sub.Meta, opts.Anchors)
 					chunks = append(chunks, IngestionChunk{
-						ID:      uuid.NewSHA1(spaceID, []byte(contentKey)),
-						Kind:    "chunk",
-						Content: seg,
-						Metadata: meta,
+						ID:         uuid.NewSHA1(spaceID, []byte(contentKey)),
+						Kind:       "chunk",
+						Content:    seg,
+						Metadata:   meta,
 						Confidence: unit.Confidence,
 					})
 				}
@@ -196,6 +194,163 @@ func splitByRuneWindow(s string, window int, step int) []string {
 		if end >= len(rs) {
 			break
 		}
+	}
+	return out
+}
+
+// splitByRuneWindowPreferSeparators will chunk by rune window, but will try to end each chunk
+// at a separator boundary within the window to avoid cutting a sentence/line mid-way.
+//
+// - window/overlap are in runes.
+// - separators are literal strings (e.g. "\n\n", "。", ";", "•").
+func splitByRuneWindowPreferSeparators(s string, window int, overlap int, separators []string) []string {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return nil
+	}
+	if window <= 0 {
+		return []string{raw}
+	}
+
+	rs := []rune(raw)
+	if len(rs) <= window {
+		return []string{raw}
+	}
+	if overlap < 0 {
+		overlap = 0
+	}
+	if overlap >= window {
+		overlap = window / 4
+	}
+
+	// sanitize separators (limit size to keep perf predictable)
+	seps := make([]string, 0, len(separators))
+	for _, sep := range separators {
+		sep = strings.TrimSpace(sep)
+		if sep == "" {
+			continue
+		}
+		if len([]rune(sep)) > 16 {
+			continue
+		}
+		seps = append(seps, sep)
+		if len(seps) >= 32 {
+			break
+		}
+	}
+
+	// Map rune index -> byte index for raw string.
+	runeToByte := make([]int, 0, len(rs)+1)
+	for i := range raw {
+		runeToByte = append(runeToByte, i)
+	}
+	runeToByte = append(runeToByte, len(raw))
+	runeIndexFromByte := func(bytePos int) int {
+		// returns rune index whose start byte == bytePos (or nearest next start)
+		i := sort.Search(len(runeToByte), func(i int) bool { return runeToByte[i] >= bytePos })
+		if i < 0 {
+			return 0
+		}
+		if i > len(rs) {
+			return len(rs)
+		}
+		return i
+	}
+
+	chooseEnd := func(startRune int, idealEndRune int) int {
+		if len(seps) == 0 {
+			return idealEndRune
+		}
+		byteStart := runeToByte[startRune]
+		byteIdealEnd := runeToByte[idealEndRune]
+		windowStr := raw[byteStart:byteIdealEnd]
+
+		bestEndByte := -1
+		for _, sep := range seps {
+			if idx := strings.LastIndex(windowStr, sep); idx >= 0 {
+				endByte := idx + len(sep)
+				if endByte > bestEndByte {
+					bestEndByte = endByte
+				}
+			}
+		}
+		if bestEndByte < 0 {
+			return idealEndRune
+		}
+
+		// Avoid producing too-short chunks: require at least 60% of window, otherwise fallback.
+		minLen := int(float64(window) * 0.6)
+		if minLen < 1 {
+			minLen = 1
+		}
+		endRune := runeIndexFromByte(byteStart + bestEndByte)
+		if endRune-startRune < minLen {
+			return idealEndRune
+		}
+		if endRune <= startRune {
+			return idealEndRune
+		}
+		if endRune > idealEndRune {
+			return idealEndRune
+		}
+		return endRune
+	}
+
+	chooseStart := func(proposedStart int, endRune int) int {
+		if proposedStart <= 0 || proposedStart >= endRune {
+			return proposedStart
+		}
+		if len(seps) == 0 || overlap <= 0 {
+			return proposedStart
+		}
+		// In overlap window, try to advance start to the first "separator end" boundary,
+		// so we avoid starting mid-sentence/line.
+		byteStart := runeToByte[proposedStart]
+		byteEnd := runeToByte[endRune]
+		windowStr := raw[byteStart:byteEnd]
+
+		bestStartByte := -1
+		for _, sep := range seps {
+			if idx := strings.Index(windowStr, sep); idx >= 0 {
+				startByte := idx + len(sep)
+				if bestStartByte < 0 || startByte < bestStartByte {
+					bestStartByte = startByte
+				}
+			}
+		}
+		if bestStartByte < 0 {
+			return proposedStart
+		}
+		startRune := runeIndexFromByte(byteStart + bestStartByte)
+		if startRune <= proposedStart || startRune >= endRune {
+			return proposedStart
+		}
+		return startRune
+	}
+
+	out := make([]string, 0, (len(rs)/window)+1)
+	for start := 0; start < len(rs); {
+		idealEnd := start + window
+		if idealEnd > len(rs) {
+			idealEnd = len(rs)
+		}
+		end := chooseEnd(start, idealEnd)
+		seg := strings.TrimSpace(string(rs[start:end]))
+		if seg != "" {
+			out = append(out, seg)
+		}
+		if end >= len(rs) {
+			break
+		}
+		next := end - overlap
+		if next <= start {
+			next = end
+		}
+		next = chooseStart(next, end)
+		if next <= start {
+			next = end
+		}
+		start = next
 	}
 	return out
 }
@@ -282,12 +437,12 @@ func splitByCustomSeparators(s string, separators []string) []string {
 }
 
 var (
-	reHeadingMD   = regexp.MustCompile(`(?m)^#{1,6}\s+.+$`)
-	reHeadingLine = regexp.MustCompile(`^#{1,6}\s+.+$`)
+	reHeadingMD    = regexp.MustCompile(`(?m)^#{1,6}\s+.+$`)
+	reHeadingLine  = regexp.MustCompile(`^#{1,6}\s+.+$`)
 	reHeadingParse = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
-	reClauseNum   = regexp.MustCompile(`(?m)^(?:\d+(?:\.\d+)*|第[一二三四五六七八九十百千万]+条)[\s、.．)]`)
-	reClauseParse = regexp.MustCompile(`^(?:(\d+(?:\.\d+)*)|(第[一二三四五六七八九十百千万]+条))[\s、.．)]`)
-	reSpeakerLine = regexp.MustCompile(`(?m)^(?:[\\p{L}0-9_\\-]{1,20})[:：]`)
+	reClauseNum    = regexp.MustCompile(`(?m)^(?:\d+(?:\.\d+)*|第[一二三四五六七八九十百千万]+条)[\s、.．)]`)
+	reClauseParse  = regexp.MustCompile(`^(?:(\d+(?:\.\d+)*)|(第[一二三四五六七八九十百千万]+条))[\s、.．)]`)
+	reSpeakerLine  = regexp.MustCompile(`(?m)^(?:[\\p{L}0-9_\\-]{1,20})[:：]`)
 )
 
 type segmentPart struct {

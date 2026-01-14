@@ -5,19 +5,20 @@
 当前 `make db-migrate` 仅执行 CoreX 的 GORM `AutoMigrate`（业务表），但 **不会**保证以下能力就绪：
 
 - `pgvector` 扩展安装（`CREATE EXTENSION vector`）
-- `knowledge_vectors`（向量表）创建与索引创建
+- `knowledge_vectors_v{N}_{D}`（向量表族：按版本+维度分表）创建与索引创建
 - KG / 图谱策略（`K_kg` 等）依赖的“协助表”（最小图谱存储：nodes/edges）
 
-结果：即便入库链路已经把 embedding upsert 到 `VectorStore`，在本地/新环境中也会因为表/扩展不存在而阻塞或降级，且无法在 DB 工具中看到 `knowledge_vectors`。
+结果：即便入库链路已经把 embedding upsert 到 `VectorStore`，在本地/新环境中也会因为表/扩展不存在而阻塞或降级，且无法在 DB 工具中看到向量表。
 
 ## 目标
 
 1. 运行 `make db-migrate` 后，**在同一 PostgreSQL 实例上**完成知识空间能力的基础 DB 准备：
    - `pgvector` 扩展存在
-   - 向量表（默认 `public.knowledge_vectors`）存在，且具备必要索引
+   - 向量表族（至少默认维度 `public.knowledge_vectors_v1_1536`）存在，且具备必要索引
+   - 索引登记表（`public.knowledge_vector_indexes`）存在（用于 space→table 路由与治理）
    - KG 图谱“协助表”存在（最小 node/edge 表）
 2. 迁移必须 **幂等**（可重复执行），且对无权限环境给出清晰错误信息（例如缺少 `CREATE EXTENSION` 权限）。
-3. 对外部向量库（Milvus / Pinecone）场景：`make db-migrate` 不应强制创建 `knowledge_vectors`，但可创建 KG 协助表（取决于策略启用）。
+3. 对外部向量库（Milvus / Pinecone）场景：`make db-migrate` 不应强制创建 `knowledge_vectors_{D}`，但可创建 KG 协助表（取决于策略启用）。
 
 ## 非目标
 
@@ -26,16 +27,17 @@
 
 ## 表设计（最小集）
 
-### 1）向量表：`public.knowledge_vectors`（pgvector）
+### 1）向量表族：`public.knowledge_vectors_v{N}_{D}`（pgvector）
 
-用途：为 `backend/pkg/corex/db/persistence/vectorstore/pgvector` 提供默认落表，支持按 space 维度 upsert/query。
+用途：为 `backend/pkg/corex/db/persistence/vectorstore/pgvector` 提供 dense 落表，支持按 space 维度 upsert/query，并允许未来切换 embedding 模型维度。
 
-建议 DDL（与代码一致，细节以最终 migration 为准）：
+建议 DDL（模板；与代码一致，细节以最终 migration 为准）：
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE IF NOT EXISTS public.knowledge_vectors (
+-- 默认版本+维度（例如 v1 + 1536）
+CREATE TABLE IF NOT EXISTS public.knowledge_vectors_v1_1536 (
   space_uuid uuid NOT NULL,
   chunk_uuid uuid NOT NULL,
   embedding vector(1536) NOT NULL,
@@ -44,13 +46,45 @@ CREATE TABLE IF NOT EXISTS public.knowledge_vectors (
   PRIMARY KEY (space_uuid, chunk_uuid)
 );
 
-CREATE INDEX IF NOT EXISTS knowledge_vectors_space_idx
-  ON public.knowledge_vectors (space_uuid);
+CREATE INDEX IF NOT EXISTS knowledge_vectors_v1_1536_space_idx
+  ON public.knowledge_vectors_v1_1536 (space_uuid);
 
 -- 可选：近邻索引（IVFFLAT / HNSW，按 pgvector 版本与运营策略选择）
-CREATE INDEX IF NOT EXISTS knowledge_vectors_embedding_idx
-  ON public.knowledge_vectors USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS knowledge_vectors_v1_1536_embedding_idx
+  ON public.knowledge_vectors_v1_1536 USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
+
+### 1.1）索引登记表：`public.knowledge_vector_indexes`
+
+用途：记录每个 space 当前激活的向量索引（维度/表名/provider/model），并用于垃圾回收与回滚治理。
+
+```sql
+CREATE TABLE IF NOT EXISTS public.knowledge_vector_indexes (
+  id bigserial PRIMARY KEY,
+  space_uuid uuid NOT NULL,
+  index_key varchar(128) NOT NULL,
+  table_name varchar(128) NOT NULL,
+  dimensions int NOT NULL,
+  embedding_provider varchar(64) NOT NULL,
+  embedding_model varchar(128) NOT NULL,
+  embedding_profile_ref varchar(128),
+  status varchar(32) NOT NULL DEFAULT 'active',
+  last_used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS knowledge_vector_indexes_space_key_uniq
+  ON public.knowledge_vector_indexes(space_uuid, index_key);
+
+CREATE INDEX IF NOT EXISTS knowledge_vector_indexes_space_status_idx
+  ON public.knowledge_vector_indexes(space_uuid, status);
+```
+
+> 迁移策略建议：
+> - `make db-migrate` 只保证：`vector` 扩展 + `knowledge_vector_indexes` + 默认版本+维度表（例如 `v1_1536`）存在。
+> - 其它维度表（例如 1024/768）由“管理员在 AI Settings probe 成功后，把该 embedding profile 绑定到 space 并激活”时按需创建（避免无谓建表）。
+> - AI Settings 的“连接测试/试跑”阶段 **不做建表**，只负责拿到维度并写回 profile，用于后续 space 级激活的强校验。
 
 ---
 
@@ -65,7 +99,7 @@ SSOT（后端与 Web Admin 的依赖校验来源）：
 
 | prerequisite | 含义 | 建议存储 | 是否建议纳入 `db-migrate` |
 | --- | --- | --- | --- |
-| `index.dense` | 向量索引 | 外部向量库（Milvus/Pinecone）或 Postgres(pgvector) | ✅（当 driver=pgvector 时创建 `knowledge_vectors`） |
+| `index.dense` | 向量索引 | 外部向量库（Milvus/Pinecone）或 Postgres(pgvector) | ✅（当 driver=pgvector 时创建默认 `knowledge_vectors_v1_1536`；其余维度按需创建） |
 | `index.sparse` | 稀疏索引 / BM25 / FTS | 外部搜索（ES/OS）或 Postgres FTS | ✅（若选择 Postgres FTS 方案：创建 `knowledge_chunks` + FTS 索引） |
 | `index.hier` | 层次化索引（doc/section/chunk） | Postgres 结构表（chunk store + relations）或对象存储+计算 | ✅（若启用 hier：建议创建 `knowledge_chunks`/`knowledge_chunk_links`） |
 | `index.kg` | 知识图谱索引 | Postgres 图谱协助表（nodes/edges）或图数据库 | ✅（至少创建 `knowledge_kg_nodes/edges`） |
@@ -93,7 +127,7 @@ SSOT（后端与 Web Admin 的依赖校验来源）：
 > 下表把每个模块映射到“依赖哪些底座能力”，并给出在 B 方案下应落到哪些表（或对象存储），以及 `make db-migrate` 是否应准备对应表。
 
 约定（B 方案默认）：
-- `index.dense`（pgvector）→ `public.knowledge_vectors`（仅当 `driver=pgvector`）
+- `index.dense`（pgvector）→ `public.knowledge_vectors_v{N}_{D}`（仅当 `driver=pgvector`；N 为 schema 版本，D 与 space 绑定的 embedding profile 一致）
 - `index.sparse`（Postgres FTS）→ `public.knowledge_chunks`（FTS/GIN）
 - `index.hier`（邻接/层次）→ `public.knowledge_chunks(kind=doc_summary/section_summary/...)` + `public.knowledge_chunk_links`
 - `index.kg`（Postgres KG）→ `public.knowledge_kg_nodes` / `public.knowledge_kg_edges`
@@ -105,7 +139,7 @@ SSOT（后端与 Web Admin 的依赖校验来源）：
 
 | 模块 | `requires`（来自 SSOT） | 主要存储落点（B 方案） | `db-migrate` 是否需要建表 |
 | --- | --- | --- | --- |
-| A_simple（Simple RAG） | `index.dense` | `knowledge_vectors`（或外部向量库） | ✅（仅 pgvector 时建 `knowledge_vectors`） |
+| A_simple（Simple RAG） | `index.dense` | `knowledge_vectors_v{N}_{D}`（或外部向量库） | ✅（仅 pgvector 时建默认维度表；其余按需） |
 | A1_routing（Query Routing） | — | 无（路由规则可在配置/策略表中管理，非必需） | ❌ |
 | A2_time_aware（Time-aware） | `index.time_fields` | `knowledge_chunks.metadata`（如 `effective_from/to`、`doc_version`）；必要时加索引列 | △（默认不新增表；如需专列/索引再加迁移） |
 | B_semantic_chunking（Semantic Chunking） | `asset.section_summaries` | `ArtifactBundle` 产物；（可选）摘要写入 `knowledge_chunks(kind=section_summary)` | ❌（默认不新增表；若采用 `knowledge_chunks` 则已覆盖） |
@@ -114,8 +148,8 @@ SSOT（后端与 Web Admin 的依赖校验来源）：
 | E_query_transform（Query Transformation） | — | 无（运行时策略） | ❌ |
 | F_rerank（Reranker） | `runtime.rerank` | 无（运行时模型/服务） | ❌ |
 | G_rse（RSE） | `asset.domain_lexicon` | `ArtifactBundle`（词表/实体库版本）；（可选）词表摘要写入 DB | ❌（默认不新增表；如做词表管理可建 `domain_lexicon_versions` 等） |
-| H_fusion（Fusion） | `index.dense`, `index.sparse` | `knowledge_vectors` + `knowledge_chunks`（FTS/GIN） | ✅（pgvector 时建 vectors；FTS 方案建 chunks） |
-| I_hyde（HyDE） | `runtime.llm`, `index.dense` | 仅复用 `knowledge_vectors`（HyDE 生成的“假设文档”用于 embedding） | ✅（仅 pgvector 时建 `knowledge_vectors`） |
+| H_fusion（Fusion） | `index.dense`, `index.sparse` | `knowledge_vectors_v{N}_{D}` + `knowledge_chunks`（FTS/GIN） | ✅（pgvector 时建默认维度表；FTS 方案建 chunks） |
+| I_hyde（HyDE） | `runtime.llm`, `index.dense` | 仅复用 `knowledge_vectors_v{N}_{D}`（HyDE 生成的“假设文档”用于 embedding） | ✅（仅 pgvector 时建默认维度表；其余按需） |
 | J_hier（Hierarchical Indices） | `index.hier`, `asset.section_summaries` | `knowledge_chunks(kind=doc_summary/section_summary/chunk)` + `knowledge_chunk_links`；摘要也可在 S3 | ✅（同 C；summary 产物不强制 DB 迁移） |
 | K_kg（Knowledge Graph） | `index.kg` | `knowledge_kg_nodes` / `knowledge_kg_edges`（+ 可选 provenance 映射） | ✅（必须） |
 | L_feedback（Feedback Loop） | `runtime.feedback` | 业务表已存在：`knowledge_feedback_cases` + `knowledge_ingestion_jobs` + `knowledge_artifact_bundles` 等 | ✅（已在 CoreX AutoMigrate 覆盖；无需新增表） |
@@ -124,7 +158,7 @@ SSOT（后端与 Web Admin 的依赖校验来源）：
 | O_crag（CRAG） | `runtime.evidence_checker`, `index.sparse` | 证据纠错依赖 sparse：`knowledge_chunks`（FTS/GIN） | ✅（FTS 方案建 `knowledge_chunks`） |
 
 > 关键点回答你担心的地方：
-> - 不是“其它模块只要向量表就行”。它们往往复用 **同一套底座表**：`knowledge_chunks`（sparse/structured）、`knowledge_chunk_links`（hier/context）、`knowledge_kg_*`（kg）、`knowledge_vectors`（dense）。
+> - 不是“其它模块只要向量表就行”。它们往往复用 **同一套底座表**：`knowledge_chunks`（sparse/structured）、`knowledge_chunk_links`（hier/context）、`knowledge_kg_*`（kg）、`knowledge_vectors_v{N}_{D}`（dense）。
 > - 真正需要“新增专属表”的，通常是你想做资产治理/版本化时（例如 domain lexicon、augmentation artifacts 的 DB 管理），这属于后续增强而非跑通 RAG 的必要条件。
 
 ## 推荐的“统一 Chunk Store”（支撑 sparse + hier + 结构化过滤）
@@ -252,9 +286,9 @@ knowledge_space:
 
 1. 若 `knowledge_space.vector_store.driver == "pgvector"`：
    - 使用 `knowledge_space.vector_store.pgvector.dsn`（若为空则复用 `database.dsn`）连接目标库
-   - 执行 pgvector migration：`CREATE EXTENSION vector` + `knowledge_vectors` + 索引
+   - 执行 pgvector migration：`CREATE EXTENSION vector` + `knowledge_vectors_v1_1536`（默认）+ 索引 + `knowledge_vector_indexes`
 2. 若 driver ≠ `pgvector`：
-   - **不创建** `knowledge_vectors`（避免误导与浪费）
+   - **不创建** `knowledge_vectors_{D}`（避免误导与浪费）
 3. KG 协助表创建：
    - 默认创建（成本低、且不依赖扩展）
    - 或者由 feature flag / scene strategy 触发（例如启用 `K_kg` bundle 才创建）
@@ -267,7 +301,8 @@ knowledge_space:
 - 执行 `make db-migrate` 后，以下查询应返回存在：
 
 ```sql
-select to_regclass('public.knowledge_vectors') as knowledge_vectors;
+select to_regclass('public.knowledge_vectors_v1_1536') as knowledge_vectors_v1_1536;
+select to_regclass('public.knowledge_vector_indexes') as knowledge_vector_indexes;
 select to_regclass('public.knowledge_chunks') as knowledge_chunks;
 select to_regclass('public.knowledge_chunk_links') as knowledge_chunk_links;
 select to_regclass('public.knowledge_kg_nodes') as knowledge_kg_nodes;

@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
+	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
@@ -93,6 +95,21 @@ func New(t testing.TB) *Env {
 	inst := knowledgeinstr.New(knowledgeinstr.Options{})
 	vectorStore := NewVectorStoreStub()
 	sparseIndex := NewSparseIndexStub()
+
+	// 让入库测试在“无外部依赖”情况下也能生成向量（hash 为非语义兜底）。
+	agentcfg.SetGlobalAIConfig(&agentcfg.AIConfig{
+		Defaults: agentcfg.AIDefaults{
+			Embedding: agentcfg.EmbeddingDefaults{
+				BaseConn: agentcfg.BaseConn{
+					Provider: "hash",
+					Model:    "hash",
+				},
+				Dimensions: 32,
+				Batch:      128,
+				Truncate:   "none",
+			},
+		},
+	})
 
 	cfg := shared.KnowledgeSpaceRuntimeConfig{
 		LockKeyPrefix:          "test:knowledge:lock",
@@ -198,6 +215,7 @@ func New(t testing.TB) *Env {
 		MetricsWriter:   metricsWriter,
 		ArtifactStore:   artifactStore,
 		MaxRetries:      1,
+		AgentSettings:   agentsettings.NewAgentSettingService(db),
 	})
 	service.AttachIngestion(ingestionSvc)
 

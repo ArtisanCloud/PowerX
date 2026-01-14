@@ -32,7 +32,6 @@ interface WizardState {
   error: string | null;
   status: "idle" | "success" | "error";
   lastSpace: KnowledgeSpaceRecord | null;
-  runCorpusCheckAfterCreate: boolean;
   lastCorpusCheckJob: any | null;
   lastIngestionJob: IngestionJobRecord | null;
 }
@@ -72,7 +71,6 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     error: null,
     status: "idle",
     lastSpace: null,
-    runCorpusCheckAfterCreate: true,
     lastCorpusCheckJob: null,
     lastIngestionJob: null,
   }),
@@ -230,27 +228,6 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
             });
           } catch (e) {
             console.warn("sample ingestion failed", e);
-          }
-        }
-
-        if (this.runCorpusCheckAfterCreate && response?.spaceId) {
-          try {
-            this.lastCorpusCheckJob = await api.startCorpusCheck(
-              response.spaceId,
-              this.iamEmail || "ops@powerx.local",
-            );
-            for (let i = 0; i < 12; i++) {
-              if (!this.lastCorpusCheckJob?.uuid) break;
-              const latest = await api.getCorpusCheckJob(
-                response.spaceId,
-                this.lastCorpusCheckJob.uuid,
-              );
-              this.lastCorpusCheckJob = latest;
-              if (latest?.status === "completed" || latest?.status === "failed") break;
-              await new Promise((r) => setTimeout(r, 1000));
-            }
-          } catch (e) {
-            console.warn("start corpus check failed", e);
           }
         }
       } catch (err) {

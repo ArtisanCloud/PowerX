@@ -564,7 +564,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Embedding.Provider, req.Embedding.Model, req.Embedding.BaseURL, req.Embedding.APIKey); err != nil {
+		dim, err := h.svc.ProbeEmbeddingDimensionsPreferInput(
+			c.Request.Context(),
+			req.Env, tenantRef,
+			req.Embedding.Provider, req.Embedding.Model,
+			req.Embedding.BaseURL, req.Embedding.APIKey,
+		)
+		if err != nil {
 			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
@@ -573,7 +579,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		_ = saveVerifiedCredential(req.Embedding.Provider, req.Embedding.APIKey, "", "", req.Embedding.BaseURL, req.Embedding.Region, req.Embedding.Organization, req.Embedding.AzureDeployment, req.Embedding.AuthMode)
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, "ok")
-		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "dimensions": dim})
 	case contract.ModVideo:
 		if req.Video == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "video 配置不能为空", nil)
