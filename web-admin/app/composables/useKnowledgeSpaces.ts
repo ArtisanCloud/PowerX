@@ -130,6 +130,7 @@ export interface RetrievalPlaygroundRecord {
 export interface IngestionJobPayload {
   format: "pdf" | "docx" | "xlsx" | "csv" | "markdown" | "html" | "sql" | "image" | "table" | "api";
   sourceUri: string;
+  docUuid?: string;
   ingestionProfile?: string;
   processorProfile?: string;
   ocrRequired?: boolean;
@@ -142,6 +143,7 @@ export interface IngestionJobPayload {
   segmentMode?: "unit" | "heading" | "clause" | "semantic" | "table_row" | "code_block" | "conversation";
   chunkSize?: number;
   chunkOverlap?: number;
+  pagePriority?: boolean;
   // Anchors: 写入 chunk metadata，用于引用定位/层次索引/KG provenance
   anchorHeadingPath?: boolean;
   anchorClauseId?: boolean;
@@ -160,6 +162,12 @@ export interface IngestionJobRecord {
   chunkCoveragePct: number;
   embeddingSuccessPct: number;
   maskingCoveragePct: number;
+  segmentMode?: string;
+  chunkSize?: number;
+  chunkOverlap?: number;
+  separators?: string[];
+  pagePriority?: boolean;
+  chunkAnchors?: Record<string, boolean>;
   startedAt?: string;
   completedAt?: string;
   sourceId?: string;

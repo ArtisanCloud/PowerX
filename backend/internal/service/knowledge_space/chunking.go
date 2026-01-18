@@ -14,6 +14,10 @@ type ChunkingOptions struct {
 	// Mode controls how to split the unit content before windowing.
 	// Supported: unit|heading|clause|semantic|table_row|code_block|conversation
 	Mode string
+	// PagePriority forces per-unit (page) chunks when content is short enough.
+	PagePriority bool
+	// DocUUID binds chunks to a specific document ID (e.g. media asset UUID).
+	DocUUID string
 	// ChunkSize is measured in runes (approx chars). 0 keeps legacy behavior (one chunk per unit).
 	ChunkSize int
 	// ChunkOverlap is measured in runes (approx chars). Only applies when ChunkSize > 0.
@@ -41,6 +45,10 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 	if mode == "" {
 		mode = "unit"
 	}
+	docUUID := strings.TrimSpace(opts.DocUUID)
+	if docUUID == "" {
+		docUUID = uuid.NewSHA1(spaceID, []byte("doc|"+normalizedFormat+"|"+src)).String()
+	}
 
 	chunks := make([]IngestionChunk, 0, 1+len(units)*2)
 
@@ -52,6 +60,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 			"format":     normalizedFormat,
 			"source_uri": src,
 			"provenance": map[string]any{},
+			"doc_uuid":   docUUID,
 		},
 	}
 	chunks = append(chunks, docSummary)
@@ -71,6 +80,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 				"source_uri": src,
 				"provenance": prov,
 				"section":    idx + 1,
+				"doc_uuid":   docUUID,
 			},
 			Confidence: unit.Confidence,
 		}
@@ -81,7 +91,14 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 			continue
 		}
 
-		parts := splitByModeWithMeta(content, mode)
+		parts := []segmentPart{{Text: content}}
+		if !opts.PagePriority {
+			parts = splitByModeWithMeta(content, mode)
+		} else if opts.ChunkSize > 0 && utf8.RuneCountInString(content) > opts.ChunkSize {
+			parts = splitByModeWithMeta(content, mode)
+		} else if opts.ChunkSize <= 0 {
+			parts = []segmentPart{{Text: content}}
+		}
 		if len(parts) == 0 {
 			parts = []segmentPart{{Text: content}}
 		}
@@ -120,6 +137,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 						"chunk_idx":    chunkCounter,
 						"segment_mode": mode,
 						"segment_part": partIdx + 1,
+						"doc_uuid":     docUUID,
 					}
 					if len(subParts) > 1 {
 						meta["segment_subpart"] = subIdx + 1
@@ -156,6 +174,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 						"segment_part": partIdx + 1,
 						"chunk_size":   opts.ChunkSize,
 						"overlap":      overlap,
+						"doc_uuid":     docUUID,
 					}
 					if len(subParts) > 1 {
 						meta["segment_subpart"] = subIdx + 1

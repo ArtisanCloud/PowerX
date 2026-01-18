@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -113,6 +116,7 @@ type TriggerIngestionInput struct {
 	MaskingProfile   string
 	Priority         string
 	RequestedBy      string
+	DocUUID          string
 	// L1/L2/L3 snapshot (best-effort).
 	RagSceneKey         string
 	RagBundleKey        string
@@ -121,6 +125,7 @@ type TriggerIngestionInput struct {
 	ChunkSize           int
 	ChunkOverlap        int
 	Separators          []string
+	PagePriority        bool
 	AnchorHeadingPath   bool
 	AnchorClauseID      bool
 	AnchorRowNumber     bool
@@ -254,6 +259,7 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 		bundle:              bundle,
 		format:              format,
 		sourceURI:           in.SourceURI,
+		docUUID:             in.DocUUID,
 		ingestionProfile:    in.IngestionProfile,
 		processorProfile:    in.ProcessorProfile,
 		ocrRequired:         in.OCRRequired,
@@ -355,28 +361,30 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 		return nil, err
 	}
 
-	outcome, chunks, vectorRecords := s.runPipelineFromUnits(ctx, pipelineUnitsInput{
-		space:               space,
-		job:                 job,
-		bundle:              bundle,
-		format:              format,
-		sourceURI:           in.SourceURI,
-		docUnits:            docUnits,
-		maskingProfile:      in.MaskingProfile,
-		ocrRequired:         in.OCRRequired,
-		ragSceneKey:         strings.TrimSpace(in.RagSceneKey),
-		ragBundleKey:        strings.TrimSpace(in.RagBundleKey),
-		ragPrimary:          strings.TrimSpace(in.RagPrimary),
-		segmentMode:         in.SegmentMode,
-		chunkSize:           in.ChunkSize,
-		chunkOverlap:        in.ChunkOverlap,
-		separators:          in.Separators,
-		anchorHeadingPath:   in.AnchorHeadingPath,
-		anchorClauseID:      in.AnchorClauseID,
-		anchorRowNumber:     in.AnchorRowNumber,
-		anchorSpeaker:       in.AnchorSpeaker,
-		anchorSentenceIndex: in.AnchorSentenceIndex,
-	})
+		outcome, chunks, vectorRecords := s.runPipelineFromUnits(ctx, pipelineUnitsInput{
+			space:               space,
+			job:                 job,
+			bundle:              bundle,
+			format:              format,
+			sourceURI:           in.SourceURI,
+			docUUID:             in.DocUUID,
+			docUnits:            docUnits,
+			maskingProfile:      in.MaskingProfile,
+			ocrRequired:         in.OCRRequired,
+			ragSceneKey:         strings.TrimSpace(in.RagSceneKey),
+			ragBundleKey:        strings.TrimSpace(in.RagBundleKey),
+			ragPrimary:          strings.TrimSpace(in.RagPrimary),
+			segmentMode:         in.SegmentMode,
+			chunkSize:           in.ChunkSize,
+			chunkOverlap:        in.ChunkOverlap,
+			separators:          in.Separators,
+			pagePriority:        in.PagePriority,
+			anchorHeadingPath:   in.AnchorHeadingPath,
+			anchorClauseID:      in.AnchorClauseID,
+			anchorRowNumber:     in.AnchorRowNumber,
+			anchorSpeaker:       in.AnchorSpeaker,
+			anchorSentenceIndex: in.AnchorSentenceIndex,
+		})
 	return s.finalizeIngestion(ctx, space, job, bundle, format, in, outcome, chunks, vectorRecords, nil)
 }
 
@@ -461,6 +469,11 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 		bg := context.Background()
 		logger := s.inst.Logger(bg)
 		logger.InfoF(bg, "[ingestion] async start space=%s job=%s source=%s format=%s", in.SpaceID, job.UUID, in.SourceURI, format)
+		// Mark running early so UI doesn't stay in pending while processing.
+		now := time.Now()
+		job.Status = knowledge.IngestionStatusRunning
+		job.StartedAt = &now
+		_, _ = repo.NewIngestionJobRepository(s.db).Update(bg, job)
 		// Run the same pipeline and update job in DB.
 		outcome, chunks, vectors, ocrArtifacts := s.runPipeline(bg, pipelineInput{
 			space:               space,
@@ -479,6 +492,7 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 			chunkSize:           in.ChunkSize,
 			chunkOverlap:        in.ChunkOverlap,
 			separators:          in.Separators,
+			pagePriority:        in.PagePriority,
 			anchorHeadingPath:   in.AnchorHeadingPath,
 			anchorClauseID:      in.AnchorClauseID,
 			anchorRowNumber:     in.AnchorRowNumber,
@@ -518,6 +532,8 @@ func (s *IngestionService) finalizeIngestion(
 		job.Status = knowledge.IngestionStatusRunning
 		_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
 	}
+
+	s.writeIngestionSegmentLog(format, in, outcome, chunks, job)
 
 	// Persist online chunk store (best-effort). This is the editable truth source for chunk text + metadata.
 	// If the chunk store is not enabled in this environment, ingestion should continue (manifest remains available).
@@ -645,6 +661,127 @@ func (s *IngestionService) finalizeIngestion(
 		return job, vectorErr
 	}
 	return job, nil
+}
+
+func (s *IngestionService) writeIngestionSegmentLog(format string, in TriggerIngestionInput, outcome pipelineOutcome, chunks []IngestionChunk, job *knowledge.IngestionJob) {
+	if job == nil {
+		return
+	}
+	baseDir := filepath.Join("backend", "logs", "ingestion_jobs")
+	if wd, err := os.Getwd(); err == nil && strings.HasSuffix(wd, string(os.PathSeparator)+"backend") {
+		baseDir = filepath.Join("logs", "ingestion_jobs")
+	}
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return
+	}
+	path := filepath.Join(baseDir, job.UUID.String()+".log")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	anchorFlags := []string{}
+	if in.AnchorHeadingPath {
+		anchorFlags = append(anchorFlags, "heading_path")
+	}
+	if in.AnchorClauseID {
+		anchorFlags = append(anchorFlags, "clause_id")
+	}
+	if in.AnchorRowNumber {
+		anchorFlags = append(anchorFlags, "row_number")
+	}
+	if in.AnchorSpeaker {
+		anchorFlags = append(anchorFlags, "speaker")
+	}
+	if in.AnchorSentenceIndex {
+		anchorFlags = append(anchorFlags, "sentence_idx")
+	}
+
+	kindCounts := map[string]int{}
+	segmentCounts := map[int]int{}
+	pageCounts := map[int]int{}
+	for _, ch := range chunks {
+		kind := strings.TrimSpace(ch.Kind)
+		if kind == "" {
+			kind = "unknown"
+		}
+		kindCounts[kind]++
+		if mi := ch.Metadata; mi != nil {
+			if v, ok := mi["segment_part"]; ok {
+				if n := parseAnyInt(v); n > 0 {
+					segmentCounts[n]++
+				}
+			}
+			if prov, ok := mi["provenance"].(map[string]any); ok {
+				if n := parseAnyInt(prov["page"]); n > 0 {
+					pageCounts[n]++
+				} else if pages, ok := prov["pages"].([]any); ok {
+					for _, p := range pages {
+						if pm, ok := p.(map[string]any); ok {
+							if pn := parseAnyInt(pm["page_number"]); pn > 0 {
+								pageCounts[pn]++
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	ts := time.Now().Format(time.RFC3339)
+	_, _ = fmt.Fprintf(
+		f,
+		"[%s] job=%s status=%s format=%s source=%s\n",
+		ts,
+		job.UUID,
+		job.Status,
+		strings.TrimSpace(format),
+		strings.TrimSpace(in.SourceURI),
+	)
+	_, _ = fmt.Fprintf(
+		f,
+		"segment: page_priority=%t mode=%s chunk_size=%d overlap=%d separators=%v anchors=%v\n",
+		in.PagePriority,
+		strings.TrimSpace(in.SegmentMode),
+		in.ChunkSize,
+		in.ChunkOverlap,
+		in.Separators,
+		anchorFlags,
+	)
+	_, _ = fmt.Fprintf(
+		f,
+		"outcome: status=%s chunks=%d content_chunks=%d summary_chunks=%d coverage=%.2f%%\n",
+		outcome.status,
+		outcome.totalChunks,
+		outcome.chunkCount,
+		outcome.summaryCount,
+		outcome.coveragePct,
+	)
+	_, _ = fmt.Fprintf(f, "chunk_kinds: %v\n", kindCounts)
+	if len(segmentCounts) > 0 {
+		_, _ = fmt.Fprintf(f, "segment_parts: %v\n", segmentCounts)
+	}
+	if len(pageCounts) > 0 {
+		_, _ = fmt.Fprintf(f, "pages: %v\n", pageCounts)
+	}
+	_, _ = fmt.Fprintln(f, "----")
+}
+
+func parseAnyInt(v any) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case string:
+		n, _ := strconv.Atoi(strings.TrimSpace(t))
+		return n
+	default:
+		return 0
+	}
 }
 
 func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord, job *knowledge.IngestionJob, outcome pipelineOutcome) error {
@@ -883,6 +1020,7 @@ type pipelineInput struct {
 	bundle              *knowledge.ArtifactBundle
 	format              string
 	sourceURI           string
+	docUUID             string
 	ingestionProfile    string
 	processorProfile    string
 	ocrRequired         bool
@@ -894,6 +1032,7 @@ type pipelineInput struct {
 	chunkSize           int
 	chunkOverlap        int
 	separators          []string
+	pagePriority        bool
 	anchorHeadingPath   bool
 	anchorClauseID      bool
 	anchorRowNumber     bool
@@ -907,6 +1046,7 @@ type pipelineUnitsInput struct {
 	bundle              *knowledge.ArtifactBundle
 	format              string
 	sourceURI           string
+	docUUID             string
 	docUnits            []DocumentUnit
 	maskingProfile      string
 	ocrRequired         bool
@@ -917,6 +1057,7 @@ type pipelineUnitsInput struct {
 	chunkSize           int
 	chunkOverlap        int
 	separators          []string
+	pagePriority        bool
 	anchorHeadingPath   bool
 	anchorClauseID      bool
 	anchorRowNumber     bool
@@ -949,6 +1090,7 @@ type pipelineOutcome struct {
 	ragSceneKey  string
 	ragBundleKey string
 	ragPrimary   string
+	pagePriority bool
 	segmentMode  string
 	chunkSize    int
 	chunkOverlap int
@@ -981,6 +1123,7 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"rag_scene_key":    o.ragSceneKey,
 		"rag_bundle_key":   o.ragBundleKey,
 		"rag_primary":      o.ragPrimary,
+		"page_priority":    o.pagePriority,
 		"segment_mode":     o.segmentMode,
 		"chunk_size":       o.chunkSize,
 		"chunk_overlap":    o.chunkOverlap,
@@ -1022,6 +1165,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		ragSceneKey:          strings.TrimSpace(in.ragSceneKey),
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
+		pagePriority:         in.pagePriority,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1062,6 +1206,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.coveragePct = 40
 	}
 
+	pagePriority := in.pagePriority && format == "pdf"
 	res, err := processor.Process(ctx, DocumentProcessInput{
 		SpaceID:      in.space.UUID.String(),
 		JobID:        in.job.UUID.String(),
@@ -1069,6 +1214,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		SourceURI:    sourceURI,
 		NeedOCR:      needsOCR,
 		OCRAvailable: resolution.OCRAvailable,
+		PagePriority: pagePriority,
 	})
 	if err != nil {
 		// PDF 处理器的优先级：如果选择了 pdftotext，但 sourceURI scheme 不支持（例如 s3://、minio://），
@@ -1081,6 +1227,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 				SourceURI:    sourceURI,
 				NeedOCR:      needsOCR,
 				OCRAvailable: resolution.OCRAvailable,
+				PagePriority: pagePriority,
 			})
 		}
 	}
@@ -1113,6 +1260,8 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		PagePriority: in.pagePriority,
+		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
 		Separators:   separators,
@@ -1223,6 +1372,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		ragSceneKey:          strings.TrimSpace(in.ragSceneKey),
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
+		pagePriority:         in.pagePriority,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1256,6 +1406,8 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		PagePriority: in.pagePriority,
+		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
 		Separators:   separators,

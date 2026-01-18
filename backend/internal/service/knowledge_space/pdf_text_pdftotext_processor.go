@@ -58,8 +58,8 @@ func (PDFTextPdftotextProcessor) Process(ctx context.Context, in DocumentProcess
 	}
 
 	// -layout: keep reading order as much as possible
-	// -nopgbrk: keep pages separable by formfeed (\f) rather than extra blank lines
-	cmd := exec.CommandContext(ctx, "pdftotext", "-layout", "-nopgbrk", pdfPath, "-")
+	// Keep default page breaks so we can split by formfeed (\f).
+	cmd := exec.CommandContext(ctx, "pdftotext", "-layout", pdfPath, "-")
 	out, err := cmd.Output()
 	if err != nil {
 		// include stderr if possible

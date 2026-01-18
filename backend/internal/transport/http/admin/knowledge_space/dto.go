@@ -112,6 +112,7 @@ type ingestionJobRequest struct {
 	Format           string `json:"format" binding:"omitempty,oneof=pdf docx xlsx csv markdown html sql image table api"`
 	SourceType       string `json:"sourceType" binding:"omitempty,oneof=pdf docx xlsx csv markdown html sql image table api"`
 	SourceURI        string `json:"sourceUri" binding:"required"`
+	DocUUID          string `json:"docUuid"`
 	IngestionProfile string `json:"ingestionProfile"`
 	ProcessorProfile string `json:"processorProfile"`
 	OCRRequired      bool   `json:"ocrRequired"`
@@ -128,6 +129,8 @@ type ingestionJobRequest struct {
 	ChunkOverlap int `json:"chunkOverlap" binding:"omitempty,min=0,max=5000"`
 	// Separators are preferred boundaries applied before windowing; supports punctuation and newline tokens.
 	Separators []string `json:"separators" binding:"omitempty,dive,max=16"`
+	// PagePriority: prefer page boundary before other segmentation (PDF only).
+	PagePriority bool `json:"pagePriority"`
 	// Anchors: included in chunk metadata (best-effort).
 	AnchorHeadingPath  bool `json:"anchorHeadingPath"`
 	AnchorClauseID     bool `json:"anchorClauseId"`
@@ -146,12 +149,28 @@ type ingestionJobView struct {
 	ChunkCoveragePct    float64 `json:"chunkCoveragePct"`
 	EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
 	MaskingCoveragePct  float64 `json:"maskingCoveragePct"`
+	SegmentMode         string  `json:"segmentMode,omitempty"`
+	ChunkSize           int     `json:"chunkSize,omitempty"`
+	ChunkOverlap        int     `json:"chunkOverlap,omitempty"`
+	Separators          []string `json:"separators,omitempty"`
+	PagePriority        bool    `json:"pagePriority,omitempty"`
+	ChunkAnchors        map[string]bool `json:"chunkAnchors,omitempty"`
 }
 
 func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 	if job == nil {
 		return ingestionJobView{}
 	}
+	var snap map[string]any
+	if len(job.MetricsSnapshot) > 0 {
+		_ = json.Unmarshal(job.MetricsSnapshot, &snap)
+	}
+	segmentMode := readStringSnap(snap, "segment_mode")
+	chunkSize := readIntSnap(snap, "chunk_size")
+	chunkOverlap := readIntSnap(snap, "chunk_overlap")
+	separators := readStringSliceSnap(snap, "separators")
+	pagePriority := readBoolSnap(snap, "page_priority")
+	anchors := readBoolMapSnap(snap, "chunk_anchors")
 	return ingestionJobView{
 		JobID:               job.UUID.String(),
 		Status:              job.Status,
@@ -162,7 +181,102 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 		ChunkCoveragePct:    job.ChunkCoveredPct,
 		EmbeddingSuccessPct: job.EmbeddingSuccessPct,
 		MaskingCoveragePct:  job.MaskingCoveragePct,
+		SegmentMode:         segmentMode,
+		ChunkSize:           chunkSize,
+		ChunkOverlap:        chunkOverlap,
+		Separators:          separators,
+		PagePriority:        pagePriority,
+		ChunkAnchors:        anchors,
 	}
+}
+
+func readStringSnap(snap map[string]any, key string) string {
+	if snap == nil {
+		return ""
+	}
+	if v, ok := snap[key]; ok {
+		if s, ok := v.(string); ok {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
+func readIntSnap(snap map[string]any, key string) int {
+	if snap == nil {
+		return 0
+	}
+	switch v := snap[key].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case string:
+		n, _ := strconv.Atoi(strings.TrimSpace(v))
+		return n
+	default:
+		return 0
+	}
+}
+
+func readBoolSnap(snap map[string]any, key string) bool {
+	if snap == nil {
+		return false
+	}
+	if v, ok := snap[key].(bool); ok {
+		return v
+	}
+	if v, ok := snap[key].(string); ok {
+		return strings.EqualFold(strings.TrimSpace(v), "true")
+	}
+	return false
+}
+
+func readStringSliceSnap(snap map[string]any, key string) []string {
+	if snap == nil {
+		return nil
+	}
+	raw, ok := snap[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, strings.TrimSpace(s))
+		}
+	}
+	return out
+}
+
+func readBoolMapSnap(snap map[string]any, key string) map[string]bool {
+	if snap == nil {
+		return nil
+	}
+	raw, ok := snap[key]
+	if !ok {
+		return nil
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := make(map[string]bool, len(m))
+	for k, v := range m {
+		switch vv := v.(type) {
+		case bool:
+			out[k] = vv
+		case string:
+			out[k] = strings.EqualFold(strings.TrimSpace(vv), "true")
+		}
+	}
+	return out
 }
 
 type feedbackRequest struct {

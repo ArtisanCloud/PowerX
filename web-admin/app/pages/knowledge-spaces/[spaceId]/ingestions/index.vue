@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type IngestionJobRecord } from "~/composables/useKnowledgeSpaces";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
@@ -36,12 +36,32 @@ const fetchJobs = async () => {
   }
 };
 
+let pollingTimer: ReturnType<typeof setInterval> | null = null;
+
+const startPolling = () => {
+  if (pollingTimer) return;
+  pollingTimer = setInterval(async () => {
+    if (!jobs.value.length) return;
+    const hasRunning = jobs.value.some((j) => isRunningStatus(j.status));
+    if (!hasRunning) return;
+    await fetchJobs();
+  }, 5000);
+};
+
+const stopPolling = () => {
+  if (!pollingTimer) return;
+  clearInterval(pollingTimer);
+  pollingTimer = null;
+};
+
 onMounted(async () => {
   if (!(await ensureEmbeddingReady())) return;
   embeddingReady.value = true;
   await fetchJobs();
+  startPolling();
 });
 watch(() => spaceId.value, fetchJobs);
+onUnmounted(() => stopPolling());
 
 const goBack = async () => {
   if (process.client && window.history.length > 1) {
@@ -97,6 +117,20 @@ const copy = async (text: string) => {
   } catch {
     // ignore
   }
+};
+
+const isRunningStatus = (status?: string) => {
+  const s = String(status || "").toLowerCase();
+  return s === "running" || s === "retrying" || s === "pending";
+};
+
+const jobProgressPct = (job: IngestionJobRecord) => {
+  const pct =
+    (typeof job.chunkCoveragePct === "number" ? job.chunkCoveragePct : 0) ||
+    (typeof job.embeddingSuccessPct === "number" ? job.embeddingSuccessPct : 0) ||
+    (typeof job.maskingCoveragePct === "number" ? job.maskingCoveragePct : 0);
+  if (!Number.isFinite(pct) || pct < 0) return 0;
+  return Math.min(100, Math.max(0, pct));
 };
 </script>
 
@@ -159,7 +193,7 @@ const copy = async (text: string) => {
             <UButton size="xs" color="primary" variant="soft" @click="goJob(job.jobId)">
               预览切块
             </UButton>
-            <UButton size="xs" color="error" variant="soft" :disabled="deleting" @click="askDelete(job.jobId)">
+            <UButton size="xs" color="error" variant="soft" :disabled="deleting" type="button" @click.stop="askDelete(job.jobId)">
               删除入库
             </UButton>
           </div>
@@ -169,6 +203,13 @@ const copy = async (text: string) => {
           <span>重试：{{ job.retryCount }}</span>
           <span v-if="job.errorCode">· 错误：{{ job.errorCode }}</span>
           <span v-if="job.reason" class="truncate">· 原因：{{ job.reason }}</span>
+        </div>
+
+        <div v-if="isRunningStatus(job.status)" class="space-y-2">
+          <div class="text-xs text-[var(--text-secondary)]">
+            进度：{{ jobProgressPct(job).toFixed(0) }}%
+          </div>
+          <UProgress :value="jobProgressPct(job)" color="primary" />
         </div>
 
         <div class="flex items-center gap-2">

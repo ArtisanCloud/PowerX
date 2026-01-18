@@ -6,11 +6,13 @@ import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 import { useConfirm } from "~/composables/useConfirm";
+import { useUserStore } from "~/stores/user";
 import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { findEnableOcrRecommendation } from "~/utils/knowledge-spaces/recommendations";
 import { buildIngestionRemediation, type IngestionRemediation } from "~/utils/knowledge-spaces/ingestionRemediation";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
 import { pollCorpusCheckJob } from "~/utils/corpusCheckPolling";
+import { useFileHash } from "~/composables/useFileHash";
 import {
 	SCENE_STRATEGY_CATALOG,
 	type SceneKey,
@@ -32,10 +34,12 @@ useHead(() => ({
 const api = useKnowledgeSpaces();
 const qaClient = createQaBridgeClient();
 const knowledgeStore = useKnowledgeSpaceStore();
+const userStore = useUserStore();
 const { ensureEmbeddingReady } = useEmbeddingGuard();
 const { confirm } = useConfirm();
 const toast = useToast();
 const media = useMediaAssetService();
+const { buildStorageKeyFromFile } = useFileHash();
 
 const spacesLoading = ref(false);
 const spacesError = ref<string | null>(null);
@@ -193,6 +197,7 @@ const ingestionForm = reactive({
 	segmentMode: "unit" as SegmentMode,
 	chunkSize: 800,
 	chunkOverlap: 120,
+	pagePriority: false,
 	anchorHeadingPath: true,
 	anchorClauseId: false,
 	anchorRowNumber: false,
@@ -471,6 +476,44 @@ const segmentModeHint = computed(() => {
 				return "按长度窗口切分，并在窗口边界优先用分隔符（如换行/句号）对齐，避免截断句子。";
 		}
 	});
+
+const showPagePriority = computed(() => String(ingestionForm.format || "").toLowerCase() === "pdf");
+const chunkingFlowHint = computed(() => {
+	const isPDF = String(ingestionForm.format || "").toLowerCase() === "pdf";
+	const pageFirst = isPDF && ingestionForm.pagePriority;
+	const modeLabel = String(ingestionForm.segmentMode || "unit");
+	const size = Number(ingestionForm.chunkSize || 0);
+	const overlap = Number(ingestionForm.chunkOverlap || 0);
+	const separators = effectiveSeparatorsPreview.value === "-" ? "无" : effectiveSeparatorsPreview.value;
+	const anchors = [
+		ingestionForm.anchorHeadingPath ? "heading_path" : "",
+		ingestionForm.anchorClauseId ? "clause_id" : "",
+		ingestionForm.anchorRowNumber ? "row_number" : "",
+		ingestionForm.anchorSpeaker ? "speaker" : "",
+		ingestionForm.anchorSentenceIndex ? "sentence_idx" : "",
+	].filter(Boolean);
+	const anchorText = anchors.length ? anchors.join(" / ") : "无";
+
+	const pageState = pageFirst ? "已启用" : "未启用";
+	const pageAvailability = isPDF ? "仅对 PDF 生效" : "当前格式不支持";
+	const windowHint = size > 0 ? "超长再按分隔符优先、窗口长度兜底切分" : "不做长度窗口切分";
+	return [
+		"1. 分页优先 (pagePriority)",
+		`- ${pageAvailability}`,
+		`- 当前: ${pageState}`,
+		"- 先把整篇文档拆成“页级单位”（每页一个大块）",
+		"- 这一步只是决定“分桶边界”，不会做最终切块",
+		"2. 分段模式 (segmentMode)",
+		`- 页内切分模式: ${modeLabel}`,
+		"- 例如 heading/semantic/clause 等",
+		"- 不跨页",
+		"3. 分隔符/长度窗口 (separators + chunkSize)",
+		`- 分隔符: ${separators}`,
+		`- chunk=${size} overlap=${overlap}`,
+		`- ${windowHint}`,
+		`- anchors: ${anchorText}`,
+	].join("\n");
+});
 const selectedSpaceHasSceneBundle = computed(() => {
 	const id = ingestionForm.spaceId;
 	if (!id) return false;
@@ -1301,6 +1344,9 @@ watch(
 	() => ingestionForm.format,
 	(format) => {
 		if (!ingestionModalOpen.value) return;
+		if (String(format || "").toLowerCase() !== "pdf") {
+			ingestionForm.pagePriority = false;
+		}
 		// URL 模式：用户手动选择格式时给出默认场景（无预设则通用）
 		if (ingestionSourceMethod.value !== "url") return;
 		const source = ingestionForm.sourceUri || "";
@@ -1478,6 +1524,12 @@ const applyOcrSuggestion = () => {
 	const uploadSelectedFileToMedia = async (spaceId: string, file: File) => {
 		const name = (file.name || "upload").trim();
 		const tenantUuid = resolveTenantUUIDForRequest();
+		const userScopeId =
+			userStore.currentMemberId ||
+			userStore.user?.id ||
+			"";
+		const scopeKey = userScopeId ? `${tenantUuid}:${userScopeId}` : tenantUuid;
+		const hashInfo = await buildStorageKeyFromFile(file, scopeKey);
 		const tags = [
 			"knowledge_space",
 		"knowledge_ingestion_source",
@@ -1486,6 +1538,7 @@ const applyOcrSuggestion = () => {
 	const created = await media.createAsset({
 		name,
 		uploadMethod: "presign_upload",
+		objectKey: hashInfo.uuid || undefined,
 		ownerSubjectType: "knowledge_space",
 		ownerSubjectId: spaceId,
 		tags,
@@ -1497,6 +1550,7 @@ const applyOcrSuggestion = () => {
 			filename: name,
 			sourceType: ingestionForm.format,
 			retainSource: ingestionRetainSource.value,
+			content_sha256: hashInfo.sha256 || undefined,
 		},
 	});
 
@@ -1607,6 +1661,7 @@ const submitIngestion = async () => {
 		const payload = {
 			format: ingestionForm.format,
 			sourceUri: resolvedSource,
+			docUuid: lastUploadedMediaUUID.value || undefined,
 			ingestionProfile: ingestionForm.ingestionProfile,
 			processorProfile: ingestionForm.processorProfile,
 			ocrRequired: ingestionForm.ocrRequired,
@@ -1619,6 +1674,7 @@ const submitIngestion = async () => {
 			chunkSize: ingestionForm.chunkSize,
 			chunkOverlap: ingestionForm.chunkOverlap,
 			separators: effectiveSeparators.value,
+			pagePriority: ingestionForm.pagePriority,
 			anchorHeadingPath: ingestionForm.anchorHeadingPath,
 			anchorClauseId: ingestionForm.anchorClauseId,
 			anchorRowNumber: ingestionForm.anchorRowNumber,
@@ -2272,6 +2328,16 @@ const applyRemediationAction = (action: any) => {
                       </span>
                     </template>
                   </UFormField>
+                  <UFormField v-if="showPagePriority" label="分页优先（仅 PDF）">
+                    <UCheckbox v-model="ingestionForm.pagePriority">
+                      先按页切分，再在页内按分段模式处理
+                    </UCheckbox>
+                    <template #help>
+                      <span class="text-xs text-[var(--text-secondary)]">
+                        勾选后不会跨页合并，页内仍按分隔符/长度窗口切分。
+                      </span>
+                    </template>
+                  </UFormField>
                   <UFormField :label="t('knowledgeSpaces.ingestion.chunkSize', '分段长度（字符/近似 token）')">
                     <UInput
                       v-model.number="ingestionForm.chunkSize"
@@ -2387,6 +2453,7 @@ const applyRemediationAction = (action: any) => {
 
                 <div class="rounded-lg border border-gray-200 p-4 space-y-2 text-sm">
                   <div class="font-medium">将使用的分割策略（可覆盖）</div>
+                  <div class="text-[var(--text-secondary)]">分页优先：{{ ingestionForm.pagePriority ? "是" : "否" }}</div>
                   <div class="text-[var(--text-secondary)]">模式：{{ ingestionForm.segmentMode }}</div>
                   <div class="text-[var(--text-secondary)]">Chunk：{{ ingestionForm.chunkSize }} / Overlap：{{ ingestionForm.chunkOverlap }}</div>
                   <div class="text-[var(--text-secondary)]">分隔符：{{ effectiveSeparatorsPreview }}</div>
@@ -2424,6 +2491,13 @@ const applyRemediationAction = (action: any) => {
                   description="我们会把“标题路径/条款号/行号/发言人/句子序号”等结构锚点写进每个 chunk 的 metadata，方便检索命中后快速回到原文位置。如果你希望做到更精确的定位（例如 PDF 第几页、OCR 框选坐标/bbox 叠框），需要选用支持 PDF/OCR 的 processor/profile。"
                 />
 
+                <div class="rounded-md border border-[var(--border-color)] bg-[var(--card-bg)] p-3 text-xs">
+                  <div class="font-medium text-[var(--text-primary)]">联动逻辑</div>
+                  <div class="mt-1 text-[var(--text-secondary)] whitespace-pre-line">
+                    {{ chunkingFlowHint }}
+                  </div>
+                </div>
+
                 <div class="flex flex-wrap gap-2 pt-1">
                   <UButton
                     as="a"
@@ -2455,6 +2529,9 @@ const applyRemediationAction = (action: any) => {
               </div>
               <div class="text-[var(--text-secondary)]">
                 RAG（L3）：{{ ragModuleMeta[ingestionRagPrimary]?.label || ingestionRagPrimary }}
+              </div>
+              <div class="text-[var(--text-secondary)]">
+                分页优先：{{ ingestionForm.pagePriority ? "是" : "否" }}
               </div>
               <div class="text-[var(--text-secondary)]">
                 分割：{{ ingestionForm.segmentMode }} · {{ ingestionForm.chunkSize }}/{{ ingestionForm.chunkOverlap }}

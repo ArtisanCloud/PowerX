@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useKnowledgeSpaces, type IngestionChunkListResult, type IngestionChunkRecord } from "~/composables/useKnowledgeSpaces";
+import { useKnowledgeSpaces, type IngestionChunkListResult, type IngestionChunkRecord, type IngestionJobRecord } from "~/composables/useKnowledgeSpaces";
 import { useMediaAssetService, type MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead({ title: "切块预览" });
 
 const route = useRoute();
+const router = useRouter();
 const api = useKnowledgeSpaces();
 const media = useMediaAssetService();
 const toast = useToast();
@@ -19,6 +20,7 @@ const jobId = computed(() => String(route.params.jobId || "").trim());
 const loading = ref(false);
 const error = ref<string | null>(null);
 const result = ref<IngestionChunkListResult | null>(null);
+const jobInfo = ref<IngestionJobRecord | null>(null);
 const spaceName = ref<string>("");
 const sourceAsset = ref<MediaAssetAdminView | null>(null);
 
@@ -57,6 +59,15 @@ const shortId = (raw: string, keep = 8) => {
   return `${s.slice(0, keep)}…`;
 };
 
+const goBackToSpace = async () => {
+  if (!spaceId.value) return;
+  if (process.client && window.history.length > 1) {
+    router.back();
+    return;
+  }
+  await navigateTo(`/knowledge-spaces/${encodeURIComponent(spaceId.value)}`);
+};
+
 const isString = (v: unknown): v is string => typeof v === "string";
 const normalizeStr = (v: unknown) => (isString(v) ? v.trim() : "");
 const isHTTPURL = (v: unknown) => {
@@ -75,11 +86,6 @@ const formatURLLabel = (raw: string) => {
   }
 };
 const truncate = (s: string, max = 64) => (s.length > max ? `${s.slice(0, Math.max(0, max - 1))}…` : s);
-const splitSegments = (text: string) =>
-  text
-    .split(/\n{2,}/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
 const extractHTTPURLs = (text: string) => {
   const raw = String(text || "");
   const matches = raw.match(/https?:\/\/[^\s)]+/gi) || [];
@@ -116,6 +122,22 @@ const totalPages = computed(() => {
 
 const displaySpaceName = computed(() => spaceName.value.trim() || "知识空间");
 const displayAssetName = computed(() => sourceAsset.value?.name?.trim() || "原文件");
+const segmentStrategyHint = computed(() => {
+  const info = jobInfo.value;
+  if (!info) return "";
+  const mode = String(info.segmentMode || "-");
+  const size = Number(info.chunkSize || 0);
+  const overlap = Number(info.chunkOverlap || 0);
+  const separators = (info.separators || []).length ? info.separators.join(" / ") : "-";
+  const pagePriority = info.pagePriority ? "是" : "否";
+  const anchors = Object.entries(info.chunkAnchors || {})
+    .filter(([, v]) => Boolean(v))
+    .map(([k]) => k)
+    .join(" / ");
+  return `分页优先: ${pagePriority} · 模式: ${mode} · chunk: ${size} / overlap: ${overlap} · 分隔符: ${separators} · anchors: ${
+    anchors || "-"
+  }`;
+});
 
 const isUUIDLike = (v: unknown) => {
   const s = normalizeStr(v).toLowerCase();
@@ -136,7 +158,6 @@ const visibleMetadataEntries = (item: IngestionChunkRecord) => {
     "pages",
     "section",
     "segment_mode",
-    "segment_part",
     "chunk_idx",
     "masked",
     "confidence",
@@ -197,6 +218,9 @@ const filteredItems = computed<IngestionChunkRecord[]>(() => {
   };
 
   return byQuery.slice().sort((a, b) => {
+    const pa = metaInt(a, "section");
+    const pb = metaInt(b, "section");
+    if (pa !== pb) return pa - pb;
     const sa = metaInt(a, "segment_part");
     const sb = metaInt(b, "segment_part");
     if (sa !== sb) return sa - sb;
@@ -224,6 +248,7 @@ const fetchChunks = async () => {
   loading.value = true;
   error.value = null;
   try {
+    jobInfo.value = await api.getIngestionJob(spaceId.value, jobId.value);
     result.value = await api.listIngestionChunks(spaceId.value, jobId.value, { page: page.value, pageSize: pageSize.value });
   } catch (e: any) {
     error.value = String(e?.message || "加载失败");
@@ -487,7 +512,9 @@ const saveEdit = async () => {
 <template>
   <div class="p-6 space-y-4">
     <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
+      <div class="flex items-start gap-3 min-w-0">
+        <UButton color="neutral" variant="ghost" icon="i-heroicons-arrow-left" @click="goBackToSpace">返回空间</UButton>
+        <div class="min-w-0">
         <div class="text-lg font-semibold">切块预览</div>
         <div class="text-sm text-[var(--text-secondary)] truncate">
           {{ displaySpaceName }} · 任务 {{ shortId(jobId, 10) }}
@@ -518,6 +545,7 @@ const saveEdit = async () => {
             </UButton>
           </span>
         </div>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <UButton color="neutral" variant="soft" size="sm" icon="i-heroicons-chat-bubble-left-right" @click="openFeedback()">
@@ -526,11 +554,19 @@ const saveEdit = async () => {
         <UButton color="neutral" variant="soft" size="sm" icon="i-heroicons-arrow-path" :loading="loading" @click="fetchChunks">
           刷新
         </UButton>
-        <UButton color="error" variant="soft" size="sm" icon="i-heroicons-trash" :disabled="deleting" @click="deleteOpen = true">
+        <UButton color="error" variant="soft" size="sm" icon="i-heroicons-trash" type="button" :disabled="deleting" @click.stop="deleteOpen = true">
           删除入库
         </UButton>
       </div>
     </div>
+
+    <UAlert
+      v-if="segmentStrategyHint"
+      color="neutral"
+      variant="soft"
+      title="分段策略"
+      :description="segmentStrategyHint"
+    />
 
     <UAlert v-if="error" color="error" variant="soft" title="加载失败" :description="error" />
 
@@ -646,47 +682,20 @@ const saveEdit = async () => {
             </UBadge>
           </div>
 
-          <div class="space-y-2">
-            <div
-              v-if="splitSegments(chunkContentForUI(item)).length <= 1"
-              class="text-xs whitespace-pre-wrap break-words bg-gray-50 rounded-lg p-3 border border-gray-200"
-            >
-              <div v-if="extractHTTPURLs(chunkContentForUI(item)).length" class="flex flex-wrap items-center gap-2 mb-2">
-                <UBadge color="neutral" variant="soft">链接</UBadge>
-                <template v-for="(u, ui) in extractHTTPURLs(chunkContentForUI(item))" :key="ui">
-                  <span class="truncate max-w-[44ch] text-xs">{{ truncate(formatURLLabel(u), 60) }}</span>
-                  <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-arrow-top-right-on-square" @click="openInNewTab(u)">
-                    打开
-                  </UButton>
-                  <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-clipboard" @click="copy(u)">
-                    复制
-                  </UButton>
-                </template>
-              </div>
-              {{ replaceHTTPURLs(chunkContentForUI(item)) }}
+          <div class="text-xs whitespace-pre-wrap break-words bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div v-if="extractHTTPURLs(chunkContentForUI(item)).length" class="flex flex-wrap items-center gap-2 mb-2">
+              <UBadge color="neutral" variant="soft">链接</UBadge>
+              <template v-for="(u, ui) in extractHTTPURLs(chunkContentForUI(item))" :key="ui">
+                <span class="truncate max-w-[44ch] text-xs">{{ truncate(formatURLLabel(u), 60) }}</span>
+                <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-arrow-top-right-on-square" @click="openInNewTab(u)">
+                  打开
+                </UButton>
+                <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-clipboard" @click="copy(u)">
+                  复制
+                </UButton>
+              </template>
             </div>
-            <div v-else class="space-y-2">
-              <div
-                v-for="(seg, idx) in splitSegments(chunkContentForUI(item))"
-                :key="idx"
-                class="bg-gray-50 rounded-lg p-3 border border-gray-200"
-              >
-                <div class="text-[11px] text-[var(--text-secondary)] mb-1">段 {{ idx + 1 }}</div>
-                <div v-if="extractHTTPURLs(seg).length" class="flex flex-wrap items-center gap-2 mb-2">
-                  <UBadge color="neutral" variant="soft">链接</UBadge>
-                  <template v-for="(u, ui) in extractHTTPURLs(seg)" :key="ui">
-                    <span class="truncate max-w-[44ch] text-xs">{{ truncate(formatURLLabel(u), 60) }}</span>
-                    <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-arrow-top-right-on-square" @click="openInNewTab(u)">
-                      打开
-                    </UButton>
-                    <UButton size="xs" color="neutral" variant="soft" icon="i-heroicons-clipboard" @click="copy(u)">
-                      复制
-                    </UButton>
-                  </template>
-                </div>
-                <div class="text-xs whitespace-pre-wrap break-words">{{ replaceHTTPURLs(seg) }}</div>
-              </div>
-            </div>
+            {{ replaceHTTPURLs(chunkContentForUI(item)) }}
           </div>
         </UCard>
       </div>
@@ -724,7 +733,15 @@ const saveEdit = async () => {
             <UInput v-model="editReason" placeholder="例如：OCR 误识别/分段不合理" />
           </UFormField>
         </div>
-  </div>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <UButton color="neutral" variant="subtle" type="button" :disabled="editing" @click="closeEditModal">取消</UButton>
+        <UButton color="primary" type="button" :loading="editing" @click="saveEdit">保存并重建索引</UButton>
+      </div>
+    </template>
+  </UModal>
 
   <UModal
     v-model:open="deleteOpen"
@@ -746,15 +763,6 @@ const saveEdit = async () => {
       <div class="flex items-center justify-end gap-2">
         <UButton color="neutral" variant="subtle" type="button" :disabled="deleting" @click="closeDeleteModal">取消</UButton>
         <UButton color="error" type="button" :loading="deleting" @click="deleteJob">确认删除</UButton>
-      </div>
-    </template>
-  </UModal>
-</template>
-
-    <template #footer>
-      <div class="flex items-center justify-end gap-2">
-        <UButton color="neutral" variant="subtle" type="button" :disabled="editing" @click="closeEditModal">取消</UButton>
-        <UButton color="primary" type="button" :loading="editing" @click="saveEdit">保存并重建索引</UButton>
       </div>
     </template>
   </UModal>

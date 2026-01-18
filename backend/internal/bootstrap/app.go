@@ -26,6 +26,25 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
+func composePostgresDSNFromDB(driver string, host string, port int, user string, password string, database string, sslMode string, timezone string) string {
+	if strings.TrimSpace(host) == "" {
+		return ""
+	}
+	if strings.TrimSpace(sslMode) == "" {
+		sslMode = "disable"
+	}
+	if strings.TrimSpace(timezone) == "" {
+		timezone = "UTC"
+	}
+	if driver != "" && !strings.EqualFold(strings.TrimSpace(driver), "postgres") && !strings.EqualFold(strings.TrimSpace(driver), "pg") {
+		return ""
+	}
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+		host, port, user, password, database, sslMode, timezone,
+	)
+}
+
 func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error) {
 
 	// 初始化全局 Logger
@@ -333,7 +352,20 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 						if dsn != "" {
 							return dsn
 						}
-						return strings.TrimSpace(cfg.Database.DSN)
+						dsn = strings.TrimSpace(cfg.Database.DSN)
+						if dsn != "" {
+							return dsn
+						}
+						return composePostgresDSNFromDB(
+							cfg.Database.Driver,
+							cfg.Database.Host,
+							cfg.Database.Port,
+							cfg.Database.UserName,
+							cfg.Database.Password,
+							cfg.Database.Database,
+							cfg.Database.SSLMode,
+							cfg.Database.Timezone,
+						)
 					}(),
 					Schema:           cfg.KnowledgeSpace.VectorStore.PgVector.Schema,
 					Table:            cfg.KnowledgeSpace.VectorStore.PgVector.Table,

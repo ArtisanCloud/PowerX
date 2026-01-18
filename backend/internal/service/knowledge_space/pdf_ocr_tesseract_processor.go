@@ -222,6 +222,7 @@ func (PDFOCRTesseractProcessor) Process(ctx context.Context, in DocumentProcessI
 	wg.Wait()
 
 	pageParagraphs := make([][]ocrParagraph, 0, len(results))
+	pageNumbers := make([]int, 0, len(results))
 	artPages := make([]OCRArtifactPage, 0, len(results))
 	failedPages := 0
 	for _, r := range results {
@@ -230,6 +231,7 @@ func (PDFOCRTesseractProcessor) Process(ctx context.Context, in DocumentProcessI
 			continue
 		}
 		pageParagraphs = append(pageParagraphs, r.paragraphs)
+		pageNumbers = append(pageNumbers, r.pageNum)
 		for _, p := range r.paragraphs {
 			bucketConfidence(buckets, p.Confidence)
 		}
@@ -242,18 +244,61 @@ func (PDFOCRTesseractProcessor) Process(ctx context.Context, in DocumentProcessI
 		})
 	}
 
-	merged := mergeParagraphsAcrossPages(pageParagraphs)
-	units := make([]DocumentUnit, 0, len(merged))
-	for _, p := range merged {
-		content := strings.TrimSpace(p.Text)
-		if content == "" {
-			continue
+	units := make([]DocumentUnit, 0, len(pageParagraphs))
+	if in.PagePriority {
+		for i, paras := range pageParagraphs {
+			if len(paras) == 0 {
+				continue
+			}
+			pageNum := 0
+			if i < len(pageNumbers) {
+				pageNum = pageNumbers[i]
+			}
+			var sb strings.Builder
+			confSum := 0.0
+			confCount := 0
+			for _, p := range paras {
+				txt := strings.TrimSpace(p.Text)
+				if txt == "" {
+					continue
+				}
+				if sb.Len() > 0 {
+					sb.WriteString("\n\n")
+				}
+				sb.WriteString(txt)
+				if p.Confidence > 0 {
+					confSum += p.Confidence
+					confCount++
+				}
+			}
+			content := strings.TrimSpace(sb.String())
+			if content == "" {
+				continue
+			}
+			confidence := 0.0
+			if confCount > 0 {
+				confidence = confSum / float64(confCount)
+			}
+			units = append(units, DocumentUnit{
+				Content:    content,
+				Provenance: buildOCRPageProvenance(src, pageNum, paras),
+				Confidence: confidence,
+			})
 		}
-		units = append(units, DocumentUnit{
-			Content:    content,
-			Provenance: p.Provenance(src),
-			Confidence: p.Confidence,
-		})
+	} else {
+		merged := mergeParagraphsAcrossPages(pageParagraphs)
+		units = make([]DocumentUnit, 0, len(merged))
+		for _, p := range merged {
+			content := strings.TrimSpace(p.Text)
+			if content == "" {
+				continue
+			}
+			units = append(units, DocumentUnit{
+				Content:    content,
+				Provenance: p.Provenance(src),
+				Confidence: p.Confidence,
+			})
+		}
 	}
 
 	coverage := 0.0
@@ -583,6 +628,35 @@ func (p ocrParagraph) Provenance(sourceURI string) map[string]any {
 	return map[string]any{
 		"source_uri": strings.TrimSpace(sourceURI),
 		"pages":      pages,
+	}
+}
+
+func buildOCRPageProvenance(sourceURI string, pageNum int, paras []ocrParagraph) map[string]any {
+	regions := make([]any, 0, len(paras))
+	for _, p := range paras {
+		for _, pg := range p.Pages {
+			if pageNum > 0 && pg.PageNumber != pageNum {
+				continue
+			}
+			regions = append(regions, map[string]any{
+				"x1":         pg.Region.X1,
+				"y1":         pg.Region.Y1,
+				"x2":         pg.Region.X2,
+				"y2":         pg.Region.Y2,
+				"confidence": pg.Region.Confidence,
+			})
+		}
+	}
+	page := map[string]any{
+		"page_number": pageNum,
+	}
+	if len(regions) > 0 {
+		page["regions"] = regions
+	}
+	return map[string]any{
+		"source_uri": strings.TrimSpace(sourceURI),
+		"page":       pageNum,
+		"pages":      []any{page},
 	}
 }
 

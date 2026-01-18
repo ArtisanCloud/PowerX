@@ -43,6 +43,7 @@ type DocumentProcessInput struct {
 	SourceURI    string
 	NeedOCR      bool
 	OCRAvailable bool
+	PagePriority bool
 }
 
 type DocumentProcessResult struct {
