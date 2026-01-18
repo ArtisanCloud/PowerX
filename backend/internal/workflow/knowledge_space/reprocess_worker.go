@@ -64,13 +64,13 @@ func (w *ReprocessWorker) Start() (unsubscribe func()) {
 }
 
 type reprocessEventPayload struct {
-	JobID      uint64   `json:"job_id"`
-	SpaceID    string   `json:"space_id"`
-	CaseID     string   `json:"case_id"`
-	Severity   string   `json:"severity"`
-	IssueType  string   `json:"issue_type"`
-	ChunkIDs   []string `json:"chunk_ids"`
-	RequestedBy string  `json:"requestedBy"`
+	JobID       uint64   `json:"job_id"`
+	SpaceID     string   `json:"space_id"`
+	CaseID      string   `json:"case_id"`
+	Severity    string   `json:"severity"`
+	IssueType   string   `json:"issue_type"`
+	ChunkIDs    []string `json:"chunk_ids"`
+	RequestedBy string   `json:"requestedBy"`
 }
 
 func (w *ReprocessWorker) handle(evt event_bus.Event) error {
@@ -126,10 +126,19 @@ func (w *ReprocessWorker) run(ctx context.Context, jobSeq uint64, input Reproces
 
 	now := w.clock()
 	return w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		spaces := repo.NewKnowledgeSpaceRepository(tx)
 		cases := repo.NewFeedbackCaseRepository(tx)
 		jobs := repo.NewIngestionJobRepository(tx)
 		bundles := repo.NewArtifactBundleRepository(tx)
 		audits := repo.NewAuditTrailRepository(tx)
+
+		space, err := spaces.FindByUUID(ctx, input.SpaceID)
+		if err != nil {
+			return err
+		}
+		if space == nil || space.Status == models.KnowledgeSpaceStatusRetired {
+			return nil
+		}
 
 		caseModel, err := cases.GetByUUID(ctx, input.CaseID.String(), nil)
 		if err != nil {
@@ -140,6 +149,13 @@ func (w *ReprocessWorker) run(ctx context.Context, jobSeq uint64, input Reproces
 		}
 		if caseModel.Status == models.FeedbackStatusReprocessed || caseModel.Status == models.FeedbackStatusClosed {
 			return nil
+		}
+
+		if err := w.ensureEmbeddingReady(ctx, space); err != nil {
+			if gate, ok := err.(embeddingGateError); ok {
+				return w.blockReprocess(ctx, jobs, cases, audits, input, jobSeq, caseModel, gate)
+			}
+			return err
 		}
 
 		previousBundleID := findLatestBundleID(ctx, tx, input.SpaceID)
@@ -369,13 +385,13 @@ func writeArtifacts(space uuid.UUID, jobUUID uuid.UUID, jobID uint64, caseID uui
 		"chunk_ids": stringifyChunks(inputChunkIDs(chunks)),
 	}
 	maskingReport := map[string]any{
-		"space_id":     space.String(),
-		"job_id":       jobUUID.String(),
-		"case_id":      caseID.String(),
-		"masking_pct":  100,
-		"profile":      "default",
-		"redactions":   0,
-		"verified_at":  time.Now().UTC(),
+		"space_id":    space.String(),
+		"job_id":      jobUUID.String(),
+		"case_id":     caseID.String(),
+		"masking_pct": 100,
+		"profile":     "default",
+		"redactions":  0,
+		"verified_at": time.Now().UTC(),
 	}
 
 	chunkBytes, _ := json.MarshalIndent(chunkManifest, "", "  ")

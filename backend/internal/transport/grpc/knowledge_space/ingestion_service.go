@@ -3,10 +3,12 @@ package knowledge_space
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,6 +43,10 @@ func (s *Server) TriggerIngestion(ctx context.Context, req *knowledgev1.Ingestio
 		RequestedBy:      req.GetRequestedBy(),
 	})
 	if err != nil {
+		var appErr *dto.AppError
+		if errors.As(err, &appErr) {
+			return nil, status.Error(codeFromHTTP(appErr.HTTPCode), appErr.Message)
+		}
 		switch {
 		case errors.Is(err, ksvc.ErrInvalidInput):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -51,4 +57,25 @@ func (s *Server) TriggerIngestion(ctx context.Context, req *knowledgev1.Ingestio
 		}
 	}
 	return &knowledgev1.IngestionJobResponse{Job: toProtoIngestionJob(job)}, nil
+}
+
+func codeFromHTTP(code int) codes.Code {
+	switch code {
+	case http.StatusBadRequest:
+		return codes.InvalidArgument
+	case http.StatusUnauthorized:
+		return codes.Unauthenticated
+	case http.StatusForbidden:
+		return codes.PermissionDenied
+	case http.StatusNotFound:
+		return codes.NotFound
+	case http.StatusConflict:
+		return codes.AlreadyExists
+	case http.StatusPreconditionFailed:
+		return codes.FailedPrecondition
+	case http.StatusTooManyRequests:
+		return codes.ResourceExhausted
+	default:
+		return codes.Internal
+	}
 }

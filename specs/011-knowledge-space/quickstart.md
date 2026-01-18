@@ -47,7 +47,7 @@ This registers new models (KnowledgeSpace, PolicyTemplateVersion, etc.) inside t
 #### 3.1.1 Embedding 默认值与模型选择
 
 - 默认安装会配置 `ai.defaults.embedding` 为 OpenAI `text-embedding-3-small`（1536 维）；需要你在 Web Admin 的 **AI Settings**（或 `config.yaml`）里补齐 `api_key` 才会真正生成语义向量。
-- 若未配置 embedding（例如缺少 api_key / 未设置 active profile），入库会继续完成，但会标记为 `embedding_not_configured`（不会写入向量表）。
+- 若未配置 embedding（例如缺少 api_key / 未设置 active profile），入库会被阻断并提示 `embedding_not_configured`（请先在 AI Settings 完成配置与测试）。
 - 维度必须对齐：`knowledge_space.vector_store.pgvector.dimensions` 必须等于 embedding 模型输出维度（例如 OpenAI `text-embedding-3-small` 为 1536）。不一致时会在入库任务里报 `embedding_dim_mismatch` 并提示如何修复。
 
 规格与 DDL 说明：

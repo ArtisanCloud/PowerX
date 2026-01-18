@@ -81,7 +81,7 @@ Web Admin 当前已提供最小验收链路：
 #### 3.3.3 “AI Settings 测试连接” vs “Space 激活向量索引”
 
 为避免“测试连接就建表/垃圾表爆炸”，这两步被强制拆分：
-- **AI Settings（测试连接）**：只做 provider/model 的连通性校验，并执行一次 **probe** 得到 `dimensions` 写回 profile（不建任何向量表）。
+- **AI Settings（测试连接）**：执行一次 **probe** 得到 `dimensions`，写回 `ai_model_profiles.cap_cache`（`probed_at`/`dimensions`），并创建 `knowledge_vectors_v1_<D>`（若不存在）。
 - **Space（激活向量索引）**：才会执行 `probe → CREATE TABLE IF NOT EXISTS → 写入 knowledge_vector_indexes → 更新 knowledge_spaces.embedding_profile_key/active_vector_index_key`。
 
 > 结果：只有在空间明确绑定 embedding profile 之后，该空间的入库才会写入向量；否则会以 “degraded（无向量）” 方式完成入库，避免误判为“成功写入”。

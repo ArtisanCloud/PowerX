@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { h } from "vue";
 import { useKnowledgeSpaces, type ProfileVersionRecord, type RetrievalPlaygroundRecord } from "~/composables/useKnowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 definePageMeta({
   layout: "default",
@@ -9,6 +10,7 @@ definePageMeta({
 
 const api = useKnowledgeSpaces();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
 
 const spaceId = ref("");
 const query = ref("");
@@ -65,6 +67,7 @@ const runCompare = async () => {
 };
 
 onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
   await loadProfiles();
 });
 

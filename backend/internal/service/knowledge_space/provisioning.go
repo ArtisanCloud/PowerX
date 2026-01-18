@@ -22,6 +22,9 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	if err != nil {
 		return nil, err
 	}
+	if err := s.ensureTenantEmbeddingConfigured(ctx, tenantUUID); err != nil {
+		return nil, err
+	}
 
 	release, err := s.acquireTenantLock(ctx, tenantUUID)
 	if err != nil {
@@ -329,6 +332,7 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 			"reason":               in.Reason,
 			"retire_at":            now,
 			"retention_expires_at": expire,
+			"drop_vectors":         in.DropVectors,
 		}); err != nil {
 			return err
 		}
@@ -340,7 +344,7 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 		return nil, err
 	}
 	s.publishEvent(ctx, "retired", retired)
-	if s.ingestion != nil {
+	if s.ingestion != nil && in.DropVectors {
 		if err := s.ingestion.DropSpaceVectors(ctx, in.SpaceID); err != nil {
 			logger.WarnF(ctx, "[knowledge_space] drop space vectors failed: %v", err)
 		}

@@ -161,6 +161,13 @@ pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一�
      - 写入/更新 `knowledge_vector_indexes`，并将 `knowledge_spaces.active_vector_index_key` 指向该 index
 3. **入库/检索（运行时）**
    - 入库写向量、检索读向量都按 `space_uuid -> active_vector_index_key -> table_name` 路由，禁止绕过（避免同 space 混模型）。
+   - 若未配置或未通过 probe 的 embedding profile，入库必须被拒绝，并提示前往 AI Settings 完成配置。
+
+### 删除/退役（软删除优先）
+
+- 默认删除行为为“软删除”：将空间状态置为 `retired`，进入只读保留期，但**不清理**入库数据与向量索引。
+- 软删除后：空间不可再入库/检索/配置策略；保留期遵循 13 个月策略。
+- 如需释放存储（清理向量与产物），由管理员触发“硬删除/清理”流程（后续扩展），不会在普通删除中默认执行。
 
 ### 独立验收
 
@@ -192,11 +199,13 @@ pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一�
 ### Functional Requirements
 
 - **FR-001**: The platform MUST allow authorized admins to create, update, and retire knowledge spaces with enforced SLA ≤2 minutes from submission to activation while enforcing a 13-month read-only retention for retired assets.
+- **FR-001A**: 删除空间默认执行软删除（仅切换为 `retired`），不得自动清理入库数据与向量索引；如需释放存储必须由管理员显式触发清理流程。
 - **FR-002**: Space creation MUST auto-apply default RAG, graph, masking, retention, and alerting templates; disabling any template requires an explicit approval workflow and audit entry.
 - **FR-003**: Provisioning MUST validate tenant quotas, per-tenant naming uniqueness, and configuration conflicts atomically, rejecting and rolling back partial writes upon violation.
 - **FR-004**: IAM role synchronization MUST complete with ≥99.5% success; unresolved sync tasks must block ingestion and emit operational alerts.
 - **FR-005**: Every provisioning, policy change, and approval action MUST write to the audit stream with actor, payload hash, template versions, and rollback tokens.
 - **FR-006**: The ingestion orchestrator MUST accept PDF/Markdown/Excel/CSV/API inputs, perform OCR + chunking + embedding + masking + graph linking, and finish the first ingestion cycle within four hours.
+- **FR-006A**: 入库请求前必须存在至少一个可用的 embedding profile（probe 成功且凭证有效）；若未配置或不可用，系统必须阻断入库并给出引导前往 AI Settings 配置的提示（前端同步提示并提供跳转）。
 - **FR-007**: Long-document ingestion MUST deterministically produce dual-granularity chunks (≈800-token semantic summaries + ≈300-token paragraphs) with ≥95% coverage, 100% embedding success, explicit provenance (doc + page). For scanned/image-based PDFs, provenance MUST additionally include page-region coordinates (bbox) suitable for UI highlight overlays, and automated validation reports surfaced to operators.
 - **FR-008**: Structured ingestion MUST detect schema elements (keys, timestamp, enumerations), enforce masking coverage 100%, and block publication when sensitivity checks fail.
 - **FR-009**: Every ingestion job MUST provide retries (up to three automatic attempts) with exponential backoff and emit `knowledge.ingestion.*` events for success, failure, and manual review states.

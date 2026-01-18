@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type KnowledgeSpaceRecord, type StrategyValidationResult, type VectorIndexStatus } from "~/composables/useKnowledgeSpaces";
 import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 import { useUserStore } from "~/stores/user";
 
 const { t } = useI18n();
@@ -23,6 +24,8 @@ const api = useKnowledgeSpaces();
 const wizardStore = useKnowledgeSpaceStore();
 const userStore = useUserStore();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spacesLoading = ref(false);
 const spacesError = ref<string | null>(null);
@@ -312,6 +315,7 @@ const loadSpaces = async () => {
 watch(
   () => selectedSpace.value,
   (space) => {
+    if (!embeddingReady.value) return;
     inferFromSpace(space);
     embeddingProfileKeyInput.value = String(space?.embeddingProfileKey || "").trim() || "openai/text-embedding-3-small";
     refreshVectorIndex();
@@ -320,10 +324,13 @@ watch(
 );
 
 watch([sceneKey, bundleKey], async () => {
+  if (!embeddingReady.value) return;
   await refreshStrategyValidation();
 });
 
 onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
   try {
     await userStore.fetchUserContext();
   } catch {

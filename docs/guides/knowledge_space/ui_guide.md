@@ -15,7 +15,7 @@
 从 011-knowledge-space 的最新实现开始：
 - Dense 向量表采用 **按维度分表**（例如 `knowledge_vectors_v1_1536`、`knowledge_vectors_v1_1024`），并且是 **全局共享表**（通过 `space_uuid` 隔离）。
 - 只有当某个 space 显式 **激活向量索引（Dense）** 后，该 space 的入库才会写入向量；否则入库会以 “degraded（无向量）” 完成。
-- AI Settings 的 “测试连接” **不会建表**，只会 probe 维度并写回 profile（避免误操作产生大量垃圾表）。
+- AI Settings 的 “测试连接” **会建表**：完成 probe 后会创建 `knowledge_vectors_v1_<D>`（若不存在），并写回 `ai_model_profiles.cap_cache`（`probed_at`/`dimensions`）。
 
 ## 2. 创建知识空间（/knowledge-spaces/create）
 
@@ -99,6 +99,7 @@
 
 如果你看到“Dense 依赖未满足（dense_required）”，通常代表：
 - 该 space 还没激活向量索引（未绑定 embedding profile / 未创建表）
+ - embedding profile 尚未完成 probe（`cap_cache.probed_at`/`dimensions` 为空）
 
 ## 5. 常见问题（先看现象 → 再看入口）
 

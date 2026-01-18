@@ -48,23 +48,23 @@ func NewVectorizerFromConfig(llm config.EmbeddingConfig) (embed.Vectorizer, erro
 			BaseURL:  llm.Endpoint, // e.g. http://localhost:8080/v1
 			APIKey:   llm.APIKey,   // optional for local gateways
 			Model:    llm.Model,
-			Timeout:  15 * time.Second,
-			MaxBatch: 128,
+			Timeout:  60 * time.Second,
+			MaxBatch: llm.MaxBatch,
 		}, nil
 	case "openai":
 		return &embed2.OpenAIEmbedder{
 			BaseURL:  llm.Endpoint, // e.g. https://api.openai.com/v1
 			APIKey:   llm.APIKey,
 			Model:    llm.Model, // e.g. text-embedding-3-small
-			Timeout:  15 * time.Second,
-			MaxBatch: 128,
+			Timeout:  60 * time.Second,
+			MaxBatch: llm.MaxBatch,
 		}, nil
 	case "ollama":
 		return &embed2.OllamaEmbedder{
 			BaseURL:  llm.Endpoint, // e.g. http://localhost:11434
 			Model:    llm.Model,    // e.g. bge-m3
-			Timeout:  15 * time.Second,
-			MaxBatch: 128,
+			Timeout:  60 * time.Second,
+			MaxBatch: llm.MaxBatch,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported embedding provider: %s", llm.Provider)

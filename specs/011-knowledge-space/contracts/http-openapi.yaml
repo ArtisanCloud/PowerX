@@ -63,6 +63,12 @@ paths:
       tags: [KnowledgeSpaces]
       parameters:
         - $ref: '#/components/parameters/SpaceId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetireSpaceRequest'
       responses:
         '202':
           description: Retirement scheduled
@@ -445,6 +451,16 @@ components:
         status:
           type: string
           enum: [draft, active, pending_iam, retired]
+    RetireSpaceRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        requestedBy:
+          type: string
+        dropVectors:
+          type: boolean
+          default: false
     KnowledgeSpace:
       allOf:
         - $ref: '#/components/schemas/KnowledgeSpaceCreate'

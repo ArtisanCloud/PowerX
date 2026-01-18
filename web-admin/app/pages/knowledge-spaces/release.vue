@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useKnowledgeSpaces, type ReleasePolicyRecord, type ReleaseStatusView } from "~/composables/useKnowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead(() => ({
   title: "租户灰度发布",
@@ -8,6 +9,8 @@ useHead(() => ({
 }));
 
 const api = useKnowledgeSpaces();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const loading = ref(false);
 const errorText = ref("");
@@ -48,6 +51,7 @@ const hydrateMatrixFromPolicy = () => {
 };
 
 const refreshPolicies = async () => {
+  if (!embeddingReady.value) return;
   loading.value = true;
   errorText.value = "";
   successText.value = "";
@@ -182,6 +186,8 @@ const rollback = async () => {
 };
 
 onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
   await refreshPolicies();
 });
 </script>
@@ -346,4 +352,3 @@ onMounted(async () => {
     </UCard>
   </section>
 </template>
-

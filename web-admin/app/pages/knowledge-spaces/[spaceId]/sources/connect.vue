@@ -5,10 +5,13 @@ import {
   type KnowledgeSourceProvider,
   type KnowledgeSyncMode,
 } from "~/composables/useKnowledgeSpaceSources";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 const { t } = useI18n();
 const route = useRoute();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spaceId = computed(() => String(route.params.spaceId || "").trim());
 
@@ -34,12 +37,18 @@ const newCredentialLabel = ref<string>("");
 const newCredentialHint = ref<string>("");
 
 const availableCredentials = computed(() => {
+  if (!embeddingReady.value) return [];
   if (!provider.value) return [];
   try {
     return sources.listTenantCredentials(provider.value as KnowledgeSourceProvider);
   } catch {
     return [];
   }
+});
+
+onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
 });
 
 const scopeForm = reactive<Record<string, any>>({

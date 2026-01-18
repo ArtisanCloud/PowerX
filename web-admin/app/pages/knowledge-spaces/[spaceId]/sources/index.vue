@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useKnowledgeSpaceSources } from "~/composables/useKnowledgeSpaceSources";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 const { t } = useI18n();
 const route = useRoute();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spaceId = computed(() => String(route.params.spaceId || "").trim());
 
@@ -27,6 +30,7 @@ const sources = useKnowledgeSpaceSources();
 const connections = ref<ReturnType<typeof sources.listSpaceConnections>>([]);
 
 const loadConnections = () => {
+  if (!embeddingReady.value) return;
   try {
     connections.value = sources.listSpaceConnections(spaceId.value);
   } catch (err: any) {
@@ -39,7 +43,11 @@ const loadConnections = () => {
   }
 };
 
-onMounted(loadConnections);
+onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
+  loadConnections();
+});
 watch(spaceId, loadConnections);
 </script>
 

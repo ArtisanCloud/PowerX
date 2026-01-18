@@ -198,6 +198,9 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
 		return nil, ErrSpaceNotFound
 	}
+	if err := s.ensureEmbeddingReady(ctx, space); err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	job := &knowledge.IngestionJob{
@@ -303,6 +306,9 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
 		return nil, ErrSpaceNotFound
 	}
+	if err := s.ensureEmbeddingReady(ctx, space); err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	job := &knowledge.IngestionJob{
@@ -402,6 +408,9 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 	}
 	if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
 		return nil, ErrSpaceNotFound
+	}
+	if err := s.ensureEmbeddingReady(ctx, space); err != nil {
+		return nil, err
 	}
 
 	job := &knowledge.IngestionJob{

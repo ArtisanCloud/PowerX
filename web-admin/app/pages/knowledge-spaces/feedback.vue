@@ -6,6 +6,7 @@ import {
   type FeedbackCaseRecord,
 } from "~/composables/useKnowledgeSpaces";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead({
   title: "反馈与再加工",
@@ -14,6 +15,8 @@ useHead({
 const api = useKnowledgeSpaces();
 const store = useKnowledgeSpaceStore();
 const route = useRoute();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spaceId = ref("");
 const loadingCases = ref(false);
@@ -81,7 +84,9 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => {
+onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
   const qSpaceId = String(route.query.spaceId || "").trim();
   const qChunks = String(route.query.chunks || "").trim();
   if (qSpaceId && !spaceId.value) {
@@ -93,6 +98,7 @@ onMounted(() => {
 });
 
 const loadCases = async () => {
+  if (!embeddingReady.value) return;
   if (!spaceId.value) {
     errorMessage.value = "请先输入空间 ID";
     return;

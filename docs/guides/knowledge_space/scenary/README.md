@@ -30,6 +30,21 @@
 
 ---
 
+## 测试影响的数据库表（按流程）
+
+- 创建空间：
+  - `powerx.knowledge_spaces`
+- 绑定/激活向量索引（按维度建表）：
+  - `powerx.knowledge_vector_indexes`
+  - `powerx.knowledge_vectors_v1_<dim>`（动态分表，例如 `knowledge_vectors_v1_1536`）
+- 入库作业：
+  - `powerx.knowledge_ingestion_jobs`
+  - `powerx.knowledge_chunks`
+  - `powerx.knowledge_chunk_links`
+  - `powerx.artifact_bundles`
+
+---
+
 ## 三层模型定义（L1/L2/L3）
 
 - **L1：业务场景（Scene）**  

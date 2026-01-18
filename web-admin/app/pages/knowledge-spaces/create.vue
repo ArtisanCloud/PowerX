@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 import { useUserStore } from "~/stores/user";
 import { useDepartmentService, type Department } from "~/composables/api/services/departmentService";
 import { useKnowledgeSpaces, type StrategyValidationResult } from "~/composables/useKnowledgeSpaces";
+import type { EmbeddingGuardResult } from "~/composables/useEmbeddingGuard";
 import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
 
 const store = useKnowledgeSpaceStore();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
 const userStore = useUserStore();
 const toast = useToast();
 
 const api = useKnowledgeSpaces();
 const strategyValidation = ref<StrategyValidationResult | null>(null);
-	const strategyValidationLoading = ref(false);
-	const strategyValidationError = ref<string | null>(null);
+const strategyValidationLoading = ref(false);
+const strategyValidationError = ref<string | null>(null);
 
 const refreshStrategyValidation = async () => {
   strategyValidationLoading.value = true;
@@ -28,6 +31,15 @@ const refreshStrategyValidation = async () => {
   } finally {
     strategyValidationLoading.value = false;
   }
+};
+
+const autoActivateVectorIndex = async (spaceId: string, guard: EmbeddingGuardResult) => {
+  const embeddingProfileKey = guard.embeddingProfileKey;
+  if (!embeddingProfileKey) return;
+  await api.activateVectorIndex(spaceId, {
+    embeddingProfileKey,
+    requestedBy: userStore.user?.email || store.iamEmail || "ops@powerx.local",
+  });
 };
 
 type MyDepartment = { id: number; name: string; code: string; parent_id?: number };
@@ -156,9 +168,27 @@ onMounted(async () => {
 
 const submit = async () => {
   try {
+    const guard = await ensureEmbeddingReady();
+    if (!guard) return;
     await store.submit();
     if (process.client && store.lastSpace?.spaceId) {
       localStorage.setItem("px_last_space_id", store.lastSpace.spaceId);
+    }
+    if (store.lastSpace?.spaceId) {
+      try {
+        await autoActivateVectorIndex(store.lastSpace.spaceId, guard);
+        toast.add({
+          color: "success",
+          title: "向量索引已激活",
+          description: "已自动绑定 embedding profile 并创建向量表。",
+        });
+      } catch (e: any) {
+        toast.add({
+          color: "warning",
+          title: "向量索引未自动激活",
+          description: e?.message || "请前往“策略配置”手动激活向量索引。",
+        });
+      }
     }
     toast.add({
       color: "success",

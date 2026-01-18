@@ -45,6 +45,7 @@ type updateSpaceRequest struct {
 type retireSpaceRequest struct {
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requestedBy"`
+	DropVectors bool   `json:"dropVectors"`
 }
 
 type knowledgeSpaceResponse struct {

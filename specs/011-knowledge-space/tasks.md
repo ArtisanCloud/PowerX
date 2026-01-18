@@ -91,7 +91,8 @@
 - [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
 - [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
 - [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
-- [X] **T032G [US2]** 将 Knowledge Space 的向量化与 Web Admin「AI Settings」打通：入库时按租户当前 env 读取 active embedding profile（provider/model + credential），复用后端 OpenAI/Ollama vectorizer；无可用配置时使用 `hash`（非语义）作为“零依赖”兜底，并在 pgvector 维度不一致时给出明确错误提示（指导对齐 `knowledge_space.vector_store.pgvector.dimensions`）。
+- [X] **T032G [US2]** 将 Knowledge Space 的向量化与 Web Admin「AI Settings」打通：入库时按租户当前 env 读取 active embedding profile（provider/model + credential），复用后端 OpenAI/Ollama vectorizer；无可用配置时**直接阻断入库**并返回明确错误提示（引导前往 AI Settings 完成配置），并在 pgvector 维度不一致时给出明确错误提示（指导对齐 `knowledge_space.vector_store.pgvector.dimensions`）。
+- [X] **T032I [P] [US2]** 入库前强校验 embedding 配置：后端在 ingestion handler/orchestrator 中拒绝缺失/未 probe 通过的 embedding profile（返回可前端识别的错误码与提示）；Web Admin 在入库 CTA/创建入口先行检测并弹窗提示“需先配置 embedding”，提供跳转到 AI Settings 的操作；补齐 HTTP/gRPC 合同测试与前端单测覆盖该阻断分支。
 - [X] **T032H [P] [US2]** Dense 向量索引“按维度分表 + 全局共享”：新增 `knowledge_vector_indexes` 登记表与 `knowledge_vectors_{D}` 表族；space 绑定 `embedding_profile_key + active_vector_index_key`，并实现 probe→创建表→激活→写入/查询路由；支持保留旧索引用于回滚，并提供清理未使用索引的治理入口。
 - [X] **T032H-1 [US2]** UI/接口时序约束：AI Settings 的“测试连接/试跑”仅做连通性校验与维度 probe（写回 profile）；真正的建表与索引登记仅在 “Space 绑定/激活 embedding profile” 时发生，且对已存在表必须幂等忽略。
 - [X] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，并同步清理 sparse/hier/kg 资产（如启用）。

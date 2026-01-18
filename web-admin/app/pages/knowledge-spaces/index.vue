@@ -4,6 +4,8 @@ import { useKnowledgeSpaces, type KnowledgeSpaceRecord } from "~/composables/use
 import { createQaBridgeClient } from "~/composables/api/services/knowledge-spaces/qaBridgeClient";
 import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
+import { useConfirm } from "~/composables/useConfirm";
 import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { findEnableOcrRecommendation } from "~/utils/knowledge-spaces/recommendations";
 import { buildIngestionRemediation, type IngestionRemediation } from "~/utils/knowledge-spaces/ingestionRemediation";
@@ -30,6 +32,8 @@ useHead(() => ({
 const api = useKnowledgeSpaces();
 const qaClient = createQaBridgeClient();
 const knowledgeStore = useKnowledgeSpaceStore();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const { confirm } = useConfirm();
 const toast = useToast();
 const media = useMediaAssetService();
 
@@ -50,6 +54,8 @@ const pageSizeItems = [
 ];
 
 const lastSelectedSpaceKey = "px_last_space_id";
+const retiringSpaceId = ref<string | null>(null);
+
 
 const loadSpaces = async () => {
   spacesLoading.value = true;
@@ -78,7 +84,7 @@ const quickActions = computed(() => [
     icon: "i-heroicons-plus-circle",
     title: t("knowledgeSpaces.hero.actions.create"),
     description: t("knowledgeSpaces.hero.actions.createDesc"),
-    to: "/knowledge-spaces/create",
+    onClick: goCreateSpace,
     primary: true,
   },
   {
@@ -716,20 +722,65 @@ const paginationInfo = computed(() => {
 	return { start, end, total };
 });
 
-const setSpaceAndOpenIngestion = (spaceId: string) => {
+const setSpaceAndOpenIngestion = async (spaceId: string) => {
 	ingestionForm.spaceId = spaceId;
-	openIngestionModal();
+	await openIngestionModal();
 };
 
-	const openPlayground = (spaceId: string) =>
+	const openPlayground = async (spaceId: string) => {
+		if (!(await ensureEmbeddingReady())) return;
 		navigateTo({ path: "/knowledge-spaces/playground", query: { spaceId } });
+	};
 
-	const openSources = (spaceId: string) => navigateTo(`/knowledge-spaces/${spaceId}/sources`);
+	const openSources = async (spaceId: string) => {
+		if (!(await ensureEmbeddingReady())) return;
+		navigateTo(`/knowledge-spaces/${spaceId}/sources`);
+	};
 
-	const openIngestions = (spaceId: string) => navigateTo(`/knowledge-spaces/${spaceId}/ingestions`);
+	const openIngestions = async (spaceId: string) => {
+		if (!(await ensureEmbeddingReady())) return;
+		navigateTo(`/knowledge-spaces/${spaceId}/ingestions`);
+	};
 
-	const openStrategy = (spaceId: string) =>
+	const openStrategy = async (spaceId: string) => {
+		if (!(await ensureEmbeddingReady())) return;
 		navigateTo({ path: "/knowledge-spaces/strategy", query: { spaceId } });
+	};
+
+const isRetiredSpace = (space: KnowledgeSpaceRecord) =>
+	String(space.status || "").toLowerCase() === "retired";
+
+const retireSpace = async (space: KnowledgeSpaceRecord) => {
+	if (!space?.spaceId || retiringSpaceId.value) return;
+	const ok = await confirm({
+		title: "删除空间（软删除）",
+		description: `将空间标记为不可用，但会保留入库数据与向量索引。需要继续吗？`,
+		confirmLabel: "确认删除",
+		cancelLabel: "暂不",
+		confirmColor: "error",
+		tone: "warning",
+		showIcon: true,
+	});
+	if (!ok) return;
+	retiringSpaceId.value = space.spaceId;
+	try {
+		await api.retireSpace(space.spaceId, { reason: "user_request", dropVectors: false });
+		toast.add({
+			color: "success",
+			title: "空间已删除",
+			description: "该空间已进入保留状态，暂不可继续使用。",
+		});
+		await loadSpaces();
+	} catch (error: any) {
+		toast.add({
+			color: "error",
+			title: "删除失败",
+			description: error?.message || "删除空间失败，请稍后重试。",
+		});
+	} finally {
+		retiringSpaceId.value = null;
+	}
+};
 
 const taskSpaceLabel = (spaceId: string) => {
 	const space = spaces.value.find((s) => s.spaceId === spaceId);
@@ -779,8 +830,9 @@ const tableColumns = computed(() => {
 		{
 			id: "actions",
 			header: t("knowledgeSpaces.spaces.table.actions", "操作"),
-			cell: ({ row }: any) =>
-				h("div", { class: "flex flex-wrap gap-2 justify-end" }, [
+			cell: ({ row }: any) => {
+				const space = row.original as KnowledgeSpaceRecord;
+				const actions = [
 					h(
 						UButton as any,
 						{
@@ -788,7 +840,8 @@ const tableColumns = computed(() => {
 							color: "primary",
 							variant: "soft",
 							icon: "i-heroicons-arrow-up-tray",
-							onClick: () => setSpaceAndOpenIngestion(row.original.spaceId),
+							disabled: isRetiredSpace(space),
+							onClick: () => setSpaceAndOpenIngestion(space.spaceId),
 						},
 						() => t("knowledgeSpaces.spaces.actions.ingest", "入库"),
 					),
@@ -799,31 +852,34 @@ const tableColumns = computed(() => {
 							color: "secondary",
 							variant: "soft",
 							icon: "i-heroicons-link",
-							onClick: () => openSources(row.original.spaceId),
+							disabled: isRetiredSpace(space),
+							onClick: () => openSources(space.spaceId),
 						},
 						() => t("knowledgeSpaces.spaces.actions.sources", "连接数据源"),
 					),
-						h(
-							UButton as any,
-							{
-								size: "xs",
-								color: "neutral",
-								variant: "soft",
-								icon: "i-heroicons-list-bullet",
-								onClick: () => openIngestions(row.original.spaceId),
-							},
-							() => "入库记录",
-						),
-						h(
-							UButton as any,
-							{
-								size: "xs",
-								color: "neutral",
-								variant: "soft",
-								icon: "i-heroicons-adjustments-horizontal",
-								onClick: () => openStrategy(row.original.spaceId),
-							},
-							() => t("knowledgeSpaces.spaces.actions.strategy", "策略"),
+					h(
+						UButton as any,
+						{
+							size: "xs",
+							color: "neutral",
+							variant: "soft",
+							icon: "i-heroicons-list-bullet",
+							disabled: isRetiredSpace(space),
+							onClick: () => openIngestions(space.spaceId),
+						},
+						() => "入库记录",
+					),
+					h(
+						UButton as any,
+						{
+							size: "xs",
+							color: "neutral",
+							variant: "soft",
+							icon: "i-heroicons-adjustments-horizontal",
+							disabled: isRetiredSpace(space),
+							onClick: () => openStrategy(space.spaceId),
+						},
+						() => t("knowledgeSpaces.spaces.actions.strategy", "策略"),
 					),
 					h(
 						UButton as any,
@@ -832,11 +888,30 @@ const tableColumns = computed(() => {
 							color: "neutral",
 							variant: "soft",
 							icon: "i-heroicons-magnifying-glass",
-							onClick: () => openPlayground(row.original.spaceId),
+							disabled: isRetiredSpace(space),
+							onClick: () => openPlayground(space.spaceId),
 						},
 						() => "Playground",
 					),
-				]),
+				];
+				if (!isRetiredSpace(space)) {
+					actions.push(
+						h(
+							UButton as any,
+							{
+								size: "xs",
+								color: "error",
+								variant: "soft",
+								icon: "i-heroicons-trash",
+								loading: retiringSpaceId.value === space.spaceId,
+								onClick: () => retireSpace(space),
+							},
+							() => "删除",
+						),
+					);
+				}
+				return h("div", { class: "flex flex-wrap gap-2 justify-end" }, actions);
+			},
 		},
 	];
 });
@@ -882,7 +957,7 @@ watch(
       if (preferredSpaceId && spaces.value.some((s) => s.spaceId === preferredSpaceId)) {
         ingestionForm.spaceId = preferredSpaceId;
       }
-      openIngestionModal();
+      await openIngestionModal();
 			if (String(route.query.ocr || "") === "1") {
 				ingestionForm.ocrRequired = true;
 				ingestionStep.value = 2;
@@ -904,7 +979,7 @@ watch(
     if (!ready) return;
     if (!pendingOpenIngestion.value) return;
     await nextTick();
-    openIngestionModal();
+    await openIngestionModal();
     pendingOpenIngestion.value = false;
   },
 );
@@ -919,6 +994,7 @@ watch(
 );
 
 onMounted(async () => {
+  await ensureEmbeddingReady();
   await loadSpaces();
 });
 
@@ -1242,11 +1318,18 @@ watch(
 	},
 );
 
-const goCreateSpace = () => navigateTo("/knowledge-spaces/create");
+const goCreateSpace = async () => {
+	if (!(await ensureEmbeddingReady())) return;
+	await navigateTo("/knowledge-spaces/create");
+};
 
-const openIngestionModal = () => {
+
+const openIngestionModal = async () => {
 	if (!hasSpaces.value) {
 		goCreateSpace();
+		return;
+	}
+	if (!(await ensureEmbeddingReady())) {
 		return;
 	}
 	ingestionError.value = "";
@@ -1334,7 +1417,7 @@ const startIngestionPolling = () => {
 	if (ingestionPollTimer != null) return;
 	ingestionPollTimer = window.setInterval(() => {
 		void refreshIngestionTasks();
-	}, 2000);
+	}, 5000);
 };
 
 const stopIngestionPolling = () => {
@@ -1484,6 +1567,10 @@ const submitIngestion = async () => {
 		ingestionError.value = t("knowledgeSpaces.ingestion.errors.missingSource");
 		return;
 	}
+	if (!(await ensureEmbeddingReady())) {
+		ingestionError.value = "请先在 AI Settings 配置 embedding 模型并完成测试";
+		return;
+	}
 	ingestionSubmitting.value = true;
 	try {
 		// 将“场景（L1）/策略包（L2）”写入空间 feature_flags，保证后续 Playground/策略验证/推荐一致。
@@ -1623,16 +1710,19 @@ const applyRemediationAction = (action: any) => {
         </p>
       </div>
       <div class="flex flex-wrap gap-3">
-        <NuxtLink
+        <component
+          :is="action.onClick ? 'button' : 'NuxtLink'"
           v-for="action in quickActions"
           :key="action.title"
-          :to="action.to"
+          :to="action.onClick ? undefined : action.to"
+          :type="action.onClick ? 'button' : undefined"
           class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-gray-50"
           :class="action.primary ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-500' : 'border-gray-200 text-gray-700'"
+          @click="action.onClick ? action.onClick() : undefined"
         >
           <UIcon :name="action.icon" class="w-5 h-5" />
           <span>{{ action.title }}</span>
-        </NuxtLink>
+        </component>
       </div>
     </header>
 

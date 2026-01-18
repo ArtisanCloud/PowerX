@@ -20,6 +20,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -178,10 +179,10 @@ func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrieval
 			TraceId:    out.TraceID,
 			RecordedAt: timestamppb.New(out.RecordedAt),
 		},
-		DegradeCount:    int32(out.DegradeCount),
-		SessionId:       out.SessionID,
-		LatencyBudgetMs: int32(out.LatencyBudgetMs),
-		Stages:          toProtoPlanStages(out.Stages),
+		DegradeCount:          int32(out.DegradeCount),
+		SessionId:             out.SessionID,
+		LatencyBudgetMs:       int32(out.LatencyBudgetMs),
+		Stages:                toProtoPlanStages(out.Stages),
 		PolicyVersionSnapshot: out.PolicySnapshot,
 		Metadata: func() *structpb.Struct {
 			if len(out.Metadata) == 0 {
@@ -278,6 +279,10 @@ func toProto(space *models.KnowledgeSpace) *knowledgev1.KnowledgeSpace {
 
 func mapError(err error) error {
 	switch {
+	case errors.As(err, &dto.AppError{}):
+		var appErr *dto.AppError
+		errors.As(err, &appErr)
+		return status.Error(codeFromHTTP(appErr.HTTPCode), appErr.Message)
 	case ksvc.IsConflictError(err):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, ksvc.ErrInvalidInput):

@@ -311,6 +311,7 @@ func (h *Handler) retire(c *gin.Context) {
 		SpaceID:     spaceID,
 		Reason:      req.Reason,
 		RequestedBy: req.RequestedBy,
+		DropVectors: req.DropVectors,
 	})
 	if err != nil {
 		h.handleError(c, err)
@@ -408,6 +409,11 @@ func (h *Handler) ensurePolicyTemplateVersion(c *gin.Context, name, version stri
 }
 
 func (h *Handler) handleError(c *gin.Context, err error) {
+	var appErr *dto.AppError
+	if errors.As(err, &appErr) {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	switch {
 	case ksvc.IsConflictError(err):
 		dto.ResponseError(c, http.StatusConflict, "同一租户下已存在该空间", err)

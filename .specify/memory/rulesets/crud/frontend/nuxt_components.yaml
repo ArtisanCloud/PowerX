@@ -38,6 +38,9 @@ nuxt_ui:
     preferUModal: true
     paddingClass: "p-4 sm:p-5"
     width: "max-w-3xl w-full"
+    notes:
+      - 如需更宽的编辑表单，可覆盖 `ui.content`（例如 `'max-w-6xl w-[90vw] mx-auto'`）而不是直接设置 inline 样式，保持组件一致性。
+      - 需要弹层交互的表单/内容必须放在 UModal 的 `#body` 内，由 `v-model:open` 控制显隐；不要把表单直接渲染在页面上再“看起来像弹层”。
     close:
       useCloseProp: true
       preventClose: true

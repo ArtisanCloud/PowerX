@@ -176,6 +176,7 @@ type RetireSpaceInput struct {
 	SpaceID     uuid.UUID
 	Reason      string
 	RequestedBy string
+	DropVectors bool
 }
 
 func (s *Service) repositories(tx *gorm.DB) (spaces *knowledge.KnowledgeSpaceRepository,

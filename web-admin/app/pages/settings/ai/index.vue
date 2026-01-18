@@ -198,11 +198,16 @@ const registryLink = computed(() =>
   localePath("/settings/ai/capability-registry")
 );
 
+const route = useRoute();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
 
 onMounted(async () => {
   try {
+    const queryModality = resolveModalityFromQuery(route.query?.modality);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
     if (!userStore.context) {
       await userStore.fetchUserContext();
     }
@@ -230,6 +235,13 @@ const modalityTabs = [
 ] as const;
 
 const modality = ref<Modality>("llm");
+
+const resolveModalityFromQuery = (value: unknown): Modality | null => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const hit = modalityTabs.find((tab) => tab.key === raw);
+  return hit ? (hit.key as Modality) : null;
+};
 
 // 使用环境store
 const envStore = useEnvStore();
@@ -585,6 +597,15 @@ function normalizeProviderKey(provider?: string | null) {
     .toLowerCase();
 }
 
+function isHuggingFaceProvider(provider?: string | null) {
+  const p = normalizeProviderKey(provider);
+  return p === "huggingface" || p === "hf";
+}
+
+function resolveHuggingFaceBaseURL(_model?: string | null) {
+  return "https://router.huggingface.co/v1";
+}
+
 function draftKey(
   provider?: string | null,
   envVal?: string | null,
@@ -913,7 +934,8 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
  * 保存/重置/测试（接入后端 API）
  */
 const saving = computed(() => aiSettingsStore.saving);
-const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage);
+const lastProbeMessage = ref("");
+const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
 
 async function saveSettings() {
   try {
@@ -962,10 +984,47 @@ async function resetSettings() {
 async function testConnection() {
   try {
     const payload = buildPayloadForCurrentModality();
-    await aiSettingsStore.testConnection(
+    const result = await aiSettingsStore.testConnection(
       currentState.value.provider || "",
       payload
     );
+    if (modality.value === "embedding") {
+      const dim = Number.parseInt(String(result?.dimensions || "0"), 10);
+      if (Number.isFinite(dim) && dim > 0) {
+        currentState.value.dimensions = dim;
+      }
+      try {
+        await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
+        const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+        const curModel = String(currentState.value.model || "").trim();
+        const profile = (aiSettingsStore.profiles || []).find(
+          (p) =>
+            String(p?.modality || "").toLowerCase() === "embedding" &&
+            String(p?.provider || "").trim().toLowerCase() === curProvider &&
+            String(p?.model || "").trim() === curModel
+        );
+        if (profile) {
+          const capCache = (profile as any).capCache || {};
+          const probedAt = String(capCache?.probed_at || "").trim();
+          const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+          const dim = Number.parseInt(String(dimRaw || "0"), 10);
+          if (Number.isFinite(dim) && dim > 0) {
+            currentState.value.dimensions = dim;
+          }
+          if (profile?.defaults?.truncate) {
+            currentState.value.truncate = String(profile.defaults.truncate);
+          }
+          if (profile?.defaults?.batch != null) {
+            const batch = Number.parseInt(String(profile.defaults.batch), 10);
+            if (Number.isFinite(batch) && batch > 0) currentState.value.batch = batch;
+          }
+          if (probedAt) {
+            const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+            lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+          }
+        }
+      } catch {}
+    }
     // 测试成功后后端会自动保存该 provider 的凭据（不激活默认路由），这里刷新一下非敏感凭据元数据
     try {
       await aiSettingsStore.fetchCredentials(env.value);
@@ -1127,6 +1186,31 @@ async function loadActiveConfiguration() {
       if (profile.provider) {
         await onProviderChanged(profile.provider);
       }
+
+      if (modality.value === "embedding") {
+        const capCache = (profile as any).capCache || {};
+        const probedAt = String(capCache?.probed_at || "").trim();
+        const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+        const dim = Number.parseInt(String(dimRaw || "0"), 10);
+        if (Number.isFinite(dim) && dim > 0) {
+          currentState.value.dimensions = dim;
+        }
+        if (profile?.defaults?.truncate) {
+          currentState.value.truncate = String(profile.defaults.truncate);
+        }
+        if (profile?.defaults?.batch != null) {
+          const batch = Number.parseInt(String(profile.defaults.batch), 10);
+          if (Number.isFinite(batch) && batch > 0) currentState.value.batch = batch;
+        }
+        if (probedAt) {
+          const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+          lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+        } else {
+          lastProbeMessage.value = "";
+        }
+      } else {
+        lastProbeMessage.value = "";
+      }
     }
   } catch (error) {
     console.error("加载激活配置失败", error);
@@ -1187,10 +1271,37 @@ watch(
   }
 );
 
+watch(
+  () => [currentState.value.provider, currentState.value.model, modality.value] as const,
+  ([provider, model, mod]) => {
+    if (mod !== "embedding" || !isHuggingFaceProvider(provider)) return;
+    const resolved = resolveHuggingFaceBaseURL(model);
+    if (!resolved) return;
+    const curBase = String(currentState.value.baseURL || "").trim();
+    const lower = curBase.toLowerCase();
+    const isLegacyRouter = lower === "https://router.huggingface.co";
+    const isDeprecatedInference = lower.includes("api-inference.huggingface.co");
+    const isTemplate = curBase.includes("{model}");
+    if (!curBase || isLegacyRouter || isDeprecatedInference || isTemplate) {
+      currentState.value.baseURL = resolved;
+    }
+  }
+);
+
 // 监听模态切换，重新加载配置
 watch(modality, async () => {
   await refreshStateForEnvAndModality();
 });
+
+watch(
+  () => route.query?.modality,
+  (next) => {
+    const queryModality = resolveModalityFromQuery(next);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
+  }
+);
 
 watch(
   () => env.value,

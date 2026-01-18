@@ -6,7 +6,7 @@
 
 - Dense 向量表是 **全局共享表**（通过 `space_uuid` 隔离），不会按 tenant/space 单独建表。
 - Dense 向量表按维度分表：`knowledge_vectors_v1_<D>`（例如 `knowledge_vectors_v1_1536`）。
-- **AI Settings 的 embedding 测试连接不会建表**：只做连通性 + probe 维度写回 profile。
+- **AI Settings 的 embedding 测试连接会建表**：完成 probe 后会创建 `knowledge_vectors_v1_<D>`（若不存在），并写回 `ai_model_profiles.cap_cache`（`probed_at`/`dimensions`）。
 - **建表发生在 Space 激活向量索引（Dense）时**：`probe → CREATE TABLE IF NOT EXISTS → 写 registry → 绑定到 space`。
 
 ## 2) 数据库依赖
@@ -72,6 +72,7 @@ order by created_at desc;
 
 常见原因：
 - space 没激活 Dense 索引（`embedding_profile_key`/`active_vector_index_key` 为空）
+- embedding profile 尚未完成 probe（`cap_cache.probed_at`/`dimensions` 为空）
 - embedding provider 没有配置可用凭据（AI Settings 未配置或配额耗尽）
 
 ### 5.2 想换 embedding provider/model
@@ -79,4 +80,3 @@ order by created_at desc;
 当前策略是 **space 级锁定 embedding profile**：
 - 换模型建议走“新激活（生成新 index_key）→ 重新入库/重建向量”路径
 - 同一 space 混用不同 embedding 模型会导致向量空间不一致，检索质量不可控
-

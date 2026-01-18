@@ -129,6 +129,14 @@ const selectedAuthMode = computed(() => {
   );
 });
 
+const baseURLPlaceholder = computed(() => {
+  const provider = String(props.state.provider || "").trim().toLowerCase();
+  if (provider === "huggingface" || provider === "hf") {
+    return "https://router.huggingface.co/v1";
+  }
+  return "https://api.example.com";
+});
+
 watch(
   authModeOptions,
   (opts) => {
@@ -230,6 +238,7 @@ const authFields = computed(() => {
           return {
             ...base,
             required,
+            placeholder: baseURLPlaceholder.value,
             label: required ? "Base URL" : "Base URL（可选）",
           };
         }
@@ -285,6 +294,7 @@ const authFields = computed(() => {
         return {
           ...base,
           required,
+          placeholder: baseURLPlaceholder.value,
           label: required ? "Base URL" : "Base URL（可选）",
         };
       }

@@ -378,12 +378,26 @@ export const useKnowledgeSpaces = () => {
     return response.data;
   };
 
-    const updateSpace = async (
+  const updateSpace = async (
     spaceId: string,
     payload: KnowledgeSpaceUpdatePayload,
   ): Promise<KnowledgeSpaceRecord> => {
     const response = await apiClient.patch<ApiResponse<KnowledgeSpaceRecord>>(
       `${adminBase}/${spaceId}`,
+      payload,
+    );
+    return response.data;
+  };
+
+  const retireSpace = async (
+    spaceId: string,
+    payload: { reason?: string; requestedBy?: string; dropVectors?: boolean } = {},
+  ): Promise<KnowledgeSpaceRecord> => {
+    if (!spaceId) {
+      throw new Error("spaceId is required");
+    }
+    const response = await apiClient.post<ApiResponse<KnowledgeSpaceRecord>>(
+      `${adminBase}/${spaceId}/retire`,
       payload,
     );
     return response.data;
@@ -787,6 +801,7 @@ const listRagProfiles = async (
   return {
     createSpace,
     updateSpace,
+    retireSpace,
     listSpaces,
     getSpace,
     fetchStatus,

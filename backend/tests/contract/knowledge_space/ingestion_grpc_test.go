@@ -94,4 +94,16 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 	st, ok := status.FromError(err)
 	require.True(t, ok)
 	require.Equal(t, codes.NotFound, st.Code())
+
+	noEmbedSpace := env.CreateSpaceFixture("grpc-ingest-no-embed", policyID)
+	require.NoError(t, env.ClearSpaceEmbedding(noEmbedSpace.UUID))
+	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:   noEmbedSpace.UUID.String(),
+		Format:    "pdf",
+		SourceUri: "s3://bucket/no-embed.pdf",
+	})
+	require.Error(t, err)
+	st, ok = status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.FailedPrecondition, st.Code())
 }

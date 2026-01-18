@@ -247,6 +247,16 @@ func (s *VectorIndexService) probeEmbeddingDimensions(ctx context.Context, tenan
 		env = "dev"
 	}
 
+	// If profile already probed, trust stored dimensions to avoid re-probe.
+	if prof, e := s.agentSettings.GetProfile(ctx, env, &tenantUUID, "embedding", provider, model); e == nil && prof != nil {
+		if agentSvc.EmbeddingProfileReady(prof) {
+			dim := agentSvc.ResolveEmbeddingDimensions(prof)
+			if dim > 0 {
+				return dim, env, nil
+			}
+		}
+	}
+
 	// Reuse the exact vectorizer resolution logic used by ingestion, but force provider/model.
 	prof, vec, err := (&IngestionService{agentSettings: s.agentSettings, vectorStore: &noopVectorStore{}}).resolveEmbeddingVectorizerForProfile(ctx, tenantUUID, env, provider, model)
 	if err != nil {

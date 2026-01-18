@@ -2,17 +2,22 @@ package knowledge_space
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
+	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	knowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -130,6 +135,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 	// best-effort read profile defaults (dims/base_url/api_key)
 	var baseURLIn, apiKeyIn string
 	dimensions := 0
+	maxBatch := 0
 	if prof, err := s.agentSettings.GetProfile(ctx, env, &tid, "embedding", provider, model); err == nil && prof != nil {
 		if prof.Defaults != nil {
 			if v, ok := prof.Defaults["endpoint"].(string); ok && strings.TrimSpace(v) != "" {
@@ -140,15 +146,11 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 			if v, ok := prof.Defaults["api_key"].(string); ok && strings.TrimSpace(v) != "" {
 				apiKeyIn = strings.TrimSpace(v)
 			}
-			// dimensions 常见是 JSON number（float64）
-			if v, ok := prof.Defaults["dimensions"].(float64); ok && int(v) > 0 {
-				dimensions = int(v)
-			} else if v, ok := prof.Defaults["dimensions"].(int); ok && v > 0 {
-				dimensions = v
-			} else if v, ok := prof.Defaults["dim"].(float64); ok && int(v) > 0 {
-				dimensions = int(v)
+			if v, ok := prof.Defaults["batch"]; ok {
+				maxBatch = parseInt(v)
 			}
 		}
+		dimensions = agentsettings.ResolveEmbeddingDimensions(prof)
 	}
 
 	// If provider in catalog declares an embedding driver, use driverKey to pick implementation;
@@ -170,8 +172,12 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 		return nil, nil, e
 	}
 	if strings.TrimSpace(baseURL) == "" {
-		req := catalog.AuthReqFromCatalog(provider)
-		baseURL = strings.TrimSpace(req.DefaultBaseURL)
+		if v := catalog.DefaultBaseURLForModel(provider, model); strings.TrimSpace(v) != "" {
+			baseURL = v
+		} else {
+			req := catalog.AuthReqFromCatalog(provider)
+			baseURL = strings.TrimSpace(req.DefaultBaseURL)
+		}
 	}
 
 	// provider/driver 对 key 的要求来自 catalog；若需要 key 但缺失，则视为“未配置”而不是直接入库失败。
@@ -198,7 +204,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 		Endpoint: baseURL,
 		Model:    model,
 		APIKey:   apiKey,
-		MaxBatch: 128,
+		MaxBatch: maxBatch,
 		Dim:      dimensions,
 	}
 	vec, err := intentfactory.NewVectorizerFromConfig(embCfg)
@@ -228,10 +234,96 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 	}, vec, nil
 }
 
+func (s *IngestionService) ensureEmbeddingReady(ctx context.Context, space *knowledge.KnowledgeSpace) error {
+	if s == nil || s.agentSettings == nil {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "AI Settings 未初始化，无法执行入库", ErrEmbeddingNotConfigured)
+	}
+	if space == nil || space.UUID == uuid.Nil {
+		return ErrSpaceNotFound
+	}
+	profileKey := strings.TrimSpace(space.EmbeddingProfileKey)
+	if profileKey == "" {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "请先在 AI Settings 配置 embedding 模型并完成测试", ErrEmbeddingNotConfigured)
+	}
+	provider, model, err := ParseEmbeddingProfileKey(profileKey)
+	if err != nil {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "embedding profile 配置无效，请重新设置", ErrEmbeddingNotConfigured)
+	}
+	tenantUUID := strings.ToLower(strings.TrimSpace(space.TenantUUID))
+	if tenantUUID == "" {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "缺少租户上下文，无法确认 embedding 配置", ErrEmbeddingNotConfigured)
+	}
+	env, _, err := s.agentSettings.GetTenantCurrentAIEnv(ctx, tenantUUID)
+	if err != nil && !isMissingTableError(err) {
+		return dto.NewErrorWithCode(http.StatusInternalServerError, "embedding_failed", "获取 AI 环境失败", err)
+	}
+	if strings.TrimSpace(env) == "" {
+		env = "dev"
+	}
+	profile, err := s.agentSettings.GetProfile(ctx, env, &tenantUUID, "embedding", provider, model)
+	if err != nil {
+		if isMissingTableError(err) || errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "请先在 AI Settings 配置 embedding 模型并完成测试", ErrEmbeddingNotConfigured)
+		}
+		return dto.NewErrorWithCode(http.StatusInternalServerError, "embedding_failed", "读取 embedding 配置失败", err)
+	}
+	if profile == nil {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "请先在 AI Settings 配置 embedding 模型并完成测试", ErrEmbeddingNotConfigured)
+	}
+	if !agentsettings.EmbeddingProfileReady(profile) {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_probe_required", "embedding 模型未完成测试探测，请先在 AI Settings 执行测试", ErrEmbeddingNotConfigured)
+	}
+	_, vec, err := s.resolveEmbeddingVectorizerForProfile(ctx, tenantUUID, env, provider, model)
+	if err != nil {
+		return dto.NewErrorWithCode(http.StatusInternalServerError, "embedding_failed", "embedding 配置解析失败", err)
+	}
+	if vec == nil {
+		return dto.NewErrorWithCode(http.StatusPreconditionFailed, "embedding_not_configured", "embedding 凭据未配置或不可用，请先在 AI Settings 完成配置", ErrEmbeddingNotConfigured)
+	}
+	return nil
+}
+
 // agentSvcEmbedVectorizer keeps knowledge_space decoupled from internal/server/agent embed package.
 // It mirrors `internal/server/agent/contract/embed.Vectorizer`.
 type agentSvcEmbedVectorizer interface {
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
+}
+
+func parseInt(v any) int {
+	switch val := v.(type) {
+	case float64:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case float32:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case int:
+		if val > 0 {
+			return val
+		}
+	case int32:
+		if val > 0 {
+			return int(val)
+		}
+	case int64:
+		if val > 0 {
+			return int(val)
+		}
+	case string:
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val)); err == nil && parsed > 0 {
+			return parsed
+		}
+	case json.Number:
+		if parsed, err := val.Int64(); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val.String())); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
 
 func (s *IngestionService) buildVectorRecords(

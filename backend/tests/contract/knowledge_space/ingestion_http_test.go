@@ -156,4 +156,24 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusNotFound, resp.Code)
 	})
+
+	t.Run("rejects when embedding profile missing", func(t *testing.T) {
+		noEmbedSpace := env.CreateSpaceFixture("http-ingest-no-embed", tplID)
+		require.NoError(t, env.ClearSpaceEmbedding(noEmbedSpace.UUID))
+		body := map[string]any{
+			"format":    "pdf",
+			"sourceUri": "s3://bucket/no-embed.pdf",
+		}
+		payload, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/ingestion-jobs", noEmbedSpace.UUID), bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
+		require.Equal(t, http.StatusPreconditionFailed, resp.Code)
+
+		var apiResp struct {
+			ErrorCode string `json:"errorCode"`
+		}
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
+		require.Equal(t, "embedding_not_configured", apiResp.ErrorCode)
+	})
 }

@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
-// HuggingFaceEmbedder calls Hugging Face Inference API "feature-extraction" pipeline and pools to a single vector.
+// HuggingFaceEmbedder calls Hugging Face Router Inference API and pools to a single vector.
+// It prefers OpenAI-compatible /v1/embeddings when configured, then falls back to the
+// pipeline/feature-extraction endpoints.
 //
 // API (typical):
-//   POST https://api-inference.huggingface.co/pipeline/feature-extraction/{model}
+//   POST https://router.huggingface.co/hf-inference/models/{model}/pipeline/feature-extraction
+//   POST https://router.huggingface.co/pipeline/feature-extraction/{model}
 //   Authorization: Bearer <token>
 //   Body: {"inputs": "text"} or {"inputs": ["t1","t2"]}
 //
@@ -35,6 +39,11 @@ type hfEmbReq struct {
 	Inputs any `json:"inputs"` // string or []string
 }
 
+type hfReqTry struct {
+	url  string
+	body any
+}
+
 func (e *HuggingFaceEmbedder) client() *http.Client {
 	if e.HTTP != nil {
 		return e.HTTP
@@ -47,15 +56,59 @@ func (e *HuggingFaceEmbedder) client() *http.Client {
 }
 
 func (e *HuggingFaceEmbedder) base() string {
-	if strings.TrimSpace(e.BaseURL) == "" {
-		return "https://api-inference.huggingface.co"
+	base := strings.TrimSpace(e.BaseURL)
+	if base == "" {
+		return "https://router.huggingface.co"
 	}
-	return strings.TrimRight(strings.TrimSpace(e.BaseURL), "/")
+	base = strings.TrimRight(base, "/")
+	if strings.HasSuffix(base, "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	return base
+}
+
+func (e *HuggingFaceEmbedder) baseV1() string {
+	base := strings.TrimSpace(e.BaseURL)
+	if base == "" {
+		return "https://router.huggingface.co/v1"
+	}
+	base = strings.TrimRight(base, "/")
+	if strings.HasSuffix(base, "/v1") {
+		return base
+	}
+	return base + "/v1"
 }
 
 func (e *HuggingFaceEmbedder) endpoint() string {
 	// NOTE: model contains slashes (org/name). It must be preserved in the path.
 	return e.base() + "/pipeline/feature-extraction/" + strings.TrimSpace(e.Model)
+}
+
+func (e *HuggingFaceEmbedder) endpoints(inputs any) []hfReqTry {
+	model := strings.TrimSpace(e.Model)
+	base := e.base()
+	modelEsc := url.QueryEscape(model)
+	return []hfReqTry{
+		{url: base + "/hf-inference/models/" + model + "/pipeline/feature-extraction", body: hfEmbReq{Inputs: inputs}},
+		{url: base + "/pipeline/feature-extraction/" + model, body: hfEmbReq{Inputs: inputs}},
+		{url: base + "/hf-inference/pipeline/feature-extraction/" + model, body: hfEmbReq{Inputs: inputs}},
+		{url: base + "/pipeline/feature-extraction?model=" + modelEsc, body: hfEmbReq{Inputs: inputs}},
+		{url: base + "/hf-inference/pipeline/feature-extraction?model=" + modelEsc, body: hfEmbReq{Inputs: inputs}},
+		{
+			url: base + "/hf-inference/models/" + model,
+			body: map[string]any{
+				"inputs": inputs,
+				"task":   "feature-extraction",
+			},
+		},
+		{
+			url: base + "/models/" + model,
+			body: map[string]any{
+				"inputs": inputs,
+				"task":   "feature-extraction",
+			},
+		},
+	}
 }
 
 func (e *HuggingFaceEmbedder) batchSize() int {
@@ -95,65 +148,112 @@ func (e *HuggingFaceEmbedder) embedOnce(ctx context.Context, batch []string) ([]
 	} else {
 		in = batch
 	}
-	reqBody := hfEmbReq{Inputs: in}
-	bs, _ := json.Marshal(reqBody)
+	var lastErr error
+	attempted := make([]string, 0, 8)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.endpoint(), bytes.NewReader(bs))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if strings.TrimSpace(e.APIKey) != "" {
-		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(e.APIKey))
-	}
-
-	resp, err := e.client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("huggingface embeddings HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var raw any
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, err
-	}
-
-	// Normalize to batch output.
-	switch v := raw.(type) {
-	case []any:
-		// could be [D] (single vector), [T][D] (single token embeddings), [B][D], or [B][T][D]
-		if isNumberSlice(v) {
-			return [][]float32{toF32(v)}, nil
+	// 1) Prefer OpenAI-compatible embeddings when configured.
+	if baseV1 := e.baseV1(); strings.TrimSpace(baseV1) != "" {
+		oai := OpenAIEmbedder{
+			BaseURL:  baseV1,
+			APIKey:   e.APIKey,
+			Model:    e.Model,
+			Timeout:  e.Timeout,
+			HTTP:     e.HTTP,
+			MaxBatch: len(batch),
 		}
-		if isNumberMatrix(v) {
-			// token embeddings => pool to one
-			return [][]float32{poolAvg(toF32Matrix(v))}, nil
+		attempted = append(attempted, oai.endpoint())
+		if vecs, err := oai.Embed(ctx, batch); err == nil {
+			return vecs, nil
+		} else if !shouldFallbackToPipeline(err) {
+			return nil, err
+		} else {
+			lastErr = err
 		}
-		if isBatchVectors(v) {
-			out := make([][]float32, 0, len(v))
-			for _, item := range v {
-				switch vv := item.(type) {
-				case []any:
-					if isNumberSlice(vv) {
-						out = append(out, toF32(vv))
-						continue
-					}
-					if isNumberMatrix(vv) {
-						out = append(out, poolAvg(toF32Matrix(vv)))
-						continue
-					}
+	}
+
+	tries := e.endpoints(in)
+	for i, t := range tries {
+		attempted = append(attempted, t.url)
+		bs, _ := json.Marshal(t.body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.url, bytes.NewReader(bs))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if strings.TrimSpace(e.APIKey) != "" {
+			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(e.APIKey))
+		}
+
+		resp, err := e.client().Do(req)
+		if err != nil {
+			return nil, err
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode/100 != 2 {
+			msg := strings.TrimSpace(string(body))
+			lastErr = fmt.Errorf("huggingface embeddings HTTP %d (%s): %s", resp.StatusCode, t.url, msg)
+			if resp.StatusCode == http.StatusNotFound ||
+				(resp.StatusCode == http.StatusBadRequest && strings.Contains(msg, "SentenceSimilarityPipeline")) {
+				if i < len(tries)-1 {
+					continue
 				}
-				return nil, fmt.Errorf("huggingface embeddings: unexpected batch item shape")
 			}
-			return out, nil
+			return nil, lastErr
 		}
+
+		var raw any
+		if err := json.Unmarshal(body, &raw); err != nil {
+			return nil, err
+		}
+
+		// Normalize to batch output.
+		switch v := raw.(type) {
+		case []any:
+			// could be [D] (single vector), [T][D] (single token embeddings), [B][D], or [B][T][D]
+			if isNumberSlice(v) {
+				return [][]float32{toF32(v)}, nil
+			}
+			if isNumberMatrix(v) {
+				// token embeddings => pool to one
+				return [][]float32{poolAvg(toF32Matrix(v))}, nil
+			}
+			if isBatchVectors(v) {
+				out := make([][]float32, 0, len(v))
+				for _, item := range v {
+					switch vv := item.(type) {
+					case []any:
+						if isNumberSlice(vv) {
+							out = append(out, toF32(vv))
+							continue
+						}
+						if isNumberMatrix(vv) {
+							out = append(out, poolAvg(toF32Matrix(vv)))
+							continue
+						}
+					}
+					return nil, fmt.Errorf("huggingface embeddings: unexpected batch item shape")
+				}
+				return out, nil
+			}
+		}
+
+		return nil, fmt.Errorf("huggingface embeddings: unexpected response shape")
 	}
 
-	return nil, fmt.Errorf("huggingface embeddings: unexpected response shape")
+	if lastErr != nil {
+		return nil, fmt.Errorf("%v; attempted=%s", lastErr, strings.Join(attempted, ","))
+	}
+	return nil, fmt.Errorf("huggingface embeddings: request failed")
+}
+
+func shouldFallbackToPipeline(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "openai embeddings http 404") ||
+		strings.Contains(msg, "openai embeddings http 410")
 }
 
 func isNumberSlice(v []any) bool {
@@ -234,4 +334,3 @@ func poolAvg(tokens [][]float32) []float32 {
 	}
 	return sum
 }
-

@@ -24,6 +24,7 @@ import (
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -525,6 +526,7 @@ func (s *AgentSettingService) resolveConnFromStore(
 
 	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
+		logger.WarnF(ctx, "[agent_setting] credential lookup failed env=%s tenant=%s provider=%s name=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, name, err)
 		return baseURL, apiKey, err
 	}
 	// 先用存量 base_url
@@ -542,14 +544,28 @@ func (s *AgentSettingService) resolveConnFromStore(
 			apiKey = strings.TrimSpace(v)
 		}
 
-		var sec struct {
-			APIKey string `json:"api_key"`
-			Secret string `json:"secret"`
-		}
+		sec := map[string]any{}
 		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 			if apiKey == "" {
-				apiKey = strings.TrimSpace(sec.APIKey)
+				if v, ok := sec["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["access_token"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["secret"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				}
 			}
+			if apiKey == "" {
+				keys := make([]string, 0, len(sec))
+				for k := range sec {
+					keys = append(keys, k)
+				}
+				logger.WarnF(ctx, "[agent_setting] resolved empty api_key after unseal env=%s tenant=%s provider=%s sealed_keys=%v", env, s.tenantScopeKey(tenantUUID), provider, keys)
+			}
+		} else if cred.Data != nil && cred.Data["__sealed"] != nil {
+			logger.WarnF(ctx, "[agent_setting] unseal api_key failed env=%s tenant=%s provider=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, e)
+		} else {
+			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
 	}
 	return baseURL, apiKey, nil
@@ -789,6 +805,11 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 	}
 
 	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
 	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 	if err != nil {
 		return 0, err

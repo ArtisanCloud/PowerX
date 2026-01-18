@@ -48,5 +48,33 @@
       "degraded": false,
       "completedAt": "2026-01-14T12:48:01.923354+08:00"
     }
+  },
+  "bc527391-2394-4d27-98aa-78b344878e53": {
+    "ingestion": {
+      "spaceId": "bc527391-2394-4d27-98aa-78b344878e53",
+      "jobId": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+      "status": "completed",
+      "retryCount": 0,
+      "chunkTotal": 108,
+      "summaryChunkCount": 2,
+      "paragraphChunkCount": 106,
+      "coveragePct": 100,
+      "embeddingPct": 0,
+      "maskingPct": 100,
+      "ocrRequired": false,
+      "ocrUsed": false,
+      "ocrCoveragePct": 0,
+      "ocrConfidenceBuckets": {
+        "0.0-0.5": 0,
+        "0.5-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "ocrLatencyMs": 217,
+      "ocrPages": 1,
+      "degraded": true,
+      "errorCode": "embedding_failed",
+      "reason": "embed_failed: context deadline exceeded (Client.Timeout or context cancellation while reading body)",
+      "completedAt": "2026-01-16T14:34:31.739008+08:00"
+    }
   }
 }

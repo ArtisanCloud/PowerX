@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type IngestionChunkListResult, type IngestionChunkRecord } from "~/composables/useKnowledgeSpaces";
 import { useMediaAssetService, type MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead({ title: "切块预览" });
 
@@ -9,6 +10,8 @@ const route = useRoute();
 const api = useKnowledgeSpaces();
 const media = useMediaAssetService();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spaceId = computed(() => String(route.params.spaceId || "").trim());
 const jobId = computed(() => String(route.params.jobId || "").trim());
@@ -216,6 +219,7 @@ const filteredCountHint = computed(() => {
 });
 
 const fetchChunks = async () => {
+  if (!embeddingReady.value) return;
   if (!spaceId.value || !jobId.value) return;
   loading.value = true;
   error.value = null;
@@ -240,6 +244,7 @@ const extractMediaUUIDFromURL = (raw: string) => {
 };
 
 const fetchSpaceAndAsset = async () => {
+  if (!embeddingReady.value) return;
   if (!spaceId.value) return;
   try {
     const space = await api.getSpace(spaceId.value);
@@ -262,11 +267,19 @@ const fetchSpaceAndAsset = async () => {
 };
 
 onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
   await fetchChunks();
   await fetchSpaceAndAsset();
 });
-watch(() => [spaceId.value, jobId.value, page.value, pageSize.value] as const, fetchChunks);
-watch(() => [spaceId.value, result.value?.sourceUri] as const, fetchSpaceAndAsset);
+watch(() => [spaceId.value, jobId.value, page.value, pageSize.value] as const, () => {
+  if (!embeddingReady.value) return;
+  fetchChunks();
+});
+watch(() => [spaceId.value, result.value?.sourceUri] as const, () => {
+  if (!embeddingReady.value) return;
+  fetchSpaceAndAsset();
+});
 
 const sourceLink = computed(() => String(result.value?.sourceUri || "").trim());
 const format = computed(() => String(result.value?.format || "").trim());

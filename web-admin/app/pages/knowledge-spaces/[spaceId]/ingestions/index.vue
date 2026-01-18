@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type IngestionJobRecord } from "~/composables/useKnowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead({ title: "入库记录" });
 
@@ -8,6 +9,8 @@ const route = useRoute();
 const router = useRouter();
 const api = useKnowledgeSpaces();
 const toast = useToast();
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const spaceId = computed(() => String(route.params.spaceId || "").trim());
 const loading = ref(false);
@@ -19,6 +22,7 @@ const deleteTargetJobId = ref<string>("");
 const deleteError = ref<string | null>(null);
 
 const fetchJobs = async () => {
+  if (!embeddingReady.value) return;
   if (!spaceId.value) return;
   loading.value = true;
   error.value = null;
@@ -32,7 +36,11 @@ const fetchJobs = async () => {
   }
 };
 
-onMounted(fetchJobs);
+onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
+  await fetchJobs();
+});
 watch(() => spaceId.value, fetchJobs);
 
 const goBack = async () => {

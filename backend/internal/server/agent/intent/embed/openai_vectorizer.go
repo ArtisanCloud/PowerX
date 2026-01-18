@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -100,11 +101,17 @@ func (e *OpenAIEmbedder) embedOnce(ctx context.Context, batch []string) ([][]flo
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("openai embeddings HTTP %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		msg := string(bytes.TrimSpace(body))
+		if msg != "" {
+			return nil, fmt.Errorf("openai embeddings HTTP %d (%s): %s", resp.StatusCode, e.endpoint(), msg)
+		}
+		return nil, fmt.Errorf("openai embeddings HTTP %d (%s)", resp.StatusCode, e.endpoint())
 	}
 
 	var or openaiEmbResp
-	if err := json.NewDecoder(resp.Body).Decode(&or); err != nil {
+	body, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &or); err != nil {
 		return nil, err
 	}
 	// OpenAI 不保证返回顺序绝对与输入一致，但一般 index 对应；按 index 排序更严谨（此处直接按顺序读取）

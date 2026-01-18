@@ -138,6 +138,11 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		AnchorSentenceIndex: req.AnchorSentenceIndex,
 	})
 	if err != nil {
+		var appErr *dto.AppError
+		if errors.As(err, &appErr) {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		switch {
 		case errors.Is(err, ksvc.ErrInvalidInput):
 			dto.ResponseError(c, http.StatusBadRequest, "入库参数不合法", err)

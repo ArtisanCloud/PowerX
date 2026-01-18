@@ -3,6 +3,7 @@ package testenv
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
+	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
@@ -27,6 +29,7 @@ import (
 	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	settingmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
@@ -34,6 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -65,6 +69,7 @@ func New(t testing.TB) *Env {
 
 	gin.SetMode(gin.TestMode)
 
+	tenantID := uuid.New()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", uuid.NewString())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
@@ -74,7 +79,10 @@ func New(t testing.TB) *Env {
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 
 	require.NoError(t, db.AutoMigrate(
+		&agentmodel.AIModelProfile{},
+		&settingmodel.TenantSetting{},
 		&models.KnowledgeSpace{},
+		&models.KnowledgeVectorIndex{},
 		&models.PolicyTemplateVersion{},
 		&models.IngestionJob{},
 		&models.ArtifactBundle{},
@@ -231,9 +239,9 @@ func New(t testing.TB) *Env {
 
 	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
 	pipelineInner := knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
-		EventBus:    bus,
-		EventTopic:  reprocessTopic,
-		Clock:       time.Now,
+		EventBus:   bus,
+		EventTopic: reprocessTopic,
+		Clock:      time.Now,
 	})
 	pipelineStub := NewReprocessPipelineStub().WithInner(pipelineInner)
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
@@ -308,12 +316,12 @@ func New(t testing.TB) *Env {
 		},
 	}
 
-	return &Env{
+	env := &Env{
 		T:                         t,
 		DB:                        db,
 		Deps:                      deps,
 		Bus:                       bus,
-		tenantID:                  uuid.New(),
+		tenantID:                  tenantID,
 		VectorStore:               vectorStore,
 		SparseIndex:               sparseIndex,
 		Pipeline:                  pipelineStub,
@@ -327,6 +335,8 @@ func New(t testing.TB) *Env {
 		ReleaseReportPath:         releaseReportPath,
 		QABridgeReportPath:        qaBridgeReportPath,
 	}
+	require.NoError(t, env.seedTenantEmbeddingProfile())
+	return env
 }
 
 func findProjectRoot(t testing.TB) string {
@@ -486,7 +496,123 @@ func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.Knowledge
 		FeatureFlags:   []string{"ingestion.dual-chunk"},
 	})
 	require.NoError(e.T, err)
+	require.NoError(e.T, e.ensureEmbeddingForSpace(space))
 	return space
+}
+
+func (e *Env) seedTenantEmbeddingProfile() error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	ctx := context.Background()
+	env := "default"
+	tenant := e.tenantID.String()
+	provider := "hash"
+	model := "hash"
+	dimensions := 32
+	profile := &agentmodel.AIModelProfile{
+		Env:        env,
+		TenantUUID: &tenant,
+		Modality:   "embedding",
+		Provider:   provider,
+		Model:      model,
+		Label:      "test.embedding",
+		Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+		CapCache: datatypes.JSONMap{
+			"dimensions": dimensions,
+			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+		},
+		Tags: []string{"embedding", "test"},
+	}
+	return e.DB.WithContext(ctx).Create(profile).Error
+}
+
+func (e *Env) ensureEmbeddingForSpace(space *models.KnowledgeSpace) error {
+	if e == nil || e.DB == nil || space == nil {
+		return fmt.Errorf("invalid embedding setup input")
+	}
+	ctx := context.Background()
+	env := "default"
+	tenant := e.tenantID.String()
+	provider := "hash"
+	model := "hash"
+	dimensions := 32
+	profileKey := fmt.Sprintf("%s/%s", provider, model)
+
+	profile := &agentmodel.AIModelProfile{
+		Env:        env,
+		TenantUUID: &tenant,
+		Modality:   "embedding",
+		Provider:   provider,
+		Model:      model,
+		Label:      "test.embedding",
+		Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+		CapCache:   datatypes.JSONMap{"dimensions": dimensions},
+		Tags:       []string{"embedding", "test"},
+	}
+	var exist agentmodel.AIModelProfile
+	err := e.DB.WithContext(ctx).
+		Where("env = ? AND tenant_uuid = ? AND modality = ? AND provider = ? AND model = ?", env, tenant, "embedding", provider, model).
+		First(&exist).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		if err := e.DB.WithContext(ctx).Create(profile).Error; err != nil {
+			return err
+		}
+	case err != nil:
+		return err
+	default:
+		_ = e.DB.WithContext(ctx).Model(&exist).Updates(map[string]any{
+			"defaults":  profile.Defaults,
+			"cap_cache": profile.CapCache,
+		}).Error
+	}
+
+	indexKey := fmt.Sprintf("dense_v1_%d", dimensions)
+	tableName := fmt.Sprintf("knowledge_vectors_v1_%d", dimensions)
+	index := &models.KnowledgeVectorIndex{
+		SpaceUUID:           space.UUID,
+		IndexKey:            indexKey,
+		VectorTable:         tableName,
+		Dimensions:          dimensions,
+		EmbeddingProvider:   provider,
+		EmbeddingModel:      model,
+		EmbeddingProfileRef: profileKey,
+		Status:              models.KnowledgeVectorIndexStatusActive,
+	}
+	if err := e.DB.WithContext(ctx).
+		Where("space_uuid = ? AND index_key = ?", space.UUID, indexKey).
+		FirstOrCreate(index).Error; err != nil {
+		return err
+	}
+
+	return e.DB.WithContext(ctx).Model(space).Updates(map[string]any{
+		"embedding_profile_key":   profileKey,
+		"active_vector_index_key": indexKey,
+	}).Error
+}
+
+func (e *Env) ClearSpaceEmbedding(spaceID uuid.UUID) error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	return e.DB.WithContext(context.Background()).
+		Model(&models.KnowledgeSpace{}).
+		Where("uuid = ?", spaceID).
+		Updates(map[string]any{
+			"embedding_profile_key":   "",
+			"active_vector_index_key": "",
+		}).Error
+}
+
+func (e *Env) ClearTenantEmbeddingConfig() error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	tenant := e.tenantID.String()
+	return e.DB.WithContext(context.Background()).
+		Where("tenant_uuid = ? AND modality = ?", tenant, "embedding").
+		Delete(&agentmodel.AIModelProfile{}).Error
 }
 
 // ActivateSpace forces a space status to active for downstream flows.
