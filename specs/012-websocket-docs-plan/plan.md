@@ -5,7 +5,7 @@
 
 ## Summary
 
-为 PowerX 提供单连接、多主题的通用 WebSocket 消息总线，用于入库任务进度实时推送，并保留轮询回退；实现租户切换重连、无权限订阅拒绝、前端节流展示。
+为 PowerX 提供单连接、多主题的通用 WebSocket 消息总线，用于入库任务进度实时推送，并保留轮询回退；同时落地通知持久化与 WS 实时推送能力；实现租户切换重连、无权限订阅拒绝、前端节流展示。
 
 ## Technical Context
 
@@ -59,7 +59,9 @@ specs/012-websocket-docs-plan/
 backend/
 ├── internal/transport/websocket/
 ├── internal/transport/http/admin/knowledge_space/
+├── internal/transport/http/admin/notifications/
 ├── internal/service/knowledge_space/
+├── internal/service/notifications/
 ├── internal/service/agent/
 ├── internal/bootstrap/app.go
 └── internal/http/router.go
@@ -80,5 +82,12 @@ web-admin/
 
 1. **WS 基础设施**：Hub、鉴权、租户绑定、消息 envelope。
 2. **入库进度推送**：服务端发布、前端订阅与节流展示。
-3. **断线回退**：轮询兜底 + 自动重连/租户切换重连。
-4. **校验与观测**：手工验证、日志与指标检查。
+3. **通知持久化 + WS 推送**：通知表/接口/列表接入，总线推送。
+4. **断线回退**：轮询兜底 + 自动重连/租户切换重连。
+5. **校验与观测**：手工验证、日志与指标检查。
+
+## Notification Data Flow
+
+1. 后端写入通知记录（含租户/成员维度）。
+2. 写库成功后通过 WS 总线推送 `system.notification`。
+3. 前端通知列表接收 WS 增量并与列表接口对齐。

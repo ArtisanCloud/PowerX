@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type IngestionChunkListResult, type IngestionChunkRecord, type IngestionJobRecord } from "~/composables/useKnowledgeSpaces";
 import { useMediaAssetService, type MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
+import { useWSBus } from "~/composables/useWSBus";
+import { type IngestionProgress } from "~/composables/wsBus";
 
 useHead({ title: "切块预览" });
 
@@ -11,6 +13,7 @@ const router = useRouter();
 const api = useKnowledgeSpaces();
 const media = useMediaAssetService();
 const toast = useToast();
+const wsBus = useWSBus();
 const { ensureEmbeddingReady } = useEmbeddingGuard();
 const embeddingReady = ref(false);
 
@@ -21,6 +24,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const result = ref<IngestionChunkListResult | null>(null);
 const jobInfo = ref<IngestionJobRecord | null>(null);
+const wsProgress = ref<IngestionProgress | null>(null);
 const spaceName = ref<string>("");
 const sourceAsset = ref<MediaAssetAdminView | null>(null);
 
@@ -28,6 +32,12 @@ const page = ref(1);
 const pageSize = ref(50);
 const keyword = ref("");
 const kindFilter = ref<string>("auto");
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let progressTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingProgress: IngestionProgress | null = null;
+let lastJobStatus = "";
+let unsubscribeIngestionProgress: (() => void) | null = null;
 
 const editOpen = ref(false);
 const editing = ref(false);
@@ -258,6 +268,16 @@ const fetchChunks = async () => {
   }
 };
 
+const fetchJobStatus = async () => {
+  if (!embeddingReady.value) return;
+  if (!spaceId.value || !jobId.value) return;
+  try {
+    jobInfo.value = await api.getIngestionJob(spaceId.value, jobId.value);
+  } catch {
+    // ignore
+  }
+};
+
 const extractMediaUUIDFromURL = (raw: string) => {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -296,6 +316,24 @@ onMounted(async () => {
   embeddingReady.value = true;
   await fetchChunks();
   await fetchSpaceAndAsset();
+  if (process.client) {
+    wsBus.connect();
+    subscribeIngestionProgress();
+  }
+});
+onBeforeUnmount(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  if (progressTimer) {
+    clearTimeout(progressTimer);
+    progressTimer = null;
+  }
+  if (unsubscribeIngestionProgress) {
+    unsubscribeIngestionProgress();
+    unsubscribeIngestionProgress = null;
+  }
 });
 watch(() => [spaceId.value, jobId.value, page.value, pageSize.value] as const, () => {
   if (!embeddingReady.value) return;
@@ -306,12 +344,151 @@ watch(() => [spaceId.value, result.value?.sourceUri] as const, () => {
   fetchSpaceAndAsset();
 });
 
+watch(
+  () => [wsBus.connected.value, jobInfo.value?.status] as const,
+  () => {
+    ensurePolling();
+  }
+);
+
+watch(
+  () => wsBus.activeTenant.value,
+  () => {
+    if (!process.client) return;
+    if (unsubscribeIngestionProgress) {
+      unsubscribeIngestionProgress();
+      unsubscribeIngestionProgress = null;
+    }
+    wsBus.connect();
+    subscribeIngestionProgress();
+  }
+);
+
 const sourceLink = computed(() => String(result.value?.sourceUri || "").trim());
 const format = computed(() => String(result.value?.format || "").trim());
+const wsRealtimeLabel = computed(() => (wsBus.connected.value ? "实时" : "轮询"));
+const wsRealtimeDesc = computed(() => (wsBus.connected.value ? "WS 已连接" : "WS 未连接，使用轮询兜底"));
+const statusColor = computed(() => {
+  const s = String(jobInfo.value?.status || "").toLowerCase();
+  if (s === "completed") return "success";
+  if (s === "failed") return "error";
+  if (s === "blocked") return "warning";
+  return "neutral";
+});
+const showProgress = computed(() => isRunningStatus(jobInfo.value?.status));
+
+const isRunningStatus = (status?: string) => {
+  const s = String(status || "").toLowerCase();
+  return s === "running" || s === "retrying" || s === "pending";
+};
+
+const jobProgressPct = (job?: IngestionJobRecord | null) => {
+  if (!job) return 0;
+  const pct =
+    (typeof job.chunkCoveragePct === "number" ? job.chunkCoveragePct : 0) ||
+    (typeof job.embeddingSuccessPct === "number" ? job.embeddingSuccessPct : 0) ||
+    (typeof job.maskingCoveragePct === "number" ? job.maskingCoveragePct : 0);
+  if (!Number.isFinite(pct) || pct < 0) return 0;
+  return Math.min(100, Math.max(0, pct));
+};
+
+const displayProgress = computed(() => {
+  if (wsProgress.value && Number.isFinite(wsProgress.value.progress)) {
+    return Math.min(100, Math.max(0, wsProgress.value.progress));
+  }
+  return jobProgressPct(jobInfo.value);
+});
+
+const stageLabel = computed(() => wsProgress.value?.stage || "");
+const statusLabel = computed(() => String(jobInfo.value?.status || "unknown"));
 
 const chunkSourceURL = (item: IngestionChunkRecord) => {
   const v = item?.metadata?.source_uri;
   return isHTTPURL(v) ? String(v).trim() : "";
+};
+
+const ensurePolling = () => {
+  const running = isRunningStatus(jobInfo.value?.status);
+  if (!running || wsBus.connected.value) {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    return;
+  }
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    if (!embeddingReady.value) return;
+    await fetchJobStatus();
+    if (!isRunningStatus(jobInfo.value?.status)) {
+      await fetchChunks();
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+  }, 5000);
+};
+
+const applyProgressUpdate = async (payload: IngestionProgress) => {
+  if (!payload || payload.job_uuid !== jobId.value) return;
+  wsProgress.value = payload;
+  if (!jobInfo.value) {
+    jobInfo.value = {
+      jobId: payload.job_uuid,
+      status: payload.status,
+      retryCount: 0,
+      chunkTotal: payload.chunk_total || 0,
+      chunkCoveragePct: payload.progress || 0,
+      embeddingSuccessPct: payload.embedding_pct || 0,
+      maskingCoveragePct: payload.masking_pct || 0,
+    };
+  } else {
+    jobInfo.value = {
+      ...jobInfo.value,
+      status: payload.status,
+      chunkTotal: payload.chunk_total ?? jobInfo.value.chunkTotal,
+      chunkCoveragePct: Number.isFinite(payload.progress) ? payload.progress : jobInfo.value.chunkCoveragePct,
+      embeddingSuccessPct: Number.isFinite(payload.embedding_pct) ? payload.embedding_pct : jobInfo.value.embeddingSuccessPct,
+      maskingCoveragePct: Number.isFinite(payload.masking_pct) ? payload.masking_pct : jobInfo.value.maskingCoveragePct,
+    };
+  }
+  if (!lastJobStatus) lastJobStatus = String(jobInfo.value?.status || "");
+  const terminal = !isRunningStatus(payload.status);
+  if (terminal && lastJobStatus !== payload.status) {
+    lastJobStatus = payload.status;
+    await fetchChunks();
+  }
+};
+
+const scheduleProgressUpdate = (payload: IngestionProgress) => {
+  if (!payload) return;
+  if (!isRunningStatus(payload.status)) {
+    if (progressTimer) {
+      clearTimeout(progressTimer);
+      progressTimer = null;
+    }
+    pendingProgress = null;
+    void applyProgressUpdate(payload);
+    return;
+  }
+  pendingProgress = payload;
+  if (progressTimer) return;
+  progressTimer = setTimeout(() => {
+    progressTimer = null;
+    if (pendingProgress) {
+      void applyProgressUpdate(pendingProgress);
+      pendingProgress = null;
+    }
+  }, 1000);
+};
+
+const subscribeIngestionProgress = () => {
+  if (unsubscribeIngestionProgress) return;
+  unsubscribeIngestionProgress = wsBus.subscribe("knowledge.ingestion.job", (payload) => {
+    if (!payload) return;
+    scheduleProgressUpdate(payload as IngestionProgress);
+  });
 };
 
 const getProvenancePages = (item: IngestionChunkRecord): ProvenancePage[] => {
@@ -559,6 +736,23 @@ const saveEdit = async () => {
         </UButton>
       </div>
     </div>
+
+    <UCard :ui="{ body: 'p-4 sm:p-5 space-y-3' }">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="text-sm font-medium">任务状态</div>
+        <UBadge :color="statusColor" variant="soft">{{ statusLabel }}</UBadge>
+        <UBadge color="neutral" variant="soft">{{ wsRealtimeLabel }}</UBadge>
+        <span class="text-xs text-[var(--text-tertiary)]">{{ wsRealtimeDesc }}</span>
+      </div>
+      <div v-if="showProgress" class="space-y-2">
+        <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <span>阶段：{{ stageLabel || "处理中" }}</span>
+          <span>·</span>
+          <span>进度：{{ displayProgress.toFixed(0) }}%</span>
+        </div>
+        <UProgress :value="displayProgress" color="primary" />
+      </div>
+    </UCard>
 
     <UAlert
       v-if="segmentStrategyHint"

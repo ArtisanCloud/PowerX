@@ -8,6 +8,7 @@ import (
 
 const (
 	TopicKnowledgeIngestionJob = "knowledge.ingestion.job"
+	TopicSystemNotification    = "system.notification"
 )
 
 // Hub manages WS sessions and topic subscriptions.

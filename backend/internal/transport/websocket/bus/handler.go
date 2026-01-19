@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
@@ -16,10 +16,10 @@ type Handler struct {
 	authorizer Authorizer
 }
 
-func NewHandler(deps *shared.Deps) *Handler {
+func NewHandler(db *gorm.DB) *Handler {
 	var authorizer Authorizer
-	if deps != nil {
-		authorizer = NewDefaultAuthorizer(deps.DB)
+	if db != nil {
+		authorizer = NewDefaultAuthorizer(db)
 	}
 	return &Handler{
 		hub:        DefaultHub,

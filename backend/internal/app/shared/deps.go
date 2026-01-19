@@ -69,7 +69,7 @@ import (
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
-	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
+	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
 	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -1463,7 +1463,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			if strings.TrimSpace(update.TenantUUID) == "" {
 				return
 			}
-			bus.DefaultHub.Publish(update.TenantUUID, bus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
+			wsbus.DefaultHub.Publish(update.TenantUUID, wsbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
 		}),
 	})
 	svc.AttachIngestion(ingestionSvc)

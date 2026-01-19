@@ -156,6 +156,20 @@ export const useNotifications = () => {
     },
   ];
 
+  const normalizeDate = (value?: Date | string | null) => {
+    if (!value) return new Date();
+    if (value instanceof Date) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  const nextId = () => {
+    if (process.client && typeof crypto?.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  };
+
   // 获取通知列表
   const fetchNotifications = async () => {
     loading.value = true;
@@ -201,6 +215,28 @@ export const useNotifications = () => {
     } finally {
       loading.value = false;
     }
+  };
+
+  const addNotification = async (input: Partial<Notification>) => {
+    const createdAt = normalizeDate(input.createdAt || input.updatedAt || null);
+    const payload: Notification = {
+      id: input.id || nextId(),
+      title: input.title || "新通知",
+      content: input.content || "",
+      type: input.type || "info",
+      category: input.category || "system",
+      isRead: input.isRead ?? false,
+      isImportant: input.isImportant ?? false,
+      createdAt,
+      updatedAt: normalizeDate(input.updatedAt || createdAt),
+      userId: input.userId,
+      relatedId: input.relatedId,
+      relatedType: input.relatedType,
+      actions: input.actions,
+      metadata: input.metadata,
+    };
+    mockNotifications.unshift(payload);
+    await fetchNotifications();
   };
 
   // 获取单个通知详情
@@ -318,5 +354,6 @@ export const useNotifications = () => {
     setFilter,
     clearFilter,
     executeAction,
+    addNotification,
   };
 };

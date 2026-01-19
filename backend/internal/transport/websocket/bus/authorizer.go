@@ -49,6 +49,8 @@ func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic
 	switch topic {
 	case TopicKnowledgeIngestionJob:
 		return a.enforceKnowledgeRead(ctx, client)
+	case TopicSystemNotification:
+		return nil
 	default:
 		return ErrTopicNotAllowed
 	}

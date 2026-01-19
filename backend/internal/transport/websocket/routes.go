@@ -28,6 +28,6 @@ func RegisterWSRoutes(
 	busGroup := r.Group("/api")
 	busGroup.Use(BearerShim())
 	busGroup.Use(authMiddleware)
-	busHandler := bus.NewHandler(deps)
+	busHandler := bus.NewHandler(deps.DB)
 	busGroup.GET("/ws", busHandler.ServeWS)
 }
