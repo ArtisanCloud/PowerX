@@ -151,22 +151,30 @@ type AgentLifecycleNotificationOptions struct {
 
 // KnowledgeSpaceOptions 描述知识空间域依赖。
 type KnowledgeSpaceOptions struct {
-	RedisAddr              string
-	RedisPassword          string
-	RedisDB                int
-	LockKeyPrefix          string
-	MetricsKeyPrefix       string
-	DefaultRetentionMonths int
-	ProvisioningSLA        time.Duration
-	IngestionSLA           time.Duration
-	EventTopics            KnowledgeSpaceEventTopicsOptions
-	Notifications          KnowledgeSpaceNotificationOptions
-	VectorStore            KnowledgeSpaceVectorStoreOptions
-	Delta                  KnowledgeSpaceDeltaOptions
-	Reports                KnowledgeSpaceReportOptions
-	EventHotfix            KnowledgeSpaceEventHotfixOptions
-	Decay                  KnowledgeSpaceDecayOptions
-	Release                KnowledgeSpaceReleaseOptions
+	RedisAddr                string
+	RedisPassword            string
+	RedisDB                  int
+	LockKeyPrefix            string
+	MetricsKeyPrefix         string
+	DefaultRetentionMonths   int
+	ProvisioningSLA          time.Duration
+	IngestionSLA             time.Duration
+	SceneStrategyCatalogPath string
+	IngestionProcessors      KnowledgeSpaceIngestionProcessorOptions
+	EventTopics              KnowledgeSpaceEventTopicsOptions
+	Notifications            KnowledgeSpaceNotificationOptions
+	VectorStore              KnowledgeSpaceVectorStoreOptions
+	Delta                    KnowledgeSpaceDeltaOptions
+	Reports                  KnowledgeSpaceReportOptions
+	EventHotfix              KnowledgeSpaceEventHotfixOptions
+	Decay                    KnowledgeSpaceDecayOptions
+	Release                  KnowledgeSpaceReleaseOptions
+}
+
+// KnowledgeSpaceIngestionProcessorOptions 控制入库处理器能力开关（nil 表示自动探测）。
+type KnowledgeSpaceIngestionProcessorOptions struct {
+	PDFTextAvailable *bool
+	OCRAvailable     *bool
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {

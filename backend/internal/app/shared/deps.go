@@ -19,6 +19,7 @@ import (
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
+	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -459,7 +460,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc)
+	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps, tenantSvc)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -784,6 +785,7 @@ type KnowledgeSpaceDeps struct {
 	Ingestion       *knowledgeService.IngestionService
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
+	CorpusCheck     *knowledgeService.CorpusCheckService
 	Delta           *ksdelta.Service
 	EventHotfix     *event_hotfix.Service
 	DecayGuard      *decay_guard.Service
@@ -794,13 +796,14 @@ type KnowledgeSpaceDeps struct {
 
 // KnowledgeSpaceRuntimeConfig 描述运行期常用配置。
 type KnowledgeSpaceRuntimeConfig struct {
-	LockKeyPrefix          string
-	MetricsKeyPrefix       string
-	DefaultRetentionMonths int
-	ProvisioningSLA        time.Duration
-	IngestionSLA           time.Duration
-	EventTopics            KnowledgeSpaceEventTopicsOptions
-	Notifications          KnowledgeSpaceNotificationOptions
+	LockKeyPrefix            string
+	MetricsKeyPrefix         string
+	DefaultRetentionMonths   int
+	ProvisioningSLA          time.Duration
+	IngestionSLA             time.Duration
+	SceneStrategyCatalogPath string
+	EventTopics              KnowledgeSpaceEventTopicsOptions
+	Notifications            KnowledgeSpaceNotificationOptions
 }
 
 // AgentLifecycleDeps 聚合 Agent 生命周期运行所需依赖。
@@ -953,7 +956,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Audit:     auditSvcEF,
 			Logger:    pxlog.GetGlobalLogger(),
 			Clock:     time.Now,
-			Bindings: bindingStore,
+			Bindings:  bindingStore,
 		})
 	}
 
@@ -1263,7 +1266,7 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	}
 }
 
-func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service) *KnowledgeSpaceDeps {
+func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, eventFabric *EventFabricDeps, tenantSvc *tenantsvc.TenantService) *KnowledgeSpaceDeps {
 	var redisClient *redis.Client
 	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
 		redisClient = redis.NewClient(&redis.Options{
@@ -1306,13 +1309,14 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	}
 
 	cfg := KnowledgeSpaceRuntimeConfig{
-		LockKeyPrefix:          strings.TrimSpace(opts.LockKeyPrefix),
-		MetricsKeyPrefix:       strings.TrimSpace(opts.MetricsKeyPrefix),
-		DefaultRetentionMonths: opts.DefaultRetentionMonths,
-		ProvisioningSLA:        opts.ProvisioningSLA,
-		IngestionSLA:           opts.IngestionSLA,
-		EventTopics:            opts.EventTopics,
-		Notifications:          opts.Notifications,
+		LockKeyPrefix:            strings.TrimSpace(opts.LockKeyPrefix),
+		MetricsKeyPrefix:         strings.TrimSpace(opts.MetricsKeyPrefix),
+		DefaultRetentionMonths:   opts.DefaultRetentionMonths,
+		ProvisioningSLA:          opts.ProvisioningSLA,
+		IngestionSLA:             opts.IngestionSLA,
+		SceneStrategyCatalogPath: strings.TrimSpace(opts.SceneStrategyCatalogPath),
+		EventTopics:              opts.EventTopics,
+		Notifications:            opts.Notifications,
 	}
 
 	if cfg.LockKeyPrefix == "" {
@@ -1329,6 +1333,9 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	}
 	if cfg.IngestionSLA <= 0 {
 		cfg.IngestionSLA = 4 * time.Hour
+	}
+	if cfg.SceneStrategyCatalogPath == "" {
+		cfg.SceneStrategyCatalogPath = "backend/config/knowledge/scene_strategy_catalog.yaml"
 	}
 	if cfg.EventTopics.Provisioning == "" {
 		cfg.EventTopics.Provisioning = "knowledge.space.provisioning"
@@ -1353,9 +1360,10 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	}
 
 	serviceCfg := knowledgeService.RuntimeConfig{
-		LockKeyPrefix:          cfg.LockKeyPrefix,
-		DefaultRetentionMonths: cfg.DefaultRetentionMonths,
-		ProvisioningSLA:        cfg.ProvisioningSLA,
+		LockKeyPrefix:            cfg.LockKeyPrefix,
+		DefaultRetentionMonths:   cfg.DefaultRetentionMonths,
+		ProvisioningSLA:          cfg.ProvisioningSLA,
+		SceneStrategyCatalogPath: strings.TrimSpace(cfg.SceneStrategyCatalogPath),
 		EventTopics: knowledgeService.EventTopics{
 			Provisioning: cfg.EventTopics.Provisioning,
 			Ingestion:    cfg.EventTopics.Ingestion,
@@ -1420,24 +1428,111 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, releaseAggregatePath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, decayAggregatePath)
 
+	processors := knowledgeService.NewProcessorRegistry()
+	// config.yaml 显式配置优先于自动探测/环境变量
+	if opts.IngestionProcessors.PDFTextAvailable != nil {
+		processors.SetPDFTextAvailable(*opts.IngestionProcessors.PDFTextAvailable)
+	}
+	if opts.IngestionProcessors.OCRAvailable != nil {
+		processors.SetOCRAvailable(*opts.IngestionProcessors.OCRAvailable)
+	}
+
+	agentSettingSvc := agentsettings.NewAgentSettingService(db)
+
+	routedVectorStore := vectorStore
+	if strings.EqualFold(strings.TrimSpace(driverName), vectorstorepkg.DriverPGVector) {
+		routedVectorStore = knowledgeService.NewRoutedVectorStore(knowledgeService.RoutedVectorStoreOptions{
+			DB:         db,
+			BaseDriver: driverName,
+			BaseStore:  vectorStore,
+			PGVector:   opts.VectorStore.PGVector,
+		})
+	}
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
-		VectorStore:     vectorStore,
+		VectorStore:     routedVectorStore,
 		MetricsWriter:   metricsWriter,
+		Processors:      processors,
+		MaxRetries:      1,
+		AgentSettings:   agentSettingSvc,
+		VectorDimension: 0,
 	})
 	svc.AttachIngestion(ingestionSvc)
 
 	fusionSvc := knowledgeService.NewFusionService(knowledgeService.FusionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
-		VectorStore:     vectorStore,
+		VectorStore:     routedVectorStore,
+		SparseIndex:     nil,
 		EventBus:        bus,
 		EventTopic:      cfg.EventTopics.Fusion,
 		Clock:           time.Now,
 	})
 
-	reprocessPipeline := knowledgeworkflow.NewReprocessPipeline(bus, time.Now)
+	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
+	tenantProvider := func(ctx context.Context) ([]string, error) {
+		if tenantSvc == nil {
+			return []string{"global"}, nil
+		}
+		items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
+		if err != nil {
+			return nil, err
+		}
+		keys := make([]string, 0, len(items)+1)
+		for _, item := range items {
+			if key := strings.TrimSpace(item.Key); key != "" {
+				keys = append(keys, key)
+			}
+		}
+		keys = append(keys, "global")
+		return keys, nil
+	}
+	var reprocessPipeline knowledgeworkflow.ReprocessPipeline
+	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
+		reprocessPipeline = knowledgeworkflow.NewEventFabricReprocessPipeline(knowledgeworkflow.EventFabricReprocessPipelineOptions{
+			Delivery:      eventFabric.Delivery,
+			Directory:     eventFabric.Directory,
+			ACL:           eventFabric.ACL,
+			SubscriberID:  "core.knowledge_space.reprocess",
+			Namespace:     cfg.EventTopics.Feedback,
+			Name:          "reprocess",
+			PayloadFormat: "json",
+			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			Clock:         time.Now,
+		})
+		knowledgeworkflow.NewEventFabricReprocessConsumer(knowledgeworkflow.EventFabricReprocessConsumerOptions{
+			Delivery:       eventFabric.Delivery,
+			DB:             db,
+			VectorStore:    routedVectorStore,
+			Directory:      eventFabric.Directory,
+			ACL:            eventFabric.ACL,
+			SubscriberID:   "core.knowledge_space.reprocess",
+			Namespace:      cfg.EventTopics.Feedback,
+			Name:           "reprocess",
+			PayloadFormat:  "json",
+			MaxRetry:       int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec:  int32(eventFabric.Config.AckTimeout / time.Second),
+			TenantProvider: tenantProvider,
+			Interval:       250 * time.Millisecond,
+			BatchSize:      50,
+			Clock:          time.Now,
+		}).Start()
+	} else {
+		reprocessPipeline = knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
+			EventBus:   bus,
+			EventTopic: reprocessTopic,
+			Clock:      time.Now,
+		})
+		_ = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
+			DB:          db,
+			VectorStore: routedVectorStore,
+			EventBus:    bus,
+			EventTopic:  reprocessTopic,
+			Clock:       time.Now,
+		}).Start()
+	}
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -1445,6 +1540,54 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		MetricsWriter:   metricsWriter,
 		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
+	})
+
+	var corpusCheckPipeline knowledgeworkflow.CorpusCheckPipeline
+	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
+		corpusCheckPipeline = knowledgeworkflow.NewEventFabricCorpusCheckPipeline(knowledgeworkflow.EventFabricCorpusCheckPipelineOptions{
+			Delivery:      eventFabric.Delivery,
+			Directory:     eventFabric.Directory,
+			ACL:           eventFabric.ACL,
+			SubscriberID:  "core.knowledge_space.corpus_check",
+			Namespace:     "knowledge.space.corpuscheck",
+			Name:          "run",
+			PayloadFormat: "json",
+			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
+			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
+			Clock:         time.Now,
+		})
+		knowledgeworkflow.NewEventFabricCorpusCheckConsumer(knowledgeworkflow.EventFabricCorpusCheckConsumerOptions{
+			Delivery:       eventFabric.Delivery,
+			DB:             db,
+			Directory:      eventFabric.Directory,
+			ACL:            eventFabric.ACL,
+			SubscriberID:   "core.knowledge_space.corpus_check",
+			Namespace:      "knowledge.space.corpuscheck",
+			Name:           "run",
+			PayloadFormat:  "json",
+			TenantProvider: tenantProvider,
+			// Poll cadence for corpus-check jobs. Keep it moderate to avoid idle churn.
+			Interval:  5 * time.Second,
+			BatchSize: 50,
+			Clock:     time.Now,
+		}).Start()
+	} else {
+		corpusCheckPipeline = knowledgeworkflow.NewCorpusCheckPipeline(knowledgeworkflow.CorpusCheckPipelineOptions{
+			EventBus:   bus,
+			EventTopic: "knowledge.corpus_check.run",
+			Clock:      time.Now,
+		})
+		_ = knowledgeworkflow.NewCorpusCheckWorker(knowledgeworkflow.CorpusCheckWorkerOptions{
+			DB:         db,
+			EventBus:   bus,
+			EventTopic: "knowledge.corpus_check.run",
+			Clock:      time.Now,
+		}).Start()
+	}
+	corpusCheckSvc := knowledgeService.NewCorpusCheckService(knowledgeService.CorpusCheckServiceOptions{
+		DB:       db,
+		Pipeline: corpusCheckPipeline,
+		Clock:    time.Now,
 	})
 
 	deltaSvc := ksdelta.NewService(ksdelta.Options{
@@ -1462,7 +1605,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	qaBridgeSvc := knowledgeqa.NewService(knowledgeqa.Options{
 		DB:              db,
 		Instrumentation: inst,
-		VectorStore:     vectorStore,
+		VectorStore:     routedVectorStore,
 		SnapshotStore:   snapshotStore,
 		ToolRegistry:    toolRegistry,
 		Guard:           guard,
@@ -1472,6 +1615,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 
 	agentNotifier := event_hotfix.NewAgentNotifier(opts.EventHotfix.AgentMatrixPath)
 	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		DB:              db,
 		Instrumentation: inst,
 		EventBus:        bus,
 		MetricsWriter:   eventMetricsWriter,
@@ -1480,6 +1624,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		ReportPath:      eventReportPath,
 		Clock:           time.Now,
 		RetryMax:        opts.EventHotfix.RetryMax,
+		ReplayWindow:    opts.EventHotfix.ReplayWindow,
 	})
 	releaseSvc := tenant_release.NewService(tenant_release.Options{
 		DB:              db,
@@ -1492,6 +1637,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		MetricsWriter:   decayMetricsWriter,
 		ThresholdsPath:  opts.Decay.ThresholdPath,
+		EventBus:        bus,
 		Clock:           time.Now,
 	})
 
@@ -1504,11 +1650,12 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Ingestion:       ingestionSvc,
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
+		CorpusCheck:     corpusCheckSvc,
 		Delta:           deltaSvc,
 		EventHotfix:     eventHotfixSvc,
 		DecayGuard:      decaySvc,
 		Release:         releaseSvc,
-		VectorStore:     vectorStore,
+		VectorStore:     routedVectorStore,
 		QABridge:        qaBridgeSvc,
 	}
 }

@@ -22,6 +22,9 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	if err != nil {
 		return nil, err
 	}
+	if err := s.ensureTenantEmbeddingConfigured(ctx, tenantUUID); err != nil {
+		return nil, err
+	}
 
 	release, err := s.acquireTenantLock(ctx, tenantUUID)
 	if err != nil {
@@ -67,6 +70,9 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 			QuotaCPU:                in.QuotaCPU,
 			QuotaStorageGB:          in.QuotaStorageGB,
 			PolicyTemplateVersionID: in.PolicyVersion,
+			IngestionProfileKey:     normalizeProfileKey(in.IngestionProfileKey),
+			IndexProfileKey:         normalizeProfileKey(in.IndexProfileKey),
+			RAGProfileKey:           normalizeProfileKey(in.RAGProfileKey),
 			FeatureFlags:            datatypes.JSON(rawFlags),
 			AuditToken:              "ks-" + uuid.NewString(),
 			CreatedBy:               in.RequestedBy,
@@ -117,6 +123,29 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	return created, nil
 }
 
+func normalizeProfileKey(key string) string {
+	key = strings.ToLower(strings.TrimSpace(key))
+	if key == "" {
+		return "default"
+	}
+	// Keep it URL-safe and storage-friendly.
+	out := make([]rune, 0, len(key))
+	for _, r := range key {
+		switch {
+		case r >= 'a' && r <= 'z':
+			out = append(out, r)
+		case r >= '0' && r <= '9':
+			out = append(out, r)
+		case r == '-' || r == '_':
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return "default"
+	}
+	return string(out)
+}
+
 // UpdateSpace mutates quotas/features/status.
 func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models.KnowledgeSpace, error) {
 	if in.SpaceID == uuid.Nil {
@@ -145,6 +174,29 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 			quotaStorageChanged = true
 		}
 		policyChanged := false
+		profileChanged := false
+		if strings.TrimSpace(in.IngestionProfileKey) != "" {
+			val := normalizeProfileKey(in.IngestionProfileKey)
+			if val != space.IngestionProfileKey {
+				space.IngestionProfileKey = val
+				profileChanged = true
+			}
+		}
+		if strings.TrimSpace(in.IndexProfileKey) != "" {
+			val := normalizeProfileKey(in.IndexProfileKey)
+			if val != space.IndexProfileKey {
+				space.IndexProfileKey = val
+				profileChanged = true
+			}
+		}
+		if strings.TrimSpace(in.RAGProfileKey) != "" {
+			val := normalizeProfileKey(in.RAGProfileKey)
+			if val != space.RAGProfileKey {
+				space.RAGProfileKey = val
+				profileChanged = true
+			}
+		}
+
 		if in.PolicyVersion > 0 && in.PolicyVersion != space.PolicyTemplateVersionID {
 			tpl, err := policies.GetByID(ctx, in.PolicyVersion)
 			if err != nil {
@@ -168,10 +220,17 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 		}
 		statusChanged := false
 		if strings.TrimSpace(in.Status) != "" && strings.TrimSpace(in.Status) != space.Status {
-			if !isValidTransition(space.Status, in.Status) {
+			nextStatus := strings.TrimSpace(in.Status)
+			if !isValidTransition(space.Status, nextStatus) {
 				return ErrInvalidStatusTransition
 			}
-			space.Status = strings.TrimSpace(in.Status)
+			if nextStatus == models.KnowledgeSpaceStatusActive {
+				sceneKey, bundleKey := inferSceneAndBundle(space)
+				if err := s.EnforceStrategyPrereqsOnActivate(sceneKey, bundleKey); err != nil {
+					return err
+				}
+			}
+			space.Status = nextStatus
 			statusChanged = true
 		}
 		if in.UpdatedBy != "" {
@@ -186,6 +245,11 @@ func (s *Service) UpdateSpace(ctx context.Context, in UpdateSpaceInput) (*models
 		}
 		if policyChanged {
 			updates["policy_template_version_id"] = space.PolicyTemplateVersionID
+		}
+		if profileChanged {
+			updates["ingestion_profile_key"] = space.IngestionProfileKey
+			updates["index_profile_key"] = space.IndexProfileKey
+			updates["rag_profile_key"] = space.RAGProfileKey
 		}
 		if featureChanged {
 			updates["feature_flags"] = space.FeatureFlags
@@ -268,6 +332,7 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 			"reason":               in.Reason,
 			"retire_at":            now,
 			"retention_expires_at": expire,
+			"drop_vectors":         in.DropVectors,
 		}); err != nil {
 			return err
 		}
@@ -279,7 +344,7 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 		return nil, err
 	}
 	s.publishEvent(ctx, "retired", retired)
-	if s.ingestion != nil {
+	if s.ingestion != nil && in.DropVectors {
 		if err := s.ingestion.DropSpaceVectors(ctx, in.SpaceID); err != nil {
 			logger.WarnF(ctx, "[knowledge_space] drop space vectors failed: %v", err)
 		}

@@ -221,6 +221,7 @@ ai:
       top_p: 1.0
       stream: false
     embedding:
+      # 默认使用 OpenAI embedding（需要在 Web Admin「AI Settings」或此处配置 api_key 才能生效）。
       provider: openai
       endpoint: "https://api.openai.com/v1"
       model: text-embedding-3-small
@@ -321,6 +322,15 @@ knowledge_space:
   default_retention_months: 13
   provisioning_sla_seconds: 120
   ingestion_sla_seconds: 14400
+  scene_strategy_catalog_path: backend/config/knowledge/scene_strategy_catalog.yaml
+  ingestion_processors:
+    # PDF 内嵌文本抽取（需要镜像/机器安装 `pdftotext`，通常来自 poppler-utils）
+    # - true: 强制启用
+    # - false: 强制禁用
+    # - null/不写: 自动探测
+    pdf_text_available: null
+    # OCR Plan B（需要 tesseract + pdftoppm 或 mutool）
+    ocr_available: null
   event_topics:
     provisioning: knowledge.space.provisioning
     ingestion: knowledge.space.ingestion
@@ -331,6 +341,31 @@ knowledge_space:
     retry_interval_seconds: 60
     retry_max_attempts: 3
     http_timeout_seconds: 5
+  vector_store:
+    driver: "pgvector" # pgvector / milvus / pinecone
+    pgvector:
+      dsn: "" # 留空则复用 database.dsn
+      schema: public
+      table: knowledge_vectors_v1_1536
+      dimensions: 1536
+      enable_migrations: false
+      batch_size: 128
+      ivfflat_lists: 100
+      timeout_seconds: 30
+    milvus:
+      endpoint: ""
+      api_key: ""
+      project: ""
+    pinecone:
+      endpoint: ""
+      api_key: ""
+      index: ""
+      namespace: ""
+  index_backends:
+    sparse: postgres_fts              # or external
+    hier: postgres_links              # or external
+    structured_fields: postgres_jsonb # or external
+    kg: postgres                      # or external
   delta:
     sources_config: configs/knowledge/delta_sources.yaml
     partial_release_config: configs/knowledge/partial_release.yaml

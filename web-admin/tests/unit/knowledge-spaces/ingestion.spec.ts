@@ -27,6 +27,7 @@ afterEach(() => {
       data: {
         jobId: "job-1",
         status: "completed",
+        retryCount: 0,
         chunkTotal: 9,
         chunkCoveragePct: 100,
         embeddingSuccessPct: 100,
@@ -38,21 +39,20 @@ afterEach(() => {
 
     const api = useKnowledgeSpaces();
     const result = await api.triggerIngestion("space-1", {
-      sourceType: "pdf",
+      format: "pdf",
       sourceUri: "s3://bucket/doc.pdf",
       priority: "high",
     });
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/admin/knowledge-spaces/space-1/ingestion-jobs",
-      {
-        method: "POST",
-        body: {
-          sourceType: "pdf",
-          sourceUri: "s3://bucket/doc.pdf",
-          priority: "high",
-        },
-      },
-    );
+    expect(fetchSpy).toHaveBeenCalled();
+    const [url, options] = fetchSpy.mock.calls[0] as any[];
+    expect(url).toBe("/api/admin/knowledge-spaces/space-1/ingestion-jobs");
+    expect(options.method).toBe("POST");
+    const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
+    expect(body).toEqual({
+      format: "pdf",
+      sourceUri: "s3://bucket/doc.pdf",
+      priority: "high",
+    });
     expect(result.jobId).toBe("job-1");
   });
 
@@ -60,7 +60,7 @@ afterEach(() => {
     const api = useKnowledgeSpaces();
     await expect(
       api.triggerIngestion("", {
-        sourceType: "pdf",
+        format: "pdf",
         sourceUri: "s3://bucket/doc.pdf",
       }),
     ).rejects.toThrow("spaceId is required");

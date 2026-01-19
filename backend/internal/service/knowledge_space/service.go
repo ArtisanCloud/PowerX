@@ -2,6 +2,9 @@ package knowledge_space
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,16 +13,18 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
+	strategy_catalog "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/strategy_catalog"
 	knowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
 
 // RuntimeConfig captures provisioning runtime constraints.
 type RuntimeConfig struct {
-	LockKeyPrefix          string
-	DefaultRetentionMonths int
-	ProvisioningSLA        time.Duration
-	EventTopics            EventTopics
+	LockKeyPrefix            string
+	DefaultRetentionMonths   int
+	ProvisioningSLA          time.Duration
+	EventTopics              EventTopics
+	SceneStrategyCatalogPath string
 }
 
 // EventTopics defines emitted domain topics.
@@ -42,15 +47,54 @@ type ServiceOptions struct {
 
 // Service implements provisioning orchestration.
 type Service struct {
-	db        *gorm.DB
-	inst      *instrumentation.Instrumentation
-	redis     redis.UniversalClient
-	bus       event_bus.EventBus
-	cfg       RuntimeConfig
-	clock     func() time.Time
-	lockTTL   time.Duration
-	localMu   sync.Map
-	ingestion *IngestionService
+	db              *gorm.DB
+	inst            *instrumentation.Instrumentation
+	redis           redis.UniversalClient
+	bus             event_bus.EventBus
+	cfg             RuntimeConfig
+	clock           func() time.Time
+	lockTTL         time.Duration
+	localMu         sync.Map
+	ingestion       *IngestionService
+	strategyCatalog *strategy_catalog.Loader
+}
+
+func resolveSceneStrategyCatalogPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	candidates := make([]string, 0, 32)
+	if strings.HasPrefix(path, "backend/") {
+		candidates = append(candidates, strings.TrimPrefix(path, "backend/"))
+	} else {
+		candidates = append(candidates, filepath.Join("backend", path))
+	}
+	// 兼容 go test 的工作目录在 package 目录内（例如 backend/tests/...），向上回退尝试定位文件。
+	for i := 0; i < 8; i++ {
+		prefix := strings.Repeat(".."+string(filepath.Separator), i)
+		candidates = append(candidates, filepath.Clean(filepath.Join(prefix, path)))
+		for _, alt := range candidates[:1] {
+			candidates = append(candidates, filepath.Clean(filepath.Join(prefix, alt)))
+		}
+	}
+	seen := map[string]struct{}{}
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return path
 }
 
 // NewService builds a provisioning service.
@@ -73,18 +117,23 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.Config.ProvisioningSLA <= 0 {
 		opts.Config.ProvisioningSLA = 2 * time.Minute
 	}
+	if opts.Config.SceneStrategyCatalogPath == "" {
+		opts.Config.SceneStrategyCatalogPath = "backend/config/knowledge/scene_strategy_catalog.yaml"
+	}
+	opts.Config.SceneStrategyCatalogPath = resolveSceneStrategyCatalogPath(opts.Config.SceneStrategyCatalogPath)
 	lockTTL := opts.Config.ProvisioningSLA
 	if lockTTL < 30*time.Second {
 		lockTTL = 30 * time.Second
 	}
 	return &Service{
-		db:      opts.DB,
-		inst:    opts.Instrumentation,
-		redis:   opts.Redis,
-		bus:     opts.EventBus,
-		cfg:     opts.Config,
-		clock:   opts.Clock,
-		lockTTL: lockTTL,
+		db:              opts.DB,
+		inst:            opts.Instrumentation,
+		redis:           opts.Redis,
+		bus:             opts.EventBus,
+		cfg:             opts.Config,
+		clock:           opts.Clock,
+		lockTTL:         lockTTL,
+		strategyCatalog: strategy_catalog.NewLoader(opts.Config.SceneStrategyCatalogPath),
 	}
 }
 
@@ -95,25 +144,31 @@ func (s *Service) AttachIngestion(ingestion *IngestionService) {
 
 // CreateSpaceInput describes provisioning parameters.
 type CreateSpaceInput struct {
-	TenantUUID     string
-	SpaceName      string
-	DepartmentCode string
-	QuotaCPU       int
-	QuotaStorageGB int
-	PolicyVersion  uint64
-	FeatureFlags   []string
-	RequestedBy    string
+	TenantUUID          string
+	SpaceName           string
+	DepartmentCode      string
+	QuotaCPU            int
+	QuotaStorageGB      int
+	PolicyVersion       uint64
+	IngestionProfileKey string
+	IndexProfileKey     string
+	RAGProfileKey       string
+	FeatureFlags        []string
+	RequestedBy         string
 }
 
 // UpdateSpaceInput captures mutable fields.
 type UpdateSpaceInput struct {
-	SpaceID        uuid.UUID
-	QuotaCPU       int
-	QuotaStorageGB int
-	PolicyVersion  uint64
-	FeatureFlags   []string
-	Status         string
-	UpdatedBy      string
+	SpaceID             uuid.UUID
+	QuotaCPU            int
+	QuotaStorageGB      int
+	PolicyVersion       uint64
+	IngestionProfileKey string
+	IndexProfileKey     string
+	RAGProfileKey       string
+	FeatureFlags        []string
+	Status              string
+	UpdatedBy           string
 }
 
 // RetireSpaceInput captures retirement metadata.
@@ -121,6 +176,7 @@ type RetireSpaceInput struct {
 	SpaceID     uuid.UUID
 	Reason      string
 	RequestedBy string
+	DropVectors bool
 }
 
 func (s *Service) repositories(tx *gorm.DB) (spaces *knowledge.KnowledgeSpaceRepository,

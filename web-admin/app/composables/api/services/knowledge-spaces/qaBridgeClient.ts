@@ -1,3 +1,5 @@
+import { useApiClient } from "~/composables/api";
+
 export interface QARetrievalPlanRequest {
   tenantUuid: string;
   intent: string;
@@ -67,20 +69,16 @@ interface ApiResponse<T> {
 }
 
 export const createQaBridgeClient = () => {
-  const config = useRuntimeConfig();
-  const baseURL = config.public?.apiBase || "/api";
-  const qaPath = (suffix: string) =>
-    `${baseURL}/openapi/knowledge-spaces/qa${suffix}`;
+  const apiClient = useApiClient();
+  const qaPath = (suffix: string) => `/openapi/knowledge-spaces/qa${suffix}`;
 
   const plan = async (
     payload: QARetrievalPlanRequest,
   ): Promise<QARetrievalPlanResponse> => {
-    const response = await $fetch<ApiResponse<QARetrievalPlanResponse>>(
+    const response = await apiClient.post<ApiResponse<QARetrievalPlanResponse>>(
       qaPath("/retrieval-plan"),
-      {
-        method: "POST",
-        body: payload,
-      },
+      payload,
+      { useGlobalLoading: false } as any,
     );
     return response.data;
   };
@@ -88,12 +86,10 @@ export const createQaBridgeClient = () => {
   const snapshot = async (
     payload: QAMemorySnapshotRequest,
   ): Promise<QAMemorySnapshotResponse> => {
-    const response = await $fetch<ApiResponse<QAMemorySnapshotResponse>>(
+    const response = await apiClient.post<ApiResponse<QAMemorySnapshotResponse>>(
       qaPath("/memory-snapshot"),
-      {
-        method: "POST",
-        body: payload,
-      },
+      payload,
+      { useGlobalLoading: false } as any,
     );
     return response.data;
   };

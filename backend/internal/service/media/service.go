@@ -60,6 +60,7 @@ const (
 type assetRepository interface {
 	List(ctx context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error)
 	FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
+	FindByStorageKey(ctx context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error)
 	ListByDriverAndStorageKey(ctx context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error)
 	CreateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
 	UpdateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
@@ -318,6 +319,12 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		}
 		assetUUID = parsed
 		storageKey = assetUUID.String()
+	}
+
+	if existing, findErr := s.repo.FindByStorageKey(ctx, tenantUUID, driverName, storageKey); findErr == nil {
+		return toAsset(existing), nil
+	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		return nil, findErr
 	}
 
 	tags := normalizeTags(in.Tags)

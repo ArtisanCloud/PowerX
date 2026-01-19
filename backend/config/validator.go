@@ -207,8 +207,11 @@ func (c *Config) Validate() error {
 	if vectorDriver != "" {
 		switch strings.ToLower(vectorDriver) {
 		case vectorstore.DriverPGVector:
-			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.PgVector.DSN) == "" {
-				errors = append(errors, "knowledge_space.vector_store.pgvector.dsn 不能为空")
+			// Allow reusing main database.dsn (or host/user/...) when pgvector.dsn is empty.
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.PgVector.DSN) == "" &&
+				strings.TrimSpace(c.Database.DSN) == "" &&
+				strings.TrimSpace(c.Database.Host) == "" {
+				errors = append(errors, "knowledge_space.vector_store.pgvector.dsn 不能为空（或提供 database.dsn/database.host 用于复用）")
 			}
 		case vectorstore.DriverMilvus:
 			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.Milvus.Endpoint) == "" {

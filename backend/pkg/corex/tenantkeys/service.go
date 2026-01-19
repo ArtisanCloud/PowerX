@@ -195,6 +195,12 @@ func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenant
 	secret := map[string]any{}
 	for _, k := range keys {
 		if v, ok := data[k]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) == "" {
+				continue
+			}
+			if v == nil {
+				continue
+			}
 			secret[k] = v
 			delete(data, k)
 		}

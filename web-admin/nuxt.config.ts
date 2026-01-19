@@ -128,7 +128,9 @@ export default defineNuxtConfig({
   i18n: {
     defaultLocale: process.env.NUXT_DEFAULT_LANGUAGE || "zh",
     strategy: "no_prefix",
-    lazy: true,
+    // 这里关闭 lazy，避免在初始化/切换语言时出现大量 “Not found key” 的瞬时告警。
+    // 语言包体积可控（zh/en/ja/ko），换来更稳定的 UI 与更干净的控制台。
+    lazy: false,
     locales: [
       { code: "zh", name: "简体中文", file: "zh.json" },
       { code: "en", name: "English", file: "en.json" },

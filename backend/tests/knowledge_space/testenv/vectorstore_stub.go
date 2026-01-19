@@ -2,6 +2,7 @@ package testenv
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
@@ -14,6 +15,9 @@ type VectorStoreStub struct {
 	data           map[uuid.UUID]map[uuid.UUID]vectorstore.VectorRecord
 	queryResponses map[uuid.UUID]vectorstore.QueryResponse
 	lastQuery      vectorstore.QueryRequest
+	upsertFailures int
+	queryFailures  int
+	healthErr      error
 }
 
 // NewVectorStoreStub 构造内存驱动。
@@ -36,6 +40,10 @@ func (s *VectorStoreStub) Upsert(_ context.Context, space uuid.UUID, vectors []v
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.upsertFailures > 0 {
+		s.upsertFailures--
+		return errors.New("vectorstore stub: forced upsert failure")
+	}
 
 	spaceRecords, ok := s.data[space]
 	if !ok {
@@ -46,6 +54,19 @@ func (s *VectorStoreStub) Upsert(_ context.Context, space uuid.UUID, vectors []v
 		spaceRecords[vec.ChunkID] = vec
 	}
 	return nil
+}
+
+// SetUpsertFailures configures how many upcoming Upsert calls should fail.
+func (s *VectorStoreStub) SetUpsertFailures(n int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if n < 0 {
+		n = 0
+	}
+	s.upsertFailures = n
 }
 
 // DeleteByChunkIDs removes vector entries for specified chunk IDs.
@@ -76,6 +97,10 @@ func (s *VectorStoreStub) Query(_ context.Context, req vectorstore.QueryRequest)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastQuery = req
+	if s.queryFailures > 0 {
+		s.queryFailures--
+		return vectorstore.QueryResponse{}, errors.New("vectorstore stub: forced query failure")
+	}
 	if resp, ok := s.queryResponses[req.SpaceID]; ok {
 		return resp, nil
 	}
@@ -97,7 +122,11 @@ func (s *VectorStoreStub) LastQuery() vectorstore.QueryRequest {
 }
 
 // Health reports stub availability.
-func (s *VectorStoreStub) Health(context.Context) error { return nil }
+func (s *VectorStoreStub) Health(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.healthErr
+}
 
 // Close releases resources (noop for stub).
 func (s *VectorStoreStub) Close(context.Context) error { return nil }
@@ -112,4 +141,27 @@ func (s *VectorStoreStub) Records(space uuid.UUID) []vectorstore.VectorRecord {
 		out = append(out, rec)
 	}
 	return out
+}
+
+// SetQueryFailures configures how many upcoming Query calls should fail.
+func (s *VectorStoreStub) SetQueryFailures(n int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if n < 0 {
+		n = 0
+	}
+	s.queryFailures = n
+}
+
+// SetHealthError configures Health() to return the given error.
+func (s *VectorStoreStub) SetHealthError(err error) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.healthErr = err
 }

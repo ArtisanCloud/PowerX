@@ -3,6 +3,7 @@ package testenv
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,9 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
+	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
@@ -22,8 +26,10 @@ import (
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
+	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	settingmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
@@ -31,6 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -43,13 +50,17 @@ type Env struct {
 	Bus                       event_bus.EventBus
 	tenantID                  uuid.UUID
 	VectorStore               *VectorStoreStub
+	SparseIndex               *SparseIndexStub
 	Pipeline                  *ReprocessPipelineStub
+	feedbackReprocessTopic    string
+	feedbackUnsub             func()
 	FeedbackReportPath        string
 	KnowledgeUpdateReportPath string
 	DeltaReportPath           string
 	EventReportPath           string
 	DecayReportPath           string
 	ReleaseReportPath         string
+	QABridgeReportPath        string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -58,6 +69,7 @@ func New(t testing.TB) *Env {
 
 	gin.SetMode(gin.TestMode)
 
+	tenantID := uuid.New()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", uuid.NewString())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
@@ -67,7 +79,10 @@ func New(t testing.TB) *Env {
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 
 	require.NoError(t, db.AutoMigrate(
+		&agentmodel.AIModelProfile{},
+		&settingmodel.TenantSetting{},
 		&models.KnowledgeSpace{},
+		&models.KnowledgeVectorIndex{},
 		&models.PolicyTemplateVersion{},
 		&models.IngestionJob{},
 		&models.ArtifactBundle{},
@@ -75,6 +90,9 @@ func New(t testing.TB) *Env {
 		&models.FeedbackCase{},
 		&models.IAMSyncTask{},
 		&models.AuditTrailEntry{},
+		&models.SourceCredential{},
+		&models.SourceConnectorInstance{},
+		&models.SpaceSyncJob{},
 		&models.DeltaJob{},
 		&models.DecayTask{},
 		&models.TenantReleasePolicy{},
@@ -84,6 +102,22 @@ func New(t testing.TB) *Env {
 	bus := event_bus.NewLocalEventBus()
 	inst := knowledgeinstr.New(knowledgeinstr.Options{})
 	vectorStore := NewVectorStoreStub()
+	sparseIndex := NewSparseIndexStub()
+
+	// 让入库测试在“无外部依赖”情况下也能生成向量（hash 为非语义兜底）。
+	agentcfg.SetGlobalAIConfig(&agentcfg.AIConfig{
+		Defaults: agentcfg.AIDefaults{
+			Embedding: agentcfg.EmbeddingDefaults{
+				BaseConn: agentcfg.BaseConn{
+					Provider: "hash",
+					Model:    "hash",
+				},
+				Dimensions: 32,
+				Batch:      128,
+				Truncate:   "none",
+			},
+		},
+	})
 
 	cfg := shared.KnowledgeSpaceRuntimeConfig{
 		LockKeyPrefix:          "test:knowledge:lock",
@@ -126,7 +160,8 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	tempDir := t.TempDir()
+	tempDir := filepath.Join(findProjectRoot(t), "tmp", "test-runs", uuid.NewString())
+	require.NoError(t, os.MkdirAll(tempDir, 0o755))
 	ingestionReportPath := filepath.Join(tempDir, "ingestion-metrics.json")
 	feedbackReportPath := filepath.Join(tempDir, "knowledge-feedback.json")
 	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
@@ -178,11 +213,17 @@ func New(t testing.TB) *Env {
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, updateReportPath)
 	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, updateReportPath)
+	artifactStore := knowledgeService.NewArtifactStore(knowledgeService.ArtifactStoreOptions{
+		BaseDir: filepath.Join(findProjectRoot(t), "tmp", "knowledge-artifacts"),
+	})
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		MetricsWriter:   metricsWriter,
+		ArtifactStore:   artifactStore,
+		MaxRetries:      1,
+		AgentSettings:   agentsettings.NewAgentSettingService(db),
 	})
 	service.AttachIngestion(ingestionSvc)
 
@@ -190,12 +231,19 @@ func New(t testing.TB) *Env {
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
+		SparseIndex:     sparseIndex,
 		EventBus:        bus,
 		EventTopic:      cfg.EventTopics.Fusion,
 		Clock:           time.Now,
 	})
 
-	pipelineStub := NewReprocessPipelineStub()
+	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
+	pipelineInner := knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
+		EventBus:   bus,
+		EventTopic: reprocessTopic,
+		Clock:      time.Now,
+	})
+	pipelineStub := NewReprocessPipelineStub().WithInner(pipelineInner)
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -206,6 +254,7 @@ func New(t testing.TB) *Env {
 	})
 	agentNotifier := event_hotfix.NewAgentNotifier(agentMatrixPath)
 	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		DB:              db,
 		Instrumentation: inst,
 		EventBus:        bus,
 		MetricsWriter:   eventMetricsWriter,
@@ -214,6 +263,7 @@ func New(t testing.TB) *Env {
 		ReportPath:      eventReportPath,
 		Clock:           time.Now,
 		RetryMax:        3,
+		ReplayWindow:    5 * time.Minute,
 	})
 	deltaSvc := ksdelta.NewService(ksdelta.Options{
 		DB:                       db,
@@ -223,12 +273,13 @@ func New(t testing.TB) *Env {
 		PartialReleaseConfigPath: partialReleasePath,
 		Clock:                    time.Now,
 	})
+	qaBridgeReportPath := filepath.Join(t.TempDir(), "qa-reasoning.json")
 	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 		Clock:           time.Now,
-		ReportPath:      filepath.Join(t.TempDir(), "qa-reasoning.json"),
+		ReportPath:      qaBridgeReportPath,
 	})
 	decaySvc := decay_guard.NewService(decay_guard.Options{
 		DB:              db,
@@ -265,21 +316,51 @@ func New(t testing.TB) *Env {
 		},
 	}
 
-	return &Env{
+	env := &Env{
 		T:                         t,
 		DB:                        db,
 		Deps:                      deps,
 		Bus:                       bus,
-		tenantID:                  uuid.New(),
+		tenantID:                  tenantID,
 		VectorStore:               vectorStore,
+		SparseIndex:               sparseIndex,
 		Pipeline:                  pipelineStub,
+		feedbackReprocessTopic:    reprocessTopic,
+		feedbackUnsub:             nil,
 		FeedbackReportPath:        feedbackReportPath,
 		KnowledgeUpdateReportPath: updateReportPath,
 		DeltaReportPath:           deltaReportPath,
 		EventReportPath:           eventReportPath,
 		DecayReportPath:           decayReportPath,
 		ReleaseReportPath:         releaseReportPath,
+		QABridgeReportPath:        qaBridgeReportPath,
 	}
+	require.NoError(t, env.seedTenantEmbeddingProfile())
+	return env
+}
+
+func findProjectRoot(t testing.TB) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	dir := filepath.Clean(wd)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".specify")); err == nil {
+			return dir
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir || next == "" || next == "." || next == string(filepath.Separator) {
+			return wd
+		}
+		dir = next
+	}
+}
+
+func ProjectRoot(t testing.TB) string {
+	return findProjectRoot(t)
 }
 
 func writeSeedJSON(t testing.TB, path string, payload any) {
@@ -291,9 +372,32 @@ func writeSeedJSON(t testing.TB, path string, payload any) {
 
 // Close releases resources created for the environment.
 func (e *Env) Close() {
+	if e.feedbackUnsub != nil {
+		e.feedbackUnsub()
+		e.feedbackUnsub = nil
+	}
 	if e.Bus != nil {
 		_ = e.Bus.Close()
 	}
+}
+
+func (e *Env) EnableFeedbackReprocessWorker() {
+	if e == nil || e.feedbackUnsub != nil {
+		return
+	}
+	if e.Bus == nil || e.DB == nil || e.VectorStore == nil {
+		return
+	}
+	if strings.TrimSpace(e.feedbackReprocessTopic) == "" {
+		return
+	}
+	e.feedbackUnsub = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
+		DB:          e.DB,
+		VectorStore: e.VectorStore,
+		EventBus:    e.Bus,
+		EventTopic:  e.feedbackReprocessTopic,
+		Clock:       time.Now,
+	}).Start()
 }
 
 // Engine returns a gin engine with admin routes registered.
@@ -392,7 +496,123 @@ func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.Knowledge
 		FeatureFlags:   []string{"ingestion.dual-chunk"},
 	})
 	require.NoError(e.T, err)
+	require.NoError(e.T, e.ensureEmbeddingForSpace(space))
 	return space
+}
+
+func (e *Env) seedTenantEmbeddingProfile() error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	ctx := context.Background()
+	env := "default"
+	tenant := e.tenantID.String()
+	provider := "hash"
+	model := "hash"
+	dimensions := 32
+	profile := &agentmodel.AIModelProfile{
+		Env:        env,
+		TenantUUID: &tenant,
+		Modality:   "embedding",
+		Provider:   provider,
+		Model:      model,
+		Label:      "test.embedding",
+		Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+		CapCache: datatypes.JSONMap{
+			"dimensions": dimensions,
+			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+		},
+		Tags: []string{"embedding", "test"},
+	}
+	return e.DB.WithContext(ctx).Create(profile).Error
+}
+
+func (e *Env) ensureEmbeddingForSpace(space *models.KnowledgeSpace) error {
+	if e == nil || e.DB == nil || space == nil {
+		return fmt.Errorf("invalid embedding setup input")
+	}
+	ctx := context.Background()
+	env := "default"
+	tenant := e.tenantID.String()
+	provider := "hash"
+	model := "hash"
+	dimensions := 32
+	profileKey := fmt.Sprintf("%s/%s", provider, model)
+
+	profile := &agentmodel.AIModelProfile{
+		Env:        env,
+		TenantUUID: &tenant,
+		Modality:   "embedding",
+		Provider:   provider,
+		Model:      model,
+		Label:      "test.embedding",
+		Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+		CapCache:   datatypes.JSONMap{"dimensions": dimensions},
+		Tags:       []string{"embedding", "test"},
+	}
+	var exist agentmodel.AIModelProfile
+	err := e.DB.WithContext(ctx).
+		Where("env = ? AND tenant_uuid = ? AND modality = ? AND provider = ? AND model = ?", env, tenant, "embedding", provider, model).
+		First(&exist).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		if err := e.DB.WithContext(ctx).Create(profile).Error; err != nil {
+			return err
+		}
+	case err != nil:
+		return err
+	default:
+		_ = e.DB.WithContext(ctx).Model(&exist).Updates(map[string]any{
+			"defaults":  profile.Defaults,
+			"cap_cache": profile.CapCache,
+		}).Error
+	}
+
+	indexKey := fmt.Sprintf("dense_v1_%d", dimensions)
+	tableName := fmt.Sprintf("knowledge_vectors_v1_%d", dimensions)
+	index := &models.KnowledgeVectorIndex{
+		SpaceUUID:           space.UUID,
+		IndexKey:            indexKey,
+		VectorTable:         tableName,
+		Dimensions:          dimensions,
+		EmbeddingProvider:   provider,
+		EmbeddingModel:      model,
+		EmbeddingProfileRef: profileKey,
+		Status:              models.KnowledgeVectorIndexStatusActive,
+	}
+	if err := e.DB.WithContext(ctx).
+		Where("space_uuid = ? AND index_key = ?", space.UUID, indexKey).
+		FirstOrCreate(index).Error; err != nil {
+		return err
+	}
+
+	return e.DB.WithContext(ctx).Model(space).Updates(map[string]any{
+		"embedding_profile_key":   profileKey,
+		"active_vector_index_key": indexKey,
+	}).Error
+}
+
+func (e *Env) ClearSpaceEmbedding(spaceID uuid.UUID) error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	return e.DB.WithContext(context.Background()).
+		Model(&models.KnowledgeSpace{}).
+		Where("uuid = ?", spaceID).
+		Updates(map[string]any{
+			"embedding_profile_key":   "",
+			"active_vector_index_key": "",
+		}).Error
+}
+
+func (e *Env) ClearTenantEmbeddingConfig() error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	tenant := e.tenantID.String()
+	return e.DB.WithContext(context.Background()).
+		Where("tenant_uuid = ? AND modality = ?", tenant, "embedding").
+		Delete(&agentmodel.AIModelProfile{}).Error
 }
 
 // ActivateSpace forces a space status to active for downstream flows.

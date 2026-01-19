@@ -7,6 +7,9 @@
   ],
   "guardrails": {
     "latency_p95": "<5m",
-    "rollback_sla_minutes": "5"
-  }
+    "rollback_sla_minutes": "5",
+    "version_drift": "<=1"
+  },
+  "approvedBy": "governance@powerx.io",
+  "createdBy": "ops@powerx.io"
 }

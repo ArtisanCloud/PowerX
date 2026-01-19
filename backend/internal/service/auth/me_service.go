@@ -110,6 +110,7 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 
 	// 4) 组装 members brief（is_admin 先 false，等你接 RBAC 再填充）
 	brs := make([]MeMemberBrief, 0, len(members))
+	memberByTenant := make(map[string]uint64, len(members))
 	for _, mem := range members {
 		info := tenantBasicMap[mem.TenantUUID]
 		uuidStr := strings.TrimSpace(mem.TenantUUID)
@@ -118,12 +119,39 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 			uuidStr = info.UUID.String()
 			name = info.Name
 		}
+		memberByTenant[uuidStr] = mem.ID
 		brs = append(brs, MeMemberBrief{
 			TenantUUID: uuidStr,
 			TenantName: name,
 			MemberID:   mem.ID,
 			IsAdmin:    false, // TODO: 用 RoleBinding 判断是否为该租户管理员
 		})
+	}
+
+	// 5) 修正 current_tenant_uuid：
+	// db-refresh/本地缓存/token stale 时，ctx 中的 tenant_uuid 可能不在 members 里，导致前端永远查不到数据。
+	// 规则：若当前 tenant 不在 members，优先选 "System" 租户，否则选第一个 member 租户。
+	if len(brs) > 0 {
+		tenantInMembers := false
+		for _, b := range brs {
+			if b.TenantUUID == tenantUUID {
+				tenantInMembers = true
+				break
+			}
+		}
+		if tenantUUID == "" || !tenantInMembers {
+			preferred := brs[0].TenantUUID
+			for _, b := range brs {
+				if strings.EqualFold(strings.TrimSpace(b.TenantName), "system") {
+					preferred = b.TenantUUID
+					break
+				}
+			}
+			tenantUUID = preferred
+			if mid, ok := memberByTenant[tenantUUID]; ok {
+				currentMemberID = &mid
+			}
+		}
 	}
 
 	return &MeContextResp{

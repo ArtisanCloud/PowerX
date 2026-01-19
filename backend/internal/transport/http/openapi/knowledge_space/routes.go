@@ -11,18 +11,21 @@ import (
 
 // Register mounts read-only knowledge space health endpoints.
 func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
-	if protected == nil || deps == nil || deps.DB == nil {
+	if deps == nil || deps.DB == nil {
 		return
 	}
 	handler := &openapiHandler{deps: deps}
 	qaHandler := newQABridgeHandler(deps)
-	group := protected.Group("/openapi/knowledge-spaces")
-	{
+
+	// Status is safe to expose as a read-only health snapshot. Keep QA endpoints protected.
+	if public != nil {
+		group := public.Group("/openapi/knowledge-spaces")
 		group.GET("/status", handler.status)
-		if qaHandler != nil {
-			group.POST("/qa/retrieval-plan", qaHandler.plan)
-			group.POST("/qa/memory-snapshot", qaHandler.memorySnapshot)
-		}
+	}
+	if protected != nil && qaHandler != nil {
+		group := protected.Group("/openapi/knowledge-spaces")
+		group.POST("/qa/retrieval-plan", qaHandler.plan)
+		group.POST("/qa/memory-snapshot", qaHandler.memorySnapshot)
 	}
 }
 

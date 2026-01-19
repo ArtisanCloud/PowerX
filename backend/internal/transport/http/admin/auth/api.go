@@ -22,11 +22,22 @@ func RegisterAPIRoutes(
 		authProtectedGroup.POST("/logout", hAuthUser.LogoutHandler(deps.AuthUser))
 	}
 
+	// Compatibility: frontend uses `/api/v1/admin/user/auth/logout` (same prefix as login/register/refresh).
+	// Keep `/user/auth/logout` for legacy callers.
+	authProtectedAdminGroup := protectedGroup.Group("/admin/user/auth")
+	{
+		authProtectedAdminGroup.POST("/logout", hAuthUser.LogoutHandler(deps.AuthUser))
+	}
+
 	hMeContext := NewMeContextHandler(deps)
 
 	// 根据你的中间件实际名称绑定，确保需要登录
 	gMeContext := protectedGroup.Group("/admin/auth")
 	{
 		gMeContext.GET("/me/context", hMeContext.GetMeContext)
+		hMeExtra := NewMeExtraHandler(deps)
+		gMeContext.POST("/me/switch-tenant", hMeExtra.SwitchTenant)
+		gMeContext.GET("/me/tenants", hMeExtra.ListTenants)
+		gMeContext.GET("/me/departments", hMeExtra.ListDepartments)
 	}
 }

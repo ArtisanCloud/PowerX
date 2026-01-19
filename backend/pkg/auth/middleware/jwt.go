@@ -87,6 +87,9 @@ func JwtMiddleware(
 		if claims.IsRoot {
 			if asUUID := strings.TrimSpace(c.Query("as_tenant_uuid")); asUUID != "" {
 				tenantUUID = asUUID
+			} else if headerUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); headerUUID != "" {
+				// Root 用户允许通过 Header 选择租户（等价于 as_tenant_uuid），用于 Web 管理台切换上下文。
+				tenantUUID = headerUUID
 			}
 		}
 

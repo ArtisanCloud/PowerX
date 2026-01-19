@@ -20,6 +20,14 @@ type KnowledgeSpace struct {
 	QuotaCPU                int            `gorm:"column:quota_cpu;type:int;not null;default:2" json:"quota_cpu"`
 	QuotaStorageGB          int            `gorm:"column:quota_storage_gb;type:int;not null;default:50" json:"quota_storage_gb"`
 	PolicyTemplateVersionID uint64         `gorm:"column:policy_template_version_id;not null" json:"policy_template_version_id"`
+	IngestionProfileKey     string         `gorm:"column:ingestion_profile_key;type:varchar(128);not null;default:'default';index" json:"ingestion_profile_key"`
+	IndexProfileKey         string         `gorm:"column:index_profile_key;type:varchar(128);not null;default:'default';index" json:"index_profile_key"`
+	RAGProfileKey           string         `gorm:"column:rag_profile_key;type:varchar(128);not null;default:'default';index" json:"rag_profile_key"`
+	// EmbeddingProfileKey locks the space to a specific embedding profile (provider+model).
+	// It is a logical reference and is validated/activated via admin APIs.
+	EmbeddingProfileKey string `gorm:"column:embedding_profile_key;type:varchar(128);not null;default:'';index" json:"embedding_profile_key"`
+	// ActiveVectorIndexKey points to the active dense index for this space.
+	ActiveVectorIndexKey string `gorm:"column:active_vector_index_key;type:varchar(128);not null;default:'';index" json:"active_vector_index_key"`
 	FeatureFlags            datatypes.JSON `gorm:"column:feature_flags;type:jsonb;default:'[]'" json:"feature_flags"`
 	RetireAt                *time.Time     `gorm:"column:retire_at" json:"retire_at,omitempty"`
 	RetentionExpiresAt      *time.Time     `gorm:"column:retention_expires_at" json:"retention_expires_at,omitempty"`

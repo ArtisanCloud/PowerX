@@ -3,6 +3,8 @@ package knowledge_space
 import (
 	"errors"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,24 +31,46 @@ func NewDecayHandler(deps *shared.Deps) *DecayHandler {
 }
 
 type decayScanRequest struct {
-	SpaceID  string `json:"spaceId" binding:"required,uuid4"`
-	Detected int    `json:"detected" binding:"required,min=1"`
+	SpaceID     string `json:"spaceId" binding:"required,uuid4"`
+	Detected    int    `json:"detected" binding:"required,min=1"`
+	Category    string `json:"category"`
+	Severity    string `json:"severity"`
+	Reason      string `json:"reason"`
+	AssignedTo  string `json:"assignedTo"`
+	RequestedBy string `json:"requestedBy"`
 }
 
 type decayRestoreRequest struct {
 	TaskID        string `json:"taskId" binding:"required,uuid4"`
 	Notes         string `json:"notes"`
 	FalsePositive bool   `json:"falsePositive"`
+	ApprovedBy    string `json:"approvedBy"`
+	Reason        string `json:"reason"`
 }
 
 func (h *DecayHandler) Scan(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_DECAY_GUARD") {
+		dto.ResponseError(c, http.StatusForbidden, "decay guard disabled", nil)
+		return
+	}
 	var req decayScanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	if _, ok := tenantUUIDFromContext(c); !ok {
+		return
+	}
 	spaceID, _ := uuid.Parse(req.SpaceID)
-	tasks, err := h.svc.RunScan(c.Request.Context(), spaceID, req.Detected)
+	tasks, err := h.svc.RunScanWithInput(c.Request.Context(), decay.RunScanInput{
+		SpaceID:     spaceID,
+		Detected:    req.Detected,
+		Category:    req.Category,
+		Severity:    req.Severity,
+		Reason:      req.Reason,
+		AssignedTo:  req.AssignedTo,
+		RequestedBy: req.RequestedBy,
+	})
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -54,18 +78,38 @@ func (h *DecayHandler) Scan(c *gin.Context) {
 	now := time.Now()
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{
 		"tasks":   toDecayTaskDTO(tasks, now),
-		"metrics": gin.H{"knowledge.decay.detected": len(tasks)},
+		"metrics": gin.H{
+			"knowledge.decay.detected": len(tasks),
+			"knowledge.gap.backlog":   len(tasks),
+		},
 	})
 }
 
 func (h *DecayHandler) Restore(c *gin.Context) {
+	if !flagEnabled("PX_KNOWLEDGE_RESTORE_FLOW") {
+		dto.ResponseError(c, http.StatusForbidden, "restore flow disabled", nil)
+		return
+	}
 	var req decayRestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	if _, ok := tenantUUIDFromContext(c); !ok {
+		return
+	}
+	if req.FalsePositive && strings.TrimSpace(req.Reason) == "" && strings.TrimSpace(req.Notes) == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "误判恢复需要提供 reason 或 notes", decay.ErrInvalidInput)
+		return
+	}
 	taskID, _ := uuid.Parse(req.TaskID)
-	task, err := h.svc.Restore(c.Request.Context(), taskID, req.Notes, req.FalsePositive)
+	task, err := h.svc.RestoreWithInput(c.Request.Context(), decay.RestoreInput{
+		TaskID:        taskID,
+		Notes:         req.Notes,
+		FalsePositive: req.FalsePositive,
+		ApprovedBy:    req.ApprovedBy,
+		Reason:        req.Reason,
+	})
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -74,19 +118,38 @@ func (h *DecayHandler) Restore(c *gin.Context) {
 }
 
 func (h *DecayHandler) Status(c *gin.Context) {
-	spaceParam := strings.TrimSpace(c.Query("spaceId"))
-	spaceID, err := uuid.Parse(spaceParam)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid spaceId", err)
+	severityFilter := strings.ToLower(strings.TrimSpace(c.Query("severity")))
+	exportFormat := strings.ToLower(strings.TrimSpace(c.Query("export")))
+	tenantUUID, ok := tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
-	tasks, err := h.svc.ListOpen(c.Request.Context(), spaceID)
+
+	spaceParam := strings.TrimSpace(c.Query("spaceId"))
+	var (
+		filtered []*model.DecayTask
+		err      error
+	)
+	if spaceParam == "" {
+		filtered, err = h.svc.ListOpenByTenant(c.Request.Context(), tenantUUID, severityFilter)
+	} else {
+		spaceID, perr := uuid.Parse(spaceParam)
+		if perr != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "invalid spaceId", perr)
+			return
+		}
+		tasks, serr := h.svc.ListOpen(c.Request.Context(), spaceID)
+		if serr != nil {
+			dto.ResponseError(c, http.StatusInternalServerError, serr.Error(), serr)
+			return
+		}
+		filtered = filterTasksBySeverity(tasks, severityFilter)
+		err = nil
+	}
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
 		return
 	}
-	severityFilter := strings.ToLower(strings.TrimSpace(c.Query("severity")))
-	filtered := filterTasksBySeverity(tasks, severityFilter)
 	now := time.Now()
 	summary := gin.H{
 		"knowledge.gap.backlog": len(filtered),
@@ -94,6 +157,10 @@ func (h *DecayHandler) Status(c *gin.Context) {
 	}
 	if severityFilter != "" {
 		summary["filter"] = severityFilter
+	}
+	if exportFormat == "csv" {
+		writeDecayCSV(c, filtered, now)
+		return
 	}
 	dto.ResponseSuccess(c, gin.H{
 		"tasks":   toDecayTaskDTO(filtered, now),
@@ -195,4 +262,63 @@ func slaRemainingMinutes(now time.Time, due time.Time) int64 {
 		mins++
 	}
 	return int64(mins)
+}
+
+func flagEnabled(flag string) bool {
+	flag = strings.TrimSpace(flag)
+	if flag == "" {
+		return true
+	}
+	value := strings.TrimSpace(os.Getenv(flag))
+	if value == "" {
+		return true
+	}
+	value = strings.ToLower(value)
+	return value == "1" || value == "true" || value == "enabled" || value == "on" || value == "yes"
+}
+
+func writeDecayCSV(c *gin.Context, tasks []*model.DecayTask, now time.Time) {
+	var b strings.Builder
+	b.WriteString("task_id,space_id,category,severity,status,detected_at,sla_due_at,sla_remaining_minutes,false_positive\n")
+	for _, task := range tasks {
+		if task == nil {
+			continue
+		}
+		b.WriteString(task.UUID.String())
+		b.WriteByte(',')
+		b.WriteString(task.SpaceUUID.String())
+		b.WriteByte(',')
+		b.WriteString(sanitizeCSV(task.Category))
+		b.WriteByte(',')
+		b.WriteString(sanitizeCSV(task.Severity))
+		b.WriteByte(',')
+		b.WriteString(sanitizeCSV(task.Status))
+		b.WriteByte(',')
+		b.WriteString(task.DetectedAt.UTC().Format(time.RFC3339Nano))
+		b.WriteByte(',')
+		b.WriteString(task.SLADueAt.UTC().Format(time.RFC3339Nano))
+		b.WriteByte(',')
+		b.WriteString(int64ToString(slaRemainingMinutes(now, task.SLADueAt)))
+		b.WriteByte(',')
+		if task.FalsePositive {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+		b.WriteByte('\n')
+	}
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.String(http.StatusOK, b.String())
+}
+
+func sanitizeCSV(input string) string {
+	input = strings.ReplaceAll(input, "\"", "\"\"")
+	if strings.ContainsAny(input, ",\n\r") {
+		return "\"" + input + "\""
+	}
+	return input
+}
+
+func int64ToString(v int64) string {
+	return strconv.FormatInt(v, 10)
 }

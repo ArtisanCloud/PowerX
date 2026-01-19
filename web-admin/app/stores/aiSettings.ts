@@ -306,6 +306,22 @@ export const useAISettingsStore = defineStore("aiSettings", {
         // 转换字段名以匹配后端期望的格式
         const result = await AISettingService.saveSettings(nextPayload);
         if (result.ok) {
+          const modality = String(payload.modality || "").trim();
+          const modalityPayload = (payload as any)[modality] || null;
+          const provider = String(modalityPayload?.provider || "").trim();
+          const model = String(modalityPayload?.model || "").trim();
+          if (modality && provider && model) {
+            try {
+              await AISettingService.setActiveProfile({
+                env: targetEnv,
+                modality,
+                provider,
+                model,
+              });
+            } catch (error) {
+              console.warn("设置激活配置失败，将保持当前路由默认值", error);
+            }
+          }
           // 重新获取配置文件和凭证
           await Promise.all([
             this.fetchProfiles(targetEnv),

@@ -114,6 +114,16 @@ export interface PresignMediaAssetResult {
 
 const baseUrl = "/admin/media/assets";
 
+const toInternalApiPath = (url: string): string => {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  // strip /api or /api/vN because apiClient 会再拼 baseURL（通常为 /api/v1）
+  const m = raw.match(/^\/api(?:\/v\d+)?(\/.*)$/i);
+  if (m && m[1]) return m[1];
+  return raw;
+};
+
 export const useMediaAssetService = () => {
   const apiClient = useApiClient();
 
@@ -161,6 +171,30 @@ export const useMediaAssetService = () => {
       return apiClient.unwrap<PresignMediaAssetResult>(resp);
     },
 
+    uploadPresigned: async (presign: PresignMediaAssetResult, body: Blob): Promise<void> => {
+      const target = String(presign?.url || "").trim();
+      if (!target) throw new Error("预签名返回空链接");
+
+      const method = String(presign?.method || "PUT").toUpperCase();
+      const headers = { ...(presign?.headers || {}) } as Record<string, string>;
+
+      if (target.startsWith("http://") || target.startsWith("https://")) {
+        const resp = await fetch(target, { method, headers, body });
+        if (!resp.ok) {
+          throw new Error(`上传失败：${resp.status} ${resp.statusText}`);
+        }
+        return;
+      }
+
+      const path = toInternalApiPath(target);
+      if (!path.startsWith("/")) throw new Error("预签名 URL 非法");
+
+      await apiClient.request(method as any, path, body, {
+        headers,
+        useGlobalLoading: false,
+      } as any);
+    },
+
     buildResourcePath: (uuid: string, disposition: "inline" | "attachment" = "inline") => {
       const id = uuid?.trim();
       return `${baseUrl}/${encodeURIComponent(id)}/resource?disposition=${encodeURIComponent(disposition)}`;
@@ -179,4 +213,3 @@ export const useMediaAssetService = () => {
     },
   };
 };
-

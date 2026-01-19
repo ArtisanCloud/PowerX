@@ -233,6 +233,7 @@ const viewGroups = computed<MenuGroup[]>(() => {
 });
 
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
+const EVENT_FABRIC_PATH = "/settings/event-fabric";
 const SETTINGS_ROOT_PATH = "/settings";
 
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
@@ -292,32 +293,52 @@ const manualOpenCapabilityMenu = computed<MenuItem | null>(() => {
   };
 });
 
+const manualEventFabricMenu = computed<MenuItem | null>(() => {
+  if (!userStore.isRoot) return null;
+  const label = t("menu.eventFabric", "异步任务");
+  return {
+    id: "event-fabric",
+    title: label,
+    icon: "i-heroicons-queue-list",
+    path: EVENT_FABRIC_PATH,
+    order: 130,
+    visible: true,
+    origin: "system",
+  };
+});
+
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
     ...group,
     items: [...group.items],
   }));
-  const extra = manualOpenCapabilityMenu.value;
-  if (!extra) return base;
-  const normalized = normalizeMenuPath(extra.path);
-  const exists = base.some((group) =>
-    group.items.some((item) => normalizeMenuPath(item.path) === normalized)
+  const extras = [manualOpenCapabilityMenu.value, manualEventFabricMenu.value].filter(
+    (item): item is MenuItem => !!item
   );
-  if (exists) return base;
+  if (extras.length === 0) return base;
 
-  const attached = attachToSettingsMenu(base, extra);
-  if (attached) return base;
+  for (const extra of extras) {
+    const normalized = normalizeMenuPath(extra.path);
+    const exists = base.some((group) =>
+      group.items.some((item) => normalizeMenuPath(item.path) === normalized)
+    );
+    if (exists) continue;
 
-  const systemGroup = base.find((group) => group.id === "system");
-  if (systemGroup) {
-    systemGroup.items = [...systemGroup.items, extra].sort(sortChildren);
-  } else {
-    base.push({
-      id: "system",
-      title: t("menu.settings"),
-      items: [extra],
-    });
+    const attached = attachToSettingsMenu(base, extra);
+    if (attached) continue;
+
+    const systemGroup = base.find((group) => group.id === "system");
+    if (systemGroup) {
+      systemGroup.items = [...systemGroup.items, extra].sort(sortChildren);
+    } else {
+      base.push({
+        id: "system",
+        title: t("menu.settings"),
+        items: [extra],
+      });
+    }
   }
+
   return base;
 });
 

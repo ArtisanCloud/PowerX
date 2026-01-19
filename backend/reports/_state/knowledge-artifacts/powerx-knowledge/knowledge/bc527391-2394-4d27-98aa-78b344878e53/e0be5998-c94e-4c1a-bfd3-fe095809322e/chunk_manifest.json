@@ -1,0 +1,2268 @@
+{
+  "chunks": [
+    {
+      "ID": "ea815d2c-3bf8-52f1-9c66-8746a2886e08",
+      "Kind": "doc_summary",
+      "Content": "Summary for http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899 (pdf)",
+      "Metadata": {
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {},
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "c7813373-32e8-5e8f-8ceb-ca0cc490a3cd",
+      "Kind": "section_summary",
+      "Content": "Section 1 summary for http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899",
+      "Metadata": {
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "b4e518bd-f7ab-5653-abec-e077ca31e6cb",
+      "Kind": "chunk",
+      "Content": "芯随我动，智存高远",
+      "Metadata": {
+        "chunk_idx": 1,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 1,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "976f17be-6c71-5e29-8ea0-ab43a5355562",
+      "Kind": "chunk",
+      "Content": "E系列\n行业案例\n面向海量数据的新一代数据基础设施\n         芯随我动，智存高远",
+      "Metadata": {
+        "chunk_idx": 2,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 2,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "aa63a3fc-2a56-5d41-b145-d1441d579ea8",
+      "Kind": "chunk",
+      "Content": "一、智能体产品",
+      "Metadata": {
+        "chunk_idx": 3,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 3,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "b431a351-21e1-53d2-8d2b-3b1144b58666",
+      "Kind": "chunk",
+      "Content": "二、项目案例\n芯途E系列产品全景图",
+      "Metadata": {
+        "chunk_idx": 4,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 4,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7d609446-eebd-555b-aa2e-6e9749a12d66",
+      "Kind": "chunk",
+      "Content": "•   6核心 Armv8处理器    •   80+8核心 Armv9处理器   •   120核心 Armv9 N2处理器   •   70核心 Armv9 V3处理器",
+      "Metadata": {
+        "chunk_idx": 5,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 5,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "fea62a66-8660-526b-a436-255e1c37fc76",
+      "Kind": "chunk",
+      "Content": "•   157 TOPS AI算力   •   4 PFLOPS AI算力     •   1.5 PFLOPS AI算力     •   10 PFLOPS AI算力",
+      "Metadata": {
+        "chunk_idx": 6,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 6,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "8cac5863-749e-5584-8d84-aa5f66a9329e",
+      "Kind": "chunk",
+      "Content": "•   百T高速全闪存储        •   200GbE交换网络        •   100GB 显存            •   640G 统一寻址内存",
+      "Metadata": {
+        "chunk_idx": 7,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 7,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "b015c48d-7d31-5594-945d-28627101085f",
+      "Kind": "chunk",
+      "Content": "•   支持1~7b模型部署      •   百T高速全闪存储          •   960G DDR5 内存        •   百T高速全闪存储",
+      "Metadata": {
+        "chunk_idx": 8,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 8,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "409e8ec7-7318-5ab5-b365-242fb7b5d1ef",
+      "Kind": "chunk",
+      "Content": "•   支持1~671b模型部署      •   百T高速全闪存储            •   支持1~671b模型部署\n                                            •   支持1~70b模型部署\n芯途E系列产品部署优势",
+      "Metadata": {
+        "chunk_idx": 9,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 9,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7ca87ab4-a0a2-55cb-a3df-083d623917f8",
+      "Kind": "chunk",
+      "Content": "芯途E系列产品是一款集成了高性能计算、存储、传输和人工智能服务的综合解决方案，主要面向要求数据不\n 出域、边缘场景部署的政企、金融、教育、文创等行业客户。\n         本地大模型落地痛点            E系列独创AI大模型本地部署方案",
+      "Metadata": {
+        "chunk_idx": 10,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 10,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "48251a28-8f44-5636-8a9a-4e2f741966e2",
+      "Kind": "chunk",
+      "Content": "高额私有云机房建设成本",
+      "Metadata": {
+        "chunk_idx": 11,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 11,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d3eac325-1d9a-5fe1-9d7b-3f0b59808115",
+      "Kind": "chunk",
+      "Content": "机架式：751K    公有云：1500K",
+      "Metadata": {
+        "chunk_idx": 12,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 12,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "dcaa9984-3e48-5e27-a89c-8742bcec05ba",
+      "Kind": "chunk",
+      "Content": "公有大模型无法保障数据隐私",
+      "Metadata": {
+        "chunk_idx": 13,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 13,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "123ba35f-4747-5589-a209-2df15d72a036",
+      "Kind": "chunk",
+      "Content": "知识产权        机密文件\n                                异构加速网络    50G/100G全互联架构",
+      "Metadata": {
+        "chunk_idx": 14,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 14,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "00fc91d6-0fe9-5632-8316-f429cfd93a26",
+      "Kind": "chunk",
+      "Content": "GDS存储方案   NVMeoF/RDMA\n        高时延影响关键应用体验",
+      "Metadata": {
+        "chunk_idx": 15,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 15,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "cca41a43-4f3e-5ecc-88d1-9afad06124e2",
+      "Kind": "chunk",
+      "Content": "......\n    数据读取时延高     I/O吞吐量瓶颈\n 芯途E系列产品部署优势",
+      "Metadata": {
+        "chunk_idx": 16,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 16,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "1d90ad90-f13d-54d7-bde0-c156e22e6d66",
+      "Kind": "chunk",
+      "Content": "不同部署方式成本测算                                                 不同部署方式成本测算\n（以1.5PFLOPS AI算力 76.8TB存储5年TCO为例）                          （以10PFLOPS AI算力 76.8TB存储5年TCO为例）",
+      "Metadata": {
+        "chunk_idx": 17,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 17,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "f8698724-8769-5962-b96e-441e8fa64ef3",
+      "Kind": "chunk",
+      "Content": "桌面智算超节点                                             桌面智算超节点\n     （E1005）            机架式私有云            公有云            (E1005 Pro)       机架式私有云              公有云",
+      "Metadata": {
+        "chunk_idx": 18,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 18,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "689cfbeb-65fe-563d-bc05-8effb6c03981",
+      "Kind": "chunk",
+      "Content": "76.8TB SSD         76.8TB SSD     76.8TB SSD      76.8TB SSD         76.8TB SSD        76.8TB SSD",
+      "Metadata": {
+        "chunk_idx": 19,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 19,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "093319d0-cfb1-5e05-9226-7b04773abc63",
+      "Kind": "chunk",
+      "Content": "Full-Mesh 1Tbps     100G Switch       防火墙          Full-Mesh 1Tbps     100G Switch         防火墙",
+      "Metadata": {
+        "chunk_idx": 20,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 20,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "356869c4-b224-5c84-a606-839ecaf1ec13",
+      "Kind": "chunk",
+      "Content": "100GB 显存           96GB 显存         96GB 显存         640GB 显存          384GB 显存          384GB 显存",
+      "Metadata": {
+        "chunk_idx": 21,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 21,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "fc947704-27ae-5a72-aee4-b549d5889b97",
+      "Kind": "chunk",
+      "Content": "设备：285K            设备：360K        计算/月：17K         设备：435K           设备：567K          计算/月：70K",
+      "Metadata": {
+        "chunk_idx": 22,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 22,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "41d3bd96-50d6-5ee4-83ba-ae392164e50d",
+      "Kind": "chunk",
+      "Content": "电费/年：33K           电费/年：269K       存储/月：55K        电费/年：44K          电费/年：341K         存储/月：55K",
+      "Metadata": {
+        "chunk_idx": 23,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 23,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7c9550ff-58b4-583a-8874-4da32ae58bcc",
+      "Kind": "chunk",
+      "Content": "机房+运维：0          (机房+运维)/年：581K    机房+运维：0         机房+运维：0          (机房+运维)/年：582K     机房+运维：0\n     TCO(1年)：291K       TCO(1年)：530K    TCO(1年)：864K    TCO(1年)：443K       TCO(1年)：751K     TCO(1年)：1500K",
+      "Metadata": {
+        "chunk_idx": 24,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 24,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "778d6817-dd2d-5b49-a678-46ed9f5839d8",
+      "Kind": "chunk",
+      "Content": "TCO(5年)：318K       TCO(5年)：1210K    TCO(5年)：4320K   TCO(5年)：479K      TCO(5年)：1490K     TCO(5年)：7500K",
+      "Metadata": {
+        "chunk_idx": 25,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 25,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "b5b344e5-02c4-5831-92e1-686910324375",
+      "Kind": "chunk",
+      "Content": "数据解析：电费按1元/度估算，运维人员按8000元/月估算\n         芯随我动，智存高远",
+      "Metadata": {
+        "chunk_idx": 26,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 26,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0b4f590f-a8b0-5143-bc28-6515e29d6cdb",
+      "Kind": "chunk",
+      "Content": "一、智能体产品",
+      "Metadata": {
+        "chunk_idx": 27,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 27,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "31febf92-89e8-5f1f-9eec-4604e9a9dcef",
+      "Kind": "chunk",
+      "Content": "二、项目案例\n芯途E系列+智能体：医疗口腔影像分析智能体",
+      "Metadata": {
+        "chunk_idx": 28,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 28,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "a196e8d1-a6ac-5a80-8e48-289439eec989",
+      "Kind": "chunk",
+      "Content": "适用：连锁诊所/口腔医院",
+      "Metadata": {
+        "chunk_idx": 29,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 29,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d5e4cc36-45dc-59fa-9408-8c9f1f7f52c3",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 影像数据量大，人工阅片耗时长，基层医生经验差异可能导致误诊。",
+      "Metadata": {
+        "chunk_idx": 30,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 30,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "971cd921-ead7-5d2b-96f7-5e29fdaa74a1",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005 + 医疗影像智能体",
+      "Metadata": {
+        "chunk_idx": 31,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 31,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "04cca0f5-fbcb-516a-b8e9-dd06c4969b6d",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   全周期精准诊疗：覆盖“影像管理-精准诊断-方案设计-疗效评\n     估”全流程，支持10余款AI辅助工具，利用AI自动分割与定点\n     技术，将复杂诊疗过程标准化，显著提升基层医生的诊疗精准\n     度\n•    高效医患沟通与转化：通过VTO可视化模拟、微笑模拟及自动\n     生成诊断报告等功能，将治疗效果直观展现给患者，有效解决\n     医患沟通效率低的问题，提升患者信任度与科室成交率 。",
+      "Metadata": {
+        "chunk_idx": 32,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 32,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0b5c3ff9-4d46-5e7d-bdc2-208124dfdfce",
+      "Kind": "chunk",
+      "Content": "•    合规化数据资产管理：核心一体机提供PB级的海量存储与RAID\n     数据冗余保障，支持病例安全保存15年以上，满足国家合规要\n     求，规避影像数据丢失或隐私泄露风险 。\n芯途E系列+智能体：数据资产智能体平台",
+      "Metadata": {
+        "chunk_idx": 33,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 33,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "8a97e4a2-285d-5020-a46b-913ef3f399fb",
+      "Kind": "chunk",
+      "Content": "适用：政务数据中心、大型国企、数据交易所",
+      "Metadata": {
+        "chunk_idx": 34,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 34,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "245e07a5-f985-5de1-8742-89d30108d066",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 数据孤岛严重、流通过程安全不可控、传统管理方式效率低下。",
+      "Metadata": {
+        "chunk_idx": 35,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 35,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "03cf28b4-e902-594f-a056-6b64ec45b0d3",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005/E1001 +数据资产智能体",
+      "Metadata": {
+        "chunk_idx": 36,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 36,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "94344439-86cc-53bc-95f5-f1205f934c8c",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   实时数据治理：利用高性能边缘算力，对内外部多源数据进行\n     实时清洗与标准化处理。",
+      "Metadata": {
+        "chunk_idx": 37,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 37,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "4eb563ef-3702-541a-a4a2-c39d6b1ba53d",
+      "Kind": "chunk",
+      "Content": "•    安全流通底座：构建隐私计算环境，确保数据“可用不可见”，\n     促进数据要素价值释放。",
+      "Metadata": {
+        "chunk_idx": 38,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 38,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "550ccb27-e319-5e9d-a59b-1f2e99ecb11e",
+      "Kind": "chunk",
+      "Content": "•    全生命周期管理：提供从采集、存储到交易的全链路资产化管\n     理工具。\n芯途E系列+智能体：企业级智能体平台",
+      "Metadata": {
+        "chunk_idx": 39,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 39,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "86b2435e-1ad5-5a64-adf1-e40ddca7b1fd",
+      "Kind": "chunk",
+      "Content": "适用：中小企业、科研机构、教育培训",
+      "Metadata": {
+        "chunk_idx": 40,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 40,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7df4d1f0-4ffe-5c72-bb0e-60fa799e705c",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 内部知识检索困难、重复性流程繁琐、员工办公效率提升遇到瓶颈",
+      "Metadata": {
+        "chunk_idx": 41,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 41,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "e5bf97e1-8d07-5ea6-8d29-1c74733ae985",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001 NX/E1005 Pro + MaxKB智能体平台",
+      "Metadata": {
+        "chunk_idx": 42,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 42,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "a2b29e00-910f-5443-b940-358f153b1e37",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   提高运维效率：深度集成OnePanel现代化运维面板，实现应用\n     一键部署与可视化容器管理，大幅降低运维复杂度。",
+      "Metadata": {
+        "chunk_idx": 43,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 43,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0c03b43f-9fa6-5f77-9fcf-a9a4625d072b",
+      "Kind": "chunk",
+      "Content": "•    企业级私域RAG：结合飞致云软件生态快速构建私有知识库，\n     保障核心数据不出域，兼顾安全与效率。",
+      "Metadata": {
+        "chunk_idx": 44,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 44,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "bf84ee47-73f1-5a4f-bd5c-bbaa7443e00c",
+      "Kind": "chunk",
+      "Content": "•    多智能体协作：灵活构建HR、智能客服等垂直领域Agent，通过\n     自然语言交互自动执行跨系统任务，显著提高人效。\n芯途E系列+智能体：媒资行业智能体",
+      "Metadata": {
+        "chunk_idx": 45,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 45,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7553f3d7-07cb-5b08-ad16-a3ad53404747",
+      "Kind": "chunk",
+      "Content": "适用：电视台、影视制作公司、融媒体中心",
+      "Metadata": {
+        "chunk_idx": 46,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 46,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "e32954a8-4a0a-5c6d-bf73-54b495ea5265",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 媒资素材海量堆积、人工打标检索效率低、闲置素材复用率低",
+      "Metadata": {
+        "chunk_idx": 47,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 47,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "c3bc166d-c54b-5922-9060-f7b108da1e9c",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001/E1005 + 泛媒体行业智能体",
+      "Metadata": {
+        "chunk_idx": 48,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 48,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "93c37771-47c9-51f9-8c54-899b114faaac",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   多模态智能检索：支持“以文搜图”、“以文搜视频”，极速\n     定位目标片段。",
+      "Metadata": {
+        "chunk_idx": 49,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 49,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "49269b2a-9ad3-54ab-9070-388d5473af08",
+      "Kind": "chunk",
+      "Content": "•    智能编目标签：AI自动分析视频内容，生成任务、场景、语音\n     等多维标签。",
+      "Metadata": {
+        "chunk_idx": 50,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 50,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d5d7f9e3-5013-552f-a8a4-a8d13960b4d3",
+      "Kind": "chunk",
+      "Content": "•    影视智能体：辅助脚本生成、粗剪及素材推荐、赋能内容创作\n     全流程。\n芯途E系列+智能体：文旅智能体",
+      "Metadata": {
+        "chunk_idx": 51,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 51,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "70403720-9093-54f0-a92c-8079b4b8b861",
+      "Kind": "chunk",
+      "Content": "适用：智慧景区、博物馆、主题乐园",
+      "Metadata": {
+        "chunk_idx": 52,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 52,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "e960da6c-8769-5ff6-a313-839b0934e1cb",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 抓拍难、废片多、缺乏可用于社交分享的个性化、高质量影像记录",
+      "Metadata": {
+        "chunk_idx": 53,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 53,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "9bc41703-656e-5a3a-85fb-359fec77b5f4",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001 NX/E1005 Pro + 文旅智能体",
+      "Metadata": {
+        "chunk_idx": 54,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 54,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "f6bd5506-a68c-578c-a00e-a2b7b9805dff",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   边缘AI实时检索：通过本地化部署，联动景区摄像头对游客进\n     行抓拍，分析并处理图像数据，形成景区游客照。",
+      "Metadata": {
+        "chunk_idx": 55,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 55,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "20738bc9-843f-5ab5-bc87-1033b6cb72af",
+      "Kind": "chunk",
+      "Content": "•   沉浸式互动：结合AR技术，提供“扫一扫”识别文物、景点，\n     通过数字人讲解背后的故事。",
+      "Metadata": {
+        "chunk_idx": 56,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 56,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "7671ff92-553c-5046-9612-09567f0c3478",
+      "Kind": "chunk",
+      "Content": "•   无线组网支持：适应景区复杂环境，支持大量游客并发访问，\n     保障服务流畅。\n芯途E系列+智能体：学科智能体",
+      "Metadata": {
+        "chunk_idx": 57,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 57,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "3027628c-9de8-5b66-aa0b-97e8d2e3a4b3",
+      "Kind": "chunk",
+      "Content": "适用：K12学校、职业院校、科技馆及博物馆",
+      "Metadata": {
+        "chunk_idx": 58,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 58,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "bbef301f-21e0-56cc-a0c8-450515ff58e5",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 师资力量分配不均、学生个性化答疑需求无法满足、互动形式单一。",
+      "Metadata": {
+        "chunk_idx": 59,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 59,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "f35f8c89-bb94-5173-a01c-5cf5b9a88fff",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001 NX/E1005 Pro + 学科智能体",
+      "Metadata": {
+        "chunk_idx": 60,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 60,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "a1fcee7a-7db5-5b15-b50b-05f8d5e02518",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   私域知识检索：基于校本教材与专业库构建RAG，提供精准、\n     可溯源的学科问答。",
+      "Metadata": {
+        "chunk_idx": 61,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 61,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "5292d2da-199c-58c8-9a06-059650011c00",
+      "Kind": "chunk",
+      "Content": "•   数字人交互：打造“学科数字人”或“文化大使”，提供语音、\n     动作等多模态互动体验。",
+      "Metadata": {
+        "chunk_idx": 62,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 62,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "094b07c5-5676-58e9-933f-748b0139b6ec",
+      "Kind": "chunk",
+      "Content": "•   全天候辅导：突破时空限制，为学生提供7x24小时的个性化学\n     习伴侣。\n芯途E系列+智能体：智能会议系统",
+      "Metadata": {
+        "chunk_idx": 63,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 63,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "1c5b2fb1-955d-5226-ac51-acd72d8bda9a",
+      "Kind": "chunk",
+      "Content": "适用：企业会议室、跨国远程协作、政务研讨会",
+      "Metadata": {
+        "chunk_idx": 64,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 64,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "a9e0571d-8a92-56a0-b456-b50ec1b58539",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 会议记录整理耗时、跨语言沟通障碍、参会人员身份确认繁琐、视\n 频数据结构化回溯难。",
+      "Metadata": {
+        "chunk_idx": 65,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 65,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "55e0a42d-cff2-56c1-a13f-3bf8a255033b",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001 NX + 智能会议系统",
+      "Metadata": {
+        "chunk_idx": 66,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 66,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0b523b78-ea1f-5d5f-808a-4a84a00541b9",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   全流程智能感知：融合视觉与听觉多模态数据，实时完成人脸身\n     份核验与ASR语音转写，自动标记“谁在什么时候说了什么”。",
+      "Metadata": {
+        "chunk_idx": 67,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 67,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "64346d69-17c1-59f9-a603-cca45774c0ba",
+      "Kind": "chunk",
+      "Content": "•    认知型同声传译：内置Qwen等大语言模型，提供低延迟的实时\n     双语字幕与翻译，打破语言壁垒。",
+      "Metadata": {
+        "chunk_idx": 68,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 68,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "5df2b3b7-9600-5479-9aa4-bde61c13a09c",
+      "Kind": "chunk",
+      "Content": "•    Agent 自动化执行：会后智能体自动触发，基于RAG生成结构化\n     会议纪要、提取待办事项及视频切片，实现一键回溯。\n芯途E系列+智能体：智慧安防",
+      "Metadata": {
+        "chunk_idx": 69,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 69,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "c8794e6c-fe39-5a27-87e5-327129cbeff9",
+      "Kind": "chunk",
+      "Content": "适用：高价值仓储中心、智慧园区、智慧城市",
+      "Metadata": {
+        "chunk_idx": 70,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 70,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "fd2fdf58-5b0e-577a-bc28-0d0a31246127",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 传统监控仅能事后追溯、无法实时预警异常行为、人工监看易疲劳\n 导致风险遗漏。",
+      "Metadata": {
+        "chunk_idx": 71,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 71,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "35dbce99-c850-5ea6-a28c-a9cd44d327f7",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1001 NX/E1005 Pro + CV分析智能体平台",
+      "Metadata": {
+        "chunk_idx": 72,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 72,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "21f83458-9d2e-58c1-bef2-05efd92caff3",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   存算一体化：单台设备同时满足大容量高清视频存储与边缘AI算\n     法分析，大幅降低硬件部署成本。",
+      "Metadata": {
+        "chunk_idx": 73,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 73,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "adfa0c86-8a72-5ce3-8fde-622f6b58ca1e",
+      "Kind": "chunk",
+      "Content": "•   实时行为风控：内置入侵检测、徘徊侦测、离岗检测等算法，\n     对库区异常行为实现秒级自动预警。",
+      "Metadata": {
+        "chunk_idx": 74,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 74,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "94db192a-5400-5da6-83fc-65c112f4736e",
+      "Kind": "chunk",
+      "Content": "•   结构化回溯： 将非结构化视频实时转化为结构化数据，支持按\n     时间、事件、特征快速检索，提升审计稽查效率。\n芯途E系列+智能体：公文写作",
+      "Metadata": {
+        "chunk_idx": 75,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 75,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "26ebaa3b-230d-5b19-806b-7f6a0424e9f5",
+      "Kind": "chunk",
+      "Content": "适用：党政机关、事业单位、大型国企办公室",
+      "Metadata": {
+        "chunk_idx": 76,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 76,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "c65a0954-8b8d-59a7-85bd-766ba7598eaa",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 公文格式规范复杂、撰写耗时、人工校对易出错、历史优质材料复\n 用困难。",
+      "Metadata": {
+        "chunk_idx": 77,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 77,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "bf2d9145-c7f4-51ca-9cf4-09b738f81a88",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005/E1005 Pro + 智能体平台",
+      "Metadata": {
+        "chunk_idx": 78,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 78,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "2b57bc38-3919-5624-a906-cc17ebb65a8a",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   智能辅助撰写：基于私域RAG学习过往高质量文稿，提供精准的\n     素材匹配与写作参考，辅助提升文稿起草质量。",
+      "Metadata": {
+        "chunk_idx": 79,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 79,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d46d4753-6420-57d0-98fd-4f1f61ac4d5d",
+      "Kind": "chunk",
+      "Content": "•   AI 智能校对：自动检测错别字、标点规范、格式排版及敏感词\n     表述错误，保障发文严谨合规。",
+      "Metadata": {
+        "chunk_idx": 80,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 80,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "1186c6b2-b59b-576a-967a-c2fb51064d1a",
+      "Kind": "chunk",
+      "Content": "•   以文辅政： 深度理解单位行文风格与业务逻辑，快速检索引用\n     政策法规与历史数据，提升文稿起草效率。\n芯途E系列+智能体：数据安全大脑",
+      "Metadata": {
+        "chunk_idx": 81,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 81,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "91d66d1d-b9be-557d-b502-30e5236c2581",
+      "Kind": "chunk",
+      "Content": "适用：集团企业、金融机构、政府部门",
+      "Metadata": {
+        "chunk_idx": 82,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 82,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "2e7aaf70-f2c3-5a90-89ad-7a49d261f2dd",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 内部人员合法访问难辨泄露、离职员工恶意导出无告警、数据泄露\n 后无法追溯定位。",
+      "Metadata": {
+        "chunk_idx": 83,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 83,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d66f51c4-862e-5bef-8787-17ebd43bb300",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005 Pro +数据安全大脑",
+      "Metadata": {
+        "chunk_idx": 84,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 84,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "5f67eaab-13fa-563e-806e-7e4752945bd5",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   APDR 闭环架构： 基于 E1005 Pro 算力，实现“感知-防护-决策-\n     响应”全流程动态管控。",
+      "Metadata": {
+        "chunk_idx": 85,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 85,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "76d033c0-936d-5510-85fc-a467c13fc59f",
+      "Kind": "chunk",
+      "Content": "•    UEBA 行为分析：构建“用户-数据-行为”三维画像，精准识别\n     异常行为（准确率93%），误报率\u003c5%。",
+      "Metadata": {
+        "chunk_idx": 86,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 86,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "86728a6c-4aa5-5774-9eb0-589df72edb71",
+      "Kind": "chunk",
+      "Content": "•    快速溯源： 完整还原攻击链，1分钟内实现从发现到阻断，满\n     足合规审计要求。\n芯途E系列+智能体：数据安全网关",
+      "Metadata": {
+        "chunk_idx": 87,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 87,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "9cf5458c-4f5b-5686-9015-34423df4a685",
+      "Kind": "chunk",
+      "Content": "适用：跨境电商、数据交易所、大型跨国企业",
+      "Metadata": {
+        "chunk_idx": 88,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 88,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "ae4b1f69-ce5a-5083-a4a0-074ba338add4",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 业务权限控制太粗（仅到表级）、API接口敏感信息泄露、业务代\n 码改造困难。",
+      "Metadata": {
+        "chunk_idx": 89,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 89,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "4c519d43-b0c5-5a46-8572-e3d3523f8c91",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005 Pro +数据安全网关",
+      "Metadata": {
+        "chunk_idx": 90,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 90,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "cc4407e0-cb01-5f6e-a890-22d346e7ca11",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   零信任架构： 提供细粒度访问控制，支持到“字段+行+值”级\n     授权，确保最小权限原则。",
+      "Metadata": {
+        "chunk_idx": 91,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 91,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "fc35ee2d-572a-5ec6-8514-8ffc244fe2e3",
+      "Kind": "chunk",
+      "Content": "•    动态脱敏 (PaC)：内置国密SM4及FPE算法，对出境或共享数据\n     实时脱敏，无需改造业务代码。",
+      "Metadata": {
+        "chunk_idx": 92,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 92,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "139e7f38-1ab2-59fb-b07f-6ba495e9c2ee",
+      "Kind": "chunk",
+      "Content": "•    免改造部署：采用旁路或代理模式部署于 E1005 Pro，实现数据\n     流通“安检”，API上线周期从月缩短至天。\n芯途E系列+智能体：数据资产地图",
+      "Metadata": {
+        "chunk_idx": 93,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 93,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "178e6179-2272-5684-b75c-0b11f45876df",
+      "Kind": "chunk",
+      "Content": "适用：大数据局、大型国央企、银行保险机构",
+      "Metadata": {
+        "chunk_idx": 94,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 94,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "96be548e-33d5-5cbf-a53b-048e37833004",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 资产底数不清、暗数据多、人工分类分级效率低且易出错、无法满\n 足监管报送要求。",
+      "Metadata": {
+        "chunk_idx": 95,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 95,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "5edaf338-9619-539e-8bd7-70ee59ce6321",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005 Pro +数据资产地图",
+      "Metadata": {
+        "chunk_idx": 96,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 96,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0cede7ee-7a9d-5e5b-a966-632304230483",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   AI 智能盘点： 主动嗅探全网资产，自动发现暗数据，梳理效率\n     较人工提升480倍。",
+      "Metadata": {
+        "chunk_idx": 97,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 97,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "e5cad5ed-206c-51c5-a38f-577b7cd3c9d4",
+      "Kind": "chunk",
+      "Content": "•    自动分类分级：内置金融/政务等10+行业模板，对海量字段自\n     动打标，准确率\u003e90%。",
+      "Metadata": {
+        "chunk_idx": 98,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 98,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "98b8e69a-fff0-5ef1-8531-fa078131505c",
+      "Kind": "chunk",
+      "Content": "•    合规报告导出：一键生成符合监管要求的资产清单与分级报告，\n     实现审计闭环。\n芯途E系列+智能体：AI能力平台",
+      "Metadata": {
+        "chunk_idx": 99,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 99,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "0c6992e2-a067-5a1f-a22d-795adb78bf1a",
+      "Kind": "chunk",
+      "Content": "适用：三甲医院、高端制造业、能源电力集团",
+      "Metadata": {
+        "chunk_idx": 100,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 100,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "4f20ced8-6571-5043-9d4e-66f2a08612af",
+      "Kind": "chunk",
+      "Content": "场景痛点\n 样本标注少导致模型无法训练、新术语新标准迭代慢、传统模型精\n 度低。",
+      "Metadata": {
+        "chunk_idx": 101,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 101,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "eb209de1-f3c9-5749-a874-24149a49edb3",
+      "Kind": "chunk",
+      "Content": "标准配置：芯途E1005 Pro +数据资产地图",
+      "Metadata": {
+        "chunk_idx": 102,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 102,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "cf51603b-041f-572d-82e6-f687fae50f24",
+      "Kind": "chunk",
+      "Content": "案例价值\n •   自适应小样本学习： E1005 Pro 本地算力支持冷启动，仅需少量\n     样本（如200条）即可达到90%准确率。",
+      "Metadata": {
+        "chunk_idx": 103,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 103,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "d9042850-f770-5862-a17d-4b09ecd730e1",
+      "Kind": "chunk",
+      "Content": "•   知识图谱进化：内置行业图谱，支持“新词、新类、新标准”\n     自动学习与迭代，适配速度快至3天。",
+      "Metadata": {
+        "chunk_idx": 104,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 104,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "3b4ec5ff-1e30-50d6-a554-8b8a119022ab",
+      "Kind": "chunk",
+      "Content": "•   多模态支持：覆盖文本、图像、语音等多种数据格式，实现全\n     量数据智能化处理。\n       芯随我动，智存高远",
+      "Metadata": {
+        "chunk_idx": 105,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 105,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    },
+    {
+      "ID": "aa9be656-5156-5a09-99ae-01c1d5b57450",
+      "Kind": "chunk",
+      "Content": "谢谢观看",
+      "Metadata": {
+        "chunk_idx": 106,
+        "confidence": 0,
+        "format": "pdf",
+        "job_uuid": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+        "masked": true,
+        "provenance": {
+          "page": 1
+        },
+        "section": 1,
+        "segment_mode": "heading",
+        "segment_part": 106,
+        "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899"
+      },
+      "Confidence": 0,
+      "Masked": true
+    }
+  ],
+  "format": "pdf",
+  "job_id": "e0be5998-c94e-4c1a-bfd3-fe095809322e",
+  "metrics": {},
+  "source_uri": "http://127.0.0.1:8077/media/d84efbe4-a81a-44b7-a745-794c744e7654/resource?exp=1768631656\u0026token=b6918585c7beb463d9eeca60ae9d45cd972de9de65b8fcc2291c71124b1c0899",
+  "space_id": "bc527391-2394-4d27-98aa-78b344878e53"
+}

@@ -54,10 +54,14 @@ func TestDecayGuardFlow(t *testing.T) {
 	snapshotData, err := os.ReadFile(env.DecayReportPath)
 	require.NoError(t, err)
 	var snapshot struct {
-		FalsePositive int `json:"falsePositive"`
+		FalsePositive int            `json:"falsePositive"`
+		Metrics       map[string]any `json:"metrics"`
 	}
 	require.NoError(t, json.Unmarshal(snapshotData, &snapshot))
 	require.Equal(t, 1, snapshot.FalsePositive)
+	require.Contains(t, snapshot.Metrics, "knowledge.decay.detected")
+	require.Contains(t, snapshot.Metrics, "knowledge.decay.false_positive")
+	require.Contains(t, snapshot.Metrics, "knowledge.gap.backlog")
 
 	aggregateData, err := os.ReadFile(env.KnowledgeUpdateReportPath)
 	require.NoError(t, err)

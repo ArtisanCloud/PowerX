@@ -55,6 +55,7 @@ func TestFusionGRPCHandlers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, knowledgev1.FusionStrategy_DEPLOYMENT_STATE_ACTIVE, publishResp.GetStrategy().GetDeploymentState())
 	firstID := publishResp.GetStrategy().GetStrategyId()
+	require.Empty(t, publishResp.GetStrategy().GetDegradeReasons())
 	assertNoLegacyTenantProto(t, publishResp)
 
 	queueResp, err := client.PublishFusionStrategy(rpcCtx, &knowledgev1.FusionStrategyRequest{
@@ -93,4 +94,17 @@ func TestFusionGRPCHandlers(t *testing.T) {
 	require.Error(t, err)
 	st, _ := status.FromError(err)
 	require.Equal(t, codes.NotFound, st.Code())
+
+	_, err = client.PublishFusionStrategy(rpcCtx, &knowledgev1.FusionStrategyRequest{
+		SpaceId:         space.UUID.String(),
+		Label:           "blocked",
+		Bm25Weight:      0.5,
+		VectorWeight:    0.5,
+		GraphConstraint: "tenant:default",
+		RerankerModel:   "cross-encoder-v1",
+		ConflictPolicy:  "block",
+	})
+	require.Error(t, err)
+	st, _ = status.FromError(err)
+	require.Equal(t, codes.FailedPrecondition, st.Code())
 }

@@ -2,6 +2,8 @@
 package auth
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -167,9 +169,18 @@ func (h *AuthUserHandler) RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc
 
 func (h *AuthUserHandler) LogoutHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req RefreshReq // 用 refresh_token 注销
-		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		var req RefreshReq // 用 refresh_token 注销（前端应提供；为空则 best-effort 清理本地会话）
+		if err := c.ShouldBindJSON(&req); err != nil {
+			// Empty body is common for clients that only want to clear local session.
+			if errors.Is(err, io.EOF) {
+				dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "noop": true})
+				return
+			}
 			dtoRequest.ResponseValidationError(c, err)
+			return
+		}
+		if strings.TrimSpace(req.RefreshToken) == "" {
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "noop": true})
 			return
 		}
 		if err := s.Logout(c.Request.Context(), req.RefreshToken); err != nil {

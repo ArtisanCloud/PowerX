@@ -51,13 +51,33 @@ export const persistTenantUUID = (tenantUUID: string | null) => {
 };
 
 export const resolveTenantUUIDForRequest = () =>
-  getStoredTenantUUID() ||
   (() => {
-    if (!process.client) return undefined;
+    const stored = getStoredTenantUUID();
+    if (!process.client) return stored || undefined;
+
     const claims = decodeJwtPayload(localStorage.getItem("access_token"));
-    const tenantUUID =
+    const tokenTenantUUID =
       (typeof claims?.tid === "string" && claims.tid) ||
       (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||
       "";
-    return tenantUUID ? normalize(tenantUUID) : undefined;
+    const tokenNormalized = tokenTenantUUID ? normalize(tokenTenantUUID) : "";
+
+    if (tokenNormalized) {
+      // 避免 db-refresh 后 localStorage 里残留旧租户导致请求打到错误租户
+      if (!stored) return tokenNormalized;
+      if (normalize(stored) !== tokenNormalized) return tokenNormalized;
+      return normalize(stored);
+    }
+
+    return stored || undefined;
   })();
+
+export const extractTenantUUIDFromJWT = (token?: string | null) => {
+  const claims = decodeJwtPayload(token);
+  const raw =
+    (typeof claims?.tid === "string" && claims.tid) ||
+    (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||
+    "";
+  const normalized = raw ? normalize(raw) : "";
+  return normalized || undefined;
+};

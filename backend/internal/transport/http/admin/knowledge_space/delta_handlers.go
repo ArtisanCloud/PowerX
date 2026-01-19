@@ -134,6 +134,8 @@ func (h *DeltaHandler) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ksdelta.ErrInvalidInput), errors.Is(err, ksdelta.ErrUnknownSource):
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+	case errors.Is(err, ksdelta.ErrJobConflict):
+		dto.ResponseError(c, http.StatusConflict, err.Error(), err)
 	case errors.Is(err, ksdelta.ErrSpaceNotFound), errors.Is(err, ksdelta.ErrJobNotFound):
 		dto.ResponseError(c, http.StatusNotFound, err.Error(), err)
 	case errors.Is(err, ksdelta.ErrPartialReleaseDenied):

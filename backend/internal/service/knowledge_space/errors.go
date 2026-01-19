@@ -17,6 +17,10 @@ var (
 	ErrFusionConflict = errors.New("fusion strategy conflict")
 	// ErrFusionStrategyNotFound indicates requested strategy does not exist.
 	ErrFusionStrategyNotFound = errors.New("fusion strategy not found")
+	// ErrStrategyPrereqFailed indicates selected strategy bundle prerequisites are not satisfied.
+	ErrStrategyPrereqFailed = errors.New("strategy prerequisites not satisfied")
+	// ErrEmbeddingNotConfigured indicates embedding profile is missing or not ready.
+	ErrEmbeddingNotConfigured = errors.New("embedding not configured")
 )
 
 // IsConflictError reports whether err is caused by a duplicate space.

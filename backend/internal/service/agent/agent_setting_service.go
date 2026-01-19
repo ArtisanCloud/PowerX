@@ -14,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	agentconf "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -23,6 +24,7 @@ import (
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -524,6 +526,7 @@ func (s *AgentSettingService) resolveConnFromStore(
 
 	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
+		logger.WarnF(ctx, "[agent_setting] credential lookup failed env=%s tenant=%s provider=%s name=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, name, err)
 		return baseURL, apiKey, err
 	}
 	// 先用存量 base_url
@@ -541,14 +544,28 @@ func (s *AgentSettingService) resolveConnFromStore(
 			apiKey = strings.TrimSpace(v)
 		}
 
-		var sec struct {
-			APIKey string `json:"api_key"`
-			Secret string `json:"secret"`
-		}
+		sec := map[string]any{}
 		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 			if apiKey == "" {
-				apiKey = strings.TrimSpace(sec.APIKey)
+				if v, ok := sec["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["access_token"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["secret"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				}
 			}
+			if apiKey == "" {
+				keys := make([]string, 0, len(sec))
+				for k := range sec {
+					keys = append(keys, k)
+				}
+				logger.WarnF(ctx, "[agent_setting] resolved empty api_key after unseal env=%s tenant=%s provider=%s sealed_keys=%v", env, s.tenantScopeKey(tenantUUID), provider, keys)
+			}
+		} else if cred.Data != nil && cred.Data["__sealed"] != nil {
+			logger.WarnF(ctx, "[agent_setting] unseal api_key failed env=%s tenant=%s provider=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, e)
+		} else {
+			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
 	}
 	return baseURL, apiKey, nil
@@ -765,6 +782,117 @@ func (s *AgentSettingService) PingGeneric(
 	}
 	_ = ak
 	return nil
+}
+
+// ProbeEmbeddingDimensionsPreferInput performs a real embedding call to discover vector dimensions, and writes it back to the profile.
+// NOTE: This is used by AI Settings "测试连接"，不做任何向量表创建，仅探测 provider/model 的 embedding 输出。
+func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+) (int, error) {
+	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+		return 0, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return 0, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return 0, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return 0, err
+	}
+
+	// driver mapping: provider may declare a different embedding driver (OpenAI-compatible etc.)
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["embedding"])); dk != "" {
+			driverKey = dk
+		}
+	}
+
+	embCfg := agentconf.EmbeddingConfig{
+		Enabled:  true,
+		Provider: driverKey,
+		Endpoint: bu,
+		Model:    m,
+		APIKey:   ak,
+		MaxBatch: 8,
+		Dim:      0,
+	}
+	vec, err := intentfactory.NewVectorizerFromConfig(embCfg)
+	if err != nil {
+		return 0, err
+	}
+	if vec == nil {
+		return 0, fmt.Errorf("embedding vectorizer unavailable (provider=%s model=%s)", p, m)
+	}
+	out, err := vec.Embed(ctx, []string{"powerx-dim-probe"})
+	if err != nil {
+		return 0, err
+	}
+	if len(out) == 0 || len(out[0]) == 0 {
+		return 0, fmt.Errorf("embedding probe returned empty vector")
+	}
+	dim := len(out[0])
+
+	// write back to model profile (defaults + cap_cache)
+	profile := &dbmodel.AIModelProfile{
+		Modality: "embedding",
+		Provider: p,
+		Model:    m,
+		Label:    "probe.embedding",
+		Defaults: datatypes.JSONMap{
+			"dimensions": dim,
+		},
+		CapCache: datatypes.JSONMap{
+			"dimensions": dim,
+			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+		},
+		Tags: []string{"embedding", "probed"},
+	}
+	// keep existing defaults/cap_cache best-effort (no hard dependency)
+	if exist, e := s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, "embedding", p, m); e == nil && exist != nil {
+		if exist.Defaults != nil {
+			for k, v := range exist.Defaults {
+				if _, ok := profile.Defaults[k]; ok {
+					continue
+				}
+				profile.Defaults[k] = v
+			}
+		}
+		if exist.CapCache != nil {
+			for k, v := range exist.CapCache {
+				profile.CapCache[k] = v
+			}
+			profile.CapCache["dimensions"] = dim
+			profile.CapCache["probed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
+		}
+		if strings.TrimSpace(exist.Label) != "" {
+			profile.Label = exist.Label
+		}
+		if len(exist.Tags) > 0 {
+			profile.Tags = exist.Tags
+		}
+	}
+	_ = s.profRepo.UpsertByScopeModalityProviderModel(ctx, env, tenantUUID, profile)
+
+	return dim, nil
 }
 
 // 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
@@ -1430,6 +1558,13 @@ func (s *AgentSettingService) GetActiveProfile(
 		}
 	}
 	return &latest, nil
+}
+
+// GetProfile returns the profile row for a specific (env, scope, modality, provider, model).
+func (s *AgentSettingService) GetProfile(
+	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
+) (*dbmodel.AIModelProfile, error) {
+	return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, modality, provider, model)
 }
 
 // service：设置某模态的“当前激活”

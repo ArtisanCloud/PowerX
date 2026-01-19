@@ -144,6 +144,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateKnowledgeModels(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureKnowledgeArtifactBundleOCRColumns(db); err != nil {
+		return err
+	}
 
 	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
@@ -243,7 +246,15 @@ func migrateWorkflowModels(db *gorm.DB) error {
 func migrateKnowledgeModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelKnowledge.KnowledgeSpace{},
+		&modelKnowledge.KnowledgeVectorIndex{},
 		&modelKnowledge.PolicyTemplateVersion{},
+		&modelKnowledge.IngestionProfileVersion{},
+		&modelKnowledge.IndexProfileVersion{},
+		&modelKnowledge.RAGProfileVersion{},
+		&modelKnowledge.CorpusCheckJob{},
+		&modelKnowledge.SourceCredential{},
+		&modelKnowledge.SourceConnectorInstance{},
+		&modelKnowledge.SpaceSyncJob{},
 		&modelKnowledge.IngestionJob{},
 		&modelKnowledge.ArtifactBundle{},
 		&modelKnowledge.FusionStrategyVersion{},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -84,6 +85,9 @@ type ACLService struct {
 	store  AclStore
 	topics TopicLookup
 	clock  func() time.Time
+	// grantedCache avoids calling INSERT/UPSERT in tight polling loops (e.g. EventFabric consumers ensureTopic).
+	// key: tenantKey|topicUUID|principalID|action
+	grantedCache sync.Map
 }
 
 func NewACLService(opts Options) *ACLService {
@@ -106,6 +110,37 @@ func NewACLService(opts Options) *ACLService {
 		topics: topicStore,
 		clock:  clock,
 	}
+}
+
+func (s *ACLService) cacheKey(tenantKey string, topic uuid.UUID, principalID string, action string) string {
+	return strings.TrimSpace(tenantKey) + "|" + topic.String() + "|" + strings.TrimSpace(principalID) + "|" + strings.ToLower(strings.TrimSpace(action))
+}
+
+func (s *ACLService) cacheGranted(key string, ttl time.Duration) {
+	if key == "" || ttl <= 0 {
+		return
+	}
+	s.grantedCache.Store(key, time.Now().UTC().Add(ttl))
+}
+
+func (s *ACLService) isCacheGranted(key string, now time.Time) bool {
+	if key == "" {
+		return false
+	}
+	v, ok := s.grantedCache.Load(key)
+	if !ok {
+		return false
+	}
+	exp, ok := v.(time.Time)
+	if !ok {
+		s.grantedCache.Delete(key)
+		return false
+	}
+	if now.Before(exp) {
+		return true
+	}
+	s.grantedCache.Delete(key)
+	return false
 }
 
 func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, error) {
@@ -144,11 +179,23 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 	}
 
 	now := s.clock().UTC()
+	// Avoid repeated DB writes from ensureTopic loops: only upsert missing/expired actions.
+	// We keep a short in-memory cache (per-process) to skip redundant HasPermission queries.
+	const grantedCacheTTL = 10 * time.Minute
 	modelBindings := make([]*model.AclBinding, 0, len(req.Actions))
 	for _, action := range req.Actions {
 		actionStr := strings.ToLower(strings.TrimSpace(string(action)))
 		if actionStr == "" {
 			return nil, fmt.Errorf("action cannot be empty")
+		}
+		cacheKey := s.cacheKey(topic.TenantKey, topic.UUID, principalID, actionStr)
+		if s.isCacheGranted(cacheKey, now) {
+			continue
+		}
+		allowed, err := s.store.HasPermission(ctx, topic.TenantKey, topic.UUID, principalID, actionStr, now)
+		if err == nil && allowed {
+			s.cacheGranted(cacheKey, grantedCacheTTL)
+			continue
 		}
 		modelBindings = append(modelBindings, &model.AclBinding{
 			TenantKey:     topic.TenantKey,
@@ -168,9 +215,16 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 		})
 	}
 
+	if len(modelBindings) == 0 {
+		return nil, nil
+	}
+
 	records, err := s.store.UpsertBindings(ctx, modelBindings)
 	if err != nil {
 		return nil, err
+	}
+	for _, b := range records {
+		s.cacheGranted(s.cacheKey(b.TenantKey, b.TopicUUID, b.PrincipalID, b.Action), grantedCacheTTL)
 	}
 	return convertBindings(records), nil
 }
@@ -196,6 +250,7 @@ func (s *ACLService) Revoke(ctx context.Context, req RevokeRequest) error {
 	for _, action := range req.Actions {
 		if token := strings.ToLower(strings.TrimSpace(string(action))); token != "" {
 			actions = append(actions, token)
+			s.grantedCache.Delete(s.cacheKey(tenantKey, topicUUID, principalID, token))
 		}
 	}
 	_, err = s.store.RemoveBindings(ctx, tenantKey, topicUUID, principalID, actions)

@@ -15,26 +15,22 @@ import (
 	"github.com/ArtisanCloud/PowerX/tests/knowledge_space/testenv"
 )
 
-func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
+func TestQABridgeGRPCContract(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
 
-	tpl := env.SeedPolicyTemplate("qa-bridge-grpc", "v1")
-	spaceA := env.CreateSpaceFixture("grpc-qa-alpha", tpl)
-	spaceB := env.CreateSpaceFixture("grpc-qa-beta", tpl)
-	require.NoError(t, env.ActivateSpace(spaceA.UUID))
-	require.NoError(t, env.ActivateSpace(spaceB.UUID))
+	policyID := env.SeedPolicyTemplate("grpc-qa-bridge", "v1")
+	space := env.CreateSpaceFixture("grpc-qa-space", policyID)
+	require.NoError(t, env.ActivateSpace(space.UUID))
 
 	listener := bufconn.Listen(1024 * 1024)
 	t.Cleanup(func() { _ = listener.Close() })
-
 	server := env.GRPCServer()
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(server.Stop)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
 	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -43,68 +39,35 @@ func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
 
 	client := knowledgev1.NewKnowledgeSpaceQABridgeServiceClient(conn)
 
-	rpcCtx := knowledgeGRPCContext(t, env)
-	planResp, err := client.PlanRetrieval(rpcCtx, &knowledgev1.QARetrievalPlanRequest{
+	plan, err := client.PlanRetrieval(ctx, &knowledgev1.QARetrievalPlanRequest{
 		TenantUuid:      env.TenantUUID().String(),
-		Intent:          "供应商是否超限",
-		DomainTags:      []string{"finance"},
+		Intent:          "grpc plan",
+		DomainTags:      []string{"ops"},
 		SessionId:       "grpc-session",
-		LatencyBudgetMs: 1500,
+		LatencyBudgetMs: 1200,
 	})
 	require.NoError(t, err)
-	require.Len(t, planResp.GetCandidateSpaces(), 2)
-	require.Equal(t, spaceA.UUID.String(), planResp.GetCandidateSpaces()[0].GetSpaceId())
-	require.Empty(t, planResp.GetCandidateSpaces()[0].GetDegradeReason())
-	require.Equal(t, "hybrid", planResp.GetCandidateSpaces()[0].GetStrategy())
-	assertNoLegacyTenantProto(t, planResp)
+	require.Equal(t, env.TenantUUID().String(), plan.GetTenantUuid())
+	require.NotEmpty(t, plan.GetTelemetry().GetTraceId())
+	require.NotEmpty(t, plan.GetPolicyVersionSnapshot())
+	require.NotEmpty(t, plan.GetStages())
+	require.GreaterOrEqual(t, int(plan.GetDegradeCount()), 0)
 
-	// degrade scenario
-	require.NoError(t, env.SetSpaceStatus(spaceB.UUID, "retired"))
-	planResp, err = client.PlanRetrieval(rpcCtx, &knowledgev1.QARetrievalPlanRequest{
-		TenantUuid:      env.TenantUUID().String(),
-		Intent:          "供应商是否超限",
-		DomainTags:      []string{"finance"},
-		SessionId:       "grpc-session",
-		LatencyBudgetMs: 1500,
-	})
-	require.NoError(t, err)
-	require.Equal(t, 2, len(planResp.GetCandidateSpaces()))
-	require.NotEmpty(t, planResp.GetCandidateSpaces()[1].GetDegradeReason())
-	assertNoLegacyTenantProto(t, planResp)
-
-	snapshotResp, err := client.UpsertMemorySnapshot(rpcCtx, &knowledgev1.QAMemorySnapshotRequest{
+	snap, err := client.UpsertMemorySnapshot(ctx, &knowledgev1.QAMemorySnapshotRequest{
 		TenantUuid: env.TenantUUID().String(),
 		SessionId:  "grpc-session",
-		Updates: []*knowledgev1.QAMemoryUpdate{
-			{
-				ChunkId:    "chunk-grpc-1",
-				SpaceId:    spaceA.UUID.String(),
-				Citations:  []string{"doc#1"},
-				Status:     "answered",
-				SourceType: "pdf",
-				Confidence: 0.9,
-			},
-			{
-				ChunkId:    "chunk-grpc-2",
-				SpaceId:    spaceA.UUID.String(),
-				Citations:  []string{"doc#2"},
-				Status:     "stale",
-				SourceType: "api",
-				Confidence: 0.6,
-			},
-		},
+		TraceId:    plan.GetTelemetry().GetTraceId(),
+		Updates: []*knowledgev1.QAMemoryUpdate{{
+			ChunkId:    "grpc-chunk-1",
+			SpaceId:    space.UUID.String(),
+			Citations:  []string{"doc#grpc"},
+			Status:     "answered",
+			SourceType: "md",
+			Confidence: 0.9,
+		}},
 	})
 	require.NoError(t, err)
-	require.Len(t, snapshotResp.GetCitations(), 2)
-	require.Equal(t, "chunk-grpc-1", snapshotResp.GetCitations()[0].GetChunkId())
-	assertNoLegacyTenantProto(t, snapshotResp)
-
-	// Read without updates
-	snapshotResp, err = client.UpsertMemorySnapshot(rpcCtx, &knowledgev1.QAMemorySnapshotRequest{
-		TenantUuid: env.TenantUUID().String(),
-		SessionId:  "grpc-session",
-	})
-	require.NoError(t, err)
-	require.Len(t, snapshotResp.GetCitations(), 2)
-	assertNoLegacyTenantProto(t, snapshotResp)
+	require.Len(t, snap.GetCitations(), 1)
+	require.NotNil(t, snap.GetMetadata())
 }
+

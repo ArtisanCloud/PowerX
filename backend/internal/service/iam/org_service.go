@@ -495,5 +495,8 @@ func (s *OrgService) GetDepartmentTree(ctx context.Context, tenantUUID string) (
 		sortRec(r)
 	}
 
+	if roots == nil {
+		return []*m.Department{}, nil
+	}
 	return roots, nil
 }

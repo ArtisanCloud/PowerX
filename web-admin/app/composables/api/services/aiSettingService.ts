@@ -289,4 +289,20 @@ export class AISettingService {
       }>
     >(url);
   }
+
+  /**
+   * 设置当前激活的配置
+   */
+  static async setActiveProfile(payload: {
+    env: string;
+    modality: string;
+    provider: string;
+    model: string;
+  }): Promise<ApiResponse<{ ok: boolean }>> {
+    const { post } = useApiClient();
+    return await post<ApiResponse<{ ok: boolean }>>(
+      ApiEndpoints.ADMIN_AGENTS.SETTINGS_ACTIVE,
+      payload
+    );
+  }
 }

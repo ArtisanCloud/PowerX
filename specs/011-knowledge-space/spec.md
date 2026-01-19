@@ -114,6 +114,69 @@ Knowledge governance operators run the continuous-update control room described 
 
 **Implementation Notes**: Delta + event flows reuse the shared multi-driver vectorstore abstraction defined in `backend/pkg/corex/db/persistence/vectorstore` instead of bespoke embedding clients, so pgvector/milvus/pinecone drivers stay centrally configurable. Task orchestration reuses the existing approval-center connectors, audit-ledger client, and `task-center` integration for decay gap workloads.
 
+---
+
+## Dense 向量索引：全局表 + 按维度分表（方案补充）
+
+### 背景
+
+pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一旦你把表定义成 `vector(1536)`，写入 `1024/768/3072` 都会失败或产生不一致。
+
+同时，embedding provider/model 在真实运营中一定会变化（成本、合规、性能、中文效果等原因），如果把向量表固定为单一 `knowledge_vectors`，就会在“切模型/切维度”时反复重建全量索引，影响上线节奏。
+
+### 目标
+
+1. **避免按 tenant/space 建表爆炸**：仍然采用全局共享表，通过 `space_uuid` 隔离。
+2. **支持未来切换 embedding provider/model/维度**：通过按维度分表实现 `vector(D)` 的硬约束兼容。
+3. **把复杂性收敛到“空间级配置”**：一个 space 锁定一个 active embedding profile，不允许同 space 混模型。
+4. **管理员不需要知道维度**：通过 probe 探测维度并在激活时校验。
+
+### 方案概要
+
+- 向量表族：`public.knowledge_vectors_{D}`（例如 `knowledge_vectors_1536`、`knowledge_vectors_1024`）
+- 向量表族：`public.knowledge_vectors_v{N}_{D}`（例如 `knowledge_vectors_v1_1536`、`knowledge_vectors_v1_1024`）
+- 索引登记表：`public.knowledge_vector_indexes`（space→(D/table/provider/model/profile_ref) 的 SSOT）
+- 空间级绑定：
+  - `knowledge_spaces.embedding_profile_key`（逻辑键，引用 AI Settings 的 embedding profile）
+  - `knowledge_spaces.active_vector_index_key`（指向 `knowledge_vector_indexes.index_key`）
+
+### 运维与治理规则（强约束）
+
+1. **Probe gating**：embedding profile 设为 active 前必须 probe 成功，探测出 `dimensions`，并记录到 profile/defaults 或 index registry。
+2. **按维度建表**：只允许创建有限的维度表（如 1536/1024/768 等），不按 model 建表，避免“垃圾表爆炸”。
+3. **建表时机**：仅在“切换 space 的 embedding profile / 激活向量索引”时按需创建新维度表；入库时不做 DDL。
+4. **垃圾回收**：基于 `knowledge_vector_indexes.last_used_at/status` 清理长期未使用的索引版本（保留最近 N 个版本/可回滚窗口）。
+
+### 操作时序（你截图里的页面如何参与）
+
+1. **AI Settings 页面（租户/环境级）**
+   - “测试连接/试跑一次”只做两件事：连通性校验 + probe 探测维度（D）。
+   - 探测成功后将 `dimensions` 写回到该 embedding profile（或其 defaults），用于后续 space 绑定时的强校验。
+   - **这里不创建任何向量表**（因为尚未绑定到具体 space，无法确定要创建哪个 space 的 index/version，也避免误操作制造垃圾表）。
+2. **Space 页面（空间级）**
+   - 管理员把某个 embedding profile 绑定到 space，并执行“激活/应用”：
+     - 后端读取该 profile 的 `dimensions`（若缺失则要求先 probe）
+     - 计算目标表名 `knowledge_vectors_v{N}_{D}`
+     - `CREATE TABLE IF NOT EXISTS ...`：表已存在则忽略（幂等）
+     - 写入/更新 `knowledge_vector_indexes`，并将 `knowledge_spaces.active_vector_index_key` 指向该 index
+3. **入库/检索（运行时）**
+   - 入库写向量、检索读向量都按 `space_uuid -> active_vector_index_key -> table_name` 路由，禁止绕过（避免同 space 混模型）。
+   - 若未配置或未通过 probe 的 embedding profile，入库必须被拒绝，并提示前往 AI Settings 完成配置。
+
+### 删除/退役（软删除优先）
+
+- 默认删除行为为“软删除”：将空间状态置为 `retired`，进入只读保留期，但**不清理**入库数据与向量索引。
+- 软删除后：空间不可再入库/检索/配置策略；保留期遵循 13 个月策略。
+- 如需释放存储（清理向量与产物），由管理员触发“硬删除/清理”流程（后续扩展），不会在普通删除中默认执行。
+
+### 独立验收
+
+1. 管理员在 AI Settings 里配置一个 embedding profile（provider/model/credential），点击 probe，UI 显示维度。
+2. 管理员把该 profile 绑定到某个 space 并激活：
+   - 若该版本+维度表不存在：系统创建 `knowledge_vectors_v{N}_{D}` + 必要索引，并写入 `knowledge_vector_indexes`。
+3. 触发该 space 入库：向量写入正确的 `knowledge_vectors_v{N}_{D}` 表，并且 metadata 中包含 `embedding_provider/model`。
+4. 切换到另一个维度模型：生成新的 `knowledge_vectors_v{N}_{D2}`（若不存在），并把 `active_vector_index_key` 指向新索引；旧索引仍保留可回滚。
+
 **Acceptance Scenarios**:
 
 1. **Given** a delta job referencing updated PDFs + API sources, **When** operators run the approval flow, **Then** the system enforces ≤30 minute detect→publish SLA, emits `knowledge.delta.{sla,diff_accuracy,partial_release}` (target ≥98% diff accuracy), stores partial-release + rollback tokens, reuses the vectorstore driver registry for embedding comparisons, and writes audit IDs matching `SCN-KNOWLEDGE-UPDATE-SYNC-001`.
@@ -136,12 +199,14 @@ Knowledge governance operators run the continuous-update control room described 
 ### Functional Requirements
 
 - **FR-001**: The platform MUST allow authorized admins to create, update, and retire knowledge spaces with enforced SLA ≤2 minutes from submission to activation while enforcing a 13-month read-only retention for retired assets.
+- **FR-001A**: 删除空间默认执行软删除（仅切换为 `retired`），不得自动清理入库数据与向量索引；如需释放存储必须由管理员显式触发清理流程。
 - **FR-002**: Space creation MUST auto-apply default RAG, graph, masking, retention, and alerting templates; disabling any template requires an explicit approval workflow and audit entry.
 - **FR-003**: Provisioning MUST validate tenant quotas, per-tenant naming uniqueness, and configuration conflicts atomically, rejecting and rolling back partial writes upon violation.
 - **FR-004**: IAM role synchronization MUST complete with ≥99.5% success; unresolved sync tasks must block ingestion and emit operational alerts.
 - **FR-005**: Every provisioning, policy change, and approval action MUST write to the audit stream with actor, payload hash, template versions, and rollback tokens.
 - **FR-006**: The ingestion orchestrator MUST accept PDF/Markdown/Excel/CSV/API inputs, perform OCR + chunking + embedding + masking + graph linking, and finish the first ingestion cycle within four hours.
-- **FR-007**: Long-document ingestion MUST deterministically produce dual-granularity chunks (≈800-token semantic summaries + ≈300-token paragraphs) with ≥95% coverage, 100% embedding success, explicit provenance (doc + page), and automated validation reports surfaced to operators.
+- **FR-006A**: 入库请求前必须存在至少一个可用的 embedding profile（probe 成功且凭证有效）；若未配置或不可用，系统必须阻断入库并给出引导前往 AI Settings 配置的提示（前端同步提示并提供跳转）。
+- **FR-007**: Long-document ingestion MUST deterministically produce dual-granularity chunks (≈800-token semantic summaries + ≈300-token paragraphs) with ≥95% coverage, 100% embedding success, explicit provenance (doc + page). For scanned/image-based PDFs, provenance MUST additionally include page-region coordinates (bbox) suitable for UI highlight overlays, and automated validation reports surfaced to operators.
 - **FR-008**: Structured ingestion MUST detect schema elements (keys, timestamp, enumerations), enforce masking coverage 100%, and block publication when sensitivity checks fail.
 - **FR-009**: Every ingestion job MUST provide retries (up to three automatic attempts) with exponential backoff and emit `knowledge.ingestion.*` events for success, failure, and manual review states.
 - **FR-010**: Fusion pipelines MUST support configurable combinations of lexical, vector, and graph constraints, allow operators to version weights, and guarantee rollback to any prior version within five minutes.
@@ -159,6 +224,28 @@ Knowledge governance operators run the continuous-update control room described 
 - **FR-022**: Decay/gap detection described in `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` MUST run automated scans (cron + on-demand), classify severity, spawn restoration tasks with ≤7-day SLA, support ≤10-minute false-positive recovery, and guard rail multi-tenant visibility with audit logging.
 - **FR-023**: Tenant release governance per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` MUST manage `tenant_release_matrix.yaml`, pilot selection, automated expansion, failure-induced rollback (<5 minutes), and cross-tenant audit/export capabilities accessible via HTTP/gRPC + CLI + Web Admin surfaces.
 - **FR-024**: All knowledge-update flows (delta, feedback, event, decay, tenant release) MUST emit metrics (`knowledge.delta.*`, `knowledge.feedback.*`, `knowledge.event.*`, `knowledge.decay.*`, `knowledge.release.*`) into OpenTelemetry, Grafana dashboards, and JSON exports (`backend/reports/_state/knowledge-{delta,feedback,event,decay,release}.json` + aggregated `knowledge-update.json`).
+
+### Scene & Strategy Bundles (RAG Productization)
+
+This feature MUST implement the scene-driven strategy selection model described in:
+- `docs/plan/AI_engineering/knowledge/rag.md`
+- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+
+Definitions:
+- **Scene** (L1 selection): the knowledge base category + typical query intents (e.g., SOP, contract, research, ledger, SQL/KG).
+- **Strategy bundle** (L2 selection): a versioned combination of `IngestionProfile + IndexProfile + RAGProfile + Guardrails`.
+
+Non-goal: Do **not** expose a full Cartesian product of “scenes × all strategies”. Only show strategy bundles that match the scene’s index/asset prerequisites.
+
+- **FR-025**: The Web Admin MUST offer a unified, guided entry that supports two-level selection: `Scene → Strategy bundle`, plus a “Custom scene (expert)” option that can unlock all modules with dependency validation.
+- **FR-026**: The platform MUST enforce strategy prerequisites before allowing activation/publish (e.g., KG bundles require KG indexes/tables; high-accuracy bundles require sparse index + evidence guardrails), and MUST surface actionable remediation in UI.
+- **FR-027**: Each scene MUST map to a biased (non-full) set of strategy bundles and strategy modules as defined in `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`, including:
+  - KG as the default for the “SQL/config/dependency” scene (KG-strong), and optional KG-lite for contract scenarios.
+  - Contract/quote scenes default to evidence-first (sparse-heavy + CRAG + must-cite + time-aware).
+- **FR-028**: Ingestion profiles MUST support configurable chunking parameters (e.g., chunk size, overlap/delta, separators) with scene defaults and safe bounds, and MUST capture provenance fields required by retrieval citations.
+- **FR-029**: `make db-migrate` MUST provision knowledge-space persistence prerequisites in PostgreSQL: when `knowledge_space.vector_store.driver=pgvector`, it MUST ensure `pgvector` extension + `knowledge_vectors` table (and required indexes) exist; it MUST also provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently so KG-enabled strategy bundles can be activated without manual SQL.
+- **FR-030**: The system MUST fail fast with actionable errors when migrations cannot create required extensions/tables (e.g. missing `CREATE EXTENSION vector` privilege), and MUST skip pgvector-only migrations when non-pgvector drivers (Milvus/Pinecone) are configured.
+- **FR-031**: The system MUST map `scene_strategy_catalog.yaml` index prerequisites to concrete storage readiness checks. When a scene/strategy enables `index.sparse`/`index.hier`/`index.structured_fields` using the Postgres-backed implementation, `make db-migrate` MUST provision the corresponding assist tables (e.g. `knowledge_chunks`, `knowledge_chunk_links`) and indexes idempotently.
 
 ### Key Entities *(include if feature involves data)*
 

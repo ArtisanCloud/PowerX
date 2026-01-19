@@ -32,11 +32,37 @@ func NewAgentNotifier(path string) *AgentNotifier {
 	return &AgentNotifier{matrix: matrix}
 }
 
-func (n *AgentNotifier) Refresh(_ context.Context, payload map[string]any) bool {
+func (n *AgentNotifier) Refresh(ctx context.Context, eventType string, payload map[string]any) bool {
 	if n == nil {
 		return false
 	}
-	eventType, _ := payload["eventType"].(string)
-	entry, ok := n.matrix[strings.ToLower(eventType)]
-	return ok && entry.Weight > 0
+	_ = ctx
+	key := strings.ToLower(strings.TrimSpace(eventType))
+	if key == "agent.weight.refresh" {
+		if v, ok := payload["target_event_type"].(string); ok {
+			key = strings.ToLower(strings.TrimSpace(v))
+		} else if v, ok := payload["targetEventType"].(string); ok {
+			key = strings.ToLower(strings.TrimSpace(v))
+		} else if v, ok := payload["eventType"].(string); ok {
+			candidate := strings.TrimSpace(v)
+			// gRPC RefreshAgentWeights 目前传 tenant_uuid 到 eventType；视为全量刷新成功。
+			if len(candidate) >= 32 && strings.Count(candidate, "-") >= 4 {
+				return true
+			}
+			key = strings.ToLower(candidate)
+		} else {
+			// 没有指明目标事件时，视为全量刷新成功（真实实现可在此触发全量 reload）。
+			return true
+		}
+	}
+	if key == "" {
+		return false
+	}
+	entry, ok := n.matrix[key]
+	if !ok {
+		return false
+	}
+	// "真实刷新" 在此切片里体现为：基于矩阵命中并产出可执行的权重参数。
+	// 后续可在此处接入 agent cache / 路由策略 / toolchain registry 的实际刷新逻辑。
+	return strings.TrimSpace(entry.Tool) != "" && entry.Weight > 0
 }

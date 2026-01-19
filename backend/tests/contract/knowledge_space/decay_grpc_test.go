@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestDecayGRPCFlow(t *testing.T) {
@@ -17,12 +18,20 @@ func TestDecayGRPCFlow(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	server := env.GRPCServer()
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	go server.Serve(lis)
+	lis := bufconn.Listen(1024 * 1024)
+	go func() {
+		_ = server.Serve(lis)
+	}()
 	t.Cleanup(func() { server.Stop() })
 
-	conn, err := grpc.DialContext(context.Background(), lis.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.DialContext(
+		context.Background(),
+		"bufnet",
+		grpc.WithInsecure(),
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+	)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 

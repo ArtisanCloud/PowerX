@@ -6,8 +6,10 @@ import process from 'node:process';
 import crypto from 'node:crypto';
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
-const defaultThresholdPath = path.join(repoRoot, 'configs', 'knowledge', 'decay_thresholds.yaml');
-const defaultReportPath = path.join(repoRoot, 'tmp', 'knowledge-decay-report.json');
+const defaultThresholdPath = path.join(repoRoot, 'backend', 'config', 'knowledge', 'decay_thresholds.yaml');
+const defaultDraftPath = path.join(repoRoot, 'tmp', `knowledge-decay-scan-${Date.now()}.json`);
+const defaultReportPath = path.join(repoRoot, 'backend', 'reports', '_state', 'knowledge-decay.json');
+const defaultAggregatePath = path.join(repoRoot, 'reports', '_state', 'knowledge-update.json');
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
@@ -27,7 +29,21 @@ async function main() {
 
 	await mkdir(path.dirname(args.output), {recursive: true});
 	await writeFile(args.output, JSON.stringify(payload, null, 2));
-	console.log(`✅ Decay scan report written to ${args.output}`);
+
+	if (args.baseUrl) {
+		const scanResp = await runRemoteScan(args, payload);
+		console.log('✅ remote scan created tasks:', scanResp.taskIds.length);
+		if (args.restoreFirst && scanResp.taskIds.length > 0) {
+			await runRemoteRestore(args, scanResp.taskIds[0]);
+			console.log('✅ remote restore completed (first task)');
+		}
+	}
+
+	if (args.printReports) {
+		await printLocalReports(args.reportPath, args.aggregatePath);
+	}
+
+	console.log(`✅ decay scan draft written to ${args.output}`);
 }
 
 function parseArgs(argv) {
@@ -37,7 +53,14 @@ function parseArgs(argv) {
 		category: '',
 		severity: '',
 		thresholdsPath: defaultThresholdPath,
-		output: defaultReportPath,
+		output: defaultDraftPath,
+		baseUrl: process.env.POWERX_BASE_URL || '',
+		token: process.env.ADMIN_TOKEN || '',
+		tenantUuid: process.env.TENANT_UUID || process.env.POWERX_TENANT_UUID || '',
+		restoreFirst: true,
+		printReports: true,
+		reportPath: defaultReportPath,
+		aggregatePath: defaultAggregatePath,
 		dryRun: false,
 	};
 	for (const token of argv) {
@@ -66,6 +89,27 @@ function parseArgs(argv) {
 				break;
 			case 'output':
 				args.output = value;
+				break;
+			case 'base-url':
+				args.baseUrl = value;
+				break;
+			case 'token':
+				args.token = value;
+				break;
+			case 'tenant-uuid':
+				args.tenantUuid = value;
+				break;
+			case 'restore-first':
+				args.restoreFirst = value !== '0' && value !== 'false';
+				break;
+			case 'print-reports':
+				args.printReports = value !== '0' && value !== 'false';
+				break;
+			case 'report-path':
+				args.reportPath = value;
+				break;
+			case 'aggregate-path':
+				args.aggregatePath = value;
 				break;
 			default:
 				break;
@@ -119,12 +163,92 @@ function buildReport({spaceId, detected, threshold}) {
 			severity: threshold.severity,
 		},
 		tasks,
-		metrics: {
-			"knowledge.decay.detected": tasks.length,
-			"knowledge.gap.backlog": tasks.length,
-			"knowledge.decay.sla_hours": slaHours,
+		request: {
+			spaceId,
+			detected: tasks.length,
+			category: threshold.category,
+			severity: threshold.severity,
+			reason: threshold.reason,
 		},
 	};
+}
+
+async function runRemoteScan(args, payload) {
+	if (!args.baseUrl) {
+		throw new Error('缺少 --base-url 或 POWERX_BASE_URL');
+	}
+	if (!args.token) {
+		throw new Error('缺少 --token 或 ADMIN_TOKEN');
+	}
+	if (!args.tenantUuid) {
+		throw new Error('缺少 --tenant-uuid 或 TENANT_UUID/POWERX_TENANT_UUID');
+	}
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/decay/tasks`;
+	const resp = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${args.token}`,
+			'X-Tenant-UUID': args.tenantUuid,
+		},
+		body: JSON.stringify(payload.request),
+	});
+	if (!resp.ok) {
+		throw new Error(`remote scan failed: ${resp.status} ${await resp.text()}`);
+	}
+	const data = await resp.json();
+	const tasks = data?.data?.tasks ?? [];
+	return {taskIds: tasks.map((t) => t.uuid).filter(Boolean)};
+}
+
+async function runRemoteRestore(args, taskId) {
+	const url = `${normalizeApiBase(args.baseUrl)}/knowledge/decay/restore`;
+	const resp = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${args.token}`,
+			'X-Tenant-UUID': args.tenantUuid,
+		},
+		body: JSON.stringify({
+			taskId,
+			falsePositive: true,
+			notes: 'auto-restore for verification',
+			reason: 'verification flow',
+			approvedBy: 'ops-script',
+		}),
+	});
+	if (!resp.ok) {
+		throw new Error(`remote restore failed: ${resp.status} ${await resp.text()}`);
+	}
+	return resp.json();
+}
+
+function normalizeApiBase(raw) {
+	const trimmed = String(raw || '').trim().replace(/\/$/, '');
+	if (!trimmed) return 'http://127.0.0.1:8077/api/v1';
+	if (trimmed.endsWith('/api/v1')) return trimmed;
+	if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
+	if (trimmed.includes('/api/v1/')) return trimmed.replace(/\/$/, '');
+	if (trimmed.includes('/api/')) return trimmed.replace(/\/$/, '');
+	return `${trimmed}/api/v1`;
+}
+
+async function printLocalReports(reportPath, aggregatePath) {
+	try {
+		const raw = await readFile(reportPath, 'utf8');
+		console.log('--- backend report: knowledge-decay.json ---');
+		console.log(raw);
+	} catch (err) {
+		console.warn(`[warn] cannot read ${reportPath}: ${err.message}`);
+	}
+	try {
+		const raw = await readFile(aggregatePath, 'utf8');
+		console.log('--- aggregate report: knowledge-update.json ---');
+		console.log(raw);
+	} catch (err) {
+		console.warn(`[warn] cannot read ${aggregatePath}: ${err.message}`);
+	}
 }
 
 main().catch((err) => {

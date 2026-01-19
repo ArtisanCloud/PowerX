@@ -11,7 +11,10 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
-import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
+import {
+  extractTenantUUIDFromJWT,
+  resolveTenantUUIDForRequest,
+} from "~/utils/tenant-context";
 
 /** =========================
  * API 客户端配置
@@ -68,7 +71,21 @@ let globalConfig: ApiClientConfig = {
           config.headers["X-Tenant-UUID"] ||
           (config.headers as Record<string, string>)["x-tenant-uuid"];
         if (!hasTenantHeader) {
-          const tenantUUID = resolveTenantUUIDForRequest();
+          // 优先从本次请求的 Authorization token 推导，避免出现：
+          // - Authorization 来自 cookie/useAuth
+          // - 但 X-Tenant-UUID 仍从 localStorage 的旧 token/旧 tenant 推导
+          // Root 用户会优先使用 Header 租户进行代理，若 Header 错了会看到“部门/数据为空”。
+          const authz =
+            (config.headers as Record<string, string>)["Authorization"] ||
+            (config.headers as Record<string, string>)["authorization"] ||
+            "";
+          const bearer = typeof authz === "string" ? authz.trim() : "";
+          const token =
+            bearer.toLowerCase().startsWith("bearer ")
+              ? bearer.slice("bearer ".length).trim()
+              : "";
+          const tenantUUID =
+            extractTenantUUIDFromJWT(token) || resolveTenantUUIDForRequest();
           if (tenantUUID) {
             config.headers = {
               ...config.headers,
@@ -145,6 +162,16 @@ let globalConfig: ApiClientConfig = {
  * 设置全局 API 配置（浅合并 + headers 深合并）
  */
 export const setApiConfig = (config: Partial<ApiClientConfig>) => {
+  const nextRequestInterceptors =
+    config.requestInterceptors && config.requestInterceptors.length
+      ? [...(globalConfig.requestInterceptors || []), ...config.requestInterceptors]
+      : globalConfig.requestInterceptors;
+
+  const nextResponseInterceptors =
+    config.responseInterceptors && config.responseInterceptors.length
+      ? [...(globalConfig.responseInterceptors || []), ...config.responseInterceptors]
+      : globalConfig.responseInterceptors;
+
   globalConfig = {
     ...globalConfig,
     ...config,
@@ -152,6 +179,8 @@ export const setApiConfig = (config: Partial<ApiClientConfig>) => {
       ...globalConfig.headers,
       ...config.headers,
     },
+    requestInterceptors: nextRequestInterceptors,
+    responseInterceptors: nextResponseInterceptors,
   };
 };
 

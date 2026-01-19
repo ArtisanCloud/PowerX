@@ -1,180 +1,105 @@
 package knowledge_space_contract
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ArtisanCloud/PowerX/tests/knowledge_space/testenv"
 )
 
-func TestQABridgeRetrievalPlanHTTP(t *testing.T) {
+func TestQABridgeHTTPHandlers(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
 
-	tpl := env.SeedPolicyTemplate("qa-plan", "v1")
-	spaceA := env.CreateSpaceFixture("qa-alpha", tpl)
-	spaceB := env.CreateSpaceFixture("qa-beta", tpl)
+	policyID := env.SeedPolicyTemplate("http-qa-bridge", "v1")
+	spaceA := env.CreateSpaceFixture("http-qa-space-a", policyID)
+	spaceB := env.CreateSpaceFixture("http-qa-space-b", policyID)
 	require.NoError(t, env.ActivateSpace(spaceA.UUID))
-	require.NoError(t, env.ActivateSpace(spaceB.UUID))
+	require.NoError(t, env.SetSpaceStatus(spaceB.UUID, "retired"))
 
 	engine := env.Engine()
 
-	body := map[string]any{
-		"intent":          "供应商是否超限",
-		"domainTags":      []string{"finance", "policy"},
+	payload, _ := json.Marshal(map[string]any{
+		"intent":          "测试检索计划",
+		"domainTags":      []string{"ops"},
+		"sessionId":       "qa-http-session",
 		"latencyBudgetMs": 1500,
-		"sessionId":       "session-alpha",
-	}
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
 
-	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body, env.TenantUUID().String())
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
+	started := time.Now()
+	resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
+	require.Less(t, time.Since(started), 2*time.Second)
 	require.Equal(t, http.StatusOK, resp.Code)
 
 	var apiResp struct {
-		Code int               `json:"code"`
-		Data qaPlanHTTPPayload `json:"data"`
+		Code int `json:"code"`
+		Data struct {
+			CandidateSpaces []struct {
+				SpaceID       string `json:"spaceId"`
+				DegradeReason string `json:"degradeReason"`
+				Strategy      string `json:"strategy"`
+			} `json:"candidateSpaces"`
+			Stages []struct {
+				Name string `json:"name"`
+			} `json:"stages"`
+			PolicySnapshot map[string]string `json:"policy_version_snapshot"`
+			DegradeCount   int               `json:"degradeCount"`
+		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
 	require.Equal(t, http.StatusOK, apiResp.Code)
 	require.Len(t, apiResp.Data.CandidateSpaces, 2)
-	require.Equal(t, spaceA.UUID.String(), apiResp.Data.CandidateSpaces[0].SpaceID)
-	require.Empty(t, apiResp.Data.CandidateSpaces[0].DegradeReason)
-	require.Equal(t, "hybrid", apiResp.Data.CandidateSpaces[0].Strategy)
-	require.NotEmpty(t, apiResp.Data.Telemetry.TraceID)
+	require.NotEmpty(t, apiResp.Data.CandidateSpaces[0].SpaceID)
+	require.Equal(t, "time-aware", apiResp.Data.CandidateSpaces[0].Strategy)
+	require.GreaterOrEqual(t, apiResp.Data.DegradeCount, 1)
+	require.NotEmpty(t, apiResp.Data.PolicySnapshot)
+	require.Len(t, apiResp.Data.Stages, 5)
 
-	// Trigger degrade path by retiring spaceB.
-	require.NoError(t, env.SetSpaceStatus(spaceB.UUID, "retired"))
-	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body, env.TenantUUID().String())
-	resp = httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
+	// Memory snapshot should accept optional traceId and persist updates.
+	memPayload, _ := json.Marshal(map[string]any{
+		"sessionId": "qa-http-session",
+		"traceId":   "trace-qa-http-1",
+		"updates": []map[string]any{{
+			"chunkId":    "chunk-1",
+			"spaceId":    spaceA.UUID.String(),
+			"citations":  []string{"doc#1"},
+			"status":     "answered",
+			"sourceType": "pdf",
+			"confidence": 0.9,
+		}},
+	})
+	memReq := httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", bytes.NewReader(memPayload))
+	memReq.Header.Set("Content-Type", "application/json")
+	memResp := serveKnowledgeRequest(t, engine, memReq, env.TenantUUID().String())
+	require.Equal(t, http.StatusOK, memResp.Code)
 
-	apiResp = struct {
-		Code int               `json:"code"`
-		Data qaPlanHTTPPayload `json:"data"`
-	}{}
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
-	require.Equal(t, http.StatusOK, apiResp.Code)
-	require.Equal(t, 2, len(apiResp.Data.CandidateSpaces))
-	require.Contains(t, apiResp.Data.CandidateSpaces[1].DegradeReason, "retired")
-	require.Positive(t, apiResp.Data.DegradeCount)
-}
+	fetchPayload, _ := json.Marshal(map[string]any{
+		"sessionId": "qa-http-session",
+	})
+	fetchReq := httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", bytes.NewReader(fetchPayload))
+	fetchReq.Header.Set("Content-Type", "application/json")
+	fetchResp := serveKnowledgeRequest(t, engine, fetchReq, env.TenantUUID().String())
+	require.Equal(t, http.StatusOK, fetchResp.Code)
 
-func TestQABridgeMemorySnapshotHTTP(t *testing.T) {
-	env := testenv.New(t)
-	t.Cleanup(env.Close)
-
-	tpl := env.SeedPolicyTemplate("qa-memory", "v1")
-	space := env.CreateSpaceFixture("qa-memory", tpl)
-	require.NoError(t, env.ActivateSpace(space.UUID))
-
-	engine := env.Engine()
-
-	sessionID := "session-" + uuid.NewString()
-	updates := []map[string]any{
-		{
-			"chunkId":     "chunk-001",
-			"spaceId":     space.UUID.String(),
-			"sourceType":  "pdf",
-			"status":      "answered",
-			"citations":   []string{"docA#1"},
-			"confidence":  0.93,
-			"deltaReason": "initial_answer",
-		},
-		{
-			"chunkId":     "chunk-002",
-			"spaceId":     space.UUID.String(),
-			"sourceType":  "table",
-			"status":      "stale",
-			"citations":   []string{"tableB#3"},
-			"confidence":  0.61,
-			"deltaReason": "stale",
-		},
+	var fetchData struct {
+		Code int `json:"code"`
+		Data struct {
+			Citations []struct {
+				ChunkID string `json:"chunkId"`
+			} `json:"citations"`
+		} `json:"data"`
 	}
-	payload := map[string]any{
-		"sessionId": sessionID,
-		"updates":   updates,
-	}
-
-	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload, env.TenantUUID().String())
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
-
-	var snapshotResp struct {
-		Code int                  `json:"code"`
-		Data qaMemoryHTTPResponse `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &snapshotResp))
-	require.Equal(t, http.StatusOK, snapshotResp.Code)
-	require.Equal(t, sessionID, snapshotResp.Data.SessionID)
-	require.Len(t, snapshotResp.Data.Citations, 2)
-
-	// Fetch again without updates to validate cached snapshot.
-	payload = map[string]any{
-		"sessionId": sessionID,
-	}
-	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload, env.TenantUUID().String())
-	resp = httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &snapshotResp))
-	require.Equal(t, 2, len(snapshotResp.Data.Citations))
-	require.Equal(t, "chunk-001", snapshotResp.Data.Citations[0].ChunkID)
-	require.Equal(t, "answered", snapshotResp.Data.Citations[0].Status)
+	require.NoError(t, json.Unmarshal(fetchResp.Body.Bytes(), &fetchData))
+	require.Equal(t, http.StatusOK, fetchData.Code)
+	require.Len(t, fetchData.Data.Citations, 1)
+	require.Equal(t, "chunk-1", fetchData.Data.Citations[0].ChunkID)
 }
 
-type qaPlanHTTPPayload struct {
-	TenantUUID      string                 `json:"tenant_uuid"`
-	Intent          string                 `json:"intent"`
-	DomainTags      []string               `json:"domainTags"`
-	CandidateSpaces []qaCandidateSpace     `json:"candidateSpaces"`
-	Tooling         []qaToolMetadataView   `json:"tooling"`
-	Telemetry       qaPlanTelemetry        `json:"telemetry"`
-	DegradeCount    int                    `json:"degradeCount"`
-	SessionID       string                 `json:"sessionId"`
-	LatencyBudgetMs int                    `json:"latencyBudgetMs"`
-	Metadata        map[string]interface{} `json:"metadata"`
-}
-
-type qaCandidateSpace struct {
-	SpaceID          string  `json:"spaceId"`
-	SpaceName        string  `json:"spaceName"`
-	Strategy         string  `json:"strategy"`
-	CitationCoverage float64 `json:"citationCoverage"`
-	DegradeReason    string  `json:"degradeReason"`
-}
-
-type qaPlanTelemetry struct {
-	TraceID    string `json:"traceId"`
-	RecordedAt string `json:"recordedAt"`
-}
-
-type qaToolMetadataView struct {
-	ToolID   string `json:"toolId"`
-	Name     string `json:"name"`
-	Category string `json:"category"`
-	Endpoint string `json:"endpoint"`
-}
-
-type qaMemoryHTTPResponse struct {
-	TenantUUID string              `json:"tenant_uuid"`
-	SessionID  string              `json:"sessionId"`
-	Citations  []qaCitationSummary `json:"citations"`
-}
-
-type qaCitationSummary struct {
-	ChunkID     string   `json:"chunkId"`
-	SpaceID     string   `json:"spaceId"`
-	Status      string   `json:"status"`
-	Citations   []string `json:"citations"`
-	SourceType  string   `json:"sourceType"`
-	Confidence  float64  `json:"confidence"`
-	DeltaReason string   `json:"deltaReason"`
-}

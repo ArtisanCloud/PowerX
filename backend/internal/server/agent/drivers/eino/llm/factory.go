@@ -29,7 +29,7 @@ func normalize(s string) string {
 	}
 	// OpenAI-compatible providers → reuse openai client
 	switch p {
-	case "openrouter", "vllm", "deepseek", "moonshot":
+	case "openrouter", "vllm", "deepseek", "moonshot", "huggingface", "hf":
 		return "openai"
 	}
 	return p

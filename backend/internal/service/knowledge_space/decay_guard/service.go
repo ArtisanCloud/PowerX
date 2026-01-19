@@ -14,6 +14,8 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -32,12 +34,33 @@ type Threshold struct {
 	Reason   string  `json:"reason" yaml:"reason"`
 }
 
+type RunScanInput struct {
+	SpaceID     uuid.UUID
+	Detected    int
+	Category    string
+	Severity    string
+	Reason      string
+	AssignedTo  string
+	RequestedBy string
+}
+
+type RestoreInput struct {
+	TaskID        uuid.UUID
+	Notes         string
+	FalsePositive bool
+	ApprovedBy    string
+	Reason        string
+}
+
 type Options struct {
 	DB              *gorm.DB
 	Instrumentation *instrumentation.Instrumentation
 	MetricsWriter   *instrumentation.DecayMetricsWriter
 	ThresholdsPath  string
 	Dispatcher      TaskDispatcher
+	EventBus        event_bus.EventBus
+	DispatchTopic   string
+	CloseTopic      string
 	Clock           func() time.Time
 }
 
@@ -69,6 +92,9 @@ func NewService(opts Options) *Service {
 	}
 	thresholds := loadThresholds(opts.ThresholdsPath)
 	d := opts.Dispatcher
+	if d == nil && opts.EventBus != nil {
+		d = newEventBusDispatcher(opts.EventBus, opts.DispatchTopic, opts.CloseTopic)
+	}
 	if d == nil {
 		d = noopDispatcher{}
 	}
@@ -102,19 +128,26 @@ func loadThresholds(path string) []Threshold {
 }
 
 func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) ([]*models.DecayTask, error) {
-	if spaceID == uuid.Nil || detected <= 0 {
+	return s.RunScanWithInput(ctx, RunScanInput{SpaceID: spaceID, Detected: detected})
+}
+
+func (s *Service) RunScanWithInput(ctx context.Context, input RunScanInput) ([]*models.DecayTask, error) {
+	if input.SpaceID == uuid.Nil || input.Detected <= 0 {
 		return nil, ErrInvalidInput
 	}
 	repoTask := repo.NewDecayTaskRepository(s.db)
 	repoSpace := repo.NewKnowledgeSpaceRepository(s.db)
-	space, err := repoSpace.FindByUUID(ctx, spaceID)
+	space, err := repoSpace.FindByUUID(ctx, input.SpaceID)
 	if err != nil {
 		return nil, err
 	}
 	if space == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
-	threshold := s.resolveThreshold(space)
+	if !tenantMatch(ctx, space.TenantUUID) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	threshold := s.resolveThreshold(input.Category, input.Severity)
 	if threshold.Category == "" {
 		threshold.Category = "coverage"
 	}
@@ -123,15 +156,21 @@ func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) 
 	}
 	detectedAt := s.clock().UTC()
 	sla := detectedAt.Add(s.slaDuration(threshold.SLAHours))
-	tasks := make([]*models.DecayTask, 0, detected)
-	for i := 0; i < detected; i++ {
+	tasks := make([]*models.DecayTask, 0, input.Detected)
+	for i := 0; i < input.Detected; i++ {
 		task := &models.DecayTask{
-			SpaceUUID:  spaceID,
+			SpaceUUID:  input.SpaceID,
 			Category:   threshold.Category,
 			Severity:   threshold.Severity,
 			Status:     "open",
 			DetectedAt: detectedAt,
 			SLADueAt:   sla,
+			AssignedTo: strings.TrimSpace(input.AssignedTo),
+		}
+		if strings.TrimSpace(input.Reason) != "" {
+			task.Resolution = strings.TrimSpace(input.Reason)
+		} else if strings.TrimSpace(threshold.Reason) != "" {
+			task.Resolution = strings.TrimSpace(threshold.Reason)
 		}
 		created, err := repoTask.Create(ctx, task)
 		if err != nil {
@@ -145,7 +184,7 @@ func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) 
 	if len(tasks) == 0 {
 		return tasks, nil
 	}
-	backlog := s.countBacklog(ctx, repoTask, spaceID)
+	backlog := s.countBacklog(ctx, repoTask, input.SpaceID)
 	s.recordMetrics(ctx, instrumentation.DecayMetricsSnapshot{
 		Detected: len(tasks),
 		Backlog:  backlog,
@@ -156,29 +195,55 @@ func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) 
 		"task_count":  len(tasks),
 		"severity":    threshold.Severity,
 		"category":    threshold.Category,
-		"reason":      threshold.Reason,
+		"reason":      firstNonEmpty(input.Reason, threshold.Reason),
+		"assigned_to": strings.TrimSpace(input.AssignedTo),
+		"requestedBy": strings.TrimSpace(input.RequestedBy),
 	})
 	return tasks, nil
 }
 
 func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, falsePositive bool) (*models.DecayTask, error) {
-	if taskID == uuid.Nil {
+	return s.RestoreWithInput(ctx, RestoreInput{
+		TaskID:        taskID,
+		Notes:         notes,
+		FalsePositive: falsePositive,
+	})
+}
+
+func (s *Service) RestoreWithInput(ctx context.Context, input RestoreInput) (*models.DecayTask, error) {
+	if input.TaskID == uuid.Nil {
 		return nil, ErrInvalidInput
 	}
 	repoTask := repo.NewDecayTaskRepository(s.db)
 	repoSpace := repo.NewKnowledgeSpaceRepository(s.db)
-	task, err := repoTask.GetByUUID(ctx, taskID.String(), nil)
+	task, err := repoTask.GetByUUID(ctx, input.TaskID.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 	if task == nil {
 		return nil, ErrTaskNotFound
 	}
+	space, err := repoSpace.FindByUUID(ctx, task.SpaceUUID)
+	if err != nil {
+		return nil, err
+	}
+	if space == nil || !tenantMatch(ctx, space.TenantUUID) {
+		return nil, ErrTaskNotFound
+	}
+
+	approvedBy := strings.TrimSpace(input.ApprovedBy)
+	if approvedBy == "" {
+		approvedBy = strings.TrimSpace(reqctx.GetSubject(ctx))
+	}
+	reason := strings.TrimSpace(input.Reason)
+	if reason == "" {
+		reason = strings.TrimSpace(input.Notes)
+	}
 	task.Status = "closed"
 	now := s.clock()
 	task.ResolvedAt = &now
-	task.Resolution = notes
-	task.FalsePositive = falsePositive
+	task.Resolution = strings.TrimSpace(input.Notes)
+	task.FalsePositive = input.FalsePositive
 	updates := map[string]any{
 		"status":         task.Status,
 		"resolved_at":    task.ResolvedAt,
@@ -189,7 +254,7 @@ func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, f
 		return nil, err
 	}
 	fp := 0
-	if falsePositive {
+	if task.FalsePositive {
 		fp = 1
 	}
 	if err := s.withDispatcher(func(d TaskDispatcher) error { return d.Close(ctx, task) }); err != nil {
@@ -201,11 +266,12 @@ func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, f
 		Backlog:          len(openTasks),
 		AverageFillHours: s.fillHours(task, now),
 	})
-	space, _ := repoSpace.FindByUUID(ctx, task.SpaceUUID)
 	s.emitAudit(ctx, space, "knowledge.decay.restore", map[string]any{
 		"task_id":        task.UUID.String(),
 		"false_positive": task.FalsePositive,
-		"notes":          notes,
+		"notes":          strings.TrimSpace(input.Notes),
+		"approved_by":    approvedBy,
+		"reason":         reason,
 	})
 	return task, nil
 }
@@ -214,13 +280,44 @@ func (s *Service) ListOpen(ctx context.Context, spaceID uuid.UUID) ([]*models.De
 	if spaceID == uuid.Nil {
 		return nil, ErrInvalidInput
 	}
+	repoSpace := repo.NewKnowledgeSpaceRepository(s.db)
+	space, err := repoSpace.FindByUUID(ctx, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	if space == nil || !tenantMatch(ctx, space.TenantUUID) {
+		return []*models.DecayTask{}, nil
+	}
 	repoTask := repo.NewDecayTaskRepository(s.db)
 	return repoTask.ListOpenBySpace(ctx, spaceID)
 }
 
-func (s *Service) resolveThreshold(_ *models.KnowledgeSpace) Threshold {
+func (s *Service) ListOpenByTenant(ctx context.Context, tenantUUID uuid.UUID, severity string) ([]*models.DecayTask, error) {
+	if tenantUUID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	if !tenantMatch(ctx, tenantUUID.String()) {
+		return []*models.DecayTask{}, nil
+	}
+	repoTask := repo.NewDecayTaskRepository(s.db)
+	return repoTask.ListOpenByTenant(ctx, tenantUUID.String(), severity)
+}
+
+func (s *Service) resolveThreshold(category, severity string) Threshold {
 	if len(s.thresholds) == 0 {
 		return Threshold{Category: "coverage", Severity: "medium", SLAHours: 24 * 7}
+	}
+	category = strings.TrimSpace(category)
+	severity = strings.TrimSpace(severity)
+	for _, th := range s.thresholds {
+		if category != "" && strings.EqualFold(th.Category, category) {
+			return th
+		}
+	}
+	for _, th := range s.thresholds {
+		if severity != "" && strings.EqualFold(th.Severity, severity) {
+			return th
+		}
 	}
 	return s.thresholds[0]
 }
@@ -248,6 +345,7 @@ func (s *Service) recordMetrics(ctx context.Context, snapshot instrumentation.De
 	if snapshot.RecordedAt.IsZero() {
 		snapshot.RecordedAt = s.clock().UTC()
 	}
+	snapshot.EnsureMetrics()
 	if err := s.metrics.Store(snapshot); err != nil {
 		s.log(ctx).WarnF(ctx, "decay guard: write metrics failed: %v", err)
 	}
@@ -290,4 +388,25 @@ func (s *Service) log(ctx context.Context) *pxlog.Logger {
 		return s.inst.Logger(ctx)
 	}
 	return pxlog.GetGlobalLogger().WithContext(ctx)
+}
+
+func tenantMatch(ctx context.Context, tenantUUID string) bool {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	if tenantUUID == "" {
+		return true
+	}
+	scoped := strings.ToLower(strings.TrimSpace(reqctx.GetTenantUUID(ctx)))
+	if scoped == "" {
+		return true
+	}
+	return scoped == tenantUUID
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }

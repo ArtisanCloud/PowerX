@@ -164,11 +164,12 @@
 
 <script setup lang="ts">
 import { useToast } from "#imports";
-import { useApiClient } from "~/composables/api";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
+import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
+import { useFileHash } from "~/composables/useFileHash";
+import { useUserStore } from "~/stores/user";
 import type {
   MediaAssetAdminView,
-  PresignMediaAssetResult,
 } from "~/composables/api/services/mediaAssetService";
 
 const props = defineProps<{
@@ -186,8 +187,9 @@ const open = computed({
 });
 
 const toast = useToast();
-const apiClient = useApiClient();
 const media = useMediaAssetService();
+const { buildStorageKeyFromFile } = useFileHash();
+const userStore = useUserStore();
 
 const tabs = [
   { label: "预签名上传（推荐）", value: "presign" },
@@ -286,48 +288,6 @@ function resetExternal() {
   progressLabel.value = "";
 }
 
-function toInternalApiPath(url: string): string {
-  const raw = String(url || "").trim();
-  if (!raw) return "";
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  // strip /api or /api/vN because apiClient 会再拼 baseURL=/api
-  const m = raw.match(/^\/api(?:\/v\d+)?(\/.*)$/i);
-  if (m && m[1]) return m[1];
-  return raw;
-}
-
-async function uploadWithPresign(presign: PresignMediaAssetResult, body: Blob) {
-  const target = String(presign.url || "").trim();
-  const method = (presign.method || "PUT").toUpperCase();
-  const headers = presign.headers || {};
-
-  if (target.startsWith("http://") || target.startsWith("https://")) {
-    // 外部对象存储直传：必须原样透传 headers（可能包含签名约束）
-    const resp = await fetch(target, {
-      method,
-      headers,
-      body,
-    });
-    if (!resp.ok) {
-      throw new Error(`上传失败：${resp.status} ${resp.statusText}`);
-    }
-    return;
-  }
-
-  // 内部写入端点：通过 apiClient（自动带 Authorization + X-Tenant-UUID）
-  const path = toInternalApiPath(target);
-  if (!path.startsWith("/")) {
-    throw new Error("预签名 URL 非法");
-  }
-  await apiClient.request(method as any, path, body, {
-    headers: {
-      ...headers,
-      // Content-Type 对本地上传非必须；保留也会被 apiClient 对 Blob 删除，不影响 token headers
-    },
-    useGlobalLoading: false,
-  } as any);
-}
-
 async function startPresignUpload() {
   if (!file.value) return;
   error.value = null;
@@ -342,6 +302,13 @@ async function startPresignUpload() {
     }
 
     setBusy("创建资产记录...", 10);
+    const tenantUuid = resolveTenantUUIDForRequest();
+    const userScopeId =
+      userStore.currentMemberId ||
+      userStore.user?.id ||
+      "";
+    const scopeKey = userScopeId ? `${tenantUuid}:${userScopeId}` : tenantUuid;
+    const hashInfo = await buildStorageKeyFromFile(file.value, scopeKey);
     const created = await media.createAsset({
       name,
       driver: presignForm.driver || undefined,
@@ -349,6 +316,8 @@ async function startPresignUpload() {
       uploadMethod: "presign_upload",
       mimeType: file.value.type || undefined,
       sizeBytes: file.value.size || undefined,
+      objectKey: hashInfo.uuid || undefined,
+      metadata: hashInfo.sha256 ? { content_sha256: hashInfo.sha256 } : undefined,
     });
 
     setBusy("生成上传预签名...", 35);
@@ -359,7 +328,7 @@ async function startPresignUpload() {
     });
 
     setBusy("上传中...", 70);
-    await uploadWithPresign(presign, file.value);
+    await media.uploadPresigned(presign, file.value);
 
     setBusy("完成", 100);
     toast.add({ title: "上传成功" });
