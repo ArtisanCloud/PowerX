@@ -27,11 +27,11 @@
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T003 [US1] 实现通用 WS Hub（连接管理、topic 订阅/取消、消息分发）`backend/internal/transport/websocket/`
-- [ ] T004 [US1] 添加租户绑定与鉴权校验（连接建立与订阅时）`backend/internal/transport/websocket/`
-- [ ] T005 [US1] 增加入库进度事件发布入口（service 层统一发布）`backend/internal/service/knowledge_space/`
-- [ ] T006 [US2] 统一 WS 消息 envelope 定义与序列化结构（后端与前端一致）`backend/internal/transport/websocket/`, `web-admin/app/composables/`
-- [ ] T006A [US2] 形成消息结构/schema 说明并对齐合同文档 `specs/012-websocket-docs-plan/contracts/http-openapi.yaml`
+- [X] T003 [US1] 实现通用 WS Hub（连接管理、topic 订阅/取消、消息分发）`backend/internal/transport/websocket/`
+- [X] T004 [US1] 添加租户绑定与鉴权校验（连接建立与订阅时）`backend/internal/transport/websocket/`
+- [X] T005 [US1] 增加入库进度事件发布入口（service 层统一发布）`backend/internal/service/knowledge_space/`
+- [X] T006 [US2] 统一 WS 消息 envelope 定义与序列化结构（后端与前端一致）`backend/internal/transport/websocket/`, `web-admin/app/composables/`
+- [X] T006A [US2] 形成消息结构/schema 说明并对齐合同文档 `specs/012-websocket-docs-plan/contracts/http-openapi.yaml`
 
 **Checkpoint**: Hub 能建立连接、订阅/取消订阅、发布消息；tenant 绑定完成。
 

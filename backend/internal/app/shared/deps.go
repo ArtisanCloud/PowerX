@@ -69,6 +69,7 @@ import (
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
+	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
 	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -82,6 +83,7 @@ import (
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
 	vectorstorepkg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -1457,6 +1459,12 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		MaxRetries:      1,
 		AgentSettings:   agentSettingSvc,
 		VectorDimension: 0,
+		ProgressPublisher: knowledgeService.IngestionProgressPublisherFunc(func(ctx context.Context, update knowledgeService.IngestionProgressUpdate) {
+			if strings.TrimSpace(update.TenantUUID) == "" {
+				return
+			}
+			bus.DefaultHub.Publish(update.TenantUUID, bus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
+		}),
 	})
 	svc.AttachIngestion(ingestionSvc)
 
