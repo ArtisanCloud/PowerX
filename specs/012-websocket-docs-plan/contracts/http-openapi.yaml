@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: PowerX WebSocket Notify Bus
+  version: 1.0.0
+paths:
+  /api/ws:
+    get:
+      summary: WebSocket 连接升级入口
+      description: 建立通用 WebSocket 连接，后续通过消息订阅主题。
+      responses:
+        "101":
+          description: Switching Protocols
+components: {}
