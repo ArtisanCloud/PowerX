@@ -87,8 +87,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] 自动重连与租户切换重连（清空旧订阅）`web-admin/app/composables/`
-- [ ] T018 [US3] 断线时启用轮询兜底并提示状态 `web-admin/app/pages/knowledge-spaces/`
+- [X] T017 [US3] 自动重连与租户切换重连（清空旧订阅）`web-admin/app/composables/`
+- [X] T018 [US3] 断线时启用轮询兜底并提示状态 `web-admin/app/pages/knowledge-spaces/`
 
 ---
 

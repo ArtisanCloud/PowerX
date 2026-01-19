@@ -14,6 +14,13 @@ let wsInstance: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let activeTenant: string | null = null;
 const subscriptions = new Map<string, Set<TopicHandler>>();
+let reconnectAttempts = 0;
+let allowReconnect = true;
+let watchersInitialized = false;
+let networkListenersBound = false;
+
+const RECONNECT_BASE_DELAY = 1000;
+const RECONNECT_MAX_DELAY = 30000;
 
 const buildWSUrl = (token: string) => {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -21,11 +28,14 @@ const buildWSUrl = (token: string) => {
   return `${protocol}//${location.host}/api/ws?authorization=${auth}`;
 };
 
-const resetConnection = (reason?: string) => {
+const resetConnection = (reason?: string, keepReconnect = true) => {
   if (reason) wsError.value = reason;
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (!keepReconnect) {
+    allowReconnect = false;
   }
   if (wsInstance) {
     try {
@@ -39,8 +49,17 @@ const resetConnection = (reason?: string) => {
   wsConnecting.value = false;
 };
 
-const clearSubscriptions = () => {
-  subscriptions.clear();
+const scheduleReconnect = (token: string | null) => {
+  if (!process.client) return;
+  if (!allowReconnect) return;
+  if (!token) return;
+  if (reconnectTimer) return;
+  const delay = Math.min(RECONNECT_MAX_DELAY, RECONNECT_BASE_DELAY * Math.pow(2, reconnectAttempts));
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    reconnectAttempts += 1;
+    ensureConnection(token);
+  }, delay);
 };
 
 const ensureConnection = (token: string | null) => {
@@ -59,6 +78,7 @@ const ensureConnection = (token: string | null) => {
     wsConnected.value = true;
     wsConnecting.value = false;
     wsError.value = null;
+    reconnectAttempts = 0;
     subscriptions.forEach((_handlers, topic) => {
       sendCommand({ type: WS_BUS_CMD.SUBSCRIBE, topic });
     });
@@ -66,11 +86,15 @@ const ensureConnection = (token: string | null) => {
   ws.onclose = () => {
     wsConnected.value = false;
     wsConnecting.value = false;
+    wsInstance = null;
+    scheduleReconnect(token);
   };
   ws.onerror = () => {
     wsConnected.value = false;
     wsConnecting.value = false;
     wsError.value = "连接失败";
+    wsInstance = null;
+    scheduleReconnect(token);
   };
   ws.onmessage = (evt) => {
     try {
@@ -96,7 +120,8 @@ export const useWSBus = () => {
   const me = useMe();
   const token = computed(() => auth.token.value || auth.getToken());
 
-  if (process.client) {
+  if (process.client && !watchersInitialized) {
+    watchersInitialized = true;
     watch(
       () => me.currentTenantUuid.value || resolveTenantUUIDForRequest(),
       (nextTenant, prevTenant) => {
@@ -104,16 +129,40 @@ export const useWSBus = () => {
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
-          clearSubscriptions();
+          ensureConnection(token.value || null);
         } else {
           activeTenant = nextTenant;
         }
       },
       { immediate: true }
     );
+    watch(
+      () => token.value,
+      (nextToken, prevToken) => {
+        if (nextToken === prevToken) return;
+        if (!nextToken) {
+          resetConnection("token_missing", false);
+          return;
+        }
+        allowReconnect = true;
+        resetConnection("token_changed");
+        ensureConnection(nextToken);
+      }
+    );
+    if (process.client && !networkListenersBound) {
+      networkListenersBound = true;
+      window.addEventListener("online", () => {
+        allowReconnect = true;
+        ensureConnection(token.value || null);
+      });
+      window.addEventListener("offline", () => {
+        wsError.value = "网络断开";
+      });
+    }
   }
 
   const connect = () => {
+    allowReconnect = true;
     ensureConnection(token.value || null);
   };
 
@@ -144,7 +193,7 @@ export const useWSBus = () => {
   };
 
   const disconnect = () => {
-    resetConnection();
+    resetConnection("manual_disconnect", false);
   };
 
   return {
