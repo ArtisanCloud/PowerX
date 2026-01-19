@@ -458,23 +458,20 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		Data:       credData,
 	}
 	if req.Modality == contract.ModEmbed && req.Embedding != nil && prof != nil {
-		if req.Embedding.Dimensions <= 0 {
-			if existing, err := h.svc.GetProfile(c.Request.Context(), req.Env, tenantRef, "embedding", prof.Provider, prof.Model); err == nil && existing != nil {
-				if prof.Defaults == nil {
-					prof.Defaults = datatypes.JSONMap{}
-				}
-				if existing.Defaults != nil {
-					if _, ok := prof.Defaults["dimensions"]; !ok {
-						if dim, ok := existing.Defaults["dimensions"]; ok {
-							prof.Defaults["dimensions"] = dim
-						}
+		if existing, err := h.svc.GetProfile(c.Request.Context(), req.Env, tenantRef, "embedding", prof.Provider, prof.Model); err == nil && existing != nil {
+			if prof.Defaults == nil {
+				prof.Defaults = datatypes.JSONMap{}
+			}
+			if existing.Defaults != nil {
+				if _, ok := prof.Defaults["dimensions"]; !ok {
+					if dim, ok := existing.Defaults["dimensions"]; ok {
+						prof.Defaults["dimensions"] = dim
 					}
 				}
-				if existing.CapCache != nil {
-					if prof.CapCache == nil || len(prof.CapCache) == 0 {
-						prof.CapCache = existing.CapCache
-					}
-				}
+			}
+			// 保留测试探针结果（cap_cache），避免保存配置把 probed_at 清空。
+			if existing.CapCache != nil && (prof.CapCache == nil || len(prof.CapCache) == 0) {
+				prof.CapCache = existing.CapCache
 			}
 		}
 	}

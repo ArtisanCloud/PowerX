@@ -937,6 +937,31 @@ const saving = computed(() => aiSettingsStore.saving);
 const lastProbeMessage = ref("");
 const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
 
+const syncEmbeddingProbeMessageFromProfiles = () => {
+  if (modality.value !== "embedding") return;
+  const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+  const curModel = String(currentState.value.model || "").trim();
+  if (!curProvider || !curModel) return;
+  const profile = (aiSettingsStore.profiles || []).find(
+    (p) =>
+      String(p?.modality || "").toLowerCase() === "embedding" &&
+      String(p?.provider || "").trim().toLowerCase() === curProvider &&
+      String(p?.model || "").trim() === curModel
+  );
+  if (!profile) return;
+  const capCache = (profile as any).capCache || {};
+  const probedAt = String(capCache?.probed_at || "").trim();
+  const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+  const dim = Number.parseInt(String(dimRaw || "0"), 10);
+  if (Number.isFinite(dim) && dim > 0) {
+    currentState.value.dimensions = dim;
+  }
+  if (probedAt) {
+    const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+    lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+  }
+};
+
 async function saveSettings() {
   try {
     const payload = buildPayloadForCurrentModality();
@@ -1088,6 +1113,14 @@ async function refreshStateForEnvAndModality() {
   }
   if (currentState.value.provider) {
     await onProviderChanged(currentState.value.provider);
+  }
+  if (modality.value === "embedding") {
+    try {
+      await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
+      if (!lastProbeMessage.value) {
+        syncEmbeddingProbeMessageFromProfiles();
+      }
+    } catch {}
   }
 }
 

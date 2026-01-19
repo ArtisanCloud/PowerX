@@ -25,6 +25,32 @@
       "completedAt": "2026-01-18T23:48:53.125074+08:00"
     }
   },
+  "47253cdd-e0dd-40cf-8f5e-1ab2743f9054": {
+    "ingestion": {
+      "spaceId": "47253cdd-e0dd-40cf-8f5e-1ab2743f9054",
+      "jobId": "1740343a-9892-42cb-89fb-6f424fd55f94",
+      "status": "completed",
+      "retryCount": 0,
+      "chunkTotal": 146,
+      "summaryChunkCount": 21,
+      "paragraphChunkCount": 125,
+      "coveragePct": 100,
+      "embeddingPct": 100,
+      "maskingPct": 100,
+      "ocrRequired": false,
+      "ocrUsed": false,
+      "ocrCoveragePct": 0,
+      "ocrConfidenceBuckets": {
+        "0.0-0.5": 0,
+        "0.5-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "ocrLatencyMs": 104,
+      "ocrPages": 20,
+      "degraded": false,
+      "completedAt": "2026-01-19T15:09:27.233408+08:00"
+    }
+  },
   "53f37648-341f-4f91-aa5f-8573efefe150": {
     "ingestion": {
       "spaceId": "53f37648-341f-4f91-aa5f-8573efefe150",
