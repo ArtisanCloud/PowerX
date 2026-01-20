@@ -59,6 +59,7 @@ import (
 	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	notificationssvc "github.com/ArtisanCloud/PowerX/internal/service/notifications"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
@@ -136,9 +137,10 @@ type Deps struct {
 	AuditSvc auditsvc.Service // 底层批量写库 + sink
 	Auditor  auditsvc.Auditor // 门面，兼容 LogAPI/LogRBAC 等调用
 
-	TenantSvc *tenantsvc.TenantService
-	MediaMgr  *mediamgr.MediaManager
-	MediaSvc  *mediasvc.MediaService
+	TenantSvc     *tenantsvc.TenantService
+	MediaMgr      *mediamgr.MediaManager
+	MediaSvc      *mediasvc.MediaService
+	Notifications *notificationssvc.Service
 
 	EventBus                 event_bus.EventBus
 	CapabilityRegistrySvc    *capabilityRegistry.Service
@@ -648,6 +650,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:                  aud,
 		MediaMgr:                 mediaManager,
 		MediaSvc:                 mediaSvc,
+		Notifications:            notificationssvc.NewService(db),
 		EventBus:                 bus,
 		CapabilityRegistrySvc:    capRegistrySvc,
 		CapabilityCatalogSvc:     capabilityCatalogSvc,

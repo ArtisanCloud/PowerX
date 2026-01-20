@@ -19,13 +19,22 @@ let allowReconnect = true;
 let watchersInitialized = false;
 let networkListenersBound = false;
 
-const RECONNECT_BASE_DELAY = 1000;
-const RECONNECT_MAX_DELAY = 30000;
+const RECONNECT_DELAY = 3000;
+const MAX_RECONNECT_ATTEMPTS = 6;
+let notifyReconnectFailed: (() => void) | null = null;
 
-const buildWSUrl = (token: string) => {
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const auth = encodeURIComponent(`Bearer ${token}`);
-  return `${protocol}//${location.host}/api/ws?authorization=${auth}`;
+  const cfg = useRuntimeConfig();
+  const upstream = String(cfg.public?.wsUpstream || "").trim();
+  const tenant = encodeURIComponent(String(tenantUUID || ""));
+  const tenantQuery = tenant ? `&tenant_uuid=${tenant}` : "";
+  if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
+    const base = upstream.replace(/\/+$/, "");
+    return `${base}/ws?authorization=${auth}${tenantQuery}`;
+  }
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${location.host}/api/ws?authorization=${auth}${tenantQuery}`;
 };
 
 const resetConnection = (reason?: string, keepReconnect = true) => {
@@ -54,15 +63,23 @@ const scheduleReconnect = (token: string | null) => {
   if (!allowReconnect) return;
   if (!token) return;
   if (reconnectTimer) return;
-  const delay = Math.min(RECONNECT_MAX_DELAY, RECONNECT_BASE_DELAY * Math.pow(2, reconnectAttempts));
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    allowReconnect = false;
+    wsError.value = "连接失败，请检查配置或联系管理员";
+    if (notifyReconnectFailed) {
+      notifyReconnectFailed();
+    }
+    return;
+  }
+  const delay = RECONNECT_DELAY;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     reconnectAttempts += 1;
-    ensureConnection(token);
+    ensureConnection(token, resolveTenantUUIDForRequest());
   }, delay);
 };
 
-const ensureConnection = (token: string | null) => {
+const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
   if (!process.client) return;
   if (!token) return;
   if (wsInstance && wsConnected.value) return;
@@ -70,7 +87,7 @@ const ensureConnection = (token: string | null) => {
   wsConnecting.value = true;
   wsError.value = null;
 
-  const url = buildWSUrl(token);
+  const url = buildWSUrl(token, tenantUUID);
   const ws = new WebSocket(url);
   wsInstance = ws;
 
@@ -116,20 +133,28 @@ const sendCommand = (cmd: WSBusCommand) => {
 };
 
 export const useWSBus = () => {
+  const toast = useToast();
   const auth = useAuth();
   const me = useMe();
-  const token = computed(() => auth.token.value || auth.getToken());
+  const token = computed(() => {
+    const fresh = auth.getToken();
+    if (fresh && fresh !== auth.token.value) {
+      auth.token.value = fresh;
+    }
+    return fresh || auth.token.value;
+  });
+  const getTenantForConnection = () => me.currentTenantUuid.value || resolveTenantUUIDForRequest();
 
   if (process.client && !watchersInitialized) {
     watchersInitialized = true;
     watch(
-      () => me.currentTenantUuid.value || resolveTenantUUIDForRequest(),
+      () => getTenantForConnection(),
       (nextTenant, prevTenant) => {
         if (!nextTenant) return;
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
-          ensureConnection(token.value || null);
+          ensureConnection(token.value || null, nextTenant);
         } else {
           activeTenant = nextTenant;
         }
@@ -146,14 +171,14 @@ export const useWSBus = () => {
         }
         allowReconnect = true;
         resetConnection("token_changed");
-        ensureConnection(nextToken);
+        ensureConnection(nextToken, activeTenant);
       }
     );
     if (process.client && !networkListenersBound) {
       networkListenersBound = true;
       window.addEventListener("online", () => {
         allowReconnect = true;
-        ensureConnection(token.value || null);
+        ensureConnection(token.value || null, getTenantForConnection());
       });
       window.addEventListener("offline", () => {
         wsError.value = "网络断开";
@@ -163,8 +188,20 @@ export const useWSBus = () => {
 
   const connect = () => {
     allowReconnect = true;
-    ensureConnection(token.value || null);
+    const tenantNow = getTenantForConnection();
+    activeTenant = tenantNow || null;
+    ensureConnection(token.value || null, tenantNow);
   };
+
+  if (!notifyReconnectFailed) {
+    notifyReconnectFailed = () => {
+      toast.add({
+        title: "实时连接失败",
+        description: "WebSocket 重试已达上限，请检查网络或联系管理员。",
+        color: "error",
+      });
+    };
+  }
 
   const subscribe = (topic: string, handler: TopicHandler, reqId?: string) => {
     if (!topic) return () => {};
@@ -181,15 +218,20 @@ export const useWSBus = () => {
 
   const unsubscribe = (topic: string, handler?: TopicHandler, reqId?: string) => {
     const set = subscriptions.get(topic);
+    let shouldSend = false;
     if (set && handler) {
       set.delete(handler);
       if (set.size === 0) {
         subscriptions.delete(topic);
+        shouldSend = true;
       }
     } else if (set && !handler) {
       subscriptions.delete(topic);
+      shouldSend = true;
     }
-    sendCommand({ type: WS_BUS_CMD.UNSUBSCRIBE, topic, req_id: reqId });
+    if (shouldSend) {
+      sendCommand({ type: WS_BUS_CMD.UNSUBSCRIBE, topic, req_id: reqId });
+    }
   };
 
   const disconnect = () => {

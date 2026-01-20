@@ -116,16 +116,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T021 [P] [US4] 集成验证：推送通知后前端列表实时更新 `specs/012-websocket-docs-plan/quickstart.md`
-- [ ] T022 [P] [US4] 集成验证：刷新页面后通知仍可查询 `specs/012-websocket-docs-plan/quickstart.md`
+- [X] T021 [P] [US4] 集成验证：推送通知后前端列表实时更新 `specs/012-websocket-docs-plan/quickstart.md`
+- [X] T022 [P] [US4] 集成验证：刷新页面后通知仍可查询 `specs/012-websocket-docs-plan/quickstart.md`
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] 新增通知模型与迁移挂载（含租户/成员/已读/类型/分类）`backend/pkg/corex/db/persistence/model/`
-- [ ] T024 [US4] 新增通知 repository 与 service `backend/pkg/corex/db/persistence/repository/`, `backend/internal/service/notifications/`
-- [ ] T025 [US4] 新增通知 HTTP API（列表/详情/已读/删除）`backend/internal/transport/http/admin/notifications/`
-- [ ] T026 [US4] 通知写库后推送 WS 事件 `backend/internal/service/notifications/`, `backend/internal/transport/websocket/bus/`
-- [ ] T027 [US4] 前端通知列表改为调用真实 API，并接收 WS 增量 `web-admin/app/composables/useNotifications.ts`, `web-admin/app/components/layout/Header.vue`
+- [X] T023 [US4] 新增通知模型与迁移挂载（含租户/成员/已读/类型/分类）`backend/pkg/corex/db/persistence/model/`
+- [X] T024 [US4] 新增通知 repository 与 service `backend/pkg/corex/db/persistence/repository/`, `backend/internal/service/notifications/`
+- [X] T025 [US4] 新增通知 HTTP API（列表/详情/已读/删除）`backend/internal/transport/http/admin/notifications/`
+- [X] T026 [US4] 通知写库后推送 WS 事件 `backend/internal/service/notifications/`, `backend/internal/transport/websocket/bus/`
+- [X] T027 [US4] 前端通知列表改为调用真实 API，并接收 WS 增量 `web-admin/app/composables/useNotifications.ts`, `web-admin/app/components/layout/Header.vue`
 
 ## Parallel Example: User Story 1
 
