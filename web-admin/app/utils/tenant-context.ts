@@ -60,16 +60,9 @@ export const resolveTenantUUIDForRequest = () =>
       (typeof claims?.tid === "string" && claims.tid) ||
       (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||
       "";
+    if (stored) return normalize(stored);
     const tokenNormalized = tokenTenantUUID ? normalize(tokenTenantUUID) : "";
-
-    if (tokenNormalized) {
-      // 避免 db-refresh 后 localStorage 里残留旧租户导致请求打到错误租户
-      if (!stored) return tokenNormalized;
-      if (normalize(stored) !== tokenNormalized) return tokenNormalized;
-      return normalize(stored);
-    }
-
-    return stored || undefined;
+    return tokenNormalized || undefined;
   })();
 
 export const extractTenantUUIDFromJWT = (token?: string | null) => {

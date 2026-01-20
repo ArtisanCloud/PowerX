@@ -13,6 +13,7 @@ import (
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	modelNotification "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
@@ -84,6 +85,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = db.AutoMigrate(&mediaModel.MediaAsset{}); err != nil {
+		return err
+	}
+	if err = db.AutoMigrate(&modelNotification.Notification{}); err != nil {
 		return err
 	}
 

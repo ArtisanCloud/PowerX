@@ -67,26 +67,22 @@ let globalConfig: ApiClientConfig = {
         if (!config.headers) {
           config.headers = {};
         }
-        const hasTenantHeader =
-          config.headers["X-Tenant-UUID"] ||
-          (config.headers as Record<string, string>)["x-tenant-uuid"];
-        if (!hasTenantHeader) {
-          // 优先从本次请求的 Authorization token 推导，避免出现：
-          // - Authorization 来自 cookie/useAuth
-          // - 但 X-Tenant-UUID 仍从 localStorage 的旧 token/旧 tenant 推导
-          // Root 用户会优先使用 Header 租户进行代理，若 Header 错了会看到“部门/数据为空”。
-          const authz =
-            (config.headers as Record<string, string>)["Authorization"] ||
-            (config.headers as Record<string, string>)["authorization"] ||
-            "";
-          const bearer = typeof authz === "string" ? authz.trim() : "";
-          const token =
-            bearer.toLowerCase().startsWith("bearer ")
-              ? bearer.slice("bearer ".length).trim()
-              : "";
-          const tenantUUID =
-            extractTenantUUIDFromJWT(token) || resolveTenantUUIDForRequest();
-          if (tenantUUID) {
+        const authz =
+          (config.headers as Record<string, string>)["Authorization"] ||
+          (config.headers as Record<string, string>)["authorization"] ||
+          "";
+        const bearer = typeof authz === "string" ? authz.trim() : "";
+        const token =
+          bearer.toLowerCase().startsWith("bearer ")
+            ? bearer.slice("bearer ".length).trim()
+            : "";
+        const tenantUUID =
+          resolveTenantUUIDForRequest() || extractTenantUUIDFromJWT(token);
+        if (tenantUUID) {
+          const existing =
+            config.headers["X-Tenant-UUID"] ||
+            (config.headers as Record<string, string>)["x-tenant-uuid"];
+          if (!existing || String(existing).trim() !== tenantUUID) {
             config.headers = {
               ...config.headers,
               "X-Tenant-UUID": tenantUUID,
