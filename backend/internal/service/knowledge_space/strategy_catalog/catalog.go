@@ -5,8 +5,25 @@ import "time"
 type Catalog struct {
 	Version int
 	Kind    string
-	Bundles map[string]StrategyBundle
-	Scenes  map[string]Scene
+	StrategyPackages map[string]StrategyPackage
+	Bundles          map[string]StrategyBundle
+	Scenes           map[string]Scene
+}
+
+type StrategyPackage struct {
+	Key                   string
+	Label                 string
+	Summary               string
+	Coupling              string
+	RecommendedProfileKey string
+	RecommendedScenes     []string
+	Dependencies          StrategyDependencies
+}
+
+type StrategyDependencies struct {
+	Index   []string
+	Runtime []string
+	Assets  []string
 }
 
 type StrategyBundle struct {

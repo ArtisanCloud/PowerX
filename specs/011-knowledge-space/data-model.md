@@ -2,7 +2,7 @@
 
 ## KnowledgeSpace
 - **Identifiers**: `space_id (UUID, immutable)`, `tenant_id`, `space_name` (unique per tenant)
-- **Core fields**: `department_code`, `status (draft|active|pending_iam|retired)`, `quota_cpu`, `quota_storage_gb`, `policy_template_version_id`, `feature_flags[]`, `retire_at`, `retention_expires_at`
+- **Core fields**: `department_code`, `status (draft|active|pending_iam|retired)`, `quota_cpu`, `quota_storage_gb`, `policy_template_version_id`, `strategy_package_key (A0–O)`, `feature_flags[]`, `retire_at`, `retention_expires_at`
 - **Audit fields**: `created_by`, `created_at`, `updated_at`, `last_audited_at`, `audit_token`
 - **Relationships**:
   - 1:N with `PolicyTemplateVersion` (one active template per space, but historical links stored)

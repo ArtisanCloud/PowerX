@@ -141,23 +141,42 @@
           <USelect
             v-model="embedding.truncate"
             :options="truncateOptions"
+            :portal="false"
+            v-model:open="truncateOpen"
+            @update:open="handleTruncateOpen"
             placeholder="选择截断策略"
           />
         </div>
       </div>
-      <div>
-        <label
-          class="block text-sm font-medium text-[var(--text-primary)] mb-2"
-        >
-          批处理大小
-        </label>
-        <UInput
-          v-model="embedding.batch"
-          type="number"
-          :min="1"
-          :max="100"
-          placeholder="32"
-        />
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            class="block text-sm font-medium text-[var(--text-primary)] mb-2"
+          >
+            批处理大小
+          </label>
+          <UInput
+            v-model="embedding.batch"
+            type="number"
+            :min="1"
+            :max="100"
+            placeholder="32"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-sm font-medium text-[var(--text-primary)] mb-2"
+          >
+            最大输入长度（探测值）
+          </label>
+          <UInput
+            :model-value="embedding.maxInputTokens || '-'"
+            disabled
+          />
+          <div class="mt-1 text-xs text-[var(--text-secondary)]">
+            测试连接后自动填充，用于约束分段长度。
+          </div>
+        </div>
       </div>
     </div>
 
@@ -403,6 +422,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, ref } from "vue";
 type Modality =
   | "llm"
   | "image"
@@ -438,4 +458,16 @@ interface Props {
 }
 
 defineProps<Props>();
+
+const truncateOpen = ref(false);
+
+const handleTruncateOpen = (value: boolean) => {
+  truncateOpen.value = value;
+  if (value) {
+    nextTick(() => {
+      const active = document.activeElement as HTMLElement | null;
+      active?.blur?.();
+    });
+  }
+};
 </script>

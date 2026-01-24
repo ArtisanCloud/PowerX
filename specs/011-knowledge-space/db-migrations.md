@@ -91,7 +91,7 @@ CREATE INDEX IF NOT EXISTS knowledge_vector_indexes_space_status_idx
 ## RAG 策略模块的存储依赖（就绪矩阵）
 
 SSOT（后端与 Web Admin 的依赖校验来源）：
-- `backend/config/knowledge/scene_strategy_catalog.yaml`（`modules.*.requires`、`strategy_bundles.*.prerequisites`、`scenes.*.prerequisites`）
+- `backend/config/knowledge/scene_strategy_catalog.yaml`（`modules.*.requires`、`strategy_packages.*.prerequisites`、`scene_mappings.*.scenes`）
 
 本节目标：把 `requires/prerequisites` 映射为 **是否需要 DB 辅助表**，以及是否应纳入 `make db-migrate`。
 
@@ -291,7 +291,7 @@ knowledge_space:
    - **不创建** `knowledge_vectors_{D}`（避免误导与浪费）
 3. KG 协助表创建：
    - 默认创建（成本低、且不依赖扩展）
-   - 或者由 feature flag / scene strategy 触发（例如启用 `K_kg` bundle 才创建）
+   - 或者由 feature flag / strategy package 触发（例如启用 `K_kg` 策略包才创建）
 
 4. Sparse/Hier/Structured（若采用 Postgres 方案）：
    - `index.sparse` / `index.hier` / `index.structured_fields` 若在你的 `IndexProfile` 中被启用，则 `make db-migrate` 应创建 `knowledge_chunks`（以及可选的 `knowledge_chunk_links`）与相关索引。

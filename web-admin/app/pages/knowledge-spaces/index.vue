@@ -4,21 +4,22 @@ import { useKnowledgeSpaces, type KnowledgeSpaceRecord } from "~/composables/use
 import { createQaBridgeClient } from "~/composables/api/services/knowledge-spaces/qaBridgeClient";
 import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
-import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
+import { useEmbeddingGuard, type EmbeddingGuardResult } from "~/composables/useEmbeddingGuard";
 import { useConfirm } from "~/composables/useConfirm";
 import { useUserStore } from "~/stores/user";
 import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { findEnableOcrRecommendation } from "~/utils/knowledge-spaces/recommendations";
 import { buildIngestionRemediation, type IngestionRemediation } from "~/utils/knowledge-spaces/ingestionRemediation";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
-import { pollCorpusCheckJob } from "~/utils/corpusCheckPolling";
+import { useWSBus } from "~/composables/useWSBus";
 import { useFileHash } from "~/composables/useFileHash";
+import { SCENE_STRATEGY_CATALOG, type SceneKey } from "~/constants/sceneStrategyCatalog";
 import {
-	SCENE_STRATEGY_CATALOG,
-	type SceneKey,
-	type RagModuleKey,
-	type StrategyBundleKey,
-} from "~/constants/sceneStrategyCatalog";
+	SCENE_CATALOG,
+	STRATEGY_PACKAGE_CATALOG,
+	STRATEGY_PACKAGE_ORDER,
+	type StrategyPackageKey,
+} from "~/constants/strategyPackageCatalog";
 
 type SegmentMode = "unit" | "heading" | "clause" | "semantic" | "table_row" | "code_block" | "conversation";
 
@@ -40,6 +41,7 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const media = useMediaAssetService();
 const { buildStorageKeyFromFile } = useFileHash();
+const wsBus = useWSBus();
 
 const spacesLoading = ref(false);
 const spacesError = ref<string | null>(null);
@@ -59,6 +61,7 @@ const pageSizeItems = [
 
 const lastSelectedSpaceKey = "px_last_space_id";
 const retiringSpaceId = ref<string | null>(null);
+const embeddingGuard = ref<EmbeddingGuardResult | null>(null);
 
 
 const loadSpaces = async () => {
@@ -185,6 +188,10 @@ const refreshQaStatus = async () => {
   }
 };
 
+type SegmentOrderKey = "page" | "size" | "segment" | "separator";
+
+const defaultSegmentOrder: SegmentOrderKey[] = ["page", "size", "segment", "separator"];
+
 const ingestionForm = reactive({
 	spaceId: "",
 	format: "pdf",
@@ -197,6 +204,8 @@ const ingestionForm = reactive({
 	segmentMode: "unit" as SegmentMode,
 	chunkSize: 800,
 	chunkOverlap: 120,
+	segmentSizePolicy: "target" as "cap" | "target",
+	segmentOrder: [...defaultSegmentOrder],
 	pagePriority: false,
 	anchorHeadingPath: true,
 	anchorClauseId: false,
@@ -216,12 +225,46 @@ const ingestionRemediation = ref<IngestionRemediation | null>(null);
 const ingestionModalOpen = ref(false);
 const ingestionAdvancedOpen = ref(false);
 const ingestionStep = ref<1 | 2 | 3 | 4>(1);
-const ingestionSceneKey = ref<SceneKey>("sop");
-const ingestionBundleKey = ref<StrategyBundleKey>(SCENE_STRATEGY_CATALOG.scenes.sop.defaultBundle);
-const ingestionRagPrimary = ref<RagModuleKey>(
-	(SCENE_STRATEGY_CATALOG.scenes.sop.rag?.defaultPrimary as RagModuleKey | undefined) ?? "H_fusion",
-);
-const ingestionRagManuallySet = ref(false);
+const ingestionStrategyPackageKey = ref<StrategyPackageKey>("H_fusion");
+const derivedIngestionSceneKey = computed<SceneKey>(() => {
+	const pkg = STRATEGY_PACKAGE_CATALOG[ingestionStrategyPackageKey.value];
+	return (pkg?.recommendedScenes?.[0] as SceneKey | undefined) ?? "custom_expert";
+});
+const derivedIngestionProfileKey = computed(() => {
+	const pkg = STRATEGY_PACKAGE_CATALOG[ingestionStrategyPackageKey.value];
+	return pkg?.recommendedProfileKey ?? "p1_general";
+});
+const mapStrategyPackageToRagPrimary = (key: StrategyPackageKey): string => {
+	switch (key) {
+		case "A_simple":
+		case "A1_routing":
+		case "A2_time_aware":
+		case "B_semantic_chunking":
+		case "C_context_enriched":
+		case "D_doc_augmentation":
+		case "E_query_transform":
+		case "F_rerank":
+		case "H_fusion":
+		case "J_hier":
+		case "K_kg":
+		case "L_feedback":
+		case "O_crag":
+			return key;
+		case "A0_acl":
+			return "A_simple";
+		case "G_rse":
+			return "F_rerank";
+		case "I_hyde":
+			return "H_fusion";
+		case "M_adaptive":
+			return "H_fusion";
+		case "N_self_rag":
+			return "O_crag";
+		default:
+			return key;
+	}
+};
+const derivedIngestionRagPrimary = computed(() => mapStrategyPackageToRagPrimary(ingestionStrategyPackageKey.value));
 const ingestionResult = ref<{
 	jobId: string;
 	status: string;
@@ -245,6 +288,7 @@ const ingestionTasks = ref<
 	}>
 >([]);
 let ingestionPollTimer: number | null = null;
+let unsubscribeCorpusCheck: (() => void) | null = null;
 const recentSpaces = computed(() => spaces.value);
 
 const spaceStatusLabel = (status?: string) => {
@@ -277,82 +321,14 @@ const statusItems = computed(() => [
 	{ label: spaceStatusLabel("retired"), value: "retired" },
 ]);
 
-const ingestionSceneQuery = ref("");
-const ingestionSceneItems = computed(() => {
-	const q = ingestionSceneQuery.value.trim().toLowerCase();
-	const entries = Object.entries(SCENE_STRATEGY_CATALOG.scenes) as Array<[SceneKey, any]>;
-	const items = entries
-		.map(([key, scene]) => {
-			const category = String(scene.category || "").trim();
-			const label = String(scene.label || "").trim();
-			const keywords = Array.isArray(scene.keywords) ? scene.keywords.join(" ") : "";
-			const hay = `${category} ${label} ${scene.description || ""} ${keywords} ${String(key)}`.toLowerCase();
-			return {
-				value: key,
-				label: category ? `${category} · ${label}` : label,
-				_rawLabel: label,
-				_category: category,
-				_isExpert: key === "custom_expert",
-				_search: hay,
-			};
-		})
-		.filter((it) => (q ? it._search.includes(q) : true))
-		.sort((a, b) => {
-			// “自定义（专家）”固定放在最后，避免误选
-			if (a._isExpert !== b._isExpert) return a._isExpert ? 1 : -1;
-			const c = a._category.localeCompare(b._category);
-			if (c !== 0) return c;
-			return a._rawLabel.localeCompare(b._rawLabel);
-		})
-		.map(({ value, label }) => ({ value, label }));
-	return items;
-});
+const strategyPackageItems = computed(() =>
+	STRATEGY_PACKAGE_ORDER.map((key) => ({
+		label: STRATEGY_PACKAGE_CATALOG[key]?.label || key,
+		value: key,
+	})),
+);
 
-const ingestionBundleItems = computed(() => {
-	const scene = SCENE_STRATEGY_CATALOG.scenes[ingestionSceneKey.value];
-	const all: StrategyBundleKey[] = ["p0_basic", "p1_general", "p2_high_accuracy", "p3_kg_strong"];
-	const allowed = new Set<StrategyBundleKey>(scene?.allowedBundles ?? []);
-
-	const sceneIndex = new Set<IndexPrereqKey>(scene?.prerequisites?.index ?? []);
-
-	const unmetIndexPrereqs = (bundleKey: StrategyBundleKey) => {
-		const prereqs = (SCENE_STRATEGY_CATALOG.bundles[bundleKey] as any)?.prerequisites as string[] | undefined;
-		if (!Array.isArray(prereqs)) return [];
-		return prereqs
-			.filter((p) => p.startsWith("index."))
-			.filter((p) => !sceneIndex.has(p as IndexPrereqKey));
-	};
-
-	const disabledReason = (bundleKey: StrategyBundleKey) => {
-		if (!scene) return t("knowledgeSpaces.ingestion.guidance.reasons.noScene", "请先选择场景");
-		if (!allowed.has(bundleKey)) {
-			return t(
-				"knowledgeSpaces.ingestion.guidance.reasons.notAllowed",
-				"该场景不建议/不支持此策略包（风险/依赖不匹配）。",
-			);
-		}
-		const unmet = unmetIndexPrereqs(bundleKey);
-		if (unmet.length) {
-			return t("knowledgeSpaces.ingestion.guidance.reasons.missingIndex", "该场景默认索引不满足此策略包依赖：{items}", {
-				items: unmet.join(", "),
-			});
-		}
-		return "";
-	};
-
-	return all.map((key) => {
-		const disabled = !!disabledReason(key);
-		return {
-			label: SCENE_STRATEGY_CATALOG.bundles[key].label,
-			value: key,
-			disabled,
-			_reason: disabledReason(key),
-		};
-	});
-});
-
-const selectedIngestionScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[ingestionSceneKey.value]);
-const selectedIngestionBundle = computed(() => SCENE_STRATEGY_CATALOG.bundles[ingestionBundleKey.value]);
+const selectedIngestionPackage = computed(() => STRATEGY_PACKAGE_CATALOG[ingestionStrategyPackageKey.value]);
 const segmentModeManuallySet = ref(false);
 const segmentSizingManuallySet = ref(false);
 const segmentAnchorsManuallySet = ref(false);
@@ -428,7 +404,7 @@ const effectiveSeparatorsPreview = computed(() => {
 const segmentModeOptions = computed(() => {
 	// 根据场景/格式给一组“推荐可选项”
 	const format = String(ingestionForm.format || "").toLowerCase();
-	const sceneKey = ingestionSceneKey.value;
+	const sceneKey = derivedIngestionSceneKey.value;
 		const base: Array<{ label: string; value: SegmentMode }> = [
 			{ label: "按结构（标题/段落）", value: "heading" },
 			{ label: "按语义（句子）", value: "semantic" },
@@ -457,6 +433,72 @@ const segmentModeOptions = computed(() => {
 	return [...base].sort((a, b) => order(a.value) - order(b.value));
 });
 
+const segmentOrderLabels: Record<SegmentOrderKey, string> = {
+	page: "分页（PDF）",
+	size: "字数策略",
+	segment: "分段模式",
+	separator: "分隔符",
+};
+
+const segmentOrderHelp: Record<SegmentOrderKey, string> = {
+	page: "仅 PDF 生效；决定是否先按页分桶",
+	size: "目标/上限两种策略",
+	segment: "heading / semantic / clause 等",
+	separator: "自定义分隔符的切分优先级",
+};
+
+const draggingSegmentKey = ref<SegmentOrderKey | null>(null);
+
+const isSegmentStepEnabled = (key: SegmentOrderKey) =>
+	ingestionForm.segmentOrder.includes(key);
+
+const toggleSegmentStep = (key: SegmentOrderKey, enabled: boolean) => {
+	const order = [...ingestionForm.segmentOrder];
+	const idx = order.indexOf(key);
+	if (enabled) {
+		if (idx !== -1) return;
+		const sizeIdx = order.indexOf("size");
+		if (sizeIdx !== -1) {
+			order.splice(sizeIdx + 1, 0, key);
+		} else {
+			order.push(key);
+		}
+	} else if (idx !== -1) {
+		order.splice(idx, 1);
+	}
+	ingestionForm.segmentOrder = order;
+	if (!enabled && key === "segment") {
+		ingestionForm.segmentMode = "unit";
+	}
+};
+
+const moveSegmentOrder = (from: number, to: number) => {
+	const order = [...ingestionForm.segmentOrder];
+	if (from < 0 || to < 0 || from >= order.length || to >= order.length) return;
+	const [item] = order.splice(from, 1);
+	order.splice(to, 0, item);
+	ingestionForm.segmentOrder = order;
+};
+
+const onSegmentDragStart = (key: SegmentOrderKey) => {
+	draggingSegmentKey.value = key;
+};
+
+const onSegmentDragOver = (event: DragEvent) => {
+	event.preventDefault();
+};
+
+const onSegmentDrop = (key: SegmentOrderKey) => {
+	const from = ingestionForm.segmentOrder.indexOf(draggingSegmentKey.value as SegmentOrderKey);
+	const to = ingestionForm.segmentOrder.indexOf(key);
+	if (from === -1 || to === -1 || from === to) {
+		draggingSegmentKey.value = null;
+		return;
+	}
+	moveSegmentOrder(from, to);
+	draggingSegmentKey.value = null;
+};
+
 const segmentModeHint = computed(() => {
 		switch (ingestionForm.segmentMode) {
 		case "heading":
@@ -477,6 +519,105 @@ const segmentModeHint = computed(() => {
 		}
 	});
 
+const segmentAnchorHint = computed(() => {
+	switch (ingestionForm.segmentMode) {
+		case "heading":
+			return "当前为 heading：建议启用“标题路径（heading_path）”。";
+		case "clause":
+			return "当前为 clause：建议启用“条款编号（clause_id）”。";
+		case "table_row":
+			return "当前为 table_row：建议启用“表格行号（row_number）”。";
+		case "conversation":
+			return "当前为 conversation：建议启用“发言人（speaker）”。";
+		case "semantic":
+			return "当前为 semantic：建议启用“句子序号（sentence_idx）”。";
+		case "code_block":
+		case "unit":
+		default:
+			return "锚点建议会随分段模式自动勾选，可手动覆盖。";
+	}
+});
+
+const chunkSizeSourceHint = computed(() => {
+	const scene = selectedIngestionScene.value as any;
+	const size = scene?.ingestionDefaults?.chunking?.chunkSize;
+	const label = scene?.label;
+	if (typeof size === "number" && label) {
+		return `默认来自场景「${label}」的 chunk_size=${size}（可手动覆盖）。`;
+	}
+	return "默认来自场景配置（可手动覆盖）。";
+});
+
+const resolveEmbeddingLimit = (profile: any) => {
+	if (!profile) return 0;
+	const defaults = profile.defaults || profile.Defaults || {};
+	const cap = profile.capCache || profile.cap_cache || {};
+	const keys = [
+		"max_input_tokens",
+		"max_tokens",
+		"context_length",
+		"context_window",
+		"context_size",
+		"max_context_tokens",
+	];
+	for (const key of keys) {
+		const v = defaults?.[key];
+		if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.trunc(v);
+		if (typeof v === "string") {
+			const n = Number.parseInt(v, 10);
+			if (Number.isFinite(n) && n > 0) return n;
+		}
+	}
+	for (const key of keys) {
+		const v = cap?.[key];
+		if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.trunc(v);
+		if (typeof v === "string") {
+			const n = Number.parseInt(v, 10);
+			if (Number.isFinite(n) && n > 0) return n;
+		}
+	}
+	return 0;
+};
+
+const embeddingMaxInputTokens = computed(() => resolveEmbeddingLimit(embeddingGuard.value?.profile));
+const embeddingLimitHint = computed(() => {
+	const limit = embeddingMaxInputTokens.value;
+	if (limit <= 0) return "";
+	return `Embedding 上限 ≈ ${limit}（字符/近似 token），建议 chunkSize 不超过该值。`;
+});
+
+const chunkSizePolicyLabel = computed(() =>
+	ingestionForm.segmentSizePolicy === "target" ? "目标长度（会合并短段）" : "长度上限（只切超长）"
+);
+
+const chunkSizePolicyHelp = computed(() =>
+	ingestionForm.segmentSizePolicy === "target"
+		? "先把短段合并到接近目标长度，再做窗口切分（更像 Dify/Coze）。"
+		: "只在超过上限时切分，不会合并短段（更保守）。"
+);
+
+const segmentPreviewOrder = computed(() => {
+	const order = ingestionForm.segmentOrder.length ? ingestionForm.segmentOrder : defaultSegmentOrder;
+	return order.map((key) => {
+		const label = segmentOrderLabels[key] || key;
+		if (key === "page") {
+			return `${label}${ingestionForm.pagePriority ? "" : "（未启用）"}`;
+		}
+		if (key === "segment") {
+			return `${label}${isSegmentStepEnabled("segment") ? "" : "（已关闭）"}`;
+		}
+		if (key === "separator") {
+			return `${label}${isSegmentStepEnabled("separator") ? "" : "（已关闭）"}`;
+		}
+		return label;
+	});
+});
+
+const segmentPreviewMode = computed(() => (isSegmentStepEnabled("segment") ? ingestionForm.segmentMode : "-"));
+const segmentPreviewSeparators = computed(() =>
+	isSegmentStepEnabled("separator") ? effectiveSeparatorsPreview.value : "-"
+);
+
 const showPagePriority = computed(() => String(ingestionForm.format || "").toLowerCase() === "pdf");
 const chunkingFlowHint = computed(() => {
 	const isPDF = String(ingestionForm.format || "").toLowerCase() === "pdf";
@@ -484,6 +625,7 @@ const chunkingFlowHint = computed(() => {
 	const modeLabel = String(ingestionForm.segmentMode || "unit");
 	const size = Number(ingestionForm.chunkSize || 0);
 	const overlap = Number(ingestionForm.chunkOverlap || 0);
+	const sizePolicy = ingestionForm.segmentSizePolicy === "target" ? "目标" : "上限";
 	const separators = effectiveSeparatorsPreview.value === "-" ? "无" : effectiveSeparatorsPreview.value;
 	const anchors = [
 		ingestionForm.anchorHeadingPath ? "heading_path" : "",
@@ -493,227 +635,179 @@ const chunkingFlowHint = computed(() => {
 		ingestionForm.anchorSentenceIndex ? "sentence_idx" : "",
 	].filter(Boolean);
 	const anchorText = anchors.length ? anchors.join(" / ") : "无";
-
-	const pageState = pageFirst ? "已启用" : "未启用";
-	const pageAvailability = isPDF ? "仅对 PDF 生效" : "当前格式不支持";
+	const steps: string[] = [];
+	const order = ingestionForm.segmentOrder.length ? ingestionForm.segmentOrder : defaultSegmentOrder;
+	let stepIndex = 1;
 	const windowHint = size > 0 ? "超长再按分隔符优先、窗口长度兜底切分" : "不做长度窗口切分";
-	return [
-		"1. 分页优先 (pagePriority)",
-		`- ${pageAvailability}`,
-		`- 当前: ${pageState}`,
-		"- 先把整篇文档拆成“页级单位”（每页一个大块）",
-		"- 这一步只是决定“分桶边界”，不会做最终切块",
-		"2. 分段模式 (segmentMode)",
-		`- 页内切分模式: ${modeLabel}`,
-		"- 例如 heading/semantic/clause 等",
-		"- 不跨页",
-		"3. 分隔符/长度窗口 (separators + chunkSize)",
-		`- 分隔符: ${separators}`,
-		`- chunk=${size} overlap=${overlap}`,
-		`- ${windowHint}`,
-		`- anchors: ${anchorText}`,
-	].join("\n");
+
+	for (const key of order) {
+		switch (key) {
+			case "page": {
+				const pageState = pageFirst ? "已启用" : "未启用";
+				const pageAvailability = isPDF ? "仅对 PDF 生效" : "当前格式不支持";
+				steps.push(`${stepIndex}. 分页（pagePriority）`);
+				steps.push(`- ${pageAvailability}`);
+				steps.push(`- 当前: ${pageState}`);
+				steps.push("- 先把整篇文档拆成“页级单位”（每页一个大块）");
+				steps.push("- 这一步只决定“分桶边界”，不会做最终切块");
+				if (!pageFirst) {
+					steps.push("- 已跳过（未启用或非 PDF）");
+				}
+				stepIndex += 1;
+				break;
+			}
+			case "size": {
+				steps.push(`${stepIndex}. 字数策略（chunkSize）`);
+				steps.push(`- chunk=${size} overlap=${overlap}（${sizePolicy}）`);
+				if (size > 0) {
+					if (ingestionForm.segmentSizePolicy === "target") {
+						steps.push("- 先尽量合并短段到接近目标，再进入后续步骤");
+					} else {
+						steps.push("- 低于上限可不再细分，超限才进入后续步骤");
+					}
+				} else {
+					steps.push("- chunkSize=0：不做长度上限筛选");
+				}
+				stepIndex += 1;
+				break;
+			}
+			case "segment": {
+				steps.push(`${stepIndex}. 分段模式（segmentMode）`);
+				if (!isSegmentStepEnabled("segment")) {
+					steps.push("- 已关闭");
+				} else {
+					steps.push(`- 当前模式: ${modeLabel}`);
+					steps.push("- 例如 heading/semantic/clause 等");
+				}
+				stepIndex += 1;
+				break;
+			}
+			case "separator": {
+				steps.push(`${stepIndex}. 分隔符（separators）`);
+				if (!isSegmentStepEnabled("separator")) {
+					steps.push("- 已关闭");
+				} else {
+					steps.push(`- 分隔符: ${separators}`);
+					steps.push(`- ${windowHint}`);
+				}
+				stepIndex += 1;
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	steps.push(`- anchors: ${anchorText}`);
+	return steps.join("\n");
 });
 const selectedSpaceHasSceneBundle = computed(() => {
 	const id = ingestionForm.spaceId;
 	if (!id) return false;
 	const space = spaces.value.find((s) => s.spaceId === id);
 	const flags = space?.featureFlags ?? [];
-	return flags.some((f) => f.startsWith("rag.scene:")) || flags.some((f) => f.startsWith("rag.bundle:"));
+	return (
+		flags.some((f) => f.startsWith("rag.strategy_package:")) ||
+		flags.some((f) => f.startsWith("rag.scene:")) ||
+		flags.some((f) => f.startsWith("rag.bundle:"))
+	);
 });
 
-const githubGuideBase = "https://github.com/ArtisanCloud/PowerX/tree/main/docs/guides/knowledge_space/scenary";
+const githubGuideBase = "https://github.com/ArtisanCloud/PowerX/tree/main/docs/guides/knowledge_space/strategy";
+const selectedIngestionScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[derivedIngestionSceneKey.value]);
 const sceneGuideHref = computed(() => {
 	const guide = (selectedIngestionScene.value as any)?.guide || "README.md";
 	return `${githubGuideBase}/${guide}`;
 });
-const bundleGuideHref = computed(() => {
-	const guide = (selectedIngestionBundle.value as any)?.guide || "README.md";
-	return `${githubGuideBase}/${guide}`;
-});
 const overviewGuideHref = computed(() => `${githubGuideBase}/README.md`);
 
-const ragModuleMeta = computed(() => SCENE_STRATEGY_CATALOG.ragModules);
-
-const ragPrimaryItems = computed(() => {
-	const scene = selectedIngestionScene.value as any;
-	const allowed: RagModuleKey[] =
-		(scene?.rag?.allowedPrimary as RagModuleKey[] | undefined) ??
-		((scene?.defaultModules as RagModuleKey[] | undefined) ?? (selectedIngestionBundle.value?.defaultModules ?? []));
-	const uniq = Array.from(new Set(allowed.filter(Boolean)));
-	return uniq.map((k) => ({
-		label: ragModuleMeta.value[k]?.label || String(k),
-		value: k,
-		_desc: ragModuleMeta.value[k]?.desc || "",
-	}));
-});
-
-const ragPrimaryHint = computed(() => ragModuleMeta.value[ingestionRagPrimary.value]?.desc || "");
-
-const effectiveRagModules = computed(() => {
-	const sceneMods = ((selectedIngestionScene.value as any)?.defaultModules as RagModuleKey[] | undefined) ?? [];
-	const bundleMods = (selectedIngestionBundle.value?.defaultModules as RagModuleKey[] | undefined) ?? [];
-	const mods = [...bundleMods, ...sceneMods, ingestionRagPrimary.value];
-	// 保证 feedback 默认挂上（如果策略包没带）
-	if (!mods.includes("L_feedback")) mods.push("L_feedback");
-	return Array.from(new Set(mods.filter(Boolean)));
-});
-
-const effectiveRagAuxModules = computed(() =>
-	effectiveRagModules.value.filter((m) => m && m !== ingestionRagPrimary.value),
+const strategyPackageSceneLabels = computed(() =>
+	(selectedIngestionPackage.value?.recommendedScenes ?? []).map((key) => ({
+		key,
+		label: SCENE_CATALOG[key as SceneKey]?.label || key,
+	})),
 );
-
-const sceneDefaultBundleLabel = computed(() => {
-	const scene = selectedIngestionScene.value;
-	if (!scene) return "";
-	return SCENE_STRATEGY_CATALOG.bundles[scene.defaultBundle]?.label || String(scene.defaultBundle);
-});
-
-const allowedBundleLabels = computed(() => {
-	const scene = selectedIngestionScene.value;
-	if (!scene) return [];
-	return scene.allowedBundles.map((k) => ({
-		key: k,
-		label: SCENE_STRATEGY_CATALOG.bundles[k]?.label || String(k),
-	}));
-});
-
-const sceneIndexPrereqs = computed(() => selectedIngestionScene.value?.prerequisites?.index ?? []);
-
-const bundleDecisionHint = computed(() => {
-	const scene = selectedIngestionScene.value;
-	if (!scene) return "";
-	switch (scene.defaultBundle) {
-		case "p3_kg_strong":
-			return t("knowledgeSpaces.ingestion.guidance.reasons.bundleP3", "该场景属于“关系/依赖/约束”问题，优先 KG（P3）。");
-		case "p2_high_accuracy":
-			return t("knowledgeSpaces.ingestion.guidance.reasons.bundleP2", "该场景偏“事实精确/合规风险”，优先证据与纠错（P2）。");
-		case "p1_general":
-			return t("knowledgeSpaces.ingestion.guidance.reasons.bundleP1", "该场景偏“解释归纳/章节上下文”，通用推荐（P1）。");
+const strategyPackageCouplingLabel = computed(() =>
+	selectedIngestionPackage.value?.coupling === "strong" ? "强关联" : "弱关联",
+);
+const profileLabel = (key: string | undefined) => {
+	switch (key) {
 		case "p0_basic":
+			return "P0 基础";
+		case "p1_general":
+			return "P1 通用推荐";
+		case "p2_high_accuracy":
+			return "P2 高准确/合规";
+		case "p3_kg_strong":
+			return "P3 KG 约束";
 		default:
-			return t("knowledgeSpaces.ingestion.guidance.reasons.bundleP0", "该场景适合低成本验证，先跑通最小闭环（P0）。");
+			return key || "-";
 	}
-});
+};
 
-const sceneDecisionHint = computed(() => {
-	const scene = selectedIngestionScene.value as any;
-	if (!scene) return "";
-	const mods = Array.isArray(scene.defaultModules) ? (scene.defaultModules as string[]) : [];
-	if (mods.includes("K_kg")) {
-		return t(
-			"knowledgeSpaces.ingestion.guidance.reasons.sceneKg",
-			"该场景的核心价值在“实体/关系链路”，会优先启用 KG 模块并要求 provenance。",
-		);
-	}
-	if (mods.includes("A2_time_aware")) {
-		return t(
-			"knowledgeSpaces.ingestion.guidance.reasons.sceneTime",
-			"该场景对“版本/生效时间”敏感，会启用 time-aware 并建议补齐 time_fields。",
-		);
-	}
-	if (mods.includes("J_hier")) {
-		return t(
-			"knowledgeSpaces.ingestion.guidance.reasons.sceneHier",
-			"该场景偏长文/章节结构，会启用层次索引（hier）以提升定位与引用。",
-		);
-	}
-	return t(
-		"knowledgeSpaces.ingestion.guidance.reasons.sceneGeneral",
-		"该场景以 hybrid 检索与可追溯引用为主，优先保证命中率与可解释性。",
-	);
-});
-
-const ragPrimaryDecisionHint = computed(() => {
-	const primary = ingestionRagPrimary.value;
-	switch (primary) {
-		case "J_hier":
-			return "你选择了 J Hier（层次索引）：先用章节/摘要定位，再下钻到 chunk，适合手册/SOP 的“按章节找证据”。";
-		case "C_context_enriched":
-			return "你选择了 C Context Enriched（上下文增强）：召回后自动补齐同章节邻居/标题路径，减少断章取义，适合需要上下文的说明类问答。";
-		case "H_fusion":
-			return "你选择了 H Fusion（融合检索）：dense+sparse 多路召回融合，适合通用场景提升命中率（对关键词与语义都更稳）。";
-		case "F_rerank":
-			return "你选择了 F Rerank（重排序）：对候选做重排序，适合候选相似度高、容易误命中的场景（成本随 topN 增加）。";
-		case "E_query_transform":
-			return "你选择了 E Query Transform（查询转换）：对 query 做同义/结构化抽取/纠错，适合口语化问法多、字段过滤明显的场景。";
-		case "O_crag":
-			return "你选择了 O CRAG（证据纠错）：证据不足/冲突时触发更严检索与纠错，适合合同/合规/高风险问答。";
-		case "K_kg":
-			return "你选择了 K KG（知识图谱）：实体/关系召回与约束，适合依赖/兼容/约束查询（需要 KG 相关索引与资产）。";
-		case "A2_time_aware":
-			return "你选择了 A2 Time-aware（时间/版本）：按版本/生效时间过滤与加权，适合价格/政策/版本频繁变更的库。";
-		case "A1_routing":
-			return "你选择了 A1 Routing（查询路由）：将 query 路由到不同索引通道/空间，适合多域多库混用（需要路由策略）。";
-		case "A_simple":
-			return "你选择了 A Simple（最小闭环）：dense 召回 + 引用，适合先跑通链路与快速验收。";
+const strategyPackageDecisionHint = computed(() => {
+	switch (ingestionStrategyPackageKey.value) {
 		case "B_semantic_chunking":
-			return "你选择了 B Semantic Chunking（语义切块）：更偏语义边界切块，适合论文/长报告；会影响下一步默认分割参数。";
+			return "语义切块策略：会影响下一步分割默认值，适合论文/长报告。";
+		case "J_hier":
+			return "层次索引策略：优先保留章节锚点，适合手册/SOP。";
 		case "D_doc_augmentation":
-			return "你选择了 D Doc Augmentation（离线增强）：增强字段（摘要/关键词/实体等），适合字段密集/需要更强可解释的库。";
-		case "L_feedback":
-			return "你选择了 L Feedback（反馈闭环）：标注→重处理→回归评估。通常作为默认模块，不建议作为主策略单选。";
+			return "离线增强策略：依赖稳定块边界与结构化字段。";
+		case "A2_time_aware":
+			return "时间感知策略：需要时间字段与版本线支持。";
+		case "K_kg":
+			return "知识图谱策略：需要实体/关系抽取与 KG 索引支持。";
+		case "O_crag":
+			return "纠错策略：对证据一致性更敏感，适合合同/合规类库。";
 		default:
-			return "你选择了该主策略；系统会结合场景/建库策略包拼装模块组合，并在下一步给出分割/锚点默认值。";
+			return "该策略包偏检索/融合策略，分割可独立配置（可在下一步调整）。";
 	}
 });
 
-const syncSceneBundleFromSpace = (spaceId: string) => {
+const mapProfileToStrategyPackage = (profileKey: string | undefined): StrategyPackageKey => {
+	switch (profileKey) {
+		case "p0_basic":
+			return "A_simple";
+		case "p2_high_accuracy":
+			return "O_crag";
+		case "p3_kg_strong":
+			return "K_kg";
+		case "p1_general":
+		default:
+			return "H_fusion";
+	}
+};
+
+const syncStrategyPackageFromSpace = (spaceId: string) => {
 	const space = spaces.value.find((s) => s.spaceId === spaceId);
-	const flags = space?.featureFlags ?? [];
-	const rawScene = flags.find((f) => f.startsWith("rag.scene:"))?.slice("rag.scene:".length) as SceneKey | undefined;
-	const sceneKey: SceneKey = rawScene && SCENE_STRATEGY_CATALOG.scenes[rawScene] ? rawScene : "sop";
-	const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey];
-	const rawBundle = flags
-		.find((f) => f.startsWith("rag.bundle:"))
-		?.slice("rag.bundle:".length) as StrategyBundleKey | undefined;
-	const bundleKey: StrategyBundleKey =
-		rawBundle && scene.allowedBundles.includes(rawBundle) ? rawBundle : scene.defaultBundle;
-	const rawPrimary = flags
-		.find((f) => f.startsWith("rag.primary:"))
-		?.slice("rag.primary:".length) as RagModuleKey | undefined;
-	const allowedPrimary = (scene.rag?.allowedPrimary as RagModuleKey[] | undefined) ?? [];
-	const primary: RagModuleKey =
-		rawPrimary && (!allowedPrimary.length || allowedPrimary.includes(rawPrimary))
-			? rawPrimary
-			: ((scene.rag?.defaultPrimary as RagModuleKey | undefined) ?? ingestionRagPrimary.value);
-	settingIngestionScene.value = true;
-	ingestionSceneKey.value = sceneKey;
-	ingestionBundleKey.value = bundleKey;
-	ingestionRagPrimary.value = primary;
-	ingestionSceneAutoHint.value = "";
-	ingestionSceneAutoKey.value = "";
-	settingIngestionScene.value = false;
+	const flags = (space?.featureFlags ?? []).map((f) => String(f || "").trim().toLowerCase());
+	const rawStrategy = flags.find((f) => f.startsWith("rag.strategy_package:"))?.slice("rag.strategy_package:".length);
+	if (rawStrategy && STRATEGY_PACKAGE_CATALOG[rawStrategy as StrategyPackageKey]) {
+		settingIngestionStrategy.value = true;
+		ingestionStrategyPackageKey.value = rawStrategy as StrategyPackageKey;
+		ingestionStrategyAutoHint.value = "";
+		ingestionStrategyAutoKey.value = "";
+		settingIngestionStrategy.value = false;
+		return;
+	}
+	const rawBundle = flags.find((f) => f.startsWith("rag.bundle:"))?.slice("rag.bundle:".length);
+	if (rawBundle) {
+		settingIngestionStrategy.value = true;
+		ingestionStrategyPackageKey.value = mapProfileToStrategyPackage(rawBundle);
+		ingestionStrategyAutoHint.value = "";
+		ingestionStrategyAutoKey.value = "";
+		settingIngestionStrategy.value = false;
+	}
 };
 
 watch(
-	() => ingestionSceneKey.value,
-	(sceneKey) => {
-		if (ingestionModalOpen.value && !settingIngestionScene.value) {
-			ingestionSceneManuallySet.value = true;
-			ingestionSceneAutoHint.value = "";
-			ingestionSceneAutoKey.value = "";
-		}
-		const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey];
-		if (!scene) return;
-		if (!scene.allowedBundles.includes(ingestionBundleKey.value)) {
-			ingestionBundleKey.value = scene.defaultBundle;
-		}
-		// L3 默认：随场景切换（除非用户手动指定）
-		if (!ingestionRagManuallySet.value) {
-			const next = (scene.rag?.defaultPrimary as RagModuleKey | undefined) ?? ingestionRagPrimary.value;
-			const allowed = (scene.rag?.allowedPrimary as RagModuleKey[] | undefined) ?? [];
-			if (!allowed.length || allowed.includes(next)) ingestionRagPrimary.value = next;
-			else ingestionRagPrimary.value = allowed[0] || ingestionRagPrimary.value;
-		}
-	},
-);
-
-watch(
-	() => ingestionRagPrimary.value,
+	() => ingestionStrategyPackageKey.value,
 	() => {
-		if (!ingestionModalOpen.value) return;
-		ingestionRagManuallySet.value = true;
+		if (ingestionModalOpen.value && !settingIngestionStrategy.value) {
+			ingestionStrategyManuallySet.value = true;
+			ingestionStrategyAutoHint.value = "";
+			ingestionStrategyAutoKey.value = "";
+		}
 	},
 );
 
@@ -967,10 +1061,10 @@ const ingestionSpaceItems = computed(() =>
 );
 
 const hasSpaces = computed(() => ingestionSpaceItems.value.length > 0);
-const settingIngestionScene = ref(false);
-const ingestionSceneManuallySet = ref(false);
-const ingestionSceneAutoHint = ref<string>("");
-const ingestionSceneAutoKey = ref<SceneKey | "">("");
+const settingIngestionStrategy = ref(false);
+const ingestionStrategyManuallySet = ref(false);
+const ingestionStrategyAutoHint = ref<string>("");
+const ingestionStrategyAutoKey = ref<StrategyPackageKey | "">("");
 
 watch(
   () => knowledgeStore.lastSpace,
@@ -1001,10 +1095,6 @@ watch(
         ingestionForm.spaceId = preferredSpaceId;
       }
       await openIngestionModal();
-			if (String(route.query.ocr || "") === "1") {
-				ingestionForm.ocrRequired = true;
-				ingestionStep.value = 2;
-			}
       pendingOpenIngestion.value = false;
     }
     const nextQuery = { ...route.query } as Record<string, any>;
@@ -1032,13 +1122,30 @@ watch(
   (id) => {
     if (!process.client) return;
     if (id) localStorage.setItem(lastSelectedSpaceKey, id);
-		if (id) syncSceneBundleFromSpace(id);
+		if (id) syncStrategyPackageFromSpace(id);
   },
 );
 
 onMounted(async () => {
   await ensureEmbeddingReady();
   await loadSpaces();
+  if (process.client) {
+    wsBus.connect();
+    unsubscribeCorpusCheck = wsBus.subscribe("knowledge.corpus_check.job", (payload) => {
+      if (!payload) return;
+      const spaceUUID = String(payload.space_uuid || payload.spaceId || "").trim();
+      if (!spaceUUID) return;
+      if (knowledgeStore.lastCorpusCheckJob && knowledgeStore.lastCorpusCheckJob.space_uuid !== spaceUUID) return;
+      knowledgeStore.lastCorpusCheckJob = payload as any;
+    });
+  }
+});
+
+onBeforeUnmount(() => {
+  if (unsubscribeCorpusCheck) {
+    unsubscribeCorpusCheck();
+    unsubscribeCorpusCheck = null;
+  }
 });
 
 const sourceOptions = computed(() => [
@@ -1072,72 +1179,74 @@ const canSubmit = computed(() => {
 const canGoNext = computed(() => {
 	if (ingestionStep.value === 1) return canSubmit.value;
 	if (ingestionStep.value === 2)
-		return Boolean(ingestionSceneKey.value) && Boolean(ingestionBundleKey.value) && Boolean(ingestionRagPrimary.value);
+		return Boolean(ingestionStrategyPackageKey.value);
 	if (ingestionStep.value === 3) return Boolean(ingestionForm.segmentMode);
 	return true;
 });
 
-const applyAutoSceneSuggestion = (suggestion: { key: SceneKey; hint: string } | null) => {
+const applyAutoStrategySuggestion = (suggestion: { key: StrategyPackageKey; hint: string } | null) => {
 	if (!suggestion) return;
 	// 如果空间已绑定场景/策略包，则不自动覆盖，只给出“建议”并允许一键应用。
-	if (selectedSpaceHasSceneBundle.value || ingestionSceneManuallySet.value) {
-		ingestionSceneAutoKey.value = suggestion.key;
-		ingestionSceneAutoHint.value = t(
+	if (selectedSpaceHasSceneBundle.value || ingestionStrategyManuallySet.value) {
+		ingestionStrategyAutoKey.value = suggestion.key;
+		ingestionStrategyAutoHint.value = t(
 			"knowledgeSpaces.ingestion.sceneSuggestion.keepSpacePreset",
-			"当前空间已绑定场景/策略包，未自动切换。建议：{hint}",
+			"当前空间已绑定策略包，未自动切换。建议：{hint}",
 			{ hint: suggestion.hint },
 		);
 		return;
 	}
-	if (!SCENE_STRATEGY_CATALOG.scenes[suggestion.key]) return;
-	settingIngestionScene.value = true;
-	ingestionSceneKey.value = suggestion.key;
-	ingestionSceneAutoKey.value = suggestion.key;
-	ingestionSceneAutoHint.value = suggestion.hint;
-	settingIngestionScene.value = false;
+	if (!STRATEGY_PACKAGE_CATALOG[suggestion.key]) return;
+	settingIngestionStrategy.value = true;
+	ingestionStrategyPackageKey.value = suggestion.key;
+	ingestionStrategyAutoKey.value = suggestion.key;
+	ingestionStrategyAutoHint.value = suggestion.hint;
+	settingIngestionStrategy.value = false;
 };
 
-const guessSceneFromSource = (source: string, format: string): { key: SceneKey; hint: string } => {
+const guessStrategyFromSource = (source: string, format: string): { key: StrategyPackageKey; hint: string } => {
 	const name = String(source || "").trim();
 	const n = name.toLowerCase();
 	const has = (re: RegExp) => re.test(n);
 
 	// 目标：优先按“文件格式”给一个默认场景；若无法更细，则默认通用（SOP/制度/产品说明）。
-	if (format === "sql") return { key: "sql_kg", hint: "已按文件类型（SQL）默认选择“SQL/配置/依赖（KG 强）”。" };
+	if (format === "sql") {
+		return { key: "K_kg", hint: "已按文件类型（SQL）默认选择“知识图谱（K）”。" };
+	}
 	if (format === "csv" || format === "xlsx" || format === "table") {
-		return { key: "ledger_table", hint: "已按文件类型（表格/清单）默认选择“台账/清单（表格）”。" };
+		return { key: "D_doc_augmentation", hint: "已按文件类型（表格/清单）默认选择“文档增强（D）”。" };
 	}
 	if (format === "markdown" || format === "html" || format === "docx") {
-		return { key: "sop", hint: "已按文件类型（结构化文档）默认选择“通用（SOP/制度/产品说明）”。" };
+		return { key: "H_fusion", hint: "已按文件类型（结构化文档）默认选择“融合检索（H）”。" };
 	}
 	if (format === "image") {
-		return { key: "sop", hint: "已按文件类型（图片/OCR）默认选择“通用（SOP/制度/产品说明）”。如为票据/合同类，建议手动切到对应场景。" };
+		return { key: "H_fusion", hint: "已按文件类型（图片/OCR）默认选择“融合检索（H）”。如为合同类可切到 CRAG（O）。" };
 	}
 
 	if (format === "pdf") {
 		// PDF 可根据文件名/URL 做更细的启发式（没有命中则回落通用）
 		if (has(/合同|报价|协议|条款|保密|投标|招标/)) {
-			return { key: "contract_quote", hint: "已按名称关键词（合同/报价/条款）自动建议“合同/报价”。" };
+			return { key: "O_crag", hint: "已按名称关键词（合同/报价/条款）建议“纠错（O）”。" };
 		}
 		if (has(/论文|研究|白皮书|调研|报告|年报/)) {
-			return { key: "research_longdoc", hint: "已按名称关键词（研究/报告）自动建议“论文/研究/长报告”。" };
+			return { key: "B_semantic_chunking", hint: "已按名称关键词（研究/报告）建议“语义切块（B）”。" };
 		}
 		if (has(/数据字典|schema|字段|表结构/)) {
-			return { key: "data_dictionary", hint: "已按名称关键词（数据字典/表结构/字段）自动建议“数据字典”。" };
+			return { key: "E_query_transform", hint: "已按名称关键词（数据字典/字段）建议“查询转换（E）”。" };
 		}
 		if (has(/api|openapi|swagger|接口/)) {
-			return { key: "api_reference", hint: "已按名称关键词（API/接口）自动建议“API/接口文档”。" };
+			return { key: "E_query_transform", hint: "已按名称关键词（API/接口）建议“查询转换（E）”。" };
 		}
 		if (has(/runbook|故障|应急|排查|运维/)) {
-			return { key: "eng_incident", hint: "已按名称关键词（故障/应急/排查）自动建议“故障排查与应急响应”。" };
+			return { key: "H_fusion", hint: "已按名称关键词（故障/应急/排查）建议“融合检索（H）”。" };
 		}
 		if (has(/变更|发布|回滚/)) {
-			return { key: "eng_change", hint: "已按名称关键词（变更/发布/回滚）自动建议“变更与发布”。" };
+			return { key: "H_fusion", hint: "已按名称关键词（变更/发布/回滚）建议“融合检索（H）”。" };
 		}
-		return { key: "sop", hint: "已按文件类型（PDF）默认选择“通用（Docs/SOP）”。如属于合同/研究/表格等可手动切换场景。" };
+		return { key: "H_fusion", hint: "已按文件类型（PDF）默认选择“融合检索（H）”。" };
 	}
 
-	return { key: "sop", hint: "未识别到更细预设，默认选择“通用（SOP/制度/产品说明）”。" };
+	return { key: "H_fusion", hint: "未识别到更细预设，默认选择“融合检索（H）”。" };
 };
 
 const mapChunkingModeToSegmentMode = (chunkingMode: string, format: string): SegmentMode => {
@@ -1162,21 +1271,21 @@ const recommendedSegmentDefaults = computed(() => {
 	const baseSize = typeof chunking?.chunkSize === "number" ? chunking.chunkSize : 800;
 	const baseOverlap = typeof chunking?.overlap === "number" ? chunking.overlap : 120;
 
-	// L3 主策略对分割默认做“有方向的偏置”
-	const primary = ingestionRagPrimary.value;
+	// 策略包对分割默认做“有方向的偏置”
+	const strategyKey = ingestionStrategyPackageKey.value;
 	let mode: SegmentMode = baseMode;
 	let chunkSize = baseSize;
 	let chunkOverlap = baseOverlap;
 
-	if (primary === "B_semantic_chunking") {
+	if (strategyKey === "B_semantic_chunking") {
 		mode = "semantic";
 		chunkSize = Math.max(chunkSize, 1200);
 		chunkOverlap = Math.max(chunkOverlap, 200);
 	}
-	if (primary === "J_hier" || primary === "C_context_enriched") {
+	if (strategyKey === "J_hier" || strategyKey === "C_context_enriched") {
 		mode = "heading";
 	}
-	if (primary === "A2_time_aware" || primary === "O_crag") {
+	if (strategyKey === "A2_time_aware" || strategyKey === "O_crag") {
 		// 证据/时间敏感场景：更偏条款/编号边界
 		if (ingestionForm.format === "pdf" || ingestionForm.format === "docx") {
 			mode = "clause";
@@ -1184,14 +1293,14 @@ const recommendedSegmentDefaults = computed(() => {
 			chunkOverlap = Math.max(chunkOverlap, 150);
 		}
 	}
-	if (primary === "K_kg") {
+	if (strategyKey === "K_kg") {
 		// KG 场景：优先保留结构锚点（SQL→代码块，其它→标题/条款）
 		if (ingestionForm.format === "sql") mode = "code_block";
-		else if (scene?.defaultBundle === "p3_kg_strong") mode = baseMode === "clause" ? "clause" : "heading";
+		else if (derivedIngestionProfileKey.value === "p3_kg_strong") mode = baseMode === "clause" ? "clause" : "heading";
 	}
 
 	const anchors = {
-		anchorHeadingPath: mode === "heading" || primary === "J_hier" || primary === "C_context_enriched",
+		anchorHeadingPath: mode === "heading" || strategyKey === "J_hier" || strategyKey === "C_context_enriched",
 		anchorClauseId: mode === "clause",
 		anchorRowNumber: mode === "table_row",
 		anchorSpeaker: mode === "conversation",
@@ -1227,7 +1336,13 @@ const recommendedSegmentDefaults = computed(() => {
 
 watch(
 	() =>
-		[ingestionModalOpen.value, ingestionSceneKey.value, ingestionBundleKey.value, ingestionRagPrimary.value, ingestionForm.format] as const,
+		[
+			ingestionModalOpen.value,
+			ingestionStrategyPackageKey.value,
+			derivedIngestionSceneKey.value,
+			derivedIngestionProfileKey.value,
+			ingestionForm.format,
+		] as const,
 	() => {
 		if (!ingestionModalOpen.value) return;
 		const next = recommendedSegmentDefaults.value;
@@ -1263,7 +1378,7 @@ watch(
 );
 
 watch(
-	() => [ingestionForm.chunkSize, ingestionForm.chunkOverlap] as const,
+	() => [ingestionForm.chunkSize, ingestionForm.chunkOverlap, ingestionForm.segmentSizePolicy] as const,
 	() => {
 		if (!ingestionModalOpen.value) return;
 		if (settingSegmentDefaults.value) return;
@@ -1296,28 +1411,25 @@ watch(
 	},
 );
 
-const autoSuggestedSceneLabel = computed(() => {
-	const key = ingestionSceneAutoKey.value;
+const autoSuggestedStrategyLabel = computed(() => {
+	const key = ingestionStrategyAutoKey.value;
 	if (!key) return "";
-	const scene = SCENE_STRATEGY_CATALOG.scenes[key as SceneKey];
-	return scene?.label || "";
+	return STRATEGY_PACKAGE_CATALOG[key]?.label || String(key);
 });
 
 const canApplyAutoSuggestion = computed(() => {
-	const key = ingestionSceneAutoKey.value;
+	const key = ingestionStrategyAutoKey.value;
 	if (!key) return false;
-	return key !== ingestionSceneKey.value && Boolean(SCENE_STRATEGY_CATALOG.scenes[key as SceneKey]);
+	return key !== ingestionStrategyPackageKey.value && Boolean(STRATEGY_PACKAGE_CATALOG[key]);
 });
 
 const applyAutoSuggestionNow = () => {
-	const key = ingestionSceneAutoKey.value as SceneKey | "";
+	const key = ingestionStrategyAutoKey.value;
 	if (!key) return;
-	const scene = SCENE_STRATEGY_CATALOG.scenes[key];
-	if (!scene) return;
-	settingIngestionScene.value = true;
-	ingestionSceneKey.value = key;
-	ingestionBundleKey.value = scene.allowedBundles.includes(ingestionBundleKey.value) ? ingestionBundleKey.value : scene.defaultBundle;
-	settingIngestionScene.value = false;
+	if (!STRATEGY_PACKAGE_CATALOG[key]) return;
+	settingIngestionStrategy.value = true;
+	ingestionStrategyPackageKey.value = key;
+	settingIngestionStrategy.value = false;
 };
 
 const handleFileChange = (event: Event) => {
@@ -1336,7 +1448,7 @@ const handleFileChange = (event: Event) => {
 		else if (lower.endsWith(".html") || lower.endsWith(".htm")) ingestionForm.format = "html";
 		else if (lower.endsWith(".sql")) ingestionForm.format = "sql";
 		else if (lower.endsWith(".txt")) ingestionForm.format = "markdown";
-		applyAutoSceneSuggestion(guessSceneFromSource(file.name, ingestionForm.format));
+		applyAutoStrategySuggestion(guessStrategyFromSource(file.name, ingestionForm.format));
 	}
 };
 
@@ -1350,7 +1462,7 @@ watch(
 		// URL 模式：用户手动选择格式时给出默认场景（无预设则通用）
 		if (ingestionSourceMethod.value !== "url") return;
 		const source = ingestionForm.sourceUri || "";
-		applyAutoSceneSuggestion(guessSceneFromSource(source, String(format || "")));
+		applyAutoStrategySuggestion(guessStrategyFromSource(source, String(format || "")));
 	},
 );
 
@@ -1360,7 +1472,7 @@ watch(
 		if (!ingestionModalOpen.value) return;
 		if (ingestionSourceMethod.value !== "url") return;
 		if (!uri) return;
-		applyAutoSceneSuggestion(guessSceneFromSource(uri, String(ingestionForm.format || "")));
+		applyAutoStrategySuggestion(guessStrategyFromSource(uri, String(ingestionForm.format || "")));
 	},
 );
 
@@ -1375,23 +1487,24 @@ const openIngestionModal = async () => {
 		goCreateSpace();
 		return;
 	}
-	if (!(await ensureEmbeddingReady())) {
+	const guard = await ensureEmbeddingReady();
+	if (!guard) {
 		return;
 	}
+	embeddingGuard.value = guard;
 	ingestionError.value = "";
 	ingestionRemediation.value = null;
 	ingestionAdvancedOpen.value = false;
 	ingestionStep.value = 1;
 	ingestionSourceMethod.value = "upload";
-	ingestionSceneManuallySet.value = false;
+	ingestionStrategyManuallySet.value = false;
 	segmentModeManuallySet.value = false;
 	segmentSizingManuallySet.value = false;
 	segmentAnchorsManuallySet.value = false;
 	segmentSeparatorsManuallySet.value = false;
 	settingSegmentDefaults.value = false;
-	ingestionRagManuallySet.value = false;
-	ingestionSceneAutoHint.value = "";
-	ingestionSceneAutoKey.value = "";
+	ingestionStrategyAutoHint.value = "";
+	ingestionStrategyAutoKey.value = "";
 	separatorSelected.value = SEPARATOR_NONE_VALUE;
 	separatorCustomText.value = "";
 	// 默认走“推荐的 builtin/default + default”，高级设置可覆盖。
@@ -1399,7 +1512,10 @@ const openIngestionModal = async () => {
 	ingestionForm.processorProfile = "builtin/default";
 	ingestionForm.maskingProfile = "";
 	ingestionForm.ocrRequired = false;
-	if (ingestionForm.spaceId) syncSceneBundleFromSpace(ingestionForm.spaceId);
+	ingestionForm.pagePriority = false;
+	ingestionForm.segmentOrder = [...defaultSegmentOrder];
+	ingestionForm.segmentSizePolicy = "target";
+	if (ingestionForm.spaceId) syncStrategyPackageFromSpace(ingestionForm.spaceId);
 	ingestionModalOpen.value = true;
 };
 
@@ -1598,12 +1714,6 @@ const startCorpusCheckBestEffort = async (spaceId: string) => {
 	try {
 		const created = await api.startCorpusCheck(spaceId, "");
 		knowledgeStore.lastCorpusCheckJob = created as any;
-		await pollCorpusCheckJob(
-			() => api.getCorpusCheckJob(spaceId, created.uuid),
-			(latest) => {
-				knowledgeStore.lastCorpusCheckJob = latest as any;
-			},
-		);
 	} catch {
 		// ignore: best-effort
 	}
@@ -1621,13 +1731,20 @@ const submitIngestion = async () => {
 		ingestionError.value = t("knowledgeSpaces.ingestion.errors.missingSource");
 		return;
 	}
-	if (!(await ensureEmbeddingReady())) {
+	const guard = await ensureEmbeddingReady();
+	if (!guard) {
 		ingestionError.value = "请先在 AI Settings 配置 embedding 模型并完成测试";
+		return;
+	}
+	embeddingGuard.value = guard;
+	const limit = embeddingMaxInputTokens.value;
+	if (limit > 0 && ingestionForm.chunkSize > 0 && ingestionForm.chunkSize > limit) {
+		ingestionError.value = `当前 embedding 上限≈${limit}，chunkSize 不应超过该值。请调整后再入库。`;
 		return;
 	}
 	ingestionSubmitting.value = true;
 	try {
-		// 将“场景（L1）/策略包（L2）”写入空间 feature_flags，保证后续 Playground/策略验证/推荐一致。
+		// 将“策略包”写入空间 feature_flags，保证后续 Playground/策略验证/推荐一致。
 		const space = spaces.value.find((s) => s.spaceId === ingestionForm.spaceId);
 		const currentFlags = space?.featureFlags ?? [];
 		const kept = currentFlags.filter(
@@ -1635,15 +1752,17 @@ const submitIngestion = async () => {
 				!f.startsWith("rag.scene:") &&
 				!f.startsWith("rag.bundle:") &&
 				!f.startsWith("rag.primary:") &&
+				!f.startsWith("rag.strategy_package:") &&
 				f !== "rag.guided",
 		);
 		const nextFlags = [
 			...kept,
-			`rag.scene:${ingestionSceneKey.value}`,
-			`rag.bundle:${ingestionBundleKey.value}`,
-			`rag.primary:${ingestionRagPrimary.value}`,
+			`rag.strategy_package:${ingestionStrategyPackageKey.value}`,
+			`rag.scene:${derivedIngestionSceneKey.value}`,
+			`rag.bundle:${derivedIngestionProfileKey.value}`,
+			`rag.primary:${derivedIngestionRagPrimary.value}`,
 		];
-		if (ingestionSceneKey.value === "custom_expert") nextFlags.push("rag.guided");
+		if (derivedIngestionSceneKey.value === "custom_expert") nextFlags.push("rag.guided");
 		try {
 			const updated = await api.updateSpace(ingestionForm.spaceId, { featureFlags: nextFlags });
 			const idx = spaces.value.findIndex((s) => s.spaceId === ingestionForm.spaceId);
@@ -1667,12 +1786,15 @@ const submitIngestion = async () => {
 			ocrRequired: ingestionForm.ocrRequired,
 			maskingProfile: ingestionForm.maskingProfile,
 			priority: ingestionForm.priority,
-			ragSceneKey: ingestionSceneKey.value,
-			ragBundleKey: ingestionBundleKey.value,
-			ragPrimary: ingestionRagPrimary.value,
+			ragStrategyPackageKey: ingestionStrategyPackageKey.value,
+			ragSceneKey: derivedIngestionSceneKey.value,
+			ragBundleKey: derivedIngestionProfileKey.value,
+			ragPrimary: derivedIngestionRagPrimary.value,
 			segmentMode: ingestionForm.segmentMode,
 			chunkSize: ingestionForm.chunkSize,
 			chunkOverlap: ingestionForm.chunkOverlap,
+			segmentSizePolicy: ingestionForm.segmentSizePolicy,
+			segmentOrder: ingestionForm.segmentOrder,
 			separators: effectiveSeparators.value,
 			pagePriority: ingestionForm.pagePriority,
 			anchorHeadingPath: ingestionForm.anchorHeadingPath,
@@ -1722,16 +1844,18 @@ const submitIngestion = async () => {
 			if (ingestionHistory.value.length > 5) {
 				ingestionHistory.value.pop();
 			}
-			closeIngestionModal();
 			toast.add({
 				color: "success",
 				title: t("knowledgeSpaces.ingestion.toast.successTitle", "入库已提交"),
 				description: t(
 					"knowledgeSpaces.ingestion.toast.successDesc",
-					"入库作业已异步触发，可在右下角「入库任务」查看进度，并将自动生成一次 Corpus Check 推荐（可在“策略配置”查看）。",
+					"入库作业已异步触发，将进入任务详情页查看进度。",
 				),
 			});
-			ingestionTaskPanelOpen.value = true;
+			closeIngestionModal();
+			await navigateTo(
+				`/knowledge-spaces/${encodeURIComponent(ingestionForm.spaceId)}/ingestions/${encodeURIComponent(data.jobId)}`,
+			);
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : t("knowledgeSpaces.ingestion.errors.runFailed");
@@ -1976,6 +2100,14 @@ const applyRemediationAction = (action: any) => {
             </UButton>
           </template>
         </UAlert>
+        <UAlert
+          v-if="embeddingLimitHint"
+          class="mb-4"
+          color="warning"
+          variant="soft"
+          title="Embedding 上限提示"
+          :description="embeddingLimitHint"
+        />
         <div class="mb-4 flex items-center justify-between gap-2 text-sm">
           <div class="text-[var(--text-secondary)]">
             {{ t("knowledgeSpaces.ingestion.wizard.step", { n: ingestionStep, total: 4 }) }}
@@ -2077,94 +2209,26 @@ const applyRemediationAction = (action: any) => {
             </UAlert>
             <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_420px]">
               <div class="space-y-4">
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <UFormField :label="t('knowledgeSpaces.ingestion.strategyTemplate', '业务场景（L1）')" required>
-                    <UInput
-                      v-model="ingestionSceneQuery"
-                      class="w-full mb-2"
-                      placeholder="搜索场景（支持关键词）"
-                      icon="i-heroicons-magnifying-glass"
-                    />
-                    <USelect
-                      v-model="ingestionSceneKey"
-                      :items="ingestionSceneItems"
-                      class="w-full"
-                    />
-                    <template #help>
-                      <div class="text-xs text-[var(--text-secondary)]">
-                        {{ selectedIngestionScene?.description }}
-                      </div>
-                      <div v-if="ingestionSceneAutoHint" class="mt-1 text-xs text-[var(--text-secondary)]">
-                        {{ ingestionSceneAutoHint }}
-                      </div>
-                      <div class="mt-1 text-xs text-[var(--text-secondary)]">
-                        {{ t("knowledgeSpaces.ingestion.sceneSuggestion.docsNotDocType", "提示：这里的 Docs 是业务场景分类，不是文件格式。") }}
-                      </div>
-                      <div v-if="canApplyAutoSuggestion" class="mt-2">
-                        <UButton
-                          size="xs"
-                          color="neutral"
-                          variant="soft"
-                          icon="i-heroicons-sparkles"
-                          type="button"
-                          @click="applyAutoSuggestionNow"
-                        >
-                          {{ t("knowledgeSpaces.ingestion.sceneSuggestion.apply", { label: autoSuggestedSceneLabel }) }}
-                        </UButton>
-                      </div>
-                    </template>
-                  </UFormField>
-
-                  <UFormField :label="t('knowledgeSpaces.ingestion.strategyBundle', '策略包（L2）')" required>
-                    <USelect v-model="ingestionBundleKey" :items="ingestionBundleItems" class="w-full">
-                      <template #item="{ item }">
-                        <div class="flex items-center justify-between gap-2 w-full">
-                          <div class="min-w-0">
-                            <div class="truncate">{{ item.label }}</div>
-                            <div v-if="item.disabled && item._reason" class="text-xs text-[var(--text-secondary)] truncate">
-                              {{ item._reason }}
-                            </div>
-                          </div>
-                          <UBadge v-if="item.disabled" color="neutral" variant="soft" size="xs">
-                            {{ t("knowledgeSpaces.ingestion.guidance.disabled", "不可选") }}
-                          </UBadge>
-                        </div>
-                      </template>
-                    </USelect>
-                    <template #help>
-                      <div class="text-xs text-[var(--text-secondary)]">
-                        {{ selectedIngestionBundle?.description }}
-                      </div>
-                    </template>
-                  </UFormField>
-                </div>
-
-                <UFormField :label="t('knowledgeSpaces.ingestion.ragPrimary', 'RAG 主策略（L3）')" required>
-                  <USelect v-model="ingestionRagPrimary" :items="ragPrimaryItems" class="w-full" />
+                <UFormField :label="t('knowledgeSpaces.ingestion.strategyPackage', '策略包（A0–O）')" required>
+                  <USelect v-model="ingestionStrategyPackageKey" :items="strategyPackageItems" class="w-full" />
                   <template #help>
                     <div class="text-xs text-[var(--text-secondary)]">
-                      {{ ragPrimaryHint || "选择一个主策略；系统会结合场景/策略包自动拼装模块组合。" }}
+                      {{ selectedIngestionPackage?.summary || "选择一个策略包，系统会自动映射场景与 Profile 预设。" }}
                     </div>
-                    <div class="mt-1 text-xs text-[var(--text-tertiary)]">
-                      这里只展示“该场景推荐/允许”的主策略；如需全量策略与自定义组合，请切换到「自定义（专家）」场景。
+                    <div v-if="ingestionStrategyAutoHint" class="mt-1 text-xs text-[var(--text-secondary)]">
+                      {{ ingestionStrategyAutoHint }}
                     </div>
-                    <div class="mt-2 text-xs text-[var(--text-secondary)]">
-                      主策略（你选择的）：<span class="font-medium">{{ ragModuleMeta[ingestionRagPrimary]?.label || ingestionRagPrimary }}</span>
-                    </div>
-                    <div class="mt-1 text-xs text-[var(--text-secondary)]">
-                      辅助模块（系统自动启用，用于稳定命中/可解释/治理）：
-                    </div>
-                    <div class="mt-1 flex flex-wrap gap-2">
-                      <UBadge
-                        v-for="m in effectiveRagAuxModules"
-                        :key="m"
+                    <div v-if="canApplyAutoSuggestion" class="mt-2">
+                      <UButton
+                        size="xs"
                         color="neutral"
                         variant="soft"
-                        size="xs"
+                        icon="i-heroicons-sparkles"
+                        type="button"
+                        @click="applyAutoSuggestionNow"
                       >
-                        {{ ragModuleMeta[m]?.label || m }}
-                      </UBadge>
-                      <span v-if="!effectiveRagAuxModules.length" class="text-[var(--text-tertiary)]">-</span>
+                        {{ t("knowledgeSpaces.ingestion.sceneSuggestion.apply", { label: autoSuggestedStrategyLabel }) }}
+                      </UButton>
                     </div>
                   </template>
                 </UFormField>
@@ -2215,55 +2279,50 @@ const applyRemediationAction = (action: any) => {
                       {{
                         t(
                           "knowledgeSpaces.ingestion.guidance.desc",
-                          "场景决定“建库索引/默认模块”，策略包决定“成本与护栏强度”。",
+                          "策略包是主线选择；场景仅用于说明与默认配置映射。",
                         )
                       }}
                     </div>
                   </div>
-                  <UBadge color="neutral" variant="soft">L1/L2/L3</UBadge>
+                  <UBadge color="neutral" variant="soft">Strategy</UBadge>
                 </div>
 
                 <div class="text-[var(--text-secondary)]">
-                  {{ t("knowledgeSpaces.ingestion.guidance.currentSelection", "当前选择") }}：{{ selectedIngestionScene?.label }} /
-                  {{ selectedIngestionBundle?.label }} /
-                  {{ ragModuleMeta[ingestionRagPrimary]?.label || ingestionRagPrimary }}
+                  {{ t("knowledgeSpaces.ingestion.guidance.currentSelection", "当前选择") }}：
+                  {{ selectedIngestionPackage?.label || ingestionStrategyPackageKey }}
                 </div>
 
                 <div class="space-y-1">
                   <div class="text-xs text-[var(--text-secondary)]">
-                    {{ t("knowledgeSpaces.ingestion.guidance.recommendedBundle", "默认推荐策略包") }}
+                    推荐 Profile
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <UBadge color="primary" variant="soft">{{ sceneDefaultBundleLabel }}</UBadge>
-                    <UBadge
-                      v-if="selectedIngestionScene && ingestionBundleKey !== selectedIngestionScene.defaultBundle"
-                      color="orange"
-                      variant="soft"
-                    >
-                      {{
-                        t("knowledgeSpaces.ingestion.guidance.currentSwitched", { label: selectedIngestionBundle?.label || "" })
-                      }}
+                    <UBadge color="primary" variant="soft">
+                      {{ profileLabel(derivedIngestionProfileKey) }}
+                    </UBadge>
+                    <UBadge color="neutral" variant="soft">
+                      {{ strategyPackageCouplingLabel }}
                     </UBadge>
                   </div>
                 </div>
 
                 <div class="space-y-1">
                   <div class="text-xs text-[var(--text-secondary)]">
-                    {{ t("knowledgeSpaces.ingestion.guidance.why", "为什么这么推荐") }}
+                    适用场景（映射说明）
                   </div>
-                  <div class="text-[var(--text-secondary)]">
-                    {{ ragPrimaryDecisionHint }}
+                  <div class="flex flex-wrap gap-2">
+                    <UBadge v-for="scene in strategyPackageSceneLabels" :key="scene.key" color="neutral" variant="soft">
+                      {{ scene.label }}
+                    </UBadge>
+                    <span v-if="!strategyPackageSceneLabels.length" class="text-[var(--text-tertiary)]">-</span>
                   </div>
-                  <div class="text-[var(--text-secondary)]">
-                    {{ sceneDecisionHint }}
-                  </div>
-                  <div class="text-[var(--text-secondary)]">
-                    {{ bundleDecisionHint }}
+                  <div class="text-[var(--text-secondary)] mt-2">
+                    {{ strategyPackageDecisionHint }}
                   </div>
                 </div>
 
                 <div class="text-xs text-[var(--text-secondary)] pt-1">
-                  下一步会基于你的 L3 主策略自动调整分割/锚点默认值（你仍可手动覆盖）。
+                  下一步会基于策略包自动调整分割/锚点默认值（你仍可手动覆盖）。
                 </div>
 
                 <div class="flex flex-wrap gap-2 pt-1">
@@ -2289,17 +2348,6 @@ const applyRemediationAction = (action: any) => {
                   >
                     {{ t("knowledgeSpaces.ingestion.guidance.openScene", "查看场景指引") }}
                   </UButton>
-                  <UButton
-                    as="a"
-                    :href="bundleGuideHref"
-                    target="_blank"
-                    size="xs"
-                    color="neutral"
-                    variant="soft"
-                    icon="i-heroicons-book-open"
-                  >
-                    {{ t("knowledgeSpaces.ingestion.guidance.openBundle", "查看策略包说明") }}
-                  </UButton>
                 </div>
               </div>
             </div>
@@ -2312,10 +2360,72 @@ const applyRemediationAction = (action: any) => {
                   color="neutral"
                   variant="soft"
                   title="分割策略（Segment）"
-                  description="根据“场景 + 策略包 + RAG 策略”自动给出默认值；你可以在这里覆盖。"
+                  description="根据“策略包 + 文档格式”自动给出默认值；你可以在这里覆盖。"
                 />
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div class="md:col-span-2">
+                    <div class="rounded-lg border border-gray-200 p-3">
+                      <div class="text-sm font-medium">切分优先级（可拖拽排序）</div>
+                      <div class="text-xs text-[var(--text-secondary)] mt-1">
+                        从上到下依次执行。未勾选分页时，“分页”步骤自动跳过。
+                      </div>
+                      <div class="mt-3 space-y-2">
+                        <div
+                          v-for="key in ingestionForm.segmentOrder"
+                          :key="key"
+                          class="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                          draggable="true"
+                          @dragstart="onSegmentDragStart(key)"
+                          @dragover="onSegmentDragOver"
+                          @drop="onSegmentDrop(key)"
+                        >
+                          <div class="flex items-center gap-2 min-w-0">
+                            <span class="i-heroicons-bars-3 text-gray-400" />
+                            <div class="min-w-0">
+                              <div class="truncate">{{ segmentOrderLabels[key] }}</div>
+                              <div class="text-xs text-[var(--text-tertiary)] truncate">
+                                {{ segmentOrderHelp[key] }}
+                                <span v-if="key === 'page' && !ingestionForm.pagePriority">（未启用）</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <UCheckbox
+                              v-if="key === 'page'"
+                              v-model="ingestionForm.pagePriority"
+                            />
+                            <UCheckbox
+                              v-if="key === 'segment'"
+                              :model-value="isSegmentStepEnabled('segment')"
+                              @update:model-value="(v:boolean) => toggleSegmentStep('segment', v)"
+                            />
+                            <UCheckbox
+                              v-if="key === 'separator'"
+                              :model-value="isSegmentStepEnabled('separator')"
+                              @update:model-value="(v:boolean) => toggleSegmentStep('separator', v)"
+                            />
+                            <UButton
+                              size="xs"
+                              color="neutral"
+                              variant="ghost"
+                              icon="i-heroicons-chevron-up"
+                              :disabled="ingestionForm.segmentOrder.indexOf(key) === 0"
+                              @click="moveSegmentOrder(ingestionForm.segmentOrder.indexOf(key), ingestionForm.segmentOrder.indexOf(key) - 1)"
+                            />
+                            <UButton
+                              size="xs"
+                              color="neutral"
+                              variant="ghost"
+                              icon="i-heroicons-chevron-down"
+                              :disabled="ingestionForm.segmentOrder.indexOf(key) === ingestionForm.segmentOrder.length - 1"
+                              @click="moveSegmentOrder(ingestionForm.segmentOrder.indexOf(key), ingestionForm.segmentOrder.indexOf(key) + 1)"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <UFormField label="分段模式（分隔策略）" required>
                     <USelect
                       v-model="ingestionForm.segmentMode"
@@ -2350,7 +2460,28 @@ const applyRemediationAction = (action: any) => {
                     />
                     <template #help>
                       <span class="text-xs text-[var(--text-secondary)]">
-                        {{ t("knowledgeSpaces.ingestion.chunkSizeHint", "0 表示只按“分段模式”拆分，不做窗口切分；>0 会对过长片段按窗口切分。") }}
+                        {{ t("knowledgeSpaces.ingestion.chunkSizeHint", "0 表示只按“分段模式”拆分；>0 会按字数策略处理（目标=先合并短段，上限=只切超长）。") }}
+                      </span>
+                      <div class="mt-1 text-xs text-[var(--text-secondary)]">
+                        {{ chunkSizeSourceHint }}
+                      </div>
+                      <div v-if="embeddingLimitHint" class="mt-1 text-xs text-[var(--text-warning)]">
+                        {{ embeddingLimitHint }}
+                      </div>
+                    </template>
+                  </UFormField>
+                  <UFormField label="字数策略（chunkSize 生效方式）">
+                    <USelect
+                      v-model="ingestionForm.segmentSizePolicy"
+                      :items="[
+                        { label: '目标长度（会合并短段）', value: 'target' },
+                        { label: '长度上限（只切超长）', value: 'cap' },
+                      ]"
+                      class="w-full"
+                    />
+                    <template #help>
+                      <span class="text-xs text-[var(--text-secondary)]">
+                        {{ chunkSizePolicyHelp }}
                       </span>
                     </template>
                   </UFormField>
@@ -2376,6 +2507,9 @@ const applyRemediationAction = (action: any) => {
                   <div class="font-medium">锚点与分隔符（Anchors）</div>
                   <div class="text-[var(--text-secondary)]">
                     锚点会写入 chunk metadata，用于引用定位、层次索引（J Hier）与 KG provenance。不同场景默认值不同，可在此覆盖。
+                  </div>
+                  <div class="text-xs text-[var(--text-secondary)]">
+                    {{ segmentAnchorHint }}
                   </div>
                   <div class="space-y-2">
                     <div class="font-medium text-sm">
@@ -2451,26 +2585,7 @@ const applyRemediationAction = (action: any) => {
                   </div>
                 </div>
 
-                <div class="rounded-lg border border-gray-200 p-4 space-y-2 text-sm">
-                  <div class="font-medium">将使用的分割策略（可覆盖）</div>
-                  <div class="text-[var(--text-secondary)]">分页优先：{{ ingestionForm.pagePriority ? "是" : "否" }}</div>
-                  <div class="text-[var(--text-secondary)]">模式：{{ ingestionForm.segmentMode }}</div>
-                  <div class="text-[var(--text-secondary)]">Chunk：{{ ingestionForm.chunkSize }} / Overlap：{{ ingestionForm.chunkOverlap }}</div>
-                  <div class="text-[var(--text-secondary)]">分隔符：{{ effectiveSeparatorsPreview }}</div>
-                  <div class="text-[var(--text-secondary)]">
-                    Anchors：
-                    <span v-if="ingestionForm.anchorHeadingPath">heading_path</span>
-                    <span v-if="ingestionForm.anchorClauseId" class="ml-2">clause_id</span>
-                    <span v-if="ingestionForm.anchorRowNumber" class="ml-2">row_number</span>
-                    <span v-if="ingestionForm.anchorSpeaker" class="ml-2">speaker</span>
-                    <span v-if="ingestionForm.anchorSentenceIndex" class="ml-2">sentence_idx</span>
-                    <span
-                      v-if="!ingestionForm.anchorHeadingPath && !ingestionForm.anchorClauseId && !ingestionForm.anchorRowNumber && !ingestionForm.anchorSpeaker && !ingestionForm.anchorSentenceIndex"
-                    >
-                      -
-                    </span>
-                  </div>
-                </div>
+
               </div>
 
               <div class="rounded-lg border border-gray-200 p-4 space-y-3 text-sm max-h-[calc(100dvh-12rem)] overflow-auto">
@@ -2490,6 +2605,32 @@ const applyRemediationAction = (action: any) => {
                   title="提示"
                   description="我们会把“标题路径/条款号/行号/发言人/句子序号”等结构锚点写进每个 chunk 的 metadata，方便检索命中后快速回到原文位置。如果你希望做到更精确的定位（例如 PDF 第几页、OCR 框选坐标/bbox 叠框），需要选用支持 PDF/OCR 的 processor/profile。"
                 />
+
+                <div class="rounded-lg border border-gray-200 p-4 space-y-2 text-sm">
+                  <div class="font-medium">将使用的分割策略（可覆盖）</div>
+                  <div class="text-[var(--text-secondary)]">
+                    顺序：{{ segmentPreviewOrder.join(" → ") }}
+                  </div>
+                  <div class="text-[var(--text-secondary)]">分页优先：{{ ingestionForm.pagePriority ? "是" : "否" }}</div>
+                  <div class="text-[var(--text-secondary)]">模式：{{ segmentPreviewMode }}</div>
+                  <div class="text-[var(--text-secondary)]">
+                    Chunk：{{ ingestionForm.chunkSize }} / Overlap：{{ ingestionForm.chunkOverlap }}（{{ chunkSizePolicyLabel }}）
+                  </div>
+                  <div class="text-[var(--text-secondary)]">分隔符：{{ segmentPreviewSeparators }}</div>
+                  <div class="text-[var(--text-secondary)]">
+                    Anchors：
+                    <span v-if="ingestionForm.anchorHeadingPath">heading_path</span>
+                    <span v-if="ingestionForm.anchorClauseId" class="ml-2">clause_id</span>
+                    <span v-if="ingestionForm.anchorRowNumber" class="ml-2">row_number</span>
+                    <span v-if="ingestionForm.anchorSpeaker" class="ml-2">speaker</span>
+                    <span v-if="ingestionForm.anchorSentenceIndex" class="ml-2">sentence_idx</span>
+                    <span
+                      v-if="!ingestionForm.anchorHeadingPath && !ingestionForm.anchorClauseId && !ingestionForm.anchorRowNumber && !ingestionForm.anchorSpeaker && !ingestionForm.anchorSentenceIndex"
+                    >
+                      -
+                    </span>
+                  </div>
+                </div>
 
                 <div class="rounded-md border border-[var(--border-color)] bg-[var(--card-bg)] p-3 text-xs">
                   <div class="font-medium text-[var(--text-primary)]">联动逻辑</div>
@@ -2525,16 +2666,16 @@ const applyRemediationAction = (action: any) => {
                 {{ t("knowledgeSpaces.ingestion.confirm.source") }}：{{ ingestionForm.sourceUri || (selectedFile ? selectedFile.name : "-") }}
               </div>
               <div class="text-[var(--text-secondary)]">
-                {{ t("knowledgeSpaces.ingestion.confirm.template") }}：{{ selectedIngestionScene?.label }} / {{ selectedIngestionBundle?.label }}
+                {{ t("knowledgeSpaces.ingestion.confirm.template") }}：{{ selectedIngestionPackage?.label }}（{{ profileLabel(derivedIngestionProfileKey) }}）
               </div>
               <div class="text-[var(--text-secondary)]">
-                RAG（L3）：{{ ragModuleMeta[ingestionRagPrimary]?.label || ingestionRagPrimary }}
+                策略包：{{ ingestionStrategyPackageKey }}
               </div>
               <div class="text-[var(--text-secondary)]">
                 分页优先：{{ ingestionForm.pagePriority ? "是" : "否" }}
               </div>
               <div class="text-[var(--text-secondary)]">
-                分割：{{ ingestionForm.segmentMode }} · {{ ingestionForm.chunkSize }}/{{ ingestionForm.chunkOverlap }}
+                分割：{{ ingestionForm.segmentMode }} · {{ ingestionForm.chunkSize }}/{{ ingestionForm.chunkOverlap }}（{{ chunkSizePolicyLabel }}）
               </div>
               <div class="text-[var(--text-secondary)]">
                 Anchors：

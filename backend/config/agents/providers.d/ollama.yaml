@@ -65,16 +65,16 @@ modalities:
       pooling: "mean"
       truncation: "end"
     models:
+      - id: bge-m3
+        label: "BGE M3"
       - id: mxbai-embed-large
         label: "MXBAI Embed Large"
       - id: nomic-embed-text
         label: "Nomic Embed Text"
       - id: all-minilm:22m
         label: "All-MiniLM-L6-v2 (22M)"
-      - id: bge-base-en
-        label: "BGE Base EN"
-      - id: bge-large-zh
-        label: "BGE Large ZH"
+      - id: bge-large
+        label: "BGE Large"
 
   # ───────────────────────────
   # Image（图像模态）→ 这里定位为 **图像理解 VLM：image+text → text**

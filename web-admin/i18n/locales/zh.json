@@ -439,18 +439,58 @@
         "title": "策略配置",
         "description": "选择场景与策略包，并将配置应用到指定知识空间。"
       },
-      "subtitle": "选择场景与策略包，并将配置应用到指定知识空间。",
+      "title": "策略配置",
+      "subtitle": "先选择空间，再选择业务场景（L1）与策略包（L2）。保存后会同步更新该空间的 Ingestion/Index/RAG Profile。",
+      "loadFailed": "加载空间失败",
+      "space": {
+        "title": "选择空间",
+        "desc": "策略配置是租户级复用，但会写入到某个具体空间。",
+        "label": "空间",
+        "current": "当前空间配置",
+        "id": "空间 ID",
+        "unnamed": "未命名空间"
+      },
+      "l1l2": {
+        "title": "场景（L1）→ 策略包（L2）",
+        "desc": "先选场景，再只展示该场景允许的策略包。"
+      },
       "scene": "业务场景（L1）",
       "bundle": "策略包（L2）",
       "actions": {
         "save": "保存到空间"
       },
+      "channels": {
+        "title": "将启用的索引通道",
+        "desc": "用于判断依赖是否满足，以及后续策略推荐的成本/风险。"
+      },
       "validation": {
+        "failed": "策略依赖校验失败",
         "loading": "正在校验策略依赖…",
         "ok": "依赖满足：可以发布/激活。",
         "blocked": "依赖不满足：将阻止激活/发布。",
-        "remediation": "修复建议：",
-        "failed": "策略依赖校验失败"
+        "remediation": "修复建议："
+      },
+      "toast": {
+        "savedTitle": "策略已保存",
+        "savedDesc": "已将场景/策略包与三类 Profile 写入该空间。",
+        "savedFailed": "保存失败"
+      },
+      "corpus": {
+        "title": "Corpus Check 推荐",
+        "desc": "导入首批样本文档后建议跑一次体检，系统会给出推荐的场景/策略包（非全量映射）。",
+        "actions": {
+          "run": "开始体检",
+          "apply": "一键应用"
+        },
+        "hint": {
+          "noSpace": "请先选择空间。",
+          "empty": "暂无推荐。你可以先入库一份样本文档，再点击“开始体检”。"
+        },
+        "toast": {
+          "title": "Corpus Check 已完成",
+          "desc": "已生成推荐卡片，可一键应用到当前空间。",
+          "failed": "启动 Corpus Check 失败"
+        }
       }
     },
     "hero": {
@@ -495,6 +535,7 @@
       "strategyTemplate": "业务场景（L1）",
       "strategyBundle": "建库策略包（L2）",
       "ragPrimary": "RAG 主策略（L3）",
+      "strategyPackage": "策略包（A0–O）",
       "strategyPreview": "将使用的策略（可在高级设置里覆盖）",
       "guidance": {
         "title": "引导说明",
@@ -530,10 +571,22 @@
         "apply": "应用建议：{label}"
       },
       "templates": {
-        "general": { "title": "通用知识库", "desc": "适用于大多数文档与制度类内容" },
-        "hr": { "title": "HR / 制度 / 合规", "desc": "更偏结构化分段与合规风险提示" },
-        "it": { "title": "IT / 工程文档", "desc": "更适合技术文档、代码块与表格" },
-        "support": { "title": "客服 FAQ / 运营知识", "desc": "更偏问答粒度与命中率" }
+        "general": {
+          "title": "通用知识库",
+          "desc": "适用于大多数文档与制度类内容"
+        },
+        "hr": {
+          "title": "HR / 制度 / 合规",
+          "desc": "更偏结构化分段与合规风险提示"
+        },
+        "it": {
+          "title": "IT / 工程文档",
+          "desc": "更适合技术文档、代码块与表格"
+        },
+        "support": {
+          "title": "客服 FAQ / 运营知识",
+          "desc": "更偏问答粒度与命中率"
+        }
       },
       "advanced": {
         "show": "高级设置",
@@ -652,152 +705,9 @@
         "unknown": "未知"
       }
     },
-	    "strategy": {
-	      "head": {
-	        "title": "策略配置",
-	        "description": "选择场景与策略包，并将配置应用到指定知识空间。"
-	      },
-	      "title": "策略配置",
-	      "subtitle": "先选择空间，再选择业务场景（L1）与策略包（L2）。保存后会同步更新该空间的 Ingestion/Index/RAG Profile。",
-	      "loadFailed": "加载空间失败",
-	      "space": {
-	        "title": "选择空间",
-	        "desc": "策略配置是租户级复用，但会写入到某个具体空间。",
-	        "label": "空间",
-	        "current": "当前空间配置",
-	        "id": "空间 ID",
-	        "unnamed": "未命名空间"
-	      },
-	      "l1l2": {
-	        "title": "场景（L1）→ 策略包（L2）",
-	        "desc": "先选场景，再只展示该场景允许的策略包。"
-	      },
-	      "scene": "业务场景（L1）",
-	      "bundle": "策略包（L2）",
-	      "actions": {
-	        "save": "保存到空间"
-	      },
-      "channels": {
-        "title": "将启用的索引通道",
-        "desc": "用于判断依赖是否满足，以及后续策略推荐的成本/风险。"
-      },
-      "validation": {
-        "failed": "策略依赖校验失败",
-        "loading": "正在校验策略依赖…",
-        "ok": "依赖满足：可以发布/激活。",
-        "blocked": "依赖不满足：将阻止激活/发布。",
-        "remediation": "修复建议："
-      },
-      "toast": {
-        "savedTitle": "策略已保存",
-        "savedDesc": "已将场景/策略包与三类 Profile 写入该空间。",
-        "savedFailed": "保存失败"
-      },
-      "corpus": {
-        "title": "Corpus Check 推荐",
-        "desc": "导入首批样本文档后建议跑一次体检，系统会给出推荐的场景/策略包（非全量映射）。",
-        "actions": {
-          "run": "开始体检",
-          "apply": "一键应用"
-        },
-        "hint": {
-          "noSpace": "请先选择空间。",
-          "empty": "暂无推荐。你可以先入库一份样本文档，再点击“开始体检”。"
-        },
-        "toast": {
-          "title": "Corpus Check 已完成",
-          "desc": "已生成推荐卡片，可一键应用到当前空间。",
-          "failed": "启动 Corpus Check 失败"
-        }
-      }
-    },
     "systemPanels": {
       "show": "显示系统面板",
       "hide": "收起系统面板"
-    },
-    "sources": {
-      "head": {
-        "title": "数据源连接",
-        "description": "为知识空间连接外部数据源并创建同步任务"
-      },
-      "badge": "数据源",
-      "title": "连接数据源",
-      "subtitle": "用于对接 Notion、飞书等需要鉴权的系统，并以“增量同步任务”的方式持续更新内容。",
-      "spaceHint": "当前空间 ID：{id}",
-      "list": {
-        "title": "已连接的数据源",
-        "desc": "这里将展示连接器实例、同步范围与最近同步状态。"
-      },
-      "actions": {
-        "connect": "新增连接"
-      },
-      "stub": {
-        "title": "该能力正在建设中",
-        "desc": "下一步会在此处提供 Notion/飞书等连接器：租户级凭据复用 + 空间级同步任务（增量/定时）。"
-      },
-      "providers": {
-        "notion": "Notion",
-        "feishu": "飞书"
-      },
-      "connect": {
-        "head": { "title": "新增数据源连接" },
-        "title": "新增连接",
-        "subtitle": "按向导完成：选择数据源 → 授权（租户级复用）→ 选择同步范围 → 创建增量同步任务。",
-        "provider": "数据源类型",
-        "providerHint": "Notion/飞书属于“鉴权 API 接入”，会以连接器 + 同步任务的方式导入内容。",
-        "wizard": {
-          "step": "步骤：{n}/4",
-          "stepBadge": "第 {n} 步",
-          "prev": "上一步",
-          "next": "下一步",
-          "finish": "完成"
-        },
-        "auth": {
-          "title": "授权（租户级复用）",
-          "desc": "这里将接入 OAuth/Token 管理：同一租户下可复用一次授权，多个空间可共享凭据。"
-        },
-        "scope": {
-          "title": "选择同步范围",
-          "desc": "Notion：选择 pages/database；飞书：选择知识库/目录/文档。后续会支持过滤与字段映射。"
-        },
-        "job": {
-          "title": "创建增量同步任务",
-          "desc": "默认推荐：定时增量同步 + 失败重试 + 审计与版本治理（后续会接入 Corpus Check 推荐策略）。"
-        }
-      }
-    },
-    "timelinePlaceholders": {
-      "ingestion": {
-        "title": "暂无入库记录",
-        "description": "当你开始入库后，这里会显示入库作业与结果摘要。"
-      },
-      "fusion": {
-        "title": "融合未配置",
-        "description": "连接多源与融合策略后，这里会显示融合状态与冲突提示。"
-      },
-      "feedback": {
-        "title": "暂无反馈",
-        "description": "提交反馈案例后，这里会显示处理进度与回滚/再加工记录。"
-      }
-    },
-    "timeline": {
-      "title": "时间线",
-      "description": "最近活动",
-      "badge": "日志"
-    },
-    "placeholders": {
-      "spaces": {
-        "title": "暂无空间",
-        "description": "创建你的第一个知识空间"
-      },
-      "fusion": {
-        "title": "融合未配置",
-        "description": "连接数据源后开始使用"
-      },
-      "feedback": {
-        "title": "暂无反馈",
-        "description": "收集反馈以便改进"
-      }
     },
     "sources": {
       "head": {
@@ -834,7 +744,9 @@
         "neverRun": "尚未运行"
       },
       "connect": {
-        "head": { "title": "新增数据源连接" },
+        "head": {
+          "title": "新增数据源连接"
+        },
         "title": "新增连接",
         "subtitle": "按向导完成：选择数据源 → 授权（租户级复用）→ 选择同步范围 → 创建增量同步任务。",
         "wizard": {
@@ -868,6 +780,39 @@
         },
         "doneTitle": "已创建连接",
         "doneDesc": "已为当前空间创建增量同步任务（本地草稿）。"
+      }
+    },
+    "timelinePlaceholders": {
+      "ingestion": {
+        "title": "暂无入库记录",
+        "description": "当你开始入库后，这里会显示入库作业与结果摘要。"
+      },
+      "fusion": {
+        "title": "融合未配置",
+        "description": "连接多源与融合策略后，这里会显示融合状态与冲突提示。"
+      },
+      "feedback": {
+        "title": "暂无反馈",
+        "description": "提交反馈案例后，这里会显示处理进度与回滚/再加工记录。"
+      }
+    },
+    "timeline": {
+      "title": "时间线",
+      "description": "最近活动",
+      "badge": "日志"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "暂无空间",
+        "description": "创建你的第一个知识空间"
+      },
+      "fusion": {
+        "title": "融合未配置",
+        "description": "连接数据源后开始使用"
+      },
+      "feedback": {
+        "title": "暂无反馈",
+        "description": "收集反馈以便改进"
       }
     }
   },

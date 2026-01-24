@@ -18,111 +18,111 @@ const links = [
   },
   {
     label: "场景/策略（索引）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/README.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/README.md`,
   },
   {
     label: "SCN-001 默认入库 + Playground",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-001_basic_ingestion_and_playground.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-001_basic_ingestion_and_playground.md`,
   },
   {
     label: "SCN-010 SOP/制度/产品说明",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-010_sop_manual.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-010_sop_manual.md`,
   },
   {
     label: "SCN-020 合同/报价",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-020_contract_quote.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-020_contract_quote.md`,
   },
   {
     label: "SCN-030 论文/研究/长报告",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-030_research_report.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-030_research_report.md`,
   },
   {
     label: "SCN-040 台账/清单（表格）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-040_table_ledger.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-040_table_ledger.md`,
   },
   {
     label: "SCN-050 SQL/配置/依赖（KG 强）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-050_sql_config_kg.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-050_sql_config_kg.md`,
   },
   {
     label: "SCN-060 自定义（专家）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-060_custom_expert.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-060_custom_expert.md`,
   },
   {
     label: "SCN-070 产品库/规格参数查询",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-070_product_specs.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-070_product_specs.md`,
   },
   {
     label: "SCN-071 产品库/兼容性与配件关系",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-071_product_compat.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-071_product_compat.md`,
   },
   {
     label: "SCN-072 产品库/选型对比与推荐理由",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-072_product_selection.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-072_product_selection.md`,
   },
   {
     label: "SCN-080 客服 FAQ / 运营知识",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-080_support_faq.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-080_support_faq.md`,
   },
   {
     label: "SCN-081 客服/售后政策与规则",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-081_support_policy.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-081_support_policy.md`,
   },
   {
     label: "SCN-082 客服/故障现象与排查",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-082_support_troubleshooting.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-082_support_troubleshooting.md`,
   },
   {
     label: "SCN-090 工程/运维/故障排查（Runbook）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-090_eng_runbook.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-090_eng_runbook.md`,
   },
   {
     label: "SCN-091 工程/故障排查与应急响应",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-091_eng_incident.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-091_eng_incident.md`,
   },
   {
     label: "SCN-092 工程/变更与发布",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-092_eng_change.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-092_eng_change.md`,
   },
   {
     label: "SCN-100 API/数据字典/接口文档",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-100_api_reference.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-100_api_reference.md`,
   },
   {
     label: "SCN-101 数据字典/表结构与字段口径",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-101_data_dictionary.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-101_data_dictionary.md`,
   },
   {
     label: "SCN-110 销售材料/话术与竞品",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-110_sales_enablement.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-110_sales_enablement.md`,
   },
   {
     label: "SCN-120 市场活动/促销规则",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-120_marketing_promo_rules.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-120_marketing_promo_rules.md`,
   },
   {
     label: "SCN-130 法规/监管政策（口径与约束）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-130_compliance_regulation.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-130_compliance_regulation.md`,
   },
   {
     label: "SCN-140 计费/价格规则（口径与例外）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-140_billing_pricing.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-140_billing_pricing.md`,
   },
   {
     label: "SCN-150 会议纪要/决议与行动项",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-150_meeting_minutes.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-150_meeting_minutes.md`,
   },
   {
     label: "SCN-160 项目方案/交付文档",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-160_project_docs.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-160_project_docs.md`,
   },
   {
     label: "SCN-170 工单/聊天记录（问题追踪）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-170_ticket_conversations.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-170_ticket_conversations.md`,
   },
   {
     label: "SCN-180 入职/培训资料（学习路径）",
-    href: `${githubBase}/docs/guides/knowledge_space/scenary/SCN-180_onboarding_training.md`,
+    href: `${githubBase}/docs/guides/knowledge_space/strategy/scenes/SCN-180_onboarding_training.md`,
   },
 ]
 </script>

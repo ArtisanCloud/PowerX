@@ -1,35 +1,32 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
-import { SCENE_STRATEGY_CATALOG } from "~/constants/sceneStrategyCatalog";
+import { STRATEGY_PACKAGE_CATALOG } from "~/constants/strategyPackageCatalog";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 
-describe("knowledge-spaces scene/bundle mapping", () => {
+describe("knowledge-spaces strategy package mapping", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
-  it("contract_quote defaults to p2_high_accuracy and forbids p0_basic", () => {
-    const scene = SCENE_STRATEGY_CATALOG.scenes.contract_quote;
-    expect(scene.defaultBundle).toBe("p2_high_accuracy");
-    expect(scene.allowedBundles).not.toContain("p0_basic");
+  it("O_crag recommends p2_high_accuracy", () => {
+    const pkg = STRATEGY_PACKAGE_CATALOG.O_crag;
+    expect(pkg.recommendedProfileKey).toBe("p2_high_accuracy");
   });
 
-  it("sql_kg defaults to p3_kg_strong", () => {
-    const scene = SCENE_STRATEGY_CATALOG.scenes.sql_kg;
-    expect(scene.defaultBundle).toBe("p3_kg_strong");
-    expect(scene.allowedBundles).toContain("p3_kg_strong");
+  it("K_kg requires KG index channel", () => {
+    const pkg = STRATEGY_PACKAGE_CATALOG.K_kg;
+    expect(pkg.dependencies.index).toContain("index.kg");
   });
 
-  it("store.setSceneAndBundle clamps bundle to allowed list", () => {
+  it("store.setStrategyPackage updates flags and profiles", () => {
     const store = useKnowledgeSpaceStore();
 
-    store.setSceneAndBundle("contract_quote", "p0_basic" as any);
-    expect(store.sceneKey).toBe("contract_quote");
-    expect(store.bundleKey).toBe("p2_high_accuracy");
+    store.setStrategyPackage("O_crag");
+    expect(store.strategyPackageKey).toBe("O_crag");
+    expect(store.form.ragProfileKey).toBe("p2_high_accuracy");
+    expect(store.form.featureFlags).toContain("rag.strategy_package:o_crag");
 
-    store.setSceneAndBundle("sql_kg");
-    expect(store.bundleKey).toBe("p3_kg_strong");
-
+    store.setStrategyPackage("K_kg");
     const channels = store.computeEnabledIndexChannels();
     expect(channels).toContain("kg");
   });

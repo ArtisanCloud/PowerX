@@ -433,6 +433,9 @@ components:
           $ref: '#/components/schemas/Quota'
         policyTemplateVersionId:
           type: string
+        strategyPackageKey:
+          type: string
+          description: Strategy package key (A0–O) for the space.
         featureFlags:
           type: array
           items:
@@ -444,6 +447,9 @@ components:
           $ref: '#/components/schemas/Quota'
         policyTemplateVersionId:
           type: string
+        strategyPackageKey:
+          type: string
+          description: Strategy package key (A0–O) for the space.
         featureFlags:
           type: array
           items:
@@ -790,6 +796,7 @@ components:
           type: string
         strategy:
           type: string
+          description: Strategy package key (A0–O).
         citationCoverage:
           type: number
         degradeReason:

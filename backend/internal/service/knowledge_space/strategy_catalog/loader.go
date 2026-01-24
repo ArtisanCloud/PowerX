@@ -11,8 +11,24 @@ import (
 type rawCatalog struct {
 	Version int                  `yaml:"version"`
 	Kind    string               `yaml:"kind"`
-	Bundles map[string]rawBundle `yaml:"strategy_bundles"`
-	Scenes  map[string]rawScene  `yaml:"scenes"`
+	StrategyPackages map[string]rawStrategyPackage `yaml:"strategy_packages"`
+	Bundles          map[string]rawBundle          `yaml:"strategy_bundles"`
+	Scenes           map[string]rawScene           `yaml:"scenes"`
+}
+
+type rawStrategyPackage struct {
+	Label                 string               `yaml:"label"`
+	Summary               string               `yaml:"summary"`
+	Coupling              string               `yaml:"coupling"`
+	RecommendedProfileKey string               `yaml:"recommended_profile_key"`
+	RecommendedScenes     []string             `yaml:"recommended_scenes"`
+	Dependencies          rawStrategyDepends    `yaml:"dependencies"`
+}
+
+type rawStrategyDepends struct {
+	Index   []string `yaml:"index"`
+	Runtime []string `yaml:"runtime"`
+	Assets  []string `yaml:"assets"`
 }
 
 type rawBundle struct {
@@ -86,8 +102,25 @@ func (l *Loader) Load() (*Catalog, error) {
 	out := &Catalog{
 		Version: rc.Version,
 		Kind:    rc.Kind,
-		Bundles: map[string]StrategyBundle{},
-		Scenes:  map[string]Scene{},
+		StrategyPackages: map[string]StrategyPackage{},
+		Bundles:          map[string]StrategyBundle{},
+		Scenes:           map[string]Scene{},
+	}
+
+	for k, p := range rc.StrategyPackages {
+		out.StrategyPackages[k] = StrategyPackage{
+			Key:                   k,
+			Label:                 p.Label,
+			Summary:               p.Summary,
+			Coupling:              p.Coupling,
+			RecommendedProfileKey: p.RecommendedProfileKey,
+			RecommendedScenes:     append([]string(nil), p.RecommendedScenes...),
+			Dependencies: StrategyDependencies{
+				Index:   append([]string(nil), p.Dependencies.Index...),
+				Runtime: append([]string(nil), p.Dependencies.Runtime...),
+				Assets:  append([]string(nil), p.Dependencies.Assets...),
+			},
+		}
 	}
 
 	for k, b := range rc.Bundles {

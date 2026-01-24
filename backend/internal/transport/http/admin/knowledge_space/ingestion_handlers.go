@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -131,6 +132,8 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		SegmentMode:         req.SegmentMode,
 		ChunkSize:           req.ChunkSize,
 		ChunkOverlap:        req.ChunkOverlap,
+		SegmentSizePolicy:   req.SegmentSizePolicy,
+		SegmentOrder:        req.SegmentOrder,
 		Separators:          req.Separators,
 		PagePriority:        req.PagePriority,
 		AnchorHeadingPath:   req.AnchorHeadingPath,
@@ -243,19 +246,10 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 		pageSize = 200
 	}
 
-	bundle, err := knowledgeRepo.NewArtifactBundleRepository(h.db).FindByJobID(c.Request.Context(), job.ID)
-	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "获取产物信息失败", err)
-		return
-	}
-	if bundle == nil {
-		dto.ResponseError(c, http.StatusNotFound, "产物未生成或已清理", errors.New("bundle not found"))
-		return
-	}
-
-	// Prefer DB chunk store when available (truth source). Fallback to chunk_manifest when DB is unavailable.
+	// Prefer DB chunk store when available (truth source). Fallback to chunk_manifest when DB is unavailable or empty.
 	if repo := knowledgeRepo.NewKnowledgeChunkRepository(h.db); repo != nil {
-		if rows, total, err := repo.ListByJob(c.Request.Context(), spaceID, jobID, page, pageSize); err == nil && total > 0 {
+		rows, total, err := repo.ListByJob(c.Request.Context(), spaceID, jobID, page, pageSize)
+		if err == nil && total > 0 {
 			items := make([]ingestionChunkView, 0, len(rows))
 			sourceURI := ""
 			for _, row := range rows {
@@ -299,7 +293,21 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 		}
 	}
 
+	bundle, err := knowledgeRepo.NewArtifactBundleRepository(h.db).FindByJobID(c.Request.Context(), job.ID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "获取产物信息失败", err)
+		return
+	}
+	if bundle == nil {
+		dto.ResponseError(c, http.StatusNotFound, "产物未生成或已清理", errors.New("bundle not found"))
+		return
+	}
+
 	if strings.TrimSpace(bundle.ChunkManifestURI) == "" {
+		if strings.TrimSpace(job.ErrorCode) != "" {
+			dto.ResponseError(c, http.StatusFailedDependency, fmt.Sprintf("切块产物缺失（入库失败）：%s %s", job.ErrorCode, job.BlockedReason), errors.New("chunk manifest missing"))
+			return
+		}
 		dto.ResponseError(c, http.StatusNotFound, "产物未生成或已清理", errors.New("chunk manifest missing"))
 		return
 	}
@@ -315,6 +323,10 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 	}
 	raw, err := os.ReadFile(abs)
 	if err != nil {
+		if strings.TrimSpace(job.ErrorCode) != "" {
+			dto.ResponseError(c, http.StatusFailedDependency, fmt.Sprintf("读取产物失败（入库失败）：%s %s", job.ErrorCode, job.BlockedReason), err)
+			return
+		}
 		dto.ResponseError(c, http.StatusNotFound, "读取产物失败", err)
 		return
 	}

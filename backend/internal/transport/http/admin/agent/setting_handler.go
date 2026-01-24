@@ -935,6 +935,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 			},
 			Tags: []string{"embedding"},
 		}
+		if req.Embedding.Dimensions <= 0 {
+			delete(prof.Defaults, "dimensions")
+		}
 
 	case contract.ModVideo:
 		if req.Video == nil {

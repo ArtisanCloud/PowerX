@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type KnowledgeSpaceRecord, type StrategyValidationResult, type VectorIndexStatus } from "~/composables/useKnowledgeSpaces";
-import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
+import {
+  SCENE_CATALOG,
+  STRATEGY_PACKAGE_CATALOG,
+  STRATEGY_PACKAGE_ORDER,
+  type SceneKey,
+  type StrategyPackageKey,
+} from "~/constants/strategyPackageCatalog";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 import { useUserStore } from "~/stores/user";
@@ -15,7 +21,7 @@ useHead(() => ({
   meta: [
     {
       name: "description",
-      content: t("knowledgeSpaces.strategy.head.description", "选择场景与策略包，并将配置应用到指定知识空间。"),
+      content: t("knowledgeSpaces.strategy.head.description", "选择策略包并将配置应用到指定知识空间。"),
     },
   ],
 }));
@@ -37,8 +43,7 @@ const selectedSpace = computed(() => spaces.value.find((s) => s.spaceId === sele
 const querySpaceId = computed(() => String(route.query.spaceId || "").trim());
 const spaceLocked = computed(() => Boolean(querySpaceId.value));
 
-const sceneKey = ref<SceneKey>("sop");
-const bundleKey = ref<StrategyBundleKey>("p1_general");
+const strategyPackageKey = ref<StrategyPackageKey>("H_fusion");
 
 const saving = ref(false);
 const savingError = ref<string | null>(null);
@@ -67,24 +72,59 @@ const spaceItems = computed(() =>
   })),
 );
 
-const sceneItems = computed(() =>
-  (Object.entries(SCENE_STRATEGY_CATALOG.scenes) as Array<[SceneKey, any]>).map(([key, scene]) => ({
-    label: scene.label,
+const packageItems = computed(() =>
+  STRATEGY_PACKAGE_ORDER.map((key) => ({
+    label: STRATEGY_PACKAGE_CATALOG[key]?.label || key,
     value: key,
   })),
 );
 
-const bundleItems = computed(() => {
-  const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey.value];
-  const allowed = scene?.allowedBundles ?? [];
-  return allowed.map((key: StrategyBundleKey) => ({
-    label: SCENE_STRATEGY_CATALOG.bundles[key].label,
-    value: key,
-  }));
+const selectedPackage = computed(() => STRATEGY_PACKAGE_CATALOG[strategyPackageKey.value]);
+const packageSceneLabels = computed(() =>
+  packageScenes.value.map((key) => ({
+    key,
+    label: SCENE_CATALOG[key]?.label || key,
+    category: SCENE_CATALOG[key]?.category || "",
+  })),
+);
+const defaultSceneKey = computed<SceneKey>(() => packageScenes.value[0] ?? "custom_expert");
+const packageCouplingLabel = computed(() => (selectedPackage.value?.coupling === "strong" ? "强关联" : "弱关联"));
+const corpusCheckJob = computed(() => {
+  if (!selectedSpace.value) return null;
+  const job = wizardStore.lastCorpusCheckJob as any;
+  if (!job || job.space_uuid !== selectedSpace.value.spaceId) return null;
+  return job;
 });
-
-const selectedScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[sceneKey.value]);
-const selectedBundle = computed(() => SCENE_STRATEGY_CATALOG.bundles[bundleKey.value]);
+const strategyPackageRecommendation = computed(() => {
+  const job = corpusCheckJob.value;
+  if (!job || !Array.isArray(job.recommendations)) return null;
+  const hit = job.recommendations.find((item: any) => {
+    const key =
+      item?.strategyPackageKey ||
+      item?.strategy_package ||
+      item?.packageKey ||
+      item?.package_key ||
+      item?.value ||
+      item?.key;
+    return Boolean(key && STRATEGY_PACKAGE_CATALOG[key as StrategyPackageKey]);
+  });
+  if (!hit) return null;
+  const key =
+    hit?.strategyPackageKey ||
+    hit?.strategy_package ||
+    hit?.packageKey ||
+    hit?.package_key ||
+    hit?.value ||
+    hit?.key;
+  if (!key || !STRATEGY_PACKAGE_CATALOG[key as StrategyPackageKey]) return null;
+  return {
+    key: key as StrategyPackageKey,
+    reason: hit?.reason || hit?.message || hit?.desc || "",
+    risk: hit?.risk || "",
+    cost: hit?.cost || "",
+    scenes: Array.isArray(hit?.scenes) ? hit.scenes : [],
+  };
+});
 
 type IndexChannel = "dense" | "sparse" | "hier" | "kg" | "time" | "structured";
 
@@ -109,41 +149,47 @@ const mapIndexPrereqToChannel = (key: string): IndexChannel | null => {
 
 const indexChannelOrder: IndexChannel[] = ["dense", "sparse", "hier", "kg", "time", "structured"];
 
-const sceneIndexChannels = computed<IndexChannel[]>(() => {
-  const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey.value];
+const packageIndexChannels = computed<IndexChannel[]>(() => {
   const set = new Set<IndexChannel>();
-  for (const k of scene?.prerequisites.index ?? []) {
+  for (const k of selectedPackage.value?.dependencies.index ?? []) {
     const ch = mapIndexPrereqToChannel(k);
     if (ch) set.add(ch);
   }
   return indexChannelOrder.filter((x) => set.has(x));
 });
 
-const bundleIndexChannels = computed<IndexChannel[]>(() => {
-  const bundle = SCENE_STRATEGY_CATALOG.bundles[bundleKey.value];
-  const set = new Set<IndexChannel>();
-  for (const k of bundle?.prerequisites ?? []) {
-    if (!String(k).startsWith("index.")) continue;
-    const ch = mapIndexPrereqToChannel(k);
-    if (ch) set.add(ch);
-  }
-  return indexChannelOrder.filter((x) => set.has(x));
-});
-
-const extraIndexChannels = computed<IndexChannel[]>(() => {
-  const base = new Set(sceneIndexChannels.value);
-  return bundleIndexChannels.value.filter((x) => !base.has(x));
-});
-
-const bundleRuntimePrereqs = computed<string[]>(() => {
-  const bundle = SCENE_STRATEGY_CATALOG.bundles[bundleKey.value];
-  return (bundle?.prerequisites ?? []).filter((k) => String(k).startsWith("runtime."));
-});
+const packageRuntimePrereqs = computed<string[]>(() => selectedPackage.value?.dependencies.runtime ?? []);
+const packageAssetPrereqs = computed<string[]>(() => selectedPackage.value?.dependencies.assets ?? []);
+const packageScenes = computed<SceneKey[]>(() => selectedPackage.value?.recommendedScenes ?? []);
 
 const runtimeLabel = (key: string) => {
   switch (key) {
     case "runtime.evidence_checker":
       return "证据校验器（Evidence Checker）";
+    case "routing_policy":
+      return "路由策略（Routing Policy）";
+    case "query_rewrite":
+      return "查询重写（Query Rewrite）";
+    case "reranker_model":
+      return "重排模型（Reranker）";
+    case "score_normalizer":
+      return "融合归一化（Score Normalizer）";
+    case "llm_generate":
+      return "LLM 生成（HyDE）";
+    case "graph_query":
+      return "图谱查询（KG Query）";
+    case "policy_router":
+      return "策略路由器（Adaptive）";
+    case "consistency_checker":
+      return "一致性校验器（Self/CRAG）";
+    case "offline_pipeline":
+      return "离线管线（Augmentation）";
+    case "feedback_workflow":
+      return "反馈闭环（Feedback）";
+    case "versioning_policy":
+      return "版本/时间策略（Time-aware）";
+    case "acl_enforcer":
+      return "权限过滤（ACL Enforcer）";
     default:
       return key;
   }
@@ -171,9 +217,32 @@ const channelLabel = (ch: string) => {
 const profileLabel = (profileKey: string | null | undefined) => {
   const key = String(profileKey || "").trim();
   if (!key) return "-";
-  const bundle = (SCENE_STRATEGY_CATALOG.bundles as any)?.[key];
-  if (bundle?.label) return `${bundle.label}（${key}）`;
-  return key;
+  switch (key) {
+    case "p0_basic":
+      return `P0 基础（${key}）`;
+    case "p1_general":
+      return `P1 通用推荐（${key}）`;
+    case "p2_high_accuracy":
+      return `P2 高准确/合规（${key}）`;
+    case "p3_kg_strong":
+      return `P3 KG 约束（${key}）`;
+    default:
+      return key || "-";
+  }
+};
+
+const derivePackageFromProfile = (profileKey: string | null | undefined): StrategyPackageKey => {
+  switch (profileKey) {
+    case "p0_basic":
+      return "A_simple";
+    case "p2_high_accuracy":
+      return "O_crag";
+    case "p3_kg_strong":
+      return "K_kg";
+    case "p1_general":
+    default:
+      return "H_fusion";
+  }
 };
 
 const goBack = async () => {
@@ -184,29 +253,37 @@ const goBack = async () => {
   await navigateTo("/knowledge-spaces");
 };
 
+const applyStrategyRecommendation = () => {
+  const rec = strategyPackageRecommendation.value;
+  if (!rec) return;
+  strategyPackageKey.value = rec.key;
+  toast.add({
+    color: "primary",
+    title: "已应用推荐策略包",
+    description: `${STRATEGY_PACKAGE_CATALOG[rec.key]?.label || rec.key}`,
+  });
+};
+
 const inferFromSpace = (space: KnowledgeSpaceRecord | null) => {
   if (!space) return;
   const flags = (space.featureFlags ?? []).map((f) => String(f || "").trim().toLowerCase());
-  const rawScene = flags.find((f) => f.startsWith("rag.scene:"))?.slice("rag.scene:".length) as SceneKey | undefined;
-  const rawBundle = flags.find((f) => f.startsWith("rag.bundle:"))?.slice("rag.bundle:".length) as StrategyBundleKey | undefined;
-
-  const resolvedScene: SceneKey = rawScene && SCENE_STRATEGY_CATALOG.scenes[rawScene] ? rawScene : "sop";
-  const scene = SCENE_STRATEGY_CATALOG.scenes[resolvedScene];
-  const resolvedBundle: StrategyBundleKey =
-    rawBundle && scene.allowedBundles.includes(rawBundle) ? rawBundle : scene.defaultBundle;
-
-  sceneKey.value = resolvedScene;
-  bundleKey.value = resolvedBundle;
+  const rawPackage = flags.find((f) => f.startsWith("rag.strategy_package:"))?.slice("rag.strategy_package:".length);
+  if (rawPackage && STRATEGY_PACKAGE_CATALOG[rawPackage as StrategyPackageKey]) {
+    strategyPackageKey.value = rawPackage as StrategyPackageKey;
+    return;
+  }
+  const profileFallback = space.ragProfileKey || space.indexProfileKey || space.ingestionProfileKey;
+  strategyPackageKey.value = derivePackageFromProfile(profileFallback);
 };
 
 const refreshStrategyValidation = async () => {
   strategyValidationLoading.value = true;
   strategyValidationError.value = null;
   try {
-    strategyValidation.value = await api.validateStrategy({
-      sceneKey: sceneKey.value,
-      bundleKey: bundleKey.value,
-    });
+  const pkg = selectedPackage.value;
+  const sceneKey = defaultSceneKey.value;
+  const bundleKey = pkg?.recommendedProfileKey ?? "p1_general";
+  strategyValidation.value = await api.validateStrategy({ sceneKey, bundleKey });
   } catch (e: any) {
     strategyValidationError.value = e?.message || t("knowledgeSpaces.strategy.validation.failed", "策略依赖校验失败");
     strategyValidation.value = null;
@@ -220,17 +297,30 @@ const persistToSpace = async () => {
   saving.value = true;
   savingError.value = null;
   try {
+    const pkg = selectedPackage.value;
+    const sceneKey = defaultSceneKey.value;
+    const profileKey = pkg?.recommendedProfileKey ?? "p1_general";
     const existingFlags = (selectedSpace.value.featureFlags ?? []).map((f) => String(f || "").trim().toLowerCase());
     const kept = existingFlags.filter(
-      (f) => !f.startsWith("rag.scene:") && !f.startsWith("rag.bundle:") && f !== "rag.guided",
+      (f) =>
+        !f.startsWith("rag.scene:") &&
+        !f.startsWith("rag.bundle:") &&
+        !f.startsWith("rag.strategy_package:") &&
+        !f.startsWith("rag.primary:") &&
+        f !== "rag.guided",
     );
-    const nextFlags = [...kept, `rag.scene:${sceneKey.value}`, `rag.bundle:${bundleKey.value}`];
-    if (sceneKey.value === "custom_expert") nextFlags.push("rag.guided");
+    const nextFlags = [
+      ...kept,
+      `rag.strategy_package:${strategyPackageKey.value}`,
+      `rag.scene:${sceneKey}`,
+      `rag.bundle:${profileKey}`,
+    ];
+    if (sceneKey === "custom_expert") nextFlags.push("rag.guided");
 
     const updated = await api.updateSpace(selectedSpace.value.spaceId, {
-      ingestionProfileKey: bundleKey.value,
-      indexProfileKey: bundleKey.value,
-      ragProfileKey: bundleKey.value,
+      ingestionProfileKey: profileKey,
+      indexProfileKey: profileKey,
+      ragProfileKey: profileKey,
       featureFlags: nextFlags,
       updatedBy: userStore.user?.email || wizardStore.iamEmail || "ops@powerx.local",
     });
@@ -248,6 +338,16 @@ const persistToSpace = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const resetToSpace = () => {
+  if (!selectedSpace.value) return;
+  inferFromSpace(selectedSpace.value);
+  toast.add({
+    color: "neutral",
+    title: "已回滚到空间当前配置",
+    description: "已恢复为该空间已保存的策略包设置。",
+  });
 };
 
 const refreshVectorIndex = async () => {
@@ -323,7 +423,7 @@ watch(
   { immediate: true },
 );
 
-watch([sceneKey, bundleKey], async () => {
+watch(strategyPackageKey, async () => {
   if (!embeddingReady.value) return;
   await refreshStrategyValidation();
 });
@@ -367,6 +467,9 @@ onMounted(async () => {
           <div class="flex items-center gap-2">
             <UButton color="neutral" variant="soft" icon="i-heroicons-arrow-path" :loading="spacesLoading" @click="loadSpaces">
               {{ t("common.refresh", "刷新") }}
+            </UButton>
+            <UButton color="neutral" variant="subtle" icon="i-heroicons-arrow-uturn-left" :disabled="!selectedSpace" @click="resetToSpace">
+              {{ t("common.rollback", "回滚") }}
             </UButton>
             <UButton color="primary" icon="i-heroicons-check" :loading="saving" :disabled="!selectedSpace" @click="persistToSpace">
               {{ t("knowledgeSpaces.strategy.actions.save", "保存到空间") }}
@@ -413,38 +516,95 @@ onMounted(async () => {
           </div>
 
           <div class="rounded-lg border border-[var(--border-color)] p-4">
-            <div class="grid gap-4 md:grid-cols-2">
-              <UFormField :label="t('knowledgeSpaces.strategy.scene', '业务场景（L1）')" required>
-                <USelectMenu
-                  v-model="sceneKey"
-                  :items="sceneItems"
-                  value-key="value"
-                  label-key="label"
-                  class="w-full"
-                />
-                <template #help>
-                  <div class="text-[var(--text-secondary)]">{{ selectedScene?.description }}</div>
-                </template>
-              </UFormField>
-              <UFormField :label="t('knowledgeSpaces.strategy.bundle', '策略包（L2）')" required>
-                <USelectMenu
-                  v-model="bundleKey"
-                  :items="bundleItems"
-                  value-key="value"
-                  label-key="label"
-                  class="w-full"
-                />
-                <template #help>
-                  <div class="text-[var(--text-secondary)]">{{ selectedBundle?.description }}</div>
-                </template>
-              </UFormField>
+            <UFormField :label="t('knowledgeSpaces.strategy.package', '策略包（A0–O）')" required>
+              <USelectMenu
+                v-model="strategyPackageKey"
+                :items="packageItems"
+                value-key="value"
+                label-key="label"
+                class="w-full"
+              />
+              <template #help>
+                <div class="text-[var(--text-secondary)]">{{ selectedPackage?.summary }}</div>
+              </template>
+            </UFormField>
+
+            <div class="mt-3 grid gap-3 md:grid-cols-2 text-sm">
+              <div class="rounded-lg border border-[var(--border-color)] p-3">
+                <div class="font-medium text-[var(--text-primary)]">策略要点</div>
+                <div class="mt-2 text-[var(--text-secondary)]">
+                  <div>阶段：{{ selectedPackage?.phase || "-" }}</div>
+                  <div>联动强度：{{ packageCouplingLabel }}</div>
+                  <div>
+                    推荐 Profile：
+                    {{ profileLabel(selectedPackage?.recommendedProfileKey) }}
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-lg border border-[var(--border-color)] p-3">
+                <div class="font-medium text-[var(--text-primary)]">适用场景（映射说明）</div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <UBadge
+                    v-for="scene in packageSceneLabels"
+                    :key="scene.key"
+                    color="neutral"
+                    variant="soft"
+                  >
+                    {{ scene.label }}
+                  </UBadge>
+                  <span v-if="!packageSceneLabels.length" class="text-[var(--text-secondary)]">无</span>
+                </div>
+              </div>
             </div>
 
             <div class="mt-3 pt-3 border-t border-[var(--border-color)] text-sm text-[var(--text-secondary)] space-y-1">
               <div class="font-medium text-[var(--text-primary)]">将写入（点击“保存到空间”后）</div>
-              <div>业务场景（L1）：{{ selectedScene?.label }}（{{ sceneKey }}）</div>
-              <div>策略包（L2）：{{ selectedBundle?.label }}（{{ bundleKey }}）</div>
-              <div>三类 Profile：{{ selectedBundle?.label }}（{{ bundleKey }}）</div>
+              <div>策略包：{{ selectedPackage?.label }}（{{ strategyPackageKey }}）</div>
+              <div>推荐 Profile：{{ profileLabel(selectedPackage?.recommendedProfileKey) }}</div>
+              <div>兼容场景标签：{{ SCENE_CATALOG[defaultSceneKey]?.label || defaultSceneKey }}</div>
+            </div>
+
+            <div v-if="corpusCheckJob" class="mt-4 rounded-lg border border-[var(--border-color)] p-3 text-sm">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="font-medium text-[var(--text-primary)]">Corpus Check 推荐</div>
+                <UBadge color="primary" variant="soft">{{ corpusCheckJob.status || "unknown" }}</UBadge>
+              </div>
+              <div class="mt-2 text-[var(--text-secondary)]">
+                Trace：{{ corpusCheckJob.trace_id || "-" }}
+              </div>
+              <div v-if="strategyPackageRecommendation" class="mt-3 flex flex-wrap items-center gap-3">
+                <div class="text-[var(--text-secondary)]">
+                  推荐策略包：
+                  <span class="font-medium text-[var(--text-primary)]">
+                    {{ STRATEGY_PACKAGE_CATALOG[strategyPackageRecommendation.key]?.label || strategyPackageRecommendation.key }}
+                  </span>
+                </div>
+                <UButton size="xs" color="primary" variant="soft" @click="applyStrategyRecommendation">
+                  应用推荐
+                </UButton>
+              </div>
+              <div v-if="strategyPackageRecommendation?.reason" class="mt-2 text-[var(--text-secondary)]">
+                {{ strategyPackageRecommendation.reason }}
+              </div>
+              <div v-if="strategyPackageRecommendation?.risk" class="mt-2 text-[var(--text-secondary)]">
+                风险提示：{{ strategyPackageRecommendation.risk }}
+              </div>
+              <div v-if="strategyPackageRecommendation?.cost" class="mt-1 text-[var(--text-secondary)]">
+                成本提示：{{ strategyPackageRecommendation.cost }}
+              </div>
+              <div v-if="strategyPackageRecommendation?.scenes?.length" class="mt-2 flex flex-wrap gap-2">
+                <UBadge
+                  v-for="scene in strategyPackageRecommendation.scenes"
+                  :key="scene"
+                  color="neutral"
+                  variant="soft"
+                >
+                  {{ SCENE_CATALOG[scene as SceneKey]?.label || scene }}
+                </UBadge>
+              </div>
+              <div v-else-if="!strategyPackageRecommendation" class="mt-2 text-[var(--text-secondary)]">
+                暂无可用的策略包推荐。
+              </div>
             </div>
 
             <div class="mt-4 pt-4 border-t border-[var(--border-color)]">
@@ -484,40 +644,41 @@ onMounted(async () => {
         <div class="rounded-lg border border-[var(--border-color)] p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-            <div class="font-medium text-[var(--text-primary)]">依赖摘要</div>
-            <div class="text-sm text-[var(--text-secondary)]">用于提示该组合需要的索引通道/运行时能力，并影响下方校验结果。</div>
+              <div class="font-medium text-[var(--text-primary)]">依赖摘要</div>
+              <div class="text-sm text-[var(--text-secondary)]">提示该策略包需要的索引通道、运行时能力与产物。</div>
             </div>
             <div class="flex flex-wrap gap-2" />
-        </div>
+          </div>
           <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
             <div class="rounded-lg border border-[var(--border-color)] p-3">
-              <div class="font-medium text-[var(--text-primary)]">L1 场景基线索引</div>
+              <div class="font-medium text-[var(--text-primary)]">索引通道依赖</div>
               <div class="mt-2 flex flex-wrap gap-2">
-                <UBadge v-for="ch in sceneIndexChannels" :key="ch" color="primary" variant="soft">
+                <UBadge v-for="ch in packageIndexChannels" :key="ch" color="primary" variant="soft">
                   {{ channelLabel(ch) }}
                 </UBadge>
+                <span v-if="!packageIndexChannels.length" class="text-[var(--text-secondary)]">无</span>
               </div>
             </div>
             <div class="rounded-lg border border-[var(--border-color)] p-3">
-              <div class="font-medium text-[var(--text-primary)]">L2 额外索引</div>
+              <div class="font-medium text-[var(--text-primary)]">运行时能力</div>
               <div class="mt-2 flex flex-wrap gap-2">
-                <UBadge v-for="ch in extraIndexChannels" :key="ch" color="primary" variant="soft">
-                  {{ channelLabel(ch) }}
-                </UBadge>
-                <span v-if="!extraIndexChannels.length" class="text-[var(--text-secondary)]">无</span>
-              </div>
-            </div>
-            <div class="rounded-lg border border-[var(--border-color)] p-3">
-              <div class="font-medium text-[var(--text-primary)]">L2 运行时依赖</div>
-              <div class="mt-2 flex flex-wrap gap-2">
-                <UBadge v-for="k in bundleRuntimePrereqs" :key="k" color="neutral" variant="soft">
+                <UBadge v-for="k in packageRuntimePrereqs" :key="k" color="neutral" variant="soft">
                   {{ runtimeLabel(k) }}
                 </UBadge>
-                <span v-if="!bundleRuntimePrereqs.length" class="text-[var(--text-secondary)]">无</span>
+                <span v-if="!packageRuntimePrereqs.length" class="text-[var(--text-secondary)]">无</span>
+              </div>
+            </div>
+            <div class="rounded-lg border border-[var(--border-color)] p-3">
+              <div class="font-medium text-[var(--text-primary)]">离线/索引产物</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <UBadge v-for="k in packageAssetPrereqs" :key="k" color="neutral" variant="soft">
+                  {{ k }}
+                </UBadge>
+                <span v-if="!packageAssetPrereqs.length" class="text-[var(--text-secondary)]">无</span>
               </div>
             </div>
           </div>
-      </div>
+        </div>
 
         <div>
         <div v-if="strategyValidationLoading" class="text-sm text-[var(--text-secondary)]">

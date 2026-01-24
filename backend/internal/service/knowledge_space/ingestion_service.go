@@ -126,6 +126,8 @@ type TriggerIngestionInput struct {
 	SegmentMode         string
 	ChunkSize           int
 	ChunkOverlap        int
+	SegmentSizePolicy   string
+	SegmentOrder        []string
 	Separators          []string
 	PagePriority        bool
 	AnchorHeadingPath   bool
@@ -273,6 +275,8 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 		segmentMode:         in.SegmentMode,
 		chunkSize:           in.ChunkSize,
 		chunkOverlap:        in.ChunkOverlap,
+		segmentSizePolicy:   in.SegmentSizePolicy,
+		segmentOrder:        in.SegmentOrder,
 		separators:          in.Separators,
 		anchorHeadingPath:   in.AnchorHeadingPath,
 		anchorClauseID:      in.AnchorClauseID,
@@ -380,6 +384,8 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 		segmentMode:         in.SegmentMode,
 		chunkSize:           in.ChunkSize,
 		chunkOverlap:        in.ChunkOverlap,
+		segmentSizePolicy:   in.SegmentSizePolicy,
+		segmentOrder:        in.SegmentOrder,
 		separators:          in.Separators,
 		pagePriority:        in.PagePriority,
 		anchorHeadingPath:   in.AnchorHeadingPath,
@@ -495,6 +501,8 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 			segmentMode:         in.SegmentMode,
 			chunkSize:           in.ChunkSize,
 			chunkOverlap:        in.ChunkOverlap,
+			segmentSizePolicy:   in.SegmentSizePolicy,
+			segmentOrder:        in.SegmentOrder,
 			separators:          in.Separators,
 			pagePriority:        in.PagePriority,
 			anchorHeadingPath:   in.AnchorHeadingPath,
@@ -748,9 +756,11 @@ func (s *IngestionService) writeIngestionSegmentLog(format string, in TriggerIng
 	)
 	_, _ = fmt.Fprintf(
 		f,
-		"segment: page_priority=%t mode=%s chunk_size=%d overlap=%d separators=%v anchors=%v\n",
+		"segment: page_priority=%t order=%v mode=%s size_policy=%s chunk_size=%d overlap=%d separators=%v anchors=%v\n",
 		in.PagePriority,
+		in.SegmentOrder,
 		strings.TrimSpace(in.SegmentMode),
+		normalizeSegmentSizePolicy(in.SegmentSizePolicy, in.ChunkSize),
 		in.ChunkSize,
 		in.ChunkOverlap,
 		in.Separators,
@@ -1046,6 +1056,17 @@ func defaultSeparatorsFor(format string, mode string) []string {
 	return base
 }
 
+func normalizeSegmentSizePolicy(policy string, chunkSize int) string {
+	p := strings.ToLower(strings.TrimSpace(policy))
+	if p == "target" || p == "cap" {
+		return p
+	}
+	if chunkSize > 0 {
+		return "target"
+	}
+	return ""
+}
+
 type pipelineInput struct {
 	space               *knowledge.KnowledgeSpace
 	job                 *knowledge.IngestionJob
@@ -1063,6 +1084,8 @@ type pipelineInput struct {
 	segmentMode         string
 	chunkSize           int
 	chunkOverlap        int
+	segmentSizePolicy   string
+	segmentOrder        []string
 	separators          []string
 	pagePriority        bool
 	anchorHeadingPath   bool
@@ -1088,6 +1111,8 @@ type pipelineUnitsInput struct {
 	segmentMode         string
 	chunkSize           int
 	chunkOverlap        int
+	segmentSizePolicy   string
+	segmentOrder        []string
 	separators          []string
 	pagePriority        bool
 	anchorHeadingPath   bool
@@ -1107,6 +1132,7 @@ type pipelineOutcome struct {
 	chunkCount           int
 	coveragePct          float64
 	embeddingPct         float64
+	embeddingMaxInputTokens int
 	maskingPct           float64
 	language             string
 	ocrRequired          bool
@@ -1123,6 +1149,8 @@ type pipelineOutcome struct {
 	ragBundleKey string
 	ragPrimary   string
 	pagePriority bool
+	segmentOrder []string
+	segmentSizePolicy string
 	segmentMode  string
 	chunkSize    int
 	chunkOverlap int
@@ -1141,6 +1169,7 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"content_chunks":   o.chunkCount,
 		"coverage_pct":     o.coveragePct,
 		"embedding_pct":    o.embeddingPct,
+		"embedding_max_input_tokens": o.embeddingMaxInputTokens,
 		"masking_pct":      o.maskingPct,
 		"language":         o.language,
 		"ocr_required":     o.ocrRequired,
@@ -1156,6 +1185,8 @@ func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 		"rag_bundle_key":   o.ragBundleKey,
 		"rag_primary":      o.ragPrimary,
 		"page_priority":    o.pagePriority,
+		"segment_order":    o.segmentOrder,
+		"segment_size_policy": o.segmentSizePolicy,
 		"segment_mode":     o.segmentMode,
 		"chunk_size":       o.chunkSize,
 		"chunk_overlap":    o.chunkOverlap,
@@ -1179,6 +1210,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
 	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	sizePolicy := normalizeSegmentSizePolicy(in.segmentSizePolicy, in.chunkSize)
 	if mode == "" {
 		mode = "unit"
 	}
@@ -1198,6 +1230,8 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
 		pagePriority:         in.pagePriority,
+		segmentOrder:         in.segmentOrder,
+		segmentSizePolicy:    sizePolicy,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1295,10 +1329,12 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		SizePolicy:   sizePolicy,
 		PagePriority: in.pagePriority,
 		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
+		SegmentOrder: in.segmentOrder,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
 			HeadingPath:   in.anchorHeadingPath,
@@ -1369,12 +1405,13 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
 	}
 
-	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason, embedMaxInput := s.buildVectorRecords(
 		ctx,
 		in.space,
 		maskedChunks,
 	)
 	out.embeddingPct = embeddingPct
+	out.embeddingMaxInputTokens = embedMaxInput
 	if embedDegraded {
 		out.degraded = true
 		if out.errorCode == "" {
@@ -1394,6 +1431,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
 	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	sizePolicy := normalizeSegmentSizePolicy(in.segmentSizePolicy, in.chunkSize)
 	if mode == "" {
 		mode = "unit"
 	}
@@ -1411,6 +1449,8 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
 		pagePriority:         in.pagePriority,
+		segmentOrder:         in.segmentOrder,
+		segmentSizePolicy:    sizePolicy,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1445,10 +1485,12 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		SizePolicy:   sizePolicy,
 		PagePriority: in.pagePriority,
 		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
+		SegmentOrder: in.segmentOrder,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
 			HeadingPath:   in.anchorHeadingPath,
@@ -1518,12 +1560,13 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
 	}
 
-	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason, embedMaxInput := s.buildVectorRecords(
 		ctx,
 		in.space,
 		maskedChunks,
 	)
 	out.embeddingPct = embeddingPct
+	out.embeddingMaxInputTokens = embedMaxInput
 	if embedDegraded {
 		out.degraded = true
 		if out.errorCode == "" {

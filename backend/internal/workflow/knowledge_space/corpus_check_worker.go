@@ -100,6 +100,7 @@ func (w *CorpusCheckWorker) run(ctx context.Context, input CorpusCheckInput) err
 		if _, err := jobs.Update(ctx, job); err != nil {
 			return err
 		}
+		publishCorpusCheckUpdate(ctx, job)
 		var sample []models.IngestionJob
 		if err := tx.Model(&models.IngestionJob{}).
 			Where("space_uuid = ?", input.SpaceID).
@@ -117,6 +118,9 @@ func (w *CorpusCheckWorker) run(ctx context.Context, input CorpusCheckInput) err
 		job.CompletedAt = &doneAt
 		job.UpdatedAt = doneAt
 		_, err = jobs.Update(ctx, job)
+		if err == nil {
+			publishCorpusCheckUpdate(ctx, job)
+		}
 		return err
 	})
 }
@@ -134,4 +138,3 @@ func sampleJobUUIDs(sample []models.IngestionJob) datatypes.JSON {
 	}
 	return datatypes.JSON(bytes)
 }
-

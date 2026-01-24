@@ -28,6 +28,7 @@ type resolvedEmbeddingProfile struct {
 	Model      string
 	Endpoint   string
 	Dimensions int
+	MaxInputTokens int
 }
 
 func (s *IngestionService) resolveEmbeddingVectorizer(
@@ -136,6 +137,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 	var baseURLIn, apiKeyIn string
 	dimensions := 0
 	maxBatch := 0
+	maxInputTokens := 0
 	if prof, err := s.agentSettings.GetProfile(ctx, env, &tid, "embedding", provider, model); err == nil && prof != nil {
 		if prof.Defaults != nil {
 			if v, ok := prof.Defaults["endpoint"].(string); ok && strings.TrimSpace(v) != "" {
@@ -149,6 +151,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 			if v, ok := prof.Defaults["batch"]; ok {
 				maxBatch = parseInt(v)
 			}
+			maxInputTokens = resolveEmbeddingMaxInputTokens(prof.Defaults)
 		}
 		dimensions = agentsettings.ResolveEmbeddingDimensions(prof)
 	}
@@ -195,6 +198,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 			Model:      model,
 			Endpoint:   baseURL,
 			Dimensions: dimensions,
+			MaxInputTokens: maxInputTokens,
 		}, nil, nil
 	}
 
@@ -214,6 +218,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 			Provider: provider,
 			Model:    model,
 			Endpoint: baseURL,
+			MaxInputTokens: maxInputTokens,
 		}, nil, err
 	}
 	if vec == nil {
@@ -222,6 +227,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 			Provider: provider,
 			Model:    model,
 			Endpoint: baseURL,
+			MaxInputTokens: maxInputTokens,
 		}, nil, nil
 	}
 
@@ -231,6 +237,7 @@ func (s *IngestionService) resolveEmbeddingVectorizerForProfile(
 		Model:      model,
 		Endpoint:   baseURL,
 		Dimensions: dimensions,
+		MaxInputTokens: maxInputTokens,
 	}, vec, nil
 }
 
@@ -326,16 +333,37 @@ func parseInt(v any) int {
 	return 0
 }
 
+func resolveEmbeddingMaxInputTokens(defaults map[string]any) int {
+	if defaults == nil {
+		return 0
+	}
+	for _, key := range []string{
+		"max_input_tokens",
+		"max_tokens",
+		"context_length",
+		"context_window",
+		"context_size",
+		"max_context_tokens",
+	} {
+		if v, ok := defaults[key]; ok {
+			if n := parseInt(v); n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
+}
+
 func (s *IngestionService) buildVectorRecords(
 	ctx context.Context,
 	space *knowledge.KnowledgeSpace,
 	chunks []IngestionChunk,
-) (records []vectorstore.VectorRecord, embeddingPct float64, degraded bool, errorCode string, reason string) {
+) (records []vectorstore.VectorRecord, embeddingPct float64, degraded bool, errorCode string, reason string, maxInputTokens int) {
 	if len(chunks) == 0 {
-		return nil, 0, false, "", ""
+		return nil, 0, false, "", "", 0
 	}
 	if space == nil || space.UUID == uuid.Nil {
-		return nil, 0, true, "space_not_found", "space_missing"
+		return nil, 0, true, "space_not_found", "space_missing", 0
 	}
 
 	// 对所有非空 chunk 做向量化（doc_summary/section_summary/chunk），保持“全链路可观测”一致性；
@@ -350,38 +378,38 @@ func (s *IngestionService) buildVectorRecords(
 		texts = append(texts, chunks[i].Content)
 	}
 	if len(texts) == 0 {
-		return nil, 0, true, "embedding_failed", "no_chunk_text"
+		return nil, 0, true, "embedding_failed", "no_chunk_text", 0
 	}
 
 	// 没有向量存储 → 直接跳过，避免“看起来 100% 成功但实际上没写入”的假象。
 	if s == nil || s.vectorStore == nil {
-		return nil, 0, true, "vector_store_disabled", "vector_store_not_configured"
+		return nil, 0, true, "vector_store_disabled", "vector_store_not_configured", 0
 	}
 
 	// Space 未激活 dense index：不进行 embedding（避免额外成本），直接降级。
 	activeIndexKey := strings.TrimSpace(space.ActiveVectorIndexKey)
 	if activeIndexKey == "" {
-		return nil, 0, true, "vector_index_not_activated", "no_active_vector_index"
+		return nil, 0, true, "vector_index_not_activated", "no_active_vector_index", 0
 	}
 
 	// Space 级锁定 embedding profile（provider/model）。
 	profileKey := strings.TrimSpace(space.EmbeddingProfileKey)
 	if profileKey == "" {
-		return nil, 0, true, "embedding_not_configured", "space_embedding_profile_not_set"
+		return nil, 0, true, "embedding_not_configured", "space_embedding_profile_not_set", 0
 	}
 	provider, model, err := ParseEmbeddingProfileKey(profileKey)
 	if err != nil {
-		return nil, 0, true, "embedding_not_configured", err.Error()
+		return nil, 0, true, "embedding_not_configured", err.Error(), 0
 	}
 
 	tenantUUID := strings.ToLower(strings.TrimSpace(space.TenantUUID))
 	if tenantUUID == "" {
-		return nil, 0, true, "embedding_failed", "tenant_uuid_empty"
+		return nil, 0, true, "embedding_failed", "tenant_uuid_empty", 0
 	}
 	env, configured, err := s.agentSettings.GetTenantCurrentAIEnv(ctx, tenantUUID)
 	if err != nil {
 		if !isMissingTableError(err) {
-			return nil, 0, true, "embedding_failed", fmt.Sprintf("resolve_env_failed: %v", err)
+			return nil, 0, true, "embedding_failed", fmt.Sprintf("resolve_env_failed: %v", err), 0
 		}
 		env = "dev"
 		configured = false
@@ -393,28 +421,42 @@ func (s *IngestionService) buildVectorRecords(
 	// Load active index for dimension check.
 	activeRec, err := repo.NewKnowledgeVectorIndexRepository(s.db).FindBySpaceAndKey(ctx, space.UUID, activeIndexKey)
 	if err != nil {
-		return nil, 0, true, "vector_index_invalid", fmt.Sprintf("load_active_index_failed: %v", err)
+		return nil, 0, true, "vector_index_invalid", fmt.Sprintf("load_active_index_failed: %v", err), 0
 	}
 	if activeRec == nil || activeRec.Dimensions <= 0 {
-		return nil, 0, true, "vector_index_invalid", "active_index_not_found"
+		return nil, 0, true, "vector_index_invalid", "active_index_not_found", 0
 	}
 
 	prof, vec, err := s.resolveEmbeddingVectorizerForProfile(ctx, tenantUUID, env, provider, model)
 	if err != nil {
-		return nil, 0, true, "embedding_failed", fmt.Sprintf("resolve_embedder_failed: %v", err)
+		return nil, 0, true, "embedding_failed", fmt.Sprintf("resolve_embedder_failed: %v", err), 0
 	}
 	if vec == nil {
-		return nil, 0, true, "embedding_not_configured", "no_active_embedding_profile"
+		return nil, 0, true, "embedding_not_configured", "no_active_embedding_profile", 0
+	}
+	maxInputTokens = prof.MaxInputTokens
+	if maxInputTokens > 0 {
+		maxLen := 0
+		for _, text := range texts {
+			if n := len([]rune(text)); n > maxLen {
+				maxLen = n
+			}
+		}
+		if maxLen > maxInputTokens {
+			return nil, 0, true, "embedding_input_too_long",
+				fmt.Sprintf("embedding_input_too_long: limit=%d actual=%d (provider=%s model=%s)", maxInputTokens, maxLen, prof.Provider, prof.Model),
+				maxInputTokens
+		}
 	}
 
 	start := time.Now()
 	embeddings, err := vec.Embed(ctx, texts)
 	latency := time.Since(start)
 	if err != nil {
-		return nil, 0, true, "embedding_failed", fmt.Sprintf("embed_failed: %v", err)
+		return nil, 0, true, "embedding_failed", fmt.Sprintf("embed_failed: %v", err), maxInputTokens
 	}
 	if len(embeddings) != len(texts) {
-		return nil, 0, true, "embedding_failed", fmt.Sprintf("embed_failed: batch_mismatch (want=%d got=%d)", len(texts), len(embeddings))
+		return nil, 0, true, "embedding_failed", fmt.Sprintf("embed_failed: batch_mismatch (want=%d got=%d)", len(texts), len(embeddings)), maxInputTokens
 	}
 
 	expectedDim := activeRec.Dimensions
@@ -422,7 +464,8 @@ func (s *IngestionService) buildVectorRecords(
 		if len(embeddings[i]) != expectedDim {
 			return nil, 0, true, "embedding_dim_mismatch",
 				fmt.Sprintf("embedding_dim=%d != active_pgvector_dim=%d (provider=%s model=%s index_key=%s)",
-					len(embeddings[i]), expectedDim, prof.Provider, prof.Model, activeIndexKey)
+					len(embeddings[i]), expectedDim, prof.Provider, prof.Model, activeIndexKey),
+				maxInputTokens
 		}
 	}
 
@@ -450,5 +493,5 @@ func (s *IngestionService) buildVectorRecords(
 	}
 
 	embeddingPct = 100.0 * float64(len(records)) / float64(len(texts))
-	return records, embeddingPct, false, "", ""
+	return records, embeddingPct, false, "", "", maxInputTokens
 }

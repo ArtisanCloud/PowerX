@@ -75,7 +75,7 @@ npm run dev
 常用页面：
 - `/knowledge-spaces`：空间总览（入库 / Playground / 策略 / 数据源入口）
 - `/knowledge-spaces/create`：创建空间
-- `/knowledge-spaces/strategy`：场景（L1）→ 策略包（L2）配置 + 依赖校验 + Corpus Check 推荐
+- `/knowledge-spaces/strategy`：策略包（A0–O）配置 + 依赖校验 + 场景适配说明 + Corpus Check 推荐
 - `/knowledge-spaces/playground`：Retrieval Playground（Profile A/B 对比）
 - `/knowledge-spaces/release`：租户灰度发布
 - `/knowledge-spaces/:spaceId/sources`：连接数据源（Notion/飞书等鉴权接入的占位入口）
@@ -102,6 +102,7 @@ Contract tests rely on `specs/011-knowledge-space/contracts/http-openapi.yaml` a
    - 验收入库质量（切块预览/编辑）：
      - UI（推荐）：入库记录 ` /knowledge-spaces/{spaceId}/ingestions` → 切块预览/编辑 ` /knowledge-spaces/{spaceId}/ingestions/{jobId}`
      - API：`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs?limit=20`、`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks?page=1&pageSize=50`、`PATCH /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/chunks/{chunkId}`、`GET /api/v1/admin/knowledge-spaces/{spaceId}/ingestion-jobs/{jobId}/pages/{pageNumber}/image`（bbox 叠框预览用）
+   - WS 进度验证（可选）：打开 DevTools → Network → WS，确认 `/ws` 或 `/api/ws` 为 101，保持切块预览页打开，进度条应实时更新；断网后应回退轮询，恢复后继续推送。
 3. Publish a fusion strategy `POST /knowledge-spaces/{id}/fusion-strategies` 或 `/knowledge-spaces/fusion`，如需回滚执行 `node scripts/fusion/rollback_strategy.mjs <space> <strategy>`.
 4. Submit feedback `POST /knowledge-spaces/{id}/feedback` 或 `/knowledge-spaces/feedback`，观察 SLA 倒计时与 `knowledge.feedback.reprocess` 事件。
 5. 运行 US6–US9 的 ops 脚本（可选但建议）：
@@ -116,6 +117,6 @@ Contract tests rely on `specs/011-knowledge-space/contracts/http-openapi.yaml` a
 - [Perf & Resiliency Validation](../../docs/guides/knowledge_space/perf_validation.md)
 - [Smoke Checklist](../../docs/guides/knowledge_space/smoke_checklist.md)
 
-策略设计参考（场景 → 策略包）：
+策略设计参考（策略包 → 场景映射）：
 - [RAG Strategy Modules](../../docs/plan/AI_engineering/knowledge/rag.md)
-- [Scene → Strategy Bundle Model](../../docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md)
+- [Strategy Package → Scene Mapping](../../docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md)

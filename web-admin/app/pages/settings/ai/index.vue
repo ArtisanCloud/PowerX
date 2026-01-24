@@ -173,9 +173,10 @@ import TestPanel from "~/components/settings/ai/TestPanel.vue";
 import { useAISettingsStore } from "~/stores/aiSettings";
 import { useEnvStore, ENV_OPTIONS } from "~/stores/envStore";
 import { useUserStore } from "~/stores/user";
-import type {
-  Provider,
-  SaveSettingsPayload,
+import {
+  AISettingService,
+  type Provider,
+  type SaveSettingsPayload,
 } from "~/composables/api/services/aiSettingService";
 import type { SelectOption } from "~/composables/api/types/select";
 
@@ -384,7 +385,7 @@ const image = reactive<
 });
 
 const embedding = reactive<
-  BaseConn & { dimensions: number; truncate: string; batch: number }
+  BaseConn & { dimensions: number; truncate: string; batch: number; maxInputTokens?: number }
 >({
   provider: "openai",
   model: "text-embedding-3-small",
@@ -398,6 +399,7 @@ const embedding = reactive<
   dimensions: 1536,
   truncate: "none",
   batch: 32,
+  maxInputTokens: undefined,
 });
 
 const audioTTS = reactive<
@@ -636,7 +638,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
     case "image":
       return [...base, "size", "quality", "format", "promptHint"];
     case "embedding":
-      return [...base, "dimensions", "truncate", "batch"];
+      return [...base, "truncate", "batch"];
     case "audio_tts":
       return [...base, "voice", "speed", "format", "quality"];
     case "audio_asr":
@@ -723,6 +725,10 @@ function persistProviderDraft(
   const fields = getDraftableFields(modalityVal);
   const snapshot: Record<string, any> = {};
   for (const f of fields) {
+    if (f === "dimensions") {
+      const dim = Number.parseInt(String(state[f] ?? "0"), 10);
+      if (!Number.isFinite(dim) || dim <= 0) continue;
+    }
     snapshot[f] = state[f];
   }
   draftByProviderKey[k] = snapshot;
@@ -801,6 +807,9 @@ async function onProviderChanged(nextProvider?: string) {
   } else {
     // ✅ 该 provider 在当前模态下没有可用模型：清空，避免出现 provider=Coze 但 model=OpenAI 的错配显示
     currentState.value.model = "";
+  }
+  if (modalitySnapshot === "embedding") {
+    syncEmbeddingProbeMessageFromProfiles();
   }
 }
 
@@ -937,6 +946,49 @@ const saving = computed(() => aiSettingsStore.saving);
 const lastProbeMessage = ref("");
 const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
 
+const resolveEmbeddingMaxInputTokens = (profile: any) => {
+  if (!profile) return 0;
+  const defaults = profile?.defaults || {};
+  const capCache = (profile as any)?.capCache || {};
+  const keys = [
+    "max_input_tokens",
+    "max_tokens",
+    "context_length",
+    "context_window",
+    "context_size",
+    "max_context_tokens",
+  ];
+  for (const key of keys) {
+    const v = defaults?.[key];
+    const n = Number.parseInt(String(v ?? "0"), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  for (const key of keys) {
+    const v = capCache?.[key];
+    const n = Number.parseInt(String(v ?? "0"), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+};
+
+const resolveEmbeddingDimensionsFromProfiles = () => {
+  if (modality.value !== "embedding") return 0;
+  const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+  const curModel = String(currentState.value.model || "").trim();
+  if (!curProvider || !curModel) return 0;
+  const profile = (aiSettingsStore.profiles || []).find(
+    (p) =>
+      String(p?.modality || "").toLowerCase() === "embedding" &&
+      String(p?.provider || "").trim().toLowerCase() === curProvider &&
+      String(p?.model || "").trim() === curModel
+  );
+  if (!profile) return 0;
+  const capCache = (profile as any).capCache || {};
+  const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+  const dim = Number.parseInt(String(dimRaw || "0"), 10);
+  return Number.isFinite(dim) && dim > 0 ? dim : 0;
+};
+
 const syncEmbeddingProbeMessageFromProfiles = () => {
   if (modality.value !== "embedding") return;
   const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
@@ -948,22 +1000,39 @@ const syncEmbeddingProbeMessageFromProfiles = () => {
       String(p?.provider || "").trim().toLowerCase() === curProvider &&
       String(p?.model || "").trim() === curModel
   );
-  if (!profile) return;
+  if (!profile) {
+    return;
+  }
   const capCache = (profile as any).capCache || {};
   const probedAt = String(capCache?.probed_at || "").trim();
   const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
   const dim = Number.parseInt(String(dimRaw || "0"), 10);
+  const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
   if (Number.isFinite(dim) && dim > 0) {
     currentState.value.dimensions = dim;
   }
+  if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+    currentState.value.maxInputTokens = maxInputTokens;
+  }
   if (probedAt) {
     const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
-    lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+    lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+      Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+    }`;
   }
 };
 
 async function saveSettings() {
   try {
+    if (modality.value === "embedding") {
+      const curDim = Number.parseInt(String(currentState.value.dimensions || "0"), 10);
+      if (!Number.isFinite(curDim) || curDim <= 0) {
+        const fallbackDim = resolveEmbeddingDimensionsFromProfiles();
+        if (fallbackDim > 0) {
+          currentState.value.dimensions = fallbackDim;
+        }
+      }
+    }
     const payload = buildPayloadForCurrentModality();
     await aiSettingsStore.saveSettings(payload);
     toast.add({
@@ -1018,6 +1087,28 @@ async function testConnection() {
       if (Number.isFinite(dim) && dim > 0) {
         currentState.value.dimensions = dim;
       }
+      // 测试通过后清空草稿，避免旧草稿覆盖探测值
+      const draftKeyValue = draftKey(
+        currentState.value.provider,
+        env.value,
+        modality.value
+      );
+      delete draftByProviderKey[draftKeyValue];
+      // 记录“本次测试通过”的配置，保证刷新后仍能读取到探测结果
+      const p = String(currentState.value.provider || "").trim();
+      const m = String(currentState.value.model || "").trim();
+      if (p && m) {
+        try {
+          await AISettingService.setActiveProfile({
+            env: env.value,
+            modality: "embedding",
+            provider: p,
+            model: m,
+          });
+        } catch (error) {
+          console.warn("测试连接后设置激活配置失败", error);
+        }
+      }
       try {
         await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
         const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
@@ -1033,8 +1124,12 @@ async function testConnection() {
           const probedAt = String(capCache?.probed_at || "").trim();
           const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
           const dim = Number.parseInt(String(dimRaw || "0"), 10);
+          const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
           if (Number.isFinite(dim) && dim > 0) {
             currentState.value.dimensions = dim;
+          }
+          if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+            currentState.value.maxInputTokens = maxInputTokens;
           }
           if (profile?.defaults?.truncate) {
             currentState.value.truncate = String(profile.defaults.truncate);
@@ -1045,7 +1140,9 @@ async function testConnection() {
           }
           if (probedAt) {
             const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
-            lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+            lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+              Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+            }`;
           }
         }
       } catch {}
@@ -1117,9 +1214,7 @@ async function refreshStateForEnvAndModality() {
   if (modality.value === "embedding") {
     try {
       await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
-      if (!lastProbeMessage.value) {
-        syncEmbeddingProbeMessageFromProfiles();
-      }
+      syncEmbeddingProbeMessageFromProfiles();
     } catch {}
   }
 }
@@ -1225,8 +1320,12 @@ async function loadActiveConfiguration() {
         const probedAt = String(capCache?.probed_at || "").trim();
         const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
         const dim = Number.parseInt(String(dimRaw || "0"), 10);
+        const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
         if (Number.isFinite(dim) && dim > 0) {
           currentState.value.dimensions = dim;
+        }
+        if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+          currentState.value.maxInputTokens = maxInputTokens;
         }
         if (profile?.defaults?.truncate) {
           currentState.value.truncate = String(profile.defaults.truncate);
@@ -1237,7 +1336,9 @@ async function loadActiveConfiguration() {
         }
         if (probedAt) {
           const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
-          lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}`;
+          lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+            Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+          }`;
         } else {
           lastProbeMessage.value = "";
         }
@@ -1301,6 +1402,19 @@ watch(
     if (!curBase || (modeId === "openai" && (isTC3 || missingV1)) || needSwitchToTC3) {
       currentState.value.baseURL = defBase;
     }
+  }
+);
+
+watch(
+  () => [currentState.value.provider, currentState.value.model, modality.value] as const,
+  ([provider, model, mod]) => {
+    if (mod !== "embedding") return;
+    lastProbeMessage.value = "";
+    if (!provider || !model) return;
+    aiSettingsStore
+      .fetchProfiles(env.value, ["embedding"])
+      .then(() => syncEmbeddingProbeMessageFromProfiles())
+      .catch(() => {});
   }
 );
 

@@ -145,6 +145,7 @@
         "next": "次へ"
       },
       "strategyTemplate": "戦略テンプレート（シナリオ）",
+      "strategyPackage": "戦略パッケージ（A0–O）",
       "strategyPreview": "適用する戦略（詳細設定で上書き可能）",
       "templates": {
         "general": { "title": "汎用", "desc": "多くのドキュメントに適したデフォルト" },

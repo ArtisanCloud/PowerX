@@ -101,6 +101,34 @@
       "completedAt": "2026-01-18T20:03:37.785143+08:00"
     }
   },
+  "83a3900b-58e5-47d0-9bdd-10694897238f": {
+    "ingestion": {
+      "spaceId": "83a3900b-58e5-47d0-9bdd-10694897238f",
+      "jobId": "cfc0f7ef-c467-42e6-ae03-4f99aa504efb",
+      "status": "completed",
+      "retryCount": 0,
+      "chunkTotal": 11,
+      "summaryChunkCount": 2,
+      "paragraphChunkCount": 9,
+      "coveragePct": 100,
+      "embeddingPct": 0,
+      "maskingPct": 100,
+      "ocrRequired": false,
+      "ocrUsed": false,
+      "ocrCoveragePct": 0,
+      "ocrConfidenceBuckets": {
+        "0.0-0.5": 0,
+        "0.5-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "ocrLatencyMs": 225,
+      "ocrPages": 20,
+      "degraded": true,
+      "errorCode": "embedding_failed",
+      "reason": "embed_failed: ollama embed HTTP 400: {\"error\":\"the input length exceeds the context length\"} (url=http://localhost:11434/api/embed)",
+      "completedAt": "2026-01-23T11:53:43.291941+08:00"
+    }
+  },
   "9374840a-7e8c-4109-a02b-17c4f5e7382d": {
     "ingestion": {
       "spaceId": "9374840a-7e8c-4109-a02b-17c4f5e7382d",

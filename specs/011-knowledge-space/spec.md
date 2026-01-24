@@ -47,6 +47,22 @@ Knowledge engineers ingest long PDFs, Markdown handbooks, Excel/CSV tables, and 
 
 ---
 
+### User Story 2A - Ingestion progress realtime via WebSocket (Priority: P2)
+
+Knowledge admins monitor long-running ingestion jobs and expect real-time progress updates (stage + percentage) without manual refresh, while still falling back to polling if the WS connection drops.
+
+**Why this priority**: Ingestion loops can take minutes to hours; operators need reliable, low-latency progress visibility to diagnose stalls and confirm job health.
+
+**Independent Test**: Trigger an ingestion job, keep the chunk preview page open, and verify the progress bar updates via WS within 2 seconds; disconnect WS and confirm polling fallback still updates status.
+
+**Acceptance Scenarios**:
+
+1. **Given** an ingestion job is running, **When** the orchestrator enters a new stage (extract/chunk/embed/persist/finalize), **Then** the Web Admin receives WS progress events and updates the progress bar within 2 seconds.
+2. **Given** the WS connection drops mid-ingestion, **When** polling fallback is enabled, **Then** the UI continues to reflect status and final completion without manual refresh.
+3. **Given** multiple modules are open, **When** the user stays on a single page, **Then** only one WS connection is used and progress updates are scoped to the active tenant/job.
+
+---
+
 ### User Story 3 - Multi-source fusion strategy management (Priority: P2)
 
 Fusion operators combine long-doc, structured, and API outputs into a governed retrieval strategy that blends lexical, vector, and graph constraints while supporting versioning, rollback, and automatic degradation when sources fail.
@@ -225,25 +241,27 @@ pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一�
 - **FR-023**: Tenant release governance per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` MUST manage `tenant_release_matrix.yaml`, pilot selection, automated expansion, failure-induced rollback (<5 minutes), and cross-tenant audit/export capabilities accessible via HTTP/gRPC + CLI + Web Admin surfaces.
 - **FR-024**: All knowledge-update flows (delta, feedback, event, decay, tenant release) MUST emit metrics (`knowledge.delta.*`, `knowledge.feedback.*`, `knowledge.event.*`, `knowledge.decay.*`, `knowledge.release.*`) into OpenTelemetry, Grafana dashboards, and JSON exports (`backend/reports/_state/knowledge-{delta,feedback,event,decay,release}.json` + aggregated `knowledge-update.json`).
 
-### Scene & Strategy Bundles (RAG Productization)
+### Strategy Packages & Scene Mapping (RAG Productization)
 
-This feature MUST implement the scene-driven strategy selection model described in:
+This feature MUST implement the strategy package → scene mapping model described in:
 - `docs/plan/AI_engineering/knowledge/rag.md`
 - `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
 
 Definitions:
-- **Scene** (L1 selection): the knowledge base category + typical query intents (e.g., SOP, contract, research, ledger, SQL/KG).
-- **Strategy bundle** (L2 selection): a versioned combination of `IngestionProfile + IndexProfile + RAGProfile + Guardrails`.
+- **Strategy package** (primary selection): `rag.md` A0–O strategy packages (e.g., `A0_metadata`, `H_fusion`, `K_kg`, `O_crag`, `J_hier`).
+- **Scene**: knowledge base category + typical query intents; used for “适用场景”说明与可选过滤，不再作为强制层级。
+- **Profiles**: `IngestionProfile + IndexProfile + RAGProfile + Guardrails` remain the underlying configuration units.
 
-Non-goal: Do **not** expose a full Cartesian product of “scenes × all strategies”. Only show strategy bundles that match the scene’s index/asset prerequisites.
+Non-goal: Do **not** expose a full Cartesian product of “scenes × all strategies”. Only show scene mappings that match a strategy package’s index/asset prerequisites.
 
-- **FR-025**: The Web Admin MUST offer a unified, guided entry that supports two-level selection: `Scene → Strategy bundle`, plus a “Custom scene (expert)” option that can unlock all modules with dependency validation.
-- **FR-026**: The platform MUST enforce strategy prerequisites before allowing activation/publish (e.g., KG bundles require KG indexes/tables; high-accuracy bundles require sparse index + evidence guardrails), and MUST surface actionable remediation in UI.
-- **FR-027**: Each scene MUST map to a biased (non-full) set of strategy bundles and strategy modules as defined in `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`, including:
-  - KG as the default for the “SQL/config/dependency” scene (KG-strong), and optional KG-lite for contract scenarios.
-  - Contract/quote scenes default to evidence-first (sparse-heavy + CRAG + must-cite + time-aware).
+- **FR-025**: The Web Admin MUST offer a unified, guided entry that supports one-level selection: `Strategy package (A0–O)`, plus optional scene filtering/preview and a “Custom (expert)” option that can unlock all packages with dependency validation.
+- **FR-026**: The platform MUST enforce strategy prerequisites before allowing activation/publish (e.g., KG packages require KG indexes/tables; evidence-first packages require sparse index + evidence guardrails), and MUST surface actionable remediation in UI.
+- **FR-027**: Each strategy package (A0–O) MUST include a curated “适用场景” mapping (non-full) as defined in `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`, including:
+  - KG-default mapping for “SQL/config/dependency”.
+  - Evidence-first mapping for contract/quote.
 - **FR-028**: Ingestion profiles MUST support configurable chunking parameters (e.g., chunk size, overlap/delta, separators) with scene defaults and safe bounds, and MUST capture provenance fields required by retrieval citations.
-- **FR-029**: `make db-migrate` MUST provision knowledge-space persistence prerequisites in PostgreSQL: when `knowledge_space.vector_store.driver=pgvector`, it MUST ensure `pgvector` extension + `knowledge_vectors` table (and required indexes) exist; it MUST also provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently so KG-enabled strategy bundles can be activated without manual SQL.
+- **FR-028A**: Strategy packages MUST declare segmentation coupling (strong/weak) per `rag_scene_strategy_mode.md`. Strong-coupled packages MUST surface recommended chunking/anchors in the same configuration flow; weak-coupled packages MAY defer to the dedicated segmentation step.
+- **FR-029**: `make db-migrate` MUST provision knowledge-space persistence prerequisites in PostgreSQL: when `knowledge_space.vector_store.driver=pgvector`, it MUST ensure `pgvector` extension + `knowledge_vectors` table (and required indexes) exist; it MUST also provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently so KG-enabled strategy packages can be activated without manual SQL.
 - **FR-030**: The system MUST fail fast with actionable errors when migrations cannot create required extensions/tables (e.g. missing `CREATE EXTENSION vector` privilege), and MUST skip pgvector-only migrations when non-pgvector drivers (Milvus/Pinecone) are configured.
 - **FR-031**: The system MUST map `scene_strategy_catalog.yaml` index prerequisites to concrete storage readiness checks. When a scene/strategy enables `index.sparse`/`index.hier`/`index.structured_fields` using the Postgres-backed implementation, `make db-migrate` MUST provision the corresponding assist tables (e.g. `knowledge_chunks`, `knowledge_chunk_links`) and indexes idempotently.
 
