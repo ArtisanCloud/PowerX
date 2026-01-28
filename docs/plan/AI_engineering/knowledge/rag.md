@@ -2,7 +2,7 @@
 
 > 版本：v0.1（草稿）  
 > 目标：在 PowerX Knowledge Space 底座上，支持企业多类型文档入库与多种 RAG 策略可配置组合；上层智能体框架可替换（Eino 只是默认适配之一）。  
-> 关联文档：`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`specs/011-knowledge-space/*`
+> 关联文档：`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`docs/plan/AI_engineering/knowledge/chunking_strategy.md`、`specs/011-knowledge-space/*`
 
 ---
 
@@ -262,7 +262,7 @@ PowerX 的实现建议让 `KnowledgeQueryService` 直接产出 `RetrievalPlan`�
 | --- | --- | --- | --- |
 | SOP/产品说明（Markdown/Word） | 结构化切块 + 摘要增强 | dense + sparse + hier | hybrid + rrf + rerank + contextual |
 | 合同/报价单（PDF/Word/Excel） | 条款/表格行切块 + 字段抽取 | dense + sparse（强） + hier | sparse 优先 + hybrid + CRAG + cite |
-| 论文/研究（PDF） | semantic chunking + section 摘要 | dense + hier | hier-first + HyDE(可选) + rerank |
+| 论文/研究（PDF） | semantic chunking（智能语义=LLM，当前未接入）+ section 摘要 | dense + hier | hier-first + HyDE(可选) + rerank |
 | 台账/清单（Excel/CSV） | 行级切块 + schema 推断 | sparse + dense（行向量） | 精确过滤 + rerank(轻量) |
 | SQL/配置库 | AST 切块 + 依赖抽取 | sparse + KG（强） + dense(摘要) | KG 约束检索 + hybrid + cite |
 
@@ -310,7 +310,7 @@ PowerX 的实现建议让 `KnowledgeQueryService` 直接产出 `RetrievalPlan`�
 **最小可实现的推荐规则（示例）**
 - SOP/制度/产品手册：`hybrid + rrf + rerank + contextual`，chunking=结构化，hier=on
 - 合同/报价：`sparse 优先 + hybrid + CRAG + must_cite_sources`，表格行索引=on，time-aware=on
-- 论文/研究：`hier-first + semantic chunking + rerank + HyDE(可选)`，cite=on
+- 论文/研究：`hier-first + semantic chunking（智能语义=LLM，当前未接入）+ rerank + HyDE(可选)`，cite=on
 - SQL/数据字典：`KG 约束检索 + hybrid + cite`，AST 切块=on
 - 台账/清单：`精确过滤 + sparse + 轻 rerank`，行级索引=on
 

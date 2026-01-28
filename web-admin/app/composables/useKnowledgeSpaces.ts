@@ -165,6 +165,8 @@ export interface IngestionJobRecord {
   chunkCoveragePct: number;
   embeddingSuccessPct: number;
   embeddingMaxInputTokens?: number;
+  embeddingProvider?: string;
+  embeddingModel?: string;
   maskingCoveragePct: number;
   segmentMode?: string;
   chunkSize?: number;

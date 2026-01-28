@@ -44,7 +44,7 @@ type ChunkAnchors struct {
 
 // ChunkDocument converts processed document units into multi-granularity chunks.
 // It emits at least: doc_summary, section_summary, chunk.
-func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []DocumentUnit, opts ChunkingOptions) []IngestionChunk {
+func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []DocumentUnit, opts ChunkingOptions, onProgress func(done, total float64)) []IngestionChunk {
 	normalizedFormat := strings.ToLower(strings.TrimSpace(format))
 	src := strings.TrimSpace(sourceURI)
 	mode := strings.ToLower(strings.TrimSpace(opts.Mode))
@@ -75,6 +75,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 	}
 	chunks = append(chunks, docSummary)
 
+	totalUnits := len(units)
 	for idx, unit := range units {
 		prov := unit.Provenance
 		if prov == nil {
@@ -98,6 +99,9 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 
 		content := strings.TrimSpace(unit.Content)
 		if content == "" {
+			if onProgress != nil && totalUnits > 0 {
+				onProgress(float64(idx+1), float64(totalUnits))
+			}
 			continue
 		}
 		parts := applySegmentOrder(content, mode, opts)
@@ -106,6 +110,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 		}
 
 		chunkCounter := 0
+		partTotal := len(parts)
 		for partIdx, part := range parts {
 			partText := strings.TrimSpace(part.Text)
 			if partText == "" {
@@ -144,6 +149,16 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 				Metadata:   meta,
 				Confidence: unit.Confidence,
 			})
+			if onProgress != nil && totalUnits > 0 {
+				denom := partTotal
+				if denom <= 0 {
+					denom = 1
+				}
+				onProgress(float64(idx)+float64(partIdx+1)/float64(denom), float64(totalUnits))
+			}
+		}
+		if partTotal == 0 && onProgress != nil && totalUnits > 0 {
+			onProgress(float64(idx+1), float64(totalUnits))
 		}
 	}
 
@@ -196,7 +211,7 @@ func mergePDFUnits(units []DocumentUnit) []DocumentUnit {
 	return []DocumentUnit{merged}
 }
 
-func normalizeSegmentOrder(order []string) []string {
+func normalizeSegmentOrder(order []string, mode string) []string {
 	allowed := map[string]struct{}{
 		"page":      {},
 		"size":      {},
@@ -220,7 +235,10 @@ func normalizeSegmentOrder(order []string) []string {
 		out = append(out, key)
 	}
 	if len(out) == 0 {
-		return []string{"page", "size", "segment", "separator"}
+		if strings.EqualFold(strings.TrimSpace(mode), "unit") {
+			return []string{"page", "size", "segment", "separator"}
+		}
+		return []string{"page", "segment", "size", "separator"}
 	}
 	return out
 }
@@ -278,7 +296,7 @@ func normalizeOverlap(size int, overlap int) int {
 func applySegmentOrder(content string, mode string, opts ChunkingOptions) []segmentPart {
 	parts := []segmentPart{{Text: content}}
 	contentLen := utf8.RuneCountInString(content)
-	order := normalizeSegmentOrder(opts.SegmentOrder)
+	order := normalizeSegmentOrder(opts.SegmentOrder, mode)
 	locked := false
 
 	for _, step := range order {

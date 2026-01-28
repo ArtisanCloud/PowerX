@@ -37,6 +37,21 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   return `${protocol}//${location.host}/api/ws?authorization=${auth}${tenantQuery}`;
 };
 
+const normalizePayload = (payload: unknown) => {
+  if (typeof payload !== "string") return payload;
+  const trimmed = payload.trim();
+  if (!trimmed) return payload;
+  const looksJSON =
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"));
+  if (!looksJSON) return payload;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return payload;
+  }
+};
+
 const resetConnection = (reason?: string, keepReconnect = true) => {
   if (reason) wsError.value = reason;
   if (reconnectTimer) {
@@ -119,7 +134,8 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
       if (!env || !env.type) return;
       if (env.type === WS_BUS_TYPE.EVENT && env.topic && subscriptions.has(env.topic)) {
         const handlers = Array.from(subscriptions.get(env.topic) || []);
-        handlers.forEach((handler) => handler(env.payload, env));
+        const payload = normalizePayload(env.payload);
+        handlers.forEach((handler) => handler(payload, env));
       }
     } catch {
       // ignore

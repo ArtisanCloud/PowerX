@@ -246,6 +246,11 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 		pageSize = 200
 	}
 
+	isRunning := func(status string) bool {
+		s := strings.ToLower(strings.TrimSpace(status))
+		return s == "running" || s == "retrying" || s == "pending"
+	}
+
 	// Prefer DB chunk store when available (truth source). Fallback to chunk_manifest when DB is unavailable or empty.
 	if repo := knowledgeRepo.NewKnowledgeChunkRepository(h.db); repo != nil {
 		rows, total, err := repo.ListByJob(c.Request.Context(), spaceID, jobID, page, pageSize)
@@ -299,6 +304,19 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 		return
 	}
 	if bundle == nil {
+		if isRunning(job.Status) {
+			dto.ResponseSuccess(c, ingestionChunkListResponse{
+				SpaceID:   spaceID.String(),
+				JobID:     jobID.String(),
+				Format:    strings.TrimSpace(job.SourceType),
+				SourceURI: "",
+				Total:     0,
+				Page:      page,
+				PageSize:  pageSize,
+				Items:     []ingestionChunkView{},
+			})
+			return
+		}
 		dto.ResponseError(c, http.StatusNotFound, "产物未生成或已清理", errors.New("bundle not found"))
 		return
 	}
@@ -306,6 +324,19 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 	if strings.TrimSpace(bundle.ChunkManifestURI) == "" {
 		if strings.TrimSpace(job.ErrorCode) != "" {
 			dto.ResponseError(c, http.StatusFailedDependency, fmt.Sprintf("切块产物缺失（入库失败）：%s %s", job.ErrorCode, job.BlockedReason), errors.New("chunk manifest missing"))
+			return
+		}
+		if isRunning(job.Status) {
+			dto.ResponseSuccess(c, ingestionChunkListResponse{
+				SpaceID:   spaceID.String(),
+				JobID:     jobID.String(),
+				Format:    strings.TrimSpace(job.SourceType),
+				SourceURI: "",
+				Total:     0,
+				Page:      page,
+				PageSize:  pageSize,
+				Items:     []ingestionChunkView{},
+			})
 			return
 		}
 		dto.ResponseError(c, http.StatusNotFound, "产物未生成或已清理", errors.New("chunk manifest missing"))
@@ -325,6 +356,19 @@ func (h *IngestionHandler) Chunks(c *gin.Context) {
 	if err != nil {
 		if strings.TrimSpace(job.ErrorCode) != "" {
 			dto.ResponseError(c, http.StatusFailedDependency, fmt.Sprintf("读取产物失败（入库失败）：%s %s", job.ErrorCode, job.BlockedReason), err)
+			return
+		}
+		if isRunning(job.Status) {
+			dto.ResponseSuccess(c, ingestionChunkListResponse{
+				SpaceID:   spaceID.String(),
+				JobID:     jobID.String(),
+				Format:    strings.TrimSpace(job.SourceType),
+				SourceURI: "",
+				Total:     0,
+				Page:      page,
+				PageSize:  pageSize,
+				Items:     []ingestionChunkView{},
+			})
 			return
 		}
 		dto.ResponseError(c, http.StatusNotFound, "读取产物失败", err)

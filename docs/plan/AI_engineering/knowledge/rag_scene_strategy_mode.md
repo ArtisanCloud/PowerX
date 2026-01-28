@@ -2,7 +2,7 @@
 
 > 目的：把 `rag.md` 的策略包（A0–O）作为第一层选择项；场景只作为“适用范围/映射说明”，不再承担第一层筛选职责。
 >
-> 关联：`docs/plan/AI_engineering/knowledge/rag.md`、`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`specs/011-knowledge-space/*`
+> 关联：`docs/plan/AI_engineering/knowledge/rag.md`、`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`docs/plan/AI_engineering/knowledge/chunking_strategy.md`、`specs/011-knowledge-space/*`
 
 ---
 

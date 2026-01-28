@@ -188,9 +188,36 @@ const refreshQaStatus = async () => {
   }
 };
 
-type SegmentOrderKey = "page" | "size" | "segment" | "separator";
+type SegmentOrderKey = "page" | "size" | "separator";
+type SegmentStepKey = "page" | "size" | "segment" | "separator";
 
-const defaultSegmentOrder: SegmentOrderKey[] = ["page", "size", "segment", "separator"];
+const segmentOrderDefaultForMode = (): SegmentOrderKey[] => ["page", "size", "separator"];
+const insertSegmentStep = (
+	order: SegmentOrderKey[],
+	mode: SegmentMode | string,
+	enabled: boolean,
+): SegmentStepKey[] => {
+	if (!enabled) return [...order];
+	const normalized = String(mode || "").toLowerCase();
+	const steps: SegmentStepKey[] = [...order];
+	const sizeIdx = steps.indexOf("size");
+	const separatorIdx = steps.indexOf("separator");
+	if (normalized === "unit") {
+		if (sizeIdx === -1) {
+			steps.push("segment");
+			return steps;
+		}
+		steps.splice(sizeIdx + 1, 0, "segment");
+		return steps;
+	}
+	const insertAt = [sizeIdx, separatorIdx].filter((idx) => idx >= 0).sort((a, b) => a - b)[0];
+	if (typeof insertAt !== "number") {
+		steps.push("segment");
+		return steps;
+	}
+	steps.splice(insertAt, 0, "segment");
+	return steps;
+};
 
 const ingestionForm = reactive({
 	spaceId: "",
@@ -205,8 +232,10 @@ const ingestionForm = reactive({
 	chunkSize: 800,
 	chunkOverlap: 120,
 	segmentSizePolicy: "target" as "cap" | "target",
-	segmentOrder: [...defaultSegmentOrder],
+	segmentOrder: segmentOrderDefaultForMode(),
 	pagePriority: false,
+	segmentEnabled: true,
+	separatorEnabled: true,
 	anchorHeadingPath: true,
 	anchorClauseId: false,
 	anchorRowNumber: false,
@@ -434,42 +463,38 @@ const segmentModeOptions = computed(() => {
 });
 
 const segmentOrderLabels: Record<SegmentOrderKey, string> = {
-	page: "分页（PDF）",
+	page: "分页（按页）",
+	size: "字数策略",
+	separator: "分隔符",
+};
+
+const segmentOrderHelp: Record<SegmentOrderKey, string> = {
+	page: "有分页信息时生效；没有分页信息将自动跳过",
+	size: "目标/上限两种策略",
+	separator: "自定义分隔符的切分优先级",
+};
+
+const segmentPreviewLabels: Record<SegmentStepKey, string> = {
+	page: "分页（按页）",
 	size: "字数策略",
 	segment: "分段模式",
 	separator: "分隔符",
 };
 
-const segmentOrderHelp: Record<SegmentOrderKey, string> = {
-	page: "仅 PDF 生效；决定是否先按页分桶",
-	size: "目标/上限两种策略",
-	segment: "heading / semantic / clause 等",
-	separator: "自定义分隔符的切分优先级",
+const defaultSegmentOrder = computed(() => segmentOrderDefaultForMode());
+const draggingSegmentKey = ref<SegmentOrderKey | null>(null);
+const segmentOrderTouched = ref(false);
+
+const isSegmentStepEnabled = (key: SegmentStepKey) => {
+	if (key === "page") return ingestionForm.pagePriority;
+	if (key === "segment") return ingestionForm.segmentEnabled;
+	if (key === "separator") return ingestionForm.separatorEnabled;
+	return true;
 };
 
-const draggingSegmentKey = ref<SegmentOrderKey | null>(null);
-
-const isSegmentStepEnabled = (key: SegmentOrderKey) =>
-	ingestionForm.segmentOrder.includes(key);
-
 const toggleSegmentStep = (key: SegmentOrderKey, enabled: boolean) => {
-	const order = [...ingestionForm.segmentOrder];
-	const idx = order.indexOf(key);
-	if (enabled) {
-		if (idx !== -1) return;
-		const sizeIdx = order.indexOf("size");
-		if (sizeIdx !== -1) {
-			order.splice(sizeIdx + 1, 0, key);
-		} else {
-			order.push(key);
-		}
-	} else if (idx !== -1) {
-		order.splice(idx, 1);
-	}
-	ingestionForm.segmentOrder = order;
-	if (!enabled && key === "segment") {
-		ingestionForm.segmentMode = "unit";
-	}
+	if (key === "segment") ingestionForm.segmentEnabled = enabled;
+	if (key === "separator") ingestionForm.separatorEnabled = enabled;
 };
 
 const moveSegmentOrder = (from: number, to: number) => {
@@ -478,6 +503,7 @@ const moveSegmentOrder = (from: number, to: number) => {
 	const [item] = order.splice(from, 1);
 	order.splice(to, 0, item);
 	ingestionForm.segmentOrder = order;
+	segmentOrderTouched.value = true;
 };
 
 const onSegmentDragStart = (key: SegmentOrderKey) => {
@@ -596,10 +622,20 @@ const chunkSizePolicyHelp = computed(() =>
 		: "只在超过上限时切分，不会合并短段（更保守）。"
 );
 
+const effectiveSegmentOrder = computed(() =>
+	insertSegmentStep(
+		(ingestionForm.segmentOrder.length ? ingestionForm.segmentOrder : defaultSegmentOrder.value).filter((key) =>
+			isSegmentStepEnabled(key),
+		),
+		ingestionForm.segmentMode,
+		ingestionForm.segmentEnabled,
+	),
+);
+
 const segmentPreviewOrder = computed(() => {
-	const order = ingestionForm.segmentOrder.length ? ingestionForm.segmentOrder : defaultSegmentOrder;
+	const order = effectiveSegmentOrder.value;
 	return order.map((key) => {
-		const label = segmentOrderLabels[key] || key;
+		const label = segmentPreviewLabels[key] || key;
 		if (key === "page") {
 			return `${label}${ingestionForm.pagePriority ? "" : "（未启用）"}`;
 		}
@@ -636,7 +672,7 @@ const chunkingFlowHint = computed(() => {
 	].filter(Boolean);
 	const anchorText = anchors.length ? anchors.join(" / ") : "无";
 	const steps: string[] = [];
-	const order = ingestionForm.segmentOrder.length ? ingestionForm.segmentOrder : defaultSegmentOrder;
+	const order = effectiveSegmentOrder.value;
 	let stepIndex = 1;
 	const windowHint = size > 0 ? "超长再按分隔符优先、窗口长度兜底切分" : "不做长度窗口切分";
 
@@ -651,7 +687,7 @@ const chunkingFlowHint = computed(() => {
 				steps.push("- 先把整篇文档拆成“页级单位”（每页一个大块）");
 				steps.push("- 这一步只决定“分桶边界”，不会做最终切块");
 				if (!pageFirst) {
-					steps.push("- 已跳过（未启用或非 PDF）");
+					steps.push("- 已跳过（未启用或无页信息）");
 				}
 				stepIndex += 1;
 				break;
@@ -672,27 +708,19 @@ const chunkingFlowHint = computed(() => {
 				break;
 			}
 			case "segment": {
-				steps.push(`${stepIndex}. 分段模式（segmentMode）`);
-				if (!isSegmentStepEnabled("segment")) {
-					steps.push("- 已关闭");
-				} else {
+					steps.push(`${stepIndex}. 分段模式（segmentMode）`);
 					steps.push(`- 当前模式: ${modeLabel}`);
 					steps.push("- 例如 heading/semantic/clause 等");
+					stepIndex += 1;
+					break;
 				}
-				stepIndex += 1;
-				break;
-			}
-			case "separator": {
-				steps.push(`${stepIndex}. 分隔符（separators）`);
-				if (!isSegmentStepEnabled("separator")) {
-					steps.push("- 已关闭");
-				} else {
+				case "separator": {
+					steps.push(`${stepIndex}. 分隔符（separators）`);
 					steps.push(`- 分隔符: ${separators}`);
 					steps.push(`- ${windowHint}`);
+					stepIndex += 1;
+					break;
 				}
-				stepIndex += 1;
-				break;
-			}
 			default:
 				break;
 		}
@@ -1118,12 +1146,20 @@ watch(
 );
 
 watch(
-  () => ingestionForm.spaceId,
-  (id) => {
-    if (!process.client) return;
-    if (id) localStorage.setItem(lastSelectedSpaceKey, id);
+	() => ingestionForm.spaceId,
+	(id) => {
+		if (!process.client) return;
+		if (id) localStorage.setItem(lastSelectedSpaceKey, id);
 		if (id) syncStrategyPackageFromSpace(id);
-  },
+	},
+);
+
+watch(
+	() => ingestionForm.segmentMode,
+	(mode) => {
+		if (segmentOrderTouched.value) return;
+		ingestionForm.segmentOrder = [...segmentOrderDefaultForMode()];
+	},
 );
 
 onMounted(async () => {
@@ -1513,7 +1549,10 @@ const openIngestionModal = async () => {
 	ingestionForm.maskingProfile = "";
 	ingestionForm.ocrRequired = false;
 	ingestionForm.pagePriority = false;
-	ingestionForm.segmentOrder = [...defaultSegmentOrder];
+	ingestionForm.segmentOrder = [...defaultSegmentOrder.value];
+	segmentOrderTouched.value = false;
+	ingestionForm.segmentEnabled = true;
+	ingestionForm.separatorEnabled = true;
 	ingestionForm.segmentSizePolicy = "target";
 	if (ingestionForm.spaceId) syncStrategyPackageFromSpace(ingestionForm.spaceId);
 	ingestionModalOpen.value = true;
@@ -1794,7 +1833,7 @@ const submitIngestion = async () => {
 			chunkSize: ingestionForm.chunkSize,
 			chunkOverlap: ingestionForm.chunkOverlap,
 			segmentSizePolicy: ingestionForm.segmentSizePolicy,
-			segmentOrder: ingestionForm.segmentOrder,
+			segmentOrder: effectiveSegmentOrder.value,
 			separators: effectiveSeparators.value,
 			pagePriority: ingestionForm.pagePriority,
 			anchorHeadingPath: ingestionForm.anchorHeadingPath,
@@ -2368,7 +2407,7 @@ const applyRemediationAction = (action: any) => {
                     <div class="rounded-lg border border-gray-200 p-3">
                       <div class="text-sm font-medium">切分优先级（可拖拽排序）</div>
                       <div class="text-xs text-[var(--text-secondary)] mt-1">
-                        从上到下依次执行。未勾选分页时，“分页”步骤自动跳过。
+                        从上到下依次执行；这里只包含“分页/字数/分隔符”的顺序。
                       </div>
                       <div class="mt-3 space-y-2">
                         <div
@@ -2396,11 +2435,6 @@ const applyRemediationAction = (action: any) => {
                               v-model="ingestionForm.pagePriority"
                             />
                             <UCheckbox
-                              v-if="key === 'segment'"
-                              :model-value="isSegmentStepEnabled('segment')"
-                              @update:model-value="(v:boolean) => toggleSegmentStep('segment', v)"
-                            />
-                            <UCheckbox
                               v-if="key === 'separator'"
                               :model-value="isSegmentStepEnabled('separator')"
                               @update:model-value="(v:boolean) => toggleSegmentStep('separator', v)"
@@ -2426,25 +2460,29 @@ const applyRemediationAction = (action: any) => {
                       </div>
                     </div>
                   </div>
-                  <UFormField label="分段模式（分隔策略）" required>
-                    <USelect
-                      v-model="ingestionForm.segmentMode"
-                      :items="segmentModeOptions"
-                      class="w-full"
-                    />
-                    <template #help>
-                      <span class="text-xs text-[var(--text-secondary)]">
-                        {{ segmentModeHint }}
-                      </span>
-                    </template>
-                  </UFormField>
-                  <UFormField v-if="showPagePriority" label="分页优先（仅 PDF）">
+                  <UFormField v-if="showPagePriority" label="分页优先（有页信息时生效）">
                     <UCheckbox v-model="ingestionForm.pagePriority">
                       先按页切分，再在页内按分段模式处理
                     </UCheckbox>
                     <template #help>
                       <span class="text-xs text-[var(--text-secondary)]">
                         勾选后不会跨页合并，页内仍按分隔符/长度窗口切分。
+                      </span>
+                    </template>
+                  </UFormField>
+                  <UFormField label="分段模式（怎么找边界）">
+                    <div class="flex items-center gap-2">
+                      <UCheckbox v-model="ingestionForm.segmentEnabled">启用分段模式</UCheckbox>
+                    </div>
+                    <USelect
+                      v-model="ingestionForm.segmentMode"
+                      :items="segmentModeOptions"
+                      :disabled="!ingestionForm.segmentEnabled"
+                      class="w-full mt-2"
+                    />
+                    <template #help>
+                      <span class="text-xs text-[var(--text-secondary)]">
+                        {{ segmentModeHint }}
                       </span>
                     </template>
                   </UFormField>

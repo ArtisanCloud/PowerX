@@ -36,9 +36,11 @@ const kindFilter = ref<string>("auto");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let progressTimer: ReturnType<typeof setTimeout> | null = null;
+let staleProgressTimer: ReturnType<typeof setInterval> | null = null;
 let pendingProgress: IngestionProgress | null = null;
 let lastJobStatus = "";
 let unsubscribeIngestionProgress: (() => void) | null = null;
+const lastProgressAt = ref<number>(0);
 
 const editOpen = ref(false);
 const editing = ref(false);
@@ -165,6 +167,8 @@ const segmentStrategyLines = computed(() => {
   const overlap = Number(info.chunkOverlap || 0);
   const sizePolicyRaw = String(info.segmentSizePolicy || "cap").toLowerCase();
   const sizePolicy = sizePolicyRaw === "target" ? "目标" : "上限";
+  const embeddingProvider = String(info.embeddingProvider || "").trim();
+  const embeddingModel = String(info.embeddingModel || "").trim();
   const embeddingLimit = Number(info.embeddingMaxInputTokens || 0);
   const separatorsArr = info.separators || [];
   const separators =
@@ -191,6 +195,9 @@ const segmentStrategyLines = computed(() => {
     `锚点：${anchors || "-"}`,
     note,
   ];
+  if (embeddingProvider || embeddingModel) {
+    lines.splice(4, 0, `Embedding 模型：${embeddingProvider || "-"} / ${embeddingModel || "-"}`);
+  }
   if (embeddingLimit > 0) {
     lines.splice(4, 0, `Embedding 上限：${embeddingLimit}（字符/近似 token）`);
   }
@@ -300,10 +307,22 @@ const filteredCountHint = computed(() => {
   return `显示 ${shown} 条${kindHint ? `（${kindHint}）` : ""} / 共 ${total} 条`;
 });
 
-const fetchChunks = async () => {
+const emptyChunksHint = computed(() => {
+  const total = Number(result.value?.total ?? 0);
+  if (total > 0) return "";
+  const expected = Number(jobInfo.value?.chunkTotal ?? 0);
+  if (expected > 0) {
+    return "等待 WS 通知切块落盘；如长时间无变化，请手动刷新。";
+  }
+  return "如果任务刚完成，产物可能仍在写入；稍后刷新再试。";
+});
+
+const fetchChunks = async (opts: { silent?: boolean } = {}) => {
   if (!embeddingReady.value) return;
   if (!spaceId.value || !jobId.value) return;
-  loading.value = true;
+  if (!opts.silent) {
+    loading.value = true;
+  }
   error.value = null;
   spaceMissing.value = false;
   try {
@@ -323,7 +342,9 @@ const fetchChunks = async () => {
     }
     result.value = null;
   } finally {
-    loading.value = false;
+    if (!opts.silent) {
+      loading.value = false;
+    }
   }
 };
 
@@ -332,6 +353,7 @@ const fetchJobStatus = async () => {
   if (!spaceId.value || !jobId.value) return;
   try {
     jobInfo.value = await api.getIngestionJob(spaceId.value, jobId.value);
+    touchProgress();
   } catch {
     // ignore
   }
@@ -375,7 +397,7 @@ const fetchSpaceAndAsset = async () => {
 onMounted(async () => {
   if (!(await ensureEmbeddingReady())) return;
   embeddingReady.value = true;
-  await fetchChunks();
+  await fetchChunks({ silent: true });
   await fetchSpaceAndAsset();
   if (process.client) {
     wsBus.connect();
@@ -390,6 +412,10 @@ onBeforeUnmount(() => {
   if (progressTimer) {
     clearTimeout(progressTimer);
     progressTimer = null;
+  }
+  if (staleProgressTimer) {
+    clearInterval(staleProgressTimer);
+    staleProgressTimer = null;
   }
   if (unsubscribeIngestionProgress) {
     unsubscribeIngestionProgress();
@@ -409,6 +435,7 @@ watch(
   () => [wsBus.connected.value, jobInfo.value?.status] as const,
   () => {
     ensurePolling();
+    ensureStalePolling();
   }
 );
 
@@ -427,8 +454,8 @@ watch(
 
 const sourceLink = computed(() => String(result.value?.sourceUri || "").trim());
 const format = computed(() => String(result.value?.format || "").trim());
-const wsRealtimeLabel = computed(() => (wsBus.connected.value ? "实时" : "轮询"));
-const wsRealtimeDesc = computed(() => (wsBus.connected.value ? "WS 已连接" : "WS 未连接，使用轮询兜底"));
+const wsRealtimeLabel = computed(() => (wsBus.connected.value ? "实时" : "离线"));
+const wsRealtimeDesc = computed(() => (wsBus.connected.value ? "WS 已连接" : "WS 未连接，请手动刷新"));
 const statusColor = computed(() => {
   const s = String(jobInfo.value?.status || "").toLowerCase();
   if (s === "completed") return "success";
@@ -436,7 +463,11 @@ const statusColor = computed(() => {
   if (s === "blocked") return "warning";
   return "neutral";
 });
-const showProgress = computed(() => isRunningStatus(jobInfo.value?.status));
+const showProgress = computed(() => {
+  if (isRunningStatus(jobInfo.value?.status)) return true;
+  if (isRunningStatus(wsProgress.value?.status)) return true;
+  return loading.value && !jobInfo.value && !wsProgress.value;
+});
 
 const coerceProgress = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -479,30 +510,26 @@ const chunkSourceURL = (item: IngestionChunkRecord) => {
 };
 
 const ensurePolling = () => {
-  const running = isRunningStatus(jobInfo.value?.status);
-  if (!running || wsBus.connected.value) {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-    return;
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
-  if (pollTimer) return;
-  pollTimer = setInterval(async () => {
-    if (!embeddingReady.value) return;
-    await fetchJobStatus();
-    if (!isRunningStatus(jobInfo.value?.status)) {
-      await fetchChunks();
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    }
-  }, 5000);
+};
+
+const touchProgress = () => {
+  lastProgressAt.value = Date.now();
+};
+
+const ensureStalePolling = () => {
+  if (staleProgressTimer) {
+    clearInterval(staleProgressTimer);
+    staleProgressTimer = null;
+  }
 };
 
 const applyProgressUpdate = async (payload: IngestionProgress) => {
   if (!payload || payload.job_uuid !== jobId.value) return;
+  touchProgress();
   wsProgress.value = payload;
   if (!jobInfo.value) {
     jobInfo.value = {
@@ -530,7 +557,7 @@ const applyProgressUpdate = async (payload: IngestionProgress) => {
   const terminal = !isRunningStatus(payload.status);
   if (terminal && lastJobStatus !== payload.status) {
     lastJobStatus = payload.status;
-    await fetchChunks();
+    await fetchChunks({ silent: true });
   }
 };
 
@@ -823,7 +850,12 @@ const saveEdit = async () => {
           <span>·</span>
           <span>进度：{{ displayProgress.toFixed(0) }}%</span>
         </div>
-        <UProgress :value="displayProgress" color="primary" />
+        <div class="h-2 rounded-full bg-[var(--border-color)] overflow-hidden" dir="ltr">
+          <div
+            class="h-full bg-primary transition-[width] duration-300"
+            :style="{ width: `${Math.min(100, Math.max(0, Number.isFinite(displayProgress) ? displayProgress : 0))}%` }"
+          />
+        </div>
       </div>
     </UCard>
 
@@ -875,7 +907,7 @@ const saveEdit = async () => {
         color="neutral"
         variant="soft"
         title="暂无切块"
-        description="如果任务刚完成，产物可能仍在写入；稍后刷新再试。"
+        :description="emptyChunksHint"
       />
 
       <div v-else class="space-y-2">

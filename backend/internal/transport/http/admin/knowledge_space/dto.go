@@ -154,6 +154,8 @@ type ingestionJobView struct {
 	ChunkCoveragePct    float64 `json:"chunkCoveragePct"`
 	EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
 	EmbeddingMaxInputTokens int `json:"embeddingMaxInputTokens,omitempty"`
+	EmbeddingProvider   string  `json:"embeddingProvider,omitempty"`
+	EmbeddingModel      string  `json:"embeddingModel,omitempty"`
 	MaskingCoveragePct  float64 `json:"maskingCoveragePct"`
 	SegmentMode         string  `json:"segmentMode,omitempty"`
 	ChunkSize           int     `json:"chunkSize,omitempty"`
@@ -178,6 +180,8 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 	chunkOverlap := readIntSnap(snap, "chunk_overlap")
 	segmentSizePolicy := readStringSnap(snap, "segment_size_policy")
 	embeddingMaxInputTokens := readIntSnap(snap, "embedding_max_input_tokens")
+	embeddingProvider := readStringSnap(snap, "embedding_provider")
+	embeddingModel := readStringSnap(snap, "embedding_model")
 	separators := readStringSliceSnap(snap, "separators")
 	pagePriority := readBoolSnap(snap, "page_priority")
 	segmentOrder := readStringSliceSnap(snap, "segment_order")
@@ -192,6 +196,8 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 		ChunkCoveragePct:    job.ChunkCoveredPct,
 		EmbeddingSuccessPct: job.EmbeddingSuccessPct,
 		EmbeddingMaxInputTokens: embeddingMaxInputTokens,
+		EmbeddingProvider:   embeddingProvider,
+		EmbeddingModel:      embeddingModel,
 		MaskingCoveragePct:  job.MaskingCoveragePct,
 		SegmentMode:         segmentMode,
 		ChunkSize:           chunkSize,
