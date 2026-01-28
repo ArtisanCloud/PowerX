@@ -1,9 +1,0 @@
-Phase,Owner,Planned Finish,Actual Finish,Status,Notes
-T8.1 数据层收尾,@kevin,2025-02-07,,pending,等待 staging schema diff 完成
-T8.2 代码层清理,@backend-apps,2025-02-14,2025-12-07,done,tenant resolver 依赖已清零
-T8.2-IAM 清理,@iam-team,2025-01-10,,pending,`tmp/tenant-id-report.md` Top #2/#7/#16
-T8.2-Agent 清理,@agent-team,2025-01-10,,pending,Top #3/#4/#6/#8/#10
-T8.2-Workflow 清理,@workflow-team,2025-01-24,,pending,Top #5/#14
-T8.2-Capability 清理,@capability-team,2025-01-24,2025-12-07,done,HTTP/Service/gRPC 仅用 tenant_uuid
-T8.2-RepoCore 清理,@backend-core,2025-01-17,,pending,Top #9/#15/#24/#30
-T8.3 中间件/配置,@lily,2025-02-21,2025-12-07,done,移除 fallback env + 统一 tenant_header_reject_total

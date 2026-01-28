@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useKnowledgeSpaces, type IngestionJobRecord } from "~/composables/useKnowledgeSpaces";
 import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
+import { useWSBus } from "~/composables/useWSBus";
+import { type IngestionProgress } from "~/composables/wsBus";
 
 useHead({ title: "入库记录" });
 
@@ -10,6 +12,7 @@ const router = useRouter();
 const api = useKnowledgeSpaces();
 const toast = useToast();
 const { ensureEmbeddingReady } = useEmbeddingGuard();
+const wsBus = useWSBus();
 const embeddingReady = ref(false);
 
 const spaceId = computed(() => String(route.params.spaceId || "").trim());
@@ -37,6 +40,7 @@ const fetchJobs = async () => {
 };
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
+let unsubscribeIngestionProgress: (() => void) | null = null;
 
 const startPolling = () => {
   if (pollingTimer) return;
@@ -59,9 +63,19 @@ onMounted(async () => {
   embeddingReady.value = true;
   await fetchJobs();
   startPolling();
+  if (process.client) {
+    wsBus.connect();
+    subscribeIngestionProgress();
+  }
 });
 watch(() => spaceId.value, fetchJobs);
-onUnmounted(() => stopPolling());
+onUnmounted(() => {
+  stopPolling();
+  if (unsubscribeIngestionProgress) {
+    unsubscribeIngestionProgress();
+    unsubscribeIngestionProgress = null;
+  }
+});
 
 const goBack = async () => {
   if (process.client && window.history.length > 1) {
@@ -132,6 +146,55 @@ const jobProgressPct = (job: IngestionJobRecord) => {
   if (!Number.isFinite(pct) || pct < 0) return 0;
   return Math.min(100, Math.max(0, pct));
 };
+
+const hasRunningJobs = computed(() => jobs.value.some((j) => isRunningStatus(j.status)));
+
+const applyProgressUpdate = (payload: IngestionProgress) => {
+  if (!payload || payload.space_uuid !== spaceId.value) return;
+  const idx = jobs.value.findIndex((j) => j.jobId === payload.job_uuid);
+  if (idx < 0) return;
+  const prev = jobs.value[idx];
+  jobs.value[idx] = {
+    ...prev,
+    status: payload.status || prev.status,
+    chunkTotal: payload.chunk_total ?? prev.chunkTotal,
+    chunkCoveragePct: Number.isFinite(payload.progress) ? payload.progress : prev.chunkCoveragePct,
+    embeddingSuccessPct: Number.isFinite(payload.embedding_pct) ? payload.embedding_pct : prev.embeddingSuccessPct,
+    maskingCoveragePct: Number.isFinite(payload.masking_pct) ? payload.masking_pct : prev.maskingCoveragePct,
+  };
+};
+
+const subscribeIngestionProgress = () => {
+  if (unsubscribeIngestionProgress) return;
+  unsubscribeIngestionProgress = wsBus.subscribe("knowledge.ingestion.job", (payload) => {
+    if (!payload) return;
+    applyProgressUpdate(payload as IngestionProgress);
+  });
+};
+
+watch(
+  () => wsBus.activeTenant.value,
+  () => {
+    if (!process.client) return;
+    if (unsubscribeIngestionProgress) {
+      unsubscribeIngestionProgress();
+      unsubscribeIngestionProgress = null;
+    }
+    wsBus.connect();
+    subscribeIngestionProgress();
+  }
+);
+
+watch(
+  () => [wsBus.connected.value, hasRunningJobs.value] as const,
+  ([connected, running]) => {
+    if (!running || connected) {
+      stopPolling();
+      return;
+    }
+    startPolling();
+  }
+);
 </script>
 
 <template>

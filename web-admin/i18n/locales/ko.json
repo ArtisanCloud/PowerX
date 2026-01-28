@@ -145,6 +145,7 @@
         "next": "다음"
       },
       "strategyTemplate": "전략 템플릿(시나리오)",
+      "strategyPackage": "전략 패키지(A0–O)",
       "strategyPreview": "적용될 전략(고급 설정에서 변경 가능)",
       "templates": {
         "general": { "title": "일반", "desc": "대부분 문서에 적합한 기본값" },

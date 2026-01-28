@@ -121,8 +121,8 @@ Web Admin 当前已提供最小验收链路：
 
 ## 5) 你现在先怎么测“第一个场景”？
 
-建议先用 `docs/guides/knowledge_space/scenary/SCN-001_basic_ingestion_and_playground.md` 跑通最小闭环（空间→入库→Playground），再按你的 PDF 类型切到：
+建议先用 `docs/guides/knowledge_space/strategy/scenes/SCN-001_basic_ingestion_and_playground.md` 跑通最小闭环（空间→入库→Playground），再按你的 PDF 类型切到：
 - 合同/报价类：`SCN-020_contract_quote.md`（更偏 P2/P3 的护栏与 provenance）
 - 论文/长报告：`SCN-030_research_report.md`（更偏 J_hier/B_semantic_chunking 等）
 
-如果你的目标是 **Knowledge Graph**，请直接选择支持 KG 的场景（如 `SCN-050_sql_config_kg.md`）并使用 `STR-P3_kg_constrained.md` 对应策略包。
+如果你的目标是 **Knowledge Graph**，请直接选择支持 KG 的场景（如 `SCN-050_sql_config_kg.md`）并使用 `PROFILE-P3_kg_constrained.md` 对应策略包。

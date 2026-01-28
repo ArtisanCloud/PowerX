@@ -373,6 +373,7 @@
       "strategyBundle": "Indexing bundle (L2)",
       "strategyPreview": "Strategy preview (override in Advanced)",
       "ragPrimary": "RAG primary (L3)",
+      "strategyPackage": "Strategy package (A0–O)",
       "templates": {
         "general": { "title": "General", "desc": "Default strategy for most documents" },
         "hr": { "title": "HR / Policy / Compliance", "desc": "More compliance-oriented defaults" },

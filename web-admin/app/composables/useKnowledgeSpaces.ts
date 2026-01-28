@@ -136,13 +136,16 @@ export interface IngestionJobPayload {
   ocrRequired?: boolean;
   maskingProfile?: string;
   priority?: "normal" | "high";
-  // L1/L2/L3：用于审计与默认值映射（后端可存入 metrics_snapshot/config_snapshot）
+  // 策略包/映射信息：用于审计与默认值映射（后端可存入 metrics_snapshot/config_snapshot）
+  ragStrategyPackageKey?: string;
   ragSceneKey?: string;
   ragBundleKey?: string;
   ragPrimary?: string;
   segmentMode?: "unit" | "heading" | "clause" | "semantic" | "table_row" | "code_block" | "conversation";
   chunkSize?: number;
   chunkOverlap?: number;
+  segmentSizePolicy?: "cap" | "target";
+  segmentOrder?: Array<"page" | "size" | "segment" | "separator">;
   pagePriority?: boolean;
   // Anchors: 写入 chunk metadata，用于引用定位/层次索引/KG provenance
   anchorHeadingPath?: boolean;
@@ -161,12 +164,17 @@ export interface IngestionJobRecord {
   chunkTotal: number;
   chunkCoveragePct: number;
   embeddingSuccessPct: number;
+  embeddingMaxInputTokens?: number;
+  embeddingProvider?: string;
+  embeddingModel?: string;
   maskingCoveragePct: number;
   segmentMode?: string;
   chunkSize?: number;
   chunkOverlap?: number;
+  segmentSizePolicy?: string;
   separators?: string[];
   pagePriority?: boolean;
+  segmentOrder?: string[];
   chunkAnchors?: Record<string, boolean>;
   startedAt?: string;
   completedAt?: string;

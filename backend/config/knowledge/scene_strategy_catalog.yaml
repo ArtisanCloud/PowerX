@@ -76,6 +76,312 @@ modules:
     label: "CRAG"
     requires: ["runtime.evidence_checker", "index.sparse"]
 
+strategy_packages:
+  A0_acl:
+    label: "A0 Metadata/ACL 优先过滤"
+    summary: "先做租户/权限/元数据过滤，再做召回，保证合规降噪。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes:
+      [
+        "product_specs",
+        "product_compat",
+        "product_selection",
+        "sop",
+        "contract_quote",
+        "research_longdoc",
+        "ledger_table",
+        "support_faq",
+        "support_policy",
+        "support_troubleshooting",
+        "eng_runbook",
+        "eng_incident",
+        "eng_change",
+        "api_reference",
+        "data_dictionary",
+        "sales_enablement",
+        "marketing_promo_rules",
+        "compliance_regulation",
+        "billing_pricing",
+        "meeting_minutes",
+        "project_docs",
+        "ticket_conversations",
+        "onboarding_training",
+        "sql_kg",
+        "custom_expert",
+      ]
+    dependencies:
+      index: []
+      runtime: ["acl_enforcer"]
+      assets: ["metadata.normalized"]
+
+  A1_routing:
+    label: "A1 Query Routing（查询路由）"
+    summary: "按意图/领域把 query 路由到不同索引通道或空间。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["product_specs", "support_faq", "support_policy", "eng_runbook", "compliance_regulation", "sales_enablement", "marketing_promo_rules", "project_docs", "custom_expert"]
+    dependencies:
+      index: []
+      runtime: ["routing_policy"]
+      assets: ["domain_router_map"]
+
+  A2_time_aware:
+    label: "A2 Time-aware（时间/版本）"
+    summary: "对版本/生效时间做过滤或权重衰减。"
+    coupling: "strong"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes: ["contract_quote", "compliance_regulation", "billing_pricing", "marketing_promo_rules", "product_specs"]
+    dependencies:
+      index: ["index.time_fields"]
+      runtime: ["versioning_policy"]
+      assets: ["effective_date_fields"]
+
+  A_simple:
+    label: "A Simple RAG（最小闭环）"
+    summary: "简单切块 + 向量召回，适合快速验证。"
+    coupling: "weak"
+    recommended_profile_key: "p0_basic"
+    recommended_scenes: ["sop", "support_faq", "support_policy", "support_troubleshooting", "eng_runbook", "meeting_minutes", "project_docs", "onboarding_training"]
+    dependencies:
+      index: ["index.dense"]
+      runtime: []
+      assets: []
+
+  B_semantic_chunking:
+    label: "B Semantic Chunking（语义切块）"
+    summary: "按语义边界切块，适合论文/长报告。"
+    coupling: "strong"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["research_longdoc", "project_docs", "meeting_minutes"]
+    dependencies:
+      index: ["index.dense"]
+      runtime: []
+      assets: ["semantic_boundaries"]
+
+  C_context_enriched:
+    label: "C Context Enriched（上下文增强）"
+    summary: "召回后扩展同章节邻居/父摘要。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["sop", "contract_quote", "eng_runbook", "support_policy", "compliance_regulation"]
+    dependencies:
+      index: ["index.hier"]
+      runtime: []
+      assets: ["section_neighbors"]
+
+  D_doc_augmentation:
+    label: "D Doc Augmentation（离线增强）"
+    summary: "生成摘要/关键词/实体标签等增强字段。"
+    coupling: "strong"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes: ["contract_quote", "product_specs", "sales_enablement", "marketing_promo_rules", "compliance_regulation"]
+    dependencies:
+      index: ["index.structured_fields"]
+      runtime: ["offline_pipeline"]
+      assets: ["augmented_fields"]
+
+  E_query_transform:
+    label: "E Query Transformation（查询转换）"
+    summary: "同义扩展/结构化抽取/纠错。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["product_specs", "data_dictionary", "api_reference", "billing_pricing"]
+    dependencies:
+      index: ["index.structured_fields"]
+      runtime: ["query_rewrite"]
+      assets: ["synonyms_rules"]
+
+  F_rerank:
+    label: "F Reranker（重排序）"
+    summary: "降低相似候选误命中。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["product_specs", "product_compat", "contract_quote", "compliance_regulation", "data_dictionary", "api_reference"]
+    dependencies:
+      index: ["index.dense"]
+      runtime: ["reranker_model"]
+      assets: []
+
+  G_rse:
+    label: "G RSE（语义扩展重排）"
+    summary: "语义扩展 + 重排，适合术语多的场景。"
+    coupling: "weak"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes: ["product_specs", "product_compat", "data_dictionary", "api_reference", "sql_kg"]
+    dependencies:
+      index: ["index.dense"]
+      runtime: ["reranker_model"]
+      assets: ["domain_lexicon"]
+
+  H_fusion:
+    label: "H Fusion（融合检索）"
+    summary: "dense+sparse(+kg/hier) 多路召回融合。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes:
+      [
+        "product_specs",
+        "product_compat",
+        "product_selection",
+        "sop",
+        "contract_quote",
+        "research_longdoc",
+        "ledger_table",
+        "support_faq",
+        "support_policy",
+        "support_troubleshooting",
+        "eng_runbook",
+        "eng_incident",
+        "eng_change",
+        "api_reference",
+        "data_dictionary",
+        "sales_enablement",
+        "marketing_promo_rules",
+        "compliance_regulation",
+        "billing_pricing",
+        "meeting_minutes",
+        "project_docs",
+        "ticket_conversations",
+        "onboarding_training",
+        "sql_kg",
+      ]
+    dependencies:
+      index: ["index.dense", "index.sparse"]
+      runtime: ["score_normalizer"]
+      assets: []
+
+  I_hyde:
+    label: "I HyDE（假设文档检索）"
+    summary: "生成假设答案后再向量检索。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["research_longdoc", "project_docs", "meeting_minutes"]
+    dependencies:
+      index: ["index.dense"]
+      runtime: ["llm_generate"]
+      assets: []
+
+  J_hier:
+    label: "J Hierarchical Indices（层次索引）"
+    summary: "先章节/摘要，再下钻 chunk。"
+    coupling: "strong"
+    recommended_profile_key: "p1_general"
+    recommended_scenes: ["sop", "research_longdoc", "eng_runbook", "compliance_regulation"]
+    dependencies:
+      index: ["index.hier"]
+      runtime: []
+      assets: ["section_summaries"]
+
+  K_kg:
+    label: "K Knowledge Graph（知识图谱）"
+    summary: "实体/关系召回与约束。"
+    coupling: "strong"
+    recommended_profile_key: "p3_kg_strong"
+    recommended_scenes: ["product_compat", "data_dictionary", "api_reference", "sql_kg", "compliance_regulation"]
+    dependencies:
+      index: ["index.kg"]
+      runtime: ["graph_query"]
+      assets: ["kg_entities_relations"]
+
+  L_feedback:
+    label: "L Feedback Loop（反馈闭环）"
+    summary: "标注→再加工→回归评估。"
+    coupling: "weak"
+    recommended_profile_key: "p1_general"
+    recommended_scenes:
+      [
+        "product_specs",
+        "product_compat",
+        "product_selection",
+        "sop",
+        "contract_quote",
+        "research_longdoc",
+        "ledger_table",
+        "support_faq",
+        "support_policy",
+        "support_troubleshooting",
+        "eng_runbook",
+        "eng_incident",
+        "eng_change",
+        "api_reference",
+        "data_dictionary",
+        "sales_enablement",
+        "marketing_promo_rules",
+        "compliance_regulation",
+        "billing_pricing",
+        "meeting_minutes",
+        "project_docs",
+        "ticket_conversations",
+        "onboarding_training",
+        "sql_kg",
+        "custom_expert",
+      ]
+    dependencies:
+      index: []
+      runtime: ["feedback_workflow"]
+      assets: ["feedback_case"]
+
+  M_adaptive:
+    label: "M Adaptive RAG（自适应策略）"
+    summary: "按置信度/成本动态启用策略。"
+    coupling: "weak"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes:
+      [
+        "product_specs",
+        "product_compat",
+        "product_selection",
+        "sop",
+        "contract_quote",
+        "research_longdoc",
+        "ledger_table",
+        "support_faq",
+        "support_policy",
+        "support_troubleshooting",
+        "eng_runbook",
+        "eng_incident",
+        "eng_change",
+        "api_reference",
+        "data_dictionary",
+        "sales_enablement",
+        "marketing_promo_rules",
+        "compliance_regulation",
+        "billing_pricing",
+        "meeting_minutes",
+        "project_docs",
+        "ticket_conversations",
+        "onboarding_training",
+        "sql_kg",
+        "custom_expert",
+      ]
+    dependencies:
+      index: []
+      runtime: ["policy_router"]
+      assets: ["observability_metrics"]
+
+  N_self_rag:
+    label: "N Self RAG（自反思回路）"
+    summary: "自检证据与冲突，触发二次检索。"
+    coupling: "weak"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes: ["contract_quote", "compliance_regulation", "billing_pricing"]
+    dependencies:
+      index: []
+      runtime: ["consistency_checker"]
+      assets: ["evidence_guardrails"]
+
+  O_crag:
+    label: "O CRAG（纠错）"
+    summary: "证据不足/冲突时触发纠错检索。"
+    coupling: "strong"
+    recommended_profile_key: "p2_high_accuracy"
+    recommended_scenes: ["contract_quote", "compliance_regulation", "billing_pricing", "product_specs"]
+    dependencies:
+      index: ["index.dense", "index.sparse"]
+      runtime: ["consistency_checker"]
+      assets: []
+
 strategy_bundles:
   p0_basic:
     label: "P0 基础（最小闭环）"

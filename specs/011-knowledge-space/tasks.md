@@ -8,7 +8,7 @@
 - `[P]` 代表可并行执行（不同文件、无依赖）
 - 状态约定：`[ ]` = 待开发（含需按新方案重做/补齐），`[X]` = 已完成（与最新方案一致且可验收）
 - 本任务清单需与以下方案对齐：`docs/plan/AI_engineering/knowledge/knowledage_base.md`、`docs/plan/AI_engineering/knowledge/rag.md`；若现有实现为 stub/占位或与方案不一致，应回退为“待开发”并更新描述。
-- 故事标签：`Setup`、`Foundational`、`US1`（Web 管理台配置向导）、`US2`（多模态入库基线）、`US3`（多源融合策略管理）、`US4`（反馈驱动再加工与热更新 / SCN-KNOWLEDGE-UPDATE-FEEDBACK-001）、`US5`（QA 推理桥接）、`US6`（增量同步与版本治理 / SCN-KNOWLEDGE-UPDATE-SYNC-001）、`US7`（事件热更新 / SCN-KNOWLEDGE-UPDATE-EVENT-001）、`US8`（衰减巡检与空白治理 / SCN-KNOWLEDGE-UPDATE-DECAY-001）、`US9`（租户灰度发布 / SCN-KNOWLEDGE-UPDATE-TENANT-001）、`Polish`
+- 故事标签：`Setup`、`Foundational`、`US1`（Web 管理台配置向导）、`US2`（多模态入库基线）、`US2A`（入库进度实时推送）、`US3`（多源融合策略管理）、`US4`（反馈驱动再加工与热更新 / SCN-KNOWLEDGE-UPDATE-FEEDBACK-001）、`US5`（QA 推理桥接）、`US6`（增量同步与版本治理 / SCN-KNOWLEDGE-UPDATE-SYNC-001）、`US7`（事件热更新 / SCN-KNOWLEDGE-UPDATE-EVENT-001）、`US8`（衰减巡检与空白治理 / SCN-KNOWLEDGE-UPDATE-DECAY-001）、`US9`（租户灰度发布 / SCN-KNOWLEDGE-UPDATE-TENANT-001）、`Polish`
 - 所有路径均为仓库内真实路径，确保可直接执行
 
 ---
@@ -90,6 +90,9 @@
 - [X] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler（同上）。
 - [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`（覆盖率、embedding 成功率、OCR 覆盖/置信度分布、脱敏覆盖率、degrade/block 计数）。
 - [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片：支持选择 Ingestion Profile、显示 Processor/OCR 状态、blocked/degraded 原因与修复指引。
+- [X] **T036A [US2A]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 推送入库阶段进度（extract/chunk/embed/persist/finalize）到 WS 总线（topic `knowledge.ingestion.job`），包含 `job_uuid/status/stage/progress/chunk_total` 等字段。
+- [X] **T036B [US2A]** 在 `web-admin/app/pages/knowledge-spaces/[spaceId]/ingestions/[jobId].vue` 订阅 WS 进度事件并驱动进度条，断线时回退轮询并提示状态。
+- [X] **T036C [P] [US2A]** 在 `specs/011-knowledge-space/quickstart.md` 增加入库进度 WS 验证步骤，并更新对应合同说明。
 - [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将 embedding（chunk UUID + metadata）写入向量驱动，并在失败时执行补偿（回滚/告警/降级）。
 - [X] **T032G [US2]** 将 Knowledge Space 的向量化与 Web Admin「AI Settings」打通：入库时按租户当前 env 读取 active embedding profile（provider/model + credential），复用后端 OpenAI/Ollama vectorizer；无可用配置时**直接阻断入库**并返回明确错误提示（引导前往 AI Settings 完成配置），并在 pgvector 维度不一致时给出明确错误提示（指导对齐 `knowledge_space.vector_store.pgvector.dimensions`）。
 - [X] **T032I [P] [US2]** 入库前强校验 embedding 配置：后端在 ingestion handler/orchestrator 中拒绝缺失/未 probe 通过的 embedding profile（返回可前端识别的错误码与提示）；Web Admin 在入库 CTA/创建入口先行检测并弹窗提示“需先配置 embedding”，提供跳转到 AI Settings 的操作；补齐 HTTP/gRPC 合同测试与前端单测覆盖该阻断分支。
@@ -200,7 +203,7 @@
 - [X] **T102 [US5]** 实现 `Corpus Check`（语料体检）作业：统计格式占比、OCR 占比、表格/代码占比、语言分布、重复率，并输出推荐策略卡片（规则集）与成本/风险提示（对齐 `docs/plan/AI_engineering/knowledge/rag.md:301`）。
 - [X] **T103 [US5]** 增加 `Retrieval Playground` API：给定 `space_id + rag_profile_id + query + filters` 返回 `RetrievalPlan + candidates + context_pack + trace_id`。
 - [X] **T104 [US5]** 在 `web-admin/app/pages/knowledge-spaces/playground.vue` 新增 Playground：支持选择 profile、A/B 对比（默认 vs 草稿）、展示各阶段耗时/候选数/降级原因、候选来源（vector/bm25/kg/hier）与最终 citations。
-- [X] **T105 [US5]** 在 Web 管理台策略配置入口实现“场景模板/默认策略（两层选择）”：先选场景（SOP/合同/研究/台账/SQL-KG/自定义），再选该场景允许的策略包，并在导入首批样本文档后触发 Corpus Check 输出推荐卡片（对齐 `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md` 的非全量映射）。
+- [X] **T105 [US5]** 在 Web 管理台策略配置入口实现“策略包优先（单层选择）”：先选策略包（A0–O），展示其适用场景与依赖，并在导入首批样本文档后触发 Corpus Check 输出推荐卡片（对齐 `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md` 的映射）。
 - [X] **T106 [US5]** 将 OCR/Processor 能力与 UI 串联：当 Corpus Check 检测到扫描占比高时提示启用 OCR 扩展（推荐 `com.powerx.plugin.data_forge`），并在 blocked/degraded 时给出修复指引（对齐 `docs/plan/AI_engineering/knowledge/rag.md:363`）。当前仅后端支持，前端引导与修复指引待补齐。
 - [X] **T106B [US2/US5]** 落地 “Plan B：扫描 PDF OCR（Tesseract）+ bbox provenance + 跨页内容切分” 的 processor/profile 与产物落盘（设计见 `specs/011-knowledge-space/ocr_scan_pdf_plan_b.md`）。包含：PDF→逐页渲染（page images）→ Tesseract TSV/hOCR → unit 序列（line/block）→ 段落/条款跨页合并 → chunking。
 - [X] **T106C [US2]** 产物与数据模型补齐：在 `ArtifactBundle` 增加 OCR 相关产物 URI（pages/image + raw tsv/hocr + searchable.pdf 可选），并把 `page+bbox` 写入 chunk `metadata.provenance`（归一化坐标、左上原点、支持跨页）。
@@ -209,16 +212,16 @@
 - [X] **T106F [US5]** 页预览叠框：新增 Admin API 提供 page image 可访问 URL（presign）与 chunk 的 `pages[]/regions[]` 定位信息；Web Admin 在 chunk 预览页支持“打开对应页并高亮 bbox”，跨页 chunk 支持多页跳转。
 - [X] **T106G [US2]** OCR worker 化与资源治理：将 OCR 执行迁移到 worker/processor 层，增加超时/并发/大小限制、失败重试与降级策略，并补齐 `knowledge.ocr.*` 指标（耗时、失败率、bbox 覆盖率）。
 
-### 追加：场景 → 策略包（两层选择）产品化（对齐 `rag_scene_strategy_mode.md`）
+### 追加：策略包 → 场景（单层选择）产品化（对齐 `rag_scene_strategy_mode.md`）
 
-> 目标：把 “场景（L1）→ 策略包（L2）→ 三类 Profile + Guardrails” 做成可用的产品模型，并实现“非全量映射 + 前置依赖校验 + Corpus Check 推荐”。
+> 目标：把 “策略包（A0–O）→ 适用场景映射 → 三类 Profile + Guardrails” 做成可用的产品模型，并实现“非全量映射 + 前置依赖校验 + Corpus Check 推荐”。
 > 参考：`docs/plan/AI_engineering/knowledge/rag.md`、`docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
 
-- [X] **T107 [US5]** 定义 SceneCatalog（5 个预置场景 + 自定义场景）与 StrategyBundleCatalog（P0/P1/P2/P3），并落地“场景→策略模块（A1/A2…O）→策略包”的允许矩阵（非全量映射），作为 UI 与后端校验的单一事实来源（已落地：`backend/config/knowledge/scene_strategy_catalog.yaml`）。
-- [X] **T108 [US5]** Web 管理台：在 Space 的策略配置入口（可先在入库向导内）实现两层选择：先选场景，再只展示该场景允许的策略包；选择后自动绑定/切换 `IngestionProfile + IndexProfile + RAGProfile`（并展示“将启用的索引通道：dense/sparse/hier/kg”摘要）。
+- [X] **T107 [US5]** 定义 StrategyPackageCatalog（A0–O）与 SceneMappingCatalog（适用场景），并落地“策略包→场景映射→依赖索引/资产”的允许矩阵（非全量映射），作为 UI 与后端校验的单一事实来源（复用 `backend/config/knowledge/scene_strategy_catalog.yaml` 或拆分新表）。
+- [X] **T108 [US5]** Web 管理台：在 Space 的策略配置入口（可先在入库向导内）实现单层选择：先选策略包（A0–O），再展示“适用场景 + 依赖索引通道（dense/sparse/hier/kg）+ 关联 Profiles”，并支持一键应用/回滚。
 - [X] **T109 [US5]** 后端：实现 StrategyBundle 前置依赖校验与错误码（例如 `kg_required`, `sparse_required`, `hier_required`, `time_fields_required`），并在 UI 显示可操作的修复指引（创建索引/跑体检/安装 OCR 插件/补齐版本字段等）；阻止“策略发布/激活”在依赖不满足时进入 active。
-- [X] **T110 [US5]** Corpus Check：在体检结果里输出“推荐场景 + 推荐策略包 + 推荐理由 + 成本/风险提示”，并保证推荐结果只落在该场景允许的策略包集合里；UI 用“推荐卡片”呈现并支持一键应用/回滚。
-- [X] **T111 [US5]** 为上述两层选择与依赖校验补齐契约测试/前端单测：覆盖“合同场景默认 P2、KG 场景默认 P3、合同不允许 P0、KG 场景缺索引时阻止发布”等关键规则。
+- [X] **T110 [US5]** Corpus Check：在体检结果里输出“推荐策略包 + 推荐理由 + 成本/风险提示 + 适用场景”，并保证推荐结果只落在策略包映射的场景集合里；UI 用“推荐卡片”呈现并支持一键应用/回滚。
+- [X] **T111 [US5]** 为上述单层选择与依赖校验补齐契约测试/前端单测：覆盖“合同类推荐 O/CRAG、KG 场景推荐 K/KG、缺索引时阻止发布”等关键规则。
 
 ---
 

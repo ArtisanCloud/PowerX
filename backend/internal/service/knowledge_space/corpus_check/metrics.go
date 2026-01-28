@@ -16,7 +16,7 @@ const defaultSceneStrategyCatalogPath = "backend/config/knowledge/scene_strategy
 
 // BuildMetrics 根据 ingestion_jobs 的 metrics_snapshot 生成最小体检指标与推荐卡片。
 //
-// T110：必须输出“推荐场景 + 推荐策略包 + 推荐理由 + 成本/风险提示”，并确保推荐只落在该场景允许的策略包集合里。
+// T110：必须输出“推荐场景 + 推荐策略包 + 推荐理由 + 成本/风险提示”，并确保推荐只落在策略包映射的场景集合里。
 func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, recommendations datatypes.JSON) {
 	type ocrStats struct {
 		Required int `json:"required"`
@@ -128,6 +128,19 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 	sceneKey, bundleKey, reason, risk, cost := recommendSceneBundle(total, ocrNeededRatio, tableLikeRatio, codeLikeRatio, pdfRatio)
 	sceneKey, bundleKey, sceneLabel, bundleLabel := constrainToCatalog(catalog, sceneKey, bundleKey)
 
+	pkgKey, pkgReason, pkgRisk, pkgCost := recommendStrategyPackage(total, ocrNeededRatio, tableLikeRatio, codeLikeRatio, pdfRatio)
+	pkgKey, pkgLabel, pkgScenes, pkgProfile := constrainStrategyPackageToCatalog(catalog, pkgKey)
+	primaryScene := sceneKey
+	if len(pkgScenes) > 0 && !containsString(pkgScenes, primaryScene) {
+		primaryScene = pkgScenes[0]
+	}
+	primarySceneLabel := primaryScene
+	if catalog != nil {
+		if sc, ok := catalog.Scenes[primaryScene]; ok && strings.TrimSpace(sc.Label) != "" {
+			primarySceneLabel = sc.Label
+		}
+	}
+
 	recs := make([]map[string]any, 0, 6)
 	recs = append(recs, map[string]any{
 		"key":         "scene_bundle",
@@ -140,6 +153,20 @@ func BuildMetrics(sampleJobs []models.IngestionJob) (metrics datatypes.JSON, rec
 		"reason":      reason,
 		"risk":        risk,
 		"cost":        cost,
+	})
+	recs = append(recs, map[string]any{
+		"key":                 "strategy_package",
+		"type":                "strategy_package",
+		"title":               fmt.Sprintf("推荐策略包：%s", pkgLabel),
+		"strategyPackageKey":  pkgKey,
+		"strategyPackageLabel": pkgLabel,
+		"profileKey":          pkgProfile,
+		"sceneKey":            primaryScene,
+		"sceneLabel":          primarySceneLabel,
+		"scenes":              pkgScenes,
+		"reason":              pkgReason,
+		"risk":                pkgRisk,
+		"cost":                pkgCost,
 	})
 
 	if total > 0 && ocrNeededRatio >= 0.3 {
@@ -251,6 +278,52 @@ func recommendSceneBundle(total int, ocrNeededRatio, tableLikeRatio, codeLikeRat
 	return
 }
 
+func recommendStrategyPackage(total int, ocrNeededRatio, tableLikeRatio, codeLikeRatio, pdfRatio float64) (pkgKey string, reason map[string]any, risk string, cost string) {
+	pkgKey = "H_fusion"
+	reason = map[string]any{
+		"signals": map[string]any{
+			"sample_total":     total,
+			"ocr_needed_ratio": ocrNeededRatio,
+			"table_like_ratio": tableLikeRatio,
+			"code_like_ratio":  codeLikeRatio,
+			"pdf_ratio":        pdfRatio,
+		},
+		"summary": "默认推荐：融合检索（H），平衡成本与命中率。",
+	}
+	risk = "建议在 Playground 做一次 A/B 检索对比，确认召回与引用覆盖。"
+	cost = "融合检索需要同时维护 dense + sparse 索引。"
+
+	if total > 0 && codeLikeRatio >= 0.2 {
+		pkgKey = "K_kg"
+		reason["summary"] = "代码/SQL 占比偏高：优先推荐知识图谱（K）。"
+		risk = "若缺少实体/关系抽取与 KG 索引，回答会缺少依赖链路。"
+		cost = "KG 构建与维护有额外成本；建议先小范围试点。"
+		return
+	}
+	if total > 0 && tableLikeRatio >= 0.3 {
+		pkgKey = "D_doc_augmentation"
+		reason["summary"] = "表格/结构化占比偏高：优先推荐文档增强（D）。"
+		risk = "字段抽取不足会导致过滤/命中不稳定。"
+		cost = "离线增强会增加入库耗时与存储成本。"
+		return
+	}
+	if total > 0 && ocrNeededRatio >= 0.3 {
+		pkgKey = "O_crag"
+		reason["summary"] = "扫描件/图片占比偏高：优先推荐纠错（O）。"
+		risk = "未启用 OCR/证据链会导致引用覆盖下降与合规风险。"
+		cost = "证据校验会提升检索与推理成本。"
+		return
+	}
+	if total > 0 && pdfRatio >= 0.6 {
+		pkgKey = "B_semantic_chunking"
+		reason["summary"] = "PDF 长文占比偏高：优先推荐语义切块（B）。"
+		risk = "若切分过粗，长文回答可能遗漏关键段落。"
+		cost = "语义边界检测会增加入库耗时。"
+		return
+	}
+	return
+}
+
 func loadCatalog() *strategy_catalog.Catalog {
 	path := strings.TrimSpace(os.Getenv("PX_SCENE_STRATEGY_CATALOG_PATH"))
 	if path == "" {
@@ -317,6 +390,55 @@ func constrainToCatalog(cat *strategy_catalog.Catalog, sceneKey, bundleKey strin
 		}
 	}
 	return
+}
+
+func constrainStrategyPackageToCatalog(cat *strategy_catalog.Catalog, pkgKey string) (outKey, label string, scenes []string, profileKey string) {
+	outKey = strings.TrimSpace(pkgKey)
+	if outKey == "" {
+		outKey = "H_fusion"
+	}
+	if cat == nil {
+		return outKey, outKey, nil, ""
+	}
+	if _, ok := cat.StrategyPackages[outKey]; !ok {
+		outKey = "H_fusion"
+	}
+	pkg, ok := cat.StrategyPackages[outKey]
+	if !ok {
+		return outKey, outKey, nil, ""
+	}
+	label = pkg.Label
+	if strings.TrimSpace(label) == "" {
+		label = outKey
+	}
+	profileKey = strings.TrimSpace(pkg.RecommendedProfileKey)
+	if profileKey == "" {
+		profileKey = "p1_general"
+	}
+	scenes = filterSceneKeys(cat, pkg.RecommendedScenes)
+	return outKey, label, scenes, profileKey
+}
+
+func filterSceneKeys(cat *strategy_catalog.Catalog, scenes []string) []string {
+	out := make([]string, 0, len(scenes))
+	if cat == nil {
+		return out
+	}
+	for _, k := range scenes {
+		if _, ok := cat.Scenes[k]; ok {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
 
 func formatCategory(format string) string {

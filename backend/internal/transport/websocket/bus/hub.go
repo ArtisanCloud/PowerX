@@ -8,6 +8,7 @@ import (
 
 const (
 	TopicKnowledgeIngestionJob = "knowledge.ingestion.job"
+	TopicKnowledgeCorpusCheck  = "knowledge.corpus_check.job"
 	TopicSystemNotification    = "system.notification"
 )
 

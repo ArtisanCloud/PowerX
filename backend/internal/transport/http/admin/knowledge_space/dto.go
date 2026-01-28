@@ -127,6 +127,11 @@ type ingestionJobRequest struct {
 	SegmentMode  string `json:"segmentMode" binding:"omitempty,oneof=unit heading clause semantic table_row code_block conversation"`
 	ChunkSize    int `json:"chunkSize" binding:"omitempty,min=0,max=20000"`
 	ChunkOverlap int `json:"chunkOverlap" binding:"omitempty,min=0,max=5000"`
+	// SegmentSizePolicy controls how chunkSize is applied: cap | target.
+	SegmentSizePolicy string `json:"segmentSizePolicy" binding:"omitempty,oneof=cap target"`
+	// SegmentOrder defines the execution order of chunking steps.
+	// Supported steps: page | size | segment | separator
+	SegmentOrder []string `json:"segmentOrder" binding:"omitempty,dive,oneof=page size segment separator"`
 	// Separators are preferred boundaries applied before windowing; supports punctuation and newline tokens.
 	Separators []string `json:"separators" binding:"omitempty,dive,max=16"`
 	// PagePriority: prefer page boundary before other segmentation (PDF only).
@@ -148,12 +153,17 @@ type ingestionJobView struct {
 	ChunkTotal          int     `json:"chunkTotal"`
 	ChunkCoveragePct    float64 `json:"chunkCoveragePct"`
 	EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
+	EmbeddingMaxInputTokens int `json:"embeddingMaxInputTokens,omitempty"`
+	EmbeddingProvider   string  `json:"embeddingProvider,omitempty"`
+	EmbeddingModel      string  `json:"embeddingModel,omitempty"`
 	MaskingCoveragePct  float64 `json:"maskingCoveragePct"`
 	SegmentMode         string  `json:"segmentMode,omitempty"`
 	ChunkSize           int     `json:"chunkSize,omitempty"`
 	ChunkOverlap        int     `json:"chunkOverlap,omitempty"`
+	SegmentSizePolicy   string  `json:"segmentSizePolicy,omitempty"`
 	Separators          []string `json:"separators,omitempty"`
 	PagePriority        bool    `json:"pagePriority,omitempty"`
+	SegmentOrder        []string `json:"segmentOrder,omitempty"`
 	ChunkAnchors        map[string]bool `json:"chunkAnchors,omitempty"`
 }
 
@@ -168,8 +178,13 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 	segmentMode := readStringSnap(snap, "segment_mode")
 	chunkSize := readIntSnap(snap, "chunk_size")
 	chunkOverlap := readIntSnap(snap, "chunk_overlap")
+	segmentSizePolicy := readStringSnap(snap, "segment_size_policy")
+	embeddingMaxInputTokens := readIntSnap(snap, "embedding_max_input_tokens")
+	embeddingProvider := readStringSnap(snap, "embedding_provider")
+	embeddingModel := readStringSnap(snap, "embedding_model")
 	separators := readStringSliceSnap(snap, "separators")
 	pagePriority := readBoolSnap(snap, "page_priority")
+	segmentOrder := readStringSliceSnap(snap, "segment_order")
 	anchors := readBoolMapSnap(snap, "chunk_anchors")
 	return ingestionJobView{
 		JobID:               job.UUID.String(),
@@ -180,12 +195,17 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 		ChunkTotal:          job.ChunkTotal,
 		ChunkCoveragePct:    job.ChunkCoveredPct,
 		EmbeddingSuccessPct: job.EmbeddingSuccessPct,
+		EmbeddingMaxInputTokens: embeddingMaxInputTokens,
+		EmbeddingProvider:   embeddingProvider,
+		EmbeddingModel:      embeddingModel,
 		MaskingCoveragePct:  job.MaskingCoveragePct,
 		SegmentMode:         segmentMode,
 		ChunkSize:           chunkSize,
 		ChunkOverlap:        chunkOverlap,
+		SegmentSizePolicy:   segmentSizePolicy,
 		Separators:          separators,
 		PagePriority:        pagePriority,
+		SegmentOrder:        segmentOrder,
 		ChunkAnchors:        anchors,
 	}
 }

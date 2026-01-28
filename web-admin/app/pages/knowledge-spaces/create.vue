@@ -5,7 +5,13 @@ import { useUserStore } from "~/stores/user";
 import { useDepartmentService, type Department } from "~/composables/api/services/departmentService";
 import { useKnowledgeSpaces, type StrategyValidationResult } from "~/composables/useKnowledgeSpaces";
 import type { EmbeddingGuardResult } from "~/composables/useEmbeddingGuard";
-import { SCENE_STRATEGY_CATALOG, type SceneKey, type StrategyBundleKey } from "~/constants/sceneStrategyCatalog";
+import {
+  SCENE_CATALOG,
+  STRATEGY_PACKAGE_CATALOG,
+  STRATEGY_PACKAGE_ORDER,
+  type SceneKey,
+  type StrategyPackageKey,
+} from "~/constants/strategyPackageCatalog";
 
 const store = useKnowledgeSpaceStore();
 const { ensureEmbeddingReady } = useEmbeddingGuard();
@@ -21,9 +27,12 @@ const refreshStrategyValidation = async () => {
   strategyValidationLoading.value = true;
   strategyValidationError.value = null;
   try {
+    const pkg = STRATEGY_PACKAGE_CATALOG[store.strategyPackageKey];
+    const sceneKey: SceneKey = pkg?.recommendedScenes?.[0] ?? "custom_expert";
+    const bundleKey = pkg?.recommendedProfileKey ?? "p1_general";
     strategyValidation.value = await api.validateStrategy({
-      sceneKey: store.sceneKey,
-      bundleKey: store.bundleKey,
+      sceneKey,
+      bundleKey,
     });
   } catch (e: any) {
     strategyValidationError.value = e?.message || "策略依赖校验失败";
@@ -76,28 +85,35 @@ const departmentItems = computed(() => {
 
 const canSubmit = computed(() => store.isBasicInfoValid && !store.loading);
 
-const sceneItems = computed(() =>
-  (Object.entries(SCENE_STRATEGY_CATALOG.scenes) as Array<[SceneKey, any]>).map(([key, scene]) => ({
-    label: scene.label,
+const packageItems = computed(() =>
+  STRATEGY_PACKAGE_ORDER.map((key) => ({
+    label: STRATEGY_PACKAGE_CATALOG[key]?.label || key,
     value: key,
   })),
 );
 
-const bundleItems = computed(() => {
-  const scene = SCENE_STRATEGY_CATALOG.scenes[store.sceneKey];
-  const allowed = scene?.allowedBundles ?? [];
-  return allowed.map((key: StrategyBundleKey) => ({
-    label: SCENE_STRATEGY_CATALOG.bundles[key].label,
-    value: key,
-  }));
-});
+const selectedPackage = computed(() => STRATEGY_PACKAGE_CATALOG[store.strategyPackageKey]);
+const defaultSceneKey = computed<SceneKey>(() => selectedPackage.value?.recommendedScenes?.[0] ?? "custom_expert");
+const sceneLabel = computed(() => SCENE_CATALOG[defaultSceneKey.value]?.label || defaultSceneKey.value);
 
-const selectedScene = computed(() => SCENE_STRATEGY_CATALOG.scenes[store.sceneKey]);
-const selectedBundle = computed(() => SCENE_STRATEGY_CATALOG.bundles[store.bundleKey]);
+const profileLabel = (key: string | null | undefined) => {
+  switch (key) {
+    case "p0_basic":
+      return `P0 基础（${key}）`;
+    case "p1_general":
+      return `P1 通用推荐（${key}）`;
+    case "p2_high_accuracy":
+      return `P2 高准确/合规（${key}）`;
+    case "p3_kg_strong":
+      return `P3 KG 约束（${key}）`;
+    default:
+      return key || "-";
+  }
+};
 
 const enabledIndexChannels = computed(() => store.computeEnabledIndexChannels());
 
-watch([() => store.sceneKey, () => store.bundleKey], async () => {
+watch(() => store.strategyPackageKey, async () => {
   await refreshStrategyValidation();
 });
 const channelLabel = (ch: string) => {
@@ -161,7 +177,7 @@ onMounted(async () => {
   } catch {
     // ignore
   }
-  store.setSceneAndBundle(store.sceneKey, store.bundleKey);
+  store.setStrategyPackage(store.strategyPackageKey);
   await refreshStrategyValidation();
   await loadDepartments();
 });
@@ -281,37 +297,31 @@ const openPluginMarket = (pluginId: string) => {
     <UCard :ui="{ body: { padding: 'p-6' } }">
       <template #header>
         <div>
-          <h2 class="text-lg font-semibold text-[var(--text-primary)]">场景与策略包</h2>
+          <h2 class="text-lg font-semibold text-[var(--text-primary)]">策略包（A0–O）</h2>
           <p class="text-sm text-[var(--text-secondary)]">
-            先选择你的业务场景（L1），再选择该场景允许的策略包（L2）。系统会自动绑定空间的 Ingestion/Index/RAG Profile。
+            先选策略包，再由系统映射适用场景与 Profile 预设。场景只是说明，不再作为必选项。
           </p>
         </div>
       </template>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <UFormField label="场景（L1）" required>
+        <UFormField label="策略包（A0–O）" required>
           <USelect
-            :model-value="store.sceneKey"
-            :items="sceneItems"
+            :model-value="store.strategyPackageKey"
+            :items="packageItems"
             class="w-full"
-            @update:model-value="(v) => store.setSceneAndBundle(v as SceneKey)"
+            @update:model-value="(v) => store.setStrategyPackage(v as StrategyPackageKey)"
           />
           <template #help>
-            <span class="text-xs text-[var(--text-secondary)]">{{ selectedScene?.description }}</span>
+            <span class="text-xs text-[var(--text-secondary)]">{{ selectedPackage?.summary }}</span>
           </template>
         </UFormField>
 
-        <UFormField label="策略包（L2）" required>
-          <USelect
-            :model-value="store.bundleKey"
-            :items="bundleItems"
-            class="w-full"
-            @update:model-value="(v) => store.setSceneAndBundle(store.sceneKey, v as StrategyBundleKey)"
-          />
-          <template #help>
-            <span class="text-xs text-[var(--text-secondary)]">{{ selectedBundle?.description }}</span>
-          </template>
-        </UFormField>
+        <div class="rounded-lg border border-[var(--border-color)] p-4 text-sm text-[var(--text-secondary)]">
+          <div class="font-medium text-[var(--text-primary)]">自动映射</div>
+          <div class="mt-2">推荐 Profile：{{ profileLabel(selectedPackage?.recommendedProfileKey) }}</div>
+          <div class="mt-1">适用场景：{{ sceneLabel }}</div>
+        </div>
       </div>
 
       <div class="mt-4 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-4">

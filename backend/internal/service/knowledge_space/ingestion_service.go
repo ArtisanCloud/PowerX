@@ -126,6 +126,8 @@ type TriggerIngestionInput struct {
 	SegmentMode         string
 	ChunkSize           int
 	ChunkOverlap        int
+	SegmentSizePolicy   string
+	SegmentOrder        []string
 	Separators          []string
 	PagePriority        bool
 	AnchorHeadingPath   bool
@@ -273,6 +275,8 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 		segmentMode:         in.SegmentMode,
 		chunkSize:           in.ChunkSize,
 		chunkOverlap:        in.ChunkOverlap,
+		segmentSizePolicy:   in.SegmentSizePolicy,
+		segmentOrder:        in.SegmentOrder,
 		separators:          in.Separators,
 		anchorHeadingPath:   in.AnchorHeadingPath,
 		anchorClauseID:      in.AnchorClauseID,
@@ -380,6 +384,8 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 		segmentMode:         in.SegmentMode,
 		chunkSize:           in.ChunkSize,
 		chunkOverlap:        in.ChunkOverlap,
+		segmentSizePolicy:   in.SegmentSizePolicy,
+		segmentOrder:        in.SegmentOrder,
 		separators:          in.Separators,
 		pagePriority:        in.PagePriority,
 		anchorHeadingPath:   in.AnchorHeadingPath,
@@ -495,6 +501,8 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 			segmentMode:         in.SegmentMode,
 			chunkSize:           in.ChunkSize,
 			chunkOverlap:        in.ChunkOverlap,
+			segmentSizePolicy:   in.SegmentSizePolicy,
+			segmentOrder:        in.SegmentOrder,
 			separators:          in.Separators,
 			pagePriority:        in.PagePriority,
 			anchorHeadingPath:   in.AnchorHeadingPath,
@@ -606,8 +614,8 @@ func (s *IngestionService) finalizeIngestion(
 		}
 	}
 
-	vectorErr := s.persistWithRetry(ctx, in.SpaceID, vectorRecords, job, outcome)
-	s.emitProgress(ctx, job, "persist", 90, outcome.totalChunks, outcome.embeddingPct, outcome.maskingPct, space.TenantUUID)
+	vectorErr := s.persistWithRetry(ctx, in.SpaceID, vectorRecords, job, outcome, space.TenantUUID)
+	s.emitProgress(ctx, job, "persist", 95, outcome.totalChunks, outcome.embeddingPct, outcome.maskingPct, space.TenantUUID)
 	if errors.Is(vectorErr, ErrVectorIndexNotActivated) && !outcome.degraded {
 		outcome.degraded = true
 		if strings.TrimSpace(outcome.errorCode) == "" {
@@ -748,9 +756,11 @@ func (s *IngestionService) writeIngestionSegmentLog(format string, in TriggerIng
 	)
 	_, _ = fmt.Fprintf(
 		f,
-		"segment: page_priority=%t mode=%s chunk_size=%d overlap=%d separators=%v anchors=%v\n",
+		"segment: page_priority=%t order=%v mode=%s size_policy=%s chunk_size=%d overlap=%d separators=%v anchors=%v\n",
 		in.PagePriority,
+		in.SegmentOrder,
 		strings.TrimSpace(in.SegmentMode),
+		normalizeSegmentSizePolicy(in.SegmentSizePolicy, in.ChunkSize),
 		in.ChunkSize,
 		in.ChunkOverlap,
 		in.Separators,
@@ -816,9 +826,19 @@ func (s *IngestionService) emitProgress(ctx context.Context, job *knowledge.Inge
 	s.progressPublisher.PublishIngestionProgress(ctx, update)
 }
 
-func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord, job *knowledge.IngestionJob, outcome pipelineOutcome) error {
+func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord, job *knowledge.IngestionJob, outcome pipelineOutcome, tenantUUID string) error {
 	if outcome.status == knowledge.IngestionStatusBlocked || s.vectorStore == nil || len(records) == 0 {
 		return nil
+	}
+	const (
+		persistProgressStart = 85
+		persistProgressEnd   = 95
+		persistProgressStep  = 2
+		defaultBatchSize     = 128
+	)
+	batchSize := defaultBatchSize
+	if batchSize <= 0 {
+		batchSize = 128
 	}
 	var lastErr error
 	for attempt := 0; attempt <= s.maxRetries; attempt++ {
@@ -827,26 +847,59 @@ func (s *IngestionService) persistWithRetry(ctx context.Context, space uuid.UUID
 			job.Status = knowledge.IngestionStatusRetrying
 			_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
 		}
-		if err := s.vectorStore.Upsert(ctx, space, records); err != nil {
-			// Space 未激活 dense index：允许入库完成，但标记为 degraded（不写向量）。
-			if errors.Is(err, ErrVectorIndexNotActivated) {
-				return ErrVectorIndexNotActivated
+		lastPersistProgress := -1
+		emitPersistProgress := func(done, total int) {
+			if job == nil || total <= 0 {
+				return
 			}
-			lastErr = err
-			if attempt < s.maxRetries {
-				time.Sleep(10 * time.Millisecond)
-				continue
+			if done > total {
+				done = total
 			}
-			// Best-effort compensation.
-			var chunkIDs []uuid.UUID
-			for _, rec := range records {
-				chunkIDs = append(chunkIDs, rec.ChunkID)
+			progress := persistProgressStart + int(float64(persistProgressEnd-persistProgressStart)*float64(done)/float64(total)+0.5)
+			if progress < persistProgressStart {
+				progress = persistProgressStart
 			}
-			_ = s.vectorStore.DeleteByChunkIDs(ctx, space, chunkIDs)
-			return err
+			if progress > persistProgressEnd {
+				progress = persistProgressEnd
+			}
+			if lastPersistProgress >= 0 && progress-lastPersistProgress < persistProgressStep && done < total {
+				return
+			}
+			lastPersistProgress = progress
+			s.emitProgress(ctx, job, "persist", progress, outcome.totalChunks, outcome.embeddingPct, outcome.maskingPct, strings.TrimSpace(tenantUUID))
+		}
+		emitPersistProgress(0, len(records))
+
+		done := 0
+		for start := 0; start < len(records); start += batchSize {
+			end := start + batchSize
+			if end > len(records) {
+				end = len(records)
+			}
+			if err := s.vectorStore.Upsert(ctx, space, records[start:end]); err != nil {
+				// Space 未激活 dense index：允许入库完成，但标记为 degraded（不写向量）。
+				if errors.Is(err, ErrVectorIndexNotActivated) {
+					return ErrVectorIndexNotActivated
+				}
+				lastErr = err
+				if attempt < s.maxRetries {
+					time.Sleep(10 * time.Millisecond)
+					goto retry
+				}
+				// Best-effort compensation.
+				var chunkIDs []uuid.UUID
+				for _, rec := range records {
+					chunkIDs = append(chunkIDs, rec.ChunkID)
+				}
+				_ = s.vectorStore.DeleteByChunkIDs(ctx, space, chunkIDs)
+				return err
+			}
+			done += end - start
+			emitPersistProgress(done, len(records))
 		}
 		lastErr = nil
 		break
+	retry:
 	}
 
 	if outcome.degraded {
@@ -1046,6 +1099,17 @@ func defaultSeparatorsFor(format string, mode string) []string {
 	return base
 }
 
+func normalizeSegmentSizePolicy(policy string, chunkSize int) string {
+	p := strings.ToLower(strings.TrimSpace(policy))
+	if p == "target" || p == "cap" {
+		return p
+	}
+	if chunkSize > 0 {
+		return "target"
+	}
+	return ""
+}
+
 type pipelineInput struct {
 	space               *knowledge.KnowledgeSpace
 	job                 *knowledge.IngestionJob
@@ -1063,6 +1127,8 @@ type pipelineInput struct {
 	segmentMode         string
 	chunkSize           int
 	chunkOverlap        int
+	segmentSizePolicy   string
+	segmentOrder        []string
 	separators          []string
 	pagePriority        bool
 	anchorHeadingPath   bool
@@ -1088,6 +1154,8 @@ type pipelineUnitsInput struct {
 	segmentMode         string
 	chunkSize           int
 	chunkOverlap        int
+	segmentSizePolicy   string
+	segmentOrder        []string
 	separators          []string
 	pagePriority        bool
 	anchorHeadingPath   bool
@@ -1098,70 +1166,80 @@ type pipelineUnitsInput struct {
 }
 
 type pipelineOutcome struct {
-	status               string
-	degraded             bool
-	errorCode            string
-	reason               string
-	totalChunks          int
-	summaryCount         int
-	chunkCount           int
-	coveragePct          float64
-	embeddingPct         float64
-	maskingPct           float64
-	language             string
-	ocrRequired          bool
-	ocrNeeded            bool
-	ocrUsed              bool
-	ocrCoveragePct       float64
-	ocrConfidenceBuckets map[string]int
-	ocrLatencyMs         int64
-	ocrPageCount         int
-	ocrFailedPages       int
-	ocrBboxCoveragePct   float64
+	status                  string
+	degraded                bool
+	errorCode               string
+	reason                  string
+	totalChunks             int
+	summaryCount            int
+	chunkCount              int
+	coveragePct             float64
+	embeddingPct            float64
+	embeddingMaxInputTokens int
+	embeddingProvider       string
+	embeddingModel          string
+	maskingPct              float64
+	language                string
+	ocrRequired             bool
+	ocrNeeded               bool
+	ocrUsed                 bool
+	ocrCoveragePct          float64
+	ocrConfidenceBuckets    map[string]int
+	ocrLatencyMs            int64
+	ocrPageCount            int
+	ocrFailedPages          int
+	ocrBboxCoveragePct      float64
 	// config snapshot (best-effort, for audit/debug)
-	ragSceneKey  string
-	ragBundleKey string
-	ragPrimary   string
-	pagePriority bool
-	segmentMode  string
-	chunkSize    int
-	chunkOverlap int
-	separators   []string
-	chunkAnchors map[string]bool
+	ragSceneKey       string
+	ragBundleKey      string
+	ragPrimary        string
+	pagePriority      bool
+	segmentOrder      []string
+	segmentSizePolicy string
+	segmentMode       string
+	chunkSize         int
+	chunkOverlap      int
+	separators        []string
+	chunkAnchors      map[string]bool
 }
 
 func (o pipelineOutcome) snapshot(completed time.Time) map[string]any {
 	return map[string]any{
-		"status":           o.status,
-		"degraded":         o.degraded,
-		"error_code":       o.errorCode,
-		"reason":           o.reason,
-		"chunk_total":      o.totalChunks,
-		"summary_chunks":   o.summaryCount,
-		"content_chunks":   o.chunkCount,
-		"coverage_pct":     o.coveragePct,
-		"embedding_pct":    o.embeddingPct,
-		"masking_pct":      o.maskingPct,
-		"language":         o.language,
-		"ocr_required":     o.ocrRequired,
-		"ocr_needed":       o.ocrNeeded,
-		"ocr_used":         o.ocrUsed,
-		"ocr_coverage_pct": o.ocrCoveragePct,
-		"ocr_confidence":   o.ocrConfidenceBuckets,
-		"ocr_latency_ms":   o.ocrLatencyMs,
-		"ocr_pages":        o.ocrPageCount,
-		"ocr_failed_pages": o.ocrFailedPages,
-		"ocr_bbox_pct":     o.ocrBboxCoveragePct,
-		"rag_scene_key":    o.ragSceneKey,
-		"rag_bundle_key":   o.ragBundleKey,
-		"rag_primary":      o.ragPrimary,
-		"page_priority":    o.pagePriority,
-		"segment_mode":     o.segmentMode,
-		"chunk_size":       o.chunkSize,
-		"chunk_overlap":    o.chunkOverlap,
-		"separators":       o.separators,
-		"chunk_anchors":    o.chunkAnchors,
-		"completed":        completed,
+		"status":                     o.status,
+		"degraded":                   o.degraded,
+		"error_code":                 o.errorCode,
+		"reason":                     o.reason,
+		"chunk_total":                o.totalChunks,
+		"summary_chunks":             o.summaryCount,
+		"content_chunks":             o.chunkCount,
+		"coverage_pct":               o.coveragePct,
+		"embedding_pct":              o.embeddingPct,
+		"embedding_max_input_tokens": o.embeddingMaxInputTokens,
+		"embedding_provider":         o.embeddingProvider,
+		"embedding_model":            o.embeddingModel,
+		"masking_pct":                o.maskingPct,
+		"language":                   o.language,
+		"ocr_required":               o.ocrRequired,
+		"ocr_needed":                 o.ocrNeeded,
+		"ocr_used":                   o.ocrUsed,
+		"ocr_coverage_pct":           o.ocrCoveragePct,
+		"ocr_confidence":             o.ocrConfidenceBuckets,
+		"ocr_latency_ms":             o.ocrLatencyMs,
+		"ocr_pages":                  o.ocrPageCount,
+		"ocr_failed_pages":           o.ocrFailedPages,
+		"ocr_bbox_pct":               o.ocrBboxCoveragePct,
+		"rag_scene_key":              o.ragSceneKey,
+		"rag_bundle_key":             o.ragBundleKey,
+		"rag_primary":                o.ragPrimary,
+		"page_priority":              o.pagePriority,
+		"segment_order":              o.segmentOrder,
+		"segment_size_policy":        o.segmentSizePolicy,
+		"segment_mode":               o.segmentMode,
+		"chunk_size":                 o.chunkSize,
+		"chunk_overlap":              o.chunkOverlap,
+		"separators":                 o.separators,
+		"chunk_anchors":              o.chunkAnchors,
+		"completed":                  completed,
 	}
 }
 
@@ -1179,6 +1257,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
 	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	sizePolicy := normalizeSegmentSizePolicy(in.segmentSizePolicy, in.chunkSize)
 	if mode == "" {
 		mode = "unit"
 	}
@@ -1198,6 +1277,8 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
 		pagePriority:         in.pagePriority,
+		segmentOrder:         in.segmentOrder,
+		segmentSizePolicy:    sizePolicy,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1229,7 +1310,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.coveragePct = 0
 		out.embeddingPct = 0
 		out.maskingPct = 0
-		s.emitProgress(ctx, in.job, "extract", 5, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+		s.emitProgress(ctx, in.job, "extract", 1, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 		return out, nil, nil, nil
 	}
 	if resolution.Decision == ProcessorDecisionDegraded {
@@ -1272,7 +1353,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 			out.coveragePct = 0
 			out.embeddingPct = 0
 			out.maskingPct = 0
-			s.emitProgress(ctx, in.job, "extract", 10, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+			s.emitProgress(ctx, in.job, "extract", 3, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 			return out, nil, nil, nil
 		}
 		out.degraded = true
@@ -1291,14 +1372,40 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	out.ocrPageCount = res.OCR.PageCount
 	out.ocrFailedPages = res.OCR.FailedPages
 	out.ocrBboxCoveragePct = res.OCR.BboxCoveragePct
-	s.emitProgress(ctx, in.job, "extract", 20, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "extract", 5, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
+	lastChunkProgress := -1
+	emitChunkProgress := func(done, total float64) {
+		if total <= 0 || in.job == nil {
+			return
+		}
+		if done > total {
+			done = total
+		}
+		const chunkProgressStart = 5
+		const chunkProgressEnd = 15
+		const chunkProgressStep = 2
+		progress := chunkProgressStart + int(float64(chunkProgressEnd-chunkProgressStart)*done/total+0.5)
+		if progress < chunkProgressStart {
+			progress = chunkProgressStart
+		}
+		if progress > chunkProgressEnd {
+			progress = chunkProgressEnd
+		}
+		if lastChunkProgress >= 0 && progress-lastChunkProgress < chunkProgressStep && done < total {
+			return
+		}
+		lastChunkProgress = progress
+		s.emitProgress(ctx, in.job, "chunk", progress, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	}
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		SizePolicy:   sizePolicy,
 		PagePriority: in.pagePriority,
 		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
+		SegmentOrder: in.segmentOrder,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
 			HeadingPath:   in.anchorHeadingPath,
@@ -1307,7 +1414,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 			Speaker:       in.anchorSpeaker,
 			SentenceIndex: in.anchorSentenceIndex,
 		},
-	})
+	}, emitChunkProgress)
 	if len(chunks) == 0 || !hasContentChunks(chunks) {
 		chunks = append(chunks, IngestionChunk{
 			ID:      uuid.NewSHA1(in.space.UUID, []byte("section_summary|placeholder|"+format+"|"+sourceURI)),
@@ -1350,7 +1457,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		out.reason = "masking_blocked"
 		out.coveragePct = 0
 		out.embeddingPct = 0
-		s.emitProgress(ctx, in.job, "chunk", 45, len(maskedChunks), out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+		s.emitProgress(ctx, in.job, "chunk", 15, len(maskedChunks), out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 		return out, maskedChunks, nil, res.Artifacts
 	}
 
@@ -1359,7 +1466,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 	out.summaryCount = summaryCount
 	out.chunkCount = contentCount
 	out.totalChunks = len(maskedChunks)
-	s.emitProgress(ctx, in.job, "chunk", 45, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "chunk", 15, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
 	// Make job linkage explicit in chunk metadata (used by online chunk store + UI/API filtering).
 	for i := range maskedChunks {
@@ -1369,12 +1476,41 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
 	}
 
-	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+	lastEmbedProgress := -1
+	emitEmbedProgress := func(done, total int) {
+		if total <= 0 || in.job == nil {
+			return
+		}
+		if done > total {
+			done = total
+		}
+		const embedProgressStart = 15
+		const embedProgressEnd = 85
+		const embedProgressStep = 2
+		progress := embedProgressStart + int(float64(embedProgressEnd-embedProgressStart)*float64(done)/float64(total)+0.5)
+		if progress < embedProgressStart {
+			progress = embedProgressStart
+		}
+		if progress > embedProgressEnd {
+			progress = embedProgressEnd
+		}
+		if lastEmbedProgress >= 0 && progress-lastEmbedProgress < embedProgressStep && done < total {
+			return
+		}
+		lastEmbedProgress = progress
+		embeddingPct := 100.0 * float64(done) / float64(total)
+		s.emitProgress(ctx, in.job, "embed", progress, out.totalChunks, embeddingPct, out.maskingPct, in.space.TenantUUID)
+	}
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason, embedMaxInput, embedProvider, embedModel := s.buildVectorRecords(
 		ctx,
 		in.space,
 		maskedChunks,
+		emitEmbedProgress,
 	)
 	out.embeddingPct = embeddingPct
+	out.embeddingMaxInputTokens = embedMaxInput
+	out.embeddingProvider = strings.TrimSpace(embedProvider)
+	out.embeddingModel = strings.TrimSpace(embedModel)
 	if embedDegraded {
 		out.degraded = true
 		if out.errorCode == "" {
@@ -1384,7 +1520,7 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 			out.reason = embedReason
 		}
 	}
-	s.emitProgress(ctx, in.job, "embed", 70, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "embed", 85, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
 	return out, maskedChunks, records, res.Artifacts
 }
@@ -1394,6 +1530,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 	sourceURI := strings.TrimSpace(in.sourceURI)
 	separators := sanitizeSeparators(in.separators)
 	mode := strings.ToLower(strings.TrimSpace(in.segmentMode))
+	sizePolicy := normalizeSegmentSizePolicy(in.segmentSizePolicy, in.chunkSize)
 	if mode == "" {
 		mode = "unit"
 	}
@@ -1411,6 +1548,8 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		ragBundleKey:         strings.TrimSpace(in.ragBundleKey),
 		ragPrimary:           strings.TrimSpace(in.ragPrimary),
 		pagePriority:         in.pagePriority,
+		segmentOrder:         in.segmentOrder,
+		segmentSizePolicy:    sizePolicy,
 		segmentMode:          strings.TrimSpace(in.segmentMode),
 		chunkSize:            in.chunkSize,
 		chunkOverlap:         in.chunkOverlap,
@@ -1441,14 +1580,40 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		out.reason = "empty_content"
 		out.coveragePct = 0
 	}
-	s.emitProgress(ctx, in.job, "extract", 20, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "extract", 5, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
+	lastChunkProgress := -1
+	emitChunkProgress := func(done, total float64) {
+		if total <= 0 || in.job == nil {
+			return
+		}
+		if done > total {
+			done = total
+		}
+		const chunkProgressStart = 5
+		const chunkProgressEnd = 15
+		const chunkProgressStep = 2
+		progress := chunkProgressStart + int(float64(chunkProgressEnd-chunkProgressStart)*done/total+0.5)
+		if progress < chunkProgressStart {
+			progress = chunkProgressStart
+		}
+		if progress > chunkProgressEnd {
+			progress = chunkProgressEnd
+		}
+		if lastChunkProgress >= 0 && progress-lastChunkProgress < chunkProgressStep && done < total {
+			return
+		}
+		lastChunkProgress = progress
+		s.emitProgress(ctx, in.job, "chunk", progress, 0, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	}
 	chunks := ChunkDocument(in.space.UUID, format, sourceURI, docUnits, ChunkingOptions{
 		Mode:         in.segmentMode,
+		SizePolicy:   sizePolicy,
 		PagePriority: in.pagePriority,
 		DocUUID:      in.docUUID,
 		ChunkSize:    in.chunkSize,
 		ChunkOverlap: in.chunkOverlap,
+		SegmentOrder: in.segmentOrder,
 		Separators:   separators,
 		Anchors: ChunkAnchors{
 			HeadingPath:   in.anchorHeadingPath,
@@ -1457,7 +1622,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 			Speaker:       in.anchorSpeaker,
 			SentenceIndex: in.anchorSentenceIndex,
 		},
-	})
+	}, emitChunkProgress)
 	if len(chunks) == 0 || !hasContentChunks(chunks) {
 		chunks = append(chunks, IngestionChunk{
 			ID:      uuid.NewSHA1(in.space.UUID, []byte("section_summary|placeholder|"+format+"|"+sourceURI)),
@@ -1500,7 +1665,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		out.reason = "masking_blocked"
 		out.coveragePct = 0
 		out.embeddingPct = 0
-		s.emitProgress(ctx, in.job, "chunk", 45, len(maskedChunks), out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+		s.emitProgress(ctx, in.job, "chunk", 15, len(maskedChunks), out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 		return out, maskedChunks, nil
 	}
 
@@ -1509,7 +1674,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 	out.summaryCount = summaryCount
 	out.chunkCount = contentCount
 	out.totalChunks = len(maskedChunks)
-	s.emitProgress(ctx, in.job, "chunk", 45, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "chunk", 15, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
 	for i := range maskedChunks {
 		if maskedChunks[i].Metadata == nil {
@@ -1518,12 +1683,41 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		maskedChunks[i].Metadata["job_uuid"] = in.job.UUID.String()
 	}
 
-	records, embeddingPct, embedDegraded, embedErrCode, embedReason := s.buildVectorRecords(
+	lastEmbedProgress := -1
+	emitEmbedProgress := func(done, total int) {
+		if total <= 0 || in.job == nil {
+			return
+		}
+		if done > total {
+			done = total
+		}
+		const embedProgressStart = 15
+		const embedProgressEnd = 85
+		const embedProgressStep = 2
+		progress := embedProgressStart + int(float64(embedProgressEnd-embedProgressStart)*float64(done)/float64(total)+0.5)
+		if progress < embedProgressStart {
+			progress = embedProgressStart
+		}
+		if progress > embedProgressEnd {
+			progress = embedProgressEnd
+		}
+		if lastEmbedProgress >= 0 && progress-lastEmbedProgress < embedProgressStep && done < total {
+			return
+		}
+		lastEmbedProgress = progress
+		embeddingPct := 100.0 * float64(done) / float64(total)
+		s.emitProgress(ctx, in.job, "embed", progress, out.totalChunks, embeddingPct, out.maskingPct, in.space.TenantUUID)
+	}
+	records, embeddingPct, embedDegraded, embedErrCode, embedReason, embedMaxInput, embedProvider, embedModel := s.buildVectorRecords(
 		ctx,
 		in.space,
 		maskedChunks,
+		emitEmbedProgress,
 	)
 	out.embeddingPct = embeddingPct
+	out.embeddingMaxInputTokens = embedMaxInput
+	out.embeddingProvider = strings.TrimSpace(embedProvider)
+	out.embeddingModel = strings.TrimSpace(embedModel)
 	if embedDegraded {
 		out.degraded = true
 		if out.errorCode == "" {
@@ -1533,7 +1727,7 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 			out.reason = embedReason
 		}
 	}
-	s.emitProgress(ctx, in.job, "embed", 70, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
+	s.emitProgress(ctx, in.job, "embed", 85, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
 	return out, maskedChunks, records
 }

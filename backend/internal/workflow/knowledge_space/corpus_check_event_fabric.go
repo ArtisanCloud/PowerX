@@ -418,6 +418,7 @@ func (c *EventFabricCorpusCheckConsumer) run(ctx context.Context, tenantKey stri
 		if _, err := jobs.Update(ctx, job); err != nil {
 			return err
 		}
+		publishCorpusCheckUpdate(ctx, job)
 
 		var sample []models.IngestionJob
 		if err := tx.Model(&models.IngestionJob{}).
@@ -437,6 +438,9 @@ func (c *EventFabricCorpusCheckConsumer) run(ctx context.Context, tenantKey stri
 		job.CompletedAt = &doneAt
 		job.UpdatedAt = doneAt
 		_, err = jobs.Update(ctx, job)
+		if err == nil {
+			publishCorpusCheckUpdate(ctx, job)
+		}
 		return err
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -14,8 +15,13 @@ type ChunkingOptions struct {
 	// Mode controls how to split the unit content before windowing.
 	// Supported: unit|heading|clause|semantic|table_row|code_block|conversation
 	Mode string
+	// SizePolicy controls how chunkSize is applied: cap (only split long parts) or target (merge short parts).
+	// Supported: cap|target
+	SizePolicy string
 	// PagePriority forces per-unit (page) chunks when content is short enough.
 	PagePriority bool
+	// SegmentOrder controls execution order: page | size | segment | separator.
+	SegmentOrder []string
 	// DocUUID binds chunks to a specific document ID (e.g. media asset UUID).
 	DocUUID string
 	// ChunkSize is measured in runes (approx chars). 0 keeps legacy behavior (one chunk per unit).
@@ -38,12 +44,16 @@ type ChunkAnchors struct {
 
 // ChunkDocument converts processed document units into multi-granularity chunks.
 // It emits at least: doc_summary, section_summary, chunk.
-func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []DocumentUnit, opts ChunkingOptions) []IngestionChunk {
+func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []DocumentUnit, opts ChunkingOptions, onProgress func(done, total float64)) []IngestionChunk {
 	normalizedFormat := strings.ToLower(strings.TrimSpace(format))
 	src := strings.TrimSpace(sourceURI)
 	mode := strings.ToLower(strings.TrimSpace(opts.Mode))
 	if mode == "" {
 		mode = "unit"
+	}
+	// When pagePriority is disabled, merge PDF units so chunking can cross page boundaries.
+	if normalizedFormat == "pdf" && !opts.PagePriority && len(units) > 1 {
+		units = mergePDFUnits(units)
 	}
 	docUUID := strings.TrimSpace(opts.DocUUID)
 	if docUUID == "" {
@@ -65,6 +75,7 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 	}
 	chunks = append(chunks, docSummary)
 
+	totalUnits := len(units)
 	for idx, unit := range units {
 		prov := unit.Provenance
 		if prov == nil {
@@ -88,111 +99,393 @@ func ChunkDocument(spaceID uuid.UUID, format string, sourceURI string, units []D
 
 		content := strings.TrimSpace(unit.Content)
 		if content == "" {
+			if onProgress != nil && totalUnits > 0 {
+				onProgress(float64(idx+1), float64(totalUnits))
+			}
 			continue
 		}
-
-		parts := []segmentPart{{Text: content}}
-		if !opts.PagePriority {
-			parts = splitByModeWithMeta(content, mode)
-		} else if opts.ChunkSize > 0 && utf8.RuneCountInString(content) > opts.ChunkSize {
-			parts = splitByModeWithMeta(content, mode)
-		} else if opts.ChunkSize <= 0 {
-			parts = []segmentPart{{Text: content}}
-		}
+		parts := applySegmentOrder(content, mode, opts)
 		if len(parts) == 0 {
 			parts = []segmentPart{{Text: content}}
 		}
 
 		chunkCounter := 0
+		partTotal := len(parts)
 		for partIdx, part := range parts {
 			partText := strings.TrimSpace(part.Text)
-			partMeta := part.Meta
 			if partText == "" {
 				continue
 			}
-
-			subParts := []segmentPart{{Text: partText, Meta: partMeta}}
-			// 当 chunkSize<=0 时，仍然允许用 separators 做硬拆分（便于按行/段落落块）。
-			// 当 chunkSize>0 时，不在这里硬拆分；窗口切分阶段会“优先在 separators 边界收尾”，避免把一句话截断。
-			if opts.ChunkSize <= 0 && mode != "table_row" && len(opts.Separators) > 0 {
-				subParts = splitByCustomSeparatorsWithMeta(partText, partMeta, opts.Separators)
+			chunkCounter++
+			contentKey := fmt.Sprintf("chunk|%s|%s|%d|%d", normalizedFormat, src, idx+1, chunkCounter)
+			meta := map[string]any{
+				"format":       normalizedFormat,
+				"source_uri":   src,
+				"provenance":   prov,
+				"section":      idx + 1,
+				"chunk_idx":    chunkCounter,
+				"segment_mode": mode,
+				"doc_uuid":     docUUID,
 			}
-
-			for subIdx, sub := range subParts {
-				subText := strings.TrimSpace(sub.Text)
-				if subText == "" {
-					continue
-				}
-
-				// If chunkSize <= 0, keep each part as one chunk (no windowing).
-				emitOne := opts.ChunkSize <= 0 || utf8.RuneCountInString(subText) <= opts.ChunkSize
-				if emitOne {
-					chunkCounter++
-					contentKey := fmt.Sprintf("chunk|%s|%s|%d|%d", normalizedFormat, src, idx+1, chunkCounter)
-					meta := map[string]any{
-						"format":       normalizedFormat,
-						"source_uri":   src,
-						"provenance":   prov,
-						"section":      idx + 1,
-						"chunk_idx":    chunkCounter,
-						"segment_mode": mode,
-						"segment_part": partIdx + 1,
-						"doc_uuid":     docUUID,
-					}
-					if len(subParts) > 1 {
-						meta["segment_subpart"] = subIdx + 1
-					}
-					applyAnchors(meta, sub.Meta, opts.Anchors)
-					chunks = append(chunks, IngestionChunk{
-						ID:         uuid.NewSHA1(spaceID, []byte(contentKey)),
-						Kind:       "chunk",
-						Content:    subText,
-						Metadata:   meta,
-						Confidence: unit.Confidence,
-					})
-					continue
-				}
-
-				overlap := opts.ChunkOverlap
-				if overlap < 0 {
-					overlap = 0
-				}
-				if overlap >= opts.ChunkSize {
-					overlap = opts.ChunkSize / 4
-				}
-				segments := splitByRuneWindowPreferSeparators(subText, opts.ChunkSize, overlap, opts.Separators)
-				for _, seg := range segments {
-					chunkCounter++
-					contentKey := fmt.Sprintf("chunk|%s|%s|%d|%d", normalizedFormat, src, idx+1, chunkCounter)
-					meta := map[string]any{
-						"format":       normalizedFormat,
-						"source_uri":   src,
-						"provenance":   prov,
-						"section":      idx + 1,
-						"chunk_idx":    chunkCounter,
-						"segment_mode": mode,
-						"segment_part": partIdx + 1,
-						"chunk_size":   opts.ChunkSize,
-						"overlap":      overlap,
-						"doc_uuid":     docUUID,
-					}
-					if len(subParts) > 1 {
-						meta["segment_subpart"] = subIdx + 1
-					}
-					applyAnchors(meta, sub.Meta, opts.Anchors)
-					chunks = append(chunks, IngestionChunk{
-						ID:         uuid.NewSHA1(spaceID, []byte(contentKey)),
-						Kind:       "chunk",
-						Content:    seg,
-						Metadata:   meta,
-						Confidence: unit.Confidence,
-					})
+			if sp := parseSegmentIndex(part.Meta, "segment_part"); sp > 0 {
+				meta["segment_part"] = sp
+			} else {
+				meta["segment_part"] = partIdx + 1
+			}
+			if sp := parseSegmentIndex(part.Meta, "segment_subpart"); sp > 0 {
+				meta["segment_subpart"] = sp
+			}
+			if opts.ChunkSize > 0 {
+				meta["chunk_size"] = opts.ChunkSize
+				if overlap := normalizeOverlap(opts.ChunkSize, opts.ChunkOverlap); overlap > 0 {
+					meta["overlap"] = overlap
 				}
 			}
+			applyAnchors(meta, part.Meta, opts.Anchors)
+			chunks = append(chunks, IngestionChunk{
+				ID:         uuid.NewSHA1(spaceID, []byte(contentKey)),
+				Kind:       "chunk",
+				Content:    partText,
+				Metadata:   meta,
+				Confidence: unit.Confidence,
+			})
+			if onProgress != nil && totalUnits > 0 {
+				denom := partTotal
+				if denom <= 0 {
+					denom = 1
+				}
+				onProgress(float64(idx)+float64(partIdx+1)/float64(denom), float64(totalUnits))
+			}
+		}
+		if partTotal == 0 && onProgress != nil && totalUnits > 0 {
+			onProgress(float64(idx+1), float64(totalUnits))
 		}
 	}
 
 	return chunks
+}
+
+func mergePDFUnits(units []DocumentUnit) []DocumentUnit {
+	if len(units) <= 1 {
+		return units
+	}
+	var b strings.Builder
+	pages := make([]any, 0, len(units))
+	confidence := 0.0
+	for _, unit := range units {
+		text := strings.TrimSpace(unit.Content)
+		if text == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(text)
+		if confidence == 0 && unit.Confidence > 0 {
+			confidence = unit.Confidence
+		}
+		if unit.Provenance == nil {
+			continue
+		}
+		if v, ok := unit.Provenance["pages"]; ok {
+			if list, ok := v.([]any); ok {
+				pages = append(pages, list...)
+				continue
+			}
+		}
+		if v, ok := unit.Provenance["page"]; ok {
+			if n := parseAnyInt(v); n > 0 {
+				pages = append(pages, map[string]any{"page_number": n})
+			}
+		}
+		if v, ok := unit.Provenance["page_number"]; ok {
+			if n := parseAnyInt(v); n > 0 {
+				pages = append(pages, map[string]any{"page_number": n})
+			}
+		}
+	}
+	merged := DocumentUnit{Content: b.String(), Confidence: confidence}
+	if len(pages) > 0 {
+		merged.Provenance = map[string]any{"pages": pages}
+	}
+	return []DocumentUnit{merged}
+}
+
+func normalizeSegmentOrder(order []string, mode string) []string {
+	allowed := map[string]struct{}{
+		"page":      {},
+		"size":      {},
+		"segment":   {},
+		"separator": {},
+	}
+	out := make([]string, 0, len(order))
+	seen := map[string]struct{}{}
+	for _, raw := range order {
+		key := strings.ToLower(strings.TrimSpace(raw))
+		if key == "" {
+			continue
+		}
+		if _, ok := allowed[key]; !ok {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	if len(out) == 0 {
+		if strings.EqualFold(strings.TrimSpace(mode), "unit") {
+			return []string{"page", "size", "segment", "separator"}
+		}
+		return []string{"page", "segment", "size", "separator"}
+	}
+	return out
+}
+
+func mergeMeta(a, b map[string]any) map[string]any {
+	if a == nil && b == nil {
+		return nil
+	}
+	out := map[string]any{}
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		out[k] = v
+	}
+	return out
+}
+
+func parseSegmentIndex(meta map[string]any, key string) int {
+	if meta == nil {
+		return 0
+	}
+	v, ok := meta[key]
+	if !ok || v == nil {
+		return 0
+	}
+	switch t := v.(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case string:
+		n, _ := strconv.Atoi(strings.TrimSpace(t))
+		return n
+	default:
+		return 0
+	}
+}
+
+func normalizeOverlap(size int, overlap int) int {
+	if size <= 0 {
+		return 0
+	}
+	if overlap < 0 {
+		overlap = 0
+	}
+	if overlap >= size {
+		overlap = size / 4
+	}
+	return overlap
+}
+
+func applySegmentOrder(content string, mode string, opts ChunkingOptions) []segmentPart {
+	parts := []segmentPart{{Text: content}}
+	contentLen := utf8.RuneCountInString(content)
+	order := normalizeSegmentOrder(opts.SegmentOrder, mode)
+	locked := false
+
+	for _, step := range order {
+		if locked {
+			break
+		}
+		switch step {
+		case "page":
+			if !opts.PagePriority {
+				continue
+			}
+			if len(parts) == 1 {
+				if opts.ChunkSize <= 0 || contentLen <= opts.ChunkSize {
+					locked = true
+				}
+			}
+		case "size":
+			if opts.ChunkSize <= 0 {
+				continue
+			}
+			if len(parts) == 1 && contentLen <= opts.ChunkSize {
+				locked = true
+			}
+		case "segment":
+			parts = splitPartsByMode(parts, mode)
+		case "separator":
+			if len(opts.Separators) == 0 {
+				continue
+			}
+			parts = splitPartsBySeparators(parts, opts.Separators)
+		}
+	}
+
+	if len(parts) == 0 {
+		parts = []segmentPart{{Text: content}}
+	}
+
+	ensureSegmentPart(parts)
+
+	if opts.ChunkSize > 0 && strings.EqualFold(strings.TrimSpace(opts.SizePolicy), "target") {
+		parts = mergePartsToTarget(parts, opts.ChunkSize)
+	}
+
+	if opts.ChunkSize > 0 {
+		parts = applyWindowing(parts, opts.ChunkSize, opts.ChunkOverlap, opts.Separators)
+	}
+
+	return parts
+}
+
+func mergePartsToTarget(parts []segmentPart, size int) []segmentPart {
+	if size <= 0 || len(parts) <= 1 {
+		return parts
+	}
+	out := make([]segmentPart, 0, len(parts))
+	var buf strings.Builder
+	currentLen := 0
+	var currentMeta map[string]any
+
+	flush := func() {
+		text := strings.TrimSpace(buf.String())
+		if text != "" {
+			out = append(out, segmentPart{Text: text, Meta: currentMeta})
+		}
+		buf.Reset()
+		currentLen = 0
+		currentMeta = nil
+	}
+
+	for _, part := range parts {
+		text := strings.TrimSpace(part.Text)
+		if text == "" {
+			continue
+		}
+		partLen := utf8.RuneCountInString(text)
+		if currentLen == 0 {
+			currentMeta = part.Meta
+		}
+		// If current buffer plus this part stays within target size, merge it.
+		if currentLen == 0 || currentLen+2+partLen <= size {
+			if buf.Len() > 0 {
+				buf.WriteString("\n\n")
+				currentLen += 2
+			}
+			buf.WriteString(text)
+			currentLen += partLen
+			continue
+		}
+		// Flush current buffer and start a new one.
+		flush()
+		// If the part itself is larger than target, keep it as-is and let windowing split later.
+		if partLen >= size {
+			out = append(out, segmentPart{Text: text, Meta: part.Meta})
+			continue
+		}
+		buf.WriteString(text)
+		currentLen = partLen
+		currentMeta = part.Meta
+	}
+	flush()
+	return out
+}
+
+func splitPartsByMode(parts []segmentPart, mode string) []segmentPart {
+	out := make([]segmentPart, 0, len(parts)+2)
+	segIdx := 0
+	for _, part := range parts {
+		text := strings.TrimSpace(part.Text)
+		if text == "" {
+			continue
+		}
+		splits := splitByModeWithMeta(text, mode)
+		for _, sp := range splits {
+			segIdx++
+			meta := mergeMeta(part.Meta, sp.Meta)
+			if meta == nil {
+				meta = map[string]any{}
+			}
+			meta["segment_part"] = segIdx
+			out = append(out, segmentPart{Text: sp.Text, Meta: meta})
+		}
+	}
+	return out
+}
+
+func splitPartsBySeparators(parts []segmentPart, separators []string) []segmentPart {
+	out := make([]segmentPart, 0, len(parts)+2)
+	for _, part := range parts {
+		text := strings.TrimSpace(part.Text)
+		if text == "" {
+			continue
+		}
+		splits := splitByCustomSeparatorsWithMeta(text, part.Meta, separators)
+		if len(splits) <= 1 {
+			out = append(out, splits...)
+			continue
+		}
+		for i, sp := range splits {
+			meta := mergeMeta(part.Meta, sp.Meta)
+			if meta == nil {
+				meta = map[string]any{}
+			}
+			meta["segment_subpart"] = i + 1
+			out = append(out, segmentPart{Text: sp.Text, Meta: meta})
+		}
+	}
+	return out
+}
+
+func ensureSegmentPart(parts []segmentPart) {
+	has := false
+	for _, part := range parts {
+		if parseSegmentIndex(part.Meta, "segment_part") > 0 {
+			has = true
+			break
+		}
+	}
+	if has {
+		return
+	}
+	for i := range parts {
+		if parts[i].Meta == nil {
+			parts[i].Meta = map[string]any{}
+		}
+		parts[i].Meta["segment_part"] = 1
+	}
+}
+
+func applyWindowing(parts []segmentPart, size int, overlap int, separators []string) []segmentPart {
+	if size <= 0 {
+		return parts
+	}
+	ov := normalizeOverlap(size, overlap)
+	out := make([]segmentPart, 0, len(parts))
+	for _, part := range parts {
+		text := strings.TrimSpace(part.Text)
+		if text == "" {
+			continue
+		}
+		if utf8.RuneCountInString(text) <= size {
+			out = append(out, part)
+			continue
+		}
+		segments := splitByRuneWindowPreferSeparators(text, size, ov, separators)
+		for _, seg := range segments {
+			out = append(out, segmentPart{Text: seg, Meta: part.Meta})
+		}
+	}
+	return out
 }
 
 func splitByRuneWindow(s string, window int, step int) []string {

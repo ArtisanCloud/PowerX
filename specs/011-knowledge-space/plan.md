@@ -7,7 +7,7 @@
 
 ## Summary
 
-Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space. Building on `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`, we now commit to the full knowledge-update lifecycle: delta sync + version governance (≤30m SLA, 98% diff accuracy), feedback-driven reprocessing (+25% fix accuracy), event-driven hot refresh (≤5m), decay/gap watchdogs (100% coverage, ≤10m recovery), and tenant-aware gray release (audited rollout + rollback) spanning HTTP + gRPC transports, CLI/Playwright validation, and Grafana/`reports/_state` telemetry exports.
+Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space. We also add real-time ingestion progress via the shared WS bus so operators can monitor long-running embedding loops without manual refresh, with polling fallback on disconnect. Building on `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`, we now commit to the full knowledge-update lifecycle: delta sync + version governance (≤30m SLA, 98% diff accuracy), feedback-driven reprocessing (+25% fix accuracy), event-driven hot refresh (≤5m), decay/gap watchdogs (100% coverage, ≤10m recovery), and tenant-aware gray release (audited rollout + rollback) spanning HTTP + gRPC transports, CLI/Playwright validation, and Grafana/`reports/_state` telemetry exports.
 
 ## Scenario Inputs – Knowledge Update & Feedback (`docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`)
 
@@ -157,23 +157,23 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - Documents prerequisites (Go 1.24, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
 - Provides step-by-step smoke flow covering provisioning → ingestion → fusion → feedback plus observability checkpoints.
 
-### Scene → Strategy Bundle Productization (align `docs/plan/AI_engineering/knowledge/rag.md`)
+### Strategy Package → Scene Mapping (align `docs/plan/AI_engineering/knowledge/rag.md`)
 
-This plan MUST align the implementation with the scene-driven strategy model in:
+This plan MUST align the implementation with the strategy package → scene mapping model in:
 - `docs/plan/AI_engineering/knowledge/rag.md`
 - `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
 
 Key decisions and implications:
-- **Two-level selection** in UI: `Scene (L1) → Strategy bundle (L2)`.
-- **Non-full mapping**: each scene only exposes a biased subset of bundles/modules to prevent misuse.
-- **Prerequisite validation**: bundles are publishable only when their index/asset prerequisites exist (e.g., KG requires graph tables + provenance; contract evidence-first requires sparse index + time fields).
+- **One-level selection** in UI: `Strategy package (A0–O)` with “适用场景”说明（可选过滤）。
+- **Non-full mapping**: each strategy package exposes a curated scene list to prevent misuse.
+- **Prerequisite validation**: strategy packages are publishable only when their index/asset prerequisites exist (e.g., KG requires graph tables + provenance; evidence-first requires sparse index + time fields).
 - **Profiles are the delivery vehicle**: `IngestionProfile + IndexProfile + RAGProfile` are versioned, rollback-capable, and can be recommended by Corpus Check.
 
 Deliverables (minimum):
-1. Define the scene catalog (5 default scenes + “Custom/Expert”) and the allowed bundle/module matrix.
-2. Wire Corpus Check recommendations to “scene + bundle” (recommend only bundles permitted by the selected scene).
+1. Define the strategy package catalog (A0–O) and the scene-mapping matrix (non-full).
+2. Wire Corpus Check recommendations to “strategy package” (recommend only packages whose prerequisites are met).
 3. Enforce dependency checks in backend and surface remediation steps in Web Admin (e.g., “KG index not ready, run build job / enable plugin / create tables”).
-4. Standardize chunking controls (chunk size, overlap/delta, separators) as part of ingestion profiles with safe bounds and scene defaults.
+4. Standardize chunking controls (chunk size, overlap/delta, separators) as part of ingestion profiles with safe bounds and package-level defaults.
 
 ## Phase 2 – QA Orchestrator & Reasoning Alignment
 

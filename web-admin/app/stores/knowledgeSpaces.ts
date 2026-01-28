@@ -7,18 +7,17 @@ import {
   type IngestionJobRecord,
 } from "~/composables/useKnowledgeSpaces";
 import {
-  SCENE_STRATEGY_CATALOG,
+  STRATEGY_PACKAGE_CATALOG,
   type SceneKey,
-  type StrategyBundleKey,
+  type StrategyPackageKey,
   type IndexPrereqKey,
-} from "~/constants/sceneStrategyCatalog";
+} from "~/constants/strategyPackageCatalog";
 
 interface WizardState {
   step: number;
   form: KnowledgeSpacePayload;
   iamEmail: string;
-  sceneKey: SceneKey;
-  bundleKey: StrategyBundleKey;
+  strategyPackageKey: StrategyPackageKey;
   sampleDoc: {
     enabled: boolean;
     format: IngestionJobPayload["format"];
@@ -56,8 +55,7 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     step: 1,
     form: { ...DEFAULT_FORM },
     iamEmail: "",
-    sceneKey: "sop",
-    bundleKey: "p1_general",
+    strategyPackageKey: "H_fusion",
     sampleDoc: {
       enabled: false,
       format: "pdf",
@@ -111,29 +109,30 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       this.$reset();
       this.form = { ...DEFAULT_FORM };
     },
-    setSceneAndBundle(sceneKey: SceneKey, bundleKey?: StrategyBundleKey) {
-      const scene = SCENE_STRATEGY_CATALOG.scenes[sceneKey];
-      if (!scene) return;
+    setStrategyPackage(strategyKey: StrategyPackageKey) {
+      const pkg = STRATEGY_PACKAGE_CATALOG[strategyKey];
+      if (!pkg) return;
+      const profileKey = pkg.recommendedProfileKey || "p1_general";
+      const sceneKey: SceneKey = pkg.recommendedScenes?.[0] ?? "custom_expert";
 
-      const nextBundle = bundleKey && scene.allowedBundles.includes(bundleKey)
-        ? bundleKey
-        : scene.defaultBundle;
+      this.strategyPackageKey = strategyKey;
 
-      this.sceneKey = sceneKey;
-      this.bundleKey = nextBundle;
-
-      // 绑定/切换三类 Profile（与策略包同 key：p0/p1/p2/p3）。
-      this.form.ingestionProfileKey = nextBundle;
-      this.form.indexProfileKey = nextBundle;
-      this.form.ragProfileKey = nextBundle;
+      // 绑定/切换三类 Profile（仍沿用 p0/p1/p2/p3）。
+      this.form.ingestionProfileKey = profileKey;
+      this.form.indexProfileKey = profileKey;
+      this.form.ragProfileKey = profileKey;
 
       // 记录为 feature flags（后端可用来做校验/推荐/审计）。
-      // 保持单值：先清理旧的 scene/bundle 标记。
+      // 保持单值：先清理旧的 scene/bundle/strategy 标记。
       this.form.featureFlags = (this.form.featureFlags || []).filter(
-        (f) => !f.startsWith("rag.scene:") && !f.startsWith("rag.bundle:"),
+        (f) =>
+          !f.startsWith("rag.scene:") &&
+          !f.startsWith("rag.bundle:") &&
+          !f.startsWith("rag.strategy_package:"),
       );
+      this.setFeatureFlag("rag.strategy_package:" + strategyKey, true);
       this.setFeatureFlag("rag.scene:" + sceneKey, true);
-      this.setFeatureFlag("rag.bundle:" + nextBundle, true);
+      this.setFeatureFlag("rag.bundle:" + profileKey, true);
 
       // 兼容旧字段：仍保留 rag.guided 标志，但不再作为主入口。
       this.setFeatureFlag("rag.guided", sceneKey === "custom_expert");
@@ -151,11 +150,9 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       }
     },
     computeEnabledIndexChannels(): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> {
-      const scene = SCENE_STRATEGY_CATALOG.scenes[this.sceneKey];
-      const bundle = SCENE_STRATEGY_CATALOG.bundles[this.bundleKey];
+      const pkg = STRATEGY_PACKAGE_CATALOG[this.strategyPackageKey];
       const idx = new Set<string>();
-      for (const k of scene?.prerequisites.index ?? []) idx.add(k);
-      for (const k of bundle?.prerequisites ?? []) idx.add(k);
+      for (const k of pkg?.dependencies.index ?? []) idx.add(k);
 
       const map = (key: IndexPrereqKey): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> => {
         switch (key) {

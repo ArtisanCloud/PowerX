@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,20 +9,23 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	agentconf "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
+	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
-	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
-	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
+	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -30,11 +34,11 @@ import (
 )
 
 type ModelRule struct {
-	RequireAPIKey  bool
+	RequireAPIKey    bool
 	RequireSecretID  bool
 	RequireSecretKey bool
-	RequireBaseURL bool
-	DefaultBaseURL string
+	RequireBaseURL   bool
+	DefaultBaseURL   string
 }
 
 var sensitiveCredentialKeys = []string{"api_key", "secret_id", "secret_key", "secret", "client_secret", "access_token"}
@@ -49,25 +53,25 @@ type ProviderHealthRecord struct {
 }
 
 type AgentSettingService struct {
-	db         *gorm.DB
-	credRepo   *repoai.AIProviderCredentialRepository
-	profRepo   *repoai.AIModelProfileRepository
-	routeRepo  *repoai.AIRoutePolicyRepository
-	usageRepo  *repoai.AIUsageLogRepository
-	tks        *tenantkeys.TenantKeyService
-	tenantRepo *tenantrepo.TenantRepository
+	db          *gorm.DB
+	credRepo    *repoai.AIProviderCredentialRepository
+	profRepo    *repoai.AIModelProfileRepository
+	routeRepo   *repoai.AIRoutePolicyRepository
+	usageRepo   *repoai.AIUsageLogRepository
+	tks         *tenantkeys.TenantKeyService
+	tenantRepo  *tenantrepo.TenantRepository
 	settingRepo *settingrepo.TenantSettingRepository
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
 	return &AgentSettingService{
-		db:         db,
-		credRepo:   repoai.NewAIProviderCredentialRepository(db),
-		profRepo:   repoai.NewAIModelProfileRepository(db),
-		routeRepo:  repoai.NewAIRoutePolicyRepository(db),
-		usageRepo:  repoai.NewAIUsageLogRepository(db),
-		tks:        tenantkeys.NewTenantKeyService(db),
-		tenantRepo: tenantrepo.NewTenantRepository(db),
+		db:          db,
+		credRepo:    repoai.NewAIProviderCredentialRepository(db),
+		profRepo:    repoai.NewAIModelProfileRepository(db),
+		routeRepo:   repoai.NewAIRoutePolicyRepository(db),
+		usageRepo:   repoai.NewAIUsageLogRepository(db),
+		tks:         tenantkeys.NewTenantKeyService(db),
+		tenantRepo:  tenantrepo.NewTenantRepository(db),
 		settingRepo: settingrepo.NewTenantSettingRepository(db),
 	}
 }
@@ -243,8 +247,12 @@ func (s *AgentSettingService) ModelsForTenant(
 }
 
 type openRouterModelsResponse struct {
-	Data   []struct{ ID string `json:"id"` } `json:"data"`
-	Models []struct{ ID string `json:"id"` } `json:"models"`
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+	Models []struct {
+		ID string `json:"id"`
+	} `json:"models"`
 }
 
 func (s *AgentSettingService) fetchOpenRouterModels(
@@ -850,6 +858,12 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 		return 0, fmt.Errorf("embedding probe returned empty vector")
 	}
 	dim := len(out[0])
+	maxInputTokens := probeEmbeddingMaxInputTokens(ctx, p, bu, m)
+	if maxInputTokens > 0 {
+		logger.InfoF(ctx, "[agent_setting] embedding max_input_tokens probed provider=%s model=%s tokens=%d", p, m, maxInputTokens)
+	} else {
+		logger.InfoF(ctx, "[agent_setting] embedding max_input_tokens probe empty provider=%s model=%s base=%s", p, m, bu)
+	}
 
 	// write back to model profile (defaults + cap_cache)
 	profile := &dbmodel.AIModelProfile{
@@ -865,6 +879,10 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
 		},
 		Tags: []string{"embedding", "probed"},
+	}
+	if maxInputTokens > 0 {
+		profile.Defaults["max_input_tokens"] = maxInputTokens
+		profile.CapCache["max_input_tokens"] = maxInputTokens
 	}
 	// keep existing defaults/cap_cache best-effort (no hard dependency)
 	if exist, e := s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, "embedding", p, m); e == nil && exist != nil {
@@ -882,6 +900,9 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 			}
 			profile.CapCache["dimensions"] = dim
 			profile.CapCache["probed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
+			if maxInputTokens > 0 {
+				profile.CapCache["max_input_tokens"] = maxInputTokens
+			}
 		}
 		if strings.TrimSpace(exist.Label) != "" {
 			profile.Label = exist.Label
@@ -890,9 +911,208 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 			profile.Tags = exist.Tags
 		}
 	}
+	if maxInputTokens <= 0 {
+		delete(profile.Defaults, "max_input_tokens")
+		delete(profile.CapCache, "max_input_tokens")
+	}
 	_ = s.profRepo.UpsertByScopeModalityProviderModel(ctx, env, tenantUUID, profile)
 
 	return dim, nil
+}
+
+func probeEmbeddingMaxInputTokens(ctx context.Context, provider, baseURL, model string) int {
+	if strings.ToLower(strings.TrimSpace(provider)) != "ollama" {
+		return 0
+	}
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	if base == "" || strings.TrimSpace(model) == "" {
+		return 0
+	}
+	payload := map[string]string{"name": strings.TrimSpace(model)}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return 0
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/show", bytes.NewReader(body))
+	if err != nil {
+		return 0
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.WarnF(ctx, "[agent_setting] ollama show failed provider=%s model=%s base=%s err=%v", provider, model, base, err)
+		return 0
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		logger.WarnF(ctx, "[agent_setting] ollama show non-2xx provider=%s model=%s base=%s status=%d", provider, model, base, resp.StatusCode)
+		return 0
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil || len(raw) == 0 {
+		logger.WarnF(ctx, "[agent_setting] ollama show empty body provider=%s model=%s base=%s", provider, model, base)
+		return 0
+	}
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
+		logger.WarnF(ctx, "[agent_setting] ollama show invalid json provider=%s model=%s base=%s err=%v", provider, model, base, err)
+		return 0
+	}
+	logger.InfoF(ctx, "[agent_setting] ollama show keys provider=%s model=%s keys=%v", provider, model, mapKeys(data))
+	if params, ok := data["parameters"].(map[string]any); ok {
+		if v := parseAnyInt(params["num_ctx"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context_length"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context_len"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context"]); v > 0 {
+			return v
+		}
+	}
+	if params, ok := data["parameters"].(string); ok && strings.TrimSpace(params) != "" {
+		re := regexp.MustCompile(`(?mi)\b(num_ctx|context_length|context_len|context\s+length)\s*[:=]?\s*(\d+)\b`)
+		if m := re.FindStringSubmatch(params); len(m) > 2 {
+			if n, err := strconv.Atoi(strings.TrimSpace(m[2])); err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	if v := parseAnyInt(data["context_length"]); v > 0 {
+		return v
+	}
+	if v := parseAnyInt(data["context_len"]); v > 0 {
+		return v
+	}
+	if v := parseAnyInt(data["context"]); v > 0 {
+		return v
+	}
+	if info, ok := data["model_info"]; ok {
+		if v := extractOllamaContext(info); v > 0 {
+			return v
+		}
+	}
+	if details, ok := data["details"]; ok {
+		if v := extractOllamaContext(details); v > 0 {
+			return v
+		}
+	}
+	if modelInfo, ok := data["model"]; ok {
+		if v := extractOllamaContext(modelInfo); v > 0 {
+			return v
+		}
+	}
+	if v := parseAnyInt(data["num_ctx"]); v > 0 {
+		return v
+	}
+	if mf, ok := data["modelfile"].(string); ok && strings.TrimSpace(mf) != "" {
+		re := regexp.MustCompile(`(?mi)^\s*PARAMETER\s+num_ctx\s+(\d+)\s*$`)
+		if m := re.FindStringSubmatch(mf); len(m) > 1 {
+			if n, err := strconv.Atoi(strings.TrimSpace(m[1])); err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+func extractOllamaContext(raw any) int {
+	switch info := raw.(type) {
+	case map[string]any:
+		if v := parseAnyInt(info["num_ctx"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context_length"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context_len"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context"]); v > 0 {
+			return v
+		}
+		// Ollama 的 model_info/details 常见 key: "bert.context_length" / "llama.context_length"
+		for k, v := range info {
+			lk := strings.ToLower(strings.TrimSpace(k))
+			if strings.Contains(lk, "context_length") || strings.HasSuffix(lk, ".context_length") || strings.HasSuffix(lk, "context_length") {
+				if n := parseAnyInt(v); n > 0 {
+					return n
+				}
+			}
+			if strings.Contains(lk, "num_ctx") || strings.HasSuffix(lk, ".num_ctx") {
+				if n := parseAnyInt(v); n > 0 {
+					return n
+				}
+			}
+		}
+	case string:
+		if v := parseContextFromString(info); v > 0 {
+			return v
+		}
+	}
+	return 0
+}
+
+func parseContextFromString(s string) int {
+	if strings.TrimSpace(s) == "" {
+		return 0
+	}
+	re := regexp.MustCompile(`(?mi)\b(num_ctx|context_length|context_len|context\s+length)\s*[:=]?\s*(\d+)\b`)
+	if m := re.FindStringSubmatch(s); len(m) > 2 {
+		if n, err := strconv.Atoi(strings.TrimSpace(m[2])); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+func mapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func parseAnyInt(v any) int {
+	switch val := v.(type) {
+	case int:
+		if val > 0 {
+			return val
+		}
+	case int64:
+		if val > 0 {
+			return int(val)
+		}
+	case float64:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case float32:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case string:
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val)); err == nil && parsed > 0 {
+			return parsed
+		}
+	case json.Number:
+		if parsed, err := val.Int64(); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val.String())); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
 
 // 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
@@ -964,7 +1184,8 @@ func (s *AgentSettingService) QuickCallLLM(
 	// 回退解密（OpenAI-compatible 等）
 	var err error
 	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略错误，尽量继续 */ }
+	if err != nil { /* 忽略错误，尽量继续 */
+	}
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
