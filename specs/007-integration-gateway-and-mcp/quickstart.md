@@ -199,6 +199,73 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
 - 点击模块卡片可展开“复制 cURL/Insomnia snippet”“跳转到 OpenAPI / `/media/assets`”等操作，使宿主与 Skeleton 插件在上线前即可验证平台能力。
 - 如需刷新数据，可点击“立即同步”按钮重新从 Capability Registry 读取。
 
+### 步骤 2.7：Agent 与多模态对外调用（平台能力）
+
+> 这些接口走统一的 tenant 鉴权与租户隔离：`agent_id/session_id/model_key` 必须属于当前租户。
+
+1. **Agent 非流式调用**
+   ```bash
+   curl -sS -X POST "$POWERX_BASE_URL/agents/invoke" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "agent_id": "agent-uuid",
+          "message": "帮我总结一下这份文档"
+        }'
+   ```
+2. **Agent SSE 流式输出**
+   ```bash
+   curl -N "$POWERX_BASE_URL/agents/stream/sse?q=你好&agent_id=agent-uuid" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001"
+   ```
+3. **多模态无状态调用**
+   ```bash
+   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/invoke" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "modality": "text",
+          "model_key": "ollama/mxbai-embed-large",
+          "inputs": [{"type":"text","text":"解释这段话"}],
+          "params": {"temperature":0.2,"max_tokens":256}
+        }'
+   ```
+4. **多模态会话调用（创建 → 追加消息 → SSE 流式）**
+   ```bash
+   # 创建会话
+   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/sessions" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{"model_key":"ollama/mxbai-embed-large"}'
+
+   # 追加消息
+   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/sessions/{session_id}/messages" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "role":"user",
+          "content":[{"type":"text","text":"这张图是什么"},{"type":"image_url","url":"https://.../a.png"}]
+        }'
+
+   # SSE 输出
+   curl -N "$POWERX_BASE_URL/ai/multimodal/sessions/{session_id}/stream" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001"
+   ```
+5. **Embeddings**
+   ```bash
+   curl -sS -X POST "$POWERX_BASE_URL/ai/embeddings" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{"model_key":"ollama/mxbai-embed-large","inputs":["a","b","c"]}'
+   ```
+
 ### 步骤 3：MCP 工具端到端
 1. 在 MCP Client 中运行 `tools/list`，可见 `com.demo.template.generate` 的 schema 与 `tool_scope`。
 2. 执行：

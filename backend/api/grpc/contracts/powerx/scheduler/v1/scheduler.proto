@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package powerx.scheduler.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/scheduler/v1;schedulerv1";
+
+message SchedulerJob {
+  string job_id = 1;
+  string tenant_uuid = 2;
+  string owner_type = 3;
+  string owner_id = 4;
+  string name = 5;
+  string schedule_type = 6;
+  string schedule_expr = 7;
+  string timezone = 8;
+  bytes payload_json = 9;
+  string status = 10;
+  string next_run_at = 11;
+  string last_run_at = 12;
+}
+
+message CreateJobRequest { SchedulerJob job = 1; }
+message UpdateJobRequest { SchedulerJob job = 1; }
+message PauseJobRequest { string job_id = 1; string tenant_uuid = 2; }
+message ResumeJobRequest { string job_id = 1; string tenant_uuid = 2; }
+message TriggerJobRequest { string job_id = 1; string tenant_uuid = 2; }
+message GetJobRequest { string job_id = 1; string tenant_uuid = 2; }
+message ListJobsRequest { string tenant_uuid = 1; int32 limit = 2; }
+message CreateJobResponse { SchedulerJob job = 1; }
+message UpdateJobResponse { SchedulerJob job = 1; }
+message PauseJobResponse { SchedulerJob job = 1; }
+message ResumeJobResponse { SchedulerJob job = 1; }
+message TriggerJobResponse { SchedulerJob job = 1; }
+message GetJobResponse { SchedulerJob job = 1; }
+message ListJobsResponse { repeated SchedulerJob jobs = 1; }
+
+service SchedulerService {
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse);
+  rpc UpdateJob(UpdateJobRequest) returns (UpdateJobResponse);
+  rpc PauseJob(PauseJobRequest) returns (PauseJobResponse);
+  rpc ResumeJob(ResumeJobRequest) returns (ResumeJobResponse);
+  rpc TriggerJob(TriggerJobRequest) returns (TriggerJobResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+}

@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package powerx.ai.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/ai/v1;aiv1";
+option java_package = "com.powerx.ai.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.AI.V1";
+option php_namespace = "PowerX\\AI\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\AI\\V1";
+
+import "google/protobuf/struct.proto";
+import "common/v1/context.proto";
+
+service MultimodalService {
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+  rpc Stream(StreamRequest) returns (stream StreamResponse);
+}
+
+service MultimodalSessionService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc AppendMessage(AppendMessageRequest) returns (AppendMessageResponse);
+}
+
+service EmbeddingService {
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+}
+
+message ContentItem {
+  string type = 1; // text|image_url|audio_url
+  string text = 2;
+  string url = 3;
+}
+
+message InvokeRequest {
+  common.v1.RequestContext ctx = 1;
+  string modality = 2; // text|image|audio|video|embedding|mixed
+  string model_key = 3;
+  repeated ContentItem inputs = 4;
+  google.protobuf.Struct params = 5;
+}
+
+message InvokeResponse {
+  google.protobuf.Struct output = 1;
+  google.protobuf.Struct usage = 2;
+}
+
+message StreamRequest {
+  common.v1.RequestContext ctx = 1;
+  string session_id = 2;
+}
+
+message StreamResponse {
+  string type = 1; // start|token|final|end|error
+  google.protobuf.Struct payload = 2;
+}
+
+message CreateSessionRequest {
+  common.v1.RequestContext ctx = 1;
+  string model_key = 2;
+  string title = 3;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+}
+
+message AppendMessageRequest {
+  common.v1.RequestContext ctx = 1;
+  string session_id = 2;
+  string role = 3; // system|user|assistant|tool
+  repeated ContentItem content = 4;
+  repeated google.protobuf.Struct tool_calls = 5;
+  repeated google.protobuf.Struct tool_results = 6;
+}
+
+message AppendMessageResponse {
+  bool ok = 1;
+}
+
+message EmbedRequest {
+  common.v1.RequestContext ctx = 1;
+  string model_key = 2;
+  repeated string inputs = 3;
+}
+
+message EmbedResponse {
+  repeated VectorItem vectors = 1;
+  google.protobuf.Struct usage = 2;
+}
+
+message VectorItem {
+  repeated float values = 1;
+}

@@ -96,6 +96,11 @@ paths:
       summary: 通过 Admin 通道发布事件
       operationId: publishEvent
       tags: [Publish]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -111,6 +116,95 @@ paths:
                 $ref: '#/components/schemas/PublishReceipt'
         '403':
           description: 未授权发布
+  /subscribe:
+    post:
+      summary: 注册订阅关系（HTTP 回调/插件 handler）
+      operationId: subscribeEvent
+      tags: [Subscribe]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+      responses:
+        '200':
+          description: 已注册
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '403':
+          description: 未授权订阅
+  /ack:
+    post:
+      summary: 确认事件消费成功
+      operationId: ackEvent
+      tags: [Subscribe]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      responses:
+        '200':
+          description: 已确认
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+  /nack:
+    post:
+      summary: 标记事件消费失败
+      operationId: nackEvent
+      tags: [Subscribe]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NackRequest'
+      responses:
+        '200':
+          description: 已记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+  /subscriptions:
+    get:
+      summary: 查询订阅列表
+      operationId: listSubscriptions
+      tags: [Subscribe]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: topicFullName
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 订阅列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionRecord'
   /dlq:
     get:
       summary: 查询死信队列
@@ -362,6 +456,70 @@ components:
           type: string
         retryCount:
           type: integer
+    SubscriptionRequest:
+      type: object
+      required: [tenant_uuid, subscriber_id, topics]
+      properties:
+        tenant_uuid:
+          type: string
+        subscriber_id:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        endpoint:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+    SubscriptionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+    SubscriptionRecord:
+      type: object
+      properties:
+        tenant_uuid:
+          type: string
+        subscriber_id:
+          type: string
+        topic_full_name:
+          type: string
+        endpoint:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    AckRequest:
+      type: object
+      required: [tenant_uuid, event_id, subscriber_id]
+      properties:
+        tenant_uuid:
+          type: string
+        event_id:
+          type: string
+        subscriber_id:
+          type: string
+    NackRequest:
+      type: object
+      required: [tenant_uuid, event_id, subscriber_id]
+      properties:
+        tenant_uuid:
+          type: string
+        event_id:
+          type: string
+        subscriber_id:
+          type: string
+        reason:
+          type: string
+    AckResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
     DlqMessage:
       type: object
       properties:

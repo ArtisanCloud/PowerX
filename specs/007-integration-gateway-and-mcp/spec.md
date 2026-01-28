@@ -112,6 +112,8 @@
 - **FR-016**: 管理端必须在“设置”侧边栏下提供“开放能力”页面，仅 `IsRoot` 管理员可见。页面需按模块（Media、Event、Scheduler、Knowledge、Workflow 等）分组展示：每个模块的能力数量、支持的协议类型（REST/gRPC/MCP/Workflow）、调试入口（例如 `/tenant/invocations` cURL、MCP Tool 名称、公开 OpenAPI 链接），并实时读取 Capability Registry（`source=corex`）数据，确保宿主与 Skeleton 插件都能在文档内找到对外调用方式。
 - **FR-017**: “设置 > AI > 能力注册表” 页面同样仅向 `IsRoot` 展示，但该页面默认视图必须聚焦 `source=plugin` 的 Registry 记录（即插件/租户自定义的能力），并通过 `source` 筛选在 “插件 / 平台 / 全部” 之间切换；后端 `/admin/capabilities` 需要暴露 `source` 查询参数以区分 corex 底座与插件能力，避免两个页面出现相同数据。
 - **FR-018**: `/api/v1/tenant/invocations` 作为统一调度入口时，必须根据 `preferred_protocol` 将传入 payload 转换为 REST/gRPC/MCP 调用并代理真实响应，返回结构包含两部分：①原始业务响应体（REST JSON、gRPC JSON 映射、MCP payload 等）原样输出；②在响应 JSON 包装层附带 `trace_id/protocol_used/fallback_used` 等元信息，便于审计。换言之，无论调用何种协议，插件在 HTTP 层都能拿到一致的“业务结果 + trace”结果，避免只能看到 trace 的空壳响应。
+- **FR-019**: 平台需将 Agent 能力纳入 `source=corex` 的能力目录，公开 REST/SSE/gRPC 契约，并在 Integration Gateway 中支持流式代理或直连（SSE/WS）；租户只能访问本租户 Agent 与 Session（`agent_id` 与 `session_id` 必须归属当前租户）。
+- **FR-020**: 平台需将多模态模型调用纳入 `source=corex` 能力目录，区分无状态调用与有状态会话（Sessioned）；所有请求必须校验 `model_key` 属于当前租户配置，违规直接拒绝。
 
 #### Gateway Proxy Envelope（请求/响应）
 
@@ -152,8 +154,9 @@
 
 1. **Media Assets Management 能力开放**：基于 `specs/001-docs-media-storage/contracts/http-admin.yaml` 的实体再输出一份对外 OpenAPI（对外开放路径定义在 `specs/001-docs-media-storage/contracts/http-openapi.yaml`），并由 Integration Gateway 提供 `media.assets.*` 预置能力记录，使插件以 `/tenant/invocations` 即可消费媒资存储、预签名等能力。
 2. **事件/任务接口统一**：事件总线（Event Fabric）、定时任务、AI 知识库与 Workflow Builder 的底座功能都需要在 Registry 中登记“平台级能力”，通过 Admin API 暴露配置入口，通过 Tenant API/gRPC 暴露调用入口，确保宿主与 Skeleton 走同一认证/限流/审计链路。
-3. **对外契约集中维护**：所有底座能力的 HTTP 契约统一放在 `specs/<module>/contracts/http-openapi.yaml`，gRPC 契约统一放在 `backend/api/grpc/contracts/...`，并在本 spec 的 `FR` 条目下跟踪落地。Integration Gateway 负责汇总这些契约并生成供插件调用的 SDK/文档。
-4. **Registry 标签**：为区分“插件能力”与“平台能力”，Registry 数据模型新增 `source=corex|plugin` 字段；Platform 能力默认内置 Tool Grant，可按租户启用/限流，插件调用时无需关心来源差异。
+3. **Agent & 多模态能力开放**：统一对外 REST/SSE/gRPC 契约（HTTP：`specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml` 与 `ai-multimodal.http-openapi.yaml`；gRPC：`backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto`），并通过 Registry 标记 `source=corex`，允许插件统一经 `/tenant/invocations` 或直接 OpenAPI 访问。
+4. **对外契约集中维护**：所有底座能力的 HTTP 契约统一放在 `specs/<module>/contracts/http-openapi.yaml`，gRPC 契约统一放在 `backend/api/grpc/contracts/...`，并在本 spec 的 `FR` 条目下跟踪落地。Integration Gateway 负责汇总这些契约并生成供插件调用的 SDK/文档。
+5. **Registry 标签**：为区分“插件能力”与“平台能力”，Registry 数据模型新增 `source=corex|plugin` 字段；Platform 能力默认内置 Tool Grant，可按租户启用/限流，插件调用时无需关心来源差异。
 
 该路线确保未来添加任意核心模块（Media、事件广播、定时任务、AI 知识库、Workflow 等）时，都能通过 Integration Gateway 暴露统一接口，避免重复设计私有 Admin API。
 

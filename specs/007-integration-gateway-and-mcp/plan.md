@@ -11,6 +11,8 @@
 3. `/tenant/capabilities`、`/tenant/invocations` 成为宿主/ Skeleton 插件统一的调用入口，Admin API 仅保留配置职责；
 4. 观测、限流、审计沿用 FR-001~FR-016 的规范，确保 fallback、事件广播、Trace 一致，并在 Web Admin「设置 > 开放能力」页面向 `IsRoot` 管理员实时展示平台开放能力（按模块统计能力数量、协议种类与调试入口），方便宿主与 Skeleton 插件直接对照文档调用。
 
+补充：Agent 与多模态模型调用的对外能力也将纳入上述统一入口，新增公开契约并进入 `source=corex` 目录，保证插件能统一调用（非流式 + SSE/WS + gRPC）。
+
 ## Admin 开放能力页面设计（T057）
 
 - **入口 & 权限**：Web Admin 侧边栏 “设置” 下新增 “开放能力” 菜单（建议路由 `/settings/open-capabilities`），仅当当前用户 `isRoot=true` 时渲染，同时接口层面也需校验。
@@ -54,6 +56,15 @@
 4. **文档 & Quickstart**：在 Event Fabric 调试指南与 quickstart 中添加“自动化配置”章节，说明 manifest 结构、脚本用法。
 
 对应新增任务 T061-T065。
+
+## Agent & 多模态能力开放（新增）
+
+为补齐“智能体与模型调用能力”的统一开放，需要新增契约、路由与租户隔离要求：
+
+1. **契约输出**：HTTP OpenAPI 放入 `specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml` 与 `ai-multimodal.http-openapi.yaml`；gRPC 契约放入 `backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto`。
+2. **Registry 能力登记**：新增 `com.corex.agent.*` 与 `com.corex.ai.*` 能力记录，标记 `source=corex`，并在 Admin “开放能力”页面展示。
+3. **租户隔离**：Agent `agent_id/session_id` 与多模态 `model_key/session_id` 必须验证属于当前租户，跨租户请求拒绝并审计。
+4. **流式支持**：Agent SSE/WS 与多模态 SSE 流式输出均需记录 Trace/Audit，并支持 Integration Gateway 代理（必要时仅透传响应）。
 
 ## Technical Context
 

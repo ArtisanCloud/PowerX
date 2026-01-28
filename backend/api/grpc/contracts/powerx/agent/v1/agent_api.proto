@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package powerx.agent.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1;agentv1";
+option java_package = "com.powerx.agent.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Agent.V1";
+option php_namespace = "PowerX\\Agent\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "common/v1/context.proto";
+
+service AgentInvokeService {
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+}
+
+service AgentSessionService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+}
+
+message Attachment {
+  string type = 1; // image_url | audio_url | file_url
+  string url = 2;
+}
+
+message Usage {
+  uint32 prompt_tokens = 1;
+  uint32 completion_tokens = 2;
+  uint32 total_tokens = 3;
+}
+
+message InvokeRequest {
+  common.v1.RequestContext ctx = 1;
+  string agent_id = 2;
+  string session_id = 3;
+  string message = 4;
+  repeated Attachment attachments = 5;
+  google.protobuf.Struct meta = 6;
+}
+
+message InvokeResponse {
+  string session_id = 1;
+  string agent_id = 2;
+  string reply = 3;
+  Usage usage = 4;
+}
+
+message CreateSessionRequest {
+  common.v1.RequestContext ctx = 1;
+  string agent_id = 2;
+  string title = 3;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+}
+
+message MessageItem {
+  string role = 1; // system|user|assistant|tool
+  google.protobuf.Struct content = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message ListMessagesRequest {
+  common.v1.RequestContext ctx = 1;
+  string session_id = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message ListMessagesResponse {
+  repeated MessageItem items = 1;
+}
