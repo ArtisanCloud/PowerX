@@ -132,21 +132,21 @@
 
 ### Contracts
 
-- [ ] **T066 [P]** HTTP OpenAPI（Agent）：完善 `specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml`，补齐错误码、SSE 事件描述与样例。
-- [ ] **T067 [P]** HTTP OpenAPI（Multimodal）：完善 `specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml`，补齐会话与无状态调用说明。
-- [ ] **T068 [P]** gRPC（Agent/AI）：在 `backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto` 补齐注释与标准错误码约定，并接入 buf 生成流程。
+- [x] **T066 [P]** HTTP OpenAPI（Agent）：完善 `specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml`，补齐错误码、SSE 事件描述与样例。
+- [x] **T067 [P]** HTTP OpenAPI（Multimodal）：完善 `specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml`，补齐会话与无状态调用说明。
+- [x] **T068 [P]** gRPC（Agent/AI）：在 `backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto` 补齐注释与标准错误码约定，并接入 buf 生成流程。
 
 ### Implementation
 
-- [ ] **T069 [P]** Registry 能力登记：新增 `com.corex.agent.*`、`com.corex.ai.*` 平台能力（`source=corex`），并在 Admin “开放能力”页面展示。
-- [ ] **T070 [P]** Integration Gateway 路由：支持 Agent（invoke + stream）与 Multimodal（invoke + sessioned + embeddings）的统一代理与限流/审计。
-- [ ] **T071 [P]** 租户隔离校验：Agent 的 `agent_id/session_id` 与多模态 `model_key/session_id` 必须验证租户归属。
-- [ ] **T072** SSE/WS 观测：流式调用写入 Trace/Audit，`InvocationTrace` 记录 `protocol_used` 与 `fallback_used`。
+- [x] **T069 [P]** Registry 能力登记：新增 `com.corex.agent.*`、`com.corex.ai.*` 平台能力（`source=corex`），并在 Admin “开放能力”页面展示。
+- [x] **T070 [P]** Integration Gateway 路由：支持 Agent（invoke + stream）与 Multimodal（invoke + sessioned + embeddings）的统一代理与限流/审计。
+- [x] **T071 [P]** 租户隔离校验：Agent 的 `agent_id/session_id` 与多模态 `model_key/session_id` 必须验证租户归属。
+- [x] **T072** SSE/WS 观测：流式调用写入 Trace/Audit，`InvocationTrace` 记录 `protocol_used` 与 `fallback_used`。
 
 ### Tests
 
-- [ ] **T073 [P]** Contract Tests：新增 Agent/Multimodal OpenAPI & gRPC 合同测试，覆盖错误码与流式示例。
-- [ ] **T074** Integration Test：端到端调用 Agent SSE 与 Multimodal Session 流式输出，验证租户隔离与审计记录。
+- [x] **T073 [P]** Contract Tests：新增 Agent/Multimodal OpenAPI & gRPC 合同测试，覆盖错误码与流式示例。
+- [x] **T074** Integration Test：端到端调用 Agent SSE 与 Multimodal Session 流式输出，验证租户隔离与审计记录。
 
 ## Dependencies & Parallel Execution
 

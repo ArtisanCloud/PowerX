@@ -127,7 +127,7 @@ func newJSONRequest(method, path string, body map[string]any, tenantUUID string)
 	req.Header.Set("Authorization", "Bearer test-token")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", uuid.NewString())
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 	return req
 }
 

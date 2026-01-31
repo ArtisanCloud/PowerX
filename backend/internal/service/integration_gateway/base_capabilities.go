@@ -501,6 +501,389 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 				},
 			},
 		},
+		{
+			CapabilityID: "com.corex.agent.invoke",
+			Title:        "Agent Invoke",
+			Description:  "非流式调用 Agent 对话。",
+			Module:       "agent",
+			Categories:   []string{"agent", "ai"},
+			Intents:      []string{"agent.invoke"},
+			ToolScopes:   []string{"agent.runtime"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/agents/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.runtime",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.agent.v1.AgentInvokeService",
+					RPC:       "Invoke",
+					SchemaRef: "backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto#AgentInvokeService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.runtime",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.agent.stream",
+			Title:        "Agent Stream",
+			Description:  "通过 SSE/gRPC 流式输出 Agent 对话内容。",
+			Module:       "agent",
+			Categories:   []string{"agent", "ai"},
+			Intents:      []string{"agent.stream"},
+			ToolScopes:   []string{"agent.runtime"},
+			Policy: capabilityPolicy{
+				Prefer: "rest",
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/agent/v1/stream.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/agents/stream/sse",
+					Method:    "GET",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1stream~1sse/get",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.runtime",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.agent.v1.AgentStreamService",
+					RPC:       "Stream",
+					SchemaRef: "backend/api/grpc/contracts/powerx/agent/v1/stream.proto#AgentStreamService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.runtime",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.agent.session.manage",
+			Title:        "Agent Session Management",
+			Description:  "创建会话与管理消息。",
+			Module:       "agent",
+			Categories:   []string{"agent", "ai"},
+			Intents:      []string{"agent.session.manage"},
+			ToolScopes:   []string{"agent.session"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/agents/sessions",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.session",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.agent.v1.AgentSessionService",
+					RPC:       "CreateSession",
+					SchemaRef: "backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto#AgentSessionService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "agent.session",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.llm.invoke",
+			Title:        "LLM Invoke",
+			Description:  "大语言模型无状态调用。",
+			Module:       "ai",
+			Categories:   []string{"ai", "llm"},
+			Intents:      []string{"ai.llm.invoke"},
+			ToolScopes:   []string{"ai.llm"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/llm/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalService",
+					RPC:       "Invoke",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.llm.stream",
+			Title:        "LLM Stream",
+			Description:  "LLM 会话流式输出。",
+			Module:       "ai",
+			Categories:   []string{"ai", "llm"},
+			Intents:      []string{"ai.llm.stream"},
+			ToolScopes:   []string{"ai.llm"},
+			Policy: capabilityPolicy{
+				Prefer: "rest",
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/llm/sessions/{session_id}/stream",
+					Method:    "GET",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions~1{session_id}~1stream/get",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalService",
+					RPC:       "Stream",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.llm.session.create",
+			Title:        "LLM Session Create",
+			Description:  "创建 LLM 会话。",
+			Module:       "ai",
+			Categories:   []string{"ai", "llm"},
+			Intents:      []string{"ai.llm.session.create"},
+			ToolScopes:   []string{"ai.llm.session"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/llm/sessions",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm.session",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalSessionService",
+					RPC:       "CreateSession",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalSessionService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm.session",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.llm.session.append",
+			Title:        "LLM Session Append",
+			Description:  "追加 LLM 会话消息。",
+			Module:       "ai",
+			Categories:   []string{"ai", "llm"},
+			Intents:      []string{"ai.llm.session.append"},
+			ToolScopes:   []string{"ai.llm.session"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/llm/sessions/{session_id}/messages",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions~1{session_id}~1messages/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm.session",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalSessionService",
+					RPC:       "AppendMessage",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalSessionService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.llm.session",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.image.invoke",
+			Title:        "Image Invoke",
+			Description:  "图像生成/理解调用。",
+			Module:       "ai",
+			Categories:   []string{"ai", "image"},
+			Intents:      []string{"ai.image.invoke"},
+			ToolScopes:   []string{"ai.image"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/image/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1image~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.image",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalService",
+					RPC:       "Invoke",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.image",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.video.invoke",
+			Title:        "Video Invoke",
+			Description:  "视频生成/理解调用。",
+			Module:       "ai",
+			Categories:   []string{"ai", "video"},
+			Intents:      []string{"ai.video.invoke"},
+			ToolScopes:   []string{"ai.video"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/video/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1video~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.video",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalService",
+					RPC:       "Invoke",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.video",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.tts.invoke",
+			Title:        "TTS Invoke",
+			Description:  "语音合成调用。",
+			Module:       "ai",
+			Categories:   []string{"ai", "tts"},
+			Intents:      []string{"ai.tts.invoke"},
+			ToolScopes:   []string{"ai.tts"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/tts/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1tts~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.tts",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.MultimodalService",
+					RPC:       "Invoke",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.tts",
+				},
+			},
+		},
+		{
+			CapabilityID: "com.corex.ai.embedding.invoke",
+			Title:        "Embedding Invoke",
+			Description:  "向量生成（embedding）。",
+			Module:       "ai",
+			Categories:   []string{"ai", "embedding"},
+			Intents:      []string{"ai.embedding.invoke"},
+			ToolScopes:   []string{"ai.embedding"},
+			Policy: capabilityPolicy{
+				Prefer:   "rest",
+				Fallback: []string{"grpc"},
+			},
+			Docs: []string{
+				"specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml",
+				"backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto",
+			},
+			Protocols: []models.ProtocolBinding{
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/ai/embedding/invoke",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1embedding~1invoke/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.embedding",
+				},
+				{
+					Channel:   "grpc",
+					Endpoint:  "powerx.ai.v1.EmbeddingService",
+					RPC:       "Embed",
+					SchemaRef: "backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#EmbeddingService",
+					AuthType:  "tenant_jwt",
+					ToolScope: "ai.embedding",
+				},
+			},
+		},
 	}
 }
 
@@ -633,6 +1016,9 @@ func (s *BaseCapabilitySeeder) buildAdapters(def platformCapabilityDefinition) [
 		labels := map[string]string{}
 		if binding.Method != "" {
 			labels["method"] = strings.ToUpper(strings.TrimSpace(binding.Method))
+		}
+		if binding.RPC != "" {
+			labels["rpc"] = strings.TrimSpace(binding.RPC)
 		}
 		if binding.SchemaRef != "" {
 			labels["schema_ref"] = binding.SchemaRef

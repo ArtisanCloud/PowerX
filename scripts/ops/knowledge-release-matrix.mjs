@@ -221,7 +221,7 @@ async function upsertPolicy(args, matrix) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify({
 			matrixVersion: matrix.matrixVersion,
@@ -244,7 +244,7 @@ async function publishRelease(args, policyId, versionId) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify({policyId, versionId, requestedBy: 'ops-script'}),
 	});
@@ -260,7 +260,7 @@ async function promoteRelease(args, policyId, versionId, batchToken, alerts) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify({policyId, versionId, batchToken, alerts: alerts || [], requestedBy: 'ops-script'}),
 	});
@@ -277,7 +277,7 @@ async function rollbackRelease(args, policyId, versionId, reason) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify({policyId, versionId, reason, requestedBy: 'ops-script'}),
 	});
@@ -292,7 +292,7 @@ async function fetchStatus(args, policyId, versionId) {
 		method: 'GET',
 		headers: {
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 	});
 	if (!resp.ok) throw new Error(`status failed: ${resp.status} ${await resp.text()}`);

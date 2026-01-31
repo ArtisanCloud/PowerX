@@ -94,7 +94,7 @@
 - 处理：
   - 确认已登录、浏览器里有 `access_token`
   - 如刚 `db-refresh`：退出登录 → 重新登录
-  - 确认请求头含 `Authorization` 与 `X-Tenant-UUID`（Web Admin 正常会自动注入）
+  - 确认请求头含 `Authorization` 与 `X-PowerX-Tenant`（Web Admin 正常会自动注入）
 
 ### 2) 部门为空 / 部门树返回空
 

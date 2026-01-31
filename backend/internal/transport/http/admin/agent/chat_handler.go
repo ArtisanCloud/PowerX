@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -26,6 +27,58 @@ type AgentChatHandler struct {
 	his         *agentSvc.ChatHistoryService
 	cfgResolver *agentSvc.ChatConfigResolver
 	ag          *agentSvc.AgentService
+	audit       *capservice.AuditService
+	settings    *agentSvc.AgentSettingService
+}
+
+type agentInvokeRequest struct {
+	AgentID   string                 `json:"agent_id"`
+	SessionID string                 `json:"session_id,omitempty"`
+	Message   string                 `json:"message"`
+	Meta      map[string]interface{} `json:"meta,omitempty"`
+}
+
+type agentInvokeSink struct {
+	buf   strings.Builder
+	final string
+}
+
+func (s *agentInvokeSink) Emit(event string, payload any) error {
+	switch event {
+	case dto.EventToken:
+		if m, ok := payload.(map[string]any); ok {
+			if d, ok := m["delta"].(string); ok && d != "" {
+				s.buf.WriteString(d)
+			}
+		}
+	case dto.EventFinal:
+		if text := extractInvokeAssistantText(payload); strings.TrimSpace(text) != "" {
+			s.final = text
+		}
+	}
+	return nil
+}
+
+func (s *agentInvokeSink) Reply() string {
+	if strings.TrimSpace(s.final) != "" {
+		return s.final
+	}
+	return s.buf.String()
+}
+
+func extractInvokeAssistantText(payload any) string {
+	switch m := payload.(type) {
+	case map[string]any:
+		if d, ok := m["data"].(map[string]any); ok {
+			if s, ok := d["content"].(string); ok {
+				return s
+			}
+		}
+		if s, ok := m["content"].(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
@@ -33,6 +86,8 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 		his:         agentSvc.NewChatHistoryService(dep.DB),
 		cfgResolver: agentSvc.NewChatConfigResolver(dep.DB),
 		ag:          agentSvc.NewAgentService(dep.DB),
+		audit:       dep.CapabilityRegistryAudit,
+		settings:    agentSvc.NewAgentSettingService(dep.DB),
 	}
 }
 
@@ -149,8 +204,20 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		return
 	}
 	// 2) 解析入参 & 会话（保持你现有逻辑）
-	env := c.DefaultQuery("env", "default")
-	q := strings.TrimSpace(utils.FirstNonEmpty(c.Query("q"), c.Query("message")))
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	getParam := func(key string) string {
+		if v, ok := c.Get(key); ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return strings.TrimSpace(s)
+			}
+		}
+		return strings.TrimSpace(c.Query(key))
+	}
+	q := strings.TrimSpace(utils.FirstNonEmpty(getParam("q"), getParam("message")))
 	regenFromID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("regen_from_message_id")))
 	if q == "" && regenFromID == 0 {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
@@ -162,9 +229,8 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	uid := reqctx.GetUserID(c.Request.Context())
 	var agentID uint64
-	if agentUUIDStr := strings.TrimSpace(c.Query("agent_uuid")); agentUUIDStr != "" {
+	if agentUUIDStr := getParam("agent_uuid"); agentUUIDStr != "" {
 		agentUUID, err := uuid.Parse(agentUUIDStr)
 		if err != nil {
 			dto.ResponseError(c, 400, "agent_uuid 非法", err)
@@ -177,28 +243,33 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		}
 		agentID = exist.ID
 	} else {
-		id, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
+		id, _ := utils.ParseUintID(getParam("agent_id"))
 		agentID = id
 	}
-	if agentID == 0 {
-		dto.ResponseError(c, 400, "agent_uuid 必填", nil)
-		return
-	}
-
-	// 会话：session_id 优先，否则 sticky
+	// 会话：要求显式传入 session_id/session_uuid
 	var sess *dbmodel.AgentChatSession
-	if sidStr := strings.TrimSpace(c.Query("session_id")); sidStr != "" {
-		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
-			sess, _ = h.his.FindSessionByID(c, env, tenantRef, sid)
+	if sidStr := getParam("session_id"); sidStr != "" {
+		sess, _ = h.resolveSessionByParam(c, env, tenantRef, sidStr)
+	}
+	if sess == nil {
+		if sidStr := getParam("session_uuid"); sidStr != "" {
+			sess, _ = h.resolveSessionByParam(c, env, tenantRef, sidStr)
 		}
 	}
 	if sess == nil {
-		var err error
-		sess, err = h.his.GetOrCreateSession(c, env, tenantRef, agentID, uid, false, nil)
-		if err != nil {
-			dto.ResponseError(c, 500, "创建会话失败", err)
-			return
-		}
+		dto.ResponseError(c, 400, "session_id 必填，请先创建会话", nil)
+		return
+	}
+	if agentID == 0 {
+		agentID = sess.AgentID
+	}
+	if agentID == 0 {
+		dto.ResponseError(c, 400, "agent_uuid/agent_id 必填", nil)
+		return
+	}
+	if _, err := h.ag.Get(c.Request.Context(), env, tenantRef, agentID); err != nil {
+		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+		return
 	}
 	// 若会话标题为空，则用首个问题生成标题（ChatGPT 风格）
 	if sess != nil && strings.TrimSpace(sess.Title) == "" && strings.TrimSpace(q) != "" {
@@ -210,6 +281,11 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	runtime.SetSSEHeaders(c)
 	baseSink := runtime.NewSSESink(c)
 	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
+	startedAt := time.Now()
+	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
+	if traceID == "" {
+		traceID = uuid.NewString()
+	}
 
 	// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
 	if regenFromID > 0 {
@@ -238,14 +314,15 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
 		userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 		if userMsg != nil {
-			_ = histSink.Emit(dto.EventMeta, map[string]any{
-				"session_id":        sess.ID,
-				"agent_id":          agentID,
-				"user_message_id":   userMsg.ID,
-				"client_msg_id":     clientMsgID,
-				"user_message_role": "user",
-			})
-		}
+		_ = histSink.Emit(dto.EventMeta, map[string]any{
+			"session_id":        sess.UUID.String(),
+			"session_id_num":    sess.ID,
+			"agent_id":          agentID,
+			"user_message_id":   userMsg.ID,
+			"client_msg_id":     clientMsgID,
+			"user_message_role": "user",
+		})
+	}
 	}
 
 	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
@@ -261,7 +338,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		"llm_model":    strings.TrimSpace(cfg.ModelName),
 	})
 
-	_ = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
+	err = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
+	status := "completed"
+	if err != nil {
+		status = "failed"
+	}
+	h.recordAgentInvocation(c.Request.Context(), agentStreamCapability, tenantCtx.UUID(), agentID, sess.ID, q, traceID, "rest", status, err, time.Since(startedAt))
 }
 
 // ---- 核心 ----
@@ -285,6 +367,16 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	tenantUUID := tenantCtx.UUID()
 	userID := reqctx.GetUserID(c.Request.Context())
 	agentID, _ := utils.AsUint64(req.Context["agent_id"])
+	if agentID == 0 {
+		c.SSEvent(dto.EventError, gin.H{"message": "agent_id 缺失"})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		return
+	}
+	if _, err := h.ag.Get(ctx, env, tenantRef, agentID); err != nil {
+		c.SSEvent(dto.EventError, gin.H{"message": "未找到指定的 Agent", "detail": err.Error()})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		return
+	}
 
 	// 会话：优先 session_id -> 否则 sticky（env, tenant, agent, user）
 	var sess *dbmodel.AgentChatSession
@@ -401,6 +493,22 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 
 	// Tap：增量与最终回写
 	var buf strings.Builder
+	startedAt := time.Now()
+	traceID := strings.TrimSpace(reqctx.GetTraceID(ctx))
+	if traceID == "" {
+		traceID = strings.TrimSpace(meta.TraceID)
+	}
+	if traceID == "" {
+		traceID = uuid.NewString()
+	}
+	recorded := false
+	recordOnce := func(status string, err error) {
+		if recorded {
+			return
+		}
+		recorded = true
+		h.recordAgentInvocation(ctx, agentStreamCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt))
+	}
 	hooks := dto.SSEHooks{
 		HeartbeatInterval: 25 * time.Second,
 		OnStart: func(fid, eid string) {
@@ -417,6 +525,10 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 				_, _ = h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "assistant", text, "text", 0, 0, false, nil)
 			}
 			_, _ = h.his.SummarizeIfNeeded(c.Request.Context(), env, tenantRef, sess)
+			recordOnce("completed", nil)
+		},
+		OnError: func(err error) {
+			recordOnce("failed", err)
 		},
 	}
 	_ = dto.WriteToSSEWithTap(c, flowID, execID, sr, hooks)
@@ -424,22 +536,184 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 
 // 非流式（保留）
 func (h *AgentChatHandler) Invoke(c *gin.Context) {
-	var req dto.ChatRequest
+	var req agentInvokeRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	if req.Config != nil && req.Config.EnableStream {
-		dto.ResponseError(c, 400, "该接口不支持流式，请改用 /agents/stream/sse 或 /agents/stream/ws", nil)
+	h.invokeWithSession(c, req, "")
+}
+
+// POST /agents/sessions/:id/invoke
+func (h *AgentChatHandler) InvokeSession(c *gin.Context) {
+	var req agentInvokeRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
 		return
 	}
-	reply := "（非流式）已收到：" + strings.TrimSpace(req.Message)
-	dto.ResponseSuccess(c, dto.ChatData{
-		Content:   reply,
-		Role:      "assistant",
-		Metadata:  map[string]any{"framework": "eino"},
-		Timestamp: time.Now().Unix(),
+	h.invokeWithSession(c, req, strings.TrimSpace(c.Param("id")))
+}
+
+// GET /agents/sessions/:id/stream/sse?q=...&env=...
+func (h *AgentChatHandler) StreamSessionSSE(c *gin.Context) {
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
+	sess, err := h.resolveSessionByParam(c, env, tenantRef, strings.TrimSpace(c.Param("id")))
+	if err != nil || sess == nil {
+		dto.ResponseError(c, 404, "未找到指定的 Session", err)
+		return
+	}
+
+	c.Set("agent_id", fmt.Sprintf("%d", sess.AgentID))
+	c.Set("session_id", fmt.Sprintf("%d", sess.ID))
+	c.Set("session_uuid", sess.UUID.String())
+
+	h.StreamSSE(c)
+}
+
+func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequest, sessionParam string) {
+	msg := strings.TrimSpace(req.Message)
+	if msg == "" {
+		dto.ResponseError(c, 400, "message 不能为空", nil)
+		return
+	}
+
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
+	tenantUUID := tenantCtx.UUID()
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	var agentID uint64
+	agentIDStr := strings.TrimSpace(req.AgentID)
+	if agentIDStr != "" {
+		if agentUUID, err := uuid.Parse(agentIDStr); err == nil {
+			exist, err := h.ag.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
+			if err != nil {
+				dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+				return
+			}
+			agentID = exist.ID
+		} else {
+			id, _ := utils.ParseUintID(agentIDStr)
+			agentID = id
+		}
+	}
+
+	// 支持 session_id（body）或 path :id（uuid/数字）
+	var sess *dbmodel.AgentChatSession
+	if sessionParam != "" {
+		sess, _ = h.resolveSessionByParam(c, env, tenantRef, sessionParam)
+		if sess != nil {
+			agentID = sess.AgentID
+		}
+	}
+	if sess == nil && strings.TrimSpace(req.SessionID) != "" {
+		sess, _ = h.resolveSessionByParam(c, env, tenantRef, strings.TrimSpace(req.SessionID))
+	}
+	if sess == nil {
+		dto.ResponseError(c, 400, "session_id 必填，请先创建会话", nil)
+		return
+	}
+	agentID = sess.AgentID
+	if _, err := h.ag.Get(c.Request.Context(), env, tenantRef, agentID); err != nil {
+		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+		return
+	}
+	if sess != nil && strings.TrimSpace(sess.Title) == "" {
+		title := runtime.MakeDefaultSessionTitle(msg, 24)
+		_ = h.his.RenameSession(c, env, tenantRef, sess.ID, title)
+	}
+
+	_, _ = h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
+
+	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
+	if cfgErr != nil {
+		dto.ResponseError(c, 400, cfgErr.Error(), nil)
+		return
+	}
+
+	startedAt := time.Now()
+	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
+	if traceID == "" {
+		traceID = uuid.NewString()
+	}
+	baseSink := &agentInvokeSink{}
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
+	err = runtime.NewEngine().Run(c.Request.Context(), msg, cfg, "", histSink)
+	status := "completed"
+	if err != nil {
+		status = "failed"
+	}
+	h.recordAgentInvocation(c.Request.Context(), agentInvokeCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt))
+	if err != nil {
+		dto.ResponseError(c, 502, "agent invoke failed", err)
+		return
+	}
+
+	reply := baseSink.Reply()
+	dto.ResponseSuccess(c, gin.H{
+		"session_id": sess.UUID.String(),
+		"agent_id":   req.AgentID,
+		"reply":      reply,
 	})
+}
+
+func (h *AgentChatHandler) resolveSessionByParam(c *gin.Context, env string, tenantRef *string, idParam string) (*dbmodel.AgentChatSession, error) {
+	idParam = strings.TrimSpace(idParam)
+	if idParam == "" {
+		return nil, nil
+	}
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		return h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
+	}
+	return h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
+}
+func resolveAgentEnv(c *gin.Context, settings *agentSvc.AgentSettingService) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("env missing")
+	}
+	env := strings.TrimSpace(reqctx.GetEnv(c.Request.Context()))
+	if strings.EqualFold(env, "default") {
+		env = ""
+	}
+	if env == "" {
+		if v := strings.TrimSpace(c.Query("env")); v != "" && !strings.EqualFold(v, "default") {
+			env = v
+		}
+	}
+	if env == "" {
+		if v := strings.TrimSpace(c.GetHeader("X-PowerX-Env")); v != "" && !strings.EqualFold(v, "default") {
+			env = v
+		}
+	}
+	if env == "" {
+		tenantCtx, err := requireTenantContext(c)
+		if err == nil && settings != nil {
+			if v, ok, _ := settings.GetTenantCurrentAIEnv(c.Request.Context(), tenantCtx.UUID()); ok {
+				env = v
+			}
+		}
+	}
+	if strings.TrimSpace(env) == "" {
+		return "", fmt.Errorf("env missing")
+	}
+	return env, nil
 }
 
 /* ---------------- helpers ---------------- */
@@ -449,4 +723,45 @@ func setSSEHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
+}
+
+const (
+	agentInvokeCapability = "com.corex.agent.invoke"
+	agentStreamCapability = "com.corex.agent.stream"
+	platformPluginID      = "corex.platform"
+)
+
+func (h *AgentChatHandler) recordAgentInvocation(ctx context.Context, capabilityID, tenantUUID string, agentID, sessionID uint64, message, traceID, protocol, status string, err error, latency time.Duration) {
+	if h == nil || h.audit == nil {
+		return
+	}
+	if strings.TrimSpace(tenantUUID) == "" {
+		return
+	}
+	payload := map[string]interface{}{
+		"agent_id":   agentID,
+		"session_id": sessionID,
+		"message":    message,
+	}
+	response := map[string]interface{}{
+		"status": status,
+	}
+	errorSummary := ""
+	if err != nil {
+		errorSummary = err.Error()
+	}
+	h.audit.RecordInvocation(ctx, capservice.InvocationAuditInput{
+		TraceID:           traceID,
+		TenantUUID:        tenantUUID,
+		PluginID:          platformPluginID,
+		CapabilityID:      capabilityID,
+		PreferredProtocol: protocol,
+		ProtocolUsed:      protocol,
+		FallbackUsed:      false,
+		Status:            status,
+		RequestPayload:    payload,
+		ResponsePayload:   response,
+		ErrorSummary:      errorSummary,
+		Latency:           latency,
+	})
 }

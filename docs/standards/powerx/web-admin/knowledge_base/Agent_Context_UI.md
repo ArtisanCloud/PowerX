@@ -165,7 +165,7 @@ flowchart LR
   - `POST /api/v1/knowledge/feedback`，体例：`{query_id, chunk_id, rating, comment?}`
   - 成功后将卡片标记为“已反馈”。
 
-> 所有请求需携带：`Authorization: Bearer <token>` 与 `X-Tenant-UUID: <uuid>`。
+> 所有请求需携带：`Authorization: Bearer <token>` 与 `X-PowerX-Tenant: <uuid>`。
 
 ---
 

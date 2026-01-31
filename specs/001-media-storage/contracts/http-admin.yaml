@@ -219,7 +219,7 @@ components:
         maximum: 100
         default: 20
     Tenant:
-      name: X-Tenant-UUID
+      name: X-PowerX-Tenant
       in: header
       required: true
       schema:

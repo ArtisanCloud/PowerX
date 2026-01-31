@@ -202,11 +202,10 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
-	if tenantUUID := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); tenantUUID != "" {
+	if tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context())); tenantUUID != "" {
 		return reqctx.CanonicalTenantUUID(tenantUUID)
 	}
 	for _, candidate := range []string{
-		c.GetHeader("X-Tenant-UUID"),
 		c.GetHeader("X-PowerX-Tenant"),
 		c.Query("tenant_uuid"),
 	} {

@@ -201,49 +201,89 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
 
 ### 步骤 2.7：Agent 与多模态对外调用（平台能力）
 
-> 这些接口走统一的 tenant 鉴权与租户隔离：`agent_id/session_id/model_key` 必须属于当前租户。
+> 这些接口走统一的 tenant 鉴权与租户隔离：`agent_id/session_id/model_key` 必须属于当前租户；`model_key` 允许使用该租户已配置 Profile 或已测试通过且凭据已保存的 provider。若 JWT 可解析租户，则无需额外 header，`X-PowerX-Tenant` 仅作 fallback。
 
-1. **Agent 非流式调用**
+1. **Agent 非流式调用（需要 session）**
    ```bash
-   curl -sS -X POST "$POWERX_BASE_URL/agents/invoke" \
+   curl -sS -X POST "$POWERX_BASE_URL/agents/invoke?env=dev" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{
           "agent_id": "agent-uuid",
+          "session_id": "session-uuid",
           "message": "帮我总结一下这份文档"
         }'
    ```
-2. **Agent SSE 流式输出**
+2. **Agent SSE 流式输出（需要 session）**
    ```bash
-   curl -N "$POWERX_BASE_URL/agents/stream/sse?q=你好&agent_id=agent-uuid" \
-        -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001"
+   curl -N "$POWERX_BASE_URL/agents/stream/sse?env=dev&q=你好&agent_uuid=agent-uuid&session_uuid=session-uuid" \
+        -H "Authorization: Bearer $TENANT_TOKEN"
    ```
-3. **多模态无状态调用**
+3. **Agent 会话（Session）**
+   - **创建会话**
+     ```bash
+     curl -sS -X POST "$POWERX_BASE_URL/agents/sessions?env=dev" \
+          -H "Authorization: Bearer $TENANT_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"agentUuid":"agent-uuid"}'
+     ```
+   - **会话列表**
+     ```bash
+     curl -sS "$POWERX_BASE_URL/agents/sessions?env=dev&agent_uuid=agent-uuid&limit=20" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     ```
+   - **会话详情**
+     ```bash
+     curl -sS "$POWERX_BASE_URL/agents/sessions/{session_id}?env=dev" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     ```
+   - **会话消息**
+     ```bash
+     curl -sS "$POWERX_BASE_URL/agents/sessions/{session_id}/messages?env=dev&limit=50" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     ```
+   - **会话内对话（非流式）**
+     ```bash
+     curl -sS -X POST "$POWERX_BASE_URL/agents/sessions/{session_id}/invoke?env=dev" \
+          -H "Authorization: Bearer $TENANT_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"message":"你好，帮我总结一下今天的待办"}'
+     ```
+   - **会话内对话（SSE 流式）**
+     ```bash
+     curl -N "$POWERX_BASE_URL/agents/sessions/{session_id}/stream/sse?env=dev&q=你好" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     ```
+   - **归档/删除**
+     ```bash
+     curl -sS -X POST "$POWERX_BASE_URL/agents/sessions/{session_id}/archive?env=dev" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     curl -sS -X DELETE "$POWERX_BASE_URL/agents/sessions/{session_id}?env=dev" \
+          -H "Authorization: Bearer $TENANT_TOKEN"
+     ```
+4. **LLM 无状态调用**
    ```bash
-   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/invoke" \
+   curl -sS -X POST "$POWERX_BASE_URL/ai/llm/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
         -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{
-          "modality": "text",
-          "model_key": "ollama/mxbai-embed-large",
+          "model_key": "ollama/llama3",
           "inputs": [{"type":"text","text":"解释这段话"}],
           "params": {"temperature":0.2,"max_tokens":256}
         }'
    ```
-4. **多模态会话调用（创建 → 追加消息 → SSE 流式）**
+5. **LLM 会话调用（创建 → 追加消息 → SSE 流式）**
    ```bash
    # 创建会话
-   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/sessions" \
+   curl -sS -X POST "$POWERX_BASE_URL/ai/llm/sessions" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
         -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
-        -d '{"model_key":"ollama/mxbai-embed-large"}'
+        -d '{"model_key":"ollama/llama3"}'
 
    # 追加消息
-   curl -sS -X POST "$POWERX_BASE_URL/ai/multimodal/sessions/{session_id}/messages" \
+   curl -sS -X POST "$POWERX_BASE_URL/ai/llm/sessions/{session_id}/messages" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
         -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
@@ -253,13 +293,36 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
         }'
 
    # SSE 输出
-   curl -N "$POWERX_BASE_URL/ai/multimodal/sessions/{session_id}/stream" \
+   curl -N "$POWERX_BASE_URL/ai/llm/sessions/{session_id}/stream" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
         -H "X-PowerX-Tenant: tenant-001"
    ```
-5. **Embeddings**
+5. **图像/视频/TTS/Embedding（无状态）**
+   - 图像/视频/TTS 若未启用对应驱动，接口会返回 `202 Accepted`（占位），不影响整体联调。
    ```bash
-   curl -sS -X POST "$POWERX_BASE_URL/ai/embeddings" \
+   # Image
+   curl -sS -X POST "$POWERX_BASE_URL/ai/image/invoke" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{"model_key":"provider/image-model","inputs":[{"type":"text","text":"生成一张海报"}]}'
+
+   # Video
+   curl -sS -X POST "$POWERX_BASE_URL/ai/video/invoke" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{"model_key":"provider/video-model","inputs":[{"type":"text","text":"生成 5 秒视频"}]}'
+
+   # TTS
+   curl -sS -X POST "$POWERX_BASE_URL/ai/tts/invoke" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{"model_key":"provider/tts-model","inputs":[{"type":"text","text":"你好，PowerX"}]}'
+
+   # Embedding
+   curl -sS -X POST "$POWERX_BASE_URL/ai/embedding/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
         -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \

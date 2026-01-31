@@ -113,7 +113,7 @@
 - **FR-017**: “设置 > AI > 能力注册表” 页面同样仅向 `IsRoot` 展示，但该页面默认视图必须聚焦 `source=plugin` 的 Registry 记录（即插件/租户自定义的能力），并通过 `source` 筛选在 “插件 / 平台 / 全部” 之间切换；后端 `/admin/capabilities` 需要暴露 `source` 查询参数以区分 corex 底座与插件能力，避免两个页面出现相同数据。
 - **FR-018**: `/api/v1/tenant/invocations` 作为统一调度入口时，必须根据 `preferred_protocol` 将传入 payload 转换为 REST/gRPC/MCP 调用并代理真实响应，返回结构包含两部分：①原始业务响应体（REST JSON、gRPC JSON 映射、MCP payload 等）原样输出；②在响应 JSON 包装层附带 `trace_id/protocol_used/fallback_used` 等元信息，便于审计。换言之，无论调用何种协议，插件在 HTTP 层都能拿到一致的“业务结果 + trace”结果，避免只能看到 trace 的空壳响应。
 - **FR-019**: 平台需将 Agent 能力纳入 `source=corex` 的能力目录，公开 REST/SSE/gRPC 契约，并在 Integration Gateway 中支持流式代理或直连（SSE/WS）；租户只能访问本租户 Agent 与 Session（`agent_id` 与 `session_id` 必须归属当前租户）。
-- **FR-020**: 平台需将多模态模型调用纳入 `source=corex` 能力目录，区分无状态调用与有状态会话（Sessioned）；所有请求必须校验 `model_key` 属于当前租户配置，违规直接拒绝。
+- **FR-020**: 平台需将多模态模型调用纳入 `source=corex` 能力目录，区分无状态调用与有状态会话（Sessioned）；所有请求必须校验 `model_key` **仅在当前租户范围内可用**（租户已配置 Profile 或已测试通过且凭据已保存），跨租户访问一律拒绝并审计。
 
 #### Gateway Proxy Envelope（请求/响应）
 

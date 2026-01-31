@@ -80,12 +80,12 @@ let globalConfig: ApiClientConfig = {
           resolveTenantUUIDForRequest() || extractTenantUUIDFromJWT(token);
         if (tenantUUID) {
           const existing =
-            config.headers["X-Tenant-UUID"] ||
+            config.headers["X-PowerX-Tenant"] ||
             (config.headers as Record<string, string>)["x-tenant-uuid"];
           if (!existing || String(existing).trim() !== tenantUUID) {
             config.headers = {
               ...config.headers,
-              "X-Tenant-UUID": tenantUUID,
+              "X-PowerX-Tenant": tenantUUID,
             };
           }
         }

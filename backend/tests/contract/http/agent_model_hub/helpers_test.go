@@ -30,7 +30,7 @@ func applyAgentModelHubHeaders(t testing.TB, req *http.Request, tenantUUID strin
 	if tenantUUID == "" {
 		tenantUUID = ammatestenv.AgentModelHubTenantUUID
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 }
 
 func assertNoAMHTenantLeak(t testing.TB, payload []byte) {

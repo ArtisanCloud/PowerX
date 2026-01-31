@@ -10,7 +10,7 @@
 2. **对外契约**：每个底座模块维护 `specs/<module>/contracts/http-openapi.yaml` 与 `backend/api/grpc/contracts/<module>/v1/*.proto`，Integration Gateway 以这些契约为源生成 SDK 和文档。
 3. **统一调用入口**：第三方通过 `/tenant/capabilities` 与 `/tenant/invocations`（或 gRPC `IntegrationGatewayTenantService`）调用底座能力；宿主模式可继续使用 Admin API 进行配置，但实际能力调用全部归口 Integration Gateway。
 4. **观测与治理**：沿用 FR-001~FR-015 的追踪/限流/审计要求，对平台能力与插件能力实施一致的 metrics/audit/event 采集。
-5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token 与 `X-Tenant-UUID` 即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
+5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token 与 `X-PowerX-Tenant` 即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
 6. **Agent & 多模态统一开放**：补齐 Agent 运行时与多模态模型调用的对外接口标准（REST/SSE/gRPC/SDK），并将租户隔离、流式协议与幂等错误码纳入统一规范（见下文“Agent 能力开放计划”“多模态模型调用标准”与 `specs/007-integration-gateway-and-mcp/spec.md` 的 FR-019~FR-020）。
 
 ## 已内置的平台能力（2025.01）
@@ -147,32 +147,39 @@
 3. **租户校验**：在 Agent handler/service 层校验 `agent_id` 所属租户，并写入审计事件。
 4. **统一错误码**：`agent_not_found`、`agent_not_allowed`、`session_not_allowed`、`stream_not_supported`。
 
-## 多模态模型调用标准（统一对外标准）
+## 多模态模型调用标准（按模态拆分）
 
 ### 目标与范围
 
-1. **统一多模态协议**：文本、图像、音频、视频、embedding 等调用路径统一规范。
-2. **租户模型隔离**：仅允许调用本租户已配置的模型/Provider（AI Settings active profile）。
+1. **统一 URI 规则**：按模态拆分为 `/ai/{modality}/invoke`，LLM 额外提供 session + stream。
+2. **租户模型隔离**：仅允许调用**本租户**已配置或已测试通过的模型/Provider（AI Settings active profile 或同租户已测试通过且凭据已保存的 provider）。
 3. **开放调用入口**：REST + SSE + gRPC + SDK 同步，所有调用进入 Invocation Trace 与审计链路。
 
 ### 能力映射（计划新增到 Registry）
 
 | Capability ID | 模块 | 场景 | 协议/入口 |
 | --- | --- | --- | --- |
-| `com.corex.ai.multimodal.invoke` | AI | 通用多模态调用 | REST：`POST {APIPrefix}/ai/multimodal/invoke`；gRPC：`powerx.ai.v1.MultimodalService/Invoke` |
-| `com.corex.ai.multimodal.stream` | AI | 流式输出 | SSE：`GET {APIPrefix}/ai/multimodal/stream`；gRPC：`powerx.ai.v1.MultimodalService/Stream` |
-| `com.corex.ai.embeddings` | AI | 向量生成 | REST：`POST {APIPrefix}/ai/embeddings`；gRPC：`powerx.ai.v1.EmbeddingService/Embed` |
+| `com.corex.ai.llm.invoke` | AI | LLM 无状态调用 | REST：`POST {APIPrefix}/ai/llm/invoke`；gRPC：`powerx.ai.v1.MultimodalService/Invoke` |
+| `com.corex.ai.llm.session.create` | AI | LLM 会话创建 | REST：`POST {APIPrefix}/ai/llm/sessions`；gRPC：`powerx.ai.v1.MultimodalSessionService/CreateSession` |
+| `com.corex.ai.llm.session.append` | AI | LLM 会话追加 | REST：`POST {APIPrefix}/ai/llm/sessions/{id}/messages`；gRPC：`powerx.ai.v1.MultimodalSessionService/AppendMessage` |
+| `com.corex.ai.llm.stream` | AI | LLM 会话流式 | SSE：`GET {APIPrefix}/ai/llm/sessions/{id}/stream`；gRPC：`powerx.ai.v1.MultimodalService/Stream` |
+| `com.corex.ai.image.invoke` | AI | 图像调用 | REST：`POST {APIPrefix}/ai/image/invoke`；gRPC：`powerx.ai.v1.MultimodalService/Invoke` |
+| `com.corex.ai.video.invoke` | AI | 视频调用 | REST：`POST {APIPrefix}/ai/video/invoke`；gRPC：`powerx.ai.v1.MultimodalService/Invoke` |
+| `com.corex.ai.tts.invoke` | AI | 语音合成 | REST：`POST {APIPrefix}/ai/tts/invoke`；gRPC：`powerx.ai.v1.MultimodalService/Invoke` |
+| `com.corex.ai.embedding.invoke` | AI | 向量生成 | REST：`POST {APIPrefix}/ai/embedding/invoke`；gRPC：`powerx.ai.v1.EmbeddingService/Embed` |
 
 ### 请求规范（建议）
 
 1. **统一请求体**：
-   - `modality`: `text|image|audio|video|embedding|mixed`
-   - `model_key`: 取自租户 AI Settings Active Profile
-   - `inputs`: 结构化输入（文本/URL/bytes）
-   - `params`: 采样/温度/最大 token 等
+   - `model_key`: 可显式传入；优先使用传入值，若省略则回退到租户 Active Profile
+   - `inputs`: 结构化输入（LLM/Image/Video/TTS 使用 `ContentItem`，Embedding 使用 `string[]`）
+   - `params`: 采样/温度/最大 token 等（可选）
 2. **鉴权与隔离**：
-   - Header：`Authorization: Bearer <tenant token>`、`X-PowerX-Tenant`
-   - 校验 `model_key` 是否属于租户配置
+   - Header：`Authorization: Bearer <tenant token>`（必需）；`X-PowerX-Tenant` 仅在无法从 JWT 解析租户时作为 fallback
+   - 校验规则（**仅限当前租户**）：
+     - 若 `model_key` 对应的 **AI Model Profile** 已存在，则允许调用
+     - 若未建立 Profile，但该 provider 在当前租户下 **测试连接成功（health=healthy）且凭据已保存**，也允许调用
+     - 以上规则均不得跨租户复用；其他租户 token 无法访问本租户配置
 3. **流式输出**：
    - SSE：`data:` 事件输出 token/chunk，`final` 结束
    - gRPC：server-streaming chunk
@@ -180,30 +187,29 @@
 ### 多模态调用模式（必须区分）
 
 1. **无状态调用（Stateless）**：
-   - 适用：Embedding、OCR、单轮图像理解、短文本问答
-   - API：`POST /ai/multimodal/invoke`
+   - 适用：Embedding、OCR、单轮图像理解、短文本问答、TTS
+   - API：`POST /ai/{modality}/invoke`（`llm|image|video|tts|embedding`）
    - 请求需包含完整上下文，不依赖 session
-2. **有状态对话（Sessioned）**：
-   - 适用：多轮对话、多模态 Agent-like 对话
-   - API：`POST /ai/multimodal/sessions`（创建）
-   - `POST /ai/multimodal/sessions/:id/messages`（追加消息）
-   - `GET /ai/multimodal/sessions/:id/stream`（SSE 流式）
+2. **LLM 有状态对话（Sessioned）**：
+   - 适用：多轮对话、长上下文
+   - API：`POST /ai/llm/sessions`（创建）
+   - `POST /ai/llm/sessions/:id/messages`（追加消息）
+   - `GET /ai/llm/sessions/:id/stream`（SSE 流式）
 3. **会话隔离**：
-   - `session_id` 必须属于当前租户；`model_key` 也必须属于租户配置
-4. **消息结构（建议）**：
+   - `session_id` 必须属于当前租户；`model_key` 必须满足“租户模型隔离”规则
+4. **消息结构（建议，LLM）**：
    - `role`: `system|user|assistant|tool`
    - `content`: `[{type:"text", text:"..."}, {type:"image_url", url:"..."}]`
    - `tool_calls` 与 `tool_results` 统一记录在消息内
 
 ### 具体接口与错误码（多模态）
 
-1. **无状态调用**
-   - `POST /ai/multimodal/invoke`
+1. **LLM 无状态调用**
+   - `POST /ai/llm/invoke`
    - 请求：
      ```json
      {
-       "modality": "text",
-       "model_key": "ollama/mxbai-embed-large",
+       "model_key": "ollama/llama3",
        "inputs": [{"type":"text","text":"帮我总结一下"}],
        "params": {"temperature":0.2,"max_tokens":512}
      }
@@ -215,12 +221,12 @@
        "usage": {"prompt_tokens":123,"completion_tokens":456,"total_tokens":579}
      }
      ```
-2. **会话创建**
-   - `POST /ai/multimodal/sessions`
+2. **LLM 会话创建**
+   - `POST /ai/llm/sessions`
    - 请求：`{"model_key":"...", "title":"optional"}`
    - 响应：`{"session_id":"uuid"}`
 3. **追加消息**
-   - `POST /ai/multimodal/sessions/:id/messages`
+   - `POST /ai/llm/sessions/:id/messages`
    - 请求：
      ```json
      {
@@ -232,7 +238,7 @@
      }
      ```
 4. **流式输出**
-   - `GET /ai/multimodal/sessions/:id/stream`
+   - `GET /ai/llm/sessions/:id/stream`
    - SSE 事件序列（建议）：
      ```
      event: start
@@ -248,7 +254,7 @@
      data: {"ok":true}
      ```
 5. **嵌入向量**
-   - `POST /ai/embeddings`
+   - `POST /ai/embedding/invoke`
    - 请求：`{"model_key":"...","inputs":["a","b","c"]}`
    - 响应：`{"vectors":[[...],[...],[...]],"usage":{...}}`
 6. **统一错误码（HTTP）**：
@@ -262,7 +268,7 @@
 
 ### 实施任务（多模态）
 
-1. **契约补齐**：新增 `specs/ai/contracts/http-openapi.yaml` 与 `backend/api/grpc/contracts/powerx/ai/v1/*.proto`。
+1. **契约补齐**：更新 `specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml`（按模态拆分）与 `backend/api/grpc/contracts/powerx/ai/v1/*.proto`。
 2. **Provider 适配层**：在 `agent/intent` 或独立 `ai` 服务中抽象 provider 调用，复用租户 profile 的模型配置。
 3. **Invocation 归口**：全部走 Integration Gateway 计费/限流/审计。
 4. **错误码**：`model_not_configured`、`provider_unreachable`、`modality_not_supported`、`rate_limited`。

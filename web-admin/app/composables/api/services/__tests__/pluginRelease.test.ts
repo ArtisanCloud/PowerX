@@ -70,7 +70,7 @@ describe('PluginReleaseService', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'X-Tenant-UUID': 'test-token'
+            'X-PowerX-Tenant': 'test-token'
           }),
           body: JSON.stringify({
             releaseCandidateId: 'candidate-123',

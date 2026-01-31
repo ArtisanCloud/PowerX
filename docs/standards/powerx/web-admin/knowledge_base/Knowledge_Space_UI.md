@@ -181,7 +181,7 @@ flowchart LR
 - `POST /api/v1/knowledge/spaces/{spaceID}/webhooks`（创建/更新）
 - 事件投递示例字段：`event`, `space_id`, `resource_id`, `timestamp`, `signature`
 
-> 所有请求必须携带：`Authorization: Bearer <token>`、`X-Tenant-UUID: <uuid>`。
+> 所有请求必须携带：`Authorization: Bearer <token>`、`X-PowerX-Tenant: <uuid>`。
 
 ---
 

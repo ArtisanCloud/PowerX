@@ -41,7 +41,7 @@ export class CostQuotaService {
       {
         params,
         headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
+          ? { "X-PowerX-Tenant": opts.tenantUuid }
           : undefined,
       }
     );
@@ -60,7 +60,7 @@ export class CostQuotaService {
       payload,
       {
         headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
+          ? { "X-PowerX-Tenant": opts.tenantUuid }
           : undefined,
       }
     );
@@ -81,7 +81,7 @@ export class CostQuotaService {
       payload,
       {
         headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
+          ? { "X-PowerX-Tenant": opts.tenantUuid }
           : undefined,
       }
     );

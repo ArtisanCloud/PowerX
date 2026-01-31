@@ -70,7 +70,7 @@ knowledge_space:
    for n in $(seq 1 10); do
      curl -sS "$POWERX_BASE_URL/api/v1/admin/knowledge-spaces/<space-id>/ingestion-jobs" \
        -H "Authorization: Bearer $ADMIN_TOKEN" \
-       -H "X-Tenant-UUID: $TENANT_UUID" \
+       -H "X-PowerX-Tenant: $TENANT_UUID" \
        -H "Content-Type: application/json" \
        -d '{"format":"pdf","sourceUri":"s3://bucket/doc.pdf","priority":"high","requestedBy":"loadtest@powerx.local"}' \
        >/dev/null &
@@ -108,7 +108,7 @@ knowledge_space:
    for n in $(seq 1 60); do
      curl -sS "$POWERX_BASE_URL/api/v1/admin/knowledge-spaces/<space-id>/feedback" \
        -H "Authorization: Bearer $ADMIN_TOKEN" \
-       -H "X-Tenant-UUID: $TENANT_UUID" \
+       -H "X-PowerX-Tenant: $TENANT_UUID" \
        -H "Content-Type: application/json" \
        -d "{\"severity\":\"high\",\"issueType\":\"accuracy\",\"reportedBy\":\"loadtest@powerx.local\",\"linkedChunks\":[\"$(uuidgen)\"],\"notes\":\"load test case\"}" \
        >/dev/null &

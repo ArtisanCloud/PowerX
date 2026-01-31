@@ -9,7 +9,7 @@
 ## 1. 目标与原则
 
 - **统一契约**：仅提供 HTTP 与 gRPC 接口；不发布独立 SDK。
-- **多租户与安全**：强制 `X-Tenant-UUID`，RBAC 最小权限，完整审计。
+- **多租户与安全**：强制 `X-PowerX-Tenant`，RBAC 最小权限，完整审计。
 - **可演进**：兼容 Rank Profile、Graph Boost、A/B/灰度、回放与回滚。
 - **工程完备**：分页、过滤、幂等、速率限制、错误码、可观测。
 
@@ -31,7 +31,7 @@
 ### 2.2 认证与权限
 
 * 认证：`Authorization: Bearer <token>`
-* 租户：`X-Tenant-UUID: <uuid>`（必填）
+* 租户：`X-PowerX-Tenant: <uuid>`（必填）
 * 权限（示例）：
 
   * `knowledge:space` → `create|read|update|delete|admin`
@@ -67,7 +67,7 @@
 
 ## 3. REST API（完整路径）
 
-> 所有接口均要求：`Authorization` 与 `X-Tenant-UUID`。
+> 所有接口均要求：`Authorization` 与 `X-PowerX-Tenant`。
 > 响应统一包裹于 `{"code","message","data","trace_id"}`。
 
 ### 3.1 空间（Spaces）
@@ -319,7 +319,7 @@ paths:
           required: true
           schema: { type: string }
         - in: header
-          name: X-Tenant-UUID
+          name: X-PowerX-Tenant
           required: true
           schema: { type: string, format: uuid }
         - in: query
@@ -349,7 +349,7 @@ paths:
           required: true
           schema: { type: string }
         - in: header
-          name: X-Tenant-UUID
+          name: X-PowerX-Tenant
           required: true
           schema: { type: string, format: uuid }
         - in: query
@@ -451,7 +451,7 @@ components:
 
 ### 7.1 HTTP（PowerX Web Admin）
 
-* 请求头：`Authorization`, `X-Tenant-UUID`
+* 请求头：`Authorization`, `X-PowerX-Tenant`
 * 建议超时：检索 3–5s；上传 30–120s（大文件）
 * 幂等：创建/更新类可加 `Idempotency-Key`
 
@@ -461,7 +461,7 @@ components:
 GET /api/v1/knowledge/search?space_id=crm_docs&query=媒体存储如何配置&k=8
 Headers:
   Authorization: Bearer <token>
-  X-Tenant-UUID: <uuid>
+  X-PowerX-Tenant: <uuid>
 ```
 
 ### 7.2 gRPC（插件/服务侧）

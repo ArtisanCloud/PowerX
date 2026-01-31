@@ -1,9 +1,11 @@
 openapi: 3.1.0
 info:
-  title: PowerX Multimodal Model API
-  version: 0.1.0
+  title: PowerX AI Modal API
+  version: 0.2.0
   description: >
-    Tenant-scoped multimodal model APIs with stateless invoke and sessioned chat.
+    Tenant-scoped AI modal APIs split by modality. Each modality uses a unified
+    URI rule: /ai/{modality}/invoke for stateless calls, and optional session
+    endpoints for multi-turn streaming (LLM).
 servers:
   - url: https://{host}/api/v1
     variables:
@@ -55,18 +57,15 @@ components:
       properties:
         type:
           type: string
-          enum: [text, image_url, audio_url]
+          enum: [text, image_url, audio_url, video_url]
         text:
           type: string
         url:
           type: string
-    MultimodalInvokeRequest:
+    LLMInvokeRequest:
       type: object
-      required: [modality, model_key, inputs]
+      required: [model_key, inputs]
       properties:
-        modality:
-          type: string
-          enum: [text, image, audio, video, embedding, mixed]
         model_key:
           type: string
         inputs:
@@ -76,7 +75,7 @@ components:
         params:
           type: object
           additionalProperties: true
-    MultimodalInvokeResponse:
+    LLMInvokeResponse:
       type: object
       properties:
         output:
@@ -84,7 +83,7 @@ components:
           additionalProperties: true
         usage:
           $ref: '#/components/schemas/Usage'
-    CreateMMSSessionRequest:
+    CreateSessionRequest:
       type: object
       required: [model_key]
       properties:
@@ -92,7 +91,7 @@ components:
           type: string
         title:
           type: string
-    CreateMMSSessionResponse:
+    CreateSessionResponse:
       type: object
       properties:
         session_id:
@@ -119,7 +118,68 @@ components:
           items:
             type: object
             additionalProperties: true
-    EmbeddingRequest:
+    ImageInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+    ImageInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    VideoInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+    VideoInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    TTSInvokeRequest:
+      type: object
+      required: [model_key, input]
+      properties:
+        model_key:
+          type: string
+        input:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+    TTSInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    EmbeddingInvokeRequest:
       type: object
       required: [model_key, inputs]
       properties:
@@ -129,7 +189,7 @@ components:
           type: array
           items:
             type: string
-    EmbeddingResponse:
+    EmbeddingInvokeResponse:
       type: object
       properties:
         vectors:
@@ -141,9 +201,9 @@ components:
         usage:
           $ref: '#/components/schemas/Usage'
 paths:
-  /ai/multimodal/invoke:
+  /ai/llm/invoke:
     post:
-      summary: Stateless multimodal invoke
+      summary: LLM stateless invoke
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
       requestBody:
@@ -151,14 +211,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MultimodalInvokeRequest'
+              $ref: '#/components/schemas/LLMInvokeRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MultimodalInvokeResponse'
+                $ref: '#/components/schemas/LLMInvokeResponse'
         '400':
           description: Bad request
           content:
@@ -171,21 +231,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Provider error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: Rate limited
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ai/multimodal/sessions:
+  /ai/llm/sessions:
     post:
-      summary: Create multimodal session
+      summary: Create LLM session
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
       requestBody:
@@ -193,23 +247,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateMMSSessionRequest'
+              $ref: '#/components/schemas/CreateSessionRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateMMSSessionResponse'
+                $ref: '#/components/schemas/CreateSessionResponse'
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ai/multimodal/sessions/{session_id}/messages:
+  /ai/llm/sessions/{session_id}/messages:
     post:
-      summary: Append session message
+      summary: Append LLM session message
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - name: session_id
@@ -240,9 +294,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ai/multimodal/sessions/{session_id}/stream:
+  /ai/llm/sessions/{session_id}/stream:
     get:
-      summary: Stream multimodal session output (SSE)
+      summary: Stream LLM session output (SSE)
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - name: session_id
@@ -275,9 +329,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ai/embeddings:
+  /ai/image/invoke:
     post:
-      summary: Embedding generation
+      summary: Image invoke
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
       requestBody:
@@ -285,14 +339,122 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EmbeddingRequest'
+              $ref: '#/components/schemas/ImageInvokeRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmbeddingResponse'
+                $ref: '#/components/schemas/ImageInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/video/invoke:
+    post:
+      summary: Video invoke
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/tts/invoke:
+    post:
+      summary: Text-to-speech invoke
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TTSInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TTSInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/embedding/invoke:
+    post:
+      summary: Embedding invoke
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingInvokeResponse'
         '400':
           description: Bad request
           content:

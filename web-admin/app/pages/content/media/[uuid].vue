@@ -346,7 +346,7 @@ function copyAuthResourceLink() {
     .then(() =>
       toast.add({
         title: "已复制鉴权链接",
-        description: "该链接需携带 Authorization/X-Tenant-UUID 才可访问",
+        description: "该链接需携带 Authorization/X-PowerX-Tenant 才可访问",
       })
     )
     .catch(() => toast.add({ title: "复制失败", color: "red" }));

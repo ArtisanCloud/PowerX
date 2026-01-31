@@ -63,7 +63,7 @@ flowchart LR
   入参核心：`node_id`, `depth`, `limit`, `types[]?`
   出参核心：`center`, `neighbors[]`
 
-> 统一请求头：`Authorization: Bearer <token>`，`X-Tenant-UUID: <uuid>`。
+> 统一请求头：`Authorization: Bearer <token>`，`X-PowerX-Tenant: <uuid>`。
 
 ### 3.2 gRPC（插件/服务侧 Agent）
 
@@ -207,7 +207,7 @@ steps:
 
 ## 8. 安全与合规
 
-- **租户与空间隔离**：Agent 调用必须携带 `X-Tenant-UUID`，并指明 `space_id`。
+- **租户与空间隔离**：Agent 调用必须携带 `X-PowerX-Tenant`，并指明 `space_id`。
 - **敏感级**：设置 `filters.sensitivity_max`；对高敏感内容启用**片段级脱敏**。
 - **最小可引用**：仅注入必要片段，避免原文大段搬运。
 - **可追溯**：保留 `document_id + version_no + chunk_id`；回答中可附“来源引用（可选）”。

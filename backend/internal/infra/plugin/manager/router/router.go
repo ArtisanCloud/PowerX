@@ -426,7 +426,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			tenantUUID = strings.TrimSpace(claims.TenantUUID)
 		}
 		if tenantUUID != "" {
-			req.Header.Set("X-Tenant-UUID", tenantUUID)
+			req.Header.Set("X-PowerX-Tenant", tenantUUID)
 			log.Printf("[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
 		} else {
 			log.Printf("[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)

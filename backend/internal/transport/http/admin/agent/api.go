@@ -29,6 +29,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		// 新增：POST 普通 Chat（非流）
 		agentGroup.POST("/invoke", chatH.Invoke)
+		agentGroup.POST("/sessions/:id/invoke", chatH.InvokeSession)
+		agentGroup.GET("/sessions/:id/stream/sse", chatH.StreamSessionSSE)
 
 		agentGroup.POST("/sessions", sessionH.CreateSession)
 		agentGroup.GET("/sessions", sessionH.ListSessions)

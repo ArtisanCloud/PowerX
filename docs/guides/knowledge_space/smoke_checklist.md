@@ -16,7 +16,7 @@ bash scripts/ops/knowledge-space-smoke.sh
 | 4 | `npm run test:e2e -- --grep "knowledge-spaces"`（包含 fusion / feedback） |  | ☐ |
 | 5 | 手动执行 Quickstart 第 7 步：创建空间→触发入库→发布融合策略→提交反馈 | [quickstart.md](../../specs/011-knowledge-space/quickstart.md) | ☐ |
 | 6 | 错误回滚脚本：`node scripts/fusion/rollback_strategy.mjs <space> <strategy>` |  | ☐ |
-| 7 | 反馈 API：`curl -sS :8077/api/v1/admin/knowledge-spaces/<space>/feedback ...`（需 `Authorization` + `X-Tenant-UUID`） |  | ☐ |
+| 7 | 反馈 API：`curl -sS :8077/api/v1/admin/knowledge-spaces/<space>/feedback ...`（需 `Authorization` + `X-PowerX-Tenant`） |  | ☐ |
 | 8 | 验证 `reports/_state/knowledge-spaces.json` 既包含 `ingestion` 又包含 `feedback` 段 | `cat reports/_state/knowledge-spaces.json | jq '.'` | ☐ |
 | 9 | 验证 `reports/_state/knowledge-update.json` 中 `delta/event/decay/release` 段存在且字段完整 | `cat reports/_state/knowledge-update.json | jq '.'` | ☐ |
 | 10 | 验证模块级快照存在：`backend/reports/_state/knowledge-{decay,release}.json` | `ls backend/reports/_state | rg 'knowledge-(decay|release)\\.json'` | ☐ |

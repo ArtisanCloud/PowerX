@@ -88,7 +88,7 @@ flowchart LR
 
 ```
 GET /api/v1/knowledge/graph/nodes?q={kw}&type={entity|concept|document}&page=1&page_size=20
-Headers: Authorization, X-Tenant-UUID
+Headers: Authorization, X-PowerX-Tenant
 ```
 
 **返回（节点列表项）**

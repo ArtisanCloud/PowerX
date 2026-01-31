@@ -21,7 +21,7 @@ func requirePluginAdminAuth(tenantUUID string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		headerUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		headerUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
 		if headerUUID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -59,7 +59,7 @@ func applyPluginAdminHeaders(t testing.TB, req *http.Request, tenantUUID string)
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 }
 
 func applyPluginTenantHeaders(t testing.TB, req *http.Request, tenantUUID string) {
@@ -69,7 +69,7 @@ func applyPluginTenantHeaders(t testing.TB, req *http.Request, tenantUUID string
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer tenant")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 }
 
 func requireNoLegacyTenantHeaders(t testing.TB, req *http.Request) {

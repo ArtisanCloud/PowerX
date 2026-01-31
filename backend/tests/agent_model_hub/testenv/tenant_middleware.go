@@ -23,9 +23,9 @@ func RequireTenantAuth() gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
 		if tenantUUID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-Tenant-UUID header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-PowerX-Tenant header"})
 			return
 		}
 		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)

@@ -402,6 +402,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			HTTPClient:  httpProxyClient,
 			HTTPBaseURL: httpBaseURL,
 			GRPCConn:    invocationGRPCConn,
+			ModelVerifier: capabilitycatalog.NewTenantModelKeyVerifier(db),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {

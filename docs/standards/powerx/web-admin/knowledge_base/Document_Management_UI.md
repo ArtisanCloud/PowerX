@@ -44,7 +44,7 @@ flowchart LR
 ### 3.1 上传/创建文档
 
 - **API**：`POST /api/v1/knowledge/documents`（multipart 或 JSON）
-- **请求头**：`Authorization: Bearer <token>`, `X-Tenant-UUID: <uuid>`
+- **请求头**：`Authorization: Bearer <token>`, `X-PowerX-Tenant: <uuid>`
 - **multipart 字段**
   - `file`：二进制文件
   - `metadata`：JSON（`space_id`, `title`, `tags[]`, `sensitivity`, `attributes`）

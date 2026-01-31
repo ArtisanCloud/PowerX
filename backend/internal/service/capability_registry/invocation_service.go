@@ -43,6 +43,7 @@ type InvocationServiceOptions struct {
 	HTTPClient  *http.Client
 	HTTPBaseURL string
 	GRPCConn    *grpc.ClientConn
+	ModelVerifier ModelKeyVerifier
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
@@ -52,10 +53,16 @@ type InvocationService struct {
 	traces      *repo.InvocationTraceRepository
 	audit       *AuditService
 	versionLock VersionLock
+	modelVerifier ModelKeyVerifier
 	now         func() time.Time
 	httpClient  *http.Client
 	httpBaseURL string
 	grpcConn    *grpc.ClientConn
+}
+
+// ModelKeyVerifier validates tenant-scoped model_key access.
+type ModelKeyVerifier interface {
+	VerifyModelKey(ctx context.Context, tenantUUID, env, modality, modelKey string) error
 }
 
 // InvocationInput 描述调用��求。
@@ -108,6 +115,7 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		traces:      opts.TraceRepo,
 		audit:       audit,
 		versionLock: opts.VersionLock,
+		modelVerifier: opts.ModelVerifier,
 		now:         clock,
 		httpClient:  httpClient,
 		httpBaseURL: strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
@@ -155,6 +163,20 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	}
 	if !strings.EqualFold(strings.TrimSpace(record.Status), "published") {
 		return result, fmt.Errorf("capability %s is not published", capabilityID)
+	}
+	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
+		modality := extractString(in.Payload, "modality")
+		modelKey := extractString(in.Payload, "model_key")
+		if modality == "" {
+			modality = defaultModalityForCapability(capabilityID)
+		}
+		if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
+			return result, nil
+		}
+		env := extractString(in.Context, "env")
+		if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
+			return result, err
+		}
 	}
 
 	if s.versionLock != nil && strings.TrimSpace(record.CapabilitiesHash) != "" {
@@ -279,7 +301,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		if s.httpClient == nil || s.httpBaseURL == "" {
 			return nil, nil
 		}
-		restPayload, err := buildRESTInvokePayload(in.Payload)
+		restPayload, err := buildRESTInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -288,7 +310,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		if s.grpcConn == nil {
 			return nil, nil
 		}
-		grpcPayload, err := buildGRPCInvokePayload(in.Payload)
+		grpcPayload, err := buildGRPCInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -314,14 +336,24 @@ type grpcInvokePayload struct {
 }
 
 func buildRESTInvokePayload(raw map[string]interface{}) (restInvokePayload, error) {
+	return buildRESTInvokePayloadWithDefaults(raw, "", nil)
+}
+
+func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpoint string, labels map[string]string) (restInvokePayload, error) {
 	if len(raw) == 0 {
 		return restInvokePayload{}, errors.New("payload required for REST invocation")
 	}
 	method := strings.ToUpper(strings.TrimSpace(getString(raw["method"])))
 	if method == "" {
+		method = strings.ToUpper(strings.TrimSpace(getLabel(labels, "method")))
+	}
+	if method == "" {
 		method = http.MethodGet
 	}
 	endpoint := strings.TrimSpace(getString(raw["endpoint"]))
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(defaultEndpoint)
+	}
 	if endpoint == "" {
 		return restInvokePayload{}, errors.New("payload.endpoint required for REST invocation")
 	}
@@ -331,6 +363,8 @@ func buildRESTInvokePayload(raw map[string]interface{}) (restInvokePayload, erro
 	var body interface{}
 	if b, ok := raw["body"]; ok {
 		body = b
+	} else if method != http.MethodGet && method != http.MethodHead {
+		body = stripEnvelopeKeys(raw)
 	}
 
 	return restInvokePayload{
@@ -343,14 +377,24 @@ func buildRESTInvokePayload(raw map[string]interface{}) (restInvokePayload, erro
 }
 
 func buildGRPCInvokePayload(raw map[string]interface{}) (grpcInvokePayload, error) {
+	return buildGRPCInvokePayloadWithDefaults(raw, "", nil)
+}
+
+func buildGRPCInvokePayloadWithDefaults(raw map[string]interface{}, endpoint string, labels map[string]string) (grpcInvokePayload, error) {
 	if len(raw) == 0 {
 		return grpcInvokePayload{}, errors.New("payload required for gRPC invocation")
 	}
 	service := strings.TrimSpace(getString(raw["endpoint"]))
 	if service == "" {
+		service = strings.TrimSpace(endpoint)
+	}
+	if service == "" {
 		return grpcInvokePayload{}, errors.New("payload.endpoint required for gRPC invocation")
 	}
 	method := strings.TrimSpace(getString(raw["rpc"]))
+	if method == "" {
+		method = strings.TrimSpace(getLabel(labels, "rpc"))
+	}
 	if method == "" {
 		return grpcInvokePayload{}, errors.New("payload.rpc required for gRPC invocation")
 	}
@@ -365,7 +409,7 @@ func buildGRPCInvokePayload(raw map[string]interface{}) (grpcInvokePayload, erro
 			body[k] = v
 		}
 	case nil:
-		// leave empty
+		body = stripEnvelopeKeys(raw)
 	default:
 		return grpcInvokePayload{}, errors.New("payload.body for gRPC invocation must be an object")
 	}
@@ -546,6 +590,65 @@ func getString(v interface{}) string {
 		}
 		return fmt.Sprint(typed)
 	}
+}
+
+func extractString(m map[string]interface{}, key string) string {
+	if len(m) == 0 {
+		return ""
+	}
+	if value, ok := m[key]; ok {
+		return strings.TrimSpace(getString(value))
+	}
+	return ""
+}
+
+func getLabel(labels map[string]string, key string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(labels[key])
+}
+
+func stripEnvelopeKeys(raw map[string]interface{}) map[string]interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+	result := make(map[string]interface{}, len(raw))
+	for k, v := range raw {
+		switch strings.ToLower(strings.TrimSpace(k)) {
+		case "method", "endpoint", "headers", "query", "body", "rpc", "stream":
+			continue
+		default:
+			result[k] = v
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func defaultModalityForCapability(capabilityID string) string {
+	lower := strings.ToLower(strings.TrimSpace(capabilityID))
+	if strings.Contains(lower, "llm") {
+		return "llm"
+	}
+	if strings.Contains(lower, "image") {
+		return "image"
+	}
+	if strings.Contains(lower, "video") {
+		return "video"
+	}
+	if strings.Contains(lower, "tts") {
+		return "audio_tts"
+	}
+	if strings.Contains(lower, "embedding") || strings.Contains(lower, "embeddings") {
+		return "embedding"
+	}
+	if strings.Contains(lower, "multimodal") {
+		return "mixed"
+	}
+	return ""
 }
 
 func extractStickyKey(ctx map[string]interface{}) string {
