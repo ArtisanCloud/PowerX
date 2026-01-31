@@ -189,7 +189,7 @@ async function runRemoteScan(args, payload) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify(payload.request),
 	});
@@ -208,7 +208,7 @@ async function runRemoteRestore(args, taskId) {
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${args.token}`,
-			'X-Tenant-UUID': args.tenantUuid,
+			'X-PowerX-Tenant': args.tenantUuid,
 		},
 		body: JSON.stringify({
 			taskId,

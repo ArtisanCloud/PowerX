@@ -265,11 +265,10 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
-	if tenant := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); tenant != "" {
+	if tenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context())); tenant != "" {
 		return reqctx.CanonicalTenantUUID(tenant)
 	}
 	for _, candidate := range []string{
-		c.GetHeader("X-Tenant-UUID"),
 		c.GetHeader("X-PowerX-Tenant"),
 		c.Query("tenant_uuid"),
 	} {
@@ -377,11 +376,6 @@ func injectDefaultHeaders(payload map[string]interface{}, c *gin.Context) {
 	if auth := strings.TrimSpace(c.GetHeader("Authorization")); auth != "" {
 		if _, exists := headers["Authorization"]; !exists {
 			headers["Authorization"] = auth
-		}
-	}
-	if tenant := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenant != "" {
-		if _, exists := headers["X-Tenant-UUID"]; !exists {
-			headers["X-Tenant-UUID"] = tenant
 		}
 	}
 	if powerxTenant := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); powerxTenant != "" {

@@ -15,7 +15,7 @@ security:
   - bearerAuth: []
 tags:
   - name: MediaAssets
-    description: 媒资资源对外开放接口，所有请求需同时携带 Bearer Token 与 `X-Tenant-UUID`
+    description: 媒资资源对外开放接口，所有请求需同时携带 Bearer Token 与 `X-PowerX-Tenant`
 paths:
   /media/assets:
     post:
@@ -221,7 +221,7 @@ components:
         maximum: 100
         default: 20
     Tenant:
-      name: X-Tenant-UUID
+      name: X-PowerX-Tenant
       in: header
       required: true
       schema:

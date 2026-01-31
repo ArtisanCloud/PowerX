@@ -74,7 +74,7 @@ describe("MediaAssetService", () => {
         method: "GET",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
-          "X-Tenant-UUID": "test-tenant",
+          "X-PowerX-Tenant": "test-tenant",
         }),
       })
     );

@@ -920,6 +920,56 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 	return dim, nil
 }
 
+// BuildEmbeddingConfig resolves tenant embedding connection info and returns a ready config.
+func (s *AgentSettingService) BuildEmbeddingConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+) (agentconf.EmbeddingConfig, error) {
+	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return agentconf.EmbeddingConfig{}, fmt.Errorf("provider/model 不能为空")
+	}
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["embedding"])); dk != "" {
+			driverKey = dk
+		}
+	}
+
+	return agentconf.EmbeddingConfig{
+		Enabled:  true,
+		Provider: driverKey,
+		Endpoint: bu,
+		Model:    m,
+		APIKey:   ak,
+		MaxBatch: 8,
+		Dim:      0,
+	}, nil
+}
+
 func probeEmbeddingMaxInputTokens(ctx context.Context, provider, baseURL, model string) int {
 	if strings.ToLower(strings.TrimSpace(provider)) != "ollama" {
 		return 0

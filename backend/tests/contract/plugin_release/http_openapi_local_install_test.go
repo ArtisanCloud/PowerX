@@ -124,7 +124,7 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		if tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenantUUID != "" {
+		if tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); tenantUUID != "" {
 			ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
 			c.Request = c.Request.WithContext(ctx)
 			reqctx.CopyCtxToGin(c)

@@ -94,7 +94,7 @@ Header 认证：
 
 ```
 Authorization: Bearer <jwt>
-X-Tenant-UUID: t001
+X-PowerX-Tenant: t001
 X-Actor-ID: u102
 ```
 

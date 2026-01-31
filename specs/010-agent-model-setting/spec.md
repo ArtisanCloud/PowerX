@@ -92,6 +92,65 @@ sequenceDiagram
   Ops-->>Registry: Trigger guardrails / rollback signals
 ```
 
+## AI 模态驱动统一架构（补充）
+
+### 现状问题
+- LLM 驱动在 `backend/internal/server/agent/drivers/eino/llm/`
+- Embedding 驱动在 `backend/internal/server/agent/intent/embed/`
+- 其他模态（image/video/tts/model3d）缺少统一驱动层
+
+导致：目录割裂、对外接口实现难以复用、驱动接入不一致。
+
+### 目标目录结构（统一驱动入口）
+
+```
+backend/internal/service/ai/               # 对外统一服务层（invoke/session/stream）
+backend/internal/server/ai/providers/       # 统一驱动入口（按模态拆分）
+  llm/
+    openai/
+    ollama/
+    hunyuan/
+    baidu/
+  embedding/
+    openai/
+    ollama/
+    huggingface/
+    baidu/
+  image/
+    ...
+  video/
+    ...
+  tts/
+    ...
+  asr/
+    ...
+  model3d/
+    ...
+backend/internal/server/ai/contracts/       # 模态输入输出结构（统一 DTO）
+backend/internal/server/ai/registry/        # provider 注册、路由、capability 映射
+```
+
+### 服务层职责（统一入口）
+- `service/ai` 负责：
+  - 解析 `model_key` → provider/model
+  - 读取租户 Profile（env + modality + provider + model）
+  - 拼接 defaults/params
+  - 调用统一 provider 驱动
+  - 统一错误码与审计写入
+
+### 驱动接口建议（按模态）
+- LLM：`Invoke(ctx, config, prompt) -> text/stream`
+- Embedding：`Embed(ctx, config, inputs[]) -> vectors`
+- Image/Video/TTS/ASR/Model3D：`Invoke(ctx, config, inputs, params) -> artifact`
+
+### 迁移计划（分阶段）
+1. **阶段 A（specs/007）**：接口打通（/ai/*，/agents/*），非核心模态返回 202 占位。
+2. **阶段 B（specs/010）**：驱动统一迁移
+   - 将现有 `eino/llm`、`intent/embed` 迁移到 `server/ai/providers/*`
+   - 增加 image/video/tts/model3d 驱动实现
+   - `service/ai` 统一调用（禁止直连散落逻辑）
+3. **阶段 C**：删除旧入口与临时占位逻辑
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements

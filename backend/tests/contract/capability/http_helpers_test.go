@@ -27,7 +27,7 @@ func applyCapabilityAdminHeaders(t testing.TB, req *http.Request, tenantUUID str
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 }
 
 func requireCapabilityNoLegacyHeaders(t testing.TB, req *http.Request) {
@@ -53,7 +53,7 @@ func requireCapabilityAuth(expectedTenantUUID string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
 		if tenantUUID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return

@@ -311,5 +311,48 @@ func expandPath(p string) string {
 		return filepath.Clean(p)
 	}
 	wd, _ := os.Getwd()
-	return filepath.Clean(filepath.Join(wd, p))
+	clean := filepath.Clean(filepath.Join(wd, p))
+	if pathExists(clean) {
+		return clean
+	}
+	if root := findRepoRoot(wd); root != "" {
+		trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
+		if candidate := filepath.Clean(filepath.Join(root, trim)); pathExists(candidate) {
+			return candidate
+		}
+		if candidate := filepath.Clean(filepath.Join(root, "backend", trim)); pathExists(candidate) {
+			return candidate
+		}
+	}
+	return clean
+}
+
+func pathExists(p string) bool {
+	if p == "" {
+		return false
+	}
+	if _, err := os.Stat(p); err == nil {
+		return true
+	}
+	return false
+}
+
+func findRepoRoot(start string) string {
+	dir := filepath.Clean(start)
+	for {
+		if dir == "" || dir == string(filepath.Separator) || dir == "." {
+			return ""
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".specify")); err == nil {
+			return dir
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			return ""
+		}
+		dir = next
+	}
 }

@@ -41,6 +41,8 @@ message PublishRequest {
   string payload_format = 5; // 默认 json
   bytes payload = 6;
   map<string, string> headers = 7;
+  string source = 8;
+  string idempotency_key = 9;
 }
 
 message PublishResponse {
@@ -55,6 +57,8 @@ message SubscriptionRequest {
   string subscriber_id = 3;
   string delivery_mode = 4; // stream / polling
   uint32 max_inflight = 5;
+  repeated string topics = 6;
+  string endpoint = 7;
 }
 
 message DeliveryEnvelope {

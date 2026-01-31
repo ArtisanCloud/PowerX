@@ -172,6 +172,7 @@ func (s *Service) routeWithRegistration(ctx context.Context, reg registry.Regist
 		FallbackUsed: selection.fallbackUsed,
 		Payload:      selection.payload,
 		Latency:      selection.latency,
+		Labels:       selection.labels,
 	}
 	s.observeInvocation(ctx, reg, selection, result, mutate, nil)
 	if mutate {
@@ -251,6 +252,7 @@ type adapterSelection struct {
 	fallbackUsed bool
 	payload      []byte
 	latency      time.Duration
+	labels       map[string]string
 }
 
 func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, in InvokeRequest) (adapterSelection, error) {
@@ -281,6 +283,7 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 				adapter.adapterID = ep.AdapterID
 				adapter.endpoint = preferredEndpoint(ep)
 				adapter.transport = ep.TransportType
+				adapter.labels = ep.Labels
 				return adapter, nil
 			}
 		}
@@ -293,6 +296,7 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 		adapter.adapterID = ep.AdapterID
 		adapter.endpoint = preferredEndpoint(ep)
 		adapter.transport = ep.TransportType
+		adapter.labels = ep.Labels
 		return adapter, nil
 	}
 

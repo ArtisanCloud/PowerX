@@ -93,6 +93,12 @@ func (s *ChatHistoryService) FindSessionByID(
 	return s.sess.FindByID(ctx, env, tenantUUID, id)
 }
 
+func (s *ChatHistoryService) FindSessionByUUID(
+	ctx context.Context, env string, tenantUUID *string, uid string,
+) (*dbmodel.AgentChatSession, error) {
+	return s.sess.FindByUUID(ctx, env, tenantUUID, uid)
+}
+
 // ListSessions：按 Agent 维度分页查询（statuses 可为空）
 func (s *ChatHistoryService) ListSessions(
 	ctx context.Context, env string, tenantUUID *string,

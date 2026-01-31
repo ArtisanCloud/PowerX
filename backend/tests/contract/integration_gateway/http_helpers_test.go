@@ -27,7 +27,7 @@ func applyIntegrationHeaders(t testing.TB, req *http.Request, tenantUUID string)
 		req.Header.Set("Authorization", "Bearer token")
 	}
 	if tenantUUID != "" {
-		req.Header.Set("X-Tenant-UUID", tenantUUID)
+		req.Header.Set("X-PowerX-Tenant", tenantUUID)
 	}
 }
 

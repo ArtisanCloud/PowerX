@@ -17,21 +17,23 @@ import (
 
 // ===== Service holder =====
 type AgentSessionHandler struct {
-	his *agentSvc.ChatHistoryService
-	ag  *agentSvc.AgentService
+	his      *agentSvc.ChatHistoryService
+	ag       *agentSvc.AgentService
+	settings *agentSvc.AgentSettingService
 }
 
 func NewAgentSessionHandler(dep *shared.Deps) *AgentSessionHandler {
 	return &AgentSessionHandler{
-		his: agentSvc.NewChatHistoryService(dep.DB),
-		ag:  agentSvc.NewAgentService(dep.DB),
+		his:      agentSvc.NewChatHistoryService(dep.DB),
+		ag:       agentSvc.NewAgentService(dep.DB),
+		settings: agentSvc.NewAgentSettingService(dep.DB),
 	}
 }
 
 // ====== Requests/Responses ======
 
 type createSessionReq struct {
-	Env       string            `json:"env" validate:"required"`
+	Env       string            `json:"env"`
 	AgentID   uint64            `json:"agentId"`
 	AgentUUID string            `json:"agentUuid"`
 	Title     string            `json:"title"`
@@ -51,7 +53,7 @@ type updateSessionReq struct {
 }
 
 type appendMsgReq struct {
-	Env       string            `json:"env" validate:"required"`
+	Env       string            `json:"env"`
 	SessionID uint64            `json:"sessionId" validate:"required"`
 	AgentID   uint64            `json:"agentId" validate:"required"`
 	Role      string            `json:"role" validate:"required"` // user|assistant|system|tool|summary
@@ -71,6 +73,14 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	if strings.TrimSpace(req.Env) == "" || strings.EqualFold(strings.TrimSpace(req.Env), "default") {
+		req.Env = env
 	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -125,7 +135,11 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 
 // GET /agents/sessions?env=...&agent_id=1&status=active,archived&limit=50&offset=0
 func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
@@ -175,20 +189,24 @@ func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 
 // GET /agents/sessions/:id
 func (h *AgentSessionHandler) GetSession(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	sid, err := utils.ParseUintID(c.Param("id"))
-	if err != nil {
-		dto.ResponseError(c, 400, "id 非法", nil)
-		return
+	idParam := strings.TrimSpace(c.Param("id"))
+	var out *dbmodel.AgentChatSession
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		out, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
+	} else {
+		out, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
 	}
-
-	out, err := h.his.FindSessionByID(c.Request.Context(), env, tenantRef, sid)
 	if err != nil {
 		dto.ResponseError(c, 404, "未找到", err)
 		return
@@ -203,15 +221,27 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	sid, err := utils.ParseUintID(c.Param("id"))
-	if err != nil {
+	idParam := strings.TrimSpace(c.Param("id"))
+	var sid uint64
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		sid = id
+	} else {
+		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
+			sid = sess.ID
+		}
+	}
+	if sid == 0 {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
@@ -225,15 +255,27 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 
 // POST /agents/sessions/:id/archive
 func (h *AgentSessionHandler) ArchiveSession(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	sid, err := utils.ParseUintID(c.Param("id"))
-	if err != nil {
+	idParam := strings.TrimSpace(c.Param("id"))
+	var sid uint64
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		sid = id
+	} else {
+		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
+			sid = sess.ID
+		}
+	}
+	if sid == 0 {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
@@ -247,19 +289,31 @@ func (h *AgentSessionHandler) ArchiveSession(c *gin.Context) {
 
 // DELETE /agents/sessions/:id
 func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
-	// 软删
-	sid, err := utils.ParseUintID(c.Param("id"))
+	env, err := resolveAgentEnv(c, h.settings)
 	if err != nil {
-		dto.ResponseError(c, 400, "id 非法", nil)
+		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
-	env := c.DefaultQuery("env", "default")
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	// 软删
+	idParam := strings.TrimSpace(c.Param("id"))
+	var sid uint64
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		sid = id
+	} else {
+		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
+			sid = sess.ID
+		}
+	}
+	if sid == 0 {
+		dto.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
 	if err := h.his.DeleteSession(c.Request.Context(), env, tenantRef, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -269,15 +323,27 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 
 // GET /agents/sessions/:id/messages?env=...&after_id=0&limit=200
 func (h *AgentSessionHandler) ListMessages(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	sid, err := utils.ParseUintID(c.Param("id"))
-	if err != nil {
+	idParam := strings.TrimSpace(c.Param("id"))
+	var sid uint64
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		sid = id
+	} else {
+		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
+			sid = sess.ID
+		}
+	}
+	if sid == 0 {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
@@ -299,6 +365,14 @@ func (h *AgentSessionHandler) AppendMessage(c *gin.Context) {
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	if strings.TrimSpace(req.Env) == "" || strings.EqualFold(strings.TrimSpace(req.Env), "default") {
+		req.Env = env
 	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -325,19 +399,24 @@ func (h *AgentSessionHandler) AppendMessage(c *gin.Context) {
 
 // （可选）触发一次“超限检查+摘要”
 func (h *AgentSessionHandler) SummarizeIfNeeded(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	sid, err := utils.ParseUintID(c.Param("id"))
-	if err != nil {
-		dto.ResponseError(c, 400, "id 非法", nil)
-		return
+	idParam := strings.TrimSpace(c.Param("id"))
+	var sess *dbmodel.AgentChatSession
+	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+		sess, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
+	} else {
+		sess, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
 	}
-	sess, err := h.his.FindSessionByID(c.Request.Context(), env, tenantRef, sid)
 	if err != nil {
 		dto.ResponseError(c, 404, "未找到", err)
 		return

@@ -40,7 +40,7 @@ func applyAgentModelHubHeaders(t testing.TB, req *http.Request) {
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-Tenant-UUID", ammatestenv.AgentModelHubTenantUUID)
+	req.Header.Set("X-PowerX-Tenant", ammatestenv.AgentModelHubTenantUUID)
 }
 
 func assertNoAgentModelHubTenantLeak(t testing.TB, payload []byte) {

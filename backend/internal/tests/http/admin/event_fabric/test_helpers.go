@@ -68,7 +68,7 @@ func applyEventFabricHeaders(t testing.TB, req *http.Request, tenantUUID string)
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-Tenant-UUID", strings.TrimSpace(tenantUUID))
+	req.Header.Set("X-PowerX-Tenant", strings.TrimSpace(tenantUUID))
 }
 
 func assertNoEventFabricTenantLeak(t testing.TB, payload []byte) {

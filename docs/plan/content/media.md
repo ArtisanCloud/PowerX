@@ -34,8 +34,8 @@
 ### 2.1 认证与租户上下文
 
 - Web Admin 通过 `Authorization: Bearer <access_token>` 登录态访问管理接口
-- 请求需携带租户上下文头：`X-Tenant-UUID: <tenant_uuid>`
-  - `web-admin/app/composables/api/index.ts` 已默认注入 `Authorization` 与 `X-Tenant-UUID`（来自本地存储/上下文）
+- 请求需携带租户上下文头：`X-PowerX-Tenant: <tenant_uuid>`
+  - `web-admin/app/composables/api/index.ts` 已默认注入 `Authorization` 与 `X-PowerX-Tenant`（来自本地存储/上下文）
 
 ### 2.2 后端接口（Admin）
 
@@ -49,7 +49,7 @@
 - 预签名：`POST <apiBase>/admin/media/assets/:uuid/presign`
 - 资源（鉴权）：`GET <apiBase>/admin/media/assets/:uuid/resource?disposition=inline|attachment`
 - 说明：
-  - 该资源接口需要 `Authorization: Bearer <access_token>`（Admin）以及 `X-Tenant-UUID`，**直接在浏览器地址栏打开通常会报 `missing or invalid Authorization header` 属正常现象**。
+  - 该资源接口需要 `Authorization: Bearer <access_token>`（Admin）以及 `X-PowerX-Tenant`，**直接在浏览器地址栏打开通常会报 `missing or invalid Authorization header` 属正常现象**。
   - 若希望“复制后可直接打开/外部分发”，应使用 **预签名下载链接**（`POST <apiBase>/admin/media/assets/:uuid/presign`，`action=download`）或公开入口（见 2.3）。
 - 本地上传写入端点（鉴权）：`PUT <apiBase>/media/assets/:uuid`
   - 说明：上传写入端点的最终 URL 以“预签名接口返回”为准，UI 不应硬编码 `/api` 或 `/api/v1`。
@@ -104,7 +104,7 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`<apiBase>/admin/.../res
 - 复制链接（默认复制鉴权资源 URL；若启用公开入口，可复制公开 URL）
 - 复制链接建议拆分为两类：
   - 复制下载链接（推荐）：通过 `presign(action=download)` 获取可直接访问的 URL（外链/S3 为带签名 URL；local 驱动通常返回 `/media/:uuid/resource`）。
-  - 复制鉴权链接（调试用）：`<apiBase>/admin/media/assets/:uuid/resource`，需要带 `Authorization/X-Tenant-UUID`。
+  - 复制鉴权链接（调试用）：`<apiBase>/admin/media/assets/:uuid/resource`，需要带 `Authorization/X-PowerX-Tenant`。
 
 > 本地开发常见坑：`presign(action=download)` 在 local 驱动下返回的 `/media/:uuid/resource` 是 **后端服务**的相对路径；若 Web Admin 与后端不在同一域（例如 3030 ↔ 8077），需要用后端 `UPSTREAM` 的 origin 去拼接，否则会在前端站点上 404。
 - 下载（`disposition=attachment`）

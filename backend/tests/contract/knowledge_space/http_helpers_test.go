@@ -29,7 +29,7 @@ func applyKnowledgeTenant(t testing.TB, req *http.Request, tenantUUID string) {
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("X-PowerX-Tenant", tenantUUID)
 }
 
 func assertNoLegacyTenantPayload(t testing.TB, payload []byte) {

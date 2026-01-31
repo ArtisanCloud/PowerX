@@ -126,6 +126,28 @@
 - [x] **T064** 多租户映射存储：在数据库或 Redis 新增 `event_fabric_topic_bindings`/`acl_bindings` 记录 manifest 应用结果（租户+插件+topic+principal），提供查询/幂等校验，避免重复创建。（已落地 `backend/pkg/corex/db/persistence/model/event_fabric/manifest_binding.go` + `repository/event_fabric/manifest_binding_repository.go` + `internal/service/event_fabric/manifest/binding_store.go` 并写入 `binding_store_test.go` / `backend/tests/contract/event_fabric/seed_service_test.go` 验证）
 - [x] **T065** CI/文档：更新 `specs/007.../quickstart.md`、`docs/guides/develop/open_capability/event_fabric.md`，说明“插件安装自动生成 Topic/ACL”流程与脚本调用方式；在 CI（`scripts/capability_registry/verify.sh` 或新脚本）中加入 `event_fabric apply --dry-run` 步骤。（已补充 manifest 自动播种章节、Quickstart 步骤 0，并在 `scripts/capability_registry/verify.sh` 中默认执行 `event_fabric_seed --dry-run`，支持 `--skip-event-seed`/`--event-seed-manifest`）
 
+## Phase 10: Agent & 多模态能力开放
+
+**目标**：补齐 Agent 与多模态模型的对外契约、统一入口与租户隔离，纳入 `source=corex` 能力目录。
+
+### Contracts
+
+- [x] **T066 [P]** HTTP OpenAPI（Agent）：完善 `specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml`，补齐错误码、SSE 事件描述与样例。
+- [x] **T067 [P]** HTTP OpenAPI（Multimodal）：完善 `specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml`，补齐会话与无状态调用说明。
+- [x] **T068 [P]** gRPC（Agent/AI）：在 `backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto` 补齐注释与标准错误码约定，并接入 buf 生成流程。
+
+### Implementation
+
+- [x] **T069 [P]** Registry 能力登记：新增 `com.corex.agent.*`、`com.corex.ai.*` 平台能力（`source=corex`），并在 Admin “开放能力”页面展示。
+- [x] **T070 [P]** Integration Gateway 路由：支持 Agent（invoke + stream）与 Multimodal（invoke + sessioned + embeddings）的统一代理与限流/审计。
+- [x] **T071 [P]** 租户隔离校验：Agent 的 `agent_id/session_id` 与多模态 `model_key/session_id` 必须验证租户归属。
+- [x] **T072** SSE/WS 观测：流式调用写入 Trace/Audit，`InvocationTrace` 记录 `protocol_used` 与 `fallback_used`。
+
+### Tests
+
+- [x] **T073 [P]** Contract Tests：新增 Agent/Multimodal OpenAPI & gRPC 合同测试，覆盖错误码与流式示例。
+- [x] **T074** Integration Test：端到端调用 Agent SSE 与 Multimodal Session 流式输出，验证租户隔离与审计记录。
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。
