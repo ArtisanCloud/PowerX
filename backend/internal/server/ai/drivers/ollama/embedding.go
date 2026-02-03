@@ -1,5 +1,5 @@
 // services/agent/intent/embed/ollama_vectorizer.go
-package embed
+package ollama
 
 import (
 	"bytes"

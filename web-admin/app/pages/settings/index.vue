@@ -266,6 +266,15 @@ const baseSettingCategories = [
     iconColor: "text-gray-600",
     path: "/settings/logs",
   },
+  {
+    key: "agent-connectors",
+    title: "平台连接器",
+    description: "管理 Coze/N8N 等外部平台连接",
+    icon: "i-heroicons-link",
+    iconBg: "bg-teal-50 dark:bg-teal-900/20",
+    iconColor: "text-teal-600",
+    path: "/settings/ai/connectors",
+  },
 ];
 
 const settingCategories = computed(() => {

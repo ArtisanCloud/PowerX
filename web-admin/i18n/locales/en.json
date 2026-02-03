@@ -154,7 +154,8 @@
       "actions": {
         "openCostGuard": "Open Cost Guard",
         "backToModels": "Back to models",
-        "openCapabilityRegistry": "Capability Registry"
+        "openCapabilityRegistry": "Capability Registry",
+        "openConnectors": "Platform connectors"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
@@ -232,7 +233,14 @@
           "loadFailed": "Failed to load registry",
           "jobsFailed": "Failed to load sync jobs"
         }
-      }
+      },
+      "connectors": {
+        "noticeTitle": "Connector instances",
+        "noticeDesc": "UI is being finalized. You can configure instances via API now.",
+        "platformDesc": "Register and manage {platform} workspace instances."
+      },
+      "connectorsPageTitle": "Platform Connectors",
+      "connectorsPageDesc": "Manage Coze/n8n instances and connection metadata."
     },
     "openCapabilities": {
       "title": "Platform Capabilities",
@@ -375,10 +383,22 @@
       "ragPrimary": "RAG primary (L3)",
       "strategyPackage": "Strategy package (A0–O)",
       "templates": {
-        "general": { "title": "General", "desc": "Default strategy for most documents" },
-        "hr": { "title": "HR / Policy / Compliance", "desc": "More compliance-oriented defaults" },
-        "it": { "title": "IT / Engineering Docs", "desc": "Better for technical docs, code blocks and tables" },
-        "support": { "title": "Support FAQ / Ops", "desc": "More QA-oriented chunking defaults" }
+        "general": {
+          "title": "General",
+          "desc": "Default strategy for most documents"
+        },
+        "hr": {
+          "title": "HR / Policy / Compliance",
+          "desc": "More compliance-oriented defaults"
+        },
+        "it": {
+          "title": "IT / Engineering Docs",
+          "desc": "Better for technical docs, code blocks and tables"
+        },
+        "support": {
+          "title": "Support FAQ / Ops",
+          "desc": "More QA-oriented chunking defaults"
+        }
       },
       "advanced": {
         "show": "Advanced",
@@ -525,7 +545,9 @@
         "feishu": "Feishu"
       },
       "connect": {
-        "head": { "title": "Add data source connection" },
+        "head": {
+          "title": "Add data source connection"
+        },
         "title": "Add connection",
         "subtitle": "Wizard: select source → authorize (tenant-scoped) → choose scope → create incremental sync job.",
         "provider": "Source type",

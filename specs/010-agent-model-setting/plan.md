@@ -53,6 +53,20 @@ backend/
 │   ├── providers.d/
 │   ├── routing.d/
 │   └── feature_flags/
+├── internal/server/ai/drivers/
+│   ├── core/
+│   ├── openai/
+│   ├── google/
+│   ├── hunyuan/
+│   ├── jimeng/
+│   ├── qwen/
+│   ├── comfyui/
+│   ├── stable_diffusion/
+│   ├── coze/
+│   └── ollama/
+├── internal/server/ai/factory/
+│   ├── llm/
+│   └── vlm/
 ├── internal/service/
 │   ├── provider_registry/
 │   ├── model_routing/

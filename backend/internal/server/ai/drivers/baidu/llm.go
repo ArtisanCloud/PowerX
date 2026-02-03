@@ -1,4 +1,4 @@
-package llm
+package baidu
 
 import (
 	"bufio"
@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	"io"
 	"net/http"
 	"strings"
@@ -23,7 +24,7 @@ import (
 
 type baiduClient struct{}
 
-func NewBaiduClient() LLMClient { return &baiduClient{} }
+func NewLLMClient() *baiduClient { return &baiduClient{} }
 
 const (
 	defaultQianfanV2Base = "https://qianfan.baidubce.com/v2"
@@ -261,7 +262,7 @@ func (c *baiduClient) Stream(ctx context.Context, mc *config.ModelConfig, prompt
 			continue
 		}
 		// 兼容 "data: {...}" 前缀
-		line = TrimDataPrefix(line)
+		line = core.TrimDataPrefix(line)
 
 		// [DONE] / 结束标记（不同版本可能不同）
 		if bytes.EqualFold(line, []byte("[DONE]")) {

@@ -1,0 +1,22 @@
+id: google
+name: Google Gemini
+aliases: ["google", "gemini", "ai.google.dev"]
+
+drivers:
+  image: google
+
+auth:
+  scheme: api_key
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+
+modalities:
+  image:
+    models:
+      - id: gemini-2.5-flash-image
+        label: "Gemini 2.5 Flash Image (Nano Banana)"
+        tags: ["image", "fast"]
+      - id: gemini-3-pro-image-preview
+        label: "Gemini 3 Pro Image Preview (Nano Banana Pro)"
+        tags: ["image", "high-quality"]

@@ -18,11 +18,12 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	agentconf "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
-	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
 	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
+	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -214,8 +215,8 @@ func (s *AgentSettingService) Providers(modality string) []aiProviderItem {
 	}
 	return out
 }
-func (s *AgentSettingService) Models(modality, provider string) ([]string, error) {
-	models, err := catalogGetModels(strings.TrimSpace(modality), strings.TrimSpace(provider))
+func (s *AgentSettingService) Models(modality, provider, app string) ([]string, error) {
+	models, err := catalogGetModels(strings.TrimSpace(modality), strings.TrimSpace(provider), strings.TrimSpace(app))
 	if err != nil {
 		return nil, err
 	}
@@ -233,9 +234,11 @@ func (s *AgentSettingService) ModelsForTenant(
 	tenantUUID *string,
 	modality string,
 	provider string,
+	app string,
 ) ([]string, error) {
 	mod := strings.TrimSpace(strings.ToLower(modality))
 	prov := strings.TrimSpace(strings.ToLower(provider))
+	app = strings.TrimSpace(strings.ToLower(app))
 
 	// OpenRouter：模型目录变化快，优先走远端 /models；失败则回退到本地目录（占位/示例）。
 	if prov == "openrouter" && (mod == "llm" || mod == "embedding") {
@@ -243,7 +246,7 @@ func (s *AgentSettingService) ModelsForTenant(
 			return remote, nil
 		}
 	}
-	return s.Models(mod, prov)
+	return s.Models(mod, prov, app)
 }
 
 type openRouterModelsResponse struct {
@@ -673,6 +676,8 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 		}
 		return s.PingStrict(ctx, mod, prov, model, bu, ak, "", "", "")
 
+	case contract.ModImage:
+		return s.PingImage(ctx, env, tenantUUID, provider, model, baseURL, apiKey, secretID, secretKey, region, "")
 	default:
 		return s.PingGeneric(ctx, env, tenantUUID, contract.Modality(mod), provider, model, baseURL, apiKey)
 	}
@@ -770,6 +775,79 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUI
 		return err
 	}
 	_, err = cli.Invoke(ctx, &mc, "ping")
+	return err
+}
+
+func (s *AgentSettingService) PingImage(
+	ctx context.Context, env string, tenantUUID *string,
+	provider, model, baseURL, apiKey, secretID, secretKey, region, organization string,
+) error {
+	logger.InfoF(ctx, "[agent_setting] ping_image start env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
+	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
+		return err
+	}
+	p := strings.TrimSpace(strings.ToLower(provider))
+	req := catalog.AuthReqFromCatalog(provider)
+	var err error
+	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return err
+	}
+	if err := validateEndpoint(baseURL); err != nil {
+		return err
+	}
+
+	manifest := findModelManifest(string(contract.ModImage), provider, model)
+	size := "256x256"
+	quality := "auto"
+	format := "png"
+	promptHint := ""
+	if manifest != nil && manifest.Defaults != nil {
+		if v, ok := manifest.Defaults["size"].(string); ok && strings.TrimSpace(v) != "" {
+			size = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["quality"].(string); ok && strings.TrimSpace(v) != "" {
+			quality = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["format"].(string); ok && strings.TrimSpace(v) != "" {
+			format = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["promptHint"].(string); ok && strings.TrimSpace(v) != "" {
+			promptHint = strings.TrimSpace(v)
+		}
+	}
+	prompt := "A tiny white cube on a blue background."
+	if promptHint != "" {
+		prompt = strings.TrimSpace(prompt + "\n" + promptHint)
+	}
+
+	mc := agentcfg.ModelConfig{
+		Provider:     provider,
+		Endpoint:     baseURL,
+		APIKey:       apiKey,
+		SecretID:     secretID,
+		SecretKey:    secretKey,
+		Region:       region,
+		Model:        model,
+		Organization: organization,
+		Extra:        s.buildModelExtras(contract.ModImage, provider, model),
+	}
+	cli, err := imagefactory.NewClient(provider)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	_, err = cli.Generate(ctx, contract.ImageRequest{
+		Prompt:  prompt,
+		Size:    size,
+		Quality: quality,
+		Format:  format,
+		Runtime: map[string]any{"config": &mc},
+	})
+	if err == nil {
+		logger.InfoF(ctx, "[agent_setting] ping_image success env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
+	}
 	return err
 }
 
@@ -967,6 +1045,77 @@ func (s *AgentSettingService) BuildEmbeddingConfig(
 		APIKey:   ak,
 		MaxBatch: 8,
 		Dim:      0,
+	}, nil
+}
+
+// BuildImageConfig resolves tenant image connection info and returns a ready config.
+func (s *AgentSettingService) BuildImageConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+	secretID string,
+	secretKey string,
+	region string,
+	organization string,
+) (*agentcfg.ModelConfig, error) {
+	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
+		return nil, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return nil, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+
+	org := strings.TrimSpace(organization)
+	rg := strings.TrimSpace(region)
+	azureDeployment := ""
+	name := utils.Slug(env + "-" + p)
+	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+		if org == "" {
+			if v, ok := cred.Data["organization"].(string); ok {
+				org = strings.TrimSpace(v)
+			}
+		}
+		if rg == "" {
+			if v, ok := cred.Data["region"].(string); ok {
+				rg = strings.TrimSpace(v)
+			}
+		}
+		if v, ok := cred.Data["azure_deployment"].(string); ok {
+			azureDeployment = strings.TrimSpace(v)
+		}
+	}
+
+	return &agentcfg.ModelConfig{
+		Provider:        provider,
+		Endpoint:        bu,
+		APIKey:          ak,
+		SecretID:        strings.TrimSpace(secretID),
+		SecretKey:       strings.TrimSpace(secretKey),
+		Region:          rg,
+		Model:           m,
+		Organization:    org,
+		AzureDeployment: azureDeployment,
+		Extra:           s.buildModelExtras(contract.ModImage, provider, model),
 	}, nil
 }
 
@@ -1576,12 +1725,21 @@ func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provi
 	if manifest == nil || manifest.Defaults == nil {
 		return nil
 	}
+	out := map[string]any{}
 	if raw, ok := manifest.Defaults["api_path"]; ok {
 		if path, ok2 := raw.(string); ok2 && strings.TrimSpace(path) != "" {
-			return map[string]any{"api_path": path}
+			out["api_path"] = strings.TrimSpace(path)
 		}
 	}
-	return nil
+	for _, key := range []string{"action", "action_poll", "version", "service", "service_id", "req_json", "result_req_json", "force_single", "scale", "min_ratio", "max_ratio"} {
+		if raw, ok := manifest.Defaults[key]; ok {
+			out[key] = raw
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func mergeManifestDefaults(user datatypes.JSONMap, manifest map[string]any) datatypes.JSONMap {
@@ -1625,12 +1783,13 @@ func mergeTags(modality string, manifestTags []string, existing datatypes.JSONSl
 
 func findModelManifest(modality, provider, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
-	models, err := reg.Models(modality, provider)
+	app, pureModel := splitAppModel(reg, provider, model)
+	models, err := reg.ModelsByApp(modality, provider, app)
 	if err != nil {
 		return nil
 	}
 	for _, m := range models {
-		if strings.EqualFold(m.ID, model) {
+		if strings.EqualFold(m.ID, pureModel) || strings.EqualFold(m.ID, model) {
 			copy := m
 			return &copy
 		}
@@ -1638,14 +1797,43 @@ func findModelManifest(modality, provider, model string) *catalog.ModelManifest 
 	return nil
 }
 
+func splitAppModel(reg *catalog.Registry, provider, model string) (string, string) {
+	raw := strings.TrimSpace(model)
+	if raw == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(raw, ":", 2)
+	if len(parts) != 2 {
+		return "", raw
+	}
+	app := strings.ToLower(strings.TrimSpace(parts[0]))
+	if app == "" {
+		return "", raw
+	}
+	// only treat prefix as app if provider declares it
+	apps := reg.Apps(provider, "")
+	for _, it := range apps {
+		if strings.EqualFold(it.ID, app) {
+			return app, strings.TrimSpace(parts[1])
+		}
+	}
+	return "", raw
+}
+
 // —— catalog 适配：在 service 层做轻薄封装，避免 handler 直依赖 —— //
 
 type aiProviderItem struct {
 	ID   string
 	Name string
+	Apps []aiAppItem
 }
 
 type aiModelItem struct {
+	ID   string
+	Name string
+}
+
+type aiAppItem struct {
 	ID   string
 	Name string
 }
@@ -1678,27 +1866,32 @@ func catalogGetProviders(mod string) []aiProviderItem {
 	}
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name})
+		appItems := reg.Apps(it.ID, m)
+		apps := make([]aiAppItem, 0, len(appItems))
+		for _, a := range appItems {
+			apps = append(apps, aiAppItem{ID: a.ID, Name: a.Name})
+		}
+		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name, Apps: apps})
 	}
 	return out
 }
-func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
+func catalogGetModels(mod, prov, app string) ([]aiModelItem, error) {
 	m := strings.TrimSpace(strings.ToLower(mod))
 	reg := catalog.GetGlobalAIRegister()
 
 	// ✅ 对齐：图像/视频如果该模态没模型，则回退到另一模态（避免下拉为空）
-	ms, err := reg.Models(m, prov)
+	ms, err := reg.ModelsByApp(m, prov, app)
 	if err != nil {
 		return nil, err
 	}
 	if len(ms) == 0 {
 		if m == "video" {
-			if fallback, e := reg.Models("image", prov); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("image", prov, app); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
 		if m == "image" {
-			if fallback, e := reg.Models("video", prov); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("video", prov, app); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
@@ -1872,9 +2065,10 @@ func (s *AgentSettingService) resolveModelRule(modality, provider, model string)
 		// 2) 默认 base_url: model.defaults 覆盖 auth.defaults
 		def := ""
 		// 先 model 级
-		if models, _ := reg.Models(modality, provider); len(models) > 0 {
+		app, pureModel := splitAppModel(reg, provider, model)
+		if models, _ := reg.ModelsByApp(modality, provider, app); len(models) > 0 {
 			for _, mm := range models {
-				if strings.EqualFold(mm.ID, model) {
+				if strings.EqualFold(mm.ID, pureModel) || strings.EqualFold(mm.ID, model) {
 					if v, ok := mm.Defaults["base_url"].(string); ok && strings.TrimSpace(v) != "" {
 						def = v
 					}

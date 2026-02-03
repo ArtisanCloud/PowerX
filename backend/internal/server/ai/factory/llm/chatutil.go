@@ -1,9 +1,10 @@
 package llm
 
 import (
-	"bytes"
 	"context"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 )
 
 // StreamOrFallback：优先真流式；不支持则使用 ChatOnce 并按 rune 模拟 token
@@ -20,7 +21,7 @@ func StreamOrFallback(
 		if err == nil {
 			return final, nil
 		}
-		if err != nil && err != ErrStreamNotSupported {
+		if err != nil && err != core.ErrStreamNotSupported {
 			return "", err
 		}
 		// 不支持流式：回退
@@ -37,13 +38,4 @@ func StreamOrFallback(
 		}
 	}
 	return final, nil
-}
-
-func TrimDataPrefix(line []byte) []byte {
-	b := bytes.TrimSpace(line)
-	if bytes.HasPrefix(b, []byte("data:")) {
-		b = b[len("data:"):]
-		b = bytes.TrimLeft(b, " \t")
-	}
-	return b
 }

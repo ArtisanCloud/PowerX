@@ -148,10 +148,22 @@
       "strategyPackage": "戦略パッケージ（A0–O）",
       "strategyPreview": "適用する戦略（詳細設定で上書き可能）",
       "templates": {
-        "general": { "title": "汎用", "desc": "多くのドキュメントに適したデフォルト" },
-        "hr": { "title": "HR / 規程 / コンプラ", "desc": "コンプライアンス寄りのデフォルト" },
-        "it": { "title": "IT / 技術ドキュメント", "desc": "技術文書・コード・表に適した設定" },
-        "support": { "title": "サポート FAQ / 運用", "desc": "QA 粒度と命中率を重視" }
+        "general": {
+          "title": "汎用",
+          "desc": "多くのドキュメントに適したデフォルト"
+        },
+        "hr": {
+          "title": "HR / 規程 / コンプラ",
+          "desc": "コンプライアンス寄りのデフォルト"
+        },
+        "it": {
+          "title": "IT / 技術ドキュメント",
+          "desc": "技術文書・コード・表に適した設定"
+        },
+        "support": {
+          "title": "サポート FAQ / 運用",
+          "desc": "QA 粒度と命中率を重視"
+        }
       },
       "advanced": {
         "show": "詳細設定",
@@ -291,7 +303,9 @@
         "feishu": "飛書"
       },
       "connect": {
-        "head": { "title": "データソース接続を追加" },
+        "head": {
+          "title": "データソース接続を追加"
+        },
         "title": "接続を追加",
         "subtitle": "ウィザード：ソース選択 → 認可（テナント単位）→ 範囲選択 → 増分同期ジョブ作成。",
         "provider": "ソース種別",
@@ -805,7 +819,8 @@
       "actions": {
         "openCostGuard": "コスト防御",
         "backToModels": "モデル一覧へ戻る",
-        "openCapabilityRegistry": "能力レジストリ"
+        "openCapabilityRegistry": "能力レジストリ",
+        "openConnectors": "プラットフォーム連携"
       },
       "costGuardPageTitle": "コスト防御",
       "costGuardPageDesc": "AI 利用のクォータやスロットルを設定します。",
@@ -883,7 +898,14 @@
           "loadFailed": "レジストリの読み込みに失敗しました",
           "jobsFailed": "同期ジョブの取得に失敗しました"
         }
-      }
+      },
+      "connectors": {
+        "noticeTitle": "プラットフォーム連携インスタンス",
+        "noticeDesc": "UI は整備中です。現在は API でインスタンスを設定してください。",
+        "platformDesc": "{platform} のワークスペースインスタンスを登録・管理します。"
+      },
+      "connectorsPageTitle": "外部プラットフォーム連携",
+      "connectorsPageDesc": "Coze/n8n など外部プラットフォームのインスタンスと接続情報を管理します。"
     },
     "openCapabilities": {
       "title": "プラットフォーム能力",

@@ -20,6 +20,7 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.POST("/llm/sessions/:session_id/messages", handler.llmSessionAppend)
 	group.GET("/llm/sessions/:session_id/stream", handler.llmSessionStream)
 
+	group.POST("/vlm/invoke", handler.vlmInvoke)
 	group.POST("/image/invoke", handler.imageInvoke)
 	group.POST("/video/invoke", handler.videoInvoke)
 	group.POST("/tts/invoke", handler.ttsInvoke)

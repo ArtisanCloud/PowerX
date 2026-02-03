@@ -1,4 +1,4 @@
-package llm
+package hunyuan
 
 import (
 	"bytes"
@@ -16,14 +16,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 )
 
 // 腾讯云 混元（Hunyuan）LLM：TC3-HMAC-SHA256 签名 + ChatCompletions
 // 参考：腾讯云通用 API 签名（TC3）与 Hunyuan ChatCompletions 接口。
-type hunyuanClient struct{ NoopStream }
+type hunyuanClient struct{}
 
-func NewHunyuanClient() LLMClient { return &hunyuanClient{} }
+func NewLLMClient() *hunyuanClient { return &hunyuanClient{} }
 
 const (
 	defaultHunyuanEndpoint = "https://hunyuan.tencentcloudapi.com"
@@ -202,6 +203,10 @@ func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prom
 		return "", errors.New("hunyuan: no choices")
 	}
 	return out.Response.Choices[0].Message.Content, nil
+}
+
+func (c *hunyuanClient) Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
+	return "", core.ErrStreamNotSupported
 }
 
 func effectiveTimeout(v time.Duration, def time.Duration) time.Duration {

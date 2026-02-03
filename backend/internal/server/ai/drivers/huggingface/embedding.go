@@ -1,4 +1,4 @@
-package embed
+package huggingface
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai"
 )
 
 // HuggingFaceEmbedder calls Hugging Face Router Inference API and pools to a single vector.
@@ -17,10 +19,11 @@ import (
 // pipeline/feature-extraction endpoints.
 //
 // API (typical):
-//   POST https://router.huggingface.co/hf-inference/models/{model}/pipeline/feature-extraction
-//   POST https://router.huggingface.co/pipeline/feature-extraction/{model}
-//   Authorization: Bearer <token>
-//   Body: {"inputs": "text"} or {"inputs": ["t1","t2"]}
+//
+//	POST https://router.huggingface.co/hf-inference/models/{model}/pipeline/feature-extraction
+//	POST https://router.huggingface.co/pipeline/feature-extraction/{model}
+//	Authorization: Bearer <token>
+//	Body: {"inputs": "text"} or {"inputs": ["t1","t2"]}
 //
 // Response shape varies by model:
 // - [D]                      => already pooled vector
@@ -153,7 +156,7 @@ func (e *HuggingFaceEmbedder) embedOnce(ctx context.Context, batch []string) ([]
 
 	// 1) Prefer OpenAI-compatible embeddings when configured.
 	if baseV1 := e.baseV1(); strings.TrimSpace(baseV1) != "" {
-		oai := OpenAIEmbedder{
+		oai := openai.OpenAIEmbedder{
 			BaseURL:  baseV1,
 			APIKey:   e.APIKey,
 			Model:    e.Model,
@@ -161,7 +164,7 @@ func (e *HuggingFaceEmbedder) embedOnce(ctx context.Context, batch []string) ([]
 			HTTP:     e.HTTP,
 			MaxBatch: len(batch),
 		}
-		attempted = append(attempted, oai.endpoint())
+		attempted = append(attempted, strings.TrimRight(oai.BaseURL, "/")+"/embeddings")
 		if vecs, err := oai.Embed(ctx, batch); err == nil {
 			return vecs, nil
 		} else if !shouldFallbackToPipeline(err) {

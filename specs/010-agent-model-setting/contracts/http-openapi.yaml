@@ -7,7 +7,13 @@ tags:
 info:
   title: Agent Model Hub HTTP API
   version: 0.1.0
-  description: REST surface for provider onboarding, routing governance, connector control, and cost guardrails.
+  description: |-
+    REST surface for provider onboarding, routing governance, connector control, and cost guardrails.
+
+    Model routing conventions:
+    - provider_key / credential is ONLY for auth, provider-scoped.
+    - model_key is ONLY for routing: `provider/model` or `provider/app:model`.
+    - If provider has apps (e.g., volcengine/jimeng), parse `app:model`; otherwise treat the rest as model.
 servers:
   - url: https://api.powerx.local/internal
 paths:
@@ -42,7 +48,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [llm, vlm, tts, embeddings, full]
+            enum: [llm, vlm, image, video, tts, asr, embeddings, model3d, full]
       responses:
         '202':
           description: Validation started

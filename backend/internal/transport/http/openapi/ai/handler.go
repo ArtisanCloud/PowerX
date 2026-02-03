@@ -319,6 +319,34 @@ func (h *aiHandler) imageInvoke(c *gin.Context) {
 	dto.ResponseSuccess(c, out)
 }
 
+func (h *aiHandler) vlmInvoke(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
+		return
+	}
+	env, err := pickEnv(c, tenantUUID, h.svc)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	var req modalInvokeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	out, err := h.svc.VLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	if err != nil {
+		respondAIError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, out)
+}
+
 func (h *aiHandler) videoInvoke(c *gin.Context) {
 	if h == nil || h.svc == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)

@@ -37,6 +37,14 @@
           {{ $t("settings.ai.actions.openCostGuard") }}
         </UButton>
         <UButton
+          variant="soft"
+          icon="i-heroicons-link"
+          class="whitespace-nowrap"
+          :to="connectorsLink"
+        >
+          {{ $t("settings.ai.actions.openConnectors") }}
+        </UButton>
+        <UButton
           v-if="isRoot"
           variant="soft"
           icon="i-heroicons-table-cells"
@@ -113,10 +121,12 @@
           </p>
           <ProviderModelForm
             :provider-options="providerOptions"
+            :app-options="appOptions"
             :model-options="modelOptions"
             :active-provider="activeProviderForForm"
             :state="currentState"
             @provider-changed="onProviderChanged"
+            @app-changed="onAppChanged"
           />
         </div>
 
@@ -195,6 +205,7 @@ const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
 const localePath = useLocalePath();
 const costGuardLink = computed(() => localePath("/settings/ai/cost"));
+const connectorsLink = computed(() => localePath("/settings/ai/connectors"));
 const registryLink = computed(() =>
   localePath("/settings/ai/capability-registry")
 );
@@ -298,6 +309,11 @@ const providerOptions = computed<SelectOption[]>(() => {
   return [placeholder, ...options];
 });
 
+const appOptions = computed<SelectOption[]>(() => {
+  const apps = resolveAppsForProvider(currentState.value.provider);
+  return buildAppOptions(apps);
+});
+
 const activeProviderForForm = computed(() => {
   const pid = String(currentState.value.provider ?? "").trim();
   if (!pid) return null;
@@ -327,6 +343,7 @@ const activeModel = computed(
  */
 type BaseConn = {
   provider: string | null;
+  app?: string | null;
   model: string | null;
   authMode: string;
   apiKey: string;
@@ -347,6 +364,7 @@ const llm = reactive<
   }
 >({
   provider: null,
+  app: "",
   model: null,
   authMode: "",
   apiKey: "",
@@ -370,6 +388,7 @@ const image = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "gpt-image-1",
   authMode: "",
   apiKey: "",
@@ -388,6 +407,7 @@ const embedding = reactive<
   BaseConn & { dimensions: number; truncate: string; batch: number; maxInputTokens?: number }
 >({
   provider: "openai",
+  app: "",
   model: "text-embedding-3-small",
   authMode: "",
   apiKey: "",
@@ -411,6 +431,7 @@ const audioTTS = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "gpt-4o-mini-tts",
   authMode: "",
   apiKey: "",
@@ -434,6 +455,7 @@ const audioASR = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "whisper-1",
   authMode: "",
   apiKey: "",
@@ -457,6 +479,7 @@ const video = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "sora-preview",
   authMode: "",
   apiKey: "",
@@ -478,6 +501,7 @@ const model3d = reactive<
   }
 >({
   provider: "hunyuan",
+  app: "",
   model: "HY-3D-Express",
   authMode: "openai",
   apiKey: "",
@@ -498,6 +522,7 @@ const rerank = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "text-embedding-3-large",
   authMode: "",
   apiKey: "",
@@ -608,6 +633,45 @@ function resolveHuggingFaceBaseURL(_model?: string | null) {
   return "https://router.huggingface.co/v1";
 }
 
+function resolveAppsForProvider(provider?: string | null) {
+  const pid = String(provider ?? "").trim();
+  if (!pid) return [];
+  const hit =
+    (aiSettingsStore.providers ?? []).find(
+      (p: Provider) => String(p.ID ?? "").trim().toLowerCase() === pid.toLowerCase()
+    ) ?? null;
+  return hit?.apps ?? [];
+}
+
+function buildAppOptions(apps?: { id: string; name: string }[]) {
+  if (!Array.isArray(apps) || apps.length === 0) return [];
+  const options = apps.map((app) => ({
+    label: app.name || app.id,
+    value: app.id,
+  }));
+  return [{ label: "不区分 App", value: "" }, ...options];
+}
+
+function splitAppModelKey(raw?: string | null) {
+  const value = String(raw || "").trim();
+  if (!value) return { app: "", model: "" };
+  const idx = value.indexOf(":");
+  if (idx <= 0) return { app: "", model: value };
+  return { app: value.slice(0, idx), model: value.slice(idx + 1) };
+}
+
+function matchProfileModel(
+  profileModel: string | null | undefined,
+  app: string | null | undefined,
+  model: string | null | undefined
+) {
+  const parsed = splitAppModelKey(profileModel);
+  return (
+    parsed.model === String(model || "").trim() &&
+    parsed.app === String(app || "").trim()
+  );
+}
+
 function draftKey(
   provider?: string | null,
   envVal?: string | null,
@@ -622,6 +686,7 @@ function draftKey(
 function getDraftableFields(modalityVal?: string | null): string[] {
   const m = String(modalityVal || "").trim();
   const base = [
+    "app",
     "model",
     "authMode",
     "apiKey",
@@ -656,6 +721,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
 
 function applyModalityDefaults(state: Record<string, any>, modalityVal?: string | null) {
   const m = String(modalityVal || "").trim();
+  if ("app" in state) state.app = "";
   switch (m) {
     case "llm":
       state.temperature = 0.7;
@@ -787,15 +853,31 @@ async function onProviderChanged(nextProvider?: string) {
     return;
   }
 
+  restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
+  const apps = resolveAppsForProvider(rawProvider);
+  if (!apps.length) {
+    currentState.value.app = "";
+  } else {
+    const appIds = new Set(apps.map((app) => String(app.id)));
+    const currentApp = String(currentState.value.app || "").trim();
+    if (currentApp && !appIds.has(currentApp)) {
+      currentState.value.app = "";
+    }
+  }
+
+  const appValue = String(currentState.value.app || "").trim();
   try {
     // ✅ 直接传原始值，让 store 内部处理规范化
-    await aiSettingsStore.fetchModels(rawProvider, currentModality, env.value);
+    await aiSettingsStore.fetchModels(
+      rawProvider,
+      currentModality,
+      env.value,
+      appValue || undefined
+    );
   } catch (error) {
     console.error("获取模型列表失败:", error);
     // 这里不清空，保持上一次成功值
   }
-
-  restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
 
   // restoreDraft 可能会把旧 model 带回来；这里再做一次兜底校验
   const models = aiSettingsStore.models ?? [];
@@ -813,14 +895,63 @@ async function onProviderChanged(nextProvider?: string) {
   }
 }
 
+async function onAppChanged(nextApp?: string) {
+  const rawProvider = currentState.value.provider;
+  const currentModality = modality.value;
+  if (!rawProvider || !currentModality) return;
+  if (nextApp !== undefined) {
+    currentState.value.app = nextApp ?? "";
+  }
+  const appValue = String(currentState.value.app || "").trim();
+  try {
+    await aiSettingsStore.fetchModels(
+      rawProvider,
+      currentModality,
+      env.value,
+      appValue || undefined
+    );
+  } catch (error) {
+    console.error("获取模型列表失败:", error);
+  }
+
+  const models = aiSettingsStore.models ?? [];
+  if (models.length) {
+    const curModel = currentState.value.model;
+    if (!curModel || !models.includes(curModel)) {
+      currentState.value.model = models[0];
+    }
+  } else {
+    currentState.value.model = "";
+  }
+  if (currentModality === "embedding") {
+    syncEmbeddingProbeMessageFromProfiles();
+  }
+}
+
 // 旧实现：syncCredentialFieldsForProvider（已用 restoreProviderDraft 替代，避免 apiKey/参数串台）
 
 /**
  * 选项集合（传给 ModalityParamsForm）
  */
-const imageSizeOptions = ["256x256", "512x512", "1024x1024"];
-const imageQualityOptions = ["standard", "hd"];
-  const imageFormatOptions = ["png", "jpeg", "webp"];
+const imageSizeOptions = [
+  "auto",
+  "256x256",
+  "512x512",
+  "1024x1024",
+  "1536x1024",
+  "1024x1536",
+  "1792x1024",
+  "1024x1792",
+];
+const imageQualityOptions = [
+  "auto",
+  "low",
+  "medium",
+  "high",
+  "standard",
+  "hd",
+];
+const imageFormatOptions = ["png", "jpeg", "webp"];
 const truncateOptions = ["none", "start", "end"];
 const videoResolutionOptions = ["720p", "1080p", "4k"];
 const model3dFormatOptions = ["glb", "gltf", "obj", "fbx"];
@@ -840,6 +971,7 @@ const topKOptions = [5, 10, 20, 50, 100];
 function buildPayloadForCurrentModality(promptOverride?: string) {
   const baseConn = {
     provider: currentState.value.provider ?? "",
+    app: currentState.value.app ?? "",
     model: currentState.value.model ?? "",
     authMode: currentState.value.authMode ?? "",
     apiKey: currentState.value.apiKey ?? "",
@@ -980,7 +1112,7 @@ const resolveEmbeddingDimensionsFromProfiles = () => {
     (p) =>
       String(p?.modality || "").toLowerCase() === "embedding" &&
       String(p?.provider || "").trim().toLowerCase() === curProvider &&
-      String(p?.model || "").trim() === curModel
+      matchProfileModel(p?.model, currentState.value.app, curModel)
   );
   if (!profile) return 0;
   const capCache = (profile as any).capCache || {};
@@ -998,7 +1130,7 @@ const syncEmbeddingProbeMessageFromProfiles = () => {
     (p) =>
       String(p?.modality || "").toLowerCase() === "embedding" &&
       String(p?.provider || "").trim().toLowerCase() === curProvider &&
-      String(p?.model || "").trim() === curModel
+      matchProfileModel(p?.model, currentState.value.app, curModel)
   );
   if (!profile) {
     return;
@@ -1067,6 +1199,7 @@ async function resetSettings() {
 
   // 先设置 provider
   cur.provider = def.provider;
+  cur.app = "";
   // 拉取对应的模型列表
   await onProviderChanged(def.provider);
   // 最后设置默认模型
@@ -1097,13 +1230,14 @@ async function testConnection() {
       // 记录“本次测试通过”的配置，保证刷新后仍能读取到探测结果
       const p = String(currentState.value.provider || "").trim();
       const m = String(currentState.value.model || "").trim();
+      const a = String(currentState.value.app || "").trim();
       if (p && m) {
         try {
           await AISettingService.setActiveProfile({
             env: env.value,
             modality: "embedding",
             provider: p,
-            model: m,
+            model: a ? `${a}:${m}` : m,
           });
         } catch (error) {
           console.warn("测试连接后设置激活配置失败", error);
@@ -1117,7 +1251,7 @@ async function testConnection() {
           (p) =>
             String(p?.modality || "").toLowerCase() === "embedding" &&
             String(p?.provider || "").trim().toLowerCase() === curProvider &&
-            String(p?.model || "").trim() === curModel
+            matchProfileModel(p?.model, currentState.value.app, curModel)
         );
         if (profile) {
           const capCache = (profile as any).capCache || {};
@@ -1262,7 +1396,11 @@ function loadExistingConfiguration() {
   // profile.defaults 可能不存在，全部兜底
   const d = profile.defaults ?? {};
   currentState.value.provider = profile.provider ?? currentState.value.provider;
-  currentState.value.model = profile.model ?? currentState.value.model;
+  if (profile.model != null) {
+    const parsed = splitAppModelKey(profile.model);
+    currentState.value.app = parsed.app;
+    currentState.value.model = parsed.model;
+  }
   currentState.value.maxTokens =
     d.maxTokens ?? currentState.value.maxTokens ?? 4096;
   currentState.value.stream = d.stream ?? currentState.value.stream ?? true;
@@ -1298,7 +1436,11 @@ async function loadActiveConfiguration() {
 
       // 更新当前状态
       config.provider = profile.provider;
-      config.model = profile.model;
+      if (profile.model != null) {
+        const parsed = splitAppModelKey(profile.model);
+        config.app = parsed.app;
+        config.model = parsed.model;
+      }
 
       // 更新默认参数
       if (profile.defaults) {
@@ -1406,8 +1548,9 @@ watch(
 );
 
 watch(
-  () => [currentState.value.provider, currentState.value.model, modality.value] as const,
-  ([provider, model, mod]) => {
+  () =>
+    [currentState.value.provider, currentState.value.app, currentState.value.model, modality.value] as const,
+  ([provider, _app, model, mod]) => {
     if (mod !== "embedding") return;
     lastProbeMessage.value = "";
     if (!provider || !model) return;

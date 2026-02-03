@@ -179,7 +179,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 获取模型列表
      */
-    async fetchModels(provider?: string, modality?: string, env?: string) {
+    async fetchModels(provider?: string, modality?: string, env?: string, app?: string) {
       // 关键：参数不全就短路，但不清空 models
       if (!provider || !modality) {
         console.log("fetchModels -> 参数不全，跳过:", { provider, modality });
@@ -195,7 +195,8 @@ export const useAISettingsStore = defineStore("aiSettings", {
         const res = await AISettingService.getModels(
           normProvider,
           normModality,
-          normEnv
+          normEnv,
+          app
         );
 
         // ✅ 打印原始响应
@@ -310,13 +311,15 @@ export const useAISettingsStore = defineStore("aiSettings", {
           const modalityPayload = (payload as any)[modality] || null;
           const provider = String(modalityPayload?.provider || "").trim();
           const model = String(modalityPayload?.model || "").trim();
+          const app = String(modalityPayload?.app || "").trim();
+          const routedModel = app ? `${app}:${model}` : model;
           if (modality && provider && model) {
             try {
               await AISettingService.setActiveProfile({
                 env: targetEnv,
                 modality,
                 provider,
-                model,
+                model: routedModel,
               });
             } catch (error) {
               console.warn("设置激活配置失败，将保持当前路由默认值", error);

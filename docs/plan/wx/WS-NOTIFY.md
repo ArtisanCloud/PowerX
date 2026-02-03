@@ -181,3 +181,91 @@ Payload 示例：
 - 断线后自动重连并恢复订阅
 - 多租户隔离正确
 
+
+## 10. 插件宿主/standalone 适配规范（统一接口）
+
+> 目标：**业务层不感知模式**。无论宿主模式还是 standalone，都用同一套 WS API（subscribe/unsubscribe/ping + event envelope），差异仅在“底层连接目标”。
+
+### 10.1 连接地址约定（重要）
+
+- **PowerX 底座 WS Bus 地址**：`/api/ws`（同时保留 `/ws` 作为兼容入口）
+- **不使用** ` /api/v1/ws `（PowerX WS Bus 不挂在 v1 前缀）
+- **插件 standalone**：插件后端提供 `/ws`（可选同时提供 `/api/ws` 兼容）
+
+### 10.2 运行模式切换（底层）
+
+- **宿主模式**：插件前端必须连接 PowerX 底座 `/api/ws`
+- **standalone 模式**：插件前端连接插件自身 `/ws`
+- **协议/消息格式完全一致**（见第 3 节）
+
+### 10.3 统一前端接口（示例约定）
+
+```ts
+subscribe(topic, handler)
+unsubscribe(topic, handler)
+connect()
+disconnect()
+```
+
+> 上层业务页面只调用上述接口，不直接拼接 WS URL 或判断模式。
+
+### 10.4 鉴权与租户透传
+
+- `?authorization=Bearer <token>` 作为默认方式
+- 可选子协议：`Sec-WebSocket-Protocol: bearer.<b64url(jwt)>`
+- 允许 `tenant_uuid` query 作为兜底（当 token 不含 tid 时）
+
+### 10.5 兼容与降级
+
+- WS 不可用时允许回退轮询（仅兜底，不作为主通道）
+- 断线自动重连，并恢复订阅
+
+
+## 11. 宿主模式发布入口（插件 → 底座 WS Bus）
+
+> 目的：插件在宿主模式下无法直接访问底座 WS Hub，需要通过“发布入口”将进度事件推送到 PowerX WS Bus。
+
+### 11.1 发布入口（建议）
+
+- **HTTP**：`POST /api/internal/ws-bus/publish`
+- **用途**：插件后端/宿主内部服务将事件发布到 `bus.DefaultHub.Publish`
+- **仅内部可用**：禁止公网直接调用
+
+**请求示例**
+
+```json
+{
+  "topic": "org_sync.progress",
+  "payload": {
+    "org_id": "...",
+    "status": "running",
+    "progress": 42
+  },
+  "tenant_uuid": "...",
+  "trace_id": "..."
+}
+```
+
+### 11.2 鉴权与权限
+
+- 必须具备 **宿主/插件内部调用权限**（建议使用内部 token 或宿主认证中间件）。
+- 必须校验 `tenant_uuid`，不允许跨租户发布。
+- 非允许 topic 直接拒绝（见 11.3）。
+
+### 11.3 Topic 白名单（发布）
+
+为防止滥用，发布端需要白名单机制。建议至少包含：
+
+- `org_sync.progress`
+
+订阅权限仍由现有 WS Authorizer 处理。
+
+### 11.4 SDK / Framework 支持（插件侧）
+
+- PowerXPlugin Framework 提供 `Publish(topic, payload)` SDK。
+- 宿主模式调用底座发布入口；standalone 模式直接调用插件本地 WS Bus。
+
+### 11.5 验收标准（宿主模式）
+
+- 插件后端发布 `org_sync.progress` → 底座 WS Bus → 前端 `/api/ws` 可实时接收
+- WS 断线后自动重连，订阅恢复，无需轮询

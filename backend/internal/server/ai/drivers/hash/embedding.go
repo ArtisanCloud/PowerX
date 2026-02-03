@@ -1,4 +1,4 @@
-package embed
+package hash
 
 import (
 	"context"
@@ -35,4 +35,3 @@ func (e *HashEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, 
 	}
 	return out, nil
 }
-

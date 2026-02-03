@@ -3,19 +3,24 @@ package llm
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/baidu"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/hunyuan"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/ollama"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai"
 )
 
 // NewClient：按 provider 返回具体实现（都满足 LLMClient）
 func NewClient(provider string) (LLMClient, error) {
 	switch normalize(provider) {
 	case "openai":
-		return NewOpenAIClient(provider), nil
+		return openai.NewLLMClient(provider), nil
 	case "hunyuan":
-		return NewHunyuanClient(), nil
+		return hunyuan.NewLLMClient(), nil
 	case "ollama":
-		return NewOllamaClient(), nil
+		return ollama.NewLLMClient(), nil
 	case "baidu", "qianfan":
-		return NewBaiduClient(), nil
+		return baidu.NewLLMClient(), nil
 	// ... 其他厂商
 	default:
 		return nil, fmt.Errorf("unknown llm provider: %s", provider)

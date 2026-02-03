@@ -1,4 +1,4 @@
-package llm
+package openai
 
 import (
 	"bufio"
@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -20,13 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// 兼容现有接口
 type openaiClient struct {
-	NoopStream
 	rawProvider string
 }
 
-func NewOpenAIClient(rawProvider string) LLMClient {
+func NewLLMClient(rawProvider string) *openaiClient {
 	return &openaiClient{rawProvider: strings.TrimSpace(rawProvider)}
 }
 
@@ -390,7 +389,7 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 		if !bytes.HasPrefix(line, []byte("data:")) {
 			continue
 		}
-		payload := TrimDataPrefix(line) // 你已有的小工具
+		payload := core.TrimDataPrefix(line)
 
 		// 结束标志
 		if bytes.EqualFold(bytes.TrimSpace(payload), []byte("[DONE]")) {
