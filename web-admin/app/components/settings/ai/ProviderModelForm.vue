@@ -12,8 +12,8 @@
         />
       </div>
     </div>
-    <!-- Provider 与 Model 行 -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Provider / App / Model 行 -->
+    <div :class="gridClass">
       <div>
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >Provider</label
@@ -27,6 +27,19 @@
           class="w-full"
           :placeholder="$t('agent.config.selectProvider')"
           @update:model-value="emit('providerChanged', $event)"
+        />
+      </div>
+      <div v-if="appOptions?.length">
+        <label class="block text-sm mb-1 text-[var(--text-secondary)]"
+          >App</label
+        >
+        <USelect
+          v-model="state.app"
+          :items="appOptions"
+          icon="i-heroicons-squares-2x2"
+          class="w-full"
+          placeholder="选择 App"
+          @update:model-value="emit('appChanged', $event)"
         />
       </div>
       <div>
@@ -73,6 +86,7 @@ import type { SelectOption } from "~/composables/api/types/select";
 const props = withDefaults(
   defineProps<{
     providerOptions?: SelectOption[];
+    appOptions?: SelectOption[];
     modelOptions?: SelectOption[];
     activeProvider?: {
       id: string;
@@ -85,6 +99,7 @@ const props = withDefaults(
     } | null;
     state: {
       provider: string;
+      app?: string;
       model: string;
       authMode?: string;
       apiKey: string;
@@ -98,6 +113,7 @@ const props = withDefaults(
   }>(),
   {
     providerOptions: () => [],
+    appOptions: () => [],
     modelOptions: () => [],
     activeProvider: null,
   }
@@ -105,7 +121,14 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: "providerChanged", provider: string): void;
+  (e: "appChanged", app: string): void;
 }>();
+
+const gridClass = computed(() =>
+  props.appOptions?.length
+    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+    : "grid grid-cols-1 md:grid-cols-2 gap-4"
+);
 
 const isAzure = computed(() => props.state.provider === "Azure OpenAI");
 

@@ -1,4 +1,4 @@
-package embed
+package baidu
 
 import (
 	"bytes"
@@ -14,9 +14,12 @@ import (
 // BaiduQianfanEmbedder implements a best-effort qianfan v2 embeddings caller.
 //
 // Endpoint (best-effort):
-//   POST {base_url}/embeddings
+//
+//	POST {base_url}/embeddings
+//
 // Body (OpenAI-like):
-//   {"model":"embedding-v1","input":["t1","t2"]}
+//
+//	{"model":"embedding-v1","input":["t1","t2"]}
 //
 // NOTE: 百度千帆 embedding 的字段/鉴权可能因版本而异；如你们有网关做 OpenAI-compatible，
 // 建议改用 provider=openai_compatible 复用 OpenAIEmbedder。
@@ -144,4 +147,3 @@ func (e *BaiduQianfanEmbedder) embedOnce(ctx context.Context, batch []string) ([
 	}
 	return out, nil
 }
-

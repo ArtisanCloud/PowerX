@@ -1,4 +1,4 @@
-package llm
+package ollama
 
 import (
 	"bufio"
@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	"io"
 	"net/http"
 	"strings"
@@ -24,7 +25,7 @@ import (
 
 type ollamaClient struct{}
 
-func NewOllamaClient() LLMClient { return &ollamaClient{} }
+func NewLLMClient() *ollamaClient { return &ollamaClient{} }
 
 type ollamaChatReq struct {
 	Model    string              `json:"model"`
@@ -149,7 +150,7 @@ func (c *ollamaClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 	// Ollama 的流是 NDJSON。如果返回不是 2xx，认为不支持或失败
 	if resp.StatusCode/100 != 2 {
 		// 让上层决定是否回退到 Invoke
-		return "", ErrStreamNotSupported
+		return "", core.ErrStreamNotSupported
 	}
 
 	reader := bufio.NewScanner(resp.Body)

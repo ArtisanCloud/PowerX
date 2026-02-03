@@ -1,4 +1,4 @@
-package embed
+package openai
 
 import (
 	"bytes"

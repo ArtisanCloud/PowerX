@@ -35,6 +35,7 @@
 - [X] **T001** 更新 `api/grpc/contracts/powerx/agent_model_hub/v1/`、`buf.yaml`、`buf.gen.yaml`，纳入 `contracts/grpc-agent-model-hub.proto` 并确保 `make proto-lint && make proto-gen` 通过。
 - [X] **T002 [P]** 将 `contracts/http-openapi.yaml` 接入 `backend/internal/openapi` 生成 `/openapi.min.json`，供 HTTP 契约测试使用。
 - [X] **T003 [P]** 扩展 CI 与新增 `scripts/ci/agent_model_hub_tests.sh`，让新的契约/集成测试自动运行，并在 `quickstart.md` 写明命令。
+- [X] **T003a** 补充多模态开发文档：明确 `agent/drivers/eino` 仅框架驱动、`ai/drivers` 仅 provider、`ai/factory` 为模态工厂入口。
 
 ### Phase 2 – 基础数据与治理（阻塞所有 User Story）
 
@@ -62,6 +63,22 @@
 - [X] **T014** 新增 gRPC handler `internal/transport/grpc/agent_model_hub/provider_handler.go`。
 - [X] **T015** 在 `backend/internal/service/provider_registry/validation_artifacts.go` 构建验证工件管道：写入 `minio://agent/providers/<provider>/<timestamp>.json`，Vault 存储 sealed audit 引用，未通过禁止发布。
 - [X] **T016** Web UI (`web-admin/app/pages/settings/ai/index.vue` + store/service)：初始化 store、监听环境变化、将 env 透传至 API、序列化模态参数并展示后端错误。
+- [X] **T016a** 更新开发文档与示例请求：补齐 VLM/Image/Video/TTS/ASR/Model3D 的调用入口与参数说明（允许占位实现）。
+
+### Phase 3a – 多模态驱动实现顺序（按验证口径）
+
+- [X] **T016b** Image（基础）：OpenAI → Gemini Nano Banana → 即梦（AI Settings 测试 + OpenAPI 验证）
+- [ ] **T016c** Image（自托管）：Stable Diffusion → ComfyUI（AI Settings 测试 + OpenAPI 验证）
+- [ ] **T016d** Video：OpenAI Sora → Google Veo → 即梦（AI Settings 测试 + OpenAPI 验证）
+- [ ] **T016e** VLM：OpenAI → Gemini → Qwen → Hunyuan（AI Settings 测试 + OpenAPI 验证）
+- [ ] **T016f** TTS/ASR/Model3D：按业务优先级补齐（同一验证口径）
+
+### Phase 3b – Provider/App/Model 支持（UI/配置/后端）
+
+- [X] **T016g** 扩展 provider manifest（`config/agents/providers.d/*.yaml`）：支持 `apps` 节点与 `apps → modalities → models` 结构；保持无 app 的兼容路径。
+- [X] **T016h** 后端 catalog/model 解析：支持 `provider/app:model` 解析与 app 过滤；provider 无 app 时保持 `provider/model`。
+- [X] **T016i** AI Settings UI：新增 App 下拉（仅当 provider 有 apps 时显示），并与 model 联动；保存时生成 `provider/app:model`。
+- [X] **T016j** AI Settings store/API：models 列表接口支持 `app` 过滤；旧数据自动解析回显。
 - [X] **T017** 集成测试 `tests/integration/agent_model_hub/provider_onboarding_test.go` 覆盖成功/失败路径。
 - [X] **T039** 扩展 `provider_registry/rollout_service.go` 与 `scripts/ops/provider-release.mjs`，实现租户灰度、百分比发布与 5 分钟内回滚（FR-004）。
 
@@ -100,6 +117,7 @@
 - [x] **T036** 在 `backend/internal/service/{provider_registry,model_routing,connector_guard,cost_quota}` 增加 OTel 指标/日志，实现 spec 中的 Telemetry 列表。
 - [x] **T037 [P]** 更新 `docs/use_cases/_from_hub/SCN-AGENT-MODEL-HUB-001/*`、`quickstart.md`、web-admin README。
 - [x] **T038 [P]** 按 quickstart 全链路回归，收集日志并附加至 checklist。
+- [ ] **T038a** 对齐本次目录结构调整（ai/factory + ai/drivers）后的文档与示例，确保对外不再出现 `drivers/eino/llm`。
 - [x] **T042 [P]** `scripts/qa/provider-onboard-benchmark.mjs` 验证 SC-001：模拟批量上线，统计 95% 以内上线时间，并结合静态扫描 + HTTP 契约测试确认“零明文密钥”。
 - [x] **T042a [P]** 在 `tests/contract/http/admin/agent_model_hub_provider_test.go` 增加断言：响应中禁止出现 `api_key`/`secret` 字段，配合 Vault 审计日志验证。
 - [x] **T042b [P]** 基准脚本输出 JSON 报告，若任何 Provider 超过 24h 或秘钥泄露即失败。

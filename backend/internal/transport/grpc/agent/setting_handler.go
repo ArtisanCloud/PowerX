@@ -64,7 +64,7 @@ func (s *SettingAIServiceServer) ListProviders(ctx context.Context, req *setting
 
 /*************** ListModels ***************/
 func (s *SettingAIServiceServer) ListModels(ctx context.Context, req *settingv1.ListModelsRequest) (*settingv1.ListModelsResponse, error) {
-	models, err := s.svc.Models(modalityToString(req.GetModality()), strings.TrimSpace(req.GetProvider()))
+	models, err := s.svc.Models(modalityToString(req.GetModality()), strings.TrimSpace(req.GetProvider()), "")
 	if err != nil {
 		return &settingv1.ListModelsResponse{
 			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),

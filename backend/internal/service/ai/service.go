@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	"gorm.io/gorm"
 )
@@ -153,6 +155,105 @@ func (s *Service) ImageInvoke(
 	inputs []ContentItem,
 	params map[string]interface{},
 ) (map[string]interface{}, error) {
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return nil, errors.New("ai service unavailable")
+	}
+	provider, model := splitModelKey(modelKey)
+	if provider == "" || model == "" {
+		return nil, ErrInvalidModelKey
+	}
+	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
+	defaults, ok := resolveDefaults("image", provider, model)
+	if prof == nil || err != nil {
+		if !s.allowUnprofiled(ctx, env, tenantUUID, "image", provider) {
+			return nil, ErrModelNotConfigured
+		}
+		if !ok {
+			return nil, ErrInvalidModelKey
+		}
+	} else {
+		defaults = prof.Defaults
+	}
+	prompt := BuildPrompt(inputs)
+	if strings.TrimSpace(prompt) == "" {
+		return nil, ErrPromptRequired
+	}
+	refImages := buildImageRefParts(inputs)
+	if hint := stringFromAny(defaults["promptHint"]); hint != "" {
+		prompt = strings.TrimSpace(prompt + "\n" + hint)
+	}
+
+	size := stringFromAny(defaults["size"])
+	quality := stringFromAny(defaults["quality"])
+	format := stringFromAny(defaults["format"])
+	if params != nil {
+		if v := stringFromAny(params["size"]); v != "" {
+			size = v
+		}
+		if v := stringFromAny(params["quality"]); v != "" {
+			quality = v
+		}
+		if v := stringFromAny(params["format"]); v != "" {
+			format = v
+		}
+		if v := stringFromAny(params["output_format"]); v != "" {
+			format = v
+		}
+	}
+
+	mc, err := s.settings.BuildImageConfig(ctx, env, &tenantUUID, provider, model, "", "", "", "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	cli, err := imagefactory.NewClient(provider)
+	if err != nil {
+		return nil, err
+	}
+	req := contract.ImageRequest{
+		Prompt:    prompt,
+		Size:      size,
+		Quality:   quality,
+		Format:    format,
+		RefImages: refImages,
+		Runtime: map[string]any{
+			"config": mc,
+		},
+	}
+	resp, err := cli.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]interface{}{
+		"provider": resp.Provider,
+		"model":    resp.Model,
+	}
+	if len(resp.Images) > 0 {
+		out["images"] = resp.Images
+	}
+	if len(resp.ImageURLs) > 0 {
+		out["image_urls"] = resp.ImageURLs
+	}
+	if resp.Usage != nil {
+		out["usage"] = resp.Usage
+	}
+	if resp.LatencyMS > 0 {
+		out["latency_ms"] = resp.LatencyMS
+	}
+	if resp.TraceID != "" {
+		out["trace_id"] = resp.TraceID
+	}
+	return out, nil
+}
+
+func (s *Service) VLMInvoke(
+	ctx context.Context,
+	env string,
+	tenantUUID string,
+	modelKey string,
+	inputs []ContentItem,
+	params map[string]interface{},
+) (map[string]interface{}, error) {
 	return nil, ErrProviderUnsupported
 }
 
@@ -194,6 +295,30 @@ func BuildPrompt(items []ContentItem) string {
 	return strings.Join(parts, "\n")
 }
 
+func buildImageRefParts(items []ContentItem) []contract.ContentPart {
+	out := make([]contract.ContentPart, 0, len(items))
+	for _, item := range items {
+		t := strings.TrimSpace(strings.ToLower(item.Type))
+		switch t {
+		case contract.ContentTypeImageURL:
+			if strings.TrimSpace(item.URL) == "" {
+				continue
+			}
+			out = append(out, contract.ContentPart{Type: contract.ContentTypeImageURL, URL: strings.TrimSpace(item.URL)})
+		case contract.ContentTypeImageBase64:
+			raw := strings.TrimSpace(item.Text)
+			if raw == "" {
+				raw = strings.TrimSpace(item.URL)
+			}
+			if raw == "" {
+				continue
+			}
+			out = append(out, contract.ContentPart{Type: contract.ContentTypeImageBase64, Text: raw})
+		}
+	}
+	return out
+}
+
 func splitModelKey(modelKey string) (string, string) {
 	if strings.Contains(modelKey, "/") {
 		parts := strings.SplitN(modelKey, "/", 2)
@@ -207,7 +332,8 @@ func splitModelKey(modelKey string) (string, string) {
 }
 
 func resolveDefaults(modality, provider, model string) (map[string]any, bool) {
-	manifest := findModelManifest(modality, provider, model)
+	app, modelID := splitAppModel(model)
+	manifest := findModelManifest(modality, provider, app, modelID)
 	if manifest == nil || manifest.Defaults == nil {
 		return map[string]any{}, false
 	}
@@ -218,9 +344,21 @@ func resolveDefaults(modality, provider, model string) (map[string]any, bool) {
 	return out, true
 }
 
-func findModelManifest(modality, provider, model string) *catalog.ModelManifest {
+func splitAppModel(model string) (string, string) {
+	raw := strings.TrimSpace(model)
+	if raw == "" {
+		return "", ""
+	}
+	if strings.Contains(raw, ":") {
+		parts := strings.SplitN(raw, ":", 2)
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return "", raw
+}
+
+func findModelManifest(modality, provider, app, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
-	models, err := reg.Models(modality, provider)
+	models, err := reg.ModelsByApp(modality, provider, app)
 	if err != nil {
 		return nil
 	}
@@ -306,4 +444,17 @@ func intFromAny(val interface{}) int {
 		}
 	}
 	return 0
+}
+
+func stringFromAny(val interface{}) string {
+	switch v := val.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case json.Number:
+		return strings.TrimSpace(v.String())
+	case []byte:
+		return strings.TrimSpace(string(v))
+	default:
+		return ""
+	}
 }

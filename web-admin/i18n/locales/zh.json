@@ -170,7 +170,8 @@
       "actions": {
         "openCostGuard": "进入成本防护",
         "backToModels": "返回模型列表",
-        "openCapabilityRegistry": "能力注册表"
+        "openCapabilityRegistry": "能力注册表",
+        "openConnectors": "平台连接器"
       },
       "costGuardPageTitle": "成本防护",
       "costGuardPageDesc": "管理 AI 配额、限流与降级策略。",
@@ -248,7 +249,14 @@
           "loadFailed": "加载能力注册表失败",
           "jobsFailed": "加载同步任务失败"
         }
-      }
+      },
+      "connectors": {
+        "noticeTitle": "平台连接器实例",
+        "noticeDesc": "UI 正在完善中，目前可通过 API 配置实例。",
+        "platformDesc": "注册并管理 {platform} 的工作空间实例。"
+      },
+      "connectorsPageTitle": "外部平台连接器",
+      "connectorsPageDesc": "管理 Coze/n8n 等外部平台实例与连接信息。"
     },
     "openCapabilities": {
       "title": "开放能力",

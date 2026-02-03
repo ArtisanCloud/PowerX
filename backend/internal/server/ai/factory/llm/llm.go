@@ -1,22 +1,14 @@
 package llm
 
-// internal/server/agent/drivers/eino/llm/llm.go
-
-import (
-	"errors"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
-)
-
-// services/agent/drivers/eino/llm/llm.go
-
 import (
 	"context"
+
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 )
 
 // 运行时透传（来自 ChatRequest.config）
 type RuntimeConfig map[string]any
-
-var ErrStreamNotSupported = errors.New("llm: stream not supported")
 
 // LLMClient：统一包含同步与流式
 type LLMClient interface {
@@ -31,5 +23,5 @@ type LLMClient interface {
 type NoopStream struct{}
 
 func (NoopStream) Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
-	return "", ErrStreamNotSupported
+	return "", core.ErrStreamNotSupported
 }
