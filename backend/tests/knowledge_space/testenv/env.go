@@ -67,6 +67,13 @@ type Env struct {
 func New(t testing.TB) *Env {
 	t.Helper()
 
+	if setter, ok := t.(interface{ Setenv(string, string) }); ok {
+		setter.Setenv("POWERX_INGESTION_SYNC", "1")
+	} else {
+		_ = os.Setenv("POWERX_INGESTION_SYNC", "1")
+		t.Cleanup(func() { _ = os.Unsetenv("POWERX_INGESTION_SYNC") })
+	}
+
 	gin.SetMode(gin.TestMode)
 
 	tenantID := uuid.New()
@@ -78,8 +85,12 @@ func New(t testing.TB) *Env {
 	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 
+	require.NoError(t, createAIModelProfileTable(db))
+	require.NoError(t, createAIRoutePolicyTable(db))
+	require.NoError(t, createAIProviderCredentialTable(db))
+	require.NoError(t, createKnowledgeChunksTable(db))
+
 	require.NoError(t, db.AutoMigrate(
-		&agentmodel.AIModelProfile{},
 		&settingmodel.TenantSetting{},
 		&models.KnowledgeSpace{},
 		&models.KnowledgeVectorIndex{},
@@ -339,6 +350,81 @@ func New(t testing.TB) *Env {
 	return env
 }
 
+func createAIModelProfileTable(db *gorm.DB) error {
+	const ddl = `
+CREATE TABLE IF NOT EXISTS main.ai_model_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at DATETIME,
+  updated_at DATETIME,
+  deleted_at DATETIME,
+  env TEXT,
+  tenant_uuid TEXT,
+  modality TEXT,
+  provider TEXT,
+  model TEXT,
+  label TEXT,
+  defaults TEXT,
+  cap_cache TEXT,
+  tags TEXT
+);`
+	return db.Exec(ddl).Error
+}
+
+func createAIRoutePolicyTable(db *gorm.DB) error {
+	const ddl = `
+CREATE TABLE IF NOT EXISTS main.ai_route_policies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at DATETIME,
+  updated_at DATETIME,
+  deleted_at DATETIME,
+  env TEXT,
+  tenant_uuid TEXT,
+  modality TEXT,
+  agent_id TEXT,
+  flow_id TEXT,
+  purpose TEXT,
+  provider TEXT,
+  model TEXT,
+  strategy TEXT,
+  compliance TEXT,
+  quota TEXT
+);`
+	return db.Exec(ddl).Error
+}
+
+func createAIProviderCredentialTable(db *gorm.DB) error {
+	const ddl = `
+CREATE TABLE IF NOT EXISTS main.ai_provider_credentials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at DATETIME,
+  updated_at DATETIME,
+  deleted_at DATETIME,
+  env TEXT,
+  tenant_uuid TEXT,
+  name TEXT,
+  provider TEXT,
+  auth_scheme TEXT,
+  data TEXT
+);`
+	return db.Exec(ddl).Error
+}
+
+func createKnowledgeChunksTable(db *gorm.DB) error {
+	const ddl = `
+CREATE TABLE IF NOT EXISTS main.knowledge_chunks (
+  space_uuid TEXT NOT NULL,
+  chunk_uuid TEXT NOT NULL,
+  job_uuid TEXT,
+  kind TEXT NOT NULL DEFAULT 'chunk',
+  content TEXT NOT NULL,
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at DATETIME,
+  updated_at DATETIME,
+  PRIMARY KEY (space_uuid, chunk_uuid)
+);`
+	return db.Exec(ddl).Error
+}
+
 func findProjectRoot(t testing.TB) string {
 	t.Helper()
 	wd, err := os.Getwd()
@@ -505,13 +591,61 @@ func (e *Env) seedTenantEmbeddingProfile() error {
 		return fmt.Errorf("env not initialized")
 	}
 	ctx := context.Background()
-	env := "default"
 	tenant := e.tenantID.String()
 	provider := "hash"
 	model := "hash"
 	dimensions := 32
+	profiles := []*agentmodel.AIModelProfile{
+		{
+			Env:        "dev",
+			TenantUUID: &tenant,
+			Modality:   "embedding",
+			Provider:   provider,
+			Model:      model,
+			Label:      "test.embedding",
+			Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+			CapCache: datatypes.JSONMap{
+				"dimensions": dimensions,
+				"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+			},
+			Tags: []string{"embedding", "test"},
+		},
+		{
+			Env:        "default",
+			TenantUUID: &tenant,
+			Modality:   "embedding",
+			Provider:   provider,
+			Model:      model,
+			Label:      "test.embedding",
+			Defaults:   datatypes.JSONMap{"dimensions": dimensions},
+			CapCache: datatypes.JSONMap{
+				"dimensions": dimensions,
+				"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+			},
+			Tags: []string{"embedding", "test"},
+		},
+	}
+	for _, profile := range profiles {
+		if err := e.DB.WithContext(ctx).Create(profile).Error; err != nil {
+			return err
+		}
+	}
+	return e.setTenantCurrentAIEnv(ctx, tenant, "dev")
+}
+
+func (e *Env) ensureEmbeddingForSpace(space *models.KnowledgeSpace) error {
+	if e == nil || e.DB == nil || space == nil {
+		return fmt.Errorf("invalid embedding setup input")
+	}
+	ctx := context.Background()
+	tenant := e.tenantID.String()
+	provider := "hash"
+	model := "hash"
+	dimensions := 32
+	profileKey := fmt.Sprintf("%s/%s", provider, model)
+
 	profile := &agentmodel.AIModelProfile{
-		Env:        env,
+		Env:        "dev",
 		TenantUUID: &tenant,
 		Modality:   "embedding",
 		Provider:   provider,
@@ -522,37 +656,11 @@ func (e *Env) seedTenantEmbeddingProfile() error {
 			"dimensions": dimensions,
 			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
 		},
-		Tags: []string{"embedding", "test"},
-	}
-	return e.DB.WithContext(ctx).Create(profile).Error
-}
-
-func (e *Env) ensureEmbeddingForSpace(space *models.KnowledgeSpace) error {
-	if e == nil || e.DB == nil || space == nil {
-		return fmt.Errorf("invalid embedding setup input")
-	}
-	ctx := context.Background()
-	env := "default"
-	tenant := e.tenantID.String()
-	provider := "hash"
-	model := "hash"
-	dimensions := 32
-	profileKey := fmt.Sprintf("%s/%s", provider, model)
-
-	profile := &agentmodel.AIModelProfile{
-		Env:        env,
-		TenantUUID: &tenant,
-		Modality:   "embedding",
-		Provider:   provider,
-		Model:      model,
-		Label:      "test.embedding",
-		Defaults:   datatypes.JSONMap{"dimensions": dimensions},
-		CapCache:   datatypes.JSONMap{"dimensions": dimensions},
 		Tags:       []string{"embedding", "test"},
 	}
 	var exist agentmodel.AIModelProfile
 	err := e.DB.WithContext(ctx).
-		Where("env = ? AND tenant_uuid = ? AND modality = ? AND provider = ? AND model = ?", env, tenant, "embedding", provider, model).
+		Where("env = ? AND tenant_uuid = ? AND modality = ? AND provider = ? AND model = ?", "dev", tenant, "embedding", provider, model).
 		First(&exist).Error
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
@@ -589,6 +697,20 @@ func (e *Env) ensureEmbeddingForSpace(space *models.KnowledgeSpace) error {
 	return e.DB.WithContext(ctx).Model(space).Updates(map[string]any{
 		"embedding_profile_key":   profileKey,
 		"active_vector_index_key": indexKey,
+	}).Error
+}
+
+func (e *Env) setTenantCurrentAIEnv(ctx context.Context, tenantUUID string, env string) error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	raw, _ := json.Marshal(strings.TrimSpace(env))
+	return e.DB.WithContext(ctx).Create(&settingmodel.TenantSetting{
+		TenantUUID: tenantUUID,
+		Key:        agentsettings.TenantSettingKeyAICurrentEnv,
+		ValueJSON:  datatypes.JSON(raw),
+		Group:      "ai",
+		Editable:   true,
 	}).Error
 }
 

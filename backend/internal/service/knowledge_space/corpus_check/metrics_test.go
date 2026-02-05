@@ -1,6 +1,7 @@
 package corpus_check
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ func TestRecommendStrategyPackage_CRAG(t *testing.T) {
 }
 
 func TestConstrainStrategyPackageToCatalog(t *testing.T) {
+	t.Setenv("PX_SCENE_STRATEGY_CATALOG_PATH", filepath.Join("..", "..", "..", "..", "config", "knowledge", "scene_strategy_catalog.yaml"))
 	cat := loadCatalog()
 	require.NotNil(t, cat)
 

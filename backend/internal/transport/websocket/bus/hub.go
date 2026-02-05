@@ -10,6 +10,7 @@ const (
 	TopicKnowledgeIngestionJob = "knowledge.ingestion.job"
 	TopicKnowledgeCorpusCheck  = "knowledge.corpus_check.job"
 	TopicSystemNotification    = "system.notification"
+	TopicOrgSyncProgress       = "org_sync.progress"
 )
 
 // Hub manages WS sessions and topic subscriptions.

@@ -6,12 +6,14 @@ manifest: .specify/memory/manifest.yaml
 use:
   - "@dev-crud-http"
   - "@dev-crud-grpc"
+  - "@api-naming"
 
 # ③ 指南文件（用于 /plan 语义扩展）
 include:
   - dev_crud_http_guides.md
   - dev_crud_grpc_guides.md
   - dev_sts_guides.md
+  - api-naming.md
 
 # ④ Ruleset Paths（显式暴露以便 Runner 能读取）
 rulesets:

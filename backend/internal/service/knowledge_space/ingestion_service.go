@@ -400,6 +400,10 @@ func (s *IngestionService) TriggerWithDocUnits(ctx context.Context, in TriggerIn
 // TriggerAsync creates an ingestion job and runs the pipeline in background.
 // It is intended for HTTP/API usage so UI can poll job status asynchronously.
 func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestionInput) (*knowledge.IngestionJob, error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("POWERX_INGESTION_SYNC")), "1") ||
+		strings.EqualFold(strings.TrimSpace(os.Getenv("POWERX_INGESTION_SYNC")), "true") {
+		return s.Trigger(ctx, in)
+	}
 	if in.SpaceID == uuid.Nil || strings.TrimSpace(in.SourceURI) == "" {
 		return nil, ErrInvalidInput
 	}

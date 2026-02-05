@@ -7,6 +7,7 @@ import (
 	"time"
 
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/tests/knowledge_space/testenv"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -74,7 +75,7 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "blocked", blockResp.GetJob().GetStatus())
-	require.Equal(t, "ocr_required", blockResp.GetJob().GetErrorCode())
+	require.Equal(t, "ocr_failed", blockResp.GetJob().GetErrorCode())
 
 	degradedResp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
 		SpaceId:   space.UUID.String(),
@@ -97,6 +98,14 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 
 	noEmbedSpace := env.CreateSpaceFixture("grpc-ingest-no-embed", policyID)
 	require.NoError(t, env.ClearSpaceEmbedding(noEmbedSpace.UUID))
+	require.NoError(t, env.ClearTenantEmbeddingConfig())
+	prevCfg := agentcfg.GetGlobalAIConfig()
+	agentcfg.SetGlobalAIConfig(&agentcfg.AIConfig{})
+	t.Cleanup(func() {
+		if prevCfg != nil {
+			agentcfg.SetGlobalAIConfig(prevCfg)
+		}
+	})
 	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
 		SpaceId:   noEmbedSpace.UUID.String(),
 		Format:    "pdf",

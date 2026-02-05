@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -43,10 +44,35 @@ func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
 		// 初始化全局配置
 		if err := InitGlobalConfig("etc/config.yaml"); err != nil {
+			if alt := findConfigPath("etc/config.yaml"); alt != "" {
+				if retryErr := InitGlobalConfig(alt); retryErr == nil {
+					return GlobalConfig
+				}
+			}
 			log.Fatalf("初始化全局配置失败: %v", err)
 		}
 	}
 	return GlobalConfig
+}
+
+func findConfigPath(relPath string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Clean(wd)
+	for {
+		candidate := filepath.Join(dir, relPath)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+		next := filepath.Dir(dir)
+		if next == dir || next == "." || next == string(filepath.Separator) {
+			break
+		}
+		dir = next
+	}
+	return ""
 }
 
 type HTTPSecurityConfig struct {

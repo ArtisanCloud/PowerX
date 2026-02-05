@@ -40,9 +40,14 @@ aliases:
       - dev_crud_http_guides.md
       - dev_crud_grpc_guides.md
       - dev_sts_guides.md
+      - api-naming.md
     rulesets:
       - rulesets/crud_http.yaml
       - rulesets/crud_grpc.yaml
       - rulesets/sts.yaml
       # 以及两边共用/各自特有的明细 ruleset
 
+  # API 命名规范（单独引用也可）
+  api-naming:
+    include:
+      - api-naming.md

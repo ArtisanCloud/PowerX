@@ -227,7 +227,7 @@ disconnect()
 
 ### 11.1 发布入口（建议）
 
-- **HTTP**：`POST /api/internal/ws-bus/publish`
+- **HTTP**：`POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api`）
 - **用途**：插件后端/宿主内部服务将事件发布到 `bus.DefaultHub.Publish`
 - **仅内部可用**：禁止公网直接调用
 
@@ -241,7 +241,6 @@ disconnect()
     "status": "running",
     "progress": 42
   },
-  "tenant_uuid": "...",
   "trace_id": "..."
 }
 ```
@@ -249,7 +248,7 @@ disconnect()
 ### 11.2 鉴权与权限
 
 - 必须具备 **宿主/插件内部调用权限**（建议使用内部 token 或宿主认证中间件）。
-- 必须校验 `tenant_uuid`，不允许跨租户发布。
+- 租户上下文以 **JWT/请求上下文**为准（不从 body 读取）。
 - 非允许 topic 直接拒绝（见 11.3）。
 
 ### 11.3 Topic 白名单（发布）

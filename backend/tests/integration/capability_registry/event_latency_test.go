@@ -57,7 +57,7 @@ func TestIntegrationGatewayInvocationEventsDeliveredWithinOneMinute(t *testing.T
 
 	payload := registry.RegistrationPayload{
 		CapabilityID: "cap.event.latency",
-		TenantUUID:   "tenant-event-001",
+		TenantUUID:   "8091a2b3-8888-4141-9c9c-9999aaaabbbb",
 		ContractRef:  "contracts/exposure/mcp-tools.json",
 		Status:       string(domain.RegistrationStatusPublished),
 		Adapters: []registry.AdapterEndpoint{

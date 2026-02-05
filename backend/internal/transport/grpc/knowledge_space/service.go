@@ -278,11 +278,13 @@ func toProto(space *models.KnowledgeSpace) *knowledgev1.KnowledgeSpace {
 }
 
 func mapError(err error) error {
-	switch {
-	case errors.As(err, &dto.AppError{}):
+	if err != nil {
 		var appErr *dto.AppError
-		errors.As(err, &appErr)
-		return status.Error(codeFromHTTP(appErr.HTTPCode), appErr.Message)
+		if errors.As(err, &appErr) {
+			return status.Error(codeFromHTTP(appErr.HTTPCode), appErr.Message)
+		}
+	}
+	switch {
 	case ksvc.IsConflictError(err):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, ksvc.ErrInvalidInput):

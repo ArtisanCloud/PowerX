@@ -31,7 +31,7 @@ func TestCapabilityRouterFallbackToStaticResponse(t *testing.T) {
 
 	payload := registry.RegistrationPayload{
 		CapabilityID: "cap.fallback.demo",
-		TenantUUID:   "tenant-fallback-001",
+		TenantUUID:   "7f8091a2-7777-4040-9b9b-88889999aaaa",
 		ContractRef:  "contracts/exposure/mcp-tools.json",
 		Status:       string(domain.RegistrationStatusPublished),
 		Adapters: []registry.AdapterEndpoint{

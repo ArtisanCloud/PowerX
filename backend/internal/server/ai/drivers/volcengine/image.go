@@ -76,15 +76,17 @@ type volcengineResultReq struct {
 	ReqJSON string `json:"req_json,omitempty"`
 }
 
+type volcengineResultData struct {
+	Status           string   `json:"status"`
+	ImageURLs        []string `json:"image_urls"`
+	BinaryDataBase64 []string `json:"binary_data_base64"`
+}
+
 type volcengineResultResp struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	RequestID string `json:"request_id"`
-	Data      *struct {
-		Status           string   `json:"status"`
-		ImageURLs        []string `json:"image_urls"`
-		BinaryDataBase64 []string `json:"binary_data_base64"`
-	} `json:"data"`
+	Code      int                   `json:"code"`
+	Message   string                `json:"message"`
+	RequestID string                `json:"request_id"`
+	Data      *volcengineResultData `json:"data"`
 }
 
 func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*contract.ImageResponse, error) {
@@ -421,11 +423,7 @@ func pollVolcengineResult(ctx context.Context, endpoint string, mc *config.Model
 	}
 }
 
-func extractResultImages(data *struct {
-	Status           string
-	ImageURLs        []string
-	BinaryDataBase64 []string
-}) ([][]byte, []string, error) {
+func extractResultImages(data *volcengineResultData) ([][]byte, []string, error) {
 	if data == nil {
 		return nil, nil, errors.New("volcengine image: empty result")
 	}
