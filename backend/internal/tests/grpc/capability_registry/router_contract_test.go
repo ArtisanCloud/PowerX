@@ -26,7 +26,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	tenantCtx := capabilityRegistryContext(t, ctx, "tenant-corex")
+	tenantCtx := capabilityRegistryContext(t, ctx, defaultTenantUUID)
 	env := newRouterGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
@@ -34,7 +34,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	invokeResp, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 	})
 	assertNoError(t, err)
@@ -46,7 +46,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	reportResp, err := env.client.ReportHealth(tenantCtx, &capabilityRegistryPB.ReportHealthRequest{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 		AdapterId: "adapter-primary",
 		Status:    "unhealthy",
@@ -59,7 +59,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	invokeResp2, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 	})
 	assertNoError(t, err)
@@ -70,7 +70,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	reportResp2, err := env.client.ReportHealth(tenantCtx, &capabilityRegistryPB.ReportHealthRequest{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 		AdapterId: "adapter-backup",
 		Status:    "unhealthy",
@@ -83,7 +83,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	invokeResp3, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 	})
 	assertNoError(t, err)
@@ -96,7 +96,7 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	_, err = env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.unknown",
-			TenantUuid:   "tenant-corex",
+			TenantUuid:   defaultTenantUUID,
 		},
 	})
 	assertStatusCode(t, codes.NotFound, err)
@@ -117,7 +117,7 @@ func newRouterGRPCTestEnv(t *testing.T) *routerGRPCTestEnv {
 	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantUUID:   "tenant-corex",
+			TenantUUID:   defaultTenantUUID,
 			Status:       "published",
 			Adapters: []router.AdapterEndpoint{
 				{

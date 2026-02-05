@@ -24,6 +24,7 @@ import (
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	mediarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/media"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 )
 
 const mediaTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
@@ -66,6 +67,24 @@ func (s *stubAssetRepo) FindByUUID(_ context.Context, tenantUUID string, id stri
 		return nil, gorm.ErrRecordNotFound
 	}
 	return cloneAsset(asset), nil
+}
+
+func (s *stubAssetRepo) FindByStorageKey(_ context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, asset := range s.assets {
+		if asset.Driver != driver || asset.StorageKey != storageKey {
+			continue
+		}
+		if tenantUUID != "" && asset.TenantUUID != tenantUUID {
+			continue
+		}
+		if asset.DeletedAt.Valid {
+			continue
+		}
+		return cloneAsset(asset), nil
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 func (s *stubAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
@@ -237,6 +256,7 @@ func TestMediaService_SyncUploadedFileMetadata(t *testing.T) {
 }
 
 func TestMediaService_PopulateExternalLinkMetadata(t *testing.T) {
+	testutil.SkipIfNoLocalListener(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodHead:

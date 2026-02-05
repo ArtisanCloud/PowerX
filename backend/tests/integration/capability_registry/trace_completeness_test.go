@@ -57,7 +57,7 @@ func TestInvocationTracesReachNinetyFivePercentWithinOneMinute(t *testing.T) {
 
 	payload := registry.RegistrationPayload{
 		CapabilityID: "cap.trace.demo",
-		TenantUUID:   "tenant-trace-001",
+		TenantUUID:   "91a2b3c4-9999-4242-9d9d-aaaabbbbcccc",
 		ContractRef:  "contracts/exposure/mcp-tools.json",
 		Status:       string(domain.RegistrationStatusPublished),
 		Adapters: []registry.AdapterEndpoint{

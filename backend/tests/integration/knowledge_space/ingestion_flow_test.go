@@ -94,8 +94,9 @@ func TestIngestionFlowPersistsArtifactsAndVectors(t *testing.T) {
 
 	spaceSvc := env.Deps.KnowledgeSpace.Service
 	_, err := spaceSvc.RetireSpace(ctx, ksvc.RetireSpaceInput{
-		SpaceID: space.UUID,
-		Reason:  "integration cleanup",
+		SpaceID:     space.UUID,
+		Reason:      "integration cleanup",
+		DropVectors: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, env.VectorStore.Records(space.UUID), 0)

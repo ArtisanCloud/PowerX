@@ -72,6 +72,9 @@
 
 - [X] T014 [US2] 前端 WS 客户端集中管理订阅与分发 `web-admin/app/composables/`
 - [X] T015 [US2] 订阅/取消订阅协议与权限拒绝逻辑 `backend/internal/transport/websocket/`
+- [X] T015A [US3] 宿主模式发布入口：新增内部 HTTP 发布接口并落地 `bus.DefaultHub.Publish`
+- [X] T015B [US3] 发布权限与 topic 白名单（新增 org_sync.progress）并记录发布日志
+- [X] T015C [US3] 插件宿主发布集成验证：插件后端发布 → 底座 /api/ws 收到 org_sync.progress
 
 ---
 
@@ -83,7 +86,7 @@
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] 集成验证：断线回退与恢复订阅 `specs/012-websocket-docs-plan/quickstart.md`
+- [X] T016 [P] [US3] 集成验证：断线回退与恢复订阅 `specs/012-websocket-docs-plan/quickstart.md`
 
 ### Implementation for User Story 3
 
@@ -94,10 +97,10 @@
 
 ## Phase N: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] 文档更新（若实现细节改变）`specs/012-websocket-docs-plan/*.md`
-- [ ] T020 [P] 性能与日志检查：入库进度推送不影响主流程，记录基础指标与日志 `backend/internal/service/knowledge_space/`, `backend/internal/transport/websocket/`
-- [ ] T020A [P] 添加 WS Hub/订阅基础测试并记录覆盖率要求 `backend/internal/transport/websocket/`
-- [ ] T020B [P] 追踪/指标覆盖校验（trace_id、tenant_id、p95 记录）并记录最低覆盖率门槛 `backend/internal/transport/websocket/`, `backend/internal/service/knowledge_space/`
+- [X] T019 [P] 文档更新（若实现细节改变）`specs/012-websocket-docs-plan/*.md`
+- [X] T020 [P] 性能与日志检查：入库进度推送不影响主流程，记录基础指标与日志 `backend/internal/service/knowledge_space/`, `backend/internal/transport/websocket/`
+- [X] T020A [P] 添加 WS Hub/订阅基础测试并记录覆盖率要求 `backend/internal/transport/websocket/`
+- [X] T020B [P] 追踪/指标覆盖校验（trace_id、tenant_id、p95 记录）并记录最低覆盖率门槛 `backend/internal/transport/websocket/`, `backend/internal/service/knowledge_space/`
 
 ---
 

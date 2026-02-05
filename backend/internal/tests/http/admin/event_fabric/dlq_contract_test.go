@@ -67,8 +67,8 @@ func TestDLQAdminEndpoints(t *testing.T) {
 
 	stub := &stubDLQService{
 		listMessages: []*dlq.Message{
-			{ID: "msg-1", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
-			{ID: "msg-2", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-1", TenantUUID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-2", TenantUUID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
 		},
 		listTotal:    2,
 		replayResult: 2,

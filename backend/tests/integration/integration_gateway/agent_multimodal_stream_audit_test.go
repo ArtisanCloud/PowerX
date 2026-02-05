@@ -26,6 +26,7 @@ import (
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -131,6 +132,7 @@ func TestMultimodalSessionStreamAuditAndTenantIsolation(t *testing.T) {
 		TraceRepo: traceRepo,
 	})
 
+	testutil.SkipIfNoLocalListener(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/ai/llm/sessions/session-001/stream" {
 			http.NotFound(w, r)

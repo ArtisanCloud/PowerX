@@ -22,6 +22,7 @@ import (
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
+	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
@@ -73,4 +74,5 @@ func RegisterAPIRoutes(
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

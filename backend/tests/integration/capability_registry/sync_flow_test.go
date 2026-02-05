@@ -35,7 +35,7 @@ func TestCapabilityRegistrySyncFlow(t *testing.T) {
 
 	payload := registry.RegistrationPayload{
 		CapabilityID: "cap.sync.demo",
-		TenantUUID:   "tenant-sync-001",
+		TenantUUID:   "2a3b4c5d-2222-4b4b-8c8c-333344445555",
 		ContractRef:  "contracts/exposure/mcp-tools.json",
 		Status:       string(domain.RegistrationStatusPublished),
 		EnvironmentPolicies: map[string]registry.EnvironmentPolicy{

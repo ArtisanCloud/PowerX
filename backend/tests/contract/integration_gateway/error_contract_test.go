@@ -32,12 +32,12 @@ func TestCapabilityRegistryHTTPErrors(t *testing.T) {
 		resp := httptest.NewRecorder()
 
 		env.Engine.ServeHTTP(resp, req)
-		require.Equal(t, http.StatusBadRequest, resp.Code)
+		require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 
 		var envelope errorEnvelope
 		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &envelope))
-		require.Equal(t, http.StatusBadRequest, envelope.Code)
-		require.Equal(t, "registry.invalid_request", envelope.Message)
+		require.Equal(t, http.StatusUnprocessableEntity, envelope.Code)
+		require.Equal(t, "registry.invalid_payload", envelope.Message)
 		require.NotZero(t, envelope.Timestamp)
 		require.NotEmpty(t, envelope.Error)
 	})

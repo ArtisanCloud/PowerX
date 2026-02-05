@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/tests/knowledge_space/testenv"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -142,7 +143,7 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		}
 		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
 		require.Equal(t, "blocked", apiResp.Data.Status)
-		require.Equal(t, "ocr_required", apiResp.Data.ErrorCode)
+		require.Equal(t, "ocr_failed", apiResp.Data.ErrorCode)
 	})
 
 	t.Run("returns 404 for unknown space", func(t *testing.T) {
@@ -160,6 +161,14 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 	t.Run("rejects when embedding profile missing", func(t *testing.T) {
 		noEmbedSpace := env.CreateSpaceFixture("http-ingest-no-embed", tplID)
 		require.NoError(t, env.ClearSpaceEmbedding(noEmbedSpace.UUID))
+		require.NoError(t, env.ClearTenantEmbeddingConfig())
+		prevCfg := agentcfg.GetGlobalAIConfig()
+		agentcfg.SetGlobalAIConfig(&agentcfg.AIConfig{})
+		t.Cleanup(func() {
+			if prevCfg != nil {
+				agentcfg.SetGlobalAIConfig(prevCfg)
+			}
+		})
 		body := map[string]any{
 			"format":    "pdf",
 			"sourceUri": "s3://bucket/no-embed.pdf",
@@ -171,7 +180,7 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		require.Equal(t, http.StatusPreconditionFailed, resp.Code)
 
 		var apiResp struct {
-			ErrorCode string `json:"errorCode"`
+			ErrorCode string `json:"error_code"`
 		}
 		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
 		require.Equal(t, "embedding_not_configured", apiResp.ErrorCode)

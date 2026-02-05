@@ -23,7 +23,6 @@ func TestACLAdminRESTContracts(t *testing.T) {
 
 	// Seed topic for ACL operations
 	topic, err := topicStore.Create(context.Background(), &model.TopicDefinition{
-		TenantID:      1,
 		TenantKey:     "tenant-corex",
 		Namespace:     "corex.workflow",
 		Name:          "approved",

@@ -14,7 +14,7 @@ func TestVersionLockRequiresManualUpgrade(t *testing.T) {
 	store := toolstore.NewVersionLockStore(toolstore.VersionLockStoreOptions{})
 
 	const (
-		tenantUUID   = "tenant-version-lock-001"
+		tenantUUID   = "1c2d3e4f-1111-4a4a-9b9b-222233334444"
 		capabilityID = "cap.version.locked"
 		hashV1       = "hash-demo-v1"
 		hashV2       = "hash-demo-v2"

@@ -25,6 +25,7 @@ import (
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 )
 
 func TestCapabilityRecordCacheServesFiveThousandReads(t *testing.T) {
@@ -94,7 +95,7 @@ func TestSelectorChaosFallbackLoad(t *testing.T) {
 	t.Cleanup(unsub)
 
 	snapshot := capservice.SelectorPolicySnapshot{
-		TenantID:         "tenant-chaos",
+		TenantID:         "6e7f8091-6666-4f4f-9a9a-777788889999",
 		CapabilitiesHash: "hash-chaos",
 		IntentMappings: map[string]map[string]string{
 			"intent.chaos": {"default": "cap.chaos"},
@@ -141,7 +142,7 @@ func TestSelectorChaosFallbackLoad(t *testing.T) {
 				expectSelectorErr = true
 			}
 			resp, err := selector.Invoke(ctx, capservice.CapabilityInvokeRequest{
-				TenantUUID: "tenant-chaos",
+				TenantUUID: "6e7f8091-6666-4f4f-9a9a-777788889999",
 				Intent:     intent,
 				ToolScope:  "default",
 				Context: map[string]interface{}{
@@ -204,6 +205,7 @@ func newCapabilityCacheEnv(t *testing.T) *capabilityCacheEnv {
 	require.NoError(t, db.Exec("PRAGMA foreign_keys = ON").Error)
 	require.NoError(t, db.AutoMigrate(&models.CapabilityRecord{}))
 
+	testutil.SkipIfNoLocalListener(t)
 	redisSrv, err := miniredis.Run()
 	require.NoError(t, err)
 

@@ -51,7 +51,7 @@ func TestWorkflowTelemetryCatalogAndExecution(t *testing.T) {
 	adapter := workflowengine.NewCapabilityStepAdapter(selector, env.telemetry)
 	_, err := adapter.InvokeCapability(env.ctx, workflowengine.CapabilityStepInput{
 		CapabilityID:          "demo.workflow.capability",
-		TenantUUID:            "tenant-telemetry",
+		TenantUUID:            "5d6e7f80-5555-4e4e-8f8f-666677778888",
 		Intent:                "workflow.intent.demo",
 		ToolScope:             "default",
 		PreferredProtocol:     "workflow",
@@ -67,7 +67,7 @@ func TestWorkflowTelemetryCatalogAndExecution(t *testing.T) {
 	fakeInvoker.err = errors.New("invoke failed")
 	_, err = adapter.InvokeCapability(env.ctx, workflowengine.CapabilityStepInput{
 		CapabilityID:      "demo.workflow.capability",
-		TenantUUID:        "tenant-telemetry",
+		TenantUUID:        "5d6e7f80-5555-4e4e-8f8f-666677778888",
 		PreferredProtocol: "workflow",
 		TemplateID:        "tpl.demo.workflow",
 	})

@@ -409,6 +409,10 @@ func (h *Handler) ensurePolicyTemplateVersion(c *gin.Context, name, version stri
 }
 
 func (h *Handler) handleError(c *gin.Context, err error) {
+	if errors.Is(err, ksvc.ErrStrategyPrereqFailed) {
+		dto.ResponseErrorWithDetails(c, http.StatusBadRequest, "策略依赖未满足", err, dto.DetailsOf(err))
+		return
+	}
 	var appErr *dto.AppError
 	if errors.As(err, &appErr) {
 		dto.RespondErrorFrom(c, err)
@@ -425,8 +429,6 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusNotFound, "知识空间不存在", err)
 	case errors.Is(err, ksvc.ErrInvalidStatusTransition):
 		dto.ResponseError(c, http.StatusBadRequest, "状态转换不被允许", err)
-	case errors.Is(err, ksvc.ErrStrategyPrereqFailed):
-		dto.ResponseErrorWithDetails(c, http.StatusBadRequest, "策略依赖未满足", err, dto.DetailsOf(err))
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "服务异常", err)
 	}

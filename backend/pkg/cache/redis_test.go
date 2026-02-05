@@ -8,9 +8,13 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 )
 
-func setupRedis() *RedisCache {
+func setupRedis(t *testing.T) *RedisCache {
+	t.Helper()
+	testutil.SkipIfNoTCPDial(t, "127.0.0.1:6379")
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379", // 真实 Redis 服务器地址
 		Password: "",               // 如果 Redis 设置了密码，在这里填入
@@ -20,7 +24,7 @@ func setupRedis() *RedisCache {
 }
 
 func TestRedisCache_Get(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先写入数据
@@ -39,7 +43,7 @@ func TestRedisCache_Get(t *testing.T) {
 }
 
 func TestRedisCache_Set(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	err := cache.Set(ctx, "key1", "value1", 10*time.Second)
@@ -52,7 +56,7 @@ func TestRedisCache_Set(t *testing.T) {
 }
 
 func TestRedisCache_SetObject(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 定义一个对象
@@ -85,7 +89,7 @@ func TestRedisCache_SetObject(t *testing.T) {
 }
 
 func TestRedisCache_Delete(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先存入数据
@@ -103,7 +107,7 @@ func TestRedisCache_Delete(t *testing.T) {
 }
 
 func TestRedisCache_Exists(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先存入数据
@@ -122,7 +126,7 @@ func TestRedisCache_Exists(t *testing.T) {
 }
 
 func TestRedisCache_Increment(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先删除 key 确保测试环境干净
@@ -135,7 +139,7 @@ func TestRedisCache_Increment(t *testing.T) {
 }
 
 func TestRedisCache_Decrement(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先确保计数器存在
@@ -148,7 +152,7 @@ func TestRedisCache_Decrement(t *testing.T) {
 }
 
 func TestRedisCache_Expire(t *testing.T) {
-	cache := setupRedis()
+	cache := setupRedis(t)
 	ctx := context.Background()
 
 	// 先存入数据

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -173,6 +174,7 @@ func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 	select {
 	case ch <- env:
 	default:
+		logger.DebugF(context.Background(), "[ws-bus] drop message topic=%s client=%s", env.Topic, c.ID)
 	}
 }
 

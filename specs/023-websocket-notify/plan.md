@@ -1,11 +1,13 @@
 # Implementation Plan: 通用 WebSocket 消息总线
 
-**Branch**: `012-websocket-docs-plan` | **Date**: 2026-01-19 | **Spec**: `/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/012-websocket-docs-plan/spec.md`
-**Input**: Feature specification from `/specs/012-websocket-docs-plan/spec.md`
+**Branch**: `023-websocket-notify` | **Date**: 2026-02-04 | **Spec**: `/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/023-websocket-notify/spec.md`
+**Input**: Feature specification from `/specs/023-websocket-notify/spec.md`
 
 ## Summary
 
 为 PowerX 提供单连接、多主题的通用 WebSocket 消息总线，用于入库任务进度实时推送，并保留轮询回退；同时落地通知持久化与 WS 实时推送能力；实现租户切换重连、无权限订阅拒绝、前端节流展示。
+
+补充：为插件宿主模式提供**发布入口**，插件后端通过底座发布进度事件到 WS Bus；发布入口具备租户校验与 topic 白名单。
 
 ## Technical Context
 
@@ -44,7 +46,7 @@
 ### Documentation (this feature)
 
 ```
-specs/012-websocket-docs-plan/
+specs/023-websocket-notify/
 ├── plan.md
 ├── research.md
 ├── data-model.md
@@ -84,7 +86,29 @@ web-admin/
 2. **入库进度推送**：服务端发布、前端订阅与节流展示。
 3. **通知持久化 + WS 推送**：通知表/接口/列表接入，总线推送。
 4. **断线回退**：轮询兜底 + 自动重连/租户切换重连。
-5. **校验与观测**：手工验证、日志与指标检查。
+5. **宿主发布入口**：新增内部 HTTP 入口，校验租户与 topic 白名单。
+6. **校验与观测**：手工验证、日志与指标检查。
+
+## Additional Implementation Notes (宿主发布入口)
+
+- **HTTP**: `POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api`，内部使用，禁止公网）
+- **Payload**: `{ topic, payload, trace_id? }`（tenant 从 JWT 解析）
+- **权限**: 仅宿主/插件内部调用；强制 tenant 校验；topic 白名单
+- **Topic 白名单**: 追加 `org_sync.progress`
+
+## Source Code Additions (宿主发布入口)
+
+```
+backend/internal/transport/http/admin/runtime/ws_bus_handler.go
+backend/internal/transport/http/admin/runtime/routes.go
+backend/internal/transport/websocket/bus/authorizer.go   # 订阅/发布白名单
+```
+
+## Observability & Testing (Polish)
+
+- **日志**: `/internal/ws-bus/publish` 记录 tenant/topic/trace_id；WS 发送通道满时记录丢弃日志。
+- **指标/性能**: 使用现有 `http_request` 结构化日志计算 p95 延迟；WS 发布为非阻塞发送，避免影响主流程。
+- **覆盖率门槛**: `backend/internal/transport/websocket/bus` 单元测试覆盖率不低于 60%（订阅/取消/发布路径）。
 
 ## Notification Data Flow
 

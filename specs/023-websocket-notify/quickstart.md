@@ -32,3 +32,30 @@
 
 1. 发送一个未允许的 topic（例如：`system.secret`）。
 2. 确认服务端返回 `error`，且无后续推送。
+
+## US3 验证（宿主发布入口）
+
+1. 宿主模式下，插件后端调用底座发布入口：
+   - `POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api`）
+   - payload 示例：
+     ```json
+     {
+       "topic": "org_sync.progress",
+       "payload": {
+         "org_id": "demo",
+         "status": "running",
+         "progress": 25
+       }
+     }
+     ```
+2. 前端连接 `/api/ws` 并订阅 `org_sync.progress`。
+3. 确认消息能实时抵达前端（无需轮询）。
+
+### 现场验证记录（示例）
+
+```
+wscat -c "ws://127.0.0.1:8077/api/ws?authorization=Bearer $USER_TOKEN"
+> {"type":"subscribe","topics":["org_sync.progress"]}
+< {"type":"ack","payload":{"ok":true,"message":"subscribed","topics":["org_sync.progress"]},"ts":...}
+< {"topic":"org_sync.progress","type":"event","payload":{"org_id":"demo","progress":25,"status":"running"},"ts":...}
+```
