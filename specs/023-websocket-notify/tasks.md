@@ -73,8 +73,9 @@
 - [X] T014 [US2] 前端 WS 客户端集中管理订阅与分发 `web-admin/app/composables/`
 - [X] T015 [US2] 订阅/取消订阅协议与权限拒绝逻辑 `backend/internal/transport/websocket/`
 - [X] T015A [US3] 宿主模式发布入口：新增内部 HTTP 发布接口并落地 `bus.DefaultHub.Publish`
-- [X] T015B [US3] 发布权限与 topic 白名单（新增 org_sync.progress）并记录发布日志
-- [X] T015C [US3] 插件宿主发布集成验证：插件后端发布 → 底座 /api/ws 收到 org_sync.progress
+- [X] T015B [US3] 动态注册：新增 ws-bus/register 接口，支持幂等注册 `backend/internal/transport/http/admin/runtime/ws_bus_handler.go`, `backend/internal/transport/http/admin/runtime/routes.go`
+- [X] T015C [US3] 发布权限与 topic 白名单（静态 + 动态注册）并记录发布日志 `backend/internal/transport/websocket/bus/publish.go`
+- [X] T015D [US3] 插件宿主发布集成验证：register → publish → /api/ws 收到 org_sync.progress / powerx.org_sync.progress.v1
 
 ---
 

@@ -11,6 +11,7 @@ const (
 	TopicKnowledgeCorpusCheck  = "knowledge.corpus_check.job"
 	TopicSystemNotification    = "system.notification"
 	TopicOrgSyncProgress       = "org_sync.progress"
+	TopicOrgSyncProgressV1     = "powerx.org_sync.progress.v1"
 )
 
 // Hub manages WS sessions and topic subscriptions.

@@ -10,6 +10,46 @@ paths:
       responses:
         "101":
           description: Switching Protocols
+  /api/v1/internal/ws-bus/register:
+    post:
+      summary: WS Bus 发布 topic 动态注册（内部）
+      description: 宿主/插件在运行时注册可发布 topic（幂等）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topics:
+                  type: array
+                  items:
+                    type: string
+              required: [topics]
+      responses:
+        "200":
+          description: ok
+  /api/v1/internal/ws-bus/publish:
+    post:
+      summary: WS Bus 发布入口（内部）
+      description: 宿主/插件通过该接口发布事件，需通过 topic 白名单校验。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                payload:
+                  type: object
+                trace_id:
+                  type: string
+              required: [topic, payload]
+      responses:
+        "200":
+          description: ok
 components:
   schemas:
     WSBusEnvelope:

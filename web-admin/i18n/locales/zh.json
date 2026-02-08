@@ -10,6 +10,9 @@
     "aiSettingsModel": "模型配置",
     "aiSettingsCost": "成本配置",
     "aiSettingsRegistry": "能力注册表",
+    "pluginCapabilities": "插件能力",
+    "intelligentPlatforms": "智能平台",
+    "skills": "技能库",
     "badge": "徽章",
     "customers": "客户管理",
     "customerList": "客户列表",
@@ -170,12 +173,12 @@
       "actions": {
         "openCostGuard": "进入成本防护",
         "backToModels": "返回模型列表",
-        "openCapabilityRegistry": "能力注册表",
-        "openConnectors": "平台连接器"
+        "openCapabilityRegistry": "插件能力",
+        "openConnectors": "智能平台"
       },
       "costGuardPageTitle": "成本防护",
       "costGuardPageDesc": "管理 AI 配额、限流与降级策略。",
-      "registryPageTitle": "能力注册表",
+      "registryPageTitle": "插件能力",
       "registryPageDesc": "查看插件能力目录、哈希与同步任务，仅 root 用户可访问。",
       "costGuard": {
         "panelTitle": "防护策略",
@@ -255,8 +258,8 @@
         "noticeDesc": "UI 正在完善中，目前可通过 API 配置实例。",
         "platformDesc": "注册并管理 {platform} 的工作空间实例。"
       },
-      "connectorsPageTitle": "外部平台连接器",
-      "connectorsPageDesc": "管理 Coze/n8n 等外部平台实例与连接信息。"
+      "connectorsPageTitle": "智能平台",
+      "connectorsPageDesc": "管理 MCP/OpenAPI 等外部平台实例与连接信息。"
     },
     "openCapabilities": {
       "title": "开放能力",

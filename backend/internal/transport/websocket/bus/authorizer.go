@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -34,26 +35,46 @@ func NewDefaultAuthorizer(db *gorm.DB) *DefaultAuthorizer {
 
 func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic string) error {
 	if client == nil {
+		logger.DebugF(ctx, "[ws-bus] authorize rejected: client=nil")
 		return ErrPermissionDenied
 	}
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
+		logger.DebugF(ctx, "[ws-bus] authorize rejected: empty topic tenant=%s", strings.TrimSpace(client.TenantUUID))
 		return ErrTopicNotAllowed
 	}
 	if client.TenantUUID == "" {
+		logger.DebugF(ctx, "[ws-bus] authorize rejected: tenant required topic=%s", topic)
 		return ErrTenantRequired
 	}
 	if !client.IsRoot && client.MemberID == 0 {
+		logger.DebugF(ctx, "[ws-bus] authorize rejected: member required tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return ErrMemberRequired
 	}
 	switch topic {
-	case TopicKnowledgeIngestionJob:
-		return a.enforceKnowledgeRead(ctx, client)
+	case TopicKnowledgeIngestionJob, TopicKnowledgeCorpusCheck:
+		err := a.enforceKnowledgeRead(ctx, client)
+		if err != nil {
+			logger.DebugF(ctx, "[ws-bus] authorize rejected: knowledge read tenant=%s topic=%s err=%v", strings.TrimSpace(client.TenantUUID), topic, err)
+		} else {
+			logger.DebugF(ctx, "[ws-bus] authorize allow: knowledge read tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
+		}
+		return err
 	case TopicOrgSyncProgress:
+		logger.DebugF(ctx, "[ws-bus] authorize allow: whitelist tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
+		return nil
+	case TopicOrgSyncProgressV1:
+		logger.DebugF(ctx, "[ws-bus] authorize allow: whitelist tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return nil
 	case TopicSystemNotification:
+		logger.DebugF(ctx, "[ws-bus] authorize allow: whitelist tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return nil
 	default:
+		if IsDynamicTopicRegistered(client.TenantUUID, topic) {
+			logger.DebugF(ctx, "[ws-bus] authorize allow: dynamic tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
+			return nil
+		}
+		logger.DebugF(ctx, "[ws-bus] authorize rejected: not allowed tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return ErrTopicNotAllowed
 	}
 }

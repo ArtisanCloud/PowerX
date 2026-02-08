@@ -27,6 +27,19 @@ import (
 func main() {
 	ctx := context.Background()
 
+	// 加载全局配置
+	cfg := config.GetGlobalConfig()
+	if cfg == nil {
+		log.Fatalf("加载配置文件失败")
+	}
+
+	// Gin 的 debug 路由打印按 log.http_debug 控制
+	if cfg.LogConfig.HttpDebug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.New()
 
 	// Swagger 文档元信息（也可在 api/openapi/docs.go 中修改默认生成的内容）
@@ -34,12 +47,6 @@ func main() {
 	docs.SwaggerInfo.Description = "PowerX 核心与插件管理 API"
 	docs.SwaggerInfo.Version = "v1.0.0"
 	docs.SwaggerInfo.BasePath = "/"
-
-	// 加载全局配置
-	cfg := config.GetGlobalConfig()
-	if cfg == nil {
-		log.Fatalf("加载配置文件失败")
-	}
 
 	// 初始化应用核心依赖
 	deps, err := bootstrap.BootstrapApp(ctx, cfg)
@@ -110,6 +117,11 @@ func main() {
 	}, "./api/openapi"); err != nil {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
+
+	// 打印路由（受 log.http_debug 控制）
+	// if cfg.LogConfig.HttpDebug {
+	// 	http.PrintRouteInfo(r, cfg)
+	// }
 
 	// 运行 HTTP 服务
 	err = r.Run(addr)

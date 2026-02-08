@@ -17,10 +17,45 @@ type wsBusPublishRequest struct {
 	TraceID string `json:"trace_id"`
 }
 
+type wsBusRegisterRequest struct {
+	Topics []string `json:"topics"`
+}
+
 type wsBusHandler struct{}
 
 func newWSBusHandler() *wsBusHandler {
 	return &wsBusHandler{}
+}
+
+func (h *wsBusHandler) register(c *gin.Context) {
+	var req wsBusRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
+		return
+	}
+	memberID := reqctx.GetMemberID(c.Request.Context())
+	isRoot := reqctx.IsRoot(c.Request.Context())
+	if !isRoot && memberID == 0 {
+		dto.ResponseError(c, http.StatusForbidden, "member required", nil)
+		return
+	}
+
+	registered := bus.RegisterPublishTopics(tenantUUID, req.Topics)
+	if len(registered) == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "topics required", nil)
+		return
+	}
+
+	logger.InfoF(c.Request.Context(), "[ws-bus] register topics tenant=%s topics=%v", strings.TrimSpace(tenantUUID), registered)
+	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
+		"tenant_uuid": strings.TrimSpace(tenantUUID),
+		"topics":      registered,
+	})
 }
 
 func (h *wsBusHandler) publish(c *gin.Context) {
@@ -46,7 +81,16 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "topic required", nil)
 		return
 	}
-	if !bus.IsPublishTopicAllowed(reqTopic) {
+	allowed, whitelistHit, dynamicHit := bus.PublishTopicCheck(tenantUUID, reqTopic)
+	if !allowed {
+		logger.DebugF(
+			c.Request.Context(),
+			"[ws-bus] publish rejected tenant=%s topic=%s whitelist=%t dynamic=%t",
+			strings.TrimSpace(tenantUUID),
+			reqTopic,
+			whitelistHit,
+			dynamicHit,
+		)
 		dto.ResponseError(c, http.StatusForbidden, "topic not allowed", nil)
 		return
 	}

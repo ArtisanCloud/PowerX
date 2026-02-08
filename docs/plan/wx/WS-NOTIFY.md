@@ -227,7 +227,7 @@ disconnect()
 
 ### 11.1 发布入口（建议）
 
-- **HTTP**：`POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api`）
+- **HTTP**：`POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api/v1`）
 - **用途**：插件后端/宿主内部服务将事件发布到 `bus.DefaultHub.Publish`
 - **仅内部可用**：禁止公网直接调用
 
@@ -253,9 +253,24 @@ disconnect()
 
 ### 11.3 Topic 白名单（发布）
 
-为防止滥用，发布端需要白名单机制。建议至少包含：
+为防止滥用，发布端需要白名单机制（静态 + 动态注册）。建议至少包含：
 
 - `org_sync.progress`
+- `powerx.org_sync.progress.v1`
+
+### 11.3.1 动态注册（新增）
+
+- **HTTP**：`POST <APIPrefix>/internal/ws-bus/register`
+- **用途**：插件在宿主模式运行时，动态注册可发布 topic。
+- **幂等**：重复注册不报错。
+
+请求示例：
+
+```json
+{
+  "topics": ["org_sync.progress", "powerx.org_sync.progress.v1"]
+}
+```
 
 订阅权限仍由现有 WS Authorizer 处理。
 
