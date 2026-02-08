@@ -51,12 +51,8 @@ func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic
 		logger.DebugF(ctx, "[ws-bus] authorize rejected: member required tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return ErrMemberRequired
 	}
-	if IsDynamicTopicRegistered(client.TenantUUID, topic) {
-		logger.DebugF(ctx, "[ws-bus] authorize allow: dynamic tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
-		return nil
-	}
 	switch topic {
-	case TopicKnowledgeIngestionJob:
+	case TopicKnowledgeIngestionJob, TopicKnowledgeCorpusCheck:
 		err := a.enforceKnowledgeRead(ctx, client)
 		if err != nil {
 			logger.DebugF(ctx, "[ws-bus] authorize rejected: knowledge read tenant=%s topic=%s err=%v", strings.TrimSpace(client.TenantUUID), topic, err)
@@ -74,6 +70,10 @@ func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic
 		logger.DebugF(ctx, "[ws-bus] authorize allow: whitelist tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return nil
 	default:
+		if IsDynamicTopicRegistered(client.TenantUUID, topic) {
+			logger.DebugF(ctx, "[ws-bus] authorize allow: dynamic tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
+			return nil
+		}
 		logger.DebugF(ctx, "[ws-bus] authorize rejected: not allowed tenant=%s topic=%s", strings.TrimSpace(client.TenantUUID), topic)
 		return ErrTopicNotAllowed
 	}

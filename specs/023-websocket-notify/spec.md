@@ -92,6 +92,7 @@
 - **FR-013**: 发布入口必须校验租户上下文，禁止跨租户发布。
 - **FR-014**: 发布入口必须实施 topic 白名单（静态 + 动态注册），禁止未授权 topic 发布。
 - **FR-015**: 系统必须提供**动态注册入口**，允许宿主/插件在运行时注册可发布 topic，且需支持幂等注册。
+- **FR-016**: 动态注册仅对普通 topic 生效，`knowledge.ingestion.job`、`knowledge.corpus_check.job` 等受保护 topic 的订阅仍必须通过既有 RBAC 校验，不得因动态注册被放行。
 
 ### Non-Functional Requirements
 
