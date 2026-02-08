@@ -91,6 +91,9 @@
     "aiSettingsModel": "モデル構成",
     "aiSettingsCost": "コスト設定",
     "aiSettingsRegistry": "能力レジストリ",
+    "pluginCapabilities": "プラグイン能力",
+    "intelligentPlatforms": "インテリジェントプラットフォーム",
+    "skills": "スキル",
     "openCapabilities": "プラットフォーム能力",
     "eventFabric": "非同期タスク",
     "workflow": "ワークフロー",
@@ -819,8 +822,8 @@
       "actions": {
         "openCostGuard": "コスト防御",
         "backToModels": "モデル一覧へ戻る",
-        "openCapabilityRegistry": "能力レジストリ",
-        "openConnectors": "プラットフォーム連携"
+        "openCapabilityRegistry": "プラグイン能力",
+        "openConnectors": "インテリジェントプラットフォーム"
       },
       "costGuardPageTitle": "コスト防御",
       "costGuardPageDesc": "AI 利用のクォータやスロットルを設定します。",
@@ -854,7 +857,7 @@
           "ops": "運用"
         }
       },
-      "registryPageTitle": "能力レジストリ",
+      "registryPageTitle": "プラグイン能力",
       "registryPageDesc": "プラグイン能力のハッシュと同期状況を確認します（root のみ）。",
       "registry": {
         "filters": {
@@ -904,8 +907,8 @@
         "noticeDesc": "UI は整備中です。現在は API でインスタンスを設定してください。",
         "platformDesc": "{platform} のワークスペースインスタンスを登録・管理します。"
       },
-      "connectorsPageTitle": "外部プラットフォーム連携",
-      "connectorsPageDesc": "Coze/n8n など外部プラットフォームのインスタンスと接続情報を管理します。"
+      "connectorsPageTitle": "インテリジェントプラットフォーム",
+      "connectorsPageDesc": "MCP/OpenAPI など外部プラットフォームのインスタンスと接続情報を管理します。"
     },
     "openCapabilities": {
       "title": "プラットフォーム能力",

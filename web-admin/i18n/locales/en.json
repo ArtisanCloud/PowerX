@@ -10,6 +10,9 @@
     "aiSettingsModel": "Model Settings",
     "aiSettingsCost": "Cost Settings",
     "aiSettingsRegistry": "Capability Registry",
+    "pluginCapabilities": "Plugin Capabilities",
+    "intelligentPlatforms": "Intelligent Platforms",
+    "skills": "Skills",
     "badge": "Badge",
     "customers": "Customers",
     "customerList": "Customer List",
@@ -154,12 +157,12 @@
       "actions": {
         "openCostGuard": "Open Cost Guard",
         "backToModels": "Back to models",
-        "openCapabilityRegistry": "Capability Registry",
-        "openConnectors": "Platform connectors"
+        "openCapabilityRegistry": "Plugin Capabilities",
+        "openConnectors": "Intelligent Platforms"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
-      "registryPageTitle": "Capability Registry",
+      "registryPageTitle": "Plugin Capabilities",
       "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
       "costGuard": {
         "panelTitle": "Cost guard policies",
@@ -239,8 +242,8 @@
         "noticeDesc": "UI is being finalized. You can configure instances via API now.",
         "platformDesc": "Register and manage {platform} workspace instances."
       },
-      "connectorsPageTitle": "Platform Connectors",
-      "connectorsPageDesc": "Manage Coze/n8n instances and connection metadata."
+      "connectorsPageTitle": "Intelligent Platforms",
+      "connectorsPageDesc": "Manage MCP/OpenAPI platform instances and connection metadata."
     },
     "openCapabilities": {
       "title": "Platform Capabilities",

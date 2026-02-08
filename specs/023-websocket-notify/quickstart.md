@@ -35,8 +35,16 @@
 
 ## US3 验证（宿主发布入口）
 
-1. 宿主模式下，插件后端调用底座发布入口：
-   - `POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api`）
+1. 宿主模式下，插件后端先调用**注册入口**：
+   - `POST <APIPrefix>/internal/ws-bus/register`（默认 `<APIPrefix>=/api/v1`）
+   - payload 示例：
+     ```json
+     {
+       "topics": ["org_sync.progress", "powerx.org_sync.progress.v1"]
+     }
+     ```
+2. 再调用底座发布入口：
+   - `POST <APIPrefix>/internal/ws-bus/publish`（默认 `<APIPrefix>=/api/v1`）
    - payload 示例：
      ```json
      {
@@ -48,8 +56,8 @@
        }
      }
      ```
-2. 前端连接 `/api/ws` 并订阅 `org_sync.progress`。
-3. 确认消息能实时抵达前端（无需轮询）。
+3. 前端连接 `/api/ws` 并订阅 `org_sync.progress`（或 `powerx.org_sync.progress.v1`）。
+4. 确认消息能实时抵达前端（无需轮询）。
 
 ### 现场验证记录（示例）
 

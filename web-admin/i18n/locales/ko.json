@@ -91,6 +91,9 @@
     "aiSettingsModel": "모델 구성",
     "aiSettingsCost": "코스트 설정",
     "aiSettingsRegistry": "능력 레지스트리",
+    "pluginCapabilities": "플러그인 기능",
+    "intelligentPlatforms": "지능형 플랫폼",
+    "skills": "스킬",
     "openCapabilities": "플랫폼 능력",
     "eventFabric": "비동기 작업",
     "workflow": "워크플로우",
@@ -625,8 +628,8 @@
       "actions": {
         "openCostGuard": "코스트 가드",
         "backToModels": "모델 목록으로",
-        "openCapabilityRegistry": "능력 레지스트리",
-        "openConnectors": "플랫폼 커넥터"
+        "openCapabilityRegistry": "플러그인 기능",
+        "openConnectors": "지능형 플랫폼"
       },
       "costGuardPageTitle": "코스트 가드",
       "costGuardPageDesc": "AI 사용량에 대한 한도와 스로틀을 관리합니다.",
@@ -660,7 +663,7 @@
           "ops": "운영"
         }
       },
-      "registryPageTitle": "능력 레지스트리",
+      "registryPageTitle": "플러그인 기능",
       "registryPageDesc": "플러그인 능력 목록과 동기화 상태를 확인합니다 (root 전용).",
       "registry": {
         "filters": {
@@ -710,8 +713,8 @@
         "noticeDesc": "UI는 정비 중입니다. 현재는 API로 인스턴스를 설정하세요.",
         "platformDesc": "{platform} 워크스페이스 인스턴스를 등록하고 관리합니다."
       },
-      "connectorsPageTitle": "외부 플랫폼 커넥터",
-      "connectorsPageDesc": "Coze/n8n 등 외부 플랫폼 인스턴스와 연결 정보를 관리합니다."
+      "connectorsPageTitle": "지능형 플랫폼",
+      "connectorsPageDesc": "MCP/OpenAPI 등 외부 플랫폼 인스턴스와 연결 정보를 관리합니다."
     },
     "openCapabilities": {
       "title": "플랫폼 능력",

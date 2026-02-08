@@ -424,7 +424,7 @@ const toggleExpanded = (id: string) => {
   s.has(id) ? s.delete(id) : s.add(id);
 };
 const expandByRoute = () => {
-  const set = new Set<string>();
+  const set = new Set<string>(expandedItems.value);
   const markExpanded = (items?: MenuItem[]) => {
     if (!items) return;
     for (const item of items) {
