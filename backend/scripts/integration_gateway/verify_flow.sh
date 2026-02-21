@@ -89,7 +89,6 @@ echo "  -> route_id: ${route_id}, version: ${etag}"
 echo "==> Step 2: 租户调用 HTTP 接口"
 invoke_resp=$(curl -sS -w "\n%{http_code}" -X POST "${OPEN_BASE}/integration/routes/${ROUTE_SLUG}/invoke" \
   -H "Authorization: Bearer ${TENANT_TOKEN}" \
-  -H "X-PowerX-Tenant: ${TENANT_ID}" \
   -H "Content-Type: application/json" \
   -d '{"payload":{"demo":"ok"}}' || true)
 

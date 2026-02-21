@@ -188,14 +188,14 @@ Payload 示例：
 
 ### 10.1 连接地址约定（重要）
 
-- **PowerX 底座 WS Bus 地址**：`/api/ws`（同时保留 `/ws` 作为兼容入口）
+- **PowerX 底座 WS Bus 地址**：`/api/ws`（唯一入口）
 - **不使用** ` /api/v1/ws `（PowerX WS Bus 不挂在 v1 前缀）
-- **插件 standalone**：插件后端提供 `/ws`（可选同时提供 `/api/ws` 兼容）
+- **插件 standalone**：插件后端提供 `/api/ws`
 
 ### 10.2 运行模式切换（底层）
 
 - **宿主模式**：插件前端必须连接 PowerX 底座 `/api/ws`
-- **standalone 模式**：插件前端连接插件自身 `/ws`
+- **standalone 模式**：插件前端连接插件自身 `/api/ws`
 - **协议/消息格式完全一致**（见第 3 节）
 
 ### 10.3 统一前端接口（示例约定）
@@ -235,11 +235,10 @@ disconnect()
 
 ```json
 {
-  "topic": "org_sync.progress",
+  "topic": "knowledge.space.feedback.reprocess",
   "payload": {
-    "org_id": "...",
-    "status": "running",
-    "progress": 42
+    "job_id": "...",
+    "status": "running"
   },
   "trace_id": "..."
 }
@@ -249,14 +248,12 @@ disconnect()
 
 - 必须具备 **宿主/插件内部调用权限**（建议使用内部 token 或宿主认证中间件）。
 - 租户上下文以 **JWT/请求上下文**为准（不从 body 读取）。
-- 非允许 topic 直接拒绝（见 11.3）。
+- 未注册或无 ACL 的 topic 直接拒绝（见 11.3）。
 
-### 11.3 Topic 白名单（发布）
+### 11.3 Topic 注册与 ACL（发布）
 
-为防止滥用，发布端需要白名单机制（静态 + 动态注册）。建议至少包含：
-
-- `org_sync.progress`
-- `powerx.org_sync.progress.v1`
+发布端不再保留静态 topic 白名单。  
+统一通过 **event_topics 注册治理 + ACL** 做授权，必要时走动态注册（兼容模式）。
 
 ### 11.3.1 动态注册（新增）
 
@@ -268,7 +265,7 @@ disconnect()
 
 ```json
 {
-  "topics": ["org_sync.progress", "powerx.org_sync.progress.v1"]
+  "topics": ["knowledge.space.feedback.reprocess"]
 }
 ```
 
@@ -281,5 +278,5 @@ disconnect()
 
 ### 11.5 验收标准（宿主模式）
 
-- 插件后端发布 `org_sync.progress` → 底座 WS Bus → 前端 `/api/ws` 可实时接收
+- 插件后端发布已注册 topic（如 `knowledge.space.feedback.reprocess`）→ 底座 WS Bus → 前端 `/api/ws` 可实时接收
 - WS 断线后自动重连，订阅恢复，无需轮询

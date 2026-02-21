@@ -53,6 +53,7 @@ type Service interface {
 
 	DecideChallenge(ctx context.Context, ticketID uuid.UUID, decision ChallengeDecisionInput) (*ChallengeDecisionResult, error)
 	ProcessExpiredChallenges(ctx context.Context, tenantID uuid.UUID, before time.Time) (int, error)
+	ProcessExpiredChallengeTicket(ctx context.Context, ticketID uuid.UUID, before time.Time) (bool, error)
 
 	InvalidateGrantCache(ctx context.Context, key GrantCacheKey) error
 	ListenCacheInvalidation(ctx context.Context) error

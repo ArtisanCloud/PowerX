@@ -18,7 +18,7 @@
 - **入口 & 权限**：Web Admin 侧边栏 “设置” 下新增 “开放能力” 菜单（建议路由 `/settings/open-capabilities`），仅当当前用户 `isRoot=true` 时渲染，同时接口层面也需校验。
 - **数据源**：调用 Capability Registry 只读接口（复用 `/tenant/capabilities?source=corex` 或扩展 `/admin/capabilities/platform`）获取字段 `module`, `capability_id`, `title`, `protocols[*].channel`, `contracts`, `capabilities_hash`。
 - **分组展示**：前端按 `module` 分组生成卡片，显示能力数量、最新版本、支持协议徽章；展开行列出单个能力，提供状态 Badge（active/disabled）、描述与 tags。
-- **调试入口**：为每条能力提供 cURL/Insomnia snippet（自动填 `capability_id`, `preferred_protocol`, `X-PowerX-Tenant`），MCP Tool 名称、OpenAPI/gRPC 文档链接，Media 模块额外提供 `/media/assets` 调试跳转。
+- **调试入口**：为每条能力提供 cURL/Insomnia snippet（自动填 `capability_id`、`preferred_protocol`，并标注租户由 JWT claims 提供），MCP Tool 名称、OpenAPI/gRPC 文档链接，Media 模块额外提供 `/media/assets` 调试跳转。
 - **刷新策略**：进入页面自动加载，提供“立即同步”按钮重新请求；后续可监听 `capability.catalog.sync_*` 事件或轮询以保持实时。
 - **安全 & 审计**：所有请求写入 Audit（记录 `admin_id`, `action=open_capability_view`），并遵守现有 RBAC/Feature Flag，确保非 Root 用户无法访问平台能力细节。
 

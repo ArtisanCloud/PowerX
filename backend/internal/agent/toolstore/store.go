@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"

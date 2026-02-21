@@ -29,6 +29,7 @@
     "userManagement": "User Management",
     "roleManagement": "Role Management",
     "systemConfig": "System Config",
+    "monitorCenter": "Monitor Center",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
     "loadFailed": "Menu failed to load",

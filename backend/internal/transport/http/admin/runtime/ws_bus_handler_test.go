@@ -15,6 +15,8 @@ import (
 
 func TestWSBusRegisterThenPublish(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
 
 	// Reset hub for test isolation.
 	originHub := bus.DefaultHub
@@ -62,6 +64,8 @@ func TestWSBusRegisterThenPublish(t *testing.T) {
 
 func TestWSBusPublishRejectsUnregisteredTopic(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
 
 	originHub := bus.DefaultHub
 	bus.DefaultHub = bus.NewHub()

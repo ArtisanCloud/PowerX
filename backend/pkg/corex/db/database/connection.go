@@ -2,7 +2,9 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -45,8 +47,15 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,
 		},
-		Logger: gormLogger.Default.LogMode(logMode),
-		// Logger: gormLogger.Default.LogMode(gormLogger.Info),
+		Logger: gormLogger.New(
+			log.New(os.Stdout, "\r\n", log.LstdFlags),
+			gormLogger.Config{
+				SlowThreshold:             200 * time.Millisecond,
+				LogLevel:                  logMode,
+				IgnoreRecordNotFoundError: true,
+				Colorful:                  false,
+			},
+		),
 	}
 
 	// 选择 DSN

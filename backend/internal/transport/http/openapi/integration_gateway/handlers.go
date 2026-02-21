@@ -2,7 +2,6 @@ package integration_gateway
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -202,24 +201,11 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
-	if tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context())); tenantUUID != "" {
-		return reqctx.CanonicalTenantUUID(tenantUUID)
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+	if tenantUUID == "" {
+		return "", reqctx.ErrTenantUUIDMissing
 	}
-	for _, candidate := range []string{
-		c.GetHeader("X-PowerX-Tenant"),
-		c.Query("tenant_uuid"),
-	} {
-		value := strings.TrimSpace(candidate)
-		if value == "" {
-			continue
-		}
-		canonical, err := reqctx.CanonicalTenantUUID(value)
-		if err != nil {
-			return "", fmt.Errorf("invalid tenant uuid: %w", err)
-		}
-		return canonical, nil
-	}
-	return "", reqctx.ErrTenantUUIDMissing
+	return reqctx.CanonicalTenantUUID(tenantUUID)
 }
 
 func respondTenantIdentityError(c *gin.Context, err error) {

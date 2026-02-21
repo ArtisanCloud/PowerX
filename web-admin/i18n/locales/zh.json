@@ -29,6 +29,7 @@
     "userManagement": "用户管理",
     "roleManagement": "角色管理",
     "systemConfig": "系统配置",
+    "monitorCenter": "监控中心",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
     "loadFailed": "菜单加载失败",

@@ -19,13 +19,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  parameters:
-    TenantHeader:
-      name: X-PowerX-Tenant
-      in: header
-      required: true
-      schema:
-        type: string
   schemas:
     ErrorResponse:
       type: object
@@ -204,8 +197,6 @@ paths:
   /ai/llm/invoke:
     post:
       summary: LLM stateless invoke
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -246,8 +237,6 @@ paths:
   /ai/llm/sessions:
     post:
       summary: Create LLM session
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -271,7 +260,6 @@ paths:
     post:
       summary: Append LLM session message
       parameters:
-        - $ref: '#/components/parameters/TenantHeader'
         - name: session_id
           in: path
           required: true
@@ -304,7 +292,6 @@ paths:
     get:
       summary: Stream LLM session output (SSE)
       parameters:
-        - $ref: '#/components/parameters/TenantHeader'
         - name: session_id
           in: path
           required: true
@@ -338,8 +325,6 @@ paths:
   /ai/image/invoke:
     post:
       summary: Image invoke
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -380,8 +365,6 @@ paths:
   /ai/video/invoke:
     post:
       summary: Video invoke
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -422,8 +405,6 @@ paths:
   /ai/tts/invoke:
     post:
       summary: Text-to-speech invoke
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -464,8 +445,6 @@ paths:
   /ai/embedding/invoke:
     post:
       summary: Embedding invoke
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:

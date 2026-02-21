@@ -220,6 +220,29 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				PresignEndpoint: cfg.Storage.S3.PresignEndpoint,
 			},
 		},
+		Queue: shared.QueueOptions{
+			Driver: cfg.Queue.Driver,
+			Kafka: shared.QueueKafkaOptions{
+				Brokers:       append([]string{}, cfg.Queue.Kafka.Brokers...),
+				TopicPrefix:   cfg.Queue.Kafka.TopicPrefix,
+				ConsumerGroup: cfg.Queue.Kafka.ConsumerGroup,
+				PollTimeoutMs: cfg.Queue.Kafka.PollTimeoutMs,
+			},
+			Rabbit: shared.QueueRabbitMQOptions{
+				URL:           cfg.Queue.Rabbit.URL,
+				Exchange:      cfg.Queue.Rabbit.Exchange,
+				QueuePrefix:   cfg.Queue.Rabbit.QueuePrefix,
+				ConsumerTag:   cfg.Queue.Rabbit.ConsumerTag,
+				Prefetch:      cfg.Queue.Rabbit.Prefetch,
+				PollTimeoutMs: cfg.Queue.Rabbit.PollTimeoutMs,
+			},
+			NATS: shared.QueueNATSOptions{
+				URLs:          append([]string{}, cfg.Queue.NATS.URLs...),
+				SubjectPrefix: cfg.Queue.NATS.SubjectPrefix,
+				QueueGroup:    cfg.Queue.NATS.QueueGroup,
+				PollTimeoutMs: cfg.Queue.NATS.PollTimeoutMs,
+			},
+		},
 		EventFabric: shared.EventFabricOptions{
 			AckTimeoutSeconds: cfg.Event.Fabric.AckTimeoutSeconds,
 			DefaultMaxRetry:   cfg.Event.Fabric.DefaultMaxRetry,

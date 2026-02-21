@@ -88,7 +88,7 @@
 1. **Given** Registry 中存在多条 `source=corex` 能力记录，`module` 字段分别为 `Media`、`EventFabric`、`Workflow`，**When** `IsRoot` 管理员进入“设置 > 开放能力”，**Then** 列表按模块归类展示“能力数量”“支持协议（REST/gRPC/MCP/Workflow）”“最新 `capabilities_hash`”，并提供复制 cURL/Insomnia/MCP Tool 名称的调试按钮。
 2. **Given** 普通租户管理员（非 Root）访问“设置”菜单，**When** 渲染侧边栏，**Then** “开放能力”入口不会出现，避免无授权用户访问底座能力说明。
 3. **Given** Registry 新增/下架某平台能力，**When** Admin 页面刷新或触发“立即同步”，**Then** 列表 1 秒内更新数据，并通过 Badge 标记“新”或“已下线”状态；点击“查看契约”可打开对应 OpenAPI/gRPC 文档链接。
-4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`, `preferred_protocol`, `X-PowerX-Tenant` Header 等必要字段，方便宿主/Skeleton 插件直接调用。
+4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`、`preferred_protocol`、租户来源说明（JWT claims）等必要字段，方便宿主/Skeleton 插件直接调用。
 
 ## Requirements *(mandatory)*
 

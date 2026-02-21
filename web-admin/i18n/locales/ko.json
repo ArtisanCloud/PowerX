@@ -80,6 +80,7 @@
     "userManagement": "사용자 관리",
     "roleManagement": "역할 관리",
     "systemConfig": "시스템 구성",
+    "monitorCenter": "모니터링 센터",
     "loadFailed": "메뉴 로딩 실패",
     "loadFailedDesc": "메뉴 데이터를 로드할 수 없습니다. 네트워크 연결을 확인하세요.",
     "itemCount": "메뉴 항목 수",

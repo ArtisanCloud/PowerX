@@ -13,4 +13,5 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	adminGroup.PATCH("/:uuid/read", h.MarkRead)
 	adminGroup.DELETE("/:uuid", h.Delete)
 	adminGroup.POST("/test", h.PushTestNotification)
+	adminGroup.POST("/test-queue", h.PushTestNotificationQueue)
 }

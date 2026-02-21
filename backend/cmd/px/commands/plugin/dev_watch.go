@@ -519,9 +519,6 @@ func doHostAPIRequest(ctx context.Context, method, path string, payload any, des
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if tenant := strings.TrimSpace(devWatchOpts.tenantUUID); tenant != "" {
-		req.Header.Set("X-PowerX-Tenant", tenant)
-	}
 	token := strings.TrimSpace(devWatchOpts.token)
 	if token != "" {
 		if !strings.HasPrefix(strings.ToLower(token), "bearer ") {

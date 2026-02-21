@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage:
 #   scripts/ops/tenant-uuid-traffic-logcheck.sh --path /var/log/powerx/api.log
 
-PATTERN='(X-Tenant-ID|X-PowerX-Tenant)'
+PATTERN='X-Tenant-ID'
 
 usage() {
   cat <<'USAGE'

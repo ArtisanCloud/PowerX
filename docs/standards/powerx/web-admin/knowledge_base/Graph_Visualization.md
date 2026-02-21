@@ -88,7 +88,7 @@ flowchart LR
 
 ```
 GET /api/v1/knowledge/graph/nodes?q={kw}&type={entity|concept|document}&page=1&page_size=20
-Headers: Authorization, X-PowerX-Tenant
+Headers: Authorization（租户由 JWT claims 提供）
 ```
 
 **返回（节点列表项）**

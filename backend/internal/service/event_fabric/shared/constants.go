@@ -21,9 +21,6 @@ const (
 	// ContextAcceptedVersions 存储订阅者声明支持的事件版本列表。
 	ContextAcceptedVersions = "accepted_versions"
 
-	// HeaderTenantID 用于 HTTP 层传递租户信息的 Header。
-	HeaderTenantID = "X-PowerX-Tenant"
-
 	// DefaultAckTimeout 与规格保持一致，默认 30s。
 	DefaultAckTimeout = 30 * time.Second
 

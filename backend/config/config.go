@@ -158,8 +158,11 @@ type EventBusConfig struct {
 
 // QueueConfig 统一队列配置（允许被多个模块引用）
 type QueueConfig struct {
-	Driver string           `yaml:"driver"` // redis/local
+	Driver   string              `yaml:"driver"` // redis/local/kafka/rabbitmq/nats
 	Redis  QueueRedisConfig `yaml:"redis"`
+	Kafka  QueueKafkaConfig `yaml:"kafka"`
+	Rabbit QueueRabbitMQConfig `yaml:"rabbitmq"`
+	NATS   QueueNATSConfig     `yaml:"nats"`
 }
 
 // QueueRedisConfig 描述 Redis 连接信息
@@ -167,6 +170,32 @@ type QueueRedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+// QueueKafkaConfig 描述 Kafka 任务驱动连接参数。
+type QueueKafkaConfig struct {
+	Brokers       []string `yaml:"brokers"`
+	TopicPrefix   string   `yaml:"topic_prefix"`
+	ConsumerGroup string   `yaml:"consumer_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
+}
+
+// QueueRabbitMQConfig 描述 RabbitMQ 驱动连接参数。
+type QueueRabbitMQConfig struct {
+	URL            string `yaml:"url"`
+	Exchange       string `yaml:"exchange"`
+	QueuePrefix    string `yaml:"queue_prefix"`
+	ConsumerTag    string `yaml:"consumer_tag"`
+	Prefetch       int    `yaml:"prefetch"`
+	PollTimeoutMs  int    `yaml:"poll_timeout_ms"`
+}
+
+// QueueNATSConfig 描述 NATS 驱动连接参数。
+type QueueNATSConfig struct {
+	URLs          []string `yaml:"urls"`
+	SubjectPrefix string   `yaml:"subject_prefix"`
+	QueueGroup    string   `yaml:"queue_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
 }
 
 // SchedulerConfig 统一的任务调度配置

@@ -1,19 +1,24 @@
 package notifications
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	notificationssvc "github.com/ArtisanCloud/PowerX/internal/service/notifications"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
 	notificationmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -213,7 +218,84 @@ func (h *Handler) PushTestNotification(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 		return
 	}
+	item, err := h.createNotification(c.Request.Context(), tenantUUID, memberUUID, req)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "写入通知失败", err)
+		return
+	}
+	payload := toNotificationView(item)
+	bus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
+	dto.ResponseSuccess(c, payload)
+}
 
+func (h *Handler) PushTestNotificationQueue(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		c.Status(http.StatusNotImplemented)
+		return
+	}
+	if h.deps == nil || h.deps.EventFabric == nil || h.deps.EventFabric.TaskDriver == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "event_fabric task driver unavailable", errors.New("task_driver_unavailable"))
+		return
+	}
+
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
+		return
+	}
+	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+
+	var req TestNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+
+	item, err := h.createNotification(c.Request.Context(), tenantUUID, memberUUID, req)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "写入通知失败", err)
+		return
+	}
+	payload := toNotificationView(item)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "序列化通知失败", err)
+		return
+	}
+
+	taskID := fmt.Sprintf("notification.dispatch.%s.%d", strings.TrimSpace(payload.ID), time.Now().UTC().UnixMilli())
+	if strings.TrimSpace(payload.ID) == "" {
+		taskID = fmt.Sprintf("notification.dispatch.%s.%d", uuid.NewString(), time.Now().UTC().UnixMilli())
+	}
+
+	enqueueErr := h.deps.EventFabric.TaskDriver.Enqueue(c.Request.Context(), event_bus.TaskMessage{
+		ID:           taskID,
+		TenantKey:    "global",
+		SubscriberID: eventbus.SubscriberSystemNotificationDispatch,
+		Topic:        eventbus.TopicSystemNotification,
+		Payload:      payloadBytes,
+		TraceID:      reqctx.GetTraceID(c.Request.Context()),
+		VisibleAt:    time.Now().UTC(),
+		Metadata: map[string]string{
+			"kind":        "queue_notification_debug",
+			"tenant_uuid": tenantUUID,
+			"member_uuid": memberUUID,
+		},
+	})
+	if enqueueErr != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "入队失败", enqueueErr)
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"task_id":       taskID,
+		"subscriber_id": eventbus.SubscriberSystemNotificationDispatch,
+		"topic":         eventbus.TopicSystemNotification,
+		"payload":       payload,
+	})
+}
+
+func (h *Handler) createNotification(ctx context.Context, tenantUUID, memberUUID string, req TestNotificationRequest) (*notificationmodel.Notification, error) {
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		title = "系统通知"
@@ -232,7 +314,7 @@ func (h *Handler) PushTestNotification(c *gin.Context) {
 	}
 
 	metaJSON, _ := json.Marshal(req.Metadata)
-	item, err := h.svc.Create(c.Request.Context(), notificationssvc.CreateInput{
+	return h.svc.Create(ctx, notificationssvc.CreateInput{
 		TenantUUID:  tenantUUID,
 		MemberUUID:  memberUUID,
 		Title:       title,
@@ -242,11 +324,4 @@ func (h *Handler) PushTestNotification(c *gin.Context) {
 		IsImportant: req.IsImportant,
 		Metadata:    metaJSON,
 	})
-	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "写入通知失败", err)
-		return
-	}
-	payload := toNotificationView(item)
-	bus.DefaultHub.Publish(tenantUUID, bus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
-	dto.ResponseSuccess(c, payload)
 }

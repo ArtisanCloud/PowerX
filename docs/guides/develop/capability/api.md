@@ -45,7 +45,7 @@ PowerX 管理端提供两组能力查询接口，分别面向“能力注册表�
 ## 路由命名规范
 
 - **Admin/调试接口**：统一挂载在 `/admin/*`，仅 `IsRoot` 或具备 Admin Token 的调用者可以访问，例如 `/admin/capabilities`、`/admin/platform-capabilities`。
-- **开放能力接口**：租户可访问的 API 均以 `/api/v1/*` 为前缀（遵循 `server.api_prefix` 配置），例如 `/api/v1/media/assets`、`/api/v1/tenant/invocations`。所有请求需要携带 `Authorization` 与 `X-PowerX-Tenant`。
+- **开放能力接口**：租户可访问的 API 均以 `/api/v1/*` 为前缀（遵循 `server.api_prefix` 配置），例如 `/api/v1/media/assets`、`/api/v1/tenant/invocations`。所有请求需要携带 `Authorization`，租户信息由 JWT claims 提供。
 - **gRPC/其他协议**：使用各自的 service 名称（如 `powerx.media.v1.MediaAssetAdminService`、`powerx.event_fabric.v1.EventDeliveryService`），通过 Registry `protocols` 字段暴露。
 
 遵循以上命名约定，可以快速判断一个接口是管理端调试入口还是对插件/宿主开放的能力端点。

@@ -1,0 +1,43 @@
+name: Web Admin API Response Shape
+
+on:
+  pull_request:
+    paths:
+      - 'web-admin/app/**'
+      - 'web-admin/scripts/check-api-response-shape.mjs'
+      - 'web-admin/package.json'
+      - '.github/workflows/web-admin-api-response-shape.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web-admin/app/**'
+      - 'web-admin/scripts/check-api-response-shape.mjs'
+      - 'web-admin/package.json'
+      - '.github/workflows/web-admin-api-response-shape.yml'
+
+jobs:
+  response-shape-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check API response shape
+        run: npm run check:api-response-shape
+
+      - name: Build web-admin
+        run: npm run build

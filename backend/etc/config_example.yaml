@@ -139,12 +139,12 @@ event:
   fabric:
     ack_timeout_seconds: 30
     default_max_retry: 5
-    redis_addr: ""          # 留空则复用 queue.redis.addr
+    redis_addr: "127.0.0.1:6379"
     redis_password: ""      # 留空则复用 queue.redis.password
     redis_db: 0             # 0 表示复用 queue.redis.db
     retry_key_prefix: event_fabric:retry
     replay_key_prefix: event_fabric:replay
-    scheduler_interval: 0   # 0 表示复用 scheduler.interval_seconds
+    scheduler_interval: 5
     security:
       require_tls: false
       signature_secret: ""
@@ -161,7 +161,7 @@ event:
     authorization:
       cache_ttl_seconds: 60
       local_cache_ttl_seconds: 30
-      redis_addr: ""                   # 可单独指定，留空则复用 queue.redis
+      redis_addr: "127.0.0.1:6379"
       redis_password: ""
       redis_db: 0
       cache_invalidate_channel: event_fabric:authorization:invalidate
@@ -172,8 +172,8 @@ event:
       rate_limit_prefix: event_fabric:authorization:rl
       timeout_sweep_interval_seconds: 60
       audit_retention_days: 7
-      audit_archive_bucket: ""
-      audit_archive_prefix: ""
+      audit_archive_bucket: "local-audit-archive"
+      audit_archive_prefix: "event-fabric/auth"
       secrets:
         provider: ""
         key_id: ""
@@ -186,6 +186,25 @@ queue:
     addr: localhost:6379
     password: ""
     db: 5
+  kafka:
+    brokers:
+      - localhost:9092
+    topic_prefix: event_fabric.task
+    consumer_group: powerx.event_fabric
+    poll_timeout_ms: 1000
+  rabbitmq:
+    url: amqp://guest:guest@localhost:5672/
+    exchange: event_fabric.task
+    queue_prefix: event_fabric.task
+    consumer_tag: powerx.event_fabric
+    prefetch: 50
+    poll_timeout_ms: 1000
+  nats:
+    urls:
+      - nats://localhost:4222
+    subject_prefix: event_fabric.task
+    queue_group: powerx.event_fabric
+    poll_timeout_ms: 1000
 
 scheduler:
   driver: builtin

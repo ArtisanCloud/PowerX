@@ -7,6 +7,12 @@
 **Status**: Draft  
 **Input**: User description: "通用 WebSocket 消息总线方案：基于 docs/plan/wx/WS-NOTIFY.md 生成规格说明"
 
+## Normative Reference
+
+- `specs/004-eventbus-message-fabric/spec.md` 是 EventBus/TaskBus 的权威契约文档。
+- 本文档仅定义 WS 传输与运行时行为（连接、订阅、发布入口、回退策略）。
+- Topic 命名规范、版本兼容策略、ACL 语义、回放与 DLQ 规则以 `004` 为准。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 入库进度实时可见 (Priority: P1)

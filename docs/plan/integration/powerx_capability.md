@@ -10,7 +10,7 @@
 2. **对外契约**：每个底座模块维护 `specs/<module>/contracts/http-openapi.yaml` 与 `backend/api/grpc/contracts/<module>/v1/*.proto`，Integration Gateway 以这些契约为源生成 SDK 和文档。
 3. **统一调用入口**：第三方通过 `/tenant/capabilities` 与 `/tenant/invocations`（或 gRPC `IntegrationGatewayTenantService`）调用底座能力；宿主模式可继续使用 Admin API 进行配置，但实际能力调用全部归口 Integration Gateway。
 4. **观测与治理**：沿用 FR-001~FR-015 的追踪/限流/审计要求，对平台能力与插件能力实施一致的 metrics/audit/event 采集。
-5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token 与 `X-PowerX-Tenant` 即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
+5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token（租户由 JWT claims 提供）即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
 6. **Agent & 多模态统一开放**：补齐 Agent 运行时与多模态模型调用的对外接口标准（REST/SSE/gRPC/SDK），并将租户隔离、流式协议与幂等错误码纳入统一规范（见下文“Agent 能力开放计划”“多模态模型调用标准”与 `specs/007-integration-gateway-and-mcp/spec.md` 的 FR-019~FR-020）。
 
 ## 已内置的平台能力（2025.01）
@@ -29,7 +29,7 @@
 ### 目标与范围
 
 1. **对外能力范围**：Agent 对话与执行（非流式 + SSE/WS 流式）、Session 管理、消息查询；统一支持 REST + SSE + gRPC + SDK。
-2. **租户隔离**：Agent 只能访问本租户 Agent 资源；`agent_id` 必须属于 `X-PowerX-Tenant` 指定租户，跨租户访问直接拒绝（403）。
+2. **租户隔离**：Agent 只能访问本租户 Agent 资源；`agent_id` 必须属于 JWT claims 指定租户，跨租户访问直接拒绝（403）。
 3. **统一授权**：全部走 Tool Grant / Tenant JWT；Skeleton/Plugin 通过 `PX_GATEWAY_BASE_URL` 与 tenant token 调用 `/tenant/invocations` 或开放 REST。
 
 ### 能力映射（计划新增到 Registry）
@@ -175,7 +175,7 @@
    - `inputs`: 结构化输入（LLM/Image/Video/TTS 使用 `ContentItem`，Embedding 使用 `string[]`）
    - `params`: 采样/温度/最大 token 等（可选）
 2. **鉴权与隔离**：
-   - Header：`Authorization: Bearer <tenant token>`（必需）；`X-PowerX-Tenant` 仅在无法从 JWT 解析租户时作为 fallback
+   - Header：`Authorization: Bearer <tenant token>`（必需）；租户仅从 JWT claims 解析，不支持租户 header fallback。
    - 校验规则（**仅限当前租户**）：
      - 若 `model_key` 对应的 **AI Model Profile** 已存在，则允许调用
      - 若未建立 Profile，但该 provider 在当前租户下 **测试连接成功（health=healthy）且凭据已保存**，也允许调用
@@ -275,16 +275,14 @@
 
 ## 宿主 vs Skeleton 调用流程
 
-1. **统一发现入口**：无论插件运行模式如何，均需调用 `/tenant/capabilities?source=corex`（或 gRPC `ListTenantCapabilities`）列出平台能力。Host 模式可直接复用宿主 Web Admin 已注入的 TENANT Token；Skeleton 模式通常通过 STS/Service Account 获取租户级 JWT，两者都必须带 `X-PowerX-Tenant`。
+1. **统一发现入口**：无论插件运行模式如何，均需调用 `/tenant/capabilities?source=corex`（或 gRPC `ListTenantCapabilities`）列出平台能力。Host 模式可直接复用宿主 Web Admin 已注入的 TENANT Token；Skeleton 模式通常通过 STS/Service Account 获取租户级 JWT，两者都通过 JWT claims 提供租户信息。
 2. **Invocation 请求**：插件向 `/tenant/invocations`（或 gRPC `InvokeCapability`）发送 `CapabilityInvokeRequest`。当 `capability_id` 属于 `source=corex` 时，Selector 会将调用路由到 Media/Event/Workflow 等底座模块，同时写入 `InvocationTrace` 与 `integration.gateway.invocation.*` 事件。
 3. **OpenAPI 直连**：部分平台能力（例如 Media）还暴露 `{APIPrefix}/media/assets` 等公开路径，允许插件在确认 Tool Grant 后直接调用。`APIPrefix` 默认 `/api/v1`，可在 `cfg.Server.APIPrefix` 中改为 `/api/admin/v1` 或 `/api/v2`，调用时只需要租户 Token。
 4. **Insomnia/cURL 模板**：
-   - Insomnia 请求：`POST {{POWERX_BASE_URL}}/tenant/invocations`，Headers 包含 `Authorization: Bearer {{TENANT_TOKEN}}`、`X-PowerX-Tenant: {{TENANT_UUID}}`，Body 为 `capability_id` + `payload` JSON。
    - cURL 上传 Media：
      ```bash
      curl -X POST "$POWERX_BASE_URL/media/assets" \
           -H "Authorization: Bearer $TENANT_TOKEN" \
-          -H "X-PowerX-Tenant: tenant-001" \
           -F "file=@samples/logo.png"
      ```
    以上流程在宿主模式（插件嵌入式）与 Skeleton 模式（独立服务）保持一致，只是 Token 获取来源不同。

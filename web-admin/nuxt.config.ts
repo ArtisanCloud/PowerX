@@ -42,13 +42,12 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // 仅服务端可见
     upstream: upstreamOrigin,
-    wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077", // 你的 WS 服务
+    wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api/ws",
     public: {
       upstreamOrigin, // 公开：用于拼接 presign 返回的相对 URL（如 /media/:uuid/resource）
-      // 注意这里直接给"完整前缀"，包含 /api
-      wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api",
+      wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api/ws",
       apiBase: API_BASE_PREFIX, // 前端请求前缀（可由 UPSTREAM path 推断）
-      wsUrl: "/ws", // 如果要同域 WS，可再配反代；暂时可用你现有的 ws://localhost:3001/ws
+      wsUrl: "/api/ws",
 
       // 语言配置
       defaultLanguage: process.env.NUXT_DEFAULT_LANGUAGE || "zh",

@@ -19,13 +19,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  parameters:
-    TenantHeader:
-      name: X-PowerX-Tenant
-      in: header
-      required: true
-      schema:
-        type: string
   schemas:
     ErrorResponse:
       type: object
@@ -125,8 +118,6 @@ paths:
   /agents/invoke:
     post:
       summary: Invoke agent (non-stream)
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -168,7 +159,6 @@ paths:
     get:
       summary: Stream agent output via SSE
       parameters:
-        - $ref: '#/components/parameters/TenantHeader'
         - name: q
           in: query
           required: true
@@ -219,16 +209,12 @@ paths:
   /agents/stream/ws:
     get:
       summary: WebSocket control channel
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       responses:
         '101':
           description: Switching Protocols
   /agents/sessions:
     post:
       summary: Create agent session
-      parameters:
-        - $ref: '#/components/parameters/TenantHeader'
       requestBody:
         required: true
         content:
@@ -258,7 +244,6 @@ paths:
     get:
       summary: List session messages
       parameters:
-        - $ref: '#/components/parameters/TenantHeader'
         - name: session_id
           in: path
           required: true

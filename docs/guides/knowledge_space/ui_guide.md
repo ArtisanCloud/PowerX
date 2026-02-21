@@ -112,7 +112,7 @@
 建议：
 - 先刷新页面或重新打开「组织架构」
 - 如果刚执行过 `make db-refresh`：请 **退出重新登录**（旧 token / cookie 可能仍指向旧租户，导致部门树为空但不一定报错）
-- 若用 root 账号：确认请求带了正确的租户上下文（Web 管理台会通过 `X-PowerX-Tenant` 注入）
+- 若用 root 账号：确认请求带了正确的租户上下文（Web 管理台会通过 `JWT claims（tid/tenant_uuid）` 注入）
 - 后端排查入口：`docs/guides/knowledge_space/runbook.md`
 
 ### 5.2 控制台出现 `[intlify] Not found ...`（缺少文案 key）

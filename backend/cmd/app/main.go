@@ -79,16 +79,27 @@ func main() {
 		return
 	}
 
-	if deps.EventFabric != nil && deps.EventFabric.Authorization != nil {
-		if deps.EventFabric.Authorization.TimeoutWorker != nil {
-			go deps.EventFabric.Authorization.TimeoutWorker.Run(ctx)
+	if deps.EventFabric != nil {
+		if deps.EventFabric.RetryWorker != nil {
+			go deps.EventFabric.RetryWorker.Run(ctx)
 		}
-		if deps.EventFabric.Authorization.Service != nil {
-			go func() {
-				if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
-					logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
-				}
-			}()
+		if deps.EventFabric.CronDispatcherWorker != nil {
+			go deps.EventFabric.CronDispatcherWorker.Run(ctx)
+		}
+		if deps.EventFabric.NotificationWorker != nil {
+			go deps.EventFabric.NotificationWorker.Run(ctx)
+		}
+		if deps.EventFabric.Authorization != nil {
+			if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
+				go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
+			}
+			if deps.EventFabric.Authorization.Service != nil {
+				go func() {
+					if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
+						logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+					}
+				}()
+			}
 		}
 	}
 

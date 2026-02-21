@@ -33,6 +33,13 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
+	if err = SeedEventFabricTopics(db); err != nil {
+		return err
+	}
+	if err = SeedEventFabricDefaultACL(db); err != nil {
+		return err
+	}
+
 	if err = SeedSMEDepartments(db, "system"); err != nil {
 		//log.Fatal(err)
 		return err

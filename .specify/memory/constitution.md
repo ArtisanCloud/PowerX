@@ -250,6 +250,7 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - `pkg/event_bus` 定位为**基础设施层**的发布/订阅抽象（`Publish`、`Subscribe`、`Close`），负责把事件从发布方送到订阅方，不包含主题治理、ACL、重试、死信或回放等业务语义。
 - `internal/service/event_fabric/*` 是**领域编排层**，需在 CoreX 事件骨干中完成 Topic 目录、租户 ACL、可靠投递、DLQ、回放、审计等用例，并可组合底层 `pkg/event_bus` 等设施。
 - 任何计划/实现不得混淆两者职责：领域服务依赖或扩展基础设施，但禁止在基础设施层堆叠领域逻辑，也不得绕过领域服务直接宣称满足事件骨干需求。
+- **实时状态更新强制规范**：Web 管理端涉及任务状态、回放状态、队列执行进度等“实时数据”时，必须走 WebSocket/SSE 推送链路；禁止在页面实现定时轮询（polling）作为主方案。若推送链路不可用，只允许短时人工诊断接口，不得固化为前端常驻轮询逻辑。
 
 ---
 

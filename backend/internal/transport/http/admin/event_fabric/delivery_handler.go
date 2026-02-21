@@ -98,6 +98,10 @@ func mapDeliveryError(err error) error {
 	case errors.Is(err, sharedsvc.ErrRetryExhausted):
 		return dto.WithCode(dto.NewConflict("retry exhausted", err), sharedsvc.ErrorCodeRetryExhausted)
 	default:
+		errMsg := strings.ToLower(strings.TrimSpace(err.Error()))
+		if strings.Contains(errMsg, "topic") && strings.Contains(errMsg, "not found") {
+			return dto.NewNotFound("topic 未注册或当前环境不可用", err)
+		}
 		return dto.WithCode(dto.NewInternal("delivery internal error", err), sharedsvc.ErrorNamespace+".internal_error")
 	}
 }

@@ -60,11 +60,6 @@ func BearerShim() gin.HandlerFunc {
 				}
 			}
 		}
-		if c.GetHeader("X-PowerX-Tenant") == "" {
-			if tenant := strings.TrimSpace(c.Query("tenant_uuid")); tenant != "" {
-				c.Request.Header.Set("X-PowerX-Tenant", tenant)
-			}
-		}
 	NEXT:
 		c.Next()
 	}

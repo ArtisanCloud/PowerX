@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"

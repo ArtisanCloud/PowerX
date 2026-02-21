@@ -34,6 +34,18 @@ func TestACLAdminRESTContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed topic failed: %v", err)
 	}
+	sharedTopic, err := topicStore.Create(context.Background(), &model.TopicDefinition{
+		TenantKey:     "global",
+		Namespace:     "knowledge.space.feedback",
+		Name:          "reprocess",
+		Lifecycle:     model.TopicLifecycleActive,
+		PayloadFormat: "json",
+		MaxRetry:      5,
+		AckTimeoutSec: 30,
+	})
+	if err != nil {
+		t.Fatalf("seed shared topic failed: %v", err)
+	}
 
 	aclStore := newMemoryAclStore()
 	svc := acl.NewACLService(acl.Options{
@@ -59,6 +71,8 @@ func TestACLAdminRESTContracts(t *testing.T) {
 	attachTenantContext(group, "tenant-corex")
 	group.POST("/acl", handler.UpsertBindings)
 	group.GET("/acl", handler.ListBindings)
+	group.GET("/acl/topic-matrix", handler.ListTopicRoleMatrix)
+	group.GET("/acl/principal-matrix", handler.ListPrincipalTopicMatrix)
 
 	grantReq := map[string]interface{}{
 		"topic_full_name": "tenant-corex.corex.workflow.approved",
@@ -110,6 +124,41 @@ func TestACLAdminRESTContracts(t *testing.T) {
 	items = listPayload["data"].(map[string]interface{})["items"].([]interface{})
 	if len(items) != 0 {
 		t.Fatalf("expected 0 bindings after revoke, got %d", len(items))
+	}
+
+	sharedGrantReq := map[string]interface{}{
+		"topic_full_name": "global.knowledge.space.feedback.reprocess",
+		"grants": []map[string]interface{}{
+			{
+				"principal_type": "role",
+				"principal_id":   "role:role_admin",
+				"action":         "replay",
+			},
+		},
+	}
+	sharedResp := httpRequest(t, router, http.MethodPost, "/event-fabric/acl", sharedGrantReq)
+	if sharedResp.StatusCode != http.StatusOK {
+		t.Fatalf("shared grant expected 200 got %d", sharedResp.StatusCode)
+	}
+
+	sharedListResp := httpRequest(t, router, http.MethodGet, "/event-fabric/acl?topic_uuid="+sharedTopic.UUID.String(), nil)
+	if sharedListResp.StatusCode != http.StatusOK {
+		t.Fatalf("shared list expected 200 got %d", sharedListResp.StatusCode)
+	}
+	decodeJSON(t, sharedListResp.Body, &listPayload)
+	items = listPayload["data"].(map[string]interface{})["items"].([]interface{})
+	if len(items) != 1 {
+		t.Fatalf("expected 1 binding on shared topic, got %d", len(items))
+	}
+
+	topicMatrixResp := httpRequest(t, router, http.MethodGet, "/event-fabric/acl/topic-matrix?namespace=knowledge.space.feedback&name=reprocess", nil)
+	if topicMatrixResp.StatusCode != http.StatusOK {
+		t.Fatalf("topic matrix expected 200 got %d", topicMatrixResp.StatusCode)
+	}
+
+	principalMatrixResp := httpRequest(t, router, http.MethodGet, "/event-fabric/acl/principal-matrix?principal_id=role:role_admin&namespace=knowledge.space.feedback&name=reprocess", nil)
+	if principalMatrixResp.StatusCode != http.StatusOK {
+		t.Fatalf("principal matrix expected 200 got %d", principalMatrixResp.StatusCode)
 	}
 }
 

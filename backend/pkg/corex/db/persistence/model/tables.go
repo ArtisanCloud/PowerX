@@ -59,7 +59,12 @@ const TableIntegrationGatewayRouteVersion = "integration_gateway_route_versions"
 const TableIntegrationGatewayInvocationLog = "integration_gateway_invocation_logs"
 const TableIntegrationGatewayEventPublication = "integration_gateway_event_publications"
 
-const TableEventTopics = "event_topics"
+// TableTopicRegistry 是 Topic 注册中心的逻辑唯一源常量。
+// 过渡期物理表仍映射到 event_topics，待 T093 迁移后切换为最终表名。
+const TableTopicRegistry = "event_topics"
+
+// TableEventTopics 兼容旧命名，禁止新增使用；请改用 TableTopicRegistry。
+const TableEventTopics = TableTopicRegistry
 const TableEventAclBindings = "event_acl_bindings"
 const TableEventTopicBindings = "event_topic_bindings"
 const TableEventAclManifestBindings = "event_acl_manifest_bindings"
@@ -68,6 +73,9 @@ const TableEventDeliveryAttempts = "event_delivery_attempts"
 const TableEventDlqMessages = "event_dlq_messages"
 const TableEventSubscriptionOffsets = "event_subscription_offsets"
 const TableEventReplayRequests = "event_replay_requests"
+const TableEventTaskHistories = "event_task_histories"
+const TableEventScheduledTasks = "event_scheduled_tasks"
+const TableEventScheduledTaskRuns = "event_scheduled_task_runs"
 const TableEventAuthCapabilities = "event_auth_capabilities"
 const TableEventAuthGrants = "event_auth_grants"
 const TableEventAuthGrantCapabilities = "event_auth_grant_capabilities"

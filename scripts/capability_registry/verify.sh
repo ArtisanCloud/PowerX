@@ -121,8 +121,7 @@ fi
 
 log "Fetch Tenant capabilities"
 TENANT_JSON=$(curl_json GET "/tenant/capabilities?channel=agent" \
-  -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-PowerX-Tenant: $TENANT_UUID")
+  -H "Authorization: Bearer $TENANT_TOKEN")
 if command -v jq >/dev/null 2>&1; then
   TENANT_COUNT=$(printf '%s' "$TENANT_JSON" | jq '.data | length' 2>/dev/null || true)
   log "Tenant capability count: ${TENANT_COUNT:-unknown}"
@@ -132,7 +131,6 @@ log "Invoke capability $CAPABILITY_ID"
 IDEMPOTENCY_KEY="cap-reg-verify-$(date +%s)"
 INVOCATION_JSON=$(curl_json POST "/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-PowerX-Tenant: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d "{\"capability_id\":\"$CAPABILITY_ID\",\"idempotency_key\":\"$IDEMPOTENCY_KEY\",\"preferred_protocol\":\"$PREFERRED_PROTOCOL\",\"payload\":{\"verify\":true}}")
 TRACE_ID=""

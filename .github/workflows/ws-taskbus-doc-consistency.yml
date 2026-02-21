@@ -1,0 +1,35 @@
+name: WS TaskBus Doc Consistency
+
+on:
+  pull_request:
+    paths:
+      - 'specs/004-eventbus-message-fabric/**'
+      - 'specs/023-websocket-notify/**'
+      - 'scripts/specs/check_ws_taskbus_contracts.sh'
+      - '.github/workflows/ws-taskbus-doc-consistency.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'specs/004-eventbus-message-fabric/**'
+      - 'specs/023-websocket-notify/**'
+      - 'scripts/specs/check_ws_taskbus_contracts.sh'
+      - '.github/workflows/ws-taskbus-doc-consistency.yml'
+
+jobs:
+  doc-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+
+      - name: Run WS/TaskBus contract consistency check
+        run: bash scripts/specs/check_ws_taskbus_contracts.sh
+

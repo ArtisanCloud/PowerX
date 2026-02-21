@@ -29,7 +29,7 @@ storage:
 
 > **注意**
 >
-> * Admin 接口（/api/v1/admin/**）需要平台鉴权（如 `Authorization: "Bearer ...`、`X-PowerX-Tenant: ...`）。"
+> * Admin 接口（/api/v1/admin/**）需要平台鉴权（如 `Authorization: "Bearer ...`、`JWT claims（tid/tenant_uuid）: ...`）。"
 > * **上传 PUT/POST 到 presign 返回的 `url` 时，不要带平台 JWT/租户头**；只带 presign 返回的 headers。
 > * Local 环境必须有下载 GET 路由（如 `GET /media/**`）且其根目录与 `local.basePath` 一致。
 
@@ -58,7 +58,6 @@ storage:
 curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{
         "name":"logo-green.jpg",
         "mime_type":"image/jpeg",
@@ -97,7 +96,6 @@ UUID="f9cc2061-1c61-4ad5-b6e6-c7d28f86640f"
 curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{
         "action":"upload",
         "filename":"logo-green.jpg",
@@ -153,7 +151,7 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
 
 ### 步骤 3）上传文件字节（PUT 到 `data.url`）
 
-> **严格带上 `presign` 返回的所有 headers**；**不要**携带平台 `Authorization`/`X-PowerX-Tenant`。
+> **严格带上 `presign` 返回的所有 headers**；**不要**携带平台 `Authorization`/`JWT claims（tid/tenant_uuid）`。
 
 **Local：**
 
@@ -192,7 +190,6 @@ curl -i -X PUT "$URL" \
 curl -s -X PATCH "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{
         "status":"active",
         "size":123456,
@@ -210,7 +207,6 @@ curl -s -X PATCH "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
 curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{"action":"download","expires_in":600}'
 ```
 
@@ -250,7 +246,6 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
 DL=$(curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{"action":"download","expires_in":600}' | jq -r '.data.url')
 
 curl -I "$DL"   # 期望：HTTP/1.1 200 OK
@@ -265,7 +260,7 @@ curl -I "$DL"   # 期望：HTTP/1.1 200 OK
 ```bash
 curl -s "http://127.0.0.1:8077/api/v1/admin/media/assets?page=1&page_size=20&status=active&tag=channel:web&q=logo" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1"
+  -H "JWT claims（tid/tenant_uuid）: 1"
 ```
 
 ### 4.2 详情
@@ -273,7 +268,7 @@ curl -s "http://127.0.0.1:8077/api/v1/admin/media/assets?page=1&page_size=20&sta
 ```bash
 curl -s "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1"
+  -H "JWT claims（tid/tenant_uuid）: 1"
 ```
 
 ### 4.3 更新
@@ -282,7 +277,6 @@ curl -s "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
 curl -s -X PATCH "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1" \
   -d '{
         "name":"logo-green-v2.jpg",
         "tags":["channel:web","campaign:q4"],
@@ -296,7 +290,7 @@ curl -s -X PATCH "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
 ```bash
 curl -s -X DELETE "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-PowerX-Tenant: 1"
+  -H "JWT claims（tid/tenant_uuid）: 1"
 ```
 
 ---

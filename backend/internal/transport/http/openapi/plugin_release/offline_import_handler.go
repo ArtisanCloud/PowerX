@@ -52,13 +52,6 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 		}
 	}
 	if tenantUUID == "" {
-		tenantUUID = strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
-	}
-	// 向后兼容：若仍发送 X-Tenant-ID（旧字段），暂时允许透传
-	if tenantUUID == "" {
-		tenantUUID = strings.TrimSpace(c.GetHeader("X-Tenant-ID"))
-	}
-	if tenantUUID == "" {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid is required", nil)
 		return
 	}

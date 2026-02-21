@@ -19,6 +19,7 @@ type DepsOptions struct {
 	AuthCustomer auth.AuthOptions      // 给客户/插件端的 Audience
 	Audit        auditsvc.AuditOptions // 批量大小、等待等
 	Storage      mediasvc.StorageOptions
+	Queue        QueueOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
 	EventFabric        EventFabricOptions
 	Workflow           WorkflowOptions
@@ -31,6 +32,40 @@ type DepsOptions struct {
 	PluginBootstrap    PluginBootstrapOptions
 	PluginDebug        PluginDebugOptions
 	Server             ServerOptions
+}
+
+// QueueOptions 描述任务驱动的配置入口。
+type QueueOptions struct {
+	Driver string
+	Kafka  QueueKafkaOptions
+	Rabbit QueueRabbitMQOptions
+	NATS   QueueNATSOptions
+}
+
+// QueueKafkaOptions 描述 Kafka 驱动连接参数。
+type QueueKafkaOptions struct {
+	Brokers       []string
+	TopicPrefix   string
+	ConsumerGroup string
+	PollTimeoutMs int
+}
+
+// QueueRabbitMQOptions 描述 RabbitMQ 驱动连接参数。
+type QueueRabbitMQOptions struct {
+	URL           string
+	Exchange      string
+	QueuePrefix   string
+	ConsumerTag   string
+	Prefetch      int
+	PollTimeoutMs int
+}
+
+// QueueNATSOptions 描述 NATS 驱动连接参数。
+type QueueNATSOptions struct {
+	URLs          []string
+	SubjectPrefix string
+	QueueGroup    string
+	PollTimeoutMs int
 }
 
 type ServerOptions struct {

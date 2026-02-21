@@ -30,8 +30,18 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const tenant = encodeURIComponent(String(tenantUUID || ""));
   const tenantQuery = tenant ? `&tenant_uuid=${tenant}` : "";
   if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
-    const base = upstream.replace(/\/+$/, "");
-    return `${base}/ws?authorization=${auth}${tenantQuery}`;
+    let base = upstream.replace(/\/+$/, "");
+    if (base.endsWith("/api/ws")) {
+      return `${base}?authorization=${auth}${tenantQuery}`;
+    }
+    if (base.endsWith("/ws")) {
+      base = `${base.slice(0, -3)}/api/ws`;
+      return `${base}?authorization=${auth}${tenantQuery}`;
+    }
+    if (base.endsWith("/api")) {
+      return `${base}/ws?authorization=${auth}${tenantQuery}`;
+    }
+    return `${base}/api/ws?authorization=${auth}${tenantQuery}`;
   }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${location.host}/api/ws?authorization=${auth}${tenantQuery}`;
