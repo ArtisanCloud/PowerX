@@ -951,8 +951,6 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			})
 			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=kafka enabled; using kafka adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
-			retryWorkerFallbackEnabled = false
-			pxlog.WarnF(context.Background(), "[event_fabric.degrade] driver=%s tenant=all reason=db_polling_fallback_disabled", retryWorkerDriverName)
 		case "rabbitmq":
 			taskDriver = rabbitdriver.NewDriver(rabbitdriver.DriverOptions{
 				URL:            strings.TrimSpace(queueOpts.Rabbit.URL),
@@ -965,8 +963,6 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			})
 			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=rabbitmq enabled; using rabbitmq adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
-			retryWorkerFallbackEnabled = false
-			pxlog.WarnF(context.Background(), "[event_fabric.degrade] driver=%s tenant=all reason=db_polling_fallback_disabled", retryWorkerDriverName)
 		case "nats":
 			taskDriver = natsdriver.NewDriver(natsdriver.DriverOptions{
 				URLs:           append([]string{}, queueOpts.NATS.URLs...),
@@ -977,8 +973,6 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			})
 			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=nats enabled; using nats adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
-			retryWorkerFallbackEnabled = false
-			pxlog.WarnF(context.Background(), "[event_fabric.degrade] driver=%s tenant=all reason=db_polling_fallback_disabled", retryWorkerDriverName)
 		}
 		scheduler = deliveryService.NewBackoffScheduler(reliableQueue)
 		if metricsRecorder != nil {
