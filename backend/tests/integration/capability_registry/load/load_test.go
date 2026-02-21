@@ -18,7 +18,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	eventtopics "github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventtopics "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"

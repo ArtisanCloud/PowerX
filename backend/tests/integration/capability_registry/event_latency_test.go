@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventtopics "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
@@ -84,7 +84,7 @@ func TestIntegrationGatewayInvocationEventsDeliveredWithinOneMinute(t *testing.T
 	startTimes := make(map[string]time.Time)
 	var startMu sync.RWMutex
 
-	unsub := env.Bus.Subscribe(eventbus.TopicIntegrationGatewayInvocationSucceeded, func(evt event_bus.Event) error {
+	unsub := env.Bus.Subscribe(eventtopics.TopicIntegrationGatewayInvocationSucceeded, func(evt event_bus.Event) error {
 		payloadMap, ok := evt.Payload.(map[string]interface{})
 		if !ok {
 			return nil
