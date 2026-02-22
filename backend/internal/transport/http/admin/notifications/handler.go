@@ -38,12 +38,15 @@ func NewHandler(deps *shared.Deps) *Handler {
 }
 
 type TestNotificationRequest struct {
-	Title       string         `json:"title"`
-	Content     string         `json:"content"`
-	Type        string         `json:"type"`
-	Category    string         `json:"category"`
-	IsImportant bool           `json:"isImportant"`
-	Metadata    map[string]any `json:"metadata"`
+	Title        string         `json:"title"`
+	Content      string         `json:"content"`
+	Type         string         `json:"type"`
+	Category     string         `json:"category"`
+	IsImportant  bool           `json:"isImportant"`
+	Metadata     map[string]any `json:"metadata"`
+	Topic        string         `json:"topic"`
+	SubscriberID string         `json:"subscriber_id"`
+	TenantKey    string         `json:"tenant_key"`
 }
 
 type ListNotificationRequest struct {
@@ -267,12 +270,24 @@ func (h *Handler) PushTestNotificationQueue(c *gin.Context) {
 	if strings.TrimSpace(payload.ID) == "" {
 		taskID = fmt.Sprintf("notification.dispatch.%s.%d", uuid.NewString(), time.Now().UTC().UnixMilli())
 	}
+	targetTopic := strings.TrimSpace(req.Topic)
+	if targetTopic == "" {
+		targetTopic = eventbus.TopicSystemNotification
+	}
+	targetSubscriberID := strings.TrimSpace(req.SubscriberID)
+	if targetSubscriberID == "" {
+		targetSubscriberID = eventbus.SubscriberSystemNotificationDispatch
+	}
+	targetTenantKey := strings.TrimSpace(req.TenantKey)
+	if targetTenantKey == "" {
+		targetTenantKey = "global"
+	}
 
 	enqueueErr := h.deps.EventFabric.TaskDriver.Enqueue(c.Request.Context(), event_bus.TaskMessage{
 		ID:           taskID,
-		TenantKey:    "global",
-		SubscriberID: eventbus.SubscriberSystemNotificationDispatch,
-		Topic:        eventbus.TopicSystemNotification,
+		TenantKey:    targetTenantKey,
+		SubscriberID: targetSubscriberID,
+		Topic:        targetTopic,
 		Payload:      payloadBytes,
 		TraceID:      reqctx.GetTraceID(c.Request.Context()),
 		VisibleAt:    time.Now().UTC(),
@@ -280,6 +295,9 @@ func (h *Handler) PushTestNotificationQueue(c *gin.Context) {
 			"kind":        "queue_notification_debug",
 			"tenant_uuid": tenantUUID,
 			"member_uuid": memberUUID,
+			"topic":       targetTopic,
+			"subscriber":  targetSubscriberID,
+			"tenant_key":  targetTenantKey,
 		},
 	})
 	if enqueueErr != nil {
@@ -289,8 +307,9 @@ func (h *Handler) PushTestNotificationQueue(c *gin.Context) {
 
 	dto.ResponseSuccess(c, gin.H{
 		"task_id":       taskID,
-		"subscriber_id": eventbus.SubscriberSystemNotificationDispatch,
-		"topic":         eventbus.TopicSystemNotification,
+		"subscriber_id": targetSubscriberID,
+		"topic":         targetTopic,
+		"tenant_key":    targetTenantKey,
 		"payload":       payload,
 	})
 }

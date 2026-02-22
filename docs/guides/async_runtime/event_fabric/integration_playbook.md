@@ -32,7 +32,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/replay" \
+  "$POWERX_BASE_URL/admin/event-fabric/replay/tasks" \
   -d '{"topic":"_topic.knowledge.space.feedback.reprocess","reason":"playbook-replay"}' | jq
 ```
 
@@ -47,7 +47,7 @@ curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/pipeline" \
+  "$POWERX_BASE_URL/admin/event-fabric/pipeline/tasks" \
   -d '{"title":"Pipeline联调","content":"from playbook","type":"system","category":"system"}' | jq
 ```
 
@@ -121,8 +121,8 @@ scripts/cron/integration_playbook.sh --with-write
 3. ACL：`GET /admin/event-fabric/acl/topic-matrix`
 4. Queue 统计：`GET /admin/event-fabric/task-queue/stats`
 5. Queue 历史：`GET /admin/event-fabric/task-queue/messages`
-6. Replay 调试：`POST /admin/event-fabric/debug/tasks/replay`
-7. Pipeline 调试：`POST /admin/event-fabric/debug/tasks/pipeline`
+6. Replay 调试：`POST /admin/event-fabric/replay/tasks`
+7. Pipeline 调试：`POST /admin/event-fabric/pipeline/tasks`
 8. DLQ 查询：`GET /admin/event-fabric/dlq/messages`
 9. DLQ 重放：`POST /admin/event-fabric/dlq/messages:replay`
 10. Cron 列表：`GET /admin/event-fabric/cron/jobs`

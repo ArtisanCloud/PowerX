@@ -29,7 +29,7 @@
             :key="tab.key"
             size="sm"
             :variant="activeTab === tab.key ? 'solid' : 'outline'"
-            :color="activeTab === tab.key ? 'primary' : 'gray'"
+            :color="activeTab === tab.key ? 'primary' : 'neutral'"
             @click="setTab(tab.key)"
           >
             {{ tab.label }}
@@ -83,7 +83,7 @@
                 block
                 size="sm"
                 :variant="eventSubTab === tab.key ? 'solid' : 'outline'"
-                :color="eventSubTab === tab.key ? 'primary' : 'gray'"
+                :color="eventSubTab === tab.key ? 'primary' : 'neutral'"
                 @click="setEventSubTab(tab.key)"
               >
                 {{ tab.label }}
@@ -363,34 +363,92 @@
 
       <div v-else-if="activeTab === 'websocket'" class="space-y-4">
         <UCard>
-          <template #header><div class="font-semibold">WebSocket 实时状态</div></template>
-          <div class="flex flex-wrap items-center gap-2 mb-3">
-            <UBadge :color="wsConnected ? 'green' : wsConnecting ? 'yellow' : 'gray'" variant="subtle">
-              {{ wsConnected ? '已连接' : wsConnecting ? '连接中' : '未连接' }}
-            </UBadge>
-            <span class="text-xs text-gray-500" v-if="wsLastError">错误：{{ wsLastError }}</span>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <UInput v-model="wsTopic" placeholder="订阅 topic（例如 _topic.knowledge.space.feedback.reprocess）" class="md:col-span-3" />
-            <div class="flex gap-2">
-              <UButton size="sm" variant="outline" @click="connectWs">连接</UButton>
-              <UButton size="sm" variant="outline" @click="disconnectWs">断开</UButton>
+          <template #header><div class="font-semibold">WebSocket 调试（按步骤）</div></template>
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300">
+            <div class="font-semibold mb-2">操作顺序</div>
+            <ol class="list-decimal pl-4 space-y-1">
+              <li>先点「连接」。</li>
+              <li>选择 topic，然后点「开始订阅」。</li>
+              <li>点「触发 Replay 联调」或「触发 Pipeline 联调」。</li>
+              <li>在下方「实时消息预览」确认收到消息。</li>
+            </ol>
+            <div class="mt-2 text-gray-500 space-y-1">
+              <div>推荐订阅 topic：</div>
+              <div>• 触发 Replay 联调：推荐订阅 <span class="font-mono">_topic.system.notification</span>（可看到 replay 状态事件，kind=<span class="font-mono">_kind.event_fabric.replay.task</span>）。</div>
+              <div>• 触发 Pipeline 联调：推荐订阅 <span class="font-mono">_topic.system.notification</span>（可看到通知分发事件）。</div>
+              <div>提示：页面不做轮询，实时变化以 WebSocket 推送为准。</div>
             </div>
           </div>
 
-          <div class="mt-3 flex gap-2">
-            <UButton size="sm" color="primary" @click="subscribeWs">开始订阅</UButton>
-            <UButton size="sm" variant="outline" @click="unsubscribeWs">停止订阅</UButton>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <UBadge color="neutral" variant="subtle">连接状态</UBadge>
+            <UBadge :color="wsConnected ? 'success' : wsConnecting ? 'warning' : wsLastError ? 'error' : 'neutral'" variant="solid">
+              {{ wsConnected ? '已连接' : wsConnecting ? '连接中' : '未连接' }}
+            </UBadge>
+            <UBadge color="neutral" variant="subtle">订阅状态</UBadge>
+            <UBadge v-if="wsSubscribedTopic" color="success" variant="solid">{{ wsSubscribedTopic }}</UBadge>
+            <UBadge v-else color="warning" variant="solid">未订阅</UBadge>
+            <span class="text-xs text-gray-500" v-if="wsLastError">错误：{{ wsLastError }}</span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <USelectMenu
+              v-model="wsTopic"
+              :items="wsTopicOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="请选择订阅 topic"
+              class="md:col-span-3 w-full"
+            />
+            <div class="text-xs text-gray-500">请选择一个 topic；若找不到，请先到事件管理页确认该 topic 已注册。</div>
+          </div>
+
+          <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-500">连接控制</div>
+              <div class="flex flex-wrap gap-2">
+                <UButton v-if="!wsConnected && !wsConnecting" size="sm" color="primary" @click="connectWs">连接</UButton>
+                <UButton v-else size="sm" color="error" variant="soft" @click="disconnectWs">断开</UButton>
+              </div>
+              <div class="text-xs text-gray-500">
+                {{ wsConnected ? "当前已连接，可执行：断开" : wsConnecting ? "连接中，请稍候…" : "当前未连接，可执行：连接" }}
+              </div>
+            </div>
+
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-500">订阅控制</div>
+              <div class="flex flex-wrap gap-2">
+                <UButton size="sm" color="primary" @click="subscribeWs">开始订阅</UButton>
+                <UButton size="sm" variant="outline" @click="unsubscribeWs">停止订阅</UButton>
+                <UButton size="sm" variant="ghost" @click="clearWsEvents">清空消息</UButton>
+              </div>
+            </div>
+
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-500">联调触发</div>
+              <div class="flex flex-wrap gap-2">
+                <UButton size="sm" color="primary" variant="soft" :loading="flowDebug.running" :disabled="!canRunFlowDebug" @click="runFlowTemplateTask">
+                  触发 Replay 联调
+                </UButton>
+                <UButton size="sm" color="primary" variant="soft" :loading="queueNotificationLoading" :disabled="!canRunFlowDebug" @click="runQueueNotificationDebug">
+                  触发 Pipeline 联调
+                </UButton>
+              </div>
+            </div>
           </div>
         </UCard>
 
         <UCard>
           <template #header><div class="font-semibold">实时消息预览（最近 20 条）</div></template>
+          <div class="mb-2 text-xs text-gray-500">
+            共 {{ wsEvents.length }} 条 · 最新 topic：<span class="font-mono">{{ wsEvents[0]?.topic || '-' }}</span>
+          </div>
           <div class="max-h-72 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono space-y-2">
             <div v-for="(item, idx) in wsEvents" :key="idx" class="border-b border-gray-100 dark:border-gray-800 pb-2">
               <div>time: {{ item.ts }}</div>
+              <div>type: {{ item.type }}</div>
               <div>topic: {{ item.topic }}</div>
+              <div>trace_id: {{ item.traceId || '-' }}</div>
               <div>payload: {{ item.payload }}</div>
             </div>
             <div v-if="wsEvents.length === 0" class="text-gray-500">还没有收到实时消息。</div>
@@ -400,52 +458,23 @@
 
       <div v-else-if="activeTab === 'task-cron'" class="space-y-4">
         <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold">监控阈值设置（任务队列高亮）</div>
-              <div class="flex gap-2">
-                <UButton size="xs" variant="outline" @click="resetThresholdConfig">重置默认</UButton>
-                <UButton size="xs" color="primary" @click="saveThresholdConfig">保存阈值</UButton>
-              </div>
-            </div>
-          </template>
-
-          <div class="text-xs text-gray-500 mb-3">
-            规则：数值 ≥ warn 且 &lt; danger 显示黄色；数值 ≥ danger 显示红色。
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-              <div class="text-sm font-medium">pending</div>
-              <UInput v-model.number="thresholdConfig.pendingWarn" type="number" min="0" placeholder="warn" />
-              <UInput v-model.number="thresholdConfig.pendingDanger" type="number" min="0" placeholder="danger" />
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-              <div class="text-sm font-medium">deferred</div>
-              <UInput v-model.number="thresholdConfig.deferredWarn" type="number" min="0" placeholder="warn" />
-              <UInput v-model.number="thresholdConfig.deferredDanger" type="number" min="0" placeholder="danger" />
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-              <div class="text-sm font-medium">processing</div>
-              <UInput v-model.number="thresholdConfig.processingWarn" type="number" min="0" placeholder="warn" />
-              <UInput v-model.number="thresholdConfig.processingDanger" type="number" min="0" placeholder="danger" />
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-              <div class="text-sm font-medium">inflight</div>
-              <UInput v-model.number="thresholdConfig.inflightWarn" type="number" min="0" placeholder="warn" />
-              <UInput v-model.number="thresholdConfig.inflightDanger" type="number" min="0" placeholder="danger" />
-            </div>
+          <template #header><div class="font-semibold">Task / Cron 调试路径</div></template>
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
+            <div class="font-semibold">建议顺序</div>
+            <div>1) 先在「Task 联调」创建/查询 replay 任务，确认任务状态流转。</div>
+            <div>2) 再在「Cron 管理」执行 run-now / pause / resume，确认调度控制有效。</div>
+            <div>3) 队列容量阈值属于高级配置，放在页面底部折叠区。</div>
           </div>
         </UCard>
 
         <UCard>
-          <template #header><div class="font-semibold">Task 联调（已接入）</div></template>
+          <template #header><div class="font-semibold">Replay Task 联调</div></template>
 
           <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
             <div class="font-semibold">接口能力：</div>
-            <div>• 创建任务：<span class="font-mono">POST /admin/event-fabric/debug/tasks/replay</span></div>
-            <div>• 查询任务：<span class="font-mono">GET /admin/event-fabric/debug/tasks/replay/:task_id</span></div>
-            <div>• 取消任务：<span class="font-mono">POST /admin/event-fabric/debug/tasks/replay/:task_id/cancel</span></div>
+            <div>• 创建任务：<span class="font-mono">POST /admin/event-fabric/replay/tasks</span></div>
+            <div>• 查询任务：<span class="font-mono">GET /admin/event-fabric/replay/tasks/:task_id</span></div>
+            <div>• 取消任务：<span class="font-mono">POST /admin/event-fabric/replay/tasks/:task_id/cancel</span></div>
           </div>
 
           <div class="grid grid-cols-1 gap-3 md:grid-cols-3 mt-3">
@@ -479,7 +508,7 @@
         <UCard>
           <template #header>
             <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold">Cron 管理（统一机制）</div>
+              <div class="font-semibold">Cron 管理</div>
               <UButton size="sm" variant="outline" :loading="cronDebug.loading" @click="loadCronJobsDebug">刷新任务</UButton>
             </div>
           </template>
@@ -500,8 +529,10 @@
               <thead class="bg-gray-50 dark:bg-gray-800/50">
                 <tr>
                   <th class="text-left px-3 py-2">任务</th>
+                  <th class="text-left px-3 py-2">类型</th>
                   <th class="text-left px-3 py-2">状态</th>
                   <th class="text-left px-3 py-2">周期/批次</th>
+                  <th class="text-left px-3 py-2">subscriber/tenant</th>
                   <th class="text-left px-3 py-2">下次执行</th>
                   <th class="text-left px-3 py-2">操作</th>
                 </tr>
@@ -512,9 +543,13 @@
                     <div class="font-medium">{{ job.name }}</div>
                     <div class="text-gray-500 font-mono">{{ job.id }}</div>
                   </td>
+                  <td class="px-3 py-2">{{ job.kind || '-' }}</td>
                   <td class="px-3 py-2">{{ job.status }}</td>
                   <td class="px-3 py-2">
                     interval={{ job.interval_sec ?? '-' }}s · batch={{ job.batch_size ?? '-' }}
+                  </td>
+                  <td class="px-3 py-2 font-mono">
+                    {{ job.subscriber_id || '-' }} / {{ job.tenant_key || '-' }}
                   </td>
                   <td class="px-3 py-2 font-mono">{{ job.next_run_at || '-' }}</td>
                   <td class="px-3 py-2">
@@ -525,7 +560,7 @@
                       <UButton size="xs" variant="outline" :loading="cronDebug.loading" :disabled="!job.supports_pause || job.status === 'paused'" @click="pauseCronJobDebug(job.id)">
                         pause
                       </UButton>
-                      <UButton size="xs" variant="soft" color="green" :loading="cronDebug.loading" :disabled="!job.supports_pause || job.status !== 'paused'" @click="resumeCronJobDebug(job.id)">
+                      <UButton size="xs" variant="soft" color="success" :loading="cronDebug.loading" :disabled="!job.supports_pause || job.status !== 'paused'" @click="resumeCronJobDebug(job.id)">
                         resume
                       </UButton>
                     </div>
@@ -540,13 +575,75 @@
             <div v-if="cronDebug.logs.length === 0" class="text-gray-500">点击“刷新任务”开始 Cron 联调。</div>
           </div>
         </UCard>
+
+        <details class="rounded border border-gray-200 dark:border-gray-700 p-3">
+          <summary class="cursor-pointer text-sm font-semibold">高级：监控阈值设置（任务队列高亮）</summary>
+          <div class="mt-3">
+            <div class="flex items-center justify-end gap-2 mb-3">
+              <UButton size="xs" variant="outline" @click="resetThresholdConfig">重置默认</UButton>
+              <UButton size="xs" color="primary" @click="saveThresholdConfig">保存阈值</UButton>
+            </div>
+
+            <div class="text-xs text-gray-500 mb-3">
+              规则：数值 ≥ warn 且 &lt; danger 显示黄色；数值 ≥ danger 显示红色。
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                <div class="text-sm font-medium">pending</div>
+                <UInput v-model.number="thresholdConfig.pendingWarn" type="number" min="0" placeholder="warn" />
+                <UInput v-model.number="thresholdConfig.pendingDanger" type="number" min="0" placeholder="danger" />
+              </div>
+              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                <div class="text-sm font-medium">deferred</div>
+                <UInput v-model.number="thresholdConfig.deferredWarn" type="number" min="0" placeholder="warn" />
+                <UInput v-model.number="thresholdConfig.deferredDanger" type="number" min="0" placeholder="danger" />
+              </div>
+              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                <div class="text-sm font-medium">processing</div>
+                <UInput v-model.number="thresholdConfig.processingWarn" type="number" min="0" placeholder="warn" />
+                <UInput v-model.number="thresholdConfig.processingDanger" type="number" min="0" placeholder="danger" />
+              </div>
+              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                <div class="text-sm font-medium">inflight</div>
+                <UInput v-model.number="thresholdConfig.inflightWarn" type="number" min="0" placeholder="warn" />
+                <UInput v-model.number="thresholdConfig.inflightDanger" type="number" min="0" placeholder="danger" />
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <UCard v-else>
         <template #header><div class="font-semibold">Logs / Trace</div></template>
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          这里将接入 trace_id 维度聚合日志（API -> Task -> Delivery），用于故障快速定位。
-        </p>
+        <div class="space-y-3">
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
+            <div class="font-semibold">当前实现可观测入口</div>
+            <div>1) 实时链路：WebSocket 页签（消息里包含 topic/trace_id）。</div>
+            <div>2) 任务链路：事件总线 Queue 详情（运行态 + 历史态）。</div>
+            <div>3) 调度链路：Task/Cron 页签（run-now / pause / resume 操作日志）。</div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 text-xs">
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-1">
+              <div class="text-gray-500">最近 WS topic</div>
+              <div class="font-mono">{{ wsEvents[0]?.topic || '-' }}</div>
+              <div class="text-gray-500 mt-2">最近 WS trace_id</div>
+              <div class="font-mono">{{ wsEvents[0]?.traceId || '-' }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-1">
+              <div class="text-gray-500">最近 Replay task_id</div>
+              <div class="font-mono">{{ taskDebug.taskId || flowDebug.taskId || '-' }}</div>
+              <div class="text-gray-500 mt-2">最近阶段</div>
+              <div class="font-mono">{{ flowDebug.phase || '-' }}</div>
+            </div>
+          </div>
+
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono space-y-1 max-h-56 overflow-auto">
+            <div v-for="(line, idx) in mergedTraceLogs" :key="idx">{{ line }}</div>
+            <div v-if="mergedTraceLogs.length === 0" class="text-gray-500">暂无可展示日志，先去 WebSocket / Task-Cron 页签执行一次联调。</div>
+          </div>
+        </div>
       </UCard>
     </div>
   </div>
@@ -1005,7 +1102,7 @@ async function runFlowTemplateTask() {
   pushFlow("create", `准备创建任务 topic=${topic}`);
 
   try {
-    const createRes = await svc.createReplayDebugTask({
+    const createRes = await svc.createReplayTask({
       topic,
       trace_id: taskDebug.traceId.trim() || undefined,
       reason: "flow-debug template task",
@@ -1054,7 +1151,7 @@ async function runQueueNotificationDebug() {
   }
   queueNotificationLoading.value = true;
   try {
-    const res = await svc.createPipelineDebugTask({
+    const res = await svc.createPipelineTask({
       title: "Pipeline 联调通知",
       content: "这条通知通过 Task 队列分发到 WS。",
       type: "system",
@@ -1138,8 +1235,10 @@ const wsBus = useWSBus();
 const wsConnected = computed(() => wsBus.connected.value);
 const wsConnecting = computed(() => wsBus.connecting.value);
 const wsLastError = computed(() => wsBus.lastError.value);
-const wsTopic = ref("");
-const wsEvents = ref<Array<{ ts: string; topic: string; payload: string }>>([]);
+const wsTopic = ref(EVENT_TOPICS.SYSTEM_NOTIFICATION);
+const wsTopicCatalog = ref<string[]>([]);
+const wsSubscribedTopic = ref("");
+const wsEvents = ref<Array<{ ts: string; type: string; topic: string; traceId: string; payload: string }>>([]);
 let wsDispose: (() => void) | null = null;
 let replayStatusDispose: (() => void) | null = null;
 const replayStatusTopic = EVENT_TOPICS.SYSTEM_NOTIFICATION;
@@ -1199,15 +1298,62 @@ function ensureReplayStatusSubscription() {
 }
 
 function connectWs() {
+  if (wsConnected.value) {
+    toast.add({ title: "已连接", description: "当前 WebSocket 已连接", color: "info" });
+    return;
+  }
   wsBus.connect();
+  toast.add({ title: "已发起连接", color: "info" });
 }
 
 function disconnectWs() {
+  if (!wsConnected.value && !wsConnecting.value) {
+    toast.add({ title: "当前未连接", color: "info" });
+    return;
+  }
   if (wsDispose) {
     wsDispose();
     wsDispose = null;
   }
+  wsSubscribedTopic.value = "";
   wsBus.disconnect();
+  toast.add({ title: "连接已断开", color: "info" });
+}
+
+function normalizeWsTopic(topic: string) {
+  return resolveReplayTopic(String(topic || "").trim());
+}
+
+function clearWsEvents() {
+  wsEvents.value = [];
+}
+
+const wsTopicOptions = computed<Array<{ label: string; value: string }>>(() => {
+  const defaults = [
+    EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS,
+    EVENT_TOPICS.SYSTEM_NOTIFICATION,
+  ];
+  const dynamicFromOverview = (overview.value?.topics || [])
+    .map((item) => normalizeWsTopic(item.full_topic || `${item.namespace}.${item.name}`))
+    .filter(Boolean);
+  const merged = Array.from(new Set([...defaults, ...wsTopicCatalog.value, ...dynamicFromOverview]));
+  return merged.map((topic) => ({
+    label: topic,
+    value: topic,
+  }));
+});
+
+async function loadWsTopicCatalog() {
+  try {
+    const res = await svc.listTopics({ page: 1, page_size: 500 });
+    const items = Array.isArray(res?.data?.items) ? res.data.items : [];
+    const topics = items
+      .map((item: any) => normalizeWsTopic(item?.full_topic || `${item?.namespace || ""}.${item?.name || ""}`))
+      .filter((item: string) => Boolean(item));
+    wsTopicCatalog.value = Array.from(new Set(topics));
+  } catch {
+    wsTopicCatalog.value = [];
+  }
 }
 
 function subscribeWs() {
@@ -1220,11 +1366,14 @@ function subscribeWs() {
   wsDispose = wsBus.subscribe(topic, (payload, env) => {
     wsEvents.value.unshift({
       ts: new Date(env.ts || Date.now()).toLocaleTimeString(),
+      type: String(env.type || "event"),
       topic: env.topic || topic,
+      traceId: String((env as any).trace_id || ""),
       payload: typeof payload === "string" ? payload : JSON.stringify(payload),
     });
     wsEvents.value = wsEvents.value.slice(0, 20);
   });
+  wsSubscribedTopic.value = topic;
   toast.add({ title: "已订阅", description: topic, color: "success" });
 }
 
@@ -1232,6 +1381,7 @@ function unsubscribeWs() {
   if (wsDispose) {
     wsDispose();
     wsDispose = null;
+    wsSubscribedTopic.value = "";
     toast.add({ title: "已取消订阅", color: "info" });
   }
 }
@@ -1282,6 +1432,25 @@ function formatTopicForDisplay(input: string) {
 
 const canRunFlowDebug = computed(() => {
   return Boolean(effectiveTenantUuid.value);
+});
+
+const mergedTraceLogs = computed(() => {
+  const lines: string[] = [];
+  if (wsEvents.value.length > 0) {
+    const ws = wsEvents.value[0];
+    lines.push(`[WS] topic=${ws.topic} trace_id=${ws.traceId || "-"} ts=${ws.ts}`);
+  }
+  if (flowDebug.timeline.length > 0) {
+    const flow = flowDebug.timeline[0];
+    lines.push(`[FLOW] ${flow.ts} ${flow.stage} ${flow.detail}`);
+  }
+  if (taskDebug.logs.length > 0) {
+    lines.push(`[TASK] ${taskDebug.logs[0]}`);
+  }
+  if (cronDebug.logs.length > 0) {
+    lines.push(`[CRON] ${cronDebug.logs[0]}`);
+  }
+  return lines;
 });
 
 
@@ -1386,7 +1555,7 @@ async function createReplayTaskDebug() {
 
   taskDebug.loading = true;
   try {
-    const res = await svc.createReplayDebugTask({
+    const res = await svc.createReplayTask({
       topic,
       trace_id: taskDebug.traceId.trim() || undefined,
       reason: "debug from monitor/task-cron",
@@ -1416,7 +1585,7 @@ async function queryReplayTaskDebug() {
 
   taskDebug.loading = true;
   try {
-    const res = await svc.getReplayDebugTask(taskId);
+    const res = await svc.getReplayTask(taskId);
     const task = res.data;
     taskDebug.status = task.status || "";
     taskDebug.resultCount = task.result_count ?? null;
@@ -1440,7 +1609,7 @@ async function cancelReplayTaskDebug() {
 
   taskDebug.loading = true;
   try {
-    await svc.cancelReplayDebugTask(taskId, {});
+    await svc.cancelReplayTask(taskId, {});
     pushTaskDebug(`cancel ok: task_id=${taskId}`);
     toast.add({ title: "已提交取消", description: taskId, color: "success" });
     await queryReplayTaskDebug();
@@ -1454,7 +1623,8 @@ async function cancelReplayTaskDebug() {
 
 watch(activeTab, (tab) => {
   if (tab === "websocket" && !wsTopic.value) {
-    wsTopic.value = EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS;
+    wsTopic.value = EVENT_TOPICS.SYSTEM_NOTIFICATION;
+    void loadWsTopicCatalog();
   }
   if (tab === "task-cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
     void loadCronJobsDebug();
@@ -1472,6 +1642,9 @@ onMounted(async () => {
   ensureReplayStatusSubscription();
   if (activeTab.value === "event-fabric") {
     await refresh();
+  }
+  if (activeTab.value === "websocket") {
+    await loadWsTopicCatalog();
   }
 });
 

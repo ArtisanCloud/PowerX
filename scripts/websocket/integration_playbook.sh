@@ -187,7 +187,7 @@ assert_json_expr "$STATS_JSON" '.code == 200' "task-queue/stats 返回成功"
 if [[ "$WITH_WRITE" -eq 1 ]]; then
   info "Step 5/5: 执行 Pipeline 写入联调并校验历史"
   PIPE_REQ="$(jq -cn '{title:"WS Integration Playbook",content:"pipeline debug",type:"system",category:"system"}')"
-  PIPE_JSON="$(request_json POST "/admin/event-fabric/debug/tasks/pipeline" "$PIPE_REQ")"
+  PIPE_JSON="$(request_json POST "/admin/event-fabric/pipeline/tasks" "$PIPE_REQ")"
   assert_json_expr "$PIPE_JSON" '.code == 200 and (.data.task_id | length > 0)' "Pipeline 通知任务创建成功"
   PIPE_TASK_ID="$(printf '%s' "$PIPE_JSON" | jq -r '.data.task_id // empty')"
   pass "Pipeline task_id=${PIPE_TASK_ID}"

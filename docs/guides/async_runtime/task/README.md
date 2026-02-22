@@ -45,7 +45,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/replay" \
+  "$POWERX_BASE_URL/admin/event-fabric/replay/tasks" \
   -d '{"topic":"_topic.knowledge.space.feedback.reprocess","reason":"task-readme-replay"}' | jq
 ```
 
@@ -72,7 +72,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/pipeline" \
+  "$POWERX_BASE_URL/admin/event-fabric/pipeline/tasks" \
   -d '{"title":"Task调试","content":"from task readme","type":"system","category":"system"}' | jq
 ```
 

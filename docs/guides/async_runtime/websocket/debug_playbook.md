@@ -138,7 +138,7 @@ wscat -c "ws://127.0.0.1:8078/api/ws?authorization=Bearer $USER_TOKEN"
 curl -sS -X POST \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "http://127.0.0.1:8077/api/v1/admin/event-fabric/debug/tasks/pipeline" \
+  "http://127.0.0.1:8077/api/v1/admin/event-fabric/pipeline/tasks" \
   -d '{"title":"WS联调","content":"from websocket playbook","type":"system","category":"system"}' | jq
 ```
 

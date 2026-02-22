@@ -53,7 +53,7 @@
 - `GET /admin/event-fabric/overview`
 - `GET /admin/event-fabric/topics`
 - `GET /admin/event-fabric/dlq/messages`
-- `POST /admin/event-fabric/debug/tasks/replay`
+- `POST /admin/event-fabric/replay/tasks`
 - `POST /internal/ws-bus/register`
 
 #### `/internal/ws-bus/register` 统一语义

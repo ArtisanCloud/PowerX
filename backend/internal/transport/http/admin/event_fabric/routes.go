@@ -117,16 +117,11 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		adminGroup.POST("/replay/tasks", replayHandler.CreateTask)
 		adminGroup.GET("/replay/tasks/:task_id", replayHandler.GetTask)
 		adminGroup.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
-
-		// 统一调试入口（保留旧接口兼容）
-		adminGroup.POST("/debug/tasks/replay", replayHandler.CreateTask)
-		adminGroup.GET("/debug/tasks/replay/:task_id", replayHandler.GetTask)
-		adminGroup.POST("/debug/tasks/replay/:task_id/cancel", replayHandler.CancelTask)
 	}
 
 	if deps.EventFabric != nil && deps.EventFabric.TaskDriver != nil {
 		notificationsHandler := adminnotifications.NewHandler(deps)
-		adminGroup.POST("/debug/tasks/pipeline", notificationsHandler.PushTestNotificationQueue)
+		adminGroup.POST("/pipeline/tasks", notificationsHandler.PushTestNotificationQueue)
 	}
 
 	if deps.EventFabric != nil {

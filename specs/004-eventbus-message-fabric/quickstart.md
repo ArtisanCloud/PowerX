@@ -46,7 +46,7 @@ curl -sS -X POST \
 curl -sS -X POST \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/replay" \
+  "$POWERX_BASE_URL/admin/event-fabric/replay/tasks" \
   -d '{
     "topic":"_topic.knowledge.space.feedback.reprocess",
     "reason":"quickstart replay",
@@ -59,7 +59,7 @@ curl -sS -X POST \
 ```bash
 curl -sS \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  "$POWERX_BASE_URL/admin/event-fabric/debug/tasks/replay/$TASK_ID" | jq
+  "$POWERX_BASE_URL/admin/event-fabric/replay/tasks/$TASK_ID" | jq
 ```
 
 ## 4) 查看 DLQ（可选）

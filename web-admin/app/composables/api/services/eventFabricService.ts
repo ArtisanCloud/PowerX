@@ -190,6 +190,9 @@ export interface EventFabricPipelineDebugPayload {
   category?: string;
   isImportant?: boolean;
   metadata?: Record<string, any>;
+  topic?: string;
+  subscriber_id?: string;
+  tenant_key?: string;
 }
 
 export interface EventFabricPipelineDebugResult {
@@ -329,29 +332,9 @@ export const useEventFabricService = () => {
       );
     },
 
-    createReplayDebugTask: (payload: {
-      topic: string;
-      trace_id?: string;
-      window?: { start?: string; end?: string };
-      reason?: string;
-      operator_id?: string;
-      shadow?: boolean;
-    }) => {
-      return apiClient.post<ApiResponse<EventFabricReplayTaskResponse>>(
-        `${baseUrl}/debug/tasks/replay`,
-        payload
-      );
-    },
-
     getReplayTask: (taskId: string) => {
       return apiClient.get<ApiResponse<EventFabricReplayTaskResponse>>(
         `${baseUrl}/replay/tasks/${taskId}`
-      );
-    },
-
-    getReplayDebugTask: (taskId: string) => {
-      return apiClient.get<ApiResponse<EventFabricReplayTaskResponse>>(
-        `${baseUrl}/debug/tasks/replay/${taskId}`
       );
     },
 
@@ -362,16 +345,9 @@ export const useEventFabricService = () => {
       );
     },
 
-    cancelReplayDebugTask: (taskId: string, payload: { operator_id?: string }) => {
-      return apiClient.post<ApiResponse<null>>(
-        `${baseUrl}/debug/tasks/replay/${taskId}/cancel`,
-        payload
-      );
-    },
-
-    createPipelineDebugTask: (payload: EventFabricPipelineDebugPayload = {}) => {
+    createPipelineTask: (payload: EventFabricPipelineDebugPayload = {}) => {
       return apiClient.post<ApiResponse<EventFabricPipelineDebugResult>>(
-        `${baseUrl}/debug/tasks/pipeline`,
+        `${baseUrl}/pipeline/tasks`,
         payload
       );
     },
