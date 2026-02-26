@@ -8,9 +8,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	aclservice "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
+	apikeycache "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeycache"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	integrationrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -33,6 +35,8 @@ type wsBusHandler struct {
 	authorizer bus.Authorizer
 	topics     wsTopicLookup
 	acl        wsACLGrantService
+	apiKeys    *integrationrepo.IntegrationGatewayAPIKeyRepository
+	perms      *integrationrepo.IntegrationGatewayAPIKeyPermissionRepository
 }
 
 type wsTopicLookup interface {
@@ -47,14 +51,18 @@ func newWSBusHandler(deps *shared.Deps) *wsBusHandler {
 	var authorizer bus.Authorizer
 	var topics wsTopicLookup
 	var aclSvc wsACLGrantService
+	var apiKeyRepo *integrationrepo.IntegrationGatewayAPIKeyRepository
+	var permRepo *integrationrepo.IntegrationGatewayAPIKeyPermissionRepository
 	if deps != nil && deps.DB != nil {
 		authorizer = bus.NewDefaultAuthorizer(deps.DB)
 		topics = newGinTopicLookup(eventshared.NewCachedTopicLookup(eventfabricrepo.NewTopicRepository(deps.DB), eventshared.CachedTopicLookupOptions{}))
+		apiKeyRepo = integrationrepo.NewIntegrationGatewayAPIKeyRepository(deps.DB)
+		permRepo = integrationrepo.NewIntegrationGatewayAPIKeyPermissionRepository(deps.DB)
 	}
 	if deps != nil && deps.EventFabric != nil && deps.EventFabric.ACL != nil {
 		aclSvc = newGinACLGrantService(deps.EventFabric.ACL)
 	}
-	return &wsBusHandler{authorizer: authorizer, topics: topics, acl: aclSvc}
+	return &wsBusHandler{authorizer: authorizer, topics: topics, acl: aclSvc, apiKeys: apiKeyRepo, perms: permRepo}
 }
 
 func (h *wsBusHandler) register(c *gin.Context) {
@@ -83,7 +91,16 @@ func (h *wsBusHandler) register(c *gin.Context) {
 
 	if h.topics != nil {
 		actions := normalizeRegisterActions(req.Actions)
+		if err := h.authorizeAPIKeyRegister(c, actions, registered); err != nil {
+			dto.ResponseError(c, http.StatusForbidden, "api key permission denied", err)
+			return
+		}
 		principalID := buildWSPrincipalID(memberID, reqctx.GetUserID(c.Request.Context()))
+		principalType := "member"
+		if isAPIKeyAuth(c) {
+			principalType = "api_key_profile"
+			principalID = fmt.Sprintf("api_key_profile:%d", memberID)
+		}
 		if !isRoot && principalID == "" {
 			dto.ResponseError(c, http.StatusForbidden, "principal required", nil)
 			return
@@ -105,7 +122,7 @@ func (h *wsBusHandler) register(c *gin.Context) {
 				if _, err := h.acl.Grant(c, aclservice.GrantRequest{
 					TenantUUID:    strings.TrimSpace(tenantUUID),
 					TopicUUID:     topicDef.UUID.String(),
-					PrincipalType: "member",
+					PrincipalType: principalType,
 					PrincipalID:   principalID,
 					Actions:       actions,
 					OperatorID:    principalID,
@@ -163,17 +180,23 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "topic required", nil)
 		return
 	}
+	if err := h.authorizeAPIKeyPublish(c, reqTopic); err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "api key permission denied", err)
+		return
+	}
 	if h.authorizer != nil {
-		if err := h.authorizer.AuthorizePublish(c.Request.Context(), bus.PublishAuthorizeInput{
-			TenantUUID: tenantUUID,
-			MemberID:   memberID,
-			UserID:     reqctx.GetUserID(c.Request.Context()),
-			IsRoot:     isRoot,
-			Topic:      reqTopic,
-		}); err != nil {
-			logger.DebugF(c.Request.Context(), "[ws-bus] publish rejected tenant=%s topic=%s err=%v", strings.TrimSpace(tenantUUID), reqTopic, err)
-			dto.ResponseError(c, http.StatusForbidden, "topic not allowed", err)
-			return
+		if !isAPIKeyAuth(c) {
+			if err := h.authorizer.AuthorizePublish(c.Request.Context(), bus.PublishAuthorizeInput{
+				TenantUUID: tenantUUID,
+				MemberID:   memberID,
+				UserID:     reqctx.GetUserID(c.Request.Context()),
+				IsRoot:     isRoot,
+				Topic:      reqTopic,
+			}); err != nil {
+				logger.DebugF(c.Request.Context(), "[ws-bus] publish rejected tenant=%s topic=%s err=%v", strings.TrimSpace(tenantUUID), reqTopic, err)
+				dto.ResponseError(c, http.StatusForbidden, "topic not allowed", err)
+				return
+			}
 		}
 	} else {
 		allowed, whitelistHit, dynamicHit := bus.PublishTopicCheck(tenantUUID, reqTopic)
@@ -334,4 +357,107 @@ func parseRegisterTopic(topic string) (tenant string, namespace string, name str
 func isSharedWSRegisterTopicTenant(tenantKey string) bool {
 	key := strings.ToLower(strings.TrimSpace(tenantKey))
 	return key == "global" || key == "system"
+}
+
+func isAPIKeyAuth(c *gin.Context) bool {
+	raw, ok := c.Get("auth_source")
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(fmt.Sprint(raw)), "api_key")
+}
+
+func (h *wsBusHandler) authorizeAPIKeyRegister(c *gin.Context, actions []aclservice.PrincipalAction, topics []string) error {
+	if !isAPIKeyAuth(c) {
+		return nil
+	}
+	for i := range actions {
+		action := strings.TrimSpace(string(actions[i]))
+		if action == "" {
+			continue
+		}
+		for j := range topics {
+			if err := h.authorizeAPIKeyTopicAction(c, action, strings.TrimSpace(topics[j])); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *wsBusHandler) authorizeAPIKeyPublish(c *gin.Context, topic string) error {
+	if !isAPIKeyAuth(c) {
+		return nil
+	}
+	return h.authorizeAPIKeyTopicAction(c, "publish", topic)
+}
+
+func (h *wsBusHandler) authorizeAPIKeyTopicAction(c *gin.Context, action string, topic string) error {
+	if h == nil || h.apiKeys == nil || h.perms == nil {
+		return fmt.Errorf("api key permission store unavailable")
+	}
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+	hashRaw, ok := c.Get("auth_api_key_hash")
+	if !ok {
+		return fmt.Errorf("api key hash missing")
+	}
+	keyHash := strings.TrimSpace(fmt.Sprint(hashRaw))
+	if keyHash == "" {
+		return fmt.Errorf("api key hash missing")
+	}
+
+	if allowedCached, hit, cacheErr := apikeycache.GetPermissionDecision(
+		c.Request.Context(),
+		keyHash,
+		action,
+		"topic",
+		topic,
+	); cacheErr == nil && hit {
+		if allowedCached {
+			return nil
+		}
+		return fmt.Errorf("topic permission denied: action=%s topic=%s", action, topic)
+	}
+
+	keyModel, err := h.apiKeys.FindActiveByHash(c.Request.Context(), tenantUUID, keyHash)
+	if err != nil {
+		return err
+	}
+	if keyModel == nil {
+		return fmt.Errorf("api key not found")
+	}
+
+	scopeCandidates := wsScopeCandidates(action)
+	for i := range scopeCandidates {
+		result, checkErr := h.perms.HasPermission(
+			c.Request.Context(),
+			keyModel.UUID,
+			scopeCandidates[i],
+			strings.ToLower(strings.TrimSpace(action)),
+			"topic",
+			topic,
+		)
+		if checkErr != nil {
+			return checkErr
+		}
+		if result {
+			_ = apikeycache.SetPermissionDecision(c.Request.Context(), keyHash, action, "topic", topic, true)
+			return nil
+		}
+	}
+	_ = apikeycache.SetPermissionDecision(c.Request.Context(), keyHash, action, "topic", topic, false)
+	return fmt.Errorf("topic permission denied: action=%s topic=%s", action, topic)
+}
+
+func wsScopeCandidates(action string) []string {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "publish":
+		return []string{"_scope.ws.topic.publish", "_scope.event.topic.publish"}
+	case "subscribe":
+		return []string{"_scope.ws.topic.subscribe", "_scope.event.topic.subscribe"}
+	case "replay":
+		return []string{"_scope.event.topic.replay"}
+	default:
+		return []string{"_scope.ws.topic.manage", "_scope.event.topic.manage"}
+	}
 }

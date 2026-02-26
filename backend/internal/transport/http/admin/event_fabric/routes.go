@@ -122,6 +122,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	if deps.EventFabric != nil && deps.EventFabric.TaskDriver != nil {
 		notificationsHandler := adminnotifications.NewHandler(deps)
 		adminGroup.POST("/pipeline/tasks", notificationsHandler.PushTestNotificationQueue)
+		retryTaskHandler := NewAdminRetryTaskHandler(deps)
+		adminGroup.POST("/retry/tasks", retryTaskHandler.CreateTask)
+		adminGroup.GET("/retry/tasks/:delivery_id", retryTaskHandler.GetTask)
 	}
 
 	if deps.EventFabric != nil {

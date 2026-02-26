@@ -28,6 +28,22 @@ import (
 
 // Migrate 执行数据库迁移
 func MigrateCoreModels(db *gorm.DB) (err error) {
+	if err = migration.EnsureAPIKeyProfileNamingMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionModuleRenameMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionAllowAPIKeyMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionAPIKeyDefaultOpenMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureAPIKeyProfileOwnerMemberMigration(db); err != nil {
+		return err
+	}
+
 	// 迁移动态表单
 	err = db.AutoMigrate(
 		&modelForm.FormSchemaRecord{},
@@ -65,7 +81,8 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.MemberAssignment{},
 		&modelIAM.Position{},
 		&modelIAM.Team{},
-		&modelIAM.ServiceAccount{},
+		&modelIAM.APIKeyProfile{},
+		&modelIAM.APIKeyProfilePermission{},
 		&modelIAM.APIKey{},
 	)
 	if err != nil {
@@ -198,6 +215,9 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationRouteVersion{},
 		&modelIntegrationGateway.IntegrationInvocationLog{},
 		&modelIntegrationGateway.IntegrationEventPublication{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKey{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
 	)
 }
 

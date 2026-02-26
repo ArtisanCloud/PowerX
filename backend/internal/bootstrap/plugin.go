@@ -83,6 +83,9 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		Registry:      pmimpl.NewJSONRegistry(registryFile),
 		HTTP:          dr,
 		Supervisor:    sup,
+		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
+			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
+		},
 		PostEnable: func(ctx context.Context, tenantUUID, pluginID string) error {
 			svc := setting.NewPluginInstanceConfigService(deps)
 

@@ -1835,8 +1835,9 @@ func newRetryQueueTenantKeyProvider(redisClient *redis.Client, ttl time.Duration
 
 	return func(ctx context.Context) ([]string, error) {
 		now := time.Now()
+		forceRefresh := workers.RetryTenantProviderBypassCache(ctx)
 		mu.Lock()
-		if now.Before(expireAt) && len(cached) > 0 {
+		if !forceRefresh && now.Before(expireAt) && len(cached) > 0 {
 			out := append([]string(nil), cached...)
 			mu.Unlock()
 			return out, nil
@@ -1893,8 +1894,9 @@ func newCachedTenantKeyProvider(tenantSvc *tenantsvc.TenantService, ttl time.Dur
 		}
 
 		now := time.Now()
+		forceRefresh := workers.RetryTenantProviderBypassCache(ctx)
 		mu.Lock()
-		if now.Before(expireAt) && len(cached) > 0 {
+		if !forceRefresh && now.Before(expireAt) && len(cached) > 0 {
 			out := append([]string(nil), cached...)
 			mu.Unlock()
 			return out, nil

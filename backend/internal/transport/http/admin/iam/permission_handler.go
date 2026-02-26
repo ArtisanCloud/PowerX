@@ -37,15 +37,16 @@ func (h *PermissionHandler) Register(c *gin.Context) {
 }
 
 type PermissionListQuery struct {
-	Plugin   string `form:"plugin"`
-	Resource string `form:"resource"`
-	Module   string `form:"module"`
-	Type     string `form:"type"`
-	Keyword  string `form:"keyword"`
-	Status   string `form:"status"`
-	Page     int    `form:"page,default=1"`
-	Size     int    `form:"size,default=50"`
-	Sort     string `form:"sort"` // "plugin asc, resource asc"
+	Module     string `form:"module"`
+	Plugin     string `form:"plugin"`
+	Resource   string `form:"resource"`
+	MetaModule string `form:"meta_module"`
+	Type       string `form:"type"`
+	Keyword    string `form:"keyword"`
+	Status     string `form:"status"`
+	Page       int    `form:"page,default=1"`
+	Size       int    `form:"size,default=50"`
+	Sort       string `form:"sort"` // "plugin asc, resource asc"
 }
 
 func (h *PermissionHandler) List(c *gin.Context) {
@@ -56,12 +57,13 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	}
 
 	filter := map[string]string{
-		"plugin":   strings.TrimSpace(q.Plugin),
-		"resource": strings.TrimSpace(q.Resource),
-		"module":   strings.TrimSpace(q.Module),
-		"type":     strings.TrimSpace(q.Type),
-		"status":   strings.TrimSpace(q.Status),
-		"keyword":  strings.TrimSpace(q.Keyword),
+		"module":      strings.TrimSpace(q.Module),
+		"plugin":      strings.TrimSpace(q.Plugin),
+		"resource":    strings.TrimSpace(q.Resource),
+		"meta_module": strings.TrimSpace(q.MetaModule),
+		"type":        strings.TrimSpace(q.Type),
+		"status":      strings.TrimSpace(q.Status),
+		"keyword":     strings.TrimSpace(q.Keyword),
 	}
 
 	rows, total, err := h.svc.ListPermissions(c.Request.Context(), filter, q.Page, q.Size, q.Sort)

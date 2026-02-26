@@ -193,6 +193,16 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 						},
 					},
 				},
+				{
+					Key:      "integration_api_keys",
+					Title:    "API Key 管理",
+					Icon:     "i-heroicons-key",
+					URL:      "/settings/integration-api-keys",
+					Order:    5,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeySettings,
+				},
 			},
 		},
 	}

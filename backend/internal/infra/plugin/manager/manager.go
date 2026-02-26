@@ -14,6 +14,7 @@ import (
 )
 
 type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
+type PostInstallManifestHook func(ctx context.Context, manifest plugin_mgr.Manifest) error
 
 // Options 注入依赖与基础配置
 type Options struct {
@@ -24,11 +25,12 @@ type Options struct {
 
 	CoreConfig *config.Config
 
-	Loader     Loader
-	Registry   Registry
-	HTTP       *router.DynamicRouter
-	Supervisor *supervisor.Supervisor
-	PostEnable PostEnableHook
+	Loader              Loader
+	Registry            Registry
+	HTTP                *router.DynamicRouter
+	Supervisor          *supervisor.Supervisor
+	PostEnable          PostEnableHook
+	PostInstallManifest PostInstallManifestHook
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）

@@ -147,6 +147,19 @@
       "userCount": "用户数",
       "createdAt": "创建时间",
       "loadFailed": "租户加载失败"
+    },
+    "permission": {
+      "title": "权限管理",
+      "description": "管理角色与权限分配。",
+      "roleList": "角色列表",
+      "search": "搜索角色…",
+      "roleConfig": "角色权限配置",
+      "configDesc": "为当前角色勾选并保存权限项。",
+      "add": "新增角色",
+      "empty": {
+        "title": "暂无角色",
+        "create": "创建第一个角色"
+      }
     }
   },
   "tenant": {

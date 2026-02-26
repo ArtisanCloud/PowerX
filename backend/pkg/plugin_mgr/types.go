@@ -230,8 +230,23 @@ type RBACSpec struct {
 }
 
 type PermissionSpec struct {
-	Resource string   `yaml:"resource" json:"resource"`
-	Actions  []string `yaml:"actions"  json:"actions"`
+	Resource    string                `yaml:"resource" json:"resource"`
+	Actions     []string              `yaml:"actions"  json:"actions"`
+	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
+	Label       string                `yaml:"label,omitempty" json:"label,omitempty"`
+	Module      string                `yaml:"module,omitempty" json:"module,omitempty"`
+	Type        string                `yaml:"type,omitempty" json:"type,omitempty"`
+	AllowAPIKey bool                  `yaml:"allow_api_key,omitempty" json:"allow_api_key,omitempty"`
+	APIKey      *APIKeyPermissionSpec `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+}
+
+type APIKeyPermissionSpec struct {
+	Scope           string `yaml:"scope" json:"scope"`
+	Action          string `yaml:"action" json:"action"`
+	ResourceType    string `yaml:"resource_type" json:"resource_type"`
+	ResourcePattern string `yaml:"resource_pattern" json:"resource_pattern"`
+	PluginID        string `yaml:"plugin_id,omitempty" json:"plugin_id,omitempty"`
+	Effect          string `yaml:"effect,omitempty" json:"effect,omitempty"`
 }
 
 type RBACResource struct {

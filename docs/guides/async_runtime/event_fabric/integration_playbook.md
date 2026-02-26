@@ -73,6 +73,15 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 ## 6. Step 5：Cron / Retry（可选）
 
+先制造一条 Retry 样本（否则 run-now 可能无数据）：
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  "$POWERX_BASE_URL/admin/event-fabric/retry/tasks" \
+  -d '{"topic":"_topic.system.notification","reason":"playbook-retry-seed"}' | jq
+```
+
 ```bash
 curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$POWERX_BASE_URL/admin/event-fabric/cron/jobs" | jq
@@ -87,6 +96,14 @@ curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 1. 有到期重试任务：队列/历史有变化
 2. 无到期重试任务：接口成功但队列可能无变化（正常）
+
+UI 对照（监控中心 -> Task / Cron）：
+
+1. `kind=interval` 作业显示 `interval=Ns · batch=M`
+2. `kind=queue` 作业显示 `trigger=queue · batch=M`
+3. `立即执行` 是立刻执行当前行作业，不是随机新建任务
+4. `event_fabric.retry_dispatch`：立即执行=扫描到期重试并重投
+5. `event_fabric.authorization_challenge_timeout`：立即执行=扫描授权超时并处理
 
 ## 7. 脚本回归
 
@@ -127,6 +144,7 @@ scripts/cron/integration_playbook.sh --with-write
 9. DLQ 重放：`POST /admin/event-fabric/dlq/messages:replay`
 10. Cron 列表：`GET /admin/event-fabric/cron/jobs`
 11. Cron run-now：`POST /admin/event-fabric/cron/jobs/{job_id}/run-now`
+12. Retry 样本：`POST /admin/event-fabric/retry/tasks`
 
 ## 9. WebSocket 内部调试
 

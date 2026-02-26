@@ -240,6 +240,15 @@ const baseSettingCategories = [
     path: "/settings/event-fabric",
   },
   {
+    key: "integration-api-keys",
+    title: "API Key 管理",
+    description: "按租户配置 Integration Gateway API Key 与权限",
+    icon: "i-heroicons-key",
+    iconBg: "bg-amber-50 dark:bg-amber-900/20",
+    iconColor: "text-amber-600",
+    path: "/settings/integration-api-keys",
+  },
+  {
     key: "config",
     title: "系统配置",
     description: "基础系统配置选项",

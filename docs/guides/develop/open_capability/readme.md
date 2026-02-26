@@ -18,6 +18,9 @@
    - 仅展示 `source=corex` 的平台能力，按模块（Media、Event、Workflow、Knowledge）聚合。
    - 每个卡片提供协议标签、`capabilities_hash`、调试链接，方便直接跳入对应文档。
 
+> 若你要联调网关鉴权（`API Key / Token`）与 ws-bus，请先阅读：
+> [API Key / Token 联调指南](../api_key_token_playbook.md)
+
 ## 2. 查询接口（供自动化脚本使用）
 
 ```bash

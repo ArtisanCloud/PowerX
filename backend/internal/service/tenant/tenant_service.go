@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	mdltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"gorm.io/gorm/clause"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm"
 )
 
@@ -143,6 +145,14 @@ func (s *TenantService) Create(ctx context.Context, in CreateTenantInput) (uint6
 	if err != nil {
 		return 0, err
 	}
+	var ownerMemberID *uint64
+	if memberID := reqctx.GetMemberID(ctx); memberID > 0 {
+		value := memberID
+		ownerMemberID = &value
+	}
+	if _, _, err = apikeypermissions.EnsureTenantDefaultProfile(ctx, s.DB, out.UUID.String(), ownerMemberID); err != nil {
+		return out.ID, err
+	}
 
 	// 2) 可选：初始化管理员
 	if in.InitAdmin != nil {
@@ -193,6 +203,16 @@ func (s *TenantService) Upsert(ctx context.Context, in UpsertTenantInput) (uint6
 	out, err := s.Repo.Upsert(ctx, t, []clause.Column{{Name: "key"}})
 	if err != nil {
 		return 0, err
+	}
+	if isCreate {
+		var ownerMemberID *uint64
+		if memberID := reqctx.GetMemberID(ctx); memberID > 0 {
+			value := memberID
+			ownerMemberID = &value
+		}
+		if _, _, err = apikeypermissions.EnsureTenantDefaultProfile(ctx, s.DB, out.UUID.String(), ownerMemberID); err != nil {
+			return out.ID, err
+		}
 	}
 
 	if isCreate && in.InitAdmin != nil {

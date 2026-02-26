@@ -15,6 +15,60 @@
 - Agent Hub MCP Server 与 Workflow Builder 进程已通过 `make dev` 启动。
 - 至少存在一个示例插件（可使用 `projects/demo-multi-plugin`）并成功执行 `px-plugin capabilities submit`。
 
+### 鉴权规则（Gateway 全入口）
+
+- 本特性统一采用 **单请求单凭证分流**。
+- `Authorization: ApiKey <key>` 仅走 API Key 鉴权链路。
+- `Authorization: Bearer <token>` 仅走 JWT 鉴权链路。
+- 不采用 API Key 失败回退 JWT 的混合兜底策略。
+
+### 鉴权数据模型检查（迁移后必做）
+
+执行以下 SQL，确认 API Key 新链路表已存在：
+
+```sql
+SELECT tablename
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'iam_api_key_profile',
+    'iam_api_key_profile_permission',
+    'integration_gateway_api_keys',
+    'integration_gateway_api_key_permissions',
+    'iam_api_key'
+  )
+ORDER BY tablename;
+```
+
+最小链路自检（Profile -> permission_ids -> key 快照）：
+
+```sql
+-- 1) 看某租户 profile
+SELECT id, tenant_uuid, key, name, status
+FROM public.iam_api_key_profile
+WHERE tenant_uuid = '<TENANT_UUID>'
+ORDER BY id;
+
+-- 2) 看 profile 绑定 permission_ids
+SELECT profile_id, permission_id, created_at
+FROM public.iam_api_key_profile_permission
+WHERE profile_id = <PROFILE_ID>
+ORDER BY permission_id;
+
+-- 3) 看 key 是否绑定 profile_id
+SELECT uuid, tenant_uuid, profile_id, name, status, created_at
+FROM public.integration_gateway_api_keys
+WHERE tenant_uuid = '<TENANT_UUID>'
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- 4) 看 key 权限快照是否生成
+SELECT api_key_uuid, scope, action, resource_type, resource_pattern, effect
+FROM public.integration_gateway_api_key_permissions
+WHERE api_key_uuid = '<KEY_UUID>'
+ORDER BY created_at ASC;
+```
+
 ### 步骤 0：自动播种 Event Fabric Topic/ACL
 1. 在插件仓库提供 `event_fabric.yaml`（支持放在 `config/`、`platform_capabilities/` 或包根目录），并声明 Topic/ACL 模板。Manifest 可引用 `{{ tenant_uuid }}`、`{{ plugin_id }}`、`{{ variables.cluster }}` 等变量。
 2. 插件启用/升级后，安装 orchestrator 会自动调用 `event_fabric.SeedService` 播种 Topic 与 ACL；若记录已存在，则根据 binding 表跳过重复授权，无需手动访问 Admin Topic/ACL API。

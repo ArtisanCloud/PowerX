@@ -40,6 +40,18 @@ type EventFabricRetryWorker struct {
 	paused                  atomic.Bool
 }
 
+type retryTenantProviderBypassCacheKey struct{}
+
+// RetryTenantProviderBypassCache 标记当前上下文是否需要跳过租户缓存。
+func RetryTenantProviderBypassCache(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	raw := ctx.Value(retryTenantProviderBypassCacheKey{})
+	flag, ok := raw.(bool)
+	return ok && flag
+}
+
 // RetryDispatchEvent 是 worker 推送到 EventBus 的事件载荷。
 type RetryDispatchEvent struct {
 	TenantKey     string
@@ -136,6 +148,7 @@ func (w *EventFabricRetryWorker) TriggerNow(ctx context.Context) {
 	if w == nil || w.delivery == nil || w.eventBus == nil || w.tenantProvider == nil {
 		return
 	}
+	ctx = context.WithValue(ctx, retryTenantProviderBypassCacheKey{}, true)
 	w.flush(ctx)
 }
 
@@ -173,6 +186,8 @@ func (w *EventFabricRetryWorker) flush(ctx context.Context) {
 
 func (w *EventFabricRetryWorker) drainTenant(ctx context.Context, tenantKey string) {
 	pollCtx := context.WithValue(ctx, sharedsvc.ContextTenantKey, tenantKey)
+	pollCtx = context.WithValue(pollCtx, sharedsvc.ContextCompatibilityMode, "any")
+	pollCtx = context.WithValue(pollCtx, sharedsvc.ContextAcceptedVersions, []string{"v1"})
 
 	for {
 		events, err := w.delivery.PollRetry(pollCtx, w.batchSize)

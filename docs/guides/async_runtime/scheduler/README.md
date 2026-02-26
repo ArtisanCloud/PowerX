@@ -29,11 +29,21 @@ export ADMIN_TOKEN="<root-admin-jwt>"
 2. `POST /admin/event-fabric/cron/jobs/{job_id}/run-now`
 3. `POST /admin/event-fabric/cron/jobs/{job_id}/pause`
 4. `POST /admin/event-fabric/cron/jobs/{job_id}/resume`
+5. `POST /admin/event-fabric/retry/tasks`（制造 Retry 样本）
 
 ## 4. 内置作业（当前）
 
 1. `event_fabric.retry_dispatch`
 2. `event_fabric.authorization_challenge_timeout`
+
+### 4.1 调度类型与 UI 字段对照
+
+1. `kind=interval`：固定周期调度（UI 显示 `interval=Ns`）
+2. `kind=queue`：队列触发调度（UI 显示 `trigger=queue`，不展示固定秒数）
+3. `batch`：单次处理批量上限（两类作业都会显示）
+4. `run-now`：立刻执行当前作业一次，不会“随机创建任务”
+5. `event_fabric.retry_dispatch`：run-now 会扫描“到期可重试”任务并重新投递
+6. `event_fabric.authorization_challenge_timeout`：run-now 会扫描授权超时队列并执行超时处理
 
 ## 5. 手动验证（最短路径）
 
@@ -61,6 +71,7 @@ curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 1. 返回 `code=200`
 2. 返回体 `data.id=event_fabric.retry_dispatch`
+3. 含义是“立即触发 retry_dispatch 扫描重试队列”，不是直接插入一条业务任务
 
 ### Step 3：暂停并恢复
 
@@ -96,6 +107,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 1. `run-now` 成功不等于一定有新任务（取决于是否存在到期数据）
 2. 若当前无到期项，`stats/history` 可无明显增量，这属于正常
+3. 这两类作业是常驻 worker，`status` 通常持续为 `running`，不会出现一次性 `completed`
 
 ## 6. 常见误解
 

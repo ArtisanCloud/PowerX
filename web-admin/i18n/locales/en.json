@@ -131,6 +131,19 @@
       "userCount": "Users",
       "createdAt": "Created at",
       "loadFailed": "Failed to load tenants"
+    },
+    "permission": {
+      "title": "Permission Management",
+      "description": "Manage roles and permission assignments.",
+      "roleList": "Role list",
+      "search": "Search roles…",
+      "roleConfig": "Role Permission Config",
+      "configDesc": "Select permissions for the current role and save.",
+      "add": "Add role",
+      "empty": {
+        "title": "No roles yet",
+        "create": "Create the first role"
+      }
     }
   },
   "tenant": {

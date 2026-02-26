@@ -9,6 +9,7 @@ import (
 // GetDefaults 返回默认配置（已对齐新版 AuthConfig 字段）
 func GetDefaults() *Config {
 	return &Config{
+		Version: DefaultSystemVersion,
 		Server: ServerConfig{
 			Port:                8077,
 			ReadTimeoutSeconds:  5,

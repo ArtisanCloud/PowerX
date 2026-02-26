@@ -199,7 +199,35 @@ export interface EventFabricPipelineDebugResult {
   task_id: string;
   subscriber_id: string;
   topic: string;
+  tenant_key?: string;
   payload: Record<string, any>;
+}
+
+export interface EventFabricRetrySeedResult {
+  event_id: string;
+  delivery_id: string;
+  topic: string;
+  subscriber_id: string;
+  tenant_key: string;
+  retry_after_seconds: number;
+  retry_at: string;
+  remaining_attempts: number;
+  max_attempts: number;
+  trace_id?: string;
+}
+
+export interface EventFabricRetryTaskStatus {
+  delivery_id: string;
+  event_id: string;
+  topic: string;
+  subscriber_id: string;
+  tenant_key: string;
+  status: string;
+  last_error_code?: string;
+  nack_reason?: string;
+  scheduled_at?: string;
+  last_attempt_at?: string;
+  acked_at?: string;
 }
 
 
@@ -349,6 +377,25 @@ export const useEventFabricService = () => {
       return apiClient.post<ApiResponse<EventFabricPipelineDebugResult>>(
         `${baseUrl}/pipeline/tasks`,
         payload
+      );
+    },
+
+    createRetryTaskSeed: (payload: {
+      topic?: string;
+      subscriber_id?: string;
+      reason?: string;
+      immediate?: boolean;
+      payload?: Record<string, any>;
+    } = {}) => {
+      return apiClient.post<ApiResponse<EventFabricRetrySeedResult>>(
+        `${baseUrl}/retry/tasks`,
+        payload
+      );
+    },
+
+    getRetryTaskSeed: (deliveryId: string) => {
+      return apiClient.get<ApiResponse<EventFabricRetryTaskStatus>>(
+        `${baseUrl}/retry/tasks/${deliveryId}`
       );
     },
 

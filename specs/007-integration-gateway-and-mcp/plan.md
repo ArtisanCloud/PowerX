@@ -13,6 +13,8 @@
 
 补充：Agent 与多模态模型调用的对外能力也将纳入上述统一入口，新增公开契约并进入 `source=corex` 目录，保证插件能统一调用（非流式 + SSE/WS + gRPC）。
 
+补充：Gateway 鉴权统一采用 **API Key / JWT 单凭证分流**，并覆盖所有 OpenAPI Gateway 入口（含 internal/ws-bus）。详细方案见 `specs/007-integration-gateway-and-mcp/authn-authz-apikey-first.md`。
+
 ## Admin 开放能力页面设计（T057）
 
 - **入口 & 权限**：Web Admin 侧边栏 “设置” 下新增 “开放能力” 菜单（建议路由 `/settings/open-capabilities`），仅当当前用户 `isRoot=true` 时渲染，同时接口层面也需校验。
@@ -66,6 +68,14 @@
 3. **租户隔离**：Agent `agent_id/session_id` 与多模态 `model_key/session_id` 必须验证属于当前租户，跨租户请求拒绝并审计。
 4. **流式支持**：Agent SSE/WS 与多模态 SSE 流式输出均需记录 Trace/Audit，并支持 Integration Gateway 代理（必要时仅透传响应）。
 
+## Gateway 统一鉴权（API Key / JWT 分流）
+
+1. **分流规则**：`Authorization: ApiKey` 走 API Key 主体鉴权；`Authorization: Bearer` 走 JWT 主体鉴权；不做失败回退。
+2. **统一中间件**：租户/管理/internal 三类 Gateway 入口都复用同一 `AuthContext` 解析与授权器，不再保留入口特化逻辑。
+3. **数据模型**：新增 API Key、Permission、Audit 三类持久化模型，支持租户级生命周期管理与审计追踪。
+4. **管理面能力**：Web Admin 提供租户级 API Key 管理（创建/轮换/吊销/审计）与 `api_key_profile` 主体管理，root/admin 租户可显式配置更高 scope。
+5. **插件模式兼容**：Host 模式使用 JWT；Standalone proxy 与外部平台使用 API Key。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend）、Node 20（脚本+CLI）  
@@ -75,7 +85,7 @@
 **Target Platform**: Linux container / Kubernetes，单体 CoreX 服务 + px-plugin CLI  
 **Project Type**: Backend mono-repo（`backend` + `specs` + `powerx-plugin`）  
 **Performance Goals**: Registry 更新 ≤3 分钟同步；Integration Gateway 读调用 p95 < 200ms，写调用全部 gRPC（幂等）  
-**Constraints**: 多租户隔离、RBAC/Tool Grant 必须生效；所有协议携带 Trace/Audit；HTTP 与 gRPC 均需保持向后兼容  
+**Constraints**: 多租户隔离、RBAC/Tool Grant 必须生效；所有协议携带 Trace/Audit；HTTP 与 gRPC 均需保持向后兼容；Gateway 鉴权统一为 API Key / JWT 单凭证分流  
 **Scale/Scope**: 100+ 插件、每租户 1k+ 能力、每秒 200 次能力调用（读+写），Workflow/Agent 双栈共享治理
 
 ## Constitution Check

@@ -148,6 +148,52 @@
 - [x] **T073 [P]** Contract Tests：新增 Agent/Multimodal OpenAPI & gRPC 合同测试，覆盖错误码与流式示例。
 - [x] **T074** Integration Test：端到端调用 Agent SSE 与 Multimodal Session 流式输出，验证租户隔离与审计记录。
 
+## Phase 11: Gateway 鉴权统一（API Key / JWT 分流）
+
+**目标**：Gateway 全入口支持 API Key + JWT 单凭证分流；提供租户级 API Key 与 `api_key_profile` 管理能力及审计能力。
+
+### Contracts / Design
+
+- [ ] **T075 [P][FR-021~FR-024]** 鉴权设计落地：将 `specs/007-integration-gateway-and-mcp/authn-authz-apikey-first.md` 同步到 OpenAPI 安全定义与错误码说明（含单凭证分流规则）。
+- [ ] **T076 [P][FR-021~FR-024]** 契约补充：更新 `specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml`，新增 API Key security scheme（仅 `Authorization: ApiKey`）及示例。
+
+### Implementation
+
+- [ ] **T077 [FR-021]** 统一鉴权中间件：在 Gateway 入口实现 `Authorization` scheme 分流（ApiKey/Bearer），统一输出 `AuthContext`，覆盖 tenant/admin/internal 路由。
+- [ ] **T078 [FR-022][P]** API Key 数据模型与迁移：新增/维护 `gateway_api_keys`、`gateway_api_key_permissions`、`gateway_api_key_audit_logs` 与 `api_key_profile` 及 repository。
+- [ ] **T079 [FR-022][P]** 管理 API：实现租户级 API Key 创建/查询/轮换/吊销/审计接口，仅 tenant root/role_admin 可管理本租户。
+- [ ] **T080 [FR-023]** ws-bus 与 openapi 统一授权器：移除入口特化鉴权，复用统一授权器与 scope/action 判定。
+- [ ] **T081 [FR-024]** 权限模板：实现 root/admin 租户“高权限 scope”显式授权策略与审计落库。
+
+### Tests
+
+- [ ] **T082 [P][FR-021]** 鉴权优先级测试：同请求同时携带 API Key + JWT，断言以 API Key 为准。
+- [ ] **T083 [P][FR-022]** 生命周期测试：覆盖 API Key 创建、轮换、吊销、过期与明文一次性返回规则。
+- [ ] **T084 [FR-023]** 全入口回归：覆盖 `/tenant/invocations`、`/admin/*`、`/internal/ws-bus/*` 的 API Key/JWT 双链路鉴权行为一致性。
+- [ ] **T085 [FR-024]** 审计回归：验证 API Key 请求按 `api_key_id/tenant_uuid/trace_id` 可检索。
+
+## Phase 12: JWT 主体校验与会话失效收敛（FR-025~FR-028）
+
+**目标**：把 JWT 鉴权从“仅签名有效”升级为“签名 + 主体状态有效 + 会话版本有效”，并以缓存优先策略控制 DB 压力。
+
+### Contracts / Design
+
+- [ ] **T086 [P][FR-025~FR-028]** 方案文档落地：更新 `authn-authz-apikey-first.md` 与相关接口约定，明确双阶段鉴权、错误码（`tenant_disabled`/`member_not_found`/`session_version_mismatch`）与前端处理规范。
+- [ ] **T087 [P][FR-025~FR-028]** OpenAPI/错误契约：在 `contracts/http-openapi.yaml` 补充鉴权失败标准响应，区分 401（会话失效）与 403（主体存在但被禁用/越权）。
+
+### Implementation
+
+- [ ] **T088 [FR-025]** JWT 授权器增强：在 `backend/pkg/auth/middleware/jwt.go` 增加 tenant/user/member 的强校验路径；校验失败输出结构化错误原因。
+- [ ] **T089 [FR-026][P]** Auth 缓存层：实现 `auth:user:* / auth:member:* / auth:tenant:*` cache-first + DB-fallback + 回填，支持 TTL 配置与命中指标。
+- [ ] **T090 [FR-027][P]** 会话版本机制：在登录签发与鉴权链路中引入 `session_version`，新增服务接口用于密码重置/手动失效时推进版本。
+- [ ] **T091 [FR-028]** `me/context` 语义收敛：移除静默租户兜底，主体漂移时返回失败（401/403），并在前端触发清会话+跳登录。
+- [ ] **T092 [FR-026]** 失效事件钩子：用户/成员/租户状态变更时主动删除 auth snapshot 缓存，减少脏窗口。
+
+### Tests
+
+- [ ] **T093 [P][FR-025~FR-028]** 鉴权回归测试：覆盖 db-refresh、租户迁移、成员禁用、密码重置等场景，验证旧 token 被拒绝。
+- [ ] **T094 [P][FR-026]** 性能回归：在高并发下验证 auth cache 命中率与 DB fallback 比例，确保请求延迟和 DB 负载可控。
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。

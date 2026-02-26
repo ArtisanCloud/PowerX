@@ -130,6 +130,17 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	} else if rec != nil {
 		desc.Migration = rec
 	}
+	if m.opts.PostInstallManifest != nil {
+		if err := m.opts.PostInstallManifest(ctx, man); err != nil {
+			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+				plugin_mgr.CodeInternal,
+				err,
+				plugin_mgr.WithOp("install_file.register_permissions"),
+				plugin_mgr.WithPlugin(man.ID),
+				plugin_mgr.WithVersion(man.Version),
+			)
+		}
+	}
 
 	// 5) 登记为 installed（Bootstrap 已处理“同版本跳过”，这里就是新装）
 	if err := m.opts.Registry.Put(ctx, desc, plugin_mgr.StateInstalled); err != nil {

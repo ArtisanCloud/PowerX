@@ -269,7 +269,7 @@
 
 1. 适配层：接入 Framework 的 task/event 发布封装，不直接拼接底座内部接口。
 2. 配置项：补齐 `mode=taskbus|dual|fallback`、`proxy`、`tenant`、`trace` 透传开关。
-3. 权限：确认 service account 对目标 topic 的 publish/subscribe/replay ACL。
+3. 权限：确认 `api_key_profile`（或其下发的 API Key 主体）对目标 topic 的 publish/subscribe/replay ACL。
 4. 回归用例：覆盖 local + proxy=0/1 + mode 三种组合。
 5. 观测：日志必须输出 `tenant_uuid/topic/trace_id/mode/proxy`。
 

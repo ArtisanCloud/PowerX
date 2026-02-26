@@ -341,7 +341,11 @@ const renderedGroups = computed<MenuGroup[]>(() => {
     ...group,
     items: [...group.items],
   }));
-  const extras = [manualOpenCapabilityMenu.value, manualEventManageMenu.value, manualEventMonitorMenu.value].filter(
+  const extras = [
+    manualOpenCapabilityMenu.value,
+    manualEventManageMenu.value,
+    manualEventMonitorMenu.value,
+  ].filter(
     (item): item is MenuItem => !!item
   );
   if (extras.length === 0) return base;

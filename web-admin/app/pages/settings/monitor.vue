@@ -7,9 +7,6 @@
           聚焦运行态 Queue 与联调，Topic 维护请前往事件管理页。
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <UButton icon="i-heroicons-arrow-path" :loading="loading" @click="refresh">刷新</UButton>
-      </div>
     </div>
 
     <UAlert
@@ -458,66 +455,111 @@
 
       <div v-else-if="activeTab === 'task-cron'" class="space-y-4">
         <UCard>
-          <template #header><div class="font-semibold">Task / Cron 调试路径</div></template>
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-            <div class="font-semibold">建议顺序</div>
-            <div>1) 先在「Task 联调」创建/查询 replay 任务，确认任务状态流转。</div>
-            <div>2) 再在「Cron 管理」执行 run-now / pause / resume，确认调度控制有效。</div>
-            <div>3) 队列容量阈值属于高级配置，放在页面底部折叠区。</div>
+          <div class="flex flex-wrap gap-2">
+            <UButton size="sm" :variant="taskCronSubTab === 'replay' ? 'solid' : 'outline'" :color="taskCronSubTab === 'replay' ? 'primary' : 'neutral'" @click="taskCronSubTab = 'replay'">Task 联调</UButton>
+            <UButton size="sm" :variant="taskCronSubTab === 'cron' ? 'solid' : 'outline'" :color="taskCronSubTab === 'cron' ? 'primary' : 'neutral'" @click="taskCronSubTab = 'cron'">Cron 调度</UButton>
           </div>
         </UCard>
 
-        <UCard>
-          <template #header><div class="font-semibold">Replay Task 联调</div></template>
-
+        <UCard v-if="taskCronSubTab === 'replay'">
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1 mb-3">
+            <div class="font-semibold">Task 联调器说明</div>
+            <div>先选任务类型（Replay / Pipeline / Retry），再选 topic，点击「创建任务」。</div>
+            <div>任务会进入既有 <span class="font-mono">tenant_key + subscriber_id</span> 分片队列，不会新建队列。</div>
+            <div>执行后会显示命中队列（tenant_key + subscriber_id），可直接去 Queue 面板核对历史。</div>
+          </div>
+          <template #header><div class="font-semibold">Task 联调器</div></template>
           <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-            <div class="font-semibold">接口能力：</div>
-            <div>• 创建任务：<span class="font-mono">POST /admin/event-fabric/replay/tasks</span></div>
-            <div>• 查询任务：<span class="font-mono">GET /admin/event-fabric/replay/tasks/:task_id</span></div>
-            <div>• 取消任务：<span class="font-mono">POST /admin/event-fabric/replay/tasks/:task_id/cancel</span></div>
+            <div class="font-semibold">接口与行为说明</div>
+            <div>• Replay：<span class="font-mono">POST /admin/event-fabric/replay/tasks</span>，可继续查询/取消。</div>
+            <div>• Pipeline：<span class="font-mono">POST /admin/event-fabric/pipeline/tasks</span>，按 topic + subscriber 分发。</div>
+            <div>• Retry：请在「Cron 调度」面板先制造样本，再在作业行点「立即执行」。</div>
           </div>
 
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-3 mt-3">
-            <UInput v-model="taskDebug.topic" placeholder="topic（如 _topic.knowledge.space.feedback.reprocess）" class="md:col-span-2" />
-            <UInput v-model="taskDebug.traceId" placeholder="trace_id（可选）" />
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-4 mt-3">
+            <USelectMenu
+              v-model="taskDebug.mode"
+              :items="taskModeOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="请选择任务类型"
+              class="w-full"
+            />
+            <USelectMenu
+              v-model="taskDebug.topic"
+              :items="wsTopicOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="请选择 Task topic"
+              class="md:col-span-2 w-full"
+            />
+            <UInput v-model="taskDebug.traceId" placeholder="trace_id（Replay 可选）" />
           </div>
 
           <div class="mt-3 flex flex-wrap gap-2">
-            <UButton size="sm" color="primary" :loading="taskDebug.loading" @click="createReplayTaskDebug">创建任务</UButton>
-            <UButton size="sm" variant="outline" :loading="taskDebug.loading" :disabled="!taskDebug.taskId" @click="queryReplayTaskDebug">
+            <UButton size="sm" color="primary" :loading="taskDebug.loading" @click="createTaskDebug">创建任务</UButton>
+            <UButton size="sm" color="info" variant="soft" :loading="taskDebug.loading" :disabled="taskDebug.mode !== 'replay'" @click="runReplayQuickCheck">
+              创建并查询
+            </UButton>
+            <UButton size="sm" variant="outline" :loading="taskDebug.loading" :disabled="!taskDebug.taskId || taskDebug.mode !== 'replay'" @click="queryReplayTaskDebug">
               查询任务
             </UButton>
-            <UButton size="sm" variant="soft" color="warning" :loading="taskDebug.loading" :disabled="!taskDebug.taskId" @click="cancelReplayTaskDebug">
+            <UButton size="sm" variant="soft" color="warning" :loading="taskDebug.loading" :disabled="!taskDebug.taskId || taskDebug.mode !== 'replay'" @click="cancelReplayTaskDebug">
               取消任务
             </UButton>
           </div>
 
           <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono space-y-1">
+            <div>mode: {{ taskDebug.mode }}</div>
             <div>current_task_id: {{ taskDebug.taskId || '-' }}</div>
             <div>status: {{ taskDebug.status || '-' }}</div>
             <div>result_count: {{ taskDebug.resultCount ?? '-' }}</div>
             <div>failure_reason: {{ taskDebug.failureReason || '-' }}</div>
+            <div>queue_tenant_key: {{ taskDebug.queueTenantKey || '-' }}</div>
+            <div>queue_subscriber_id: {{ taskDebug.queueSubscriberId || '-' }}</div>
+            <div>queue_hit_state: {{ taskDebug.queueHitState || '-' }}</div>
+            <div>queue_hit_source: {{ taskDebug.queueHitSource || '-' }}</div>
+          </div>
+          <div class="mt-2 text-xs text-gray-500">
+            判定：创建后若命中队列可看到 queue_* 字段；Replay 出现 <span class="font-semibold">completed</span> 视为成功。
           </div>
 
-          <div class="mt-3 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
+          <div class="mt-3 flex justify-end">
+            <UButton size="xs" variant="ghost" @click="taskDebug.logs = []">清空 Replay 日志</UButton>
+          </div>
+          <div class="mt-2 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
             <div v-for="(line, idx) in taskDebug.logs" :key="idx" class="mb-1">{{ line }}</div>
             <div v-if="taskDebug.logs.length === 0" class="text-gray-500">点击按钮开始 Task 联调。</div>
           </div>
         </UCard>
 
-        <UCard>
+        <UCard v-else>
+          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1 mb-3">
+            <div class="font-semibold">Cron 场景说明</div>
+            <div>点击「立即执行 / 暂停 / 恢复」，验证调度器控制与作业状态变化。</div>
+            <div>Cron 不是 Replay 后置步骤；它用于定时/重试调度验证。</div>
+            <div>run-now 成功不保证新增任务（取决于到期任务或可重试任务）。</div>
+            <div>• `event_fabric.retry_dispatch` 的立即执行：马上扫描“到期可重试”任务并重新投递。</div>
+            <div>• `event_fabric.authorization_challenge_timeout` 的立即执行：马上扫描授权超时队列并执行超时处理。</div>
+            <div>验收时到「事件总线 -> Queue」核对任务历史变化。</div>
+          </div>
+          <div class="mb-3 flex flex-wrap gap-2">
+            <UButton size="sm" color="warning" variant="outline" :loading="taskDebug.loading" @click="createRetrySampleTaskDebug">
+              制造 Retry 样本
+            </UButton>
+          </div>
           <template #header>
             <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold">Cron 管理</div>
-              <UButton size="sm" variant="outline" :loading="cronDebug.loading" @click="loadCronJobsDebug">刷新任务</UButton>
+              <div class="font-semibold">Cron 调度</div>
+              <UButton size="sm" variant="outline" :loading="cronDebug.loading" @click="loadCronJobsDebug">刷新作业</UButton>
             </div>
           </template>
 
           <UAlert
             icon="i-heroicons-information-circle"
             variant="subtle"
-            title="说明"
-            description="这里展示 Event Fabric 内部调度任务。你可以直接 run-now / pause / resume，用于联调任务机制。"
+            title="调度说明"
+            description="“立即执行”是立刻跑一次当前作业逻辑：retry_dispatch 扫描到期重试并重投；authorization_challenge_timeout 扫描授权超时并处理。"
           />
 
           <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300">
@@ -531,9 +573,10 @@
                   <th class="text-left px-3 py-2">任务</th>
                   <th class="text-left px-3 py-2">类型</th>
                   <th class="text-left px-3 py-2">状态</th>
-                  <th class="text-left px-3 py-2">周期/批次</th>
+                  <th class="text-left px-3 py-2">周期/触发方式</th>
                   <th class="text-left px-3 py-2">subscriber/tenant</th>
                   <th class="text-left px-3 py-2">下次执行</th>
+                  <th class="text-left px-3 py-2">最近手动触发</th>
                   <th class="text-left px-3 py-2">操作</th>
                 </tr>
               </thead>
@@ -544,24 +587,25 @@
                     <div class="text-gray-500 font-mono">{{ job.id }}</div>
                   </td>
                   <td class="px-3 py-2">{{ job.kind || '-' }}</td>
-                  <td class="px-3 py-2">{{ job.status }}</td>
+                  <td class="px-3 py-2"><UBadge :color="cronStatusColor(job.status)" variant="soft">{{ job.status }}</UBadge></td>
                   <td class="px-3 py-2">
-                    interval={{ job.interval_sec ?? '-' }}s · batch={{ job.batch_size ?? '-' }}
+                    {{ formatCronSchedule(job) }}
                   </td>
-                  <td class="px-3 py-2 font-mono">
+                  <td class="px-3 py-2 font-mono whitespace-normal break-all">
                     {{ job.subscriber_id || '-' }} / {{ job.tenant_key || '-' }}
                   </td>
-                  <td class="px-3 py-2 font-mono">{{ job.next_run_at || '-' }}</td>
-                  <td class="px-3 py-2">
-                    <div class="flex flex-wrap gap-2">
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ job.next_run_at || '-' }}</td>
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ cronLastRunAtMap[job.id] || '-' }}</td>
+                  <td class="px-3 py-2 whitespace-nowrap">
+                    <div class="flex flex-nowrap gap-2 min-w-max">
                       <UButton size="xs" color="primary" :loading="cronDebug.loading" :disabled="!job.supports_run_now" @click="runCronJobNowDebug(job.id)">
-                        run-now
+                        立即执行
                       </UButton>
                       <UButton size="xs" variant="outline" :loading="cronDebug.loading" :disabled="!job.supports_pause || job.status === 'paused'" @click="pauseCronJobDebug(job.id)">
-                        pause
+                        暂停
                       </UButton>
                       <UButton size="xs" variant="soft" color="success" :loading="cronDebug.loading" :disabled="!job.supports_pause || job.status !== 'paused'" @click="resumeCronJobDebug(job.id)">
-                        resume
+                        恢复
                       </UButton>
                     </div>
                   </td>
@@ -569,10 +613,22 @@
               </tbody>
             </table>
           </div>
+          <div class="mt-2 text-xs text-gray-500">
+            字段说明：<span class="font-mono">interval=Ns</span> 表示固定周期任务；<span class="font-mono">trigger=queue</span> 表示队列触发任务（无固定周期）。
+          </div>
+          <div class="mt-2 text-xs text-gray-500">
+            判定：run-now 返回成功仅表示“该作业被触发”；是否产生任务增量取决于该作业当下是否有可处理数据。
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            说明：这两类作业是常驻 worker，状态通常保持 <span class="font-mono">running</span>，不会出现“completed”。
+          </div>
 
-          <div class="mt-3 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
+          <div class="mt-3 flex justify-end">
+            <UButton size="xs" variant="ghost" @click="cronDebug.logs = []">清空 Cron 日志</UButton>
+          </div>
+          <div class="mt-2 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
             <div v-for="(line, idx) in cronDebug.logs" :key="idx" class="mb-1">{{ line }}</div>
-            <div v-if="cronDebug.logs.length === 0" class="text-gray-500">点击“刷新任务”开始 Cron 联调。</div>
+            <div v-if="cronDebug.logs.length === 0" class="text-gray-500">点击“刷新作业”开始 Cron 联调。</div>
           </div>
         </UCard>
 
@@ -670,6 +726,8 @@ definePageMeta({
 
 type MonitorTabKey = "event-fabric" | "websocket" | "task-cron" | "logs-trace";
 type EventSubTabKey = "queue" | "debug";
+type TaskCronSubTabKey = "replay" | "cron";
+type TaskDebugMode = "replay" | "pipeline" | "retry";
 const monitorTabs: Array<{ key: MonitorTabKey; label: string }> = [
   { key: "event-fabric", label: "事件总线" },
   { key: "websocket", label: "WebSocket" },
@@ -679,6 +737,11 @@ const monitorTabs: Array<{ key: MonitorTabKey; label: string }> = [
 const eventSubTabs: Array<{ key: EventSubTabKey; label: string }> = [
   { key: "queue", label: "Queue" },
   { key: "debug", label: "联调" },
+];
+const taskModeOptions: Array<{ label: string; value: TaskDebugMode }> = [
+  { label: "Replay", value: "replay" },
+  { label: "Pipeline", value: "pipeline" },
+  { label: "Retry", value: "retry" },
 ];
 
 const userStore = useUserStore();
@@ -707,6 +770,7 @@ const resolveTab = (value: unknown): MonitorTabKey => {
 };
 const activeTab = ref<MonitorTabKey>(resolveTab(route.query.tab));
 const eventSubTab = ref<EventSubTabKey>("queue");
+const taskCronSubTab = ref<TaskCronSubTabKey>("replay");
 const setTab = (tab: MonitorTabKey) => {
   activeTab.value = tab;
 };
@@ -1089,7 +1153,10 @@ async function runFlowTemplateTask() {
   flowDebug.phase = "creating";
   flowDebug.timeline = [];
 
-  const topicInput = (taskDebug.topic || EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS).trim();
+  const replayTopicInput = taskDebug.mode === "replay"
+    ? taskDebug.topic
+    : EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS;
+  const topicInput = (replayTopicInput || EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS).trim();
   const topic = resolveReplayTopic(topicInput);
   if (!topic) {
     flowDebug.phase = "error";
@@ -1387,21 +1454,31 @@ function unsubscribeWs() {
 }
 
 const taskDebug = reactive<{
+  mode: TaskDebugMode;
   topic: string;
   traceId: string;
   taskId: string;
   status: string;
   resultCount: number | null;
   failureReason: string;
+  queueTenantKey: string;
+  queueSubscriberId: string;
+  queueHitState: string;
+  queueHitSource: string;
   loading: boolean;
   logs: string[];
 }>({
+  mode: "replay",
   topic: EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS,
   traceId: "",
   taskId: "",
   status: "",
   resultCount: null,
   failureReason: "",
+  queueTenantKey: "",
+  queueSubscriberId: "",
+  queueHitState: "",
+  queueHitSource: "",
   loading: false,
   logs: [],
 });
@@ -1474,11 +1551,80 @@ const cronDebug = reactive<{
   jobs: [],
   logs: [],
 });
+const cronLastRunAtMap = reactive<Record<string, string>>({});
 
 const pushCronDebug = (msg: string) => {
   cronDebug.logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
   cronDebug.logs = cronDebug.logs.slice(0, 60);
 };
+
+function formatTaskIDsForLog(taskIDs: string[]) {
+  return taskIDs.length > 0 ? taskIDs.join(", ") : "无（本次未命中新任务）";
+}
+
+function toMillis(input?: string) {
+  if (!input) return 0;
+  const value = Date.parse(input);
+  return Number.isFinite(value) ? value : 0;
+}
+
+async function listShardHistoryTaskIDs(tenantKey: string, subscriberID: string, limit = 50) {
+  const msgRes = await svc.getTaskQueueMessages({
+    tenant_key: tenantKey,
+    subscriber_id: subscriberID,
+    limit,
+  });
+  const history = msgRes.data?.history || [];
+  const ids = history
+    .map((item) => String(item?.task_id || "").trim())
+    .filter(Boolean);
+  return {
+    messages: msgRes.data?.messages,
+    history,
+    ids,
+  };
+}
+
+async function collectHistoryTaskIDsAcrossShards(limitPerShard = 30) {
+  const statsRes = await svc.getTaskQueueStats();
+  const rows = statsRes.data?.task_queue?.by_subscriber || [];
+  const allIDs: string[] = [];
+  for (const row of rows.slice(0, 40)) {
+    if (!row?.tenant_key || !row?.subscriber_id) continue;
+    const payload = await listShardHistoryTaskIDs(row.tenant_key, row.subscriber_id, limitPerShard);
+    allIDs.push(...payload.ids);
+  }
+  return Array.from(new Set(allIDs));
+}
+
+async function collectRecentTaskIDsAcrossShards(sinceMs: number) {
+  const statsRes = await svc.getTaskQueueStats();
+  const rows = statsRes.data?.task_queue?.by_subscriber || [];
+  const hits: Array<{ task_id: string; ts: number }> = [];
+  for (const row of rows.slice(0, 40)) {
+    if (!row?.tenant_key || !row?.subscriber_id) continue;
+    const msgRes = await svc.getTaskQueueMessages({
+      tenant_key: row.tenant_key,
+      subscriber_id: row.subscriber_id,
+      limit: 30,
+    });
+    const history = msgRes.data?.history || [];
+    for (const item of history) {
+      const taskID = String(item?.task_id || "").trim();
+      if (!taskID) continue;
+      const ts = Math.max(
+        toMillis(item?.submitted_at),
+        toMillis(item?.completed_at),
+        toMillis(item?.last_seen_at),
+      );
+      if (ts >= sinceMs - 1000) {
+        hits.push({ task_id: taskID, ts });
+      }
+    }
+  }
+  const unique = Array.from(new Map(hits.sort((a, b) => b.ts - a.ts).map((item) => [item.task_id, item])).values());
+  return unique.slice(0, 5).map((item) => item.task_id);
+}
 
 async function loadCronJobsDebug() {
   cronDebug.loading = true;
@@ -1498,9 +1644,59 @@ async function loadCronJobsDebug() {
 async function runCronJobNowDebug(jobId: string) {
   cronDebug.loading = true;
   try {
+    const runStartedAt = Date.now();
+    let beforeFixedShardIDs = new Set<string>();
+    let beforeAllIDs = new Set<string>();
+    if (jobId === "event_fabric.retry_dispatch") {
+      beforeAllIDs = new Set(await collectHistoryTaskIDsAcrossShards(30));
+    } else {
+      const currentJob = cronDebug.jobs.find((item) => item.id === jobId);
+      if (currentJob?.subscriber_id && currentJob?.tenant_key) {
+        const before = await listShardHistoryTaskIDs(currentJob.tenant_key, currentJob.subscriber_id, 30);
+        beforeFixedShardIDs = new Set(before.ids);
+      }
+    }
+
     const res = await svc.runCronJobNow(jobId);
     const job = res.data;
+    cronLastRunAtMap[job.id] = new Date().toLocaleTimeString();
     pushCronDebug(`run-now ok: ${job.id} status=${job.status}`);
+    if (job.subscriber_id && job.tenant_key) {
+      const queueRes = await listShardHistoryTaskIDs(job.tenant_key, job.subscriber_id, 30);
+      const runtime = queueRes.messages;
+      const runtimeCount = (runtime?.pending?.length || 0)
+        + (runtime?.deferred?.length || 0)
+        + (runtime?.processing?.length || 0)
+        + (runtime?.inflight?.length || 0);
+      const historyCount = queueRes.history?.length || 0;
+      const recentTaskIDs = queueRes.history
+        .filter((item) => Math.max(toMillis(item?.submitted_at), toMillis(item?.completed_at), toMillis(item?.last_seen_at)) >= runStartedAt - 1000)
+        .map((item) => String(item?.task_id || "").trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      const newTaskIDs = queueRes.ids.filter((item) => !beforeFixedShardIDs.has(item)).slice(0, 5);
+      pushCronDebug(`queue check: ${job.subscriber_id}/${job.tenant_key} runtime=${runtimeCount} history=${historyCount}`);
+      pushCronDebug(`queue new_task_ids: ${formatTaskIDsForLog(newTaskIDs)}`);
+      pushCronDebug(`queue recent_task_ids: ${formatTaskIDsForLog(recentTaskIDs)}`);
+    } else {
+      const afterAllIDs = new Set(await collectHistoryTaskIDsAcrossShards(30));
+      const newTaskIDs = Array.from(afterAllIDs).filter((item) => !beforeAllIDs.has(item)).slice(0, 5);
+      const recentTaskIDs = await collectRecentTaskIDsAcrossShards(runStartedAt);
+      pushCronDebug(`queue check: ${job.id} 无固定 subscriber/tenant，已跨分片扫描`);
+      pushCronDebug(`queue new_task_ids: ${formatTaskIDsForLog(newTaskIDs)}`);
+      pushCronDebug(`queue recent_task_ids: ${formatTaskIDsForLog(recentTaskIDs)}`);
+      if (job.id === "event_fabric.retry_dispatch" && taskDebug.taskId) {
+        try {
+          const retryStatusRes = await svc.getRetryTaskSeed(taskDebug.taskId);
+          const retryStatus = retryStatusRes.data;
+          pushCronDebug(
+            `retry delivery status: delivery_id=${retryStatus.delivery_id} status=${retryStatus.status} acked_at=${retryStatus.acked_at || "-"} last_attempt_at=${retryStatus.last_attempt_at || "-"} last_error=${retryStatus.last_error_code || "-"} nack_reason=${retryStatus.nack_reason || "-"}`
+          );
+        } catch (statusErr: any) {
+          pushCronDebug(`retry delivery status: query failed ${statusErr?.message || statusErr}`);
+        }
+      }
+    }
     await loadCronJobsDebug();
   } catch (e: any) {
     pushCronDebug(`run-now failed: ${jobId} ${e?.message || e}`);
@@ -1545,38 +1741,214 @@ const pushTaskDebug = (msg: string) => {
   taskDebug.logs = taskDebug.logs.slice(0, 60);
 };
 
-async function createReplayTaskDebug() {
+function resetTaskQueueHit() {
+  taskDebug.queueTenantKey = "";
+  taskDebug.queueSubscriberId = "";
+  taskDebug.queueHitState = "";
+  taskDebug.queueHitSource = "";
+}
+
+function applyTaskQueueHit(hit: { tenant_key: string; subscriber_id: string; state: string; source: string }) {
+  taskDebug.queueTenantKey = hit.tenant_key;
+  taskDebug.queueSubscriberId = hit.subscriber_id;
+  taskDebug.queueHitState = hit.state;
+  taskDebug.queueHitSource = hit.source;
+}
+
+function normalizeTopicKey(topic: string) {
+  return resolveReplayTopic(String(topic || "").trim());
+}
+
+async function locateTaskQueueHit(taskId: string, preferred?: { tenant_key?: string; subscriber_id?: string }) {
+  if (!taskId) return false;
+  const statsRes = await svc.getTaskQueueStats();
+  const rows = statsRes.data?.task_queue?.by_subscriber || [];
+  const candidates = [] as Array<{ tenant_key: string; subscriber_id: string }>;
+  if (preferred?.tenant_key && preferred?.subscriber_id) {
+    candidates.push({ tenant_key: preferred.tenant_key, subscriber_id: preferred.subscriber_id });
+  }
+  for (const row of rows) {
+    if (!row?.tenant_key || !row?.subscriber_id) continue;
+    if (candidates.some((item) => item.tenant_key === row.tenant_key && item.subscriber_id === row.subscriber_id)) continue;
+    candidates.push({ tenant_key: row.tenant_key, subscriber_id: row.subscriber_id });
+  }
+
+  for (const candidate of candidates.slice(0, 30)) {
+    const msgRes = await svc.getTaskQueueMessages({
+      tenant_key: candidate.tenant_key,
+      subscriber_id: candidate.subscriber_id,
+      limit: 50,
+    });
+    const messages = msgRes.data?.messages;
+    const history = msgRes.data?.history || [];
+    if ((messages?.pending || []).some((item) => String(item?.id || "").trim() === taskId)) {
+      applyTaskQueueHit({ ...candidate, state: "pending", source: "runtime" });
+      return true;
+    }
+    if ((messages?.deferred || []).some((item) => String(item?.id || "").trim() === taskId)) {
+      applyTaskQueueHit({ ...candidate, state: "deferred", source: "runtime" });
+      return true;
+    }
+    if ((messages?.processing || []).some((item) => String(item?.id || "").trim() === taskId)) {
+      applyTaskQueueHit({ ...candidate, state: "processing", source: "runtime" });
+      return true;
+    }
+    if ((messages?.inflight || []).some((item) => String(item?.id || "").trim() === taskId)) {
+      applyTaskQueueHit({ ...candidate, state: "inflight", source: "runtime" });
+      return true;
+    }
+    const hit = history.find((item) => String(item?.task_id || "").trim() === taskId);
+    if (hit) {
+      applyTaskQueueHit({ ...candidate, state: String(hit.status || "history"), source: String(hit.source || "history") });
+      return true;
+    }
+  }
+  return false;
+}
+
+async function createTaskDebug() {
+  if (!(await ensureTenantContextLoaded())) {
+    toast.add({ title: "缺少租户上下文", description: "无法识别当前登录租户，请重新登录后重试", color: "warning" });
+    return;
+  }
   const topic = resolveReplayTopic(taskDebug.topic.trim());
   if (!topic) {
-    toast.add({ title: "请先输入 topic", color: "warning" });
+    toast.add({ title: "请先选择 topic", color: "warning" });
     return;
   }
   taskDebug.topic = topic;
-
+  resetTaskQueueHit();
   taskDebug.loading = true;
   try {
-    const res = await svc.createReplayTask({
+    if (taskDebug.mode === "replay") {
+      const res = await svc.createReplayTask({
+        topic,
+        trace_id: taskDebug.traceId.trim() || undefined,
+        reason: "debug from monitor/task-cron",
+        shadow: true,
+      });
+      const task = res.data;
+      taskDebug.taskId = task.id || "";
+      taskDebug.status = task.status || "";
+      taskDebug.resultCount = task.result_count ?? null;
+      taskDebug.failureReason = task.failure_reason || "";
+      const preferred = {
+        tenant_key: effectiveTenantUuid.value,
+        subscriber_id: EVENT_SUBSCRIBERS.EVENT_FABRIC_REPLAY,
+      };
+      const hit = await locateTaskQueueHit(taskDebug.taskId, preferred);
+      pushTaskDebug(`replay create ok: task_id=${taskDebug.taskId}, status=${taskDebug.status}, queue_hit=${hit ? "yes" : "no"}`);
+      toast.add({ title: "Replay 任务创建成功", description: taskDebug.taskId, color: "success" });
+      return;
+    }
+    if (taskDebug.mode === "pipeline") {
+      const res = await svc.createPipelineTask({
+        title: "Task 联调器 Pipeline 通知",
+        content: "通过 Task 联调器触发的 Pipeline 任务",
+        type: "system",
+        category: "system",
+        topic,
+        subscriber_id: EVENT_SUBSCRIBERS.SYSTEM_NOTIFICATION_DISPATCH,
+        tenant_key: "global",
+        metadata: { source: "monitor.task-debugger" },
+      });
+      const result = res.data;
+      taskDebug.taskId = String(result?.task_id || "");
+      taskDebug.status = "queued";
+      taskDebug.resultCount = null;
+      taskDebug.failureReason = "";
+      const preferred = {
+        tenant_key: String(result?.tenant_key || "global"),
+        subscriber_id: String(result?.subscriber_id || EVENT_SUBSCRIBERS.SYSTEM_NOTIFICATION_DISPATCH),
+      };
+      const hit = await locateTaskQueueHit(taskDebug.taskId, preferred);
+      pushTaskDebug(`pipeline create ok: task_id=${taskDebug.taskId}, queue_hit=${hit ? "yes" : "no"}`);
+      toast.add({ title: "Pipeline 任务创建成功", description: taskDebug.taskId, color: "success" });
+      return;
+    }
+
+    const res = await svc.createRetryTaskSeed({
       topic,
-      trace_id: taskDebug.traceId.trim() || undefined,
       reason: "debug from monitor/task-cron",
-      shadow: true,
     });
-    const task = res.data;
-    taskDebug.taskId = task.id || "";
-    taskDebug.status = task.status || "";
-    taskDebug.resultCount = task.result_count ?? null;
-    taskDebug.failureReason = task.failure_reason || "";
-    pushTaskDebug(`create ok: task_id=${taskDebug.taskId}, status=${taskDebug.status}`);
-    toast.add({ title: "任务创建成功", description: taskDebug.taskId, color: "success" });
+    const seed = res.data;
+    taskDebug.taskId = String(seed.delivery_id || "");
+    taskDebug.status = "retry_seeded";
+    taskDebug.resultCount = null;
+    taskDebug.failureReason = "";
+    taskDebug.queueTenantKey = String(seed.tenant_key || "");
+    taskDebug.queueSubscriberId = String(seed.subscriber_id || "");
+    taskDebug.queueHitState = "scheduled";
+    taskDebug.queueHitSource = "retry_seed";
+    pushTaskDebug(`retry seed ok: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}`);
+    toast.add({
+      title: "Retry 样本已制造",
+      description: `retry_at=${seed.retry_at}`,
+      color: "success",
+    });
   } catch (e: any) {
     pushTaskDebug(`create failed: ${e?.message || e}`);
     toast.add({ title: "创建任务失败", description: e?.message || "未知错误", color: "error" });
   } finally {
     taskDebug.loading = false;
+    queueStatsDirty.value = true;
+    void syncQueueStatsIfDirty();
   }
 }
 
+async function createRetrySampleTaskDebug() {
+  if (!(await ensureTenantContextLoaded())) {
+    toast.add({ title: "缺少租户上下文", description: "无法识别当前登录租户，请重新登录后重试", color: "warning" });
+    return;
+  }
+  taskDebug.mode = "retry";
+  const topic = resolveReplayTopic((taskDebug.topic || EVENT_TOPICS.SYSTEM_NOTIFICATION).trim()) || EVENT_TOPICS.SYSTEM_NOTIFICATION;
+  taskDebug.topic = topic;
+  taskDebug.loading = true;
+  try {
+    const res = await svc.createRetryTaskSeed({
+      topic,
+      reason: "debug from monitor/cron-quick-actions",
+      immediate: false,
+    });
+    const seed = res.data;
+    taskDebug.taskId = String(seed.delivery_id || "");
+    taskDebug.status = "retry_seeded";
+    taskDebug.resultCount = null;
+    taskDebug.failureReason = "";
+    taskDebug.queueTenantKey = String(seed.tenant_key || "");
+    taskDebug.queueSubscriberId = String(seed.subscriber_id || "");
+    taskDebug.queueHitState = "scheduled";
+    taskDebug.queueHitSource = "retry_seed";
+    pushTaskDebug(`retry seed ok: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
+    pushCronDebug(`retry seed ok: delivery_id=${seed.delivery_id}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
+    toast.add({ title: "Retry 样本已制造", description: "样本已入重试池，请在 Cron 表格行点击“立即执行”", color: "success" });
+  } catch (e: any) {
+    pushTaskDebug(`retry seed failed: ${e?.message || e}`);
+    pushCronDebug(`retry seed failed: ${e?.message || e}`);
+    toast.add({ title: "制造 Retry 样本失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    taskDebug.loading = false;
+    queueStatsDirty.value = true;
+    void syncQueueStatsIfDirty();
+  }
+}
+
+async function runReplayQuickCheck() {
+  if (taskDebug.mode !== "replay") {
+    toast.add({ title: "仅 Replay 支持创建并查询", color: "info" });
+    return;
+  }
+  await createTaskDebug();
+  if (!taskDebug.taskId) return;
+  await queryReplayTaskDebug();
+}
+
 async function queryReplayTaskDebug() {
+  if (taskDebug.mode !== "replay") {
+    toast.add({ title: "仅 Replay 支持查询", color: "info" });
+    return;
+  }
   const taskId = taskDebug.taskId.trim();
   if (!taskId) {
     toast.add({ title: "暂无 task_id", color: "warning" });
@@ -1600,7 +1972,34 @@ async function queryReplayTaskDebug() {
   }
 }
 
+function cronStatusColor(status: string) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "running") return "success";
+  if (normalized === "paused") return "warning";
+  if (normalized === "unavailable") return "error";
+  return "neutral";
+}
+
+function formatCronSchedule(job: EventFabricCronJob) {
+  const kind = String(job.kind || "").trim().toLowerCase();
+  const batch = Number(job.batch_size ?? 0);
+  const batchText = `batch=${Number.isFinite(batch) && batch > 0 ? batch : "-"}`;
+  if (kind === "interval") {
+    const interval = Number(job.interval_sec ?? 0);
+    const intervalText = Number.isFinite(interval) && interval > 0 ? `${interval}s` : "-";
+    return `interval=${intervalText} · ${batchText}`;
+  }
+  if (kind === "queue") {
+    return `trigger=queue · ${batchText}`;
+  }
+  return `schedule=- · ${batchText}`;
+}
+
 async function cancelReplayTaskDebug() {
+  if (taskDebug.mode !== "replay") {
+    toast.add({ title: "仅 Replay 支持取消", color: "info" });
+    return;
+  }
   const taskId = taskDebug.taskId.trim();
   if (!taskId) {
     toast.add({ title: "暂无 task_id", color: "warning" });
@@ -1626,7 +2025,14 @@ watch(activeTab, (tab) => {
     wsTopic.value = EVENT_TOPICS.SYSTEM_NOTIFICATION;
     void loadWsTopicCatalog();
   }
-  if (tab === "task-cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
+  if (tab === "task-cron" && taskCronSubTab.value === "cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
+    void loadCronJobsDebug();
+  }
+});
+
+watch(taskCronSubTab, (tab) => {
+  if (activeTab.value !== "task-cron") return;
+  if (tab === "cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
     void loadCronJobsDebug();
   }
 });
@@ -1634,6 +2040,24 @@ watch(activeTab, (tab) => {
 watch([activeTab, eventSubTab], () => {
   void syncQueueStatsIfDirty();
 });
+
+watch(
+  () => taskDebug.mode,
+  (mode) => {
+    if (mode === "pipeline") {
+      taskDebug.topic = EVENT_TOPICS.SYSTEM_NOTIFICATION;
+    } else if (mode === "retry") {
+      taskDebug.topic = EVENT_TOPICS.SYSTEM_NOTIFICATION;
+    } else {
+      taskDebug.topic = EVENT_TOPICS.KNOWLEDGE_FEEDBACK_REPROCESS;
+    }
+    taskDebug.taskId = "";
+    taskDebug.status = "";
+    taskDebug.resultCount = null;
+    taskDebug.failureReason = "";
+    resetTaskQueueHit();
+  }
+);
 
 onMounted(async () => {
   loadThresholdConfig();

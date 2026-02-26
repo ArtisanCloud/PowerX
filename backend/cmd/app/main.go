@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
@@ -11,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -32,6 +35,7 @@ func main() {
 	if cfg == nil {
 		log.Fatalf("加载配置文件失败")
 	}
+	apikeypermissions.SetIntroducedVersion(cfg.EffectiveSystemVersion())
 
 	// Gin 的 debug 路由打印按 log.http_debug 控制
 	if cfg.LogConfig.HttpDebug {
@@ -120,12 +124,13 @@ func main() {
 		Title: "PowerX Admin API (Minimal)", Version: "v1.0.0",
 	})
 
-	// 生成并保存最小 OpenAPI 文档文件
-	if err := openapi.SaveMinimalDoc(r, openapi.Info{
+	// 生成并保存最小 OpenAPI 文档文件（兼容不同启动目录）
+	docInfo := openapi.Info{
 		Title:   "PowerX Admin API (Minimal)",
 		Version: "v1.0.0",
 		BaseURL: "/",
-	}, "./api/openapi"); err != nil {
+	}
+	if err := saveMinimalOpenAPIDocs(r, docInfo); err != nil {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
 
@@ -140,4 +145,41 @@ func main() {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
 
+}
+
+func saveMinimalOpenAPIDocs(r *gin.Engine, info openapi.Info) error {
+	cwd, _ := os.Getwd()
+	candidates := []string{"./api/openapi", "./backend/api/openapi"}
+	ordered := make([]string, 0, len(candidates))
+	for _, path := range candidates {
+		absPath := path
+		if !filepath.IsAbs(path) {
+			absPath = filepath.Join(cwd, path)
+		}
+		if stat, err := os.Stat(absPath); err == nil && stat.IsDir() {
+			ordered = append(ordered, absPath)
+		}
+	}
+	for _, path := range candidates {
+		absPath := path
+		if !filepath.IsAbs(path) {
+			absPath = filepath.Join(cwd, path)
+		}
+		exists := false
+		for _, done := range ordered {
+			if done == absPath {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			ordered = append(ordered, absPath)
+		}
+	}
+	for _, absPath := range ordered {
+		if err := openapi.SaveMinimalDoc(r, info, absPath); err == nil {
+			return nil
+		}
+	}
+	return openapi.SaveMinimalDoc(r, info, ordered[0])
 }

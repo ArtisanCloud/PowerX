@@ -29,7 +29,8 @@ const TableIAMTeam = "iam_team"
 const TableIAMPosition = "iam_position"
 const TableIAMGroup = "iam_group"
 const TableIAMRoleBinding = "iam_role_binding"
-const TableIAMServiceAccount = "iam_service_account"
+const TableIAMAPIKeyProfile = "iam_api_key_profile"
+const TableIAMAPIKeyProfilePermission = "iam_api_key_profile_permission"
 const TableIAMAPIKey = "iam_api_key"
 
 const TableAuditEvent = "audit_event"
@@ -58,6 +59,9 @@ const TableIntegrationGatewayRoute = "integration_gateway_routes"
 const TableIntegrationGatewayRouteVersion = "integration_gateway_route_versions"
 const TableIntegrationGatewayInvocationLog = "integration_gateway_invocation_logs"
 const TableIntegrationGatewayEventPublication = "integration_gateway_event_publications"
+const TableIntegrationGatewayAPIKey = "integration_gateway_api_keys"
+const TableIntegrationGatewayAPIKeyPermission = "integration_gateway_api_key_permissions"
+const TableIntegrationGatewayAPIKeyAuditLog = "integration_gateway_api_key_audit_logs"
 
 // TableTopicRegistry 是 Topic 注册中心的逻辑唯一源常量。
 // 过渡期物理表仍映射到 event_topics，待 T093 迁移后切换为最终表名。

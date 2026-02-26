@@ -35,3 +35,16 @@ export type {
   CapabilitySyncJobParams,
   CapabilitySyncJobResult,
 } from "./capabilityRegistryService";
+
+export { useIntegrationGatewayApiKeyService } from "./integrationGatewayApiKeyService";
+export type {
+  IntegrationGatewayApiKeyPermission,
+  IntegrationGatewayApiKeyRecord,
+  IntegrationGatewayApiKeyListResult,
+  IntegrationGatewayServiceAccount,
+  CreateIntegrationGatewayApiKeyPayload,
+  RotateIntegrationGatewayApiKeyPayload,
+  RevokeIntegrationGatewayApiKeyPayload,
+  CreateIntegrationGatewayApiKeyResult,
+  RotateIntegrationGatewayApiKeyResult,
+} from "./integrationGatewayApiKeyService";
