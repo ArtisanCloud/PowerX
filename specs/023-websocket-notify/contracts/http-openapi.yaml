@@ -10,10 +10,10 @@ paths:
       responses:
         "101":
           description: Switching Protocols
-  /api/v1/internal/ws-bus/register:
+  /api/v1/internal/ws-bus/grant:
     post:
-      summary: WS Bus 发布 topic 动态注册（内部）
-      description: 宿主/插件在运行时注册可发布 topic（幂等）。
+      summary: WS Bus 主题授权绑定（内部）
+      description: 对已存在 topic 执行授权绑定（ACL grant，幂等）；不负责创建 topic。
       requestBody:
         required: true
         content:

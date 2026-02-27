@@ -1,17 +1,241 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
+import { useUserStore } from "~/stores/user";
+import {
+  useEventFabricService,
+  type EventFabricTopic,
+} from "~/composables/api/services/eventFabricService";
+
+definePageMeta({
+  title: "事件管理",
+  icon: "i-heroicons-queue-list",
+  order: 10,
+});
+
+const userStore = useUserStore();
+const { isRoot } = storeToRefs(userStore);
+const allowAccess = computed(() => Boolean(isRoot.value));
+const toast = useToast();
+const svc = useEventFabricService();
+const router = useRouter();
+const localePath = useLocalePath();
+
+const loading = ref(false);
+const creating = ref(false);
+const lifecycleLoadingId = ref("");
+const createModalOpen = ref(false);
+
+const topics = ref<EventFabricTopic[]>([]);
+const total = ref(0);
+
+const filters = reactive({
+  namespace: "",
+  lifecycle: "__all__",
+  tenantUUID: "",
+});
+
+const createForm = reactive({
+  namespace: "",
+  name: "",
+  payloadFormat: "json",
+  maxRetry: 5,
+  ackTimeoutSec: 30,
+  versioningMode: "strict",
+  retentionPolicy: '{"mode":"standard"}',
+  createdBy: "web-admin",
+});
+
+const lifecycleOptions = [
+  { label: "全部状态", value: "__all__" },
+  { label: "active", value: "active" },
+  { label: "deprecated", value: "deprecated" },
+  { label: "retired", value: "retired" },
+];
+
+function normalizeLifecycleFilterValue(raw: unknown): string {
+  if (typeof raw === "string") {
+    return raw.trim();
+  }
+  if (raw && typeof raw === "object") {
+    const value = (raw as any).value;
+    if (typeof value === "string") {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+const canSearchByTenant = computed(() => allowAccess.value);
+
+function toTopicKey(topic: EventFabricTopic): string {
+  return `${topic.namespace}.${topic.name}`;
+}
+
+function lifecycleLabel(lifecycle: string): string {
+  const value = String(lifecycle || "").trim().toLowerCase();
+  if (value === "active") return "启用";
+  if (value === "deprecated") return "弃用";
+  if (value === "retired") return "退役";
+  return value || "-";
+}
+
+function scopeTypeLabel(scopeType?: string): string {
+  const value = String(scopeType || "").trim().toLowerCase();
+  if (value === "system") return "系统";
+  if (value === "tenant") return "租户";
+  if (value === "plugin") return "插件";
+  if (value === "third_party") return "第三方";
+  return value || "-";
+}
+
+async function loadTopics(force = false) {
+  if (!force && !allowAccess.value) return;
+  loading.value = true;
+  try {
+    const lifecycleFilter = normalizeLifecycleFilterValue(filters.lifecycle);
+    const response = await svc.listTopics({
+      namespace: String(filters.namespace || "").trim() || undefined,
+      lifecycle: lifecycleFilter === "__all__" ? undefined : lifecycleFilter || undefined,
+      tenant_uuid:
+        canSearchByTenant.value && String(filters.tenantUUID || "").trim()
+          ? String(filters.tenantUUID).trim()
+          : undefined,
+      page: 1,
+      page_size: 200,
+    });
+    const data = response?.data || {};
+    topics.value = Array.isArray(data?.items) ? data.items : [];
+    total.value = Number(data?.total || topics.value.length || 0);
+  } catch (err: any) {
+    toast.add({
+      title: "加载 Topic 失败",
+      description: err?.message || "未知错误",
+      color: "error",
+    });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function resetFilters() {
+  filters.namespace = "";
+  filters.lifecycle = "__all__";
+  filters.tenantUUID = "";
+  loadTopics();
+}
+
+async function createTopic() {
+  const namespace = String(createForm.namespace || "").trim();
+  const name = String(createForm.name || "").trim();
+  if (!namespace || !name) {
+    toast.add({ title: "请填写 namespace 和 name", color: "warning" });
+    return;
+  }
+
+  creating.value = true;
+  try {
+    await svc.createTopic({
+      namespace,
+      name,
+      payload_format: String(createForm.payloadFormat || "json").trim() || "json",
+      max_retry: Number(createForm.maxRetry || 0) || 5,
+      ack_timeout_sec: Number(createForm.ackTimeoutSec || 0) || 30,
+      versioning_mode:
+        String(createForm.versioningMode || "strict").trim() || "strict",
+      retention_policy:
+        String(createForm.retentionPolicy || '{"mode":"standard"}').trim() ||
+        '{"mode":"standard"}',
+      created_by: String(createForm.createdBy || "web-admin").trim() || "web-admin",
+    });
+
+    toast.add({ title: "Topic 创建成功", color: "success" });
+    createForm.namespace = "";
+    createForm.name = "";
+    createModalOpen.value = false;
+    await loadTopics();
+  } catch (err: any) {
+    toast.add({
+      title: "Topic 创建失败",
+      description: err?.message || "未知错误",
+      color: "error",
+    });
+  } finally {
+    creating.value = false;
+  }
+}
+
+async function changeLifecycle(topic: EventFabricTopic, target: "active" | "deprecated" | "retired") {
+  if (!topic?.id) return;
+  if (topic.lifecycle === target) return;
+
+  if (target === "retired") {
+    const confirmed = window.confirm(`确认将 Topic ${topic.full_topic} 退役吗？`);
+    if (!confirmed) return;
+  }
+
+  lifecycleLoadingId.value = topic.id;
+  try {
+    await svc.updateTopicLifecycle(topic.id, {
+      target_state: target,
+      change_reason: "web-admin topic lifecycle update",
+    });
+    toast.add({ title: `已更新为 ${target}`, color: "success" });
+    await loadTopics();
+  } catch (err: any) {
+    toast.add({
+      title: "更新生命周期失败",
+      description: err?.message || "未知错误",
+      color: "error",
+    });
+  } finally {
+    lifecycleLoadingId.value = "";
+  }
+}
+
+async function goAcl(topic: EventFabricTopic) {
+  try {
+    const target = localePath({
+      path: "/settings/event-acl",
+      query: { topic_key: toTopicKey(topic) },
+    } as any);
+    await router.push(target as any);
+  } catch (err: any) {
+    toast.add({
+      title: "跳转权限配置失败",
+      description: err?.message || "未知错误",
+      color: "error",
+    });
+  }
+}
+
+onMounted(async () => {
+  try {
+    await userStore.fetchUserContext({ force: true });
+  } catch {
+  }
+  await loadTopics(true);
+});
+
+watch(
+  () => allowAccess.value,
+  (enabled) => {
+    if (enabled) {
+      void loadTopics();
+    }
+  },
+  { immediate: true }
+);
+</script>
+
 <template>
-  <div class="p-6 space-y-6">
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div class="p-6 space-y-4">
+    <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">异步任务（Event Fabric）</h1>
-        <p class="text-gray-600 dark:text-gray-400">
-          统一监管投递、重试队列与 DLQ；用于知识库反馈再加工等异步链路。
-        </p>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">事件管理</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-400">管理 Topic 目录（新增、查询、生命周期变更），权限授权在二级页面维护。</p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <UButton icon="i-heroicons-arrow-path" :loading="loading" @click="refresh">
-          刷新
-        </UButton>
-      </div>
+      <UButton v-if="allowAccess" color="primary" icon="i-heroicons-plus" @click="createModalOpen = true">新建 Topic</UButton>
     </div>
 
     <UAlert
@@ -20,425 +244,113 @@
       color="amber"
       variant="subtle"
       title="无权限"
-      description="仅 Root 管理员可查看 Event Fabric 监管面板。"
+      description="仅 Root 管理员可管理事件目录。"
     />
 
-    <div v-else class="space-y-4">
+    <template v-else>
+      <UModal v-model:open="createModalOpen" title="新建 Topic" description="创建新的事件 Topic">
+        <template #content>
+          <UCard>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <UInput v-model="createForm.namespace" label="namespace" placeholder="_topic.knowledge.space.feedback" />
+              <UInput v-model="createForm.name" label="name" placeholder="reprocess" />
+              <UInput v-model="createForm.payloadFormat" label="payload_format" placeholder="json" />
+              <UInput v-model="createForm.versioningMode" label="versioning_mode" placeholder="strict" />
+              <UInput v-model="createForm.maxRetry" type="number" label="max_retry" />
+              <UInput v-model="createForm.ackTimeoutSec" type="number" label="ack_timeout_sec" />
+              <UInput v-model="createForm.createdBy" label="created_by" placeholder="web-admin" />
+              <UInput v-model="createForm.retentionPolicy" label="retention_policy(JSON)" placeholder='{"mode":"standard"}' />
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+              <UButton variant="ghost" @click="createModalOpen = false">取消</UButton>
+              <UButton color="primary" :loading="creating" @click="createTopic">创建 Topic</UButton>
+            </div>
+          </UCard>
+        </template>
+      </UModal>
+
       <UCard>
         <template #header>
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="text-sm text-gray-600 dark:text-gray-400">
-              当前租户：
-              <span class="font-mono">{{ overview?.tenant_uuid || "-" }}</span>
-            </div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">
-              更新时间：
-              <span class="font-mono">{{ overview?.now || "-" }}</span>
-            </div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold">Topic 列表</div>
+            <UBadge variant="subtle" color="primary">{{ total }}</UBadge>
           </div>
         </template>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <UInput v-model="filters.namespace" icon="i-heroicons-tag" placeholder="namespace（默认 knowledge.space.feedback）" />
-          <UInput v-model="filters.name" icon="i-heroicons-hashtag" placeholder="name（默认 reprocess）" />
-          <UInput v-model="filters.subscriberId" icon="i-heroicons-identification" placeholder="subscriber_id（默认 core.knowledge_space.reprocess）" />
-          <UButton variant="outline" @click="refresh">应用筛选</UButton>
-        </div>
-      </UCard>
-
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div class="font-semibold">DLQ</div>
-              <UBadge variant="subtle" color="red">{{ overview?.stats.dlq.total ?? 0 }}</UBadge>
-            </div>
-          </template>
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            进入死信队列的消息总数（按当前筛选 topic 聚合）。
-          </div>
-        </UCard>
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div class="font-semibold">投递 Attempts</div>
-              <UBadge variant="subtle" color="blue">{{ overview?.stats.delivery_attempts.total ?? 0 }}</UBadge>
-            </div>
-          </template>
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            subscriber：
-            <span class="font-mono">{{ overview?.stats.delivery_attempts.subscriber_id || "-" }}</span>
-          </div>
-        </UCard>
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div class="font-semibold">回放任务</div>
-              <UBadge variant="subtle" color="gray">{{ overview?.stats.replay_tasks.recent?.length ?? 0 }}</UBadge>
-            </div>
-          </template>
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            最近 {{ replayLimit }} 条 replay task（按提交时间倒序）。
-          </div>
-        </UCard>
-      </div>
-
-      <UCard>
-        <template #header>
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="font-semibold">Topics</div>
-            <div class="text-xs text-gray-500">
-              仅展示当前租户下、满足筛选条件的 Topics。
-            </div>
-          </div>
-        </template>
-
-        <UTable :columns="topicColumns" :data="topicRows" :loading="loading" row-key="uuid" />
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="font-semibold">DLQ 消息</div>
-            <div class="flex flex-wrap gap-2">
-              <USelect
-                v-model="dlq.topic"
-                :items="dlqTopicOptions"
-                option-attribute="label"
-                value-attribute="value"
-                class="min-w-[260px]"
-                placeholder="请选择 topic"
-              />
-              <UButton variant="outline" :loading="dlqLoading" @click="loadDlq(1)">加载</UButton>
-            </div>
-          </div>
-        </template>
-
-        <UAlert
-          v-if="dlq.items.length === 0 && !dlqLoading"
-          icon="i-heroicons-information-circle"
-          variant="subtle"
-          class="border-dashed"
-          title="暂无 DLQ 消息"
-          description="选择 topic 后点击“加载”查看死信队列消息。"
-        />
-
-        <div v-else class="space-y-3">
-          <UTable
-            :columns="dlqColumns"
-            :data="dlq.items"
-            :loading="dlqLoading"
-            row-key="id"
-          />
-
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-gray-500">
-              共 {{ dlq.pagination.total }} 条 · 第 {{ dlq.pagination.page }} 页
-            </div>
-            <div class="flex gap-2">
-              <UButton size="sm" variant="outline" :disabled="dlq.pagination.page <= 1" @click="loadDlq(dlq.pagination.page - 1)">
-                上一页
-              </UButton>
-              <UButton
-                size="sm"
-                variant="outline"
-                :disabled="dlq.pagination.page * dlq.pagination.page_size >= dlq.pagination.total"
-                @click="loadDlq(dlq.pagination.page + 1)"
-              >
-                下一页
-              </UButton>
-            </div>
+          <UInput v-model="filters.namespace" label="namespace" placeholder="按事件域筛选" />
+          <USelect v-model="filters.lifecycle" :items="lifecycleOptions" label="lifecycle" />
+          <UInput v-model="filters.tenantUUID" :disabled="!canSearchByTenant" label="tenant_uuid（可选）" placeholder="root 可按租户查询" />
+          <div class="flex items-end gap-2">
+            <UButton variant="outline" :loading="loading" @click="loadTopics">查询</UButton>
+            <UButton variant="ghost" @click="resetFilters">清空</UButton>
           </div>
         </div>
-      </UCard>
 
-      <UCard>
-        <template #header>
-          <div class="font-semibold">Replay 任务（最近）</div>
-        </template>
-        <UAlert
-          v-if="(overview?.stats.replay_tasks.recent?.length ?? 0) === 0"
-          icon="i-heroicons-information-circle"
-          variant="subtle"
-          class="border-dashed"
-          title="暂无回放任务"
-          description="当你通过 DLQ replay 或手动创建 replay task 后，这里会显示最近任务。"
-        />
-        <UTable
-          v-else
-          :columns="replayColumns"
-          :data="overview?.stats.replay_tasks.recent || []"
-          row-key="id"
-        />
+        <div class="mt-2 text-xs text-gray-500">操作说明：当前为“启用”仅可“弃用”；当前非“启用”仅可“启用”。“权限配置”进入 ACL 页面。</div>
+
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700">
+                <th class="px-3 py-2 text-left">Topic</th>
+                <th class="px-3 py-2 text-left">Tenant</th>
+                <th class="px-3 py-2 text-left">ScopeType</th>
+                <th class="px-3 py-2 text-left">Lifecycle</th>
+                <th class="px-3 py-2 text-left">策略</th>
+                <th class="px-3 py-2 text-left">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="topic in topics" :key="topic.id" class="border-t border-gray-200 dark:border-gray-700">
+                <td class="px-3 py-2 font-mono">{{ topic.full_topic }}</td>
+                <td class="px-3 py-2 font-mono">{{ topic.tenant_key || topic.tenant_uuid || '-' }}</td>
+                <td class="px-3 py-2">{{ scopeTypeLabel(topic.scope_type) }}</td>
+                <td class="px-3 py-2">
+                  <UBadge
+                    :color="topic.lifecycle === 'active' ? 'success' : topic.lifecycle === 'deprecated' ? 'warning' : 'neutral'"
+                    variant="subtle"
+                  >
+                    {{ lifecycleLabel(topic.lifecycle) }}
+                  </UBadge>
+                </td>
+                <td class="px-3 py-2 text-xs text-gray-500">
+                  retry={{ topic.max_retry }} / ack={{ topic.ack_timeout_sec }}s / {{ topic.versioning_mode }}
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-1">
+                    <UButton
+                      v-if="topic.lifecycle === 'active'"
+                      size="xs"
+                      variant="outline"
+                      color="warning"
+                      :loading="lifecycleLoadingId === topic.id"
+                      title="将生命周期设置为 deprecated"
+                      @click="changeLifecycle(topic, 'deprecated')"
+                    >
+                      弃用
+                    </UButton>
+                    <UButton
+                      v-else
+                      size="xs"
+                      variant="outline"
+                      :loading="lifecycleLoadingId === topic.id"
+                      title="将生命周期设置为 active"
+                      @click="changeLifecycle(topic, 'active')"
+                    >
+                      启用
+                    </UButton>
+                    <UButton size="xs" color="primary" title="进入该 Topic 的权限配置页面" @click="goAcl(topic)">权限配置</UButton>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="topics.length === 0">
+                <td colspan="6" class="px-3 py-3 text-gray-500">暂无 Topic 记录</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </UCard>
-    </div>
+    </template>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, resolveComponent } from "vue";
-import { storeToRefs } from "pinia";
-import { useUserStore } from "~/stores/user";
-import { useEventFabricService, type EventFabricOverview, type EventFabricDlqMessage } from "~/composables/api/services/eventFabricService";
-
-definePageMeta({
-  title: "异步任务（Event Fabric）",
-  layout: "default",
-});
-
-const userStore = useUserStore();
-const { isRoot } = storeToRefs(userStore);
-const allowAccess = computed(() => isRoot.value);
-
-const svc = useEventFabricService();
-const toast = useToast();
-
-const loading = ref(false);
-const overview = ref<EventFabricOverview | null>(null);
-
-const replayLimit = 20;
-
-const filters = reactive({
-  namespace: "knowledge.space.feedback",
-  name: "reprocess",
-  subscriberId: "core.knowledge_space.reprocess",
-});
-
-const topicColumns = [
-  {
-    id: "full_topic",
-    accessorKey: "full_topic",
-    header: "Full Topic",
-    cell: ({ row }: any) =>
-      h(
-        "span",
-        { class: "font-mono text-xs text-gray-700 dark:text-gray-200" },
-        row.original.full_topic || "-"
-      ),
-  },
-  { id: "lifecycle", accessorKey: "lifecycle", header: "Lifecycle" },
-  { id: "max_retry", accessorKey: "max_retry", header: "MaxRetry" },
-  { id: "ack_timeout_sec", accessorKey: "ack_timeout_sec", header: "AckTimeout(s)" },
-  { id: "dlq", accessorKey: "dlq", header: "DLQ" },
-  { id: "attempts", accessorKey: "attempts", header: "Attempts" },
-];
-
-const topicRows = computed(() => {
-  const topics = overview.value?.topics || [];
-  const dlq = overview.value?.stats.dlq.by_topic || [];
-  const attempts = overview.value?.stats.delivery_attempts.by_topic || [];
-
-  const dlqMap = new Map(dlq.map((x) => [x.topic_uuid, x]));
-  const attemptMap = new Map(attempts.map((x) => [x.topic_uuid, x]));
-
-  return topics.map((t) => {
-    const dlqStats = dlqMap.get(t.uuid);
-    const attemptStats = attemptMap.get(t.uuid);
-    return {
-      ...t,
-      dlq: dlqStats ? formatByStatus(dlqStats.by_status) : "-",
-      attempts: attemptStats ? formatByStatus(attemptStats.by_status) : "-",
-    };
-  });
-});
-
-function formatByStatus(by: Record<string, number>) {
-  const keys = Object.keys(by || {}).sort();
-  if (keys.length === 0) return "0";
-  return keys.map((k) => `${k}:${by[k]}`).join(" · ");
-}
-
-async function refresh() {
-  if (!allowAccess.value) return;
-  loading.value = true;
-  try {
-    const res = await svc.getOverview({
-      namespace: filters.namespace || undefined,
-      name: filters.name || undefined,
-      subscriber_id: filters.subscriberId || undefined,
-      limit: replayLimit,
-    });
-    overview.value = res.data.data;
-  } catch (e: any) {
-    toast.add({
-      title: "加载失败",
-      description: e?.message || "无法获取 Event Fabric overview",
-      color: "error",
-    });
-  } finally {
-    loading.value = false;
-  }
-}
-
-const dlqLoading = ref(false);
-const replayLoadingId = ref<string | null>(null);
-const dlq = reactive<{
-  topic: string | null;
-  items: EventFabricDlqMessage[];
-  pagination: { total: number; page: number; page_size: number };
-}>({
-  topic: null,
-  items: [],
-  pagination: { total: 0, page: 1, page_size: 20 },
-});
-
-const dlqTopicOptions = computed(() => {
-  const topics = overview.value?.topics || [];
-  return topics
-    .map((t) => ({ label: t.full_topic, value: t.uuid }))
-    .filter((x) => typeof x.value === "string" && x.value.trim().length > 0);
-});
-
-const dlqColumns = [
-  {
-    id: "id",
-    accessorKey: "id",
-    header: "Message ID",
-    cell: ({ row }: any) =>
-      h(
-        "span",
-        { class: "font-mono text-xs text-gray-700 dark:text-gray-200" },
-        row.original.id
-      ),
-  },
-  {
-    id: "event_id",
-    accessorKey: "event_id",
-    header: "Event ID",
-    cell: ({ row }: any) =>
-      h(
-        "span",
-        { class: "font-mono text-xs text-gray-700 dark:text-gray-200" },
-        row.original.event_id || "-"
-      ),
-  },
-  { id: "retry_count", accessorKey: "retry_count", header: "Retry" },
-  { id: "failed_at", accessorKey: "failed_at", header: "FailedAt" },
-  {
-    id: "actions",
-    accessorKey: "actions",
-    header: "操作",
-    cell: ({ row }: any) => {
-      const UButton = resolveComponent("UButton") as any;
-      const messageId = row.original.id as string;
-      return h(
-        UButton,
-        {
-          size: "xs",
-          color: "primary",
-          variant: "soft",
-          loading: replayLoadingId.value === messageId,
-          onClick: () => replayOne(messageId),
-        },
-        () => "Replay"
-      );
-    },
-  },
-];
-
-async function loadDlq(page: number) {
-  if (!dlq.topic) return;
-  dlqLoading.value = true;
-  try {
-    const res = await svc.listDlqMessages({
-      topic: dlq.topic,
-      page,
-      page_size: dlq.pagination.page_size,
-    });
-    dlq.items = res.data.data.items;
-    dlq.pagination = res.data.data.pagination;
-  } catch (e: any) {
-    toast.add({
-      title: "加载失败",
-      description: e?.message || "无法获取 DLQ messages",
-      color: "error",
-    });
-  } finally {
-    dlqLoading.value = false;
-  }
-}
-
-async function replayOne(messageId: string) {
-  replayLoadingId.value = messageId;
-  try {
-    const res = await svc.replayDlqMessages({
-      message_ids: [messageId],
-      operator_id: "web-admin",
-      notes: "replay from settings/event-fabric",
-    });
-    toast.add({
-      title: "已提交 Replay",
-      description: `replayed: ${res.data.data.replayed}`,
-      color: "success",
-    });
-    await loadDlq(dlq.pagination.page);
-    await refresh();
-  } catch (e: any) {
-    toast.add({
-      title: "Replay 失败",
-      description: e?.message || "无法 replay DLQ message",
-      color: "error",
-    });
-  } finally {
-    replayLoadingId.value = null;
-  }
-}
-
-const replayColumns = [
-  {
-    id: "id",
-    accessorKey: "id",
-    header: "Task ID",
-    cell: ({ row }: any) =>
-      h(
-        "span",
-        { class: "font-mono text-xs text-gray-700 dark:text-gray-200" },
-        row.original.id
-      ),
-  },
-  {
-    id: "full_topic",
-    accessorKey: "full_topic",
-    header: "Topic",
-    cell: ({ row }: any) =>
-      h(
-        "span",
-        { class: "font-mono text-xs text-gray-700 dark:text-gray-200" },
-        row.original.full_topic || row.original.topic_uuid || "-"
-      ),
-  },
-  {
-    id: "status",
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }: any) => {
-      const UBadge = resolveComponent("UBadge") as any;
-      const status = row.original.status || "-";
-      return h(
-        UBadge,
-        {
-          size: "xs",
-          variant: "subtle",
-          color: replayStatusColor(status),
-        },
-        () => status
-      );
-    },
-  },
-  { id: "submitted_at", accessorKey: "submitted_at", header: "SubmittedAt" },
-  { id: "completed_at", accessorKey: "completed_at", header: "CompletedAt" },
-  { id: "result_count", accessorKey: "result_count", header: "Result" },
-];
-
-function replayStatusColor(status: string) {
-  const s = (status || "").toLowerCase();
-  if (s === "completed") return "green";
-  if (s === "failed") return "red";
-  if (s === "running") return "blue";
-  return "gray";
-}
-
-onMounted(async () => {
-  await refresh();
-});
-</script>

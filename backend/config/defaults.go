@@ -9,6 +9,7 @@ import (
 // GetDefaults 返回默认配置（已对齐新版 AuthConfig 字段）
 func GetDefaults() *Config {
 	return &Config{
+		Version: DefaultSystemVersion,
 		Server: ServerConfig{
 			Port:                8077,
 			ReadTimeoutSeconds:  5,
@@ -120,6 +121,26 @@ func GetDefaults() *Config {
 				Addr:     "localhost:6379",
 				Password: "",
 				DB:       5,
+			},
+			Kafka: QueueKafkaConfig{
+				Brokers:       []string{"localhost:9092"},
+				TopicPrefix:   "event_fabric.task",
+				ConsumerGroup: "powerx.event_fabric",
+				PollTimeoutMs: 1000,
+			},
+			Rabbit: QueueRabbitMQConfig{
+				URL:           "amqp://guest:guest@localhost:5672/",
+				Exchange:      "event_fabric.task",
+				QueuePrefix:   "event_fabric.task",
+				ConsumerTag:   "powerx.event_fabric",
+				Prefetch:      50,
+				PollTimeoutMs: 1000,
+			},
+			NATS: QueueNATSConfig{
+				URLs:          []string{"nats://localhost:4222"},
+				SubjectPrefix: "event_fabric.task",
+				QueueGroup:    "powerx.event_fabric",
+				PollTimeoutMs: 1000,
 			},
 		},
 		Scheduler: SchedulerConfig{

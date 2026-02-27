@@ -7,7 +7,7 @@ PowerX 底座将媒资读写能力注册为统一的能力记录，Tool Scope `m
 | `com.corex.media.assets.read` | `media.assets.read` | Prefer REST，Fallback gRPC | `GET /media/assets`、`GET /media/assets/{uuid}`；gRPC `ListMediaAssets`、`GetMediaAsset` |
 | `com.corex.media.assets.manage` | `media.assets.write` | Prefer gRPC，Fallback REST | `POST/DELETE /media/assets`、`POST /media/assets/{uuid}/presign`；gRPC `Create/Delete/PresignMediaAsset` |
 
-> 插件调用需携带 `Authorization: Bearer <TENANT_TOKEN>` 与 `X-PowerX-Tenant`，并确保租户启用了 `media.assets` Tool Grant。
+> 插件调用需携带 `Authorization: Bearer <TENANT_TOKEN>` 与 `JWT claims（tid/tenant_uuid）`，并确保租户启用了 `media.assets` Tool Grant。
 
 ## REST（开放接口 `/api/v1/media`）
 
@@ -28,7 +28,7 @@ export TENANT_UUID="<tenant-uuid>"
    ```bash
    curl -sS "$API_PREFIX/media/assets?page=1&page_size=20" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID"
+     -H "JWT claims（tid/tenant_uuid）: $TENANT_UUID"
    ```
 
 2. **查看单条**
@@ -37,7 +37,7 @@ export TENANT_UUID="<tenant-uuid>"
    ASSET_UUID="d3d5d476-...-1c2a"
    curl -sS "$API_PREFIX/media/assets/$ASSET_UUID" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID"
+     -H "JWT claims（tid/tenant_uuid）: $TENANT_UUID"
    ```
 
 3. **创建/注册（把整条上传链路一次讲清楚）**
@@ -46,7 +46,6 @@ export TENANT_UUID="<tenant-uuid>"
       ```bash
       curl -sS -X POST "$API_PREFIX/media/assets" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: $TENANT_UUID" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "demo-image",
@@ -78,7 +77,6 @@ export TENANT_UUID="<tenant-uuid>"
       ASSET_UUID="刚创建成功返回的 uuid"
       curl -sS -X POST "$API_PREFIX/media/assets/$ASSET_UUID/presign" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: $TENANT_UUID" \
         -H "Content-Type: application/json" \
         -d '{ "action": "upload", "expiresInSeconds": 600 }'
       ```
@@ -99,7 +97,6 @@ export TENANT_UUID="<tenant-uuid>"
       ```bash
       curl -sS -X POST "$API_PREFIX/media/assets" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: $TENANT_UUID" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "banner_q4.png",
@@ -123,7 +120,6 @@ export TENANT_UUID="<tenant-uuid>"
    ```bash
    curl -L "$API_PREFIX/media/assets/$ASSET_UUID/resource?disposition=attachment" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID" \
      -o demo.png
    ```
 
@@ -131,7 +127,7 @@ export TENANT_UUID="<tenant-uuid>"
    curl -L "http://127.0.0.1:8077/media/$ASSET_UUID/resource" -o demo.png
    ```
 
-   - 说明：鉴权资源接口必须带 `Authorization` 与 `X-PowerX-Tenant`，因此**直接把 `$API_PREFIX/.../resource` 粘贴到浏览器地址栏会提示 `missing or invalid Authorization header`**（浏览器不会自动附加这些 Header）。请用 `curl`/Postman，或改用下方的公开只读入口/预签名下载链接。
+   - 说明：鉴权资源接口必须带 `Authorization`（租户由 JWT claims 提供），因此**直接把 `$API_PREFIX/.../resource` 粘贴到浏览器地址栏会提示 `missing or invalid Authorization header`**（浏览器不会自动附加这些 Header）。请用 `curl`/Postman，或改用下方的公开只读入口/预签名下载链接。
    - 第一个示例为租户鉴权接口，第二个示例为 **公开只读入口**（`GET /media/{uuid}/resource`）。
    - 公开入口默认仅允许 `published` 匿名访问；若资源仍为 `draft/under_review/archived`，需要先通过 `POST .../presign`（`action=download`）拿到带 `token+exp` 的短期链接再访问。
    - 若通过 presign 返回相对路径（例如 `/media/{uuid}/resource`），它是相对 **后端服务 origin**（如 `http://127.0.0.1:8077`），不要误拼到前端站点 origin（如 `http://127.0.0.1:3030`），否则会 404。
@@ -144,7 +140,6 @@ export TENANT_UUID="<tenant-uuid>"
    ```bash
    curl -sS -X PATCH "$API_PREFIX/media/assets/$ASSET_UUID" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID" \
      -H "Content-Type: application/json" \
      -d '{ "tags": ["doc","reviewed"], "metadata": { "signedBy": "ops" } }'
    ```
@@ -154,7 +149,7 @@ export TENANT_UUID="<tenant-uuid>"
    ```bash
    curl -sS -X DELETE "$API_PREFIX/media/assets/$ASSET_UUID" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID"
+     -H "JWT claims（tid/tenant_uuid）: $TENANT_UUID"
    ```
 
 REST 通道足以完成完整 CRUD；**请记住：创建 (`POST /media/assets`) 只写入数据库元数据。若是 `presign_upload/direct_upload`，必须按上方步骤 2/3 或直接 PUT 上传，文件才会真正落盘**（见文末“本地上传 PUT 端点”）。
@@ -172,7 +167,6 @@ REST 通道足以完成完整 CRUD；**请记住：创建 (`POST /media/assets`)
 ```bash
 curl -sS -X POST "$API_PREFIX/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-PowerX-Tenant: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
         "capability_id": "com.corex.media.assets.read",

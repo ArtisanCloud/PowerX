@@ -38,6 +38,22 @@ export interface NotificationListResult {
   };
 }
 
+export interface TestNotificationPayload {
+  title?: string;
+  content?: string;
+  type?: string;
+  category?: string;
+  isImportant?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface QueueNotificationDebugResult {
+  task_id: string;
+  subscriber_id: string;
+  topic: string;
+  payload: NotificationRecord;
+}
+
 const baseUrl = "/admin/notifications";
 
 const buildQuery = (params?: NotificationListParams) => {
@@ -75,6 +91,12 @@ export const useNotificationService = () => {
     delete: (uuid: string) => {
       return apiClient.del<ApiResponse<{ ok: boolean }>>(
         `${baseUrl}/${encodeURIComponent(uuid)}`
+      );
+    },
+    pushTestQueue: (payload: TestNotificationPayload = {}) => {
+      return apiClient.post<ApiResponse<QueueNotificationDebugResult>>(
+        `${baseUrl}/test-queue`,
+        payload
       );
     },
   };

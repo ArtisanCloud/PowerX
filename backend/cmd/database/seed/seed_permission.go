@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/ArtisanCloud/PowerX/config"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -21,28 +24,41 @@ func mAction(plugin, resource, action string) []byte {
 	return b
 }
 
+func systemPerm(module, resource, action string) dbm.Permission {
+	permission := dbm.Permission{
+		Module:     module,
+		Resource:   resource,
+		Action:     action,
+		Source:     "core",
+		Introduced: config.GetSystemVersion(),
+		Meta:       mAction(module, resource, action),
+	}
+	permission.AllowAPIKey = apikeypermissions.DefaultAllowAPIKey(permission)
+	return permission
+}
+
 // SeedSystemPermissions：把核心模块(IAM)的一批常用权限写入 iam_permission（幂等）
 func SeedSystemPermissions(db *gorm.DB) error {
 	pr := infraiam.NewPermissionRepository(db)
 
 	perms := []dbm.Permission{
 		// IAM / Role
-		{Plugin: "iam", Resource: "role", Action: "read", Meta: mAction("iam", "role", "read")},
-		{Plugin: "iam", Resource: "role", Action: "write", Meta: mAction("iam", "role", "write")},
-		{Plugin: "iam", Resource: "role", Action: "delete", Meta: mAction("iam", "role", "delete")},
-		{Plugin: "iam", Resource: "role", Action: "bind", Meta: mAction("iam", "role", "bind")},
+		systemPerm("iam", "role", "read"),
+		systemPerm("iam", "role", "write"),
+		systemPerm("iam", "role", "delete"),
+		systemPerm("iam", "role", "bind"),
 		// IAM / User
-		{Plugin: "iam", Resource: "user", Action: "read", Meta: mAction("iam", "user", "read")},
-		{Plugin: "iam", Resource: "user", Action: "write", Meta: mAction("iam", "user", "write")},
-		{Plugin: "iam", Resource: "user", Action: "delete", Meta: mAction("iam", "user", "delete")},
+		systemPerm("iam", "user", "read"),
+		systemPerm("iam", "user", "write"),
+		systemPerm("iam", "user", "delete"),
 		// IAM / Department
-		{Plugin: "iam", Resource: "department", Action: "read", Meta: mAction("iam", "department", "read")},
-		{Plugin: "iam", Resource: "department", Action: "write", Meta: mAction("iam", "department", "write")},
-		{Plugin: "iam", Resource: "department", Action: "delete", Meta: mAction("iam", "department", "delete")},
+		systemPerm("iam", "department", "read"),
+		systemPerm("iam", "department", "write"),
+		systemPerm("iam", "department", "delete"),
 		// IAM / Permission（只读）
-		{Plugin: "iam", Resource: "permission", Action: "read", Meta: mAction("iam", "permission", "read")},
+		systemPerm("iam", "permission", "read"),
 		// Admin root guard（用于开放市场/发布候选菜单）
-		{Plugin: "admin", Resource: "root", Action: "view", Meta: mAction("admin", "root", "view")},
+		systemPerm("admin", "root", "view"),
 	}
 
 	// 你仓储里已有 UpsertBatch：幂等插入/更新

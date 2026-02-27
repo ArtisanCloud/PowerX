@@ -15,15 +15,13 @@ security:
   - bearerAuth: []
 tags:
   - name: MediaAssets
-    description: 媒资资源对外开放接口，所有请求需同时携带 Bearer Token 与 `X-PowerX-Tenant`
+    description: 媒资资源对外开放接口，所有请求需携带 Bearer Token，租户由 JWT claims 提供
 paths:
   /media/assets:
     post:
       summary: 上传/注册媒体资产
       tags: [MediaAssets]
       operationId: createMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/Tenant'
       requestBody:
         required: true
         content:
@@ -53,7 +51,6 @@ paths:
       tags: [MediaAssets]
       operationId: listMediaAssets
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - name: keyword
@@ -91,7 +88,6 @@ paths:
       tags: [MediaAssets]
       operationId: getMediaAsset
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/UUID'
       responses:
         '200':
@@ -107,7 +103,6 @@ paths:
       tags: [MediaAssets]
       operationId: deleteMediaAsset
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/UUID'
       responses:
         '200':
@@ -123,7 +118,6 @@ paths:
       tags: [MediaAssets]
       operationId: updateMediaAsset
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/UUID'
       requestBody:
         required: true
@@ -148,7 +142,6 @@ paths:
       tags: [MediaAssets]
       operationId: presignMediaAsset
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/UUID'
       requestBody:
         required: true
@@ -171,7 +164,6 @@ paths:
       tags: [MediaAssets]
       operationId: downloadMediaAsset
       parameters:
-        - $ref: '#/components/parameters/Tenant'
         - $ref: '#/components/parameters/UUID'
         - name: disposition
           in: query
@@ -220,12 +212,6 @@ components:
         minimum: 1
         maximum: 100
         default: 20
-    Tenant:
-      name: X-PowerX-Tenant
-      in: header
-      required: true
-      schema:
-        type: string
   responses:
     BadRequest:
       description: 参数校验失败

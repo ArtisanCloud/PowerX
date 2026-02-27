@@ -79,17 +79,12 @@ func JwtMiddleware(
 			}
 		}
 
-		// D. Root 代理租户（仅 is_root=true 生效）
+		// D. 租户来源策略：仅依据 JWT claims（Root 可通过 as_tenant_uuid 显式代理）。
+		// 兼容历史客户端携带的 X-PowerX-Tenant，直接忽略，不作为鉴权依据。
 		tenantUUID := strings.TrimSpace(claims.TenantUUID)
-		if tenantUUID == "" {
-			tenantUUID = strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
-		}
 		if claims.IsRoot {
 			if asUUID := strings.TrimSpace(c.Query("as_tenant_uuid")); asUUID != "" {
 				tenantUUID = asUUID
-			} else if headerUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); headerUUID != "" {
-				// Root 用户允许通过 Header 选择租户（等价于 as_tenant_uuid），用于 Web 管理台切换上下文。
-				tenantUUID = headerUUID
 			}
 		}
 

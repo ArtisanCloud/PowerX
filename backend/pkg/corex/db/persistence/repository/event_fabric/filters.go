@@ -16,6 +16,7 @@ type TopicFilter struct {
 	Namespace  string
 	Lifecycle  []model.TopicLifecycle
 	IncludeDLQ bool
+	IncludeShared bool
 }
 
 // SortOption 描述排序字段。

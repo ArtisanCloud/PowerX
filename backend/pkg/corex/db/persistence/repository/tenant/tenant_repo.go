@@ -259,3 +259,16 @@ func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[string
 	}
 	return out, nil
 }
+
+// ListActiveKeys 返回已启用且未删除的 tenant key 列表，用于后台 worker 轻量轮询。
+func (r *TenantRepository) ListActiveKeys(ctx context.Context) ([]string, error) {
+	keys := make([]string, 0, 32)
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("status = ?", dbm.TenantStatusActive).
+		Where("deleted_at IS NULL").
+		Pluck("key", &keys).Error; err != nil {
+		return nil, err
+	}
+	return keys, nil
+}

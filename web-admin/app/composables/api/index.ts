@@ -11,10 +11,6 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
-import {
-  extractTenantUUIDFromJWT,
-  resolveTenantUUIDForRequest,
-} from "~/utils/tenant-context";
 
 /** =========================
  * API 客户端配置
@@ -61,34 +57,32 @@ let globalConfig: ApiClientConfig = {
         return config;
       },
     },
-    // --- 注入租户 UUID 头 ---
+    // --- JWT-only 防回归护栏：移除禁用租户头 ---
     {
       onRequest: async (config) => {
         if (!config.headers) {
-          config.headers = {};
+          return config;
         }
-        const authz =
-          (config.headers as Record<string, string>)["Authorization"] ||
-          (config.headers as Record<string, string>)["authorization"] ||
-          "";
-        const bearer = typeof authz === "string" ? authz.trim() : "";
-        const token =
-          bearer.toLowerCase().startsWith("bearer ")
-            ? bearer.slice("bearer ".length).trim()
-            : "";
-        const tenantUUID =
-          resolveTenantUUIDForRequest() || extractTenantUUIDFromJWT(token);
-        if (tenantUUID) {
-          const existing =
-            config.headers["X-PowerX-Tenant"] ||
-            (config.headers as Record<string, string>)["x-tenant-uuid"];
-          if (!existing || String(existing).trim() !== tenantUUID) {
-            config.headers = {
-              ...config.headers,
-              "X-PowerX-Tenant": tenantUUID,
-            };
+
+        const headers = config.headers as Record<string, string | undefined>;
+        const hadLegacyHeader =
+          typeof headers["X-PowerX-Tenant"] !== "undefined" ||
+          typeof headers["x-powerx-tenant"] !== "undefined" ||
+          typeof headers["x-tenant-uuid"] !== "undefined";
+
+        if (hadLegacyHeader) {
+          delete headers["X-PowerX-Tenant"];
+          delete headers["x-powerx-tenant"];
+          delete headers["x-tenant-uuid"];
+
+          if (process.dev) {
+            console.warn(
+              "[api] removed legacy tenant header; tenant must come from JWT claims"
+            );
           }
         }
+
+        config.headers = headers;
         return config;
       },
     },

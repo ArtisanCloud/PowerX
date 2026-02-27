@@ -95,7 +95,7 @@ func (s *PermissionService) ListPermissions(ctx context.Context, filter map[stri
 func (s *PermissionService) ListCatalog(ctx context.Context) (map[string]map[string][]dbm.Permission, error) {
 	rows, _, err := s.perms.List(ctx, map[string]string{
 		"status": string(dbm.PermissionStatusActive),
-	}, 0, 10000, "plugin ASC, resource ASC, action ASC")
+	}, 0, 10000, "module ASC, resource ASC, action ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *PermissionService) ListCatalog(ctx context.Context) (map[string]map[str
 		_ = json.Unmarshal(p.Meta, &m)
 		mod := strings.TrimSpace(utils.ToStr(m["module"]))
 		if mod == "" {
-			mod = p.Plugin
+			mod = p.Module
 		}
 		tp := strings.TrimSpace(utils.ToStr(m["type"]))
 		if tp == "" {

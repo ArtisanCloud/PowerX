@@ -36,7 +36,7 @@ func NewRBACService(db *gorm.DB) *RBACService {
 }
 
 // ========== 1) 角色 ⇄ 权限 ==========
-type PermTriple struct{ Plugin, Resource, Action string }
+type PermTriple struct{ Module, Resource, Action string }
 
 // A. 通过权限ID授予（最快路径）
 func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, roleID uint64, permIDs []uint64) error {
@@ -60,7 +60,7 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 	return s.rpr.BindPermissions(ctx, roleID, permIDs...) // 幂等 upsert :contentReference[oaicite:9]{index=9}
 }
 
-// B. 通过 (plugin,resource,action) 授予（便于API）
+// B. 通过 (module,resource,action) 授予（便于API）
 func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContext, roleID uint64, triples []PermTriple) error {
 	if len(triples) == 0 {
 		return nil
@@ -68,7 +68,7 @@ func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContex
 	// 1) 先 upsert 权限行（幂等）
 	toUpsert := make([]dbm.Permission, 0, len(triples))
 	for _, t := range triples {
-		toUpsert = append(toUpsert, dbm.Permission{Plugin: t.Plugin, Resource: t.Resource, Action: t.Action})
+		toUpsert = append(toUpsert, dbm.Permission{Module: t.Module, Resource: t.Resource, Action: t.Action})
 	}
 	if err := s.pr.UpsertBatch(ctx, toUpsert); err != nil { // :contentReference[oaicite:10]{index=10}
 		return err
@@ -77,7 +77,7 @@ func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContex
 	var permIDs []uint64
 	if err := s.db.WithContext(ctx).
 		Model(&dbm.Permission{}).
-		Where("(plugin,resource,action) IN ?", triplesToTuples(triples)).
+		Where("(module,resource,action) IN ?", triplesToTuples(triples)).
 		Pluck("id", &permIDs).Error; err != nil {
 		return err
 	}
@@ -145,7 +145,8 @@ func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorConte
 }
 
 // ========== 3) 鉴权（root 放行；直绑 + 维度间接绑定） ==========
-func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUID string, memberID uint64, plugin, resource, action string) (bool, error) {
+func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUID string, memberID uint64, module, resource, action string) (bool, error) {
+	_ = module
 	if actor.IsRoot {
 		return true, nil
 	}
@@ -162,7 +163,7 @@ func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUI
 func triplesToTuples(ts []PermTriple) [][3]string {
 	out := make([][3]string, 0, len(ts))
 	for _, t := range ts {
-		out = append(out, [3]string{t.Plugin, t.Resource, t.Action})
+		out = append(out, [3]string{t.Module, t.Resource, t.Action})
 	}
 	return out
 }

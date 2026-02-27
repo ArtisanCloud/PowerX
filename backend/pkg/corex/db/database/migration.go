@@ -28,6 +28,22 @@ import (
 
 // Migrate 执行数据库迁移
 func MigrateCoreModels(db *gorm.DB) (err error) {
+	if err = migration.EnsureAPIKeyProfileNamingMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionModuleRenameMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionAllowAPIKeyMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMPermissionAPIKeyDefaultOpenMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureAPIKeyProfileOwnerMemberMigration(db); err != nil {
+		return err
+	}
+
 	// 迁移动态表单
 	err = db.AutoMigrate(
 		&modelForm.FormSchemaRecord{},
@@ -65,7 +81,8 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.MemberAssignment{},
 		&modelIAM.Position{},
 		&modelIAM.Team{},
-		&modelIAM.ServiceAccount{},
+		&modelIAM.APIKeyProfile{},
+		&modelIAM.APIKeyProfilePermission{},
 		&modelIAM.APIKey{},
 	)
 	if err != nil {
@@ -117,15 +134,8 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
 		return err
 	}
-	if err = migration.EnsurePluginReleaseActorToken(db); err != nil {
-		return err
-	}
 
 	if err = migrateDevHotloadModels(db); err != nil {
-		return err
-	}
-
-	if err = migration.EnsureDevHotloadReloadTokenText(db); err != nil {
 		return err
 	}
 
@@ -146,9 +156,6 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migrateKnowledgeModels(db); err != nil {
-		return err
-	}
-	if err = migration.EnsureKnowledgeArtifactBundleOCRColumns(db); err != nil {
 		return err
 	}
 
@@ -208,6 +215,9 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationRouteVersion{},
 		&modelIntegrationGateway.IntegrationInvocationLog{},
 		&modelIntegrationGateway.IntegrationEventPublication{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKey{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
+		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
 	)
 }
 
@@ -217,6 +227,9 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		&modelEventFabric.AclBinding{},
 		&modelEventFabric.TopicManifestBinding{},
 		&modelEventFabric.AclManifestBinding{},
+		&modelEventFabric.TaskHistory{},
+		&modelEventFabric.ScheduledTask{},
+		&modelEventFabric.ScheduledTaskRun{},
 		&modelEventFabric.AuthorizationCapability{},
 		&modelEventFabric.AuthorizationGrantTemplate{},
 		&modelEventFabric.AuthorizationGrant{},
@@ -233,7 +246,10 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	if err := migration.CreateEventReplayTables(db); err != nil {
 		return err
 	}
-	return migration.CreateEventAuthorizationTables(db)
+	if err := migration.CreateEventAuthorizationTables(db); err != nil {
+		return err
+	}
+	return migration.EnsureEventTopicsGovernanceMigration(db)
 }
 
 func migrateWorkflowModels(db *gorm.DB) error {

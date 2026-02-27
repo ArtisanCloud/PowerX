@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -78,16 +77,15 @@ type Options struct {
 	DB         *gorm.DB
 	Store      AclStore
 	TopicStore TopicLookup
+	Cache      ACLResultCache
 	Clock      func() time.Time
 }
 
 type ACLService struct {
 	store  AclStore
 	topics TopicLookup
+	cache  ACLResultCache
 	clock  func() time.Time
-	// grantedCache avoids calling INSERT/UPSERT in tight polling loops (e.g. EventFabric consumers ensureTopic).
-	// key: tenantKey|topicUUID|principalID|action
-	grantedCache sync.Map
 }
 
 func NewACLService(opts Options) *ACLService {
@@ -108,39 +106,13 @@ func NewACLService(opts Options) *ACLService {
 	return &ACLService{
 		store:  store,
 		topics: topicStore,
+		cache:  opts.Cache,
 		clock:  clock,
 	}
 }
 
 func (s *ACLService) cacheKey(tenantKey string, topic uuid.UUID, principalID string, action string) string {
-	return strings.TrimSpace(tenantKey) + "|" + topic.String() + "|" + strings.TrimSpace(principalID) + "|" + strings.ToLower(strings.TrimSpace(action))
-}
-
-func (s *ACLService) cacheGranted(key string, ttl time.Duration) {
-	if key == "" || ttl <= 0 {
-		return
-	}
-	s.grantedCache.Store(key, time.Now().UTC().Add(ttl))
-}
-
-func (s *ACLService) isCacheGranted(key string, now time.Time) bool {
-	if key == "" {
-		return false
-	}
-	v, ok := s.grantedCache.Load(key)
-	if !ok {
-		return false
-	}
-	exp, ok := v.(time.Time)
-	if !ok {
-		s.grantedCache.Delete(key)
-		return false
-	}
-	if now.Before(exp) {
-		return true
-	}
-	s.grantedCache.Delete(key)
-	return false
+	return BuildACLResultCacheKey(tenantKey, topic, principalID, action)
 }
 
 func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, error) {
@@ -162,7 +134,7 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 	if topic == nil {
 		return nil, fmt.Errorf("topic %s not found", req.TopicUUID)
 	}
-	if !strings.EqualFold(topic.TenantKey, tenantKey) {
+	if !strings.EqualFold(topic.TenantKey, tenantKey) && !isSharedTenantKey(topic.TenantKey) {
 		return nil, fmt.Errorf("tenant mismatch with topic")
 	}
 
@@ -179,9 +151,6 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 	}
 
 	now := s.clock().UTC()
-	// Avoid repeated DB writes from ensureTopic loops: only upsert missing/expired actions.
-	// We keep a short in-memory cache (per-process) to skip redundant HasPermission queries.
-	const grantedCacheTTL = 10 * time.Minute
 	modelBindings := make([]*model.AclBinding, 0, len(req.Actions))
 	for _, action := range req.Actions {
 		actionStr := strings.ToLower(strings.TrimSpace(string(action)))
@@ -189,12 +158,16 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 			return nil, fmt.Errorf("action cannot be empty")
 		}
 		cacheKey := s.cacheKey(topic.TenantKey, topic.UUID, principalID, actionStr)
-		if s.isCacheGranted(cacheKey, now) {
-			continue
+		if s.cache != nil {
+			if allowed, hit, err := s.cache.Get(ctx, cacheKey); err == nil && hit && allowed {
+				continue
+			}
 		}
 		allowed, err := s.store.HasPermission(ctx, topic.TenantKey, topic.UUID, principalID, actionStr, now)
 		if err == nil && allowed {
-			s.cacheGranted(cacheKey, grantedCacheTTL)
+			if s.cache != nil {
+				_ = s.cache.Set(ctx, cacheKey, true)
+			}
 			continue
 		}
 		modelBindings = append(modelBindings, &model.AclBinding{
@@ -224,13 +197,15 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 		return nil, err
 	}
 	for _, b := range records {
-		s.cacheGranted(s.cacheKey(b.TenantKey, b.TopicUUID, b.PrincipalID, b.Action), grantedCacheTTL)
+		if s.cache != nil {
+			_ = s.cache.Set(ctx, s.cacheKey(b.TenantKey, b.TopicUUID, b.PrincipalID, b.Action), true)
+		}
 	}
 	return convertBindings(records), nil
 }
 
 func (s *ACLService) Revoke(ctx context.Context, req RevokeRequest) error {
-	if s.store == nil {
+	if s.store == nil || s.topics == nil {
 		return fmt.Errorf("acl service not configured")
 	}
 	tenantKey, err := resolveTenantKey(req.TenantUUID)
@@ -245,20 +220,33 @@ func (s *ACLService) Revoke(ctx context.Context, req RevokeRequest) error {
 	if principalID == "" {
 		return fmt.Errorf("principal_id is required")
 	}
+	topic, err := s.topics.FindByUUID(ctx, topicUUID)
+	if err != nil {
+		return err
+	}
+	if topic == nil {
+		return fmt.Errorf("topic %s not found", req.TopicUUID)
+	}
+	aclTenantKey := strings.TrimSpace(topic.TenantKey)
+	if !strings.EqualFold(aclTenantKey, tenantKey) && !isSharedTenantKey(aclTenantKey) {
+		return fmt.Errorf("tenant mismatch with topic")
+	}
 
 	var actions []string
 	for _, action := range req.Actions {
 		if token := strings.ToLower(strings.TrimSpace(string(action))); token != "" {
 			actions = append(actions, token)
-			s.grantedCache.Delete(s.cacheKey(tenantKey, topicUUID, principalID, token))
+			if s.cache != nil {
+				_ = s.cache.Delete(ctx, s.cacheKey(aclTenantKey, topicUUID, principalID, token))
+			}
 		}
 	}
-	_, err = s.store.RemoveBindings(ctx, tenantKey, topicUUID, principalID, actions)
+	_, err = s.store.RemoveBindings(ctx, aclTenantKey, topicUUID, principalID, actions)
 	return err
 }
 
 func (s *ACLService) ListBindings(ctx context.Context, req ListRequest) ([]*Binding, error) {
-	if s.store == nil {
+	if s.store == nil || s.topics == nil {
 		return nil, fmt.Errorf("acl service not configured")
 	}
 	tenantKey, err := resolveTenantKey(req.TenantUUID)
@@ -269,7 +257,18 @@ func (s *ACLService) ListBindings(ctx context.Context, req ListRequest) ([]*Bind
 	if err != nil {
 		return nil, fmt.Errorf("invalid topic id: %w", err)
 	}
-	rows, err := s.store.ListByTopic(ctx, tenantKey, topicUUID)
+	topic, err := s.topics.FindByUUID(ctx, topicUUID)
+	if err != nil {
+		return nil, err
+	}
+	if topic == nil {
+		return nil, fmt.Errorf("topic %s not found", req.TopicUUID)
+	}
+	aclTenantKey := strings.TrimSpace(topic.TenantKey)
+	if !strings.EqualFold(aclTenantKey, tenantKey) && !isSharedTenantKey(aclTenantKey) {
+		return nil, fmt.Errorf("tenant mismatch with topic")
+	}
+	rows, err := s.store.ListByTopic(ctx, aclTenantKey, topicUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +279,23 @@ func (s *ACLService) Can(ctx context.Context, tenantKey string, topicUUID uuid.U
 	if s.store == nil {
 		return false, fmt.Errorf("acl service not configured")
 	}
-	return s.store.HasPermission(ctx, strings.TrimSpace(tenantKey), topicUUID, strings.TrimSpace(principalID), strings.ToLower(string(action)), s.clock())
+	tenantKey = strings.TrimSpace(tenantKey)
+	principalID = strings.TrimSpace(principalID)
+	actionKey := strings.ToLower(string(action))
+	cacheKey := s.cacheKey(tenantKey, topicUUID, principalID, actionKey)
+	if s.cache != nil {
+		if allowed, hit, err := s.cache.Get(ctx, cacheKey); err == nil && hit {
+			return allowed, nil
+		}
+	}
+	allowed, err := s.store.HasPermission(ctx, tenantKey, topicUUID, principalID, actionKey, s.clock())
+	if err != nil {
+		return false, err
+	}
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, cacheKey, allowed)
+	}
+	return allowed, nil
 }
 
 // HasPermission 满足其他服务对 ACL 查询的接口约束。
@@ -334,4 +349,9 @@ func resolveTenantKey(value string) (string, error) {
 		return key, nil
 	}
 	return "", fmt.Errorf("tenant_uuid is required")
+}
+
+func isSharedTenantKey(value string) bool {
+	key := strings.ToLower(strings.TrimSpace(value))
+	return key == "global" || key == "system"
 }

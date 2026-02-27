@@ -15,6 +15,60 @@
 - Agent Hub MCP Server 与 Workflow Builder 进程已通过 `make dev` 启动。
 - 至少存在一个示例插件（可使用 `projects/demo-multi-plugin`）并成功执行 `px-plugin capabilities submit`。
 
+### 鉴权规则（Gateway 全入口）
+
+- 本特性统一采用 **单请求单凭证分流**。
+- `Authorization: ApiKey <key>` 仅走 API Key 鉴权链路。
+- `Authorization: Bearer <token>` 仅走 JWT 鉴权链路。
+- 不采用 API Key 失败回退 JWT 的混合兜底策略。
+
+### 鉴权数据模型检查（迁移后必做）
+
+执行以下 SQL，确认 API Key 新链路表已存在：
+
+```sql
+SELECT tablename
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'iam_api_key_profile',
+    'iam_api_key_profile_permission',
+    'integration_gateway_api_keys',
+    'integration_gateway_api_key_permissions',
+    'iam_api_key'
+  )
+ORDER BY tablename;
+```
+
+最小链路自检（Profile -> permission_ids -> key 快照）：
+
+```sql
+-- 1) 看某租户 profile
+SELECT id, tenant_uuid, key, name, status
+FROM public.iam_api_key_profile
+WHERE tenant_uuid = '<TENANT_UUID>'
+ORDER BY id;
+
+-- 2) 看 profile 绑定 permission_ids
+SELECT profile_id, permission_id, created_at
+FROM public.iam_api_key_profile_permission
+WHERE profile_id = <PROFILE_ID>
+ORDER BY permission_id;
+
+-- 3) 看 key 是否绑定 profile_id
+SELECT uuid, tenant_uuid, profile_id, name, status, created_at
+FROM public.integration_gateway_api_keys
+WHERE tenant_uuid = '<TENANT_UUID>'
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- 4) 看 key 权限快照是否生成
+SELECT api_key_uuid, scope, action, resource_type, resource_pattern, effect
+FROM public.integration_gateway_api_key_permissions
+WHERE api_key_uuid = '<KEY_UUID>'
+ORDER BY created_at ASC;
+```
+
 ### 步骤 0：自动播种 Event Fabric Topic/ACL
 1. 在插件仓库提供 `event_fabric.yaml`（支持放在 `config/`、`platform_capabilities/` 或包根目录），并声明 Topic/ACL 模板。Manifest 可引用 `{{ tenant_uuid }}`、`{{ plugin_id }}`、`{{ variables.cluster }}` 等变量。
 2. 插件启用/升级后，安装 orchestrator 会自动调用 `event_fabric.SeedService` 播种 Topic 与 ACL；若记录已存在，则根据 binding 表跳过重复授权，无需手动访问 Admin Topic/ACL API。
@@ -49,7 +103,6 @@
 2. 租户查询授权能力：
    ```bash
    curl -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         "$POWERX_BASE_URL/tenant/capabilities?channel=agent"
    ```
    确认返回的 `capability_id` 与 Admin 结果一致，同时多了 `grants`、`channels` 的裁剪字段。
@@ -57,7 +110,6 @@
    ```bash
    curl -X POST "$POWERX_BASE_URL/tenant/invocations" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{
               "capability_id":"com.demo.template.generate",
@@ -94,7 +146,6 @@ PAYLOAD=$(printf '{"orderId":"ord_123","amount":99.9}' | base64)
 
 curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: $TENANT_UUID" \
      -H "Content-Type: application/json" \
      -d '{
            "capability_id": "com.corex.eventfabric.publish",
@@ -145,7 +196,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
 1. **能力发现（Host/Skeleton 通用）**
    ```bash
    curl -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         "$POWERX_BASE_URL/tenant/capabilities?source=corex&channel=media"
    ```
    响应中可见 `com.corex.media.assets.read/manage` 等平台能力；若租户尚未授权，会返回 403 并提示所缺少的 Tool Grant。
@@ -154,7 +204,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
    - **Request**: `POST {{POWERX_BASE_URL}}/tenant/invocations`
    - **Headers**:
      - `Authorization: Bearer {{TENANT_TOKEN}}`
-     - `X-PowerX-Tenant: {{TENANT_UUID}}`
      - `Content-Type: application/json`
    - **Body**:
      ```json
@@ -177,7 +226,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
      ```bash
      curl -X POST "$POWERX_BASE_URL/media/assets" \
           -H "Authorization: Bearer $TENANT_TOKEN" \
-          -H "X-PowerX-Tenant: tenant-001" \
           -F "file=@samples/logo.png" \
           -F 'metadata={"title":"demo"}'
      ```
@@ -185,7 +233,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
      ```bash
      curl -X POST "$POWERX_BASE_URL/media/assets/{asset_uuid}/presign" \
           -H "Authorization: Bearer $TENANT_TOKEN" \
-          -H "X-PowerX-Tenant: tenant-001"
      ```
    该路径由 `backend/internal/transport/http/openapi/media` 提供，仅校验租户身份，不再依赖 Admin Router，因此插件（宿主或 Skeleton）均可复用。
 
@@ -201,7 +248,7 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
 
 ### 步骤 2.7：Agent 与多模态对外调用（平台能力）
 
-> 这些接口走统一的 tenant 鉴权与租户隔离：`agent_id/session_id/model_key` 必须属于当前租户；`model_key` 允许使用该租户已配置 Profile 或已测试通过且凭据已保存的 provider。若 JWT 可解析租户，则无需额外 header，`X-PowerX-Tenant` 仅作 fallback。
+> 这些接口走统一的 tenant 鉴权与租户隔离：`agent_id/session_id/model_key` 必须属于当前租户；`model_key` 允许使用该租户已配置 Profile 或已测试通过且凭据已保存的 provider。租户仅从 JWT claims 解析，不支持租户 header fallback。
 
 1. **Agent 非流式调用（需要 session）**
    ```bash
@@ -265,7 +312,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
    ```bash
    curl -sS -X POST "$POWERX_BASE_URL/ai/llm/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{
           "model_key": "ollama/llama3",
@@ -278,14 +324,12 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
    # 创建会话
    curl -sS -X POST "$POWERX_BASE_URL/ai/llm/sessions" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{"model_key":"ollama/llama3"}'
 
    # 追加消息
    curl -sS -X POST "$POWERX_BASE_URL/ai/llm/sessions/{session_id}/messages" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{
           "role":"user",
@@ -295,7 +339,6 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
    # SSE 输出
    curl -N "$POWERX_BASE_URL/ai/llm/sessions/{session_id}/stream" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001"
    ```
 5. **图像/视频/TTS/Embedding（无状态）**
    - 图像/视频/TTS 若未启用对应驱动，接口会返回 `202 Accepted`（占位），不影响整体联调。
@@ -303,28 +346,24 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
    # Image
    curl -sS -X POST "$POWERX_BASE_URL/ai/image/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{"model_key":"provider/image-model","inputs":[{"type":"text","text":"生成一张海报"}]}'
 
    # Video
    curl -sS -X POST "$POWERX_BASE_URL/ai/video/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{"model_key":"provider/video-model","inputs":[{"type":"text","text":"生成 5 秒视频"}]}'
 
    # TTS
    curl -sS -X POST "$POWERX_BASE_URL/ai/tts/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{"model_key":"provider/tts-model","inputs":[{"type":"text","text":"你好，PowerX"}]}'
 
    # Embedding
    curl -sS -X POST "$POWERX_BASE_URL/ai/embedding/invoke" \
         -H "Authorization: Bearer $TENANT_TOKEN" \
-        -H "X-PowerX-Tenant: tenant-001" \
         -H "Content-Type: application/json" \
         -d '{"model_key":"ollama/mxbai-embed-large","inputs":["a","b","c"]}'
    ```

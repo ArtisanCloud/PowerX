@@ -114,7 +114,7 @@ sequenceDiagram
   - `query devHotloadSessions($tenantId)`：返回会话列表、`lastReloadAt`、`status`, `metrics`（buildTime、reloadLatency、errorCount）。
   - `mutation terminateDevSession($sessionId!, $reason)`：触发终止动作，返回 `auditId` 与最新 `status`。
 - **SSE / WebSocket**
-  - `GET https: "//dev-api.powerx.local/internal/dev/plugins/stream`：事件类型包括 `SessionStarted`, `SessionReloaded`, `SessionTerminated`, `LogEntry`, `AlertRaised`；需携带 `Authorization` 与 `X-PowerX-Tenant`。"
+  - `GET https: "//dev-api.powerx.local/internal/dev/plugins/stream`：事件类型包括 `SessionStarted`, `SessionReloaded`, `SessionTerminated`, `LogEntry`, `AlertRaised`；需携带 `Authorization`（租户由 JWT claims 提供）。"
   - 支持 `Last-Event-ID`，断线后由客户端补发 `since` 参数重放。
 - **REST**
   - `POST https: "//dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/terminate` — 终止指定会话；返回 `auditId`, `terminatedAt`。"

@@ -1,13 +1,20 @@
 package bus
 
 import (
+	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
-var publishAllowedTopics = map[string]struct{}{
-	TopicOrgSyncProgress:   {},
-	TopicOrgSyncProgressV1: {},
+var publishAllowedTopics = map[string]struct{}{}
+
+const envWSDynamicTopicCompat = "POWERX_WS_DYNAMIC_TOPIC_COMPAT"
+
+var dynamicTopicCompat atomic.Bool
+
+func init() {
+	dynamicTopicCompat.Store(parseBoolEnv(envWSDynamicTopicCompat))
 }
 
 var publishDynamicTopics = struct {
@@ -35,6 +42,14 @@ func RegisterPublishTopics(tenantUUID string, topics []string) []string {
 		return nil
 	}
 
+	if !isDynamicTopicCompatEnabled() {
+		registered := make([]string, 0, len(unique))
+		for topic := range unique {
+			registered = append(registered, topic)
+		}
+		return registered
+	}
+
 	publishDynamicTopics.mu.Lock()
 	if _, ok := publishDynamicTopics.byTenant[tenantUUID]; !ok {
 		publishDynamicTopics.byTenant[tenantUUID] = make(map[string]struct{})
@@ -52,6 +67,9 @@ func RegisterPublishTopics(tenantUUID string, topics []string) []string {
 }
 
 func IsDynamicTopicRegistered(tenantUUID, topic string) bool {
+	if !isDynamicTopicCompatEnabled() {
+		return false
+	}
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
 		return false
@@ -82,4 +100,22 @@ func PublishTopicCheck(tenantUUID, topic string) (allowed, whitelistHit, dynamic
 	dynamicHit = IsDynamicTopicRegistered(tenantUUID, topic)
 	allowed = whitelistHit || dynamicHit
 	return allowed, whitelistHit, dynamicHit
+}
+
+func isDynamicTopicCompatEnabled() bool {
+	if parseBoolEnv(envWSDynamicTopicCompat) {
+		dynamicTopicCompat.Store(true)
+		return true
+	}
+	return dynamicTopicCompat.Load()
+}
+
+func parseBoolEnv(key string) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+// SetDynamicTopicCompatEnabledForTest 仅用于测试控制兼容开关。
+func SetDynamicTopicCompatEnabledForTest(enabled bool) {
+	dynamicTopicCompat.Store(enabled)
 }

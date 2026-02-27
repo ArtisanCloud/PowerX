@@ -169,101 +169,137 @@ func (s *serviceImpl) ProcessExpiredChallenges(ctx context.Context, tenantID uui
 
 	var processed int
 	for _, ticket := range tickets {
-		if ticket == nil || ticket.GrantID == nil || *ticket.GrantID == uuid.Nil {
+		ok, handleErr := s.processExpiredChallenge(ctx, ticket, before)
+		if handleErr != nil {
+			s.logger.WarnF(ctx, "[authorization] process challenge timeout failed ticket=%v err=%v", challengeTicketIDString(ticket), handleErr)
 			continue
 		}
-
-		grant, err := s.repo.GetGrantByUUID(ctx, *ticket.GrantID)
-		if err != nil {
-			s.logger.WarnF(ctx, "[authorization] load grant for timeout failed ticket=%s err=%v", ticket.UUID, err)
-			continue
-		}
-		if grant == nil {
-			continue
-		}
-
-		txRepo, tx, err := s.repo.BeginTx(ctx)
-		if err != nil {
-			s.logger.WarnF(ctx, "[authorization] begin tx for challenge timeout failed ticket=%s err=%v", ticket.UUID, err)
-			continue
-		}
-
-		now := s.clock().UTC()
-		timeoutReason := "challenge sla expired"
-		ticket.Status = eventfabricmodel.ApprovalStatusExpired
-		ticket.DecisionReason = timeoutReason
-		ticket.DecisionAt = &now
-
-		updatedTicket, err := txRepo.UpdateApprovalTicket(ctx, ticket)
-		if err != nil {
-			txRepo.RollbackTx(tx)
-			s.logger.WarnF(ctx, "[authorization] update ticket timeout failed ticket=%s err=%v", ticket.UUID, err)
-			continue
-		}
-
-		fields := map[string]any{
-			"status":         eventfabricmodel.GrantStatusRevoked,
-			"revoked_at":     now,
-			"revoked_reason": timeoutReason,
-			"ttl_expires_at": now,
-		}
-		if err := txRepo.UpdateGrantFields(ctx, grant.UUID, fields); err != nil {
-			txRepo.RollbackTx(tx)
-			s.logger.WarnF(ctx, "[authorization] update grant timeout failed grant=%s err=%v", grant.UUID, err)
-			continue
-		}
-		if err := txRepo.IncrementGrantVersion(ctx, grant.UUID); err != nil {
-			txRepo.RollbackTx(tx)
-			s.logger.WarnF(ctx, "[authorization] bump version timeout failed grant=%s err=%v", grant.UUID, err)
-			continue
-		}
-
-		if err := txRepo.CommitTx(tx); err != nil {
-			s.logger.WarnF(ctx, "[authorization] commit timeout failed grant=%s err=%v", grant.UUID, err)
-			continue
-		}
-
-		processed++
-
-		refreshedGrant, err := s.repo.GetGrantByUUID(ctx, grant.UUID)
-		if err != nil {
-			s.logger.WarnF(ctx, "[authorization] reload grant timeout failed grant=%s err=%v", grant.UUID, err)
-			continue
-		}
-		if refreshedGrant != nil {
-			if err := s.InvalidateGrantCache(ctx, buildGrantCacheKey(refreshedGrant)); err != nil {
-				s.logger.WarnF(ctx, "[authorization] invalidate cache timeout failed grant=%s err=%v", refreshedGrant.UUID, err)
-			}
-			s.emitAudit(ctx, "challenge.expired", refreshedGrant, nil, map[string]string{
-				"ticket_id": ticket.UUID.String(),
-			})
-			s.emitAudit(ctx, "grant.revoked", refreshedGrant, nil, map[string]string{
-				"ticket_id": ticket.UUID.String(),
-				"reason":    timeoutReason,
-			})
-			s.emitEvaluationAlert(ctx, EvaluateRequest{
-				TenantID:    uuid.Nil,
-				SubjectType: refreshedGrant.SubjectType,
-				SubjectID:   refreshedGrant.SubjectID,
-			}, &GrantSnapshot{
-				GrantID:     refreshedGrant.UUID,
-				TenantUUID:  tenantUUIDFromGrant(refreshedGrant),
-				SubjectType: refreshedGrant.SubjectType,
-				SubjectID:   refreshedGrant.SubjectID,
-				Status:      refreshedGrant.Status,
-			}, "authorization.challenge_timeout", "high", timeoutReason, map[string]string{
-				"ticket_id": ticket.UUID.String(),
-			})
-		}
-
-		if s.dispatcher != nil && updatedTicket != nil {
-			if err := s.dispatcher.NotifyTimeout(ctx, updatedTicket); err != nil {
-				s.logger.WarnF(ctx, "[authorization] notify timeout failed ticket=%s err=%v", ticket.UUID, err)
-			}
+		if ok {
+			processed++
 		}
 	}
 
 	return processed, nil
+}
+
+func (s *serviceImpl) ProcessExpiredChallengeTicket(ctx context.Context, ticketID uuid.UUID, before time.Time) (bool, error) {
+	if err := s.ensureReady(); err != nil {
+		return false, err
+	}
+	if ticketID == uuid.Nil {
+		return false, ErrChallengeNotFound
+	}
+	if before.IsZero() {
+		before = s.clock().UTC()
+	}
+	ticket, err := s.repo.GetTicketByUUID(ctx, ticketID)
+	if err != nil {
+		return false, err
+	}
+	if ticket == nil {
+		return false, ErrChallengeNotFound
+	}
+	return s.processExpiredChallenge(ctx, ticket, before)
+}
+
+func (s *serviceImpl) processExpiredChallenge(ctx context.Context, ticket *eventfabricmodel.AuthorizationApprovalTicket, before time.Time) (bool, error) {
+	if ticket == nil || ticket.GrantID == nil || *ticket.GrantID == uuid.Nil {
+		return false, ErrChallengeNotFound
+	}
+	if !strings.EqualFold(strings.TrimSpace(ticket.Status), eventfabricmodel.ApprovalStatusPending) {
+		return false, ErrChallengeResolved
+	}
+	if !ticket.SLAExpiresAt.IsZero() && ticket.SLAExpiresAt.After(before) {
+		return false, nil
+	}
+
+	grant, err := s.repo.GetGrantByUUID(ctx, *ticket.GrantID)
+	if err != nil {
+		return false, err
+	}
+	if grant == nil {
+		return false, nil
+	}
+
+	txRepo, tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	now := s.clock().UTC()
+	timeoutReason := "challenge sla expired"
+	ticket.Status = eventfabricmodel.ApprovalStatusExpired
+	ticket.DecisionReason = timeoutReason
+	ticket.DecisionAt = &now
+
+	updatedTicket, err := txRepo.UpdateApprovalTicket(ctx, ticket)
+	if err != nil {
+		txRepo.RollbackTx(tx)
+		return false, err
+	}
+
+	fields := map[string]any{
+		"status":         eventfabricmodel.GrantStatusRevoked,
+		"revoked_at":     now,
+		"revoked_reason": timeoutReason,
+		"ttl_expires_at": now,
+	}
+	if err := txRepo.UpdateGrantFields(ctx, grant.UUID, fields); err != nil {
+		txRepo.RollbackTx(tx)
+		return false, err
+	}
+	if err := txRepo.IncrementGrantVersion(ctx, grant.UUID); err != nil {
+		txRepo.RollbackTx(tx)
+		return false, err
+	}
+
+	if err := txRepo.CommitTx(tx); err != nil {
+		return false, err
+	}
+
+	refreshedGrant, err := s.repo.GetGrantByUUID(ctx, grant.UUID)
+	if err != nil {
+		s.logger.WarnF(ctx, "[authorization] reload grant timeout failed grant=%s err=%v", grant.UUID, err)
+	} else if refreshedGrant != nil {
+		if err := s.InvalidateGrantCache(ctx, buildGrantCacheKey(refreshedGrant)); err != nil {
+			s.logger.WarnF(ctx, "[authorization] invalidate cache timeout failed grant=%s err=%v", refreshedGrant.UUID, err)
+		}
+		s.emitAudit(ctx, "challenge.expired", refreshedGrant, nil, map[string]string{
+			"ticket_id": ticket.UUID.String(),
+		})
+		s.emitAudit(ctx, "grant.revoked", refreshedGrant, nil, map[string]string{
+			"ticket_id": ticket.UUID.String(),
+			"reason":    timeoutReason,
+		})
+		s.emitEvaluationAlert(ctx, EvaluateRequest{
+			TenantID:    uuid.Nil,
+			SubjectType: refreshedGrant.SubjectType,
+			SubjectID:   refreshedGrant.SubjectID,
+		}, &GrantSnapshot{
+			GrantID:     refreshedGrant.UUID,
+			TenantUUID:  tenantUUIDFromGrant(refreshedGrant),
+			SubjectType: refreshedGrant.SubjectType,
+			SubjectID:   refreshedGrant.SubjectID,
+			Status:      refreshedGrant.Status,
+		}, "authorization.challenge_timeout", "high", timeoutReason, map[string]string{
+			"ticket_id": ticket.UUID.String(),
+		})
+	}
+
+	if s.dispatcher != nil && updatedTicket != nil {
+		if err := s.dispatcher.NotifyTimeout(ctx, updatedTicket); err != nil {
+			s.logger.WarnF(ctx, "[authorization] notify timeout failed ticket=%s err=%v", ticket.UUID, err)
+		}
+	}
+
+	return true, nil
+}
+
+func challengeTicketIDString(ticket *eventfabricmodel.AuthorizationApprovalTicket) string {
+	if ticket == nil {
+		return ""
+	}
+	return ticket.UUID.String()
 }
 
 func (s *serviceImpl) resolvePendingChallenge(ctx context.Context, repo *eventfabricrepo.AuthorizationRepository, grantID uuid.UUID, actorID *uuid.UUID, reject bool) error {

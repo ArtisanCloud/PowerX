@@ -19,7 +19,7 @@ import (
 
 // RegisterAPIRoutes 注册集成网关管理端接口。
 func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *shared.Deps) {
-	if deps == nil || deps.IntegrationGateway == nil || deps.IntegrationGateway.Manager == nil {
+	if deps == nil || deps.IntegrationGateway == nil || deps.IntegrationGateway.Manager == nil || deps.DB == nil {
 		return
 	}
 
@@ -34,6 +34,20 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.POST("/routes/:route_id/resume", handler.ResumeRoute)
 	group.POST("/routes/:route_id/retire", handler.RetireRoute)
 	group.GET("/routes/:route_id/versions", handler.ListVersions)
+
+	apiKeyHandler := NewAPIKeyAdminHandler(deps.DB)
+	group.POST("/api-key-profiles", apiKeyHandler.CreateAPIKeyProfile)
+	group.GET("/api-key-profiles", apiKeyHandler.ListAPIKeyProfiles)
+	group.PATCH("/api-key-profiles/:profile_id", apiKeyHandler.UpdateAPIKeyProfile)
+	group.GET("/api-key-profiles/:profile_id/permissions", apiKeyHandler.GetAPIKeyProfilePermissions)
+	group.PUT("/api-key-profiles/:profile_id/permissions", apiKeyHandler.SetAPIKeyProfilePermissions)
+	group.GET("/permissions/catalog", apiKeyHandler.ListAPIKeyPermissionCatalog)
+	group.POST("/api-keys", apiKeyHandler.CreateAPIKey)
+	group.GET("/api-keys", apiKeyHandler.ListAPIKeys)
+	group.GET("/api-keys/:key_id", apiKeyHandler.GetAPIKey)
+	group.POST("/api-keys/:key_id/revoke", apiKeyHandler.RevokeAPIKey)
+	group.POST("/api-keys/:key_id/rotate", apiKeyHandler.RotateAPIKey)
+	group.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteAPIKey)
 }
 
 // AdminHandler 负责管理端 HTTP 请求。

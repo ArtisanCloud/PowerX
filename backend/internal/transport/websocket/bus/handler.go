@@ -3,7 +3,10 @@ package bus
 import (
 	"net/http"
 	"strings"
+	"time"
 
+	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
+	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -16,15 +19,41 @@ type Handler struct {
 	authorizer Authorizer
 }
 
+type HandlerOptions struct {
+	DB          *gorm.DB
+	TopicLookup topicLookup
+	ACLStore    aclChecker
+}
+
 func NewHandler(db *gorm.DB) *Handler {
+	return NewHandlerWithOptions(HandlerOptions{DB: db})
+}
+
+func NewHandlerWithOptions(opts HandlerOptions) *Handler {
+	topicLookup := opts.TopicLookup
+	aclStore := opts.ACLStore
+	if topicLookup == nil && opts.DB != nil {
+		topicLookup = eventshared.NewCachedTopicLookup(eventfabricrepo.NewTopicRepository(opts.DB), eventshared.CachedTopicLookupOptions{Cache: nil})
+	}
+	if aclStore == nil && opts.DB != nil {
+		aclStore = eventfabricrepo.NewAclRepository(opts.DB)
+	}
+	if opts.DB != nil && topicLookup != nil && aclStore != nil {
+		return &Handler{
+			hub: DefaultHub,
+			authorizer: NewDefaultAuthorizerWithOptions(DefaultAuthorizerOptions{
+				DB:         opts.DB,
+				TopicStore: topicLookup,
+				ACLStore:   aclStore,
+				Clock:      time.Now,
+			}),
+		}
+	}
 	var authorizer Authorizer
-	if db != nil {
-		authorizer = NewDefaultAuthorizer(db)
+	if opts.DB != nil {
+		authorizer = NewDefaultAuthorizer(opts.DB)
 	}
-	return &Handler{
-		hub:        DefaultHub,
-		authorizer: authorizer,
-	}
+	return &Handler{hub: DefaultHub, authorizer: authorizer}
 }
 
 var busUpgrader = websocket.Upgrader{

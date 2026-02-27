@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
@@ -52,13 +53,11 @@ func NewEventFabricCorpusCheckPipeline(opts EventFabricCorpusCheckPipelineOption
 	}
 	subscriber := strings.TrimSpace(opts.SubscriberID)
 	if subscriber == "" {
-		subscriber = "core.knowledge_space.corpus_check"
+		subscriber = eventbus.SubscriberKnowledgeSpaceCorpusCheck
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
-		// Event Fabric namespace pattern: ^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$
-		// underscores are not allowed.
-		namespace = "knowledge.space.corpuscheck"
+		namespace = "_topic.knowledge.space.corpuscheck"
 	}
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
@@ -245,13 +244,11 @@ func NewEventFabricCorpusCheckConsumer(opts EventFabricCorpusCheckConsumerOption
 	}
 	subscriber := strings.TrimSpace(opts.SubscriberID)
 	if subscriber == "" {
-		subscriber = "core.knowledge_space.corpus_check"
+		subscriber = eventbus.SubscriberKnowledgeSpaceCorpusCheck
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
-		// Event Fabric namespace pattern: ^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$
-		// underscores are not allowed.
-		namespace = "knowledge.space.corpuscheck"
+		namespace = "_topic.knowledge.space.corpuscheck"
 	}
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {

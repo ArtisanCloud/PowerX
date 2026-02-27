@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
@@ -55,11 +56,11 @@ func NewEventFabricReprocessPipeline(opts EventFabricReprocessPipelineOptions) *
 	}
 	subscriber := strings.TrimSpace(opts.SubscriberID)
 	if subscriber == "" {
-		subscriber = "core.knowledge_space.reprocess"
+		subscriber = eventbus.SubscriberKnowledgeSpaceReprocess
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
-		namespace = "knowledge.space.feedback"
+		namespace = "_topic.knowledge.space.feedback"
 	}
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
@@ -161,12 +162,12 @@ func (p *EventFabricReprocessPipeline) ensureTopic(ctx context.Context, tenantKe
 	var topicID string
 	if existing == nil {
 		created, err := p.directory.CreateTopic(ctx, directory.CreateTopicInput{
-			TenantUUID:    tenantKey,
-			Namespace:     namespace,
-			Name:          name,
-			PayloadFormat: p.format,
-			MaxRetry:      p.maxRetry,
-			AckTimeoutSec: p.ackTimeout,
+			TenantUUID:     tenantKey,
+			Namespace:      namespace,
+			Name:           name,
+			PayloadFormat:  p.format,
+			MaxRetry:       p.maxRetry,
+			AckTimeoutSec:  p.ackTimeout,
 			VersioningMode: "any",
 			Metadata: map[string]any{
 				"module": "knowledge_space",
@@ -232,6 +233,8 @@ type EventFabricReprocessConsumer struct {
 	interval       time.Duration
 	batchSize      int
 	clock          func() time.Time
+	ensuredTenants map[string]time.Time
+	ensureEvery    time.Duration
 	cancel         context.CancelFunc
 }
 
@@ -249,7 +252,7 @@ func NewEventFabricReprocessConsumer(opts EventFabricReprocessConsumerOptions) *
 	}
 	subscriber := strings.TrimSpace(opts.SubscriberID)
 	if subscriber == "" {
-		subscriber = "core.knowledge_space.reprocess"
+		subscriber = eventbus.SubscriberKnowledgeSpaceReprocess
 	}
 	namespace := strings.TrimSpace(opts.Namespace)
 	if namespace == "" {
@@ -267,6 +270,7 @@ func NewEventFabricReprocessConsumer(opts EventFabricReprocessConsumerOptions) *
 	if provider == nil {
 		provider = func(context.Context) ([]string, error) { return []string{"global"}, nil }
 	}
+	ensureEvery := 10 * time.Minute
 	maxRetry := opts.MaxRetry
 	if maxRetry <= 0 {
 		maxRetry = 5
@@ -291,6 +295,8 @@ func NewEventFabricReprocessConsumer(opts EventFabricReprocessConsumerOptions) *
 		interval:       interval,
 		batchSize:      batch,
 		clock:          opts.Clock,
+		ensuredTenants: map[string]time.Time{},
+		ensureEvery:    ensureEvery,
 	}
 }
 
@@ -332,7 +338,11 @@ func (c *EventFabricReprocessConsumer) loop(ctx context.Context) {
 				if tenantKey == "" {
 					continue
 				}
-				_ = c.ensureTopic(ctx, tenantKey)
+				if last, ok := c.ensuredTenants[tenantKey]; !ok || time.Since(last) >= c.ensureEvery {
+					if err := c.ensureTopic(ctx, tenantKey); err == nil {
+						c.ensuredTenants[tenantKey] = time.Now()
+					}
+				}
 				fullTopic := fmt.Sprintf("%s.%s.%s", tenantKey, strings.TrimSpace(c.namespace), strings.TrimSpace(c.name))
 				runCtx := context.WithValue(ctx, sharedsvc.ContextTenantKey, tenantKey)
 				runCtx = context.WithValue(runCtx, sharedsvc.ContextSubscriberKey, c.subscriberID)
@@ -409,12 +419,12 @@ func (c *EventFabricReprocessConsumer) ensureTopic(ctx context.Context, tenantKe
 	var topicID string
 	if existing == nil {
 		created, err := c.directory.CreateTopic(ctx, directory.CreateTopicInput{
-			TenantUUID:    tenantKey,
-			Namespace:     namespace,
-			Name:          name,
-			PayloadFormat: c.format,
-			MaxRetry:      c.maxRetry,
-			AckTimeoutSec: c.ackTimeoutSec,
+			TenantUUID:     tenantKey,
+			Namespace:      namespace,
+			Name:           name,
+			PayloadFormat:  c.format,
+			MaxRetry:       c.maxRetry,
+			AckTimeoutSec:  c.ackTimeoutSec,
 			VersioningMode: "any",
 			Metadata: map[string]any{
 				"module": "knowledge_space",

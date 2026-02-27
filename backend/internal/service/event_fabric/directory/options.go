@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	aclservice "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -26,10 +27,16 @@ type TopicStore interface {
 	List(ctx context.Context, query eventfabricrepo.QueryContext) ([]*model.TopicDefinition, int64, error)
 }
 
+// ACLGranter 定义创建 topic 后默认授权能力。
+type ACLGranter interface {
+	Grant(ctx context.Context, req aclservice.GrantRequest) ([]*aclservice.Binding, error)
+}
+
 // Options 构造目录服务的配置。
 type Options struct {
 	DB                *gorm.DB
 	Store             TopicStore
+	ACL               ACLGranter
 	EventBus          event_bus.EventBus
 	Clock             Clock
 	ActorResolver     ActorResolver

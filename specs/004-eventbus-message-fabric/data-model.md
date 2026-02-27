@@ -1,108 +1,169 @@
-# Data Model: EventBus & Message Fabric
+# Data Model: EventBus & Message Fabric（Topic / Subscriber / Subscription）
 
-> 所有表默认带 `tenant_uuid` + `created_at` + `updated_at` + `trace_id`（审计字段），并继承 CoreX 基础模型约束（软删除禁用）。
+> 本文档采用“Topic 注册制 + Subscriber 注册制 + ACL 授权 + JWT 租户鉴别”模型。
 
-## TopicDefinition (`event_topics`)
-- **Primary Key**: `id` (ULID)
-- **Unique**: (`tenant_uuid`, `namespace`, `name`)
-- **Fields**
-  - `tenant_uuid` (string) — 所属租户或 `global`
-  - `namespace` (string) — 领域前缀，如 `corex.workflow`
-  - `name` (string) — 事件名，如 `approved`
-  - `full_topic` (string) — 拼接字段，`<tenant>.<namespace>.<name>`
-  - `lifecycle_status` (enum) — `active` / `deprecated` / `retired`
-  - `payload_format` (enum) — 默认 `json`，可为 `protobuf` / `avro`
-  - `retention_policy` (jsonb) — `{"type":"time","value":"7d"}` 等
-  - `versioning_mode` (enum) — `strict` / `backward` / `any`
-  - `max_retry` (int) — 默认 5，可按 Topic 覆盖
-  - `ack_timeout_sec` (int) — 默认 30
-  - `metadata` (jsonb) — 额外标签（告警阈值等）
-  - `created_by` (string) — 创建者身份（服务账号/用户）
-  - `deprecated_at` (timestamp, nullable)
-- **Relationships**
-  - 1:N → `AclBinding`（主题授权）
-  - 1:N → `ReplayRequest`（回放来源）
-  - 1:N → `DeliveryAttempt`（通过 `topic_id` 关联）
+## 1) EventTopicRegistry（当前物理源：`event_topics`）
 
-## AclBinding (`event_acl_bindings`)
-- **Primary Key**: `id` (ULID)
-- **Unique**: (`tenant_uuid`, `topic_id`, `principal_id`, `action`)
-- **Fields**
-  - `topic_id` (foreign key → `event_topics.id`)
-  - `principal_type` (enum) — `service`, `role`, `user`
-  - `principal_id` (string) — 服务 ID / 角色名 / 用户 ID
-  - `action` (enum) — `publish` / `subscribe` / `replay`
-  - `expires_at` (timestamp, nullable) — 到期自动撤销
-  - `granted_by` (string) — 审批来源
-  - `justification` (text) — 审批说明
-  - `audit_ref` (string) — 审计记录 ID
+- **用途**：记录系统可用 Topic 的统一注册定义（语义层）。
+- **唯一键建议**：`(scope_type, scope_id, namespace, name)`（等价 `full_topic` 唯一）
+- **当前实现说明（2026-02）**：
+  - 物理落表与运行期治理均使用 `event_topics`。
+  - `scope_type` 支持 `system/tenant/plugin/third_party`。
+  - `scope_id` 对应作用域标识（如 `global`、tenant UUID、plugin id、第三方源 id）。
+- **核心字段（现有+演进）**：
+  - `id` (ULID/UUID)
+  - `scope_type` / `scope_id`
+  - `namespace`（如 `_topic.knowledge.space.feedback`）
+  - `name`（如 `reprocess`）
+  - `full_topic`（如 `global._topic.knowledge.space.feedback.reprocess`）
+  - `lifecycle_status` (`active/deprecated/retired`)
+  - `payload_format` (`json/protobuf/avro`)
+  - `versioning_mode` (`strict/backward/any`)
+  - `ack_timeout_sec` / `max_retry`
+  - `retention_policy` / `metadata`
+  - `created_by` / `updated_by`
+  - `created_at` / `updated_at`
 
-## EventEnvelope Record (`event_envelopes`)
-- **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_uuid`, `topic_id`, `event_id`), (`trace_id`)
-- **Fields**
-  - `event_id` (string) — 全局唯一 ID（提供幂等键）
-  - `topic_id` (foreign key) — 对应 TopicDefinition
-  - `version` (string) — Schema 版本
-  - `payload_format` (enum) — 冗余记录
-  - `payload_digest` (string) — SHA256 Hash，隐私保护
-  - `headers` (jsonb) — 附件元数据（例如 correlation_id）
-  - `published_by` (string) — 发布主体
-  - `published_at` (timestamp)
-  - `retry_count` (int) — 当前重试次数
-  - `status` (enum) — `pending` / `delivered` / `failed` / `dlq`
-  - `last_error` (text, nullable)
+## 2) TopicPolicy（可选：租户/环境覆盖）
 
-## DeliveryAttempt (`event_delivery_attempts`)
-- **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_uuid`, `event_id`, `subscriber_id`), (`status`)
-- **Fields**
-  - `event_id` (foreign key → `event_envelopes.event_id`)
-  - `subscriber_id` (string) — 逻辑消费者 ID
-  - `delivery_no` (int) — 第几次尝试
-  - `status` (enum) — `ack` / `nack` / `timeout` / `scheduled`
-  - `latency_ms` (int) — 发布到 ack 花费
-  - `nack_reason` (text, nullable)
-  - `scheduled_at` (timestamp) — 下一次重试时间
-  - `trace_id` (string) — 与 envelope 对齐
+- **用途**：对注册 Topic 做稀疏覆盖（不是每租户复制）。
+- **唯一键**：`(scope_type, scope_id, topic_id)`
+- **核心字段**：
+  - `scope_type` (`tenant/global/system`)
+  - `scope_id`（tenant_uuid 或固定值）
+  - `topic_id`（FK -> `event_topics.id`）
+  - `ack_timeout_sec_override` (nullable)
+  - `max_retry_override` (nullable)
+  - `lifecycle_override` (nullable)
 
-## DlqMessage (`event_dlq_messages`)
-- **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_uuid`, `topic_id`, `status`), (`created_at`)
-- **Fields**
-  - `event_id` (string) — 原事件 ID
-  - `topic_id` (foreign key) — 对应主题
-  - `failure_stage` (enum) — `publish` / `delivery` / `ack`
-  - `last_error_code` (string)
-  - `last_error_message` (text)
-  - `payload_snapshot` (jsonb) — 原始载荷（带访问控制）
-  - `headers` (jsonb)
-  - `status` (enum) — `queued` / `replayed` / `discarded`
-  - `replayed_at` (timestamp, nullable)
-  - `replay_operator` (string, nullable)
+## 3) SubscriberRegistry（新增规划：`subscriber_registry`）
 
-## ReplayRequest (`event_replay_requests`)
-- **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_uuid`, `topic_id`, `status`)
-- **Fields**
-  - `topic_id` (foreign key)
-  - `time_range_start` / `time_range_end` (timestamp) — 回放窗口
-  - `filter_trace_id` (string, nullable)
-  - `filter_subscriber_id` (string, nullable)
-  - `status` (enum) — `pending` / `running` / `completed` / `failed`
-  - `issued_by` (string) — 发起人
-  - `result_count` (int) — 回放事件数量
-  - `failure_reason` (text, nullable)
+- **用途**：记录消费者目录（系统内置、租户扩展、插件、第三方）。
+- **唯一键建议**：`subscriber_id`
+- **核心字段（规划）**：
+  - `subscriber_id`（如 `_subscriber.knowledge_space.reprocess`）
+  - `source_type`（`system/tenant/plugin/third_party`）
+  - `source_id`（插件 id / 第三方标识 / tenant id）
+  - `scope_type` / `scope_id`
+  - `status`（`active/paused/offline`）
+  - `capabilities`（jsonb）
+  - `heartbeat_at`
+  - `created_at` / `updated_at`
 
-## SubscriptionOffset (`event_subscription_offsets`)
-- **Primary Key**: (`tenant_uuid`, `topic_id`, `subscriber_id`)
-- **Fields**
-  - `last_event_id` (string) — 最近确认事件
-  - `last_ack_at` (timestamp)
-  - `delivery_cursor` (string) — gRPC 流游标/Redis key
-  - `delivery_mode` (enum) — `stream` / `polling`
+## 4) TopicSubscriptions（新增规划：`topic_subscriptions`）
 
-## Redis Structures（运行时）
-- `event:dedupe:{tenant}:{topic}` — Sorted Set，score=过期时间，value=event_id（幂等窗口）
-- `event:retry:{tenant}` — Sorted Set，value=`<event_id>#<subscriber_id>`，score=重投时间
-- `event:subscription:{tenant}:{topic}:{subscriber}` — Hash，维护流 token 与限流信息
+- **用途**：维护 Topic 与 Subscriber 的多对多订阅关系。
+- **唯一键建议**：`(topic_id, subscriber_id)`
+- **核心字段（规划）**：
+  - `topic_id`（FK -> `event_topics.id`）
+  - `subscriber_id`（FK -> `subscriber_registry.subscriber_id`）
+  - `enabled` (bool)
+  - `delivery_policy` (jsonb)
+  - `retry_policy` (jsonb)
+  - `created_by` / `updated_by`
+  - `created_at` / `updated_at`
+
+## 5) AclBinding（`event_acl_bindings`）
+
+- **用途**：谁可以对某 Topic 执行何种动作。
+- **唯一键**：`(scope_id, topic_id, principal_id, action)`
+- **核心字段**：
+  - `scope_id`（tenant_uuid 或 global/system）
+  - `topic_id`（FK -> `event_topics.id`）
+  - `principal_type` (`service/role/user`)
+  - `principal_id` (string)
+  - `action` (`publish/subscribe/replay`)
+  - `expires_at` (nullable)
+  - `granted_by` / `justification` / `audit_ref`
+
+## 6) EventEnvelope（`event_envelopes`）
+
+- **用途**：事件信封持久化（用于重试、重放、审计）。
+- **关键点**：
+  - `tenant_uuid` 来自 JWT 上下文
+  - `topic_id` 指向 `event_topics`
+  - `topic_key` 可冗余存储用于检索
+- **核心字段**：
+  - `event_id`（幂等主键之一）
+  - `tenant_uuid`
+  - `topic_id`
+  - `version` / `payload_format` / `payload_digest`
+  - `headers` / `trace_id` / `published_by`
+  - `status` / `retry_count` / `last_error`
+
+## 7) DeliveryAttempt / DLQ / ReplayRequest / SubscriptionOffset
+
+这些表保持原职责不变，但 topic 关联统一使用 `topic_id`（指向 `event_topics`），
+不再依赖“租户实例化 topic 表”。
+
+## 7.1) 兼容状态标注（必须）
+
+- `event_topics`：**当前生产真相源**（Topic 注册与治理统一入口）。
+- `subscriber_registry` / `topic_subscriptions`：**下一阶段补齐项**（用于插件/第三方 subscriber 动态注册）。
+- 迁移目标：管理台与调度链路从“内置常量聚合”演进到“注册表驱动”。
+
+### Topic 治理迁移落地点
+
+- 迁移入口：`backend/pkg/corex/db/migration/202602120001_event_topics_governance_migration.go`
+- 正向函数：`EnsureEventTopicsGovernanceMigration(db)`
+- 回滚函数：`RollbackEventTopicsGovernanceMigration(db)`
+- 执行链路：`backend/pkg/corex/db/database/migration.go` 的 Event Fabric 迁移阶段。
+
+## 8) 运行时缓存（Redis）
+
+- `event:topic:resolve:{topic_key}` -> 解析结果（topic_id + scope）
+- `event:acl:{scope}:{topic_id}:{principal}:{action}` -> ACL 结果
+- 策略：`cache-aside`（先写 DB，再删缓存），TTL 60~300s。
+
+## 9) 关键约束
+
+1. 请求体中的 `topic` 仅传语义 key（`_topic.<domain>.<name>`）。
+2. 租户由 JWT 唯一确定，不从 header/body 覆盖。
+3. 运行时解析链路：`tenant -> global -> system`。
+4. 未注册 topic 返回业务错误（404），不得返回 500。
+5. `subscriber_id` 命名统一采用 `_subscriber.<domain>.<handler>`。
+6. `kind` 命名统一采用 `_kind.<domain>.<action>`。
+
+## 10) ACL 治理视图模型（Phase 13）
+
+> 该章节描述“系统设置 / 事件权限”页面所需读模型，属于 API 聚合层，不改变核心存储真相源。
+
+### 10.1 TopicAclView（按 Topic 查看授权）
+
+- `topic_id`
+- `topic_key`（语义 key）
+- `scope_hint`（`tenant/global/system`）
+- `bindings[]`
+  - `principal_type`
+  - `principal_id`
+  - `action`
+  - `expires_at`
+  - `updated_at`
+
+### 10.2 PrincipalAclView（按主体反查 Topic）
+
+- `principal_type`
+- `principal_id`
+- `permissions[]`
+  - `topic_id`
+  - `topic_key`
+  - `action`
+  - `scope`
+
+### 10.3 约束
+
+1. 治理页必须可见共享 Topic（`global/system`），不得仅返回当前 tenant 自有 Topic。
+2. 显示层以语义 key 为主，UUID 仅作为内部引用。
+3. ACL 写入仍以 `AclBinding` 为权威落库结构，治理视图仅做聚合投影。
+
+## 11) 三表关系（必须统一口径）
+
+- `event_topics`：定义“有什么事件”
+- `subscriber_registry`：定义“谁可以消费”
+- `topic_subscriptions`：定义“谁订阅了哪些事件”
+
+关系：
+
+- `event_topics (1) -- (N) topic_subscriptions (N) -- (1) subscriber_registry`
+
+说明：这是支持插件/第三方 subscriber 动态接入的最小闭环模型。

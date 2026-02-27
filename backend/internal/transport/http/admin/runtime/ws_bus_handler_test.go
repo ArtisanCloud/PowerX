@@ -13,8 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestWSBusRegisterThenPublish(t *testing.T) {
+func TestWSBusGrantThenPublish(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
 
 	// Reset hub for test isolation.
 	originHub := bus.DefaultHub
@@ -34,16 +36,16 @@ func TestWSBusRegisterThenPublish(t *testing.T) {
 	protectedGroup := router.Group("/api/v1")
 	RegisterAPIRoutes(nil, protectedGroup, nil)
 
-	// Register dynamic topic.
-	registerBody, _ := json.Marshal(map[string]any{
+	// Grant topic actions.
+	grantBody, _ := json.Marshal(map[string]any{
 		"topics": []string{"custom.progress"},
 	})
-	registerReq := httptest.NewRequest(http.MethodPost, "/api/v1/internal/ws-bus/register", bytes.NewReader(registerBody))
-	registerReq.Header.Set("Content-Type", "application/json")
-	registerRec := httptest.NewRecorder()
-	router.ServeHTTP(registerRec, registerReq)
-	if registerRec.Code != http.StatusOK {
-		t.Fatalf("register failed: status=%d body=%s", registerRec.Code, registerRec.Body.String())
+	grantReq := httptest.NewRequest(http.MethodPost, "/api/v1/internal/ws-bus/grant", bytes.NewReader(grantBody))
+	grantReq.Header.Set("Content-Type", "application/json")
+	grantRec := httptest.NewRecorder()
+	router.ServeHTTP(grantRec, grantReq)
+	if grantRec.Code != http.StatusOK {
+		t.Fatalf("grant failed: status=%d body=%s", grantRec.Code, grantRec.Body.String())
 	}
 
 	// Publish to dynamic topic.
@@ -62,6 +64,8 @@ func TestWSBusRegisterThenPublish(t *testing.T) {
 
 func TestWSBusPublishRejectsUnregisteredTopic(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
 
 	originHub := bus.DefaultHub
 	bus.DefaultHub = bus.NewHub()

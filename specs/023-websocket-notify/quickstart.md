@@ -36,7 +36,7 @@
 ## US3 验证（宿主发布入口）
 
 1. 宿主模式下，插件后端先调用**注册入口**：
-   - `POST <APIPrefix>/internal/ws-bus/register`（默认 `<APIPrefix>=/api/v1`）
+   - `POST <APIPrefix>/internal/ws-bus/grant`（默认 `<APIPrefix>=/api/v1`）
    - payload 示例：
      ```json
      {

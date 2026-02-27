@@ -330,6 +330,26 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /event-fabric/pipeline/tasks:
+    post:
+      tags: [pipeline]
+      summary: 创建 Pipeline 联调任务（通知分发）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePipelineDebugTaskRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
 components:
   responses:
     ValidationError:
@@ -685,4 +705,15 @@ components:
       type: object
       properties:
         operator_id:
+          type: string
+    CreatePipelineDebugTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+        category:
           type: string

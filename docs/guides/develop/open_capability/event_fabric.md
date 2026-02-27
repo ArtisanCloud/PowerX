@@ -189,7 +189,6 @@ PAYLOAD=$(printf '{"orderId":"ord_123","amount":99.9}' | base64)
 
 curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-PowerX-Tenant: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
     "capability_id": "com.corex.eventfabric.publish",

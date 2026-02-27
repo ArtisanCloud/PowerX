@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -17,5 +18,5 @@ func publishCorpusCheckUpdate(ctx context.Context, job *models.CorpusCheckJob) {
 	if tenant == "" {
 		return
 	}
-	wsbus.DefaultHub.Publish(tenant, wsbus.TopicKnowledgeCorpusCheck, job, reqctx.GetTraceID(ctx))
+	wsbus.DefaultHub.Publish(tenant, eventbus.TopicKnowledgeCorpusCheckJob, job, reqctx.GetTraceID(ctx))
 }

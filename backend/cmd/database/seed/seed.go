@@ -2,10 +2,12 @@ package seed
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/config"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/ArtisanCloud/PowerX/config"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 
 	"gorm.io/gorm"
 
@@ -22,6 +24,10 @@ func envOrDefault(key, def string) string {
 }
 
 func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
+	if cfg != nil {
+		config.GlobalConfig = cfg
+		apikeypermissions.SetIntroducedVersion(cfg.EffectiveSystemVersion())
+	}
 	db, err := database.Connect(cfg.Database)
 	if err != nil {
 		//log.Fatal(err)
@@ -30,6 +36,13 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 
 	if err = SeedRoot(db); err != nil {
 		//log.Fatal(err)
+		return err
+	}
+
+	if err = SeedEventFabricTopics(db); err != nil {
+		return err
+	}
+	if err = SeedEventFabricDefaultACL(db); err != nil {
 		return err
 	}
 

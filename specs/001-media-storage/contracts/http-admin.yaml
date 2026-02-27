@@ -56,7 +56,6 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
-        - $ref: '#/components/parameters/Tenant'
         - name: keyword
           in: query
           schema:
@@ -218,12 +217,6 @@ components:
         minimum: 1
         maximum: 100
         default: 20
-    Tenant:
-      name: X-PowerX-Tenant
-      in: header
-      required: true
-      schema:
-        type: string
   responses:
     BadRequest:
       description: 参数校验失败

@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	toolstore "github.com/ArtisanCloud/PowerX/internal/agent/toolstore"
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
@@ -41,7 +43,9 @@ import (
 	manifestService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	cronschedulersvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/scheduler"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
+	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
@@ -86,8 +90,10 @@ import (
 	vectorstorepkg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	kafkadriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/kafka"
+	natsdriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/nats"
+	rabbitdriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/rabbitmq"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -287,7 +293,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterService: routerSvc,
 	})
 
-	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus, svc, tenantSvc)
+	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, opts.Queue, bus, svc, tenantSvc)
 
 	var (
 		workflowReliable  event_bus.ReliableQueue
@@ -394,14 +400,14 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		}
 
 		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
-			Catalog:     capabilityCatalogSvc,
-			Router:      routerSvc,
-			Audit:       capAuditSvc,
-			Clock:       time.Now,
-			VersionLock: versionLockStore,
-			HTTPClient:  httpProxyClient,
-			HTTPBaseURL: httpBaseURL,
-			GRPCConn:    invocationGRPCConn,
+			Catalog:       capabilityCatalogSvc,
+			Router:        routerSvc,
+			Audit:         capAuditSvc,
+			Clock:         time.Now,
+			VersionLock:   versionLockStore,
+			HTTPClient:    httpProxyClient,
+			HTTPBaseURL:   httpBaseURL,
+			GRPCConn:      invocationGRPCConn,
 			ModelVerifier: capabilitycatalog.NewTenantModelKeyVerifier(db),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
@@ -465,7 +471,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps, tenantSvc)
+	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -744,24 +750,27 @@ func convertDevHotloadOptions(src DevHotloadOptions) devhotloadservice.Options {
 
 // EventFabricDeps 聚合事件骨干运行时依赖。
 type EventFabricDeps struct {
-	RedisClient   *redis.Client
-	EventBus      event_bus.EventBus
-	Config        EventFabricRuntimeConfig
-	Directory     *directoryService.DirectoryService
-	ACL           *aclService.ACLService
-	Enforcer      *aclService.ACLEnforcer
-	Seeder        *manifestService.SeedService
-	BindingStore  manifestService.BindingStore
-	Reliable      event_bus.ReliableQueue
-	Scheduler     *deliveryService.BackoffScheduler
-	Delivery      deliveryService.Service
-	DLQ           dlqService.Service
-	Audit         auditService.Service
-	Replay        *replayService.Service
-	RetryWorker   *workers.EventFabricRetryWorker
-	Metrics       eventmetrics.Recorder
-	Security      *security.Verifier
-	Authorization *AuthorizationDeps
+	RedisClient          *redis.Client
+	EventBus             event_bus.EventBus
+	Config               EventFabricRuntimeConfig
+	Directory            *directoryService.DirectoryService
+	ACL                  *aclService.ACLService
+	Enforcer             *aclService.ACLEnforcer
+	Seeder               *manifestService.SeedService
+	BindingStore         manifestService.BindingStore
+	Reliable             event_bus.ReliableQueue
+	TaskDriver           event_bus.TaskDriver
+	Scheduler            *deliveryService.BackoffScheduler
+	Delivery             deliveryService.Service
+	DLQ                  dlqService.Service
+	Audit                auditService.Service
+	Replay               *replayService.Service
+	RetryWorker          *workers.EventFabricRetryWorker
+	CronDispatcherWorker *workers.EventFabricCronDispatcherWorker
+	NotificationWorker   *workers.EventFabricSystemNotificationDispatchWorker
+	Metrics              eventmetrics.Recorder
+	Security             *security.Verifier
+	Authorization        *AuthorizationDeps
 }
 
 // WorkflowDeps 聚合工作流域运行时依赖。
@@ -850,15 +859,15 @@ type EventFabricRuntimeConfig struct {
 
 // AuthorizationDeps 聚合授权域依赖。
 type AuthorizationDeps struct {
-	Service       authorizationService.Service
-	Templates     authorizationService.TemplateService
-	Cache         authorizationService.Cache
-	Dispatcher    authorizationService.ChallengeDispatcher
-	Secrets       *authorizationService.SecretsManager
-	Limiter       authorizationService.RateLimiter
-	Alerts        authorizationService.AlertEmitter
-	Reporting     authorizationService.ReportingService
-	TimeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
+	Service           authorizationService.Service
+	Templates         authorizationService.TemplateService
+	Cache             authorizationService.Cache
+	Dispatcher        authorizationService.ChallengeDispatcher
+	Secrets           *authorizationService.SecretsManager
+	Limiter           authorizationService.RateLimiter
+	Alerts            authorizationService.AlertEmitter
+	Reporting         authorizationService.ReportingService
+	TimeoutTaskWorker *workers.EventFabricAuthorizationTimeoutTaskWorker
 }
 
 // IntegrationGatewayRuntimeConfig 简化运行时常用参数。
@@ -868,7 +877,7 @@ type IntegrationGatewayRuntimeConfig struct {
 	EventTopics     IntegrationGatewayEventTopicsOptions
 }
 
-func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, tenantSvc *tenantsvc.TenantService) *EventFabricDeps {
+func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, tenantSvc *tenantsvc.TenantService) *EventFabricDeps {
 	const (
 		fallbackAckTimeout      = 30 * time.Second
 		fallbackDefaultMaxRetry = 5
@@ -916,24 +925,95 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	}
 
 	var reliableQueue event_bus.ReliableQueue
+	var taskDriver event_bus.TaskDriver
 	var scheduler *deliveryService.BackoffScheduler
+	retryWorkerFallbackEnabled := false
+	retryWorkerDriverName := ""
 	if redisClient != nil {
 		reliableQueue = event_bus.NewRedisReliableQueue(redisClient)
+		redisTaskDriver := event_bus.NewRedisTaskDriver(event_bus.RedisTaskDriverOptions{
+			Client:           redisClient,
+			Prefix:           "event_fabric:task",
+			BlockingTimeout:  cfg.SchedulerInterval,
+			ProcessingExpiry: cfg.AckTimeout * 2,
+		})
+		taskDriver = redisTaskDriver
+		retryWorkerDriverName = string(taskDriver.Type())
+		retryWorkerFallbackEnabled = true
+		switch strings.ToLower(strings.TrimSpace(queueOpts.Driver)) {
+		case "kafka":
+			taskDriver = kafkadriver.NewDriver(kafkadriver.DriverOptions{
+				Brokers:        append([]string{}, queueOpts.Kafka.Brokers...),
+				TopicPrefix:    strings.TrimSpace(queueOpts.Kafka.TopicPrefix),
+				ConsumerGroup:  strings.TrimSpace(queueOpts.Kafka.ConsumerGroup),
+				PollTimeout:    time.Duration(queueOpts.Kafka.PollTimeoutMs) * time.Millisecond,
+				FallbackDriver: redisTaskDriver,
+			})
+			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=kafka enabled; using kafka adapter with redis fallback")
+			retryWorkerDriverName = string(taskDriver.Type())
+		case "rabbitmq":
+			taskDriver = rabbitdriver.NewDriver(rabbitdriver.DriverOptions{
+				URL:            strings.TrimSpace(queueOpts.Rabbit.URL),
+				Exchange:       strings.TrimSpace(queueOpts.Rabbit.Exchange),
+				QueuePrefix:    strings.TrimSpace(queueOpts.Rabbit.QueuePrefix),
+				ConsumerTag:    strings.TrimSpace(queueOpts.Rabbit.ConsumerTag),
+				Prefetch:       queueOpts.Rabbit.Prefetch,
+				PollTimeout:    time.Duration(queueOpts.Rabbit.PollTimeoutMs) * time.Millisecond,
+				FallbackDriver: redisTaskDriver,
+			})
+			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=rabbitmq enabled; using rabbitmq adapter with redis fallback")
+			retryWorkerDriverName = string(taskDriver.Type())
+		case "nats":
+			taskDriver = natsdriver.NewDriver(natsdriver.DriverOptions{
+				URLs:           append([]string{}, queueOpts.NATS.URLs...),
+				SubjectPrefix:  strings.TrimSpace(queueOpts.NATS.SubjectPrefix),
+				QueueGroup:     strings.TrimSpace(queueOpts.NATS.QueueGroup),
+				PollTimeout:    time.Duration(queueOpts.NATS.PollTimeoutMs) * time.Millisecond,
+				FallbackDriver: redisTaskDriver,
+			})
+			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=nats enabled; using nats adapter with redis fallback")
+			retryWorkerDriverName = string(taskDriver.Type())
+		}
 		scheduler = deliveryService.NewBackoffScheduler(reliableQueue)
+		if metricsRecorder != nil {
+			capability := taskDriver.Capability()
+			metricsRecorder.ObserveTaskDriverInit(context.Background(), string(taskDriver.Type()), capability.SupportsBlockingDequeue)
+			pxlog.InfoF(context.Background(), "[event_fabric.task_driver] initialized driver=%s blocking=%s ack_timeout=%s",
+				taskDriver.Type(), cfg.SchedulerInterval, cfg.AckTimeout)
+		}
+	}
+	if taskDriver != nil && db != nil {
+		taskDriver = newTaskHistoryDriver(
+			taskDriver,
+			eventfabricrepo.NewTaskHistoryRepository(db),
+			time.Now,
+		)
 	}
 
+	topicLookup := eventshared.NewCachedTopicLookup(eventfabricrepo.NewTopicRepository(db), eventshared.CachedTopicLookupOptions{
+		Cache: func() cache.ICache {
+			if redisClient == nil {
+				return nil
+			}
+			return cache.NewRedisCache(redisClient)
+		}(),
+		TTL:     180 * time.Second,
+		MissTTL: 30 * time.Second,
+	})
+
+	aclSvc := aclService.NewACLService(aclService.Options{
+		DB:         db,
+		TopicStore: topicLookup,
+		Clock:      time.Now,
+	})
 	directorySvc := directoryService.NewDirectoryService(directoryService.Options{
 		DB:                db,
+		ACL:               aclSvc,
 		EventBus:          bus,
 		Clock:             time.Now,
 		ActorResolver:     func(context.Context) string { return "system" },
 		DefaultMaxRetry:   cfg.DefaultMaxRetry,
 		DefaultAckTimeout: cfg.AckTimeout,
-	})
-
-	aclSvc := aclService.NewACLService(aclService.Options{
-		DB:    db,
-		Clock: time.Now,
 	})
 	aclEnforcer := aclService.NewACLEnforcer(aclSvc)
 	bindingRepo := eventfabricrepo.NewManifestBindingRepository(db)
@@ -970,13 +1050,15 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	if scheduler != nil {
 		var err error
 		deliverySvc, err = deliveryService.NewService(deliveryService.Options{
-			DB:        db,
-			ACL:       aclSvc,
-			Scheduler: scheduler,
-			Clock:     time.Now,
-			MaxRetry:  cfg.DefaultMaxRetry,
-			Audit:     auditSvcEF,
-			Metrics:   metricsRecorder,
+			DB:                           db,
+			Topics:                       topicLookup,
+			ACL:                          aclSvc,
+			Scheduler:                    scheduler,
+			Clock:                        time.Now,
+			MaxRetry:                     cfg.DefaultMaxRetry,
+			Audit:                        auditSvcEF,
+			Metrics:                      metricsRecorder,
+			EnableDatabaseFallbackLookup: retryWorkerFallbackEnabled,
 		})
 		if err != nil {
 			pxlog.WarnF(context.Background(), "init delivery service failed: %v", err)
@@ -1004,37 +1086,64 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	if deliverySvc != nil {
 		replaySvc = replayService.NewService(replayService.Options{
 			DB:       db,
+			Topics:   topicLookup,
+			ACL:      aclSvc,
 			Delivery: deliverySvc,
+			History:  eventfabricrepo.NewTaskHistoryRepository(db),
 			Clock:    time.Now,
 			Metrics:  metricsRecorder,
+			Emitter:  newReplayTaskWSStatusEmitter(),
 		})
 	}
 
 	var retryWorker *workers.EventFabricRetryWorker
 	if deliverySvc != nil && bus != nil {
-		tenantProvider := func(ctx context.Context) ([]string, error) {
-			if tenantSvc == nil {
-				return []string{"global"}, nil
-			}
-			items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
-			if err != nil {
-				return nil, err
-			}
-			keys := make([]string, 0, len(items)+1)
-			for _, item := range items {
-				if key := strings.TrimSpace(item.Key); key != "" {
-					keys = append(keys, key)
-				}
-			}
-			keys = append(keys, "global")
-			return keys, nil
+		tenantProvider := newRetryQueueTenantKeyProvider(redisClient, 10*time.Second)
+		if tenantProvider == nil {
+			tenantProvider = newCachedTenantKeyProvider(tenantSvc, 30*time.Second)
 		}
 		retryWorker = workers.NewEventFabricRetryWorker(workers.EventFabricRetryWorkerOptions{
-			Delivery:       deliverySvc,
-			EventBus:       bus,
-			TenantProvider: tenantProvider,
-			Interval:       cfg.SchedulerInterval,
-			BatchSize:      100,
+			Delivery:                deliverySvc,
+			EventBus:                bus,
+			TenantProvider:          tenantProvider,
+			Interval:                cfg.SchedulerInterval,
+			BatchSize:               100,
+			EnableDBPollingFallback: retryWorkerFallbackEnabled,
+			DriverName:              retryWorkerDriverName,
+		})
+	}
+
+	var cronDispatcherWorker *workers.EventFabricCronDispatcherWorker
+	if db != nil && taskDriver != nil {
+		taskRepo := eventfabricrepo.NewScheduledTaskRepository(db)
+		taskRunRepo := eventfabricrepo.NewScheduledTaskRunRepository(db)
+		cronDispatcherWorker = workers.NewEventFabricCronDispatcherWorker(workers.EventFabricCronDispatcherWorkerOptions{
+			TaskRepository:    taskRepo,
+			TaskRunRepository: taskRunRepo,
+			TaskDriver:        taskDriver,
+			Scheduler:         cronschedulersvc.NewService(),
+			SubscriberID:      eventbus.SubscriberEventFabricCronDispatch,
+			Topic:             "event_fabric.cron.dispatch",
+			Interval:          cfg.SchedulerInterval,
+			BatchSize:         100,
+			Logger:            pxlog.GetGlobalLogger(),
+			Clock:             time.Now,
+		})
+	}
+	var notificationWorker *workers.EventFabricSystemNotificationDispatchWorker
+	if taskDriver != nil {
+		notificationWorker = workers.NewEventFabricSystemNotificationDispatchWorker(workers.EventFabricSystemNotificationDispatchWorkerOptions{
+			TaskDriver:   taskDriver,
+			SubscriberID: eventbus.SubscriberSystemNotificationDispatch,
+			TenantKey:    "global",
+			BatchSize:    100,
+			WaitTimeout:  3 * time.Second,
+			RetryDelay:   5 * time.Second,
+			Publish: func(tenantKey, topic string, payload any, traceID string) {
+				wsbus.DefaultHub.Publish(tenantKey, topic, payload, traceID)
+			},
+			Logger: pxlog.GetGlobalLogger(),
+			Clock:  time.Now,
 		})
 	}
 
@@ -1125,61 +1234,63 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Logger:                  pxlog.GetGlobalLogger(),
 		})
 
-		var timeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
-		if authService != nil && tenantSvc != nil {
-			tenantProvider := func(ctx context.Context) ([]uuid.UUID, error) {
-				items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
-				if err != nil {
-					return nil, err
-				}
-				ids := make([]uuid.UUID, 0, len(items))
-				for _, t := range items {
-					if t.UUID != uuid.Nil {
-						ids = append(ids, t.UUID)
-					}
-				}
-				return ids, nil
-			}
-			timeoutWorker = workers.NewEventFabricAuthorizationTimeoutWorker(workers.EventFabricAuthorizationTimeoutWorkerOptions{
-				Service:        authService,
-				TenantProvider: tenantProvider,
-				Interval:       time.Duration(authCfg.TimeoutSweepIntervalSeconds) * time.Second,
-				Logger:         pxlog.GetGlobalLogger(),
+		var timeoutTaskWorker *workers.EventFabricAuthorizationTimeoutTaskWorker
+		if authService != nil && taskDriver != nil && bus != nil {
+			workers.RegisterAuthorizationChallengeTimeoutTaskScheduler(
+				bus,
+				taskDriver,
+				authCfg.ChallengeTopic,
+				pxlog.GetGlobalLogger(),
+				time.Now,
+			)
+			timeoutTaskWorker = workers.NewEventFabricAuthorizationTimeoutTaskWorker(workers.EventFabricAuthorizationTimeoutTaskWorkerOptions{
+				Service:      authService,
+				TaskDriver:   taskDriver,
+				SubscriberID: eventbus.SubscriberAuthorizationChallengeTime,
+				TenantKey:    "global",
+				BatchSize:    100,
+				WaitTimeout:  3 * time.Second,
+				RetryDelay:   5 * time.Second,
+				Logger:       pxlog.GetGlobalLogger(),
+				Clock:        time.Now,
 			})
 		}
 
 		authDeps = &AuthorizationDeps{
-			Service:       authService,
-			Templates:     templateService,
-			Cache:         cache,
-			Dispatcher:    dispatcher,
-			Secrets:       secretsManager,
-			Limiter:       rateLimiter,
-			Alerts:        alertEmitter,
-			Reporting:     reportingService,
-			TimeoutWorker: timeoutWorker,
+			Service:           authService,
+			Templates:         templateService,
+			Cache:             cache,
+			Dispatcher:        dispatcher,
+			Secrets:           secretsManager,
+			Limiter:           rateLimiter,
+			Alerts:            alertEmitter,
+			Reporting:         reportingService,
+			TimeoutTaskWorker: timeoutTaskWorker,
 		}
 	}
 
 	return &EventFabricDeps{
-		RedisClient:   redisClient,
-		EventBus:      bus,
-		Config:        cfg,
-		Directory:     directorySvc,
-		ACL:           aclSvc,
-		Enforcer:      aclEnforcer,
-		Seeder:        seedSvc,
-		BindingStore:  bindingStore,
-		Reliable:      reliableQueue,
-		Scheduler:     scheduler,
-		Delivery:      deliverySvc,
-		DLQ:           dlqSvc,
-		Audit:         auditSvcEF,
-		Replay:        replaySvc,
-		RetryWorker:   retryWorker,
-		Metrics:       metricsRecorder,
-		Security:      securityVerifier,
-		Authorization: authDeps,
+		RedisClient:          redisClient,
+		EventBus:             bus,
+		Config:               cfg,
+		Directory:            directorySvc,
+		ACL:                  aclSvc,
+		Enforcer:             aclEnforcer,
+		Seeder:               seedSvc,
+		BindingStore:         bindingStore,
+		Reliable:             reliableQueue,
+		TaskDriver:           taskDriver,
+		Scheduler:            scheduler,
+		Delivery:             deliverySvc,
+		DLQ:                  dlqSvc,
+		Audit:                auditSvcEF,
+		Replay:               replaySvc,
+		RetryWorker:          retryWorker,
+		CronDispatcherWorker: cronDispatcherWorker,
+		NotificationWorker:   notificationWorker,
+		Metrics:              metricsRecorder,
+		Security:             securityVerifier,
+		Authorization:        authDeps,
 	}
 }
 
@@ -1272,7 +1383,7 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	}
 }
 
-func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, eventFabric *EventFabricDeps, tenantSvc *tenantsvc.TenantService) *KnowledgeSpaceDeps {
+func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, eventFabric *EventFabricDeps) *KnowledgeSpaceDeps {
 	var redisClient *redis.Client
 	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
 		redisClient = redis.NewClient(&redis.Options{
@@ -1467,7 +1578,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			if strings.TrimSpace(update.TenantUUID) == "" {
 				return
 			}
-			wsbus.DefaultHub.Publish(update.TenantUUID, wsbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
+			wsbus.DefaultHub.Publish(update.TenantUUID, eventbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
 		}),
 	})
 	svc.AttachIngestion(ingestionSvc)
@@ -1483,30 +1594,13 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	reprocessTopic := cfg.EventTopics.Feedback + ".reprocess"
-	tenantProvider := func(ctx context.Context) ([]string, error) {
-		if tenantSvc == nil {
-			return []string{"global"}, nil
-		}
-		items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
-		if err != nil {
-			return nil, err
-		}
-		keys := make([]string, 0, len(items)+1)
-		for _, item := range items {
-			if key := strings.TrimSpace(item.Key); key != "" {
-				keys = append(keys, key)
-			}
-		}
-		keys = append(keys, "global")
-		return keys, nil
-	}
 	var reprocessPipeline knowledgeworkflow.ReprocessPipeline
 	if eventFabric != nil && eventFabric.Delivery != nil && eventFabric.Directory != nil && eventFabric.ACL != nil {
 		reprocessPipeline = knowledgeworkflow.NewEventFabricReprocessPipeline(knowledgeworkflow.EventFabricReprocessPipelineOptions{
 			Delivery:      eventFabric.Delivery,
 			Directory:     eventFabric.Directory,
 			ACL:           eventFabric.ACL,
-			SubscriberID:  "core.knowledge_space.reprocess",
+			SubscriberID:  eventbus.SubscriberKnowledgeSpaceReprocess,
 			Namespace:     cfg.EventTopics.Feedback,
 			Name:          "reprocess",
 			PayloadFormat: "json",
@@ -1514,23 +1608,13 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
 			Clock:         time.Now,
 		})
-		knowledgeworkflow.NewEventFabricReprocessConsumer(knowledgeworkflow.EventFabricReprocessConsumerOptions{
-			Delivery:       eventFabric.Delivery,
-			DB:             db,
-			VectorStore:    routedVectorStore,
-			Directory:      eventFabric.Directory,
-			ACL:            eventFabric.ACL,
-			SubscriberID:   "core.knowledge_space.reprocess",
-			Namespace:      cfg.EventTopics.Feedback,
-			Name:           "reprocess",
-			PayloadFormat:  "json",
-			MaxRetry:       int32(eventFabric.Config.DefaultMaxRetry),
-			AckTimeoutSec:  int32(eventFabric.Config.AckTimeout / time.Second),
-			TenantProvider: tenantProvider,
-			Interval:       250 * time.Millisecond,
-			BatchSize:      50,
-			Clock:          time.Now,
-		}).Start()
+		knowledgeworkflow.RegisterEventFabricReprocessDispatchHandler(knowledgeworkflow.EventFabricReprocessDispatchHandlerOptions{
+			EventBus:     bus,
+			DB:           db,
+			VectorStore:  routedVectorStore,
+			SubscriberID: eventbus.SubscriberKnowledgeSpaceReprocess,
+			Clock:        time.Now,
+		})
 	} else {
 		reprocessPipeline = knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
 			EventBus:   bus,
@@ -1560,29 +1644,20 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			Delivery:      eventFabric.Delivery,
 			Directory:     eventFabric.Directory,
 			ACL:           eventFabric.ACL,
-			SubscriberID:  "core.knowledge_space.corpus_check",
-			Namespace:     "knowledge.space.corpuscheck",
+			SubscriberID:  eventbus.SubscriberKnowledgeSpaceCorpusCheck,
+			Namespace:     "_topic.knowledge.space.corpuscheck",
 			Name:          "run",
 			PayloadFormat: "json",
 			MaxRetry:      int32(eventFabric.Config.DefaultMaxRetry),
 			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
 			Clock:         time.Now,
 		})
-		knowledgeworkflow.NewEventFabricCorpusCheckConsumer(knowledgeworkflow.EventFabricCorpusCheckConsumerOptions{
-			Delivery:       eventFabric.Delivery,
-			DB:             db,
-			Directory:      eventFabric.Directory,
-			ACL:            eventFabric.ACL,
-			SubscriberID:   "core.knowledge_space.corpus_check",
-			Namespace:      "knowledge.space.corpuscheck",
-			Name:           "run",
-			PayloadFormat:  "json",
-			TenantProvider: tenantProvider,
-			// Poll cadence for corpus-check jobs. Keep it moderate to avoid idle churn.
-			Interval:  5 * time.Second,
-			BatchSize: 50,
-			Clock:     time.Now,
-		}).Start()
+		knowledgeworkflow.RegisterEventFabricCorpusCheckDispatchHandler(knowledgeworkflow.EventFabricCorpusCheckDispatchHandlerOptions{
+			EventBus:     bus,
+			DB:           db,
+			SubscriberID: eventbus.SubscriberKnowledgeSpaceCorpusCheck,
+			Clock:        time.Now,
+		})
 	} else {
 		corpusCheckPipeline = knowledgeworkflow.NewCorpusCheckPipeline(knowledgeworkflow.CorpusCheckPipelineOptions{
 			EventBus:   bus,
@@ -1743,5 +1818,108 @@ func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus 
 		},
 		Manager:         managerService,
 		Instrumentation: inst,
+	}
+}
+
+func newRetryQueueTenantKeyProvider(redisClient *redis.Client, ttl time.Duration) func(context.Context) ([]string, error) {
+	if redisClient == nil {
+		return nil
+	}
+	if ttl <= 0 {
+		ttl = 10 * time.Second
+	}
+	const retryKeyPrefix = "event:retry:"
+	var mu sync.Mutex
+	var cached []string
+	var expireAt time.Time
+
+	return func(ctx context.Context) ([]string, error) {
+		now := time.Now()
+		forceRefresh := workers.RetryTenantProviderBypassCache(ctx)
+		mu.Lock()
+		if !forceRefresh && now.Before(expireAt) && len(cached) > 0 {
+			out := append([]string(nil), cached...)
+			mu.Unlock()
+			return out, nil
+		}
+		mu.Unlock()
+
+		tenants := make(map[string]struct{}, 8)
+		cursor := uint64(0)
+		for {
+			keys, nextCursor, err := redisClient.Scan(ctx, cursor, retryKeyPrefix+"*", 200).Result()
+			if err != nil {
+				return nil, err
+			}
+			for _, key := range keys {
+				tenant := strings.TrimSpace(strings.TrimPrefix(key, retryKeyPrefix))
+				if tenant != "" {
+					tenants[tenant] = struct{}{}
+				}
+			}
+			cursor = nextCursor
+			if cursor == 0 {
+				break
+			}
+		}
+
+		filtered := make([]string, 0, len(tenants)+1)
+		for tenant := range tenants {
+			filtered = append(filtered, tenant)
+		}
+		if len(filtered) == 0 {
+			filtered = append(filtered, "global")
+		}
+
+		mu.Lock()
+		cached = append([]string(nil), filtered...)
+		expireAt = time.Now().Add(ttl)
+		mu.Unlock()
+
+		return filtered, nil
+	}
+}
+
+func newCachedTenantKeyProvider(tenantSvc *tenantsvc.TenantService, ttl time.Duration) func(context.Context) ([]string, error) {
+	if ttl <= 0 {
+		ttl = 30 * time.Second
+	}
+	var mu sync.Mutex
+	var cached []string
+	var expireAt time.Time
+
+	return func(ctx context.Context) ([]string, error) {
+		if tenantSvc == nil {
+			return []string{"global"}, nil
+		}
+
+		now := time.Now()
+		forceRefresh := workers.RetryTenantProviderBypassCache(ctx)
+		mu.Lock()
+		if !forceRefresh && now.Before(expireAt) && len(cached) > 0 {
+			out := append([]string(nil), cached...)
+			mu.Unlock()
+			return out, nil
+		}
+		mu.Unlock()
+
+		keys, err := tenantSvc.Repo.ListActiveKeys(ctx)
+		if err != nil {
+			return nil, err
+		}
+		filtered := make([]string, 0, len(keys)+1)
+		for _, key := range keys {
+			if key = strings.TrimSpace(key); key != "" {
+				filtered = append(filtered, key)
+			}
+		}
+		filtered = append(filtered, "global")
+
+		mu.Lock()
+		cached = append([]string(nil), filtered...)
+		expireAt = time.Now().Add(ttl)
+		mu.Unlock()
+
+		return filtered, nil
 	}
 }

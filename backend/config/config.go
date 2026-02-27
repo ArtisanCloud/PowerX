@@ -88,6 +88,7 @@ type TenantConfig struct {
 
 // CoreX 全局配置
 type Config struct {
+	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
@@ -108,6 +109,26 @@ type Config struct {
 	HTTPSecurity       HTTPSecurityConfig       `yaml:"http_security"`
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
+}
+
+const DefaultSystemVersion = "v1.0.0"
+
+func (c *Config) EffectiveSystemVersion() string {
+	if c == nil {
+		return DefaultSystemVersion
+	}
+	version := strings.TrimSpace(c.Version)
+	if version == "" {
+		return DefaultSystemVersion
+	}
+	return version
+}
+
+func GetSystemVersion() string {
+	if GlobalConfig == nil {
+		return DefaultSystemVersion
+	}
+	return GlobalConfig.EffectiveSystemVersion()
 }
 
 // EffectiveMCPConfig 返回当前应使用的 MCP 配置。
@@ -158,8 +179,11 @@ type EventBusConfig struct {
 
 // QueueConfig 统一队列配置（允许被多个模块引用）
 type QueueConfig struct {
-	Driver string           `yaml:"driver"` // redis/local
-	Redis  QueueRedisConfig `yaml:"redis"`
+	Driver string              `yaml:"driver"` // redis/local/kafka/rabbitmq/nats
+	Redis  QueueRedisConfig    `yaml:"redis"`
+	Kafka  QueueKafkaConfig    `yaml:"kafka"`
+	Rabbit QueueRabbitMQConfig `yaml:"rabbitmq"`
+	NATS   QueueNATSConfig     `yaml:"nats"`
 }
 
 // QueueRedisConfig 描述 Redis 连接信息
@@ -167,6 +191,32 @@ type QueueRedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+// QueueKafkaConfig 描述 Kafka 任务驱动连接参数。
+type QueueKafkaConfig struct {
+	Brokers       []string `yaml:"brokers"`
+	TopicPrefix   string   `yaml:"topic_prefix"`
+	ConsumerGroup string   `yaml:"consumer_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
+}
+
+// QueueRabbitMQConfig 描述 RabbitMQ 驱动连接参数。
+type QueueRabbitMQConfig struct {
+	URL           string `yaml:"url"`
+	Exchange      string `yaml:"exchange"`
+	QueuePrefix   string `yaml:"queue_prefix"`
+	ConsumerTag   string `yaml:"consumer_tag"`
+	Prefetch      int    `yaml:"prefetch"`
+	PollTimeoutMs int    `yaml:"poll_timeout_ms"`
+}
+
+// QueueNATSConfig 描述 NATS 驱动连接参数。
+type QueueNATSConfig struct {
+	URLs          []string `yaml:"urls"`
+	SubjectPrefix string   `yaml:"subject_prefix"`
+	QueueGroup    string   `yaml:"queue_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
 }
 
 // SchedulerConfig 统一的任务调度配置

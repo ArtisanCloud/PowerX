@@ -19,6 +19,18 @@
 
 - Q: 插件更新 `capabilities_hash` 时已发布 Workflow/Agent 入口是否应自动升级？ → A: 默认锁定旧版本，需管理员显式确认升级。
 
+### Session 2026-02-24
+
+- Q: Integration Gateway 全入口鉴权如何统一？ → A: 单请求单凭证分流（`Authorization: ApiKey` 或 `Authorization: Bearer`），不做失败回退。
+- Q: 是否只改 internal/ws-bus？ → A: 否，Gateway 全部 OpenAPI 入口统一改造。
+- Q: API Key 是否仅 root 可用？ → A: 否，租户可维护本租户 key；root/admin 租户可配置更高 scope。
+
+### Session 2026-02-26
+
+- Q: 仅凭 JWT 签名有效是否足够？ → A: 不足。必须增加“主体状态校验”（tenant/user/member）防止 DB refresh、租户变更、主体禁用后的旧 token 继续通过第一层鉴权。
+- Q: 主体状态校验会不会拖慢请求？ → A: 采用 `cache-first + DB-fallback`；缓存短 TTL + 事件失效，保证性能与一致性平衡。
+- Q: 是否要支持强制失效所有旧 token？ → A: 支持。引入 `session_version`（或 `token_epoch`）并纳入 claims，对比不一致即拒绝。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 3 分钟能力目录同步与治理 (Priority: P1)
@@ -88,7 +100,7 @@
 1. **Given** Registry 中存在多条 `source=corex` 能力记录，`module` 字段分别为 `Media`、`EventFabric`、`Workflow`，**When** `IsRoot` 管理员进入“设置 > 开放能力”，**Then** 列表按模块归类展示“能力数量”“支持协议（REST/gRPC/MCP/Workflow）”“最新 `capabilities_hash`”，并提供复制 cURL/Insomnia/MCP Tool 名称的调试按钮。
 2. **Given** 普通租户管理员（非 Root）访问“设置”菜单，**When** 渲染侧边栏，**Then** “开放能力”入口不会出现，避免无授权用户访问底座能力说明。
 3. **Given** Registry 新增/下架某平台能力，**When** Admin 页面刷新或触发“立即同步”，**Then** 列表 1 秒内更新数据，并通过 Badge 标记“新”或“已下线”状态；点击“查看契约”可打开对应 OpenAPI/gRPC 文档链接。
-4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`, `preferred_protocol`, `X-PowerX-Tenant` Header 等必要字段，方便宿主/Skeleton 插件直接调用。
+4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`、`preferred_protocol`、租户来源说明（JWT claims）等必要字段，方便宿主/Skeleton 插件直接调用。
 
 ## Requirements *(mandatory)*
 
@@ -114,6 +126,15 @@
 - **FR-018**: `/api/v1/tenant/invocations` 作为统一调度入口时，必须根据 `preferred_protocol` 将传入 payload 转换为 REST/gRPC/MCP 调用并代理真实响应，返回结构包含两部分：①原始业务响应体（REST JSON、gRPC JSON 映射、MCP payload 等）原样输出；②在响应 JSON 包装层附带 `trace_id/protocol_used/fallback_used` 等元信息，便于审计。换言之，无论调用何种协议，插件在 HTTP 层都能拿到一致的“业务结果 + trace”结果，避免只能看到 trace 的空壳响应。
 - **FR-019**: 平台需将 Agent 能力纳入 `source=corex` 的能力目录，公开 REST/SSE/gRPC 契约，并在 Integration Gateway 中支持流式代理或直连（SSE/WS）；租户只能访问本租户 Agent 与 Session（`agent_id` 与 `session_id` 必须归属当前租户）。
 - **FR-020**: 平台需将多模态模型调用纳入 `source=corex` 能力目录，区分无状态调用与有状态会话（Sessioned）；所有请求必须校验 `model_key` **仅在当前租户范围内可用**（租户已配置 Profile 或已测试通过且凭据已保存），跨租户访问一律拒绝并审计。
+- **FR-021**: Integration Gateway 全部入口必须采用统一鉴权分流：`Authorization: ApiKey <key>` 仅走 API Key 鉴权链路，`Authorization: Bearer <token>` 仅走 JWT 鉴权链路；禁止失败回退与混合授权决策。
+- **FR-022**: 平台必须提供租户级 API Key 生命周期管理（创建、查询、轮换、吊销、审计），并通过 `api_key_profile` 管理用途主体与权限模板；明文 key 只允许创建时返回一次，持久层仅保存 hash/prefix。
+- **FR-023**: API Key 与 JWT 必须统一收敛到 `AuthContext`（`tenant_uuid/principal_id/scopes/actions/plugin_id`），所有 Gateway Handler（含 `/internal/ws-bus/grant|publish`）复用同一授权器，禁止按入口散落鉴权逻辑。
+- **FR-024**: 租户管理员可为本租户 API Key 配置 scope/action/resource 级权限；root/admin 租户可配置更高权限 scope，但必须显式授权并记录审计。
+- **FR-025**: JWT 鉴权在签名/过期校验通过后，必须执行主体状态校验：`tenant/user/member` 均需存在且可用；若任一主体失效，返回 401/403，并清晰标识失败原因（如 `tenant_disabled`, `member_not_found`）。
+- **FR-026**: 主体状态校验必须采用 `cache-first + DB-fallback`：先读取 Redis 快照，未命中或快照不完整时回源 DB 并回填缓存；缓存 TTL 默认 60 秒（可配置），且支持事件驱动失效。
+- **FR-027**: 系统必须支持会话版本强制失效机制：JWT claims 增加 `session_version`（或等效字段），请求时与服务端当前版本对比；版本不一致时拒绝请求，确保密码重置、租户迁移、db-refresh 后可快速收敛旧 token。
+- **FR-028**: `/admin/auth/me/context` 在 token 通过签名但主体关系已漂移（如 token tenant 不在当前 memberships）时必须返回非 200（推荐 401/403），禁止“自动兜底切租户”掩盖失效态，避免前端误判为登录仍有效。
+- **FR-029**: 插件事件主题必须在 `plugin.yaml` 中显式声明（建议 `events.topics[]`），并在安装/启用流程中幂等同步到 `event_topics`；`/internal/ws-bus/grant` 仅执行授权绑定（ACL grant），禁止承担 topic 创建职责。运行时若 topic 未注册，必须返回明确错误（推荐 404/403），不允许隐式自动创建。
 
 #### Gateway Proxy Envelope（请求/响应）
 
@@ -168,6 +189,9 @@
 - **SelectorPolicySnapshot**: Agent Hub/Workflow Engine 缓存的策略视图，包含 `intent → tool_scope → capability_id` 映射、优先级、限流参数与版本号。
 - **WorkflowTemplateRef**: 插件提供的 Workflow/Composite 模板元数据，包含节点列表、参数 schema、每个节点的协议与补偿策略。
 - **InvocationTrace**: 统一的调用追踪与审计实体，记录 `trace_id`, `tenant_uuid`, `plugin_id`, `capability_id`, `protocol`, `latency`, `result`, `fallback` 与事件投递状态。
+- **GatewayAPIKey**: 租户 API Key 主实体，记录 `tenant_uuid/name/key_prefix/key_hash/status/expires_at/last_used_at`。
+- **GatewayAPIKeyPermission**: API Key 权限映射实体，记录 `scope/action/resource_pattern/plugin_id/effect`。
+- **GatewayAPIKeyAuditLog**: API Key 调用审计实体，记录 `api_key_id/path/method/result/reason/trace_id/requested_at`。
 
 ## Success Criteria *(mandatory)*
 
@@ -177,6 +201,8 @@
 - **SC-002**: 在基准负载下，Agent Hub/Integration Gateway 的读调用 90% 以上通过 MCP 或 REST 并发完成，写调用 100% 走 gRPC，且 Selector 触发的协议 fallback 成功率 ≥ 98%。
 - **SC-003**: 至少 95% 的调用在成功或失败后 1 分钟内生成完整的 Trace、Metrics 与 Audit 记录，并能在统一观测面查询到 `capability_id/plugin_id/tenant_uuid` 维度的数据。
 - **SC-004**: Workflow Builder 导入插件模板后，80% 的新建 Workflow 能直接复用插件节点并在一次执行内完成编排；对于复合任务，95% 的节点在策略调整或插件更新后无需重新配置即可继续运行。
+- **SC-005**: 100% Gateway 入口支持 API Key + JWT 双鉴权，并在 API Key 命中时记录 `auth_source=api_key`。
+- **SC-006**: 95% API Key 请求在 1 分钟内可按 `api_key_id`/`tenant_uuid`/`trace_id` 检索到审计记录。
 
 ## Assumptions
 

@@ -96,7 +96,7 @@ web-admin/
 - **Payload**: `{ topic, payload, trace_id? }`（tenant 从 JWT 解析）
 - **权限**: 仅宿主/插件内部调用；强制 tenant 校验；topic 白名单
 - **Topic 白名单**: 静态白名单 + 动态注册表（内存版）
-- **注册 API**: `POST <APIPrefix>/internal/ws-bus/register`
+- **注册 API**: `POST <APIPrefix>/internal/ws-bus/grant`
 - **注册 Payload**: `{ topics: ["org_sync.progress", "powerx.org_sync.progress.v1"] }`
 - **幂等**: 重复注册不报错
 

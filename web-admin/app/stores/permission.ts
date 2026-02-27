@@ -214,7 +214,7 @@ export const usePermissionStore = defineStore("permission", () => {
             sort: "plugin asc, resource asc, action asc",
           },
         });
-        const payload = res?.data?.data || res?.data || res;
+        const payload = res?.data || res;
         const items: Permission[] = payload?.items ?? [];
         const pgn = payload?.pagination ?? {};
         pages = Number(pgn?.pages || 1);

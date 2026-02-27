@@ -37,11 +37,12 @@ const (
 type Permission struct {
 	model.PowerModel
 
-	Plugin      string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"plugin"`
+	Module      string `gorm:"column:module;type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"module"`
 	Resource    string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"resource"`
 	Action      string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"action"`
 	Effect      string `gorm:"type:varchar(16);not null;default:'allow'" json:"effect"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
+	AllowAPIKey bool   `gorm:"column:allow_api_key;not null;default:false;index" json:"allow_api_key"`
 
 	// —— 新增字段 ——
 	Meta         datatypes.JSON   `gorm:"type:jsonb" json:"meta,omitempty"` // UI 元数据（label/module/type/api_endpoint/http_method…）

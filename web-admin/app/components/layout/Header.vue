@@ -39,7 +39,7 @@ onMounted(async () => {
     }
 
     wsBus.connect();
-    unsubscribeNotifications = wsBus.subscribe("system.notification", (payload) => {
+    unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
       if (!payload) return;
       addNotification(payload);
     });

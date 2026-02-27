@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/config"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"gorm.io/gorm"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -46,7 +48,7 @@ func SeedSwaggerPermissions(db *gorm.DB, swaggerPath string) error {
 		return nil
 	}
 
-	// ★ 关键：按 (plugin, resource, action) 去重，避免一次 upsert 命中同一行两次 → 21000
+	// ★ 关键：按 (module, resource, action) 去重，避免一次 upsert 命中同一行两次 → 21000
 	rows = dedupPerms(rows)
 
 	pr := repo.NewPermissionRepository(db)
@@ -86,16 +88,16 @@ func permFromPathAndMethod(path, method string) dbm.Permission {
 		i++
 	}
 
-	plugin := "core"
+	moduleName := "core"
 	if i < len(segs) && segs[i] != "" && !strings.HasPrefix(segs[i], "{") {
-		plugin = segs[i] // iam / system / marketplace / tenant / ...
+		moduleName = segs[i] // iam / system / marketplace / tenant / ...
 	}
 
 	// module 规则：
 	// - 后台管理且 plugin=system => system（平台级）
 	// - 否则用 plugin 归类（iam/tenant/marketplace/...）
-	module := plugin
-	if isAdmin && plugin == "system" {
+	module := moduleName
+	if isAdmin && moduleName == "system" {
 		module = "system"
 	}
 
@@ -130,18 +132,26 @@ func permFromPathAndMethod(path, method string) dbm.Permission {
 		"http_method":  method,
 		"api_endpoint": path,
 	}
-	mb, _ := json.Marshal(meta)
-
-	return dbm.Permission{
-		Plugin:     plugin, // 关键：来自路径
+	permission := dbm.Permission{
+		Module:     moduleName, // 关键：来自路径
 		Resource:   res,
 		Action:     act,
 		Effect:     "allow",
 		Status:     dbm.PermissionStatusActive,
-		Source:     plugin, // 也用 plugin
-		Introduced: "v1.0.0",
-		Meta:       mb,
+		Source:     moduleName, // 也用 module
+		Introduced: config.GetSystemVersion(),
 	}
+	baseMetaBytes, _ := json.Marshal(meta)
+	permission.Meta = baseMetaBytes
+	permission.AllowAPIKey = apikeypermissions.DefaultAllowAPIKey(permission)
+	if permission.AllowAPIKey {
+		if apiMeta := apikeypermissions.BuildAPIKeyMeta(permission); len(apiMeta) > 0 {
+			meta["api_key"] = apiMeta
+		}
+	}
+	mb, _ := json.Marshal(meta)
+	permission.Meta = mb
+	return permission
 }
 
 func trimParam(s string) string {
@@ -151,15 +161,15 @@ func trimParam(s string) string {
 	return s
 }
 
-// —— 去重：按唯一键 (plugin, resource, action)
+// —— 去重：按唯一键 (module, resource, action)
 func dedupPerms(in []dbm.Permission) []dbm.Permission {
 	type key struct {
-		Plugin, Resource, Action string
+		Module, Resource, Action string
 	}
 	m := make(map[key]dbm.Permission, len(in))
 	for _, p := range in {
 		k := key{
-			Plugin:   strings.TrimSpace(p.Plugin),
+			Module:   strings.TrimSpace(p.Module),
 			Resource: strings.TrimSpace(p.Resource),
 			Action:   strings.TrimSpace(p.Action),
 		}

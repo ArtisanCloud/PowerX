@@ -231,6 +231,24 @@ const baseSettingCategories = [
     path: "/settings/roles",
   },
   {
+    key: "event-fabric",
+    title: "事件管理",
+    description: "维护 Topic 目录并进入二级 ACL 授权",
+    icon: "i-heroicons-queue-list",
+    iconBg: "bg-cyan-50 dark:bg-cyan-900/20",
+    iconColor: "text-cyan-600",
+    path: "/settings/event-fabric",
+  },
+  {
+    key: "integration-api-keys",
+    title: "API Key 管理",
+    description: "按租户配置 Integration Gateway API Key 与权限",
+    icon: "i-heroicons-key",
+    iconBg: "bg-amber-50 dark:bg-amber-900/20",
+    iconColor: "text-amber-600",
+    path: "/settings/integration-api-keys",
+  },
+  {
     key: "config",
     title: "系统配置",
     description: "基础系统配置选项",
@@ -290,13 +308,13 @@ const settingCategories = computed(() => {
       path: "/settings/open-capabilities",
     });
     items.push({
-      key: "event-fabric",
-      title: "异步任务",
-      description: "Event Fabric 投递/重试/DLQ 监管",
-      icon: "i-heroicons-queue-list",
+      key: "event-monitor",
+      title: "监控中心",
+      description: "统一查看 Event Fabric、任务队列与运行日志",
+      icon: "i-heroicons-eye",
       iconBg: "bg-indigo-50 dark:bg-indigo-900/20",
       iconColor: "text-indigo-600",
-      path: "/settings/event-fabric",
+      path: "/settings/monitor",
     });
   }
   return items;

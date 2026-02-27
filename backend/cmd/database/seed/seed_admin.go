@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -22,8 +23,11 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed system permissions: %w", err)
 	}
 
-	if err := SeedSwaggerPermissions(db, "./backend/api/openapi/swagger.json"); err != nil {
+	if err := SeedSwaggerPermissions(db, resolveSwaggerPath()); err != nil {
 		return fmt.Errorf("seed swagger permissions: %w", err)
+	}
+	if err := apikeypermissions.EnsureTemplatePermissions(seedCtx(), infraiam.NewPermissionRepository(db)); err != nil {
+		return fmt.Errorf("seed api key permissions: %w", err)
 	}
 
 	// 3) 确保 system 租户存在
@@ -36,6 +40,9 @@ func SeedRoot(db *gorm.DB) error {
 	}
 
 	tenantUUID := ten.UUID.String()
+	if _, _, err := apikeypermissions.EnsureTenantDefaultProfile(seedCtx(), db, tenantUUID, nil); err != nil {
+		return fmt.Errorf("ensure default api key profile for tenant(%s): %w", tenantUUID, err)
+	}
 
 	// 4) 为该租户完成内置角色与授权（root(system) & tenant_admin(tenant)）
 	if err := SeedBuiltInRolesAndGrants(db, tenantUUID); err != nil {

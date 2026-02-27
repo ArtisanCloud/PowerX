@@ -38,7 +38,7 @@ func (r *PermissionRepository) FindByIDs(ctx context.Context, ids []uint64) ([]*
 	return rows, nil
 }
 
-// UpsertBatch 以 (plugin,resource,action) 为唯一键幂等写入
+// UpsertBatch 以 (module,resource,action) 为唯一键幂等写入
 // repository/iam/permission_repo.go
 func (r *PermissionRepository) UpsertBatch(ctx context.Context, rows []dbm.Permission) error {
 	if len(rows) == 0 {
@@ -57,12 +57,13 @@ func (r *PermissionRepository) UpsertBatch(ctx context.Context, rows []dbm.Permi
 	return r.DB.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{
-				{Name: "plugin"}, {Name: "resource"}, {Name: "action"},
+				{Name: "module"}, {Name: "resource"}, {Name: "action"},
 			},
 			// 只更新非唯一键字段
 			DoUpdates: clause.Assignments(map[string]any{
 				"effect":        gorm.Expr("excluded.effect"),
 				"description":   gorm.Expr("excluded.description"),
+				"allow_api_key": gorm.Expr("excluded.allow_api_key"),
 				"meta":          gorm.Expr("excluded.meta"),
 				"status":        gorm.Expr("excluded.status"),
 				"source":        gorm.Expr("excluded.source"),
@@ -76,13 +77,16 @@ func (r *PermissionRepository) UpsertBatch(ctx context.Context, rows []dbm.Permi
 // List 原始列表 + 统计（用于服务层分页）
 func (r *PermissionRepository) List(ctx context.Context, filter map[string]string, offset, limit int, sort string) (list []dbm.Permission, total int64, err error) {
 	q := r.db.WithContext(ctx).Model(&dbm.Permission{})
+	if v := strings.TrimSpace(filter["module"]); v != "" {
+		q = q.Where("module = ?", v)
+	}
 	if v := strings.TrimSpace(filter["plugin"]); v != "" {
-		q = q.Where("plugin = ?", v)
+		q = q.Where("module = ?", v)
 	}
 	if v := strings.TrimSpace(filter["resource"]); v != "" {
 		q = q.Where("resource = ?", v)
 	}
-	if v := strings.TrimSpace(filter["module"]); v != "" {
+	if v := strings.TrimSpace(filter["meta_module"]); v != "" {
 		q = q.Where("meta->>'module' = ?", v)
 	}
 	if v := strings.TrimSpace(filter["type"]); v != "" {
@@ -91,10 +95,18 @@ func (r *PermissionRepository) List(ctx context.Context, filter map[string]strin
 	if v := strings.TrimSpace(filter["status"]); v != "" {
 		q = q.Where("status = ?", v)
 	}
+	if v := strings.TrimSpace(filter["allow_api_key"]); v != "" {
+		switch strings.ToLower(v) {
+		case "1", "true", "yes", "y":
+			q = q.Where("allow_api_key = ?", true)
+		case "0", "false", "no", "n":
+			q = q.Where("allow_api_key = ?", false)
+		}
+	}
 	if kw := strings.TrimSpace(filter["keyword"]); kw != "" {
 		like := "%" + strings.ToLower(kw) + "%"
 		q = q.Where(
-			"LOWER(plugin) LIKE ? OR LOWER(resource) LIKE ? OR LOWER(action) LIKE ? OR LOWER(description) LIKE ? OR LOWER(meta->>'label') LIKE ?",
+			"LOWER(module) LIKE ? OR LOWER(resource) LIKE ? OR LOWER(action) LIKE ? OR LOWER(description) LIKE ? OR LOWER(meta->>'label') LIKE ?",
 			like, like, like, like, like,
 		)
 	}
@@ -102,7 +114,7 @@ func (r *PermissionRepository) List(ctx context.Context, filter map[string]strin
 		return
 	}
 	if sort == "" {
-		sort = "plugin ASC, resource ASC, action ASC"
+		sort = "module ASC, resource ASC, action ASC"
 	}
 	err = q.Order(sort).Offset(offset).Limit(limit).Find(&list).Error
 	return
@@ -139,7 +151,7 @@ func (r *PermissionRepository) Sync(ctx context.Context, source, introduced stri
 		return SyncResult{}, err
 	}
 
-	key := func(p dbm.Permission) string { return fmt.Sprintf("%s|%s|%s", p.Plugin, p.Resource, p.Action) }
+	key := func(p dbm.Permission) string { return fmt.Sprintf("%s|%s|%s", p.Module, p.Resource, p.Action) }
 	exMap := map[string]dbm.Permission{}
 	for _, e := range exist {
 		exMap[key(e)] = e
@@ -164,6 +176,7 @@ func (r *PermissionRepository) Sync(ctx context.Context, source, introduced stri
 		if old, ok := exMap[k]; ok {
 			changed := (old.Effect != it.Effect) ||
 				(strings.TrimSpace(old.Description) != strings.TrimSpace(it.Description)) ||
+				(old.AllowAPIKey != it.AllowAPIKey) ||
 				(string(old.Meta) != string(it.Meta)) ||
 				(old.Status != dbm.PermissionStatusActive)
 			if changed {

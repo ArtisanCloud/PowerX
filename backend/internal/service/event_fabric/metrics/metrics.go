@@ -18,6 +18,7 @@ type Recorder interface {
 	ObserveDLQChange(ctx context.Context, delta int64)
 	ObserveReplay(ctx context.Context, duration time.Duration, err error)
 	ObserveAuthorizationEvaluation(ctx context.Context, decision string, cacheHit bool, latency time.Duration)
+	ObserveTaskDriverInit(ctx context.Context, driver string, supportsBlocking bool)
 	Snapshot() Snapshot
 }
 
@@ -48,6 +49,10 @@ type Snapshot struct {
 	AuthorizationCacheHits    uint64
 	AuthorizationCacheHitRate float64
 	AvgAuthorizationLatency   time.Duration
+
+	TaskDriverInitTotal     uint64
+	TaskDriverBlockingTotal uint64
+	LastTaskDriver          string
 }
 
 // NewRecorder 构建指标记录器。
@@ -91,6 +96,10 @@ type RecorderImpl struct {
 	authorizationChallenges  atomic.Uint64
 	authorizationCacheHits   atomic.Uint64
 	authorizationLatencyNS   atomic.Int64
+
+	taskDriverInitTotal     atomic.Uint64
+	taskDriverBlockingTotal atomic.Uint64
+	lastTaskDriver          atomic.Value
 }
 
 // ObserveDelivery 记录单次投递结果与耗时。
@@ -185,6 +194,16 @@ func (r *RecorderImpl) ObserveAuthorizationEvaluation(ctx context.Context, decis
 	}
 }
 
+// ObserveTaskDriverInit 记录任务驱动初始化信息。
+func (r *RecorderImpl) ObserveTaskDriverInit(ctx context.Context, driver string, supportsBlocking bool) {
+	r.taskDriverInitTotal.Add(1)
+	if supportsBlocking {
+		r.taskDriverBlockingTotal.Add(1)
+	}
+	r.lastTaskDriver.Store(strings.TrimSpace(driver))
+	r.logger.InfoF(ctx, "[event_fabric.metrics] task driver initialized driver=%s blocking=%t", driver, supportsBlocking)
+}
+
 // Snapshot 返回指标快照。
 func (r *RecorderImpl) Snapshot() Snapshot {
 	total := r.totalDeliveries.Load()
@@ -198,6 +217,8 @@ func (r *RecorderImpl) Snapshot() Snapshot {
 	authBlocks := r.authorizationBlocks.Load()
 	authChallenges := r.authorizationChallenges.Load()
 	authHits := r.authorizationCacheHits.Load()
+	taskInit := r.taskDriverInitTotal.Load()
+	taskBlocking := r.taskDriverBlockingTotal.Load()
 
 	var avgDelivery time.Duration
 	if total > 0 {
@@ -226,6 +247,7 @@ func (r *RecorderImpl) Snapshot() Snapshot {
 
 	lastLatency := time.Duration(r.lastReplayLatency.Load())
 	lastErr, _ := r.lastReplayErr.Load().(string)
+	lastTaskDriver, _ := r.lastTaskDriver.Load().(string)
 
 	return Snapshot{
 		DeliveriesTotal:           total,
@@ -249,6 +271,9 @@ func (r *RecorderImpl) Snapshot() Snapshot {
 		AuthorizationCacheHits:    authHits,
 		AuthorizationCacheHitRate: authHitRate,
 		AvgAuthorizationLatency:   avgAuthLatency,
+		TaskDriverInitTotal:       taskInit,
+		TaskDriverBlockingTotal:   taskBlocking,
+		LastTaskDriver:            lastTaskDriver,
 	}
 }
 
@@ -283,6 +308,7 @@ func (noopRecorder) ObserveRetry(context.Context, time.Duration)                
 func (noopRecorder) ObserveDLQChange(context.Context, int64)                                     {}
 func (noopRecorder) ObserveReplay(context.Context, time.Duration, error)                         {}
 func (noopRecorder) ObserveAuthorizationEvaluation(context.Context, string, bool, time.Duration) {}
+func (noopRecorder) ObserveTaskDriverInit(context.Context, string, bool)                          {}
 func (noopRecorder) Snapshot() Snapshot                                                          { return Snapshot{} }
 
 // EncodeSnapshot 将快照转换为十六进制字符串，便于写入日志或指标系统。

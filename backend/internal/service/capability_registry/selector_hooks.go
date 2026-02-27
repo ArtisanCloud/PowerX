@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )

@@ -6,7 +6,7 @@ APP_MAIN      ?= cmd/app/main.go
 SWAG_VERSION  ?= v1.16.3
 
 # Swagger 输出目录（注意：这里可能还放了其它文档，所以清理时只删生成的3个文件）
-DOCS_DIR      ?= ./api/openapi
+DOCS_DIR      ?= ./backend/api/openapi
 SWAG_JSON     ?= $(DOCS_DIR)/swagger.json
 SWAG_YAML     ?= $(DOCS_DIR)/swagger.yaml
 SWAG_GO       ?= $(DOCS_DIR)/docs.go
@@ -41,8 +41,7 @@ deps.swag:
 .PHONY: swagger.gen swagger.clean swagger.verify
 swagger.gen: tools.swag
 	@echo ">> generate swagger docs to $(DOCS_DIR)"
-	@mkdir -p $(DOCS_DIR)
-	@$(SWAG) init -g $(APP_MAIN) -o $(DOCS_DIR)
+	@cd backend && mkdir -p api/openapi && $(SWAG) init -g $(APP_MAIN) -o api/openapi
 
 # 仅清理 swagger 生成的三个文件，避免误删 docs/ 下的其它资料
 swagger.clean:

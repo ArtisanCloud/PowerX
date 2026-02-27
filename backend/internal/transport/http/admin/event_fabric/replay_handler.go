@@ -2,11 +2,14 @@ package eventfabric
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -74,18 +77,21 @@ func (h *AdminReplayHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
+	normalizedTenant := strings.TrimSpace(tenantUUID)
+	normalizedTopic := strings.TrimSpace(req.Topic)
+	operatorID := resolveReplayOperator(c.Request.Context(), strings.TrimSpace(req.OperatorID))
 	task, err := h.service.CreateTask(c.Request.Context(), replay.CreateTaskInput{
-		TenantKey:   strings.TrimSpace(tenantUUID),
-		Topic:       strings.TrimSpace(req.Topic),
+		TenantKey:   normalizedTenant,
+		Topic:       normalizedTopic,
 		TraceID:     strings.TrimSpace(req.TraceID),
 		WindowStart: start,
 		WindowEnd:   end,
 		Reason:      strings.TrimSpace(req.Reason),
-		Operator:    strings.TrimSpace(req.OperatorID),
+		Operator:    operatorID,
 		Shadow:      req.Shadow,
 	})
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewInternal("create replay task failed", err))
+		dto.RespondErrorFrom(c, mapReplayCreateTaskError(err, normalizedTenant, normalizedTopic))
 		return
 	}
 	dto.ResponseSuccess(c, taskToDTO(task))
@@ -141,6 +147,52 @@ type replayTaskDTO struct {
 	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 	FailureReason string     `json:"failure_reason,omitempty"`
 	ResultCount   int        `json:"result_count"`
+}
+
+func mapReplayCreateTaskError(err error, tenantUUID string, topic string) error {
+	if err == nil {
+		return nil
+	}
+	errMsg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(errMsg, "topic tenant mismatch") {
+		wrapped := fmt.Errorf("jwt_tenant=%s, topic=%s: %w", tenantUUID, topic, err)
+		return dto.WithCode(dto.NewBadRequest("topic 租户与当前登录租户不一致", wrapped), sharedsvc.ErrorCodeTenantMismatch)
+	}
+	if errors.Is(err, sharedsvc.ErrUnauthorized) {
+		return dto.WithCode(dto.NewForbidden("unauthorized", err), sharedsvc.ErrorCodeUnauthorized)
+	}
+	if strings.Contains(errMsg, "topic") && strings.Contains(errMsg, "not found") {
+		wrapped := fmt.Errorf("jwt_tenant=%s, topic=%s: %w", tenantUUID, topic, err)
+		return dto.NewNotFound("topic 未注册或当前环境不可用", wrapped)
+	}
+	return dto.NewInternal("create replay task failed", err)
+}
+
+func resolveReplayOperator(ctx context.Context, requested string) string {
+	requested = strings.TrimSpace(requested)
+	if requested != "" && strings.Contains(requested, ":") {
+		return requested
+	}
+	claims := reqctx.GetClaims(ctx)
+	if claims != nil {
+		for _, role := range claims.Roles {
+			role = strings.TrimSpace(role)
+			if role == "" {
+				continue
+			}
+			if strings.HasPrefix(role, "role:") {
+				return role
+			}
+			return "role:" + role
+		}
+	}
+	if requested != "" {
+		return requested
+	}
+	if reqctx.IsRoot(ctx) {
+		return "role:role_admin"
+	}
+	return strings.TrimSpace(reqctx.GetSubject(ctx))
 }
 
 func taskToDTO(task *replay.Task) replayTaskDTO {
