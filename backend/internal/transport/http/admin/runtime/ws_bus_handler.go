@@ -26,7 +26,7 @@ type wsBusPublishRequest struct {
 	TraceID string `json:"trace_id"`
 }
 
-type wsBusRegisterRequest struct {
+type wsBusGrantRequest struct {
 	Topics  []string `json:"topics"`
 	Actions []string `json:"actions"`
 }
@@ -65,8 +65,8 @@ func newWSBusHandler(deps *shared.Deps) *wsBusHandler {
 	return &wsBusHandler{authorizer: authorizer, topics: topics, acl: aclSvc, apiKeys: apiKeyRepo, perms: permRepo}
 }
 
-func (h *wsBusHandler) register(c *gin.Context) {
-	var req wsBusRegisterRequest
+func (h *wsBusHandler) grant(c *gin.Context) {
+	var req wsBusGrantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 		return
@@ -92,7 +92,7 @@ func (h *wsBusHandler) register(c *gin.Context) {
 	if h.topics != nil {
 		actions := normalizeRegisterActions(req.Actions)
 		if err := h.authorizeAPIKeyRegister(c, actions, registered); err != nil {
-			dto.ResponseError(c, http.StatusForbidden, "api key permission denied", err)
+			dto.ResponseError(c, http.StatusForbidden, "api key forbidden: insufficient ws topic permissions", err)
 			return
 		}
 		principalID := buildWSPrincipalID(memberID, reqctx.GetUserID(c.Request.Context()))
@@ -126,7 +126,7 @@ func (h *wsBusHandler) register(c *gin.Context) {
 					PrincipalID:   principalID,
 					Actions:       actions,
 					OperatorID:    principalID,
-					Justification: "ws bus register",
+					Justification: "ws bus grant",
 					AuditRef:      reqctx.GetTraceID(c.Request.Context()),
 					ExpiresAt:     nil,
 				}); err != nil {
@@ -137,7 +137,7 @@ func (h *wsBusHandler) register(c *gin.Context) {
 			bound = append(bound, topicKey)
 		}
 
-		logger.InfoF(c.Request.Context(), "[ws-bus] register via registry tenant=%s topics=%v actions=%v", strings.TrimSpace(tenantUUID), bound, actions)
+		logger.InfoF(c.Request.Context(), "[ws-bus] grant via registry tenant=%s topics=%v actions=%v", strings.TrimSpace(tenantUUID), bound, actions)
 		dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
 			"tenant_uuid": strings.TrimSpace(tenantUUID),
 			"topics":      bound,
@@ -149,7 +149,7 @@ func (h *wsBusHandler) register(c *gin.Context) {
 
 	registered = bus.RegisterPublishTopics(tenantUUID, registered)
 
-	logger.InfoF(c.Request.Context(), "[ws-bus] register topics tenant=%s topics=%v", strings.TrimSpace(tenantUUID), registered)
+	logger.InfoF(c.Request.Context(), "[ws-bus] grant topics tenant=%s topics=%v", strings.TrimSpace(tenantUUID), registered)
 	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
 		"tenant_uuid": strings.TrimSpace(tenantUUID),
 		"topics":      registered,
@@ -181,7 +181,7 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 		return
 	}
 	if err := h.authorizeAPIKeyPublish(c, reqTopic); err != nil {
-		dto.ResponseError(c, http.StatusForbidden, "api key permission denied", err)
+		dto.ResponseError(c, http.StatusForbidden, "api key forbidden: insufficient ws topic permissions", err)
 		return
 	}
 	if h.authorizer != nil {

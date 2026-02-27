@@ -148,11 +148,18 @@ scripts/cron/integration_playbook.sh --with-write
 
 ## 9. WebSocket 内部调试
 
+说明：
+
+- `POST /api/v1/admin/event-fabric/topics` 用于创建 topic；
+- `POST /api/v1/internal/ws-bus/grant` 仅做 topic 授权绑定（ACL），不创建 topic。
+- 插件 topic 需先在 `plugin.yaml` 声明，并在安装/启用流程幂等同步到 `event_topics`。
+- 底座启用插件时会在插件安装目录查找 `event_fabric.yaml`（推荐：`config/event_fabric.yaml`）并执行 topic/ACL 播种。
+
 ```bash
 curl -sS -X POST \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "http://127.0.0.1:8077/api/v1/internal/ws-bus/register" \
+  "http://127.0.0.1:8077/api/v1/internal/ws-bus/grant" \
   -d '{"topics":["_topic.system.notification"],"actions":["subscribe"]}' | jq
 ```
 

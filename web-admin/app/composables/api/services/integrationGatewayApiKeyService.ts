@@ -146,7 +146,7 @@ export const useIntegrationGatewayApiKeyService = () => {
       );
     },
     setProfilePermissions: (profileID: number, permissionIDs: number[]) => {
-      return apiClient.put<ApiResponse<{ profile_id: number; permission_ids: number[]; added: number[]; removed: number[] }>>(
+      return apiClient.put<ApiResponse<{ profile_id: number; permission_ids: number[]; added: number[]; removed: number[]; synced_keys?: number; synced_perms?: number }>>(
         `${baseUrl}/api-key-profiles/${encodeURIComponent(String(profileID))}/permissions`,
         { permission_ids: permissionIDs }
       );
@@ -171,6 +171,11 @@ export const useIntegrationGatewayApiKeyService = () => {
       return apiClient.post<ApiResponse<{ status: string; key_id: string }>>(
         `${baseUrl}/api-keys/${encodeURIComponent(keyID)}/revoke`,
         payload
+      );
+    },
+    deleteApiKey: (keyID: string) => {
+      return apiClient.delete<ApiResponse<{ status: string; key_id: string }>>(
+        `${baseUrl}/api-keys/${encodeURIComponent(keyID)}`
       );
     },
     rotateApiKey: (keyID: string, payload: RotateIntegrationGatewayApiKeyPayload) => {

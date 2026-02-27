@@ -15,14 +15,14 @@ definePageMeta({
   order: 12,
 });
 
-type PermissionTypeGroup = {
-  typeName: string;
+type PermissionActionGroup = {
+  actionName: string;
   permissions: IntegrationGatewayPermissionCatalogItem[];
 };
 
-type PermissionModuleGroup = {
-  moduleName: string;
-  types: PermissionTypeGroup[];
+type PermissionResourceGroup = {
+  resourceName: string;
+  actions: PermissionActionGroup[];
 };
 
 const userStore = useUserStore();
@@ -40,6 +40,7 @@ const updatingProfileID = ref<number | null>(null);
 const creatingKey = ref(false);
 const rotatingKeyID = ref("");
 const revokingKeyID = ref("");
+const deletingKeyID = ref("");
 const savingPermissions = ref(false);
 const loadingPermissions = ref(false);
 
@@ -129,23 +130,27 @@ const profileKeys = computed(() => {
   return apiKeys.value.filter((item) => Number(item.profile_id) === Number(selectedProfileID.value));
 });
 
-const permissionGroups = computed<PermissionModuleGroup[]>(() => {
+const permissionGroups = computed<PermissionResourceGroup[]>(() => {
   const grouped = new Map<string, Map<string, IntegrationGatewayPermissionCatalogItem[]>>();
   for (const item of permissionCatalog.value) {
-    const moduleName = String(item.resource || "unknown_resource");
-    const typeName = String(item.action || "unknown_action");
-    if (!grouped.has(moduleName)) grouped.set(moduleName, new Map());
-    const moduleGroup = grouped.get(moduleName)!;
-    if (!moduleGroup.has(typeName)) moduleGroup.set(typeName, []);
-    moduleGroup.get(typeName)!.push(item);
+    const resourceName = String(item.resource || "unknown_resource");
+    const actionName = String(item.action || "unknown_action");
+    if (!grouped.has(resourceName)) grouped.set(resourceName, new Map());
+    const actionMap = grouped.get(resourceName)!;
+    if (!actionMap.has(actionName)) actionMap.set(actionName, []);
+    actionMap.get(actionName)!.push(item);
   }
-  return Array.from(grouped.entries()).map(([moduleName, types]) => ({
-    moduleName,
-    types: Array.from(types.entries()).map(([typeName, permissions]) => ({
-      typeName,
-      permissions: permissions.sort((a, b) => Number(a.id) - Number(b.id)),
-    })),
-  }));
+  return Array.from(grouped.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([resourceName, actions]) => ({
+      resourceName,
+      actions: Array.from(actions.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([actionName, permissions]) => ({
+          actionName,
+          permissions: permissions.sort((a, b) => Number(a.id) - Number(b.id)),
+        })),
+    }));
 });
 
 function permissionTitle(item: IntegrationGatewayPermissionCatalogItem) {
@@ -189,16 +194,7 @@ function setPermission(permissionID: number, checked: boolean) {
   selectedPermissionIDs.value = Array.from(current);
 }
 
-function getGroupState(items: IntegrationGatewayPermissionCatalogItem[]) {
-  if (items.length === 0) return { checked: false, indeterminate: false };
-  const checkedCount = items.filter((item) => isChecked(Number(item.id))).length;
-  return {
-    checked: checkedCount === items.length,
-    indeterminate: checkedCount > 0 && checkedCount < items.length,
-  };
-}
-
-function toggleGroup(items: IntegrationGatewayPermissionCatalogItem[], checked: boolean) {
+function togglePermissions(items: IntegrationGatewayPermissionCatalogItem[], checked: boolean) {
   const current = new Set(selectedPermissionIDs.value);
   for (const item of items) {
     const permissionID = Number(item.id);
@@ -207,6 +203,10 @@ function toggleGroup(items: IntegrationGatewayPermissionCatalogItem[], checked: 
     else current.delete(permissionID);
   }
   selectedPermissionIDs.value = Array.from(current);
+}
+
+function checkedCount(items: IntegrationGatewayPermissionCatalogItem[]) {
+  return items.filter((item) => isChecked(Number(item.id))).length;
 }
 
 async function refreshAll() {
@@ -508,6 +508,26 @@ async function revokeKey(record: IntegrationGatewayApiKeyRecord) {
   }
 }
 
+async function deleteKey(record: IntegrationGatewayApiKeyRecord) {
+  if (!record?.key_id) return;
+  const confirmed = window.confirm(`确认删除 API Key：${record.name}（${record.key_prefix}）？删除后将不再显示。`);
+  if (!confirmed) return;
+  deletingKeyID.value = record.key_id;
+  try {
+    await svc.deleteApiKey(record.key_id);
+    await refreshAll();
+    toast.add({ title: "已删除", color: "success" });
+  } catch (err: any) {
+    toast.add({
+      title: "删除失败",
+      description: err?.message || "请稍后重试",
+      color: "error",
+    });
+  } finally {
+    deletingKeyID.value = "";
+  }
+}
+
 async function copyPlainKey() {
   if (!latestPlainKey.value) return;
   try {
@@ -736,39 +756,50 @@ onMounted(async () => {
 
             <div v-else class="mt-3 space-y-3 max-h-[72vh] overflow-auto pr-1">
               <div
-                v-for="moduleGroup in permissionGroups"
-                :key="`module-${moduleGroup.moduleName}`"
+                v-for="resourceGroup in permissionGroups"
+                :key="`resource-${resourceGroup.resourceName}`"
                 class="rounded border border-gray-200 dark:border-gray-700 p-3"
               >
-                <div class="flex items-center justify-between gap-2">
-                  <div class="font-medium">resource：{{ moduleGroup.moduleName }}</div>
-                  <UCheckbox
-                    :model-value="getGroupState(moduleGroup.types.flatMap((item) => item.permissions)).checked"
-                    :indeterminate="getGroupState(moduleGroup.types.flatMap((item) => item.permissions)).indeterminate"
-                    :disabled="selectedProfile.status !== 1"
-                    @update:model-value="toggleGroup(moduleGroup.types.flatMap((item) => item.permissions), Boolean($event))"
-                  />
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="font-medium break-all">resource：{{ resourceGroup.resourceName }}</div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="text-gray-500">
+                      已选 {{ checkedCount(resourceGroup.actions.flatMap((item) => item.permissions)) }}/{{ resourceGroup.actions.flatMap((item) => item.permissions).length }}
+                    </span>
+                    <UButton
+                      size="xs"
+                      variant="soft"
+                      :disabled="selectedProfile.status !== 1"
+                      @click="togglePermissions(resourceGroup.actions.flatMap((item) => item.permissions), true)"
+                    >
+                      全选
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      :disabled="selectedProfile.status !== 1"
+                      @click="togglePermissions(resourceGroup.actions.flatMap((item) => item.permissions), false)"
+                    >
+                      清空
+                    </UButton>
+                  </div>
                 </div>
 
-                <div class="mt-2 space-y-2">
+                <div class="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
                   <div
-                    v-for="typeGroup in moduleGroup.types"
-                    :key="`type-${moduleGroup.moduleName}-${typeGroup.typeName}`"
+                    v-for="actionGroup in resourceGroup.actions"
+                    :key="`action-${resourceGroup.resourceName}-${actionGroup.actionName}`"
                     class="rounded border border-gray-100 dark:border-gray-800 p-2"
                   >
-                    <div class="flex items-center justify-between">
-                      <div class="text-xs text-gray-500">{{ typeGroup.typeName }}</div>
-                      <UCheckbox
-                        :model-value="getGroupState(typeGroup.permissions).checked"
-                        :indeterminate="getGroupState(typeGroup.permissions).indeterminate"
-                        :disabled="selectedProfile.status !== 1"
-                        @update:model-value="toggleGroup(typeGroup.permissions, Boolean($event))"
-                      />
+                    <div class="flex items-center justify-between gap-2 text-xs text-gray-500">
+                      <span class="font-medium">{{ actionGroup.actionName }}</span>
+                      <span>{{ checkedCount(actionGroup.permissions) }}/{{ actionGroup.permissions.length }}</span>
                     </div>
 
-                    <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    <div class="mt-2 space-y-2">
                       <label
-                        v-for="item in typeGroup.permissions"
+                        v-for="item in actionGroup.permissions"
                         :key="`perm-${item.id}`"
                         class="flex items-start gap-2 rounded border border-gray-100 dark:border-gray-800 p-2"
                       >
@@ -846,6 +877,15 @@ onMounted(async () => {
                             @click="revokeKey(item)"
                           >
                             吊销
+                          </UButton>
+                          <UButton
+                            size="xs"
+                            color="error"
+                            variant="outline"
+                            :loading="deletingKeyID === item.key_id"
+                            @click="deleteKey(item)"
+                          >
+                            删除
                           </UButton>
                         </div>
                       </td>

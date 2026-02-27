@@ -144,23 +144,20 @@ func diffPermissionIDs(current []uint64, desired []uint64) (toAdd []uint64, toRe
 
 func BuildTemplatePermissions() []modelsiam.Permission {
 	return []modelsiam.Permission{
-		build("integration_gateway", "api_key.ws.system_notification", "subscribe", "API Key：WS 订阅系统通知", map[string]string{
-			"scope": "_scope.ws.topic.subscribe", "action": "subscribe", "resource_type": "topic", "resource_pattern": "_topic.system.notification",
+		build("integration_gateway", "api_key.ws.topic", "subscribe", "API Key：WS 订阅 Topic（通用）", map[string]string{
+			"scope": "_scope.ws.topic.subscribe", "action": "subscribe", "resource_type": "topic", "resource_pattern": "*",
 		}),
-		build("integration_gateway", "api_key.ws.system_notification", "publish", "API Key：WS 发布系统通知", map[string]string{
-			"scope": "_scope.ws.topic.publish", "action": "publish", "resource_type": "topic", "resource_pattern": "_topic.system.notification",
+		build("integration_gateway", "api_key.ws.topic", "publish", "API Key：WS 发布 Topic（通用）", map[string]string{
+			"scope": "_scope.ws.topic.publish", "action": "publish", "resource_type": "topic", "resource_pattern": "*",
 		}),
-		build("integration_gateway", "api_key.event.system_notification", "publish", "API Key：Event 发布系统通知", map[string]string{
-			"scope": "_scope.event.topic.publish", "action": "publish", "resource_type": "topic", "resource_pattern": "_topic.system.notification",
+		build("integration_gateway", "api_key.event.topic", "publish", "API Key：Event 发布 Topic（通用）", map[string]string{
+			"scope": "_scope.event.topic.publish", "action": "publish", "resource_type": "topic", "resource_pattern": "*",
 		}),
-		build("integration_gateway", "api_key.event.system_notification", "subscribe", "API Key：Event 订阅系统通知", map[string]string{
-			"scope": "_scope.event.topic.subscribe", "action": "subscribe", "resource_type": "topic", "resource_pattern": "_topic.system.notification",
+		build("integration_gateway", "api_key.event.topic", "subscribe", "API Key：Event 订阅 Topic（通用）", map[string]string{
+			"scope": "_scope.event.topic.subscribe", "action": "subscribe", "resource_type": "topic", "resource_pattern": "*",
 		}),
-		build("integration_gateway", "api_key.event.knowledge_feedback_reprocess", "publish", "API Key：Event 发布知识回放主题", map[string]string{
-			"scope": "_scope.event.topic.publish", "action": "publish", "resource_type": "topic", "resource_pattern": "_topic.knowledge.space.feedback.reprocess",
-		}),
-		build("integration_gateway", "api_key.event.knowledge_feedback_reprocess", "replay", "API Key：Event 回放知识回放主题", map[string]string{
-			"scope": "_scope.event.topic.replay", "action": "replay", "resource_type": "topic", "resource_pattern": "_topic.knowledge.space.feedback.reprocess",
+		build("integration_gateway", "api_key.event.topic", "replay", "API Key：Event 回放 Topic（通用）", map[string]string{
+			"scope": "_scope.event.topic.replay", "action": "replay", "resource_type": "topic", "resource_pattern": "*",
 		}),
 		build("integration_gateway", "api_key.iam.organization_departments", "list", "API Key：组织架构-部门树只读", map[string]string{
 			"scope": "_scope.iam.organization.department.list", "action": "list", "resource_type": "api", "resource_pattern": "GET:/api/v1/admin/organization/departments/tree",

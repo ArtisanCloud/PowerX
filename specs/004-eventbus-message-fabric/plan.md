@@ -185,7 +185,7 @@ internal/tests/event_fabric/
 
 - WS publish/subscribe 改为查统一 `event_topics` + ACL。
 - 下线 WS 内存动态注册（`publishDynamicTopics`）。
-- `/internal/ws-bus/register` 改为注册中心入口（或仅做权限绑定动作）。
+- `/internal/ws-bus/grant` 改为注册中心入口（或仅做权限绑定动作）。
 
 ### Stage D（删除旧链路）
 

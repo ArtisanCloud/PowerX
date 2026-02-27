@@ -155,10 +155,15 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/admin/integration/api-keys" \
 
 ## 3. 使用 API Key 测试（不带 JWT）
 
-### 3.1 ws-bus/register
+先区分两个接口语义（避免混淆）：
+
+- `POST /api/v1/admin/event-fabric/topics`：创建/登记 topic（写入 `event_topics`）。
+- `POST /api/v1/internal/ws-bus/grant`：对已存在 topic 做授权绑定（ACL grant），不创建 topic。
+
+### 3.1 ws-bus/grant
 
 ```bash
-curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/register" \
+curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/grant" \
   -H "Authorization: ApiKey $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -204,14 +209,19 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/publish" \
 - `iam_api_key`：鉴权中间件查验 API Key hash 的 IAM 索引表。
 
 说明：
-- 你在页面里修改 Profile 权限，不会回写历史 key 的快照权限。
-- 要让权限变更生效到某个 key，需要新建 key 或轮换 key。
+- 你在页面里修改 Profile 权限后，后端会自动同步该 Profile 下所有 active key 的权限快照。
+- 因权限变更导致的生效不再要求手工轮换 key（轮换仅用于密钥泄露风险治理）。
 
 ### 4.3 内置模板权限（已含组织架构只读）
 
 系统启动/权限目录读取时会自动确保一组内置 API Key 权限模板，当前包含：
 
-- WS / Event 主题联调权限（`_topic.system.notification`、`_topic.knowledge.space.feedback.reprocess`）
+- WS / Event 通用 Topic 动作权限（不按具体 topic 拆 permission）：
+  - `_scope.ws.topic.publish`
+  - `_scope.ws.topic.subscribe`
+  - `_scope.event.topic.publish`
+  - `_scope.event.topic.subscribe`
+  - `_scope.event.topic.replay`
 - 组织架构只读权限（用于插件/外部系统读取组织数据）：
   - `GET:/api/v1/admin/organization/departments/tree`
   - `GET:/api/v1/admin/iam/members`
@@ -219,7 +229,7 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/publish" \
 
 建议做法：
 - 在 `api_key_profile` 勾选所需组织只读权限；
-- 再创建/轮换 API Key，让权限快照生效到 key。
+- 保存后即可自动同步到该 Profile 下 active key。
 
 ### 4.4 默认开放策略（你这次要求的对齐）
 
@@ -249,6 +259,34 @@ permissions:
       action: publish
       resource_type: topic
       resource_pattern: _topic.template.update
+```
+
+### 4.6 插件 Event Topic 约束（必须遵守）
+
+- 插件侧 topic 必须在 `plugin.yaml` 声明（建议 `events.topics[]`），禁止仅在代码里硬编码后直接调用。
+- 平台侧 `event_topics` 是唯一 topic 真相源；topic 先存在，后授权，最后发布/订阅。
+- 创建 topic 不会按 topic 自动新增 permission；API Key 权限使用固定动作级模板（publish/subscribe/replay）。
+- `POST /api/v1/admin/event-fabric/topics`：创建/登记 topic（资源创建）。
+- `POST /api/v1/internal/ws-bus/grant`：绑定主体对 topic 的动作权限（授权绑定），不创建 topic。
+- 插件为 standalone+proxy 模式时，proxy 启动联调前必须先执行 “ensure topic -> grant -> publish/subscribe”。
+
+底座当前对插件事件清单的读取规则（PowerX 侧实现）：
+
+- 读取发生在插件启用阶段（由 PowerX 底座执行播种，不是插件进程自己执行）。
+- 在插件安装目录下按顺序扫描：
+  - `config/event_fabric.yaml`（推荐）
+  - `platform_capabilities/event_fabric.yaml`
+  - `event_fabric.yaml`
+- 示例安装目录：`backend/plugins/installed/<plugin_id>/<version>/config/event_fabric.yaml`
+
+推荐插件声明结构（示例）：
+
+```yaml
+events:
+  topics:
+    - key: _topic.template.update
+      actions: [publish, subscribe]
+      description: 模板更新事件
 ```
 
 ---
@@ -356,7 +394,7 @@ scripts/integration_gateway/apikey_token_playbook.sh \
 2. 查询 `profile_id`（若未显式传入）
 3. 为 Profile 绑定最小权限 `permission_ids`
 4. 创建 API Key
-5. 调用 `ws-bus/register` + `ws-bus/publish`
+5. 调用 `ws-bus/grant` + `ws-bus/publish`
 6. 验证未授权 topic 的 403 行为
 
 ---
@@ -397,7 +435,7 @@ curl -sS "http://127.0.0.1:8077/api/v1/admin/auth/me/context" \
 示例（注册并发布通知 topic）：
 
 ```bash
-curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/register" \
+curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/grant" \
   -H "Authorization: ApiKey $PROXY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

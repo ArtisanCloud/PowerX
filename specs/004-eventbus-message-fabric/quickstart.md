@@ -119,7 +119,7 @@ curl -sS -X POST \
 curl -sS -X POST \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  "http://127.0.0.1:8077/api/v1/internal/ws-bus/register" \
+  "http://127.0.0.1:8077/api/v1/internal/ws-bus/grant" \
   -d '{"topics":["_topic.knowledge.space.feedback.reprocess"],"actions":["publish","subscribe"]}' | jq
 ```
 
@@ -132,7 +132,7 @@ curl -sS -X POST \
 3. replay 状态可观察为 `pending/running/completed/failed`。
 4. Cron `run-now` 后，`/admin/event-fabric/task-queue/stats` 可观察到队列状态变化。
 5. 联调页面可看到 Queue/DLQ/Replay 联动变化。
-6. `ws-bus/register` 返回 `mode=registry_acl`（而不是 `compat_dynamic`）。
+6. `ws-bus/grant` 返回 `mode=registry_acl`（而不是 `compat_dynamic`）。
 
 ## 8) 系统设置中的 ACL 治理（Phase 13）
 

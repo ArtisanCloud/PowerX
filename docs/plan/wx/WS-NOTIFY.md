@@ -257,7 +257,7 @@ disconnect()
 
 ### 11.3.1 动态注册（新增）
 
-- **HTTP**：`POST <APIPrefix>/internal/ws-bus/register`
+- **HTTP**：`POST <APIPrefix>/internal/ws-bus/grant`
 - **用途**：插件在宿主模式运行时，动态注册可发布 topic。
 - **幂等**：重复注册不报错。
 

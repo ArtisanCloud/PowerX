@@ -278,7 +278,7 @@
 - PR 模板必须包含检查项：修改 WS/TaskBus 代码时是否同步 `specs/004-eventbus-message-fabric/spec.md`。
 - CI 必须执行文档一致性检查，至少覆盖：
   1. topic 语义键一致（统一为 `namespace.name`，不拼 tenant 前缀）；
-  2. internal 接口路径一致（`/internal/ws-bus/register`、`/internal/ws-bus/publish`）；
+  2. internal 接口路径一致（`/internal/ws-bus/grant`、`/internal/ws-bus/publish`）；
   3. envelope 必填字段一致（`topic/type/payload/ts/trace_id`，tenant 来自 JWT）。
 - 检查规则与执行入口见：`specs/004-eventbus-message-fabric/checklists/doc-consistency.md`。
 

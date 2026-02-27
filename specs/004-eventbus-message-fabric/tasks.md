@@ -264,7 +264,7 @@ Task: T035 [P] [US3] internal/tests/grpc/event_fabric/delivery_contract_test.go
 - [x] **T088 [Registry]** 在 `backend/internal/service/event_fabric/` 增加 Topic 解析缓存（Redis cache-aside），覆盖 publish/replay 主路径。
 - [x] **T089 [WS]** 改造 `backend/internal/transport/websocket/bus/{authorizer.go,publish.go}`，使 WS subscribe/publish 读取统一 `event_topics` + ACL。
 - [x] **T090 [WS]** 下线 WS 内存动态注册数据源（`publishDynamicTopics`），保留兼容开关最多一个小版本。
-- [x] **T091 [API]** 调整 `backend/internal/transport/http/admin/runtime/ws_bus_handler.go`：`/internal/ws-bus/register` 收敛为注册中心动作或权限绑定动作，不再直接写内存 topic 真相源。
+- [x] **T091 [API]** 调整 `backend/internal/transport/http/admin/runtime/ws_bus_handler.go`：`/internal/ws-bus/grant` 收敛为注册中心动作或权限绑定动作，不再直接写内存 topic 真相源。
 - [x] **T092 [Model]** 在 `specs/004-eventbus-message-fabric/data-model.md` 与后端模型中落实 `event_topics` 作为 Topic 注册治理唯一真相源，并补齐 subscriber 演进模型（`subscriber_registry` / `topic_subscriptions`）。
 - [x] **T093 [Migration]** 在 `backend/pkg/corex/db/migration/` 增加 Topic 注册治理迁移（作用域字段、索引与校验），不走 `event_topics` 删表路线。
 - [x] **T094 [Docs]** 更新 `docs/guides/event_fabric/operations.md`、`docs/plan/integration/event_bus.md`、`specs/004-eventbus-message-fabric/quickstart.md` 的联调示例，统一为语义 topic key + JWT-only。

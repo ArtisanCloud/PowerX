@@ -79,12 +79,8 @@ func JwtMiddleware(
 			}
 		}
 
-		// D. 租户来源严格策略：仅允许 JWT claims（Root 可通过 as_tenant_uuid 显式代理）。
-		if headerUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); headerUUID != "" {
-			incTenantHeaderReject()
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "X-PowerX-Tenant header is not supported"})
-			return
-		}
+		// D. 租户来源策略：仅依据 JWT claims（Root 可通过 as_tenant_uuid 显式代理）。
+		// 兼容历史客户端携带的 X-PowerX-Tenant，直接忽略，不作为鉴权依据。
 		tenantUUID := strings.TrimSpace(claims.TenantUUID)
 		if claims.IsRoot {
 			if asUUID := strings.TrimSpace(c.Query("as_tenant_uuid")); asUUID != "" {

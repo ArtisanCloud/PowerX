@@ -31,6 +31,14 @@
 - 注册数据持久化，可审计、可下线、可版本治理。
 - 不再要求“每个租户复制一份 Topic 行”。
 
+#### 插件 Topic 声明与落库约束（强制）
+
+1. 插件必须在 `plugin.yaml` 显式声明事件主题（建议 `events.topics[]`，包含 `topic_key + actions`）。
+2. 插件安装/启用时必须执行 topic 幂等同步：声明 -> `event_topics`（存在则跳过，不重复创建）。
+3. `/internal/ws-bus/grant` 只做授权绑定（ACL），不做 topic 创建。
+4. 运行时若 topic 不存在于 `event_topics`，`grant/publish/subscribe/replay` 必须返回明确错误，不做隐式创建。
+5. API Key 权限采用固定动作级（publish/subscribe/replay）模板，不按每个 topic 自动生成 permission 记录。
+
 ### 3.2 权限模型
 
 - 鉴权主体：JWT（tenant/member/root）。
@@ -54,9 +62,9 @@
 - `GET /admin/event-fabric/topics`
 - `GET /admin/event-fabric/dlq/messages`
 - `POST /admin/event-fabric/replay/tasks`
-- `POST /internal/ws-bus/register`
+- `POST /internal/ws-bus/grant`
 
-#### `/internal/ws-bus/register` 统一语义
+#### `/internal/ws-bus/grant` 统一语义
 
 1. `topics` 必须传语义 key（`namespace.name`）。
 2. 租户只来自 JWT（不接受 header/body 覆盖）。

@@ -67,6 +67,7 @@ func (r *IntegrationGatewayAPIKeyRepository) FindActiveByHash(ctx context.Contex
 func (r *IntegrationGatewayAPIKeyRepository) ListByTenant(ctx context.Context, tenantUUID string, offset, limit int) ([]models.IntegrationGatewayAPIKey, int64, error) {
 	query := r.db.WithContext(ctx).Model(&models.IntegrationGatewayAPIKey{}).
 		Where("tenant_uuid = ?", strings.TrimSpace(tenantUUID)).
+		Where("status <> ?", "deleted").
 		Order("created_at DESC")
 
 	var total int64
@@ -84,6 +85,17 @@ func (r *IntegrationGatewayAPIKeyRepository) ListByTenant(ctx context.Context, t
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+func (r *IntegrationGatewayAPIKeyRepository) ListActiveByProfile(ctx context.Context, tenantUUID string, profileID uint64) ([]models.IntegrationGatewayAPIKey, error) {
+	var items []models.IntegrationGatewayAPIKey
+	query := r.db.WithContext(ctx).
+		Where("tenant_uuid = ? AND profile_id = ? AND status = ?", strings.TrimSpace(tenantUUID), profileID, "active").
+		Order("created_at DESC")
+	if err := query.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *IntegrationGatewayAPIKeyRepository) UpdateLastUsed(ctx context.Context, keyUUID uuid.UUID, at time.Time) error {

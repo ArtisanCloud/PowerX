@@ -3,7 +3,7 @@
 ## 1. 目标与范围
 
 - 目标：统一 Integration Gateway 全部入口的鉴权行为，采用 **单请求单凭证分流**。
-- 范围：`/api/v1` 下所有 OpenAPI Gateway 路由（含 tenant/admin/internal 入口），`/internal/ws-bus/register|publish` 只是其中一个子场景。
+- 范围：`/api/v1` 下所有 OpenAPI Gateway 路由（含 tenant/admin/internal 入口），`/internal/ws-bus/grant|publish` 只是其中一个子场景。
 - 约束：不再出现“某些接口只认 JWT、某些接口只认 API Key”的分裂实现。
 
 ## 2. 鉴权规则（强约束）

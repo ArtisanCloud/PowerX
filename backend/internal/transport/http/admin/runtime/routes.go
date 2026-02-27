@@ -11,6 +11,6 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	}
 	h := newWSBusHandler(deps)
 	internalGroup := protectedGroup.Group("/internal")
-	internalGroup.POST("/ws-bus/register", h.register)
+	internalGroup.POST("/ws-bus/grant", h.grant)
 	internalGroup.POST("/ws-bus/publish", h.publish)
 }

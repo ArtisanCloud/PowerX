@@ -13,6 +13,7 @@ import (
 	apikeycache "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeycache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -58,13 +59,35 @@ func APIKeyOrJwtMiddleware(
 		scheme := strings.ToLower(strings.TrimSpace(parts[0]))
 		if scheme == "apikey" || scheme == "api-key" {
 			raw := strings.TrimSpace(parts[1])
+			keyHash := hashAPIKey(raw)
+			pxlog.DebugF(
+				c.Request.Context(),
+				"[auth.apikey] inbound method=%s path=%s key_prefix=%s key_fp=%s",
+				c.Request.Method,
+				c.Request.URL.Path,
+				maskAPIKey(raw),
+				shortFingerprint(keyHash),
+			)
 			ok, err := applyAPIKeyContext(c, db, raw, cfg)
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+				pxlog.WarnF(
+					c.Request.Context(),
+					"[auth.apikey] rejected path=%s key_fp=%s err=%v",
+					c.Request.URL.Path,
+					shortFingerprint(keyHash),
+					err,
+				)
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: " + err.Error()})
 				return
 			}
 			if !ok {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
+				pxlog.WarnF(
+					c.Request.Context(),
+					"[auth.apikey] not_found path=%s key_fp=%s",
+					c.Request.URL.Path,
+					shortFingerprint(keyHash),
+				)
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: invalid api key"})
 				return
 			}
 			c.Next()
@@ -146,11 +169,6 @@ func applyAPIKeyContext(c *gin.Context, db *gorm.DB, apiKey string, cfg jwtMiddl
 			return false, fmt.Errorf("invalid tenant uuid")
 		}
 	}
-	if headerUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); headerUUID != "" {
-		incTenantHeaderReject()
-		return false, fmt.Errorf("X-PowerX-Tenant header is not supported")
-	}
-
 	_ = repo.TouchLastUsed(c.Request.Context(), keyRecord.id, nowMs)
 	_ = apikeycache.SetAuthSnapshot(c.Request.Context(), normalizedHash, apikeycache.AuthSnapshot{
 		KeyID:      keyRecord.id,
@@ -202,11 +220,6 @@ func applyCachedAPIKeyContext(c *gin.Context, cfg jwtMiddlewareConfig, snapshot 
 			return false
 		}
 	}
-	if headerUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); headerUUID != "" {
-		incTenantHeaderReject()
-		return false
-	}
-
 	principal := "apikey:" + strconv.FormatUint(snapshot.KeyID, 10)
 	claims := &reqctx.CoreXClaims{
 		TenantUUID: snapshot.TenantUUID,
@@ -245,6 +258,25 @@ func applyCachedAPIKeyContext(c *gin.Context, cfg jwtMiddlewareConfig, snapshot 
 func hashAPIKey(raw string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(raw)))
 	return hex.EncodeToString(sum[:])
+}
+
+func maskAPIKey(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "<empty>"
+	}
+	if len(value) <= 12 {
+		return value
+	}
+	return value[:12] + "..."
+}
+
+func shortFingerprint(hash string) string {
+	value := strings.TrimSpace(hash)
+	if len(value) <= 12 {
+		return value
+	}
+	return value[:12]
 }
 
 type iamModelAdapter struct {

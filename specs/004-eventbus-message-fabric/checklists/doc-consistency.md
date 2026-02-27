@@ -16,7 +16,7 @@
    - 检查 `004` 主契约中的 topic 规则与 `023` 示例 topic 不冲突。
 2. **接口路径一致性**
    - `023` 契约中必须包含：
-     - `/api/v1/internal/ws-bus/register`
+     - `/api/v1/internal/ws-bus/grant`
      - `/api/v1/internal/ws-bus/publish`
 3. **Envelope 字段一致性**
    - `023` 的 `WSBusEnvelope` 必填字段至少包含：

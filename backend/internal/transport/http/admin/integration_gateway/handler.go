@@ -47,6 +47,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.GET("/api-keys/:key_id", apiKeyHandler.GetAPIKey)
 	group.POST("/api-keys/:key_id/revoke", apiKeyHandler.RevokeAPIKey)
 	group.POST("/api-keys/:key_id/rotate", apiKeyHandler.RotateAPIKey)
+	group.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteAPIKey)
 }
 
 // AdminHandler 负责管理端 HTTP 请求。

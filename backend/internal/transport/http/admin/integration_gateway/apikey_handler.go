@@ -24,6 +24,7 @@ import (
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -319,6 +320,48 @@ func (h *APIKeyAdminHandler) RevokeAPIKey(c *gin.Context) {
 	}
 	_ = apikeycache.InvalidateAll(c.Request.Context())
 	dto.ResponseSuccess(c, gin.H{"status": "revoked", "key_id": keyID.String()})
+}
+
+func (h *APIKeyAdminHandler) DeleteAPIKey(c *gin.Context) {
+	keyID, err := uuid.Parse(strings.TrimSpace(c.Param("key_id")))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid key_id", err))
+		return
+	}
+	canonical, err := h.resolveTenantScope(c, "")
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	item, err := h.keys.GetByUUID(c.Request.Context(), keyID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("load api key failed", err))
+		return
+	}
+	if item == nil || !strings.EqualFold(strings.TrimSpace(item.TenantUUID), canonical) {
+		dto.RespondErrorFrom(c, dto.NewNotFound("api key not found", nil))
+		return
+	}
+
+	err = h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		keyRepo := repo.NewIntegrationGatewayAPIKeyRepository(tx)
+		iamKeyRepo := iamrepo.NewAPIKeyRepository(tx)
+		if e := keyRepo.UpdateStatus(c.Request.Context(), item.UUID, "deleted", actorFromHeader(c)); e != nil {
+			return e
+		}
+		if legacy, e := iamKeyRepo.FindByHash(c.Request.Context(), item.KeyHash); e == nil && legacy != nil {
+			if e = iamKeyRepo.Revoke(c.Request.Context(), legacy.ID, time.Now().UnixMilli()); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("delete api key failed", err))
+		return
+	}
+	_ = apikeycache.InvalidateAll(c.Request.Context())
+	dto.ResponseSuccess(c, gin.H{"status": "deleted", "key_id": keyID.String()})
 }
 
 func (h *APIKeyAdminHandler) RotateAPIKey(c *gin.Context) {
@@ -833,17 +876,31 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 		return
 	}
 	toAdd, toRemove := diffUint64(currentIDs, validIDs)
+	syncedKeys := 0
+	syncedPermissions := 0
 	err = h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
 		profPermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
 		if err := profPermRepo.RevokeByIDsTx(tx, profileID, toRemove); err != nil {
 			return err
 		}
-		return profPermRepo.GrantByIDsTx(tx, profileID, toAdd)
+		if err := profPermRepo.GrantByIDsTx(tx, profileID, toAdd); err != nil {
+			return err
+		}
+		syncedKeys, syncedPermissions, err = h.syncActiveAPIKeySnapshotsForProfileTx(c.Request.Context(), tx, canonical, profileID)
+		return err
 	})
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("save profile permissions failed", err))
 		return
 	}
+	logger.InfoF(
+		c.Request.Context(),
+		"[integration_gateway.apikey] profile permissions synced tenant=%s profile_id=%d active_keys=%d snapshot_permissions=%d",
+		canonical,
+		profileID,
+		syncedKeys,
+		syncedPermissions,
+	)
 
 	_ = apikeycache.InvalidateAll(c.Request.Context())
 	dto.ResponseSuccess(c, gin.H{
@@ -851,6 +908,8 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 		"permission_ids": validIDs,
 		"added":          toAdd,
 		"removed":        toRemove,
+		"synced_keys":    syncedKeys,
+		"synced_perms":   syncedPermissions,
 	})
 }
 
@@ -878,6 +937,47 @@ func (h *APIKeyAdminHandler) resolveProfileAPIKeyPermissions(ctx context.Context
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func (h *APIKeyAdminHandler) syncActiveAPIKeySnapshotsForProfileTx(ctx context.Context, tx *gorm.DB, tenantUUID string, profileID uint64) (int, int, error) {
+	if tx == nil {
+		return 0, 0, fmt.Errorf("tx is nil")
+	}
+	profPermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
+	permRepo := iamrepo.NewPermissionRepository(tx)
+	keyRepo := repo.NewIntegrationGatewayAPIKeyRepository(tx)
+	keyPermRepo := repo.NewIntegrationGatewayAPIKeyPermissionRepository(tx)
+
+	permissionIDs, err := profPermRepo.ListPermissionIDsOfProfile(ctx, profileID)
+	if err != nil {
+		return 0, 0, err
+	}
+	permissionRows, err := permRepo.FindByIDs(ctx, permissionIDs)
+	if err != nil {
+		return 0, 0, err
+	}
+	permissionRequests := make([]apiKeyPermissionRequest, 0, len(permissionRows))
+	for i := range permissionRows {
+		if permissionRows[i] == nil || permissionRows[i].Status != modelsiam.PermissionStatusActive || !permissionRows[i].AllowAPIKey {
+			continue
+		}
+		item, ok := toAPIKeyPermissionFromPermission(*permissionRows[i])
+		if !ok {
+			continue
+		}
+		permissionRequests = append(permissionRequests, item)
+	}
+
+	keys, err := keyRepo.ListActiveByProfile(ctx, tenantUUID, profileID)
+	if err != nil {
+		return 0, 0, err
+	}
+	for i := range keys {
+		if err := keyPermRepo.ReplaceAll(ctx, keys[i].UUID, buildPermissionModels(keys[i].UUID, permissionRequests)); err != nil {
+			return 0, 0, err
+		}
+	}
+	return len(keys), len(permissionRequests), nil
 }
 
 func (h *APIKeyAdminHandler) ensureAPIKeyPermissionTemplates(ctx context.Context) error {
