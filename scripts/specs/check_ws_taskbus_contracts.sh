@@ -29,7 +29,7 @@ CONTRACT_FILE="specs/023-websocket-notify/contracts/http-openapi.yaml"
 SPEC004_FILE="specs/004-eventbus-message-fabric/spec.md"
 SPEC023_FILE="specs/023-websocket-notify/spec.md"
 
-rg -n "^\s*/api/v1/internal/ws-bus/register:" "$CONTRACT_FILE" >/dev/null || fail "missing register path"
+rg -n "^\s*/api/v1/internal/ws-bus/grant:" "$CONTRACT_FILE" >/dev/null || fail "missing grant path"
 rg -n "^\s*/api/v1/internal/ws-bus/publish:" "$CONTRACT_FILE" >/dev/null || fail "missing publish path"
 pass "required internal ws-bus paths exist"
 
