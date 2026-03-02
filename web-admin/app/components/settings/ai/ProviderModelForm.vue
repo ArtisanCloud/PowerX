@@ -1,20 +1,8 @@
 <template>
   <UForm :state="state" class="space-y-4">
-    <div v-if="authModeOptions.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm mb-1 text-[var(--text-secondary)]">接入方式</label>
-        <USelect
-          v-model="state.authMode"
-          :items="authModeOptions"
-          icon="i-heroicons-adjustments-horizontal"
-          class="w-full"
-          placeholder="选择接入方式"
-        />
-      </div>
-    </div>
     <!-- Provider / App / Model 行 -->
     <div :class="gridClass">
-      <div>
+      <div :class="providerColClass">
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >Provider</label
         >
@@ -29,7 +17,7 @@
           @update:model-value="emit('providerChanged', $event)"
         />
       </div>
-      <div v-if="appOptions?.length">
+      <div v-if="appOptions?.length" :class="appColClass">
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >App</label
         >
@@ -42,7 +30,7 @@
           @update:model-value="emit('appChanged', $event)"
         />
       </div>
-      <div>
+      <div :class="modelColClass">
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >Model</label
         >
@@ -54,6 +42,25 @@
           class="w-full"
           :placeholder="$t('agent.config.selectModel')"
           :loading="!modelOptions?.length"
+        />
+        <p
+          v-if="String(state.model || '').trim()"
+          class="mt-1 text-xs text-[var(--text-secondary)] break-all leading-5"
+        >
+          {{ state.model }}
+        </p>
+      </div>
+    </div>
+
+    <div v-if="authModeOptions.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm mb-1 text-[var(--text-secondary)]">接入方式</label>
+        <USelect
+          v-model="state.authMode"
+          :items="authModeOptions"
+          icon="i-heroicons-adjustments-horizontal"
+          class="w-full"
+          placeholder="选择接入方式"
         />
       </div>
     </div>
@@ -95,6 +102,13 @@ const props = withDefaults(
         scheme: string;
         fields: string[];
         defaults?: Record<string, string>;
+        modes?: Array<{
+          id: string;
+          label?: string;
+          scheme?: string;
+          fields?: string[];
+          defaults?: Record<string, string>;
+        }>;
       };
     } | null;
     state: {
@@ -124,10 +138,20 @@ const emit = defineEmits<{
   (e: "appChanged", app: string): void;
 }>();
 
+const hasApp = computed(() => Boolean(props.appOptions?.length));
 const gridClass = computed(() =>
-  props.appOptions?.length
-    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+  hasApp.value
+    ? "grid grid-cols-1 md:grid-cols-12 gap-4"
     : "grid grid-cols-1 md:grid-cols-2 gap-4"
+);
+const providerColClass = computed(() =>
+  hasApp.value ? "md:col-span-3" : ""
+);
+const appColClass = computed(() =>
+  hasApp.value ? "md:col-span-3" : ""
+);
+const modelColClass = computed(() =>
+  hasApp.value ? "md:col-span-6" : ""
 );
 
 const isAzure = computed(() => props.state.provider === "Azure OpenAI");
@@ -152,7 +176,19 @@ const selectedAuthMode = computed(() => {
   );
 });
 
+const defaultAuthValues = computed(() => {
+  const modeDefaults = selectedAuthMode.value?.defaults ?? {};
+  const providerDefaults = props.activeProvider?.auth?.defaults ?? {};
+  return {
+    baseURL: String((modeDefaults as any).base_url || (providerDefaults as any).base_url || "").trim(),
+    region: String((modeDefaults as any).region || (providerDefaults as any).region || "").trim(),
+  };
+});
+
 const baseURLPlaceholder = computed(() => {
+  if (defaultAuthValues.value.baseURL) {
+    return defaultAuthValues.value.baseURL;
+  }
   const provider = String(props.state.provider || "").trim().toLowerCase();
   if (provider === "huggingface" || provider === "hf") {
     return "https://router.huggingface.co/v1";
@@ -172,15 +208,14 @@ watch(
 );
 
 watch(
-  selectedAuthMode,
+  defaultAuthValues,
   (next) => {
-    if (!next?.defaults) return;
     // 仅在字段为空时用默认值回填，避免覆盖用户输入
-    const defBaseURL = String(next.defaults.base_url || "").trim();
+    const defBaseURL = String(next.baseURL || "").trim();
     if (defBaseURL && !String(props.state.baseURL || "").trim()) {
       props.state.baseURL = defBaseURL;
     }
-    const defRegion = String(next.defaults.region || "").trim();
+    const defRegion = String(next.region || "").trim();
     if (defRegion && !String(props.state.region || "").trim()) {
       props.state.region = defRegion;
     }
@@ -224,15 +259,15 @@ const fieldMap: Record<
     required: false,
   },
   secret_id: {
-    label: "SecretId",
+    label: "AccessKeyId",
     type: "text",
-    placeholder: "腾讯云 SecretId",
+    placeholder: "AccessKeyId",
     required: true,
   },
   secret_key: {
-    label: "SecretKey",
+    label: "SecretAccessKey",
     type: "password",
-    placeholder: "腾讯云 SecretKey",
+    placeholder: "SecretAccessKey",
     required: true,
   },
 };

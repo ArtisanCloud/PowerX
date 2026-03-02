@@ -27,3 +27,7 @@ modalities:
   video:
     note: "ComfyUI Video（UI 目录占位）。"
     models: []
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

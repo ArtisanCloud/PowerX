@@ -26,6 +26,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	handler := &AdminHandler{svc: deps.IntegrationGateway.Manager}
 
 	group := protected.Group("/admin/integration")
+	protected.GET("/admin/gateway/meta", handleGatewayMeta)
 	group.POST("/routes", handler.CreateRoute)
 	group.GET("/routes", handler.ListRoutes)
 	group.GET("/routes/:route_id", handler.GetRoute)
@@ -48,6 +49,79 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.POST("/api-keys/:key_id/revoke", apiKeyHandler.RevokeAPIKey)
 	group.POST("/api-keys/:key_id/rotate", apiKeyHandler.RotateAPIKey)
 	group.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteAPIKey)
+}
+
+func handleGatewayMeta(c *gin.Context) {
+	apiPrefix := inferAPIPrefix(c)
+	baseURL := requestBaseURL(c)
+
+	dto.ResponseSuccess(c, gin.H{
+		"base_url":       baseURL,
+		"api_prefix":     apiPrefix,
+		"http_base":      strings.TrimRight(baseURL, "/") + apiPrefix,
+		"ws":             gin.H{"bus_endpoint": "/api/ws"},
+		"default_scheme": "apikey",
+		"auth": gin.H{
+			"schemes": []gin.H{
+				{
+					"id":     "apikey",
+					"header": "Authorization",
+					"format": "ApiKey <key>",
+				},
+				{
+					"id":     "bearer",
+					"header": "Authorization",
+					"format": "Bearer <token>",
+				},
+			},
+			"single_credential_per_request": true,
+			"conflict_policy":               "prefer_header_scheme",
+		},
+		"examples": gin.H{
+			"llm_invoke_path": apiPrefix + "/ai/llm/invoke",
+			"cap_list_path":   apiPrefix + "/admin/capabilities",
+		},
+	})
+}
+
+func inferAPIPrefix(c *gin.Context) string {
+	const marker = "/admin/gateway/meta"
+	path := strings.TrimSpace(c.Request.URL.Path)
+	if idx := strings.Index(path, marker); idx >= 0 {
+		prefix := strings.TrimSpace(path[:idx])
+		if prefix == "" {
+			return "/api/v1"
+		}
+		if !strings.HasPrefix(prefix, "/") {
+			prefix = "/" + prefix
+		}
+		return strings.TrimRight(prefix, "/")
+	}
+	return "/api/v1"
+}
+
+func requestBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	if forwarded := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")); forwarded != "" {
+		if i := strings.Index(forwarded, ","); i >= 0 {
+			forwarded = forwarded[:i]
+		}
+		forwarded = strings.TrimSpace(forwarded)
+		if forwarded != "" {
+			scheme = forwarded
+		}
+	}
+	host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Request.Host)
+	}
+	if host == "" {
+		return ""
+	}
+	return scheme + "://" + host
 }
 
 // AdminHandler 负责管理端 HTTP 请求。

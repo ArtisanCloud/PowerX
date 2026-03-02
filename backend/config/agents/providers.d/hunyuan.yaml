@@ -126,3 +126,9 @@ modalities:
       - id: hunyuan-video
         label: "混元 视频生成 (placeholder)"
         tags: ["video","tencent","placeholder"]
+
+  audio_tts:
+    models: []
+
+  audio_asr:
+    models: []

@@ -24,6 +24,40 @@ func newCatalogHandler(svc *capabilitycatalog.RegistryService) *catalogHandler {
 	return &catalogHandler{svc: svc}
 }
 
+// ListSources handles GET /admin/capabilities/sources.
+func (h *catalogHandler) ListSources(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"default": "",
+		"sources": []gin.H{
+			{
+				"id":          "",
+				"label":       "all",
+				"description": "查询全部来源（不传 source 或 source=all）",
+			},
+			{
+				"id":          capabilitycatalog.CapabilitySourceCoreX,
+				"label":       "corex",
+				"description": "PowerX 底座能力",
+			},
+			{
+				"id":          capabilitycatalog.CapabilitySourcePlugin,
+				"label":       "plugin",
+				"description": "插件/租户注册能力",
+			},
+		},
+		"aliases": gin.H{
+			"all":      "",
+			"any":      "",
+			"platform": capabilitycatalog.CapabilitySourceCoreX,
+		},
+	})
+}
+
 // ListCapabilities handles GET /admin/capabilities.
 func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 	if h == nil || h.svc == nil {

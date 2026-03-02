@@ -40,6 +40,41 @@
 - 后端按凭证类型分流：`Authorization: ApiKey <key>` 仅走 API Key 校验，`Authorization: Bearer <token>` 仅走 JWT 校验。
 - 不再采用“API Key 失败后回退 JWT”的混合兜底策略。
 
+### 0.4 能力目录接口选型（已对齐）
+
+- 对外统一“能力列表/筛选”主接口：`GET /api/v1/admin/capabilities`
+  - 支持 `source=corex|plugin`（空值/`all` 表示全部来源）
+  - 适合插件/外部系统做能力检索、筛选、联调
+- 平台聚合展示接口：`GET /api/v1/admin/platform-capabilities`
+  - 适合“开放能力”页面按模块聚合展示（可带 `page/page_size`）
+  - 不建议作为外部统一检索入口
+
+新增辅助接口：
+
+- `GET /api/v1/admin/capabilities/sources`：返回 source 枚举、默认值与别名映射
+- `GET /api/v1/admin/gateway/meta`：返回 gateway 元信息（`base_url`、`api_prefix`、auth schemes、常用路径示例）
+
+### 0.5 `source` 定义来源（后端口径）
+
+`source` 来自后端能力记录，不是前端固定值：
+
+1. 优先读取 `CapabilityRecord.annotations.source`
+2. 若未设置，按 `plugin_id` 推断：
+   - `corex.*` => `corex`
+   - 其他 => `plugin`
+
+别名与归一化：
+
+- `platform` 归一化为 `corex`
+- `all` / `any` / 空值 => 不过滤（全部来源）
+
+可用以下接口自检当前环境 source 枚举：
+
+```bash
+curl -sS "http://127.0.0.1:8077/api/v1/admin/capabilities/sources" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq .
+```
+
 ---
 
 ## 1. 获取 Token（JWT）

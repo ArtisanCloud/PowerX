@@ -17,3 +17,7 @@ modalities:
         tags: ["local","dev","non-semantic"]
         defaults:
           dimensions: 1536
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

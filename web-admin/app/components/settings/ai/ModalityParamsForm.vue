@@ -189,11 +189,13 @@
           >
             语音类型
           </label>
-          <USelect
+          <UInput
             v-model="audioTts.voice"
-            :options="voiceOptions"
-            placeholder="选择语音"
+            placeholder="如 alloy / qwen-voice / custom-voice-id"
           />
+          <div class="mt-1 text-xs text-[var(--text-secondary)]">
+            可填写厂商自定义 voice ID，不限制为固定枚举。
+          </div>
         </div>
         <div>
           <label
@@ -449,7 +451,6 @@ interface Props {
   truncateOptions: string[];
   videoResolutionOptions: string[];
   model3dFormatOptions: string[];
-  voiceOptions: string[];
   audioFormatOptions: string[];
   audioQualityOptions: string[];
   languageOptions: string[];

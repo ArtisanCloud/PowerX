@@ -6,7 +6,8 @@ drivers:
   llm: coze
   embedding: coze
   image: coze
-  audio: coze
+  audio_tts: coze
+  audio_asr: coze
   video: coze
   rerank: coze
 
@@ -35,7 +36,9 @@ modalities:
     models: []   # 如你的 driver 支持 Coze 向量服务，可在此处补充
   image:
     models: []
-  audio:
+  audio_tts:
+    models: []
+  audio_asr:
     models: []
   video:
     models: []

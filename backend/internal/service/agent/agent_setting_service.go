@@ -24,6 +24,7 @@ import (
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
 	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
+	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -211,7 +212,11 @@ func (s *AgentSettingService) Providers(modality string) []aiProviderItem {
 	items := catalogGetProviders(strings.TrimSpace(modality))
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name})
+		out = append(out, aiProviderItem{
+			ID:   it.ID,
+			Name: it.Name,
+			Apps: it.Apps,
+		})
 	}
 	return out
 }
@@ -832,23 +837,53 @@ func (s *AgentSettingService) PingImage(
 		Organization: organization,
 		Extra:        s.buildModelExtras(contract.ModImage, provider, model),
 	}
-	cli, err := imagefactory.NewClient(provider)
-	if err != nil {
-		return err
+
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["image"])); dk != "" {
+			driverKey = dk
+		}
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
-	_, err = cli.Generate(ctx, contract.ImageRequest{
-		Prompt:  prompt,
-		Size:    size,
-		Quality: quality,
-		Format:  format,
-		Runtime: map[string]any{"config": &mc},
-	})
-	if err == nil {
+
+	var invokeErr error
+	switch driverKey {
+	case "qwen":
+		cli, err := vlmfactory.NewClient(driverKey)
+		if err != nil {
+			return err
+		}
+		_, invokeErr = cli.Invoke(ctx, contract.VLMRequest{
+			Messages: []contract.Message{
+				{
+					Role: "user",
+					Content: []contract.ContentPart{
+						{Type: contract.ContentTypeText, Text: "请回复 ok"},
+					},
+				},
+			},
+			MaxTokens: 8,
+			Runtime:   map[string]any{"config": &mc},
+		})
+	default:
+		cli, err := imagefactory.NewClient(driverKey)
+		if err != nil {
+			return err
+		}
+		_, invokeErr = cli.Generate(ctx, contract.ImageRequest{
+			Prompt:  prompt,
+			Size:    size,
+			Quality: quality,
+			Format:  format,
+			Runtime: map[string]any{"config": &mc},
+		})
+	}
+	if invokeErr == nil {
 		logger.InfoF(ctx, "[agent_setting] ping_image success env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
 	}
-	return err
+	return invokeErr
 }
 
 func (s *AgentSettingService) PingGeneric(
@@ -1116,6 +1151,121 @@ func (s *AgentSettingService) BuildImageConfig(
 		Organization:    org,
 		AzureDeployment: azureDeployment,
 		Extra:           s.buildModelExtras(contract.ModImage, provider, model),
+	}, nil
+}
+
+// BuildModelConfig resolves tenant provider credentials for any modality and returns runtime model config.
+func (s *AgentSettingService) BuildModelConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	modality string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+	secretID string,
+	secretKey string,
+	region string,
+	organization string,
+) (*agentcfg.ModelConfig, error) {
+	mod := strings.ToLower(strings.TrimSpace(modality))
+	if mod == "" {
+		return nil, fmt.Errorf("modality 不能为空")
+	}
+	if err := ensureModelExists(mod, provider, model); err != nil {
+		return nil, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return nil, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if manifest := findModelManifest(mod, p, m); manifest != nil {
+			if v, ok := manifest.Defaults["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+				baseURL = strings.TrimSpace(v)
+			}
+		}
+		if strings.TrimSpace(baseURL) == "" {
+			if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+				baseURL = v
+			}
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+
+	org := strings.TrimSpace(organization)
+	rg := strings.TrimSpace(region)
+	sid := strings.TrimSpace(secretID)
+	sk := strings.TrimSpace(secretKey)
+	azureDeployment := ""
+
+	name := utils.Slug(env + "-" + p)
+	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+		if org == "" {
+			if v, ok := cred.Data["organization"].(string); ok {
+				org = strings.TrimSpace(v)
+			}
+		}
+		if rg == "" {
+			if v, ok := cred.Data["region"].(string); ok {
+				rg = strings.TrimSpace(v)
+			}
+		}
+		if sid == "" {
+			if v, ok := cred.Data["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
+				sid = strings.TrimSpace(v)
+			} else if v, ok := cred.Data["secretId"].(string); ok && strings.TrimSpace(v) != "" {
+				sid = strings.TrimSpace(v)
+			}
+		}
+		if sk == "" {
+			if v, ok := cred.Data["secret_key"].(string); ok && strings.TrimSpace(v) != "" {
+				sk = strings.TrimSpace(v)
+			} else if v, ok := cred.Data["secretKey"].(string); ok && strings.TrimSpace(v) != "" {
+				sk = strings.TrimSpace(v)
+			}
+		}
+		if v, ok := cred.Data["azure_deployment"].(string); ok {
+			azureDeployment = strings.TrimSpace(v)
+		}
+		if sid == "" || sk == "" {
+			sec := map[string]any{}
+			if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+				if sid == "" {
+					if v, ok := sec["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
+						sid = strings.TrimSpace(v)
+					}
+				}
+				if sk == "" {
+					if v, ok := sec["secret_key"].(string); ok && strings.TrimSpace(v) != "" {
+						sk = strings.TrimSpace(v)
+					}
+				}
+			}
+		}
+	}
+
+	return &agentcfg.ModelConfig{
+		Provider:        provider,
+		Endpoint:        bu,
+		APIKey:          ak,
+		SecretID:        sid,
+		SecretKey:       sk,
+		Region:          rg,
+		Model:           m,
+		Organization:    org,
+		AzureDeployment: azureDeployment,
+		Extra:           s.buildModelExtras(contract.Modality(mod), provider, model),
 	}, nil
 }
 
@@ -1731,7 +1881,11 @@ func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provi
 			out["api_path"] = strings.TrimSpace(path)
 		}
 	}
-	for _, key := range []string{"action", "action_poll", "version", "service", "service_id", "req_json", "result_req_json", "force_single", "scale", "min_ratio", "max_ratio"} {
+	for _, key := range []string{
+		"action", "action_poll", "version", "service", "service_id",
+		"req_json", "result_req_json", "force_single", "scale", "min_ratio", "max_ratio",
+		"base_url", "api_path_submit", "api_path_poll", "parameters",
+	} {
 		if raw, ok := manifest.Defaults[key]; ok {
 			out[key] = raw
 		}
@@ -1784,14 +1938,20 @@ func mergeTags(modality string, manifestTags []string, existing datatypes.JSONSl
 func findModelManifest(modality, provider, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
 	app, pureModel := splitAppModel(reg, provider, model)
-	models, err := reg.ModelsByApp(modality, provider, app)
-	if err != nil {
-		return nil
+	candidates := []string{strings.TrimSpace(strings.ToLower(modality))}
+	if candidates[0] == "audio_tts" || candidates[0] == "audio_asr" {
+		candidates = append(candidates, "audio")
 	}
-	for _, m := range models {
-		if strings.EqualFold(m.ID, pureModel) || strings.EqualFold(m.ID, model) {
-			copy := m
-			return &copy
+	for _, mod := range candidates {
+		models, err := reg.ModelsByApp(mod, provider, app)
+		if err != nil {
+			continue
+		}
+		for _, m := range models {
+			if strings.EqualFold(m.ID, pureModel) || strings.EqualFold(m.ID, model) {
+				copy := m
+				return &copy
+			}
 		}
 	}
 	return nil
@@ -1845,7 +2005,7 @@ func catalogGetProviders(mod string) []aiProviderItem {
 
 	// ✅ 对齐：图像/视频两套 Provider 列表保持一致：image ∪ video
 	var items []catalog.ProviderItem
-	if m == "video" || m == "image" {
+	if m == "video" || m == "image" || m == "audio_tts" || m == "audio_asr" {
 		seen := map[string]struct{}{}
 		add := func(list []catalog.ProviderItem) {
 			for _, it := range list {
@@ -1859,14 +2019,26 @@ func catalogGetProviders(mod string) []aiProviderItem {
 				items = append(items, it)
 			}
 		}
-		add(reg.Providers("image"))
-		add(reg.Providers("video"))
+		if m == "video" || m == "image" {
+			add(reg.Providers("image"))
+			add(reg.Providers("video"))
+		}
+		if m == "audio_tts" || m == "audio_asr" {
+			add(reg.Providers(m))
+			add(reg.Providers("audio"))
+		}
 	} else {
 		items = reg.Providers(m)
 	}
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
 		appItems := reg.Apps(it.ID, m)
+		// 若按当前模态没有 app，回退到 provider 全量 app，避免 UI 丢失 app 层级。
+		if len(appItems) == 0 {
+			if allApps := reg.Apps(it.ID, ""); len(allApps) > 0 {
+				appItems = allApps
+			}
+		}
 		apps := make([]aiAppItem, 0, len(appItems))
 		for _, a := range appItems {
 			apps = append(apps, aiAppItem{ID: a.ID, Name: a.Name})
@@ -1878,20 +2050,34 @@ func catalogGetProviders(mod string) []aiProviderItem {
 func catalogGetModels(mod, prov, app string) ([]aiModelItem, error) {
 	m := strings.TrimSpace(strings.ToLower(mod))
 	reg := catalog.GetGlobalAIRegister()
+	p := strings.TrimSpace(strings.ToLower(prov))
+	a := strings.TrimSpace(strings.ToLower(app))
+
+	// 对有 apps 的 provider：要求显式 app 过滤，避免跨 app 混合模型列表。
+	if a == "" {
+		if apps := reg.Apps(p, m); len(apps) > 0 {
+			return []aiModelItem{}, nil
+		}
+	}
 
 	// ✅ 对齐：图像/视频如果该模态没模型，则回退到另一模态（避免下拉为空）
-	ms, err := reg.ModelsByApp(m, prov, app)
+	ms, err := reg.ModelsByApp(m, p, a)
 	if err != nil {
 		return nil, err
 	}
 	if len(ms) == 0 {
 		if m == "video" {
-			if fallback, e := reg.ModelsByApp("image", prov, app); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("image", p, a); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
 		if m == "image" {
-			if fallback, e := reg.ModelsByApp("video", prov, app); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("video", p, a); e == nil && len(fallback) > 0 {
+				ms = fallback
+			}
+		}
+		if m == "audio_tts" || m == "audio_asr" {
+			if fallback, e := reg.ModelsByApp("audio", p, a); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
