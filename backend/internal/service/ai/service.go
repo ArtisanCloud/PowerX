@@ -166,6 +166,12 @@ func (s *Service) ImageInvoke(
 	if provider == "" || model == "" {
 		return nil, ErrInvalidModelKey
 	}
+	imageDriver := resolveProviderDriver(provider, "image")
+	// Qwen 的 image 模态在当前实现上是 VLM 能力（图像/视觉问答），
+	// 不支持 imagefactory 的生图协议，需分流到 VLM 客户端。
+	if imageDriver == "qwen" {
+		return s.VLMInvoke(ctx, env, tenantUUID, modelKey, inputs, params)
+	}
 	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
 	defaults, ok := resolveDefaults("image", provider, model)
 	if prof == nil || err != nil {
@@ -209,7 +215,6 @@ func (s *Service) ImageInvoke(
 	if err != nil {
 		return nil, err
 	}
-	imageDriver := resolveProviderDriver(provider, "image")
 	cli, err := imagefactory.NewClient(imageDriver)
 	if err != nil {
 		return nil, err

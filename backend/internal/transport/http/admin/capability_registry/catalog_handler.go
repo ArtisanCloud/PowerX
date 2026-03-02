@@ -32,10 +32,10 @@ func (h *catalogHandler) ListSources(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, gin.H{
-		"default": "",
+		"default": "all",
 		"sources": []gin.H{
 			{
-				"id":          "",
+				"id":          "all",
 				"label":       "all",
 				"description": "查询全部来源（不传 source 或 source=all）",
 			},
@@ -51,8 +51,8 @@ func (h *catalogHandler) ListSources(c *gin.Context) {
 			},
 		},
 		"aliases": gin.H{
-			"all":      "",
-			"any":      "",
+			"all":      "all",
+			"any":      "all",
 			"platform": capabilitycatalog.CapabilitySourceCoreX,
 		},
 	})
