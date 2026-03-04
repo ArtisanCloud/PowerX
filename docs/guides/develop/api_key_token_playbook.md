@@ -309,6 +309,33 @@ curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
   }' | jq .
 ```
 
+LLM 场景请固定使用如下请求体（统一标准）：
+
+- 环境放在 `payload.query.env`
+- 模型键放在 `payload.body.model_key`
+- 不使用 `payload.model_key`、`context.env`、旧路径 `/integration/capabilities/invoke`
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
+  -H "Authorization: ApiKey $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id":"com.corex.ai.llm.invoke",
+    "preferred_protocol":"rest",
+    "payload":{
+      "method":"POST",
+      "endpoint":"/api/v1/ai/llm/invoke",
+      "headers":{"Content-Type":"application/json"},
+      "query":{"env":"dev"},
+      "body":{
+        "model_key":"ollama/qwen3:8b",
+        "inputs":[{"type":"text","text":"解释一下 RAG"}],
+        "params":{"temperature":0.2,"max_tokens":256}
+      }
+    }
+  }' | jq .
+```
+
 #### Route Invoke（按 route_slug）
 
 ```bash
