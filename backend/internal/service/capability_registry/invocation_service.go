@@ -171,7 +171,7 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 			modality = defaultModalityForCapability(capabilityID)
 		}
 		if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
-			return result, nil
+			return result, fmt.Errorf("model_key required")
 		}
 		env := extractQueryString(in.Payload, "env")
 		if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {

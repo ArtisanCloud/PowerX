@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExtractStringFromPayload_ReadsTopLevelFirst(t *testing.T) {
+func TestExtractStringFromBody_IgnoresTopLevel(t *testing.T) {
 	t.Parallel()
 
 	payload := map[string]interface{}{
@@ -16,10 +16,10 @@ func TestExtractStringFromPayload_ReadsTopLevelFirst(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, "top/provider:model", extractStringFromPayload(payload, "model_key"))
+	require.Equal(t, "body/provider:model", extractStringFromBody(payload, "model_key"))
 }
 
-func TestExtractStringFromPayload_ReadsBodyWhenTopLevelMissing(t *testing.T) {
+func TestExtractStringFromBody_ReadsBodyWhenTopLevelMissing(t *testing.T) {
 	t.Parallel()
 
 	payload := map[string]interface{}{
@@ -29,7 +29,6 @@ func TestExtractStringFromPayload_ReadsBodyWhenTopLevelMissing(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, "ollama/qwen3:8b", extractStringFromPayload(payload, "model_key"))
-	require.Equal(t, "llm", extractStringFromPayload(payload, "modality"))
+	require.Equal(t, "ollama/qwen3:8b", extractStringFromBody(payload, "model_key"))
+	require.Equal(t, "llm", extractStringFromBody(payload, "modality"))
 }
-
