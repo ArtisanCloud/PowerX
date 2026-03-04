@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"strconv"
@@ -25,7 +24,11 @@ func PluginLogsHandler(c *gin.Context) {
 		}
 	}
 
-	mgr := mgrimpl.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 
 	type logsProvider interface {
 		RuntimeLogs(id string, tailBytes int) (string, bool)

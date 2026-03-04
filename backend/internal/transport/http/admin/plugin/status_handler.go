@@ -13,7 +13,24 @@ func PluginStatusHandler(c *gin.Context) {
 		return
 	}
 
-	mgr := mgrimpl.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		p, getErr := getPluginFromRegistry(c, id)
+		if getErr != nil {
+			dtoRequest.ResponseError(c, 404, "插件不存在", getErr)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"id":      id,
+			"version": p.Version,
+			"state":   string(p.State),
+			"runtime": gin.H{
+				"state": "unknown",
+			},
+			"fallback": true,
+		})
+		return
+	}
 
 	// 注册表视图：版本/状态
 	p, err := mgr.Get(c, id)

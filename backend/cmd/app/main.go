@@ -65,8 +65,7 @@ func main() {
 	// 初始化插件管理器
 	_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
 	if err != nil {
-		logger.ErrorF(ctx, "BootstrapPlugin failed: %s", err.Error())
-		return
+		logger.WarnF(ctx, "BootstrapPlugin failed, continue without plugin runtime: %s", err.Error())
 	}
 
 	// 配置 HTTP 路由

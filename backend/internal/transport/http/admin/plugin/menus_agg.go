@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
-	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
@@ -26,7 +25,11 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
 	}
 
-	mgr := mgrimpl.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		log.Printf("[menu-builder] plugin manager unavailable, skip plugin menus: %v", err)
+		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
+	}
 	list, err := mgr.List(ctx)
 	if err != nil {
 		return PluginMenusPublic{}

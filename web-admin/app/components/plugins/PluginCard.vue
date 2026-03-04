@@ -38,6 +38,13 @@
               >已启用</UBadge
             >
             <UBadge
+              v-else-if="isBroken"
+              color="error"
+              variant="soft"
+              size="xs"
+              >异常</UBadge
+            >
+            <UBadge
               v-else-if="isSystemInstalled"
               color="info"
               variant="soft"
@@ -108,6 +115,7 @@ const props = defineProps<{
   plugin: MarketplacePlugin;
   isSystemInstalled?: boolean;
   isSystemEnabled?: boolean;
+  systemStatus?: string;
   canInstall?: boolean;
 }>();
 
@@ -131,5 +139,8 @@ function formatCount(n: number) {
 
 const isSystemInstalled = computed(() => !!props.isSystemInstalled);
 const isSystemEnabled = computed(() => !!props.isSystemEnabled);
+const isBroken = computed(
+  () => String(props.systemStatus || "").toLowerCase() === "broken"
+);
 const canInstall = computed(() => !!props.canInstall);
 </script>

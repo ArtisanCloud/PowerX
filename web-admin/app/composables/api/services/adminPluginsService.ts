@@ -54,8 +54,9 @@ export const useAdminPluginsService = () => {
     installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; metadata?: Record<string, any> }) =>
       api.post(`${base}/install/url`, payload),
 
-    // 本地安装（预留）
-    installFromLocal: (formData: FormData) => api.upload(`${base}/install/local`, formData),
+    // 本地安装（文件上传）
+    installFromLocal: (formData: FormData) =>
+      api.upload(`${base}/install/local`, formData),
 
     // 卸载（可扩展 purge 等参数）
     uninstall: async (id: string, payload?: Record<string, any>) =>

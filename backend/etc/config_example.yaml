@@ -63,7 +63,7 @@ database:
   port: 5432
   username: postgres
   password: postgres
-  database: corex
+  database: powerx
   ssl_mode: disable
   timezone: Asia/Shanghai
   table_prefix: px_

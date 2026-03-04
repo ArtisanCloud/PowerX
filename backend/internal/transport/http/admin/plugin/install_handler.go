@@ -5,11 +5,12 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -18,32 +19,85 @@ import (
 // POST /api/admin/plugins/install/local
 // body: {"src_dir": "/absolute/or/relative/path", "enable": false}
 type installLocalReq struct {
-	SrcDir   string                     `json:"src_dir" binding:"required"`
+	SrcDir   string                     `json:"src_dir"`
 	Enable   bool                       `json:"enable"`
 	Force    bool                       `json:"force"`
 	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
 func PluginInstallLocalHandler(c *gin.Context) {
-	var req installLocalReq
-	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
-		dtoRequest.ResponseValidationError(c, err)
-		return
-	}
+	var (
+		req     installLocalReq
+		srcPath string
+		cleanup func()
+		err     error
+	)
 
-	// 解析 src_dir：支持直接传 tar.gz 包，或传入包含 package.tar.gz 的 build 目录，或包含 plugin.yaml 的目录
-	srcDir, cleanup, err := resolveInstallSource(req.SrcDir)
-	if err != nil {
-		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-		return
+	// multipart 优先：文件选择器上传
+	if strings.HasPrefix(strings.ToLower(c.ContentType()), "multipart/form-data") {
+		req.Enable = parseBool(c.PostForm("enable"))
+		req.Force = parseBool(c.PostForm("force"))
+
+		var uploadedPath string
+		fileHeader, ferr := c.FormFile("file")
+		if ferr == nil && fileHeader != nil {
+			uploadedPath, cleanup, err = saveUploadedFileToTemp(fileHeader)
+		} else {
+			var formErr error
+			var form *multipart.Form
+			form, formErr = c.MultipartForm()
+			if formErr != nil || form == nil || len(form.File["files"]) == 0 {
+				dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
+				return
+			}
+			uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"])
+		}
+		if err != nil {
+			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+			return
+		}
+		var resolveCleanup func()
+		srcPath, resolveCleanup, err = resolveInstallSource(uploadedPath)
+		if err != nil {
+			if cleanup != nil {
+				cleanup()
+				cleanup = nil
+			}
+			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+			return
+		}
+		if resolveCleanup != nil {
+			prevCleanup := cleanup
+			cleanup = func() {
+				resolveCleanup()
+				if prevCleanup != nil {
+					prevCleanup()
+				}
+			}
+		}
+	} else {
+		// JSON 兼容：服务端本地路径安装
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
+			return
+		}
+		srcPath, cleanup, err = resolveInstallSource(req.SrcDir)
+		if err != nil {
+			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+			return
+		}
 	}
 	if cleanup != nil {
 		defer cleanup()
 	}
 
-	mgr := mgrimpl.GetPluginManager() // 你走“实现包全局”
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 	meta := coalesceInstallMetadata(c, req.Metadata)
-	p, err := mgr.InstallFromFile(c, srcDir, plugin_mgr.InstallOptions{
+	p, err := mgr.InstallFromFile(c, srcPath, plugin_mgr.InstallOptions{
 		AutoEnable: req.Enable,
 		Force:      req.Force,
 		Metadata:   meta,
@@ -61,6 +115,111 @@ func PluginInstallLocalHandler(c *gin.Context) {
 		},
 		"metadata": meta,
 	})
+}
+
+func parseBool(v string) bool {
+	ok, err := strconv.ParseBool(strings.TrimSpace(v))
+	if err != nil {
+		return false
+	}
+	return ok
+}
+
+func saveUploadedFileToTemp(fileHeader *multipart.FileHeader) (string, func(), error) {
+	in, err := fileHeader.Open()
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_open"))
+	}
+	defer in.Close()
+
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".tar.gz") {
+		ext = ".tar.gz"
+	}
+	tmpFile, err := os.CreateTemp("", "px-plugin-upload-*"+ext)
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_temp"))
+	}
+	defer tmpFile.Close()
+	if _, err := io.Copy(tmpFile, in); err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_copy"))
+	}
+	return tmpFile.Name(), func() {
+		_ = os.Remove(tmpFile.Name())
+	}, nil
+}
+
+func saveUploadedDirToTemp(files []*multipart.FileHeader) (string, func(), error) {
+	tmpRoot, err := os.MkdirTemp("", "px-plugin-upload-dir-*")
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_temp"))
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tmpRoot)
+	}
+	relPaths := make([]string, 0, len(files))
+	for _, fh := range files {
+		rel := filepath.Clean(strings.TrimSpace(fh.Filename))
+		rel = strings.TrimPrefix(rel, string(filepath.Separator))
+		if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
+			cleanup()
+			return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("invalid uploaded directory entry"))
+		}
+		target := filepath.Join(tmpRoot, rel)
+		cleanTarget := filepath.Clean(target)
+		if !strings.HasPrefix(cleanTarget, tmpRoot+string(filepath.Separator)) && cleanTarget != tmpRoot {
+			cleanup()
+			return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("invalid uploaded directory path"))
+		}
+
+		if err := os.MkdirAll(filepath.Dir(cleanTarget), 0o755); err != nil {
+			cleanup()
+			return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_mkdir"))
+		}
+		in, err := fh.Open()
+		if err != nil {
+			cleanup()
+			return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_open"))
+		}
+		out, err := os.OpenFile(cleanTarget, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			in.Close()
+			cleanup()
+			return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_create"))
+		}
+		if _, err := io.Copy(out, in); err != nil {
+			out.Close()
+			in.Close()
+			cleanup()
+			return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_copy"))
+		}
+		out.Close()
+		in.Close()
+		relPaths = append(relPaths, rel)
+	}
+	return detectUploadedRoot(tmpRoot, relPaths), cleanup, nil
+}
+
+func detectUploadedRoot(tmpRoot string, relPaths []string) string {
+	if len(relPaths) == 0 {
+		return tmpRoot
+	}
+	root := strings.Split(relPaths[0], string(filepath.Separator))[0]
+	if root == "" || root == "." {
+		return tmpRoot
+	}
+	for _, rel := range relPaths[1:] {
+		seg := strings.Split(rel, string(filepath.Separator))[0]
+		if seg != root {
+			return tmpRoot
+		}
+	}
+	candidate := filepath.Join(tmpRoot, root)
+	if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+		return candidate
+	}
+	return tmpRoot
 }
 
 // resolveInstallSource 尝试将传入路径解析为可安装目录：
@@ -100,11 +259,11 @@ func resolveInstallSource(src string) (string, func(), error) {
 	}
 
 	// 文件：若是 tar.gz 则解压
-	if strings.HasSuffix(strings.ToLower(abs), ".tar.gz") {
+	if isSupportedPackageFile(abs) {
 		return untarToTemp(abs)
 	}
 
-	return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("srcDir must be a directory with plugin.yaml or a package.tar.gz"))
+	return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("srcDir must be a directory with plugin.yaml or a package.tar.gz/.tgz"))
 }
 
 func hasManifest(dir string) bool {
@@ -125,11 +284,16 @@ func findPackage(dir string) string {
 			continue
 		}
 		name := strings.ToLower(e.Name())
-		if strings.HasSuffix(name, ".tar.gz") && strings.Contains(name, "package") {
+		if isSupportedPackageFile(name) {
 			return filepath.Join(dir, e.Name())
 		}
 	}
 	return ""
+}
+
+func isSupportedPackageFile(path string) bool {
+	lower := strings.ToLower(path)
+	return strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz")
 }
 
 func untarToTemp(pkgPath string) (string, func(), error) {
@@ -247,7 +411,11 @@ func PluginSwitchVersionHandler(c *gin.Context) {
 		return
 	}
 
-	mgr := mgrimpl.GetPluginManager() // 走实现包的全局
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 	p, err := mgr.SwitchVersion(c, id, req.Version, req.Enable)
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "切换版本失败", err)
@@ -276,7 +444,11 @@ func PluginInstallURLHandler(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	mgr := mgrimpl.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 
 	// 安装（只登记、不自动启用）
 	meta := coalesceInstallMetadata(c, req.Metadata)
