@@ -154,3 +154,40 @@ curl -sS -X POST "$HTTP_BASE/tenant/integration/routes/media-assets-read/invoke"
     "payload": {}
   }' | jq .
 ```
+
+### 6.5 LLM 统一请求体标准（Selector）
+
+`/tenant/invocations` 调用 AI LLM 时，请固定使用以下结构：
+
+- `payload.query.env`：环境（例如 `dev`）
+- `payload.body.model_key`：模型键（例如 `ollama/qwen3:8b`）
+- `payload.body.inputs/params`：业务参数
+
+请不要使用以下非标准写法：
+
+- 顶层 `payload.model_key`
+- `context.env`
+- 旧路径 `/integration/capabilities/invoke`
+
+示例：
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
+  -H "Authorization: ApiKey <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id": "com.corex.ai.llm.invoke",
+    "preferred_protocol": "rest",
+    "payload": {
+      "method": "POST",
+      "endpoint": "/api/v1/ai/llm/invoke",
+      "headers": { "Content-Type": "application/json" },
+      "query": { "env": "dev" },
+      "body": {
+        "model_key": "ollama/qwen3:8b",
+        "inputs": [{ "type": "text", "text": "解释一下 RAG" }],
+        "params": { "temperature": 0.2, "max_tokens": 256 }
+      }
+    }
+  }' | jq .
+```

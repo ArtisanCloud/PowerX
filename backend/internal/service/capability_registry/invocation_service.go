@@ -165,15 +165,15 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 		return result, fmt.Errorf("capability %s is not published", capabilityID)
 	}
 	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
-		modality := extractString(in.Payload, "modality")
-		modelKey := extractString(in.Payload, "model_key")
+		modality := extractStringFromBody(in.Payload, "modality")
+		modelKey := extractStringFromBody(in.Payload, "model_key")
 		if modality == "" {
 			modality = defaultModalityForCapability(capabilityID)
 		}
 		if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
 			return result, nil
 		}
-		env := extractString(in.Context, "env")
+		env := extractQueryString(in.Payload, "env")
 		if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
 			return result, err
 		}
@@ -362,7 +362,7 @@ func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpo
 
 	var body interface{}
 	if b, ok := raw["body"]; ok {
-		body = b
+		body = mergeBodyWithTopLevel(raw, b)
 	} else if method != http.MethodGet && method != http.MethodHead {
 		body = stripEnvelopeKeys(raw)
 	}
@@ -602,6 +602,38 @@ func extractString(m map[string]interface{}, key string) string {
 	return ""
 }
 
+func extractStringFromBody(payload map[string]interface{}, key string) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	body, ok := payload["body"]
+	if !ok || body == nil {
+		return ""
+	}
+	switch typed := body.(type) {
+	case map[string]interface{}:
+		return extractString(typed, key)
+	default:
+		return ""
+	}
+}
+
+func extractQueryString(payload map[string]interface{}, key string) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	query, ok := payload["query"]
+	if !ok || query == nil {
+		return ""
+	}
+	switch typed := query.(type) {
+	case map[string]interface{}:
+		return extractString(typed, key)
+	default:
+		return ""
+	}
+}
+
 func getLabel(labels map[string]string, key string) string {
 	if len(labels) == 0 {
 		return ""
@@ -626,6 +658,41 @@ func stripEnvelopeKeys(raw map[string]interface{}) map[string]interface{} {
 		return nil
 	}
 	return result
+}
+
+func mergeBodyWithTopLevel(raw map[string]interface{}, body interface{}) interface{} {
+	if len(raw) == 0 || body == nil {
+		return body
+	}
+	bodyMap, ok := toStringAnyMap(body)
+	if !ok {
+		return body
+	}
+	merged := make(map[string]interface{}, len(bodyMap)+len(raw))
+	for k, v := range bodyMap {
+		merged[k] = v
+	}
+	for k, v := range raw {
+		key := strings.ToLower(strings.TrimSpace(k))
+		switch key {
+		case "method", "endpoint", "headers", "query", "body", "rpc", "stream":
+			continue
+		}
+		if _, exists := merged[k]; exists {
+			continue
+		}
+		merged[k] = v
+	}
+	return merged
+}
+
+func toStringAnyMap(v interface{}) (map[string]interface{}, bool) {
+	switch typed := v.(type) {
+	case map[string]interface{}:
+		return typed, true
+	default:
+		return nil, false
+	}
 }
 
 func defaultModalityForCapability(capabilityID string) string {
