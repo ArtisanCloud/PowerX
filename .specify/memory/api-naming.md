@@ -43,8 +43,7 @@
 ## 3. 鉴权与租户透传
 
 - **所有 `/api/v1/admin` 与 `/api/internal` 必须鉴权**
-- 租户信息必须通过 token 或 header 解析：
-  - `tenant_uuid` / `X-PowerX-Tenant`
+- 租户信息必须通过 token（JWT claims）或 `tenant_uuid` 字段解析，不接受遗留租户头注入。
 - 内部接口也需 tenant 校验，禁止跨租户调用
 
 ---

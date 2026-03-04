@@ -8,6 +8,7 @@ import (
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +23,41 @@ func newCatalogHandler(svc *capabilitycatalog.RegistryService) *catalogHandler {
 		return nil
 	}
 	return &catalogHandler{svc: svc}
+}
+
+// ListSources handles GET /admin/capabilities/sources.
+func (h *catalogHandler) ListSources(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"default": "all",
+		"note":    "该接口仅返回 source 枚举与别名定义，不执行 capability 查询过滤。请使用 /admin/capabilities?source=... 获取实际数据。",
+		"sources": []gin.H{
+			{
+				"id":          "all",
+				"label":       "all",
+				"description": "查询全部来源（不传 source 或 source=all）",
+			},
+			{
+				"id":          capabilitycatalog.CapabilitySourceCoreX,
+				"label":       "corex",
+				"description": "PowerX 底座能力",
+			},
+			{
+				"id":          capabilitycatalog.CapabilitySourcePlugin,
+				"label":       "plugin",
+				"description": "插件/租户注册能力",
+			},
+		},
+		"aliases": gin.H{
+			"all":      "all",
+			"any":      "all",
+			"platform": capabilitycatalog.CapabilitySourceCoreX,
+		},
+	})
 }
 
 // ListCapabilities handles GET /admin/capabilities.
@@ -67,7 +103,7 @@ func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 		IncludeTotal:             true,
 		Status:                   statusFilter,
 	}
-	if tenant := strings.TrimSpace(c.Query("tenant_uuid")); tenant != "" {
+	if tenant := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); tenant != "" {
 		opts.TenantUUID = tenant
 	}
 

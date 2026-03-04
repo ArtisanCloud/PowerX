@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -12,6 +13,9 @@ import (
 	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
+	ttsfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/tts"
+	videofactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/video"
+	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	"gorm.io/gorm"
 )
@@ -162,6 +166,12 @@ func (s *Service) ImageInvoke(
 	if provider == "" || model == "" {
 		return nil, ErrInvalidModelKey
 	}
+	imageDriver := resolveProviderDriver(provider, "image")
+	// Qwen 的 image 模态在当前实现上是 VLM 能力（图像/视觉问答），
+	// 不支持 imagefactory 的生图协议，需分流到 VLM 客户端。
+	if imageDriver == "qwen" {
+		return s.VLMInvoke(ctx, env, tenantUUID, modelKey, inputs, params)
+	}
 	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
 	defaults, ok := resolveDefaults("image", provider, model)
 	if prof == nil || err != nil {
@@ -205,7 +215,7 @@ func (s *Service) ImageInvoke(
 	if err != nil {
 		return nil, err
 	}
-	cli, err := imagefactory.NewClient(provider)
+	cli, err := imagefactory.NewClient(imageDriver)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +264,81 @@ func (s *Service) VLMInvoke(
 	inputs []ContentItem,
 	params map[string]interface{},
 ) (map[string]interface{}, error) {
-	return nil, ErrProviderUnsupported
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return nil, errors.New("ai service unavailable")
+	}
+	provider, model := splitModelKey(modelKey)
+	if provider == "" || model == "" {
+		return nil, ErrInvalidModelKey
+	}
+	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
+	defaults, ok := resolveDefaults("image", provider, model)
+	if prof == nil || err != nil {
+		if !s.allowUnprofiled(ctx, env, tenantUUID, "image", provider) {
+			return nil, ErrModelNotConfigured
+		}
+		if !ok {
+			return nil, ErrInvalidModelKey
+		}
+	} else {
+		defaults = prof.Defaults
+	}
+
+	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "image", provider, model, "", "", "", "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	vlmDriver := resolveProviderDriver(provider, "image")
+	cli, err := vlmfactory.NewClient(vlmDriver)
+	if err != nil {
+		return nil, err
+	}
+
+	req := contract.VLMRequest{
+		Messages:    buildVLMMessage(inputs),
+		Temperature: floatFromAny(defaults["temperature"]),
+		TopP:        floatFromAny(defaults["top_p"]),
+		MaxTokens:   intFromAny(defaults["max_tokens"]),
+		Runtime: map[string]any{
+			"config": mc,
+		},
+	}
+	if req.MaxTokens <= 0 {
+		req.MaxTokens = intFromAny(defaults["maxTokens"])
+	}
+	if params != nil {
+		if v, ok := params["temperature"]; ok {
+			if val := floatFromAny(v); val > 0 {
+				req.Temperature = val
+			}
+		}
+		if v, ok := params["top_p"]; ok {
+			if val := floatFromAny(v); val > 0 {
+				req.TopP = val
+			}
+		}
+		if v, ok := params["max_tokens"]; ok {
+			if val := intFromAny(v); val > 0 {
+				req.MaxTokens = val
+			}
+		}
+		if v, ok := params["json_mode"]; ok {
+			if b, ok2 := v.(bool); ok2 {
+				req.JSONMode = b
+			}
+		}
+	}
+
+	resp, err := cli.Invoke(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"provider": resp.Provider,
+		"model":    resp.Model,
+		"text":     resp.Text,
+		"usage":    resp.Usage,
+	}, nil
 }
 
 func (s *Service) VideoInvoke(
@@ -265,7 +349,85 @@ func (s *Service) VideoInvoke(
 	inputs []ContentItem,
 	params map[string]interface{},
 ) (map[string]interface{}, error) {
-	return nil, ErrProviderUnsupported
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return nil, errors.New("ai service unavailable")
+	}
+	provider, model := splitModelKey(modelKey)
+	if provider == "" || model == "" {
+		return nil, ErrInvalidModelKey
+	}
+	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "video", provider, model)
+	defaults, ok := resolveDefaults("video", provider, model)
+	if prof == nil || err != nil {
+		if !s.allowUnprofiled(ctx, env, tenantUUID, "video", provider) {
+			return nil, ErrModelNotConfigured
+		}
+		if !ok {
+			return nil, ErrInvalidModelKey
+		}
+	} else {
+		defaults = prof.Defaults
+	}
+
+	prompt := BuildPrompt(inputs)
+	if strings.TrimSpace(prompt) == "" {
+		return nil, ErrPromptRequired
+	}
+	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "video", provider, model, "", "", "", "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	videoDriver := resolveProviderDriver(provider, "video")
+	cli, err := videofactory.NewClient(videoDriver)
+	if err != nil {
+		return nil, err
+	}
+	req := contract.VideoRequest{
+		Prompt:       prompt,
+		Resolution:   stringFromAny(defaults["resolution"]),
+		FPS:          intFromAny(defaults["fps"]),
+		MaxDurationS: intFromAny(defaults["maxDurationSec"]),
+		RefImages:    buildImageRefParts(inputs),
+		RefVideos:    buildVideoRefParts(inputs),
+		Runtime: map[string]any{
+			"config": mc,
+		},
+	}
+	if params != nil {
+		if v := stringFromAny(params["resolution"]); v != "" {
+			req.Resolution = v
+		}
+		if v := intFromAny(params["fps"]); v > 0 {
+			req.FPS = v
+		}
+		if v := intFromAny(params["max_duration_sec"]); v > 0 {
+			req.MaxDurationS = v
+		}
+	}
+	resp, err := cli.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]interface{}{
+		"provider": resp.Provider,
+		"model":    resp.Model,
+	}
+	if len(resp.VideoURLs) > 0 {
+		out["video_urls"] = resp.VideoURLs
+	}
+	if resp.TaskID != "" {
+		out["task_id"] = resp.TaskID
+	}
+	if resp.PollURL != "" {
+		out["poll_url"] = resp.PollURL
+	}
+	if resp.Usage != nil {
+		out["usage"] = resp.Usage
+	}
+	if resp.TraceID != "" {
+		out["trace_id"] = resp.TraceID
+	}
+	return out, nil
 }
 
 func (s *Service) TTSInvoke(
@@ -276,7 +438,79 @@ func (s *Service) TTSInvoke(
 	inputs []ContentItem,
 	params map[string]interface{},
 ) (map[string]interface{}, error) {
-	return nil, ErrProviderUnsupported
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return nil, errors.New("ai service unavailable")
+	}
+	provider, model := splitModelKey(modelKey)
+	if provider == "" || model == "" {
+		return nil, ErrInvalidModelKey
+	}
+	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "audio_tts", provider, model)
+	defaults, ok := resolveDefaults("audio_tts", provider, model)
+	if prof == nil || err != nil {
+		if !s.allowUnprofiled(ctx, env, tenantUUID, "audio_tts", provider) {
+			return nil, ErrModelNotConfigured
+		}
+		if !ok {
+			return nil, ErrInvalidModelKey
+		}
+	} else {
+		defaults = prof.Defaults
+	}
+	text := BuildPrompt(inputs)
+	if strings.TrimSpace(text) == "" {
+		return nil, ErrPromptRequired
+	}
+	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "audio_tts", provider, model, "", "", "", "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	ttsDriver := resolveProviderDriver(provider, "audio_tts")
+	cli, err := ttsfactory.NewClient(ttsDriver)
+	if err != nil {
+		return nil, err
+	}
+	req := contract.TTSRequest{
+		Text:   text,
+		Voice:  stringFromAny(defaults["voice"]),
+		Speed:  floatFromAny(defaults["speed"]),
+		Format: stringFromAny(defaults["format"]),
+		Runtime: map[string]any{
+			"config": mc,
+		},
+	}
+	if params != nil {
+		if v := stringFromAny(params["voice"]); v != "" {
+			req.Voice = v
+		}
+		if v := floatFromAny(params["speed"]); v > 0 {
+			req.Speed = v
+		}
+		if v := stringFromAny(params["format"]); v != "" {
+			req.Format = v
+		}
+	}
+	resp, err := cli.Synthesize(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]interface{}{
+		"provider": resp.Provider,
+		"model":    resp.Model,
+	}
+	if resp.AudioURL != "" {
+		out["audio_url"] = resp.AudioURL
+	}
+	if len(resp.Audio) > 0 {
+		out["audio_base64"] = base64.StdEncoding.EncodeToString(resp.Audio)
+	}
+	if resp.Usage != nil {
+		out["usage"] = resp.Usage
+	}
+	if resp.TraceID != "" {
+		out["trace_id"] = resp.TraceID
+	}
+	return out, nil
 }
 
 type ContentItem struct {
@@ -319,6 +553,49 @@ func buildImageRefParts(items []ContentItem) []contract.ContentPart {
 	return out
 }
 
+func buildVideoRefParts(items []ContentItem) []contract.ContentPart {
+	out := make([]contract.ContentPart, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(strings.ToLower(item.Type)) != contract.ContentTypeVideoURL {
+			continue
+		}
+		if strings.TrimSpace(item.URL) == "" {
+			continue
+		}
+		out = append(out, contract.ContentPart{Type: contract.ContentTypeVideoURL, URL: strings.TrimSpace(item.URL)})
+	}
+	return out
+}
+
+func buildVLMMessage(items []ContentItem) []contract.Message {
+	parts := make([]contract.ContentPart, 0, len(items))
+	for _, item := range items {
+		switch strings.TrimSpace(strings.ToLower(item.Type)) {
+		case contract.ContentTypeImageURL:
+			if strings.TrimSpace(item.URL) == "" {
+				continue
+			}
+			parts = append(parts, contract.ContentPart{
+				Type: contract.ContentTypeImageURL,
+				URL:  strings.TrimSpace(item.URL),
+			})
+		default:
+			txt := strings.TrimSpace(item.Text)
+			if txt == "" {
+				continue
+			}
+			parts = append(parts, contract.ContentPart{
+				Type: contract.ContentTypeText,
+				Text: txt,
+			})
+		}
+	}
+	if len(parts) == 0 {
+		parts = append(parts, contract.ContentPart{Type: contract.ContentTypeText, Text: "Describe the image."})
+	}
+	return []contract.Message{{Role: "user", Content: parts}}
+}
+
 func splitModelKey(modelKey string) (string, string) {
 	if strings.Contains(modelKey, "/") {
 		parts := strings.SplitN(modelKey, "/", 2)
@@ -358,17 +635,41 @@ func splitAppModel(model string) (string, string) {
 
 func findModelManifest(modality, provider, app, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
-	models, err := reg.ModelsByApp(modality, provider, app)
-	if err != nil {
-		return nil
+	candidates := []string{strings.TrimSpace(strings.ToLower(modality))}
+	if candidates[0] == "audio_tts" || candidates[0] == "audio_asr" {
+		candidates = append(candidates, "audio")
 	}
-	for _, m := range models {
-		if strings.EqualFold(m.ID, model) {
-			copy := m
-			return &copy
+	for _, mod := range candidates {
+		models, err := reg.ModelsByApp(mod, provider, app)
+		if err != nil {
+			continue
+		}
+		for _, m := range models {
+			if strings.EqualFold(m.ID, model) {
+				copy := m
+				return &copy
+			}
 		}
 	}
 	return nil
+}
+
+func resolveProviderDriver(provider, modality string) string {
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		return ""
+	}
+	mod := strings.ToLower(strings.TrimSpace(modality))
+	if mod == "" {
+		return p
+	}
+	reg := catalog.GetGlobalAIRegister()
+	if man, ok := reg.Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers[mod])); dk != "" {
+			return dk
+		}
+	}
+	return p
 }
 
 func (s *Service) allowUnprofiled(ctx context.Context, env, tenantUUID, modality, provider string) bool {

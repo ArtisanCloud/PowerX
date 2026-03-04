@@ -23,3 +23,7 @@ modalities:
       - id: "*"
         label: "Any (OpenAI-compatible)"
         tags: ["local","gateway"]
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

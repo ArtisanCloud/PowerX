@@ -14,8 +14,41 @@
 ## 0. 前置条件
 
 - Backend 已启动：`http://127.0.0.1:8077`
-- API 前缀：`/api/v1`
+- API 前缀：由 `server.api_prefix` 控制（默认 `/api`，常见部署为 `/api/v1`）
 - 已有可登录租户账号（普通租户用户可进入页面；创建/轮换/吊销等管理动作需具备租户管理权限）
+
+插件侧三条硬规则（务必遵守）：
+
+- `PX_GATEWAY_BASE_URL` 只放主机，不带前缀（例如 `http://127.0.0.1:8077`）
+- `PX_GATEWAY_API_PREFIX` 必须显式配置（插件默认建议 `/api/v1`），不要用 `/` 代替“无前缀”
+- 调用地址拼接固定为：`{PX_GATEWAY_BASE_URL}{PX_GATEWAY_API_PREFIX}/tenant/invocations`
+
+建议先通过 meta 接口确定运行时前缀，再拼接所有请求路径：
+
+```bash
+curl -sS "http://127.0.0.1:8077/api/v1/admin/gateway/meta" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq .
+```
+
+从返回读取：
+
+- `base_url`
+- `api_prefix`
+
+并约定：
+
+- `HTTP_BASE = base_url + api_prefix`
+
+错误示例 vs 正确示例：
+
+- 错误：
+  - `PX_GATEWAY_BASE_URL=http://127.0.0.1:8077/api/v1`
+  - `PX_GATEWAY_API_PREFIX=/`
+  - 最终请求：`http://127.0.0.1:8077/tenant/invocations`
+- 正确：
+  - `PX_GATEWAY_BASE_URL=http://127.0.0.1:8077`
+  - `PX_GATEWAY_API_PREFIX=/api/v1`
+  - 最终请求：`http://127.0.0.1:8077/api/v1/tenant/invocations`
 
 > 说明：`root` 不是前置条件。只有在需要做“跨租户审计/治理”时才使用 root 账号。
 
@@ -39,6 +72,79 @@
 - 宿主模式固定 JWT；外部平台/standalone proxy 固定 API Key。
 - 后端按凭证类型分流：`Authorization: ApiKey <key>` 仅走 API Key 校验，`Authorization: Bearer <token>` 仅走 JWT 校验。
 - 不再采用“API Key 失败后回退 JWT”的混合兜底策略。
+
+### 0.4 能力目录接口选型（已对齐）
+
+- 对外统一“能力列表/筛选”主接口：`GET /api/v1/admin/capabilities`
+  - 支持 `source=corex|plugin`（空值/`all` 表示全部来源）
+  - 适合插件/外部系统做能力检索、筛选、联调
+- 平台聚合展示接口：`GET /api/v1/admin/platform-capabilities`
+  - 适合“开放能力”页面按模块聚合展示（可带 `page/page_size`）
+  - 不建议作为外部统一检索入口
+
+新增辅助接口：
+
+- `GET /api/v1/admin/capabilities/sources`：返回 source 枚举、默认值与别名映射
+- `GET /api/v1/admin/gateway/meta`：返回 gateway 元信息（`base_url`、`api_prefix`、auth schemes、常用路径示例）
+
+### 0.5 Invoke 入口选型（避免混用）
+
+- Selector 调用（按 `capability_id` / `intent`）：
+  - `POST {HTTP_BASE}/tenant/invocations`
+- Integration Route 调用（按 `route_slug`）：
+  - `POST {HTTP_BASE}/tenant/integration/routes/{route_slug}/invoke`
+
+明确说明：
+
+- 当前代码里不存在 `POST /integration/capabilities/invoke`
+- 当前代码里不存在 `POST /tenant/integration/capabilities/invoke`
+- 历史讨论中若出现上述路径，请全部替换为本节两条正式入口
+
+Selector 示例：
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id":"com.corex.media.assets.read",
+    "idempotency_key":"demo-selector-001",
+    "payload":{}
+  }' | jq .
+```
+
+Route Invoke 示例：
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/integration/routes/media-assets-read/invoke" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idempotency_key":"demo-route-001",
+    "payload":{}
+  }' | jq .
+```
+
+### 0.6 `source` 定义来源（后端口径）
+
+`source` 来自后端能力记录，不是前端固定值：
+
+1. 优先读取 `CapabilityRecord.annotations.source`
+2. 若未设置，按 `plugin_id` 推断：
+   - `corex.*` => `corex`
+   - 其他 => `plugin`
+
+别名与归一化：
+
+- `platform` 归一化为 `corex`
+- `all` / `any` / 空值 => 不过滤（全部来源）
+
+可用以下接口自检当前环境 source 枚举：
+
+```bash
+curl -sS "http://127.0.0.1:8077/api/v1/admin/capabilities/sources" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq .
+```
 
 ---
 
@@ -183,6 +289,43 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/internal/ws-bus/publish" \
     "payload":{"msg":"hello from api key"}
   }' | jq .
 ```
+
+### 3.3 使用 API Key 调用 Invoke（Selector / Route）
+
+先约定：
+
+- `HTTP_BASE = base_url + api_prefix`（通过 `/admin/gateway/meta` 获取）
+
+#### Selector Invoke（按 capability_id）
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
+  -H "Authorization: ApiKey $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id":"com.corex.media.assets.read",
+    "idempotency_key":"demo-apikey-selector-001",
+    "payload":{}
+  }' | jq .
+```
+
+#### Route Invoke（按 route_slug）
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/integration/routes/media-assets-read/invoke" \
+  -H "Authorization: ApiKey $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idempotency_key":"demo-apikey-route-001",
+    "payload":{}
+  }' | jq .
+```
+
+常见返回解释：
+
+- `401`：API Key 无效/已吊销/缺失
+- `403`：API Key 已认证，但权限不足（未授权对应能力或 topic）
+- `404`：路径不存在（常见是 `api_prefix` 拼错或访问了错误实例）
 
 ---
 

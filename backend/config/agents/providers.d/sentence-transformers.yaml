@@ -6,7 +6,8 @@ drivers:
   llm: sentence_transformers
   embedding: sentence_transformers
   image: sentence_transformers
-  audio: sentence_transformers
+  audio_tts: sentence_transformers
+  audio_asr: sentence_transformers
   video: sentence_transformers
   rerank: sentence_transformers
 
@@ -39,7 +40,9 @@ modalities:
         limits: { dims: 384 }
   image:
     models: []
-  audio:
+  audio_tts:
+    models: []
+  audio_asr:
     models: []
   video:
     models: []

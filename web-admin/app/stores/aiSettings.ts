@@ -7,6 +7,42 @@ import {
   type Provider,
 } from "~/composables/api/services/aiSettingService";
 
+const compactError = (raw: unknown): string => {
+  const message = String(raw ?? "").trim();
+  if (!message) return "未知错误";
+
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("accessdenied.unpurchased") ||
+    lower.includes("access to model denied")
+  ) {
+    return "模型未开通或无权限（AccessDenied.Unpurchased），请在官方控制台开通该模型后重试。";
+  }
+  if (
+    lower.includes("invalid_api_key") ||
+    lower.includes("incorrect api key provided")
+  ) {
+    return "API Key 无效，请确认使用的是对应站点/地域的官方 Key。";
+  }
+  if (lower.includes("unknown image provider")) {
+    return "当前 Provider 的图像驱动未启用，请联系管理员检查模型驱动配置。";
+  }
+
+  const bodyPos = message.indexOf("body=");
+  let brief = bodyPos >= 0 ? message.slice(0, bodyPos).trim() : message;
+  brief = brief.replace(/\s+/g, " ");
+  if (brief.length > 180) {
+    brief = `${brief.slice(0, 180)}...`;
+  }
+  return brief || "请求失败，请稍后重试";
+};
+
+const extractErrorDetail = (raw: unknown): string => {
+  const message = String(raw ?? "").trim();
+  if (!message) return "";
+  return message.length > 4000 ? `${message.slice(0, 4000)}...` : message;
+};
+
 export interface AISettingsState {
   providers: Provider[];
   models: string[];
@@ -18,6 +54,7 @@ export interface AISettingsState {
   saving: boolean;
   testing: boolean;
   lastTestMessage: string;
+  lastTestDetail: string;
   initialized: boolean;
 }
 
@@ -33,6 +70,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
     saving: false,
     testing: false,
     lastTestMessage: "",
+    lastTestDetail: "",
     initialized: false,
   }),
 
@@ -354,10 +392,13 @@ export const useAISettingsStore = defineStore("aiSettings", {
         };
         const result = await AISettingService.testConnection(nextPayload);
         this.lastTestMessage = `连接测试成功 - Provider: ${provider}`;
+        this.lastTestDetail = "";
         return result;
       } catch (error) {
         console.error("连接测试失败:", error);
-        this.lastTestMessage = `连接测试失败: ${error instanceof Error ? error.message : "未知错误"}`;
+        const raw = error instanceof Error ? error.message : error;
+        this.lastTestMessage = `连接测试失败: ${compactError(raw)}`;
+        this.lastTestDetail = extractErrorDetail(raw);
         throw error;
       } finally {
         this.testing = false;
@@ -381,10 +422,13 @@ export const useAISettingsStore = defineStore("aiSettings", {
           prompt: message,
         });
         this.lastTestMessage = `快速调用测试成功 - Model: ${model}`;
+        this.lastTestDetail = "";
         return result;
       } catch (error) {
         console.error("快速调用测试失败:", error);
-        this.lastTestMessage = `快速调用测试失败: ${error instanceof Error ? error.message : "未知错误"}`;
+        const raw = error instanceof Error ? error.message : error;
+        this.lastTestMessage = `快速调用测试失败: ${compactError(raw)}`;
+        this.lastTestDetail = extractErrorDetail(raw);
         throw error;
       } finally {
         this.testing = false;
@@ -396,6 +440,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
      */
     clearTestMessage() {
       this.lastTestMessage = "";
+      this.lastTestDetail = "";
     },
 
     /**

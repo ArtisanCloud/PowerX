@@ -117,7 +117,7 @@
             v-if="modality === 'image' || modality === 'video'"
             class="mb-3 text-xs text-[var(--text-secondary)]"
           >
-            图像/视频的 Provider 列表已对齐；若某 Provider 在当前模态暂无专用模型，会自动回退展示另一模态的模型（占位）。
+            图像/视频的 Provider 列表已对齐；其中 Qwen VLM 在“图像”模态配置。若某 Provider 在当前模态暂无专用模型，会自动回退展示另一模态的模型（占位）。
           </p>
           <ProviderModelForm
             :provider-options="providerOptions"
@@ -152,7 +152,6 @@
             :truncate-options="truncateOptions"
             :video-resolution-options="videoResolutionOptions"
             :model3d-format-options="model3dFormatOptions"
-            :voice-options="voiceOptions"
             :audio-format-options="audioFormatOptions"
             :audio-quality-options="audioQualityOptions"
             :language-options="languageOptions"
@@ -167,6 +166,7 @@
           :current-title="currentTitle"
           :current-state="currentState"
           :last-test-message="lastTestMessage"
+          :last-test-detail="lastTestDetail"
           :on-test-connection="testConnection"
           :on-test-quick-call="testQuickCall"
         />
@@ -233,7 +233,7 @@ onMounted(async () => {
  */
 const modalityTabs = [
   { key: "llm", label: "LLM 文本", icon: "i-heroicons-bars-3-bottom-left" },
-  { key: "image", label: "图像生成", icon: "i-heroicons-photo" },
+  { key: "image", label: "图像/视觉(VLM)", icon: "i-heroicons-photo" },
   {
     key: "embedding",
     label: "向量嵌入",
@@ -269,13 +269,36 @@ const env = computed({
 });
 
 const getErrorMessage = (error: unknown) => {
+  const compact = (raw: unknown) => {
+    const message = String(raw ?? "").trim();
+    if (!message) return "未知错误";
+    const lower = message.toLowerCase();
+    if (
+      lower.includes("accessdenied.unpurchased") ||
+      lower.includes("access to model denied")
+    ) {
+      return "模型未开通或无权限（AccessDenied.Unpurchased），请在官方控制台开通该模型后重试。";
+    }
+    if (
+      lower.includes("invalid_api_key") ||
+      lower.includes("incorrect api key provided")
+    ) {
+      return "API Key 无效，请确认使用的是对应站点/地域的官方 Key。";
+    }
+    const bodyPos = message.indexOf("body=");
+    const brief = (bodyPos >= 0 ? message.slice(0, bodyPos) : message)
+      .replace(/\s+/g, " ")
+      .trim();
+    return brief.length > 180 ? `${brief.slice(0, 180)}...` : brief;
+  };
+
   if (!error) return "未知错误";
   if (typeof error === "string") {
-    return error;
+    return compact(error);
   }
   if (typeof error === "object") {
     const anyError = error as Record<string, any>;
-    return (
+    return compact(
       anyError?.data?.message ||
       anyError?.response?.statusMessage ||
       anyError?.message ||
@@ -283,7 +306,7 @@ const getErrorMessage = (error: unknown) => {
       "未知错误"
     );
   }
-  return "未知错误";
+  return compact(error);
 };
 
 /**
@@ -544,7 +567,7 @@ const currentTitle = computed(() => {
     case "llm":
       return "LLM 文本";
     case "image":
-      return "图像生成";
+      return "图像/视觉(VLM)";
     case "embedding":
       return "向量嵌入";
     case "audio_tts":
@@ -645,11 +668,10 @@ function resolveAppsForProvider(provider?: string | null) {
 
 function buildAppOptions(apps?: { id: string; name: string }[]) {
   if (!Array.isArray(apps) || apps.length === 0) return [];
-  const options = apps.map((app) => ({
+  return apps.map((app) => ({
     label: app.name || app.id,
     value: app.id,
   }));
-  return [{ label: "不区分 App", value: "" }, ...options];
 }
 
 function splitAppModelKey(raw?: string | null) {
@@ -860,8 +882,8 @@ async function onProviderChanged(nextProvider?: string) {
   } else {
     const appIds = new Set(apps.map((app) => String(app.id)));
     const currentApp = String(currentState.value.app || "").trim();
-    if (currentApp && !appIds.has(currentApp)) {
-      currentState.value.app = "";
+    if (!currentApp || !appIds.has(currentApp)) {
+      currentState.value.app = String(apps[0]?.id || "").trim();
     }
   }
 
@@ -901,6 +923,14 @@ async function onAppChanged(nextApp?: string) {
   if (!rawProvider || !currentModality) return;
   if (nextApp !== undefined) {
     currentState.value.app = nextApp ?? "";
+  }
+  const apps = resolveAppsForProvider(rawProvider);
+  if (apps.length) {
+    const appIds = new Set(apps.map((app) => String(app.id)));
+    const curApp = String(currentState.value.app || "").trim();
+    if (!curApp || !appIds.has(curApp)) {
+      currentState.value.app = String(apps[0]?.id || "").trim();
+    }
   }
   const appValue = String(currentState.value.app || "").trim();
   try {
@@ -957,8 +987,7 @@ const videoResolutionOptions = ["720p", "1080p", "4k"];
 const model3dFormatOptions = ["glb", "gltf", "obj", "fbx"];
 
 // 新增音频TTS选项
-const voiceOptions = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-const audioFormatOptions = ["mp3", "opus", "aac", "flac"];
+const audioFormatOptions = ["mp3", "wav", "pcm", "opus", "aac", "flac"];
 const audioQualityOptions = ["standard", "hd"];
 
 // 新增音频ASR选项
@@ -1077,6 +1106,7 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
 const saving = computed(() => aiSettingsStore.saving);
 const lastProbeMessage = ref("");
 const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
+const lastTestDetail = computed(() => aiSettingsStore.lastTestDetail || "");
 
 const resolveEmbeddingMaxInputTokens = (profile: any) => {
   if (!profile) return 0;

@@ -213,7 +213,7 @@ sch.CreateJob(ctx, SchedulerJob{
 ```
 POST /api/v1/admin/scheduler/jobs
 Authorization: Bearer <TOKEN>
-x-tenant-uuid: <TENANT_UUID>
+tenant_uuid: <TENANT_UUID>
 Idempotency-Key: 7c4d...
 
 {
@@ -231,7 +231,7 @@ Idempotency-Key: 7c4d...
 
 ## 认证与租户头部
 - `Authorization: Bearer <TOKEN>`
-- `x-tenant-uuid: <TENANT_UUID>`（可选，优先于 token 中租户）
+- `tenant_uuid: <TENANT_UUID>`（可选，优先于 token 中租户）
 
 ## 错误码（建议）
 - `scheduler.invalid_schedule`

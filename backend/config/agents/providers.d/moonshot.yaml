@@ -6,7 +6,8 @@ drivers:
   llm: moonshot
   embedding: moonshot
   image: moonshot
-  audio: moonshot
+  audio_tts: moonshot
+  audio_asr: moonshot
   video: moonshot
   rerank: moonshot
 
@@ -39,7 +40,9 @@ modalities:
     models: []   # 官方暂未公开独立 Embedding API
   image:
     models: []
-  audio:
+  audio_tts:
+    models: []
+  audio_asr:
     models: []
   video:
     models: []

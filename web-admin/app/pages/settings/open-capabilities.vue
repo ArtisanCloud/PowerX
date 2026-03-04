@@ -527,7 +527,7 @@ const buildCurlSnippet = (capability: PlatformCapability) => {
     null,
     2
   );
-  return `curl -X POST "$POWERX_BASE_URL/tenant/invocations" \\
+  return `curl -X POST "$POWERX_HTTP_BASE/tenant/invocations" \\
   -H "Authorization: Bearer $TENANT_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '${body}'`;
@@ -552,7 +552,7 @@ const buildInsomniaSnippet = (capability: PlatformCapability) => {
       _type: 'request',
       name: capability.title || capability.capabilityId,
       method: 'POST',
-      url: '{{ POWERX_BASE_URL }}/tenant/invocations',
+      url: '{{ POWERX_HTTP_BASE }}/tenant/invocations',
       headers: [
         { name: 'Authorization', value: 'Bearer {{ TENANT_TOKEN }}' },
         { name: 'Content-Type', value: 'application/json' },

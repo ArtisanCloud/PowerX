@@ -10,7 +10,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"google.golang.org/grpc/metadata"
 )
 
 func tenantUUIDFromContext(ctx context.Context, rc *commonv1.RequestContext) (string, error) {
@@ -25,18 +24,6 @@ func tenantUUIDFromContext(ctx context.Context, rc *commonv1.RequestContext) (st
 	}
 	if candidate == "" {
 		candidate = strings.TrimSpace(reqctx.GetTenantUUID(ctx))
-	}
-	if candidate == "" {
-		if md, ok := metadata.FromIncomingContext(ctx); ok {
-			for _, key := range []string{"x-tenant-uuid", "tenant-uuid", "x-powerx-tenant-uuid"} {
-				if vals := md.Get(key); len(vals) > 0 {
-					if trimmed := strings.TrimSpace(vals[0]); trimmed != "" {
-						candidate = trimmed
-						break
-					}
-				}
-			}
-		}
 	}
 	if candidate == "" {
 		return "", errors.New("tenant_uuid required")

@@ -83,7 +83,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - `POST /events/publish`, `POST /events/bulk`, `POST /events/replay`。
-- Headers：`x-idempotency-key`, `x-tenant-uuid`, `x-trace-id`。
+- Headers：`x-idempotency-key`, `tenant_uuid`, `x-trace-id`。
 - Config：`event_schema_registry/`, `event_retry_policies.yaml`, `idempotent_store.yaml`。
 
 # Implementation Checklist

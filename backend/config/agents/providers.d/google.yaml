@@ -20,3 +20,7 @@ modalities:
       - id: gemini-3-pro-image-preview
         label: "Gemini 3 Pro Image Preview (Nano Banana Pro)"
         tags: ["image", "high-quality"]
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

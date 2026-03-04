@@ -22,7 +22,7 @@ func eventFabricGRPCContext(t testing.TB, parent context.Context, tenantUUID str
 		tenantUUID = eventFabricGRPCTenantUUID
 	}
 	md := metadata.New(map[string]string{
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 		"authorization": "Bearer admin",
 	})
 	return metadata.NewOutgoingContext(parent, md)

@@ -497,7 +497,7 @@ func buildTenantInvocationCurl(body map[string]interface{}) string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf(`curl -X POST "$POWERX_BASE_URL/tenant/invocations" \
+	return fmt.Sprintf(`curl -X POST "$POWERX_HTTP_BASE/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '%s'`, string(raw))

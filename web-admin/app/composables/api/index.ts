@@ -66,14 +66,10 @@ let globalConfig: ApiClientConfig = {
 
         const headers = config.headers as Record<string, string | undefined>;
         const hadLegacyHeader =
-          typeof headers["X-PowerX-Tenant"] !== "undefined" ||
-          typeof headers["x-powerx-tenant"] !== "undefined" ||
-          typeof headers["x-tenant-uuid"] !== "undefined";
+          typeof headers["tenant-uuid"] !== "undefined";
 
         if (hadLegacyHeader) {
-          delete headers["X-PowerX-Tenant"];
-          delete headers["x-powerx-tenant"];
-          delete headers["x-tenant-uuid"];
+          delete headers["tenant-uuid"];
 
           if (process.dev) {
             console.warn(

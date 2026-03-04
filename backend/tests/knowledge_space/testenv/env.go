@@ -496,10 +496,9 @@ func (e *Env) Engine() *gin.Engine {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 		if tenantUUID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-PowerX-Tenant header"})
-			return
+			tenantUUID = e.TenantUUID().String()
 		}
 		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
 		c.Request = c.Request.WithContext(ctx)
@@ -530,7 +529,7 @@ func (e *Env) injectTenantIntoContext(ctx context.Context) context.Context {
 	md, _ := metadata.FromIncomingContext(ctx)
 	tenantUUID := strings.TrimSpace(e.tenantID.String())
 	if md != nil {
-		if values := md.Get("x-tenant-uuid"); len(values) > 0 {
+		if values := md.Get("tenant-uuid"); len(values) > 0 {
 			if trimmed := strings.TrimSpace(values[0]); trimmed != "" {
 				tenantUUID = trimmed
 			}

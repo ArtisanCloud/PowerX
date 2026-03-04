@@ -17,7 +17,7 @@ func agentModelHubContext(t testing.TB, tenantUUID string) context.Context {
 		tenantUUID = "demo-tenant"
 	}
 	md := metadata.New(map[string]string{
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 		"authorization": "Bearer token",
 	})
 	return metadata.NewOutgoingContext(context.Background(), md)

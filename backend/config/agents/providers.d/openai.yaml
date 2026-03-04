@@ -6,7 +6,8 @@ drivers:
   llm: openai
   embedding: openai
   image: openai
-  audio: openai
+  audio_tts: openai
+  audio_asr: openai
   video: openai
   rerank: openai
 
@@ -97,11 +98,13 @@ modalities:
         label: "DALL·E 2"
         tags: ["img-gen","legacy"]
 
-  audio:
+  audio_tts:
     models:
       - id: gpt-4o-mini-tts
         label: "GPT-4o mini TTS"
         tags: ["audio","tts","expressive"]
+  audio_asr:
+    models:
       - id: gpt-4o-transcribe
         label: "GPT-4o Transcribe"
         tags: ["audio","asr","multilingual"]

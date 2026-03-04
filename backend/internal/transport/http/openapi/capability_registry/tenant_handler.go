@@ -131,18 +131,6 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		respondTenantIdentityError(c, err)
 		return
 	}
-	bodyTenant := strings.TrimSpace(req.TenantUUID)
-	if bodyTenant != "" {
-		canonical, err := reqctx.CanonicalTenantUUID(bodyTenant)
-		if err != nil {
-			respondTenantIdentityError(c, err)
-			return
-		}
-		if canonical != tenantUUID {
-			capability_registrydto.RespondError(c, capability_registrydto.ErrTenantMismatch, nil)
-			return
-		}
-	}
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
 		return

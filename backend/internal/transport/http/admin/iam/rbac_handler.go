@@ -202,20 +202,9 @@ func (h *RBACHandler) CheckPermission(c *gin.Context) {
 	if !ok {
 		return
 	}
-	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
-	if tenantUUID == "" {
-		var okTenant bool
-		tenantUUID, okTenant = requireTenantUUIDFromContext(c)
-		if !okTenant {
-			return
-		}
-	} else {
-		canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
-		if err != nil {
-			dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid must be valid", err)
-			return
-		}
-		tenantUUID = canonical
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
 	}
 	memberID, _ := strconv.ParseUint(c.Query("member_id"), 10, 64) // 可选，不传用上下文
 

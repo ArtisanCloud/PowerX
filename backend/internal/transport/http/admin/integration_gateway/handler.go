@@ -26,6 +26,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	handler := &AdminHandler{svc: deps.IntegrationGateway.Manager}
 
 	group := protected.Group("/admin/integration")
+	protected.GET("/admin/gateway/meta", handleGatewayMeta)
 	group.POST("/routes", handler.CreateRoute)
 	group.GET("/routes", handler.ListRoutes)
 	group.GET("/routes/:route_id", handler.GetRoute)
@@ -50,13 +51,88 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteAPIKey)
 }
 
+func handleGatewayMeta(c *gin.Context) {
+	apiPrefix := inferAPIPrefix(c)
+	baseURL := requestBaseURL(c)
+
+	dto.ResponseSuccess(c, gin.H{
+		"base_url":       baseURL,
+		"api_prefix":     apiPrefix,
+		"http_base":      strings.TrimRight(baseURL, "/") + apiPrefix,
+		"ws":             gin.H{"bus_endpoint": "/api/ws"},
+		"default_scheme": "apikey",
+		"auth": gin.H{
+			"schemes": []gin.H{
+				{
+					"id":     "apikey",
+					"header": "Authorization",
+					"format": "ApiKey <key>",
+				},
+				{
+					"id":     "bearer",
+					"header": "Authorization",
+					"format": "Bearer <token>",
+				},
+			},
+			"single_credential_per_request": true,
+			"conflict_policy":               "prefer_header_scheme",
+		},
+		"examples": gin.H{
+			"llm_invoke_path":                    apiPrefix + "/ai/llm/invoke",
+			"tenant_capability_invoke_path":      apiPrefix + "/tenant/invocations",
+			"integration_route_invoke_path_tmpl": apiPrefix + "/tenant/integration/routes/{route_slug}/invoke",
+			"cap_list_path":                      apiPrefix + "/admin/capabilities",
+		},
+	})
+}
+
+func inferAPIPrefix(c *gin.Context) string {
+	const marker = "/admin/gateway/meta"
+	path := strings.TrimSpace(c.Request.URL.Path)
+	if idx := strings.Index(path, marker); idx >= 0 {
+		prefix := strings.TrimSpace(path[:idx])
+		if prefix == "" {
+			return "/api/v1"
+		}
+		if !strings.HasPrefix(prefix, "/") {
+			prefix = "/" + prefix
+		}
+		return strings.TrimRight(prefix, "/")
+	}
+	return "/api/v1"
+}
+
+func requestBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	if forwarded := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")); forwarded != "" {
+		if i := strings.Index(forwarded, ","); i >= 0 {
+			forwarded = forwarded[:i]
+		}
+		forwarded = strings.TrimSpace(forwarded)
+		if forwarded != "" {
+			scheme = forwarded
+		}
+	}
+	host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Request.Host)
+	}
+	if host == "" {
+		return ""
+	}
+	return scheme + "://" + host
+}
+
 // AdminHandler 负责管理端 HTTP 请求。
 type AdminHandler struct {
 	svc *manager.Service
 }
 
 type createRouteRequest struct {
-	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID   string                   `json:"tenant_uuid,omitempty"`
 	RouteSlug    string                   `json:"route_slug" binding:"required"`
 	CapabilityID string                   `json:"capability_id" binding:"required"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
@@ -67,7 +143,7 @@ type createRouteRequest struct {
 }
 
 type updateRouteRequest struct {
-	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID   string                   `json:"tenant_uuid,omitempty"`
 	CapabilityID string                   `json:"capability_id"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
 	Channels     []string                 `json:"channels"`
@@ -78,7 +154,7 @@ type updateRouteRequest struct {
 }
 
 type lifecycleRequest struct {
-	TenantUUID string `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID string `json:"tenant_uuid,omitempty"`
 	Reason     string `json:"reason"`
 }
 
@@ -136,10 +212,9 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
@@ -164,14 +239,9 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 }
 
 func (h *AdminHandler) ListRoutes(c *gin.Context) {
-	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
-	if tenantUUID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
-		return
-	}
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 	capabilityID := strings.TrimSpace(c.Query("capability_id"))
@@ -242,10 +312,9 @@ func (h *AdminHandler) UpdateRoute(c *gin.Context) {
 		return
 	}
 
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
@@ -293,14 +362,9 @@ func (h *AdminHandler) lifecycle(c *gin.Context, action string) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	if tenantUUID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
-		return
-	}
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 

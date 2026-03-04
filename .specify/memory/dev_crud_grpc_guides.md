@@ -66,7 +66,7 @@ internal/transport/grpc/
 
 ### 5.1 绑定/校验
 
-* **tenant 提取**：优先读 `RequestContext.tenant_id`，其次从 Metadata 头 `x-powerx-tenant-id|tenant-id|x-tenant-id` 兜底。
+* **tenant 提取**：优先读 `RequestContext.tenant_id`，其次仅从 Metadata `tenant-id` 兜底（不接受任何 `x-powerx-*` 遗留租户头）。
   你的 `tenantIDFrom()` 已经实现这一落地逻辑。
 * **分页映射**：`PageRequest(offset,page_size)` → `(page,size)` 的换算统一用工具函数（如 `pageFrom()`）。
 * **错误回包**：Meta 中返回 `code/message/request_id`，与你的 `okMeta/badMeta` 一致（见 `member_handler.go`/`team_handler.go` 调用）。
@@ -140,4 +140,3 @@ internal/transport/grpc/
 * [ ] **与 HTTP 等价**：同一用例在 HTTP 与 gRPC 的语义、错误、分页完全可对照。
 
 ---
-

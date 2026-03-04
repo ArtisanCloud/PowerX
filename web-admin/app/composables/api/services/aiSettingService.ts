@@ -11,6 +11,14 @@ export interface Provider {
   auth?: {
     scheme?: string;
     fields?: string[];
+    defaults?: Record<string, string>;
+    modes?: Array<{
+      id: string;
+      label?: string;
+      scheme?: string;
+      fields?: string[];
+      defaults?: Record<string, string>;
+    }>;
   };
 }
 

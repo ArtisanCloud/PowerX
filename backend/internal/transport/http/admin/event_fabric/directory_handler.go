@@ -111,15 +111,8 @@ func (h *AdminDirectoryHandler) ListTopics(c *gin.Context) {
 		Namespace: c.Query("namespace"),
 		Lifecycle: lifecycles,
 	}
-	if reqctx.IsRoot(c.Request.Context()) {
-		if specifiedTenant := strings.TrimSpace(c.Query("tenant_uuid")); specifiedTenant != "" {
-			filter.TenantID = specifiedTenant
-			filter.IncludeShared = true
-		}
-	} else {
-		filter.TenantID = tenantUUID
-		filter.IncludeShared = true
-	}
+	filter.TenantID = tenantUUID
+	filter.IncludeShared = true
 
 	list, total, err := h.service.ListTopics(c.Request.Context(), repository.QueryContext{
 		Filter: filter,

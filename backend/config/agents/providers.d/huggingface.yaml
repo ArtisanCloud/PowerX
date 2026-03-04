@@ -6,7 +6,8 @@ drivers:
   llm: huggingface
   embedding: huggingface
   image: huggingface
-  audio: huggingface
+  audio_tts: huggingface
+  audio_asr: huggingface
   video: huggingface
   rerank: huggingface
 
@@ -81,14 +82,16 @@ modalities:
       - id: stabilityai/stable-diffusion-2
         label: "Stable Diffusion 2 (text-to-image)"
         tags: ["img-gen","open"]
-  audio:
+  audio_tts:
+    models:
+      - id: coqui/XTTS-v2
+        label: "Coqui XTTS v2 (TTS)"
+        tags: ["tts","multilingual"]
+  audio_asr:
     models:
       - id: openai/whisper-large-v3
         label: "Whisper Large v3 (ASR)"
         tags: ["asr","open"]
-      - id: coqui/XTTS-v2
-        label: "Coqui XTTS v2 (TTS)"
-        tags: ["tts","multilingual"]
   video:
     models: []
   rerank:

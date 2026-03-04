@@ -16,7 +16,7 @@ func integrationGatewayGRPCContext(t testing.TB, tenantUUID string) context.Cont
 	base := context.Background()
 	md := metadata.New(nil)
 	if tenantUUID != "" {
-		md.Set("x-tenant-uuid", strings.TrimSpace(tenantUUID))
+		md.Set("tenant-uuid", strings.TrimSpace(tenantUUID))
 	}
 	md.Set("authorization", "Bearer token")
 	return metadata.NewOutgoingContext(base, md)
