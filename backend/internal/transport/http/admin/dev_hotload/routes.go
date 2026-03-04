@@ -176,15 +176,12 @@ func (h *apiHandler) stream(c *gin.Context) {
 
 func (h *apiHandler) listSessions(c *gin.Context) {
 	pluginID := c.Query("pluginId")
-	rawTenant := c.Query("tenant_uuid")
-	if rawTenant == "" {
-		rawTenant = c.Query("tenantUuid")
-	}
-	tenantUUID, err := optionalTenantUUIDFilter(rawTenant)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context missing", err)
 		return
 	}
+	tenantFilter := &tenantUUID
 	statuses := normalizeSessionStatuses(c.QueryArray("status"))
 	limit, err := parseLimit(c.Query("limit"))
 	if err != nil {
@@ -197,7 +194,7 @@ func (h *apiHandler) listSessions(c *gin.Context) {
 		return
 	}
 
-	sessions, err := h.svc.ListSessions(c.Request.Context(), pluginID, tenantUUID, statuses, limit, offset)
+	sessions, err := h.svc.ListSessions(c.Request.Context(), pluginID, tenantFilter, statuses, limit, offset)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -215,15 +212,12 @@ func (h *apiHandler) listSessions(c *gin.Context) {
 
 func (h *apiHandler) clearSessions(c *gin.Context) {
 	pluginID := c.Query("pluginId")
-	rawTenant := c.Query("tenant_uuid")
-	if rawTenant == "" {
-		rawTenant = c.Query("tenantUuid")
-	}
-	tenantUUID, err := optionalTenantUUIDFilter(rawTenant)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context missing", err)
 		return
 	}
+	tenantFilter := &tenantUUID
 	statuses := normalizeSessionStatuses(c.QueryArray("status"))
 	if len(statuses) == 0 {
 		statuses = []string{model.DevHotloadSessionStatusTerminated}
@@ -242,7 +236,7 @@ func (h *apiHandler) clearSessions(c *gin.Context) {
 		confirm = true
 	}
 
-	ids, err := h.svc.DeleteSessions(c.Request.Context(), pluginID, tenantUUID, statuses, force, confirm)
+	ids, err := h.svc.DeleteSessions(c.Request.Context(), pluginID, tenantFilter, statuses, force, confirm)
 	if err != nil {
 		h.writeError(c, err)
 		return

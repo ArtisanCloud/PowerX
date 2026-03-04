@@ -50,9 +50,9 @@ func (h *TenantAgentFormHandler) ListTenantForms(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	rawUUID := strings.TrimSpace(c.Query("tenant_uuid"))
+	rawUUID := strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
 	if rawUUID == "" {
-		dto.ResponseValidationError(c, errors.New("tenant_uuid is required"))
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context missing", nil)
 		return
 	}
 	tenantUUID, err := reqctx.CanonicalTenantUUID(rawUUID)

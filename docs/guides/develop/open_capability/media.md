@@ -219,7 +219,7 @@ export GRPC_ADDR="127.0.0.1:9001"
 - 列表：
 
   ```bash
-  grpcurl -plaintext -H "authorization: Bearer $TENANT_TOKEN" -H "x-tenant-uuid: $TENANT_UUID" \
+  grpcurl -plaintext -H "authorization: Bearer $TENANT_TOKEN" -H "tenant_uuid: $TENANT_UUID" \
     -d '{ "page": 1, "page_size": 20 }' \
     $GRPC_ADDR powerx.media.v1.MediaAssetAdminService/ListMediaAssets
   ```
@@ -227,7 +227,7 @@ export GRPC_ADDR="127.0.0.1:9001"
 - 创建：
 
   ```bash
-  grpcurl -plaintext -H "authorization: Bearer $TENANT_TOKEN" -H "x-tenant-uuid: $TENANT_UUID" \
+  grpcurl -plaintext -H "authorization: Bearer $TENANT_TOKEN" -H "tenant_uuid: $TENANT_UUID" \
     -d '{ "name": "demo-image", "driver": "minio", "mime_type": "image/png", "size": 2048 }' \
     $GRPC_ADDR powerx.media.v1.MediaAssetAdminService/CreateMediaAsset
   ```

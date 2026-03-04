@@ -9,7 +9,7 @@ PowerX 知识空间模块对外暴露能力 `com.corex.knowledge.space`，用于
 > **认证要求**
 >
 > - `Authorization: Bearer <TENANT_TOKEN>`
-> - `x-tenant-uuid: <TENANT_UUID>`
+> - `tenant_uuid: <TENANT_UUID>`
 > - 租户需被授权 `knowledge.space` Tool Grant。
 
 ## gRPC 接口
@@ -29,7 +29,7 @@ export TENANT_UUID="<tenant-uuid>"
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "space_id": "ks.demo",
     "display_name": "Demo Knowledge Space",
@@ -44,7 +44,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "space_id": "ks.demo",
     "retention_days": 30,
@@ -58,7 +58,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{ "space_id": "ks.demo", "job_type": "INGEST_FROM_DATASET" }' \
   $GRPC_ADDR powerx.knowledge.v1.KnowledgeSpaceAdminService/TriggerIngestion
 ```

@@ -9,7 +9,7 @@ export POWERX_BASE_URL="http://127.0.0.1:8077/api/v1"
 export ADMIN_TOKEN="<your-admin-jwt>"
 ```
 
-- 请求中不要传 `X-PowerX-Tenant`
+- 请求中不要传任何租户 header（租户由 JWT claims 解析）
 - topic 使用语义 key：`_topic.<domain>.<name>`
 
 ## 1) 查看 Topic（确认已注册）
@@ -72,7 +72,7 @@ curl -sS \
 
 ## 5) Cron 任务调试（运维接口）
 
-> 不传 `X-PowerX-Tenant`，租户由 JWT 自动解析。
+> 不传租户 header，租户由 JWT 自动解析。
 
 ### 5.1 查看任务
 

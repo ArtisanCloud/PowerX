@@ -78,8 +78,10 @@ func handleGatewayMeta(c *gin.Context) {
 			"conflict_policy":               "prefer_header_scheme",
 		},
 		"examples": gin.H{
-			"llm_invoke_path": apiPrefix + "/ai/llm/invoke",
-			"cap_list_path":   apiPrefix + "/admin/capabilities",
+			"llm_invoke_path":                    apiPrefix + "/ai/llm/invoke",
+			"tenant_capability_invoke_path":      apiPrefix + "/tenant/invocations",
+			"integration_route_invoke_path_tmpl": apiPrefix + "/tenant/integration/routes/{route_slug}/invoke",
+			"cap_list_path":                      apiPrefix + "/admin/capabilities",
 		},
 	})
 }
@@ -130,7 +132,7 @@ type AdminHandler struct {
 }
 
 type createRouteRequest struct {
-	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID   string                   `json:"tenant_uuid,omitempty"`
 	RouteSlug    string                   `json:"route_slug" binding:"required"`
 	CapabilityID string                   `json:"capability_id" binding:"required"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
@@ -141,7 +143,7 @@ type createRouteRequest struct {
 }
 
 type updateRouteRequest struct {
-	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID   string                   `json:"tenant_uuid,omitempty"`
 	CapabilityID string                   `json:"capability_id"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
 	Channels     []string                 `json:"channels"`
@@ -152,7 +154,7 @@ type updateRouteRequest struct {
 }
 
 type lifecycleRequest struct {
-	TenantUUID string `json:"tenant_uuid" binding:"required,uuid4"`
+	TenantUUID string `json:"tenant_uuid,omitempty"`
 	Reason     string `json:"reason"`
 }
 
@@ -210,10 +212,9 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
@@ -238,14 +239,9 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 }
 
 func (h *AdminHandler) ListRoutes(c *gin.Context) {
-	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
-	if tenantUUID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
-		return
-	}
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 	capabilityID := strings.TrimSpace(c.Query("capability_id"))
@@ -316,10 +312,9 @@ func (h *AdminHandler) UpdateRoute(c *gin.Context) {
 		return
 	}
 
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
@@ -367,14 +362,9 @@ func (h *AdminHandler) lifecycle(c *gin.Context, action string) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	if tenantUUID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
-		return
-	}
-	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	canonical, err := reqctx.RequireTenantUUID(c.Request.Context())
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 

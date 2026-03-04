@@ -14,5 +14,5 @@ func applyTenantHeaders(req *http.Request, tenantUUID string) {
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-PowerX-Tenant", tenantUUID)
+	req.Header.Set("tenant-uuid", tenantUUID)
 }

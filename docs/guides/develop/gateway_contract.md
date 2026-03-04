@@ -4,8 +4,11 @@
 
 ## 1. Base URL 与 Prefix
 
-- `PX_GATEWAY_BASE_URL` 建议只配置主机地址（例如 `http://127.0.0.1:8077`）。
-- HTTP OpenAPI 默认前缀为 `/api/v1`（由 `server.api_prefix` 控制）。
+- `PX_GATEWAY_BASE_URL` 只放主机，不带任何 API 前缀（例如 `http://127.0.0.1:8077`）。
+- `PX_GATEWAY_API_PREFIX` 必须显式配置（插件侧默认建议 `/api/v1`），`/` 不等价“无前缀”。
+- 最终地址拼接规则固定为：`{PX_GATEWAY_BASE_URL}{PX_GATEWAY_API_PREFIX}/...`
+- HTTP OpenAPI 前缀由 `server.api_prefix` 控制。
+- 当前代码默认值为 `/api`（`backend/config/defaults.go`），常见部署会显式配置为 `/api/v1`。
 - 典型调用路径：
   - LLM Invoke：`{PX_GATEWAY_BASE_URL}/api/v1/ai/llm/invoke`
   - Capabilities：`{PX_GATEWAY_BASE_URL}/api/v1/admin/capabilities`
@@ -14,6 +17,21 @@
 可通过以下接口读取运行时元信息：
 
 - `GET /api/v1/admin/gateway/meta`
+
+建议先读取 `gateway/meta`，再拼接调用路径：
+
+- `HTTP_BASE = base_url + api_prefix`
+
+### 1.1 错误示例 vs 正确示例
+
+- 错误（漏了 API 前缀，最终打到 `/tenant/invocations`）：
+  - `PX_GATEWAY_BASE_URL=http://127.0.0.1:8077/api/v1`
+  - `PX_GATEWAY_API_PREFIX=/`
+  - 结果：`http://127.0.0.1:8077/tenant/invocations`
+- 正确：
+  - `PX_GATEWAY_BASE_URL=http://127.0.0.1:8077`
+  - `PX_GATEWAY_API_PREFIX=/api/v1`
+  - 结果：`http://127.0.0.1:8077/api/v1/tenant/invocations`
 
 ## 2. Source 枚举
 
@@ -68,7 +86,7 @@ PowerX Gateway 按 `Authorization` scheme 分流：
 - `401`：凭证缺失或无效（例如 API Key 不存在、JWT 无效）
 - `403`：主体已认证但无权限（如模型未开通、能力未授权）
 - `404`：资源不存在（路由/能力 ID/会话 ID 等）
-- `422`：参数校验失败（请求体字段不满足约束）
+- `400`：参数校验失败（当前多数 handler 使用 `400` 返回校验错误）
 
 错误体采用统一结构（示意）：
 
@@ -103,4 +121,36 @@ curl -sS "http://127.0.0.1:8077/api/v1/admin/capabilities?source=corex&page=1&pa
 ```bash
 curl -sS "http://127.0.0.1:8077/api/v1/admin/gateway/meta" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" | jq .
+```
+
+### 6.4 能力调用入口（务必区分）
+
+- 统一能力选择器（按 capability_id / intent 调用）：
+  - `POST {HTTP_BASE}/tenant/invocations`
+- Integration Gateway 路由调用（按 route_slug 调用）：
+  - `POST {HTTP_BASE}/tenant/integration/routes/{route_slug}/invoke`
+
+示例（Selector）：
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/invocations" \
+  -H "Authorization: Bearer <TENANT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id": "com.corex.media.assets.read",
+    "idempotency_key": "demo-001",
+    "payload": {}
+  }' | jq .
+```
+
+示例（Route Invoke）：
+
+```bash
+curl -sS -X POST "$HTTP_BASE/tenant/integration/routes/media-assets-read/invoke" \
+  -H "Authorization: Bearer <TENANT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idempotency_key": "demo-002",
+    "payload": {}
+  }' | jq .
 ```

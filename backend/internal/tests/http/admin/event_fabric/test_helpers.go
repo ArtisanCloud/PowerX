@@ -62,13 +62,11 @@ func decodeJSON(t *testing.T, body io.ReadCloser, out interface{}) {
 func applyEventFabricHeaders(t testing.TB, req *http.Request, tenantUUID string) {
 	t.Helper()
 	require.NotNil(t, req, "request must not be nil")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-PowerX-Tenant")), "legacy X-PowerX-Tenant header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("Tenant-ID")), "legacy Tenant-ID header forbidden")
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-PowerX-Tenant", strings.TrimSpace(tenantUUID))
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoEventFabricTenantLeak(t testing.TB, payload []byte) {

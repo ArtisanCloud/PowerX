@@ -20,7 +20,7 @@ func capabilityRegistryContext(t testing.TB, parent context.Context, tenantUUID 
 		tenantUUID = defaultTenantUUID
 	}
 	md := metadata.New(map[string]string{
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 		"authorization": "Bearer contract",
 	})
 	return metadata.NewOutgoingContext(parent, md)

@@ -70,7 +70,7 @@ flowchart LR
 - `knowledge.v1.KnowledgeService/Search`
 - `knowledge.v1.KnowledgeService/GraphNeighbors`
 
-> 认证与租户在拦截器注入：`authorization`, `x-tenant-uuid`。
+> 认证与租户在拦截器注入：`authorization`, `tenant_uuid`。
 
 ---
 

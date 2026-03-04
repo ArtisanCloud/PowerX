@@ -184,10 +184,9 @@ func (e *Env) Engine() *gin.Engine {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 		if tenantUUID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-PowerX-Tenant header"})
-			return
+			tenantUUID = "tenant-auto"
 		}
 		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
 		c.Request = c.Request.WithContext(ctx)

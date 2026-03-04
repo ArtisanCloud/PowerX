@@ -3,7 +3,7 @@
 ## 1. 统一口径（唯一事实）
 
 1. **Topic 只表达事件语义**，格式为 `namespace.name`（例如 `knowledge.space.feedback.reprocess`）。
-2. **租户只来自 JWT**（`tid/tenant_uuid` claims），不接受 `X-PowerX-Tenant`。
+2. **租户只来自 JWT**（`tid/tenant_uuid` claims），不接受任何租户 header 注入。
 3. **WebSocket 与 Task Event 共用同一 Topic 语义**，仅消费通道不同。
 4. **运行时解析链路**：`tenant -> global -> system`。
 5. **禁止业务模块私有轮询**，统一走 Event Fabric + TaskDriver。

@@ -79,7 +79,7 @@ last_reviewed_at: 2025-02-20
 # Key Interactions & Contracts
 
 - **APIs**：`POST /openapi/v1/token`, `POST /openapi/v1/host/<service>`、`POST /openapi/v1/events/publish`, `POST /openapi/v1/callbacks/ack`.
-- **Headers/Context**：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-permissions`.
+- **Headers/Context**：`tenant_uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-permissions`.
 - **Events**：`plugin.host-call.audit`, `plugin.host-call.retry`, `plugin.host-event.deadletter`.
 - **Configs**：`plugin_call_gateway.yaml`, `context_schema.yaml`, `resilience_policies.yaml`, `event_pipeline.yaml`.
 

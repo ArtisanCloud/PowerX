@@ -94,7 +94,7 @@ sequenceDiagram
 
 - `POST /host/plugins/call` — Body: `plugin_id`, `capability`, `protocol`, `payload`, `tenant_uuid`, `trace_id`, `user_ctx`.
 - `POST /host/plugins/call/validate` — 可选 Schema 预检。
-- Header/Context：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-request-id`.
+- Header/Context：`tenant_uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-request-id`.
 - Configs：`host_plugin_gateway.yaml`, `protocol_mapping.json`, `schema_registry`.
 - Audit Events：`host.plugin.entry.auth_failure`, `host.plugin.entry.protocol_error`.
 

@@ -218,7 +218,7 @@ func (h *APIKeyAdminHandler) CreateAPIKey(c *gin.Context) {
 }
 
 func (h *APIKeyAdminHandler) ListAPIKeys(c *gin.Context) {
-	canonical, err := h.resolveTenantScope(c, c.Query("tenant_uuid"))
+	canonical, err := h.resolveTenantScope(c, "")
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
@@ -471,7 +471,7 @@ func (h *APIKeyAdminHandler) RotateAPIKey(c *gin.Context) {
 }
 
 func (h *APIKeyAdminHandler) ListAPIKeyProfiles(c *gin.Context) {
-	canonical, err := h.resolveTenantScope(c, c.Query("tenant_uuid"))
+	canonical, err := h.resolveTenantScope(c, "")
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
@@ -1220,17 +1220,6 @@ func (h *APIKeyAdminHandler) resolveTenantScope(c *gin.Context, raw string) (str
 	if err != nil {
 		return "", dto.NewUnauthorized("tenant context invalid", err)
 	}
-
-	requested := strings.TrimSpace(raw)
-	if requested == "" {
-		return currentTenant, nil
-	}
-	requestedTenant, err := reqctx.CanonicalTenantUUID(requested)
-	if err != nil {
-		return "", dto.NewBadRequest("tenant_uuid must be a valid UUID", err)
-	}
-	if !strings.EqualFold(requestedTenant, currentTenant) {
-		return "", dto.NewForbidden("cross-tenant api key management is forbidden", nil)
-	}
+	_ = raw
 	return currentTenant, nil
 }

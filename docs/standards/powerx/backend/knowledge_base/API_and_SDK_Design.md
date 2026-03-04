@@ -216,7 +216,7 @@ types[]?: entity|concept|document
 syntax = "proto3";
 package knowledge.v1;
 
-// 认证与多租户在网关或拦截器中处理：authorization/x-tenant-uuid
+// 认证与多租户在网关或拦截器中处理：authorization/tenant_uuid
 
 service KnowledgeService {
   // Spaces
@@ -466,7 +466,7 @@ Headers:
 
 ### 7.2 gRPC（插件/服务侧）
 
-* 代码按第 4 章 proto 生成；拦截器统一注入 `authorization` 与 `x-tenant-uuid` 元数据
+* 代码按第 4 章 proto 生成；拦截器统一注入 `authorization` 与 `tenant_uuid` 元数据
 * 建议超时：检索 3–5s；Rerank 开启可至 6–8s
 * 重试：仅对 `UNAVAILABLE` / `DEADLINE_EXCEEDED` 等幂等场景
 

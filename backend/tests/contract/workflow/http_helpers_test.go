@@ -17,7 +17,7 @@ func requireWorkflowAuth(expectedTenantUUID string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant"))
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 		if tenantUUID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -45,11 +45,11 @@ func serveWorkflowRequest(t testing.TB, handler http.Handler, req *http.Request,
 func applyWorkflowHeaders(t testing.TB, req *http.Request, tenantUUID string) {
 	t.Helper()
 	require.NotNil(t, req, "request must not be nil")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header forbidden")
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-PowerX-Tenant", tenantUUID)
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoWorkflowTenantLeak(t testing.TB, payload []byte) {
