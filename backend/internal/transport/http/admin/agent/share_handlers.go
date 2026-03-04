@@ -35,6 +35,9 @@ func (h *ShareHandler) CreateShare(c *gin.Context) {
 	if agentIDStr == "" {
 		agentIDStr = c.Param("id")
 	}
+	if agentIDStr == "" {
+		agentIDStr = c.Param("uuid")
+	}
 	agentID, err := uuid.Parse(agentIDStr)
 	if err != nil {
 		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)

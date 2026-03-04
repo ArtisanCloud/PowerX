@@ -1,6 +1,7 @@
 package knowledge_space
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -687,6 +688,12 @@ func (h *IngestionHandler) UpdateChunk(c *gin.Context) {
 	}
 
 	// 更新向量索引（仅该 chunk）
+	dim, err := h.activeVectorDimensions(c.Request.Context(), spaceID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "未找到可用的向量索引维度", err)
+		return
+	}
+
 	meta := make(map[string]any, len(chunkMeta)+2)
 	for k, v := range chunkMeta {
 		meta[k] = v
@@ -695,7 +702,7 @@ func (h *IngestionHandler) UpdateChunk(c *gin.Context) {
 	meta["content_hash"] = ksvc.ContentHash(content)
 	if err := h.vs.Upsert(c.Request.Context(), spaceID, []vectorstore.VectorRecord{{
 		ChunkID:   chunkUUID,
-		Embedding: ksvc.HashEmbedding(content, 32),
+		Embedding: ksvc.HashEmbedding(content, dim),
 		Metadata:  meta,
 	}}); err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "更新向量索引失败", err)
@@ -729,7 +736,7 @@ func (h *IngestionHandler) UpdateChunk(c *gin.Context) {
 							if id != chunkIDStr {
 								continue
 							}
-							rec["Embedding"] = ksvc.HashEmbedding(content, 32)
+							rec["Embedding"] = ksvc.HashEmbedding(content, dim)
 							if m, ok := rec["Metadata"].(map[string]any); ok && m != nil {
 								m["content_hash"] = ksvc.ContentHash(content)
 								m["edited_at"] = now
@@ -771,6 +778,23 @@ func (h *IngestionHandler) UpdateChunk(c *gin.Context) {
 		"spaceId":   spaceID.String(),
 		"updatedAt": now,
 	})
+}
+
+func (h *IngestionHandler) activeVectorDimensions(ctx context.Context, spaceID uuid.UUID) (int, error) {
+	if h == nil || h.db == nil {
+		return 0, errors.New("db not initialized")
+	}
+	rec, err := knowledgeRepo.NewKnowledgeVectorIndexRepository(h.db).FindActiveBySpace(ctx, spaceID)
+	if err != nil {
+		return 0, err
+	}
+	if rec == nil {
+		return 0, errors.New("active vector index not found")
+	}
+	if rec.Dimensions <= 0 {
+		return 0, fmt.Errorf("invalid active vector index dimensions: %d", rec.Dimensions)
+	}
+	return rec.Dimensions, nil
 }
 
 func (h *IngestionHandler) PageImage(c *gin.Context) {

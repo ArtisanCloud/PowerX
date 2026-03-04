@@ -495,6 +495,7 @@ func (s *IngestionService) TriggerAsync(ctx context.Context, in TriggerIngestion
 			bundle:              bundle,
 			format:              format,
 			sourceURI:           in.SourceURI,
+			docUUID:             in.DocUUID,
 			ingestionProfile:    in.IngestionProfile,
 			processorProfile:    in.ProcessorProfile,
 			ocrRequired:         in.OCRRequired,
