@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,31 +9,38 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	agentconf "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
-	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
+	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
-	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
-	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
+	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
+	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
+	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type ModelRule struct {
-	RequireAPIKey  bool
+	RequireAPIKey    bool
 	RequireSecretID  bool
 	RequireSecretKey bool
-	RequireBaseURL bool
-	DefaultBaseURL string
+	RequireBaseURL   bool
+	DefaultBaseURL   string
 }
 
 var sensitiveCredentialKeys = []string{"api_key", "secret_id", "secret_key", "secret", "client_secret", "access_token"}
@@ -47,25 +55,25 @@ type ProviderHealthRecord struct {
 }
 
 type AgentSettingService struct {
-	db         *gorm.DB
-	credRepo   *repoai.AIProviderCredentialRepository
-	profRepo   *repoai.AIModelProfileRepository
-	routeRepo  *repoai.AIRoutePolicyRepository
-	usageRepo  *repoai.AIUsageLogRepository
-	tks        *tenantkeys.TenantKeyService
-	tenantRepo *tenantrepo.TenantRepository
+	db          *gorm.DB
+	credRepo    *repoai.AIProviderCredentialRepository
+	profRepo    *repoai.AIModelProfileRepository
+	routeRepo   *repoai.AIRoutePolicyRepository
+	usageRepo   *repoai.AIUsageLogRepository
+	tks         *tenantkeys.TenantKeyService
+	tenantRepo  *tenantrepo.TenantRepository
 	settingRepo *settingrepo.TenantSettingRepository
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
 	return &AgentSettingService{
-		db:         db,
-		credRepo:   repoai.NewAIProviderCredentialRepository(db),
-		profRepo:   repoai.NewAIModelProfileRepository(db),
-		routeRepo:  repoai.NewAIRoutePolicyRepository(db),
-		usageRepo:  repoai.NewAIUsageLogRepository(db),
-		tks:        tenantkeys.NewTenantKeyService(db),
-		tenantRepo: tenantrepo.NewTenantRepository(db),
+		db:          db,
+		credRepo:    repoai.NewAIProviderCredentialRepository(db),
+		profRepo:    repoai.NewAIModelProfileRepository(db),
+		routeRepo:   repoai.NewAIRoutePolicyRepository(db),
+		usageRepo:   repoai.NewAIUsageLogRepository(db),
+		tks:         tenantkeys.NewTenantKeyService(db),
+		tenantRepo:  tenantrepo.NewTenantRepository(db),
 		settingRepo: settingrepo.NewTenantSettingRepository(db),
 	}
 }
@@ -204,12 +212,16 @@ func (s *AgentSettingService) Providers(modality string) []aiProviderItem {
 	items := catalogGetProviders(strings.TrimSpace(modality))
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name})
+		out = append(out, aiProviderItem{
+			ID:   it.ID,
+			Name: it.Name,
+			Apps: it.Apps,
+		})
 	}
 	return out
 }
-func (s *AgentSettingService) Models(modality, provider string) ([]string, error) {
-	models, err := catalogGetModels(strings.TrimSpace(modality), strings.TrimSpace(provider))
+func (s *AgentSettingService) Models(modality, provider, app string) ([]string, error) {
+	models, err := catalogGetModels(strings.TrimSpace(modality), strings.TrimSpace(provider), strings.TrimSpace(app))
 	if err != nil {
 		return nil, err
 	}
@@ -227,9 +239,11 @@ func (s *AgentSettingService) ModelsForTenant(
 	tenantUUID *string,
 	modality string,
 	provider string,
+	app string,
 ) ([]string, error) {
 	mod := strings.TrimSpace(strings.ToLower(modality))
 	prov := strings.TrimSpace(strings.ToLower(provider))
+	app = strings.TrimSpace(strings.ToLower(app))
 
 	// OpenRouter：模型目录变化快，优先走远端 /models；失败则回退到本地目录（占位/示例）。
 	if prov == "openrouter" && (mod == "llm" || mod == "embedding") {
@@ -237,12 +251,16 @@ func (s *AgentSettingService) ModelsForTenant(
 			return remote, nil
 		}
 	}
-	return s.Models(mod, prov)
+	return s.Models(mod, prov, app)
 }
 
 type openRouterModelsResponse struct {
-	Data   []struct{ ID string `json:"id"` } `json:"data"`
-	Models []struct{ ID string `json:"id"` } `json:"models"`
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+	Models []struct {
+		ID string `json:"id"`
+	} `json:"models"`
 }
 
 func (s *AgentSettingService) fetchOpenRouterModels(
@@ -524,6 +542,7 @@ func (s *AgentSettingService) resolveConnFromStore(
 
 	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
+		logger.WarnF(ctx, "[agent_setting] credential lookup failed env=%s tenant=%s provider=%s name=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, name, err)
 		return baseURL, apiKey, err
 	}
 	// 先用存量 base_url
@@ -541,14 +560,28 @@ func (s *AgentSettingService) resolveConnFromStore(
 			apiKey = strings.TrimSpace(v)
 		}
 
-		var sec struct {
-			APIKey string `json:"api_key"`
-			Secret string `json:"secret"`
-		}
+		sec := map[string]any{}
 		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 			if apiKey == "" {
-				apiKey = strings.TrimSpace(sec.APIKey)
+				if v, ok := sec["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["access_token"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				} else if v, ok := sec["secret"].(string); ok && strings.TrimSpace(v) != "" {
+					apiKey = strings.TrimSpace(v)
+				}
 			}
+			if apiKey == "" {
+				keys := make([]string, 0, len(sec))
+				for k := range sec {
+					keys = append(keys, k)
+				}
+				logger.WarnF(ctx, "[agent_setting] resolved empty api_key after unseal env=%s tenant=%s provider=%s sealed_keys=%v", env, s.tenantScopeKey(tenantUUID), provider, keys)
+			}
+		} else if cred.Data != nil && cred.Data["__sealed"] != nil {
+			logger.WarnF(ctx, "[agent_setting] unseal api_key failed env=%s tenant=%s provider=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, e)
+		} else {
+			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
 	}
 	return baseURL, apiKey, nil
@@ -648,6 +681,8 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 		}
 		return s.PingStrict(ctx, mod, prov, model, bu, ak, "", "", "")
 
+	case contract.ModImage:
+		return s.PingImage(ctx, env, tenantUUID, provider, model, baseURL, apiKey, secretID, secretKey, region, "")
 	default:
 		return s.PingGeneric(ctx, env, tenantUUID, contract.Modality(mod), provider, model, baseURL, apiKey)
 	}
@@ -748,6 +783,109 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUI
 	return err
 }
 
+func (s *AgentSettingService) PingImage(
+	ctx context.Context, env string, tenantUUID *string,
+	provider, model, baseURL, apiKey, secretID, secretKey, region, organization string,
+) error {
+	logger.InfoF(ctx, "[agent_setting] ping_image start env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
+	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
+		return err
+	}
+	p := strings.TrimSpace(strings.ToLower(provider))
+	req := catalog.AuthReqFromCatalog(provider)
+	var err error
+	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return err
+	}
+	if err := validateEndpoint(baseURL); err != nil {
+		return err
+	}
+
+	manifest := findModelManifest(string(contract.ModImage), provider, model)
+	size := "256x256"
+	quality := "auto"
+	format := "png"
+	promptHint := ""
+	if manifest != nil && manifest.Defaults != nil {
+		if v, ok := manifest.Defaults["size"].(string); ok && strings.TrimSpace(v) != "" {
+			size = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["quality"].(string); ok && strings.TrimSpace(v) != "" {
+			quality = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["format"].(string); ok && strings.TrimSpace(v) != "" {
+			format = strings.TrimSpace(v)
+		}
+		if v, ok := manifest.Defaults["promptHint"].(string); ok && strings.TrimSpace(v) != "" {
+			promptHint = strings.TrimSpace(v)
+		}
+	}
+	prompt := "A tiny white cube on a blue background."
+	if promptHint != "" {
+		prompt = strings.TrimSpace(prompt + "\n" + promptHint)
+	}
+
+	mc := agentcfg.ModelConfig{
+		Provider:     provider,
+		Endpoint:     baseURL,
+		APIKey:       apiKey,
+		SecretID:     secretID,
+		SecretKey:    secretKey,
+		Region:       region,
+		Model:        model,
+		Organization: organization,
+		Extra:        s.buildModelExtras(contract.ModImage, provider, model),
+	}
+
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["image"])); dk != "" {
+			driverKey = dk
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	var invokeErr error
+	switch driverKey {
+	case "qwen":
+		cli, err := vlmfactory.NewClient(driverKey)
+		if err != nil {
+			return err
+		}
+		_, invokeErr = cli.Invoke(ctx, contract.VLMRequest{
+			Messages: []contract.Message{
+				{
+					Role: "user",
+					Content: []contract.ContentPart{
+						{Type: contract.ContentTypeText, Text: "请回复 ok"},
+					},
+				},
+			},
+			MaxTokens: 8,
+			Runtime:   map[string]any{"config": &mc},
+		})
+	default:
+		cli, err := imagefactory.NewClient(driverKey)
+		if err != nil {
+			return err
+		}
+		_, invokeErr = cli.Generate(ctx, contract.ImageRequest{
+			Prompt:  prompt,
+			Size:    size,
+			Quality: quality,
+			Format:  format,
+			Runtime: map[string]any{"config": &mc},
+		})
+	}
+	if invokeErr == nil {
+		logger.InfoF(ctx, "[agent_setting] ping_image success env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
+	}
+	return invokeErr
+}
+
 func (s *AgentSettingService) PingGeneric(
 	ctx context.Context, env string, tenantUUID *string,
 	modality contract.Modality, provider, model, baseURL, apiKey string,
@@ -765,6 +903,565 @@ func (s *AgentSettingService) PingGeneric(
 	}
 	_ = ak
 	return nil
+}
+
+// ProbeEmbeddingDimensionsPreferInput performs a real embedding call to discover vector dimensions, and writes it back to the profile.
+// NOTE: This is used by AI Settings "测试连接"，不做任何向量表创建，仅探测 provider/model 的 embedding 输出。
+func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+) (int, error) {
+	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+		return 0, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return 0, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return 0, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return 0, err
+	}
+
+	// driver mapping: provider may declare a different embedding driver (OpenAI-compatible etc.)
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["embedding"])); dk != "" {
+			driverKey = dk
+		}
+	}
+
+	embCfg := agentconf.EmbeddingConfig{
+		Enabled:  true,
+		Provider: driverKey,
+		Endpoint: bu,
+		Model:    m,
+		APIKey:   ak,
+		MaxBatch: 8,
+		Dim:      0,
+	}
+	vec, err := intentfactory.NewVectorizerFromConfig(embCfg)
+	if err != nil {
+		return 0, err
+	}
+	if vec == nil {
+		return 0, fmt.Errorf("embedding vectorizer unavailable (provider=%s model=%s)", p, m)
+	}
+	out, err := vec.Embed(ctx, []string{"powerx-dim-probe"})
+	if err != nil {
+		return 0, err
+	}
+	if len(out) == 0 || len(out[0]) == 0 {
+		return 0, fmt.Errorf("embedding probe returned empty vector")
+	}
+	dim := len(out[0])
+	maxInputTokens := probeEmbeddingMaxInputTokens(ctx, p, bu, m)
+	if maxInputTokens > 0 {
+		logger.InfoF(ctx, "[agent_setting] embedding max_input_tokens probed provider=%s model=%s tokens=%d", p, m, maxInputTokens)
+	} else {
+		logger.InfoF(ctx, "[agent_setting] embedding max_input_tokens probe empty provider=%s model=%s base=%s", p, m, bu)
+	}
+
+	// write back to model profile (defaults + cap_cache)
+	profile := &dbmodel.AIModelProfile{
+		Modality: "embedding",
+		Provider: p,
+		Model:    m,
+		Label:    "probe.embedding",
+		Defaults: datatypes.JSONMap{
+			"dimensions": dim,
+		},
+		CapCache: datatypes.JSONMap{
+			"dimensions": dim,
+			"probed_at":  time.Now().UTC().Format(time.RFC3339Nano),
+		},
+		Tags: []string{"embedding", "probed"},
+	}
+	if maxInputTokens > 0 {
+		profile.Defaults["max_input_tokens"] = maxInputTokens
+		profile.CapCache["max_input_tokens"] = maxInputTokens
+	}
+	// keep existing defaults/cap_cache best-effort (no hard dependency)
+	if exist, e := s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, "embedding", p, m); e == nil && exist != nil {
+		if exist.Defaults != nil {
+			for k, v := range exist.Defaults {
+				if _, ok := profile.Defaults[k]; ok {
+					continue
+				}
+				profile.Defaults[k] = v
+			}
+		}
+		if exist.CapCache != nil {
+			for k, v := range exist.CapCache {
+				profile.CapCache[k] = v
+			}
+			profile.CapCache["dimensions"] = dim
+			profile.CapCache["probed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
+			if maxInputTokens > 0 {
+				profile.CapCache["max_input_tokens"] = maxInputTokens
+			}
+		}
+		if strings.TrimSpace(exist.Label) != "" {
+			profile.Label = exist.Label
+		}
+		if len(exist.Tags) > 0 {
+			profile.Tags = exist.Tags
+		}
+	}
+	if maxInputTokens <= 0 {
+		delete(profile.Defaults, "max_input_tokens")
+		delete(profile.CapCache, "max_input_tokens")
+	}
+	_ = s.profRepo.UpsertByScopeModalityProviderModel(ctx, env, tenantUUID, profile)
+
+	return dim, nil
+}
+
+// BuildEmbeddingConfig resolves tenant embedding connection info and returns a ready config.
+func (s *AgentSettingService) BuildEmbeddingConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+) (agentconf.EmbeddingConfig, error) {
+	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return agentconf.EmbeddingConfig{}, fmt.Errorf("provider/model 不能为空")
+	}
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return agentconf.EmbeddingConfig{}, err
+	}
+
+	driverKey := p
+	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
+		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["embedding"])); dk != "" {
+			driverKey = dk
+		}
+	}
+
+	return agentconf.EmbeddingConfig{
+		Enabled:  true,
+		Provider: driverKey,
+		Endpoint: bu,
+		Model:    m,
+		APIKey:   ak,
+		MaxBatch: 8,
+		Dim:      0,
+	}, nil
+}
+
+// BuildImageConfig resolves tenant image connection info and returns a ready config.
+func (s *AgentSettingService) BuildImageConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+	secretID string,
+	secretKey string,
+	region string,
+	organization string,
+) (*agentcfg.ModelConfig, error) {
+	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
+		return nil, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return nil, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+			baseURL = v
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+
+	org := strings.TrimSpace(organization)
+	rg := strings.TrimSpace(region)
+	azureDeployment := ""
+	name := utils.Slug(env + "-" + p)
+	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+		if org == "" {
+			if v, ok := cred.Data["organization"].(string); ok {
+				org = strings.TrimSpace(v)
+			}
+		}
+		if rg == "" {
+			if v, ok := cred.Data["region"].(string); ok {
+				rg = strings.TrimSpace(v)
+			}
+		}
+		if v, ok := cred.Data["azure_deployment"].(string); ok {
+			azureDeployment = strings.TrimSpace(v)
+		}
+	}
+
+	return &agentcfg.ModelConfig{
+		Provider:        provider,
+		Endpoint:        bu,
+		APIKey:          ak,
+		SecretID:        strings.TrimSpace(secretID),
+		SecretKey:       strings.TrimSpace(secretKey),
+		Region:          rg,
+		Model:           m,
+		Organization:    org,
+		AzureDeployment: azureDeployment,
+		Extra:           s.buildModelExtras(contract.ModImage, provider, model),
+	}, nil
+}
+
+// BuildModelConfig resolves tenant provider credentials for any modality and returns runtime model config.
+func (s *AgentSettingService) BuildModelConfig(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	modality string,
+	provider string,
+	model string,
+	baseURL string,
+	apiKey string,
+	secretID string,
+	secretKey string,
+	region string,
+	organization string,
+) (*agentcfg.ModelConfig, error) {
+	mod := strings.ToLower(strings.TrimSpace(modality))
+	if mod == "" {
+		return nil, fmt.Errorf("modality 不能为空")
+	}
+	if err := ensureModelExists(mod, provider, model); err != nil {
+		return nil, err
+	}
+	p := strings.ToLower(strings.TrimSpace(provider))
+	m := strings.TrimSpace(model)
+	if p == "" || m == "" {
+		return nil, fmt.Errorf("provider/model 不能为空")
+	}
+
+	req := catalog.AuthReqFromCatalog(p)
+	if strings.TrimSpace(baseURL) == "" {
+		if manifest := findModelManifest(mod, p, m); manifest != nil {
+			if v, ok := manifest.Defaults["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+				baseURL = strings.TrimSpace(v)
+			}
+		}
+		if strings.TrimSpace(baseURL) == "" {
+			if v := catalog.DefaultBaseURLForModel(p, m); strings.TrimSpace(v) != "" {
+				baseURL = v
+			}
+		}
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+
+	org := strings.TrimSpace(organization)
+	rg := strings.TrimSpace(region)
+	sid := strings.TrimSpace(secretID)
+	sk := strings.TrimSpace(secretKey)
+	azureDeployment := ""
+
+	name := utils.Slug(env + "-" + p)
+	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+		if org == "" {
+			if v, ok := cred.Data["organization"].(string); ok {
+				org = strings.TrimSpace(v)
+			}
+		}
+		if rg == "" {
+			if v, ok := cred.Data["region"].(string); ok {
+				rg = strings.TrimSpace(v)
+			}
+		}
+		if sid == "" {
+			if v, ok := cred.Data["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
+				sid = strings.TrimSpace(v)
+			} else if v, ok := cred.Data["secretId"].(string); ok && strings.TrimSpace(v) != "" {
+				sid = strings.TrimSpace(v)
+			}
+		}
+		if sk == "" {
+			if v, ok := cred.Data["secret_key"].(string); ok && strings.TrimSpace(v) != "" {
+				sk = strings.TrimSpace(v)
+			} else if v, ok := cred.Data["secretKey"].(string); ok && strings.TrimSpace(v) != "" {
+				sk = strings.TrimSpace(v)
+			}
+		}
+		if v, ok := cred.Data["azure_deployment"].(string); ok {
+			azureDeployment = strings.TrimSpace(v)
+		}
+		if sid == "" || sk == "" {
+			sec := map[string]any{}
+			if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+				if sid == "" {
+					if v, ok := sec["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
+						sid = strings.TrimSpace(v)
+					}
+				}
+				if sk == "" {
+					if v, ok := sec["secret_key"].(string); ok && strings.TrimSpace(v) != "" {
+						sk = strings.TrimSpace(v)
+					}
+				}
+			}
+		}
+	}
+
+	return &agentcfg.ModelConfig{
+		Provider:        provider,
+		Endpoint:        bu,
+		APIKey:          ak,
+		SecretID:        sid,
+		SecretKey:       sk,
+		Region:          rg,
+		Model:           m,
+		Organization:    org,
+		AzureDeployment: azureDeployment,
+		Extra:           s.buildModelExtras(contract.Modality(mod), provider, model),
+	}, nil
+}
+
+func probeEmbeddingMaxInputTokens(ctx context.Context, provider, baseURL, model string) int {
+	if strings.ToLower(strings.TrimSpace(provider)) != "ollama" {
+		return 0
+	}
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	if base == "" || strings.TrimSpace(model) == "" {
+		return 0
+	}
+	payload := map[string]string{"name": strings.TrimSpace(model)}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return 0
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/show", bytes.NewReader(body))
+	if err != nil {
+		return 0
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.WarnF(ctx, "[agent_setting] ollama show failed provider=%s model=%s base=%s err=%v", provider, model, base, err)
+		return 0
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		logger.WarnF(ctx, "[agent_setting] ollama show non-2xx provider=%s model=%s base=%s status=%d", provider, model, base, resp.StatusCode)
+		return 0
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil || len(raw) == 0 {
+		logger.WarnF(ctx, "[agent_setting] ollama show empty body provider=%s model=%s base=%s", provider, model, base)
+		return 0
+	}
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
+		logger.WarnF(ctx, "[agent_setting] ollama show invalid json provider=%s model=%s base=%s err=%v", provider, model, base, err)
+		return 0
+	}
+	logger.InfoF(ctx, "[agent_setting] ollama show keys provider=%s model=%s keys=%v", provider, model, mapKeys(data))
+	if params, ok := data["parameters"].(map[string]any); ok {
+		if v := parseAnyInt(params["num_ctx"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context_length"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context_len"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(params["context"]); v > 0 {
+			return v
+		}
+	}
+	if params, ok := data["parameters"].(string); ok && strings.TrimSpace(params) != "" {
+		re := regexp.MustCompile(`(?mi)\b(num_ctx|context_length|context_len|context\s+length)\s*[:=]?\s*(\d+)\b`)
+		if m := re.FindStringSubmatch(params); len(m) > 2 {
+			if n, err := strconv.Atoi(strings.TrimSpace(m[2])); err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	if v := parseAnyInt(data["context_length"]); v > 0 {
+		return v
+	}
+	if v := parseAnyInt(data["context_len"]); v > 0 {
+		return v
+	}
+	if v := parseAnyInt(data["context"]); v > 0 {
+		return v
+	}
+	if info, ok := data["model_info"]; ok {
+		if v := extractOllamaContext(info); v > 0 {
+			return v
+		}
+	}
+	if details, ok := data["details"]; ok {
+		if v := extractOllamaContext(details); v > 0 {
+			return v
+		}
+	}
+	if modelInfo, ok := data["model"]; ok {
+		if v := extractOllamaContext(modelInfo); v > 0 {
+			return v
+		}
+	}
+	if v := parseAnyInt(data["num_ctx"]); v > 0 {
+		return v
+	}
+	if mf, ok := data["modelfile"].(string); ok && strings.TrimSpace(mf) != "" {
+		re := regexp.MustCompile(`(?mi)^\s*PARAMETER\s+num_ctx\s+(\d+)\s*$`)
+		if m := re.FindStringSubmatch(mf); len(m) > 1 {
+			if n, err := strconv.Atoi(strings.TrimSpace(m[1])); err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+func extractOllamaContext(raw any) int {
+	switch info := raw.(type) {
+	case map[string]any:
+		if v := parseAnyInt(info["num_ctx"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context_length"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context_len"]); v > 0 {
+			return v
+		}
+		if v := parseAnyInt(info["context"]); v > 0 {
+			return v
+		}
+		// Ollama 的 model_info/details 常见 key: "bert.context_length" / "llama.context_length"
+		for k, v := range info {
+			lk := strings.ToLower(strings.TrimSpace(k))
+			if strings.Contains(lk, "context_length") || strings.HasSuffix(lk, ".context_length") || strings.HasSuffix(lk, "context_length") {
+				if n := parseAnyInt(v); n > 0 {
+					return n
+				}
+			}
+			if strings.Contains(lk, "num_ctx") || strings.HasSuffix(lk, ".num_ctx") {
+				if n := parseAnyInt(v); n > 0 {
+					return n
+				}
+			}
+		}
+	case string:
+		if v := parseContextFromString(info); v > 0 {
+			return v
+		}
+	}
+	return 0
+}
+
+func parseContextFromString(s string) int {
+	if strings.TrimSpace(s) == "" {
+		return 0
+	}
+	re := regexp.MustCompile(`(?mi)\b(num_ctx|context_length|context_len|context\s+length)\s*[:=]?\s*(\d+)\b`)
+	if m := re.FindStringSubmatch(s); len(m) > 2 {
+		if n, err := strconv.Atoi(strings.TrimSpace(m[2])); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+func mapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func parseAnyInt(v any) int {
+	switch val := v.(type) {
+	case int:
+		if val > 0 {
+			return val
+		}
+	case int64:
+		if val > 0 {
+			return int(val)
+		}
+	case float64:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case float32:
+		if int(val) > 0 {
+			return int(val)
+		}
+	case string:
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val)); err == nil && parsed > 0 {
+			return parsed
+		}
+	case json.Number:
+		if parsed, err := val.Int64(); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+		if parsed, err := strconv.Atoi(strings.TrimSpace(val.String())); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
 
 // 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
@@ -836,7 +1533,8 @@ func (s *AgentSettingService) QuickCallLLM(
 	// 回退解密（OpenAI-compatible 等）
 	var err error
 	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略错误，尽量继续 */ }
+	if err != nil { /* 忽略错误，尽量继续 */
+	}
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
@@ -1177,12 +1875,25 @@ func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provi
 	if manifest == nil || manifest.Defaults == nil {
 		return nil
 	}
+	out := map[string]any{}
 	if raw, ok := manifest.Defaults["api_path"]; ok {
 		if path, ok2 := raw.(string); ok2 && strings.TrimSpace(path) != "" {
-			return map[string]any{"api_path": path}
+			out["api_path"] = strings.TrimSpace(path)
 		}
 	}
-	return nil
+	for _, key := range []string{
+		"action", "action_poll", "version", "service", "service_id",
+		"req_json", "result_req_json", "force_single", "scale", "min_ratio", "max_ratio",
+		"base_url", "api_path_submit", "api_path_poll", "parameters",
+	} {
+		if raw, ok := manifest.Defaults[key]; ok {
+			out[key] = raw
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func mergeManifestDefaults(user datatypes.JSONMap, manifest map[string]any) datatypes.JSONMap {
@@ -1226,17 +1937,47 @@ func mergeTags(modality string, manifestTags []string, existing datatypes.JSONSl
 
 func findModelManifest(modality, provider, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
-	models, err := reg.Models(modality, provider)
-	if err != nil {
-		return nil
+	app, pureModel := splitAppModel(reg, provider, model)
+	candidates := []string{strings.TrimSpace(strings.ToLower(modality))}
+	if candidates[0] == "audio_tts" || candidates[0] == "audio_asr" {
+		candidates = append(candidates, "audio")
 	}
-	for _, m := range models {
-		if strings.EqualFold(m.ID, model) {
-			copy := m
-			return &copy
+	for _, mod := range candidates {
+		models, err := reg.ModelsByApp(mod, provider, app)
+		if err != nil {
+			continue
+		}
+		for _, m := range models {
+			if strings.EqualFold(m.ID, pureModel) || strings.EqualFold(m.ID, model) {
+				copy := m
+				return &copy
+			}
 		}
 	}
 	return nil
+}
+
+func splitAppModel(reg *catalog.Registry, provider, model string) (string, string) {
+	raw := strings.TrimSpace(model)
+	if raw == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(raw, ":", 2)
+	if len(parts) != 2 {
+		return "", raw
+	}
+	app := strings.ToLower(strings.TrimSpace(parts[0]))
+	if app == "" {
+		return "", raw
+	}
+	// only treat prefix as app if provider declares it
+	apps := reg.Apps(provider, "")
+	for _, it := range apps {
+		if strings.EqualFold(it.ID, app) {
+			return app, strings.TrimSpace(parts[1])
+		}
+	}
+	return "", raw
 }
 
 // —— catalog 适配：在 service 层做轻薄封装，避免 handler 直依赖 —— //
@@ -1244,9 +1985,15 @@ func findModelManifest(modality, provider, model string) *catalog.ModelManifest 
 type aiProviderItem struct {
 	ID   string
 	Name string
+	Apps []aiAppItem
 }
 
 type aiModelItem struct {
+	ID   string
+	Name string
+}
+
+type aiAppItem struct {
 	ID   string
 	Name string
 }
@@ -1258,7 +2005,7 @@ func catalogGetProviders(mod string) []aiProviderItem {
 
 	// ✅ 对齐：图像/视频两套 Provider 列表保持一致：image ∪ video
 	var items []catalog.ProviderItem
-	if m == "video" || m == "image" {
+	if m == "video" || m == "image" || m == "audio_tts" || m == "audio_asr" {
 		seen := map[string]struct{}{}
 		add := func(list []catalog.ProviderItem) {
 			for _, it := range list {
@@ -1272,34 +2019,65 @@ func catalogGetProviders(mod string) []aiProviderItem {
 				items = append(items, it)
 			}
 		}
-		add(reg.Providers("image"))
-		add(reg.Providers("video"))
+		if m == "video" || m == "image" {
+			add(reg.Providers("image"))
+			add(reg.Providers("video"))
+		}
+		if m == "audio_tts" || m == "audio_asr" {
+			add(reg.Providers(m))
+			add(reg.Providers("audio"))
+		}
 	} else {
 		items = reg.Providers(m)
 	}
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name})
+		appItems := reg.Apps(it.ID, m)
+		// 若按当前模态没有 app，回退到 provider 全量 app，避免 UI 丢失 app 层级。
+		if len(appItems) == 0 {
+			if allApps := reg.Apps(it.ID, ""); len(allApps) > 0 {
+				appItems = allApps
+			}
+		}
+		apps := make([]aiAppItem, 0, len(appItems))
+		for _, a := range appItems {
+			apps = append(apps, aiAppItem{ID: a.ID, Name: a.Name})
+		}
+		out = append(out, aiProviderItem{ID: it.ID, Name: it.Name, Apps: apps})
 	}
 	return out
 }
-func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
+func catalogGetModels(mod, prov, app string) ([]aiModelItem, error) {
 	m := strings.TrimSpace(strings.ToLower(mod))
 	reg := catalog.GetGlobalAIRegister()
+	p := strings.TrimSpace(strings.ToLower(prov))
+	a := strings.TrimSpace(strings.ToLower(app))
+
+	// 对有 apps 的 provider：要求显式 app 过滤，避免跨 app 混合模型列表。
+	if a == "" {
+		if apps := reg.Apps(p, m); len(apps) > 0 {
+			return []aiModelItem{}, nil
+		}
+	}
 
 	// ✅ 对齐：图像/视频如果该模态没模型，则回退到另一模态（避免下拉为空）
-	ms, err := reg.Models(m, prov)
+	ms, err := reg.ModelsByApp(m, p, a)
 	if err != nil {
 		return nil, err
 	}
 	if len(ms) == 0 {
 		if m == "video" {
-			if fallback, e := reg.Models("image", prov); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("image", p, a); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
 		if m == "image" {
-			if fallback, e := reg.Models("video", prov); e == nil && len(fallback) > 0 {
+			if fallback, e := reg.ModelsByApp("video", p, a); e == nil && len(fallback) > 0 {
+				ms = fallback
+			}
+		}
+		if m == "audio_tts" || m == "audio_asr" {
+			if fallback, e := reg.ModelsByApp("audio", p, a); e == nil && len(fallback) > 0 {
 				ms = fallback
 			}
 		}
@@ -1432,6 +2210,13 @@ func (s *AgentSettingService) GetActiveProfile(
 	return &latest, nil
 }
 
+// GetProfile returns the profile row for a specific (env, scope, modality, provider, model).
+func (s *AgentSettingService) GetProfile(
+	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
+) (*dbmodel.AIModelProfile, error) {
+	return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, modality, provider, model)
+}
+
 // service：设置某模态的“当前激活”
 func (s *AgentSettingService) SetActiveProfile(
 	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
@@ -1466,9 +2251,10 @@ func (s *AgentSettingService) resolveModelRule(modality, provider, model string)
 		// 2) 默认 base_url: model.defaults 覆盖 auth.defaults
 		def := ""
 		// 先 model 级
-		if models, _ := reg.Models(modality, provider); len(models) > 0 {
+		app, pureModel := splitAppModel(reg, provider, model)
+		if models, _ := reg.ModelsByApp(modality, provider, app); len(models) > 0 {
 			for _, mm := range models {
-				if strings.EqualFold(mm.ID, model) {
+				if strings.EqualFold(mm.ID, pureModel) || strings.EqualFold(mm.ID, model) {
 					if v, ok := mm.Defaults["base_url"].(string); ok && strings.TrimSpace(v) != "" {
 						def = v
 					}

@@ -124,11 +124,9 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		if tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenantUUID != "" {
-			ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
-			c.Request = c.Request.WithContext(ctx)
-			reqctx.CopyCtxToGin(c)
-		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), contractTenantUUID)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 	plugin_release.RegisterTenantRoutes(protected, deps)

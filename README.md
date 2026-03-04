@@ -112,6 +112,7 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 - **🛠️ [运维手册](https://powerx.artisan-cloud.com/operations)** - 监控、备份、升级
 - **📘 [Knowledge Space Quickstart](specs/011-knowledge-space/quickstart.md)** - 端到端创建/入库/融合/反馈示例
 - **🧯 [Knowledge Space Runbook](docs/guides/knowledge_space/runbook.md)** - 入库/融合/反馈故障处理与脚本
+- **🧭 [Knowledge Space UI Guide](docs/guides/knowledge_space/ui_guide.md)** - 管理台界面操作（含“场景→策略包/Corpus Check/OCR 提示/Playground”）
 - **📊 [Perf & Resiliency Validation](docs/guides/knowledge_space/perf_validation.md)** - 压测/降级/反馈风暴验证
 - **✅ [Smoke Checklist](docs/guides/knowledge_space/smoke_checklist.md)** - 发布前的冒烟检查表
 

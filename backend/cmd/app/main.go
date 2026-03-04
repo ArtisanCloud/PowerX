@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
@@ -11,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -27,6 +30,20 @@ import (
 func main() {
 	ctx := context.Background()
 
+	// 加载全局配置
+	cfg := config.GetGlobalConfig()
+	if cfg == nil {
+		log.Fatalf("加载配置文件失败")
+	}
+	apikeypermissions.SetIntroducedVersion(cfg.EffectiveSystemVersion())
+
+	// Gin 的 debug 路由打印按 log.http_debug 控制
+	if cfg.LogConfig.HttpDebug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.New()
 
 	// Swagger 文档元信息（也可在 api/openapi/docs.go 中修改默认生成的内容）
@@ -34,12 +51,6 @@ func main() {
 	docs.SwaggerInfo.Description = "PowerX 核心与插件管理 API"
 	docs.SwaggerInfo.Version = "v1.0.0"
 	docs.SwaggerInfo.BasePath = "/"
-
-	// 加载全局配置
-	cfg := config.GetGlobalConfig()
-	if cfg == nil {
-		log.Fatalf("加载配置文件失败")
-	}
 
 	// 初始化应用核心依赖
 	deps, err := bootstrap.BootstrapApp(ctx, cfg)
@@ -72,16 +83,27 @@ func main() {
 		return
 	}
 
-	if deps.EventFabric != nil && deps.EventFabric.Authorization != nil {
-		if deps.EventFabric.Authorization.TimeoutWorker != nil {
-			go deps.EventFabric.Authorization.TimeoutWorker.Run(ctx)
+	if deps.EventFabric != nil {
+		if deps.EventFabric.RetryWorker != nil {
+			go deps.EventFabric.RetryWorker.Run(ctx)
 		}
-		if deps.EventFabric.Authorization.Service != nil {
-			go func() {
-				if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
-					logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
-				}
-			}()
+		if deps.EventFabric.CronDispatcherWorker != nil {
+			go deps.EventFabric.CronDispatcherWorker.Run(ctx)
+		}
+		if deps.EventFabric.NotificationWorker != nil {
+			go deps.EventFabric.NotificationWorker.Run(ctx)
+		}
+		if deps.EventFabric.Authorization != nil {
+			if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
+				go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
+			}
+			if deps.EventFabric.Authorization.Service != nil {
+				go func() {
+					if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
+						logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+					}
+				}()
+			}
 		}
 	}
 
@@ -102,14 +124,20 @@ func main() {
 		Title: "PowerX Admin API (Minimal)", Version: "v1.0.0",
 	})
 
-	// 生成并保存最小 OpenAPI 文档文件
-	if err := openapi.SaveMinimalDoc(r, openapi.Info{
+	// 生成并保存最小 OpenAPI 文档文件（兼容不同启动目录）
+	docInfo := openapi.Info{
 		Title:   "PowerX Admin API (Minimal)",
 		Version: "v1.0.0",
 		BaseURL: "/",
-	}, "./api/openapi"); err != nil {
+	}
+	if err := saveMinimalOpenAPIDocs(r, docInfo); err != nil {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
+
+	// 打印路由（受 log.http_debug 控制）
+	// if cfg.LogConfig.HttpDebug {
+	// 	http.PrintRouteInfo(r, cfg)
+	// }
 
 	// 运行 HTTP 服务
 	err = r.Run(addr)
@@ -117,4 +145,41 @@ func main() {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
 
+}
+
+func saveMinimalOpenAPIDocs(r *gin.Engine, info openapi.Info) error {
+	cwd, _ := os.Getwd()
+	candidates := []string{"./api/openapi", "./backend/api/openapi"}
+	ordered := make([]string, 0, len(candidates))
+	for _, path := range candidates {
+		absPath := path
+		if !filepath.IsAbs(path) {
+			absPath = filepath.Join(cwd, path)
+		}
+		if stat, err := os.Stat(absPath); err == nil && stat.IsDir() {
+			ordered = append(ordered, absPath)
+		}
+	}
+	for _, path := range candidates {
+		absPath := path
+		if !filepath.IsAbs(path) {
+			absPath = filepath.Join(cwd, path)
+		}
+		exists := false
+		for _, done := range ordered {
+			if done == absPath {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			ordered = append(ordered, absPath)
+		}
+	}
+	for _, absPath := range ordered {
+		if err := openapi.SaveMinimalDoc(r, info, absPath); err == nil {
+			return nil
+		}
+	}
+	return openapi.SaveMinimalDoc(r, info, ordered[0])
 }

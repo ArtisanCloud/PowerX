@@ -21,16 +21,102 @@
 - 发布/订阅合同：标准化事件信封（Envelope）、元数据字段、幂等键、版本策略及 SDK 契约。
 - 投递可靠性：重试策略、指数退避/backoff、幂等性窗口、确认机制。
 - 死信队列（DLQ）及补偿：进入条件、存储结构、重放流程、告警与可视化能力。
+- 对外接口规范：HTTP（优先）、gRPC、SDK 草案与鉴权/限流/错误码统一。
+
+
+
+### 增量范围（Phase 10）
+- Event Fabric Admin 运维可视化页面（`/settings/event-fabric`）属于本特性增量范围。
+- UI 仅作为统一 Event Fabric/TaskDriver 机制的观察与处置入口，不引入新的投递或消费机制。
+- 页面必须复用现有 Admin API，确保契约口径与 `specs/004-eventbus-message-fabric/contracts/*` 一致。
+
+### 增量范围（Phase 11）
+- 新增 Cron 任务能力：仅负责按计划投递 Task Event，不直接执行业务。
+- Cron 执行结果必须复用统一 Retry/DLQ/Replay 通道，不允许私有轮询消费器。
+- Cron 运维与审计复用 Event Fabric Admin API 与运维页面。
+
+### 增量范围（Phase 13）
+- 新增「系统设置 / 事件权限（Event ACL）」治理页，维护 Topic 与角色（或主体）的授权关系。
+- Topic 治理采用“全局注册 + JWT 租户鉴别 + ACL 授权”，不再要求每租户复制同名 Topic。
+- 监控中心（`/settings/monitor?tab=event-fabric`）保留运行态观测与调试，不承担 ACL 配置主入口。
 
 ### Out of Scope
 - 业务编排流程（Workflow/Orchestration）具体执行逻辑。
 - 能力注册 Registry 的业务逻辑与数据模型。
-- Gateway/Admin UI 层面的前端界面与交互。
+- 非 Event Fabric 运维台范围内的通用 Gateway/Admin UI 业务界面与交互。
 
 ### 依赖
 - 安全策略与角色矩阵（Security Policy）需作为 ACL 引用源。
 - 消息契约规范（Message Schema Contracts）需提供事件载荷结构的版本对齐。
 - 现有基础设施（Redis、Postgres、对象存储）可复用，但规格需留出 Kafka/Loki 等扩展接口。
+
+## 规范治理策略（单一权威 + 防漂移）
+
+### 单一权威文档
+
+- 本文档（`specs/004-eventbus-message-fabric/spec.md`）是 EventBus/TaskBus 的**规范权威源**。
+- `specs/023-websocket-notify/*` 仅定义 WS 传输侧实现与运行时约束，不再重复定义 Topic 命名、事件版本兼容、ACL 语义。
+- 若 `004` 与其他文档存在冲突，以 `004` 为准，其他文档必须在同一 PR 中同步修订。
+
+### 三类契约冻结（Contract Freeze）
+
+1. **连接契约（Connection Contract）**
+   - 范围：WS 入口、心跳、订阅/退订、ack/error/event envelope。
+   - 落点：`specs/023-websocket-notify/contracts/http-openapi.yaml`。
+2. **发布契约（Publishing Contract）**
+   - 范围：register/publish 接口、鉴权、tenant/trace 透传、内部接口边界。
+   - 落点：`specs/023-websocket-notify/contracts/http-openapi.yaml` 与 `specs/004-eventbus-message-fabric/contracts/admin_http_openapi.yaml`。
+3. **事件契约（Event Contract）**
+   - 范围：topic 命名规范、版本策略（v1/v2）、兼容规则、回放标记、DLQ 语义。
+   - 权威：`specs/004-eventbus-message-fabric/spec.md` 与 `specs/004-eventbus-message-fabric/contracts/*`。
+
+### 租户与鉴权优先级（必须一致）
+
+#### Tenant 来源优先级
+
+1. 仅接受 JWT claims 中 `tid/tenant_uuid`。
+2. 若 claims 缺失 tenant 信息则拒绝请求（`400/401`）。
+
+#### Token 来源优先级
+
+1. `Authorization: Bearer <token>`。
+2. WS 握手 query 参数 `authorization`（仅用于 `/api/ws` 兼容场景）。
+3. 其他来源一律不作为正式鉴权输入。
+
+#### `proxy=1` 责任边界
+
+- 插件/Framework：负责透传 token、tenant、trace 与 mode。
+- PowerX 底座：负责最终鉴权、租户裁决、topic 授权与审计落库。
+- 结论：`proxy=1` 不改变底座的最终授权决策权。
+
+## Queue Driver 与降级策略（Phase 9）
+
+### 驱动优先级
+
+1. 默认驱动：`redis`。
+2. 可选驱动：`kafka` / `rabbitmq` / `nats`。
+3. 数据库通道：仅作为 fallback，不作为常态高频轮询主路径。
+
+### 运行时约束
+
+- 当 `queue.driver=redis`：允许 DB polling fallback 启用。
+- 当 `queue.driver=kafka|rabbitmq|nats`：
+  - 主任务驱动切换到对应 adapter；
+  - DB polling fallback 默认关闭，避免启动后持续刷表；
+  - 必须输出统一降级日志字段：`driver`、`tenant`、`reason`。
+
+### 统一降级日志格式
+
+- 禁用 DB polling fallback：
+  - `[event_fabric.degrade] driver=<driver> tenant=all reason=db_polling_fallback_disabled`
+- RetryWorker 跳过轮询：
+  - `[event_fabric.retry] skip db polling fallback driver=<driver> reason=fallback_disabled`
+
+### 兼容性要求
+
+- 驱动切换不改变 ACK/NACK/Retry 语义。
+- 驱动切换不改变 Topic/ACL/审计契约。
+- 观测面至少覆盖：`LastTaskDriver`、`TaskDriverInitTotal`、`TaskDriverBlockingTotal`。
 
 ## Clarifications
 
@@ -115,7 +201,7 @@
 
 - **FR-001**: 系统必须提供 Topic 目录 API（创建、查询、更新、状态管理）并强制执行命名规范与唯一性。
 - **FR-002**: 系统必须支持基于租户、域、角色的发布/订阅 ACL 校验，支持批量授权与撤销。
-- **FR-003**: 发布 API 必须要求事件信封包含 `event_id`、`topic`、`tenant_uuid`、`version`、`trace_id` 等标准字段，并校验消息契约版本；默认载荷使用 JSON 序列化（Topic 可声明覆盖）。
+- **FR-003**: 发布 API 必须要求事件信封包含 `event_id`、`topic`、`version`、`trace_id` 等标准字段；`tenant_uuid` 必须由 JWT 上下文注入，不允许请求体/头覆盖。默认载荷使用 JSON 序列化（Topic 可声明覆盖）。
 - **FR-004**: 订阅通道必须提供显式 Ack/Nack 机制，默认采用长连接（如 gRPC 流）推送事件，并允许消费者声明最大并发、超时时间与幂等键策略。
 - **FR-005**: 系统必须支持可配置的重试策略（固定/指数退避、最大次数、抖动），默认提供至少一次（At-Least-Once）投递保证且最多重试 5 次，并在每次重试时记录投递状态。
 - **FR-006**: 当事件超出重试次数或被标记不可重试时，系统必须将其写入租户隔离的 DLQ（默认落地 Postgres 持久化存储），并提供检索、导出、重放 API。
@@ -123,6 +209,16 @@
 - **FR-008**: 系统必须支持事件版本协商机制，订阅者可以声明兼容策略（仅接受某版本、向后兼容、全部接受）。
 - **FR-009**: 系统必须提供事件回放能力，支持按时间窗口、事件类型或追踪 ID 过滤，并标记回放投递。
 - **FR-010**: 系统必须暴露指标（投递成功率、重试次数、DLQ 体积、回放耗时）并与现有 Observability 管线对接。
+- **FR-011**: 系统必须支持 `Idempotency-Key` 头部用于发布去重，并在订阅端提供去重建议（基于 `event_id`）。
+- **FR-012**: 系统必须提供 HTTP/gRPC 的标准错误码与状态映射，并在 OpenAPI/Proto 中固化。
+- **FR-013**: 系统必须维护连接契约、发布契约、事件契约三类边界，任一变更必须在权威文档与实现文档中同步。
+- **FR-014**: 系统必须冻结 Topic 命名与版本兼容规则；新增/废弃 Topic 必须记录版本变更与兼容窗口。
+- **FR-015**: 系统必须提供插件 Framework 的最小迁移清单（adapter、配置、权限、回归用例），确保 task/event 双通道可平滑迁移。
+- **FR-016**: 文档治理流程必须要求“改 WS/TaskBus 代码即同步主契约文档”，并通过文档一致性检查阻止漂移。
+- **FR-017**: 系统必须提供 Task Queue 可观测接口（pending/deferred/processing/inflight），并可按 tenant/topic/subscriber 过滤。
+- **FR-018**: 系统必须提供统一运维处置入口（DLQ 重放、任务刷新、状态巡检），所有动作写入审计字段（`operator_id`,`tenant_uuid`,`trace_id`）。
+- **FR-019**: 系统必须支持 Cron 任务定义（cron_expr/timezone/enabled/misfire_policy），并在到点时投递标准 Task Event。
+- **FR-020**: Cron 触发后的执行链路必须复用既有 Retry/DLQ/Replay 机制，禁止引入独立队列或数据库轮询消费主路径。
 
 ### Non-Functional Requirements
 
@@ -134,9 +230,9 @@
 
 ### Key Entities
 
-- **TopicDefinition**: 描述主题的唯一标识、租户范围、命名空间、数据保留策略与生命周期状态。
-- **AclBinding**: 关联主体（服务账号/角色）与权限（Publish/Subscribe/Replay），记录审批来源与过期时间。
-- **EventEnvelope**: 统一事件信封，包含事件 ID、主题、版本、租户、追踪信息、幂等键、发布时间以及 Payload 摘要，并记录 `payload_format`（默认 JSON，可覆盖）。
+- **TopicDefinition**: 描述 Topic 注册表中的语义定义（`namespace.name`），包含生命周期、版本兼容、重试与 Ack 策略。
+- **AclBinding**: 关联主体（服务账号/角色）与权限（Publish/Subscribe/Replay），绑定 `topic_id`，并记录审批来源与过期时间。
+- **EventEnvelope**: 统一事件信封，包含事件 ID、主题、版本、追踪信息、幂等键、发布时间以及 Payload 摘要；租户由 JWT 注入，并记录 `payload_format`（默认 JSON，可覆盖）。
 - **DeliveryAttempt**: 投递尝试记录，追踪订阅者、重试次数、Ack/Nack 状态、耗时与错误。
 - **DlqMessage**: 死信消息实体，持久化于 Postgres，记录失败原因、最后错误码、重放状态、审核日志。
 - **ReplayRequest**: 回放任务，定义时间窗口、过滤条件、发起人以及执行进度。
@@ -151,13 +247,40 @@
 - **SC-004**: 重试机制在预设负载（5000 msg/s）下平均附加延迟 ≤ 50ms，P99 ≤ 200ms。
 - **SC-005**: 回放功能支持 24 小时窗口内按 Trace ID 精确回放，回放事件与实时事件绝不混淆（重放消费方可检测 `replay` 标记）。
 - **SC-006**: 指标与告警在 Prometheus/Grafana 中可视化，包含主题级 QPS、错误率、DLQ 积压趋势，并在 5 分钟内可用于故障分析。
+- **SC-007**: 运维台页面刷新周期 5 秒内可稳定反映 Task Queue 状态变化，且与 API 返回口径一致。
+- **SC-008**: Cron 任务触发时间偏差（计划时间 vs 实际入队时间）P95 ≤ 3 秒，且失败任务 100% 可进入统一重试或 DLQ。
 
 ## 风险与缓解
 
-- **多租户隔离复杂度**：若 Topic 目录设计不合理可能造成越权 → 采纳租户分区 + ACL 多维校验，并在测试中覆盖跨租户用例。
+- **多租户隔离复杂度**：若租户识别来源不唯一会造成越权 → 统一 JWT-only，并以 ACL + 审计覆盖跨租户用例。
 - **基础设施差异**：Redis/Kafka 等实现特性差异大 → 定义抽象接口与兼容层，首期实现 Local/Redis，留出 Kafka 扩展点。
 - **Schema 演进冲突**：缺乏契约管理将导致消费失败 → 与 Contracts 服务集成，发布前进行 Schema 校验。
 - **DLQ 堆积**：若补偿流程不畅会导致死信膨胀 → 设定阈值告警与自动化补偿脚本，并在规格中明确运维 SOP。
+
+## 发布与迁移策略
+
+### 版本变更记录要求
+
+- 每次发布必须记录：新增字段、废弃字段、删除字段、默认值变化、兼容窗口截止时间。
+- 事件兼容策略统一为：`backward` 默认，`strict` 与 `any` 需显式声明。
+- 任何破坏性变更必须提供 migration note 与双写/灰度策略。
+
+### 外部插件迁移最小改动清单
+
+1. 适配层：接入 Framework 的 task/event 发布封装，不直接拼接底座内部接口。
+2. 配置项：补齐 `mode=taskbus|dual|fallback`、`proxy`、`tenant`、`trace` 透传开关。
+3. 权限：确认 `api_key_profile`（或其下发的 API Key 主体）对目标 topic 的 publish/subscribe/replay ACL。
+4. 回归用例：覆盖 local + proxy=0/1 + mode 三种组合。
+5. 观测：日志必须输出 `tenant_uuid/topic/trace_id/mode/proxy`。
+
+## 文档防漂移执行要求
+
+- PR 模板必须包含检查项：修改 WS/TaskBus 代码时是否同步 `specs/004-eventbus-message-fabric/spec.md`。
+- CI 必须执行文档一致性检查，至少覆盖：
+  1. topic 语义键一致（统一为 `namespace.name`，不拼 tenant 前缀）；
+  2. internal 接口路径一致（`/internal/ws-bus/grant`、`/internal/ws-bus/publish`）；
+  3. envelope 必填字段一致（`topic/type/payload/ts/trace_id`，tenant 来自 JWT）。
+- 检查规则与执行入口见：`specs/004-eventbus-message-fabric/checklists/doc-consistency.md`。
 
 ## 验收前置清单
 
@@ -165,3 +288,28 @@
 - [ ] 与安全策略、契约服务的集成测试通过（含负面用例）。
 - [ ] Observability 指标与告警规则在测试环境验证。
 - [ ] 运维手册涵盖主题生命周期、权限审批、DLQ 补偿、回放 SOP。
+
+## Phase 13: Event ACL Governance UI（新增）
+
+**Purpose**: 建立“配置态治理”与“运行态联调”分层，落地系统设置中的 Topic-Role 权限矩阵，避免每租户手工建 Topic。
+
+### Scope & Order
+
+1. **系统设置入口**：在 `系统设置` 下新增 `事件权限（Event ACL）` 页面入口。
+2. **Topic 视图**：按 `topic_key` 展示可治理 Topic（含共享 Topic：`global/system`）。
+3. **角色授权矩阵**：支持按角色或主体批量授予 `publish/subscribe/replay`。
+4. **监控联动**：监控中心 Topic 行提供“管理权限”跳转（带 topic 参数），不直接编辑 ACL。
+5. **审计闭环**：所有授权变更进入审计事件，记录 operator、topic、action、principal。
+
+### Design Constraints
+
+- 严禁“每新增租户手工创建同名 Topic”作为默认路径；默认使用全局 Topic + ACL 映射。
+- ACL 管理接口必须支持共享 Topic 授权，不得强制要求 topic tenant 与 jwt tenant 完全一致。
+- 前端主展示优先语义字段（`namespace.name` / 可读名称），UUID 仅用于内部引用与调试。
+- 监控页与系统设置页职责分离：监控页负责观测排障，系统设置负责治理配置。
+
+### Validation Targets
+
+- 新租户无需额外创建 Topic，即可在 ACL 页看到共享 Topic 并完成角色授权。
+- 授权后 WS subscribe/publish 与 replay 按 ACL 生效；无授权时返回一致 4xx 业务错误。
+- 从监控页可一键跳转 ACL 页并保留 topic 上下文。

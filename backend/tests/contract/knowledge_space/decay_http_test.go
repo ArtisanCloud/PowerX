@@ -150,12 +150,17 @@ func TestDecayHTTPFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		var snapshot struct {
-			Detected         int     `json:"detected"`
-			FalsePositive    int     `json:"falsePositive"`
-			AverageFillHours float64 `json:"avgFillHours"`
+			Detected         int            `json:"detected"`
+			FalsePositive    int            `json:"falsePositive"`
+			AverageFillHours float64        `json:"avgFillHours"`
+			Metrics          map[string]any `json:"metrics"`
 		}
 		require.NoError(t, json.Unmarshal(data, &snapshot))
 		require.Equal(t, 1, snapshot.FalsePositive)
 		require.InDelta(t, 0, snapshot.AverageFillHours, 0.001)
+		require.Contains(t, snapshot.Metrics, "knowledge.decay.detected")
+		require.Contains(t, snapshot.Metrics, "knowledge.decay.false_positive")
+		require.Contains(t, snapshot.Metrics, "knowledge.gap.backlog")
+		require.Contains(t, snapshot.Metrics, "knowledge.decay.fill_time_hours")
 	})
 }

@@ -3,12 +3,27 @@ import {
   useKnowledgeSpaces,
   type KnowledgeSpacePayload,
   type KnowledgeSpaceRecord,
+  type IngestionJobPayload,
+  type IngestionJobRecord,
 } from "~/composables/useKnowledgeSpaces";
+import {
+  STRATEGY_PACKAGE_CATALOG,
+  type SceneKey,
+  type StrategyPackageKey,
+  type IndexPrereqKey,
+} from "~/constants/strategyPackageCatalog";
 
 interface WizardState {
   step: number;
   form: KnowledgeSpacePayload;
   iamEmail: string;
+  strategyPackageKey: StrategyPackageKey;
+  sampleDoc: {
+    enabled: boolean;
+    format: IngestionJobPayload["format"];
+    sourceUri: string;
+    ocrRequired: boolean;
+  };
   slaSeconds: number;
   slaStartedAt: number | null;
   intervalId: ReturnType<typeof setInterval> | null;
@@ -16,13 +31,17 @@ interface WizardState {
   error: string | null;
   status: "idle" | "success" | "error";
   lastSpace: KnowledgeSpaceRecord | null;
+  lastCorpusCheckJob: any | null;
+  lastIngestionJob: IngestionJobRecord | null;
 }
 
 const DEFAULT_FORM: KnowledgeSpacePayload = {
-  tenantUuid: "",
   spaceName: "",
   departmentCode: "",
   policyTemplateVersionId: "default-v1",
+  ingestionProfileKey: "p1_general",
+  indexProfileKey: "p1_general",
+  ragProfileKey: "p1_general",
   featureFlags: [],
   quotas: {
     cpuCores: 4,
@@ -36,6 +55,13 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     step: 1,
     form: { ...DEFAULT_FORM },
     iamEmail: "",
+    strategyPackageKey: "H_fusion",
+    sampleDoc: {
+      enabled: false,
+      format: "pdf",
+      sourceUri: "",
+      ocrRequired: false,
+    },
     slaSeconds: 120,
     slaStartedAt: null,
     intervalId: null,
@@ -43,6 +69,8 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     error: null,
     status: "idle",
     lastSpace: null,
+    lastCorpusCheckJob: null,
+    lastIngestionJob: null,
   }),
   getters: {
     slaRemaining(state) {
@@ -52,9 +80,7 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
     },
     isBasicInfoValid(state): boolean {
       return Boolean(
-        state.form.tenantUuid &&
-          state.form.spaceName &&
-          state.form.departmentCode,
+        state.form.spaceName && state.form.departmentCode,
       );
     },
     isPolicyStepValid(state): boolean {
@@ -83,6 +109,34 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       this.$reset();
       this.form = { ...DEFAULT_FORM };
     },
+    setStrategyPackage(strategyKey: StrategyPackageKey) {
+      const pkg = STRATEGY_PACKAGE_CATALOG[strategyKey];
+      if (!pkg) return;
+      const profileKey = pkg.recommendedProfileKey || "p1_general";
+      const sceneKey: SceneKey = pkg.recommendedScenes?.[0] ?? "custom_expert";
+
+      this.strategyPackageKey = strategyKey;
+
+      // 绑定/切换三类 Profile（仍沿用 p0/p1/p2/p3）。
+      this.form.ingestionProfileKey = profileKey;
+      this.form.indexProfileKey = profileKey;
+      this.form.ragProfileKey = profileKey;
+
+      // 记录为 feature flags（后端可用来做校验/推荐/审计）。
+      // 保持单值：先清理旧的 scene/bundle/strategy 标记。
+      this.form.featureFlags = (this.form.featureFlags || []).filter(
+        (f) =>
+          !f.startsWith("rag.scene:") &&
+          !f.startsWith("rag.bundle:") &&
+          !f.startsWith("rag.strategy_package:"),
+      );
+      this.setFeatureFlag("rag.strategy_package:" + strategyKey, true);
+      this.setFeatureFlag("rag.scene:" + sceneKey, true);
+      this.setFeatureFlag("rag.bundle:" + profileKey, true);
+
+      // 兼容旧字段：仍保留 rag.guided 标志，但不再作为主入口。
+      this.setFeatureFlag("rag.guided", sceneKey === "custom_expert");
+    },
     setFeatureFlag(flag: string, enabled: boolean) {
       const normalized = flag.trim().toLowerCase();
       const index = this.form.featureFlags.findIndex(
@@ -94,6 +148,37 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
       if (!enabled && index !== -1) {
         this.form.featureFlags.splice(index, 1);
       }
+    },
+    computeEnabledIndexChannels(): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> {
+      const pkg = STRATEGY_PACKAGE_CATALOG[this.strategyPackageKey];
+      const idx = new Set<string>();
+      for (const k of pkg?.dependencies.index ?? []) idx.add(k);
+
+      const map = (key: IndexPrereqKey): Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> => {
+        switch (key) {
+          case "index.dense":
+            return ["dense"];
+          case "index.sparse":
+            return ["sparse"];
+          case "index.hier":
+            return ["hier"];
+          case "index.kg":
+            return ["kg"];
+          case "index.time_fields":
+            return ["time"];
+          case "index.structured_fields":
+            return ["structured"];
+        }
+      };
+
+      const out: Array<"dense" | "sparse" | "hier" | "kg" | "time" | "structured"> = [];
+      for (const k of idx) {
+        if (k.startsWith("index.")) {
+          out.push(...map(k as IndexPrereqKey));
+        }
+      }
+      const order = ["dense", "sparse", "hier", "kg", "time", "structured"] as const;
+      return order.filter((x) => out.includes(x));
     },
     setQuota(key: keyof KnowledgeSpacePayload["quotas"], value: number) {
       this.form.quotas[key] = value;
@@ -130,6 +215,18 @@ export const useKnowledgeSpaceStore = defineStore("knowledgeSpaceWizard", {
         this.lastSpace = response;
         this.status = "success";
         this.startSLAClock();
+        if (response?.spaceId && this.sampleDoc.enabled && this.sampleDoc.sourceUri) {
+          try {
+            this.lastIngestionJob = await api.triggerIngestion(response.spaceId, {
+              format: this.sampleDoc.format,
+              sourceUri: this.sampleDoc.sourceUri,
+              ocrRequired: this.sampleDoc.ocrRequired,
+              priority: "normal",
+            });
+          } catch (e) {
+            console.warn("sample ingestion failed", e);
+          }
+        }
       } catch (err) {
         this.error =
           err instanceof Error ? err.message : "提交失败，请稍后再试。";

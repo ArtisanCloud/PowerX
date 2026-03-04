@@ -23,18 +23,11 @@ func serveCapabilityAdminRequest(t testing.TB, handler http.Handler, req *http.R
 func applyCapabilityAdminHeaders(t testing.TB, req *http.Request, tenantUUID string) {
 	t.Helper()
 	require.NotNil(t, req, "request cannot be nil")
-	requireCapabilityNoLegacyHeaders(t, req)
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
-}
-
-func requireCapabilityNoLegacyHeaders(t testing.TB, req *http.Request) {
-	t.Helper()
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-PowerX-Tenant")), "legacy X-PowerX-Tenant header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("Tenant-ID")), "legacy Tenant-ID header forbidden")
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoCapabilityTenantLeak(t testing.TB, payload []byte) {
@@ -53,7 +46,7 @@ func requireCapabilityAuth(expectedTenantUUID string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 		if tenantUUID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return

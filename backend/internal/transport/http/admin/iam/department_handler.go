@@ -154,6 +154,9 @@ func (h *DepartmentHandler) Tree(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询部门树失败", err)
 		return
 	}
+	if nodes == nil {
+		nodes = []*m.Department{}
+	}
 	dto.ResponseSuccess(c, nodes)
 }
 

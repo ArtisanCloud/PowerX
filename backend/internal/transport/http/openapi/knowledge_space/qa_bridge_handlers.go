@@ -45,6 +45,8 @@ type qaPlanResponse struct {
 	DegradeCount    int                  `json:"degradeCount"`
 	SessionID       string               `json:"sessionId"`
 	LatencyBudgetMs int                  `json:"latencyBudgetMs"`
+	Stages          []qaPlanStageView    `json:"stages"`
+	PolicySnapshot  map[string]string    `json:"policy_version_snapshot"`
 	Metadata        map[string]any       `json:"metadata"`
 }
 
@@ -66,6 +68,13 @@ type qaToolMetadataView struct {
 type qaPlanTelemetry struct {
 	TraceID    string `json:"traceId"`
 	RecordedAt string `json:"recordedAt"`
+}
+
+type qaPlanStageView struct {
+	Name           string `json:"name"`
+	CandidateCount int    `json:"candidateCount"`
+	LatencyMs      int    `json:"latencyMs"`
+	DegradeReason  string `json:"degradeReason,omitempty"`
 }
 
 func (h *qaBridgeHandler) plan(c *gin.Context) {
@@ -110,6 +119,8 @@ func (h *qaBridgeHandler) plan(c *gin.Context) {
 		DegradeCount:    out.DegradeCount,
 		SessionID:       out.SessionID,
 		LatencyBudgetMs: out.LatencyBudgetMs,
+		Stages:          toPlanStages(out.Stages),
+		PolicySnapshot:  out.PolicySnapshot,
 		Metadata:        out.Metadata,
 	})
 }
@@ -117,6 +128,7 @@ func (h *qaBridgeHandler) plan(c *gin.Context) {
 type qaMemoryRequest struct {
 	SessionID string               `json:"sessionId" binding:"required"`
 	Updates   []qaMemoryUpdateView `json:"updates"`
+	TraceID   string               `json:"traceId"`
 }
 
 type qaMemoryUpdateView struct {
@@ -133,6 +145,8 @@ type qaMemoryResponse struct {
 	TenantUUID string               `json:"tenant_uuid"`
 	SessionID  string               `json:"sessionId"`
 	Citations  []qaMemoryUpdateView `json:"citations"`
+	TraceID    string               `json:"traceId,omitempty"`
+	Metadata   map[string]any       `json:"metadata,omitempty"`
 }
 
 func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
@@ -149,6 +163,7 @@ func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
 		TenantUUID: tenantUUID,
 		SessionID:  req.SessionID,
 		Updates:    fromMemoryView(req.Updates),
+		TraceID:    req.TraceID,
 	}
 	out, err := h.svc.UpsertMemorySnapshot(c.Request.Context(), input)
 	if err != nil {
@@ -163,6 +178,8 @@ func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
 		TenantUUID: out.TenantUUID.String(),
 		SessionID:  out.SessionID,
 		Citations:  toMemoryView(out.Citations),
+		TraceID:    out.TraceID,
+		Metadata:   out.Metadata,
 	})
 }
 
@@ -203,6 +220,19 @@ func toToolingView(items []toolchain.Metadata) []qaToolMetadataView {
 			Name:     item.Name,
 			Category: item.Category,
 			Endpoint: item.Endpoint,
+		})
+	}
+	return out
+}
+
+func toPlanStages(items []qa_bridge.PlanStage) []qaPlanStageView {
+	out := make([]qaPlanStageView, 0, len(items))
+	for _, item := range items {
+		out = append(out, qaPlanStageView{
+			Name:           item.Name,
+			CandidateCount: item.CandidateCount,
+			LatencyMs:      item.LatencyMs,
+			DegradeReason:  item.DegradeReason,
 		})
 	}
 	return out

@@ -239,6 +239,24 @@ func (m *memoryAssetRepo) FindByUUID(_ context.Context, tenantUUID string, uuid 
 	return cloneAsset(asset), nil
 }
 
+func (m *memoryAssetRepo) FindByStorageKey(_ context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, asset := range m.assets {
+		if asset.Driver != driver || asset.StorageKey != storageKey {
+			continue
+		}
+		if tenantUUID != "" && asset.TenantUUID != tenantUUID {
+			continue
+		}
+		if asset.DeletedAt.Valid {
+			continue
+		}
+		return cloneAsset(asset), nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
 func (m *memoryAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

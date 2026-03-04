@@ -6,7 +6,8 @@ drivers:
   llm: anthropic
   embedding: anthropic
   image: anthropic
-  audio: anthropic
+  audio_tts: anthropic
+  audio_asr: anthropic
   video: anthropic
   rerank: anthropic
 
@@ -49,7 +50,9 @@ modalities:
     models: []   # 有 Embeddings 能力，但当前以 Messages API 为主；如需可后续补充
   image:
     models: []
-  audio:
+  audio_tts:
+    models: []
+  audio_asr:
     models: []
   video:
     models: []

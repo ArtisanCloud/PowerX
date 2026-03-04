@@ -15,7 +15,21 @@ type DecayMetricsSnapshot struct {
 	FalsePositive     int       `json:"falsePositive"`
 	Backlog           int       `json:"backlog"`
 	AverageFillHours  float64   `json:"avgFillHours"`
+	Metrics           map[string]any `json:"metrics,omitempty"`
 	RecordedAt        time.Time `json:"recordedAt"`
+}
+
+func (s *DecayMetricsSnapshot) EnsureMetrics() {
+	if s == nil {
+		return
+	}
+	if s.Metrics == nil {
+		s.Metrics = make(map[string]any)
+	}
+	s.Metrics["knowledge.decay.detected"] = s.Detected
+	s.Metrics["knowledge.decay.false_positive"] = s.FalsePositive
+	s.Metrics["knowledge.gap.backlog"] = s.Backlog
+	s.Metrics["knowledge.decay.fill_time_hours"] = s.AverageFillHours
 }
 
 // DecayMetricsWriter persists JSON snapshots and updates aggregates.
@@ -36,6 +50,7 @@ func (w *DecayMetricsWriter) Store(snapshot DecayMetricsSnapshot) error {
 	if snapshot.RecordedAt.IsZero() {
 		snapshot.RecordedAt = time.Now().UTC()
 	}
+	snapshot.EnsureMetrics()
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.persistJSON(w.path, snapshot); err != nil {

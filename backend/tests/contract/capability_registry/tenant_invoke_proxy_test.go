@@ -127,7 +127,7 @@ func invokeTenantGateway(t *testing.T, engine *gin.Engine, body map[string]inter
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/tenant/invocations", bytes.NewReader(data))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-UUID", tenantInvokeUUID)
+	req.Header.Set("tenant-uuid", tenantInvokeUUID)
 
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)

@@ -105,7 +105,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-- `POST /internal/react/thought` — Body: `question`, `tenant_uuid`, `context`, `trace_id?`, `risk_profile?`; Headers: `x-tenant-uuid`, `x-trace`; 返回 `thought_id`, `task_type`, `retrieval_plan`, `missing_slots`, `snippets`.
+- `POST /internal/react/thought` — Body: `question`, `tenant_uuid`, `context`, `trace_id?`, `risk_profile?`; Headers: `tenant_uuid`, `x-trace`; 返回 `thought_id`, `task_type`, `retrieval_plan`, `missing_slots`, `snippets`.
 - **Outbound 调用**
   - `POST /internal/intent/classify` — 传入问题、租户、历史上下文，返回任务类型、置信度、缺口列表。
   - `POST /internal/knowledge/search` — 参数 `mode`, `filters`, `max_tokens`; 返回片段与相似度；需 2s 超时、重试 1 次。

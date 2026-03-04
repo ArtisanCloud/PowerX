@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,13 +24,12 @@ func applyKnowledgeTenant(t testing.TB, req *http.Request, tenantUUID string) {
 	require.NotNil(t, req, "request is required")
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	require.NotEmpty(t, tenantUUID, "tenant uuid required for knowledge space tests")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header should not be sent")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-PowerX-Tenant")), "legacy X-PowerX-Tenant header should not be sent")
 
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoLegacyTenantPayload(t testing.TB, payload []byte) {

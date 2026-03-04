@@ -12,7 +12,7 @@ ifdef API_AUTH_TOKEN
 CURL_AUTH_FLAGS := -H "Authorization: Bearer $(API_AUTH_TOKEN)"
 endif
 ifdef API_TENANT_UUID
-CURL_TENANT_FLAGS := -H "X-Tenant-UUID: $(API_TENANT_UUID)"
+CURL_TENANT_FLAGS := -H "tenant-uuid: $(API_TENANT_UUID)"
 endif
 CURL_BASE := curl -s -S $(CURL_AUTH_FLAGS) $(CURL_TENANT_FLAGS)
 

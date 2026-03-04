@@ -15,6 +15,9 @@ type ArtifactBundle struct {
 	VectorManifestURI   string     `gorm:"column:vector_manifest_uri;type:text" json:"vector_manifest_uri"`
 	GraphManifestURI    string     `gorm:"column:graph_manifest_uri;type:text" json:"graph_manifest_uri"`
 	MaskingReportURI    string     `gorm:"column:masking_report_uri;type:text" json:"masking_report_uri"`
+	OCRPageImagesURI    string     `gorm:"column:ocr_page_images_uri;type:text" json:"ocr_page_images_uri"`
+	OCRRawManifestURI   string     `gorm:"column:ocr_raw_manifest_uri;type:text" json:"ocr_raw_manifest_uri"`
+	OCRSearchablePDFURI string     `gorm:"column:ocr_searchable_pdf_uri;type:text" json:"ocr_searchable_pdf_uri"`
 	SummaryChunkCount   int        `gorm:"column:summary_chunk_count;type:int;not null;default:0" json:"summary_chunk_count"`
 	ParagraphChunkCount int        `gorm:"column:paragraph_chunk_count;type:int;not null;default:0" json:"paragraph_chunk_count"`
 	Checksum            string     `gorm:"column:checksum;type:char(64);not null" json:"checksum"`

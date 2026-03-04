@@ -92,7 +92,7 @@ func generatePermissionsFromOpenAPI(doc *openapi3.T, source, introduced string) 
 	for path, pi := range doc.Paths {
 		for method, op := range operationsOf(pi) {
 			perm := dbm.Permission{
-				Plugin:     "core", // 或按你的模块名设置
+				Module:     "core", // 或按你的模块名设置
 				Resource:   guessResource(path),
 				Action:     guessAction(method, path, op),
 				Effect:     "allow",

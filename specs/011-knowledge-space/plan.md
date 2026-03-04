@@ -7,7 +7,7 @@
 
 ## Summary
 
-Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space. Building on `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`, we now commit to the full knowledge-update lifecycle: delta sync + version governance (≤30m SLA, 98% diff accuracy), feedback-driven reprocessing (+25% fix accuracy), event-driven hot refresh (≤5m), decay/gap watchdogs (100% coverage, ≤10m recovery), and tenant-aware gray release (audited rollout + rollback) spanning HTTP + gRPC transports, CLI/Playwright validation, and Grafana/`reports/_state` telemetry exports.
+Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space. We also add real-time ingestion progress via the shared WS bus so operators can monitor long-running embedding loops without manual refresh, with polling fallback on disconnect. Building on `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`, we now commit to the full knowledge-update lifecycle: delta sync + version governance (≤30m SLA, 98% diff accuracy), feedback-driven reprocessing (+25% fix accuracy), event-driven hot refresh (≤5m), decay/gap watchdogs (100% coverage, ≤10m recovery), and tenant-aware gray release (audited rollout + rollback) spanning HTTP + gRPC transports, CLI/Playwright validation, and Grafana/`reports/_state` telemetry exports.
 
 ## Scenario Inputs – Knowledge Update & Feedback (`docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`)
 
@@ -31,6 +31,7 @@ Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped 
 **Storage**: PostgreSQL (knowledge space metadata, quota, policy versions), Redis (workflow queues, throttles, conversation-memory cache), MinIO/S3 (artifact staging), pgvector driver (vector store abstraction)  
 **Testing**: go test + testify for units, buf + make proto targets, contract tests under `tests/contract/knowledge_space`, integration flows under `tests/integration/knowledge_space`, Vitest unit suites for Nuxt pages/components, Playwright E2E focused on `/knowledge-spaces` wizard, QA bridge contract + failover simulations under `tests/contract/knowledge_space/qa_bridge_*`  
 **Target Platform**: Linux container workloads (Kubernetes)  
+**OS Dependencies (PDF)**: `poppler-utils`（`pdftotext`/`pdftoppm`）用于 PDF 文本抽取/渲染；扫描件 OCR 需要 `tesseract`（含 `chi_sim` 语言包）+ `pdftoppm` 或 `mutool`（详见 `docs/guides/deploy/knowledge_pdf_ocr.md`）。  
 **Project Type**: CoreX backend module + Nuxt 4 Web Admin console feature + QA Orchestrator bridge APIs  
 **Performance Goals**: Provisioning p95 ≤120s, ingestion TTR ≤4h, fusion rollback ≤5m, feedback closure ≤24h, cross-space retrieval-plan p95 ≤2s, real-time tool success ≥99%  
 **Constraints**: IAM sync success ≥99.5%, masking coverage 100%, retention 13 months read-only, dashboards update latency ≤5m, QA degrade notices must include audit IDs with 100% coverage  
@@ -156,6 +157,24 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - Documents prerequisites (Go 1.24, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
 - Provides step-by-step smoke flow covering provisioning → ingestion → fusion → feedback plus observability checkpoints.
 
+### Strategy Package → Scene Mapping (align `docs/plan/AI_engineering/knowledge/rag.md`)
+
+This plan MUST align the implementation with the strategy package → scene mapping model in:
+- `docs/plan/AI_engineering/knowledge/rag.md`
+- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+
+Key decisions and implications:
+- **One-level selection** in UI: `Strategy package (A0–O)` with “适用场景”说明（可选过滤）。
+- **Non-full mapping**: each strategy package exposes a curated scene list to prevent misuse.
+- **Prerequisite validation**: strategy packages are publishable only when their index/asset prerequisites exist (e.g., KG requires graph tables + provenance; evidence-first requires sparse index + time fields).
+- **Profiles are the delivery vehicle**: `IngestionProfile + IndexProfile + RAGProfile` are versioned, rollback-capable, and can be recommended by Corpus Check.
+
+Deliverables (minimum):
+1. Define the strategy package catalog (A0–O) and the scene-mapping matrix (non-full).
+2. Wire Corpus Check recommendations to “strategy package” (recommend only packages whose prerequisites are met).
+3. Enforce dependency checks in backend and surface remediation steps in Web Admin (e.g., “KG index not ready, run build job / enable plugin / create tables”).
+4. Standardize chunking controls (chunk size, overlap/delta, separators) as part of ingestion profiles with safe bounds and package-level defaults.
+
 ## Phase 2 – QA Orchestrator & Reasoning Alignment
 
 - **QA Bridge Service Layer**: Implement `backend/internal/service/knowledge_space/qa_bridge` with planners that read routing configs, compute multi-space retrieval plans, encode degrade reasons, and stream telemetry (`qa.retrieval.*`). HTTP/gRPC transports expose `POST /knowledge-spaces/qa/retrieval-plan`, `POST /knowledge-spaces/qa/memory-snapshot`, `POST /knowledge-spaces/qa/tool-metadata`.
@@ -196,6 +215,48 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 
 ### Agent Context Update
 - Command executed: `.specify/scripts/bash/update-agent-context.sh codex` (see terminal output in this run) to persist new technology mentions for Codex agent memory.
+
+---
+
+## Addendum — DB Migration Readiness (Vector Store / KG Assist Tables)
+
+## Addendum — Plan B: 扫描 PDF OCR（Tesseract）+ bbox provenance + 跨页内容切分
+
+> 适用场景：扫描件/图片型 PDF 占比高，需要“可定位（页+框）验收 + 人工修订 + 局部重建索引”，且切分必须按内容而非按页。
+
+### 目标
+- **OCR 不是可选项**：扫描 PDF 无文本层，必须 OCR 才能向量化与检索。
+- **切分按内容**：段落/条款可能跨 2～3 页，页码仅作为 provenance（定位），不能作为 segment 边界。
+- **强 provenance**：每个 chunk 必须携带 `page_number + bbox`（可跨页多框），用于 Web Admin 叠框预览验收与引用定位。
+- **局部修订**：支持编辑单个 chunk 文本并仅重建该 chunk 的向量索引（不重跑全文档）。
+
+### 设计文档
+- 方案权威说明：`specs/011-knowledge-space/ocr_scan_pdf_plan_b.md`
+
+### 任务拆解（与实现节奏对齐）
+- 任务入口：`specs/011-knowledge-space/tasks.md`（`T106B~T106G`）
+  - `T106B`：PDF→逐页渲染→Tesseract TSV/hOCR→内容级（跨页）合并→chunking
+  - `T106C`：产物 URI 与 provenance/bbox 写入规范
+  - `T106D`：`knowledge_chunks` 真相源（可编辑）+ 向量索引同步
+  - `T106F`：页预览叠框（page image + bbox）
+  - `T106G`：OCR 资源治理（超时/并发/失败率/指标）
+
+### 已落地的最小验收入口（用于产品验收与迭代）
+- Web Admin：
+  - 空间→入库记录：`/knowledge-spaces/:spaceId/ingestions`
+  - 任务→切块预览/编辑：`/knowledge-spaces/:spaceId/ingestions/:jobId`
+  - 右下角“入库任务”面板：completed 任务可直接跳“预览切块”
+
+
+The ingestion pipeline already calls `VectorStore.Upsert`, but `make db-migrate` currently does not guarantee pgvector extension/table readiness in fresh environments. This addendum scopes a cross-cutting requirement:
+
+- `make db-migrate` must provision `pgvector` extension + `knowledge_vectors` table (when `knowledge_space.vector_store.driver = pgvector`) and always provision minimal KG assist tables (`knowledge_kg_nodes`, `knowledge_kg_edges`) idempotently.
+
+Detailed spec & DDL live in:
+- `specs/011-knowledge-space/db-migrations.md`
+
+Scope note:
+- Treat `backend/config/knowledge/scene_strategy_catalog.yaml` as prerequisites SSOT (dense/sparse/hier/kg/time/structured). DB migrations should provision only what the selected implementation needs (e.g. Postgres-backed sparse/hier uses `knowledge_chunks`/`knowledge_chunk_links`; external search backends skip these).
 
 ## Constitution Re-check
 

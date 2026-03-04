@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -43,10 +44,35 @@ func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
 		// 初始化全局配置
 		if err := InitGlobalConfig("etc/config.yaml"); err != nil {
+			if alt := findConfigPath("etc/config.yaml"); alt != "" {
+				if retryErr := InitGlobalConfig(alt); retryErr == nil {
+					return GlobalConfig
+				}
+			}
 			log.Fatalf("初始化全局配置失败: %v", err)
 		}
 	}
 	return GlobalConfig
+}
+
+func findConfigPath(relPath string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Clean(wd)
+	for {
+		candidate := filepath.Join(dir, relPath)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+		next := filepath.Dir(dir)
+		if next == dir || next == "." || next == string(filepath.Separator) {
+			break
+		}
+		dir = next
+	}
+	return ""
 }
 
 type HTTPSecurityConfig struct {
@@ -62,6 +88,7 @@ type TenantConfig struct {
 
 // CoreX 全局配置
 type Config struct {
+	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
@@ -73,15 +100,35 @@ type Config struct {
 	KnowledgeSpace     KnowledgeSpaceConfig     `yaml:"knowledge_space"`     // 知识空间治理
 	LowCode            LowCodeConfig            `yaml:"low_code"`            // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
-	Database           dbCfg.DatabaseConfig     `yaml:"database"` // 数据库配置
-	Cache              cacheCfg.CacheConfig     `yaml:"cache"`    // 缓存配置
-	LogConfig          logCfg.LogConfig         `yaml:"log"`      // 输出配置
+	Database           dbCfg.DatabaseConfig     `yaml:"database"`            // 数据库配置
+	Cache              cacheCfg.CacheConfig     `yaml:"cache"`               // 缓存配置
+	LogConfig          logCfg.LogConfig         `yaml:"log"`                 // 输出配置
 	AI                 agentCfg.AIConfig        `yaml:"ai"`
 	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
 	Plugin             PluginAggregateConfig    `yaml:"plugin"`
 	HTTPSecurity       HTTPSecurityConfig       `yaml:"http_security"`
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
+}
+
+const DefaultSystemVersion = "v1.0.0"
+
+func (c *Config) EffectiveSystemVersion() string {
+	if c == nil {
+		return DefaultSystemVersion
+	}
+	version := strings.TrimSpace(c.Version)
+	if version == "" {
+		return DefaultSystemVersion
+	}
+	return version
+}
+
+func GetSystemVersion() string {
+	if GlobalConfig == nil {
+		return DefaultSystemVersion
+	}
+	return GlobalConfig.EffectiveSystemVersion()
 }
 
 // EffectiveMCPConfig 返回当前应使用的 MCP 配置。
@@ -132,8 +179,11 @@ type EventBusConfig struct {
 
 // QueueConfig 统一队列配置（允许被多个模块引用）
 type QueueConfig struct {
-	Driver string           `yaml:"driver"` // redis/local
-	Redis  QueueRedisConfig `yaml:"redis"`
+	Driver string              `yaml:"driver"` // redis/local/kafka/rabbitmq/nats
+	Redis  QueueRedisConfig    `yaml:"redis"`
+	Kafka  QueueKafkaConfig    `yaml:"kafka"`
+	Rabbit QueueRabbitMQConfig `yaml:"rabbitmq"`
+	NATS   QueueNATSConfig     `yaml:"nats"`
 }
 
 // QueueRedisConfig 描述 Redis 连接信息
@@ -141,6 +191,32 @@ type QueueRedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+// QueueKafkaConfig 描述 Kafka 任务驱动连接参数。
+type QueueKafkaConfig struct {
+	Brokers       []string `yaml:"brokers"`
+	TopicPrefix   string   `yaml:"topic_prefix"`
+	ConsumerGroup string   `yaml:"consumer_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
+}
+
+// QueueRabbitMQConfig 描述 RabbitMQ 驱动连接参数。
+type QueueRabbitMQConfig struct {
+	URL           string `yaml:"url"`
+	Exchange      string `yaml:"exchange"`
+	QueuePrefix   string `yaml:"queue_prefix"`
+	ConsumerTag   string `yaml:"consumer_tag"`
+	Prefetch      int    `yaml:"prefetch"`
+	PollTimeoutMs int    `yaml:"poll_timeout_ms"`
+}
+
+// QueueNATSConfig 描述 NATS 驱动连接参数。
+type QueueNATSConfig struct {
+	URLs          []string `yaml:"urls"`
+	SubjectPrefix string   `yaml:"subject_prefix"`
+	QueueGroup    string   `yaml:"queue_group"`
+	PollTimeoutMs int      `yaml:"poll_timeout_ms"`
 }
 
 // SchedulerConfig 统一的任务调度配置
@@ -296,22 +372,34 @@ type AgentLifecycleNotificationConfig struct {
 
 // KnowledgeSpaceConfig 描述知识空间模块运行参数。
 type KnowledgeSpaceConfig struct {
-	RedisAddr              string                           `yaml:"redis_addr"`
-	RedisPassword          string                           `yaml:"redis_password"`
-	RedisDB                int                              `yaml:"redis_db"`
-	LockKeyPrefix          string                           `yaml:"lock_key_prefix"`
-	MetricsKeyPrefix       string                           `yaml:"metrics_key_prefix"`
-	DefaultRetentionMonths int                              `yaml:"default_retention_months"`
-	ProvisioningSLASeconds int                              `yaml:"provisioning_sla_seconds"`
-	IngestionSLASeconds    int                              `yaml:"ingestion_sla_seconds"`
-	EventTopics            KnowledgeSpaceEventTopics        `yaml:"event_topics"`
-	Notifications          KnowledgeSpaceNotificationConfig `yaml:"notifications"`
-	VectorStore            KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
-	Delta                  KnowledgeSpaceDeltaConfig        `yaml:"delta"`
-	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
-	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
-	Decay                  KnowledgeSpaceDecayConfig        `yaml:"decay"`
-	Release                KnowledgeSpaceReleaseConfig      `yaml:"release"`
+	RedisAddr                string                                 `yaml:"redis_addr"`
+	RedisPassword            string                                 `yaml:"redis_password"`
+	RedisDB                  int                                    `yaml:"redis_db"`
+	LockKeyPrefix            string                                 `yaml:"lock_key_prefix"`
+	MetricsKeyPrefix         string                                 `yaml:"metrics_key_prefix"`
+	DefaultRetentionMonths   int                                    `yaml:"default_retention_months"`
+	ProvisioningSLASeconds   int                                    `yaml:"provisioning_sla_seconds"`
+	IngestionSLASeconds      int                                    `yaml:"ingestion_sla_seconds"`
+	SceneStrategyCatalogPath string                                 `yaml:"scene_strategy_catalog_path"`
+	IngestionProcessors      KnowledgeSpaceIngestionProcessorConfig `yaml:"ingestion_processors"`
+	EventTopics              KnowledgeSpaceEventTopics              `yaml:"event_topics"`
+	Notifications            KnowledgeSpaceNotificationConfig       `yaml:"notifications"`
+	VectorStore              KnowledgeSpaceVectorStoreConfig        `yaml:"vector_store"`
+	IndexBackends            KnowledgeSpaceIndexBackendConfig       `yaml:"index_backends"`
+	Delta                    KnowledgeSpaceDeltaConfig              `yaml:"delta"`
+	Reports                  KnowledgeSpaceReportConfig             `yaml:"reports"`
+	EventHotfix              KnowledgeSpaceEventHotfixConfig        `yaml:"event_hotfix"`
+	Decay                    KnowledgeSpaceDecayConfig              `yaml:"decay"`
+	Release                  KnowledgeSpaceReleaseConfig            `yaml:"release"`
+}
+
+// KnowledgeSpaceIngestionProcessorConfig 控制入库处理器能力开关（用于部署环境可控启停）。
+// 留空则使用运行时自动探测（PATH 中是否存在对应命令）。
+type KnowledgeSpaceIngestionProcessorConfig struct {
+	// PDF 内嵌文本抽取：依赖 `pdftotext`（poppler-utils）
+	PDFTextAvailable *bool `yaml:"pdf_text_available"`
+	// OCR Plan B：依赖 `tesseract` + (`pdftoppm` 或 `mutool`)
+	OCRAvailable *bool `yaml:"ocr_available"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -336,6 +424,19 @@ type KnowledgeSpaceVectorStoreConfig struct {
 	PgVector KnowledgeSpaceVectorStorePGVectorConfig `yaml:"pgvector"`
 	Milvus   KnowledgeSpaceVectorStoreMilvusConfig   `yaml:"milvus"`
 	Pinecone KnowledgeSpaceVectorStorePineconeConfig `yaml:"pinecone"`
+}
+
+// KnowledgeSpaceIndexBackendConfig defines storage backends for non-dense indices.
+// Values are intentionally explicit so `make db-migrate` can decide whether to create assist tables.
+type KnowledgeSpaceIndexBackendConfig struct {
+	// Sparse index backend (for `index.sparse`): `postgres_fts` or `external`.
+	Sparse string `yaml:"sparse"`
+	// Hier index backend (for `index.hier`): `postgres_links` or `external`.
+	Hier string `yaml:"hier"`
+	// Structured field filtering backend (for `index.structured_fields`): `postgres_jsonb` or `external`.
+	StructuredFields string `yaml:"structured_fields"`
+	// KG backend (for `index.kg`): `postgres` or `external`.
+	KG string `yaml:"kg"`
 }
 
 type KnowledgeSpaceDeltaConfig struct {

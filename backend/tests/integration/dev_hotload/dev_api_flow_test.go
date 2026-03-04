@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -113,6 +114,7 @@ type devHotloadEnv struct {
 
 func newDevHotloadEnv(t *testing.T) *devHotloadEnv {
 	t.Helper()
+	testutil.SkipIfNoLocalListener(t)
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&parseTime=true&_loc=UTC"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)

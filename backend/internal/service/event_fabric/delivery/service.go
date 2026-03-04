@@ -104,33 +104,35 @@ type aclStore interface {
 
 // Options 汇总 Service 所需依赖。
 type Options struct {
-	DB         *gorm.DB
-	Envelopes  envelopeStore
-	Deliveries deliveryStore
-	DLQ        dlqStore
-	Topics     topicStore
-	ACL        aclStore
-	Audit      eventaudit.Service
-	Scheduler  *BackoffScheduler
-	Clock      func() time.Time
-	MaxRetry   int
-	Negotiator VersionNegotiator
-	Metrics    eventmetrics.Recorder
+	DB                           *gorm.DB
+	Envelopes                    envelopeStore
+	Deliveries                   deliveryStore
+	DLQ                          dlqStore
+	Topics                       topicStore
+	ACL                          aclStore
+	Audit                        eventaudit.Service
+	Scheduler                    *BackoffScheduler
+	Clock                        func() time.Time
+	MaxRetry                     int
+	Negotiator                   VersionNegotiator
+	Metrics                      eventmetrics.Recorder
+	EnableDatabaseFallbackLookup bool
 }
 
 type serviceImpl struct {
-	db         *gorm.DB
-	envelopes  envelopeStore
-	deliveries deliveryStore
-	dlq        dlqStore
-	topics     topicStore
-	acl        aclStore
-	scheduler  *BackoffScheduler
-	clock      func() time.Time
-	maxRetry   int
-	audit      eventaudit.Service
-	negotiator VersionNegotiator
-	metrics    eventmetrics.Recorder
+	db                           *gorm.DB
+	envelopes                    envelopeStore
+	deliveries                   deliveryStore
+	dlq                          dlqStore
+	topics                       topicStore
+	acl                          aclStore
+	scheduler                    *BackoffScheduler
+	clock                        func() time.Time
+	maxRetry                     int
+	audit                        eventaudit.Service
+	negotiator                   VersionNegotiator
+	metrics                      eventmetrics.Recorder
+	enableDatabaseFallbackLookup bool
 }
 
 // NewService 构建事件投递服务。
@@ -196,18 +198,19 @@ func NewService(opts Options) (Service, error) {
 	}
 
 	return &serviceImpl{
-		db:         opts.DB,
-		envelopes:  envStore,
-		deliveries: deliverStore,
-		dlq:        dlqStore,
-		topics:     topics,
-		acl:        aclRepo,
-		scheduler:  opts.Scheduler,
-		clock:      clock,
-		maxRetry:   maxRetry,
-		audit:      opts.Audit,
-		negotiator: negotiator,
-		metrics:    metrics,
+		db:                           opts.DB,
+		envelopes:                    envStore,
+		deliveries:                   deliverStore,
+		dlq:                          dlqStore,
+		topics:                       topics,
+		acl:                          aclRepo,
+		scheduler:                    opts.Scheduler,
+		clock:                        clock,
+		maxRetry:                     maxRetry,
+		audit:                        opts.Audit,
+		negotiator:                   negotiator,
+		metrics:                      metrics,
+		enableDatabaseFallbackLookup: opts.EnableDatabaseFallbackLookup,
 	}, nil
 }
 
@@ -272,7 +275,7 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		return err
 	}
 
-	if topicTenant != "" && !strings.EqualFold(topicTenant, tenantKey) {
+	if topicTenant != "" && !strings.EqualFold(topicTenant, tenantKey) && !isSharedTopicTenant(topicTenant) {
 		err = shared.ErrTenantMismatch
 		return err
 	}
@@ -287,14 +290,18 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		return err
 	}
 
-	if !strings.EqualFold(topic.TenantKey, tenantKey) {
+	aclTenantKey := topic.TenantKey
+	if aclTenantKey == "" {
+		aclTenantKey = tenantKey
+	}
+	if !strings.EqualFold(topic.TenantKey, tenantKey) && !isSharedTopicTenant(topic.TenantKey) {
 		err = shared.ErrTenantMismatch
 		return err
 	}
 	auditTopic = topic.FullTopic
 
 	if s.acl != nil && principal != "" {
-		allowed, permErr := s.acl.HasPermission(ctx, tenantKey, topic.UUID, principal, string(aclPublish), s.clock().UTC())
+		allowed, permErr := s.acl.HasPermission(ctx, aclTenantKey, topic.UUID, principal, string(aclPublish), s.clock().UTC())
 		if permErr != nil {
 			err = permErr
 			return err
@@ -354,7 +361,7 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		return nil
 	}
 
-	subscribers, err := s.collectSubscribers(ctx, tenantKey, topic.UUID)
+	subscribers, err := s.collectSubscribers(ctx, aclTenantKey, topic.UUID)
 	if err != nil {
 		return err
 	}
@@ -752,6 +759,9 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 			}
 		}
 		if attempt == nil {
+			if !s.enableDatabaseFallbackLookup {
+				continue
+			}
 			// fallback by envelope/subscriber
 			envelopeUUID, err := uuid.Parse(item.EnvelopeUUID)
 			if err != nil {
@@ -1004,14 +1014,27 @@ func resolveTenantKey(value string) (string, error) {
 }
 
 func parseTopicName(topic string) (tenant, namespace, name string, err error) {
-	parts := strings.Split(topic, ".")
-	if len(parts) < 3 {
+	parts := strings.Split(strings.TrimSpace(topic), ".")
+	if len(parts) < 2 {
 		return "", "", "", fmt.Errorf("invalid topic format: %s", topic)
 	}
-	tenant = parts[0]
-	namespace = strings.Join(parts[1:len(parts)-1], ".")
+
+	first := strings.TrimSpace(parts[0])
+	if parsed, parseErr := uuid.Parse(first); parseErr == nil && parsed != uuid.Nil && len(parts) >= 3 {
+		tenant = first
+		namespace = strings.Join(parts[1:len(parts)-1], ".")
+		name = parts[len(parts)-1]
+		return tenant, namespace, name, nil
+	}
+
+	namespace = strings.Join(parts[:len(parts)-1], ".")
 	name = parts[len(parts)-1]
-	return tenant, namespace, name, nil
+	return "", namespace, name, nil
+}
+
+func isSharedTopicTenant(tenantKey string) bool {
+	key := strings.ToLower(strings.TrimSpace(tenantKey))
+	return key == "global" || key == "system"
 }
 
 func defaultVersion(version string) string {

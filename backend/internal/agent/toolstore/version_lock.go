@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/redis/go-redis/v9"
 )

@@ -21,7 +21,7 @@ func requirePluginAdminAuth(tenantUUID string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		headerUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		headerUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 		if headerUUID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -55,28 +55,21 @@ func servePluginTenantRequest(t testing.TB, handler http.Handler, req *http.Requ
 func applyPluginAdminHeaders(t testing.TB, req *http.Request, tenantUUID string) {
 	t.Helper()
 	require.NotNil(t, req, "request cannot be nil")
-	requireNoLegacyTenantHeaders(t, req)
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer admin")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func applyPluginTenantHeaders(t testing.TB, req *http.Request, tenantUUID string) {
 	t.Helper()
 	require.NotNil(t, req, "request cannot be nil")
-	requireNoLegacyTenantHeaders(t, req)
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer tenant")
 	}
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
-}
-
-func requireNoLegacyTenantHeaders(t testing.TB, req *http.Request) {
-	t.Helper()
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-PowerX-Tenant")), "legacy X-PowerX-Tenant header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("Tenant-ID")), "legacy Tenant-ID header forbidden")
+	ctx := reqctx.WithTenantUUID(req.Context(), tenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoPluginTenantLeak(t testing.TB, payload []byte) {
@@ -98,7 +91,7 @@ func pluginReleaseGRPCContext(t testing.TB, parent context.Context, tenantUUID s
 		tenantUUID = "plugin-release-grpc"
 	}
 	md := metadata.New(map[string]string{
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 		"authorization": "Bearer token",
 	})
 	return metadata.NewOutgoingContext(parent, md)

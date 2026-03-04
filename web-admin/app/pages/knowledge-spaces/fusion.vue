@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import type {
   FusionStrategyPayload,
   FusionStrategyRecord,
 } from "~/composables/useKnowledgeSpaces";
 import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
+import { useEmbeddingGuard } from "~/composables/useEmbeddingGuard";
 
 useHead({
   title: "融合策略管理",
@@ -17,6 +18,8 @@ const submitting = ref(false);
 const statusMessage = ref("");
 const errorMessage = ref("");
 const strategies = ref<FusionStrategyRecord[]>([]);
+const { ensureEmbeddingReady } = useEmbeddingGuard();
+const embeddingReady = ref(false);
 
 const publishForm = reactive<FusionStrategyPayload>({
   label: "",
@@ -28,6 +31,7 @@ const publishForm = reactive<FusionStrategyPayload>({
 });
 
 const loadStrategies = async () => {
+  if (!embeddingReady.value) return;
   if (!spaceId.value) {
     errorMessage.value = "请先输入空间 ID";
     return;
@@ -43,6 +47,11 @@ const loadStrategies = async () => {
     loadingList.value = false;
   }
 };
+
+onMounted(async () => {
+  if (!(await ensureEmbeddingReady())) return;
+  embeddingReady.value = true;
+});
 
 const publishStrategy = async () => {
   if (!spaceId.value) {
@@ -144,6 +153,9 @@ const rollbackStrategy = async (strategy: FusionStrategyRecord) => {
             <p class="text-xs text-gray-500">
               BM25 {{ strategy.bm25Weight }} ｜ 向量
               {{ strategy.vectorWeight }} ｜ 模型 {{ strategy.rerankerModel }}
+            </p>
+            <p v-if="strategy.degraded" class="text-xs text-orange-600">
+              已降级：{{ strategy.degradeReasons?.join("；") || "unknown" }}
             </p>
             <p class="text-xs text-gray-500">
               状态：{{ strategy.deploymentState }} ｜ 冲突策略

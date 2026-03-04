@@ -25,7 +25,7 @@ func TestFeedbackMetricsWriterRefresh(t *testing.T) {
 	t.Cleanup(func() {
 		coremodel.PowerXSchema = prevSchema
 	})
-	require.NoError(t, db.AutoMigrate(&models.FeedbackCase{}))
+	require.NoError(t, db.AutoMigrate(&models.FeedbackCase{}, &models.AuditTrailEntry{}))
 
 	now := time.Now().UTC()
 	spaceID := uuid.New()

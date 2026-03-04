@@ -18,6 +18,9 @@
    - 仅展示 `source=corex` 的平台能力，按模块（Media、Event、Workflow、Knowledge）聚合。
    - 每个卡片提供协议标签、`capabilities_hash`、调试链接，方便直接跳入对应文档。
 
+> 若你要联调网关鉴权（`API Key / Token`）与 ws-bus，请先阅读：
+> [API Key / Token 联调指南](../api_key_token_playbook.md)
+
 ## 2. 查询接口（供自动化脚本使用）
 
 ```bash
@@ -68,14 +71,13 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
    - [Knowledge Space 能力](./knowledge_space.md)
 2. 文档中包含：
    - 可直接复制的 REST `curl` 与 `grpcurl` 命令
-   - 所需 Header（`Authorization`, `X-Tenant-UUID` 等）与典型请求体
+   - 所需 Header（`Authorization`）与典型请求体（租户由 JWT claims 提供）
    - 对应的 `capability_id`、意图、协议优先级
    - 统一的资源访问入口（例如 Media 的 `GET /api/v1/media/assets/{uuid}/resource`），方便你在调试阶段直接下载或跳转外链
 3. 若需要走统一 Selector，可以使用 `/tenant/capabilities` / `/tenant/invocations`：
 
 ```bash
 curl -sS -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-Tenant-UUID: $TENANT_UUID" \
   "$API_ORIGIN/api/v1/tenant/capabilities?source=corex"
 ```
 
@@ -88,7 +90,6 @@ curl -sS -H "Authorization: Bearer $TENANT_TOKEN" \
 ```bash
 curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-Tenant-UUID: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
         "capability_id": "com.corex.media.assets.read",

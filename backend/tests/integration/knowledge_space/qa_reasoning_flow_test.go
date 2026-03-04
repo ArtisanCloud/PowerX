@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -53,10 +54,12 @@ func TestQAReasoningFlow(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-UUID", env.TenantUUID().String())
+	req.Header.Set("tenant-uuid", env.TenantUUID().String())
+	started := time.Now()
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
+	require.Less(t, time.Since(started), 2*time.Second)
 
 	lastQuery := env.VectorStore.LastQuery()
 	expectedSpaces := []uuid.UUID{spaceA.UUID, spaceB.UUID}
@@ -88,10 +91,13 @@ func TestQAReasoningFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, planResp.GetCandidateSpaces(), 2)
+	require.NotEmpty(t, planResp.GetStages())
+	require.NotEmpty(t, planResp.GetPolicyVersionSnapshot())
 
 	_, err = client.UpsertMemorySnapshot(ctx, &knowledgev1.QAMemorySnapshotRequest{
 		TenantUuid: env.TenantUUID().String(),
 		SessionId: "integration-session",
+		TraceId:   planResp.GetTelemetry().GetTraceId(),
 		Updates: []*knowledgev1.QAMemoryUpdate{
 			{
 				ChunkId:    "chunk-integration-1",
@@ -113,7 +119,7 @@ func TestQAReasoningFlow(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-UUID", env.TenantUUID().String())
+	req.Header.Set("tenant-uuid", env.TenantUUID().String())
 	resp = httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -129,4 +135,12 @@ func TestQAReasoningFlow(t *testing.T) {
 	require.Equal(t, http.StatusOK, snapshotResp.Code)
 	require.Len(t, snapshotResp.Data.Citations, 1)
 	require.Equal(t, "chunk-integration-1", snapshotResp.Data.Citations[0].ChunkID)
+
+	// Ensure qa reasoning report is written and contains expected metrics keys.
+	reportBytes, err := os.ReadFile(env.QABridgeReportPath)
+	require.NoError(t, err)
+	require.NotEmpty(t, reportBytes)
+	require.Contains(t, string(reportBytes), "qa.retrieval.latency_ms")
+	require.Contains(t, string(reportBytes), "qa.tool.success_rate")
+	require.Contains(t, string(reportBytes), "policy_version_snapshot")
 }

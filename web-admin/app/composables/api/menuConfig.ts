@@ -73,10 +73,22 @@ export const knowledgeSpaceMenuConfig: MenuConfig = {
       order: 1
     },
     {
+      title: '策略配置',
+      path: '/knowledge-spaces/strategy',
+      icon: 'i-heroicons-adjustments-horizontal',
+      order: 2
+    },
+    {
       title: '创建空间',
       path: '/knowledge-spaces/create',
       icon: 'i-heroicons-plus-circle',
-      order: 2
+      order: 3
+    },
+    {
+      title: '租户灰度发布',
+      path: '/knowledge-spaces/release',
+      icon: 'i-heroicons-adjustments-horizontal',
+      order: 4
     }
   ]
 }

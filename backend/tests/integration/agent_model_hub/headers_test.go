@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	ammatestenv "github.com/ArtisanCloud/PowerX/tests/agent_model_hub/testenv"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -34,13 +35,11 @@ func doAgentModelHubJSONRequest(t *testing.T, engine *gin.Engine, method, path s
 func applyAgentModelHubHeaders(t testing.TB, req *http.Request) {
 	t.Helper()
 	require.NotNil(t, req, "request cannot be nil")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-Tenant-ID")), "legacy X-Tenant-ID header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("X-PowerX-Tenant")), "legacy X-PowerX-Tenant header forbidden")
-	require.Empty(t, strings.TrimSpace(req.Header.Get("Tenant-ID")), "legacy Tenant-ID header forbidden")
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer token")
 	}
-	req.Header.Set("X-Tenant-UUID", ammatestenv.AgentModelHubTenantUUID)
+	ctx := reqctx.WithTenantUUID(req.Context(), ammatestenv.AgentModelHubTenantUUID)
+	*req = *req.WithContext(ctx)
 }
 
 func assertNoAgentModelHubTenantLeak(t testing.TB, payload []byte) {

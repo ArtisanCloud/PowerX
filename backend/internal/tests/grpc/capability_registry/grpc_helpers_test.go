@@ -17,14 +17,16 @@ func capabilityRegistryContext(t testing.TB, parent context.Context, tenantUUID 
 		parent = context.Background()
 	}
 	if tenantUUID == "" {
-		tenantUUID = "capability-registry"
+		tenantUUID = defaultTenantUUID
 	}
 	md := metadata.New(map[string]string{
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 		"authorization": "Bearer contract",
 	})
 	return metadata.NewOutgoingContext(parent, md)
 }
+
+const defaultTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
 
 func assertNoCapabilityRegistryTenantLeak(t testing.TB, msg proto.Message) {
 	t.Helper()

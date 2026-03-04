@@ -1,0 +1,23 @@
+id: hash
+name: Hash (Local)
+aliases: ["hash32", "local_hash"]
+
+drivers:
+  embedding: hash
+
+auth:
+  scheme: none
+  fields: []
+
+modalities:
+  embedding:
+    models:
+      - id: hash
+        label: "Hash Embedding (Local, non-semantic)"
+        tags: ["local","dev","non-semantic"]
+        defaults:
+          dimensions: 1536
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

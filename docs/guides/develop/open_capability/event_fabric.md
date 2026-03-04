@@ -35,7 +35,7 @@ PowerX Event Fabric 对外暴露一条平台能力 `com.corex.eventfabric.publis
 > **认证要求**
 >
 > - `Authorization: Bearer <TENANT_TOKEN>`
-> - `x-tenant-uuid: <TENANT_UUID>`
+> - `tenant_uuid: <TENANT_UUID>`
 > - 租户需开启 Event Fabric Tool Grant。
 
 ## Manifest 自动播种
@@ -140,7 +140,7 @@ PAYLOAD=$(printf '{"orderId":"ord_123","amount":99.9}' | base64)
 
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "tenant_uuid": "'$TENANT_UUID'",
     "topic": "'$TENANT_UUID'.orders.created",
@@ -166,7 +166,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "tenant_uuid": "'$TENANT_UUID'",
     "subscriber_id": "demo-plugin",
@@ -189,7 +189,6 @@ PAYLOAD=$(printf '{"orderId":"ord_123","amount":99.9}' | base64)
 
 curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-Tenant-UUID: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
     "capability_id": "com.corex.eventfabric.publish",
@@ -199,7 +198,7 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
       "rpc": "PublishEvent",
       "body": {
         "tenant_uuid": "'$TENANT_UUID'",
-        "topic": "{{ _['x-tenant-uuid'] }}.orders.created",
+        "topic": "{{ _['tenant_uuid'] }}.orders.created",
         "event_id": "evt-demo-001",
         "trace_id": "trace-demo",
         "version": "v1",

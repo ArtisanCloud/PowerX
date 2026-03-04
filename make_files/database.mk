@@ -42,6 +42,8 @@ db-seed:
 
 .PHONY: db-refresh
 db-refresh:
+	@echo "⚠️  将刷新数据库（回滚+迁移+种子），该操作会清空当前数据库数据。"
+	@printf "确认继续？[y/N] " ; read ans; case "$$ans" in y|Y|yes|YES) echo "继续执行...";; *) echo "已取消"; exit 1;; esac
 	@echo "刷新数据库（回滚+迁移+种子）..."
 	@cd backend && go run ./cmd/database refresh
 

@@ -7,6 +7,15 @@
    ```
    Copy provider/routing templates into `backend/config/agents/providers.d/` and `routing.d/`.
 
+> 结构说明：  
+> - **Agent 框架驱动** 在 `backend/internal/server/agent/drivers/eino`  
+> - **AI 多模态驱动** 在 `backend/internal/server/ai/drivers/{provider}`  
+> - **模态工厂** 在 `backend/internal/server/ai/factory/{llm,vlm,...}`（仅入口+分发）
+
+> 模型路由约定：  
+> - **provider_key 仅鉴权**（provider 级别，覆盖该 provider 下所有 app/model）  
+> - **model_key 仅路由**：`provider/model` 或 `provider/app:model`  
+
 2. **Register a sandbox provider**  
    ```bash
    curl -X POST https://api.powerx.local/internal/providers/register \

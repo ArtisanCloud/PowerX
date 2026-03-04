@@ -48,6 +48,7 @@ export const useAuth = () => {
       localStorage.removeItem("token_type");
       localStorage.removeItem("expires_in");
       localStorage.removeItem("expires_at");
+      localStorage.removeItem("px_current_tenant_uuid");
 
       const tokenCookie = useCookie<string | null>("token", {
         sameSite: "lax",
@@ -109,7 +110,10 @@ export const useAuth = () => {
     try {
       // 可以调用后端登出API
       const { logout: apiLogout } = useAuthService();
-      await apiLogout();
+      const refreshToken = process.client ? localStorage.getItem("refresh_token") : null;
+      if (refreshToken) {
+        await apiLogout({ refresh_token: refreshToken });
+      }
     } catch (error) {
       console.error("登出API调用失败:", error);
     } finally {
@@ -124,18 +128,19 @@ export const useAuth = () => {
       }
 
       // 清理可能的cookie和其他存储
-      if (process.client) {
-        // 清理特定的认证相关cookie
-        const authCookies = [
-          "px_token",
-          "auth_token",
-          "auth-token",
-          "i18n_redirected",
-        ];
-        authCookies.forEach((cookieName) => {
-          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
-        });
+    if (process.client) {
+      // 清理特定的认证相关cookie
+      const authCookies = [
+        "px_token",
+        "auth_token",
+        "auth-token",
+        "i18n_redirected",
+        "px_current_tenant_uuid",
+      ];
+      authCookies.forEach((cookieName) => {
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
+      });
 
         // 清理sessionStorage
         sessionStorage.clear();

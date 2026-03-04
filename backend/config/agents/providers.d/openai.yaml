@@ -6,7 +6,8 @@ drivers:
   llm: openai
   embedding: openai
   image: openai
-  audio: openai
+  audio_tts: openai
+  audio_asr: openai
   video: openai
   rerank: openai
 
@@ -84,12 +85,26 @@ modalities:
       - id: gpt-image-1
         label: "GPT-Image-1"
         tags: ["img-gen","inpainting","variation"]
+      - id: gpt-image-1-mini
+        label: "GPT-Image-1 mini"
+        tags: ["img-gen","fast","cheap"]
+      - id: gpt-image-1.5
+        label: "GPT-Image-1.5"
+        tags: ["img-gen","high-quality"]
+      - id: dall-e-3
+        label: "DALL·E 3"
+        tags: ["img-gen","legacy"]
+      - id: dall-e-2
+        label: "DALL·E 2"
+        tags: ["img-gen","legacy"]
 
-  audio:
+  audio_tts:
     models:
       - id: gpt-4o-mini-tts
         label: "GPT-4o mini TTS"
         tags: ["audio","tts","expressive"]
+  audio_asr:
+    models:
       - id: gpt-4o-transcribe
         label: "GPT-4o Transcribe"
         tags: ["audio","asr","multilingual"]
@@ -101,7 +116,6 @@ modalities:
         tags: ["audio","asr","legacy"]
 
   video:
-    # 预置 UI 可选项（部分环境通过网关/代理支持）
     models:
       - id: sora
         label: "Sora"
@@ -111,4 +125,4 @@ modalities:
         tags: ["video","gen","placeholder"]
 
   rerank:
-    models: []   # OpenAI 暂无独立 rerank 模型；通常用 LLM/Embedding 组合处理
+    models: []

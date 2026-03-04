@@ -26,6 +26,25 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
+func composePostgresDSNFromDB(driver string, host string, port int, user string, password string, database string, sslMode string, timezone string) string {
+	if strings.TrimSpace(host) == "" {
+		return ""
+	}
+	if strings.TrimSpace(sslMode) == "" {
+		sslMode = "disable"
+	}
+	if strings.TrimSpace(timezone) == "" {
+		timezone = "UTC"
+	}
+	if driver != "" && !strings.EqualFold(strings.TrimSpace(driver), "postgres") && !strings.EqualFold(strings.TrimSpace(driver), "pg") {
+		return ""
+	}
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+		host, port, user, password, database, sslMode, timezone,
+	)
+}
+
 func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error) {
 
 	// 初始化全局 Logger
@@ -101,6 +120,16 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	if localTokenSecret == "" {
 		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点将跳过 Token 校验，不建议在生产环境使用")
 	}
+	publicTokenSecret := strings.TrimSpace(cfg.Storage.Local.PublicTokenSecret)
+	if publicTokenSecret == "" {
+		// 兼容：未显式配置时，优先复用 upload_token_secret，其次回退到 JWTSecret（避免本地环境“复制下载链接”不可用）。
+		if localTokenSecret != "" {
+			publicTokenSecret = localTokenSecret
+		} else if strings.TrimSpace(cfg.Auth.JWTSecret) != "" {
+			publicTokenSecret = strings.TrimSpace(cfg.Auth.JWTSecret)
+			logger.WarnF(ctx, "storage.local.public_token_secret 未配置，已回退使用 auth.jwt_secret 作为公开下载 token 密钥（建议在生产环境显式配置 public_token_secret）")
+		}
+	}
 	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
 	if maxUploadSize < 0 {
 		maxUploadSize = 0
@@ -175,6 +204,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				BasePath:           cfg.Storage.Local.BasePath,
 				PublicBaseURL:      cfg.Storage.Local.PublicBaseURL,
 				UploadTokenSecret:  localTokenSecret,
+				PublicTokenSecret:  publicTokenSecret,
 				MaxUploadSizeBytes: maxUploadSize,
 			},
 			S3: mediasvc.StorageS3Options{
@@ -188,6 +218,29 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				ForcePathStyle:  cfg.Storage.S3.ForcePathStyle,
 				ExternalDomain:  cfg.Storage.S3.ExternalDomain,
 				PresignEndpoint: cfg.Storage.S3.PresignEndpoint,
+			},
+		},
+		Queue: shared.QueueOptions{
+			Driver: cfg.Queue.Driver,
+			Kafka: shared.QueueKafkaOptions{
+				Brokers:       append([]string{}, cfg.Queue.Kafka.Brokers...),
+				TopicPrefix:   cfg.Queue.Kafka.TopicPrefix,
+				ConsumerGroup: cfg.Queue.Kafka.ConsumerGroup,
+				PollTimeoutMs: cfg.Queue.Kafka.PollTimeoutMs,
+			},
+			Rabbit: shared.QueueRabbitMQOptions{
+				URL:           cfg.Queue.Rabbit.URL,
+				Exchange:      cfg.Queue.Rabbit.Exchange,
+				QueuePrefix:   cfg.Queue.Rabbit.QueuePrefix,
+				ConsumerTag:   cfg.Queue.Rabbit.ConsumerTag,
+				Prefetch:      cfg.Queue.Rabbit.Prefetch,
+				PollTimeoutMs: cfg.Queue.Rabbit.PollTimeoutMs,
+			},
+			NATS: shared.QueueNATSOptions{
+				URLs:          append([]string{}, cfg.Queue.NATS.URLs...),
+				SubjectPrefix: cfg.Queue.NATS.SubjectPrefix,
+				QueueGroup:    cfg.Queue.NATS.QueueGroup,
+				PollTimeoutMs: cfg.Queue.NATS.PollTimeoutMs,
 			},
 		},
 		EventFabric: shared.EventFabricOptions{
@@ -289,14 +342,19 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		KnowledgeSpace: shared.KnowledgeSpaceOptions{
-			RedisAddr:              knowledgeRedisAddr,
-			RedisPassword:          knowledgeRedisPassword,
-			RedisDB:                knowledgeRedisDB,
-			LockKeyPrefix:          cfg.KnowledgeSpace.LockKeyPrefix,
-			MetricsKeyPrefix:       cfg.KnowledgeSpace.MetricsKeyPrefix,
-			DefaultRetentionMonths: cfg.KnowledgeSpace.DefaultRetentionMonths,
-			ProvisioningSLA:        time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
-			IngestionSLA:           time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
+			RedisAddr:                knowledgeRedisAddr,
+			RedisPassword:            knowledgeRedisPassword,
+			RedisDB:                  knowledgeRedisDB,
+			LockKeyPrefix:            cfg.KnowledgeSpace.LockKeyPrefix,
+			MetricsKeyPrefix:         cfg.KnowledgeSpace.MetricsKeyPrefix,
+			DefaultRetentionMonths:   cfg.KnowledgeSpace.DefaultRetentionMonths,
+			ProvisioningSLA:          time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
+			IngestionSLA:             time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
+			SceneStrategyCatalogPath: cfg.KnowledgeSpace.SceneStrategyCatalogPath,
+			IngestionProcessors: shared.KnowledgeSpaceIngestionProcessorOptions{
+				PDFTextAvailable: cfg.KnowledgeSpace.IngestionProcessors.PDFTextAvailable,
+				OCRAvailable:     cfg.KnowledgeSpace.IngestionProcessors.OCRAvailable,
+			},
 			EventTopics: shared.KnowledgeSpaceEventTopicsOptions{
 				Provisioning: cfg.KnowledgeSpace.EventTopics.Provisioning,
 				Ingestion:    cfg.KnowledgeSpace.EventTopics.Ingestion,
@@ -312,7 +370,26 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			VectorStore: shared.KnowledgeSpaceVectorStoreOptions{
 				Driver: cfg.KnowledgeSpace.VectorStore.Driver,
 				PGVector: pgvectorcfg.Config{
-					DSN:              cfg.KnowledgeSpace.VectorStore.PgVector.DSN,
+					DSN: func() string {
+						dsn := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.DSN)
+						if dsn != "" {
+							return dsn
+						}
+						dsn = strings.TrimSpace(cfg.Database.DSN)
+						if dsn != "" {
+							return dsn
+						}
+						return composePostgresDSNFromDB(
+							cfg.Database.Driver,
+							cfg.Database.Host,
+							cfg.Database.Port,
+							cfg.Database.UserName,
+							cfg.Database.Password,
+							cfg.Database.Database,
+							cfg.Database.SSLMode,
+							cfg.Database.Timezone,
+						)
+					}(),
 					Schema:           cfg.KnowledgeSpace.VectorStore.PgVector.Schema,
 					Table:            cfg.KnowledgeSpace.VectorStore.PgVector.Table,
 					Dimensions:       cfg.KnowledgeSpace.VectorStore.PgVector.Dimensions,

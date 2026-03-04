@@ -164,7 +164,7 @@ flowchart LR
 ### 7.1 触发检索
 
 - **HTTP**：`GET /api/v1/knowledge/search`
-- **Headers**：`Authorization: Bearer <token>`, `X-Tenant-UUID: <uuid>`
+- **Headers**：`Authorization: Bearer <token>`, `JWT claims（tid/tenant_uuid）: <uuid>`
 - **Query**：
   - `space_id`, `query`, `k`
   - `filters.tags[]`, `filters.source_types[]`, `filters.sensitivity_max`

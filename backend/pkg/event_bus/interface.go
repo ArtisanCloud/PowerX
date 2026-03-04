@@ -69,3 +69,81 @@ type ReliableQueue interface {
 	// ReleaseLease 释放租约（Ack/Nack 完成或超时清理）。
 	ReleaseLease(ctx context.Context, lease DeliveryLease) error
 }
+
+// QueueDriverType 表示任务队列驱动类型。
+type QueueDriverType string
+
+const (
+	QueueDriverRedis    QueueDriverType = "redis"
+	QueueDriverKafka    QueueDriverType = "kafka"
+	QueueDriverRabbitMQ QueueDriverType = "rabbitmq"
+	QueueDriverNATS     QueueDriverType = "nats"
+	QueueDriverDatabase QueueDriverType = "database"
+	QueueDriverMemory   QueueDriverType = "memory"
+)
+
+// QueueDriverCapability 描述驱动能力，用于编排层在运行时做路由或降级决策。
+type QueueDriverCapability struct {
+	SupportsBlockingDequeue bool
+	SupportsDelayQueue      bool
+	SupportsLease           bool
+	SupportsConsumerGroup   bool
+}
+
+// TaskMessage 是任务驱动层的统一消息信封。
+type TaskMessage struct {
+	ID           string
+	TenantKey    string
+	SubscriberID string
+	Topic        string
+	Payload      []byte
+	Headers      map[string]string
+	Attempt      int
+	TraceID      string
+	VisibleAt    time.Time
+	Metadata     map[string]string
+}
+
+// DequeueRequest 描述一次任务拉取请求。
+type DequeueRequest struct {
+	TenantKey    string
+	SubscriberID string
+	MaxItems     int
+	WaitTimeout  time.Duration
+}
+
+// AckRequest 描述一次确认消费请求。
+type AckRequest struct {
+	TenantKey    string
+	SubscriberID string
+	MessageID    string
+}
+
+// NackRequest 描述一次拒绝消费请求。
+type NackRequest struct {
+	TenantKey    string
+	SubscriberID string
+	MessageID    string
+	Reason       string
+	RetryAt      time.Time
+	Metadata     map[string]string
+}
+
+// RetryRequest 描述主动重排队请求。
+type RetryRequest struct {
+	Message TaskMessage
+	RetryAt time.Time
+	Reason  string
+}
+
+// TaskDriver 定义统一任务驱动接口（enqueue/dequeue/ack/nack/retry）。
+// T065 先建立契约，后续任务再接入具体实现与运行时装配。
+type TaskDriver interface {
+	Type() QueueDriverType
+	Capability() QueueDriverCapability
+	Enqueue(ctx context.Context, message TaskMessage) error
+	Dequeue(ctx context.Context, request DequeueRequest) ([]TaskMessage, error)
+	Ack(ctx context.Context, request AckRequest) error
+	Nack(ctx context.Context, request NackRequest) error
+	Retry(ctx context.Context, request RetryRequest) error
+}

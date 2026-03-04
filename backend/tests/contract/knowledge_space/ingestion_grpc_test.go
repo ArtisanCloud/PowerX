@@ -7,6 +7,7 @@ import (
 	"time"
 
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/tests/knowledge_space/testenv"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -45,24 +46,73 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 
 	rpcCtx := knowledgeGRPCContext(t, env)
 	resp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
-		SpaceId:    space.UUID.String(),
-		SourceType: "markdown",
-		SourceUri:  "https://example.com/wiki.md",
-		Priority:   "normal",
+		SpaceId:   space.UUID.String(),
+		Format:    "markdown",
+		SourceUri: "https://example.com/wiki.md",
+		Priority:  "normal",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.GetJob())
 	require.Equal(t, "completed", resp.GetJob().GetStatus())
 	require.Greater(t, resp.GetJob().GetChunkTotal(), uint32(0))
+	require.Equal(t, uint32(0), resp.GetJob().GetRetryCount())
 	assertNoLegacyTenantProto(t, resp)
 
+	env.VectorStore.SetUpsertFailures(1)
+	retryResp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:   space.UUID.String(),
+		Format:    "pdf",
+		SourceUri: "s3://bucket/retry.pdf",
+	})
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), retryResp.GetJob().GetRetryCount())
+
+	blockResp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:     space.UUID.String(),
+		Format:      "pdf",
+		SourceUri:   "s3://bucket/scan-required.pdf",
+		OcrRequired: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "blocked", blockResp.GetJob().GetStatus())
+	require.Equal(t, "ocr_failed", blockResp.GetJob().GetErrorCode())
+
+	degradedResp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:   space.UUID.String(),
+		Format:    "pdf",
+		SourceUri: "s3://bucket/scan.pdf",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "completed", degradedResp.GetJob().GetStatus())
+	require.Equal(t, "degraded", degradedResp.GetJob().GetErrorCode())
+
 	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
-		SpaceId:    uuid.New().String(),
-		SourceType: "pdf",
-		SourceUri:  "s3://bucket/missing.pdf",
+		SpaceId:   uuid.New().String(),
+		Format:    "pdf",
+		SourceUri: "s3://bucket/missing.pdf",
 	})
 	require.Error(t, err)
 	st, ok := status.FromError(err)
 	require.True(t, ok)
 	require.Equal(t, codes.NotFound, st.Code())
+
+	noEmbedSpace := env.CreateSpaceFixture("grpc-ingest-no-embed", policyID)
+	require.NoError(t, env.ClearSpaceEmbedding(noEmbedSpace.UUID))
+	require.NoError(t, env.ClearTenantEmbeddingConfig())
+	prevCfg := agentcfg.GetGlobalAIConfig()
+	agentcfg.SetGlobalAIConfig(&agentcfg.AIConfig{})
+	t.Cleanup(func() {
+		if prevCfg != nil {
+			agentcfg.SetGlobalAIConfig(prevCfg)
+		}
+	})
+	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:   noEmbedSpace.UUID.String(),
+		Format:    "pdf",
+		SourceUri: "s3://bucket/no-embed.pdf",
+	})
+	require.Error(t, err)
+	st, ok = status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.FailedPrecondition, st.Code())
 }

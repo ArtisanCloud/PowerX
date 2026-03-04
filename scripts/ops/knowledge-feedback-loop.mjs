@@ -8,10 +8,11 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
-const configPath = path.join(repoRoot, 'configs', 'knowledge', 'feedback_playbook.yaml');
+const configPath = path.join(repoRoot, 'backend', 'config', 'knowledge', 'feedback_playbook.yaml');
 const metricsPath = path.join(repoRoot, 'backend', 'reports', '_state', 'knowledge-feedback.json');
 const aggregatePath = path.join(repoRoot, 'reports', '_state', 'knowledge-update.json');
 const auditPath = path.join(repoRoot, 'backend', 'reports', '_state', 'knowledge-feedback-audit.json');
+const ledgerPath = path.join(repoRoot, 'backend', 'reports', '_state', 'knowledge-feedback-ledger.json');
 
 async function main() {
 	const config = await loadConfig();
@@ -49,6 +50,17 @@ async function loadMetrics() {
 	}
 }
 
+async function loadLedger() {
+	if (!existsSync(ledgerPath)) {
+		return null;
+	}
+	try {
+		return JSON.parse(await readFile(ledgerPath, 'utf8'));
+	} catch (err) {
+		throw new Error(`无法解析 ${ledgerPath}: ${err.message}`);
+	}
+}
+
 function evaluate(metrics, config) {
 	const defaults = config?.defaults ?? {};
 	const summary = {
@@ -79,6 +91,7 @@ async function persistAggregate(summary) {
 }
 
 async function writeAudit(summary, config) {
+	const ledger = await loadLedger();
 	const auditPayload = {
 		timestamp: new Date().toISOString(),
 		type: 'knowledge.feedback.loop',
@@ -88,6 +101,7 @@ async function writeAudit(summary, config) {
 		backlogWithinLimit: summary.backlogWithinLimit,
 		backlog: summary.backlog,
 		config: config?.defaults ?? {},
+		auditLedger: ledger ?? undefined,
 	};
 	await mkdir(path.dirname(auditPath), {recursive: true});
 	await writeFile(auditPath, JSON.stringify(auditPayload, null, 2));

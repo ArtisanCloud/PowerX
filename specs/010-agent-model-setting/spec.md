@@ -92,6 +92,139 @@ sequenceDiagram
   Ops-->>Registry: Trigger guardrails / rollback signals
 ```
 
+## AI 模态驱动统一架构（补充）
+
+### 现状问题
+- LLM 驱动已迁移到 `backend/internal/server/ai/drivers/{provider}/llm.go`
+- Embedding 驱动已迁移到 `backend/internal/server/ai/drivers/{provider}/embedding.go`
+- 其他模态（image/video/tts/asr/model3d/VLM）缺少统一驱动层
+
+导致：目录割裂、对外接口实现难以复用、驱动接入不一致。
+
+### 目标目录结构（统一驱动入口）
+
+> 驱动层不再依赖 `eino` 目录。按 **provider 维度**聚合，同一 provider 复用认证/HTTP 适配；不同模态仅做输入输出映射。
+
+```
+backend/internal/service/ai/                 # 对外统一服务层（invoke/session/stream）
+backend/internal/server/ai/factory/          # 模态工厂/通用入口（LLM/VLM/Embedding/...)
+backend/internal/server/ai/factory/
+  llm/                                       # LLM 模态工厂 + 通用工具
+  vlm/                                       # VLM 模态工厂 + 通用工具
+backend/internal/server/ai/drivers/          # 统一驱动入口（按 provider 拆分）
+  core/                                      # 共享 HTTP/Auth/Retry/RateLimit/签名
+  openai/
+    llm.go
+    embedding.go
+    image.go
+    video.go
+    tts.go
+    asr.go
+    vlm.go
+  google/
+    image.go        # Gemini Nano Banana (gemini-2.5-flash-image / gemini-3-pro-image-preview)
+    vlm.go
+  hunyuan/
+    llm.go
+    image.go
+    video.go
+  jimeng/
+    image.go        # 即梦
+    video.go
+  qwen/
+    llm.go
+    vlm.go
+    image.go
+  comfyui/
+    image.go
+    video.go
+  stable_diffusion/
+    image.go
+  coze/
+    workflow.go
+  ollama/
+    llm.go
+    embedding.go
+backend/internal/server/agent/contracts/     # 模态输入输出结构（统一 DTO）
+backend/internal/server/agent/registry/      # provider 注册、路由、capability 映射
+```
+
+### 服务层职责（统一入口）
+- `service/ai` 负责：
+  - 解析 `model_key` → provider/model
+  - 读取租户 Profile（env + modality + provider + model）
+  - 拼接 defaults/params
+  - 调用统一 provider 驱动
+  - 统一错误码与审计写入
+
+### 驱动接口建议（按模态）
+- LLM：`Invoke(ctx, config, prompt) -> text/stream`
+- Embedding：`Embed(ctx, config, inputs[]) -> vectors`
+- VLM（image+text -> text）：`Invoke(ctx, config, inputs, params) -> text/stream`
+- Image/Video/TTS/ASR/Model3D：`Invoke(ctx, config, inputs, params) -> artifact`
+
+### 模态与 Provider 覆盖矩阵（计划）
+
+> 说明：此处为目标清单；实际实现需与 `drivers/{provider}` 对齐。
+
+- **LLM**：OpenAI / Tencent Hunyuan / Qwen / Ollama / OpenAI-Compatible（OpenRouter、vLLM、DeepSeek、Moonshot、HF）
+- **Embedding**：OpenAI / OpenAI-Compatible / Ollama / Baidu Qianfan / HuggingFace
+- **VLM**：OpenAI / Google Gemini / Qwen / Tencent Hunyuan
+- **Image**：OpenAI（图像系列）/ Google Gemini Nano Banana / 字节即梦 / Tencent Hunyuan / Qwen / ComfyUI / Stable Diffusion
+- **Video**：OpenAI（Sora 系列）/ Google（Veo 系列）/ 字节即梦 / Tencent Hunyuan / ComfyUI
+- **TTS/ASR**：OpenAI / Tencent / Qwen / 其他兼容 API（按 provider 适配）
+- **Model3D**：Tencent Hunyuan / OpenAI-Compatible（若提供 HTTP 规范）/ 自研平台
+
+### Provider / App / Model / Key 策略（统一约定）
+
+**概念定义**
+- **provider**：平台级供应商（OpenAI / volcengine / ollama / vllm）
+- **app**：provider 内部的产品线或子平台（如 volcengine：即梦、Coze）
+- **model**：具体模型能力（image/video/llm/vlm…）
+- **provider_key / credential**：**仅用于鉴权**，provider 级别；同一 key 可访问该 provider 下所有 app & model
+- **model_key**：**仅用于路由**，不承担鉴权
+
+**model_key 格式**
+- 无 app：`provider/model`
+  - 例：`ollama/llama3:8b`、`vllm/qwen2.5:7b`
+- 有 app：`provider/app:model`
+  - 例：`volcengine/jimeng:image-v3`、`volcengine/jimeng:video-3.0-1080p`
+
+**解析规则**
+1) 先用 `/` 拆出 `provider` 与 `rest`  
+2) 若 `rest` 命中 provider 配置的 `app` 列表 → 解析 `app + model`  
+3) 否则 `app=""`，`model=rest`
+
+**鉴权规则**
+- 只按 provider 查 credential  
+- app 与 model 不影响鉴权逻辑
+
+**catalog / manifest 结构**
+- provider 可选 `apps`
+- 有 apps：`apps → modalities → models`
+- 无 apps：`modalities → models`（保持向后兼容）
+
+**driver 路由**
+- 以 provider 为入口  
+- `app` 为空 → 默认 provider driver  
+- `app` 非空 → 走 app 子适配器（如 volcengine/jimeng）
+
+### 迁移计划（分阶段）
+1. **阶段 A（specs/007）**：接口打通（/ai/*，/agents/*），非核心模态返回 202 占位。
+2. **阶段 B（specs/010）**：驱动统一迁移
+   - 将现有 `eino/llm`、`intent/embed` 迁移到 `server/ai/providers/*`
+   - 增加 image/video/tts/model3d 驱动实现
+   - `service/ai` 统一调用（禁止直连散落逻辑）
+3. **阶段 C**：删除旧入口与临时占位逻辑
+
+### 多模态开发顺序（执行清单）
+> 先确保 AI Settings 测试 & OpenAPI 可访问为准。
+1. **Image（基础）**：OpenAI → Gemini Nano Banana → 即梦  
+2. **Image（自托管）**：Stable Diffusion → ComfyUI  
+3. **Video**：OpenAI Sora → Google Veo → 即梦  
+4. **VLM**：OpenAI → Gemini → Qwen → Hunyuan  
+5. **TTS/ASR/Model3D**：按业务优先级逐个补齐
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements

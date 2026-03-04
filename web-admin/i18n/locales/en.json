@@ -2,6 +2,7 @@
   "menu": {
     "openMarket": "Open Market",
     "openCapabilities": "Platform Capabilities",
+    "eventFabric": "Async Tasks",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
@@ -9,6 +10,9 @@
     "aiSettingsModel": "Model Settings",
     "aiSettingsCost": "Cost Settings",
     "aiSettingsRegistry": "Capability Registry",
+    "pluginCapabilities": "Plugin Capabilities",
+    "intelligentPlatforms": "Intelligent Platforms",
+    "skills": "Skills",
     "badge": "Badge",
     "customers": "Customers",
     "customerList": "Customer List",
@@ -19,11 +23,13 @@
     "orders": "Orders",
     "knowledgeSpace": "Knowledge Space",
     "workflow": "Workflow",
+    "media": "Media",
     "dashboard": "Dashboard",
     "settings": "Settings",
     "userManagement": "User Management",
     "roleManagement": "Role Management",
     "systemConfig": "System Config",
+    "monitorCenter": "Monitor Center",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
     "loadFailed": "Menu failed to load",
@@ -37,6 +43,7 @@
   },
   "common": {
     "collapse": "Collapse",
+    "back": "Back",
     "backToList": "Back to list",
     "toggleDensity": "Toggle density",
     "settings": "Settings",
@@ -70,6 +77,7 @@
     "department": {
       "title": "Departments",
       "description": "Organize teams and hierarchy.",
+      "modalDesc": "Create or edit a department",
       "search": "Search departments…",
       "add": "Add department",
       "edit": "Edit department",
@@ -123,6 +131,19 @@
       "userCount": "Users",
       "createdAt": "Created at",
       "loadFailed": "Failed to load tenants"
+    },
+    "permission": {
+      "title": "Permission Management",
+      "description": "Manage roles and permission assignments.",
+      "roleList": "Role list",
+      "search": "Search roles…",
+      "roleConfig": "Role Permission Config",
+      "configDesc": "Select permissions for the current role and save.",
+      "add": "Add role",
+      "empty": {
+        "title": "No roles yet",
+        "create": "Create the first role"
+      }
     }
   },
   "tenant": {
@@ -150,11 +171,12 @@
       "actions": {
         "openCostGuard": "Open Cost Guard",
         "backToModels": "Back to models",
-        "openCapabilityRegistry": "Capability Registry"
+        "openCapabilityRegistry": "Plugin Capabilities",
+        "openConnectors": "Intelligent Platforms"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
-      "registryPageTitle": "Capability Registry",
+      "registryPageTitle": "Plugin Capabilities",
       "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
       "costGuard": {
         "panelTitle": "Cost guard policies",
@@ -228,7 +250,14 @@
           "loadFailed": "Failed to load registry",
           "jobsFailed": "Failed to load sync jobs"
         }
-      }
+      },
+      "connectors": {
+        "noticeTitle": "Connector instances",
+        "noticeDesc": "UI is being finalized. You can configure instances via API now.",
+        "platformDesc": "Register and manage {platform} workspace instances."
+      },
+      "connectorsPageTitle": "Intelligent Platforms",
+      "connectorsPageDesc": "Manage MCP/OpenAPI platform instances and connection metadata."
     },
     "openCapabilities": {
       "title": "Platform Capabilities",
@@ -345,6 +374,10 @@
       "badge": "QA",
       "title": "QA Bridge",
       "refresh": "Refresh",
+      "loadError": "Failed to load QA status",
+      "updatedAt": "Updated at: {time}",
+      "degrade": "{count} spaces degraded",
+      "audit": "Last audit: {id}",
       "metrics": {
         "latency": "Latency",
         "coverage": "Coverage",
@@ -354,26 +387,221 @@
     "ingestion": {
       "title": "Ingestion",
       "subtitle": "Import content into spaces",
+      "selectedSpace": "Current space: {name} ({dept})",
+      "wizard": {
+        "step": "Step {n} of 3",
+        "stepBadge": "Step {n}",
+        "prev": "Back",
+        "next": "Next"
+      },
+      "strategyTemplate": "Business scene (L1)",
+      "strategyBundle": "Indexing bundle (L2)",
+      "strategyPreview": "Strategy preview (override in Advanced)",
+      "ragPrimary": "RAG primary (L3)",
+      "strategyPackage": "Strategy package (A0–O)",
+      "templates": {
+        "general": {
+          "title": "General",
+          "desc": "Default strategy for most documents"
+        },
+        "hr": {
+          "title": "HR / Policy / Compliance",
+          "desc": "More compliance-oriented defaults"
+        },
+        "it": {
+          "title": "IT / Engineering Docs",
+          "desc": "Better for technical docs, code blocks and tables"
+        },
+        "support": {
+          "title": "Support FAQ / Ops",
+          "desc": "More QA-oriented chunking defaults"
+        }
+      },
+      "advanced": {
+        "show": "Advanced",
+        "hide": "Hide advanced"
+      },
+      "confirm": {
+        "title": "Confirm ingestion",
+        "space": "Space",
+        "source": "Source",
+        "template": "Template"
+      },
       "spaceId": "Space ID",
+      "selectSpace": "Select a space",
       "sourceType": "Source Type",
+      "sourceUri": "Source URI",
+      "maskingProfile": "Masking Profile",
       "sourceOptions": {
         "pdf": "PDF",
         "markdown": "Markdown",
         "table": "Table",
         "api": "API"
       },
-      "mode": "Mode",
-      "modeDocument": "Document",
-      "modeApi": "API",
+      "modal": {
+        "title": "Ingestion Job",
+        "desc": "Select a space and source to trigger an ingestion job"
+      },
+      "hints": {
+        "noSpace": "No spaces available. Create a knowledge space first.",
+        "urlPublic": "The URL must be directly fetchable by backend (public or pre-signed). For private APIs/auth, use connectors/sync jobs/credential management."
+      },
+      "sourceMethod": {
+        "label": "Source method",
+        "options": {
+          "upload": "Upload",
+          "url": "Remote URL"
+        }
+      },
+      "mode": {
+        "label": "Mode",
+        "options": {
+          "document": "Document",
+          "api": "API"
+        }
+      },
       "uploadFile": "Upload file",
       "uploadHint": "Support PDF/Markdown/Table",
+      "retainSource": "Keep in Media (recommended)",
+      "retainSourceHint": "Even if disabled, we still upload temporarily for ingestion fetch; later we will support policy-based cleanup.",
+      "chunkSize": "Chunk size (chars / approx tokens)",
+      "chunkSizeHint": "0 means no windowing (only split by mode); >0 will window long segments.",
+      "chunkOverlap": "Chunk overlap (chars)",
+      "chunkOverlapHint": "Reduces boundary loss; too large increases cost.",
+      "separators": "Separators (preferred boundaries, optional)",
+      "separatorsHint": "Try to break on natural boundaries before windowing (blank lines / punctuation). Usually unnecessary for table-row mode.",
+      "separatorsCustom": "Custom separators",
+      "separatorsCustomHint": "Enter a single separator; for newline separators use \\n or \\n\\n.",
       "priority": "Priority",
       "priorityOptions": {
         "normal": "Normal",
         "high": "High"
       },
       "actions": {
+        "open": "Open ingestion",
         "ingestNow": "Ingest now"
+      },
+      "toast": {
+        "successTitle": "Ingestion submitted",
+        "successDesc": "Ingestion job triggered. Check job list/timeline for progress.",
+        "errorTitle": "Ingestion failed"
+      },
+      "errors": {
+        "missingSpaceId": "Please select a space",
+        "missingSource": "Please upload a file or provide a URL",
+        "runFailed": "Failed to run ingestion"
+      },
+      "result": {
+        "latestTitle": "Latest job",
+        "jobSummary": "Job {jobId} · Status {status} · Chunks {chunkTotal}",
+        "metricSummary": "Coverage {coverage}% · Embedding {embedding}% · Masking {masking}%"
+      },
+      "history": "Recent jobs",
+      "historyEntry": "{job} · {status} · {time}"
+    },
+    "spaces": {
+      "title": "Spaces",
+      "subtitle": "Run ingestion / Playground from each row.",
+      "search": "Search spaces…",
+      "empty": "No matching spaces",
+      "filters": {
+        "allDepartments": "All departments",
+        "allStatus": "All status"
+      },
+      "table": {
+        "name": "Space",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "pagination": {
+        "summary": "Showing {start}-{end} of {total}",
+        "pageSize": "Per page",
+        "prev": "Prev",
+        "next": "Next"
+      },
+      "actions": {
+        "create": "Create space",
+        "select": "Select",
+        "selected": "Selected",
+        "ingest": "Ingest",
+        "sources": "Connect sources"
+      },
+      "status": {
+        "active": "Active",
+        "pendingIam": "Pending IAM",
+        "retired": "Retired",
+        "unknown": "Unknown"
+      }
+    },
+    "systemPanels": {
+      "show": "Show system panels",
+      "hide": "Hide system panels"
+    },
+    "sources": {
+      "head": {
+        "title": "Data sources",
+        "description": "Connect external sources and create sync jobs"
+      },
+      "badge": "Sources",
+      "title": "Connect sources",
+      "subtitle": "For authenticated systems like Notion and Feishu, use connectors + incremental sync jobs.",
+      "spaceHint": "Current space: {id}",
+      "list": {
+        "title": "Connected sources",
+        "desc": "Connector instances, sync scope, and latest sync status will appear here."
+      },
+      "actions": {
+        "connect": "Add connection"
+      },
+      "stub": {
+        "title": "Work in progress",
+        "desc": "Next: Notion/Feishu connectors with tenant-scoped credential reuse and space-scoped incremental schedules."
+      },
+      "providers": {
+        "notion": "Notion",
+        "feishu": "Feishu"
+      },
+      "connect": {
+        "head": {
+          "title": "Add data source connection"
+        },
+        "title": "Add connection",
+        "subtitle": "Wizard: select source → authorize (tenant-scoped) → choose scope → create incremental sync job.",
+        "provider": "Source type",
+        "providerHint": "Notion/Feishu are authenticated API sources. Import via connectors + sync jobs.",
+        "wizard": {
+          "step": "Step {n}/4",
+          "stepBadge": "Step {n}",
+          "prev": "Back",
+          "next": "Next",
+          "finish": "Finish"
+        },
+        "auth": {
+          "title": "Authorization (tenant-scoped)",
+          "desc": "OAuth/Token management will live here. One authorization can be reused across spaces in the same tenant."
+        },
+        "scope": {
+          "title": "Choose sync scope",
+          "desc": "Notion: pages/databases; Feishu: knowledge base/folders/docs. Filters and field mapping will follow."
+        },
+        "job": {
+          "title": "Create incremental sync job",
+          "desc": "Default recommendation: scheduled incremental sync + retries + audit/version governance (Corpus Check recommendations later)."
+        }
+      }
+    },
+    "timelinePlaceholders": {
+      "ingestion": {
+        "title": "No ingestion yet",
+        "description": "Once you start ingesting, ingestion jobs and summaries will appear here."
+      },
+      "fusion": {
+        "title": "Fusion not configured",
+        "description": "After configuring fusion strategies, you will see status and conflicts here."
+      },
+      "feedback": {
+        "title": "No feedback yet",
+        "description": "Feedback cases and reprocess/rollback history will appear here."
       }
     },
     "timeline": {
@@ -438,7 +666,8 @@
       "totalCount": "Total",
       "newSession": "New session",
       "recents": "Recent sessions",
-      "noSessions": "No sessions"
+      "noSessions": "No sessions",
+      "clearSessions": "Clear all sessions for this agent"
     },
     "config": {
       "capabilities": {

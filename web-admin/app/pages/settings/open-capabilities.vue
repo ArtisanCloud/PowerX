@@ -256,8 +256,9 @@
                   size="xs"
                   variant="ghost"
                   icon="i-heroicons-arrow-top-right-on-square"
-                  :to="doc"
+                  :href="doc"
                   target="_blank"
+                  rel="noopener noreferrer"
                 >
                   {{ $t('settings.openCapabilities.actions.openDoc') }}
                 </UButton>
@@ -526,9 +527,8 @@ const buildCurlSnippet = (capability: PlatformCapability) => {
     null,
     2
   );
-  return `curl -X POST "$POWERX_BASE_URL/tenant/invocations" \\
+  return `curl -X POST "$POWERX_HTTP_BASE/tenant/invocations" \\
   -H "Authorization: Bearer $TENANT_TOKEN" \\
-  -H "X-PowerX-Tenant: $TENANT_UUID" \\
   -H "Content-Type: application/json" \\
   -d '${body}'`;
 };
@@ -552,10 +552,9 @@ const buildInsomniaSnippet = (capability: PlatformCapability) => {
       _type: 'request',
       name: capability.title || capability.capabilityId,
       method: 'POST',
-      url: '{{ POWERX_BASE_URL }}/tenant/invocations',
+      url: '{{ POWERX_HTTP_BASE }}/tenant/invocations',
       headers: [
         { name: 'Authorization', value: 'Bearer {{ TENANT_TOKEN }}' },
-        { name: 'X-PowerX-Tenant', value: '{{ TENANT_UUID }}' },
         { name: 'Content-Type', value: 'application/json' },
       ],
       body: {

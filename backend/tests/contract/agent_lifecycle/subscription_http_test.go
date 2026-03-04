@@ -44,7 +44,7 @@ func TestSubscriptionHTTP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/subscription", agentID), bytes.NewReader(data))
 		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Tenant-UUID", "tenant-002")
+		req.Header.Set("tenant-uuid", "tenant-002")
 		rec := httptest.NewRecorder()
 		httpEngine.ServeHTTP(rec, req)
 		require.Equal(t, expectedStatusCode, rec.Code)
@@ -54,7 +54,7 @@ func TestSubscriptionHTTP(t *testing.T) {
 	fetch := func() subscriptionResponse {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/subscription", agentID), nil)
 		req.Header.Set("Authorization", "Bearer token")
-		req.Header.Set("X-Tenant-UUID", "tenant-002")
+		req.Header.Set("tenant-uuid", "tenant-002")
 		rec := httptest.NewRecorder()
 		httpEngine.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)

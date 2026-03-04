@@ -19,7 +19,7 @@ func knowledgeGRPCContext(t testing.TB, env *testenv.Env) context.Context {
 	require.NotEmpty(t, tenantUUID, "tenant uuid required for grpc context")
 	md := metadata.New(map[string]string{
 		"authorization": "Bearer token",
-		"x-tenant-uuid": tenantUUID,
+		"tenant-uuid": tenantUUID,
 	})
 	return metadata.NewOutgoingContext(context.Background(), md)
 }

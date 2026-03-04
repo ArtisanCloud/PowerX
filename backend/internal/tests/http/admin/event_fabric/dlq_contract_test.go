@@ -3,6 +3,7 @@ package eventfabric
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"sync"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	admin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/gin-gonic/gin"
 )
@@ -26,7 +28,7 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 
 	payload := base64.StdEncoding.EncodeToString([]byte(`{"hello":"world"}`))
 	resp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
-		"topic":      "tenant-corex.corex.workflow.approved",
+		"topic":      "corex.workflow.approved",
 		"event_id":   "evt-001",
 		"trace_id":   "trace-123",
 		"version":    "v1",
@@ -44,7 +46,7 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 	req := deliveryStub.publishRequests[0]
 	deliveryStub.mu.Unlock()
 
-	if req.TenantUUID != "tenant-corex" || req.Topic != "tenant-corex.corex.workflow.approved" || req.EventID != "evt-001" {
+	if req.TenantUUID != "tenant-corex" || req.Topic != "corex.workflow.approved" || req.EventID != "evt-001" {
 		t.Fatalf("unexpected publish payload: %#v", req)
 	}
 	if string(req.Payload) != `{"hello":"world"}` {
@@ -52,13 +54,35 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 	}
 
 	badResp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
-		"topic":    "tenant-corex.corex.workflow.approved",
+		"topic":    "corex.workflow.approved",
 		"event_id": "evt-002",
 		"version":  "v1",
 		"payload":  "not-base64",
 	})
 	if badResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid payload got %d", badResp.StatusCode)
+	}
+
+	deliveryStub.publishErr = errors.New("topic corex.workflow.missing not found")
+	notFoundResp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
+		"topic":    "corex.workflow.missing",
+		"event_id": "evt-003",
+		"version":  "v1",
+		"payload":  payload,
+	})
+	if notFoundResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for unregistered topic got %d", notFoundResp.StatusCode)
+	}
+
+	deliveryStub.publishErr = sharedsvc.ErrTenantMismatch
+	tenantMismatchResp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
+		"topic":    "00000000-0000-0000-0000-000000000999.corex.workflow.approved",
+		"event_id": "evt-004",
+		"version":  "v1",
+		"payload":  payload,
+	})
+	if tenantMismatchResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for cross-tenant request got %d", tenantMismatchResp.StatusCode)
 	}
 }
 
@@ -67,8 +91,8 @@ func TestDLQAdminEndpoints(t *testing.T) {
 
 	stub := &stubDLQService{
 		listMessages: []*dlq.Message{
-			{ID: "msg-1", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
-			{ID: "msg-2", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-1", TenantUUID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-2", TenantUUID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
 		},
 		listTotal:    2,
 		replayResult: 2,
@@ -145,7 +169,7 @@ func TestReplayAdminEndpoints(t *testing.T) {
 	group.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
 
 	createResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
-		"topic":       "tenant-corex.corex.workflow.approved",
+		"topic":       "corex.workflow.approved",
 		"trace_id":    "trace-abc",
 		"reason":      "investigate",
 		"operator_id": "ops-user",
@@ -177,12 +201,51 @@ func TestReplayAdminEndpoints(t *testing.T) {
 	}
 
 	replayStub.mu.Lock()
-	defer replayStub.mu.Unlock()
 	if replayStub.lastCreate.TenantKey != "tenant-corex" || !replayStub.lastCreate.Shadow {
+		replayStub.mu.Unlock()
 		t.Fatalf("unexpected create input: %+v", replayStub.lastCreate)
 	}
+	if replayStub.lastCreate.Topic != "corex.workflow.approved" {
+		replayStub.mu.Unlock()
+		t.Fatalf("expected semantic topic key, got %+v", replayStub.lastCreate.Topic)
+	}
 	if replayStub.lastCancel.id != "task-123" {
+		replayStub.mu.Unlock()
 		t.Fatalf("unexpected cancel input: %+v", replayStub.lastCancel)
+	}
+	replayStub.mu.Unlock()
+
+	replayStub.createErr = errors.New("topic corex.workflow.missing not found")
+	replayNotFoundResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
+		"topic":       "corex.workflow.missing",
+		"trace_id":    "trace-abc",
+		"reason":      "investigate",
+		"operator_id": "ops-user",
+	})
+	if replayNotFoundResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for replay topic not found got %d", replayNotFoundResp.StatusCode)
+	}
+
+	replayStub.createErr = errors.New("topic tenant mismatch: 00000000-0000-0000-0000-000000000999.corex.workflow.approved")
+	replayTenantMismatchResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
+		"topic":       "00000000-0000-0000-0000-000000000999.corex.workflow.approved",
+		"trace_id":    "trace-abc",
+		"reason":      "investigate",
+		"operator_id": "ops-user",
+	})
+	if replayTenantMismatchResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for replay cross-tenant request got %d", replayTenantMismatchResp.StatusCode)
+	}
+
+	replayStub.createErr = errors.Join(sharedsvc.ErrUnauthorized, errors.New("principal denied"))
+	replayUnauthorizedResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
+		"topic":       "corex.workflow.approved",
+		"trace_id":    "trace-abc",
+		"reason":      "investigate",
+		"operator_id": "ops-user",
+	})
+	if replayUnauthorizedResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for replay acl denied got %d", replayUnauthorizedResp.StatusCode)
 	}
 }
 
@@ -255,6 +318,7 @@ func (s *stubDeliveryService) PollRetry(context.Context, int) (map[string][]deli
 type stubReplayService struct {
 	mu         sync.Mutex
 	lastCreate replay.CreateTaskInput
+	createErr  error
 	lastCancel struct {
 		id       string
 		operator string
@@ -266,6 +330,9 @@ func (s *stubReplayService) CreateTask(ctx context.Context, input replay.CreateT
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastCreate = input
+	if s.createErr != nil {
+		return nil, s.createErr
+	}
 	return s.task, nil
 }
 

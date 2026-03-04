@@ -42,7 +42,7 @@ const current = computed(() => {
   const hit = normalized.value.find(x => x.code === code)
   if (hit) return hit
   // 兜底：第一个或默认 zh
-  return normalized.value[0] ?? { code: 'zh-CN', name: '中文', flag: flags.zh }
+  return normalized.value[0] ?? { code: 'zh', name: '简体中文', flag: flags.zh }
 })
 
 async function select(code: string) {

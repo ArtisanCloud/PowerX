@@ -69,8 +69,20 @@ export default defineNuxtPlugin((nuxtApp) => {
       const { $i18n } = nuxtApp as any;
       const storedLocale =
         (!pub.forceLanguage && getStoredLocale()) || readCookie("px_lang");
-      const desiredLocale =
+      const desiredLocaleRaw =
         pub.forceLanguage || storedLocale || defaultLang || "zh";
+      const normalizeLocale = (input: string) => {
+        const raw = String(input || "").trim();
+        const base = raw.split("-")[0] || raw;
+        const allowed = String(pub.availableLanguages || "zh,en,ja,ko")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (allowed.includes(base)) return base;
+        if (allowed.includes(raw)) return raw;
+        return defaultLang || "zh";
+      };
+      const desiredLocale = normalizeLocale(desiredLocaleRaw);
       if ($i18n && typeof $i18n.setLocale === "function") {
         await $i18n.setLocale(desiredLocale);
       } else if ($i18n && $i18n.locale) {
@@ -81,7 +93,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (process.client) {
         watch(
           () => ($i18n?.locale ? $i18n.locale.value : desiredLocale),
-          (val) => persistLocale(String(val)),
+          (val) => persistLocale(normalizeLocale(String(val))),
           { immediate: true }
         );
       }

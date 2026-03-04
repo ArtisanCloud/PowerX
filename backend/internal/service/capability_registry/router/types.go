@@ -36,6 +36,7 @@ type InvokeResult struct {
 	Payload      []byte
 	Latency      time.Duration
 	Error        error
+	Labels       map[string]string
 }
 
 // ReportHealthInput 描述健康上报。

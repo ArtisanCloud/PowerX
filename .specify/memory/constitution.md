@@ -6,12 +6,14 @@ manifest: .specify/memory/manifest.yaml
 use:
   - "@dev-crud-http"
   - "@dev-crud-grpc"
+  - "@api-naming"
 
 # ③ 指南文件（用于 /plan 语义扩展）
 include:
   - dev_crud_http_guides.md
   - dev_crud_grpc_guides.md
   - dev_sts_guides.md
+  - api-naming.md
 
 # ④ Ruleset Paths（显式暴露以便 Runner 能读取）
 rulesets:
@@ -63,6 +65,7 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 > 领域实体说明，因为gorm即定义了model，也可以作为领域的实体使用，不需要反复定义，所以基本上都是在pkg/corex/db/persistence/model/...
 
 - **工具复用（新增）**：凡属通用的转换/JSON/随机/字符串处理等辅助函数，必须集中在 `backend/pkg/utils` 对应模块（如 `xform.go`、`json.go`、`xfind.go` 等），严禁在业务目录重复定义；如遇缺失，应先扩展 utils 模块，再在业务代码中引用。
+- **配置文件保护（新增）**：未经用户明确允许，不得修改 `backend/etc/config.yaml`（包括创建、覆盖或清空）。
 - **命名规范（新增）**：CoreX 域目录名称一律使用 `snake_case`，以 `capability_registry`、`media_storage` 为例；禁止拼接式命名如 `capabilityregistry`，确保与 Go 包名区分且在跨语言环境保持一致。
 - **Go 包别名/调用命名**：引用 `capability_registry` 等多词包时，import alias、局部变量与导出符号统一使用小驼峰（如 `capabilityRegistry`、`capRegPolicy`），避免 `capregpolicy`、`capabilityregistry` 这类连续小写写法。示例：`capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"`，通过 `capabilityRegistry.Migrate()`、`capRegPolicy.Register()` 等方式调用以保持可读性。
 - **数据访问角色划分（新增）**：`repository` 负责具体持久化实现（GORM/SQL/Redis/MinIO 等），需落在 `pkg/corex/db/persistence/repository/**` 并处理事务/SQL；`interface` 用于 service 层声明所需的数据契约，便于替换实现、注入缓存/内存替身与编写单元测试。Service/handler/任务脚本必须依赖这些接口而非具体 repository，实现切换仅在依赖注入层完成，且 repository 内禁止承载业务逻辑。
@@ -247,6 +250,7 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - `pkg/event_bus` 定位为**基础设施层**的发布/订阅抽象（`Publish`、`Subscribe`、`Close`），负责把事件从发布方送到订阅方，不包含主题治理、ACL、重试、死信或回放等业务语义。
 - `internal/service/event_fabric/*` 是**领域编排层**，需在 CoreX 事件骨干中完成 Topic 目录、租户 ACL、可靠投递、DLQ、回放、审计等用例，并可组合底层 `pkg/event_bus` 等设施。
 - 任何计划/实现不得混淆两者职责：领域服务依赖或扩展基础设施，但禁止在基础设施层堆叠领域逻辑，也不得绕过领域服务直接宣称满足事件骨干需求。
+- **实时状态更新强制规范**：Web 管理端涉及任务状态、回放状态、队列执行进度等“实时数据”时，必须走 WebSocket/SSE 推送链路；禁止在页面实现定时轮询（polling）作为主方案。若推送链路不可用，只允许短时人工诊断接口，不得固化为前端常驻轮询逻辑。
 
 ---
 

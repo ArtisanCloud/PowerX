@@ -1,0 +1,235 @@
+id: volcengine
+name: Volcengine (ByteDance)
+aliases: ["volcengine", "volc", "volcano", "bytedance"]
+
+drivers:
+  llm: volcengine
+  image: volcengine
+  video: volcengine
+
+auth:
+  scheme: mixed
+  fields: ["base_url", "region"]
+  defaults:
+    base_url: "https://visual.volcengineapi.com"
+  modes:
+    - id: "aksk"
+      label: "AccessKey / SecretKey"
+      scheme: "aksk"
+      fields: ["secret_id", "secret_key", "base_url", "region"]
+      defaults:
+        base_url: "https://visual.volcengineapi.com"
+    - id: "api_key"
+      label: "API Key (Seedance)"
+      scheme: "bearer"
+      fields: ["api_key", "base_url"]
+      defaults:
+        base_url: "https://operator.las.cn-beijing.volces.com"
+
+modalities:
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []
+
+apps:
+  jimeng:
+    name: 即梦 AI
+    modalities:
+      image:
+        models:
+          - id: "doubao-seedream-3-0-t2i-250415"
+            label: "Seedream 3.0 文生图"
+            tags: ["image", "volcengine", "seedream"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "doubao-seedream-2-0-t2i-250428"
+            label: "Seedream 2.0 文生图"
+            tags: ["image", "volcengine", "seedream"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "doubao-seedream-3-0-i2i-250628"
+            label: "Seedream 3.0 图生图"
+            tags: ["image", "volcengine", "seedream"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v40"
+            label: "即梦-图片生成4.0"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v31"
+            label: "即梦-文生图3.1"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v30"
+            label: "即梦-文生图3.0"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_i2i_v30"
+            label: "即梦-图生图3.0-智能参考"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v21"
+            label: "即梦-文生图2.1"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng-image-4.0"
+            label: "即梦AI-图片生成4.0（目录）"
+            tags: ["image", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-material-extract-pod"
+            label: "即梦AI-素材提取(POD按需定制)（目录）"
+            tags: ["image", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-material-extract-commerce"
+            label: "即梦AI-素材提取(商品提取)（目录）"
+            tags: ["image", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-inpainting"
+            label: "即梦AI-交互编辑inpainting（目录）"
+            tags: ["image", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-super-resolution"
+            label: "即梦AI-智能超清（目录）"
+            tags: ["image", "volcengine", "jimeng", "catalog_only"]
+      video:
+        models:
+          - id: "jimeng-video-3.0-pro"
+            label: "即梦AI-视频生成3.0 Pro"
+            tags: ["video", "volcengine", "jimeng"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+          - id: "jimeng-video-3.0-720p"
+            label: "即梦AI-视频生成3.0 720P"
+            tags: ["video", "volcengine", "jimeng"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              resolution: "720p"
+          - id: "jimeng-video-3.0-1080p"
+            label: "即梦AI-视频生成3.0 1080P"
+            tags: ["video", "volcengine", "jimeng"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              resolution: "1080p"
+          - id: "jimeng-video-s2.0-pro"
+            label: "即梦AI-视频生成S2.0 Pro（下线中）"
+            tags: ["video", "volcengine", "jimeng", "deprecated"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+          - id: "jimeng-action-mimic"
+            label: "动作模仿（目录）"
+            tags: ["video", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-action-mimic-2.0"
+            label: "动作模仿2.0（目录）"
+            tags: ["video", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-omnihuman-1.0"
+            label: "数字人快速模式 OmniHuman1.0（目录）"
+            tags: ["video", "volcengine", "jimeng", "catalog_only"]
+          - id: "jimeng-omnihuman-1.5"
+            label: "OmniHuman1.5（目录）"
+            tags: ["video", "volcengine", "jimeng", "catalog_only"]
+          - id: "*"
+            label: "即梦视频 (Any)"
+            tags: ["video", "volcengine", "jimeng", "wildcard"]
+  seedance:
+    name: Seedance
+    modalities:
+      video:
+        models:
+          - id: "doubao-seedance-1-5-pro-251215"
+            label: "Seedance 1.5 Pro"
+            tags: ["video", "volcengine", "seedance"]
+            defaults:
+              base_url: "https://operator.las.cn-beijing.volces.com"
+              api_path_submit: "/api/v1/contents/generations/tasks"
+              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+          - id: "doubao-seedance-1-0-pro-250528"
+            label: "Seedance 1.0 Pro"
+            tags: ["video", "volcengine", "seedance"]
+            defaults:
+              base_url: "https://operator.las.cn-beijing.volces.com"
+              api_path_submit: "/api/v1/contents/generations/tasks"
+              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+          - id: "doubao-seedance-1-0-pro-fast-251015"
+            label: "Seedance 1.0 Pro Fast"
+            tags: ["video", "volcengine", "seedance"]
+            defaults:
+              base_url: "https://operator.las.cn-beijing.volces.com"
+              api_path_submit: "/api/v1/contents/generations/tasks"
+              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+          - id: "doubao-seedance-1-0-lite-t2v-250428"
+            label: "Seedance 1.0 Lite T2V"
+            tags: ["video", "volcengine", "seedance"]
+            defaults:
+              base_url: "https://operator.las.cn-beijing.volces.com"
+              api_path_submit: "/api/v1/contents/generations/tasks"
+              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+          - id: "*"
+            label: "Seedance Video (Any)"
+            tags: ["video", "volcengine", "seedance", "wildcard"]
+  coze:
+    name: Coze
+    modalities:
+      llm:
+        models:
+          - id: "coze-pro"
+            label: "Coze Pro (LLM)"
+            tags: ["llm", "volcengine"]
+      image:
+        models:
+          - id: "coze-image"
+            label: "Coze Image (Preview)"
+            tags: ["image", "volcengine"]

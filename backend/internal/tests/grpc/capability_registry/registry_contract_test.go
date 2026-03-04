@@ -27,13 +27,13 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	tenantCtx := capabilityRegistryContext(t, ctx, "tenant-corex")
+	tenantCtx := capabilityRegistryContext(t, ctx, defaultTenantUUID)
 	env := newRegistryGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
 	createResp, err := env.client.CreateCapability(tenantCtx, &capabilityRegistryPB.CreateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:           &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+			Id:           &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 			ContractRef:  "contracts.text.translate@1.0.0",
 			Status:       "published",
 			ToolGrantIds: []string{"grant-text-translate"},
@@ -50,7 +50,7 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	assertNoCapabilityRegistryTenantLeak(t, createResp)
 
 	getResp, err := env.client.GetCapability(tenantCtx, &capabilityRegistryPB.GetCapabilityRequest{
-		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 	})
 	assertNoError(t, err)
 	assertUint64(t, 1, getResp.GetRegistration().GetVersion(), "get version")
@@ -59,7 +59,7 @@ func TestRegistryGRPCContracts(t *testing.T) {
 
 	updateResp, err := env.client.UpdateCapability(tenantCtx, &capabilityRegistryPB.UpdateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:          &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+			Id:          &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 			ContractRef: "contracts.text.translate@1.0.0",
 			Status:      "published",
 			Version:     1,
@@ -76,7 +76,7 @@ func TestRegistryGRPCContracts(t *testing.T) {
 
 	_, err = env.client.UpdateCapability(tenantCtx, &capabilityRegistryPB.UpdateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:            &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+			Id:            &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 			ContractRef:   "contracts.text.translate@1.0.0",
 			Status:        "published",
 			Version:       1,
@@ -87,7 +87,7 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	assertStatusCode(t, codes.FailedPrecondition, err)
 
 	disableResp, err := env.client.DisableCapability(tenantCtx, &capabilityRegistryPB.DisableCapabilityRequest{
-		Id:     &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+		Id:     &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 		Reason: "deprecated capability",
 	})
 	assertNoError(t, err)
@@ -96,7 +96,7 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	assertNoCapabilityRegistryTenantLeak(t, disableResp)
 
 	_, err = env.client.GetCapability(tenantCtx, &capabilityRegistryPB.GetCapabilityRequest{
-		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
+		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: defaultTenantUUID},
 	})
 	assertStatusCode(t, codes.NotFound, err)
 

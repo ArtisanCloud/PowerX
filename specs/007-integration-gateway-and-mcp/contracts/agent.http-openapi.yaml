@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: PowerX Agent Public API
+  version: 0.1.0
+  description: >
+    Tenant-scoped Agent APIs for invoke, streaming, and session management.
+    All requests require tenant authentication and must only access agents
+    owned by the same tenant.
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: localhost:8077
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: agent_not_allowed
+        message:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+      example:
+        code: agent_not_allowed
+        message: agent does not belong to tenant
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+    Attachment:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [image_url, audio_url, file_url]
+        url:
+          type: string
+    AgentInvokeRequest:
+      type: object
+      required: [agent_id, message]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        meta:
+          type: object
+          additionalProperties: true
+    AgentInvokeResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        reply:
+          type: string
+        usage:
+          $ref: '#/components/schemas/Usage'
+    CreateSessionRequest:
+      type: object
+      required: [agent_id]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+    CreateSessionResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+    MessageItem:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+paths:
+  /agents/invoke:
+    post:
+      summary: Invoke agent (non-stream)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInvokeResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agents/stream/sse:
+    get:
+      summary: Stream agent output via SSE
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agent_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    event: start
+                    data: {"session_id":"...","agent_id":"...","request_id":"..."}
+
+                    event: token
+                    data: {"text":"partial..."}
+
+                    event: final
+                    data: {"message":"full output"}
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agents/stream/ws:
+    get:
+      summary: WebSocket control channel
+      responses:
+        '101':
+          description: Switching Protocols
+  /agents/sessions:
+    post:
+      summary: Create agent session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSessionResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agents/sessions/{session_id}/messages:
+    get:
+      summary: List session messages
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageItem'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

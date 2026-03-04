@@ -1,0 +1,91 @@
+id: volcengine
+name: Volcengine (ByteDance)
+aliases: ["volcengine", "volc", "volcano", "bytedance"]
+
+drivers:
+  llm: volcengine
+  image: volcengine
+  video: volcengine
+
+auth:
+  scheme: aksk
+  fields: ["secret_id", "secret_key", "base_url", "region"]
+  defaults:
+    base_url: "https://visual.volcengineapi.com"
+
+modalities: {}
+
+apps:
+  jimeng:
+    name: 即梦 AI
+    modalities:
+      image:
+        models:
+          - id: "jimeng_t2i_v40"
+            label: "即梦-图片生成4.0"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v31"
+            label: "即梦-文生图3.1"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v30"
+            label: "即梦-文生图3.0"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_i2i_v30"
+            label: "即梦-图生图3.0-智能参考"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+          - id: "jimeng_t2i_v21"
+            label: "即梦-文生图2.1"
+            tags: ["image", "volcengine"]
+            defaults:
+              action: "CVSync2AsyncSubmitTask"
+              action_poll: "CVSync2AsyncGetResult"
+              version: "2022-08-31"
+              service: "cv"
+              size: "1024x1024"
+              force_single: true
+      video:
+        models:
+          - id: "jimeng-video-1"
+            label: "即梦 Video (Preview)"
+            tags: ["video", "volcengine"]
+  coze:
+    name: Coze
+    modalities:
+      llm:
+        models:
+          - id: "coze-pro"
+            label: "Coze Pro (LLM)"
+            tags: ["llm", "volcengine"]
+      image:
+        models:
+          - id: "coze-image"
+            label: "Coze Image (Preview)"
+            tags: ["image", "volcengine"]

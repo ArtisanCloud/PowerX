@@ -29,6 +29,7 @@ func TestDeltaHTTPFlow(t *testing.T) {
 			"source":     "handbook",
 			"packageUri": "s3://demo/delta.tar.gz",
 			"notes":      "auto-test",
+			"requestedBy": "ops@powerx.io",
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/jobs", bytes.NewReader(body))
@@ -47,18 +48,33 @@ func TestDeltaHTTPFlow(t *testing.T) {
 		jobID = apiResp.Data.JobID
 	})
 
+	t.Run("duplicate start returns 409", func(t *testing.T) {
+		payload := map[string]any{
+			"spaceId":    space.UUID.String(),
+			"source":     "handbook",
+			"packageUri": "s3://demo/delta.tar.gz",
+			"notes":      "auto-test",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/jobs", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
+		require.Equal(t, http.StatusConflict, resp.Code)
+	})
+
 	t.Run("fetch report", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/knowledge/delta/reports/%s", jobID), nil)
 		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 	})
 
-	t.Run("publish job", func(t *testing.T) {
+	t.Run("publish job partial release", func(t *testing.T) {
 		payload := map[string]any{
 			"jobId":        jobID,
-			"decision":     "publish",
+			"decision":     "partial",
 			"approvedBy":   "ops@powerx.io",
 			"diffAccuracy": 99.1,
+			"partialRelease": true,
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/publish", bytes.NewReader(body))

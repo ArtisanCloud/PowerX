@@ -11,10 +11,21 @@ import (
 	"gorm.io/gorm"
 )
 
-// TopicDefinition 描述事件主题的治理信息。
+type TopicScopeType string
+
+const (
+	TopicScopeSystem     TopicScopeType = "system"
+	TopicScopeTenant     TopicScopeType = "tenant"
+	TopicScopePlugin     TopicScopeType = "plugin"
+	TopicScopeThirdParty TopicScopeType = "third_party"
+)
+
+// TopicDefinition 描述 event_topics 主题治理信息（当前唯一注册真相源）。
 type TopicDefinition struct {
 	coremodel.PowerUUIDModel
 
+	ScopeType       TopicScopeType `gorm:"column:scope_type;type:varchar(32);default:'tenant';index:idx_event_topics_scope,priority:1" json:"scope_type"`
+	ScopeID         string         `gorm:"column:scope_id;type:varchar(128);index:idx_event_topics_scope,priority:2" json:"scope_id"`
 	TenantKey       string         `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_topics_tenant_key;index:idx_event_topics_composite,priority:1" json:"tenant_key"`
 	Namespace       string         `gorm:"column:namespace;type:varchar(128);not null;index:idx_event_topics_namespace;index:idx_event_topics_composite,priority:3" json:"namespace"`
 	Name            string         `gorm:"column:name;type:varchar(128);not null;index:idx_event_topics_name;index:idx_event_topics_composite,priority:4" json:"name"`
@@ -33,7 +44,7 @@ type TopicDefinition struct {
 }
 
 func (m *TopicDefinition) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TableEventTopics
+	return coremodel.PowerXSchema + "." + coremodel.TableTopicRegistry
 }
 
 func (m *TopicDefinition) BeforeCreate(tx *gorm.DB) error {
@@ -51,6 +62,8 @@ func (m *TopicDefinition) ensureDerivedFields() error {
 	ns := strings.TrimSpace(m.Namespace)
 	name := strings.TrimSpace(m.Name)
 	tenant := strings.TrimSpace(m.TenantKey)
+	scopeType := TopicScopeType(strings.ToLower(strings.TrimSpace(string(m.ScopeType))))
+	scopeID := strings.TrimSpace(m.ScopeID)
 
 	if ns == "" || name == "" {
 		return fmt.Errorf("namespace and name cannot be empty")
@@ -59,6 +72,19 @@ func (m *TopicDefinition) ensureDerivedFields() error {
 		tenant = "global"
 		m.TenantKey = tenant
 	}
-	m.FullTopic = fmt.Sprintf("%s.%s.%s", tenant, ns, name)
+	if scopeType == "" {
+		switch strings.ToLower(tenant) {
+		case "global", "system":
+			scopeType = TopicScopeSystem
+		default:
+			scopeType = TopicScopeTenant
+		}
+	}
+	if scopeID == "" {
+		scopeID = tenant
+	}
+	m.ScopeType = scopeType
+	m.ScopeID = scopeID
+	m.FullTopic = fmt.Sprintf("%s.%s.%s", scopeID, ns, name)
 	return nil
 }

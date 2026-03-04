@@ -2,6 +2,7 @@ package knowledge_space
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,22 +33,34 @@ type ReprocessPipeline interface {
 	Schedule(ctx context.Context, input ReprocessInput) (ReprocessTask, error)
 }
 
-// defaultReprocessPipeline emits scheduling events onto the event bus.
+type ReprocessPipelineOptions struct {
+	EventBus   event_bus.EventBus
+	EventTopic string
+	Clock      func() time.Time
+}
+
+// defaultReprocessPipeline emits scheduling events onto the event bus and runs a minimal reprocess flow.
 type defaultReprocessPipeline struct {
-	bus     event_bus.EventBus
-	mu      sync.Mutex
-	counter uint64
-	clock   func() time.Time
+	bus        event_bus.EventBus
+	eventTopic string
+	mu         sync.Mutex
+	counter    uint64
+	clock      func() time.Time
 }
 
 // NewReprocessPipeline builds a default pipeline backed by the event bus.
-func NewReprocessPipeline(bus event_bus.EventBus, clock func() time.Time) ReprocessPipeline {
-	if clock == nil {
-		clock = time.Now
+func NewReprocessPipeline(opts ReprocessPipelineOptions) ReprocessPipeline {
+	if opts.Clock == nil {
+		opts.Clock = time.Now
+	}
+	topic := strings.TrimSpace(opts.EventTopic)
+	if topic == "" {
+		topic = "knowledge.feedback.reprocess"
 	}
 	return &defaultReprocessPipeline{
-		bus:   bus,
-		clock: clock,
+		bus:        opts.EventBus,
+		eventTopic: topic,
+		clock:      opts.Clock,
 	}
 }
 
@@ -74,7 +87,7 @@ func (p *defaultReprocessPipeline) Schedule(ctx context.Context, input Reprocess
 			"chunk_ids":   stringifyChunks(input.ChunkIDs),
 			"requestedBy": input.RequestedBy,
 		}
-		p.bus.Publish("knowledge.feedback.reprocess", payload, ctx)
+		p.bus.Publish(p.eventTopic, payload, ctx)
 	}
 
 	return task, nil

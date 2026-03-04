@@ -1,0 +1,125 @@
+id: openai
+name: OpenAI
+aliases: ["OpenAI API", "openai.com"]
+
+drivers:
+  llm: openai
+  embedding: openai
+  image: openai
+  audio: openai
+  video: openai
+  rerank: openai
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://api.openai.com/v1"
+
+modalities:
+  llm:
+    models:
+      - id: gpt-4o
+        label: "GPT-4o"
+        tags: ["omni","multimodal","flagship"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: gpt-4o-mini
+        label: "GPT-4o mini"
+        tags: ["fast","cheap"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: gpt-4.1-mini
+        label: "GPT-4.1 mini"
+        tags: ["json"]
+        defaults:
+          temperature: 0.3
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: o3
+        label: "OpenAI o3"
+        tags: ["reasoning","deep"]
+        defaults:
+          temperature: 0.2
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: o4-mini
+        label: "OpenAI o4-mini"
+        tags: ["reasoning","cost-effective"]
+        defaults:
+          temperature: 0.3
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: o4-mini-high
+        label: "OpenAI o4-mini-high"
+        tags: ["reasoning","high-effort","accuracy"]
+        defaults:
+          temperature: 0.2
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+      - id: gpt-3.5-turbo
+        label: "GPT-3.5 Turbo"
+        tags: ["fast","cheap"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
+
+  embedding:
+    models:
+      - id: text-embedding-3-small
+        label: "TE-3-small"
+        tags: ["cheap"]
+        limits: { dims: 1536 }
+      - id: text-embedding-3-large
+        label: "TE-3-large"
+        limits: { dims: 3072 }
+
+  image:
+    models:
+      - id: gpt-image-1
+        label: "GPT-Image-1"
+        tags: ["img-gen","inpainting","variation"]
+      - id: gpt-image-1-mini
+        label: "GPT-Image-1 mini"
+        tags: ["img-gen","fast","cheap"]
+      - id: gpt-image-1.5
+        label: "GPT-Image-1.5"
+        tags: ["img-gen","high-quality"]
+      - id: dall-e-3
+        label: "DALL·E 3"
+        tags: ["img-gen","legacy"]
+      - id: dall-e-2
+        label: "DALL·E 2"
+        tags: ["img-gen","legacy"]
+
+  audio:
+    models:
+      - id: gpt-4o-mini-tts
+        label: "GPT-4o mini TTS"
+        tags: ["audio","tts","expressive"]
+      - id: gpt-4o-transcribe
+        label: "GPT-4o Transcribe"
+        tags: ["audio","asr","multilingual"]
+      - id: gpt-4o-mini-transcribe
+        label: "GPT-4o mini Transcribe"
+        tags: ["audio","asr","fast"]
+      - id: whisper-1
+        label: "Whisper v1 (legacy)"
+        tags: ["audio","asr","legacy"]
+
+  video:
+    models:
+      - id: sora
+        label: "Sora"
+        tags: ["video","gen","placeholder"]
+      - id: sora-preview
+        label: "Sora Preview"
+        tags: ["video","gen","placeholder"]
+
+  rerank:
+    models: []

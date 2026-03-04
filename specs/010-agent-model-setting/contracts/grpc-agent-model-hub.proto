@@ -31,7 +31,7 @@ message RegisterProviderResponse {
 
 message ValidateProviderRequest {
   string provider_id = 1;
-  string suite = 2; // llm, vlm, tts, embeddings, full
+  string suite = 2; // llm, vlm, image, video, tts, asr, embeddings, model3d, full
 }
 
 message ValidateProviderResponse {}

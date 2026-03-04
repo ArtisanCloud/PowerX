@@ -18,7 +18,7 @@ func (c Config) WithDefaults() Config {
 		c.Schema = "public"
 	}
 	if c.Table == "" {
-		c.Table = "knowledge_vectors"
+		c.Table = "knowledge_vectors_v1_1536"
 	}
 	if c.Dimensions <= 0 {
 		c.Dimensions = 1536

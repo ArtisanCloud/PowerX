@@ -69,8 +69,7 @@ describe('PluginReleaseService', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'X-Tenant-UUID': 'test-token'
+            'Content-Type': 'application/json'
           }),
           body: JSON.stringify({
             releaseCandidateId: 'candidate-123',

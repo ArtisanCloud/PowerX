@@ -1,0 +1,29 @@
+id: openai_compatible
+name: OpenAI Compatible
+aliases: ["openai-compatible", "openai compat", "vllm", "llama.cpp", "lmstudio"]
+
+drivers:
+  llm: openai_compatible
+  embedding: openai_compatible
+
+auth:
+  scheme: none
+  fields: ["base_url"]
+  defaults:
+    base_url: "http://127.0.0.1:11434/v1"
+
+modalities:
+  llm:
+    models:
+      - id: "*"
+        label: "Any (OpenAI-compatible)"
+        tags: ["local","gateway"]
+  embedding:
+    models:
+      - id: "*"
+        label: "Any (OpenAI-compatible)"
+        tags: ["local","gateway"]
+  audio_tts:
+    models: []
+  audio_asr:
+    models: []

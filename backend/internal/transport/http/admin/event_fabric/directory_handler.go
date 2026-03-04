@@ -107,12 +107,15 @@ func (h *AdminDirectoryHandler) ListTopics(c *gin.Context) {
 		return
 	}
 
+	filter := repository.TopicFilter{
+		Namespace: c.Query("namespace"),
+		Lifecycle: lifecycles,
+	}
+	filter.TenantID = tenantUUID
+	filter.IncludeShared = true
+
 	list, total, err := h.service.ListTopics(c.Request.Context(), repository.QueryContext{
-		Filter: repository.TopicFilter{
-			TenantID:  tenantUUID,
-			Namespace: c.Query("namespace"),
-			Lifecycle: lifecycles,
-		},
+		Filter: filter,
 		Page: repository.PageOptions{
 			Limit:  pageSize,
 			Offset: (page - 1) * pageSize,

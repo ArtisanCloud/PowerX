@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	aclservice "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -20,6 +21,8 @@ const lifecycleChangedEvent = "event_fabric.topic.lifecycle.changed"
 // Topic DTO 用于对外返回主题信息。
 type Topic struct {
 	ID              string               `json:"id"`
+	ScopeType       string               `json:"scope_type"`
+	ScopeID         string               `json:"scope_id"`
 	TenantUUID      string               `json:"tenant_uuid"`
 	TenantKey       string               `json:"tenant_key"`
 	Namespace       string               `json:"namespace"`
@@ -61,6 +64,7 @@ type UpdateLifecycleInput struct {
 // DirectoryService 提供主题目录能力。
 type DirectoryService struct {
 	store             TopicStore
+	acl               ACLGranter
 	eventBus          event_bus.EventBus
 	clock             Clock
 	actorResolver     ActorResolver
@@ -77,6 +81,7 @@ func NewDirectoryService(opts Options) *DirectoryService {
 
 	svc := &DirectoryService{
 		store:             store,
+		acl:               opts.ACL,
 		eventBus:          opts.EventBus,
 		clock:             opts.Clock,
 		actorResolver:     opts.ActorResolver,
@@ -166,6 +171,8 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 	}
 
 	record := &model.TopicDefinition{
+		ScopeType:       model.TopicScopeTenant,
+		ScopeID:         tenantKey,
 		TenantKey:       tenantKey,
 		Namespace:       namespace,
 		Name:            name,
@@ -182,6 +189,9 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 
 	result, err := s.store.Create(ctx, record)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.grantTopicDefaultACL(ctx, result, createdBy); err != nil {
 		return nil, err
 	}
 	return convertTopic(result), nil
@@ -258,12 +268,37 @@ func (s *DirectoryService) ListTopics(ctx context.Context, query eventfabricrepo
 	return topics, total, nil
 }
 
+func (s *DirectoryService) grantTopicDefaultACL(ctx context.Context, topic *model.TopicDefinition, operator string) error {
+	if s.acl == nil || topic == nil {
+		return nil
+	}
+	_, err := s.acl.Grant(ctx, aclservice.GrantRequest{
+		TenantUUID:    topic.TenantKey,
+		TopicUUID:     topic.UUID.String(),
+		PrincipalType: "role",
+		PrincipalID:   "role:role_admin",
+		Actions: []aclservice.PrincipalAction{
+			aclservice.PrincipalActionPublish,
+			aclservice.PrincipalActionSubscribe,
+			aclservice.PrincipalActionReplay,
+		},
+		Justification: "topic default admin access",
+		OperatorID:    strings.TrimSpace(operator),
+	})
+	if err != nil {
+		return fmt.Errorf("grant default acl failed: %w", err)
+	}
+	return nil
+}
+
 func (s *DirectoryService) publishLifecycleEvent(ctx context.Context, topic *model.TopicDefinition, reason string) {
 	if s.eventBus == nil || topic == nil {
 		return
 	}
 	payload := map[string]interface{}{
 		"topic_id":    topic.UUID.String(),
+		"scope_type":  topic.ScopeType,
+		"scope_id":    topic.ScopeID,
 		"tenant_key":  topic.TenantKey,
 		"tenant_uuid": strings.TrimSpace(topic.TenantKey),
 		"namespace":   topic.Namespace,
@@ -286,6 +321,14 @@ func convertTopic(record *model.TopicDefinition) *Topic {
 	if tenantDisplay == "" {
 		tenantDisplay = "global"
 	}
+	scopeType := strings.TrimSpace(string(record.ScopeType))
+	if scopeType == "" {
+		scopeType = string(model.TopicScopeTenant)
+	}
+	scopeID := strings.TrimSpace(record.ScopeID)
+	if scopeID == "" {
+		scopeID = tenantDisplay
+	}
 
 	retention := string(record.RetentionPolicy)
 	if strings.TrimSpace(retention) == "" {
@@ -294,6 +337,8 @@ func convertTopic(record *model.TopicDefinition) *Topic {
 
 	return &Topic{
 		ID:              record.UUID.String(),
+		ScopeType:       scopeType,
+		ScopeID:         scopeID,
 		TenantUUID:      tenantDisplay,
 		TenantKey:       record.TenantKey,
 		Namespace:       record.Namespace,

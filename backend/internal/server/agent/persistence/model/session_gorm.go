@@ -2,12 +2,17 @@ package model
 
 import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
-	"gorm.io/datatypes"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type AgentChatSession struct {
 	coremodel.PowerModel
+
+	UUID uuid.UUID `gorm:"type:uuid;column:uuid;uniqueIndex;index" json:"uuid"`
 
 	// 作用域（与现有 Agent 表一致）
 	Env        string  `gorm:"size:32;index:agent_sess_scope" json:"-"`
@@ -37,6 +42,13 @@ type AgentChatSession struct {
 
 func (mdl *AgentChatSession) TableName() string {
 	return coremodel.PowerXSchema + "." + TableAgentChatSession
+}
+
+func (mdl *AgentChatSession) BeforeCreate(tx *gorm.DB) error {
+	if mdl.UUID == uuid.Nil {
+		mdl.UUID = uuid.New()
+	}
+	return nil
 }
 func (mdl *AgentChatSession) GetTableName(needFull bool) string {
 	if needFull {

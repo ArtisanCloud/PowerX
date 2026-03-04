@@ -53,3 +53,14 @@ func AuthReqFromCatalog(provider string) authReq {
 
 	return req
 }
+
+// DefaultBaseURLForModel returns a model-specific base URL when a provider requires it.
+// Currently used to map Hugging Face embeddings to the OpenAI-compatible endpoint.
+func DefaultBaseURLForModel(provider, model string) string {
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "huggingface" || p == "hf" {
+		_ = model
+		return "https://router.huggingface.co/v1"
+	}
+	return ""
+}

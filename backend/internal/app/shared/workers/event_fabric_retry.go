@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
@@ -17,21 +18,38 @@ type TenantProvider func(ctx context.Context) ([]string, error)
 
 // EventFabricRetryWorkerOptions 配置重试 Worker。
 type EventFabricRetryWorkerOptions struct {
-	Delivery       delivery.Service
-	EventBus       event_bus.EventBus
-	TenantProvider TenantProvider
-	Interval       time.Duration
-	BatchSize      int
+	Delivery                delivery.Service
+	EventBus                event_bus.EventBus
+	TenantProvider          TenantProvider
+	Interval                time.Duration
+	BatchSize               int
+	EnableDBPollingFallback bool
+	DriverName              string
 }
 
 // EventFabricRetryWorker 周期拉取重试队列，将事件分发到内部总线。
 type EventFabricRetryWorker struct {
-	delivery       delivery.Service
-	eventBus       event_bus.EventBus
-	tenantProvider TenantProvider
-	interval       time.Duration
-	batchSize      int
-	logger         *pxlog.Logger
+	delivery                delivery.Service
+	eventBus                event_bus.EventBus
+	tenantProvider          TenantProvider
+	interval                time.Duration
+	batchSize               int
+	logger                  *pxlog.Logger
+	enableDBPollingFallback bool
+	driverName              string
+	paused                  atomic.Bool
+}
+
+type retryTenantProviderBypassCacheKey struct{}
+
+// RetryTenantProviderBypassCache 标记当前上下文是否需要跳过租户缓存。
+func RetryTenantProviderBypassCache(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	raw := ctx.Value(retryTenantProviderBypassCacheKey{})
+	flag, ok := raw.(bool)
+	return ok && flag
 }
 
 // RetryDispatchEvent 是 worker 推送到 EventBus 的事件载荷。
@@ -63,18 +81,24 @@ func NewEventFabricRetryWorker(opts EventFabricRetryWorkerOptions) *EventFabricR
 		batchSize = 50
 	}
 	return &EventFabricRetryWorker{
-		delivery:       opts.Delivery,
-		eventBus:       opts.EventBus,
-		tenantProvider: opts.TenantProvider,
-		interval:       interval,
-		batchSize:      batchSize,
-		logger:         pxlog.GetGlobalLogger(),
+		delivery:                opts.Delivery,
+		eventBus:                opts.EventBus,
+		tenantProvider:          opts.TenantProvider,
+		interval:                interval,
+		batchSize:               batchSize,
+		logger:                  pxlog.GetGlobalLogger(),
+		enableDBPollingFallback: opts.EnableDBPollingFallback,
+		driverName:              strings.TrimSpace(opts.DriverName),
 	}
 }
 
 // Run 启动后台轮询。
 func (w *EventFabricRetryWorker) Run(ctx context.Context) {
 	if w.delivery == nil || w.eventBus == nil || w.tenantProvider == nil {
+		return
+	}
+	if !w.enableDBPollingFallback {
+		w.logger.InfoF(ctx, "[event_fabric.retry] skip db polling fallback driver=%s reason=fallback_disabled", w.driverName)
 		return
 	}
 
@@ -86,7 +110,9 @@ func (w *EventFabricRetryWorker) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			w.flush(ctx)
+			if !w.paused.Load() {
+				w.flush(ctx)
+			}
 		}
 
 		select {
@@ -95,6 +121,49 @@ func (w *EventFabricRetryWorker) Run(ctx context.Context) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (w *EventFabricRetryWorker) Pause() {
+	if w == nil {
+		return
+	}
+	w.paused.Store(true)
+}
+
+func (w *EventFabricRetryWorker) Resume() {
+	if w == nil {
+		return
+	}
+	w.paused.Store(false)
+}
+
+func (w *EventFabricRetryWorker) IsPaused() bool {
+	if w == nil {
+		return false
+	}
+	return w.paused.Load()
+}
+
+func (w *EventFabricRetryWorker) TriggerNow(ctx context.Context) {
+	if w == nil || w.delivery == nil || w.eventBus == nil || w.tenantProvider == nil {
+		return
+	}
+	ctx = context.WithValue(ctx, retryTenantProviderBypassCacheKey{}, true)
+	w.flush(ctx)
+}
+
+func (w *EventFabricRetryWorker) Interval() time.Duration {
+	if w == nil {
+		return 0
+	}
+	return w.interval
+}
+
+func (w *EventFabricRetryWorker) BatchSize() int {
+	if w == nil {
+		return 0
+	}
+	return w.batchSize
 }
 
 func (w *EventFabricRetryWorker) flush(ctx context.Context) {
@@ -117,6 +186,8 @@ func (w *EventFabricRetryWorker) flush(ctx context.Context) {
 
 func (w *EventFabricRetryWorker) drainTenant(ctx context.Context, tenantKey string) {
 	pollCtx := context.WithValue(ctx, sharedsvc.ContextTenantKey, tenantKey)
+	pollCtx = context.WithValue(pollCtx, sharedsvc.ContextCompatibilityMode, "any")
+	pollCtx = context.WithValue(pollCtx, sharedsvc.ContextAcceptedVersions, []string{"v1"})
 
 	for {
 		events, err := w.delivery.PollRetry(pollCtx, w.batchSize)

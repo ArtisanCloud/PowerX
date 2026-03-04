@@ -13,6 +13,7 @@ type StorageLocalOptions struct {
 	BasePath           string
 	PublicBaseURL      string
 	UploadTokenSecret  string
+	PublicTokenSecret  string
 	MaxUploadSizeBytes int64
 }
 

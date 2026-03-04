@@ -19,6 +19,7 @@ type DepsOptions struct {
 	AuthCustomer auth.AuthOptions      // 给客户/插件端的 Audience
 	Audit        auditsvc.AuditOptions // 批量大小、等待等
 	Storage      mediasvc.StorageOptions
+	Queue        QueueOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
 	EventFabric        EventFabricOptions
 	Workflow           WorkflowOptions
@@ -31,6 +32,40 @@ type DepsOptions struct {
 	PluginBootstrap    PluginBootstrapOptions
 	PluginDebug        PluginDebugOptions
 	Server             ServerOptions
+}
+
+// QueueOptions 描述任务驱动的配置入口。
+type QueueOptions struct {
+	Driver string
+	Kafka  QueueKafkaOptions
+	Rabbit QueueRabbitMQOptions
+	NATS   QueueNATSOptions
+}
+
+// QueueKafkaOptions 描述 Kafka 驱动连接参数。
+type QueueKafkaOptions struct {
+	Brokers       []string
+	TopicPrefix   string
+	ConsumerGroup string
+	PollTimeoutMs int
+}
+
+// QueueRabbitMQOptions 描述 RabbitMQ 驱动连接参数。
+type QueueRabbitMQOptions struct {
+	URL           string
+	Exchange      string
+	QueuePrefix   string
+	ConsumerTag   string
+	Prefetch      int
+	PollTimeoutMs int
+}
+
+// QueueNATSOptions 描述 NATS 驱动连接参数。
+type QueueNATSOptions struct {
+	URLs          []string
+	SubjectPrefix string
+	QueueGroup    string
+	PollTimeoutMs int
 }
 
 type ServerOptions struct {
@@ -151,22 +186,30 @@ type AgentLifecycleNotificationOptions struct {
 
 // KnowledgeSpaceOptions 描述知识空间域依赖。
 type KnowledgeSpaceOptions struct {
-	RedisAddr              string
-	RedisPassword          string
-	RedisDB                int
-	LockKeyPrefix          string
-	MetricsKeyPrefix       string
-	DefaultRetentionMonths int
-	ProvisioningSLA        time.Duration
-	IngestionSLA           time.Duration
-	EventTopics            KnowledgeSpaceEventTopicsOptions
-	Notifications          KnowledgeSpaceNotificationOptions
-	VectorStore            KnowledgeSpaceVectorStoreOptions
-	Delta                  KnowledgeSpaceDeltaOptions
-	Reports                KnowledgeSpaceReportOptions
-	EventHotfix            KnowledgeSpaceEventHotfixOptions
-	Decay                  KnowledgeSpaceDecayOptions
-	Release                KnowledgeSpaceReleaseOptions
+	RedisAddr                string
+	RedisPassword            string
+	RedisDB                  int
+	LockKeyPrefix            string
+	MetricsKeyPrefix         string
+	DefaultRetentionMonths   int
+	ProvisioningSLA          time.Duration
+	IngestionSLA             time.Duration
+	SceneStrategyCatalogPath string
+	IngestionProcessors      KnowledgeSpaceIngestionProcessorOptions
+	EventTopics              KnowledgeSpaceEventTopicsOptions
+	Notifications            KnowledgeSpaceNotificationOptions
+	VectorStore              KnowledgeSpaceVectorStoreOptions
+	Delta                    KnowledgeSpaceDeltaOptions
+	Reports                  KnowledgeSpaceReportOptions
+	EventHotfix              KnowledgeSpaceEventHotfixOptions
+	Decay                    KnowledgeSpaceDecayOptions
+	Release                  KnowledgeSpaceReleaseOptions
+}
+
+// KnowledgeSpaceIngestionProcessorOptions 控制入库处理器能力开关（nil 表示自动探测）。
+type KnowledgeSpaceIngestionProcessorOptions struct {
+	PDFTextAvailable *bool
+	OCRAvailable     *bool
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {

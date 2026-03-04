@@ -26,14 +26,22 @@ func newPlatformHandler(svc *capabilitycatalog.RegistryService) *platformCapabil
 }
 
 func (h *platformCapabilityHandler) ListModules(c *gin.Context) {
-	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Query("module")), false)
+	page := parsePositiveInt(c.DefaultQuery("page", "1"), 1)
+	pageSize := parsePositiveInt(c.DefaultQuery("page_size", "20"), 20)
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Query("module")), false, page, pageSize)
 }
 
 func (h *platformCapabilityHandler) GetModule(c *gin.Context) {
-	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Param("moduleKey")), true)
+	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Param("moduleKey")), true, 1, 1)
 }
 
-func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter string, single bool) {
+func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter string, single bool, page int, pageSize int) {
 	if !reqctx.IsRoot(c.Request.Context()) {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithHint("仅 Root 管理员可查看平台能力"), nil)
 		return
@@ -55,11 +63,31 @@ func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter 
 		})
 		return
 	}
+
+	totalModules := len(modules)
+	if pageSize <= 0 {
+		pageSize = totalModules
+	}
+	start := (page - 1) * pageSize
+	if start < 0 {
+		start = 0
+	}
+	if start > totalModules {
+		start = totalModules
+	}
+	end := start + pageSize
+	if end > totalModules {
+		end = totalModules
+	}
+	pagedModules := modules[start:end]
+
 	dto.ResponseSuccess(c, gin.H{
 		"generated_at":       generatedAt,
-		"total_modules":      len(modules),
+		"total_modules":      totalModules,
 		"total_capabilities": totalCapabilities,
-		"modules":            modules,
+		"page":               page,
+		"page_size":          pageSize,
+		"modules":            pagedModules,
 	})
 }
 

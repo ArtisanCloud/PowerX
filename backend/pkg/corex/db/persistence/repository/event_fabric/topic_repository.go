@@ -3,6 +3,7 @@ package eventfabric
 import (
 	"context"
 	"errors"
+	"strings"
 
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	baserepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -10,7 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// TopicRepository 提供事件主题的仓储能力。
+// TopicRepository 提供 event_topics 的仓储能力。
+// event_topics 是当前 Topic 注册与治理真相源。
 type TopicRepository struct {
 	base *baserepo.BaseRepository[eventfabricmodel.TopicDefinition]
 	db   *gorm.DB
@@ -57,11 +59,20 @@ func (r *TopicRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*eventf
 }
 
 func (r *TopicRepository) FindByComposite(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
+	lookupTenantKeys := make([]string, 0, 3)
+	if key := strings.TrimSpace(tenantKey); key != "" {
+		lookupTenantKeys = append(lookupTenantKeys, key)
+	}
+	lookupTenantKeys = append(lookupTenantKeys, "global", "system")
+
 	var record eventfabricmodel.TopicDefinition
-	err := r.db.WithContext(ctx).
-		Where("tenant_key = ? AND namespace = ? AND name = ?", tenantKey, namespace, name).
-		Take(&record).Error
-	if err != nil {
+	query := r.db.WithContext(ctx).
+		Where("(COALESCE(NULLIF(scope_id, ''), tenant_key) IN ?) AND namespace = ? AND name = ?", lookupTenantKeys, namespace, name).
+		Where("(scope_type IS NULL OR scope_type IN ?)", []string{string(eventfabricmodel.TopicScopeTenant), string(eventfabricmodel.TopicScopeSystem)})
+	if len(lookupTenantKeys) > 1 {
+		query = query.Order(gorm.Expr("CASE WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = ? THEN 0 WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = 'global' THEN 1 WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = 'system' THEN 2 ELSE 999 END", strings.TrimSpace(tenantKey)))
+	}
+	if err := query.Take(&record).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -74,7 +85,12 @@ func (r *TopicRepository) List(ctx context.Context, queryCtx QueryContext) ([]*e
 	query := r.db.WithContext(ctx).Model(&eventfabricmodel.TopicDefinition{})
 
 	if queryCtx.Filter.TenantID != "" {
-		query = query.Where("tenant_key = ?", queryCtx.Filter.TenantID)
+		if queryCtx.Filter.IncludeShared {
+			query = query.Where("COALESCE(NULLIF(scope_id, ''), tenant_key) IN ?", []string{queryCtx.Filter.TenantID, "global", "system"})
+		} else {
+			query = query.Where("COALESCE(NULLIF(scope_id, ''), tenant_key) = ?", queryCtx.Filter.TenantID)
+		}
+		query = query.Where("(scope_type IS NULL OR scope_type IN ?)", []string{string(eventfabricmodel.TopicScopeTenant), string(eventfabricmodel.TopicScopeSystem)})
 	}
 	if queryCtx.Filter.Namespace != "" {
 		query = query.Where("namespace = ?", queryCtx.Filter.Namespace)

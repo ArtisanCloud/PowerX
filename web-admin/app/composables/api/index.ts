@@ -11,7 +11,6 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
-import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 
 /** =========================
  * API 客户端配置
@@ -58,24 +57,28 @@ let globalConfig: ApiClientConfig = {
         return config;
       },
     },
-    // --- 注入租户 UUID 头 ---
+    // --- JWT-only 防回归护栏：移除禁用租户头 ---
     {
       onRequest: async (config) => {
         if (!config.headers) {
-          config.headers = {};
+          return config;
         }
-        const hasTenantHeader =
-          config.headers["X-Tenant-UUID"] ||
-          (config.headers as Record<string, string>)["x-tenant-uuid"];
-        if (!hasTenantHeader) {
-          const tenantUUID = resolveTenantUUIDForRequest();
-          if (tenantUUID) {
-            config.headers = {
-              ...config.headers,
-              "X-Tenant-UUID": tenantUUID,
-            };
+
+        const headers = config.headers as Record<string, string | undefined>;
+        const hadLegacyHeader =
+          typeof headers["tenant-uuid"] !== "undefined";
+
+        if (hadLegacyHeader) {
+          delete headers["tenant-uuid"];
+
+          if (process.dev) {
+            console.warn(
+              "[api] removed legacy tenant header; tenant must come from JWT claims"
+            );
           }
         }
+
+        config.headers = headers;
         return config;
       },
     },
@@ -145,6 +148,16 @@ let globalConfig: ApiClientConfig = {
  * 设置全局 API 配置（浅合并 + headers 深合并）
  */
 export const setApiConfig = (config: Partial<ApiClientConfig>) => {
+  const nextRequestInterceptors =
+    config.requestInterceptors && config.requestInterceptors.length
+      ? [...(globalConfig.requestInterceptors || []), ...config.requestInterceptors]
+      : globalConfig.requestInterceptors;
+
+  const nextResponseInterceptors =
+    config.responseInterceptors && config.responseInterceptors.length
+      ? [...(globalConfig.responseInterceptors || []), ...config.responseInterceptors]
+      : globalConfig.responseInterceptors;
+
   globalConfig = {
     ...globalConfig,
     ...config,
@@ -152,6 +165,8 @@ export const setApiConfig = (config: Partial<ApiClientConfig>) => {
       ...globalConfig.headers,
       ...config.headers,
     },
+    requestInterceptors: nextRequestInterceptors,
+    responseInterceptors: nextResponseInterceptors,
   };
 };
 
@@ -235,7 +250,16 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
       }
     }
   }
+  // ofetch/$fetch 超时/主动取消会抛 AbortError（或作为 cause），此时没有 response
+  const isAbort =
+    result?.name === "AbortError" ||
+    result?.cause?.name === "AbortError" ||
+    String(result?.message || "").toLowerCase().includes("aborted") ||
+    String(result?.message || "").toLowerCase().includes("timeout");
   if (!result || !result.response) {
+    if (isAbort) {
+      throw new Error("请求超时，请稍后重试");
+    }
     throw new Error("网络错误，请检查网络连接");
   }
 

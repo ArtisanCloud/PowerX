@@ -28,7 +28,7 @@ func TestProviderGRPCContract(t *testing.T) {
 	unary := func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		tenantUUID := ammatestenv.AgentModelHubTenantUUID
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
-			if values := md.Get("x-tenant-uuid"); len(values) > 0 {
+			if values := md.Get("tenant-uuid"); len(values) > 0 {
 				if trimmed := strings.TrimSpace(values[0]); trimmed != "" {
 					tenantUUID = trimmed
 				}

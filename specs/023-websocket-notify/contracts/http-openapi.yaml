@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: PowerX WebSocket Notify Bus
+  version: 1.0.0
+paths:
+  /api/ws:
+    get:
+      summary: WebSocket 连接升级入口
+      description: 建立通用 WebSocket 连接，后续通过消息订阅主题。消息体结构参考 components/schemas/WSBusEnvelope。
+      responses:
+        "101":
+          description: Switching Protocols
+  /api/v1/internal/ws-bus/grant:
+    post:
+      summary: WS Bus 主题授权绑定（内部）
+      description: 对已存在 topic 执行授权绑定（ACL grant，幂等）；不负责创建 topic。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topics:
+                  type: array
+                  items:
+                    type: string
+              required: [topics]
+      responses:
+        "200":
+          description: ok
+  /api/v1/internal/ws-bus/publish:
+    post:
+      summary: WS Bus 发布入口（内部）
+      description: 宿主/插件通过该接口发布事件，需通过 topic 白名单校验。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                payload:
+                  type: object
+                trace_id:
+                  type: string
+              required: [topic, payload]
+      responses:
+        "200":
+          description: ok
+components:
+  schemas:
+    WSBusEnvelope:
+      type: object
+      properties:
+        topic:
+          type: string
+        type:
+          type: string
+        payload:
+          type: object
+        ts:
+          type: integer
+          format: int64
+        trace_id:
+          type: string
+      required: [type, ts]
+    WSBusCommand:
+      type: object
+      properties:
+        type:
+          type: string
+        topic:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        req_id:
+          type: string
+      required: [type]
+    WSBusWelcomePayload:
+      type: object
+      properties:
+        protocol:
+          type: string
+        server:
+          type: string
+        heartbeat_sec:
+          type: integer
+    WSBusAckPayload:
+      type: object
+      properties:
+        req_id:
+          type: string
+        ok:
+          type: boolean
+        message:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+    WSBusErrorPayload:
+      type: object
+      properties:
+        req_id:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+    IngestionProgress:
+      type: object
+      properties:
+        tenant_uuid:
+          type: string
+        space_uuid:
+          type: string
+        job_uuid:
+          type: string
+        status:
+          type: string
+        stage:
+          type: string
+        progress:
+          type: integer
+        chunk_total:
+          type: integer
+        embedding_pct:
+          type: number
+          format: float
+        masking_pct:
+          type: number
+          format: float
+        updated_at:
+          type: string
+          format: date-time

@@ -95,13 +95,39 @@ func TestProvisioningHTTPFlow(t *testing.T) {
 	require.Equal(t, http.StatusConflict, dupResp.Code)
 }
 
+func TestProvisioningHTTPRejectsMissingEmbedding(t *testing.T) {
+	env := testenv.New(t)
+	t.Cleanup(env.Close)
+
+	require.NoError(t, env.ClearTenantEmbeddingConfig())
+
+	engine := env.Engine()
+	policyID := env.SeedPolicyTemplate("default", "v1")
+	createBody := map[string]any{
+		"spaceName":      "finance-ops",
+		"departmentCode": "FIN-OPS",
+		"quotas": map[string]any{
+			"cpuCores":             4,
+			"storageGb":            200,
+			"ingestionConcurrency": 2,
+		},
+		"policyTemplateVersionId": fmt.Sprint(policyID),
+		"featureFlags":            []string{"masking.strict", "fusion.guardrails"},
+	}
+
+	req := newJSONRequest(http.MethodPost, "/api/admin/knowledge-spaces", createBody, env.TenantUUID().String())
+	resp := httptest.NewRecorder()
+	engine.ServeHTTP(resp, req)
+	require.Equal(t, http.StatusPreconditionFailed, resp.Code)
+}
+
 func newJSONRequest(method, path string, body map[string]any, tenantUUID string) *http.Request {
 	payload, _ := json.Marshal(body)
 	req := httptest.NewRequest(method, path, bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer test-token")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", uuid.NewString())
-	req.Header.Set("X-Tenant-UUID", tenantUUID)
+	req.Header.Set("tenant-uuid", tenantUUID)
 	return req
 }
 

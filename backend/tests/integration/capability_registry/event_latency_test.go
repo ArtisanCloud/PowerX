@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventtopics "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
@@ -57,7 +57,7 @@ func TestIntegrationGatewayInvocationEventsDeliveredWithinOneMinute(t *testing.T
 
 	payload := registry.RegistrationPayload{
 		CapabilityID: "cap.event.latency",
-		TenantUUID:   "tenant-event-001",
+		TenantUUID:   "8091a2b3-8888-4141-9c9c-9999aaaabbbb",
 		ContractRef:  "contracts/exposure/mcp-tools.json",
 		Status:       string(domain.RegistrationStatusPublished),
 		Adapters: []registry.AdapterEndpoint{
@@ -84,7 +84,7 @@ func TestIntegrationGatewayInvocationEventsDeliveredWithinOneMinute(t *testing.T
 	startTimes := make(map[string]time.Time)
 	var startMu sync.RWMutex
 
-	unsub := env.Bus.Subscribe(eventbus.TopicIntegrationGatewayInvocationSucceeded, func(evt event_bus.Event) error {
+	unsub := env.Bus.Subscribe(eventtopics.TopicIntegrationGatewayInvocationSucceeded, func(evt event_bus.Event) error {
 		payloadMap, ok := evt.Payload.(map[string]interface{})
 		if !ok {
 			return nil

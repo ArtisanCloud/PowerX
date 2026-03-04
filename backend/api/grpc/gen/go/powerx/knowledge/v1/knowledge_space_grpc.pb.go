@@ -28,6 +28,11 @@ const (
 	KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFusionStrategy"
 	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
 	KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFeedbackCases"
+	KnowledgeSpaceAdminService_CloseFeedbackCase_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/CloseFeedbackCase"
+	KnowledgeSpaceAdminService_EscalateFeedbackCase_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/EscalateFeedbackCase"
+	KnowledgeSpaceAdminService_ReprocessFeedbackCase_FullMethodName  = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ReprocessFeedbackCase"
+	KnowledgeSpaceAdminService_RollbackFeedbackCase_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFeedbackCase"
+	KnowledgeSpaceAdminService_ExportFeedbackCases_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ExportFeedbackCases"
 	KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/StartDeltaJob"
 	KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/GetDeltaReport"
 	KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishDeltaJob"
@@ -58,6 +63,11 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
 	SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
 	ListFeedbackCases(ctx context.Context, in *ListFeedbackCasesRequest, opts ...grpc.CallOption) (*ListFeedbackCasesResponse, error)
+	CloseFeedbackCase(ctx context.Context, in *CloseFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
+	EscalateFeedbackCase(ctx context.Context, in *EscalateFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
+	ReprocessFeedbackCase(ctx context.Context, in *ReprocessFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
+	RollbackFeedbackCase(ctx context.Context, in *RollbackFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
+	ExportFeedbackCases(ctx context.Context, in *ExportFeedbackCasesRequest, opts ...grpc.CallOption) (*ExportFeedbackCasesResponse, error)
 	StartDeltaJob(ctx context.Context, in *StartDeltaJobRequest, opts ...grpc.CallOption) (*StartDeltaJobResponse, error)
 	GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error)
 	PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error)
@@ -167,6 +177,56 @@ func (c *knowledgeSpaceAdminServiceClient) ListFeedbackCases(ctx context.Context
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListFeedbackCasesResponse)
 	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) CloseFeedbackCase(ctx context.Context, in *CloseFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FeedbackResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_CloseFeedbackCase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) EscalateFeedbackCase(ctx context.Context, in *EscalateFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FeedbackResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_EscalateFeedbackCase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) ReprocessFeedbackCase(ctx context.Context, in *ReprocessFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FeedbackResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ReprocessFeedbackCase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackFeedbackCase(ctx context.Context, in *RollbackFeedbackCaseRequest, opts ...grpc.CallOption) (*FeedbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FeedbackResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackFeedbackCase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) ExportFeedbackCases(ctx context.Context, in *ExportFeedbackCasesRequest, opts ...grpc.CallOption) (*ExportFeedbackCasesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportFeedbackCasesResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ExportFeedbackCases_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +396,11 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error)
 	SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error)
 	ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error)
+	CloseFeedbackCase(context.Context, *CloseFeedbackCaseRequest) (*FeedbackResponse, error)
+	EscalateFeedbackCase(context.Context, *EscalateFeedbackCaseRequest) (*FeedbackResponse, error)
+	ReprocessFeedbackCase(context.Context, *ReprocessFeedbackCaseRequest) (*FeedbackResponse, error)
+	RollbackFeedbackCase(context.Context, *RollbackFeedbackCaseRequest) (*FeedbackResponse, error)
+	ExportFeedbackCases(context.Context, *ExportFeedbackCasesRequest) (*ExportFeedbackCasesResponse, error)
 	StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error)
 	GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error)
 	PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error)
@@ -387,6 +452,21 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) SubmitFeedback(context.Cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFeedbackCases not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) CloseFeedbackCase(context.Context, *CloseFeedbackCaseRequest) (*FeedbackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseFeedbackCase not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) EscalateFeedbackCase(context.Context, *EscalateFeedbackCaseRequest) (*FeedbackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EscalateFeedbackCase not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ReprocessFeedbackCase(context.Context, *ReprocessFeedbackCaseRequest) (*FeedbackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReprocessFeedbackCase not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackFeedbackCase(context.Context, *RollbackFeedbackCaseRequest) (*FeedbackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackFeedbackCase not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ExportFeedbackCases(context.Context, *ExportFeedbackCasesRequest) (*ExportFeedbackCasesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExportFeedbackCases not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartDeltaJob not implemented")
@@ -613,6 +693,96 @@ func _KnowledgeSpaceAdminService_ListFeedbackCases_Handler(srv interface{}, ctx 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(KnowledgeSpaceAdminServiceServer).ListFeedbackCases(ctx, req.(*ListFeedbackCasesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_CloseFeedbackCase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CloseFeedbackCaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).CloseFeedbackCase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_CloseFeedbackCase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).CloseFeedbackCase(ctx, req.(*CloseFeedbackCaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_EscalateFeedbackCase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EscalateFeedbackCaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).EscalateFeedbackCase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_EscalateFeedbackCase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).EscalateFeedbackCase(ctx, req.(*EscalateFeedbackCaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_ReprocessFeedbackCase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReprocessFeedbackCaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ReprocessFeedbackCase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ReprocessFeedbackCase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ReprocessFeedbackCase(ctx, req.(*ReprocessFeedbackCaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackFeedbackCase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackFeedbackCaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackFeedbackCase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackFeedbackCase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackFeedbackCase(ctx, req.(*RollbackFeedbackCaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_ExportFeedbackCases_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportFeedbackCasesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ExportFeedbackCases(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ExportFeedbackCases_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ExportFeedbackCases(ctx, req.(*ExportFeedbackCasesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -929,6 +1099,26 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFeedbackCases",
 			Handler:    _KnowledgeSpaceAdminService_ListFeedbackCases_Handler,
+		},
+		{
+			MethodName: "CloseFeedbackCase",
+			Handler:    _KnowledgeSpaceAdminService_CloseFeedbackCase_Handler,
+		},
+		{
+			MethodName: "EscalateFeedbackCase",
+			Handler:    _KnowledgeSpaceAdminService_EscalateFeedbackCase_Handler,
+		},
+		{
+			MethodName: "ReprocessFeedbackCase",
+			Handler:    _KnowledgeSpaceAdminService_ReprocessFeedbackCase_Handler,
+		},
+		{
+			MethodName: "RollbackFeedbackCase",
+			Handler:    _KnowledgeSpaceAdminService_RollbackFeedbackCase_Handler,
+		},
+		{
+			MethodName: "ExportFeedbackCases",
+			Handler:    _KnowledgeSpaceAdminService_ExportFeedbackCases_Handler,
 		},
 		{
 			MethodName: "StartDeltaJob",

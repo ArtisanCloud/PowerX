@@ -7,7 +7,7 @@ Workflow 模块包含两类底座能力：
 | `com.corex.scheduler.jobs` (`workflow.scheduler.invoke`) | 通过 Scheduler 触发/控制实例 | Prefer `grpc` | gRPC `WorkflowService/StartInstance`、`ControlInstance`、`ListInstances` |
 | `com.corex.workflow.builder` (`workflow.builder.manage`) | Workflow Builder 模板的创建/发布 | Prefer `grpc` | gRPC `WorkflowService/CreateDefinition`、`PublishDefinition`、`ListDefinitions` |
 
-> **认证要求**：`Authorization: Bearer <TENANT_TOKEN>`、`x-tenant-uuid: <TENANT_UUID>`，并为目标租户授予 `workflow.scheduler` 和/或 `workflow.builder` Tool Grant。
+> **认证要求**：`Authorization: Bearer <TENANT_TOKEN>`、`tenant_uuid: <TENANT_UUID>`，并为目标租户授予 `workflow.scheduler` 和/或 `workflow.builder` Tool Grant。
 
 ## gRPC 接口
 
@@ -26,7 +26,7 @@ export TENANT_UUID="<tenant-uuid>"
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "definition_id": "wf.definitions.demo",
     "input": {
@@ -42,7 +42,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{ "instance_id": "wf-inst-123", "action": "PAUSE" }' \
   $GRPC_ADDR powerx.workflow.v1.WorkflowService/ControlInstance
 ```
@@ -54,7 +54,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{
     "definition_id": "wf.definitions.demo",
     "display_name": "Demo Flow",
@@ -71,7 +71,7 @@ grpcurl -plaintext \
 ```bash
 grpcurl -plaintext \
   -H "authorization: Bearer $TENANT_TOKEN" \
-  -H "x-tenant-uuid: $TENANT_UUID" \
+  -H "tenant_uuid: $TENANT_UUID" \
   -d '{ "definition_id": "wf.definitions.demo", "version_note": "v1.0" }' \
   $GRPC_ADDR powerx.workflow.v1.WorkflowService/PublishDefinition
 ```
@@ -83,7 +83,6 @@ grpcurl -plaintext \
 ```bash
 curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
-  -H "X-Tenant-UUID: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
     "capabilityId": "com.corex.scheduler.jobs",

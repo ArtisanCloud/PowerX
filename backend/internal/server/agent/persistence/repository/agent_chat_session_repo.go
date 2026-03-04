@@ -103,6 +103,20 @@ func (r *AgentChatSessionRepository) FindByID(
 	return &out, nil
 }
 
+// FindByUUID（带作用域）
+func (r *AgentChatSessionRepository) FindByUUID(
+	ctx context.Context, env string, tenantUUID *string, uid string,
+) (*dbmodel.AgentChatSession, error) {
+	var out dbmodel.AgentChatSession
+	err := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("uuid = ?", uid).First(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // ListByAgent：按 Agent 列表会话（可选 status 过滤）
 func (r *AgentChatSessionRepository) ListByAgent(
 	ctx context.Context,

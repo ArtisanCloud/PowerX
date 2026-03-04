@@ -2,6 +2,9 @@ package media
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +60,7 @@ const (
 type assetRepository interface {
 	List(ctx context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error)
 	FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
+	FindByStorageKey(ctx context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error)
 	ListByDriverAndStorageKey(ctx context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error)
 	CreateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
 	UpdateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
@@ -70,6 +74,8 @@ type MediaService struct {
 	manager    *mediamgr.MediaManager
 	audit      auditsvc.Service
 	defaultTTL time.Duration
+	// publicResourceTokenSecret 用于公开资源入口的临时 token（HMAC）。
+	publicResourceTokenSecret []byte
 }
 
 // NewMediaService 构建媒体服务实例。
@@ -87,6 +93,75 @@ func NewMediaService(db *gorm.DB, repo assetRepository, manager *mediamgr.MediaM
 		audit:       audit,
 		defaultTTL:  defaultTTL,
 	}
+}
+
+// SetPublicResourceTokenSecret 设置公开资源入口的 token 签名密钥。
+func (s *MediaService) SetPublicResourceTokenSecret(secret string) {
+	if s == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(secret)
+	if trimmed == "" {
+		s.publicResourceTokenSecret = nil
+		return
+	}
+	s.publicResourceTokenSecret = []byte(trimmed)
+}
+
+func (s *MediaService) generatePublicResourceToken(uuid string, expUnix int64) string {
+	if s == nil || len(s.publicResourceTokenSecret) == 0 {
+		return ""
+	}
+	id := strings.TrimSpace(uuid)
+	if id == "" || expUnix <= 0 {
+		return ""
+	}
+	mac := hmac.New(sha256.New, s.publicResourceTokenSecret)
+	mac.Write([]byte(id))
+	mac.Write([]byte("\n"))
+	mac.Write([]byte(strconv.FormatInt(expUnix, 10)))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (s *MediaService) verifyPublicResourceToken(uuid, expStr, token string) bool {
+	if s == nil || len(s.publicResourceTokenSecret) == 0 {
+		return false
+	}
+	id := strings.TrimSpace(uuid)
+	if id == "" {
+		return false
+	}
+	expStr = strings.TrimSpace(expStr)
+	token = strings.TrimSpace(token)
+	if expStr == "" || token == "" {
+		return false
+	}
+	expUnix, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || expUnix <= 0 {
+		return false
+	}
+	// 允许轻微时钟漂移
+	if time.Now().Unix() > expUnix+5 {
+		return false
+	}
+	expected := s.generatePublicResourceToken(id, expUnix)
+	if expected == "" {
+		return false
+	}
+	return hmac.Equal([]byte(expected), []byte(token))
+}
+
+// CanAccessPublicResource 判断公开资源入口是否允许访问。
+// - published：允许匿名访问
+// - 其它状态：仅当携带有效 token+exp 时允许（用于短期分发/预览）
+func (s *MediaService) CanAccessPublicResource(asset *Asset, expStr, token string) bool {
+	if asset == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(asset.BusinessStatus), coremodel.MediaAssetStatusPublished) {
+		return true
+	}
+	return s.verifyPublicResourceToken(asset.UUID, expStr, token)
 }
 
 // CreateAssetInput 定义创建媒体资产所需参数。
@@ -244,6 +319,12 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		}
 		assetUUID = parsed
 		storageKey = assetUUID.String()
+	}
+
+	if existing, findErr := s.repo.FindByStorageKey(ctx, tenantUUID, driverName, storageKey); findErr == nil {
+		return toAsset(existing), nil
+	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		return nil, findErr
 	}
 
 	tags := normalizeTags(in.Tags)
@@ -577,7 +658,19 @@ func (s *MediaService) PresignAsset(ctx context.Context, in PresignAssetInput) (
 		case "upload":
 			urlOut.URL = fmt.Sprintf("/api/v1/media/assets/%s", entity.UUID.String())
 		case "download":
-			urlOut.URL = fmt.Sprintf("/media/%s/resource", entity.UUID.String())
+			if strings.EqualFold(entity.BusinessStatus, coremodel.MediaAssetStatusPublished) {
+				urlOut.URL = fmt.Sprintf("/media/%s/resource", entity.UUID.String())
+				break
+			}
+			if len(s.publicResourceTokenSecret) == 0 {
+				return nil, fmt.Errorf("storage.local.public_token_secret 未配置，无法为非 published 资源生成可直接访问的下载链接")
+			}
+			expUnix := urlOut.ExpireAt.Unix()
+			token := s.generatePublicResourceToken(entity.UUID.String(), expUnix)
+			if token == "" {
+				return nil, fmt.Errorf("生成公开下载 token 失败")
+			}
+			urlOut.URL = fmt.Sprintf("/media/%s/resource?exp=%d&token=%s", entity.UUID.String(), expUnix, token)
 		}
 	}
 

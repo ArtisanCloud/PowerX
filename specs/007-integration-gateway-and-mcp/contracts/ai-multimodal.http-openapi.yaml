@@ -1,0 +1,478 @@
+openapi: 3.1.0
+info:
+  title: PowerX AI Modal API
+  version: 0.2.0
+  description: >
+    Tenant-scoped AI modal APIs split by modality. Each modality uses a unified
+    URI rule: /ai/{modality}/invoke for stateless calls, and optional session
+    endpoints for multi-turn streaming (LLM).
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: localhost:8077
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: model_not_allowed
+        message:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+      example:
+        code: model_not_allowed
+        message: model not allowed for tenant
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+    ContentItem:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [text, image_url, audio_url, video_url]
+        text:
+          type: string
+        url:
+          type: string
+    LLMInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+    LLMInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    CreateSessionRequest:
+      type: object
+      required: [model_key]
+      properties:
+        model_key:
+          type: string
+        title:
+          type: string
+    CreateSessionResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+    SessionMessageRequest:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        tool_calls:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tool_results:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ImageInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+    ImageInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    VideoInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+    VideoInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    TTSInvokeRequest:
+      type: object
+      required: [model_key, input]
+      properties:
+        model_key:
+          type: string
+        input:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+    TTSInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          $ref: '#/components/schemas/Usage'
+    EmbeddingInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            type: string
+    EmbeddingInvokeResponse:
+      type: object
+      properties:
+        vectors:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        usage:
+          $ref: '#/components/schemas/Usage'
+paths:
+  /ai/llm/invoke:
+    post:
+      summary: LLM stateless invoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/llm/sessions:
+    post:
+      summary: Create LLM session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSessionResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/llm/sessions/{session_id}/messages:
+    post:
+      summary: Append LLM session message
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionMessageRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/llm/sessions/{session_id}/stream:
+    get:
+      summary: Stream LLM session output (SSE)
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    event: start
+                    data: {"session_id":"...","request_id":"..."}
+
+                    event: token
+                    data: {"text":"partial..."}
+
+                    event: final
+                    data: {"message":"full output"}
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/image/invoke:
+    post:
+      summary: Image invoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/video/invoke:
+    post:
+      summary: Video invoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/tts/invoke:
+    post:
+      summary: Text-to-speech invoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TTSInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TTSInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ai/embedding/invoke:
+    post:
+      summary: Embedding invoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingInvokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingInvokeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

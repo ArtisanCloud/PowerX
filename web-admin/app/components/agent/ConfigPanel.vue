@@ -6,6 +6,7 @@ import { AISettingService, type Provider } from "~/composables/api/services/aiSe
 import { useSettingsService } from "~/composables/api/services/settingsService";
 import { useApiClient } from "~/composables/api";
 import { useAISettingsStore } from "~/stores/aiSettings";
+import { useEnvStore } from "~/stores/envStore";
 
 type AgentConfigEx = AgentConfig & {
   contextWindow?: number;
@@ -31,10 +32,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const debugPanel = process.env.NUXT_PUBLIC_AGENT_DEBUG === "true";
+const isHydrating = ref(false);
 
-const ENV = "dev";
+const envStore = useEnvStore();
+const ENV = computed(() => envStore.currentEnv || "dev");
 const MODALITY = "llm";
 const { get } = useApiClient();
+const avatarPreviewUrl = ref("");
+const avatarPreviewError = ref(false);
+let avatarPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ------- Provider/Model 联动数据 -------
 const providers = ref<Provider[]>([]);
@@ -59,19 +65,23 @@ const providerItems = computed(() =>
 );
 
 const configuredProviderSet = computed(() => {
+  // “仅显示已配置（测试通过）”的语义：只要该 provider 在当前 env 下存在凭据（testConnection 成功会保存），就认为可用。
+  // 同时兼容：存在 profile+credential 的情况。
   const creds = aiSettingsStore.credentials || [];
   const profiles = aiSettingsStore.profiles || [];
-  const set = new Set<string>();
-  for (const prof of profiles) {
-    if (String(prof?.modality || "").toLowerCase() !== MODALITY) continue;
-    const provider = String(prof?.provider || "").trim();
-    if (!provider) continue;
-    const hasCred = creds.some(
-      (c) => String(c?.provider || "").toLowerCase() === provider.toLowerCase()
-    );
-    if (hasCred) set.add(provider);
+  const allow = new Set<string>();
+
+  for (const c of creds) {
+    const provider = String(c?.provider || "").trim().toLowerCase();
+    if (provider) allow.add(provider);
   }
-  return set;
+  for (const prof of profiles) {
+    if (String(prof?.modality || "").trim().toLowerCase() !== MODALITY) continue;
+    const provider = String(prof?.provider || "").trim().toLowerCase();
+    if (provider) allow.add(provider);
+  }
+
+  return allow;
 });
 
 const configuredModelsForProvider = computed(() => {
@@ -79,7 +89,7 @@ const configuredModelsForProvider = computed(() => {
   const map = new Map<string, Set<string>>();
   for (const prof of profiles) {
     if (String(prof?.modality || "").toLowerCase() !== MODALITY) continue;
-    const provider = String(prof?.provider || "").trim();
+    const provider = String(prof?.provider || "").trim().toLowerCase();
     const model = String(prof?.model || "").trim();
     if (!provider || !model) continue;
     if (!map.has(provider)) map.set(provider, new Set());
@@ -93,12 +103,21 @@ const filteredProviderItems = computed(() => {
   if (!showOnlyConfigured.value) return all;
 
   const allow = configuredProviderSet.value;
-  const filtered = all.filter((it) => allow.has(String(it.value)));
+  const filtered = all.filter((it) =>
+    allow.has(String(it.value || "").trim().toLowerCase())
+  );
 
   // 如果当前展示的 provider 不在已配置集合里，也要显示出来，避免 UI 丢失选择
   const cur = String(effectiveProvider.value || form.provider || "").trim();
-  if (cur && !filtered.some((it) => String(it.value) === cur)) {
-    const hit = all.find((it) => String(it.value) === cur);
+  if (
+    cur &&
+    !filtered.some(
+      (it) => String(it.value || "").trim().toLowerCase() === cur.toLowerCase()
+    )
+  ) {
+    const hit = all.find(
+      (it) => String(it.value || "").trim().toLowerCase() === cur.toLowerCase()
+    );
     filtered.unshift(
       hit
         ? {
@@ -181,20 +200,41 @@ const selectedCaps = ref<string[]>([]);
 // 是否编辑：只看 form.id 是否有值
 const isEdit = computed(() => !!form.id && String(form.id).trim() !== "");
 
+watch(
+  () => String(form.avatar || ""),
+  (next) => {
+    avatarPreviewError.value = false;
+    if (avatarPreviewTimer) clearTimeout(avatarPreviewTimer);
+    avatarPreviewTimer = setTimeout(() => {
+      avatarPreviewUrl.value = String(next || "").trim();
+    }, 400);
+  },
+  { immediate: true }
+);
+
+function setCapabilityChecked(key: string, checked: boolean) {
+  const idx = selectedCaps.value.indexOf(key);
+  if (checked) {
+    if (idx === -1) selectedCaps.value.push(key);
+    return;
+  }
+  if (idx > -1) selectedCaps.value.splice(idx, 1);
+}
+
 async function loadProvidersOnce() {
   if (providers.value.length) return;
-  providers.value = await AISettingService.getProviders(MODALITY, ENV);
+  providers.value = await AISettingService.getProviders(MODALITY, ENV.value);
 }
 
 async function ensureAISettingsEnv() {
   if (!aiSettingsStore.initialized) {
-    await aiSettingsStore.initialize(ENV);
+    await aiSettingsStore.initialize(ENV.value);
   }
-  if (aiSettingsStore.currentEnv !== ENV) {
-    await aiSettingsStore.refreshEnvData(ENV, [MODALITY]);
+  if (aiSettingsStore.currentEnv !== ENV.value) {
+    await aiSettingsStore.refreshEnvData(ENV.value, [MODALITY]);
   } else {
     // 只拉一次 llm profile/cred，避免无关模态噪声
-    await aiSettingsStore.refreshEnvData(ENV, [MODALITY]);
+    await aiSettingsStore.refreshEnvData(ENV.value, [MODALITY]);
   }
 }
 
@@ -204,7 +244,7 @@ async function loadModelsForProvider(provider: string) {
     modelItems.value = [];
     return;
   }
-  const models = await AISettingService.getModels(p, MODALITY, ENV);
+  const models = await AISettingService.getModels(p, MODALITY, ENV.value);
   const all = (models || []).map((m) => ({ label: m, value: m }));
 
   if (!showOnlyConfigured.value) {
@@ -212,17 +252,30 @@ async function loadModelsForProvider(provider: string) {
     return;
   }
 
-  const allow = configuredModelsForProvider.value.get(p) || new Set<string>();
-  const filtered = all.filter((it) => allow.has(String(it.value)));
+  // 若该 provider 没有 profile 记录（例如仅做了 testConnection，后端只保存了 credential），则不应把模型过滤成空。
+  const allow =
+    configuredModelsForProvider.value.get(p.toLowerCase()) || new Set<string>();
+  const filtered =
+    allow.size > 0 ? all.filter((it) => allow.has(String(it.value))) : all;
 
-  // 保底：当前选择的 model 不在已配置集合里，也要显示出来（系统默认/自定义都需要）
-  const cur = String(effectiveModel.value || form.model || "").trim();
-  if (cur && !filtered.some((it) => String(it.value) === cur)) {
-    const hit = all.find((it) => String(it.value) === cur);
+  // 保底：只在“当前真的选了某个 model”时才保留（避免自定义模式下 model 为空却用 defaults.model 回填）
+  const cur = String(form.model || "").trim();
+  const fallbackCur = form.useSystemModelConfig
+    ? String(effectiveModel.value || "").trim()
+    : "";
+  const keep = cur || fallbackCur;
+  if (keep && !filtered.some((it) => String(it.value) === keep)) {
+    const hit = all.find((it) => String(it.value) === keep);
     filtered.unshift(
       hit
-        ? { ...hit, label: `${hit.label} (${t("agent.config.notConfigured") || "未配置"})` }
-        : { label: `${cur} (${t("agent.config.notConfigured") || "未配置"})`, value: cur }
+        ? {
+            ...hit,
+            label: `${hit.label} (${t("agent.config.notConfigured") || "未配置"})`,
+          }
+        : {
+            label: `${keep} (${t("agent.config.notConfigured") || "未配置"})`,
+            value: keep,
+          }
     );
   }
 
@@ -232,7 +285,7 @@ async function loadModelsForProvider(provider: string) {
 async function resolveSystemDefaults() {
   // 1) 优先：系统 AI Settings 里“激活”的默认模态配置
   try {
-    const res = await AISettingService.getActiveProfile(ENV, MODALITY);
+    const res = await AISettingService.getActiveProfile(ENV.value, MODALITY);
     const prof = res?.data?.profile;
     if (prof?.provider && prof?.model) {
       defaults.provider = String(prof.provider);
@@ -271,18 +324,48 @@ async function loadAgentOverride(agentId: number | string) {
   if (!id) return false;
   try {
     const res = await get<any>(`/admin/agents/${id}/ai-setting`, {
-      params: { env: ENV },
+      params: { env: ENV.value },
       useGlobalLoading: false,
     });
     if (res?.code === 200 && res?.data) {
       const s = res.data as any;
       const p = String(s.provider || "").trim();
       const m = String(s.model || "").trim();
+      const params = (s.params || {}) as Record<string, any>;
       if (p && m) {
         form.useSystemModelConfig = false;
+        form.model = m;
         form.provider = p;
         await loadModelsForProvider(p);
-        form.model = m;
+
+        if (typeof params.systemPrompt === "string") {
+          form.systemPrompt = params.systemPrompt;
+        }
+        if (typeof params.temperature === "number") {
+          form.temperature = params.temperature;
+        }
+        if (typeof params.topP === "number") {
+          form.topP = params.topP;
+        }
+        if (typeof params.maxTokens === "number") {
+          form.maxTokens = params.maxTokens;
+        }
+        if (typeof params.frequencyPenalty === "number") {
+          form.frequencyPenalty = params.frequencyPenalty;
+        }
+        if (typeof params.presencePenalty === "number") {
+          form.presencePenalty = params.presencePenalty;
+        }
+        if (typeof params.contextWindow === "number") {
+          form.contextWindow = params.contextWindow;
+        }
+        if (typeof params.responseFormat === "string") {
+          form.responseFormat = params.responseFormat;
+        }
+        if (typeof params.streaming === "boolean") {
+          form.streaming = params.streaming;
+        }
+
         defaults.source = "agent";
         return true;
       }
@@ -295,6 +378,7 @@ async function loadAgentOverride(agentId: number | string) {
 watch(
   () => props.agent,
   async (a) => {
+    isHydrating.value = true;
     if (debugPanel) console.info("[config-panel] incoming agent:", a);
     // 1) 先重置为默认
     Object.assign(form, {
@@ -321,10 +405,16 @@ watch(
     // 2) 有传入 agent（编辑态）→ 规范回填
     if (a && typeof a === "object") {
       const anyA = a as any;
-      form.id = anyA.id != null ? String(anyA.id) : ""; // 关键：给 id 赋值
+      // 后端使用 /admin/agents/:uuid，优先使用 uuid
+      form.id =
+        anyA.uuid != null
+          ? String(anyA.uuid)
+          : anyA.id != null
+            ? String(anyA.id)
+            : ""; // 关键：给 id 赋值
       form.name = anyA.name ?? "";
       form.description = anyA.description ?? "";
-      form.avatar = anyA.avatar ?? "";
+      form.avatar = anyA.avatar ?? anyA?.meta?.avatar ?? "";
       // 后端 Agent 通常有 status，前端 config 没有：都兜底
       form.isActive =
         typeof anyA.isActive === "boolean"
@@ -334,7 +424,7 @@ watch(
             : true;
 
       // 可选：如果前端传了高级字段就用前端的
-      // 注意：真正落库的是 Agent AI Setting（/admin/agents/:id/ai-setting）
+      // 注意：真正落库的是 Agent AI Setting（/admin/agents/:uuid/ai-setting）
       form.systemPrompt = anyA.systemPrompt ?? form.systemPrompt;
       form.temperature = anyA.temperature ?? form.temperature;
       form.topP = anyA.topP ?? form.topP;
@@ -346,13 +436,15 @@ watch(
       form.streaming = anyA.streaming ?? form.streaming;
 
       // 3) 能力：兼容对象数组/字符串数组/无此字段三种情况
-      const caps: any[] = anyA.capabilities || [];
+      const capsRaw: any[] = anyA.capabilities || [];
+      const capsMeta = anyA?.meta?.capabilities;
+      const caps = Array.isArray(capsRaw) && capsRaw.length ? capsRaw : capsMeta;
       if (Array.isArray(caps)) {
         if (caps.length > 0 && typeof caps[0] === "string") {
           selectedCaps.value = caps as string[];
         } else {
           selectedCaps.value = caps
-            .map((c: any) => c?.id || toKeyFromName(c?.name))
+            .map((c: any) => c?.id || c?.key || toKeyFromName(c?.name))
             .filter(Boolean);
         }
       } else {
@@ -378,6 +470,8 @@ watch(
       }
     } catch (e) {
       console.warn("[config-panel] init provider/model failed:", e);
+    } finally {
+      isHydrating.value = false;
     }
   },
   { immediate: true }
@@ -386,6 +480,7 @@ watch(
 watch(
   () => form.useSystemModelConfig,
   async (useDefault) => {
+    if (isHydrating.value) return;
     if (useDefault) {
       // 切回“系统默认”时，把显示值回填为默认（但保存时会走 delete override）
       form.provider = defaults.provider;
@@ -398,8 +493,12 @@ watch(
       form.provider = defaults.provider;
     }
     await loadModelsForProvider(String(form.provider || "").trim());
-    if (!String(form.model || "").trim()) {
-      form.model = modelItems.value[0]?.value || defaults.model || "";
+    // 如果当前 model 不属于该 provider 的模型列表（常见：从系统默认切换过来），重置为首个可用模型
+    const curModel = String(form.model || "").trim();
+    const inList =
+      !!curModel && (modelItems.value || []).some((it) => it.value === curModel);
+    if (!inList) {
+      form.model = modelItems.value[0]?.value || "";
     }
   }
 );
@@ -407,6 +506,7 @@ watch(
 watch(
   () => showOnlyConfigured.value,
   async () => {
+    if (isHydrating.value) return;
     // 切换筛选模式后，重新拉一次 model 列表以应用过滤规则
     const p = String(form.provider || defaults.provider || "").trim();
     if (!p) return;
@@ -417,17 +517,17 @@ watch(
 watch(
   () => form.provider,
   async (p, prev) => {
+    if (isHydrating.value) return;
     if (form.useSystemModelConfig) return;
     const cur = String(p || "").trim();
     const old = String(prev || "").trim();
     if (cur === old) return;
+    // provider 切换时：先清空旧 model，避免把上一个 provider 的 model 当成“未配置”保留在新列表里
+    form.model = "";
     await loadModelsForProvider(cur);
-    // provider 变更时，如果当前 model 不在新列表里，重置为第一项
-    if (cur && modelItems.value.length) {
-      const hit = modelItems.value.some((it) => it.value === form.model);
-      if (!hit) {
-        form.model = modelItems.value[0]?.value || "";
-      }
+    // provider 变更后：默认选中该 provider 的第一个可用模型
+    if (cur) {
+      form.model = modelItems.value[0]?.value || "";
     }
   }
 );
@@ -491,15 +591,18 @@ function saveConfig() {
 
   emit("save", {
     ...form,
+    meta: {
+      avatar: String(form.avatar || "").trim(),
+    },
     capabilities: mappedCaps,
   });
 }
 
 function resetForm() {
   const a = props.agent as any;
-  if (a && a.id != null) {
+  if (a && (a.uuid != null || a.id != null)) {
     // 只回填你需要的字段
-    form.id = String(a.id);
+    form.id = a.uuid != null ? String(a.uuid) : String(a.id);
     form.name = a.name ?? "";
     form.description = a.description ?? "";
     form.isActive = a.status ? a.status === "active" : true;
@@ -611,13 +714,20 @@ function cancelConfig() {
                 :placeholder="t('agent.config.avatarPlaceholder')"
                 class="w-full"
               />
-              <div v-if="form.avatar" class="mt-2">
+              <div v-if="avatarPreviewUrl" class="mt-2">
                 <img
-                  :src="form.avatar"
+                  v-if="!avatarPreviewError"
+                  :src="avatarPreviewUrl"
                   :alt="form.name"
                   class="w-12 h-12 rounded-full object-cover"
-                  @error="form.avatar = ''"
+                  @error="avatarPreviewError = true"
                 />
+                <div v-else class="text-xs text-amber-500">
+                  {{
+                    t("agent.config.avatarLoadFailed") ||
+                    "头像 URL 无法加载（不影响保存）"
+                  }}
+                </div>
               </div>
             </UFormField>
 
@@ -765,19 +875,13 @@ function cancelConfig() {
               {{ t("agent.config.capability") }}
             </h3>
             <div class="grid grid-cols-2 gap-3">
-              <div
+              <UCheckbox
                 v-for="cap in capabilityDict"
                 :key="cap.key"
-                class="flex items-center space-x-2"
-              >
-                <UCheckbox
-                  :checked="hasCapability(cap.key)"
-                  @change="toggleCapability(cap.key)"
-                />
-                <label class="text-sm text-gray-700 cursor-pointer">{{
-                  cap.name
-                }}</label>
-              </div>
+                :model-value="selectedCaps.includes(cap.key)"
+                :label="cap.name"
+                @update:model-value="(v) => setCapabilityChecked(cap.key, !!v)"
+              />
             </div>
           </div>
 

@@ -6,7 +6,8 @@ drivers:
   llm: baidu
   embedding: baidu
   image: baidu
-  audio: baidu
+  audio_tts: baidu
+  audio_asr: baidu
   video: baidu
   rerank: baidu
 
@@ -79,7 +80,9 @@ modalities:
         # 官方未公开统一维度，这里不写 dims，避免类型不符
   image:
     models: []
-  audio:
+  audio_tts:
+    models: []
+  audio_asr:
     models: []
   video:
     models: []

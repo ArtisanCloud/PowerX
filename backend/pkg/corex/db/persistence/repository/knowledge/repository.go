@@ -62,6 +62,30 @@ func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tena
 	return &space, nil
 }
 
+func (r *KnowledgeSpaceRepository) ListByTenant(ctx context.Context, tenantUUID string, status string, limit int) ([]models.KnowledgeSpace, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	status = strings.TrimSpace(status)
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID)
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	var out []models.KnowledgeSpace
+	if err := q.Order("created_at DESC, id DESC").Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeltaJobRepository 管理增量同步任务。
 type DeltaJobRepository struct {
 	*baseRepo.BaseRepository[models.DeltaJob]
@@ -327,6 +351,35 @@ func (r *TenantReleasePolicyRepository) FindByID(ctx context.Context, id uint64)
 	return policy, nil
 }
 
+func (r *TenantReleasePolicyRepository) FindLatestByMatrixVersion(ctx context.Context, matrixVersion string) (*models.TenantReleasePolicy, error) {
+	matrixVersion = strings.TrimSpace(matrixVersion)
+	if matrixVersion == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	var policy models.TenantReleasePolicy
+	if err := r.db.WithContext(ctx).
+		Where("matrix_version = ?", matrixVersion).
+		Order("id DESC").
+		Take(&policy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &policy, nil
+}
+
+func (r *TenantReleasePolicyRepository) ListLatest(ctx context.Context, limit int) ([]*models.TenantReleasePolicy, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	items := make([]*models.TenantReleasePolicy, 0, limit)
+	if err := r.db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // TenantReleaseBatchRepository 管理灰度批次执行状态。
 type TenantReleaseBatchRepository struct {
 	*baseRepo.BaseRepository[models.TenantReleaseBatch]
@@ -359,6 +412,24 @@ func (r *TenantReleaseBatchRepository) ListByPolicyAndVersion(ctx context.Contex
 	if err := r.db.WithContext(ctx).
 		Where("policy_id = ? AND version_id = ?", policyID, strings.TrimSpace(versionID)).
 		Order("batch_index ASC").Find(&batches).Error; err != nil {
+		return nil, err
+	}
+	return batches, nil
+}
+
+func (r *TenantReleaseBatchRepository) ListLatestByPolicy(ctx context.Context, policyID uint64, limit int) ([]*models.TenantReleaseBatch, error) {
+	if policyID == 0 {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	batches := make([]*models.TenantReleaseBatch, 0, limit)
+	if err := r.db.WithContext(ctx).
+		Where("policy_id = ?", policyID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&batches).Error; err != nil {
 		return nil, err
 	}
 	return batches, nil
@@ -406,6 +477,30 @@ func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UU
 		Where("space_uuid = ? AND status IN ?", space, []string{"open", "assigned"}).
 		Order("sla_due_at ASC").
 		Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (r *DecayTaskRepository) ListOpenByTenant(ctx context.Context, tenantUUID string, severity string) ([]*models.DecayTask, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	tasks := make([]*models.DecayTask, 0)
+	taskTable := models.DecayTask{}.TableName()
+	spaceTable := models.KnowledgeSpace{}.TableName()
+
+	query := r.db.WithContext(ctx).
+		Table(taskTable+" AS dt").
+		Joins("JOIN "+spaceTable+" AS ks ON ks.uuid = dt.space_uuid").
+		Where("ks.tenant_uuid = ?", tenantUUID).
+		Where("dt.status IN ?", []string{"open", "assigned"}).
+		Order("dt.sla_due_at ASC")
+	if strings.TrimSpace(severity) != "" {
+		query = query.Where("LOWER(dt.severity) = LOWER(?)", strings.TrimSpace(severity))
+	}
+	if err := query.Find(&tasks).Error; err != nil {
 		return nil, err
 	}
 	return tasks, nil
@@ -471,4 +566,152 @@ func (r *AuditTrailRepository) ListBySpace(ctx context.Context, space uuid.UUID,
 		return nil, err
 	}
 	return items, nil
+}
+
+// SourceCredentialRepository 管理租户级数据源凭据（仅存引用与元数据）。
+type SourceCredentialRepository struct {
+	*baseRepo.BaseRepository[models.SourceCredential]
+	db *gorm.DB
+}
+
+func NewSourceCredentialRepository(db *gorm.DB) *SourceCredentialRepository {
+	return &SourceCredentialRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SourceCredential](db),
+		db:             db,
+	}
+}
+
+func (r *SourceCredentialRepository) ListByTenant(ctx context.Context, tenantUUID string, provider string, limit int) ([]models.SourceCredential, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID).Order("created_at desc")
+	if provider != "" {
+		q = q.Where("provider = ?", provider)
+	}
+	var out []models.SourceCredential
+	if err := q.Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SourceCredentialRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SourceCredential, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SourceCredential
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SourceConnectorInstanceRepository 管理租户级连接器实例（绑定凭据，可被多个空间复用）。
+type SourceConnectorInstanceRepository struct {
+	*baseRepo.BaseRepository[models.SourceConnectorInstance]
+	db *gorm.DB
+}
+
+func NewSourceConnectorInstanceRepository(db *gorm.DB) *SourceConnectorInstanceRepository {
+	return &SourceConnectorInstanceRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SourceConnectorInstance](db),
+		db:             db,
+	}
+}
+
+func (r *SourceConnectorInstanceRepository) ListByTenant(ctx context.Context, tenantUUID string, provider string, limit int) ([]models.SourceConnectorInstance, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if tenantUUID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID).Order("created_at desc")
+	if provider != "" {
+		q = q.Where("provider = ?", provider)
+	}
+	var out []models.SourceConnectorInstance
+	if err := q.Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SourceConnectorInstanceRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SourceConnectorInstance, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SourceConnectorInstance
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SpaceSyncJobRepository 管理空间级增量同步任务。
+type SpaceSyncJobRepository struct {
+	*baseRepo.BaseRepository[models.SpaceSyncJob]
+	db *gorm.DB
+}
+
+func NewSpaceSyncJobRepository(db *gorm.DB) *SpaceSyncJobRepository {
+	return &SpaceSyncJobRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.SpaceSyncJob](db),
+		db:             db,
+	}
+}
+
+func (r *SpaceSyncJobRepository) ListBySpace(ctx context.Context, space uuid.UUID, limit int) ([]models.SpaceSyncJob, error) {
+	if space == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	var out []models.SpaceSyncJob
+	if err := r.db.WithContext(ctx).
+		Where("space_uuid = ?", space).
+		Order("created_at desc").
+		Limit(limit).
+		Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *SpaceSyncJobRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SpaceSyncJob, error) {
+	if id == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var out models.SpaceSyncJob
+	if err := r.db.WithContext(ctx).Where("uuid = ?", id).Take(&out).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
 }

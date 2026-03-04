@@ -131,18 +131,6 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		respondTenantIdentityError(c, err)
 		return
 	}
-	bodyTenant := strings.TrimSpace(req.TenantUUID)
-	if bodyTenant != "" {
-		canonical, err := reqctx.CanonicalTenantUUID(bodyTenant)
-		if err != nil {
-			respondTenantIdentityError(c, err)
-			return
-		}
-		if canonical != tenantUUID {
-			capability_registrydto.RespondError(c, capability_registrydto.ErrTenantMismatch, nil)
-			return
-		}
-	}
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
 		return
@@ -265,21 +253,11 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
-	if tenant := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); tenant != "" {
-		return reqctx.CanonicalTenantUUID(tenant)
+	tenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+	if tenant == "" {
+		return "", reqctx.ErrTenantUUIDMissing
 	}
-	for _, candidate := range []string{
-		c.GetHeader("X-Tenant-UUID"),
-		c.GetHeader("X-PowerX-Tenant"),
-		c.Query("tenant_uuid"),
-	} {
-		value := strings.TrimSpace(candidate)
-		if value == "" {
-			continue
-		}
-		return reqctx.CanonicalTenantUUID(value)
-	}
-	return "", reqctx.ErrTenantUUIDMissing
+	return reqctx.CanonicalTenantUUID(tenant)
 }
 
 func respondTenantIdentityError(c *gin.Context, err error) {
@@ -377,16 +355,6 @@ func injectDefaultHeaders(payload map[string]interface{}, c *gin.Context) {
 	if auth := strings.TrimSpace(c.GetHeader("Authorization")); auth != "" {
 		if _, exists := headers["Authorization"]; !exists {
 			headers["Authorization"] = auth
-		}
-	}
-	if tenant := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenant != "" {
-		if _, exists := headers["X-Tenant-UUID"]; !exists {
-			headers["X-Tenant-UUID"] = tenant
-		}
-	}
-	if powerxTenant := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); powerxTenant != "" {
-		if _, exists := headers["X-PowerX-Tenant"]; !exists {
-			headers["X-PowerX-Tenant"] = powerxTenant
 		}
 	}
 	if traceID := strings.TrimSpace(c.GetHeader("X-Trace-Id")); traceID != "" {

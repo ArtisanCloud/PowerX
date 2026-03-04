@@ -1,6 +1,5 @@
 package http
 
-
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -18,10 +17,12 @@ import (
 	knowledgeSpaceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
+	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/notifications"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
+	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
@@ -72,4 +73,6 @@ func RegisterAPIRoutes(
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

@@ -474,17 +474,6 @@ func (s *server) resolveTenantUUID(ctx context.Context, payload string) (string,
 		}
 		return canonical, nil
 	}
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		for _, key := range []string{"x-tenant-uuid", "tenant-uuid", "x-powerx-tenant-uuid"} {
-			if vals := md.Get(key); len(vals) > 0 {
-				if canonical, err := s.optionalTenantUUID(ctx, vals[0]); err == nil && canonical != "" {
-					return canonical, nil
-				} else if err != nil {
-					return "", err
-				}
-			}
-		}
-	}
 	return "", errors.New("tenant uuid required")
 }
 

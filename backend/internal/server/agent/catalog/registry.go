@@ -32,6 +32,7 @@ type Manifest struct {
 	Drivers    map[string]string           `yaml:"drivers,omitempty"  json:"drivers,omitempty"` // modality -> driverKey
 	Auth       AuthSpec                    `yaml:"auth"               json:"auth"`
 	Modalities map[string]ModalityManifest `yaml:"modalities"         json:"modalities"`
+	Apps       map[string]AppManifest      `yaml:"apps,omitempty"     json:"apps,omitempty"`
 }
 
 type AuthSpec struct {
@@ -53,6 +54,11 @@ type ModalityManifest struct {
 	Models []ModelManifest `yaml:"models" json:"models"`
 }
 
+type AppManifest struct {
+	Name       string                      `yaml:"name,omitempty"     json:"name,omitempty"`
+	Modalities map[string]ModalityManifest `yaml:"modalities"          json:"modalities"`
+}
+
 type ModelManifest struct {
 	ID       string         `yaml:"id"                 json:"id"`
 	Label    string         `yaml:"label"              json:"label"`
@@ -64,6 +70,11 @@ type ModelManifest struct {
 // ---------- Registry ----------
 
 type ProviderItem struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type AppItem struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
@@ -200,15 +211,11 @@ func (r *Registry) Providers(modality string) []ProviderItem {
 	defer r.mu.RUnlock()
 
 	out := make([]ProviderItem, 0, len(r.providers))
-	// 支持 "*" 或空：返回所有有任一模态模型的 Provider
+	// 支持 "*" 或空：返回所有有任一模态模型的 Provider（含 apps）
 	if mod == "" || mod == "*" || mod == "any" {
 		for id, m := range r.providers {
-			// 只要任一模态下有模型就算可用
-			for _, mm := range m.Modalities {
-				if len(mm.Models) > 0 {
-					out = append(out, ProviderItem{ID: id, Name: m.Name})
-					break
-				}
+			if hasAnyModels(m) {
+				out = append(out, ProviderItem{ID: id, Name: m.Name})
 			}
 		}
 		sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -216,7 +223,7 @@ func (r *Registry) Providers(modality string) []ProviderItem {
 	}
 
 	for id, m := range r.providers {
-		if mm, ok := m.Modalities[mod]; ok && len(mm.Models) > 0 {
+		if hasModelsForModality(m, mod) {
 			out = append(out, ProviderItem{ID: id, Name: m.Name})
 		}
 	}
@@ -225,6 +232,10 @@ func (r *Registry) Providers(modality string) []ProviderItem {
 }
 
 func (r *Registry) Models(modality, provider string) ([]ModelManifest, error) {
+	return r.ModelsByApp(modality, provider, "")
+}
+
+func (r *Registry) ModelsByApp(modality, provider, app string) ([]ModelManifest, error) {
 	if r == nil {
 		return nil, errors.New("catalog not initialized")
 	}
@@ -239,25 +250,125 @@ func (r *Registry) Models(modality, provider string) ([]ModelManifest, error) {
 	if m == nil {
 		return nil, errors.New("provider not found: " + pid)
 	}
-	// 支持 "*" 或空：聚合该 provider 的所有模态模型
+	app = strings.TrimSpace(strings.ToLower(app))
+	// 有 app：只在 app 内查
+	if app != "" && m.Apps != nil {
+		if am, ok := m.Apps[app]; ok {
+			if mod == "" || mod == "*" || mod == "any" {
+				var all []ModelManifest
+				for _, mm := range am.Modalities {
+					all = append(all, mm.Models...)
+				}
+				return all, nil
+			}
+			if mm, ok := am.Modalities[mod]; ok {
+				return mm.Models, nil
+			}
+			return []ModelManifest{}, nil
+		}
+	}
+	// 无 app：聚合 base + apps
 	if mod == "" || mod == "*" || mod == "any" {
 		var all []ModelManifest
 		for _, mm := range m.Modalities {
 			all = append(all, mm.Models...)
 		}
+		for _, am := range m.Apps {
+			for _, mm := range am.Modalities {
+				all = append(all, mm.Models...)
+			}
+		}
 		return all, nil
 	}
-	mm, ok := m.Modalities[mod]
-	if !ok {
-		return []ModelManifest{}, nil
+	var out []ModelManifest
+	if mm, ok := m.Modalities[mod]; ok {
+		out = append(out, mm.Models...)
 	}
-	return mm.Models, nil
+	for _, am := range m.Apps {
+		if mm, ok := am.Modalities[mod]; ok {
+			out = append(out, mm.Models...)
+		}
+	}
+	return out, nil
+}
+
+func (r *Registry) Apps(provider, modality string) []AppItem {
+	if r == nil {
+		return nil
+	}
+	mod := NormalizeModality(modality)
+	pid := r.CanonicalProvider(provider)
+	if pid == "" {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	m := r.providers[pid]
+	if m == nil || len(m.Apps) == 0 {
+		return nil
+	}
+	out := make([]AppItem, 0, len(m.Apps))
+	for id, app := range m.Apps {
+		if mod == "" || mod == "*" || mod == "any" || hasAppModelsForModality(&app, mod) {
+			name := app.Name
+			if strings.TrimSpace(name) == "" {
+				name = id
+			}
+			out = append(out, AppItem{ID: id, Name: name})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 func (r *Registry) CanonicalProvider(nameOrAlias string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.alias[strings.ToLower(strings.TrimSpace(nameOrAlias))]
+}
+
+func hasAnyModels(m *Manifest) bool {
+	if m == nil {
+		return false
+	}
+	for _, mm := range m.Modalities {
+		if len(mm.Models) > 0 {
+			return true
+		}
+	}
+	for _, am := range m.Apps {
+		for _, mm := range am.Modalities {
+			if len(mm.Models) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasModelsForModality(m *Manifest, modality string) bool {
+	if m == nil {
+		return false
+	}
+	if mm, ok := m.Modalities[modality]; ok && len(mm.Models) > 0 {
+		return true
+	}
+	for _, am := range m.Apps {
+		if mm, ok := am.Modalities[modality]; ok && len(mm.Models) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAppModelsForModality(a *AppManifest, modality string) bool {
+	if a == nil {
+		return false
+	}
+	if mm, ok := a.Modalities[modality]; ok && len(mm.Models) > 0 {
+		return true
+	}
+	return false
 }
 
 // Global：全局注册表（启动时初始化）
@@ -311,5 +422,48 @@ func expandPath(p string) string {
 		return filepath.Clean(p)
 	}
 	wd, _ := os.Getwd()
-	return filepath.Clean(filepath.Join(wd, p))
+	clean := filepath.Clean(filepath.Join(wd, p))
+	if pathExists(clean) {
+		return clean
+	}
+	if root := findRepoRoot(wd); root != "" {
+		trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
+		if candidate := filepath.Clean(filepath.Join(root, trim)); pathExists(candidate) {
+			return candidate
+		}
+		if candidate := filepath.Clean(filepath.Join(root, "backend", trim)); pathExists(candidate) {
+			return candidate
+		}
+	}
+	return clean
+}
+
+func pathExists(p string) bool {
+	if p == "" {
+		return false
+	}
+	if _, err := os.Stat(p); err == nil {
+		return true
+	}
+	return false
+}
+
+func findRepoRoot(start string) string {
+	dir := filepath.Clean(start)
+	for {
+		if dir == "" || dir == string(filepath.Separator) || dir == "." {
+			return ""
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".specify")); err == nil {
+			return dir
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			return ""
+		}
+		dir = next
+	}
 }

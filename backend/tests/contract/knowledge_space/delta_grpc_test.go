@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestDeltaGRPCFlow(t *testing.T) {
@@ -17,12 +18,20 @@ func TestDeltaGRPCFlow(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	server := env.GRPCServer()
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	go server.Serve(lis)
+	lis := bufconn.Listen(1024 * 1024)
+	go func() {
+		_ = server.Serve(lis)
+	}()
 	t.Cleanup(func() { server.Stop() })
 
-	conn, err := grpc.DialContext(context.Background(), lis.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.DialContext(
+		context.Background(),
+		"bufnet",
+		grpc.WithInsecure(),
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+	)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
@@ -42,14 +51,22 @@ func TestDeltaGRPCFlow(t *testing.T) {
 	jobID := startResp.GetJob().GetJobId()
 	require.NotEmpty(t, jobID)
 
+	_, err = client.StartDeltaJob(ctx, &knowledgev1.StartDeltaJobRequest{
+		SpaceId:    space.UUID.String(),
+		Source:     "handbook",
+		PackageUri: "s3://delta/grpc.tgz",
+	})
+	require.Error(t, err)
+
 	reportResp, err := client.GetDeltaReport(ctx, &knowledgev1.GetDeltaReportRequest{JobId: jobID})
 	require.NoError(t, err)
 	assertNoLegacyTenantProto(t, reportResp)
 
 	publishResp, err := client.PublishDeltaJob(ctx, &knowledgev1.PublishDeltaJobRequest{
 		JobId:        jobID,
-		Decision:     "publish",
+		Decision:     "partial",
 		DiffAccuracy: 97.5,
+		PartialRelease: true,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "published", publishResp.GetJob().GetStatus())

@@ -33,6 +33,7 @@ func (r *AIModelProfileRepository) UpsertByScopeModalityProviderModel(
 	assign := clause.Assignments(map[string]any{
 		"label":      in.Label,
 		"defaults":   in.Defaults,
+		"cap_cache":  in.CapCache,
 		"tags":       in.Tags,
 		"updated_at": gorm.Expr("NOW()"),
 	})

@@ -7,9 +7,18 @@ import type { PowerModel } from "../types";
 export interface Provider {
   ID: string;
   Name: string;
+  apps?: { id: string; name: string }[];
   auth?: {
     scheme?: string;
     fields?: string[];
+    defaults?: Record<string, string>;
+    modes?: Array<{
+      id: string;
+      label?: string;
+      scheme?: string;
+      fields?: string[];
+      defaults?: Record<string, string>;
+    }>;
   };
 }
 
@@ -46,6 +55,7 @@ export interface SaveSettingsPayload {
   modality: string;
   llm?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -59,6 +69,7 @@ export interface SaveSettingsPayload {
   };
   image?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -72,6 +83,7 @@ export interface SaveSettingsPayload {
   };
   embedding?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -84,6 +96,7 @@ export interface SaveSettingsPayload {
   };
   audio_tts?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -97,6 +110,7 @@ export interface SaveSettingsPayload {
   };
   audio_asr?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -110,6 +124,7 @@ export interface SaveSettingsPayload {
   };
   video?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -121,8 +136,21 @@ export interface SaveSettingsPayload {
     maxDurationSec?: number;
     promptHint?: string;
   };
+  model3d?: {
+    provider: string;
+    app?: string;
+    model: string;
+    apiKey?: string;
+    baseURL?: string;
+    organization?: string;
+    region?: string;
+    azureDeployment?: string;
+    outputFormat?: string;
+    promptHint?: string;
+  };
   rerank?: {
     provider: string;
+    app?: string;
     model: string;
     apiKey?: string;
     baseURL?: string;
@@ -159,13 +187,15 @@ export class AISettingService {
   static async getModels(
     provider?: string,
     modality?: string,
-    env?: string
+    env?: string,
+    app?: string
   ): Promise<string[]> {
     const { get } = useApiClient();
     const params = new URLSearchParams();
     if (provider) params.append("provider", provider);
     if (modality) params.append("modality", modality);
     if (env) params.append("env", env);
+    if (app) params.append("app", app);
 
     const url = params.toString()
       ? `${ApiEndpoints.ADMIN_AGENTS.MODELS}?${params.toString()}`
@@ -288,5 +318,21 @@ export class AISettingService {
         profile: AgentProfile;
       }>
     >(url);
+  }
+
+  /**
+   * 设置当前激活的配置
+   */
+  static async setActiveProfile(payload: {
+    env: string;
+    modality: string;
+    provider: string;
+    model: string;
+  }): Promise<ApiResponse<{ ok: boolean }>> {
+    const { post } = useApiClient();
+    return await post<ApiResponse<{ ok: boolean }>>(
+      ApiEndpoints.ADMIN_AGENTS.SETTINGS_ACTIVE,
+      payload
+    );
   }
 }

@@ -8,9 +8,11 @@ const props = defineProps<{
   confirmColor?: 'primary' | 'neutral' | 'red' | 'green' | 'blue' | 'yellow'
   tone?: 'danger' | 'warning' | 'success' | 'info'
   showIcon?: boolean
+  open?: boolean
+  defaultOpen?: boolean
 }>()
 
-const emit = defineEmits<{ close: [boolean] }>()
+const emit = defineEmits<{ close: [boolean]; 'update:open': [boolean] }>()
 
 const onDismiss = () => emit('close', false)
 const onConfirm = () => emit('close', true)
@@ -50,10 +52,23 @@ const computedConfirmColor = computed(() => {
       return 'primary'
   }
 })
+
+const resolvedDefaultOpen = computed(() => {
+  if (props.open !== undefined) return undefined
+  if (props.defaultOpen !== undefined) return props.defaultOpen
+  return true
+})
 </script>
 
 <template>
-  <UModal :title="props.title || '确认操作'" :description="safeDescription" :close="{ onClick: onDismiss }">
+  <UModal
+    :title="props.title || '确认操作'"
+    :description="safeDescription"
+    :close="{ onClick: onDismiss }"
+    :open="props.open"
+    :default-open="resolvedDefaultOpen"
+    @update:open="(value: boolean) => emit('update:open', value)"
+  >
     <template #content>
       <UCard
         :ui="{

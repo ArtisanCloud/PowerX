@@ -1,20 +1,26 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -46,6 +52,7 @@ func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 type baseConn struct {
 	Name            string `form:"name"`
 	Provider        string `json:"provider" validate:"required"`
+	App             string `json:"app"`
 	Model           string `json:"model"    validate:"required"`
 	AuthMode        string `json:"authMode"`
 	APIKey          string `json:"apiKey"`
@@ -217,8 +224,12 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 	}
 
 	type providerView struct {
-		ID         string                         `json:"ID"`
-		Name       string                         `json:"Name"`
+		ID   string `json:"ID"`
+		Name string `json:"Name"`
+		Apps []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"apps,omitempty"`
 		Configured bool                           `json:"configured"`
 		Health     *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
 		Auth       *struct {
@@ -307,9 +318,20 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 				}(),
 			}
 		}
+		apps := make([]struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}, 0, len(it.Apps))
+		for _, a := range it.Apps {
+			apps = append(apps, struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}{ID: a.ID, Name: a.Name})
+		}
 		out = append(out, providerView{
 			ID:         it.ID,
 			Name:       it.Name,
+			Apps:       apps,
 			Configured: ok,
 			Health:     hr,
 			Auth:       authView,
@@ -328,6 +350,7 @@ func (h *AgentSettingHandler) listModels(c *gin.Context) {
 	env := c.DefaultQuery("env", "dev")
 	mod := c.Query("modality")
 	prov := c.Query("provider")
+	app := c.Query("app")
 
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -335,12 +358,24 @@ func (h *AgentSettingHandler) listModels(c *gin.Context) {
 		return
 	}
 
-	models, err := h.svc.ModelsForTenant(c.Request.Context(), env, tenantCtx.UUIDPtr(), mod, prov)
+	models, err := h.svc.ModelsForTenant(c.Request.Context(), env, tenantCtx.UUIDPtr(), mod, prov, app)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"models": models})
+}
+
+func applyAppToModel(app, model string) string {
+	a := strings.TrimSpace(app)
+	m := strings.TrimSpace(model)
+	if a == "" || m == "" {
+		return m
+	}
+	if strings.Contains(m, ":") {
+		return m
+	}
+	return a + ":" + m
 }
 
 // ---------- Settings ----------
@@ -350,6 +385,31 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
 		return
+	}
+	// Normalize app:model if app provided
+	if req.LLM != nil {
+		req.LLM.Model = applyAppToModel(req.LLM.App, req.LLM.Model)
+	}
+	if req.Image != nil {
+		req.Image.Model = applyAppToModel(req.Image.App, req.Image.Model)
+	}
+	if req.Embedding != nil {
+		req.Embedding.Model = applyAppToModel(req.Embedding.App, req.Embedding.Model)
+	}
+	if req.Video != nil {
+		req.Video.Model = applyAppToModel(req.Video.App, req.Video.Model)
+	}
+	if req.Model3D != nil {
+		req.Model3D.Model = applyAppToModel(req.Model3D.App, req.Model3D.Model)
+	}
+	if req.AudioTTS != nil {
+		req.AudioTTS.Model = applyAppToModel(req.AudioTTS.App, req.AudioTTS.Model)
+	}
+	if req.AudioASR != nil {
+		req.AudioASR.Model = applyAppToModel(req.AudioASR.App, req.AudioASR.Model)
+	}
+	if req.Rerank != nil {
+		req.Rerank.Model = applyAppToModel(req.Rerank.App, req.Rerank.Model)
 	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -449,15 +509,36 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 			}
 			return scheme
 		}(),
-		Data:       credData,
+		Data: credData,
+	}
+	if req.Modality == contract.ModEmbed && req.Embedding != nil && prof != nil {
+		if existing, err := h.svc.GetProfile(c.Request.Context(), req.Env, tenantRef, "embedding", prof.Provider, prof.Model); err == nil && existing != nil {
+			if prof.Defaults == nil {
+				prof.Defaults = datatypes.JSONMap{}
+			}
+			if existing.Defaults != nil {
+				if _, ok := prof.Defaults["dimensions"]; !ok {
+					if dim, ok := existing.Defaults["dimensions"]; ok {
+						prof.Defaults["dimensions"] = dim
+					}
+				}
+			}
+			// 保留测试探针结果（cap_cache），避免保存配置把 probed_at 清空。
+			if existing.CapCache != nil && (prof.CapCache == nil || len(prof.CapCache) == 0) {
+				prof.CapCache = existing.CapCache
+			}
+		}
 	}
 	if err := h.svc.SaveCredentialAndProfile(c.Request.Context(), req.Env, tenantRef, cred, prof, true); err != nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "保存失败", err)
 		return
 	}
-	// ✅ 产品语义：当 LLM 配置保存成功，更新“租户当前 AI 环境”
+	// ✅ 产品语义：任意模态保存成功后，更新“租户当前 AI 环境”
+	if strings.TrimSpace(req.Env) != "" {
+		_ = h.svc.SetTenantCurrentAIEnv(c.Request.Context(), tenantUUID, req.Env)
+	}
+	// 保存成功代表连通性校验通过：同步写入“可用 Provider”缓存（仅 LLM 维持原语义）
 	if req.Modality == contract.ModLLM {
-		// 保存成功代表连通性校验通过：同步写入“可用 Provider”缓存
 		_ = h.svc.UpsertTenantProviderHealth(
 			c.Request.Context(),
 			tenantUUID,
@@ -467,7 +548,6 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 			"healthy",
 			"ok",
 		)
-		_ = h.svc.SetTenantCurrentAIEnv(c.Request.Context(), tenantUUID, req.Env)
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "tenant_uuid": tenantUUID})
 }
@@ -479,6 +559,32 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
 		return
+	}
+	logger.InfoF(c.Request.Context(), "[agent_setting] test_connection enter path=%s", c.FullPath())
+	// Normalize app:model if app provided
+	if req.LLM != nil {
+		req.LLM.Model = applyAppToModel(req.LLM.App, req.LLM.Model)
+	}
+	if req.Image != nil {
+		req.Image.Model = applyAppToModel(req.Image.App, req.Image.Model)
+	}
+	if req.Embedding != nil {
+		req.Embedding.Model = applyAppToModel(req.Embedding.App, req.Embedding.Model)
+	}
+	if req.Video != nil {
+		req.Video.Model = applyAppToModel(req.Video.App, req.Video.Model)
+	}
+	if req.Model3D != nil {
+		req.Model3D.Model = applyAppToModel(req.Model3D.App, req.Model3D.Model)
+	}
+	if req.AudioTTS != nil {
+		req.AudioTTS.Model = applyAppToModel(req.AudioTTS.App, req.AudioTTS.Model)
+	}
+	if req.AudioASR != nil {
+		req.AudioASR.Model = applyAppToModel(req.AudioASR.App, req.AudioASR.Model)
+	}
+	if req.Rerank != nil {
+		req.Rerank.Model = applyAppToModel(req.Rerank.App, req.Rerank.Model)
 	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -549,7 +655,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "image 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Image.Provider, req.Image.Model, req.Image.BaseURL, req.Image.APIKey); err != nil {
+		if err := h.svc.PingImage(
+			c.Request.Context(),
+			req.Env, tenantRef,
+			req.Image.Provider, req.Image.Model,
+			req.Image.BaseURL, req.Image.APIKey, req.Image.SecretID, req.Image.SecretKey,
+			req.Image.Region, req.Image.Organization,
+		); err != nil {
 			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Image.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
@@ -564,16 +676,28 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, tenantRef, req.Modality, req.Embedding.Provider, req.Embedding.Model, req.Embedding.BaseURL, req.Embedding.APIKey); err != nil {
+		dim, err := h.svc.ProbeEmbeddingDimensionsPreferInput(
+			c.Request.Context(),
+			req.Env, tenantRef,
+			req.Embedding.Provider, req.Embedding.Model,
+			req.Embedding.BaseURL, req.Embedding.APIKey,
+		)
+		if err != nil {
 			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "unhealthy", err.Error())
 			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		if err := h.ensureEmbeddingVectorTable(c.Request.Context(), dim); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "unhealthy", err.Error())
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "embedding 向量表创建失败", err)
+			return
+		}
 		_ = saveVerifiedCredential(req.Embedding.Provider, req.Embedding.APIKey, "", "", req.Embedding.BaseURL, req.Embedding.Region, req.Embedding.Organization, req.Embedding.AzureDeployment, req.Embedding.AuthMode)
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, "ok")
-		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "dimensions": dim})
 	case contract.ModVideo:
 		if req.Video == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "video 配置不能为空", nil)
@@ -659,6 +783,31 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
 		return
+	}
+	// Normalize app:model if app provided
+	if req.LLM != nil {
+		req.LLM.Model = applyAppToModel(req.LLM.App, req.LLM.Model)
+	}
+	if req.Image != nil {
+		req.Image.Model = applyAppToModel(req.Image.App, req.Image.Model)
+	}
+	if req.Embedding != nil {
+		req.Embedding.Model = applyAppToModel(req.Embedding.App, req.Embedding.Model)
+	}
+	if req.Video != nil {
+		req.Video.Model = applyAppToModel(req.Video.App, req.Video.Model)
+	}
+	if req.Model3D != nil {
+		req.Model3D.Model = applyAppToModel(req.Model3D.App, req.Model3D.Model)
+	}
+	if req.AudioTTS != nil {
+		req.AudioTTS.Model = applyAppToModel(req.AudioTTS.App, req.AudioTTS.Model)
+	}
+	if req.AudioASR != nil {
+		req.AudioASR.Model = applyAppToModel(req.AudioASR.App, req.AudioASR.Model)
+	}
+	if req.Rerank != nil {
+		req.Rerank.Model = applyAppToModel(req.Rerank.App, req.Rerank.Model)
 	}
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -897,6 +1046,9 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 			},
 			Tags: []string{"embedding"},
 		}
+		if req.Embedding.Dimensions <= 0 {
+			delete(prof.Defaults, "dimensions")
+		}
 
 	case contract.ModVideo:
 		if req.Video == nil {
@@ -1110,6 +1262,57 @@ func describeAudioASRQuickCall(m *modAudioASR) string {
 func describeRerankQuickCall(m *modRerank) string {
 	return fmt.Sprintf("已校验 Rerank provider=%s model=%s topK=%d returnDocs=%t maxChunksPerDoc=%d",
 		m.Provider, m.Model, m.TopK, m.ReturnDocuments, m.MaxChunksPerDoc)
+}
+
+func (h *AgentSettingHandler) ensureEmbeddingVectorTable(ctx context.Context, dim int) error {
+	if dim <= 0 {
+		return nil
+	}
+	cfg := config.GetGlobalConfig()
+	if cfg == nil {
+		return fmt.Errorf("global config unavailable")
+	}
+	driver := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.Driver)
+	if driver != "" && !strings.EqualFold(driver, "pgvector") {
+		return nil
+	}
+	pgCfg := pgvectorcfg.Config{
+		DSN:    strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.DSN),
+		Schema: strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Schema),
+		Lists:  cfg.KnowledgeSpace.VectorStore.PgVector.Lists,
+	}.WithDefaults()
+
+	dsn := pgCfg.DSN
+	if dsn == "" {
+		dsn = strings.TrimSpace(cfg.Database.DSN)
+	}
+	if dsn == "" && strings.TrimSpace(cfg.Database.Host) != "" {
+		sslmode := strings.TrimSpace(cfg.Database.SSLMode)
+		if sslmode == "" {
+			sslmode = "disable"
+		}
+		tz := strings.TrimSpace(cfg.Database.Timezone)
+		if tz == "" {
+			tz = "UTC"
+		}
+		dsn = "host=" + strings.TrimSpace(cfg.Database.Host) +
+			" port=" + strconv.Itoa(cfg.Database.Port) +
+			" user=" + strings.TrimSpace(cfg.Database.UserName) +
+			" password=" + strings.TrimSpace(cfg.Database.Password) +
+			" dbname=" + strings.TrimSpace(cfg.Database.Database) +
+			" sslmode=" + sslmode +
+			" TimeZone=" + tz
+	}
+	if dsn == "" {
+		return fmt.Errorf("pgvector dsn is empty (configure knowledge_space.vector_store.pgvector.dsn or database.dsn)")
+	}
+	tableName := fmt.Sprintf("knowledge_vectors_v1_%d", dim)
+	logger.InfoF(ctx, "[agent_setting] ensure embedding vector table schema=%s table=%s dim=%d", pgCfg.Schema, tableName, dim)
+	if err := migration.EnsureKnowledgeVectorsPGVectorTable(ctx, dsn, pgCfg.Schema, tableName, dim, pgCfg.Lists); err != nil {
+		return err
+	}
+	logger.InfoF(ctx, "[agent_setting] embedding vector table ready schema=%s table=%s dim=%d", pgCfg.Schema, tableName, dim)
+	return nil
 }
 
 func snippet(s string, limit int) string {

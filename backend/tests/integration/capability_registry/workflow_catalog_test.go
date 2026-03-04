@@ -21,7 +21,6 @@ import (
 	modelregistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -86,7 +85,7 @@ func TestWorkflowCatalogEndToEnd(t *testing.T) {
 	adapter := workflowengine.NewCapabilityStepAdapter(selector, env.telemetry)
 	resp, err := adapter.InvokeCapability(env.ctx, workflowengine.CapabilityStepInput{
 		CapabilityID:      tpl.CapabilityID,
-		TenantUUID:        "tenant-demo",
+		TenantUUID:        "5b7f3ad4-6d5a-4d4e-9b1f-58b5e0c2a111",
 		Intent:            "workflow.intent.demo",
 		ToolScope:         "default",
 		PreferredProtocol: "workflow",
@@ -98,13 +97,12 @@ func TestWorkflowCatalogEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tpl.CapabilityID, resp.CapabilityID)
 	require.Equal(t, "workflow", fakeInvoker.lastInput.PreferredProtocol)
-	require.Equal(t, "tenant-demo", fakeInvoker.lastInput.TenantUUID)
+	require.Equal(t, "5b7f3ad4-6d5a-4d4e-9b1f-58b5e0c2a111", fakeInvoker.lastInput.TenantUUID)
 }
 
 type workflowIntegrationEnv struct {
 	ctx         context.Context
 	db          *gorm.DB
-	redisServer *miniredis.Miniredis
 	redisClient redis.UniversalClient
 	bus         event_bus.EventBus
 	catalog     *capservice.WorkflowCatalog
@@ -130,9 +128,7 @@ func newWorkflowIntegrationEnv(t *testing.T) *workflowIntegrationEnv {
 		&modelregistry.CapabilitySyncJob{},
 	))
 
-	redisSrv, err := miniredis.Run()
-	require.NoError(t, err)
-	redisClient := redis.NewClient(&redis.Options{Addr: redisSrv.Addr()})
+	var redisClient redis.UniversalClient
 
 	templateRepo := caprepo.NewWorkflowTemplateRepository(db)
 	approvalRepo := caprepo.NewWorkflowTemplateApprovalRepository(db)
@@ -169,7 +165,6 @@ func newWorkflowIntegrationEnv(t *testing.T) *workflowIntegrationEnv {
 	return &workflowIntegrationEnv{
 		ctx:         ctx,
 		db:          db,
-		redisServer: redisSrv,
 		redisClient: redisClient,
 		bus:         bus,
 		catalog:     catalog,
@@ -185,9 +180,6 @@ func (e *workflowIntegrationEnv) Close() {
 	}
 	if e.redisClient != nil {
 		_ = e.redisClient.Close()
-	}
-	if e.redisServer != nil {
-		e.redisServer.Close()
 	}
 	if e.db != nil {
 		if sqlDB, err := e.db.DB(); err == nil {

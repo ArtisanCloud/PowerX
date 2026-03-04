@@ -7,6 +7,7 @@ type Modality string
 
 const (
 	ModLLM      Modality = "llm"
+	ModVLM      Modality = "vlm"
 	ModImage    Modality = "image"
 	ModEmbed    Modality = "embedding"
 	ModAudioTTS Modality = "audio_tts"

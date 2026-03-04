@@ -81,7 +81,7 @@ last_reviewed_at: 2025-02-20
 ## 流程与时序
 
 1. **Bootstrap**：插件启动时调用 `GET /context/bootstrap` 获取租户/用户/Trace/权限上下文，SDK 缓存并携带版本号。
-2. **Invoke**：每次调用时 SDK 在 Header / JWT Claim 中写入 `x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-permissions`, `x-context-version`。
+2. **Invoke**：每次调用时 SDK 在 Header / JWT Claim 中写入 `tenant_uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-permissions`, `x-context-version`。
 3. **Enforce**：Gateway 校验上下文与租户映射，调用 Policy Engine 做字段级权限与脱敏；若缺失/跨租/过期则返回 400/403 并写入审计。
 4. **Refresh & Audit**：宿主响应中返回 `context-version`、`audit_id`；若版本提高，SDK 触发刷新；所有上下文决策写入审计与监控。
 
@@ -107,7 +107,7 @@ sequenceDiagram
 
 - `GET /openapi/v1/context/bootstrap` — 返回 `tenant_uuid`, `user_id`, `roles`, `permissions`, `trace_id`, `mask_policy`, `version`.
 - `GET /openapi/v1/context/refresh?version=<v>` — 增量更新。
-- Header/Claims：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-session-id`, `x-permissions`, `x-context-version`.
+- Header/Claims：`tenant_uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-session-id`, `x-permissions`, `x-context-version`.
 - Policy Config：`context_schema.yaml`, `field_masking.yaml`, `cross_tenant_rules.yaml`.
 - Audit Event：`plugin.host.context_missing`, `plugin.host.cross_tenant_blocked`, `plugin.host.masking_applied`.
 
@@ -126,7 +126,7 @@ sequenceDiagram
 - **单元测试**：上下文解析、缓存更新、Header/Claim 注入、策略判定、脱敏规则。
 - **集成测试**：
   - 正向：完整上下文调用，验证审计与脱敏。
-  - 逆向：缺少 `x-tenant-uuid`、过期 `context-version`、跨租户访问。
+  - 逆向：缺少 `tenant_uuid`、过期 `context-version`、跨租户访问。
   - 字段策略：不同角色访问敏感字段，确认被脱敏或拒绝。
 - **端到端**：
   - Sandbox 插件：Bootstrap→调用→刷新→审计。

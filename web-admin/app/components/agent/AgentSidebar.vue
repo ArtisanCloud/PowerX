@@ -13,60 +13,64 @@ export interface ChatSession {
 
 interface Props {
   agents?: Agent[];
-  currentAgentId?: number | null;
+  currentAgentId?: string | null;
   currentSessionId?: number | string; // ✅ 高亮当前会话
   loading?: boolean;
+  busy?: boolean;
 
   // 会话数据（外部单一事实来源）
-  sessionsByAgent?: Record<number, ChatSession[]>;
-  sessionsLoadingByAgent?: Record<number, boolean>;
-  hasMoreByAgent?: Record<number, boolean>;
+  sessionsByAgent?: Record<string, ChatSession[]>;
+  sessionsLoadingByAgent?: Record<string, boolean>;
+  hasMoreByAgent?: Record<string, boolean>;
 
   // 可选：子组件内部触发加载
-  fetchSessions?: (agentId: number) => Promise<void>;
+  fetchSessions?: (agentId: string) => Promise<void>;
 }
 
 const emit = defineEmits<{
-  select: [agentId: number];
+  select: [agentId: string];
   "create-agent": [];
-  "edit-agent": [agentId: number];
+  "edit-agent": [agentId: string];
   "new-session": [];
-  "select-session": [payload: { agentId: number; sessionId: number | string }];
-  "delete-session": [payload: { agentId: number; sessionId: number | string }];
-  "load-sessions": [agentId: number];
-  "load-more-sessions": [agentId: number];
+  "clear-sessions": [agentId: string];
+  "select-session": [payload: { agentId: string; sessionId: number | string }];
+  "delete-session": [payload: { agentId: string; sessionId: number | string }];
+  "load-sessions": [agentId: string];
+  "load-more-sessions": [agentId: string];
   "pin-session": [
-    payload: { agentId: number; sessionId: number | string; pinned: boolean },
+    payload: { agentId: string; sessionId: number | string; pinned: boolean },
   ];
   "rename-session": [
-    payload: { agentId: number; sessionId: number | string; title: string },
+    payload: { agentId: string; sessionId: number | string; title: string },
   ];
 }>();
 
 const props = withDefaults(defineProps<Props>(), {
   agents: () => [],
   loading: false,
-  currentAgentId: 0,
+  currentAgentId: "",
   currentSessionId: undefined,
+  busy: false,
   sessionsByAgent: () => ({}),
   sessionsLoadingByAgent: () => ({}),
   hasMoreByAgent: () => ({}),
 });
 
 const { t } = useI18n();
+const isBusy = computed(() => !!props.busy);
 
 /* ---------- 顶部：Agent 选择 + 新建 ---------- */
 const agentOptions = computed<SelectOption[]>(() =>
   (props.agents || []).map((a) => ({
     label: a.name,
-    value: a.id,
+    value: a.uuid,
   }))
 );
 
 const agentOptionsWithIcon = computed(() =>
   (props.agents || []).map((a) => ({
     label: a.name,
-    value: a.id,
+    value: a.uuid,
     icon: getAgentIcon(a),
   }))
 );
@@ -84,7 +88,7 @@ function getAgentIcon(agent: Agent) {
 // ✅ 选中项改为 SelectOption（对象）
 const selectedAgent = computed<SelectOption>({
   get: () => {
-    const id = props.currentAgentId || 0;
+    const id = props.currentAgentId || "";
     const found =
       agentOptions.value.find((o) => o.value === id) ??
       ({
@@ -94,7 +98,7 @@ const selectedAgent = computed<SelectOption>({
     return found;
   },
   set: (opt) => {
-    const id = (opt?.value as number) || 0;
+    const id = String(opt?.value || "").trim();
     if (!id) return;
     emit("select", id);
     ensureSessionsLoaded(id, { force: true });
@@ -103,21 +107,30 @@ const selectedAgent = computed<SelectOption>({
 
 // 当前选中 Agent 的图标
 const currentIcon = computed(() => {
-  const val = selectedAgent.value?.value as number | string | null;
+  const val = selectedAgent.value?.value as string | null;
   const hit = agentOptionsWithIcon.value.find((o) => o.value === val);
   return hit?.icon || "i-heroicons-cpu-chip";
 });
 
 function createSession() {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   emit("new-session");
 }
 
+function clearSessions() {
+  if (isBusy.value) return;
+  if (!props.currentAgentId) return;
+  emit("clear-sessions", props.currentAgentId);
+}
+
 function createAgent() {
+  if (isBusy.value) return;
   emit("create-agent");
 }
 
 function editAgent() {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   emit("edit-agent", props.currentAgentId);
 }
@@ -126,18 +139,23 @@ function editAgent() {
 const searchQuery = ref("");
 
 /* ---------- 列表数据：置顶 + 最近 ---------- */
-function getSessions(agentId?: number): ChatSession[] {
+function getSessions(agentId?: string): ChatSession[] {
   if (!agentId) return [];
   return props.sessionsByAgent?.[agentId] ?? [];
 }
-function isSessionsLoading(agentId?: number) {
+function isSessionsLoading(agentId?: string) {
   if (!agentId) return false;
   return !!props.sessionsLoadingByAgent?.[agentId];
 }
-function hasMore(agentId?: number) {
+function hasMore(agentId?: string) {
   if (!agentId) return false;
   return !!props.hasMoreByAgent?.[agentId];
 }
+
+const hasAnySessions = computed(() => {
+  if (!props.currentAgentId) return false;
+  return (getSessions(props.currentAgentId) || []).length > 0;
+});
 
 function norm(ts?: string | number | Date) {
   if (!ts) return 0;
@@ -163,7 +181,7 @@ const filteredSessions = computed(() => {
 
 /* ---------- 首次/切换时加载 ---------- */
 async function ensureSessionsLoaded(
-  agentId: number,
+  agentId: string,
   opts: { force?: boolean } = {}
 ) {
   if (!opts.force && getSessions(agentId)?.length) return;
@@ -186,14 +204,17 @@ watch(
 
 /* ---------- 交互动作 ---------- */
 function onClickSession(sid: number | string) {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   emit("select-session", { agentId: props.currentAgentId, sessionId: sid });
 }
 function onDeleteSession(sid: number | string) {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   emit("delete-session", { agentId: props.currentAgentId, sessionId: sid });
 }
 function onTogglePin(sid: number | string, pinned: boolean) {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   emit("pin-session", {
     agentId: props.currentAgentId,
@@ -202,6 +223,7 @@ function onTogglePin(sid: number | string, pinned: boolean) {
   });
 }
 async function onRenameSession(sid: number | string) {
+  if (isBusy.value) return;
   if (!props.currentAgentId) return;
   const title = prompt(t("agent.selector.renameSession") || "重命名会话");
   if (title && title.trim()) {
@@ -236,6 +258,7 @@ function fmtTime(ts?: string | number | Date) {
           option-attribute="label"
           value-attribute="value"
           searchable
+          :disabled="isBusy"
           class="flex-1"
         >
           <template #leading>
@@ -248,7 +271,7 @@ function fmtTime(ts?: string | number | Date) {
           icon="i-heroicons-pencil-square"
           size="sm"
           variant="ghost"
-          :disabled="!currentAgentId"
+          :disabled="isBusy || !currentAgentId"
           @click="editAgent"
           :title="t('agent.selector.editAgent') || '编辑 Agent'"
         />
@@ -258,6 +281,7 @@ function fmtTime(ts?: string | number | Date) {
           icon="i-heroicons-plus-circle"
           size="sm"
           variant="outline"
+          :disabled="isBusy"
           @click="createAgent"
           :title="t('agent.selector.newAgent') || '新建 Agent'"
         />
@@ -269,16 +293,27 @@ function fmtTime(ts?: string | number | Date) {
           icon="i-heroicons-plus"
           size="sm"
           variant="solid"
-          :disabled="!currentAgentId"
+          :disabled="isBusy || !currentAgentId"
           @click="createSession"
           class="shrink-0 px-3"
         >
           {{ t("agent.selector.newSession") || "新会话" }}
         </UButton>
+        <UButton
+          icon="i-heroicons-trash"
+          size="sm"
+          variant="outline"
+          color="red"
+          :disabled="isBusy || !currentAgentId || !hasAnySessions"
+          @click="clearSessions"
+          class="shrink-0"
+          :title="t('agent.selector.clearSessions') || '清空该智能体全部会话'"
+        />
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
           size="sm"
+          :disabled="isBusy"
           :placeholder="t('agent.selector.searchSessions') || '搜索会话…'"
           class="flex-1"
         />
@@ -311,8 +346,10 @@ function fmtTime(ts?: string | number | Date) {
               <li
                 v-for="s in filteredSessions.pinned"
                 :key="String(s.id)"
-                class="group flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg mx-1"
+                class="group flex items-center gap-2 px-3 py-2 rounded-lg mx-1"
                 :class="{
+                  'cursor-pointer hover:bg-gray-50': !isBusy,
+                  'cursor-not-allowed opacity-60': isBusy,
                   'bg-blue-50 border-l-2 border-blue-400':
                     s.id === currentSessionId,
                 }"
@@ -356,12 +393,14 @@ function fmtTime(ts?: string | number | Date) {
                         {
                           label: t('agent.selector.unpin') || '取消置顶',
                           icon: 'i-heroicons-bookmark-slash',
+                          disabled: isBusy,
                           click: () => onTogglePin(s.id, false),
                           onSelect: () => onTogglePin(s.id, false),
                         },
                         {
                           label: t('agent.selector.rename') || '重命名',
                           icon: 'i-heroicons-pencil',
+                          disabled: isBusy,
                           click: () => onRenameSession(s.id),
                           onSelect: () => onRenameSession(s.id),
                         },
@@ -371,6 +410,7 @@ function fmtTime(ts?: string | number | Date) {
                           label: t('agent.selector.delete') || '删除',
                           icon: 'i-heroicons-trash',
                           color: 'error',
+                          disabled: isBusy,
                           click: () => onDeleteSession(s.id),
                           onSelect: () => onDeleteSession(s.id),
                         },
@@ -381,6 +421,7 @@ function fmtTime(ts?: string | number | Date) {
                       icon="i-heroicons-ellipsis-vertical"
                       size="xs"
                       variant="ghost"
+                      :disabled="isBusy"
                       @click.stop
                     />
                   </UDropdownMenu>
@@ -408,8 +449,10 @@ function fmtTime(ts?: string | number | Date) {
               <li
                 v-for="s in filteredSessions.recent"
                 :key="String(s.id)"
-                class="group flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg mx-1"
+                class="group flex items-center gap-2 px-3 py-2 rounded-lg mx-1"
                 :class="{
+                  'cursor-pointer hover:bg-gray-50': !isBusy,
+                  'cursor-not-allowed opacity-60': isBusy,
                   'bg-blue-50 border-l-2 border-blue-400':
                     s.id === currentSessionId,
                 }"
@@ -453,12 +496,14 @@ function fmtTime(ts?: string | number | Date) {
                         {
                           label: t('agent.selector.pin') || '置顶',
                           icon: 'i-heroicons-bookmark',
+                          disabled: isBusy,
                           click: () => onTogglePin(s.id, true),
                           onSelect: () => onTogglePin(s.id, true),
                         },
                         {
                           label: t('agent.selector.rename') || '重命名',
                           icon: 'i-heroicons-pencil',
+                          disabled: isBusy,
                           click: () => onRenameSession(s.id),
                           onSelect: () => onRenameSession(s.id),
                         },
@@ -468,6 +513,7 @@ function fmtTime(ts?: string | number | Date) {
                           label: t('agent.selector.delete') || '删除',
                           icon: 'i-heroicons-trash',
                           color: 'error',
+                          disabled: isBusy,
                           click: () => onDeleteSession(s.id),
                           onSelect: () => onDeleteSession(s.id),
                         },
@@ -478,6 +524,7 @@ function fmtTime(ts?: string | number | Date) {
                       icon="i-heroicons-ellipsis-vertical"
                       size="xs"
                       variant="ghost"
+                      :disabled="isBusy"
                       @click.stop
                     />
                   </UDropdownMenu>
@@ -490,6 +537,7 @@ function fmtTime(ts?: string | number | Date) {
                 size="xs"
                 variant="outline"
                 block
+                :disabled="isBusy"
                 @click="emit('load-more-sessions', currentAgentId!)"
               >
                 {{ t("common.loadMore") || "加载更多" }}
@@ -513,10 +561,20 @@ function fmtTime(ts?: string | number | Date) {
 
         <!-- 这里：加 ml-auto + shrink-0，保证一直贴右且不被压到下一行 -->
         <div class="flex items-center gap-2 ml-auto shrink-0">
-          <UButton size="xs" variant="ghost" icon="i-heroicons-cog-6-tooth">
+          <UButton
+            size="xs"
+            variant="ghost"
+            icon="i-heroicons-cog-6-tooth"
+            :disabled="isBusy"
+          >
             {{ t("common.settings") || "设置" }}
           </UButton>
-          <UButton size="xs" variant="ghost" icon="i-heroicons-trash">
+          <UButton
+            size="xs"
+            variant="ghost"
+            icon="i-heroicons-trash"
+            :disabled="isBusy"
+          >
             {{ t("common.trash") || "回收站" }}
           </UButton>
         </div>

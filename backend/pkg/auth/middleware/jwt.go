@@ -79,16 +79,8 @@ func JwtMiddleware(
 			}
 		}
 
-		// D. Root 代理租户（仅 is_root=true 生效）
+		// D. 租户来源策略：仅依据 JWT claims，不接受 query/header/body 注入。
 		tenantUUID := strings.TrimSpace(claims.TenantUUID)
-		if tenantUUID == "" {
-			tenantUUID = strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
-		}
-		if claims.IsRoot {
-			if asUUID := strings.TrimSpace(c.Query("as_tenant_uuid")); asUUID != "" {
-				tenantUUID = asUUID
-			}
-		}
 
 		tenantUUID = strings.TrimSpace(tenantUUID)
 		tenantID := claims.TenantID

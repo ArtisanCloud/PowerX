@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/internal/eventbus"
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"

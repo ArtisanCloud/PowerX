@@ -8,11 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRunVersionScan(t *testing.T) {
+	testutil.SkipIfNoLocalListener(t)
 	orig := scanOpts
 	t.Cleanup(func() { scanOpts = orig })
 
@@ -48,6 +50,7 @@ func TestRunVersionScan(t *testing.T) {
 }
 
 func TestRunVersionBoard(t *testing.T) {
+	testutil.SkipIfNoLocalListener(t)
 	orig := boardOpts
 	t.Cleanup(func() { boardOpts = orig })
 
@@ -88,6 +91,7 @@ func TestRunVersionBoard(t *testing.T) {
 }
 
 func TestCompatCommands(t *testing.T) {
+	testutil.SkipIfNoLocalListener(t)
 	origCheck := compatCheckOpts
 	origException := compatExceptionOpts
 	origApprove := compatApproveOpts

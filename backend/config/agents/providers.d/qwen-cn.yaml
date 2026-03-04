@@ -1,0 +1,51 @@
+id: qwen-cn
+name: Qwen（官方国内）
+aliases: ["qwen-mainland", "tongyi-cn", "dashscope-cn", "alibaba-cn"]
+
+drivers:
+  image: qwen
+  audio_tts: qwen
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+modalities:
+  image:
+    models:
+      - id: qwen-vl-max-latest
+        label: "Qwen VL Max Latest"
+      - id: qwen-vl-plus-latest
+        label: "Qwen VL Plus Latest"
+      - id: qwen-vl-max
+        label: "Qwen VL Max"
+      - id: qwen-vl-plus
+        label: "Qwen VL Plus"
+      - id: qwen3-vl-plus
+        label: "Qwen3 VL Plus"
+      - id: qwen3-vl-flash
+        label: "Qwen3 VL Flash"
+      - id: qwen2.5-vl-72b-instruct
+        label: "Qwen 2.5 VL 72B Instruct"
+      - id: "*"
+        label: "Qwen VLM (Any)"
+  audio_tts:
+    models:
+      - id: qwen-tts-latest
+        label: "Qwen TTS Latest"
+      - id: qwen-tts-1
+        label: "Qwen TTS 1"
+      - id: qwen3-tts-flash
+        label: "Qwen3 TTS Flash"
+      - id: qwen3-tts-instruct-flash
+        label: "Qwen3 TTS Instruct Flash"
+      - id: qwen3-tts-vd
+        label: "Qwen3 TTS VD"
+      - id: qwen3-tts-vc
+        label: "Qwen3 TTS VC"
+      - id: "*"
+        label: "Qwen TTS (Any)"
+  audio_asr:
+    models: []

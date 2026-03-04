@@ -163,7 +163,7 @@ func adminPermissions() ([]dbm.Permission, error) {
 		}
 
 		perms = append(perms, dbm.Permission{
-			Plugin:      PluginCapabilityRegistry,
+			Module:      PluginCapabilityRegistry,
 			Resource:    spec.Resource,
 			Action:      spec.Action,
 			Description: spec.Description,

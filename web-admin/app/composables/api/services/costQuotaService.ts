@@ -33,16 +33,13 @@ export class CostQuotaService {
     params: {
       env?: string;
     },
-    opts?: { tenantUuid?: string }
+    _opts?: { tenantUuid?: string }
   ): Promise<QuotaSnapshotResponse | undefined> {
     const { get } = useApiClient();
     const response = await get<ApiResponse<QuotaSnapshotResponse>>(
       ApiEndpoints.ADMIN_AGENTS.COST_QUOTAS,
       {
         params,
-        headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
-          : undefined,
       }
     );
     return response.data;
@@ -50,19 +47,14 @@ export class CostQuotaService {
 
   static async enforceAction(
     payload: EnforceActionPayload,
-    opts?: { tenantUuid?: string }
+    _opts?: { tenantUuid?: string }
   ): Promise<{
     ok: boolean;
   }> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<{ ok: boolean }>>(
       ApiEndpoints.ADMIN_AGENTS.COST_ENFORCE,
-      payload,
-      {
-        headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
-          : undefined,
-      }
+      payload
     );
     return response.data || { ok: false };
   }
@@ -73,17 +65,9 @@ export class CostQuotaService {
       env?: string;
       events: Array<{ costUsd: number; tokens?: number; timestamp?: string }>;
     },
-    opts?: { tenantUuid?: string }
+    _opts?: { tenantUuid?: string }
   ) {
     const { post } = useApiClient();
-    return post(
-      ApiEndpoints.ADMIN_AGENTS.COST_USAGE_REPORT,
-      payload,
-      {
-        headers: opts?.tenantUuid
-          ? { "X-Tenant-UUID": opts.tenantUuid }
-          : undefined,
-      }
-    );
+    return post(ApiEndpoints.ADMIN_AGENTS.COST_USAGE_REPORT, payload);
   }
 }

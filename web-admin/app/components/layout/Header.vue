@@ -2,12 +2,14 @@
 import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
+import { useWSBus } from "~/composables/useWSBus";
 
 const { t } = useI18n();
 const userStore = useUserStore();
 
 // 使用通知系统
-const { getStats, notifications, fetchNotifications } = useNotifications();
+const { getStats, notifications, fetchNotifications, addNotification } = useNotifications();
+const wsBus = useWSBus();
 
 // 获取通知统计信息
 const notificationStats = computed(() => getStats());
@@ -17,6 +19,7 @@ const unreadCount = computed(() => notificationStats.value.unread);
 const { getToken } = useAuth();
 
 const hasValidToken = () => !!getToken();
+let unsubscribeNotifications: (() => void) | null = null;
 
 // 初始化通知数据和用户数据
 onMounted(async () => {
@@ -34,12 +37,25 @@ onMounted(async () => {
     } catch (error) {
       console.error("fetchNotifications error:", error);
     }
+
+    wsBus.connect();
+    unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
+      if (!payload) return;
+      addNotification(payload);
+    });
   } else {
     // 匿名态：不要调用会 401 的接口
     // 可选：清一次"旧状态"
     if (userStore.clearUserState) {
       userStore.clearUserState();
     }
+  }
+});
+
+onBeforeUnmount(() => {
+  if (unsubscribeNotifications) {
+    unsubscribeNotifications();
+    unsubscribeNotifications = null;
   }
 });
 

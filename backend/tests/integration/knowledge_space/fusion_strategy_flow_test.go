@@ -64,17 +64,41 @@ func TestFusionStrategyFlow(t *testing.T) {
 			},
 		},
 	})
+	bm25ID := uuid.New()
+	env.SparseIndex.SetQueryResponse(space.UUID, ksvc.SparseQueryResponse{
+		Matches: []ksvc.SparseQueryMatch{
+			{
+				ChunkID:    bm25ID,
+				Score:      3.2,
+				Provenance: map[string]any{"field": "title"},
+				Metadata:   map[string]any{"chunk_kind": "chunk"},
+			},
+		},
+	})
 
 	queryResult, err := fusionSvc.Query(ctx, ksvc.FusionQueryInput{
 		SpaceID:   space.UUID,
+		QueryText: "handbook",
 		Embedding: []float32{0.1, 0.2, 0.3},
 		TopK:      5,
 	})
 	require.NoError(t, err)
-	require.Len(t, queryResult.Matches, 1)
-	require.Equal(t, matchID, queryResult.Matches[0].ChunkID)
+	require.GreaterOrEqual(t, len(queryResult.Matches), 1)
+	require.Equal(t, active.ID, queryResult.StrategyID)
 	require.Greater(t, queryResult.Matches[0].Score, 0.0)
 	lastQuery := env.VectorStore.LastQuery()
 	require.Equal(t, space.UUID, lastQuery.SpaceID)
 	require.Equal(t, 5, lastQuery.TopK)
+
+	env.VectorStore.SetQueryFailures(1)
+	fallbackResult, err := fusionSvc.Query(ctx, ksvc.FusionQueryInput{
+		SpaceID:   space.UUID,
+		QueryText: "handbook",
+		Embedding: []float32{0.1, 0.2, 0.3},
+		TopK:      5,
+	})
+	require.NoError(t, err)
+	require.True(t, fallbackResult.Degraded)
+	require.NotEmpty(t, fallbackResult.DegradeReasons)
+	require.GreaterOrEqual(t, len(fallbackResult.Matches), 1)
 }

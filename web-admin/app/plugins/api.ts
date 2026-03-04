@@ -6,10 +6,29 @@ import { useAuth } from "~/composables/useAuth";
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
   const { getToken, isTokenExpired, clearAuth } = useAuth();
+  const resolveStatusCode = (error: any): number => {
+    const direct = Number(
+      error?.response?.status ||
+        error?.status ||
+        error?.statusCode ||
+        error?.response?._data?.status ||
+        0
+    );
+    if (direct > 0) return direct;
+    const cause = error?.cause;
+    return Number(
+      cause?.response?.status ||
+        cause?.status ||
+        cause?.statusCode ||
+        cause?.response?._data?.status ||
+        0
+    );
+  };
 
   setApiConfig({
     baseURL: config.public.apiBase || "/api",
-    timeout: 10000,
+    // 默认超时：Agent 会话/配置拉取在本地冷启动或 DB 慢查询时可能超过 10s，过短会被浏览器 Abort 掉并误报“网络错误”
+    timeout: 30000,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -48,7 +67,7 @@ export default defineNuxtPlugin(() => {
       {
         onResponse: (res) => res,
         onResponseError: (error) => {
-          const statusCode = error?.response?.status;
+          const statusCode = resolveStatusCode(error);
 
           if (statusCode === 401) {
             // 只有非 skipAuth 的请求才跳转登录页面

@@ -3,15 +3,15 @@ import type { ChatSession } from "~/composables/agent/useChatSessions";
 
 export interface AgentSessionState {
   // 按 agentId 分组的会话列表
-  sessionsByAgent: Record<number, ChatSession[]>;
+  sessionsByAgent: Record<string, ChatSession[]>;
   // 加载状态
-  sessionsLoadingByAgent: Record<number, boolean>;
+  sessionsLoadingByAgent: Record<string, boolean>;
   // 是否还有更多数据
-  hasMoreByAgent: Record<number, boolean>;
+  hasMoreByAgent: Record<string, boolean>;
   // 当前选中的会话ID
   currentSessionId: number | string | null;
   // 当前选中的agentId
-  currentAgentId: number | null;
+  currentAgentId: string | null;
   // 错误信息
   error: string | null;
 }
@@ -30,21 +30,21 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 获取指定 agent 的会话列表
      */
-    getSessionsByAgent: (state) => (agentId: number) => {
+    getSessionsByAgent: (state) => (agentId: string) => {
       return state.sessionsByAgent[agentId] || [];
     },
 
     /**
      * 获取指定 agent 的加载状态
      */
-    isLoadingByAgent: (state) => (agentId: number) => {
+    isLoadingByAgent: (state) => (agentId: string) => {
       return state.sessionsLoadingByAgent[agentId] || false;
     },
 
     /**
      * 获取指定 agent 是否还有更多数据
      */
-    getHasMoreByAgent: (state) => (agentId: number) => {
+    getHasMoreByAgent: (state) => (agentId: string) => {
       return state.hasMoreByAgent[agentId] || false;
     },
 
@@ -62,7 +62,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置加载状态
      */
-    setLoading(agentId: number, loading: boolean) {
+    setLoading(agentId: string, loading: boolean) {
       this.sessionsLoadingByAgent = {
         ...this.sessionsLoadingByAgent,
         [agentId]: loading,
@@ -72,7 +72,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置会话列表
      */
-    setSessions(agentId: number, sessions: ChatSession[]) {
+    setSessions(agentId: string, sessions: ChatSession[]) {
       this.sessionsByAgent = {
         ...this.sessionsByAgent,
         [agentId]: sessions,
@@ -82,7 +82,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 添加会话到列表开头
      */
-    addSession(agentId: number, session: ChatSession) {
+    addSession(agentId: string, session: ChatSession) {
       const currentSessions = this.sessionsByAgent[agentId] || [];
       this.sessionsByAgent = {
         ...this.sessionsByAgent,
@@ -97,7 +97,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 从列表中移除会话
      */
-    removeSession(agentId: number, sessionId: number | string) {
+    removeSession(agentId: string, sessionId: number | string) {
       const sessions = this.sessionsByAgent[agentId] || [];
       const filteredSessions = sessions.filter((s) => s.id !== sessionId);
 
@@ -117,7 +117,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
      * 更新会话信息
      */
     updateSession(
-      agentId: number,
+      agentId: string,
       sessionId: number | string,
       updates: Partial<ChatSession>
     ) {
@@ -131,7 +131,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置是否还有更多数据
      */
-    setHasMore(agentId: number, hasMore: boolean) {
+    setHasMore(agentId: string, hasMore: boolean) {
       this.hasMoreByAgent = {
         ...this.hasMoreByAgent,
         [agentId]: hasMore,
@@ -148,7 +148,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 选择会话
      */
-    selectSession(agentId: number, sessionId: number | string) {
+    selectSession(agentId: string, sessionId: number | string) {
       this.currentAgentId = agentId;
       this.currentSessionId = sessionId;
     },
@@ -156,7 +156,7 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 选择 Agent
      */
-    selectAgent(agentId: number) {
+    selectAgent(agentId: string) {
       this.currentAgentId = agentId;
       this.currentSessionId = null;
     },
@@ -178,6 +178,21 @@ export const useAgentSessionStore = defineStore("agentSession", {
       this.currentSessionId = null;
       this.currentAgentId = null;
       this.error = null;
+    },
+
+    /**
+     * 清空某个 Agent 的会话列表
+     */
+    clearSessionsForAgent(agentId: string) {
+      this.sessionsByAgent = { ...this.sessionsByAgent, [agentId]: [] };
+      this.sessionsLoadingByAgent = {
+        ...this.sessionsLoadingByAgent,
+        [agentId]: false,
+      };
+      this.hasMoreByAgent = { ...this.hasMoreByAgent, [agentId]: false };
+      if (this.currentAgentId === agentId) {
+        this.currentSessionId = null;
+      }
     },
   },
 });

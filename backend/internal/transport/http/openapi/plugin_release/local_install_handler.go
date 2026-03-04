@@ -153,19 +153,13 @@ func (h *localInstallHandler) stopSession(c *gin.Context) {
 var errTenantUUIDRequired = errors.New("tenant_uuid is required")
 
 func resolveTenantUUIDFromRequest(c *gin.Context) (string, error) {
-	candidates := []string{
-		c.Query("tenant_uuid"),
-		c.Query("tenantUuid"), // legacy fallback
-		reqctx.TenantUUIDFromGin(c),
-	}
-	for _, v := range candidates {
-		if trimmed := strings.TrimSpace(v); trimmed != "" {
-			canonical, err := reqctx.CanonicalTenantUUID(trimmed)
-			if err != nil {
-				return "", err
-			}
-			return canonical, nil
+	tenant := strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
+	if tenant != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(tenant)
+		if err != nil {
+			return "", err
 		}
+		return canonical, nil
 	}
 	return "", errTenantUUIDRequired
 }

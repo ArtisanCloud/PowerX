@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	eventdomain "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
@@ -34,15 +35,22 @@ type EnvelopeFinder interface {
 	ListForReplay(ctx context.Context, tenantKey string, topic uuid.UUID, filter eventfabricrepo.ReplayQuery) ([]*eventfabricmodel.EventEnvelope, error)
 }
 
+type aclStore interface {
+	HasPermission(ctx context.Context, tenantKey string, topic uuid.UUID, principalID string, action string, now time.Time) (bool, error)
+}
+
 // Options 构建 Service 所需依赖。
 type Options struct {
 	DB        *gorm.DB
 	Repo      Repository
 	Envelopes EnvelopeFinder
 	Topics    TopicLookup
+	ACL       aclStore
 	Delivery  delivery.Service
+	History   *eventfabricrepo.TaskHistoryRepository
 	Clock     func() time.Time
 	Metrics   eventmetrics.Recorder
+	Emitter   StatusEmitter
 }
 
 // Service 提供事件回放能力。
@@ -50,9 +58,12 @@ type Service struct {
 	repo      Repository
 	envelopes EnvelopeFinder
 	topics    TopicLookup
+	acl       aclStore
 	delivery  delivery.Service
+	history   *eventfabricrepo.TaskHistoryRepository
 	clock     func() time.Time
 	metrics   eventmetrics.Recorder
+	emitter   StatusEmitter
 }
 
 // CreateTaskInput 创建回放任务输入。
@@ -100,24 +111,39 @@ func NewService(opts Options) *Service {
 	if topics == nil && opts.DB != nil {
 		topics = eventfabricrepo.NewTopicRepository(opts.DB)
 	}
+	aclRepo := opts.ACL
+	if aclRepo == nil && opts.DB != nil {
+		aclRepo = eventfabricrepo.NewAclRepository(opts.DB)
+	}
 	return &Service{
 		repo:      repo,
 		envelopes: envelopes,
 		topics:    topics,
+		acl:       aclRepo,
 		delivery:  opts.Delivery,
-		clock:     clock,
+		history: func() *eventfabricrepo.TaskHistoryRepository {
+			if opts.History != nil {
+				return opts.History
+			}
+			if opts.DB != nil {
+				return eventfabricrepo.NewTaskHistoryRepository(opts.DB)
+			}
+			return nil
+		}(),
+		clock: clock,
 		metrics: func() eventmetrics.Recorder {
 			if opts.Metrics != nil {
 				return opts.Metrics
 			}
 			return eventmetrics.NewNoop()
 		}(),
+		emitter: opts.Emitter,
 	}
 }
 
 // CreateTask 创建并执行回放任务。
 func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task, error) {
-	if s.repo == nil || s.envelopes == nil || s.delivery == nil || s.topics == nil {
+	if s.repo == nil || s.envelopes == nil || s.delivery == nil || s.topics == nil || s.acl == nil {
 		return nil, fmt.Errorf("replay service not configured")
 	}
 	tenantKey := strings.TrimSpace(input.TenantKey)
@@ -128,7 +154,7 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 	if err != nil {
 		return nil, err
 	}
-	if topicTenant != "" && !strings.EqualFold(topicTenant, tenantKey) {
+	if topicTenant != "" && !strings.EqualFold(topicTenant, tenantKey) && !isSharedTopicTenant(topicTenant) {
 		return nil, fmt.Errorf("topic tenant mismatch: %s", input.Topic)
 	}
 	topicDef, err := s.topics.FindByComposite(ctx, tenantKey, namespace, name)
@@ -140,6 +166,17 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 	}
 	if !input.WindowEnd.IsZero() && input.WindowStart.After(input.WindowEnd) {
 		return nil, fmt.Errorf("time_range_start must be <= time_range_end")
+	}
+	principalID := strings.TrimSpace(input.Operator)
+	if principalID == "" {
+		return nil, fmt.Errorf("%w: principal_id is required", shared.ErrUnauthorized)
+	}
+	allowed, err := s.acl.HasPermission(ctx, topicDef.TenantKey, topicDef.UUID, principalID, "replay", s.clock().UTC())
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, fmt.Errorf("%w: principal=%s topic=%s", shared.ErrUnauthorized, principalID, topicDef.FullTopic)
 	}
 
 	record := &eventfabricmodel.ReplayRequest{
@@ -160,12 +197,17 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 	if err != nil {
 		return nil, err
 	}
+	s.syncReplayTaskHistory(ctx, record, topicDef.FullTopic, "")
+	s.emitTaskStatus(ctx, record, topicDef.FullTopic)
 
 	if err := s.repo.UpdateStatus(ctx, record.UUID, map[string]interface{}{
 		"status": eventfabricmodel.ReplayStatusRunning,
 	}); err != nil {
 		return nil, err
 	}
+	record.Status = eventfabricmodel.ReplayStatusRunning
+	s.syncReplayTaskHistory(ctx, record, topicDef.FullTopic, "")
+	s.emitTaskStatus(ctx, record, topicDef.FullTopic)
 
 	started := s.clock().UTC()
 	count, execErr := s.executeReplay(ctx, record, topicDef.FullTopic)
@@ -191,6 +233,8 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 	if latest == nil {
 		return nil, fmt.Errorf("replay task not found after update")
 	}
+	s.syncReplayTaskHistory(ctx, latest, topicDef.FullTopic, "")
+	s.emitTaskStatus(ctx, latest, topicDef.FullTopic)
 	if execErr != nil {
 		return nil, execErr
 	}
@@ -239,7 +283,22 @@ func (s *Service) CancelTask(ctx context.Context, id string, operator string) er
 	}
 	cancelled := s.clock().UTC()
 	updates["cancelled_at"] = &cancelled
-	return s.repo.UpdateStatus(ctx, uid, updates)
+	if err := s.repo.UpdateStatus(ctx, uid, updates); err != nil {
+		return err
+	}
+	record, err := s.repo.FindByUUID(ctx, uid)
+	if err != nil || record == nil {
+		return err
+	}
+	var topicName string
+	if s.topics != nil {
+		if topic, topicErr := s.topics.FindByUUID(ctx, record.TopicUUID); topicErr == nil && topic != nil {
+			topicName = topic.FullTopic
+		}
+	}
+	s.syncReplayTaskHistory(ctx, record, topicName, strings.TrimSpace(record.FailureReason))
+	s.emitTaskStatus(ctx, record, topicName)
+	return nil
 }
 
 func (s *Service) executeReplay(ctx context.Context, request *eventfabricmodel.ReplayRequest, fullTopic string) (int, error) {
@@ -319,13 +378,31 @@ func splitFullTopic(topic string) (tenant string, namespace string, name string,
 		return "", "", "", fmt.Errorf("topic is required")
 	}
 	parts := strings.Split(trimmed, ".")
-	if len(parts) < 3 {
+	if len(parts) < 2 {
 		return "", "", "", fmt.Errorf("invalid topic format: %s", topic)
 	}
-	tenant = parts[0]
-	namespace = strings.Join(parts[1:len(parts)-1], ".")
+
+	first := strings.TrimSpace(parts[0])
+	if isUUID(first) && len(parts) >= 3 {
+		tenant = first
+		namespace = strings.Join(parts[1:len(parts)-1], ".")
+		name = parts[len(parts)-1]
+		return tenant, namespace, name, nil
+	}
+
+	namespace = strings.Join(parts[:len(parts)-1], ".")
 	name = parts[len(parts)-1]
-	return tenant, namespace, name, nil
+	return "", namespace, name, nil
+}
+
+func isSharedTopicTenant(tenantKey string) bool {
+	key := strings.ToLower(strings.TrimSpace(tenantKey))
+	return key == "global" || key == "system"
+}
+
+func isUUID(input string) bool {
+	_, err := uuid.Parse(strings.TrimSpace(input))
+	return err == nil
 }
 
 func mapFromJSON(data []byte) map[string]string {
@@ -337,4 +414,86 @@ func mapFromJSON(data []byte) map[string]string {
 		return nil
 	}
 	return result
+}
+
+func (s *Service) emitTaskStatus(ctx context.Context, record *eventfabricmodel.ReplayRequest, fullTopic string) {
+	if s == nil || s.emitter == nil || record == nil {
+		return
+	}
+	event := ReplayTaskStatusEvent{
+		TaskID:        record.UUID.String(),
+		TenantKey:     record.TenantKey,
+		Topic:         strings.TrimSpace(fullTopic),
+		Status:        strings.TrimSpace(record.Status),
+		TraceID:       strings.TrimSpace(record.TraceID),
+		RequestedBy:   strings.TrimSpace(record.IssuedBy),
+		Shadow:        record.Shadow,
+		ResultCount:   record.ResultCount,
+		FailureReason: strings.TrimSpace(record.FailureReason),
+		SubmittedAt:   toRFC3339(record.SubmittedAt),
+		CompletedAt:   toRFC3339Ptr(record.CompletedAt),
+		CancelledAt:   toRFC3339Ptr(record.CancelledAt),
+	}
+	s.emitter.EmitReplayTaskStatus(ctx, event)
+}
+
+func (s *Service) syncReplayTaskHistory(ctx context.Context, record *eventfabricmodel.ReplayRequest, fullTopic, errorMessage string) {
+	if s == nil || s.history == nil || record == nil {
+		return
+	}
+	taskID := strings.TrimSpace(record.UUID.String())
+	if taskID == "" {
+		return
+	}
+	now := s.clock().UTC()
+	item, _ := s.history.FindByKey(ctx, strings.TrimSpace(record.TenantKey), eventdomain.SubscriberEventFabricReplay, taskID)
+	if item == nil {
+		item = &eventfabricmodel.TaskHistory{
+			TaskID:       taskID,
+			TenantKey:    strings.TrimSpace(record.TenantKey),
+			SubscriberID: eventdomain.SubscriberEventFabricReplay,
+		}
+	}
+	item.Topic = strings.TrimSpace(fullTopic)
+	item.Kind = eventdomain.NotificationKindEventFabricReplayTask
+	item.Source = "replay_service"
+	item.TraceID = strings.TrimSpace(record.TraceID)
+	item.Status = strings.TrimSpace(record.Status)
+	item.Attempt = 1
+	if strings.TrimSpace(errorMessage) != "" {
+		item.ErrorMessage = strings.TrimSpace(errorMessage)
+	} else {
+		item.ErrorMessage = strings.TrimSpace(record.FailureReason)
+	}
+	if !record.SubmittedAt.IsZero() {
+		t := record.SubmittedAt.UTC()
+		item.SubmittedAt = &t
+	}
+	if record.Status == eventfabricmodel.ReplayStatusRunning && item.StartedAt == nil {
+		t := now
+		item.StartedAt = &t
+	}
+	if record.CompletedAt != nil {
+		t := record.CompletedAt.UTC()
+		item.CompletedAt = &t
+	} else if record.CancelledAt != nil {
+		t := record.CancelledAt.UTC()
+		item.CompletedAt = &t
+	}
+	item.LastSeenAt = now
+	_ = s.history.Save(ctx, item)
+}
+
+func toRFC3339(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func toRFC3339Ptr(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
 }

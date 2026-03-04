@@ -37,6 +37,14 @@
           {{ $t("settings.ai.actions.openCostGuard") }}
         </UButton>
         <UButton
+          variant="soft"
+          icon="i-heroicons-link"
+          class="whitespace-nowrap"
+          :to="connectorsLink"
+        >
+          {{ $t("settings.ai.actions.openConnectors") }}
+        </UButton>
+        <UButton
           v-if="isRoot"
           variant="soft"
           icon="i-heroicons-table-cells"
@@ -109,14 +117,16 @@
             v-if="modality === 'image' || modality === 'video'"
             class="mb-3 text-xs text-[var(--text-secondary)]"
           >
-            图像/视频的 Provider 列表已对齐；若某 Provider 在当前模态暂无专用模型，会自动回退展示另一模态的模型（占位）。
+            图像/视频的 Provider 列表已对齐；其中 Qwen VLM 在“图像”模态配置。若某 Provider 在当前模态暂无专用模型，会自动回退展示另一模态的模型（占位）。
           </p>
           <ProviderModelForm
             :provider-options="providerOptions"
+            :app-options="appOptions"
             :model-options="modelOptions"
             :active-provider="activeProviderForForm"
             :state="currentState"
             @provider-changed="onProviderChanged"
+            @app-changed="onAppChanged"
           />
         </div>
 
@@ -142,7 +152,6 @@
             :truncate-options="truncateOptions"
             :video-resolution-options="videoResolutionOptions"
             :model3d-format-options="model3dFormatOptions"
-            :voice-options="voiceOptions"
             :audio-format-options="audioFormatOptions"
             :audio-quality-options="audioQualityOptions"
             :language-options="languageOptions"
@@ -157,6 +166,7 @@
           :current-title="currentTitle"
           :current-state="currentState"
           :last-test-message="lastTestMessage"
+          :last-test-detail="lastTestDetail"
           :on-test-connection="testConnection"
           :on-test-quick-call="testQuickCall"
         />
@@ -173,9 +183,10 @@ import TestPanel from "~/components/settings/ai/TestPanel.vue";
 import { useAISettingsStore } from "~/stores/aiSettings";
 import { useEnvStore, ENV_OPTIONS } from "~/stores/envStore";
 import { useUserStore } from "~/stores/user";
-import type {
-  Provider,
-  SaveSettingsPayload,
+import {
+  AISettingService,
+  type Provider,
+  type SaveSettingsPayload,
 } from "~/composables/api/services/aiSettingService";
 import type { SelectOption } from "~/composables/api/types/select";
 
@@ -194,15 +205,21 @@ const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
 const localePath = useLocalePath();
 const costGuardLink = computed(() => localePath("/settings/ai/cost"));
+const connectorsLink = computed(() => localePath("/settings/ai/connectors"));
 const registryLink = computed(() =>
   localePath("/settings/ai/capability-registry")
 );
 
+const route = useRoute();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
 
 onMounted(async () => {
   try {
+    const queryModality = resolveModalityFromQuery(route.query?.modality);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
     if (!userStore.context) {
       await userStore.fetchUserContext();
     }
@@ -216,7 +233,7 @@ onMounted(async () => {
  */
 const modalityTabs = [
   { key: "llm", label: "LLM 文本", icon: "i-heroicons-bars-3-bottom-left" },
-  { key: "image", label: "图像生成", icon: "i-heroicons-photo" },
+  { key: "image", label: "图像/视觉(VLM)", icon: "i-heroicons-photo" },
   {
     key: "embedding",
     label: "向量嵌入",
@@ -230,6 +247,13 @@ const modalityTabs = [
 ] as const;
 
 const modality = ref<Modality>("llm");
+
+const resolveModalityFromQuery = (value: unknown): Modality | null => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const hit = modalityTabs.find((tab) => tab.key === raw);
+  return hit ? (hit.key as Modality) : null;
+};
 
 // 使用环境store
 const envStore = useEnvStore();
@@ -245,13 +269,36 @@ const env = computed({
 });
 
 const getErrorMessage = (error: unknown) => {
+  const compact = (raw: unknown) => {
+    const message = String(raw ?? "").trim();
+    if (!message) return "未知错误";
+    const lower = message.toLowerCase();
+    if (
+      lower.includes("accessdenied.unpurchased") ||
+      lower.includes("access to model denied")
+    ) {
+      return "模型未开通或无权限（AccessDenied.Unpurchased），请在官方控制台开通该模型后重试。";
+    }
+    if (
+      lower.includes("invalid_api_key") ||
+      lower.includes("incorrect api key provided")
+    ) {
+      return "API Key 无效，请确认使用的是对应站点/地域的官方 Key。";
+    }
+    const bodyPos = message.indexOf("body=");
+    const brief = (bodyPos >= 0 ? message.slice(0, bodyPos) : message)
+      .replace(/\s+/g, " ")
+      .trim();
+    return brief.length > 180 ? `${brief.slice(0, 180)}...` : brief;
+  };
+
   if (!error) return "未知错误";
   if (typeof error === "string") {
-    return error;
+    return compact(error);
   }
   if (typeof error === "object") {
     const anyError = error as Record<string, any>;
-    return (
+    return compact(
       anyError?.data?.message ||
       anyError?.response?.statusMessage ||
       anyError?.message ||
@@ -259,7 +306,7 @@ const getErrorMessage = (error: unknown) => {
       "未知错误"
     );
   }
-  return "未知错误";
+  return compact(error);
 };
 
 /**
@@ -283,6 +330,11 @@ const providerOptions = computed<SelectOption[]>(() => {
   }));
 
   return [placeholder, ...options];
+});
+
+const appOptions = computed<SelectOption[]>(() => {
+  const apps = resolveAppsForProvider(currentState.value.provider);
+  return buildAppOptions(apps);
 });
 
 const activeProviderForForm = computed(() => {
@@ -314,6 +366,7 @@ const activeModel = computed(
  */
 type BaseConn = {
   provider: string | null;
+  app?: string | null;
   model: string | null;
   authMode: string;
   apiKey: string;
@@ -334,6 +387,7 @@ const llm = reactive<
   }
 >({
   provider: null,
+  app: "",
   model: null,
   authMode: "",
   apiKey: "",
@@ -357,6 +411,7 @@ const image = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "gpt-image-1",
   authMode: "",
   apiKey: "",
@@ -372,9 +427,10 @@ const image = reactive<
 });
 
 const embedding = reactive<
-  BaseConn & { dimensions: number; truncate: string; batch: number }
+  BaseConn & { dimensions: number; truncate: string; batch: number; maxInputTokens?: number }
 >({
   provider: "openai",
+  app: "",
   model: "text-embedding-3-small",
   authMode: "",
   apiKey: "",
@@ -386,6 +442,7 @@ const embedding = reactive<
   dimensions: 1536,
   truncate: "none",
   batch: 32,
+  maxInputTokens: undefined,
 });
 
 const audioTTS = reactive<
@@ -397,6 +454,7 @@ const audioTTS = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "gpt-4o-mini-tts",
   authMode: "",
   apiKey: "",
@@ -420,6 +478,7 @@ const audioASR = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "whisper-1",
   authMode: "",
   apiKey: "",
@@ -443,6 +502,7 @@ const video = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "sora-preview",
   authMode: "",
   apiKey: "",
@@ -464,6 +524,7 @@ const model3d = reactive<
   }
 >({
   provider: "hunyuan",
+  app: "",
   model: "HY-3D-Express",
   authMode: "openai",
   apiKey: "",
@@ -484,6 +545,7 @@ const rerank = reactive<
   }
 >({
   provider: "openai",
+  app: "",
   model: "text-embedding-3-large",
   authMode: "",
   apiKey: "",
@@ -505,7 +567,7 @@ const currentTitle = computed(() => {
     case "llm":
       return "LLM 文本";
     case "image":
-      return "图像生成";
+      return "图像/视觉(VLM)";
     case "embedding":
       return "向量嵌入";
     case "audio_tts":
@@ -585,6 +647,53 @@ function normalizeProviderKey(provider?: string | null) {
     .toLowerCase();
 }
 
+function isHuggingFaceProvider(provider?: string | null) {
+  const p = normalizeProviderKey(provider);
+  return p === "huggingface" || p === "hf";
+}
+
+function resolveHuggingFaceBaseURL(_model?: string | null) {
+  return "https://router.huggingface.co/v1";
+}
+
+function resolveAppsForProvider(provider?: string | null) {
+  const pid = String(provider ?? "").trim();
+  if (!pid) return [];
+  const hit =
+    (aiSettingsStore.providers ?? []).find(
+      (p: Provider) => String(p.ID ?? "").trim().toLowerCase() === pid.toLowerCase()
+    ) ?? null;
+  return hit?.apps ?? [];
+}
+
+function buildAppOptions(apps?: { id: string; name: string }[]) {
+  if (!Array.isArray(apps) || apps.length === 0) return [];
+  return apps.map((app) => ({
+    label: app.name || app.id,
+    value: app.id,
+  }));
+}
+
+function splitAppModelKey(raw?: string | null) {
+  const value = String(raw || "").trim();
+  if (!value) return { app: "", model: "" };
+  const idx = value.indexOf(":");
+  if (idx <= 0) return { app: "", model: value };
+  return { app: value.slice(0, idx), model: value.slice(idx + 1) };
+}
+
+function matchProfileModel(
+  profileModel: string | null | undefined,
+  app: string | null | undefined,
+  model: string | null | undefined
+) {
+  const parsed = splitAppModelKey(profileModel);
+  return (
+    parsed.model === String(model || "").trim() &&
+    parsed.app === String(app || "").trim()
+  );
+}
+
 function draftKey(
   provider?: string | null,
   envVal?: string | null,
@@ -599,6 +708,7 @@ function draftKey(
 function getDraftableFields(modalityVal?: string | null): string[] {
   const m = String(modalityVal || "").trim();
   const base = [
+    "app",
     "model",
     "authMode",
     "apiKey",
@@ -615,7 +725,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
     case "image":
       return [...base, "size", "quality", "format", "promptHint"];
     case "embedding":
-      return [...base, "dimensions", "truncate", "batch"];
+      return [...base, "truncate", "batch"];
     case "audio_tts":
       return [...base, "voice", "speed", "format", "quality"];
     case "audio_asr":
@@ -633,6 +743,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
 
 function applyModalityDefaults(state: Record<string, any>, modalityVal?: string | null) {
   const m = String(modalityVal || "").trim();
+  if ("app" in state) state.app = "";
   switch (m) {
     case "llm":
       state.temperature = 0.7;
@@ -702,6 +813,10 @@ function persistProviderDraft(
   const fields = getDraftableFields(modalityVal);
   const snapshot: Record<string, any> = {};
   for (const f of fields) {
+    if (f === "dimensions") {
+      const dim = Number.parseInt(String(state[f] ?? "0"), 10);
+      if (!Number.isFinite(dim) || dim <= 0) continue;
+    }
     snapshot[f] = state[f];
   }
   draftByProviderKey[k] = snapshot;
@@ -760,15 +875,31 @@ async function onProviderChanged(nextProvider?: string) {
     return;
   }
 
+  restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
+  const apps = resolveAppsForProvider(rawProvider);
+  if (!apps.length) {
+    currentState.value.app = "";
+  } else {
+    const appIds = new Set(apps.map((app) => String(app.id)));
+    const currentApp = String(currentState.value.app || "").trim();
+    if (!currentApp || !appIds.has(currentApp)) {
+      currentState.value.app = String(apps[0]?.id || "").trim();
+    }
+  }
+
+  const appValue = String(currentState.value.app || "").trim();
   try {
     // ✅ 直接传原始值，让 store 内部处理规范化
-    await aiSettingsStore.fetchModels(rawProvider, currentModality, env.value);
+    await aiSettingsStore.fetchModels(
+      rawProvider,
+      currentModality,
+      env.value,
+      appValue || undefined
+    );
   } catch (error) {
     console.error("获取模型列表失败:", error);
     // 这里不清空，保持上一次成功值
   }
-
-  restoreProviderDraft(rawProvider, envSnapshot, modalitySnapshot);
 
   // restoreDraft 可能会把旧 model 带回来；这里再做一次兜底校验
   const models = aiSettingsStore.models ?? [];
@@ -781,6 +912,50 @@ async function onProviderChanged(nextProvider?: string) {
     // ✅ 该 provider 在当前模态下没有可用模型：清空，避免出现 provider=Coze 但 model=OpenAI 的错配显示
     currentState.value.model = "";
   }
+  if (modalitySnapshot === "embedding") {
+    syncEmbeddingProbeMessageFromProfiles();
+  }
+}
+
+async function onAppChanged(nextApp?: string) {
+  const rawProvider = currentState.value.provider;
+  const currentModality = modality.value;
+  if (!rawProvider || !currentModality) return;
+  if (nextApp !== undefined) {
+    currentState.value.app = nextApp ?? "";
+  }
+  const apps = resolveAppsForProvider(rawProvider);
+  if (apps.length) {
+    const appIds = new Set(apps.map((app) => String(app.id)));
+    const curApp = String(currentState.value.app || "").trim();
+    if (!curApp || !appIds.has(curApp)) {
+      currentState.value.app = String(apps[0]?.id || "").trim();
+    }
+  }
+  const appValue = String(currentState.value.app || "").trim();
+  try {
+    await aiSettingsStore.fetchModels(
+      rawProvider,
+      currentModality,
+      env.value,
+      appValue || undefined
+    );
+  } catch (error) {
+    console.error("获取模型列表失败:", error);
+  }
+
+  const models = aiSettingsStore.models ?? [];
+  if (models.length) {
+    const curModel = currentState.value.model;
+    if (!curModel || !models.includes(curModel)) {
+      currentState.value.model = models[0];
+    }
+  } else {
+    currentState.value.model = "";
+  }
+  if (currentModality === "embedding") {
+    syncEmbeddingProbeMessageFromProfiles();
+  }
 }
 
 // 旧实现：syncCredentialFieldsForProvider（已用 restoreProviderDraft 替代，避免 apiKey/参数串台）
@@ -788,16 +963,31 @@ async function onProviderChanged(nextProvider?: string) {
 /**
  * 选项集合（传给 ModalityParamsForm）
  */
-const imageSizeOptions = ["256x256", "512x512", "1024x1024"];
-const imageQualityOptions = ["standard", "hd"];
-  const imageFormatOptions = ["png", "jpeg", "webp"];
+const imageSizeOptions = [
+  "auto",
+  "256x256",
+  "512x512",
+  "1024x1024",
+  "1536x1024",
+  "1024x1536",
+  "1792x1024",
+  "1024x1792",
+];
+const imageQualityOptions = [
+  "auto",
+  "low",
+  "medium",
+  "high",
+  "standard",
+  "hd",
+];
+const imageFormatOptions = ["png", "jpeg", "webp"];
 const truncateOptions = ["none", "start", "end"];
 const videoResolutionOptions = ["720p", "1080p", "4k"];
 const model3dFormatOptions = ["glb", "gltf", "obj", "fbx"];
 
 // 新增音频TTS选项
-const voiceOptions = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-const audioFormatOptions = ["mp3", "opus", "aac", "flac"];
+const audioFormatOptions = ["mp3", "wav", "pcm", "opus", "aac", "flac"];
 const audioQualityOptions = ["standard", "hd"];
 
 // 新增音频ASR选项
@@ -810,6 +1000,7 @@ const topKOptions = [5, 10, 20, 50, 100];
 function buildPayloadForCurrentModality(promptOverride?: string) {
   const baseConn = {
     provider: currentState.value.provider ?? "",
+    app: currentState.value.app ?? "",
     model: currentState.value.model ?? "",
     authMode: currentState.value.authMode ?? "",
     apiKey: currentState.value.apiKey ?? "",
@@ -913,10 +1104,97 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
  * 保存/重置/测试（接入后端 API）
  */
 const saving = computed(() => aiSettingsStore.saving);
-const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage);
+const lastProbeMessage = ref("");
+const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
+const lastTestDetail = computed(() => aiSettingsStore.lastTestDetail || "");
+
+const resolveEmbeddingMaxInputTokens = (profile: any) => {
+  if (!profile) return 0;
+  const defaults = profile?.defaults || {};
+  const capCache = (profile as any)?.capCache || {};
+  const keys = [
+    "max_input_tokens",
+    "max_tokens",
+    "context_length",
+    "context_window",
+    "context_size",
+    "max_context_tokens",
+  ];
+  for (const key of keys) {
+    const v = defaults?.[key];
+    const n = Number.parseInt(String(v ?? "0"), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  for (const key of keys) {
+    const v = capCache?.[key];
+    const n = Number.parseInt(String(v ?? "0"), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+};
+
+const resolveEmbeddingDimensionsFromProfiles = () => {
+  if (modality.value !== "embedding") return 0;
+  const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+  const curModel = String(currentState.value.model || "").trim();
+  if (!curProvider || !curModel) return 0;
+  const profile = (aiSettingsStore.profiles || []).find(
+    (p) =>
+      String(p?.modality || "").toLowerCase() === "embedding" &&
+      String(p?.provider || "").trim().toLowerCase() === curProvider &&
+      matchProfileModel(p?.model, currentState.value.app, curModel)
+  );
+  if (!profile) return 0;
+  const capCache = (profile as any).capCache || {};
+  const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+  const dim = Number.parseInt(String(dimRaw || "0"), 10);
+  return Number.isFinite(dim) && dim > 0 ? dim : 0;
+};
+
+const syncEmbeddingProbeMessageFromProfiles = () => {
+  if (modality.value !== "embedding") return;
+  const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+  const curModel = String(currentState.value.model || "").trim();
+  if (!curProvider || !curModel) return;
+  const profile = (aiSettingsStore.profiles || []).find(
+    (p) =>
+      String(p?.modality || "").toLowerCase() === "embedding" &&
+      String(p?.provider || "").trim().toLowerCase() === curProvider &&
+      matchProfileModel(p?.model, currentState.value.app, curModel)
+  );
+  if (!profile) {
+    return;
+  }
+  const capCache = (profile as any).capCache || {};
+  const probedAt = String(capCache?.probed_at || "").trim();
+  const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+  const dim = Number.parseInt(String(dimRaw || "0"), 10);
+  const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
+  if (Number.isFinite(dim) && dim > 0) {
+    currentState.value.dimensions = dim;
+  }
+  if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+    currentState.value.maxInputTokens = maxInputTokens;
+  }
+  if (probedAt) {
+    const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+    lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+      Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+    }`;
+  }
+};
 
 async function saveSettings() {
   try {
+    if (modality.value === "embedding") {
+      const curDim = Number.parseInt(String(currentState.value.dimensions || "0"), 10);
+      if (!Number.isFinite(curDim) || curDim <= 0) {
+        const fallbackDim = resolveEmbeddingDimensionsFromProfiles();
+        if (fallbackDim > 0) {
+          currentState.value.dimensions = fallbackDim;
+        }
+      }
+    }
     const payload = buildPayloadForCurrentModality();
     await aiSettingsStore.saveSettings(payload);
     toast.add({
@@ -951,6 +1229,7 @@ async function resetSettings() {
 
   // 先设置 provider
   cur.provider = def.provider;
+  cur.app = "";
   // 拉取对应的模型列表
   await onProviderChanged(def.provider);
   // 最后设置默认模型
@@ -962,10 +1241,76 @@ async function resetSettings() {
 async function testConnection() {
   try {
     const payload = buildPayloadForCurrentModality();
-    await aiSettingsStore.testConnection(
+    const result = await aiSettingsStore.testConnection(
       currentState.value.provider || "",
       payload
     );
+    if (modality.value === "embedding") {
+      const dim = Number.parseInt(String(result?.dimensions || "0"), 10);
+      if (Number.isFinite(dim) && dim > 0) {
+        currentState.value.dimensions = dim;
+      }
+      // 测试通过后清空草稿，避免旧草稿覆盖探测值
+      const draftKeyValue = draftKey(
+        currentState.value.provider,
+        env.value,
+        modality.value
+      );
+      delete draftByProviderKey[draftKeyValue];
+      // 记录“本次测试通过”的配置，保证刷新后仍能读取到探测结果
+      const p = String(currentState.value.provider || "").trim();
+      const m = String(currentState.value.model || "").trim();
+      const a = String(currentState.value.app || "").trim();
+      if (p && m) {
+        try {
+          await AISettingService.setActiveProfile({
+            env: env.value,
+            modality: "embedding",
+            provider: p,
+            model: a ? `${a}:${m}` : m,
+          });
+        } catch (error) {
+          console.warn("测试连接后设置激活配置失败", error);
+        }
+      }
+      try {
+        await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
+        const curProvider = String(currentState.value.provider || "").trim().toLowerCase();
+        const curModel = String(currentState.value.model || "").trim();
+        const profile = (aiSettingsStore.profiles || []).find(
+          (p) =>
+            String(p?.modality || "").toLowerCase() === "embedding" &&
+            String(p?.provider || "").trim().toLowerCase() === curProvider &&
+            matchProfileModel(p?.model, currentState.value.app, curModel)
+        );
+        if (profile) {
+          const capCache = (profile as any).capCache || {};
+          const probedAt = String(capCache?.probed_at || "").trim();
+          const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+          const dim = Number.parseInt(String(dimRaw || "0"), 10);
+          const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
+          if (Number.isFinite(dim) && dim > 0) {
+            currentState.value.dimensions = dim;
+          }
+          if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+            currentState.value.maxInputTokens = maxInputTokens;
+          }
+          if (profile?.defaults?.truncate) {
+            currentState.value.truncate = String(profile.defaults.truncate);
+          }
+          if (profile?.defaults?.batch != null) {
+            const batch = Number.parseInt(String(profile.defaults.batch), 10);
+            if (Number.isFinite(batch) && batch > 0) currentState.value.batch = batch;
+          }
+          if (probedAt) {
+            const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+            lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+              Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+            }`;
+          }
+        }
+      } catch {}
+    }
     // 测试成功后后端会自动保存该 provider 的凭据（不激活默认路由），这里刷新一下非敏感凭据元数据
     try {
       await aiSettingsStore.fetchCredentials(env.value);
@@ -1030,6 +1375,12 @@ async function refreshStateForEnvAndModality() {
   if (currentState.value.provider) {
     await onProviderChanged(currentState.value.provider);
   }
+  if (modality.value === "embedding") {
+    try {
+      await aiSettingsStore.fetchProfiles(env.value, ["embedding"]);
+      syncEmbeddingProbeMessageFromProfiles();
+    } catch {}
+  }
 }
 
 async function handleEnvChange(nextEnv: string) {
@@ -1075,7 +1426,11 @@ function loadExistingConfiguration() {
   // profile.defaults 可能不存在，全部兜底
   const d = profile.defaults ?? {};
   currentState.value.provider = profile.provider ?? currentState.value.provider;
-  currentState.value.model = profile.model ?? currentState.value.model;
+  if (profile.model != null) {
+    const parsed = splitAppModelKey(profile.model);
+    currentState.value.app = parsed.app;
+    currentState.value.model = parsed.model;
+  }
   currentState.value.maxTokens =
     d.maxTokens ?? currentState.value.maxTokens ?? 4096;
   currentState.value.stream = d.stream ?? currentState.value.stream ?? true;
@@ -1111,7 +1466,11 @@ async function loadActiveConfiguration() {
 
       // 更新当前状态
       config.provider = profile.provider;
-      config.model = profile.model;
+      if (profile.model != null) {
+        const parsed = splitAppModelKey(profile.model);
+        config.app = parsed.app;
+        config.model = parsed.model;
+      }
 
       // 更新默认参数
       if (profile.defaults) {
@@ -1126,6 +1485,37 @@ async function loadActiveConfiguration() {
       // 加载对应的模型列表
       if (profile.provider) {
         await onProviderChanged(profile.provider);
+      }
+
+      if (modality.value === "embedding") {
+        const capCache = (profile as any).capCache || {};
+        const probedAt = String(capCache?.probed_at || "").trim();
+        const dimRaw = capCache?.dimensions ?? profile?.defaults?.dimensions ?? profile?.defaults?.dim;
+        const dim = Number.parseInt(String(dimRaw || "0"), 10);
+        const maxInputTokens = resolveEmbeddingMaxInputTokens(profile);
+        if (Number.isFinite(dim) && dim > 0) {
+          currentState.value.dimensions = dim;
+        }
+        if (Number.isFinite(maxInputTokens) && maxInputTokens > 0) {
+          currentState.value.maxInputTokens = maxInputTokens;
+        }
+        if (profile?.defaults?.truncate) {
+          currentState.value.truncate = String(profile.defaults.truncate);
+        }
+        if (profile?.defaults?.batch != null) {
+          const batch = Number.parseInt(String(profile.defaults.batch), 10);
+          if (Number.isFinite(batch) && batch > 0) currentState.value.batch = batch;
+        }
+        if (probedAt) {
+          const ts = Number.isNaN(Date.parse(probedAt)) ? probedAt : new Date(probedAt).toLocaleString();
+          lastProbeMessage.value = `上次测试通过时间：${ts}${Number.isFinite(dim) && dim > 0 ? `；向量维度：${dim}` : ""}${
+            Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? `；最大输入：${maxInputTokens}` : ""
+          }`;
+        } else {
+          lastProbeMessage.value = "";
+        }
+      } else {
+        lastProbeMessage.value = "";
       }
     }
   } catch (error) {
@@ -1187,10 +1577,51 @@ watch(
   }
 );
 
+watch(
+  () =>
+    [currentState.value.provider, currentState.value.app, currentState.value.model, modality.value] as const,
+  ([provider, _app, model, mod]) => {
+    if (mod !== "embedding") return;
+    lastProbeMessage.value = "";
+    if (!provider || !model) return;
+    aiSettingsStore
+      .fetchProfiles(env.value, ["embedding"])
+      .then(() => syncEmbeddingProbeMessageFromProfiles())
+      .catch(() => {});
+  }
+);
+
+watch(
+  () => [currentState.value.provider, currentState.value.model, modality.value] as const,
+  ([provider, model, mod]) => {
+    if (mod !== "embedding" || !isHuggingFaceProvider(provider)) return;
+    const resolved = resolveHuggingFaceBaseURL(model);
+    if (!resolved) return;
+    const curBase = String(currentState.value.baseURL || "").trim();
+    const lower = curBase.toLowerCase();
+    const isLegacyRouter = lower === "https://router.huggingface.co";
+    const isDeprecatedInference = lower.includes("api-inference.huggingface.co");
+    const isTemplate = curBase.includes("{model}");
+    if (!curBase || isLegacyRouter || isDeprecatedInference || isTemplate) {
+      currentState.value.baseURL = resolved;
+    }
+  }
+);
+
 // 监听模态切换，重新加载配置
 watch(modality, async () => {
   await refreshStateForEnvAndModality();
 });
+
+watch(
+  () => route.query?.modality,
+  (next) => {
+    const queryModality = resolveModalityFromQuery(next);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
+  }
+);
 
 watch(
   () => env.value,

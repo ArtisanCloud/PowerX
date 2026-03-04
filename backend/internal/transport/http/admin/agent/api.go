@@ -29,6 +29,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		// 新增：POST 普通 Chat（非流）
 		agentGroup.POST("/invoke", chatH.Invoke)
+		agentGroup.POST("/sessions/:id/invoke", chatH.InvokeSession)
+		agentGroup.GET("/sessions/:id/stream/sse", chatH.StreamSessionSSE)
 
 		agentGroup.POST("/sessions", sessionH.CreateSession)
 		agentGroup.GET("/sessions", sessionH.ListSessions)
@@ -58,20 +60,20 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		// 智能体 CRUD
 		agentAdminGroup.POST("", agentH.CreateAgent)
 		agentAdminGroup.GET("", agentH.ListAgents)
-		agentAdminGroup.GET("/:id", agentH.GetAgent)
-		agentAdminGroup.PATCH("/:id", agentH.UpdateAgent)
-		agentAdminGroup.POST("/:id/enable", agentH.EnableAgent)
-		agentAdminGroup.POST("/:id/disable", agentH.DisableAgent)
+		agentAdminGroup.GET("/:uuid", agentH.GetAgent)
+		agentAdminGroup.PATCH("/:uuid", agentH.UpdateAgent)
+		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
+		agentAdminGroup.POST("/:uuid/disable", agentH.DisableAgent)
 
-		agentAdminGroup.POST("/:id/shares", shareH.CreateShare)
+		agentAdminGroup.POST("/:uuid/shares", shareH.CreateShare)
 		agentAdminGroup.POST("/shares/:share_id/revoke", shareH.RevokeShare)
-		agentAdminGroup.DELETE("/:id", agentH.DeleteAgent)
+		agentAdminGroup.DELETE("/:uuid", agentH.DeleteAgent)
 
 		// 智能体 AI 配置
-		agentAdminGroup.GET("/:id/ai-setting", agentH.GetAgentAISetting)
-		agentAdminGroup.PUT("/:id/ai-setting", agentH.UpsertAgentAISetting)
-		agentAdminGroup.DELETE("/:id/ai-setting", agentH.DeleteAgentAISetting)
-		agentAdminGroup.POST("/:id/health-check", agentH.AgentHealthCheck)
+		agentAdminGroup.GET("/:uuid/ai-setting", agentH.GetAgentAISetting)
+		agentAdminGroup.PUT("/:uuid/ai-setting", agentH.UpsertAgentAISetting)
+		agentAdminGroup.DELETE("/:uuid/ai-setting", agentH.DeleteAgentAISetting)
+		agentAdminGroup.POST("/:uuid/health-check", agentH.AgentHealthCheck)
 
 		tenantFormsGroup := agentAdminGroup.Group("/tenant/forms")
 		{

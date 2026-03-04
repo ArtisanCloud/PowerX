@@ -104,6 +104,21 @@ const resolveIcon = (name?: string) => {
   return iconMap[name] || "i-heroicons-puzzle-piece";
 };
 
+const withMenuIconFallback = (item: MenuItem): string => {
+  const normalized = normalizeMenuPath(item.path);
+  if (normalized === normalizeMenuPath("/settings/event-fabric")) {
+    return "i-heroicons-queue-list";
+  }
+  if (normalized === normalizeMenuPath("/settings/monitor")) {
+    return "i-heroicons-eye";
+  }
+  const title = String(item.title || "").trim();
+  if (title === "监控中心" || title.toLowerCase() === "monitor center") {
+    return "i-heroicons-eye";
+  }
+  return resolveIcon(item.icon);
+};
+
 const isVisible = (it: MenuItem) => it.visible !== false;
 
 const MARKET_CATEGORY_ID = "cat:market";
@@ -153,6 +168,7 @@ const processMenuItems = (items: MenuItem[], level = 0): MenuItem[] => {
   const mapped = items.filter(isVisible).map((item) => ({
     ...item,
     title: translateMenuTitle(item),
+    icon: withMenuIconFallback(item),
     badge:
       typeof item.badge === "string" && item.badge.startsWith("menu.")
         ? t(item.badge)
@@ -233,6 +249,8 @@ const viewGroups = computed<MenuGroup[]>(() => {
 });
 
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
+const EVENT_MANAGE_PATH = "/settings/event-fabric";
+const EVENT_MONITOR_PATH = "/settings/monitor";
 const SETTINGS_ROOT_PATH = "/settings";
 
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
@@ -292,32 +310,68 @@ const manualOpenCapabilityMenu = computed<MenuItem | null>(() => {
   };
 });
 
+const manualEventManageMenu = computed<MenuItem | null>(() => {
+  if (!userStore.isRoot) return null;
+  return {
+    id: "event-manage",
+    title: "事件管理",
+    icon: "i-heroicons-queue-list",
+    path: EVENT_MANAGE_PATH,
+    order: 125,
+    visible: true,
+    origin: "system",
+  };
+});
+
+const manualEventMonitorMenu = computed<MenuItem | null>(() => {
+  if (!userStore.isRoot) return null;
+  return {
+    id: "event-monitor",
+    title: t("menu.monitorCenter"),
+    icon: "i-heroicons-eye",
+    path: EVENT_MONITOR_PATH,
+    order: 130,
+    visible: true,
+    origin: "system",
+  };
+});
+
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
     ...group,
     items: [...group.items],
   }));
-  const extra = manualOpenCapabilityMenu.value;
-  if (!extra) return base;
-  const normalized = normalizeMenuPath(extra.path);
-  const exists = base.some((group) =>
-    group.items.some((item) => normalizeMenuPath(item.path) === normalized)
+  const extras = [
+    manualOpenCapabilityMenu.value,
+    manualEventManageMenu.value,
+    manualEventMonitorMenu.value,
+  ].filter(
+    (item): item is MenuItem => !!item
   );
-  if (exists) return base;
+  if (extras.length === 0) return base;
 
-  const attached = attachToSettingsMenu(base, extra);
-  if (attached) return base;
+  for (const extra of extras) {
+    const normalized = normalizeMenuPath(extra.path);
+    const exists = base.some((group) =>
+      group.items.some((item) => normalizeMenuPath(item.path) === normalized)
+    );
+    if (exists) continue;
 
-  const systemGroup = base.find((group) => group.id === "system");
-  if (systemGroup) {
-    systemGroup.items = [...systemGroup.items, extra].sort(sortChildren);
-  } else {
-    base.push({
-      id: "system",
-      title: t("menu.settings"),
-      items: [extra],
-    });
+    const attached = attachToSettingsMenu(base, extra);
+    if (attached) continue;
+
+    const systemGroup = base.find((group) => group.id === "system");
+    if (systemGroup) {
+      systemGroup.items = [...systemGroup.items, extra].sort(sortChildren);
+    } else {
+      base.push({
+        id: "system",
+        title: t("menu.settings"),
+        items: [extra],
+      });
+    }
   }
+
   return base;
 });
 
@@ -403,7 +457,7 @@ const toggleExpanded = (id: string) => {
   s.has(id) ? s.delete(id) : s.add(id);
 };
 const expandByRoute = () => {
-  const set = new Set<string>();
+  const set = new Set<string>(expandedItems.value);
   const markExpanded = (items?: MenuItem[]) => {
     if (!items) return;
     for (const item of items) {

@@ -20,7 +20,8 @@ type grantIDsReq struct {
 }
 type grantTriplesReq struct {
 	Items []struct {
-		Plugin   string `json:"plugin" binding:"required"`
+		Module   string `json:"module"`
+		Plugin   string `json:"plugin"`
 		Resource string `json:"resource" binding:"required"`
 		Action   string `json:"action" binding:"required"`
 	} `json:"items" binding:"required,min=1"`
@@ -83,7 +84,7 @@ func (h *RBACHandler) GrantByIDs(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"granted": len(req.PermIDs)})
 }
 
-// 角色授予权限（通过 triples：plugin/resource/action）
+// 角色授予权限（通过 triples：module/resource/action）
 // POST /api/v1/admin/iam/roles/:id/permissions/grant
 func (h *RBACHandler) GrantByTriples(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -98,7 +99,15 @@ func (h *RBACHandler) GrantByTriples(c *gin.Context) {
 	}
 	ts := make([]iamsvc.PermTriple, 0, len(req.Items))
 	for _, it := range req.Items {
-		ts = append(ts, iamsvc.PermTriple{Plugin: it.Plugin, Resource: it.Resource, Action: it.Action})
+		module := strings.TrimSpace(it.Module)
+		if module == "" {
+			module = strings.TrimSpace(it.Plugin)
+		}
+		if module == "" {
+			dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", errors.New("module is required"))
+			return
+		}
+		ts = append(ts, iamsvc.PermTriple{Module: module, Resource: it.Resource, Action: it.Action})
 	}
 	if err := h.svc.GrantPermsByTriples(c.Request.Context(), actor, roleID, ts); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "授予权限失败", err)
@@ -193,20 +202,9 @@ func (h *RBACHandler) CheckPermission(c *gin.Context) {
 	if !ok {
 		return
 	}
-	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
-	if tenantUUID == "" {
-		var okTenant bool
-		tenantUUID, okTenant = requireTenantUUIDFromContext(c)
-		if !okTenant {
-			return
-		}
-	} else {
-		canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
-		if err != nil {
-			dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid must be valid", err)
-			return
-		}
-		tenantUUID = canonical
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
 	}
 	memberID, _ := strconv.ParseUint(c.Query("member_id"), 10, 64) // 可选，不传用上下文
 
