@@ -478,7 +478,7 @@ plugin:
       sse_buffer_size: 128
       audit_topic: dev.hotload.sessions
   bootstrap:
-    templates_index: ./config/plugins/templates/index.yaml
+    templates_index: ../config/plugins/templates/index.yaml
     default_template: fullstack-go-nuxt
     allowlisted_hosts:
       - git.powerx.io
@@ -489,10 +489,10 @@ plugin:
     host_simulator:
       enabled: true
       feature_flag: PX_PLUGIN_HOST_SIMULATOR
-      config_path: ./config/plugins/debug/host_simulator.yaml
+      config_path: ../config/plugins/debug/host_simulator.yaml
     reports:
-      template: ./config/plugins/debug/report_template.yaml
-      masking_rules: ./config/security/data_masking_rules.yaml
+      template: ../config/plugins/debug/report_template.yaml
+      masking_rules: ../config/security/data_masking_rules.yaml
       fallback_log_base: ""
     ticket_bridge:
       provider: noop
@@ -501,7 +501,7 @@ plugin:
     sandbox:
       enabled: true
       feature_flag: plugin-sandbox-suite
-      data_suite_path: ./config/plugins/debug/data_suite.yaml
+      data_suite_path: ../config/plugins/debug/data_suite.yaml
 
 storage:
   default_driver: local

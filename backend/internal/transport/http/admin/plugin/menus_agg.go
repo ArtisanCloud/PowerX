@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/config"
 	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -19,6 +20,12 @@ type PluginMenusPublic struct {
 }
 
 func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []string) PluginMenusPublic {
+	cfg := config.GetGlobalConfig()
+	if cfg != nil && !cfg.Plugin.Enabled {
+		log.Printf("[menu-builder] plugin runtime disabled, skip plugin menus")
+		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
+	}
+
 	mgr := mgrimpl.GetPluginManager()
 	list, err := mgr.List(ctx)
 	if err != nil {
