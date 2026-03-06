@@ -404,12 +404,14 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 
 	db, cleanup, err := connectAdminDB(dbCfg)
 	if err != nil {
-		return nil, err
+		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): connect admin db failed: %v\n", pluginID, err)
+		return buildSharedDatabaseSection(dbCfg, driver), nil
 	}
 	defer cleanup()
 
 	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
-		return nil, err
+		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure schema failed: %v\n", pluginID, err)
+		return buildSharedDatabaseSection(dbCfg, driver), nil
 	}
 
 	section := &databaseSection{
@@ -422,13 +424,15 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	switch driver {
 	case "postgres":
 		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
-			return nil, err
+			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure postgres user failed: %v\n", pluginID, err)
+			return buildSharedDatabaseSection(dbCfg, driver), nil
 		}
 		section.DSN = buildPostgresPluginDSN(dbCfg, section)
 		section.SearchPath = section.Schema
 	case "mysql":
 		if err := ensureMySQLUser(db, section); err != nil {
-			return nil, err
+			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure mysql user failed: %v\n", pluginID, err)
+			return buildSharedDatabaseSection(dbCfg, driver), nil
 		}
 		section.DSN = buildMySQLPluginDSN(dbCfg, section)
 	default:
@@ -436,6 +440,19 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 
 	return section, nil
+}
+
+func buildSharedDatabaseSection(cfg corexdb.DatabaseConfig, driver string) *databaseSection {
+	section := &databaseSection{
+		Driver: strings.TrimSpace(driver),
+		DSN:    makeDatabaseDSN(cfg),
+	}
+	if section.Driver == "" {
+		section.Driver = normalizeDriver(cfg.Driver)
+	}
+	section.User = strings.TrimSpace(cfg.UserName)
+	section.Password = cfg.Password
+	return section
 }
 
 func connectAdminDB(cfg corexdb.DatabaseConfig) (*gorm.DB, func(), error) {
@@ -639,7 +656,15 @@ func buildPostgresPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection
 				q.Set("timezone", cfg.Timezone)
 			}
 			u.RawQuery = q.Encode()
-			return u.String()
+			dsn := u.String()
+			if tz := strings.TrimSpace(cfg.Timezone); tz != "" {
+				encoded := url.QueryEscape(tz)
+				if encoded != tz {
+					dsn = strings.Replace(dsn, "timezone="+encoded, "timezone="+tz, 1)
+					dsn = strings.Replace(dsn, "TimeZone="+encoded, "TimeZone="+tz, 1)
+				}
+			}
+			return dsn
 		}
 	}
 

@@ -6,7 +6,7 @@
     :ui="{ width: 'sm:max-w-lg' }"
   >
     <template #content>
-      <div class="p-4">
+      <div class="p-4 max-h-[80vh] overflow-y-auto">
         <div class="flex items-start gap-3">
           <img
             v-if="plugin?.icon"
@@ -135,6 +135,12 @@
                 >
               </div>
             </div>
+            <div class="flex items-center gap-3">
+              <USwitch v-model="state.forceInstall" />
+              <span class="text-sm text-[var(--text-secondary)]"
+                >强制覆盖同版本（Force）</span
+              >
+            </div>
 
             <div>
               <div class="text-sm mb-2 text-[var(--text-secondary)]">
@@ -244,6 +250,7 @@ const state = reactive({
   namespace: "",
   env: envOptions[0].value,
   autoUpdate: true,
+  forceInstall: false,
   perms: {
     network: true,
     storage: true,
@@ -254,6 +261,7 @@ const state = reactive({
 
 const installing = ref(false);
 const localDirInputRef = ref<HTMLInputElement | null>(null);
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
 watch(
   () => props.modelValue,
@@ -327,6 +335,10 @@ function openLocalDirSelector() {
   localDirInputRef.value?.click();
 }
 
+function notifyMenuRefresh() {
+  menuRefreshToken.value += 1;
+}
+
 async function confirmInstall() {
   // 检查是否有有效的安装来源
   if (state.installMode === "远程URL" && !state.url) {
@@ -364,6 +376,7 @@ async function confirmInstall() {
         url: state.url,
         sha256: state.sha256 || undefined,
         enable: !!state.enableAfterInstall,
+        force: !!state.forceInstall,
         metadata: buildInstallMetadataPayload(),
       });
 
@@ -380,8 +393,10 @@ async function confirmInstall() {
       for (const file of state.localDirFiles) {
         const relPath = (file as any)?.webkitRelativePath || file.name;
         formData.append("files", file, relPath);
+        formData.append("file_paths", relPath);
       }
       formData.append("enable", String(!!state.enableAfterInstall));
+      formData.append("force", String(!!state.forceInstall));
       formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
       await svc.installFromLocal(formData);
 
@@ -396,6 +411,7 @@ async function confirmInstall() {
       return;
     }
 
+    notifyMenuRefresh();
     emit("installed", {
       plugin: props.plugin || null,
       state: JSON.parse(JSON.stringify(state)),

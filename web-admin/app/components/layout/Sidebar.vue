@@ -151,6 +151,7 @@ const {
   },
   watch: [locale],
 });
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
 /* ---------- 子级排序（顶层不排序） ---------- */
 const sortChildren = (a: MenuItem, b: MenuItem) => {
@@ -501,6 +502,12 @@ watch(
   () => renderedGroups.value,
   () => expandByRoute(),
   { deep: true }
+);
+watch(
+  () => menuRefreshToken.value,
+  () => {
+    refreshMenus();
+  }
 );
 
 /* ---------- a11y：简单键盘支持 ---------- */

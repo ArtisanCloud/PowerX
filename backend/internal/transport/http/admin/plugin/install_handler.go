@@ -50,7 +50,7 @@ func PluginInstallLocalHandler(c *gin.Context) {
 				dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
 				return
 			}
-			uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"])
+			uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], form.Value["file_paths"])
 		}
 		if err != nil {
 			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
@@ -150,7 +150,7 @@ func saveUploadedFileToTemp(fileHeader *multipart.FileHeader) (string, func(), e
 	}, nil
 }
 
-func saveUploadedDirToTemp(files []*multipart.FileHeader) (string, func(), error) {
+func saveUploadedDirToTemp(files []*multipart.FileHeader, relPathsInput []string) (string, func(), error) {
 	tmpRoot, err := os.MkdirTemp("", "px-plugin-upload-dir-*")
 	if err != nil {
 		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("upload_dir_temp"))
@@ -159,8 +159,13 @@ func saveUploadedDirToTemp(files []*multipart.FileHeader) (string, func(), error
 		_ = os.RemoveAll(tmpRoot)
 	}
 	relPaths := make([]string, 0, len(files))
+	hasPathHints := len(relPathsInput) == len(files)
 	for _, fh := range files {
-		rel := filepath.Clean(strings.TrimSpace(fh.Filename))
+		relRaw := strings.TrimSpace(fh.Filename)
+		if hasPathHints {
+			relRaw = strings.TrimSpace(relPathsInput[len(relPaths)])
+		}
+		rel := filepath.Clean(relRaw)
 		rel = strings.TrimPrefix(rel, string(filepath.Separator))
 		if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
 			cleanup()
@@ -434,6 +439,7 @@ type installURLReq struct {
 	URL      string                     `json:"url"     validate:"required,url"`
 	SHA256   string                     `json:"sha256"`
 	Enable   bool                       `json:"enable"`
+	Force    bool                       `json:"force"`
 	Sign     string                     `json:"signature"`
 	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
@@ -456,6 +462,7 @@ func PluginInstallURLHandler(c *gin.Context) {
 		VerifyChecksum:  req.SHA256 != "", // 传了就校验
 		VerifySignature: false,            // 先关；后续接公钥再开
 		AutoEnable:      req.Enable,
+		Force:           req.Force,
 		Metadata:        meta,
 	})
 	if err != nil {

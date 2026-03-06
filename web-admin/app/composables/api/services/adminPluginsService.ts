@@ -51,7 +51,7 @@ export const useAdminPluginsService = () => {
       }),
 
     // 安装（从 URL）
-    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; metadata?: Record<string, any> }) =>
+    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; force?: boolean; metadata?: Record<string, any> }) =>
       api.post(`${base}/install/url`, payload),
 
     // 本地安装（文件上传）
