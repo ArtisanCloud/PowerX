@@ -46,19 +46,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] HTTP 合同契约测试（admin 路由全集）：`backend/tests/contract/skills/http_admin_skills_contract_test.go`（对应 `specs/024-ai-engineering-skills/contracts/http-openapi.yaml`）
-- [ ] T016 [P] [US1] gRPC 合同契约测试（SkillAdminService）：`backend/tests/contract/skills/grpc_skill_admin_contract_test.go`（对应 `backend/api/grpc/contracts/powerx/skills/v1/skills.proto`）
-- [ ] T017 [P] [US1] 集成测试：发布/回滚状态机与 latest 指针正确：`backend/tests/integration/skills/skill_lifecycle_integration_test.go`
+- [X] T015 [P] [US1] HTTP 合同契约测试（admin 路由全集）：`backend/tests/contract/skills/http_admin_skills_contract_test.go`（对应 `specs/024-ai-engineering-skills/contracts/http-openapi.yaml`）
+- [X] T016 [P] [US1] gRPC 合同契约测试（SkillAdminService）：`backend/tests/contract/skills/grpc_skill_admin_contract_test.go`（对应 `backend/api/grpc/contracts/powerx/skills/v1/skills.proto`）
+- [X] T017 [P] [US1] 集成测试：发布/回滚状态机与 latest 指针正确：`backend/tests/integration/skills/skill_lifecycle_integration_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] 实现官方目录查询接口 `GET /admin/skills/catalog`：`backend/internal/transport/http/admin/skills/catalog_handler.go`
-- [ ] T019 [US1] 实现注册与列表接口 `POST/GET /admin/skills`：`backend/internal/transport/http/admin/skills/registry_handler.go`
-- [ ] T020 [US1] 实现发布接口 `POST /admin/skills/{skillId}/publish`（人工审批门禁）：`backend/internal/transport/http/admin/skills/publish_handler.go`
-- [ ] T021 [US1] 实现回滚接口 `POST /admin/skills/{skillId}/rollback`：`backend/internal/transport/http/admin/skills/rollback_handler.go`
-- [ ] T022 [US1] 实现管理路由装配与权限约束：admin root only：`backend/internal/transport/http/admin/skills/routes.go`
-- [ ] T023 [US1] 实现 gRPC SkillAdminService（List/Import/Publish/Rollback/Bind）：`backend/internal/transport/grpc/skills/admin_service.go`
-- [ ] T024 [US1] Web Admin 页面首版（目录 + registry 列表 + 发布/回滚按钮）：`web-admin/app/pages/settings/ai/skills.vue`
+- [X] T018 [US1] 实现官方目录查询接口 `GET /admin/skills/catalog`：`backend/internal/transport/http/admin/skills/catalog_handler.go`
+- [X] T019 [US1] 实现注册与列表接口 `POST/GET /admin/skills`：`backend/internal/transport/http/admin/skills/registry_handler.go`
+- [X] T020 [US1] 实现发布接口 `POST /admin/skills/{skillId}/publish`（人工审批门禁）：`backend/internal/transport/http/admin/skills/publish_handler.go`
+- [X] T021 [US1] 实现回滚接口 `POST /admin/skills/{skillId}/rollback`：`backend/internal/transport/http/admin/skills/rollback_handler.go`
+- [X] T022 [US1] 实现管理路由装配与权限约束：admin root only：`backend/internal/transport/http/admin/skills/routes.go`
+- [X] T023 [US1] 实现 gRPC SkillAdminService（List/Import/Publish/Rollback/Bind）：`backend/internal/transport/grpc/skills/admin_service.go`
+- [X] T024 [US1] Web Admin 页面首版（目录 + registry 列表 + 发布/回滚按钮）：`web-admin/app/pages/settings/ai/skills.vue`
 
 **Checkpoint**: US1 独立可演示（管理闭环完成）。
 
