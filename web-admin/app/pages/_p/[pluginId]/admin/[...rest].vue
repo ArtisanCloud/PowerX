@@ -19,7 +19,6 @@ const src = computed(() => {
   return rest.value ? base + rest.value : base
 })
 
-watch(src, (v) => console.log("[PXAdmin][Page:rest] iframe src ->", v), {immediate: true})
 </script>
 
 <template>

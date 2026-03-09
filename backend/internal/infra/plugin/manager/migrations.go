@@ -57,6 +57,10 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 		)
 	}
 	if fi, err := os.Stat(resolvedEntry); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			record.LastStatus = plugin_mgr.MigrationStatusFailed
+			record.LastError = fmt.Sprintf("migration entry %q not found", resolvedEntry)
+		}
 		return record, plugin_mgr.Wrap(
 			plugin_mgr.CodeMigrationFailed,
 			fmt.Errorf("migration entry %q not found: %w", resolvedEntry, err),

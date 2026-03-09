@@ -11,10 +11,6 @@ const pluginId = computed(() => String(route.params.pluginId || ""))
 // const src = computed(() => `http://127.0.0.1:8077/_p/${pluginId.value}/admin/`)
 const src = computed(() => `/_p/${pluginId.value}/admin/`)
 
-
-onMounted(() => {
-  console.log("[PXAdmin][Page:index] iframe src ->", src.value)
-})
 </script>
 
 <template>

@@ -14,6 +14,8 @@ defineProps<{
   toggleExpanded: (id: string) => void;
   hasActiveChild: (children?: MenuItem[]) => boolean;
 }>();
+
+const renderPluginVersion = () => false;
 </script>
 
 <template>
@@ -54,7 +56,18 @@ defineProps<{
             <span class="inline-block w-5 h-5 flex-shrink-0">
               <UIcon class="w-5 h-5" :name="resolveIcon(item.icon)" />
             </span>
-            <span class="truncate">{{ item.title }}</span>
+            <div class="min-w-0 flex items-center gap-2">
+              <span class="truncate">{{ item.title }}</span>
+              <UBadge
+                v-if="renderPluginVersion(item)"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                class="shrink-0 uppercase"
+              >
+                v{{ item.pluginVersion }}
+              </UBadge>
+            </div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <UBadge v-if="item.badge" size="xs" color="primary">{{
@@ -130,7 +143,18 @@ defineProps<{
           <span class="inline-block w-5 h-5 flex-shrink-0">
             <UIcon class="w-5 h-5" :name="resolveIcon(item.icon)" />
           </span>
-          <span class="truncate">{{ item.title }}</span>
+          <div class="min-w-0 flex items-center gap-2">
+            <span class="truncate">{{ item.title }}</span>
+            <UBadge
+              v-if="renderPluginVersion(item)"
+              size="xs"
+              color="neutral"
+              variant="soft"
+              class="shrink-0 uppercase"
+            >
+              v{{ item.pluginVersion }}
+            </UBadge>
+          </div>
         </div>
         <UBadge v-if="item.badge" size="xs" color="primary">{{
           item.badge

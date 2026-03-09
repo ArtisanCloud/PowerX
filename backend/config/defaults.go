@@ -52,6 +52,21 @@ func GetDefaults() *Config {
 			HttpDebug: false,
 			Debug:     true,
 		},
+		Audit: AuditConfig{
+			PersistToDB:         false,
+			EnableGORMCallbacks: false,
+			File: AuditFileSinkConfig{
+				Enable:      true,
+				Dir:         "logs/audit",
+				FilePrefix:  "audit_event",
+				MaxSize:     100,
+				MaxBackups:  30,
+				MaxAge:      30,
+				Compress:    true,
+				UseUTC:      false,
+				IncludeMeta: true,
+			},
+		},
 		Auth: AuthConfig{
 			JWTSecret:        "K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0",
 			Issuer:           "powerx-auth",

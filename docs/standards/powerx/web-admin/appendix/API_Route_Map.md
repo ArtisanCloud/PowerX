@@ -9,7 +9,7 @@
 | 页面 / 功能 | 代码位置 | Composable / Store | 请求 | API 端点 | 权限 / 备注 |
 | --- | --- | --- | --- | --- | --- |
 | 登录 | `app/pages/users/login.vue`（TODO） | `useAuthService().login` | `POST` | `/admin/user/auth/login` | `auth.login` |
-| 用户上下文 | `app/stores/user.ts` | `useMe().getUserContext` | `GET` | `/admin/user/me/context`（假定） | `user.context.read` |
+| 用户上下文 | `app/stores/user.ts` | `useMe().getUserContext` | `GET` | `/admin/user/auth/me/context` | `user.context.read` |
 | Agent 列表 | `/agent` | `useAgentManager().fetchAgents` | `GET` | `/admin/agents` | `agent.list` |
 | Agent 详情 | `/agent` | `useAgentManager().fetchAgentDetail` | `GET` | `/admin/agents/{id}` | `agent.read` |
 | Agent 会话列表 | `/agent` | `useChatSessions().listSessions` | `GET` | `/admin/agents/{id}/sessions`（待确认） | `agent.session.list` |
@@ -31,6 +31,15 @@
 | Token 刷新 | 全局 | `useAuthService().refreshToken` | `POST` | `/admin/user/auth/refresh` | `auth.refresh` |
 
 > 若实际接口不同，请在集成时更新表格，确保前后端使用统一路径。
+
+### 身份路由策略（强约束）
+
+- 认证相关接口统一使用：`/admin/{identity}/auth/*`
+- 当前 identity：
+  - `user`：`/admin/user/auth/*`
+  - `supply`：`/admin/supply/auth/*`（按模块启用）
+- 未来 identity：
+  - `admin/{identity}/auth` 可按业务域扩展，不新增无 identity 前缀的认证路径。
 
 ---
 

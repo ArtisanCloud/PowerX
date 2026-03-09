@@ -79,6 +79,7 @@
           :plugin="p"
           :is-system-installed="Boolean((p as any).__sys?.isSystemInstalled)"
           :is-system-enabled="Boolean((p as any).__sys?.isSystemEnabled)"
+          :system-status="String((p as any).__sys?.systemStatus || '')"
           :can-install="isRoot"
           @install="openInstall"
         />
@@ -166,6 +167,7 @@ const statusOptions = [
   "已安装（未启用）",
   "已启用",
   "已停用",
+  "异常",
 ];
 
 // 用户角色（用于权限控制)
@@ -229,6 +231,8 @@ const filtered = computed(() => {
       else if (s === "已启用") hitS = isEnabled;
       else if (s === "已停用")
         hitS = isInstalled && sys.systemStatus === "disabled";
+      else if (s === "异常")
+        hitS = isInstalled && sys.systemStatus === "broken";
     }
     return hitQ && hitC && hitS;
   });

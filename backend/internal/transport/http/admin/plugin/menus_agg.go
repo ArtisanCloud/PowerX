@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	"github.com/ArtisanCloud/PowerX/config"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
@@ -19,7 +19,17 @@ type PluginMenusPublic struct {
 }
 
 func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []string) PluginMenusPublic {
-	mgr := mgrimpl.GetPluginManager()
+	cfg := config.GetGlobalConfig()
+	if cfg != nil && !cfg.Plugin.Enabled {
+		log.Printf("[menu-builder] plugin runtime disabled, skip plugin menus")
+		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
+	}
+
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		log.Printf("[menu-builder] plugin manager unavailable, skip plugin menus: %v", err)
+		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
+	}
 	list, err := mgr.List(ctx)
 	if err != nil {
 		return PluginMenusPublic{}
@@ -35,12 +45,9 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 		log.Printf("[menu-builder] id=%s state=%s kind=%s adminDir=%q menus=%d",
 			p.ID, p.State, p.Frontend.Admin.Kind, p.Paths.FrontendAdminDir, len(p.Frontend.Admin.Menus))
 
-		if p.State == plugin_mgr.StateDisabled {
-			log.Printf("[menu-builder] skip=%s reason=state=disabled", p.ID)
-			continue
-		}
 		if p.State != plugin_mgr.StateEnabled {
-			log.Printf("[menu-builder] include=%s state=%s (menus only)", p.ID, p.State)
+			log.Printf("[menu-builder] skip=%s reason=state=%s", p.ID, p.State)
+			continue
 		}
 
 		// 只要插件声明了菜单，就接入（无论 static / process / proxy）
@@ -61,7 +68,7 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 
 		root := basePrefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
-			item := convertPluginMenuItem(p.ID, root, "", m, preferredLocales, bundle)
+			item := convertPluginMenuItem(p.ID, p.Version, root, "", m, preferredLocales, bundle)
 			if item.Slot == "" {
 				item.Slot = plugin_mgr.SlotPlugins
 			}
@@ -72,7 +79,7 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 	return out
 }
 
-func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m plugin_mgr.MenuItem, locales []string, bundle *admdto.MenuI18nPackage) admdto.AdminMenuItem {
+func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_mgr.MenuKey, m plugin_mgr.MenuItem, locales []string, bundle *admdto.MenuI18nPackage) admdto.AdminMenuItem {
 	route := strings.TrimLeft(m.Route, "/")
 	url := root
 	if route != "" {
@@ -90,16 +97,17 @@ func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m p
 
 	key := makePluginMenuKey(pluginID, m, route)
 	item := admdto.AdminMenuItem{
-		Key:         key,
-		Title:       title,
-		Icon:        m.Icon,
-		URL:         url,
-		Order:       m.Order,
-		Origin:      plugin_mgr.OriginPlugin,
-		Visible:     visible,
-		Slot:        slot,
-		Permissions: m.RequiredPolicies,
-		TitleI18n:   titleI18n,
+		Key:           key,
+		Title:         title,
+		Icon:          m.Icon,
+		URL:           url,
+		Order:         m.Order,
+		Origin:        plugin_mgr.OriginPlugin,
+		Visible:       visible,
+		Slot:          slot,
+		Permissions:   m.RequiredPolicies,
+		TitleI18n:     titleI18n,
+		PluginVersion: strings.TrimSpace(pluginVersion),
 	}
 	if parent != "" {
 		item.ParentID = parent
@@ -108,7 +116,7 @@ func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m p
 	if len(m.Children) > 0 {
 		item.Children = make([]admdto.AdminMenuItem, 0, len(m.Children))
 		for _, child := range m.Children {
-			childItem := convertPluginMenuItem(pluginID, root, key, child, locales, bundle)
+			childItem := convertPluginMenuItem(pluginID, pluginVersion, root, key, child, locales, bundle)
 			item.Children = append(item.Children, childItem)
 		}
 	}

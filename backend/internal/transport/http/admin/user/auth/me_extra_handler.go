@@ -30,7 +30,7 @@ type switchTenantReq struct {
 	TenantUUID string `json:"tenant_uuid"`
 }
 
-// POST /api/v1/admin/auth/me/switch-tenant
+// POST /api/v1/admin/user/auth/me/switch-tenant
 func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 	var req switchTenantReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -76,7 +76,7 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 	dto.ResponseSuccess(c, resp)
 }
 
-// GET /api/v1/admin/auth/me/tenants
+// GET /api/v1/admin/user/auth/me/tenants
 func (h *MeExtraHandler) ListTenants(c *gin.Context) {
 	resp, err := h.me.GetMeContext(c.Request.Context())
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *MeExtraHandler) ListTenants(c *gin.Context) {
 	dto.ResponseSuccess(c, resp.Members)
 }
 
-// GET /api/v1/admin/auth/me/departments
+// GET /api/v1/admin/user/auth/me/departments
 func (h *MeExtraHandler) ListDepartments(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantUUID, err := reqctx.RequireTenantUUID(ctx)

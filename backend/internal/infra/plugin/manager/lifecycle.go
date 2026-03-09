@@ -232,6 +232,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	}
 	apiURL, _ := url.Parse(apiBaseURL)
 	m.http.MountAPIProxy(p.ID, apiURL, basePath, apiHealthPath)
+	fmt.Printf("[plugin-enable] plugin=%s api_upstream=%s base_path=%s health=%s\n",
+		p.ID, apiBaseURL, basePath, apiHealthPath)
 
 	// ---------- 前端：三种形态 ----------
 	switch p.Frontend.Admin.Kind {

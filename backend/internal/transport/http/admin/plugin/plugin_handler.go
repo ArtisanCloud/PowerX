@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
 	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -25,12 +26,20 @@ func basePrefix() string {
 
 // GET /api/.../admin/plugins
 func PluginListHandler(c *gin.Context) {
-	mgr := manager.GetPluginManager()
-
-	list, err := mgr.List(c)
-	if err != nil {
-		dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件列表失败", err)
-		return
+	mgr, err := tryGetPluginManager()
+	var list []pluginMgr.Plugin
+	if err == nil {
+		list, err = mgr.List(c)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件列表失败", err)
+			return
+		}
+	} else {
+		list, err = listPluginsFromRegistry(c)
+		if err != nil {
+			dtoRequest.ResponseSuccess(c, gin.H{"plugins": []pluginDto.PluginItem{}})
+			return
+		}
 	}
 
 	prefix := basePrefix()
@@ -93,7 +102,11 @@ func PluginEnableHandler(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
-	mgr := manager.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 	ctx := c.Request.Context()
 	tenantUUID := optionalTenantContext(c)
 	if tenantUUID != "" {
@@ -113,7 +126,11 @@ func PluginDisableHandler(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
-	mgr := manager.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 	if err := mgr.Disable(c, id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "停用插件失败", err)
 		return
@@ -127,11 +144,20 @@ func optionalTenantContext(c *gin.Context) string {
 
 // GET /api/.../admin/plugins/menus
 func PluginMenusHandler(c *gin.Context) {
-	mgr := manager.GetPluginManager()
-	list, err := mgr.List(c)
-	if err != nil {
-		dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件菜单失败", err)
-		return
+	mgr, err := tryGetPluginManager()
+	var list []pluginMgr.Plugin
+	if err == nil {
+		list, err = mgr.List(c)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件菜单失败", err)
+			return
+		}
+	} else {
+		list, err = listPluginsFromRegistry(c)
+		if err != nil {
+			dtoRequest.ResponseSuccess(c, gin.H{"menus": []pluginDto.PluginMenuItem{}})
+			return
+		}
 	}
 
 	prefix := basePrefix()
@@ -176,16 +202,25 @@ func PluginGetHandler(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
-	mgr := manager.GetPluginManager()
-
-	p, err := mgr.Get(c, id)
-	if err != nil {
-		dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
-		return
+	mgr, err := tryGetPluginManager()
+	var (
+		p    pluginMgr.Plugin
+		proc = supervisor.ProcInfo{}
+	)
+	if err == nil {
+		p, err = mgr.Get(c, id)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+			return
+		}
+		proc, _ = manager.TryRuntimeStatus(mgr, id)
+	} else {
+		p, err = getPluginFromRegistry(c, id)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+			return
+		}
 	}
-
-	// 运行态
-	proc, _ := manager.TryRuntimeStatus(mgr, id)
 
 	prefix := basePrefix()
 	hasAdmin := p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
@@ -231,7 +266,11 @@ func PluginRestartHandler(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
-	mgr := manager.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
+		return
+	}
 
 	if err := mgr.Disable(c, id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "重启插件失败（停用阶段）", err)

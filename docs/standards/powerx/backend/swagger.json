@@ -301,15 +301,15 @@
         ]
       }
     },
-    "/api/v1/admin/auth/me/context": {
+    "/api/v1/admin/user/auth/me/context": {
       "get": {
-        "operationId": "GET /api/v1/admin/auth/me/context",
+        "operationId": "GET /api/v1/admin/user/auth/me/context",
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "summary": "GET /api/v1/admin/auth/me/context",
+        "summary": "GET /api/v1/admin/user/auth/me/context",
         "tags": [
           "api"
         ]

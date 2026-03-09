@@ -2,13 +2,13 @@
 package plugin
 
 import (
-    mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
-    dto "github.com/ArtisanCloud/PowerX/pkg/dto"
-    pmdto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
-    "github.com/gin-gonic/gin"
-    "os"
-    "path/filepath"
-    "strings"
+	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
+	pmdto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/gin-gonic/gin"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // ---- 基础配置（由路由层注入一次） ----
@@ -53,16 +53,26 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 		return ""
 	}
 
-    return func(c *gin.Context) {
-        mgr := mgrimpl.GetPluginManager()
-        list, err := mgr.List(c)
-        if err != nil {
-            dto.ResponseError(c, 500, "加载插件失败", err)
-            return
-        }
+	return func(c *gin.Context) {
+		mgr, err := tryGetPluginManager()
+		var list []pmdto.MarketplaceItem
+		var plugs []plugin_mgr.Plugin
+		if err == nil {
+			plugs, err = mgr.List(c)
+			if err != nil {
+				dto.ResponseError(c, 500, "加载插件失败", err)
+				return
+			}
+		} else {
+			plugs, err = listPluginsFromRegistry(c)
+			if err != nil {
+				dto.ResponseList(c, []pmdto.MarketplaceItem{}, nil)
+				return
+			}
+		}
 
-        out := make([]pmdto.MarketplaceItem, 0, len(list))
-        for _, p := range list {
+		out := make([]pmdto.MarketplaceItem, 0, len(plugs))
+		for _, p := range plugs {
 			iconURL := ""
 			if p.Frontend.Admin.Kind == "static" && p.Paths.FrontendAdminDir != "" {
 				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
@@ -83,110 +93,122 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 			})
 		}
 
-        	dto.ResponseList(c, out, nil)
-    }
+		list = out
+		dto.ResponseList(c, list, nil)
+	}
 }
 
 // MarketplaceListV2Handler: 返回贴合前端 Plugin 类型的结构（本地模拟）
 // 说明：无远端 Marketplace 时，使用当前已安装列表 + 元数据补齐字段；后续可改为远端合并。
 func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
-    // 复用与 v1 相同的图标解析逻辑
-    resolveIconURL := func(pID, adminDirAbs, iconFromMeta string) string {
-        if iconFromMeta == "" {
-            for _, rel := range []string{"icon.svg", "icon.png", "assets/icon.svg", "assets/icon.png"} {
-                if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-                    return basePrefix + "/" + pID + "/admin/" + rel
-                }
-            }
-            return ""
-        }
-        rel := strings.TrimPrefix(iconFromMeta, "./")
-        if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-            return basePrefix + "/" + pID + "/admin/" + rel
-        }
-        if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
-            return iconFromMeta
-        }
-        return ""
-    }
+	// 复用与 v1 相同的图标解析逻辑
+	resolveIconURL := func(pID, adminDirAbs, iconFromMeta string) string {
+		if iconFromMeta == "" {
+			for _, rel := range []string{"icon.svg", "icon.png", "assets/icon.svg", "assets/icon.png"} {
+				if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
+					return basePrefix + "/" + pID + "/admin/" + rel
+				}
+			}
+			return ""
+		}
+		rel := strings.TrimPrefix(iconFromMeta, "./")
+		if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
+			return basePrefix + "/" + pID + "/admin/" + rel
+		}
+		if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
+			return iconFromMeta
+		}
+		return ""
+	}
 
-    slugify := func(id string) string {
-        s := strings.ReplaceAll(id, ".", "-")
-        s = strings.ReplaceAll(s, "_", "-")
-        return s
-    }
+	slugify := func(id string) string {
+		s := strings.ReplaceAll(id, ".", "-")
+		s = strings.ReplaceAll(s, "_", "-")
+		return s
+	}
 
-    // map state → systemStatus
-    toSystemStatus := func(state string) string {
-        switch strings.ToLower(strings.TrimSpace(state)) {
-        case "enabled":
-            return "enabled"
-        case "disabled":
-            return "disabled"
-        case "installed":
-            return "installed"
-        default:
-            return "not_installed"
-        }
-    }
+	// map state → systemStatus
+	toSystemStatus := func(state string) string {
+		switch strings.ToLower(strings.TrimSpace(state)) {
+		case "enabled":
+			return "enabled"
+		case "disabled":
+			return "disabled"
+		case "installed":
+			return "installed"
+		case "broken", "invalid", "abnormal":
+			return "broken"
+		default:
+			return "not_installed"
+		}
+	}
 
-    return func(c *gin.Context) {
-        mgr := mgrimpl.GetPluginManager()
-        list, err := mgr.List(c)
-        if err != nil {
-            dto.ResponseError(c, 500, "加载插件失败", err)
-            return
-        }
+	return func(c *gin.Context) {
+		mgr, err := tryGetPluginManager()
+		var list []plugin_mgr.Plugin
+		if err == nil {
+			list, err = mgr.List(c)
+			if err != nil {
+				dto.ResponseError(c, 500, "加载插件失败", err)
+				return
+			}
+		} else {
+			list, err = listPluginsFromRegistry(c)
+			if err != nil {
+				dto.ResponseList(c, []gin.H{}, nil)
+				return
+			}
+		}
 
-        out := make([]gin.H, 0, len(list))
-        for _, p := range list {
-            iconURL := ""
-            if p.Frontend.Admin.Kind == "static" && p.Paths.FrontendAdminDir != "" {
-                if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
-                    iconURL = resolveIconURL(p.ID, abs, p.Metadata.Icon)
-                }
-            }
+		out := make([]gin.H, 0, len(list))
+		for _, p := range list {
+			iconURL := ""
+			if p.Frontend.Admin.Kind == "static" && p.Paths.FrontendAdminDir != "" {
+				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
+					iconURL = resolveIconURL(p.ID, abs, p.Metadata.Icon)
+				}
+			}
 
-            systemStatus := toSystemStatus(string(p.State))
-            isInstalled := systemStatus != "not_installed"
-            isEnabled := systemStatus == "enabled"
+			systemStatus := toSystemStatus(string(p.State))
+			isInstalled := systemStatus != "not_installed"
+			isEnabled := systemStatus == "enabled"
 
-            // 补齐前端需要的字段；无远端 marketplace 时给默认值
-            item := gin.H{
-                "id":               p.ID,
-                "name":             p.Name,
-                "slug":             slugify(p.ID),
-                "version":          p.Version,
-                "description":      p.Description,
-                "author":           p.Metadata.Author,
-                "authorUrl":        p.Metadata.Homepage,
-                "homepage":         p.Metadata.Homepage,
-                "repository":       "",
-                "license":          p.Metadata.License,
-                "icon":             iconURL,
-                "screenshots":      []string{},
-                "category":         p.Metadata.Category,
-                "tags":             append([]string(nil), p.Metadata.Tags...),
-                "systemStatus":      systemStatus,
-                "isSystemInstalled": isInstalled,
-                "isSystemEnabled":   isEnabled,
-                "installPath":       p.Paths.Root,
-                "configSchema":      gin.H{},
-                "config":            gin.H{},
-                "dependencies":      []string{},
-                "requirements":      gin.H{},
-                "downloadUrl":       "",
-                "downloadCount":     0,
-                "rating":            0,
-                "reviewCount":       0,
-                "lastUpdated":       "",
-                "createdAt":         "",
-                "updatedAt":         "",
-            }
-            out = append(out, item)
-        }
+			// 补齐前端需要的字段；无远端 marketplace 时给默认值
+			item := gin.H{
+				"id":                p.ID,
+				"name":              p.Name,
+				"slug":              slugify(p.ID),
+				"version":           p.Version,
+				"description":       p.Description,
+				"author":            p.Metadata.Author,
+				"authorUrl":         p.Metadata.Homepage,
+				"homepage":          p.Metadata.Homepage,
+				"repository":        "",
+				"license":           p.Metadata.License,
+				"icon":              iconURL,
+				"screenshots":       []string{},
+				"category":          p.Metadata.Category,
+				"tags":              append([]string(nil), p.Metadata.Tags...),
+				"systemStatus":      systemStatus,
+				"isSystemInstalled": isInstalled,
+				"isSystemEnabled":   isEnabled,
+				"installPath":       p.Paths.Root,
+				"configSchema":      gin.H{},
+				"config":            gin.H{},
+				"dependencies":      []string{},
+				"requirements":      gin.H{},
+				"downloadUrl":       "",
+				"downloadCount":     0,
+				"rating":            0,
+				"reviewCount":       0,
+				"lastUpdated":       "",
+				"createdAt":         "",
+				"updatedAt":         "",
+			}
+			out = append(out, item)
+		}
 
-        // 使用统一列表响应格式
-        dto.ResponseList(c, out, nil)
-    }
+		// 使用统一列表响应格式
+		dto.ResponseList(c, out, nil)
+	}
 }

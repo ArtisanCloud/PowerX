@@ -258,6 +258,7 @@ const plugin = ref<MarketplacePlugin | undefined>(undefined);
 
 const installOpen = ref(false);
 const toast = useToast();
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
 // 系统状态
 const sysEnabled = ref<boolean>(false);
@@ -332,6 +333,7 @@ async function toggleEnable() {
       });
     }
 
+    menuRefreshToken.value += 1;
     await refreshStatus();
     await refreshMeta();
   } catch (e) {
@@ -615,6 +617,7 @@ async function uninstallPlugin() {
       payload.version = version;
     }
     await svc.uninstall(id.value, payload);
+    menuRefreshToken.value += 1;
     await refreshMeta();
     await refreshStatus();
     router.push("/plugins/market");

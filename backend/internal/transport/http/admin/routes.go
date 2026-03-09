@@ -7,7 +7,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
-	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/auth"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
 	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
@@ -25,6 +24,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
+	userauth "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/user/auth"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
 	workflowHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
 	"github.com/gin-gonic/gin"
@@ -55,7 +55,7 @@ func RegisterAPIRoutes(
 	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
-	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	userauth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	// Agent admin routes (includes share/revoke APIs under /admin/agents)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentmodelhubHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

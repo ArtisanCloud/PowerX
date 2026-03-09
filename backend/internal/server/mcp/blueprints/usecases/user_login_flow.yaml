@@ -612,7 +612,7 @@ output_config:
     dto: "api/dto/auth/auth_dto.go"
     adapter: "api/adapter/auth/auth_adapter.go"
     router: "api/http/router.go"
-    handler: "api/http/admin/auth/auth_handler.go"
+    handler: "api/http/admin/user/auth/auth_handler.go"
     grpc_service: "api/grpc/v1/auth/auth_service.go"
   test_structure:
     test: "test/auth/auth_test.go"

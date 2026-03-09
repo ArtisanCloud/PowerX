@@ -81,7 +81,7 @@ last_reviewed_at: 2025-10-30
 | 接入层 | `internal/transport/http/admin/iam/member_handler.go` | 暴露 Webhook、手动回收、报告查询 API；校验签名与权限 | `repos/powerx/internal/transport/http/admin/iam/` |
 | 工作流层 | `internal/service/iam/offboard_workflow.go` | 编排冻结、会话终止、权限回收、资产移交、重试与告警 | `repos/powerx/internal/service/iam/` |
 | 账号与权限层 | `internal/service/iam/member_service.go`, `pkg/corex/db/persistence/repository/iam` | 更新账号状态、解绑角色、回收项目授权、记录审计快照 | `repos/powerx/internal/service/iam/`, `repos/powerx/pkg/corex/db/persistence/repository/iam/` |
-| 会话层 | `internal/transport/http/admin/auth/session_handler.go`（或等效服务） | 强制登出、刷新令牌失效、记录会话终止结果 | `repos/powerx/internal/transport/http/admin/auth/` |
+| 会话层 | `internal/transport/http/admin/{identity}/auth/session_handler.go`（或等效服务） | 强制登出、刷新令牌失效、记录会话终止结果 | `repos/powerx/internal/transport/http/admin/{identity}/auth/` |
 | 通知与审计 | `internal/infra/plugin/manager/notify/notify.go`, `pkg/corex/audit`, `pkg/event_bus` | 输出通知、PagerDuty 告警、`iam.offboard.*` 事件、离职报告 | `repos/powerx/internal/infra/plugin/manager/notify/`, `repos/powerx/pkg/corex/audit/`, `repos/powerx/pkg/event_bus/` |
 
 ## 流程与时序

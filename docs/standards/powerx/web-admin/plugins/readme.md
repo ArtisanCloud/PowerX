@@ -8,6 +8,7 @@
 - 市场（Marketplace）：展示“可安装的插件目录”。当前为本地模拟，未来支持远端索引（index_url）。
 - 系统级（平台维度）：安装/卸载、切换版本、进程启停、反向代理挂载等，全局唯一，与租户无关。
 - 租户级（Tenant 维度）：某租户对某插件的启用态与凭证（client_id/client_secret），独立隔离。
+- 安装范围（Install Scope）：安装请求中的 `metadata.scope` 标签字段（`user/org/system`），当前用于治理与审计标签，不改变系统级安装行为；默认按身份自动推断（`root -> system`，租户管理员 -> `org`，普通用户 -> `user`）。
 - 凭证（Credentials）：落库于 `plugin_instance_configs(tenant_uuid, plugin_id, key="auth.credentials")`，仅存哈希；明文 secret 仅在首次生成或轮换时返回一次。
 - STS（短期令牌）：插件使用 `client_id/secret` 向宿主交换短期 JWT，用于访问宿主 API。
 

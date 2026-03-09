@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -27,9 +26,21 @@ func PluginUninstallHandler(c *gin.Context) {
 		return
 	}
 
-	mgr := mgrimpl.GetPluginManager()
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		if fallbackErr := uninstallFromRegistry(c, id, req.Version, req.Purge); fallbackErr != nil {
+			respondPluginRuntimeUnavailable(c, fallbackErr)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"id":       id,
+			"version":  req.Version,
+			"purge":    req.Purge,
+			"fallback": true,
+		})
+		return
+	}
 
-	var err error
 	if req.Purge {
 		if req.Version != "" {
 			err = mgr.UninstallAndPurge(c, id, req.Version)

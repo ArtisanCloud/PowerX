@@ -2,11 +2,11 @@
   <UModal
     v-model:open="open"
     :title="plugin ? '安装插件' : '安装插件'"
-    :description="plugin ? plugin.name || '' : '选择安装来源：远程URL或本地包'"
+    :description="plugin ? plugin.name || '' : '选择安装来源：远程URL或本地上传'"
     :ui="{ width: 'sm:max-w-lg' }"
   >
     <template #content>
-      <div class="p-4">
+      <div class="p-4 max-h-[80vh] overflow-y-auto">
         <div class="flex items-start gap-3">
           <img
             v-if="plugin?.icon"
@@ -72,25 +72,27 @@
               />
 
               <div v-if="state.installMode === '本地上传'" class="space-y-2">
-                <label class="block text-sm text-[var(--text-secondary)]"
-                  >选择安装包（.px-plugin/build/&lt;timestamp&gt;/package.tar.gz）</label
-                >
+                <UButton icon="i-heroicons-folder-open" color="primary" variant="solid" @click="openLocalDirSelector">
+                  选择本地来源
+                </UButton>
                 <input
+                  ref="localDirInputRef"
                   type="file"
-                  accept=".tar.gz,.tgz,application/gzip"
-                  @change="onFileChange"
-                  class="block w-full text-sm"
+                  webkitdirectory
+                  directory
+                  multiple
+                  class="hidden"
+                  @change="onLocalDirChange"
                 />
-                <div
-                  v-if="state.fileName"
-                  class="text-xs text-[var(--text-secondary)]"
-                >
-                  已选择：{{ state.fileName }}
+
+                <div v-if="state.localDirName" class="text-xs text-[var(--text-secondary)]">
+                  已选择目录：{{ state.localDirName }}（{{ state.localDirFiles.length }} 个文件）
                 </div>
               </div>
 
               <div class="text-xs text-[var(--text-secondary)]">
-                可直接上传 <code>.px-plugin/build/&lt;timestamp&gt;/package.tar.gz</code>；不填写 URL 且不选择本地包将不会发起安装请求。
+                本地上传：请选择插件目录。目录内包含 <code>plugin.yaml</code> 或
+                <code>*.tar.gz/.tgz</code> 即可安装。
               </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -132,6 +134,12 @@
                   >自动更新</span
                 >
               </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <USwitch v-model="state.forceInstall" />
+              <span class="text-sm text-[var(--text-secondary)]"
+                >强制覆盖同版本（Force）</span
+              >
             </div>
 
             <div>
@@ -185,6 +193,7 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import type { MarketplacePlugin } from "~/components/plugins/PluginCard.vue";
 
 const props = defineProps<{
@@ -210,10 +219,19 @@ const open = computed({
   set: (v: boolean) => emit("update:modelValue", v),
 });
 
+const userStore = useUserStore();
+const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
+
+function resolveDefaultScope(): "system" | "org" | "user" {
+  if (isRoot.value) return "system";
+  if (isCurrentTenantAdmin.value) return "org";
+  return "user";
+}
+
 const scopeOptions = [
-  { label: "用户级", value: "user" },
-  { label: "组织级", value: "org" },
   { label: "系统级", value: "system" },
+  { label: "组织级", value: "org" },
+  { label: "用户级", value: "user" },
 ];
 const envOptions = [
   { label: "default", value: "default" },
@@ -226,12 +244,13 @@ const state = reactive({
   url: "",
   sha256: "",
   enableAfterInstall: true,
-  file: null as File | null,
-  fileName: "",
-  scope: scopeOptions[0].value,
+  localDirFiles: [] as File[],
+  localDirName: "",
+  scope: resolveDefaultScope(),
   namespace: "",
   env: envOptions[0].value,
   autoUpdate: true,
+  forceInstall: false,
   perms: {
     network: true,
     storage: true,
@@ -241,6 +260,23 @@ const state = reactive({
 });
 
 const installing = ref(false);
+const localDirInputRef = ref<HTMLInputElement | null>(null);
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+
+watch(
+  () => props.modelValue,
+  async (visible) => {
+    if (!visible) return;
+    if (!userStore.context) {
+      try {
+        await userStore.fetchUserContext();
+      } catch {
+        // ignore and fallback to current store snapshot
+      }
+    }
+    state.scope = resolveDefaultScope();
+  }
+);
 
 function close() {
   open.value = false;
@@ -261,11 +297,46 @@ function buildInstallMetadataPayload() {
   };
 }
 
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const f = input.files && input.files[0];
-  state.file = f || null;
-  state.fileName = f ? f.name : "";
+function onLocalDirChange(event: Event) {
+  const toast = useToast();
+  const target = event.target as HTMLInputElement;
+  const files = Array.from(target.files || []);
+  const hasPluginYAML = files.some((file) =>
+    String((file as any)?.webkitRelativePath || file.name || "")
+      .toLowerCase()
+      .endsWith("/plugin.yaml")
+  );
+  const hasPackageArchive = files.some((file) => {
+    const relPath = String((file as any)?.webkitRelativePath || file.name || "").toLowerCase();
+    const name = relPath.split("/").pop() || "";
+    return name.endsWith(".tar.gz") || name.endsWith(".tgz");
+  });
+  if (files.length > 0 && !hasPluginYAML && !hasPackageArchive) {
+    state.localDirFiles = [];
+    state.localDirName = "";
+    target.value = "";
+    toast.add({
+      title: "目录无效",
+      description: "目录内需包含 plugin.yaml 或 *.tar.gz/.tgz",
+      color: "red",
+    });
+    return;
+  }
+  state.localDirFiles = files;
+  if (files.length > 0) {
+    const rel = (files[0] as any)?.webkitRelativePath || "";
+    state.localDirName = rel ? String(rel).split("/")[0] : "已选目录";
+  } else {
+    state.localDirName = "";
+  }
+}
+
+function openLocalDirSelector() {
+  localDirInputRef.value?.click();
+}
+
+function notifyMenuRefresh() {
+  menuRefreshToken.value += 1;
 }
 
 async function confirmInstall() {
@@ -279,11 +350,14 @@ async function confirmInstall() {
     });
     return;
   }
-  if (state.installMode === "本地上传" && !state.file) {
+  if (
+    state.installMode === "本地上传" &&
+    state.localDirFiles.length === 0
+  ) {
     const toast = useToast();
     toast.add({
       title: "错误",
-      description: "请选择要上传的插件文件",
+      description: "请选择插件目录",
       color: "red",
     });
     return;
@@ -302,32 +376,42 @@ async function confirmInstall() {
         url: state.url,
         sha256: state.sha256 || undefined,
         enable: !!state.enableAfterInstall,
+        force: !!state.forceInstall,
         metadata: buildInstallMetadataPayload(),
       });
 
       toast.add({ title: "成功", description: "插件安装成功", color: "green" });
-    } else if (state.installMode === "本地上传" && state.file) {
+    } else if (
+      state.installMode === "本地上传" &&
+      state.localDirFiles.length > 0
+    ) {
       const { useAdminPluginsService } = await import(
         "~/composables/api/services/adminPluginsService"
       );
       const svc = useAdminPluginsService();
-      const fd = new FormData();
-      fd.append("file", state.file);
-      fd.append("enable", String(!!state.enableAfterInstall));
-      fd.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
-      await svc.installFromLocal(fd);
+      const formData = new FormData();
+      for (const file of state.localDirFiles) {
+        const relPath = (file as any)?.webkitRelativePath || file.name;
+        formData.append("files", file, relPath);
+        formData.append("file_paths", relPath);
+      }
+      formData.append("enable", String(!!state.enableAfterInstall));
+      formData.append("force", String(!!state.forceInstall));
+      formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
+      await svc.installFromLocal(formData);
 
       toast.add({ title: "成功", description: "插件安装成功", color: "green" });
     } else {
       // 占位：没有填写来源时不做请求
       toast.add({
         title: "提示",
-        description: "未填写 URL 或未选择安装包，未发起安装请求",
+        description: "未填写 URL 或未选择本地目录，未发起安装请求",
         color: "warning",
       });
       return;
     }
 
+    notifyMenuRefresh();
     emit("installed", {
       plugin: props.plugin || null,
       state: JSON.parse(JSON.stringify(state)),

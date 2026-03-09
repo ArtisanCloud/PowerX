@@ -722,17 +722,19 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 			return string(orderedGroups[i].Key) < string(orderedGroups[j].Key)
 		})
 		for _, g := range orderedGroups {
+			groupVersion := firstNonEmptyPluginVersion(g.Items)
 			if len(g.Items) == 1 && len(g.Items[0].Children) > 0 {
 				rootItem := g.Items[0]
 				header := admdto.AdminMenuItem{
-					Key:      g.Key,
-					Title:    rootItem.Title,
-					Icon:     rootItem.Icon,
-					Order:    g.Order,
-					Origin:   plugin_mgr.OriginPlugin,
-					Visible:  true,
-					Slot:     rootItem.Slot,
-					Children: rootItem.Children,
+					Key:           g.Key,
+					Title:         rootItem.Title,
+					Icon:          rootItem.Icon,
+					Order:         g.Order,
+					Origin:        plugin_mgr.OriginPlugin,
+					Visible:       true,
+					Slot:          rootItem.Slot,
+					Children:      rootItem.Children,
+					PluginVersion: rootItem.PluginVersion,
 				}
 				// 组头标题尝试用 menu.<prefix>.title 覆盖（如 menu.base.title）
 				if gt := guessPluginGroupTitleFromChildren(header.Children, i18n, locales); gt != "" {
@@ -744,11 +746,12 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 				byID[catAppsKey].Children = append(byID[catAppsKey].Children, header)
 			} else {
 				header := admdto.AdminMenuItem{
-					Key:     g.Key,
-					Title:   g.Title,
-					Order:   g.Order,
-					Origin:  plugin_mgr.OriginPlugin,
-					Visible: true,
+					Key:           g.Key,
+					Title:         g.Title,
+					Order:         g.Order,
+					Origin:        plugin_mgr.OriginPlugin,
+					Visible:       true,
+					PluginVersion: groupVersion,
 				}
 				header.Children = g.Items
 				byID[catAppsKey].Children = append(byID[catAppsKey].Children, header)
@@ -805,6 +808,16 @@ func addToPluginGroup(groups map[string]*pluginGroup, key, title string, item ad
 	child := item
 	child.ParentID = plugin_mgr.MenuKey(key)
 	g.Items = append(g.Items, child)
+}
+
+func firstNonEmptyPluginVersion(items []admdto.AdminMenuItem) string {
+	for _, it := range items {
+		v := strings.TrimSpace(it.PluginVersion)
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func formatSlotSeparatorTitle(raw string, i18n []admdto.MenuI18nPackage, locales []string) string {

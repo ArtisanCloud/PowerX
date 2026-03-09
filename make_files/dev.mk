@@ -8,9 +8,14 @@ LOG_LEVEL ?= debug
 CAPABILITY_SYNC_CONFIG ?= ./etc/config.yaml
 CAPABILITY_SYNC_ARTIFACTS ?= ./tmp/plugins
 CAPABILITY_SYNC_FLAGS ?=
+CAPABILITY_GEN_OUT ?= config/platform_capabilities/generated.auto.yaml
+CAPABILITY_GEN_OPENAPI ?= api/openapi/swagger.json
+CAPABILITY_GEN_PROTO ?= api/grpc/contracts
+CAPABILITY_GEN_GIN ?= internal/transport/http
+CAPABILITY_GEN_FLAGS ?=
 
 # 启动开发服务器
-.PHONY: dev dev-agent dev-demo dev-watch capability-sync
+.PHONY: dev dev-agent dev-demo dev-watch capability-sync capability-gen capability-gen-dry
 dev: dev-demo
 
 # 启动 Agent 服务
@@ -44,6 +49,28 @@ dev-watch:
 capability-sync:
 	@echo "⚙️  启动 Capability Sync Worker..."
 	@cd backend && go run ./cmd/capability_sync -config $(CAPABILITY_SYNC_CONFIG) -artifacts $(CAPABILITY_SYNC_ARTIFACTS) $(CAPABILITY_SYNC_FLAGS)
+
+# Capability 配置自动生成（OpenAPI/gRPC -> platform_capabilities YAML）
+capability-gen:
+	@echo "🧩 生成 Capability 配置..."
+	@cd backend && ./scripts/capability_registry/generate_from_specs.sh \
+		--openapi $(CAPABILITY_GEN_OPENAPI) \
+		--proto $(CAPABILITY_GEN_PROTO) \
+		--gin-src $(CAPABILITY_GEN_GIN) \
+		--out $(CAPABILITY_GEN_OUT) \
+		$(CAPABILITY_GEN_FLAGS)
+	@echo "✅ 生成完成: backend/$(CAPABILITY_GEN_OUT)"
+
+# 仅预览生成结果，不落盘
+capability-gen-dry:
+	@echo "🧪 预览 Capability 配置（dry-run）..."
+	@cd backend && ./scripts/capability_registry/generate_from_specs.sh \
+		--openapi $(CAPABILITY_GEN_OPENAPI) \
+		--proto $(CAPABILITY_GEN_PROTO) \
+		--gin-src $(CAPABILITY_GEN_GIN) \
+		--out $(CAPABILITY_GEN_OUT) \
+		--dry-run \
+		$(CAPABILITY_GEN_FLAGS)
 
 # 代码质量检查
 .PHONY: lint format vet check-all

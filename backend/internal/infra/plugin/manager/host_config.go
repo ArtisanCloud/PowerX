@@ -35,6 +35,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	bindOverride := strings.TrimSpace(envAll["POWERX_HTTP_ADDR"])
 	envAll["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
 	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
+	normalizePluginLogEnv(selected)
 
 	// 若宿主未显式指定 POWERX_HTTP_ADDR，则允许插件根据 PORT 环境变量动态监听
 	if bindOverride == "" {
@@ -102,7 +103,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			delete(structured, "server")
 		}
 	}
-	if lvl := selected["POWERX_LOG_LEVEL"]; lvl != "" {
+	if lvl := firstNonEmptyMapValue(selected, "POWERX_PLUGIN_LOG_LEVEL", "POWERX_LOG_LEVEL"); lvl != "" {
 		setNestedValue(structured, []string{"server", "log_level"}, lvl)
 	}
 	if devMode, ok := parseBoolish(selected["POWERX_DEV_MODE"]); ok {
@@ -122,6 +123,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
+	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
 	if cfg := m.opts.CoreConfig; cfg != nil {
@@ -231,7 +233,9 @@ func (m *managerImpl) hostEnvForPlugin(p plugin_mgr.Plugin) map[string]string {
 			}
 		}
 	}
-	return mergeEnvWithRuntime(envAll, requested)
+	out := mergeEnvWithRuntime(envAll, requested)
+	normalizePluginLogEnv(out)
+	return out
 }
 
 func mergeEnvWithRuntime(env map[string]string, runtime map[string]string) map[string]string {
@@ -291,8 +295,17 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 		if cfg.Server.Mode != "" {
 			env["POWERX_SERVER_MODE"] = cfg.Server.Mode
 		}
+		// 插件日志控制：默认继承宿主 server mode 作为 gin mode（可被环境变量覆盖）
+		if cfg.Server.Mode != "" {
+			env["POWERX_PLUGIN_GIN_MODE"] = cfg.Server.Mode
+			env["POWERX_GIN_MODE"] = cfg.Server.Mode
+		}
 		if cfg.Server.SecretKey != "" {
 			env["POWERX_SERVER_SECRET_KEY"] = cfg.Server.SecretKey
+		}
+		if lvl := strings.TrimSpace(cfg.LogConfig.Level); lvl != "" {
+			env["POWERX_PLUGIN_LOG_LEVEL"] = lvl
+			env["POWERX_LOG_LEVEL"] = lvl
 		}
 
 		dbCfg := cfg.Database
@@ -368,7 +381,70 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 		env["POWERX_PLUGIN_REGISTRY_FILE"] = m.opts.RegistryFile
 	}
 
+	// 宿主进程显式环境变量优先级最高：用于统一控制插件日志行为。
+	// 推荐使用 POWERX_PLUGIN_*，同时兼容 POWERX_*。
+	for _, k := range []string{
+		"POWERX_PLUGIN_HTTP_LOG",
+		"POWERX_PLUGIN_GIN_MODE",
+		"POWERX_PLUGIN_LOG_LEVEL",
+		"POWERX_HTTP_LOG",
+		"POWERX_GIN_MODE",
+		"POWERX_LOG_LEVEL",
+	} {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			env[k] = v
+		}
+	}
+	normalizePluginLogEnv(env)
+
 	return env
+}
+
+func normalizePluginLogEnv(env map[string]string) {
+	if len(env) == 0 {
+		return
+	}
+	httpLog := firstNonEmptyMapValue(env, "POWERX_PLUGIN_HTTP_LOG", "POWERX_HTTP_LOG")
+	ginMode := normalizeGinModeValue(firstNonEmptyMapValue(env, "POWERX_PLUGIN_GIN_MODE", "POWERX_GIN_MODE"))
+	logLevel := firstNonEmptyMapValue(env, "POWERX_PLUGIN_LOG_LEVEL", "POWERX_LOG_LEVEL")
+
+	if httpLog != "" {
+		env["POWERX_PLUGIN_HTTP_LOG"] = httpLog
+		env["POWERX_HTTP_LOG"] = httpLog
+	}
+	if ginMode != "" {
+		env["POWERX_PLUGIN_GIN_MODE"] = ginMode
+		env["POWERX_GIN_MODE"] = ginMode
+		// 兼容只读取 POWERX_SERVER_MODE 的旧插件运行时。
+		env["POWERX_SERVER_MODE"] = ginMode
+	}
+	if logLevel != "" {
+		env["POWERX_PLUGIN_LOG_LEVEL"] = logLevel
+		env["POWERX_LOG_LEVEL"] = logLevel
+	}
+}
+
+func normalizeGinModeValue(raw string) string {
+	v := strings.ToLower(strings.TrimSpace(raw))
+	switch v {
+	case "debug", "release", "test":
+		return v
+	case "true", "1", "yes", "on":
+		return "debug"
+	case "false", "0", "no", "off":
+		return "release"
+	default:
+		return ""
+	}
+}
+
+func firstNonEmptyMapValue(m map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v := strings.TrimSpace(m[k]); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 type databaseSection struct {
@@ -404,12 +480,14 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 
 	db, cleanup, err := connectAdminDB(dbCfg)
 	if err != nil {
-		return nil, err
+		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): connect admin db failed: %v\n", pluginID, err)
+		return buildSharedDatabaseSection(dbCfg, driver), nil
 	}
 	defer cleanup()
 
 	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
-		return nil, err
+		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure schema failed: %v\n", pluginID, err)
+		return buildSharedDatabaseSection(dbCfg, driver), nil
 	}
 
 	section := &databaseSection{
@@ -422,13 +500,15 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	switch driver {
 	case "postgres":
 		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
-			return nil, err
+			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure postgres user failed: %v\n", pluginID, err)
+			return buildSharedDatabaseSection(dbCfg, driver), nil
 		}
 		section.DSN = buildPostgresPluginDSN(dbCfg, section)
 		section.SearchPath = section.Schema
 	case "mysql":
 		if err := ensureMySQLUser(db, section); err != nil {
-			return nil, err
+			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure mysql user failed: %v\n", pluginID, err)
+			return buildSharedDatabaseSection(dbCfg, driver), nil
 		}
 		section.DSN = buildMySQLPluginDSN(dbCfg, section)
 	default:
@@ -436,6 +516,19 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 
 	return section, nil
+}
+
+func buildSharedDatabaseSection(cfg corexdb.DatabaseConfig, driver string) *databaseSection {
+	section := &databaseSection{
+		Driver: strings.TrimSpace(driver),
+		DSN:    makeDatabaseDSN(cfg),
+	}
+	if section.Driver == "" {
+		section.Driver = normalizeDriver(cfg.Driver)
+	}
+	section.User = strings.TrimSpace(cfg.UserName)
+	section.Password = cfg.Password
+	return section
 }
 
 func connectAdminDB(cfg corexdb.DatabaseConfig) (*gorm.DB, func(), error) {
@@ -639,7 +732,15 @@ func buildPostgresPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection
 				q.Set("timezone", cfg.Timezone)
 			}
 			u.RawQuery = q.Encode()
-			return u.String()
+			dsn := u.String()
+			if tz := strings.TrimSpace(cfg.Timezone); tz != "" {
+				encoded := url.QueryEscape(tz)
+				if encoded != tz {
+					dsn = strings.Replace(dsn, "timezone="+encoded, "timezone="+tz, 1)
+					dsn = strings.Replace(dsn, "TimeZone="+encoded, "TimeZone="+tz, 1)
+				}
+			}
+			return dsn
 		}
 	}
 

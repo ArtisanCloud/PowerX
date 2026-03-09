@@ -33,7 +33,7 @@ export interface ContextMember {
  */
 export const useMeService = () => {
   const apiClient = useApiClient();
-  const baseUrl = "/admin/auth";
+  const baseUrl = "/admin/user/auth";
 
   return {
     /**

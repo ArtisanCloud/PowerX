@@ -2,12 +2,11 @@ package manager
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
@@ -59,8 +58,9 @@ func (l *FSLoader) Discover(ctx context.Context, installedRoot string) ([]Descri
 			}
 			desc, err := l.LoadDescriptor(ctx, root)
 			if err != nil {
-				// 跳过坏包；你也可以改为返回错误
-				return nil, err
+				// 跳过坏包，避免单个插件阻断整个平台启动
+				log.Printf("[plugin-bootstrap] skip invalid plugin root=%s err=%v", root, err)
+				continue
 			}
 			out = append(out, desc)
 		}
@@ -70,17 +70,12 @@ func (l *FSLoader) Discover(ctx context.Context, installedRoot string) ([]Descri
 
 func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor, error) {
 	absRoot, _ := filepath.Abs(root) // ★ 保证根目录是绝对路径
-	path := filepath.Join(absRoot, PluginManifestFile)
-	raw, err := os.ReadFile(path)
+	m, err := loadManifestWithCatalogs(absRoot)
 	if err != nil {
-		return Descriptor{}, plugin_mgr.Wrap(plugin_mgr.CodeMissingFile, err,
-			plugin_mgr.WithOp("load_descriptor"), plugin_mgr.WithPath(path))
+		return Descriptor{}, err
 	}
-
-	var m plugin_mgr.Manifest
-	if err := yaml.Unmarshal(raw, &m); err != nil {
-		return Descriptor{}, plugin_mgr.Wrap(plugin_mgr.CodeInvalidManifest, err,
-			plugin_mgr.WithOp("load_descriptor"), plugin_mgr.WithPath(path))
+	if err := persistMergedManifest(absRoot, m); err != nil {
+		log.Printf("[plugin-bootstrap] persist merged manifest failed root=%s err=%v", absRoot, err)
 	}
 
 	// 组装 Paths（把相对路径转为绝对/规范路径）

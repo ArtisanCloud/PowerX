@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
-	"gopkg.in/yaml.v3"
 )
 
 // InstallFromFile: 从本地目录安装插件（最小实现）
@@ -23,24 +22,19 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file"))
 	}
 
-	// 1) 读取 manifest
-	manifestPath := filepath.Join(absSrc, "plugin.yaml")
-	raw, err := os.ReadFile(manifestPath)
+	// 1) 读取并合并 manifest（plugin.yaml + catalogs.*）
+	man, err := loadManifestWithCatalogs(absSrc)
 	if err != nil {
-		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-			plugin_mgr.CodeMissingFile, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(manifestPath),
-		)
-	}
-	var man plugin_mgr.Manifest
-	if err := yaml.Unmarshal(raw, &man); err != nil {
-		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-			plugin_mgr.CodeInvalidManifest, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(manifestPath),
-		)
+		return plugin_mgr.Plugin{}, err
 	}
 	if man.ID == "" || man.Version == "" {
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 			plugin_mgr.CodeInvalidManifest, plugin_mgr.WithOp("install_file"), plugin_mgr.WithMsg("manifest.id or version empty"),
 		)
+	}
+	// 安装阶段提前做一次完整校验，避免把坏包复制进 installed 目录。
+	if err := NewFSLoader().Validate(ctx, man, absSrc); err != nil {
+		return plugin_mgr.Plugin{}, err
 	}
 
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
@@ -91,6 +85,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file"),
 			plugin_mgr.WithPath(fmt.Sprintf("%s -> %s", absSrc, destRoot)),
 		)
+	}
+	if err := persistMergedManifest(destRoot, man); err != nil {
+		return plugin_mgr.Plugin{}, err
 	}
 
 	// 4) 构造 Descriptor（注意：这里的 Descriptor 类型是 manager 包里的）

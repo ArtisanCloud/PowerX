@@ -177,6 +177,7 @@ const q = ref("");
 const rows = ref<Row[]>([]);
 const installOpen = ref(false);
 const selectedPlugin = ref<any>(undefined);
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
 function openInstallGeneric() {
   selectedPlugin.value = undefined; // 通用安装时允许为 undefined/null
@@ -250,6 +251,7 @@ async function toggleEnable(r: Row) {
   const svc = useAdminPluginsService();
   if (r.isSystemEnabled) await svc.disable(r.id);
   else await svc.enable(r.id);
+  menuRefreshToken.value += 1;
   await load();
 }
 

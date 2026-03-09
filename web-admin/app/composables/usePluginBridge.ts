@@ -102,7 +102,7 @@ const fetchCtxOnce = () => {
 
   const api = useApiClient()
   ctxFetchPromise = api
-    .get('/admin/auth/me/context', {
+    .get('/admin/user/auth/me/context', {
       credentials: 'include',
       useGlobalLoading: false,
     })

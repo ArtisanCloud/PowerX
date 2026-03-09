@@ -168,7 +168,7 @@ ensure_tenant_uuid() {
   fi
   local auth_header result payload status tenant_uuid
   auth_header="Authorization: Bearer ${ADMIN_TOKEN_VALUE}"
-  result="$(request_json GET "/admin/auth/me/context" "$auth_header")"
+  result="$(request_json GET "/admin/user/auth/me/context" "$auth_header")"
   payload="$(printf '%s' "$result" | sed '$d')"
   status="$(printf '%s' "$result" | tail -n1)"
   if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then

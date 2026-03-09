@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, watchEffect, nextTick } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
 
 const { register, unregister } = usePluginBridge()
@@ -26,10 +26,16 @@ const props = withDefaults(
 );
 
 // 从 nuxt.config.ts -> runtimeConfig.public.upstream 读取后端基址
-const { public: { upstream = 'http://127.0.0.1:8077' } } = useRuntimeConfig()
+const runtimeConfig = useRuntimeConfig()
+const { public: { upstream = 'http://127.0.0.1:8077' } } = runtimeConfig
+const route = useRoute()
 
-watchEffect(() => {
-  console.log('[PXAdmin][WebView] src =', props.src)
+const debugEnabled = computed(() => {
+  const q = route.query.px_debug
+  if (q === "1" || q === "true") return true
+  if (q === "0" || q === "false") return false
+  const flag = (runtimeConfig.public as any)?.pluginConsoleDebug
+  return flag === true || flag === "true"
 })
 
 /**
@@ -130,6 +136,7 @@ function clearObservers() {
 function onLoad() {
   loading.value = false;
   error.value = null;
+  silenceIframeBridgeLogsIfNeeded();
   measureOnce();
   setObservers();
 }
@@ -162,10 +169,42 @@ const cleanSrc = computed(() => {
 
     return u.toString()
   } catch (e) {
-    console.warn('[WebView] bad src:', raw, e)
+    if (debugEnabled.value) {
+      console.warn('[WebView] bad src:', raw, e)
+    }
     return raw
   }
 })
+
+function silenceIframeBridgeLogsIfNeeded() {
+  if (debugEnabled.value || !iframeRef.value) return
+  try {
+    const win = iframeRef.value.contentWindow as any
+    if (!win || !win.console) return
+    if (win.__PX_CONSOLE_FILTER_INSTALLED__) return
+
+    const prefixes = ["[Bridge][Plugin]", "[embedded]"]
+    const shouldDrop = (args: any[]) => {
+      const first = String(args?.[0] ?? "")
+      return prefixes.some((p) => first.startsWith(p))
+    }
+    const patchMethod = (name: "log" | "info" | "debug") => {
+      const original = win.console[name]
+      if (typeof original !== "function") return
+      win.console[name] = (...args: any[]) => {
+        if (shouldDrop(args)) return
+        return original.apply(win.console, args)
+      }
+    }
+
+    patchMethod("log")
+    patchMethod("info")
+    patchMethod("debug")
+    win.__PX_CONSOLE_FILTER_INSTALLED__ = true
+  } catch {
+    // Cross-origin 或受限时无法注入，静默忽略
+  }
+}
 
 /** 首次挂载：高度兜底 + 桥注册 */
 onMounted(() => {
