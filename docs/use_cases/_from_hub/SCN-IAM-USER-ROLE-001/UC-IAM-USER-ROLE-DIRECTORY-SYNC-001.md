@@ -187,5 +187,5 @@ sequenceDiagram
 - 主场景：`docs/scenarios/iam/SCN-IAM-USER-ROLE-001.md`
 - Docmap 配置：`docs/_data/docmap.yaml`
 - IAM 标准：`docs/standards/powerx/backend/iam/use_case.md`
-- 前端守卫规范：`docs/standards/powerx/web-admin/auth-and-iam/Permission_Guards_and_RBAC.md`
+- 前端守卫规范：`docs/standards/powerx/web-admin/iam/Permission_Guards_and_RBAC.md`（以仓库实际目录为准）
 - 工作流指标脚本：`scripts/qa/workflow-metrics.mjs`

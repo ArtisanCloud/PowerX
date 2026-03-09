@@ -52,7 +52,14 @@ curl -sS "http://127.0.0.1:8077/api/v1/admin/gateway/meta" \
 
 > 说明：`root` 不是前置条件。只有在需要做“跨租户审计/治理”时才使用 root 账号。
 
-### 0.1 凭证分层（按场景使用）
+### 0.1 认证路由命名策略（与 IAM 对齐）
+
+- Core 认证路由统一采用 `"/api/v1/admin/{identity}/auth/*"`。
+- 当前主路径：`/api/v1/admin/user/auth/*`。
+- 预留扩展：`/api/v1/admin/supply/auth/*` 以及后续 `admin/{identity}/auth`。
+- 不再新增或依赖“无 identity 前缀”的旧认证路由。
+
+### 0.2 凭证分层（按场景使用）
 
 - OpenAPI 是统一业务入口，JWT 和 API Key 是不同主体的鉴权凭证。
 - JWT（Token）：人登录后的会话凭证，适用于管理台、人机联调、宿主模式插件调用。
@@ -60,20 +67,20 @@ curl -sS "http://127.0.0.1:8077/api/v1/admin/gateway/meta" \
 - 宿主模式插件调用底座能力走 Gateway/OpenAPI 统一入口，但默认凭证是用户 JWT（宿主会话），不是 API Key。
 - API Key 仅用于外部系统调用，或插件在 standalone proxy 模式下调用宿主 Gateway/OpenAPI。
 
-### 0.2 租户边界（已生效）
+### 0.3 租户边界（已生效）
 
 - 普通租户仅能管理本租户 API Key（创建/轮换/吊销/权限变更）。
 - `admin/root` 允许做跨租户“有效性治理”（如禁用/吊销），用于平台级安全处置。
 - `admin/root` 不应查看其他租户明文 key（仅做状态治理与审计）。
 
-### 0.3 凭证互斥约定（推荐）
+### 0.4 凭证互斥约定（推荐）
 
 - 业务约定上，单次请求只应携带一种凭证：`JWT` 或 `API Key`。
 - 宿主模式固定 JWT；外部平台/standalone proxy 固定 API Key。
 - 后端按凭证类型分流：`Authorization: ApiKey <key>` 仅走 API Key 校验，`Authorization: Bearer <token>` 仅走 JWT 校验。
 - 不再采用“API Key 失败后回退 JWT”的混合兜底策略。
 
-### 0.4 能力目录接口选型（已对齐）
+### 0.5 能力目录接口选型（已对齐）
 
 - 对外统一“能力列表/筛选”主接口：`GET /api/v1/admin/capabilities`
   - 支持 `source=corex|plugin`（空值/`all` 表示全部来源）
@@ -87,7 +94,7 @@ curl -sS "http://127.0.0.1:8077/api/v1/admin/gateway/meta" \
 - `GET /api/v1/admin/capabilities/sources`：返回 source 枚举、默认值与别名映射
 - `GET /api/v1/admin/gateway/meta`：返回 gateway 元信息（`base_url`、`api_prefix`、auth schemes、常用路径示例）
 
-### 0.5 Invoke 入口选型（避免混用）
+### 0.6 Invoke 入口选型（避免混用）
 
 - Selector 调用（按 `capability_id` / `intent`）：
   - `POST {HTTP_BASE}/tenant/invocations`
@@ -125,7 +132,7 @@ curl -sS -X POST "$HTTP_BASE/tenant/integration/routes/media-assets-read/invoke"
   }' | jq .
 ```
 
-### 0.6 `source` 定义来源（后端口径）
+### 0.7 `source` 定义来源（后端口径）
 
 `source` 来自后端能力记录，不是前端固定值：
 
@@ -189,7 +196,7 @@ API Key 需要绑定 `tenant_uuid + api_key_profile`，建议先准备 profile �
 ### 2.1 查当前租户 UUID
 
 ```bash
-curl -sS "http://127.0.0.1:8077/api/v1/admin/auth/me/context" \
+curl -sS "http://127.0.0.1:8077/api/v1/admin/user/auth/me/context" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | jq .
 ```
 
@@ -587,7 +594,7 @@ scripts/integration_gateway/apikey_token_playbook.sh \
 示例（读取当前用户上下文）：
 
 ```bash
-curl -sS "http://127.0.0.1:8077/api/v1/admin/auth/me/context" \
+curl -sS "http://127.0.0.1:8077/api/v1/admin/user/auth/me/context" \
   -H "Authorization: Bearer $USER_TOKEN" | jq .
 ```
 

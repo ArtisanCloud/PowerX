@@ -13,6 +13,7 @@ type Manifest struct {
 	Runtime     RuntimeSpec      `yaml:"runtime"   json:"runtime"`
 	Endpoints   EndpointSpec     `yaml:"endpoints" json:"endpoints"`
 	Frontend    FrontendSpec     `yaml:"frontend"  json:"frontend"`
+	Catalogs    CatalogSpec      `yaml:"catalogs,omitempty" json:"catalogs,omitempty"`
 	RBAC        RBACSpec         `yaml:"rbac"      json:"rbac"`
 	Events      EventSpec        `yaml:"events"    json:"events"`
 	Backend     *BackendSpec     `yaml:"backend"   json:"backend,omitempty"`

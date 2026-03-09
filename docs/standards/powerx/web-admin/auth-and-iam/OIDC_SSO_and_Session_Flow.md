@@ -6,6 +6,10 @@
 
 ## 1. 架构概览
 
+- **认证路由命名策略**：统一采用 `"/admin/{identity}/auth/*"`，当前已启用 `user`，后续可扩展 `supply` 等身份域。
+- **当前生效命名空间**：`/admin/user/auth/*`（例如登录、刷新、登出、`me/context`）。
+- **未来扩展示例**：`/admin/supply/auth/*`、`/admin/{identity}/auth/*`（由后端按身份域注册，不复用无 identity 前缀的旧认证路由）。
+- **网关调用边界**：身份认证接口必须调用宿主 `/api/v1/admin/{identity}/auth/*`，不得通过插件代理路径 `/_p/:pluginId/api/v1/admin/{identity}/auth/*`，避免插件 STS token 与用户会话 token 混用。
 - **登录端点**：`useAuthService().login()` 调用 `/admin/user/auth/login`（`app/composables/api/services/authService.ts: "210`）。"
 - **状态持久化**：`useAuth()` 将 `access_token`、`refresh_token`、`expires_at` 等写入 `localStorage`，并通过 `useState` 保持运行时状态（`app/composables/useAuth.ts: "6`）。"
 - **路由守卫**：`app/middleware/auth.ts: "1` 在客户端校验 Token，并在过期时重定向至 `/users/login?redirect=...`。"
@@ -13,6 +17,12 @@
 - **全局请求**：`useApiClient` 拦截器在每个请求中加入 `Authorization` 头（`app/composables/api/index.ts: "37`）。"
 
 > 当前实现为“Password Grant + Refresh Token” 模式，尚未与外部 IdP 联动；以下流程为后续对接 OIDC 做铺垫。
+
+### 1.1 路由兼容约束
+
+- 无 identity 前缀的旧认证路由已废弃，不再作为新能力或新插件的接入目标。
+- 文档、SDK、前端请求、插件桥接统一指向 `"/admin/{identity}/auth/*"`。
+- 网关鉴权与路由契约按 identity 维度扩展，不再使用“无 identity 前缀”的单一路由承载所有身份类型。
 
 ---
 

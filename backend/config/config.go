@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	agentCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	grpcCfg "github.com/ArtisanCloud/PowerX/internal/server/grpc"
@@ -21,6 +22,8 @@ var GlobalConfig *Config
 
 // 初始化全局配置
 func InitGlobalConfig(configPath string) error {
+	loadDotEnvCandidates(configPath)
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("读取配置文件失败: %w", err)
@@ -30,6 +33,7 @@ func InitGlobalConfig(configPath string) error {
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
+	loadFromEnv(&config)
 
 	// AI: default fill + global snapshot (read-only)
 	config.AI.SetDefaults()
@@ -103,12 +107,32 @@ type Config struct {
 	Database           dbCfg.DatabaseConfig     `yaml:"database"`            // 数据库配置
 	Cache              cacheCfg.CacheConfig     `yaml:"cache"`               // 缓存配置
 	LogConfig          logCfg.LogConfig         `yaml:"log"`                 // 输出配置
+	Audit              AuditConfig              `yaml:"audit"`               // 审计配置
 	AI                 agentCfg.AIConfig        `yaml:"ai"`
 	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
 	Plugin             PluginAggregateConfig    `yaml:"plugin"`
 	HTTPSecurity       HTTPSecurityConfig       `yaml:"http_security"`
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
+}
+
+// AuditConfig controls audit persistence and sink behaviour.
+type AuditConfig struct {
+	PersistToDB         bool                `yaml:"persist_to_db"`
+	EnableGORMCallbacks bool                `yaml:"enable_gorm_callbacks"`
+	File                AuditFileSinkConfig `yaml:"file"`
+}
+
+type AuditFileSinkConfig struct {
+	Enable      bool   `yaml:"enable"`
+	Dir         string `yaml:"dir"`
+	FilePrefix  string `yaml:"file_prefix"`
+	MaxSize     int    `yaml:"max_size"`
+	MaxBackups  int    `yaml:"max_backups"`
+	MaxAge      int    `yaml:"max_age"`
+	Compress    bool   `yaml:"compress"`
+	UseUTC      bool   `yaml:"use_utc"`
+	IncludeMeta bool   `yaml:"include_meta"`
 }
 
 const DefaultSystemVersion = "v1.0.0"
@@ -521,6 +545,9 @@ func Load(configPath string) (*Config, error) {
 	// 1. 加载默认配置
 	cfg := GetDefaults()
 
+	// 1.1 预加载 .env（仅在当前进程变量未设置时写入）
+	loadDotEnvCandidates(configPath)
+
 	// 2. 从YAML文件加载（如果存在）
 	if configPath != "" {
 		if err := loadFromYAML(cfg, configPath); err != nil {
@@ -537,6 +564,71 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func loadDotEnvCandidates(configPath string) {
+	candidates := make([]string, 0, 6)
+	if configPath != "" {
+		if absCfg, err := filepath.Abs(configPath); err == nil {
+			cfgDir := filepath.Dir(absCfg)
+			candidates = append(candidates, filepath.Join(cfgDir, ".env"))
+			candidates = append(candidates, filepath.Join(filepath.Dir(cfgDir), ".env"))
+		}
+	}
+	candidates = append(candidates, ".env", "backend/.env")
+
+	seen := map[string]struct{}{}
+	for _, p := range candidates {
+		if strings.TrimSpace(p) == "" {
+			continue
+		}
+		absPath := p
+		if !filepath.IsAbs(p) {
+			if wd, err := os.Getwd(); err == nil {
+				absPath = filepath.Join(wd, p)
+			}
+		}
+		absPath = filepath.Clean(absPath)
+		if _, ok := seen[absPath]; ok {
+			continue
+		}
+		seen[absPath] = struct{}{}
+		_ = loadDotEnvFile(absPath)
+	}
+}
+
+func loadDotEnvFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+		idx := strings.Index(line, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		if key == "" {
+			continue
+		}
+		val = strings.Trim(val, `"'`)
+		// 保留已存在环境变量优先级；.env 仅补缺省
+		if _, exists := os.LookupEnv(key); !exists {
+			_ = os.Setenv(key, val)
+		}
+	}
+	return scanner.Err()
 }
 
 // loadFromEnv 从环境变量加载配置
@@ -748,6 +840,45 @@ func loadFromEnv(cfg *Config) {
 	// LogConfig配置 - 使用外部logger配置
 	// 这里可以根据需要添加对LogConfig字段的环境变量支持
 	// 例如：cfg.LogConfig.Level, cfg.LogConfig.Format 等
+	if v := os.Getenv("CORE_X_AUDIT_PERSIST_TO_DB"); v != "" {
+		cfg.Audit.PersistToDB = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_AUDIT_ENABLE_GORM_CALLBACKS"); v != "" {
+		cfg.Audit.EnableGORMCallbacks = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_ENABLE"); v != "" {
+		cfg.Audit.File.Enable = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_DIR"); v != "" {
+		cfg.Audit.File.Dir = v
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_PREFIX"); v != "" {
+		cfg.Audit.File.FilePrefix = v
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Audit.File.MaxSize = n
+		}
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_BACKUPS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Audit.File.MaxBackups = n
+		}
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_AGE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Audit.File.MaxAge = n
+		}
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_COMPRESS"); v != "" {
+		cfg.Audit.File.Compress = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_USE_UTC"); v != "" {
+		cfg.Audit.File.UseUTC = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_AUDIT_FILE_INCLUDE_META"); v != "" {
+		cfg.Audit.File.IncludeMeta = strings.EqualFold(v, "true") || v == "1"
+	}
 
 	// FeatureGate配置
 	if license := os.Getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {

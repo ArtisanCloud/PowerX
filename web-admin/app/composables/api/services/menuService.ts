@@ -32,6 +32,7 @@ export interface MenuItem {
   parentId?: string;
   slot?: string;
   titleI18n?: MenuTitleI18n;
+  pluginVersion?: string;
 }
 
 type MenusResponse = {
@@ -145,6 +146,10 @@ function normalizeMenuItem(raw: unknown): MenuItem {
       return undefined;
     })(),
     titleI18n: normalizeTitleI18n((n as any).titleI18n),
+    pluginVersion:
+      typeof n.pluginVersion === "string"
+        ? (n.pluginVersion as string)
+        : undefined,
   };
 }
 

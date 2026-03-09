@@ -657,6 +657,15 @@ function onTreeKeydown(e: KeyboardEvent) {
                       : subCategory.title
                   }}
                 </span>
+                <UBadge
+                  v-if="!collapsed && typeof subCategory.pluginVersion === 'string' && subCategory.pluginVersion.trim().length > 0"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  class="ml-2 shrink-0 uppercase"
+                >
+                  v{{ subCategory.pluginVersion }}
+                </UBadge>
               </div>
               <ul v-show="!collapsed" class="mt-1 space-y-1" role="group">
                 <SidebarMenuItem

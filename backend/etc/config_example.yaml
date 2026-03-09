@@ -119,6 +119,20 @@ log:
     batch_wait: 1
     batch_size: 100
 
+audit:
+  persist_to_db: false
+  enable_gorm_callbacks: false
+  file:
+    enable: true
+    dir: logs/audit
+    file_prefix: audit_event
+    max_size: 100
+    max_backups: 30
+    max_age: 30
+    compress: true
+    use_utc: false
+    include_meta: true
+
 auth:
   jwt_secret: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
   issuer: powerx-auth

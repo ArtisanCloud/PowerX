@@ -53,10 +53,11 @@ func TestConvertPluginMenuItemHierarchy(t *testing.T) {
 	}
 
 	locales := normalizeLocalePreference([]string{"en-US"})
-	item := convertPluginMenuItem("com.example.base", "/_p/com.example.base/admin/", "", menu, locales, bundle)
+	item := convertPluginMenuItem("com.example.base", "0.8.6", "/_p/com.example.base/admin/", "", menu, locales, bundle)
 
 	require.Equal(t, plugin_mgr.MenuKey("plugin:com.example.base:base"), item.Key)
 	require.Equal(t, "Base Plugin", item.Title)
+	require.Equal(t, "0.8.6", item.PluginVersion)
 	require.Len(t, item.Children, 1)
 	child := item.Children[0]
 	require.Equal(t, item.Key, child.ParentID)

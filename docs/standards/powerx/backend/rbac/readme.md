@@ -41,6 +41,8 @@
 ## Plugin 网关与 STS
 
 - 动态反代：宿主将 `/_p/:id/api/*` 反向代理到插件后端（见 `internal/infra/plugin/manager/router/router.go`）。
+- 认证边界：`/_p/:id/api/*` 仅用于插件内部业务 API，不承载宿主身份认证路由。
+- 身份路由约束：`/api/v1/admin/{identity}/auth/*`（当前 `user`，未来 `supply` 等）必须走宿主主路由，禁止通过 `/_p/:id/api/v1/admin/{identity}/auth/*` 访问。
 - 路由策略（Policy）：
   - 来自插件 manifest：`endpoints.http_base_path` 与 `rbac.resources[*].actions`；健康检查 `GET|HEAD:/healthz` 固定放行。
   - 先匹配显式规则（`METHOD:/pattern`），否则自动推导（方法→动作；路径→资源，移除 `http_base_path`）。
@@ -127,4 +129,3 @@ claims, err := auth.ParseAndValidate(bearer, secret, "powerx-auth", "plugin:<id>
 - 权限仓储：`pkg/corex/db/persistence/repository/iam/*`
 - Plugin 网关与策略：`internal/infra/plugin/manager/router/*`、`internal/infra/plugin/manager/rbac.go`
 - 健康检查：`internal/transport/http/admin/health_handler.go`、`internal/infra/plugin/manager/supervisor/*`
-

@@ -133,7 +133,7 @@
 - **FR-025**: JWT 鉴权在签名/过期校验通过后，必须执行主体状态校验：`tenant/user/member` 均需存在且可用；若任一主体失效，返回 401/403，并清晰标识失败原因（如 `tenant_disabled`, `member_not_found`）。
 - **FR-026**: 主体状态校验必须采用 `cache-first + DB-fallback`：先读取 Redis 快照，未命中或快照不完整时回源 DB 并回填缓存；缓存 TTL 默认 60 秒（可配置），且支持事件驱动失效。
 - **FR-027**: 系统必须支持会话版本强制失效机制：JWT claims 增加 `session_version`（或等效字段），请求时与服务端当前版本对比；版本不一致时拒绝请求，确保密码重置、租户迁移、db-refresh 后可快速收敛旧 token。
-- **FR-028**: `/admin/auth/me/context` 在 token 通过签名但主体关系已漂移（如 token tenant 不在当前 memberships）时必须返回非 200（推荐 401/403），禁止“自动兜底切租户”掩盖失效态，避免前端误判为登录仍有效。
+- **FR-028**: `/admin/user/auth/me/context` 在 token 通过签名但主体关系已漂移（如 token tenant 不在当前 memberships）时必须返回非 200（推荐 401/403），禁止“自动兜底切租户”掩盖失效态，避免前端误判为登录仍有效。
 - **FR-029**: 插件事件主题必须在 `plugin.yaml` 中显式声明（建议 `events.topics[]`），并在安装/启用流程中幂等同步到 `event_topics`；`/internal/ws-bus/grant` 仅执行授权绑定（ACL grant），禁止承担 topic 创建职责。运行时若 topic 未注册，必须返回明确错误（推荐 404/403），不允许隐式自动创建。
 
 #### Gateway Proxy Envelope（请求/响应）

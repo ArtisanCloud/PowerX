@@ -166,10 +166,11 @@ web-admin/app/services/menuConfig.ts
 - 静态资源 `/_p/.../admin/assets/...` 不带 Authorization，不影响登录态；检查业务接口 `/api/v1/...` 的请求头是否包含 Authorization/JWT claims（tid/tenant_uuid） 以判定会话是否生效。
 
 ### 流程速查（token/locale/theme/ctx）
-- 会话来源：宿主登录后，后端会在 `/api/v1/admin/auth/me/context` 返回 `ctx/ctx_sig/ctx_jwt`（或响应头同名）；需要配好 `auth.jwt_secret`，否则不会生成签名上下文。
+- 会话来源：宿主登录后，后端会在 `/api/v1/admin/user/auth/me/context` 返回 `ctx/ctx_sig/ctx_jwt`（或响应头同名）；需要配好 `auth.jwt_secret`，否则不会生成签名上下文。
 - 宿主桥接：`usePluginBridge` 从 token/localStorage/cookie/window 读取 token/locale/theme/ctx，构造 `auth-token`/`sync`，`postMessage('*')` 给 iframe。
 - 插件接收：`powerx-bridge-client` 收到后调用 `useHostBridgeAdapter`，`useAuth.setAuth` 写入本域 localStorage，ctx 存 Pinia `hostCtx`。
 - API 发起：插件 `useApiClient` 自动附带 `Authorization`（租户由 JWT claims 提供）、以及 `X-PowerX-CTX/CTX-SIG/CTX-JWT`（若 hostCtx 有值）直连 8077。
+- 身份接口边界：`/api/v1/admin/{identity}/auth/*` 必须走宿主主路由；不要通过 `/_p/:pluginId/api/v1/admin/{identity}/auth/*`。`/_p/:pluginId/api/*` 只用于插件业务 API。
 - 渲染同步：`sync` 内的 locale/theme 直接应用到 i18n/colorMode，保持宿主与插件一致。
 
 #### 流程图（文本）
@@ -177,7 +178,7 @@ web-admin/app/services/menuConfig.ts
 flowchart LR
   subgraph Host[宿主 3030]
     H1[登录 @3030<br>拿 token / tid]
-    H2[调用 /api/v1/admin/auth/me/context<br>取 ctx / ctx_sig / ctx_jwt<br>存 localStorage / cookie]
+    H2[调用 /api/v1/admin/user/auth/me/context<br>取 ctx / ctx_sig / ctx_jwt<br>存 localStorage / cookie]
     H3[usePluginBridge<br>构造 sync + auth-token<br>带 locale / theme / token / ctx]
   end
   subgraph Bridge[postMessage]
@@ -193,4 +194,4 @@ flowchart LR
   M --> P4
 ```
 
-注意：如果 `/api/v1/admin/auth/me/context` 未返回 `ctx/ctx_sig/ctx_jwt`（后端未生成签名上下文），插件请求缺少 `X-PowerX-CTX*` 会被判 “tenant context missing”。
+注意：如果 `/api/v1/admin/user/auth/me/context` 未返回 `ctx/ctx_sig/ctx_jwt`（后端未生成签名上下文），插件请求缺少 `X-PowerX-CTX*` 会被判 “tenant context missing”。

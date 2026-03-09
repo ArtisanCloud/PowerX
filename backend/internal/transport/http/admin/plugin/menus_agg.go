@@ -68,7 +68,7 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 
 		root := basePrefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
-			item := convertPluginMenuItem(p.ID, root, "", m, preferredLocales, bundle)
+			item := convertPluginMenuItem(p.ID, p.Version, root, "", m, preferredLocales, bundle)
 			if item.Slot == "" {
 				item.Slot = plugin_mgr.SlotPlugins
 			}
@@ -79,7 +79,7 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 	return out
 }
 
-func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m plugin_mgr.MenuItem, locales []string, bundle *admdto.MenuI18nPackage) admdto.AdminMenuItem {
+func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_mgr.MenuKey, m plugin_mgr.MenuItem, locales []string, bundle *admdto.MenuI18nPackage) admdto.AdminMenuItem {
 	route := strings.TrimLeft(m.Route, "/")
 	url := root
 	if route != "" {
@@ -97,16 +97,17 @@ func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m p
 
 	key := makePluginMenuKey(pluginID, m, route)
 	item := admdto.AdminMenuItem{
-		Key:         key,
-		Title:       title,
-		Icon:        m.Icon,
-		URL:         url,
-		Order:       m.Order,
-		Origin:      plugin_mgr.OriginPlugin,
-		Visible:     visible,
-		Slot:        slot,
-		Permissions: m.RequiredPolicies,
-		TitleI18n:   titleI18n,
+		Key:           key,
+		Title:         title,
+		Icon:          m.Icon,
+		URL:           url,
+		Order:         m.Order,
+		Origin:        plugin_mgr.OriginPlugin,
+		Visible:       visible,
+		Slot:          slot,
+		Permissions:   m.RequiredPolicies,
+		TitleI18n:     titleI18n,
+		PluginVersion: strings.TrimSpace(pluginVersion),
 	}
 	if parent != "" {
 		item.ParentID = parent
@@ -115,7 +116,7 @@ func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m p
 	if len(m.Children) > 0 {
 		item.Children = make([]admdto.AdminMenuItem, 0, len(m.Children))
 		for _, child := range m.Children {
-			childItem := convertPluginMenuItem(pluginID, root, key, child, locales, bundle)
+			childItem := convertPluginMenuItem(pluginID, pluginVersion, root, key, child, locales, bundle)
 			item.Children = append(item.Children, childItem)
 		}
 	}

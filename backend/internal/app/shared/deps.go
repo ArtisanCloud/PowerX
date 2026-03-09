@@ -107,6 +107,10 @@ type auditViolationReporter struct {
 	audit auditService.Service
 }
 
+type noopAuditRepository struct{}
+
+func (noopAuditRepository) InsertBatch(context.Context, []dbm.AuditEvent) error { return nil }
+
 func (r auditViolationReporter) Report(ctx context.Context, violation security.Violation) {
 	if r.audit == nil {
 		return
@@ -190,13 +194,25 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- Audit 初始化 ---
 	sinks := []auditsvc.Sink{&auditsvc.LoggerSink{L: pxlog.GetGlobalLogger()}}
+	if fileSink, err := auditsvc.NewFileSink(opts.AuditFileSink); err != nil {
+		pxlog.WarnF(ctx, "[audit] init file sink failed: %v", err)
+	} else if fileSink != nil {
+		sinks = append(sinks, fileSink)
+	}
+	var auditRepo auditsvc.Repository
+	if !opts.AuditPersistToDB {
+		auditRepo = noopAuditRepository{}
+	}
 	svc := auditsvc.NewService(auditsvc.ServiceOptions{
-		DB:     db,
-		Sinks:  sinks,
-		Config: opts.Audit,
+		DB:         db,
+		Repository: auditRepo,
+		Sinks:      sinks,
+		Config:     opts.Audit,
 	})
-	// 注册 GORM 回调
-	auditsvc.RegisterAuditCallbacks(db, svc)
+	// 仅在显式开启时注册 GORM 行级审计回调。
+	if opts.AuditEnableGORMCallbacks {
+		auditsvc.RegisterAuditCallbacks(db, svc)
+	}
 
 	aud := auditsvc.NewAuditor(svc)
 

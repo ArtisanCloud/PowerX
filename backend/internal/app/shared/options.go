@@ -15,11 +15,14 @@ import (
 )
 
 type DepsOptions struct {
-	AuthUser     auth.AuthOptions      // 给用户端的 Audience
-	AuthCustomer auth.AuthOptions      // 给客户/插件端的 Audience
-	Audit        auditsvc.AuditOptions // 批量大小、等待等
-	Storage      mediasvc.StorageOptions
-	Queue        QueueOptions
+	AuthUser                 auth.AuthOptions      // 给用户端的 Audience
+	AuthCustomer             auth.AuthOptions      // 给客户/插件端的 Audience
+	Audit                    auditsvc.AuditOptions // 批量大小、等待等
+	AuditPersistToDB         bool
+	AuditEnableGORMCallbacks bool
+	AuditFileSink            auditsvc.FileSinkOptions
+	Storage                  mediasvc.StorageOptions
+	Queue                    QueueOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
 	EventFabric        EventFabricOptions
 	Workflow           WorkflowOptions

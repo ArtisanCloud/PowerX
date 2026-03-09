@@ -4,7 +4,7 @@ const HOST_URL = process.env.HOST_URL || 'http://localhost:3030'
 const PLUGIN_URL =
   process.env.PLUGIN_URL ||
   'http://127.0.0.1:8077/_p/com.powerx.helloworld/admin/intro'
-const AUTH_PATH = process.env.AUTH_PATH || '/api/v1/admin/auth/me/context'
+const AUTH_PATH = process.env.AUTH_PATH || '/api/v1/admin/user/auth/me/context'
 const HEADLESS = process.env.HEADLESS !== '0'
 const AUTO_CONTINUE = process.env.AUTO_CONTINUE === '1'
 const WAIT_AFTER_PLUGIN_MS = Number(process.env.WAIT_AFTER_PLUGIN_MS || 5000)

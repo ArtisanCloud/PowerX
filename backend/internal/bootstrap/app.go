@@ -197,6 +197,19 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		Audit: auditsvc.AuditOptions{
 			BatchSize: 200, BatchWait: 150 * time.Millisecond, MaxPayloadSize: 16 * 1024,
 		},
+		AuditPersistToDB:         cfg.Audit.PersistToDB,
+		AuditEnableGORMCallbacks: cfg.Audit.EnableGORMCallbacks,
+		AuditFileSink: auditsvc.FileSinkOptions{
+			Enable:      cfg.Audit.File.Enable,
+			Dir:         cfg.Audit.File.Dir,
+			FilePrefix:  cfg.Audit.File.FilePrefix,
+			MaxSize:     cfg.Audit.File.MaxSize,
+			MaxBackups:  cfg.Audit.File.MaxBackups,
+			MaxAge:      cfg.Audit.File.MaxAge,
+			Compress:    cfg.Audit.File.Compress,
+			UseUTC:      cfg.Audit.File.UseUTC,
+			IncludeMeta: cfg.Audit.File.IncludeMeta,
+		},
 		Storage: mediasvc.StorageOptions{
 			DefaultDriver: cfg.Storage.DefaultDriver,
 			TTLSeconds:    cfg.Storage.TTLSeconds,

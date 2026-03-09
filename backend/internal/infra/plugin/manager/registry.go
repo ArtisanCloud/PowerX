@@ -25,6 +25,7 @@ type Registry interface {
 	List(ctx context.Context) []plugin_mgr.Plugin
 	GetVersion(ctx context.Context, id, version string) (plugin_mgr.Plugin, bool)
 	CurrentVersion(ctx context.Context, id string) (string, bool)
+	ListVersions(ctx context.Context, id string) []string
 	// 判断版本是否已安装
 	HasVersion(ctx context.Context, id, version string) bool
 	// 设置某插件的 current 指针
@@ -281,6 +282,21 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		Metadata:        vr.Manifest.Metadata,
 		InstallMetadata: vr.InstallMetadata,
 	}, true
+}
+
+func (r *JSONRegistry) ListVersions(ctx context.Context, id string) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	rec, ok := r.mem.Plugins[id]
+	if !ok || len(rec.Versions) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(rec.Versions))
+	for ver := range rec.Versions {
+		out = append(out, ver)
+	}
+	return out
 }
 
 func cloneHostConfig(hc *plugin_mgr.HostConfig) *plugin_mgr.HostConfig {

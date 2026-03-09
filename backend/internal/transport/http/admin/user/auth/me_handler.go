@@ -27,7 +27,7 @@ func NewMeContextHandler(dep *shared.Deps) *MeContextHandler {
 	}
 }
 
-// GET /api/v1/auth/me/context
+// GET /api/v1/admin/user/auth/me/context
 func (h *MeContextHandler) GetMeContext(c *gin.Context) {
 	ctx := c.Request.Context()
 

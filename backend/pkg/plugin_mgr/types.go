@@ -38,6 +38,14 @@ type InstallSource struct {
 	Signature string
 }
 
+type CatalogSpec struct {
+	Capabilities string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	Exposure     string `yaml:"exposure,omitempty" json:"exposure,omitempty"`
+	AgentTools   string `yaml:"agent_tools,omitempty" json:"agent_tools,omitempty"`
+	Events       string `yaml:"events,omitempty" json:"events,omitempty"`
+	RBAC         string `yaml:"rbac,omitempty" json:"rbac,omitempty"`
+}
+
 type MenuOriginType string
 
 const (
@@ -92,9 +100,10 @@ type Plugin struct {
 	State   PluginState `json:"state"`
 
 	// 这些来自 manifest：
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Metadata    Metadata `json:"metadata"` // ✅ 建议用值类型，避免 nil
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Metadata    Metadata    `json:"metadata"` // ✅ 建议用值类型，避免 nil
+	Catalogs    CatalogSpec `json:"catalogs,omitempty"`
 
 	Runtime     RuntimeSpec      `json:"runtime"`
 	Frontend    FrontendSpec     `json:"frontend"`

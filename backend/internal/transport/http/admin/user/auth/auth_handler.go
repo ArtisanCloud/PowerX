@@ -1,4 +1,4 @@
-// api/http/admin/auth/auth_handler.go
+// api/http/admin/user/auth/auth_handler.go
 package auth
 
 import (

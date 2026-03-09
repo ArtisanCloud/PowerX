@@ -1,15 +1,18 @@
 package router
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -285,6 +288,8 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 			// 诊断
 			req.Header.Set("X-PX-Upstream", up.target.String())
 			req.Header.Set("X-PX-Client-Path", clientPath)
+			attachTraceHeaders(c, req)
+			req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 		}
 
 		proxy.ModifyResponse = func(resp *http.Response) error {
@@ -347,6 +352,17 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if clientPath == "" {
 		clientPath = "/"
 	}
+	if isIdentityAuthClientPath(clientPath) {
+		hostPath := toHostIdentityAuthPath(clientPath)
+		if q := c.Request.URL.RawQuery; q != "" {
+			hostPath += "?" + q
+		}
+		log.Printf("[API-REDIRECT] plugin=%s method=%s clientPath=%s -> hostPath=%s",
+			pluginID, c.Request.Method, clientPath, hostPath)
+		c.Redirect(http.StatusTemporaryRedirect, hostPath)
+		c.Abort()
+		return
+	}
 	if r.redirectAdminFromAPI(c, pluginID, clientPath) {
 		return
 	}
@@ -355,9 +371,19 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		c.Request.Method, c.Request.URL.Path, pluginID, clientPath)
 	r.mu.RLock()
 	up, ok := r.apis[pluginID]
+	registered := make([]string, 0, len(r.apis))
+	for id := range r.apis {
+		registered = append(registered, id)
+	}
 	r.mu.RUnlock()
 	if !ok || up.target == nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "plugin api not mounted"})
+		log.Printf("[API-MISS] plugin=%s registered=%v", pluginID, registered)
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"error":      "plugin api upstream unavailable",
+			"reason":     "plugin not mounted into /_p/{id}/api proxy",
+			"plugin_id":  pluginID,
+			"registered": registered,
+		})
 		return
 	}
 
@@ -385,6 +411,38 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(up.target)
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Set("X-PowerX-Upstream-Plugin", pluginID)
+		resp.Header.Set("X-PowerX-Upstream-Status", http.StatusText(resp.StatusCode))
+		if resp.StatusCode < http.StatusBadRequest {
+			return nil
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("[PROXY-UPSTREAM-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
+			return nil
+		}
+		_ = resp.Body.Close()
+		resp.Body = io.NopCloser(bytes.NewBuffer(body))
+		resp.ContentLength = int64(len(body))
+		resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
+
+		msg := string(body)
+		if len(msg) > 1024 {
+			msg = msg[:1024] + "...(truncated)"
+		}
+		log.Printf("[PROXY-UPSTREAM-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
+			pluginID, c.Request.Method, c.Request.URL.Path, resp.StatusCode, msg)
+		return nil
+	}
+	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+		log.Printf("[PROXY-TRANSPORT-ERR] plugin=%s method=%s req=%s err=%v",
+			pluginID, c.Request.Method, c.Request.URL.Path, err)
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusBadGateway)
+		_, _ = rw.Write([]byte(`{"error":"plugin upstream transport error"}`))
+	}
 	origDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		if origDirector != nil {
@@ -436,6 +494,8 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			req.Header.Set("X-PowerX-CTX", ctxB64)
 			req.Header.Set("X-PowerX-CTX-SIG", sig)
 		}
+		attachTraceHeaders(c, req)
+		req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 
 		req.Host = up.target.Host
 	}
@@ -606,6 +666,28 @@ func isSubPath(base, child string) bool {
 	return err == nil && !strings.HasPrefix(rel, "..")
 }
 
+func attachTraceHeaders(c *gin.Context, req *http.Request) {
+	if c == nil || req == nil {
+		return
+	}
+	traceID := strings.TrimSpace(c.GetHeader("X-Trace-Id"))
+	if traceID == "" {
+		traceID = strings.TrimSpace(c.GetHeader("X-Trace-ID"))
+	}
+	if traceID != "" {
+		req.Header.Set("X-Trace-Id", traceID)
+		req.Header.Set("X-Trace-ID", traceID)
+	}
+	requestID := strings.TrimSpace(c.GetHeader("X-Request-Id"))
+	if requestID == "" {
+		requestID = strings.TrimSpace(c.GetHeader("X-Request-ID"))
+	}
+	if requestID != "" {
+		req.Header.Set("X-Request-Id", requestID)
+		req.Header.Set("X-Request-ID", requestID)
+	}
+}
+
 // 从 "/_p/<id>/api/*" 裁剪为插件侧期望的 client path（保留前导斜杠）
 func trimToAPIClientPath(p string) string {
 	// 期望形如 "/_p/<id>/api/..."
@@ -618,6 +700,61 @@ func trimToAPIClientPath(p string) string {
 		return p
 	}
 	return rest[i+len("/api/")-1:] // 保留前导 '/'
+}
+
+func isIdentityAuthClientPath(clientPath string) bool {
+	path := strings.TrimSpace(clientPath)
+	if path == "" {
+		return false
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segs) < 4 {
+		return false
+	}
+
+	// 允许两类入参：
+	// 1) /v1/admin/{identity}/auth/*
+	// 2) /api/v1/admin/{identity}/auth/*
+	switch {
+	case len(segs) >= 5 && segs[0] == "api" && segs[1] == "v1":
+		segs = segs[2:]
+	case segs[0] == "v1":
+		segs = segs[1:]
+	}
+	if len(segs) < 3 {
+		return false
+	}
+	if segs[0] != "admin" {
+		return false
+	}
+	identity := strings.TrimSpace(segs[1])
+	if identity == "" {
+		return false
+	}
+	return segs[2] == "auth"
+}
+
+func toHostIdentityAuthPath(clientPath string) string {
+	path := strings.TrimSpace(clientPath)
+	if path == "" {
+		return "/api/v1"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if strings.HasPrefix(path, "/api/v1/") {
+		return path
+	}
+	if strings.HasPrefix(path, "/v1/") {
+		return "/api" + path
+	}
+	if strings.HasPrefix(path, "/admin/") {
+		return "/api/v1" + path
+	}
+	return "/api/v1" + path
 }
 
 func normalizeAdminClientPath(pluginID, clientPath string) (string, bool) {

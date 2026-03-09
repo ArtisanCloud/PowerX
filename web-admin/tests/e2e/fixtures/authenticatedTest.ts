@@ -65,7 +65,7 @@ export const test = base.extend({
       },
     })
 
-    await page.route('**/api/admin/auth/me/**', async route => {
+    await page.route('**/api/v1/admin/user/auth/me/**', async route => {
       const url = new URL(route.request().url())
 
       if (url.pathname.endsWith('/context')) {

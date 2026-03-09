@@ -77,3 +77,22 @@ func unaryAuthInterceptor(ctx context.Context, req any, info *grpc.UnaryServerIn
 - 内部令牌每次进程启动随机化；不要写日志与磁盘。
 - 插件端限制仅本机访问，或进一步使用 UDS/mTLS 加固。
 - 插件端持久化 `client_secret` 时注意加密与最小权限；避免通过前端接口回读。
+
+## 插件日志开关（宿主统一注入）
+
+为避免把宿主日志开关与插件日志开关混用，PowerX 约定了插件专用环境变量：
+
+- `POWERX_PLUGIN_HTTP_LOG`
+- `POWERX_PLUGIN_GIN_MODE`
+- `POWERX_PLUGIN_LOG_LEVEL`
+
+兼容策略（从高到低）：
+
+1. `POWERX_PLUGIN_*`（推荐）
+2. `POWERX_*`（历史兼容）
+3. 插件自身默认配置
+
+说明：
+
+- 宿主会在启动插件进程时把最终值同时注入 `POWERX_PLUGIN_*` 与 `POWERX_*`，确保旧插件（仅识别 `POWERX_*`）和新插件（识别 `POWERX_PLUGIN_*`）都能工作。
+- 建议插件侧优先读取 `POWERX_PLUGIN_*`，逐步移除对 `POWERX_*` 的依赖。

@@ -17,10 +17,15 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 
 	// 1) 目标版本
 	targetVer := ""
+	currentVer := ""
+	if v, ok := m.opts.Registry.CurrentVersion(ctx, id); ok {
+		currentVer = v
+	}
 	if len(versionOptional) > 0 && versionOptional[0] != "" {
 		targetVer = versionOptional[0]
 	} else {
-		if v, ok := m.opts.Registry.CurrentVersion(ctx, id); ok {
+		if currentVer != "" {
+			v := currentVer
 			targetVer = v
 		} else {
 			return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("uninstall"),
@@ -44,21 +49,31 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 		}
 	}
 
-	// 4) 清理由宿主创建的数据库资源
-	if pl, ok := m.opts.Registry.GetVersion(ctx, id, targetVer); ok {
-		if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
-			return plugin_mgr.Wrap(
-				plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
-				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer),
-			)
+	// 4) 若删除当前版本，则连带清理该插件所有旧版本
+	removeVersions := []string{targetVer}
+	if currentVer != "" && targetVer == currentVer {
+		all := m.opts.Registry.ListVersions(ctx, id)
+		if len(all) > 0 {
+			removeVersions = all
 		}
 	}
 
-	// 5) 从注册表删除并保存
-	if err := m.opts.Registry.Remove(ctx, id, targetVer); err != nil {
-		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.remove"),
-			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
+	// 5) 清理由宿主创建的数据库资源 + 从注册表删除
+	for _, ver := range removeVersions {
+		if pl, ok := m.opts.Registry.GetVersion(ctx, id, ver); ok {
+			if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
+				return plugin_mgr.Wrap(
+					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
+					plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver),
+				)
+			}
+		}
+		if err := m.opts.Registry.Remove(ctx, id, ver); err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.remove"),
+				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver))
+		}
 	}
+
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.save"),
 			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
@@ -74,21 +89,36 @@ func (m *managerImpl) UninstallAndPurge(ctx context.Context, id string, versionO
 
 	// 先确定目标版本 & 路径（卸载前先拿路径）
 	targetVer := ""
+	currentVer := ""
+	if v, ok := m.opts.Registry.CurrentVersion(ctx, id); ok {
+		currentVer = v
+	}
 	if len(versionOptional) > 0 && versionOptional[0] != "" {
 		targetVer = versionOptional[0]
 	} else {
-		if v, ok := m.opts.Registry.CurrentVersion(ctx, id); ok {
+		if currentVer != "" {
+			v := currentVer
 			targetVer = v
 		} else {
 			return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("uninstall_purge"),
 				plugin_mgr.WithPlugin(id), plugin_mgr.WithMsg("no current version to uninstall"))
 		}
 	}
-
-	pl, ok := m.opts.Registry.GetVersion(ctx, id, targetVer)
-	if !ok {
-		return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("uninstall_purge"),
-			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer), plugin_mgr.WithMsg("target version not installed"))
+	purgeVersions := []string{targetVer}
+	if currentVer != "" && targetVer == currentVer {
+		all := m.opts.Registry.ListVersions(ctx, id)
+		if len(all) > 0 {
+			purgeVersions = all
+		}
+	}
+	paths := make([]string, 0, len(purgeVersions))
+	for _, ver := range purgeVersions {
+		pl, ok := m.opts.Registry.GetVersion(ctx, id, ver)
+		if !ok {
+			return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("uninstall_purge"),
+				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver), plugin_mgr.WithMsg("target version not installed"))
+		}
+		paths = append(paths, pl.Paths.Root)
 	}
 
 	// 先逻辑卸载
@@ -97,7 +127,12 @@ func (m *managerImpl) UninstallAndPurge(ctx context.Context, id string, versionO
 	}
 
 	// 再安全删除产物目录
-	return m.purgePath(pl.Paths.Root)
+	for _, p := range paths {
+		if err := m.purgePath(p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // --- 内部工具 ---
