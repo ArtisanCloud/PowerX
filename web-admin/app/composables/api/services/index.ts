@@ -48,3 +48,11 @@ export type {
   CreateIntegrationGatewayApiKeyResult,
   RotateIntegrationGatewayApiKeyResult,
 } from "./integrationGatewayApiKeyService";
+
+export { useSkillsService } from "./skillsService";
+export type {
+  SkillRecord,
+  SkillListResult,
+  SkillImportPayload,
+  SkillInvokePayload,
+} from "./skillsService";

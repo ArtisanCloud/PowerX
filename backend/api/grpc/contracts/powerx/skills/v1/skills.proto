@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package powerx.skills.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1;skillsv1";
+
+service SkillAdminService {
+  rpc ListSkills (ListSkillsRequest) returns (ListSkillsResponse);
+  rpc ImportSkill (ImportSkillRequest) returns (ImportSkillResponse);
+  rpc PublishSkill (PublishSkillRequest) returns (PublishSkillResponse);
+  rpc RollbackSkill (RollbackSkillRequest) returns (RollbackSkillResponse);
+  rpc BindCapability (BindCapabilityRequest) returns (BindCapabilityResponse);
+}
+
+service SkillInvokeService {
+  rpc InvokeSkill (InvokeSkillRequest) returns (InvokeSkillResponse);
+}
+
+message SkillRecord {
+  string skill_id = 1;
+  string version = 2;
+  string source = 3;
+  string status = 4;
+  string bundle_uri = 5;
+  string checksum = 6;
+  string signature = 7;
+  bool is_latest_published = 8;
+  string updated_at = 9;
+}
+
+message ListSkillsRequest {
+  string skill_id = 1;
+  string status = 2;
+  string source = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListSkillsResponse {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 total = 3;
+  repeated SkillRecord items = 4;
+}
+
+message ImportSkillRequest {
+  string skill_id = 1;
+  string version = 2;
+  string source = 3;
+  string bundle_uri = 4;
+  string checksum = 5;
+  string signature = 6;
+  string source_url = 7;
+  string source_ref = 8;
+}
+
+message ImportSkillResponse {
+  SkillRecord skill = 1;
+}
+
+message PublishSkillRequest {
+  string skill_id = 1;
+  string version = 2;
+  string approval_note = 3;
+}
+
+message PublishSkillResponse {
+  SkillRecord skill = 1;
+}
+
+message RollbackSkillRequest {
+  string skill_id = 1;
+  string target_version = 2;
+  string reason = 3;
+}
+
+message RollbackSkillResponse {
+  SkillRecord skill = 1;
+}
+
+message BindCapabilityRequest {
+  string skill_id = 1;
+  string version = 2;
+  string capability_id = 3;
+  repeated string tool_grants = 4;
+}
+
+message BindCapabilityResponse {
+  string binding_id = 1;
+  string status = 2;
+}
+
+message InvokeSkillRequest {
+  string tenant_uuid = 1;
+  string skill_id = 2;
+  string version = 3;
+  map<string, string> payload = 4;
+}
+
+message InvokeSkillResponse {
+  string trace_id = 1;
+  string status = 2;
+  string protocol_used = 3;
+  bool fallback_used = 4;
+  map<string, string> result = 5;
+}

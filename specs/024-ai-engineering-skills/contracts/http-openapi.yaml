@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: PowerX Skills Management API
+  version: "0.1.0"
+  description: Admin/Tenant HTTP contract for skill catalog, import, publish, rollback, binding, and invoke.
+servers:
+  - url: https://api.powerx.local/api/v1
+paths:
+  /admin/skills/catalog:
+    get:
+      summary: List official built-in skill catalog entries
+      operationId: listOfficialSkillCatalog
+      tags: [AdminSkills]
+      responses:
+        '200':
+          description: Catalog entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OfficialCatalogEntry'
+  /admin/skills:
+    get:
+      summary: Query skills registry
+      operationId: listSkills
+      tags: [AdminSkills]
+      parameters:
+        - name: skill_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, deprecated, disabled]
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [builtin, plugin, third_party]
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: Skills page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillPage'
+    post:
+      summary: Register a skill record
+      operationId: registerSkill
+      tags: [AdminSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillRegisterRequest'
+      responses:
+        '201':
+          description: Skill registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/import:
+    post:
+      summary: Import third-party or plugin skill bundle as draft
+      operationId: importSkill
+      tags: [AdminSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillImportRequest'
+      responses:
+        '202':
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+        '400':
+          description: Import validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/skills/{skillId}/publish:
+    post:
+      summary: Publish a draft version after manual approval
+      operationId: publishSkill
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: string }
+                approval_note: { type: string }
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/{skillId}/rollback:
+    post:
+      summary: Rollback latest published pointer to historical version
+      operationId: rollbackSkill
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_version, reason]
+              properties:
+                target_version: { type: string }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Rollback completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/{skillId}/bind-capability:
+    post:
+      summary: Bind a published skill version to capability
+      operationId: bindSkillCapability
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, capability_id]
+              properties:
+                version: { type: string }
+                capability_id: { type: string }
+                tool_grants:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Binding created
+  /tenant/skills/invoke:
+    post:
+      summary: Invoke a published skill directly
+      operationId: invokeSkillDirect
+      tags: [TenantSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillInvokeRequest'
+      responses:
+        '200':
+          description: Skill execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillInvokeResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tenant/invocations:
+    post:
+      summary: Unified invocation entry with preferred protocol = skill
+      operationId: invokeUnified
+      tags: [TenantSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnifiedInvokeRequest'
+      responses:
+        '200':
+          description: Skill execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillInvokeResponse'
+components:
+  parameters:
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    OfficialCatalogEntry:
+      type: object
+      required: [skill_id, recommended_version, risk_level]
+      properties:
+        skill_id: { type: string }
+        recommended_version: { type: string }
+        risk_level: { type: string, enum: [L1, L2, L3, L4] }
+        category: { type: string }
+        summary: { type: string }
+    SkillRecord:
+      type: object
+      required: [skill_id, version, source, status]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [builtin, plugin, third_party] }
+        status: { type: string, enum: [draft, published, deprecated, disabled] }
+        bundle_uri: { type: string }
+        checksum: { type: string }
+        signature: { type: string, nullable: true }
+        source_url: { type: string, nullable: true }
+        source_ref: { type: string, nullable: true }
+        is_latest_published: { type: boolean }
+        updated_at: { type: string, format: date-time }
+    SkillPage:
+      type: object
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillRecord'
+    SkillRegisterRequest:
+      type: object
+      required: [skill_id, version, source, bundle_ref, manifest]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [builtin, plugin, third_party] }
+        bundle_ref:
+          type: object
+          required: [uri, checksum]
+          properties:
+            uri: { type: string }
+            checksum: { type: string }
+            signature: { type: string }
+        manifest:
+          type: object
+          additionalProperties: true
+    SkillImportRequest:
+      type: object
+      required: [skill_id, version, source, bundle_uri, checksum]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [plugin, third_party] }
+        bundle_uri: { type: string }
+        checksum: { type: string }
+        signature: { type: string }
+        source_url: { type: string }
+        source_ref: { type: string }
+    SkillInvokeRequest:
+      type: object
+      required: [skill_id, payload]
+      properties:
+        skill_id: { type: string }
+        version:
+          type: string
+          description: Optional. Defaults to latest published if omitted.
+        payload:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+    UnifiedInvokeRequest:
+      type: object
+      required: [capability_id, preferred_protocol, payload]
+      properties:
+        capability_id: { type: string }
+        preferred_protocol:
+          type: string
+          enum: [skill]
+        payload:
+          type: object
+          additionalProperties: true
+    SkillInvokeResponse:
+      type: object
+      required: [trace_id, status, protocol_used]
+      properties:
+        trace_id: { type: string }
+        status: { type: string, enum: [completed, failed, denied] }
+        protocol_used: { type: string, enum: [skill] }
+        fallback_used: { type: boolean }
+        result:
+          type: object
+          additionalProperties: true
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - skill.not_found
+            - skill.version_not_found
+            - skill.permission_denied
+            - skill.execution_failed
+            - skill.source_untrusted
+            - skill.checksum_mismatch
+        message: { type: string }
