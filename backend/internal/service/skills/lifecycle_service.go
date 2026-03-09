@@ -13,6 +13,7 @@ import (
 type LifecycleService struct {
 	registryRepo *skillrepo.SkillRegistryRepository
 	auditService *AuditTraceService
+	integrity    *IntegrityPolicy
 }
 
 func NewLifecycleService(
@@ -25,6 +26,7 @@ func NewLifecycleService(
 	return &LifecycleService{
 		registryRepo: registryRepo,
 		auditService: auditService,
+		integrity:    NewIntegrityPolicyFromEnv(),
 	}
 }
 
@@ -42,8 +44,12 @@ func (s *LifecycleService) Publish(ctx context.Context, skillID, version, operat
 	if rec.Status == skillmodel.SkillStatusDisabled {
 		return errors.New("disabled skill version cannot be published")
 	}
-	if rec.Checksum == "" {
-		return errors.New("checksum is required before publish")
+	integrity := s.integrity
+	if integrity == nil {
+		integrity = NewIntegrityPolicyFromEnv()
+	}
+	if err := integrity.ValidatePublish(rec); err != nil {
+		return err
 	}
 
 	if err := s.registryRepo.SetLatestPublished(ctx, skillID, version, operator, approvalNote); err != nil {

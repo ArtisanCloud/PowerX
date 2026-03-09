@@ -31,6 +31,8 @@
     />
 
     <template v-else>
+      <SettingsAiSkillsImportForm @imported="onImported" />
+
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
@@ -275,6 +277,10 @@ async function onRollback(skillId: string, targetVersion: string) {
 
 async function refreshAll() {
   await Promise.all([fetchCatalog(), fetchRegistry()]);
+}
+
+async function onImported() {
+  await fetchRegistry();
 }
 
 onMounted(async () => {

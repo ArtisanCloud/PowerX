@@ -71,16 +71,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] 集成测试：上传导入 + metadata 追溯 + draft 状态：`backend/tests/integration/skills/skill_import_integration_test.go`
-- [ ] T026 [P] [US2] 集成测试：checksum 缺失/不匹配拒绝发布：`backend/tests/integration/skills/skill_integrity_integration_test.go`
+- [X] T025 [P] [US2] 集成测试：上传导入 + metadata 追溯 + draft 状态：`backend/tests/integration/skills/skill_import_integration_test.go`
+- [X] T026 [P] [US2] 集成测试：checksum 缺失/不匹配拒绝发布：`backend/tests/integration/skills/skill_integrity_integration_test.go`
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] 实现导入接口 `POST /admin/skills/import`（仅 upload 模式）：`backend/internal/transport/http/admin/skills/import_handler.go`
-- [ ] T028 [US2] 实现导入业务规则（禁用远程仓库在线拉取）：`backend/internal/service/skills/import_service.go`
-- [ ] T029 [US2] 实现完整性策略开关（checksum 强制、signature 可配置强制）：`backend/internal/service/skills/integrity_policy.go`
-- [ ] T030 [US2] 实现 Web Admin 导入表单（bundle + source_url/source_ref）：`web-admin/app/components/settings/ai/skills/ImportForm.vue`
-- [ ] T031 [US2] 实现前端 API 调用与错误提示映射：`web-admin/app/composables/api/services/skillsService.ts`
+- [X] T027 [US2] 实现导入接口 `POST /admin/skills/import`（仅 upload 模式）：`backend/internal/transport/http/admin/skills/import_handler.go`
+- [X] T028 [US2] 实现导入业务规则（禁用远程仓库在线拉取）：`backend/internal/service/skills/import_service.go`
+- [X] T029 [US2] 实现完整性策略开关（checksum 强制、signature 可配置强制）：`backend/internal/service/skills/integrity_policy.go`
+- [X] T030 [US2] 实现 Web Admin 导入表单（bundle + source_url/source_ref）：`web-admin/app/components/settings/ai/skills/ImportForm.vue`
+- [X] T031 [US2] 实现前端 API 调用与错误提示映射：`web-admin/app/composables/api/services/skillsService.ts`
 
 **Checkpoint**: US2 独立可演示（受控导入闭环完成）。
 

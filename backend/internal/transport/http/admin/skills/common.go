@@ -34,6 +34,10 @@ type rollbackHandler struct {
 	lifecycleSvc *skillservice.LifecycleService
 }
 
+type importHandler struct {
+	importSvc *skillservice.ImportService
+}
+
 type moduleDeps struct {
 	db        *gorm.DB
 	registry  *skillrepo.SkillRegistryRepository

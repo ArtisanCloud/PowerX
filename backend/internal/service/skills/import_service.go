@@ -32,6 +32,7 @@ type ImportRequest struct {
 type ImportService struct {
 	registryRepo *skillrepo.SkillRegistryRepository
 	auditService *AuditTraceService
+	integrity    *IntegrityPolicy
 }
 
 func NewImportService(
@@ -41,7 +42,11 @@ func NewImportService(
 	if registryRepo == nil {
 		panic("import service requires registry repository")
 	}
-	return &ImportService{registryRepo: registryRepo, auditService: auditService}
+	return &ImportService{
+		registryRepo: registryRepo,
+		auditService: auditService,
+		integrity:    NewIntegrityPolicyFromEnv(),
+	}
 }
 
 func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*skillmodel.SkillRegistryRecord, error) {
@@ -50,6 +55,9 @@ func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*sk
 	req.Source = strings.ToLower(strings.TrimSpace(req.Source))
 	req.BundleURI = strings.TrimSpace(req.BundleURI)
 	req.Checksum = strings.TrimSpace(req.Checksum)
+	req.Signature = strings.TrimSpace(req.Signature)
+	req.SourceURL = strings.TrimSpace(req.SourceURL)
+	req.SourceRef = strings.TrimSpace(req.SourceRef)
 	req.ImportType = strings.ToLower(strings.TrimSpace(req.ImportType))
 
 	if req.ImportType == "" {
@@ -64,11 +72,19 @@ func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*sk
 	if req.BundleURI == "" {
 		return nil, errors.New("bundle_uri is required")
 	}
-	if req.Checksum == "" {
-		return nil, errors.New("checksum is required")
-	}
 	if req.Source == skillmodel.SkillSourceBuiltin {
 		return nil, errors.New("builtin source should be maintained by official catalog flow")
+	}
+	if strings.HasPrefix(strings.ToLower(req.BundleURI), "http://") || strings.HasPrefix(strings.ToLower(req.BundleURI), "https://") {
+		return nil, errors.New("remote repository online pull is disabled; only uploaded bundle_uri is allowed")
+	}
+
+	integrity := s.integrity
+	if integrity == nil {
+		integrity = NewIntegrityPolicyFromEnv()
+	}
+	if err := integrity.ValidateImport(req); err != nil {
+		return nil, err
 	}
 
 	record := &skillmodel.SkillRegistryRecord{

@@ -43,8 +43,40 @@ export interface SkillInvokePayload {
 const adminBase = "/admin/skills";
 const tenantBase = "/tenant/skills";
 
+function mapSkillsError(error: any): Error {
+  const responseData = error?.data ?? error?.response?._data ?? {};
+  const rawMessage = String(
+    responseData?.error ||
+      responseData?.message ||
+      error?.message ||
+      "Skills 操作失败"
+  );
+  const normalized = rawMessage.toLowerCase();
+
+  if (normalized.includes("checksum mismatch")) {
+    return new Error("校验和不匹配，仅支持 sha256 校验值");
+  }
+  if (normalized.includes("checksum is required")) {
+    return new Error("缺少 checksum，无法导入或发布");
+  }
+  if (normalized.includes("signature is required")) {
+    return new Error("当前策略要求签名，请补充 signature");
+  }
+  if (normalized.includes("remote repository online pull is disabled")) {
+    return new Error("仅允许上传后的 bundle_uri，禁止远程仓库在线拉取");
+  }
+  if (normalized.includes("skill not found")) {
+    return new Error("Skill 不存在或版本不存在");
+  }
+  return new Error(rawMessage);
+}
+
 export const useSkillsService = () => {
   const api = useApiClient();
+  const unwrap = <T>(resp: any): T =>
+    resp && typeof resp === "object" && "data" in resp
+      ? (resp as any).data
+      : resp;
 
   return {
     list: (params?: Record<string, string | number | undefined>) =>
@@ -52,20 +84,47 @@ export const useSkillsService = () => {
 
     listCatalog: () => api.get<ApiResponse<{ items: Array<Record<string, unknown>> }>>(`${adminBase}/catalog`),
 
-    importSkill: (payload: SkillImportPayload) =>
-      api.post<ApiResponse<SkillRecord>>(`${adminBase}/import`, payload),
+    importSkill: async (payload: SkillImportPayload) => {
+      try {
+        const resp = await api.post<ApiResponse<SkillRecord>>(
+          `${adminBase}/import`,
+          payload
+        );
+        return unwrap<SkillRecord>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
 
-    publish: (skillId: string, version: string, approvalNote?: string) =>
-      api.post<ApiResponse<SkillRecord>>(`${adminBase}/${encodeURIComponent(skillId)}/publish`, {
-        version,
-        approval_note: approvalNote,
-      }),
+    publish: async (skillId: string, version: string, approvalNote?: string) => {
+      try {
+        const resp = await api.post<ApiResponse<SkillRecord>>(
+          `${adminBase}/${encodeURIComponent(skillId)}/publish`,
+          {
+            version,
+            approval_note: approvalNote,
+          }
+        );
+        return unwrap<SkillRecord>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
 
-    rollback: (skillId: string, targetVersion: string, reason: string) =>
-      api.post<ApiResponse<SkillRecord>>(`${adminBase}/${encodeURIComponent(skillId)}/rollback`, {
-        target_version: targetVersion,
-        reason,
-      }),
+    rollback: async (skillId: string, targetVersion: string, reason: string) => {
+      try {
+        const resp = await api.post<ApiResponse<SkillRecord>>(
+          `${adminBase}/${encodeURIComponent(skillId)}/rollback`,
+          {
+            target_version: targetVersion,
+            reason,
+          }
+        );
+        return unwrap<SkillRecord>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
 
     invoke: (payload: SkillInvokePayload) =>
       api.post<ApiResponse<Record<string, unknown>>>(`${tenantBase}/invoke`, payload),

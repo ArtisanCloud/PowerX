@@ -23,9 +23,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	catalogH := newCatalogHandler(module.db)
 	registryH := newRegistryHandler(module.registry, module.importSvc)
+	importH := newImportHandler(module.importSvc)
 	publishH := newPublishHandler(module.registry, module.lifecycle)
 	rollbackH := newRollbackHandler(module.registry, module.lifecycle)
-	if catalogH == nil || registryH == nil || publishH == nil || rollbackH == nil {
+	if catalogH == nil || registryH == nil || importH == nil || publishH == nil || rollbackH == nil {
 		return
 	}
 
@@ -35,6 +36,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	group.GET("/catalog", catalogH.ListCatalog)
 	group.GET("", registryH.List)
 	group.POST("", registryH.Register)
+	group.POST("/import", importH.Import)
 	group.POST("/:skillId/publish", publishH.Publish)
 	group.POST("/:skillId/rollback", rollbackH.Rollback)
 }
