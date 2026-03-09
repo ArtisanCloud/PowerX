@@ -8,17 +8,20 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
 
 type tenantHandler struct {
-	catalog  *capservice.RegistryService
-	invoker  *capservice.InvocationService
-	selector *capservice.Selector
+	catalog      *capservice.RegistryService
+	invoker      *capservice.InvocationService
+	selector     *capservice.Selector
+	skillAdapter *skillservice.AdapterService
 }
 
 func newTenantHandler(deps *shared.Deps) *tenantHandler {
@@ -50,10 +53,21 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			EventBus: deps.EventBus,
 		})
 	}
+	var skillAdapter *skillservice.AdapterService
+	if deps.DB != nil {
+		skillRegistryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
+		skillBindingRepo := skillrepo.NewSkillCapabilityBindingRepository(deps.DB)
+		skillTraceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
+		skillAuditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
+		skillInvokeSvc := skillservice.NewInvokeService(skillRegistryRepo, skillservice.NewAuditTraceService(skillTraceRepo, skillAuditRepo))
+		skillAdapter = skillservice.NewAdapterService(skillInvokeSvc, skillBindingRepo)
+	}
+
 	return &tenantHandler{
-		catalog:  deps.CapabilityCatalogSvc,
-		invoker:  invocationSvc,
-		selector: selector,
+		catalog:      deps.CapabilityCatalogSvc,
+		invoker:      invocationSvc,
+		selector:     selector,
+		skillAdapter: skillAdapter,
 	}
 }
 
@@ -133,6 +147,31 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	}
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
+		return
+	}
+
+	if strings.EqualFold(strings.TrimSpace(req.PreferredProtocol), "skill") && h.skillAdapter != nil {
+		result, err := h.skillAdapter.InvokeUnified(c.Request.Context(), skillservice.UnifiedInvokeRequest{
+			TenantUUID:        tenantUUID,
+			CapabilityID:      strings.TrimSpace(req.CapabilityID),
+			PreferredProtocol: req.PreferredProtocol,
+			Payload:           req.Payload,
+			TraceID:           strings.TrimSpace(req.TraceID),
+		})
+		if err != nil {
+			statusCode, envelope := skillservice.MapInvokeError(err)
+			c.JSON(statusCode, envelope)
+			return
+		}
+		dto.ResponseSuccess(c, gin.H{
+			"trace_id":      result.TraceID,
+			"status":        result.Status,
+			"protocol_used": result.ProtocolUsed,
+			"fallback_used": result.FallbackUsed,
+			"result":        result.Result,
+			"skill_id":      result.SkillID,
+			"version":       result.Version,
+		})
 		return
 	}
 

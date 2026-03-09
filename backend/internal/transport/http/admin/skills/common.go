@@ -38,6 +38,10 @@ type importHandler struct {
 	importSvc *skillservice.ImportService
 }
 
+type bindingHandler struct {
+	bindingRepo *skillrepo.SkillCapabilityBindingRepository
+}
+
 type moduleDeps struct {
 	db        *gorm.DB
 	registry  *skillrepo.SkillRegistryRepository

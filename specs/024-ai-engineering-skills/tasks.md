@@ -93,17 +93,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T032 [P] [US3] 集成测试：直接调用路径（tenant/skills/invoke）：`backend/tests/integration/skills/skill_invoke_direct_integration_test.go`
-- [ ] T033 [P] [US3] 集成测试：统一入口路径（tenant/invocations, preferred_protocol=skill）：`backend/tests/integration/skills/skill_invoke_unified_integration_test.go`
-- [ ] T034 [P] [US3] 集成测试：未传 version 默认 latest published：`backend/tests/integration/skills/skill_default_version_integration_test.go`
+- [X] T032 [P] [US3] 集成测试：直接调用路径（tenant/skills/invoke）：`backend/tests/integration/skills/skill_invoke_direct_integration_test.go`
+- [X] T033 [P] [US3] 集成测试：统一入口路径（tenant/invocations, preferred_protocol=skill）：`backend/tests/integration/skills/skill_invoke_unified_integration_test.go`
+- [X] T034 [P] [US3] 集成测试：未传 version 默认 latest published：`backend/tests/integration/skills/skill_default_version_integration_test.go`
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] 实现 `POST /tenant/skills/invoke`：`backend/internal/transport/http/openapi/skills/invoke_handler.go`
-- [ ] T036 [US3] 实现统一入口 skill 适配（preferred_protocol=skill）：`backend/internal/service/skills/adapter_service.go`
-- [ ] T037 [US3] 实现 gRPC SkillInvokeService：`backend/internal/transport/grpc/skills/invoke_service.go`
-- [ ] T038 [US3] 实现 capability 绑定接口 `POST /admin/skills/{skillId}/bind-capability`：`backend/internal/transport/http/admin/skills/binding_handler.go`
-- [ ] T039 [US3] 对齐错误码与统一响应 envelope：`backend/internal/service/skills/response_mapper.go`
+- [X] T035 [US3] 实现 `POST /tenant/skills/invoke`：`backend/internal/transport/http/openapi/skills/invoke_handler.go`
+- [X] T036 [US3] 实现统一入口 skill 适配（preferred_protocol=skill）：`backend/internal/service/skills/adapter_service.go`
+- [X] T037 [US3] 实现 gRPC SkillInvokeService：`backend/internal/transport/grpc/skills/invoke_service.go`
+- [X] T038 [US3] 实现 capability 绑定接口 `POST /admin/skills/{skillId}/bind-capability`：`backend/internal/transport/http/admin/skills/binding_handler.go`
+- [X] T039 [US3] 对齐错误码与统一响应 envelope：`backend/internal/service/skills/response_mapper.go`
 
 **Checkpoint**: US3 独立可演示（双路径一致性达成）。
 

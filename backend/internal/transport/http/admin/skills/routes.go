@@ -26,7 +26,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	importH := newImportHandler(module.importSvc)
 	publishH := newPublishHandler(module.registry, module.lifecycle)
 	rollbackH := newRollbackHandler(module.registry, module.lifecycle)
-	if catalogH == nil || registryH == nil || importH == nil || publishH == nil || rollbackH == nil {
+	bindingH := newBindingHandler(module.binding)
+	if catalogH == nil || registryH == nil || importH == nil || publishH == nil || rollbackH == nil || bindingH == nil {
 		return
 	}
 
@@ -39,6 +40,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	group.POST("/import", importH.Import)
 	group.POST("/:skillId/publish", publishH.Publish)
 	group.POST("/:skillId/rollback", rollbackH.Rollback)
+	group.POST("/:skillId/bind-capability", bindingH.BindCapability)
 }
 
 func rootOnlyMiddleware() gin.HandlerFunc {

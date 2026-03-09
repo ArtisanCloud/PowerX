@@ -1,0 +1,59 @@
+package skillsintegration
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	skillsopenapi "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/skills"
+	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+)
+
+func TestSkillInvokeDirectPath(t *testing.T) {
+	db := setupSkillsDB(t)
+	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
+		SkillID:           "skill.invoke.direct",
+		Version:           "1.0.0",
+		Source:            skillmodel.SkillSourcePlugin,
+		Status:            skillmodel.SkillStatusPublished,
+		IsLatestPublished: true,
+		BundleURI:         "s3://skills/skill.invoke.direct-1.0.0.tgz",
+		Checksum:          "sha256:invoke-direct",
+		ImportType:        "upload",
+		UpdatedBy:         "seed",
+	}).Error)
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	group := engine.Group("/api")
+	group.Use(func(c *gin.Context) {
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), "tenant-us3-direct")
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	skillsopenapi.RegisterTenantRoutes(group, &shared.Deps{DB: db})
+
+	body := map[string]interface{}{
+		"skill_id": "skill.invoke.direct",
+		"payload":  map[string]interface{}{"input": "hello"},
+	}
+	raw, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/tenant/skills/invoke", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+	engine.ServeHTTP(resp, req)
+	require.Equal(t, http.StatusOK, resp.Code)
+
+	var data map[string]interface{}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &data))
+	payload := data["data"].(map[string]interface{})
+	require.Equal(t, "skill", payload["protocol_used"])
+	require.Equal(t, "completed", payload["status"])
+	require.NotEmpty(t, payload["trace_id"])
+}

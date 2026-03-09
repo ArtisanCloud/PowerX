@@ -11,6 +11,7 @@ import (
 	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	mediaOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media"
 	pluginReleaseOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_release"
+	skillsOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/skills"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,6 +39,7 @@ func RegisterAPIRoutes(
 
 	agentOpenAPI.Register(publicGroup, protectedGroup, deps)
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	integrationGatewayOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	aiOpenAPI.Register(publicGroup, protectedGroup, deps)
 	pluginReleaseOpenAPI.RegisterTenantRoutes(protectedGroup, deps)

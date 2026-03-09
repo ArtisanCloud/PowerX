@@ -210,3 +210,22 @@ func (r *SkillCapabilityBindingRepository) ListBySkillVersion(ctx context.Contex
 	}
 	return rows, nil
 }
+
+func (r *SkillCapabilityBindingRepository) GetLatestActiveByCapability(ctx context.Context, capabilityID string) (*models.SkillCapabilityBinding, error) {
+	capabilityID = strings.TrimSpace(capabilityID)
+	if capabilityID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	var row models.SkillCapabilityBinding
+	err := r.db.WithContext(ctx).
+		Where("capability_id = ? AND binding_status = ?", capabilityID, "active").
+		Order("updated_at DESC").
+		Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrSkillNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}

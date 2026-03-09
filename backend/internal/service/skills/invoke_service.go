@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
+
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 )
@@ -62,6 +64,9 @@ func (s *InvokeService) Resolve(ctx context.Context, req InvokeRequest) (*Invoke
 	}
 	if req.InvokePath == "" {
 		req.InvokePath = "tenant.skills.invoke"
+	}
+	if strings.TrimSpace(req.TraceID) == "" {
+		req.TraceID = uuid.NewString()
 	}
 
 	selectedVersion := req.Version

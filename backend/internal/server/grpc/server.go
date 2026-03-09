@@ -152,6 +152,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 		workflowv1.RegisterWorkflowServiceServer(s, workflowgrpc.NewServer(deps.Workflow.Service))
 	}
 	skillsgrpc.RegisterAdminService(s, deps)
+	skillsgrpc.RegisterInvokeService(s, deps)
 
 	ctx := context.Background()
 
@@ -176,6 +177,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			integrationpb.IntegrationGatewayTenantService_ServiceDesc.ServiceName,
 			workflowv1.WorkflowService_ServiceDesc.ServiceName,
 			skillsv1.SkillAdminService_ServiceDesc.ServiceName,
+			skillsv1.SkillInvokeService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)
