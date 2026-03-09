@@ -24,16 +24,16 @@
 
 **⚠️ CRITICAL**: 本阶段完成前，不进入任何用户故事实现。
 
-- [ ] T005 [Shared] 定义核心实体模型 `SkillRegistryRecord` 与 `OfficialSkillCatalogEntry`：`backend/pkg/corex/db/persistence/model/skills/skill_registry_record.go`, `backend/pkg/corex/db/persistence/model/skills/official_skill_catalog_entry.go`
-- [ ] T006 [P] [Shared] 定义核心实体模型 `SkillCapabilityBinding` 与 `SkillLifecycleAudit`：`backend/pkg/corex/db/persistence/model/skills/skill_capability_binding.go`, `backend/pkg/corex/db/persistence/model/skills/skill_lifecycle_audit.go`
-- [ ] T007 [P] [Shared] 定义核心实体模型 `SkillExecutionTrace`：`backend/pkg/corex/db/persistence/model/skills/skill_execution_trace.go`
-- [ ] T008 [Shared] 挂载统一迁移入口：`backend/pkg/corex/db/database/migration.go`
-- [ ] T009 [P] [Shared] 实现 repository：`backend/pkg/corex/db/persistence/repository/skills/skill_registry_repository.go`
-- [ ] T010 [P] [Shared] 实现 repository：`backend/pkg/corex/db/persistence/repository/skills/skill_trace_repository.go`
-- [ ] T011 [Shared] 实现基础 service（状态机、latest published 指针、互斥发布/回滚）：`backend/internal/service/skills/lifecycle_service.go`
-- [ ] T012 [P] [Shared] 实现基础 service（导入校验、checksum/signature 策略、来源元数据登记）：`backend/internal/service/skills/import_service.go`
-- [ ] T013 [P] [Shared] 实现基础 service（调用路由、默认版本解析、权限前置检查）：`backend/internal/service/skills/invoke_service.go`
-- [ ] T014 [Shared] 接入审计与 trace 写入中间能力：`backend/internal/service/skills/audit_trace_service.go`
+- [X] T005 [Shared] 定义核心实体模型 `SkillRegistryRecord` 与 `OfficialSkillCatalogEntry`：`backend/pkg/corex/db/persistence/model/skills/skill_registry_record.go`, `backend/pkg/corex/db/persistence/model/skills/official_skill_catalog_entry.go`
+- [X] T006 [P] [Shared] 定义核心实体模型 `SkillCapabilityBinding` 与 `SkillLifecycleAudit`：`backend/pkg/corex/db/persistence/model/skills/skill_capability_binding.go`, `backend/pkg/corex/db/persistence/model/skills/skill_lifecycle_audit.go`
+- [X] T007 [P] [Shared] 定义核心实体模型 `SkillExecutionTrace`：`backend/pkg/corex/db/persistence/model/skills/skill_execution_trace.go`
+- [X] T008 [Shared] 挂载统一迁移入口：`backend/pkg/corex/db/database/migration.go`
+- [X] T009 [P] [Shared] 实现 repository：`backend/pkg/corex/db/persistence/repository/skills/skill_registry_repository.go`
+- [X] T010 [P] [Shared] 实现 repository：`backend/pkg/corex/db/persistence/repository/skills/skill_trace_repository.go`
+- [X] T011 [Shared] 实现基础 service（状态机、latest published 指针、互斥发布/回滚）：`backend/internal/service/skills/lifecycle_service.go`
+- [X] T012 [P] [Shared] 实现基础 service（导入校验、checksum/signature 策略、来源元数据登记）：`backend/internal/service/skills/import_service.go`
+- [X] T013 [P] [Shared] 实现基础 service（调用路由、默认版本解析、权限前置检查）：`backend/internal/service/skills/invoke_service.go`
+- [X] T014 [Shared] 接入审计与 trace 写入中间能力：`backend/internal/service/skills/audit_trace_service.go`
 
 **Checkpoint**: 迁移、实体、仓储、核心服务可用；可进入用户故事开发。
 

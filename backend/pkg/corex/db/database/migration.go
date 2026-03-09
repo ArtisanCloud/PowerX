@@ -20,6 +20,7 @@ import (
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
+	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
@@ -156,6 +157,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migrateKnowledgeModels(db); err != nil {
+		return err
+	}
+
+	if err = migrateSkillsModels(db); err != nil {
 		return err
 	}
 
@@ -337,5 +342,15 @@ func migrateAgentModelHubModels(db *gorm.DB) error {
 		&modelAgentHub.RoutingPolicy{},
 		&modelAgentHub.ConnectorInstance{},
 		&modelAgentHub.CostQuotaLedger{},
+	)
+}
+
+func migrateSkillsModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelSkills.SkillRegistryRecord{},
+		&modelSkills.OfficialSkillCatalogEntry{},
+		&modelSkills.SkillCapabilityBinding{},
+		&modelSkills.SkillExecutionTrace{},
+		&modelSkills.SkillLifecycleAudit{},
 	)
 }
