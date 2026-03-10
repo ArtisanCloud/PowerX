@@ -116,15 +116,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T040 [P] [US4] 集成测试：关键管理动作审计记录完整：`backend/tests/integration/skills/skill_audit_integration_test.go`
-- [ ] T041 [P] [US4] 集成测试：跨租户 trace 查询阻断：`backend/tests/integration/skills/skill_tenant_isolation_integration_test.go`
+- [X] T040 [P] [US4] 集成测试：关键管理动作审计记录完整：`backend/tests/integration/skills/skill_audit_integration_test.go`
+- [X] T041 [P] [US4] 集成测试：跨租户 trace 查询阻断：`backend/tests/integration/skills/skill_tenant_isolation_integration_test.go`
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] 实现审计查询接口与筛选：`backend/internal/transport/http/admin/skills/audit_handler.go`
-- [ ] T043 [US4] 补全审计字段（import/publish/rollback/bind/invoke）：`backend/internal/service/skills/audit_trace_service.go`
-- [ ] T044 [US4] 补全 trace 指标与标签（skill_id/version/tenant_uuid）：`backend/internal/service/skills/metrics.go`
-- [ ] T045 [US4] Web Admin 增加审计与版本历史抽屉：`web-admin/app/components/settings/ai/skills/AuditDrawer.vue`
+- [X] T042 [US4] 实现审计查询接口与筛选：`backend/internal/transport/http/admin/skills/audit_handler.go`
+- [X] T043 [US4] 补全审计字段（import/publish/rollback/bind/invoke）：`backend/internal/service/skills/audit_trace_service.go`
+- [X] T044 [US4] 补全 trace 指标与标签（skill_id/version/tenant_uuid）：`backend/internal/service/skills/metrics.go`
+- [X] T045 [US4] Web Admin 增加审计与版本历史抽屉：`web-admin/app/components/settings/ai/skills/AuditDrawer.vue`
 
 **Checkpoint**: US4 独立可演示（治理与隔离闭环达成）。
 

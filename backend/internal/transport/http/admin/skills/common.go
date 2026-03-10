@@ -40,12 +40,21 @@ type importHandler struct {
 
 type bindingHandler struct {
 	bindingRepo *skillrepo.SkillCapabilityBindingRepository
+	auditSvc    *skillservice.AuditTraceService
+}
+
+type auditHandler struct {
+	traceRepo *skillrepo.SkillExecutionTraceRepository
+	auditRepo *skillrepo.SkillLifecycleAuditRepository
 }
 
 type moduleDeps struct {
 	db        *gorm.DB
 	registry  *skillrepo.SkillRegistryRepository
 	binding   *skillrepo.SkillCapabilityBindingRepository
+	traceRepo *skillrepo.SkillExecutionTraceRepository
+	auditRepo *skillrepo.SkillLifecycleAuditRepository
+	auditSvc  *skillservice.AuditTraceService
 	importSvc *skillservice.ImportService
 	lifecycle *skillservice.LifecycleService
 }
@@ -62,6 +71,9 @@ func newModuleDeps(db *gorm.DB) *moduleDeps {
 		db:        db,
 		registry:  registryRepo,
 		binding:   skillrepo.NewSkillCapabilityBindingRepository(db),
+		traceRepo: traceRepo,
+		auditRepo: auditRepo,
+		auditSvc:  auditSvc,
 		importSvc: skillservice.NewImportService(registryRepo, auditSvc),
 		lifecycle: skillservice.NewLifecycleService(registryRepo, auditSvc),
 	}

@@ -32,6 +32,7 @@
 
     <template v-else>
       <SettingsAiSkillsImportForm @imported="onImported" />
+      <SettingsAiSkillsAuditDrawer v-model="auditDrawerOpen" :skill-id="selectedSkillId" />
 
       <UCard>
         <template #header>
@@ -115,6 +116,8 @@ const registryRows = computed(() => registryItems.value.map((item) => ({ ...item
 const registryTotal = ref(0);
 const publishDraft = reactive<Record<string, string>>({});
 const rollbackDraft = reactive<Record<string, string>>({});
+const auditDrawerOpen = ref(false);
+const selectedSkillId = ref("");
 
 const filters = reactive({
   skillId: "",
@@ -209,6 +212,22 @@ const registryColumns = computed(() => {
         ]);
       },
     },
+    {
+      id: "audit",
+      header: "审计",
+      cell: ({ row }: any) => {
+        const item = row.original as SkillRecord;
+        return h(
+          UButton as any,
+          {
+            size: "xs",
+            variant: "ghost",
+            onClick: () => openAuditDrawer(item.skill_id),
+          },
+          () => "查看",
+        );
+      },
+    },
   ];
 });
 
@@ -281,6 +300,11 @@ async function refreshAll() {
 
 async function onImported() {
   await fetchRegistry();
+}
+
+function openAuditDrawer(skillId: string) {
+  selectedSkillId.value = skillId;
+  auditDrawerOpen.value = true;
 }
 
 onMounted(async () => {

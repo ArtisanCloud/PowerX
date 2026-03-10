@@ -50,6 +50,7 @@ type ExecutionTraceInput struct {
 type AuditTraceService struct {
 	traceRepo *skillrepo.SkillExecutionTraceRepository
 	auditRepo *skillrepo.SkillLifecycleAuditRepository
+	metrics   *Metrics
 	now       func() time.Time
 }
 
@@ -60,6 +61,7 @@ func NewAuditTraceService(
 	return &AuditTraceService{
 		traceRepo: traceRepo,
 		auditRepo: auditRepo,
+		metrics:   NewMetrics(),
 		now:       time.Now,
 	}
 }
@@ -87,6 +89,9 @@ func (s *AuditTraceService) RecordLifecycleAudit(ctx context.Context, in Lifecyc
 		ErrorSummary: "",
 	}
 	record.Normalize()
+	if s.metrics != nil {
+		s.metrics.IncLifecycle(record.Action, record.SkillID, record.Version)
+	}
 	_, err := s.auditRepo.Create(ctx, record)
 	return err
 }
@@ -118,6 +123,9 @@ func (s *AuditTraceService) RecordExecutionTrace(ctx context.Context, in Executi
 		AuthorizationCheckPass: in.AuthPass,
 	}
 	record.Normalize()
+	if s.metrics != nil {
+		s.metrics.IncTrace(record.Status, record.SkillID, record.Version, record.TenantUUID)
+	}
 	_, err := s.traceRepo.Create(ctx, record)
 	return err
 }

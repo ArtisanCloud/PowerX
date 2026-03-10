@@ -40,6 +40,21 @@ export interface SkillInvokePayload {
   context?: Record<string, unknown>;
 }
 
+export interface SkillAuditRecord {
+  audit_id: string;
+  action: string;
+  skill_id: string;
+  version: string;
+  operator: string;
+  tenant_scope: string;
+  reason?: string;
+  result: string;
+  trace_id?: string;
+  source?: string;
+  error_summary?: string;
+  created_at?: string;
+}
+
 const adminBase = "/admin/skills";
 const tenantBase = "/tenant/skills";
 
@@ -128,5 +143,21 @@ export const useSkillsService = () => {
 
     invoke: (payload: SkillInvokePayload) =>
       api.post<ApiResponse<Record<string, unknown>>>(`${tenantBase}/invoke`, payload),
+
+    listAudits: async (skillId: string, limit = 20) => {
+      const resp = await api.get<ApiResponse<{ items: SkillAuditRecord[]; total: number }>>(
+        `${adminBase}/audits`,
+        { params: { skill_id: skillId, limit } }
+      );
+      return unwrap<{ items: SkillAuditRecord[]; total: number }>(resp);
+    },
+
+    getTrace: async (traceId: string, tenantUUID?: string) => {
+      const resp = await api.get<ApiResponse<Record<string, unknown>>>(
+        `${adminBase}/traces/${encodeURIComponent(traceId)}`,
+        { params: { tenant_uuid: tenantUUID } }
+      );
+      return unwrap<Record<string, unknown>>(resp);
+    },
   };
 };
