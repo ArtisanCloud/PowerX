@@ -60,7 +60,8 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		skillTraceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
 		skillAuditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
 		skillInvokeSvc := skillservice.NewInvokeService(skillRegistryRepo, skillservice.NewAuditTraceService(skillTraceRepo, skillAuditRepo))
-		skillAdapter = skillservice.NewAdapterService(skillInvokeSvc, skillBindingRepo)
+		skillAdapter = skillservice.NewAdapterService(skillInvokeSvc, skillBindingRepo).
+			WithSourcePolicyResolver(skillservice.NewDBSourcePolicyResolver(deps.DB))
 	}
 
 	return &tenantHandler{
@@ -153,8 +154,11 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if strings.EqualFold(strings.TrimSpace(req.PreferredProtocol), "skill") && h.skillAdapter != nil {
 		result, err := h.skillAdapter.InvokeUnified(c.Request.Context(), skillservice.UnifiedInvokeRequest{
 			TenantUUID:        tenantUUID,
+			Env:               strings.TrimSpace(reqctx.GetEnv(c.Request.Context())),
 			CapabilityID:      strings.TrimSpace(req.CapabilityID),
 			PreferredProtocol: req.PreferredProtocol,
+			ToolGrantIDs:      normalizeToolGrantIDs(req.ToolGrantIDs),
+			Context:           req.Context,
 			Payload:           req.Payload,
 			TraceID:           strings.TrimSpace(req.TraceID),
 		})

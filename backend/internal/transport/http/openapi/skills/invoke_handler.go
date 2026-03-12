@@ -27,6 +27,8 @@ type directInvokeRequest struct {
 type unifiedInvokeRequest struct {
 	CapabilityID      string                 `json:"capability_id"`
 	PreferredProtocol string                 `json:"preferred_protocol"`
+	ToolGrantIDs      []string               `json:"tool_grant_ids"`
+	Context           map[string]interface{} `json:"context"`
 	Payload           map[string]interface{} `json:"payload"`
 }
 
@@ -41,8 +43,9 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
 	invokeSvc := skillservice.NewInvokeService(registryRepo, auditSvc)
 	return &tenantHandler{
-		invokeSvc:  invokeSvc,
-		adapterSvc: skillservice.NewAdapterService(invokeSvc, bindingRepo),
+		invokeSvc: invokeSvc,
+		adapterSvc: skillservice.NewAdapterService(invokeSvc, bindingRepo).
+			WithSourcePolicyResolver(skillservice.NewDBSourcePolicyResolver(deps.DB)),
 	}
 }
 
@@ -86,8 +89,11 @@ func (h *tenantHandler) InvokeUnified(c *gin.Context) bool {
 	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 	result, err := h.adapterSvc.InvokeUnified(c.Request.Context(), skillservice.UnifiedInvokeRequest{
 		TenantUUID:        tenantUUID,
+		Env:               strings.TrimSpace(reqctx.GetEnv(c.Request.Context())),
 		CapabilityID:      req.CapabilityID,
 		PreferredProtocol: req.PreferredProtocol,
+		ToolGrantIDs:      req.ToolGrantIDs,
+		Context:           req.Context,
 		Payload:           req.Payload,
 	})
 	if err != nil {

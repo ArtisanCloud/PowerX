@@ -136,6 +136,11 @@
 - [ ] T047 [P] [Shared] 运行 quickstart 全链路并记录结果：`specs/024-ai-engineering-skills/quickstart.md`
 - [ ] T048 [P] [Shared] 文档回写（实现偏差、接口样例、运维注意事项）：`specs/024-ai-engineering-skills/*.md`
 - [ ] T049 [Shared] 性能与可靠性基线验证（导入耗时、调用一致性、审计写入成功率）：`backend/tests/integration/skills/skill_nonfunc_integration_test.go`
+- [X] T050 [Shared] 设计并落地 Skill 匹配硬过滤层（tenant/scope/status/tool_grants/source）：`backend/internal/server/agent/*`, `backend/internal/service/skills/*`
+- [X] T051 [P] [Shared] 实现候选召回与重排流程编排（硬过滤后 top-k 输出）：`backend/internal/server/agent/intent/*`, `backend/internal/server/agent/manager_intent.go`
+- [X] T052 [P] [Shared] 增加高基数场景回归测试（单 Agent 10k Skill 不走全量扫描主路径）：`backend/tests/integration/skills/skill_matching_scale_integration_test.go`
+- [X] T053 [Shared] 增加租户来源策略配置接口（GET/PUT source allowlist）并接入租户设置存储：`backend/internal/transport/http/admin/agent/*`, `backend/internal/service/skills/*`, `backend/pkg/corex/db/persistence/repository/setting/*`
+- [X] T054 [P] [Shared] 在 AI 设置页增加 Skills 来源策略可视化配置卡片（含校验与保存提示）：`web-admin/app/pages/settings/ai/*`, `web-admin/app/composables/api/services/*`
 
 ---
 

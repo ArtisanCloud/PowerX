@@ -56,6 +56,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		agentAdminGroup.GET("/settings/active", settingH.getActiveProfile)
 		agentAdminGroup.POST("/settings/active", settingH.setActiveProfile)
+		agentAdminGroup.GET("/settings/skills/source-policy", settingH.getSkillSourcePolicy)
+		agentAdminGroup.PUT("/settings/skills/source-policy", settingH.setSkillSourcePolicy)
 
 		// 智能体 CRUD
 		agentAdminGroup.POST("", agentH.CreateAgent)

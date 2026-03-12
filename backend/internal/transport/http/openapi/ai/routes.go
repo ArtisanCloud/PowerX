@@ -16,6 +16,7 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group := protected.Group("/ai")
 
 	group.POST("/llm/invoke", handler.llmInvoke)
+	group.GET("/llm/models", handler.llmModelsList)
 	group.POST("/llm/sessions", handler.llmSessionCreate)
 	group.POST("/llm/sessions/:session_id/messages", handler.llmSessionAppend)
 	group.GET("/llm/sessions/:session_id/stream", handler.llmSessionStream)

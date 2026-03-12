@@ -1,33 +1,37 @@
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex items-center justify-between">
-        <span class="font-medium text-[var(--text-primary)]">导入 Skill（仅 upload）</span>
-        <UBadge color="neutral" variant="soft">US2</UBadge>
+  <UModal
+    v-model:open="open"
+    title="导入 Skill（仅 upload）"
+    description="仅支持已上传产物（bundle_uri）导入，不支持在线拉取远端仓库。"
+    :close="{ onClick: onCancel }"
+    :dismissible="false"
+    :ui="{ content: 'max-w-3xl w-full' }"
+  >
+    <template #body>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <UInput v-model="form.skill_id" label="Skill ID" placeholder="例如：skill.thirdparty.demo" />
+        <UInput v-model="form.version" label="Version" placeholder="例如：1.0.0" />
+        <USelect v-model="form.source" :items="sourceOptions" label="Source" />
+        <UInput v-model="form.bundle_uri" label="Bundle URI" placeholder="例如：s3://skills/demo-1.0.0.tgz" />
+        <UInput v-model="form.checksum" label="Checksum" placeholder="例如：sha256:xxxx" />
+        <UInput v-model="form.signature" label="Signature（可选）" placeholder="签名摘要" />
+        <UInput v-model="form.source_url" label="Source URL（可选）" placeholder="GitHub 地址等" />
+        <UInput v-model="form.source_ref" label="Source Ref（可选）" placeholder="commit/tag/branch" />
       </div>
     </template>
-
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <UInput v-model="form.skill_id" label="Skill ID" placeholder="例如：skill.thirdparty.demo" />
-      <UInput v-model="form.version" label="Version" placeholder="例如：1.0.0" />
-      <USelect v-model="form.source" :items="sourceOptions" label="Source" />
-      <UInput v-model="form.bundle_uri" label="Bundle URI" placeholder="例如：s3://skills/demo-1.0.0.tgz" />
-      <UInput v-model="form.checksum" label="Checksum" placeholder="例如：sha256:xxxx" />
-      <UInput v-model="form.signature" label="Signature（可选）" placeholder="签名摘要" />
-      <UInput v-model="form.source_url" label="Source URL（可选）" placeholder="GitHub 地址等" />
-      <UInput v-model="form.source_ref" label="Source Ref（可选）" placeholder="commit/tag/branch" />
-    </div>
-
-    <div class="mt-4 flex items-center gap-2">
-      <UButton :loading="loading" @click="submit">导入</UButton>
-      <UButton variant="ghost" :disabled="loading" @click="reset">重置</UButton>
-    </div>
-  </UCard>
+    <template #footer>
+      <div class="flex items-center justify-end gap-2">
+        <UButton color="neutral" variant="soft" :disabled="loading" @click="onCancel">取消</UButton>
+        <UButton :loading="loading" @click="submit">导入</UButton>
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <script setup lang="ts">
 import { useSkillsService } from "~/composables/api/services";
 
+const open = defineModel<boolean>("open", { default: false });
 const emit = defineEmits<{
   imported: [];
 }>();
@@ -63,6 +67,14 @@ function reset() {
   form.source_ref = "";
 }
 
+function onCancel() {
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  reset();
+  open.value = false;
+}
+
 async function submit() {
   loading.value = true;
   try {
@@ -78,7 +90,7 @@ async function submit() {
     });
     toast.add({ title: "导入成功", color: "success" });
     emit("imported");
-    reset();
+    onCancel();
   } catch (error: any) {
     toast.add({
       title: "导入失败",

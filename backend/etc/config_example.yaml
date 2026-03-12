@@ -438,6 +438,7 @@ plugin:
   base_prefix: /_p
   installed_dir: ./plugins/installed
   market_cache_dir: ./plugins/market_cache
+  auto_restore_parallelism: 1
   read_timeout_sec: 15
   write_timeout_sec: 15
   dev_mode: false

@@ -4,7 +4,7 @@
 > 适用范围：PowerX Core（后端知识空间 + Web Admin）与任意智能体框架适配（默认 `backend/internal/server/agent/drivers/eino`）  
 > 相关规范/参考：`specs/011-knowledge-space/*`、`docs/guides/knowledge_space/*`、`backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto`、Eino `components/retriever|indexer|embedding|document`
 >
-> 目录调整：本方案文档已归档到 `docs/plan/AI_engineering/knowledge/`。
+> 目录调整：本方案文档已归档到 `docs/plan/ai_engineering/knowledge/`。
 
 ---
 

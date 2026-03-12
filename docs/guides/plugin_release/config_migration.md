@@ -36,4 +36,28 @@ plugin:
 - `go test ./internal/service/plugin_release/...` 与 `go test ./internal/service/dev_hotload/...` 可验证业务逻辑仍然通过。
 - 日志中出现的 `plugin_release.*`、`dev.hotload.*` 指标不受此变更影响，Prometheus/Grafana 配置无需调整。
 
+## 启动并发开关（新增）
+
+插件自动恢复支持配置项与环境变量覆盖：
+
+- `plugin.auto_restore_parallelism`
+- `CORE_X_PLUGIN_AUTORESTORE_PARALLELISM`（优先级高于 config）
+- `PX_PLUGIN_AUTORESTORE_PARALLELISM`（兼容旧变量，优先级同上）
+
+行为说明：
+
+- 控制 Core 启动时“已启用插件 auto-restore”的并发 worker 数。
+- 默认 `1`（串行），与历史版本一致。
+- 最大 `8`（超出会自动钳制）。
+- 建议本地开发设置 `2~4`，以缩短多插件启动时间。
+
+示例：
+
+```bash
+## 覆盖 config.yaml 中的 plugin.auto_restore_parallelism
+export CORE_X_PLUGIN_AUTORESTORE_PARALLELISM=3
+# 兼容旧变量
+export PX_PLUGIN_AUTORESTORE_PARALLELISM=3
+```
+
 如在迁移过程中遇到字段含义不确定的问题，可以查阅 `backend/config/plugin.go` 及其子配置文件获取注释。

@@ -163,7 +163,42 @@ export interface SaveSettingsPayload {
   };
 }
 
+export interface SkillsSourcePolicy {
+  allowlist: string[];
+  effective_source: "tenant" | "default" | string;
+  updated_at?: string;
+}
+
 export class AISettingService {
+  static async getSkillsSourcePolicy(): Promise<SkillsSourcePolicy> {
+    const { get } = useApiClient();
+    const response = await get<ApiResponse<SkillsSourcePolicy>>(
+      ApiEndpoints.ADMIN_AGENTS.SKILLS_SOURCE_POLICY
+    );
+    const data: any = response.data || {};
+    return {
+      allowlist: Array.isArray(data.allowlist) ? data.allowlist : [],
+      effective_source: String(data.effective_source || "default"),
+      updated_at: data.updated_at,
+    };
+  }
+
+  static async setSkillsSourcePolicy(
+    allowlist: string[]
+  ): Promise<SkillsSourcePolicy> {
+    const { put } = useApiClient();
+    const response = await put<ApiResponse<SkillsSourcePolicy>>(
+      ApiEndpoints.ADMIN_AGENTS.SKILLS_SOURCE_POLICY,
+      { allowlist }
+    );
+    const data: any = response.data || {};
+    return {
+      allowlist: Array.isArray(data.allowlist) ? data.allowlist : [],
+      effective_source: String(data.effective_source || "tenant"),
+      updated_at: data.updated_at,
+    };
+  }
+
   /**
    * 获取可用的供应商列表
    */

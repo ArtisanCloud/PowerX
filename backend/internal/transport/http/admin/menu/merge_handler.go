@@ -659,7 +659,7 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 		item := origin
 		if item.Origin == plugin_mgr.OriginSystem {
 			switch item.Key {
-			case plugin_mgr.KeyAgent, plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
+			case plugin_mgr.KeyAgent, "skill_management", plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
 				byID[catPinnedKey].Children = append(byID[catPinnedKey].Children, item)
 			case plugin_mgr.KeyPlugins:
 				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, item)

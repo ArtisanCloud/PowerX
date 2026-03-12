@@ -5,7 +5,7 @@
 **Feature Branch**: `007-integration-gateway-and-mcp`  
 **Created**: 2025-10-21  
 **Status**: Draft  
-**Input**: 基于《docs/plan/AI_engineering/multi_plugin_capability_guide.md》的对齐要求
+**Input**: 基于《docs/plan/ai_engineering/multi_plugin_capability_guide.md》的对齐要求
 
 ## 背景与对齐
 

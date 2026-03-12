@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -184,6 +185,28 @@ type SkillCapabilityBindingRepository struct {
 	db *gorm.DB
 }
 
+// SkillMatchCandidate is one binding+registry joined row for routing.
+type SkillMatchCandidate struct {
+	SkillID          string
+	Version          string
+	CapabilityID     string
+	ToolGrants       datatypes.JSON
+	VisibilityScope  string
+	BindingStatus    string
+	SourceConstraint string
+	Source           string
+	Status           string
+	UpdatedAt        time.Time
+}
+
+// SkillMatchFilter controls hard filters before semantic ranking.
+type SkillMatchFilter struct {
+	CapabilityID   string
+	AllowedSources []string
+	AllowedScopes  []string
+	Limit          int
+}
+
 func NewSkillCapabilityBindingRepository(db *gorm.DB) *SkillCapabilityBindingRepository {
 	if db == nil {
 		panic("skill capability binding repository requires db")
@@ -228,4 +251,45 @@ func (r *SkillCapabilityBindingRepository) GetLatestActiveByCapability(ctx conte
 		return nil, err
 	}
 	return &row, nil
+}
+
+// ListMatchCandidates returns active binding candidates joined with published registry rows.
+func (r *SkillCapabilityBindingRepository) ListMatchCandidates(ctx context.Context, filter SkillMatchFilter) ([]SkillMatchCandidate, error) {
+	capabilityID := strings.TrimSpace(filter.CapabilityID)
+	if capabilityID == "" {
+		return nil, gorm.ErrInvalidData
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 128
+	}
+	if limit > 512 {
+		limit = 512
+	}
+
+	bindingTable := (models.SkillCapabilityBinding{}).TableName()
+	registryTable := (models.SkillRegistryRecord{}).TableName()
+	query := r.db.WithContext(ctx).
+		Table(bindingTable+" AS b").
+		Select("b.skill_id, b.version, b.capability_id, b.tool_grants, b.visibility_scope, b.binding_status, b.source_constraint, r.source, r.status, r.updated_at").
+		Joins("JOIN "+registryTable+" AS r ON r.skill_id = b.skill_id AND r.version = b.version").
+		Where("b.capability_id = ? AND b.binding_status = ? AND r.status = ?", capabilityID, "active", models.SkillStatusPublished)
+
+	if len(filter.AllowedScopes) > 0 {
+		query = query.Where("b.visibility_scope IN ?", filter.AllowedScopes)
+	}
+	if len(filter.AllowedSources) > 0 {
+		query = query.Where("r.source IN ?", filter.AllowedSources).
+			Where("(b.source_constraint IS NULL OR b.source_constraint = '' OR b.source_constraint IN ?)", filter.AllowedSources)
+	}
+
+	var rows []SkillMatchCandidate
+	err := query.Order("r.updated_at DESC").
+		Limit(limit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

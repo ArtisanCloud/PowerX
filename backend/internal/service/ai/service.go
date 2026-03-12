@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	intentfactory "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
 	ttsfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/tts"
@@ -517,6 +519,153 @@ type ContentItem struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 	URL  string `json:"url"`
+}
+
+type LLMModelItem struct {
+	ModelKey   string         `json:"model_key"`
+	Provider   string         `json:"provider"`
+	Model      string         `json:"model"`
+	Label      string         `json:"label,omitempty"`
+	Source     string         `json:"source"`
+	Configured bool           `json:"configured"`
+	Defaults   map[string]any `json:"defaults,omitempty"`
+	Tags       []string       `json:"tags,omitempty"`
+}
+
+func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFilter string) ([]LLMModelItem, error) {
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return nil, errors.New("ai service unavailable")
+	}
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant uuid required")
+	}
+	providerFilter = strings.ToLower(strings.TrimSpace(providerFilter))
+	tenantPtr := &tenantUUID
+
+	tenantProfiles, err := s.profiles.ListByScope(ctx, env, tenantPtr, "llm")
+	if err != nil {
+		return nil, err
+	}
+	globalProfiles, err := s.profiles.ListByScope(ctx, env, nil, "llm")
+	if err != nil {
+		return nil, err
+	}
+
+	type mergedProfile struct {
+		profile dbModelProfileView
+		source  string
+	}
+	merged := make(map[string]mergedProfile)
+	for i := range globalProfiles {
+		p := toProfileView(globalProfiles[i])
+		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+			continue
+		}
+		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
+	}
+	for i := range tenantProfiles {
+		p := toProfileView(tenantProfiles[i])
+		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+			continue
+		}
+		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
+	}
+
+	items := make([]LLMModelItem, 0, len(merged))
+	for _, v := range merged {
+		items = append(items, LLMModelItem{
+			ModelKey:   v.profile.Provider + "/" + v.profile.Model,
+			Provider:   v.profile.Provider,
+			Model:      v.profile.Model,
+			Label:      v.profile.Label,
+			Source:     v.source,
+			Configured: true,
+			Defaults:   v.profile.Defaults,
+			Tags:       v.profile.Tags,
+		})
+	}
+
+	creds, err := s.settings.ListCredentials(ctx, env, tenantPtr)
+	if err == nil {
+		reg := catalog.GetGlobalAIRegister()
+		seen := make(map[string]struct{}, len(items))
+		for i := range items {
+			seen[strings.ToLower(items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
+		}
+		for i := range creds {
+			provider := strings.TrimSpace(creds[i].Provider)
+			if provider == "" {
+				continue
+			}
+			if providerFilter != "" && strings.ToLower(provider) != providerFilter {
+				continue
+			}
+			models, listErr := reg.Models("llm", provider)
+			if listErr != nil {
+				continue
+			}
+			for _, m := range models {
+				model := strings.TrimSpace(m.ID)
+				if model == "" {
+					continue
+				}
+				key := strings.ToLower(provider) + "/" + strings.ToLower(model)
+				if _, exists := seen[key]; exists {
+					continue
+				}
+				seen[key] = struct{}{}
+				items = append(items, LLMModelItem{
+					ModelKey:   provider + "/" + model,
+					Provider:   provider,
+					Model:      model,
+					Label:      strings.TrimSpace(m.Label),
+					Source:     "provider_catalog",
+					Configured: false,
+					Defaults:   copyDefaults(m.Defaults),
+				})
+			}
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Configured != items[j].Configured {
+			return items[i].Configured
+		}
+		li := strings.ToLower(items[i].Provider + "/" + items[i].Model)
+		lj := strings.ToLower(items[j].Provider + "/" + items[j].Model)
+		return li < lj
+	})
+	return items, nil
+}
+
+type dbModelProfileView struct {
+	Provider string
+	Model    string
+	Label    string
+	Defaults map[string]any
+	Tags     []string
+}
+
+func toProfileView(in dbmodel.AIModelProfile) dbModelProfileView {
+	return dbModelProfileView{
+		Provider: strings.TrimSpace(in.Provider),
+		Model:    strings.TrimSpace(in.Model),
+		Label:    strings.TrimSpace(in.Label),
+		Defaults: copyDefaults(map[string]any(in.Defaults)),
+		Tags:     append([]string(nil), in.Tags...),
+	}
+}
+
+func copyDefaults(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func BuildPrompt(items []ContentItem) string {

@@ -4,20 +4,11 @@
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">Skills</h1>
         <p class="text-sm text-[var(--text-secondary)]">
-          管理 PowerX Skills 的官方目录、导入、发布与回滚。
+          管理 Skills 导入、发布与回滚；区分系统固有技能目录与已导入 Registry。
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <UButton variant="ghost" icon="i-heroicons-arrow-left" :to="localePath('/settings/ai')">
-          返回 AI 设置
-        </UButton>
-        <UButton
-          icon="i-heroicons-arrow-path"
-          :loading="loadingCatalog || loadingRegistry || actionLoading"
-          @click="refreshAll"
-        >
-          刷新
-        </UButton>
+        <UButton icon="i-heroicons-arrow-up-tray" @click="importModalOpen = true">导入 Skill</UButton>
       </div>
     </div>
 
@@ -31,51 +22,53 @@
     />
 
     <template v-else>
-      <SettingsAiSkillsImportForm @imported="onImported" />
+      <SettingsAiSkillsImportForm v-model:open="importModalOpen" @imported="onImported" />
       <SettingsAiSkillsAuditDrawer v-model="auditDrawerOpen" :skill-id="selectedSkillId" />
 
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
-            <span class="font-medium text-[var(--text-primary)]">官方 Skills 目录</span>
-            <span class="text-xs text-[var(--text-secondary)]">共 {{ catalogItems.length }} 条</span>
+            <UTabs v-model="activeTab" :items="tabItems" />
+            <span class="text-xs text-[var(--text-secondary)]">
+              <template v-if="activeTab === 'registry'">共 {{ registryTotal }} 条</template>
+              <template v-else>共 {{ catalogItems.length }} 条</template>
+            </span>
           </div>
         </template>
-        <div v-if="loadingCatalog" class="text-sm text-[var(--text-secondary)]">加载中...</div>
-        <div v-else-if="catalogItems.length === 0" class="text-sm text-[var(--text-secondary)]">暂无数据</div>
-        <UTable
-          v-else
-          :columns="catalogColumns"
-          :data="catalogItems"
-          row-key="skill_id"
-          :ui="{ divide: 'divide-y divide-[var(--border-color)]' }"
-        />
-      </UCard>
+        <p class="mb-4 text-xs text-[var(--text-secondary)]">
+          系统固有技能目录用于推荐与基线能力展示；Registry 列表用于管理已导入技能版本（含 third_party/plugin）及其发布状态。
+        </p>
 
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <span class="font-medium text-[var(--text-primary)]">Registry 列表</span>
-            <span class="text-xs text-[var(--text-secondary)]">共 {{ registryTotal }} 条</span>
+        <template v-if="activeTab === 'registry'">
+          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <UInput v-model="filters.skillId" placeholder="按 Skill ID 过滤" />
+            <USelect v-model="filters.status" :items="statusOptions" placeholder="状态" />
+            <USelect v-model="filters.source" :items="sourceOptions" placeholder="来源" />
+            <UButton :loading="loadingRegistry" @click="fetchRegistry">查询</UButton>
           </div>
+
+          <div v-if="loadingRegistry" class="text-sm text-[var(--text-secondary)]">加载中...</div>
+          <div v-else-if="registryItems.length === 0" class="text-sm text-[var(--text-secondary)]">暂无数据</div>
+          <UTable
+            v-else
+            :columns="registryColumns"
+            :data="registryRows"
+            row-key="row_key"
+            :ui="{ divide: 'divide-y divide-[var(--border-color)]' }"
+          />
         </template>
 
-        <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <UInput v-model="filters.skillId" placeholder="按 Skill ID 过滤" />
-          <USelect v-model="filters.status" :items="statusOptions" placeholder="状态" />
-          <USelect v-model="filters.source" :items="sourceOptions" placeholder="来源" />
-          <UButton :loading="loadingRegistry" @click="fetchRegistry">查询</UButton>
-        </div>
-
-        <div v-if="loadingRegistry" class="text-sm text-[var(--text-secondary)]">加载中...</div>
-        <div v-else-if="registryItems.length === 0" class="text-sm text-[var(--text-secondary)]">暂无数据</div>
-        <UTable
-          v-else
-          :columns="registryColumns"
-          :data="registryRows"
-          row-key="row_key"
-          :ui="{ divide: 'divide-y divide-[var(--border-color)]' }"
-        />
+        <template v-else>
+          <div v-if="loadingCatalog" class="text-sm text-[var(--text-secondary)]">加载中...</div>
+          <div v-else-if="catalogItems.length === 0" class="text-sm text-[var(--text-secondary)]">暂无数据</div>
+          <UTable
+            v-else
+            :columns="catalogColumns"
+            :data="catalogItems"
+            row-key="skill_id"
+            :ui="{ divide: 'divide-y divide-[var(--border-color)]' }"
+          />
+        </template>
       </UCard>
     </template>
   </div>
@@ -87,7 +80,6 @@ import { storeToRefs } from "pinia";
 import { useSkillsService, type SkillRecord } from "~/composables/api/services";
 import { useUserStore } from "~/stores/user";
 
-const localePath = useLocalePath();
 const toast = useToast();
 const skillsService = useSkillsService();
 const userStore = useUserStore();
@@ -117,16 +109,23 @@ const registryTotal = ref(0);
 const publishDraft = reactive<Record<string, string>>({});
 const rollbackDraft = reactive<Record<string, string>>({});
 const auditDrawerOpen = ref(false);
+const importModalOpen = ref(false);
 const selectedSkillId = ref("");
+const FILTER_ALL = "__all__";
+const activeTab = ref<"registry" | "catalog">("registry");
+const tabItems = [
+  { label: "已导入技能（Registry）", value: "registry", icon: "i-heroicons-rectangle-stack" },
+  { label: "系统固有技能目录", value: "catalog", icon: "i-heroicons-book-open" },
+];
 
 const filters = reactive({
   skillId: "",
-  status: "",
-  source: "",
+  status: FILTER_ALL,
+  source: FILTER_ALL,
 });
 
 const statusOptions = [
-  { label: "全部状态", value: "" },
+  { label: "全部状态", value: FILTER_ALL },
   { label: "draft", value: "draft" },
   { label: "published", value: "published" },
   { label: "deprecated", value: "deprecated" },
@@ -134,7 +133,7 @@ const statusOptions = [
 ];
 
 const sourceOptions = [
-  { label: "全部来源", value: "" },
+  { label: "全部来源", value: FILTER_ALL },
   { label: "builtin", value: "builtin" },
   { label: "plugin", value: "plugin" },
   { label: "third_party", value: "third_party" },
@@ -240,7 +239,23 @@ async function fetchCatalog() {
   loadingCatalog.value = true;
   try {
     const resp = await skillsService.listCatalog();
-    catalogItems.value = (resp?.data?.items || []) as CatalogItem[];
+    let items = (resp?.data?.items || []) as CatalogItem[];
+    if (items.length === 0) {
+      const builtinResp = await skillsService.list({
+        source: "builtin",
+        page: 1,
+        page_size: 200,
+      });
+      const builtinItems = builtinResp?.data?.items || [];
+      items = builtinItems.map((item) => ({
+        skill_id: item.skill_id,
+        recommended_version: item.version,
+        risk_level: "unknown",
+        category: "native",
+        summary: "来自本地 builtin registry",
+      }));
+    }
+    catalogItems.value = items;
   } catch (error: any) {
     toast.add({ title: "加载目录失败", description: error?.message || "请求失败", color: "error" });
   } finally {
@@ -254,8 +269,8 @@ async function fetchRegistry() {
   try {
     const resp = await skillsService.list({
       skill_id: filters.skillId || undefined,
-      status: filters.status || undefined,
-      source: filters.source || undefined,
+      status: filters.status === FILTER_ALL ? undefined : filters.status,
+      source: filters.source === FILTER_ALL ? undefined : filters.source,
       page: 1,
       page_size: 50,
     });
@@ -294,11 +309,8 @@ async function onRollback(skillId: string, targetVersion: string) {
   }
 }
 
-async function refreshAll() {
-  await Promise.all([fetchCatalog(), fetchRegistry()]);
-}
-
 async function onImported() {
+  await fetchCatalog();
   await fetchRegistry();
 }
 
@@ -308,6 +320,6 @@ function openAuditDrawer(skillId: string) {
 }
 
 onMounted(async () => {
-  await refreshAll();
+  await Promise.all([fetchCatalog(), fetchRegistry()]);
 });
 </script>

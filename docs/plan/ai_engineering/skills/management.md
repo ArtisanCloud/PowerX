@@ -1,6 +1,6 @@
 # PowerX Skills 开发总览与管理规范
 
-本文是 `docs/plan/AI_engineering/skills/` 的总索引与总规范，定义 Skill 在 PowerX 中的目标、边界和实施路线。
+本文是 `docs/plan/ai_engineering/skills/` 的总索引与总规范，定义 Skill 在 PowerX 中的目标、边界和实施路线。
 
 ## 1. 文档定位
 

@@ -32,4 +32,4 @@
 ## Notes
 
 - Validation result: PASS（1st iteration）。
-- Cross-check source: `docs/plan/AI_engineering/skills/` 主文档与分文档（管理、标准映射、运行时、契约、数据模型、安全治理、第三方接入、测试上线）已覆盖到用户故事、功能需求与验收指标。
+- Cross-check source: `docs/plan/ai_engineering/skills/` 主文档与分文档（管理、标准映射、运行时、契约、数据模型、安全治理、第三方接入、测试上线）已覆盖到用户故事、功能需求与验收指标。

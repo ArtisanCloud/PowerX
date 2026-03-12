@@ -80,3 +80,30 @@ curl -X POST "$POWERX_BASE_URL/api/v1/tenant/invocations" \
 3. 再次调用验证默认版本已切回 `1.0.0`。
 
 预期：历史版本保留，latest published 指针正确切换。
+
+## 8. Skill Source Policy（动态下发）
+
+统一入口 `preferred_protocol=skill` 的匹配流程支持 source allowlist 动态策略，优先级如下：
+
+1. 请求 `context.skill_source_allowlist`（或 `context.skills_source_allowlist`）
+2. Agent 级策略：`agent_settings.quota_policy.skill_source_allowlist`
+3. 租户级策略：`cfg_tenant_settings.key = ai.skills.source_allowlist`
+4. 默认值：`["builtin","plugin","third_party"]`
+
+示例（统一入口，按请求上下文收敛来源）：
+
+```bash
+curl -X POST "$POWERX_BASE_URL/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability_id": "com.powerx.skill.incident-triage.invoke",
+    "preferred_protocol": "skill",
+    "context": {
+      "agent_id": 1001,
+      "skill_source_allowlist": ["builtin","plugin"]
+    },
+    "tool_grant_ids": ["ops.read"],
+    "payload": {"query": "incident triage"}
+  }'
+```

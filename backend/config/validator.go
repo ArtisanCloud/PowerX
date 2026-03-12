@@ -227,6 +227,9 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Plugin Release ---
+	if c.Plugin.AutoRestoreParallelism <= 0 {
+		errors = append(errors, "plugin.auto_restore_parallelism 必须大于0")
+	}
 	if c.Plugin.Release.LocalInstall.SessionTTLMinutes <= 0 {
 		errors = append(errors, "plugin_release.local_install.session_ttl_minutes 必须大于0")
 	}

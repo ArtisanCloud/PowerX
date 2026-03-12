@@ -138,6 +138,33 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 	dto.ResponseSuccess(c, resp)
 }
 
+func (h *aiHandler) llmModelsList(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
+		return
+	}
+	env, err := pickEnv(c, tenantUUID, h.svc)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	provider := strings.TrimSpace(c.Query("provider"))
+	items, err := h.svc.ListLLMModels(c.Request.Context(), env, tenantUUID, provider)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadGateway, "failed to load llm model list", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"env":   env,
+		"items": items,
+	})
+}
+
 func (h *aiHandler) llmSessionCreate(c *gin.Context) {
 	if h == nil || h.sessions == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "ai session unavailable", nil)
