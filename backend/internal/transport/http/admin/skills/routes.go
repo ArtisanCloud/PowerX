@@ -21,14 +21,15 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		return
 	}
 
-	catalogH := newCatalogHandler(module.db)
+	catalogH := newCatalogHandler(module.db, module.auditSvc)
 	registryH := newRegistryHandler(module.registry, module.importSvc)
 	importH := newImportHandler(module.importSvc)
+	marketplaceH := newMarketplaceHandler(module.importSvc)
 	publishH := newPublishHandler(module.registry, module.lifecycle)
 	rollbackH := newRollbackHandler(module.registry, module.lifecycle)
 	bindingH := newBindingHandler(module.binding, module.auditSvc)
 	auditH := newAuditHandler(module.traceRepo, module.auditRepo)
-	if catalogH == nil || registryH == nil || importH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil {
+	if catalogH == nil || registryH == nil || importH == nil || marketplaceH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil {
 		return
 	}
 
@@ -36,9 +37,12 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	group.Use(middleware.AdminOnlyMiddleware())
 	group.Use(rootOnlyMiddleware())
 	group.GET("/catalog", catalogH.ListCatalog)
+	group.POST("/catalog", catalogH.UpsertCatalog)
+	group.PATCH("/catalog/:catalogSkillId/active", catalogH.SetCatalogActive)
 	group.GET("", registryH.List)
 	group.POST("", registryH.Register)
 	group.POST("/import", importH.Import)
+	group.GET("/marketplace/preview", marketplaceH.Preview)
 	group.POST("/:skillId/publish", publishH.Publish)
 	group.POST("/:skillId/rollback", rollbackH.Rollback)
 	group.POST("/:skillId/bind-capability", bindingH.BindCapability)

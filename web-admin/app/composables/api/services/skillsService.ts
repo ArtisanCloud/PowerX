@@ -55,6 +55,32 @@ export interface SkillAuditRecord {
   created_at?: string;
 }
 
+export interface SkillCatalogItem {
+  catalog_skill_id: string;
+  skill_id: string;
+  recommended_version: string;
+  risk_level: string;
+  category?: string;
+  summary?: string;
+  active?: boolean;
+  maintainer?: string;
+  official_release_note?: string;
+}
+
+export interface UpsertSkillCatalogPayload {
+  catalog_skill_id: string;
+  skill_id: string;
+  recommended_version: string;
+  risk_level: string;
+  category: string;
+  summary?: string;
+  active?: boolean;
+  maintainer?: string;
+  official_release_note?: string;
+  bundle_uri?: string;
+  checksum?: string;
+}
+
 const adminBase = "/admin/skills";
 const tenantBase = "/tenant/skills";
 
@@ -97,7 +123,31 @@ export const useSkillsService = () => {
     list: (params?: Record<string, string | number | undefined>) =>
       api.get<ApiResponse<SkillListResult>>(adminBase, { params }),
 
-    listCatalog: () => api.get<ApiResponse<{ items: Array<Record<string, unknown>> }>>(`${adminBase}/catalog`),
+    listCatalog: () => api.get<ApiResponse<{ items: SkillCatalogItem[] }>>(`${adminBase}/catalog`),
+
+    upsertCatalog: async (payload: UpsertSkillCatalogPayload) => {
+      try {
+        const resp = await api.post<ApiResponse<SkillCatalogItem>>(
+          `${adminBase}/catalog`,
+          payload
+        );
+        return unwrap<SkillCatalogItem>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
+
+    setCatalogActive: async (catalogSkillId: string, active: boolean) => {
+      try {
+        const resp = await api.patch<ApiResponse<{ catalog_skill_id: string; active: boolean }>>(
+          `${adminBase}/catalog/${encodeURIComponent(catalogSkillId)}/active`,
+          { active }
+        );
+        return unwrap<{ catalog_skill_id: string; active: boolean }>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
 
     importSkill: async (payload: SkillImportPayload) => {
       try {

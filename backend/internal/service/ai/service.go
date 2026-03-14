@@ -522,14 +522,15 @@ type ContentItem struct {
 }
 
 type LLMModelItem struct {
-	ModelKey   string         `json:"model_key"`
-	Provider   string         `json:"provider"`
-	Model      string         `json:"model"`
-	Label      string         `json:"label,omitempty"`
-	Source     string         `json:"source"`
-	Configured bool           `json:"configured"`
-	Defaults   map[string]any `json:"defaults,omitempty"`
-	Tags       []string       `json:"tags,omitempty"`
+	ModelKey          string         `json:"model_key"`
+	Provider          string         `json:"provider"`
+	Model             string         `json:"model"`
+	Label             string         `json:"label,omitempty"`
+	Source            string         `json:"source"`
+	Configured        bool           `json:"configured"`
+	ProfileConfigured bool           `json:"profile_configured"`
+	Defaults          map[string]any `json:"defaults,omitempty"`
+	Tags              []string       `json:"tags,omitempty"`
 }
 
 func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFilter string) ([]LLMModelItem, error) {
@@ -542,6 +543,22 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	}
 	providerFilter = strings.ToLower(strings.TrimSpace(providerFilter))
 	tenantPtr := &tenantUUID
+	reg := catalog.GetGlobalAIRegister()
+
+	creds, credErr := s.settings.ListCredentials(ctx, env, tenantPtr)
+	credentialProviders := map[string]struct{}{}
+	if credErr == nil {
+		for i := range creds {
+			key := normalizeProviderKey(reg, creds[i].Provider)
+			if key == "" {
+				continue
+			}
+			if providerFilter != "" && key != providerFilter {
+				continue
+			}
+			credentialProviders[key] = struct{}{}
+		}
+	}
 
 	tenantProfiles, err := s.profiles.ListByScope(ctx, env, tenantPtr, "llm")
 	if err != nil {
@@ -574,34 +591,39 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 
 	items := make([]LLMModelItem, 0, len(merged))
 	for _, v := range merged {
+		providerKey := normalizeProviderKey(reg, v.profile.Provider)
+		_, credentialConfigured := credentialProviders[providerKey]
 		items = append(items, LLMModelItem{
-			ModelKey:   v.profile.Provider + "/" + v.profile.Model,
-			Provider:   v.profile.Provider,
-			Model:      v.profile.Model,
-			Label:      v.profile.Label,
-			Source:     v.source,
-			Configured: true,
-			Defaults:   v.profile.Defaults,
-			Tags:       v.profile.Tags,
+			ModelKey:          v.profile.Provider + "/" + v.profile.Model,
+			Provider:          v.profile.Provider,
+			Model:             v.profile.Model,
+			Label:             v.profile.Label,
+			Source:            v.source,
+			Configured:        credentialConfigured,
+			ProfileConfigured: true,
+			Defaults:          v.profile.Defaults,
+			Tags:              v.profile.Tags,
 		})
 	}
 
-	creds, err := s.settings.ListCredentials(ctx, env, tenantPtr)
-	if err == nil {
-		reg := catalog.GetGlobalAIRegister()
+	if credErr == nil {
 		seen := make(map[string]struct{}, len(items))
 		for i := range items {
 			seen[strings.ToLower(items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
 		}
 		for i := range creds {
-			provider := strings.TrimSpace(creds[i].Provider)
-			if provider == "" {
+			providerKey := normalizeProviderKey(reg, creds[i].Provider)
+			if providerKey == "" {
 				continue
 			}
-			if providerFilter != "" && strings.ToLower(provider) != providerFilter {
+			if providerFilter != "" && providerKey != providerFilter {
 				continue
 			}
-			models, listErr := reg.Models("llm", provider)
+			providerDisplay := strings.TrimSpace(creds[i].Provider)
+			if providerDisplay == "" {
+				providerDisplay = providerKey
+			}
+			models, listErr := reg.Models("llm", providerKey)
 			if listErr != nil {
 				continue
 			}
@@ -610,19 +632,20 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 				if model == "" {
 					continue
 				}
-				key := strings.ToLower(provider) + "/" + strings.ToLower(model)
+				key := strings.ToLower(providerDisplay) + "/" + strings.ToLower(model)
 				if _, exists := seen[key]; exists {
 					continue
 				}
 				seen[key] = struct{}{}
 				items = append(items, LLMModelItem{
-					ModelKey:   provider + "/" + model,
-					Provider:   provider,
-					Model:      model,
-					Label:      strings.TrimSpace(m.Label),
-					Source:     "provider_catalog",
-					Configured: false,
-					Defaults:   copyDefaults(m.Defaults),
+					ModelKey:          providerDisplay + "/" + model,
+					Provider:          providerDisplay,
+					Model:             model,
+					Label:             strings.TrimSpace(m.Label),
+					Source:            "provider_catalog",
+					Configured:        true,
+					ProfileConfigured: false,
+					Defaults:          copyDefaults(m.Defaults),
 				})
 			}
 		}
@@ -632,11 +655,28 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 		if items[i].Configured != items[j].Configured {
 			return items[i].Configured
 		}
+		if items[i].ProfileConfigured != items[j].ProfileConfigured {
+			return items[i].ProfileConfigured
+		}
 		li := strings.ToLower(items[i].Provider + "/" + items[i].Model)
 		lj := strings.ToLower(items[j].Provider + "/" + items[j].Model)
 		return li < lj
 	})
 	return items, nil
+}
+
+func normalizeProviderKey(reg *catalog.Registry, provider string) string {
+	key := strings.ToLower(strings.TrimSpace(provider))
+	if key == "" {
+		return ""
+	}
+	if reg == nil {
+		return key
+	}
+	if canon := strings.ToLower(strings.TrimSpace(reg.CanonicalProvider(key))); canon != "" {
+		return canon
+	}
+	return key
 }
 
 type dbModelProfileView struct {

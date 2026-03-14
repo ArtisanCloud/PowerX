@@ -21,7 +21,8 @@ type registryHandler struct {
 }
 
 type catalogHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	auditSvc *skillservice.AuditTraceService
 }
 
 type publishHandler struct {
@@ -35,6 +36,10 @@ type rollbackHandler struct {
 }
 
 type importHandler struct {
+	importSvc *skillservice.ImportService
+}
+
+type marketplaceHandler struct {
 	importSvc *skillservice.ImportService
 }
 
@@ -122,7 +127,7 @@ func respondSkillError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 	default:
 		msg := strings.ToLower(strings.TrimSpace(err.Error()))
-		if strings.Contains(msg, "required") || strings.Contains(msg, "invalid") || strings.Contains(msg, "must") {
+		if strings.Contains(msg, "required") || strings.Contains(msg, "invalid") || strings.Contains(msg, "must") || strings.Contains(msg, "cannot find skill.md") || strings.Contains(msg, "source_url") || strings.Contains(msg, "source resolver") {
 			dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 			return
 		}

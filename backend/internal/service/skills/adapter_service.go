@@ -98,24 +98,24 @@ func (s *AdapterService) InvokeUnified(ctx context.Context, req UnifiedInvokeReq
 		return nil, skillrepo.ErrSkillNotFound
 	}
 	selected := ranked[0]
-	resolved, err := s.invokeSvc.Resolve(ctx, InvokeRequest{
+	executed, err := s.invokeSvc.Execute(ctx, InvokeRequest{
 		TenantUUID: req.TenantUUID,
 		SkillID:    selected.SkillID,
 		Version:    selected.Version,
 		InvokePath: "tenant.invocations",
 		TraceID:    req.TraceID,
-	})
+	}, req.Payload, req.Context)
 	if err != nil {
 		return nil, err
 	}
 	return &UnifiedInvokeResult{
-		TraceID:      resolved.TraceID,
-		Status:       "completed",
-		ProtocolUsed: "skill",
-		FallbackUsed: false,
-		Result:       req.Payload,
-		SkillID:      resolved.SkillID,
-		Version:      resolved.Version,
+		TraceID:      executed.TraceID,
+		Status:       executed.Status,
+		ProtocolUsed: executed.ProtocolUsed,
+		FallbackUsed: executed.FallbackUsed,
+		Result:       executed.Result,
+		SkillID:      executed.SkillID,
+		Version:      executed.Version,
 	}, nil
 }
 

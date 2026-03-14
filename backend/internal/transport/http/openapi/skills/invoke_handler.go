@@ -56,23 +56,23 @@ func (h *tenantHandler) InvokeDirect(c *gin.Context) {
 		return
 	}
 	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
-	resolved, err := h.invokeSvc.Resolve(c.Request.Context(), skillservice.InvokeRequest{
+	executed, err := h.invokeSvc.Execute(c.Request.Context(), skillservice.InvokeRequest{
 		TenantUUID: tenantUUID,
 		SkillID:    req.SkillID,
 		Version:    req.Version,
 		InvokePath: "tenant.skills.invoke",
-	})
+	}, req.Payload, req.Context)
 	if err != nil {
 		code, envelope := skillservice.MapInvokeError(err)
 		c.JSON(code, envelope)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{
-		"trace_id":      resolved.TraceID,
-		"status":        "completed",
-		"protocol_used": "skill",
-		"fallback_used": false,
-		"result":        req.Payload,
+		"trace_id":      executed.TraceID,
+		"status":        executed.Status,
+		"protocol_used": executed.ProtocolUsed,
+		"fallback_used": executed.FallbackUsed,
+		"result":        executed.Result,
 	})
 }
 

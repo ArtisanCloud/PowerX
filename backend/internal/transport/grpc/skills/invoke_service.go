@@ -2,6 +2,7 @@ package skills
 
 import (
 	"context"
+	"fmt"
 
 	skillsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -34,22 +35,30 @@ func (s *invokeServer) InvokeSkill(ctx context.Context, req *skillsv1.InvokeSkil
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
-	resolved, err := s.invokeSvc.Resolve(ctx, skillservice.InvokeRequest{
+	payload := make(map[string]interface{}, len(req.GetPayload()))
+	for k, v := range req.GetPayload() {
+		payload[k] = v
+	}
+	executed, err := s.invokeSvc.Execute(ctx, skillservice.InvokeRequest{
 		TenantUUID: req.GetTenantUuid(),
 		SkillID:    req.GetSkillId(),
 		Version:    req.GetVersion(),
 		InvokePath: "grpc.skills.invoke",
 		TraceID:    "",
-	})
+	}, payload, nil)
 	if err != nil {
 		_, envelope := skillservice.MapInvokeError(err)
 		return nil, status.Error(codes.InvalidArgument, envelope.Message)
 	}
+	result := make(map[string]string, len(executed.Result))
+	for k, v := range executed.Result {
+		result[k] = fmt.Sprintf("%v", v)
+	}
 	return &skillsv1.InvokeSkillResponse{
-		TraceId:      resolved.TraceID,
-		Status:       "completed",
-		ProtocolUsed: "skill",
-		FallbackUsed: false,
-		Result:       req.GetPayload(),
+		TraceId:      executed.TraceID,
+		Status:       executed.Status,
+		ProtocolUsed: executed.ProtocolUsed,
+		FallbackUsed: executed.FallbackUsed,
+		Result:       result,
 	}, nil
 }

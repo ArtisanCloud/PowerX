@@ -2,6 +2,7 @@ package skills
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 )
 
 const ImportTypeUpload = "upload"
+const ImportTypeMarketplace = "marketplace"
 
 // ImportRequest describes one skill import operation.
 type ImportRequest struct {
@@ -23,6 +25,7 @@ type ImportRequest struct {
 	Signature  string
 	SourceURL  string
 	SourceRef  string
+	SourcePath string
 	Manifest   datatypes.JSON
 	Operator   string
 	ImportType string
@@ -33,6 +36,7 @@ type ImportService struct {
 	registryRepo *skillrepo.SkillRegistryRepository
 	auditService *AuditTraceService
 	integrity    *IntegrityPolicy
+	resolver     SkillSourceResolver
 }
 
 func NewImportService(
@@ -46,7 +50,34 @@ func NewImportService(
 		registryRepo: registryRepo,
 		auditService: auditService,
 		integrity:    NewIntegrityPolicyFromEnv(),
+		resolver:     NewGitHubSkillSourceResolver(),
 	}
+}
+
+func (s *ImportService) WithSourceResolver(resolver SkillSourceResolver) *ImportService {
+	if s == nil {
+		return nil
+	}
+	s.resolver = resolver
+	return s
+}
+
+func (s *ImportService) PreviewMarketplace(ctx context.Context, req ImportRequest) (*MarketplacePreview, error) {
+	if s == nil || s.resolver == nil {
+		return nil, errors.New("marketplace source resolver is not configured")
+	}
+	req.SourceURL = strings.TrimSpace(req.SourceURL)
+	req.SourceRef = strings.TrimSpace(req.SourceRef)
+	req.SourcePath = strings.TrimSpace(req.SourcePath)
+	req.SkillID = strings.TrimSpace(strings.ToLower(req.SkillID))
+	if req.SourceURL == "" {
+		return nil, errors.New("source_url is required")
+	}
+	previewer, ok := s.resolver.(SkillSourcePreviewer)
+	if !ok {
+		return nil, errors.New("source resolver does not support preview")
+	}
+	return previewer.Preview(ctx, req)
 }
 
 func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*skillmodel.SkillRegistryRecord, error) {
@@ -58,25 +89,56 @@ func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*sk
 	req.Signature = strings.TrimSpace(req.Signature)
 	req.SourceURL = strings.TrimSpace(req.SourceURL)
 	req.SourceRef = strings.TrimSpace(req.SourceRef)
+	req.SourcePath = strings.TrimSpace(req.SourcePath)
 	req.ImportType = strings.ToLower(strings.TrimSpace(req.ImportType))
 
 	if req.ImportType == "" {
 		req.ImportType = ImportTypeUpload
 	}
-	if req.ImportType != ImportTypeUpload {
-		return nil, errors.New("only upload import type is allowed in phase 1")
+	if req.ImportType != ImportTypeUpload && req.ImportType != ImportTypeMarketplace {
+		return nil, errors.New("import_type must be upload or marketplace")
 	}
 	if req.SkillID == "" || req.Version == "" {
 		return nil, errors.New("skill_id and version are required")
 	}
-	if req.BundleURI == "" {
-		return nil, errors.New("bundle_uri is required")
-	}
 	if req.Source == skillmodel.SkillSourceBuiltin {
 		return nil, errors.New("builtin source should be maintained by official catalog flow")
 	}
-	if strings.HasPrefix(strings.ToLower(req.BundleURI), "http://") || strings.HasPrefix(strings.ToLower(req.BundleURI), "https://") {
+	if req.ImportType == ImportTypeUpload && (strings.HasPrefix(strings.ToLower(req.BundleURI), "http://") || strings.HasPrefix(strings.ToLower(req.BundleURI), "https://")) {
 		return nil, errors.New("remote repository online pull is disabled; only uploaded bundle_uri is allowed")
+	}
+	if req.ImportType == ImportTypeMarketplace {
+		if strings.TrimSpace(req.SourceURL) == "" {
+			return nil, errors.New("source_url is required for marketplace import")
+		}
+		if len(req.Manifest) == 0 {
+			resolver := s.resolver
+			if resolver == nil {
+				return nil, errors.New("marketplace source resolver is not configured")
+			}
+			resolved, err := resolver.Resolve(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			manifest, err := ParseSkillMarkdownToManifest(resolved.SkillMarkdown, req.Version)
+			if err != nil {
+				return nil, err
+			}
+			raw, err := json.Marshal(manifest)
+			if err != nil {
+				return nil, err
+			}
+			req.Manifest = datatypes.JSON(raw)
+			if strings.TrimSpace(req.BundleURI) == "" {
+				req.BundleURI = strings.TrimSpace(resolved.BundleURI)
+			}
+			if strings.TrimSpace(req.SourceRef) == "" {
+				req.SourceRef = strings.TrimSpace(resolved.SourceRef)
+			}
+		}
+	}
+	if req.BundleURI == "" {
+		return nil, errors.New("bundle_uri is required")
 	}
 
 	integrity := s.integrity
