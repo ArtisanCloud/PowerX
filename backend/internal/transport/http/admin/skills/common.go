@@ -39,6 +39,10 @@ type importHandler struct {
 	importSvc *skillservice.ImportService
 }
 
+type installTaskHandler struct {
+	installerSvc *skillservice.SkillInstallerService
+}
+
 type marketplaceHandler struct {
 	importSvc *skillservice.ImportService
 }
@@ -61,6 +65,7 @@ type moduleDeps struct {
 	auditRepo *skillrepo.SkillLifecycleAuditRepository
 	auditSvc  *skillservice.AuditTraceService
 	importSvc *skillservice.ImportService
+	installer *skillservice.SkillInstallerService
 	lifecycle *skillservice.LifecycleService
 }
 
@@ -72,6 +77,7 @@ func newModuleDeps(db *gorm.DB) *moduleDeps {
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(db)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(db)
 	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
+	importSvc := skillservice.NewImportService(registryRepo, auditSvc)
 	return &moduleDeps{
 		db:        db,
 		registry:  registryRepo,
@@ -79,7 +85,11 @@ func newModuleDeps(db *gorm.DB) *moduleDeps {
 		traceRepo: traceRepo,
 		auditRepo: auditRepo,
 		auditSvc:  auditSvc,
-		importSvc: skillservice.NewImportService(registryRepo, auditSvc),
+		importSvc: importSvc,
+		installer: skillservice.NewSkillInstallerService(
+			skillrepo.NewSkillInstallTaskRepository(db),
+			importSvc,
+		),
 		lifecycle: skillservice.NewLifecycleService(registryRepo, auditSvc),
 	}
 }

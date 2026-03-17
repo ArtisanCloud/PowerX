@@ -167,3 +167,7 @@ curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
 >     knowledge.yaml
 > ```
 > 每个 `*.yaml` 文件使用统一字段描述 capability 列表，便于在不同环境下通过配置管理平台能力。程序加载逻辑可参考 `base_capabilities.go`。
+
+## 5. 相关操作文档
+
+- Skills 导入与第三方安装（Admin）：[../../agent/skills/05-import-and-install.md](../../agent/skills/05-import-and-install.md)

@@ -1,7 +1,13 @@
 package capability_registry
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,6 +28,7 @@ type tenantHandler struct {
 	invoker      *capservice.InvocationService
 	selector     *capservice.Selector
 	skillAdapter *skillservice.AdapterService
+	httpClient   *http.Client
 }
 
 func newTenantHandler(deps *shared.Deps) *tenantHandler {
@@ -69,6 +76,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		invoker:      invocationSvc,
 		selector:     selector,
 		skillAdapter: skillAdapter,
+		httpClient:   &http.Client{},
 	}
 }
 
@@ -256,6 +264,202 @@ func (h *tenantHandler) GetInvocation(c *gin.Context) {
 		EventPublished: record.EventPublished,
 	}
 	dto.ResponseSuccess(c, resp)
+}
+
+func (h *tenantHandler) InvokeCapabilityStream(c *gin.Context) {
+	if h == nil || h.httpClient == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	var req capabilityInvokeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
+		return
+	}
+	if strings.TrimSpace(req.CapabilityID) == "" {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
+		return
+	}
+	_ = tenantUUID
+
+	restPayload, err := buildStreamRESTPayload(req.Payload)
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint(err.Error()), err)
+		return
+	}
+	targetURL, err := resolveStreamTargetURL(c, restPayload.Endpoint)
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("invalid endpoint"), err)
+		return
+	}
+	if len(restPayload.Query) > 0 {
+		values := targetURL.Query()
+		for k, v := range restPayload.Query {
+			values.Set(k, v)
+		}
+		targetURL.RawQuery = values.Encode()
+	}
+
+	outReq, err := http.NewRequestWithContext(c.Request.Context(), restPayload.Method, targetURL.String(), bytes.NewReader(restPayload.Body))
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
+		return
+	}
+	for k, v := range restPayload.Headers {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		outReq.Header.Set(k, v)
+	}
+	if outReq.Header.Get("Authorization") == "" {
+		outReq.Header.Set("Authorization", c.GetHeader("Authorization"))
+	}
+	if outReq.Header.Get("Content-Type") == "" && len(restPayload.Body) > 0 {
+		outReq.Header.Set("Content-Type", "application/json")
+	}
+	if outReq.Header.Get("Accept") == "" {
+		outReq.Header.Set("Accept", "text/event-stream")
+	}
+
+	resp, err := h.httpClient.Do(outReq)
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal.WithHint("upstream request failed"), err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		raw, _ := io.ReadAll(resp.Body)
+		c.JSON(resp.StatusCode, gin.H{
+			"code":    "upstream_error",
+			"message": strings.TrimSpace(string(raw)),
+		})
+		return
+	}
+	if ct := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(ct, "text/event-stream") {
+		raw, _ := io.ReadAll(resp.Body)
+		c.JSON(http.StatusBadGateway, gin.H{
+			"code":    "upstream_not_sse",
+			"message": "upstream response is not text/event-stream",
+			"detail":  string(raw),
+		})
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Status(http.StatusOK)
+
+	buf := make([]byte, 4096)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, wErr := c.Writer.Write(buf[:n]); wErr != nil {
+				return
+			}
+			if f, ok := c.Writer.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				return
+			}
+			return
+		}
+	}
+}
+
+type streamRESTPayload struct {
+	Method   string
+	Endpoint string
+	Headers  map[string]string
+	Query    map[string]string
+	Body     []byte
+}
+
+func buildStreamRESTPayload(payload map[string]interface{}) (streamRESTPayload, error) {
+	if payload == nil {
+		return streamRESTPayload{}, errors.New("payload is required")
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(payload["method"])))
+	if method == "" {
+		method = http.MethodPost
+	}
+	endpoint := strings.TrimSpace(getString(payload["endpoint"]))
+	if endpoint == "" {
+		return streamRESTPayload{}, errors.New("payload.endpoint is required")
+	}
+	headers := mapStringString(payload["headers"])
+	query := mapStringString(payload["query"])
+
+	var body []byte
+	if b, ok := payload["body"]; ok && b != nil {
+		raw, err := json.Marshal(b)
+		if err != nil {
+			return streamRESTPayload{}, err
+		}
+		body = raw
+	}
+	return streamRESTPayload{
+		Method:   method,
+		Endpoint: endpoint,
+		Headers:  headers,
+		Query:    query,
+		Body:     body,
+	}, nil
+}
+
+func resolveStreamTargetURL(c *gin.Context, endpoint string) (*url.URL, error) {
+	if strings.HasPrefix(strings.ToLower(endpoint), "http://") || strings.HasPrefix(strings.ToLower(endpoint), "https://") {
+		return url.Parse(endpoint)
+	}
+	scheme := "http"
+	if c != nil && c.Request != nil && c.Request.TLS != nil {
+		scheme = "https"
+	} else if c != nil && strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	host := ""
+	if c != nil && c.Request != nil {
+		host = c.Request.Host
+	}
+	if strings.TrimSpace(host) == "" {
+		return nil, errors.New("request host is empty")
+	}
+	return url.Parse(scheme + "://" + host + "/" + strings.TrimLeft(endpoint, "/"))
+}
+
+func mapStringString(v interface{}) map[string]string {
+	result := make(map[string]string)
+	switch typed := v.(type) {
+	case map[string]interface{}:
+		for key, value := range typed {
+			result[key] = strings.TrimSpace(getString(value))
+		}
+	case map[string]string:
+		for key, value := range typed {
+			result[key] = strings.TrimSpace(value)
+		}
+	}
+	return result
+}
+
+func getString(v interface{}) string {
+	switch typed := v.(type) {
+	case string:
+		return typed
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
 }
 
 type capabilityInvokeRequest struct {

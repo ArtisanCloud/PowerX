@@ -40,6 +40,49 @@ export interface SkillInvokePayload {
   context?: Record<string, unknown>;
 }
 
+export interface SkillInstallTaskPayload {
+  provider?: "github" | "gitlab" | "gitee" | "bitbucket" | "generic_git";
+  repo?: string;
+  repo_url?: string;
+  path: string;
+  ref?: string;
+  method?: "auto" | "download" | "git";
+  source?: "third_party" | "plugin";
+  skill_id?: string;
+  version?: string;
+  auto_import?: boolean;
+}
+
+export interface SkillInstallTaskRecord {
+  task_id: string;
+  provider: string;
+  repo: string;
+  repo_url?: string;
+  path: string;
+  ref: string;
+  method: string;
+  source: string;
+  skill_id: string;
+  version: string;
+  install_path?: string;
+  status: "pending" | "running" | "success" | "failed";
+  stdout_log?: string;
+  stderr_log?: string;
+  error_summary?: string;
+  requested_by?: string;
+  started_at?: string;
+  finished_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SkillInstallTaskListResult {
+  page: number;
+  page_size: number;
+  total: number;
+  items: SkillInstallTaskRecord[];
+}
+
 export interface SkillAuditRecord {
   audit_id: string;
   action: string;
@@ -208,6 +251,48 @@ export const useSkillsService = () => {
         { params: { tenant_uuid: tenantUUID } }
       );
       return unwrap<Record<string, unknown>>(resp);
+    },
+
+    createInstallTask: async (payload: SkillInstallTaskPayload) => {
+      try {
+        const resp = await api.post<ApiResponse<SkillInstallTaskRecord>>(
+          `${adminBase}/install-tasks`,
+          payload
+        );
+        return unwrap<SkillInstallTaskRecord>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
+
+    listInstallTasks: async (params?: {
+      status?: string;
+      provider?: string;
+      repo?: string;
+      skill_id?: string;
+      page?: number;
+      page_size?: number;
+    }) => {
+      try {
+        const resp = await api.get<ApiResponse<SkillInstallTaskListResult>>(
+          `${adminBase}/install-tasks`,
+          { params }
+        );
+        return unwrap<SkillInstallTaskListResult>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
+    },
+
+    getInstallTask: async (taskId: string) => {
+      try {
+        const resp = await api.get<ApiResponse<SkillInstallTaskRecord>>(
+          `${adminBase}/install-tasks/${encodeURIComponent(taskId)}`
+        );
+        return unwrap<SkillInstallTaskRecord>(resp);
+      } catch (error: any) {
+        throw mapSkillsError(error);
+      }
     },
   };
 };

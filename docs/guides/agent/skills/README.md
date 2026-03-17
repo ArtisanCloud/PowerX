@@ -16,6 +16,9 @@
 4. [04-audit-and-isolation.md](./04-audit-and-isolation.md)  
    如何查询 Skills 审计、执行 trace，并验证跨租户隔离。
 
+5. [05-import-and-install.md](./05-import-and-install.md)  
+   如何区分 upload 导入与 install-tasks 仓库安装，并完成任务状态追踪。
+
 ## 统一前置条件
 
 1. 服务已启动，且可访问 API（示例：`http://localhost:8080/api/v1`）。

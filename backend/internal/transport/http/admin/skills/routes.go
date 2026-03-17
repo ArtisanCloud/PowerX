@@ -29,7 +29,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	rollbackH := newRollbackHandler(module.registry, module.lifecycle)
 	bindingH := newBindingHandler(module.binding, module.auditSvc)
 	auditH := newAuditHandler(module.traceRepo, module.auditRepo)
-	if catalogH == nil || registryH == nil || importH == nil || marketplaceH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil {
+	installTaskH := newInstallTaskHandler(module.installer)
+	if catalogH == nil || registryH == nil || importH == nil || marketplaceH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil || installTaskH == nil {
 		return
 	}
 
@@ -48,6 +49,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	group.POST("/:skillId/bind-capability", bindingH.BindCapability)
 	group.GET("/audits", auditH.ListAudits)
 	group.GET("/traces/:traceId", auditH.GetTrace)
+	group.POST("/install-tasks", installTaskH.Create)
+	group.GET("/install-tasks", installTaskH.List)
+	group.GET("/install-tasks/:taskId", installTaskH.Get)
 }
 
 func rootOnlyMiddleware() gin.HandlerFunc {

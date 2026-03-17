@@ -76,6 +76,24 @@ components:
           additionalProperties: true
         usage:
           $ref: '#/components/schemas/Usage'
+    LLMStreamRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+        stream_options:
+          type: object
+          properties:
+            include_usage:
+              type: boolean
     CreateSessionRequest:
       type: object
       required: [model_key]
@@ -194,6 +212,57 @@ components:
         usage:
           $ref: '#/components/schemas/Usage'
 paths:
+  /ai/llm/stream:
+    post:
+      summary: LLM stateless stream invoke (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMStreamRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    event: start
+                    data: {"traceId":"...","model_key":"openai/gpt-4o-mini"}
+
+                    event: delta
+                    data: {"delta":"partial...","index":0,"traceId":"..."}
+
+                    event: done
+                    data: {"ok":true,"text":"full output","finish_reason":"stop","traceId":"..."}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /ai/llm/invoke:
     post:
       summary: LLM stateless invoke

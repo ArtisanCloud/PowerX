@@ -15,6 +15,7 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
+	llmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	ttsfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/tts"
 	videofactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/video"
 	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
@@ -107,6 +108,78 @@ func (s *Service) LLMInvoke(
 		temperature, maxTokens,
 		prompt,
 	)
+}
+
+func (s *Service) LLMStream(
+	ctx context.Context,
+	env string,
+	tenantUUID string,
+	modelKey string,
+	inputs []ContentItem,
+	params map[string]interface{},
+	onDelta func(string),
+) (string, error) {
+	if s == nil || s.settings == nil || s.profiles == nil {
+		return "", errors.New("ai service unavailable")
+	}
+	provider, model := splitModelKey(modelKey)
+	if provider == "" || model == "" {
+		return "", ErrInvalidModelKey
+	}
+	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
+	defaults, _ := resolveDefaults("llm", provider, model)
+	if prof == nil || err != nil {
+		if !s.allowUnprofiled(ctx, env, tenantUUID, "llm", provider) {
+			return "", ErrModelNotConfigured
+		}
+	} else {
+		defaults = prof.Defaults
+	}
+	prompt := BuildPrompt(inputs)
+	if strings.TrimSpace(prompt) == "" {
+		return "", ErrPromptRequired
+	}
+
+	temperature := floatFromAny(defaults["temperature"])
+	maxTokens := intFromAny(defaults["maxTokens"])
+	if maxTokens == 0 {
+		maxTokens = intFromAny(defaults["max_tokens"])
+	}
+	if params != nil {
+		if v, ok := params["temperature"]; ok {
+			if t := floatFromAny(v); t > 0 {
+				temperature = t
+			}
+		}
+		if v, ok := params["max_tokens"]; ok {
+			if mt := intFromAny(v); mt > 0 {
+				maxTokens = mt
+			}
+		}
+		if v, ok := params["maxTokens"]; ok {
+			if mt := intFromAny(v); mt > 0 {
+				maxTokens = mt
+			}
+		}
+	}
+
+	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "llm", provider, model, "", "", "", "", "", "")
+	if err != nil {
+		return "", err
+	}
+	mc.SystemPrompt = "You are a helpful assistant."
+	if temperature > 0 {
+		mc.Temperature = temperature
+	}
+	if maxTokens > 0 {
+		mc.MaxTokens = maxTokens
+	}
+
+	cli, err := llmfactory.NewClient(provider)
+	if err != nil {
+		return "", err
+	}
+	return llmfactory.StreamOrFallback(ctx, cli, mc, prompt, onDelta)
 }
 
 func (s *Service) EmbeddingInvoke(

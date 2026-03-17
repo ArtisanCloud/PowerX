@@ -4,14 +4,14 @@
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">Skills</h1>
         <p class="text-sm text-[var(--text-secondary)]">
-          管理 Skills 导入、发布与回滚；区分系统固有技能目录与已导入 Registry。
+          管理 Skills 导入、发布与回滚；区分系统固有技能目录与已导入 Registry。导入指引见 docs/guides/agent/skills/05-import-and-install.md。
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
         <UButton v-if="allowAccess && activeTab === 'catalog'" color="neutral" variant="soft" icon="i-heroicons-plus" @click="openCatalogEditor()">
           新增目录项
         </UButton>
-        <UButton icon="i-heroicons-arrow-up-tray" @click="importModalOpen = true">导入 Skill</UButton>
+        <UButton icon="i-heroicons-arrow-up-tray" @click="importModalOpen = true">导入 / 安装 Skill</UButton>
       </div>
     </div>
 
@@ -65,7 +65,7 @@
           </div>
         </template>
         <p class="mb-4 text-xs text-[var(--text-secondary)]">
-          系统固有技能目录用于推荐与基线能力展示；Registry 列表用于管理已导入技能版本（含 third_party/plugin）及其发布状态。
+          系统固有技能目录用于推荐与基线能力展示；Registry 列表用于管理已导入技能版本（含 third_party/plugin）及其发布状态。弹窗内支持“仓库安装（install-tasks）”与“upload 导入”两种方式。
         </p>
 
         <template v-if="activeTab === 'registry'">

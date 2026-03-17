@@ -22,6 +22,7 @@ func TestAIMultimodalOpenAPIContract(t *testing.T) {
 	require.True(t, ok, "ErrorResponse schema missing")
 
 	assertOperation(t, doc, "/ai/llm/invoke", http.MethodPost, []string{"200", "400", "403", "429", "502"})
+	assertOperation(t, doc, "/ai/llm/stream", http.MethodPost, []string{"200", "400", "403", "429", "502"})
 	assertOperation(t, doc, "/ai/llm/sessions", http.MethodPost, []string{"200", "403"})
 	assertOperation(t, doc, "/ai/llm/sessions/{session_id}/messages", http.MethodPost, []string{"200", "403"})
 	assertOperation(t, doc, "/ai/llm/sessions/{session_id}/stream", http.MethodGet, []string{"200", "403"})
@@ -30,5 +31,6 @@ func TestAIMultimodalOpenAPIContract(t *testing.T) {
 	assertOperation(t, doc, "/ai/tts/invoke", http.MethodPost, []string{"200", "400", "403", "429", "502"})
 	assertOperation(t, doc, "/ai/embedding/invoke", http.MethodPost, []string{"200", "400", "403", "429"})
 
+	assertSSEExample(t, doc, "/ai/llm/stream", http.MethodPost)
 	assertSSEExample(t, doc, "/ai/llm/sessions/{session_id}/stream", http.MethodGet)
 }

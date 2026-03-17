@@ -44,6 +44,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsureAPIKeyProfileOwnerMemberMigration(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureSkillsInstallTaskTenantUUIDMigration(db); err != nil {
+		return err
+	}
 
 	// 迁移动态表单
 	err = db.AutoMigrate(
@@ -352,5 +355,6 @@ func migrateSkillsModels(db *gorm.DB) error {
 		&modelSkills.SkillCapabilityBinding{},
 		&modelSkills.SkillExecutionTrace{},
 		&modelSkills.SkillLifecycleAudit{},
+		&modelSkills.SkillInstallTask{},
 	)
 }
