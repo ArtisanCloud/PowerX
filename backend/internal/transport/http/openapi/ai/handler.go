@@ -35,9 +35,11 @@ type aiService interface {
 }
 
 type contentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	URL  string `json:"url"`
+	Role    string `json:"role"`
+	Type    string `json:"type"`
+	Text    string `json:"text"`
+	Content string `json:"content"`
+	URL     string `json:"url"`
 }
 
 type llmInvokeRequest struct {
@@ -611,9 +613,14 @@ func toServiceItems(items []contentItem) []aisvc.ContentItem {
 	}
 	out := make([]aisvc.ContentItem, 0, len(items))
 	for _, item := range items {
+		text := item.Text
+		if strings.TrimSpace(text) == "" {
+			text = item.Content
+		}
 		out = append(out, aisvc.ContentItem{
+			Role: item.Role,
 			Type: item.Type,
-			Text: item.Text,
+			Text: text,
 			URL:  item.URL,
 		})
 	}
@@ -630,7 +637,7 @@ func respondAIError(c *gin.Context, err error) {
 	case aisvc.ErrModelNotConfigured:
 		dto.ResponseError(c, http.StatusBadRequest, "model not configured for tenant", err)
 	case aisvc.ErrPromptRequired:
-		dto.ResponseError(c, http.StatusBadRequest, "inputs must include text", err)
+		dto.ResponseError(c, http.StatusBadRequest, "inputs must include text/content", err)
 	case aisvc.ErrProviderUnsupported:
 		dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{
 			"status": "accepted",

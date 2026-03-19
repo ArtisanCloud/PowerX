@@ -6,6 +6,7 @@ export interface SkillRecord {
   version: string;
   source: "builtin" | "plugin" | "third_party";
   status: "draft" | "published" | "deprecated" | "disabled";
+  import_type?: string;
   bundle_uri?: string;
   checksum?: string;
   signature?: string;
@@ -108,6 +109,30 @@ export interface SkillCatalogItem {
   active?: boolean;
   maintainer?: string;
   official_release_note?: string;
+}
+
+export interface SkillTraceRecord {
+  trace_id: string;
+  tenant_uuid: string;
+  skill_id: string;
+  version?: string;
+  entrypoint?: string;
+  protocol_used?: string;
+  invoke_path?: string;
+  status?: string;
+  latency_ms?: number;
+  error_code?: string;
+  error_summary?: string;
+  request_payload_digest?: string;
+  response_payload_digest?: string;
+  capability_id?: string;
+  plan_id?: string;
+  node_id?: string;
+  node_status?: string;
+  retry_trace?: string;
+  fallback_used?: boolean;
+  authorization_check_pass?: boolean;
+  created_at?: string;
 }
 
 export interface UpsertSkillCatalogPayload {
@@ -251,6 +276,23 @@ export const useSkillsService = () => {
         { params: { tenant_uuid: tenantUUID } }
       );
       return unwrap<Record<string, unknown>>(resp);
+    },
+
+    listTraces: async (params?: {
+      tenant_uuid?: string;
+      skill_id?: string;
+      version?: string;
+      plan_id?: string;
+      node_id?: string;
+      node_status?: string;
+      limit?: number;
+      offset?: number;
+    }) => {
+      const resp = await api.get<ApiResponse<{ items: SkillTraceRecord[]; total: number; limit: number; offset: number }>>(
+        `${adminBase}/traces`,
+        { params }
+      );
+      return unwrap<{ items: SkillTraceRecord[]; total: number; limit: number; offset: number }>(resp);
     },
 
     createInstallTask: async (payload: SkillInstallTaskPayload) => {

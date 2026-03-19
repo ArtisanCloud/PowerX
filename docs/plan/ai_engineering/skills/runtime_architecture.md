@@ -60,15 +60,16 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 3. 输出：结构化 JSON（`intent/candidate_skills/confidence`）。
 4. 无命中：返回空数组，不得臆造 skill_id。
 
-### 2.2 执行流程
+### 2.2 执行流程（目标态：多 Skill + DAG）
 
-1. Planner 生成 `skill_id + version + params`
-2. Runner 拉取 Manifest 与 Bundle
-3. 校验权限、上下文、依赖
-4. 执行 entrypoint
-5. 产出标准 `SkillExecutionResult`
-6. 输出到 Agent stream（token/log/state/final）
-7. 写审计与指标
+1. Intent 输出多候选 `candidate_skills[]`（top-k）
+2. Planner 生成计划 DAG（`serial stages + parallel groups`）
+3. 每个节点落盘 `plan_id/node_id`，并执行硬过滤（tenant/source/tool_grants/scope/status）
+4. Tool-Calling 选择节点执行参数（仅限 allowlist 中技能）
+5. Runner 拉取 Manifest 与 Bundle 并执行 entrypoint
+6. 节点结果回填 Planner 上下文（供后续节点引用）
+7. 输出到 Agent stream（intent/plan/node_start/token/node_end/final）
+8. 写审计与指标（trace_id + plan_id + node_id）
 
 ### 2.3 失败语义
 
@@ -93,6 +94,19 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 5. 返回统一 envelope（trace/status/protocol/result）
 6. 写 InvocationTrace 与审计事件
 
+## 3.3 Agent 主入口（闭环入口）
+
+建议将以下接口作为完整闭环主入口：
+
+1. `POST /api/v1/agents/invoke`（非流式）
+2. `GET /api/v1/agents/stream/sse`（流式）
+
+约束：
+
+- 调用方仅传 `message + agent_id(+session_id)`，不强制传 `skill_id`。
+- 系统自动执行 `intent -> plan -> tool/skill nodes -> final`。
+- tenant `/tenant/skills/invoke` 与 `/tenant/invocations` 保留为执行层接口，用于直接调用与兼容场景。
+
 ## 4. 统一结果模型
 
 `SkillExecutionResult` 建议字段：
@@ -104,6 +118,8 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 - `latency_ms`
 - `protocol_used`：固定 `skill`
 - `fallback_used`
+- `plan_id`（Agent 闭环时必带）
+- `nodes[]`（可选，非流式汇总返回）
 
 ## 5. 与现有模块映射
 
@@ -118,6 +134,8 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 - Metrics：`skill_invocations_total`, `skill_invocation_latency_ms`
 - Trace 标签：`skill_id`, `skill_version`, `tenant_uuid`
 - Audit 字段：`source`, `entrypoint`, `tool_grants`
+- Plan 字段：`plan_id`, `node_id`, `node_kind`, `node_status`, `depends_on`, `retry_count`
+- Query API：`GET /api/v1/admin/skills/traces`（支持 `plan_id/node_id/node_status` 过滤）
 
 ## 7. 决策流程图（三层抉择）
 
@@ -131,4 +149,19 @@ flowchart TD
     D -->|Yes| N2[node.kind=skill]
     N2 --> E[Executor Dispatch]
     E --> S[SkillRunner]
+
+## 8. Planner 编排图（串并行）
+
+```mermaid
+flowchart TD
+    U[User Message] --> I[Intent Top-K Skills]
+    I --> P[Planner DAG]
+    P --> S1[Stage 1: serial node]
+    S1 --> G{Stage 2 parallel}
+    G --> N21[node A]
+    G --> N22[node B]
+    N21 --> S3[Stage 3 merge node]
+    N22 --> S3
+    S3 --> F[Final Response]
+```
 ```

@@ -5,7 +5,7 @@
 
 ## Summary
 
-交付 PowerX Skills 的平台级治理闭环：官方固有 Skills 目录管理、第三方 Bundle 受控导入、人工审批发布、版本回滚、Capability 绑定，以及 Tenant/Agent 双路径调用一致性。首版明确采用“上传 Bundle + 来源元数据登记、默认最新发布版本调用、checksum 强制校验、signature 策略可配置”的治理策略，并通过多租户隔离与审计链路保障可追溯和可回放。
+交付 PowerX Skills 的平台级治理闭环，并在下一阶段升级为 Agent 主入口闭环：官方固有 Skills 目录管理、第三方 Bundle 受控导入、人工审批发布、版本回滚、Capability 绑定、Tenant/Agent 双路径调用一致性，以及“多技能识别 + Planner 编排（串并行） + LLM Tool-Calling”统一执行。当前实现维持“上传 Bundle + 来源元数据登记、默认最新发布版本调用、checksum 强制校验、signature 策略可配置”，并通过多租户隔离与审计链路保障可追溯和可回放。
 
 ## Technical Context
 
@@ -112,3 +112,11 @@ Reference: [`research.md`](./research.md)
 ### Agent Context Update
 
 - 将执行 `.specify/scripts/bash/update-agent-context.sh codex`，同步本 feature 新增技术上下文到 Codex 记忆文件。
+
+## Phase 2 – Next Target (Planner + Tool-Calling)
+
+1. **入口收敛**：以 `/api/v1/agents/invoke` 与 `/api/v1/agents/stream/sse` 为主入口承载完整闭环；tenant `/tenant/skills/invoke` 与 `/tenant/invocations` 保留为执行层接口。  
+2. **多技能识别**：意图阶段输出多候选 skills（top-k），包含 `score/reason/constraints`。  
+3. **计划编排**：Planner 产出 DAG/阶段计划，支持串行依赖、并行批次、失败策略。  
+4. **LLM Tool-Calling**：在受控可用技能清单内进行 tool 选择，选择结果需回落到 registry/binding 的硬过滤约束。  
+5. **观测升级**：trace 从 `trace_id` 扩展到 `plan_id + node_id` 维度，审计可还原计划执行路径。

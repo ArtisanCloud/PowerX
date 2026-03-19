@@ -6,6 +6,87 @@ info:
 servers:
   - url: https://api.powerx.local/api/v1
 paths:
+  /ai/llm/invoke:
+    post:
+      summary: Invoke LLM with OpenAI-style messages
+      operationId: invokeLLM
+      tags: [TenantAI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMInvokeRequest'
+      responses:
+        '200':
+          description: LLM invoke result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMInvokeResponse'
+  /ai/llm/stream:
+    post:
+      summary: Stream LLM with OpenAI-style messages
+      operationId: streamLLM
+      tags: [TenantAI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMStreamRequest'
+      responses:
+        '200':
+          description: text/event-stream sequence of start/delta/usage(done when include_usage=true)/done
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /agents/invoke:
+    post:
+      summary: Agent unified invoke entry with intent->plan->nodes closed loop
+      operationId: invokeAgentWithPlanner
+      tags: [AgentSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentInvokeRequest'
+      responses:
+        '200':
+          description: Agent invoke completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInvokeResponse'
+  /agents/stream/sse:
+    get:
+      summary: Agent streaming entry with plan and node lifecycle events
+      operationId: streamAgentWithPlanner
+      tags: [AgentSkills]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: agent_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: session_id
+          in: query
+          schema: { type: string }
+        - name: env
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: text/event-stream sequence of intent/plan/node_start/node_end/token/final/end
+          content:
+            text/event-stream:
+              schema:
+                type: string
   /admin/skills/catalog:
     get:
       summary: List official built-in skill catalog entries
@@ -167,6 +248,65 @@ paths:
       responses:
         '200':
           description: Binding created
+  /admin/skills/traces:
+    get:
+      summary: Query execution traces with plan/node filters
+      operationId: listSkillExecutionTraces
+      tags: [AdminSkills]
+      parameters:
+        - name: tenant_uuid
+          in: query
+          schema: { type: string }
+        - name: skill_id
+          in: query
+          schema: { type: string }
+        - name: version
+          in: query
+          schema: { type: string }
+        - name: plan_id
+          in: query
+          schema: { type: string }
+        - name: node_id
+          in: query
+          schema: { type: string }
+        - name: node_status
+          in: query
+          schema: { type: string, enum: [running, completed, failed] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Trace page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillTracePage'
+  /admin/skills/traces/{traceId}:
+    get:
+      summary: Get one execution trace by trace id
+      operationId: getSkillExecutionTrace
+      tags: [AdminSkills]
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_uuid
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Trace detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillTraceRecord'
+        '404':
+          description: Trace not found
   /tenant/skills/invoke:
     post:
       summary: Invoke a published skill directly
@@ -217,6 +357,104 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    ContentItem:
+      type: object
+      description: |
+        Unified multimodal input item. For LLM text prompts:
+        - preferred: role + type=text + text
+        - compatible: role + content (auto-mapped to text by backend)
+      properties:
+        role:
+          type: string
+          description: Optional role. Recommended values = system | user | assistant.
+        type:
+          type: string
+          description: text | image_url | image_base64 | video_url (modality dependent)
+        text:
+          type: string
+          description: Primary text payload.
+        content:
+          type: string
+          description: Compatibility alias for text. If text is empty, backend uses content.
+        url:
+          type: string
+          description: URL payload for image/video refs.
+    LLMInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key: { type: string, example: openai/gpt-4o-mini }
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+          description: Supports temperature/max_tokens/thinking/reasoning(when provider supports).
+    LLMStreamRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key: { type: string, example: openai/gpt-4o-mini }
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+        stream_options:
+          type: object
+          properties:
+            include_usage: { type: boolean, default: false }
+    LLMInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          properties:
+            type: { type: string, example: text }
+            text: { type: string }
+        usage:
+          type: object
+          additionalProperties: true
+    AgentInvokeRequest:
+      type: object
+      required: [agent_id, message]
+      properties:
+        agent_id: { type: string }
+        session_id: { type: string }
+        message: { type: string }
+        meta:
+          type: object
+          additionalProperties: true
+    AgentInvokeResponse:
+      type: object
+      required: [session_id, plan_id, reply]
+      properties:
+        session_id: { type: string }
+        agent_id: { type: string }
+        plan_id: { type: string }
+        reply: { type: string }
+    PlannerNodeEvent:
+      type: object
+      required: [plan_id, task_id, flow_id, stage, status]
+      properties:
+        plan_id: { type: string }
+        task_id: { type: string }
+        flow_id: { type: string }
+        stage: { type: integer }
+        depends_on:
+          type: array
+          items: { type: string }
+        status:
+          type: string
+          enum: [scheduled, completed, failed]
+        error: { type: string }
+        result_summary:
+          type: object
+          additionalProperties: true
     OfficialCatalogEntry:
       type: object
       required: [skill_id, recommended_version, risk_level]
@@ -310,12 +548,53 @@ components:
       required: [trace_id, status, protocol_used]
       properties:
         trace_id: { type: string }
+        plan_id: { type: string, nullable: true }
         status: { type: string, enum: [completed, failed, denied] }
         protocol_used: { type: string, enum: [skill] }
         fallback_used: { type: boolean }
+        skill_candidates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
         result:
           type: object
           additionalProperties: true
+    SkillTraceRecord:
+      type: object
+      required: [trace_id, tenant_uuid, skill_id, status]
+      properties:
+        trace_id: { type: string }
+        tenant_uuid: { type: string }
+        skill_id: { type: string }
+        version: { type: string, nullable: true }
+        entrypoint: { type: string, nullable: true }
+        protocol_used: { type: string }
+        invoke_path: { type: string }
+        status: { type: string, enum: [running, completed, failed, denied] }
+        latency_ms: { type: integer }
+        error_code: { type: string, nullable: true }
+        error_summary: { type: string, nullable: true }
+        request_payload_digest: { type: string, nullable: true }
+        response_payload_digest: { type: string, nullable: true }
+        capability_id: { type: string, nullable: true }
+        plan_id: { type: string, nullable: true }
+        node_id: { type: string, nullable: true }
+        node_status: { type: string, enum: [running, completed, failed], nullable: true }
+        retry_trace: { type: string, nullable: true }
+        fallback_used: { type: boolean }
+        authorization_check_pass: { type: boolean }
+        created_at: { type: string, format: date-time }
+    SkillTracePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillTraceRecord'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
     Error:
       type: object
       required: [code, message]

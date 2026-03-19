@@ -176,13 +176,14 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 			return
 		}
 		dto.ResponseSuccess(c, gin.H{
-			"trace_id":      result.TraceID,
-			"status":        result.Status,
-			"protocol_used": result.ProtocolUsed,
-			"fallback_used": result.FallbackUsed,
-			"result":        result.Result,
-			"skill_id":      result.SkillID,
-			"version":       result.Version,
+			"trace_id":         result.TraceID,
+			"status":           result.Status,
+			"protocol_used":    result.ProtocolUsed,
+			"fallback_used":    result.FallbackUsed,
+			"result":           result.Result,
+			"skill_id":         result.SkillID,
+			"version":          result.Version,
+			"skill_candidates": result.SkillCandidates,
 		})
 		return
 	}

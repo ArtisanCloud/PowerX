@@ -48,6 +48,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	group.POST("/:skillId/rollback", rollbackH.Rollback)
 	group.POST("/:skillId/bind-capability", bindingH.BindCapability)
 	group.GET("/audits", auditH.ListAudits)
+	group.GET("/traces", auditH.ListTraces)
 	group.GET("/traces/:traceId", auditH.GetTrace)
 	group.POST("/install-tasks", installTaskH.Create)
 	group.GET("/install-tasks", installTaskH.List)

@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
@@ -33,7 +34,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	defer cancel()
 
 	// 1) 多意图识别
-	tasks, err := e.mgr.DetectTasks(ctx, msg)
+	tasks, err := e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
 	if err != nil {
 		return sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
 	}
@@ -160,6 +161,140 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			}
 		}
 	}
+}
+
+func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) (*agentschema.ExecutionResult, *flowschema.ExecutionPlan, error) {
+	execTimeout := 10 * time.Minute
+	ctx, cancel := context.WithTimeout(ctx, execTimeout)
+	defer cancel()
+
+	tasks, err := e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
+	if err != nil {
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return nil, nil, err
+	}
+	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "tasks": tasks})
+
+	rawPlan := e.mgr.BuildPlan(tasks)
+	plan, ok := NormalizeExecPlan(rawPlan)
+	_ = sink.Emit(dto.EventPlan, PlanOrRaw(plan, rawPlan))
+
+	if explicitFlow = strings.TrimSpace(explicitFlow); explicitFlow != "" {
+		plan = &flowschema.ExecutionPlan{
+			PlanID: fmt.Sprintf("plan_%d", time.Now().UnixNano()),
+			Tasks: []flowschema.PlanTask{
+				{
+					TaskID: fmt.Sprintf("task_%d", time.Now().UnixNano()),
+					FlowID: explicitFlow,
+					Stage:  1,
+				},
+			},
+		}
+		ok = true
+		_ = sink.Emit(dto.EventPlan, plan)
+	}
+
+	traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
+	meta := agentschema.ExecutionMeta{
+		RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
+		TraceID:   traceID,
+		Timeout:   execTimeout,
+		Metadata:  map[string]any{"transport": "engine.invoke"},
+	}
+
+	if !ok || plan == nil || len(plan.Tasks) == 0 {
+		out, flowID, dispatchErr := e.mgr.Dispatch(ctx, msg, flowschema.Context{
+			"message": msg,
+			"config":  reqCfg,
+		}, meta)
+		if dispatchErr != nil {
+			_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": dispatchErr.Error()})
+			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return nil, nil, dispatchErr
+		}
+		_ = sink.Emit(dto.EventNodeStart, map[string]any{"task_id": "dispatch", "flow_id": flowID, "stage": 1, "plan_id": ""})
+		_ = sink.Emit(dto.EventNodeEnd, map[string]any{"task_id": "dispatch", "flow_id": flowID, "stage": 1, "status": "completed", "plan_id": ""})
+		content := ExtractAssistantText(out)
+		_ = sink.Emit(dto.EventFinal, map[string]any{
+			"success": true,
+			"data": map[string]any{
+				"content": content,
+			},
+			"metadata": map[string]any{
+				"trace_id": traceID,
+				"plan_id":  "",
+			},
+		})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+		return out, nil, nil
+	}
+
+	emitMu := &sync.Mutex{}
+	hooks := &agent.PlanExecutionHooks{
+		OnTaskStart: func(task flowschema.PlanTask) {
+			emitMu.Lock()
+			defer emitMu.Unlock()
+			_ = sink.Emit(dto.EventNodeStart, map[string]any{
+				"plan_id":    plan.PlanID,
+				"task_id":    task.TaskID,
+				"flow_id":    task.FlowID,
+				"stage":      task.Stage,
+				"depends_on": task.DependsOn,
+			})
+		},
+		OnTaskEnd: func(task flowschema.PlanTask, out *agentschema.ExecutionResult, runErr error) {
+			emitMu.Lock()
+			defer emitMu.Unlock()
+			status := "completed"
+			if runErr != nil {
+				status = "failed"
+			}
+			_ = sink.Emit(dto.EventNodeEnd, map[string]any{
+				"plan_id":    plan.PlanID,
+				"task_id":    task.TaskID,
+				"flow_id":    task.FlowID,
+				"stage":      task.Stage,
+				"depends_on": task.DependsOn,
+				"status":     status,
+				"error": func() string {
+					if runErr == nil {
+						return ""
+					}
+					return runErr.Error()
+				}(),
+				"result_summary": func() map[string]any {
+					if out == nil {
+						return nil
+					}
+					return map[string]any{
+						"success": out.Success,
+						"step_id": out.StepID,
+					}
+				}(),
+			})
+		},
+	}
+
+	out, execErr := e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
+	if execErr != nil {
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return nil, plan, execErr
+	}
+	content := ExtractAssistantText(out)
+	_ = sink.Emit(dto.EventFinal, map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"content": content,
+		},
+		"metadata": map[string]any{
+			"trace_id": traceID,
+			"plan_id":  plan.PlanID,
+		},
+	})
+	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+	return out, plan, nil
 }
 
 func PickFirstFlowID(plan *flowschema.ExecutionPlan) string {

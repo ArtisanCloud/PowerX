@@ -15,6 +15,12 @@
 - Q: PowerX 官方固有 Skills 首版的数据来源定义是什么？ → A: 后端内置官方目录表，随平台版本发布。
 - Q: 发布前的完整性校验门槛首版如何设定？ → A: checksum 必须，signature 可选（按环境策略）。
 
+### Session 2026-03-19
+
+- Q: Skill 路由是否仅支持单技能命中？ → A: 否，目标态必须支持多技能候选同时识别，并由 Planner 进行串行/并行编排。
+- Q: Skill 调用是否以 tenant 直调为主入口？ → A: 否，Agent invoke 应作为主闭环入口，tenant 直调与 unified invoke 作为底层执行接口保留。
+- Q: 语义匹配阶段是否只做规则/词法重排？ → A: 否，目标态需要引入 LLM Tool-Calling 决策环，输出结构化执行计划（含依赖关系与并发组）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 管理员统一管理 Skills 生命周期 (Priority: P1)
@@ -120,6 +126,12 @@
 - **FR-019**: 当单 Agent 可用 Skill 规模达到高基数（例如 10k 量级）时，系统必须具备可扩展的候选检索能力，并支持通过缓存/索引机制避免全量扫描。
 - **FR-020**: 系统必须支持租户管理员在可视化管理界面配置 Skill 来源策略（source allowlist），并保证该策略可作用于统一入口 `preferred_protocol=skill` 的候选过滤流程。
 - **FR-020a**: source allowlist 至少支持 `builtin`、`plugin`、`third_party` 三类来源，且配置变更需可持久化与可追踪。
+- **FR-021**: 系统必须支持在单次 Agent 调用中识别多个 Skill 候选，并返回结构化候选列表（含置信度、理由与约束）。
+- **FR-022**: 系统必须支持 Planner 基于多候选构建执行计划，计划至少支持串行依赖、并行分组、失败策略（fail-fast/continue）。
+- **FR-023**: 系统必须提供 Agent 主调用入口（invoke/stream）承载“意图识别 → 计划生成 → Skill/Tool 执行 → 汇总响应”闭环，不要求调用方显式传入 `skill_id`。
+- **FR-024**: 系统必须支持 LLM Tool-Calling 作为 Planner 决策的一部分，并将可用 Skill 集合作为受控工具清单注入，禁止选择未授权 Skill。
+- **FR-025**: 系统必须记录计划级审计与追踪信息，至少包含 `plan_id`、节点拓扑、节点输入输出摘要、节点状态与重试轨迹。
+- **FR-026**: 系统必须保证 Agent 主入口、tenant 直接调用、tenant unified invoke 三条路径在错误语义与追踪模型上兼容对齐。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -150,3 +162,4 @@
 - 首版官方固有 Skills 目录由后端内置并随平台版本演进，不依赖外部实时同步。
 - 首版对 Skill 的使用覆盖两条路径：独立调用与统一入口调用；复杂编排属于后续增量能力。
 - 首版来源策略遵循“请求上下文 > Agent 级 > 租户级 > 默认值”的优先级。
+- 下一阶段（post-v1）将“多技能识别 + Planner DAG + LLM Tool-Calling”收敛到 Agent 主入口闭环，并保持与 tenant 调用路径的执行语义一致。

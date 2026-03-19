@@ -96,8 +96,75 @@ func (h *auditHandler) GetTrace(c *gin.Context) {
 		"request_payload_digest":   record.RequestPayloadDigest,
 		"response_payload_digest":  record.ResponsePayloadDigest,
 		"capability_id":            record.CapabilityID,
+		"plan_id":                  record.PlanID,
+		"node_id":                  record.NodeID,
+		"node_status":              record.NodeStatus,
+		"retry_trace":              record.RetryTrace,
 		"fallback_used":            record.FallbackUsed,
 		"authorization_check_pass": record.AuthorizationCheckPass,
 		"created_at":               record.CreatedAt.Format(time.RFC3339),
+	})
+}
+
+func (h *auditHandler) ListTraces(c *gin.Context) {
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			limit = v
+		}
+	}
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			offset = v
+		}
+	}
+	filter := skillrepo.SkillExecutionTraceFilter{
+		TenantUUID: strings.TrimSpace(c.Query("tenant_uuid")),
+		SkillID:    strings.TrimSpace(c.Query("skill_id")),
+		Version:    strings.TrimSpace(c.Query("version")),
+		PlanID:     strings.TrimSpace(c.Query("plan_id")),
+		NodeID:     strings.TrimSpace(c.Query("node_id")),
+		NodeStatus: strings.TrimSpace(c.Query("node_status")),
+		Limit:      limit,
+		Offset:     offset,
+	}
+	rows, err := h.traceRepo.List(c.Request.Context(), filter)
+	if err != nil {
+		respondSkillError(c, err)
+		return
+	}
+	items := make([]gin.H, 0, len(rows))
+	for i := range rows {
+		item := gin.H{
+			"trace_id":                 rows[i].TraceID,
+			"tenant_uuid":              rows[i].TenantUUID,
+			"skill_id":                 rows[i].SkillID,
+			"version":                  rows[i].Version,
+			"entrypoint":               rows[i].Entrypoint,
+			"protocol_used":            rows[i].ProtocolUsed,
+			"invoke_path":              rows[i].InvokePath,
+			"status":                   rows[i].Status,
+			"latency_ms":               rows[i].LatencyMS,
+			"error_code":               rows[i].ErrorCode,
+			"error_summary":            rows[i].ErrorSummary,
+			"request_payload_digest":   rows[i].RequestPayloadDigest,
+			"response_payload_digest":  rows[i].ResponsePayloadDigest,
+			"capability_id":            rows[i].CapabilityID,
+			"plan_id":                  rows[i].PlanID,
+			"node_id":                  rows[i].NodeID,
+			"node_status":              rows[i].NodeStatus,
+			"retry_trace":              rows[i].RetryTrace,
+			"fallback_used":            rows[i].FallbackUsed,
+			"authorization_check_pass": rows[i].AuthorizationCheckPass,
+			"created_at":               rows[i].CreatedAt.Format(time.RFC3339),
+		}
+		items = append(items, item)
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"items":  items,
+		"total":  len(items),
+		"limit":  limit,
+		"offset": offset,
 	})
 }

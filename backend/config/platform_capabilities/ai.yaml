@@ -29,7 +29,7 @@ capabilities:
   - capability_id: com.corex.ai.llm.stream
     module: ai
     title: LLM Stream
-    description: LLM 会话流式输出。
+    description: LLM 无状态流式输出。
     categories: [ai, llm]
     intents: [ai.llm.stream]
     tool_scopes: [ai.llm]
@@ -40,9 +40,9 @@ capabilities:
       - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
     protocols:
       - channel: rest
-        endpoint: /api/v1/ai/llm/sessions/{session_id}/stream
-        method: GET
-        schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions~1{session_id}~1stream/get
+        endpoint: /api/v1/ai/llm/stream
+        method: POST
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1stream/post
         auth_type: tenant_jwt
         tool_scope: ai.llm
       - channel: grpc

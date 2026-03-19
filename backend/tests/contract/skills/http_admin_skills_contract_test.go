@@ -94,6 +94,38 @@ func TestHTTPAdminSkillsContract(t *testing.T) {
 		require.True(t, v1.IsLatestPublished)
 		require.False(t, v2.IsLatestPublished)
 	})
+
+	t.Run("list traces by plan id", func(t *testing.T) {
+		require.NoError(t, deps.DB.Create(&skillmodel.SkillExecutionTrace{
+			TraceID:                "trace-contract-plan-001",
+			TenantUUID:             "tenant-contract",
+			SkillID:                "flow.contract.alpha",
+			Version:                "1.0.0",
+			Entrypoint:             "task-contract-1",
+			ProtocolUsed:           "agent",
+			InvokePath:             "agent.invoke.plan",
+			Status:                 "completed",
+			PlanID:                 "plan-contract-001",
+			NodeID:                 "task-contract-1",
+			NodeStatus:             "completed",
+			RetryTrace:             "",
+			FallbackUsed:           false,
+			AuthorizationCheckPass: true,
+		}).Error)
+
+		resp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/admin/skills/traces?plan_id=plan-contract-001&limit=20", nil)
+		require.Equal(t, http.StatusOK, resp.Code)
+
+		var body map[string]interface{}
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
+		data := body["data"].(map[string]interface{})
+		items := data["items"].([]interface{})
+		require.NotEmpty(t, items)
+		first := items[0].(map[string]interface{})
+		require.Equal(t, "plan-contract-001", first["plan_id"])
+		require.Equal(t, "task-contract-1", first["node_id"])
+		require.Equal(t, "completed", first["node_status"])
+	})
 }
 
 func doJSONRequest(t *testing.T, h http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {

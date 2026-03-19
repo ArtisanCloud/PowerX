@@ -191,6 +191,9 @@ type SkillMatchCandidate struct {
 	Version          string
 	CapabilityID     string
 	ToolGrants       datatypes.JSON
+	IntentHints      datatypes.JSON
+	Tags             datatypes.JSON
+	SemanticText     string
 	VisibilityScope  string
 	BindingStatus    string
 	SourceConstraint string
@@ -272,7 +275,7 @@ func (r *SkillCapabilityBindingRepository) ListMatchCandidates(ctx context.Conte
 	registryTable := (models.SkillRegistryRecord{}).TableName()
 	query := r.db.WithContext(ctx).
 		Table(bindingTable+" AS b").
-		Select("b.skill_id, b.version, b.capability_id, b.tool_grants, b.visibility_scope, b.binding_status, b.source_constraint, r.source, r.status, r.updated_at").
+		Select("b.skill_id, b.version, b.capability_id, b.tool_grants, b.intent_hints, b.tags, b.semantic_text, b.visibility_scope, b.binding_status, b.source_constraint, r.source, r.status, r.updated_at").
 		Joins("JOIN "+registryTable+" AS r ON r.skill_id = b.skill_id AND r.version = b.version").
 		Where("b.capability_id = ? AND b.binding_status = ? AND r.status = ?", capabilityID, "active", models.SkillStatusPublished)
 

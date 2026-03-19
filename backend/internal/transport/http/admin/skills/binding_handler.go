@@ -20,6 +20,9 @@ type bindCapabilityRequest struct {
 	Version      string   `json:"version"`
 	CapabilityID string   `json:"capability_id"`
 	ToolGrants   []string `json:"tool_grants"`
+	IntentHints  []string `json:"intent_hints"`
+	Tags         []string `json:"tags"`
+	SemanticText string   `json:"semantic_text"`
 }
 
 func newBindingHandler(bindingRepo *skillrepo.SkillCapabilityBindingRepository, auditSvc *skillservice.AuditTraceService) *bindingHandler {
@@ -45,11 +48,24 @@ func (h *bindingHandler) BindCapability(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid tool_grants", err)
 		return
 	}
+	intentHints, err := json.Marshal(req.IntentHints)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid intent_hints", err)
+		return
+	}
+	tags, err := json.Marshal(req.Tags)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid tags", err)
+		return
+	}
 	record := &skillmodel.SkillCapabilityBinding{
 		SkillID:      skillID,
 		Version:      strings.TrimSpace(req.Version),
 		CapabilityID: strings.TrimSpace(req.CapabilityID),
 		ToolGrants:   datatypes.JSON(grants),
+		IntentHints:  datatypes.JSON(intentHints),
+		Tags:         datatypes.JSON(tags),
+		SemanticText: strings.TrimSpace(req.SemanticText),
 		CreatedBy:    actorFromContext(c),
 		UpdatedBy:    actorFromContext(c),
 	}
@@ -80,5 +96,8 @@ func (h *bindingHandler) BindCapability(c *gin.Context) {
 		"skill_id":      saved.SkillID,
 		"version":       saved.Version,
 		"capability_id": saved.CapabilityID,
+		"intent_hints":  req.IntentHints,
+		"tags":          req.Tags,
+		"semantic_text": strings.TrimSpace(req.SemanticText),
 	})
 }

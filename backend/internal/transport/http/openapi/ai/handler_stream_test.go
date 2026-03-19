@@ -96,6 +96,85 @@ func TestLLMStreamEndpointSSE(t *testing.T) {
 	}
 }
 
+func TestLLMStreamEndpointSupportsRoleAndContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tenantUUID := "33333333-3333-3333-3333-333333333333"
+
+	t.Run("role_text_messages", func(t *testing.T) {
+		stub := &stubAIService{
+			llmStreamFn: func(ctx context.Context, env string, tenant string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error) {
+				if len(inputs) != 2 {
+					t.Fatalf("unexpected input length: %d", len(inputs))
+				}
+				if inputs[0].Role != "system" || inputs[0].Text != "你是编辑助手" {
+					t.Fatalf("unexpected first input: %+v", inputs[0])
+				}
+				if inputs[1].Role != "user" || inputs[1].Text != "请改写这段文案" {
+					t.Fatalf("unexpected second input: %+v", inputs[1])
+				}
+				onDelta("ok")
+				return "ok", nil
+			},
+		}
+		h := &aiHandler{svc: stub, sessions: newSessionStore()}
+
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+			ctx = reqctx.WithEnv(ctx, "dev")
+			c.Request = c.Request.WithContext(ctx)
+			c.Next()
+		})
+		r.POST("/api/v1/ai/llm/stream", h.llmStream)
+
+		body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"role":"system","type":"text","text":"你是编辑助手"},{"role":"user","type":"text","text":"请改写这段文案"}]}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/stream?env=dev", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("content_fallback_to_text", func(t *testing.T) {
+		stub := &stubAIService{
+			llmStreamFn: func(ctx context.Context, env string, tenant string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error) {
+				if len(inputs) != 1 {
+					t.Fatalf("unexpected input length: %d", len(inputs))
+				}
+				if inputs[0].Role != "user" {
+					t.Fatalf("unexpected role: %+v", inputs[0])
+				}
+				if inputs[0].Text != "仅传content字段也应生效" {
+					t.Fatalf("content fallback failed: %+v", inputs[0])
+				}
+				onDelta("ok")
+				return "ok", nil
+			},
+		}
+		h := &aiHandler{svc: stub, sessions: newSessionStore()}
+
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+			ctx = reqctx.WithEnv(ctx, "dev")
+			c.Request = c.Request.WithContext(ctx)
+			c.Next()
+		})
+		r.POST("/api/v1/ai/llm/stream", h.llmStream)
+
+		body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"role":"user","content":"仅传content字段也应生效"}]}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/stream?env=dev", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
+}
+
 func TestLLMSessionStreamEndpointSSE(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tenantUUID := "22222222-2222-2222-2222-222222222222"

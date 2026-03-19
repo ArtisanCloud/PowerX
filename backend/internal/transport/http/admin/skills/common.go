@@ -115,6 +115,7 @@ func mapSkillRecord(rec *skillmodel.SkillRegistryRecord) gin.H {
 		"version":             rec.Version,
 		"source":              rec.Source,
 		"status":              rec.Status,
+		"import_type":         rec.ImportType,
 		"bundle_uri":          rec.BundleURI,
 		"checksum":            rec.Checksum,
 		"signature":           rec.Signature,

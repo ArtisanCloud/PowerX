@@ -37,6 +37,10 @@ type ExecutionTraceInput struct {
 	ProtocolUsed    string
 	Status          string
 	CapabilityID    string
+	PlanID          string
+	NodeID          string
+	NodeStatus      string
+	RetryTrace      string
 	LatencyMS       int
 	ErrorCode       string
 	ErrorSummary    string
@@ -119,6 +123,10 @@ func (s *AuditTraceService) RecordExecutionTrace(ctx context.Context, in Executi
 		RequestPayloadDigest:   digestJSON(in.RequestPayload),
 		ResponsePayloadDigest:  digestJSON(in.ResponsePayload),
 		CapabilityID:           strings.TrimSpace(in.CapabilityID),
+		PlanID:                 strings.TrimSpace(in.PlanID),
+		NodeID:                 strings.TrimSpace(in.NodeID),
+		NodeStatus:             strings.ToLower(strings.TrimSpace(in.NodeStatus)),
+		RetryTrace:             strings.TrimSpace(in.RetryTrace),
 		FallbackUsed:           in.FallbackUsed,
 		AuthorizationCheckPass: in.AuthPass,
 	}

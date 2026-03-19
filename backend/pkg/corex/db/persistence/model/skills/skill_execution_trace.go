@@ -24,6 +24,10 @@ type SkillExecutionTrace struct {
 	RequestPayloadDigest   string `gorm:"column:request_payload_digest;type:varchar(128)" json:"request_payload_digest,omitempty"`
 	ResponsePayloadDigest  string `gorm:"column:response_payload_digest;type:varchar(128)" json:"response_payload_digest,omitempty"`
 	CapabilityID           string `gorm:"column:capability_id;type:varchar(128);index:idx_skill_execution_capability" json:"capability_id,omitempty"`
+	PlanID                 string `gorm:"column:plan_id;type:varchar(128);index:idx_skill_execution_plan" json:"plan_id,omitempty"`
+	NodeID                 string `gorm:"column:node_id;type:varchar(128);index:idx_skill_execution_node" json:"node_id,omitempty"`
+	NodeStatus             string `gorm:"column:node_status;type:varchar(32);index:idx_skill_execution_node_status" json:"node_status,omitempty"`
+	RetryTrace             string `gorm:"column:retry_trace;type:text" json:"retry_trace,omitempty"`
 	FallbackUsed           bool   `gorm:"column:fallback_used;not null;default:false" json:"fallback_used"`
 	AuthorizationCheckPass bool   `gorm:"column:authorization_check_pass;not null;default:false" json:"authorization_check_pass"`
 }
@@ -41,4 +45,8 @@ func (t *SkillExecutionTrace) Normalize() {
 	t.ProtocolUsed = strings.TrimSpace(strings.ToLower(t.ProtocolUsed))
 	t.InvokePath = strings.TrimSpace(strings.ToLower(t.InvokePath))
 	t.Status = strings.TrimSpace(strings.ToLower(t.Status))
+	t.PlanID = strings.TrimSpace(t.PlanID)
+	t.NodeID = strings.TrimSpace(t.NodeID)
+	t.NodeStatus = strings.TrimSpace(strings.ToLower(t.NodeStatus))
+	t.RetryTrace = strings.TrimSpace(t.RetryTrace)
 }

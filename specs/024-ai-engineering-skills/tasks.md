@@ -144,6 +144,20 @@
 
 ---
 
+## Phase 8: Agent 闭环升级（Multi-Skill Planner + Tool-Calling）
+
+- [X] T055 [Shared] 在 Spec/Contract 层补充 Agent 主入口闭环契约（invoke/stream 的 plan 结构、node 事件语义）：`specs/024-ai-engineering-skills/contracts/http-openapi.yaml`, `docs/plan/ai_engineering/skills/api_contracts.md`
+- [X] T056 [P] [Shared] 扩展技能候选模型（skills match candidate 增加 intent/tags/semantic metadata）：`backend/pkg/corex/db/persistence/model/skills/*`, `backend/pkg/corex/db/persistence/repository/skills/*`
+- [X] T057 [Shared] 实现多技能召回与重排输出（top-k + reason），并接入 Agent 意图阶段：`backend/internal/server/agent/intent/*`, `backend/internal/service/skills/adapter_service.go`
+- [X] T058 [Shared] 实现 Planner DAG（串并行分组、依赖、失败策略）并接入 Agent invoke 主链路：`backend/internal/transport/http/admin/agent/chat_handler.go`, `backend/internal/server/agent/runtime/*`
+- [X] T059 [Shared] 在 Planner 决策层接入 LLM Tool-Calling（受控工具清单 + 参数校验 + fallback）：`backend/internal/server/agent/*`, `backend/internal/service/skills/*`
+- [X] T060 [P] [US3] 新增集成测试：多技能并行计划执行一致性：`backend/tests/integration/skills/skill_multi_plan_integration_test.go`
+- [X] T061 [P] [US3] 新增集成测试：Tool-Calling 命中未授权技能应被硬过滤拒绝：`backend/tests/integration/skills/skill_tool_call_authz_integration_test.go`
+- [X] T062 [US4] 扩展审计/追踪模型（plan_id/node_id/node_status/retry_trace）并提供查询：`backend/internal/service/skills/audit_trace_service.go`, `backend/internal/transport/http/admin/skills/audit_handler.go`
+- [X] T063 [P] [US1] Web Admin 增加 Planner/执行图可视化（按 plan_id 查看节点轨迹）：`web-admin/app/pages/settings/ai/skills.vue`, `web-admin/app/components/settings/ai/skills/*`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

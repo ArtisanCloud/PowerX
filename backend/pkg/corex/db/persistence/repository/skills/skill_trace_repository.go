@@ -20,6 +20,9 @@ type SkillExecutionTraceFilter struct {
 	TenantUUID string
 	SkillID    string
 	Version    string
+	PlanID     string
+	NodeID     string
+	NodeStatus string
 	Status     []string
 	Limit      int
 	Offset     int
@@ -69,6 +72,15 @@ func (r *SkillExecutionTraceRepository) List(ctx context.Context, filter SkillEx
 	}
 	if filter.Version != "" {
 		query = query.Where("version = ?", strings.TrimSpace(filter.Version))
+	}
+	if filter.PlanID != "" {
+		query = query.Where("plan_id = ?", strings.TrimSpace(filter.PlanID))
+	}
+	if filter.NodeID != "" {
+		query = query.Where("node_id = ?", strings.TrimSpace(filter.NodeID))
+	}
+	if filter.NodeStatus != "" {
+		query = query.Where("node_status = ?", strings.ToLower(strings.TrimSpace(filter.NodeStatus)))
 	}
 	if len(filter.Status) > 0 {
 		query = query.Where("status IN ?", filter.Status)

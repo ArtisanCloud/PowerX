@@ -39,6 +39,21 @@ func SeedDemoThirdPartySkills(db *gorm.DB) error {
 			}
 		}
 	}`))
+	helloManifest := datatypes.JSON([]byte(`{
+		"name":"Hello Echo",
+		"description":"The smallest demo skill package for installation smoke tests.",
+		"version":"1.0.0",
+		"schema":"powerx.skill-manifest.v1",
+		"entrypoints":["runbook.default"],
+		"input_schema":{
+			"type":"object",
+			"properties":{"text":{"type":"string"}}
+		},
+		"output_schema":{
+			"type":"object",
+			"properties":{"message":{"type":"string"}}
+		}
+	}`))
 
 	record := &skillmodel.SkillRegistryRecord{
 		SkillID:            "skill.thirdparty.prompt-template",
@@ -83,6 +98,48 @@ func SeedDemoThirdPartySkills(db *gorm.DB) error {
 		return fmt.Errorf("upsert demo third-party skill failed: %w", err)
 	}
 
-	fmt.Println("[seed] demo third-party skill ready: skill.thirdparty.prompt-template@1.0.0")
+	hello := &skillmodel.SkillRegistryRecord{
+		SkillID:            "skill.thirdparty.hello-echo",
+		Version:            "1.0.0",
+		Source:             skillmodel.SkillSourceThirdParty,
+		Status:             skillmodel.SkillStatusPublished,
+		IsLatestPublished:  true,
+		BundleURI:          "file://$CODEX_HOME/skills/hello-echo",
+		Checksum:           "sha256:thirdparty-hello-echo-1.0.0",
+		ManifestJSON:       helloManifest,
+		SourceURL:          "https://github.com/ArtisanCloud/powerx-skill-examples",
+		SourceRef:          "refs/heads/main",
+		ImportType:         "install_task",
+		UpdatedBy:          "seed",
+		PublishedAt:        &now,
+		LatestSwitchedAt:   &now,
+		ApprovalNote:       "seed demo installable skill package",
+		IntegrityPolicyRef: "default",
+	}
+	hello.Normalize()
+	if err := db.WithContext(seedCtx()).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "skill_id"}, {Name: "version"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"source":               hello.Source,
+			"status":               hello.Status,
+			"is_latest_published":  hello.IsLatestPublished,
+			"bundle_uri":           hello.BundleURI,
+			"checksum":             hello.Checksum,
+			"manifest_json":        hello.ManifestJSON,
+			"source_url":           hello.SourceURL,
+			"source_ref":           hello.SourceRef,
+			"import_type":          hello.ImportType,
+			"updated_by":           hello.UpdatedBy,
+			"published_at":         hello.PublishedAt,
+			"latest_switched_at":   hello.LatestSwitchedAt,
+			"approval_note":        hello.ApprovalNote,
+			"integrity_policy_ref": hello.IntegrityPolicyRef,
+			"updated_at":           now,
+		}),
+	}).Create(hello).Error; err != nil {
+		return fmt.Errorf("upsert demo installable skill failed: %w", err)
+	}
+
+	fmt.Println("[seed] demo third-party skills ready: skill.thirdparty.prompt-template@1.0.0, skill.thirdparty.hello-echo@1.0.0")
 	return nil
 }

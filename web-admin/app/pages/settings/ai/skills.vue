@@ -8,6 +8,9 @@
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
+        <UButton v-if="allowAccess" color="neutral" variant="soft" icon="i-heroicons-share" @click="openPlannerTraceDrawer()">
+          按 Plan ID 查看执行图
+        </UButton>
         <UButton v-if="allowAccess && activeTab === 'catalog'" color="neutral" variant="soft" icon="i-heroicons-plus" @click="openCatalogEditor()">
           新增目录项
         </UButton>
@@ -27,6 +30,7 @@
     <template v-else>
       <SettingsAiSkillsImportForm v-model:open="importModalOpen" @imported="onImported" />
       <SettingsAiSkillsAuditDrawer v-model="auditDrawerOpen" :skill-id="selectedSkillId" />
+      <SettingsAiSkillsPlannerTraceDrawer v-model="plannerDrawerOpen" :initial-plan-id="plannerInitialPlanId" />
       <UModal
         v-model:open="catalogEditorOpen"
         :title="catalogEditorMode === 'create' ? '新增官方目录项' : '编辑官方目录项'"
@@ -149,6 +153,8 @@ const registryTotal = ref(0);
 const publishDraft = reactive<Record<string, string>>({});
 const rollbackDraft = reactive<Record<string, string>>({});
 const auditDrawerOpen = ref(false);
+const plannerDrawerOpen = ref(false);
+const plannerInitialPlanId = ref("");
 const importModalOpen = ref(false);
 const selectedSkillId = ref("");
 const catalogEditorOpen = ref(false);
@@ -334,7 +340,26 @@ const registryColumns = computed(() => {
     { accessorKey: "skill_id", header: "Skill ID" },
     { accessorKey: "version", header: "版本" },
     { accessorKey: "source", header: "来源" },
+    { accessorKey: "import_type", header: "导入方式" },
     { accessorKey: "status", header: "状态" },
+    {
+      accessorKey: "source_url",
+      header: "来源仓库",
+      cell: ({ row }: any) => {
+        const url = String(row?.original?.source_url || "").trim();
+        if (!url) return "-";
+        return h(
+          "a",
+          {
+            href: url,
+            target: "_blank",
+            rel: "noreferrer noopener",
+            class: "text-xs text-primary underline underline-offset-2",
+          },
+          url,
+        );
+      },
+    },
     {
       id: "publish",
       header: "发布",
@@ -573,6 +598,11 @@ async function onImported() {
 function openAuditDrawer(skillId: string) {
   selectedSkillId.value = skillId;
   auditDrawerOpen.value = true;
+}
+
+function openPlannerTraceDrawer(planId?: string) {
+  plannerInitialPlanId.value = String(planId || "").trim();
+  plannerDrawerOpen.value = true;
 }
 
 onMounted(async () => {

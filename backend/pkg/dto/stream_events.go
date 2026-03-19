@@ -7,6 +7,8 @@ const (
 	EventMeta      = "meta"
 	EventIntent    = "intent"
 	EventPlan      = "plan"
+	EventNodeStart = "node_start"
+	EventNodeEnd   = "node_end"
 	EventToken     = "token"
 	EventData      = "data"
 	EventAction    = "action"

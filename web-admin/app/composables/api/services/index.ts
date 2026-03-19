@@ -56,6 +56,7 @@ export type {
   SkillImportPayload,
   SkillInvokePayload,
   SkillAuditRecord,
+  SkillTraceRecord,
   SkillCatalogItem,
   UpsertSkillCatalogPayload,
 } from "./skillsService";

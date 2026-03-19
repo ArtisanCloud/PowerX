@@ -30,13 +30,14 @@ type UnifiedInvokeRequest struct {
 }
 
 type UnifiedInvokeResult struct {
-	TraceID      string
-	Status       string
-	ProtocolUsed string
-	FallbackUsed bool
-	Result       map[string]interface{}
-	SkillID      string
-	Version      string
+	TraceID         string
+	Status          string
+	ProtocolUsed    string
+	FallbackUsed    bool
+	Result          map[string]interface{}
+	SkillID         string
+	Version         string
+	SkillCandidates []map[string]interface{}
 }
 
 func NewAdapterService(invokeSvc *InvokeService, bindingRepo *skillrepo.SkillCapabilityBindingRepository) *AdapterService {
@@ -98,6 +99,19 @@ func (s *AdapterService) InvokeUnified(ctx context.Context, req UnifiedInvokeReq
 		return nil, skillrepo.ErrSkillNotFound
 	}
 	selected := ranked[0]
+	rankedCandidates := make([]map[string]interface{}, 0, len(ranked))
+	for i := range ranked {
+		item := ranked[i]
+		rankedCandidates = append(rankedCandidates, map[string]interface{}{
+			"rank":         i + 1,
+			"skill_id":     item.SkillID,
+			"version":      item.Version,
+			"source":       item.Source,
+			"score":        item.Score,
+			"reason":       item.Reason,
+			"match_tokens": item.MatchTokens,
+		})
+	}
 	executed, err := s.invokeSvc.Execute(ctx, InvokeRequest{
 		TenantUUID: req.TenantUUID,
 		SkillID:    selected.SkillID,
@@ -109,13 +123,14 @@ func (s *AdapterService) InvokeUnified(ctx context.Context, req UnifiedInvokeReq
 		return nil, err
 	}
 	return &UnifiedInvokeResult{
-		TraceID:      executed.TraceID,
-		Status:       executed.Status,
-		ProtocolUsed: executed.ProtocolUsed,
-		FallbackUsed: executed.FallbackUsed,
-		Result:       executed.Result,
-		SkillID:      executed.SkillID,
-		Version:      executed.Version,
+		TraceID:         executed.TraceID,
+		Status:          executed.Status,
+		ProtocolUsed:    executed.ProtocolUsed,
+		FallbackUsed:    executed.FallbackUsed,
+		Result:          executed.Result,
+		SkillID:         executed.SkillID,
+		Version:         executed.Version,
+		SkillCandidates: rankedCandidates,
 	}, nil
 }
 
@@ -190,10 +205,13 @@ func toIntentCandidates(candidates []skillrepo.SkillMatchCandidate) []intent.Ski
 	out := make([]intent.SkillCandidate, 0, len(candidates))
 	for _, c := range candidates {
 		out = append(out, intent.SkillCandidate{
-			SkillID:   c.SkillID,
-			Version:   c.Version,
-			Source:    c.Source,
-			UpdatedAt: c.UpdatedAt,
+			SkillID:      c.SkillID,
+			Version:      c.Version,
+			Source:       c.Source,
+			UpdatedAt:    c.UpdatedAt,
+			IntentHints:  intent.DecodeSkillStringArray([]byte(c.IntentHints)),
+			Tags:         intent.DecodeSkillStringArray([]byte(c.Tags)),
+			SemanticText: strings.TrimSpace(c.SemanticText),
 		})
 	}
 	return out

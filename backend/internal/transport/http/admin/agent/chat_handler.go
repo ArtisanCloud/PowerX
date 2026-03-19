@@ -6,15 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -29,6 +32,7 @@ type AgentChatHandler struct {
 	ag          *agentSvc.AgentService
 	audit       *capservice.AuditService
 	settings    *agentSvc.AgentSettingService
+	skillAudit  *skillservice.AuditTraceService
 }
 
 type agentInvokeRequest struct {
@@ -66,6 +70,102 @@ func (s *agentInvokeSink) Reply() string {
 	return s.buf.String()
 }
 
+type plannerTraceSink struct {
+	next       runtime.EventSink
+	audit      *skillservice.AuditTraceService
+	tenantUUID string
+	traceID    string
+	planID     string
+	mu         sync.Mutex
+}
+
+func newPlannerTraceSink(next runtime.EventSink, audit *skillservice.AuditTraceService, tenantUUID, traceID string) *plannerTraceSink {
+	return &plannerTraceSink{
+		next:       next,
+		audit:      audit,
+		tenantUUID: strings.TrimSpace(tenantUUID),
+		traceID:    strings.TrimSpace(traceID),
+	}
+}
+
+func (s *plannerTraceSink) Emit(event string, payload any) error {
+	if s.next != nil {
+		if err := s.next.Emit(event, payload); err != nil {
+			return err
+		}
+	}
+	if s.audit == nil {
+		return nil
+	}
+	m, ok := payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	switch event {
+	case dto.EventPlan:
+		s.mu.Lock()
+		s.planID = strings.TrimSpace(readStringAny(m["plan_id"]))
+		s.mu.Unlock()
+	case dto.EventNodeStart:
+		s.recordNodeTrace(m, "running")
+	case dto.EventNodeEnd:
+		status := strings.TrimSpace(readStringAny(m["status"]))
+		if status == "" {
+			status = "completed"
+		}
+		s.recordNodeTrace(m, strings.ToLower(status))
+	}
+	return nil
+}
+
+func (s *plannerTraceSink) recordNodeTrace(m map[string]any, status string) {
+	flowID := strings.TrimSpace(readStringAny(m["flow_id"]))
+	taskID := strings.TrimSpace(readStringAny(m["task_id"]))
+	if flowID == "" || taskID == "" {
+		return
+	}
+	s.mu.Lock()
+	planID := strings.TrimSpace(readStringAny(m["plan_id"]))
+	if planID == "" {
+		planID = s.planID
+	}
+	if s.planID == "" && planID != "" {
+		s.planID = planID
+	}
+	s.mu.Unlock()
+
+	_ = s.audit.RecordExecutionTrace(context.Background(), skillservice.ExecutionTraceInput{
+		TraceID:      s.traceID,
+		TenantUUID:   s.tenantUUID,
+		SkillID:      flowID,
+		Version:      "",
+		Entrypoint:   taskID,
+		InvokePath:   "agent.invoke.plan",
+		ProtocolUsed: "agent",
+		Status:       status,
+		PlanID:       planID,
+		NodeID:       taskID,
+		NodeStatus:   status,
+		RetryTrace:   strings.TrimSpace(readStringAny(m["error"])),
+		LatencyMS:    0,
+		AuthPass:     true,
+	})
+}
+
+func readStringAny(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return x
+	case fmt.Stringer:
+		return x.String()
+	default:
+		return fmt.Sprintf("%v", x)
+	}
+}
+
 func extractInvokeAssistantText(payload any) string {
 	switch m := payload.(type) {
 	case map[string]any:
@@ -82,12 +182,15 @@ func extractInvokeAssistantText(payload any) string {
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
+	traceRepo := skillrepo.NewSkillExecutionTraceRepository(dep.DB)
+	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(dep.DB)
 	return &AgentChatHandler{
 		his:         agentSvc.NewChatHistoryService(dep.DB),
 		cfgResolver: agentSvc.NewChatConfigResolver(dep.DB),
 		ag:          agentSvc.NewAgentService(dep.DB),
 		audit:       dep.CapabilityRegistryAudit,
 		settings:    agentSvc.NewAgentSettingService(dep.DB),
+		skillAudit:  skillservice.NewAuditTraceService(traceRepo, auditRepo),
 	}
 }
 
@@ -314,15 +417,15 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
 		userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 		if userMsg != nil {
-		_ = histSink.Emit(dto.EventMeta, map[string]any{
-			"session_id":        sess.UUID.String(),
-			"session_id_num":    sess.ID,
-			"agent_id":          agentID,
-			"user_message_id":   userMsg.ID,
-			"client_msg_id":     clientMsgID,
-			"user_message_role": "user",
-		})
-	}
+			_ = histSink.Emit(dto.EventMeta, map[string]any{
+				"session_id":        sess.UUID.String(),
+				"session_id_num":    sess.ID,
+				"agent_id":          agentID,
+				"user_message_id":   userMsg.ID,
+				"client_msg_id":     clientMsgID,
+				"user_message_role": "user",
+			})
+		}
 	}
 
 	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
@@ -655,7 +758,8 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	}
 	baseSink := &agentInvokeSink{}
 	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
-	err = runtime.NewEngine().Run(c.Request.Context(), msg, cfg, "", histSink)
+	traceSink := newPlannerTraceSink(histSink, h.skillAudit, tenantUUID, traceID)
+	_, plan, err := runtime.NewEngine().RunPlanInvoke(c.Request.Context(), msg, cfg, "", traceSink)
 	status := "completed"
 	if err != nil {
 		status = "failed"
@@ -671,6 +775,12 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		"session_id": sess.UUID.String(),
 		"agent_id":   req.AgentID,
 		"reply":      reply,
+		"plan_id": func() string {
+			if plan == nil {
+				return ""
+			}
+			return strings.TrimSpace(plan.PlanID)
+		}(),
 	})
 }
 

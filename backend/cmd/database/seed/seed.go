@@ -65,6 +65,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	if err = SeedDemoThirdPartySkills(db); err != nil {
 		return err
 	}
+	if err = SeedDemoSkillInstallTasks(db); err != nil {
+		return err
+	}
 
 	if err = SeedCapabilityErrorTaxonomies(db); err != nil {
 		return err

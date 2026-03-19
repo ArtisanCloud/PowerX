@@ -16,6 +16,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type PlanExecutionHooks struct {
+	OnTaskStart func(task flowschema.PlanTask)
+	OnTaskEnd   func(task flowschema.PlanTask, out *aschema.ExecutionResult, err error)
+}
+
 /***************
  * Dispatch
  ***************/
@@ -103,6 +108,10 @@ func (m *Manager) ExpandWithPrereqs(tasks []flowschema.DetectedTask) []flowschem
  ****************/
 
 func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta) (*aschema.ExecutionResult, error) {
+	return m.ExecutePlanWithHooks(ctx, plan, mt, nil)
+}
+
+func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta, hooks *PlanExecutionHooks) (*aschema.ExecutionResult, error) {
 	if len(plan.Tasks) == 0 {
 		return nil, errors.New("empty plan")
 	}
@@ -210,6 +219,9 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 
 				// 任务开始日志
 				start := time.Now()
+				if hooks != nil && hooks.OnTaskStart != nil {
+					hooks.OnTaskStart(task)
+				}
 				m.log().TaskStart(egCtx, flow.AgentTaskEvent{
 					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
 					AgentID: agID, Kind: "task.start", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
@@ -220,6 +232,9 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 				out, err := ag.Invoke(egCtx, task.FlowID, ctxVars, mt)
 				dur := time.Since(start).Milliseconds()
 				if err != nil {
+					if hooks != nil && hooks.OnTaskEnd != nil {
+						hooks.OnTaskEnd(task, nil, err)
+					}
 					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
 						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
@@ -247,6 +262,9 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 						Output: outSan.JSON(safeOut.Data),
 						Meta:   outSan.JSON(safeOut.Metadata),
 					})
+					if hooks != nil && hooks.OnTaskEnd != nil {
+						hooks.OnTaskEnd(task, out, nil)
+					}
 				}
 				return nil
 			})
