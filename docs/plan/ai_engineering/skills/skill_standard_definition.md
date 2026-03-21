@@ -183,18 +183,34 @@ flowchart LR
 - `imported_at`
 - `imported_by`
 
-## 7. 安装后如何使用 Skill（不强依赖 Flow）
+## 7. 安装后如何使用 Skill（统一编排，不兼容 Flow-only）
 
 这一节明确回答：安装第三方或自定义 Skill 后，怎么用。
+PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 候选池中做计划编排；不再使用“先判定 flow，再决定是否能跑 skill”的旧路径。
 
-Skill 使用有三种模式，只有第 3 种才依赖 flow 编排。
+### 7.1 模式 A：Agent 主入口自动编排（推荐）
 
-### 7.1 模式 A：直接调用 Skill（不依赖 Flow）
+适用场景：
+
+1. 对话式任务，需要系统自动判断是否调用 workflow/skill/tooling。
+2. 调用方不希望手工指定 `skill_id` 或 `flow_id`。
+
+方式：
+
+1. 调用 `POST /api/v1/agents/invoke` 或 `GET /api/v1/agents/stream/sse`
+2. 只传自然语言请求与 `agent_id(+session_id)`
+
+结果：
+
+1. 命中意图时，系统自动执行 `workflow|skill|tooling|llm` 节点并返回统一结果。
+2. 无意图命中时，系统直接返回普通上下文回答。
+
+### 7.2 模式 B：直接 Skill 执行接口（执行层）
 
 适用场景：
 
 1. 想快速验证某个 skill 是否可用。
-2. 插件或租户系统只需要“单次技能执行”。
+2. 业务方明确知道要执行的 `skill_id/version`。
 
 方式：
 
@@ -203,15 +219,15 @@ Skill 使用有三种模式，只有第 3 种才依赖 flow 编排。
 
 结果：
 
-1. 返回统一执行结果（含 `trace_id/status/result`）
-2. 可直接做冒烟测试和联调
+1. 返回统一执行结果（含 `trace_id/status/result`）。
+2. 可直接做冒烟测试和联调。
 
-### 7.2 模式 B：通过统一能力网关调用（不依赖 Flow）
+### 7.3 模式 C：统一能力网关执行（执行层）
 
 适用场景：
 
 1. 已接入 PowerX 统一调用入口。
-2. 希望和 http/grpc/mcp 一样使用一套调用协议。
+2. 希望和 http/grpc/mcp 复用同一调用治理链路。
 
 方式：
 
@@ -221,32 +237,13 @@ Skill 使用有三种模式，只有第 3 种才依赖 flow 编排。
 
 结果：
 
-1. 走 Selector/Router 的统一治理链路
-2. 复用 ToolGrant、审计、策略能力
-
-### 7.3 模式 C：Flow 编排内调用 Skill（依赖 Flow）
-
-适用场景：
-
-1. 多步骤任务编排（skill + llm + tool + workflow）。
-2. 需要前后置依赖和复杂流程控制。
-
-方式：
-
-1. 在 flow 节点声明 `kind=skill`
-2. Agent 通过 intent/planner 选中 flow
-3. 执行到 skill 节点时由 SkillRunner 执行
-
-结果：
-
-1. Skill 成为编排图中的一个节点能力
-2. 适合复杂业务自动化
+1. 走 Selector/Router 的统一治理链路。
+2. 复用 ToolGrant、审计、策略能力。
 
 ### 7.4 推荐使用顺序
 
-1. 先用模式 A 验证 skill 可执行。
-2. 再用模式 B 接入统一治理。
-3. 最后按需要纳入模式 C 做编排。
+1. 先用模式 A 验证 Agent 主入口自动编排是否符合预期。
+2. 再用模式 B/C 分别验证执行层接口与统一网关治理能力。
 
 ## 8. PowerX 推荐最小对齐清单（MVP）
 

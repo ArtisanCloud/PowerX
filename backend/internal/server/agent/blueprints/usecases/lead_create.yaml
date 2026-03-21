@@ -1,59 +1,6 @@
 flow_id: "lead_create"
 name: "新增线索记录"
-base_flow: "base_flow"
-steps:
-  - use: "validate.schema"
-    params:
-      schema:
-        type: "object"
-        required: ["subject", "channel"]
-        properties:
-          subject: { type: "string", minLength: 2, maxLength: 200 }
-          channel: { type: "string", enum: ["web", "ad", "referral", "event", "manual"] }
-          contact_name:  { type: "string" }
-          contact_email: { type: "string", format: "email" }
-          contact_phone: { type: "string", pattern: "^1[3-9]\\d{9}$" }
-          customer_id:   { type: "string" }
-          owner_id:      { type: "string" }
-          tags:          { type: "array", items: { type: "string" }, maxItems: 20 }
-
-  - use: "lead.create"
-    params:
-      fields_from_input:
-        ["subject","channel","contact_name","contact_email","contact_phone","customer_id","owner_id","tags"]
-
-overrides:
-  steps:
-    - use: "relation.bind_if_present"
-      params:
-        # 如果传了 customer_id，就建立客户-线索的关联；否则跳过
-        relation: "customer_to_lead"
-        from_ref: "{{ .input.customer_id }}"
-        to_ref:   "{{ .steps.lead.create.output.id }}"
-
-    - use: "event.emit"
-      params:
-        name: "lead.created"
-        payload_ref: "{{ .steps.lead.create.output }}"
-
-    - use: "audit.log"
-      params:
-        level: "info"
-        event: "lead_created"
-        fields:
-          - "id"
-          - "channel"
-          - "owner_id"
-
-    - use: "response.format"
-      params:
-        template: |
-          {
-            "id": "{{ .steps.lead.create.output.id }}",
-            "subject": "{{ .steps.lead.create.output.subject }}",
-            "channel": "{{ .steps.lead.create.output.channel }}",
-            "customer_id": "{{ .input.customer_id }}"
-          }
+version: "1.0.0"
 
 metadata:
   domain: "crm"
@@ -81,3 +28,22 @@ metadata:
   description: "创建一条新的线索记录，关联到指定的客户。"
   notes: |
     这个用例主要用于处理线索的创建操作，包括从外部系统获取客户信息、生成线索记录并进行相应的事件和审计日志记录。
+
+nodes:
+  - id: n1_create
+    use: core.debug.forward
+    kind: biz_logic
+    params:
+      id_ref: "lead-create-demo"
+    io:
+      out_map:
+        id: id
+        timestamp: timestamp
+  - id: n2_fmt
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "status":"created","entity":"lead","note":"legacy blueprint migrated to nodes schema" }'
+
+edges:
+  - { from: n1_create, to: n2_fmt, type: SEQ }

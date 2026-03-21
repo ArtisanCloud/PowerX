@@ -17,3 +17,16 @@ const (
 	EventError     = "error"
 	EventHeartbeat = "heartbeat"
 )
+
+// Planner mode
+const (
+	PlannerModeUnified = "unified"
+)
+
+// Unified planner node kinds
+const (
+	NodeKindWorkflow = "workflow"
+	NodeKindSkill    = "skill"
+	NodeKindTooling  = "tooling"
+	NodeKindLLM      = "llm"
+)

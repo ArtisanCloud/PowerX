@@ -191,6 +191,9 @@ const handleDeleteSession = async (payload: {
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
+  const wasCurrent =
+    currentSessionId.value != null &&
+    String(currentSessionId.value) === String(sessionId);
   const ok = await confirm({
     title: t("agent.confirmDelete") || "确定删除该会话？",
     tone: "danger",
@@ -202,9 +205,25 @@ const handleDeleteSession = async (payload: {
 
   try {
     await chatSessions.deleteSession(agentId, sessionId);
-    // 如果删除的是当前会话，清空消息
-    if (currentSessionId.value === sessionId) {
-      chat.clearMessages();
+    // 如果删除的是当前会话：切到新选中的会话并刷新聊天面板；若无会话则清空面板。
+    if (wasCurrent) {
+      const nextSessionId = currentSessionId.value;
+      if (nextSessionId != null) {
+        try {
+          const historyMessages = await chatSessions.loadSessionMessages(
+            nextSessionId,
+            true
+          );
+          chat.messages.value = Array.isArray(historyMessages)
+            ? [...historyMessages]
+            : [];
+        } catch (e) {
+          console.error("删除后加载新会话消息失败:", e);
+          chat.clearMessages();
+        }
+      } else {
+        chat.clearMessages();
+      }
     }
   } catch (error) {
     console.error("删除会话失败:", error);

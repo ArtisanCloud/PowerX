@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +24,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -79,6 +82,194 @@ type plannerTraceSink struct {
 	mu         sync.Mutex
 }
 
+type streamDebugTraceSink struct {
+	next    runtime.EventSink
+	enabled bool
+	dir     string
+	maxBody int
+	ctx     context.Context
+	traceID string
+	at      time.Time
+
+	meta    map[string]any
+	request map[string]any
+
+	mu        sync.Mutex
+	events    []map[string]any
+	final     map[string]any
+	lastError map[string]any
+	end       map[string]any
+}
+
+func newStreamDebugTraceSink(next runtime.EventSink, cfg agent.DebugTraceConfig, ctx context.Context, traceID string, req map[string]any, meta map[string]any) *streamDebugTraceSink {
+	maxBody := cfg.MaxBodyBytes
+	if maxBody <= 0 {
+		maxBody = 512 * 1024
+	}
+	dir := strings.TrimSpace(cfg.Dir)
+	if dir == "" {
+		dir = "logs/agent_debug"
+	}
+	return &streamDebugTraceSink{
+		next:    next,
+		enabled: cfg.Enabled,
+		dir:     dir,
+		maxBody: maxBody,
+		ctx:     ctx,
+		traceID: strings.TrimSpace(traceID),
+		at:      time.Now(),
+		request: req,
+		meta:    meta,
+		events:  make([]map[string]any, 0, 32),
+	}
+}
+
+func (s *streamDebugTraceSink) Emit(event string, payload any) error {
+	if s.next != nil {
+		if err := s.next.Emit(event, payload); err != nil {
+			return err
+		}
+	}
+	if !s.enabled {
+		return nil
+	}
+	s.capture(event, payload)
+	return nil
+}
+
+func (s *streamDebugTraceSink) capture(event string, payload any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch event {
+	case dto.EventIntent, dto.EventPlan, dto.EventNodeStart, dto.EventNodeEnd, dto.EventFinal, dto.EventError, dto.EventEnd:
+		s.events = append(s.events, map[string]any{
+			"event": event,
+			"at":    time.Now().Format(time.RFC3339Nano),
+			"data":  truncateDebugAny(payload, s.maxBody/8),
+		})
+	}
+	switch event {
+	case dto.EventFinal:
+		if m, ok := payload.(map[string]any); ok {
+			s.final = m
+		}
+	case dto.EventError:
+		if m, ok := payload.(map[string]any); ok {
+			s.lastError = m
+		}
+	case dto.EventEnd:
+		if m, ok := payload.(map[string]any); ok {
+			s.end = m
+		}
+	}
+}
+
+func (s *streamDebugTraceSink) Flush() {
+	if s == nil || !s.enabled {
+		return
+	}
+	dayDir := filepath.Join(s.dir, s.at.Format("20060102"))
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		logger.WarnF(s.ctx, "[agent.debug_trace] mkdir failed dir=%s err=%v", dayDir, err)
+		return
+	}
+	base := strings.TrimSpace(s.traceID)
+	if base == "" {
+		base = fmt.Sprintf("agent_stream_%d", s.at.UnixNano())
+	}
+	path := filepath.Join(dayDir, fmt.Sprintf("trace-%s_stream_%s.json", shortDebugBase(base), s.at.Format("15-04-05.000")))
+
+	s.mu.Lock()
+	payload := map[string]any{
+		"meta": map[string]any{
+			"trace_id":   s.traceID,
+			"created_at": s.at.Format(time.RFC3339Nano),
+			"type":       "agent_stream",
+			"runtime":    s.meta,
+		},
+		"request": map[string]any{
+			"body": s.request,
+		},
+		"response": map[string]any{
+			"final":        s.final,
+			"last_error":   s.lastError,
+			"end":          s.end,
+			"events_count": len(s.events),
+			"events":       s.events,
+		},
+	}
+	s.mu.Unlock()
+
+	bs, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		logger.WarnF(s.ctx, "[agent.debug_trace] marshal stream trace failed trace=%s err=%v", s.traceID, err)
+		return
+	}
+	if len(bs) > s.maxBody*3 {
+		bs = []byte(truncateDebugText(string(bs), s.maxBody*3))
+	}
+	if err := os.WriteFile(path, bs, 0o644); err != nil {
+		logger.WarnF(s.ctx, "[agent.debug_trace] write stream trace failed path=%s err=%v", path, err)
+		return
+	}
+	logger.InfoF(s.ctx, "[agent.debug_trace] saved path=%s trace_id=%s", path, s.traceID)
+}
+
+func truncateDebugAny(v any, max int) any {
+	if max <= 0 {
+		return v
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	if len(b) <= max {
+		var out any
+		if err := json.Unmarshal(b, &out); err == nil {
+			return out
+		}
+		return string(b)
+	}
+	return truncateDebugText(string(b), max)
+}
+
+func truncateDebugText(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "\n...[truncated]..."
+}
+
+func sanitizeDebugFilename(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	if out == "" {
+		return "unknown"
+	}
+	return out
+}
+
+func shortDebugBase(s string) string {
+	s = sanitizeDebugFilename(s)
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
+}
+
 func newPlannerTraceSink(next runtime.EventSink, audit *skillservice.AuditTraceService, tenantUUID, traceID string) *plannerTraceSink {
 	return &plannerTraceSink{
 		next:       next,
@@ -104,7 +295,13 @@ func (s *plannerTraceSink) Emit(event string, payload any) error {
 	switch event {
 	case dto.EventPlan:
 		s.mu.Lock()
-		s.planID = strings.TrimSpace(readStringAny(m["plan_id"]))
+		planID := strings.TrimSpace(readStringAny(m["plan_id"]))
+		if planID == "" {
+			if p, ok := m["plan"].(map[string]any); ok {
+				planID = strings.TrimSpace(readStringAny(p["plan_id"]))
+			}
+		}
+		s.planID = planID
 		s.mu.Unlock()
 	case dto.EventNodeStart:
 		s.recordNodeTrace(m, "running")
@@ -119,9 +316,19 @@ func (s *plannerTraceSink) Emit(event string, payload any) error {
 }
 
 func (s *plannerTraceSink) recordNodeTrace(m map[string]any, status string) {
-	flowID := strings.TrimSpace(readStringAny(m["flow_id"]))
-	taskID := strings.TrimSpace(readStringAny(m["task_id"]))
-	if flowID == "" || taskID == "" {
+	nodeID := strings.TrimSpace(readStringAny(m["node_id"]))
+	if nodeID == "" {
+		nodeID = strings.TrimSpace(readStringAny(m["task_id"]))
+	}
+	nodeRef := strings.TrimSpace(readStringAny(m["node_ref"]))
+	if nodeRef == "" {
+		nodeRef = strings.TrimSpace(readStringAny(m["flow_id"]))
+	}
+	nodeKind := strings.ToLower(strings.TrimSpace(readStringAny(m["node_kind"])))
+	if nodeKind == "" {
+		nodeKind = "workflow"
+	}
+	if nodeRef == "" || nodeID == "" {
 		return
 	}
 	s.mu.Lock()
@@ -137,14 +344,14 @@ func (s *plannerTraceSink) recordNodeTrace(m map[string]any, status string) {
 	_ = s.audit.RecordExecutionTrace(context.Background(), skillservice.ExecutionTraceInput{
 		TraceID:      s.traceID,
 		TenantUUID:   s.tenantUUID,
-		SkillID:      flowID,
+		SkillID:      nodeRef,
 		Version:      "",
-		Entrypoint:   taskID,
+		Entrypoint:   nodeID,
 		InvokePath:   "agent.invoke.plan",
-		ProtocolUsed: "agent",
+		ProtocolUsed: "agent." + nodeKind,
 		Status:       status,
 		PlanID:       planID,
-		NodeID:       taskID,
+		NodeID:       nodeID,
 		NodeStatus:   status,
 		RetryTrace:   strings.TrimSpace(readStringAny(m["error"])),
 		LatencyMS:    0,
@@ -382,20 +589,44 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 
 	// 3) 适配器 + Engine
 	runtime.SetSSEHeaders(c)
-	baseSink := runtime.NewSSESink(c)
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
 	startedAt := time.Now()
 	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
 	if traceID == "" {
 		traceID = uuid.NewString()
 	}
+	baseSink := runtime.NewSSESink(c)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
+	clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
+	debugReqBody := map[string]any{
+		"q":             q,
+		"env":           env,
+		"agent_id":      agentID,
+		"agent_uuid":    strings.TrimSpace(getParam("agent_uuid")),
+		"session_id":    sess.ID,
+		"session_uuid":  sess.UUID.String(),
+		"client_msg_id": clientMsgID,
+		"flow_id":       strings.TrimSpace(c.Query("flow_id")),
+	}
+	debugMeta := map[string]any{
+		"tenant_uuid": strings.TrimSpace(tenantCtx.UUID()),
+		"request_id":  strings.TrimSpace(c.GetString("request_id")),
+	}
+	debugSink := newStreamDebugTraceSink(
+		histSink,
+		agent.GetAgentManager().GetDebugTraceConfig(),
+		c.Request.Context(),
+		traceID,
+		debugReqBody,
+		debugMeta,
+	)
+	defer debugSink.Flush()
 
 	// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
 	if regenFromID > 0 {
 		msgRec, err := h.his.FindMessageByID(c, env, tenantRef, regenFromID)
 		if err != nil || msgRec == nil || msgRec.SessionID != sess.ID || strings.ToLower(strings.TrimSpace(msgRec.Role)) != "user" {
-			_ = histSink.Emit(dto.EventError, map[string]any{"message": "regen_from_message_id 无效或不属于该会话"})
-			_ = histSink.Emit(dto.EventEnd, map[string]any{"success": false})
+			_ = debugSink.Emit(dto.EventError, map[string]any{"message": "regen_from_message_id 无效或不属于该会话"})
+			_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
 			return
 		}
 		// 允许前端传 q 作为“编辑后的问题”，并更新这条 user 消息内容
@@ -406,7 +637,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		}
 		_, _ = h.his.TruncateMessagesAfter(c, env, tenantRef, sess.ID, regenFromID)
 		q = strings.TrimSpace(msgRec.Content)
-		_ = histSink.Emit(dto.EventMeta, map[string]any{
+		_ = debugSink.Emit(dto.EventMeta, map[string]any{
 			"session_id":              sess.ID,
 			"agent_id":                agentID,
 			"regen_from_message_id":   regenFromID,
@@ -414,10 +645,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		})
 	} else {
 		// 正常发送：先写入 user 消息，并把 DB message_id 回传给前端用于“从此问题重新生成”
-		clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
 		userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 		if userMsg != nil {
-			_ = histSink.Emit(dto.EventMeta, map[string]any{
+			_ = debugSink.Emit(dto.EventMeta, map[string]any{
 				"session_id":        sess.UUID.String(),
 				"session_id_num":    sess.ID,
 				"agent_id":          agentID,
@@ -430,18 +660,18 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 
 	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
 	if cfgErr != nil {
-		_ = histSink.Emit(dto.EventError, map[string]any{"message": cfgErr.Error()})
-		_ = histSink.Emit(dto.EventEnd, map[string]any{"success": false})
+		_ = debugSink.Emit(dto.EventError, map[string]any{"message": cfgErr.Error()})
+		_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
 		return
 	}
 	// 让前端/排障能看到“实际执行用的 provider/model”，避免把模型自报当成事实。
-	_ = histSink.Emit(dto.EventMeta, map[string]any{
+	_ = debugSink.Emit(dto.EventMeta, map[string]any{
 		"env":          env,
 		"llm_provider": strings.TrimSpace(cfg.Provider),
 		"llm_model":    strings.TrimSpace(cfg.ModelName),
 	})
 
-	err = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
+	err = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", debugSink) // explicitFlow 传空，交给意图/plan 选择
 	status := "completed"
 	if err != nil {
 		status = "failed"

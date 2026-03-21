@@ -54,6 +54,28 @@ func SeedDemoThirdPartySkills(db *gorm.DB) error {
 			"properties":{"message":{"type":"string"}}
 		}
 	}`))
+	triageManifest := datatypes.JSON([]byte(`{
+		"name":"Incident Triage",
+		"description":"Analyze incident context and provide structured triage suggestions.",
+		"version":"1.0.0",
+		"schema":"powerx.skill-manifest.v1",
+		"entrypoints":["runbook.default"],
+		"input_schema":{
+			"type":"object",
+			"properties":{
+				"incident_id":{"type":"string"},
+				"context":{"type":"string"}
+			}
+		},
+		"output_schema":{
+			"type":"object",
+			"properties":{
+				"summary":{"type":"string"},
+				"severity":{"type":"string"},
+				"actions":{"type":"array","items":{"type":"string"}}
+			}
+		}
+	}`))
 
 	record := &skillmodel.SkillRegistryRecord{
 		SkillID:            "skill.thirdparty.prompt-template",
@@ -140,6 +162,48 @@ func SeedDemoThirdPartySkills(db *gorm.DB) error {
 		return fmt.Errorf("upsert demo installable skill failed: %w", err)
 	}
 
-	fmt.Println("[seed] demo third-party skills ready: skill.thirdparty.prompt-template@1.0.0, skill.thirdparty.hello-echo@1.0.0")
+	triage := &skillmodel.SkillRegistryRecord{
+		SkillID:            "incident-triage",
+		Version:            "1.0.0",
+		Source:             skillmodel.SkillSourcePlugin,
+		Status:             skillmodel.SkillStatusPublished,
+		IsLatestPublished:  true,
+		BundleURI:          "s3://skills/plugin/incident-triage/1.0.0.tgz",
+		Checksum:           "sha256:plugin-incident-triage-1.0.0",
+		ManifestJSON:       triageManifest,
+		SourceURL:          "https://github.com/ArtisanCloud/powerx-skill-examples",
+		SourceRef:          "refs/heads/main",
+		ImportType:         "upload",
+		UpdatedBy:          "seed",
+		PublishedAt:        &now,
+		LatestSwitchedAt:   &now,
+		ApprovalNote:       "seed demo incident triage skill",
+		IntegrityPolicyRef: "default",
+	}
+	triage.Normalize()
+	if err := db.WithContext(seedCtx()).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "skill_id"}, {Name: "version"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"source":               triage.Source,
+			"status":               triage.Status,
+			"is_latest_published":  triage.IsLatestPublished,
+			"bundle_uri":           triage.BundleURI,
+			"checksum":             triage.Checksum,
+			"manifest_json":        triage.ManifestJSON,
+			"source_url":           triage.SourceURL,
+			"source_ref":           triage.SourceRef,
+			"import_type":          triage.ImportType,
+			"updated_by":           triage.UpdatedBy,
+			"published_at":         triage.PublishedAt,
+			"latest_switched_at":   triage.LatestSwitchedAt,
+			"approval_note":        triage.ApprovalNote,
+			"integrity_policy_ref": triage.IntegrityPolicyRef,
+			"updated_at":           now,
+		}),
+	}).Create(triage).Error; err != nil {
+		return fmt.Errorf("upsert demo incident triage skill failed: %w", err)
+	}
+
+	fmt.Println("[seed] demo third-party skills ready: skill.thirdparty.prompt-template@1.0.0, skill.thirdparty.hello-echo@1.0.0, incident-triage@1.0.0")
 	return nil
 }

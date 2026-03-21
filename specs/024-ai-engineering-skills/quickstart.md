@@ -26,6 +26,15 @@ make db-migrate
 
 预期：Skills registry 与 trace/audit 相关表创建成功，重复执行幂等。
 
+补充校验（tooling 落库权威）：
+
+```sql
+-- capability registry（tooling catalog）应存在数据
+select count(*) from capability_records;
+-- skills registry（skill catalog）应存在数据
+select count(*) from skills_registry_records;
+```
+
 ## 4. 管理侧最小闭环验收
 
 1. 访问 Web Admin `设置 -> AI -> Skills`。
@@ -38,6 +47,23 @@ make db-migrate
 预期：发布前若 checksum 校验失败必须阻断。
 
 ## 5. 调用侧最小闭环验收
+
+### 5.0 Agent 主入口（统一编排，推荐）
+
+```bash
+curl -N -G "$POWERX_BASE_URL/api/v1/agents/stream/sse" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  --data-urlencode "agent_id=1001" \
+  --data-urlencode "q=请先调用合适技能汇总告警，再给我修复建议"
+```
+
+预期：
+
+- 请求只传自然语言与 `agent_id/session_id`，不传 `flow_id`。
+- SSE 事件顺序包含：`intent -> plan -> node_start/node_end(可选) -> final -> end`。
+- 计划节点可为 `workflow|skill|tooling|llm`，不再限定 flow。
+- `node.kind=skill|tooling` 为真实执行调用（非占位结果）。
+- 若无可执行意图，直接输出普通上下文回答（`final`），不中断会话。
 
 ### 5.1 直接调用
 
@@ -64,7 +90,7 @@ curl -X POST "$POWERX_BASE_URL/api/v1/tenant/invocations" \
   }'
 ```
 
-预期：两条路径返回一致的 `status` 语义，且带 `trace_id`。
+预期：tenant 两条路径返回一致的 `status` 语义，且带 `trace_id`。
 
 ## 6. 治理与审计检查
 
@@ -107,3 +133,37 @@ curl -X POST "$POWERX_BASE_URL/api/v1/tenant/invocations" \
     "payload": {"query": "incident triage"}
   }'
 ```
+
+## 9. 本地验证记录（2026-03-19）
+
+本轮按 `T046-T049` 执行的本地验证命令与结果如下：
+
+```bash
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+  go test ./internal/service/skills \
+  -run 'TestLifecycleService_PublishRollbackStateMachine|TestIntegrityPolicy_ValidateImportAndPublish|TestInvokeService_ResolveDefaultVersion'
+# 结果：ok   github.com/ArtisanCloud/PowerX/internal/service/skills
+
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+  go test ./tests/integration/skills -run TestSkillNonFuncBaseline_ImportInvokeAudit
+# 结果：ok   github.com/ArtisanCloud/PowerX/tests/integration/skills
+```
+
+说明：
+
+- 当前验证覆盖了状态机、完整性策略、默认版本解析，以及非功能基线（导入耗时、调用一致性、审计写入）。
+- 涉及 HTTP/SSE 的 quickstart 实机链路仍依赖 `POWERX_BASE_URL/ADMIN_TOKEN/TENANT_TOKEN`，未在本地离线测试中执行。
+
+## 10. 候选分层与组合规划回归（T080/T081）
+
+```bash
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+  go test ./tests/integration/skills \
+  -run 'TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter|TestSkillAgentCompositePlanExecuteWithEventSourceScope' \
+  -count=1
+```
+
+预期：
+
+- `T080`：同名候选保留 `agent custom`，`system builtin` 被覆盖；未授权候选不会进入候选池。
+- `T081`：`workflow->skill/tooling` 组合计划可执行，`node_start/node_end` 事件均带 `node_kind/node_ref/source_scope`。

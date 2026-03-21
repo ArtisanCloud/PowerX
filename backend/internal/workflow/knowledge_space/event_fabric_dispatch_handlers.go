@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	eventdomain "github.com/ArtisanCloud/PowerX/internal/event_bus"
@@ -37,6 +38,13 @@ type EventFabricReprocessDispatchHandlerOptions struct {
 	Clock        func() time.Time
 }
 
+var (
+	dispatchMuxMu       sync.Mutex
+	dispatchMuxBus      event_bus.EventBus
+	dispatchMuxUnsub    func()
+	dispatchMuxHandlers = map[string]func(context.Context, eventFabricRetryDispatchPayload) error{}
+)
+
 func RegisterEventFabricReprocessDispatchHandler(opts EventFabricReprocessDispatchHandlerOptions) (unsubscribe func()) {
 	if opts.EventBus == nil || opts.DB == nil || opts.VectorStore == nil {
 		return func() {}
@@ -50,29 +58,15 @@ func RegisterEventFabricReprocessDispatchHandler(opts EventFabricReprocessDispat
 		clock = time.Now
 	}
 	exec := &ReprocessWorker{db: opts.DB, vector: opts.VectorStore, clock: clock}
-
-	return opts.EventBus.Subscribe("event_fabric.retry.dispatch", func(evt event_bus.Event) error {
-		dispatch, err := decodeEventFabricRetryDispatchPayload(evt.Payload)
-		if err != nil {
-			return err
-		}
-		if !strings.EqualFold(strings.TrimSpace(dispatch.SubscriberID), subscriberID) {
-			return nil
-		}
+	return registerDispatchHandler(opts.EventBus, subscriberID, func(ctx context.Context, dispatch eventFabricRetryDispatchPayload) error {
 		if len(dispatch.Payload) == 0 {
 			return nil
 		}
-
 		jobSeq, in, decodeErr := decodeReprocessPayload(dispatch.Payload)
 		if decodeErr != nil {
 			return decodeErr
 		}
-
-		runCtx := evt.Ctx
-		if runCtx == nil {
-			runCtx = context.Background()
-		}
-		return exec.run(runCtx, jobSeq, in)
+		return exec.run(ctx, jobSeq, in)
 	})
 }
 
@@ -96,30 +90,70 @@ func RegisterEventFabricCorpusCheckDispatchHandler(opts EventFabricCorpusCheckDi
 		clock = time.Now
 	}
 	consumer := &EventFabricCorpusCheckConsumer{db: opts.DB, clock: clock}
-
-	return opts.EventBus.Subscribe("event_fabric.retry.dispatch", func(evt event_bus.Event) error {
-		dispatch, err := decodeEventFabricRetryDispatchPayload(evt.Payload)
-		if err != nil {
-			return err
-		}
-		if !strings.EqualFold(strings.TrimSpace(dispatch.SubscriberID), subscriberID) {
-			return nil
-		}
+	return registerDispatchHandler(opts.EventBus, subscriberID, func(ctx context.Context, dispatch eventFabricRetryDispatchPayload) error {
 		if len(dispatch.Payload) == 0 {
 			return nil
 		}
-
 		in, decodeErr := decodeCorpusCheckPayload(dispatch.Payload)
 		if decodeErr != nil {
 			return decodeErr
 		}
-
-		runCtx := evt.Ctx
-		if runCtx == nil {
-			runCtx = context.Background()
-		}
-		return consumer.run(runCtx, strings.TrimSpace(dispatch.TenantKey), in)
+		return consumer.run(ctx, strings.TrimSpace(dispatch.TenantKey), in)
 	})
+}
+
+func registerDispatchHandler(
+	bus event_bus.EventBus,
+	subscriberID string,
+	handler func(context.Context, eventFabricRetryDispatchPayload) error,
+) (unsubscribe func()) {
+	subscriberID = strings.TrimSpace(subscriberID)
+	if bus == nil || subscriberID == "" || handler == nil {
+		return func() {}
+	}
+
+	dispatchMuxMu.Lock()
+	defer dispatchMuxMu.Unlock()
+
+	if dispatchMuxBus != bus || dispatchMuxUnsub == nil {
+		if dispatchMuxUnsub != nil {
+			dispatchMuxUnsub()
+		}
+		dispatchMuxBus = bus
+		dispatchMuxHandlers = map[string]func(context.Context, eventFabricRetryDispatchPayload) error{}
+		dispatchMuxUnsub = bus.Subscribe("event_fabric.retry.dispatch", func(evt event_bus.Event) error {
+			dispatch, err := decodeEventFabricRetryDispatchPayload(evt.Payload)
+			if err != nil {
+				return err
+			}
+			id := strings.TrimSpace(dispatch.SubscriberID)
+
+			dispatchMuxMu.Lock()
+			h := dispatchMuxHandlers[id]
+			dispatchMuxMu.Unlock()
+			if h == nil {
+				return nil
+			}
+
+			runCtx := evt.Ctx
+			if runCtx == nil {
+				runCtx = context.Background()
+			}
+			return h(runCtx, dispatch)
+		})
+	}
+	dispatchMuxHandlers[subscriberID] = handler
+
+	return func() {
+		dispatchMuxMu.Lock()
+		defer dispatchMuxMu.Unlock()
+		delete(dispatchMuxHandlers, subscriberID)
+		if len(dispatchMuxHandlers) == 0 && dispatchMuxUnsub != nil {
+			dispatchMuxUnsub()
+			dispatchMuxUnsub = nil
+			dispatchMuxBus = nil
+		}
+	}
 }
 
 func decodeEventFabricRetryDispatchPayload(raw any) (eventFabricRetryDispatchPayload, error) {

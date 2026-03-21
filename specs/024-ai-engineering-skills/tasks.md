@@ -132,10 +132,10 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T046 [P] [Shared] 补充单元测试（状态机、完整性策略、默认版本解析）：`backend/internal/service/skills/*_test.go`
-- [ ] T047 [P] [Shared] 运行 quickstart 全链路并记录结果：`specs/024-ai-engineering-skills/quickstart.md`
-- [ ] T048 [P] [Shared] 文档回写（实现偏差、接口样例、运维注意事项）：`specs/024-ai-engineering-skills/*.md`
-- [ ] T049 [Shared] 性能与可靠性基线验证（导入耗时、调用一致性、审计写入成功率）：`backend/tests/integration/skills/skill_nonfunc_integration_test.go`
+- [X] T046 [P] [Shared] 补充单元测试（状态机、完整性策略、默认版本解析）：`backend/internal/service/skills/*_test.go`
+- [X] T047 [P] [Shared] 运行 quickstart 全链路并记录结果：`specs/024-ai-engineering-skills/quickstart.md`
+- [X] T048 [P] [Shared] 文档回写（实现偏差、接口样例、运维注意事项）：`specs/024-ai-engineering-skills/*.md`
+- [X] T049 [Shared] 性能与可靠性基线验证（导入耗时、调用一致性、审计写入成功率）：`backend/tests/integration/skills/skill_nonfunc_integration_test.go`
 - [X] T050 [Shared] 设计并落地 Skill 匹配硬过滤层（tenant/scope/status/tool_grants/source）：`backend/internal/server/agent/*`, `backend/internal/service/skills/*`
 - [X] T051 [P] [Shared] 实现候选召回与重排流程编排（硬过滤后 top-k 输出）：`backend/internal/server/agent/intent/*`, `backend/internal/server/agent/manager_intent.go`
 - [X] T052 [P] [Shared] 增加高基数场景回归测试（单 Agent 10k Skill 不走全量扫描主路径）：`backend/tests/integration/skills/skill_matching_scale_integration_test.go`
@@ -144,7 +144,7 @@
 
 ---
 
-## Phase 8: Agent 闭环升级（Multi-Skill Planner + Tool-Calling）
+## Phase 8: Agent 统一编排基线（LLM Intent + Planner + Tool-Calling）
 
 - [X] T055 [Shared] 在 Spec/Contract 层补充 Agent 主入口闭环契约（invoke/stream 的 plan 结构、node 事件语义）：`specs/024-ai-engineering-skills/contracts/http-openapi.yaml`, `docs/plan/ai_engineering/skills/api_contracts.md`
 - [X] T056 [P] [Shared] 扩展技能候选模型（skills match candidate 增加 intent/tags/semantic metadata）：`backend/pkg/corex/db/persistence/model/skills/*`, `backend/pkg/corex/db/persistence/repository/skills/*`
@@ -155,6 +155,40 @@
 - [X] T061 [P] [US3] 新增集成测试：Tool-Calling 命中未授权技能应被硬过滤拒绝：`backend/tests/integration/skills/skill_tool_call_authz_integration_test.go`
 - [X] T062 [US4] 扩展审计/追踪模型（plan_id/node_id/node_status/retry_trace）并提供查询：`backend/internal/service/skills/audit_trace_service.go`, `backend/internal/transport/http/admin/skills/audit_handler.go`
 - [X] T063 [P] [US1] Web Admin 增加 Planner/执行图可视化（按 plan_id 查看节点轨迹）：`web-admin/app/pages/settings/ai/skills.vue`, `web-admin/app/components/settings/ai/skills/*`
+
+---
+
+## Phase 9: 去除旧策略（移除 Flow-only 规划路径）
+
+- [X] T064 [Shared] 文档对齐：移除“Flow-only/按 flow 路由候选”叙述，统一为 LLM 意图识别 + `workflow|skill|tooling|llm` 计划编排：`specs/024-ai-engineering-skills/*.md`, `docs/plan/ai_engineering/skills/*.md`
+- [X] T065 [Shared] 重构 Agent 候选装载层：以统一候选池替换 `routesByFlow` 单一来源，并按 agent 绑定/租户策略过滤：`backend/internal/server/agent/manager_tool_calling.go`, `backend/internal/server/agent/manager_intent.go`, `backend/internal/server/agent/bootstrap/*`
+- [X] T066 [P] [US3] 重构 Planner 节点模型：显式 `node.kind=workflow|skill|tooling|llm`，禁止以 flow 作为计划唯一节点类型：`backend/internal/server/agent/runtime/*`, `backend/pkg/dto/stream_events.go`
+- [X] T067 [P] [US3] 重构执行分发器：按 `node.kind` 路由到 workflow/skill/tooling/llm 执行器，未命中时回落普通对话：`backend/internal/server/agent/runtime/engine.go`, `backend/internal/server/agent/manager_execute.go`
+- [X] T068 [P] [US3] 集成测试：验证“仅 seed third-party skill、无 flow 路由”也能被 Agent 识别与执行：`backend/tests/integration/skills/skill_agent_unified_orchestration_test.go`
+- [X] T069 [P] [US3] 集成测试：验证无意图命中时返回普通 LLM 回复，且 SSE 事件包含 `intent` + `final` 无执行节点：`backend/tests/integration/skills/skill_agent_no_intent_fallback_test.go`
+- [X] T070 [US4] 观测增强：统一输出 `intent/plan/node_start/node_end/final` 事件结构，并标注 `planner_mode=unified`：`backend/internal/transport/http/admin/agent/chat_handler.go`, `backend/pkg/dto/stream_events.go`
+
+---
+
+## Phase 10: 真实执行链路升级（Skill/Tooling 落库权威）
+
+- [X] T071 [Shared] 将 Agent `node.kind=skill` 执行器接入真实 Skill 服务链（direct invoke + unified adapter），移除占位返回：`backend/internal/server/agent/manager.go`, `backend/internal/server/agent/manager_execute.go`, `backend/internal/server/agent/bootstrap/init.go`
+- [X] T072 [Shared] 将 Agent `node.kind=tooling` 执行器接入 Capability InvocationService（capability registry 为 tooling 落库权威）：`backend/internal/server/agent/manager.go`, `backend/internal/server/agent/manager_execute.go`, `backend/internal/server/agent/bootstrap/init.go`
+- [X] T073 [P] [US3] 执行上下文补全：透传 `tenant_uuid/user_id/env/trace_id` 到统一编排执行元数据，保证 skill/tooling 调用具备租户语义：`backend/internal/server/agent/runtime/engine.go`
+- [X] T074 [P] [US3] 单元测试：校验 `skill/tooling` 节点调用器已接线并返回统一结果元数据：`backend/internal/server/agent/manager_execute_unified_invoker_test.go`
+- [X] T075 [Shared] 文档回写：明确 tooling 的数据库权威源为 capability registry（非内存-only），并同步开发计划：`specs/024-ai-engineering-skills/*.md`, `docs/plan/ai_engineering/skills/*.md`
+
+---
+
+## Phase 11: 候选分层与组合规划（System + Agent）
+
+- [X] T076 [Shared] 设计并实现候选聚合器：按 `workflow|skill|tooling` 分区，合并 `system builtin + agent custom` 两层来源并去重：`backend/internal/server/agent/*`, `backend/internal/service/skills/*`, `backend/internal/service/capability_registry/*`
+- [X] T077 [Shared] 统一硬过滤前置到候选构建阶段（tenant/visibility/status/source/tool_grants/agent binding），禁止未授权候选进入 LLM：`backend/internal/server/agent/manager_intent.go`, `backend/internal/server/agent/manager_tool_calling.go`
+- [X] T078 [P] [US3] 重构 LLM 决策输入：从“单段工具文本”升级为结构化分区清单（workflow/skill/tooling + source 标记 + 参数 schema）：`backend/internal/server/agent/manager_tool_calling.go`
+- [X] T079 [P] [US3] 扩展 Planner 节点元信息：新增 `source_scope=system|agent` 及组合依赖标注（workflow->skill/tooling）：`backend/pkg/corex/flow/schemas/plan.go`, `backend/internal/server/agent/manager_plan.go`, `backend/internal/server/agent/runtime/*`
+- [X] T080 [P] [US3] 集成测试：验证“system + agent 同名候选去重优先级”和“未授权候选不可见”：`backend/tests/integration/skills/skill_agent_candidate_layering_test.go`
+- [X] T081 [P] [US3] 集成测试：验证组合规划（workflow->skill/tooling）可执行且事件中包含 `node_kind/node_ref/source_scope`：`backend/tests/integration/skills/skill_agent_composite_plan_test.go`
+- [X] T082 [Shared] 文档回写：补齐 system/agent 双层候选策略、组合规划与测试矩阵：`specs/024-ai-engineering-skills/*.md`, `docs/plan/ai_engineering/skills/*.md`
 
 ---
 

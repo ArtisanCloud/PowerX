@@ -58,8 +58,8 @@ curl -sS "$POWERX_HTTP_BASE/admin/skills?skill_id=skill.thirdparty.demo" \
    原因：`bundle_uri` 使用了 `http(s)` 在线地址。  
    处理：先上传包，再使用内部存储 URI（如 `s3://`）。
 
-## Web Admin 操作路径
+## UI 操作路径（页面）
 
-1. `设置 -> AI -> Skills`。
+1. `左侧菜单 -> 技能库`。
 2. 在“导入 Skill（仅 upload）”表单填入字段。
 3. 点击“导入”，成功后自动刷新 Registry。

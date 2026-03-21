@@ -120,7 +120,7 @@ curl -sS "$HTTP_BASE/admin/skills?skill_id=skill.thirdparty.demo" \
 
 ## 6. Web Admin 弹窗使用
 
-页面路径：`设置 -> AI -> Skills -> 导入 / 安装 Skill`  
+页面路径：`左侧菜单 -> 技能库（右上角“导入/安装 Skill”）`  
 弹窗内有两种模式：
 - `仓库安装（推荐）`：填写 `provider + repo/repo_url + path`，后台走 `install-tasks`。
 - `Upload 导入`：用于已上传 bundle 的管理员流程。

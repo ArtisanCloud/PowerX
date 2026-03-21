@@ -6,15 +6,16 @@ import (
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level         string     `yaml:"level"`           // 日志级别: debug, info, warn, error
-	Console       bool       `yaml:"console"`         // 是否输出到控制台
-	UseJsonFormat bool       `yaml:"use_json_format"` // 是否使用JSON格式
-	ShowTimestamp bool       `yaml:"show_timestamp"`  // 是否显示时间戳
-	ShowCaller    bool       `yaml:"show_caller"`     // 是否显示调用者信息
-	File          FileConfig `yaml:"file"`            // 文件输出配置
-	Loki          LokiConfig `yaml:"loki"`            // Loki输出配置
-	HttpDebug     bool       `yaml:"http_debug"`      // HTTP调试日志
-	Debug         bool       `yaml:"debug"`           // 调试模式
+	Level         string           `yaml:"level"`           // 日志级别: debug, info, warn, error
+	Console       bool             `yaml:"console"`         // 是否输出到控制台
+	UseJsonFormat bool             `yaml:"use_json_format"` // 是否使用JSON格式
+	ShowTimestamp bool             `yaml:"show_timestamp"`  // 是否显示时间戳
+	ShowCaller    bool             `yaml:"show_caller"`     // 是否显示调用者信息
+	File          FileConfig       `yaml:"file"`            // 文件输出配置
+	Loki          LokiConfig       `yaml:"loki"`            // Loki输出配置
+	AgentDebug    AgentDebugConfig `yaml:"agent_debug"`     // Agent 运行时调试落盘
+	HttpDebug     bool             `yaml:"http_debug"`      // HTTP调试日志
+	Debug         bool             `yaml:"debug"`           // 调试模式
 }
 
 // FileConfig 文件日志配置
@@ -35,6 +36,13 @@ type LokiConfig struct {
 	JobName   string `yaml:"job_name"`   // 作业名称
 	BatchWait int    `yaml:"batch_wait"` // 批量等待时间(秒)
 	BatchSize int    `yaml:"batch_size"` // 批量大小
+}
+
+// AgentDebugConfig 控制 Agent 单请求调试追踪文件。
+type AgentDebugConfig struct {
+	Enable       bool   `yaml:"enable"`
+	Dir          string `yaml:"dir"`
+	MaxBodyBytes int    `yaml:"max_body_bytes"`
 }
 
 // ParseLogLevel 解析日志级别

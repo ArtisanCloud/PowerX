@@ -15,7 +15,7 @@
 - `security_and_governance.md`：安全与合规约束
 - `plugin_third_party_integration.md`：插件与第三方接入机制
 - `testing_and_rollout.md`：测试策略与上线计划
-- `test_use_cases/README.md`：从简单到复杂的开发验收用例
+- `../../guides/agent/skills/test_use_cases/README.md`：从简单到复杂的开发验收用例（已迁移到 guides）
 - `examples/skill_manifest_example.md`：示例清单
 
 推荐阅读顺序：
@@ -32,10 +32,9 @@
 ### 2.1 目标
 
 1. 让 Skill 成为 Agent 一等能力（与 tool calling / MCP 并列）。
-2. 支持两条调用路径：
-   - Agent 内调用 Skill
-   - 通过 Capability Selector/Invocation 统一调用 Skill
-3. 对插件与第三方开放 Skill 注册、发布、调用与治理能力。
+2. 采用 Agent 主入口的统一编排策略：由 LLM 统一做意图识别并在 `workflow|skill|tooling|llm` 候选中规划执行。
+3. 保留 tenant 执行入口（`/tenant/skills/invoke` 与 `/tenant/invocations`）作为执行层接口，语义与 Agent 主入口对齐。
+4. 对插件与第三方开放 Skill 注册、发布、调用与治理能力。
 
 ### 2.2 非目标（首版）
 
@@ -57,6 +56,7 @@
 2. MCP：偏向“标准化外部工具协议”。
 3. Skill：偏向“可复用任务工作流/操作手册能力”。
 4. Capability Registry：Skill 可被注册为 capability，并通过 Selector 统一鉴权与路由。
+5. Tooling 持久化：tooling 的目录/协议/路由元数据由 capability registry 数据库表管理（如 `capability_records`），Redis/内存快照仅作加速缓存。
 
 ## 5. 实施原则
 
@@ -64,6 +64,7 @@
 2. 双路径一致：Agent 内调用与 Gateway 调用在结果模型、错误模型、审计模型上保持一致。
 3. 安全默认收敛：默认最小权限，显式授权放开。
 4. 可观测先行：每次 Skill 调用必须带 trace 与审计字段。
+5. 候选分层清晰：能力清单必须按 `workflow|skill|tooling` 分区，并区分 `system builtin` 与 `agent custom` 两层来源后再进入 LLM 决策。
 
 ## 6. 分阶段落地
 

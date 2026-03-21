@@ -355,6 +355,78 @@ export function useDualChannelConnection(
           return { idx, msg: idx >= 0 ? messages.value[idx] : null };
         };
 
+        const ensureProcessState = (msg: any) => {
+          if (!msg.meta) msg.meta = {};
+          if (!msg.meta.process) {
+            msg.meta.process = {
+              intent: null,
+              plan: null,
+              nodes: [],
+              updatedAt: Date.now(),
+            };
+          }
+          return msg.meta.process as {
+            intent: any;
+            plan: any;
+            nodes: any[];
+            updatedAt: number;
+          };
+        };
+
+        const upsertNodeState = (nodes: any[], eventType: string, payload: any) => {
+          const nodeId = String(
+            payload?.node_id ?? payload?.task_id ?? payload?.flow_id ?? ""
+          ).trim();
+          const statusFromEvent =
+            eventType === SSE_EVENT_TYPES.NODE_START
+              ? "running"
+              : String(payload?.status || "completed");
+          const patch = {
+            node_id: nodeId,
+            task_id: payload?.task_id,
+            flow_id: payload?.flow_id,
+            node_kind: payload?.node_kind,
+            node_ref: payload?.node_ref,
+            node_name: payload?.node_name,
+            node_desc: payload?.node_desc,
+            status: statusFromEvent,
+            error: payload?.error || "",
+            updated_at: Date.now(),
+          };
+          if (!nodeId) {
+            nodes.push(patch);
+            return;
+          }
+          const idx = nodes.findIndex(
+            (n) =>
+              String(n?.node_id || "").trim() === nodeId ||
+              String(n?.task_id || "").trim() === nodeId
+          );
+          if (idx < 0) {
+            nodes.push(patch);
+          } else {
+            nodes[idx] = { ...(nodes[idx] || {}), ...patch };
+          }
+        };
+
+        const applyProcessEvent = (eventType: string, payload: any) => {
+          const { idx, msg } = getPendingAssistant();
+          if (idx < 0 || !msg) return;
+          const process = ensureProcessState(msg);
+          if (eventType === SSE_EVENT_TYPES.INTENT) {
+            process.intent = payload;
+          } else if (eventType === SSE_EVENT_TYPES.PLAN) {
+            process.plan = payload;
+          } else if (
+            eventType === SSE_EVENT_TYPES.NODE_START ||
+            eventType === SSE_EVENT_TYPES.NODE_END
+          ) {
+            upsertNodeState(process.nodes, eventType, payload);
+          }
+          process.updatedAt = Date.now();
+          bumpMessagesRef();
+        };
+
         const finalize = (opts?: {
           errorMessage?: string;
           abort?: boolean;
@@ -480,9 +552,19 @@ export function useDualChannelConnection(
             type === SSE_EVENT_TYPES.START ||
             type === SSE_EVENT_TYPES.INTENT ||
             type === SSE_EVENT_TYPES.PLAN ||
+            type === SSE_EVENT_TYPES.NODE_START ||
+            type === SSE_EVENT_TYPES.NODE_END ||
             type === SSE_EVENT_TYPES.HEARTBEAT ||
             type === SSE_EVENT_TYPES.ACTION
           ) {
+            if (
+              type === SSE_EVENT_TYPES.INTENT ||
+              type === SSE_EVENT_TYPES.PLAN ||
+              type === SSE_EVENT_TYPES.NODE_START ||
+              type === SSE_EVENT_TYPES.NODE_END
+            ) {
+              applyProcessEvent(type, payload);
+            }
             return;
           }
 

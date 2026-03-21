@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -38,12 +39,21 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if err != nil {
 		return sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
 	}
-	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "tasks": tasks})
+	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
 
 	// 2) 生成计划（强/弱类型兼容）
 	rawPlan := e.mgr.BuildPlan(tasks) // FIX: 原来写成了 BuildPl
 	plan, ok := NormalizeExecPlan(rawPlan)
-	_ = sink.Emit(dto.EventPlan, PlanOrRaw(plan, rawPlan))
+	_ = sink.Emit(dto.EventPlan, map[string]any{
+		"planner_mode": dto.PlannerModeUnified,
+		"plan":         PlanOrRaw(plan, rawPlan),
+	})
+	// skill/tooling 等非 workflow 节点必须走统一 Plan 执行链路，
+	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
+	if ok && planHasNonWorkflow(plan) {
+		_, err := e.runResolvedPlan(ctx, plan, sink)
+		return err
+	}
 
 	// 先根据 plan 拿一个候选 flowID（按 stage 最小、原序）
 	var flowID string
@@ -73,9 +83,15 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		"message": msg,
 		"config":  reqCfg,
 	}, agentschema.ExecutionMeta{
-		RequestID: execID,
-		Timeout:   execTimeout,
-		Metadata:  map[string]any{"transport": "engine"},
+		RequestID:  execID,
+		UserID:     reqctx.GetUserID(ctx),
+		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
+		Timeout:    execTimeout,
+		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
+		Metadata: map[string]any{
+			"transport": "engine",
+			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
+		},
 	})
 	if err != nil {
 		return sink.Emit(dto.EventError, map[string]any{"message": "流式聊天执行失败", "detail": err.Error()})
@@ -174,11 +190,14 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 		return nil, nil, err
 	}
-	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "tasks": tasks})
+	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
 
 	rawPlan := e.mgr.BuildPlan(tasks)
 	plan, ok := NormalizeExecPlan(rawPlan)
-	_ = sink.Emit(dto.EventPlan, PlanOrRaw(plan, rawPlan))
+	_ = sink.Emit(dto.EventPlan, map[string]any{
+		"planner_mode": dto.PlannerModeUnified,
+		"plan":         PlanOrRaw(plan, rawPlan),
+	})
 
 	if explicitFlow = strings.TrimSpace(explicitFlow); explicitFlow != "" {
 		plan = &flowschema.ExecutionPlan{
@@ -192,30 +211,42 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 			},
 		}
 		ok = true
-		_ = sink.Emit(dto.EventPlan, plan)
+		_ = sink.Emit(dto.EventPlan, map[string]any{
+			"planner_mode": dto.PlannerModeUnified,
+			"plan":         plan,
+		})
 	}
 
-	traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
-	meta := agentschema.ExecutionMeta{
-		RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
-		TraceID:   traceID,
-		Timeout:   execTimeout,
-		Metadata:  map[string]any{"transport": "engine.invoke"},
+	dispatchMeta := agentschema.ExecutionMeta{
+		RequestID:  fmt.Sprintf("req_%d", time.Now().UnixNano()),
+		UserID:     reqctx.GetUserID(ctx),
+		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
+		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
+		Timeout:    execTimeout,
+		Metadata: map[string]any{
+			"transport": "engine.invoke",
+			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
+		},
+	}
+	if dispatchMeta.TraceID == "" {
+		dispatchMeta.TraceID = fmt.Sprintf("trace_%d", time.Now().UnixNano())
 	}
 
 	if !ok || plan == nil || len(plan.Tasks) == 0 {
-		out, flowID, dispatchErr := e.mgr.Dispatch(ctx, msg, flowschema.Context{
+		out, _, dispatchErr := e.mgr.Dispatch(ctx, msg, flowschema.Context{
 			"message": msg,
 			"config":  reqCfg,
-		}, meta)
+		}, dispatchMeta)
 		if dispatchErr != nil {
 			_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": dispatchErr.Error()})
 			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 			return nil, nil, dispatchErr
 		}
-		_ = sink.Emit(dto.EventNodeStart, map[string]any{"task_id": "dispatch", "flow_id": flowID, "stage": 1, "plan_id": ""})
-		_ = sink.Emit(dto.EventNodeEnd, map[string]any{"task_id": "dispatch", "flow_id": flowID, "stage": 1, "status": "completed", "plan_id": ""})
-		content := ExtractAssistantText(out)
+		content := buildFinalContent(out)
+		traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
+		if raw := strings.TrimSpace(reqctx.GetTraceID(ctx)); raw != "" {
+			traceID = raw
+		}
 		_ = sink.Emit(dto.EventFinal, map[string]any{
 			"success": true,
 			"data": map[string]any{
@@ -229,6 +260,32 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 		return out, nil, nil
 	}
+	out, execErr := e.runResolvedPlan(ctx, plan, sink)
+	if execErr != nil {
+		return nil, plan, execErr
+	}
+	return out, plan, nil
+}
+
+func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink) (*agentschema.ExecutionResult, error) {
+	if plan == nil || len(plan.Tasks) == 0 {
+		return nil, fmt.Errorf("empty plan")
+	}
+	traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
+	if raw := strings.TrimSpace(reqctx.GetTraceID(ctx)); raw != "" {
+		traceID = raw
+	}
+	meta := agentschema.ExecutionMeta{
+		RequestID:  fmt.Sprintf("req_%d", time.Now().UnixNano()),
+		UserID:     reqctx.GetUserID(ctx),
+		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
+		TraceID:    traceID,
+		Timeout:    10 * time.Minute,
+		Metadata: map[string]any{
+			"transport": "engine.invoke",
+			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
+		},
+	}
 
 	emitMu := &sync.Mutex{}
 	hooks := &agent.PlanExecutionHooks{
@@ -236,11 +293,18 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 			emitMu.Lock()
 			defer emitMu.Unlock()
 			_ = sink.Emit(dto.EventNodeStart, map[string]any{
-				"plan_id":    plan.PlanID,
-				"task_id":    task.TaskID,
-				"flow_id":    task.FlowID,
-				"stage":      task.Stage,
-				"depends_on": task.DependsOn,
+				"planner_mode": dto.PlannerModeUnified,
+				"plan_id":      plan.PlanID,
+				"task_id":      task.TaskID,
+				"flow_id":      task.FlowID,
+				"node_id":      task.TaskID,
+				"node_kind":    normalizeNodeKind(task.NodeKind),
+				"node_ref":     normalizeNodeRef(task),
+				"node_name":    normalizeCandidateName(task),
+				"node_desc":    normalizeCandidateDesc(task),
+				"source_scope": normalizeSourceScope(task.SourceScope),
+				"stage":        task.Stage,
+				"depends_on":   task.DependsOn,
 			})
 		},
 		OnTaskEnd: func(task flowschema.PlanTask, out *agentschema.ExecutionResult, runErr error) {
@@ -251,12 +315,19 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 				status = "failed"
 			}
 			_ = sink.Emit(dto.EventNodeEnd, map[string]any{
-				"plan_id":    plan.PlanID,
-				"task_id":    task.TaskID,
-				"flow_id":    task.FlowID,
-				"stage":      task.Stage,
-				"depends_on": task.DependsOn,
-				"status":     status,
+				"planner_mode": dto.PlannerModeUnified,
+				"plan_id":      plan.PlanID,
+				"task_id":      task.TaskID,
+				"flow_id":      task.FlowID,
+				"node_id":      task.TaskID,
+				"node_kind":    normalizeNodeKind(task.NodeKind),
+				"node_ref":     normalizeNodeRef(task),
+				"node_name":    normalizeCandidateName(task),
+				"node_desc":    normalizeCandidateDesc(task),
+				"source_scope": normalizeSourceScope(task.SourceScope),
+				"stage":        task.Stage,
+				"depends_on":   task.DependsOn,
+				"status":       status,
 				"error": func() string {
 					if runErr == nil {
 						return ""
@@ -278,11 +349,22 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 
 	out, execErr := e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
 	if execErr != nil {
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID})
+		userMsg := humanizeExecutionError(execErr)
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID, "user_message": userMsg})
+		_ = sink.Emit(dto.EventFinal, map[string]any{
+			"success": false,
+			"data": map[string]any{
+				"content": userMsg,
+			},
+			"metadata": map[string]any{
+				"trace_id": traceID,
+				"plan_id":  plan.PlanID,
+			},
+		})
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
-		return nil, plan, execErr
+		return nil, execErr
 	}
-	content := ExtractAssistantText(out)
+	content := buildFinalContent(out)
 	_ = sink.Emit(dto.EventFinal, map[string]any{
 		"success": true,
 		"data": map[string]any{
@@ -294,7 +376,19 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		},
 	})
 	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
-	return out, plan, nil
+	return out, nil
+}
+
+func planHasNonWorkflow(plan *flowschema.ExecutionPlan) bool {
+	if plan == nil {
+		return false
+	}
+	for _, task := range plan.Tasks {
+		if normalizeNodeKind(task.NodeKind) != dto.NodeKindWorkflow {
+			return true
+		}
+	}
+	return false
 }
 
 func PickFirstFlowID(plan *flowschema.ExecutionPlan) string {
@@ -320,6 +414,49 @@ func PickFirstFlowID(plan *flowschema.ExecutionPlan) string {
 	return ""
 }
 
+func normalizeNodeKind(kind string) string {
+	k := strings.ToLower(strings.TrimSpace(kind))
+	if k == "" {
+		return dto.NodeKindWorkflow
+	}
+	return k
+}
+
+func normalizeNodeRef(task flowschema.PlanTask) string {
+	if s := strings.TrimSpace(task.NodeRef); s != "" {
+		return s
+	}
+	return strings.TrimSpace(task.FlowID)
+}
+
+func normalizeSourceScope(v string) string {
+	s := strings.ToLower(strings.TrimSpace(v))
+	if s == "" {
+		return "system"
+	}
+	return s
+}
+
+func normalizeCandidateName(task flowschema.PlanTask) string {
+	if task.Params == nil {
+		return ""
+	}
+	if v, ok := task.Params["_candidate_name"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	return ""
+}
+
+func normalizeCandidateDesc(task flowschema.PlanTask) string {
+	if task.Params == nil {
+		return ""
+	}
+	if v, ok := task.Params["_candidate_desc"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	return ""
+}
+
 func ExtractAssistantText(chunk *agentschema.ExecutionResult) string {
 	if chunk == nil || chunk.Data == nil {
 		return ""
@@ -333,4 +470,56 @@ func ExtractAssistantText(chunk *agentschema.ExecutionResult) string {
 		return s
 	}
 	return ""
+}
+
+func buildFinalContent(out *agentschema.ExecutionResult) string {
+	if out == nil {
+		return "任务已执行完成。"
+	}
+	if s := strings.TrimSpace(ExtractAssistantText(out)); s != "" {
+		return s
+	}
+	data := out.Data
+	if data == nil {
+		return "任务已执行完成。"
+	}
+	skillID := strings.TrimSpace(anyToString(data["skill_id"]))
+	status := strings.TrimSpace(anyToString(data["status"]))
+	protocol := strings.TrimSpace(anyToString(data["protocol_used"]))
+	if status == "" {
+		status = "completed"
+	}
+	if skillID != "" {
+		if protocol != "" {
+			return fmt.Sprintf("任务已执行完成（skill=%s，protocol=%s，status=%s）。", skillID, protocol, status)
+		}
+		return fmt.Sprintf("任务已执行完成（skill=%s，status=%s）。", skillID, status)
+	}
+	return fmt.Sprintf("任务已执行完成（status=%s）。", status)
+}
+
+func anyToString(v any) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func humanizeExecutionError(err error) string {
+	if err == nil {
+		return "执行失败，请稍后重试。"
+	}
+	raw := strings.TrimSpace(err.Error())
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.Contains(lower, "skill record not found"):
+		return "执行失败：命中的技能记录不存在（可能是旧 skill ID）。请刷新技能列表后重试。"
+	case strings.Contains(lower, "context canceled"):
+		return "执行失败：任务在并行阶段被取消，请重试一次。"
+	default:
+		if raw == "" {
+			return "执行失败，请稍后重试。"
+		}
+		return "执行失败：" + raw
+	}
 }

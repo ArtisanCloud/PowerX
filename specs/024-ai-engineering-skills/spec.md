@@ -127,11 +127,19 @@
 - **FR-020**: 系统必须支持租户管理员在可视化管理界面配置 Skill 来源策略（source allowlist），并保证该策略可作用于统一入口 `preferred_protocol=skill` 的候选过滤流程。
 - **FR-020a**: source allowlist 至少支持 `builtin`、`plugin`、`third_party` 三类来源，且配置变更需可持久化与可追踪。
 - **FR-021**: 系统必须支持在单次 Agent 调用中识别多个 Skill 候选，并返回结构化候选列表（含置信度、理由与约束）。
-- **FR-022**: 系统必须支持 Planner 基于多候选构建执行计划，计划至少支持串行依赖、并行分组、失败策略（fail-fast/continue）。
-- **FR-023**: 系统必须提供 Agent 主调用入口（invoke/stream）承载“意图识别 → 计划生成 → Skill/Tool 执行 → 汇总响应”闭环，不要求调用方显式传入 `skill_id`。
-- **FR-024**: 系统必须支持 LLM Tool-Calling 作为 Planner 决策的一部分，并将可用 Skill 集合作为受控工具清单注入，禁止选择未授权 Skill。
+- **FR-022**: 系统必须支持 Planner 基于多候选构建执行计划，计划节点至少覆盖 `workflow|skill|tooling|llm` 四类，且支持串行依赖、并行分组、失败策略（fail-fast/continue）。
+- **FR-023**: 系统必须提供 Agent 主调用入口（invoke/stream）承载“LLM 意图识别 → 计划生成 → workflow/skill/tooling/llm 执行 → 汇总响应”闭环，不要求调用方显式传入 `skill_id` 或 `flow_id`。
+- **FR-024**: 系统必须支持 LLM Tool-Calling 作为 Planner 决策的一部分，并将可用 `workflow|skill|tooling` 候选作为受控工具清单注入，禁止选择未授权或未发布对象。
 - **FR-025**: 系统必须记录计划级审计与追踪信息，至少包含 `plan_id`、节点拓扑、节点输入输出摘要、节点状态与重试轨迹。
 - **FR-026**: 系统必须保证 Agent 主入口、tenant 直接调用、tenant unified invoke 三条路径在错误语义与追踪模型上兼容对齐。
+- **FR-027**: 系统必须由 LLM 统一执行意图识别，禁止将“仅 Flow 路由命中”作为 Agent 规划主路径。
+- **FR-028**: 当意图识别与候选规划均未命中可执行节点时，系统必须回落为普通上下文对话回复（`llm` 直答），并在流式事件中明确标注未触发编排。
+- **FR-029**: 系统必须将 tooling 目录与调用治理以数据库持久化为权威源（capability registry），运行时缓存仅作为加速层，不得作为唯一事实来源。
+- **FR-030**: 系统必须将 Agent Executor 中 `node.kind=skill|tooling` 接入真实调用链路（Skill InvokeService/AdapterService、Capability InvocationService），禁止返回仅用于演示的占位结果。
+- **FR-031**: 系统必须按能力类型（`workflow|skill|tooling`）与来源层级（`system builtin`、`agent custom`）构建候选池，并在规划前完成合并与去重。
+- **FR-032**: 系统必须在候选池构建阶段执行统一硬过滤（租户、权限、发布状态、source allowlist、tool_grants、visibility/scope），LLM 不得看到未授权候选。
+- **FR-033**: 系统必须在 LLM 决策输入中提供分层能力清单（workflow/skill/tooling 分区，且标注 `source=system|agent`），避免仅以单段文本拼接导致语义漂移。
+- **FR-034**: 系统必须支持组合规划（workflow 节点调用 skill/tooling；skill 内部可封装 workflow/tool/script/mcp）并在计划节点中保留可追溯的 `node_kind/node_ref/source_scope` 元信息。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -160,6 +168,6 @@
 - 首版完整性门槛为 `checksum` 强制、`signature` 可配置强制。
 - 首版第三方导入采用“上传 Bundle + 来源元数据登记”模式，仅记录来源，不执行在线拉取。
 - 首版官方固有 Skills 目录由后端内置并随平台版本演进，不依赖外部实时同步。
-- 首版对 Skill 的使用覆盖两条路径：独立调用与统一入口调用；复杂编排属于后续增量能力。
+- 首版对 Skill 的使用同时覆盖 Agent 主入口编排与 tenant 执行入口；两者共享相同治理与追踪语义。
 - 首版来源策略遵循“请求上下文 > Agent 级 > 租户级 > 默认值”的优先级。
-- 下一阶段（post-v1）将“多技能识别 + Planner DAG + LLM Tool-Calling”收敛到 Agent 主入口闭环，并保持与 tenant 调用路径的执行语义一致。
+- 统一意图识别与编排以 LLM 决策为主，规则仅用于硬过滤与约束，不参与替代式主路由。

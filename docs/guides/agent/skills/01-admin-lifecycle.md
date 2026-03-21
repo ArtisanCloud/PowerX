@@ -73,9 +73,9 @@ curl -sS -X POST "$POWERX_HTTP_BASE/admin/skills/skill.demo.lifecycle/bind-capab
 
 预期：HTTP `200`，返回 `binding_id` 与 `status`。
 
-## Web Admin 操作路径
+## UI 操作路径（页面）
 
-1. 打开 `设置 -> AI -> Skills`。
+1. 打开 `左侧菜单 -> 技能库`。
 2. 在 Registry 区域查看列表，执行发布/回滚。
 3. 在导入区完成 bundle 导入（见导入手册）。
 4. 点击“审计 -> 查看”打开审计抽屉。

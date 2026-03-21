@@ -2,6 +2,8 @@
 
 本目录提供 Skills 功能的分场景操作手册，覆盖管理、导入、调用一致性、审计与隔离。
 
+统一页面入口：左侧菜单 `技能库`（导入安装在页面右上角按钮）。
+
 ## 文档导航
 
 1. [01-admin-lifecycle.md](./01-admin-lifecycle.md)  
@@ -19,6 +21,12 @@
 5. [05-import-and-install.md](./05-import-and-install.md)  
    如何区分 upload 导入与 install-tasks 仓库安装，并完成任务状态追踪。
 
+6. [06-candidate-layering-and-composite-plan.md](./06-candidate-layering-and-composite-plan.md)  
+   如何回归验证 `system+agent` 候选去重优先级、未授权候选不可见，以及 `workflow->skill/tooling` 组合规划事件字段。
+
+7. [test_use_cases/README.md](./test_use_cases/README.md)  
+   从简单到复杂（L1-L8）的开发验收与操作测试用例。
+
 ## 统一前置条件
 
 1. 服务已启动，且可访问 API（示例：`http://localhost:8080/api/v1`）。
@@ -29,3 +37,12 @@
    - `POWERX_HTTP_BASE=http://localhost:8080/api/v1`
    - `ROOT_TOKEN=<root_jwt>`
    - `TENANT_TOKEN=<tenant_jwt>`
+
+## 快速回归命令（T080/T081）
+
+```bash
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+go test ./tests/integration/skills \
+-run 'TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter|TestSkillAgentCompositePlanExecuteWithEventSourceScope' \
+-count=1
+```

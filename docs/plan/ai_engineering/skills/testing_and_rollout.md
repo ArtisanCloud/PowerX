@@ -33,6 +33,21 @@
 1. 不影响现有 `http/grpc/mcp/agent` 路由
 2. 不破坏现有 capability selector 行为
 
+### 2.5 候选分层与组合规划专项（T080/T081）
+
+1. `T080`：验证 `system + agent` 同名候选去重优先级（agent 覆盖 system），并验证未授权候选不可见。  
+   用例：`backend/tests/integration/skills/skill_agent_candidate_layering_test.go`
+2. `T081`：验证组合规划 `workflow->skill/tooling` 可执行，且节点事件包含 `node_kind/node_ref/source_scope`。  
+   用例：`backend/tests/integration/skills/skill_agent_composite_plan_test.go`
+3. 建议回归命令：
+
+```bash
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+  go test ./tests/integration/skills \
+  -run 'TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter|TestSkillAgentCompositePlanExecuteWithEventSourceScope' \
+  -count=1
+```
+
 ## 3. 验收标准
 
 1. 技能注册成功率达到既定目标（示例：99.9%）。
@@ -67,4 +82,3 @@
 3. M3：双路径运行时打通
 4. M4：插件/第三方接入上线
 5. M5：全量发布与运维交接
-

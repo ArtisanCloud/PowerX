@@ -118,6 +118,10 @@ log:
     job_name: corex
     batch_wait: 1
     batch_size: 100
+  agent_debug:
+    enable: false
+    dir: logs/agent_debug
+    max_body_bytes: 524288
 
 audit:
   persist_to_db: false

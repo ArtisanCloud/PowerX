@@ -40,9 +40,9 @@ curl -i "$POWERX_HTTP_BASE/admin/skills/traces/<trace_id>?tenant_uuid=tenant-b" 
 
 预期：HTTP `404`（阻断跨租户读取）。
 
-## Web Admin 审计抽屉
+## UI 操作路径（审计抽屉）
 
-1. 打开 `设置 -> AI -> Skills`。
+1. 打开 `左侧菜单 -> 技能库`。
 2. 在 Registry 行点击“审计 -> 查看”。
 3. 抽屉会加载最近审计记录并支持刷新。
 

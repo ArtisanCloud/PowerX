@@ -439,11 +439,12 @@ components:
         reply: { type: string }
     PlannerNodeEvent:
       type: object
-      required: [plan_id, task_id, flow_id, stage, status]
+      required: [plan_id, node_id, node_kind, stage, status]
       properties:
         plan_id: { type: string }
-        task_id: { type: string }
-        flow_id: { type: string }
+        node_id: { type: string }
+        node_kind: { type: string, enum: [workflow, skill, tooling, llm] }
+        node_ref: { type: string, description: "workflow_id/skill_id/tool_id/model_key 等引用标识" }
         stage: { type: integer }
         depends_on:
           type: array

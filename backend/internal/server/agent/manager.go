@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
@@ -25,6 +26,57 @@ type routeRecord struct {
 	Spec    *schemas.IntentSpec
 }
 
+type SkillInvokeInput struct {
+	TenantUUID   string
+	Env          string
+	AgentID      uint64
+	SkillID      string
+	Version      string
+	CapabilityID string
+	Entrypoint   string
+	TraceID      string
+	Payload      map[string]any
+	Context      map[string]any
+	ToolGrantIDs []string
+}
+
+type SkillInvokeOutput struct {
+	TraceID      string
+	Status       string
+	ProtocolUsed string
+	FallbackUsed bool
+	SkillID      string
+	Version      string
+	Result       map[string]any
+}
+
+type ToolingInvokeInput struct {
+	TenantUUID        string
+	Env               string
+	CapabilityID      string
+	PreferredProtocol string
+	TraceID           string
+	Payload           map[string]any
+	Context           map[string]any
+}
+
+type ToolingInvokeOutput struct {
+	TraceID      string
+	Status       string
+	ProtocolUsed string
+	FallbackUsed bool
+	Result       map[string]any
+}
+
+type SkillInvoker func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error)
+type ToolingInvoker func(ctx context.Context, in ToolingInvokeInput) (*ToolingInvokeOutput, error)
+
+type DebugTraceConfig struct {
+	Enabled      bool
+	Dir          string
+	MaxBodyBytes int
+}
+
 // —— Manager（非意图部分：Agent/路由/状态） —— //
 type Manager struct {
 	mu            sync.RWMutex
@@ -37,6 +89,10 @@ type Manager struct {
 	// 路由：单一事实源 + 二级索引
 	routesByFlow map[string]routeRecord         // flowID -> (agentID, spec)
 	flowsByAgent map[string]map[string]struct{} // agentID -> set(flowID)
+	// 统一候选池：skill/tooling/workflow（workflow 仍可由 routesByFlow 衍生）
+	unifiedCandidates map[string]ToolCallCandidate // key=name
+	skillInvoker      SkillInvoker
+	toolingInvoker    ToolingInvoker
 
 	// —— 意图字段（方法挪到 manager_intent.go，需要这些字段作为状态） —— //
 	intentStrategies []contract.IntentStrategy
@@ -49,6 +105,8 @@ type Manager struct {
 
 	// 事件记录
 	runLog run_log.RunLogger
+	// 调试追踪：单请求落单文件，便于还原输入/输出。
+	debugTraceCfg DebugTraceConfig
 }
 
 // —— 单例 —— //
@@ -59,11 +117,12 @@ var (
 
 func NewAgentManager() *Manager {
 	return &Manager{
-		agentClients: make(map[string]contract.AgentClient),
-		meta:         make(map[string]*aschema.AgentMeta),
-		runtime:      make(map[string]*aschema.Runtime),
-		routesByFlow: make(map[string]routeRecord),
-		flowsByAgent: make(map[string]map[string]struct{}),
+		agentClients:      make(map[string]contract.AgentClient),
+		meta:              make(map[string]*aschema.AgentMeta),
+		runtime:           make(map[string]*aschema.Runtime),
+		routesByFlow:      make(map[string]routeRecord),
+		flowsByAgent:      make(map[string]map[string]struct{}),
+		unifiedCandidates: make(map[string]ToolCallCandidate),
 	}
 }
 func GetAgentManager() *Manager {
@@ -72,11 +131,46 @@ func GetAgentManager() *Manager {
 }
 
 func (m *Manager) SetRunLogger(l run_log.RunLogger) { m.runLog = l }
+
+func (m *Manager) SetDebugTraceConfig(cfg DebugTraceConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cfg.Dir == "" {
+		cfg.Dir = "logs/agent_debug"
+	}
+	if cfg.MaxBodyBytes <= 0 {
+		cfg.MaxBodyBytes = 512 * 1024
+	}
+	m.debugTraceCfg = cfg
+}
+
+func (m *Manager) debugTraceConfig() DebugTraceConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.debugTraceCfg
+}
+
+func (m *Manager) GetDebugTraceConfig() DebugTraceConfig {
+	return m.debugTraceConfig()
+}
+
 func (m *Manager) log() run_log.RunLogger {
 	if m.runLog == nil {
 		return &noopRunLogger{}
 	}
 	return m.runLog
+}
+
+func (m *Manager) SetSkillInvoker(inv SkillInvoker) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.skillInvoker = inv
+}
+
+func (m *Manager) SetToolingInvoker(inv ToolingInvoker) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.toolingInvoker = inv
 }
 
 // —— Agent 注册 / 默认路由 —— //

@@ -49,6 +49,11 @@ func GetDefaults() *Config {
 				BatchWait: 1,
 				BatchSize: 100,
 			},
+			AgentDebug: logCfg.AgentDebugConfig{
+				Enable:       false,
+				Dir:          "logs/agent_debug",
+				MaxBodyBytes: 512 * 1024,
+			},
 			HttpDebug: false,
 			Debug:     true,
 		},

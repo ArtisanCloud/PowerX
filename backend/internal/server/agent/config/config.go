@@ -46,6 +46,9 @@ type AgentConfig struct {
 	// 失败重试策略，可以为空，驱动内部会合并
 	RetryPolicy *RetryPolicyConfig `yaml:"retry_policy" json:"retry_policy"`
 
+	// 调试追踪（兼容保留，建议迁移到 log.agent_debug）：按请求落盘输入/输出。
+	DebugTrace DebugTraceConfig `yaml:"debug_trace" json:"debug_trace"`
+
 	// 可扩展的 driver-specific 选项
 	Options map[string]interface{} `yaml:"options" json:"options"`
 }
@@ -88,4 +91,10 @@ type ClassifierConfig struct {
 	MaxTokens        int     `yaml:"max_tokens" json:"max_tokens"`
 	LLMMinConfidence float64 `yaml:"llm_min_confidence" json:"llm_min_confidence"`
 	TopK             int     `yaml:"top_k" json:"top_k"`
+}
+
+type DebugTraceConfig struct {
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
+	Dir          string `yaml:"dir" json:"dir"`
+	MaxBodyBytes int    `yaml:"max_body_bytes" json:"max_body_bytes"`
 }

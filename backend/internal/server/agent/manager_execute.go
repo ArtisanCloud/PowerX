@@ -10,6 +10,7 @@ import (
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -134,14 +135,22 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 	if tenantUUID != "" {
 		tenantPtr = &tenantUUID
 	}
+	userID := ""
+	if mt.UserID > 0 {
+		userID = strconv.FormatUint(mt.UserID, 10)
+	}
+	customerID := ""
+	if mt.CustomerID > 0 {
+		customerID = strconv.FormatUint(mt.CustomerID, 10)
+	}
 
 	// ---- 运行日志：PlanStart ----
 	m.log().PlanStart(ctx, flow.AgentTaskEvent{
 		PlanID:     plan.PlanID,
 		Kind:       "plan.start",
 		TenantUUID: tenantPtr,
-		UserID:     mt.UserID,
-		CustomerID: mt.CustomerID,
+		UserID:     userID,
+		CustomerID: customerID,
 		Ts:         time.Now(),
 		Meta:       utils.J(map[string]any{"trace_id": mt.TraceID, "request_id": mt.RequestID}),
 	})
@@ -169,18 +178,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 			task := stageTasks[i]
 
 			eg.Go(func() error {
-				// 路由到 Agent
-				ag, agID, err := m.resolveAgentForTask(task)
-				if err != nil {
-					// 任务级错误日志
-					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
-						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
-						Ts: time.Now(), Error: err.Error(),
-					})
-					return fmt.Errorf("resolve agent for task(%s/%s) failed: %w", task.TaskID, task.FlowID, err)
-				}
-
+				agID := ""
 				// 参数物化
 				finalParams := make(map[string]any, len(task.Params))
 				for k, v := range task.Params {
@@ -196,7 +194,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					if rerr != nil {
 						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 							Ts: time.Now(), Error: fmt.Sprintf("param_ref(%s): %v", pk, rerr),
 							Input: inSan.JSON(finalParams),
 						})
@@ -205,7 +203,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					if !ok {
 						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 							Ts: time.Now(), Error: fmt.Sprintf("param_ref not found (%s)", ref),
 							Input: inSan.JSON(finalParams),
 						})
@@ -217,47 +215,78 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					ctxVars[k] = v
 				}
 
+				taskKind := planTaskKind(task)
+				nodeRef := planTaskRef(task)
+				flowID := task.FlowID
+				if taskKind != "workflow" {
+					flowID = nodeRef
+				}
+
+				var ag contract.AgentClient
+				if taskKind == "workflow" {
+					// workflow 节点仍走既有 Agent 路由
+					var resolveErr error
+					ag, agID, resolveErr = m.resolveAgentForTask(task)
+					if resolveErr != nil {
+						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
+							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
+							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
+							Ts: time.Now(), Error: resolveErr.Error(),
+						})
+						return fmt.Errorf("resolve agent for task(%s/%s) failed: %w", task.TaskID, flowID, resolveErr)
+					}
+				}
+
 				// 任务开始日志
 				start := time.Now()
 				if hooks != nil && hooks.OnTaskStart != nil {
 					hooks.OnTaskStart(task)
 				}
 				m.log().TaskStart(egCtx, flow.AgentTaskEvent{
-					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-					AgentID: agID, Kind: "task.start", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
+					AgentID: agID, Kind: "task.start", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 					Ts: start, Input: inSan.JSON(finalParams),
 				})
 
-				// 执行
-				out, err := ag.Invoke(egCtx, task.FlowID, ctxVars, mt)
+				// 执行：workflow 走 Agent；其余节点走统一节点执行器（当前为轻量内置实现）
+				var out *aschema.ExecutionResult
+				var err error
+				if taskKind == "workflow" {
+					out, err = ag.Invoke(egCtx, task.FlowID, ctxVars, mt)
+				} else {
+					out, err = m.executeNonWorkflowTask(egCtx, task, ctxVars, mt)
+				}
 				dur := time.Since(start).Milliseconds()
 				if err != nil {
 					if hooks != nil && hooks.OnTaskEnd != nil {
 						hooks.OnTaskEnd(task, nil, err)
 					}
 					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
-						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
+						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 						Ts: time.Now(), DurationMS: dur, Error: err.Error(),
 					})
-					return fmt.Errorf("invoke flow(%s) failed: %w", task.FlowID, err)
+					return fmt.Errorf("invoke task(%s/%s) failed: %w", task.TaskID, flowID, err)
 				}
 				if out != nil {
 					if out.Metadata == nil {
 						out.Metadata = flowschema.Result{}
 					}
 					out.Metadata["task_id"] = task.TaskID
-					out.Metadata["flow_id"] = task.FlowID
+					out.Metadata["flow_id"] = flowID
+					out.Metadata["node_kind"] = taskKind
+					out.Metadata["node_ref"] = nodeRef
+					out.Metadata["source_scope"] = firstNonEmpty(strings.TrimSpace(task.SourceScope), "system")
 					out.Duration = time.Duration(dur) * time.Millisecond
 
-					results.Put(task.TaskID, task.FlowID, s, out)
+					results.Put(task.TaskID, flowID, s, out)
 					stageOut[i] = out
 
 					// 任务成功日志（输出做摘要&去循环）
 					safeOut := outSan.SanitizeResult(out) // 得到瘦身后的 ExecutionResult
 					m.log().TaskOK(egCtx, flow.AgentTaskEvent{
-						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.ok", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
+						AgentID: agID, Kind: "task.ok", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 						Ts: time.Now(), DurationMS: dur,
 						Output: outSan.JSON(safeOut.Data),
 						Meta:   outSan.JSON(safeOut.Metadata),
@@ -273,7 +302,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 		if err := eg.Wait(); err != nil {
 			// 计划结束（失败）
 			m.log().PlanEnd(ctx, flow.AgentTaskEvent{
-				PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+				PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 				Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "failed", "error": err.Error()}),
 			})
 			return nil, err
@@ -290,7 +319,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 
 	// 计划结束（成功）
 	m.log().PlanEnd(ctx, flow.AgentTaskEvent{
-		PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
+		PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 		Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "completed"}),
 	})
 
@@ -344,4 +373,285 @@ func (m *Manager) GetDefaultRoute() (contract.AgentClient, string, error) {
 		return nil, "", fmt.Errorf("default agent not found: %s", m.defaultAgID)
 	}
 	return ag, m.defaultFlowID, nil
+}
+
+func planTaskKind(t flowschema.PlanTask) string {
+	k := strings.ToLower(strings.TrimSpace(t.NodeKind))
+	if k != "" {
+		return k
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(t.FlowID)), "skill.") {
+		return "skill"
+	}
+	return "workflow"
+}
+
+func planTaskRef(t flowschema.PlanTask) string {
+	if ref := strings.TrimSpace(t.NodeRef); ref != "" {
+		return ref
+	}
+	return strings.TrimSpace(t.FlowID)
+}
+
+func (m *Manager) executeNonWorkflowTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta) (*aschema.ExecutionResult, error) {
+	kind := planTaskKind(t)
+	ref := planTaskRef(t)
+	switch kind {
+	case "skill":
+		return m.executeSkillTask(ctx, t, params, mt, ref)
+	case "tooling":
+		return m.executeToolingTask(ctx, t, params, mt, ref)
+	case "llm":
+		msg := strings.TrimSpace(fmt.Sprintf("%v", params["message"]))
+		if msg == "" {
+			msg = "继续按上下文回复"
+		}
+		out, _, err := m.Dispatch(ctx, msg, params, mt)
+		if err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+	return &aschema.ExecutionResult{
+		Success: true,
+		Data: flowschema.Result{
+			"id":         fmt.Sprintf("id-%s", ref),
+			"node_kind":  kind,
+			"node_ref":   ref,
+			"params":     t.Params,
+			"depends_on": t.DependsOn,
+		},
+		Metadata: flowschema.Result{
+			"is_final":     false,
+			"node_kind":    kind,
+			"node_ref":     ref,
+			"planner_mode": "unified",
+		},
+	}, nil
+}
+
+func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
+	m.mu.RLock()
+	inv := m.skillInvoker
+	m.mu.RUnlock()
+	if inv == nil {
+		return nil, errors.New("skill invoker is not configured")
+	}
+	in := SkillInvokeInput{
+		TenantUUID:   firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
+		Env:          firstNonEmpty(asString(mt.Metadata["env"]), asString(params["env"])),
+		AgentID:      firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["agent_id"])),
+		SkillID:      firstNonEmpty(ref, asString(params["skill_id"])),
+		Version:      firstNonEmpty(asString(params["version"]), asString(t.Params["version"])),
+		CapabilityID: asString(params["capability_id"]),
+		Entrypoint:   asString(params["entrypoint"]),
+		TraceID:      firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
+		Payload:      payloadFromTaskParams(t, params),
+		Context:      contextFromTaskParams(params),
+		ToolGrantIDs: toStringSlice(params["tool_grant_ids"]),
+	}
+	out, err := inv(ctx, in)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "skill record not found") {
+			if alt, ok := fallbackSkillIDAlias(in.SkillID); ok {
+				in.SkillID = alt
+				out, err = inv(ctx, in)
+			}
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	data := map[string]any{
+		"trace_id":      out.TraceID,
+		"status":        out.Status,
+		"protocol_used": out.ProtocolUsed,
+		"fallback_used": out.FallbackUsed,
+		"skill_id":      out.SkillID,
+		"version":       out.Version,
+		"result":        out.Result,
+	}
+	return &aschema.ExecutionResult{
+		Success: true,
+		Data:    data,
+		Metadata: flowschema.Result{
+			"is_final":      false,
+			"node_kind":     "skill",
+			"node_ref":      ref,
+			"trace_id":      out.TraceID,
+			"status":        out.Status,
+			"protocol_used": out.ProtocolUsed,
+			"fallback_used": out.FallbackUsed,
+			"planner_mode":  "unified",
+		},
+	}, nil
+}
+
+func fallbackSkillIDAlias(skillID string) (string, bool) {
+	raw := strings.TrimSpace(skillID)
+	if raw == "" {
+		return "", false
+	}
+	// 兼容历史别名：skill.thirdparty.<id> -> <id>
+	if strings.HasPrefix(strings.ToLower(raw), "skill.thirdparty.") {
+		alt := strings.TrimSpace(raw[len("skill.thirdparty."):])
+		if alt != "" && !strings.EqualFold(alt, raw) {
+			return alt, true
+		}
+	}
+	return "", false
+}
+
+func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
+	m.mu.RLock()
+	inv := m.toolingInvoker
+	m.mu.RUnlock()
+	if inv == nil {
+		return nil, errors.New("tooling invoker is not configured")
+	}
+	in := ToolingInvokeInput{
+		TenantUUID:        firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
+		Env:               firstNonEmpty(asString(mt.Metadata["env"]), asString(params["env"])),
+		CapabilityID:      firstNonEmpty(asString(params["capability_id"]), ref),
+		PreferredProtocol: firstNonEmpty(asString(params["preferred_protocol"]), "tooling"),
+		TraceID:           firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
+		Payload:           payloadFromTaskParams(t, params),
+		Context:           contextFromTaskParams(params),
+	}
+	out, err := inv(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	data := map[string]any{
+		"trace_id":      out.TraceID,
+		"status":        out.Status,
+		"protocol_used": out.ProtocolUsed,
+		"fallback_used": out.FallbackUsed,
+		"result":        out.Result,
+	}
+	return &aschema.ExecutionResult{
+		Success: true,
+		Data:    data,
+		Metadata: flowschema.Result{
+			"is_final":      false,
+			"node_kind":     "tooling",
+			"node_ref":      ref,
+			"trace_id":      out.TraceID,
+			"status":        out.Status,
+			"protocol_used": out.ProtocolUsed,
+			"fallback_used": out.FallbackUsed,
+			"planner_mode":  "unified",
+		},
+	}, nil
+}
+
+func payloadFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map[string]any {
+	if p, ok := params["payload"].(map[string]any); ok && len(p) > 0 {
+		return p
+	}
+	if p, ok := t.Params["payload"].(map[string]any); ok && len(p) > 0 {
+		return p
+	}
+	out := make(map[string]any, len(t.Params))
+	for k, v := range t.Params {
+		if strings.HasPrefix(k, "_") {
+			continue
+		}
+		if k == "payload" || k == "context" || k == "tool_grant_ids" {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return map[string]any{}
+	}
+	return out
+}
+
+func contextFromTaskParams(params flowschema.Context) map[string]any {
+	if p, ok := params["context"].(map[string]any); ok && len(p) > 0 {
+		return p
+	}
+	out := map[string]any{}
+	if deps, ok := params["_deps"]; ok {
+		out["_deps"] = deps
+	}
+	if msg := asString(params["message"]); msg != "" {
+		out["message"] = msg
+	}
+	return out
+}
+
+func toStringSlice(v any) []string {
+	switch x := v.(type) {
+	case []string:
+		return x
+	case []any:
+		out := make([]string, 0, len(x))
+		for _, item := range x {
+			if s := strings.TrimSpace(asString(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func asString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", x))
+	}
+}
+
+func asUint64(v any) uint64 {
+	switch x := v.(type) {
+	case uint64:
+		return x
+	case uint:
+		return uint64(x)
+	case int:
+		if x > 0 {
+			return uint64(x)
+		}
+	case int64:
+		if x > 0 {
+			return uint64(x)
+		}
+	case float64:
+		if x > 0 {
+			return uint64(x)
+		}
+	case string:
+		u, err := strconv.ParseUint(strings.TrimSpace(x), 10, 64)
+		if err == nil {
+			return u
+		}
+	}
+	return 0
+}
+
+func firstPositiveUint64(vals ...uint64) uint64 {
+	for _, v := range vals {
+		if v > 0 {
+			return v
+		}
+	}
+	return 0
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }

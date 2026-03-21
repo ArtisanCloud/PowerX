@@ -60,6 +60,7 @@ func NewInvokeService(
 		registryRepo: registryRepo,
 		auditService: auditService,
 		executors: []SkillExecutor{
+			newIncidentTriageExecutor(),
 			newPromptTemplateExecutor(),
 			newVideoFramesExecutor(),
 		},

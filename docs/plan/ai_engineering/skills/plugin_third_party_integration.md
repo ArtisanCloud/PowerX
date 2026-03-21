@@ -18,9 +18,10 @@
 ## 3. 第三方接入流程
 
 1. 提交来源信息（仓库、版本、checksum、签名）。
-2. 平台拉取并校验资产。
-3. 通过后进入 `draft` 状态。
-4. 管理员审核发布到 `published`。
+2. 上传 Skill Bundle（平台不做远程仓库在线拉取）。
+3. 平台校验资产与元数据。
+4. 通过后进入 `draft` 状态。
+5. 管理员审核发布到 `published`。
 
 ## 4. 开放模式
 
@@ -41,7 +42,7 @@ Agent 在规划中引用 skill 节点，由 SkillRunner 执行。
 - `/api/v1/tenant/invocations`
 - `preferred_protocol=skill`
 
-## 5. 兼容与治理要求
+## 5. 治理要求
 
 1. 插件卸载前需处理 Skill 绑定关系。
 2. 第三方 Skill 升级必须记录来源变更。
@@ -54,4 +55,3 @@ Agent 在规划中引用 skill 节点，由 SkillRunner 执行。
 3. 提供 checksum
 4. 声明 entrypoints
 5. 声明权限副作用
-

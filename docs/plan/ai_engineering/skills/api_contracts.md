@@ -51,8 +51,7 @@
 说明：
 
 1. `inputs[].role` 推荐使用 `system | user | assistant`。
-2. 历史兼容：若仅传 `content`（不传 `text`），后端会自动按 `text` 处理。
-3. 当前服务端 LLM 会把 `role=system` 聚合为 `system prompt`，其余聚合为 `user prompt`。
+2. 当前服务端 LLM 会把 `role=system` 聚合为 `system prompt`，其余聚合为 `user prompt`。
 
 ## 1. Admin API
 
@@ -191,6 +190,13 @@
 3. `node_start` / `node_end`：节点执行生命周期
 4. `token` / `data`：节点流式输出
 5. `final` / `end`：最终收敛输出
+
+补充约束：
+
+1. `node.kind=skill` 通过 Skill InvokeService/AdapterService 真实执行。
+2. `node.kind=tooling` 通过 Capability InvocationService 真实执行（tooling 数据来自 capability registry 落库）。
+3. 未命中可执行节点时仅输出 `intent + final(+end)`，不发 `node_start/node_end`。
+4. `plan.tasks[]` 节点建议补充 `source_scope=system|agent`，用于区分系统固有能力与 Agent 自定义能力来源。
 
 ## 3. Plugin / 第三方接口
 

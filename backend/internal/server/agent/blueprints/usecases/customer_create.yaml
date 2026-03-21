@@ -1,53 +1,6 @@
 flow_id: "customer_create"
 name: "新增客户记录"
-base_flow: "base_flow"
-steps:
-  - use: "validate.schema"
-    params:
-      schema:
-        type: "object"
-        required: ["name", "email"]
-        properties:
-          name:  { type: "string", minLength: 2, maxLength: 100 }
-          email: { type: "string", format: "email" }
-          phone: { type: "string", pattern: "^1[3-9]\\d{9}$" }
-          owner_id: { type: "string" }
-          tags: { type: "array", items: { type: "string" }, maxItems: 20 }
-
-  - use: "customer.check_uniqueness"
-    params:
-      unique_fields: ["email", "phone"]
-      table: "customers"
-      conflict_message: "客户已存在"
-
-  - use: "customer.create"
-    params:
-      # 约定工具从输入中取字段（或由 normalize 之后的上下文提供）
-      fields_from_input: ["name", "email", "phone", "owner_id", "tags"]
-
-overrides:
-  steps:
-    - use: "event.emit"
-      params:
-        name: "customer.created"
-        payload_ref: "{{ .steps.customer.create.output }}"
-    - use: "audit.log"
-      params:
-        level: "info"
-        event: "customer_created"
-        fields:
-          - "id"
-          - "email"
-          - "owner_id"
-    - use: "response.format"
-      params:
-        template: |
-          {
-            "id": "{{ .steps.customer.create.output.id }}",
-            "name": "{{ .steps.customer.create.output.name }}",
-            "email": "{{ .steps.customer.create.output.email }}",
-            "created_at": "{{ .steps.customer.create.output.created_at }}"
-          }
+version: "1.0.0"
 
 metadata:
   domain: "crm"
@@ -71,3 +24,22 @@ metadata:
         - "查找客户"
         - "查询客户详情"
         - "查找客户详情"
+
+nodes:
+  - id: n1_create
+    use: core.debug.forward
+    kind: biz_logic
+    params:
+      id_ref: "customer-create-demo"
+    io:
+      out_map:
+        id: id
+        timestamp: timestamp
+  - id: n2_fmt
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "status":"created","entity":"customer","note":"legacy blueprint migrated to nodes schema" }'
+
+edges:
+  - { from: n1_create, to: n2_fmt, type: SEQ }
