@@ -167,3 +167,43 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
 
 - `T080`：同名候选保留 `agent custom`，`system builtin` 被覆盖；未授权候选不会进入候选池。
 - `T081`：`workflow->skill/tooling` 组合计划可执行，`node_start/node_end` 事件均带 `node_kind/node_ref/source_scope`。
+
+## 11. Context 优化回归（Phase 12）
+
+目标：验证 Context 分层、预算裁剪、结构化摘要、缓存策略和 token 观测字段是否对齐。
+
+### 11.1 启用配置（示例）
+
+```yaml
+agent:
+  context_optimizer:
+    enabled: true
+    max_prompt_tokens: 12000
+    reserved_completion_tokens: 1200
+    recent_messages: 8
+    retrieval_top_k: 6
+    cache_mode: auto
+    summary_refresh_interval_sec: 900
+```
+
+### 11.2 多轮会话压测（建议 30+ 轮）
+
+1. 在 Agent 聊天页连续发送 30 轮以上混合请求（短问答 + 检索型问答 + skills 编排型问答）。
+2. 观察是否出现上下文超窗错误。
+3. 删除会话后重建并重复，确认行为稳定。
+
+### 11.3 日志与观测检查
+
+- 检查 `backend/logs/agent_debug/<YYYYMMDD>/trace-*_stream_*.json`：
+  - `prompt_tokens`
+  - `completion_tokens`
+  - `cached_tokens`（provider 支持时）
+  - `context_layers_size`
+  - `trim_actions/trim_reason`
+- 检查 Planner 调试日志 `trace-*_planner_*.json` 的 prompt 前缀顺序是否稳定（L0-L2 固定）。
+
+### 11.4 验收门槛（与 spec Success Criteria 对齐）
+
+- `prompt_tokens` P50 相比基线下降 >= 30%。
+- 缓存能力模型前缀命中率 >= 60%。
+- 30+ 轮会话中超窗失败率 <= 1%，并可通过 `trim_actions` 回放定位。

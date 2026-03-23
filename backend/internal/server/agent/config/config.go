@@ -49,6 +49,9 @@ type AgentConfig struct {
 	// 调试追踪（兼容保留，建议迁移到 log.agent_debug）：按请求落盘输入/输出。
 	DebugTrace DebugTraceConfig `yaml:"debug_trace" json:"debug_trace"`
 
+	// 上下文优化：分层拼装 + token 预算裁剪 + 缓存策略。
+	ContextOptimizer ContextOptimizerConfig `yaml:"context_optimizer" json:"context_optimizer"`
+
 	// 可扩展的 driver-specific 选项
 	Options map[string]interface{} `yaml:"options" json:"options"`
 }
@@ -97,4 +100,14 @@ type DebugTraceConfig struct {
 	Enabled      bool   `yaml:"enabled" json:"enabled"`
 	Dir          string `yaml:"dir" json:"dir"`
 	MaxBodyBytes int    `yaml:"max_body_bytes" json:"max_body_bytes"`
+}
+
+type ContextOptimizerConfig struct {
+	Enabled                   bool   `yaml:"enabled" json:"enabled"`
+	MaxPromptTokens           int    `yaml:"max_prompt_tokens" json:"max_prompt_tokens"`
+	ReservedCompletionTokens  int    `yaml:"reserved_completion_tokens" json:"reserved_completion_tokens"`
+	RecentMessages            int    `yaml:"recent_messages" json:"recent_messages"`
+	RetrievalTopK             int    `yaml:"retrieval_top_k" json:"retrieval_top_k"`
+	CacheMode                 string `yaml:"cache_mode" json:"cache_mode"` // auto|force_off|force_on
+	SummaryRefreshIntervalSec int    `yaml:"summary_refresh_interval_sec" json:"summary_refresh_interval_sec"`
 }

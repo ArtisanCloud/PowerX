@@ -10,9 +10,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
+	appcfg "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
@@ -36,6 +39,7 @@ type AgentChatHandler struct {
 	audit       *capservice.AuditService
 	settings    *agentSvc.AgentSettingService
 	skillAudit  *skillservice.AuditTraceService
+	ctxOptSvc   *agentSvc.ContextOptimizerConfigService
 }
 
 type agentInvokeRequest struct {
@@ -70,7 +74,7 @@ func (s *agentInvokeSink) Reply() string {
 	if strings.TrimSpace(s.final) != "" {
 		return s.final
 	}
-	return s.buf.String()
+	return runtime.SanitizeAssistantVisibleText(s.buf.String())
 }
 
 type plannerTraceSink struct {
@@ -99,6 +103,7 @@ type streamDebugTraceSink struct {
 	final     map[string]any
 	lastError map[string]any
 	end       map[string]any
+	usage     map[string]any
 }
 
 func newStreamDebugTraceSink(next runtime.EventSink, cfg agent.DebugTraceConfig, ctx context.Context, traceID string, req map[string]any, meta map[string]any) *streamDebugTraceSink {
@@ -121,6 +126,7 @@ func newStreamDebugTraceSink(next runtime.EventSink, cfg agent.DebugTraceConfig,
 		request: req,
 		meta:    meta,
 		events:  make([]map[string]any, 0, 32),
+		usage:   map[string]any{},
 	}
 }
 
@@ -149,9 +155,46 @@ func (s *streamDebugTraceSink) capture(event string, payload any) {
 		})
 	}
 	switch event {
+	case dto.EventMeta:
+		if m, ok := payload.(map[string]any); ok {
+			if v, ok := m["llm_provider"]; ok {
+				s.usage["_llm_provider"] = readStringAny(v)
+			}
+			if v, ok := m["llm_model"]; ok {
+				s.usage["_llm_model"] = readStringAny(v)
+			}
+			if co, ok := m["context_optimizer"].(map[string]any); ok {
+				if v, ok := co["prompt_tokens"]; ok {
+					s.usage["prompt_tokens"] = toIntAny(v)
+				}
+				if v, ok := co["cache_mode"]; ok {
+					s.usage["cache_mode"] = readStringAny(v)
+				}
+				if v, ok := co["context_layers_size"]; ok {
+					s.usage["context_layers_size"] = v
+				}
+				if v, ok := co["trim_actions"]; ok {
+					s.usage["trim_actions"] = v
+				}
+			}
+		}
 	case dto.EventFinal:
 		if m, ok := payload.(map[string]any); ok {
 			s.final = m
+			text := extractInvokeAssistantText(m)
+			if strings.TrimSpace(text) != "" {
+				s.usage["completion_tokens"] = estimateDebugTokens(text)
+			}
+			if md, ok := m["metadata"].(map[string]any); ok {
+				if v, ok := md["cached_tokens"]; ok {
+					s.usage["cached_tokens"] = toIntAny(v)
+				}
+				if v, ok := md["cache_hit"]; ok {
+					if b, ok := v.(bool); ok {
+						s.usage["cache_hit"] = b
+					}
+				}
+			}
 		}
 	case dto.EventError:
 		if m, ok := payload.(map[string]any); ok {
@@ -180,6 +223,7 @@ func (s *streamDebugTraceSink) Flush() {
 	path := filepath.Join(dayDir, fmt.Sprintf("trace-%s_stream_%s.json", shortDebugBase(base), s.at.Format("15-04-05.000")))
 
 	s.mu.Lock()
+	usageSnapshot := s.usageSnapshotLocked()
 	payload := map[string]any{
 		"meta": map[string]any{
 			"trace_id":   s.traceID,
@@ -194,6 +238,7 @@ func (s *streamDebugTraceSink) Flush() {
 			"final":        s.final,
 			"last_error":   s.lastError,
 			"end":          s.end,
+			"usage":        usageSnapshot,
 			"events_count": len(s.events),
 			"events":       s.events,
 		},
@@ -213,6 +258,121 @@ func (s *streamDebugTraceSink) Flush() {
 		return
 	}
 	logger.InfoF(s.ctx, "[agent.debug_trace] saved path=%s trace_id=%s", path, s.traceID)
+}
+
+func (s *streamDebugTraceSink) UsageSnapshot() map[string]any {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.usageSnapshotLocked()
+}
+
+func (s *streamDebugTraceSink) usageSnapshotLocked() map[string]any {
+	if s == nil {
+		return nil
+	}
+	prompt := toIntAny(s.usage["prompt_tokens"])
+	completion := toIntAny(s.usage["completion_tokens"])
+	provider := readStringAny(s.usage["_llm_provider"])
+	model := readStringAny(s.usage["_llm_model"])
+	hops := make([]map[string]any, 0, 4)
+	if raw, ok := s.usage["hops"].([]map[string]any); ok {
+		hops = append(hops, raw...)
+	} else if rawAny, ok := s.usage["hops"].([]any); ok {
+		for _, item := range rawAny {
+			if m, ok := item.(map[string]any); ok {
+				hops = append(hops, m)
+			}
+		}
+	}
+	if prompt > 0 || completion > 0 {
+		hops = append(hops, map[string]any{
+			"phase":             "chat",
+			"provider":          provider,
+			"model":             model,
+			"prompt_tokens":     prompt,
+			"completion_tokens": completion,
+			"total_tokens":      prompt + completion,
+			"estimated":         true,
+		})
+	}
+	totalPrompt := 0
+	totalCompletion := 0
+	for _, hop := range hops {
+		totalPrompt += toIntAny(hop["prompt_tokens"])
+		totalCompletion += toIntAny(hop["completion_tokens"])
+	}
+	if totalPrompt == 0 && prompt > 0 {
+		totalPrompt = prompt
+	}
+	if totalCompletion == 0 && completion > 0 {
+		totalCompletion = completion
+	}
+	out := map[string]any{
+		"total_prompt_tokens":     totalPrompt,
+		"total_completion_tokens": totalCompletion,
+		"total_tokens":            totalPrompt + totalCompletion,
+		"hops":                    hops,
+	}
+	if v, ok := s.usage["cache_mode"]; ok {
+		out["cache_mode"] = v
+	}
+	if v, ok := s.usage["cached_tokens"]; ok {
+		out["cached_tokens"] = v
+	}
+	if v, ok := s.usage["context_layers_size"]; ok {
+		out["context_layers_size"] = v
+	}
+	if v, ok := s.usage["trim_actions"]; ok {
+		out["trim_actions"] = v
+	}
+	return out
+}
+
+func (s *streamDebugTraceSink) AddUsageHop(hop map[string]any) {
+	if s == nil || len(hop) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	raw, ok := s.usage["hops"].([]map[string]any)
+	if !ok {
+		raw = []map[string]any{}
+	}
+	raw = append(raw, hop)
+	s.usage["hops"] = raw
+}
+
+func toIntAny(v any) int {
+	switch x := v.(type) {
+	case int:
+		return x
+	case int64:
+		return int(x)
+	case float64:
+		return int(x)
+	case float32:
+		return int(x)
+	case json.Number:
+		n, _ := x.Int64()
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+func estimateDebugTokens(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	n := utf8.RuneCountInString(s)
+	if n <= 0 {
+		return 0
+	}
+	return n/4 + 1
 }
 
 func truncateDebugAny(v any, max int) any {
@@ -373,16 +533,69 @@ func readStringAny(v interface{}) string {
 	}
 }
 
+func buildCandidateSummary(cands []agent.ToolCallCandidate, maxPerKind int) string {
+	if len(cands) == 0 {
+		return ""
+	}
+	if maxPerKind <= 0 {
+		maxPerKind = 8
+	}
+	buckets := map[string][]string{
+		"workflow": {},
+		"skill":    {},
+		"tooling":  {},
+		"llm":      {},
+	}
+	for _, c := range cands {
+		kind := strings.ToLower(strings.TrimSpace(c.NodeKind))
+		if kind == "" {
+			kind = "workflow"
+		}
+		if _, ok := buckets[kind]; !ok {
+			buckets[kind] = []string{}
+		}
+		if len(buckets[kind]) >= maxPerKind {
+			continue
+		}
+		name := strings.TrimSpace(c.Name)
+		if name == "" {
+			name = strings.TrimSpace(c.NodeRef)
+		}
+		if name == "" {
+			continue
+		}
+		buckets[kind] = append(buckets[kind], name)
+	}
+	parts := make([]string, 0, 4)
+	for _, kind := range []string{"workflow", "skill", "tooling", "llm"} {
+		items := buckets[kind]
+		if len(items) == 0 {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s(%d): %s", kind, len(items), strings.Join(items, ", ")))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func supportsProviderPromptCache(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai", "anthropic", "google", "gemini":
+		return true
+	default:
+		return false
+	}
+}
+
 func extractInvokeAssistantText(payload any) string {
 	switch m := payload.(type) {
 	case map[string]any:
 		if d, ok := m["data"].(map[string]any); ok {
 			if s, ok := d["content"].(string); ok {
-				return s
+				return runtime.SanitizeAssistantVisibleText(s)
 			}
 		}
 		if s, ok := m["content"].(string); ok {
-			return s
+			return runtime.SanitizeAssistantVisibleText(s)
 		}
 	}
 	return ""
@@ -398,6 +611,7 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 		audit:       dep.CapabilityRegistryAudit,
 		settings:    agentSvc.NewAgentSettingService(dep.DB),
 		skillAudit:  skillservice.NewAuditTraceService(traceRepo, auditRepo),
+		ctxOptSvc:   agentSvc.NewContextOptimizerConfigService(dep.DB),
 	}
 }
 
@@ -611,9 +825,30 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		"tenant_uuid": strings.TrimSpace(tenantCtx.UUID()),
 		"request_id":  strings.TrimSpace(c.GetString("request_id")),
 	}
+
+	optCfg := agent.GetAgentManager().GetContextOptimizerConfig()
+	debugTraceCfg := agent.GetAgentManager().GetDebugTraceConfig()
+	if h.ctxOptSvc != nil {
+		debugEnabled := false
+		if gc := appcfg.GetGlobalConfig(); gc != nil {
+			debugEnabled = gc.LogConfig.AgentDebug.Enable
+		}
+		if activeOpt, err := h.ctxOptSvc.GetActive(c.Request.Context(), env, tenantRef, optCfg, debugEnabled); err == nil && activeOpt != nil {
+			optCfg = agent.ContextOptimizerConfig{
+				Enabled:                   activeOpt.Config.Enabled,
+				MaxPromptTokens:           activeOpt.Config.MaxPromptTokens,
+				ReservedCompletionTokens:  activeOpt.Config.ReservedCompletionTokens,
+				RecentMessages:            activeOpt.Config.RecentMessages,
+				RetrievalTopK:             activeOpt.Config.RetrievalTopK,
+				CacheMode:                 activeOpt.Config.CacheMode,
+				SummaryRefreshIntervalSec: activeOpt.Config.SummaryRefreshIntervalSec,
+			}
+			debugTraceCfg.Enabled = activeOpt.Config.DebugTraceEnabled
+		}
+	}
 	debugSink := newStreamDebugTraceSink(
 		histSink,
-		agent.GetAgentManager().GetDebugTraceConfig(),
+		debugTraceCfg,
 		c.Request.Context(),
 		traceID,
 		debugReqBody,
@@ -671,12 +906,79 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		"llm_model":    strings.TrimSpace(cfg.ModelName),
 	})
 
+	// Context 优化：分层上下文 + 预算裁剪（仅增强 system prompt，不改变用户输入）。
+	if optCfg.Enabled {
+		cfg.CacheMode = optCfg.CacheMode
+		cacheSupported := supportsProviderPromptCache(cfg.Provider)
+		cacheEnabled := false
+		switch strings.ToLower(strings.TrimSpace(optCfg.CacheMode)) {
+		case "force_on":
+			cacheEnabled = true
+		case "force_off":
+			cacheEnabled = false
+		default:
+			cacheEnabled = cacheSupported
+		}
+		cctx := agent.CandidateBuildContextFromRequest(c.Request.Context())
+		candidates := agent.GetAgentManager().BuildToolCallCandidatesWithContext(cctx, 64)
+		candidateSummary := buildCandidateSummary(candidates, 8)
+		build, buildErr := h.his.BuildContextForLLM(
+			c.Request.Context(),
+			env,
+			tenantRef,
+			sess,
+			q,
+			cfg.SystemPrompt,
+			candidateSummary,
+			nil,
+			agentcfg.ContextOptimizerConfig{
+				Enabled:                   optCfg.Enabled,
+				MaxPromptTokens:           optCfg.MaxPromptTokens,
+				ReservedCompletionTokens:  optCfg.ReservedCompletionTokens,
+				RecentMessages:            optCfg.RecentMessages,
+				RetrievalTopK:             optCfg.RetrievalTopK,
+				CacheMode:                 optCfg.CacheMode,
+				SummaryRefreshIntervalSec: optCfg.SummaryRefreshIntervalSec,
+			},
+		)
+		if buildErr == nil && build != nil {
+			cfg.SystemPrompt = strings.TrimSpace(build.SystemPrompt)
+			_ = debugSink.Emit(dto.EventMeta, map[string]any{
+				"context_optimizer": map[string]any{
+					"enabled":                 build.Enabled,
+					"prompt_tokens":           build.PromptTokens,
+					"reserved_completion":     build.CompletionReserve,
+					"context_layers_size":     build.LayerTokenSize,
+					"trim_actions":            build.TrimActions,
+					"used_structured_summary": build.UsedStructuredMemo,
+					"cache_mode":              optCfg.CacheMode,
+					"cache_supported":         cacheSupported,
+					"cache_enabled":           cacheEnabled,
+					"cached_tokens":           0,
+				},
+			})
+		}
+	}
+
 	err = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", debugSink) // explicitFlow 传空，交给意图/plan 选择
+	if plannerUsage := agent.GetAgentManager().PopPlannerUsage(traceID); len(plannerUsage) > 0 {
+		if hops, ok := plannerUsage["hops"].([]map[string]any); ok {
+			for _, hop := range hops {
+				debugSink.AddUsageHop(hop)
+			}
+		} else if hopsAny, ok := plannerUsage["hops"].([]any); ok {
+			for _, item := range hopsAny {
+				if hop, ok := item.(map[string]any); ok {
+					debugSink.AddUsageHop(hop)
+				}
+			}
+		}
+	}
 	status := "completed"
 	if err != nil {
 		status = "failed"
 	}
-	h.recordAgentInvocation(c.Request.Context(), agentStreamCapability, tenantCtx.UUID(), agentID, sess.ID, q, traceID, "rest", status, err, time.Since(startedAt))
+	h.recordAgentInvocation(c.Request.Context(), agentStreamCapability, tenantCtx.UUID(), agentID, sess.ID, q, traceID, "rest", status, err, time.Since(startedAt), debugSink.UsageSnapshot())
 }
 
 // ---- 核心 ----
@@ -840,7 +1142,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 			return
 		}
 		recorded = true
-		h.recordAgentInvocation(ctx, agentStreamCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt))
+		h.recordAgentInvocation(ctx, agentStreamCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt), nil)
 	}
 	hooks := dto.SSEHooks{
 		HeartbeatInterval: 25 * time.Second,
@@ -852,7 +1154,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		OnFinal: func(final *agentschema.ExecutionResult) {
 			text := runtime.ExtractAssistantText(final)
 			if strings.TrimSpace(text) == "" {
-				text = buf.String()
+				text = runtime.SanitizeAssistantVisibleText(buf.String())
 			}
 			if strings.TrimSpace(text) != "" {
 				_, _ = h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "assistant", text, "text", 0, 0, false, nil)
@@ -980,6 +1282,27 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		dto.ResponseError(c, 400, cfgErr.Error(), nil)
 		return
 	}
+	opt := agent.GetAgentManager().GetContextOptimizerConfig()
+	if h.ctxOptSvc != nil {
+		debugEnabled := false
+		if gc := appcfg.GetGlobalConfig(); gc != nil {
+			debugEnabled = gc.LogConfig.AgentDebug.Enable
+		}
+		if activeOpt, err := h.ctxOptSvc.GetActive(c.Request.Context(), env, tenantRef, opt, debugEnabled); err == nil && activeOpt != nil {
+			opt = agent.ContextOptimizerConfig{
+				Enabled:                   activeOpt.Config.Enabled,
+				MaxPromptTokens:           activeOpt.Config.MaxPromptTokens,
+				ReservedCompletionTokens:  activeOpt.Config.ReservedCompletionTokens,
+				RecentMessages:            activeOpt.Config.RecentMessages,
+				RetrievalTopK:             activeOpt.Config.RetrievalTopK,
+				CacheMode:                 activeOpt.Config.CacheMode,
+				SummaryRefreshIntervalSec: activeOpt.Config.SummaryRefreshIntervalSec,
+			}
+		}
+	}
+	if opt.Enabled {
+		cfg.CacheMode = opt.CacheMode
+	}
 
 	startedAt := time.Now()
 	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
@@ -994,7 +1317,7 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	if err != nil {
 		status = "failed"
 	}
-	h.recordAgentInvocation(c.Request.Context(), agentInvokeCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt))
+	h.recordAgentInvocation(c.Request.Context(), agentInvokeCapability, tenantUUID, agentID, sess.ID, msg, traceID, "rest", status, err, time.Since(startedAt), nil)
 	if err != nil {
 		dto.ResponseError(c, 502, "agent invoke failed", err)
 		return
@@ -1071,7 +1394,7 @@ const (
 	platformPluginID      = "corex.platform"
 )
 
-func (h *AgentChatHandler) recordAgentInvocation(ctx context.Context, capabilityID, tenantUUID string, agentID, sessionID uint64, message, traceID, protocol, status string, err error, latency time.Duration) {
+func (h *AgentChatHandler) recordAgentInvocation(ctx context.Context, capabilityID, tenantUUID string, agentID, sessionID uint64, message, traceID, protocol, status string, err error, latency time.Duration, usage map[string]any) {
 	if h == nil || h.audit == nil {
 		return
 	}
@@ -1085,6 +1408,9 @@ func (h *AgentChatHandler) recordAgentInvocation(ctx context.Context, capability
 	}
 	response := map[string]interface{}{
 		"status": status,
+	}
+	if len(usage) > 0 {
+		response["usage"] = usage
 	}
 	errorSummary := ""
 	if err != nil {

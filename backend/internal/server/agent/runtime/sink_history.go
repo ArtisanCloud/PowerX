@@ -10,15 +10,15 @@ import (
 )
 
 type HistorySink struct {
-	next     EventSink
-	his      *agentSvc.ChatHistoryService
-	ginCtx   *gin.Context
-	env      string
+	next       EventSink
+	his        *agentSvc.ChatHistoryService
+	ginCtx     *gin.Context
+	env        string
 	tenantUUID *string
-	session  *dbmodel.AgentChatSession
-	agentID  uint64
-	buf      strings.Builder
-	enabled  bool // 允许某些通道不开启历史
+	session    *dbmodel.AgentChatSession
+	agentID    uint64
+	buf        strings.Builder
+	enabled    bool // 允许某些通道不开启历史
 }
 
 func NewHistorySink(next EventSink, his *agentSvc.ChatHistoryService, ginCtx *gin.Context,
@@ -50,7 +50,7 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		// final 时落库 assistant 文本
 		text := extractAssistantText(payload)
 		if strings.TrimSpace(text) == "" {
-			text = h.buf.String()
+			text = SanitizeAssistantVisibleText(h.buf.String())
 		}
 		if strings.TrimSpace(text) != "" {
 			_, _ = h.his.AppendMessage(h.ginCtx.Request.Context(),
@@ -67,11 +67,11 @@ func extractAssistantText(payload any) string {
 	case map[string]any:
 		if d, ok := m["data"].(map[string]any); ok {
 			if s, ok := d["content"].(string); ok {
-				return s
+				return SanitizeAssistantVisibleText(s)
 			}
 		}
 		if s, ok := m["content"].(string); ok {
-			return s
+			return SanitizeAssistantVisibleText(s)
 		}
 	}
 	return ""

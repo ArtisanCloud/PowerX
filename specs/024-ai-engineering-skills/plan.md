@@ -6,6 +6,7 @@
 ## Summary
 
 交付 PowerX Skills 的平台级治理与 Agent 统一编排闭环：官方固有 Skills 目录管理、第三方 Bundle 受控导入、人工审批发布、版本回滚、Capability 绑定、Tenant/Agent 双路径调用一致性，以及“LLM 统一意图识别 + workflow/skill/tooling/llm 计划编排（串并行） + LLM Tool-Calling”统一执行。当前基线采用“上传 Bundle + 来源元数据登记、默认最新发布版本调用、checksum 强制校验、signature 策略可配置”，并通过多租户隔离与审计链路保障可追溯和可回放。
+新增对齐目标：建立 Provider 无关的 Context 优化机制（分层上下文、预算裁剪、结构化摘要、Prompt/Context Cache 与 token 观测），在不改变 LLM 主路由原则下显著降低 token 成本与时延。
 
 ## Technical Context
 
@@ -124,6 +125,17 @@ Reference: [`research.md`](./research.md)
 7. **执行器升级**：`node.kind=skill|tooling` 必须接真实服务调用链路，禁止占位返回；其中 tooling 以 capability registry 数据库为权威源。
 8. **候选分层**：候选池按 `workflow|skill|tooling` 分区，并按 `system builtin + agent custom` 双层来源合并去重后再进入 LLM 决策。
 9. **提示词分区**：LLM 决策输入采用结构化分区清单（workflow/skill/tooling + source 标记），禁止仅用未分区的长文本拼接。
+
+## Phase 12 – Context Optimization Baseline
+
+Reference: [`context-optimization.md`](./context-optimization.md)
+
+1. **上下文分层**：统一实现 `L0-L5` 分层拼装链路（固定前缀 → 能力目录摘要 → 会话摘要 → 最近窗口 → 检索片段 → 当前输入），并确保稳定顺序。  
+2. **预算管理**：引入请求前 token 预算器，超预算时执行“检索裁剪 → 最近窗口裁剪 → 摘要刷新”的降载策略。  
+3. **结构化记忆**：将会话摘要升级为结构化 schema（facts/decisions/open_issues/constraints），替代纯文本占位摘要。  
+4. **缓存策略**：引入 `cache_mode=auto|force_off|force_on`，按 provider/model 能力探测决定 Prompt/Context Cache 启用。  
+5. **可观测性**：对每次调用补齐 `prompt_tokens/completion_tokens/cached_tokens/context_layers_size/trim_actions`，并落盘到 debug trace 与审计聚合字段。  
+6. **灰度发布**：按“仅观测 → 软裁剪 → 默认启用”三阶段推进，保留租户级回滚开关。
 
 ## Implementation Backwrite (2026-03-19)
 

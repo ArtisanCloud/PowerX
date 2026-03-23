@@ -140,6 +140,12 @@
 - **FR-032**: 系统必须在候选池构建阶段执行统一硬过滤（租户、权限、发布状态、source allowlist、tool_grants、visibility/scope），LLM 不得看到未授权候选。
 - **FR-033**: 系统必须在 LLM 决策输入中提供分层能力清单（workflow/skill/tooling 分区，且标注 `source=system|agent`），避免仅以单段文本拼接导致语义漂移。
 - **FR-034**: 系统必须支持组合规划（workflow 节点调用 skill/tooling；skill 内部可封装 workflow/tool/script/mcp）并在计划节点中保留可追溯的 `node_kind/node_ref/source_scope` 元信息。
+- **FR-035**: 系统必须为 Agent 主入口建立统一 Context 分层拼装机制（固定前缀、能力清单、会话摘要、最近消息、检索片段、当前输入），并保证层级顺序稳定可复现。
+- **FR-036**: 系统必须在每次 LLM 请求前执行上下文预算管理（token budget），在超预算时按策略裁剪检索片段与历史窗口，并保留最小上下文保护集。
+- **FR-037**: 系统必须将会话摘要从“占位文本拼接”升级为结构化摘要（至少包含 `facts/decisions/open_issues/constraints`），并支持按阈值与周期刷新。
+- **FR-038**: 系统必须支持 Provider 无关的 Prompt/Context Cache 策略（`auto|force_off|force_on`），并通过能力探测决定是否启用缓存优化。
+- **FR-039**: 系统必须记录并暴露上下文优化观测字段（至少 `prompt_tokens/completion_tokens/cached_tokens/trim_actions/context_layers_size`），用于排障与成本分析。
+- **FR-040**: 系统必须保证 Context 优化不改变主路由原则：`/command` 以规则为快捷入口，其他自然语言请求仍由 LLM 意图识别与规划主导。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -160,6 +166,9 @@
 - **SC-005**: 关键管理动作与调用事件 100% 具备可追溯记录，可按追踪标识在 3 分钟内完成定位。
 - **SC-006**: 多租户环境下跨租户读取执行记录的成功率为 0%。
 - **SC-007**: 在高基数候选场景下（单 Agent 10k 量级 Skill），单次匹配流程不得依赖全量线性扫描作为主路径。
+- **SC-008**: 上线 Context 优化后，在稳定流量样本中，Agent 主入口 `prompt_tokens` P50 相对基线下降至少 30%。
+- **SC-009**: 在支持缓存能力的模型上，固定前缀缓存命中率达到 60% 以上（以平台观测字段为准）。
+- **SC-010**: 在 30 轮以上会话中，超上下文窗口错误发生率降至 1% 以下，且请求失败可通过 `trim_actions` 与 token 指标定位。
 
 ## Assumptions
 
@@ -171,3 +180,4 @@
 - 首版对 Skill 的使用同时覆盖 Agent 主入口编排与 tenant 执行入口；两者共享相同治理与追踪语义。
 - 首版来源策略遵循“请求上下文 > Agent 级 > 租户级 > 默认值”的优先级。
 - 统一意图识别与编排以 LLM 决策为主，规则仅用于硬过滤与约束，不参与替代式主路由。
+- Context 优化机制以“降成本与降延迟”为目标，不得改变既有授权边界、租户隔离和审计语义。

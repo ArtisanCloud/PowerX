@@ -55,6 +55,98 @@ func TestExecuteNonWorkflowTask_SkillInvoker(t *testing.T) {
 	require.Equal(t, "skill", out.Data["protocol_used"])
 }
 
+func TestExecuteNonWorkflowTask_SkillInvoker_ContentFromText(t *testing.T) {
+	m := NewAgentManager()
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		return &SkillInvokeOutput{
+			TraceID:      "trace-skill-content-text",
+			Status:       "completed",
+			ProtocolUsed: "skill",
+			FallbackUsed: false,
+			SkillID:      in.SkillID,
+			Version:      "1.0.0",
+			Result:       map[string]any{"text": "INC-1001"},
+		}, nil
+	})
+
+	task := flowschema.PlanTask{
+		TaskID:   "task-skill-content-text",
+		NodeKind: "skill",
+		NodeRef:  "skill.thirdparty.hello-echo",
+	}
+	out, err := m.executeNonWorkflowTask(context.Background(), task, flowschema.Context{}, aschema.ExecutionMeta{
+		TenantUUID: "tenant-skill",
+		TraceID:    "trace-skill-content-text",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Equal(t, "INC-1001", out.Data["content"])
+}
+
+func TestExecuteNonWorkflowTask_SkillInvoker_ContentFromRenderedText(t *testing.T) {
+	m := NewAgentManager()
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		return &SkillInvokeOutput{
+			TraceID:      "trace-skill-content-rendered",
+			Status:       "completed",
+			ProtocolUsed: "skill",
+			FallbackUsed: false,
+			SkillID:      in.SkillID,
+			Version:      "1.0.0",
+			Result:       map[string]any{"rendered_text": "事故 INC-1001 影响 华东支付，修复建议 先回滚 v2.3.7。"},
+		}, nil
+	})
+
+	task := flowschema.PlanTask{
+		TaskID:   "task-skill-content-rendered",
+		NodeKind: "skill",
+		NodeRef:  "skill.thirdparty.prompt-template",
+	}
+	out, err := m.executeNonWorkflowTask(context.Background(), task, flowschema.Context{}, aschema.ExecutionMeta{
+		TenantUUID: "tenant-skill",
+		TraceID:    "trace-skill-content-rendered",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Equal(t, "事故 INC-1001 影响 华东支付，修复建议 先回滚 v2.3.7。", out.Data["content"])
+}
+
+func TestExecuteNonWorkflowTask_SkillInvoker_ContextFromTaskParams(t *testing.T) {
+	m := NewAgentManager()
+	var got SkillInvokeInput
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		got = in
+		return &SkillInvokeOutput{
+			TraceID:      "trace-skill-ctx-1",
+			Status:       "completed",
+			ProtocolUsed: "skill",
+			FallbackUsed: false,
+			SkillID:      in.SkillID,
+			Version:      "1.0.0",
+			Result:       map[string]any{"ok": true},
+		}, nil
+	})
+
+	task := flowschema.PlanTask{
+		TaskID:   "task-skill-ctx-1",
+		NodeKind: "skill",
+		NodeRef:  "incident-triage",
+		Params: map[string]any{
+			"context": "影响华东区支付接口，最近刚发布 v2.3.7，错误码 502 激增",
+		},
+	}
+	out, err := m.executeNonWorkflowTask(context.Background(), task, flowschema.Context{}, aschema.ExecutionMeta{
+		TenantUUID: "tenant-skill",
+		TraceID:    "trace-skill-ctx-1",
+		Metadata: map[string]any{
+			"env": "dev",
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Equal(t, "影响华东区支付接口，最近刚发布 v2.3.7，错误码 502 激增", got.Context["context"])
+}
+
 func TestExecuteNonWorkflowTask_ToolingInvoker(t *testing.T) {
 	m := NewAgentManager()
 	var got ToolingInvokeInput

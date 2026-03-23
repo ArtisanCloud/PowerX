@@ -37,7 +37,7 @@ paths:
               $ref: '#/components/schemas/LLMStreamRequest'
       responses:
         '200':
-          description: text/event-stream sequence of start/delta/usage(done when include_usage=true)/done
+          description: text/event-stream sequence of start/delta/(optional usage)/done，done 必带聚合 usage
           content:
             text/event-stream:
               schema:
@@ -357,6 +357,53 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    UsageHop:
+      type: object
+      properties:
+        phase: { type: string, enum: [planner, chat, tool, skill, provider] }
+        provider: { type: string }
+        model: { type: string }
+        prompt_tokens: { type: integer, nullable: true }
+        completion_tokens: { type: integer, nullable: true }
+        total_tokens: { type: integer, nullable: true }
+        latency_ms: { type: integer, nullable: true }
+        estimated: { type: boolean, nullable: true }
+    CostEstimate:
+      type: object
+      properties:
+        currency: { type: string, example: USD }
+        input_cost: { type: number, format: double, nullable: true }
+        output_cost: { type: number, format: double, nullable: true }
+        total_cost: { type: number, format: double, nullable: true }
+    UsageSummary:
+      type: object
+      properties:
+        total_prompt_tokens: { type: integer, nullable: true }
+        total_completion_tokens: { type: integer, nullable: true }
+        total_tokens: { type: integer, nullable: true }
+        cached_tokens: { type: integer, nullable: true }
+        cache_mode: { type: string, enum: [auto, force_off, force_on], nullable: true }
+        estimated: { type: boolean, nullable: true }
+        cost_estimate:
+          $ref: '#/components/schemas/CostEstimate'
+        hops:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/UsageHop'
+    UsageOptions:
+      type: object
+      properties:
+        enabled: { type: boolean, default: true }
+        include_hops: { type: boolean, default: false }
+        include_cost_estimate: { type: boolean, default: false }
+        include_provider_raw_usage: { type: boolean, default: false }
+    StreamOptions:
+      type: object
+      properties:
+        include_usage: { type: boolean, default: true }
+        usage_emit_mode: { type: string, enum: [final, incremental], default: final }
+
     ContentItem:
       type: object
       description: |
@@ -392,6 +439,8 @@ components:
           type: object
           additionalProperties: true
           description: Supports temperature/max_tokens/thinking/reasoning(when provider supports).
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     LLMStreamRequest:
       type: object
       required: [model_key, inputs]
@@ -404,10 +453,10 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
         stream_options:
-          type: object
-          properties:
-            include_usage: { type: boolean, default: false }
+          $ref: '#/components/schemas/StreamOptions'
     LLMInvokeResponse:
       type: object
       properties:
@@ -417,8 +466,7 @@ components:
             type: { type: string, example: text }
             text: { type: string }
         usage:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/UsageSummary'
     AgentInvokeRequest:
       type: object
       required: [agent_id, message]
@@ -585,6 +633,21 @@ components:
         retry_trace: { type: string, nullable: true }
         fallback_used: { type: boolean }
         authorization_check_pass: { type: boolean }
+        prompt_tokens: { type: integer, nullable: true }
+        completion_tokens: { type: integer, nullable: true }
+        cached_tokens: { type: integer, nullable: true }
+        cache_mode: { type: string, enum: [auto, force_off, force_on], nullable: true }
+        cache_hit: { type: boolean, nullable: true }
+        context_layers_size:
+          type: object
+          additionalProperties: true
+          nullable: true
+        trim_actions:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
         created_at: { type: string, format: date-time }
     SkillTracePage:
       type: object

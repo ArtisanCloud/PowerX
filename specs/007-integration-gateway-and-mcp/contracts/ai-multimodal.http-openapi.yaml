@@ -35,15 +35,88 @@ components:
       example:
         code: model_not_allowed
         message: model not allowed for tenant
-    Usage:
+    UsageHop:
       type: object
       properties:
+        phase:
+          type: string
+          enum: [planner, chat, tool, skill, provider]
+        provider:
+          type: string
+        model:
+          type: string
         prompt_tokens:
           type: integer
         completion_tokens:
           type: integer
         total_tokens:
           type: integer
+        latency_ms:
+          type: integer
+        estimated:
+          type: boolean
+    CostEstimate:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: USD
+        input_cost:
+          type: number
+          format: double
+        output_cost:
+          type: number
+          format: double
+        total_cost:
+          type: number
+          format: double
+    Usage:
+      type: object
+      properties:
+        total_prompt_tokens:
+          type: integer
+        total_completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        cached_tokens:
+          type: integer
+        cache_mode:
+          type: string
+          enum: [auto, force_on, force_off]
+        estimated:
+          type: boolean
+        cost_estimate:
+          $ref: '#/components/schemas/CostEstimate'
+        hops:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageHop'
+    UsageOptions:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+        include_hops:
+          type: boolean
+          default: false
+        include_cost_estimate:
+          type: boolean
+          default: false
+        include_provider_raw_usage:
+          type: boolean
+          default: false
+    StreamOptions:
+      type: object
+      properties:
+        include_usage:
+          type: boolean
+          default: true
+        usage_emit_mode:
+          type: string
+          enum: [final, incremental]
+          default: final
     ContentItem:
       type: object
       required: [type]
@@ -68,6 +141,8 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     LLMInvokeResponse:
       type: object
       properties:
@@ -89,11 +164,10 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
         stream_options:
-          type: object
-          properties:
-            include_usage:
-              type: boolean
+          $ref: '#/components/schemas/StreamOptions'
     CreateSessionRequest:
       type: object
       required: [model_key]
@@ -142,6 +216,8 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     ImageInvokeResponse:
       type: object
       properties:
@@ -163,6 +239,8 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     VideoInvokeResponse:
       type: object
       properties:
@@ -182,6 +260,8 @@ components:
         params:
           type: object
           additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     TTSInvokeResponse:
       type: object
       properties:
@@ -200,6 +280,8 @@ components:
           type: array
           items:
             type: string
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
     EmbeddingInvokeResponse:
       type: object
       properties:
@@ -238,7 +320,7 @@ paths:
                     data: {"delta":"partial...","index":0,"traceId":"..."}
 
                     event: done
-                    data: {"ok":true,"text":"full output","finish_reason":"stop","traceId":"..."}
+                    data: {"ok":true,"text":"full output","finish_reason":"stop","traceId":"...","usage":{"total_prompt_tokens":153,"total_completion_tokens":19,"total_tokens":172}}
         '400':
           description: Bad request
           content:

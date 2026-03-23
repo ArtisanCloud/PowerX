@@ -33,6 +33,7 @@ import (
 type AgentSettingHandler struct {
 	svc            *agentSvc.AgentSettingService
 	skillPolicySvc *skillservice.SourcePolicyAdminService
+	ctxOptSvc      *agentSvc.ContextOptimizerConfigService
 	audit          auditsvc.Service
 }
 
@@ -48,6 +49,7 @@ func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 	return &AgentSettingHandler{
 		svc:            agentSvc.NewAgentSettingService(deps.DB),
 		skillPolicySvc: skillservice.NewSourcePolicyAdminService(deps.DB),
+		ctxOptSvc:      agentSvc.NewContextOptimizerConfigService(deps.DB),
 		audit:          deps.AuditSvc,
 	}
 }

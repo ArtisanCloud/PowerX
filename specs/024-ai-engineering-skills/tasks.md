@@ -192,6 +192,20 @@
 
 ---
 
+## Phase 12: Context 优化机制（Token 成本与延迟治理）
+
+- [X] T083 [Shared] 设计并实现 Context 分层拼装器（L0-L5：固定前缀/能力目录摘要/结构化摘要/最近窗口/检索片段/当前输入）：`backend/internal/server/agent/runtime/*`, `backend/internal/service/agent/*`
+- [X] T084 [Shared] 实现请求前 token 预算器与裁剪策略（retrieval trim -> recent window trim -> summary refresh）：`backend/internal/server/agent/runtime/*`, `backend/internal/service/agent/*`
+- [X] T085 [P] [Shared] 将会话摘要升级为结构化 schema（facts/decisions/open_issues/constraints）并兼容旧文本摘要：`backend/internal/service/agent/chat_history_service.go`, `backend/internal/server/agent/persistence/model/session_gorm.go`
+- [X] T086 [P] [Shared] 新增 context optimizer 配置（enabled/max_prompt_tokens/reserved_completion_tokens/recent_messages/retrieval_top_k/cache_mode/summary_refresh_interval_sec）：`etc/config.yaml`, `backend/internal/server/agent/config/*`, `backend/internal/server/agent/bootstrap/*`
+- [X] T087 [Shared] 实现 Provider 无关缓存策略探测与透传（OpenAI/Anthropic/Gemini/自托管能力探测）：`backend/internal/service/ai/*`, `backend/internal/server/agent/runtime/*`
+- [X] T088 [P] [US4] 观测增强：记录并落盘 `prompt_tokens/completion_tokens/cached_tokens/context_layers_size/trim_actions`：`backend/internal/transport/http/admin/agent/chat_handler.go`, `backend/internal/service/skills/audit_trace_service.go`, `backend/logs/agent_debug/*`
+- [X] T089 [P] [US3] 集成测试：30+轮会话下预算裁剪可用且无上下文爆窗：`backend/tests/integration/skills/skill_agent_context_budget_integration_test.go`
+- [X] T090 [P] [US3] 集成测试：缓存支持模型的前缀命中率与响应时延回归：`backend/tests/integration/skills/skill_agent_prompt_cache_integration_test.go`
+- [X] T091 [Shared] 文档与操作手册回写：新增 Context 优化章节与验证步骤：`specs/024-ai-engineering-skills/context-optimization.md`, `specs/024-ai-engineering-skills/quickstart.md`, `docs/guides/agent/skills/*`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

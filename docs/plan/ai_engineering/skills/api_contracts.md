@@ -53,6 +53,110 @@
 1. `inputs[].role` 推荐使用 `system | user | assistant`。
 2. 当前服务端 LLM 会把 `role=system` 聚合为 `system prompt`，其余聚合为 `user prompt`。
 
+### 0.3 多模态接口 Usage 计量增强（开发文档草案，vNext）
+
+适用接口（统一口径）：
+
+1. `POST /api/v1/ai/llm/invoke`
+2. `POST /api/v1/ai/llm/stream`
+3. `POST /api/v1/ai/image/invoke`
+4. `POST /api/v1/ai/video/invoke`
+5. `POST /api/v1/ai/tts/invoke`
+6. `POST /api/v1/ai/embedding/invoke`
+
+目标：
+
+1. 在 PowerX 底座统一返回 token 计量，避免各模块重复实现。
+2. 区分单次调用总量与分阶段（hop）明细，支持排障与成本分析。
+3. 流式接口在 `end` 事件输出聚合 usage，避免前端自行累加误差。
+
+请求新增参数（建议）：
+
+```json
+{
+  "usage_options": {
+    "enabled": true,
+    "include_hops": true,
+    "include_cost_estimate": true,
+    "include_provider_raw_usage": false
+  },
+  "stream_options": {
+    "include_usage": true,
+    "usage_emit_mode": "final"
+  }
+}
+```
+
+字段说明：
+
+1. `usage_options.enabled`：是否启用 usage 聚合返回，默认 `true`。
+2. `usage_options.include_hops`：是否返回每个阶段明细（如 `planner/chat/skill/tooling`）。
+3. `usage_options.include_cost_estimate`：是否返回预估成本（按模型费率表计算）。
+4. `usage_options.include_provider_raw_usage`：是否透传 provider 原始 usage 字段。
+5. `stream_options.usage_emit_mode`：
+`final`（默认，仅在 `done/end` 输出 usage）；
+`incremental`（允许输出中间 usage 事件）。
+
+非流式响应新增字段（建议）：
+
+```json
+{
+  "trace_id": "trc_xxx",
+  "output": {"type":"text","text":"..."},
+  "usage": {
+    "total_prompt_tokens": 153,
+    "total_completion_tokens": 19,
+    "total_tokens": 172,
+    "cached_tokens": 0,
+    "cache_mode": "auto",
+    "cost_estimate": {
+      "currency": "USD",
+      "input_cost": 0.000015,
+      "output_cost": 0.000038,
+      "total_cost": 0.000053
+    },
+    "hops": [
+      {
+        "phase": "planner",
+        "provider": "ollama",
+        "model": "qwen3:8b",
+        "prompt_tokens": 98,
+        "completion_tokens": 12,
+        "total_tokens": 110,
+        "latency_ms": 8200
+      },
+      {
+        "phase": "chat",
+        "provider": "ollama",
+        "model": "qwen3:8b",
+        "prompt_tokens": 55,
+        "completion_tokens": 7,
+        "total_tokens": 62,
+        "latency_ms": 2300
+      }
+    ]
+  }
+}
+```
+
+流式 SSE 事件建议补齐：
+
+1. `event: usage`（可选，`usage_emit_mode=incremental` 时输出）。
+2. `event: done` 或 `event: end` 必带聚合 usage。
+
+`done/end` 示例：
+
+```text
+event: end
+data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"total_completion_tokens":19,"total_tokens":172}}
+```
+
+统一约束（不做兼容）：
+
+1. 仅返回新结构：`usage.total_*`、`usage.hops`、`usage.cost_estimate`。
+2. 旧字段 `usage.prompt_tokens/completion_tokens` 不再作为契约保证字段。
+3. provider 不返回 usage 时，底座允许估算并标记 `usage.estimated=true`。
+
 ## 1. Admin API
 
 ### 1.1 注册 Skill

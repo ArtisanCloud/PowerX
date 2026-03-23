@@ -63,6 +63,31 @@
   - 查询必须受租户隔离约束
   - 关键字段不得为空（trace_id/tenant_uuid/skill_id/version/status）
 
+### Context Optimization Extensions
+- **新增字段**:
+  - `prompt_tokens`
+  - `completion_tokens`
+  - `cached_tokens`（provider 支持时）
+  - `context_layers_size`（L0-L5 token 分布）
+  - `trim_actions`（裁剪步骤与原因）
+  - `cache_mode`（`auto|force_off|force_on`）
+  - `cache_hit`（bool）
+- **规则**:
+  - 调用失败也必须尽量记录 token/trim 观测字段（可空但需保留字段语义）
+  - `trim_actions` 需可回放，便于定位“为何丢失上下文”
+
+## AgentChatSession Summary Schema（扩展）
+- **目标**: 从纯文本摘要升级为结构化摘要。
+- **建议结构**:
+  - `facts[]`
+  - `decisions[]`
+  - `open_issues[]`
+  - `constraints[]`
+  - `updated_at`
+- **兼容策略**:
+  - 旧文本摘要可继续读取
+  - 新写入优先结构化 JSON，必要时降级为文本镜像
+
 ## SkillLifecycleAudit
 - **标识**: `audit_id`
 - **核心字段**:

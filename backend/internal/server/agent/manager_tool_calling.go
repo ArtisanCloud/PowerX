@@ -203,7 +203,10 @@ func (m *Manager) UpsertUnifiedCandidate(c ToolCallCandidate) {
 // DetectTasksWithToolCalling 在 planner 决策层优先尝试 LLM tool-calling；若失败则回退到既有 DetectTasks。
 func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, reqCfg *dto.ChatConfig) ([]flowschema.DetectedTask, error) {
 	dlogRun := m.newToolCallingDebugRun(ctx, text, reqCfg)
-	defer dlogRun.flush()
+	defer func() {
+		dlogRun.flush()
+		m.cachePlannerUsage(dlogRun)
+	}()
 
 	fallback := func(reason string) ([]flowschema.DetectedTask, error) {
 		if strings.TrimSpace(reason) != "" {
@@ -258,6 +261,10 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		Temperature:  0,
 		MaxTokens:    minInt(maxInt(reqCfg.MaxTokens, 512), 1600),
 	}, prompt)
+	dlogRun.UsedLLM = true
+	dlogRun.PromptTokens = estimatePlannerTokens(prompt)
+	dlogRun.CompletionTokens = estimatePlannerTokens(content)
+	dlogRun.LatencyMS = int(time.Since(dlogRun.At).Milliseconds())
 	if err != nil {
 		dlogRun.Error = err.Error()
 		return fallback("llm invoke failed: " + err.Error())
@@ -410,6 +417,11 @@ type toolCallingDebugRun struct {
 	ResultSource   string
 	FallbackReason string
 	Error          string
+
+	UsedLLM          bool
+	PromptTokens     int
+	CompletionTokens int
+	LatencyMS        int
 }
 
 func (m *Manager) newToolCallingDebugRun(ctx context.Context, text string, reqCfg *dto.ChatConfig) *toolCallingDebugRun {
@@ -432,6 +444,49 @@ func (m *Manager) newToolCallingDebugRun(ctx context.Context, text string, reqCf
 		run.Endpoint = strings.TrimSpace(reqCfg.Endpoint)
 	}
 	return run
+}
+
+func estimatePlannerTokens(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	n := utf8.RuneCountInString(s)
+	if n <= 0 {
+		return 0
+	}
+	return n/4 + 1
+}
+
+func (m *Manager) cachePlannerUsage(run *toolCallingDebugRun) {
+	if run == nil || !run.UsedLLM {
+		return
+	}
+	traceID := strings.TrimSpace(run.TraceID)
+	if traceID == "" {
+		return
+	}
+	prompt := run.PromptTokens
+	completion := run.CompletionTokens
+	total := prompt + completion
+	usage := map[string]any{
+		"total_prompt_tokens":     prompt,
+		"total_completion_tokens": completion,
+		"total_tokens":            total,
+		"hops": []map[string]any{
+			{
+				"phase":             "planner",
+				"provider":          run.Provider,
+				"model":             run.Model,
+				"prompt_tokens":     prompt,
+				"completion_tokens": completion,
+				"total_tokens":      total,
+				"latency_ms":        run.LatencyMS,
+				"estimated":         true,
+			},
+		},
+	}
+	m.setPlannerUsage(traceID, usage)
 }
 
 func (r *toolCallingDebugRun) flush() {

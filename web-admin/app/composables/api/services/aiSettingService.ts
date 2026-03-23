@@ -169,6 +169,43 @@ export interface SkillsSourcePolicy {
   updated_at?: string;
 }
 
+export interface ContextOptimizerConfig {
+  enabled: boolean;
+  max_prompt_tokens: number;
+  reserved_completion_tokens: number;
+  recent_messages: number;
+  retrieval_top_k: number;
+  cache_mode: "auto" | "force_on" | "force_off" | string;
+  summary_refresh_interval_sec: number;
+  debug_trace_enabled: boolean;
+}
+
+export interface ContextOptimizerActiveResponse {
+  env: string;
+  scope: "tenant" | "system" | string;
+  active: {
+    source: "tenant" | "system" | "yaml_default" | string;
+    version: number;
+    scope: "tenant" | "system" | string;
+    config: ContextOptimizerConfig;
+    updated_at?: string;
+  };
+}
+
+export interface ContextOptimizerVersionItem {
+  id: number;
+  uuid: string;
+  env: string;
+  scope: string;
+  tenant_uuid?: string;
+  version: number;
+  status: "draft" | "published" | "archived" | string;
+  config: ContextOptimizerConfig;
+  change_reason?: string;
+  updated_at: string;
+  published_at?: string;
+}
+
 export class AISettingService {
   static async getSkillsSourcePolicy(): Promise<SkillsSourcePolicy> {
     const { get } = useApiClient();
@@ -197,6 +234,84 @@ export class AISettingService {
       effective_source: String(data.effective_source || "tenant"),
       updated_at: data.updated_at,
     };
+  }
+
+  static async getContextOptimizerActive(params: {
+    env: string;
+    scope?: "tenant" | "system";
+  }): Promise<ContextOptimizerActiveResponse> {
+    const { get } = useApiClient();
+    const search = new URLSearchParams();
+    search.append("env", params.env);
+    if (params.scope) search.append("scope", params.scope);
+    const response = await get<ApiResponse<ContextOptimizerActiveResponse>>(
+      `${ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_ACTIVE}?${search.toString()}`
+    );
+    return response.data;
+  }
+
+  static async listContextOptimizerVersions(params: {
+    env: string;
+    scope?: "tenant" | "system";
+    limit?: number;
+  }): Promise<{
+    env: string;
+    scope: string;
+    versions: ContextOptimizerVersionItem[];
+  }> {
+    const { get } = useApiClient();
+    const search = new URLSearchParams();
+    search.append("env", params.env);
+    if (params.scope) search.append("scope", params.scope);
+    if (params.limit) search.append("limit", String(params.limit));
+    const response = await get<ApiResponse<{
+      env: string;
+      scope: string;
+      versions: ContextOptimizerVersionItem[];
+    }>>(`${ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_VERSIONS}?${search.toString()}`);
+    return response.data || { env: params.env, scope: params.scope || "tenant", versions: [] };
+  }
+
+  static async saveContextOptimizerDraft(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    config: ContextOptimizerConfig;
+    change_reason?: string;
+  }): Promise<{ draft: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ draft: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_DRAFTS,
+      payload
+    );
+    return response.data;
+  }
+
+  static async publishContextOptimizer(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    version: number;
+    change_reason?: string;
+  }): Promise<{ published: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ published: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_PUBLISH,
+      payload
+    );
+    return response.data;
+  }
+
+  static async rollbackContextOptimizer(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    target_version: number;
+    change_reason?: string;
+  }): Promise<{ rolled_back: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ rolled_back: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_ROLLBACK,
+      payload
+    );
+    return response.data;
   }
 
   /**

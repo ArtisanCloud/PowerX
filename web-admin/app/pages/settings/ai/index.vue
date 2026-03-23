@@ -45,6 +45,14 @@
           {{ $t("settings.ai.actions.openConnectors") }}
         </UButton>
         <UButton
+          variant="soft"
+          icon="i-heroicons-adjustments-horizontal"
+          class="whitespace-nowrap"
+          :to="contextOptimizerLink"
+        >
+          {{ $t("settings.ai.actions.openContextOptimizer") }}
+        </UButton>
+        <UButton
           v-if="isRoot"
           variant="soft"
           icon="i-heroicons-table-cells"
@@ -175,38 +183,47 @@
           class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <div class="font-medium text-[var(--text-primary)]">Skills 来源策略</div>
+            <div class="font-medium text-[var(--text-primary)]">
+              {{ $t("settings.ai.skillsSourcePolicy.title") }}
+            </div>
             <UBadge
               :color="skillsPolicyEffectiveSource === 'tenant' ? 'primary' : 'neutral'"
               variant="soft"
             >
-              {{ skillsPolicyEffectiveSource === "tenant" ? "租户覆盖" : "默认策略" }}
+              {{
+                skillsPolicyEffectiveSource === "tenant"
+                  ? $t("settings.ai.skillsSourcePolicy.effectiveSource.tenant")
+                  : $t("settings.ai.skillsSourcePolicy.effectiveSource.default")
+              }}
             </UBadge>
           </div>
           <p class="text-xs text-[var(--text-secondary)]">
-            控制统一入口 <code>preferred_protocol=skill</code> 的候选来源范围。
+            {{ $t("settings.ai.skillsSourcePolicy.description") }}
           </p>
 
           <div class="space-y-2">
             <UCheckbox
               :model-value="hasSource('builtin')"
-              label="系统固有（builtin）"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.builtin')"
               @update:model-value="toggleSource('builtin', $event)"
             />
             <UCheckbox
               :model-value="hasSource('plugin')"
-              label="插件来源（plugin）"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.plugin')"
               @update:model-value="toggleSource('plugin', $event)"
             />
             <UCheckbox
               :model-value="hasSource('third_party')"
-              label="第三方（third_party）"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.thirdParty')"
               @update:model-value="toggleSource('third_party', $event)"
             />
           </div>
 
           <div class="text-xs text-[var(--text-secondary)]">
-            最近更新：{{ skillsPolicyUpdatedAtText || "未配置" }}
+            {{ $t("settings.ai.skillsSourcePolicy.updatedAt") }}：{{
+              skillsPolicyUpdatedAtText ||
+              $t("settings.ai.skillsSourcePolicy.notConfigured")
+            }}
           </div>
 
           <UButton
@@ -216,7 +233,7 @@
             :disabled="skillsPolicyLoading"
             @click="saveSkillsSourcePolicy"
           >
-            保存来源策略
+            {{ $t("settings.ai.skillsSourcePolicy.actions.save") }}
           </UButton>
         </div>
       </div>
@@ -252,9 +269,13 @@ type Modality =
 // 使用 AI 设置 store
 const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
+const { t } = useI18n({ useScope: "global" });
 const localePath = useLocalePath();
 const costGuardLink = computed(() => localePath("/settings/ai/cost"));
 const connectorsLink = computed(() => localePath("/settings/ai/connectors"));
+const contextOptimizerLink = computed(() =>
+  localePath("/settings/ai/context-optimizer")
+);
 const registryLink = computed(() =>
   localePath("/settings/ai/capability-registry")
 );
@@ -1208,7 +1229,7 @@ const loadSkillsSourcePolicy = async () => {
     }
   } catch (error) {
     toast.add({
-      title: "加载 Skills 来源策略失败",
+      title: t("settings.ai.skillsSourcePolicy.toasts.loadFailed"),
       description: getErrorMessage(error),
       color: "error",
     });
@@ -1221,8 +1242,8 @@ const saveSkillsSourcePolicy = async () => {
   const allowlist = normalizeSkillsAllowlist(skillsSourceAllowlist.value);
   if (allowlist.length === 0) {
     toast.add({
-      title: "保存失败",
-      description: "请至少保留一个来源（builtin / plugin / third_party）",
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveFailed"),
+      description: t("settings.ai.skillsSourcePolicy.toasts.saveValidationFailed"),
       color: "error",
     });
     return;
@@ -1234,13 +1255,13 @@ const saveSkillsSourcePolicy = async () => {
     skillsPolicyEffectiveSource.value = view.effective_source || "tenant";
     skillsPolicyUpdatedAt.value = view.updated_at || "";
     toast.add({
-      title: "保存成功",
-      description: "Skills 来源策略已更新",
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveSuccess"),
+      description: t("settings.ai.skillsSourcePolicy.toasts.saveSuccessDesc"),
       color: "success",
     });
   } catch (error) {
     toast.add({
-      title: "保存失败",
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveFailed"),
       description: getErrorMessage(error),
       color: "error",
     });

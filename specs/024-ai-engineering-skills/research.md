@@ -34,3 +34,11 @@
 - **Alternatives considered**:
   - 定时同步官方仓库：链路复杂且需要额外故障治理。
   - 人工导入并打标签：长期维护成本高。
+
+## Decision 6: Context 优化采用“分层 + 预算 + 结构化摘要 + Provider 无关缓存”
+- **Decision**: Agent 主入口引入统一 Context 优化机制：分层上下文拼装（L0-L5）、请求前 token 预算裁剪、结构化滚动摘要、Prompt/Context Cache 能力探测与统一观测字段。
+- **Rationale**: 在不改变“LLM 意图识别主路径”的前提下，降低每轮 token 成本和时延，并提升多轮会话稳定性与可排障性。
+- **Alternatives considered**:
+  - 仅靠缩短 system prompt：收益有限，无法控制历史与检索膨胀。
+  - 本地规则短路替代 LLM：会破坏主路由一致性并引入误判风险。
+  - 仅针对单一 Provider 做缓存：迁移成本高，无法兼容多模型策略。

@@ -50,6 +50,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 		return fmt.Errorf("SetDefaultAgent failed: %w", err)
 	}
 	gAgentManager.SetDebugTraceConfig(resolveAgentDebugTraceConfig(cfg, logCfg))
+	gAgentManager.SetContextOptimizerConfig(resolveContextOptimizerConfig(cfg))
 
 	// 2) ✨ 先注册内置 handlers（core.debug.* / core.response.format）
 	if err := RegisterBuiltinHandlers(); err != nil {
@@ -577,6 +578,44 @@ func resolveAgentDebugTraceConfig(agentCfg *config.AgentConfig, logCfg *logcfg.L
 			out.Dir = strings.TrimSpace(ad.Dir)
 			out.MaxBodyBytes = ad.MaxBodyBytes
 		}
+	}
+	return out
+}
+
+func resolveContextOptimizerConfig(agentCfg *config.AgentConfig) agent.ContextOptimizerConfig {
+	out := agent.ContextOptimizerConfig{
+		Enabled:                   true,
+		MaxPromptTokens:           12000,
+		ReservedCompletionTokens:  1200,
+		RecentMessages:            8,
+		RetrievalTopK:             6,
+		CacheMode:                 "auto",
+		SummaryRefreshIntervalSec: 900,
+	}
+	if agentCfg == nil {
+		return out
+	}
+	c := agentCfg.ContextOptimizer
+	out.Enabled = c.Enabled
+	if c.MaxPromptTokens > 0 {
+		out.MaxPromptTokens = c.MaxPromptTokens
+	}
+	if c.ReservedCompletionTokens > 0 {
+		out.ReservedCompletionTokens = c.ReservedCompletionTokens
+	}
+	if c.RecentMessages > 0 {
+		out.RecentMessages = c.RecentMessages
+	}
+	if c.RetrievalTopK > 0 {
+		out.RetrievalTopK = c.RetrievalTopK
+	}
+	if c.SummaryRefreshIntervalSec > 0 {
+		out.SummaryRefreshIntervalSec = c.SummaryRefreshIntervalSec
+	}
+	mode := strings.ToLower(strings.TrimSpace(c.CacheMode))
+	switch mode {
+	case "auto", "force_off", "force_on":
+		out.CacheMode = mode
 	}
 	return out
 }

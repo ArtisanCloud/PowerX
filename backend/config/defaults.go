@@ -310,6 +310,15 @@ func GetDefaults() *Config {
 				BusinessDir: "./internal/server/agent/blueprints",
 			},
 			TemplateDir: "./services/agent/templates",
+			ContextOptimizer: agentCfg.ContextOptimizerConfig{
+				Enabled:                   true,
+				MaxPromptTokens:           12000,
+				ReservedCompletionTokens:  1200,
+				RecentMessages:            8,
+				RetrievalTopK:             6,
+				CacheMode:                 "auto",
+				SummaryRefreshIntervalSec: 900,
+			},
 		},
 		Database: dbCfg.DatabaseConfig{
 			Host:                   "localhost",

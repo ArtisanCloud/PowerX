@@ -75,6 +75,9 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if flowID == "" {
 		flowID = fallbackFlowID
 	}
+	if len(tasks) == 0 && strings.TrimSpace(fallbackFlowID) != "" && flowID == fallbackFlowID {
+		reqCfg = applyBaseFlowDirectGuardrail(reqCfg)
+	}
 
 	execID := fmt.Sprintf("exec_%d", time.Now().UnixNano())
 	_ = sink.Emit(dto.EventStart, map[string]any{"flow_id": flowID, "execution_id": execID})
@@ -159,7 +162,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 
 			_ = sink.Emit(dto.EventData, map[string]any{
 				"success":   ch.Success,
-				"data":      ch.Data,
+				"data":      sanitizeExecutionData(ch.Data),
 				"step_id":   ch.StepID,
 				"timestamp": ch.Timestamp,
 				"metadata":  ch.Metadata,
@@ -168,7 +171,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			if isFinal, _ := ch.Metadata["is_final"].(bool); isFinal {
 				_ = sink.Emit(dto.EventFinal, map[string]any{
 					"success":   ch.Success,
-					"data":      ch.Data,
+					"data":      sanitizeExecutionData(ch.Data),
 					"metadata":  ch.Metadata,
 					"timestamp": ch.Timestamp,
 				})
@@ -231,6 +234,9 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 	if dispatchMeta.TraceID == "" {
 		dispatchMeta.TraceID = fmt.Sprintf("trace_%d", time.Now().UnixNano())
 	}
+	if len(tasks) == 0 {
+		reqCfg = applyBaseFlowDirectGuardrail(reqCfg)
+	}
 
 	if !ok || plan == nil || len(plan.Tasks) == 0 {
 		out, _, dispatchErr := e.mgr.Dispatch(ctx, msg, flowschema.Context{
@@ -265,6 +271,32 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		return nil, plan, execErr
 	}
 	return out, plan, nil
+}
+
+func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
+	if in == nil {
+		return nil
+	}
+	out := make(flowschema.Result, len(in))
+	for k, v := range in {
+		switch vv := v.(type) {
+		case string:
+			if strings.EqualFold(k, "content") {
+				out[k] = SanitizeAssistantVisibleText(vv)
+				continue
+			}
+			out[k] = vv
+		case map[string]any:
+			if strings.EqualFold(k, "result") {
+				out[k] = sanitizeExecutionData(vv)
+				continue
+			}
+			out[k] = vv
+		default:
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink) (*agentschema.ExecutionResult, error) {
@@ -463,11 +495,11 @@ func ExtractAssistantText(chunk *agentschema.ExecutionResult) string {
 	}
 	if res, ok := chunk.Data["result"].(map[string]any); ok {
 		if s, ok := res["content"].(string); ok {
-			return s
+			return SanitizeAssistantVisibleText(s)
 		}
 	}
 	if s, ok := chunk.Data["content"].(string); ok {
-		return s
+		return SanitizeAssistantVisibleText(s)
 	}
 	return ""
 }

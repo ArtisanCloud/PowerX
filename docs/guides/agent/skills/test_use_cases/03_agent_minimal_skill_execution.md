@@ -1,37 +1,57 @@
-# L3 - Agent 最小 Skill 执行链路
+# L3 - Agent 最小 Skill 执行链路（统一版）
 
 ## 目标
 
-验证单个已发布 skill 能被 Agent 正常识别并执行，事件链完整：`intent -> plan -> node_start/node_end -> final -> end`。
+统一验证 3 类能力：
+1. `hello-echo`：最小连通性冒烟。
+2. `prompt-template`：多轮参数变化与缺参行为（主测）。
+3. `incident-triage`：可选扩展，不作为主验收。
+
+统一通过标准：事件链完整 `intent -> plan -> node_start/node_end -> final -> end`，且执行节点为 `skill`。
 
 ## 前置条件
 
-1. 你当前页面在左侧菜单 `技能库`。
-2. Registry 中已存在并发布任一 skill（推荐直接用 seed 自带的 `skill.thirdparty.prompt-template`）。
-3. 有可用租户 token（用于 API 留证）。
+1. 页面位置：左侧菜单 `技能库`。
+2. 以下 skill 状态均为 `published`：
+`skill.thirdparty.hello-echo`、`skill.thirdparty.prompt-template`（可选 `incident-triage`）。
+3. 使用同一租户上下文进行测试。
 
-## 技能与问题模板映射（先选一套）
+## UI 统一操作流程
 
-1. 若测试 `skill.thirdparty.hello-echo`（回显类）：
-- 建议问题：`请调用 hello-echo，把文本 "INC-1001" 原样返回。`
-2. 若测试 `incident-triage`（事故分析类）：
-- 建议问题：`请调用 incident-triage 分析 INC-1001，并给出修复建议。`
+1. 在 `技能库` 分别搜索 `hello-echo` 与 `prompt-template`，确认 `published`。
+2. 打开 Agent 调试/聊天页，选择测试 Agent（建议固定一个 Agent，避免干扰）。
+3. 按下面“测试脚本”逐条发送问题。
+4. 每条都检查事件流顺序：`intent -> plan -> node_start/node_end -> final -> end`。
+5. 在节点详情确认：
+`node.kind=skill`，且有 `skill_id/version`。
 
-## UI 详细操作步骤（主流程）
+## 测试脚本（可直接复制）
 
-1. 在 `左侧菜单 -> 技能库` 页面，把搜索词设为 `skill.thirdparty.prompt-template`，点“查询”。
-2. 确认列表里该 skill 的状态是 `published`；如果不是，先在该行执行发布。
-3. 打开 Agent 调试页面（左侧进入 Agent 对话/调试入口，使用同一租户上下文）。
-4. 选择一个可测试 Agent（建议 `agent_id=1001`）。
-5. 按上面的“技能与问题模板映射”发送匹配问题（不要混用）。
-6. 在事件流中按顺序检查：`intent`、`plan`、`node_start/node_end`、`final`、`end`。
-7. 打开执行节点详情，确认 `node.kind=skill` 且包含 `skill_id/version`。
+### A. hello-echo（冒烟）
 
-## UI 通过标准
+1. 自然语言：`把 INC-1001 原样返回给我。`
+2. 调试回退：`请调用 hello-echo，把文本 "INC-1001" 原样返回。`
+3. 预期：最终内容包含 `INC-1001`，链路完整。
 
-1. 出现完整事件链：`intent -> plan -> node_start/node_end -> final -> end`。
-2. 执行节点是 `skill`，且能看到对应 `skill_id/version`。
-3. 最终回答成功返回，不是空结果或报错中断。
+### B. prompt-template（主测，多轮）
+
+1. 第 1 轮（基础渲染）：
+`请使用 prompt-template 输出：事故 {{id}} 影响 {{scope}}，修复建议 {{action}}。其中 id=INC-1001，scope=华东支付，action=先回滚 v2.3.7。`
+预期：输出文本包含 `INC-1001`、`华东支付`、`先回滚 v2.3.7`。
+
+2. 第 2 轮（变量变更）：
+`同样模板，把 scope 改成 华南支付，把 action 改成 先限流再灰度回滚。`
+预期：输出发生对应变化，不应与第 1 轮相同。
+
+3. 第 3 轮（缺参场景）：
+`同样模板，这次只给 id=INC-1002。`
+预期：出现可解释结果（缺失变量提示或占位输出），且链路不断。
+
+### C. incident-triage（可选扩展）
+
+1. 自然语言：`我们线上接口 INC-1001 宕机 30 分钟，请先排查并给简短修复建议。`
+2. 调试回退：`请调用 incident-triage 分析 INC-1001，并给出修复建议。`
+3. 说明：该技能为示例执行器，验链路即可，不作为质量验收基准。
 
 ## API 留证（可复制）
 
@@ -43,7 +63,7 @@ SSE_FILE="$TMP_DIR/l3_agent_stream.sse"
 curl -sS -N -G "$API_BASE/agents/stream/sse" \
   -H "Authorization: Bearer $TENANT_TOKEN" \
   --data-urlencode "agent_id=${AGENT_ID}" \
-  --data-urlencode "q=请调用 incident-triage 分析 INC-1001，并给出修复建议" \
+  --data-urlencode "q=请使用 prompt-template 输出：事故 {{id}} 影响 {{scope}}，修复建议 {{action}}。其中 id=INC-1001，scope=华东支付，action=先回滚 v2.3.7。" \
   | tee "$SSE_FILE"
 
 grep -q '^event: intent' "$SSE_FILE"
@@ -56,9 +76,10 @@ grep -q '^event: end' "$SSE_FILE"
 echo "L3 PASS"
 ```
 
-## 失败排查
+## 失败排查（统一口径）
 
-1. Skills 页查不到 `skill.thirdparty.prompt-template`：先执行 `make db-seed`，再刷新页面重查。
-2. 有 `intent/plan` 但无 `node_start/node_end`：检查该 agent 的授权与 skill 绑定。
-3. SSE 直接报鉴权错误：检查租户 token 是否过期、是否与当前租户一致。
-4. 命中 skill 不稳定：确认提问文本是否和技能用途匹配（回显类别用回显问题，incident 类别用事故问题）。
+1. 查不到技能：执行 `make db-seed` 后刷新页面重试。
+2. 有 `intent/plan` 但无 `node_start/node_end`：检查 skill 绑定、授权与发布状态。
+3. 命中不稳定：先自然语言，再用带 skill 名的调试回退句定位路由问题。
+4. 返回内容不变：优先看 `planner` 日志里 `tasks[].params` 是否带上你本轮新变量。
+5. 鉴权错误：检查租户 token 是否过期、租户上下文是否一致。

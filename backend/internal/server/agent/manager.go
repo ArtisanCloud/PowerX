@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/run_log"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 
+	"strings"
 	"sync"
 	"time"
 )
@@ -77,6 +78,16 @@ type DebugTraceConfig struct {
 	MaxBodyBytes int
 }
 
+type ContextOptimizerConfig struct {
+	Enabled                   bool
+	MaxPromptTokens           int
+	ReservedCompletionTokens  int
+	RecentMessages            int
+	RetrievalTopK             int
+	CacheMode                 string
+	SummaryRefreshIntervalSec int
+}
+
 // —— Manager（非意图部分：Agent/路由/状态） —— //
 type Manager struct {
 	mu            sync.RWMutex
@@ -107,6 +118,10 @@ type Manager struct {
 	runLog run_log.RunLogger
 	// 调试追踪：单请求落单文件，便于还原输入/输出。
 	debugTraceCfg DebugTraceConfig
+	// 上下文优化运行参数。
+	contextOptimizerCfg ContextOptimizerConfig
+	// planner 阶段 usage 快照（按 trace_id 暂存，供 stream 聚合）。
+	plannerUsageByTrace map[string]map[string]any
 }
 
 // —— 单例 —— //
@@ -123,6 +138,7 @@ func NewAgentManager() *Manager {
 		routesByFlow:      make(map[string]routeRecord),
 		flowsByAgent:      make(map[string]map[string]struct{}),
 		unifiedCandidates: make(map[string]ToolCallCandidate),
+		plannerUsageByTrace: make(map[string]map[string]any),
 	}
 }
 func GetAgentManager() *Manager {
@@ -154,6 +170,40 @@ func (m *Manager) GetDebugTraceConfig() DebugTraceConfig {
 	return m.debugTraceConfig()
 }
 
+func (m *Manager) SetContextOptimizerConfig(cfg ContextOptimizerConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cfg.MaxPromptTokens <= 0 {
+		cfg.MaxPromptTokens = 12000
+	}
+	if cfg.ReservedCompletionTokens <= 0 {
+		cfg.ReservedCompletionTokens = 1200
+	}
+	if cfg.RecentMessages <= 0 {
+		cfg.RecentMessages = 8
+	}
+	if cfg.RetrievalTopK <= 0 {
+		cfg.RetrievalTopK = 6
+	}
+	mode := strings.ToLower(strings.TrimSpace(cfg.CacheMode))
+	switch mode {
+	case "auto", "force_off", "force_on":
+		cfg.CacheMode = mode
+	default:
+		cfg.CacheMode = "auto"
+	}
+	if cfg.SummaryRefreshIntervalSec <= 0 {
+		cfg.SummaryRefreshIntervalSec = 900
+	}
+	m.contextOptimizerCfg = cfg
+}
+
+func (m *Manager) GetContextOptimizerConfig() ContextOptimizerConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.contextOptimizerCfg
+}
+
 func (m *Manager) log() run_log.RunLogger {
 	if m.runLog == nil {
 		return &noopRunLogger{}
@@ -171,6 +221,34 @@ func (m *Manager) SetToolingInvoker(inv ToolingInvoker) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.toolingInvoker = inv
+}
+
+func (m *Manager) setPlannerUsage(traceID string, usage map[string]any) {
+	traceID = strings.TrimSpace(traceID)
+	if traceID == "" || len(usage) == 0 {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.plannerUsageByTrace == nil {
+		m.plannerUsageByTrace = make(map[string]map[string]any)
+	}
+	m.plannerUsageByTrace[traceID] = usage
+}
+
+func (m *Manager) PopPlannerUsage(traceID string) map[string]any {
+	traceID = strings.TrimSpace(traceID)
+	if traceID == "" {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.plannerUsageByTrace == nil {
+		return nil
+	}
+	v := m.plannerUsageByTrace[traceID]
+	delete(m.plannerUsageByTrace, traceID)
+	return v
 }
 
 // —— Agent 注册 / 默认路由 —— //

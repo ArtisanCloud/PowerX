@@ -1,1 +1,9 @@
-{}
+agent:
+  context_optimizer:
+    enabled: true
+    max_prompt_tokens: 12000
+    reserved_completion_tokens: 1200
+    recent_messages: 8
+    retrieval_top_k: 6
+    cache_mode: auto
+    summary_refresh_interval_sec: 900

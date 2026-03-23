@@ -192,6 +192,16 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							Origin:   plugin_mgr.OriginSystem,
 							ParentID: plugin_mgr.KeyAISettings,
 						},
+						{
+							Key:      plugin_mgr.KeyAISettingsContextOptimizer,
+							Title:    "menu.aiSettingsContextOptimizer",
+							Icon:     "i-heroicons-adjustments-horizontal",
+							URL:      "/settings/ai/context-optimizer",
+							Order:    3,
+							Visible:  true,
+							Origin:   plugin_mgr.OriginSystem,
+							ParentID: plugin_mgr.KeyAISettings,
+						},
 					},
 				},
 				{

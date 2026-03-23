@@ -447,7 +447,7 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		Entrypoint:   asString(params["entrypoint"]),
 		TraceID:      firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
 		Payload:      payloadFromTaskParams(t, params),
-		Context:      contextFromTaskParams(params),
+		Context:      contextFromTaskParams(t, params),
 		ToolGrantIDs: toStringSlice(params["tool_grant_ids"]),
 	}
 	out, err := inv(ctx, in)
@@ -471,6 +471,10 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		"version":       out.Version,
 		"result":        out.Result,
 	}
+	if content := pickSkillVisibleContent(out.Result); content != "" {
+		// 统一可展示输出，供 runtime.buildFinalContent 直接透传给用户。
+		data["content"] = content
+	}
 	return &aschema.ExecutionResult{
 		Success: true,
 		Data:    data,
@@ -485,6 +489,20 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 			"planner_mode":  "unified",
 		},
 	}, nil
+}
+
+func pickSkillVisibleContent(result map[string]any) string {
+	if len(result) == 0 {
+		return ""
+	}
+	for _, key := range []string{"content", "rendered_text", "text", "output", "answer", "message"} {
+		if v, ok := result[key]; ok {
+			if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 func fallbackSkillIDAlias(skillID string) (string, bool) {
@@ -516,7 +534,7 @@ func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask,
 		PreferredProtocol: firstNonEmpty(asString(params["preferred_protocol"]), "tooling"),
 		TraceID:           firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
 		Payload:           payloadFromTaskParams(t, params),
-		Context:           contextFromTaskParams(params),
+		Context:           contextFromTaskParams(t, params),
 	}
 	out, err := inv(ctx, in)
 	if err != nil {
@@ -568,16 +586,41 @@ func payloadFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map
 	return out
 }
 
-func contextFromTaskParams(params flowschema.Context) map[string]any {
-	if p, ok := params["context"].(map[string]any); ok && len(p) > 0 {
-		return p
-	}
+func contextFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map[string]any {
 	out := map[string]any{}
+
+	// 1) runtime context wins: explicit params.context (map or string)
+	if p, ok := params["context"].(map[string]any); ok && len(p) > 0 {
+		for k, v := range p {
+			out[k] = v
+		}
+	} else if s := asString(params["context"]); s != "" {
+		out["context"] = s
+	}
+
+	// 2) task planned context as fallback: task.params.context (map or string)
+	if len(out) == 0 {
+		if p, ok := t.Params["context"].(map[string]any); ok && len(p) > 0 {
+			for k, v := range p {
+				out[k] = v
+			}
+		} else if s := asString(t.Params["context"]); s != "" {
+			out["context"] = s
+		}
+	}
+
+	// 3) keep dependency snapshots and natural language message as auxiliary context
 	if deps, ok := params["_deps"]; ok {
 		out["_deps"] = deps
 	}
 	if msg := asString(params["message"]); msg != "" {
 		out["message"] = msg
+	}
+	if query := asString(params["query"]); query != "" {
+		out["query"] = query
+	}
+	if prompt := asString(params["prompt"]); prompt != "" {
+		out["prompt"] = prompt
 	}
 	return out
 }
