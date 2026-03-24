@@ -90,20 +90,20 @@
 
 ### Tests for User Story 2 (TDD First)
 
-- [ ] T038 [P] [US2] 集成测试：插件切换与回滚流程 `backend/tests/integration/ops/plugin_lifecycle_flow_test.go`
-- [ ] T039 [P] [US2] 契约测试：插件审计查询接口 `backend/tests/contract/ops/http_plugin_audit_contract_test.go`
-- [ ] T082 [P] [US2] 契约测试：插件生命周期 gRPC 接口 `backend/tests/contract/ops/grpc_plugin_lifecycle_contract_test.go`
+- [X] T038 [P] [US2] 集成测试：插件切换与回滚流程 `backend/tests/integration/ops/plugin_lifecycle_flow_test.go`
+- [X] T039 [P] [US2] 契约测试：插件审计查询接口 `backend/tests/contract/ops/http_plugin_audit_contract_test.go`
+- [X] T082 [P] [US2] 契约测试：插件生命周期 gRPC 接口 `backend/tests/contract/ops/grpc_plugin_lifecycle_contract_test.go`
 
 ### Implementation for User Story 2
 
-- [ ] T040 [US2] 实现插件生命周期审计服务：`backend/internal/service/deploy_ops/plugin_lifecycle_service.go`
-- [ ] T041 [US2] 实现插件生命周期 HTTP Handler：`backend/internal/transport/http/admin/deploy/plugin_lifecycle_handler.go`
-- [ ] T042 [US2] 前端 API Service：`web-admin/app/composables/api/services/pluginOpsService.ts`
-- [ ] T043 [US2] 插件生命周期中心页面：`web-admin/app/pages/ops/plugins.vue`
-- [ ] T044 [US2] 插件审计时间线组件：`web-admin/app/components/ops/plugins/PluginAuditTimeline.vue`
-- [ ] T045 [US2] E2E：插件切换+回滚+审计可见 `web-admin/tests/e2e/ops/plugin-lifecycle.spec.ts`
-- [ ] T083 [US2] 实现插件生命周期 gRPC Handler：`backend/internal/transport/grpc/ops/plugin_lifecycle_handler.go`
-- [ ] T084 [US2] 在全局 gRPC server 挂载插件生命周期服务：`backend/internal/server/grpc/server.go`
+- [X] T040 [US2] 实现插件生命周期审计服务：`backend/internal/service/deploy_ops/plugin_lifecycle_service.go`
+- [X] T041 [US2] 实现插件生命周期 HTTP Handler：`backend/internal/transport/http/admin/deploy/plugin_lifecycle_handler.go`
+- [X] T042 [US2] 前端 API Service：`web-admin/app/composables/api/services/pluginOpsService.ts`
+- [X] T043 [US2] 插件生命周期中心页面：`web-admin/app/pages/ops/plugins.vue`
+- [X] T044 [US2] 插件审计时间线组件：`web-admin/app/components/ops/plugins/PluginAuditTimeline.vue`
+- [X] T045 [US2] E2E：插件切换+回滚+审计可见 `web-admin/tests/e2e/ops/plugin-lifecycle.spec.ts`
+- [X] T083 [US2] 实现插件生命周期 gRPC Handler：`backend/internal/transport/grpc/ops/plugin_lifecycle_handler.go`
+- [X] T084 [US2] 在全局 gRPC server 挂载插件生命周期服务：`backend/internal/server/grpc/server.go`
 
 **Checkpoint**: US2 与 US1 可并行使用且互不阻塞
 

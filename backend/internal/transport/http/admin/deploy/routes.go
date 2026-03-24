@@ -20,4 +20,6 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	g.POST("/releases", RequireOpsPermission(deps, iamsvc.OpsResourceDeploy, iamsvc.OpsActionExecute), h.TriggerRelease)
 	g.POST("/rollback", RequireOpsPermission(deps, iamsvc.OpsResourceDeploy, iamsvc.OpsActionRollback), h.TriggerRollback)
 	g.GET("/health", RequireOpsPermission(deps, iamsvc.OpsResourceDeploy, iamsvc.OpsActionRead), h.GetHealth)
+
+	registerPluginLifecycleRoutes(protected, deps)
 }

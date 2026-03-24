@@ -69,3 +69,10 @@ export type {
   TriggerReleasePayload,
   TriggerRollbackPayload,
 } from "./deployOpsService";
+
+export { usePluginOpsService } from "./pluginOpsService";
+export type {
+  PluginLifecycleAuditRecord,
+  PluginLifecycleListResult,
+  TriggerPluginLifecycleActionPayload,
+} from "./pluginOpsService";

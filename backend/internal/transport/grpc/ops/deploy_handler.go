@@ -18,14 +18,18 @@ import (
 
 type DeployHandler struct {
 	platformopsv1.UnimplementedOpsAdminServiceServer
-	svc *deployops.Service
+	svc       *deployops.Service
+	pluginSvc *deployops.PluginLifecycleService
 }
 
 func NewDeployHandler(deps *shared.Deps) *DeployHandler {
 	if deps == nil || deps.DB == nil {
 		return nil
 	}
-	return &DeployHandler{svc: deployops.NewService(deps.DB)}
+	return &DeployHandler{
+		svc:       deployops.NewService(deps.DB),
+		pluginSvc: deployops.NewPluginLifecycleService(deps.DB),
+	}
 }
 
 func (h *DeployHandler) ListDeployReleases(ctx context.Context, req *platformopsv1.ListDeployReleasesRequest) (*platformopsv1.ListDeployReleasesResponse, error) {
