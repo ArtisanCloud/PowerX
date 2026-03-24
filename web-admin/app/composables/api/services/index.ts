@@ -76,3 +76,10 @@ export type {
   PluginLifecycleListResult,
   TriggerPluginLifecycleActionPayload,
 } from "./pluginOpsService";
+
+export { useBackupOpsService } from "./backupOpsService";
+export type {
+  BackupPolicy,
+  BackupJob,
+  RestoreDrillRecord,
+} from "./backupOpsService";

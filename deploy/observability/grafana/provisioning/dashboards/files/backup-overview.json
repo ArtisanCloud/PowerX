@@ -1,0 +1,17 @@
+{
+  "title": "PowerX Backup Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Backup Job Success/Failed",
+      "targets": [
+        {
+          "expr": "sum by(status) (count_over_time({job=\"powerx\", app=\"backend\"} |= \"backup\" [5m]))",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

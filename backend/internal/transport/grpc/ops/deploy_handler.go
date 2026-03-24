@@ -9,6 +9,7 @@ import (
 
 	platformopsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/platform_ops/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	deployops "github.com/ArtisanCloud/PowerX/internal/service/deploy_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -18,8 +19,11 @@ import (
 
 type DeployHandler struct {
 	platformopsv1.UnimplementedOpsAdminServiceServer
-	svc       *deployops.Service
-	pluginSvc *deployops.PluginLifecycleService
+	svc        *deployops.Service
+	pluginSvc  *deployops.PluginLifecycleService
+	policySvc  *backupops.PolicyService
+	backupSvc  *backupops.JobService
+	restoreSvc *backupops.RestoreDrillService
 }
 
 func NewDeployHandler(deps *shared.Deps) *DeployHandler {
@@ -27,8 +31,11 @@ func NewDeployHandler(deps *shared.Deps) *DeployHandler {
 		return nil
 	}
 	return &DeployHandler{
-		svc:       deployops.NewService(deps.DB),
-		pluginSvc: deployops.NewPluginLifecycleService(deps.DB),
+		svc:        deployops.NewService(deps.DB),
+		pluginSvc:  deployops.NewPluginLifecycleService(deps.DB),
+		policySvc:  backupops.NewPolicyService(deps.DB),
+		backupSvc:  backupops.NewJobService(deps.DB),
+		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
 	}
 }
 

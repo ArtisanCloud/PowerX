@@ -117,28 +117,28 @@
 
 ### Tests for User Story 3 (TDD First)
 
-- [ ] T046 [P] [US3] 契约测试（HTTP OpenAPI: backup 相关路径）`backend/tests/contract/ops/http_backup_contract_test.go`
-- [ ] T047 [P] [US3] 契约测试（gRPC: backup 相关 RPC）`backend/tests/contract/ops/grpc_backup_contract_test.go`
-- [ ] T048 [P] [US3] 集成测试：备份触发/清理/演练流程 `backend/tests/integration/ops/backup_restore_flow_test.go`
-- [ ] T049 [P] [US3] 集成测试：Loki 检索与 30 天保留策略状态校验 `backend/tests/integration/ops/logging_loki_retention_test.go`
+- [X] T046 [P] [US3] 契约测试（HTTP OpenAPI: backup 相关路径）`backend/tests/contract/ops/http_backup_contract_test.go`
+- [X] T047 [P] [US3] 契约测试（gRPC: backup 相关 RPC）`backend/tests/contract/ops/grpc_backup_contract_test.go`
+- [X] T048 [P] [US3] 集成测试：备份触发/清理/演练流程 `backend/tests/integration/ops/backup_restore_flow_test.go`
+- [X] T049 [P] [US3] 集成测试：Loki 检索与 30 天保留策略状态校验 `backend/tests/integration/ops/logging_loki_retention_test.go`
 
 ### Implementation for User Story 3
 
-- [ ] T050 [US3] 实现备份策略服务：`backend/internal/service/backup_ops/policy_service.go`
-- [ ] T051 [US3] 实现备份任务服务：`backend/internal/service/backup_ops/job_service.go`
-- [ ] T052 [US3] 实现恢复演练服务：`backend/internal/service/backup_ops/restore_drill_service.go`
-- [ ] T053 [US3] 实现备份 HTTP Handler 与路由：`backend/internal/transport/http/admin/backup/{handler.go,routes.go}`
-- [ ] T054 [US3] 实现备份 gRPC Handler：`backend/internal/transport/grpc/ops/backup_handler.go`
-- [ ] T055 [US3] 挂载备份脚本到 `backend/scripts/ops/{backup-db.sh,cleanup-backups.sh,restore-drill.sh}` 并在服务层接入
-- [ ] T056 [US3] 前端 API Service：`web-admin/app/composables/api/services/backupOpsService.ts`
-- [ ] T057 [US3] 备份恢复中心页面：`web-admin/app/pages/ops/backup.vue`
-- [ ] T058 [US3] 备份任务列表组件：`web-admin/app/components/ops/backup/BackupJobTable.vue`
-- [ ] T059 [US3] 演练结果组件：`web-admin/app/components/ops/backup/RestoreDrillPanel.vue`
-- [ ] T060 [US3] 落地 Loki 30 天保留配置：`deploy/observability/loki/loki-config.yaml`
-- [ ] T061 [US3] 落地 Promtail 采集与标签规范：`deploy/observability/promtail/promtail-config.yaml`
-- [ ] T062 [US3] 落地 Grafana 数据源/仪表盘/告警规则：`deploy/observability/grafana/provisioning/{datasources,dashboards,alerting}/*`
-- [ ] T063 [US3] 日志观测面板与保留策略可视化：`web-admin/app/components/ops/backup/LogObservabilityPanel.vue`
-- [ ] T064 [US3] E2E：备份中心+日志可观测主流程 `web-admin/tests/e2e/ops/backup-center.spec.ts`
+- [X] T050 [US3] 实现备份策略服务：`backend/internal/service/backup_ops/policy_service.go`
+- [X] T051 [US3] 实现备份任务服务：`backend/internal/service/backup_ops/job_service.go`
+- [X] T052 [US3] 实现恢复演练服务：`backend/internal/service/backup_ops/restore_drill_service.go`
+- [X] T053 [US3] 实现备份 HTTP Handler 与路由：`backend/internal/transport/http/admin/backup/{handler.go,routes.go}`
+- [X] T054 [US3] 实现备份 gRPC Handler：`backend/internal/transport/grpc/ops/backup_handler.go`
+- [X] T055 [US3] 挂载备份脚本到 `backend/scripts/ops/{backup-db.sh,cleanup-backups.sh,restore-drill.sh}` 并在服务层接入
+- [X] T056 [US3] 前端 API Service：`web-admin/app/composables/api/services/backupOpsService.ts`
+- [X] T057 [US3] 备份恢复中心页面：`web-admin/app/pages/ops/backup.vue`
+- [X] T058 [US3] 备份任务列表组件：`web-admin/app/components/ops/backup/BackupJobTable.vue`
+- [X] T059 [US3] 演练结果组件：`web-admin/app/components/ops/backup/RestoreDrillPanel.vue`
+- [X] T060 [US3] 落地 Loki 30 天保留配置：`deploy/observability/loki/loki-config.yaml`
+- [X] T061 [US3] 落地 Promtail 采集与标签规范：`deploy/observability/promtail/promtail-config.yaml`
+- [X] T062 [US3] 落地 Grafana 数据源/仪表盘/告警规则：`deploy/observability/grafana/provisioning/{datasources,dashboards,alerting}/*`
+- [X] T063 [US3] 日志观测面板与保留策略可视化：`web-admin/app/components/ops/backup/LogObservabilityPanel.vue`
+- [X] T064 [US3] E2E：备份中心+日志可观测主流程 `web-admin/tests/e2e/ops/backup-center.spec.ts`
 
 **Checkpoint**: US3 完成后，P0 三域闭环达成
 

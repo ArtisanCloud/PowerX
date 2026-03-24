@@ -1,0 +1,28 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: powerx-backup-alerts
+    folder: PowerX Ops
+    interval: 1m
+    rules:
+      - uid: powerx-backup-failed
+        title: Backup Failed Spike
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: loki
+            model:
+              expr: sum(count_over_time({job="powerx", app="backend"} |= "backup" |= "failed" [5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              expression: A > 0
+              type: math
+        for: 5m
+        noDataState: NoData
+        execErrState: Error
+        annotations:
+          summary: backup failed logs detected in last 5m
+        labels:
+          severity: warning

@@ -7,10 +7,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
+	backupHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
-	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	deployHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/deploy"
+	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
 	integrationGatewayHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/integration_gateway"
@@ -72,6 +73,7 @@ func RegisterAPIRoutes(
 	pluginDevHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	devHotloadHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	deployHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	backupHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginSandboxHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
