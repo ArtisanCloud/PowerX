@@ -162,3 +162,105 @@ agent:
 - 引入最小上下文保护集（最近 2 轮 + 强约束 + 当前输入）
 - 统计口径统一到平台侧归一化字段
 - 在 debug trace 落盘原始 provider 请求摘要与响应 token 元数据
+
+## 9. Planner Latency Optimization
+
+### 9.1 Problem Statement
+
+当前线上链路中，`skill/tooling` 执行耗时通常较低，但 Planner LLM 阶段存在显著延迟（常见 30s+）。主要原因是：
+
+- Planner 输入上下文过大（全量候选 + 冗长 schema）
+- 多数请求为“单技能直达”场景，但仍走重型候选文本
+- 同会话近邻轮次重复构造相似候选清单，缺乏复用
+
+### 9.2 Optimization Targets
+
+- Planner `prompt_tokens`：P50 下降 >= 50%
+- Planner `latency_ms`：P50 下降 >= 60%，P95 下降 >= 40%
+- 保持功能正确性：skill/tooling 识别准确率不低于基线
+
+### 9.3 Strategy A: Candidate Pre-Filter (Top-K)
+
+在进入 Planner LLM 前，先做本地轻量召回与重排，仅保留 Top-K 候选：
+
+1. 基于 query 与 `name/desc/tags/aliases` 做关键字与短语匹配
+2. 按 `workflow|skill|tooling` 分区做最小配额（避免某一区独占）
+3. 产出 `top_k_candidates`（默认 20~40）进入 Planner
+
+约束：
+
+- `/command` 仍按规则快捷路径，不进入该阶段
+- 非 `/command` 一律经过 LLM，但其输入候选应是“筛后集合”
+- 未入围候选不得进入 Planner prompt（禁止“筛后又全量拼接”）
+
+### 9.4 Strategy B: Planner Prompt Slimming
+
+对 Planner 输入做结构瘦身：
+
+- 候选仅保留：`name`、`kind`、`source_scope`、`one-line desc`、`required/optional param keys`
+- 移除重复解释文本与冗长 schema 展开
+- 保留严格 JSON 输出契约与参数白名单校验
+
+### 9.5 Strategy C: Decision Reuse Cache
+
+针对高重复短问场景引入短 TTL 决策缓存：
+
+- key：`tenant + agent + normalized_query + candidate_fingerprint + model`
+- value：`planner decision (tool_calls)` + `safety metadata`
+- TTL：建议 30~120 秒
+
+命中条件：
+
+- 候选指纹一致
+- 会话上下文变化不超过安全阈值（例如 recent window 未发生高风险变更）
+
+### 9.6 Strategy D: Planner Reasoning Guardrail
+
+限制 Planner 输出长度与推理噪音：
+
+- 强制 JSON-only 响应契约（失败仅一次轻量重试）
+- 对支持模型设置低思考/短输出模式
+- 解析失败时快速降级，不进入长链路重试风暴
+
+### 9.7 Config Additions (Context Optimizer Page)
+
+在 `settings/ai/context-optimizer` 增补 Planner 相关配置：
+
+```yaml
+agent:
+  planner_optimizer:
+    enabled: true
+    candidate_top_k: 32
+    per_kind_quota:
+      workflow: 8
+      skill: 16
+      tooling: 16
+    prompt_slim_mode: compact
+    decision_cache_ttl_sec: 60
+    decision_cache_enabled: true
+```
+
+### 9.8 Observability Additions
+
+新增观测字段（debug trace + 审计）：
+
+- `planner_candidates_before`
+- `planner_candidates_after`
+- `planner_prompt_tokens`
+- `planner_latency_ms`
+- `planner_cache_hit`
+- `planner_cache_ttl_sec`
+- `planner_retry_count`
+- `planner_parse_fail_reason`
+
+### 9.9 Rollout
+
+1. Phase P1（观测-only）：只打点候选缩减率，不改变 Planner 输入  
+2. Phase P2（灰度启用）：按租户启用 Top-K + prompt slim  
+3. Phase P3（默认启用）：开启决策缓存并持续监控准确率回归  
+
+### 9.10 Acceptance
+
+- 典型请求（hello-echo / prompt-template）Planner 延迟显著下降
+- trace 可见 `before/after` 候选量与 cache 命中信息
+- 无功能回退：最终输出仍为 skill 实际内容透传（非“任务完成占位文案”）

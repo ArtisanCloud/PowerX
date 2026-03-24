@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -502,7 +503,7 @@ func (s *plannerTraceSink) recordNodeTrace(m map[string]any, status string) {
 	s.mu.Unlock()
 
 	_ = s.audit.RecordExecutionTrace(context.Background(), skillservice.ExecutionTraceInput{
-		TraceID:      s.traceID,
+		TraceID:      scopedPlannerTraceID(s.traceID, nodeID),
 		TenantUUID:   s.tenantUUID,
 		SkillID:      nodeRef,
 		Version:      "",
@@ -517,6 +518,27 @@ func (s *plannerTraceSink) recordNodeTrace(m map[string]any, status string) {
 		LatencyMS:    0,
 		AuthPass:     true,
 	})
+}
+
+func scopedPlannerTraceID(baseTraceID, nodeID string) string {
+	base := strings.TrimSpace(baseTraceID)
+	node := strings.TrimSpace(nodeID)
+	if base == "" {
+		return uuid.NewString()
+	}
+	if node == "" {
+		return base
+	}
+	candidate := base + ":" + node
+	if len(candidate) <= 120 {
+		return candidate
+	}
+	sum := sha1.Sum([]byte(candidate))
+	baseShort := base
+	if len(baseShort) > 64 {
+		baseShort = baseShort[:64]
+	}
+	return fmt.Sprintf("%s:%x", baseShort, sum[:8])
 }
 
 func readStringAny(v interface{}) string {
@@ -827,6 +849,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 
 	optCfg := agent.GetAgentManager().GetContextOptimizerConfig()
+	plannerCfg := agent.GetAgentManager().GetPlannerOptimizerConfig()
 	debugTraceCfg := agent.GetAgentManager().GetDebugTraceConfig()
 	if h.ctxOptSvc != nil {
 		debugEnabled := false
@@ -842,6 +865,19 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 				RetrievalTopK:             activeOpt.Config.RetrievalTopK,
 				CacheMode:                 activeOpt.Config.CacheMode,
 				SummaryRefreshIntervalSec: activeOpt.Config.SummaryRefreshIntervalSec,
+			}
+			plannerCfg = agent.PlannerOptimizerConfig{
+				Enabled:       activeOpt.Config.PlannerEnabled,
+				CandidateTopK: activeOpt.Config.PlannerCandidateTopK,
+				PerKindQuota: agent.PlannerKindQuota{
+					Workflow: activeOpt.Config.PlannerQuotaWorkflow,
+					Skill:    activeOpt.Config.PlannerQuotaSkill,
+					Tooling:  activeOpt.Config.PlannerQuotaTooling,
+					LLM:      activeOpt.Config.PlannerQuotaLLM,
+				},
+				PromptSlimMode:       activeOpt.Config.PlannerPromptSlimMode,
+				DecisionCacheEnabled: activeOpt.Config.PlannerDecisionCacheEnabled,
+				DecisionCacheTTLSec:  activeOpt.Config.PlannerDecisionCacheTTLSec,
 			}
 			debugTraceCfg.Enabled = activeOpt.Config.DebugTraceEnabled
 		}
@@ -959,8 +995,31 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 			})
 		}
 	}
+	_ = debugSink.Emit(dto.EventMeta, map[string]any{
+		"planner_optimizer": map[string]any{
+			"enabled":                plannerCfg.Enabled,
+			"candidate_top_k":        plannerCfg.CandidateTopK,
+			"prompt_slim_mode":       plannerCfg.PromptSlimMode,
+			"decision_cache_enabled": plannerCfg.DecisionCacheEnabled,
+			"decision_cache_ttl_sec": plannerCfg.DecisionCacheTTLSec,
+			"quota_workflow":         plannerCfg.PerKindQuota.Workflow,
+			"quota_skill":            plannerCfg.PerKindQuota.Skill,
+			"quota_tooling":          plannerCfg.PerKindQuota.Tooling,
+			"quota_llm":              plannerCfg.PerKindQuota.LLM,
+		},
+	})
 
-	err = runtime.NewEngine().Run(c.Request.Context(), q, cfg, "", debugSink) // explicitFlow 传空，交给意图/plan 选择
+	runCtx := context.WithValue(c.Request.Context(), "planner_optimizer_enabled", plannerCfg.Enabled)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_candidate_top_k", plannerCfg.CandidateTopK)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_prompt_slim_mode", plannerCfg.PromptSlimMode)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_decision_cache_enabled", plannerCfg.DecisionCacheEnabled)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_decision_cache_ttl_sec", plannerCfg.DecisionCacheTTLSec)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_quota_workflow", plannerCfg.PerKindQuota.Workflow)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_quota_skill", plannerCfg.PerKindQuota.Skill)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_quota_tooling", plannerCfg.PerKindQuota.Tooling)
+	runCtx = context.WithValue(runCtx, "planner_optimizer_quota_llm", plannerCfg.PerKindQuota.LLM)
+
+	err = runtime.NewEngine().Run(runCtx, q, cfg, "", debugSink) // explicitFlow 传空，交给意图/plan 选择
 	if plannerUsage := agent.GetAgentManager().PopPlannerUsage(traceID); len(plannerUsage) > 0 {
 		if hops, ok := plannerUsage["hops"].([]map[string]any); ok {
 			for _, hop := range hops {

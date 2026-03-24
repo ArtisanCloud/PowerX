@@ -88,6 +88,22 @@ type ContextOptimizerConfig struct {
 	SummaryRefreshIntervalSec int
 }
 
+type PlannerKindQuota struct {
+	Workflow int
+	Skill    int
+	Tooling  int
+	LLM      int
+}
+
+type PlannerOptimizerConfig struct {
+	Enabled              bool
+	CandidateTopK        int
+	PerKindQuota         PlannerKindQuota
+	PromptSlimMode       string // compact|verbose
+	DecisionCacheEnabled bool
+	DecisionCacheTTLSec  int
+}
+
 // —— Manager（非意图部分：Agent/路由/状态） —— //
 type Manager struct {
 	mu            sync.RWMutex
@@ -120,6 +136,8 @@ type Manager struct {
 	debugTraceCfg DebugTraceConfig
 	// 上下文优化运行参数。
 	contextOptimizerCfg ContextOptimizerConfig
+	// Planner 提速参数（候选预筛 + prompt 瘦身 + 决策缓存）。
+	plannerOptimizerCfg PlannerOptimizerConfig
 	// planner 阶段 usage 快照（按 trace_id 暂存，供 stream 聚合）。
 	plannerUsageByTrace map[string]map[string]any
 }
@@ -132,13 +150,26 @@ var (
 
 func NewAgentManager() *Manager {
 	return &Manager{
-		agentClients:      make(map[string]contract.AgentClient),
-		meta:              make(map[string]*aschema.AgentMeta),
-		runtime:           make(map[string]*aschema.Runtime),
-		routesByFlow:      make(map[string]routeRecord),
-		flowsByAgent:      make(map[string]map[string]struct{}),
-		unifiedCandidates: make(map[string]ToolCallCandidate),
+		agentClients:        make(map[string]contract.AgentClient),
+		meta:                make(map[string]*aschema.AgentMeta),
+		runtime:             make(map[string]*aschema.Runtime),
+		routesByFlow:        make(map[string]routeRecord),
+		flowsByAgent:        make(map[string]map[string]struct{}),
+		unifiedCandidates:   make(map[string]ToolCallCandidate),
 		plannerUsageByTrace: make(map[string]map[string]any),
+		plannerOptimizerCfg: PlannerOptimizerConfig{
+			Enabled:       true,
+			CandidateTopK: 24,
+			PerKindQuota: PlannerKindQuota{
+				Workflow: 4,
+				Skill:    10,
+				Tooling:  8,
+				LLM:      2,
+			},
+			PromptSlimMode:       "compact",
+			DecisionCacheEnabled: true,
+			DecisionCacheTTLSec:  60,
+		},
 	}
 }
 func GetAgentManager() *Manager {
@@ -202,6 +233,42 @@ func (m *Manager) GetContextOptimizerConfig() ContextOptimizerConfig {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.contextOptimizerCfg
+}
+
+func (m *Manager) SetPlannerOptimizerConfig(cfg PlannerOptimizerConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cfg.CandidateTopK <= 0 {
+		cfg.CandidateTopK = 24
+	}
+	if cfg.PerKindQuota.Workflow <= 0 {
+		cfg.PerKindQuota.Workflow = 4
+	}
+	if cfg.PerKindQuota.Skill <= 0 {
+		cfg.PerKindQuota.Skill = 10
+	}
+	if cfg.PerKindQuota.Tooling <= 0 {
+		cfg.PerKindQuota.Tooling = 8
+	}
+	if cfg.PerKindQuota.LLM <= 0 {
+		cfg.PerKindQuota.LLM = 2
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.PromptSlimMode)) {
+	case "compact", "verbose":
+		cfg.PromptSlimMode = strings.ToLower(strings.TrimSpace(cfg.PromptSlimMode))
+	default:
+		cfg.PromptSlimMode = "compact"
+	}
+	if cfg.DecisionCacheTTLSec <= 0 {
+		cfg.DecisionCacheTTLSec = 60
+	}
+	m.plannerOptimizerCfg = cfg
+}
+
+func (m *Manager) GetPlannerOptimizerConfig() PlannerOptimizerConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.plannerOptimizerCfg
 }
 
 func (m *Manager) log() run_log.RunLogger {

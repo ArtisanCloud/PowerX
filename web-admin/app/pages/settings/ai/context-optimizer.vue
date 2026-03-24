@@ -85,6 +85,45 @@
             :ui="{ content: 'min-w-[140px]' }"
           />
         </UFormField>
+
+        <div class="col-span-1 md:col-span-2 mt-2 border-t border-[var(--border-color)] pt-3">
+          <div class="text-sm font-medium text-[var(--text-primary)]">
+            {{ t("settings.ai.contextOptimizer.sections.plannerOptimizer") }}
+          </div>
+        </div>
+
+        <UCheckbox v-model="form.planner_enabled" :label="t('settings.ai.contextOptimizer.fields.plannerEnabled')" />
+        <UCheckbox v-model="form.planner_decision_cache_enabled" :label="t('settings.ai.contextOptimizer.fields.plannerDecisionCacheEnabled')" />
+
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerCandidateTopK')">
+          <UInput v-model.number="form.planner_candidate_top_k" type="number" />
+        </UFormField>
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerDecisionCacheTtlSec')">
+          <UInput v-model.number="form.planner_decision_cache_ttl_sec" type="number" />
+        </UFormField>
+
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerPromptSlimMode')">
+          <USelect
+            v-model="form.planner_prompt_slim_mode"
+            :items="plannerPromptSlimOptions"
+            class="w-40"
+            :ui="{ content: 'min-w-[140px]' }"
+          />
+        </UFormField>
+        <div />
+
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerQuotaWorkflow')">
+          <UInput v-model.number="form.planner_quota_workflow" type="number" />
+        </UFormField>
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerQuotaSkill')">
+          <UInput v-model.number="form.planner_quota_skill" type="number" />
+        </UFormField>
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerQuotaTooling')">
+          <UInput v-model.number="form.planner_quota_tooling" type="number" />
+        </UFormField>
+        <UFormField :label="t('settings.ai.contextOptimizer.fields.plannerQuotaLlm')">
+          <UInput v-model.number="form.planner_quota_llm" type="number" />
+        </UFormField>
       </div>
 
       <template #footer>
@@ -181,6 +220,10 @@ const cacheModeOptions = [
   { label: t("settings.ai.contextOptimizer.cacheModes.forceOn"), value: "force_on" },
   { label: t("settings.ai.contextOptimizer.cacheModes.forceOff"), value: "force_off" },
 ];
+const plannerPromptSlimOptions = [
+  { label: t("settings.ai.contextOptimizer.plannerPromptSlimModes.compact"), value: "compact" },
+  { label: t("settings.ai.contextOptimizer.plannerPromptSlimModes.verbose"), value: "verbose" },
+];
 const scopeOptions = computed(() => {
   const base = [{ label: t("settings.ai.contextOptimizer.scopeTenant"), value: "tenant" }];
   if (isRoot.value) {
@@ -210,6 +253,15 @@ const form = reactive<ContextOptimizerConfig>({
   cache_mode: "auto",
   summary_refresh_interval_sec: 300,
   debug_trace_enabled: false,
+  planner_enabled: true,
+  planner_candidate_top_k: 32,
+  planner_prompt_slim_mode: "compact",
+  planner_decision_cache_enabled: true,
+  planner_decision_cache_ttl_sec: 60,
+  planner_quota_workflow: 8,
+  planner_quota_skill: 16,
+  planner_quota_tooling: 16,
+  planner_quota_llm: 8,
 });
 
 const activeSourceColor = computed(() => {
@@ -250,6 +302,15 @@ function applyForm(cfg?: ContextOptimizerConfig) {
   form.cache_mode = (cfg.cache_mode || "auto") as any;
   form.summary_refresh_interval_sec = Number(cfg.summary_refresh_interval_sec || 300);
   form.debug_trace_enabled = Boolean(cfg.debug_trace_enabled);
+  form.planner_enabled = Boolean(cfg.planner_enabled ?? true);
+  form.planner_candidate_top_k = Number(cfg.planner_candidate_top_k || 32);
+  form.planner_prompt_slim_mode = (cfg.planner_prompt_slim_mode || "compact") as any;
+  form.planner_decision_cache_enabled = Boolean(cfg.planner_decision_cache_enabled ?? true);
+  form.planner_decision_cache_ttl_sec = Number(cfg.planner_decision_cache_ttl_sec || 60);
+  form.planner_quota_workflow = Number(cfg.planner_quota_workflow || 8);
+  form.planner_quota_skill = Number(cfg.planner_quota_skill || 16);
+  form.planner_quota_tooling = Number(cfg.planner_quota_tooling || 16);
+  form.planner_quota_llm = Number(cfg.planner_quota_llm || 8);
 }
 
 async function loadActive() {

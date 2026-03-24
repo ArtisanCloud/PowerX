@@ -134,7 +134,7 @@ func (s *AuditTraceService) RecordExecutionTrace(ctx context.Context, in Executi
 	if s.metrics != nil {
 		s.metrics.IncTrace(record.Status, record.SkillID, record.Version, record.TenantUUID)
 	}
-	_, err := s.traceRepo.Create(ctx, record)
+	_, err := s.traceRepo.UpsertByTraceID(ctx, record)
 	return err
 }
 

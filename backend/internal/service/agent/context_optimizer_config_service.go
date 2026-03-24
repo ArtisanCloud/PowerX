@@ -27,14 +27,23 @@ var (
 )
 
 type ContextOptimizerConfigPayload struct {
-	Enabled                   bool   `json:"enabled"`
-	MaxPromptTokens           int    `json:"max_prompt_tokens"`
-	ReservedCompletionTokens  int    `json:"reserved_completion_tokens"`
-	RecentMessages            int    `json:"recent_messages"`
-	RetrievalTopK             int    `json:"retrieval_top_k"`
-	CacheMode                 string `json:"cache_mode"`
-	SummaryRefreshIntervalSec int    `json:"summary_refresh_interval_sec"`
-	DebugTraceEnabled         bool   `json:"debug_trace_enabled"`
+	Enabled                     bool   `json:"enabled"`
+	MaxPromptTokens             int    `json:"max_prompt_tokens"`
+	ReservedCompletionTokens    int    `json:"reserved_completion_tokens"`
+	RecentMessages              int    `json:"recent_messages"`
+	RetrievalTopK               int    `json:"retrieval_top_k"`
+	CacheMode                   string `json:"cache_mode"`
+	SummaryRefreshIntervalSec   int    `json:"summary_refresh_interval_sec"`
+	DebugTraceEnabled           bool   `json:"debug_trace_enabled"`
+	PlannerEnabled              bool   `json:"planner_enabled"`
+	PlannerCandidateTopK        int    `json:"planner_candidate_top_k"`
+	PlannerPromptSlimMode       string `json:"planner_prompt_slim_mode"`
+	PlannerDecisionCacheEnabled bool   `json:"planner_decision_cache_enabled"`
+	PlannerDecisionCacheTTLSec  int    `json:"planner_decision_cache_ttl_sec"`
+	PlannerQuotaWorkflow        int    `json:"planner_quota_workflow"`
+	PlannerQuotaSkill           int    `json:"planner_quota_skill"`
+	PlannerQuotaTooling         int    `json:"planner_quota_tooling"`
+	PlannerQuotaLLM             int    `json:"planner_quota_llm"`
 }
 
 type ContextOptimizerRuntimeView struct {
@@ -121,20 +130,86 @@ func validateContextOptimizerPayload(in ContextOptimizerConfigPayload) error {
 	if in.SummaryRefreshIntervalSec < 30 || in.SummaryRefreshIntervalSec > 86400 {
 		return fmt.Errorf("%w: summary_refresh_interval_sec out of range", ErrContextOptimizerInvalid)
 	}
+	if in.PlannerCandidateTopK != 0 && (in.PlannerCandidateTopK < 4 || in.PlannerCandidateTopK > 200) {
+		return fmt.Errorf("%w: planner_candidate_top_k out of range", ErrContextOptimizerInvalid)
+	}
+	if in.PlannerDecisionCacheTTLSec != 0 && (in.PlannerDecisionCacheTTLSec < 1 || in.PlannerDecisionCacheTTLSec > 3600) {
+		return fmt.Errorf("%w: planner_decision_cache_ttl_sec out of range", ErrContextOptimizerInvalid)
+	}
+	if mode := strings.ToLower(strings.TrimSpace(in.PlannerPromptSlimMode)); mode != "" && mode != "compact" && mode != "verbose" {
+		return fmt.Errorf("%w: planner_prompt_slim_mode invalid", ErrContextOptimizerInvalid)
+	}
 	return nil
 }
 
 func fromAgentDefaults(opt agentruntime.ContextOptimizerConfig, debugEnabled bool) ContextOptimizerConfigPayload {
+	planner := agentruntime.GetAgentManager().GetPlannerOptimizerConfig()
 	return ContextOptimizerConfigPayload{
-		Enabled:                   opt.Enabled,
-		MaxPromptTokens:           opt.MaxPromptTokens,
-		ReservedCompletionTokens:  opt.ReservedCompletionTokens,
-		RecentMessages:            opt.RecentMessages,
-		RetrievalTopK:             opt.RetrievalTopK,
-		CacheMode:                 normalizeCacheMode(opt.CacheMode),
-		SummaryRefreshIntervalSec: opt.SummaryRefreshIntervalSec,
-		DebugTraceEnabled:         debugEnabled,
+		Enabled:                     opt.Enabled,
+		MaxPromptTokens:             opt.MaxPromptTokens,
+		ReservedCompletionTokens:    opt.ReservedCompletionTokens,
+		RecentMessages:              opt.RecentMessages,
+		RetrievalTopK:               opt.RetrievalTopK,
+		CacheMode:                   normalizeCacheMode(opt.CacheMode),
+		SummaryRefreshIntervalSec:   opt.SummaryRefreshIntervalSec,
+		DebugTraceEnabled:           debugEnabled,
+		PlannerEnabled:              planner.Enabled,
+		PlannerCandidateTopK:        planner.CandidateTopK,
+		PlannerPromptSlimMode:       planner.PromptSlimMode,
+		PlannerDecisionCacheEnabled: planner.DecisionCacheEnabled,
+		PlannerDecisionCacheTTLSec:  planner.DecisionCacheTTLSec,
+		PlannerQuotaWorkflow:        planner.PerKindQuota.Workflow,
+		PlannerQuotaSkill:           planner.PerKindQuota.Skill,
+		PlannerQuotaTooling:         planner.PerKindQuota.Tooling,
+		PlannerQuotaLLM:             planner.PerKindQuota.LLM,
 	}
+}
+
+func mergeConfigWithDefaults(cfg ContextOptimizerConfigPayload, defaults ContextOptimizerConfigPayload) ContextOptimizerConfigPayload {
+	// 基础字段：零值时使用默认值，避免旧配置缺字段导致运行时退化。
+	if cfg.MaxPromptTokens == 0 {
+		cfg.MaxPromptTokens = defaults.MaxPromptTokens
+	}
+	if cfg.ReservedCompletionTokens == 0 {
+		cfg.ReservedCompletionTokens = defaults.ReservedCompletionTokens
+	}
+	if cfg.RecentMessages == 0 {
+		cfg.RecentMessages = defaults.RecentMessages
+	}
+	if cfg.SummaryRefreshIntervalSec == 0 {
+		cfg.SummaryRefreshIntervalSec = defaults.SummaryRefreshIntervalSec
+	}
+	if strings.TrimSpace(cfg.CacheMode) == "" {
+		cfg.CacheMode = defaults.CacheMode
+	}
+
+	// Planner 字段：若整组均缺失（历史配置），回填当前默认 planner 配置。
+	legacyPlannerMissing :=
+		cfg.PlannerCandidateTopK == 0 &&
+			strings.TrimSpace(cfg.PlannerPromptSlimMode) == "" &&
+			cfg.PlannerDecisionCacheTTLSec == 0 &&
+			cfg.PlannerQuotaWorkflow == 0 &&
+			cfg.PlannerQuotaSkill == 0 &&
+			cfg.PlannerQuotaTooling == 0 &&
+			cfg.PlannerQuotaLLM == 0
+	if legacyPlannerMissing {
+		cfg.PlannerEnabled = defaults.PlannerEnabled
+		cfg.PlannerCandidateTopK = defaults.PlannerCandidateTopK
+		cfg.PlannerPromptSlimMode = defaults.PlannerPromptSlimMode
+		cfg.PlannerDecisionCacheEnabled = defaults.PlannerDecisionCacheEnabled
+		cfg.PlannerDecisionCacheTTLSec = defaults.PlannerDecisionCacheTTLSec
+		cfg.PlannerQuotaWorkflow = defaults.PlannerQuotaWorkflow
+		cfg.PlannerQuotaSkill = defaults.PlannerQuotaSkill
+		cfg.PlannerQuotaTooling = defaults.PlannerQuotaTooling
+		cfg.PlannerQuotaLLM = defaults.PlannerQuotaLLM
+	}
+	cfg.CacheMode = normalizeCacheMode(cfg.CacheMode)
+	if mode := strings.ToLower(strings.TrimSpace(cfg.PlannerPromptSlimMode)); mode == "compact" || mode == "verbose" {
+		cfg.PlannerPromptSlimMode = mode
+	} else {
+		cfg.PlannerPromptSlimMode = defaults.PlannerPromptSlimMode
+	}
+	return cfg
 }
 
 func (s *ContextOptimizerConfigService) toView(rec *dbmodel.AgentRuntimeConfig) (*ContextOptimizerRuntimeView, error) {
@@ -181,8 +256,9 @@ func (s *ContextOptimizerConfigService) getPublished(ctx context.Context, env st
 }
 
 func (s *ContextOptimizerConfigService) GetActive(ctx context.Context, env string, tenantUUID *string, fallback agentruntime.ContextOptimizerConfig, debugEnabled bool) (*ContextOptimizerActiveView, error) {
+	defaultCfg := fromAgentDefaults(fallback, debugEnabled)
 	if s == nil || s.db == nil {
-		cfg := fromAgentDefaults(fallback, debugEnabled)
+		cfg := defaultCfg
 		return &ContextOptimizerActiveView{
 			Source:  "yaml_default",
 			Scope:   "system",
@@ -195,6 +271,7 @@ func (s *ContextOptimizerConfigService) GetActive(ctx context.Context, env strin
 		if raw, err := s.cache.Get(ctx, key); err == nil && len(raw) > 0 {
 			var hit ContextOptimizerActiveView
 			if json.Unmarshal(raw, &hit) == nil {
+				hit.Config = mergeConfigWithDefaults(hit.Config, defaultCfg)
 				return &hit, nil
 			}
 		}
@@ -234,7 +311,7 @@ func (s *ContextOptimizerConfigService) GetActive(ctx context.Context, env strin
 		}
 	}
 	if active == nil {
-		cfg := fromAgentDefaults(fallback, debugEnabled)
+		cfg := defaultCfg
 		active = &ContextOptimizerActiveView{
 			Source:  "yaml_default",
 			Scope:   "system",
@@ -242,6 +319,7 @@ func (s *ContextOptimizerConfigService) GetActive(ctx context.Context, env strin
 			Config:  cfg,
 		}
 	}
+	active.Config = mergeConfigWithDefaults(active.Config, defaultCfg)
 	if s.cache != nil {
 		if bs, err := json.Marshal(active); err == nil {
 			_ = s.cache.Set(ctx, key, bs, cacheTTLContextOptimizerActive)
@@ -368,14 +446,27 @@ func (s *ContextOptimizerConfigService) Rollback(ctx context.Context, env string
 }
 
 func utilsJSONMap(cfg ContextOptimizerConfigPayload) map[string]any {
+	plannerMode := strings.ToLower(strings.TrimSpace(cfg.PlannerPromptSlimMode))
+	if plannerMode != "verbose" {
+		plannerMode = "compact"
+	}
 	return map[string]any{
-		"enabled":                      cfg.Enabled,
-		"max_prompt_tokens":            cfg.MaxPromptTokens,
-		"reserved_completion_tokens":   cfg.ReservedCompletionTokens,
-		"recent_messages":              cfg.RecentMessages,
-		"retrieval_top_k":              cfg.RetrievalTopK,
-		"cache_mode":                   normalizeCacheMode(cfg.CacheMode),
-		"summary_refresh_interval_sec": cfg.SummaryRefreshIntervalSec,
-		"debug_trace_enabled":          cfg.DebugTraceEnabled,
+		"enabled":                        cfg.Enabled,
+		"max_prompt_tokens":              cfg.MaxPromptTokens,
+		"reserved_completion_tokens":     cfg.ReservedCompletionTokens,
+		"recent_messages":                cfg.RecentMessages,
+		"retrieval_top_k":                cfg.RetrievalTopK,
+		"cache_mode":                     normalizeCacheMode(cfg.CacheMode),
+		"summary_refresh_interval_sec":   cfg.SummaryRefreshIntervalSec,
+		"debug_trace_enabled":            cfg.DebugTraceEnabled,
+		"planner_enabled":                cfg.PlannerEnabled,
+		"planner_candidate_top_k":        cfg.PlannerCandidateTopK,
+		"planner_prompt_slim_mode":       plannerMode,
+		"planner_decision_cache_enabled": cfg.PlannerDecisionCacheEnabled,
+		"planner_decision_cache_ttl_sec": cfg.PlannerDecisionCacheTTLSec,
+		"planner_quota_workflow":         cfg.PlannerQuotaWorkflow,
+		"planner_quota_skill":            cfg.PlannerQuotaSkill,
+		"planner_quota_tooling":          cfg.PlannerQuotaTooling,
+		"planner_quota_llm":              cfg.PlannerQuotaLLM,
 	}
 }

@@ -7,3 +7,14 @@ agent:
     retrieval_top_k: 6
     cache_mode: auto
     summary_refresh_interval_sec: 900
+  planner_optimizer:
+    enabled: true
+    candidate_top_k: 24
+    per_kind_quota:
+      workflow: 4
+      skill: 10
+      tooling: 8
+      llm: 2
+    prompt_slim_mode: compact
+    decision_cache_enabled: true
+    decision_cache_ttl_sec: 60

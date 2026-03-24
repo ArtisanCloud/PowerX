@@ -207,3 +207,54 @@ agent:
 - `prompt_tokens` P50 相比基线下降 >= 30%。
 - 缓存能力模型前缀命中率 >= 60%。
 - 30+ 轮会话中超窗失败率 <= 1%，并可通过 `trim_actions` 回放定位。
+
+## 12. Planner 提速回归（Phase 13）
+
+目标：验证候选预筛（Top-K）、Prompt 瘦身与决策缓存是否生效，并确认输出仍为真实 skill 结果透传。
+
+### 12.1 启用配置（示例）
+
+```yaml
+agent:
+  planner_optimizer:
+    enabled: true
+    candidate_top_k: 32
+    prompt_slim_mode: compact
+    decision_cache_enabled: true
+    decision_cache_ttl_sec: 60
+    per_kind_quota:
+      workflow: 8
+      skill: 16
+      tooling: 16
+      llm: 4
+```
+
+### 12.2 UI 复测建议（hello-echo / prompt-template）
+
+1. 新建会话发送：`把 INC-1001 原样返回给我。`
+2. 发送：`请使用 prompt-template 输出：事故 影响 ，修复建议 。其中 id=INC-1001，scope=华东支付，action=先回滚 v2.3.7。`
+3. 预期：
+   - `intent` 与 `plan` 都能显示候选与最终节点；
+   - 最终回答是 skill 实际内容（不是“任务已执行完成”占位语）；
+   - 第二次发送同类请求，planner latency 明显缩短（命中短 TTL 决策缓存时更明显）。
+
+### 12.3 定向集成测试
+
+```bash
+cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+  go test ./tests/integration/skills \
+  -run TestSkillAgentPlannerLatencyAndTokenRegression \
+  -count=1
+```
+
+### 12.4 日志检查
+
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_planner_*.json` 关注：
+  - `candidates_before / candidates_after`
+  - `prompt_slim_mode`
+  - `planner_cache_hit`
+  - `parse_retry_count`
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_stream_*.json` 关注：
+  - `usage.total_prompt_tokens / total_completion_tokens / total_tokens`
+  - `usage.hops[phase=planner].latency_ms`
+  - `usage.planner_candidates_before / usage.planner_candidates_after`

@@ -51,6 +51,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	}
 	gAgentManager.SetDebugTraceConfig(resolveAgentDebugTraceConfig(cfg, logCfg))
 	gAgentManager.SetContextOptimizerConfig(resolveContextOptimizerConfig(cfg))
+	gAgentManager.SetPlannerOptimizerConfig(resolvePlannerOptimizerConfig(cfg))
 
 	// 2) ✨ 先注册内置 handlers（core.debug.* / core.response.format）
 	if err := RegisterBuiltinHandlers(); err != nil {
@@ -616,6 +617,64 @@ func resolveContextOptimizerConfig(agentCfg *config.AgentConfig) agent.ContextOp
 	switch mode {
 	case "auto", "force_off", "force_on":
 		out.CacheMode = mode
+	}
+	return out
+}
+
+func resolvePlannerOptimizerConfig(agentCfg *config.AgentConfig) agent.PlannerOptimizerConfig {
+	out := agent.PlannerOptimizerConfig{
+		Enabled:       true,
+		CandidateTopK: 24,
+		PerKindQuota: agent.PlannerKindQuota{
+			Workflow: 4,
+			Skill:    10,
+			Tooling:  8,
+			LLM:      2,
+		},
+		PromptSlimMode:       "compact",
+		DecisionCacheEnabled: true,
+		DecisionCacheTTLSec:  60,
+	}
+	if agentCfg == nil {
+		return out
+	}
+	c := agentCfg.PlannerOptimizer
+	// 兼容旧配置：若 planner_optimizer 整块未配置（全零值），保持默认开启；
+	// 只有检测到显式配置迹象时才采用 c.Enabled。
+	explicit := c.CandidateTopK > 0 ||
+		c.PerKindQuota.Workflow > 0 ||
+		c.PerKindQuota.Skill > 0 ||
+		c.PerKindQuota.Tooling > 0 ||
+		c.PerKindQuota.LLM > 0 ||
+		strings.TrimSpace(c.PromptSlimMode) != "" ||
+		c.DecisionCacheEnabled ||
+		c.DecisionCacheTTLSec > 0 ||
+		c.Enabled
+	if explicit {
+		out.Enabled = c.Enabled
+	}
+	if c.CandidateTopK > 0 {
+		out.CandidateTopK = c.CandidateTopK
+	}
+	if c.PerKindQuota.Workflow > 0 {
+		out.PerKindQuota.Workflow = c.PerKindQuota.Workflow
+	}
+	if c.PerKindQuota.Skill > 0 {
+		out.PerKindQuota.Skill = c.PerKindQuota.Skill
+	}
+	if c.PerKindQuota.Tooling > 0 {
+		out.PerKindQuota.Tooling = c.PerKindQuota.Tooling
+	}
+	if c.PerKindQuota.LLM > 0 {
+		out.PerKindQuota.LLM = c.PerKindQuota.LLM
+	}
+	switch mode := strings.ToLower(strings.TrimSpace(c.PromptSlimMode)); mode {
+	case "compact", "verbose":
+		out.PromptSlimMode = mode
+	}
+	out.DecisionCacheEnabled = c.DecisionCacheEnabled
+	if c.DecisionCacheTTLSec > 0 {
+		out.DecisionCacheTTLSec = c.DecisionCacheTTLSec
 	}
 	return out
 }

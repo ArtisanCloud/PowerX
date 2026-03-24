@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	baseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -59,6 +60,14 @@ func (r *SkillExecutionTraceRepository) GetByTraceID(ctx context.Context, traceI
 		return nil, err
 	}
 	return &rec, nil
+}
+
+func (r *SkillExecutionTraceRepository) UpsertByTraceID(ctx context.Context, rec *models.SkillExecutionTrace) (*models.SkillExecutionTrace, error) {
+	if rec == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	rec.Normalize()
+	return r.Upsert(ctx, rec, []clause.Column{{Name: "trace_id"}})
 }
 
 func (r *SkillExecutionTraceRepository) List(ctx context.Context, filter SkillExecutionTraceFilter) ([]models.SkillExecutionTrace, error) {

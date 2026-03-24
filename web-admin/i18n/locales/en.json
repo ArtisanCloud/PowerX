@@ -207,12 +207,28 @@
           "recentMessages": "Recent Message Window",
           "retrievalTopK": "Retrieval Top K",
           "summaryRefreshIntervalSec": "Summary Refresh Interval (sec)",
-          "cacheMode": "Cache Mode"
+          "cacheMode": "Cache Mode",
+          "plannerEnabled": "Enable Planner Optimizer",
+          "plannerCandidateTopK": "Planner Candidate Top K",
+          "plannerPromptSlimMode": "Planner Prompt Mode",
+          "plannerDecisionCacheEnabled": "Enable Planner Decision Cache",
+          "plannerDecisionCacheTtlSec": "Planner Decision Cache TTL (sec)",
+          "plannerQuotaWorkflow": "Planner Quota Workflow",
+          "plannerQuotaSkill": "Planner Quota Skill",
+          "plannerQuotaTooling": "Planner Quota Tooling",
+          "plannerQuotaLlm": "Planner Quota LLM"
+        },
+        "sections": {
+          "plannerOptimizer": "Planner Optimizer"
         },
         "cacheModes": {
           "auto": "Auto",
           "forceOn": "Force On",
           "forceOff": "Force Off"
+        },
+        "plannerPromptSlimModes": {
+          "compact": "Compact",
+          "verbose": "Verbose"
         },
         "actions": {
           "saveDraft": "Save Draft",

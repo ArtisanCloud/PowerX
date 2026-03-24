@@ -178,6 +178,15 @@ export interface ContextOptimizerConfig {
   cache_mode: "auto" | "force_on" | "force_off" | string;
   summary_refresh_interval_sec: number;
   debug_trace_enabled: boolean;
+  planner_enabled: boolean;
+  planner_candidate_top_k: number;
+  planner_prompt_slim_mode: "compact" | "verbose" | string;
+  planner_decision_cache_enabled: boolean;
+  planner_decision_cache_ttl_sec: number;
+  planner_quota_workflow: number;
+  planner_quota_skill: number;
+  planner_quota_tooling: number;
+  planner_quota_llm: number;
 }
 
 export interface ContextOptimizerActiveResponse {

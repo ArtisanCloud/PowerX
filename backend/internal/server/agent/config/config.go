@@ -51,6 +51,8 @@ type AgentConfig struct {
 
 	// 上下文优化：分层拼装 + token 预算裁剪 + 缓存策略。
 	ContextOptimizer ContextOptimizerConfig `yaml:"context_optimizer" json:"context_optimizer"`
+	// Planner 优化：候选预筛 + prompt 瘦身 + 决策缓存。
+	PlannerOptimizer PlannerOptimizerConfig `yaml:"planner_optimizer" json:"planner_optimizer"`
 
 	// 可扩展的 driver-specific 选项
 	Options map[string]interface{} `yaml:"options" json:"options"`
@@ -110,4 +112,20 @@ type ContextOptimizerConfig struct {
 	RetrievalTopK             int    `yaml:"retrieval_top_k" json:"retrieval_top_k"`
 	CacheMode                 string `yaml:"cache_mode" json:"cache_mode"` // auto|force_off|force_on
 	SummaryRefreshIntervalSec int    `yaml:"summary_refresh_interval_sec" json:"summary_refresh_interval_sec"`
+}
+
+type PlannerKindQuota struct {
+	Workflow int `yaml:"workflow" json:"workflow"`
+	Skill    int `yaml:"skill" json:"skill"`
+	Tooling  int `yaml:"tooling" json:"tooling"`
+	LLM      int `yaml:"llm" json:"llm"`
+}
+
+type PlannerOptimizerConfig struct {
+	Enabled              bool             `yaml:"enabled" json:"enabled"`
+	CandidateTopK        int              `yaml:"candidate_top_k" json:"candidate_top_k"`
+	PerKindQuota         PlannerKindQuota `yaml:"per_kind_quota" json:"per_kind_quota"`
+	PromptSlimMode       string           `yaml:"prompt_slim_mode" json:"prompt_slim_mode"` // compact|verbose
+	DecisionCacheEnabled bool             `yaml:"decision_cache_enabled" json:"decision_cache_enabled"`
+	DecisionCacheTTLSec  int              `yaml:"decision_cache_ttl_sec" json:"decision_cache_ttl_sec"`
 }

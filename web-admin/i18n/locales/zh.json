@@ -223,12 +223,28 @@
           "recentMessages": "最近消息窗口",
           "retrievalTopK": "检索片段数量",
           "summaryRefreshIntervalSec": "摘要刷新间隔(秒)",
-          "cacheMode": "缓存模式"
+          "cacheMode": "缓存模式",
+          "plannerEnabled": "启用 Planner 提速",
+          "plannerCandidateTopK": "Planner 候选 TopK",
+          "plannerPromptSlimMode": "Planner Prompt 模式",
+          "plannerDecisionCacheEnabled": "启用 Planner 决策缓存",
+          "plannerDecisionCacheTtlSec": "Planner 决策缓存 TTL(秒)",
+          "plannerQuotaWorkflow": "Planner 配额 Workflow",
+          "plannerQuotaSkill": "Planner 配额 Skill",
+          "plannerQuotaTooling": "Planner 配额 Tooling",
+          "plannerQuotaLlm": "Planner 配额 LLM"
+        },
+        "sections": {
+          "plannerOptimizer": "Planner 提速"
         },
         "cacheModes": {
           "auto": "自动",
           "forceOn": "强制开启",
           "forceOff": "强制关闭"
+        },
+        "plannerPromptSlimModes": {
+          "compact": "紧凑",
+          "verbose": "详细"
         },
         "actions": {
           "saveDraft": "保存草稿",

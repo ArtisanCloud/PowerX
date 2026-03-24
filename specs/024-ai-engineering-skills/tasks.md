@@ -206,6 +206,18 @@
 
 ---
 
+## Phase 13: Planner 提速专项（候选压缩 + Prompt 瘦身 + 决策缓存）
+
+- [X] T092 [Shared] 实现 Planner 候选预筛（Top-K + 分区配额），禁止全量候选直接拼接进入 Planner：`backend/internal/server/agent/manager_tool_calling.go`, `backend/internal/server/agent/manager_intent.go`
+- [X] T093 [P] [Shared] 实现 Planner Prompt 瘦身（compact schema + 去冗余说明），并保持 JSON-only 决策契约：`backend/internal/server/agent/manager_tool_calling.go`
+- [X] T094 [P] [US3] 实现 Planner 决策缓存（短 TTL + 候选指纹），并接入统一缓存机制（Redis driver）：`backend/internal/server/agent/*`, `backend/internal/service/agent/*`
+- [X] T095 [P] [US4] 增强观测字段（before/after 候选数、planner cache hit、planner parse retry），落盘到 `agent_debug` 与审计：`backend/internal/transport/http/admin/agent/chat_handler.go`, `backend/internal/service/skills/audit_trace_service.go`
+- [X] T096 [P] [US3] 集成测试：hello-echo/prompt-template 场景下 planner 延迟与 token 回归（对比基线）：`backend/tests/integration/skills/skill_agent_planner_latency_integration_test.go`
+- [X] T097 [Shared] Web Admin 配置扩展：Context Optimizer 页面增加 Planner Optimizer 配置项与发布流程：`web-admin/app/pages/settings/ai/context-optimizer.vue`, `web-admin/app/composables/api/services/aiSettingService.ts`, `web-admin/i18n/locales/zh.json`, `web-admin/i18n/locales/en.json`
+- [X] T098 [Shared] 文档回写：补充 Planner 提速操作手册、灰度方案、回滚策略：`specs/024-ai-engineering-skills/context-optimization.md`, `specs/024-ai-engineering-skills/quickstart.md`, `docs/guides/agent/skills/test_use_cases/04_intent_to_planner_decision.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

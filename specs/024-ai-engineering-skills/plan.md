@@ -137,6 +137,16 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 5. **可观测性**：对每次调用补齐 `prompt_tokens/completion_tokens/cached_tokens/context_layers_size/trim_actions`，并落盘到 debug trace 与审计聚合字段。  
 6. **灰度发布**：按“仅观测 → 软裁剪 → 默认启用”三阶段推进，保留租户级回滚开关。
 
+## Phase 13 – Planner Latency Optimization
+
+Reference: [`context-optimization.md`](./context-optimization.md)
+
+1. **候选预筛**：在 Planner 前做 `workflow|skill|tooling` 分区召回与 Top-K 预筛，避免全量候选进入 LLM。  
+2. **Prompt 瘦身**：压缩 Planner 候选描述与参数 schema，仅保留决策必要字段并保持 JSON-only 合同。  
+3. **决策缓存**：引入短 TTL Planner 决策缓存（统一 Redis 缓存机制），以候选指纹保障安全复用。  
+4. **观测增强**：增加 `planner_candidates_before/after`、`planner_cache_hit`、`planner_latency_ms`、`planner_parse_retry` 等可观测字段。  
+5. **灰度上线**：按租户灰度启用并对比基线，满足性能门槛后全量开启。  
+
 ## Implementation Backwrite (2026-03-19)
 
 - 已完成 `T046`：新增 `backend/internal/service/skills/lifecycle_integrity_invoke_test.go`，覆盖状态机、完整性策略、默认版本解析单元测试。
