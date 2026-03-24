@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+package powerx.platform_ops.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/platform_ops/v1;platformopsv1";
+
+service OpsAdminService {
+  rpc ListDeployReleases(ListDeployReleasesRequest) returns (ListDeployReleasesResponse);
+  rpc TriggerDeployRelease(TriggerDeployReleaseRequest) returns (TriggerDeployReleaseResponse);
+  rpc TriggerDeployRollback(TriggerDeployRollbackRequest) returns (TriggerDeployRollbackResponse);
+  rpc GetDeployHealth(GetDeployHealthRequest) returns (GetDeployHealthResponse);
+
+  rpc ListPluginLifecycleAudits(ListPluginLifecycleAuditsRequest) returns (ListPluginLifecycleAuditsResponse);
+  rpc TriggerPluginLifecycleAction(TriggerPluginLifecycleActionRequest) returns (TriggerPluginLifecycleActionResponse);
+
+  rpc ListBackupPolicies(ListBackupPoliciesRequest) returns (ListBackupPoliciesResponse);
+  rpc UpsertBackupPolicy(UpsertBackupPolicyRequest) returns (UpsertBackupPolicyResponse);
+  rpc TriggerBackupJob(TriggerBackupJobRequest) returns (TriggerBackupJobResponse);
+  rpc ListBackupJobs(ListBackupJobsRequest) returns (ListBackupJobsResponse);
+  rpc TriggerRestoreDrill(TriggerRestoreDrillRequest) returns (TriggerRestoreDrillResponse);
+
+  rpc TriggerInstanceMigration(TriggerInstanceMigrationRequest) returns (TriggerInstanceMigrationResponse);
+  rpc GetInstanceMigration(GetInstanceMigrationRequest) returns (GetInstanceMigrationResponse);
+  rpc TriggerTrafficSwitch(TriggerTrafficSwitchRequest) returns (TriggerTrafficSwitchResponse);
+}
+
+message ListDeployReleasesRequest {
+  string environment = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListDeployReleasesResponse {
+  repeated DeployReleaseRecord items = 1;
+  int64 total = 2;
+}
+
+message TriggerDeployReleaseRequest {
+  string environment = 1;
+  string backend_version = 2;
+  string web_admin_version = 3;
+}
+
+message TriggerDeployReleaseResponse {
+  string release_id = 1;
+}
+
+message TriggerDeployRollbackRequest {
+  string environment = 1;
+  string target_version = 2;
+}
+
+message TriggerDeployRollbackResponse {
+  string release_id = 1;
+}
+
+message GetDeployHealthRequest {}
+
+message GetDeployHealthResponse {
+  string status = 1;
+  string summary = 2;
+}
+
+message ListPluginLifecycleAuditsRequest {
+  string plugin_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListPluginLifecycleAuditsResponse {
+  repeated PluginLifecycleAudit items = 1;
+  int64 total = 2;
+}
+
+message TriggerPluginLifecycleActionRequest {
+  string plugin_id = 1;
+  string from_version = 2;
+  string to_version = 3;
+  string action = 4;
+  string reason = 5;
+}
+
+message TriggerPluginLifecycleActionResponse {
+  string audit_id = 1;
+}
+
+message ListBackupPoliciesRequest {
+  bool enabled_only = 1;
+}
+
+message ListBackupPoliciesResponse {
+  repeated BackupPolicy items = 1;
+}
+
+message UpsertBackupPolicyRequest {
+  BackupPolicy policy = 1;
+}
+
+message UpsertBackupPolicyResponse {
+  string policy_id = 1;
+}
+
+message TriggerBackupJobRequest {
+  string policy_id = 1;
+}
+
+message TriggerBackupJobResponse {
+  string job_id = 1;
+}
+
+message ListBackupJobsRequest {
+  string policy_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListBackupJobsResponse {
+  repeated BackupJob items = 1;
+  int64 total = 2;
+}
+
+message TriggerRestoreDrillRequest {
+  string source_job_id = 1;
+}
+
+message TriggerRestoreDrillResponse {
+  string drill_id = 1;
+}
+
+message TriggerInstanceMigrationRequest {
+  string source_env = 1;
+  string target_env = 2;
+  bool dry_run = 3;
+}
+
+message TriggerInstanceMigrationResponse {
+  string migration_id = 1;
+}
+
+message GetInstanceMigrationRequest {
+  string migration_id = 1;
+}
+
+message GetInstanceMigrationResponse {
+  string migration_id = 1;
+  string status = 2;
+  string summary = 3;
+}
+
+message TriggerTrafficSwitchRequest {
+  string migration_id = 1;
+  bool rollback = 2;
+}
+
+message TriggerTrafficSwitchResponse {
+  string operation_id = 1;
+}
+
+message DeployReleaseRecord {
+  string id = 1;
+  string environment = 2;
+  string backend_version = 3;
+  string web_admin_version = 4;
+  string action = 5;
+  string status = 6;
+  string operator = 7;
+  string trace_id = 8;
+  string started_at = 9;
+  string ended_at = 10;
+  string error_message = 11;
+}
+
+message PluginLifecycleAudit {
+  string id = 1;
+  string plugin_id = 2;
+  string from_version = 3;
+  string to_version = 4;
+  string action = 5;
+  string result = 6;
+  string gate_result = 7;
+  string gate_reason = 8;
+  string operator = 9;
+  string trace_id = 10;
+  string detail = 11;
+}
+
+message BackupPolicy {
+  string id = 1;
+  string name = 2;
+  string backup_type = 3;
+  string schedule = 4;
+  int32 retention_days = 5;
+  bool enabled = 6;
+  string storage_target = 7;
+}
+
+message BackupJob {
+  string id = 1;
+  string policy_id = 2;
+  string status = 3;
+  string trigger_type = 4;
+  string started_at = 5;
+  string ended_at = 6;
+  string error_message = 7;
+  string operator = 8;
+  string trace_id = 9;
+}

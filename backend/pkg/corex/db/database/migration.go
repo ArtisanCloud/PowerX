@@ -14,6 +14,7 @@ import (
 	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelNotification "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
+	modelOps "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
@@ -167,6 +168,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateOpsModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
 	}
@@ -226,6 +231,18 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationGatewayAPIKey{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
+	)
+}
+
+func migrateOpsModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelOps.DeployReleaseRecord{},
+		&modelOps.PluginLifecycleAudit{},
+		&modelOps.BackupPolicy{},
+		&modelOps.BackupJob{},
+		&modelOps.BackupArtifact{},
+		&modelOps.RestoreDrillRecord{},
+		&modelOps.ApprovalPolicyProfile{},
 	)
 }
 

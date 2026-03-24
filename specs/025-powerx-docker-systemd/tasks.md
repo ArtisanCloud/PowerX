@@ -29,23 +29,23 @@
 
 **⚠️ CRITICAL**: 本阶段未完成前，不得进入任何用户故事实现
 
-- [ ] T006 [P] [Shared] 创建实体模型 `DeployReleaseRecord`：`backend/pkg/corex/db/persistence/model/ops/deploy_release_record.go`
-- [ ] T007 [P] [Shared] 创建实体模型 `PluginLifecycleAudit`：`backend/pkg/corex/db/persistence/model/ops/plugin_lifecycle_audit.go`
-- [ ] T008 [P] [Shared] 创建实体模型 `BackupPolicy`：`backend/pkg/corex/db/persistence/model/ops/backup_policy.go`
-- [ ] T009 [P] [Shared] 创建实体模型 `BackupJob`：`backend/pkg/corex/db/persistence/model/ops/backup_job.go`
-- [ ] T010 [P] [Shared] 创建实体模型 `BackupArtifact`：`backend/pkg/corex/db/persistence/model/ops/backup_artifact.go`
-- [ ] T011 [P] [Shared] 创建实体模型 `RestoreDrillRecord`：`backend/pkg/corex/db/persistence/model/ops/restore_drill_record.go`
-- [ ] T012 [P] [Shared] 创建实体模型 `ApprovalPolicyProfile`：`backend/pkg/corex/db/persistence/model/ops/approval_policy_profile.go`
-- [ ] T013 [Shared] 在 `backend/pkg/corex/db/database/migration.go` 挂载 ops 域模型迁移入口（遵循 MigrateCoreModels 约束）
-- [ ] T014 [P] [Shared] 为 ops 模型创建 Repository：`backend/pkg/corex/db/persistence/repository/ops/*.go`
-- [ ] T015 [Shared] 实现统一审批策略读取与校验中间层：`backend/internal/service/deploy_ops/approval_policy_service.go`
-- [ ] T016 [Shared] 实现统一审计写入器（部署/插件/备份/迁移复用）：`backend/internal/service/observability_ops/audit_writer.go`
-- [ ] T017 [Shared] 实现任务状态机与通用错误映射：`backend/internal/service/backup_ops/job_state_machine.go`
-- [ ] T018 [Shared] 接入脚本执行抽象（备份/清理/演练/迁移）：`backend/internal/service/backup_ops/script_runner.go`
-- [ ] T019 [Shared] 新增 gRPC 契约权威源：`backend/api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto`
-- [ ] T020 [Shared] 接入 Buf 生成链路并生成代码：`backend/api/grpc/contracts/{buf.yaml,buf.gen.yaml}` + `backend/api/grpc/gen/go/powerx/platform_ops/v1/*`
-- [ ] T021 [Shared] 补齐 proto 工具链目标：`Makefile` 中 `proto-gen` / `proto-lint` / `proto-clean`
-- [ ] T022 [Shared] 实现 Ops 域 RBAC 权限点与高风险操作鉴权中间件：`backend/internal/transport/http/admin/deploy/authorization.go` + `backend/internal/service/iam/rbac_service.go`
+- [X] T006 [P] [Shared] 创建实体模型 `DeployReleaseRecord`：`backend/pkg/corex/db/persistence/model/ops/deploy_release_record.go`
+- [X] T007 [P] [Shared] 创建实体模型 `PluginLifecycleAudit`：`backend/pkg/corex/db/persistence/model/ops/plugin_lifecycle_audit.go`
+- [X] T008 [P] [Shared] 创建实体模型 `BackupPolicy`：`backend/pkg/corex/db/persistence/model/ops/backup_policy.go`
+- [X] T009 [P] [Shared] 创建实体模型 `BackupJob`：`backend/pkg/corex/db/persistence/model/ops/backup_job.go`
+- [X] T010 [P] [Shared] 创建实体模型 `BackupArtifact`：`backend/pkg/corex/db/persistence/model/ops/backup_artifact.go`
+- [X] T011 [P] [Shared] 创建实体模型 `RestoreDrillRecord`：`backend/pkg/corex/db/persistence/model/ops/restore_drill_record.go`
+- [X] T012 [P] [Shared] 创建实体模型 `ApprovalPolicyProfile`：`backend/pkg/corex/db/persistence/model/ops/approval_policy_profile.go`
+- [X] T013 [Shared] 在 `backend/pkg/corex/db/database/migration.go` 挂载 ops 域模型迁移入口（遵循 MigrateCoreModels 约束）
+- [X] T014 [P] [Shared] 为 ops 模型创建 Repository：`backend/pkg/corex/db/persistence/repository/ops/*.go`
+- [X] T015 [Shared] 实现统一审批策略读取与校验中间层：`backend/internal/service/deploy_ops/approval_policy_service.go`
+- [X] T016 [Shared] 实现统一审计写入器（部署/插件/备份/迁移复用）：`backend/internal/service/observability_ops/audit_writer.go`
+- [X] T017 [Shared] 实现任务状态机与通用错误映射：`backend/internal/service/backup_ops/job_state_machine.go`
+- [X] T018 [Shared] 接入脚本执行抽象（备份/清理/演练/迁移）：`backend/internal/service/backup_ops/script_runner.go`
+- [X] T019 [Shared] 新增 gRPC 契约权威源：`backend/api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto`
+- [X] T020 [Shared] 接入 Buf 生成链路并生成代码：`backend/api/grpc/contracts/{buf.yaml,buf.gen.yaml}` + `backend/api/grpc/gen/go/powerx/platform_ops/v1/*`
+- [X] T021 [Shared] 补齐 proto 工具链目标：`Makefile` 中 `proto-gen` / `proto-lint` / `proto-clean`
+- [X] T022 [Shared] 实现 Ops 域 RBAC 权限点与高风险操作鉴权中间件：`backend/internal/transport/http/admin/deploy/authorization.go` + `backend/internal/service/iam/rbac_service.go`
 
 **Checkpoint**: Foundation 完成，US1/US2/US3/US4 可并行推进
 
