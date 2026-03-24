@@ -1,0 +1,125 @@
+openapi: 3.0.3
+info:
+  title: PowerX Ops Admin API
+  version: 0.1.0
+  description: Deploy / Plugin / Backup management APIs for P0 operations console.
+servers:
+  - url: /api/v1
+paths:
+  /admin/deploy/releases:
+    get:
+      summary: List deploy release records
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Trigger a release action
+      responses:
+        '200':
+          description: Accepted
+  /admin/deploy/rollback:
+    post:
+      summary: Trigger rollback to target version
+      responses:
+        '200':
+          description: Accepted
+  /admin/deploy/health:
+    get:
+      summary: Get aggregated deploy health status
+      responses:
+        '200':
+          description: OK
+  /admin/plugins/{pluginId}/audit:
+    get:
+      summary: Get plugin lifecycle audit timeline
+      parameters:
+        - in: path
+          name: pluginId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /admin/backup/policies:
+    get:
+      summary: List backup policies
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create or update backup policy
+      responses:
+        '200':
+          description: Accepted
+  /admin/backup/jobs/run:
+    post:
+      summary: Trigger backup job manually
+      responses:
+        '200':
+          description: Accepted
+  /admin/backup/jobs:
+    get:
+      summary: List backup jobs
+      responses:
+        '200':
+          description: OK
+  /admin/backup/cleanup:
+    post:
+      summary: Trigger backup cleanup
+      responses:
+        '200':
+          description: Accepted
+  /admin/backup/restore-drills/run:
+    post:
+      summary: Trigger restore drill
+      responses:
+        '200':
+          description: Accepted
+components:
+  schemas:
+    DeployReleaseRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        environment:
+          type: string
+        backend_version:
+          type: string
+        web_admin_version:
+          type: string
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+    BackupJob:
+      type: object
+      properties:
+        id:
+          type: string
+        policy_id:
+          type: string
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+    RestoreDrillRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        source_job_id:
+          type: string
+        status:
+          type: string
+        rto_seconds:
+          type: integer

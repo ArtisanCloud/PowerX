@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package powerx.ops.admin.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/ops/admin/v1;opsadminv1";
+
+service OpsAdminService {
+  rpc ListDeployReleases(ListDeployReleasesRequest) returns (ListDeployReleasesResponse);
+  rpc TriggerDeployRelease(TriggerDeployReleaseRequest) returns (TriggerDeployReleaseResponse);
+  rpc TriggerDeployRollback(TriggerDeployRollbackRequest) returns (TriggerDeployRollbackResponse);
+
+  rpc ListBackupPolicies(ListBackupPoliciesRequest) returns (ListBackupPoliciesResponse);
+  rpc UpsertBackupPolicy(UpsertBackupPolicyRequest) returns (UpsertBackupPolicyResponse);
+  rpc TriggerBackupJob(TriggerBackupJobRequest) returns (TriggerBackupJobResponse);
+  rpc ListBackupJobs(ListBackupJobsRequest) returns (ListBackupJobsResponse);
+  rpc TriggerRestoreDrill(TriggerRestoreDrillRequest) returns (TriggerRestoreDrillResponse);
+}
+
+message ListDeployReleasesRequest {}
+message ListDeployReleasesResponse { repeated DeployReleaseRecord items = 1; }
+message TriggerDeployReleaseRequest { string environment = 1; string backend_version = 2; string web_admin_version = 3; }
+message TriggerDeployReleaseResponse { string release_id = 1; }
+message TriggerDeployRollbackRequest { string environment = 1; string target_version = 2; }
+message TriggerDeployRollbackResponse { string release_id = 1; }
+
+message ListBackupPoliciesRequest {}
+message ListBackupPoliciesResponse { repeated BackupPolicy items = 1; }
+message UpsertBackupPolicyRequest { BackupPolicy policy = 1; }
+message UpsertBackupPolicyResponse { string policy_id = 1; }
+message TriggerBackupJobRequest { string policy_id = 1; }
+message TriggerBackupJobResponse { string job_id = 1; }
+message ListBackupJobsRequest {}
+message ListBackupJobsResponse { repeated BackupJob items = 1; }
+message TriggerRestoreDrillRequest { string source_job_id = 1; }
+message TriggerRestoreDrillResponse { string drill_id = 1; }
+
+message DeployReleaseRecord {
+  string id = 1;
+  string environment = 2;
+  string backend_version = 3;
+  string web_admin_version = 4;
+  string status = 5;
+}
+
+message BackupPolicy {
+  string id = 1;
+  string name = 2;
+  string backup_type = 3;
+  string schedule = 4;
+  int32 retention_days = 5;
+  bool enabled = 6;
+}
+
+message BackupJob {
+  string id = 1;
+  string policy_id = 2;
+  string status = 3;
+}

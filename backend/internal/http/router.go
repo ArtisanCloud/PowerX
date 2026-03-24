@@ -35,7 +35,7 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 			RequireUUID: cfg.Tenants.RequireUUID,
 		}),
 	)
-	// 给外部注册 CoreX Admin 相关路由
+	// 给外部注册 CoreX Admin 相关路由（含 ops 管理域预留挂载点）
 	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)
 	// 给外部注册开放平台（Tenant/OpenAPI）路由
 	httpOpenAPI.RegisterAPIRoutes(r, authUser, cfg, deps)

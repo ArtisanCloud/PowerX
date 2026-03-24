@@ -17,6 +17,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/notifications"
+	opsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/ops"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
@@ -77,4 +78,5 @@ func RegisterAPIRoutes(
 	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }
