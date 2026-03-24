@@ -76,6 +76,42 @@ paths:
       responses:
         '200':
           description: Accepted
+  /admin/migration/runbooks/run:
+    post:
+      summary: Trigger instance migration runbook
+      responses:
+        '200':
+          description: Accepted
+  /admin/migration/runbooks/{migrationId}:
+    get:
+      summary: Get migration runbook record
+      parameters:
+        - in: path
+          name: migrationId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /admin/migration/runbooks/{migrationId}/acceptance:
+    post:
+      summary: Submit migration acceptance result
+      parameters:
+        - in: path
+          name: migrationId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Accepted
+  /admin/migration/traffic/switch:
+    post:
+      summary: Trigger migration traffic switch or rollback
+      responses:
+        '200':
+          description: Accepted
 components:
   schemas:
     DeployReleaseRecord:
@@ -123,3 +159,26 @@ components:
           type: string
         rto_seconds:
           type: integer
+    MigrationRunbookRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        source_env:
+          type: string
+        target_env:
+          type: string
+        status:
+          type: string
+        db_migration_status:
+          type: string
+        instance_acceptance_status:
+          type: string
+        traffic_switch_status:
+          type: string
+        traffic_rollback_status:
+          type: string
+        dry_run:
+          type: boolean
+        summary:
+          type: string

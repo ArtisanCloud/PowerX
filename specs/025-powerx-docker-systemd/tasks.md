@@ -152,19 +152,19 @@
 
 ### Tests for User Story 4 (TDD First)
 
-- [ ] T065 [P] [US4] 集成测试：实例迁移主流程（导出/导入/校验/切换/回切）`backend/tests/integration/ops/instance_migration_flow_test.go`
-- [ ] T066 [P] [US4] 契约测试：迁移执行记录查询与验收接口 `backend/tests/contract/ops/http_migration_contract_test.go`
-- [ ] T085 [P] [US4] 契约测试：迁移管理 gRPC 接口 `backend/tests/contract/ops/grpc_migration_contract_test.go`
+- [X] T065 [P] [US4] 集成测试：实例迁移主流程（导出/导入/校验/切换/回切）`backend/tests/integration/ops/instance_migration_flow_test.go`
+- [X] T066 [P] [US4] 契约测试：迁移执行记录查询与验收接口 `backend/tests/contract/ops/http_migration_contract_test.go`
+- [X] T085 [P] [US4] 契约测试：迁移管理 gRPC 接口 `backend/tests/contract/ops/grpc_migration_contract_test.go`
 
 ### Implementation for User Story 4
 
-- [ ] T067 [US4] 实现迁移编排服务（区分 DB 迁移完成与实例迁移完成验收）`backend/internal/service/migration_ops/service.go`
-- [ ] T068 [US4] 实现迁移 HTTP Handler 与路由：`backend/internal/transport/http/admin/migration/{handler.go,routes.go}`
-- [ ] T069 [US4] 落地迁移脚本：`backend/scripts/ops/{export-instance.sh,import-instance.sh,verify-migration.sh,switch-traffic.sh,rollback-traffic.sh}`
-- [ ] T070 [US4] 前端 API Service：`web-admin/app/composables/api/services/migrationOpsService.ts`
-- [ ] T071 [US4] 迁移管理页面：`web-admin/app/pages/ops/migration.vue`
-- [ ] T072 [US4] E2E：A->B 迁移演练路径 `web-admin/tests/e2e/ops/instance-migration.spec.ts`
-- [ ] T086 [US4] 实现迁移 gRPC Handler 并挂载服务：`backend/internal/transport/grpc/ops/migration_handler.go` + `backend/internal/server/grpc/server.go`
+- [X] T067 [US4] 实现迁移编排服务（区分 DB 迁移完成与实例迁移完成验收）`backend/internal/service/migration_ops/service.go`
+- [X] T068 [US4] 实现迁移 HTTP Handler 与路由：`backend/internal/transport/http/admin/migration/{handler.go,routes.go}`
+- [X] T069 [US4] 落地迁移脚本：`backend/scripts/ops/{export-instance.sh,import-instance.sh,verify-migration.sh,switch-traffic.sh,rollback-traffic.sh}`
+- [X] T070 [US4] 前端 API Service：`web-admin/app/composables/api/services/migrationOpsService.ts`
+- [X] T071 [US4] 迁移管理页面：`web-admin/app/pages/ops/migration.vue`
+- [X] T072 [US4] E2E：A->B 迁移演练路径 `web-admin/tests/e2e/ops/instance-migration.spec.ts`
+- [X] T086 [US4] 实现迁移 gRPC Handler 并挂载服务：`backend/internal/transport/grpc/ops/migration_handler.go` + `backend/internal/server/grpc/server.go`
 
 **Checkpoint**: US4 低频高风险场景具备可演练、可回切、可审计能力
 

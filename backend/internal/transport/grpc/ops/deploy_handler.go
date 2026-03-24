@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	deployops "github.com/ArtisanCloud/PowerX/internal/service/deploy_ops"
+	migrationops "github.com/ArtisanCloud/PowerX/internal/service/migration_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"google.golang.org/grpc/codes"
@@ -24,6 +25,7 @@ type DeployHandler struct {
 	policySvc  *backupops.PolicyService
 	backupSvc  *backupops.JobService
 	restoreSvc *backupops.RestoreDrillService
+	migrateSvc *migrationops.Service
 }
 
 func NewDeployHandler(deps *shared.Deps) *DeployHandler {
@@ -36,6 +38,7 @@ func NewDeployHandler(deps *shared.Deps) *DeployHandler {
 		policySvc:  backupops.NewPolicyService(deps.DB),
 		backupSvc:  backupops.NewJobService(deps.DB),
 		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
+		migrateSvc: migrationops.NewService(deps.DB),
 	}
 }
 

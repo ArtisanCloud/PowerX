@@ -18,6 +18,7 @@ import (
 	knowledgeSpaceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
+	migrationHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/migration"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/notifications"
 	opsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/ops"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
@@ -74,6 +75,7 @@ func RegisterAPIRoutes(
 	devHotloadHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	deployHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	backupHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	migrationHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginSandboxHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

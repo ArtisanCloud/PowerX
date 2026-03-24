@@ -155,8 +155,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 	skillsgrpc.RegisterAdminService(s, deps)
 	skillsgrpc.RegisterInvokeService(s, deps)
-	if opsHandler := opsgrpc.NewDeployHandler(deps); opsHandler != nil {
-		platformopsv1.RegisterOpsAdminServiceServer(s, opsHandler)
+	if opsAdminHandler := opsgrpc.NewDeployHandler(deps); opsAdminHandler != nil {
+		platformopsv1.RegisterOpsAdminServiceServer(s, opsAdminHandler)
 	}
 
 	ctx := context.Background()

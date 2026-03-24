@@ -83,3 +83,11 @@ export type {
   BackupJob,
   RestoreDrillRecord,
 } from "./backupOpsService";
+
+export { useMigrationOpsService } from "./migrationOpsService";
+export type {
+  MigrationRunbookRecord,
+  TriggerMigrationPayload,
+  MigrationAcceptancePayload,
+  TriggerTrafficSwitchPayload,
+} from "./migrationOpsService";
