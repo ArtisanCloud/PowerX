@@ -59,24 +59,24 @@
 
 ### Tests for User Story 1 (TDD First)
 
-- [ ] T023 [P] [US1] 契约测试（HTTP OpenAPI: deploy 相关路径）`backend/tests/contract/ops/http_deploy_contract_test.go`（来源：`specs/025-powerx-docker-systemd/contracts/http-openapi.yaml`）
-- [ ] T024 [P] [US1] 契约测试（gRPC: deploy 相关 RPC）`backend/tests/contract/ops/grpc_deploy_contract_test.go`（来源：`backend/api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto`）
-- [ ] T025 [P] [US1] 集成测试：发布与回滚主流程 `backend/tests/integration/ops/deploy_release_flow_test.go`
-- [ ] T026 [P] [US1] 集成测试：双模式发布与回滚演练 `backend/tests/integration/ops/deploy_mode_parity_test.go`
+- [X] T023 [P] [US1] 契约测试（HTTP OpenAPI: deploy 相关路径）`backend/tests/contract/ops/http_deploy_contract_test.go`（来源：`specs/025-powerx-docker-systemd/contracts/http-openapi.yaml`）
+- [X] T024 [P] [US1] 契约测试（gRPC: deploy 相关 RPC）`backend/tests/contract/ops/grpc_deploy_contract_test.go`（来源：`backend/api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto`）
+- [X] T025 [P] [US1] 集成测试：发布与回滚主流程 `backend/tests/integration/ops/deploy_release_flow_test.go`
+- [X] T026 [P] [US1] 集成测试：双模式发布与回滚演练 `backend/tests/integration/ops/deploy_mode_parity_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T027 [US1] 实现 Deploy Service（发布/回滚/状态聚合）`backend/internal/service/deploy_ops/service.go`
-- [ ] T028 [US1] 实现 Deploy HTTP Handler：`backend/internal/transport/http/admin/deploy/handler.go`
-- [ ] T029 [US1] 注册 Deploy 路由：`backend/internal/transport/http/admin/deploy/routes.go`
-- [ ] T030 [US1] 实现 Deploy gRPC Handler：`backend/internal/transport/grpc/ops/deploy_handler.go`
-- [ ] T031 [US1] 在全局 gRPC server 挂载 Ops deploy 服务：`backend/internal/server/grpc/server.go`
-- [ ] T032 [US1] 前端 API Service：`web-admin/app/composables/api/services/deployOpsService.ts`
-- [ ] T033 [US1] 部署发布中心页面实现：`web-admin/app/pages/ops/deploy.vue`
-- [ ] T034 [US1] E2E：部署中心查询+回滚流程 `web-admin/tests/e2e/ops/deploy-center.spec.ts`
-- [ ] T035 [US1] 落地 Docker 生产部署资产：`deploy/powerx/docker/compose.prod.yaml` + `deploy/powerx/docker/.env.prod.example`
-- [ ] T036 [US1] 落地 systemd 生产部署资产：`deploy/powerx/systemd/{powerx-backend.service,powerx-runner.service,powerx-web-admin.service}`
-- [ ] T037 [US1] 落地健康检查与快速回滚脚本：`backend/scripts/ops/{deploy-check.sh,rollback-release.sh}`
+- [X] T027 [US1] 实现 Deploy Service（发布/回滚/状态聚合）`backend/internal/service/deploy_ops/service.go`
+- [X] T028 [US1] 实现 Deploy HTTP Handler：`backend/internal/transport/http/admin/deploy/handler.go`
+- [X] T029 [US1] 注册 Deploy 路由：`backend/internal/transport/http/admin/deploy/routes.go`
+- [X] T030 [US1] 实现 Deploy gRPC Handler：`backend/internal/transport/grpc/ops/deploy_handler.go`
+- [X] T031 [US1] 在全局 gRPC server 挂载 Ops deploy 服务：`backend/internal/server/grpc/server.go`
+- [X] T032 [US1] 前端 API Service：`web-admin/app/composables/api/services/deployOpsService.ts`
+- [X] T033 [US1] 部署发布中心页面实现：`web-admin/app/pages/ops/deploy.vue`
+- [X] T034 [US1] E2E：部署中心查询+回滚流程 `web-admin/tests/e2e/ops/deploy-center.spec.ts`
+- [X] T035 [US1] 落地 Docker 生产部署资产：`deploy/powerx/docker/compose.prod.yaml` + `deploy/powerx/docker/.env.prod.example`
+- [X] T036 [US1] 落地 systemd 生产部署资产：`deploy/powerx/systemd/{powerx-backend.service,powerx-runner.service,powerx-web-admin.service}`
+- [X] T037 [US1] 落地健康检查与快速回滚脚本：`backend/scripts/ops/{deploy-check.sh,rollback-release.sh}`
 
 **Checkpoint**: US1 可独立演示并满足 MVP
 

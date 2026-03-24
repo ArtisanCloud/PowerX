@@ -1,0 +1,17 @@
+[Unit]
+Description=PowerX Runner Service
+After=powerx-backend.service
+Requires=powerx-backend.service
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+WorkingDirectory=/opt/powerx/runner
+EnvironmentFile=/etc/powerx/powerx.env
+ExecStart=/usr/bin/node /opt/powerx/runner/dist/main.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=PowerX Backend Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+WorkingDirectory=/opt/powerx/backend
+EnvironmentFile=/etc/powerx/powerx.env
+ExecStart=/opt/powerx/backend/powerx server --mode=systemd
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

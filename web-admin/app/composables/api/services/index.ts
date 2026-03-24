@@ -60,3 +60,12 @@ export type {
   SkillCatalogItem,
   UpsertSkillCatalogPayload,
 } from "./skillsService";
+
+export { useDeployOpsService } from "./deployOpsService";
+export type {
+  DeployReleaseRecord,
+  DeployHealthSummary,
+  DeployReleaseListResult,
+  TriggerReleasePayload,
+  TriggerRollbackPayload,
+} from "./deployOpsService";
