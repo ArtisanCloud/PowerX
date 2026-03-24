@@ -6,9 +6,9 @@
 - **UI 只选策略包（A0–O）**，场景只是“适用范围说明”，不是必选项。
 
 方案来源（设计与策略定义）：
-- `docs/plan/AI_engineering/knowledge/knowledage_base.md`
-- `docs/plan/AI_engineering/knowledge/rag.md`
-- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+- `docs/plan/ai_engineering/knowledge/knowledage_base.md`
+- `docs/plan/ai_engineering/knowledge/rag.md`
+- `docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md`
 
 ---
 
@@ -48,7 +48,7 @@
 - **场景（Scene）**  
   仅用于“适用范围/映射说明”，不再是 UI 必选项。
 - **策略模块（Modules）**  
-  来自 `docs/plan/AI_engineering/knowledge/rag.md#5.2` 的 A–O 策略清单，是实际在线管线能力（例如 `H_fusion`/`O_crag`/`K_kg`）。
+  来自 `docs/plan/ai_engineering/knowledge/rag.md#5.2` 的 A–O 策略清单，是实际在线管线能力（例如 `H_fusion`/`O_crag`/`K_kg`）。
 
 SSOT（以代码为准）：
 - 后端映射：`backend/config/knowledge/scene_strategy_catalog.yaml`（`strategy_packages` / `scenes`）

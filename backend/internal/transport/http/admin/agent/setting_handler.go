@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -30,8 +31,10 @@ import (
 
 // 依赖注入
 type AgentSettingHandler struct {
-	svc   *agentSvc.AgentSettingService
-	audit auditsvc.Service
+	svc            *agentSvc.AgentSettingService
+	skillPolicySvc *skillservice.SourcePolicyAdminService
+	ctxOptSvc      *agentSvc.ContextOptimizerConfigService
+	audit          auditsvc.Service
 }
 
 const (
@@ -44,8 +47,10 @@ const (
 
 func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 	return &AgentSettingHandler{
-		svc:   agentSvc.NewAgentSettingService(deps.DB),
-		audit: deps.AuditSvc,
+		svc:            agentSvc.NewAgentSettingService(deps.DB),
+		skillPolicySvc: skillservice.NewSourcePolicyAdminService(deps.DB),
+		ctxOptSvc:      agentSvc.NewContextOptimizerConfigService(deps.DB),
+		audit:          deps.AuditSvc,
 	}
 }
 
@@ -1370,6 +1375,10 @@ type setCurrentEnvReq struct {
 	Env string `json:"env" validate:"required"`
 }
 
+type setSkillSourcePolicyReq struct {
+	Allowlist []string `json:"allowlist"`
+}
+
 func (h *AgentSettingHandler) getCurrentEnv(c *gin.Context) {
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
@@ -1414,6 +1423,52 @@ func (h *AgentSettingHandler) setCurrentEnv(c *gin.Context) {
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "env": req.Env})
+}
+
+func (h *AgentSettingHandler) getSkillSourcePolicy(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	view, err := h.skillPolicySvc.GetTenantSourcePolicy(c.Request.Context(), tenantCtx.UUID())
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询 Skills 来源策略失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"allowlist":        view.Allowlist,
+		"effective_source": view.EffectiveSource,
+		"updated_at":       view.UpdatedAt,
+	})
+}
+
+func (h *AgentSettingHandler) setSkillSourcePolicy(c *gin.Context) {
+	var req setSkillSourcePolicyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	view, err := h.skillPolicySvc.SetTenantSourcePolicy(c.Request.Context(), tenantCtx.UUID(), req.Allowlist)
+	if err != nil {
+		if errors.Is(err, skillservice.ErrSkillSourcePolicyInvalid) {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "allowlist 至少包含一个合法来源（builtin/plugin/third_party）", err)
+			return
+		}
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "保存 Skills 来源策略失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"ok":               true,
+		"allowlist":        view.Allowlist,
+		"effective_source": view.EffectiveSource,
+		"updated_at":       view.UpdatedAt,
+	})
 }
 
 type setActiveReq struct {

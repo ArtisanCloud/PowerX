@@ -15,8 +15,9 @@ const (
 	TableAgentKBBinding  = "agent_kb_bindings"
 	TableAgentPluginLink = "agent_plugin_links"
 
-	TableAgentChatSession = "agent_chat_sessions"
-	TableAgentChatMessage = "agent_chat_messages"
+	TableAgentChatSession   = "agent_chat_sessions"
+	TableAgentChatMessage   = "agent_chat_messages"
+	TableAgentRuntimeConfig = "agent_runtime_configs"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------
@@ -49,8 +50,8 @@ type Agent struct {
 	coremodel.PowerUUIDModel
 
 	// 作用域
-	Env         string  `gorm:"size:32;index:agent_key_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:1" json:"-"`
-	TenantUUID  *string `gorm:"column:tenant_uuid;index:agent_key_uniq_tenant,unique,priority:2" json:"-"` // null 表示 system 级
+	Env        string  `gorm:"size:32;index:agent_key_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:1" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_key_uniq_tenant,unique,priority:2" json:"-"` // null 表示 system 级
 
 	// 逻辑键与可读信息
 	Key         string `gorm:"size:64;index:agent_key_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:3" json:"key"`

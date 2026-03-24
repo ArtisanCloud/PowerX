@@ -1,7 +1,6 @@
 package agentmodelhub
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -24,9 +22,6 @@ type CostHandler struct {
 func NewCostHandler(deps *appshared.Deps) *CostHandler {
 	if deps == nil || deps.DB == nil {
 		return &CostHandler{}
-	}
-	if err := deps.DB.AutoMigrate(&model.CostQuotaLedger{}); err != nil {
-		logger.WarnF(context.Background(), "[cost_handler] auto-migrate ledger table failed: %v", err)
 	}
 	svc := costquota.NewService(costquota.Options{
 		Options: amhshared.Options{

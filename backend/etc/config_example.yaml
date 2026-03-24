@@ -118,6 +118,10 @@ log:
     job_name: corex
     batch_wait: 1
     batch_size: 100
+  agent_debug:
+    enable: false
+    dir: logs/agent_debug
+    max_body_bytes: 524288
 
 audit:
   persist_to_db: false
@@ -438,6 +442,7 @@ plugin:
   base_prefix: /_p
   installed_dir: ./plugins/installed
   market_cache_dir: ./plugins/market_cache
+  auto_restore_parallelism: 1
   read_timeout_sec: 15
   write_timeout_sec: 15
   dev_mode: false

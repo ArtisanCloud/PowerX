@@ -6,7 +6,7 @@
 
 - 默认模块集合（见 `docs/guides/knowledge_space/strategy/MAP_scene_bundle_rag_profiles.md`）：`H_fusion`, `O_crag`, `F_rerank`, `L_feedback`
 - 场景会叠加模块：合同/价格/监管通常叠加 `A2_time_aware`；合同可能叠加 `D_doc_augmentation`
-- 模块定义来源：`docs/plan/AI_engineering/knowledge/rag.md#5.2`
+- 模块定义来源：`docs/plan/ai_engineering/knowledge/rag.md#5.2`
 
 ## 你会得到什么
 

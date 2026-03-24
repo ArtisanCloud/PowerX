@@ -6,7 +6,7 @@
 
 - 默认模块集合（见 `docs/guides/knowledge_space/strategy/MAP_scene_bundle_rag_profiles.md`）：`H_fusion`, `F_rerank`, `C_context_enriched`, `L_feedback`
 - 场景会叠加模块：例如 SOP/长文会叠加 `J_hier`；对话类会叠加 `E_query_transform`
-- 模块定义来源：`docs/plan/AI_engineering/knowledge/rag.md#5.2`
+- 模块定义来源：`docs/plan/ai_engineering/knowledge/rag.md#5.2`
 
 ## 你会得到什么
 

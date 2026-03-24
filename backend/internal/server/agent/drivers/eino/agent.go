@@ -691,6 +691,7 @@ func execLLM(a *AgentClient) NodeExec {
 		if strings.TrimSpace(mc.Model) == "" {
 			return nil, fmt.Errorf("llm config missing model")
 		}
+		applyLLMCacheStrategy(mc.Provider, mc)
 		cli, err := llm.NewClient(mc.Provider)
 		if err != nil {
 			return nil, fmt.Errorf("llm provider init failed: %w", err)
@@ -799,6 +800,12 @@ func modelConfigFromChatConfig(c *dto.ChatConfig) *config2.ModelConfig {
 	if c == nil {
 		return nil
 	}
+	var extra map[string]any
+	if mode := strings.ToLower(strings.TrimSpace(c.CacheMode)); mode != "" {
+		extra = map[string]any{
+			"cache_mode": mode,
+		}
+	}
 	return &config2.ModelConfig{
 		Provider:     strings.TrimSpace(c.Provider),
 		Endpoint:     strings.TrimSpace(c.Endpoint),
@@ -807,6 +814,7 @@ func modelConfigFromChatConfig(c *dto.ChatConfig) *config2.ModelConfig {
 		SystemPrompt: strings.TrimSpace(c.SystemPrompt),
 		Temperature:  c.Temperature,
 		MaxTokens:    c.MaxTokens,
+		Extra:        extra,
 	}
 }
 
@@ -858,7 +866,64 @@ func mapToChatConfig(m map[string]any) *dto.ChatConfig {
 		Temperature:  getF("temperature"),
 		MaxTokens:    getI("max_tokens"),
 		SystemPrompt: strings.TrimSpace(getStr("system_prompt")),
+		CacheMode:    strings.TrimSpace(getStr("cache_mode")),
 	}
+}
+
+func supportsPromptCache(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai", "anthropic", "google", "gemini":
+		return true
+	default:
+		return false
+	}
+}
+
+type PromptCacheStrategy struct {
+	Mode      string `json:"mode"`
+	Supported bool   `json:"supported"`
+	Enabled   bool   `json:"enabled"`
+}
+
+func ResolvePromptCacheStrategy(provider string, mode string) PromptCacheStrategy {
+	normalized := normalizeCacheMode(mode)
+	supported := supportsPromptCache(provider)
+	enabled := false
+	switch normalized {
+	case "force_on":
+		enabled = true
+	case "force_off":
+		enabled = false
+	default:
+		enabled = supported
+	}
+	return PromptCacheStrategy{
+		Mode:      normalized,
+		Supported: supported,
+		Enabled:   enabled,
+	}
+}
+
+func normalizeCacheMode(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "auto", "force_off", "force_on":
+		return strings.ToLower(strings.TrimSpace(v))
+	default:
+		return "auto"
+	}
+}
+
+func applyLLMCacheStrategy(provider string, mc *config2.ModelConfig) {
+	if mc == nil {
+		return
+	}
+	if mc.Extra == nil {
+		mc.Extra = map[string]any{}
+	}
+	decision := ResolvePromptCacheStrategy(provider, fmt.Sprintf("%v", mc.Extra["cache_mode"]))
+	mc.Extra["cache_mode"] = decision.Mode
+	mc.Extra["cache_supported"] = decision.Supported
+	mc.Extra["cache_enabled"] = decision.Enabled
 }
 
 func modelConfigFromNodeParams(params map[string]any) *config2.ModelConfig {

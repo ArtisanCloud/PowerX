@@ -76,13 +76,14 @@ const (
 	KeyAgent          MenuKey = "agent"
 	KeyKnowledgeSpace MenuKey = "knowledge_space"
 
-	KeyUserManagement     MenuKey = "user_management"
-	KeyRoleManagement     MenuKey = "role_management"
-	KeySystemConfig       MenuKey = "system_config"
-	KeyAISettings         MenuKey = "ai_settings"
-	KeyAISettingsModel    MenuKey = "ai_settings_model"
-	KeyAISettingsCost     MenuKey = "ai_settings_cost"
-	KeyAISettingsRegistry MenuKey = "ai_settings_registry"
+	KeyUserManagement             MenuKey = "user_management"
+	KeyRoleManagement             MenuKey = "role_management"
+	KeySystemConfig               MenuKey = "system_config"
+	KeyAISettings                 MenuKey = "ai_settings"
+	KeyAISettingsModel            MenuKey = "ai_settings_model"
+	KeyAISettingsCost             MenuKey = "ai_settings_cost"
+	KeyAISettingsContextOptimizer MenuKey = "ai_settings_context_optimizer"
+	KeyAISettingsRegistry         MenuKey = "ai_settings_registry"
 )
 
 type PluginState string

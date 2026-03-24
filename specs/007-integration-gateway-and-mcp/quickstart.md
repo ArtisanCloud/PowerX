@@ -138,6 +138,32 @@ ORDER BY created_at ASC;
    `data.payload` 固定承载真实业务响应体，而 `protocol_used/fallback_used` 有助于排查 Selector 是否进行了降级。
 4. 使用 `GET /tenant/invocations/{trace_id}` 查看最终状态，确保 `protocol_used` 与 Selector 策略一致。
 
+### 步骤 2.3：租户侧 SSE 变体调用（`/tenant/invocations/stream`）
+
+`/tenant/invocations` 保持 JSON 包装响应；如果上游是 SSE 且需要“边收边转发”，请使用新增接口 `POST /tenant/invocations/stream`。
+
+```bash
+curl -N -X POST "$POWERX_BASE_URL/tenant/invocations/stream?env=dev" \
+     -H "Authorization: Bearer $TENANT_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "capability_id":"com.corex.ai.llm.stream",
+           "payload":{
+             "method":"POST",
+             "endpoint":"/api/v1/ai/llm/stream",
+             "headers":{"Content-Type":"application/json"},
+             "body":{
+               "model_key":"openai/gpt-4o-mini",
+               "inputs":[{"type":"text","text":"写一段自我介绍"}],
+               "params":{"temperature":0.7,"max_tokens":256},
+               "stream_options":{"include_usage":true}
+             }
+           }
+         }'
+```
+
+预期返回 `Content-Type: text/event-stream`，并持续输出 `event: start/delta/done`（可选 `usage`）。
+
 ### 步骤 2.4：Gateway 代理 gRPC（Event Fabric 示例）
 当能力声明 `preferred_protocol=gRPC` 时，`/tenant/invocations` 也会直接代理 gRPC 请求与响应。以平台能力 `com.corex.eventfabric.publish` 为例：
 
@@ -318,6 +344,23 @@ curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
           "inputs": [{"type":"text","text":"解释这段话"}],
           "params": {"temperature":0.2,"max_tokens":256}
         }'
+   ```
+5. **LLM 无状态流式调用（SSE）**
+   ```bash
+   curl -N -X POST "$POWERX_BASE_URL/ai/llm/stream?env=dev" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "model_key":"openai/gpt-4o-mini",
+          "inputs":[{"type":"text","text":"写一段自我介绍"}],
+          "params":{"temperature":0.7,"max_tokens":256},
+          "stream_options":{"include_usage":true}
+        }'
+   ```
+6. **LLM 会话流式调用（SSE）**
+   ```bash
+   curl -N "$POWERX_BASE_URL/ai/llm/sessions/{session_id}/stream?env=dev" \
+        -H "Authorization: Bearer $TENANT_TOKEN"
    ```
 5. **LLM 会话调用（创建 → 追加消息 → SSE 流式）**
    ```bash

@@ -55,18 +55,18 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 	sess := &dbmodel.AgentChatSession{
 		Env:        env,
 		TenantUUID: tenantUUID,
-		AgentID:   agentID,
-		UserID:    userID,
-		Title:     defaults.Title,
-		Singleton: singleton,
-		TTLDays:   defaults.TTLDays,
-		MaxKB:     defaults.MaxKB,
-		MaxTokens: defaults.MaxTokens,
-		Status:    "active",
-		Meta:      defaults.Meta,
-		LatestAt:  &now,
-		Summary:   defaults.Summary,
-		SummaryAt: defaults.SummaryAt,
+		AgentID:    agentID,
+		UserID:     userID,
+		Title:      defaults.Title,
+		Singleton:  singleton,
+		TTLDays:    defaults.TTLDays,
+		MaxKB:      defaults.MaxKB,
+		MaxTokens:  defaults.MaxTokens,
+		Status:     "active",
+		Meta:       defaults.Meta,
+		LatestAt:   &now,
+		Summary:    defaults.Summary,
+		SummaryAt:  defaults.SummaryAt,
 	}
 
 	// 默认策略兜底
@@ -154,7 +154,7 @@ func (r *AgentChatSessionRepository) TouchLatest(
 	var s dbmodel.AgentChatSession
 	if err := r.db.WithContext(ctx).
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
-		Select("id", "ttldays").
+		Select("id", "ttl_days").
 		Where("id = ?", id).First(&s).Error; err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func (r *AgentChatSessionRepository) UpdatePolicy(
 ) error {
 	updates := map[string]any{}
 	if ttlDays > 0 {
-		updates["ttldays"] = ttlDays
+		updates["ttl_days"] = ttlDays
 		// 同时刷新过期时间
 		exp := time.Now().UTC().AddDate(0, 0, ttlDays)
 		updates["expired_at"] = exp

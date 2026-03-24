@@ -49,6 +49,11 @@ func GetDefaults() *Config {
 				BatchWait: 1,
 				BatchSize: 100,
 			},
+			AgentDebug: logCfg.AgentDebugConfig{
+				Enable:       false,
+				Dir:          "logs/agent_debug",
+				MaxBodyBytes: 512 * 1024,
+			},
 			HttpDebug: false,
 			Debug:     true,
 		},
@@ -305,6 +310,15 @@ func GetDefaults() *Config {
 				BusinessDir: "./internal/server/agent/blueprints",
 			},
 			TemplateDir: "./services/agent/templates",
+			ContextOptimizer: agentCfg.ContextOptimizerConfig{
+				Enabled:                   true,
+				MaxPromptTokens:           12000,
+				ReservedCompletionTokens:  1200,
+				RecentMessages:            8,
+				RetrievalTopK:             6,
+				CacheMode:                 "auto",
+				SummaryRefreshIntervalSec: 900,
+			},
 		},
 		Database: dbCfg.DatabaseConfig{
 			Host:                   "localhost",

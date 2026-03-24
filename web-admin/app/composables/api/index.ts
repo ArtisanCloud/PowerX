@@ -23,6 +23,102 @@ interface ApiClientConfig {
   responseInterceptors?: ResponseInterceptor[];
 }
 
+let refreshingAccessTokenPromise: Promise<string | null> | null = null;
+
+const isAuthRefreshEndpoint = (url?: string): boolean => {
+  const u = String(url || "");
+  return /\/admin\/user\/auth\/refresh(?:\?|$)/.test(u);
+};
+
+const getErrorStatusCode = (error: any): number => {
+  const direct = Number(
+    error?.status || error?.statusCode || error?.response?.status || 0
+  );
+  if (direct > 0) return direct;
+  const cause = error?.cause;
+  return Number(
+    cause?.status || cause?.statusCode || cause?.response?.status || 0
+  );
+};
+
+const clearClientAuthStorage = () => {
+  if (!process.client) return;
+  [
+    "access_token",
+    "refresh_token",
+    "token_type",
+    "expires_in",
+    "expires_at",
+    "scope",
+    "px_current_tenant_uuid",
+  ].forEach((k) => localStorage.removeItem(k));
+};
+
+const updateClientAuthStorage = (payload: any) => {
+  if (!process.client || !payload?.access_token) return;
+
+  const tokenType = String(payload.token_type || "Bearer");
+  const expiresInSec = Math.max(0, Number(payload.expires_in || 0));
+  const expiresAt = Date.now() + expiresInSec * 1000;
+
+  localStorage.setItem("access_token", String(payload.access_token));
+  localStorage.setItem("token_type", tokenType);
+  localStorage.setItem("expires_in", String(expiresInSec));
+  localStorage.setItem("expires_at", String(expiresAt));
+  if (typeof payload.scope === "string") {
+    localStorage.setItem("scope", payload.scope);
+  }
+  if (typeof payload.refresh_token === "string" && payload.refresh_token) {
+    localStorage.setItem("refresh_token", payload.refresh_token);
+  }
+};
+
+const isTokenExpiredByLocalClock = (): boolean => {
+  if (!process.client) return true;
+  const expiresAtRaw = localStorage.getItem("expires_at");
+  if (!expiresAtRaw) return true;
+  const expiresAt = Number(expiresAtRaw);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) return true;
+  return Date.now() >= expiresAt;
+};
+
+const tryRefreshAccessToken = async (): Promise<string | null> => {
+  if (!process.client) return null;
+  if (refreshingAccessTokenPromise) return refreshingAccessTokenPromise;
+
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return null;
+
+  refreshingAccessTokenPromise = (async () => {
+    try {
+      const response: any = await $fetch("/api/admin/user/auth/refresh", {
+        method: "POST",
+        body: { refresh_token: refreshToken },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: globalConfig.timeout,
+      });
+
+      const payload = response?.data ?? response;
+      if (!payload?.access_token) {
+        throw new Error("refresh response missing access_token");
+      }
+
+      updateClientAuthStorage(payload);
+      return String(payload.access_token);
+    } catch {
+      clearClientAuthStorage();
+      return null;
+    } finally {
+      refreshingAccessTokenPromise = null;
+    }
+  })();
+
+  return refreshingAccessTokenPromise;
+};
+
 /**
  * 小贴士：可以在 ./types/types 里给 ApiRequestConfig 扩展可选字段
  * interface ApiRequestConfig {
@@ -45,7 +141,10 @@ let globalConfig: ApiClientConfig = {
       onRequest: async (config) => {
         // 自动添加认证头（仅客户端）
         if (process.client && !config.skipAuth) {
-          const token = localStorage.getItem("access_token");
+          let token = localStorage.getItem("access_token");
+          if ((!token || isTokenExpiredByLocalClock()) && !isAuthRefreshEndpoint((config as any).url)) {
+            token = await tryRefreshAccessToken();
+          }
           const tokenType = localStorage.getItem("token_type") || "Bearer";
           if (token) {
             config.headers = {
@@ -336,6 +435,8 @@ const handleRequestConfig = async (
     body,
   };
 
+  (mergedConfig as any).url = fullUrl;
+
   // 请求拦截器
   mergedConfig = await runRequestInterceptors(mergedConfig);
 
@@ -396,6 +497,25 @@ export const useApiClient = () => {
       const result = await applyResponseInterceptors(responseData);
       return result as T;
     } catch (err: any) {
+      const retried = Boolean((config as any).__authRetried);
+      const statusCode = getErrorStatusCode(err);
+      const shouldTryRefresh =
+        process.client &&
+        !config.skipAuth &&
+        !retried &&
+        statusCode === 401 &&
+        !isAuthRefreshEndpoint(url);
+
+      if (shouldTryRefresh) {
+        const refreshedToken = await tryRefreshAccessToken();
+        if (refreshedToken) {
+          return request<T>(method, url, data, {
+            ...(config as any),
+            __authRetried: true,
+          });
+        }
+      }
+
       // 统一交给错误拦截器处理/转换/抛出
       return applyErrorInterceptors(err);
     }

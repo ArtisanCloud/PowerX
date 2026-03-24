@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
@@ -137,22 +139,78 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	if list, err := mgr.List(ctx); err != nil {
 		logger.WarnF(ctx, "auto-restore: list failed: %v", err)
 	} else {
-		enabled := 0
+		enabledPlugins := make([]pm.Plugin, 0, len(list))
 		for _, p := range list {
 			logger.InfoF(ctx, "boot state: id=%s ver=%s state=%s", p.ID, p.Version, p.State)
 			if p.State == pm.StateEnabled {
-				enabled++
+				enabledPlugins = append(enabledPlugins, p)
+			}
+		}
+		parallelism := resolvePluginAutoRestoreParallelism(cfg.Plugin.AutoRestoreParallelism)
+		if parallelism > len(enabledPlugins) {
+			parallelism = len(enabledPlugins)
+		}
+
+		logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d parallelism=%d", len(list), len(enabledPlugins), parallelism)
+
+		if parallelism <= 1 || len(enabledPlugins) <= 1 {
+			for _, p := range enabledPlugins {
 				if err := mgr.Enable(ctx, p.ID); err != nil {
 					logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
 				} else {
 					logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
 				}
 			}
+		} else {
+			jobs := make(chan pm.Plugin, len(enabledPlugins))
+			var wg sync.WaitGroup
+			for i := 0; i < parallelism; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for p := range jobs {
+						if err := mgr.Enable(ctx, p.ID); err != nil {
+							logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
+						} else {
+							logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
+						}
+					}
+				}()
+			}
+			for _, p := range enabledPlugins {
+				jobs <- p
+			}
+			close(jobs)
+			wg.Wait()
 		}
-		logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d", len(list), enabled)
 	}
 
 	return mgr, nil
+}
+
+func resolvePluginAutoRestoreParallelism(cfgValue int) int {
+	// 优先级：env > config.yaml > default(1)
+	n := cfgValue
+	if n < 1 {
+		n = 1
+	}
+
+	// 兼容项目前缀环境变量与历史变量
+	raw := strings.TrimSpace(os.Getenv("CORE_X_PLUGIN_AUTORESTORE_PARALLELISM"))
+	if raw == "" {
+		raw = strings.TrimSpace(os.Getenv("PX_PLUGIN_AUTORESTORE_PARALLELISM"))
+	}
+	if raw != "" {
+		if envN, err := strconv.Atoi(raw); err == nil && envN > 0 {
+			n = envN
+		}
+	}
+
+	// 防止误配置过大并发导致本机抖动
+	if n > 8 {
+		return 8
+	}
+	return n
 }
 
 func seedPluginEventFabric(ctx context.Context, deps *shared.Deps, tenantUUID, pluginID string) error {

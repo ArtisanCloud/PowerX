@@ -56,6 +56,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		agentAdminGroup.GET("/settings/active", settingH.getActiveProfile)
 		agentAdminGroup.POST("/settings/active", settingH.setActiveProfile)
+		agentAdminGroup.GET("/settings/skills/source-policy", settingH.getSkillSourcePolicy)
+		agentAdminGroup.PUT("/settings/skills/source-policy", settingH.setSkillSourcePolicy)
+		agentAdminGroup.GET("/settings/context-optimizer/active", settingH.getContextOptimizerActive)
+		agentAdminGroup.POST("/settings/context-optimizer/drafts", settingH.saveContextOptimizerDraft)
+		agentAdminGroup.GET("/settings/context-optimizer/versions", settingH.listContextOptimizerVersions)
+		agentAdminGroup.POST("/settings/context-optimizer/publish", settingH.publishContextOptimizer)
+		agentAdminGroup.POST("/settings/context-optimizer/rollback", settingH.rollbackContextOptimizer)
 
 		// 智能体 CRUD
 		agentAdminGroup.POST("", agentH.CreateAgent)

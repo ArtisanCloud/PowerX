@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -205,7 +206,7 @@ func (s *ChatHistoryService) AppendMessage(
 	tokens := tokensIn + tokensOut
 	m := &dbmodel.AgentChatMessage{
 		Env:         env,
-		TenantUUID:    tenantUUID,
+		TenantUUID:  tenantUUID,
 		SessionID:   sessionID,
 		AgentID:     agentID,
 		Role:        role,
@@ -266,11 +267,11 @@ func (s *ChatHistoryService) UpdateMessageContent(
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"content":     content,
-			"size_bytes":  len([]byte(content)),
-			"updated_at":  time.Now().UTC(),
-			"is_error":    false,
-			"tokens":      0,
+			"content":      content,
+			"size_bytes":   len([]byte(content)),
+			"updated_at":   time.Now().UTC(),
+			"is_error":     false,
+			"tokens":       0,
 			"content_type": ct,
 		}).Error
 }
@@ -302,24 +303,31 @@ func (s *ChatHistoryService) SummarizeIfNeeded(
 	// 取最近 N 条做一个“轻量摘要”（占位）
 	const N = 8
 	latest, _ := s.msg.ListLatestN(ctx, env, tenantUUID, session.ID, N)
-	var b strings.Builder
-	for i := range latest {
-		r := latest[i].Role
-		if r == "" {
-			r = "msg"
-		}
-		content := latest[i].Content
-		if len(content) > 300 {
-			content = content[:300] + "…"
-		}
-		b.WriteString("- ")
-		b.WriteString(r)
-		b.WriteString(": ")
-		b.WriteString(content)
-		b.WriteByte('\n')
+	structured := SessionStructuredSummary{
+		Schema:    structuredSummarySchemaV1,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
-	sum := b.String()
-	if strings.TrimSpace(sum) == "" {
+	for i := range latest {
+		role := strings.TrimSpace(latest[i].Role)
+		content := trimRunes(strings.TrimSpace(latest[i].Content), 220)
+		if content == "" {
+			continue
+		}
+		switch strings.ToLower(role) {
+		case "assistant":
+			structured.Decisions = append(structured.Decisions, content)
+		case "system":
+			structured.Constraints = append(structured.Constraints, content)
+		default:
+			structured.OpenIssues = append(structured.OpenIssues, content)
+		}
+	}
+	if len(structured.OpenIssues) > 0 {
+		structured.Facts = append(structured.Facts, structured.OpenIssues[len(structured.OpenIssues)-1])
+	}
+	raw, _ := json.Marshal(structured)
+	sum := strings.TrimSpace(string(raw))
+	if sum == "" || sum == "{}" {
 		sum = "（自动摘要占位）"
 	}
 

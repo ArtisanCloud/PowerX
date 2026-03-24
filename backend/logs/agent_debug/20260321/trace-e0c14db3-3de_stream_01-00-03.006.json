@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "created_at": "2026-03-21T01:00:03.006999+08:00",
+    "runtime": {
+      "request_id": "1d9ebe38-3c4a-41ec-b173-bc1845c4e783",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    },
+    "trace_id": "e0c14db3-3de7-41d8-ac3f-152560e1a10c",
+    "type": "agent_stream"
+  },
+  "request": {
+    "body": {
+      "agent_id": 1,
+      "agent_uuid": "6b31adf3-4f7d-4c77-9d1d-c58fb3a7cf2a",
+      "client_msg_id": "u_1774026002952",
+      "env": "dev",
+      "flow_id": "chat",
+      "q": "帮我排查这个事故并给一段简短总结",
+      "session_id": 7,
+      "session_uuid": "bdbb87c5-6c49-457d-8e3b-ea60e90bc7cb"
+    }
+  },
+  "response": {
+    "end": {
+      "success": true
+    },
+    "events": [
+      {
+        "at": "2026-03-21T01:00:45.297395+08:00",
+        "data": {
+          "mode": "intent_multi",
+          "planner_mode": "unified",
+          "tasks": [
+            {
+              "agent_id": "",
+              "flow_id": "incident-triage",
+              "params": {
+                "_candidate_desc": "Analyze incident context and provide structured triage suggestions.",
+                "_candidate_name": "incident-triage",
+                "_node_kind": "skill",
+                "_node_ref": "incident-triage",
+                "_source_scope": "system"
+              },
+              "reason": "The user requested incident triage and summary, which directly matches the incident-triage tool's purpose of analyzing incident context and providing structured triage suggestions.",
+              "score": 1,
+              "strategy": "tool_calling:skill",
+              "task_id": "tc1"
+            }
+          ]
+        },
+        "event": "intent"
+      },
+      {
+        "at": "2026-03-21T01:00:45.297542+08:00",
+        "data": {
+          "plan": {
+            "plan_id": "plan_1774026045297456000",
+            "tasks": [
+              {
+                "agent_id": "",
+                "flow_id": "incident-triage",
+                "node_kind": "skill",
+                "node_ref": "incident-triage",
+                "params": {
+                  "_candidate_desc": "Analyze incident context and provide structured triage suggestions.",
+                  "_candidate_name": "incident-triage",
+                  "_node_kind": "skill",
+                  "_node_ref": "incident-triage",
+                  "_source_scope": "system"
+                },
+                "source_scope": "system",
+                "stage": 1,
+                "task_id": "tc1"
+              }
+            ]
+          },
+          "planner_mode": "unified"
+        },
+        "event": "plan"
+      },
+      {
+        "at": "2026-03-21T01:00:45.297808+08:00",
+        "data": {
+          "depends_on": null,
+          "flow_id": "incident-triage",
+          "node_desc": "Analyze incident context and provide structured triage suggestions.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "incident-triage",
+          "node_ref": "incident-triage",
+          "plan_id": "plan_1774026045297456000",
+          "planner_mode": "unified",
+          "source_scope": "system",
+          "stage": 1,
+          "task_id": "tc1"
+        },
+        "event": "node_start"
+      },
+      {
+        "at": "2026-03-21T01:00:45.356293+08:00",
+        "data": {
+          "depends_on": null,
+          "error": "",
+          "flow_id": "incident-triage",
+          "node_desc": "Analyze incident context and provide structured triage suggestions.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "incident-triage",
+          "node_ref": "incident-triage",
+          "plan_id": "plan_1774026045297456000",
+          "planner_mode": "unified",
+          "result_summary": {
+            "step_id": "",
+            "success": true
+          },
+          "source_scope": "system",
+          "stage": 1,
+          "status": "completed",
+          "task_id": "tc1"
+        },
+        "event": "node_end"
+      },
+      {
+        "at": "2026-03-21T01:00:45.365977+08:00",
+        "data": {
+          "data": {
+            "content": "任务已执行完成（skill=incident-triage，protocol=skill，status=completed）。"
+          },
+          "metadata": {
+            "plan_id": "plan_1774026045297456000",
+            "trace_id": "e0c14db3-3de7-41d8-ac3f-152560e1a10c"
+          },
+          "success": true
+        },
+        "event": "final"
+      },
+      {
+        "at": "2026-03-21T01:00:45.366041+08:00",
+        "data": {
+          "success": true
+        },
+        "event": "end"
+      }
+    ],
+    "events_count": 6,
+    "final": {
+      "data": {
+        "content": "任务已执行完成（skill=incident-triage，protocol=skill，status=completed）。"
+      },
+      "metadata": {
+        "plan_id": "plan_1774026045297456000",
+        "trace_id": "e0c14db3-3de7-41d8-ac3f-152560e1a10c"
+      },
+      "success": true
+    },
+    "last_error": null
+  }
+}

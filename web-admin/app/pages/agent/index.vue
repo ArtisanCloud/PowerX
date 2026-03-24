@@ -41,14 +41,41 @@ const hasMoreByAgent = chatSessions.hasMoreByAgent;
 
 // 双通道聊天流管理
 const chat = useDualChannelConnection(currentAgentId, currentSessionId);
+const runtimeLLM = ref<{ provider?: string; model?: string }>({});
+const systemDefaultLLM = ref<{ provider?: string; model?: string }>({});
 
 // 设置消息回调
 chat.onMessage = (message) => {
-  // console.log("[Agent page] 收到消息:", message);
+  const type = String(message?.type || "").toLowerCase();
+  if (type !== "meta") return;
+  const model = String(message?.llm_model || message?.data?.llm_model || "").trim();
+  const provider = String(message?.llm_provider || message?.data?.llm_provider || "").trim();
+  if (!model && !provider) return;
+  runtimeLLM.value = {
+    model: model || runtimeLLM.value.model,
+    provider: provider || runtimeLLM.value.provider,
+  };
 };
 
 chat.onError = (error) => {
   console.error("聊天错误:", error);
+};
+
+const loadSystemDefaultLLM = async () => {
+  try {
+    const res: any = await get("/admin/agents/settings/active", {
+      params: { env: ENV.value, modality: "llm" },
+      useGlobalLoading: false,
+    });
+    const envelope = res?.data ?? res;
+    const payload = envelope?.data ?? envelope;
+    const profile = payload?.profile ?? payload;
+    const model = String(profile?.model || payload?.model || "").trim();
+    const provider = String(profile?.provider || payload?.provider || "").trim();
+    systemDefaultLLM.value = { model, provider };
+  } catch {
+    systemDefaultLLM.value = {};
+  }
 };
 const showConfigPanel = ref(false);
 const editingAgent = ref<Agent | null>(null);
@@ -191,6 +218,9 @@ const handleDeleteSession = async (payload: {
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
+  const wasCurrent =
+    currentSessionId.value != null &&
+    String(currentSessionId.value) === String(sessionId);
   const ok = await confirm({
     title: t("agent.confirmDelete") || "确定删除该会话？",
     tone: "danger",
@@ -202,9 +232,25 @@ const handleDeleteSession = async (payload: {
 
   try {
     await chatSessions.deleteSession(agentId, sessionId);
-    // 如果删除的是当前会话，清空消息
-    if (currentSessionId.value === sessionId) {
-      chat.clearMessages();
+    // 如果删除的是当前会话：切到新选中的会话并刷新聊天面板；若无会话则清空面板。
+    if (wasCurrent) {
+      const nextSessionId = currentSessionId.value;
+      if (nextSessionId != null) {
+        try {
+          const historyMessages = await chatSessions.loadSessionMessages(
+            nextSessionId,
+            true
+          );
+          chat.messages.value = Array.isArray(historyMessages)
+            ? [...historyMessages]
+            : [];
+        } catch (e) {
+          console.error("删除后加载新会话消息失败:", e);
+          chat.clearMessages();
+        }
+      } else {
+        chat.clearMessages();
+      }
     }
   } catch (error) {
     console.error("删除会话失败:", error);
@@ -268,6 +314,7 @@ const handleAgentSelect = async (agentId: string) => {
     chatSessions.selectAgent(agentId);
     await chatSessions.listSessions(agentId);
     chat.clearMessages();
+    runtimeLLM.value = {};
     await loadAgentAISetting(agentId);
   } catch (error) {
     console.error("选择 Agent 失败:", error);
@@ -543,12 +590,24 @@ const currentAgentForChat = computed(() => {
   const agent = selectedAgent.value;
   if (!agent) return null;
   const cfg = agentAiSetting.value;
+  const runtimeModel = String(runtimeLLM.value.model || "").trim();
+  const runtimeProvider = String(runtimeLLM.value.provider || "").trim();
+  const configuredModel = String(cfg?.model || "").trim();
+  const configuredProvider = String(cfg?.provider || "").trim();
+  const defaultModel = String(systemDefaultLLM.value.model || "").trim();
+  const defaultProvider = String(systemDefaultLLM.value.provider || "").trim();
+  const resolvedModel = runtimeModel || configuredModel || defaultModel || "—";
+  const resolvedProvider =
+    runtimeProvider || configuredProvider || defaultProvider;
+  const modelDisplay = resolvedProvider
+    ? `${resolvedModel} (${resolvedProvider})`
+    : resolvedModel;
   return {
     id: agent.uuid,
     name: agent.name,
     description: agent.description,
     avatar: "",
-    model: cfg?.model || "gpt-3.5-turbo",
+    model: modelDisplay,
     systemPrompt: cfg?.params?.systemPrompt ?? "",
     temperature: cfg?.params?.temperature ?? 0.7,
     maxTokens: cfg?.params?.maxTokens ?? 2000,
@@ -559,6 +618,14 @@ const currentAgentForChat = computed(() => {
     capabilities: [],
   };
 });
+
+watch(
+  () => ENV.value,
+  () => {
+    loadSystemDefaultLLM();
+  },
+  { immediate: true }
+);
 
 // 允许发送消息
 const canSendMessage = computed(() => {

@@ -30,6 +30,7 @@ type AgentChatSession struct {
 	MaxTokens int    `gorm:"default:3000" json:"maxTokens"`        // 会话累计 token 上限（近似）
 
 	// 滚动摘要（可选）
+	// Summary 支持纯文本与结构化 JSON（schema: powerx.agent.summary.v1）两种形态，保证向后兼容。
 	Summary   string     `gorm:"type:text" json:"summary"`
 	SummaryAt *time.Time `json:"summaryAt,omitempty"`
 

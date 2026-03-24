@@ -1,0 +1,48 @@
+capabilities:
+  - capability_id: com.corex.ai.llm.models/list
+    title: LLM Models List
+    description: 列出租户在指定环境下可用的 LLM 模型目录。
+    module: ai
+    categories:
+      - ai
+      - llm
+      - catalog
+    intents:
+      - ai.llm.models.list
+    tool_scopes:
+      - ai.llm
+    policy:
+      prefer: rest
+    docs:
+      - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/ai/llm/models
+        method: GET
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1invoke/post
+        auth_type: tenant_jwt
+        tool_scope: ai.llm
+
+  - capability_id: com.corex.ai.llm.models.read/list
+    title: LLM Models Read List
+    description: 兼容能力 ID，行为同 com.corex.ai.llm.models/list。
+    module: ai
+    categories:
+      - ai
+      - llm
+      - catalog
+    intents:
+      - ai.llm.models.read.list
+    tool_scopes:
+      - ai.llm
+    policy:
+      prefer: rest
+    docs:
+      - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/ai/llm/models
+        method: GET
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1invoke/post
+        auth_type: tenant_jwt
+        tool_scope: ai.llm

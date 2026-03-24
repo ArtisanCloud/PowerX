@@ -5,7 +5,7 @@
 ## 对应策略模块（来自 rag.md）
 
 - 默认模块集合（见 `docs/guides/knowledge_space/strategy/MAP_scene_bundle_rag_profiles.md`）：`K_kg`, `H_fusion`, `C_context_enriched`, `L_feedback`
-- 模块定义来源：`docs/plan/AI_engineering/knowledge/rag.md#5.2`
+- 模块定义来源：`docs/plan/ai_engineering/knowledge/rag.md#5.2`
 
 ## 你会得到什么
 

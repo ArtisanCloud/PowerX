@@ -30,34 +30,34 @@ import (
 
 // InvocationServiceOptions 配置能力调用服务。
 type InvocationServiceOptions struct {
-	Catalog     *RegistryService
-	Router      *router.Service
-	TraceRepo   *repo.InvocationTraceRepository
-	EventRepo   *repo.CapabilityEventPublicationRepository
-	EventBus    event_bus.EventBus
-	Auditor     auditpkg.Auditor
-	Metrics     *capmetrics.CapabilityRegistryMetrics
-	Audit       *AuditService
-	Clock       func() time.Time
-	VersionLock VersionLock
-	HTTPClient  *http.Client
-	HTTPBaseURL string
-	GRPCConn    *grpc.ClientConn
+	Catalog       *RegistryService
+	Router        *router.Service
+	TraceRepo     *repo.InvocationTraceRepository
+	EventRepo     *repo.CapabilityEventPublicationRepository
+	EventBus      event_bus.EventBus
+	Auditor       auditpkg.Auditor
+	Metrics       *capmetrics.CapabilityRegistryMetrics
+	Audit         *AuditService
+	Clock         func() time.Time
+	VersionLock   VersionLock
+	HTTPClient    *http.Client
+	HTTPBaseURL   string
+	GRPCConn      *grpc.ClientConn
 	ModelVerifier ModelKeyVerifier
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
 type InvocationService struct {
-	catalog     *RegistryService
-	router      *router.Service
-	traces      *repo.InvocationTraceRepository
-	audit       *AuditService
-	versionLock VersionLock
+	catalog       *RegistryService
+	router        *router.Service
+	traces        *repo.InvocationTraceRepository
+	audit         *AuditService
+	versionLock   VersionLock
 	modelVerifier ModelKeyVerifier
-	now         func() time.Time
-	httpClient  *http.Client
-	httpBaseURL string
-	grpcConn    *grpc.ClientConn
+	now           func() time.Time
+	httpClient    *http.Client
+	httpBaseURL   string
+	grpcConn      *grpc.ClientConn
 }
 
 // ModelKeyVerifier validates tenant-scoped model_key access.
@@ -110,16 +110,16 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	return &InvocationService{
-		catalog:     opts.Catalog,
-		router:      opts.Router,
-		traces:      opts.TraceRepo,
-		audit:       audit,
-		versionLock: opts.VersionLock,
+		catalog:       opts.Catalog,
+		router:        opts.Router,
+		traces:        opts.TraceRepo,
+		audit:         audit,
+		versionLock:   opts.VersionLock,
 		modelVerifier: opts.ModelVerifier,
-		now:         clock,
-		httpClient:  httpClient,
-		httpBaseURL: strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
-		grpcConn:    opts.GRPCConn,
+		now:           clock,
+		httpClient:    httpClient,
+		httpBaseURL:   strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
+		grpcConn:      opts.GRPCConn,
 	}
 }
 
@@ -167,15 +167,20 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
 		modality := extractStringFromBody(in.Payload, "modality")
 		modelKey := extractStringFromBody(in.Payload, "model_key")
+		if modelKey == "" {
+			modelKey = extractString(in.Payload, "model_key")
+		}
 		if modality == "" {
 			modality = defaultModalityForCapability(capabilityID)
 		}
-		if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
-			return result, fmt.Errorf("model_key required")
-		}
-		env := extractQueryString(in.Payload, "env")
-		if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
-			return result, err
+		if !shouldSkipModelKeyVerification(capabilityID, in.Payload, modelKey) {
+			if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
+				return result, fmt.Errorf("model_key required")
+			}
+			env := extractQueryString(in.Payload, "env")
+			if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
+				return result, err
+			}
 		}
 	}
 
@@ -716,6 +721,44 @@ func defaultModalityForCapability(capabilityID string) string {
 		return "mixed"
 	}
 	return ""
+}
+
+func isModelListCapability(capabilityID string) bool {
+	lower := strings.ToLower(strings.TrimSpace(capabilityID))
+	return lower == "com.corex.ai.llm.models/list" || lower == "com.corex.ai.llm.models.read/list"
+}
+
+func shouldSkipModelKeyVerification(capabilityID string, payload map[string]interface{}, modelKey string) bool {
+	if strings.TrimSpace(modelKey) != "" {
+		return false
+	}
+	if isModelListCapability(capabilityID) {
+		return true
+	}
+	method := strings.ToUpper(strings.TrimSpace(extractString(payload, "method")))
+	if method == "" {
+		method = http.MethodGet
+	}
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	endpoint := strings.TrimSpace(extractString(payload, "endpoint"))
+	if endpoint == "" {
+		return false
+	}
+	return isLLMModelsListEndpoint(endpoint)
+}
+
+func isLLMModelsListEndpoint(endpoint string) bool {
+	target := strings.TrimSpace(endpoint)
+	if target == "" {
+		return false
+	}
+	if parsed, err := url.Parse(target); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		target = parsed.Path
+	}
+	target = strings.TrimRight(strings.ToLower(strings.TrimSpace(target)), "/")
+	return strings.HasSuffix(target, "/ai/llm/models")
 }
 
 func extractStickyKey(ctx map[string]interface{}) string {

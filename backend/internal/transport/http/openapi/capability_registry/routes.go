@@ -18,6 +18,7 @@ func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps) {
 	{
 		tenantGroup.GET("/capabilities", handler.ListCapabilities)
 		tenantGroup.POST("/invocations", handler.InvokeCapability)
+		tenantGroup.POST("/invocations/stream", handler.InvokeCapabilityStream)
 		tenantGroup.GET("/invocations/:traceId", handler.GetInvocation)
 	}
 }

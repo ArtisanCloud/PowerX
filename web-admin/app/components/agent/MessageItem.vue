@@ -265,6 +265,37 @@ const showThink = computed(
   () => completedThinkBlocks.value.length > 0 || shouldShowActiveThink.value
 );
 
+const processMeta = computed(() => {
+  const p =
+    (props.message as any)?.meta?.process ??
+    (props.message as any)?.metadata?.process ??
+    null;
+  if (!p || typeof p !== "object") return null;
+  return p;
+});
+
+const processIntentTasks = computed<any[]>(() => {
+  const raw = processMeta.value?.intent;
+  const tasks = raw?.tasks;
+  return Array.isArray(tasks) ? tasks : [];
+});
+
+const processIntentPreview = computed<any[]>(() =>
+  processIntentTasks.value.slice(0, 3)
+);
+
+const processPlanTasks = computed<any[]>(() => {
+  const raw = processMeta.value?.plan;
+  const plan = raw?.plan ?? raw;
+  const tasks = plan?.tasks;
+  return Array.isArray(tasks) ? tasks : [];
+});
+
+const processNodes = computed<any[]>(() => {
+  const nodes = processMeta.value?.nodes;
+  return Array.isArray(nodes) ? nodes : [];
+});
+
 // ====== 主体渲染内容（纯主内容，剥离 think；流式时走打字机）======
 const processedContent = computed<MessageContent[]>(() => {
   const usingTyping =
@@ -398,6 +429,89 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             <span class="text-xs text-blue-500">{{
               t("agent.chat.generating")
             }}</span>
+          </div>
+        </div>
+
+        <!-- 执行过程（intent -> plan -> node_start/node_end） -->
+        <div
+          v-if="
+            message.role === 'assistant' &&
+            (processIntentTasks.length > 0 ||
+              processPlanTasks.length > 0 ||
+              processNodes.length > 0)
+          "
+          class="mb-3 rounded-xl border border-gray-200/80 bg-gray-50/90 dark:border-white/10 dark:bg-white/5 p-3 space-y-2"
+        >
+          <div class="text-xs font-semibold text-gray-700 dark:text-gray-200">
+            执行过程
+          </div>
+
+          <div
+            v-if="processIntentTasks.length > 0"
+            class="text-xs text-gray-600 dark:text-gray-300"
+          >
+            <span class="font-medium">Intent：</span>
+            <span>候选 {{ processIntentTasks.length }} 个</span>
+          </div>
+          <div
+            v-if="processIntentPreview.length > 0"
+            class="space-y-1"
+          >
+            <div
+              v-for="(it, ii) in processIntentPreview"
+              :key="`intent-${it?.task_id || ii}`"
+              class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1"
+            >
+              <div class="text-xs text-gray-700 dark:text-gray-200 truncate">
+                {{ it?.params?._candidate_name || it?.flow_id || "-" }}
+              </div>
+              <div
+                v-if="it?.params?._candidate_desc"
+                class="text-[11px] mt-0.5 text-gray-500 dark:text-gray-400 line-clamp-2"
+              >
+                {{ it?.params?._candidate_desc }}
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="processPlanTasks.length > 0"
+            class="text-xs text-gray-600 dark:text-gray-300"
+          >
+            <span class="font-medium">Plan：</span>
+            <span>节点 {{ processPlanTasks.length }} 个</span>
+          </div>
+
+          <div v-if="processNodes.length > 0" class="space-y-1">
+            <div
+              v-for="(n, i) in processNodes"
+              :key="`${n?.node_id || n?.task_id || i}`"
+              class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-xs text-gray-700 dark:text-gray-200 truncate">
+                  {{ n?.node_kind || "node" }} · {{ n?.node_ref || n?.flow_id || "-" }}
+                </div>
+                <div
+                  class="text-[11px] px-2 py-0.5 rounded-full"
+                  :class="
+                    (n?.status || '').toLowerCase() === 'running'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200'
+                      : (n?.status || '').toLowerCase() === 'failed'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200'
+                  "
+                >
+                  {{ n?.status || "completed" }}
+                </div>
+              </div>
+              <div
+                v-if="n?.node_desc"
+                class="text-[11px] mt-1 text-gray-500 dark:text-gray-400 line-clamp-2"
+              >
+                {{ n?.node_desc }}
+              </div>
+            </div>
           </div>
         </div>
 

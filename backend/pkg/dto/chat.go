@@ -22,6 +22,7 @@ type ChatConfig struct {
 	MaxTokens    int     `json:"max_tokens,omitempty" validate:"omitempty,min=1,max=8192" example:"2000" description:"最大令牌数"`
 	SystemPrompt string  `json:"system_prompt,omitempty" description:"系统提示词"`
 	EnableStream bool    `json:"enable_stream,omitempty" description:"是否启用流式响应"`
+	CacheMode    string  `json:"cache_mode,omitempty" description:"提示词缓存策略: auto|force_off|force_on"`
 }
 
 // ======= 新增/优化：执行/路由选项 =======

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/loader"
+	"os"
 	"strings"
 )
 
@@ -26,6 +27,9 @@ func RegisterIntentsForAgent(agentID string, blueprintDirs ...string) error {
 }
 
 func diagRoutesOnce(agentID string) {
+	if !shouldPrintRouteDiag() {
+		return
+	}
 	mgr := agent.GetAgentManager()
 	specs := mgr.ListFlowRoutesByAgent(agentID)
 	fmt.Printf("=== ROUTES: %d ===\n", len(specs))
@@ -43,5 +47,15 @@ func diagRoutesOnce(agentID string) {
 		}
 		fmt.Printf("flow=%s matchers=%d group=%s weight=%.2f\n",
 			sp.FlowID, nm, sp.Group, sp.Weight)
+	}
+}
+
+func shouldPrintRouteDiag() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("POWERX_AGENT_ROUTE_DIAG")))
+	switch v {
+	case "1", "true", "yes", "on", "debug":
+		return true
+	default:
+		return false
 	}
 }
