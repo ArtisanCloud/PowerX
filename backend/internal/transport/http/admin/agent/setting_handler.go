@@ -631,6 +631,10 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm 配置不能为空", nil)
 			return
 		}
+		if strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
+			return
+		}
 		provider := req.LLM.Provider
 		model := req.LLM.Model
 		err := h.svc.TestConnectionPreferInput(

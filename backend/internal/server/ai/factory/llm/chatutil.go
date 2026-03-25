@@ -28,9 +28,13 @@ func StreamOrFallback(
 	}
 
 	// 一次性 + 模拟 token（如需要）
-	final, err := cli.Invoke(ctx, mc, prompt)
+	result, err := cli.Invoke(ctx, mc, prompt)
 	if err != nil {
 		return "", err
+	}
+	final := ""
+	if result != nil {
+		final = result.Text
 	}
 	if onDelta != nil {
 		for _, r := range []rune(final) {

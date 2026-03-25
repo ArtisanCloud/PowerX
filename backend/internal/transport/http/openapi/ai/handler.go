@@ -22,9 +22,9 @@ type aiHandler struct {
 }
 
 type contentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	URL  string `json:"url"`
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	URL     string `json:"url"`
 }
 
 type llmInvokeRequest struct {
@@ -41,6 +41,7 @@ type modalInvokeRequest struct {
 
 type llmInvokeResponse struct {
 	Output map[string]interface{} `json:"output"`
+	Meta   map[string]interface{} `json:"meta,omitempty"`
 	Usage  map[string]interface{} `json:"usage,omitempty"`
 }
 
@@ -128,12 +129,26 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		respondAIError(c, err)
 		return
 	}
+	if out == nil {
+		out = &aisvc.LLMInvokeResult{}
+	}
 
 	resp := llmInvokeResponse{
 		Output: map[string]interface{}{
 			"type": "text",
-			"text": out,
+			"text": out.Text,
 		},
+	}
+	if strings.TrimSpace(out.FinishReason) != "" {
+		resp.Meta = map[string]interface{}{
+			"finish_reason": out.FinishReason,
+		}
+	}
+	if len(out.Usage) > 0 {
+		resp.Usage = map[string]interface{}{}
+		for k, v := range out.Usage {
+			resp.Usage[k] = v
+		}
 	}
 	dto.ResponseSuccess(c, resp)
 }
@@ -251,15 +266,18 @@ func (h *aiHandler) llmSessionStream(c *gin.Context) {
 		env,
 		tenantUUID,
 		sess.ModelKey,
-		[]aisvc.ContentItem{{Type: "text", Text: prompt}},
+		[]aisvc.ContentItem{{Type: "text", Content: prompt}},
 		nil,
 	)
 	if err != nil {
 		respondAIError(c, err)
 		return
 	}
+	if out == nil {
+		out = &aisvc.LLMInvokeResult{}
+	}
 
-	streamSSE(c, sessionID, out)
+	streamSSE(c, sessionID, out.Text)
 }
 
 func (h *aiHandler) embeddingInvoke(c *gin.Context) {
@@ -435,8 +453,10 @@ func jsonString(v string) string {
 func buildPrompt(items []contentItem) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Type), "text") && strings.TrimSpace(item.Text) != "" {
-			parts = append(parts, strings.TrimSpace(item.Text))
+		if strings.EqualFold(strings.TrimSpace(item.Type), "text") {
+			if txt := strings.TrimSpace(item.Content); txt != "" {
+				parts = append(parts, txt)
+			}
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -464,9 +484,9 @@ func toServiceItems(items []contentItem) []aisvc.ContentItem {
 	out := make([]aisvc.ContentItem, 0, len(items))
 	for _, item := range items {
 		out = append(out, aisvc.ContentItem{
-			Type: item.Type,
-			Text: item.Text,
-			URL:  item.URL,
+			Type:    item.Type,
+			Content: strings.TrimSpace(item.Content),
+			URL:     item.URL,
 		})
 	}
 	return out
@@ -482,7 +502,7 @@ func respondAIError(c *gin.Context, err error) {
 	case aisvc.ErrModelNotConfigured:
 		dto.ResponseError(c, http.StatusBadRequest, "model not configured for tenant", err)
 	case aisvc.ErrPromptRequired:
-		dto.ResponseError(c, http.StatusBadRequest, "inputs must include text", err)
+		dto.ResponseError(c, http.StatusBadRequest, "inputs must include content", err)
 	case aisvc.ErrProviderUnsupported:
 		dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{
 			"status": "accepted",

@@ -32,6 +32,12 @@ type Service struct {
 	profiles *repoai.AIModelProfileRepository
 }
 
+type LLMInvokeResult struct {
+	Text         string         `json:"text"`
+	FinishReason string         `json:"finish_reason,omitempty"`
+	Usage        map[string]any `json:"usage,omitempty"`
+}
+
 func NewService(db *gorm.DB) *Service {
 	if db == nil {
 		return nil
@@ -56,32 +62,30 @@ func (s *Service) LLMInvoke(
 	modelKey string,
 	inputs []ContentItem,
 	params map[string]interface{},
-) (string, error) {
+) (*LLMInvokeResult, error) {
 	if s == nil || s.settings == nil || s.profiles == nil {
-		return "", errors.New("ai service unavailable")
+		return nil, errors.New("ai service unavailable")
 	}
 	provider, model := splitModelKey(modelKey)
 	if provider == "" || model == "" {
-		return "", ErrInvalidModelKey
+		return nil, ErrInvalidModelKey
 	}
 	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
 	defaults, _ := resolveDefaults("llm", provider, model)
 	if prof == nil || err != nil {
 		if !s.allowUnprofiled(ctx, env, tenantUUID, "llm", provider) {
-			return "", ErrModelNotConfigured
+			return nil, ErrModelNotConfigured
 		}
 	} else {
 		defaults = prof.Defaults
 	}
 	prompt := BuildPrompt(inputs)
 	if strings.TrimSpace(prompt) == "" {
-		return "", ErrPromptRequired
+		return nil, ErrPromptRequired
 	}
 	temperature := floatFromAny(defaults["temperature"])
-	maxTokens := intFromAny(defaults["maxTokens"])
-	if maxTokens == 0 {
-		maxTokens = intFromAny(defaults["max_tokens"])
-	}
+	// 不再在未传参时注入默认 max_tokens，交给模型提供方自身默认值处理。
+	maxTokens := 0
 	if params != nil {
 		if v, ok := params["temperature"]; ok {
 			if t := floatFromAny(v); t > 0 {
@@ -99,12 +103,23 @@ func (s *Service) LLMInvoke(
 			}
 		}
 	}
-	return s.settings.QuickCallLLM(
+	result, err := s.settings.QuickCallLLMResult(
 		ctx, env, &tenantUUID,
 		provider, model, "", "", "", "", "", "",
 		temperature, maxTokens,
 		prompt,
 	)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return &LLMInvokeResult{}, nil
+	}
+	return &LLMInvokeResult{
+		Text:         result.Text,
+		FinishReason: result.FinishReason,
+		Usage:        result.Usage,
+	}, nil
 }
 
 func (s *Service) EmbeddingInvoke(
@@ -514,16 +529,16 @@ func (s *Service) TTSInvoke(
 }
 
 type ContentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	URL  string `json:"url"`
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	URL     string `json:"url"`
 }
 
 func BuildPrompt(items []ContentItem) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Type), "text") && strings.TrimSpace(item.Text) != "" {
-			parts = append(parts, strings.TrimSpace(item.Text))
+		if strings.EqualFold(strings.TrimSpace(item.Type), "text") && strings.TrimSpace(item.Content) != "" {
+			parts = append(parts, strings.TrimSpace(item.Content))
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -540,7 +555,7 @@ func buildImageRefParts(items []ContentItem) []contract.ContentPart {
 			}
 			out = append(out, contract.ContentPart{Type: contract.ContentTypeImageURL, URL: strings.TrimSpace(item.URL)})
 		case contract.ContentTypeImageBase64:
-			raw := strings.TrimSpace(item.Text)
+			raw := strings.TrimSpace(item.Content)
 			if raw == "" {
 				raw = strings.TrimSpace(item.URL)
 			}
@@ -580,7 +595,7 @@ func buildVLMMessage(items []ContentItem) []contract.Message {
 				URL:  strings.TrimSpace(item.URL),
 			})
 		default:
-			txt := strings.TrimSpace(item.Text)
+			txt := strings.TrimSpace(item.Content)
 			if txt == "" {
 				continue
 			}

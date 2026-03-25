@@ -32,6 +32,12 @@ type ModelConfig struct {
 	BaiduSK     string `yaml:"baidu_sk" json:"baidu_sk"`
 }
 
+type InvokeResult struct {
+	Text         string         `json:"text"`
+	FinishReason string         `json:"finish_reason,omitempty"`
+	Usage        map[string]any `json:"usage,omitempty"`
+}
+
 // ——— 配置融合 ———
 // 以 Agent 默认配置为“底”，运行时覆盖它（req.Config > agent cfg）
 func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {

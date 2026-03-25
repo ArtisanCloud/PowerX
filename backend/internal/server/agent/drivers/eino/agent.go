@@ -710,9 +710,13 @@ func execLLM(a *AgentClient) NodeExec {
 			}
 
 			// 5) 原生流不可用 -> 回退到同步 + 本地分块回放
-			content, invErr := cli.Invoke(ctx, mc, prompt)
+			invokeResult, invErr := cli.Invoke(ctx, mc, prompt)
 			if invErr != nil {
 				return nil, fmt.Errorf("llm invoke failed: %w", invErr)
+			}
+			content := ""
+			if invokeResult != nil {
+				content = invokeResult.Text
 			}
 
 			// 分块配置：优先节点参数，可不配就用默认
@@ -749,9 +753,13 @@ func execLLM(a *AgentClient) NodeExec {
 		}
 
 		// 6) 上层不需要流式 -> 直接同步调用
-		content, err := cli.Invoke(ctx, mc, prompt)
+		invokeResult, err := cli.Invoke(ctx, mc, prompt)
 		if err != nil {
 			return nil, fmt.Errorf("llm invoke failed: %w", err)
+		}
+		content := ""
+		if invokeResult != nil {
+			content = invokeResult.Text
 		}
 		return flowschema.Result{"content": content}, nil
 	}

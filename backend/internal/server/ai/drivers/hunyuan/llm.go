@@ -55,21 +55,27 @@ type hunyuanChatResp struct {
 			Message string `json:"Message"`
 		} `json:"Error,omitempty"`
 		Choices []struct {
-			Message struct {
+			FinishReason string `json:"FinishReason"`
+			Message      struct {
 				Role    string `json:"Role"`
 				Content string `json:"Content"`
 			} `json:"Message"`
 		} `json:"Choices"`
+		Usage *struct {
+			PromptTokens     int `json:"PromptTokens"`
+			CompletionTokens int `json:"CompletionTokens"`
+			TotalTokens      int `json:"TotalTokens"`
+		} `json:"Usage,omitempty"`
 		RequestId string `json:"RequestId"`
 	} `json:"Response"`
 }
 
-func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (string, error) {
+func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (*config.InvokeResult, error) {
 	if mc == nil {
-		return "", errors.New("hunyuan: missing model config")
+		return nil, errors.New("hunyuan: missing model config")
 	}
 	if strings.TrimSpace(mc.SecretID) == "" || strings.TrimSpace(mc.SecretKey) == "" {
-		return "", errors.New("hunyuan: missing secret_id/secret_key")
+		return nil, errors.New("hunyuan: missing secret_id/secret_key")
 	}
 
 	endpoint := strings.TrimSpace(mc.Endpoint)
@@ -78,7 +84,7 @@ func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prom
 	}
 	u, err := url.Parse(endpoint)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		return "", fmt.Errorf("hunyuan: invalid base_url: %s", endpoint)
+		return nil, fmt.Errorf("hunyuan: invalid base_url: %s", endpoint)
 	}
 	host := u.Host
 
@@ -167,11 +173,11 @@ func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prom
 
 	payload, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	out, bt, err := callOnce(payload)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if out.Response.Error != nil {
 		// 兼容：部分账号/版本的 ChatCompletions 不接受 MaxTokens（会返回 UnknownParameter）。
@@ -182,31 +188,56 @@ func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prom
 			reqBody.MaxTokens = nil
 			payload2, e := json.Marshal(reqBody)
 			if e != nil {
-				return "", fmt.Errorf("hunyuan error code=%s message=%s", out.Response.Error.Code, out.Response.Error.Message)
+				return nil, fmt.Errorf("hunyuan error code=%s message=%s", out.Response.Error.Code, out.Response.Error.Message)
 			}
 			out2, _, e2 := callOnce(payload2)
 			if e2 != nil {
-				return "", e2
+				return nil, e2
 			}
 			if out2.Response.Error != nil {
-				return "", fmt.Errorf("hunyuan error code=%s message=%s", out2.Response.Error.Code, out2.Response.Error.Message)
+				return nil, fmt.Errorf("hunyuan error code=%s message=%s", out2.Response.Error.Code, out2.Response.Error.Message)
 			}
 			if len(out2.Response.Choices) == 0 {
-				return "", errors.New("hunyuan: no choices")
+				return nil, errors.New("hunyuan: no choices")
 			}
-			return out2.Response.Choices[0].Message.Content, nil
+			return toInvokeResult(out2), nil
 		}
-		return "", fmt.Errorf("hunyuan error code=%s message=%s", out.Response.Error.Code, out.Response.Error.Message)
+		return nil, fmt.Errorf("hunyuan error code=%s message=%s", out.Response.Error.Code, out.Response.Error.Message)
 	}
 	_ = bt
 	if len(out.Response.Choices) == 0 {
-		return "", errors.New("hunyuan: no choices")
+		return nil, errors.New("hunyuan: no choices")
 	}
-	return out.Response.Choices[0].Message.Content, nil
+	return toInvokeResult(out), nil
 }
 
 func (c *hunyuanClient) Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
 	return "", core.ErrStreamNotSupported
+}
+
+func toInvokeResult(resp *hunyuanChatResp) *config.InvokeResult {
+	result := &config.InvokeResult{}
+	if resp == nil || len(resp.Response.Choices) == 0 {
+		return result
+	}
+	result.Text = resp.Response.Choices[0].Message.Content
+	result.FinishReason = strings.TrimSpace(resp.Response.Choices[0].FinishReason)
+	if resp.Response.Usage != nil {
+		usage := map[string]any{}
+		if resp.Response.Usage.PromptTokens > 0 {
+			usage["prompt_tokens"] = resp.Response.Usage.PromptTokens
+		}
+		if resp.Response.Usage.CompletionTokens > 0 {
+			usage["completion_tokens"] = resp.Response.Usage.CompletionTokens
+		}
+		if resp.Response.Usage.TotalTokens > 0 {
+			usage["total_tokens"] = resp.Response.Usage.TotalTokens
+		}
+		if len(usage) > 0 {
+			result.Usage = usage
+		}
+	}
+	return result
 }
 
 func effectiveTimeout(v time.Duration, def time.Duration) time.Duration {

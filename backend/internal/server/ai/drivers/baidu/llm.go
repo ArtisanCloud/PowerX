@@ -147,32 +147,36 @@ func resolveQianfanModel(model string) string {
 
 /* ------------------- Invoke（非流式） ------------------- */
 
-func (c *baiduClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (string, error) {
+func (c *baiduClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (*config.InvokeResult, error) {
 	mode := c.resolveMode(mc)
 	body, err := c.makeBody(mc, userMessage, false, mode == modeV2)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req, err := c.buildRequest(ctx, mc, body, mode)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
 		bt, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("baidu invoke status=%d body=%s", resp.StatusCode, string(bt))
+		return nil, fmt.Errorf("baidu invoke status=%d body=%s", resp.StatusCode, string(bt))
 	}
 
 	var jr map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&jr); err != nil {
-		return "", err
+		return nil, err
+	}
+
+	result := &config.InvokeResult{
+		Usage: extractBaiduUsage(jr),
 	}
 
 	// V2：OpenAI 兼容响应
@@ -180,19 +184,25 @@ func (c *baiduClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMe
 		if first, ok := ch[0].(map[string]any); ok {
 			if msg, ok := first["message"].(map[string]any); ok {
 				if s, ok := msg["content"].(string); ok && s != "" {
-					return s, nil
+					result.Text = s
+					result.FinishReason = strings.TrimSpace(stringFromAny(first["finish_reason"]))
+					return result, nil
 				}
 			}
 			if delta, ok := first["delta"].(map[string]any); ok {
 				if s, ok := delta["content"].(string); ok && s != "" {
-					return s, nil
+					result.Text = s
+					result.FinishReason = strings.TrimSpace(stringFromAny(first["finish_reason"]))
+					return result, nil
 				}
 			}
 		}
 	}
 	// 旧版：result 字段
 	if s, ok := jr["result"].(string); ok && s != "" {
-		return s, nil
+		result.Text = s
+		result.FinishReason = strings.TrimSpace(stringFromAny(jr["finish_reason"]))
+		return result, nil
 	}
 	// 错误字段
 	if errMap, ok := jr["error"].(map[string]any); ok {
@@ -202,21 +212,43 @@ func (c *baiduClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMe
 		}
 		if code, ok := errMap["code"].(string); ok {
 			if msg != "" {
-				return "", fmt.Errorf("baidu: %s (%s)", msg, code)
+				return nil, fmt.Errorf("baidu: %s (%s)", msg, code)
 			}
 			msg = code
 		}
 		if msg != "" {
-			return "", errors.New("baidu: " + msg)
+			return nil, errors.New("baidu: " + msg)
 		}
 	}
 	if em, ok := jr["error_msg"].(string); ok && em != "" {
-		return "", errors.New("baidu: " + em)
+		return nil, errors.New("baidu: " + em)
 	}
 	if em, ok := jr["msg"].(string); ok && em != "" {
-		return "", errors.New("baidu: " + em)
+		return nil, errors.New("baidu: " + em)
 	}
-	return "", errors.New("baidu: unexpected response")
+	return nil, errors.New("baidu: unexpected response")
+}
+
+func extractBaiduUsage(resp map[string]any) map[string]any {
+	raw, ok := resp["usage"]
+	if !ok || raw == nil {
+		return nil
+	}
+	if usage, ok := raw.(map[string]any); ok && len(usage) > 0 {
+		return usage
+	}
+	return nil
+}
+
+func stringFromAny(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case json.Number:
+		return val.String()
+	default:
+		return ""
+	}
 }
 
 /* ------------------- Stream（增量） ------------------- */

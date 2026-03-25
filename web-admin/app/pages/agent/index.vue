@@ -78,6 +78,29 @@ let createSessionInFlight: Promise<any> | null = null;
 const agentAiSetting = ref<{ provider?: string; model?: string; params?: any } | null>(
   null
 );
+const systemLLMDefault = ref<{ provider?: string; model?: string; params?: any } | null>(
+  null
+);
+
+const loadSystemLLMDefault = async () => {
+  try {
+    const res: any = await get(`/admin/agents/settings/active`, {
+      params: { env: ENV.value, modality: "llm" },
+      useGlobalLoading: false,
+    });
+    const payload = res?.data ?? {};
+    const prof = payload?.profile;
+    if (payload?.configured && prof?.provider && prof?.model) {
+      systemLLMDefault.value = {
+        provider: prof.provider,
+        model: prof.model,
+        params: prof.defaults || {},
+      };
+      return;
+    }
+  } catch {}
+  systemLLMDefault.value = null;
+};
 
 const loadAgentAISetting = async (agentId: string) => {
   try {
@@ -122,6 +145,7 @@ const retryLastMessage = async () => {
 // 初始化
 onMounted(async () => {
   try {
+    await loadSystemLLMDefault();
     await agentManager.fetchAgents();
     if (agents.value && agents.value.length > 0) {
       const last = chatSessions.getLastSelectedAgentId?.() ?? null;
@@ -144,6 +168,16 @@ onMounted(async () => {
 onUnmounted(() => {
   chat.disconnect();
 });
+
+watch(
+  () => ENV.value,
+  async () => {
+    await loadSystemLLMDefault();
+    if (currentAgentId.value) {
+      await loadAgentAISetting(String(currentAgentId.value));
+    }
+  }
+);
 
 const agentsList = computed(() =>
   Array.isArray(agents.value) ? agents.value : []
@@ -543,16 +577,21 @@ const currentAgentForChat = computed(() => {
   const agent = selectedAgent.value;
   if (!agent) return null;
   const cfg = agentAiSetting.value;
+  const sys = systemLLMDefault.value;
+  const resolvedModel = cfg?.model || sys?.model || "";
+  const resolvedTemperature = cfg?.params?.temperature ?? sys?.params?.temperature ?? 0.7;
+  const resolvedMaxTokens = cfg?.params?.maxTokens ?? sys?.params?.maxTokens ?? 2000;
+  const resolvedTopP = cfg?.params?.topP ?? sys?.params?.topP ?? 1;
   return {
     id: agent.uuid,
     name: agent.name,
     description: agent.description,
     avatar: "",
-    model: cfg?.model || "gpt-3.5-turbo",
+    model: resolvedModel,
     systemPrompt: cfg?.params?.systemPrompt ?? "",
-    temperature: cfg?.params?.temperature ?? 0.7,
-    maxTokens: cfg?.params?.maxTokens ?? 2000,
-    topP: cfg?.params?.topP ?? 1,
+    temperature: resolvedTemperature,
+    maxTokens: resolvedMaxTokens,
+    topP: resolvedTopP,
     frequencyPenalty: cfg?.params?.frequencyPenalty ?? 0,
     presencePenalty: cfg?.params?.presencePenalty ?? 0,
     isActive: agent.status === "active",
