@@ -35,14 +35,16 @@ type ollamaChatReq struct {
 }
 
 type ollamaChatResp struct {
-	Model   string `json:"model"`
-	Done    bool   `json:"done"`
-	Error   string `json:"error,omitempty"`
-	Message struct {
+	Model      string `json:"model"`
+	Done       bool   `json:"done"`
+	DoneReason string `json:"done_reason,omitempty"`
+	Error      string `json:"error,omitempty"`
+	Message    struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"message"`
-	// 其他统计字段省略
+	PromptEvalCount int `json:"prompt_eval_count,omitempty"`
+	EvalCount       int `json:"eval_count,omitempty"`
 }
 
 func (c *ollamaClient) endpoint(mc *config.ModelConfig) string {
@@ -102,33 +104,52 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 
 /* ------------------- Invoke（非流式） ------------------- */
 
-func (c *ollamaClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (string, error) {
+func (c *ollamaClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (*config.InvokeResult, error) {
 	body, err := c.makeBody(mc, userMessage, false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint(mc), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
 		bt, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("ollama invoke status=%d body=%s", resp.StatusCode, string(bt))
+		return nil, fmt.Errorf("ollama invoke status=%d body=%s", resp.StatusCode, string(bt))
 	}
 
 	var jr ollamaChatResp
 	if err := json.NewDecoder(resp.Body).Decode(&jr); err != nil {
-		return "", err
+		return nil, err
 	}
 	if jr.Error != "" {
-		return "", errors.New(jr.Error)
+		return nil, errors.New(jr.Error)
 	}
-	return jr.Message.Content, nil
+	result := &config.InvokeResult{
+		Text:         jr.Message.Content,
+		FinishReason: strings.TrimSpace(jr.DoneReason),
+	}
+	usage := map[string]any{}
+	if jr.PromptEvalCount > 0 {
+		usage["prompt_tokens"] = jr.PromptEvalCount
+	}
+	if jr.EvalCount > 0 {
+		usage["completion_tokens"] = jr.EvalCount
+	}
+	if pt, ok := usage["prompt_tokens"].(int); ok {
+		if ct, ok2 := usage["completion_tokens"].(int); ok2 {
+			usage["total_tokens"] = pt + ct
+		}
+	}
+	if len(usage) > 0 {
+		result.Usage = usage
+	}
+	return result, nil
 }
 
 /* ------------------- Stream（增量） ------------------- */

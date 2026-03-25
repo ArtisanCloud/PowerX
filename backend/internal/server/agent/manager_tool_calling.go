@@ -296,7 +296,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 
 	prompt := buildToolCallingPrompt(text, cands, plannerCfg)
 	dlogRun.Prompt = prompt
-	content, err := cli.Invoke(ctx, &config.ModelConfig{
+	invokeResult, err := cli.Invoke(ctx, &config.ModelConfig{
 		Provider:     provider,
 		Endpoint:     strings.TrimSpace(reqCfg.Endpoint),
 		APIKey:       strings.TrimSpace(reqCfg.APIKey),
@@ -305,6 +305,10 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		Temperature:  0,
 		MaxTokens:    minInt(maxInt(reqCfg.MaxTokens, 512), 1600),
 	}, prompt)
+	content := ""
+	if invokeResult != nil {
+		content = invokeResult.Text
+	}
 	dlogRun.UsedLLM = true
 	dlogRun.PromptTokens = estimatePlannerTokens(prompt)
 	dlogRun.CompletionTokens = estimatePlannerTokens(content)

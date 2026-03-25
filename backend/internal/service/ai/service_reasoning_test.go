@@ -54,9 +54,9 @@ func TestApplyReasoningConfig(t *testing.T) {
 
 func TestBuildLLMPrompts(t *testing.T) {
 	system, user := BuildLLMPrompts([]ContentItem{
-		{Role: "system", Type: "text", Text: "你是编辑助手"},
-		{Role: "user", Type: "text", Text: "请改写这段文案"},
-		{Type: "text", Text: "并给三个版本"},
+		{Role: "system", Type: "text", Content: "你是编辑助手"},
+		{Role: "user", Type: "text", Content: "请改写这段文案"},
+		{Type: "text", Content: "并给三个版本"},
 	})
 	if system != "你是编辑助手" {
 		t.Fatalf("unexpected system prompt: %q", system)
@@ -68,11 +68,11 @@ func TestBuildLLMPrompts(t *testing.T) {
 
 func TestBuildVLMMessageKeepsRoleGrouping(t *testing.T) {
 	msgs := buildVLMMessage([]ContentItem{
-		{Role: "system", Type: "text", Text: "你是视觉分析助手"},
+		{Role: "system", Type: "text", Content: "你是视觉分析助手"},
 		{Role: "user", Type: "image_url", URL: "https://example.com/a.png"},
-		{Role: "user", Type: "text", Text: "请描述这张图"},
-		{Role: "assistant", Type: "text", Text: "先确认主体"},
-		{Type: "text", Text: "继续补充细节"},
+		{Role: "user", Type: "text", Content: "请描述这张图"},
+		{Role: "assistant", Type: "text", Content: "先确认主体"},
+		{Type: "text", Content: "继续补充细节"},
 	})
 	if len(msgs) != 4 {
 		t.Fatalf("unexpected message count: %d", len(msgs))
@@ -97,7 +97,7 @@ func TestBuildVLMMessageKeepsRoleGrouping(t *testing.T) {
 func TestBuildVLMMessageFallback(t *testing.T) {
 	msgs := buildVLMMessage([]ContentItem{
 		{Role: "system", Type: "image_url", URL: ""},
-		{Role: "user", Type: "text", Text: "   "},
+		{Role: "user", Type: "text", Content: "   "},
 	})
 	if len(msgs) != 1 {
 		t.Fatalf("unexpected message count: %d", len(msgs))

@@ -42,7 +42,7 @@ const hasMoreByAgent = chatSessions.hasMoreByAgent;
 // 双通道聊天流管理
 const chat = useDualChannelConnection(currentAgentId, currentSessionId);
 const runtimeLLM = ref<{ provider?: string; model?: string }>({});
-const systemDefaultLLM = ref<{ provider?: string; model?: string }>({});
+const systemDefaultLLM = ref<{ provider?: string; model?: string; params?: any }>({});
 
 // 设置消息回调
 chat.onMessage = (message) => {
@@ -72,7 +72,11 @@ const loadSystemDefaultLLM = async () => {
     const profile = payload?.profile ?? payload;
     const model = String(profile?.model || payload?.model || "").trim();
     const provider = String(profile?.provider || payload?.provider || "").trim();
-    systemDefaultLLM.value = { model, provider };
+    systemDefaultLLM.value = {
+      model,
+      provider,
+      params: profile?.defaults || payload?.defaults || {},
+    };
   } catch {
     systemDefaultLLM.value = {};
   }
@@ -105,7 +109,6 @@ let createSessionInFlight: Promise<any> | null = null;
 const agentAiSetting = ref<{ provider?: string; model?: string; params?: any } | null>(
   null
 );
-
 const loadAgentAISetting = async (agentId: string) => {
   try {
     const res: any = await get(`/admin/agents/${agentId}/ai-setting`, {
@@ -149,6 +152,7 @@ const retryLastMessage = async () => {
 // 初始化
 onMounted(async () => {
   try {
+    await loadSystemDefaultLLM();
     await agentManager.fetchAgents();
     if (agents.value && agents.value.length > 0) {
       const last = chatSessions.getLastSelectedAgentId?.() ?? null;
@@ -602,6 +606,10 @@ const currentAgentForChat = computed(() => {
   const modelDisplay = resolvedProvider
     ? `${resolvedModel} (${resolvedProvider})`
     : resolvedModel;
+  const defaultParams = systemDefaultLLM.value.params || {};
+  const resolvedTemperature = cfg?.params?.temperature ?? defaultParams?.temperature ?? 0.7;
+  const resolvedMaxTokens = cfg?.params?.maxTokens ?? defaultParams?.maxTokens ?? 2000;
+  const resolvedTopP = cfg?.params?.topP ?? defaultParams?.topP ?? 1;
   return {
     id: agent.uuid,
     name: agent.name,
@@ -609,9 +617,9 @@ const currentAgentForChat = computed(() => {
     avatar: "",
     model: modelDisplay,
     systemPrompt: cfg?.params?.systemPrompt ?? "",
-    temperature: cfg?.params?.temperature ?? 0.7,
-    maxTokens: cfg?.params?.maxTokens ?? 2000,
-    topP: cfg?.params?.topP ?? 1,
+    temperature: resolvedTemperature,
+    maxTokens: resolvedMaxTokens,
+    topP: resolvedTopP,
     frequencyPenalty: cfg?.params?.frequencyPenalty ?? 0,
     presencePenalty: cfg?.params?.presencePenalty ?? 0,
     isActive: agent.status === "active",
@@ -621,8 +629,11 @@ const currentAgentForChat = computed(() => {
 
 watch(
   () => ENV.value,
-  () => {
-    loadSystemDefaultLLM();
+  async () => {
+    await loadSystemDefaultLLM();
+    if (currentAgentId.value) {
+      await loadAgentAISetting(String(currentAgentId.value));
+    }
   },
   { immediate: true }
 );

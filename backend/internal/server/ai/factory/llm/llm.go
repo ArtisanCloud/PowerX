@@ -13,7 +13,7 @@ type RuntimeConfig map[string]any
 // LLMClient：统一包含同步与流式
 type LLMClient interface {
 	// 一次性完成（completion）
-	Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (string, error)
+	Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (*config.InvokeResult, error)
 
 	// 流式输出；onDelta 每收到一段增量就回调一次；返回最终完整文本
 	Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error)
