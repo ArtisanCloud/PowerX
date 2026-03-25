@@ -1,0 +1,170 @@
+---
+name: crud-http-ruleset
+description: PowerX CRUD HTTP 顶层 ruleset 约束。
+---
+
+# PowerX CRUD HTTP Ruleset
+
+## 步骤
+
+1) 打开 `本文件内嵌规则`。
+2) 按规则执行实现/校对。
+3) 完成后按核对清单验收。
+
+## 核对点
+
+- 与 PowerX 当前代码结构、路径与命名一致。
+- 仅在传输层/契约层做职责内改动，不跨层越界。
+
+## 规则（内嵌）
+
+### crud_http.yaml
+
+````yaml
+kind: ruleset
+name: crud_http
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    规范 HTTP 层的 CRUD 行为与目录结构，使之与 Service/Repository 等传输无关层保持等价语义，
+    强制多租户、鉴权、分页、错误桥接与审计的一致性。参照 Constitution 与 Dev CRUD HTTP 指南。
+  references:
+    - constitution.md
+    - dev_crud_http_guides.md
+    - dev_sts_guides.md
+
+scope:
+  codebase:
+    root: "."
+    http_dir: "internal/transport/http/admin"
+    route_prefix: "/api/v1/admin"
+  applies_to:
+    - "internal/transport/http/**/**_handler.go"
+    - "internal/transport/http/**/api.go"
+
+principles:
+  - 服务端 Handler 仅负责 参数绑定/校验 → 调用 Service → 统一回包，不含业务与 DB IO。         # :contentReference[oaicite:3]{index=3}
+  - 所有请求必须具备 tenant 上下文；从鉴权中间件注入，缺失返回 400。                         # :contentReference[oaicite:4]{index=4}
+  - 错误语义、分页语义与 gRPC 等价；统一使用 pkg/dto.{ResponseSuccess,ResponseError,...} 封装。 # :contentReference[oaicite:5]{index=5}
+  - 审计与 RBAC 必须在 Service 层落实，HTTP 层不重复执行业务鉴权。                           # :contentReference[oaicite:6]{index=6}
+
+checks:
+  directory:
+    - id: http.routes.file
+      level: error
+      when:
+        glob: "internal/transport/http/**/api.go"
+      assert:
+        - must_define: "func Register*Routes(*gin.RouterGroup, *shared.Deps)"       # 统一入口签名 # :contentReference[oaicite:7]{index=7}
+        - must_prefix_route: "/api/v1/admin"                                        # 版本化路径   # :contentReference[oaicite:8]{index=8}
+
+  handler_shape:
+    - id: handler.no_db_or_io
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_not_import: ["database/sql", "go.mongodb.org/**"]
+        - must_not_call: ["gorm.DB", "sql.DB", "http.DefaultClient.Do"]             # 只准调 Service # :contentReference[oaicite:9]{index=9}
+    - id: handler.ctor_signature
+      level: warn
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_define: "func New*Handler(*service.*)"                                # 依赖注入     # :contentReference[oaicite:10]{index=10}
+
+  tenant_and_auth:
+    - id: tenant.context.required
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_call: ["reqctx.From(c)", "ValidateRequestWithContext"]                # 统一获取租户 # :contentReference[oaicite:11]{index=11}
+        - must_handle_missing_tenant_as: 400                                         # 缺租户 → 400  # :contentReference[oaicite:12]{index=12}
+    - id: sts.aligned
+      level: warn
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_use_auth_mw: true                                                     # 与 STS/拦截器一致 # :contentReference[oaicite:13]{index=13}
+
+  rest_contracts:
+    - id: verbs.paths
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - create:   { method: "POST",   path: "" }
+        - list:     { method: "GET",    path: "" }
+        - get:      { method: "GET",    path: "/:id" }
+        - update:   { method: "PATCH",  path: "/:id" }
+        - delete:   { method: "DELETE", path: "/:id" }                               # 标准 REST    # :contentReference[oaicite:14]{index=14}
+
+  pagination_and_response:
+    - id: pagination.uniform
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_bind_dto: ["dto.PaginationRequest"]                                   # 统一 DTO     # :contentReference[oaicite:15]{index=15}
+        - must_return: ["dto.ResponseList", "dto.PaginationResponse"]                # 统一回包     # :contentReference[oaicite:16]{index=16}
+    - id: error.bridge
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_use: ["dto.ResponseSuccess", "dto.ResponseError", "dto.ResponseErrorWithDetails", "dto.ResponseValidationError"]  # 统一错误桥接 # :contentReference[oaicite:17]{index=17}
+    - id: success.envelope
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_use: ["dto.ResponseSuccess"]                                          # 成功回包统一 # :contentReference[oaicite:16]{index=16}
+
+  streaming_if_any:
+    - id: sse.events.naming
+      level: warn
+      when:
+        contains: "SSE"                                                              # 流式接口可选
+      assert:
+        - event_names: ["start","intent","plan","token","data","action","final","end","error","heartbeat"]  # :contentReference[oaicite:18]{index=18}
+
+acceptance:
+  checklist:
+    - "[ ] 路由前缀为 /api/v1/admin，破坏性变更才升级版本"                              # :contentReference[oaicite:19]{index=19}
+    - "[ ] Handler 不含 DB/外部 IO，所有调用经 Service"
+    - "[ ] 绑定与校验使用统一 DTO/校验函数，缺租户返回 400"
+    - "[ ] 错误统一使用 dto.ResponseError/ResponseErrorWithDetails/ResponseValidationError"
+    - "[ ] 分页响应含 total/page/pageSize/pages"
+    - "[ ] SSE/WS（如有）事件名与规范一致"
+    - "[ ] 与 gRPC 在错误与分页语义可对照（等价）"                                     # :contentReference[oaicite:20]{index=20}
+
+templates:
+  handler_go: |
+    // New{{Entity}}Handler 仅做绑定/校验/回包
+    type {{Entity}}Handler struct { svc *service.{{Entity}}Service }
+    func New{{Entity}}Handler(s *service.{{Entity}}Service) *{{Entity}}Handler { return &{{Entity}}Handler{svc: s} }
+
+    func (h *{{Entity}}Handler) List(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}ListReq{})
+      if err != nil { dto.ResponseValidationError(c, err); return }
+      out, pg, err := h.svc.List(ctx, rc.TenantID, rc.Pagination)
+      if err != nil { dto.ResponseError(c, http.StatusInternalServerError, "查询失败", err); return }
+      dto.ResponseList(c, out, pg)
+    }
+  api_go: |
+    func Register{{Domain}}Routes(rg *gin.RouterGroup, deps *shared.Deps) {
+      h := New{{Entity}}Handler(deps.{{Entity}}Service)
+      g := rg.Group("{{domain}}/{{resource}}") // 前缀已由上层注入 /api/v1/admin
+      {
+        g.POST("", h.Create)
+        g.GET("", h.List)
+        g.GET("/:id", h.Get)
+        g.PATCH("/:id", h.Update)
+        g.DELETE("/:id", h.Delete)
+      }
+    }
+````
