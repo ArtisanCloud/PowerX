@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/deploy_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -20,6 +22,7 @@ var (
 type PluginLifecycleService struct {
 	repo    *repoops.PluginLifecycleAuditRepository
 	auditor obsops.AuditWriter
+	metrics *inst.Recorder
 }
 
 type PluginLifecycleListOptions struct {
@@ -42,6 +45,7 @@ func NewPluginLifecycleService(db *gorm.DB) *PluginLifecycleService {
 	return &PluginLifecycleService{
 		repo:    repoops.NewPluginLifecycleAuditRepository(db),
 		auditor: obsops.NewUnifiedAuditWriter(db),
+		metrics: inst.NewRecorder("powerx.service.plugin_lifecycle_ops"),
 	}
 }
 
@@ -67,15 +71,21 @@ func (s *PluginLifecycleService) ListAudits(ctx context.Context, opt PluginLifec
 }
 
 func (s *PluginLifecycleService) TriggerAction(ctx context.Context, req PluginLifecycleActionRequest) (*modelops.PluginLifecycleAudit, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "plugin_trigger_action", startedAt, retErr) }()
+
 	pluginID := strings.TrimSpace(strings.ToLower(req.PluginID))
 	action := strings.TrimSpace(strings.ToLower(req.Action))
 	if pluginID == "" || action == "" {
-		return nil, ErrInvalidPluginLifecycleRequest
+		retErr = ErrInvalidPluginLifecycleRequest
+		return nil, retErr
 	}
 
 	auditAction, err := normalizePluginAction(action)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	row := &modelops.PluginLifecycleAudit{
@@ -92,13 +102,15 @@ func (s *PluginLifecycleService) TriggerAction(ctx context.Context, req PluginLi
 	}
 
 	if err := validateActionPayload(row); err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	row.Normalize()
 	saved, err := s.repo.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	_ = s.audit(ctx, obsops.AuditRecord{

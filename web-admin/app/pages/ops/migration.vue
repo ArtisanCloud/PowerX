@@ -3,6 +3,7 @@
     <header>
       <h1 class="text-2xl font-semibold">实例迁移中心</h1>
       <p class="mt-1 text-sm text-gray-500">支持 A->B 迁移演练、验收确认、切换与回切流程。</p>
+      <p v-if="permissionHint" class="text-xs text-amber-600">{{ permissionHint }}</p>
     </header>
 
     <div class="grid gap-4 md:grid-cols-2">
@@ -15,7 +16,7 @@
             <input v-model="form.dryRun" type="checkbox" />
             dry run
           </label>
-          <button class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading" @click="triggerMigration">
+          <button class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading || !canExecute" @click="triggerMigration">
             {{ loading ? "执行中..." : "触发迁移" }}
           </button>
         </div>
@@ -34,9 +35,9 @@
             实例验收通过
           </label>
           <div class="flex gap-2">
-            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading" @click="acceptMigration">提交验收</button>
-            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading" @click="switchTraffic(false)">流量切换</button>
-            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading" @click="switchTraffic(true)">回切</button>
+            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading || !canExecute" @click="acceptMigration">提交验收</button>
+            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading || !canExecute" @click="switchTraffic(false)">流量切换</button>
+            <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!currentRecord || loading || !canExecute" @click="switchTraffic(true)">回切</button>
           </div>
         </div>
       </div>
@@ -61,10 +62,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useMigrationOpsService, type MigrationRunbookRecord } from "~/composables/api/services/migrationOpsService";
+import { useOpsAccess } from "~/composables/useOpsAccess";
 
 const migrationSvc = useMigrationOpsService();
+const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
 const loading = ref(false);
 const currentRecord = ref<MigrationRunbookRecord | null>(null);
 const lastOperationId = ref("");
@@ -82,6 +85,7 @@ const acceptanceForm = reactive({
 });
 
 const triggerMigration = async () => {
+  if (!canExecute.value) return;
   loading.value = true;
   try {
     currentRecord.value = await migrationSvc.triggerMigration({
@@ -98,6 +102,7 @@ const triggerMigration = async () => {
 };
 
 const acceptMigration = async () => {
+  if (!canExecute.value) return;
   if (!currentRecord.value) return;
   loading.value = true;
   try {
@@ -112,6 +117,7 @@ const acceptMigration = async () => {
 };
 
 const switchTraffic = async (rollback: boolean) => {
+  if (!canExecute.value) return;
   if (!currentRecord.value) return;
   loading.value = true;
   try {
@@ -125,4 +131,8 @@ const switchTraffic = async (rollback: boolean) => {
     loading.value = false;
   }
 };
+
+onMounted(async () => {
+  await loadUserContext();
+});
 </script>

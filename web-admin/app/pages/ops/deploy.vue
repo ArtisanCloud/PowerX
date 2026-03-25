@@ -3,6 +3,7 @@
     <header class="space-y-1">
       <h1 class="text-2xl font-semibold">部署发布中心</h1>
       <p class="text-sm text-gray-500">支持 Docker / systemd 双模式发布与回滚，记录全链路状态。</p>
+      <p v-if="permissionHint" class="text-xs text-amber-600">{{ permissionHint }}</p>
     </header>
 
     <div class="grid gap-4 md:grid-cols-3">
@@ -28,8 +29,19 @@
             <span class="mb-1 block text-gray-600">Web Admin 版本</span>
             <input v-model="form.webAdminVersion" class="w-full rounded border border-gray-300 px-3 py-2" />
           </label>
+          <label class="text-sm">
+            <span class="mb-1 block text-gray-600">审批模式</span>
+            <select v-model="form.approvalMode" class="w-full rounded border border-gray-300 px-3 py-2">
+              <option value="none">none</option>
+              <option value="dual_approval">dual_approval</option>
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block text-gray-600">审批票数</span>
+            <input v-model.number="form.approvalTickets" class="w-full rounded border border-gray-300 px-3 py-2" type="number" min="0" />
+          </label>
           <div class="md:col-span-2">
-            <button type="submit" class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading">
+            <button type="submit" class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading || !canExecute">
               {{ loading ? "提交中..." : "触发发布" }}
             </button>
           </div>
@@ -57,6 +69,7 @@
               <th class="py-2">动作</th>
               <th class="py-2">版本</th>
               <th class="py-2">状态</th>
+              <th class="py-2">Trace</th>
               <th class="py-2">操作</th>
             </tr>
           </thead>
@@ -66,9 +79,11 @@
               <td class="py-2">{{ item.action }}</td>
               <td class="py-2">{{ item.backend_version }}</td>
               <td class="py-2">{{ item.status }}</td>
+              <td class="py-2 text-xs text-gray-500">{{ item.trace_id || "-" }}</td>
               <td class="py-2">
                 <button
                   class="text-xs text-red-600 underline"
+                  :disabled="!canExecute"
                   @click="submitRollback(item.environment, item.backend_version)"
                 >
                   回滚到此版本
@@ -76,7 +91,7 @@
               </td>
             </tr>
             <tr v-if="releases.length === 0">
-              <td colspan="5" class="py-4 text-center text-gray-400">暂无记录</td>
+              <td colspan="6" class="py-4 text-center text-gray-400">暂无记录</td>
             </tr>
           </tbody>
         </table>
@@ -88,8 +103,10 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from "vue";
 import { useDeployOpsService, type DeployHealthSummary, type DeployReleaseRecord } from "~/composables/api/services/deployOpsService";
+import { useOpsAccess } from "~/composables/useOpsAccess";
 
 const deploySvc = useDeployOpsService();
+const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
 const loading = ref(false);
 const releases = ref<DeployReleaseRecord[]>([]);
 const health = ref<DeployHealthSummary>({ status: "", summary: "" });
@@ -99,6 +116,8 @@ const form = reactive({
   mode: "docker" as "docker" | "systemd",
   backendVersion: "",
   webAdminVersion: "",
+  approvalMode: "dual_approval" as "none" | "dual_approval",
+  approvalTickets: 2,
 });
 
 const loadReleases = async () => {
@@ -113,13 +132,17 @@ const refreshHealth = async () => {
 const submitRelease = async () => {
   loading.value = true;
   try {
+    if (!canExecute.value) return;
     await deploySvc.triggerRelease(
       {
         environment: form.environment,
         backend_version: form.backendVersion,
         web_admin_version: form.webAdminVersion,
       },
-      { mode: form.mode, approvalTickets: form.environment === "prod" ? 2 : 0 }
+      {
+        mode: form.mode,
+        approvalTickets: form.approvalMode === "dual_approval" ? Math.max(2, Number(form.approvalTickets || 0)) : 0,
+      }
     );
     await Promise.all([loadReleases(), refreshHealth()]);
   } finally {
@@ -130,12 +153,16 @@ const submitRelease = async () => {
 const submitRollback = async (environment: string, targetVersion: string) => {
   loading.value = true;
   try {
+    if (!canExecute.value) return;
     await deploySvc.triggerRollback(
       {
         environment,
         target_version: targetVersion,
       },
-      { mode: form.mode, approvalTickets: environment === "prod" ? 2 : 0 }
+      {
+        mode: form.mode,
+        approvalTickets: form.approvalMode === "dual_approval" ? Math.max(2, Number(form.approvalTickets || 0)) : 0,
+      }
     );
     await Promise.all([loadReleases(), refreshHealth()]);
   } finally {
@@ -144,6 +171,7 @@ const submitRollback = async (environment: string, targetVersion: string) => {
 };
 
 onMounted(async () => {
+  await loadUserContext();
   await Promise.all([loadReleases(), refreshHealth()]);
 });
 </script>

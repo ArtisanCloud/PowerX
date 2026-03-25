@@ -123,3 +123,8 @@ psql -h <DST_DB_HOST> -p <DST_DB_PORT> -U <DST_DB_USER> -d <DST_DB_NAME> -c "\dt
 - [ ] 日志无持续错误峰值
 - [ ] 已完成回滚演练
 
+## 10. 相关文档
+
+- 管理控制台任务：`./management-console-p0-tasks.md`
+- Quickstart 验证记录：`../../../specs/025-powerx-docker-systemd/quickstart.md`
+- 预发布门禁脚本：`backend/scripts/ops/pre-release-gate.sh`

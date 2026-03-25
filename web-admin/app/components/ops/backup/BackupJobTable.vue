@@ -9,6 +9,7 @@
             <th class="py-2">策略ID</th>
             <th class="py-2">状态</th>
             <th class="py-2">触发类型</th>
+            <th class="py-2">Trace</th>
             <th class="py-2">错误</th>
           </tr>
         </thead>
@@ -18,11 +19,12 @@
             <td class="py-2">{{ job.policy_id }}</td>
             <td class="py-2">{{ job.status }}</td>
             <td class="py-2">{{ job.trigger_type }}</td>
+            <td class="py-2 text-xs text-gray-500">{{ job.trace_id || "-" }}</td>
             <td class="py-2 text-xs text-red-600">{{ job.error_message || "-" }}</td>
           </tr>
           <tr v-if="items.length === 0">
-            <td colspan="5" class="py-4 text-center text-gray-400">暂无任务</td>
-          </tr>
+              <td colspan="6" class="py-4 text-center text-gray-400">暂无任务</td>
+            </tr>
         </tbody>
       </table>
     </div>

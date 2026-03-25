@@ -261,6 +261,16 @@ test-env-check:
 		echo "✅ 服务器连接正常" || \
 		echo "❌ 服务器连接失败，请先启动服务器: make dev"
 
+.PHONY: pre-release-gate coverage-gate perf-smoke
+pre-release-gate:
+	@bash backend/scripts/ops/pre-release-gate.sh
+
+coverage-gate:
+	@bash backend/scripts/ci/coverage-gate.sh
+
+perf-smoke:
+	@bash backend/scripts/ci/perf-smoke.sh
+
 # 测试数据清理
 .PHONY: test-clean
 test-clean:

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/migration_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -27,6 +28,7 @@ type Service struct {
 	repo      *repoops.MigrationRunbookRecordRepository
 	auditor   obsops.AuditWriter
 	scriptDir string
+	metrics   *inst.Recorder
 }
 
 type TriggerRequest struct {
@@ -60,14 +62,20 @@ func NewService(db *gorm.DB) *Service {
 		repo:      repoops.NewMigrationRunbookRecordRepository(db),
 		auditor:   obsops.NewUnifiedAuditWriter(db),
 		scriptDir: scriptDir,
+		metrics:   inst.NewRecorder("powerx.service.migration_ops"),
 	}
 }
 
 func (s *Service) TriggerMigration(ctx context.Context, req TriggerRequest) (*modelops.MigrationRunbookRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "migration_trigger", startedAt, retErr) }()
+
 	source := strings.TrimSpace(req.SourceEnv)
 	target := strings.TrimSpace(req.TargetEnv)
 	if source == "" || target == "" || strings.EqualFold(source, target) {
-		return nil, ErrInvalidMigrationRequest
+		retErr = ErrInvalidMigrationRequest
+		return nil, retErr
 	}
 
 	now := time.Now().UTC()
@@ -89,7 +97,8 @@ func (s *Service) TriggerMigration(ctx context.Context, req TriggerRequest) (*mo
 
 	saved, err := s.repo.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	if err := s.run(ctx, "export-instance.sh", strconv.FormatUint(saved.ID, 10), source, target); err != nil {
@@ -141,15 +150,22 @@ func (s *Service) GetMigration(ctx context.Context, migrationID uint64) (*modelo
 }
 
 func (s *Service) AcceptMigration(ctx context.Context, req AcceptanceRequest) (*modelops.MigrationRunbookRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "migration_accept", startedAt, retErr) }()
+
 	if req.MigrationID == 0 {
-		return nil, ErrInvalidMigrationRequest
+		retErr = ErrInvalidMigrationRequest
+		return nil, retErr
 	}
 	row, err := s.repo.GetById(ctx, req.MigrationID, nil)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	if row == nil {
-		return nil, ErrMigrationNotFound
+		retErr = ErrMigrationNotFound
+		return nil, retErr
 	}
 
 	if !req.DBMigrationCompleted {
@@ -178,7 +194,8 @@ func (s *Service) AcceptMigration(ctx context.Context, req AcceptanceRequest) (*
 	row.Normalize()
 	updated, err := s.repo.Update(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	s.audit(ctx, "migration_runbook", updated.ID, "accept", string(updated.Status), map[string]any{
 		"db_migration_completed":    req.DBMigrationCompleted,
@@ -188,29 +205,39 @@ func (s *Service) AcceptMigration(ctx context.Context, req AcceptanceRequest) (*
 }
 
 func (s *Service) TriggerTrafficSwitch(ctx context.Context, req SwitchRequest) (string, *modelops.MigrationRunbookRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "migration_switch", startedAt, retErr) }()
+
 	if req.MigrationID == 0 {
-		return "", nil, ErrInvalidMigrationRequest
+		retErr = ErrInvalidMigrationRequest
+		return "", nil, retErr
 	}
 	row, err := s.repo.GetById(ctx, req.MigrationID, nil)
 	if err != nil {
-		return "", nil, err
+		retErr = err
+		return "", nil, retErr
 	}
 	if row == nil {
-		return "", nil, ErrMigrationNotFound
+		retErr = ErrMigrationNotFound
+		return "", nil, retErr
 	}
 
 	if req.Rollback {
 		if err := s.run(ctx, "rollback-traffic.sh", strconv.FormatUint(req.MigrationID, 10), row.SourceEnv, row.TargetEnv); err != nil {
-			return "", nil, err
+			retErr = err
+			return "", nil, retErr
 		}
 		row.TrafficRollbackStatus = modelops.MigrationStepSuccess
 		row.Summary = "traffic rollback completed"
 	} else {
 		if row.DBMigrationStatus != modelops.MigrationStepSuccess || row.InstanceAcceptanceStatus != modelops.MigrationStepSuccess {
-			return "", nil, ErrMigrationNotReady
+			retErr = ErrMigrationNotReady
+			return "", nil, retErr
 		}
 		if err := s.run(ctx, "switch-traffic.sh", strconv.FormatUint(req.MigrationID, 10), row.SourceEnv, row.TargetEnv); err != nil {
-			return "", nil, err
+			retErr = err
+			return "", nil, retErr
 		}
 		row.TrafficSwitchStatus = modelops.MigrationStepSuccess
 		row.Summary = "traffic switch completed"
@@ -221,7 +248,8 @@ func (s *Service) TriggerTrafficSwitch(ctx context.Context, req SwitchRequest) (
 	row.Normalize()
 	updated, err := s.repo.Update(ctx, row)
 	if err != nil {
-		return "", nil, err
+		retErr = err
+		return "", nil, retErr
 	}
 
 	operationID := fmt.Sprintf("migration-%d-%d", req.MigrationID, time.Now().UTC().Unix())

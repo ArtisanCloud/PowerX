@@ -46,6 +46,44 @@ curl -f http://127.0.0.1:8077/api/v1/health
 - Deploy 页面：可查看发布历史并执行回滚。
 - Plugin 页面：可查看插件版本并执行切换。
 - Backup 页面：可查看策略、任务、演练结果。
+- Migration 页面：可触发 A->B runbook、提交验收、切换与回切。
 
 参考：`docs/plan/deploy/management-console-p0-tasks.md`
 
+## 7. Phase 7 验证记录（2026-03-25）
+
+执行人：Codex（自动化实现与回归）
+
+- 后端合同/集成回归（含 US1-US4 + traceability）：
+
+```bash
+cd backend && \
+GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
+go test ./tests/contract/ops ./tests/integration/ops -count=1
+```
+
+- 预发布阻断脚本：
+
+```bash
+bash backend/scripts/ops/pre-release-gate.sh
+```
+
+- 覆盖率门禁：
+
+```bash
+bash backend/scripts/ci/coverage-gate.sh
+```
+
+- 性能烟测门禁（p95 < 200ms，针对 integration/ops 测试耗时）：
+
+```bash
+bash backend/scripts/ci/perf-smoke.sh
+```
+
+- 前端 E2E 回归：
+
+```bash
+cd web-admin && npm run test:e2e
+```
+
+说明：若执行环境缺失 Playwright 浏览器依赖，E2E 会报环境错误；需先完成 `playwright install` 后重跑。

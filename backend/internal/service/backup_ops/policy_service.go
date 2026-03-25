@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -19,6 +21,7 @@ var (
 type PolicyService struct {
 	repo    *repoops.BackupPolicyRepository
 	auditor obsops.AuditWriter
+	metrics *inst.Recorder
 }
 
 type ListPolicyOptions struct {
@@ -42,6 +45,7 @@ func NewPolicyService(db *gorm.DB) *PolicyService {
 	return &PolicyService{
 		repo:    repoops.NewBackupPolicyRepository(db),
 		auditor: obsops.NewUnifiedAuditWriter(db),
+		metrics: inst.NewRecorder("powerx.service.backup_policy_ops"),
 	}
 }
 
@@ -68,17 +72,23 @@ func (s *PolicyService) ListPolicies(ctx context.Context, opt ListPolicyOptions)
 }
 
 func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyRequest) (*modelops.BackupPolicy, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "backup_upsert_policy", startedAt, retErr) }()
+
 	name := strings.TrimSpace(req.Name)
 	schedule := strings.TrimSpace(req.Schedule)
 	storage := strings.TrimSpace(req.StorageTarget)
 	backupType := strings.TrimSpace(strings.ToLower(req.BackupType))
 	if name == "" || schedule == "" || storage == "" || backupType == "" || req.RetentionDays <= 0 {
-		return nil, ErrInvalidBackupPolicy
+		retErr = ErrInvalidBackupPolicy
+		return nil, retErr
 	}
 
 	existing, err := s.repo.GetFirst(ctx, map[string]interface{}{"name": name})
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	operator := normalizeOperator(req.Operator)
@@ -92,7 +102,8 @@ func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyReques
 		existing.Normalize()
 		updated, err := s.repo.Update(ctx, existing)
 		if err != nil {
-			return nil, err
+			retErr = err
+			return nil, retErr
 		}
 		s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "update", Outcome: "success", Severity: "info", Detail: map[string]any{"name": updated.Name, "backup_type": updated.BackupType}})
 		return updated, nil
@@ -111,7 +122,8 @@ func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyReques
 	row.Normalize()
 	saved, err := s.repo.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "create", Outcome: "success", Severity: "info", Detail: map[string]any{"name": saved.Name, "backup_type": saved.BackupType}})
 	return saved, nil

@@ -3,6 +3,7 @@
     <header>
       <h1 class="text-2xl font-semibold">插件生命周期中心</h1>
       <p class="mt-1 text-sm text-gray-500">支持插件版本切换、回滚与审计时间线查看。</p>
+      <p v-if="permissionHint" class="text-xs text-amber-600">{{ permissionHint }}</p>
     </header>
 
     <div class="grid gap-4 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-4">
@@ -30,7 +31,7 @@
         <input v-model="form.reason" class="w-full rounded border border-gray-300 px-3 py-2" />
       </label>
       <div class="md:col-span-4 flex gap-2">
-        <button class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading" @click="triggerAction">
+        <button class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="loading || !canExecute" @click="triggerAction">
           {{ loading ? "执行中..." : "触发动作" }}
         </button>
         <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="loading" @click="loadAudits">刷新审计</button>
@@ -45,8 +46,10 @@
 import { reactive, ref, onMounted } from "vue";
 import PluginAuditTimeline from "~/components/ops/plugins/PluginAuditTimeline.vue";
 import { usePluginOpsService, type PluginLifecycleAuditRecord } from "~/composables/api/services/pluginOpsService";
+import { useOpsAccess } from "~/composables/useOpsAccess";
 
 const pluginOpsService = usePluginOpsService();
+const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
 const loading = ref(false);
 const audits = ref<PluginLifecycleAuditRecord[]>([]);
 
@@ -71,6 +74,9 @@ const triggerAction = async () => {
   if (!form.pluginId.trim()) {
     return;
   }
+  if (!canExecute.value) {
+    return;
+  }
   loading.value = true;
   try {
     await pluginOpsService.triggerAction(form.pluginId, {
@@ -87,6 +93,7 @@ const triggerAction = async () => {
 };
 
 onMounted(async () => {
+  await loadUserContext();
   await loadAudits();
 });
 </script>

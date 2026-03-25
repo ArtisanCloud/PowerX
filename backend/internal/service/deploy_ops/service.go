@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/deploy_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -58,6 +59,7 @@ type Service struct {
 	releases *repoops.DeployReleaseRecordRepository
 	approval *ApprovalPolicyService
 	auditor  obsops.AuditWriter
+	metrics  *inst.Recorder
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -65,6 +67,7 @@ func NewService(db *gorm.DB) *Service {
 		releases: repoops.NewDeployReleaseRecordRepository(db),
 		approval: NewApprovalPolicyService(db),
 		auditor:  obsops.NewUnifiedAuditWriter(db),
+		metrics:  inst.NewRecorder("powerx.service.deploy_ops"),
 	}
 }
 
@@ -85,25 +88,34 @@ func (s *Service) ListReleases(ctx context.Context, opt ListReleaseOptions) ([]m
 }
 
 func (s *Service) TriggerRelease(ctx context.Context, req ReleaseRequest) (*modelops.DeployReleaseRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "trigger_release", startedAt, retErr) }()
+
 	env := normalizeEnv(req.Environment)
 	mode := normalizeMode(req.Mode)
 	if env == "" || strings.TrimSpace(req.BackendVersion) == "" || strings.TrimSpace(req.WebAdminVersion) == "" {
-		return nil, ErrInvalidDeployRequest
+		retErr = ErrInvalidDeployRequest
+		return nil, retErr
 	}
 	if mode == "" {
-		return nil, ErrInvalidDeployMode
+		retErr = ErrInvalidDeployMode
+		return nil, retErr
 	}
 
 	if err := s.approval.EnsureAllowed(ctx, env, req.ApprovalTickets); err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	running, err := s.releases.FindRunningByEnvironment(ctx, env)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	if running != nil {
-		return nil, ErrReleaseInProgress
+		retErr = ErrReleaseInProgress
+		return nil, retErr
 	}
 
 	now := time.Now().UTC()
@@ -120,14 +132,16 @@ func (s *Service) TriggerRelease(ctx context.Context, req ReleaseRequest) (*mode
 	row.Normalize()
 	saved, err := s.releases.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	ended := time.Now().UTC()
 	saved.Status = modelops.DeployStatusSuccess
 	saved.EndedAt = &ended
 	if _, err = s.releases.Update(ctx, saved); err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	_ = s.audit(ctx, obsops.AuditRecord{
@@ -137,28 +151,35 @@ func (s *Service) TriggerRelease(ctx context.Context, req ReleaseRequest) (*mode
 		Outcome:      "success",
 		Severity:     "info",
 		Detail: map[string]any{
-			"environment":      saved.Environment,
-			"backend_version":  saved.BackendVersion,
+			"environment":       saved.Environment,
+			"backend_version":   saved.BackendVersion,
 			"web_admin_version": saved.WebAdminVersion,
-			"mode":             mode,
+			"mode":              mode,
 		},
 	})
 	return saved, nil
 }
 
 func (s *Service) TriggerRollback(ctx context.Context, req RollbackRequest) (*modelops.DeployReleaseRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "trigger_rollback", startedAt, retErr) }()
+
 	env := normalizeEnv(req.Environment)
 	target := strings.TrimSpace(req.TargetVersion)
 	mode := normalizeMode(req.Mode)
 	if env == "" || target == "" {
-		return nil, ErrInvalidDeployRequest
+		retErr = ErrInvalidDeployRequest
+		return nil, retErr
 	}
 	if mode == "" {
-		return nil, ErrInvalidDeployMode
+		retErr = ErrInvalidDeployMode
+		return nil, retErr
 	}
 
 	if err := s.approval.EnsureAllowed(ctx, env, req.ApprovalTickets); err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	now := time.Now().UTC()
@@ -175,14 +196,16 @@ func (s *Service) TriggerRollback(ctx context.Context, req RollbackRequest) (*mo
 	row.Normalize()
 	saved, err := s.releases.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	ended := time.Now().UTC()
 	saved.Status = modelops.DeployStatusSuccess
 	saved.EndedAt = &ended
 	if _, err = s.releases.Update(ctx, saved); err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	_ = s.audit(ctx, obsops.AuditRecord{
@@ -192,9 +215,9 @@ func (s *Service) TriggerRollback(ctx context.Context, req RollbackRequest) (*mo
 		Outcome:      "success",
 		Severity:     "info",
 		Detail: map[string]any{
-			"environment":   saved.Environment,
+			"environment":    saved.Environment,
 			"target_version": target,
-			"mode":          mode,
+			"mode":           mode,
 		},
 	})
 	return saved, nil

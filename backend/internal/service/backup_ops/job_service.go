@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -27,6 +28,7 @@ type JobService struct {
 	runner     ScriptRunner
 	auditor    obsops.AuditWriter
 	scriptDir  string
+	metrics    *inst.Recorder
 }
 
 type TriggerJobRequest struct {
@@ -53,6 +55,7 @@ func NewJobService(db *gorm.DB) *JobService {
 		runner:     NewOSScriptRunner(),
 		auditor:    obsops.NewUnifiedAuditWriter(db),
 		scriptDir:  scriptDir,
+		metrics:    inst.NewRecorder("powerx.service.backup_job_ops"),
 	}
 }
 
@@ -73,15 +76,22 @@ func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelo
 }
 
 func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*modelops.BackupJob, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "backup_trigger_job", startedAt, retErr) }()
+
 	if req.PolicyID == 0 {
-		return nil, ErrInvalidBackupRequest
+		retErr = ErrInvalidBackupRequest
+		return nil, retErr
 	}
 	policy, err := s.policyRepo.GetById(ctx, req.PolicyID, nil)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	if policy == nil {
-		return nil, ErrBackupPolicyNotFound
+		retErr = ErrBackupPolicyNotFound
+		return nil, retErr
 	}
 
 	now := time.Now().UTC()
@@ -96,7 +106,8 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	job.Normalize()
 	saved, err := s.jobRepo.Create(ctx, job)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	execErr := s.runBackupScript(ctx, saved.PolicyID)
@@ -110,7 +121,8 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	}
 	updated, err := s.jobRepo.Update(ctx, saved)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "trigger", Outcome: string(updated.Status), Severity: "info", Detail: map[string]any{"policy_id": updated.PolicyID, "status": updated.Status}})
@@ -118,7 +130,9 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 }
 
 func (s *JobService) TriggerCleanup(ctx context.Context, operator, traceID string) error {
+	startedAt := time.Now()
 	err := s.runOptionalScript(ctx, "cleanup-backups.sh", nil)
+	s.metrics.Observe(ctx, "backup_trigger_cleanup", startedAt, err)
 	outcome := "success"
 	if err != nil {
 		outcome = "failed"

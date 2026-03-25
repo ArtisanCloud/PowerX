@@ -174,15 +174,15 @@
 
 **Purpose**: 全局完善、质量门槛与文档回归
 
-- [ ] T073 [P] [Polish] 日志与指标补齐（deploy/plugin/backup/migration 四域）：`backend/internal/service/{deploy_ops,backup_ops,observability_ops,migration_ops}/instrumentation/*.go`
-- [ ] T074 [P] [Polish] 审批策略按环境可配置联调：`backend/internal/service/deploy_ops/approval_policy_service.go` + `web-admin/app/pages/ops/deploy.vue`
-- [ ] T075 [P] [Polish] 前端 RBAC 权限点收敛（按钮级与页面级）：`web-admin/app/pages/ops/{deploy,plugins,backup,migration}.vue`
-- [ ] T076 [Polish] 发布阻断脚本（验收清单未过禁止发布）：`backend/scripts/ops/pre-release-gate.sh` + `Makefile`
-- [ ] T077 [Polish] 覆盖率与性能门禁（>=80% / p95<200ms）：`backend/scripts/ci/{coverage-gate.sh,perf-smoke.sh}`
-- [ ] T078 [Polish] 运行 quickstart 验证并记录结果：`specs/025-powerx-docker-systemd/quickstart.md`
-- [ ] T079 [Polish] 更新部署文档引用与运维手册交叉链接：`docs/plan/deploy/*.md`
+- [X] T073 [P] [Polish] 日志与指标补齐（deploy/plugin/backup/migration 四域）：`backend/internal/service/{deploy_ops,backup_ops,observability_ops,migration_ops}/instrumentation/*.go`
+- [X] T074 [P] [Polish] 审批策略按环境可配置联调：`backend/internal/service/deploy_ops/approval_policy_service.go` + `web-admin/app/pages/ops/deploy.vue`
+- [X] T075 [P] [Polish] 前端 RBAC 权限点收敛（按钮级与页面级）：`web-admin/app/pages/ops/{deploy,plugins,backup,migration}.vue`
+- [X] T076 [Polish] 发布阻断脚本（验收清单未过禁止发布）：`backend/scripts/ops/pre-release-gate.sh` + `Makefile`
+- [X] T077 [Polish] 覆盖率与性能门禁（>=80% / p95<200ms）：`backend/scripts/ci/{coverage-gate.sh,perf-smoke.sh}`
+- [X] T078 [Polish] 运行 quickstart 验证并记录结果：`specs/025-powerx-docker-systemd/quickstart.md`
+- [X] T079 [Polish] 更新部署文档引用与运维手册交叉链接：`docs/plan/deploy/*.md`
 - [ ] T080 [Polish] 全量回归：`go test` 合同/集成 + `web-admin` E2E 回归
-- [ ] T087 [Polish] `trace_id` 贯通验收（页面操作 -> API -> 审计 -> 日志）`backend/tests/integration/ops/traceability_e2e_test.go` + `web-admin/tests/e2e/ops/traceability.spec.ts`
+- [X] T087 [Polish] `trace_id` 贯通验收（页面操作 -> API -> 审计 -> 日志）`backend/tests/integration/ops/traceability_e2e_test.go` + `web-admin/tests/e2e/ops/traceability.spec.ts`
 
 ---
 

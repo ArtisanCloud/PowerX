@@ -174,3 +174,11 @@
 - E2E + 演练 + 缺陷修复
 - 上线验收与文档归档
 
+## 7. 交叉引用（Runbook / 验证 / 门禁）
+
+- 迁移 runbook：`./powerx-instance-migration.md`
+- 插件升级 SOP：`./plugin-upgrade-sop.md`
+- 备份恢复模板：`./db-backup-job-templates.md`
+- 日志观测方案：`./logging-loki-grafana.md`
+- Feature 验证记录：`../../../specs/025-powerx-docker-systemd/quickstart.md`
+- 预发布阻断：`backend/scripts/ops/pre-release-gate.sh`

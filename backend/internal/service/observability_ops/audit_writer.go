@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/observability_ops/instrumentation"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm"
@@ -26,17 +27,26 @@ type AuditWriter interface {
 }
 
 type UnifiedAuditWriter struct {
-	repo *auditrepo.AuditEventRepository
+	repo    *auditrepo.AuditEventRepository
+	metrics *inst.Recorder
 }
 
 func NewUnifiedAuditWriter(db *gorm.DB) *UnifiedAuditWriter {
-	return &UnifiedAuditWriter{repo: auditrepo.NewAuditEventRepository(db)}
+	return &UnifiedAuditWriter{
+		repo:    auditrepo.NewAuditEventRepository(db),
+		metrics: inst.NewRecorder("powerx.service.observability_ops"),
+	}
 }
 
 func (w *UnifiedAuditWriter) Write(ctx context.Context, rec AuditRecord) error {
+	startedAt := time.Now()
+	var writeErr error
+	defer func() { w.metrics.Observe(ctx, "audit_write", startedAt, writeErr) }()
+
 	payload, err := json.Marshal(rec.Detail)
 	if err != nil {
-		return fmt.Errorf("marshal audit detail: %w", err)
+		writeErr = fmt.Errorf("marshal audit detail: %w", err)
+		return writeErr
 	}
 
 	now := time.Now().UTC()
@@ -92,7 +102,8 @@ func (w *UnifiedAuditWriter) Write(ctx context.Context, rec AuditRecord) error {
 			Meta:         row.Meta,
 		})
 	}
-	return w.repo.InsertBatch(ctx, toAuditEvents(models))
+	writeErr = w.repo.InsertBatch(ctx, toAuditEvents(models))
+	return writeErr
 }
 
 type auditrepoRow struct {

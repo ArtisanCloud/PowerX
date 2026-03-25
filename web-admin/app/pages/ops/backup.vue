@@ -3,6 +3,7 @@
     <header>
       <h1 class="text-2xl font-semibold">备份恢复中心</h1>
       <p class="mt-1 text-sm text-gray-500">策略管理、任务执行、恢复演练与日志观测。</p>
+      <p v-if="permissionHint" class="text-xs text-amber-600">{{ permissionHint }}</p>
     </header>
 
     <div class="grid gap-4 md:grid-cols-2">
@@ -14,7 +15,7 @@
           <input v-model="policyForm.schedule" class="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="cron" />
           <input v-model.number="policyForm.retentionDays" class="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="retention days" />
           <input v-model="policyForm.storageTarget" class="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="storage target" />
-          <button class="rounded bg-black px-4 py-2 text-sm text-white" @click="savePolicy">保存策略</button>
+          <button class="rounded bg-black px-4 py-2 text-sm text-white" :disabled="!canExecute" @click="savePolicy">保存策略</button>
         </div>
       </div>
 
@@ -25,9 +26,9 @@
             <option value="">选择策略</option>
             <option v-for="p in policies" :key="String(p.id)" :value="String(p.id)">{{ p.name }}</option>
           </select>
-          <button class="rounded border border-gray-300 px-4 py-2 text-sm" @click="runBackup">手动触发备份</button>
-          <button class="rounded border border-gray-300 px-4 py-2 text-sm" @click="runCleanup">触发清理</button>
-          <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!latestJob" @click="runDrill">触发恢复演练</button>
+          <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!canExecute" @click="runBackup">手动触发备份</button>
+          <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!canExecute" @click="runCleanup">触发清理</button>
+          <button class="rounded border border-gray-300 px-4 py-2 text-sm" :disabled="!latestJob || !canExecute" @click="runDrill">触发恢复演练</button>
         </div>
       </div>
     </div>
@@ -47,8 +48,10 @@ import { useBackupOpsService, type BackupJob, type BackupPolicy, type RestoreDri
 import BackupJobTable from "~/components/ops/backup/BackupJobTable.vue";
 import RestoreDrillPanel from "~/components/ops/backup/RestoreDrillPanel.vue";
 import LogObservabilityPanel from "~/components/ops/backup/LogObservabilityPanel.vue";
+import { useOpsAccess } from "~/composables/useOpsAccess";
 
 const backupSvc = useBackupOpsService();
+const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
 const policies = ref<BackupPolicy[]>([]);
 const jobs = ref<BackupJob[]>([]);
 const latestDrill = ref<RestoreDrillRecord | null>(null);
@@ -70,6 +73,7 @@ const load = async () => {
 };
 
 const savePolicy = async () => {
+  if (!canExecute.value) return;
   await backupSvc.upsertPolicy({
     name: policyForm.name,
     backup_type: policyForm.backupType,
@@ -82,21 +86,25 @@ const savePolicy = async () => {
 };
 
 const runBackup = async () => {
+  if (!canExecute.value) return;
   if (!selectedPolicyId.value) return;
   await backupSvc.triggerJob(selectedPolicyId.value);
   jobs.value = await backupSvc.listJobs();
 };
 
 const runCleanup = async () => {
+  if (!canExecute.value) return;
   await backupSvc.triggerCleanup();
 };
 
 const runDrill = async () => {
+  if (!canExecute.value) return;
   if (!latestJob.value) return;
   latestDrill.value = await backupSvc.triggerRestoreDrill(latestJob.value.id);
 };
 
 onMounted(async () => {
+  await loadUserContext();
   await load();
 });
 </script>

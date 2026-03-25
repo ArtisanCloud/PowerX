@@ -41,6 +41,7 @@
 - [PowerX 实例迁移指南（A -> B，含表结构）](./powerx-instance-migration.md)
 - [运维管理控制台路线图（页面/API/权限/分期）](./management-console-roadmap.md)
 - [运维管理控制台 P0 实施任务清单](./management-console-p0-tasks.md)
+- [PowerX 运维治理 Quickstart 验证记录](../../../specs/025-powerx-docker-systemd/quickstart.md)
 
 ## 3. 关键 API（插件生命周期）
 
@@ -95,3 +96,9 @@
 
 - 应用发布：新版本部署 -> 健康检查 -> 切流 -> 保留旧版本用于回滚
 - 插件发布：安装不启用 -> 健康验证 -> 切换版本 -> 观察窗口 -> 清理旧版本（可选）
+
+## 7. 预发布与门禁
+
+- 发布前阻断：`bash backend/scripts/ops/pre-release-gate.sh`
+- 覆盖率门禁（默认 >=80%）：`bash backend/scripts/ci/coverage-gate.sh`
+- 性能烟测门禁（默认 p95<200ms）：`bash backend/scripts/ci/perf-smoke.sh`

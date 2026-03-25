@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -26,6 +27,7 @@ type RestoreDrillService struct {
 	runner      ScriptRunner
 	auditor     obsops.AuditWriter
 	scriptDir   string
+	metrics     *inst.Recorder
 }
 
 type TriggerRestoreDrillRequest struct {
@@ -45,19 +47,27 @@ func NewRestoreDrillService(db *gorm.DB) *RestoreDrillService {
 		runner:      NewOSScriptRunner(),
 		auditor:     obsops.NewUnifiedAuditWriter(db),
 		scriptDir:   scriptDir,
+		metrics:     inst.NewRecorder("powerx.service.restore_drill_ops"),
 	}
 }
 
 func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDrillRequest) (*modelops.RestoreDrillRecord, error) {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "backup_trigger_restore_drill", startedAt, retErr) }()
+
 	if req.SourceJobID == 0 {
-		return nil, ErrInvalidRestoreDrillRequest
+		retErr = ErrInvalidRestoreDrillRequest
+		return nil, retErr
 	}
 	job, err := s.jobRepo.GetById(ctx, req.SourceJobID, nil)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 	if job == nil {
-		return nil, ErrInvalidRestoreDrillRequest
+		retErr = ErrInvalidRestoreDrillRequest
+		return nil, retErr
 	}
 
 	rto := int64(120)
@@ -82,7 +92,8 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 	row.Normalize()
 	saved, err := s.restoreRepo.Create(ctx, row)
 	if err != nil {
-		return nil, err
+		retErr = err
+		return nil, retErr
 	}
 
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "restore_drill", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "trigger", Outcome: string(saved.Status), Severity: "info", Detail: map[string]any{"source_job_id": saved.SourceJobID, "rto_seconds": saved.RTOSec}})
