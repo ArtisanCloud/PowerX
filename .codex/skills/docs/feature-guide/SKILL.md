@@ -111,7 +111,10 @@ description: 生成 PowerX 功能使用指导文档（人性化、可执行、�
 未被用户显式指定输出路径时，使用以下规则：
 
 1. 输入为 `specs/<feature-id>/...` 时：
-   - 默认输出目录：`docs/guides/features/<feature-id>/`
+   - 若 `<feature-id>` 或 spec 主题属于“部署/运维”（如 deploy、docker、systemd、ops、backup、migration）：
+     - 默认输出目录：`docs/guides/deploy/<feature-id>/`
+   - 其他功能：
+     - 默认输出目录：`docs/guides/features/<feature-id>/`
    - 默认主文档：`guide.md`
 2. 目录不存在时，先创建目录再写入。
 3. 目标文件已存在时，默认执行“覆盖更新”（保留结构，按当前实现刷新）。

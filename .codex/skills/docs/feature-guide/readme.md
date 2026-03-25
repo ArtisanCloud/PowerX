@@ -17,11 +17,12 @@
 ```text
 使用 .codex/skill/docs/feature-guide，
 输入 specs/025-powerx-docker-systemd/{spec.md,plan.md,tasks.md,quickstart.md}，
-输出 docs/guides/features/025-powerx-docker-systemd/guide.md
+输出 docs/guides/deploy/025-powerx-docker-systemd/guide.md
 ```
 
-> 默认约定：若输入是 `specs/<feature-id>/...` 且未指定输出，默认写入  
-> `docs/guides/features/<feature-id>/guide.md`。
+> 默认约定：若输入是 `specs/<feature-id>/...` 且未指定输出：
+> - 部署/运维类（deploy、docker、systemd、ops、backup、migration）默认写入 `docs/guides/deploy/<feature-id>/guide.md`
+> - 其他功能默认写入 `docs/guides/features/<feature-id>/guide.md`
 
 ## 3) PowerX 场景推荐写法
 
@@ -38,7 +39,7 @@
 推荐输出目录：
 
 ```text
-docs/guides/features/<feature-id>/
+docs/guides/deploy/<feature-id>/
   guide.md
   usecase-<slug-a>.md
   usecase-<slug-b>.md
