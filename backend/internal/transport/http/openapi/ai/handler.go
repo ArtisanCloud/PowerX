@@ -23,7 +23,7 @@ type aiHandler struct {
 }
 
 type aiService interface {
-	LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (string, error)
+	LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error)
 	LLMStream(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
 	ListLLMModels(ctx context.Context, env string, tenantUUID string, provider string) ([]aisvc.LLMModelItem, error)
 	ResolveTenantEnv(ctx context.Context, tenantUUID string) (string, bool, error)
@@ -37,7 +37,6 @@ type aiService interface {
 type contentItem struct {
 	Role    string `json:"role"`
 	Type    string `json:"type"`
-	Text    string `json:"text"`
 	Content string `json:"content"`
 	URL     string `json:"url"`
 }
@@ -67,6 +66,7 @@ type modalInvokeRequest struct {
 
 type llmInvokeResponse struct {
 	Output map[string]interface{} `json:"output"`
+	Meta   map[string]interface{} `json:"meta,omitempty"`
 	Usage  map[string]interface{} `json:"usage,omitempty"`
 }
 
@@ -154,12 +154,26 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		respondAIError(c, err)
 		return
 	}
+	if out == nil {
+		out = &aisvc.LLMInvokeResult{}
+	}
 
 	resp := llmInvokeResponse{
 		Output: map[string]interface{}{
 			"type": "text",
-			"text": out,
+			"text": out.Text,
 		},
+	}
+	if strings.TrimSpace(out.FinishReason) != "" {
+		resp.Meta = map[string]interface{}{
+			"finish_reason": out.FinishReason,
+		}
+	}
+	if len(out.Usage) > 0 {
+		resp.Usage = map[string]interface{}{}
+		for k, v := range out.Usage {
+			resp.Usage[k] = v
+		}
 	}
 	dto.ResponseSuccess(c, resp)
 }
@@ -348,7 +362,7 @@ func (h *aiHandler) llmSessionStream(c *gin.Context) {
 			env,
 			tenantUUID,
 			sess.ModelKey,
-			[]aisvc.ContentItem{{Type: "text", Text: prompt}},
+			[]aisvc.ContentItem{{Type: "text", Content: prompt}},
 			nil,
 			onDelta,
 		)
@@ -585,8 +599,10 @@ func jsonString(v string) string {
 func buildPrompt(items []contentItem) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Type), "text") && strings.TrimSpace(item.Text) != "" {
-			parts = append(parts, strings.TrimSpace(item.Text))
+		if strings.EqualFold(strings.TrimSpace(item.Type), "text") {
+			if txt := strings.TrimSpace(item.Content); txt != "" {
+				parts = append(parts, txt)
+			}
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -613,15 +629,11 @@ func toServiceItems(items []contentItem) []aisvc.ContentItem {
 	}
 	out := make([]aisvc.ContentItem, 0, len(items))
 	for _, item := range items {
-		text := item.Text
-		if strings.TrimSpace(text) == "" {
-			text = item.Content
-		}
 		out = append(out, aisvc.ContentItem{
-			Role: item.Role,
-			Type: item.Type,
-			Text: text,
-			URL:  item.URL,
+			Role:    item.Role,
+			Type:    item.Type,
+			Content: strings.TrimSpace(item.Content),
+			URL:     item.URL,
 		})
 	}
 	return out

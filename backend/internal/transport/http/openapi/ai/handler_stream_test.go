@@ -18,8 +18,8 @@ type stubAIService struct {
 	llmStreamFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
 }
 
-func (s *stubAIService) LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (string, error) {
-	return "", nil
+func (s *stubAIService) LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error) {
+	return &aisvc.LLMInvokeResult{}, nil
 }
 func (s *stubAIService) LLMStream(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error) {
 	if s.llmStreamFn == nil {
@@ -76,7 +76,7 @@ func TestLLMStreamEndpointSSE(t *testing.T) {
 	})
 	r.POST("/api/v1/ai/llm/stream", h.llmStream)
 
-	body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"type":"text","text":"你好"}],"stream_options":{"include_usage":true}}`
+	body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"type":"text","content":"你好"}],"stream_options":{"include_usage":true}}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/stream?env=dev", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -106,10 +106,10 @@ func TestLLMStreamEndpointSupportsRoleAndContent(t *testing.T) {
 				if len(inputs) != 2 {
 					t.Fatalf("unexpected input length: %d", len(inputs))
 				}
-				if inputs[0].Role != "system" || inputs[0].Text != "你是编辑助手" {
+				if inputs[0].Role != "system" || inputs[0].Content != "你是编辑助手" {
 					t.Fatalf("unexpected first input: %+v", inputs[0])
 				}
-				if inputs[1].Role != "user" || inputs[1].Text != "请改写这段文案" {
+				if inputs[1].Role != "user" || inputs[1].Content != "请改写这段文案" {
 					t.Fatalf("unexpected second input: %+v", inputs[1])
 				}
 				onDelta("ok")
@@ -127,7 +127,7 @@ func TestLLMStreamEndpointSupportsRoleAndContent(t *testing.T) {
 		})
 		r.POST("/api/v1/ai/llm/stream", h.llmStream)
 
-		body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"role":"system","type":"text","text":"你是编辑助手"},{"role":"user","type":"text","text":"请改写这段文案"}]}`
+		body := `{"model_key":"openai/gpt-4o-mini","inputs":[{"role":"system","type":"text","content":"你是编辑助手"},{"role":"user","type":"text","content":"请改写这段文案"}]}`
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/stream?env=dev", bytes.NewBufferString(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestLLMStreamEndpointSupportsRoleAndContent(t *testing.T) {
 		}
 	})
 
-	t.Run("content_fallback_to_text", func(t *testing.T) {
+	t.Run("content_only", func(t *testing.T) {
 		stub := &stubAIService{
 			llmStreamFn: func(ctx context.Context, env string, tenant string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error) {
 				if len(inputs) != 1 {
@@ -146,8 +146,8 @@ func TestLLMStreamEndpointSupportsRoleAndContent(t *testing.T) {
 				if inputs[0].Role != "user" {
 					t.Fatalf("unexpected role: %+v", inputs[0])
 				}
-				if inputs[0].Text != "仅传content字段也应生效" {
-					t.Fatalf("content fallback failed: %+v", inputs[0])
+				if inputs[0].Content != "仅传content字段也应生效" {
+					t.Fatalf("content decode failed: %+v", inputs[0])
 				}
 				onDelta("ok")
 				return "ok", nil
@@ -183,7 +183,7 @@ func TestLLMSessionStreamEndpointSSE(t *testing.T) {
 			if modelKey != "openai/gpt-4o-mini" {
 				t.Fatalf("unexpected model_key: %s", modelKey)
 			}
-			if len(inputs) == 0 || !strings.Contains(inputs[0].Text, "user: hello") {
+			if len(inputs) == 0 || !strings.Contains(inputs[0].Content, "user: hello") {
 				t.Fatalf("unexpected prompt: %+v", inputs)
 			}
 			onDelta("hel")
@@ -199,7 +199,7 @@ func TestLLMSessionStreamEndpointSSE(t *testing.T) {
 			{
 				Role: "user",
 				Content: []contentItem{
-					{Type: "text", Text: "hello"},
+					{Type: "text", Content: "hello"},
 				},
 			},
 		},
