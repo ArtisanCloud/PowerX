@@ -1,36 +1,77 @@
 // middleware/app.global.ts
-export default defineNuxtRouteMiddleware((to) => {
-  if (process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true") {
-    return
+export default defineNuxtRouteMiddleware(async (to) => {
+  const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
+
+  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean } | null> => {
+    try {
+      const resp: any = await $fetch("/api/v1/admin/setup/status", {
+        method: "GET",
+        timeout: 5000,
+      });
+      const payload = resp?.data ?? resp;
+      return {
+        configured: Boolean(payload?.configured),
+        requires_login: Boolean(payload?.requires_login),
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  // —— 若你有 i18n，to.path 可能是 /zh/home、/en/intro 等
+  //    下面做一个“可选语言前缀”的正则匹配
+  const withLocale = (p: string | RegExp) => {
+    if (typeof p !== "string") {
+      return new RegExp(`^/(?:[a-z]{2}(?:-[A-Z]{2})?/)?${p.source}(?:/|$)`);
+    }
+    const normalized = p.replace(/^\/+/, "");
+    return new RegExp(`^/(?:[a-z]{2}(?:-[A-Z]{2})?/)?${normalized}(?:/|$)`);
+  };
+
+  const PUBLIC_RULES: RegExp[] = [
+    withLocale("/home"),
+    withLocale("/intro"),
+    withLocale("/setup"),
+    withLocale("/users/login"),
+    withLocale("/users/register"),
+  ];
+
+  // 1) 首装判定在服务端/客户端都执行，避免首屏 SSR 进入业务页
+  const setup = await loadSetupStatus();
+  if (to.path === "/") {
+    if (setup && !setup.configured && !setup.requires_login) {
+      return navigateTo("/setup");
+    }
+    return navigateTo("/home");
   }
 
-  // 1) 根路径 -> /home（仅服务端执行一次也OK）
-  if (to.path === "/") {
+  // 首次安装：无用户且未完成初始化时，强制进入 /setup
+  if (
+    setup &&
+    !setup.configured &&
+    !setup.requires_login &&
+    !withLocale("/setup").test(to.path)
+  ) {
+    return navigateTo("/setup");
+  }
+  if (
+    setup &&
+    setup.configured &&
+    withLocale("/setup").test(to.path)
+  ) {
     return navigateTo("/home");
   }
 
   // 2) 只在客户端做 localStorage 鉴权
   if (process.server) return;
 
-  // —— 若你有 i18n，to.path 可能是 /zh/home、/en/intro 等
-  //    下面做一个“可选语言前缀”的正则匹配
-  const withLocale = (p: string | RegExp) =>
-    new RegExp(
-      `^/(?:[a-z]{2}(?:-[A-Z]{2})?)?${
-        typeof p === "string" ? p.replace("/", "\\/") : (p as RegExp).source
-      }(?:/|$)`
-    );
-
-  const PUBLIC_RULES: RegExp[] = [
-    withLocale("/home"),
-    withLocale("/intro"),
-    withLocale("/users/login"),
-    withLocale("/users/register"),
-  ];
-
   const publicHit = PUBLIC_RULES.some((re) => re.test(to.path));
   console.log("🚦 publicHit:", publicHit);
   if (publicHit) return;
+
+  if (skipAuth) {
+    return;
+  }
 
   // 3) 其余路由需要登录
   const isTokenExpired = (): boolean => {
@@ -65,7 +106,7 @@ export default defineNuxtRouteMiddleware((to) => {
   const needRefresh = !token || isTokenExpired();
 
   if (needRefresh && refreshToken) {
-    return $fetch("/api/admin/user/auth/refresh", {
+    return $fetch("/api/v1/admin/user/auth/refresh", {
       method: "POST",
       body: { refresh_token: refreshToken },
       headers: {

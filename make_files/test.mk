@@ -291,6 +291,21 @@ ci-all:
 	@cd backend && GOFLAGS="" go test ./...
 	@$(MAKE) regression-pxp
 
+.PHONY: test-full-regression
+test-full-regression:
+	@echo "🧪 运行全量回归（backend contract/integration + web-admin E2E）..."
+	@bash scripts/ci/t080_full_regression.sh
+
+.PHONY: test-full-regression-backend
+test-full-regression-backend:
+	@echo "🧪 运行回归（仅 backend，跳过 E2E）..."
+	@SKIP_E2E=1 bash scripts/ci/t080_full_regression.sh
+
+# 兼容旧命令（推荐改用 test-full-regression / test-full-regression-backend）
+.PHONY: regression-025 regression-025-no-e2e
+regression-025: test-full-regression
+regression-025-no-e2e: test-full-regression-backend
+
 .PHONY: check-tenant-id
 check-tenant-id:
 	@echo "🔎 检查 diff 中是否新增 tenant_id ..."

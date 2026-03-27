@@ -181,8 +181,81 @@
 - [X] T077 [Polish] 覆盖率与性能门禁（>=80% / p95<200ms）：`backend/scripts/ci/{coverage-gate.sh,perf-smoke.sh}`
 - [X] T078 [Polish] 运行 quickstart 验证并记录结果：`specs/025-powerx-docker-systemd/quickstart.md`
 - [X] T079 [Polish] 更新部署文档引用与运维手册交叉链接：`docs/plan/deploy/*.md`
-- [ ] T080 [Polish] 全量回归：`go test` 合同/集成 + `web-admin` E2E 回归
+- [ ] T080 [Polish] 全量回归：`go test` 合同/集成 + `web-admin` E2E 回归（backend 回归已通过，待本机执行 E2E 后勾选）
 - [X] T087 [Polish] `trace_id` 贯通验收（页面操作 -> API -> 审计 -> 日志）`backend/tests/integration/ops/traceability_e2e_test.go` + `web-admin/tests/e2e/ops/traceability.spec.ts`
+
+---
+
+## Phase 8: User Story 5 - 首次安装引导配置闭环 (Priority: P1)
+
+**Goal**: 新安装实例在“无配置/无管理员”场景下自动进入引导页面，支持最小可用配置与完成标记，减少手工编辑配置文件出错率
+
+**Independent Test**: 冷启动环境访问 `/` 自动进入 `/setup`；完成向导后可回到首页；已初始化环境不会再次被强制引导
+
+### Tests for User Story 5 (TDD First)
+
+- [X] T091 [P] [US5] 契约测试：首次安装状态与完成接口 `backend/tests/contract/system/http_setup_contract_test.go`
+- [X] T092 [P] [US5] 集成测试：冷启动 -> 引导 -> 完成闭环 `backend/tests/integration/system/setup_bootstrap_flow_test.go`
+- [X] T093 [P] [US5] E2E：`/` 自动跳转 `/setup` 与完成后回首页 `web-admin/tests/e2e/setup/first-install.spec.ts`
+
+### Implementation for User Story 5
+
+- [X] T088 [US5] 新增首次安装状态接口（公开）`GET /api/v1/admin/setup/status`：`backend/internal/transport/http/admin/system/setup_handler.go`
+- [X] T089 [US5] 新增首次安装完成接口（公开）`POST /api/v1/admin/setup/complete` 并挂载路由：`backend/internal/transport/http/admin/system/{setup_handler.go,api.go}`
+- [X] T090 [US5] 前端路由守卫接入首次安装重定向：`web-admin/app/middleware/auth.ts`
+- [X] T094 [US5] 将 `/setup` 页面从演示态改为后端状态驱动：`web-admin/app/pages/setup/index.vue`
+- [X] T095 [US5] 实现向导配置写入能力（DB 配置域 + 必填项校验）：`backend/internal/transport/http/admin/system/setup_handler.go` + `backend/internal/service/system/setting_service.go`
+- [X] T096 [US5] 实现 `/setup` 配置提交与回显（域名/HTTPS/存储/缓存/邮件）`web-admin/app/pages/setup/index.vue` + `web-admin/app/composables/api/services/settingsService.ts`
+- [X] T097 [US5] 补充部署文档“引导配置页”章节与故障排查：`docs/guides/deploy/025-powerx-docker-systemd/{docker,systemd}/*`
+
+**Checkpoint**: US5 完成后，首次安装路径可执行且与文档一致
+
+---
+
+## Phase 9: User Story 6 - 端口默认策略与 Setup 端口配置 (Priority: P1)
+
+**Goal**: 明确并落地开发/生产默认端口策略（dev: 3030/8077, prod: 3000/8080），并在首次安装向导中支持端口配置，避免环境切换时端口口径不一致
+
+**Independent Test**: 在 `POWERX_ENV=dev/prod` 下未传端口变量时自动取对应默认值；传入端口变量后覆盖默认值；`/setup` 可回显与保存端口配置
+
+### Tests for User Story 6 (TDD First)
+
+- [X] T098 [P] [US6] 契约测试：`setup config` 包含端口字段并通过校验 `backend/tests/contract/system/http_setup_contract_test.go`
+- [X] T099 [P] [US6] 集成测试：端口默认值与覆盖优先级 `backend/tests/integration/system/setup_bootstrap_flow_test.go`
+
+### Implementation for User Story 6
+
+- [X] T100 [US6] 后端实现端口默认策略与优先级解析：`config/*` + `backend/internal/transport/http/admin/system/setup_handler.go`
+- [X] T101 [US6] 前端 setup 页面增加端口配置项与校验：`web-admin/app/pages/setup/index.vue`
+- [X] T102 [US6] 文档与示例配置对齐端口策略：`docs/guides/deploy/025-powerx-docker-systemd/*` + `deploy/powerx/docker/.env.prod.example` + `backend/.env.example`
+
+**Checkpoint**: US6 完成后，dev/prod 端口行为一致且 setup/文档/示例配置无偏差
+
+---
+
+## Phase 10: User Story 7 - YAML 首真相的安装状态机与硬拦截 (Priority: P1)
+
+**Goal**: 建立“DB 未就绪也可启动”的首次安装机制，以 `config.install.status` 作为安装态首判定，确保 `/setup` 可完成从未安装到已安装的闭环切换
+
+**Independent Test**: DB 不可用时系统仍可访问 `/setup` 与健康接口；未安装时业务 API 全量拦截；完成 setup 后自动切换为正常运行模式
+
+### Tests for User Story 7 (TDD First)
+
+- [X] T103 [P] [US7] 契约测试：安装状态接口新增 `install_status/guard_mode` 字段与未安装统一错误码 `backend/tests/contract/system/http_install_state_contract_test.go`
+- [X] T104 [P] [US7] 集成测试：未安装模式 API 白名单与全局硬拦截 `backend/tests/integration/system/install_guard_integration_test.go`
+- [X] T105 [P] [US7] 集成测试：`setup/complete` 两阶段失败回滚与成功原子切换 `backend/tests/integration/system/setup_complete_atomicity_test.go`
+- [X] T106 [P] [US7] E2E：未安装仅可走 `/setup`，安装成功后进入 `/home`，且不弹 AI 引导 `web-admin/tests/e2e/setup/install-guard.spec.ts`
+
+### Implementation for User Story 7
+
+- [X] T107 [US7] 配置模型新增 `install` 对象并加载默认值：`backend/config/{config.go,defaults.go}` + `backend/etc/{config.yaml,config_example.yaml}`
+- [X] T108 [US7] 实现安装态守卫中间件并挂载到 HTTP 路由：`backend/internal/http/{router.go,install_guard_middleware.go}`
+- [X] T109 [US7] 改造 setup 状态判定为“YAML 首真相 + 历史键兼容读取”并统一响应：`backend/internal/transport/http/admin/system/setup_handler.go`
+- [X] T110 [US7] 实现 `setup/complete` 两阶段落地（写 dist 配置 -> migrate/seed -> 切 install.status）：`backend/internal/transport/http/admin/system/setup_handler.go` + `backend/internal/service/system/setting_service.go`
+- [X] T111 [US7] 前端守卫与 AI 引导彻底解耦：`web-admin/app/middleware/auth.ts` + `web-admin/app/components/onboarding/WelcomeGuide.vue`
+- [X] T112 [US7] 更新部署与安装机制文档并对齐 quickstart：`specs/025-powerx-docker-systemd/{install-mechanism.md,quickstart.md}` + `docs/guides/deploy/025-powerx-docker-systemd/*`
+
+**Checkpoint**: US7 完成后，首次安装流程不再依赖“DB 先可用”，并具备可测试的状态机与拦截边界
 
 ---
 
@@ -190,9 +263,9 @@
 
 ### Phase Dependencies
 
-- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7
+- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10
 - User Stories 必须在 Phase 2 完成后开始
-- US1/US2/US3/US4 可并行推进（团队资源允许时）
+- US1/US2/US3/US4/US5/US6 可并行推进（团队资源允许时）
 
 ### User Story Dependencies
 
@@ -200,6 +273,9 @@
 - **US2 (P1)**: 依赖 Foundational 完成，可与 US1 并行
 - **US3 (P2)**: 依赖 Foundational 完成，可与 US1/US2 并行
 - **US4 (P3)**: 依赖 Foundational 完成，可与 US1/US2/US3 并行
+- **US5 (P1)**: 依赖 Foundational 完成，可与 US1 并行；建议在发布前完成以保障首装体验
+- **US6 (P1)**: 依赖 US5（setup 闭环）完成后推进；用于统一 dev/prod 端口策略并补齐 setup 端口配置
+- **US7 (P1)**: 依赖 US5/US6，重构安装态真相与拦截策略；完成后才能标记 setup 闭环“生产可用”
 
 ### Within Each User Story
 
@@ -218,6 +294,8 @@
 - US3 测试 T046~T049 可并行
 - US4 测试 T065/T066/T085 可并行
 - US3 观测配置 T060/T061/T062 可并行
+- US5 测试任务 T091/T092/T093 可并行
+- US6 测试任务 T098/T099 可并行
 
 ## Parallel Example
 

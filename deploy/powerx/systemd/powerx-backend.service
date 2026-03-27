@@ -9,7 +9,7 @@ User=powerx
 Group=powerx
 WorkingDirectory=/opt/powerx/backend
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/opt/powerx/backend/powerx
+ExecStart=/bin/sh -c 'CORE_X_SERVER_PORT=${POWERX_BACKEND_PORT:-8080} exec /opt/powerx/backend/powerx'
 Restart=always
 RestartSec=3
 LimitNOFILE=65535

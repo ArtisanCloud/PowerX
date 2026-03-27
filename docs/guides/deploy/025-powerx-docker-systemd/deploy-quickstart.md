@@ -8,7 +8,8 @@
 ## 2. 前置条件
 
 ### 2.1 基础依赖
-- PostgreSQL、Redis、MinIO/S3 可连通。
+- Docker 模式：默认内置 PostgreSQL（pgvector）与 Redis；也支持改 `DATABASE_DSN` 连接外部 PostgreSQL。
+- systemd 模式：需要外部 PostgreSQL、Redis、MinIO/S3 可连通。
 - 已准备 PowerX 运行配置（数据库、缓存、对象存储、认证）。
 - 服务器时间同步正常（避免证书/Token 时间偏差）。
 
@@ -17,6 +18,12 @@
 - systemd 资产：`deploy/powerx/systemd/{powerx-backend.service,powerx-runner.service,powerx-web-admin.service}`
 - 部署检查脚本：`backend/scripts/ops/deploy-check.sh`
 - 回滚脚本：`backend/scripts/ops/rollback-release.sh`
+
+### 2.3 端口默认值与覆盖规则
+- 默认值（dev）：`web-admin=3030`，`backend=8077`
+- 默认值（prod）：`web-admin=3000`，`backend=8080`
+- 运行时覆盖：`POWERX_WEB_ADMIN_PORT`、`POWERX_BACKEND_PORT`
+- setup 端口项：规划为首装向导可编辑项（当前版本待实现，暂以环境变量/配置文件为准）
 
 ## 3. 方案 A：Docker 部署（首发主方案）
 
@@ -29,7 +36,7 @@ cd deploy/powerx/docker
 cp .env.prod.example .env
 ```
 
-- 预期结果：`.env` 存在且包含镜像 tag、端口、外部依赖配置。
+- 预期结果：`.env` 存在且包含镜像 tag、端口、数据库与缓存配置。
 - 失败处理：若不存在示例文件，先从发布包或配置中心补齐。
 
 ### 步骤 2：拉取并启动
@@ -41,7 +48,7 @@ docker compose -f compose.prod.yaml pull
 docker compose -f compose.prod.yaml up -d
 ```
 
-- 预期结果：`backend/runner/web-admin` 三服务均处于 running。
+- 预期结果：`postgres/redis/backend/runner/web-admin` 服务均处于 running。
 - 失败处理：
   - 拉取失败：检查镜像仓库凭证。
   - 启动失败：`docker compose -f compose.prod.yaml logs --tail=200` 查看报错。
@@ -165,6 +172,7 @@ journalctl -u powerx-backend -n 200 --no-pager
 ```
 
 - 修复建议：优先检查数据库/Redis 连接和配置文件路径。
+  - 外部 PostgreSQL + 向量能力场景，还需确认 `pgvector` 扩展可用。
 
 ### Q2：Admin API 401/403
 - 现象：部署接口返回未授权或权限不足。

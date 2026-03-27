@@ -79,6 +79,14 @@ flowchart LR
 
 ### 6.1 配置
 - 服务启动与路由前缀：建议统一以 `/api/v1` 暴露 Admin API。
+- 端口默认策略（开发/生产分离）：
+  - dev：`web-admin=3030`，`backend=8077`
+  - prod：`web-admin=3000`，`backend=8080`
+  - 覆盖优先级：环境变量（`POWERX_WEB_ADMIN_PORT`/`POWERX_BACKEND_PORT`）> setup 配置 > 配置默认值
+- 安装状态机（Welcome Install）：
+  - `config.yaml.install.status` 为安装态首判定源（`uninstalled/configuring/installed`）
+  - 未安装时后端仅放行 `/api/v1/admin/setup/*`、`/api/v1/health`、`/healthz`
+  - 详细机制见 `specs/025-powerx-docker-systemd/install-mechanism.md`
 - 审批策略：
   - `POWERX_APPROVAL_DEFAULT_MODE`（默认审批模式）
   - `POWERX_APPROVAL_ENV_OVERRIDES`（例：`prod:dual_approval,staging:none`）
@@ -151,6 +159,7 @@ go test ./tests/contract/ops ./tests/integration/ops -count=1
   - 快速执行：`deploy-quickstart.md`（Docker/systemd 全流程）
   - 规划背景：`docs/plan/deploy/{docker.md,systemd.md}`
   - 运维功能操作：本目录 `usecase-us1 ~ usecase-us4`
+  - 端口口径：遵循“dev 3030/8077，prod 3000/8080”；若设置端口环境变量则以环境变量为准
 
 ## 8. 预期结果与验收标准
 

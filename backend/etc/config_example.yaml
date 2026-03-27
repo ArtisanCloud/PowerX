@@ -48,6 +48,11 @@ http_security:
     - "http://127.0.0.1:3030"
     - "https://admin.powerx.io"
 
+install:
+  status: uninstalled
+  lock_mode: strict
+  allow_without_db: true
+
 feature_gate:
   license_key: demo-license-xyz
   enable_event_fabric: true
@@ -237,6 +242,8 @@ capability_registry:
     limit: 60
     burst: 120
     window_seconds: 60
+  default_http_timeout_seconds: 20
+  ai_multimodal_http_timeout_seconds: 300
 
 low_code:
   max_concurrent_flows: 10

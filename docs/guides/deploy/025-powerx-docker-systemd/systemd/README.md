@@ -3,8 +3,10 @@
 本目录提供 PowerX systemd 生产部署分步手册，按“先准备制品，再部署启动”组织。
 
 ## 文档列表
-- `01-prepare-artifacts.md`：如何准备 backend/runner/web-admin 发布制品。
+- `../00-required-config.md`：部署前必须配置项总清单（强烈建议先核对）。
+- `01-prepare-artifacts.md`：如何准备 backend/web-admin 发布制品（runner 为可选章节）。
 - `02-deploy-config-start.md`：如何安装 service、配置环境、启动服务。
+  - 同文包含首次安装引导配置页（`/setup`）的触发条件、接口与排障。
 - `03-verify-and-rollback.md`：如何验收、排障与快速回滚。
 
 ## 一键打包

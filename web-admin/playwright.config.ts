@@ -11,7 +11,7 @@ export default defineConfig({
   workers: 1, // 并行工作线程数，可以根据需要调整
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3300',
     storageState: './tests/e2e/.auth/admin.json',
     trace: 'on-first-retry',
     video: 'retain-on-failure',
@@ -37,8 +37,8 @@ export default defineConfig({
   globalSetup: './tests/e2e/auth.setup.ts',
 
   webServer: {
-    command: 'NUXT_PUBLIC_E2E_SKIP_AUTH=true pnpm dev --host 127.0.0.1 --port 3000',
-    url: 'http://127.0.0.1:3000',
+    command: 'NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host 127.0.0.1 --port 3300',
+    url: 'http://127.0.0.1:3300',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

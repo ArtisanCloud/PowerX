@@ -5,17 +5,23 @@
 - 已在 `025-powerx-docker-systemd` 分支。
 - 可访问 PostgreSQL、Redis、MinIO/S3。
 - 已准备运维配置目录与日志目录。
+- 端口默认策略已确认：
+  - dev：`web-admin=3030`，`backend=8077`
+  - prod：`web-admin=3000`，`backend=8080`
+  - 优先级：环境变量（`POWERX_WEB_ADMIN_PORT`/`POWERX_BACKEND_PORT`）> setup 配置 > 配置默认值
+- 安装状态机制：参考 `specs/025-powerx-docker-systemd/install-mechanism.md`（`config.install.status` 为首判定源）。
 
 ## 2. 部署基线验证
 
 1. 按 `docs/plan/deploy/docker.md` 或 `systemd.md` 完成一次冷启动。
-2. 验证健康状态：
+2. 首装场景确认系统进入 `/setup`，并完成安装流程（含 DB 连通性校验与初始化）。
+3. 验证健康状态：
 
 ```bash
 curl -f http://127.0.0.1:8077/api/v1/health
 ```
 
-3. 验证插件入口与主站可访问。
+4. 验证插件入口与主站可访问。
 
 ## 3. 插件平滑升级演练
 
@@ -84,6 +90,18 @@ bash backend/scripts/ci/perf-smoke.sh
 
 ```bash
 cd web-admin && npm run test:e2e
+```
+
+- 一键执行 T080 回归（推荐）：
+
+```bash
+make test-full-regression
+```
+
+- 若当前环境无法监听本地端口（仅跑后端回归）：
+
+```bash
+make test-full-regression-backend
 ```
 
 说明：若执行环境缺失 Playwright 浏览器依赖，E2E 会报环境错误；需先完成 `playwright install` 后重跑。

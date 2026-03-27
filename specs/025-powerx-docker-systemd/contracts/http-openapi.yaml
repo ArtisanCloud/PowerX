@@ -6,12 +6,41 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /admin/setup/status:
+    get:
+      summary: Get first-install setup status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatus'
+  /admin/setup/config:
+    get:
+      summary: Get first-install setup config draft
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Save first-install setup config draft
+      responses:
+        '200':
+          description: Accepted
+  /admin/setup/complete:
+    post:
+      summary: Mark first-install setup completed
+      responses:
+        '200':
+          description: Accepted
   /admin/deploy/releases:
     get:
       summary: List deploy release records
       responses:
         '200':
           description: OK
+        '503':
+          description: SYSTEM_NOT_INSTALLED
     post:
       summary: Trigger a release action
       responses:
@@ -114,6 +143,22 @@ paths:
           description: Accepted
 components:
   schemas:
+    SetupStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        requires_login:
+          type: boolean
+        install_status:
+          type: string
+          enum: [uninstalled, configuring, installed]
+        guard_mode:
+          type: string
+        version:
+          type: string
+        checks:
+          type: object
     DeployReleaseRecord:
       type: object
       properties:
@@ -182,3 +227,27 @@ components:
           type: boolean
         summary:
           type: string
+    SetupConfig:
+      type: object
+      properties:
+        domain:
+          type: object
+        https:
+          type: object
+        storage:
+          type: object
+        cache:
+          type: object
+        email:
+          type: object
+        ports:
+          type: object
+          properties:
+            backend_port:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            web_admin_port:
+              type: integer
+              minimum: 1
+              maximum: 65535

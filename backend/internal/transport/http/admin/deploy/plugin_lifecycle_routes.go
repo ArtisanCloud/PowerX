@@ -16,6 +16,6 @@ func registerPluginLifecycleRoutes(protected *gin.RouterGroup, deps *shared.Deps
 	}
 
 	g := protected.Group("/admin/plugins")
-	g.GET("/:pluginId/audit", RequireOpsPermission(deps, iamsvc.OpsResourcePlugin, iamsvc.OpsActionRead), h.ListPluginLifecycleAudits)
-	g.POST("/:pluginId/actions", RequireOpsPermission(deps, iamsvc.OpsResourcePlugin, iamsvc.OpsActionExecute), h.TriggerPluginLifecycleAction)
+	g.GET("/:id/audit", RequireOpsPermission(deps, iamsvc.OpsResourcePlugin, iamsvc.OpsActionRead), h.ListPluginLifecycleAudits)
+	g.POST("/:id/actions", RequireOpsPermission(deps, iamsvc.OpsResourcePlugin, iamsvc.OpsActionExecute), h.TriggerPluginLifecycleAction)
 }

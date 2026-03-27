@@ -3,6 +3,9 @@ package system
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
+
 	"gorm.io/datatypes"
 
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
@@ -124,4 +127,33 @@ func (s *SettingService) DeleteTenant(ctx context.Context, tenantUUID, key strin
 // =============== Effective (DB 层) ===============
 func (s *SettingService) GetEffectiveFromDB(ctx context.Context, tenantUUID *string, key string) (json.RawMessage, string, error) {
 	return s.tenantRepo.GetEffective(ctx, tenantUUID, key, s.sysRepo)
+}
+
+func (s *SettingService) GetSystemJSON(ctx context.Context, key string, out any) (bool, error) {
+	item, err := s.GetSystem(ctx, key)
+	if err != nil {
+		return false, err
+	}
+	if item == nil || len(item.ValueJSON) == 0 {
+		return false, nil
+	}
+	if out == nil {
+		return false, errors.New("out cannot be nil")
+	}
+	if err := json.Unmarshal(item.ValueJSON, out); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *SettingService) UpsertSystemJSON(ctx context.Context, key string, value any, group, desc string, editable bool) error {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return errors.New("key cannot be empty")
+	}
+	bs, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return s.UpsertSystem(ctx, key, datatypes.JSON(bs), &group, &desc, &editable)
 }

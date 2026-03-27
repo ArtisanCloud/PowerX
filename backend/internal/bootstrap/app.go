@@ -324,6 +324,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		CapabilityRegistry: shared.CapabilityRegistryOptions{
+			DefaultHTTPTimeout:      time.Duration(cfg.CapabilityRegistry.DefaultHTTPTimeoutSeconds) * time.Second,
+			AIMultimodalHTTPTimeout: time.Duration(cfg.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds) * time.Second,
 			Notifications: shared.CapabilityRegistryNotificationOptions{
 				IMWebhook:        cfg.CapabilityRegistry.Notifications.IMWebhook,
 				RetryInterval:    time.Duration(cfg.CapabilityRegistry.Notifications.RetryIntervalSec) * time.Second,

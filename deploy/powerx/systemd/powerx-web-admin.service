@@ -9,7 +9,7 @@ User=powerx
 Group=powerx
 WorkingDirectory=/opt/powerx/web-admin
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/usr/bin/node /opt/powerx/web-admin/.output/server/index.mjs
+ExecStart=/bin/sh -c 'PORT=${POWERX_WEB_ADMIN_PORT:-3000} exec /usr/bin/node /opt/powerx/web-admin/.output/server/index.mjs'
 Restart=always
 RestartSec=3
 

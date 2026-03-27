@@ -1,6 +1,35 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-powerx}
+      POSTGRES_USER: ${POSTGRES_USER:-powerx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-powerx}
+    ports:
+      - "${POWERX_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerx} -d ${POSTGRES_DB:-powerx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
   backend:
     image: ghcr.io/artisancloud/powerx-backend:${POWERX_BACKEND_TAG}
     restart: unless-stopped
@@ -13,6 +42,11 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   runner:
     image: ghcr.io/artisancloud/powerx-runner:${POWERX_RUNNER_TAG}
@@ -33,3 +67,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -139,6 +139,12 @@ func (c *Config) Validate() error {
 	if c.CapabilityRegistry.DefaultRateLimit.WindowSeconds <= 0 {
 		errors = append(errors, "capability_registry.default_rate_limit.window_seconds 必须大于0")
 	}
+	if c.CapabilityRegistry.DefaultHTTPTimeoutSeconds <= 0 {
+		errors = append(errors, "capability_registry.default_http_timeout_seconds 必须大于0")
+	}
+	if c.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds <= 0 {
+		errors = append(errors, "capability_registry.ai_multimodal_http_timeout_seconds 必须大于0")
+	}
 
 	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {

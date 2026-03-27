@@ -11,6 +11,12 @@ import (
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
 	hUser := NewUserHandler(deps)
+	hSetup := NewSetupHandler(deps.DB)
+	publicGroup.GET("/admin/setup/status", hSetup.Status)
+	publicGroup.GET("/admin/setup/config", hSetup.GetConfig)
+	publicGroup.PUT("/admin/setup/config", hSetup.SaveConfig)
+	publicGroup.POST("/admin/setup/complete", hSetup.Complete)
+
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()
 	gSys.Use(middleware.JwtMiddleware(

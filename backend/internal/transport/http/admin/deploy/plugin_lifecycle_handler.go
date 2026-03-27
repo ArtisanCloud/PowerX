@@ -26,6 +26,9 @@ func NewPluginLifecycleHandler(deps *shared.Deps) *pluginLifecycleHandler {
 
 func (h *pluginLifecycleHandler) ListPluginLifecycleAudits(c *gin.Context) {
 	pluginID := strings.TrimSpace(c.Param("pluginId"))
+	if pluginID == "" {
+		pluginID = strings.TrimSpace(c.Param("id"))
+	}
 	page := parseInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parseInt(c.DefaultQuery("page_size", "20"), 20)
 
@@ -51,6 +54,9 @@ func (h *pluginLifecycleHandler) ListPluginLifecycleAudits(c *gin.Context) {
 
 func (h *pluginLifecycleHandler) TriggerPluginLifecycleAction(c *gin.Context) {
 	pluginID := strings.TrimSpace(c.Param("pluginId"))
+	if pluginID == "" {
+		pluginID = strings.TrimSpace(c.Param("id"))
+	}
 	var req dtoops.PluginLifecycleActionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)

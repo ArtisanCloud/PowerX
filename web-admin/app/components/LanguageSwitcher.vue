@@ -8,6 +8,7 @@ const { locale, locales, setLocale } = useI18n()
 const switchLocalePath = useSwitchLocalePath()
 const route = useRoute()
 const { broadcast } = usePluginBridge()
+const supportedLocaleCodes = new Set(['zh', 'en'])
 
 // 显示用国旗
 const flags = { zh: '🇨🇳', en: '🇺🇸', ja: '🇯🇵', ko: '🇰🇷' } as const
@@ -34,7 +35,7 @@ const normalized = computed(() => {
       name: toName(l),
       flag: flags[key] ?? '🏳️',
     }
-  })
+  }).filter((item) => supportedLocaleCodes.has(item.code))
 })
 
 const current = computed(() => {

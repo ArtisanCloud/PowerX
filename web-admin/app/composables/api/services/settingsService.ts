@@ -165,6 +165,48 @@ export interface CacheSettings {
   memcachedPort?: number;
 }
 
+export interface SetupConfig {
+  domain: {
+    domain: string;
+    api_subdomain?: string;
+    enable_cdn?: boolean;
+    cdn_domain?: string;
+  };
+  https: {
+    mode: "auto" | "manual" | "disable";
+    cert_email?: string;
+    cert_content?: string;
+    key_content?: string;
+  };
+  storage: {
+    type: "local" | "s3" | "minio" | "oss" | "cos" | string;
+    local_path?: string;
+    access_key?: string;
+    secret_key?: string;
+    bucket?: string;
+    region?: string;
+    endpoint?: string;
+    public_url?: string;
+  };
+  cache: {
+    type: "redis" | "memcached" | "file" | string;
+    redis_host?: string;
+    redis_port?: number;
+    redis_db?: number;
+  };
+  email: {
+    enabled: boolean;
+    smtp_host?: string;
+    smtp_port?: number;
+    from_name?: string;
+    from_address?: string;
+  };
+  ports?: {
+    backend_port?: number;
+    web_admin_port?: number;
+  };
+}
+
 /**
  * 设置服务 API
  */
@@ -369,6 +411,21 @@ export const useSettingsService = () => {
       return apiClient.post<ApiResponse<{ success: boolean; message: string }>>(
         `${baseUrl}/reset`,
         { section }
+      );
+    },
+
+    getSetupConfig: () => {
+      return apiClient.get<ApiResponse<{ config: SetupConfig }>>(
+        "/admin/setup/config",
+        { skipAuth: true }
+      );
+    },
+
+    saveSetupConfig: (config: SetupConfig) => {
+      return apiClient.put<ApiResponse<{ ok: boolean; config: SetupConfig }>>(
+        "/admin/setup/config",
+        config,
+        { skipAuth: true }
       );
     },
   };

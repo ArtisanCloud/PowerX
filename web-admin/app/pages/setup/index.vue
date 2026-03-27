@@ -1,48 +1,149 @@
 <script setup lang="ts">
 import type { StepperItem } from "@nuxt/ui";
+import { useSettingsService } from "~/composables/api/services/settingsService";
+import TestPanel from "~/components/settings/ai/TestPanel.vue";
 
 definePageMeta({
   layout: false,
 });
 
-// 系统初始化步骤 - 使用 Nuxt UI Stepper 格式
-const stepperItems = [
-  {
-    slot: "system-check" as const,
-    title: "系统检查 & 许可",
-    description: "检测系统环境和确认使用条款",
-    icon: "i-lucide-shield-check",
-  },
-  {
-    slot: "domain-https" as const,
-    title: "域名与 HTTPS",
-    description: "配置外部访问域名和 TLS 设置",
-    icon: "i-lucide-globe",
-  },
-  {
-    slot: "database-config" as const,
-    title: "数据库 & 基础配置",
-    description: "配置数据库、存储、缓存等基础服务",
-    icon: "i-lucide-database",
-  },
-  {
-    slot: "admin-tenant" as const,
-    title: "超级管理员 & 租户初始化",
-    description: "创建管理员账户和初始化租户",
-    icon: "i-lucide-user-cog",
-  },
-  {
-    slot: "plugins-install" as const,
-    title: "插件与智能体安装",
-    description: "安装基础插件和智能体组件",
-    icon: "i-lucide-puzzle",
-  },
-] satisfies StepperItem[];
-
 // Stepper 引用和当前步骤
 const stepper = ref();
 const currentStep = ref(0);
 const isLoading = ref(false);
+const completing = ref(false);
+const setupStatus = ref<any>(null);
+const settingsService = useSettingsService();
+const toast = useToast();
+const { locale } = useI18n();
+const showLicenseModal = ref(false);
+const showTermsModal = ref(false);
+const showPrivacyModal = ref(false);
+const isZh = computed(() => String(locale.value || "").startsWith("zh"));
+const uiCopy = computed(() =>
+  isZh.value
+    ? {
+        pageTitle: "PowerX 系统初始化",
+        pageDesc: "欢迎使用 PowerX！请按照以下步骤完成系统初始化设置",
+        step1Title: "系统检查 & 许可",
+        versionLabel: "当前系统版本：",
+        envCheckTitle: "系统环境检测",
+        checkLabelMap: {
+          database: "数据库连通性",
+          storage: "对象存储",
+          cache: "缓存服务",
+          email: "邮件服务",
+          ai: "AI 模型配置",
+        } as Record<string, string>,
+        checking: "检测中...",
+        msgTenantInited: "租户数据已初始化",
+        msgTenantNotInited: "租户数据尚未初始化",
+        msgStoragePending: "请在部署配置中确认 storage 配置",
+        msgCachePending: "请在部署配置中确认 redis 配置",
+        msgEmailPending: "可选项，可稍后配置",
+        msgAIOk: "已存在 AI 模型配置",
+        msgAINone: "尚未配置 AI 模型",
+        msgCheckFailed: "检测失败，请检查后端服务与数据库连接",
+      }
+    : {
+        pageTitle: "PowerX Setup",
+        pageDesc: "Welcome to PowerX. Complete the steps below to initialize the system.",
+        step1Title: "System Check & License",
+        versionLabel: "Current version: ",
+        envCheckTitle: "Environment Checks",
+        checkLabelMap: {
+          database: "Database Connectivity",
+          storage: "Object Storage",
+          cache: "Cache Service",
+          email: "Email Service",
+          ai: "AI Model Setup",
+        } as Record<string, string>,
+        checking: "Checking...",
+        msgTenantInited: "Tenant data initialized",
+        msgTenantNotInited: "Tenant data not initialized",
+        msgStoragePending: "Confirm storage config in deployment settings",
+        msgCachePending: "Confirm redis config in deployment settings",
+        msgEmailPending: "Optional, can be configured later",
+        msgAIOk: "AI model configuration detected",
+        msgAINone: "AI model is not configured",
+        msgCheckFailed: "Check failed. Verify backend service and database connection.",
+      }
+);
+const stepperItems = computed<StepperItem[]>(() => [
+  {
+    slot: "system-check" as const,
+    title: isZh.value ? "系统检查 & 许可" : "System Check & License",
+    description: isZh.value ? "检测系统环境和确认使用条款" : "Validate environment and accept terms",
+    icon: "i-lucide-shield-check",
+  },
+  {
+    slot: "domain-https" as const,
+    title: isZh.value ? "域名与 HTTPS" : "Domain & HTTPS",
+    description: isZh.value ? "配置外部访问域名和 TLS 设置" : "Configure domain and TLS options",
+    icon: "i-lucide-globe",
+  },
+  {
+    slot: "database-config" as const,
+    title: isZh.value ? "数据库 & 基础配置" : "Database & Basics",
+    description: isZh.value ? "配置数据库、存储、缓存等基础服务" : "Configure database, storage, and cache",
+    icon: "i-lucide-database",
+  },
+  {
+    slot: "admin-tenant" as const,
+    title: isZh.value ? "超级管理员 & 租户初始化" : "Admin & Tenant Init",
+    description: isZh.value ? "创建管理员账户和初始化租户" : "Create admin account and initialize tenant",
+    icon: "i-lucide-user-cog",
+  },
+  {
+    slot: "plugins-install" as const,
+    title: isZh.value ? "插件与智能体安装" : "Plugins & Agents",
+    description: isZh.value ? "安装基础插件和智能体组件" : "Install basic plugins and agent components",
+    icon: "i-lucide-puzzle",
+  },
+  {
+    slot: "llm-config" as const,
+    title: isZh.value ? "LLM 模型配置" : "LLM Configuration",
+    description: isZh.value ? "可选：配置文本大模型接入参数" : "Optional: configure text LLM access",
+    icon: "i-lucide-bot",
+  },
+]);
+const legalCopy = computed(() =>
+  String(locale.value || "").startsWith("zh")
+    ? {
+        sectionTitle: "许可与条款",
+        agreePrefix: "我已阅读并同意",
+        license: "软件许可协议",
+        terms: "服务条款",
+        privacy: "隐私政策",
+        and: "和",
+        telemetryTitle: "启用匿名遥测数据收集（可选，默认关闭）",
+        telemetryDesc: "帮助我们改进产品，不会收集敏感信息",
+        licenseModalTitle: "软件许可协议",
+        licenseLines: [
+          "本软件按“现状”提供，仅用于合法业务场景。",
+          "未经授权不得复制、反编译、转售或用于违法用途。",
+          "生产环境请自行评估并承担部署、运维与数据合规责任。",
+          "如需正式法务版本，请替换为贵司最终《软件许可协议》文本。",
+        ],
+      }
+    : {
+        sectionTitle: "License and Terms",
+        agreePrefix: "I have read and agree to",
+        license: "Software License Agreement",
+        terms: "Terms of Service",
+        privacy: "Privacy Policy",
+        and: "and",
+        telemetryTitle: "Enable anonymous telemetry (optional, disabled by default)",
+        telemetryDesc: "Helps improve the product without collecting sensitive information.",
+        licenseModalTitle: "Software License Agreement",
+        licenseLines: [
+          "This software is provided \"as is\" and must be used for lawful purposes only.",
+          "Unauthorized copying, reverse engineering, resale, or illegal use is prohibited.",
+          "In production, you are responsible for deployment, operations, and compliance.",
+          "Replace this text with your organization's final legal license agreement if needed.",
+        ],
+      }
+);
 
 // 步骤数据
 const step1Data = reactive({
@@ -51,7 +152,7 @@ const step1Data = reactive({
     storage: { status: "pending", message: "检测中..." },
     cache: { status: "pending", message: "检测中..." },
     email: { status: "pending", message: "检测中..." },
-    sms: { status: "pending", message: "检测中..." },
+    ai: { status: "pending", message: "检测中..." },
   },
   deploymentMode: "multi-tenant",
   authMode: "builtin",
@@ -72,6 +173,8 @@ const step2Data = reactive({
 });
 
 const step3Data = reactive({
+  backendPort: 8080,
+  webAdminPort: 3000,
   dbType: "postgresql",
   dbVersion: "",
   dbHost: "localhost",
@@ -92,6 +195,11 @@ const step3Data = reactive({
   storageSecretKey: "",
   storageBucket: "",
   storageRegion: "",
+  emailEnabled: false,
+  emailSmtpHost: "",
+  emailSmtpPort: 587,
+  emailFromName: "",
+  emailFromAddress: "",
 });
 
 const step4Data = reactive({
@@ -142,6 +250,85 @@ const step5Data = reactive({
   selectedPlugins: ["workflow", "notification", "file-manager"],
 });
 
+const step6Data = reactive({
+  skipLLMSetup: false,
+  provider: "openai",
+  baseUrl: "",
+  model: "gpt-4.1-mini",
+  apiKey: "",
+  temperature: 0.7,
+  topP: 1,
+  maxTokens: 4096,
+  stream: true,
+});
+const llmLastTestMessage = ref("");
+const llmLastTestDetail = ref("");
+const llmProviderOptions = computed(() => [
+  {
+    label: isZh.value ? "OpenAI (Cloud)" : "OpenAI (Cloud)",
+    value: "openai",
+  },
+  {
+    label: isZh.value ? "Ollama (Local)" : "Ollama (Local)",
+    value: "ollama",
+  },
+  {
+    label: isZh.value ? "OpenRouter" : "OpenRouter",
+    value: "openrouter",
+  },
+  {
+    label: isZh.value ? "自定义" : "Custom",
+    value: "custom",
+  },
+]);
+const llmModelOptions = computed(() => {
+  const p = String(step6Data.provider || "").trim();
+  if (p === "ollama") {
+    return [
+      { label: "llama3", value: "llama3" },
+      { label: "qwen2.5:7b", value: "qwen2.5:7b" },
+      { label: "deepseek-r1:7b", value: "deepseek-r1:7b" },
+    ];
+  }
+  if (p === "openrouter") {
+    return [
+      { label: "openai/gpt-4.1-mini", value: "openai/gpt-4.1-mini" },
+      { label: "anthropic/claude-3.5-sonnet", value: "anthropic/claude-3.5-sonnet" },
+    ];
+  }
+  return [
+    { label: "gpt-4.1-mini", value: "gpt-4.1-mini" },
+    { label: "gpt-4o-mini", value: "gpt-4o-mini" },
+    { label: "gpt-4.1", value: "gpt-4.1" },
+  ];
+});
+
+watch(
+  () => step6Data.provider,
+  () => {
+    const first = llmModelOptions.value[0]?.value || "";
+    if (!llmModelOptions.value.some((m) => m.value === step6Data.model)) {
+      step6Data.model = first;
+    }
+  },
+  { immediate: true }
+);
+
+const setupTestConnection = () => {
+  llmLastTestMessage.value = isZh.value
+    ? "安装向导阶段暂不执行在线连通测试。请完成安装后在“模型中心”点击测试连接。"
+    : "Online connection test is disabled during setup. Finish installation and test it in Model Center.";
+  llmLastTestDetail.value = isZh.value
+    ? "原因：当前未安装态仅放行 setup 相关接口，模型测试接口会被安装守卫拦截。"
+    : "Reason: In not-installed state, only setup endpoints are allowed and model test endpoints are blocked by install guard.";
+};
+
+const setupTestQuickCall = () => {
+  llmLastTestMessage.value = isZh.value
+    ? "试跑功能将在安装完成后可用。"
+    : "Quick run will be available after installation is completed.";
+};
+
 // 验证当前步骤
 const validateCurrentStep = () => {
   switch (currentStep.value) {
@@ -150,8 +337,18 @@ const validateCurrentStep = () => {
     case 1:
       return step2Data.domain.trim() !== "";
     case 2:
-      return step3Data.dbHost.trim() !== "";
+      return (
+        step3Data.dbHost.trim() !== "" &&
+        Number(step3Data.backendPort) > 0 &&
+        Number(step3Data.backendPort) <= 65535 &&
+        Number(step3Data.webAdminPort) > 0 &&
+        Number(step3Data.webAdminPort) <= 65535 &&
+        Number(step3Data.backendPort) !== Number(step3Data.webAdminPort)
+      );
     case 3:
+      if (Number(setupStatus.value?.checks?.users || 0) > 0) {
+        return true;
+      }
       return (
         step4Data.adminUsername &&
         step4Data.adminEmail &&
@@ -160,6 +357,13 @@ const validateCurrentStep = () => {
       );
     case 4:
       return true;
+    case 5:
+      if (step6Data.skipLLMSetup) return true;
+      return (
+        String(step6Data.provider || "").trim() !== "" &&
+        String(step6Data.model || "").trim() !== "" &&
+        String(step6Data.apiKey || "").trim() !== ""
+      );
     default:
       return false;
   }
@@ -171,7 +375,7 @@ const nextStep = async () => {
 
   isLoading.value = true;
   try {
-    if (currentStep.value < stepperItems.length - 1) {
+    if (currentStep.value < stepperItems.value.length - 1) {
       currentStep.value++;
     } else {
       await completeSetup();
@@ -190,24 +394,186 @@ const prevStep = () => {
 
 // 完成设置
 const completeSetup = async () => {
-  setTimeout(() => {
-    navigateTo("/dashboard");
-  }, 2000);
+  if (Number(setupStatus.value?.checks?.users || 0) > 0) {
+    await navigateTo("/home");
+    return;
+  }
+  completing.value = true;
+  try {
+    await settingsService.saveSetupConfig({
+      domain: {
+        domain: step2Data.domain,
+        api_subdomain: step2Data.apiSubdomain,
+        enable_cdn: step2Data.enableCdn,
+        cdn_domain: step2Data.cdnDomain,
+      },
+      https: {
+        mode: step2Data.httpsMode as "auto" | "manual" | "disable",
+        cert_email: step2Data.certEmail,
+        cert_content: step2Data.certContent,
+        key_content: step2Data.keyContent,
+      },
+      storage: {
+        type: normalizeStorageType(step3Data.storageType),
+        local_path: step3Data.localStoragePath,
+        access_key: step3Data.storageAccessKey,
+        secret_key: step3Data.storageSecretKey,
+        bucket: step3Data.storageBucket,
+        region: step3Data.storageRegion,
+      },
+      cache: {
+        type: step3Data.cacheType,
+        redis_host: step3Data.redisHost,
+        redis_port: Number(step3Data.redisPort || 0),
+        redis_db: Number(step3Data.redisDb || 0),
+      },
+      email: {
+        enabled: step3Data.emailEnabled,
+        smtp_host: step3Data.emailSmtpHost,
+        smtp_port: Number(step3Data.emailSmtpPort || 0),
+        from_name: step3Data.emailFromName,
+        from_address: step3Data.emailFromAddress,
+      },
+      ports: {
+        backend_port: Number(step3Data.backendPort || 0),
+        web_admin_port: Number(step3Data.webAdminPort || 0),
+      },
+    });
+
+    await $fetch("/api/v1/admin/setup/complete", {
+      method: "POST",
+      body: {
+        licenseAccepted: step1Data.licenseAccepted,
+        termsAccepted: step1Data.termsAccepted,
+      },
+    });
+    await navigateTo("/home");
+  } catch (error: any) {
+    toast.add({
+      title: "保存失败",
+      description: String(error?.data?.message || error?.message || "安装配置保存失败"),
+      color: "error",
+    });
+  } finally {
+    completing.value = false;
+  }
 };
 
 // 执行系统检测
 const runSystemChecks = async () => {
-  const checks = ["database", "storage", "cache", "email", "sms"];
+  const checks = ["database", "storage", "cache", "email", "ai"];
   for (const check of checks) {
     step1Data.checks[check].status = "checking";
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const success = Math.random() > 0.2;
-    step1Data.checks[check].status = success ? "success" : "error";
-    step1Data.checks[check].message = success ? "连接正常" : "连接失败";
+    step1Data.checks[check].message = uiCopy.value.checking;
+  }
+
+  try {
+    const resp: any = await $fetch("/api/v1/admin/setup/status", { method: "GET" });
+    const payload = resp?.data ?? resp;
+    setupStatus.value = payload;
+
+    const hasTenant = Number(payload?.checks?.tenants || 0) > 0;
+    const hasUser = Number(payload?.checks?.users || 0) > 0;
+    const hasAI = Number(payload?.checks?.ai_profiles || 0) > 0;
+
+    step1Data.checks.database.status = hasTenant ? "success" : "pending";
+    step1Data.checks.database.message = hasTenant ? uiCopy.value.msgTenantInited : uiCopy.value.msgTenantNotInited;
+    step1Data.checks.storage.status = "pending";
+    step1Data.checks.storage.message = uiCopy.value.msgStoragePending;
+    step1Data.checks.cache.status = "pending";
+    step1Data.checks.cache.message = uiCopy.value.msgCachePending;
+    step1Data.checks.email.status = "pending";
+    step1Data.checks.email.message = uiCopy.value.msgEmailPending;
+    step1Data.checks.ai.status = hasAI ? "success" : "pending";
+    step1Data.checks.ai.message = hasAI ? uiCopy.value.msgAIOk : uiCopy.value.msgAINone;
+
+    if (hasUser) {
+      step4Data.adminUsername = "";
+      step4Data.adminEmail = "";
+    }
+  } catch {
+    for (const check of checks) {
+      step1Data.checks[check].status = "error";
+      step1Data.checks[check].message = uiCopy.value.msgCheckFailed;
+    }
   }
 };
 
+const normalizeStorageType = (raw: string): string => {
+  const value = String(raw || "").trim().toLowerCase();
+  if (value === "aliyun") return "oss";
+  if (value === "tencent") return "cos";
+  if (value === "aws") return "s3";
+  return value || "local";
+};
+
+const denormalizeStorageType = (raw: string): string => {
+  const value = String(raw || "").trim().toLowerCase();
+  if (value === "oss") return "aliyun";
+  if (value === "cos") return "tencent";
+  if (value === "s3") return "aws";
+  return value || "local";
+};
+
+const loadSetupConfig = async () => {
+  try {
+    const resp: any = await settingsService.getSetupConfig();
+    const payload = resp?.data ?? resp;
+    const cfg = payload?.config;
+    if (!cfg) return;
+
+    step2Data.domain = String(cfg.domain?.domain || step2Data.domain);
+    step2Data.apiSubdomain = String(cfg.domain?.api_subdomain || step2Data.apiSubdomain);
+    step2Data.enableCdn = Boolean(cfg.domain?.enable_cdn);
+    step2Data.cdnDomain = String(cfg.domain?.cdn_domain || step2Data.cdnDomain);
+
+    step2Data.httpsMode = String(cfg.https?.mode || step2Data.httpsMode);
+    step2Data.certEmail = String(cfg.https?.cert_email || step2Data.certEmail);
+    step2Data.certContent = String(cfg.https?.cert_content || step2Data.certContent);
+    step2Data.keyContent = String(cfg.https?.key_content || step2Data.keyContent);
+
+    step3Data.storageType = denormalizeStorageType(cfg.storage?.type);
+    step3Data.localStoragePath = String(cfg.storage?.local_path || step3Data.localStoragePath);
+    step3Data.storageAccessKey = String(cfg.storage?.access_key || step3Data.storageAccessKey);
+    step3Data.storageSecretKey = String(cfg.storage?.secret_key || step3Data.storageSecretKey);
+    step3Data.storageBucket = String(cfg.storage?.bucket || step3Data.storageBucket);
+    step3Data.storageRegion = String(cfg.storage?.region || step3Data.storageRegion);
+
+    step3Data.cacheType = String(cfg.cache?.type || step3Data.cacheType);
+    step3Data.redisHost = String(cfg.cache?.redis_host || step3Data.redisHost);
+    step3Data.redisPort = Number(cfg.cache?.redis_port || step3Data.redisPort);
+    step3Data.redisDb = Number(cfg.cache?.redis_db || step3Data.redisDb);
+
+    step3Data.emailEnabled = Boolean(cfg.email?.enabled);
+    step3Data.emailSmtpHost = String(cfg.email?.smtp_host || step3Data.emailSmtpHost);
+    step3Data.emailSmtpPort = Number(cfg.email?.smtp_port || step3Data.emailSmtpPort);
+    step3Data.emailFromName = String(cfg.email?.from_name || step3Data.emailFromName);
+    step3Data.emailFromAddress = String(cfg.email?.from_address || step3Data.emailFromAddress);
+
+    step3Data.backendPort = Number(cfg.ports?.backend_port || step3Data.backendPort);
+    step3Data.webAdminPort = Number(cfg.ports?.web_admin_port || step3Data.webAdminPort);
+  } catch {
+    // 首次没有配置时忽略
+  }
+};
+
+const openLicenseModal = (e: Event) => {
+  e.preventDefault();
+  showLicenseModal.value = true;
+};
+
+const openTermsModal = (e: Event) => {
+  e.preventDefault();
+  showTermsModal.value = true;
+};
+
+const openPrivacyModal = (e: Event) => {
+  e.preventDefault();
+  showPrivacyModal.value = true;
+};
+
 onMounted(() => {
+  loadSetupConfig();
   runSystemChecks();
 });
 </script>
@@ -217,13 +583,18 @@ onMounted(() => {
     class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800"
   >
     <div class="container mx-auto px-4 py-8">
+      <div class="flex justify-end items-center gap-2 mb-4">
+        <LanguageSwitcher />
+        <ThemeSwitcher />
+      </div>
+
       <!-- 页面标题 -->
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          PowerX 系统初始化
+          {{ uiCopy.pageTitle }}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-          欢迎使用 PowerX！请按照以下步骤完成系统初始化设置
+          {{ uiCopy.pageDesc }}
         </p>
       </div>
 
@@ -239,11 +610,14 @@ onMounted(() => {
           <template #system-check>
             <UCard class="shadow-lg mt-6">
               <div class="p-6">
-                <h3 class="text-lg font-semibold mb-6">系统检查 & 许可</h3>
+                <h3 class="text-lg font-semibold mb-6">{{ uiCopy.step1Title }}</h3>
+                <p v-if="setupStatus?.version" class="text-sm text-gray-500 mb-4">
+                  {{ uiCopy.versionLabel }}{{ setupStatus.version }}
+                </p>
 
                 <!-- 系统检测 -->
                 <div class="mb-8">
-                  <h4 class="text-md font-medium mb-4">系统环境检测</h4>
+                  <h4 class="text-md font-medium mb-4">{{ uiCopy.envCheckTitle }}</h4>
                   <div class="space-y-3">
                     <div
                       v-for="(check, key) in step1Data.checks"
@@ -268,19 +642,7 @@ onMounted(() => {
                           class="w-5 h-5"
                         />
                         <span class="font-medium">
-                          {{
-                            key === "database"
-                              ? "数据库连通性"
-                              : key === "storage"
-                                ? "对象存储"
-                                : key === "cache"
-                                  ? "缓存服务"
-                                  : key === "email"
-                                    ? "邮件服务"
-                                    : key === "sms"
-                                      ? "短信服务"
-                                      : key
-                          }}
+                          {{ uiCopy.checkLabelMap[String(key)] || String(key) }}
                         </span>
                       </div>
                       <span
@@ -312,8 +674,9 @@ onMounted(() => {
                     >
                       <div class="p-4">
                         <div class="flex items-center space-x-3">
-                          <URadio
+                          <input
                             v-model="step1Data.deploymentMode"
+                            type="radio"
                             value="single-tenant"
                           />
                           <div>
@@ -336,8 +699,9 @@ onMounted(() => {
                     >
                       <div class="p-4">
                         <div class="flex items-center space-x-3">
-                          <URadio
+                          <input
                             v-model="step1Data.deploymentMode"
+                            type="radio"
                             value="multi-tenant"
                           />
                           <div>
@@ -363,8 +727,9 @@ onMounted(() => {
                     >
                       <div class="p-4">
                         <div class="flex items-center space-x-3">
-                          <URadio
+                          <input
                             v-model="step1Data.authMode"
+                            type="radio"
                             value="builtin"
                           />
                           <div>
@@ -386,7 +751,7 @@ onMounted(() => {
                     >
                       <div class="p-4">
                         <div class="flex items-center space-x-3">
-                          <URadio v-model="step1Data.authMode" value="sso" />
+                          <input v-model="step1Data.authMode" type="radio" value="sso" />
                           <div>
                             <h5 class="font-medium">SSO 单点登录</h5>
                             <p class="text-sm text-gray-600 dark:text-gray-300">
@@ -401,50 +766,68 @@ onMounted(() => {
 
                 <!-- 许可确认 -->
                 <div class="space-y-4">
-                  <h4 class="text-md font-medium">许可与条款</h4>
+                  <h4 class="text-md font-medium">{{ legalCopy.sectionTitle }}</h4>
 
                   <div class="flex items-start space-x-3">
                     <UCheckbox
-                      v-model="step1Data.licenseAccepted"
+                      :model-value="step1Data.licenseAccepted"
+                      @update:model-value="(v) => (step1Data.licenseAccepted = !!v)"
                       class="mt-1"
                     />
                     <div>
                       <p class="text-sm">
-                        我已阅读并同意
-                        <a href="#" class="text-blue-600 hover:underline"
-                          >软件许可协议</a
+                        {{ legalCopy.agreePrefix }}
+                        <button
+                          type="button"
+                          class="text-blue-600 hover:underline"
+                          @click="openLicenseModal"
                         >
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="flex items-start space-x-3">
-                    <UCheckbox v-model="step1Data.termsAccepted" class="mt-1" />
-                    <div>
-                      <p class="text-sm">
-                        我已阅读并同意
-                        <a href="#" class="text-blue-600 hover:underline"
-                          >服务条款</a
-                        >
-                        和
-                        <a href="#" class="text-blue-600 hover:underline"
-                          >隐私政策</a
-                        >
+                          {{ legalCopy.license }}
+                        </button>
                       </p>
                     </div>
                   </div>
 
                   <div class="flex items-start space-x-3">
                     <UCheckbox
-                      v-model="step1Data.telemetryEnabled"
+                      :model-value="step1Data.termsAccepted"
+                      @update:model-value="(v) => (step1Data.termsAccepted = !!v)"
                       class="mt-1"
                     />
                     <div>
                       <p class="text-sm">
-                        启用匿名遥测数据收集（可选，默认关闭）
+                        {{ legalCopy.agreePrefix }}
+                        <button
+                          type="button"
+                          class="text-blue-600 hover:underline"
+                          @click="openTermsModal"
+                        >
+                          {{ legalCopy.terms }}
+                        </button>
+                        {{ legalCopy.and }}
+                        <button
+                          type="button"
+                          class="text-blue-600 hover:underline"
+                          @click="openPrivacyModal"
+                        >
+                          {{ legalCopy.privacy }}
+                        </button>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-start space-x-3">
+                    <UCheckbox
+                      :model-value="step1Data.telemetryEnabled"
+                      @update:model-value="(v) => (step1Data.telemetryEnabled = !!v)"
+                      class="mt-1"
+                    />
+                    <div>
+                      <p class="text-sm">
+                        {{ legalCopy.telemetryTitle }}
                       </p>
                       <p class="text-xs text-gray-500 mt-1">
-                        帮助我们改进产品，不会收集敏感信息
+                        {{ legalCopy.telemetryDesc }}
                       </p>
                     </div>
                   </div>
@@ -580,7 +963,8 @@ onMounted(() => {
                 <div class="space-y-4">
                   <h4 class="text-md font-medium mb-4">CDN 配置（可选）</h4>
                   <UCheckbox
-                    v-model="step2Data.enableCdn"
+                    :model-value="step2Data.enableCdn"
+                    @update:model-value="(v) => (step2Data.enableCdn = !!v)"
                     label="启用 CDN 加速"
                   />
 
@@ -623,6 +1007,32 @@ onMounted(() => {
             <UCard class="shadow-lg mt-6">
               <div class="p-6">
                 <h3 class="text-lg font-semibold mb-6">数据库 & 基础配置</h3>
+
+                <!-- 服务端口 -->
+                <div class="mb-8">
+                  <h4 class="text-md font-medium mb-4">服务端口</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <UFormField label="Backend 端口" required>
+                      <UInput
+                        v-model="step3Data.backendPort"
+                        type="number"
+                        placeholder="8080"
+                      />
+                    </UFormField>
+
+                    <UFormField label="Web Admin 端口" required>
+                      <UInput
+                        v-model="step3Data.webAdminPort"
+                        type="number"
+                        placeholder="3000"
+                      />
+                    </UFormField>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-2">
+                    dev 默认：backend=8077 / web-admin=3030；prod 默认：backend=8080 /
+                    web-admin=3000
+                  </p>
+                </div>
 
                 <!-- 数据库配置 -->
                 <div class="mb-8">
@@ -858,6 +1268,47 @@ onMounted(() => {
                     </UFormField>
                   </div>
                 </div>
+
+                <!-- 邮件配置 -->
+                <div class="mt-8 space-y-4">
+                  <h4 class="text-md font-medium mb-4">邮件配置（可选）</h4>
+
+                  <UFormField label="启用 SMTP 邮件">
+                    <USwitch v-model="step3Data.emailEnabled" />
+                  </UFormField>
+
+                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-2 gap-4">
+                    <UFormField label="SMTP 主机" required>
+                      <UInput
+                        v-model="step3Data.emailSmtpHost"
+                        placeholder="smtp.example.com"
+                        icon="i-lucide-mail"
+                      />
+                    </UFormField>
+                    <UFormField label="SMTP 端口" required>
+                      <UInput
+                        v-model="step3Data.emailSmtpPort"
+                        type="number"
+                        placeholder="587"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-2 gap-4">
+                    <UFormField label="发件人名称">
+                      <UInput
+                        v-model="step3Data.emailFromName"
+                        placeholder="PowerX"
+                      />
+                    </UFormField>
+                    <UFormField label="发件人邮箱" required>
+                      <UInput
+                        v-model="step3Data.emailFromAddress"
+                        placeholder="noreply@example.com"
+                      />
+                    </UFormField>
+                  </div>
+                </div>
               </div>
 
               <template #footer>
@@ -996,7 +1447,8 @@ onMounted(() => {
                   <h4 class="text-md font-medium mb-4">组织架构初始化</h4>
 
                   <UCheckbox
-                    v-model="step4Data.createDefaultDepartments"
+                    :model-value="step4Data.createDefaultDepartments"
+                    @update:model-value="(v) => (step4Data.createDefaultDepartments = !!v)"
                     label="创建默认部门结构"
                   />
 
@@ -1156,7 +1608,151 @@ onMounted(() => {
                     @click="nextStep"
                     :loading="isLoading"
                   >
-                    完成设置
+                    下一步
+                  </UButton>
+                </div>
+              </template>
+            </UCard>
+          </template>
+
+          <!-- 步骤6：LLM 配置（可选） -->
+          <template #llm-config>
+            <UCard class="shadow-lg mt-6">
+              <div class="p-6">
+                <h3 class="text-lg font-semibold mb-2">
+                  {{ isZh ? "LLM 模型配置（可选）" : "LLM Configuration (Optional)" }}
+                </h3>
+                <p class="text-sm text-gray-500 mb-6">
+                  {{
+                    isZh
+                      ? "仅配置文本模型接入参数；图像/音频等其他模态可在安装后继续配置。"
+                      : "Configure text LLM only. Other modalities can be configured after installation."
+                  }}
+                </p>
+
+                <div class="space-y-4">
+                  <UCheckbox
+                    :model-value="step6Data.skipLLMSetup"
+                    @update:model-value="(v) => (step6Data.skipLLMSetup = !!v)"
+                    :label="isZh ? '跳过此步骤，安装后在模型中心配置' : 'Skip this step and configure later in Model Center'"
+                  />
+                </div>
+
+                <div v-if="!step6Data.skipLLMSetup" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                  <div class="lg:col-span-2 space-y-6">
+                    <div class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4">
+                      <div class="mb-4 font-medium text-[var(--text-primary)]">
+                        {{ isZh ? "LLM 文本 - 通用" : "LLM Text - General" }}
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <UFormField :label="isZh ? 'Provider' : 'Provider'" required>
+                          <USelect
+                            v-model="step6Data.provider"
+                            :options="llmProviderOptions"
+                            icon="i-heroicons-building-library"
+                          />
+                        </UFormField>
+                        <UFormField :label="isZh ? 'Model' : 'Model'" required>
+                          <USelect
+                            v-model="step6Data.model"
+                            :options="llmModelOptions"
+                            icon="i-heroicons-cpu-chip"
+                          />
+                          <p class="mt-1 text-xs text-[var(--text-secondary)] break-all leading-5">
+                            {{ step6Data.model }}
+                          </p>
+                        </UFormField>
+                        <UFormField class="md:col-span-2" :label="isZh ? 'Base URL（可选）' : 'Base URL (Optional)'">
+                          <UInput
+                            v-model="step6Data.baseUrl"
+                            :placeholder="isZh ? '例如：https://api.openai.com/v1 或 http://127.0.0.1:11434/v1' : 'e.g. https://api.openai.com/v1 or http://127.0.0.1:11434/v1'"
+                          />
+                        </UFormField>
+                        <UFormField class="md:col-span-2" :label="isZh ? 'API Key' : 'API Key'" required>
+                          <UInput
+                            v-model="step6Data.apiKey"
+                            type="password"
+                            autocomplete="off"
+                            :placeholder="isZh ? '请输入 API Key' : 'Enter API Key'"
+                          />
+                        </UFormField>
+                      </div>
+                    </div>
+
+                    <div class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4">
+                      <div class="mb-4 font-medium text-[var(--text-primary)]">
+                        {{ isZh ? "LLM 文本 - 参数" : "LLM Text - Parameters" }}
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label class="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                            {{ isZh ? "温度 (Temperature)" : "Temperature" }}
+                          </label>
+                          <USlider v-model="step6Data.temperature" :min="0" :max="2" :step="0.1" class="w-full" />
+                          <div class="text-xs text-[var(--text-secondary)] mt-1">
+                            {{ isZh ? "当前值" : "Current" }}: {{ step6Data.temperature }}
+                          </div>
+                        </div>
+                        <div>
+                          <label class="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                            {{ isZh ? "最大令牌数" : "Max Tokens" }}
+                          </label>
+                          <UInput v-model="step6Data.maxTokens" type="number" :min="1" :max="32000" />
+                        </div>
+                        <div>
+                          <label class="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                            Top P
+                          </label>
+                          <USlider v-model="step6Data.topP" :min="0" :max="1" :step="0.01" class="w-full" />
+                          <div class="text-xs text-[var(--text-secondary)] mt-1">
+                            {{ isZh ? "当前值" : "Current" }}: {{ step6Data.topP }}
+                          </div>
+                        </div>
+                        <div class="flex items-center">
+                          <UCheckbox
+                            :model-value="step6Data.stream"
+                            @update:model-value="(v) => (step6Data.stream = !!v)"
+                            :label="isZh ? '启用流式输出' : 'Enable Streaming'"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="lg:col-span-1">
+                    <TestPanel
+                      :current-title="isZh ? 'LLM 文本' : 'LLM Text'"
+                      :current-state="{
+                        provider: step6Data.provider,
+                        model: step6Data.model,
+                        apiKey: step6Data.apiKey,
+                        baseURL: step6Data.baseUrl,
+                      }"
+                      :last-test-message="llmLastTestMessage"
+                      :last-test-detail="llmLastTestDetail"
+                      :on-test-connection="setupTestConnection"
+                      :on-test-quick-call="setupTestQuickCall"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <template #footer>
+                <div class="flex justify-between items-center px-6 py-4">
+                  <UButton
+                    variant="outline"
+                    @click="prevStep"
+                    :disabled="isLoading"
+                  >
+                    {{ isZh ? "上一步" : "Previous" }}
+                  </UButton>
+                  <UButton
+                    color="primary"
+                    @click="nextStep"
+                    :loading="isLoading"
+                    :disabled="!validateCurrentStep()"
+                  >
+                    {{ isZh ? "完成设置" : "Finish Setup" }}
                   </UButton>
                 </div>
               </template>
@@ -1165,5 +1761,37 @@ onMounted(() => {
         </UStepper>
       </div>
     </div>
+
+    <UModal
+      v-model:open="showLicenseModal"
+      :title="legalCopy.licenseModalTitle"
+      :ui="{ content: 'max-w-3xl max-h-[85dvh] overflow-y-auto' }"
+    >
+      <template #body>
+        <div class="space-y-3 text-sm leading-6 text-gray-700 dark:text-gray-300">
+          <p v-for="line in legalCopy.licenseLines" :key="line">{{ line }}</p>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="showTermsModal"
+      :title="legalCopy.terms"
+      :ui="{ content: 'max-w-3xl max-h-[85dvh] overflow-y-auto' }"
+    >
+      <template #body>
+        <UsersTermsModal />
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="showPrivacyModal"
+      :title="legalCopy.privacy"
+      :ui="{ content: 'max-w-3xl max-h-[85dvh] overflow-y-auto' }"
+    >
+      <template #body>
+        <UsersPrivacyModal />
+      </template>
+    </UModal>
   </div>
 </template>

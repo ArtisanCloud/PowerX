@@ -44,6 +44,9 @@ func RegisterAPIRoutes(
 	if prefix == "" {
 		prefix = "/api"
 	}
+	// 公开健康检查（兼容不带版本前缀探活）
+	r.GET("/healthz", HealthHandler)
+
 	publicGroup := r.Group(prefix)
 	// 公开健康检查
 	publicGroup.GET("/health", HealthHandler)

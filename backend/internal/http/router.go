@@ -23,6 +23,7 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 	r.Use(RequestLoggingMiddleware())
 	r.Use(TraceInjectionMiddleware())
 	r.Use(FeatureInjectionMiddleware())
+	r.Use(InstallGuardMiddleware(cfg))
 
 	authUser := middleware.APIKeyOrJwtMiddleware(
 		deps.DB,

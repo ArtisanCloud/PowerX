@@ -30,6 +30,9 @@ docker compose -f deploy/powerx/docker/compose.prod.yaml logs --tail=200
 ### 3.2 依赖不可达（DB/Redis）
 - 现象：backend 日志有连接失败。
 - 动作：核对 `.env` 的 `DATABASE_DSN`、`REDIS_ADDR`。
+- 额外检查（外部 PostgreSQL + 向量能力）：
+  - `SELECT extname FROM pg_extension WHERE extname='vector';`
+  - 若无结果，先安装 pgvector 或使用具备 `CREATE EXTENSION` 权限的账号执行初始化。
 
 ### 3.3 镜像版本不对
 
