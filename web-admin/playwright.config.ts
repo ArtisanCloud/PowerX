@@ -37,7 +37,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/auth.setup.ts',
 
   webServer: {
-    command: 'NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host 127.0.0.1 --port 3300',
+    command: 'POWERX_ENV=prod UPSTREAM=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && POWERX_ENV=prod UPSTREAM=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host 127.0.0.1 --port 3300',
     url: 'http://127.0.0.1:3300',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

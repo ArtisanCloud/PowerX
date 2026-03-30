@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin"
+	systemHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	httpOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
@@ -52,6 +53,39 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 	//httpMP.RegisterAPIRoutes(r, authAdminMiddleware, cfg)
 
 	websocket.RegisterWSRoutes(r, authUser, cfg, deps)
+
+	return nil
+}
+
+// SetupSetupOnlyRouter 在安装模式下仅挂载 setup/health 相关路由，避免 DB/Cache 强依赖阻断首装。
+func SetupSetupOnlyRouter(cfg *config.Config, r *gin.Engine) error {
+	if cfg == nil || r == nil {
+		return fmt.Errorf("setup-only 路由初始化失败: cfg 或 router 为空")
+	}
+	r.Use(RecoveryMiddleware())
+	r.Use(RequestLoggingMiddleware())
+	r.Use(TraceInjectionMiddleware())
+	r.Use(FeatureInjectionMiddleware())
+	r.Use(InstallGuardMiddleware(cfg))
+
+	prefix := cfg.Server.APIPrefix
+	if prefix == "" {
+		prefix = "/api"
+	}
+	r.GET("/healthz", httpAdmin.HealthHandler)
+	publicGroup := r.Group(prefix)
+	publicGroup.GET("/health", httpAdmin.HealthHandler)
+
+	hSetup := systemHTTP.NewSetupHandler(nil)
+	publicGroup.GET("/admin/setup/status", hSetup.Status)
+	publicGroup.GET("/admin/setup/config", hSetup.GetConfig)
+	publicGroup.PUT("/admin/setup/config", hSetup.SaveConfig)
+	publicGroup.POST("/admin/setup/provision", hSetup.Provision)
+	publicGroup.POST("/admin/setup/complete", hSetup.Complete)
+	publicGroup.POST("/admin/setup/test/database", hSetup.TestDatabaseConnection)
+	publicGroup.POST("/admin/setup/test/cache", hSetup.TestCacheConnection)
+	publicGroup.POST("/admin/setup/llm/test-connection", hSetup.TestLLMConnection)
+	publicGroup.POST("/admin/setup/llm/test-call", hSetup.TestLLMQuickCall)
 
 	return nil
 }

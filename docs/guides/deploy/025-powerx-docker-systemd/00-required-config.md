@@ -19,8 +19,11 @@
 
 覆盖优先级（高 -> 低）：
 1. 进程环境变量（`POWERX_WEB_ADMIN_PORT`、`POWERX_BACKEND_PORT`、`POWERX_GRPC_PORT`）
-2. setup 保存的端口配置（规划中，待实现）
+2. setup 保存的端口配置（`/api/v1/admin/setup/status` 可见 `desired_ports`）
 3. 配置文件默认值（按 `POWERX_ENV` 选择 dev/prod）
+
+生效语义：
+- setup 修改端口后，若 `restart_required=true` 表示当前进程尚未生效，需重启 backend/web-admin。
 
 ---
 

@@ -91,4 +91,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 			tenantFormsGroup.POST("/:form_id/reject", tenantFormH.RejectTenantForm)
 		}
 	}
+
+	// Admin AI OpenAPI mapping
+	adminAIGroup := protectedGroup.Group("/admin/ai")
+	{
+		adminAIGroup.GET("/llm/models", settingH.listOpenAILLMModels)
+	}
 }

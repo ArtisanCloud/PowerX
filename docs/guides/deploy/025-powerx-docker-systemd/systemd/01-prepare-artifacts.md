@@ -18,7 +18,7 @@
 - 构建机已安装 Go 1.24、Node 20、npm。
 - 已切到目标发布分支/commit。
 - 已规划发布目录：`/opt/powerx/releases/<version>/`。
-- 以下命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX`。
+- 以下命令默认在仓库根目录执行。
 - Go 模块在 `backend/go.mod`，因此构建 backend 时必须先 `cd backend`（或使用 `go -C backend ...`）。
 - 部署前请先核对必须配置项：`../00-required-config.md`。
 
@@ -103,22 +103,22 @@ cd web-admin && PORT=${POWERX_WEB_ADMIN_PORT} UPSTREAM=http://127.0.0.1:${POWERX
 
 ```bash
 # 终端1：backend（二进制）
-cd /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX
+cd dist/systemd/${VERSION}/backend
 set -a
-source dist/systemd/${VERSION}/config/powerx.env
+source ../config/powerx.env
 set +a
-./dist/systemd/${VERSION}/backend/powerx
+./powerx
 ```
 
 ```bash
 # 终端2：web-admin（Nuxt server 产物）
-cd /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX
+cd dist/systemd/${VERSION}
 set -a
-source dist/systemd/${VERSION}/config/powerx.env
+source ./config/powerx.env
 set +a
 PORT=${POWERX_WEB_ADMIN_PORT} \
 UPSTREAM=http://127.0.0.1:${POWERX_BACKEND_PORT} \
-node dist/systemd/${VERSION}/web-admin/.output/server/index.mjs
+node ./web-admin/.output/server/index.mjs
 ```
 
 验证命令：
@@ -173,11 +173,13 @@ sudo ln -sfn /opt/powerx/releases/${VERSION}/runner /opt/powerx/runner
 示例：
 
 ```bash
+export VERSION=v2.0.1
+
 # 全量（包含 npm ci）
-make dist DIST_VERSION=v2.0.1
+make dist DIST_VERSION=$VERSION
 
 # 跳过 npm ci（适合已预装依赖）
-make dist DIST_VERSION=v2.0.1 NPM_INSTALL=0
+make dist DIST_VERSION=$VERSION NPM_INSTALL=0
 ```
 
 产物结构示例：
@@ -186,7 +188,12 @@ make dist DIST_VERSION=v2.0.1 NPM_INSTALL=0
 dist/systemd/v2.0.1/
 ├── backend/
 │   ├── powerx
-│   └── etc/config.yaml
+│   ├── etc/config.yaml
+│   ├── config/...
+│   ├── config/plugins/...
+│   ├── config/security/...
+│   ├── internal/server/agent/blueprints/...
+│   └── pkg/corex/flow/blueprints/...
 ├── web-admin/.output/...
 ├── config/powerx.env
 ├── config/web-admin.env

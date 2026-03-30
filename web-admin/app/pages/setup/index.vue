@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { StepperItem } from "@nuxt/ui";
-import { useSettingsService } from "~/composables/api/services/settingsService";
+import {
+  useSettingsService,
+  type SetupStatus,
+} from "~/composables/api/services/settingsService";
+import { AISettingService } from "~/composables/api/services/aiSettingService";
 import TestPanel from "~/components/settings/ai/TestPanel.vue";
 
 definePageMeta({
@@ -12,7 +16,7 @@ const stepper = ref();
 const currentStep = ref(0);
 const isLoading = ref(false);
 const completing = ref(false);
-const setupStatus = ref<any>(null);
+const setupStatus = ref<SetupStatus | null>(null);
 const settingsService = useSettingsService();
 const toast = useToast();
 const { locale } = useI18n();
@@ -77,16 +81,16 @@ const stepperItems = computed<StepperItem[]>(() => [
     icon: "i-lucide-shield-check",
   },
   {
-    slot: "domain-https" as const,
-    title: isZh.value ? "域名与 HTTPS" : "Domain & HTTPS",
-    description: isZh.value ? "配置外部访问域名和 TLS 设置" : "Configure domain and TLS options",
-    icon: "i-lucide-globe",
-  },
-  {
     slot: "database-config" as const,
     title: isZh.value ? "数据库 & 基础配置" : "Database & Basics",
     description: isZh.value ? "配置数据库、存储、缓存等基础服务" : "Configure database, storage, and cache",
     icon: "i-lucide-database",
+  },
+  {
+    slot: "domain-https" as const,
+    title: isZh.value ? "域名与 HTTPS" : "Domain & HTTPS",
+    description: isZh.value ? "配置外部访问域名和 TLS 设置" : "Configure domain and TLS options",
+    icon: "i-lucide-globe",
   },
   {
     slot: "admin-tenant" as const,
@@ -223,31 +227,30 @@ const step5Data = reactive({
       name: "审批流程",
       description: "提供工作流和审批功能",
       category: "workflow",
-      enabled: true,
+      recommended: true,
     },
     {
       id: "notification",
       name: "消息通知",
       description: "邮件、短信、站内信通知",
       category: "communication",
-      enabled: true,
+      recommended: true,
     },
     {
       id: "file-manager",
       name: "文件管理",
       description: "文件上传、管理和分享",
       category: "storage",
-      enabled: true,
+      recommended: true,
     },
     {
       id: "ai-assistant",
       name: "AI 助手",
       description: "智能对话和任务处理",
       category: "ai",
-      enabled: false,
+      recommended: false,
     },
   ],
-  selectedPlugins: ["workflow", "notification", "file-manager"],
 });
 
 const step6Data = reactive({
@@ -263,71 +266,495 @@ const step6Data = reactive({
 });
 const llmLastTestMessage = ref("");
 const llmLastTestDetail = ref("");
-const llmProviderOptions = computed(() => [
-  {
-    label: isZh.value ? "OpenAI (Cloud)" : "OpenAI (Cloud)",
-    value: "openai",
-  },
-  {
-    label: isZh.value ? "Ollama (Local)" : "Ollama (Local)",
-    value: "ollama",
-  },
-  {
-    label: isZh.value ? "OpenRouter" : "OpenRouter",
-    value: "openrouter",
-  },
-  {
-    label: isZh.value ? "自定义" : "Custom",
-    value: "custom",
-  },
-]);
-const llmModelOptions = computed(() => {
-  const p = String(step6Data.provider || "").trim();
-  if (p === "ollama") {
-    return [
-      { label: "llama3", value: "llama3" },
-      { label: "qwen2.5:7b", value: "qwen2.5:7b" },
-      { label: "deepseek-r1:7b", value: "deepseek-r1:7b" },
-    ];
-  }
-  if (p === "openrouter") {
-    return [
-      { label: "openai/gpt-4.1-mini", value: "openai/gpt-4.1-mini" },
-      { label: "anthropic/claude-3.5-sonnet", value: "anthropic/claude-3.5-sonnet" },
-    ];
-  }
-  return [
+const llmProviderOptions = ref<Array<{ label: string; value: string }>>([]);
+const qwenFallbackModels = [
+  "qwen-max-latest",
+  "qwen-plus-latest",
+  "qwen-turbo-latest",
+  "qwen-flash-latest",
+  "qwen-plus",
+  "qwen-turbo",
+  "qwen-max",
+  "qwen3.5-plus",
+  "qwen3.5-flash",
+  "qwen3.5-plus-2026-02-15",
+  "qwen3.5-flash-2026-02-23",
+  "qwen3-max-latest",
+  "qwen3-plus-latest",
+  "qwen3-turbo-latest",
+  "qwen3-flash-latest",
+  "qwen3-max",
+  "qwen3-plus",
+  "qwen3-turbo",
+  "qwen3-flash",
+  "qwen3-coder-plus",
+  "qwen3-coder-flash",
+  "qwen2.5-72b-instruct",
+  "qwen2.5-32b-instruct",
+  "qwen2.5-14b-instruct",
+  "qwen2.5-7b-instruct",
+  "qwq-plus",
+  "qwq-32b",
+].map((m) => ({ label: m, value: m }));
+const llmModelOptionsMap = ref<Record<string, Array<{ label: string; value: string }>>>({
+  openai: [
     { label: "gpt-4.1-mini", value: "gpt-4.1-mini" },
     { label: "gpt-4o-mini", value: "gpt-4o-mini" },
     { label: "gpt-4.1", value: "gpt-4.1" },
-  ];
+  ],
+  ollama: [
+    { label: "llama3", value: "llama3" },
+    { label: "qwen2.5:7b", value: "qwen2.5:7b" },
+    { label: "deepseek-r1:7b", value: "deepseek-r1:7b" },
+  ],
+  openrouter: [
+    { label: "openai/gpt-4.1-mini", value: "openai/gpt-4.1-mini" },
+    { label: "anthropic/claude-3.5-sonnet", value: "anthropic/claude-3.5-sonnet" },
+  ],
+  huggingface: [
+    { label: "Qwen/Qwen2.5-72B-Instruct", value: "Qwen/Qwen2.5-72B-Instruct" },
+    { label: "meta-llama/Meta-Llama-3.1-8B-Instruct", value: "meta-llama/Meta-Llama-3.1-8B-Instruct" },
+  ],
+  moonshot: [
+    { label: "moonshot-v1-8k", value: "moonshot-v1-8k" },
+    { label: "moonshot-v1-32k", value: "moonshot-v1-32k" },
+  ],
+  volcengine: [
+    { label: "doubao-seed-1-6", value: "doubao-seed-1-6" },
+    { label: "doubao-1.5-pro-32k", value: "doubao-1.5-pro-32k" },
+  ],
+  hunyuan: [
+    { label: "hunyuan-turbo", value: "hunyuan-turbo" },
+    { label: "hunyuan-pro", value: "hunyuan-pro" },
+  ],
+  "qwen-intl": qwenFallbackModels,
+  "qwen-cn": qwenFallbackModels,
+  openai_compatible: [
+    { label: "gpt-4o-mini", value: "gpt-4o-mini" },
+    { label: "qwen-plus", value: "qwen-plus" },
+  ],
+  custom: [
+    { label: "custom-model", value: "custom-model" },
+  ],
 });
+const llmModelOptions = computed(() => {
+  const p = String(step6Data.provider || "").trim();
+  return llmModelOptionsMap.value[p] || llmModelOptionsMap.value.openai || [];
+});
+
+const buildFallbackLLMProviderOptions = () => [
+  { label: "OpenAI", value: "openai" },
+  { label: "Ollama (Local)", value: "ollama" },
+  { label: "OpenRouter", value: "openrouter" },
+  { label: "Hugging Face Inference", value: "huggingface" },
+  { label: "Moonshot AI (Kimi)", value: "moonshot" },
+  { label: "Volcengine (ByteDance)", value: "volcengine" },
+  { label: "Tencent Hunyuan", value: "hunyuan" },
+  { label: isZh.value ? "Qwen（官方国际）" : "Qwen (Intl)", value: "qwen-intl" },
+  { label: isZh.value ? "Qwen（官方国内）" : "Qwen (CN)", value: "qwen-cn" },
+  { label: "OpenAI Compatible", value: "openai_compatible" },
+  { label: isZh.value ? "自定义" : "Custom", value: "custom" },
+];
+
+const normalizeProviderValue = (raw: unknown): string =>
+  String(raw || "").trim().toLowerCase();
+
+const isSetupInstalled = computed(() => {
+  const status = String(
+    setupStatus.value?.install?.status ??
+      setupStatus.value?.install_status ??
+      setupStatus.value?.status ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  return status === "installed";
+});
+
+const desiredBackendPort = computed(() =>
+  Number(setupStatus.value?.desired_ports?.backend_port || step3Data.backendPort || 0)
+);
+const desiredWebAdminPort = computed(() =>
+  Number(setupStatus.value?.desired_ports?.web_admin_port || step3Data.webAdminPort || 0)
+);
+const effectiveBackendPort = computed(() =>
+  Number(setupStatus.value?.effective_ports?.backend_port || 0)
+);
+const effectiveWebAdminPort = computed(() =>
+  Number(setupStatus.value?.effective_ports?.web_admin_port || 0)
+);
+const restartRequired = computed(() => Boolean(setupStatus.value?.restart_required));
+const desiredSource = computed(() =>
+  String(setupStatus.value?.config_source?.desired_ports || "")
+);
+const effectiveSource = computed(() =>
+  String(setupStatus.value?.config_source?.effective_ports || "")
+);
+
+const syncProviderAndModelDefaults = () => {
+  const firstProvider = llmProviderOptions.value[0]?.value || "openai";
+  if (!llmProviderOptions.value.some((p) => p.value === step6Data.provider)) {
+    step6Data.provider = firstProvider;
+  }
+  const firstModel = llmModelOptions.value[0]?.value || "";
+  if (!llmModelOptions.value.some((m) => m.value === step6Data.model)) {
+    step6Data.model = firstModel;
+  }
+};
+
+const isValidHttpBaseURL = (raw: string): boolean => {
+  const val = String(raw || "").trim();
+  return /^https?:\/\//i.test(val);
+};
+
+const isLikelyHTMLPayload = (payload: unknown): boolean => {
+  if (typeof payload !== "string") return false;
+  const raw = payload.trim().toLowerCase();
+  return raw.startsWith("<!doctype html") || raw.startsWith("<html");
+};
+
+const loadLLMProviderOptions = async () => {
+  if (!isSetupInstalled.value) {
+    llmProviderOptions.value = buildFallbackLLMProviderOptions();
+    syncProviderAndModelDefaults();
+    return;
+  }
+  try {
+    const providers = await AISettingService.getProviders("llm", "dev");
+    const items = (providers || [])
+      .map((p: any) => ({
+        label: String(p?.Name || p?.ID || "").trim(),
+        value: normalizeProviderValue(p?.ID),
+      }))
+      .filter((p) => p.label && p.value);
+    llmProviderOptions.value = items.length ? items : buildFallbackLLMProviderOptions();
+  } catch {
+    llmProviderOptions.value = buildFallbackLLMProviderOptions();
+  }
+  syncProviderAndModelDefaults();
+};
+
+const loadLLMModelsByProvider = async (provider: string) => {
+  if (!isSetupInstalled.value) {
+    return;
+  }
+  const p = normalizeProviderValue(provider);
+  if (!p) return;
+  try {
+    const models = await AISettingService.getModels(p, "llm", "dev");
+    const items = (models || [])
+      .map((m) => String(m || "").trim())
+      .filter((m) => m.length > 0)
+      .map((m) => ({ label: m, value: m }));
+    if (items.length) {
+      llmModelOptionsMap.value = {
+        ...llmModelOptionsMap.value,
+        [p]: items,
+      };
+    }
+  } catch {
+    // setup 阶段容错：失败时保持静态兜底模型
+  }
+  syncProviderAndModelDefaults();
+};
 
 watch(
   () => step6Data.provider,
-  () => {
-    const first = llmModelOptions.value[0]?.value || "";
-    if (!llmModelOptions.value.some((m) => m.value === step6Data.model)) {
-      step6Data.model = first;
+  async (provider, prevProvider) => {
+    await loadLLMModelsByProvider(provider);
+    // provider 切换后，模型选中值必须联动为该 provider 的首个可用模型
+    if (prevProvider !== undefined && provider !== prevProvider) {
+      step6Data.model = llmModelOptions.value[0]?.value || "";
     }
   },
   { immediate: true }
 );
 
-const setupTestConnection = () => {
-  llmLastTestMessage.value = isZh.value
-    ? "安装向导阶段暂不执行在线连通测试。请完成安装后在“模型中心”点击测试连接。"
-    : "Online connection test is disabled during setup. Finish installation and test it in Model Center.";
-  llmLastTestDetail.value = isZh.value
-    ? "原因：当前未安装态仅放行 setup 相关接口，模型测试接口会被安装守卫拦截。"
-    : "Reason: In not-installed state, only setup endpoints are allowed and model test endpoints are blocked by install guard.";
+const setupTestConnection = async () => {
+  llmLastTestMessage.value = "";
+  llmLastTestDetail.value = "";
+  const rawBaseURL = String(step6Data.baseUrl || "").trim();
+  if (rawBaseURL && !isValidHttpBaseURL(rawBaseURL)) {
+    llmLastTestMessage.value = isZh.value ? "连接测试失败。" : "Connection test failed.";
+    llmLastTestDetail.value = isZh.value
+      ? "Base URL 必须以 http:// 或 https:// 开头。"
+      : "Base URL must start with http:// or https://.";
+    return;
+  }
+  try {
+    const resp: any = await $fetch("/api/v1/admin/setup/llm/test-connection", {
+      method: "POST",
+      body: {
+        env: "dev",
+        provider: step6Data.provider,
+        model: step6Data.model,
+        baseURL: step6Data.baseUrl,
+        apiKey: step6Data.apiKey,
+      },
+    });
+    if (isLikelyHTMLPayload(resp)) {
+      throw new Error(
+        isZh.value
+          ? "连接测试返回了 HTML 页面而非 JSON，请检查前端 API 代理是否正确。"
+          : "Connection test returned HTML instead of JSON. Please check frontend API proxy settings."
+      );
+    }
+    const data = resp?.data ?? resp;
+    if (isLikelyHTMLPayload(data)) {
+      throw new Error(
+        isZh.value
+          ? "连接测试返回了 HTML 页面而非 JSON，请检查前端 API 代理是否正确。"
+          : "Connection test returned HTML instead of JSON. Please check frontend API proxy settings."
+      );
+    }
+    if (!data || typeof data !== "object" || (Object.prototype.hasOwnProperty.call(data, "ok") && data.ok !== true)) {
+      throw new Error(
+        isZh.value
+          ? "连接测试响应格式异常（期望 JSON 对象）。"
+          : "Unexpected connection test response format (expected JSON object)."
+      );
+    }
+    llmLastTestMessage.value = isZh.value
+      ? "连接测试通过。"
+      : "Connection test passed.";
+    llmLastTestDetail.value = JSON.stringify(data, null, 2);
+  } catch (error: any) {
+    llmLastTestMessage.value = isZh.value
+      ? "连接测试失败。"
+      : "Connection test failed.";
+    llmLastTestDetail.value = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+  }
 };
 
-const setupTestQuickCall = () => {
-  llmLastTestMessage.value = isZh.value
-    ? "试跑功能将在安装完成后可用。"
-    : "Quick run will be available after installation is completed.";
+const setupTestQuickCall = async () => {
+  llmLastTestMessage.value = "";
+  llmLastTestDetail.value = "";
+  const rawBaseURL = String(step6Data.baseUrl || "").trim();
+  if (rawBaseURL && !isValidHttpBaseURL(rawBaseURL)) {
+    llmLastTestMessage.value = isZh.value ? "试跑失败。" : "Quick run failed.";
+    llmLastTestDetail.value = isZh.value
+      ? "Base URL 必须以 http:// 或 https:// 开头。"
+      : "Base URL must start with http:// or https://.";
+    return;
+  }
+  try {
+    const resp: any = await $fetch("/api/v1/admin/setup/llm/test-call", {
+      method: "POST",
+      body: {
+        env: "dev",
+        provider: step6Data.provider,
+        model: step6Data.model,
+        baseURL: step6Data.baseUrl,
+        apiKey: step6Data.apiKey,
+        temperature: Number(step6Data.temperature || 0),
+        maxTokens: Number(step6Data.maxTokens || 0),
+        prompt: "hello",
+      },
+    });
+    if (isLikelyHTMLPayload(resp)) {
+      throw new Error(
+        isZh.value
+          ? "试跑返回了 HTML 页面而非 JSON，请检查前端 API 代理是否正确。"
+          : "Quick run returned HTML instead of JSON. Please check frontend API proxy settings."
+      );
+    }
+    const data = resp?.data ?? resp;
+    if (isLikelyHTMLPayload(data) || !data || typeof data !== "object") {
+      throw new Error(
+        isZh.value
+          ? "试跑响应格式异常（期望 JSON 对象）。"
+          : "Unexpected quick run response format (expected JSON object)."
+      );
+    }
+    llmLastTestMessage.value = String(data?.text || data?.output || (isZh.value ? "试跑成功。" : "Quick run succeeded."));
+    llmLastTestDetail.value = JSON.stringify(data, null, 2);
+  } catch (error: any) {
+    llmLastTestMessage.value = isZh.value
+      ? "试跑失败。"
+      : "Quick run failed.";
+    llmLastTestDetail.value = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+  }
 };
+
+const dbTestState = reactive({
+  database: {
+    testing: false,
+    ok: false,
+    message: "",
+  },
+  cache: {
+    testing: false,
+    ok: false,
+    message: "",
+  },
+  provisioning: false,
+  provisioned: false,
+});
+
+const setupPayload = computed(() => ({
+  domain: {
+    domain: step2Data.domain,
+    api_subdomain: step2Data.apiSubdomain,
+    enable_cdn: step2Data.enableCdn,
+    cdn_domain: step2Data.cdnDomain,
+  },
+  https: {
+    mode: step2Data.httpsMode as "auto" | "manual" | "disable",
+    cert_email: step2Data.certEmail,
+    cert_content: step2Data.certContent,
+    key_content: step2Data.keyContent,
+  },
+  storage: {
+    type: normalizeStorageType(step3Data.storageType),
+    local_path: step3Data.localStoragePath,
+    access_key: step3Data.storageAccessKey,
+    secret_key: step3Data.storageSecretKey,
+    bucket: step3Data.storageBucket,
+    region: step3Data.storageRegion,
+  },
+  cache: {
+    type: step3Data.cacheType,
+    redis_host: step3Data.redisHost,
+    redis_port: Number(step3Data.redisPort || 0),
+    redis_db: Number(step3Data.redisDb || 0),
+    redis_password: step3Data.redisPassword,
+  },
+  email: {
+    enabled: step3Data.emailEnabled,
+    smtp_host: step3Data.emailSmtpHost,
+    smtp_port: Number(step3Data.emailSmtpPort || 0),
+    from_name: step3Data.emailFromName,
+    from_address: step3Data.emailFromAddress,
+  },
+  llm: {
+    enabled: !step6Data.skipLLMSetup,
+    provider: step6Data.provider,
+    model: step6Data.model,
+    base_url: step6Data.baseUrl,
+    api_key: step6Data.apiKey,
+    temperature: Number(step6Data.temperature || 0),
+    top_p: Number(step6Data.topP || 0),
+    max_tokens: Number(step6Data.maxTokens || 0),
+    stream: !!step6Data.stream,
+  },
+  database: {
+    type: step3Data.dbType,
+    host: step3Data.dbHost,
+    port: Number(step3Data.dbPort || 0),
+    name: step3Data.dbName,
+    username: step3Data.dbUsername,
+    password: step3Data.dbPassword,
+    charset: step3Data.dbCharset,
+    ssl_mode: "disable",
+    sqlite_path: step3Data.sqlitePath,
+  },
+  ports: {
+    backend_port: Number(step3Data.backendPort || 0),
+    web_admin_port: Number(step3Data.webAdminPort || 0),
+  },
+}));
+
+const setupTestDatabaseConnection = async () => {
+  dbTestState.database.testing = true;
+  dbTestState.database.message = "";
+  try {
+    const resp: any = await $fetch("/api/v1/admin/setup/test/database", {
+      method: "POST",
+      body: {
+        database: setupPayload.value.database,
+      },
+    });
+    const data = resp?.data ?? resp;
+    if (!data || data.ok !== true) {
+      throw new Error(isZh.value ? "数据库连接测试返回异常" : "Database test response is invalid");
+    }
+    dbTestState.database.ok = true;
+    dbTestState.database.message = isZh.value ? "数据库连接成功" : "Database connection is healthy";
+  } catch (error: any) {
+    dbTestState.database.ok = false;
+    dbTestState.database.message = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+  } finally {
+    dbTestState.database.testing = false;
+  }
+};
+
+const setupTestCacheConnection = async () => {
+  dbTestState.cache.testing = true;
+  dbTestState.cache.message = "";
+  try {
+    const resp: any = await $fetch("/api/v1/admin/setup/test/cache", {
+      method: "POST",
+      body: {
+        cache: setupPayload.value.cache,
+      },
+    });
+    const data = resp?.data ?? resp;
+    if (!data || data.ok !== true) {
+      throw new Error(isZh.value ? "缓存连接测试返回异常" : "Cache test response is invalid");
+    }
+    dbTestState.cache.ok = true;
+    dbTestState.cache.message = String(data?.message || (isZh.value ? "缓存连接成功" : "Cache connection is healthy"));
+  } catch (error: any) {
+    dbTestState.cache.ok = false;
+    dbTestState.cache.message = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+  } finally {
+    dbTestState.cache.testing = false;
+  }
+};
+
+const provisionSetupAtDatabaseStep = async (): Promise<boolean> => {
+  if (dbTestState.provisioned) {
+    return true;
+  }
+  dbTestState.provisioning = true;
+  try {
+    await settingsService.saveSetupConfig(setupPayload.value as any);
+    const resp: any = await $fetch("/api/v1/admin/setup/provision", {
+      method: "POST",
+    });
+    const data = resp?.data ?? resp;
+    if (!data || data.ok !== true) {
+      throw new Error(isZh.value ? "数据库初始化响应异常" : "Provision response is invalid");
+    }
+    dbTestState.provisioned = true;
+    toast.add({
+      title: isZh.value ? "数据库初始化完成" : "Database provision completed",
+      description: isZh.value ? "已执行 migrate/seed，可继续下一步。" : "migrate/seed finished. You can continue.",
+      color: "success",
+    });
+    return true;
+  } catch (error: any) {
+    dbTestState.provisioned = false;
+    toast.add({
+      title: isZh.value ? "数据库初始化失败" : "Database provision failed",
+      description: String(error?.data?.error || error?.data?.message || error?.message || "unknown error"),
+      color: "error",
+    });
+    return false;
+  } finally {
+    dbTestState.provisioning = false;
+  }
+};
+
+watch(
+  () => [
+    step3Data.dbType,
+    step3Data.dbHost,
+    step3Data.dbPort,
+    step3Data.dbName,
+    step3Data.dbUsername,
+    step3Data.dbPassword,
+    step3Data.sqlitePath,
+    step3Data.cacheType,
+    step3Data.redisHost,
+    step3Data.redisPort,
+    step3Data.redisDb,
+    step3Data.redisPassword,
+  ],
+  () => {
+    dbTestState.provisioned = false;
+  }
+);
 
 // 验证当前步骤
 const validateCurrentStep = () => {
@@ -335,10 +762,10 @@ const validateCurrentStep = () => {
     case 0:
       return step1Data.licenseAccepted && step1Data.termsAccepted;
     case 1:
-      return step2Data.domain.trim() !== "";
+      return step3Data.dbType === "sqlite" || step3Data.dbHost.trim() !== "";
     case 2:
       return (
-        step3Data.dbHost.trim() !== "" &&
+        step2Data.domain.trim() !== "" &&
         Number(step3Data.backendPort) > 0 &&
         Number(step3Data.backendPort) <= 65535 &&
         Number(step3Data.webAdminPort) > 0 &&
@@ -375,6 +802,10 @@ const nextStep = async () => {
 
   isLoading.value = true;
   try {
+    if (currentStep.value === 1) {
+      const ok = await provisionSetupAtDatabaseStep();
+      if (!ok) return;
+    }
     if (currentStep.value < stepperItems.value.length - 1) {
       currentStep.value++;
     } else {
@@ -394,51 +825,9 @@ const prevStep = () => {
 
 // 完成设置
 const completeSetup = async () => {
-  if (Number(setupStatus.value?.checks?.users || 0) > 0) {
-    await navigateTo("/home");
-    return;
-  }
   completing.value = true;
   try {
-    await settingsService.saveSetupConfig({
-      domain: {
-        domain: step2Data.domain,
-        api_subdomain: step2Data.apiSubdomain,
-        enable_cdn: step2Data.enableCdn,
-        cdn_domain: step2Data.cdnDomain,
-      },
-      https: {
-        mode: step2Data.httpsMode as "auto" | "manual" | "disable",
-        cert_email: step2Data.certEmail,
-        cert_content: step2Data.certContent,
-        key_content: step2Data.keyContent,
-      },
-      storage: {
-        type: normalizeStorageType(step3Data.storageType),
-        local_path: step3Data.localStoragePath,
-        access_key: step3Data.storageAccessKey,
-        secret_key: step3Data.storageSecretKey,
-        bucket: step3Data.storageBucket,
-        region: step3Data.storageRegion,
-      },
-      cache: {
-        type: step3Data.cacheType,
-        redis_host: step3Data.redisHost,
-        redis_port: Number(step3Data.redisPort || 0),
-        redis_db: Number(step3Data.redisDb || 0),
-      },
-      email: {
-        enabled: step3Data.emailEnabled,
-        smtp_host: step3Data.emailSmtpHost,
-        smtp_port: Number(step3Data.emailSmtpPort || 0),
-        from_name: step3Data.emailFromName,
-        from_address: step3Data.emailFromAddress,
-      },
-      ports: {
-        backend_port: Number(step3Data.backendPort || 0),
-        web_admin_port: Number(step3Data.webAdminPort || 0),
-      },
-    });
+    await settingsService.saveSetupConfig(setupPayload.value as any);
 
     await $fetch("/api/v1/admin/setup/complete", {
       method: "POST",
@@ -468,13 +857,17 @@ const runSystemChecks = async () => {
   }
 
   try {
-    const resp: any = await $fetch("/api/v1/admin/setup/status", { method: "GET" });
+    const resp: any = await settingsService.getSetupStatus();
     const payload = resp?.data ?? resp;
     setupStatus.value = payload;
 
     const hasTenant = Number(payload?.checks?.tenants || 0) > 0;
     const hasUser = Number(payload?.checks?.users || 0) > 0;
     const hasAI = Number(payload?.checks?.ai_profiles || 0) > 0;
+
+    if (isSetupInstalled.value) {
+      loadLLMProviderOptions();
+    }
 
     step1Data.checks.database.status = hasTenant ? "success" : "pending";
     step1Data.checks.database.message = hasTenant ? uiCopy.value.msgTenantInited : uiCopy.value.msgTenantNotInited;
@@ -543,6 +936,27 @@ const loadSetupConfig = async () => {
     step3Data.redisHost = String(cfg.cache?.redis_host || step3Data.redisHost);
     step3Data.redisPort = Number(cfg.cache?.redis_port || step3Data.redisPort);
     step3Data.redisDb = Number(cfg.cache?.redis_db || step3Data.redisDb);
+    step3Data.redisPassword = String(cfg.cache?.redis_password || step3Data.redisPassword);
+
+    step3Data.dbType = String(cfg.database?.type || step3Data.dbType);
+    step3Data.dbHost = String(cfg.database?.host || step3Data.dbHost);
+    step3Data.dbPort = Number(cfg.database?.port || step3Data.dbPort);
+    step3Data.dbName = String(cfg.database?.name || step3Data.dbName);
+    step3Data.dbUsername = String(cfg.database?.username || step3Data.dbUsername);
+    step3Data.dbPassword = String(cfg.database?.password || step3Data.dbPassword);
+    step3Data.dbCharset = String(cfg.database?.charset || step3Data.dbCharset);
+    step3Data.sqlitePath = String(cfg.database?.sqlite_path || step3Data.sqlitePath);
+
+    const llmEnabled = cfg.llm?.enabled !== false;
+    step6Data.skipLLMSetup = !llmEnabled;
+    step6Data.provider = String(cfg.llm?.provider || step6Data.provider);
+    step6Data.model = String(cfg.llm?.model || step6Data.model);
+    step6Data.baseUrl = String(cfg.llm?.base_url || step6Data.baseUrl);
+    step6Data.apiKey = String(cfg.llm?.api_key || step6Data.apiKey);
+    step6Data.temperature = Number(cfg.llm?.temperature ?? step6Data.temperature);
+    step6Data.topP = Number(cfg.llm?.top_p ?? step6Data.topP);
+    step6Data.maxTokens = Number(cfg.llm?.max_tokens ?? step6Data.maxTokens);
+    step6Data.stream = Boolean(cfg.llm?.stream ?? step6Data.stream);
 
     step3Data.emailEnabled = Boolean(cfg.email?.enabled);
     step3Data.emailSmtpHost = String(cfg.email?.smtp_host || step3Data.emailSmtpHost);
@@ -573,6 +987,8 @@ const openPrivacyModal = (e: Event) => {
 };
 
 onMounted(() => {
+  llmProviderOptions.value = buildFallbackLLMProviderOptions();
+  loadLLMProviderOptions();
   loadSetupConfig();
   runSystemChecks();
 });
@@ -959,6 +1375,60 @@ onMounted(() => {
                   </div>
                 </div>
 
+                <!-- 服务端口 -->
+                <div class="mb-8">
+                  <h4 class="text-md font-medium mb-4">服务端口</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <UFormField label="Backend 端口" required>
+                      <UInput
+                        v-model="step3Data.backendPort"
+                        type="number"
+                        placeholder="8080"
+                      />
+                    </UFormField>
+
+                    <UFormField label="Web Admin 端口" required>
+                      <UInput
+                        v-model="step3Data.webAdminPort"
+                        type="number"
+                        placeholder="3000"
+                      />
+                    </UFormField>
+                  </div>
+                  <div class="mt-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="grid grid-cols-3 gap-2 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs font-semibold">
+                      <span>{{ isZh ? "项目" : "Item" }}</span>
+                      <span>{{ isZh ? "目标值（Desired）" : "Desired" }}</span>
+                      <span>{{ isZh ? "当前生效值（Effective）" : "Effective" }}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 px-3 py-2 text-xs border-t border-gray-100 dark:border-gray-700">
+                      <span>Backend</span>
+                      <span>{{ desiredBackendPort || "-" }}</span>
+                      <span>{{ effectiveBackendPort || "-" }}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 px-3 py-2 text-xs border-t border-gray-100 dark:border-gray-700">
+                      <span>Web Admin</span>
+                      <span>{{ desiredWebAdminPort || "-" }}</span>
+                      <span>{{ effectiveWebAdminPort || "-" }}</span>
+                    </div>
+                  </div>
+                  <UAlert
+                    v-if="restartRequired"
+                    class="mt-3"
+                    color="warning"
+                    variant="soft"
+                    icon="i-lucide-refresh-cw"
+                    :title="isZh ? '端口配置已变更，需重启服务后生效' : 'Port config changed. Restart services to take effect.'"
+                    :description="isZh
+                      ? `desired=${desiredSource || '-'}; effective=${effectiveSource || '-'}`
+                      : `desired=${desiredSource || '-'}; effective=${effectiveSource || '-'}`"
+                  />
+                  <p class="text-xs text-gray-500 mt-2">
+                    推荐生产默认：backend=8080 / web-admin=3000；开发口径：
+                    backend=8077 / web-admin=3030
+                  </p>
+                </div>
+
                 <!-- CDN 配置 -->
                 <div class="space-y-4">
                   <h4 class="text-md font-medium mb-4">CDN 配置（可选）</h4>
@@ -1008,32 +1478,6 @@ onMounted(() => {
               <div class="p-6">
                 <h3 class="text-lg font-semibold mb-6">数据库 & 基础配置</h3>
 
-                <!-- 服务端口 -->
-                <div class="mb-8">
-                  <h4 class="text-md font-medium mb-4">服务端口</h4>
-                  <div class="grid grid-cols-2 gap-4">
-                    <UFormField label="Backend 端口" required>
-                      <UInput
-                        v-model="step3Data.backendPort"
-                        type="number"
-                        placeholder="8080"
-                      />
-                    </UFormField>
-
-                    <UFormField label="Web Admin 端口" required>
-                      <UInput
-                        v-model="step3Data.webAdminPort"
-                        type="number"
-                        placeholder="3000"
-                      />
-                    </UFormField>
-                  </div>
-                  <p class="text-xs text-gray-500 mt-2">
-                    dev 默认：backend=8077 / web-admin=3030；prod 默认：backend=8080 /
-                    web-admin=3000
-                  </p>
-                </div>
-
                 <!-- 数据库配置 -->
                 <div class="mb-8">
                   <h4 class="text-md font-medium mb-4">数据库设置</h4>
@@ -1041,6 +1485,7 @@ onMounted(() => {
                     <UFormField label="数据库类型" required>
                       <USelect
                         v-model="step3Data.dbType"
+                        :portal="false"
                         :options="[
                           { label: 'MySQL', value: 'mysql' },
                           { label: 'PostgreSQL', value: 'postgresql' },
@@ -1096,6 +1541,7 @@ onMounted(() => {
                     <UFormField label="字符集">
                       <USelect
                         v-model="step3Data.dbCharset"
+                        :portal="false"
                         :options="[
                           { label: 'utf8mb4', value: 'utf8mb4' },
                           { label: 'utf8', value: 'utf8' },
@@ -1104,27 +1550,45 @@ onMounted(() => {
                     </UFormField>
                   </div>
 
-                  <div
-                    v-if="step3Data.dbType !== 'sqlite'"
-                    class="grid grid-cols-2 gap-4"
-                  >
-                    <UFormField label="用户名" required>
-                      <UInput
-                        v-model="step3Data.dbUsername"
-                        placeholder="root"
-                        icon="i-lucide-user"
-                      />
-                    </UFormField>
+                  <template v-if="step3Data.dbType !== 'sqlite'">
+                    <div class="grid grid-cols-2 gap-4">
+                      <UFormField label="用户名" required>
+                        <UInput
+                          v-model="step3Data.dbUsername"
+                          placeholder="root"
+                          icon="i-lucide-user"
+                        />
+                      </UFormField>
 
-                    <UFormField label="密码" required>
-                      <UInput
-                        v-model="step3Data.dbPassword"
-                        type="password"
-                        placeholder="数据库密码"
-                        icon="i-lucide-lock"
-                      />
-                    </UFormField>
-                  </div>
+                      <UFormField label="密码" required>
+                        <UInput
+                          v-model="step3Data.dbPassword"
+                          type="password"
+                          placeholder="数据库密码"
+                          icon="i-lucide-lock"
+                        />
+                      </UFormField>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-4 items-center">
+                      <p
+                        class="text-xs"
+                        :class="dbTestState.database.ok ? 'text-green-500' : 'text-gray-500'"
+                      >
+                        {{ dbTestState.database.message || '可先测试数据库连通性，再进入下一步。' }}
+                      </p>
+                      <div class="flex justify-start">
+                        <UButton
+                          color="neutral"
+                          variant="soft"
+                          :loading="dbTestState.database.testing"
+                          @click="setupTestDatabaseConnection"
+                        >
+                          测试数据库连接
+                        </UButton>
+                      </div>
+                    </div>
+                  </template>
 
                   <div v-else class="space-y-4">
                     <UFormField label="数据库文件路径">
@@ -1144,6 +1608,7 @@ onMounted(() => {
                     <UFormField label="缓存类型">
                       <USelect
                         v-model="step3Data.cacheType"
+                        :portal="false"
                         :options="[
                           { label: 'Redis', value: 'redis' },
                           { label: 'Memcached', value: 'memcached' },
@@ -1194,6 +1659,28 @@ onMounted(() => {
                         />
                       </UFormField>
                     </div>
+
+                    <div
+                      v-if="step3Data.cacheType === 'redis'"
+                      class="mt-2 grid grid-cols-2 gap-4 items-center"
+                    >
+                      <p
+                        class="text-xs"
+                        :class="dbTestState.cache.ok ? 'text-green-500' : 'text-gray-500'"
+                      >
+                        {{ dbTestState.cache.message || '建议测试 Redis 连通性，避免初始化阶段失败。' }}
+                      </p>
+                      <div class="flex justify-start">
+                        <UButton
+                          color="neutral"
+                          variant="soft"
+                          :loading="dbTestState.cache.testing"
+                          @click="setupTestCacheConnection"
+                        >
+                          测试 Redis 连接
+                        </UButton>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1203,6 +1690,7 @@ onMounted(() => {
                   <UFormField label="存储类型">
                     <USelect
                       v-model="step3Data.storageType"
+                      :portal="false"
                       :options="[
                         { label: '本地存储', value: 'local' },
                         { label: '阿里云 OSS', value: 'aliyun' },
@@ -1320,14 +1808,26 @@ onMounted(() => {
                   >
                     上一步
                   </UButton>
-                  <UButton
-                    color="primary"
-                    @click="nextStep"
-                    :loading="isLoading"
-                    :disabled="!validateCurrentStep()"
-                  >
-                    下一步
-                  </UButton>
+                  <div class="flex items-center gap-3">
+                    <p
+                      class="text-xs"
+                      :class="dbTestState.provisioned ? 'text-green-500' : 'text-gray-500'"
+                    >
+                      {{
+                        dbTestState.provisioned
+                          ? '数据库 migrate/seed 已完成'
+                          : '下一步会自动保存配置并执行数据库初始化'
+                      }}
+                    </p>
+                    <UButton
+                      color="primary"
+                      @click="nextStep"
+                      :loading="isLoading || dbTestState.provisioning"
+                      :disabled="!validateCurrentStep()"
+                    >
+                      下一步
+                    </UButton>
+                  </div>
                 </div>
               </template>
             </UCard>
@@ -1436,7 +1936,7 @@ onMounted(() => {
                       <UTextarea
                         v-model="step4Data.tenantDescription"
                         placeholder="租户描述信息"
-                        rows="3"
+                        :rows="3"
                       />
                     </UFormField>
                   </div>
@@ -1499,7 +1999,7 @@ onMounted(() => {
 
                 <div class="mb-6">
                   <p class="text-gray-600 dark:text-gray-300 text-sm">
-                    选择要安装的基础插件。您可以在系统设置中随时添加或移除插件。
+                    以下为安装后建议启用的基础能力清单（引导说明，不会在此步骤立即执行插件安装）。
                   </p>
                 </div>
 
@@ -1509,36 +2009,11 @@ onMounted(() => {
                     :key="plugin.id"
                     class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
-                    <div class="flex items-center space-x-4">
-                      <UCheckbox
-                        :model-value="
-                          step5Data.selectedPlugins.includes(plugin.id)
-                        "
-                        @update:model-value="
-                          (checked) => {
-                            if (checked) {
-                              if (
-                                !step5Data.selectedPlugins.includes(plugin.id)
-                              ) {
-                                step5Data.selectedPlugins.push(plugin.id);
-                              }
-                            } else {
-                              const index = step5Data.selectedPlugins.indexOf(
-                                plugin.id
-                              );
-                              if (index > -1) {
-                                step5Data.selectedPlugins.splice(index, 1);
-                              }
-                            }
-                          }
-                        "
-                      />
-                      <div>
-                        <h5 class="font-medium">{{ plugin.name }}</h5>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">
-                          {{ plugin.description }}
-                        </p>
-                      </div>
+                    <div>
+                      <h5 class="font-medium">{{ plugin.name }}</h5>
+                      <p class="text-sm text-gray-600 dark:text-gray-300">
+                        {{ plugin.description }}
+                      </p>
                     </div>
                     <div class="flex items-center space-x-2">
                       <span
@@ -1567,7 +2042,7 @@ onMounted(() => {
                         }}
                       </span>
                       <span
-                        v-if="plugin.enabled"
+                        v-if="plugin.recommended"
                         class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full"
                       >
                         推荐
@@ -1587,7 +2062,7 @@ onMounted(() => {
                         提示
                       </h5>
                       <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                        插件安装完成后，您需要在"模型中心"、"工具中心"或"插件设置"中完成相关配置和密钥绑定。
+                        本步骤仅提供建议清单。实际安装与启停请在“插件市场/已安装插件”中操作，再在“模型中心”“工具中心”完成配置与密钥绑定。
                       </p>
                     </div>
                   </div>
@@ -1645,35 +2120,39 @@ onMounted(() => {
                         {{ isZh ? "LLM 文本 - 通用" : "LLM Text - General" }}
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <UFormField :label="isZh ? 'Provider' : 'Provider'" required>
+                        <UFormField class="md:col-span-2" :label="isZh ? 'Provider' : 'Provider'" required>
                           <USelect
                             v-model="step6Data.provider"
-                            :options="llmProviderOptions"
+                            :items="llmProviderOptions"
                             icon="i-heroicons-building-library"
+                            class="w-full"
                           />
                         </UFormField>
-                        <UFormField :label="isZh ? 'Model' : 'Model'" required>
+                        <UFormField class="md:col-span-2" :label="isZh ? 'Model' : 'Model'" required>
                           <USelect
                             v-model="step6Data.model"
-                            :options="llmModelOptions"
+                            :items="llmModelOptions"
                             icon="i-heroicons-cpu-chip"
+                            class="w-full"
                           />
                           <p class="mt-1 text-xs text-[var(--text-secondary)] break-all leading-5">
                             {{ step6Data.model }}
                           </p>
                         </UFormField>
-                        <UFormField class="md:col-span-2" :label="isZh ? 'Base URL（可选）' : 'Base URL (Optional)'">
+                        <UFormField class="md:col-span-2 w-full" :label="isZh ? 'Base URL（可选）' : 'Base URL (Optional)'">
                           <UInput
                             v-model="step6Data.baseUrl"
                             :placeholder="isZh ? '例如：https://api.openai.com/v1 或 http://127.0.0.1:11434/v1' : 'e.g. https://api.openai.com/v1 or http://127.0.0.1:11434/v1'"
+                            class="w-full"
                           />
                         </UFormField>
-                        <UFormField class="md:col-span-2" :label="isZh ? 'API Key' : 'API Key'" required>
+                        <UFormField class="md:col-span-2 w-full" :label="isZh ? 'API Key' : 'API Key'" required>
                           <UInput
                             v-model="step6Data.apiKey"
                             type="password"
                             autocomplete="off"
                             :placeholder="isZh ? '请输入 API Key' : 'Enter API Key'"
+                            class="w-full"
                           />
                         </UFormField>
                       </div>

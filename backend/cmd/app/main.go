@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/http"
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
@@ -35,6 +37,15 @@ func main() {
 	if cfg == nil {
 		log.Fatalf("加载配置文件失败")
 	}
+	effectivePorts := config.ResolveEffectivePorts(cfg)
+	logger.InfoF(
+		ctx,
+		"startup config_path=%s install_status=%s effective_ports={backend_port:%d,web_admin_port:%d}",
+		config.GetGlobalConfigPath(),
+		cfg.Install.EffectiveStatus(),
+		effectivePorts.BackendPort,
+		effectivePorts.WebAdminPort,
+	)
 	apikeypermissions.SetIntroducedVersion(cfg.EffectiveSystemVersion())
 
 	// Gin 的 debug 路由打印按 log.http_debug 控制
@@ -53,62 +64,92 @@ func main() {
 	docs.SwaggerInfo.BasePath = "/"
 
 	// 初始化应用核心依赖
-	deps, err := bootstrap.BootstrapApp(ctx, cfg)
-	if err != nil {
-		logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
-		return
-	}
-	defer deps.AuditSvc.Close()
-	r.Use(gin.Recovery())
-	r.Use(audit.GinAudit(deps.Auditor))
-
-	// 初始化插件管理器
-	_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
-	if err != nil {
-		logger.WarnF(ctx, "BootstrapPlugin failed, continue without plugin runtime: %s", err.Error())
-	}
-
-	// 配置 HTTP 路由
-	err = http.SetupRouter(cfg, r, deps)
-	if err != nil {
-		logger.ErrorF(ctx, "SetupRouter failed: %s", err.Error())
-		return
-	}
-
-	// 启动 gRPC 服务
-	_, err = grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
-	if err != nil {
-		logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
-		return
-	}
-
-	if deps.EventFabric != nil {
-		if deps.EventFabric.RetryWorker != nil {
-			go deps.EventFabric.RetryWorker.Run(ctx)
-		}
-		if deps.EventFabric.CronDispatcherWorker != nil {
-			go deps.EventFabric.CronDispatcherWorker.Run(ctx)
-		}
-		if deps.EventFabric.NotificationWorker != nil {
-			go deps.EventFabric.NotificationWorker.Run(ctx)
-		}
-		if deps.EventFabric.Authorization != nil {
-			if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
-				go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
+	setupOnlyMode := canFallbackToSetupOnly(cfg)
+	var (
+		deps *shared.Deps
+		err  error
+	)
+	if setupOnlyMode {
+		logger.WarnF(
+			ctx,
+			"install status=%s, setup-only preflight enabled: skip DB/Cache bootstrap",
+			cfg.Install.EffectiveStatus(),
+		)
+	} else {
+		deps, err = bootstrap.BootstrapApp(ctx, cfg)
+		if err != nil {
+			if canFallbackToSetupOnly(cfg) && errors.Is(err, bootstrap.ErrBootstrapDependencyUnavailable) {
+				setupOnlyMode = true
+				logger.WarnF(ctx, "BootstrapApp failed, fallback to setup-only mode: %v", err)
+			} else {
+				logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
+				return
 			}
-			if deps.EventFabric.Authorization.Service != nil {
-				go func() {
-					if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
-						logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
-					}
-				}()
+		}
+	}
+	r.Use(gin.Recovery())
+	if setupOnlyMode {
+		err = http.SetupSetupOnlyRouter(cfg, r)
+		if err != nil {
+			logger.ErrorF(ctx, "SetupSetupOnlyRouter failed: %s", err.Error())
+			return
+		}
+	} else {
+		defer deps.AuditSvc.Close()
+		r.Use(audit.GinAudit(deps.Auditor))
+
+		// 初始化插件管理器
+		_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
+		if err != nil {
+			logger.WarnF(ctx, "BootstrapPlugin failed, continue without plugin runtime: %s", err.Error())
+		}
+
+		// 配置 HTTP 路由
+		err = http.SetupRouter(cfg, r, deps)
+		if err != nil {
+			logger.ErrorF(ctx, "SetupRouter failed: %s", err.Error())
+			return
+		}
+
+		// 启动 gRPC 服务
+		_, err = grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
+		if err != nil {
+			logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
+			return
+		}
+
+		if deps.EventFabric != nil {
+			if deps.EventFabric.RetryWorker != nil {
+				go deps.EventFabric.RetryWorker.Run(ctx)
+			}
+			if deps.EventFabric.CronDispatcherWorker != nil {
+				go deps.EventFabric.CronDispatcherWorker.Run(ctx)
+			}
+			if deps.EventFabric.NotificationWorker != nil {
+				go deps.EventFabric.NotificationWorker.Run(ctx)
+			}
+			if deps.EventFabric.Authorization != nil {
+				if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
+					go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
+				}
+				if deps.EventFabric.Authorization.Service != nil {
+					go func() {
+						if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
+							logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+						}
+					}()
+				}
 			}
 		}
 	}
 
 	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://localhost%s\n", addr)
+	if setupOnlyMode {
+		logger.WarnF(ctx, "🚧 安装模式启动成功（setup-only），监听地址: http://localhost%s", addr)
+	} else {
+		logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://localhost%s\n", addr)
+	}
 
 	// 挂载 Swagger UI（UI 默认读取 swagger.json，也可指定 openapi.min.json）
 	r.GET("/swagger/*any",
@@ -143,7 +184,21 @@ func main() {
 	if err != nil {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
+}
 
+func canFallbackToSetupOnly(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	if !cfg.Install.AllowWithoutDB {
+		return false
+	}
+	switch cfg.Install.EffectiveStatus() {
+	case "uninstalled", "configuring":
+		return true
+	default:
+		return false
+	}
 }
 
 func saveMinimalOpenAPIDocs(r *gin.Engine, info openapi.Info) error {

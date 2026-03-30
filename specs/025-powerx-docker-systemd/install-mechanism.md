@@ -89,3 +89,23 @@ install:
 2. 未安装时业务 API 被统一拦截。
 3. 完成 setup 后自动进入正常模式。
 4. `make dist` 产物默认可进入安装模式并完成闭环。
+
+## 9. 端口真源与生效语义（US8）
+
+端口矩阵：
+
+- dev：`web-admin=3030`，`backend=8077`，`grpc=9001`
+- prod：`web-admin=3000`，`backend=8080`，`grpc=9010`
+
+优先级（高 -> 低）：
+
+1. 进程环境变量：`POWERX_WEB_ADMIN_PORT` / `POWERX_BACKEND_PORT`
+2. setup 目标配置（草稿/完成态写入）
+3. 按 `POWERX_ENV` 的默认值
+
+`GET /api/v1/admin/setup/status` 约定：
+
+- `desired_ports`：目标值（配置期望）
+- `effective_ports`：当前进程生效值
+- `restart_required=true`：`desired != effective`，需重启服务后生效
+- `config_source`：标识 desired/effective 的来源链路（便于排障）

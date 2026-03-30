@@ -201,9 +201,54 @@ export interface SetupConfig {
     from_name?: string;
     from_address?: string;
   };
+  llm?: {
+    enabled?: boolean;
+    provider?: string;
+    model?: string;
+    base_url?: string;
+    api_key?: string;
+    temperature?: number;
+    top_p?: number;
+    max_tokens?: number;
+    stream?: boolean;
+  };
+  database?: {
+    type?: "mysql" | "postgresql" | "sqlite" | string;
+    host?: string;
+    port?: number;
+    name?: string;
+    username?: string;
+    password?: string;
+    charset?: string;
+    ssl_mode?: string;
+    sqlite_path?: string;
+  };
   ports?: {
     backend_port?: number;
     web_admin_port?: number;
+  };
+}
+
+export interface SetupPortStatus {
+  backend_port?: number;
+  web_admin_port?: number;
+}
+
+export interface SetupStatus {
+  configured?: boolean;
+  install_status?: string;
+  version?: string;
+  desired_ports?: SetupPortStatus;
+  effective_ports?: SetupPortStatus;
+  restart_required?: boolean;
+  config_source?: {
+    desired_ports?: string;
+    effective_ports?: string;
+  };
+  checks?: {
+    users?: number;
+    tenants?: number;
+    ai_profiles?: number;
   };
 }
 
@@ -419,6 +464,12 @@ export const useSettingsService = () => {
         "/admin/setup/config",
         { skipAuth: true }
       );
+    },
+
+    getSetupStatus: () => {
+      return apiClient.get<ApiResponse<SetupStatus>>("/admin/setup/status", {
+        skipAuth: true,
+      });
     },
 
     saveSetupConfig: (config: SetupConfig) => {

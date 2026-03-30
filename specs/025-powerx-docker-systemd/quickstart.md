@@ -9,6 +9,7 @@
   - dev：`web-admin=3030`，`backend=8077`
   - prod：`web-admin=3000`，`backend=8080`
   - 优先级：环境变量（`POWERX_WEB_ADMIN_PORT`/`POWERX_BACKEND_PORT`）> setup 配置 > 配置默认值
+  - 生效语义：修改 setup 端口后需要重启 backend/web-admin，重启前 `desired_ports` 可变更但 `effective_ports` 不变
 - 安装状态机制：参考 `specs/025-powerx-docker-systemd/install-mechanism.md`（`config.install.status` 为首判定源）。
 
 ## 2. 部署基线验证
@@ -22,6 +23,11 @@ curl -f http://127.0.0.1:8077/api/v1/health
 ```
 
 4. 验证插件入口与主站可访问。
+5. 验证端口状态可观测：
+
+```bash
+curl -s http://127.0.0.1:8080/api/v1/admin/setup/status | jq '.data.desired_ports,.data.effective_ports,.data.restart_required'
+```
 
 ## 3. 插件平滑升级演练
 

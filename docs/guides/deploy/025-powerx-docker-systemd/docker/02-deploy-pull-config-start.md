@@ -84,27 +84,9 @@ docker compose -f compose.prod.yaml logs --tail=200 postgres
 
 ## 9. 首次安装引导配置页（推荐）
 
-当实例满足“未初始化”条件（例如无管理员用户）时，访问根路径会自动跳转到 `/setup`。  
-引导页会使用以下接口：
-- `GET /api/v1/admin/setup/status`
-- `GET /api/v1/admin/setup/config`
-- `PUT /api/v1/admin/setup/config`
-- `POST /api/v1/admin/setup/complete`
-
-建议流程：
-1. `docker compose up -d` 后访问 `http://<host>:<web-admin-port>/`
-2. 在 `/setup` 完成 domain/https/storage/cache/email 配置
-3. 点击“完成设置”后回到首页
-
-说明：当前 `/setup` 向导不负责录入 `DATABASE_DSN`，数据库连接与迁移由部署配置和发布流程负责；端口项已纳入开发规划，当前仍以环境变量和配置文件为准。
+`docker compose up -d` 后访问 `http://<host>:<web-admin-port>/setup` 完成首次安装引导。  
+完整步骤、字段含义、接口说明与排障，请统一参考：`../setup.md`。
 
 ## 10. 引导页排障
 
-- 访问 `/` 不跳 `/setup`：
-  查看 `GET /api/v1/admin/setup/status` 的 `configured` 与 `requires_login` 字段。
-
-- 保存配置 400：
-  按错误提示补齐必填项（特别是 `domain.domain`、`redis_host/redis_port`、对象存储密钥）。
-
-- 完成接口 403：
-  说明系统已存在用户，属于非首装状态，向导不会覆盖现有环境。
+排障条目已收敛到 `../setup.md`，本节仅保留索引，避免重复维护。

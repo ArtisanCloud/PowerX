@@ -35,6 +35,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # 配置真源：容器内 backend 读取的 YAML 路径，可在 .env 覆盖
+      POWERX_CONFIG: ${POWERX_CONFIG:-/app/backend/etc/config.yaml}
     ports:
       - "${POWERX_BACKEND_PORT:-8080}:8080"
     healthcheck:
@@ -62,6 +65,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # 前端代理真源：优先 .env 中的 UPSTREAM/WS_UPSTREAM，未设置时走 backend 服务名
+      UPSTREAM: ${UPSTREAM:-http://backend:8080}
+      WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
     ports:
       - "${POWERX_WEB_ADMIN_PORT:-3000}:3000"
     depends_on:

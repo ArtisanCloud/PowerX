@@ -84,27 +84,9 @@ sudo systemctl status powerx-runner --no-pager
 
 ## 6. 首次安装引导配置页（推荐）
 
-当实例满足“未初始化”条件（例如无管理员用户）时，访问根路径会自动跳转到 `/setup`。  
-引导页会使用以下接口：
-- `GET /api/v1/admin/setup/status`：判断是否已初始化
-- `GET /api/v1/admin/setup/config`：回显草稿
-- `PUT /api/v1/admin/setup/config`：保存域名/HTTPS/存储/缓存/邮件配置草稿
-- `POST /api/v1/admin/setup/complete`：标记初始化完成
-
-建议流程：
-1. 启动 backend + web-admin 后访问 `http://<host>:<port>/`
-2. 在 `/setup` 完成关键配置填写并保存
-3. 点击“完成设置”后回到首页
-
-说明：当前 `/setup` 向导不负责数据库连接与端口写入，数据库与端口仍由环境变量和配置文件控制（端口项已纳入开发规划，待后续版本实现）。
+启动后访问 `http://<host>:<port>/setup` 完成首次安装引导。  
+完整步骤、字段含义、接口说明与排障，请统一参考：`../setup.md`。
 
 ## 7. 引导页排障
 
-- 访问 `/` 没跳 `/setup`：
-  调用 `GET /api/v1/admin/setup/status`，若返回 `configured=true` 或 `requires_login=true`，说明系统判定为已初始化。
-
-- 保存配置返回 400：
-  检查必填项：`domain.domain`；`https.mode=manual` 时证书/私钥；对象存储时 `access_key/secret_key/bucket`；`redis` 时 `redis_host/redis_port`；启用邮件时 SMTP 主机/端口/发件邮箱。
-
-- `POST /setup/complete` 返回 403：
-  说明已存在用户（非首装场景），向导完成接口会拒绝覆盖。
+排障条目已收敛到 `../setup.md`，本节仅保留索引，避免重复维护。

@@ -23,7 +23,8 @@
 - 默认值（dev）：`web-admin=3030`，`backend=8077`
 - 默认值（prod）：`web-admin=3000`，`backend=8080`
 - 运行时覆盖：`POWERX_WEB_ADMIN_PORT`、`POWERX_BACKEND_PORT`
-- setup 端口项：规划为首装向导可编辑项（当前版本待实现，暂以环境变量/配置文件为准）
+- setup 端口项：已在首装向导可编辑；通过 `GET /api/v1/admin/setup/status` 查看 `desired_ports/effective_ports/restart_required`
+- 生效语义：修改端口后需重启 backend/web-admin，重启前会出现 `restart_required=true`
 
 ## 3. 方案 A：Docker 部署（首发主方案）
 

@@ -159,6 +159,24 @@ components:
           type: string
         checks:
           type: object
+        desired_ports:
+          type: object
+          properties:
+            backend_port:
+              type: integer
+            web_admin_port:
+              type: integer
+        effective_ports:
+          type: object
+          properties:
+            backend_port:
+              type: integer
+            web_admin_port:
+              type: integer
+        restart_required:
+          type: boolean
+        config_source:
+          type: object
     DeployReleaseRecord:
       type: object
       properties:

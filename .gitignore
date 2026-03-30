@@ -50,6 +50,7 @@ dist/
 build/
 
 backend/etc/config.yaml
+backend/etc/setup.wizard.config.json
 
 # PowerX plugin runtime（整目录忽略）
 backend/plugins/

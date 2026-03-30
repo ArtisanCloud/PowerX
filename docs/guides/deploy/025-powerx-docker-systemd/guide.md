@@ -83,6 +83,7 @@ flowchart LR
   - dev：`web-admin=3030`，`backend=8077`
   - prod：`web-admin=3000`，`backend=8080`
   - 覆盖优先级：环境变量（`POWERX_WEB_ADMIN_PORT`/`POWERX_BACKEND_PORT`）> setup 配置 > 配置默认值
+  - 生效语义：setup 改端口后需重启服务；未重启前 `setup/status` 会显示 `restart_required=true`
 - 安装状态机（Welcome Install）：
   - `config.yaml.install.status` 为安装态首判定源（`uninstalled/configuring/installed`）
   - 未安装时后端仅放行 `/api/v1/admin/setup/*`、`/api/v1/health`、`/healthz`
@@ -160,6 +161,7 @@ go test ./tests/contract/ops ./tests/integration/ops -count=1
   - 规划背景：`docs/plan/deploy/{docker.md,systemd.md}`
   - 运维功能操作：本目录 `usecase-us1 ~ usecase-us4`
   - 端口口径：遵循“dev 3030/8077，prod 3000/8080”；若设置端口环境变量则以环境变量为准
+  - 排障入口：`/api/v1/admin/setup/status` 的 `desired_ports/effective_ports/config_source`
 
 ## 8. 预期结果与验收标准
 

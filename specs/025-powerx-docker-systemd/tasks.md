@@ -259,11 +259,38 @@
 
 ---
 
+## Phase 11: User Story 8 - 端口真源与生效一致性治理 (Priority: P1)
+
+**Goal**: 建立“配置真源明确 + 生效状态可观测 + 重启语义清晰”的端口治理机制，避免 setup 页面、dist 产物、运行进程三者口径不一致导致的串端口问题
+
+**Independent Test**: 在 `prod` 下 `3000` 前端只代理到 `8080`，`setup/status` 能同时返回 `desired/effective/restart_required`；修改端口后未重启时明确提示“未生效”，重启后状态一致
+
+### Tests for User Story 8 (TDD First)
+
+- [X] T113 [P] [US8] 契约测试：`GET /api/v1/admin/setup/status` 新增 `desired_ports/effective_ports/restart_required/config_source` 字段 `backend/tests/contract/system/http_setup_effective_status_contract_test.go`
+- [X] T114 [P] [US8] 集成测试：`install.status=uninstalled/configuring` 时启动前置进入 setup-only 且不触发 DB 初始化 `backend/tests/integration/system/setup_preflight_no_db_bootstrap_test.go`
+- [X] T115 [P] [US8] 集成测试：端口变更后“未重启=desired!=effective，重启后=desired==effective” `backend/tests/integration/system/setup_ports_apply_and_restart_test.go`
+- [X] T116 [P] [US8] E2E：`prod` 场景下 web-admin 仅代理 `8080`，不会回落到 `8077` `web-admin/tests/e2e/setup/prod_port_proxy_consistency.spec.ts`
+
+### Implementation for User Story 8
+
+- [X] T117 [US8] 后端启动日志增强：输出 `config_path/install_status/effective_ports`，用于排查“读错配置文件” `backend/cmd/app/main.go` + `backend/config/config.go`
+- [X] T118 [US8] 扩展 setup 状态接口：返回 `desired_ports/effective_ports/restart_required/config_source` `backend/internal/transport/http/admin/system/setup_handler.go`
+- [X] T119 [US8] setup 配置应用器：统一写入 `dist/.../config/powerx.env`、`web-admin.env` 与 `backend/etc/config.yaml`（端口相关）`backend/internal/transport/http/admin/system/setup_handler.go` + `backend/internal/service/system/setting_service.go`
+- [X] T120 [US8] 前端 setup 页增加“目标值/当前生效值”双列与“需重启”提示 `web-admin/app/pages/setup/index.vue` + `web-admin/app/composables/api/services/settingsService.ts`
+- [X] T121 [US8] 打包链路固化 prod 端口与 upstream（防止 dist 产物内联 dev 默认）`make_files/dist.mk` + `web-admin/nuxt.config.ts`
+- [X] T122 [US8] systemd/docker 环境模板补齐 `POWERX_CONFIG/UPSTREAM/WS_UPSTREAM` 真源说明与示例 `deploy/powerx/systemd/*.service` + `deploy/powerx/docker/*` + `dist/systemd/*/config/*.env*`
+- [X] T123 [US8] 文档与排障手册统一端口矩阵与“重启生效”语义 `specs/025-powerx-docker-systemd/{install-mechanism.md,quickstart.md}` + `docs/guides/deploy/025-powerx-docker-systemd/*`
+
+**Checkpoint**: US8 完成后，端口改动的“配置写入 -> 重启 -> 生效”路径可观测、可验证、可回归，不再出现 3000/3030 与 8080/8077 串路问题
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
-- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10
+- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10 -> Phase 11
 - User Stories 必须在 Phase 2 完成后开始
 - US1/US2/US3/US4/US5/US6 可并行推进（团队资源允许时）
 
@@ -276,6 +303,7 @@
 - **US5 (P1)**: 依赖 Foundational 完成，可与 US1 并行；建议在发布前完成以保障首装体验
 - **US6 (P1)**: 依赖 US5（setup 闭环）完成后推进；用于统一 dev/prod 端口策略并补齐 setup 端口配置
 - **US7 (P1)**: 依赖 US5/US6，重构安装态真相与拦截策略；完成后才能标记 setup 闭环“生产可用”
+- **US8 (P1)**: 依赖 US6/US7，收敛端口真源与生效状态模型，补齐 dist 构建与运行态一致性
 
 ### Within Each User Story
 
@@ -296,6 +324,7 @@
 - US3 观测配置 T060/T061/T062 可并行
 - US5 测试任务 T091/T092/T093 可并行
 - US6 测试任务 T098/T099 可并行
+- US8 测试任务 T113/T114/T115/T116 可并行
 
 ## Parallel Example
 

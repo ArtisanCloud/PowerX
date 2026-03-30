@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -31,6 +32,7 @@ func InstallGuardMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		log.Printf("[install-guard] blocked path=%s status=%s lock_mode=%s", c.Request.URL.Path, cfg.Install.EffectiveStatus(), cfg.Install.EffectiveLockMode())
 
 		err := dto.NewErrorWithCode(http.StatusServiceUnavailable, ErrCodeSystemNotInstalled, "系统尚未安装，请先完成 /setup 引导", nil)
 		dto.ResponseError(c, http.StatusServiceUnavailable, "系统尚未安装", err)
@@ -60,7 +62,12 @@ func isInstallAllowedPath(cfg *config.Config, path string) bool {
 	}
 	if path == prefix+"/admin/setup/status" ||
 		path == prefix+"/admin/setup/config" ||
-		path == prefix+"/admin/setup/complete" {
+		path == prefix+"/admin/setup/provision" ||
+		path == prefix+"/admin/setup/complete" ||
+		path == prefix+"/admin/setup/test/database" ||
+		path == prefix+"/admin/setup/test/cache" ||
+		path == prefix+"/admin/setup/llm/test-connection" ||
+		path == prefix+"/admin/setup/llm/test-call" {
 		return true
 	}
 	return false

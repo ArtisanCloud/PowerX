@@ -48,21 +48,99 @@ func InitGlobalConfig(configPath string) error {
 // 获取全局配置
 func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
-		// 初始化全局配置
-		if err := InitGlobalConfig("etc/config.yaml"); err != nil {
-			if alt := findConfigPath("etc/config.yaml"); alt != "" {
-				if retryErr := InitGlobalConfig(alt); retryErr == nil {
-					return GlobalConfig
-				}
-			}
-			log.Fatalf("初始化全局配置失败: %v", err)
+		// 初始化全局配置，优先级：
+		// 1) POWERX_CONFIG 显式指定
+		// 2) 可执行文件同级目录下的 etc/config.yaml（适配 dist 产物从任意 cwd 启动）
+		// 3) 当前工作目录的 backend/etc/config.yaml（仓库开发默认）
+		// 4) 当前工作目录的 etc/config.yaml（兼容历史）
+		// 5) 向上查找祖先目录中的 backend/etc/config.yaml
+		// 6) 向上查找祖先目录中的 etc/config.yaml
+		candidates := make([]string, 0, 6)
+		if p := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); p != "" {
+			candidates = append(candidates, p)
 		}
+		if p := configPathNearExecutable("etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+		candidates = append(candidates, "backend/etc/config.yaml")
+		candidates = append(candidates, "etc/config.yaml")
+		if p := findConfigPath("backend/etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+		if p := findConfigPath("etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+
+		var lastErr error
+		for _, p := range candidates {
+			if strings.TrimSpace(p) == "" {
+				continue
+			}
+			if err := InitGlobalConfig(p); err == nil {
+				return GlobalConfig
+			} else {
+				lastErr = err
+			}
+		}
+		log.Fatalf("初始化全局配置失败: %v", lastErr)
 	}
 	return GlobalConfig
 }
 
 func GetGlobalConfigPath() string {
-	return strings.TrimSpace(globalConfigPath)
+	path := strings.TrimSpace(globalConfigPath)
+	if path == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
+}
+
+type EffectivePorts struct {
+	BackendPort  int `json:"backend_port"`
+	WebAdminPort int `json:"web_admin_port"`
+}
+
+func ResolveEffectivePorts(cfg *Config) EffectivePorts {
+	ports := effectivePortsByEnv()
+	if cfg != nil && cfg.Server.Port > 0 {
+		ports.BackendPort = cfg.Server.Port
+	}
+	if port := parsePortEnv("POWERX_BACKEND_PORT"); port > 0 {
+		ports.BackendPort = port
+	}
+	if port := parsePortEnv("POWERX_WEB_ADMIN_PORT"); port > 0 {
+		ports.WebAdminPort = port
+	}
+	return ports
+}
+
+func effectivePortsByEnv() EffectivePorts {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_ENV")))
+	if env == "dev" {
+		return EffectivePorts{
+			BackendPort:  8077,
+			WebAdminPort: 3030,
+		}
+	}
+	return EffectivePorts{
+		BackendPort:  8080,
+		WebAdminPort: 3000,
+	}
+}
+
+func parsePortEnv(key string) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 || v > 65535 {
+		return 0
+	}
+	return v
 }
 
 func findConfigPath(relPath string) string {
@@ -81,6 +159,19 @@ func findConfigPath(relPath string) string {
 			break
 		}
 		dir = next
+	}
+	return ""
+}
+
+func configPathNearExecutable(relPath string) string {
+	exe, err := os.Executable()
+	if err != nil || strings.TrimSpace(exe) == "" {
+		return ""
+	}
+	exeDir := filepath.Dir(exe)
+	candidate := filepath.Join(exeDir, relPath)
+	if _, statErr := os.Stat(candidate); statErr == nil {
+		return candidate
 	}
 	return ""
 }

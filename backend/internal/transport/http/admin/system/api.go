@@ -15,7 +15,12 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	publicGroup.GET("/admin/setup/status", hSetup.Status)
 	publicGroup.GET("/admin/setup/config", hSetup.GetConfig)
 	publicGroup.PUT("/admin/setup/config", hSetup.SaveConfig)
+	publicGroup.POST("/admin/setup/provision", hSetup.Provision)
 	publicGroup.POST("/admin/setup/complete", hSetup.Complete)
+	publicGroup.POST("/admin/setup/test/database", hSetup.TestDatabaseConnection)
+	publicGroup.POST("/admin/setup/test/cache", hSetup.TestCacheConnection)
+	publicGroup.POST("/admin/setup/llm/test-connection", hSetup.TestLLMConnection)
+	publicGroup.POST("/admin/setup/llm/test-call", hSetup.TestLLMQuickCall)
 
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()

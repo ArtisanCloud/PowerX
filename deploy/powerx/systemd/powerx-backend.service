@@ -8,8 +8,9 @@ Type=simple
 User=powerx
 Group=powerx
 WorkingDirectory=/opt/powerx/backend
+# 配置真源：优先读取 /etc/powerx/powerx.env 中的 POWERX_CONFIG，未设置则回退到 dist 默认路径
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/bin/sh -c 'CORE_X_SERVER_PORT=${POWERX_BACKEND_PORT:-8080} exec /opt/powerx/backend/powerx'
+ExecStart=/bin/sh -c 'export POWERX_CONFIG=${POWERX_CONFIG:-/opt/powerx/backend/etc/config.yaml}; CORE_X_SERVER_PORT=${POWERX_BACKEND_PORT:-8080} exec /opt/powerx/backend/powerx'
 Restart=always
 RestartSec=3
 LimitNOFILE=65535

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	appcfg "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
@@ -23,11 +24,15 @@ import (
 	logcfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gorm.io/gorm"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg.LogConfig, db *gorm.DB) error {
+	normalizeAgentRuntimePaths(cfg)
+
 	// 新建Agent Manager
 	gAgentManager := agent.GetAgentManager()
 
@@ -68,9 +73,11 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	// 从数据库加载已发布 skill/tooling 候选，并在内存中缓存用于 LLM tool-calling。
 	// 这样每次请求都直接读 Manager.unifiedCandidates，不会频繁查询 DB。
 	if db != nil {
+		lastSkills, lastToolings := 0, 0
 		if loadedSkills, loadedToolings, loadErr := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, true); loadErr != nil {
 			log.Printf("[agent] warm unified candidates failed: %v", loadErr)
 		} else {
+			lastSkills, lastToolings = loadedSkills, loadedToolings
 			log.Printf("[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
 		}
 		// 周期刷新，避免“仅重启时更新”导致候选陈旧。
@@ -87,7 +94,10 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 						log.Printf("[agent] refresh unified candidates failed: %v", err)
 						continue
 					}
-					log.Printf("[agent] refresh unified candidates ok: skills=%d toolings=%d", s, t)
+					if s != lastSkills || t != lastToolings {
+						log.Printf("[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
+						lastSkills, lastToolings = s, t
+					}
 				}
 			}
 		}()
@@ -247,6 +257,68 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	WireAgentRunLogger(db)
 
 	return err
+}
+
+func normalizeAgentRuntimePaths(cfg *config.AgentConfig) {
+	if cfg == nil {
+		return
+	}
+	cfg.FlowSpec.BusinessDir = resolveRuntimeDir(cfg.FlowSpec.BusinessDir)
+	cfg.FlowSpec.BaseDir = resolveRuntimeDir(cfg.FlowSpec.BaseDir)
+	if strings.TrimSpace(cfg.TemplateDir) != "" {
+		cfg.TemplateDir = resolveRuntimeDir(cfg.TemplateDir)
+	}
+}
+
+func resolveRuntimeDir(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return raw
+	}
+	if filepath.IsAbs(raw) {
+		return raw
+	}
+	candidates := make([]string, 0, 8)
+	candidates = append(candidates, raw)
+	trimmed := strings.TrimPrefix(raw, "./")
+	if trimmed != raw {
+		candidates = append(candidates, trimmed)
+	}
+	if trimmed != "" {
+		candidates = append(candidates, filepath.Join("backend", trimmed))
+	}
+	if exe, err := os.Executable(); err == nil && strings.TrimSpace(exe) != "" {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates, filepath.Join(exeDir, raw))
+		if trimmed != "" {
+			candidates = append(candidates, filepath.Join(exeDir, trimmed))
+		}
+	}
+	if cfgPath := strings.TrimSpace(appcfg.GetGlobalConfigPath()); cfgPath != "" {
+		cfgDir := filepath.Dir(cfgPath)
+		candidates = append(candidates, filepath.Join(cfgDir, raw))
+		parent := filepath.Dir(cfgDir)
+		candidates = append(candidates, filepath.Join(parent, raw))
+		if trimmed != "" {
+			candidates = append(candidates, filepath.Join(parent, trimmed))
+		}
+	}
+
+	seen := map[string]struct{}{}
+	for _, c := range candidates {
+		if strings.TrimSpace(c) == "" {
+			continue
+		}
+		p := filepath.Clean(c)
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		if st, err := os.Stat(p); err == nil && st.IsDir() {
+			return p
+		}
+	}
+	return raw
 }
 
 func diagEmbedding(ctx context.Context, vec embed.Vectorizer) {

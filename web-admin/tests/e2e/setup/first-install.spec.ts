@@ -59,6 +59,14 @@ test.describe("first install setup", () => {
         body: JSON.stringify({ data: { ok: true, configured: true } }),
       });
     });
+
+    await page.route("**/api/v1/admin/setup/provision", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { ok: true, provisioned: true } }),
+      });
+    });
   };
 
   test("访问根路径自动进入 setup，完成后回到首页", async ({ page }) => {
@@ -72,9 +80,9 @@ test.describe("first install setup", () => {
     await checks.nth(1).check();
     await page.getByRole("button", { name: "下一步" }).click();
 
-    await page.getByPlaceholder("例如：powerx.yourdomain.com").fill("powerx.local");
     await page.getByRole("button", { name: "下一步" }).click();
 
+    await page.getByPlaceholder("例如：powerx.yourdomain.com").fill("powerx.local");
     await page.getByPlaceholder("8080").fill("18080");
     await page.getByPlaceholder("3000").fill("13000");
     await page.getByRole("button", { name: "下一步" }).click();
@@ -99,9 +107,9 @@ test.describe("first install setup", () => {
     await checks.nth(1).check();
     await page.getByRole("button", { name: "下一步" }).click();
 
-    await page.getByPlaceholder("例如：powerx.yourdomain.com").fill("powerx.local");
     await page.getByRole("button", { name: "下一步" }).click();
 
+    await page.getByPlaceholder("例如：powerx.yourdomain.com").fill("powerx.local");
     await page.getByPlaceholder("8080").fill("18080");
     await page.getByPlaceholder("3000").fill("18080");
     await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();

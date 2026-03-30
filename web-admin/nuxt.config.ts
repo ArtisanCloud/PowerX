@@ -1,13 +1,31 @@
 import tailwindcss from "@tailwindcss/vite";
 
 /**
+ * 端口策略（固定约定）：
+ * - dev:  web-admin/backend/grpc = 3030/8077/9001
+ * - prod: web-admin/backend/grpc = 3000/8080/9010
+ *
  * UPSTREAM 支持两种写法：
  * 1) 仅 origin：  http://127.0.0.1:8077
  * 2) 含 API 前缀： http://127.0.0.1:8077/api/v1
  *
  * 若 UPSTREAM 含 path，则自动把该 path 作为 apiBase（可被 NUXT_PUBLIC_API_BASE 覆盖）。
  */
-const UPSTREAM_RAW = process.env.UPSTREAM || "http://127.0.0.1:8077";
+const POWERX_ENV = (process.env.POWERX_ENV || "").toLowerCase();
+const POWERX_BUILD_TARGET = (process.env.POWERX_BUILD_TARGET || "").toLowerCase();
+const isProdEnv =
+  POWERX_BUILD_TARGET === "prod" ||
+  POWERX_BUILD_TARGET === "production" ||
+  POWERX_ENV === "prod" ||
+  POWERX_ENV === "production";
+const DEFAULT_HTTP_UPSTREAM = isProdEnv
+  ? "http://127.0.0.1:8080"
+  : "http://127.0.0.1:8077";
+const DEFAULT_WS_UPSTREAM = isProdEnv
+  ? "ws://127.0.0.1:8080"
+  : "ws://127.0.0.1:8077";
+
+const UPSTREAM_RAW = process.env.UPSTREAM || DEFAULT_HTTP_UPSTREAM;
 let upstreamOrigin = UPSTREAM_RAW;
 let inferredApiBase = "";
 try {
@@ -42,10 +60,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // 仅服务端可见
     upstream: upstreamOrigin,
-    wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api/ws",
+    wsUpstream: process.env.WS_UPSTREAM || DEFAULT_WS_UPSTREAM,
     public: {
       upstreamOrigin, // 公开：用于拼接 presign 返回的相对 URL（如 /media/:uuid/resource）
-      wsUpstream: process.env.WS_UPSTREAM || "ws://127.0.0.1:8077/api/ws",
+      wsUpstream: process.env.WS_UPSTREAM || DEFAULT_WS_UPSTREAM,
       apiBase: API_BASE_PREFIX, // 前端请求前缀（可由 UPSTREAM path 推断）
       wsUrl: "/api/ws",
 

@@ -1,5 +1,4 @@
 # 开发环境示例（dev）：默认 HTTP 8077 / gRPC 9001。
-# 生产环境请使用同目录下的 config_example.prod.yaml（HTTP 8080 / gRPC 9010）。
 version: v1.0.0
 
 server:

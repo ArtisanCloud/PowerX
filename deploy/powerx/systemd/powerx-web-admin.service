@@ -8,8 +8,9 @@ Type=simple
 User=powerx
 Group=powerx
 WorkingDirectory=/opt/powerx/web-admin
+# 真源优先级：/etc/powerx/powerx.env 提供 UPSTREAM/WS_UPSTREAM，未设置时回退到本地 backend:8080
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/bin/sh -c 'PORT=${POWERX_WEB_ADMIN_PORT:-3000} exec /usr/bin/node /opt/powerx/web-admin/.output/server/index.mjs'
+ExecStart=/bin/sh -c 'export UPSTREAM=${UPSTREAM:-http://127.0.0.1:${POWERX_BACKEND_PORT:-8080}}; export WS_UPSTREAM=${WS_UPSTREAM:-ws://127.0.0.1:${POWERX_BACKEND_PORT:-8080}/api/ws}; PORT=${POWERX_WEB_ADMIN_PORT:-3000} exec /usr/bin/node /opt/powerx/web-admin/.output/server/index.mjs'
 Restart=always
 RestartSec=3
 

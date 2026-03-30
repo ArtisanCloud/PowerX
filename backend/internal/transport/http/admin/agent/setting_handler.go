@@ -14,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -32,6 +33,7 @@ import (
 // 依赖注入
 type AgentSettingHandler struct {
 	svc            *agentSvc.AgentSettingService
+	aiSvc          *aisvc.Service
 	skillPolicySvc *skillservice.SourcePolicyAdminService
 	ctxOptSvc      *agentSvc.ContextOptimizerConfigService
 	audit          auditsvc.Service
@@ -48,6 +50,7 @@ const (
 func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 	return &AgentSettingHandler{
 		svc:            agentSvc.NewAgentSettingService(deps.DB),
+		aiSvc:          aisvc.NewService(deps.DB),
 		skillPolicySvc: skillservice.NewSourcePolicyAdminService(deps.DB),
 		ctxOptSvc:      agentSvc.NewContextOptimizerConfigService(deps.DB),
 		audit:          deps.AuditSvc,
@@ -369,6 +372,42 @@ func (h *AgentSettingHandler) listModels(c *gin.Context) {
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"models": models})
+}
+
+// listOpenAILLMModels maps admin route to the same model catalog used by openapi /ai/llm/models.
+func (h *AgentSettingHandler) listOpenAILLMModels(c *gin.Context) {
+	if h == nil || h.aiSvc == nil {
+		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
+		return
+	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	env := strings.TrimSpace(c.Query("env"))
+	if env == "" {
+		resolved, _, resolveErr := h.aiSvc.ResolveTenantEnv(c.Request.Context(), tenantCtx.UUID())
+		if resolveErr != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, resolveErr.Error(), nil)
+			return
+		}
+		if strings.TrimSpace(resolved) != "" {
+			env = resolved
+		} else {
+			env = "dev"
+		}
+	}
+	provider := strings.TrimSpace(c.Query("provider"))
+	items, err := h.aiSvc.ListLLMModels(c.Request.Context(), env, tenantCtx.UUID(), provider)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadGateway, "failed to load llm model list", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"env":   env,
+		"items": items,
+	})
 }
 
 func applyAppToModel(app, model string) string {

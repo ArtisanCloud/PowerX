@@ -6,6 +6,24 @@ import { useAuth } from "~/composables/useAuth";
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
   const { getToken, isTokenExpired, clearAuth } = useAuth();
+  const loadSetupStatus = async (): Promise<{
+    configured: boolean;
+    requires_login: boolean;
+  } | null> => {
+    try {
+      const resp: any = await $fetch("/api/v1/admin/setup/status", {
+        method: "GET",
+        timeout: 5000,
+      });
+      const payload = resp?.data ?? resp;
+      return {
+        configured: Boolean(payload?.configured),
+        requires_login: Boolean(payload?.requires_login),
+      };
+    } catch {
+      return null;
+    }
+  };
   const resolveStatusCode = (error: any): number => {
     const direct = Number(
       error?.response?.status ||
@@ -66,18 +84,23 @@ export default defineNuxtPlugin(() => {
     responseInterceptors: [
       {
         onResponse: (res) => res,
-        onResponseError: (error) => {
+        onResponseError: async (error) => {
           const statusCode = resolveStatusCode(error);
 
           if (statusCode === 401) {
-            // 只有非 skipAuth 的请求才跳转登录页面
-            const requireAuth =
-              error.config?.headers?.["X-Require-Auth"] === "1" ||
-              !error.config?.skipAuth;
-            if (requireAuth) {
-              clearAuth();
+            if (process.client) {
               const router = useRouter();
-              router.push("/users/login");
+              const setup = await loadSetupStatus();
+              if (setup && !setup.configured && !setup.requires_login) {
+                if (!router.currentRoute.value.path.includes("/setup")) {
+                  await router.push("/setup");
+                }
+                return Promise.reject(error);
+              }
+              clearAuth();
+              if (!router.currentRoute.value.path.includes("/users/login")) {
+                await router.push("/users/login");
+              }
             }
           }
 
