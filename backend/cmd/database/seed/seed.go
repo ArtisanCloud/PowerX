@@ -80,6 +80,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	if err = SeedKnowledgeProfiles(db, "system"); err != nil {
 		return err
 	}
+	if err = SeedDefaultAIConfig(db, cfg); err != nil {
+		return err
+	}
 
 	log.Println("seed ok")
 

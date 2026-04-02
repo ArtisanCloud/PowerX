@@ -16,6 +16,9 @@ const stepper = ref();
 const currentStep = ref(0);
 const isLoading = ref(false);
 const completing = ref(false);
+const restarting = ref(false);
+const restartProgressText = ref("");
+const manualCheckLoading = ref(false);
 const setupStatus = ref<SetupStatus | null>(null);
 const settingsService = useSettingsService();
 const toast = useToast();
@@ -383,6 +386,9 @@ const effectiveBackendPort = computed(() =>
 const effectiveWebAdminPort = computed(() =>
   Number(setupStatus.value?.effective_ports?.web_admin_port || 0)
 );
+const targetBackendPort = computed(() =>
+  Number(setupStatus.value?.desired_ports?.backend_port || step3Data.backendPort || 0)
+);
 const restartRequired = computed(() => Boolean(setupStatus.value?.restart_required));
 const desiredSource = computed(() =>
   String(setupStatus.value?.config_source?.desired_ports || "")
@@ -485,7 +491,6 @@ const setupTestConnection = async () => {
     const resp: any = await $fetch("/api/v1/admin/setup/llm/test-connection", {
       method: "POST",
       body: {
-        env: "dev",
         provider: step6Data.provider,
         model: step6Data.model,
         baseURL: step6Data.baseUrl,
@@ -541,7 +546,6 @@ const setupTestQuickCall = async () => {
     const resp: any = await $fetch("/api/v1/admin/setup/llm/test-call", {
       method: "POST",
       body: {
-        env: "dev",
         provider: step6Data.provider,
         model: step6Data.model,
         baseURL: step6Data.baseUrl,
@@ -625,6 +629,18 @@ const setupPayload = computed(() => ({
     smtp_port: Number(step3Data.emailSmtpPort || 0),
     from_name: step3Data.emailFromName,
     from_address: step3Data.emailFromAddress,
+  },
+  admin: {
+    username: step4Data.adminUsername,
+    email: step4Data.adminEmail,
+    password: step4Data.adminPassword,
+    display_name: step4Data.adminName,
+    phone: step4Data.adminPhone,
+    tenant_name: step4Data.tenantName,
+    tenant_code: step4Data.tenantCode,
+    tenant_description: step4Data.tenantDescription,
+    create_default_departments: !!step4Data.createDefaultDepartments,
+    company_name: step4Data.companyName,
   },
   llm: {
     enabled: !step6Data.skipLLMSetup,
@@ -823,6 +839,134 @@ const prevStep = () => {
   }
 };
 
+const getOriginByPort = (port: number): string => {
+  if (!Number.isFinite(port) || port <= 0) {
+    return window.location.origin;
+  }
+  return `${window.location.protocol}//${window.location.hostname}:${port}`;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const probeURLReachable = async (url: string): Promise<boolean> => {
+  try {
+    // no-cors 仅用于探测端口是否可连接；连接失败会抛异常。
+    await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store" });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const checkBackendReadyOnce = async (): Promise<boolean> => {
+  try {
+    const resp: any = await settingsService.getSetupStatus();
+    const data = resp?.data ?? resp;
+    const installStatus = String(data?.install_status || "").trim().toLowerCase();
+    const needRestart = Boolean(data?.restart_required);
+    if (installStatus === "installed" && !needRestart) {
+      setupStatus.value = data;
+      return true;
+    }
+  } catch {
+    // setup/status 在手动重启窗口期可能会短暂失败，继续走端口探测兜底
+  }
+
+  const port = Number(setupStatus.value?.desired_ports?.backend_port || step3Data.backendPort || 0);
+  if (!Number.isFinite(port) || port <= 0) {
+    return false;
+  }
+  // 当 backend 端口发生变更时，旧代理无法可靠获取 setup/status，使用目标端口可达性做兜底。
+  if (effectiveBackendPort.value > 0 && effectiveBackendPort.value !== port) {
+    return await probeURLReachable(`${getOriginByPort(port)}/api/v1/admin/setup/status?ts=${Date.now()}`);
+  }
+  return false;
+};
+
+const waitForWebAdminReachable = async (port: number, maxWaitMs = 120000, intervalMs = 2000): Promise<boolean> => {
+  if (!Number.isFinite(port) || port <= 0) {
+    return true;
+  }
+  const origin = getOriginByPort(port);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < maxWaitMs) {
+    const ok = await probeURLReachable(`${origin}/api/v1/admin/setup/status`);
+    if (ok) return true;
+    await sleep(intervalMs);
+  }
+  return false;
+};
+
+const redirectToReadyHome = async () => {
+  const targetWebPort =
+    Number(setupStatus.value?.desired_ports?.web_admin_port || step3Data.webAdminPort || 0) ||
+    Number(setupStatus.value?.effective_ports?.web_admin_port || 0);
+  const currentPort = Number(window.location.port || 0);
+  const samePort = currentPort > 0 && targetWebPort > 0 && currentPort === targetWebPort;
+
+  if (samePort || targetWebPort <= 0) {
+    window.location.replace("/home");
+    return;
+  }
+
+  restartProgressText.value = isZh.value
+    ? `检测新管理端端口 ${targetWebPort} 是否已就绪...`
+    : `Checking if new admin port ${targetWebPort} is ready...`;
+  const ready = await waitForWebAdminReachable(targetWebPort, 120000, 2000);
+  if (!ready) {
+    throw new Error(
+      isZh.value
+        ? `新端口 ${targetWebPort} 暂未就绪，请稍后手动访问。`
+        : `New port ${targetWebPort} is not ready yet. Please open it manually later.`
+    );
+  }
+
+  const targetOrigin = getOriginByPort(targetWebPort);
+  window.location.replace(`${targetOrigin}/home`);
+};
+
+const runRestartFlowAndRedirect = async () => {
+  restarting.value = true;
+  restartProgressText.value = isZh.value
+    ? "配置已保存。请手动重启后端进程，系统会自动检测并在服务就绪后跳转。"
+    : "Configuration saved. Please restart backend manually. The system will auto-detect and redirect once ready.";
+
+  const startedAt = Date.now();
+  const maxWaitMs = 10 * 60 * 1000;
+  while (Date.now() - startedAt < maxWaitMs) {
+    const ready = await checkBackendReadyOnce();
+    if (ready) {
+      restartProgressText.value = isZh.value ? "服务已就绪，正在跳转到首页..." : "Service is ready. Redirecting to home...";
+      await redirectToReadyHome();
+      return;
+    }
+    await sleep(2000);
+  }
+
+  restartProgressText.value = isZh.value
+    ? "暂未检测到新后端服务。请完成手动重启后点击“立即检测”，系统会自动跳转。"
+    : "Backend is not ready yet. Finish manual restart and click \"Check now\" to continue.";
+};
+
+const checkRestartAndRedirectNow = async () => {
+  manualCheckLoading.value = true;
+  try {
+    const ready = await checkBackendReadyOnce();
+    if (!ready) {
+      toast.add({
+        title: isZh.value ? "后端尚未就绪" : "Backend not ready",
+        description: isZh.value ? "请先手动重启后端，再点击立即检测。" : "Please restart backend manually, then check again.",
+        color: "warning",
+      });
+      return;
+    }
+    restartProgressText.value = isZh.value ? "服务已就绪，正在跳转到首页..." : "Service is ready. Redirecting to home...";
+    await redirectToReadyHome();
+  } finally {
+    manualCheckLoading.value = false;
+  }
+};
+
 // 完成设置
 const completeSetup = async () => {
   completing.value = true;
@@ -836,8 +980,9 @@ const completeSetup = async () => {
         termsAccepted: step1Data.termsAccepted,
       },
     });
-    await navigateTo("/home");
+    runRestartFlowAndRedirect();
   } catch (error: any) {
+    restarting.value = false;
     toast.add({
       title: "保存失败",
       description: String(error?.data?.message || error?.message || "安装配置保存失败"),
@@ -963,6 +1108,16 @@ const loadSetupConfig = async () => {
     step3Data.emailSmtpPort = Number(cfg.email?.smtp_port || step3Data.emailSmtpPort);
     step3Data.emailFromName = String(cfg.email?.from_name || step3Data.emailFromName);
     step3Data.emailFromAddress = String(cfg.email?.from_address || step3Data.emailFromAddress);
+
+    step4Data.adminUsername = String(cfg.admin?.username || step4Data.adminUsername);
+    step4Data.adminEmail = String(cfg.admin?.email || step4Data.adminEmail);
+    step4Data.adminName = String(cfg.admin?.display_name || step4Data.adminName);
+    step4Data.adminPhone = String(cfg.admin?.phone || step4Data.adminPhone);
+    step4Data.tenantName = String(cfg.admin?.tenant_name || step4Data.tenantName);
+    step4Data.tenantCode = String(cfg.admin?.tenant_code || step4Data.tenantCode);
+    step4Data.tenantDescription = String(cfg.admin?.tenant_description || step4Data.tenantDescription);
+    step4Data.createDefaultDepartments = Boolean(cfg.admin?.create_default_departments ?? step4Data.createDefaultDepartments);
+    step4Data.companyName = String(cfg.admin?.company_name || step4Data.companyName);
 
     step3Data.backendPort = Number(cfg.ports?.backend_port || step3Data.backendPort);
     step3Data.webAdminPort = Number(cfg.ports?.web_admin_port || step3Data.webAdminPort);
@@ -1424,8 +1579,7 @@ onMounted(() => {
                       : `desired=${desiredSource || '-'}; effective=${effectiveSource || '-'}`"
                   />
                   <p class="text-xs text-gray-500 mt-2">
-                    推荐生产默认：backend=8080 / web-admin=3000；开发口径：
-                    backend=8077 / web-admin=3030
+                    默认端口：backend=8080 / web-admin=3000
                   </p>
                 </div>
 
@@ -2272,5 +2426,43 @@ onMounted(() => {
         <UsersPrivacyModal />
       </template>
     </UModal>
+
+    <div
+      v-if="restarting"
+      class="fixed inset-0 z-[1000] bg-black/55 backdrop-blur-sm flex items-center justify-center px-4"
+    >
+      <UCard class="w-full max-w-2xl shadow-2xl">
+        <div class="p-6">
+          <UIcon name="i-lucide-loader-circle" class="w-10 h-10 mx-auto mb-4 animate-spin text-primary-500" />
+          <h3 class="text-lg font-semibold mb-2 text-center">
+            {{ isZh ? "安装已完成，请重启后端" : "Setup Complete: Restart Backend" }}
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-300 text-center">
+            {{
+              restartProgressText ||
+              (isZh
+                ? "请手动重启后端进程，系统检测到服务就绪后会自动跳转首页。"
+                : "Please restart backend manually. The page will redirect automatically once service is ready.")
+            }}
+          </p>
+          <div class="mt-4 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              {{ isZh ? "建议操作" : "Recommended command" }}
+            </p>
+            <code class="block text-xs break-all">
+              {{ isZh ? "在后端目录执行：./powerx（先停止旧进程再启动）" : "Run in backend directory: ./powerx (stop old process first)" }}
+            </code>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {{ isZh ? `目标后端端口：${targetBackendPort || "-"}` : `Target backend port: ${targetBackendPort || "-"}` }}
+            </p>
+          </div>
+          <div class="mt-4 flex justify-center">
+            <UButton color="primary" :loading="manualCheckLoading" @click="checkRestartAndRedirectNow">
+              {{ isZh ? "我已重启，立即检测" : "I restarted, check now" }}
+            </UButton>
+          </div>
+        </div>
+      </UCard>
+    </div>
   </div>
 </template>

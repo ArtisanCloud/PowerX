@@ -2,7 +2,7 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
 
-  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean } | null> => {
+  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean; restart_required: boolean } | null> => {
     try {
       const resp: any = await $fetch("/api/v1/admin/setup/status", {
         method: "GET",
@@ -12,6 +12,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return {
         configured: Boolean(payload?.configured),
         requires_login: Boolean(payload?.requires_login),
+        restart_required: Boolean(payload?.restart_required),
       };
     } catch {
       return null;
@@ -38,8 +39,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // 1) 首装判定在服务端/客户端都执行，避免首屏 SSR 进入业务页
   const setup = await loadSetupStatus();
+  const shouldStayInSetup = Boolean(
+    setup &&
+    ((!setup.configured && !setup.requires_login) || setup.restart_required),
+  );
   if (to.path === "/") {
-    if (setup && !setup.configured && !setup.requires_login) {
+    if (shouldStayInSetup) {
       return navigateTo("/setup");
     }
     return navigateTo("/home");
@@ -47,9 +52,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // 首次安装：无用户且未完成初始化时，强制进入 /setup
   if (
-    setup &&
-    !setup.configured &&
-    !setup.requires_login &&
+    shouldStayInSetup &&
     !withLocale("/setup").test(to.path)
   ) {
     return navigateTo("/setup");
@@ -57,6 +60,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (
     setup &&
     setup.configured &&
+    !setup.restart_required &&
     withLocale("/setup").test(to.path)
   ) {
     return navigateTo("/home");

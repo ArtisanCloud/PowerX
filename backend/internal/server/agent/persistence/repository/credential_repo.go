@@ -53,6 +53,9 @@ func (r *AIProviderCredentialRepository) UpsertByScopeNameProvider(
 				{Name: "env"},
 				{Name: "name"}, {Name: "provider"},
 			},
+			TargetWhere: clause.Where{
+				Exprs: []clause.Expression{clause.Expr{SQL: "tenant_uuid IS NULL"}},
+			},
 			DoUpdates: assign,
 		}
 	}

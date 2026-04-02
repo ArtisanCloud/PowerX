@@ -77,7 +77,7 @@ database:
   max_idle_conns: 10
   max_open_conns: 100
   conn_max_lifetime_minutes: 60
-  log_level: info
+  log_level: warn
   cluster_mode: single
   replicas:
     # - role: read
@@ -446,7 +446,7 @@ knowledge_space:
 
 
 plugin:
-  enabled: false
+  enabled: true
   registry_file: ./plugins/registry.json
   base_prefix: /_p
   installed_dir: ./plugins/installed

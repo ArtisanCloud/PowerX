@@ -1523,10 +1523,19 @@ func (s *AgentSettingService) QuickCallLLMResult(
 	// 通用 LLM：统一走 catalog 鉴权规则与默认 base_url 回退，
 	// 避免 openai-compatible provider 在未传 base_url 时误落到 OpenAI 官方默认地址。
 	req := catalog.AuthReqFromCatalog(p)
+	inputBaseURL := strings.TrimSpace(baseURL)
+	modelDefaultBaseURL := ""
 	if strings.TrimSpace(baseURL) == "" {
 		if v := catalog.DefaultBaseURLForModel(p, model); strings.TrimSpace(v) != "" {
 			baseURL = v
+			modelDefaultBaseURL = strings.TrimSpace(v)
 		}
+	}
+	// 防止非 openai provider 在 catalog 未命中/无默认地址时误回退到 OpenAI 官方地址。
+	if strings.TrimSpace(baseURL) == "" &&
+		strings.TrimSpace(req.DefaultBaseURL) == "" &&
+		!strings.EqualFold(p, "openai") {
+		return nil, fmt.Errorf("缺少 BaseURL（%s 需要 base_url；请在 Setup 中填写 Base URL）", provider)
 	}
 	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
 	if err != nil {
@@ -1535,6 +1544,24 @@ func (s *AgentSettingService) QuickCallLLMResult(
 	if err := validateEndpoint(bu); err != nil {
 		return nil, err
 	}
+	baseSource := "credential_store_or_runtime"
+	switch {
+	case inputBaseURL != "":
+		baseSource = "input"
+	case modelDefaultBaseURL != "" && strings.TrimSpace(bu) == modelDefaultBaseURL:
+		baseSource = "model_default"
+	case strings.TrimSpace(req.DefaultBaseURL) != "" && strings.TrimSpace(bu) == strings.TrimSpace(req.DefaultBaseURL):
+		baseSource = "provider_default"
+	}
+	logger.InfoF(
+		ctx,
+		"llm endpoint resolved env=%s provider=%s model=%s source=%s base_url=%s",
+		strings.TrimSpace(env),
+		provider,
+		model,
+		baseSource,
+		bu,
+	)
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,

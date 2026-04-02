@@ -7,15 +7,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/http"
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
+	agentcatalog "github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	pxcrypto "github.com/ArtisanCloud/PowerX/pkg/crypto"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -70,6 +73,11 @@ func main() {
 		err  error
 	)
 	if setupOnlyMode {
+		if err := ensureWrapKeyForSetupOnly(ctx, cfg); err != nil {
+			logger.ErrorF(ctx, "setup-only wrap key init failed: %v", err)
+			return
+		}
+		ensureCatalogForSetupOnly(ctx, cfg)
 		logger.WarnF(
 			ctx,
 			"install status=%s, setup-only preflight enabled: skip DB/Cache bootstrap",
@@ -80,6 +88,11 @@ func main() {
 		if err != nil {
 			if canFallbackToSetupOnly(cfg) && errors.Is(err, bootstrap.ErrBootstrapDependencyUnavailable) {
 				setupOnlyMode = true
+				if err = ensureWrapKeyForSetupOnly(ctx, cfg); err != nil {
+					logger.ErrorF(ctx, "setup-only wrap key init failed: %v", err)
+					return
+				}
+				ensureCatalogForSetupOnly(ctx, cfg)
 				logger.WarnF(ctx, "BootstrapApp failed, fallback to setup-only mode: %v", err)
 			} else {
 				logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
@@ -142,6 +155,10 @@ func main() {
 			}
 		}
 	}
+	if err := assertGlobalWrapKeyInitialized(); err != nil {
+		logger.ErrorF(ctx, "startup aborted: %v", err)
+		return
+	}
 
 	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -199,6 +216,36 @@ func canFallbackToSetupOnly(cfg *config.Config) bool {
 	default:
 		return false
 	}
+}
+
+func ensureCatalogForSetupOnly(ctx context.Context, cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+	if err := agentcatalog.InitFromAppConfig(cfg.AI.Catalog, nil); err != nil {
+		logger.WarnF(ctx, "setup-only catalog init failed: %v", err)
+		return
+	}
+	n := len(agentcatalog.GetGlobalAIRegister().Providers("llm"))
+	logger.InfoF(ctx, "setup-only catalog initialized, llm providers=%d", n)
+}
+
+func ensureWrapKeyForSetupOnly(ctx context.Context, cfg *config.Config) error {
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+	if _, err := cfg.Server.ParseKey(); err != nil {
+		return err
+	}
+	logger.Info(ctx, "setup-only wrap key initialized")
+	return nil
+}
+
+func assertGlobalWrapKeyInitialized() error {
+	if strings.TrimSpace(pxcrypto.GetGlobalKeyB64()) == "" {
+		return fmt.Errorf("missing GLOBAL_WRAP_MASTER_KEY: wrap key is not initialized")
+	}
+	return nil
 }
 
 func saveMinimalOpenAPIDocs(r *gin.Engine, info openapi.Info) error {

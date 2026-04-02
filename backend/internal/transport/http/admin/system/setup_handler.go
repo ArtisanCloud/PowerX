@@ -12,15 +12,21 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	agentcatalog "github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	agentsetting "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	settingsvc "github.com/ArtisanCloud/PowerX/internal/service/system"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/yaml.v3"
@@ -105,6 +111,19 @@ type setupPortsConfig struct {
 	WebAdminPort int `json:"web_admin_port,omitempty"`
 }
 
+type setupAdminConfig struct {
+	Username                 string `json:"username,omitempty"`
+	Email                    string `json:"email,omitempty"`
+	Password                 string `json:"password,omitempty"`
+	DisplayName              string `json:"display_name,omitempty"`
+	Phone                    string `json:"phone,omitempty"`
+	TenantName               string `json:"tenant_name,omitempty"`
+	TenantCode               string `json:"tenant_code,omitempty"`
+	TenantDescription        string `json:"tenant_description,omitempty"`
+	CreateDefaultDepartments bool   `json:"create_default_departments,omitempty"`
+	CompanyName              string `json:"company_name,omitempty"`
+}
+
 type setupConfigPayload struct {
 	Domain   setupDomainConfig   `json:"domain"`
 	HTTPS    setupHTTPSConfig    `json:"https"`
@@ -112,6 +131,7 @@ type setupConfigPayload struct {
 	Cache    setupCacheConfig    `json:"cache"`
 	Email    setupEmailConfig    `json:"email"`
 	Database setupDatabaseConfig `json:"database"`
+	Admin    setupAdminConfig    `json:"admin"`
 	LLM      setupLLMConfig      `json:"llm"`
 	Ports    setupPortsConfig    `json:"ports"`
 }
@@ -173,11 +193,15 @@ func (h *SetupHandler) Status(c *gin.Context) {
 
 	completedBySetting := h.readSetupCompletedFlag(c.Request.Context())
 	configured := installStatus == "installed"
-	requiresLogin := configured
 	desiredPorts, desiredSource := h.resolveDesiredPorts()
 	effectivePorts, effectiveSource := resolveEffectivePorts()
 	restartRequired := desiredPorts.BackendPort != effectivePorts.BackendPort ||
 		desiredPorts.WebAdminPort != effectivePorts.WebAdminPort
+	// setup-only 启动模式下 h.db 为空；即使 install_status 已切到 installed，也需要重启后端加载完整路由与依赖。
+	if installStatus == "installed" && h.db == nil {
+		restartRequired = true
+	}
+	requiresLogin := configured && !restartRequired
 
 	dto.ResponseSuccess(c, gin.H{
 		"configured":      configured,
@@ -223,7 +247,7 @@ func (h *SetupHandler) SaveConfig(c *gin.Context) {
 		return
 	}
 	normalizeSetupPorts(&req)
-	if err := validateSetupConfig(req); err != nil {
+	if err := validateSetupDraftConfig(req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
@@ -240,13 +264,13 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		status = cfg.Install.EffectiveStatus()
 	}
-	if status == "installed" {
-		dto.ResponseSuccess(c, gin.H{"ok": true, "configured": true, "install_status": "installed"})
-		return
-	}
 
 	draft, ok := h.loadDraftConfig()
 	if !ok {
+		if status == "installed" {
+			dto.ResponseSuccess(c, gin.H{"ok": true, "configured": true, "install_status": "installed"})
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "尚未保存安装向导配置", nil)
 		return
 	}
@@ -281,7 +305,7 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", errors.New("setup phase2 simulated failure"))
 		return
 	}
-	if err := runSetupProvisionSteps(); err != nil {
+	if err := runSetupProvisionSteps(runtimePath); err != nil {
 		_ = os.WriteFile(runtimePath, original, 0o644)
 		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
 		return
@@ -319,6 +343,12 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		"configured":     true,
 		"install_status": "installed",
 	})
+
+	// setup-only 模式下（无 DB 依赖），完成安装后触发进程内自动重启，
+	// 使新的 installed/端口配置立即生效，避免用户手工杀进程。
+	if h.db == nil && !isGoTestProcess() {
+		scheduleSetupOnlyAutoRestart(runtimePath)
+	}
 }
 
 func (h *SetupHandler) Provision(c *gin.Context) {
@@ -336,7 +366,7 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "尚未保存安装向导配置", nil)
 		return
 	}
-	if err := validateSetupConfig(draft); err != nil {
+	if err := validateSetupDraftConfig(draft); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
@@ -360,7 +390,7 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
-	if err := runSetupProvisionSteps(); err != nil {
+	if err := runSetupProvisionSteps(runtimePath); err != nil {
 		_ = os.WriteFile(runtimePath, original, 0o644)
 		dto.ResponseError(c, http.StatusInternalServerError, "数据库初始化失败，请检查配置后重试", err)
 		return
@@ -373,73 +403,115 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 }
 
 func (h *SetupHandler) TestLLMConnection(c *gin.Context) {
-	if h == nil || h.agentSvc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
-	}
 	var req setupLLMTestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", err)
 		return
 	}
-	env := strings.TrimSpace(req.Env)
-	if env == "" {
-		env = "dev"
+	env := resolveSetupAIEnv(req.Env)
+
+	svc := h.resolveAgentService(c.Request.Context())
+	if svc != nil {
+		if err := svc.TestConnectionPreferInput(
+			c.Request.Context(),
+			env,
+			nil,
+			"llm",
+			req.Provider,
+			req.Model,
+			req.BaseURL,
+			req.APIKey,
+			req.SecretID,
+			req.SecretKey,
+			req.Region,
+			req.AuthMode,
+		); err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
+			return
+		}
+		if err := h.saveSetupVerifiedLLMCredential(c.Request.Context(), svc, env, req); err != nil {
+			dto.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但保存凭据失败", err)
+			return
+		}
+		dto.ResponseSuccess(c, gin.H{"ok": true})
+		return
 	}
-	if err := h.agentSvc.TestConnectionPreferInput(
-		c.Request.Context(),
-		env,
-		nil,
-		"llm",
-		req.Provider,
-		req.Model,
-		req.BaseURL,
-		req.APIKey,
-		req.SecretID,
-		req.SecretKey,
-		req.Region,
-		req.AuthMode,
-	); err != nil {
+
+	if _, err := h.invokeLLMWithoutStore(c.Request.Context(), req, "ping", 0, 0); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-func (h *SetupHandler) TestLLMQuickCall(c *gin.Context) {
-	if h == nil || h.agentSvc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
+func (h *SetupHandler) saveSetupVerifiedLLMCredential(ctx context.Context, svc *agentsetting.AgentSettingService, env string, req setupLLMTestRequest) error {
+	if svc == nil {
+		return nil
 	}
+	p := strings.TrimSpace(req.Provider)
+	if p == "" {
+		return nil
+	}
+	scheme := "bearer"
+	if m, ok := agentcatalog.GetGlobalAIRegister().Manifest(p); ok && m != nil {
+		if s := strings.TrimSpace(m.Auth.Scheme); s != "" {
+			scheme = s
+		}
+	}
+	cred := &dbmodel.AIProviderCredential{
+		Env:        env,
+		TenantUUID: nil,
+		Name:       utils.Slug(env + "-" + p),
+		Provider:   p,
+		AuthScheme: scheme,
+		Data: datatypes.JSONMap{
+			"api_key":    strings.TrimSpace(req.APIKey),
+			"secret_id":  strings.TrimSpace(req.SecretID),
+			"secret_key": strings.TrimSpace(req.SecretKey),
+			"auth_mode":  strings.TrimSpace(req.AuthMode),
+			"base_url":   strings.TrimSpace(req.BaseURL),
+			"region":     strings.TrimSpace(req.Region),
+		},
+	}
+	return svc.SaveCredentialOnly(ctx, env, nil, cred)
+}
+
+func (h *SetupHandler) TestLLMQuickCall(c *gin.Context) {
 	var req setupLLMTestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", err)
 		return
 	}
-	env := strings.TrimSpace(req.Env)
-	if env == "" {
-		env = "dev"
-	}
+	env := resolveSetupAIEnv(req.Env)
 	prompt := strings.TrimSpace(req.Prompt)
 	if prompt == "" {
 		prompt = "ping"
 	}
-	result, err := h.agentSvc.QuickCallLLMResult(
-		c.Request.Context(),
-		env,
-		nil,
-		req.Provider,
-		req.Model,
-		req.BaseURL,
-		req.APIKey,
-		req.SecretID,
-		req.SecretKey,
-		req.Region,
-		req.AuthMode,
-		req.Temperature,
-		req.MaxTokens,
-		prompt,
+	var (
+		result *agentcfg.InvokeResult
+		err    error
 	)
+	svc := h.resolveAgentService(c.Request.Context())
+	if svc != nil {
+		result, err = svc.QuickCallLLMResult(
+			c.Request.Context(),
+			env,
+			nil,
+			req.Provider,
+			req.Model,
+			req.BaseURL,
+			req.APIKey,
+			req.SecretID,
+			req.SecretKey,
+			req.Region,
+			req.AuthMode,
+			req.Temperature,
+			req.MaxTokens,
+			prompt,
+		)
+	} else {
+		result, err = h.invokeLLMWithoutStore(c.Request.Context(), req, prompt, req.Temperature, req.MaxTokens)
+	}
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "试跑失败", err)
 		return
@@ -455,6 +527,377 @@ func (h *SetupHandler) TestLLMQuickCall(c *gin.Context) {
 		}
 	}
 	dto.ResponseSuccess(c, out)
+}
+
+func (h *SetupHandler) resolveAgentService(ctx context.Context) *agentsetting.AgentSettingService {
+	if h == nil {
+		return nil
+	}
+	if h.agentSvc != nil {
+		return h.agentSvc
+	}
+	if h.db == nil {
+		if db, err := tryOpenProvisionedDB(ctx, h); err == nil && db != nil {
+			h.db = db
+		}
+	}
+	if h.db == nil {
+		return nil
+	}
+	if h.s == nil {
+		h.s = settingsvc.NewSettingService(h.db)
+	}
+	h.agentSvc = agentsetting.NewAgentSettingService(h.db)
+	return h.agentSvc
+}
+
+func tryOpenProvisionedDB(ctx context.Context, h *SetupHandler) (*gorm.DB, error) {
+	candidates := make([]setupDatabaseConfig, 0, 2)
+	if h != nil {
+		if draft, ok := h.loadDraftConfig(); ok {
+			candidates = append(candidates, draft.Database)
+		}
+	}
+	if runtimeCfg, ok := loadRuntimeDatabaseConfig(); ok {
+		candidates = append(candidates, runtimeCfg)
+	}
+	for _, cfg := range candidates {
+		if strings.TrimSpace(cfg.Type) == "" {
+			cfg.Type = "postgresql"
+		}
+		if err := validateDatabaseOnly(cfg); err != nil {
+			continue
+		}
+		db, err := openSetupDatabase(cfg)
+		if err != nil {
+			continue
+		}
+		sqlDB, err := db.DB()
+		if err != nil {
+			continue
+		}
+		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		pingErr := sqlDB.PingContext(pingCtx)
+		cancel()
+		if pingErr == nil {
+			return db, nil
+		}
+		_ = sqlDB.Close()
+	}
+	return nil, fmt.Errorf("no provisioned database available")
+}
+
+func loadRuntimeDatabaseConfig() (setupDatabaseConfig, bool) {
+	path := resolveRuntimeConfigPath()
+	if strings.TrimSpace(path) == "" {
+		return setupDatabaseConfig{}, false
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return setupDatabaseConfig{}, false
+	}
+	var root map[string]any
+	if err := yaml.Unmarshal(raw, &root); err != nil {
+		return setupDatabaseConfig{}, false
+	}
+	dbMap := asMap(root["database"])
+	if len(dbMap) == 0 {
+		return setupDatabaseConfig{}, false
+	}
+
+	cfg := setupDatabaseConfig{
+		Type:       normalizeDBType(fmt.Sprint(dbMap["driver"])),
+		Host:       strings.TrimSpace(fmt.Sprint(dbMap["host"])),
+		Port:       intFromAny(dbMap["port"]),
+		Name:       strings.TrimSpace(fmt.Sprint(dbMap["database"])),
+		Username:   strings.TrimSpace(fmt.Sprint(dbMap["username"])),
+		Password:   fmt.Sprint(dbMap["password"]),
+		Charset:    strings.TrimSpace(fmt.Sprint(dbMap["charset"])),
+		SSLMode:    strings.TrimSpace(fmt.Sprint(dbMap["ssl_mode"])),
+		SQLitePath: strings.TrimSpace(fmt.Sprint(dbMap["dsn"])),
+	}
+	if cfg.Type == "" {
+		cfg.Type = normalizeDBType(fmt.Sprint(dbMap["type"]))
+	}
+	if cfg.Type == "" {
+		cfg.Type = "postgresql"
+	}
+	return cfg, true
+}
+
+func normalizeDBType(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "postgres", "postgresql":
+		return "postgresql"
+	case "mysql":
+		return "mysql"
+	case "sqlite":
+		return "sqlite"
+	default:
+		return strings.ToLower(strings.TrimSpace(v))
+	}
+}
+
+func intFromAny(v any) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int32:
+		return int(t)
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case string:
+		n, _ := strconv.Atoi(strings.TrimSpace(t))
+		return n
+	default:
+		return 0
+	}
+}
+
+func openSetupDatabase(in setupDatabaseConfig) (*gorm.DB, error) {
+	driver := strings.ToLower(strings.TrimSpace(in.Type))
+	if driver == "" {
+		driver = "postgresql"
+	}
+	switch driver {
+	case "postgresql", "postgres":
+		dsn, err := buildDatabaseDSN("postgres", in)
+		if err != nil {
+			return nil, err
+		}
+		return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	case "mysql":
+		dsn, err := buildDatabaseDSN("mysql", in)
+		if err != nil {
+			return nil, err
+		}
+		return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	case "sqlite":
+		return gorm.Open(sqlite.Open(strings.TrimSpace(in.SQLitePath)), &gorm.Config{})
+	default:
+		return nil, fmt.Errorf("unsupported database.type: %s", in.Type)
+	}
+}
+
+func (h *SetupHandler) invokeLLMWithoutStore(
+	ctx context.Context,
+	req setupLLMTestRequest,
+	prompt string,
+	temperature float64,
+	maxTokens int,
+) (*agentcfg.InvokeResult, error) {
+	provider := strings.TrimSpace(req.Provider)
+	model := strings.TrimSpace(req.Model)
+	if provider == "" {
+		return nil, fmt.Errorf("provider 不能为空")
+	}
+	if model == "" {
+		return nil, fmt.Errorf("model 不能为空")
+	}
+	if strings.TrimSpace(prompt) == "" {
+		prompt = "ping"
+	}
+	if maxTokens < 0 {
+		maxTokens = 0
+	}
+
+	baseURL := strings.TrimSpace(req.BaseURL)
+	apiKey := strings.TrimSpace(req.APIKey)
+	secretID := strings.TrimSpace(req.SecretID)
+	secretKey := strings.TrimSpace(req.SecretKey)
+	region := strings.TrimSpace(req.Region)
+
+	if strings.EqualFold(provider, "hunyuan") {
+		return invokeHunyuanWithoutStore(ctx, model, baseURL, apiKey, secretID, secretKey, region, req.AuthMode, prompt, temperature, maxTokens)
+	}
+
+	auth := agentcatalog.AuthReqFromCatalog(provider)
+	baseSource := "input"
+	if baseURL == "" {
+		if v := agentcatalog.DefaultBaseURLForModel(provider, model); strings.TrimSpace(v) != "" {
+			baseURL = strings.TrimSpace(v)
+			baseSource = "model_default"
+		}
+	}
+	// 防止非 openai provider 在 catalog 未命中/无默认地址时误回退到 OpenAI 官方地址。
+	if baseURL == "" && strings.TrimSpace(auth.DefaultBaseURL) == "" && !strings.EqualFold(provider, "openai") {
+		return nil, fmt.Errorf("缺少 BaseURL（%s 需要 base_url；请在 Setup 中填写 Base URL）", provider)
+	}
+	if auth.NeedBaseURL && baseURL == "" {
+		baseURL = strings.TrimSpace(auth.DefaultBaseURL)
+		baseSource = "provider_default"
+		if baseURL == "" {
+			return nil, fmt.Errorf("缺少 BaseURL（%s 要求 base_url）", provider)
+		}
+	}
+	if strings.TrimSpace(req.BaseURL) == "" && baseSource == "input" && baseURL != "" {
+		baseSource = "runtime_fallback"
+	}
+	logger.InfoF(
+		ctx,
+		"setup llm test resolved endpoint env=%s provider=%s model=%s source=%s base_url=%s",
+		resolveSetupAIEnv(req.Env),
+		provider,
+		model,
+		baseSource,
+		baseURL,
+	)
+	if auth.NeedKey && apiKey == "" {
+		return nil, fmt.Errorf("缺少 API Key（%s 要求 api_key）", provider)
+	}
+	if err := validateSetupBaseURL(baseURL); err != nil {
+		return nil, err
+	}
+
+	cli, err := agentllm.NewClient(provider)
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+		Provider:     provider,
+		Endpoint:     baseURL,
+		APIKey:       apiKey,
+		AccessToken:  apiKey,
+		Model:        model,
+		SystemPrompt: "You are a helpful assistant.",
+		Temperature:  temperature,
+		MaxTokens:    maxTokens,
+	}, prompt)
+}
+
+func invokeHunyuanWithoutStore(
+	ctx context.Context,
+	model, baseURL, apiKey, secretID, secretKey, region, authMode, prompt string,
+	temperature float64,
+	maxTokens int,
+) (*agentcfg.InvokeResult, error) {
+	mode := strings.ToLower(strings.TrimSpace(authMode))
+	if mode == "" {
+		mode = "openai"
+	}
+	defOpenAIBase, defTC3Base, defTC3Region := hunyuanDefaults()
+
+	if mode == "tc3" {
+		if baseURL == "" {
+			baseURL = defTC3Base
+		}
+		if baseURL == "" {
+			return nil, fmt.Errorf("缺少 BaseURL（hunyuan tc3 模式需要 base_url）")
+		}
+		if err := validateSetupBaseURL(baseURL); err != nil {
+			return nil, err
+		}
+		if secretID == "" {
+			return nil, fmt.Errorf("缺少 SecretID（hunyuan 要求 secret_id）")
+		}
+		if secretKey == "" {
+			return nil, fmt.Errorf("缺少 SecretKey（hunyuan 要求 secret_key）")
+		}
+		if region == "" {
+			region = defTC3Region
+		}
+		if region == "" {
+			region = "ap-guangzhou"
+		}
+		cli, err := agentllm.NewClient("hunyuan")
+		if err != nil {
+			return nil, err
+		}
+		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+			Provider:     "hunyuan",
+			Endpoint:     baseURL,
+			SecretID:     secretID,
+			SecretKey:    secretKey,
+			Region:       region,
+			Model:        model,
+			SystemPrompt: "You are a helpful assistant.",
+			Temperature:  temperature,
+			MaxTokens:    maxTokens,
+		}, prompt)
+	}
+
+	if baseURL == "" {
+		baseURL = defOpenAIBase
+	}
+	if baseURL == "" {
+		return nil, fmt.Errorf("缺少 BaseURL（混元 OpenAI SDK/API Key 模式需要 base_url）")
+	}
+	if u, e := url.Parse(baseURL); e == nil {
+		host := strings.ToLower(strings.TrimSpace(u.Host))
+		if strings.Contains(host, "tencentcloudapi.com") {
+			baseURL = defOpenAIBase
+		} else if u.Path == "" || u.Path == "/" {
+			baseURL = strings.TrimRight(baseURL, "/") + "/v1"
+		}
+	}
+	if err := validateSetupBaseURL(baseURL); err != nil {
+		return nil, err
+	}
+	if apiKey == "" {
+		return nil, fmt.Errorf("缺少 API Key（hunyuan OpenAI 模式需要 api_key）")
+	}
+	cli, err := agentllm.NewClient("openai")
+	if err != nil {
+		return nil, err
+	}
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+		Provider:     "openai",
+		Endpoint:     baseURL,
+		APIKey:       apiKey,
+		AccessToken:  apiKey,
+		Model:        model,
+		SystemPrompt: "You are a helpful assistant.",
+		Temperature:  temperature,
+		MaxTokens:    maxTokens,
+	}, prompt)
+}
+
+func hunyuanDefaults() (openAIBase string, tc3Base string, tc3Region string) {
+	reg := agentcatalog.GetGlobalAIRegister()
+	m, ok := reg.Manifest("hunyuan")
+	if !ok || m == nil {
+		return "", "", ""
+	}
+	for _, md := range m.Auth.Modes {
+		switch strings.ToLower(strings.TrimSpace(md.ID)) {
+		case "openai":
+			if md.Defaults != nil && strings.TrimSpace(md.Defaults["base_url"]) != "" {
+				openAIBase = strings.TrimSpace(md.Defaults["base_url"])
+			}
+		case "tc3":
+			if md.Defaults != nil {
+				if strings.TrimSpace(md.Defaults["base_url"]) != "" {
+					tc3Base = strings.TrimSpace(md.Defaults["base_url"])
+				}
+				if strings.TrimSpace(md.Defaults["region"]) != "" {
+					tc3Region = strings.TrimSpace(md.Defaults["region"])
+				}
+			}
+		}
+	}
+	return openAIBase, tc3Base, tc3Region
+}
+
+func validateSetupBaseURL(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("base_url 非法: %w", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("base_url 非法: %s", raw)
+	}
+	return nil
 }
 
 func (h *SetupHandler) TestDatabaseConnection(c *gin.Context) {
@@ -584,22 +1027,17 @@ func (h *SetupHandler) storeDraftConfig(payload setupConfigPayload) error {
 }
 
 func resolveSetupDraftPath() string {
-	if p := strings.TrimSpace(os.Getenv("POWERX_SETUP_DRAFT_PATH")); p != "" {
-		return p
-	}
 	if runtimePath := resolveRuntimeConfigPath(); runtimePath != "" {
 		return filepath.Join(filepath.Dir(runtimePath), "setup.wizard.config.json")
 	}
-	return filepath.Join(os.TempDir(), "powerx.setup.wizard.config.json")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return filepath.Join("etc", "setup.wizard.config.json")
+	}
+	return filepath.Join(cwd, "etc", "setup.wizard.config.json")
 }
 
 func resolveRuntimeConfigPath() string {
-	if p := strings.TrimSpace(os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH")); p != "" {
-		return p
-	}
-	if p := strings.TrimSpace(config.GetGlobalConfigPath()); p != "" {
-		return p
-	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -666,15 +1104,9 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 	return os.WriteFile(path, data, 0o644)
 }
 
-func runSetupProvisionSteps() error {
-	migrateCmd := strings.TrimSpace(os.Getenv("POWERX_SETUP_MIGRATE_CMD"))
-	seedCmd := strings.TrimSpace(os.Getenv("POWERX_SETUP_SEED_CMD"))
-	if migrateCmd == "" {
-		migrateCmd = defaultSetupMigrateCmd()
-	}
-	if seedCmd == "" {
-		seedCmd = defaultSetupSeedCmd()
-	}
+func runSetupProvisionSteps(runtimePath string) error {
+	migrateCmd := defaultSetupMigrateCmd()
+	seedCmd := defaultSetupSeedCmd()
 	cmds := []string{
 		migrateCmd,
 		seedCmd,
@@ -684,12 +1116,116 @@ func runSetupProvisionSteps() error {
 			continue
 		}
 		run := exec.Command("/bin/sh", "-lc", cmd)
+		if workDir := resolveSetupProvisionWorkDir(runtimePath); workDir != "" {
+			run.Dir = workDir
+		}
+		run.Env = os.Environ()
 		output, err := run.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("run setup command failed: %s: %w; output=%s", cmd, err, strings.TrimSpace(string(output)))
 		}
 	}
 	return nil
+}
+
+func resolveSetupProvisionWorkDir(runtimePath string) string {
+	rp := strings.TrimSpace(runtimePath)
+	if rp == "" {
+		return ""
+	}
+	etcDir := filepath.Dir(rp)
+	if strings.TrimSpace(etcDir) == "" {
+		return ""
+	}
+	backendDir := filepath.Dir(etcDir)
+	if strings.TrimSpace(backendDir) == "" || backendDir == "." || backendDir == "/" {
+		return ""
+	}
+	return backendDir
+}
+
+func scheduleSetupOnlyAutoRestart(runtimePath string) {
+	exe, err := os.Executable()
+	if err != nil {
+		logger.WarnF(context.Background(), "setup auto-restart skipped: resolve executable failed: %v", err)
+		return
+	}
+	workDir := resolveSetupProvisionWorkDir(runtimePath)
+	if strings.TrimSpace(workDir) == "" {
+		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+			workDir = cwd
+		}
+	}
+	if strings.TrimSpace(workDir) == "" {
+		logger.WarnF(context.Background(), "setup auto-restart skipped: empty workdir")
+		return
+	}
+
+	// 优先在当前进程内原地 exec（保留当前终端会话与 PID 语义）。
+	// 仅当不可用时，回退为后台 nohup 启动。
+	if isInteractiveSession() {
+		logger.InfoF(context.Background(), "setup auto-restart scheduled in-place: exe=%s workdir=%s", exe, workDir)
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			_ = os.Chdir(workDir)
+			if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
+				logger.WarnF(context.Background(), "setup in-place restart failed, fallback to detached mode: %v", err)
+				if fbErr := scheduleDetachedRestart(exe, workDir); fbErr != nil {
+					logger.WarnF(context.Background(), "setup detached restart fallback failed: %v", fbErr)
+					return
+				}
+				time.Sleep(300 * time.Millisecond)
+				os.Exit(0)
+			}
+		}()
+		return
+	}
+
+	if err := scheduleDetachedRestart(exe, workDir); err != nil {
+		logger.WarnF(context.Background(), "setup auto-restart skipped: detached restart failed: %v", err)
+		return
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		os.Exit(0)
+	}()
+}
+
+func scheduleDetachedRestart(exe string, workDir string) error {
+	logPath := filepath.Join(workDir, "tmp", "setup-auto-restart.log")
+	pidPath := filepath.Join(workDir, "tmp", "setup-auto-restart.pid")
+	_ = os.MkdirAll(filepath.Dir(logPath), 0o755)
+	script := fmt.Sprintf("cd %q && (sleep 1; nohup %q > %q 2>&1 & echo $! > %q)", workDir, exe, logPath, pidPath)
+	cmd := exec.Command("/bin/sh", "-lc", script)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	logger.InfoF(
+		context.Background(),
+		"setup auto-restart scheduled detached: exe=%s workdir=%s log=%s pid=%s",
+		exe,
+		workDir,
+		logPath,
+		pidPath,
+	)
+	return nil
+}
+
+func isInteractiveSession() bool {
+	stdinInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	stdoutInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (stdinInfo.Mode()&os.ModeCharDevice) != 0 && (stdoutInfo.Mode()&os.ModeCharDevice) != 0
+}
+
+func isGoTestProcess() bool {
+	base := filepath.Base(strings.TrimSpace(os.Args[0]))
+	return strings.HasSuffix(base, ".test")
 }
 
 func (h *SetupHandler) applySetupPortConfig(ctx context.Context, runtimePath string, payload setupConfigPayload) error {
@@ -700,7 +1236,7 @@ func (h *SetupHandler) applySetupPortConfig(ctx context.Context, runtimePath str
 }
 
 func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigPayload) error {
-	if h == nil || h.agentSvc == nil {
+	if h == nil {
 		return nil
 	}
 	if !payload.LLM.Enabled {
@@ -708,11 +1244,16 @@ func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigP
 	}
 	provider := strings.TrimSpace(payload.LLM.Provider)
 	model := strings.TrimSpace(payload.LLM.Model)
+	env := resolveSetupAIEnv("")
 	if provider == "" || model == "" {
 		return nil
 	}
+	svc := h.resolveAgentService(ctx)
+	if svc == nil {
+		return fmt.Errorf("setup ai service unavailable")
+	}
 	cred := &dbmodel.AIProviderCredential{
-		Name:     utils.Slug("dev-" + provider),
+		Name:     utils.Slug(env + "-" + provider),
 		Provider: provider,
 		Data: datatypes.JSONMap{
 			"api_key":  strings.TrimSpace(payload.LLM.APIKey),
@@ -731,18 +1272,145 @@ func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigP
 		},
 		Tags: []string{"llm"},
 	}
-	if err := h.agentSvc.SaveCredentialAndProfile(ctx, "dev", nil, cred, prof, true); err != nil {
+	if err := svc.SaveCredentialAndProfile(ctx, env, nil, cred, prof, true); err != nil {
 		return fmt.Errorf("保存 setup LLM 配置失败: %w", err)
 	}
+
+	tenantUUID, err := h.resolveSetupTenantUUID(ctx, payload)
+	if err != nil {
+		logger.WarnF(
+			ctx,
+			"setup llm tenant scope skipped: resolve tenant failed, env=%s provider=%s model=%s err=%v",
+			env,
+			provider,
+			model,
+			err,
+		)
+		logger.InfoF(ctx, "setup llm saved: env=%s provider=%s model=%s scopes=system", env, provider, model)
+		return nil
+	}
+	if strings.TrimSpace(tenantUUID) == "" {
+		logger.WarnF(
+			ctx,
+			"setup llm tenant scope skipped: tenant not found, env=%s provider=%s model=%s",
+			env,
+			provider,
+			model,
+		)
+		logger.InfoF(ctx, "setup llm saved: env=%s provider=%s model=%s scopes=system", env, provider, model)
+		return nil
+	}
+	credTenant := &dbmodel.AIProviderCredential{
+		Name:     utils.Slug(env + "-" + provider),
+		Provider: provider,
+		Data: datatypes.JSONMap{
+			"api_key":  strings.TrimSpace(payload.LLM.APIKey),
+			"base_url": strings.TrimSpace(payload.LLM.BaseURL),
+		},
+	}
+	profTenant := &dbmodel.AIModelProfile{
+		Modality: "llm",
+		Provider: provider,
+		Model:    model,
+		Defaults: datatypes.JSONMap{
+			"temperature": payload.LLM.Temperature,
+			"topP":        payload.LLM.TopP,
+			"maxTokens":   payload.LLM.MaxTokens,
+			"stream":      payload.LLM.Stream,
+		},
+		Tags: []string{"llm"},
+	}
+	if err := svc.SaveCredentialAndProfile(ctx, env, &tenantUUID, credTenant, profTenant, true); err != nil {
+		logger.WarnF(
+			ctx,
+			"setup llm tenant scope skipped: save tenant scope failed, env=%s provider=%s model=%s tenant_uuid=%s err=%v",
+			env,
+			provider,
+			model,
+			tenantUUID,
+			err,
+		)
+		logger.InfoF(ctx, "setup llm saved: env=%s provider=%s model=%s scopes=system", env, provider, model)
+		return nil
+	}
+	if err := svc.SetTenantCurrentAIEnv(ctx, tenantUUID, env); err != nil {
+		logger.WarnF(
+			ctx,
+			"setup llm tenant scope partial: set tenant env failed, env=%s provider=%s model=%s tenant_uuid=%s err=%v",
+			env,
+			provider,
+			model,
+			tenantUUID,
+			err,
+		)
+		logger.InfoF(
+			ctx,
+			"setup llm saved: env=%s provider=%s model=%s scopes=system,tenant tenant_uuid=%s tenant_env_set=false",
+			env,
+			provider,
+			model,
+			tenantUUID,
+		)
+		return nil
+	}
+	logger.InfoF(
+		ctx,
+		"setup llm saved: env=%s provider=%s model=%s scopes=system,tenant tenant_uuid=%s",
+		env,
+		provider,
+		model,
+		tenantUUID,
+	)
 	return nil
 }
 
+func (h *SetupHandler) resolveSetupTenantUUID(ctx context.Context, payload setupConfigPayload) (string, error) {
+	if h == nil || h.db == nil {
+		return "", nil
+	}
+	tenantKey := strings.TrimSpace(payload.Admin.TenantCode)
+	if tenantKey == "" {
+		tenantKey = "default"
+	}
+
+	var tenant tenantmodel.Tenant
+	err := h.db.WithContext(ctx).
+		Model(&tenantmodel.Tenant{}).
+		Where("key = ?", tenantKey).
+		First(&tenant).Error
+	if err == nil {
+		return tenant.UUID.String(), nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+
+	err = h.db.WithContext(ctx).
+		Model(&tenantmodel.Tenant{}).
+		Order("id asc").
+		First(&tenant).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return tenant.UUID.String(), nil
+}
+
+func resolveSetupAIEnv(reqEnv string) string {
+	if v := strings.TrimSpace(reqEnv); v != "" {
+		return v
+	}
+	return "prod"
+}
+
 func defaultSetupMigrateCmd() string {
-	return "if [ -d backend/cmd/database ]; then cd backend; fi; go run ./cmd/database migrate"
+	return "if [ -x ./database ]; then ./database migrate; elif [ -d backend/cmd/database ]; then cd backend && go run ./cmd/database migrate; else go run ./cmd/database migrate; fi"
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -d backend/cmd/database ]; then cd backend; fi; go run ./cmd/database seed"
+	return "if [ -x ./database ]; then ./database seed; elif [ -d backend/cmd/database ]; then cd backend && go run ./cmd/database seed; else go run ./cmd/database seed; fi"
 }
 
 func asMap(v any) map[string]any {
@@ -796,6 +1464,13 @@ func defaultSetupConfig() setupConfigPayload {
 			SSLMode:    "disable",
 			SQLitePath: "/data/powerx.db",
 		},
+		Admin: setupAdminConfig{
+			Username:                 "admin",
+			TenantName:               "默认租户",
+			TenantCode:               "default",
+			CreateDefaultDepartments: true,
+			CompanyName:              "我的公司",
+		},
 		LLM: setupLLMConfig{
 			Enabled:     false,
 			Provider:    "openai",
@@ -819,12 +1494,6 @@ func (h *SetupHandler) resolveDesiredPorts() (setupPortsConfig, string) {
 		source = "setup_draft"
 	}
 	normalizeSetupPorts(&cfg)
-	if _, ok := parsePortFromEnv("POWERX_BACKEND_PORT"); ok {
-		source = appendPortSource(source, "env:POWERX_BACKEND_PORT")
-	}
-	if _, ok := parsePortFromEnv("POWERX_WEB_ADMIN_PORT"); ok {
-		source = appendPortSource(source, "env:POWERX_WEB_ADMIN_PORT")
-	}
 	applyRuntimePortOverrides(&cfg)
 	return cfg.Ports, source
 }
@@ -852,14 +1521,6 @@ func resolveEffectivePorts() (setupPortsConfig, string) {
 		}
 	}
 
-	if port, ok := parsePortFromEnv("POWERX_BACKEND_PORT"); ok {
-		ports.BackendPort = port
-		source = appendPortSource(source, "env:POWERX_BACKEND_PORT")
-	}
-	if port, ok := parsePortFromEnv("POWERX_WEB_ADMIN_PORT"); ok {
-		ports.WebAdminPort = port
-		source = appendPortSource(source, "env:POWERX_WEB_ADMIN_PORT")
-	}
 	return ports, source
 }
 
@@ -913,8 +1574,16 @@ func parsePortString(raw string) (int, bool) {
 	return v, true
 }
 
+func validateSetupDraftConfig(in setupConfigPayload) error {
+	return validateSetupConfigInternal(in, false)
+}
+
 func validateSetupConfig(in setupConfigPayload) error {
-	if strings.TrimSpace(in.Domain.Domain) == "" {
+	return validateSetupConfigInternal(in, true)
+}
+
+func validateSetupConfigInternal(in setupConfigPayload, requireDomain bool) error {
+	if requireDomain && strings.TrimSpace(in.Domain.Domain) == "" {
 		return errors.New("domain.domain 不能为空")
 	}
 	if in.Domain.EnableCDN && strings.TrimSpace(in.Domain.CDNDomain) == "" {
@@ -1032,25 +1701,13 @@ func applyRuntimePortOverrides(in *setupConfigPayload) {
 		return
 	}
 	normalizeSetupPorts(in)
-	if port, ok := parsePortFromEnv("POWERX_BACKEND_PORT"); ok {
-		in.Ports.BackendPort = port
-	}
-	if port, ok := parsePortFromEnv("POWERX_WEB_ADMIN_PORT"); ok {
-		in.Ports.WebAdminPort = port
-	}
 }
 
 func defaultPortsByEnv() setupPortsConfig {
-	env := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_ENV")))
-	ports := setupPortsConfig{
+	return setupPortsConfig{
 		BackendPort:  8080,
 		WebAdminPort: 3000,
 	}
-	if env == "dev" {
-		ports.BackendPort = 8077
-		ports.WebAdminPort = 3030
-	}
-	return ports
 }
 
 func applyDatabaseConfig(db map[string]any, in setupDatabaseConfig) error {
@@ -1165,18 +1822,6 @@ func buildDatabaseDSN(driver string, in setupDatabaseConfig) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported driver: %s", driver)
 	}
-}
-
-func parsePortFromEnv(key string) (int, bool) {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return 0, false
-	}
-	v, err := strconv.Atoi(raw)
-	if err != nil || v <= 0 || v > 65535 {
-		return 0, false
-	}
-	return v, true
 }
 
 func validateDatabaseOnly(in setupDatabaseConfig) error {

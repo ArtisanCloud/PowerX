@@ -15,7 +15,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     return Number(cause?.status || cause?.statusCode || cause?.response?.status || 0);
   };
 
-  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean } | null> => {
+  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean; restart_required: boolean } | null> => {
     try {
       const resp: any = await $fetch("/api/v1/admin/setup/status", {
         method: "GET",
@@ -25,6 +25,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       return {
         configured: Boolean(payload?.configured),
         requires_login: Boolean(payload?.requires_login),
+        restart_required: Boolean(payload?.restart_required),
       };
     } catch {
       return null;
@@ -37,7 +38,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (route.path === "/setup" || route.path.endsWith("/setup")) return;
 
     const setup = await loadSetupStatus();
-    if (setup && !setup.configured && !setup.requires_login) {
+    const shouldStayInSetup = Boolean(
+      setup &&
+      ((!setup.configured && !setup.requires_login) || setup.restart_required),
+    );
+    if (shouldStayInSetup) {
       return;
     }
 

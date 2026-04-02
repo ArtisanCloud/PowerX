@@ -21,13 +21,19 @@ dist-systemd:
 	mkdir -p "$(DIST_OUT_DIR)/backend" "$(DIST_OUT_DIR)/runner" "$(DIST_OUT_DIR)/web-admin" "$(DIST_OUT_DIR)/systemd" "$(DIST_OUT_DIR)/config"; \
 	echo "[dist] build backend binary"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
+	echo "[dist] build database tool"; \
+	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
+	echo "[dist] build media tool"; \
+	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/media_tool" ./cmd/media_tool); \
 		echo "[dist] copy backend runtime config"; \
 		mkdir -p "$(DIST_OUT_DIR)/backend/etc"; \
-		cp -R backend/etc/* "$(DIST_OUT_DIR)/backend/etc/"; \
 		if [ -f backend/etc/config_example.prod.yaml ]; then \
 			cp backend/etc/config_example.prod.yaml "$(DIST_OUT_DIR)/backend/etc/config.yaml"; \
 		elif [ -f backend/etc/config_example.yaml ]; then \
 			cp backend/etc/config_example.yaml "$(DIST_OUT_DIR)/backend/etc/config.yaml"; \
+		else \
+			echo "[dist] missing backend/etc/config_example.prod.yaml or backend/etc/config_example.yaml"; \
+			exit 1; \
 		fi; \
 		if [ -d backend/config ]; then \
 			mkdir -p "$(DIST_OUT_DIR)/backend/config"; \
@@ -140,72 +146,8 @@ dist-systemd:
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \
 	cp deploy/powerx/systemd/*.service "$(DIST_OUT_DIR)/systemd/"; \
-	echo "[dist] copy env templates"; \
-	if [ -f backend/.env.example ]; then \
-		cp backend/.env.example "$(DIST_OUT_DIR)/config/powerx.env"; \
-		cp backend/.env.example "$(DIST_OUT_DIR)/config/powerx.env.example"; \
-	else \
-		{ \
-			echo "POWERX_ENV=prod"; \
-			echo "POWERX_MODE=systemd"; \
-			echo "POWERX_CONFIG=/opt/powerx/backend/etc/config.yaml"; \
-			echo "POWERX_BACKEND_PORT=8080"; \
-			echo "POWERX_WEB_ADMIN_PORT=3000"; \
-			echo "POWERX_GRPC_PORT=9010"; \
-			echo "DATABASE_DSN=postgres://powerx:powerx@127.0.0.1:5432/powerx?sslmode=disable"; \
-			echo "REDIS_ADDR=127.0.0.1:6379"; \
-		} > "$(DIST_OUT_DIR)/config/powerx.env"; \
-		cp "$(DIST_OUT_DIR)/config/powerx.env" "$(DIST_OUT_DIR)/config/powerx.env.example"; \
-	fi; \
-		ENV_FILE="$(DIST_OUT_DIR)/config/powerx.env"; \
-		if [ -f "$$ENV_FILE" ]; then \
-			if grep -q '^POWERX_BACKEND_PORT=' "$$ENV_FILE"; then \
-				awk '{ if ($$0 ~ /^POWERX_BACKEND_PORT=/) { print "POWERX_BACKEND_PORT=8080" } else { print } }' "$$ENV_FILE" > "$$ENV_FILE.tmp"; \
-				mv "$$ENV_FILE.tmp" "$$ENV_FILE"; \
-			else \
-				echo "POWERX_BACKEND_PORT=8080" >> "$$ENV_FILE"; \
-			fi; \
-			if grep -q '^POWERX_GRPC_PORT=' "$$ENV_FILE"; then \
-				awk '{ if ($$0 ~ /^POWERX_GRPC_PORT=/) { print "POWERX_GRPC_PORT=9010" } else { print } }' "$$ENV_FILE" > "$$ENV_FILE.tmp"; \
-				mv "$$ENV_FILE.tmp" "$$ENV_FILE"; \
-			else \
-				echo "POWERX_GRPC_PORT=9010" >> "$$ENV_FILE"; \
-			fi; \
-			if grep -q '^POWERX_CONFIG=' "$$ENV_FILE"; then \
-				awk '{ if ($$0 ~ /^POWERX_CONFIG=/) { print "POWERX_CONFIG=/opt/powerx/backend/etc/config.yaml" } else { print } }' "$$ENV_FILE" > "$$ENV_FILE.tmp"; \
-				mv "$$ENV_FILE.tmp" "$$ENV_FILE"; \
-			else \
-				echo "POWERX_CONFIG=/opt/powerx/backend/etc/config.yaml" >> "$$ENV_FILE"; \
-			fi; \
-			if grep -q '^POWERX_VERSION=' "$$ENV_FILE"; then \
-				awk -v v="$(DIST_VERSION)" '{ if ($$0 ~ /^POWERX_VERSION=/) { print "POWERX_VERSION=" v } else { print } }' "$$ENV_FILE" > "$$ENV_FILE.tmp"; \
-				mv "$$ENV_FILE.tmp" "$$ENV_FILE"; \
-			else \
-				echo "POWERX_VERSION=$(DIST_VERSION)" >> "$$ENV_FILE"; \
-		fi; \
-	fi; \
-	cp "$(DIST_OUT_DIR)/config/powerx.env" "$(DIST_OUT_DIR)/config/powerx.env.example"; \
-		if [ -f web-admin/.env.example ]; then \
-			cp web-admin/.env.example "$(DIST_OUT_DIR)/config/web-admin.env"; \
-			cp web-admin/.env.example "$(DIST_OUT_DIR)/config/web-admin.env.example"; \
-		fi; \
-		WEB_ENV_FILE="$(DIST_OUT_DIR)/config/web-admin.env"; \
-		if [ -f "$$WEB_ENV_FILE" ]; then \
-			if grep -q '^UPSTREAM=' "$$WEB_ENV_FILE"; then \
-				awk '{ if ($$0 ~ /^UPSTREAM=/) { print "UPSTREAM=http://127.0.0.1:8080" } else { print } }' "$$WEB_ENV_FILE" > "$$WEB_ENV_FILE.tmp"; \
-				mv "$$WEB_ENV_FILE.tmp" "$$WEB_ENV_FILE"; \
-			else \
-				echo "UPSTREAM=http://127.0.0.1:8080" >> "$$WEB_ENV_FILE"; \
-			fi; \
-			if grep -q '^WS_UPSTREAM=' "$$WEB_ENV_FILE"; then \
-				awk '{ if ($$0 ~ /^WS_UPSTREAM=/) { print "WS_UPSTREAM=ws://127.0.0.1:8080/api/ws" } else { print } }' "$$WEB_ENV_FILE" > "$$WEB_ENV_FILE.tmp"; \
-				mv "$$WEB_ENV_FILE.tmp" "$$WEB_ENV_FILE"; \
-			else \
-				echo "WS_UPSTREAM=ws://127.0.0.1:8080/api/ws" >> "$$WEB_ENV_FILE"; \
-			fi; \
-			cp "$$WEB_ENV_FILE" "$(DIST_OUT_DIR)/config/web-admin.env.example"; \
-		fi; \
-		echo "version=$(DIST_VERSION)" > "$(DIST_OUT_DIR)/manifest.txt"; \
+	echo "[dist] skip env templates (config.yaml only)"; \
+	echo "version=$(DIST_VERSION)" > "$(DIST_OUT_DIR)/manifest.txt"; \
 	echo "commit=$$(git rev-parse HEAD 2>/dev/null || echo unknown)" >> "$(DIST_OUT_DIR)/manifest.txt"; \
 	echo "built_at=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$(DIST_OUT_DIR)/manifest.txt"; \
 	echo "[dist] done"

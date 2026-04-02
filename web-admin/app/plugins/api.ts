@@ -9,6 +9,7 @@ export default defineNuxtPlugin(() => {
   const loadSetupStatus = async (): Promise<{
     configured: boolean;
     requires_login: boolean;
+    restart_required: boolean;
   } | null> => {
     try {
       const resp: any = await $fetch("/api/v1/admin/setup/status", {
@@ -19,6 +20,7 @@ export default defineNuxtPlugin(() => {
       return {
         configured: Boolean(payload?.configured),
         requires_login: Boolean(payload?.requires_login),
+        restart_required: Boolean(payload?.restart_required),
       };
     } catch {
       return null;
@@ -91,7 +93,11 @@ export default defineNuxtPlugin(() => {
             if (process.client) {
               const router = useRouter();
               const setup = await loadSetupStatus();
-              if (setup && !setup.configured && !setup.requires_login) {
+              const shouldStayInSetup = Boolean(
+                setup &&
+                ((!setup.configured && !setup.requires_login) || setup.restart_required),
+              );
+              if (shouldStayInSetup) {
                 if (!router.currentRoute.value.path.includes("/setup")) {
                   await router.push("/setup");
                 }
