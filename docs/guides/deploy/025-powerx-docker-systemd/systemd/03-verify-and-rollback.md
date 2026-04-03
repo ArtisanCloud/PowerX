@@ -78,6 +78,12 @@ sudo systemctl restart powerx-runner
 
 3. 再做健康验收。
 
+推荐：使用切换脚本执行带健康检查的回切（tag 示例）：
+
+```bash
+sudo bash backend/scripts/ops/switch-release-systemd.sh v2.0.1 --with-runner
+```
+
 ## 5. 回滚成功判定
 - `/api/v1/health` 返回 200。
 - 管理端关键页面可访问。

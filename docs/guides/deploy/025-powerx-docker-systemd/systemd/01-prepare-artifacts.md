@@ -6,9 +6,6 @@
 - backend 运行配置：`backend/etc/config.yaml`
 - runner Node 产物：`dist/main.js`
 - web-admin Nuxt 产物：`.output/server/index.mjs`
-- 环境变量模板：
-  - backend/runtime：`config/powerx.env`（来源：`backend/.env.example`）
-  - web-admin：`config/web-admin.env`（来源：`web-admin/.env.example`）
 
 同时支持两种方式：
 - 手工步骤（逐条执行，便于排错）
@@ -16,7 +13,7 @@
 
 ## 2. 前置条件
 - 构建机已安装 Go 1.24、Node 20、npm。
-- 已切到目标发布分支/commit。
+- 已切到目标发布 tag/commit（生产建议固定使用 tag，如 `v2.0.2`）。
 - 已规划发布目录：`/opt/powerx/releases/<version>/`。
 - 以下命令默认在仓库根目录执行。
 - Go 模块在 `backend/go.mod`，因此构建 backend 时必须先 `cd backend`（或使用 `go -C backend ...`）。
@@ -25,7 +22,7 @@
 ## 3. 构建 backend
 
 ```bash
-export VERSION=v2.0.1
+export VERSION=v2.0.2 # 推荐与 git tag 同名
 mkdir -p dist/systemd/${VERSION}/backend
 cd backend
 go build -o ../dist/systemd/${VERSION}/backend/powerx ./cmd/app
@@ -53,16 +50,14 @@ cp -R web-admin/.output dist/systemd/${VERSION}/web-admin/
 预期结果：生成 `dist/systemd/${VERSION}/web-admin/.output/server/index.mjs`。
 失败处理：检查前端环境变量与 Nuxt 构建错误。
 
-## 5. 复制配置、systemd 单元与 env 模板到 dist
+## 5. 复制配置与 systemd 单元到 dist
 
 ```bash
 mkdir -p dist/systemd/${VERSION}/backend/etc
 cp -R backend/etc/* dist/systemd/${VERSION}/backend/etc/
 
-mkdir -p dist/systemd/${VERSION}/systemd dist/systemd/${VERSION}/config
+mkdir -p dist/systemd/${VERSION}/systemd
 cp deploy/powerx/systemd/*.service dist/systemd/${VERSION}/systemd/
-cp backend/.env.example dist/systemd/${VERSION}/config/powerx.env
-cp web-admin/.env.example dist/systemd/${VERSION}/config/web-admin.env
 ```
 
 预期结果：`dist/systemd/${VERSION}` 包含可部署所需二进制、配置和 service 文件。
@@ -71,27 +66,22 @@ cp web-admin/.env.example dist/systemd/${VERSION}/config/web-admin.env
 ## 6. 调整 dist 中配置（发布前）
 
 - 编辑 `dist/systemd/${VERSION}/backend/etc/config.yaml`：数据库、缓存、对象存储、认证等。
-- 编辑 `dist/systemd/${VERSION}/config/powerx.env`（部署时复制到 `/etc/powerx/powerx.env`）。
-- `dist/systemd/${VERSION}/config/web-admin.env` 用于 web-admin 专项变量参考（如需拆分独立 EnvironmentFile 可基于此扩展）。
-- 兼容产物：同时保留 `.example` 文件，便于历史脚本继续使用。
+- 若运行期需要环境覆盖，请单独维护 `/etc/powerx/powerx.env`（不纳入 `dist` 产物）。
 
 ## 6.1 本地手动启动验证（macOS/Linux 通用）
 
-在 systemd 部署前，可先用 dist 产物里的 env 做手动验证：
+在 systemd 部署前，可先用本机环境变量做手动验证（示例值请按实际环境替换）：
 
 ```bash
 # 终端1：backend
-set -a
-source dist/systemd/${VERSION}/config/powerx.env
-set +a
+export POWERX_BACKEND_PORT=8080
 cd backend && go run ./cmd/app
 ```
 
 ```bash
 # 终端2：web-admin
-set -a
-source dist/systemd/${VERSION}/config/powerx.env
-set +a
+export POWERX_WEB_ADMIN_PORT=3000
+export POWERX_BACKEND_PORT=8080
 cd web-admin && PORT=${POWERX_WEB_ADMIN_PORT} UPSTREAM=http://127.0.0.1:${POWERX_BACKEND_PORT} npm run dev
 ```
 
@@ -104,18 +94,14 @@ cd web-admin && PORT=${POWERX_WEB_ADMIN_PORT} UPSTREAM=http://127.0.0.1:${POWERX
 ```bash
 # 终端1：backend（二进制）
 cd dist/systemd/${VERSION}/backend
-set -a
-source ../config/powerx.env
-set +a
 ./powerx
 ```
 
 ```bash
 # 终端2：web-admin（Nuxt server 产物）
 cd dist/systemd/${VERSION}
-set -a
-source ./config/powerx.env
-set +a
+export POWERX_WEB_ADMIN_PORT=3000
+export POWERX_BACKEND_PORT=8080
 PORT=${POWERX_WEB_ADMIN_PORT} \
 UPSTREAM=http://127.0.0.1:${POWERX_BACKEND_PORT} \
 node ./web-admin/.output/server/index.mjs
@@ -173,7 +159,7 @@ sudo ln -sfn /opt/powerx/releases/${VERSION}/runner /opt/powerx/runner
 示例：
 
 ```bash
-export VERSION=v2.0.1
+export VERSION=v2.0.2 # 推荐与 git tag 同名
 
 # 全量（包含 npm ci）
 make dist DIST_VERSION=$VERSION
@@ -185,7 +171,7 @@ make dist DIST_VERSION=$VERSION NPM_INSTALL=0
 产物结构示例：
 
 ```text
-dist/systemd/v2.0.1/
+dist/systemd/v2.0.2/
 ├── backend/
 │   ├── powerx
 │   ├── etc/config.yaml
@@ -195,10 +181,6 @@ dist/systemd/v2.0.1/
 │   ├── internal/server/agent/blueprints/...
 │   └── pkg/corex/flow/blueprints/...
 ├── web-admin/.output/...
-├── config/powerx.env
-├── config/web-admin.env
-├── config/powerx.env.example
-├── config/web-admin.env.example
 ├── systemd/
 │   ├── powerx-backend.service
 │   ├── powerx-runner.service
@@ -207,3 +189,8 @@ dist/systemd/v2.0.1/
 ```
 
 说明：若源码包含 `backend/runner` 且你启用了 runner 打包流程，产物中会额外出现 `runner/dist/...`。
+
+## 10. Git 分支与 Tag 建议（对齐生产发布）
+- 预发布验证：可从 `develop` 构建测试包（例如 `DIST_VERSION=dev-20260403`）。
+- 生产发布：必须从不可变 tag 构建（例如 `v2.0.2`），并保持目录名与 tag 一致。
+- 服务器切换：使用 `backend/scripts/ops/switch-release-systemd.sh <tag>` 切换软链并重启服务。
