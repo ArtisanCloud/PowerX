@@ -181,6 +181,9 @@
 const showGuide = ref(false);
 const currentStep = ref(1);
 const route = useRoute();
+const runtimeConfig = useRuntimeConfig();
+const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
+const setupStatusPath = `${apiBase}/admin/setup/status`;
 
 // 监听显示引导的事件
 const handleShowGuide = (e: Event) => {
@@ -216,7 +219,7 @@ onMounted(() => {
     }
 
     try {
-      const resp: any = await $fetch("/api/v1/admin/setup/status", {
+      const resp: any = await $fetch(setupStatusPath, {
         method: "GET",
         timeout: 5000,
       });

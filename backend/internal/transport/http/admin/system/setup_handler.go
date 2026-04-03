@@ -1038,6 +1038,28 @@ func resolveSetupDraftPath() string {
 }
 
 func resolveRuntimeConfigPath() string {
+	if path := strings.TrimSpace(os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH")); path != "" {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if path := strings.TrimSpace(config.GetGlobalConfigPath()); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if path := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); path != "" {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -1704,10 +1726,33 @@ func applyRuntimePortOverrides(in *setupConfigPayload) {
 }
 
 func defaultPortsByEnv() setupPortsConfig {
-	return setupPortsConfig{
+	ports := setupPortsConfig{
 		BackendPort:  8080,
 		WebAdminPort: 3000,
 	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("POWERX_ENV")), "dev") {
+		ports.BackendPort = 8077
+		ports.WebAdminPort = 3030
+	}
+	if v, ok := parseEnvPort("POWERX_BACKEND_PORT"); ok {
+		ports.BackendPort = v
+	}
+	if v, ok := parseEnvPort("POWERX_WEB_ADMIN_PORT"); ok {
+		ports.WebAdminPort = v
+	}
+	return ports
+}
+
+func parseEnvPort(key string) (int, bool) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return 0, false
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 || v > 65535 {
+		return 0, false
+	}
+	return v, true
 }
 
 func applyDatabaseConfig(db map[string]any, in setupDatabaseConfig) error {

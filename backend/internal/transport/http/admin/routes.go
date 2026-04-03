@@ -40,10 +40,7 @@ func RegisterAPIRoutes(
 	r *gin.Engine, authMiddleware gin.HandlerFunc,
 	cfg *config.Config, deps *shared.Deps,
 ) {
-	prefix := cfg.Server.APIPrefix
-	if prefix == "" {
-		prefix = "/api"
-	}
+	prefix := config.ResolveAPIPrefix(cfg)
 	// 公开健康检查（兼容不带版本前缀探活）
 	r.GET("/healthz", HealthHandler)
 

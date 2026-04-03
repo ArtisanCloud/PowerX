@@ -98,6 +98,13 @@ func GetGlobalConfigPath() string {
 	return path
 }
 
+func ResolveAPIPrefix(cfg *Config) string {
+	if cfg != nil && strings.TrimSpace(cfg.Server.APIPrefix) != "" {
+		return strings.TrimSpace(cfg.Server.APIPrefix)
+	}
+	return "/api"
+}
+
 type EffectivePorts struct {
 	BackendPort  int `json:"backend_port"`
 	WebAdminPort int `json:"web_admin_port"`
