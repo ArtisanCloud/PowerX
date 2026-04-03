@@ -128,6 +128,7 @@ ensure_service_identity() {
   fi
 
   install -d -m 0755 "${LINKS_ROOT}" "${RELEASES_ROOT}"
+  install -d -m 0755 "${TARGET_BACKEND}/logs" "${TARGET_BACKEND}/logs/audit"
   chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${TARGET_ROOT}"
   chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_BACKEND}" "${LINK_WEB_ADMIN}" 2>/dev/null || true
   if [[ "$WITH_RUNNER" == "1" ]]; then

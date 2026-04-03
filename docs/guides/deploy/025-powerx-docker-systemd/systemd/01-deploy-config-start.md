@@ -120,6 +120,7 @@ sudo cp /opt/powerx/releases/${POWERX_VERSION}/systemd/*.service /etc/systemd/sy
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-runner
 ```
 说明：该脚本会自动执行 `daemon-reload + enable + restart`。
+另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 `powerx` 运行权限。
 
 手工方式（仅在排障时使用）：
 ```bash

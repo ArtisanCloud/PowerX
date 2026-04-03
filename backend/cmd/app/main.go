@@ -40,6 +40,8 @@ func main() {
 	if cfg == nil {
 		log.Fatalf("加载配置文件失败")
 	}
+	// 必须在任何 logger 输出之前初始化全局 logger，避免默认配置先占位。
+	logger.InitGlobalLogger(&cfg.LogConfig)
 	effectivePorts := config.ResolveEffectivePorts(cfg)
 	logger.InfoF(
 		ctx,
