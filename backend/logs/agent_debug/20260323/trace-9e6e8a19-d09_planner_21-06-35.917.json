@@ -1,0 +1,1220 @@
+{
+  "candidates": [
+    {
+      "Name": "incident-triage",
+      "NodeKind": "skill",
+      "NodeRef": "incident-triage",
+      "FlowID": "incident-triage",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "plugin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Analyze incident context and provide structured triage suggestions.",
+      "RequiredArgs": [],
+      "OptionalArgs": [
+        "context",
+        "incident_id"
+      ],
+      "IntentHints": [
+        "runbook.default"
+      ],
+      "Tags": [
+        "registry",
+        "plugin"
+      ],
+      "SemanticText": "Analyze incident context and provide structured triage suggestions."
+    },
+    {
+      "Name": "skill.builtin.1password",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.1password",
+      "FlowID": "skill.builtin.1password",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.camsnap",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.camsnap",
+      "FlowID": "skill.builtin.camsnap",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.coding-agent",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.coding-agent",
+      "FlowID": "skill.builtin.coding-agent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.discord",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.discord",
+      "FlowID": "skill.builtin.discord",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.gh-issues",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.gh-issues",
+      "FlowID": "skill.builtin.gh-issues",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.github",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.github",
+      "FlowID": "skill.builtin.github",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.healthcheck",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.healthcheck",
+      "FlowID": "skill.builtin.healthcheck",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.model-usage",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.model-usage",
+      "FlowID": "skill.builtin.model-usage",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.nano-pdf",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.nano-pdf",
+      "FlowID": "skill.builtin.nano-pdf",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.notion",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.notion",
+      "FlowID": "skill.builtin.notion",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.obsidian",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.obsidian",
+      "FlowID": "skill.builtin.obsidian",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.openai-image-gen",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.openai-image-gen",
+      "FlowID": "skill.builtin.openai-image-gen",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.openai-whisper",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.openai-whisper",
+      "FlowID": "skill.builtin.openai-whisper",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.session-logs",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.session-logs",
+      "FlowID": "skill.builtin.session-logs",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.slack",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.slack",
+      "FlowID": "skill.builtin.slack",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.summarize",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.summarize",
+      "FlowID": "skill.builtin.summarize",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.tmux",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.tmux",
+      "FlowID": "skill.builtin.tmux",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.trello",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.trello",
+      "FlowID": "skill.builtin.trello",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.video-frames",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.video-frames",
+      "FlowID": "skill.builtin.video-frames",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.voice-call",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.voice-call",
+      "FlowID": "skill.builtin.voice-call",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.thirdparty.hello-echo",
+      "NodeKind": "skill",
+      "NodeRef": "skill.thirdparty.hello-echo",
+      "FlowID": "skill.thirdparty.hello-echo",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "third_party",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "The smallest demo skill package for installation smoke tests.",
+      "RequiredArgs": [],
+      "OptionalArgs": [
+        "text"
+      ],
+      "IntentHints": [
+        "runbook.default"
+      ],
+      "Tags": [
+        "registry",
+        "third_party"
+      ],
+      "SemanticText": "The smallest demo skill package for installation smoke tests."
+    },
+    {
+      "Name": "skill.thirdparty.prompt-template",
+      "NodeKind": "skill",
+      "NodeRef": "skill.thirdparty.prompt-template",
+      "FlowID": "skill.thirdparty.prompt-template",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "third_party",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Render text prompt templates with variables for agent pre-processing.",
+      "RequiredArgs": [
+        "template"
+      ],
+      "OptionalArgs": [
+        "variables"
+      ],
+      "IntentHints": [
+        "runbook.default"
+      ],
+      "Tags": [
+        "registry",
+        "third_party"
+      ],
+      "SemanticText": "Render text prompt templates with variables for agent pre-processing."
+    },
+    {
+      "Name": "com.corex.agent.invoke",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.agent.invoke",
+      "FlowID": "com.corex.agent.invoke",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "非流式调用 Agent 对话。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.invoke"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "非流式调用 Agent 对话。"
+    },
+    {
+      "Name": "com.corex.agent.stream",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.agent.stream",
+      "FlowID": "com.corex.agent.stream",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "通过 SSE/gRPC 流式输出 Agent 对话内容。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.stream"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "通过 SSE/gRPC 流式输出 Agent 对话内容。"
+    },
+    {
+      "Name": "com.corex.ai.llm.models.read/list",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.ai.llm.models.read/list",
+      "FlowID": "com.corex.ai.llm.models.read/list",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "兼容能力 ID，行为同 com.corex.ai.llm.models/list。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "ai.llm.models.read.list"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "兼容能力 ID，行为同 com.corex.ai.llm.models/list。"
+    },
+    {
+      "Name": "com.corex.ai.llm.models/list",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.ai.llm.models/list",
+      "FlowID": "com.corex.ai.llm.models/list",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "列出租户在指定环境下可用的 LLM 模型目录。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "ai.llm.models.list"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "列出租户在指定环境下可用的 LLM 模型目录。"
+    },
+    {
+      "Name": "com.corex.ai.llm.session.append",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.ai.llm.session.append",
+      "FlowID": "com.corex.ai.llm.session.append",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "追加 LLM 会话消息。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "ai.llm.session.append"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "追加 LLM 会话消息。"
+    },
+    {
+      "Name": "com.corex.ai.llm.session.create",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.ai.llm.session.create",
+      "FlowID": "com.corex.ai.llm.session.create",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "创建 LLM 会话。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "ai.llm.session.create"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "创建 LLM 会话。"
+    },
+    {
+      "Name": "com.corex.eventfabric.publish",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.eventfabric.publish",
+      "FlowID": "com.corex.eventfabric.publish",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "event.fabric.publish"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.activateagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.activateagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.activateagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.activateagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.getagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.getagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.getagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.getagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.gethealthsummary",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.gethealthsummary",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.gethealthsummary",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.gethealthsummary"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.getsubscription",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.getsubscription",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.getsubscription",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.getsubscription"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.listhealthsnapshots",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.listhealthsnapshots",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.listhealthsnapshots",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.listhealthsnapshots"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.listlifecycleevents",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.listlifecycleevents",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.listlifecycleevents",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.listlifecycleevents"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.pauseagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.pauseagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.pauseagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.pauseagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.registeragent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.registeragent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.registeragent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.registeragent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.registermanifest",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.registermanifest",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.registermanifest",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.registermanifest"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.resumeagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.resumeagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.resumeagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.resumeagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.retireagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.retireagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.retireagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.retireagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.revokeagentshare",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.revokeagentshare",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.revokeagentshare",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.revokeagentshare"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.runsandbox",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.runsandbox",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.runsandbox",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.runsandbox"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.scaleagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.scaleagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.scaleagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.scaleagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.shareagent",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.shareagent",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.shareagent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.shareagent"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentlifecycleservice.updatesubscription",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentlifecycleservice.updatesubscription",
+      "FlowID": "com.corex.grpc.agent.agentlifecycleservice.updatesubscription",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.updatesubscription"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentsessionservice.createsession",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentsessionservice.createsession",
+      "FlowID": "com.corex.grpc.agent.agentsessionservice.createsession",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.createsession"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    },
+    {
+      "Name": "com.corex.grpc.agent.agentsessionservice.listmessages",
+      "NodeKind": "tooling",
+      "NodeRef": "com.corex.grpc.agent.agentsessionservice.listmessages",
+      "FlowID": "com.corex.grpc.agent.agentsessionservice.listmessages",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Generated from proto",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "agent.listmessages"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "Generated from proto"
+    }
+  ],
+  "candidates_count": 48,
+  "decision": {
+    "tool_calls": [
+      {
+        "name": "skill.thirdparty.hello-echo",
+        "args": {
+          "text": "INC-1001"
+        },
+        "confidence": 1,
+        "reason": "用户明确要求调用hello-echo工具并原样返回文本INC-1001"
+      }
+    ]
+  },
+  "error": "",
+  "fallback_reason": "",
+  "input": {
+    "endpoint": "",
+    "model": "qwen3:8b",
+    "provider": "ollama",
+    "text": "请调用 hello-echo，把文本 \"INC-1001\" 原样返回。"
+  },
+  "llm_raw_output": "\u003cthink\u003e\n好的，我需要处理用户的请求：“请调用 hello-echo，把文本 \"INC-1001\" 原样返回。” 首先，我要查看提供的工具清单，找到合适的工具。\n\n在技能清单里，有一个名为skill.thirdparty.hello-echo的技能，描述是用于安装烟雾测试的最小演示技能包。它的参数中有一个可选的text字段，用于传递文本。用户的要求正是要调用这个工具，并将\"INC-1001\"原样返回，所以这个工具正好适用。\n\n接下来，我需要确认是否还有其他可能的工具，但根据描述，其他工具如incident-triage或各种第三方工具似乎不相关。用户明确提到了hello-echo，所以应该直接使用这个技能。\n\n然后，构造tool_calls的JSON。名称是skill.thirdparty.hello-echo，参数中text的值是\"INC-1001\"。信心度设为1.0，因为用户明确要求调用这个工具，没有歧义。原因说明用户要求调用hello-echo并返回指定文本。\n\n最后检查是否符合格式要求，确保只使用提供的工具名称，参数正确，没有多余的内容。确认无误后，输出JSON。\n\u003c/think\u003e\n\n{\"tool_calls\":[{\"name\":\"skill.thirdparty.hello-echo\",\"args\":{\"text\":\"INC-1001\"},\"confidence\":1.0,\"reason\":\"用户明确要求调用hello-echo工具并原样返回文本INC-1001\"}]}",
+  "meta": {
+    "created_at": "2026-03-23T21:06:35.917701+08:00",
+    "env": "dev",
+    "request_id": "",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "trace_id": "9e6e8a19-d09b-4b9d-9513-51a51e0cc260"
+  },
+  "planner_cache_hit": false,
+  "planner_cache_key": "agent:planner:decision:7502f559db77f0bea06826adc5e57001afab1675",
+  "planner_candidates_after": 48,
+  "planner_candidates_before": 625,
+  "planner_parse_retry_count": 0,
+  "prompt": "你是 Agent Planner 的工具调度器。请根据用户输入，从提供的工具清单中选择 0~4 个要调用的工具。\\n必须只输出 JSON，不要输出解释文本。\\n输出格式: {\"tool_calls\":[{\"name\":\"\u003ccandidate_name\u003e\",\"args\":{...},\"confidence\":0.0-1.0,\"reason\":\"...\"}]}\n约束: 只能使用下方清单中的 name；args 只允许写该工具声明的参数。\\n\\n能力清单（按类型分区 + source_scope）:\\nskill_catalog:[\n  {name:\"incident-triage\", kind:\"skill\", source_scope:\"system\", ref:\"incident-triage\", required:[], optional:[context incident_id], desc:\"Analyze incident context and provide structured triage suggestions.\"}\n  {name:\"skill.builtin.1password\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.1password\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.camsnap\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.camsnap\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.coding-agent\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.coding-agent\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.discord\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.discord\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.gh-issues\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.gh-issues\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.github\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.github\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.healthcheck\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.healthcheck\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.model-usage\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.model-usage\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.nano-pdf\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.nano-pdf\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.notion\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.notion\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.obsidian\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.obsidian\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.openai-image-gen\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.openai-image-gen\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.openai-whisper\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.openai-whisper\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.session-logs\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.session-logs\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.slack\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.slack\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.summarize\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.summarize\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.tmux\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.tmux\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.trello\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.trello\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.video-frames\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.video-frames\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.voice-call\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.voice-call\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.thirdparty.hello-echo\", kind:\"skill\", source_scope:\"system\", ref:\"skill.thirdparty.hello-echo\", required:[], optional:[text], desc:\"The smallest demo skill package for installation smoke tests.\"}\n  {name:\"skill.thirdparty.prompt-template\", kind:\"skill\", source_scope:\"system\", ref:\"skill.thirdparty.prompt-template\", required:[template], optional:[variables], desc:\"Render text prompt templates with variables for agent pre-processing.\"}\n]\ntooling_catalog:[\n  {name:\"com.corex.agent.invoke\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.agent.invoke\", required:[], optional:[], desc:\"非流式调用 Agent 对话。\"}\n  {name:\"com.corex.agent.stream\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.agent.stream\", required:[], optional:[], desc:\"通过 SSE/gRPC 流式输出 Agent 对话内容。\"}\n  {name:\"com.corex.ai.llm.models.read/list\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.ai.llm.models.read/list\", required:[], optional:[], desc:\"兼容能力 ID，行为同 com.corex.ai.llm.models/list。\"}\n  {name:\"com.corex.ai.llm.models/list\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.ai.llm.models/list\", required:[], optional:[], desc:\"列出租户在指定环境下可用的 LLM 模型目录。\"}\n  {name:\"com.corex.ai.llm.session.append\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.ai.llm.session.append\", required:[], optional:[], desc:\"追加 LLM 会话消息。\"}\n  {name:\"com.corex.ai.llm.session.create\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.ai.llm.session.create\", required:[], optional:[], desc:\"创建 LLM 会话。\"}\n  {name:\"com.corex.eventfabric.publish\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.eventfabric.publish\", required:[], optional:[], desc:\"使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.activateagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.activateagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.getagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.getagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.gethealthsummary\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.gethealthsummary\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.getsubscription\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.getsubscription\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.listhealthsnapshots\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.listhealthsnapshots\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.listlifecycleevents\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.listlifecycleevents\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.pauseagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.pauseagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.registeragent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.registeragent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.registermanifest\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.registermanifest\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.resumeagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.resumeagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.retireagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.retireagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.revokeagentshare\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.revokeagentshare\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.runsandbox\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.runsandbox\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.scaleagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.scaleagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.shareagent\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.shareagent\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentlifecycleservice.updatesubscription\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentlifecycleservice.updatesubscription\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentsessionservice.createsession\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentsessionservice.createsession\", required:[], optional:[], desc:\"Generated from proto\"}\n  {name:\"com.corex.grpc.agent.agentsessionservice.listmessages\", kind:\"tooling\", source_scope:\"system\", ref:\"com.corex.grpc.agent.agentsessionservice.listmessages\", required:[], optional:[], desc:\"Generated from proto\"}\n]\n\\n字段说明: source_scope=system|agent，ref 为节点引用标识。\\n若无合适候选，输出 tool_calls=[]。\\n只在必要时选择多个调用，避免冗余。\\n\\n用户输入:\\n请调用 hello-echo，把文本 \"INC-1001\" 原样返回。",
+  "prompt_slim_mode": "compact",
+  "result_source": "tool_calling",
+  "tasks": [
+    {
+      "flow_id": "skill.thirdparty.hello-echo",
+      "agent_id": "",
+      "score": 1,
+      "strategy": "tool_calling:skill",
+      "reason": "用户明确要求调用hello-echo工具并原样返回文本INC-1001",
+      "params": {
+        "_candidate_desc": "The smallest demo skill package for installation smoke tests.",
+        "_candidate_name": "skill.thirdparty.hello-echo",
+        "_node_kind": "skill",
+        "_node_ref": "skill.thirdparty.hello-echo",
+        "_source_scope": "system",
+        "text": "INC-1001"
+      },
+      "task_id": "tc1"
+    }
+  ]
+}

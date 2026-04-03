@@ -52,10 +52,13 @@ type ExecutionPlan struct {
 }
 
 type PlanTask struct {
-	TaskID  string                 `json:"task_id"`
-	FlowID  string                 `json:"flow_id"`
-	AgentID string                 `json:"agent_id"`
-	Params  map[string]interface{} `json:"params,omitempty"`
+	TaskID      string                 `json:"task_id"`
+	FlowID      string                 `json:"flow_id"`
+	NodeKind    string                 `json:"node_kind,omitempty"`    // workflow|skill|tooling|llm
+	NodeRef     string                 `json:"node_ref,omitempty"`     // workflow_id/skill_id/tool_id/model_key
+	SourceScope string                 `json:"source_scope,omitempty"` // system|agent
+	AgentID     string                 `json:"agent_id"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 	// 引用上游输出作为入参： "{{task.lead_create.output.id}}"
 	ParamRefs map[string]string `json:"param_refs,omitempty"`
 	Stage     int               `json:"stage"` // 相同 stage 可并行

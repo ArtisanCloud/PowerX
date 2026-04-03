@@ -152,35 +152,37 @@ type Deps struct {
 	MediaSvc      *mediasvc.MediaService
 	Notifications *notificationssvc.Service
 
-	EventBus                 event_bus.EventBus
-	CapabilityRegistrySvc    *capabilityRegistry.Service
-	CapabilityCatalogSvc     *capabilitycatalog.RegistryService
-	CapabilityRegistryAudit  *capabilitycatalog.AuditService
-	CapabilityRegistryAlerts capabilitycatalog.CapabilityAlerting
-	CapabilityInvocationSvc  *capabilitycatalog.InvocationService
-	CapabilityAuthorizer     *capabilitycatalog.AuthorizationService
-	CapabilitySelector       *capabilitycatalog.Selector
-	WorkflowCatalog          *capabilitycatalog.WorkflowCatalog
-	ToolStore                *toolstore.Store
-	VersionLockStore         capabilitycatalog.VersionLock
-	RouterSvc                *capabilityRouter.Service
-	RouterSandboxSvc         *capabilitySandbox.Service
-	DiscoverySvc             *discoveryService.Service
-	IntegrationGateway       *IntegrationGatewayDeps
-	AgentLifecycle           *AgentLifecycleDeps
-	DevHotloadOptions        DevHotloadOptions
-	PluginReleaseOptions     PluginReleaseOptions
-	PluginReleaseService     *pluginReleaseService.Service
-	DevHotloadService        *devhotloadservice.Service
-	PluginBootstrapService   *pluginbootstrap.Service
-	PluginImportService      *pluginimport.Service
-	PluginDebugHost          *plugindebughost.Service
-	PluginDiagnostics        *plugindiag.Service
-	PluginSandbox            *pluginsandbox.Service
-	PluginGovernance         *plugingovernance.Service
-	PluginCompat             *plugincompat.Service
-	WorkflowTemplateSvc      *capabilitycatalog.WorkflowTemplateService
-	WorkflowStepAdapter      *workflowengine.CapabilityStepAdapter
+	EventBus                          event_bus.EventBus
+	CapabilityRegistrySvc             *capabilityRegistry.Service
+	CapabilityCatalogSvc              *capabilitycatalog.RegistryService
+	CapabilityRegistryAudit           *capabilitycatalog.AuditService
+	CapabilityRegistryAlerts          capabilitycatalog.CapabilityAlerting
+	CapabilityInvocationSvc           *capabilitycatalog.InvocationService
+	CapabilityAuthorizer              *capabilitycatalog.AuthorizationService
+	CapabilitySelector                *capabilitycatalog.Selector
+	WorkflowCatalog                   *capabilitycatalog.WorkflowCatalog
+	ToolStore                         *toolstore.Store
+	VersionLockStore                  capabilitycatalog.VersionLock
+	RouterSvc                         *capabilityRouter.Service
+	RouterSandboxSvc                  *capabilitySandbox.Service
+	DiscoverySvc                      *discoveryService.Service
+	IntegrationGateway                *IntegrationGatewayDeps
+	AgentLifecycle                    *AgentLifecycleDeps
+	DevHotloadOptions                 DevHotloadOptions
+	PluginReleaseOptions              PluginReleaseOptions
+	PluginReleaseService              *pluginReleaseService.Service
+	DevHotloadService                 *devhotloadservice.Service
+	PluginBootstrapService            *pluginbootstrap.Service
+	PluginImportService               *pluginimport.Service
+	PluginDebugHost                   *plugindebughost.Service
+	PluginDiagnostics                 *plugindiag.Service
+	PluginSandbox                     *pluginsandbox.Service
+	PluginGovernance                  *plugingovernance.Service
+	PluginCompat                      *plugincompat.Service
+	WorkflowTemplateSvc               *capabilitycatalog.WorkflowTemplateService
+	WorkflowStepAdapter               *workflowengine.CapabilityStepAdapter
+	CapabilityDefaultHTTPTimeout      time.Duration
+	CapabilityAIMultimodalHTTPTimeout time.Duration
 
 	EventFabric    *EventFabricDeps
 	Workflow       *WorkflowDeps
@@ -189,6 +191,14 @@ type Deps struct {
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	ctx := context.Background()
+	defaultHTTPTimeout := opts.CapabilityRegistry.DefaultHTTPTimeout
+	if defaultHTTPTimeout <= 0 {
+		defaultHTTPTimeout = 20 * time.Second
+	}
+	aiMultimodalHTTPTimeout := opts.CapabilityRegistry.AIMultimodalHTTPTimeout
+	if aiMultimodalHTTPTimeout <= 0 {
+		aiMultimodalHTTPTimeout = 5 * time.Minute
+	}
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
 
@@ -391,7 +401,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			httpBaseURL = "http://127.0.0.1:8077"
 		}
 		httpProxyClient := &http.Client{
-			Timeout: 45 * time.Second,
+			Timeout: defaultHTTPTimeout,
+		}
+		aiModalHTTPProxyClient := &http.Client{
+			Timeout: aiMultimodalHTTPTimeout,
 		}
 		var invocationGRPCConn *grpc.ClientConn
 		grpcTarget := strings.TrimSpace(os.Getenv("POWERX_GRPC_PROXY_ADDR"))
@@ -416,15 +429,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		}
 
 		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
-			Catalog:       capabilityCatalogSvc,
-			Router:        routerSvc,
-			Audit:         capAuditSvc,
-			Clock:         time.Now,
-			VersionLock:   versionLockStore,
-			HTTPClient:    httpProxyClient,
-			HTTPBaseURL:   httpBaseURL,
-			GRPCConn:      invocationGRPCConn,
-			ModelVerifier: capabilitycatalog.NewTenantModelKeyVerifier(db),
+			Catalog:           capabilityCatalogSvc,
+			Router:            routerSvc,
+			Audit:             capAuditSvc,
+			Clock:             time.Now,
+			VersionLock:       versionLockStore,
+			HTTPClient:        httpProxyClient,
+			AIModalHTTPClient: aiModalHTTPProxyClient,
+			HTTPBaseURL:       httpBaseURL,
+			GRPCConn:          invocationGRPCConn,
+			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {
@@ -664,47 +678,49 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
-		DB:                       db,
-		TenantSvc:                tenantSvc,
-		AuthUser:                 authUser,
-		AuthCustomer:             authCustomer,
-		MeService:                meSvc,
-		AuditSvc:                 svc,
-		Auditor:                  aud,
-		MediaMgr:                 mediaManager,
-		MediaSvc:                 mediaSvc,
-		Notifications:            notificationssvc.NewService(db),
-		EventBus:                 bus,
-		CapabilityRegistrySvc:    capRegistrySvc,
-		CapabilityCatalogSvc:     capabilityCatalogSvc,
-		CapabilityRegistryAudit:  capAuditSvc,
-		CapabilityRegistryAlerts: capAlerting,
-		CapabilityInvocationSvc:  capabilityInvocationSvc,
-		CapabilityAuthorizer:     capabilityAuthorizer,
-		CapabilitySelector:       capabilitySelector,
-		WorkflowCatalog:          workflowCatalog,
-		WorkflowTemplateSvc:      workflowTemplateSvc,
-		ToolStore:                toolStore,
-		VersionLockStore:         versionLockStore,
-		RouterSvc:                routerSvc,
-		RouterSandboxSvc:         sandboxSvc,
-		DiscoverySvc:             discoverySvc,
-		IntegrationGateway:       integrationGatewayDeps,
-		AgentLifecycle:           agentLifecycleDeps,
-		KnowledgeSpace:           knowledgeDeps,
-		DevHotloadOptions:        opts.DevHotload,
-		PluginReleaseOptions:     opts.PluginRelease,
-		PluginReleaseService:     pluginReleaseSvc,
-		DevHotloadService:        devHotloadSvc,
-		PluginBootstrapService:   pluginBootstrapSvc,
-		PluginImportService:      pluginImportSvc,
-		PluginDebugHost:          pluginDebugHostSvc,
-		PluginDiagnostics:        pluginDiagnosticsSvc,
-		PluginSandbox:            pluginSandboxSvc,
-		PluginGovernance:         pluginGovernanceSvc,
-		PluginCompat:             pluginCompatSvc,
-		WorkflowStepAdapter:      workflowStepAdapter,
-		EventFabric:              eventFabricDeps,
+		DB:                                db,
+		TenantSvc:                         tenantSvc,
+		AuthUser:                          authUser,
+		AuthCustomer:                      authCustomer,
+		MeService:                         meSvc,
+		AuditSvc:                          svc,
+		Auditor:                           aud,
+		MediaMgr:                          mediaManager,
+		MediaSvc:                          mediaSvc,
+		Notifications:                     notificationssvc.NewService(db),
+		EventBus:                          bus,
+		CapabilityRegistrySvc:             capRegistrySvc,
+		CapabilityCatalogSvc:              capabilityCatalogSvc,
+		CapabilityRegistryAudit:           capAuditSvc,
+		CapabilityRegistryAlerts:          capAlerting,
+		CapabilityInvocationSvc:           capabilityInvocationSvc,
+		CapabilityAuthorizer:              capabilityAuthorizer,
+		CapabilitySelector:                capabilitySelector,
+		WorkflowCatalog:                   workflowCatalog,
+		WorkflowTemplateSvc:               workflowTemplateSvc,
+		ToolStore:                         toolStore,
+		VersionLockStore:                  versionLockStore,
+		RouterSvc:                         routerSvc,
+		RouterSandboxSvc:                  sandboxSvc,
+		DiscoverySvc:                      discoverySvc,
+		IntegrationGateway:                integrationGatewayDeps,
+		AgentLifecycle:                    agentLifecycleDeps,
+		KnowledgeSpace:                    knowledgeDeps,
+		DevHotloadOptions:                 opts.DevHotload,
+		PluginReleaseOptions:              opts.PluginRelease,
+		PluginReleaseService:              pluginReleaseSvc,
+		DevHotloadService:                 devHotloadSvc,
+		PluginBootstrapService:            pluginBootstrapSvc,
+		PluginImportService:               pluginImportSvc,
+		PluginDebugHost:                   pluginDebugHostSvc,
+		PluginDiagnostics:                 pluginDiagnosticsSvc,
+		PluginSandbox:                     pluginSandboxSvc,
+		PluginGovernance:                  pluginGovernanceSvc,
+		PluginCompat:                      pluginCompatSvc,
+		WorkflowStepAdapter:               workflowStepAdapter,
+		CapabilityDefaultHTTPTimeout:      defaultHTTPTimeout,
+		CapabilityAIMultimodalHTTPTimeout: aiMultimodalHTTPTimeout,
+		EventFabric:                       eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,

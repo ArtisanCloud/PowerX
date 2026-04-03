@@ -50,7 +50,9 @@ type openAINonStreamResp struct {
 			Content string `json:"content"`
 			Role    string `json:"role"`
 		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Usage map[string]any `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 		Type    string `json:"type,omitempty"`
@@ -190,16 +192,16 @@ func (c *openaiClient) httpClient(mc *config.ModelConfig) *http.Client {
 
 /* ------------ Invoke（非流） ------------ */
 
-func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (string, error) {
+func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userMessage string) (*config.InvokeResult, error) {
 	start := time.Now()
 	url, headers, err := c.buildEndpointAndHeaders(mc, false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	c.logRequest(ctx, url, mc, false)
 	body, err := c.makeBody(mc, userMessage, false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -216,7 +218,7 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 			zap.String("error", err.Error()),
 		)
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -231,7 +233,7 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			zap.Int("status", resp.StatusCode),
 			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 		)
-		return "", fmt.Errorf("openai invoke url=%s status=%d body=%s", url, resp.StatusCode, string(bt))
+		return nil, fmt.Errorf("openai invoke url=%s status=%d body=%s", url, resp.StatusCode, string(bt))
 	}
 
 	var jr openAINonStreamResp
@@ -246,7 +248,7 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 			zap.String("error", err.Error()),
 		)
-		return "", fmt.Errorf("openai decode failed: %w (body=%s)", err, string(bt))
+		return nil, fmt.Errorf("openai decode failed: %w (body=%s)", err, string(bt))
 	}
 	if jr.Error != nil && strings.TrimSpace(jr.Error.Message) != "" {
 		logger.Info(ctx, "llm_response",
@@ -259,7 +261,7 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 			zap.String("error", strings.TrimSpace(jr.Error.Message)),
 		)
-		return "", fmt.Errorf("openai error: %s", strings.TrimSpace(jr.Error.Message))
+		return nil, fmt.Errorf("openai error: %s", strings.TrimSpace(jr.Error.Message))
 	}
 	if len(jr.Choices) == 0 {
 		// 兼容诊断：部分 OpenAI-compatible 网关会返回腾讯云 TC3 风格结构（Response.Error.*）
@@ -276,9 +278,9 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			code := strings.TrimSpace(tr.Response.Error.Code)
 			msg := strings.TrimSpace(tr.Response.Error.Message)
 			if code != "" {
-				return "", fmt.Errorf("openai-compatible: unexpected tencent response url=%s code=%s message=%s", url, code, msg)
+				return nil, fmt.Errorf("openai-compatible: unexpected tencent response url=%s code=%s message=%s", url, code, msg)
 			}
-			return "", fmt.Errorf("openai-compatible: unexpected tencent response url=%s message=%s", url, msg)
+			return nil, fmt.Errorf("openai-compatible: unexpected tencent response url=%s message=%s", url, msg)
 		}
 
 		trim := string(bt)
@@ -295,7 +297,7 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 			zap.String("error", "empty choices"),
 		)
-		return "", fmt.Errorf("openai: empty choices (url=%s body=%s)", url, trim)
+		return nil, fmt.Errorf("openai: empty choices (url=%s body=%s)", url, trim)
 	}
 	logger.Info(ctx, "llm_response",
 		zap.String("trace_id", audit.GetTraceID(ctx)),
@@ -306,7 +308,14 @@ func (c *openaiClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 		zap.Int("status", resp.StatusCode),
 		zap.Int64("latency_ms", time.Since(start).Milliseconds()),
 	)
-	return jr.Choices[0].Message.Content, nil
+	result := &config.InvokeResult{
+		Text:         jr.Choices[0].Message.Content,
+		FinishReason: strings.TrimSpace(jr.Choices[0].FinishReason),
+	}
+	if len(jr.Usage) > 0 {
+		result.Usage = jr.Usage
+	}
+	return result, nil
 }
 
 /* ------------ Stream（优先流；不支持时自动回退） ------------ */
@@ -365,7 +374,14 @@ func (c *openaiClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 			zap.String("content_type", resp.Header.Get("Content-Type")),
 		)
 		// 回退
-		return c.Invoke(ctx, mc, prompt)
+		invokeResult, invokeErr := c.Invoke(ctx, mc, prompt)
+		if invokeErr != nil {
+			return "", invokeErr
+		}
+		if invokeResult == nil {
+			return "", nil
+		}
+		return invokeResult.Text, nil
 	}
 
 	// 逐行读 SSE：data: {...}

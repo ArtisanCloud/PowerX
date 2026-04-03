@@ -28,6 +28,11 @@ func GetDefaults() *Config {
 		Tenants: TenantConfig{
 			RequireUUID: true,
 		},
+		Install: InstallConfig{
+			Status:         "installed",
+			LockMode:       "strict",
+			AllowWithoutDB: true,
+		},
 		Plugin: DefaultPluginAggregateConfig(),
 		LogConfig: logCfg.LogConfig{
 			Level:         "debug",
@@ -48,6 +53,11 @@ func GetDefaults() *Config {
 				JobName:   "corex",
 				BatchWait: 1,
 				BatchSize: 100,
+			},
+			AgentDebug: logCfg.AgentDebugConfig{
+				Enable:       false,
+				Dir:          "logs/agent_debug",
+				MaxBodyBytes: 512 * 1024,
 			},
 			HttpDebug: false,
 			Debug:     true,
@@ -188,6 +198,8 @@ func GetDefaults() *Config {
 				Burst:         120,
 				WindowSeconds: 60,
 			},
+			DefaultHTTPTimeoutSeconds:      20,
+			AIMultimodalHTTPTimeoutSeconds: 300,
 			Notifications: CapabilityRegistryNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,
@@ -305,6 +317,15 @@ func GetDefaults() *Config {
 				BusinessDir: "./internal/server/agent/blueprints",
 			},
 			TemplateDir: "./services/agent/templates",
+			ContextOptimizer: agentCfg.ContextOptimizerConfig{
+				Enabled:                   true,
+				MaxPromptTokens:           12000,
+				ReservedCompletionTokens:  1200,
+				RecentMessages:            8,
+				RetrievalTopK:             6,
+				CacheMode:                 "auto",
+				SummaryRefreshIntervalSec: 900,
+			},
 		},
 		Database: dbCfg.DatabaseConfig{
 			Host:                   "localhost",

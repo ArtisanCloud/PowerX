@@ -53,6 +53,32 @@ PowerX 的插件发布链路分为 4 步，热加载属于独立的调试通道�
 3. **查看效果**  
    刷新 Web Admin 的 Dev Console 或插件菜单，访问路径是：浏览器 → PowerX Admin → 插件 router → Dev Sandbox → 你刚上传的 `dist/`。只要 reload 成功，即使 session 终止，UI 仍会展示最新 artefact。
 
+## 启动提速（插件自动恢复并发）
+
+当系统已安装并启用了多个插件时，PowerX 启动阶段会执行自动恢复（auto-restore）。默认是串行启用，插件多时会拉长可用时间窗口。  
+从当前版本开始支持配置项 + 环境变量覆盖：
+
+```yaml
+plugin:
+  auto_restore_parallelism: 3
+```
+
+环境变量（优先级高于 config.yaml）：
+
+```bash
+# 默认 1（串行），建议先从 3 开始
+export PX_PLUGIN_AUTORESTORE_PARALLELISM=3
+# 或使用统一前缀
+export CORE_X_PLUGIN_AUTORESTORE_PARALLELISM=3
+```
+
+说明：
+
+- `plugin.auto_restore_parallelism` / 对应环境变量只影响“启动时自动恢复已启用插件”的并发度，不影响手工启停插件 API。
+- 默认值 `1`，保持历史行为兼容。
+- 最大值会被限制为 `8`，防止误配置导致本机 CPU/IO 抖动。
+- 推荐取值：本地开发 `2~4`；CI/轻量环境 `1~2`。
+
 ## 常见问题解答
 
 - **`/admin/menus` 为什么没有我的插件？**  

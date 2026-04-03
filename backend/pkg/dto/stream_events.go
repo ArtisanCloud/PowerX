@@ -7,6 +7,8 @@ const (
 	EventMeta      = "meta"
 	EventIntent    = "intent"
 	EventPlan      = "plan"
+	EventNodeStart = "node_start"
+	EventNodeEnd   = "node_end"
 	EventToken     = "token"
 	EventData      = "data"
 	EventAction    = "action"
@@ -14,4 +16,17 @@ const (
 	EventEnd       = "end"
 	EventError     = "error"
 	EventHeartbeat = "heartbeat"
+)
+
+// Planner mode
+const (
+	PlannerModeUnified = "unified"
+)
+
+// Unified planner node kinds
+const (
+	NodeKindWorkflow = "workflow"
+	NodeKindSkill    = "skill"
+	NodeKindTooling  = "tooling"
+	NodeKindLLM      = "llm"
 )

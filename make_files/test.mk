@@ -261,6 +261,16 @@ test-env-check:
 		echo "✅ 服务器连接正常" || \
 		echo "❌ 服务器连接失败，请先启动服务器: make dev"
 
+.PHONY: pre-release-gate coverage-gate perf-smoke
+pre-release-gate:
+	@bash backend/scripts/ops/pre-release-gate.sh
+
+coverage-gate:
+	@bash backend/scripts/ci/coverage-gate.sh
+
+perf-smoke:
+	@bash backend/scripts/ci/perf-smoke.sh
+
 # 测试数据清理
 .PHONY: test-clean
 test-clean:
@@ -280,6 +290,21 @@ ci-all:
 	@echo "🚦 运行 CI 入口：go test + 回归套件..."
 	@cd backend && GOFLAGS="" go test ./...
 	@$(MAKE) regression-pxp
+
+.PHONY: test-full-regression
+test-full-regression:
+	@echo "🧪 运行全量回归（backend contract/integration + web-admin E2E）..."
+	@bash scripts/ci/t080_full_regression.sh
+
+.PHONY: test-full-regression-backend
+test-full-regression-backend:
+	@echo "🧪 运行回归（仅 backend，跳过 E2E）..."
+	@SKIP_E2E=1 bash scripts/ci/t080_full_regression.sh
+
+# 兼容旧命令（推荐改用 test-full-regression / test-full-regression-backend）
+.PHONY: regression-025 regression-025-no-e2e
+regression-025: test-full-regression
+regression-025-no-e2e: test-full-regression-backend
 
 .PHONY: check-tenant-id
 check-tenant-id:

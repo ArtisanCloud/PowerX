@@ -226,8 +226,17 @@ func (s *AgentSettingService) Models(modality, provider, app string) ([]string, 
 		return nil, err
 	}
 	out := make([]string, 0, len(models))
+	seen := map[string]struct{}{}
 	for _, m := range models {
-		out = append(out, m.ID)
+		id := strings.TrimSpace(m.ID)
+		if id == "" || id == "*" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
 	}
 	return out, nil
 }
@@ -624,33 +633,21 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 		return err
 	}
 
-	mc := agentcfg.ModelConfig{
-		Provider: provider, Endpoint: baseURL, APIKey: apiKey,
-		SecretID: secretID, SecretKey: secretKey, Region: region,
-		Model: model, SystemPrompt: "You are a health check probe.",
-		Temperature: 0, MaxTokens: 8, AccessToken: apiKey,
-		Extra: s.buildModelExtras(contract.Modality(strings.ToLower(strings.TrimSpace(modality))), provider, model),
-	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
 		return err
 	}
+	_ = cli // 仅做 provider 驱动可用性校验；真实探活统一走 QuickCallLLMResult 链路。
+
 	c2, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	_, err = cli.Invoke(c2, &mc, "ping")
-	if err == nil {
-		return nil
-	}
-	msg := err.Error()
-	// 常见：请求到了 HTML 页面（如 404/反爬/网关错误页），导致 JSON 解析报 '<'
-	if strings.Contains(msg, "invalid character '<' looking for beginning of value") {
-		return fmt.Errorf("上游返回非 JSON（疑似 HTML 错误页）；请检查 base_url 是否正确，以及是否被网关/反爬拦截：%w", err)
-	}
-	if strings.EqualFold(strings.TrimSpace(provider), "openrouter") &&
-		strings.Contains(msg, "is not a valid model ID") {
-		return fmt.Errorf("OpenRouter 模型 ID 无效（可能已更名或你账号无权限）：%s；建议在“模型”下拉刷新后重选，或到 OpenRouter 控制台确认可用模型 ID：%w", model, err)
-	}
-	return err
+	_, err = s.QuickCallLLMResult(
+		c2, "", nil,
+		provider, model, baseURL, apiKey, secretID, secretKey, region, "",
+		0, 0,
+		"ping",
+	)
+	return normalizePingLLMError(provider, model, err)
 }
 
 // TestConnectionPreferInput：测试接口用
@@ -666,20 +663,34 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 
 	switch contract.Modality(mod) {
 	case contract.ModLLM:
-		if strings.EqualFold(strings.TrimSpace(prov), "hunyuan") {
-			return s.PingHunyuan(ctx, env, tenantUUID, authMode, model, baseURL, apiKey, secretID, secretKey, region)
+		if strings.TrimSpace(prov) == "" {
+			return fmt.Errorf("provider 不能为空")
 		}
-
-		// 其他 provider：要求具备可用 driver
+		if strings.TrimSpace(model) == "" {
+			return fmt.Errorf("model 不能为空")
+		}
+		// 要求具备可用 driver
 		if _, err := agentllm.NewClient(prov); err != nil {
 			return fmt.Errorf("Provider %s 暂未实现 LLM 直连驱动，无法测试连接", prov)
 		}
-		req := catalog.AuthReqFromCatalog(prov)
-		bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, prov, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
-		if err != nil {
-			return err
+		// 与正式调用链对齐：统一走 QuickCallLLMResult。
+		prompt := "ping"
+		if strings.TrimSpace(baseURL) != "" || strings.TrimSpace(apiKey) != "" || strings.TrimSpace(secretID) != "" || strings.TrimSpace(secretKey) != "" {
+			_, err := s.QuickCallLLMResult(
+				ctx, env, tenantUUID,
+				prov, model, baseURL, apiKey, secretID, secretKey, region, authMode,
+				0, 0,
+				prompt,
+			)
+			return normalizePingLLMError(prov, model, err)
 		}
-		return s.PingStrict(ctx, mod, prov, model, bu, ak, "", "", "")
+		_, err := s.QuickCallLLMResult(
+			ctx, env, tenantUUID,
+			prov, model, "", "", "", "", "", authMode,
+			0, 0,
+			prompt,
+		)
+		return normalizePingLLMError(prov, model, err)
 
 	case contract.ModImage:
 		return s.PingImage(ctx, env, tenantUUID, provider, model, baseURL, apiKey, secretID, secretKey, region, "")
@@ -750,37 +761,13 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUI
 	if err := ensureModelExists(string(contract.ModLLM), provider, model); err != nil {
 		return err
 	}
-	p := strings.TrimSpace(strings.ToLower(provider))
-	if p == "hunyuan" {
-		return s.PingHunyuan(ctx, env, tenantUUID, authMode, model, baseURL, apiKey, secretID, secretKey, region)
-	}
-
-	req := catalog.AuthReqFromCatalog(provider)
-	var err error
-	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
-	if err != nil {
-		return err
-	}
-	if err := validateEndpoint(baseURL); err != nil {
-		return err
-	}
-	mc := agentcfg.ModelConfig{
-		Provider:     provider,
-		Endpoint:     baseURL,
-		APIKey:       apiKey,
-		Model:        model,
-		SystemPrompt: "You are a health check probe.",
-		Temperature:  0.0,
-		MaxTokens:    8,
-		AccessToken:  apiKey,
-		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
-	}
-	cli, err := agentllm.NewClient(provider)
-	if err != nil {
-		return err
-	}
-	_, err = cli.Invoke(ctx, &mc, "ping")
-	return err
+	_, err := s.QuickCallLLMResult(
+		ctx, env, tenantUUID,
+		provider, model, baseURL, apiKey, secretID, secretKey, region, authMode,
+		0, 0,
+		"ping",
+	)
+	return normalizePingLLMError(provider, model, err)
 }
 
 func (s *AgentSettingService) PingImage(
@@ -1464,15 +1451,18 @@ func parseAnyInt(v any) int {
 	return 0
 }
 
-// 修改 QuickCallLLM：同样带 env/tenantUUID + 回退解密
-func (s *AgentSettingService) QuickCallLLM(
+// QuickCallLLMResult：带 env/tenantUUID + 回退解密，返回文本与元数据。
+func (s *AgentSettingService) QuickCallLLMResult(
 	ctx context.Context, env string, tenantUUID *string,
 	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 	temperature float64, maxTokens int,
 	prompt string,
-) (string, error) {
+) (*agentcfg.InvokeResult, error) {
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Say hello in one short sentence."
+	}
+	if maxTokens < 0 {
+		maxTokens = 0
 	}
 	p := strings.TrimSpace(strings.ToLower(provider))
 	if p == "hunyuan" {
@@ -1483,7 +1473,7 @@ func (s *AgentSettingService) QuickCallLLM(
 		if strings.EqualFold(strings.TrimSpace(mode), "tc3") {
 			bu, sid, sk, rg, err := s.prepareHunyuanTC3Inputs(ctx, env, tenantUUID, baseURL, secretID, secretKey, region)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			mc := agentcfg.ModelConfig{
 				Provider:     "hunyuan",
@@ -1494,12 +1484,12 @@ func (s *AgentSettingService) QuickCallLLM(
 				Model:        model,
 				SystemPrompt: "You are a helpful assistant.",
 				Temperature:  temperature,
-				MaxTokens:    utils.MaxInt(maxTokens, 64),
+				MaxTokens:    maxTokens,
 				Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 			}
 			cli, err := agentllm.NewClient("hunyuan")
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
@@ -1508,7 +1498,7 @@ func (s *AgentSettingService) QuickCallLLM(
 		// OpenAI SDK 兼容：走 openai client
 		bu, ak, err := s.prepareHunyuanOpenAIInputs(ctx, env, tenantUUID, baseURL, apiKey)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		mc := agentcfg.ModelConfig{
 			Provider:     "openai",
@@ -1517,43 +1507,101 @@ func (s *AgentSettingService) QuickCallLLM(
 			Model:        model,
 			SystemPrompt: "You are a helpful assistant.",
 			Temperature:  temperature,
-			MaxTokens:    utils.MaxInt(maxTokens, 64),
+			MaxTokens:    maxTokens,
 			AccessToken:  ak,
 			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 		}
 		cli, err := agentllm.NewClient("openai")
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		return cli.Invoke(ctx, &mc, prompt)
 	}
 
-	// 回退解密（OpenAI-compatible 等）
-	var err error
-	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略错误，尽量继续 */
+	// 通用 LLM：统一走 catalog 鉴权规则与默认 base_url 回退，
+	// 避免 openai-compatible provider 在未传 base_url 时误落到 OpenAI 官方默认地址。
+	req := catalog.AuthReqFromCatalog(p)
+	inputBaseURL := strings.TrimSpace(baseURL)
+	modelDefaultBaseURL := ""
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, model); strings.TrimSpace(v) != "" {
+			baseURL = v
+			modelDefaultBaseURL = strings.TrimSpace(v)
+		}
 	}
+	// 防止非 openai provider 在 catalog 未命中/无默认地址时误回退到 OpenAI 官方地址。
+	if strings.TrimSpace(baseURL) == "" &&
+		strings.TrimSpace(req.DefaultBaseURL) == "" &&
+		!strings.EqualFold(p, "openai") {
+		return nil, fmt.Errorf("缺少 BaseURL（%s 需要 base_url；请在 Setup 中填写 Base URL）", provider)
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+	baseSource := "credential_store_or_runtime"
+	switch {
+	case inputBaseURL != "":
+		baseSource = "input"
+	case modelDefaultBaseURL != "" && strings.TrimSpace(bu) == modelDefaultBaseURL:
+		baseSource = "model_default"
+	case strings.TrimSpace(req.DefaultBaseURL) != "" && strings.TrimSpace(bu) == strings.TrimSpace(req.DefaultBaseURL):
+		baseSource = "provider_default"
+	}
+	logger.InfoF(
+		ctx,
+		"llm endpoint resolved env=%s provider=%s model=%s source=%s base_url=%s",
+		strings.TrimSpace(env),
+		provider,
+		model,
+		baseSource,
+		bu,
+	)
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
-		Endpoint:     baseURL,
-		APIKey:       apiKey,
+		Endpoint:     bu,
+		APIKey:       ak,
 		Model:        model,
 		SystemPrompt: "You are a helpful assistant.",
 		Temperature:  temperature,
-		MaxTokens:    utils.MaxInt(maxTokens, 64),
-		AccessToken:  apiKey,
+		MaxTokens:    maxTokens,
+		AccessToken:  ak,
 		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	return cli.Invoke(ctx, &mc, prompt)
+}
+
+// QuickCallLLM：兼容旧调用，仅返回文本内容。
+func (s *AgentSettingService) QuickCallLLM(
+	ctx context.Context, env string, tenantUUID *string,
+	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
+	temperature float64, maxTokens int,
+	prompt string,
+) (string, error) {
+	result, err := s.QuickCallLLMResult(
+		ctx, env, tenantUUID,
+		provider, model, baseURL, apiKey, secretID, secretKey, region, authMode,
+		temperature, maxTokens, prompt,
+	)
+	if err != nil {
+		return "", err
+	}
+	if result == nil {
+		return "", nil
+	}
+	return result.Text, nil
 }
 
 func (s *AgentSettingService) applyManifestToProfile(prof *dbmodel.AIModelProfile) {
@@ -1786,64 +1834,29 @@ func (s *AgentSettingService) PingHunyuan(
 	secretKey string,
 	region string,
 ) error {
-	mode := strings.ToLower(strings.TrimSpace(authMode))
-	if mode == "" {
-		mode = "openai" // 默认优先 API Key（OpenAI SDK 兼容）
+	_, err := s.QuickCallLLMResult(
+		ctx, env, tenantUUID,
+		"hunyuan", model, baseURL, apiKey, secretID, secretKey, region, authMode,
+		0, 0,
+		"ping",
+	)
+	return normalizePingLLMError("hunyuan", model, err)
+}
+
+func normalizePingLLMError(provider, model string, err error) error {
+	if err == nil {
+		return nil
 	}
-	switch mode {
-	case "tc3":
-		bu, sid, sk, rg, err := s.prepareHunyuanTC3Inputs(ctx, env, tenantUUID, baseURL, secretID, secretKey, region)
-		if err != nil {
-			return err
-		}
-		mc := agentcfg.ModelConfig{
-			Provider:     "hunyuan",
-			Endpoint:     bu,
-			SecretID:     sid,
-			SecretKey:    sk,
-			Region:       rg,
-			Model:        model,
-			SystemPrompt: "You are a health check probe.",
-			Temperature:  0,
-			MaxTokens:    8,
-			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
-		}
-		cli, err := agentllm.NewClient("hunyuan")
-		if err != nil {
-			return err
-		}
-		c2, cancel := context.WithTimeout(ctx, 20*time.Second)
-		defer cancel()
-		_, err = cli.Invoke(c2, &mc, "ping")
-		return err
-	default:
-		bu, ak, err := s.prepareHunyuanOpenAIInputs(ctx, env, tenantUUID, baseURL, apiKey)
-		if err != nil {
-			return err
-		}
-		if err := validateEndpoint(bu); err != nil {
-			return err
-		}
-		mc := agentcfg.ModelConfig{
-			Provider:     "openai",
-			Endpoint:     bu,
-			APIKey:       ak,
-			Model:        model,
-			SystemPrompt: "You are a health check probe.",
-			Temperature:  0,
-			MaxTokens:    8,
-			AccessToken:  ak,
-			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
-		}
-		cli, err := agentllm.NewClient("openai")
-		if err != nil {
-			return err
-		}
-		c2, cancel := context.WithTimeout(ctx, 20*time.Second)
-		defer cancel()
-		_, err = cli.Invoke(c2, &mc, "ping")
-		return err
+	msg := err.Error()
+	// 常见：请求到了 HTML 页面（如 404/反爬/网关错误页），导致 JSON 解析报 '<'
+	if strings.Contains(msg, "invalid character '<' looking for beginning of value") {
+		return fmt.Errorf("上游返回非 JSON（疑似 HTML 错误页）；请检查 base_url 是否正确，以及是否被网关/反爬拦截：%w", err)
 	}
+	if strings.EqualFold(strings.TrimSpace(provider), "openrouter") &&
+		strings.Contains(msg, "is not a valid model ID") {
+		return fmt.Errorf("OpenRouter 模型 ID 无效（可能已更名或你账号无权限）：%s；建议在“模型”下拉刷新后重选，或到 OpenRouter 控制台确认可用模型 ID：%w", model, err)
+	}
+	return err
 }
 
 func validateEndpoint(raw string) error {

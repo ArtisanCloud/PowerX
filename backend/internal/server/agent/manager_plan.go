@@ -174,13 +174,32 @@ func (m *Manager) assemblePlanTasks(
 	out := make([]schemas.PlanTask, 0, len(allFlows))
 	for fid := range allFlows {
 		t := byFlow[fid]
+		params := map[string]any{}
+		for k, v := range t.Params {
+			params[k] = v
+		}
+		nodeKind := strings.TrimSpace(readTaskNodeKind(t))
+		if nodeKind == "" {
+			nodeKind = "workflow"
+		}
+		nodeRef := strings.TrimSpace(readTaskNodeRef(t))
+		if nodeRef == "" {
+			nodeRef = t.FlowID
+		}
+		sourceScope := strings.TrimSpace(readTaskSourceScope(t))
+		if sourceScope == "" {
+			sourceScope = "system"
+		}
 		pt := schemas.PlanTask{
-			TaskID:    t.TaskID,
-			FlowID:    t.FlowID,
-			AgentID:   t.AgentID,
-			Params:    map[string]any{},
-			ParamRefs: map[string]string{},
-			Stage:     level[fid],
+			TaskID:      t.TaskID,
+			FlowID:      t.FlowID,
+			NodeKind:    nodeKind,
+			NodeRef:     nodeRef,
+			SourceScope: sourceScope,
+			AgentID:     t.AgentID,
+			Params:      params,
+			ParamRefs:   map[string]string{},
+			Stage:       level[fid],
 		}
 
 		// 依赖（按 requires 顺序）
@@ -244,6 +263,44 @@ func (m *Manager) assemblePlanTasks(
 		out = append(out, pt)
 	}
 	return out
+}
+
+func readTaskNodeKind(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(t.Strategy)), "tool_calling:") {
+			return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(t.Strategy)), "tool_calling:")
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(t.Strategy)), "candidate_recall:") {
+			return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(t.Strategy)), "candidate_recall:")
+		}
+		return ""
+	}
+	if v, ok := t.Params["_node_kind"]; ok {
+		if s := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v))); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func readTaskNodeRef(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_node_ref"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	return ""
+}
+
+func readTaskSourceScope(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_source_scope"]; ok {
+		return strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+	}
+	return ""
 }
 
 // 排序：Stage → priority(desc) → firstSeen → flow_id

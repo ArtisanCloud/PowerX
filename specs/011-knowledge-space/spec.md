@@ -244,8 +244,8 @@ pgvector 的列类型是 `vector(D)`，其中 `D`（维度）是硬约束：一�
 ### Strategy Packages & Scene Mapping (RAG Productization)
 
 This feature MUST implement the strategy package → scene mapping model described in:
-- `docs/plan/AI_engineering/knowledge/rag.md`
-- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+- `docs/plan/ai_engineering/knowledge/rag.md`
+- `docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md`
 
 Definitions:
 - **Strategy package** (primary selection): `rag.md` A0–O strategy packages (e.g., `A0_metadata`, `H_fusion`, `K_kg`, `O_crag`, `J_hier`).
@@ -256,7 +256,7 @@ Non-goal: Do **not** expose a full Cartesian product of “scenes × all strateg
 
 - **FR-025**: The Web Admin MUST offer a unified, guided entry that supports one-level selection: `Strategy package (A0–O)`, plus optional scene filtering/preview and a “Custom (expert)” option that can unlock all packages with dependency validation.
 - **FR-026**: The platform MUST enforce strategy prerequisites before allowing activation/publish (e.g., KG packages require KG indexes/tables; evidence-first packages require sparse index + evidence guardrails), and MUST surface actionable remediation in UI.
-- **FR-027**: Each strategy package (A0–O) MUST include a curated “适用场景” mapping (non-full) as defined in `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`, including:
+- **FR-027**: Each strategy package (A0–O) MUST include a curated “适用场景” mapping (non-full) as defined in `docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md`, including:
   - KG-default mapping for “SQL/config/dependency”.
   - Evidence-first mapping for contract/quote.
 - **FR-028**: Ingestion profiles MUST support configurable chunking parameters (e.g., chunk size, overlap/delta, separators) with scene defaults and safe bounds, and MUST capture provenance fields required by retrieval citations.

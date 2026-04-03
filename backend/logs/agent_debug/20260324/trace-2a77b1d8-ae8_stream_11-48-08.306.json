@@ -1,0 +1,200 @@
+{
+  "meta": {
+    "created_at": "2026-03-24T11:48:08.306724+08:00",
+    "runtime": {
+      "request_id": "1e807997-ee96-4168-9cfd-0cd64473b555",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    },
+    "trace_id": "2a77b1d8-ae89-4e44-94ef-1a0269a4cfb0",
+    "type": "agent_stream"
+  },
+  "request": {
+    "body": {
+      "agent_id": 1,
+      "agent_uuid": "6b31adf3-4f7d-4c77-9d1d-c58fb3a7cf2a",
+      "client_msg_id": "u_1774324088267",
+      "env": "dev",
+      "flow_id": "chat",
+      "q": "请调用 hello-echo，把文本 \"INC-1001\" 原样返回。",
+      "session_id": 11,
+      "session_uuid": "b56ba579-c7c0-4be9-ab90-c1b2c787a342"
+    }
+  },
+  "response": {
+    "end": {
+      "success": true
+    },
+    "events": [
+      {
+        "at": "2026-03-24T11:48:50.993532+08:00",
+        "data": {
+          "mode": "intent_multi",
+          "planner_mode": "unified",
+          "tasks": [
+            {
+              "agent_id": "",
+              "flow_id": "skill.thirdparty.hello-echo",
+              "params": {
+                "_candidate_desc": "The smallest demo skill package for installation smoke tests.",
+                "_candidate_name": "skill.thirdparty.hello-echo",
+                "_node_kind": "skill",
+                "_node_ref": "skill.thirdparty.hello-echo",
+                "_source_scope": "system",
+                "text": "INC-1001"
+              },
+              "reason": "用户明确要求调用 hello-echo 技能并返回指定文本",
+              "score": 1,
+              "strategy": "tool_calling:skill",
+              "task_id": "tc1"
+            }
+          ]
+        },
+        "event": "intent"
+      },
+      {
+        "at": "2026-03-24T11:48:50.993655+08:00",
+        "data": {
+          "plan": {
+            "plan_id": "plan_1774324130993556000",
+            "tasks": [
+              {
+                "agent_id": "",
+                "flow_id": "skill.thirdparty.hello-echo",
+                "node_kind": "skill",
+                "node_ref": "skill.thirdparty.hello-echo",
+                "params": {
+                  "_candidate_desc": "The smallest demo skill package for installation smoke tests.",
+                  "_candidate_name": "skill.thirdparty.hello-echo",
+                  "_node_kind": "skill",
+                  "_node_ref": "skill.thirdparty.hello-echo",
+                  "_source_scope": "system",
+                  "text": "INC-1001"
+                },
+                "source_scope": "system",
+                "stage": 1,
+                "task_id": "tc1"
+              }
+            ]
+          },
+          "planner_mode": "unified"
+        },
+        "event": "plan"
+      },
+      {
+        "at": "2026-03-24T11:48:50.993773+08:00",
+        "data": {
+          "depends_on": null,
+          "flow_id": "skill.thirdparty.hello-echo",
+          "node_desc": "The smallest demo skill package for installation smoke tests.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "skill.thirdparty.hello-echo",
+          "node_ref": "skill.thirdparty.hello-echo",
+          "plan_id": "plan_1774324130993556000",
+          "planner_mode": "unified",
+          "source_scope": "system",
+          "stage": 1,
+          "task_id": "tc1"
+        },
+        "event": "node_start"
+      },
+      {
+        "at": "2026-03-24T11:48:51.094777+08:00",
+        "data": {
+          "depends_on": null,
+          "error": "",
+          "flow_id": "skill.thirdparty.hello-echo",
+          "node_desc": "The smallest demo skill package for installation smoke tests.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "skill.thirdparty.hello-echo",
+          "node_ref": "skill.thirdparty.hello-echo",
+          "plan_id": "plan_1774324130993556000",
+          "planner_mode": "unified",
+          "result_summary": {
+            "step_id": "",
+            "success": true
+          },
+          "source_scope": "system",
+          "stage": 1,
+          "status": "completed",
+          "task_id": "tc1"
+        },
+        "event": "node_end"
+      },
+      {
+        "at": "2026-03-24T11:48:51.119734+08:00",
+        "data": {
+          "data": {
+            "content": "INC-1001"
+          },
+          "metadata": {
+            "plan_id": "plan_1774324130993556000",
+            "trace_id": "2a77b1d8-ae89-4e44-94ef-1a0269a4cfb0"
+          },
+          "success": true
+        },
+        "event": "final"
+      },
+      {
+        "at": "2026-03-24T11:48:51.119833+08:00",
+        "data": {
+          "success": true
+        },
+        "event": "end"
+      }
+    ],
+    "events_count": 6,
+    "final": {
+      "data": {
+        "content": "INC-1001"
+      },
+      "metadata": {
+        "plan_id": "plan_1774324130993556000",
+        "trace_id": "2a77b1d8-ae89-4e44-94ef-1a0269a4cfb0"
+      },
+      "success": true
+    },
+    "last_error": null,
+    "usage": {
+      "cache_mode": "auto",
+      "context_layers_size": {
+        "L0": 0,
+        "L1": 120,
+        "L2": 0,
+        "L3": 44,
+        "L4": 0,
+        "L5": 9
+      },
+      "hops": [
+        {
+          "completion_tokens": 209,
+          "estimated": true,
+          "latency_ms": 42641,
+          "model": "qwen3:8b",
+          "phase": "planner",
+          "planner_cache_hit": false,
+          "planner_candidates_after": 48,
+          "planner_candidates_before": 625,
+          "planner_retry_count": 0,
+          "prompt_tokens": 2376,
+          "provider": "ollama",
+          "total_tokens": 2585
+        },
+        {
+          "completion_tokens": 3,
+          "estimated": true,
+          "model": "qwen3:8b",
+          "phase": "chat",
+          "prompt_tokens": 173,
+          "provider": "ollama",
+          "total_tokens": 176
+        }
+      ],
+      "total_completion_tokens": 212,
+      "total_prompt_tokens": 2549,
+      "total_tokens": 2761,
+      "trim_actions": []
+    }
+  }
+}

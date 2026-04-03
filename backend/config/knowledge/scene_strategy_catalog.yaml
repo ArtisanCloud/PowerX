@@ -3,8 +3,8 @@ kind: scene_strategy_catalog
 
 # 单一事实来源（SSOT）：Web Admin 的“场景（L1）→策略包（L2）”选择、以及后端的前置依赖校验/推荐规则，都应以此文件为准。
 # 设计依据：
-# - docs/plan/AI_engineering/knowledge/rag.md
-# - docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md
+# - docs/plan/ai_engineering/knowledge/rag.md
+# - docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md
 
 modules:
   # A: Simple RAG（简单切块 + 向量召回）

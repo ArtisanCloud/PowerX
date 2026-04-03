@@ -45,6 +45,14 @@
           {{ $t("settings.ai.actions.openConnectors") }}
         </UButton>
         <UButton
+          variant="soft"
+          icon="i-heroicons-adjustments-horizontal"
+          class="whitespace-nowrap"
+          :to="contextOptimizerLink"
+        >
+          {{ $t("settings.ai.actions.openContextOptimizer") }}
+        </UButton>
+        <UButton
           v-if="isRoot"
           variant="soft"
           icon="i-heroicons-table-cells"
@@ -170,6 +178,64 @@
           :on-test-connection="testConnection"
           :on-test-quick-call="testQuickCall"
         />
+
+        <div
+          class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <div class="font-medium text-[var(--text-primary)]">
+              {{ $t("settings.ai.skillsSourcePolicy.title") }}
+            </div>
+            <UBadge
+              :color="skillsPolicyEffectiveSource === 'tenant' ? 'primary' : 'neutral'"
+              variant="soft"
+            >
+              {{
+                skillsPolicyEffectiveSource === "tenant"
+                  ? $t("settings.ai.skillsSourcePolicy.effectiveSource.tenant")
+                  : $t("settings.ai.skillsSourcePolicy.effectiveSource.default")
+              }}
+            </UBadge>
+          </div>
+          <p class="text-xs text-[var(--text-secondary)]">
+            {{ $t("settings.ai.skillsSourcePolicy.description") }}
+          </p>
+
+          <div class="space-y-2">
+            <UCheckbox
+              :model-value="hasSource('builtin')"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.builtin')"
+              @update:model-value="toggleSource('builtin', $event)"
+            />
+            <UCheckbox
+              :model-value="hasSource('plugin')"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.plugin')"
+              @update:model-value="toggleSource('plugin', $event)"
+            />
+            <UCheckbox
+              :model-value="hasSource('third_party')"
+              :label="$t('settings.ai.skillsSourcePolicy.sources.thirdParty')"
+              @update:model-value="toggleSource('third_party', $event)"
+            />
+          </div>
+
+          <div class="text-xs text-[var(--text-secondary)]">
+            {{ $t("settings.ai.skillsSourcePolicy.updatedAt") }}：{{
+              skillsPolicyUpdatedAtText ||
+              $t("settings.ai.skillsSourcePolicy.notConfigured")
+            }}
+          </div>
+
+          <UButton
+            color="primary"
+            block
+            :loading="skillsPolicySaving"
+            :disabled="skillsPolicyLoading"
+            @click="saveSkillsSourcePolicy"
+          >
+            {{ $t("settings.ai.skillsSourcePolicy.actions.save") }}
+          </UButton>
+        </div>
       </div>
     </div>
   </div>
@@ -203,9 +269,13 @@ type Modality =
 // 使用 AI 设置 store
 const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
+const { t } = useI18n({ useScope: "global" });
 const localePath = useLocalePath();
 const costGuardLink = computed(() => localePath("/settings/ai/cost"));
 const connectorsLink = computed(() => localePath("/settings/ai/connectors"));
+const contextOptimizerLink = computed(() =>
+  localePath("/settings/ai/context-optimizer")
+);
 const registryLink = computed(() =>
   localePath("/settings/ai/capability-registry")
 );
@@ -1107,6 +1177,98 @@ const saving = computed(() => aiSettingsStore.saving);
 const lastProbeMessage = ref("");
 const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage || lastProbeMessage.value);
 const lastTestDetail = computed(() => aiSettingsStore.lastTestDetail || "");
+const skillsPolicyLoading = ref(false);
+const skillsPolicySaving = ref(false);
+const skillsSourceAllowlist = ref<string[]>([]);
+const skillsPolicyEffectiveSource = ref<"tenant" | "default" | string>("default");
+const skillsPolicyUpdatedAt = ref<string>("");
+const skillsPolicyUpdatedAtText = computed(() => {
+  const raw = String(skillsPolicyUpdatedAt.value || "").trim();
+  if (!raw) return "";
+  const ts = Date.parse(raw);
+  if (Number.isNaN(ts)) return raw;
+  return new Date(ts).toLocaleString();
+});
+
+const normalizeSkillsAllowlist = (values: string[]) => {
+  const allowed = new Set(["builtin", "plugin", "third_party"]);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of values || []) {
+    const value = String(item || "").trim().toLowerCase();
+    if (!allowed.has(value) || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+};
+
+const hasSource = (source: string) =>
+  skillsSourceAllowlist.value.includes(String(source || "").trim().toLowerCase());
+
+const toggleSource = (source: string, checked: boolean | "indeterminate") => {
+  const key = String(source || "").trim().toLowerCase();
+  const next = new Set(skillsSourceAllowlist.value);
+  if (checked === true) {
+    next.add(key);
+  } else {
+    next.delete(key);
+  }
+  skillsSourceAllowlist.value = normalizeSkillsAllowlist(Array.from(next));
+};
+
+const loadSkillsSourcePolicy = async () => {
+  skillsPolicyLoading.value = true;
+  try {
+    const view = await AISettingService.getSkillsSourcePolicy();
+    skillsSourceAllowlist.value = normalizeSkillsAllowlist(view.allowlist || []);
+    skillsPolicyEffectiveSource.value = view.effective_source || "default";
+    skillsPolicyUpdatedAt.value = view.updated_at || "";
+    if (skillsSourceAllowlist.value.length === 0) {
+      skillsSourceAllowlist.value = ["builtin", "plugin", "third_party"];
+    }
+  } catch (error) {
+    toast.add({
+      title: t("settings.ai.skillsSourcePolicy.toasts.loadFailed"),
+      description: getErrorMessage(error),
+      color: "error",
+    });
+  } finally {
+    skillsPolicyLoading.value = false;
+  }
+};
+
+const saveSkillsSourcePolicy = async () => {
+  const allowlist = normalizeSkillsAllowlist(skillsSourceAllowlist.value);
+  if (allowlist.length === 0) {
+    toast.add({
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveFailed"),
+      description: t("settings.ai.skillsSourcePolicy.toasts.saveValidationFailed"),
+      color: "error",
+    });
+    return;
+  }
+  skillsPolicySaving.value = true;
+  try {
+    const view = await AISettingService.setSkillsSourcePolicy(allowlist);
+    skillsSourceAllowlist.value = normalizeSkillsAllowlist(view.allowlist || allowlist);
+    skillsPolicyEffectiveSource.value = view.effective_source || "tenant";
+    skillsPolicyUpdatedAt.value = view.updated_at || "";
+    toast.add({
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveSuccess"),
+      description: t("settings.ai.skillsSourcePolicy.toasts.saveSuccessDesc"),
+      color: "success",
+    });
+  } catch (error) {
+    toast.add({
+      title: t("settings.ai.skillsSourcePolicy.toasts.saveFailed"),
+      description: getErrorMessage(error),
+      color: "error",
+    });
+  } finally {
+    skillsPolicySaving.value = false;
+  }
+};
 
 const resolveEmbeddingMaxInputTokens = (profile: any) => {
   if (!profile) return 0;
@@ -1403,6 +1565,7 @@ onMounted(async () => {
     envStore.initialize();
     await aiSettingsStore.initialize(env.value);
     await refreshStateForEnvAndModality();
+    await loadSkillsSourcePolicy();
   } catch (error) {
     toast.add({
       title: "初始化失败",

@@ -6,6 +6,8 @@ type PluginConfig struct {
 	BasePrefix     string `yaml:"base_prefix"`      // 路由前缀，默认 "/_p"
 	InstalledDir   string `yaml:"installed_dir"`    // 安装目录，默认 "./plugins/installed"
 	MarketCacheDir string `yaml:"market_cache_dir"` // 市场缓存，默认 "./plugins/market_cache"`
+	// 启动时自动恢复已启用插件的并发度（默认1，建议本地2~4）
+	AutoRestoreParallelism int `yaml:"auto_restore_parallelism"`
 
 	// 预留（里程碑后续用）
 	ReadTimeoutSec  int `yaml:"read_timeout_sec"`
@@ -16,12 +18,13 @@ type PluginConfig struct {
 
 func DefaultPluginConfig() PluginConfig {
 	return PluginConfig{
-		Enabled:         false,
-		BasePrefix:      "/_p",
-		InstalledDir:    "./plugins/installed",
-		MarketCacheDir:  "./plugins/market_cache",
-		ReadTimeoutSec:  15,
-		WriteTimeoutSec: 15,
+		Enabled:                true,
+		BasePrefix:             "/_p",
+		InstalledDir:           "./plugins/installed",
+		MarketCacheDir:         "./plugins/market_cache",
+		AutoRestoreParallelism: 1,
+		ReadTimeoutSec:         15,
+		WriteTimeoutSec:        15,
 	}
 }
 

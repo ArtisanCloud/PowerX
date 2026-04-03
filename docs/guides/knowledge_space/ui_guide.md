@@ -55,7 +55,7 @@
 6. 成功后会看到“最新任务 / 最近任务”摘要（jobId、状态、覆盖率等）
 
 说明（重要）：
-- 当前 UI **不会在入库表单里收集 API Token/鉴权 Header**。如要对接私有 API、企业网盘、受控站点等，需要走后续的「连接器/同步任务/凭据管理」能力（与 `docs/plan/AI_engineering/knowledge/knowledage_base.md` 的多源接入规划一致）。
+- 当前 UI **不会在入库表单里收集 API Token/鉴权 Header**。如要对接私有 API、企业网盘、受控站点等，需要走后续的「连接器/同步任务/凭据管理」能力（与 `docs/plan/ai_engineering/knowledge/knowledage_base.md` 的多源接入规划一致）。
 
 ## 3.1 对接 Notion / 飞书（API 鉴权接入）
 

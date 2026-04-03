@@ -89,7 +89,7 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [x] **T037 [P]** 文档：更新 `docs/plan/AI_engineering/multi_plugin_capability_guide.md` 与 `specs/007.../quickstart.md` 的 CLI 例子，新增“缓存刷新”“模板升级”章节。
+- [x] **T037 [P]** 文档：更新 `docs/plan/ai_engineering/multi_plugin_capability_guide.md` 与 `specs/007.../quickstart.md` 的 CLI 例子，新增“缓存刷新”“模板升级”章节。
 - [x] **T038 [P]** CI & Scripts：实现 `scripts/capability_registry/verify.sh`，串联 quickstart 步骤 1-4 并在 CI 执行。
 - [x] **T039** 性能与容错：编写负载测试脚本（`tests/integration/capability_registry/load/`) 验证 5k+ 调用、Redis 缓存击穿保护，并对 Selector fallback 做 chaos 测试。
 - [x] **T040** 最终 QA：运行 prometheus/otel 验证、检查事件补偿逻辑、审阅日志格式，更新 `AGENTS.md` 及 README 片段。

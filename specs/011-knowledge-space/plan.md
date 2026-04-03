@@ -157,11 +157,11 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - Documents prerequisites (Go 1.24, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
 - Provides step-by-step smoke flow covering provisioning → ingestion → fusion → feedback plus observability checkpoints.
 
-### Strategy Package → Scene Mapping (align `docs/plan/AI_engineering/knowledge/rag.md`)
+### Strategy Package → Scene Mapping (align `docs/plan/ai_engineering/knowledge/rag.md`)
 
 This plan MUST align the implementation with the strategy package → scene mapping model in:
-- `docs/plan/AI_engineering/knowledge/rag.md`
-- `docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md`
+- `docs/plan/ai_engineering/knowledge/rag.md`
+- `docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md`
 
 Key decisions and implications:
 - **One-level selection** in UI: `Strategy package (A0–O)` with “适用场景”说明（可选过滤）。

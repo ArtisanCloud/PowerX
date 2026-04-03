@@ -2,10 +2,16 @@
 package seed
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	iamservice "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -25,6 +31,9 @@ func SeedRoot(db *gorm.DB) error {
 
 	if err := SeedSwaggerPermissions(db, resolveSwaggerPath()); err != nil {
 		return fmt.Errorf("seed swagger permissions: %w", err)
+	}
+	if err := iamservice.EnsureOpsPermissions(seedCtx(), permissionRegistrar{repo: infraiam.NewPermissionRepository(db)}); err != nil {
+		return fmt.Errorf("seed ops permissions: %w", err)
 	}
 	if err := apikeypermissions.EnsureTemplatePermissions(seedCtx(), infraiam.NewPermissionRepository(db)); err != nil {
 		return fmt.Errorf("seed api key permissions: %w", err)
@@ -58,29 +67,82 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("grant defaults for tenant %s: %w", tenantUUID, err)
 	}
 
-	// 6) 确保 root 用户与凭证
-	const rootUserName = "root"
-	const rootIdentifier = "root"
-	rootPassword := envOrDefault("POWERX_ROOT_PASSWORD", "root")
+	// 6) 确保 root 用户与凭证（仅从 setup 草稿文件或内置默认读取，不使用环境变量）
+	rootUserName := "root"
+	rootIdentifier := "root"
+	rootDisplayName := "root"
+	rootEmail := "tech@artisan-cloud.com"
+	rootPhone := "13800000000"
+	rootPassword := "root"
+
+	setupAdmin, hasSetupDraft, hasSetupAdminPassword := loadSetupAdminFromDraft()
+	if hasSetupAdminPassword {
+		if v := strings.TrimSpace(setupAdmin.Username); v != "" {
+			rootUserName = v
+		}
+		if v := strings.TrimSpace(setupAdmin.DisplayName); v != "" {
+			rootDisplayName = v
+		}
+		if v := strings.ToLower(strings.TrimSpace(setupAdmin.Email)); v != "" {
+			rootEmail = v
+		}
+		if v := strings.TrimSpace(setupAdmin.Phone); v != "" {
+			rootPhone = v
+		}
+		rootPassword = strings.TrimSpace(setupAdmin.Password)
+		rootIdentifier = strings.ToLower(strings.TrimSpace(rootEmail))
+		if rootIdentifier == "" {
+			rootIdentifier = strings.TrimSpace(rootPhone)
+		}
+		if rootIdentifier == "" {
+			rootIdentifier = strings.TrimSpace(rootUserName)
+		}
+		if rootIdentifier == "" {
+			rootIdentifier = "root"
+		}
+	} else if hasSetupDraft {
+		// setup 进行中但尚未提供管理员密码：不提前写入默认 root。
+		fmt.Println("[seed] skip root identity before setup admin is confirmed")
+		return nil
+	}
 
 	userRepo := infraiam.NewUserRepository(db)
 	memberRepo := infraiam.NewMemberRepository(db)
 	credRepo := infraiam.NewCredentialRepository(db)
 	rbRepo := infraiam.NewRoleBindingRepository(db)
 
+	var userID uint64
 	cred, err := credRepo.FindByProviderIdentifier(seedCtx(), "password", rootIdentifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("find root credential: %w", err)
+		return fmt.Errorf("find root credential by identifier: %w", err)
 	}
-
-	var userID uint64
 	if cred != nil {
 		userID = cred.UserID
-	} else {
+	}
+	if userID == 0 {
+		legacyCred, legacyErr := credRepo.FindByProviderIdentifier(seedCtx(), "password", "root")
+		if legacyErr != nil && !errors.Is(legacyErr, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("find legacy root credential: %w", legacyErr)
+		}
+		if legacyCred != nil {
+			userID = legacyCred.UserID
+		}
+	}
+	if userID == 0 && rootEmail != "" {
+		if u, findErr := userRepo.FindByEmail(seedCtx(), rootEmail); findErr == nil && u != nil {
+			userID = u.ID
+		}
+	}
+	if userID == 0 && rootPhone != "" {
+		if u, findErr := userRepo.FindByPhone(seedCtx(), rootPhone); findErr == nil && u != nil {
+			userID = u.ID
+		}
+	}
+	if userID == 0 {
 		u := &model.User{
-			DisplayName: "root",
-			Phone:       "13800000000",
-			Email:       "tech@artisan-cloud.com",
+			DisplayName: rootDisplayName,
+			Phone:       rootPhone,
+			Email:       rootEmail,
 			Status:      model.UserStatusActive,
 			IsRoot:      true,
 		}
@@ -88,19 +150,57 @@ func SeedRoot(db *gorm.DB) error {
 			return fmt.Errorf("create user: %w", err)
 		}
 		userID = u.ID
-
-		hash, err := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
-		if err != nil {
-			return fmt.Errorf("hash password: %w", err)
+	} else {
+		updates := map[string]any{
+			"display_name": rootDisplayName,
+			"is_root":      true,
 		}
-		if err := credRepo.Create(seedCtx(), &model.Credential{
-			UserID:     userID,
-			Provider:   "password",
-			Identifier: rootIdentifier,
-			SecretHash: string(hash),
-			IsPrimary:  true,
-		}); err != nil {
-			return fmt.Errorf("create credential: %w", err)
+		if rootEmail != "" {
+			updates["email"] = rootEmail
+		}
+		if rootPhone != "" {
+			updates["phone"] = rootPhone
+		}
+		if err := db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			return fmt.Errorf("update root user: %w", err)
+		}
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	if cred != nil && cred.UserID != userID {
+		return fmt.Errorf("root identifier already bound to another user: %s", rootIdentifier)
+	}
+	if err := credRepo.Upsert(seedCtx(), &model.Credential{
+		UserID:     userID,
+		Provider:   "password",
+		Identifier: rootIdentifier,
+		SecretHash: string(hash),
+		IsPrimary:  true,
+	}, "user_id", "secret_hash", "is_primary"); err != nil {
+		return fmt.Errorf("upsert credential: %w", err)
+	}
+
+	// 兼容：如果 rootIdentifier 不是 root，再补一条 legacy root 标识，避免旧脚本/文档登录失败。
+	if rootIdentifier != "root" {
+		if legacyCred, legacyErr := credRepo.FindByProviderIdentifier(seedCtx(), "password", "root"); legacyErr == nil {
+			if legacyCred.UserID != userID {
+				return fmt.Errorf("legacy root identifier already bound to another user")
+			}
+		} else if errors.Is(legacyErr, gorm.ErrRecordNotFound) {
+			if err := credRepo.Create(seedCtx(), &model.Credential{
+				UserID:     userID,
+				Provider:   "password",
+				Identifier: "root",
+				SecretHash: string(hash),
+				IsPrimary:  false,
+			}); err != nil {
+				return fmt.Errorf("create legacy root credential: %w", err)
+			}
+		} else {
+			return fmt.Errorf("find legacy root credential: %w", legacyErr)
 		}
 	}
 
@@ -118,7 +218,7 @@ func SeedRoot(db *gorm.DB) error {
 			TenantUUID:  tenantUUID,
 			UserID:      userID,
 			Username:    rootUserName,
-			DisplayName: "root",
+			DisplayName: rootDisplayName,
 			Status:      1,
 		}
 		if _, err := memberRepo.Create(seedCtx(), m); err != nil {
@@ -127,6 +227,13 @@ func SeedRoot(db *gorm.DB) error {
 		memberID = m.ID
 	} else {
 		memberID = mem.ID
+		memberUpdates := map[string]any{
+			"username":     rootUserName,
+			"display_name": rootDisplayName,
+		}
+		if err := db.Model(&model.Member{}).Where("id = ?", memberID).Updates(memberUpdates).Error; err != nil {
+			return fmt.Errorf("update root member: %w", err)
+		}
 	}
 
 	// 8) 绑定 tenant 的 role_admin 到该成员（subject_type=MEMBER）
@@ -143,6 +250,50 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("bind role_admin to root member: %w", err)
 	}
 
-	fmt.Printf("[seed] root ready. tenant=%s username=%s password=%s\n", tenantKey, rootUserName, rootPassword)
+	fmt.Printf("[seed] root ready. tenant=%s username=%s identifier=%s password=%s\n", tenantKey, rootUserName, rootIdentifier, rootPassword)
 	return nil
+}
+
+type permissionRegistrar struct {
+	repo *infraiam.PermissionRepository
+}
+
+func (r permissionRegistrar) RegisterPermissions(ctx context.Context, rows []model.Permission) error {
+	if r.repo == nil {
+		return errors.New("permission repository is nil")
+	}
+	return r.repo.UpsertBatch(ctx, rows)
+}
+
+type setupDraftAdminConfig struct {
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+	Phone       string `json:"phone"`
+}
+
+type setupDraftPayload struct {
+	Admin setupDraftAdminConfig `json:"admin"`
+}
+
+func loadSetupAdminFromDraft() (setupDraftAdminConfig, bool, bool) {
+	paths := []string{
+		filepath.Join("etc", "setup.wizard.config.json"),
+		filepath.Join("backend", "etc", "setup.wizard.config.json"),
+	}
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var payload setupDraftPayload
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return setupDraftAdminConfig{}, true, false
+		}
+		admin := payload.Admin
+		hasPassword := strings.TrimSpace(admin.Password) != ""
+		return admin, true, hasPassword
+	}
+	return setupDraftAdminConfig{}, false, false
 }

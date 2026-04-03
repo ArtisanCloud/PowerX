@@ -114,9 +114,9 @@ func TestMultimodalSessionStreamAuditAndTenantIsolation(t *testing.T) {
 					{
 						AdapterID:     "adapter-rest",
 						TransportType: "rest",
-						Endpoint:      "/api/v1/ai/llm/sessions/session-001/stream",
+						Endpoint:      "/api/v1/ai/llm/stream",
 						Labels: map[string]string{
-							"method": "GET",
+							"method": "POST",
 						},
 						IsActive: true,
 					},
@@ -134,7 +134,7 @@ func TestMultimodalSessionStreamAuditAndTenantIsolation(t *testing.T) {
 
 	testutil.SkipIfNoLocalListener(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/ai/llm/sessions/session-001/stream" {
+		if r.URL.Path != "/api/v1/ai/llm/stream" {
 			http.NotFound(w, r)
 			return
 		}
@@ -161,8 +161,8 @@ func TestMultimodalSessionStreamAuditAndTenantIsolation(t *testing.T) {
 		PreferredProtocol: "rest",
 		TraceID:           traceID,
 		Payload: map[string]any{
-			"method":    "GET",
-			"endpoint":  "/api/v1/ai/llm/sessions/session-001/stream",
+			"method":    "POST",
+			"endpoint":  "/api/v1/ai/llm/stream",
 			"model_key": modelKey,
 			"modality":  "llm",
 		},
@@ -179,8 +179,8 @@ func TestMultimodalSessionStreamAuditAndTenantIsolation(t *testing.T) {
 		CapabilityID: capabilityID,
 		TenantUUID:   "tenant-denied",
 		Payload: map[string]any{
-			"method":    "GET",
-			"endpoint":  "/api/v1/ai/llm/sessions/session-001/stream",
+			"method":    "POST",
+			"endpoint":  "/api/v1/ai/llm/stream",
 			"model_key": modelKey,
 			"modality":  "llm",
 		},

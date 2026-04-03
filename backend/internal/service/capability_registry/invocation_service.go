@@ -30,34 +30,36 @@ import (
 
 // InvocationServiceOptions 配置能力调用服务。
 type InvocationServiceOptions struct {
-	Catalog     *RegistryService
-	Router      *router.Service
-	TraceRepo   *repo.InvocationTraceRepository
-	EventRepo   *repo.CapabilityEventPublicationRepository
-	EventBus    event_bus.EventBus
-	Auditor     auditpkg.Auditor
-	Metrics     *capmetrics.CapabilityRegistryMetrics
-	Audit       *AuditService
-	Clock       func() time.Time
-	VersionLock VersionLock
-	HTTPClient  *http.Client
-	HTTPBaseURL string
-	GRPCConn    *grpc.ClientConn
-	ModelVerifier ModelKeyVerifier
+	Catalog           *RegistryService
+	Router            *router.Service
+	TraceRepo         *repo.InvocationTraceRepository
+	EventRepo         *repo.CapabilityEventPublicationRepository
+	EventBus          event_bus.EventBus
+	Auditor           auditpkg.Auditor
+	Metrics           *capmetrics.CapabilityRegistryMetrics
+	Audit             *AuditService
+	Clock             func() time.Time
+	VersionLock       VersionLock
+	HTTPClient        *http.Client
+	AIModalHTTPClient *http.Client
+	HTTPBaseURL       string
+	GRPCConn          *grpc.ClientConn
+	ModelVerifier     ModelKeyVerifier
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
 type InvocationService struct {
-	catalog     *RegistryService
-	router      *router.Service
-	traces      *repo.InvocationTraceRepository
-	audit       *AuditService
-	versionLock VersionLock
-	modelVerifier ModelKeyVerifier
-	now         func() time.Time
-	httpClient  *http.Client
-	httpBaseURL string
-	grpcConn    *grpc.ClientConn
+	catalog           *RegistryService
+	router            *router.Service
+	traces            *repo.InvocationTraceRepository
+	audit             *AuditService
+	versionLock       VersionLock
+	modelVerifier     ModelKeyVerifier
+	now               func() time.Time
+	httpClient        *http.Client
+	aiModalHTTPClient *http.Client
+	httpBaseURL       string
+	grpcConn          *grpc.ClientConn
 }
 
 // ModelKeyVerifier validates tenant-scoped model_key access.
@@ -107,19 +109,24 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second}
+		httpClient = &http.Client{Timeout: 20 * time.Second}
+	}
+	aiModalHTTPClient := opts.AIModalHTTPClient
+	if aiModalHTTPClient == nil {
+		aiModalHTTPClient = httpClient
 	}
 	return &InvocationService{
-		catalog:     opts.Catalog,
-		router:      opts.Router,
-		traces:      opts.TraceRepo,
-		audit:       audit,
-		versionLock: opts.VersionLock,
-		modelVerifier: opts.ModelVerifier,
-		now:         clock,
-		httpClient:  httpClient,
-		httpBaseURL: strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
-		grpcConn:    opts.GRPCConn,
+		catalog:           opts.Catalog,
+		router:            opts.Router,
+		traces:            opts.TraceRepo,
+		audit:             audit,
+		versionLock:       opts.VersionLock,
+		modelVerifier:     opts.ModelVerifier,
+		now:               clock,
+		httpClient:        httpClient,
+		aiModalHTTPClient: aiModalHTTPClient,
+		httpBaseURL:       strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
+		grpcConn:          opts.GRPCConn,
 	}
 }
 
@@ -167,15 +174,20 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
 		modality := extractStringFromBody(in.Payload, "modality")
 		modelKey := extractStringFromBody(in.Payload, "model_key")
+		if modelKey == "" {
+			modelKey = extractString(in.Payload, "model_key")
+		}
 		if modality == "" {
 			modality = defaultModalityForCapability(capabilityID)
 		}
-		if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
-			return result, fmt.Errorf("model_key required")
-		}
-		env := extractQueryString(in.Payload, "env")
-		if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
-			return result, err
+		if !shouldSkipModelKeyVerification(capabilityID, in.Payload, modelKey) {
+			if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
+				return result, fmt.Errorf("model_key required")
+			}
+			env := extractQueryString(in.Payload, "env")
+			if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
+				return result, err
+			}
 		}
 	}
 
@@ -305,7 +317,8 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		if err != nil {
 			return nil, err
 		}
-		return s.invokeREST(ctx, restPayload, traceID)
+		useAIMultimodalTimeout := shouldUseAIMultimodalTimeout(in.CapabilityID, routerResult.Endpoint, routerResult.Labels, in.Payload)
+		return s.invokeREST(ctx, in.CapabilityID, restPayload, traceID, useAIMultimodalTimeout)
 	case "grpc":
 		if s.grpcConn == nil {
 			return nil, nil
@@ -422,7 +435,7 @@ func buildGRPCInvokePayloadWithDefaults(raw map[string]interface{}, endpoint str
 	}, nil
 }
 
-func (s *InvocationService) invokeREST(ctx context.Context, payload restInvokePayload, traceID string) (map[string]interface{}, error) {
+func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string, payload restInvokePayload, traceID string, useAIMultimodalTimeout bool) (map[string]interface{}, error) {
 	target := payload.Endpoint
 	if !strings.HasPrefix(strings.ToLower(target), "http://") && !strings.HasPrefix(strings.ToLower(target), "https://") {
 		target = strings.TrimRight(s.httpBaseURL, "/") + "/" + strings.TrimLeft(target, "/")
@@ -470,7 +483,8 @@ func (s *InvocationService) invokeREST(ctx context.Context, payload restInvokePa
 		req.Header.Set("X-Trace-Id", traceID)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	httpClient := s.selectRESTHTTPClient(capabilityID, payload.Endpoint, useAIMultimodalTimeout)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("proxy REST request failed: %w", err)
 	}
@@ -506,6 +520,88 @@ func (s *InvocationService) invokeREST(ctx context.Context, payload restInvokePa
 		"value":  out,
 		"status": resp.Status,
 	}, nil
+}
+
+func (s *InvocationService) selectRESTHTTPClient(capabilityID, endpoint string, useAIMultimodalTimeout bool) *http.Client {
+	if s == nil {
+		return &http.Client{Timeout: 20 * time.Second}
+	}
+	if (useAIMultimodalTimeout || isAIMultimodalCapability(capabilityID, endpoint)) && s.aiModalHTTPClient != nil {
+		return s.aiModalHTTPClient
+	}
+	if s.httpClient != nil {
+		return s.httpClient
+	}
+	return &http.Client{Timeout: 20 * time.Second}
+}
+
+func shouldUseAIMultimodalTimeout(capabilityID, endpoint string, labels map[string]string, payload map[string]interface{}) bool {
+	if isAIMultimodalCapability(capabilityID, endpoint) {
+		return true
+	}
+	if isAILabels(labels) {
+		return true
+	}
+	if isAIPayload(payload) {
+		return true
+	}
+	return false
+}
+
+func isAIMultimodalCapability(capabilityID, endpoint string) bool {
+	lowerCapability := strings.ToLower(strings.TrimSpace(capabilityID))
+	if strings.HasPrefix(lowerCapability, "com.corex.ai.") {
+		return true
+	}
+	if endpoint == "" {
+		return false
+	}
+	target := strings.TrimSpace(endpoint)
+	if parsed, err := url.Parse(target); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		target = parsed.Path
+	}
+	target = strings.ToLower(strings.TrimSpace(target))
+	return strings.HasPrefix(target, "/ai/")
+}
+
+func isAILabels(labels map[string]string) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	toolScope := strings.ToLower(strings.TrimSpace(getLabel(labels, "tool_scope")))
+	intent := strings.ToLower(strings.TrimSpace(getLabel(labels, "intent")))
+	if strings.HasPrefix(toolScope, "ai.") || toolScope == "ai" {
+		return true
+	}
+	if strings.HasPrefix(intent, "ai.") || intent == "ai" {
+		return true
+	}
+	return false
+}
+
+func isAIPayload(payload map[string]interface{}) bool {
+	if len(payload) == 0 {
+		return false
+	}
+	body, _ := toStringAnyMap(payload["body"])
+	if body == nil {
+		body = payload
+	}
+	if strings.TrimSpace(extractString(body, "model_key")) != "" {
+		return true
+	}
+	if strings.TrimSpace(extractString(body, "modality")) != "" {
+		return true
+	}
+	if strings.TrimSpace(extractString(body, "model")) != "" {
+		if _, hasMessages := body["messages"]; hasMessages {
+			return true
+		}
+		if _, hasInput := body["input"]; hasInput {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *InvocationService) invokeGRPC(ctx context.Context, payload grpcInvokePayload) (map[string]interface{}, error) {
@@ -716,6 +812,44 @@ func defaultModalityForCapability(capabilityID string) string {
 		return "mixed"
 	}
 	return ""
+}
+
+func isModelListCapability(capabilityID string) bool {
+	lower := strings.ToLower(strings.TrimSpace(capabilityID))
+	return lower == "com.corex.ai.llm.models/list" || lower == "com.corex.ai.llm.models.read/list"
+}
+
+func shouldSkipModelKeyVerification(capabilityID string, payload map[string]interface{}, modelKey string) bool {
+	if strings.TrimSpace(modelKey) != "" {
+		return false
+	}
+	if isModelListCapability(capabilityID) {
+		return true
+	}
+	method := strings.ToUpper(strings.TrimSpace(extractString(payload, "method")))
+	if method == "" {
+		method = http.MethodGet
+	}
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	endpoint := strings.TrimSpace(extractString(payload, "endpoint"))
+	if endpoint == "" {
+		return false
+	}
+	return isLLMModelsListEndpoint(endpoint)
+}
+
+func isLLMModelsListEndpoint(endpoint string) bool {
+	target := strings.TrimSpace(endpoint)
+	if target == "" {
+		return false
+	}
+	if parsed, err := url.Parse(target); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		target = parsed.Path
+	}
+	target = strings.TrimRight(strings.ToLower(strings.TrimSpace(target)), "/")
+	return strings.HasSuffix(target, "/ai/llm/models")
 }
 
 func extractStickyKey(ctx map[string]interface{}) string {

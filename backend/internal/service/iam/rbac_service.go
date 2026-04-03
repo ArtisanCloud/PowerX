@@ -146,7 +146,6 @@ func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorConte
 
 // ========== 3) 鉴权（root 放行；直绑 + 维度间接绑定） ==========
 func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUID string, memberID uint64, module, resource, action string) (bool, error) {
-	_ = module
 	if actor.IsRoot {
 		return true, nil
 	}
@@ -156,8 +155,13 @@ func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUI
 	if strings.TrimSpace(tenantUUID) == "" || memberID == 0 {
 		return false, errors.New("tenant/member required")
 	}
-	// 复用 EXISTS 版绑定鉴权（直绑 + Assignment 聚合）
-	return s.pr.MemberHasPermissionViaBinding(ctx, tenantUUID, memberID, resource, action) // :contentReference[oaicite:14]{index=14}
+	// 复用 EXISTS 版绑定鉴权（直绑 + Assignment 聚合）。
+	// module 为空时保持历史兼容，仅按 resource/action 鉴权。
+	module = strings.TrimSpace(module)
+	if module == "" {
+		return s.pr.MemberHasPermissionViaBinding(ctx, tenantUUID, memberID, resource, action)
+	}
+	return s.pr.MemberHasPermissionViaBindingWithModule(ctx, tenantUUID, memberID, module, resource, action)
 }
 
 func triplesToTuples(ts []PermTriple) [][3]string {

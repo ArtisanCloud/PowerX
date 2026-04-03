@@ -1,0 +1,202 @@
+---
+name: crud-service
+description: PowerX CRUD Service 规则（事务、审计、错误翻译、传输解耦）。
+---
+
+# PowerX CRUD Service
+
+## 步骤
+
+1) 打开 `本文件内嵌规则`。
+2) 按规则执行实现/校对。
+3) 完成后按核对清单验收。
+
+## 核对点
+
+- 与 PowerX 当前代码结构、路径与命名一致。
+- 仅在传输层/契约层做职责内改动，不跨层越界。
+
+## 规则（内嵌）
+
+### service.yaml
+
+````yaml
+kind: ruleset
+name: crud_service
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    统一 Service 层职责：鉴权/审计、事务边界、幂等与并发控制、错误翻译（404/409），
+    与 Repository/DTO/Handler/DI 对齐，保持传输无关（HTTP/gRPC 共用）。
+  references:
+    - crud_di.yaml
+    - crud_repository.yaml
+    - crud_dto.yaml
+    - crud_api_rest.yaml
+    - constitution.md
+
+scope:
+  applies_to:
+    - "internal/service/**/**_service.go"
+
+principles:
+  - 传输无关：Service 只依赖 Repo 接口与 *shared.Deps，不依赖 gin/http/grpc。
+  - 鉴权与审计：在 Service 层落实 RBAC/ABAC 与审计打点（入参需包含 actor/tenant/requestID）。
+  - 事务：Service 负责确定事务边界；优先使用 Repo.WithTx 注入 tx。
+  - 幂等与并发：Create 支持 Idempotency-Key（可选）；Update 支持 If-Match/ETag（可选）。
+  - 错误翻译：ErrRecordNotFound → 404；唯一键冲突/重复 → 409；其余 → 500（由上层桥接）。
+  - 日志：必要路径要记录关键维度（tenant/actor/id）。
+  - 形态约束：Service 默认以结构体 + `New*Service` 构造函数呈现；仅当满足“同一接口需要多种驱动/工厂模式”“为复用/测试提供可替换实现（如 handler、worker、远程代理共用服务）”等场景，或复用已有跨包 interface 规范时，才允许额外定义 interface 壳，并需在评审中说明理由。
+  - Repo 生命周期：Service 构造时基于注入的 `*gorm.DB` 创建所需 Repository；禁止在 `shared.Deps` 或 Handler 层先行实例化 Repo 再传入 Service。
+
+checks:
+
+  # 形态：结构体 + 构造函数 + 仅依赖 Deps/Repo
+  - id: service.shape
+    level: error
+    when: { glob: "internal/service/**/**_service.go" }
+    assert:
+      - must_define_like: "type *Service struct { deps *shared.Deps"
+      - must_define_like: "func New*Service(*shared.Deps, *"
+      - must_not_import: ["github.com/gin-gonic/gin","net/http","google.golang.org/grpc","gorm.io/gorm"]
+
+  # 方法签名：ctx + tenant/actor/…（根据业务，可放松）
+  - id: service.method.signature
+    level: warn
+    when: { glob: "internal/service/**/**_service.go" }
+    assert:
+      - should_contain_regex: "func \\(s \\*.*Service\\) .*\\(ctx context\\.Context, .*tenantID .*\\) .*"
+      - must_import: ["context"]
+
+  # 事务调用
+  - id: service.uses.tx
+    level: warn
+    when: { glob: "internal/service/**/**_service.go" }
+    assert:
+      - should_contain_any: ["WithTx(","Transaction("]
+
+  # 错误翻译（记录出现，便于 code review 聚焦）
+  - id: service.error.translation
+    level: warn
+    when: { glob: "internal/service/**/**_service.go" }
+    assert:
+      - should_contain_any: ["ErrRecordNotFound","409","404","Conflict","NotFound"]
+
+  # 禁止在 Service 中直接 new 外部客户端（统一由 Deps 管理）
+  - id: service.no_new_external_clients
+    level: error
+    when: { glob: "internal/service/**/**_service.go" }
+    assert:
+      - must_not_call: ["redis.NewClient(","kafka.NewReader(","http.DefaultClient.Do","sql.Open("]
+
+acceptance:
+  checklist:
+    - "[ ] Service 仅依赖 Repo 接口与 *shared.Deps，不耦合传输层"
+    - "[ ] 关键方法包含 ctx/tenant/actor 等上下文，能审计溯源"
+    - "[ ] 事务边界清晰：通过 Repo.WithTx/Transaction 控制"
+    - "[ ] 错误统一翻译（404/409/500）供上层桥接"
+    - "[ ] 可被 HTTP/gRPC 同时复用"
+
+templates:
+  service_go: |
+    // internal/service/{{domain}}/{{resource}}_service.go
+    package {{domain}}svc
+
+    import (
+      "context"
+      "errors"
+
+      "github.com/ArtisanCloud/PowerX/internal/app/shared"
+      {{domain}}repo "{{module_path}}/internal/repository/{{domain}}"
+      m "{{module_path}}/pkg/corex/db/persistence/model/{{domain}}"
+      "gorm.io/gorm"
+    )
+
+    var (
+      ErrNotFound = errors.New("{{resource}} not found")
+      ErrConflict = errors.New("{{resource}} conflict")
+    )
+
+    type {{Entity}}Service struct {
+      deps *shared.Deps
+      repo {{domain}}repo.{{Entity}}Repo
+    }
+
+    func New{{Entity}}Service(d *shared.Deps, r {{domain}}repo.{{Entity}}Repo) *{{Entity}}Service {
+      return &{{Entity}}Service{deps: d, repo: r}
+    }
+
+    func (s *{{Entity}}Service) Create(ctx context.Context, tenantID uint64, actorID uint64, req any) (*m.{{Entity}}, error) {
+      in := &m.{{Entity}}{
+        // 从 req 映射；此处略
+      }
+      // 事务示例
+      err := s.repo.WithTx(ctx, s.deps.DB, func(tx *gorm.DB) error {
+        return s.repo.Create(ctx, tx, tenantID, in)
+      })
+      if err != nil {
+        // 唯一冲突示例
+        if {{domain}}repo.IsUniqueConflict(err) {
+          return nil, ErrConflict
+        }
+        return nil, err
+      }
+      // 审计/日志（略）
+      return in, nil
+    }
+
+    func (s *{{Entity}}Service) Get(ctx context.Context, tenantID uint64, id string) (*m.{{Entity}}, error) {
+      out, err := s.repo.GetByID(ctx, s.deps.DB, tenantID, id)
+      if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+          return nil, ErrNotFound
+        }
+        return nil, err
+      }
+      return out, nil
+    }
+
+    func (s *{{Entity}}Service) List(ctx context.Context, tenantID uint64, pg {{domain}}repo.Page, filters map[string]string) ([]*m.{{Entity}}, shared.PaginationResponse, error) {
+      items, total, err := s.repo.List(ctx, s.deps.DB, tenantID, pg, filters)
+      if err != nil { return nil, shared.PaginationResponse{}, err }
+      pr := shared.PaginationResponse{
+        Total: total, Page: pg.Page, PageSize: pg.PageSize,
+        Pages: (int(total)+pg.PageSize-1)/pg.PageSize,
+      }
+      return items, pr, nil
+    }
+
+    func (s *{{Entity}}Service) Update(ctx context.Context, tenantID uint64, id string, patch any, ifMatch *string) (*m.{{Entity}}, error) {
+      cur, err := s.repo.GetByID(ctx, s.deps.DB, tenantID, id)
+      if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) { return nil, ErrNotFound }
+        return nil, err
+      }
+      // merge patch（略）；ETag/If-Match（可选）
+      if err := s.repo.Update(ctx, s.deps.DB, tenantID, cur); err != nil {
+        return nil, err
+      }
+      return cur, nil
+    }
+
+    func (s *{{Entity}}Service) Delete(ctx context.Context, tenantID uint64, id string, force bool) error {
+      // 可加 RBAC 校验（略）
+      if err := s.repo.Delete(ctx, s.deps.DB, tenantID, id, force); err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) { return ErrNotFound }
+        return err
+      }
+      return nil
+    }
+  repo_err_helpers_go: |
+    // internal/repository/{{domain}}/errors.go
+    package {{domain}}repo
+    import "strings"
+    func IsUniqueConflict(err error) bool {
+      if err == nil { return false }
+      s := err.Error()
+      return strings.Contains(s, "duplicate key") || strings.Contains(s, "unique")
+    }
+````

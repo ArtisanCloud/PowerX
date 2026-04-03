@@ -1,0 +1,174 @@
+{
+  "meta": {
+    "created_at": "2026-03-22T23:18:56.312022+08:00",
+    "runtime": {
+      "request_id": "a46ead16-a74d-4f78-8f11-0ed4815772aa",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    },
+    "trace_id": "a6c1b99b-84af-4317-9992-f7bcf965160a",
+    "type": "agent_stream"
+  },
+  "request": {
+    "body": {
+      "agent_id": 1,
+      "agent_uuid": "6b31adf3-4f7d-4c77-9d1d-c58fb3a7cf2a",
+      "client_msg_id": "u_1774192736260",
+      "env": "dev",
+      "flow_id": "chat",
+      "q": "我们线上接口 INC-1001 宕机 30 分钟，请先排查并给简短修复建议。",
+      "session_id": 9,
+      "session_uuid": "64855b08-0876-49c9-8a36-0c40605c72dc"
+    }
+  },
+  "response": {
+    "end": {
+      "success": true
+    },
+    "events": [
+      {
+        "at": "2026-03-22T23:19:33.283966+08:00",
+        "data": {
+          "mode": "intent_multi",
+          "planner_mode": "unified",
+          "tasks": [
+            {
+              "agent_id": "",
+              "flow_id": "incident-triage",
+              "params": {
+                "_candidate_desc": "Analyze incident context and provide structured triage suggestions.",
+                "_candidate_name": "incident-triage",
+                "_node_kind": "skill",
+                "_node_ref": "incident-triage",
+                "_source_scope": "system",
+                "incident_id": "INC-1001"
+              },
+              "reason": "用户已提供 incident_id，可调用 incident-triage 工具进行结构化分诊分析",
+              "score": 0.8,
+              "strategy": "tool_calling:skill",
+              "task_id": "tc1"
+            }
+          ]
+        },
+        "event": "intent"
+      },
+      {
+        "at": "2026-03-22T23:19:33.284063+08:00",
+        "data": {
+          "plan": {
+            "plan_id": "plan_1774192773283988000",
+            "tasks": [
+              {
+                "agent_id": "",
+                "flow_id": "incident-triage",
+                "node_kind": "skill",
+                "node_ref": "incident-triage",
+                "params": {
+                  "_candidate_desc": "Analyze incident context and provide structured triage suggestions.",
+                  "_candidate_name": "incident-triage",
+                  "_node_kind": "skill",
+                  "_node_ref": "incident-triage",
+                  "_source_scope": "system",
+                  "incident_id": "INC-1001"
+                },
+                "source_scope": "system",
+                "stage": 1,
+                "task_id": "tc1"
+              }
+            ]
+          },
+          "planner_mode": "unified"
+        },
+        "event": "plan"
+      },
+      {
+        "at": "2026-03-22T23:19:33.284234+08:00",
+        "data": {
+          "depends_on": null,
+          "flow_id": "incident-triage",
+          "node_desc": "Analyze incident context and provide structured triage suggestions.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "incident-triage",
+          "node_ref": "incident-triage",
+          "plan_id": "plan_1774192773283988000",
+          "planner_mode": "unified",
+          "source_scope": "system",
+          "stage": 1,
+          "task_id": "tc1"
+        },
+        "event": "node_start"
+      },
+      {
+        "at": "2026-03-22T23:19:33.314378+08:00",
+        "data": {
+          "depends_on": null,
+          "error": "",
+          "flow_id": "incident-triage",
+          "node_desc": "Analyze incident context and provide structured triage suggestions.",
+          "node_id": "tc1",
+          "node_kind": "skill",
+          "node_name": "incident-triage",
+          "node_ref": "incident-triage",
+          "plan_id": "plan_1774192773283988000",
+          "planner_mode": "unified",
+          "result_summary": {
+            "step_id": "",
+            "success": true
+          },
+          "source_scope": "system",
+          "stage": 1,
+          "status": "completed",
+          "task_id": "tc1"
+        },
+        "event": "node_end"
+      },
+      {
+        "at": "2026-03-22T23:19:33.323168+08:00",
+        "data": {
+          "data": {
+            "content": "事故排查结果（INC-1001）\n- 严重级别：low\n- 简短总结：当前信息不足，建议先补充事故现象、影响范围和发生时间。\n- 建议动作：先确认影响范围（用户/区域/功能）并冻结变更；检查最近发布与依赖变更，优先回滚可疑变更；补充事故时间线与根因证据，形成复盘项"
+          },
+          "metadata": {
+            "plan_id": "plan_1774192773283988000",
+            "trace_id": "a6c1b99b-84af-4317-9992-f7bcf965160a"
+          },
+          "success": true
+        },
+        "event": "final"
+      },
+      {
+        "at": "2026-03-22T23:19:33.323314+08:00",
+        "data": {
+          "success": true
+        },
+        "event": "end"
+      }
+    ],
+    "events_count": 6,
+    "final": {
+      "data": {
+        "content": "事故排查结果（INC-1001）\n- 严重级别：low\n- 简短总结：当前信息不足，建议先补充事故现象、影响范围和发生时间。\n- 建议动作：先确认影响范围（用户/区域/功能）并冻结变更；检查最近发布与依赖变更，优先回滚可疑变更；补充事故时间线与根因证据，形成复盘项"
+      },
+      "metadata": {
+        "plan_id": "plan_1774192773283988000",
+        "trace_id": "a6c1b99b-84af-4317-9992-f7bcf965160a"
+      },
+      "success": true
+    },
+    "last_error": null,
+    "usage": {
+      "cache_mode": "auto",
+      "completion_tokens": 34,
+      "context_layers_size": {
+        "L0": 0,
+        "L1": 120,
+        "L2": 0,
+        "L3": 151,
+        "L4": 0,
+        "L5": 10
+      },
+      "prompt_tokens": 281,
+      "trim_actions": []
+    }
+  }
+}

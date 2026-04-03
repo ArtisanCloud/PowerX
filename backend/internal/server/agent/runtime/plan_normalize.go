@@ -78,13 +78,16 @@ func planPayloadToExecPlan(pp *dto.PlanPayload) *flowschema.ExecutionPlan {
 	}
 	for _, t := range pp.Tasks {
 		ep.Tasks = append(ep.Tasks, flowschema.PlanTask{
-			TaskID:    t.TaskID,
-			FlowID:    t.FlowID,
-			AgentID:   t.AgentID,
-			Params:    t.Params,
-			ParamRefs: t.ParamRefs,
-			Stage:     t.Stage,
-			DependsOn: t.DependsOn,
+			TaskID:      t.TaskID,
+			FlowID:      t.FlowID,
+			NodeKind:    t.NodeKind,
+			NodeRef:     t.NodeRef,
+			SourceScope: t.SourceScope,
+			AgentID:     t.AgentID,
+			Params:      t.Params,
+			ParamRefs:   t.ParamRefs,
+			Stage:       t.Stage,
+			DependsOn:   t.DependsOn,
 		})
 	}
 	return ep

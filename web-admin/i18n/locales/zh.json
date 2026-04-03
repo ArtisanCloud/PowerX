@@ -9,6 +9,7 @@
     "aiSettings": "AI 设置",
     "aiSettingsModel": "模型配置",
     "aiSettingsCost": "成本配置",
+    "aiSettingsContextOptimizer": "上下文优化",
     "aiSettingsRegistry": "能力注册表",
     "pluginCapabilities": "插件能力",
     "intelligentPlatforms": "智能平台",
@@ -168,6 +169,13 @@
       "saasSupport": "SaaS 开通即将上线"
     }
   },
+  "error": {
+    "tip": "请尝试返回或回到首页。",
+    "goBack": "返回上一页",
+    "goHome": "返回首页",
+    "occurred": "发生错误",
+    "notFound": "页面未找到"
+  },
   "settings": {
     "ai": {
       "title": "AI 设置",
@@ -188,12 +196,109 @@
         "openCostGuard": "进入成本防护",
         "backToModels": "返回模型列表",
         "openCapabilityRegistry": "插件能力",
-        "openConnectors": "智能平台"
+        "openConnectors": "智能平台",
+        "openContextOptimizer": "上下文优化"
       },
       "costGuardPageTitle": "成本防护",
       "costGuardPageDesc": "管理 AI 配额、限流与降级策略。",
       "registryPageTitle": "插件能力",
       "registryPageDesc": "查看插件能力目录、哈希与同步任务，仅 root 用户可访问。",
+      "contextOptimizer": {
+        "title": "上下文优化",
+        "description": "在线调整上下文预算、Prompt Cache 策略与调试追踪开关。",
+        "scope": "作用域",
+        "activeSource": "当前生效来源",
+        "activeVersion": "生效版本：v{version}",
+        "lastUpdated": "最近更新",
+        "enableOptimizer": "启用上下文优化",
+        "enableDebugTrace": "启用调试追踪",
+        "versionHistory": "版本历史",
+        "versionHint": "点击行选择版本后可发布/回滚",
+        "noChangeReason": "无变更说明",
+        "noVersions": "暂无版本记录",
+        "scopeTenant": "租户",
+        "scopeSystem": "系统",
+        "sources": {
+          "tenant": "租户配置",
+          "system": "系统配置",
+          "yamlDefault": "YAML 默认",
+          "unknown": "未知"
+        },
+        "fields": {
+          "maxPromptTokens": "最大提示词 Token",
+          "reservedCompletionTokens": "预留回复 Token",
+          "recentMessages": "最近消息窗口",
+          "retrievalTopK": "检索片段数量",
+          "summaryRefreshIntervalSec": "摘要刷新间隔(秒)",
+          "cacheMode": "缓存模式",
+          "plannerEnabled": "启用 Planner 提速",
+          "plannerCandidateTopK": "Planner 候选 TopK",
+          "plannerPromptSlimMode": "Planner Prompt 模式",
+          "plannerDecisionCacheEnabled": "启用 Planner 决策缓存",
+          "plannerDecisionCacheTtlSec": "Planner 决策缓存 TTL(秒)",
+          "plannerQuotaWorkflow": "Planner 配额 Workflow",
+          "plannerQuotaSkill": "Planner 配额 Skill",
+          "plannerQuotaTooling": "Planner 配额 Tooling",
+          "plannerQuotaLlm": "Planner 配额 LLM"
+        },
+        "sections": {
+          "plannerOptimizer": "Planner 提速"
+        },
+        "cacheModes": {
+          "auto": "自动",
+          "forceOn": "强制开启",
+          "forceOff": "强制关闭"
+        },
+        "plannerPromptSlimModes": {
+          "compact": "紧凑",
+          "verbose": "详细"
+        },
+        "actions": {
+          "saveDraft": "保存草稿",
+          "publishSelected": "发布选中版本",
+          "rollbackSelected": "回滚到选中版本"
+        },
+        "toasts": {
+          "draftSaved": "已保存草稿",
+          "publishSuccess": "发布成功",
+          "rollbackSuccess": "回滚成功"
+        },
+        "errors": {
+          "loadFailed": "加载失败",
+          "saveFailed": "保存失败",
+          "publishFailed": "发布失败",
+          "rollbackFailed": "回滚失败"
+        },
+        "status": {
+          "published": "已发布",
+          "draft": "草稿"
+        }
+      },
+      "skillsSourcePolicy": {
+        "title": "Skills 来源策略",
+        "description": "控制统一入口 preferred_protocol=skill 的候选来源范围。",
+        "updatedAt": "最近更新",
+        "notConfigured": "未配置",
+        "effectiveSource": {
+          "tenant": "租户覆盖",
+          "default": "默认策略"
+        },
+        "sources": {
+          "builtin": "系统固有（builtin）",
+          "plugin": "插件来源（plugin）",
+          "thirdParty": "第三方（third_party）"
+        },
+        "actions": {
+          "save": "保存来源策略"
+        },
+        "toasts": {
+          "loadFailed": "加载 Skills 来源策略失败",
+          "saveSuccess": "保存成功",
+          "saveSuccessDesc": "Skills 来源策略已更新",
+          "saveFailed": "保存失败",
+          "saveValidationFailed": "请至少保留一个来源（builtin / plugin / third_party）"
+        }
+      },
       "costGuard": {
         "panelTitle": "防护策略",
         "panelDesc": "配置配额、限流与降级方案。",
@@ -875,6 +980,9 @@
   },
   "agent": {
     "confirmDelete": "确定删除吗？",
+    "list": {
+      "loadFailed": "加载智能体列表失败"
+    },
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",

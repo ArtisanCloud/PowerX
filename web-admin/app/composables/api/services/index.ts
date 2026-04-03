@@ -48,3 +48,46 @@ export type {
   CreateIntegrationGatewayApiKeyResult,
   RotateIntegrationGatewayApiKeyResult,
 } from "./integrationGatewayApiKeyService";
+
+export { useSkillsService } from "./skillsService";
+export type {
+  SkillRecord,
+  SkillListResult,
+  SkillImportPayload,
+  SkillInvokePayload,
+  SkillAuditRecord,
+  SkillTraceRecord,
+  SkillCatalogItem,
+  UpsertSkillCatalogPayload,
+} from "./skillsService";
+
+export { useDeployOpsService } from "./deployOpsService";
+export type {
+  DeployReleaseRecord,
+  DeployHealthSummary,
+  DeployReleaseListResult,
+  TriggerReleasePayload,
+  TriggerRollbackPayload,
+} from "./deployOpsService";
+
+export { usePluginOpsService } from "./pluginOpsService";
+export type {
+  PluginLifecycleAuditRecord,
+  PluginLifecycleListResult,
+  TriggerPluginLifecycleActionPayload,
+} from "./pluginOpsService";
+
+export { useBackupOpsService } from "./backupOpsService";
+export type {
+  BackupPolicy,
+  BackupJob,
+  RestoreDrillRecord,
+} from "./backupOpsService";
+
+export { useMigrationOpsService } from "./migrationOpsService";
+export type {
+  MigrationRunbookRecord,
+  TriggerMigrationPayload,
+  MigrationAcceptancePayload,
+  TriggerTrafficSwitchPayload,
+} from "./migrationOpsService";

@@ -9,6 +9,7 @@
     "aiSettings": "AI Settings",
     "aiSettingsModel": "Model Settings",
     "aiSettingsCost": "Cost Settings",
+    "aiSettingsContextOptimizer": "Context Optimizer",
     "aiSettingsRegistry": "Capability Registry",
     "pluginCapabilities": "Plugin Capabilities",
     "intelligentPlatforms": "Intelligent Platforms",
@@ -152,6 +153,13 @@
       "saasSupport": "SaaS onboarding is coming soon"
     }
   },
+  "error": {
+    "tip": "Try going back or return to the home page.",
+    "goBack": "Go back",
+    "goHome": "Go home",
+    "occurred": "An error occurred",
+    "notFound": "Page not found"
+  },
   "settings": {
     "ai": {
       "title": "AI Settings",
@@ -172,12 +180,109 @@
         "openCostGuard": "Open Cost Guard",
         "backToModels": "Back to models",
         "openCapabilityRegistry": "Plugin Capabilities",
-        "openConnectors": "Intelligent Platforms"
+        "openConnectors": "Intelligent Platforms",
+        "openContextOptimizer": "Context Optimizer"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
       "registryPageTitle": "Plugin Capabilities",
       "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
+      "contextOptimizer": {
+        "title": "Context Optimizer",
+        "description": "Tune context budget, prompt cache strategy, and debug trace switch online.",
+        "scope": "Scope",
+        "activeSource": "Active Source",
+        "activeVersion": "Active version: v{version}",
+        "lastUpdated": "Last updated",
+        "enableOptimizer": "Enable Context Optimizer",
+        "enableDebugTrace": "Enable Agent Debug Trace",
+        "versionHistory": "Version History",
+        "versionHint": "Select a row then publish or rollback",
+        "noChangeReason": "No change reason",
+        "noVersions": "No version records",
+        "scopeTenant": "Tenant",
+        "scopeSystem": "System",
+        "sources": {
+          "tenant": "Tenant Config",
+          "system": "System Config",
+          "yamlDefault": "YAML Default",
+          "unknown": "Unknown"
+        },
+        "fields": {
+          "maxPromptTokens": "Max Prompt Tokens",
+          "reservedCompletionTokens": "Reserved Completion Tokens",
+          "recentMessages": "Recent Message Window",
+          "retrievalTopK": "Retrieval Top K",
+          "summaryRefreshIntervalSec": "Summary Refresh Interval (sec)",
+          "cacheMode": "Cache Mode",
+          "plannerEnabled": "Enable Planner Optimizer",
+          "plannerCandidateTopK": "Planner Candidate Top K",
+          "plannerPromptSlimMode": "Planner Prompt Mode",
+          "plannerDecisionCacheEnabled": "Enable Planner Decision Cache",
+          "plannerDecisionCacheTtlSec": "Planner Decision Cache TTL (sec)",
+          "plannerQuotaWorkflow": "Planner Quota Workflow",
+          "plannerQuotaSkill": "Planner Quota Skill",
+          "plannerQuotaTooling": "Planner Quota Tooling",
+          "plannerQuotaLlm": "Planner Quota LLM"
+        },
+        "sections": {
+          "plannerOptimizer": "Planner Optimizer"
+        },
+        "cacheModes": {
+          "auto": "Auto",
+          "forceOn": "Force On",
+          "forceOff": "Force Off"
+        },
+        "plannerPromptSlimModes": {
+          "compact": "Compact",
+          "verbose": "Verbose"
+        },
+        "actions": {
+          "saveDraft": "Save Draft",
+          "publishSelected": "Publish Selected Version",
+          "rollbackSelected": "Rollback To Selected Version"
+        },
+        "toasts": {
+          "draftSaved": "Draft saved",
+          "publishSuccess": "Publish succeeded",
+          "rollbackSuccess": "Rollback succeeded"
+        },
+        "errors": {
+          "loadFailed": "Load failed",
+          "saveFailed": "Save failed",
+          "publishFailed": "Publish failed",
+          "rollbackFailed": "Rollback failed"
+        },
+        "status": {
+          "published": "Published",
+          "draft": "Draft"
+        }
+      },
+      "skillsSourcePolicy": {
+        "title": "Skills Source Policy",
+        "description": "Control candidate source scope for the unified preferred_protocol=skill entry.",
+        "updatedAt": "Last updated",
+        "notConfigured": "Not configured",
+        "effectiveSource": {
+          "tenant": "Tenant override",
+          "default": "Default policy"
+        },
+        "sources": {
+          "builtin": "Builtin source (builtin)",
+          "plugin": "Plugin source (plugin)",
+          "thirdParty": "Third-party source (third_party)"
+        },
+        "actions": {
+          "save": "Save source policy"
+        },
+        "toasts": {
+          "loadFailed": "Failed to load skills source policy",
+          "saveSuccess": "Saved",
+          "saveSuccessDesc": "Skills source policy updated",
+          "saveFailed": "Save failed",
+          "saveValidationFailed": "Keep at least one source (builtin / plugin / third_party)"
+        }
+      },
       "costGuard": {
         "panelTitle": "Cost guard policies",
         "panelDesc": "Configure quotas, throttles and fallbacks.",
@@ -657,6 +762,9 @@
     }
   },
   "agent": {
+    "list": {
+      "loadFailed": "Failed to load agent list"
+    },
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",

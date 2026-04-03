@@ -411,6 +411,12 @@ func (m *Manager) DetectTasks(ctx context.Context, text string) ([]schemas.Detec
 	for _, v := range byFlow {
 		out = append(out, v)
 	}
+
+	// 统一候选池回退：当策略链未产出任务时，从候选池做轻量召回（避免仅依赖 flow 路由）。
+	if len(out) == 0 {
+		out = m.detectTasksFromUnifiedCandidates(ctx, text)
+	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
 
 	if intentDebug {
@@ -424,6 +430,174 @@ func (m *Manager) DetectTasks(ctx context.Context, text string) ([]schemas.Detec
 		}
 	}
 	return out, nil
+}
+
+func (m *Manager) detectTasksFromUnifiedCandidates(ctx context.Context, text string) []schemas.DetectedTask {
+	cands := m.BuildToolCallCandidatesWithContext(CandidateBuildContextFromRequest(ctx), 64)
+	if len(cands) == 0 {
+		return nil
+	}
+	queryTokens := tokenizeCandidateText(text)
+	back := make(map[string]ToolCallCandidate, len(cands))
+	type scoredItem struct {
+		key         string
+		score       float64
+		reason      string
+		matchTokens []string
+	}
+	scored := make([]scoredItem, 0, len(cands))
+	for _, c := range cands {
+		ref := strings.TrimSpace(c.NodeRef)
+		if ref == "" {
+			ref = strings.TrimSpace(c.FlowID)
+		}
+		if ref == "" {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(c.Name))
+		if key == "" {
+			key = strings.ToLower(ref)
+		}
+		back[key] = c
+		doc := strings.ToLower(strings.TrimSpace(strings.Join([]string{
+			key,
+			c.Name,
+			c.NodeKind,
+			c.NodeRef,
+			c.Description,
+			c.SemanticText,
+			strings.Join(c.IntentHints, " "),
+			strings.Join(c.Tags, " "),
+		}, " ")))
+		matchTokens := make([]string, 0, len(queryTokens))
+		for _, tok := range queryTokens {
+			if strings.Contains(doc, tok) {
+				matchTokens = append(matchTokens, tok)
+			}
+		}
+		reason := "candidate_recall"
+		if len(matchTokens) > 0 {
+			reason = "token_match:" + strings.Join(matchTokens, ",")
+		}
+		score := float64(len(matchTokens))
+		if len(queryTokens) > 0 {
+			denominator := len(queryTokens)
+			// 中文 2/3-gram token 数会明显放大，封顶分母避免召回分数被稀释到不可用。
+			if denominator > 8 {
+				denominator = 8
+			}
+			score = score / float64(denominator)
+		}
+		scored = append(scored, scoredItem{
+			key:         key,
+			score:       score,
+			reason:      reason,
+			matchTokens: matchTokens,
+		})
+	}
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score == scored[j].score {
+			return scored[i].key < scored[j].key
+		}
+		return scored[i].score > scored[j].score
+	})
+	if len(scored) > 6 {
+		scored = scored[:6]
+	}
+	if len(scored) == 0 {
+		return nil
+	}
+	out := make([]schemas.DetectedTask, 0, len(scored))
+	for i, s := range scored {
+		if len(s.matchTokens) == 0 {
+			continue
+		}
+		if s.score < m.intentLow {
+			continue
+		}
+		c := back[s.key]
+		ref := strings.TrimSpace(c.NodeRef)
+		if ref == "" {
+			ref = strings.TrimSpace(c.FlowID)
+		}
+		if ref == "" {
+			continue
+		}
+		params := map[string]interface{}{
+			"_node_kind":      strings.TrimSpace(c.NodeKind),
+			"_node_ref":       ref,
+			"_source_scope":   strings.TrimSpace(c.SourceScope),
+			"_candidate_name": c.Name,
+			"_candidate_desc": strings.TrimSpace(c.Description),
+		}
+		out = append(out, schemas.DetectedTask{
+			TaskID:   fmt.Sprintf("u%d", i+1),
+			FlowID:   ref,
+			AgentID:  c.AgentID,
+			Score:    s.score,
+			Strategy: "candidate_recall:" + strings.TrimSpace(c.NodeKind),
+			Reason:   s.reason,
+			Params:   params,
+		})
+	}
+	return out
+}
+
+func tokenizeCandidateText(s string) []string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return nil
+	}
+
+	segments := strings.FieldsFunc(s, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r)
+	})
+	seen := make(map[string]struct{}, len(segments)*3)
+	out := make([]string, 0, len(segments)*3)
+	push := func(tok string) {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			return
+		}
+		if _, ok := seen[tok]; ok {
+			return
+		}
+		seen[tok] = struct{}{}
+		out = append(out, tok)
+	}
+
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		push(seg)
+		rs := []rune(seg)
+		if len(rs) < 2 {
+			continue
+		}
+		// 中文场景：补充 2-gram / 3-gram，解决无空格文本召回弱问题。
+		if containsHanRune(rs) {
+			for _, n := range []int{2, 3} {
+				if len(rs) < n {
+					continue
+				}
+				for i := 0; i <= len(rs)-n; i++ {
+					push(string(rs[i : i+n]))
+				}
+			}
+		}
+	}
+	return out
+}
+
+func containsHanRune(rs []rune) bool {
+	for _, r := range rs {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
 }
 
 func getStrategyName(st contract.IntentStrategy) string {

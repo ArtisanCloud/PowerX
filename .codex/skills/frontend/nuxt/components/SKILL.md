@@ -1,0 +1,109 @@
+---
+name: nuxt-components
+description: PowerX Nuxt 组件与 UModal/UFormField 规则。
+---
+
+# PowerX Nuxt Components
+
+## 步骤
+
+1) 打开 `本文件内嵌规则`。
+2) 按规则执行实现/校对。
+3) 完成后按核对清单验收。
+
+## 核对点
+
+- 与 PowerX 当前代码结构、路径与命名一致。
+- 仅在传输层/契约层做职责内改动，不跨层越界。
+
+## 规则（内嵌）
+
+### nuxt_components.yaml
+
+````yaml
+kind: ruleset
+name: plugin/crud/frontend/nuxt_components
+version: 1
+
+components:
+  files:
+    - target: web-admin/app/components/templates/TemplateForm.vue
+      template: builtin/nuxt_component_form_modal
+      params:
+        # Nuxt UI 3.3.2：使用 UModal + v-model:open；按钮 color 使用 {primary|secondary|...}
+        fields:
+          - { key: "name", label: "Name", type: "text", required: true, max: 255 }
+          - { key: "description", label: "Description", type: "textarea" }
+          - { key: "content", label: "Content", type: "textarea" }
+
+nuxt_ui:
+  colors: [primary, secondary, success, info, warning, error, neutral]  # palette reference
+  select:
+    syntax: '<USelect v-model="value" :items="items" class="w-48" />'
+    notes:
+      - Use `items` (not `options`) to pass choices.
+      - Add width classes (e.g., `w-full`) when needed.
+  select_menu:
+    syntax: |
+      <USelectMenu
+        v-model="value"
+        :items="items"
+        value-key="value"
+        label-key="label"
+        :portal="false"
+        class="w-full"
+      />
+    notes:
+      - "USelectMenu 支持搜索、多选，列表项仍然用 items 数组；可用于头像/自定义插槽场景。"
+      - "在 UModal、抽屉等容器里必须设置 :portal=\"false\"（或传入 portal={ to: '#id' } 指向弹层外 DOM 节点），防止内容被 Teleport 到 aria-hidden 的祖先之外触发 `descendant retained focus` 告警。"
+      - "如需默认选项结构，可使用 Nuxt UI 示例：const items = ref([{ label: 'xxx', value: 'xxx', avatar: { src: '...' } }]) 并传给 <USelectMenu v-model='value' :avatar='value?.avatar' :items='items' />。"
+  modal:
+    preferUModal: true
+    paddingClass: "p-4 sm:p-5"
+    width: "max-w-3xl w-full"
+    notes:
+      - 如需更宽的编辑表单，可覆盖 `ui.content`（例如 `'max-w-6xl w-[90vw] mx-auto'`）而不是直接设置 inline 样式，保持组件一致性。
+      - 需要弹层交互的表单/内容必须放在 UModal 的 `#body` 内，由 `v-model:open` 控制显隐；不要把表单直接渲染在页面上再“看起来像弹层”。
+    close:
+      useCloseProp: true
+      preventClose: true
+    slots:
+      body: Place form fields in `#body` slot to ensure they render.
+      footer: Place action buttons in `#footer`.
+      contentSlot: content
+    accessibility:
+      - Blur active element before closing to avoid aria-hidden focus warnings.
+      - Provide `title` and `description` for dialog accessibility.
+  form:
+    useFormComponent: true
+    schemaLibrary: valibot
+    submitEvent: FormSubmitEvent
+    layout:
+      spacingClass: space-y-4
+      containerClass: "p-4 sm:p-5"
+      buttonsAlign: end
+    fields:
+      wrapWithFormField: true
+      labelI18nKey: recommended
+      inputs:
+        useModelValue: true
+        textareaRowsDefault: 3
+    buttons:
+      cancel:
+        color: neutral
+        variant: subtle
+        type: button
+      submit:
+        color: primary
+        type: submit
+    dropdown_menu:
+      items:
+        handlerProp: onSelect
+        notes:
+          - "子项点击使用 `onSelect` 回调（Nuxt UI 3 语义），而不是自定义 click。例：`[{ label: '删除', icon: 'i-heroicons-trash', onSelect() { ... } }]`。"
+    errorHandling:
+      schemaValidation: true
+      toastOnError: optional
+
+gates.require: [PG-FE-UI-001]
+````

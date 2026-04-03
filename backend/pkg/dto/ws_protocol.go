@@ -173,13 +173,16 @@ type IntentPayload struct {
 }
 
 type PlanTask struct {
-	TaskID    string            `json:"task_id"`
-	FlowID    string            `json:"flow_id"`
-	AgentID   string            `json:"agent_id,omitempty"`
-	Params    map[string]any    `json:"params,omitempty"`
-	ParamRefs map[string]string `json:"param_refs,omitempty"`
-	Stage     int               `json:"stage"`
-	DependsOn []string          `json:"depends_on,omitempty"`
+	TaskID      string            `json:"task_id"`
+	FlowID      string            `json:"flow_id"`
+	NodeKind    string            `json:"node_kind,omitempty"`
+	NodeRef     string            `json:"node_ref,omitempty"`
+	SourceScope string            `json:"source_scope,omitempty"`
+	AgentID     string            `json:"agent_id,omitempty"`
+	Params      map[string]any    `json:"params,omitempty"`
+	ParamRefs   map[string]string `json:"param_refs,omitempty"`
+	Stage       int               `json:"stage"`
+	DependsOn   []string          `json:"depends_on,omitempty"`
 }
 
 type PlanPayload struct {

@@ -26,6 +26,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
+	if _, err := cfg.Server.ParseKey(); err != nil {
+		log.Fatalf("读取 server.secret_key 失败: %v", err)
+	}
 
 	ctx := context.Background()
 	// 连接数据库
