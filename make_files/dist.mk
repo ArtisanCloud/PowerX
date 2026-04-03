@@ -146,6 +146,9 @@ dist-systemd:
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \
 	cp deploy/powerx/systemd/*.service "$(DIST_OUT_DIR)/systemd/"; \
+	if [ -f deploy/powerx/systemd/powerx.env.example ]; then \
+		cp deploy/powerx/systemd/powerx.env.example "$(DIST_OUT_DIR)/systemd/"; \
+	fi; \
 	echo "[dist] skip env templates (config.yaml only)"; \
 	echo "version=$(DIST_VERSION)" > "$(DIST_OUT_DIR)/manifest.txt"; \
 	echo "commit=$$(git rev-parse HEAD 2>/dev/null || echo unknown)" >> "$(DIST_OUT_DIR)/manifest.txt"; \

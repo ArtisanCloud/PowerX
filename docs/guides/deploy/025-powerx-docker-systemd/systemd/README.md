@@ -14,6 +14,7 @@
 
 ## 3. 资产路径
 - unit：`deploy/powerx/systemd/{powerx-backend.service,powerx-web-admin.service,powerx-runner.service}`
+- runner env 模板：`deploy/powerx/systemd/powerx.env.example`
 - 健康检查：`backend/scripts/ops/deploy-check.sh`
 - 版本切换：`backend/scripts/ops/switch-release-systemd.sh`
 - 回滚记录：`backend/scripts/ops/rollback-release.sh`

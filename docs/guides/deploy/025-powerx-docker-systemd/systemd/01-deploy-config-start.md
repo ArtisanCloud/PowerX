@@ -121,6 +121,7 @@ sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with
 ```
 说明：该脚本会自动执行 `daemon-reload + enable + restart`。
 另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 `powerx` 运行权限。
+启用 `--with-runner` 时，也会自动创建 `/etc/powerx/powerx.env`（优先复制 `systemd/powerx.env.example`）。
 
 手工方式（仅在排障时使用）：
 ```bash
@@ -142,14 +143,6 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 - `powerx-backend.service`：无 `EnvironmentFile`
 - `powerx-web-admin.service`：从 `backend/etc/config.yaml` 读取端口
 - `powerx-runner.service`：读取 `/etc/powerx/powerx.env`
-
-若启用 runner（`--with-runner`），首次请确保环境文件存在：
-```bash
-sudo mkdir -p /etc/powerx
-sudo touch /etc/powerx/powerx.env
-sudo chown root:root /etc/powerx/powerx.env
-sudo chmod 0644 /etc/powerx/powerx.env
-```
 
 ## 11. 首次安装
 访问：`http://<host>:<web-admin-port>/setup`

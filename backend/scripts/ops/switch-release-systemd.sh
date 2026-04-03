@@ -133,6 +133,16 @@ ensure_service_identity() {
   chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_BACKEND}" "${LINK_WEB_ADMIN}" 2>/dev/null || true
   if [[ "$WITH_RUNNER" == "1" ]]; then
     chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_RUNNER}" 2>/dev/null || true
+    install -d -m 0755 /etc/powerx
+    if [[ ! -f /etc/powerx/powerx.env ]]; then
+      if [[ -f "${TARGET_ROOT}/systemd/powerx.env.example" ]]; then
+        cp "${TARGET_ROOT}/systemd/powerx.env.example" /etc/powerx/powerx.env
+      else
+        touch /etc/powerx/powerx.env
+      fi
+    fi
+    chown root:root /etc/powerx/powerx.env
+    chmod 0644 /etc/powerx/powerx.env
   fi
 }
 
