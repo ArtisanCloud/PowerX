@@ -10,6 +10,25 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   const run = async () => {
     if (initialized.value) return;
+    if (route.path === "/setup" || route.path.endsWith("/setup")) return;
+
+    try {
+      const setupResp: any = await $fetch("/api/v1/admin/setup/status", {
+        method: "GET",
+        timeout: 5000,
+      });
+      const setupPayload = setupResp?.data ?? setupResp;
+      if (
+        setupPayload &&
+        !Boolean(setupPayload?.configured) &&
+        !Boolean(setupPayload?.requires_login)
+      ) {
+        return;
+      }
+    } catch {
+      // setup 状态检查失败时，不阻塞既有行为
+    }
+
     const token = useCookie("px_token").value;
     if (!token || route.meta.auth === false) return; // 登录就绪 + 受保护页才初始化
 

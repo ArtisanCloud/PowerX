@@ -7,8 +7,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
+	backupHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
+	deployHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/deploy"
 	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
@@ -16,7 +18,9 @@ import (
 	knowledgeSpaceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
+	migrationHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/migration"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/notifications"
+	opsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/ops"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
@@ -40,6 +44,9 @@ func RegisterAPIRoutes(
 	if prefix == "" {
 		prefix = "/api"
 	}
+	// 公开健康检查（兼容不带版本前缀探活）
+	r.GET("/healthz", HealthHandler)
+
 	publicGroup := r.Group(prefix)
 	// 公开健康检查
 	publicGroup.GET("/health", HealthHandler)
@@ -69,6 +76,9 @@ func RegisterAPIRoutes(
 	pluginReleaseHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginDevHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	devHotloadHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	deployHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	backupHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	migrationHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginSandboxHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
@@ -77,4 +87,5 @@ func RegisterAPIRoutes(
 	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

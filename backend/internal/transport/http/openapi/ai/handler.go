@@ -18,8 +18,9 @@ import (
 )
 
 type aiHandler struct {
-	svc      aiService
-	sessions *llmSessionStore
+	svc             aiService
+	sessions        *llmSessionStore
+	aiInvokeTimeout time.Duration
 }
 
 type aiService interface {
@@ -117,9 +118,14 @@ func newSessionStore() *llmSessionStore {
 }
 
 func newAIHandler(deps *shared.Deps) *aiHandler {
+	timeout := 5 * time.Minute
+	if deps != nil && deps.CapabilityAIMultimodalHTTPTimeout > 0 {
+		timeout = deps.CapabilityAIMultimodalHTTPTimeout
+	}
 	return &aiHandler{
-		svc:      aisvc.NewService(deps.DB),
-		sessions: newSessionStore(),
+		svc:             aisvc.NewService(deps.DB),
+		sessions:        newSessionStore(),
+		aiInvokeTimeout: timeout,
 	}
 }
 
@@ -149,7 +155,9 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		return
 	}
 
-	out, err := h.svc.LLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.LLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -205,8 +213,10 @@ func (h *aiHandler) llmStream(c *gin.Context) {
 		ModelKey:     strings.TrimSpace(req.ModelKey),
 		IncludeUsage: req.StreamOptions.IncludeUsage,
 	}, func(onDelta func(string)) (string, error) {
+		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+		defer cancel()
 		return h.svc.LLMStream(
-			c.Request.Context(),
+			ctx,
 			env,
 			tenantUUID,
 			req.ModelKey,
@@ -357,8 +367,10 @@ func (h *aiHandler) llmSessionStream(c *gin.Context) {
 		ModelKey:  sess.ModelKey,
 		SessionID: sessionID,
 	}, func(onDelta func(string)) (string, error) {
+		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+		defer cancel()
 		return h.svc.LLMStream(
-			c.Request.Context(),
+			ctx,
 			env,
 			tenantUUID,
 			sess.ModelKey,
@@ -390,7 +402,9 @@ func (h *aiHandler) embeddingInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	vecs, err := h.svc.EmbeddingInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, req.Inputs, req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	vecs, err := h.svc.EmbeddingInvoke(ctx, env, tenantUUID, req.ModelKey, req.Inputs, req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -418,7 +432,9 @@ func (h *aiHandler) imageInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.ImageInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.ImageInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -446,7 +462,9 @@ func (h *aiHandler) vlmInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.VLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.VLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -474,7 +492,9 @@ func (h *aiHandler) videoInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.VideoInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.VideoInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -502,7 +522,9 @@ func (h *aiHandler) ttsInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.TTSInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.TTSInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -637,6 +659,13 @@ func toServiceItems(items []contentItem) []aisvc.ContentItem {
 		})
 	}
 	return out
+}
+
+func (h *aiHandler) withAIInvokeTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if h == nil || h.aiInvokeTimeout <= 0 {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, h.aiInvokeTimeout)
 }
 
 func respondAIError(c *gin.Context, err error) {

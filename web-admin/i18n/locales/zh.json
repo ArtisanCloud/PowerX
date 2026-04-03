@@ -169,6 +169,13 @@
       "saasSupport": "SaaS 开通即将上线"
     }
   },
+  "error": {
+    "tip": "请尝试返回或回到首页。",
+    "goBack": "返回上一页",
+    "goHome": "返回首页",
+    "occurred": "发生错误",
+    "notFound": "页面未找到"
+  },
   "settings": {
     "ai": {
       "title": "AI 设置",
@@ -973,6 +980,9 @@
   },
   "agent": {
     "confirmDelete": "确定删除吗？",
+    "list": {
+      "loadFailed": "加载智能体列表失败"
+    },
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",

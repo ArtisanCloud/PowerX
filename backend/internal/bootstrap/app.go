@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -25,6 +26,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
+
+var ErrBootstrapDependencyUnavailable = errors.New("bootstrap dependency unavailable")
 
 func composePostgresDSNFromDB(driver string, host string, port int, user string, password string, database string, sslMode string, timezone string) string {
 	if strings.TrimSpace(host) == "" {
@@ -67,14 +70,14 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	db, err := database.GetDB(&cfg.Database)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化数据库失败: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("%w: 连接数据库失败: %v", ErrBootstrapDependencyUnavailable, err)
 	}
 
 	// 初始化缓存
 	_, err = cache.InitCache(&cfg.Cache)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化缓存失败: %s", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("%w: 初始化缓存失败: %v", ErrBootstrapDependencyUnavailable, err)
 	}
 
 	queueRedisAddr := strings.TrimSpace(cfg.Queue.Redis.Addr)
@@ -324,6 +327,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		CapabilityRegistry: shared.CapabilityRegistryOptions{
+			DefaultHTTPTimeout:      time.Duration(cfg.CapabilityRegistry.DefaultHTTPTimeoutSeconds) * time.Second,
+			AIMultimodalHTTPTimeout: time.Duration(cfg.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds) * time.Second,
 			Notifications: shared.CapabilityRegistryNotificationOptions{
 				IMWebhook:        cfg.CapabilityRegistry.Notifications.IMWebhook,
 				RetryInterval:    time.Duration(cfg.CapabilityRegistry.Notifications.RetryIntervalSec) * time.Second,

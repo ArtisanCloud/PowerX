@@ -231,7 +231,9 @@ type KnowledgeSpaceNotificationOptions struct {
 
 // CapabilityRegistryOptions 描述能力目录相关配置。
 type CapabilityRegistryOptions struct {
-	Notifications CapabilityRegistryNotificationOptions
+	Notifications           CapabilityRegistryNotificationOptions
+	DefaultHTTPTimeout      time.Duration
+	AIMultimodalHTTPTimeout time.Duration
 }
 
 // CapabilityRegistryNotificationOptions 定义告警通知。

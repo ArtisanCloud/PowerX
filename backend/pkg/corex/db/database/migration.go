@@ -1,7 +1,11 @@
 package database
 
 import (
+	"fmt"
+	"strings"
+
 	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
@@ -14,6 +18,7 @@ import (
 	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelNotification "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
+	modelOps "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
@@ -29,6 +34,10 @@ import (
 
 // Migrate 执行数据库迁移
 func MigrateCoreModels(db *gorm.DB) (err error) {
+	if err = ensurePostgresSchemas(db); err != nil {
+		return err
+	}
+
 	if err = migration.EnsureAPIKeyProfileNamingMigration(db); err != nil {
 		return err
 	}
@@ -167,6 +176,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateOpsModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
 	}
@@ -187,6 +200,29 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return nil
+}
+
+func ensurePostgresSchemas(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
+		return nil
+	}
+
+	// 历史模型和 SQL 同时依赖 public，且部分模型支持可配置 schema。
+	for _, schemaName := range []string{"public", strings.TrimSpace(coremodel.PowerXSchema)} {
+		schemaName = strings.TrimSpace(schemaName)
+		if schemaName == "" {
+			continue
+		}
+		if err := db.Exec(fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s`, quotePostgresIdentifier(schemaName))).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func quotePostgresIdentifier(name string) string {
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`
 }
 
 func migrateCapabilityModels(db *gorm.DB) error {
@@ -226,6 +262,19 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationGatewayAPIKey{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
+	)
+}
+
+func migrateOpsModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelOps.DeployReleaseRecord{},
+		&modelOps.PluginLifecycleAudit{},
+		&modelOps.BackupPolicy{},
+		&modelOps.BackupJob{},
+		&modelOps.BackupArtifact{},
+		&modelOps.RestoreDrillRecord{},
+		&modelOps.ApprovalPolicyProfile{},
+		&modelOps.MigrationRunbookRecord{},
 	)
 }
 

@@ -28,6 +28,11 @@ func GetDefaults() *Config {
 		Tenants: TenantConfig{
 			RequireUUID: true,
 		},
+		Install: InstallConfig{
+			Status:         "installed",
+			LockMode:       "strict",
+			AllowWithoutDB: true,
+		},
 		Plugin: DefaultPluginAggregateConfig(),
 		LogConfig: logCfg.LogConfig{
 			Level:         "debug",
@@ -193,6 +198,8 @@ func GetDefaults() *Config {
 				Burst:         120,
 				WindowSeconds: 60,
 			},
+			DefaultHTTPTimeoutSeconds:      20,
+			AIMultimodalHTTPTimeoutSeconds: 300,
 			Notifications: CapabilityRegistryNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,

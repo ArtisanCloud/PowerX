@@ -41,7 +41,7 @@ func TestInvocationServiceInvokeREST(t *testing.T) {
 			"Authorization": "Bearer demo",
 		},
 	}
-	result, err := svc.invokeREST(context.Background(), payload, "trace-http")
+	result, err := svc.invokeREST(context.Background(), "com.corex.biz.media.list", payload, "trace-http", false)
 	require.NoError(t, err)
 	require.Equal(t, "ok", result["status"])
 }
@@ -87,6 +87,35 @@ func TestInvocationServiceInvokeGRPC(t *testing.T) {
 	items, ok := dataField["items"].([]interface{})
 	require.True(t, ok)
 	require.Len(t, items, 1)
+}
+
+func TestShouldUseAIMultimodalTimeoutByLabels(t *testing.T) {
+	t.Parallel()
+
+	ok := shouldUseAIMultimodalTimeout(
+		"com.plugin.vendor.chat.invoke",
+		"/v1/chat/completions",
+		map[string]string{"tool_scope": "ai.llm"},
+		map[string]interface{}{},
+	)
+	require.True(t, ok)
+}
+
+func TestShouldUseAIMultimodalTimeoutByPayload(t *testing.T) {
+	t.Parallel()
+
+	ok := shouldUseAIMultimodalTimeout(
+		"com.plugin.vendor.chat.invoke",
+		"/v1/chat/completions",
+		nil,
+		map[string]interface{}{
+			"body": map[string]interface{}{
+				"model_key": "openai:gpt-4o",
+				"messages":  []interface{}{},
+			},
+		},
+	)
+	require.True(t, ok)
 }
 
 type stubMediaServer struct {

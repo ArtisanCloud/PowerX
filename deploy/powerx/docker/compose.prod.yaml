@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-powerx}
+      POSTGRES_USER: ${POSTGRES_USER:-powerx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-powerx}
+    ports:
+      - "${POWERX_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerx} -d ${POSTGRES_DB:-powerx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: ghcr.io/artisancloud/powerx-backend:${POWERX_BACKEND_TAG}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 配置真源：容器内 backend 读取的 YAML 路径，可在 .env 覆盖
+      POWERX_CONFIG: ${POWERX_CONFIG:-/app/backend/etc/config.yaml}
+    ports:
+      - "${POWERX_BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  runner:
+    image: ghcr.io/artisancloud/powerx-runner:${POWERX_RUNNER_TAG}
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  web-admin:
+    image: ghcr.io/artisancloud/powerx-web-admin:${POWERX_WEB_ADMIN_TAG}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 前端代理真源：优先 .env 中的 UPSTREAM/WS_UPSTREAM，未设置时走 backend 服务名
+      UPSTREAM: ${UPSTREAM:-http://backend:8080}
+      WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
+    ports:
+      - "${POWERX_WEB_ADMIN_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

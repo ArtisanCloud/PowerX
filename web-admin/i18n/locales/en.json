@@ -153,6 +153,13 @@
       "saasSupport": "SaaS onboarding is coming soon"
     }
   },
+  "error": {
+    "tip": "Try going back or return to the home page.",
+    "goBack": "Go back",
+    "goHome": "Go home",
+    "occurred": "An error occurred",
+    "notFound": "Page not found"
+  },
   "settings": {
     "ai": {
       "title": "AI Settings",
@@ -755,6 +762,9 @@
     }
   },
   "agent": {
+    "list": {
+      "loadFailed": "Failed to load agent list"
+    },
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",

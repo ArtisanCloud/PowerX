@@ -17,6 +17,7 @@ import (
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 	integrationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
+	platformopsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/platform_ops/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	skillsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1"
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
@@ -33,6 +34,7 @@ import (
 	integrationGatewayGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
+	opsgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/ops"
 	pluginreleasegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/plugin_release"
 	skillsgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/skills"
 	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
@@ -153,6 +155,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 	skillsgrpc.RegisterAdminService(s, deps)
 	skillsgrpc.RegisterInvokeService(s, deps)
+	if opsAdminHandler := opsgrpc.NewDeployHandler(deps); opsAdminHandler != nil {
+		platformopsv1.RegisterOpsAdminServiceServer(s, opsAdminHandler)
+	}
 
 	ctx := context.Background()
 
@@ -178,6 +183,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			workflowv1.WorkflowService_ServiceDesc.ServiceName,
 			skillsv1.SkillAdminService_ServiceDesc.ServiceName,
 			skillsv1.SkillInvokeService_ServiceDesc.ServiceName,
+			platformopsv1.OpsAdminService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)

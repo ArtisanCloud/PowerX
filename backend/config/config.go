@@ -19,6 +19,7 @@ import (
 
 // 定义一个全局配置变量
 var GlobalConfig *Config
+var globalConfigPath string
 
 // 初始化全局配置
 func InitGlobalConfig(configPath string) error {
@@ -40,23 +41,106 @@ func InitGlobalConfig(configPath string) error {
 	agentCfg.SetGlobalAIConfig(&config.AI)
 
 	GlobalConfig = &config
+	globalConfigPath = configPath
 	return nil
 }
 
 // 获取全局配置
 func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
-		// 初始化全局配置
-		if err := InitGlobalConfig("etc/config.yaml"); err != nil {
-			if alt := findConfigPath("etc/config.yaml"); alt != "" {
-				if retryErr := InitGlobalConfig(alt); retryErr == nil {
-					return GlobalConfig
-				}
-			}
-			log.Fatalf("初始化全局配置失败: %v", err)
+		// 初始化全局配置，优先级：
+		// 1) POWERX_CONFIG 显式指定
+		// 2) 可执行文件同级目录下的 etc/config.yaml（适配 dist 产物从任意 cwd 启动）
+		// 3) 当前工作目录的 backend/etc/config.yaml（仓库开发默认）
+		// 4) 当前工作目录的 etc/config.yaml（兼容历史）
+		// 5) 向上查找祖先目录中的 backend/etc/config.yaml
+		// 6) 向上查找祖先目录中的 etc/config.yaml
+		candidates := make([]string, 0, 6)
+		if p := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); p != "" {
+			candidates = append(candidates, p)
 		}
+		if p := configPathNearExecutable("etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+		candidates = append(candidates, "backend/etc/config.yaml")
+		candidates = append(candidates, "etc/config.yaml")
+		if p := findConfigPath("backend/etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+		if p := findConfigPath("etc/config.yaml"); p != "" {
+			candidates = append(candidates, p)
+		}
+
+		var lastErr error
+		for _, p := range candidates {
+			if strings.TrimSpace(p) == "" {
+				continue
+			}
+			if err := InitGlobalConfig(p); err == nil {
+				return GlobalConfig
+			} else {
+				lastErr = err
+			}
+		}
+		log.Fatalf("初始化全局配置失败: %v", lastErr)
 	}
 	return GlobalConfig
+}
+
+func GetGlobalConfigPath() string {
+	path := strings.TrimSpace(globalConfigPath)
+	if path == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
+}
+
+type EffectivePorts struct {
+	BackendPort  int `json:"backend_port"`
+	WebAdminPort int `json:"web_admin_port"`
+}
+
+func ResolveEffectivePorts(cfg *Config) EffectivePorts {
+	ports := effectivePortsByEnv()
+	if cfg != nil && cfg.Server.Port > 0 {
+		ports.BackendPort = cfg.Server.Port
+	}
+	if port := parsePortEnv("POWERX_BACKEND_PORT"); port > 0 {
+		ports.BackendPort = port
+	}
+	if port := parsePortEnv("POWERX_WEB_ADMIN_PORT"); port > 0 {
+		ports.WebAdminPort = port
+	}
+	return ports
+}
+
+func effectivePortsByEnv() EffectivePorts {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_ENV")))
+	if env == "dev" {
+		return EffectivePorts{
+			BackendPort:  8077,
+			WebAdminPort: 3030,
+		}
+	}
+	return EffectivePorts{
+		BackendPort:  8080,
+		WebAdminPort: 3000,
+	}
+}
+
+func parsePortEnv(key string) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 || v > 65535 {
+		return 0
+	}
+	return v
 }
 
 func findConfigPath(relPath string) string {
@@ -79,6 +163,19 @@ func findConfigPath(relPath string) string {
 	return ""
 }
 
+func configPathNearExecutable(relPath string) string {
+	exe, err := os.Executable()
+	if err != nil || strings.TrimSpace(exe) == "" {
+		return ""
+	}
+	exeDir := filepath.Dir(exe)
+	candidate := filepath.Join(exeDir, relPath)
+	if _, statErr := os.Stat(candidate); statErr == nil {
+		return candidate
+	}
+	return ""
+}
+
 type HTTPSecurityConfig struct {
 	// 允许作为父页面的来源（CSP frame-ancestors 白名单）
 	// 取值示例： "https://admin.powerx.io", "http://localhost:3030", "https://*.powerx.io", "'self'"
@@ -88,6 +185,31 @@ type HTTPSecurityConfig struct {
 // TenantConfig 控制租户头部解析与缓存策略。
 type TenantConfig struct {
 	RequireUUID bool `yaml:"require_uuid"`
+}
+
+type InstallConfig struct {
+	Status         string `yaml:"status"`
+	LockMode       string `yaml:"lock_mode"`
+	AllowWithoutDB bool   `yaml:"allow_without_db"`
+}
+
+func (c InstallConfig) EffectiveStatus() string {
+	status := strings.ToLower(strings.TrimSpace(c.Status))
+	switch status {
+	case "installed", "configuring", "uninstalled":
+		return status
+	default:
+		// 兼容历史配置未声明 install.status 的场景，默认视为已安装。
+		return "installed"
+	}
+}
+
+func (c InstallConfig) EffectiveLockMode() string {
+	mode := strings.ToLower(strings.TrimSpace(c.LockMode))
+	if mode == "" {
+		return "strict"
+	}
+	return mode
 }
 
 // CoreX 全局配置
@@ -114,6 +236,7 @@ type Config struct {
 	HTTPSecurity       HTTPSecurityConfig       `yaml:"http_security"`
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
+	Install            InstallConfig            `yaml:"install"`
 }
 
 // AuditConfig controls audit persistence and sink behaviour.
@@ -339,10 +462,12 @@ type IntegrationGatewayEventTopics struct {
 
 // CapabilityRegistryConfig 配置能力目录缓存与事件主题。
 type CapabilityRegistryConfig struct {
-	RedisPrefix      string                               `yaml:"redis_prefix"`
-	EventTopicPrefix string                               `yaml:"event_topic_prefix"`
-	DefaultRateLimit CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
-	Notifications    CapabilityRegistryNotificationConfig `yaml:"notifications"`
+	RedisPrefix                    string                               `yaml:"redis_prefix"`
+	EventTopicPrefix               string                               `yaml:"event_topic_prefix"`
+	DefaultRateLimit               CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
+	DefaultHTTPTimeoutSeconds      int                                  `yaml:"default_http_timeout_seconds"`
+	AIMultimodalHTTPTimeoutSeconds int                                  `yaml:"ai_multimodal_http_timeout_seconds"`
+	Notifications                  CapabilityRegistryNotificationConfig `yaml:"notifications"`
 }
 
 // CapabilityRegistryRateLimitConfig 描述同步/Worker 默认限流。
@@ -634,13 +759,26 @@ func loadDotEnvFile(path string) error {
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) {
 	// Server配置
-	if port := os.Getenv("CORE_X_SERVER_PORT"); port != "" {
+	if port := os.Getenv("POWERX_BACKEND_PORT"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Server.Port = p
+		}
+	} else if port := os.Getenv("CORE_X_SERVER_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}
 	}
 	if mode := os.Getenv("CORE_X_SERVER_MODE"); mode != "" {
 		cfg.Server.Mode = mode
+	}
+	if port := os.Getenv("POWERX_GRPC_PORT"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Server.GRPC.Port = p
+		}
+	} else if port := os.Getenv("CORE_X_SERVER_GRPC_PORT"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Server.GRPC.Port = p
+		}
 	}
 	if timeout := os.Getenv("CORE_X_SERVER_READ_TIMEOUT"); timeout != "" {
 		if t, err := strconv.Atoi(timeout); err == nil {
@@ -717,6 +855,16 @@ func loadFromEnv(cfg *Config) {
 	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_WINDOW"); v != "" {
 		if window, err := strconv.Atoi(v); err == nil && window > 0 {
 			cfg.CapabilityRegistry.DefaultRateLimit.WindowSeconds = window
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_DEFAULT_HTTP_TIMEOUT_SECONDS"); v != "" {
+		if timeout, err := strconv.Atoi(v); err == nil && timeout > 0 {
+			cfg.CapabilityRegistry.DefaultHTTPTimeoutSeconds = timeout
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_AI_MULTIMODAL_HTTP_TIMEOUT_SECONDS"); v != "" {
+		if timeout, err := strconv.Atoi(v); err == nil && timeout > 0 {
+			cfg.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds = timeout
 		}
 	}
 

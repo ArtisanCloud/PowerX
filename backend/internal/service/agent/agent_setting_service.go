@@ -226,8 +226,17 @@ func (s *AgentSettingService) Models(modality, provider, app string) ([]string, 
 		return nil, err
 	}
 	out := make([]string, 0, len(models))
+	seen := map[string]struct{}{}
 	for _, m := range models {
-		out = append(out, m.ID)
+		id := strings.TrimSpace(m.ID)
+		if id == "" || id == "*" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
 	}
 	return out, nil
 }
@@ -1511,21 +1520,58 @@ func (s *AgentSettingService) QuickCallLLMResult(
 		return cli.Invoke(ctx, &mc, prompt)
 	}
 
-	// 回退解密（OpenAI-compatible 等）
-	var err error
-	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略错误，尽量继续 */
+	// 通用 LLM：统一走 catalog 鉴权规则与默认 base_url 回退，
+	// 避免 openai-compatible provider 在未传 base_url 时误落到 OpenAI 官方默认地址。
+	req := catalog.AuthReqFromCatalog(p)
+	inputBaseURL := strings.TrimSpace(baseURL)
+	modelDefaultBaseURL := ""
+	if strings.TrimSpace(baseURL) == "" {
+		if v := catalog.DefaultBaseURLForModel(p, model); strings.TrimSpace(v) != "" {
+			baseURL = v
+			modelDefaultBaseURL = strings.TrimSpace(v)
+		}
 	}
+	// 防止非 openai provider 在 catalog 未命中/无默认地址时误回退到 OpenAI 官方地址。
+	if strings.TrimSpace(baseURL) == "" &&
+		strings.TrimSpace(req.DefaultBaseURL) == "" &&
+		!strings.EqualFold(p, "openai") {
+		return nil, fmt.Errorf("缺少 BaseURL（%s 需要 base_url；请在 Setup 中填写 Base URL）", provider)
+	}
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return nil, err
+	}
+	baseSource := "credential_store_or_runtime"
+	switch {
+	case inputBaseURL != "":
+		baseSource = "input"
+	case modelDefaultBaseURL != "" && strings.TrimSpace(bu) == modelDefaultBaseURL:
+		baseSource = "model_default"
+	case strings.TrimSpace(req.DefaultBaseURL) != "" && strings.TrimSpace(bu) == strings.TrimSpace(req.DefaultBaseURL):
+		baseSource = "provider_default"
+	}
+	logger.InfoF(
+		ctx,
+		"llm endpoint resolved env=%s provider=%s model=%s source=%s base_url=%s",
+		strings.TrimSpace(env),
+		provider,
+		model,
+		baseSource,
+		bu,
+	)
 
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
-		Endpoint:     baseURL,
-		APIKey:       apiKey,
+		Endpoint:     bu,
+		APIKey:       ak,
 		Model:        model,
 		SystemPrompt: "You are a helpful assistant.",
 		Temperature:  temperature,
 		MaxTokens:    maxTokens,
-		AccessToken:  apiKey,
+		AccessToken:  ak,
 		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)

@@ -1,0 +1,16 @@
+[Unit]
+Description=PowerX Web Admin Service
+After=powerx-backend.service
+Requires=powerx-backend.service
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+WorkingDirectory=/opt/powerx/web-admin
+ExecStart=/bin/sh -c 'CFG=/opt/powerx/backend/etc/config.yaml; BPORT=$$(awk "/^[[:space:]]*server:[[:space:]]*$$/{in=1; next} in && /^[[:space:]]*port:[[:space:]]*[0-9]+/{gsub(/[^0-9]/, \"\", $$0); print $$0; exit} in && /^[^[:space:]]/{in=0}" "$$CFG"); WPORT=$$(awk "/^[[:space:]]*web_admin_port:[[:space:]]*[0-9]+/{gsub(/[^0-9]/, \"\", $$0); print $$0; exit}" "$$CFG"); [ -z "$$BPORT" ] && BPORT=8080; [ -z "$$WPORT" ] && WPORT=3000; export UPSTREAM=http://127.0.0.1:$$BPORT; export WS_UPSTREAM=ws://127.0.0.1:$$BPORT/api/ws; PORT=$$WPORT exec /usr/bin/node /opt/powerx/web-admin/.output/server/index.mjs'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

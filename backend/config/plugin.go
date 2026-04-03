@@ -18,7 +18,7 @@ type PluginConfig struct {
 
 func DefaultPluginConfig() PluginConfig {
 	return PluginConfig{
-		Enabled:                false,
+		Enabled:                true,
 		BasePrefix:             "/_p",
 		InstalledDir:           "./plugins/installed",
 		MarketCacheDir:         "./plugins/market_cache",

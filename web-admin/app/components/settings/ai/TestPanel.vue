@@ -20,6 +20,7 @@
           color="primary"
           size="sm"
           class="whitespace-nowrap"
+          :disabled="disabled"
           @click="onTestConnection?.()"
         >
           测试连接
@@ -29,10 +30,14 @@
           variant="ghost"
           size="sm"
           class="whitespace-nowrap"
+          :disabled="disabled"
           @click="onTestQuickCall?.()"
         >
           试跑一次
         </UButton>
+      </div>
+      <div v-if="disabled && disabledReason" class="text-xs text-[var(--text-secondary)]">
+        {{ disabledReason }}
       </div>
       <div
         class="rounded-md border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3 min-h-[80px] text-xs text-[var(--text-secondary)]"
@@ -73,6 +78,8 @@ defineProps<{
   };
   lastTestMessage?: string;
   lastTestDetail?: string;
+  disabled?: boolean;
+  disabledReason?: string;
   onTestConnection?: () => void;
   onTestQuickCall?: () => void;
 }>();
