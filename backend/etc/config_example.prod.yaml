@@ -104,14 +104,14 @@ cache:
 
 log:
   level: debug
-  console: true
+  console: false
   use_json_format: false
   show_timestamp: true
   show_caller: false
   http_debug: false
   debug: true
   file:
-    enable: false
+    enable: true
     info_file_path: logs/info.log
     error_file_path: logs/error.log
     max_size: 100

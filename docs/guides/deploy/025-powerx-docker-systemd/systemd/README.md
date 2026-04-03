@@ -4,6 +4,7 @@
 1. `01-deploy-config-start.md`
 2. `02-verify-and-rollback.md`
 3. `03-install-plugin.md`
+4. `04-observability-loki-grafana.md`（可选，日志观测接入）
 
 ## 2. 前置文档
 - `00-runtime-deps-versions.md`（PowerX/PostgreSQL/Redis）

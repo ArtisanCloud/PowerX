@@ -27,9 +27,28 @@ sudo systemctl status powerx-runner --no-pager
 journalctl -u powerx-runner -n 200 --no-pager
 ```
 
+实时跟日志（推荐）：
+```bash
+sudo journalctl -fu powerx-backend
+sudo journalctl -fu powerx-web-admin
+sudo journalctl -fu powerx-runner
+```
+
+定位最近一次启动失败原因（推荐）：
+```bash
+sudo systemctl status powerx-runner --no-pager -l
+sudo journalctl -xeu powerx-runner --no-pager
+```
+
+`runner` 常见失败点：
+- `/etc/powerx/powerx.env` 不存在（unit 使用了 `EnvironmentFile`）
+- `/opt/powerx/runner/dist/main.js` 不存在（制品不完整）
+- `User=powerx` 不存在或目录权限不足
+
 重点检查：
 - `/opt/powerx/{backend,web-admin,runner}` 软链是否正确
 - `/opt/powerx/backend/etc/config.yaml` 中 DB/Redis 配置是否可达
+- `/etc/powerx/powerx.env` 文件是否存在（启用 runner 时）
 
 ## 4. 回滚
 

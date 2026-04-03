@@ -3,25 +3,41 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: /tmp/positions.yaml
+  filename: /var/lib/promtail/positions.yaml
 
 clients:
-  - url: http://loki:3100/loki/api/v1/push
+  - url: http://127.0.0.1:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: powerx-backend
+  # 推荐：systemd 模式下直接采集 journald，覆盖 backend/web-admin/runner
+  - job_name: powerx-journald
+    journal:
+      path: /var/log/journal
+      max_age: 12h
+      labels:
+        job: powerx
+        env: prod
+    relabel_configs:
+      - source_labels: ["__journal__systemd_unit"]
+        regex: "powerx-(backend|web-admin|runner)\\.service"
+        action: keep
+      - source_labels: ["__journal__systemd_unit"]
+        target_label: unit
+      - source_labels: ["__journal__hostname"]
+        target_label: host
+      - source_labels: ["__journal_priority_keyword"]
+        target_label: level
+      - source_labels: ["__journal__systemd_unit"]
+        regex: "powerx-(backend|web-admin|runner)\\.service"
+        replacement: "$1"
+        target_label: app
+
+  # 可选：如果插件写文件日志，可补采集目录
+  - job_name: powerx-plugin-files
     static_configs:
       - targets: [localhost]
         labels:
           job: powerx
-          app: backend
+          app: plugin
           env: prod
-          __path__: /var/log/powerx/backend/*.log
-  - job_name: powerx-runner
-    static_configs:
-      - targets: [localhost]
-        labels:
-          job: powerx
-          app: runner
-          env: prod
-          __path__: /var/log/powerx/runner/*.log
+          __path__: /opt/powerx/backend/logs/plugins/**/*.log

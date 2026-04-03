@@ -142,6 +142,14 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 - `powerx-web-admin.service`：从 `backend/etc/config.yaml` 读取端口
 - `powerx-runner.service`：读取 `/etc/powerx/powerx.env`
 
+若启用 runner（`--with-runner`），首次请确保环境文件存在：
+```bash
+sudo mkdir -p /etc/powerx
+sudo touch /etc/powerx/powerx.env
+sudo chown root:root /etc/powerx/powerx.env
+sudo chmod 0644 /etc/powerx/powerx.env
+```
+
 ## 11. 首次安装
 访问：`http://<host>:<web-admin-port>/setup`
 
