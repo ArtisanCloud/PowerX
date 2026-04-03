@@ -1,10 +1,13 @@
 // middleware/app.global.ts
 export default defineNuxtRouteMiddleware(async (to) => {
   const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
+  const runtimeConfig = useRuntimeConfig();
+  const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
+  const setupStatusPath = `${apiBase}/admin/setup/status`;
 
   const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean; restart_required: boolean } | null> => {
     try {
-      const resp: any = await $fetch("/api/v1/admin/setup/status", {
+      const resp: any = await $fetch(setupStatusPath, {
         method: "GET",
         timeout: 5000,
       });

@@ -49,10 +49,7 @@ func isInstallAllowedPath(cfg *config.Config, path string) bool {
 		return true
 	}
 
-	prefix := "/api/v1"
-	if cfg != nil && strings.TrimSpace(cfg.Server.APIPrefix) != "" {
-		prefix = strings.TrimSpace(cfg.Server.APIPrefix)
-	}
+	prefix := config.ResolveAPIPrefix(cfg)
 	if !strings.HasPrefix(path, prefix) {
 		// 非 API 前缀请求（例如静态资源）不做安装态硬拦截。
 		return true

@@ -2,6 +2,7 @@
 package seed
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	iamservice "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -29,6 +31,9 @@ func SeedRoot(db *gorm.DB) error {
 
 	if err := SeedSwaggerPermissions(db, resolveSwaggerPath()); err != nil {
 		return fmt.Errorf("seed swagger permissions: %w", err)
+	}
+	if err := iamservice.EnsureOpsPermissions(seedCtx(), permissionRegistrar{repo: infraiam.NewPermissionRepository(db)}); err != nil {
+		return fmt.Errorf("seed ops permissions: %w", err)
 	}
 	if err := apikeypermissions.EnsureTemplatePermissions(seedCtx(), infraiam.NewPermissionRepository(db)); err != nil {
 		return fmt.Errorf("seed api key permissions: %w", err)
@@ -247,6 +252,17 @@ func SeedRoot(db *gorm.DB) error {
 
 	fmt.Printf("[seed] root ready. tenant=%s username=%s identifier=%s password=%s\n", tenantKey, rootUserName, rootIdentifier, rootPassword)
 	return nil
+}
+
+type permissionRegistrar struct {
+	repo *infraiam.PermissionRepository
+}
+
+func (r permissionRegistrar) RegisterPermissions(ctx context.Context, rows []model.Permission) error {
+	if r.repo == nil {
+		return errors.New("permission repository is nil")
+	}
+	return r.repo.UpsertBatch(ctx, rows)
 }
 
 type setupDraftAdminConfig struct {

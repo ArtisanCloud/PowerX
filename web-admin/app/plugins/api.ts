@@ -6,13 +6,15 @@ import { useAuth } from "~/composables/useAuth";
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
   const { getToken, isTokenExpired, clearAuth } = useAuth();
+  const apiBase = String(config.public?.apiBase || "/api").replace(/\/+$/, "");
+  const setupStatusPath = `${apiBase}/admin/setup/status`;
   const loadSetupStatus = async (): Promise<{
     configured: boolean;
     requires_login: boolean;
     restart_required: boolean;
   } | null> => {
     try {
-      const resp: any = await $fetch("/api/v1/admin/setup/status", {
+      const resp: any = await $fetch(setupStatusPath, {
         method: "GET",
         timeout: 5000,
       });

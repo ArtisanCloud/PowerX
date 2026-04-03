@@ -7,13 +7,16 @@ export default defineNuxtPlugin((nuxtApp) => {
   const initialized = useState("ai-settings.__init", () => false);
   const router = useRouter(); // ✅ 有完整 Router 类型
   const route = useRoute();
+  const runtimeConfig = useRuntimeConfig();
+  const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
+  const setupStatusPath = `${apiBase}/admin/setup/status`;
 
   const run = async () => {
     if (initialized.value) return;
     if (route.path === "/setup" || route.path.endsWith("/setup")) return;
 
     try {
-      const setupResp: any = await $fetch("/api/v1/admin/setup/status", {
+      const setupResp: any = await $fetch(setupStatusPath, {
         method: "GET",
         timeout: 5000,
       });
