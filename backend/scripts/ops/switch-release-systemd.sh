@@ -143,6 +143,39 @@ ensure_service_identity() {
     fi
     chown root:root /etc/powerx/powerx.env
     chmod 0644 /etc/powerx/powerx.env
+    ensure_node_bin_env
+  fi
+}
+
+detect_node_bin() {
+  local node_bin=""
+  if command -v node >/dev/null 2>&1; then
+    node_bin="$(command -v node)"
+  fi
+  if [[ -z "$node_bin" && -n "${SUDO_USER:-}" ]]; then
+    node_bin="$(sudo -u "${SUDO_USER}" bash -lc 'command -v node || true' 2>/dev/null || true)"
+  fi
+  if [[ -z "$node_bin" && -x /usr/bin/node ]]; then
+    node_bin="/usr/bin/node"
+  fi
+  if [[ -z "$node_bin" && -x /usr/local/bin/node ]]; then
+    node_bin="/usr/local/bin/node"
+  fi
+  printf "%s" "$node_bin"
+}
+
+ensure_node_bin_env() {
+  local env_file="/etc/powerx/powerx.env"
+  local node_bin
+  node_bin="$(detect_node_bin)"
+  if [[ -z "$node_bin" ]]; then
+    echo "[switch-release] warn: node binary not found, keep NODE_BIN unchanged" >&2
+    return 0
+  fi
+  if grep -q '^NODE_BIN=' "$env_file"; then
+    sed -i "s|^NODE_BIN=.*$|NODE_BIN=${node_bin}|" "$env_file"
+  else
+    printf '\nNODE_BIN=%s\n' "$node_bin" >> "$env_file"
   fi
 }
 

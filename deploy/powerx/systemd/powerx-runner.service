@@ -10,7 +10,7 @@ Group=powerx
 WorkingDirectory=/opt/powerx/runner
 # 与 backend/web-admin 共享 /etc/powerx/powerx.env，确保同一套部署变量来源
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/usr/bin/node /opt/powerx/runner/dist/main.js
+ExecStart=/bin/sh -c 'exec "${NODE_BIN:-/usr/bin/node}" /opt/powerx/runner/dist/main.js'
 Restart=always
 RestartSec=3
 
