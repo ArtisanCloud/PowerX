@@ -64,6 +64,8 @@ RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
+SERVICE_USER="${POWERX_SERVICE_USER:-powerx}"
+SERVICE_GROUP="${POWERX_SERVICE_GROUP:-powerx}"
 
 TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
@@ -73,6 +75,11 @@ TARGET_RUNNER="${TARGET_ROOT}/runner"
 LINK_BACKEND="${LINKS_ROOT}/backend"
 LINK_WEB_ADMIN="${LINKS_ROOT}/web-admin"
 LINK_RUNNER="${LINKS_ROOT}/runner"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "[switch-release] this script must run as root (use sudo)" >&2
+  exit 1
+fi
 
 if [[ ! -d "$TARGET_BACKEND" ]]; then
   echo "[switch-release] missing target backend dir: $TARGET_BACKEND" >&2
@@ -105,6 +112,29 @@ echo "[switch-release] target ref: $TARGET_REF"
 echo "[switch-release] releases root: $RELEASES_ROOT"
 echo "[switch-release] links root: $LINKS_ROOT"
 
+ensure_service_identity() {
+  if ! getent group "${SERVICE_GROUP}" >/dev/null; then
+    echo "[switch-release] create group: ${SERVICE_GROUP}"
+    groupadd --system "${SERVICE_GROUP}"
+  fi
+
+  if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
+    echo "[switch-release] create user: ${SERVICE_USER}"
+    useradd --system \
+      --gid "${SERVICE_GROUP}" \
+      --home "${LINKS_ROOT}" \
+      --shell /usr/sbin/nologin \
+      "${SERVICE_USER}"
+  fi
+
+  install -d -m 0755 "${LINKS_ROOT}" "${RELEASES_ROOT}"
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${TARGET_ROOT}"
+  chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_BACKEND}" "${LINK_WEB_ADMIN}" 2>/dev/null || true
+  if [[ "$WITH_RUNNER" == "1" ]]; then
+    chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_RUNNER}" 2>/dev/null || true
+  fi
+}
+
 rollback() {
   echo "[switch-release] rollback start"
   if [[ -n "$PREV_BACKEND" ]]; then
@@ -133,7 +163,14 @@ if [[ "$WITH_RUNNER" == "1" ]]; then
   ln -sfn "$TARGET_RUNNER" "$LINK_RUNNER"
 fi
 
+ensure_service_identity
+
 systemctl daemon-reload
+if [[ "$WITH_RUNNER" == "1" ]]; then
+  systemctl enable powerx-backend powerx-web-admin powerx-runner
+else
+  systemctl enable powerx-backend powerx-web-admin
+fi
 systemctl restart powerx-backend powerx-web-admin
 if [[ "$WITH_RUNNER" == "1" ]]; then
   systemctl restart powerx-runner

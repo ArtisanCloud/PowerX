@@ -57,6 +57,11 @@ git checkout ${POWERX_VERSION}
 先执行构建前依赖准备（首次构建或依赖变化时必须）：
 
 ```bash
+# 固定 Go 工具链版本（推荐）
+go env -w GOTOOLCHAIN=go1.24.12
+go version
+go env GOVERSION GOTOOLCHAIN
+
 # Go 依赖（建议在 backend 目录）
 cd backend
 go mod tidy
@@ -103,25 +108,29 @@ tar -czf powerx-systemd-${POWERX_VERSION}.tar.gz -C dist/systemd/${POWERX_VERSIO
 ```bash
 sudo mkdir -p /opt/powerx/releases/${POWERX_VERSION}
 sudo tar -xzf powerx-systemd-${POWERX_VERSION}.tar.gz -C /opt/powerx/releases/${POWERX_VERSION}
-
-sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/backend /opt/powerx/backend
-sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/web-admin /opt/powerx/web-admin
-# runner 存在时再执行
-sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/runner /opt/powerx/runner
 ```
 
 ## 9. 安装并启动 systemd
 ```bash
 sudo cp /opt/powerx/releases/${POWERX_VERSION}/systemd/*.service /etc/systemd/system/
+```
+
+推荐直接使用切换脚本（自动创建 `powerx` 用户/组并赋权）：
+```bash
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-runner
+```
+说明：该脚本会自动执行 `daemon-reload + enable + restart`。
+
+手工方式（仅在排障时使用）：
+```bash
+sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/backend /opt/powerx/backend
+sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/web-admin /opt/powerx/web-admin
+sudo ln -sfn /opt/powerx/releases/${POWERX_VERSION}/runner /opt/powerx/runner
+
 sudo systemctl daemon-reload
-
-sudo systemctl enable powerx-backend powerx-web-admin
-sudo systemctl restart powerx-backend powerx-web-admin
-sudo systemctl status powerx-backend powerx-web-admin --no-pager
-
-# runner 可选
-sudo systemctl enable powerx-runner
-sudo systemctl restart powerx-runner
+sudo systemctl enable powerx-backend powerx-web-admin powerx-runner
+sudo systemctl restart powerx-backend powerx-web-admin powerx-runner
+sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 ```
 
 ## 10. 配置说明

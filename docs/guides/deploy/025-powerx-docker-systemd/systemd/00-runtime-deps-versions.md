@@ -9,19 +9,44 @@
 ## 2. 版本兼容口径（推荐）
 
 与官方 Docker 基线对齐（仓库 `deploy/powerx/docker/compose.prod.yaml`）：
+- Go（构建工具链）：`1.24.12`
 - PostgreSQL：`16`（镜像基线：`pgvector/pgvector:pg16`）
 - Redis：`7`（镜像基线：`redis:7-alpine`）
 
 推荐矩阵：
 - PowerX `${POWERX_VERSION}`（例如 `v1.0.0` / `v2.0.2`）
+- Go `1.24.12`
 - PostgreSQL `16` + `pgvector` 扩展可用
 - Redis `7`
 
 说明：
 - 生产建议严格使用上述推荐组合，避免跨大版本兼容差异。
 - 若你使用外部 PostgreSQL，必须确认目标库可用 `vector` 扩展（`CREATE EXTENSION vector;`）。
+- 若构建时报 `sonic/loader ... runtime.lastmoduledatap`，优先确认 Go 已升级到 `1.24.12`。
 
 ## 3. Ubuntu 安装示例（可直接执行）
+
+### 3.0 Go 1.24.12（构建 PowerX 必备）
+先移除旧版（若存在），再安装官方二进制包：
+
+```bash
+sudo rm -rf /usr/local/go
+curl -fL https://go.dev/dl/go1.24.12.linux-amd64.tar.gz -o /tmp/go1.24.12.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf /tmp/go1.24.12.linux-amd64.tar.gz
+```
+
+设置 PATH（按当前用户）：
+```bash
+grep -q '/usr/local/go/bin' ~/.bashrc || echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+固定工具链版本，避免自动漂移：
+```bash
+go env -w GOTOOLCHAIN=go1.24.12
+go version
+go env GOVERSION GOTOOLCHAIN
+```
 
 ### 3.1 PostgreSQL 16（先加官方 PGDG 源）
 你如果直接 `apt install postgresql-16` 报 `Unable to locate package`，说明系统默认源里没有 PG16，需要先加官方 PGDG 源。
