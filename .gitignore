@@ -58,8 +58,8 @@ backend/.gopath
 backend/.gotmp
 
 # Ignore compiled binary files and specific app directories
-# Binary file 'app' (compiled executable)
-app
+# Binary file 'app' (compiled executable at repository root)
+/app
 
 # Allow web-admin/app directory (it has source code, not a build artifact)
 !web-admin/app/
@@ -91,3 +91,5 @@ storage/
 tmp
 backend/reports/
 reports/
+
+/backend/app
