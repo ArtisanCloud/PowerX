@@ -54,6 +54,33 @@ git checkout ${POWERX_VERSION}
 ```
 
 ## 6. 构建 dist
+先执行构建前依赖准备（首次构建或依赖变化时必须）：
+
+```bash
+# Go 依赖（建议在 backend 目录）
+cd backend
+go mod tidy
+cd ..
+
+# Node 依赖
+cd web-admin
+npm ci
+cd ..
+
+# runner 存在时再执行
+if [ -d backend/runner ]; then
+  cd backend/runner
+  npm ci
+  cd ../..
+fi
+```
+
+如果你是国内网络，建议先设置 Go 代理：
+```bash
+go env -w GOPROXY=https://goproxy.cn,direct
+```
+
+然后再执行：
 ```bash
 make dist DIST_VERSION=${POWERX_VERSION}
 ```
