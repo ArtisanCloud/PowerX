@@ -164,7 +164,7 @@ ensure_service_identity() {
 
 apply_service_user_override() {
   local unit="$1"
-  local dir="/etc/systemd/system/${unit}.d"
+  local dir="/etc/systemd/system/${unit}.service.d"
   install -d -m 0755 "$dir"
   cat > "${dir}/zz-runtime-user.conf" <<EOF
 [Service]
