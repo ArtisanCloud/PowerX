@@ -71,6 +71,7 @@ TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
 TARGET_WEB_ADMIN="${TARGET_ROOT}/web-admin"
 TARGET_RUNNER="${TARGET_ROOT}/runner"
+TARGET_SYSTEMD="${TARGET_ROOT}/systemd"
 
 LINK_BACKEND="${LINKS_ROOT}/backend"
 LINK_WEB_ADMIN="${LINKS_ROOT}/web-admin"
@@ -143,35 +144,60 @@ ensure_service_identity() {
     fi
     chown root:root /etc/powerx/powerx.env
     chmod 0644 /etc/powerx/powerx.env
-    ensure_node_bin_env
   fi
+  ensure_node_bin_env
 }
 
 detect_node_bin() {
-  local node_bin=""
+  local candidate=""
+  # 优先系统级路径，避免依赖 sudo 用户自己的 nvm 目录权限。
+  for candidate in /usr/bin/node /usr/local/bin/node; do
+    if [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
+      printf "%s" "$candidate"
+      return 0
+    fi
+  done
+
+  # 其次尝试当前 PATH（可能是系统级，也可能是可访问的自定义路径）
   if command -v node >/dev/null 2>&1; then
-    node_bin="$(command -v node)"
+    candidate="$(command -v node)"
+    if [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
+      printf "%s" "$candidate"
+      return 0
+    fi
   fi
-  if [[ -z "$node_bin" && -n "${SUDO_USER:-}" ]]; then
-    node_bin="$(sudo -u "${SUDO_USER}" bash -lc 'command -v node || true' 2>/dev/null || true)"
+
+  # 再尝试 sudo 原用户 PATH（常见为 nvm），但仍要求 powerx 可执行。
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    candidate="$(sudo -u "${SUDO_USER}" bash -lc 'command -v node || true' 2>/dev/null || true)"
+    if [[ -n "$candidate" ]] && [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
+      printf "%s" "$candidate"
+      return 0
+    fi
   fi
-  if [[ -z "$node_bin" && -x /usr/bin/node ]]; then
-    node_bin="/usr/bin/node"
-  fi
-  if [[ -z "$node_bin" && -x /usr/local/bin/node ]]; then
-    node_bin="/usr/local/bin/node"
-  fi
-  printf "%s" "$node_bin"
+
+  return 1
 }
 
 ensure_node_bin_env() {
   local env_file="/etc/powerx/powerx.env"
   local node_bin
-  node_bin="$(detect_node_bin)"
-  if [[ -z "$node_bin" ]]; then
-    echo "[switch-release] warn: node binary not found, keep NODE_BIN unchanged" >&2
+  install -d -m 0755 /etc/powerx
+  if [[ ! -f "$env_file" ]]; then
+    if [[ -f "${TARGET_ROOT}/systemd/powerx.env.example" ]]; then
+      cp "${TARGET_ROOT}/systemd/powerx.env.example" "$env_file"
+    else
+      touch "$env_file"
+    fi
+    chown root:root "$env_file"
+    chmod 0644 "$env_file"
+  fi
+
+  if ! node_bin="$(detect_node_bin)"; then
+    echo "[switch-release] warn: no executable node found for user '${SERVICE_USER}', keep NODE_BIN unchanged (recommend install system node at /usr/bin/node)" >&2
     return 0
   fi
+
   if grep -q '^NODE_BIN=' "$env_file"; then
     sed -i "s|^NODE_BIN=.*$|NODE_BIN=${node_bin}|" "$env_file"
   else
@@ -208,6 +234,10 @@ if [[ "$WITH_RUNNER" == "1" ]]; then
 fi
 
 ensure_service_identity
+
+if [[ -d "$TARGET_SYSTEMD" ]]; then
+  cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/
+fi
 
 systemctl daemon-reload
 if [[ "$WITH_RUNNER" == "1" ]]; then

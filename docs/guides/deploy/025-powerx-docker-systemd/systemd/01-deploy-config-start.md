@@ -111,15 +111,11 @@ sudo tar -xzf powerx-systemd-${POWERX_VERSION}.tar.gz -C /opt/powerx/releases/${
 ```
 
 ## 9. 安装并启动 systemd
-```bash
-sudo cp /opt/powerx/releases/${POWERX_VERSION}/systemd/*.service /etc/systemd/system/
-```
-
 推荐直接使用切换脚本（自动创建 `powerx` 用户/组并赋权）：
 ```bash
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-runner
 ```
-说明：该脚本会自动执行 `daemon-reload + enable + restart`。
+说明：该脚本会自动从 `/opt/powerx/releases/${POWERX_VERSION}/systemd/` 同步 `.service` 到 `/etc/systemd/system/`，并执行 `daemon-reload + enable + restart`。
 另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 `powerx` 运行权限。
 启用 `--with-runner` 时，也会自动创建 `/etc/powerx/powerx.env`（优先复制 `systemd/powerx.env.example`），并自动写入可用的 `NODE_BIN` 路径。
 
