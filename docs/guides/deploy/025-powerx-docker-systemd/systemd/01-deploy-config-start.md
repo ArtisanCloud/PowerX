@@ -122,6 +122,7 @@ sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with
 
 运行用户策略（默认）：
 - 默认使用当前登录用户（`whoami`，sudo 场景等价于 `SUDO_USER`）作为 service 用户。
+- 脚本会校验 systemd 实际生效的 `User/Group`，若和目标用户不一致会直接失败退出。
 - 可通过环境变量覆盖：
 ```bash
 export POWERX_SERVICE_USER=ubuntu

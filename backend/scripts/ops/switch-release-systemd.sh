@@ -114,6 +114,7 @@ fi
 echo "[switch-release] target ref: $TARGET_REF"
 echo "[switch-release] releases root: $RELEASES_ROOT"
 echo "[switch-release] links root: $LINKS_ROOT"
+echo "[switch-release] service identity: ${SERVICE_USER}:${SERVICE_GROUP:-<auto>}"
 
 ensure_service_identity() {
   if id -u "${SERVICE_USER}" >/dev/null 2>&1; then
@@ -165,11 +166,27 @@ apply_service_user_override() {
   local unit="$1"
   local dir="/etc/systemd/system/${unit}.d"
   install -d -m 0755 "$dir"
-  cat > "${dir}/override.conf" <<EOF
+  cat > "${dir}/zz-runtime-user.conf" <<EOF
 [Service]
 User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 EOF
+}
+
+assert_effective_service_user() {
+  local unit="$1"
+  local expected_user="$2"
+  local expected_group="$3"
+  local unit_base="${unit%.service}"
+  local actual_user=""
+  local actual_group=""
+  actual_user="$(systemctl show "${unit}" -p User --value | xargs)"
+  actual_group="$(systemctl show "${unit}" -p Group --value | xargs)"
+  if [[ "$actual_user" != "$expected_user" || "$actual_group" != "$expected_group" ]]; then
+    echo "[switch-release] error: ${unit} effective identity mismatch (expected ${expected_user}:${expected_group}, got ${actual_user}:${actual_group})" >&2
+    echo "[switch-release] hint: check /etc/systemd/system/${unit_base}.service.d/*.conf for conflicting User/Group overrides" >&2
+    exit 1
+  fi
 }
 
 detect_node_bin() {
@@ -287,6 +304,11 @@ if [[ "$WITH_RUNNER" == "1" ]]; then
 fi
 
 systemctl daemon-reload
+assert_effective_service_user "powerx-backend.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+assert_effective_service_user "powerx-web-admin.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+if [[ "$WITH_RUNNER" == "1" ]]; then
+  assert_effective_service_user "powerx-runner.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+fi
 if [[ "$WITH_RUNNER" == "1" ]]; then
   systemctl enable powerx-backend powerx-web-admin powerx-runner
 else
