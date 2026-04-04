@@ -118,6 +118,7 @@ sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with
 说明：该脚本会自动从 `/opt/powerx/releases/${POWERX_VERSION}/systemd/` 同步 `.service` 到 `/etc/systemd/system/`，并执行 `daemon-reload + enable + restart`。
 另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 `powerx` 运行权限。
 启用 `--with-runner` 时，也会自动创建 `/etc/powerx/powerx.env`（优先复制 `systemd/powerx.env.example`），并自动写入可用的 `NODE_BIN` 路径。
+若找不到对 `powerx` 用户可执行的 `NODE_BIN`，脚本会直接失败退出（不再“假成功”）。
 
 手工方式（仅在排障时使用）：
 ```bash

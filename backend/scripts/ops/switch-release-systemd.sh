@@ -150,6 +150,17 @@ ensure_service_identity() {
 
 detect_node_bin() {
   local candidate=""
+  local env_file="/etc/powerx/powerx.env"
+
+  # 优先使用用户显式指定的 NODE_BIN（若可执行）
+  if [[ -f "$env_file" ]]; then
+    candidate="$(awk -F= '/^NODE_BIN=/{print substr($0,10); exit}' "$env_file" | tr -d '"' | xargs)"
+    if [[ -n "$candidate" ]] && [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
+      printf "%s" "$candidate"
+      return 0
+    fi
+  fi
+
   # 优先系统级路径，避免依赖 sudo 用户自己的 nvm 目录权限。
   for candidate in /usr/bin/node /usr/local/bin/node; do
     if [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
@@ -194,8 +205,14 @@ ensure_node_bin_env() {
   fi
 
   if ! node_bin="$(detect_node_bin)"; then
-    echo "[switch-release] warn: no executable node found for user '${SERVICE_USER}', keep NODE_BIN unchanged (recommend install system node at /usr/bin/node)" >&2
-    return 0
+    cat >&2 <<EOF
+[switch-release] error: no executable node found for user '${SERVICE_USER}'.
+[switch-release] required by: powerx-web-admin.service / powerx-runner.service
+[switch-release] options:
+  1) install system node and set NODE_BIN=/usr/bin/node
+  2) use custom node path and ensure '${SERVICE_USER}' has execute permission on full path (ACL/chmod)
+EOF
+    exit 1
   fi
 
   if grep -q '^NODE_BIN=' "$env_file"; then
@@ -203,6 +220,7 @@ ensure_node_bin_env() {
   else
     printf '\nNODE_BIN=%s\n' "$node_bin" >> "$env_file"
   fi
+  echo "[switch-release] using NODE_BIN=${node_bin}"
 }
 
 rollback() {
