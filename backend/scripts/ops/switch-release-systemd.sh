@@ -21,6 +21,8 @@ Environment overrides:
   POWERX_LINKS_ROOT        Default: /opt/powerx
   POWERX_HEALTH_URL        Default: http://127.0.0.1:8080/api/v1/health
   POWERX_HEALTH_EXPECT     Default: 200
+  POWERX_SERVICE_USER      Default: current login user (sudo user), fallback: powerx
+  POWERX_SERVICE_GROUP     Default: primary group of POWERX_SERVICE_USER
 USAGE
 }
 
@@ -64,8 +66,8 @@ RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
-SERVICE_USER="${POWERX_SERVICE_USER:-powerx}"
-SERVICE_GROUP="${POWERX_SERVICE_GROUP:-powerx}"
+SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
+SERVICE_GROUP="${POWERX_SERVICE_GROUP:-}"
 
 TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
@@ -114,18 +116,29 @@ echo "[switch-release] releases root: $RELEASES_ROOT"
 echo "[switch-release] links root: $LINKS_ROOT"
 
 ensure_service_identity() {
-  if ! getent group "${SERVICE_GROUP}" >/dev/null; then
-    echo "[switch-release] create group: ${SERVICE_GROUP}"
-    groupadd --system "${SERVICE_GROUP}"
-  fi
-
-  if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
+  if id -u "${SERVICE_USER}" >/dev/null 2>&1; then
+    if [[ -z "${SERVICE_GROUP}" ]]; then
+      SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
+    fi
+  else
+    if [[ -z "${SERVICE_GROUP}" ]]; then
+      SERVICE_GROUP="${SERVICE_USER}"
+    fi
+    if ! getent group "${SERVICE_GROUP}" >/dev/null; then
+      echo "[switch-release] create group: ${SERVICE_GROUP}"
+      groupadd --system "${SERVICE_GROUP}"
+    fi
     echo "[switch-release] create user: ${SERVICE_USER}"
     useradd --system \
       --gid "${SERVICE_GROUP}" \
       --home "${LINKS_ROOT}" \
       --shell /usr/sbin/nologin \
       "${SERVICE_USER}"
+  fi
+
+  if ! getent group "${SERVICE_GROUP}" >/dev/null; then
+    echo "[switch-release] missing group: ${SERVICE_GROUP}" >&2
+    exit 1
   fi
 
   install -d -m 0755 "${LINKS_ROOT}" "${RELEASES_ROOT}"
@@ -146,6 +159,17 @@ ensure_service_identity() {
     chmod 0644 /etc/powerx/powerx.env
   fi
   ensure_node_bin_env
+}
+
+apply_service_user_override() {
+  local unit="$1"
+  local dir="/etc/systemd/system/${unit}.d"
+  install -d -m 0755 "$dir"
+  cat > "${dir}/override.conf" <<EOF
+[Service]
+User=${SERVICE_USER}
+Group=${SERVICE_GROUP}
+EOF
 }
 
 detect_node_bin() {
@@ -255,6 +279,11 @@ ensure_service_identity
 
 if [[ -d "$TARGET_SYSTEMD" ]]; then
   cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/
+fi
+apply_service_user_override "powerx-backend"
+apply_service_user_override "powerx-web-admin"
+if [[ "$WITH_RUNNER" == "1" ]]; then
+  apply_service_user_override "powerx-runner"
 fi
 
 systemctl daemon-reload
