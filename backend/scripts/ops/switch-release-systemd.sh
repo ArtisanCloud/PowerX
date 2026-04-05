@@ -93,8 +93,12 @@ if [[ ! -d "$TARGET_WEB_ADMIN" ]]; then
   exit 1
 fi
 if [[ "$WITH_RUNNER" == "1" && ! -d "$TARGET_RUNNER" ]]; then
-  echo "[switch-release] missing target runner dir: $TARGET_RUNNER" >&2
-  exit 1
+  echo "[switch-release] warning: target runner dir missing: $TARGET_RUNNER" >&2
+  echo "[switch-release] warning: continue in noop-runner mode (service will be skipped by condition)" >&2
+fi
+if [[ "$WITH_RUNNER" == "1" && ! -f "$TARGET_RUNNER/dist/main.js" ]]; then
+  echo "[switch-release] warning: runner artifact missing: $TARGET_RUNNER/dist/main.js" >&2
+  echo "[switch-release] warning: continue in noop-runner mode (service will be skipped by condition)" >&2
 fi
 
 PREV_BACKEND=""

@@ -2,6 +2,7 @@
 Description=PowerX Runner Service
 After=powerx-backend.service
 Requires=powerx-backend.service
+ConditionPathExists=/opt/powerx/runner/dist/main.js
 
 [Service]
 Type=simple
