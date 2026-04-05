@@ -26,6 +26,7 @@ runner（可选）：
 sudo systemctl status powerx-runner --no-pager
 journalctl -u powerx-runner -n 200 --no-pager
 ```
+说明：无 runner 制品时，`powerx-runner.service` 可能显示 `ConditionPathExists ... was not met`，属于预期跳过（noop），不是故障。
 
 实时跟日志（推荐）：
 ```bash
@@ -44,6 +45,17 @@ sudo journalctl -xeu powerx-runner --no-pager
 - `/etc/powerx/powerx.env` 不存在（unit 使用了 `EnvironmentFile`）
 - `/opt/powerx/runner/dist/main.js` 不存在（制品不完整）
 - `User=powerx` 不存在或目录权限不足
+
+`setup/status` 检查返回非 JSON（常见是代理页）：
+```bash
+env | grep -i proxy
+curl -i --noproxy '*' http://127.0.0.1:8080/api/v1/admin/setup/status | sed -n '1,40p'
+```
+若命中了代理（例如出现 `Proxy-Connection`、HTML 错误页），先清理代理环境变量后重试：
+```bash
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
+export NO_PROXY=127.0.0.1,localhost,::1
+```
 
 重点检查：
 - `/opt/powerx/{backend,web-admin,runner}` 软链是否正确

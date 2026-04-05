@@ -202,6 +202,32 @@ func (h *SetupHandler) Status(c *gin.Context) {
 		restartRequired = true
 	}
 	requiresLogin := configured && !restartRequired
+	if setupStatusTraceEnabled() {
+		logger.InfoF(
+			c.Request.Context(),
+			"setup status trace host=%s method=%s uri=%s remote=%s xff=%s xfh=%s xfp=%s install_status=%s configured=%t requires_login=%t restart_required=%t desired_ports={backend:%d,web:%d} effective_ports={backend:%d,web:%d} config_source={desired:%s,effective:%s} checks={users:%d,tenants:%d,ai_profiles:%d}",
+			c.Request.Host,
+			c.Request.Method,
+			c.Request.RequestURI,
+			c.Request.RemoteAddr,
+			c.GetHeader("X-Forwarded-For"),
+			c.GetHeader("X-Forwarded-Host"),
+			c.GetHeader("X-Forwarded-Proto"),
+			installStatus,
+			configured,
+			requiresLogin,
+			restartRequired,
+			desiredPorts.BackendPort,
+			desiredPorts.WebAdminPort,
+			effectivePorts.BackendPort,
+			effectivePorts.WebAdminPort,
+			desiredSource,
+			effectiveSource,
+			userCount,
+			tenantCount,
+			aiProfileCount,
+		)
+	}
 
 	dto.ResponseSuccess(c, gin.H{
 		"configured":      configured,
@@ -229,6 +255,16 @@ func (h *SetupHandler) Status(c *gin.Context) {
 			"ai_profiles": aiProfileCount,
 		},
 	})
+}
+
+func setupStatusTraceEnabled() bool {
+	v := strings.TrimSpace(os.Getenv("POWERX_SETUP_STATUS_TRACE"))
+	switch strings.ToLower(v) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *SetupHandler) GetConfig(c *gin.Context) {

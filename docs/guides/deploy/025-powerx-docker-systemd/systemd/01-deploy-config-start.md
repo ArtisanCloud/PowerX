@@ -115,7 +115,13 @@ sudo tar -xzf powerx-systemd-${POWERX_VERSION}.tar.gz -C /opt/powerx/releases/${
 ```bash
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-runner
 ```
-注意：`--with-runner` 需要发布目录存在 `runner/dist/main.js`；否则脚本会直接失败。
+说明：
+- 当前版本下，`runner` 是可选组件。
+- 传入 `--with-runner` 且发布目录不存在 `runner/dist/main.js` 时，脚本会给出 warning，并进入 noop-runner 模式；`powerx-runner.service` 会因 `ConditionPathExists` 被跳过，不影响 backend/web-admin 启动。
+- 若不需要 runner，可直接不带参数执行：
+```bash
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION}
+```
 说明：该脚本会自动从 `/opt/powerx/releases/${POWERX_VERSION}/systemd/` 同步 `.service` 到 `/etc/systemd/system/`，并执行 `daemon-reload + enable + restart`。
 另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 service 运行用户权限。
 启用 `--with-runner` 时，也会自动创建 `/etc/powerx/powerx.env`（优先复制 `systemd/powerx.env.example`），并自动写入可用的 `NODE_BIN` 路径。
@@ -154,6 +160,16 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 
 ## 11. 首次安装
 访问：`http://<host>:<web-admin-port>/setup`
+
+若页面未进入 `/setup`，请先核对 setup 状态（避免代理干扰）：
+```bash
+# 直连本机 backend
+curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/setup/status
+
+# 若机器配置了 http(s)_proxy，先临时禁用再测
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
+export NO_PROXY=127.0.0.1,localhost,::1
+```
 
 下一步：
 - `02-verify-and-rollback.md`
