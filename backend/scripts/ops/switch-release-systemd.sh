@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<USAGE
 Usage:
-  $0 <target_tag_or_version> [--with-runner] [--timeout-sec N]
+  $0 <target_tag_or_version> [--with-runner] [--with-setup-trace|--without-setup-trace] [--timeout-sec N]
 
 Description:
   Switch /opt/powerx symlinks to /opt/powerx/releases/<target_tag_or_version>,
@@ -14,6 +14,8 @@ Description:
 
 Options:
   --with-runner            Also switch/restart powerx-runner.
+  --with-setup-trace       Enable setup/status trace log on powerx-backend.
+  --without-setup-trace    Disable setup/status trace log on powerx-backend.
   --timeout-sec N          Health check timeout seconds (default: 90).
 
 Environment overrides:
@@ -35,11 +37,21 @@ TARGET_REF="$1"
 shift
 
 WITH_RUNNER=0
+WITH_SETUP_TRACE=0
+WITHOUT_SETUP_TRACE=0
 TIMEOUT_SEC=90
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-runner)
       WITH_RUNNER=1
+      shift
+      ;;
+    --with-setup-trace)
+      WITH_SETUP_TRACE=1
+      shift
+      ;;
+    --without-setup-trace)
+      WITHOUT_SETUP_TRACE=1
       shift
       ;;
     --timeout-sec)
@@ -61,6 +73,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$WITH_SETUP_TRACE" == "1" && "$WITHOUT_SETUP_TRACE" == "1" ]]; then
+  echo "[switch-release] --with-setup-trace and --without-setup-trace cannot be used together" >&2
+  exit 1
+fi
 
 RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
@@ -175,6 +192,25 @@ apply_service_user_override() {
 User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 EOF
+}
+
+apply_setup_trace_override() {
+  local dir="/etc/systemd/system/powerx-backend.service.d"
+  local file="${dir}/90-setup-trace.conf"
+  install -d -m 0755 "$dir"
+  cat > "$file" <<EOF
+[Service]
+Environment=POWERX_SETUP_STATUS_TRACE=1
+EOF
+  echo "[switch-release] setup trace enabled: ${file}"
+}
+
+remove_setup_trace_override() {
+  local file="/etc/systemd/system/powerx-backend.service.d/90-setup-trace.conf"
+  if [[ -f "$file" ]]; then
+    rm -f "$file"
+    echo "[switch-release] setup trace disabled: ${file}"
+  fi
 }
 
 assert_effective_service_user() {
@@ -305,6 +341,12 @@ apply_service_user_override "powerx-backend"
 apply_service_user_override "powerx-web-admin"
 if [[ "$WITH_RUNNER" == "1" ]]; then
   apply_service_user_override "powerx-runner"
+fi
+if [[ "$WITH_SETUP_TRACE" == "1" ]]; then
+  apply_setup_trace_override
+fi
+if [[ "$WITHOUT_SETUP_TRACE" == "1" ]]; then
+  remove_setup_trace_override
 fi
 
 systemctl daemon-reload
