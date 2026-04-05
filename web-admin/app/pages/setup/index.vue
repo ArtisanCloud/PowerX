@@ -898,6 +898,14 @@ const waitForWebAdminReachable = async (port: number, maxWaitMs = 120000, interv
 };
 
 const redirectToReadyHome = async () => {
+  // 反向代理场景（如 443 -> 3000）下，浏览器端不应强制探测 :3000。
+  // 只要当前 origin 的 setup/status 可达，直接跳当前站点 /home。
+  const currentOriginReady = await probeURLReachable(`${window.location.origin}/api/v1/admin/setup/status?ts=${Date.now()}`);
+  if (currentOriginReady) {
+    window.location.replace("/home");
+    return;
+  }
+
   const targetWebPort =
     Number(setupStatus.value?.desired_ports?.web_admin_port || step3Data.webAdminPort || 0) ||
     Number(setupStatus.value?.effective_ports?.web_admin_port || 0);

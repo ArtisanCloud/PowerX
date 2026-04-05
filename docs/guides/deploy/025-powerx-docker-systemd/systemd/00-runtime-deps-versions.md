@@ -96,6 +96,21 @@ sudo -u postgres psql -d powerx -c "CREATE EXTENSION IF NOT EXISTS vector;"
 sudo -u postgres psql -d powerx -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
+若数据库不是由 `powerx` 用户创建（或 schema owner 不是 `powerx`），还需要补齐 `public` schema 权限，避免 setup/migrate 报错 `permission denied for schema public (SQLSTATE 42501)`：
+```bash
+sudo -u postgres psql -d powerx <<'SQL'
+GRANT USAGE, CREATE ON SCHEMA public TO powerx;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRIGGER, REFERENCES
+ON ALL TABLES IN SCHEMA public TO powerx;
+GRANT USAGE, SELECT, UPDATE
+ON ALL SEQUENCES IN SCHEMA public TO powerx;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT SELECT, INSERT, UPDATE, DELETE, TRIGGER, REFERENCES ON TABLES TO powerx;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO powerx;
+SQL
+```
+
 如果 `postgresql-16-pgvector` 仍找不到，使用源码安装：
 ```bash
 sudo apt-get install -y build-essential git postgresql-server-dev-16
@@ -175,3 +190,7 @@ redis-cli ping
 4. `Unable to locate package postgresql-16-pgvector`
 - 原因：当前发行版/镜像未提供该包。
 - 处理：按 3.2 使用源码安装 `pgvector`。
+
+5. `permission denied for schema public (SQLSTATE 42501)`
+- 原因：应用账号缺少 `public` schema 的 `USAGE/CREATE` 或默认对象权限。
+- 处理：按 3.2 的 schema 授权 SQL 执行一次，再重试 setup/migrate。

@@ -46,6 +46,17 @@ server {
     }
 
     # Backend API
+    # 注意：Nuxt Icon 接口必须先于 /api/ 命中并转发到 web-admin
+    location /api/_nuxt_icon/ {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:3000;
+    }
+
+    # Backend API
     location /api/ {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -145,6 +156,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_pass http://127.0.0.1:8080;
+    }
+
+    # 注意：单独保留 Nuxt Icon 路由到 web-admin，避免被 /api/ 误转发到 backend
+    location /api/_nuxt_icon/ {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:3000;
     }
 
     location /api/ {
