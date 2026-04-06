@@ -420,7 +420,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("[PROXY-UPSTREAM-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
+			log.Printf("[PROXY-BACKEND-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
 			return nil
 		}
 		_ = resp.Body.Close()
@@ -432,7 +432,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if len(msg) > 1024 {
 			msg = msg[:1024] + "...(truncated)"
 		}
-		log.Printf("[PROXY-UPSTREAM-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
+		log.Printf("[PROXY-BACKEND-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
 			pluginID, c.Request.Method, c.Request.URL.Path, resp.StatusCode, msg)
 		return nil
 	}

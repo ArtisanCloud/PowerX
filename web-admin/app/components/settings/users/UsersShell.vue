@@ -1,6 +1,6 @@
 <!-- /components/settings/users/UsersShell.vue -->
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import UsersRoot from "./UsersRoot.vue";
 import UsersTenantAdmin from "./UsersTenantAdmin.vue";
@@ -19,6 +19,8 @@ const {
   avatarUrl,
 } = storeToRefs(userStore);
 
+const rootCrossTenantMode = ref(false);
+
 // 计算当前视图类型
 const view = computed(() => {
   if (isRoot.value) return "root";
@@ -26,10 +28,22 @@ const view = computed(() => {
   return "member";
 });
 
+const canRenderRootTenantAdmin = computed(
+  () => !!currentTenantUuid.value && !rootCrossTenantMode.value
+);
+
+watch(isRoot, (next) => {
+  if (!next) {
+    rootCrossTenantMode.value = false;
+  }
+});
+
 // 组件挂载时加载用户上下文
 onMounted(async () => {
   try {
-    await userStore.fetchUserContext();
+    // 用户管理页需要基于最新身份/租户上下文做视图分流（root/admin/member），
+    // 这里强制刷新，避免命中 store 的 5 分钟缓存导致展示旧权限视图。
+    await userStore.fetchUserContext({ force: true });
   } catch (error) {
     console.error("加载用户上下文失败:", error);
   }
@@ -67,7 +81,7 @@ onMounted(async () => {
         color="primary"
         variant="outline"
         size="sm"
-        @click="userStore.fetchUserContext"
+        @click="() => userStore.fetchUserContext({ force: true })"
       >
         {{ $t("common.retry") }}
       </UButton>
@@ -75,11 +89,31 @@ onMounted(async () => {
 
     <!-- 根据用户角色显示对应视图 -->
     <div v-else>
-      <UsersRoot v-if="view === 'root'" />
-      <UsersTenantAdmin
-        v-else-if="view === 'admin'"
-        :tenant-uuid="currentTenantUuid!"
-      />
+      <template v-if="view === 'root'">
+        <div class="mb-4 flex items-center justify-between">
+          <p class="text-sm text-gray-500">
+            {{
+              rootCrossTenantMode
+                ? "跨租户管理模式：选择租户后再进入用户管理。"
+                : "当前租户管理模式：可直接新增和管理当前租户用户。"
+            }}
+          </p>
+          <UButton
+            size="sm"
+            variant="outline"
+            @click="rootCrossTenantMode = !rootCrossTenantMode"
+          >
+            {{ rootCrossTenantMode ? "返回当前租户管理" : "跨租户管理" }}
+          </UButton>
+        </div>
+
+        <UsersTenantAdmin
+          v-if="canRenderRootTenantAdmin"
+          :tenant-uuid="currentTenantUuid!"
+        />
+        <UsersRoot v-else />
+      </template>
+      <UsersTenantAdmin v-else-if="view === 'admin'" :tenant-uuid="currentTenantUuid!" />
       <UsersTenantMember v-else />
     </div>
   </div>

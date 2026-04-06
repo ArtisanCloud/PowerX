@@ -31,7 +31,7 @@
    pm2 start .output/server/index.mjs --name powerx
    pm2 save
    ```
-4. 配置环境变量（`UPSTREAM`、`WS_UPSTREAM`、`SENTRY_DSN` 等）。
+4. 配置环境变量（`POWERX_BACKEND`、`WS_UPSTREAM`、`SENTRY_DSN` 等）。
 
 ---
 
@@ -114,7 +114,7 @@ server {
 
 ## 5. WebSocket/后端代理注意
 
-- `nuxt.config.ts:55` 中开发代理 `/api/` → `UPSTREAM`，生产环境需要在 Nginx 或 API Gateway 配置相同代理。  
+- `nuxt.config.ts:55` 中开发代理 `/api/` → `POWERX_BACKEND`，生产环境需要在 Nginx 或 API Gateway 配置相同代理。  
 - 确保 WebSocket (`/ws`、`/api/agents/stream/ws`) 在反向代理层开启 `proxy_http_version 1.1` 与 `Upgrade` 头。  
 - 若使用 CDN（CloudFront/Cloudflare），需确认支持 WebSocket 并开启。
 

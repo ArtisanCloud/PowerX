@@ -9,9 +9,10 @@ import {
   onMounted,
   watch,
 } from "vue";
-import { useI18n } from "#imports";
+import { useI18n, useToast } from "#imports";
 import SelectTree from "~/components/ui/SelectTree.vue";
 import { useDepartmentStore } from "~/stores/department";
+import { useRoleService } from "~/composables/api/services/roleService";
 import {
   useUserService,
   type MemberWithProfile,
@@ -21,14 +22,15 @@ import type { Department } from "~/composables/api/services/departmentService";
 // ==== 输入属性（Root 复用时传入 tenantUuid） ====
 const props = defineProps<{ tenantUuid: string }>();
 const { t, locale } = useI18n();
+const toast = useToast();
 
 // ==== 部门store ====
 const departmentStore = useDepartmentStore();
 const userService = useUserService();
+const roleService = useRoleService();
 
 // ===== 类型与数据 =====
 type StatusType = "active" | "inactive";
-type RoleType = "admin" | "editor" | "user";
 
 interface RowUser {
   id: number; // Member ID
@@ -38,8 +40,9 @@ interface RowUser {
   email?: string;
   phone?: string;
   department?: string;
-  roles?: RoleType[] | null;
+  roles?: string[] | null;
   status: StatusType | string;
+  isRoot?: boolean;
   avatar: string;
   meta?: Record<string, any> | null;
 }
@@ -70,12 +73,17 @@ const departmentTreeItems = computed(() => {
 
   return departmentStore.tree.map(convertDepartmentToTreeNode);
 });
-const roles = ref([
+
+const roleFilterItems = ref([
   { label: t("organization.user.form.selectRole"), value: null },
   { label: t("organization.user.role.admin"), value: "admin" },
   { label: t("organization.user.role.editor"), value: "editor" },
   { label: t("organization.user.role.user"), value: "user" },
 ]);
+
+type RoleOption = { label: string; value: number; code?: string };
+const tenantRoleOptions = ref<RoleOption[]>([]);
+const loadingRoles = ref(false);
 
 // ====== 导入导出 ======
 type ExportFormat = "csv" | "json";
@@ -110,7 +118,7 @@ async function exportUsers(format: ExportFormat) {
     saveAs(blob, filename);
   } catch (error) {
     console.error("导出失败:", error);
-    alert("导出失败，请重试");
+    notifyError("导出失败", error, "请重试");
   }
 }
 
@@ -136,10 +144,14 @@ function importUsers() {
 
       // 这里可以添加数据验证和转换逻辑
       console.log("导入的数据:", importedData);
-      alert(`成功导入 ${importedData.length} 条记录`);
+      toast.add({
+        title: "导入成功",
+        description: `成功导入 ${importedData.length} 条记录`,
+        color: "success",
+      });
     } catch (error) {
       console.error("导入失败:", error);
-      alert("导入失败，请检查文件格式");
+      notifyError("导入失败", error, "请检查文件格式");
     }
   };
   input.click();
@@ -170,7 +182,7 @@ const importExportItems = computed(() => [
 // ====== 新增/编辑 ======
 const showForm = ref(false);
 const isEditing = ref(false);
-const editingId = ref<number | null>(null);
+const editingId = ref<number | null>(null); // system user id
 
 // 统一"扁平表单" -> 后端映射 User+Member（我们之前对齐的）
 const userForm = reactive({
@@ -186,6 +198,35 @@ const userForm = reactive({
   status: "active" as "active" | "disabled" | "locked",
   meta: {} as Record<string, any>,
 });
+
+const showResetPassword = ref(false);
+const resetPasswordTarget = ref<RowUser | null>(null);
+const resetPasswordForm = reactive({
+  password: "",
+  confirmPassword: "",
+});
+
+function parseApiMessage(error: any, fallback: string): string {
+  const msg =
+    error?.response?._data?.error ||
+    error?.response?._data?.message ||
+    error?.data?.error ||
+    error?.data?.message ||
+    error?.message ||
+    fallback;
+  const text = String(msg || fallback);
+  if (text.includes("uk_user_phone")) return "手机号已被占用，请更换后重试";
+  if (text.includes("uk_user_email")) return "邮箱已被占用，请更换后重试";
+  return text;
+}
+
+function notifyError(title: string, error: any, fallback: string) {
+  toast.add({
+    title,
+    description: parseApiMessage(error, fallback),
+    color: "error",
+  });
+}
 
 function resetForm() {
   userForm.name = "";
@@ -203,15 +244,22 @@ function resetForm() {
   editingId.value = null;
 }
 
-function openAddForm() {
+async function openAddForm() {
   resetForm();
+  await loadTenantRoles();
+  if (tenantRoleOptions.value.length > 0) {
+    const roleUser = tenantRoleOptions.value.find(
+      (role) => role.code === "role_user"
+    );
+    userForm.roleIds = [roleUser?.value || tenantRoleOptions.value[0].value];
+  }
   showForm.value = true;
 }
 
-function openEditForm(row: RowUser) {
+async function openEditForm(row: RowUser) {
   resetForm();
   isEditing.value = true;
-  editingId.value = row.id; // 这里使用的是Member的ID
+  editingId.value = row.userId || row.id;
 
   // 将行数据映射回表单
   userForm.name = row.name;
@@ -221,19 +269,44 @@ function openEditForm(row: RowUser) {
   userForm.avatarUrl = row.avatar;
   userForm.status = row.status === "active" ? "active" : "disabled";
   userForm.meta = row.meta || {};
+  await loadTenantRoles();
+  await loadUserRoles(editingId.value);
   showForm.value = true;
 }
 
 async function saveUser() {
   // 基础校验
   if (!userForm.name || !userForm.email) {
-    return alert(t("organization.user.validation.requiredFields"));
+    toast.add({
+      title: "校验失败",
+      description: String(t("organization.user.validation.requiredFields")),
+      color: "warning",
+    });
+    return;
   }
   if (!isEditing.value && !userForm.username) {
-    return alert("用户名为必填项");
+    toast.add({
+      title: "校验失败",
+      description: "用户名为必填项",
+      color: "warning",
+    });
+    return;
   }
   if (!isEditing.value && userForm.password !== userForm.confirmPassword) {
-    return alert(t("organization.user.validation.passwordMismatch"));
+    toast.add({
+      title: "校验失败",
+      description: String(t("organization.user.validation.passwordMismatch")),
+      color: "warning",
+    });
+    return;
+  }
+  if (userForm.roleIds.length === 0) {
+    toast.add({
+      title: "校验失败",
+      description: "请至少选择一个角色",
+      color: "warning",
+    });
+    return;
   }
 
   try {
@@ -247,6 +320,9 @@ async function saveUser() {
         status: userForm.status === "active" ? 1 : 0,
       };
       await userService.updateUser(editingId.value, updatePayload);
+      await userService.setUserRoles(editingId.value, {
+        role_ids: userForm.roleIds,
+      });
     } else {
       // 创建系统用户
       const createPayload = {
@@ -259,37 +335,118 @@ async function saveUser() {
         username: userForm.username || userForm.email.split("@")[0],
         initial_password: userForm.password,
         dept_ids: userForm.departmentId ? [userForm.departmentId] : [],
+        role_ids: userForm.roleIds,
       };
       await userService.createSystemUser(createPayload);
     }
     showForm.value = false;
     await loadUsers(); // 重新加载数据
+    toast.add({
+      title: isEditing.value ? "用户已更新" : "用户已创建",
+      color: "success",
+    });
   } catch (e: any) {
-    alert(e?.message || "保存失败");
+    notifyError("保存失败", e, "保存失败");
+  }
+}
+
+async function loadTenantRoles() {
+  if (!props.tenantUuid) return;
+  try {
+    loadingRoles.value = true;
+    const response = await roleService.getRoles({
+      scope: "tenant",
+      tenant_uuid: props.tenantUuid,
+      page: 1,
+      page_size: 200,
+    });
+    tenantRoleOptions.value = (response.data?.items || []).map((role: any) => {
+      return {
+        label: role.name,
+        value: role.id,
+        code: role.code,
+      };
+    });
+  } catch (error) {
+    console.error("加载角色失败:", error);
+    tenantRoleOptions.value = [];
+  } finally {
+    loadingRoles.value = false;
+  }
+}
+
+async function loadUserRoles(userId: number | null) {
+  if (!userId) return;
+  try {
+    const response = await userService.getUserRoles(userId);
+    userForm.roleIds = response.data?.role_ids || [];
+  } catch (error) {
+    console.error("加载用户角色失败:", error);
+    userForm.roleIds = [];
   }
 }
 
 async function deleteUser(id: number) {
   if (!confirm(t("organization.user.confirmDelete"))) return;
   try {
-    // 注意：这里的id是Member的ID，但API可能需要User的ID
-    // 根据后端实现调整
     await userService.deleteUser(id);
     await loadUsers(); // 重新加载数据
+    toast.add({ title: "用户已删除", color: "success" });
   } catch (e: any) {
-    alert(e?.message || "删除失败");
+    notifyError("删除失败", e, "删除失败");
   }
 }
 
 async function toggleUserStatus(row: RowUser) {
   try {
     const newStatus = row.status === "active" ? 0 : 1;
-    // 注意：这里的row.id是Member的ID，但API可能需要User的ID
-    // 根据后端实现调整
-    await userService.setUserStatus(row.id, { status: newStatus });
+    const targetUserID = row.userId || row.id;
+    await userService.setUserStatus(targetUserID, { status: newStatus });
     await loadUsers(); // 重新加载数据
+    toast.add({ title: "状态已更新", color: "success" });
   } catch (e: any) {
-    alert(e?.message || "状态更新失败");
+    notifyError("状态更新失败", e, "状态更新失败");
+  }
+}
+
+function openResetPassword(row: RowUser) {
+  resetPasswordTarget.value = row;
+  resetPasswordForm.password = "";
+  resetPasswordForm.confirmPassword = "";
+  showResetPassword.value = true;
+}
+
+async function submitResetPassword() {
+  const target = resetPasswordTarget.value;
+  if (!target) return;
+  if (!resetPasswordForm.password || resetPasswordForm.password.length < 6) {
+    toast.add({
+      title: "校验失败",
+      description: "新密码至少 6 位",
+      color: "warning",
+    });
+    return;
+  }
+  if (resetPasswordForm.password !== resetPasswordForm.confirmPassword) {
+    toast.add({
+      title: "校验失败",
+      description: "两次密码不一致",
+      color: "warning",
+    });
+    return;
+  }
+  try {
+    await userService.resetUserPassword(target.userId || target.id, {
+      new_password: resetPasswordForm.password,
+    });
+    showResetPassword.value = false;
+    toast.add({
+      title: "密码已重置",
+      description: `${target.name} 的新密码已生效`,
+      color: "success",
+    });
+  } catch (e: any) {
+    notifyError("重置密码失败", e, "请稍后重试");
   }
 }
 
@@ -345,6 +502,7 @@ watch(
   () => props.tenantUuid,
   () => {
     pagination.page = 1;
+    loadTenantRoles();
     loadUsers();
   }
 );
@@ -415,7 +573,7 @@ const columns = computed(() => {
       header: t("organization.user.table.actions").toString(),
       cell: ({ row }: any) => {
         const u = row.original as RowUser;
-        return h("div", { class: "flex gap-2" }, [
+        const actions = [
           h(
             UButton,
             {
@@ -430,31 +588,47 @@ const columns = computed(() => {
             UButton,
             {
               size: "xs",
-              color: u.status === "active" ? "warning" : "success",
               variant: "ghost",
-              icon:
+              color: "primary",
+              icon: "i-heroicons-key",
+              onClick: () => openResetPassword(u),
+            },
+            () => t("organization.user.resetPassword.action")
+          ),
+        ];
+        if (!u.isRoot) {
+          actions.push(
+            h(
+              UButton,
+              {
+                size: "xs",
+                color: u.status === "active" ? "warning" : "success",
+                variant: "ghost",
+                icon:
+                  u.status === "active"
+                    ? "i-heroicons-lock-closed"
+                    : "i-heroicons-lock-open",
+                onClick: () => toggleUserStatus(u),
+              },
+              () =>
                 u.status === "active"
-                  ? "i-heroicons-lock-closed"
-                  : "i-heroicons-lock-open",
-              onClick: () => toggleUserStatus(u),
-            },
-            () =>
-              u.status === "active"
-                ? t("organization.user.disable")
-                : t("organization.user.enable")
-          ),
-          h(
-            UButton,
-            {
-              size: "xs",
-              color: "error",
-              variant: "ghost",
-              icon: "i-heroicons-trash",
-              onClick: () => deleteUser(u.id),
-            },
-            () => t("organization.common.delete")
-          ),
-        ]);
+                  ? t("organization.user.disable")
+                  : t("organization.user.enable")
+            ),
+            h(
+              UButton,
+              {
+                size: "xs",
+                color: "error",
+                variant: "ghost",
+                icon: "i-heroicons-trash",
+                onClick: () => deleteUser(u.userId || u.id),
+              },
+              () => t("organization.common.delete")
+            )
+          );
+        }
+        return h("div", { class: "flex gap-2" }, actions);
       },
     },
   ];
@@ -480,6 +654,7 @@ function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
     department: Member.meta?.title || Member.meta?.department || "",
     roles: null,
     status: Member.status === 1 ? "active" : "inactive",
+    isRoot: Boolean(User.is_root),
     avatar:
       Member.avatar_url ||
       User.avatar_url ||
@@ -533,6 +708,7 @@ onMounted(async () => {
     console.error("加载部门数据失败:", error);
   }
 
+  await loadTenantRoles();
   // 加载用户数据
   await loadUsers();
 });
@@ -589,7 +765,7 @@ onMounted(async () => {
         <UFormField :label="$t('organization.user.form.role')">
           <USelect
             v-model="filters.role"
-            :items="roles"
+            :items="roleFilterItems"
             class="w-full sm:min-w-[12rem]"
             :placeholder="$t('organization.user.form.selectRole')"
             option-attribute="label"
@@ -708,12 +884,27 @@ onMounted(async () => {
                 :placeholder="$t('organization.user.form.phonePlaceholder')"
               />
             </UFormField>
+            <UFormField :label="$t('organization.user.form.role')" required>
+              <USelectMenu
+                v-model="userForm.roleIds"
+                :items="tenantRoleOptions"
+                value-attribute="value"
+                option-attribute="label"
+                multiple
+                searchable
+                :loading="loadingRoles"
+                :placeholder="$t('organization.user.form.selectRole')"
+                class="w-full"
+              />
+            </UFormField>
             <UFormField
+              v-if="!isEditing"
               :label="$t('organization.user.form.password')"
               :required="!isEditing"
               ><UInput v-model="userForm.password" type="password"
             /></UFormField>
             <UFormField
+              v-if="!isEditing"
               :label="$t('organization.user.form.confirmPassword')"
               :required="!isEditing"
               ><UInput v-model="userForm.confirmPassword" type="password"
@@ -728,6 +919,44 @@ onMounted(async () => {
               <UButton type="submit" color="primary">{{
                 $t("organization.common.save")
               }}</UButton>
+            </div>
+          </form>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="showResetPassword"
+      :title="t('organization.user.resetPassword.title')"
+      :description="
+        t('organization.user.resetPassword.description', {
+          name: resetPasswordTarget?.name || t('organization.user.resetPassword.defaultName'),
+        })
+      "
+    >
+      <template #content>
+        <div class="py-6 px-6">
+          <form @submit.prevent="submitResetPassword" class="space-y-4">
+            <UFormField :label="t('organization.user.resetPassword.newPassword')" required>
+              <UInput v-model="resetPasswordForm.password" type="password" />
+            </UFormField>
+            <UFormField :label="t('organization.user.resetPassword.confirmPassword')" required>
+              <UInput
+                v-model="resetPasswordForm.confirmPassword"
+                type="password"
+              />
+            </UFormField>
+            <div class="flex justify-end gap-3 pt-2">
+              <UButton
+                color="neutral"
+                variant="outline"
+                @click="showResetPassword = false"
+              >
+                {{ $t("organization.common.cancel") }}
+              </UButton>
+              <UButton type="submit" color="primary">
+                {{ t("organization.user.resetPassword.submit") }}
+              </UButton>
             </div>
           </form>
         </div>

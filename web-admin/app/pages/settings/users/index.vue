@@ -50,7 +50,7 @@ const tabs = computed(() => {
 // 组件挂载时加载用户上下文
 onMounted(async () => {
   try {
-    await userStore.fetchUserContext();
+    await userStore.fetchUserContext({ force: true });
   } catch (error) {
     console.error("加载用户上下文失败:", error);
   }

@@ -166,6 +166,41 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 - `powerx-web-admin.service`：从 `backend/etc/config.yaml` 读取端口
 - `powerx-runner.service`：读取 `/etc/powerx/powerx.env`
 
+## 10.1 前后端日志查看（systemd）
+
+后端（backend）实时日志：
+```bash
+sudo journalctl -fu powerx-backend --no-pager
+```
+
+后端（backend）最近 200 行：
+```bash
+sudo journalctl -u powerx-backend -n 200 --no-pager
+```
+
+后端文件日志（按 `config.yaml` 默认）：
+```bash
+tail -f /opt/powerx/backend/logs/info.log
+tail -f /opt/powerx/backend/logs/error.log
+```
+
+前端（web-admin）实时日志：
+```bash
+sudo journalctl -fu powerx-web-admin --no-pager
+```
+
+前端（web-admin）最近 200 行：
+```bash
+sudo journalctl -u powerx-web-admin -n 200 --no-pager
+```
+
+runner（可选）日志：
+```bash
+sudo journalctl -fu powerx-runner --no-pager
+sudo journalctl -u powerx-runner -n 200 --no-pager
+```
+说明：当发布包没有 `runner/dist/main.js` 时，`powerx-runner.service` 会因 `ConditionPathExists` 被跳过，属于预期行为。
+
 ## 11. 首次安装
 访问：`http://<host>:<web-admin-port>/setup`
 
@@ -182,3 +217,25 @@ export NO_PROXY=127.0.0.1,localhost,::1
 下一步：
 - `02-verify-and-rollback.md`
 - `03-install-plugin.md`
+
+## 11.1 安装后租户与用户管理（给同事开账号）
+
+进入路径：
+1. 登录管理员账号
+2. 打开 `设置 -> 用户与组织`
+3. 在“租户列表”点击目标租户行
+4. 页面应留在当前设置页，并切到该租户的用户管理视图
+5. 点击“新增用户”，填写用户名/邮箱/密码并保存
+
+说明：
+- 点击租户行的预期行为是“切换租户上下文并进入租户用户列表”，不是跳转 dashboard。
+- 如果你点击租户后被跳到 dashboard，通常是前端仍在旧版本（旧逻辑在切租户后强制跳转）；请重新发布最新 web-admin 后再验证。
+
+角色权限模型（用户管理）：
+- `root`（平台超管）：可管理所有租户（跨租户查看/新增/编辑用户与角色）。
+- `tenant admin`（租户管理员）：不是 root，只能管理自己租户内的用户与角色。
+- `tenant member`（普通成员）：仅查看或受限操作，不能执行租户级用户管理。
+
+常见场景说明：
+- 只有 root 账号时：root 可直接管理 `System`（或任意）租户，不需要先创建“同名 admin”账号。
+- 新租户自行注册后：其注册账号应为该租户 admin（`is_admin=true`），但不是 root，仅能管理本租户。

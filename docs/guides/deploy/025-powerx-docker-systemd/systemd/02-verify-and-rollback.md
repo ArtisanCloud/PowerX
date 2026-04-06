@@ -57,6 +57,10 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 export NO_PROXY=127.0.0.1,localhost,::1
 ```
 
+“设置 -> 用户与组织”点击租户后跳到 dashboard：
+- 该现象通常是旧前端逻辑导致（切租户后强制跳转 `/dashboard`）。
+- 处理方式：重新发布最新 `web-admin`，并强制刷新浏览器缓存后重试。
+
 重点检查：
 - `/opt/powerx/{backend,web-admin,runner}` 软链是否正确
 - `/opt/powerx/backend/etc/config.yaml` 中 DB/Redis 配置是否可达

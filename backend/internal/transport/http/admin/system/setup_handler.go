@@ -1550,6 +1550,12 @@ func (h *SetupHandler) resolveDesiredPorts() (setupPortsConfig, string) {
 	if draft, ok := h.loadDraftConfig(); ok {
 		cfg = draft
 		source = "setup_draft"
+	} else {
+		// 无 setup 草稿时，期望端口应优先与当前运行配置对齐，避免默认值与 runtime 端口不一致导致误判 restart_required。
+		if runtimePorts, runtimeSource := resolveEffectivePorts(); strings.Contains(runtimeSource, "runtime_config") {
+			cfg.Ports = runtimePorts
+			source = "runtime_config"
+		}
 	}
 	normalizeSetupPorts(&cfg)
 	applyRuntimePortOverrides(&cfg)

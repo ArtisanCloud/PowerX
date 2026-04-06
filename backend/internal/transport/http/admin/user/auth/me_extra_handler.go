@@ -43,6 +43,11 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", nil)
 		return
 	}
+	canonicalTarget, err := reqctx.CanonicalTenantUUID(target)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		return
+	}
 
 	// 先用当前 ctx 拉一份 members，校验用户确实属于该租户（避免 root 误切到不存在成员的租户导致 member_id 语义混乱）
 	baseCtx := c.Request.Context()
@@ -54,18 +59,30 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 
 	allowed := false
 	for _, m := range meCtx.Members {
-		if strings.EqualFold(strings.TrimSpace(m.TenantUUID), target) {
+		if strings.EqualFold(strings.TrimSpace(m.TenantUUID), canonicalTarget) {
 			allowed = true
 			break
 		}
 	}
-	if !allowed {
+	isRoot := reqctx.IsRoot(baseCtx) || meCtx.IsRoot
+	if !allowed && !isRoot {
 		dto.ResponseError(c, http.StatusForbidden, "no membership in tenant", nil)
 		return
 	}
+	if !allowed && isRoot {
+		exists, err := h.me.TenantExists(baseCtx, canonicalTarget)
+		if err != nil {
+			dto.ResponseError(c, http.StatusInternalServerError, "tenant validation failed", err)
+			return
+		}
+		if !exists {
+			dto.ResponseError(c, http.StatusNotFound, "tenant not found", nil)
+			return
+		}
+	}
 
 	// 用目标 tenantUUID 重建一个“视图上下文”，让后续依赖 reqctx.GetTenantUUID 的逻辑对齐
-	nextCtx := reqctx.WithTenantUUID(baseCtx, target)
+	nextCtx := reqctx.WithTenantUUID(baseCtx, canonicalTarget)
 	c.Request = c.Request.WithContext(nextCtx)
 
 	resp, err := h.me.GetMeContext(nextCtx)

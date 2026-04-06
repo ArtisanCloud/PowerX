@@ -4,6 +4,10 @@ import { ref, computed, h, resolveComponent, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "#imports";
 import { useUserStore } from "~/stores/user";
+import {
+  useUserService,
+  type MemberWithProfile,
+} from "~/composables/api/services/userService";
 
 // Member 不需要传入 tenantUuid，而是自己选择所属的租户
 const { t, locale } = useI18n();
@@ -16,6 +20,7 @@ const {
   isLoading: userLoading,
   displayName,
 } = storeToRefs(userStore);
+const userService = useUserService();
 
 // 租户相关
 interface UserTenant {
@@ -139,54 +144,42 @@ const columns = computed(() => {
 async function loadUsersForTenant(tenantUuid: string) {
   isLoading.value = true;
   try {
-    // TODO: 替换为真实API调用
-    // const response = await $fetch(`/api/admin/iam/members`, {
-    //   params: { tenant_uuid: tenantUuid, page: 1, page_size: 100 }
-    // });
-    // users.value = response.data || [];
+    // 通过当前上下文（tenant_uuid）请求真实只读成员列表
+    const resp = await userService.getUsers({
+      page: 1,
+      page_size: 100,
+      sort_by: "id",
+      sort_order: "desc",
+    });
+    const items = resp?.data?.items || [];
 
-    // 模拟不同租户的用户数据
-    const mockData: Record<string, RowUser[]> = {
-      "demo-tenant": [
-        {
-          id: 1,
-          name: "张三",
-          username: "zhangsan",
-          email: "zhangsan@tech.com",
-          department: "技术部",
-          phone: "138****1234",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-          joinedAt: "2024-01-15",
-        },
-        {
-          id: 2,
-          name: "李四",
-          username: "lisi",
-          email: "lisi@tech.com",
-          department: "产品部",
-          phone: "139****5678",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-          joinedAt: "2024-02-20",
-        },
-      ],
-      "ops-tenant": [
-        {
-          id: 3,
-          name: "王五",
-          username: "wangwu",
-          email: "wangwu@consulting.com",
-          department: "咨询部",
-          phone: "136****9012",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-          joinedAt: "2024-03-10",
-        },
-      ],
-    };
-
-    users.value = mockData[tenantUuid] || [];
+    users.value = items.map((item: MemberWithProfile) => {
+      const member = item.Member;
+      const user = item.User;
+      const rawPhone = user?.phone || "";
+      const maskedPhone =
+        rawPhone.length > 7
+          ? `${rawPhone.slice(0, 3)}****${rawPhone.slice(-4)}`
+          : rawPhone;
+      return {
+        id: member.id,
+        name: member.display_name || user?.display_name || member.username,
+        username: member.username || "",
+        email: user?.email || "",
+        department: (member.meta as any)?.department || "",
+        phone: maskedPhone,
+        status: member.status === 1 ? "active" : "inactive",
+        avatar:
+          member.avatar_url ||
+          user?.avatar_url ||
+          `https://i.pravatar.cc/150?u=${encodeURIComponent(
+            user?.email || member.username || String(member.id)
+          )}`,
+        joinedAt: member.createdAt
+          ? new Date(member.createdAt).toLocaleDateString("zh-CN")
+          : "",
+      } as RowUser;
+    });
   } catch (error) {
     console.error("加载用户数据失败:", error);
     users.value = [];

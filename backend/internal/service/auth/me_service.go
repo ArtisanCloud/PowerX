@@ -2,12 +2,15 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/service"
+	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	repotenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/gorm"
@@ -108,7 +111,37 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	}
 	tenantBasicMap, _ := s.TenantRepo.MapBasicByUUIDs(ctx, tenantUUIDs)
 
-	// 4) 组装 members brief（is_admin 先 false，等你接 RBAC 再填充）
+	// 4) 先批量计算成员是否具备租户管理员角色（role_admin）
+	adminMemberIDSet := map[uint64]struct{}{}
+	if len(members) > 0 {
+		memberIDs := make([]uint64, 0, len(members))
+		for _, mem := range members {
+			memberIDs = append(memberIDs, mem.ID)
+		}
+
+		tRB := (&modelIAM.RoleBinding{}).GetTableName(true)
+		tRole := (&modelIAM.Role{}).GetTableName(true)
+
+		var adminMemberIDs []uint64
+		err := s.DB.WithContext(ctx).
+			Table(tRB+" AS rb").
+			Joins("JOIN "+tRole+" AS r ON r.id = rb.role_id").
+			Where("rb.subject_type = ? AND rb.subject_id IN ?", modelIAM.SubMember, memberIDs).
+			Where(
+				"r.scope = ? AND r.code IN ?",
+				string(coreiam.RoleScopeTenant),
+				[]string{string(coreiam.CodeRoleAdmin), "role_owner"},
+			).
+			Pluck("rb.subject_id", &adminMemberIDs).Error
+		if err != nil {
+			return nil, dto.NewError(http.StatusInternalServerError, "查询成员管理员角色失败", err)
+		}
+		for _, id := range adminMemberIDs {
+			adminMemberIDSet[id] = struct{}{}
+		}
+	}
+
+	// 5) 组装 members brief（按 role_binding 实际结果填充 is_admin）
 	brs := make([]MeMemberBrief, 0, len(members))
 	memberByTenant := make(map[string]uint64, len(members))
 	for _, mem := range members {
@@ -120,15 +153,16 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 			name = info.Name
 		}
 		memberByTenant[uuidStr] = mem.ID
+		_, isAdmin := adminMemberIDSet[mem.ID]
 		brs = append(brs, MeMemberBrief{
 			TenantUUID: uuidStr,
 			TenantName: name,
 			MemberID:   mem.ID,
-			IsAdmin:    false, // TODO: 用 RoleBinding 判断是否为该租户管理员
+			IsAdmin:    isAdmin,
 		})
 	}
 
-	// 5) 修正 current_tenant_uuid：
+	// 6) 修正 current_tenant_uuid：
 	// db-refresh/本地缓存/token stale 时，ctx 中的 tenant_uuid 可能不在 members 里，导致前端永远查不到数据。
 	// 规则：若当前 tenant 不在 members，优先选 "System" 租户，否则选第一个 member 租户。
 	if len(brs) > 0 {
@@ -139,7 +173,15 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 				break
 			}
 		}
-		if tenantUUID == "" || !tenantInMembers {
+		if isRoot && tenantUUID != "" && !tenantInMembers {
+			// root 允许切到“非成员租户”做跨租户管理，但要保证目标租户真实存在。
+			if exists, err := s.TenantExists(ctx, tenantUUID); err == nil && exists {
+				currentMemberID = nil
+			} else {
+				tenantUUID = ""
+			}
+		}
+		if tenantUUID == "" || (!tenantInMembers && !isRoot) {
 			preferred := brs[0].TenantUUID
 			for _, b := range brs {
 				if strings.EqualFold(strings.TrimSpace(b.TenantName), "system") {
@@ -161,4 +203,20 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		User:              userBrief,
 		Members:           brs,
 	}, nil
+}
+
+// TenantExists 用于 root 跨租户切换时校验目标租户是否存在。
+func (s *MeService) TenantExists(ctx context.Context, tenantUUID string) (bool, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return false, nil
+	}
+	t, err := s.TenantRepo.GetByUUID(ctx, tenantUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return t != nil, nil
 }

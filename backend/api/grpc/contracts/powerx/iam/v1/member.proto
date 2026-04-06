@@ -108,6 +108,8 @@ message ListMembersResponse {
 
 // -------- 服务 --------
 service MemberService {
+  // 约束：tenant_uuid 必须为 canonical UUID；
+  // 传输层应优先使用 RequestContext.tenant_uuid，兼容 attributes["tenant_uuid"] 与 ctx fallback。
   rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
   rpc BatchGetMembers(BatchGetMembersRequest) returns (BatchGetMembersResponse);
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);

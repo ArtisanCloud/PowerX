@@ -9,7 +9,7 @@ import (
 
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/rbac"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -460,16 +460,25 @@ func AdminMenusHandler(c *gin.Context) {
 	allI18n := plug.I18n
 
 	// 1) 权限过滤
+	isRoot := reqctx.IsRoot(c.Request.Context())
 	allow := func(perms []string) bool {
 		if len(perms) == 0 {
 			return true
 		}
-		sub := rbac.SubjectFromContext(c)
 		for _, pol := range perms {
 			res, act := splitPolicy(pol)
-			checker := rbac.NewChecker()
-			result, _ := checker.Check(c, sub, res, act, nil)
-			if !result.Allow {
+			switch {
+			case res == "admin" && act == "root":
+				if !isRoot {
+					return false
+				}
+			case res == "admin" && act == "tenant":
+				// 目前菜单侧无租户管理员角色快照，先按安全策略限制为 root 可见。
+				if !isRoot {
+					return false
+				}
+			}
+			if res == "" || act == "" {
 				return false
 			}
 		}

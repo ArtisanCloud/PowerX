@@ -36,6 +36,8 @@ interface DisplayTenant {
 // 状态管理
 const tenants = ref<DisplayTenant[]>([]);
 const selectedTenant = ref<DisplayTenant | null>(null);
+const detailModalOpen = ref(false);
+const managingTenant = ref<DisplayTenant | null>(null);
 const searchQuery = ref("");
 
 // 分页和筛选
@@ -114,10 +116,25 @@ async function loadTenants() {
   }
 }
 
-async function selectTenant(tenant: DisplayTenant) {
+function selectTenant(tenant: DisplayTenant) {
+  selectedTenant.value = tenant;
+}
+
+function openTenantDetails(tenant: DisplayTenant) {
+  selectedTenant.value = tenant;
+  detailModalOpen.value = true;
+}
+
+function closeTenantDetails() {
+  detailModalOpen.value = false;
+}
+
+async function switchAndManageTenant(tenant: DisplayTenant) {
   try {
     await userStore.switchTenant(tenant.uuid);
     selectedTenant.value = tenant;
+    detailModalOpen.value = false;
+    managingTenant.value = tenant;
   } catch (error: any) {
     console.error("切换租户失败:", error);
     toast.add({
@@ -129,7 +146,7 @@ async function selectTenant(tenant: DisplayTenant) {
 }
 
 function backToTenantList() {
-  selectedTenant.value = null;
+  managingTenant.value = null;
 }
 
 function resetFilters() {
@@ -189,7 +206,7 @@ onMounted(() => {
 <template>
   <div>
     <!-- 租户选择界面 -->
-    <div v-if="!selectedTenant">
+    <div v-if="!managingTenant">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h2 class="text-xl font-semibold">
@@ -269,7 +286,12 @@ onMounted(() => {
           <div
             v-for="tenant in paginatedTenants"
             :key="tenant.id"
-            class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+            :class="[
+              'p-4 cursor-pointer transition-colors',
+              selectedTenant?.id === tenant.id
+                ? 'bg-primary-50/40'
+                : 'hover:bg-gray-50',
+            ]"
             @click="selectTenant(tenant)"
           >
             <div class="flex items-center justify-between">
@@ -321,14 +343,114 @@ onMounted(() => {
                   </p>
                 </div>
 
-                <UIcon
-                  name="i-heroicons-chevron-right"
-                  class="h-5 w-5 text-gray-400"
-                />
+                <div class="flex items-center gap-2">
+                  <UButton
+                    size="xs"
+                    variant="outline"
+                    @click.stop="openTenantDetails(tenant)"
+                  >
+                    查看详情
+                  </UButton>
+                  <UButton
+                    size="xs"
+                    color="primary"
+                    @click.stop="switchAndManageTenant(tenant)"
+                  >
+                    切换并管理
+                  </UButton>
+                  <UIcon
+                    name="i-heroicons-chevron-right"
+                    class="h-5 w-5 text-gray-400"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <UModal
+          v-model:open="detailModalOpen"
+          title="租户详情"
+          description="查看租户基础信息，再决定是否切换到该租户进行用户管理。"
+          :ui="{ content: 'max-w-2xl' }"
+        >
+          <template #content>
+            <UCard v-if="selectedTenant">
+              <template #header>
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"
+                  >
+                    <UIcon
+                      name="i-heroicons-building-office"
+                      class="h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                      {{ selectedTenant.name }}
+                    </h3>
+                    <p class="text-sm text-gray-500">
+                      {{
+                        selectedTenant.domain ||
+                        t("organization.user.noDomain")
+                      }}
+                    </p>
+                  </div>
+                </div>
+              </template>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p class="text-gray-500">租户 UUID</p>
+                  <p class="font-mono break-all text-gray-900">
+                    {{ selectedTenant.uuid }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-gray-500">状态</p>
+                  <UBadge
+                    :color="getTenantStatusColor(selectedTenant.status)"
+                    variant="subtle"
+                  >
+                    {{ getStatusText(selectedTenant.status) }}
+                  </UBadge>
+                </div>
+                <div>
+                  <p class="text-gray-500">套餐</p>
+                  <p class="text-gray-900">
+                    {{ getPlanText(selectedTenant.plan) }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-gray-500">用户数</p>
+                  <p class="text-gray-900">{{ selectedTenant.userCount }}</p>
+                </div>
+                <div>
+                  <p class="text-gray-500">创建时间</p>
+                  <p class="text-gray-900">{{ selectedTenant.createdAt }}</p>
+                </div>
+                <div>
+                  <p class="text-gray-500">域名</p>
+                  <p class="text-gray-900 break-all">
+                    {{
+                      selectedTenant.domain ||
+                      t("organization.user.noDomain")
+                    }}
+                  </p>
+                </div>
+              </div>
+
+              <template #footer>
+                <div class="flex justify-end">
+                  <UButton variant="ghost" @click="closeTenantDetails">
+                    关闭
+                  </UButton>
+                </div>
+              </template>
+            </UCard>
+          </template>
+        </UModal>
 
         <!-- 分页 -->
         <div
@@ -371,6 +493,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- 选中租户后的用户管理界面 -->
@@ -394,12 +517,12 @@ onMounted(() => {
             />
           </div>
           <div>
-            <h2 class="text-xl font-semibold">{{ selectedTenant.name }}</h2>
+            <h2 class="text-xl font-semibold">{{ managingTenant.name }}</h2>
             <p class="text-sm text-gray-500">
-              {{ selectedTenant.domain || t("organization.user.noDomain") }} ·
+              {{ managingTenant.domain || t("organization.user.noDomain") }} ·
               {{
                 t("organization.user.userCountText", {
-                  count: selectedTenant.userCount,
+                  count: managingTenant.userCount,
                 })
               }}
             </p>
@@ -407,7 +530,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <UsersTenantAdmin :tenant-uuid="selectedTenant.uuid" />
+      <UsersTenantAdmin :tenant-uuid="managingTenant.uuid" />
     </div>
   </div>
 </template>

@@ -20,6 +20,8 @@ const { getToken } = useAuth();
 
 const hasValidToken = () => !!getToken();
 let unsubscribeNotifications: (() => void) | null = null;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // 初始化通知数据和用户数据
 onMounted(async () => {
@@ -38,11 +40,14 @@ onMounted(async () => {
       console.error("fetchNotifications error:", error);
     }
 
-    wsBus.connect();
-    unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
-      if (!payload) return;
-      addNotification(payload);
-    });
+    const tenantUUID = String(userStore.currentTenantUuid || "").trim();
+    if (UUID_RE.test(tenantUUID)) {
+      wsBus.connect();
+      unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
+        if (!payload) return;
+        addNotification(payload);
+      });
+    }
   } else {
     // 匿名态：不要调用会 401 的接口
     // 可选：清一次"旧状态"

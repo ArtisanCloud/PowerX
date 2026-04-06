@@ -30,6 +30,9 @@ type RegisterOptions struct {
 	UserPhone         string // 写到 User.Phone（可选）
 	MemberDisplayName string // 写到 Member.DisplayName（可选）
 	MemberAvatarURL   string // 写到 Member.AvatarURL（可选）
+	// 追加绑定角色编码（tenant scope），例如：role_admin。
+	// Register 默认总会绑定 role_user；该字段用于补充附加角色。
+	RoleCodes []string
 }
 
 type AuthOptions struct {
@@ -188,6 +191,9 @@ func (s *AuthService) Register(ctx context.Context, tenantUUID, username, identi
 
 	// 5) 绑定默认角色
 	_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantUUIDStr, m.ID, "role_user")
+	if len(opt.RoleCodes) > 0 {
+		_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantUUIDStr, m.ID, opt.RoleCodes...)
+	}
 
 	if _, err := tenantkeys.NewTenantKeyService(s.DB).EnsureActiveKeyPair(ctx, "default", ten.UUID.String()); err != nil {
 		// 线上建议：不要阻塞注册，只记录告警即可

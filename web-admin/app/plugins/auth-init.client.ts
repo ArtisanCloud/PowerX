@@ -62,5 +62,13 @@ export default defineNuxtPlugin((nuxtApp) => {
         await navigateTo("/users/login");
       }
     }
+
+    userStore.initStorageSync({
+      shouldSync: () => !!getToken(),
+      onUnauthorized: () => {
+        clearAuth();
+        userStore.clearUserState();
+      },
+    });
   });
 });

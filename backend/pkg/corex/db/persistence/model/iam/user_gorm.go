@@ -21,7 +21,7 @@ type User struct {
 	Meta        datatypes.JSON `gorm:"column:meta;type:jsonb"                                   json:"meta,omitempty"`
 
 	LastLoginAt *int64 `gorm:"column:last_login_at" json:"last_login_at,omitempty"`
-	IsRoot      bool   `gorm:"column:is_root;type:boolean;default:false;index" json:"-"`
+	IsRoot      bool   `gorm:"column:is_root;type:boolean;default:false;index" json:"is_root"`
 }
 
 func (mdl *User) TableName() string {

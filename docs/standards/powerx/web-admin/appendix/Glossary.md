@@ -20,7 +20,7 @@
 | **OneShot Alert** | 一次性全局提示（UAlert）。 | `app/components/GlobalAlertNotification.vue: "1` |"
 | **Menu Service** | 动态加载侧边菜单的 API 服务与处理逻辑。 | `app/composables/api/services/menuService.ts: "1` |"
 | **Env Store** | 客户端环境选择器（Dev/Staging/Prod 等）。 | `app/stores/envStore.ts: "1` |"
-| **UPSTREAM** | 后端 API 基础地址环境变量。 | `nuxt.config.ts: "3` |"
+| **POWERX_BACKEND** | 后端 API 基础地址环境变量。 | `nuxt.config.ts: "3` |"
 | **WS_UPSTREAM** | WebSocket 服务基础地址环境变量。 | `nuxt.config.ts: "24` |"
 | **Config Panel** | Agent 配置侧栏，编辑模型参数与工具。 | `app/components/agent/ConfigPanel.vue` |
 | **Install Dialog** | 插件安装弹窗，处理安装表单与反馈。 | `app/components/plugins/InstallDialog.vue` |

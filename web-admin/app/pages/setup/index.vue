@@ -179,6 +179,23 @@ const step2Data = reactive({
   cdnDomain: "",
 });
 
+const inferDefaultDomainFromLocation = (): string => {
+  if (typeof window === "undefined") return "";
+  const host = String(window.location.hostname || "").trim().toLowerCase();
+  if (!host) return "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "";
+  return host;
+};
+
+const applyStep2SmartDefaults = () => {
+  if (!step2Data.domain.trim()) {
+    step2Data.domain = inferDefaultDomainFromLocation();
+  }
+  if (!step2Data.certEmail.trim() && step4Data.adminEmail.trim()) {
+    step2Data.certEmail = step4Data.adminEmail.trim();
+  }
+};
+
 const step3Data = reactive({
   backendPort: 8080,
   webAdminPort: 3000,
@@ -1149,10 +1166,11 @@ const openPrivacyModal = (e: Event) => {
   showPrivacyModal.value = true;
 };
 
-onMounted(() => {
+onMounted(async () => {
   llmProviderOptions.value = buildFallbackLLMProviderOptions();
   loadLLMProviderOptions();
-  loadSetupConfig();
+  await loadSetupConfig();
+  applyStep2SmartDefaults();
   runSystemChecks();
 });
 </script>
@@ -1448,7 +1466,7 @@ onMounted(() => {
                       />
                       <template #help>
                         <span class="text-sm text-gray-500">
-                          请输入系统的完整域名，不包含协议前缀
+                          默认使用当前访问域名；请输入系统完整域名（不含 http/https）
                         </span>
                       </template>
                     </UFormField>
@@ -1461,7 +1479,7 @@ onMounted(() => {
                       />
                       <template #help>
                         <span class="text-sm text-gray-500">
-                          API 接口的子域名，留空则使用主域名
+                          API 接口子域名，留空则使用主域名；路径前缀遵循 server.api_prefix（默认 /api/v1）
                         </span>
                       </template>
                     </UFormField>

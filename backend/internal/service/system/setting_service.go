@@ -192,7 +192,7 @@ func (s *SettingService) ApplySetupPortConfig(ctx context.Context, runtimeConfig
 	upstream := fmt.Sprintf("http://127.0.0.1:%d", backendPort)
 	wsUpstream := fmt.Sprintf("ws://127.0.0.1:%d/api/ws", backendPort)
 	if err := upsertEnvFile(filepath.Join(configDir, "web-admin.env"), map[string]string{
-		"UPSTREAM":    upstream,
+		"POWERX_BACKEND":    upstream,
 		"WS_UPSTREAM": wsUpstream,
 	}); err != nil {
 		return err

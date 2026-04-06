@@ -22,6 +22,12 @@ let networkListenersBound = false;
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 6;
 let notifyReconnectFailed: (() => void) | null = null;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const hasActiveSubscriptions = () => subscriptions.size > 0;
+const isValidTenantUUID = (tenantUUID?: string | null) =>
+  UUID_RE.test(String(tenantUUID || "").trim());
 
 const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const auth = encodeURIComponent(`Bearer ${token}`);
@@ -87,11 +93,12 @@ const scheduleReconnect = (token: string | null) => {
   if (!process.client) return;
   if (!allowReconnect) return;
   if (!token) return;
+  if (!hasActiveSubscriptions()) return;
   if (reconnectTimer) return;
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     allowReconnect = false;
     wsError.value = "连接失败，请检查配置或联系管理员";
-    if (notifyReconnectFailed) {
+    if (notifyReconnectFailed && hasActiveSubscriptions()) {
       notifyReconnectFailed();
     }
     return;
@@ -107,12 +114,21 @@ const scheduleReconnect = (token: string | null) => {
 const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
   if (!process.client) return;
   if (!token) return;
+  const normalizedTenant = String(tenantUUID || "").trim();
+  // WS Bus 当前依赖 tenant_uuid；无租户上下文时不建立连接，避免无意义重试噪音。
+  if (!isValidTenantUUID(normalizedTenant)) {
+    wsConnecting.value = false;
+    wsConnected.value = false;
+    wsError.value = null;
+    allowReconnect = false;
+    return;
+  }
   if (wsInstance && wsConnected.value) return;
   if (wsConnecting.value) return;
   wsConnecting.value = true;
   wsError.value = null;
 
-  const url = buildWSUrl(token, tenantUUID);
+  const url = buildWSUrl(token, normalizedTenant);
   const ws = new WebSocket(url);
   wsInstance = ws;
 
@@ -125,10 +141,15 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
       sendCommand({ type: WS_BUS_CMD.SUBSCRIBE, topic });
     });
   };
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     wsConnected.value = false;
     wsConnecting.value = false;
     wsInstance = null;
+    if (event.code === 1008 || event.code === 1003) {
+      allowReconnect = false;
+      wsError.value = "租户上下文无效";
+      return;
+    }
     scheduleReconnect(token);
   };
   ws.onerror = () => {
@@ -176,7 +197,11 @@ export const useWSBus = () => {
     watch(
       () => getTenantForConnection(),
       (nextTenant, prevTenant) => {
-        if (!nextTenant) return;
+        if (!nextTenant) {
+          activeTenant = null;
+          resetConnection("tenant_missing", false);
+          return;
+        }
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
@@ -213,6 +238,8 @@ export const useWSBus = () => {
   }
 
   const connect = () => {
+    if (!hasActiveSubscriptions()) return;
+    reconnectAttempts = 0;
     allowReconnect = true;
     const tenantNow = getTenantForConnection();
     activeTenant = tenantNow || null;

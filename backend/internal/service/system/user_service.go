@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"strconv"
 	"strings"
 )
@@ -183,6 +184,7 @@ func (s *UserService) CreateSystemUser(
 	username string, // 租户内用户名（唯一）
 	initialPwd string, // 可选：初始化密码
 	deptIDs []uint64, // 可选：部门
+	roleIDs []uint64, // 可选：角色ID（为空时默认 role_user）
 ) (uint64, error) {
 
 	tenantUUID = strings.TrimSpace(tenantUUID)
@@ -244,19 +246,30 @@ func (s *UserService) CreateSystemUser(
 			Create(ctx, mem); err != nil {
 			return err
 		}
+		// 角色绑定：有显式角色时使用显式角色；否则默认 role_user。
+		if err := s.applyMemberRolesTx(ctx, tx, tenantUUID, mem.ID, roleIDs); err != nil {
+			return err
+		}
 
-		// 4) 可选：创建密码凭证（provider=password，identifier 采用 username）
+		// 4) 可选：创建密码凭证（provider=password，identifier 优先 email > phone > username）
 		if p := utils.Trim(initialPwd); p != "" {
 			hash, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
 			if err != nil {
 				return err
+			}
+			identifier := utils.TrimLower(user.Email)
+			if identifier == "" {
+				identifier = utils.Trim(user.Phone)
+			}
+			if identifier == "" {
+				identifier = username
 			}
 			if _, err = s.CredRepo.
 				WithDB(tx).
 				Create(ctx, &m.Credential{
 					UserID:     user.ID,
 					Provider:   "password",
-					Identifier: username,     // 也可换成 email/phone
+					Identifier: identifier,
 					SecretHash: string(hash), // bcrypt
 					IsPrimary:  true,
 				}); err != nil {
@@ -344,10 +357,125 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 		if _, err := s.MemberRepo.WithDB(tx).Create(ctx, mem); err != nil {
 			return err
 		}
+		// 默认绑定租户普通角色，和创建用户路径保持一致
+		if err := s.applyMemberRolesTx(ctx, tx, tenantUUID, mem.ID, nil); err != nil {
+			return err
+		}
 		memberID = mem.ID
 		return nil
 	})
 	return memberID, err
+}
+
+func (s *UserService) ListUserRoleIDs(ctx context.Context, userID uint64, tenantUUID string) ([]uint64, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if userID == 0 || tenantUUID == "" {
+		return nil, errors.New("user_id/tenant_uuid required")
+	}
+
+	member, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
+		coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		coremdl.TableIAMMember + ".user_id = ?":     userID,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if member == nil {
+		return []uint64{}, nil
+	}
+
+	roles, err := repoi.NewRoleBindingRepository(s.DB).ListRolesByMember(ctx, tenantUUID, member.ID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uint64, 0, len(roles))
+	for _, role := range roles {
+		ids = append(ids, role.ID)
+	}
+	return ids, nil
+}
+
+func (s *UserService) SetUserRoleIDs(ctx context.Context, userID uint64, tenantUUID string, roleIDs []uint64) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if userID == 0 || tenantUUID == "" {
+		return errors.New("user_id/tenant_uuid required")
+	}
+
+	member, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
+		coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		coremdl.TableIAMMember + ".user_id = ?":     userID,
+	}, nil)
+	if err != nil {
+		return err
+	}
+	if member == nil {
+		return errors.New("member not found in tenant")
+	}
+
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return s.applyMemberRolesTx(ctx, tx, tenantUUID, member.ID, roleIDs)
+	})
+}
+
+func (s *UserService) applyMemberRolesTx(ctx context.Context, tx *gorm.DB, tenantUUID string, memberID uint64, roleIDs []uint64) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" || memberID == 0 {
+		return errors.New("tenant_uuid/member_id required")
+	}
+
+	targetRoleIDs := make([]uint64, 0, len(roleIDs))
+	seen := make(map[uint64]struct{}, len(roleIDs))
+	for _, id := range roleIDs {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		targetRoleIDs = append(targetRoleIDs, id)
+	}
+
+	// 没有显式角色时，兜底到 role_user。
+	if len(targetRoleIDs) == 0 {
+		var roleUser m.Role
+		if err := tx.WithContext(ctx).
+			Where("scope = ? AND tenant_uuid = ? AND code = ?", "tenant", tenantUUID, "role_user").
+			First(&roleUser).Error; err != nil {
+			return err
+		}
+		targetRoleIDs = []uint64{roleUser.ID}
+	}
+
+	var validRoleIDs []uint64
+	if err := tx.WithContext(ctx).
+		Model(&m.Role{}).
+		Where("scope = ? AND tenant_uuid = ? AND id IN ?", "tenant", tenantUUID, targetRoleIDs).
+		Pluck("id", &validRoleIDs).Error; err != nil {
+		return err
+	}
+	if len(validRoleIDs) != len(targetRoleIDs) {
+		return errors.New("contains invalid tenant role ids")
+	}
+
+	if err := tx.WithContext(ctx).
+		Where("tenant_uuid = ? AND subject_type = ? AND subject_id = ?", tenantUUID, m.SubMember, memberID).
+		Delete(&m.RoleBinding{}).Error; err != nil {
+		return err
+	}
+
+	bindings := make([]m.RoleBinding, 0, len(validRoleIDs))
+	for _, rid := range validRoleIDs {
+		bindings = append(bindings, m.RoleBinding{
+			TenantUUID:  tenantUUID,
+			RoleID:      rid,
+			SubjectType: m.SubMember,
+			SubjectID:   memberID,
+		})
+	}
+	return tx.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(&bindings).Error
 }
 
 func deriveBaseUserName(u *m.User) string {
@@ -426,7 +554,14 @@ func (s *UserService) SetUserStatus(ctx context.Context, id uint64, status int16
 	if id == 0 {
 		return errors.New("id required")
 	}
-	_, err := s.UserRepo.Patch(ctx, map[string]any{"id = ?": id}, map[string]any{"status": status})
+	isRoot, err := s.UserRepo.IsRootUser(ctx, id)
+	if err != nil {
+		return err
+	}
+	if isRoot {
+		return errors.New("root user status cannot be changed")
+	}
+	_, err = s.UserRepo.Patch(ctx, map[string]any{"id = ?": id}, map[string]any{"status": status})
 	return err
 }
 
@@ -434,7 +569,14 @@ func (s *UserService) DeleteUser(ctx context.Context, id uint64) error {
 	if id == 0 {
 		return errors.New("id required")
 	}
-	_, err := s.UserRepo.Delete(ctx, map[string]any{"id = ?": id}, nil, true)
+	isRoot, err := s.UserRepo.IsRootUser(ctx, id)
+	if err != nil {
+		return err
+	}
+	if isRoot {
+		return errors.New("root user cannot be deleted")
+	}
+	_, err = s.UserRepo.Delete(ctx, map[string]any{"id = ?": id}, nil, true)
 	return err
 }
 
@@ -447,6 +589,92 @@ func (s *UserService) RestoreUser(ctx context.Context, id uint64) error {
 		Model(&m.User{}).
 		Where("id = ?", id).
 		Update("deleted_at", nil).Error
+}
+
+// ResetUserPassword - Root 视角重置用户密码。
+// 规则：
+// 1) 不依赖邮件流程，直接写入密码哈希；
+// 2) 同时维护 email/phone/username 三类 identifier 的 password 凭证；
+// 3) 若 identifier 已被其他 user 占用，直接报错阻止覆盖。
+func (s *UserService) ResetUserPassword(ctx context.Context, id uint64, password string) error {
+	if id == 0 {
+		return errors.New("id required")
+	}
+	password = strings.TrimSpace(password)
+	if len(password) < 6 {
+		return errors.New("password too short")
+	}
+
+	u, err := s.UserRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return gorm.ErrRecordNotFound
+	}
+
+	members, err := s.MemberRepo.ListByUserID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	identSet := map[string]struct{}{}
+	addIdent := func(v string) {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v != "" {
+			identSet[v] = struct{}{}
+		}
+	}
+	addIdent(u.Email)
+	addIdent(u.Phone)
+	for _, mm := range members {
+		if mm != nil {
+			addIdent(mm.Username)
+		}
+	}
+	if len(identSet) == 0 {
+		return errors.New("no identifier found for user")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	secret := string(hash)
+
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for ident := range identSet {
+			cred, ferr := s.CredRepo.FindByProviderIdentifier(ctx, "password", ident)
+			if ferr == nil && cred != nil {
+				if cred.UserID != id {
+					return fmt.Errorf("identifier %s is already used by another user", ident)
+				}
+				if err := tx.WithContext(ctx).
+					Model(&m.Credential{}).
+					Where("id = ?", cred.ID).
+					Updates(map[string]any{
+						"secret_hash": secret,
+						"is_primary":  true,
+					}).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			if ferr != nil && !errors.Is(ferr, gorm.ErrRecordNotFound) {
+				return ferr
+			}
+			if _, err := s.CredRepo.WithDB(tx).Create(ctx, &m.Credential{
+				UserID:     id,
+				Provider:   "password",
+				Identifier: ident,
+				SecretHash: secret,
+				IsPrimary:  true,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // ForceLogoutByJTI - 按 JTI 精确撤销 refresh token

@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const webHost = process.env.PLAYWRIGHT_WEB_HOST || '127.0.0.1'
+const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT || 3300)
+const defaultBaseURL = `http://${webHost}:${webPort}`
+const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === '1'
+
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -11,7 +16,7 @@ export default defineConfig({
   workers: 1, // 并行工作线程数，可以根据需要调整
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3300',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || defaultBaseURL,
     storageState: './tests/e2e/.auth/admin.json',
     trace: 'on-first-retry',
     video: 'retain-on-failure',
@@ -36,10 +41,12 @@ export default defineConfig({
   // 全局设置
   globalSetup: './tests/e2e/auth.setup.ts',
 
-  webServer: {
-    command: 'POWERX_ENV=prod UPSTREAM=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && POWERX_ENV=prod UPSTREAM=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host 127.0.0.1 --port 3300',
-    url: 'http://127.0.0.1:3300',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  webServer: skipWebServer
+    ? undefined
+    : {
+        command: `POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host ${webHost} --port ${webPort}`,
+        url: defaultBaseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
 })

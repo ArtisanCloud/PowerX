@@ -74,6 +74,7 @@ type CreateSystemUserReq struct {
 	UserName        string   `json:"username" validate:"required,min=3,max=64"` // 在租户内的用户名
 	InitialPassword string   `json:"initial_password" validate:"omitempty,min=6,max=64"`
 	DeptIDs         []uint64 `json:"dept_ids"` // 创建 member 时绑定的部门（可选）
+	RoleIDs         []uint64 `json:"role_ids"` // 创建 member 时绑定的角色（可选，空则默认 role_user）
 }
 
 type UpdateUserReq struct {
@@ -92,8 +93,16 @@ type ForceLogoutReq struct {
 	JTI string `json:"jti,omitempty"` // 推荐走 JTI 精确撤销
 }
 
+type ResetPasswordReq struct {
+	NewPassword string `json:"new_password" validate:"required,min=6,max=64"`
+}
+
 // 把已存在的 User 加入某个租户为 Member
 type AddUserToTenantReq struct {
+}
+
+type SetUserRolesReq struct {
+	RoleIDs []uint64 `json:"role_ids"`
 }
 
 // ============= Handlers（全部转发给 Service） =============
@@ -177,7 +186,15 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	// Service：CreateSystemUser(ctx, user *m.User, tenantID uint64, username, initialPassword string, deptIDs []uint64) (userID uint64, err error)
-	id, err := h.S.CreateSystemUser(ctx, u, tenantCtx.UUID(), strings.ToLower(strings.TrimSpace(req.UserName)), strings.TrimSpace(req.InitialPassword), req.DeptIDs)
+	id, err := h.S.CreateSystemUser(
+		ctx,
+		u,
+		tenantCtx.UUID(),
+		strings.ToLower(strings.TrimSpace(req.UserName)),
+		strings.TrimSpace(req.InitialPassword),
+		req.DeptIDs,
+		req.RoleIDs,
+	)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "创建失败", err)
 		return
@@ -309,6 +326,55 @@ func (h *UserHandler) ForceLogout(c *gin.Context) {
 	// Service：ForceLogoutByJTI(ctx, jti string, nowMillis int64) error
 	if err := h.S.ForceLogoutByJTI(c.Request.Context(), jti, time.Now().UnixMilli()); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "强制下线失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+// PUT /api/admin/system/users/:id/password
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req ResetPasswordReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	if err := h.S.ResetUserPassword(c.Request.Context(), id, req.NewPassword); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "重置密码失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+// GET /api/admin/system/users/:id/roles
+func (h *UserHandler) ListRoles(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	if !ok {
+		return
+	}
+	roleIDs, err := h.S.ListUserRoleIDs(c.Request.Context(), id, tenantCtx.UUID())
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "查询用户角色失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"role_ids": roleIDs})
+}
+
+// PUT /api/admin/system/users/:id/roles
+func (h *UserHandler) SetRoles(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req SetUserRolesReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	if !ok {
+		return
+	}
+	if err := h.S.SetUserRoleIDs(c.Request.Context(), id, tenantCtx.UUID(), req.RoleIDs); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "设置用户角色失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
