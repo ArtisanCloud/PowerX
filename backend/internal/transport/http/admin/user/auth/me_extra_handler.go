@@ -30,6 +30,18 @@ type switchTenantReq struct {
 	TenantUUID string `json:"tenant_uuid"`
 }
 
+type updateMyProfileReq struct {
+	DisplayName *string `json:"display_name"`
+	Email       *string `json:"email"`
+	Phone       *string `json:"phone"`
+	AvatarURL   *string `json:"avatar_url"`
+}
+
+type changeMyPasswordReq struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=6,max=64"`
+	NewPassword     string `json:"new_password" validate:"required,min=6,max=64"`
+}
+
 // POST /api/v1/admin/user/auth/me/switch-tenant
 func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 	var req switchTenantReq
@@ -143,4 +155,43 @@ func (h *MeExtraHandler) ListDepartments(c *gin.Context) {
 	}
 	walk(tree)
 	dto.ResponseSuccess(c, out)
+}
+
+// PUT /api/v1/admin/user/auth/me/profile
+func (h *MeExtraHandler) UpdateProfile(c *gin.Context) {
+	var req updateMyProfileReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	profile, err := h.me.UpdateMyProfile(c.Request.Context(), authsvc.UpdateMyProfileInput{
+		DisplayName: req.DisplayName,
+		Email:       req.Email,
+		Phone:       req.Phone,
+		AvatarURL:   req.AvatarURL,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, profile)
+}
+
+// PUT /api/v1/admin/user/auth/me/password
+func (h *MeExtraHandler) ChangePassword(c *gin.Context) {
+	var req changeMyPasswordReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	if strings.TrimSpace(req.CurrentPassword) == strings.TrimSpace(req.NewPassword) {
+		dto.ResponseError(c, http.StatusBadRequest, "新密码不能与当前密码相同", nil)
+		return
+	}
+	if err := h.me.ChangeMyPassword(c.Request.Context(), req.CurrentPassword, req.NewPassword); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ok": true})
 }

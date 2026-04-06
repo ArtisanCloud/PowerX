@@ -546,7 +546,7 @@ func (s *UserService) UpdateUser(ctx context.Context, id uint64, updates map[str
 	if v, ok := updates["avatar_url"].(string); ok {
 		updates["avatar_url"] = utils.Trim(v)
 	}
-	_, err := s.UserRepo.Patch(ctx, map[string]any{"id = ?": id}, updates)
+	_, err := s.UserRepo.Patch(ctx, map[string]any{"id": id}, updates)
 	return err
 }
 
@@ -561,7 +561,7 @@ func (s *UserService) SetUserStatus(ctx context.Context, id uint64, status int16
 	if isRoot {
 		return errors.New("root user status cannot be changed")
 	}
-	_, err = s.UserRepo.Patch(ctx, map[string]any{"id = ?": id}, map[string]any{"status": status})
+	_, err = s.UserRepo.Patch(ctx, map[string]any{"id": id}, map[string]any{"status": status})
 	return err
 }
 
@@ -576,7 +576,7 @@ func (s *UserService) DeleteUser(ctx context.Context, id uint64) error {
 	if isRoot {
 		return errors.New("root user cannot be deleted")
 	}
-	_, err = s.UserRepo.Delete(ctx, map[string]any{"id = ?": id}, nil, true)
+	_, err = s.UserRepo.Delete(ctx, map[string]any{"id": id}, nil, true)
 	return err
 }
 

@@ -31,5 +31,7 @@ func RegisterAPIRoutes(
 		gMeContext.POST("/me/switch-tenant", hMeExtra.SwitchTenant)
 		gMeContext.GET("/me/tenants", hMeExtra.ListTenants)
 		gMeContext.GET("/me/departments", hMeExtra.ListDepartments)
+		gMeContext.PUT("/me/profile", hMeExtra.UpdateProfile)
+		gMeContext.PUT("/me/password", hMeExtra.ChangePassword)
 	}
 }

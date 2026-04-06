@@ -44,6 +44,28 @@ func uniqAppend(list []string, s string) []string {
 	return append(list, s)
 }
 
+func filterMenusByPermission(
+	items []admdto.AdminMenuItem,
+	allow func([]string) bool,
+) []admdto.AdminMenuItem {
+	out := make([]admdto.AdminMenuItem, 0, len(items))
+	for _, item := range items {
+		if !allow(item.Permissions) {
+			log.Printf("[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			continue
+		}
+		if len(item.Children) > 0 {
+			item.Children = filterMenusByPermission(item.Children, allow)
+		}
+		// 目录节点若无可见子项且自身无 path，则跳过，避免空分组
+		if strings.TrimSpace(item.URL) == "" && len(item.Children) == 0 {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
 // ---------- locale 优先级与标准化 ----------
 
 // 构建偏好列表：["zh-CN","zh",...,"en-US","en",...]
@@ -485,6 +507,10 @@ func AdminMenusHandler(c *gin.Context) {
 		return true
 	}
 
+	// 先对系统菜单与插件菜单做递归权限过滤（含子节点）
+	sys = filterMenusByPermission(sys, allow)
+	plug.Items = filterMenusByPermission(plug.Items, allow)
+
 	_ = indexSystemSlots(sys)
 
 	// 2) 收集插件顶层
@@ -493,10 +519,6 @@ func AdminMenusHandler(c *gin.Context) {
 		pluginTopLevel = make([]admdto.AdminMenuItem, 0, len(plug.Items))
 	)
 	for _, m := range plug.Items {
-		if !allow(m.Permissions) {
-			log.Printf("[menus] filtered by RBAC item=%s perms=%v", m.Key, m.Permissions)
-			continue
-		}
 		if !m.Visible {
 			m.Visible = true
 		}

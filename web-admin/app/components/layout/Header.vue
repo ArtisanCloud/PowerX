@@ -6,6 +6,9 @@ import { useWSBus } from "~/composables/useWSBus";
 
 const { t } = useI18n();
 const userStore = useUserStore();
+const canAccessSettings = computed(
+  () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
+);
 
 // 使用通知系统
 const { getStats, notifications, fetchNotifications, addNotification } = useNotifications();
@@ -65,27 +68,32 @@ onBeforeUnmount(() => {
 });
 
 // 用户菜单项
-const userMenuItems = computed(() => [
-  [
+const userMenuItems = computed(() => {
+  const firstGroup: any[] = [
     {
       label: t("header.profile"),
       icon: "i-heroicons-user",
       to: "/profile",
     },
-    {
+  ];
+  if (canAccessSettings.value) {
+    firstGroup.push({
       label: t("header.settings"),
       icon: "i-heroicons-cog-6-tooth",
       to: "/settings",
-    },
-  ],
-  [
-    {
-      label: t("header.logout"),
-      icon: "i-heroicons-arrow-right-on-rectangle",
-      onSelect: handleLogout,
-    },
-  ],
-]);
+    });
+  }
+  return [
+    firstGroup,
+    [
+      {
+        label: t("header.logout"),
+        icon: "i-heroicons-arrow-right-on-rectangle",
+        onSelect: handleLogout,
+      },
+    ],
+  ];
+});
 
 // 通知菜单项
 const notificationItems = computed(() => {

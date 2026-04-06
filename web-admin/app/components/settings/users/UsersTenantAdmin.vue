@@ -9,9 +9,11 @@ import {
   onMounted,
   watch,
 } from "vue";
+import { storeToRefs } from "pinia";
 import { useI18n, useToast } from "#imports";
 import SelectTree from "~/components/ui/SelectTree.vue";
 import { useDepartmentStore } from "~/stores/department";
+import { useUserStore } from "~/stores/user";
 import { useRoleService } from "~/composables/api/services/roleService";
 import {
   useUserService,
@@ -28,6 +30,8 @@ const toast = useToast();
 const departmentStore = useDepartmentStore();
 const userService = useUserService();
 const roleService = useRoleService();
+const userStore = useUserStore();
+const { user: currentUser, isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
 
 // ===== 类型与数据 =====
 type StatusType = "active" | "inactive";
@@ -84,6 +88,15 @@ const roleFilterItems = ref([
 type RoleOption = { label: string; value: number; code?: string };
 const tenantRoleOptions = ref<RoleOption[]>([]);
 const loadingRoles = ref(false);
+const selectedRoleOptions = ref<RoleOption[]>([]);
+
+const currentUserId = computed(() => Number(currentUser.value?.id || 0));
+const canViewRootUsers = computed(() => Boolean(isCurrentTenantAdmin.value));
+
+function canOperateRootUser(row: RowUser): boolean {
+  if (!row.isRoot) return true;
+  return Boolean(isRoot.value && row.userId && currentUserId.value === row.userId);
+}
 
 // ====== 导入导出 ======
 type ExportFormat = "csv" | "json";
@@ -206,6 +219,27 @@ const resetPasswordForm = reactive({
   confirmPassword: "",
 });
 
+function normalizeRoleIds(input: unknown): number[] {
+  if (!Array.isArray(input)) return [];
+  const out: number[] = [];
+  for (const item of input) {
+    let raw: unknown = item;
+    if (item && typeof item === "object" && "value" in (item as any)) {
+      raw = (item as any).value;
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) out.push(n);
+  }
+  return Array.from(new Set(out));
+}
+
+function syncSelectedRoleOptionsFromIds() {
+  const selected = new Set(normalizeRoleIds(userForm.roleIds));
+  selectedRoleOptions.value = tenantRoleOptions.value.filter((option) =>
+    selected.has(option.value)
+  );
+}
+
 function parseApiMessage(error: any, fallback: string): string {
   const msg =
     error?.response?._data?.error ||
@@ -242,6 +276,7 @@ function resetForm() {
   userForm.meta = {};
   isEditing.value = false;
   editingId.value = null;
+  selectedRoleOptions.value = [];
 }
 
 async function openAddForm() {
@@ -253,13 +288,30 @@ async function openAddForm() {
     );
     userForm.roleIds = [roleUser?.value || tenantRoleOptions.value[0].value];
   }
+  syncSelectedRoleOptionsFromIds();
   showForm.value = true;
 }
 
 async function openEditForm(row: RowUser) {
+  if (!canOperateRootUser(row)) {
+    toast.add({
+      title: "无权限编辑",
+      description: "仅 root 本人可编辑 root 账号",
+      color: "warning",
+    });
+    return;
+  }
+  if (!row.userId) {
+    toast.add({
+      title: "打开编辑失败",
+      description: "当前记录缺少 user_id，请刷新后重试",
+      color: "error",
+    });
+    return;
+  }
   resetForm();
   isEditing.value = true;
-  editingId.value = row.userId || row.id;
+  editingId.value = row.userId;
 
   // 将行数据映射回表单
   userForm.name = row.name;
@@ -271,10 +323,14 @@ async function openEditForm(row: RowUser) {
   userForm.meta = row.meta || {};
   await loadTenantRoles();
   await loadUserRoles(editingId.value);
+  syncSelectedRoleOptionsFromIds();
   showForm.value = true;
 }
 
 async function saveUser() {
+  userForm.roleIds = normalizeRoleIds(
+    selectedRoleOptions.value.map((option) => option.value)
+  );
   // 基础校验
   if (!userForm.name || !userForm.email) {
     toast.add({
@@ -367,6 +423,9 @@ async function loadTenantRoles() {
         code: role.code,
       };
     });
+    if (userForm.roleIds.length > 0) {
+      syncSelectedRoleOptionsFromIds();
+    }
   } catch (error) {
     console.error("加载角色失败:", error);
     tenantRoleOptions.value = [];
@@ -379,11 +438,40 @@ async function loadUserRoles(userId: number | null) {
   if (!userId) return;
   try {
     const response = await userService.getUserRoles(userId);
-    userForm.roleIds = response.data?.role_ids || [];
+    userForm.roleIds = normalizeRoleIds(response.data?.role_ids || []);
+    syncSelectedRoleOptionsFromIds();
   } catch (error) {
     console.error("加载用户角色失败:", error);
     userForm.roleIds = [];
+    selectedRoleOptions.value = [];
   }
+}
+
+const roleNameById = computed(() => {
+  const map = new Map<number, string>();
+  tenantRoleOptions.value.forEach((role) => map.set(role.value, role.label));
+  return map;
+});
+
+async function hydrateRowsRoles(rows: RowUser[]) {
+  await Promise.all(
+    rows.map(async (row) => {
+      if (!row.userId) {
+        row.roles = [];
+        return;
+      }
+      try {
+        const response = await userService.getUserRoles(row.userId);
+        const roleIds = normalizeRoleIds(response.data?.role_ids || []);
+        row.roles = roleIds.map(
+          (id) => roleNameById.value.get(id) || `#${id}`
+        );
+      } catch (error) {
+        console.error("加载用户角色失败:", error);
+        row.roles = [];
+      }
+    })
+  );
 }
 
 async function deleteUser(id: number) {
@@ -398,10 +486,17 @@ async function deleteUser(id: number) {
 }
 
 async function toggleUserStatus(row: RowUser) {
+  if (!row.userId) {
+    toast.add({
+      title: "状态更新失败",
+      description: "当前记录缺少 user_id，请刷新后重试",
+      color: "error",
+    });
+    return;
+  }
   try {
     const newStatus = row.status === "active" ? 0 : 1;
-    const targetUserID = row.userId || row.id;
-    await userService.setUserStatus(targetUserID, { status: newStatus });
+    await userService.setUserStatus(row.userId, { status: newStatus });
     await loadUsers(); // 重新加载数据
     toast.add({ title: "状态已更新", color: "success" });
   } catch (e: any) {
@@ -410,6 +505,22 @@ async function toggleUserStatus(row: RowUser) {
 }
 
 function openResetPassword(row: RowUser) {
+  if (!canOperateRootUser(row)) {
+    toast.add({
+      title: "无权限重置密码",
+      description: "仅 root 本人可重置 root 账号密码",
+      color: "warning",
+    });
+    return;
+  }
+  if (!row.userId) {
+    toast.add({
+      title: "操作失败",
+      description: "当前记录缺少 user_id，请刷新后重试",
+      color: "error",
+    });
+    return;
+  }
   resetPasswordTarget.value = row;
   resetPasswordForm.password = "";
   resetPasswordForm.confirmPassword = "";
@@ -436,7 +547,7 @@ async function submitResetPassword() {
     return;
   }
   try {
-    await userService.resetUserPassword(target.userId || target.id, {
+    await userService.resetUserPassword(target.userId, {
       new_password: resetPasswordForm.password,
     });
     showResetPassword.value = false;
@@ -549,6 +660,32 @@ const columns = computed(() => {
       },
     },
     {
+      id: "roles",
+      accessorKey: "roles",
+      header: t("organization.user.form.role").toString(),
+      cell: ({ row }: any) => {
+        const u = row.original as RowUser;
+        if (!u.roles || u.roles.length === 0) return "-";
+        return h(
+          "div",
+          { class: "flex flex-wrap gap-1 max-w-[220px]" },
+          u.roles.map((role) =>
+            h(
+              UBadge,
+              {
+                color: "success",
+                variant: "subtle",
+                size: "xs",
+                class: "max-w-[160px] truncate",
+                title: role,
+              },
+              () => role
+            )
+          )
+        );
+      },
+    },
+    {
       id: "status",
       accessorKey: "status",
       header: t("organization.user.table.status").toString(),
@@ -573,29 +710,32 @@ const columns = computed(() => {
       header: t("organization.user.table.actions").toString(),
       cell: ({ row }: any) => {
         const u = row.original as RowUser;
-        const actions = [
-          h(
-            UButton,
-            {
-              size: "xs",
-              variant: "ghost",
-              icon: "i-heroicons-pencil-square",
-              onClick: () => openEditForm(u),
-            },
-            () => t("organization.common.edit")
-          ),
-          h(
-            UButton,
-            {
-              size: "xs",
-              variant: "ghost",
-              color: "primary",
-              icon: "i-heroicons-key",
-              onClick: () => openResetPassword(u),
-            },
-            () => t("organization.user.resetPassword.action")
-          ),
-        ];
+        const actions: any[] = [];
+        if (canOperateRootUser(u)) {
+          actions.push(
+            h(
+              UButton,
+              {
+                size: "xs",
+                variant: "ghost",
+                icon: "i-heroicons-pencil-square",
+                onClick: () => openEditForm(u),
+              },
+              () => t("organization.common.edit")
+            ),
+            h(
+              UButton,
+              {
+                size: "xs",
+                variant: "ghost",
+                color: "primary",
+                icon: "i-heroicons-key",
+                onClick: () => openResetPassword(u),
+              },
+              () => t("organization.user.resetPassword.action")
+            )
+          );
+        }
         if (!u.isRoot) {
           actions.push(
             h(
@@ -622,7 +762,17 @@ const columns = computed(() => {
                 color: "error",
                 variant: "ghost",
                 icon: "i-heroicons-trash",
-                onClick: () => deleteUser(u.userId || u.id),
+                onClick: () => {
+                  if (!u.userId) {
+                    toast.add({
+                      title: "删除失败",
+                      description: "当前记录缺少 user_id，请刷新后重试",
+                      color: "error",
+                    });
+                    return;
+                  }
+                  deleteUser(u.userId);
+                },
               },
               () => t("organization.common.delete")
             )
@@ -643,23 +793,26 @@ function maskPhone(phone: string): string {
 
 // 转换API数据为组件需要的格式
 function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
-  const { Member, User } = memberWithProfile;
+  const { Member, User } = memberWithProfile as any;
+  const resolvedUserID = User?.id || Member?.user_id;
   return {
     id: Member.id, // 使用Member的ID作为主要ID
-    userId: User.id, // 保存User的ID以备后用
-    name: Member.display_name || User.display_name,
+    userId: resolvedUserID, // 保存User的ID以备后用
+    name: Member.display_name || User?.display_name,
     username: Member.username,
-    email: User.email || "",
-    phone: User.phone || "",
+    email: User?.email || "",
+    phone: User?.phone || "",
     department: Member.meta?.title || Member.meta?.department || "",
     roles: null,
     status: Member.status === 1 ? "active" : "inactive",
-    isRoot: Boolean(User.is_root),
+    isRoot: Boolean(User?.is_root),
     avatar:
       Member.avatar_url ||
-      User.avatar_url ||
-      `https://i.pravatar.cc/150?u=${encodeURIComponent(User.email || Member.display_name)}`,
-    meta: { ...User.meta, ...Member.meta }, // 合并User和Member的meta
+      User?.avatar_url ||
+      `https://i.pravatar.cc/150?u=${encodeURIComponent(
+        User?.email || Member.display_name
+      )}`,
+    meta: { ...(User?.meta || {}), ...(Member?.meta || {}) }, // 合并User和Member的meta
   };
 }
 
@@ -685,12 +838,23 @@ async function loadUsers() {
       params.q = searchQuery.value.trim(); // 后端使用q参数
     }
 
+    if (tenantRoleOptions.value.length === 0) {
+      await loadTenantRoles();
+    }
     const response = await userService.getUsers(params);
 
     if (response.data) {
-      users.value = response.data.items.map(transformUserData);
-      pagination.total = response.data.pagination.total;
-      pagination.totalPages = response.data.pagination.pages;
+      const rows = response.data.items.map(transformUserData);
+      await hydrateRowsRoles(rows);
+      const visibleRows = canViewRootUsers.value
+        ? rows
+        : rows.filter((row: RowUser) => !row.isRoot);
+      users.value = visibleRows;
+      pagination.total = visibleRows.length;
+      pagination.totalPages = Math.max(
+        1,
+        Math.ceil(visibleRows.length / pagination.pageSize)
+      );
     }
   } catch (error) {
     console.error("加载用户数据失败:", error);
@@ -886,10 +1050,8 @@ onMounted(async () => {
             </UFormField>
             <UFormField :label="$t('organization.user.form.role')" required>
               <USelectMenu
-                v-model="userForm.roleIds"
+                v-model="selectedRoleOptions"
                 :items="tenantRoleOptions"
-                value-attribute="value"
-                option-attribute="label"
                 multiple
                 searchable
                 :loading="loadingRoles"

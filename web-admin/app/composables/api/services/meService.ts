@@ -84,6 +84,19 @@ export const useMeService = () => {
     },
 
     /**
+     * 修改当前登录用户密码
+     */
+    changeMyPassword: (data: {
+      current_password: string;
+      new_password: string;
+    }) => {
+      return apiClient.put<ApiResponse<{ ok: boolean }>>(
+        `${baseUrl}/me/password`,
+        data
+      );
+    },
+
+    /**
      * 上传用户头像
      * @param file 头像文件
      */

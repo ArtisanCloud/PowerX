@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/service"
-	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	repotenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
-	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -45,6 +46,13 @@ type MeContextResp struct {
 	Ctx    string `json:"ctx,omitempty"`
 	CtxSig string `json:"ctx_sig,omitempty"`
 	CtxJwt string `json:"ctx_jwt,omitempty"`
+}
+
+type UpdateMyProfileInput struct {
+	DisplayName *string
+	Email       *string
+	Phone       *string
+	AvatarURL   *string
 }
 
 // ======= Service =======
@@ -219,4 +227,134 @@ func (s *MeService) TenantExists(ctx context.Context, tenantUUID string) (bool, 
 		return false, err
 	}
 	return t != nil, nil
+}
+
+func (s *MeService) UpdateMyProfile(ctx context.Context, in UpdateMyProfileInput) (*MeUserBrief, error) {
+	userID := reqctx.GetUserID(ctx)
+	if userID == 0 {
+		return nil, dto.NewUnauthorized("未登录", nil)
+	}
+
+	user, err := s.UserRepo.FindByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, dto.NewNotFound("用户不存在", err)
+		}
+		return nil, dto.NewInternal("查询用户失败", err)
+	}
+
+	updates := map[string]any{}
+
+	if in.DisplayName != nil {
+		name := strings.TrimSpace(*in.DisplayName)
+		if name == "" {
+			return nil, dto.NewBadRequest("display_name 不能为空", nil)
+		}
+		updates["display_name"] = name
+	}
+
+	if in.Email != nil {
+		email := strings.ToLower(strings.TrimSpace(*in.Email))
+		if email == "" {
+			return nil, dto.NewBadRequest("email 不能为空", nil)
+		}
+		exist, qerr := s.UserRepo.FindByEmail(ctx, email)
+		if qerr != nil && !errors.Is(qerr, gorm.ErrRecordNotFound) {
+			return nil, dto.NewInternal("检查邮箱唯一性失败", qerr)
+		}
+		if exist != nil && exist.ID != userID {
+			return nil, dto.NewConflict("邮箱已被占用", nil)
+		}
+		updates["email"] = email
+	}
+
+	if in.Phone != nil {
+		phone := strings.TrimSpace(*in.Phone)
+		if phone != "" {
+			exist, qerr := s.UserRepo.FindByPhone(ctx, phone)
+			if qerr != nil && !errors.Is(qerr, gorm.ErrRecordNotFound) {
+				return nil, dto.NewInternal("检查手机号唯一性失败", qerr)
+			}
+			if exist != nil && exist.ID != userID {
+				return nil, dto.NewConflict("手机号已被占用", nil)
+			}
+		}
+		updates["phone"] = phone
+	}
+
+	if in.AvatarURL != nil {
+		updates["avatar_url"] = strings.TrimSpace(*in.AvatarURL)
+	}
+
+	if len(updates) > 0 {
+		if err := s.DB.WithContext(ctx).
+			Model(&modelIAM.User{}).
+			Where("id = ?", userID).
+			Updates(updates).Error; err != nil {
+			return nil, dto.NewInternal("更新个人资料失败", err)
+		}
+		user, err = s.UserRepo.FindByID(ctx, userID)
+		if err != nil {
+			return nil, dto.NewInternal("重新加载用户失败", err)
+		}
+	}
+
+	return &MeUserBrief{
+		ID:          user.ID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		DisplayName: user.DisplayName,
+		AvatarURL:   user.AvatarURL,
+		Status:      user.Status,
+		LastLoginAt: user.LastLoginAt,
+		IsRoot:      user.IsRoot,
+	}, nil
+}
+
+func (s *MeService) ChangeMyPassword(ctx context.Context, currentPassword, newPassword string) error {
+	userID := reqctx.GetUserID(ctx)
+	if userID == 0 {
+		return dto.NewUnauthorized("未登录", nil)
+	}
+
+	currentPassword = strings.TrimSpace(currentPassword)
+	newPassword = strings.TrimSpace(newPassword)
+	if currentPassword == "" || newPassword == "" {
+		return dto.NewBadRequest("密码不能为空", nil)
+	}
+
+	var creds []modelIAM.Credential
+	if err := s.DB.WithContext(ctx).
+		Model(&modelIAM.Credential{}).
+		Where("user_id = ? AND provider = ?", userID, "password").
+		Find(&creds).Error; err != nil {
+		return dto.NewInternal("查询凭据失败", err)
+	}
+	if len(creds) == 0 {
+		return dto.NewBadRequest("当前账号未配置密码登录", nil)
+	}
+
+	matched := false
+	for i := range creds {
+		if bcrypt.CompareHashAndPassword([]byte(creds[i].SecretHash), []byte(currentPassword)) == nil {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return dto.NewBadRequest("当前密码不正确", nil)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return dto.NewInternal("生成密码哈希失败", err)
+	}
+
+	if err := s.DB.WithContext(ctx).
+		Model(&modelIAM.Credential{}).
+		Where("user_id = ? AND provider = ?", userID, "password").
+		Update("secret_hash", string(hash)).Error; err != nil {
+		return dto.NewInternal("更新密码失败", err)
+	}
+	return nil
 }

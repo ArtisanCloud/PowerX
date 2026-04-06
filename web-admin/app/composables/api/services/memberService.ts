@@ -61,7 +61,9 @@ export interface MemberQuery {
 /** 统一解析：从任意响应结构中解析出成员数组；取不到就返回 [] */
 function parseMembersFromResponse(resp: any): Member[] {
   const data = resp?.data ?? resp;
-  const list = Array.isArray(data?.list)
+  const list = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.list)
     ? data.list
     : Array.isArray(data)
       ? data
@@ -113,7 +115,7 @@ function toQueryString(params?: Record<string, any>): string {
 /** 成员服务 API */
 export function useMemberService() {
   const apiClient = useApiClient();
-  const baseUrl = "/admin/organization/members";
+  const baseUrl = "/admin/iam/members";
 
   return {
     /**
