@@ -279,7 +279,7 @@
 - [X] T119 [US8] setup 配置应用器：统一写入 `dist/.../config/powerx.env`、`web-admin.env` 与 `backend/etc/config.yaml`（端口相关）`backend/internal/transport/http/admin/system/setup_handler.go` + `backend/internal/service/system/setting_service.go`
 - [X] T120 [US8] 前端 setup 页增加“目标值/当前生效值”双列与“需重启”提示 `web-admin/app/pages/setup/index.vue` + `web-admin/app/composables/api/services/settingsService.ts`
 - [X] T121 [US8] 打包链路固化 prod 端口与 upstream（防止 dist 产物内联 dev 默认）`make_files/dist.mk` + `web-admin/nuxt.config.ts`
-- [X] T122 [US8] systemd/docker 环境模板补齐 `POWERX_CONFIG/UPSTREAM/WS_UPSTREAM` 真源说明与示例 `deploy/powerx/systemd/*.service` + `deploy/powerx/docker/*` + `dist/systemd/*/config/*.env*`
+- [X] T122 [US8] systemd/docker 环境模板补齐 `POWERX_CONFIG/POWERX_BACKEND/WS_UPSTREAM` 真源说明与示例 `deploy/powerx/systemd/*.service` + `deploy/powerx/docker/*` + `dist/systemd/*/config/*.env*`
 - [X] T123 [US8] 文档与排障手册统一端口矩阵与“重启生效”语义 `specs/025-powerx-docker-systemd/{install-mechanism.md,quickstart.md}` + `docs/guides/deploy/025-powerx-docker-systemd/*`
 
 **Checkpoint**: US8 完成后，端口改动的“配置写入 -> 重启 -> 生效”路径可观测、可验证、可回归，不再出现 3000/3030 与 8080/8077 串路问题

@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: PowerX IAM User Role RBAC Admin API
+  version: "0.1.0"
+  description: HTTP contract for IAM role boundaries, user-management action semantics, and me/context consistency.
+servers:
+  - url: https://api.powerx.local/api/v1
+paths:
+  /admin/user/auth/me/context:
+    get:
+      summary: Get current identity context for UI routing
+      operationId: getMeContext
+      tags: [AuthContext]
+      responses:
+        '200':
+          description: Current context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeContextResponse'
+  /admin/user/auth/me/switch-tenant:
+    post:
+      summary: Switch current tenant context
+      operationId: switchTenant
+      tags: [AuthContext]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_uuid]
+              properties:
+                tenant_uuid:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Context switched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeContextResponse'
+        '403':
+          description: Tenant not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/user/auth/me/tenants:
+    get:
+      summary: List tenants available for current user
+      operationId: listMeTenants
+      tags: [AuthContext]
+      responses:
+        '200':
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemberTenant'
+  /admin/iam/members:
+    get:
+      summary: List members in current tenant scope
+      operationId: listTenantMembers
+      tags: [IAMMembers]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Member page
+  /admin/iam/users/{user_id}/member:
+    get:
+      summary: Get member record of user within current tenant
+      operationId: getMemberByUser
+      tags: [IAMMembers]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: User member in current tenant
+        '404':
+          description: Member not found in current tenant
+  /admin/iam/roles/{id}/permissions:
+    get:
+      summary: List permissions bound to role
+      operationId: listRolePermissions
+      tags: [IAMRoles]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Permissions list
+  /admin/iam/roles/me/check:
+    get:
+      summary: Check permission for current principal
+      operationId: checkPermission
+      tags: [IAMRoles]
+      parameters:
+        - name: action
+          in: query
+          required: true
+          schema: { type: string }
+        - name: resource
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Permission decision
+components:
+  schemas:
+    MeContextResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/MeContext'
+    MeContext:
+      type: object
+      required: [is_root, members]
+      properties:
+        is_root: { type: boolean }
+        current_tenant_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        current_member_id:
+          type: integer
+          nullable: true
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberTenant'
+        ctx: { type: string, nullable: true }
+        ctx_sig: { type: string, nullable: true }
+        ctx_jwt: { type: string, nullable: true }
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        display_name: { type: string }
+        status: { type: integer }
+        is_root: { type: boolean }
+    MemberTenant:
+      type: object
+      properties:
+        tenant_uuid:
+          type: string
+          format: uuid
+        tenant_name: { type: string }
+        member_id: { type: integer }
+        is_admin: { type: boolean }
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        error: { type: string }
+        request_id: { type: string }

@@ -108,6 +108,13 @@ curl -f http://127.0.0.1/api/v1/health
 - `/` 返回 web-admin 页面响应
 - `/api/v1/health` 返回 200
 
+`api_prefix` 对齐说明：
+- 若 `backend/etc/config.yaml` 中是默认 `server.api_prefix: /api/v1`，则上述 `/api/` 反向代理可直接使用。
+- 若你改成了其他前缀（例如 `/openapi`），则需同时对齐：
+  1. Nginx 路由前缀；
+  2. setup 页面中的 `API Prefix` 输入值；
+  3. 前端运行时配置（如有自定义）。
+
 ## 6. 可选：启用 HTTPS（Let\'s Encrypt）
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx

@@ -58,6 +58,9 @@ const generateFloatingElements = () => {
 
 // 用户状态管理 - 使用与Header组件相同的逻辑
 const userStore = useUserStore();
+const canAccessSettings = computed(
+  () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
+);
 
 // 计算属性：判断是否已登录
 const isLoggedIn = computed(() => !!userStore.user);
@@ -329,6 +332,7 @@ onUnmounted(() => {
                   {{ $t("header.profile") }}
                 </NuxtLink>
                 <NuxtLink
+                  v-if="canAccessSettings"
                   :to="$localePath('/settings')"
                   class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   @click="showUserMenu = false"

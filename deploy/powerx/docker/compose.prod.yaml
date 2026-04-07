@@ -66,8 +66,8 @@ services:
     env_file:
       - .env
     environment:
-      # 前端代理真源：优先 .env 中的 UPSTREAM/WS_UPSTREAM，未设置时走 backend 服务名
-      UPSTREAM: ${UPSTREAM:-http://backend:8080}
+      # 前端代理真源：优先 .env 中的 POWERX_BACKEND/WS_UPSTREAM，未设置时走 backend 服务名
+      POWERX_BACKEND: ${POWERX_BACKEND:-http://backend:8080}
       WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
     ports:
       - "${POWERX_WEB_ADMIN_PORT:-3000}:3000"

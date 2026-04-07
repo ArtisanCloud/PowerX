@@ -8,6 +8,9 @@ export interface UserContextData {
   is_root: boolean;
   current_tenant_uuid: string;
   current_member_id?: number | null;
+  ctx?: string;
+  ctx_sig?: string;
+  ctx_jwt?: string;
   user: ContextUser;
   members: ContextMember[];
 }
@@ -19,6 +22,7 @@ export interface ContextUser {
   display_name: string;
   avatar_url: string;
   status: number; // 1=active, 0=disabled
+  is_root?: boolean;
 }
 
 export interface ContextMember {
@@ -75,6 +79,19 @@ export const useMeService = () => {
     updateMyProfile: (data: Partial<Omit<ContextUser, "id" | "status">>) => {
       return apiClient.put<ApiResponse<ContextUser>>(
         `${baseUrl}/me/profile`,
+        data
+      );
+    },
+
+    /**
+     * 修改当前登录用户密码
+     */
+    changeMyPassword: (data: {
+      current_password: string;
+      new_password: string;
+    }) => {
+      return apiClient.put<ApiResponse<{ ok: boolean }>>(
+        `${baseUrl}/me/password`,
         data
       );
     },
@@ -216,8 +233,7 @@ export const useUserContext = () => {
       const response = await meService.switchTenant(tenantUuid);
       userContext.value = response.data;
 
-      // 可以在这里触发页面刷新或路由跳转
-      await navigateTo("/dashboard");
+      // 只切换租户上下文，不做路由跳转。
     } catch (err: any) {
       error.value = err.message || "切换租户失败";
       console.error("Failed to switch tenant:", err);

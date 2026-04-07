@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package powerx.iam.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/backend/api/grpc/gen/go/powerx/iam/v1;iamv1";
+
+service IamRbacAdminService {
+  rpc GetMeContext(GetMeContextRequest) returns (GetMeContextResponse);
+  rpc SwitchTenant(SwitchTenantRequest) returns (GetMeContextResponse);
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+}
+
+message GetMeContextRequest {}
+
+message SwitchTenantRequest {
+  string tenant_uuid = 1;
+}
+
+message CheckPermissionRequest {
+  string resource = 1;
+  string action = 2;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+  string reason = 2;
+}
+
+message GetMeContextResponse {
+  bool is_root = 1;
+  string current_tenant_uuid = 2;
+  int64 current_member_id = 3;
+  UserSummary user = 4;
+  repeated TenantMembership members = 5;
+  string ctx = 6;
+  string ctx_sig = 7;
+  string ctx_jwt = 8;
+}
+
+message UserSummary {
+  int64 id = 1;
+  string email = 2;
+  string display_name = 3;
+  int32 status = 4;
+  bool is_root = 5;
+}
+
+message TenantMembership {
+  string tenant_uuid = 1;
+  string tenant_name = 2;
+  int64 member_id = 3;
+  bool is_admin = 4;
+}

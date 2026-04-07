@@ -179,6 +179,30 @@ const step2Data = reactive({
   cdnDomain: "",
 });
 
+const inferDefaultDomainFromLocation = (): string => {
+  if (typeof window === "undefined") return "";
+  const host = String(window.location.hostname || "").trim().toLowerCase();
+  if (!host) return "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "";
+  return host;
+};
+
+const inferDomainFromLocation = (): string => {
+  const host = inferDefaultDomainFromLocation();
+  if (!host) return "";
+  return host;
+};
+
+const applyStep2SmartDefaults = () => {
+  const inferredDomain = inferDomainFromLocation();
+  if (!step2Data.domain.trim() && inferredDomain) {
+    step2Data.domain = inferredDomain;
+  }
+  if (!step2Data.certEmail.trim() && step4Data.adminEmail.trim()) {
+    step2Data.certEmail = step4Data.adminEmail.trim();
+  }
+};
+
 const step3Data = reactive({
   backendPort: 8080,
   webAdminPort: 3000,
@@ -598,7 +622,7 @@ const dbTestState = reactive({
 const setupPayload = computed(() => ({
   domain: {
     domain: step2Data.domain,
-    api_subdomain: step2Data.apiSubdomain,
+    api_subdomain: "",
     enable_cdn: step2Data.enableCdn,
     cdn_domain: step2Data.cdnDomain,
   },
@@ -1069,7 +1093,7 @@ const loadSetupConfig = async () => {
     if (!cfg) return;
 
     step2Data.domain = String(cfg.domain?.domain || step2Data.domain);
-    step2Data.apiSubdomain = String(cfg.domain?.api_subdomain || step2Data.apiSubdomain);
+    step2Data.apiSubdomain = "";
     step2Data.enableCdn = Boolean(cfg.domain?.enable_cdn);
     step2Data.cdnDomain = String(cfg.domain?.cdn_domain || step2Data.cdnDomain);
 
@@ -1149,10 +1173,11 @@ const openPrivacyModal = (e: Event) => {
   showPrivacyModal.value = true;
 };
 
-onMounted(() => {
+onMounted(async () => {
   llmProviderOptions.value = buildFallbackLLMProviderOptions();
   loadLLMProviderOptions();
-  loadSetupConfig();
+  await loadSetupConfig();
+  applyStep2SmartDefaults();
   runSystemChecks();
 });
 </script>
@@ -1448,20 +1473,7 @@ onMounted(() => {
                       />
                       <template #help>
                         <span class="text-sm text-gray-500">
-                          请输入系统的完整域名，不包含协议前缀
-                        </span>
-                      </template>
-                    </UFormField>
-
-                    <UFormField label="API 子域名">
-                      <UInput
-                        v-model="step2Data.apiSubdomain"
-                        placeholder="例如：api"
-                        icon="i-lucide-server"
-                      />
-                      <template #help>
-                        <span class="text-sm text-gray-500">
-                          API 接口的子域名，留空则使用主域名
+                          默认使用当前访问域名；请输入系统完整域名（不含 http/https）。API 路径前缀由 server.api_prefix 控制（默认 /api/v1）
                         </span>
                       </template>
                     </UFormField>

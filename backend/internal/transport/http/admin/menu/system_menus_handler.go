@@ -151,6 +151,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"admin:tenant",
+					},
 				},
 				{
 					Key:      plugin_mgr.KeySystemConfig,
@@ -161,6 +164,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"admin:tenant",
+					},
 				},
 				{
 					Key:      plugin_mgr.KeyAISettings,
@@ -171,6 +177,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"admin:tenant",
+					},
 					Children: []admdto.AdminMenuItem{
 						{
 							Key:      plugin_mgr.KeyAISettingsModel,
@@ -181,6 +190,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							Visible:  true,
 							Origin:   plugin_mgr.OriginSystem,
 							ParentID: plugin_mgr.KeyAISettings,
+							Permissions: []string{
+								"admin:tenant",
+							},
 						},
 						{
 							Key:      plugin_mgr.KeyAISettingsCost,
@@ -191,6 +203,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							Visible:  true,
 							Origin:   plugin_mgr.OriginSystem,
 							ParentID: plugin_mgr.KeyAISettings,
+							Permissions: []string{
+								"admin:tenant",
+							},
 						},
 						{
 							Key:      plugin_mgr.KeyAISettingsContextOptimizer,
@@ -201,6 +216,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							Visible:  true,
 							Origin:   plugin_mgr.OriginSystem,
 							ParentID: plugin_mgr.KeyAISettings,
+							Permissions: []string{
+								"admin:tenant",
+							},
 						},
 					},
 				},

@@ -54,12 +54,16 @@
       "noAccount": "还没有账号？",
       "forgotPassword": "忘记密码？"
     },
+    "loginFailed": "登录失败，请检查账号或密码。",
     "signingIn": "正在登录…"
   },
   "common": {
     "collapse": "收起",
     "back": "返回",
     "backToList": "返回列表",
+    "loading": "加载中…",
+    "error": "错误",
+    "retry": "重试",
     "refresh": "刷新",
     "toggleDensity": "切换紧凑模式",
     "settings": "设置",
@@ -123,6 +127,7 @@
       }
     },
     "user": {
+      "description": "管理租户成员、角色与权限。",
       "status": {
         "active": "启用",
         "inactive": "停用",
@@ -136,18 +141,88 @@
         "status": "状态",
         "plan": "套餐",
         "allStatus": "全部状态",
-        "allPlans": "全部套餐"
+        "allPlans": "全部套餐",
+        "active": "启用",
+        "inactive": "停用",
+        "reset": "重置筛选"
       },
       "plan": {
         "free": "基础版",
         "pro": "专业版",
         "enterprise": "企业版"
       },
+      "table": {
+        "name": "姓名",
+        "username": "用户名",
+        "email": "邮箱",
+        "phone": "电话",
+        "department": "部门",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "form": {
+        "name": "姓名",
+        "username": "用户名",
+        "email": "邮箱",
+        "phone": "手机号",
+        "phonePlaceholder": "请输入手机号",
+        "password": "初始密码",
+        "confirmPassword": "确认密码",
+        "department": "部门",
+        "role": "角色",
+        "status": "状态",
+        "active": "启用",
+        "inactive": "停用",
+        "selectDepartment": "选择部门",
+        "selectRole": "选择角色",
+        "addUser": "新增用户",
+        "addUserDesc": "创建一个新用户并加入当前租户。",
+        "editUser": "编辑用户",
+        "editUserDesc": "更新当前用户信息。"
+      },
+      "role": {
+        "admin": "管理员",
+        "editor": "编辑者",
+        "user": "普通成员"
+      },
+      "pagination": {
+        "showing": "显示 {start}-{end} / 共 {total} 条",
+        "previous": "上一页",
+        "next": "下一页"
+      },
       "noTenantsFound": "未找到租户",
       "noDomain": "未配置域名",
       "userCount": "用户数",
       "createdAt": "创建时间",
-      "loadFailed": "租户加载失败"
+      "loadFailed": "租户加载失败",
+      "userCountText": "{count} 位成员",
+      "backToTenantList": "返回租户目录",
+      "search": "搜索用户名、邮箱或手机号…",
+      "add": "新增用户",
+      "importExport": "导入 / 导出",
+      "enable": "启用",
+      "disable": "停用",
+      "confirmDelete": "确认删除该用户？",
+      "resetPassword": {
+        "action": "重置密码",
+        "title": "重置密码",
+        "description": "为 {name} 设置新密码",
+        "defaultName": "该用户",
+        "newPassword": "新密码",
+        "confirmPassword": "确认新密码",
+        "submit": "确认重置"
+      },
+      "export": {
+        "csv": "导出 CSV",
+        "json": "导出 JSON"
+      },
+      "import": {
+        "button": "导入用户"
+      },
+      "validation": {
+        "requiredFields": "请填写必填字段",
+        "passwordMismatch": "两次输入的密码不一致"
+      }
     },
     "permission": {
       "title": "权限管理",

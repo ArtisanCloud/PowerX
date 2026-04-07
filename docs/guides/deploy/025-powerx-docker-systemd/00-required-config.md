@@ -84,7 +84,7 @@ umask 077 && head -c 32 /dev/urandom | base64
 来源模板：`web-admin/.env.example`（打包后在 `dist/.../config/web-admin.env`，兼容保留 `web-admin.env.example`）
 
 最常用必改项：
-- `UPSTREAM`（指向 backend 地址）
+- `POWERX_BACKEND`（指向 backend 地址）
 - `WS_UPSTREAM`（指向 websocket 地址）
 
 如果 web-admin 仍与 backend 共用 `/etc/powerx/powerx.env`，请确保 service 与实际变量来源一致。
@@ -98,4 +98,4 @@ umask 077 && head -c 32 /dev/urandom | base64
 - [ ] PostgreSQL 可连通（`database.dsn` 正确）
 - [ ] Redis 可连通（`cache` 与 `queue.redis` 正确）
 - [ ] `/etc/powerx/powerx.env` 已从模板复制并改成真实值
-- [ ] web-admin 的 `UPSTREAM/WS_UPSTREAM` 指向正确地址
+- [ ] web-admin 的 `POWERX_BACKEND/WS_UPSTREAM` 指向正确地址

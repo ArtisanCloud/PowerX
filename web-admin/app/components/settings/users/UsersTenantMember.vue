@@ -4,6 +4,7 @@ import { ref, computed, h, resolveComponent, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "#imports";
 import { useUserStore } from "~/stores/user";
+import { useMemberService } from "~/composables/api/services/memberService";
 
 // Member 不需要传入 tenantUuid，而是自己选择所属的租户
 const { t, locale } = useI18n();
@@ -13,16 +14,10 @@ const userStore = useUserStore();
 const {
   memberTenants,
   currentTenantUuid,
-  isLoading: userLoading,
   displayName,
 } = storeToRefs(userStore);
-
-// 租户相关
-interface UserTenant {
-  id: string;
-  name: string;
-  domain: string;
-}
+const memberService = useMemberService();
+const toast = useToast();
 
 // 用户数据结构
 interface RowUser {
@@ -41,21 +36,11 @@ interface RowUser {
 const users = ref<RowUser[]>([]);
 const searchQuery = ref("");
 const isLoading = ref(false);
+const showDetail = ref(false);
+const selectedUser = ref<RowUser | null>(null);
 
-// 转换租户数据格式
-const myTenants = computed(() =>
-  memberTenants.value.map((tenant) => ({
-    id: tenant.tenant_uuid,
-    name: tenant.tenant_name,
-    domain: `${tenant.tenant_name.toLowerCase()}.example.com`,
-  }))
-);
-
-const selectedTenantUuid = ref<string | null>(currentTenantUuid.value);
-
-// 计算属性
-const selectedTenant = computed(() =>
-  myTenants.value.find((t) => t.id === selectedTenantUuid.value)
+const currentTenant = computed(() =>
+  memberTenants.value.find((tenant) => tenant.tenant_uuid === currentTenantUuid.value)
 );
 
 const filteredUsers = computed(() => {
@@ -73,6 +58,7 @@ const filteredUsers = computed(() => {
 // 表格列定义
 const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
+const UButton = resolveComponent("UButton");
 
 const columns = computed(() => {
   const _ = locale.value;
@@ -132,85 +118,87 @@ const columns = computed(() => {
               : t("organization.user.form.inactive")
         ),
     },
+    {
+      id: "actions",
+      header: "操作",
+      cell: ({ row }: any) =>
+        h(
+          UButton,
+          {
+            size: "xs",
+            variant: "ghost",
+            icon: "i-heroicons-eye",
+            onClick: () => openDetail(row.original as RowUser),
+          },
+          () => "详情"
+        ),
+    },
   ];
 });
 
-// 加载指定租户的用户数据
-async function loadUsersForTenant(tenantUuid: string) {
+function openDetail(user: RowUser) {
+  selectedUser.value = user;
+  showDetail.value = true;
+}
+
+// 加载当前租户用户数据（普通成员只读）
+async function loadUsersForTenant() {
   isLoading.value = true;
   try {
-    // TODO: 替换为真实API调用
-    // const response = await $fetch(`/api/admin/iam/members`, {
-    //   params: { tenant_uuid: tenantUuid, page: 1, page_size: 100 }
-    // });
-    // users.value = response.data || [];
+    const list = await memberService.getMemberList({
+      page: 1,
+      page_size: 100,
+      sort_by: "created_at",
+      sort_order: "asc",
+    });
+    const items = Array.isArray(list) ? list : [];
 
-    // 模拟不同租户的用户数据
-    const mockData: Record<string, RowUser[]> = {
-      "demo-tenant": [
-        {
-          id: 1,
-          name: "张三",
-          username: "zhangsan",
-          email: "zhangsan@tech.com",
-          department: "技术部",
-          phone: "138****1234",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-          joinedAt: "2024-01-15",
-        },
-        {
-          id: 2,
-          name: "李四",
-          username: "lisi",
-          email: "lisi@tech.com",
-          department: "产品部",
-          phone: "139****5678",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-          joinedAt: "2024-02-20",
-        },
-      ],
-      "ops-tenant": [
-        {
-          id: 3,
-          name: "王五",
-          username: "wangwu",
-          email: "wangwu@consulting.com",
-          department: "咨询部",
-          phone: "136****9012",
-          status: "active",
-          avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-          joinedAt: "2024-03-10",
-        },
-      ],
-    };
-
-    users.value = mockData[tenantUuid] || [];
+    users.value = items.map((item: any) => {
+      const member = item?.Member || item?.member || item;
+      const user = item?.User || item?.user || null;
+      const rawPhone = user?.phone || user?.mobile || member?.phone || member?.mobile || "";
+      const maskedPhone =
+        rawPhone.length > 7
+          ? `${rawPhone.slice(0, 3)}****${rawPhone.slice(-4)}`
+          : rawPhone;
+      const joinedAtRaw = member?.createdAt || member?.created_at;
+      return {
+        id: Number(member?.id || 0),
+        name: member?.display_name || member?.name || user?.display_name || member?.username || "",
+        username: member?.username || "",
+        email: user?.email || member?.email || "",
+        department: (member?.meta as any)?.department || "",
+        phone: maskedPhone,
+        status: Number(member?.status) === 1 ? "active" : "inactive",
+        avatar:
+          member?.avatar_url ||
+          user?.avatar_url ||
+          `https://i.pravatar.cc/150?u=${encodeURIComponent(
+            user?.email || member?.username || String(member?.id || 0)
+          )}`,
+        joinedAt: joinedAtRaw
+          ? new Date(joinedAtRaw).toLocaleDateString("zh-CN")
+          : "",
+      } as RowUser;
+    });
   } catch (error) {
     console.error("加载用户数据失败:", error);
     users.value = [];
+    toast.add({
+      title: "加载同事列表失败",
+      description: "请刷新重试，或联系管理员排查权限/接口配置",
+      color: "error",
+    });
   } finally {
     isLoading.value = false;
   }
 }
 
-// 监听租户切换
-watch(selectedTenantUuid, async (newTenantUuid) => {
-  if (newTenantUuid && newTenantUuid !== currentTenantUuid.value) {
-    try {
-      isLoading.value = true;
-      await userStore.switchTenant(newTenantUuid);
-      await loadUsersForTenant(newTenantUuid);
-    } catch (error: any) {
-      console.error("切换租户失败:", error);
-      // 切换失败时恢复到原来的租户
-      selectedTenantUuid.value = currentTenantUuid.value;
-    } finally {
-      isLoading.value = false;
-    }
-  } else if (newTenantUuid) {
-    await loadUsersForTenant(newTenantUuid);
+watch(currentTenantUuid, async (uuid) => {
+  if (uuid) {
+    await loadUsersForTenant();
+  } else {
+    users.value = [];
   }
 });
 
@@ -222,13 +210,9 @@ onMounted(async () => {
       await userStore.fetchUserContext();
     }
 
-    // 设置当前选中的租户
+    // 普通成员只读取当前租户
     if (currentTenantUuid.value) {
-      selectedTenantUuid.value = currentTenantUuid.value;
-      await loadUsersForTenant(currentTenantUuid.value);
-    } else if (myTenants.value.length > 0) {
-      selectedTenantUuid.value = myTenants.value[0].id;
-      await loadUsersForTenant(myTenants.value[0].id);
+      await loadUsersForTenant();
     }
   } catch (error) {
     console.error("初始化用户上下文失败:", error);
@@ -252,31 +236,14 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 租户选择器 -->
+      <!-- 当前租户（只读） -->
       <div class="bg-white p-4 rounded-lg shadow-sm">
-        <div class="flex items-center gap-4">
-          <UFormField label="选择租户" class="flex-shrink-0">
-            <USelect
-              v-model="selectedTenantUuid"
-              :options="myTenants"
-              option-attribute="name"
-              value-attribute="id"
-              class="w-64"
-              :loading="userLoading"
-            />
-          </UFormField>
-
-          <!-- 当前租户信息 -->
-          <div v-if="selectedTenant" class="flex-1">
-            <div class="flex items-center gap-2">
-              <UBadge color="primary" variant="subtle">
-                {{ selectedTenant.name }}
-              </UBadge>
-              <span class="text-sm text-gray-500">
-                {{ selectedTenant.domain }}
-              </span>
-            </div>
-          </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-500">当前租户</span>
+          <UBadge color="primary" variant="subtle">
+            {{ currentTenant?.tenant_name || "Unknown" }}
+          </UBadge>
+          <span class="text-xs text-gray-500">{{ currentTenantUuid || "-" }}</span>
         </div>
       </div>
     </div>
@@ -328,22 +295,36 @@ onMounted(async () => {
     </div>
 
     <!-- 权限说明 -->
-    <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="mt-6 rounded-lg border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/70">
       <div class="flex items-start">
         <UIcon
           name="i-heroicons-information-circle"
-          class="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0"
+          class="mt-0.5 mr-3 h-5 w-5 flex-shrink-0 text-slate-700 dark:text-slate-200"
         />
-        <div class="text-sm">
-          <p class="font-medium text-blue-800 mb-1">权限说明</p>
-          <ul class="text-blue-700 space-y-1">
+        <div class="text-sm leading-6 text-slate-700 dark:text-slate-200">
+          <p class="mb-1 font-semibold text-slate-900 dark:text-slate-100">权限说明</p>
+          <ul class="space-y-1">
             <li>• 您只能查看有权限访问的同事信息</li>
             <li>• 无法编辑、添加或删除用户</li>
-            <li>• 可以在您所属的租户间切换查看</li>
+            <li>• 当前页面仅展示您当前租户内的成员信息</li>
             <li>• 如需更多权限，请联系管理员</li>
           </ul>
         </div>
       </div>
     </div>
+
+    <UModal v-model:open="showDetail" title="用户详情">
+      <template #body>
+        <div v-if="selectedUser" class="space-y-3 text-sm">
+          <div><span class="text-gray-500">姓名：</span>{{ selectedUser.name || "-" }}</div>
+          <div><span class="text-gray-500">用户名：</span>{{ selectedUser.username || "-" }}</div>
+          <div><span class="text-gray-500">邮箱：</span>{{ selectedUser.email || "-" }}</div>
+          <div><span class="text-gray-500">联系电话：</span>{{ selectedUser.phone || "-" }}</div>
+          <div><span class="text-gray-500">部门：</span>{{ selectedUser.department || "-" }}</div>
+          <div><span class="text-gray-500">加入时间：</span>{{ selectedUser.joinedAt || "-" }}</div>
+          <div><span class="text-gray-500">状态：</span>{{ selectedUser.status === "active" ? "启用" : "停用" }}</div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

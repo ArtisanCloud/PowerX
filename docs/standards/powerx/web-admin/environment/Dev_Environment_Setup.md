@@ -9,7 +9,7 @@
 - Node.js ≥ 20.11（推荐使用 `nvm` 或 `fnm` 管理多版本）。
 - 包管理器默认使用 `npm`，确保 `npm@10` 以上。
 - 克隆仓库后执行 `npm install`，完成 Nuxt 预处理（自动触发 `nuxt prepare`）。
-- 根据 `.env.example` 创建 `.env`，至少填入 `UPSTREAM` 与 `WS_UPSTREAM`。
+- 根据 `.env.example` 创建 `.env`，至少填入 `POWERX_BACKEND` 与 `WS_UPSTREAM`。
 - 启动热更新服务器：`npm run dev`（默认端口 `3000`）。
 - 功能开发或文档更新后，必要的验证流程：打开 `http: "//localhost:3000` → 登录/切换语言 → 访问 Agent、插件市场、仪表盘。"
 
@@ -81,7 +81,7 @@ cp .env.example .env
 | --- | --- | --- | --- |
 | `NUXT_DEFAULT_LANGUAGE` | UI 默认语言 | `zh` | 支持 `zh,en,ja,ko`。 |
 | `NUXT_FORCE_THEME` | 强制主题 | `dark` | 若希望跟随系统，可改为 `auto`。 |
-| `UPSTREAM` | REST API 网关地址 | `http://127.0.0.1:8077` | 对接后端 Mock/本地接口。 |
+| `POWERX_BACKEND` | REST API 网关地址 | `http://127.0.0.1:8077` | 对接后端 Mock/本地接口。 |
 | `WS_UPSTREAM` | WebSocket 地址 | `ws://127.0.0.1:3001` | 本地调试实时消息时需保持可达。 |
 
 - 更完整的变量说明参考 `docs/environment/Env_Variables_Schema.md`（补全中）。
@@ -151,7 +151,7 @@ npm run generate
 
 **API 无法访问**  
 症状：控制台持续报错 `Failed to fetch`。  
-解决：确认后端 Mock/真实服务是否启动，或将 `UPSTREAM` 指向可用地址。可临时启用 MSW（待在 `docs/environment/Local_Mocks_and_Fixtures.md` 中补充）。
+解决：确认后端 Mock/真实服务是否启动，或将 `POWERX_BACKEND` 指向可用地址。可临时启用 MSW（待在 `docs/environment/Local_Mocks_and_Fixtures.md` 中补充）。
 
 **依赖安装失败**  
 症状：`npm ERR! code ERESOLVE` 或网络超时。  

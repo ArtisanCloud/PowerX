@@ -46,6 +46,9 @@
     "collapse": "Collapse",
     "back": "Back",
     "backToList": "Back to list",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
     "toggleDensity": "Toggle density",
     "settings": "Settings",
     "trash": "Trash",
@@ -107,6 +110,7 @@
       }
     },
     "user": {
+      "description": "Manage tenant members, roles and permissions.",
       "status": {
         "active": "Active",
         "inactive": "Inactive",
@@ -120,18 +124,88 @@
         "status": "Status",
         "plan": "Plan",
         "allStatus": "All status",
-        "allPlans": "All plans"
+        "allPlans": "All plans",
+        "active": "Active",
+        "inactive": "Inactive",
+        "reset": "Reset filters"
       },
       "plan": {
         "free": "Free",
         "pro": "Pro",
         "enterprise": "Enterprise"
       },
+      "table": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "phone": "Phone",
+        "department": "Department",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "phone": "Phone",
+        "phonePlaceholder": "Enter phone number",
+        "password": "Initial password",
+        "confirmPassword": "Confirm password",
+        "department": "Department",
+        "role": "Role",
+        "status": "Status",
+        "active": "Active",
+        "inactive": "Inactive",
+        "selectDepartment": "Select department",
+        "selectRole": "Select role",
+        "addUser": "Add user",
+        "addUserDesc": "Create a new user in current tenant.",
+        "editUser": "Edit user",
+        "editUserDesc": "Update current user profile."
+      },
+      "role": {
+        "admin": "Admin",
+        "editor": "Editor",
+        "user": "Member"
+      },
+      "pagination": {
+        "showing": "Showing {start}-{end} of {total}",
+        "previous": "Previous",
+        "next": "Next"
+      },
       "noTenantsFound": "No tenants found",
       "noDomain": "No domain",
       "userCount": "Users",
       "createdAt": "Created at",
-      "loadFailed": "Failed to load tenants"
+      "loadFailed": "Failed to load tenants",
+      "userCountText": "{count} members",
+      "backToTenantList": "Back to tenant list",
+      "search": "Search by username, email or phone…",
+      "add": "Add user",
+      "importExport": "Import / Export",
+      "enable": "Enable",
+      "disable": "Disable",
+      "confirmDelete": "Delete this user?",
+      "resetPassword": {
+        "action": "Reset password",
+        "title": "Reset password",
+        "description": "Set a new password for {name}",
+        "defaultName": "this user",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm new password",
+        "submit": "Confirm reset"
+      },
+      "export": {
+        "csv": "Export CSV",
+        "json": "Export JSON"
+      },
+      "import": {
+        "button": "Import users"
+      },
+      "validation": {
+        "requiredFields": "Please fill required fields",
+        "passwordMismatch": "Passwords do not match"
+      }
     },
     "permission": {
       "title": "Permission Management",
@@ -453,7 +527,8 @@
     "login": {
       "noAccount": "Don’t have an account?",
       "forgotPassword": "Forgot password?"
-    }
+    },
+    "loginFailed": "Login failed. Please check your credentials."
   },
   "knowledgeSpaces": {
     "head": {

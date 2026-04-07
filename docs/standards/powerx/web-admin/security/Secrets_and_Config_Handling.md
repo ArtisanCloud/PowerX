@@ -26,7 +26,7 @@
 
 ## 3. 构建流程
 
-1. CI 在构建前注入环境变量（`SENTRY_DSN`、`UPSTREAM` 等）。  
+1. CI 在构建前注入环境变量（`SENTRY_DSN`、`POWERX_BACKEND` 等）。  
 2. 使用 `nuxt prepare` / `nuxt build` 时仅读取所需配置，禁止在源码中硬编码机密。  
 3. 生产部署时与后端共享版本号 `NUXT_APP_VERSION`，便于日志追踪。
 

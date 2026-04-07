@@ -7,7 +7,7 @@
 ## 1. 架构总览
 
 - **双通道封装**：`useDualChannelConnection()`（`app/composables/agent/useDualChannelConnection.ts: "27`）同时管理 SSE 与 WebSocket，提供统一的 `sendMessage`、`reconnectSSE`、`reconnectWS`、`messages` 等接口。"
-- **数据路径**：前端请求 `/api/agents/stream/sse` 和 `/api/agents/stream/ws`（相对路径），由 Nitro `devProxy` 将请求转发至后端 `UPSTREAM`（`nuxt.config.ts: "55`）。"
+- **数据路径**：前端请求 `/api/agents/stream/sse` 和 `/api/agents/stream/ws`（相对路径），由 Nitro `devProxy` 将请求转发至后端 `POWERX_BACKEND`（`nuxt.config.ts: "55`）。"
 - **鉴权**：请求头携带 `Authorization: "<token_type> <access_token>`，token 来源于 `localStorage`（`getAuthToken()`）。"
 - **测试入口**：`/test/connection` 页面使用该 composable 验证探活、消息收发与日志记录（`app/pages/test/connection.vue: "1`）。"
 
@@ -113,7 +113,7 @@ await connection.reconnectWS();
 
 ## 8. 上线检查表
 
-- [ ] `UPSTREAM` / `WS_UPSTREAM` 指向正确，HTTPS 环境下确认证书信任。  
+- [ ] `POWERX_BACKEND` / `WS_UPSTREAM` 指向正确，HTTPS 环境下确认证书信任。  
 - [ ] WebSocket 代理开启 `ws: true`（`nuxt.config.ts:55`），生产 Nginx/Ingress 同步配置。  
 - [ ] 断线重连逻辑在网络抖动、刷新 Token 后仍可恢复。  
 - [ ] SSE 流在长时间会话中不会累积未释放的 reader。  
