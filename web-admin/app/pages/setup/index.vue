@@ -187,32 +187,16 @@ const inferDefaultDomainFromLocation = (): string => {
   return host;
 };
 
-const inferDomainAndAPISubdomainFromLocation = (): {
-  domain: string;
-  apiSubdomain: string;
-} => {
+const inferDomainFromLocation = (): string => {
   const host = inferDefaultDomainFromLocation();
-  if (!host) return { domain: "", apiSubdomain: "" };
-
-  // 若当前访问地址本身是 api.xxx.com，则自动拆分为 domain=xxx.com, apiSubdomain=api
-  if (host.startsWith("api.")) {
-    const rest = host.slice(4);
-    if (rest) {
-      return { domain: rest, apiSubdomain: "api" };
-    }
-  }
-
-  // 默认把当前 host 作为主域名，并给出常见 API 子域名前缀
-  return { domain: host, apiSubdomain: "api" };
+  if (!host) return "";
+  return host;
 };
 
 const applyStep2SmartDefaults = () => {
-  const inferred = inferDomainAndAPISubdomainFromLocation();
-  if (!step2Data.domain.trim() && inferred.domain) {
-    step2Data.domain = inferred.domain;
-  }
-  if (!step2Data.apiSubdomain.trim() && inferred.apiSubdomain) {
-    step2Data.apiSubdomain = inferred.apiSubdomain;
+  const inferredDomain = inferDomainFromLocation();
+  if (!step2Data.domain.trim() && inferredDomain) {
+    step2Data.domain = inferredDomain;
   }
   if (!step2Data.certEmail.trim() && step4Data.adminEmail.trim()) {
     step2Data.certEmail = step4Data.adminEmail.trim();
@@ -638,7 +622,7 @@ const dbTestState = reactive({
 const setupPayload = computed(() => ({
   domain: {
     domain: step2Data.domain,
-    api_subdomain: step2Data.apiSubdomain,
+    api_subdomain: "",
     enable_cdn: step2Data.enableCdn,
     cdn_domain: step2Data.cdnDomain,
   },
@@ -1109,7 +1093,7 @@ const loadSetupConfig = async () => {
     if (!cfg) return;
 
     step2Data.domain = String(cfg.domain?.domain || step2Data.domain);
-    step2Data.apiSubdomain = String(cfg.domain?.api_subdomain || step2Data.apiSubdomain);
+    step2Data.apiSubdomain = "";
     step2Data.enableCdn = Boolean(cfg.domain?.enable_cdn);
     step2Data.cdnDomain = String(cfg.domain?.cdn_domain || step2Data.cdnDomain);
 
@@ -1489,20 +1473,7 @@ onMounted(async () => {
                       />
                       <template #help>
                         <span class="text-sm text-gray-500">
-                          默认使用当前访问域名；请输入系统完整域名（不含 http/https）
-                        </span>
-                      </template>
-                    </UFormField>
-
-                    <UFormField label="API 子域名">
-                      <UInput
-                        v-model="step2Data.apiSubdomain"
-                        placeholder="例如：api"
-                        icon="i-lucide-server"
-                      />
-                      <template #help>
-                        <span class="text-sm text-gray-500">
-                          API 接口子域名，留空则使用主域名；路径前缀遵循 server.api_prefix（默认 /api/v1）
+                          默认使用当前访问域名；请输入系统完整域名（不含 http/https）。API 路径前缀由 server.api_prefix 控制（默认 /api/v1）
                         </span>
                       </template>
                     </UFormField>
