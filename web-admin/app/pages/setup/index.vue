@@ -187,9 +187,32 @@ const inferDefaultDomainFromLocation = (): string => {
   return host;
 };
 
+const inferDomainAndAPISubdomainFromLocation = (): {
+  domain: string;
+  apiSubdomain: string;
+} => {
+  const host = inferDefaultDomainFromLocation();
+  if (!host) return { domain: "", apiSubdomain: "" };
+
+  // 若当前访问地址本身是 api.xxx.com，则自动拆分为 domain=xxx.com, apiSubdomain=api
+  if (host.startsWith("api.")) {
+    const rest = host.slice(4);
+    if (rest) {
+      return { domain: rest, apiSubdomain: "api" };
+    }
+  }
+
+  // 默认把当前 host 作为主域名，并给出常见 API 子域名前缀
+  return { domain: host, apiSubdomain: "api" };
+};
+
 const applyStep2SmartDefaults = () => {
-  if (!step2Data.domain.trim()) {
-    step2Data.domain = inferDefaultDomainFromLocation();
+  const inferred = inferDomainAndAPISubdomainFromLocation();
+  if (!step2Data.domain.trim() && inferred.domain) {
+    step2Data.domain = inferred.domain;
+  }
+  if (!step2Data.apiSubdomain.trim() && inferred.apiSubdomain) {
+    step2Data.apiSubdomain = inferred.apiSubdomain;
   }
   if (!step2Data.certEmail.trim() && step4Data.adminEmail.trim()) {
     step2Data.certEmail = step4Data.adminEmail.trim();

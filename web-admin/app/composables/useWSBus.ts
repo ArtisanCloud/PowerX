@@ -29,28 +29,55 @@ const hasActiveSubscriptions = () => subscriptions.size > 0;
 const isValidTenantUUID = (tenantUUID?: string | null) =>
   UUID_RE.test(String(tenantUUID || "").trim());
 
+const isLoopbackHost = (host?: string | null) => {
+  const h = String(host || "").trim().toLowerCase();
+  return h === "127.0.0.1" || h === "localhost" || h === "::1";
+};
+
 const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const auth = encodeURIComponent(`Bearer ${token}`);
   const cfg = useRuntimeConfig();
   const upstream = String(cfg.public?.wsUpstream || "").trim();
+  const wsPath = String(cfg.public?.wsUrl || "/api/ws").trim() || "/api/ws";
   const tenant = encodeURIComponent(String(tenantUUID || ""));
-  const tenantQuery = tenant ? `&tenant_uuid=${tenant}` : "";
+  const tenantQuery = tenant ? `tenant_uuid=${tenant}` : "";
+  const appendAuth = (base: string) => {
+    const sep = base.includes("?") ? "&" : "?";
+    const q = [`authorization=${auth}`, tenantQuery].filter(Boolean).join("&");
+    return `${base}${sep}${q}`;
+  };
+
+  // 优先支持显式 wsUrl（可配绝对地址或相对路径）
+  if (wsPath.startsWith("ws://") || wsPath.startsWith("wss://")) {
+    return appendAuth(wsPath);
+  }
+  if (wsPath.startsWith("/")) {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    return appendAuth(`${protocol}//${location.host}${wsPath}`);
+  }
+
   if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
-    let base = upstream.replace(/\/+$/, "");
-    if (base.endsWith("/api/ws")) {
-      return `${base}?authorization=${auth}${tenantQuery}`;
+    // 页面在公网域名访问时，禁止使用 loopback 上游（浏览器会连到访问者自己的本机）。
+    try {
+      const u = new URL(upstream);
+      if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
+        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        return appendAuth(`${protocol}//${location.host}/api/ws`);
+      }
+    } catch {
+      // ignore
     }
+    let base = upstream.replace(/\/+$/, "");
+    if (base.endsWith("/api/ws")) return appendAuth(base);
     if (base.endsWith("/ws")) {
       base = `${base.slice(0, -3)}/api/ws`;
-      return `${base}?authorization=${auth}${tenantQuery}`;
+      return appendAuth(base);
     }
-    if (base.endsWith("/api")) {
-      return `${base}/ws?authorization=${auth}${tenantQuery}`;
-    }
-    return `${base}/api/ws?authorization=${auth}${tenantQuery}`;
+    if (base.endsWith("/api")) return appendAuth(`${base}/ws`);
+    return appendAuth(`${base}/api/ws`);
   }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${location.host}/api/ws?authorization=${auth}${tenantQuery}`;
+  return appendAuth(`${protocol}//${location.host}/api/ws`);
 };
 
 const normalizePayload = (payload: unknown) => {
