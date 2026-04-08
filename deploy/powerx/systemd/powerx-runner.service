@@ -2,16 +2,16 @@
 Description=PowerX Runner Service
 After=powerx-backend.service
 Requires=powerx-backend.service
-ConditionPathExists=/opt/powerx/runner/dist/main.js
 
 [Service]
 Type=simple
 User=powerx
 Group=powerx
-WorkingDirectory=/opt/powerx/runner
+WorkingDirectory=/
 # 与 backend/web-admin 共享 /etc/powerx/powerx.env，确保同一套部署变量来源
 EnvironmentFile=/etc/powerx/powerx.env
-ExecStart=/bin/sh -c 'exec "${NODE_BIN:-/usr/bin/node}" /opt/powerx/runner/dist/main.js'
+ExecCondition=/bin/sh -c 'test -f "${POWERX_LINKS_ROOT:-/opt/powerx}/runner/dist/main.js"'
+ExecStart=/bin/sh -c 'ROOT=${POWERX_LINKS_ROOT:-/opt/powerx}; exec "${NODE_BIN:-/usr/bin/node}" "$ROOT/runner/dist/main.js"'
 Restart=always
 RestartSec=3
 

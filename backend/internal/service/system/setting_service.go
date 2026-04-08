@@ -15,6 +15,7 @@ import (
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 )
@@ -181,13 +182,15 @@ func (s *SettingService) ApplySetupPortConfig(ctx context.Context, runtimeConfig
 		return nil
 	}
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		return err
+		logger.WarnF(ctx, "skip setup dist env sync: mkdir failed dir=%s err=%v", configDir, err)
+		return nil
 	}
 	if err := upsertEnvFile(filepath.Join(configDir, "powerx.env"), map[string]string{
 		"POWERX_BACKEND_PORT":   strconv.Itoa(backendPort),
 		"POWERX_WEB_ADMIN_PORT": strconv.Itoa(webAdminPort),
 	}); err != nil {
-		return err
+		logger.WarnF(ctx, "skip setup dist env sync: update powerx.env failed dir=%s err=%v", configDir, err)
+		return nil
 	}
 	upstream := fmt.Sprintf("http://127.0.0.1:%d", backendPort)
 	wsUpstream := fmt.Sprintf("ws://127.0.0.1:%d/api/ws", backendPort)
@@ -195,7 +198,8 @@ func (s *SettingService) ApplySetupPortConfig(ctx context.Context, runtimeConfig
 		"POWERX_BACKEND":    upstream,
 		"WS_UPSTREAM": wsUpstream,
 	}); err != nil {
-		return err
+		logger.WarnF(ctx, "skip setup dist env sync: update web-admin.env failed dir=%s err=%v", configDir, err)
+		return nil
 	}
 	return nil
 }
@@ -204,11 +208,31 @@ func resolveDistConfigDir(runtimeConfigPath string) string {
 	if p := strings.TrimSpace(os.Getenv("POWERX_SETUP_DIST_CONFIG_DIR")); p != "" {
 		return p
 	}
+	if p := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); p != "" {
+		return filepath.Join(p, "config")
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := strings.TrimSpace(filepath.Dir(exe))
+		if exeDir != "" {
+			// 运行于 /opt/powerx/backend/powerx 时回推到 /opt/powerx/config。
+			if strings.HasSuffix(exeDir, string(filepath.Separator)+"backend") {
+				return filepath.Join(filepath.Dir(exeDir), "config")
+			}
+			// 兼容非标准布局：<root>/backend/<bin>
+			parent := filepath.Dir(exeDir)
+			if strings.EqualFold(filepath.Base(parent), "backend") {
+				return filepath.Join(filepath.Dir(parent), "config")
+			}
+		}
+	}
 	if strings.TrimSpace(runtimeConfigPath) == "" {
 		return ""
 	}
-	root := filepath.Clean(filepath.Join(filepath.Dir(runtimeConfigPath), "..", ".."))
-	return filepath.Join(root, "config")
+	runtimeDir := filepath.Clean(filepath.Dir(runtimeConfigPath))
+	if strings.EqualFold(filepath.Base(runtimeDir), "etc") {
+		return filepath.Join(filepath.Dir(runtimeDir), "config")
+	}
+	return filepath.Join(runtimeDir, "config")
 }
 
 func updateRuntimePortConfig(path string, backendPort, webAdminPort int) error {
