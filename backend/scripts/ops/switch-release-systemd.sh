@@ -23,6 +23,7 @@ Options:
 Environment overrides:
   POWERX_RELEASES_ROOT     Default: /opt/powerx/releases
   POWERX_LINKS_ROOT        Default: /opt/powerx
+  POWERX_RUNTIME_ROOT      Default: /etc/powerx
   POWERX_HEALTH_URL        Default: http://127.0.0.1:8080/api/v1/health
   POWERX_HEALTH_EXPECT     Default: 200
   POWERX_SERVICE_USER      Default: current login user (sudo user), fallback: powerx
@@ -97,11 +98,11 @@ fi
 
 RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
+RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
 SERVICE_GROUP="${POWERX_SERVICE_GROUP:-}"
-RUNTIME_ROOT="/etc/powerx"
 RUNTIME_CONFIG_PATH="${RUNTIME_ROOT}/config.yaml"
 RUNTIME_SETUP_DRAFT_PATH="${RUNTIME_ROOT}/setup.wizard.config.json"
 
@@ -334,6 +335,29 @@ EOF
   else
     printf '\nNODE_BIN=%s\n' "$node_bin" >> "$env_file"
   fi
+
+  # 固化运行时根路径变量，供 backend/setup/service 统一读取。
+  if grep -q '^POWERX_RUNTIME_ROOT=' "$env_file"; then
+    sed -i "s|^POWERX_RUNTIME_ROOT=.*$|POWERX_RUNTIME_ROOT=${RUNTIME_ROOT}|" "$env_file"
+  else
+    printf 'POWERX_RUNTIME_ROOT=%s\n' "${RUNTIME_ROOT}" >> "$env_file"
+  fi
+  if grep -q '^POWERX_LINKS_ROOT=' "$env_file"; then
+    sed -i "s|^POWERX_LINKS_ROOT=.*$|POWERX_LINKS_ROOT=${LINKS_ROOT}|" "$env_file"
+  else
+    printf 'POWERX_LINKS_ROOT=%s\n' "${LINKS_ROOT}" >> "$env_file"
+  fi
+  if grep -q '^POWERX_RELEASES_ROOT=' "$env_file"; then
+    sed -i "s|^POWERX_RELEASES_ROOT=.*$|POWERX_RELEASES_ROOT=${RELEASES_ROOT}|" "$env_file"
+  else
+    printf 'POWERX_RELEASES_ROOT=%s\n' "${RELEASES_ROOT}" >> "$env_file"
+  fi
+  if grep -q '^POWERX_CONFIG=' "$env_file"; then
+    sed -i "s|^POWERX_CONFIG=.*$|POWERX_CONFIG=${RUNTIME_CONFIG_PATH}|" "$env_file"
+  else
+    printf 'POWERX_CONFIG=%s\n' "${RUNTIME_CONFIG_PATH}" >> "$env_file"
+  fi
+
   echo "[switch-release] using NODE_BIN=${node_bin}"
 }
 

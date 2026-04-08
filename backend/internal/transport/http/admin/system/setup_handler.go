@@ -1099,6 +1099,12 @@ func resolveSetupDraftPath() string {
 }
 
 func resolveRuntimeConfigPath() string {
+	if root := strings.TrimSpace(os.Getenv("POWERX_RUNTIME_ROOT")); root != "" {
+		candidate := filepath.Join(root, "config.yaml")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
 	if path := strings.TrimSpace(os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH")); path != "" {
 		if abs, err := filepath.Abs(path); err == nil {
 			path = abs
@@ -1212,19 +1218,61 @@ func runSetupProvisionSteps(runtimePath string) error {
 }
 
 func resolveSetupProvisionWorkDir(runtimePath string) string {
+	candidates := make([]string, 0, 4)
+
+	// 兼容旧布局：<backend>/etc/config.yaml -> <backend>
 	rp := strings.TrimSpace(runtimePath)
-	if rp == "" {
-		return ""
+	if rp != "" {
+		etcDir := filepath.Dir(rp)
+		if strings.TrimSpace(etcDir) != "" {
+			backendDir := filepath.Dir(etcDir)
+			if strings.TrimSpace(backendDir) != "" && backendDir != "." && backendDir != "/" {
+				candidates = append(candidates, backendDir)
+			}
+		}
 	}
-	etcDir := filepath.Dir(rp)
-	if strings.TrimSpace(etcDir) == "" {
-		return ""
+
+	// 优先使用当前可执行文件所在目录（systemd 下通常是 /opt/powerx/backend）。
+	if exe, err := os.Executable(); err == nil {
+		if dir := strings.TrimSpace(filepath.Dir(exe)); dir != "" {
+			candidates = append(candidates, dir)
+		}
 	}
-	backendDir := filepath.Dir(etcDir)
-	if strings.TrimSpace(backendDir) == "" || backendDir == "." || backendDir == "/" {
-		return ""
+
+	// 再尝试当前工作目录。
+	if cwd, err := os.Getwd(); err == nil {
+		if dir := strings.TrimSpace(cwd); dir != "" {
+			candidates = append(candidates, dir)
+		}
 	}
-	return backendDir
+
+	// systemd 软链目录兜底（可配置）。
+	linksRoot := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT"))
+	if linksRoot == "" {
+		linksRoot = "/opt/powerx"
+	}
+	candidates = append(candidates, filepath.Join(linksRoot, "backend"))
+
+	for _, dir := range candidates {
+		if isSetupProvisionWorkDir(dir) {
+			return dir
+		}
+	}
+	return ""
+}
+
+func isSetupProvisionWorkDir(dir string) bool {
+	d := strings.TrimSpace(dir)
+	if d == "" {
+		return false
+	}
+	if fi, err := os.Stat(filepath.Join(d, "database")); err == nil && !fi.IsDir() && (fi.Mode()&0o111) != 0 {
+		return true
+	}
+	if fi, err := os.Stat(filepath.Join(d, "backend", "cmd", "database")); err == nil && fi.IsDir() {
+		return true
+	}
+	return false
 }
 
 func scheduleSetupOnlyAutoRestart(runtimePath string) {
@@ -1489,11 +1537,11 @@ func resolveSetupAIEnv(reqEnv string) string {
 }
 
 func defaultSetupMigrateCmd() string {
-	return "if [ -x ./database ]; then ./database migrate; elif [ -d backend/cmd/database ]; then cd backend && go run ./cmd/database migrate; else go run ./cmd/database migrate; fi"
+	return "if [ -x ./database ]; then ./database migrate; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database migrate; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -x ./database ]; then ./database seed; elif [ -d backend/cmd/database ]; then cd backend && go run ./cmd/database seed; else go run ./cmd/database seed; fi"
+	return "if [ -x ./database ]; then ./database seed; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func asMap(v any) map[string]any {

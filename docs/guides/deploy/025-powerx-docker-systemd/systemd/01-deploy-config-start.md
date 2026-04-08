@@ -174,6 +174,12 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 - `powerx-web-admin.service`：优先读取 `/etc/powerx/config.yaml` 获取端口
 - `powerx-runner.service`：读取 `/etc/powerx/powerx.env`
 
+路径常量（推荐统一放在 `/etc/powerx/powerx.env`）：
+- `POWERX_LINKS_ROOT`：默认 `/opt/powerx`
+- `POWERX_RELEASES_ROOT`：默认 `/opt/powerx/releases`
+- `POWERX_RUNTIME_ROOT`：默认 `/etc/powerx`
+- `POWERX_CONFIG`：默认 `${POWERX_RUNTIME_ROOT}/config.yaml`
+
 发布模式建议：
 - 代码升级（无 DB 变更）：只执行 `make dist + switch-release`，不走 `/setup`。
 - 结构升级（有 migration）：发布后执行 `database migrate`，不自动 seed。

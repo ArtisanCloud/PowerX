@@ -73,6 +73,10 @@ umask 077 && head -c 32 /dev/urandom | base64
 至少确认：
 - `POWERX_ENV`
 - `POWERX_MODE`
+- `POWERX_LINKS_ROOT`（默认 `/opt/powerx`）
+- `POWERX_RELEASES_ROOT`（默认 `/opt/powerx/releases`）
+- `POWERX_RUNTIME_ROOT`（默认 `/etc/powerx`）
+- `POWERX_CONFIG`（建议 `${POWERX_RUNTIME_ROOT}/config.yaml`）
 - `DATABASE_DSN`
 - `REDIS_ADDR`
 - （Docker 内置库模式）`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`
