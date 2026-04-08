@@ -41,6 +41,11 @@ const setupCompletedKey = "platform.setup.completed"
 
 var setupCompletedCompatKeys = []string{"platform.installed", "system.installed"}
 
+const (
+	defaultRuntimeRoot = "/etc/powerx"
+	defaultLinksRoot   = "/opt/powerx"
+)
+
 type setupDomainConfig struct {
 	Domain       string `json:"domain"`
 	APISubdomain string `json:"api_subdomain,omitempty"`
@@ -1099,9 +1104,8 @@ func resolveSetupDraftPath() string {
 }
 
 func resolveRuntimeConfigPath() string {
-	if root := strings.TrimSpace(os.Getenv("POWERX_RUNTIME_ROOT")); root != "" {
-		candidate := filepath.Join(root, "config.yaml")
-		if _, err := os.Stat(candidate); err == nil {
+	if root := resolveRuntimeRoot(); root != "" {
+		if candidate := filepath.Join(root, "config.yaml"); fileExists(candidate) {
 			return candidate
 		}
 	}
@@ -1109,12 +1113,12 @@ func resolveRuntimeConfigPath() string {
 		if abs, err := filepath.Abs(path); err == nil {
 			path = abs
 		}
-		if _, err := os.Stat(path); err == nil {
+		if fileExists(path) {
 			return path
 		}
 	}
 	if path := strings.TrimSpace(config.GetGlobalConfigPath()); path != "" {
-		if _, err := os.Stat(path); err == nil {
+		if fileExists(path) {
 			return path
 		}
 	}
@@ -1122,7 +1126,7 @@ func resolveRuntimeConfigPath() string {
 		if abs, err := filepath.Abs(path); err == nil {
 			path = abs
 		}
-		if _, err := os.Stat(path); err == nil {
+		if fileExists(path) {
 			return path
 		}
 	}
@@ -1196,15 +1200,19 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 func runSetupProvisionSteps(runtimePath string) error {
 	migrateCmd := defaultSetupMigrateCmd()
 	seedCmd := defaultSetupSeedCmd()
-	cmds := []string{
-		migrateCmd,
-		seedCmd,
+	type setupCmd struct {
+		stage string
+		cmd   string
 	}
-	for _, cmd := range cmds {
-		if cmd == "" {
+	cmds := []setupCmd{
+		{stage: "migrate", cmd: migrateCmd},
+		{stage: "seed", cmd: seedCmd},
+	}
+	for _, item := range cmds {
+		if item.cmd == "" {
 			continue
 		}
-		run := exec.Command("/bin/sh", "-lc", cmd)
+		run := exec.Command("/bin/sh", "-lc", item.cmd)
 		if workDir := resolveSetupProvisionWorkDir(runtimePath); workDir != "" {
 			run.Dir = workDir
 		}
@@ -1217,7 +1225,7 @@ func runSetupProvisionSteps(runtimePath string) error {
 		run.Env = env
 		output, err := run.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("run setup command failed: %s: %w; output=%s", cmd, err, summarizeSetupCommandOutput(output))
+			return fmt.Errorf("setup %s failed: %s", item.stage, summarizeSetupCommandOutput(output))
 		}
 	}
 	return nil
@@ -1292,10 +1300,7 @@ func resolveSetupProvisionWorkDir(runtimePath string) string {
 	}
 
 	// systemd 软链目录兜底（可配置）。
-	linksRoot := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT"))
-	if linksRoot == "" {
-		linksRoot = "/opt/powerx"
-	}
+	linksRoot := resolveLinksRoot()
 	candidates = append(candidates, filepath.Join(linksRoot, "backend"))
 
 	for _, dir := range candidates {
@@ -1304,6 +1309,37 @@ func resolveSetupProvisionWorkDir(runtimePath string) string {
 		}
 	}
 	return ""
+}
+
+func resolveRuntimeRoot() string {
+	if root := strings.TrimSpace(os.Getenv("POWERX_RUNTIME_ROOT")); root != "" {
+		return root
+	}
+	if cfgPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); cfgPath != "" {
+		return strings.TrimSpace(filepath.Dir(cfgPath))
+	}
+	return defaultRuntimeRoot
+}
+
+func resolveLinksRoot() string {
+	if root := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); root != "" {
+		return root
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := strings.TrimSpace(filepath.Dir(exe))
+		if strings.HasSuffix(exeDir, string(filepath.Separator)+"backend") {
+			return filepath.Dir(exeDir)
+		}
+	}
+	return defaultLinksRoot
+}
+
+func fileExists(path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func isSetupProvisionWorkDir(dir string) bool {
@@ -1582,11 +1618,11 @@ func resolveSetupAIEnv(reqEnv string) string {
 }
 
 func defaultSetupMigrateCmd() string {
-	return "if [ -x ./database ]; then ./database migrate; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database migrate; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	return "if [ -x ./database ]; then ./database -config \"${POWERX_CONFIG:-etc/config.yaml}\" migrate; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database -config \"${POWERX_CONFIG:-etc/config.yaml}\" migrate; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -x ./database ]; then ./database seed; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	return "if [ -x ./database ]; then ./database -config \"${POWERX_CONFIG:-etc/config.yaml}\" seed; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database -config \"${POWERX_CONFIG:-etc/config.yaml}\" seed; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func asMap(v any) map[string]any {

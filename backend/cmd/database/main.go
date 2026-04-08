@@ -9,6 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 )
@@ -18,8 +19,15 @@ func main() {
 		log.Fatalf("Usage: %s [migrate|seed|refresh]", os.Args[0])
 	}
 	cmd := os.Args[1]
-	configPath := flag.String("config", "etc/config.yaml", "配置文件路径")
-	flag.Parse()
+	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
+	if defaultConfigPath == "" {
+		defaultConfigPath = "etc/config.yaml"
+	}
+	fs := flag.NewFlagSet("database", flag.ContinueOnError)
+	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
+	if err := fs.Parse(os.Args[2:]); err != nil {
+		log.Fatalf("解析参数失败: %v", err)
+	}
 
 	// 加载配置
 	cfg, err := config.Load(*configPath)
