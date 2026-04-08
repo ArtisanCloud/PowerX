@@ -999,6 +999,34 @@ const checkRestartAndRedirectNow = async () => {
   }
 };
 
+const resetClientStateAfterSetupComplete = () => {
+  if (typeof window === "undefined") return;
+
+  const keepLocalStorageKeys = new Set(["px_locale", "powerx-color-mode"]);
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) keys.push(key);
+    }
+    for (const key of keys) {
+      if (!keepLocalStorageKeys.has(key)) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {}
+
+  try {
+    sessionStorage.clear();
+  } catch {}
+
+  // 清理与登录/上下文相关的 cookie，避免安装后首跳仍携带旧上下文。
+  const clearCookie = (name: string) => {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  };
+  ["px_ctx", "px_ctx_sig", "px_ctx_jwt"].forEach(clearCookie);
+};
+
 // 完成设置
 const completeSetup = async () => {
   completing.value = true;
@@ -1012,6 +1040,7 @@ const completeSetup = async () => {
         termsAccepted: step1Data.termsAccepted,
       },
     });
+    resetClientStateAfterSetupComplete();
     runRestartFlowAndRedirect();
   } catch (error: any) {
     restarting.value = false;
