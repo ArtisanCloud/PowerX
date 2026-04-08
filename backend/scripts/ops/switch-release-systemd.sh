@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<USAGE
 Usage:
-  $0 <target_tag_or_version> [--with-runner] [--with-setup-trace|--without-setup-trace] [--timeout-sec N]
+  $0 <target_tag_or_version> [--with-runner] [--with-setup-trace|--without-setup-trace] [--with-setup-reentry|--without-setup-reentry] [--timeout-sec N]
 
 Description:
   Switch /opt/powerx symlinks to /opt/powerx/releases/<target_tag_or_version>,
@@ -16,6 +16,8 @@ Options:
   --with-runner            Also switch/restart powerx-runner.
   --with-setup-trace       Enable setup/status trace log on powerx-backend.
   --without-setup-trace    Disable setup/status trace log on powerx-backend.
+  --with-setup-reentry     Temporarily allow setup write APIs on installed instance.
+  --without-setup-reentry  Disable setup reentry (recommended default).
   --timeout-sec N          Health check timeout seconds (default: 90).
 
 Environment overrides:
@@ -39,6 +41,8 @@ shift
 WITH_RUNNER=0
 WITH_SETUP_TRACE=0
 WITHOUT_SETUP_TRACE=0
+WITH_SETUP_REENTRY=0
+WITHOUT_SETUP_REENTRY=0
 TIMEOUT_SEC=90
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +56,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --without-setup-trace)
       WITHOUT_SETUP_TRACE=1
+      shift
+      ;;
+    --with-setup-reentry)
+      WITH_SETUP_REENTRY=1
+      shift
+      ;;
+    --without-setup-reentry)
+      WITHOUT_SETUP_REENTRY=1
       shift
       ;;
     --timeout-sec)
@@ -76,6 +88,10 @@ done
 
 if [[ "$WITH_SETUP_TRACE" == "1" && "$WITHOUT_SETUP_TRACE" == "1" ]]; then
   echo "[switch-release] --with-setup-trace and --without-setup-trace cannot be used together" >&2
+  exit 1
+fi
+if [[ "$WITH_SETUP_REENTRY" == "1" && "$WITHOUT_SETUP_REENTRY" == "1" ]]; then
+  echo "[switch-release] --with-setup-reentry and --without-setup-reentry cannot be used together" >&2
   exit 1
 fi
 
@@ -307,6 +323,27 @@ EOF
   echo "[switch-release] using NODE_BIN=${node_bin}"
 }
 
+set_setup_reentry_env() {
+  local env_file="${RUNTIME_ROOT}/powerx.env"
+  if [[ ! -f "$env_file" ]]; then
+    touch "$env_file"
+    chown root:root "$env_file"
+    chmod 0644 "$env_file"
+  fi
+
+  if [[ "$WITH_SETUP_REENTRY" == "1" ]]; then
+    if grep -q '^POWERX_ALLOW_SETUP_REENTRY=' "$env_file"; then
+      sed -i "s|^POWERX_ALLOW_SETUP_REENTRY=.*$|POWERX_ALLOW_SETUP_REENTRY=true|" "$env_file"
+    else
+      printf '\nPOWERX_ALLOW_SETUP_REENTRY=true\n' >> "$env_file"
+    fi
+    echo "[switch-release] setup reentry enabled via ${env_file}"
+  elif [[ "$WITHOUT_SETUP_REENTRY" == "1" ]]; then
+    sed -i '/^POWERX_ALLOW_SETUP_REENTRY=/d' "$env_file"
+    echo "[switch-release] setup reentry disabled via ${env_file}"
+  fi
+}
+
 ensure_runtime_config_external() {
   local source_cfg=""
   local source_draft=""
@@ -322,7 +359,7 @@ ensure_runtime_config_external() {
 
     if [[ -n "${source_cfg}" ]]; then
       cp "${source_cfg}" "${RUNTIME_CONFIG_PATH}"
-      chown root:root "${RUNTIME_CONFIG_PATH}"
+      chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
       chmod 0644 "${RUNTIME_CONFIG_PATH}"
       echo "[switch-release] runtime config initialized: ${RUNTIME_CONFIG_PATH} <= ${source_cfg}"
     else
@@ -330,6 +367,12 @@ ensure_runtime_config_external() {
     fi
   else
     echo "[switch-release] runtime config preserved: ${RUNTIME_CONFIG_PATH}"
+  fi
+
+  # setup/provision/complete 需要写 runtime config，确保运行用户可写。
+  if [[ -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+    chmod 0644 "${RUNTIME_CONFIG_PATH}"
   fi
 
   if [[ ! -f "${RUNTIME_SETUP_DRAFT_PATH}" ]]; then
@@ -340,10 +383,20 @@ ensure_runtime_config_external() {
     fi
     if [[ -n "${source_draft}" ]]; then
       cp "${source_draft}" "${RUNTIME_SETUP_DRAFT_PATH}"
-      chown root:root "${RUNTIME_SETUP_DRAFT_PATH}"
+      chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_SETUP_DRAFT_PATH}"
       chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
       echo "[switch-release] setup draft initialized: ${RUNTIME_SETUP_DRAFT_PATH} <= ${source_draft}"
+    else
+      printf '{}\n' > "${RUNTIME_SETUP_DRAFT_PATH}"
+      chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_SETUP_DRAFT_PATH}"
+      chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
+      echo "[switch-release] setup draft initialized: ${RUNTIME_SETUP_DRAFT_PATH}"
     fi
+  fi
+
+  if [[ -f "${RUNTIME_SETUP_DRAFT_PATH}" ]]; then
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_SETUP_DRAFT_PATH}"
+    chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
   fi
 }
 
@@ -377,6 +430,7 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+set_setup_reentry_env
 
 if [[ -d "$TARGET_SYSTEMD" ]]; then
   cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/

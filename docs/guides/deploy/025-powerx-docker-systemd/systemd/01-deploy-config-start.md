@@ -130,6 +130,14 @@ sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with
 ```bash
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --without-setup-trace
 ```
+若需临时允许“已安装实例”进入 setup 修复（例如 `/etc/powerx/config.yaml` 损坏）：
+```bash
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-setup-reentry
+```
+修复完成后务必关闭：
+```bash
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --without-setup-reentry
+```
 说明：该脚本会自动从 `/opt/powerx/releases/${POWERX_VERSION}/systemd/` 同步 `.service` 到 `/etc/systemd/system/`，并执行 `daemon-reload + enable + restart`。
 另外会自动创建 `backend/logs` 与 `backend/logs/audit` 并修正 service 运行用户权限。
 启用 `--with-runner` 时，也会自动创建 `/etc/powerx/powerx.env`（优先复制 `systemd/powerx.env.example`），并自动写入可用的 `NODE_BIN` 路径。
