@@ -8,6 +8,11 @@
 - 环境变量模板：`deploy/powerx/docker/.env.prod.example`
 - 默认内置依赖：`postgres`（pgvector 镜像）、`redis`
 
+## 2.1 版本基线
+
+统一版本矩阵与固化规则请以根文档为准：
+- `../01-runtime-version-matrix.md`
+
 ## 3. 准备部署目录
 
 ```bash
@@ -16,6 +21,19 @@ cd /opt/powerx
 cd deploy/powerx/docker
 cp .env.prod.example .env
 ```
+
+准备宿主机映射目录（配置层 + 数据层）：
+
+```bash
+sudo mkdir -p /etc/powerx
+sudo mkdir -p /var/lib/powerx/{postgres,redis,uploads}
+sudo chown -R 999:999 /var/lib/powerx/postgres
+sudo chown -R 999:999 /var/lib/powerx/redis
+```
+
+说明：
+- `/etc/powerx`：配置层（`config.yaml`、`powerx.env`、`setup.wizard.config.json`）
+- `/var/lib/powerx`：数据层（PostgreSQL/Redis/上传目录）
 
 ## 4. 配置 `.env`
 必须确认以下键（默认使用 compose 内置 Postgres/Redis）：
@@ -29,12 +47,22 @@ POWERX_WEB_ADMIN_PORT=3000
 POWERX_POSTGRES_PORT=5432
 POWERX_ENV=prod
 POWERX_MODE=docker
+POWERX_HOST_CONFIG_DIR=/etc/powerx
+POWERX_HOST_DATA_DIR=/var/lib/powerx
 DATABASE_DSN=postgres://powerx:powerx@postgres:5432/powerx?sslmode=disable
 REDIS_ADDR=redis:6379
+POWERX_CONFIG=/etc/powerx/config.yaml
 POSTGRES_DB=powerx
 POSTGRES_USER=powerx
 POSTGRES_PASSWORD=powerx
 ```
+
+其中：
+- `POWERX_*_TAG`：固定业务镜像版本（必须同一发布版本）
+- `postgres` 服务镜像固定为 `pgvector/pgvector:pg16`
+- `redis` 服务镜像固定为 `redis:7-alpine`
+- `POWERX_HOST_CONFIG_DIR`：宿主机配置目录（映射到容器 `/etc/powerx`）
+- `POWERX_HOST_DATA_DIR`：宿主机数据目录（映射 Postgres/Redis/本地上传）
 
 端口策略说明：
 - `POWERX_ENV=prod` 默认推荐 `POWERX_WEB_ADMIN_PORT=3000`、`POWERX_BACKEND_PORT=8080`

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -134,8 +135,12 @@ func (s *Service) LLMInvoke(
 	if invokeResult == nil {
 		return &LLMInvokeResult{}, nil
 	}
+	text := invokeResult.Text
+	if shouldStripThinkingOutput(params) {
+		text = stripThinkingTags(text)
+	}
 	return &LLMInvokeResult{
-		Text:         invokeResult.Text,
+		Text:         text,
 		FinishReason: invokeResult.FinishReason,
 		Usage:        invokeResult.Usage,
 	}, nil
@@ -214,13 +219,23 @@ func (s *Service) LLMStream(
 	if err != nil {
 		return "", err
 	}
-	return llmfactory.StreamOrFallback(ctx, cli, mc, prompt, onDelta)
+	final, err := llmfactory.StreamOrFallback(ctx, cli, mc, prompt, onDelta)
+	if err != nil {
+		return "", err
+	}
+	if shouldStripThinkingOutput(params) {
+		return stripThinkingTags(final), nil
+	}
+	return final, nil
 }
 
 type reasoningConfig struct {
-	Enabled bool
-	Effort  string
-	Expose  string
+	Enabled       bool
+	EnabledSet    bool
+	Effort        string
+	Expose        string
+	ProviderThink *bool
+	Budget        int
 }
 
 func parseReasoningConfig(params map[string]interface{}) reasoningConfig {
@@ -233,8 +248,26 @@ func parseReasoningConfig(params map[string]interface{}) reasoningConfig {
 		return cfg
 	}
 	if v, ok := params["thinking"]; ok {
-		if b, ok := v.(bool); ok {
+		if b, ok := parseBool(v); ok {
 			cfg.Enabled = b
+			cfg.EnabledSet = true
+		}
+	}
+	if v, ok := params["enable_thinking"]; ok {
+		if b, ok := parseBool(v); ok {
+			cfg.ProviderThink = &b
+		}
+	}
+	if v, ok := params["thinking_budget"]; ok {
+		if budget := intFromAny(v); budget > 0 {
+			cfg.Budget = budget
+		}
+	}
+	if cfg.Budget == 0 {
+		if v, ok := params["thinkingBudget"]; ok {
+			if budget := intFromAny(v); budget > 0 {
+				cfg.Budget = budget
+			}
 		}
 	}
 	if v, ok := params["reasoning_effort"]; ok {
@@ -289,28 +322,102 @@ func normalizeReasoningExpose(v string) string {
 
 func applyReasoningConfig(provider string, mc *aiconfig.ModelConfig, params map[string]interface{}) {
 	cfg := parseReasoningConfig(params)
-	if !cfg.Enabled {
-		return
-	}
-	p := strings.ToLower(strings.TrimSpace(provider))
-	if p == "" {
-		return
-	}
-	// 仅对 OpenAI-compatible 系列透传 reasoning，其他 provider 保持静默忽略。
-	switch p {
-	case "openai", "openrouter", "vllm", "deepseek", "moonshot", "huggingface", "hf":
-	default:
-		return
-	}
+	driver := resolveProviderDriver(provider, "llm")
+	p := strings.ToLower(strings.TrimSpace(driver))
+	pp := strings.ToLower(strings.TrimSpace(provider))
 	extra := mc.Extra
 	if extra == nil {
 		extra = map[string]any{}
+	}
+	if p == "ollama" || pp == "ollama" {
+		if cfg.ProviderThink != nil {
+			extra["think"] = *cfg.ProviderThink
+			extra["thinking"] = *cfg.ProviderThink
+		}
+		if cfg.EnabledSet {
+			extra["think"] = cfg.Enabled
+			extra["thinking"] = cfg.Enabled
+		}
+		mc.Extra = extra
+		return
+	}
+
+	isOpenAICompatible := p == "openai" ||
+		pp == "openai" || pp == "openrouter" || pp == "vllm" || pp == "deepseek" || pp == "moonshot" ||
+		pp == "huggingface" || pp == "hf" || pp == "qwen" || pp == "qwen-cn" || pp == "qwen-intl" ||
+		pp == "dashscope" || pp == "dashscope-cn" ||
+		pp == "tongyi" || pp == "tongyi-cn" ||
+		pp == "alibaba" || pp == "alibaba-cn"
+	if !isOpenAICompatible {
+		return
+	}
+	isQwenLike := pp == "qwen" || pp == "qwen-cn" || pp == "qwen-intl" ||
+		pp == "dashscope" || pp == "dashscope-cn" ||
+		pp == "tongyi" || pp == "tongyi-cn" ||
+		pp == "alibaba" || pp == "alibaba-cn"
+	if !isQwenLike && strings.Contains(strings.ToLower(strings.TrimSpace(mc.Endpoint)), "dashscope") {
+		isQwenLike = true
+	}
+	if cfg.ProviderThink != nil {
+		extra["enable_thinking"] = *cfg.ProviderThink
+	}
+	if cfg.EnabledSet && isQwenLike {
+		extra["enable_thinking"] = cfg.Enabled
+	}
+	if cfg.Budget > 0 && isQwenLike {
+		extra["thinking_budget"] = cfg.Budget
+	}
+	if cfg.EnabledSet && !cfg.Enabled {
+		extra["enable_thinking"] = false
+		mc.Extra = extra
+		return
+	}
+	if !cfg.Enabled {
+		mc.Extra = extra
+		return
 	}
 	extra["reasoning"] = map[string]any{
 		"effort": cfg.Effort,
 	}
 	extra["reasoning_expose"] = cfg.Expose
 	mc.Extra = extra
+}
+
+func parseBool(v any) (bool, bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		s := strings.ToLower(strings.TrimSpace(t))
+		switch s {
+		case "true", "1", "yes", "y", "on":
+			return true, true
+		case "false", "0", "no", "n", "off":
+			return false, true
+		}
+	}
+	return false, false
+}
+
+var thinkTagRE = regexp.MustCompile(`(?is)<think>.*?</think>`)
+
+func shouldStripThinkingOutput(params map[string]interface{}) bool {
+	if len(params) == 0 {
+		return false
+	}
+	cfg := parseReasoningConfig(params)
+	if cfg.ProviderThink != nil {
+		return !*cfg.ProviderThink
+	}
+	return cfg.EnabledSet && !cfg.Enabled
+}
+
+func stripThinkingTags(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return s
+	}
+	withoutThink := thinkTagRE.ReplaceAllString(s, "")
+	return strings.TrimSpace(withoutThink)
 }
 
 func (s *Service) EmbeddingInvoke(

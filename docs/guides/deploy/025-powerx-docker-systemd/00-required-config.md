@@ -81,6 +81,11 @@ umask 077 && head -c 32 /dev/urandom | base64
 - `REDIS_ADDR`
 - （Docker 内置库模式）`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`
 
+Docker 模式建议新增：
+- `POWERX_HOST_CONFIG_DIR`（建议 `/etc/powerx`）
+- `POWERX_HOST_DATA_DIR`（建议 `/var/lib/powerx`）
+- `POWERX_CONFIG`（建议 `/etc/powerx/config.yaml`）
+
 ---
 
 ## 3) web-admin 环境变量（按需）
@@ -103,3 +108,4 @@ umask 077 && head -c 32 /dev/urandom | base64
 - [ ] Redis 可连通（`cache` 与 `queue.redis` 正确）
 - [ ] `/etc/powerx/powerx.env` 已从模板复制并改成真实值
 - [ ] web-admin 的 `POWERX_BACKEND/WS_UPSTREAM` 指向正确地址
+- [ ] Docker 宿主机目录已准备：`/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`

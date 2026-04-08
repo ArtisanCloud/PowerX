@@ -11,7 +11,7 @@ services:
     ports:
       - "${POWERX_POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerx} -d ${POSTGRES_DB:-powerx}"]
       interval: 10s
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - redis_data:/data
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -36,8 +36,13 @@ services:
     env_file:
       - .env
     environment:
-      # 配置真源：容器内 backend 读取的 YAML 路径，可在 .env 覆盖
-      POWERX_CONFIG: ${POWERX_CONFIG:-/app/backend/etc/config.yaml}
+      # 配置真源：优先使用宿主机映射到容器内 /etc/powerx 的运行时配置
+      POWERX_CONFIG: ${POWERX_CONFIG:-/etc/powerx/config.yaml}
+    volumes:
+      # 配置层映射：宿主机 /etc/powerx -> 容器 /etc/powerx
+      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx
+      # 数据层映射：本地存储场景（如 storage.local_path=/data/uploads）
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/uploads:/data/uploads
     ports:
       - "${POWERX_BACKEND_PORT:-8080}:8080"
     healthcheck:
@@ -56,6 +61,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    volumes:
+      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -69,12 +76,10 @@ services:
       # 前端代理真源：优先 .env 中的 POWERX_BACKEND/WS_UPSTREAM，未设置时走 backend 服务名
       POWERX_BACKEND: ${POWERX_BACKEND:-http://backend:8080}
       WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
+    volumes:
+      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx:ro
     ports:
       - "${POWERX_WEB_ADMIN_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
-
-volumes:
-  postgres_data:
-  redis_data:

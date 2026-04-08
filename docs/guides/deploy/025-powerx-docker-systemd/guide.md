@@ -78,6 +78,7 @@ flowchart LR
 ## 6. 前置条件与依赖
 
 ### 6.1 配置
+- 运行时版本矩阵（Docker/systemd 统一）：`01-runtime-version-matrix.md`
 - 服务启动与路由前缀：建议统一以 `/api/v1` 暴露 Admin API。
 - 端口默认策略（开发/生产分离）：
   - dev：`web-admin=3030`，`backend=8077`

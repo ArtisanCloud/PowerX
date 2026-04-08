@@ -8,16 +8,10 @@
 
 ## 2. 版本兼容口径（推荐）
 
-与官方 Docker 基线对齐（仓库 `deploy/powerx/docker/compose.prod.yaml`）：
-- Go（构建工具链）：`1.24.12`
-- PostgreSQL：`16`（镜像基线：`pgvector/pgvector:pg16`）
-- Redis：`7`（镜像基线：`redis:7-alpine`）
+统一版本矩阵与固化规则请以根文档为准：
+- `../01-runtime-version-matrix.md`
 
-推荐矩阵：
-- PowerX `${POWERX_VERSION}`（例如 `v1.0.0` / `v2.0.2`）
-- Go `1.24.12`
-- PostgreSQL `16` + `pgvector` 扩展可用
-- Redis `7`
+本文件只负责 systemd 模式下的安装与校验步骤，避免与 Docker 文档重复维护版本表。
 
 说明：
 - 生产建议严格使用上述推荐组合，避免跨大版本兼容差异。
@@ -162,6 +156,8 @@ sudo systemctl enable --now redis-server
 ```bash
 psql --version
 redis-server --version
+node -v
+go version
 id postgres
 ```
 

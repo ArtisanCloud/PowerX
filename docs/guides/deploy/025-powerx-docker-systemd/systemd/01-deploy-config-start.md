@@ -284,3 +284,26 @@ cd /opt/powerx/backend
 常见场景说明：
 - 只有 root 账号时：root 可直接管理 `System`（或任意）租户，不需要先创建“同名 admin”账号。
 - 新租户自行注册后：其注册账号应为该租户 admin（`is_admin=true`），但不是 root，仅能管理本租户。
+
+## 11.2 可选：开启只读 Demo 账号（演示环境）
+
+如果你要给外部用户“只看界面”体验，建议开启 seed 的 demo 只读账号：
+
+```bash
+export POWERX_ENABLE_DEMO_ACCOUNT=true
+export POWERX_DEMO_TENANT_KEY=demo
+export POWERX_DEMO_TENANT_NAME="Demo Space"
+export POWERX_DEMO_USERNAME=demo
+export POWERX_DEMO_EMAIL=demo@powerx.local
+export POWERX_DEMO_PASSWORD='change_me_demo_password'
+```
+
+然后执行（或在 setup 的 seed 阶段自动触发）：
+```bash
+cd /opt/powerx/backend
+./database seed
+```
+
+说明：
+- 会自动创建（幂等）`role_readonly` 内置角色，并授予只读权限。
+- 会创建/更新 demo 账号，并强制绑定到 `role_readonly`（只读演示用途）。

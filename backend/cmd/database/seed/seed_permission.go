@@ -96,7 +96,7 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 		return fmt.Errorf("upsert system_monitor: %w", err)
 	}
 
-	// 2) 确保租户默认角色（role_admin / role_user）
+	// 2) 确保租户默认角色（role_admin / role_user / role_readonly）
 	if err := rr.EnsureDefaultRoles(ctx, tenantUUID); err != nil {
 		return fmt.Errorf("ensure default roles: %w", err)
 	}
@@ -107,6 +107,10 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	roleUser, err := rr.FindByCode(ctx, "tenant", &tenantUUID, "role_user")
 	if err != nil {
 		return fmt.Errorf("find role_user: %w", err)
+	}
+	roleReadonly, err := rr.FindByCode(ctx, "tenant", &tenantUUID, "role_readonly")
+	if err != nil {
+		return fmt.Errorf("find role_readonly: %w", err)
 	}
 
 	// 3) 计算权限集合
@@ -174,6 +178,9 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 		}
 		if len(tenantReadOnlyIDs) > 0 {
 			if err := rpr.GrantByIDsTx(tx, roleUser.ID, tenantReadOnlyIDs); err != nil {
+				return err
+			}
+			if err := rpr.GrantByIDsTx(tx, roleReadonly.ID, tenantReadOnlyIDs); err != nil {
 				return err
 			}
 		}

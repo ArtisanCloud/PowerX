@@ -12,6 +12,9 @@
 - systemd 模式：需要外部 PostgreSQL、Redis、MinIO/S3 可连通。
 - 已准备 PowerX 运行配置（数据库、缓存、对象存储、认证）。
 - 服务器时间同步正常（避免证书/Token 时间偏差）。
+- Docker 目录规范（推荐）：
+  - 配置层：`/etc/powerx`
+  - 数据层：`/var/lib/powerx`
 
 ### 2.2 关键文件
 - Docker 资产：`deploy/powerx/docker/compose.prod.yaml`
@@ -35,6 +38,10 @@
 ```bash
 cd deploy/powerx/docker
 cp .env.prod.example .env
+sudo mkdir -p /etc/powerx
+sudo mkdir -p /var/lib/powerx/{postgres,redis,uploads}
+sudo chown -R 999:999 /var/lib/powerx/postgres
+sudo chown -R 999:999 /var/lib/powerx/redis
 ```
 
 - 预期结果：`.env` 存在且包含镜像 tag、端口、数据库与缓存配置。

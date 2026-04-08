@@ -560,9 +560,9 @@ function onTreeKeydown(e: KeyboardEvent) {
     <div
       class="flex items-center justify-between h-16 border-b border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 px-2"
     >
-      <NuxtLink :to="$localePath('/')" class="flex items-center space-x-2 px-2">
+      <NuxtLink :to="$localePath('/')" class="flex items-center gap-2 px-2 min-w-0">
         <img :src="LOGO_M_URL" alt="Logo" class="w-8 h-8 rounded-lg" />
-        <div v-if="!collapsed" class="flex items-center gap-2 min-w-0">
+        <div v-if="!collapsed" class="flex flex-col justify-center min-w-0 leading-none">
           <span
             class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate"
           >
@@ -573,7 +573,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             size="xs"
             color="neutral"
             variant="soft"
-            class="shrink-0"
+            class="mt-1 w-fit max-w-full truncate"
           >
             {{ appVersion }}
           </UBadge>
