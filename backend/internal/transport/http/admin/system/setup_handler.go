@@ -1618,11 +1618,11 @@ func resolveSetupAIEnv(reqEnv string) string {
 }
 
 func defaultSetupMigrateCmd() string {
-	return "if [ -x ./database ]; then ./database -config \"${POWERX_CONFIG:-etc/config.yaml}\" migrate; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database -config \"${POWERX_CONFIG:-etc/config.yaml}\" migrate; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	return "if [ -x ./database ]; then ./database migrate -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database migrate -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -x ./database ]; then ./database -config \"${POWERX_CONFIG:-etc/config.yaml}\" seed; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database -config \"${POWERX_CONFIG:-etc/config.yaml}\" seed; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	return "if [ -x ./database ]; then ./database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func asMap(v any) map[string]any {
