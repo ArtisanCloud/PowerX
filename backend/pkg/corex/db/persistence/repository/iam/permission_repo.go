@@ -269,3 +269,20 @@ func (r *PermissionRepository) MemberHasPermissionViaBinding(
 		Count(&cnt).Error
 	return cnt > 0, err
 }
+
+// MemberHasPermissionViaBindingWithModule：成员在某租户下是否拥有 module/resource/action 权限
+func (r *PermissionRepository) MemberHasPermissionViaBindingWithModule(
+	ctx context.Context,
+	tenantUUID string, memberID uint64,
+	module, resource, action string,
+) (bool, error) {
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
+		Select("COUNT(1)").
+		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
+		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" rb ON rb.role_id = rp.role_id AND rb.tenant_uuid = ? AND rb.subject_type = ?", tenantUUID, dbm.SubMember).
+		Where("rb.subject_id = ? AND p.module = ? AND p.resource = ? AND p.action = ?", memberID, module, resource, action).
+		Count(&cnt).Error
+	return cnt > 0, err
+}

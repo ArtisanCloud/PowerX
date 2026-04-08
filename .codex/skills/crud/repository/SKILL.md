@@ -1,0 +1,267 @@
+---
+name: crud-repository
+description: PowerX CRUD Repository 规则（BaseRepository、tenant 约束、分页）。
+---
+
+# PowerX CRUD Repository
+
+## 步骤
+
+1) 打开 `本文件内嵌规则`。
+2) 按规则执行实现/校对。
+3) 完成后按核对清单验收。
+
+## 核对点
+
+- 与 PowerX 当前代码结构、路径与命名一致。
+- 仅在传输层/契约层做职责内改动，不跨层越界。
+
+## 规则（内嵌）
+
+### repository.yaml
+
+````yaml
+kind: ruleset
+name: crud_repository
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    统一 Repository（持久化）层的接口与实现规范：只负责数据访问与映射，
+    不承载业务逻辑；严格多租户隔离、软删、分页筛选与一致的错误/返回语义。
+    CoreX 模块仓储统一采用 BaseRepository 泛型封装，便于事务注入与测试。
+  references:
+    - constitution.md
+    - crud_model.yaml
+    - crud_migration.yaml
+    - crud_dto.yaml
+    - crud_di.yaml
+
+scope:
+  codebase:
+    repo_globs:
+      - "internal/repository/**/**_repo.go"
+      - "pkg/corex/db/persistence/repository/**/**_repo.go"
+    model_globs:
+      - "pkg/corex/db/persistence/model/**/**.go"
+
+principles:
+  - 目录规范：CoreX 仓库实现放置于 `pkg/corex/db/persistence/repository/<domain>/`，目录名使用 snake_case，对应的模型位于同层级 `model/`。
+  - 职责单一：Repository 只做数据访问（SQL/GORM），禁止业务分支与权限判断。
+  - 多租户强约束：所有查询均带 TenantID 条件；默认忽略软删（GORM 默认生效）。
+  - 事务注入：方法接受 *gorm.DB（可为 tx），由 Service 层控制 tx 生命周期。
+  - 上下文贯穿：方法首参为 context.Context，用于 tracing/超时/审计钩子。
+  - 错误语义：不存在返回 gorm.ErrRecordNotFound（由 Service 翻译成 404）；唯一冲突返回 ErrConflict（由 Service 翻译 409）。
+  - 可测试性：提供接口与实现；实现命名 `XxxRepoImpl`，禁止全局单例。
+  - 性能：列表查询必须显式选择字段/建立索引，禁止 N+1（注意 Preload 选择性）。
+
+checks:
+
+  # 目录/文件命名
+  - id: repo.file.naming
+    level: error
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - must_package_suffix: "repo"
+
+  # BaseRepository 形态
+  - id: repo.base_repository.pattern
+    level: error
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - must_contain_regex: "type [A-Za-z0-9]+Repository struct {"
+      - must_contain_regex: "\\*repository.BaseRepository"
+      - must_contain_regex: "func New[A-Za-z0-9]+Repository\\(db \\*gorm\\.DB\\)"
+      - must_not_import: ["github.com/gin-gonic/gin"]  # 不允许直接耦合 HTTP
+
+  # 方法签名（ctx + db）
+  - id: repo.method.signature
+    level: error
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - must_contain_regex: "func \\(r \\*.*Repository\\) .*\\(ctx context\\.Context, db \\*gorm\\.DB"
+      - must_import: ["context","gorm.io/gorm"]
+
+  # 多租户条件
+  - id: repo.must.tenant.scope
+    level: error
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - contains_any:
+          - "Where(\"tenant_id = ?\""
+          - "Scopes(TenantScope("
+          - "WithTenant("
+    message: "所有 CRUD 查询必须带 TenantID（直写 Where 或统一 Scopes/TenantScope）"
+
+  # 列表与分页（limit/offset 或 cursor）
+  - id: repo.list.pagination
+    level: error
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - contains_any: ["Limit(","Offset(","Scopes(Paginate("]
+
+  # 冲突与不存在的错误
+  - id: repo.error.mapping
+    level: warn
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - contains_any: ["gorm.ErrRecordNotFound","ErrDuplicate","unique"]
+    message: "建议把 gorm.ErrRecordNotFound 原样返回，由 Service 统一翻译为 404；唯一冲突包装为 ErrConflict"
+
+  # 软删（默认开启），如实现硬删需标注
+  - id: repo.soft_delete
+    level: warn
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - should_contain_any: ["Delete(&m)","Unscoped().Delete("]
+
+  # 性能/索引使用（建议）
+  - id: repo.index.hint
+    level: warn
+    when: { glob: "internal/repository/**/**_repo.go" }
+    assert:
+      - should_contain_any: ["Select(","Omit("]
+
+acceptance:
+  checklist:
+    - "[ ] 每个仓库文件包含接口 + 实现 + New 构造函数"
+    - "[ ] 方法签名统一为 (ctx context.Context, db *gorm.DB, ...)"
+    - "[ ] 所有查询带 TenantID 条件（Where/Scopes/TenantScope）"
+    - "[ ] 列表查询有分页（Limit/Offset 或 Cursor）"
+    - "[ ] 不做业务鉴权/分支；错误语义由 Service 统一翻译"
+    - "[ ] 使用软删；如需硬删必须在 Service 授权并清晰标注"
+    - "[ ] 可被 DI 装配（由 Deps 提供 *gorm.DB 注入）"
+
+templates:
+
+  repo_interface_impl_go: |
+    // pkg/corex/db/persistence/repository/{{domain}}/{{resource}}_repo.go
+    package {{domain}}repo
+
+    import (
+      "context"
+
+      "gorm.io/gorm"
+      m "{{module_path}}/pkg/corex/db/persistence/model/{{domain}}"
+    )
+
+    // {{Entity}}Repo 数据访问接口
+    type {{Entity}}Repo interface {
+      Create(ctx context.Context, db *gorm.DB, tenantID uint64, in *m.{{Entity}}) error
+      GetByID(ctx context.Context, db *gorm.DB, tenantID uint64, id string) (*m.{{Entity}}, error)
+      List(ctx context.Context, db *gorm.DB, tenantID uint64, pg Page, filters map[string]string) ([]*m.{{Entity}}, int64, error)
+      Update(ctx context.Context, db *gorm.DB, tenantID uint64, in *m.{{Entity}}) error
+      Delete(ctx context.Context, db *gorm.DB, tenantID uint64, id string, hard bool) error
+
+      // Tx 透传辅助（可选）
+      WithTx(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) error
+    }
+
+    // 实现
+    type {{Entity}}RepoImpl struct {
+      db *gorm.DB
+    }
+
+    func New{{Entity}}Repo(db *gorm.DB) {{Entity}}Repo {
+      return &{{Entity}}RepoImpl{db: db}
+    }
+
+    // 分页结构（按项目实际放置到共用包）
+    type Page struct {
+      Page     int
+      PageSize int
+      SortBy   string
+      SortOrder string
+    }
+
+    func (r *{{Entity}}RepoImpl) Create(ctx context.Context, db *gorm.DB, tenantID uint64, in *m.{{Entity}}) error {
+      in.TenantID = tenantID
+      return db.WithContext(ctx).Create(in).Error
+    }
+
+    func (r *{{Entity}}RepoImpl) GetByID(ctx context.Context, db *gorm.DB, tenantID uint64, id string) (*m.{{Entity}}, error) {
+      var out m.{{Entity}}
+      err := db.WithContext(ctx).
+        Where("tenant_id = ? AND id = ?", tenantID, id).
+        First(&out).Error
+      if err != nil {
+        return nil, err // 由 Service 翻译为 404
+      }
+      return &out, nil
+    }
+
+    // 可抽成 Scopes：TenantScope / Filters / Paginate
+    func (r *{{Entity}}RepoImpl) List(ctx context.Context, db *gorm.DB, tenantID uint64, pg Page, filters map[string]string) ([]*m.{{Entity}}, int64, error) {
+      q := db.WithContext(ctx).Model(&m.{{Entity}}{}).Where("tenant_id = ?", tenantID)
+
+      // 简化：按 filters 动态拼装（生产中建议固定白名单）
+      if v, ok := filters["status"]; ok { q = q.Where("status = ?", v) }
+      if v, ok := filters["q"]; ok { q = q.Where("name ILIKE ?", "%"+v+"%") }
+
+      // 计数
+      var total int64
+      if err := q.Count(&total).Error; err != nil { return nil, 0, err }
+
+      // 排序/分页
+      orderBy := "created_at desc"
+      if pg.SortBy != "" {
+        if pg.SortOrder == "" { pg.SortOrder = "desc" }
+        orderBy = pg.SortBy + " " + pg.SortOrder
+      }
+      if pg.Page <= 0 { pg.Page = 1 }
+      if pg.PageSize <= 0 { pg.PageSize = 20 }
+
+      var items []*m.{{Entity}}
+      err := q.Order(orderBy).
+        Limit(pg.PageSize).
+        Offset((pg.Page-1)*pg.PageSize).
+        Find(&items).Error
+      if err != nil { return nil, 0, err }
+      return items, total, nil
+    }
+
+    func (r *{{Entity}}RepoImpl) Update(ctx context.Context, db *gorm.DB, tenantID uint64, in *m.{{Entity}}) error {
+      return db.WithContext(ctx).
+        Model(&m.{{Entity}}{}).
+        Where("tenant_id = ? AND id = ?", tenantID, in.ID).
+        Updates(map[string]any{
+          "name":   in.Name,
+          "meta":   in.Meta,
+          "status": in.Status,
+        }).Error
+    }
+
+    func (r *{{Entity}}RepoImpl) Delete(ctx context.Context, db *gorm.DB, tenantID uint64, id string, hard bool) error {
+      q := db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id)
+      if hard {
+        return q.Unscoped().Delete(&m.{{Entity}}{}).Error
+      }
+      return q.Delete(&m.{{Entity}}{}).Error
+    }
+
+    func (r *{{Entity}}RepoImpl) WithTx(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) error {
+      return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return fn(tx) })
+    }
+
+  scopes_go: |
+    // internal/repository/scopes/scopes.go （可选：集中放置）
+    package scopes
+
+    import "gorm.io/gorm"
+
+    func TenantScope(tenantID uint64) func(*gorm.DB) *gorm.DB {
+      return func(db *gorm.DB) *gorm.DB {
+        return db.Where("tenant_id = ?", tenantID)
+      }
+    }
+
+    func Paginate(page, pageSize int) func(*gorm.DB) *gorm.DB {
+      if page <= 0 { page = 1 }
+      if pageSize <= 0 { pageSize = 20 }
+      return func(db *gorm.DB) *gorm.DB {
+        return db.Limit(pageSize).Offset((page-1)*pageSize)
+      }
+    }
+````

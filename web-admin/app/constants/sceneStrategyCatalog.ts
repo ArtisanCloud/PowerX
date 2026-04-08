@@ -27,7 +27,7 @@ export type SceneKey =
 
 export type StrategyBundleKey = "p0_basic" | "p1_general" | "p2_high_accuracy" | "p3_kg_strong";
 
-// RAG 模块（来自 docs/plan/AI_engineering/knowledge/rag.md 的策略段落；用于 L3 选择与映射）。
+// RAG 模块（来自 docs/plan/ai_engineering/knowledge/rag.md 的策略段落；用于 L3 选择与映射）。
 // 说明：这里的 key 代表“模块能力”，不是最终的“RAG Profile 版本号”。
 export type RagModuleKey =
   | "A_simple"

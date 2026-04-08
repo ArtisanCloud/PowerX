@@ -51,6 +51,8 @@ proto-clean:
 	@rm -rf backend/api/grpc/gen/go/powerx/knowledge
 	@rm -rf backend/api/grpc/gen/go/powerx/workflow
 	@rm -rf backend/api/grpc/gen/go/powerx/plugin_release
+	@rm -rf backend/api/grpc/gen/go/powerx/platform_ops
+	@rm -rf backend/api/grpc/gen/go/powerx/skills
 	@rm -rf backend/api/grpc/gen/go/corex/event_fabric
 	@rm -rf backend/api/grpc/gen/go/powerx/event_fabric
 	@find backend/api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true

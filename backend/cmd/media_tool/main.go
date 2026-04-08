@@ -128,7 +128,11 @@ func parseCleanupFlags(args []string) (cleanupFlags, error) {
 
 	flagSet := flag.NewFlagSet(commandCleanup, flag.ContinueOnError)
 	flagSet.SetOutput(os.Stderr)
-	flagSet.StringVar(&cfg.configPath, "config", "etc/config.yaml", "配置文件路径")
+	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
+	if defaultConfigPath == "" {
+		defaultConfigPath = "etc/config.yaml"
+	}
+	flagSet.StringVar(&cfg.configPath, "config", defaultConfigPath, "配置文件路径")
 	flagSet.BoolVar(&cfg.dryRun, "dry-run", false, "仅打印待清理对象，不执行删除")
 	flagSet.DurationVar(&cfg.before, "before", 24*time.Hour, "仅清理早于该时长的软删除记录")
 	flagSet.IntVar(&cfg.limit, "limit", 100, "单次扫描的最大数量")

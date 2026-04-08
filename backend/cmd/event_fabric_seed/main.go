@@ -202,7 +202,11 @@ func main() {
 
 func parseFlags() seedFlags {
 	var flags seedFlags
-	flag.StringVar(&flags.configPath, "config", "etc/config.yaml", "配置文件路径")
+	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
+	if defaultConfigPath == "" {
+		defaultConfigPath = "etc/config.yaml"
+	}
+	flag.StringVar(&flags.configPath, "config", defaultConfigPath, "配置文件路径")
 	flag.StringVar(&flags.manifestPath, "manifest", "", "自定义 manifest 路径（需配合 --plugin 单独使用）")
 	flag.BoolVar(&flags.dryRun, "dry-run", false, "仅预览不执行播种")
 	flag.Var(&flags.tenants, "tenant", "目标租户 UUID，可重复指定；省略则遍历全部")

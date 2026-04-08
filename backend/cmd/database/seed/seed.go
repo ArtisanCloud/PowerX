@@ -38,6 +38,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		//log.Fatal(err)
 		return err
 	}
+	if err = SeedDefaultDevAPIKeys(db); err != nil {
+		return err
+	}
 
 	if err = SeedEventFabricTopics(db); err != nil {
 		return err
@@ -56,6 +59,16 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
+	if err = SeedOfficialBuiltinSkills(db); err != nil {
+		return err
+	}
+	if err = SeedDemoThirdPartySkills(db); err != nil {
+		return err
+	}
+	if err = SeedDemoSkillInstallTasks(db); err != nil {
+		return err
+	}
+
 	if err = SeedCapabilityErrorTaxonomies(db); err != nil {
 		return err
 	}
@@ -65,6 +78,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	}
 
 	if err = SeedKnowledgeProfiles(db, "system"); err != nil {
+		return err
+	}
+	if err = SeedDefaultAIConfig(db, cfg); err != nil {
 		return err
 	}
 

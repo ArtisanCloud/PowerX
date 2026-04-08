@@ -9,7 +9,7 @@ import (
 
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/rbac"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -42,6 +42,28 @@ func uniqAppend(list []string, s string) []string {
 		}
 	}
 	return append(list, s)
+}
+
+func filterMenusByPermission(
+	items []admdto.AdminMenuItem,
+	allow func([]string) bool,
+) []admdto.AdminMenuItem {
+	out := make([]admdto.AdminMenuItem, 0, len(items))
+	for _, item := range items {
+		if !allow(item.Permissions) {
+			log.Printf("[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			continue
+		}
+		if len(item.Children) > 0 {
+			item.Children = filterMenusByPermission(item.Children, allow)
+		}
+		// 目录节点若无可见子项且自身无 path，则跳过，避免空分组
+		if strings.TrimSpace(item.URL) == "" && len(item.Children) == 0 {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 // ---------- locale 优先级与标准化 ----------
@@ -460,21 +482,34 @@ func AdminMenusHandler(c *gin.Context) {
 	allI18n := plug.I18n
 
 	// 1) 权限过滤
+	isRoot := reqctx.IsRoot(c.Request.Context())
 	allow := func(perms []string) bool {
 		if len(perms) == 0 {
 			return true
 		}
-		sub := rbac.SubjectFromContext(c)
 		for _, pol := range perms {
 			res, act := splitPolicy(pol)
-			checker := rbac.NewChecker()
-			result, _ := checker.Check(c, sub, res, act, nil)
-			if !result.Allow {
+			switch {
+			case res == "admin" && act == "root":
+				if !isRoot {
+					return false
+				}
+			case res == "admin" && act == "tenant":
+				// 目前菜单侧无租户管理员角色快照，先按安全策略限制为 root 可见。
+				if !isRoot {
+					return false
+				}
+			}
+			if res == "" || act == "" {
 				return false
 			}
 		}
 		return true
 	}
+
+	// 先对系统菜单与插件菜单做递归权限过滤（含子节点）
+	sys = filterMenusByPermission(sys, allow)
+	plug.Items = filterMenusByPermission(plug.Items, allow)
 
 	_ = indexSystemSlots(sys)
 
@@ -484,10 +519,6 @@ func AdminMenusHandler(c *gin.Context) {
 		pluginTopLevel = make([]admdto.AdminMenuItem, 0, len(plug.Items))
 	)
 	for _, m := range plug.Items {
-		if !allow(m.Permissions) {
-			log.Printf("[menus] filtered by RBAC item=%s perms=%v", m.Key, m.Permissions)
-			continue
-		}
 		if !m.Visible {
 			m.Visible = true
 		}
@@ -659,7 +690,7 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 		item := origin
 		if item.Origin == plugin_mgr.OriginSystem {
 			switch item.Key {
-			case plugin_mgr.KeyAgent, plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
+			case plugin_mgr.KeyAgent, "skill_management", plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
 				byID[catPinnedKey].Children = append(byID[catPinnedKey].Children, item)
 			case plugin_mgr.KeyPlugins:
 				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, item)

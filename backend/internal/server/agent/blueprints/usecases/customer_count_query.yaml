@@ -1,39 +1,6 @@
 flow_id: "customer_count_query"
 name: "查询客户数量"
-base_flow: "base_flow"
-steps:
-  - use: "query.build_filters"
-    params:
-      # 支持的过滤条件（全部可选）
-      fields:
-        - { name: "created_from", type: "datetime" }
-        - { name: "created_to",   type: "datetime" }
-        - { name: "country",      type: "string" }
-        - { name: "region",       type: "string" }
-        - { name: "tags",         type: "string_array" }
-        - { name: "owner_id",     type: "string" }
-      timezone: "UTC"
-      defaults:
-        created_from: null
-        created_to: null
-
-  - use: "customer.count"
-    params:
-      # 这里约定工具能接受已构建好的统一 Filter 对象
-      filters_ref: "{{.steps.query.build_filters.output}}"
-      # 或者（如果你的运行时还没做 steps 引用解析，可以直接把输入原样透传）
-      fallback_filters_from_input: true
-
-overrides:
-  steps:
-    - use: "response.format"
-      params:
-        template: |
-          {
-            "metric": "customer_count",
-            "value": {{ .steps.customer.count.output.total }},
-            "filters_applied": {{ .steps.query.build_filters.output | toJson }}
-          }
+version: "1.0.0"
 
 metadata:
   domain: "crm"
@@ -54,3 +21,22 @@ metadata:
         - "查询用户数量"
         - "查询用户数量"
         - "统计用户数量"
+
+nodes:
+  - id: n1_count
+    use: core.debug.forward
+    kind: biz_logic
+    params:
+      id_ref: "customer-count-demo"
+    io:
+      out_map:
+        id: id
+        timestamp: timestamp
+  - id: n2_fmt
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "metric":"customer_count","value":0,"note":"legacy blueprint migrated to nodes schema" }'
+
+edges:
+  - { from: n1_count, to: n2_fmt, type: SEQ }

@@ -163,7 +163,166 @@ export interface SaveSettingsPayload {
   };
 }
 
+export interface SkillsSourcePolicy {
+  allowlist: string[];
+  effective_source: "tenant" | "default" | string;
+  updated_at?: string;
+}
+
+export interface ContextOptimizerConfig {
+  enabled: boolean;
+  max_prompt_tokens: number;
+  reserved_completion_tokens: number;
+  recent_messages: number;
+  retrieval_top_k: number;
+  cache_mode: "auto" | "force_on" | "force_off" | string;
+  summary_refresh_interval_sec: number;
+  debug_trace_enabled: boolean;
+  planner_enabled: boolean;
+  planner_candidate_top_k: number;
+  planner_prompt_slim_mode: "compact" | "verbose" | string;
+  planner_decision_cache_enabled: boolean;
+  planner_decision_cache_ttl_sec: number;
+  planner_quota_workflow: number;
+  planner_quota_skill: number;
+  planner_quota_tooling: number;
+  planner_quota_llm: number;
+}
+
+export interface ContextOptimizerActiveResponse {
+  env: string;
+  scope: "tenant" | "system" | string;
+  active: {
+    source: "tenant" | "system" | "yaml_default" | string;
+    version: number;
+    scope: "tenant" | "system" | string;
+    config: ContextOptimizerConfig;
+    updated_at?: string;
+  };
+}
+
+export interface ContextOptimizerVersionItem {
+  id: number;
+  uuid: string;
+  env: string;
+  scope: string;
+  tenant_uuid?: string;
+  version: number;
+  status: "draft" | "published" | "archived" | string;
+  config: ContextOptimizerConfig;
+  change_reason?: string;
+  updated_at: string;
+  published_at?: string;
+}
+
 export class AISettingService {
+  static async getSkillsSourcePolicy(): Promise<SkillsSourcePolicy> {
+    const { get } = useApiClient();
+    const response = await get<ApiResponse<SkillsSourcePolicy>>(
+      ApiEndpoints.ADMIN_AGENTS.SKILLS_SOURCE_POLICY
+    );
+    const data: any = response.data || {};
+    return {
+      allowlist: Array.isArray(data.allowlist) ? data.allowlist : [],
+      effective_source: String(data.effective_source || "default"),
+      updated_at: data.updated_at,
+    };
+  }
+
+  static async setSkillsSourcePolicy(
+    allowlist: string[]
+  ): Promise<SkillsSourcePolicy> {
+    const { put } = useApiClient();
+    const response = await put<ApiResponse<SkillsSourcePolicy>>(
+      ApiEndpoints.ADMIN_AGENTS.SKILLS_SOURCE_POLICY,
+      { allowlist }
+    );
+    const data: any = response.data || {};
+    return {
+      allowlist: Array.isArray(data.allowlist) ? data.allowlist : [],
+      effective_source: String(data.effective_source || "tenant"),
+      updated_at: data.updated_at,
+    };
+  }
+
+  static async getContextOptimizerActive(params: {
+    env: string;
+    scope?: "tenant" | "system";
+  }): Promise<ContextOptimizerActiveResponse> {
+    const { get } = useApiClient();
+    const search = new URLSearchParams();
+    search.append("env", params.env);
+    if (params.scope) search.append("scope", params.scope);
+    const response = await get<ApiResponse<ContextOptimizerActiveResponse>>(
+      `${ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_ACTIVE}?${search.toString()}`
+    );
+    return response.data;
+  }
+
+  static async listContextOptimizerVersions(params: {
+    env: string;
+    scope?: "tenant" | "system";
+    limit?: number;
+  }): Promise<{
+    env: string;
+    scope: string;
+    versions: ContextOptimizerVersionItem[];
+  }> {
+    const { get } = useApiClient();
+    const search = new URLSearchParams();
+    search.append("env", params.env);
+    if (params.scope) search.append("scope", params.scope);
+    if (params.limit) search.append("limit", String(params.limit));
+    const response = await get<ApiResponse<{
+      env: string;
+      scope: string;
+      versions: ContextOptimizerVersionItem[];
+    }>>(`${ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_VERSIONS}?${search.toString()}`);
+    return response.data || { env: params.env, scope: params.scope || "tenant", versions: [] };
+  }
+
+  static async saveContextOptimizerDraft(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    config: ContextOptimizerConfig;
+    change_reason?: string;
+  }): Promise<{ draft: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ draft: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_DRAFTS,
+      payload
+    );
+    return response.data;
+  }
+
+  static async publishContextOptimizer(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    version: number;
+    change_reason?: string;
+  }): Promise<{ published: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ published: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_PUBLISH,
+      payload
+    );
+    return response.data;
+  }
+
+  static async rollbackContextOptimizer(payload: {
+    env: string;
+    scope?: "tenant" | "system";
+    target_version: number;
+    change_reason?: string;
+  }): Promise<{ rolled_back: ContextOptimizerVersionItem }> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ rolled_back: ContextOptimizerVersionItem }>>(
+      ApiEndpoints.ADMIN_AGENTS.CONTEXT_OPTIMIZER_ROLLBACK,
+      payload
+    );
+    return response.data;
+  }
+
   /**
    * 获取可用的供应商列表
    */

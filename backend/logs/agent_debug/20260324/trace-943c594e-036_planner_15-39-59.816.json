@@ -1,0 +1,626 @@
+{
+  "candidates": [
+    {
+      "Name": "core.demo.fanin.task_1",
+      "NodeKind": "workflow",
+      "NodeRef": "core.demo.fanin.task_1",
+      "FlowID": "core.demo.fanin.task_1",
+      "AgentID": "agent_system",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "system",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "fan-in/fan-out：task_1",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": null,
+      "Tags": null,
+      "SemanticText": ""
+    },
+    {
+      "Name": "core.demo.fanin.task_2",
+      "NodeKind": "workflow",
+      "NodeRef": "core.demo.fanin.task_2",
+      "FlowID": "core.demo.fanin.task_2",
+      "AgentID": "agent_system",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "system",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "fan-in/fan-out：task_2",
+      "RequiredArgs": [
+        "upstream_id"
+      ],
+      "OptionalArgs": null,
+      "IntentHints": null,
+      "Tags": null,
+      "SemanticText": ""
+    },
+    {
+      "Name": "core.demo.fanin.task_4",
+      "NodeKind": "workflow",
+      "NodeRef": "core.demo.fanin.task_4",
+      "FlowID": "core.demo.fanin.task_4",
+      "AgentID": "agent_system",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "system",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "fan-in/fan-out：task_4",
+      "RequiredArgs": [
+        "upstream_id"
+      ],
+      "OptionalArgs": null,
+      "IntentHints": null,
+      "Tags": null,
+      "SemanticText": ""
+    },
+    {
+      "Name": "core.demo.fanin.task_5",
+      "NodeKind": "workflow",
+      "NodeRef": "core.demo.fanin.task_5",
+      "FlowID": "core.demo.fanin.task_5",
+      "AgentID": "agent_system",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "system",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "fan-in/fan-out：task_5（汇合）",
+      "RequiredArgs": [
+        "upstream_id"
+      ],
+      "OptionalArgs": null,
+      "IntentHints": null,
+      "Tags": null,
+      "SemanticText": ""
+    },
+    {
+      "Name": "skill.thirdparty.hello-echo",
+      "NodeKind": "skill",
+      "NodeRef": "skill.thirdparty.hello-echo",
+      "FlowID": "skill.thirdparty.hello-echo",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "third_party",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "The smallest demo skill package for installation smoke tests.",
+      "RequiredArgs": [],
+      "OptionalArgs": [
+        "text"
+      ],
+      "IntentHints": [
+        "runbook.default"
+      ],
+      "Tags": [
+        "registry",
+        "third_party"
+      ],
+      "SemanticText": "The smallest demo skill package for installation smoke tests."
+    },
+    {
+      "Name": "incident-triage",
+      "NodeKind": "skill",
+      "NodeRef": "incident-triage",
+      "FlowID": "incident-triage",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "plugin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "Analyze incident context and provide structured triage suggestions.",
+      "RequiredArgs": [],
+      "OptionalArgs": [
+        "context",
+        "incident_id"
+      ],
+      "IntentHints": [
+        "runbook.default"
+      ],
+      "Tags": [
+        "registry",
+        "plugin"
+      ],
+      "SemanticText": "Analyze incident context and provide structured triage suggestions."
+    },
+    {
+      "Name": "skill.builtin.1password",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.1password",
+      "FlowID": "skill.builtin.1password",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.camsnap",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.camsnap",
+      "FlowID": "skill.builtin.camsnap",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.coding-agent",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.coding-agent",
+      "FlowID": "skill.builtin.coding-agent",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.discord",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.discord",
+      "FlowID": "skill.builtin.discord",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.gh-issues",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.gh-issues",
+      "FlowID": "skill.builtin.gh-issues",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.github",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.github",
+      "FlowID": "skill.builtin.github",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.healthcheck",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.healthcheck",
+      "FlowID": "skill.builtin.healthcheck",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.model-usage",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.model-usage",
+      "FlowID": "skill.builtin.model-usage",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.nano-pdf",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.nano-pdf",
+      "FlowID": "skill.builtin.nano-pdf",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.notion",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.notion",
+      "FlowID": "skill.builtin.notion",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.obsidian",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.obsidian",
+      "FlowID": "skill.builtin.obsidian",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.openai-image-gen",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.openai-image-gen",
+      "FlowID": "skill.builtin.openai-image-gen",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.openai-whisper",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.openai-whisper",
+      "FlowID": "skill.builtin.openai-whisper",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.session-logs",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.session-logs",
+      "FlowID": "skill.builtin.session-logs",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.slack",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.slack",
+      "FlowID": "skill.builtin.slack",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.summarize",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.summarize",
+      "FlowID": "skill.builtin.summarize",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.tmux",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.tmux",
+      "FlowID": "skill.builtin.tmux",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    },
+    {
+      "Name": "skill.builtin.trello",
+      "NodeKind": "skill",
+      "NodeRef": "skill.builtin.trello",
+      "FlowID": "skill.builtin.trello",
+      "AgentID": "",
+      "SourceScope": "system",
+      "Source": "builtin",
+      "TenantUUID": "",
+      "Visibility": "public",
+      "BindingStatus": "active",
+      "RequiredGrants": null,
+      "Description": "seeded by platform",
+      "RequiredArgs": null,
+      "OptionalArgs": null,
+      "IntentHints": [
+        "default"
+      ],
+      "Tags": [
+        "registry",
+        "builtin"
+      ],
+      "SemanticText": "seeded by platform"
+    }
+  ],
+  "candidates_count": 24,
+  "decision": {
+    "tool_calls": [
+      {
+        "name": "skill.thirdparty.hello-echo",
+        "args": {
+          "text": "INC-1001"
+        },
+        "confidence": 1,
+        "reason": "用户明确要求调用hello-echo技能并传递文本参数"
+      }
+    ]
+  },
+  "error": "",
+  "fallback_reason": "",
+  "input": {
+    "endpoint": "",
+    "model": "qwen3:8b",
+    "provider": "ollama",
+    "text": "请调用 hello-echo，把文本 \"INC-1001\" 原样返回。"
+  },
+  "llm_raw_output": "\u003cthink\u003e\n好的，我现在需要处理用户的请求：“请调用 hello-echo，把文本 'INC-1001' 原样返回。”。首先，我要查看提供的工具清单，找到对应的技能。\n\n在skill_catalog里，有一个名为skill.thirdparty.hello-echo的技能，描述是用于安装烟雾测试的最小演示技能包。这个技能的参数中有可选的text字段，用户明确给出了文本“INC-1001”，所以应该将这个文本作为参数传递。\n\n接下来，我需要确认是否还有其他需要调用的工具。用户只提到了调用hello-echo，没有涉及其他功能或工作流。因此，不需要调用其他工具或工作流。\n\n检查约束条件，必须只使用清单中的name，并且args只能包含该工具声明的参数。这里hello-echo的参数允许text，所以正确传递text参数即可。\n\n最后，确保输出格式正确，只返回JSON，没有解释文本。因此，生成的tool_calls应包含一个调用hello-echo的条目，参数中包含text:\"INC-1001\"。\n\u003c/think\u003e\n\n{\"tool_calls\":[{\"name\":\"skill.thirdparty.hello-echo\",\"args\":{\"text\":\"INC-1001\"},\"confidence\":1.0,\"reason\":\"用户明确要求调用hello-echo技能并传递文本参数\"}]}",
+  "meta": {
+    "created_at": "2026-03-24T15:39:59.816458+08:00",
+    "env": "dev",
+    "request_id": "",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "trace_id": "943c594e-036c-4866-aca8-c1e773f81771"
+  },
+  "planner_cache_hit": false,
+  "planner_cache_key": "agent:planner:decision:fe6dec7e95a908986b8e69b2b2561e385c58a74d",
+  "planner_candidates_after": 24,
+  "planner_candidates_before": 625,
+  "planner_parse_retry_count": 0,
+  "prompt": "你是 Agent Planner 的工具调度器。请根据用户输入，从提供的工具清单中选择 0~4 个要调用的工具。\\n必须只输出 JSON，不要输出解释文本。\\n输出格式: {\"tool_calls\":[{\"name\":\"\u003ccandidate_name\u003e\",\"args\":{...},\"confidence\":0.0-1.0,\"reason\":\"...\"}]}\n约束: 只能使用下方清单中的 name；args 只允许写该工具声明的参数。\\n\\n能力清单（按类型分区 + source_scope）:\\nworkflow_catalog:[\n  {name:\"core.demo.fanin.task_1\", kind:\"workflow\", source_scope:\"system\", ref:\"core.demo.fanin.task_1\", required:[], optional:[], desc:\"fan-in/fan-out：task_1\"}\n  {name:\"core.demo.fanin.task_2\", kind:\"workflow\", source_scope:\"system\", ref:\"core.demo.fanin.task_2\", required:[upstream_id], optional:[], desc:\"fan-in/fan-out：task_2\"}\n  {name:\"core.demo.fanin.task_4\", kind:\"workflow\", source_scope:\"system\", ref:\"core.demo.fanin.task_4\", required:[upstream_id], optional:[], desc:\"fan-in/fan-out：task_4\"}\n  {name:\"core.demo.fanin.task_5\", kind:\"workflow\", source_scope:\"system\", ref:\"core.demo.fanin.task_5\", required:[upstream_id], optional:[], desc:\"fan-in/fan-out：task_5（汇合）\"}\n]\nskill_catalog:[\n  {name:\"skill.thirdparty.hello-echo\", kind:\"skill\", source_scope:\"system\", ref:\"skill.thirdparty.hello-echo\", required:[], optional:[text], desc:\"The smallest demo skill package for installation smoke tests.\"}\n  {name:\"incident-triage\", kind:\"skill\", source_scope:\"system\", ref:\"incident-triage\", required:[], optional:[context incident_id], desc:\"Analyze incident context and provide structured triage suggestions.\"}\n  {name:\"skill.builtin.1password\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.1password\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.camsnap\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.camsnap\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.coding-agent\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.coding-agent\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.discord\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.discord\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.gh-issues\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.gh-issues\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.github\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.github\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.healthcheck\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.healthcheck\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.model-usage\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.model-usage\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.nano-pdf\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.nano-pdf\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.notion\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.notion\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.obsidian\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.obsidian\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.openai-image-gen\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.openai-image-gen\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.openai-whisper\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.openai-whisper\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.session-logs\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.session-logs\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.slack\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.slack\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.summarize\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.summarize\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.tmux\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.tmux\", required:[], optional:[], desc:\"seeded by platform\"}\n  {name:\"skill.builtin.trello\", kind:\"skill\", source_scope:\"system\", ref:\"skill.builtin.trello\", required:[], optional:[], desc:\"seeded by platform\"}\n]\n\\n字段说明: source_scope=system|agent，ref 为节点引用标识。\\n若无合适候选，输出 tool_calls=[]。\\n只在必要时选择多个调用，避免冗余。\\n\\n用户输入:\\n请调用 hello-echo，把文本 \"INC-1001\" 原样返回。",
+  "prompt_slim_mode": "compact",
+  "result_source": "tool_calling",
+  "tasks": [
+    {
+      "flow_id": "skill.thirdparty.hello-echo",
+      "agent_id": "",
+      "score": 1,
+      "strategy": "tool_calling:skill",
+      "reason": "用户明确要求调用hello-echo技能并传递文本参数",
+      "params": {
+        "_candidate_desc": "The smallest demo skill package for installation smoke tests.",
+        "_candidate_name": "skill.thirdparty.hello-echo",
+        "_node_kind": "skill",
+        "_node_ref": "skill.thirdparty.hello-echo",
+        "_source_scope": "system",
+        "text": "INC-1001"
+      },
+      "task_id": "tc1"
+    }
+  ]
+}

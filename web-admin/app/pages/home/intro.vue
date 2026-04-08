@@ -13,6 +13,9 @@ const { t } = useI18n();
 // 用户状态管理
 const userStore = useUserStore();
 const { getToken } = useAuth();
+const canAccessSettings = computed(
+  () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
+);
 
 // 用户信息计算属性
 const userName = computed(() => {
@@ -387,6 +390,7 @@ onUnmounted(() => {
                       {{ $t("header.profile") }}
                     </NuxtLink>
                     <NuxtLink
+                      v-if="canAccessSettings"
                       :to="$localePath('/settings')"
                       class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       @click="showUserMenu = false"

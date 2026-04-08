@@ -234,6 +234,42 @@ paths:
           description: Capability version mismatch (manual upgrade pending)
         '429':
           description: Rate limit exceeded
+  /tenant/invocations/stream:
+    post:
+      summary: Invoke capability via Integration Gateway and stream SSE (Tenant API)
+      tags: [IntegrationGatewayTenant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapabilityInvokeRequest'
+      responses:
+        '200':
+          description: SSE passthrough stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    event: start
+                    data: {"traceId":"...","model_key":"openai/gpt-4o-mini"}
+
+                    event: delta
+                    data: {"delta":"partial...","index":0,"traceId":"..."}
+
+                    event: done
+                    data: {"ok":true,"text":"full output","finish_reason":"stop","traceId":"..."}
+        '400':
+          description: Bad request
+        '403':
+          description: Forbidden
+        '429':
+          description: Rate limit exceeded
+        '502':
+          description: Upstream is not SSE or upstream gateway error
   /tenant/invocations/{traceId}:
     get:
       summary: Fetch invocation status by trace id

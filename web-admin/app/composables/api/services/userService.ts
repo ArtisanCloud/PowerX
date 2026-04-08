@@ -17,6 +17,7 @@ export interface User {
   display_name: string;
   avatar_url?: string;
   status: number;
+  is_root?: boolean;
   meta?: any;
 }
 
@@ -62,6 +63,7 @@ export interface CreateSystemUserParams {
   username: string;
   initial_password?: string;
   dept_ids?: number[];
+  role_ids?: number[];
 }
 
 export interface UpdateUserParams {
@@ -80,7 +82,15 @@ export interface ForceLogoutParams {
   jti?: string;
 }
 
+export interface ResetPasswordParams {
+  new_password: string;
+}
+
 export interface AddUserToTenantParams {
+}
+
+export interface SetUserRolesParams {
+  role_ids: number[];
 }
 
 export interface UserLoginParams {
@@ -179,6 +189,38 @@ export const useUserService = () => {
     forceLogout: (id: number, data: ForceLogoutParams) => {
       return apiClient.post<ApiResponse<{ ok: boolean }>>(
         `${baseUrl}/${id}/force-logout`,
+        data
+      );
+    },
+
+    /**
+     * 管理员重置用户密码
+     * PUT /api/admin/system/users/:id/password
+     */
+    resetUserPassword: (id: number, data: ResetPasswordParams) => {
+      return apiClient.put<ApiResponse<{ ok: boolean }>>(
+        `${baseUrl}/${id}/password`,
+        data
+      );
+    },
+
+    /**
+     * 获取用户在当前租户下的角色 ID 列表
+     * GET /api/admin/system/users/:id/roles
+     */
+    getUserRoles: (id: number) => {
+      return apiClient.get<ApiResponse<{ role_ids: number[] }>>(
+        `${baseUrl}/${id}/roles`
+      );
+    },
+
+    /**
+     * 设置用户在当前租户下的角色
+     * PUT /api/admin/system/users/:id/roles
+     */
+    setUserRoles: (id: number, data: SetUserRolesParams) => {
+      return apiClient.put<ApiResponse<{ ok: boolean }>>(
+        `${baseUrl}/${id}/roles`,
         data
       );
     },

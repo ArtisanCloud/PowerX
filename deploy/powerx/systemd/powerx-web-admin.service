@@ -1,0 +1,17 @@
+[Unit]
+Description=PowerX Web Admin Service
+After=powerx-backend.service
+Requires=powerx-backend.service
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+WorkingDirectory=/
+EnvironmentFile=-/etc/powerx/powerx.env
+ExecStart=/bin/sh -c 'ROOT=${POWERX_RUNTIME_ROOT:-/etc/powerx}; CFG=${POWERX_CONFIG:-$${ROOT}/config.yaml}; [ -f "$$CFG" ] || CFG=${POWERX_LINKS_ROOT:-/opt/powerx}/backend/etc/config.yaml; BPORT=$$(awk "/^[[:space:]]*server:[[:space:]]*/{in_server=1; next} in_server && /^[[:space:]]*port:[[:space:]]*[0-9]+/{print; exit} in_server && /^[^[:space:]]/{in_server=0}" "$$CFG" | tr -cd "0-9"); WPORT=$$(awk "/^[[:space:]]*web_admin_port:[[:space:]]*[0-9]+/{print; exit}" "$$CFG" | tr -cd "0-9"); [ -z "$$BPORT" ] && BPORT=8080; [ -z "$$WPORT" ] && WPORT=3000; export POWERX_BACKEND=http://127.0.0.1:$$BPORT; export WS_UPSTREAM=ws://127.0.0.1:$$BPORT/api/ws; PORT=$$WPORT exec "${NODE_BIN:-/usr/bin/node}" ${POWERX_LINKS_ROOT:-/opt/powerx}/web-admin/.output/server/index.mjs'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

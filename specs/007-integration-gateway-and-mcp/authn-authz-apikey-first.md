@@ -94,3 +94,24 @@ API Key 与 JWT 最终都收敛到同一 `AuthContext`：
 3. 租户管理员可在 UI 完成 `api_key_profile` 与 key 全生命周期管理。
 4. 审计可按 `api_key_id`、`tenant_uuid`、`trace_id` 检索。
 5. Host（JWT）/Standalone（API Key）两种插件模式都能跑通联调。
+
+## 11. Web Admin 用户管理视图与交互约束（补充）
+
+### 11.1 角色与权限边界
+
+- `root`：平台超管，可跨租户管理用户与角色。
+- `tenant admin`：租户管理员（非 root），仅可管理本租户用户与角色。
+- `tenant member`：普通成员，仅查看或受限操作，不可执行租户级用户管理。
+
+### 11.2 `/settings/users` 交互语义（强约束）
+
+- 点击租户行：仅进入该租户“详情/用户列表”视图。
+- 切换租户上下文：必须通过独立按钮触发（如“切到该租户”）。
+- 跳转 Dashboard：必须通过独立按钮触发（如“进入仪表盘”）。
+- 禁止“点击租户行后隐式切上下文并自动跳转 dashboard”。
+
+### 11.3 状态一致性（强约束）
+
+- 进入 `/settings/users` 时，前端必须强制刷新一次 `me/context`，不得依赖长缓存导致视图分流错误。
+- 视图分流（root/admin/member）必须仅由最新 `me/context` 决定。
+- 若上下文与本地缓存冲突，以服务端 `me/context` 为准并回写本地状态。

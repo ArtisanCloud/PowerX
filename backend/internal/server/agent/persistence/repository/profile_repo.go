@@ -54,6 +54,9 @@ func (r *AIModelProfileRepository) UpsertByScopeModalityProviderModel(
 				{Name: "env"},
 				{Name: "modality"}, {Name: "provider"}, {Name: "model"},
 			},
+			TargetWhere: clause.Where{
+				Exprs: []clause.Expression{clause.Expr{SQL: "tenant_uuid IS NULL"}},
+			},
 			DoUpdates: assign,
 		}
 	}

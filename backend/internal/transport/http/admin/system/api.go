@@ -11,6 +11,17 @@ import (
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
 	hUser := NewUserHandler(deps)
+	hSetup := NewSetupHandler(deps.DB)
+	publicGroup.GET("/admin/setup/status", hSetup.Status)
+	publicGroup.GET("/admin/setup/config", hSetup.GetConfig)
+	publicGroup.PUT("/admin/setup/config", hSetup.SaveConfig)
+	publicGroup.POST("/admin/setup/provision", hSetup.Provision)
+	publicGroup.POST("/admin/setup/complete", hSetup.Complete)
+	publicGroup.POST("/admin/setup/test/database", hSetup.TestDatabaseConnection)
+	publicGroup.POST("/admin/setup/test/cache", hSetup.TestCacheConnection)
+	publicGroup.POST("/admin/setup/llm/test-connection", hSetup.TestLLMConnection)
+	publicGroup.POST("/admin/setup/llm/test-call", hSetup.TestLLMQuickCall)
+
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()
 	gSys.Use(middleware.JwtMiddleware(
@@ -36,6 +47,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gSysUsers.PATCH("/:id/add-to-tenant", hUser.AddToTenant)
 		gSysUsers.PATCH("/:id", hUser.Update)
 		gSysUsers.PUT("/:id/status", hUser.SetStatus)
+		gSysUsers.PUT("/:id/password", hUser.ResetPassword)
+		gSysUsers.GET("/:id/roles", hUser.ListRoles)
+		gSysUsers.PUT("/:id/roles", hUser.SetRoles)
 		gSysUsers.DELETE("/:id", hUser.Delete)
 		gSysUsers.PUT("/:id/restore", hUser.Restore)
 		gSysUsers.POST("/:id/force-logout", hUser.ForceLogout)

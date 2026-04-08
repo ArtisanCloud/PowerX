@@ -165,6 +165,93 @@ export interface CacheSettings {
   memcachedPort?: number;
 }
 
+export interface SetupConfig {
+  domain: {
+    domain: string;
+    api_subdomain?: string;
+    enable_cdn?: boolean;
+    cdn_domain?: string;
+  };
+  https: {
+    mode: "auto" | "manual" | "disable";
+    cert_email?: string;
+    cert_content?: string;
+    key_content?: string;
+  };
+  storage: {
+    type: "local" | "s3" | "minio" | "oss" | "cos" | string;
+    local_path?: string;
+    access_key?: string;
+    secret_key?: string;
+    bucket?: string;
+    region?: string;
+    endpoint?: string;
+    public_url?: string;
+  };
+  cache: {
+    type: "redis" | "memcached" | "file" | string;
+    redis_host?: string;
+    redis_port?: number;
+    redis_db?: number;
+  };
+  email: {
+    enabled: boolean;
+    smtp_host?: string;
+    smtp_port?: number;
+    from_name?: string;
+    from_address?: string;
+  };
+  llm?: {
+    enabled?: boolean;
+    provider?: string;
+    model?: string;
+    base_url?: string;
+    api_key?: string;
+    temperature?: number;
+    top_p?: number;
+    max_tokens?: number;
+    stream?: boolean;
+  };
+  database?: {
+    type?: "mysql" | "postgresql" | "sqlite" | string;
+    host?: string;
+    port?: number;
+    name?: string;
+    username?: string;
+    password?: string;
+    charset?: string;
+    ssl_mode?: string;
+    sqlite_path?: string;
+  };
+  ports?: {
+    backend_port?: number;
+    web_admin_port?: number;
+  };
+}
+
+export interface SetupPortStatus {
+  backend_port?: number;
+  web_admin_port?: number;
+}
+
+export interface SetupStatus {
+  configured?: boolean;
+  install_status?: string;
+  version?: string;
+  desired_ports?: SetupPortStatus;
+  effective_ports?: SetupPortStatus;
+  restart_required?: boolean;
+  config_source?: {
+    desired_ports?: string;
+    effective_ports?: string;
+  };
+  checks?: {
+    users?: number;
+    tenants?: number;
+    ai_profiles?: number;
+  };
+}
+
 /**
  * 设置服务 API
  */
@@ -369,6 +456,27 @@ export const useSettingsService = () => {
       return apiClient.post<ApiResponse<{ success: boolean; message: string }>>(
         `${baseUrl}/reset`,
         { section }
+      );
+    },
+
+    getSetupConfig: () => {
+      return apiClient.get<ApiResponse<{ config: SetupConfig }>>(
+        "/admin/setup/config",
+        { skipAuth: true }
+      );
+    },
+
+    getSetupStatus: () => {
+      return apiClient.get<ApiResponse<SetupStatus>>("/admin/setup/status", {
+        skipAuth: true,
+      });
+    },
+
+    saveSetupConfig: (config: SetupConfig) => {
+      return apiClient.put<ApiResponse<{ ok: boolean; config: SetupConfig }>>(
+        "/admin/setup/config",
+        config,
+        { skipAuth: true }
       );
     },
   };

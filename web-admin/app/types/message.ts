@@ -17,6 +17,8 @@ export const SSE_EVENT_TYPES = {
   START: "start",
   INTENT: "intent",
   PLAN: "plan",
+  NODE_START: "node_start",
+  NODE_END: "node_end",
   TOKEN: "token",
   DATA: "data",
   ACTION: "action",

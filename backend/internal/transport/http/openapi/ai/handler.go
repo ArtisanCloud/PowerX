@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,20 +18,45 @@ import (
 )
 
 type aiHandler struct {
-	svc      *aisvc.Service
-	sessions *llmSessionStore
+	svc             aiService
+	sessions        *llmSessionStore
+	aiInvokeTimeout time.Duration
+}
+
+type aiService interface {
+	LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error)
+	LLMStream(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
+	ListLLMModels(ctx context.Context, env string, tenantUUID string, provider string) ([]aisvc.LLMModelItem, error)
+	ResolveTenantEnv(ctx context.Context, tenantUUID string) (string, bool, error)
+	EmbeddingInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []string, params map[string]interface{}) ([][]float32, error)
+	ImageInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (map[string]interface{}, error)
+	VLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (map[string]interface{}, error)
+	VideoInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (map[string]interface{}, error)
+	TTSInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (map[string]interface{}, error)
 }
 
 type contentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	URL  string `json:"url"`
+	Role    string `json:"role"`
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	URL     string `json:"url"`
 }
 
 type llmInvokeRequest struct {
 	ModelKey string                 `json:"model_key"`
 	Inputs   []contentItem          `json:"inputs"`
 	Params   map[string]interface{} `json:"params"`
+}
+
+type llmStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
+}
+
+type llmStreamRequest struct {
+	ModelKey      string                 `json:"model_key"`
+	Inputs        []contentItem          `json:"inputs"`
+	Params        map[string]interface{} `json:"params"`
+	StreamOptions llmStreamOptions       `json:"stream_options"`
 }
 
 type modalInvokeRequest struct {
@@ -41,6 +67,7 @@ type modalInvokeRequest struct {
 
 type llmInvokeResponse struct {
 	Output map[string]interface{} `json:"output"`
+	Meta   map[string]interface{} `json:"meta,omitempty"`
 	Usage  map[string]interface{} `json:"usage,omitempty"`
 }
 
@@ -91,9 +118,14 @@ func newSessionStore() *llmSessionStore {
 }
 
 func newAIHandler(deps *shared.Deps) *aiHandler {
+	timeout := 5 * time.Minute
+	if deps != nil && deps.CapabilityAIMultimodalHTTPTimeout > 0 {
+		timeout = deps.CapabilityAIMultimodalHTTPTimeout
+	}
 	return &aiHandler{
-		svc:      aisvc.NewService(deps.DB),
-		sessions: newSessionStore(),
+		svc:             aisvc.NewService(deps.DB),
+		sessions:        newSessionStore(),
+		aiInvokeTimeout: timeout,
 	}
 }
 
@@ -123,19 +155,103 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		return
 	}
 
-	out, err := h.svc.LLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.LLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
+	}
+	if out == nil {
+		out = &aisvc.LLMInvokeResult{}
 	}
 
 	resp := llmInvokeResponse{
 		Output: map[string]interface{}{
 			"type": "text",
-			"text": out,
+			"text": out.Text,
 		},
 	}
+	if strings.TrimSpace(out.FinishReason) != "" {
+		resp.Meta = map[string]interface{}{
+			"finish_reason": out.FinishReason,
+		}
+	}
+	if len(out.Usage) > 0 {
+		resp.Usage = map[string]interface{}{}
+		for k, v := range out.Usage {
+			resp.Usage[k] = v
+		}
+	}
 	dto.ResponseSuccess(c, resp)
+}
+
+func (h *aiHandler) llmStream(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
+		return
+	}
+	env, err := pickEnv(c, tenantUUID, h.svc)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	var req llmStreamRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	streamLLM(c, llmStreamMeta{
+		TraceID:      uuid.NewString(),
+		ModelKey:     strings.TrimSpace(req.ModelKey),
+		IncludeUsage: req.StreamOptions.IncludeUsage,
+	}, func(onDelta func(string)) (string, error) {
+		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+		defer cancel()
+		return h.svc.LLMStream(
+			ctx,
+			env,
+			tenantUUID,
+			req.ModelKey,
+			toServiceItems(req.Inputs),
+			req.Params,
+			onDelta,
+		)
+	})
+}
+
+func (h *aiHandler) llmModelsList(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
+		return
+	}
+	env, err := pickEnv(c, tenantUUID, h.svc)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	provider := strings.TrimSpace(c.Query("provider"))
+	items, err := h.svc.ListLLMModels(c.Request.Context(), env, tenantUUID, provider)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadGateway, "failed to load llm model list", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"env":   env,
+		"items": items,
+	})
 }
 
 func (h *aiHandler) llmSessionCreate(c *gin.Context) {
@@ -246,20 +362,23 @@ func (h *aiHandler) llmSessionStream(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "session empty", nil)
 		return
 	}
-	out, err := h.svc.LLMInvoke(
-		c.Request.Context(),
-		env,
-		tenantUUID,
-		sess.ModelKey,
-		[]aisvc.ContentItem{{Type: "text", Text: prompt}},
-		nil,
-	)
-	if err != nil {
-		respondAIError(c, err)
-		return
-	}
-
-	streamSSE(c, sessionID, out)
+	streamLLM(c, llmStreamMeta{
+		TraceID:   uuid.NewString(),
+		ModelKey:  sess.ModelKey,
+		SessionID: sessionID,
+	}, func(onDelta func(string)) (string, error) {
+		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+		defer cancel()
+		return h.svc.LLMStream(
+			ctx,
+			env,
+			tenantUUID,
+			sess.ModelKey,
+			[]aisvc.ContentItem{{Type: "text", Content: prompt}},
+			nil,
+			onDelta,
+		)
+	})
 }
 
 func (h *aiHandler) embeddingInvoke(c *gin.Context) {
@@ -283,7 +402,9 @@ func (h *aiHandler) embeddingInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	vecs, err := h.svc.EmbeddingInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, req.Inputs, req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	vecs, err := h.svc.EmbeddingInvoke(ctx, env, tenantUUID, req.ModelKey, req.Inputs, req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -311,7 +432,9 @@ func (h *aiHandler) imageInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.ImageInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.ImageInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -339,7 +462,9 @@ func (h *aiHandler) vlmInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.VLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.VLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -367,7 +492,9 @@ func (h *aiHandler) videoInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.VideoInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.VideoInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -395,7 +522,9 @@ func (h *aiHandler) ttsInvoke(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	out, err := h.svc.TTSInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
+	defer cancel()
+	out, err := h.svc.TTSInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -403,28 +532,85 @@ func (h *aiHandler) ttsInvoke(c *gin.Context) {
 	dto.ResponseSuccess(c, out)
 }
 
-func streamSSE(c *gin.Context, sessionID, text string) {
-	c.Header("Content-Type", "text/event-stream")
+type llmStreamMeta struct {
+	TraceID      string
+	ModelKey     string
+	SessionID    string
+	IncludeUsage bool
+}
+
+func streamLLM(c *gin.Context, meta llmStreamMeta, invoke func(onDelta func(string)) (string, error)) {
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
 	c.Status(http.StatusOK)
 
-	writeSSE(c, "start", `{"session_id":"`+sessionID+`"}`)
-	writeSSE(c, "token", `{"text":`+jsonString(text)+`}`)
-	writeSSE(c, "final", `{"message":`+jsonString(text)+`}`)
-	writeSSE(c, "end", `{"ok":true}`)
+	start := map[string]interface{}{
+		"traceId":   meta.TraceID,
+		"model_key": meta.ModelKey,
+	}
+	if meta.SessionID != "" {
+		start["session_id"] = meta.SessionID
+	}
+	if err := writeSSEJSON(c, "start", start); err != nil {
+		return
+	}
+
+	index := 0
+	final, err := invoke(func(delta string) {
+		_ = writeSSEJSON(c, "delta", map[string]interface{}{
+			"delta":   delta,
+			"index":   index,
+			"traceId": meta.TraceID,
+		})
+		index++
+	})
+	if err != nil {
+		_ = writeSSEJSON(c, "error", map[string]interface{}{
+			"code":    "upstream_error",
+			"message": err.Error(),
+			"traceId": meta.TraceID,
+		})
+		return
+	}
+
+	if meta.IncludeUsage {
+		_ = writeSSEJSON(c, "usage", map[string]interface{}{
+			"traceId": meta.TraceID,
+		})
+	}
+	_ = writeSSEJSON(c, "done", map[string]interface{}{
+		"ok":            true,
+		"text":          final,
+		"finish_reason": "stop",
+		"traceId":       meta.TraceID,
+	})
 }
 
 func writeSSE(c *gin.Context, event, data string) {
+	_ = writeSSEPayload(c, event, data)
+}
+
+func writeSSEJSON(c *gin.Context, event string, v interface{}) error {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return writeSSEPayload(c, event, string(raw))
+}
+
+func writeSSEPayload(c *gin.Context, event, data string) error {
 	if _, err := c.Writer.WriteString("event: " + event + "\n"); err != nil {
-		return
+		return err
 	}
 	if _, err := c.Writer.WriteString("data: " + data + "\n\n"); err != nil {
-		return
+		return err
 	}
 	if f, ok := c.Writer.(http.Flusher); ok {
 		f.Flush()
 	}
+	return nil
 }
 
 func jsonString(v string) string {
@@ -435,8 +621,10 @@ func jsonString(v string) string {
 func buildPrompt(items []contentItem) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Type), "text") && strings.TrimSpace(item.Text) != "" {
-			parts = append(parts, strings.TrimSpace(item.Text))
+		if strings.EqualFold(strings.TrimSpace(item.Type), "text") {
+			if txt := strings.TrimSpace(item.Content); txt != "" {
+				parts = append(parts, txt)
+			}
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -464,12 +652,20 @@ func toServiceItems(items []contentItem) []aisvc.ContentItem {
 	out := make([]aisvc.ContentItem, 0, len(items))
 	for _, item := range items {
 		out = append(out, aisvc.ContentItem{
-			Type: item.Type,
-			Text: item.Text,
-			URL:  item.URL,
+			Role:    item.Role,
+			Type:    item.Type,
+			Content: strings.TrimSpace(item.Content),
+			URL:     item.URL,
 		})
 	}
 	return out
+}
+
+func (h *aiHandler) withAIInvokeTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if h == nil || h.aiInvokeTimeout <= 0 {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, h.aiInvokeTimeout)
 }
 
 func respondAIError(c *gin.Context, err error) {
@@ -482,7 +678,7 @@ func respondAIError(c *gin.Context, err error) {
 	case aisvc.ErrModelNotConfigured:
 		dto.ResponseError(c, http.StatusBadRequest, "model not configured for tenant", err)
 	case aisvc.ErrPromptRequired:
-		dto.ResponseError(c, http.StatusBadRequest, "inputs must include text", err)
+		dto.ResponseError(c, http.StatusBadRequest, "inputs must include text/content", err)
 	case aisvc.ErrProviderUnsupported:
 		dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{
 			"status": "accepted",
@@ -493,7 +689,11 @@ func respondAIError(c *gin.Context, err error) {
 	}
 }
 
-func pickEnv(c *gin.Context, tenantUUID string, svc *aisvc.Service) (string, error) {
+type envResolver interface {
+	ResolveTenantEnv(ctx context.Context, tenantUUID string) (string, bool, error)
+}
+
+func pickEnv(c *gin.Context, tenantUUID string, svc envResolver) (string, error) {
 	if c == nil {
 		return "", errors.New("env missing")
 	}

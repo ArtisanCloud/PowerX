@@ -39,7 +39,7 @@
 
 ### 2.2 后端接口（Admin）
 
-统一前缀：Web Admin 侧以 `runtimeConfig.public.apiBase` 为准（见 `web-admin/nuxt.config.ts`；默认 `/api/v1`，可通过 `NUXT_PUBLIC_API_BASE` 或 `UPSTREAM` path 推断/覆盖）。本文下文用 `<apiBase>` 代表该前缀。
+统一前缀：Web Admin 侧以 `runtimeConfig.public.apiBase` 为准（见 `web-admin/nuxt.config.ts`；默认 `/api/v1`，可通过 `NUXT_PUBLIC_API_BASE` 或 `POWERX_BACKEND` path 推断/覆盖）。本文下文用 `<apiBase>` 代表该前缀。
 
 - 列表：`GET <apiBase>/admin/media/assets`
 - 创建：`POST <apiBase>/admin/media/assets`
@@ -106,7 +106,7 @@ UI 第一阶段建议 **默认走鉴权资源接口**（`<apiBase>/admin/.../res
   - 复制下载链接（推荐）：通过 `presign(action=download)` 获取可直接访问的 URL（外链/S3 为带签名 URL；local 驱动通常返回 `/media/:uuid/resource`）。
   - 复制鉴权链接（调试用）：`<apiBase>/admin/media/assets/:uuid/resource`，需要带 `Authorization/JWT claims（tid/tenant_uuid）`。
 
-> 本地开发常见坑：`presign(action=download)` 在 local 驱动下返回的 `/media/:uuid/resource` 是 **后端服务**的相对路径；若 Web Admin 与后端不在同一域（例如 3030 ↔ 8077），需要用后端 `UPSTREAM` 的 origin 去拼接，否则会在前端站点上 404。
+> 本地开发常见坑：`presign(action=download)` 在 local 驱动下返回的 `/media/:uuid/resource` 是 **后端服务**的相对路径；若 Web Admin 与后端不在同一域（例如 3030 ↔ 8077），需要用后端 `POWERX_BACKEND` 的 origin 去拼接，否则会在前端站点上 404。
 - 下载（`disposition=attachment`）
 - 改状态（按状态机约束）
 - 删除（软删）

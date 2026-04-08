@@ -89,7 +89,7 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [x] **T037 [P]** 文档：更新 `docs/plan/AI_engineering/multi_plugin_capability_guide.md` 与 `specs/007.../quickstart.md` 的 CLI 例子，新增“缓存刷新”“模板升级”章节。
+- [x] **T037 [P]** 文档：更新 `docs/plan/ai_engineering/multi_plugin_capability_guide.md` 与 `specs/007.../quickstart.md` 的 CLI 例子，新增“缓存刷新”“模板升级”章节。
 - [x] **T038 [P]** CI & Scripts：实现 `scripts/capability_registry/verify.sh`，串联 quickstart 步骤 1-4 并在 CI 执行。
 - [x] **T039** 性能与容错：编写负载测试脚本（`tests/integration/capability_registry/load/`) 验证 5k+ 调用、Redis 缓存击穿保护，并对 Selector fallback 做 chaos 测试。
 - [x] **T040** 最终 QA：运行 prometheus/otel 验证、检查事件补偿逻辑、审阅日志格式，更新 `AGENTS.md` 及 README 片段。
@@ -193,6 +193,27 @@
 
 - [ ] **T093 [P][FR-025~FR-028]** 鉴权回归测试：覆盖 db-refresh、租户迁移、成员禁用、密码重置等场景，验证旧 token 被拒绝。
 - [ ] **T094 [P][FR-026]** 性能回归：在高并发下验证 auth cache 命中率与 DB fallback 比例，确保请求延迟和 DB 负载可控。
+
+## Phase 13: 用户管理页权限与交互语义收敛（/settings/users）
+
+**目标**：修复并冻结 root/admin/member 视图分流与租户交互语义，避免“行点击隐式跳转/状态错位”。
+
+### Contracts / Design
+
+- [ ] **T095 [P]** 文档对齐：将 `authn-authz-apikey-first.md` 中“11. Web Admin 用户管理视图与交互约束”同步到前端页面说明与评审清单。
+
+### Implementation
+
+- [ ] **T096** 用户管理交互拆分：`web-admin/app/components/settings/users/UsersRoot.vue` 将“行点击=详情”与“切换租户上下文/进入 dashboard”分离为独立动作入口。
+- [ ] **T097** 禁止隐式跳转：移除租户切换链路中的自动 `navigateTo('/dashboard')` 副作用，确保切换仅更新上下文。
+- [ ] **T098** 上下文强一致：进入 `web-admin/app/components/settings/users/UsersShell.vue` 时强制刷新 `me/context`，避免 5 分钟缓存导致 root 被错误分流到 member 视图。
+- [ ] **T099** WS 连接门禁：`web-admin/app/composables/useWSBus.ts` 仅在“有效 tenant_uuid + 存在订阅”时连接/重连，避免无租户上下文时出现重试上限噪音。
+
+### Tests
+
+- [ ] **T100 [P]** 前端交互回归：覆盖 root、tenant admin、member 三种身份，验证 `/settings/users` 分流正确且行点击不跳 dashboard。
+- [ ] **T101 [P]** 状态一致性回归：模拟上下文缓存过期/跨标签页切换，验证 `me/context` 强制刷新后视图正确。
+- [ ] **T102** 通知链路回归：验证无效 tenant_uuid 场景下不再弹“WebSocket 重试已达上限”。
 
 ## Dependencies & Parallel Execution
 

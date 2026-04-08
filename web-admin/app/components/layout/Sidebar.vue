@@ -6,6 +6,7 @@ import {
   type MenuCategory,
   type UserMenusResult,
 } from "~/composables/api/services/menuService";
+import { useSettingsService } from "~/composables/api/services/settingsService";
 import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
@@ -14,9 +15,11 @@ import { LOGO_M_URL } from "~/utils/assets";
 /* ---------- stores / utils ---------- */
 const route = useRoute();
 const menuService = useMenuService();
+const settingsService = useSettingsService();
 const userStore = useUserStore();
 const { t, te, locale } = useI18n({ useScope: "global" });
 const localePath = useLocalePath() as (p: string) => string;
+const appVersion = useState<string>("app-runtime-version", () => "");
 
 /* ========== 折叠与密度 ========== */
 const collapsed = useState<boolean>("sidebar-collapsed", () => false);
@@ -152,6 +155,24 @@ const {
   watch: [locale],
 });
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+
+const loadRuntimeVersion = async () => {
+  try {
+    const resp: any = await settingsService.getSetupStatus();
+    const payload = resp?.data ?? resp;
+    const version = String(payload?.version || "").trim();
+    if (version) {
+      appVersion.value = version;
+    }
+  } catch {
+    // 不阻断主流程：版本号仅用于展示
+  }
+};
+onMounted(() => {
+  if (!appVersion.value) {
+    void loadRuntimeVersion();
+  }
+});
 
 /* ---------- 子级排序（顶层不排序） ---------- */
 const sortChildren = (a: MenuItem, b: MenuItem) => {
@@ -541,12 +562,22 @@ function onTreeKeydown(e: KeyboardEvent) {
     >
       <NuxtLink :to="$localePath('/')" class="flex items-center space-x-2 px-2">
         <img :src="LOGO_M_URL" alt="Logo" class="w-8 h-8 rounded-lg" />
-        <span
-          v-if="!collapsed"
-          class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-        >
-          PowerX
-        </span>
+        <div v-if="!collapsed" class="flex items-center gap-2 min-w-0">
+          <span
+            class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate"
+          >
+            PowerX
+          </span>
+          <UBadge
+            v-if="appVersion"
+            size="xs"
+            color="neutral"
+            variant="soft"
+            class="shrink-0"
+          >
+            {{ appVersion }}
+          </UBadge>
+        </div>
       </NuxtLink>
       <button
         class="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 transition-colors"

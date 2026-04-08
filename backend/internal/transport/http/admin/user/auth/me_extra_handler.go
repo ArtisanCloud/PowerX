@@ -30,6 +30,18 @@ type switchTenantReq struct {
 	TenantUUID string `json:"tenant_uuid"`
 }
 
+type updateMyProfileReq struct {
+	DisplayName *string `json:"display_name"`
+	Email       *string `json:"email"`
+	Phone       *string `json:"phone"`
+	AvatarURL   *string `json:"avatar_url"`
+}
+
+type changeMyPasswordReq struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=6,max=64"`
+	NewPassword     string `json:"new_password" validate:"required,min=6,max=64"`
+}
+
 // POST /api/v1/admin/user/auth/me/switch-tenant
 func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 	var req switchTenantReq
@@ -43,6 +55,11 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", nil)
 		return
 	}
+	canonicalTarget, err := reqctx.CanonicalTenantUUID(target)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		return
+	}
 
 	// 先用当前 ctx 拉一份 members，校验用户确实属于该租户（避免 root 误切到不存在成员的租户导致 member_id 语义混乱）
 	baseCtx := c.Request.Context()
@@ -54,18 +71,30 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 
 	allowed := false
 	for _, m := range meCtx.Members {
-		if strings.EqualFold(strings.TrimSpace(m.TenantUUID), target) {
+		if strings.EqualFold(strings.TrimSpace(m.TenantUUID), canonicalTarget) {
 			allowed = true
 			break
 		}
 	}
-	if !allowed {
+	isRoot := reqctx.IsRoot(baseCtx) || meCtx.IsRoot
+	if !allowed && !isRoot {
 		dto.ResponseError(c, http.StatusForbidden, "no membership in tenant", nil)
 		return
 	}
+	if !allowed && isRoot {
+		exists, err := h.me.TenantExists(baseCtx, canonicalTarget)
+		if err != nil {
+			dto.ResponseError(c, http.StatusInternalServerError, "tenant validation failed", err)
+			return
+		}
+		if !exists {
+			dto.ResponseError(c, http.StatusNotFound, "tenant not found", nil)
+			return
+		}
+	}
 
 	// 用目标 tenantUUID 重建一个“视图上下文”，让后续依赖 reqctx.GetTenantUUID 的逻辑对齐
-	nextCtx := reqctx.WithTenantUUID(baseCtx, target)
+	nextCtx := reqctx.WithTenantUUID(baseCtx, canonicalTarget)
 	c.Request = c.Request.WithContext(nextCtx)
 
 	resp, err := h.me.GetMeContext(nextCtx)
@@ -126,4 +155,43 @@ func (h *MeExtraHandler) ListDepartments(c *gin.Context) {
 	}
 	walk(tree)
 	dto.ResponseSuccess(c, out)
+}
+
+// PUT /api/v1/admin/user/auth/me/profile
+func (h *MeExtraHandler) UpdateProfile(c *gin.Context) {
+	var req updateMyProfileReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	profile, err := h.me.UpdateMyProfile(c.Request.Context(), authsvc.UpdateMyProfileInput{
+		DisplayName: req.DisplayName,
+		Email:       req.Email,
+		Phone:       req.Phone,
+		AvatarURL:   req.AvatarURL,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, profile)
+}
+
+// PUT /api/v1/admin/user/auth/me/password
+func (h *MeExtraHandler) ChangePassword(c *gin.Context) {
+	var req changeMyPasswordReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	if strings.TrimSpace(req.CurrentPassword) == strings.TrimSpace(req.NewPassword) {
+		dto.ResponseError(c, http.StatusBadRequest, "新密码不能与当前密码相同", nil)
+		return
+	}
+	if err := h.me.ChangeMyPassword(c.Request.Context(), req.CurrentPassword, req.NewPassword); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ok": true})
 }

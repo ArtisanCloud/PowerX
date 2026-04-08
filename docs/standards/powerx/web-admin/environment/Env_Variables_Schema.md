@@ -24,7 +24,7 @@ Last update: 2025-02-14
 
 - Nuxt 4 会按顺序读取 `.env` → `.env.local` → `.env.[NODE_ENV]` → 系统变量，后者同名优先生效。
 - 以 `NUXT_` 开头的变量会自动注入 `runtimeConfig.public`（见 [Nuxt 变量约定](https://nuxt.com/docs/guide/directory-structure/env)）。
-- 其他自定义变量（如 `UPSTREAM`、`POWERX_BACKEND`）在服务器端可见，可通过 `useRuntimeConfig()` 安全获取。
+- 其他自定义变量（如 `POWERX_BACKEND`、`POWERX_BACKEND`）在服务器端可见，可通过 `useRuntimeConfig()` 安全获取。
 - 请勿在 `.env` 中保存生产密钥，推荐使用部署平台的 Secret 注入方式。
 
 ---
@@ -33,11 +33,11 @@ Last update: 2025-02-14
 
 | 变量 | 描述 | 默认值 | 类型/格式 | 生效范围 | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| `UPSTREAM` | 前端向后端 API 转发的基础地址 | `http://127.0.0.1:8077` | URL | `runtimeConfig.upstream`、Nitro `devProxy` | 仅服务器可见；`api` 请求最终会拼接 `/api/v1`。 |
+| `POWERX_BACKEND` | 前端向后端 API 转发的基础地址 | `http://127.0.0.1:8077` | URL | `runtimeConfig.upstream`、Nitro `devProxy` | 仅服务器可见；`api` 请求最终会拼接 `/api/v1`。 |
 | `WS_UPSTREAM` | 内部 WebSocket 服务地址 | `ws://127.0.0.1:8077` | URL | `runtimeConfig.wsUpstream`（私有）与 `runtimeConfig.public.wsUpstream` | 私有配置用于服务端代理，`public` 版本默认附加 `/api` 前缀。 |
 | `POWERX_BACKEND` | 反向代理 `/_p/**` 路径时指向的后端 | `http://127.0.0.1:8077` | URL | `app/server/middleware/00-proxy-plugins.ts` | 仅 Nuxt 服务端使用，用于插件 iframe 等直通代理。 |
 
-> 若 `UPSTREAM`、`POWERX_BACKEND` 填写 HTTPS，务必确保目标证书受信；否则需在本地加 `NODE_TLS_REJECT_UNAUTHORIZED=0`（不推荐，仅调试）。
+> 若 `POWERX_BACKEND`、`POWERX_BACKEND` 填写 HTTPS，务必确保目标证书受信；否则需在本地加 `NODE_TLS_REJECT_UNAUTHORIZED=0`（不推荐，仅调试）。
 
 ---
 
@@ -102,7 +102,7 @@ Nuxt 将以下值编译至客户端，请勿放置敏感信息。
 
 ```ini
 # .env.development
-UPSTREAM=http://127.0.0.1:8077
+POWERX_BACKEND=http://127.0.0.1:8077
 WS_UPSTREAM=ws://127.0.0.1:3001
 POWERX_BACKEND=http://127.0.0.1:8077
 
@@ -121,7 +121,7 @@ NUXT_DEBUG_MODE=true
 
 ```ini
 # .env.staging
-UPSTREAM=https://staging-api.powerx.internal
+POWERX_BACKEND=https://staging-api.powerx.internal
 WS_UPSTREAM=wss://staging-ws.powerx.internal
 POWERX_BACKEND=https://staging-api.powerx.internal
 
@@ -140,7 +140,7 @@ NUXT_DEBUG_MODE=false
 
 ```ini
 # .env.production
-UPSTREAM=https://api.powerx.example.com
+POWERX_BACKEND=https://api.powerx.example.com
 WS_UPSTREAM=wss://ws.powerx.example.com
 POWERX_BACKEND=https://api.powerx.example.com
 
@@ -164,7 +164,7 @@ NUXT_DEBUG_MODE=false
 
 ## 常见排错提示
 
-- **前端请求仍指向 localhost**：检查部署环境是否覆盖 `UPSTREAM`。Nuxt 会在构建时读取，构建后修改 `.env` 需重新构建。
+- **前端请求仍指向 localhost**：检查部署环境是否覆盖 `POWERX_BACKEND`。Nuxt 会在构建时读取，构建后修改 `.env` 需重新构建。
 - **语言切换缺失选项**：确认 `NUXT_AVAILABLE_LANGUAGES` 中的代码与 `i18n/locales/*.json` 文件一致。
 - **WebSocket 连接 404/403**：若通过反向代理部署，需要同步配置 Nginx/Ingress 将 `/ws` 或 `/api` 前缀转发到 `WS_UPSTREAM`。
 - **DevTools 未生效**：`NUXT_DEVTOOLS=true` 仅在 `npm run dev` 时生效，生产构建会被忽略。

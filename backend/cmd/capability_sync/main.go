@@ -64,7 +64,11 @@ func main() {
 
 func parseFlags() workerFlags {
 	var flags workerFlags
-	flag.StringVar(&flags.configPath, "config", "etc/config.yaml", "配置文件路径")
+	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
+	if defaultConfigPath == "" {
+		defaultConfigPath = "etc/config.yaml"
+	}
+	flag.StringVar(&flags.configPath, "config", defaultConfigPath, "配置文件路径")
 	flag.StringVar(&flags.artifactDir, "artifacts", "tmp/plugins", "插件制品目录（.pxp 包所在位置）")
 	flag.StringVar(&flags.logFile, "log-file", "logs/capability_sync.log", "日志文件路径")
 	flag.BoolVar(&flags.watch, "watch", false, "是否以常驻轮询模式运行")

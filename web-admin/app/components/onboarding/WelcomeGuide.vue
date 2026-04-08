@@ -180,6 +180,10 @@
 <script setup lang="ts">
 const showGuide = ref(false);
 const currentStep = ref(1);
+const route = useRoute();
+const runtimeConfig = useRuntimeConfig();
+const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
+const setupStatusPath = `${apiBase}/admin/setup/status`;
 
 // 监听显示引导的事件
 const handleShowGuide = (e: Event) => {
@@ -196,18 +200,44 @@ const showWelcomeGuide = () => {
 
 // 检查是否需要显示引导
 onMounted(() => {
-  // 简单的本地存储检查，不依赖认证状态
-  if (typeof localStorage !== "undefined") {
-    const hasSeenGuide = localStorage.getItem("welcome_guide_completed");
-    if (!hasSeenGuide) {
-      // 延迟显示，让页面先加载完成
-      setTimeout(() => {
-        showGuide.value = true;
-      }, 1000);
-    }
+  const shouldSkipByRoute =
+    route.path.startsWith("/setup") ||
+    route.path.startsWith("/users/login") ||
+    route.path.startsWith("/users/register");
+  if (shouldSkipByRoute) {
+    window.addEventListener("show-welcome-guide", handleShowGuide);
+    return;
   }
 
-  // 监听自定义事件
+  const checkAndShowGuide = async () => {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+    const hasSeenGuide = localStorage.getItem("welcome_guide_completed");
+    if (hasSeenGuide) {
+      return;
+    }
+
+    try {
+      const resp: any = await $fetch(setupStatusPath, {
+        method: "GET",
+        timeout: 5000,
+      });
+      const payload = resp?.data ?? resp;
+      if (!payload?.configured) {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    // 延迟显示，让页面先加载完成
+    setTimeout(() => {
+      showGuide.value = true;
+    }, 1000);
+  };
+
+  void checkAndShowGuide();
   window.addEventListener("show-welcome-guide", handleShowGuide);
 });
 

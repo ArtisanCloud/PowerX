@@ -21,6 +21,8 @@ export const useUserStore = defineStore("user", {
 
     // 缓存时间戳
     lastFetchedAt: null as number | null,
+    // 跨标签页 storage 监听是否已初始化
+    storageSyncInited: false,
   }),
 
   getters: {
@@ -90,17 +92,23 @@ export const useUserStore = defineStore("user", {
   },
 
   actions: {
+    shouldUseCachedContext(force: boolean) {
+      if (force) return false;
+      if (!this.lastFetchedAt) return false;
+      return Date.now() - this.lastFetchedAt < 5 * 60 * 1000;
+    },
+
+    invalidateContextCache() {
+      this.lastFetchedAt = null;
+    },
+
     // 加载用户上下文
     async fetchUserContext({ force = false }: { force?: boolean } = {}) {
       // 如果正在加载，直接返回
       if (this.isLoading) return;
 
       // 如果不强制刷新且缓存未过期（5分钟），直接返回
-      if (
-        !force &&
-        this.lastFetchedAt &&
-        Date.now() - this.lastFetchedAt < 5 * 60 * 1000
-      ) {
+      if (this.shouldUseCachedContext(force)) {
         return;
       }
 
@@ -161,6 +169,54 @@ export const useUserStore = defineStore("user", {
       this.lastFetchedAt = null;
       this.isLoading = false;
       this.persistCurrentTenantUUID();
+    },
+
+    initStorageSync(options?: {
+      shouldSync?: () => boolean;
+      onUnauthorized?: () => void;
+    }) {
+      if (!process.client || this.storageSyncInited) return;
+      this.storageSyncInited = true;
+      const shouldSync = options?.shouldSync ?? (() => true);
+
+      const extractStatusCode = (error: any): number => {
+        const direct = Number(
+          error?.status || error?.statusCode || error?.response?.status || 0
+        );
+        if (direct > 0) return direct;
+        const cause = error?.cause;
+        return Number(
+          cause?.status || cause?.statusCode || cause?.response?.status || 0
+        );
+      };
+
+      window.addEventListener("storage", async (event: StorageEvent) => {
+        const key = event.key || "";
+        if (!key) return;
+        if (
+          key !== "px_current_tenant_uuid" &&
+          key !== "access_token" &&
+          key !== "refresh_token" &&
+          key !== "expires_at"
+        ) {
+          return;
+        }
+
+        if (!shouldSync()) {
+          this.clearUserState();
+          return;
+        }
+
+        this.invalidateContextCache();
+        try {
+          await this.fetchUserContext({ force: true });
+        } catch (error: any) {
+          const statusCode = extractStatusCode(error);
+          if (statusCode === 401 || statusCode === 403) {
+            options?.onUnauthorized?.();
+          }
+        }
+      });
     },
 
     // 刷新用户上下文

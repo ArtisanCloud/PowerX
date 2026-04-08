@@ -23,6 +23,7 @@ func MigrateAgentModels(db *gorm.DB) error {
 
 		&dbmodel.AgentChatSession{},
 		&dbmodel.AgentChatMessage{},
+		&dbmodel.AgentRuntimeConfig{},
 
 		&dbmodel.AgentProfileLifecycle{},
 		&dbmodel.AgentLifecycleEventRecord{},

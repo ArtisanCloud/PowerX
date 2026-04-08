@@ -23,7 +23,7 @@
 
 参考：
 - 映射总表：`docs/guides/knowledge_space/strategy/MAP_scene_bundle_rag_profiles.md`
-- 模块定义：`docs/plan/AI_engineering/knowledge/rag.md#5.2`
+- 模块定义：`docs/plan/ai_engineering/knowledge/rag.md#5.2`
 
 ## 分割策略（Segment Defaults）
 

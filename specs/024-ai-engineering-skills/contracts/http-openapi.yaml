@@ -1,0 +1,675 @@
+openapi: 3.0.3
+info:
+  title: PowerX Skills Management API
+  version: "0.1.0"
+  description: Admin/Tenant HTTP contract for skill catalog, import, publish, rollback, binding, and invoke.
+servers:
+  - url: https://api.powerx.local/api/v1
+paths:
+  /ai/llm/invoke:
+    post:
+      summary: Invoke LLM with OpenAI-style messages
+      operationId: invokeLLM
+      tags: [TenantAI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMInvokeRequest'
+      responses:
+        '200':
+          description: LLM invoke result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMInvokeResponse'
+  /ai/llm/stream:
+    post:
+      summary: Stream LLM with OpenAI-style messages
+      operationId: streamLLM
+      tags: [TenantAI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMStreamRequest'
+      responses:
+        '200':
+          description: text/event-stream sequence of start/delta/(optional usage)/done，done 必带聚合 usage
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /agents/invoke:
+    post:
+      summary: Agent unified invoke entry with intent->plan->nodes closed loop
+      operationId: invokeAgentWithPlanner
+      tags: [AgentSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentInvokeRequest'
+      responses:
+        '200':
+          description: Agent invoke completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInvokeResponse'
+  /agents/stream/sse:
+    get:
+      summary: Agent streaming entry with plan and node lifecycle events
+      operationId: streamAgentWithPlanner
+      tags: [AgentSkills]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: agent_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: session_id
+          in: query
+          schema: { type: string }
+        - name: env
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: text/event-stream sequence of intent/plan/node_start/node_end/token/final/end
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /admin/skills/catalog:
+    get:
+      summary: List official built-in skill catalog entries
+      operationId: listOfficialSkillCatalog
+      tags: [AdminSkills]
+      responses:
+        '200':
+          description: Catalog entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OfficialCatalogEntry'
+  /admin/skills:
+    get:
+      summary: Query skills registry
+      operationId: listSkills
+      tags: [AdminSkills]
+      parameters:
+        - name: skill_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, deprecated, disabled]
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [builtin, plugin, third_party]
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: Skills page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillPage'
+    post:
+      summary: Register a skill record
+      operationId: registerSkill
+      tags: [AdminSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillRegisterRequest'
+      responses:
+        '201':
+          description: Skill registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/import:
+    post:
+      summary: Import third-party or plugin skill bundle as draft
+      operationId: importSkill
+      tags: [AdminSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillImportRequest'
+      responses:
+        '202':
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+        '400':
+          description: Import validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/skills/{skillId}/publish:
+    post:
+      summary: Publish a draft version after manual approval
+      operationId: publishSkill
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: string }
+                approval_note: { type: string }
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/{skillId}/rollback:
+    post:
+      summary: Rollback latest published pointer to historical version
+      operationId: rollbackSkill
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_version, reason]
+              properties:
+                target_version: { type: string }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Rollback completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillRecord'
+  /admin/skills/{skillId}/bind-capability:
+    post:
+      summary: Bind a published skill version to capability
+      operationId: bindSkillCapability
+      tags: [AdminSkills]
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, capability_id]
+              properties:
+                version: { type: string }
+                capability_id: { type: string }
+                tool_grants:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Binding created
+  /admin/skills/traces:
+    get:
+      summary: Query execution traces with plan/node filters
+      operationId: listSkillExecutionTraces
+      tags: [AdminSkills]
+      parameters:
+        - name: tenant_uuid
+          in: query
+          schema: { type: string }
+        - name: skill_id
+          in: query
+          schema: { type: string }
+        - name: version
+          in: query
+          schema: { type: string }
+        - name: plan_id
+          in: query
+          schema: { type: string }
+        - name: node_id
+          in: query
+          schema: { type: string }
+        - name: node_status
+          in: query
+          schema: { type: string, enum: [running, completed, failed] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Trace page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillTracePage'
+  /admin/skills/traces/{traceId}:
+    get:
+      summary: Get one execution trace by trace id
+      operationId: getSkillExecutionTrace
+      tags: [AdminSkills]
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_uuid
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Trace detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillTraceRecord'
+        '404':
+          description: Trace not found
+  /tenant/skills/invoke:
+    post:
+      summary: Invoke a published skill directly
+      operationId: invokeSkillDirect
+      tags: [TenantSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillInvokeRequest'
+      responses:
+        '200':
+          description: Skill execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillInvokeResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tenant/invocations:
+    post:
+      summary: Unified invocation entry with preferred protocol = skill
+      operationId: invokeUnified
+      tags: [TenantSkills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnifiedInvokeRequest'
+      responses:
+        '200':
+          description: Skill execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillInvokeResponse'
+components:
+  parameters:
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    UsageHop:
+      type: object
+      properties:
+        phase: { type: string, enum: [planner, chat, tool, skill, provider] }
+        provider: { type: string }
+        model: { type: string }
+        prompt_tokens: { type: integer, nullable: true }
+        completion_tokens: { type: integer, nullable: true }
+        total_tokens: { type: integer, nullable: true }
+        latency_ms: { type: integer, nullable: true }
+        estimated: { type: boolean, nullable: true }
+    CostEstimate:
+      type: object
+      properties:
+        currency: { type: string, example: USD }
+        input_cost: { type: number, format: double, nullable: true }
+        output_cost: { type: number, format: double, nullable: true }
+        total_cost: { type: number, format: double, nullable: true }
+    UsageSummary:
+      type: object
+      properties:
+        total_prompt_tokens: { type: integer, nullable: true }
+        total_completion_tokens: { type: integer, nullable: true }
+        total_tokens: { type: integer, nullable: true }
+        cached_tokens: { type: integer, nullable: true }
+        cache_mode: { type: string, enum: [auto, force_off, force_on], nullable: true }
+        estimated: { type: boolean, nullable: true }
+        cost_estimate:
+          $ref: '#/components/schemas/CostEstimate'
+        hops:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/UsageHop'
+    UsageOptions:
+      type: object
+      properties:
+        enabled: { type: boolean, default: true }
+        include_hops: { type: boolean, default: false }
+        include_cost_estimate: { type: boolean, default: false }
+        include_provider_raw_usage: { type: boolean, default: false }
+    StreamOptions:
+      type: object
+      properties:
+        include_usage: { type: boolean, default: true }
+        usage_emit_mode: { type: string, enum: [final, incremental], default: final }
+
+    ContentItem:
+      type: object
+      description: |
+        Unified multimodal input item. For LLM text prompts:
+        - preferred: role + type=text + text
+        - compatible: role + content (auto-mapped to text by backend)
+      properties:
+        role:
+          type: string
+          description: Optional role. Recommended values = system | user | assistant.
+        type:
+          type: string
+          description: text | image_url | image_base64 | video_url (modality dependent)
+        text:
+          type: string
+          description: Primary text payload.
+        content:
+          type: string
+          description: Compatibility alias for text. If text is empty, backend uses content.
+        url:
+          type: string
+          description: URL payload for image/video refs.
+    LLMInvokeRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key: { type: string, example: openai/gpt-4o-mini }
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+          description: Supports temperature/max_tokens/thinking/reasoning(when provider supports).
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
+    LLMStreamRequest:
+      type: object
+      required: [model_key, inputs]
+      properties:
+        model_key: { type: string, example: openai/gpt-4o-mini }
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          additionalProperties: true
+        usage_options:
+          $ref: '#/components/schemas/UsageOptions'
+        stream_options:
+          $ref: '#/components/schemas/StreamOptions'
+    LLMInvokeResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          properties:
+            type: { type: string, example: text }
+            text: { type: string }
+        usage:
+          $ref: '#/components/schemas/UsageSummary'
+    AgentInvokeRequest:
+      type: object
+      required: [agent_id, message]
+      properties:
+        agent_id: { type: string }
+        session_id: { type: string }
+        message: { type: string }
+        meta:
+          type: object
+          additionalProperties: true
+    AgentInvokeResponse:
+      type: object
+      required: [session_id, plan_id, reply]
+      properties:
+        session_id: { type: string }
+        agent_id: { type: string }
+        plan_id: { type: string }
+        reply: { type: string }
+    PlannerNodeEvent:
+      type: object
+      required: [plan_id, node_id, node_kind, stage, status]
+      properties:
+        plan_id: { type: string }
+        node_id: { type: string }
+        node_kind: { type: string, enum: [workflow, skill, tooling, llm] }
+        node_ref: { type: string, description: "workflow_id/skill_id/tool_id/model_key 等引用标识" }
+        stage: { type: integer }
+        depends_on:
+          type: array
+          items: { type: string }
+        status:
+          type: string
+          enum: [scheduled, completed, failed]
+        error: { type: string }
+        result_summary:
+          type: object
+          additionalProperties: true
+    OfficialCatalogEntry:
+      type: object
+      required: [skill_id, recommended_version, risk_level]
+      properties:
+        skill_id: { type: string }
+        recommended_version: { type: string }
+        risk_level: { type: string, enum: [L1, L2, L3, L4] }
+        category: { type: string }
+        summary: { type: string }
+    SkillRecord:
+      type: object
+      required: [skill_id, version, source, status]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [builtin, plugin, third_party] }
+        status: { type: string, enum: [draft, published, deprecated, disabled] }
+        bundle_uri: { type: string }
+        checksum: { type: string }
+        signature: { type: string, nullable: true }
+        source_url: { type: string, nullable: true }
+        source_ref: { type: string, nullable: true }
+        is_latest_published: { type: boolean }
+        updated_at: { type: string, format: date-time }
+    SkillPage:
+      type: object
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillRecord'
+    SkillRegisterRequest:
+      type: object
+      required: [skill_id, version, source, bundle_ref, manifest]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [builtin, plugin, third_party] }
+        bundle_ref:
+          type: object
+          required: [uri, checksum]
+          properties:
+            uri: { type: string }
+            checksum: { type: string }
+            signature: { type: string }
+        manifest:
+          type: object
+          additionalProperties: true
+    SkillImportRequest:
+      type: object
+      required: [skill_id, version, source, bundle_uri, checksum]
+      properties:
+        skill_id: { type: string }
+        version: { type: string }
+        source: { type: string, enum: [plugin, third_party] }
+        bundle_uri: { type: string }
+        checksum: { type: string }
+        signature: { type: string }
+        source_url: { type: string }
+        source_ref: { type: string }
+    SkillInvokeRequest:
+      type: object
+      required: [skill_id, payload]
+      properties:
+        skill_id: { type: string }
+        version:
+          type: string
+          description: Optional. Defaults to latest published if omitted.
+        payload:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+    UnifiedInvokeRequest:
+      type: object
+      required: [capability_id, preferred_protocol, payload]
+      properties:
+        capability_id: { type: string }
+        preferred_protocol:
+          type: string
+          enum: [skill]
+        payload:
+          type: object
+          additionalProperties: true
+    SkillInvokeResponse:
+      type: object
+      required: [trace_id, status, protocol_used]
+      properties:
+        trace_id: { type: string }
+        plan_id: { type: string, nullable: true }
+        status: { type: string, enum: [completed, failed, denied] }
+        protocol_used: { type: string, enum: [skill] }
+        fallback_used: { type: boolean }
+        skill_candidates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        result:
+          type: object
+          additionalProperties: true
+    SkillTraceRecord:
+      type: object
+      required: [trace_id, tenant_uuid, skill_id, status]
+      properties:
+        trace_id: { type: string }
+        tenant_uuid: { type: string }
+        skill_id: { type: string }
+        version: { type: string, nullable: true }
+        entrypoint: { type: string, nullable: true }
+        protocol_used: { type: string }
+        invoke_path: { type: string }
+        status: { type: string, enum: [running, completed, failed, denied] }
+        latency_ms: { type: integer }
+        error_code: { type: string, nullable: true }
+        error_summary: { type: string, nullable: true }
+        request_payload_digest: { type: string, nullable: true }
+        response_payload_digest: { type: string, nullable: true }
+        capability_id: { type: string, nullable: true }
+        plan_id: { type: string, nullable: true }
+        node_id: { type: string, nullable: true }
+        node_status: { type: string, enum: [running, completed, failed], nullable: true }
+        retry_trace: { type: string, nullable: true }
+        fallback_used: { type: boolean }
+        authorization_check_pass: { type: boolean }
+        prompt_tokens: { type: integer, nullable: true }
+        completion_tokens: { type: integer, nullable: true }
+        cached_tokens: { type: integer, nullable: true }
+        cache_mode: { type: string, enum: [auto, force_off, force_on], nullable: true }
+        cache_hit: { type: boolean, nullable: true }
+        context_layers_size:
+          type: object
+          additionalProperties: true
+          nullable: true
+        trim_actions:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        created_at: { type: string, format: date-time }
+    SkillTracePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillTraceRecord'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - skill.not_found
+            - skill.version_not_found
+            - skill.permission_denied
+            - skill.execution_failed
+            - skill.source_untrusted
+            - skill.checksum_mismatch
+        message: { type: string }

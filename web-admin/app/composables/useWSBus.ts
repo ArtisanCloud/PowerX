@@ -22,29 +22,62 @@ let networkListenersBound = false;
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 6;
 let notifyReconnectFailed: (() => void) | null = null;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const hasActiveSubscriptions = () => subscriptions.size > 0;
+const isValidTenantUUID = (tenantUUID?: string | null) =>
+  UUID_RE.test(String(tenantUUID || "").trim());
+
+const isLoopbackHost = (host?: string | null) => {
+  const h = String(host || "").trim().toLowerCase();
+  return h === "127.0.0.1" || h === "localhost" || h === "::1";
+};
 
 const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const auth = encodeURIComponent(`Bearer ${token}`);
   const cfg = useRuntimeConfig();
   const upstream = String(cfg.public?.wsUpstream || "").trim();
+  const wsPath = String(cfg.public?.wsUrl || "/api/ws").trim() || "/api/ws";
   const tenant = encodeURIComponent(String(tenantUUID || ""));
-  const tenantQuery = tenant ? `&tenant_uuid=${tenant}` : "";
+  const tenantQuery = tenant ? `tenant_uuid=${tenant}` : "";
+  const appendAuth = (base: string) => {
+    const sep = base.includes("?") ? "&" : "?";
+    const q = [`authorization=${auth}`, tenantQuery].filter(Boolean).join("&");
+    return `${base}${sep}${q}`;
+  };
+
+  // 优先支持显式 wsUrl（可配绝对地址或相对路径）
+  if (wsPath.startsWith("ws://") || wsPath.startsWith("wss://")) {
+    return appendAuth(wsPath);
+  }
+  if (wsPath.startsWith("/")) {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    return appendAuth(`${protocol}//${location.host}${wsPath}`);
+  }
+
   if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
-    let base = upstream.replace(/\/+$/, "");
-    if (base.endsWith("/api/ws")) {
-      return `${base}?authorization=${auth}${tenantQuery}`;
+    // 页面在公网域名访问时，禁止使用 loopback 上游（浏览器会连到访问者自己的本机）。
+    try {
+      const u = new URL(upstream);
+      if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
+        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        return appendAuth(`${protocol}//${location.host}/api/ws`);
+      }
+    } catch {
+      // ignore
     }
+    let base = upstream.replace(/\/+$/, "");
+    if (base.endsWith("/api/ws")) return appendAuth(base);
     if (base.endsWith("/ws")) {
       base = `${base.slice(0, -3)}/api/ws`;
-      return `${base}?authorization=${auth}${tenantQuery}`;
+      return appendAuth(base);
     }
-    if (base.endsWith("/api")) {
-      return `${base}/ws?authorization=${auth}${tenantQuery}`;
-    }
-    return `${base}/api/ws?authorization=${auth}${tenantQuery}`;
+    if (base.endsWith("/api")) return appendAuth(`${base}/ws`);
+    return appendAuth(`${base}/api/ws`);
   }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${location.host}/api/ws?authorization=${auth}${tenantQuery}`;
+  return appendAuth(`${protocol}//${location.host}/api/ws`);
 };
 
 const normalizePayload = (payload: unknown) => {
@@ -87,11 +120,12 @@ const scheduleReconnect = (token: string | null) => {
   if (!process.client) return;
   if (!allowReconnect) return;
   if (!token) return;
+  if (!hasActiveSubscriptions()) return;
   if (reconnectTimer) return;
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     allowReconnect = false;
     wsError.value = "连接失败，请检查配置或联系管理员";
-    if (notifyReconnectFailed) {
+    if (notifyReconnectFailed && hasActiveSubscriptions()) {
       notifyReconnectFailed();
     }
     return;
@@ -107,12 +141,21 @@ const scheduleReconnect = (token: string | null) => {
 const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
   if (!process.client) return;
   if (!token) return;
+  const normalizedTenant = String(tenantUUID || "").trim();
+  // WS Bus 当前依赖 tenant_uuid；无租户上下文时不建立连接，避免无意义重试噪音。
+  if (!isValidTenantUUID(normalizedTenant)) {
+    wsConnecting.value = false;
+    wsConnected.value = false;
+    wsError.value = null;
+    allowReconnect = false;
+    return;
+  }
   if (wsInstance && wsConnected.value) return;
   if (wsConnecting.value) return;
   wsConnecting.value = true;
   wsError.value = null;
 
-  const url = buildWSUrl(token, tenantUUID);
+  const url = buildWSUrl(token, normalizedTenant);
   const ws = new WebSocket(url);
   wsInstance = ws;
 
@@ -125,10 +168,15 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
       sendCommand({ type: WS_BUS_CMD.SUBSCRIBE, topic });
     });
   };
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     wsConnected.value = false;
     wsConnecting.value = false;
     wsInstance = null;
+    if (event.code === 1008 || event.code === 1003) {
+      allowReconnect = false;
+      wsError.value = "租户上下文无效";
+      return;
+    }
     scheduleReconnect(token);
   };
   ws.onerror = () => {
@@ -176,7 +224,11 @@ export const useWSBus = () => {
     watch(
       () => getTenantForConnection(),
       (nextTenant, prevTenant) => {
-        if (!nextTenant) return;
+        if (!nextTenant) {
+          activeTenant = null;
+          resetConnection("tenant_missing", false);
+          return;
+        }
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
@@ -213,6 +265,8 @@ export const useWSBus = () => {
   }
 
   const connect = () => {
+    if (!hasActiveSubscriptions()) return;
+    reconnectAttempts = 0;
     allowReconnect = true;
     const tenantNow = getTenantForConnection();
     activeTenant = tenantNow || null;

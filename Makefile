@@ -11,6 +11,7 @@ include $(MAKE_FILES_DIR)/dev.mk
 include $(MAKE_FILES_DIR)/mcp.mk
 include $(MAKE_FILES_DIR)/database.mk
 include $(MAKE_FILES_DIR)/docker.mk
+include $(MAKE_FILES_DIR)/dist.mk
 include $(MAKE_FILES_DIR)/test.mk
 include $(MAKE_FILES_DIR)/proto.mk
 include $(MAKE_FILES_DIR)/audit_partition.mk

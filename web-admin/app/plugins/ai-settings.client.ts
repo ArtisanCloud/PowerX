@@ -7,9 +7,31 @@ export default defineNuxtPlugin((nuxtApp) => {
   const initialized = useState("ai-settings.__init", () => false);
   const router = useRouter(); // ✅ 有完整 Router 类型
   const route = useRoute();
+  const runtimeConfig = useRuntimeConfig();
+  const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
+  const setupStatusPath = `${apiBase}/admin/setup/status`;
 
   const run = async () => {
     if (initialized.value) return;
+    if (route.path === "/setup" || route.path.endsWith("/setup")) return;
+
+    try {
+      const setupResp: any = await $fetch(setupStatusPath, {
+        method: "GET",
+        timeout: 5000,
+      });
+      const setupPayload = setupResp?.data ?? setupResp;
+      if (
+        setupPayload &&
+        !Boolean(setupPayload?.configured) &&
+        !Boolean(setupPayload?.requires_login)
+      ) {
+        return;
+      }
+    } catch {
+      // setup 状态检查失败时，不阻塞既有行为
+    }
+
     const token = useCookie("px_token").value;
     if (!token || route.meta.auth === false) return; // 登录就绪 + 受保护页才初始化
 

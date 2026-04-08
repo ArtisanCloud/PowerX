@@ -118,5 +118,5 @@ Contract tests rely on `specs/011-knowledge-space/contracts/http-openapi.yaml` a
 - [Smoke Checklist](../../docs/guides/knowledge_space/smoke_checklist.md)
 
 策略设计参考（策略包 → 场景映射）：
-- [RAG Strategy Modules](../../docs/plan/AI_engineering/knowledge/rag.md)
-- [Strategy Package → Scene Mapping](../../docs/plan/AI_engineering/knowledge/rag_scene_strategy_mode.md)
+- [RAG Strategy Modules](../../docs/plan/ai_engineering/knowledge/rag.md)
+- [Strategy Package → Scene Mapping](../../docs/plan/ai_engineering/knowledge/rag_scene_strategy_mode.md)

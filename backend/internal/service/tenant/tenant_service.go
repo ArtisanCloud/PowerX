@@ -22,6 +22,7 @@ type TenantService struct {
 	*service.BaseService
 	Repo            *tenantRepo.TenantRepository
 	Auth            *authsvc.AuthService // 复用 Register
+	RoleRepo        *iamrepo.RoleRepository
 	RoleBindingRepo *iamrepo.RoleBindingRepository
 }
 
@@ -32,6 +33,7 @@ func NewTenantService(db *gorm.DB, auth *authsvc.AuthService) *TenantService {
 		},
 		Repo:            tenantRepo.NewTenantRepository(db),
 		Auth:            auth,
+		RoleRepo:        iamrepo.NewRoleRepository(db),
 		RoleBindingRepo: iamrepo.NewRoleBindingRepository(db),
 	}
 }
@@ -272,11 +274,20 @@ func (s *TenantService) initAdmin(ctx context.Context, tenantUUID string, ia *In
 	if ia.Phone != nil {
 		opt.UserPhone = strings.TrimSpace(*ia.Phone)
 	}
+	opt.RoleCodes = []string{"role_admin"}
 
 	// 注册：创建/复用 User + 创建 Member + 绑定 role_user
 	m, err := s.Auth.Register(ctx, tenantUUID, username, identifier, *ia.Password, opt)
 	if err != nil {
 		return err
+	}
+
+	// 确保租户默认角色存在（role_admin/role_user）。
+	// 说明：me/context 的 members[].is_admin 语义依赖 role_admin。
+	if s.RoleRepo != nil {
+		if err := s.RoleRepo.EnsureDefaultRoles(ctx, tenantUUID); err != nil {
+			return err
+		}
 	}
 
 	// 额外赋 role_owner（可选；默认 true）

@@ -26,6 +26,13 @@ export const useMe = () => {
       const response = await meService.updateMyProfile(data);
       return response.data;
     },
+    changeMyPassword: async (data: {
+      current_password: string;
+      new_password: string;
+    }) => {
+      const response = await meService.changeMyPassword(data);
+      return response.data;
+    },
     uploadAvatar: async (file: File) => {
       const response = await meService.uploadAvatar(file);
       return response.data;

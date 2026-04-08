@@ -94,7 +94,7 @@ jobs:
 - `NODE_VERSION=20` 与 Nuxt 依赖保持一致。  
 - `NUXT_APP_VERSION` 可设置为 `${GIT_SHA}` 或 `${semver}`，用于 Sentry/日志追踪。  
 - 在 CI 中注入：
-  - `UPSTREAM` / `WS_UPSTREAM`（指向 Staging 服务）  
+  - `POWERX_BACKEND` / `WS_UPSTREAM`（指向 Staging 服务）  
   - `SENTRY_DSN`（可选）  
   - E2E 登录凭证（通过 Secret 注入）
 

@@ -643,7 +643,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 		{
 			CapabilityID: "com.corex.ai.llm.stream",
 			Title:        "LLM Stream",
-			Description:  "LLM 会话流式输出。",
+			Description:  "LLM 无状态流式输出。",
 			Module:       "ai",
 			Categories:   []string{"ai", "llm"},
 			Intents:      []string{"ai.llm.stream"},
@@ -658,9 +658,9 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 			Protocols: []models.ProtocolBinding{
 				{
 					Channel:   "rest",
-					Endpoint:  "/api/v1/ai/llm/sessions/{session_id}/stream",
-					Method:    "GET",
-					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions~1{session_id}~1stream/get",
+					Endpoint:  "/api/v1/ai/llm/stream",
+					Method:    "POST",
+					SchemaRef: "specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1stream/post",
 					AuthType:  "tenant_jwt",
 					ToolScope: "ai.llm",
 				},
