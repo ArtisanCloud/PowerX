@@ -44,7 +44,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const setup = await loadSetupStatus();
   const shouldStayInSetup = Boolean(
     setup &&
-    ((!setup.configured && !setup.requires_login) || setup.restart_required),
+    !setup.configured &&
+    !setup.requires_login,
   );
   if (to.path === "/") {
     if (shouldStayInSetup) {
@@ -63,7 +64,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (
     setup &&
     setup.configured &&
-    !setup.restart_required &&
     withLocale("/setup").test(to.path)
   ) {
     return navigateTo("/home");

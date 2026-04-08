@@ -27,7 +27,7 @@
 
 ---
 
-## 1) backend/etc/config.yaml（必须）
+## 1) /etc/powerx/config.yaml（必须）
 
 至少要改下面这些对象（不要使用示例默认值）：
 
@@ -93,8 +93,8 @@ umask 077 && head -c 32 /dev/urandom | base64
 
 ## 4) 部署前最小核对（建议逐条打勾）
 
-- [ ] `backend/etc/config.yaml` 中 `server.secret_key` 已替换
-- [ ] `backend/etc/config.yaml` 中 `auth.jwt_secret` 已替换
+- [ ] `/etc/powerx/config.yaml` 中 `server.secret_key` 已替换
+- [ ] `/etc/powerx/config.yaml` 中 `auth.jwt_secret` 已替换
 - [ ] PostgreSQL 可连通（`database.dsn` 正确）
 - [ ] Redis 可连通（`cache` 与 `queue.redis` 正确）
 - [ ] `/etc/powerx/powerx.env` 已从模板复制并改成真实值

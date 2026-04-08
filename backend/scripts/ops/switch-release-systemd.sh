@@ -85,6 +85,9 @@ HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
 SERVICE_GROUP="${POWERX_SERVICE_GROUP:-}"
+RUNTIME_ROOT="/etc/powerx"
+RUNTIME_CONFIG_PATH="${RUNTIME_ROOT}/config.yaml"
+RUNTIME_SETUP_DRAFT_PATH="${RUNTIME_ROOT}/setup.wizard.config.json"
 
 TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
@@ -169,16 +172,16 @@ ensure_service_identity() {
   chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_BACKEND}" "${LINK_WEB_ADMIN}" 2>/dev/null || true
   if [[ "$WITH_RUNNER" == "1" ]]; then
     chown -h "${SERVICE_USER}:${SERVICE_GROUP}" "${LINK_RUNNER}" 2>/dev/null || true
-    install -d -m 0755 /etc/powerx
-    if [[ ! -f /etc/powerx/powerx.env ]]; then
+    install -d -m 0755 "${RUNTIME_ROOT}"
+    if [[ ! -f "${RUNTIME_ROOT}/powerx.env" ]]; then
       if [[ -f "${TARGET_ROOT}/systemd/powerx.env.example" ]]; then
-        cp "${TARGET_ROOT}/systemd/powerx.env.example" /etc/powerx/powerx.env
+        cp "${TARGET_ROOT}/systemd/powerx.env.example" "${RUNTIME_ROOT}/powerx.env"
       else
-        touch /etc/powerx/powerx.env
+        touch "${RUNTIME_ROOT}/powerx.env"
       fi
     fi
-    chown root:root /etc/powerx/powerx.env
-    chmod 0644 /etc/powerx/powerx.env
+    chown root:root "${RUNTIME_ROOT}/powerx.env"
+    chmod 0644 "${RUNTIME_ROOT}/powerx.env"
   fi
   ensure_node_bin_env
 }
@@ -231,7 +234,7 @@ assert_effective_service_user() {
 
 detect_node_bin() {
   local candidate=""
-  local env_file="/etc/powerx/powerx.env"
+  local env_file="${RUNTIME_ROOT}/powerx.env"
 
   # 优先使用用户显式指定的 NODE_BIN（若可执行）
   if [[ -f "$env_file" ]]; then
@@ -272,9 +275,9 @@ detect_node_bin() {
 }
 
 ensure_node_bin_env() {
-  local env_file="/etc/powerx/powerx.env"
+  local env_file="${RUNTIME_ROOT}/powerx.env"
   local node_bin
-  install -d -m 0755 /etc/powerx
+  install -d -m 0755 "${RUNTIME_ROOT}"
   if [[ ! -f "$env_file" ]]; then
     if [[ -f "${TARGET_ROOT}/systemd/powerx.env.example" ]]; then
       cp "${TARGET_ROOT}/systemd/powerx.env.example" "$env_file"
@@ -302,6 +305,46 @@ EOF
     printf '\nNODE_BIN=%s\n' "$node_bin" >> "$env_file"
   fi
   echo "[switch-release] using NODE_BIN=${node_bin}"
+}
+
+ensure_runtime_config_external() {
+  local source_cfg=""
+  local source_draft=""
+
+  install -d -m 0755 "${RUNTIME_ROOT}"
+
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    if [[ -n "${PREV_BACKEND}" ]] && [[ -f "${PREV_BACKEND}/etc/config.yaml" ]]; then
+      source_cfg="${PREV_BACKEND}/etc/config.yaml"
+    elif [[ -f "${TARGET_BACKEND}/etc/config.yaml" ]]; then
+      source_cfg="${TARGET_BACKEND}/etc/config.yaml"
+    fi
+
+    if [[ -n "${source_cfg}" ]]; then
+      cp "${source_cfg}" "${RUNTIME_CONFIG_PATH}"
+      chown root:root "${RUNTIME_CONFIG_PATH}"
+      chmod 0644 "${RUNTIME_CONFIG_PATH}"
+      echo "[switch-release] runtime config initialized: ${RUNTIME_CONFIG_PATH} <= ${source_cfg}"
+    else
+      echo "[switch-release] warning: runtime config source not found, keep release-local config fallback" >&2
+    fi
+  else
+    echo "[switch-release] runtime config preserved: ${RUNTIME_CONFIG_PATH}"
+  fi
+
+  if [[ ! -f "${RUNTIME_SETUP_DRAFT_PATH}" ]]; then
+    if [[ -n "${PREV_BACKEND}" ]] && [[ -f "${PREV_BACKEND}/etc/setup.wizard.config.json" ]]; then
+      source_draft="${PREV_BACKEND}/etc/setup.wizard.config.json"
+    elif [[ -f "${TARGET_BACKEND}/etc/setup.wizard.config.json" ]]; then
+      source_draft="${TARGET_BACKEND}/etc/setup.wizard.config.json"
+    fi
+    if [[ -n "${source_draft}" ]]; then
+      cp "${source_draft}" "${RUNTIME_SETUP_DRAFT_PATH}"
+      chown root:root "${RUNTIME_SETUP_DRAFT_PATH}"
+      chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
+      echo "[switch-release] setup draft initialized: ${RUNTIME_SETUP_DRAFT_PATH} <= ${source_draft}"
+    fi
+  fi
 }
 
 rollback() {
@@ -333,6 +376,7 @@ if [[ "$WITH_RUNNER" == "1" ]]; then
 fi
 
 ensure_service_identity
+ensure_runtime_config_external
 
 if [[ -d "$TARGET_SYSTEMD" ]]; then
   cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/

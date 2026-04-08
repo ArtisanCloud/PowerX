@@ -5,7 +5,7 @@
 1. 获取代码并切版本（tag/develop）
 2. 构建 `dist/systemd/<version>`
 3. 部署到 `/opt/powerx/releases/<version>`
-4. systemd 启动并进入 `/setup`
+4. systemd 启动并完成验证（首次安装才进入 `/setup`）
 
 ## 2. 前置文档（先看）
 - `00-runtime-deps-versions.md`（PowerX / PostgreSQL / Redis 版本与安装）
@@ -158,13 +158,18 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 ```
 
 ## 10. 配置说明
-- 必改：`/opt/powerx/backend/etc/config.yaml`
+- 必改：`/etc/powerx/config.yaml`（运行时外置配置，跨版本保持）
 - 配置清单：`../00-required-config.md`
 
 当前 unit 行为：
-- `powerx-backend.service`：无 `EnvironmentFile`
-- `powerx-web-admin.service`：从 `backend/etc/config.yaml` 读取端口
+- `powerx-backend.service`：读取 `/etc/powerx/config.yaml`（`POWERX_CONFIG`）
+- `powerx-web-admin.service`：优先读取 `/etc/powerx/config.yaml` 获取端口
 - `powerx-runner.service`：读取 `/etc/powerx/powerx.env`
+
+发布模式建议：
+- 代码升级（无 DB 变更）：只执行 `make dist + switch-release`，不走 `/setup`。
+- 结构升级（有 migration）：发布后执行 `database migrate`，不自动 seed。
+- 初始化或补数（需要 seed）：显式执行 seed，避免与常规发布绑定。
 
 ## 10.1 前后端日志查看（systemd）
 
@@ -201,7 +206,7 @@ sudo journalctl -u powerx-runner -n 200 --no-pager
 ```
 说明：当发布包没有 `runner/dist/main.js` 时，`powerx-runner.service` 会因 `ConditionPathExists` 被跳过，属于预期行为。
 
-## 11. 首次安装
+## 11. 首次安装（仅未安装实例）
 访问：`http://<host>:<web-admin-port>/setup`
 
 若页面未进入 `/setup`，请先核对 setup 状态（避免代理干扰）：
@@ -217,6 +222,32 @@ export NO_PROXY=127.0.0.1,localhost,::1
 下一步：
 - `02-verify-and-rollback.md`
 - `03-install-plugin.md`
+
+## 11.1 已安装实例升级（默认不走 setup）
+
+发布切换：
+```bash
+export POWERX_VERSION=<new-version>
+make dist DIST_VERSION=${POWERX_VERSION} NPM_INSTALL=0
+sudo mv dist/systemd/${POWERX_VERSION} /opt/powerx/releases/
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION}
+```
+
+升级后校验：
+```bash
+curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/setup/status
+```
+期望：
+- `install_status=installed`
+- 常规代码升级不进入 `/setup`
+
+若本次版本含 DB 变更，显式执行：
+```bash
+cd /opt/powerx/backend
+./database migrate
+# 仅在需要初始化/补数时执行
+# ./database seed
+```
 
 ## 11.1 安装后租户与用户管理（给同事开账号）
 

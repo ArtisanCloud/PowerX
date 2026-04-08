@@ -43,7 +43,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     const setup = await loadSetupStatus();
     const shouldStayInSetup = Boolean(
       setup &&
-      ((!setup.configured && !setup.requires_login) || setup.restart_required),
+      !setup.configured &&
+      !setup.requires_login,
     );
     if (shouldStayInSetup) {
       return;

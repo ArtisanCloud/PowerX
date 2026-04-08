@@ -11,6 +11,7 @@
   - 优先级：环境变量（`POWERX_WEB_ADMIN_PORT`/`POWERX_BACKEND_PORT`）> setup 配置 > 配置默认值
   - 生效语义：修改 setup 端口后需要重启 backend/web-admin，重启前 `desired_ports` 可变更但 `effective_ports` 不变
 - 安装状态机制：参考 `specs/025-powerx-docker-systemd/install-mechanism.md`（`config.install.status` 为首判定源）。
+- 运行时配置真源：`/etc/powerx/config.yaml`（版本切换不覆盖）。
 
 ## 2. 部署基线验证
 
@@ -27,6 +28,31 @@ curl -f http://127.0.0.1:8077/api/v1/health
 
 ```bash
 curl -s http://127.0.0.1:8080/api/v1/admin/setup/status | jq '.data.desired_ports,.data.effective_ports,.data.restart_required'
+```
+
+## 2.1 已安装环境升级（不走 setup）
+
+1. 构建并切换版本（仅代码升级）：
+
+```bash
+make dist DIST_VERSION=${POWERX_VERSION} NPM_INSTALL=0
+sudo mv dist/systemd/${POWERX_VERSION} /opt/powerx/releases/
+sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION}
+```
+
+2. 验证安装态保持 `installed`：
+
+```bash
+curl -s http://127.0.0.1:8080/api/v1/admin/setup/status | jq '.data.install_status,.data.restart_required'
+```
+
+3. 若本次版本包含 DB 变更，显式执行：
+
+```bash
+cd /opt/powerx/backend
+./database migrate
+# 仅在需要初始化/补数时执行
+# ./database seed
 ```
 
 ## 3. 插件平滑升级演练

@@ -97,7 +97,8 @@ export default defineNuxtPlugin(() => {
               const setup = await loadSetupStatus();
               const shouldStayInSetup = Boolean(
                 setup &&
-                ((!setup.configured && !setup.requires_login) || setup.restart_required),
+                !setup.configured &&
+                !setup.requires_login,
               );
               if (shouldStayInSetup) {
                 if (!router.currentRoute.value.path.includes("/setup")) {

@@ -63,7 +63,7 @@ export NO_PROXY=127.0.0.1,localhost,::1
 
 重点检查：
 - `/opt/powerx/{backend,web-admin,runner}` 软链是否正确
-- `/opt/powerx/backend/etc/config.yaml` 中 DB/Redis 配置是否可达
+- `/etc/powerx/config.yaml` 中 DB/Redis 配置是否可达
 - `/etc/powerx/powerx.env` 文件是否存在（启用 runner 时）
 
 ## 4. 回滚

@@ -286,6 +286,19 @@
 
 ---
 
+## Phase 12: Post-Install Upgrade Guardrails（安装后升级护栏）
+
+**Goal**: 已安装实例默认走“代码升级 + 显式 migrate”路径，禁止误触 `/setup` 造成重装风险；运行配置从版本目录解耦为外置真源
+
+**Independent Test**: `install_status=installed` 时访问 `/setup` 自动回 `/home`，调用 setup 写接口返回 409；切版本后 `/etc/powerx/config.yaml` 保持不变
+
+- [X] T124 [US8] 运行时配置外置：switch-release 首次迁移并后续保留 `/etc/powerx/config.yaml` 与可选 `setup.wizard.config.json` `backend/scripts/ops/switch-release-systemd.sh`
+- [X] T125 [US8] systemd 单元改为优先读取外置运行配置：`deploy/powerx/systemd/{powerx-backend.service,powerx-web-admin.service}`
+- [X] T126 [US8] 后端 setup 写接口增加 installed 重入保护（默认 409，支持紧急开关）`backend/internal/transport/http/admin/system/setup_handler.go`
+- [X] T127 [US8] 前端路由守卫收敛：仅未安装态强制 `/setup`，已安装态访问 `/setup` 跳 `/home` `web-admin/app/middleware/01-auth.global.ts` + `web-admin/app/plugins/{api.ts,auth-init.client.ts}`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

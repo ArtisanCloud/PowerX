@@ -8,6 +8,8 @@ Type=simple
 User=powerx
 Group=powerx
 WorkingDirectory=/opt/powerx/backend
+EnvironmentFile=-/etc/powerx/powerx.env
+Environment=POWERX_CONFIG=/etc/powerx/config.yaml
 ExecStart=/opt/powerx/backend/powerx
 Restart=always
 RestartSec=3

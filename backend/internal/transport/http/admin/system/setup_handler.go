@@ -277,6 +277,10 @@ func (h *SetupHandler) GetConfig(c *gin.Context) {
 }
 
 func (h *SetupHandler) SaveConfig(c *gin.Context) {
+	if !setupWriteAllowed() {
+		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次修改初始化向导配置", nil)
+		return
+	}
 	var req setupConfigPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", err)
@@ -296,6 +300,10 @@ func (h *SetupHandler) SaveConfig(c *gin.Context) {
 }
 
 func (h *SetupHandler) Complete(c *gin.Context) {
+	if !setupWriteAllowed() {
+		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次执行初始化", nil)
+		return
+	}
 	status := "installed"
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		status = cfg.Install.EffectiveStatus()
@@ -388,6 +396,10 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 }
 
 func (h *SetupHandler) Provision(c *gin.Context) {
+	if !setupWriteAllowed() {
+		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次执行数据库初始化", nil)
+		return
+	}
 	status := "installed"
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		status = cfg.Install.EffectiveStatus()
@@ -690,6 +702,19 @@ func intFromAny(v any) int {
 	default:
 		return 0
 	}
+}
+
+func setupWriteAllowed() bool {
+	status := "installed"
+	if cfg := config.GetGlobalConfig(); cfg != nil {
+		status = cfg.Install.EffectiveStatus()
+	}
+	if status != "installed" {
+		return true
+	}
+	// 仅用于紧急排障，默认禁止安装后再次写 setup。
+	flag := strings.TrimSpace(strings.ToLower(os.Getenv("POWERX_ALLOW_SETUP_REENTRY")))
+	return flag == "1" || flag == "true" || flag == "yes" || flag == "on"
 }
 
 func openSetupDatabase(in setupDatabaseConfig) (*gorm.DB, error) {

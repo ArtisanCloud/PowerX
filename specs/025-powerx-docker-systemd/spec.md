@@ -20,7 +20,7 @@
 
 - Q: 首次安装时数据库尚未可用，安装状态存哪里？ → A: 以 `config.yaml.install.status` 为首真相，数据库仅做兼容与审计。
 - Q: 未安装状态下是否允许业务 API 正常访问？ → A: 不允许，采用全局硬拦截，仅放行 setup/health/静态资源。
-- Q: 运行态配置最终落点在哪里？ → A: `dist/.../config`（config + env），不以仓库内示例文件作为生产真相。
+- Q: 运行态配置最终落点在哪里？ → A: `/etc/powerx`（`config.yaml` + `powerx.env`），以外置运行时配置作为生产真相，版本目录仅承载代码与静态产物。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -123,7 +123,9 @@
 - **FR-020**: 系统必须支持“未安装 -> 安装中 -> 已安装”的状态机，且状态切换由安装流程驱动，避免依赖用户/租户数量推断。
 - **FR-021**: 系统在未安装状态必须执行全局访问硬拦截，仅放行 setup/health/静态资源，其他 API 必须返回统一错误码。
 - **FR-022**: 安装完成流程必须采用“两阶段闭环”：先配置与连通性校验，再执行迁移初始化并原子切换到 `installed`。
-- **FR-023**: 安装流程写入的运行配置必须落到部署产物目录（`dist/.../config`），并可被 systemd/docker 直接消费。
+- **FR-023**: 安装流程写入的运行配置必须落到外置运行目录（`/etc/powerx`），并可被 systemd/docker 直接消费。
+- **FR-025**: 系统在 `install.status=installed` 时必须禁止 setup 写操作（`setup/config`、`setup/provision`、`setup/complete`），避免已安装实例被误重置。
+- **FR-026**: 系统必须区分“首次安装流程”与“版本升级流程”：已安装实例升级默认仅切换代码版本，数据库变更通过显式 `migrate/seed` 通道执行，不依赖 `/setup`。
 - **FR-024**: 前端必须将“系统安装引导”与“AI 功能引导”解耦，未安装状态不得出现 AI onboarding 弹层。
 
 ### Key Entities *(include if feature involves data)*
