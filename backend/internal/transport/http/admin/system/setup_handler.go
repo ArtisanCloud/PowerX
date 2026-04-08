@@ -1208,13 +1208,58 @@ func runSetupProvisionSteps(runtimePath string) error {
 		if workDir := resolveSetupProvisionWorkDir(runtimePath); workDir != "" {
 			run.Dir = workDir
 		}
-		run.Env = os.Environ()
+		env := os.Environ()
+		if rp := strings.TrimSpace(runtimePath); rp != "" {
+			// 明确把 setup 当前运行配置传给子进程，避免回退读取旧 release 的 etc/config.yaml。
+			env = append(env, "POWERX_CONFIG="+rp)
+			env = append(env, "POWERX_SETUP_RUNTIME_CONFIG_PATH="+rp)
+		}
+		run.Env = env
 		output, err := run.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("run setup command failed: %s: %w; output=%s", cmd, err, strings.TrimSpace(string(output)))
+			return fmt.Errorf("run setup command failed: %s: %w; output=%s", cmd, err, summarizeSetupCommandOutput(output))
 		}
 	}
 	return nil
+}
+
+func summarizeSetupCommandOutput(output []byte) string {
+	s := strings.TrimSpace(string(output))
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	keep := make([]string, 0, 4)
+	for _, line := range lines {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		low := strings.ToLower(l)
+		if strings.Contains(low, "fatal:") ||
+			strings.Contains(low, "sqlstate") ||
+			strings.Contains(low, "连接数据库失败") ||
+			strings.Contains(low, "database migrate tool not found") {
+			keep = append(keep, l)
+		}
+	}
+	if len(keep) == 0 {
+		if len(lines) > 6 {
+			lines = lines[len(lines)-6:]
+		}
+		keep = make([]string, 0, len(lines))
+		for _, line := range lines {
+			l := strings.TrimSpace(line)
+			if l != "" {
+				keep = append(keep, l)
+			}
+		}
+	}
+	msg := strings.Join(keep, " | ")
+	if len(msg) > 1200 {
+		msg = msg[:1200] + "..."
+	}
+	return msg
 }
 
 func resolveSetupProvisionWorkDir(runtimePath string) string {
