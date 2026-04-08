@@ -81,13 +81,10 @@ sudo apt-get install -y postgresql-16-pgvector
 # 1) 创建账号（密码请替换为强密码）
 sudo -u postgres psql -c "CREATE USER powerx WITH PASSWORD 'CHANGE_ME_STRONG_PASSWORD';"
 
-# 2) 创建数据库并指定 owner
+# 2) 创建数据库并指定 owner（关键）
 sudo -u postgres psql -c "CREATE DATABASE powerx OWNER powerx;"
 
-# 3) 最小权限（同 owner 场景可省略）
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE powerx TO powerx;"
-
-# 4) 在业务库启用 pgvector 扩展
+# 3) 在业务库启用 pgvector 扩展
 sudo -u postgres psql -d powerx -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
@@ -109,6 +106,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE, TRIGGER, REFERENCES ON TABLES TO powerx;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO powerx;
 SQL
+```
+
+> 说明（重要）：
+> 上面的 `GRANT` 解决的是“读写/建表”等业务权限，不等于“对象所有权（owner）”。
+> 若你需要执行 `DROP TABLE` / `DROP SCHEMA` 等破坏性操作，仍必须使用对象 owner 或超级用户。
+> 常见报错：`must be owner of schema public`。
+
+如需把库与 schema 的 owner 一次性收敛到 `powerx`（推荐在测试环境操作，生产请评估）：
+```bash
+sudo -u postgres psql -d powerx <<'SQL'
+ALTER DATABASE powerx OWNER TO powerx;
+ALTER SCHEMA public OWNER TO powerx;
+SQL
+```
+
+然后可验证：
+```bash
+sudo -u postgres psql -d powerx -c "SELECT n.nspname, pg_get_userbyid(n.nspowner) AS owner FROM pg_namespace n WHERE n.nspname='public';"
 ```
 
 如果 `postgresql-16-pgvector` 仍找不到，使用源码安装：
