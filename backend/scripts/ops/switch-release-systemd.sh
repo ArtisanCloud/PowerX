@@ -250,6 +250,7 @@ assert_effective_service_user() {
 
 detect_node_bin() {
   local candidate=""
+  local home_dir=""
   local env_file="${RUNTIME_ROOT}/powerx.env"
 
   # 优先使用用户显式指定的 NODE_BIN（若可执行）
@@ -286,6 +287,19 @@ detect_node_bin() {
       return 0
     fi
   fi
+
+  # 兜底：显式扫描常见 nvm 安装路径（非交互 shell 下 command -v 可能拿不到）。
+  for u in "${SERVICE_USER}" "${SUDO_USER:-}"; do
+    [[ -z "$u" ]] && continue
+    home_dir="$(getent passwd "$u" 2>/dev/null | cut -d: -f6 || true)"
+    [[ -z "$home_dir" ]] && continue
+    for candidate in "${home_dir}"/.nvm/versions/node/*/bin/node; do
+      if [[ -x "$candidate" ]] && sudo -u "${SERVICE_USER}" test -x "$candidate" 2>/dev/null; then
+        printf "%s" "$candidate"
+        return 0
+      fi
+    done
+  done
 
   return 1
 }
