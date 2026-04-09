@@ -30,8 +30,48 @@ services:
       timeout: 3s
       retries: 10
 
+  loki:
+    image: grafana/loki:2.9.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "${POWERX_LOKI_PORT:-3100}:3100"
+    volumes:
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/loki:/loki
+      - ./observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/promtail:/tmp
+      - ./observability/promtail-config.yaml:/etc/promtail/config.yml:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    restart: unless-stopped
+    ports:
+      - "${POWERX_GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${POWERX_GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${POWERX_GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: ${POWERX_GRAFANA_ANONYMOUS_ENABLED:-false}
+    volumes:
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/grafana:/var/lib/grafana
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - loki
+
   backend:
-    image: ghcr.io/artisancloud/powerx-backend:${POWERX_BACKEND_TAG}
+    image: powerx-backend:${POWERX_IMAGE_TAG:-local}
+    build:
+      context: ../../..
+      dockerfile: deploy/powerx/docker/dockerfiles/backend.Dockerfile
     restart: unless-stopped
     env_file:
       - .env
@@ -55,20 +95,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  runner:
-    image: ghcr.io/artisancloud/powerx-runner:${POWERX_RUNNER_TAG}
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx:ro
-    depends_on:
-      backend:
-        condition: service_healthy
+      loki:
+        condition: service_started
 
   web-admin:
-    image: ghcr.io/artisancloud/powerx-web-admin:${POWERX_WEB_ADMIN_TAG}
+    image: powerx-web-admin:${POWERX_IMAGE_TAG:-local}
+    build:
+      context: ../../..
+      dockerfile: deploy/powerx/docker/dockerfiles/web-admin.Dockerfile
     restart: unless-stopped
     env_file:
       - .env

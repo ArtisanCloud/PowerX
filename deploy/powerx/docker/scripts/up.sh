@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${DOCKER_DIR}/compose.prod.yaml"
 ENV_FILE="${DOCKER_DIR}/.env"
+MODE="${POWERX_DOCKER_MODE:-auto}" # auto | full | infra
 
 compose() {
   if docker compose version >/dev/null 2>&1; then
@@ -30,24 +31,27 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-check_required_tag() {
-  local key="$1"
-  local value
-  value="$(grep -E "^${key}=" "${ENV_FILE}" | tail -n 1 | cut -d= -f2- || true)"
-  value="${value%%#*}"
-  value="$(echo "${value}" | xargs)"
-  if [[ -z "${value}" || "${value}" == "latest" || "${value}" == "CHANGE_ME" ]]; then
-    echo "[docker-up] invalid ${key}='${value:-<empty>}' in ${ENV_FILE}" >&2
-    echo "[docker-up] please set a real image tag before startup, e.g. ${key}=v2.0.1" >&2
-    exit 1
-  fi
-}
-
-check_required_tag "POWERX_BACKEND_TAG"
-check_required_tag "POWERX_RUNNER_TAG"
-check_required_tag "POWERX_WEB_ADMIN_TAG"
-
 cd "${DOCKER_DIR}"
-compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull
+
+if [[ "${MODE}" == "infra" ]]; then
+  echo "[docker-up] mode=infra, start postgres+redis only"
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull postgres redis
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d postgres redis
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
+  exit 0
+fi
+
+if [[ "${MODE}" == "full" ]]; then
+  echo "[docker-up] mode=full, pull infra images + build local app images"
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull postgres redis loki promtail grafana
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build backend web-admin
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
+  compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
+  exit 0
+fi
+
+echo "[docker-up] mode=auto -> full (local build)"
+compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull postgres redis loki promtail grafana
+compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build backend web-admin
 compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
 compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps

@@ -60,7 +60,7 @@ get_env_key() {
 
 is_valid_tag() {
   local value="$1"
-  [[ -n "${value}" && "${value}" != "latest" && "${value}" != "CHANGE_ME" ]]
+  [[ -n "${value}" && "${value}" != "CHANGE_ME" ]]
 }
 
 infer_image_tag() {
@@ -84,22 +84,6 @@ infer_image_tag() {
     return
   fi
 
-  candidate="$(get_env_key "POWERX_BACKEND_TAG")"
-  if is_valid_tag "${candidate}"; then
-    echo "${candidate}"
-    return
-  fi
-  candidate="$(get_env_key "POWERX_RUNNER_TAG")"
-  if is_valid_tag "${candidate}"; then
-    echo "${candidate}"
-    return
-  fi
-  candidate="$(get_env_key "POWERX_WEB_ADMIN_TAG")"
-  if is_valid_tag "${candidate}"; then
-    echo "${candidate}"
-    return
-  fi
-
   local repo_dir git_tag=""
   repo_dir="$(cd "${DOCKER_DIR}/../../.." && pwd)"
   if command -v git >/dev/null 2>&1 && git -C "${repo_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -110,42 +94,17 @@ infer_image_tag() {
     fi
   fi
 
-  echo ""
+  echo "local"
 }
 
 RESOLVED_IMAGE_TAG="$(infer_image_tag)"
-if ! is_valid_tag "${RESOLVED_IMAGE_TAG}"; then
-  echo "[docker-bootstrap] cannot resolve a valid image tag" >&2
-  echo "[docker-bootstrap] set POWERX_IMAGE_TAG in .env once, then rerun ./scripts/bootstrap-host.sh" >&2
-  exit 1
-fi
-
 set_env_key "POWERX_IMAGE_TAG" "${RESOLVED_IMAGE_TAG}"
-set_env_key "POWERX_BACKEND_TAG" "${RESOLVED_IMAGE_TAG}"
-set_env_key "POWERX_RUNNER_TAG" "${RESOLVED_IMAGE_TAG}"
-set_env_key "POWERX_WEB_ADMIN_TAG" "${RESOLVED_IMAGE_TAG}"
 echo "[docker-bootstrap] resolved image tag: ${RESOLVED_IMAGE_TAG}"
 
-validate_required_tag() {
-  local key="$1"
-  local value
-  value="$(grep -E "^${key}=" "${ENV_FILE}" | tail -n 1 | cut -d= -f2- || true)"
-  value="${value%%#*}"
-  value="$(echo "${value}" | xargs)"
-  if [[ -z "${value}" || "${value}" == "latest" || "${value}" == "CHANGE_ME" ]]; then
-    echo "[docker-bootstrap] invalid ${key}='${value:-<empty>}' in ${ENV_FILE}" >&2
-    echo "[docker-bootstrap] set POWERX_IMAGE_TAG in .env, then rerun ./scripts/bootstrap-host.sh" >&2
-    exit 1
-  fi
-}
-
-validate_required_tag "POWERX_BACKEND_TAG"
-validate_required_tag "POWERX_RUNNER_TAG"
-validate_required_tag "POWERX_WEB_ADMIN_TAG"
-
 sudo mkdir -p "${HOST_CONFIG_DIR}"
-sudo mkdir -p "${HOST_DATA_DIR}/postgres" "${HOST_DATA_DIR}/redis" "${HOST_DATA_DIR}/uploads"
+sudo mkdir -p "${HOST_DATA_DIR}/postgres" "${HOST_DATA_DIR}/redis" "${HOST_DATA_DIR}/uploads" "${HOST_DATA_DIR}/loki" "${HOST_DATA_DIR}/promtail" "${HOST_DATA_DIR}/grafana"
 sudo chown -R 999:999 "${HOST_DATA_DIR}/postgres" "${HOST_DATA_DIR}/redis"
+sudo chown -R 472:472 "${HOST_DATA_DIR}/grafana"
 
 echo "[docker-bootstrap] done"
 echo "[docker-bootstrap] next:"

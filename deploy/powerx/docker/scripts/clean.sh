@@ -80,12 +80,14 @@ fi
 sudo rm -rf "${HOST_CONFIG_DIR}" "${HOST_DATA_DIR}"
 sudo rm -f "${ENV_FILE}" "${ENV_FILE}.bak"
 
-# Optional image cleanup: only PowerX and base deps used by this compose.
+# Optional image cleanup: local build images + base deps used by this compose.
 docker image rm -f \
-  ghcr.io/artisancloud/powerx-backend \
-  ghcr.io/artisancloud/powerx-runner \
-  ghcr.io/artisancloud/powerx-web-admin \
+  powerx-backend \
+  powerx-web-admin \
   pgvector/pgvector:pg16 \
-  redis:7-alpine >/dev/null 2>&1 || true
+  redis:7-alpine \
+  grafana/loki:2.9.8 \
+  grafana/promtail:2.9.8 \
+  grafana/grafana:10.4.5 >/dev/null 2>&1 || true
 
 echo "[docker-clean] done"
