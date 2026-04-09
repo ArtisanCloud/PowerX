@@ -52,7 +52,7 @@ cd ~/workspace/PowerX/deploy/powerx/docker
 ```
 
 说明：
-- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`；会自动写入 `POWERX_IMAGE_TAG`（优先现有配置，其次 `POWERX_IMAGE_TAG/POWERX_VERSION`，最后最近 git tag，仍无则 `local`）；若缺少 `backend/go.sum` 会自动执行 `go mod tidy` 补齐。
+- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`；会自动写入 `POWERX_IMAGE_TAG`（优先现有配置，其次 `POWERX_IMAGE_TAG/POWERX_VERSION`，最后最近 git tag，仍无则 `local`）。
 - `up.sh`：执行 `docker compose pull postgres/redis/loki/promtail/grafana + build backend/web-admin + up -d + ps`。
 
 ## 4.1 一键重置并启动（清空后重装）

@@ -34,18 +34,6 @@ if [[ ! -f "${REPO_ROOT}/backend/go.mod" ]]; then
   echo "[docker-bootstrap] missing backend/go.mod under repo root: ${REPO_ROOT}" >&2
   exit 1
 fi
-if [[ ! -f "${REPO_ROOT}/backend/go.sum" ]]; then
-  if ! command -v go >/dev/null 2>&1; then
-    echo "[docker-bootstrap] backend/go.sum missing and 'go' not found" >&2
-    echo "[docker-bootstrap] install Go, then run: cd ${REPO_ROOT}/backend && go mod tidy" >&2
-    exit 1
-  fi
-  echo "[docker-bootstrap] backend/go.sum missing, run go mod tidy"
-  (
-    cd "${REPO_ROOT}/backend"
-    go mod tidy
-  )
-fi
 
 if [[ ! -f "${ENV_EXAMPLE}" ]]; then
   echo "[docker-bootstrap] missing env example: ${ENV_EXAMPLE}" >&2
