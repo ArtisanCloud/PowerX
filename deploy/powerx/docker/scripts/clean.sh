@@ -60,9 +60,10 @@ echo "[docker-clean] will remove host config dir: ${HOST_CONFIG_DIR}"
 echo "[docker-clean] will remove host data dir: ${HOST_DATA_DIR}"
 
 if [[ "${ASSUME_YES}" != "true" ]]; then
-  echo "[docker-clean] destructive operation, type YES to continue:"
+  echo "[docker-clean] destructive operation, type YES/yes/y to continue:"
   read -r confirm
-  if [[ "${confirm}" != "YES" ]]; then
+  confirm="$(echo "${confirm}" | tr '[:upper:]' '[:lower:]' | xargs)"
+  if [[ "${confirm}" != "yes" && "${confirm}" != "y" ]]; then
     echo "[docker-clean] cancelled"
     exit 1
   fi
