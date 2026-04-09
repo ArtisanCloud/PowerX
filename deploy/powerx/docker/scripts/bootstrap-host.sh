@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${DOCKER_DIR}/../../.." && pwd)"
 
 HOST_CONFIG_DIR="${POWERX_HOST_CONFIG_DIR:-/etc/powerx}"
 HOST_DATA_DIR="${POWERX_HOST_DATA_DIR:-/var/lib/powerx}"
@@ -25,8 +26,26 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "[docker-bootstrap] docker dir: ${DOCKER_DIR}"
+echo "[docker-bootstrap] repo root: ${REPO_ROOT}"
 echo "[docker-bootstrap] host config dir: ${HOST_CONFIG_DIR}"
 echo "[docker-bootstrap] host data dir: ${HOST_DATA_DIR}"
+
+if [[ ! -f "${REPO_ROOT}/backend/go.mod" ]]; then
+  echo "[docker-bootstrap] missing backend/go.mod under repo root: ${REPO_ROOT}" >&2
+  exit 1
+fi
+if [[ ! -f "${REPO_ROOT}/backend/go.sum" ]]; then
+  if ! command -v go >/dev/null 2>&1; then
+    echo "[docker-bootstrap] backend/go.sum missing and 'go' not found" >&2
+    echo "[docker-bootstrap] install Go, then run: cd ${REPO_ROOT}/backend && go mod tidy" >&2
+    exit 1
+  fi
+  echo "[docker-bootstrap] backend/go.sum missing, run go mod tidy"
+  (
+    cd "${REPO_ROOT}/backend"
+    go mod tidy
+  )
+fi
 
 if [[ ! -f "${ENV_EXAMPLE}" ]]; then
   echo "[docker-bootstrap] missing env example: ${ENV_EXAMPLE}" >&2
