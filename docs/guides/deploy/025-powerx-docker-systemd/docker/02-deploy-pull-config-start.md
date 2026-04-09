@@ -52,7 +52,7 @@ cd ~/workspace/PowerX/deploy/powerx/docker
 ```
 
 说明：
-- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`。
+- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`；会自动统一 `POWERX_IMAGE_TAG/POWERX_BACKEND_TAG/POWERX_RUNNER_TAG/POWERX_WEB_ADMIN_TAG`（优先使用现有配置，其次 `POWERX_IMAGE_TAG/POWERX_VERSION`，最后尝试当前 git 分支名）。
 - `up.sh`：执行 `docker compose pull + up -d + ps`。
 
 ## 5. 手工等价步骤（可选）
@@ -81,6 +81,7 @@ cp .env.prod.example .env
 必须确认以下键（默认使用 compose 内置 Postgres/Redis）：
 
 ```dotenv
+POWERX_IMAGE_TAG=v2.0.1
 POWERX_BACKEND_TAG=v2.0.1
 POWERX_RUNNER_TAG=v2.0.1
 POWERX_WEB_ADMIN_TAG=v2.0.1
@@ -100,6 +101,7 @@ POSTGRES_PASSWORD=powerx
 ```
 
 其中：
+- `POWERX_IMAGE_TAG`：统一业务镜像版本（推荐只维护这一个，再由脚本同步到三个服务 tag）
 - `POWERX_*_TAG`：固定业务镜像版本（必须同一发布版本）
   - Docker 模式版本以 tag 为准，不使用 `POWERX_VERSION`
   - 建议三者保持一致：`POWERX_BACKEND_TAG`、`POWERX_RUNNER_TAG`、`POWERX_WEB_ADMIN_TAG`
