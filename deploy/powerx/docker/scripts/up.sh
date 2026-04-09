@@ -6,6 +6,19 @@ DOCKER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${DOCKER_DIR}/compose.prod.yaml"
 ENV_FILE="${DOCKER_DIR}/.env"
 
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+    return
+  fi
+  echo "[docker-up] neither 'docker compose' nor 'docker-compose' is available" >&2
+  exit 1
+}
+
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
   echo "[docker-up] missing compose file: ${COMPOSE_FILE}" >&2
   exit 1
@@ -18,6 +31,6 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 fi
 
 cd "${DOCKER_DIR}"
-docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull
-docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
-docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
+compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull
+compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
+compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
