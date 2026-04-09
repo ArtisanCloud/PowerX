@@ -61,7 +61,7 @@ func (r *NotificationRepository) List(ctx context.Context, filter ListFilter) ([
 	q := r.db.WithContext(ctx).Model(&models.Notification{}).
 		Where("tenant_uuid = ?", tenantUUID)
 	if memberUUID != "" {
-		q = q.Where("member_uuid = ?", memberUUID)
+		q = q.Where("(member_uuid = ? OR member_uuid = '' OR member_uuid IS NULL)", memberUUID)
 	}
 	if filter.Category != "" {
 		q = q.Where("category = ?", filter.Category)
@@ -154,4 +154,18 @@ func (r *NotificationRepository) Delete(ctx context.Context, tenantUUID, memberU
 		q = q.Where("member_uuid = ?", memberUUID)
 	}
 	return q.Delete(&models.Notification{}).Error
+}
+
+func (r *NotificationRepository) DeleteAll(ctx context.Context, tenantUUID, memberUUID string) (int64, error) {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	memberUUID = strings.TrimSpace(memberUUID)
+	if tenantUUID == "" {
+		return 0, gorm.ErrInvalidData
+	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID)
+	if memberUUID != "" {
+		q = q.Where("(member_uuid = ? OR member_uuid = '' OR member_uuid IS NULL)", memberUUID)
+	}
+	tx := q.Delete(&models.Notification{})
+	return tx.RowsAffected, tx.Error
 }

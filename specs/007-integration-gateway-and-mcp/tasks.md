@@ -221,15 +221,15 @@
 
 ### Design / Contracts
 
-- [ ] **T103 [P]** 契约固化：将 `delegated-gateway-contract-v1.md` 的约束同步到 `spec.md`、`quickstart.md` 与 OpenAPI 错误码说明，明确为 breaking change。
+- [x] **T103 [P]** 契约固化：将 `delegated-gateway-contract-v1.md` 的约束同步到 `spec.md`、`quickstart.md` 与 OpenAPI 错误码说明，明确为 breaking change。
 
 ### PowerX Implementation（本仓库）
 
-- [ ] **T104 [P]** 宿主注入链路：在插件进程 env 生成/覆盖逻辑中强制注入 `PX_GATEWAY_BASE_URL`、`PX_PLUGIN_TOOL_TOKEN`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止 delegated 注入 `PX_GATEWAY_API_KEY`。
-- [ ] **T105 [P]** 启用前校验：在插件 `Enable` 流程加入 delegated 网关契约检查，缺失配置直接 fail（结构化错误码）。
-- [ ] **T106** 启用后探活：插件启用后执行一次 capability dry-run/health check，失败则标记 `enable_failed_gateway_contract` 并审计落库。
-- [ ] **T107** 凭证下发链路收敛：禁用默认 stub 行为（或在非真实下发链路时显式 fail），确保不会出现“日志成功、运行缺凭证”。
-- [ ] **T108 [P]** 观测与审计：新增 `plugin_gateway_contract_valid` 指标与审计字段（`gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`）。
+- [x] **T104 [P]** 宿主注入链路：在插件进程 env 生成/覆盖逻辑中强制注入 `PX_GATEWAY_BASE_URL`、`PX_PLUGIN_TOOL_TOKEN`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止 delegated 注入 `PX_GATEWAY_API_KEY`。
+- [x] **T105 [P]** 启用前校验：在插件 `Enable` 流程加入 delegated 网关契约检查，缺失配置直接 fail（结构化错误码）。
+- [x] **T106** 启用后探活：插件启用后执行一次 capability dry-run/health check，失败则标记 `enable_failed_gateway_contract` 并审计落库。
+- [x] **T107** 凭证下发链路收敛：禁用默认 stub 行为（或在非真实下发链路时显式 fail），确保不会出现“日志成功、运行缺凭证”。
+- [x] **T108 [P]** 观测与审计：新增 `plugin_gateway_contract_valid` 指标与审计字段（`gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`）。
 
 ### PowerXPlugin Implementation（外部仓库：`Core/Plugins/PowerXPlugin`）
 
@@ -240,7 +240,7 @@
 
 ### Tests
 
-- [ ] **T113 [P]** PowerX 集成测试：覆盖注入成功/缺失/错误 scheme 的启用流程，断言 fail-fast 与审计字段。
+- [x] **T113 [P]** PowerX 集成测试：覆盖注入成功/缺失/错误 scheme 的启用流程，断言 fail-fast 与审计字段。
 - [ ] **T114 [P]** PowerXPlugin 集成测试：覆盖 delegated 启动校验、入口 guard 统一错误结构、无旧变量回退行为。
 - [ ] **T115** E2E 联调：宿主启用插件后访问 `/_p/<plugin>/admin/.../catalog`，验证不再出现 `has_tool_token=false` / `gateway_base_url=false`。
 

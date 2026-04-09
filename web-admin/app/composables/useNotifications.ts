@@ -148,6 +148,13 @@ export const useNotifications = () => {
     if (totalCount.value > 0) totalCount.value -= 1;
   };
 
+  // 清空通知
+  const clearAllNotifications = async () => {
+    await api.clearAll();
+    notifications.value = [];
+    totalCount.value = 0;
+  };
+
   // 获取统计信息
   const getStats = (): NotificationStats => {
     const total = totalCount.value;
@@ -229,6 +236,7 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    clearAllNotifications,
     getStats,
     setFilter,
     clearFilter,

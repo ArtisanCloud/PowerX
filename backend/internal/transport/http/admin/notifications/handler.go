@@ -204,6 +204,25 @@ func (h *Handler) Delete(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
+func (h *Handler) ClearAll(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		c.Status(http.StatusNotImplemented)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
+		return
+	}
+	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	deleted, err := h.svc.DeleteAll(c.Request.Context(), tenantUUID, memberUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "清空通知失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ok": true, "deleted": deleted})
+}
+
 func (h *Handler) PushTestNotification(c *gin.Context) {
 	if h == nil || h.svc == nil {
 		c.Status(http.StatusNotImplemented)

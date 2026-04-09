@@ -89,8 +89,13 @@ export const useNotificationService = () => {
       );
     },
     delete: (uuid: string) => {
-      return apiClient.del<ApiResponse<{ ok: boolean }>>(
+      return apiClient.delete<ApiResponse<{ ok: boolean }>>(
         `${baseUrl}/${encodeURIComponent(uuid)}`
+      );
+    },
+    clearAll: () => {
+      return apiClient.delete<ApiResponse<{ ok: boolean; deleted: number }>>(
+        `${baseUrl}`
       );
     },
     pushTestQueue: (payload: TestNotificationPayload = {}) => {

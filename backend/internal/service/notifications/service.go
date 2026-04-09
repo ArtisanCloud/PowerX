@@ -110,3 +110,7 @@ func (s *Service) MarkRead(ctx context.Context, tenantUUID, memberUUID, uuid str
 func (s *Service) Delete(ctx context.Context, tenantUUID, memberUUID, uuid string) error {
 	return s.repo.Delete(ctx, tenantUUID, memberUUID, uuid)
 }
+
+func (s *Service) DeleteAll(ctx context.Context, tenantUUID, memberUUID string) (int64, error) {
+	return s.repo.DeleteAll(ctx, tenantUUID, memberUUID)
+}

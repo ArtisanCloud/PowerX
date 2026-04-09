@@ -2,6 +2,10 @@ openapi: 3.0.3
 info:
   title: Capability Registry & Integration Gateway API (Design Draft)
   version: 0.2.0
+  description: |
+    Breaking Change（Delegated Gateway Contract v1）：
+    delegated 模式仅允许 `PX_PLUGIN_TOOL_TOKEN` + `bearer` + `PX_GATEWAY_BASE_URL`，
+    不再兼容 `PX_TOOL_TOKEN` 与 `PX_GATEWAY_API_KEY`。
 servers:
   - url: https://api.powerx.local
 paths:
@@ -234,6 +238,12 @@ paths:
           description: Capability version mismatch (manual upgrade pending)
         '429':
           description: Rate limit exceeded
+        '503':
+          description: Delegated gateway contract missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayContractErrorResponse'
   /tenant/invocations/stream:
     post:
       summary: Invoke capability via Integration Gateway and stream SSE (Tenant API)
@@ -487,6 +497,27 @@ components:
           type: integer
         event_published:
           type: boolean
+    GatewayContractErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 503
+        message:
+          type: string
+          example: gateway contract invalid
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - GW_CFG_MISSING_BASE_URL
+                - GW_CFG_INVALID_AUTH_SCHEME
+                - GW_CFG_MISSING_PLUGIN_TOOL_TOKEN
+                - GW_BOOTSTRAP_CONTRACT_BROKEN
+            message:
+              type: string
     CapabilitySyncJobDTO:
       type: object
       properties:
