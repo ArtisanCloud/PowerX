@@ -51,6 +51,13 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+REPO_ROOT="$(cd "${DOCKER_DIR}/../../.." && pwd)"
+if [[ ! -f "${REPO_ROOT}/backend/go.mod" || ! -f "${REPO_ROOT}/backend/go.sum" ]]; then
+  echo "[docker-up] missing backend/go.mod or backend/go.sum under repo root: ${REPO_ROOT}" >&2
+  echo "[docker-up] fix: cd ${REPO_ROOT}/backend && go mod tidy" >&2
+  exit 1
+fi
+
 cd "${DOCKER_DIR}"
 
 if [[ "${MODE}" == "infra" ]]; then

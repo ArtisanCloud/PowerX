@@ -591,8 +591,8 @@ async function uninstallPlugin() {
   const { confirm } = useConfirm();
   const ok = await confirm({
     title: "卸载插件",
-    description: "此操作将影响所有租户，且可能中断服务访问。",
-    message: "确定卸载该插件？卸载将影响所有租户。",
+    description: "此操作将影响所有租户，且可能中断服务访问。下一步可选择是否清理磁盘产物（purge）。",
+    message: "确定卸载该插件？（下一步可选“清理并卸载”）",
     confirmLabel: "卸载",
     cancelLabel: "取消",
     tone: "danger",

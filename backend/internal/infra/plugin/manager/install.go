@@ -150,7 +150,8 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	// 6) 可选：安装后立即启用
 	installedState := plugin_mgr.StateInstalled
 	if opts.AutoEnable {
-		if err := m.Enable(ctx, man.ID); err != nil {
+		// 安装后必须切到“本次安装版本”再启用，避免命中旧 current 版本导致 already_enabled。
+		if _, err := m.SwitchVersion(ctx, man.ID, man.Version, true); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}
 		installedState = plugin_mgr.StateEnabled
