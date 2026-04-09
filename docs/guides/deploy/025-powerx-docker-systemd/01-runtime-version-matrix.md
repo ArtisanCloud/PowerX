@@ -51,5 +51,6 @@ docker compose version
 ## 6. 关联文档
 
 - systemd 依赖安装：`systemd/00-runtime-deps-versions.md`
+- Docker 依赖安装：`docker/00-runtime-deps-versions.md`
 - Docker 启动部署：`docker/02-deploy-pull-config-start.md`
 - 必要配置：`00-required-config.md`

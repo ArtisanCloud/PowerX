@@ -7,6 +7,7 @@
 - Compose：`deploy/powerx/docker/compose.prod.yaml`
 - 环境变量模板：`deploy/powerx/docker/.env.prod.example`
 - 默认内置依赖：`postgres`（pgvector 镜像）、`redis`
+- Docker 运行时安装（Ubuntu）：`00-runtime-deps-versions.md`
 
 ## 2.1 版本基线
 
@@ -15,10 +16,32 @@
 
 ## 3. 准备部署目录
 
+首次机器（无仓库）：
+
 ```bash
-cd /opt/powerx
-# 假设你已把仓库或发布包同步到该目录
-cd deploy/powerx/docker
+mkdir -p ~/workspace
+cd ~/workspace
+git clone https://github.com/ArtisanCloud/PowerX.git
+cd ~/workspace/PowerX
+git fetch --tags --prune
+```
+
+已有仓库（更新代码）：
+
+```bash
+cd ~/workspace/PowerX
+git fetch --tags --prune
+git pull --ff-only
+```
+
+进入 Docker 部署目录：
+
+```bash
+cd ~/workspace/PowerX/deploy/powerx/docker
+
+# 若你的代码部署在系统目录，再用：
+# cd /opt/powerx/deploy/powerx/docker
+
 cp .env.prod.example .env
 ```
 
@@ -59,6 +82,8 @@ POSTGRES_PASSWORD=powerx
 
 其中：
 - `POWERX_*_TAG`：固定业务镜像版本（必须同一发布版本）
+  - Docker 模式版本以 tag 为准，不使用 `POWERX_VERSION`
+  - 建议三者保持一致：`POWERX_BACKEND_TAG`、`POWERX_RUNNER_TAG`、`POWERX_WEB_ADMIN_TAG`
 - `postgres` 服务镜像固定为 `pgvector/pgvector:pg16`
 - `redis` 服务镜像固定为 `redis:7-alpine`
 - `POWERX_HOST_CONFIG_DIR`：宿主机配置目录（映射到容器 `/etc/powerx`）
