@@ -100,12 +100,12 @@ infer_image_tag() {
     return
   fi
 
-  local repo_dir branch=""
+  local repo_dir git_tag=""
   repo_dir="$(cd "${DOCKER_DIR}/../../.." && pwd)"
   if command -v git >/dev/null 2>&1 && git -C "${repo_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    branch="$(git -C "${repo_dir}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-    if [[ -n "${branch}" && "${branch}" != "HEAD" ]]; then
-      echo "${branch}"
+    git_tag="$(git -C "${repo_dir}" describe --tags --abbrev=0 2>/dev/null || true)"
+    if is_valid_tag "${git_tag}"; then
+      echo "${git_tag}"
       return
     fi
   fi

@@ -52,8 +52,23 @@ cd ~/workspace/PowerX/deploy/powerx/docker
 ```
 
 说明：
-- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`；会自动统一 `POWERX_IMAGE_TAG/POWERX_BACKEND_TAG/POWERX_RUNNER_TAG/POWERX_WEB_ADMIN_TAG`（优先使用现有配置，其次 `POWERX_IMAGE_TAG/POWERX_VERSION`，最后尝试当前 git 分支名）。
+- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`；会自动统一 `POWERX_IMAGE_TAG/POWERX_BACKEND_TAG/POWERX_RUNNER_TAG/POWERX_WEB_ADMIN_TAG`（优先使用现有配置，其次 `POWERX_IMAGE_TAG/POWERX_VERSION`，最后尝试最近 git tag）。
 - `up.sh`：执行 `docker compose pull + up -d + ps`。
+
+## 4.1 一键重置并启动（清空后重装）
+
+```bash
+cd ~/workspace/PowerX/deploy/powerx/docker
+./scripts/install-and-up.sh
+```
+
+说明：
+- `install-and-up.sh` 会执行 `clean.sh --yes -> bootstrap-host.sh -> up.sh`。
+- `clean.sh --yes` 会删除：
+  - compose 相关容器/网络/卷
+  - `${POWERX_HOST_CONFIG_DIR:-/etc/powerx}`
+  - `${POWERX_HOST_DATA_DIR:-/var/lib/powerx}`
+  - 当前目录 `.env`
 
 ## 5. 手工等价步骤（可选）
 
