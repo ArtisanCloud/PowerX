@@ -14,7 +14,7 @@
 统一版本矩阵与固化规则请以根文档为准：
 - `../01-runtime-version-matrix.md`
 
-## 3. 准备部署目录
+## 3. 获取代码并进入目录
 
 首次机器（无仓库）：
 
@@ -41,11 +41,25 @@ cd ~/workspace/PowerX/deploy/powerx/docker
 
 # 若你的代码部署在系统目录，再用：
 # cd /opt/powerx/deploy/powerx/docker
-
-cp .env.prod.example .env
 ```
 
-准备宿主机映射目录（配置层 + 数据层）：
+## 4. 推荐：两步启动（主路径）
+
+```bash
+cd ~/workspace/PowerX/deploy/powerx/docker
+./scripts/bootstrap-host.sh
+./scripts/up.sh
+```
+
+说明：
+- `bootstrap-host.sh`：创建 `/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`，并在缺失时生成 `.env`。
+- `up.sh`：执行 `docker compose pull + up -d + ps`。
+
+## 5. 手工等价步骤（可选）
+
+如果你不使用脚本，可执行与脚本等价的手工步骤。
+
+### 5.1 准备宿主机映射目录（配置层 + 数据层）
 
 ```bash
 sudo mkdir -p /etc/powerx
@@ -58,7 +72,12 @@ sudo chown -R 999:999 /var/lib/powerx/redis
 - `/etc/powerx`：配置层（`config.yaml`、`powerx.env`、`setup.wizard.config.json`）
 - `/var/lib/powerx`：数据层（PostgreSQL/Redis/上传目录）
 
-## 4. 配置 `.env`
+### 5.2 配置 `.env`
+
+```bash
+cp .env.prod.example .env
+```
+
 必须确认以下键（默认使用 compose 内置 Postgres/Redis）：
 
 ```dotenv
@@ -101,13 +120,13 @@ POSTGRES_PASSWORD=powerx
 预期结果：3 个服务 tag 与本次发布版本一致。
 失败处理：若拉取到旧版本，优先检查 `.env` 是否被覆盖。
 
-## 5. 登录镜像仓库（部署机）
+## 6. 登录镜像仓库（部署机）
 
 ```bash
 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 ```
 
-## 6. 拉取镜像并启动
+## 7. 拉取镜像并启动
 
 ```bash
 docker compose -f compose.prod.yaml pull
@@ -119,7 +138,7 @@ docker compose -f compose.prod.yaml up -d
 - `pull denied`：检查仓库权限与 tag 是否存在。
 - `unhealthy`：先看 `docker compose logs --tail=200 backend`。
 
-## 7. 查看运行状态
+## 8. 查看运行状态
 
 ```bash
 docker compose -f compose.prod.yaml ps
@@ -129,17 +148,17 @@ docker compose -f compose.prod.yaml logs --tail=200 web-admin
 docker compose -f compose.prod.yaml logs --tail=200 postgres
 ```
 
-## 8. 首次启动后的最小初始化建议
+## 9. 首次启动后的最小初始化建议
 - 确认数据库迁移已执行（若发布流程未自动执行，请执行 `cd backend && go run ./cmd/database migrate`）。
 - 若使用外部 PostgreSQL 且启用向量能力，确认目标库已安装 `pgvector` 扩展（或允许应用账号执行 `CREATE EXTENSION vector`）。
 - 确认 Admin 登录可用。
 - 确认 `/ops/deploy` 页面可访问。
 
-## 9. 首次安装引导配置页（推荐）
+## 10. 首次安装引导配置页（推荐）
 
 `docker compose up -d` 后访问 `http://<host>:<web-admin-port>/setup` 完成首次安装引导。  
 完整步骤、字段含义、接口说明与排障，请统一参考：`../setup.md`。
 
-## 10. 引导页排障
+## 11. 引导页排障
 
 排障条目已收敛到 `../setup.md`，本节仅保留索引，避免重复维护。

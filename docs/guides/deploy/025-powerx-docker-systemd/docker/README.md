@@ -13,6 +13,7 @@
 ## 对应资产
 - Compose 文件：`deploy/powerx/docker/compose.prod.yaml`
 - 环境变量模板：`deploy/powerx/docker/.env.prod.example`
+- 快捷脚本：`deploy/powerx/docker/scripts/bootstrap-host.sh`、`deploy/powerx/docker/scripts/up.sh`
 - 健康检查脚本：`backend/scripts/ops/deploy-check.sh`
 - API 回滚脚本：`backend/scripts/ops/rollback-release.sh`
 
