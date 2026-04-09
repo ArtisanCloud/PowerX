@@ -52,11 +52,15 @@ export const useAdminPluginsService = () => {
 
     // 安装（从 URL）
     installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; force?: boolean; metadata?: Record<string, any> }) =>
-      api.post(`${base}/install/url`, payload),
+      api.post(`${base}/install/url`, payload, {
+        timeout: 120000, // 构建/解压/启用可能超过默认 30s
+      }),
 
     // 本地安装（文件上传）
     installFromLocal: (formData: FormData) =>
-      api.upload(`${base}/install/local`, formData),
+      api.upload(`${base}/install/local`, formData, {
+        timeout: 120000, // 大包上传 + 安装流程可能超过默认 30s
+      }),
 
     // 卸载（可扩展 purge 等参数）
     uninstall: async (id: string, payload?: Record<string, any>) =>

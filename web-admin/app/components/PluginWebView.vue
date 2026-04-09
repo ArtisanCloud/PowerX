@@ -8,7 +8,7 @@ type TrustLevel = "trusted" | "untrusted";
 
 const props = withDefaults(
   defineProps<{
-    src: string | { href: string } // e.g. /__up/_p/com.powerx.demo.hello_world/admin/
+    src: string | { href: string } // e.g. /_p/com.powerx.demo.hello_world/admin/
     trust?: TrustLevel;            // 'trusted' => same-origin 测量; 'untrusted' => 强沙箱
     min?: number;                  // 最小高度 px
     max?: number;                  // 最大高度 px
@@ -149,28 +149,44 @@ function onError() {
 }
 
 /** 归一化 src
- * - 相对路径一律基于 upstream（http://127.0.0.1:8077），避免宿主自身路由造成画中画
+ * - /_p/** 保持同源，交给 Nuxt 中间件按请求类型决定是否转发后端
+ * - 其他相对路径基于 upstream（http://127.0.0.1:8077）
  * - 绝对路径原样使用
  */
 const cleanSrc = computed(() => {
-  const raw = typeof props.src === 'string' ? props.src : props.src?.href || '/'
+  const raw = typeof props.src === "string" ? props.src : props.src?.href || "/"
 
   try {
+    if (raw.startsWith("/_p/")) {
+      const u = new URL(raw, "http://localhost")
+      u.pathname = u.pathname.replace(/\/admin(?!\/)/, "/admin/")
+      u.pathname = u.pathname.replace(/\/{2,}/g, "/")
+      return `${u.pathname}${u.search}${u.hash}`
+    }
+
+    if (raw.startsWith("/__up/")) {
+      const u = new URL(raw, "http://localhost")
+      u.pathname = u.pathname.replace(/\/admin(?!\/)/, "/admin/")
+      u.pathname = u.pathname.replace(/\/{2,}/g, "/")
+      return `${u.pathname}${u.search}${u.hash}`
+    }
+
     const base = upstream
-    const u = (raw.startsWith('http://') || raw.startsWith('https://'))
-      ? new URL(raw)
-      : new URL(raw, base)
+    const u =
+      raw.startsWith("http://") || raw.startsWith("https://")
+        ? new URL(raw)
+        : new URL(raw, base)
 
     // 2) /admin 强制补尾斜杠
-    u.pathname = u.pathname.replace(/\/admin(?!\/)/, '/admin/')
+    u.pathname = u.pathname.replace(/\/admin(?!\/)/, "/admin/")
 
     // 3) 清理重复斜杠（不影响协议头部）
-    u.pathname = u.pathname.replace(/\/{2,}/g, '/')
+    u.pathname = u.pathname.replace(/\/{2,}/g, "/")
 
     return u.toString()
   } catch (e) {
     if (debugEnabled.value) {
-      console.warn('[WebView] bad src:', raw, e)
+      console.warn("[WebView] bad src:", raw, e)
     }
     return raw
   }
