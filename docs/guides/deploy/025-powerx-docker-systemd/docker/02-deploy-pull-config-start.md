@@ -63,6 +63,12 @@ export DOCKER_PROXY_URL=http://127.0.0.1:8890   # 如无需代理可不设
 ./scripts/install-and-up.sh
 ```
 
+若通过 `sudo` 执行代理脚本，请优先使用“传参”方式（`sudo` 默认不会继承当前 shell 的环境变量）：
+
+```bash
+sudo ./scripts/configure-docker-proxy.sh auto http://127.0.0.1:8890
+```
+
 说明：
 - `install-and-up.sh` 会执行 `clean.sh --yes -> bootstrap-host.sh -> up.sh`。
 - 若设置 `DOCKER_PROXY_URL`，脚本会自动写入 docker daemon 代理并重启 docker。
