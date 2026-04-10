@@ -438,6 +438,70 @@ ensure_runtime_config_external() {
   fi
 }
 
+sync_runtime_plugin_paths() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip plugin path sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local plugin_installed_abs="${LINK_BACKEND}/plugins/installed"
+  local plugin_registry_abs="${LINK_BACKEND}/plugins/registry.json"
+  local tmp_file
+
+  install -d -m 0755 "${plugin_installed_abs}"
+  install -d -m 0755 "$(dirname "${plugin_registry_abs}")"
+  if [[ ! -f "${plugin_registry_abs}" ]]; then
+    printf '{}\n' > "${plugin_registry_abs}"
+  fi
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}" "$(dirname "${plugin_registry_abs}")"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
+  chmod 0644 "${plugin_registry_abs}"
+
+  if grep -Eq '^[[:space:]]*installed_dir[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.plugin-installed.XXXXXX")"
+    awk -v val="${plugin_installed_abs}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*installed_dir[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "installed_dir: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key plugin.installed_dir not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  if grep -Eq '^[[:space:]]*registry_file[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.plugin-registry.XXXXXX")"
+    awk -v val="${plugin_registry_abs}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*registry_file[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "registry_file: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key plugin.registry_file not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime plugin paths synced: installed_dir=${plugin_installed_abs} registry_file=${plugin_registry_abs}"
+}
+
 sync_runtime_config_version() {
   if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
     echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
@@ -509,6 +573,7 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+sync_runtime_plugin_paths
 sync_runtime_config_version
 set_setup_reentry_env
 
