@@ -96,8 +96,9 @@ func PluginInstallLocalHandler(c *gin.Context) {
 		respondPluginRuntimeUnavailable(c, err)
 		return
 	}
+	ctx := c.Request.Context()
 	meta := coalesceInstallMetadata(c, req.Metadata)
-	p, err := mgr.InstallFromFile(c, srcPath, plugin_mgr.InstallOptions{
+	p, err := mgr.InstallFromFile(ctx, srcPath, plugin_mgr.InstallOptions{
 		AutoEnable: req.Enable,
 		Force:      req.Force,
 		Metadata:   meta,
@@ -421,7 +422,7 @@ func PluginSwitchVersionHandler(c *gin.Context) {
 		respondPluginRuntimeUnavailable(c, err)
 		return
 	}
-	p, err := mgr.SwitchVersion(c, id, req.Version, req.Enable)
+	p, err := mgr.SwitchVersion(c.Request.Context(), id, req.Version, req.Enable)
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "切换版本失败", err)
 		return
@@ -455,10 +456,11 @@ func PluginInstallURLHandler(c *gin.Context) {
 		respondPluginRuntimeUnavailable(c, err)
 		return
 	}
+	ctx := c.Request.Context()
 
 	// 安装（只登记、不自动启用）
 	meta := coalesceInstallMetadata(c, req.Metadata)
-	p, err := mgr.InstallFromURL(c, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
+	p, err := mgr.InstallFromURL(ctx, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
 		VerifyChecksum:  req.SHA256 != "", // 传了就校验
 		VerifySignature: false,            // 先关；后续接公钥再开
 		AutoEnable:      req.Enable,
@@ -472,7 +474,7 @@ func PluginInstallURLHandler(c *gin.Context) {
 
 	// 可选：安装完切换并启用该版本
 	if req.Enable {
-		if _, err := mgr.SwitchVersion(c, p.ID, p.Version, true); err != nil {
+		if _, err := mgr.SwitchVersion(ctx, p.ID, p.Version, true); err != nil {
 			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装成功但启用失败", err)
 			return
 		}

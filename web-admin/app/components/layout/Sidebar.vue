@@ -32,7 +32,7 @@ const densityClass = computed(() =>
 );
 
 /* ---------- helpers ---------- */
-const isPluginPath = (p?: string) => !!p && p.startsWith("//_p/");
+const isPluginPath = (p?: string) => !!p && /^\/+_p\//.test(p);
 const normalizeForCompare = (input?: string): string => {
   if (!input) return "";
   let value = input.trim();

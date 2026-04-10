@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	namespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9]*)(\.[a-z][a-z0-9]*)*$`)
+	namespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_]*)(\.[a-z][a-z0-9_]*)*$`)
 	namePattern      = regexp.MustCompile(`^[a-z][a-z0-9-_]*$`)
 )
 

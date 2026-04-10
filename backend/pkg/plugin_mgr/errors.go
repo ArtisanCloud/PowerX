@@ -127,10 +127,10 @@ func CodeOf(err error) Code {
 }
 func HTTPStatusOf(code Code) int {
 	switch code {
-	case CodeInvalidManifest, CodeUnsupportedRuntime, CodeMissingFile,
+	case CodeInvalidArg, CodeInvalidManifest, CodeUnsupportedRuntime, CodeMissingFile,
 		CodeChecksumMismatch, CodeSignatureInvalid, CodeIncompatibleCoreXVer:
 		return http.StatusBadRequest
-	case CodeAlreadyInstalled, CodeAlreadyEnabled, CodeAlreadyDisabled,
+	case CodeAlreadyExists, CodeAlreadyInstalled, CodeAlreadyEnabled, CodeAlreadyDisabled,
 		CodeVersionConflict, CodeConflict:
 		return http.StatusConflict
 	case CodeNotInstalled, CodeNotFound:

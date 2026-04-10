@@ -275,8 +275,12 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 				req.URL.Scheme = up.target.Scheme
 				req.URL.Host = up.target.Host
 			}
+			upstreamPath := clientPath
+			if shouldRewriteAdminDocToIndex(c.Request, clientPath) {
+				upstreamPath = "/"
+			}
 			// —— 只做传球：/_p/<id>/admin/*filepath（不做任何 locale 注入/剥离）
-			req.URL.Path = joinURLPath(r.basePrefix, pluginID, "admin", clientPath)
+			req.URL.Path = joinURLPath(r.basePrefix, pluginID, "admin", upstreamPath)
 			req.URL.RawPath = req.URL.Path
 
 			// 仅传递宿主挂载点（不含 locale）
@@ -288,6 +292,7 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 			// 诊断
 			req.Header.Set("X-PX-Upstream", up.target.String())
 			req.Header.Set("X-PX-Client-Path", clientPath)
+			req.Header.Set("X-PX-Upstream-Path", upstreamPath)
 			attachTraceHeaders(c, req)
 			req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 		}
@@ -344,6 +349,36 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath st
 	http.ServeFile(c.Writer, c.Request, absReq)
 }
 
+func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
+	if req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return false
+	}
+	if ext := strings.ToLower(filepath.Ext(lower)); ext != "" {
+		return false
+	}
+	accept := strings.ToLower(strings.TrimSpace(req.Header.Get("Accept")))
+	if accept != "" && !strings.Contains(accept, "text/html") && !strings.Contains(accept, "*/*") {
+		return false
+	}
+	return true
+}
+
 // ===== API 反代（带授权预检 + 短期 Token） =====
 
 func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
@@ -392,6 +427,35 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if v, ok := c.Get("auth_claims"); ok {
 		if cc, ok := v.(reqctx.CoreXClaims); ok {
 			claims = cc
+		}
+	}
+	// 兜底：部分链路不会把 auth_claims 以 CoreXClaims 直接放入 gin context。
+	// 这里从 reqctx 回填，避免插件拿到“空身份/零租户身份”导致 401/403。
+	ctxTenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+	if ctxTenant != "" {
+		if canonical, err := reqctx.CanonicalTenantUUID(ctxTenant); err == nil && !isZeroTenantUUID(canonical) {
+			claims.TenantUUID = canonical
+		}
+	}
+	if claims.TenantUUID == "" || isZeroTenantUUID(claims.TenantUUID) {
+		if rc := reqctx.GetClaims(c.Request.Context()); rc != nil {
+			if canonical, err := reqctx.CanonicalTenantUUID(strings.TrimSpace(rc.TenantUUID)); err == nil && !isZeroTenantUUID(canonical) {
+				claims.TenantUUID = canonical
+			}
+		}
+	}
+	if claims.UserID == 0 {
+		claims.UserID = reqctx.GetUserID(c.Request.Context())
+	}
+	if claims.MemberID == 0 {
+		claims.MemberID = reqctx.GetMemberID(c.Request.Context())
+	}
+	if claims.MemberUUID == "" {
+		claims.MemberUUID = strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	}
+	if rc := reqctx.GetClaims(c.Request.Context()); rc != nil {
+		if claims.UserUUID == "" {
+			claims.UserUUID = strings.TrimSpace(rc.UserUUID)
 		}
 	}
 
@@ -476,7 +540,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
-			log.Printf("[GATE-TOKEN] plugin=%s token.head=%s...", pluginID, pluginToken[:40])
+			log.Printf("[GATE-TOKEN] plugin=%s token.head=%s... tid=%s", pluginID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
 		}
 		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
@@ -485,8 +549,12 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		}
 		if tenantUUID != "" {
 			log.Printf("[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
+			req.Header.Set("tenant_uuid", tenantUUID)
+			req.Header.Set("X-PowerX-Tenant", tenantUUID)
 		} else {
 			log.Printf("[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)
+			req.Header.Del("tenant_uuid")
+			req.Header.Del("X-PowerX-Tenant")
 		}
 
 		// 透传签名上下文
@@ -500,6 +568,29 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.Host = up.target.Host
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func extractJWTStringClaim(token, claim string) string {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return ""
+	}
+	if v, ok := payload[claim].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
+}
+
+func isZeroTenantUUID(v string) bool {
+	return strings.EqualFold(strings.TrimSpace(v), "00000000-0000-0000-0000-000000000000")
 }
 
 // ===== 工具/辅助 =====

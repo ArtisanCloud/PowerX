@@ -215,6 +215,35 @@
 - [ ] **T101 [P]** 状态一致性回归：模拟上下文缓存过期/跨标签页切换，验证 `me/context` 强制刷新后视图正确。
 - [ ] **T102** 通知链路回归：验证无效 tenant_uuid 场景下不再弹“WebSocket 重试已达上限”。
 
+## Phase 14: Delegated Gateway Contract v1（精准版，不兼容）
+
+**目标**：在 delegated 模式下统一 Capability Gateway 鉴权契约，只允许 `PX_PLUGIN_TOOL_TOKEN + bearer`，并将缺失配置前置到启动失败（fail-fast）。
+
+### Design / Contracts
+
+- [x] **T103 [P]** 契约固化：将 `delegated-gateway-contract-v1.md` 的约束同步到 `spec.md`、`quickstart.md` 与 OpenAPI 错误码说明，明确为 breaking change。
+
+### PowerX Implementation（本仓库）
+
+- [x] **T104 [P]** 宿主注入链路：在插件进程 env 生成/覆盖逻辑中强制注入 `PX_GATEWAY_BASE_URL`、`PX_PLUGIN_TOOL_TOKEN`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止 delegated 注入 `PX_GATEWAY_API_KEY`。
+- [x] **T105 [P]** 启用前校验：在插件 `Enable` 流程加入 delegated 网关契约检查，缺失配置直接 fail（结构化错误码）。
+- [x] **T106** 启用后探活：插件启用后执行一次 capability dry-run/health check，失败则标记 `enable_failed_gateway_contract` 并审计落库。
+- [x] **T107** 凭证下发链路收敛：禁用默认 stub 行为（或在非真实下发链路时显式 fail），确保不会出现“日志成功、运行缺凭证”。
+- [x] **T108 [P]** 观测与审计：新增 `plugin_gateway_contract_valid` 指标与审计字段（`gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`）。
+
+### PowerXPlugin Implementation（外部仓库：`Core/Plugins/PowerXPlugin`）
+
+- [ ] **T109 [P]** 删除 delegated 兼容读取：移除 `PX_TOOL_TOKEN`、`PX_GATEWAY_API_KEY` 在 delegated 分支下的读取与 fallback。
+- [ ] **T110 [P]** Gateway Client 强校验：delegated 模式下仅允许 `PX_PLUGIN_TOOL_TOKEN` + `bearer`，缺失即进程启动失败。
+- [ ] **T111** 统一 Guard 与错误码：所有 capability 入口复用统一 guard，返回 `GW_CFG_MISSING_BASE_URL`、`GW_CFG_MISSING_PLUGIN_TOOL_TOKEN` 等错误码。
+- [ ] **T112** 启动日志脱敏矩阵：固定输出 `iam_mode`、`gateway_auth_scheme`、`gateway_base_url_present`、`plugin_tool_token_present`。
+
+### Tests
+
+- [x] **T113 [P]** PowerX 集成测试：覆盖注入成功/缺失/错误 scheme 的启用流程，断言 fail-fast 与审计字段。
+- [ ] **T114 [P]** PowerXPlugin 集成测试：覆盖 delegated 启动校验、入口 guard 统一错误结构、无旧变量回退行为。
+- [ ] **T115** E2E 联调：宿主启用插件后访问 `/_p/<plugin>/admin/.../catalog`，验证不再出现 `has_tool_token=false` / `gateway_base_url=false`。
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。
@@ -223,6 +252,7 @@
 4. **Tests vs Implementation**：每个用户故事的测试任务（T012/T013/T014、T023/T024、T031/T032）需先于同故事实现启动，以保持 TDD。
 5. **Polish**：所有核心功能完成后再执行。
 6. **Base Capability Exposure**：依赖 Phase 2~6 的 Registry/Gateway 基础能力，T051~T055 可在核心链路稳定后并行推进；T056 收尾文档。
+7. **Delegated Contract v1**：T104~T108（PowerX）先落地，再执行 T109~T112（PowerXPlugin），最后跑 T113~T115 联调回归。
 
 ### 平行执行示例
 ```bash

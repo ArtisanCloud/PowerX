@@ -112,6 +112,12 @@ export default defineNuxtConfig({
         prependPath: true,
         ws: true, // 必须：让 dev 代理支持 WebSocket
       },
+      "/api/ws": {
+        target: upstreamOrigin,
+        changeOrigin: true,
+        prependPath: true,
+        ws: true,
+      },
     },
   },
   srcDir: "app",
@@ -173,6 +179,11 @@ export default defineNuxtConfig({
     server: {
       proxy: {
         [API_BASE_PREFIX]: {
+          target: upstreamOrigin,
+          changeOrigin: true,
+          ws: true,
+        },
+        "/api/ws": {
           target: upstreamOrigin,
           changeOrigin: true,
           ws: true,

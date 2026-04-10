@@ -72,6 +72,14 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 		ensure(short) // 用于自动推导能命中 "note"
 		// ensure(orig) // 如果你希望兼容原来的 "base:note"，可以保留这一行
 	}
+	// ④ 宿主能力网关调试入口：为 POST /integration/capabilities/invoke 提供稳定映射
+	// 兼容插件侧“功能页调试按钮”场景，避免因自动推导命中不到资源而 403。
+	if base := pol.HTTPBase; base != "" {
+		if res := pickCapabilityInvokeResource(pol.Resources); res != "" {
+			invokePath := joinPolicyPath(base, "/integration/capabilities/invoke")
+			pol.Routes["POST:"+invokePath] = pmrouter.Permission{Resource: res, Action: "create"}
+		}
+	}
 	return pol
 }
 
@@ -105,4 +113,38 @@ func toPolicyHTTPBase(s string) string {
 func normRes(s string) string {
 	s = strings.TrimSpace(strings.ToLower(s))
 	return s
+}
+
+func pickCapabilityInvokeResource(resources map[string]map[string]bool) string {
+	if len(resources) == 0 {
+		return ""
+	}
+	prefer := []string{"integration", "capability", "template", "admin"}
+	for _, name := range prefer {
+		if _, ok := resources[name]; ok {
+			return name
+		}
+	}
+	for name := range resources {
+		return name
+	}
+	return ""
+}
+
+func joinPolicyPath(base, suffix string) string {
+	base = strings.TrimSpace(base)
+	suffix = strings.TrimSpace(suffix)
+	if base == "" {
+		return suffix
+	}
+	if !strings.HasPrefix(base, "/") {
+		base = "/" + base
+	}
+	if !strings.HasPrefix(suffix, "/") {
+		suffix = "/" + suffix
+	}
+	if strings.HasSuffix(base, "/") {
+		base = strings.TrimSuffix(base, "/")
+	}
+	return base + suffix
 }

@@ -22,6 +22,38 @@
 - `Authorization: Bearer <token>` 仅走 JWT 鉴权链路。
 - 不采用 API Key 失败回退 JWT 的混合兜底策略。
 
+### Delegated Gateway Contract v1（Breaking Change）
+
+- delegated 模式仅允许以下三项：
+  - `PX_GATEWAY_BASE_URL`
+  - `PX_GATEWAY_AUTH_SCHEME=bearer`
+  - `PX_PLUGIN_TOOL_TOKEN`（仅用于 bootstrap 探活，可选且短时效）
+- delegated 模式禁止使用：
+  - `PX_GATEWAY_API_KEY`
+  - `PX_TOOL_TOKEN`
+- 业务调用凭证规则：
+  - `auth_required=true`：必须按当前请求上下文执行 STS exchange
+  - `tenant_scoped=true`：STS token 必须带 tenant claim
+  - `auth_required=false`：允许匿名调用（不要求 STS）
+- PowerX 在插件启用阶段会执行 fail-fast；缺失时直接失败并返回结构化错误码：
+  - `GW_CFG_MISSING_BASE_URL`
+  - `GW_CFG_INVALID_AUTH_SCHEME`
+  - `GW_CFG_MISSING_PLUGIN_TOOL_TOKEN`
+  - `GW_BOOTSTRAP_CONTRACT_BROKEN`
+
+### Delegated 启用前自检
+
+```bash
+curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$POWERX_BASE_URL/admin/plugins" | jq '.items[] | {id, state}'
+```
+
+若 delegated 插件启用失败，请在宿主日志中检查是否包含以下审计字段：
+- `gateway_base_url_present`
+- `plugin_tool_token_present`
+- `auth_scheme`
+- `tenant_uuid_present`
+
 ### 鉴权数据模型检查（迁移后必做）
 
 执行以下 SQL，确认 API Key 新链路表已存在：

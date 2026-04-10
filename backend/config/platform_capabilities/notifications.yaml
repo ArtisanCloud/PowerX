@@ -1,0 +1,20 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.notifications.test
+    module: notifications
+    title: System Notification Test
+    description: 发送一条系统测试通知，用于验证 Gateway -> Bell 通知链路。
+    categories: [notification, system]
+    intents: [notifications.test.push]
+    tool_scopes: [notifications.test]
+    policy:
+      prefer: rest
+    docs:
+      - backend/internal/transport/http/openapi/notifications/routes.go
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/notifications/test
+        method: POST
+        schema_ref: backend/internal/transport/http/openapi/notifications/routes.go#POST:/notifications/test
+        auth_type: tenant_jwt
+        tool_scope: notifications.test

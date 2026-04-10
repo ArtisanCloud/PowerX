@@ -5,6 +5,8 @@ package notify
 
 import (
 	"context"
+	"fmt"
+
 	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -24,8 +26,6 @@ func PushTenantCredentials(ctx context.Context, pluginID, tenantUUID, clientID, 
 	}
 	// 提示下一步
 	logger.InfoF(ctx, "[notify] stub: would push credentials to plugin=%s tenant=%s (enable '-tags plugin_control' after buf generate)", pluginID, tenantUUID)
-	// 将其视为非致命：返回 nil，避免阻断启用/轮换流程
-	_ = clientID
-	_ = clientSecret
-	return nil
+	// 非 plugin_control 构建下明确失败，避免“看似成功、实际未下发”的假象。
+	return fmt.Errorf("%w: plugin=%s tenant=%s", ErrControlChannelUnavailable, pluginID, tenantUUID)
 }
