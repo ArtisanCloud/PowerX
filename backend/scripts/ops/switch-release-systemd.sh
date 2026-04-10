@@ -438,6 +438,47 @@ ensure_runtime_config_external() {
   fi
 }
 
+sync_runtime_config_version() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local escaped_version
+  local quoted_version
+  local tmp_file
+  escaped_version="${TARGET_REF//\\/\\\\}"
+  escaped_version="${escaped_version//\"/\\\"}"
+  quoted_version="\"${escaped_version}\""
+  tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.switch.XXXXXX")"
+
+  if grep -Eq '^[[:space:]]*version[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    awk -v version_value="${quoted_version}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*version[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "version: " version_value
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+  else
+    {
+      printf 'version: %s\n' "${quoted_version}"
+      cat "${RUNTIME_CONFIG_PATH}"
+    } > "${tmp_file}"
+  fi
+
+  mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime config version synced: ${RUNTIME_CONFIG_PATH} => ${TARGET_REF}"
+}
+
 rollback() {
   echo "[switch-release] rollback start"
   if [[ -n "$PREV_BACKEND" ]]; then
@@ -468,6 +509,7 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+sync_runtime_config_version
 set_setup_reentry_env
 
 if [[ -d "$TARGET_SYSTEMD" ]]; then
