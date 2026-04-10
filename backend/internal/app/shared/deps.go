@@ -431,6 +431,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
 			Catalog:           capabilityCatalogSvc,
 			Router:            routerSvc,
+			TraceRepo:         capTraceRepo,
+			EventRepo:         capEventRepo,
+			EventBus:          bus,
+			Auditor:           aud,
 			Audit:             capAuditSvc,
 			Clock:             time.Now,
 			VersionLock:       versionLockStore,
