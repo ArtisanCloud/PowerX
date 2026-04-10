@@ -362,6 +362,46 @@ EOF
   echo "[switch-release] using NODE_BIN=${node_bin}"
 }
 
+sync_http_proxy_base_env() {
+  local env_file="${RUNTIME_ROOT}/powerx.env"
+  local backend_port=""
+  local backend_host="127.0.0.1"
+  local proxy_base=""
+
+  install -d -m 0755 "${RUNTIME_ROOT}"
+  if [[ ! -f "$env_file" ]]; then
+    touch "$env_file"
+    chown root:root "$env_file"
+    chmod 0644 "$env_file"
+  fi
+
+  if [[ -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    backend_port="$(awk '
+      /^[[:space:]]*server:[[:space:]]*$/ {in_server=1; next}
+      in_server && /^[[:space:]]*port:[[:space:]]*[0-9]+/ {
+        gsub(/[^0-9]/, "", $0);
+        print $0;
+        exit
+      }
+      in_server && /^[^[:space:]]/ {in_server=0}
+    ' "${RUNTIME_CONFIG_PATH}")"
+  fi
+  if [[ -z "${backend_port}" ]]; then
+    backend_port="8080"
+  fi
+
+  proxy_base="http://${backend_host}:${backend_port}"
+  if grep -q '^POWERX_HTTP_PROXY_BASE=' "$env_file"; then
+    sed -i "s|^POWERX_HTTP_PROXY_BASE=.*$|POWERX_HTTP_PROXY_BASE=${proxy_base}|" "$env_file"
+  else
+    printf 'POWERX_HTTP_PROXY_BASE=%s\n' "${proxy_base}" >> "$env_file"
+  fi
+
+  chown root:root "$env_file"
+  chmod 0644 "$env_file"
+  echo "[switch-release] synced POWERX_HTTP_PROXY_BASE=${proxy_base}"
+}
+
 set_setup_reentry_env() {
   local env_file="${RUNTIME_ROOT}/powerx.env"
   if [[ ! -f "$env_file" ]]; then
@@ -614,6 +654,7 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+sync_http_proxy_base_env
 sync_runtime_plugin_paths
 normalize_plugin_runtime_artifacts
 sync_runtime_config_version

@@ -525,6 +525,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		Server: shared.ServerOptions{
+			HTTPPort: cfg.Server.Port,
 			GRPC: shared.GRPCServerOptions{
 				Host: cfg.Server.GRPC.Host,
 				Port: cfg.Server.GRPC.Port,
