@@ -1,5 +1,5 @@
 <template>
-  <MonitorCenterWorkspace />
+  <MonitorCenterWorkspace forced-tab="event-fabric" :hide-top-tabs="true" />
 </template>
 
 <script setup lang="ts">
