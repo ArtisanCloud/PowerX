@@ -502,6 +502,30 @@ sync_runtime_plugin_paths() {
   echo "[switch-release] runtime plugin paths synced: installed_dir=${plugin_installed_abs} registry_file=${plugin_registry_abs}"
 }
 
+normalize_plugin_runtime_artifacts() {
+  local plugin_installed_abs="${LINK_BACKEND}/plugins/installed"
+  local plugin_registry_abs="${LINK_BACKEND}/plugins/registry.json"
+
+  if [[ ! -d "${plugin_installed_abs}" ]]; then
+    echo "[switch-release] warning: plugin installed dir missing, skip artifact normalize: ${plugin_installed_abs}" >&2
+    return
+  fi
+
+  # 统一属主，避免切换后插件目录落成 root 导致运行用户不可读/不可执行。
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}"
+  if [[ -f "${plugin_registry_abs}" ]]; then
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
+    chmod 0644 "${plugin_registry_abs}"
+  fi
+
+  # 给插件后端可执行产物补执行位（migrate/plugin 等）。
+  while IFS= read -r -d '' bin_dir; do
+    find "${bin_dir}" -maxdepth 1 -type f -exec chmod 0755 {} \;
+  done < <(find "${plugin_installed_abs}" -type d -path '*/backend/bin' -print0)
+
+  echo "[switch-release] plugin runtime artifacts normalized under ${plugin_installed_abs}"
+}
+
 sync_runtime_config_version() {
   if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
     echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
@@ -574,6 +598,7 @@ fi
 ensure_service_identity
 ensure_runtime_config_external
 sync_runtime_plugin_paths
+normalize_plugin_runtime_artifacts
 sync_runtime_config_version
 set_setup_reentry_env
 
