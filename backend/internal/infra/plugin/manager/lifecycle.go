@@ -428,6 +428,16 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		adminProcID := p.ID + "_admin"
+		if strings.EqualFold(strings.TrimSpace(adminEntry), "node") {
+			nodeBin := strings.TrimSpace(utils.FirstNonEmpty(envADM["NODE_BIN"], os.Getenv("NODE_BIN")))
+			if nodeBin != "" {
+				if fi, err := os.Stat(nodeBin); err == nil && !fi.IsDir() {
+					adminEntry = nodeBin
+				} else {
+					log.Printf("[plugin-enable] plugin=%s NODE_BIN invalid: %q err=%v (keep entry=node)", p.ID, nodeBin, err)
+				}
+			}
+		}
 		// ★ 关键：按插件给的 entry/args 原样执行（entry 仅做绝对路径解析）
 		adminPort, err := m.sup.Start(ctx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
 		if err != nil {
