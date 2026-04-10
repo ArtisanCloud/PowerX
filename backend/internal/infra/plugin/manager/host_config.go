@@ -749,12 +749,8 @@ func ensurePostgresUser(db *gorm.DB, cfg corexdb.DatabaseConfig, section *databa
 			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", schemaIdent, roleIdent),
 			fmt.Sprintf("GRANT CREATE ON SCHEMA %s TO %s", schemaIdent, roleIdent),
 			fmt.Sprintf("ALTER ROLE %s SET search_path = %s", roleIdent, schemaIdent),
-			// Ensure future objects created by plugin role inherit usable privileges.
-			// We intentionally avoid "GRANT ... ON ALL TABLES IN SCHEMA" here because
-			// existing objects may be owned by a different role in historical installs,
-			// which can fail under non-superuser bootstrap accounts.
-			fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE %s IN SCHEMA %s GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %s", roleIdent, schemaIdent, roleIdent),
-			fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE %s IN SCHEMA %s GRANT USAGE, SELECT ON SEQUENCES TO %s", roleIdent, schemaIdent, roleIdent),
+			fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %s TO %s", schemaIdent, roleIdent),
+			fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %s TO %s", schemaIdent, roleIdent),
 		}
 		for _, stmt := range stmts {
 			if err := db.Exec(stmt).Error; err != nil {
