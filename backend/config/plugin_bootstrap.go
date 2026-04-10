@@ -10,7 +10,7 @@ type PluginBootstrapConfig struct {
 // DefaultPluginBootstrapConfig returns opinionated defaults aligned with docs.
 func DefaultPluginBootstrapConfig() PluginBootstrapConfig {
 	return PluginBootstrapConfig{
-		TemplatesIndex:  "./config/plugins/templates/index.yaml",
+		TemplatesIndex:  defaultBackendConfigPath("plugins/templates/index.yaml"),
 		DefaultTemplate: "fullstack-go-nuxt",
 		AllowlistedHosts: []string{
 			"git.powerx.io",

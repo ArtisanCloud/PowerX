@@ -422,12 +422,31 @@ func expandPath(p string) string {
 		return filepath.Clean(p)
 	}
 	wd, _ := os.Getwd()
-	clean := filepath.Clean(filepath.Join(wd, p))
-	if pathExists(clean) {
-		return clean
+	trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
+	candidates := make([]string, 0, 6)
+	if wd != "" {
+		candidates = append(candidates, filepath.Clean(filepath.Join(wd, p)))
 	}
+	if linksRoot := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); linksRoot != "" {
+		candidates = append(candidates,
+			filepath.Clean(filepath.Join(linksRoot, trim)),
+			filepath.Clean(filepath.Join(linksRoot, "backend", trim)),
+		)
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Clean(filepath.Join(exeDir, trim)),
+			filepath.Clean(filepath.Join(filepath.Dir(exeDir), trim)),
+		)
+	}
+	for _, candidate := range candidates {
+		if pathExists(candidate) {
+			return candidate
+		}
+	}
+	clean := filepath.Clean(filepath.Join(wd, p))
 	if root := findRepoRoot(wd); root != "" {
-		trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
 		if candidate := filepath.Clean(filepath.Join(root, trim)); pathExists(candidate) {
 			return candidate
 		}
