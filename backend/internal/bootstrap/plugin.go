@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +102,9 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 			if clientSecret != "" {
 				if err := pmimplnotify.PushTenantCredentials(ctx, pluginID, tenantUUID, clientID, clientSecret); err != nil {
 					logger.WarnF(ctx, "push credentials to plugin failed: plugin=%s tenant=%s err=%v", pluginID, tenantUUID, err)
-					return err
+					if !errors.Is(err, pmimplnotify.ErrControlChannelUnavailable) {
+						return err
+					}
 				} else {
 					logger.InfoF(ctx, "pushed credentials to plugin: plugin=%s tenant=%s", pluginID, tenantUUID)
 				}

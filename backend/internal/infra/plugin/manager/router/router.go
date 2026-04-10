@@ -275,8 +275,12 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 				req.URL.Scheme = up.target.Scheme
 				req.URL.Host = up.target.Host
 			}
+			upstreamPath := clientPath
+			if shouldRewriteAdminDocToIndex(c.Request, clientPath) {
+				upstreamPath = "/"
+			}
 			// —— 只做传球：/_p/<id>/admin/*filepath（不做任何 locale 注入/剥离）
-			req.URL.Path = joinURLPath(r.basePrefix, pluginID, "admin", clientPath)
+			req.URL.Path = joinURLPath(r.basePrefix, pluginID, "admin", upstreamPath)
 			req.URL.RawPath = req.URL.Path
 
 			// 仅传递宿主挂载点（不含 locale）
@@ -288,6 +292,7 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 			// 诊断
 			req.Header.Set("X-PX-Upstream", up.target.String())
 			req.Header.Set("X-PX-Client-Path", clientPath)
+			req.Header.Set("X-PX-Upstream-Path", upstreamPath)
 			attachTraceHeaders(c, req)
 			req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 		}
@@ -342,6 +347,36 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath st
 
 	applyAdminFrameHeaders(c.Writer.Header())
 	http.ServeFile(c.Writer, c.Request, absReq)
+}
+
+func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
+	if req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return false
+	}
+	if ext := strings.ToLower(filepath.Ext(lower)); ext != "" {
+		return false
+	}
+	accept := strings.ToLower(strings.TrimSpace(req.Header.Get("Accept")))
+	if accept != "" && !strings.Contains(accept, "text/html") && !strings.Contains(accept, "*/*") {
+		return false
+	}
+	return true
 }
 
 // ===== API 反代（带授权预检 + 短期 Token） =====

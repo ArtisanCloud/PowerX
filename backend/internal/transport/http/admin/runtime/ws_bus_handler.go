@@ -107,6 +107,7 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 		}
 
 		bound := make([]string, 0, len(registered))
+		fallback := make([]string, 0, len(registered))
 		for _, topicKey := range registered {
 			topicDef, err := resolveTopicForRegister(c, h.topics, strings.TrimSpace(tenantUUID), topicKey)
 			if err != nil {
@@ -114,8 +115,12 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 				return
 			}
 			if topicDef == nil {
-				dto.ResponseError(c, http.StatusNotFound, "topic not found", fmt.Errorf("topic %s not found", topicKey))
-				return
+				if isAPIKeyAuth(c) {
+					dto.ResponseError(c, http.StatusNotFound, "topic not found", fmt.Errorf("topic %s not found", topicKey))
+					return
+				}
+				fallback = append(fallback, topicKey)
+				continue
 			}
 
 			if h.acl != nil {
@@ -137,12 +142,27 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 			bound = append(bound, topicKey)
 		}
 
+		if len(fallback) > 0 {
+			bus.RegisterPublishTopics(tenantUUID, fallback)
+			logger.WarnF(
+				c.Request.Context(),
+				"[ws-bus] grant topic missing in registry, fallback to dynamic tenant=%s topics=%v",
+				strings.TrimSpace(tenantUUID),
+				fallback,
+			)
+		}
+
+		mode := "registry_acl"
+		if len(fallback) > 0 {
+			mode = "registry_acl_compat_dynamic"
+		}
 		logger.InfoF(c.Request.Context(), "[ws-bus] grant via registry tenant=%s topics=%v actions=%v", strings.TrimSpace(tenantUUID), bound, actions)
 		dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
 			"tenant_uuid": strings.TrimSpace(tenantUUID),
 			"topics":      bound,
+			"fallback":    fallback,
 			"actions":     actions,
-			"mode":        "registry_acl",
+			"mode":        mode,
 		})
 		return
 	}

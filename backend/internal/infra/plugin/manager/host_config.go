@@ -123,6 +123,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
+	applyDelegatedHostContract(selected, structured)
 	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
@@ -176,6 +177,88 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		GeneratedAt: now,
 		Spec:        stripHostConfigMeta(structured),
 	}, nil
+}
+
+// applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
+// Some plugin runtimes prefer reading host-values.yaml over process env.
+func applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
+	if selected == nil {
+		return
+	}
+	// 安装产物在宿主内运行，默认按 delegated_proxy 契约写入 taskbus provider=host。
+	selected["TASKBUS_PROVIDER"] = "host"
+	selected["taskbus_provider"] = "host"
+	selected["POWERX_TASKBUS_PROVIDER"] = "host"
+	selected["EVENT_BRIDGE_TASKBUS_PROVIDER"] = "host"
+
+	if structured == nil {
+		return
+	}
+	setNestedValue(structured, []string{"taskbus_provider"}, "host")
+	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
+}
+
+// ensureDelegatedHostContractForEnable repairs stale host-values before process start.
+// This keeps old installed versions self-healing without forcing reinstall.
+func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin) error {
+	if p == nil {
+		return nil
+	}
+	hvPath := strings.TrimSpace(p.Paths.HostValuesFile)
+
+	hc := p.HostConfig
+	if hc == nil && hvPath != "" {
+		if loaded, err := loadHostConfig(hvPath); err == nil && loaded != nil {
+			hc = loaded
+			p.HostConfig = loaded
+		}
+	}
+	if hc == nil {
+		hc = &plugin_mgr.HostConfig{}
+		p.HostConfig = hc
+	}
+
+	values := cloneStringMap(hc.Values)
+	spec := cloneAnyMap(hc.Spec)
+	applyDelegatedHostContract(values, spec)
+	hc.Values = values
+	hc.Spec = spec
+
+	if hvPath == "" {
+		hc.ValuesFile = hvPath
+		return nil
+	}
+
+	doc := map[string]any{}
+	if raw, err := os.ReadFile(hvPath); err == nil && len(raw) > 0 {
+		_ = yaml.Unmarshal(raw, &doc)
+	}
+	if doc == nil {
+		doc = map[string]any{}
+	}
+
+	envDoc := map[string]any{}
+	if m0, ok := doc["env"].(map[string]any); ok {
+		envDoc = cloneAnyMap(m0)
+	}
+	for k, v := range values {
+		envDoc[k] = v
+	}
+	doc["env"] = envDoc
+	setNestedValue(doc, []string{"taskbus_provider"}, "host")
+	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
+
+	data, err := yaml.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(hvPath, data, 0o640); err != nil {
+		return err
+	}
+
+	hc.ValuesFile = hvPath
+	hc.Spec = stripHostConfigMeta(cloneAnyMap(doc))
+	return nil
 }
 
 func loadHostConfig(path string) (*plugin_mgr.HostConfig, error) {

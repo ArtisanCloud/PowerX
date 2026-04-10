@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 func TestInjectGatewaySecurityEnvSuccess(t *testing.T) {
@@ -30,7 +31,10 @@ func TestInjectGatewaySecurityEnvSuccess(t *testing.T) {
 		"PX_GATEWAY_API_KEY": "legacy-api-key",
 		"PX_TOOL_TOKEN":      "legacy-tool-token",
 	}
-	if err := m.injectGatewaySecurityEnv(env, "com.powerx.plugins.demo"); err != nil {
+	ctx := reqctx.WithUserID(context.Background(), 1)
+	ctx = reqctx.WithMemberID(ctx, 1)
+	ctx = reqctx.WithSubject(ctx, "fda3589b-d30b-41b0-a859-c061c179fb58")
+	if err := m.injectGatewaySecurityEnv(ctx, env, "com.powerx.plugins.demo", "6b5d0240-9920-46da-b707-88200e0f51ea"); err != nil {
 		t.Fatalf("injectGatewaySecurityEnv() err = %v", err)
 	}
 
@@ -66,7 +70,8 @@ func TestInjectGatewaySecurityEnvFailFastMissingBaseURL(t *testing.T) {
 		},
 	}
 
-	err := m.injectGatewaySecurityEnv(map[string]string{}, "com.powerx.plugins.demo")
+	ctx := reqctx.WithUserID(context.Background(), 1)
+	err := m.injectGatewaySecurityEnv(ctx, map[string]string{}, "com.powerx.plugins.demo", "6b5d0240-9920-46da-b707-88200e0f51ea")
 	if err == nil {
 		t.Fatalf("injectGatewaySecurityEnv() expected error, got nil")
 	}
@@ -90,7 +95,8 @@ func TestInjectGatewaySecurityEnvFailFastInvalidAuthScheme(t *testing.T) {
 		},
 	}
 
-	err := m.injectGatewaySecurityEnv(map[string]string{}, "com.powerx.plugins.demo")
+	ctx := reqctx.WithUserID(context.Background(), 1)
+	err := m.injectGatewaySecurityEnv(ctx, map[string]string{}, "com.powerx.plugins.demo", "6b5d0240-9920-46da-b707-88200e0f51ea")
 	if err == nil {
 		t.Fatalf("injectGatewaySecurityEnv() expected error, got nil")
 	}
@@ -161,5 +167,31 @@ func TestProbeGatewayContractFailFastMissingToken(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "GW_CFG_MISSING_PLUGIN_TOOL_TOKEN") {
 		t.Fatalf("probeGatewayContract() err = %v, want GW_CFG_MISSING_PLUGIN_TOOL_TOKEN", err)
+	}
+}
+
+func TestResolveGatewayProbePolicy(t *testing.T) {
+	def := resolveGatewayProbePolicy(nil)
+	if def.Path != "/api/v1/tenant/capabilities?page_size=1" {
+		t.Fatalf("default path = %q", def.Path)
+	}
+	if !def.AuthRequired || !def.TenantScoped {
+		t.Fatalf("default policy should require auth and tenant")
+	}
+
+	env := map[string]string{
+		"PX_GATEWAY_PROBE_PATH":          "/api/v1/open/ping",
+		"PX_GATEWAY_PROBE_AUTH_REQUIRED": "false",
+		"PX_GATEWAY_PROBE_TENANT_SCOPED": "0",
+	}
+	got := resolveGatewayProbePolicy(env)
+	if got.Path != "/api/v1/open/ping" {
+		t.Fatalf("custom path = %q", got.Path)
+	}
+	if got.AuthRequired {
+		t.Fatalf("auth_required should be false")
+	}
+	if got.TenantScoped {
+		t.Fatalf("tenant_scoped should be false")
 	}
 }

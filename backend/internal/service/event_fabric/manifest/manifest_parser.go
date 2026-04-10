@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -14,9 +15,28 @@ import (
 
 // Manifest describes the declarative topic + ACL requirements for a plugin.
 type Manifest struct {
-	Version  int          `yaml:"version" json:"version"`
+	Version  ManifestVersion `yaml:"version" json:"version"`
 	Defaults TopicDefault `yaml:"defaults" json:"defaults"`
 	Topics   []TopicSpec  `yaml:"topics" json:"topics"`
+}
+
+type ManifestVersion int
+
+func (v *ManifestVersion) UnmarshalYAML(node *yaml.Node) error {
+	if node == nil {
+		return fmt.Errorf("manifest version is required")
+	}
+	raw := strings.TrimSpace(node.Value)
+	if raw == "" {
+		return fmt.Errorf("manifest version is required")
+	}
+	raw = strings.TrimPrefix(strings.ToLower(raw), "v")
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return fmt.Errorf("invalid manifest version: %s", node.Value)
+	}
+	*v = ManifestVersion(n)
+	return nil
 }
 
 // TopicDefault captures fallback values when a topic omits specific fields.
@@ -32,6 +52,8 @@ type TopicDefault struct {
 // TopicSpec defines a single topic entry in the manifest.
 type TopicSpec struct {
 	Key             string                 `yaml:"key" json:"key"`
+	Topic           string                 `yaml:"topic" json:"topic"`
+	Description     string                 `yaml:"description" json:"description"`
 	Namespace       string                 `yaml:"namespace" json:"namespace"`
 	Name            string                 `yaml:"name" json:"name"`
 	PayloadFormat   string                 `yaml:"payload_format" json:"payload_format"`
@@ -103,7 +125,7 @@ func Load(data []byte) (*Manifest, error) {
 
 // Validate ensures the manifest contains at least one topic with minimum data.
 func (m *Manifest) Validate() error {
-	if m.Version <= 0 {
+	if int(m.Version) <= 0 {
 		return fmt.Errorf("manifest version must be positive")
 	}
 	if len(m.Topics) == 0 {
@@ -111,15 +133,26 @@ func (m *Manifest) Validate() error {
 	}
 	keys := make(map[string]struct{})
 	for idx, topic := range m.Topics {
-		if strings.TrimSpace(topic.Namespace) == "" {
-			return fmt.Errorf("topic[%d] namespace is required", idx)
-		}
-		if strings.TrimSpace(topic.Name) == "" {
-			return fmt.Errorf("topic[%d] name is required", idx)
+		namespace := strings.TrimSpace(topic.Namespace)
+		name := strings.TrimSpace(topic.Name)
+		if namespace == "" || name == "" {
+			legacyNS, legacyName, err := parseLegacyTopicSpec(topic.Topic)
+			if err != nil {
+				if namespace == "" {
+					return fmt.Errorf("topic[%d] namespace is required", idx)
+				}
+				return fmt.Errorf("topic[%d] name is required", idx)
+			}
+			if namespace == "" {
+				namespace = legacyNS
+			}
+			if name == "" {
+				name = legacyName
+			}
 		}
 		key := topic.Key
 		if key == "" {
-			key = fmt.Sprintf("%s.%s", topic.Namespace, topic.Name)
+			key = fmt.Sprintf("%s.%s", namespace, name)
 		}
 		if _, exists := keys[key]; exists {
 			return fmt.Errorf("duplicate topic key detected: %s", key)
@@ -161,11 +194,28 @@ func (m *Manifest) Render(ctx SeedContext) (*SeedPlan, error) {
 	defaults := m.Defaults
 	plan := &SeedPlan{Topics: make([]TopicPlan, 0, len(m.Topics))}
 	for idx, spec := range m.Topics {
-		namespace, err := renderToken(spec.Namespace, data)
+		namespaceRaw := strings.TrimSpace(spec.Namespace)
+		nameRaw := strings.TrimSpace(spec.Name)
+		if namespaceRaw == "" || nameRaw == "" {
+			legacyNS, legacyName, err := parseLegacyTopicSpec(spec.Topic)
+			if err != nil {
+				if namespaceRaw == "" {
+					return nil, fmt.Errorf("topic[%d] namespace: %w", idx, err)
+				}
+				return nil, fmt.Errorf("topic[%d] name: %w", idx, err)
+			}
+			if namespaceRaw == "" {
+				namespaceRaw = legacyNS
+			}
+			if nameRaw == "" {
+				nameRaw = legacyName
+			}
+		}
+		namespace, err := renderToken(namespaceRaw, data)
 		if err != nil {
 			return nil, fmt.Errorf("topic[%d] namespace: %w", idx, err)
 		}
-		name, err := renderToken(spec.Name, data)
+		name, err := renderToken(nameRaw, data)
 		if err != nil {
 			return nil, fmt.Errorf("topic[%d] name: %w", idx, err)
 		}
@@ -209,6 +259,12 @@ func (m *Manifest) Render(ctx SeedContext) (*SeedPlan, error) {
 
 		aclPlans := make([]ACLPlan, 0, len(spec.Principals))
 		for pIdx, principal := range spec.Principals {
+			principalType := strings.ToLower(strings.TrimSpace(principal.PrincipalType))
+			principalIDTpl := strings.TrimSpace(principal.PrincipalID)
+			// 兼容旧 manifest：仅声明 actions，不声明 principal 时跳过 ACL 绑定。
+			if principalType == "" && principalIDTpl == "" {
+				continue
+			}
 			renderedID, err := renderToken(principal.PrincipalID, data)
 			if err != nil {
 				return nil, fmt.Errorf("topic[%d].acl[%d] principal_id: %w", idx, pIdx, err)
@@ -217,7 +273,6 @@ func (m *Manifest) Render(ctx SeedContext) (*SeedPlan, error) {
 			if renderedID == "" {
 				return nil, fmt.Errorf("topic[%d].acl[%d] principal_id cannot be empty", idx, pIdx)
 			}
-			principalType := strings.ToLower(strings.TrimSpace(principal.PrincipalType))
 			if principalType == "" {
 				return nil, fmt.Errorf("topic[%d].acl[%d] principal_type is required", idx, pIdx)
 			}
@@ -242,6 +297,23 @@ func (m *Manifest) Render(ctx SeedContext) (*SeedPlan, error) {
 	}
 
 	return plan, nil
+}
+
+func parseLegacyTopicSpec(topic string) (string, string, error) {
+	trimmed := strings.TrimSpace(topic)
+	if trimmed == "" {
+		return "", "", fmt.Errorf("legacy topic is empty")
+	}
+	parts := strings.Split(trimmed, ".")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("legacy topic %q invalid", topic)
+	}
+	namespace := strings.Join(parts[:len(parts)-1], ".")
+	name := strings.TrimSpace(parts[len(parts)-1])
+	if strings.TrimSpace(namespace) == "" || name == "" {
+		return "", "", fmt.Errorf("legacy topic %q invalid", topic)
+	}
+	return namespace, name, nil
 }
 
 func (m *Manifest) TopicCount() int {

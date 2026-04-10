@@ -26,16 +26,17 @@ func basePrefix() string {
 
 // GET /api/.../admin/plugins
 func PluginListHandler(c *gin.Context) {
+	ctx := c.Request.Context()
 	mgr, err := tryGetPluginManager()
 	var list []pluginMgr.Plugin
 	if err == nil {
-		list, err = mgr.List(c)
+		list, err = mgr.List(ctx)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件列表失败", err)
 			return
 		}
 	} else {
-		list, err = listPluginsFromRegistry(c)
+		list, err = listPluginsFromRegistry(ctx)
 		if err != nil {
 			dtoRequest.ResponseSuccess(c, gin.H{"plugins": []pluginDto.PluginItem{}})
 			return
@@ -131,7 +132,7 @@ func PluginDisableHandler(c *gin.Context) {
 		respondPluginRuntimeUnavailable(c, err)
 		return
 	}
-	if err := mgr.Disable(c, id); err != nil {
+	if err := mgr.Disable(c.Request.Context(), id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "停用插件失败", err)
 		return
 	}
@@ -144,16 +145,17 @@ func optionalTenantContext(c *gin.Context) string {
 
 // GET /api/.../admin/plugins/menus
 func PluginMenusHandler(c *gin.Context) {
+	ctx := c.Request.Context()
 	mgr, err := tryGetPluginManager()
 	var list []pluginMgr.Plugin
 	if err == nil {
-		list, err = mgr.List(c)
+		list, err = mgr.List(ctx)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件菜单失败", err)
 			return
 		}
 	} else {
-		list, err = listPluginsFromRegistry(c)
+		list, err = listPluginsFromRegistry(ctx)
 		if err != nil {
 			dtoRequest.ResponseSuccess(c, gin.H{"menus": []pluginDto.PluginMenuItem{}})
 			return
@@ -202,20 +204,21 @@ func PluginGetHandler(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
+	ctx := c.Request.Context()
 	mgr, err := tryGetPluginManager()
 	var (
 		p    pluginMgr.Plugin
 		proc = supervisor.ProcInfo{}
 	)
 	if err == nil {
-		p, err = mgr.Get(c, id)
+		p, err = mgr.Get(ctx, id)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
 			return
 		}
 		proc, _ = manager.TryRuntimeStatus(mgr, id)
 	} else {
-		p, err = getPluginFromRegistry(c, id)
+		p, err = getPluginFromRegistry(ctx, id)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
 			return
@@ -272,11 +275,12 @@ func PluginRestartHandler(c *gin.Context) {
 		return
 	}
 
-	if err := mgr.Disable(c, id); err != nil {
+	ctx := c.Request.Context()
+	if err := mgr.Disable(ctx, id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "重启插件失败（停用阶段）", err)
 		return
 	}
-	if err := mgr.Enable(c, id); err != nil {
+	if err := mgr.Enable(ctx, id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "重启插件失败（启用阶段）", err)
 		return
 	}

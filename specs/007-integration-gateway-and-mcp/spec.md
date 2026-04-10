@@ -33,7 +33,7 @@
 
 ### Session 2026-04-09
 
-- Q: delegated 模式下插件访问 Capability Gateway 是否继续保留 `PX_TOOL_TOKEN`/`PX_GATEWAY_API_KEY` 兼容？ → A: 不保留兼容，执行 Delegated Gateway Contract v1（breaking change），仅允许 `PX_PLUGIN_TOOL_TOKEN + bearer + PX_GATEWAY_BASE_URL`。
+- Q: delegated 模式下插件访问 Capability Gateway 是否继续保留 `PX_TOOL_TOKEN`/`PX_GATEWAY_API_KEY` 兼容？ → A: 不保留兼容，执行 Delegated Gateway Contract v1（breaking change）；仅允许 `PX_GATEWAY_BASE_URL + bearer` 作为固定入口，业务调用凭证改为按请求上下文动态 STS 交换。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -139,8 +139,9 @@
 - **FR-027**: 系统必须支持会话版本强制失效机制：JWT claims 增加 `session_version`（或等效字段），请求时与服务端当前版本对比；版本不一致时拒绝请求，确保密码重置、租户迁移、db-refresh 后可快速收敛旧 token。
 - **FR-028**: `/admin/user/auth/me/context` 在 token 通过签名但主体关系已漂移（如 token tenant 不在当前 memberships）时必须返回非 200（推荐 401/403），禁止“自动兜底切租户”掩盖失效态，避免前端误判为登录仍有效。
 - **FR-029**: 插件事件主题必须在 `plugin.yaml` 中显式声明（建议 `events.topics[]`），并在安装/启用流程中幂等同步到 `event_topics`；`/internal/ws-bus/grant` 仅执行授权绑定（ACL grant），禁止承担 topic 创建职责。运行时若 topic 未注册，必须返回明确错误（推荐 404/403），不允许隐式自动创建。
-- **FR-030**: delegated 模式下，PowerX 宿主在插件启用前必须强制注入 `PX_GATEWAY_BASE_URL`、`PX_PLUGIN_TOOL_TOKEN`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止下发 `PX_GATEWAY_API_KEY`、`PX_TOOL_TOKEN`；缺失配置必须 fail-fast，禁止运行后软降级。
-- **FR-031**: delegated 模式下，插件启用完成后必须执行 capability dry-run（`/api/v1/tenant/capabilities?page_size=1`）进行契约探活；失败时返回 `enable_failed_gateway_contract` 并记录审计字段 `gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`、`tenant_uuid_present`。
+- **FR-030**: delegated 模式下，PowerX 宿主在插件启用前必须强制注入 `PX_GATEWAY_BASE_URL`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止下发 `PX_GATEWAY_API_KEY`、`PX_TOOL_TOKEN`；启动期如需探活 token，仅允许短时效 bootstrap token，且不得作为业务调用长期凭证。
+- **FR-031**: delegated 模式下，插件启用完成后必须执行 Gateway 契约探活（health + dry-run）；探活目标由接口元数据决策（`auth_required`、`tenant_scoped`），不得写死到单一路径；失败时返回 `enable_failed_gateway_contract` 并记录审计字段 `gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`、`tenant_uuid_present`。
+- **FR-032**: 插件调用 PowerX Gateway 时，凭证策略必须由接口元数据驱动而非 URL 前缀驱动：`auth_required=true` 走 STS exchange，`tenant_scoped=true` 的交换结果必须包含 tenant claim；`auth_required=false` 的开放接口允许匿名调用。
 
 #### Gateway Proxy Envelope（请求/响应）
 

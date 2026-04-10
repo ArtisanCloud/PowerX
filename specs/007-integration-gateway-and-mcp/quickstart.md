@@ -27,10 +27,14 @@
 - delegated 模式仅允许以下三项：
   - `PX_GATEWAY_BASE_URL`
   - `PX_GATEWAY_AUTH_SCHEME=bearer`
-  - `PX_PLUGIN_TOOL_TOKEN`
+  - `PX_PLUGIN_TOOL_TOKEN`（仅用于 bootstrap 探活，可选且短时效）
 - delegated 模式禁止使用：
   - `PX_GATEWAY_API_KEY`
   - `PX_TOOL_TOKEN`
+- 业务调用凭证规则：
+  - `auth_required=true`：必须按当前请求上下文执行 STS exchange
+  - `tenant_scoped=true`：STS token 必须带 tenant claim
+  - `auth_required=false`：允许匿名调用（不要求 STS）
 - PowerX 在插件启用阶段会执行 fail-fast；缺失时直接失败并返回结构化错误码：
   - `GW_CFG_MISSING_BASE_URL`
   - `GW_CFG_INVALID_AUTH_SCHEME`
