@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/ArtisanCloud/PowerX/config"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,17 @@ func PluginUninstallHandler(c *gin.Context) {
 	if id == "" {
 		dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
 		return
+	}
+	if req.Purge {
+		cfg := config.GetGlobalConfig()
+		if cfg == nil || !cfg.Plugin.AllowDestructiveDBCleanup {
+			dtoRequest.ResponseError(c, 403, "卸载失败", plugin_mgr.NewError(
+				plugin_mgr.CodeForbidden,
+				plugin_mgr.WithOp("uninstall"),
+				plugin_mgr.WithMsg("purge disabled: set plugin.allow_destructive_db_cleanup=true to enable"),
+			))
+			return
+		}
 	}
 
 	mgr, err := tryGetPluginManager()

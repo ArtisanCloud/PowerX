@@ -91,7 +91,16 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		if dbSection.UserHost != "" {
 			setNestedValue(structured, []string{"database", "user_host"}, dbSection.UserHost)
 		}
-		setNestedValue(structured, []string{"database", "managed"}, true)
+		setNestedValue(structured, []string{"database", "managed"}, dbSection.Managed)
+		// 共享库回退模式必须显式剔除隔离字段，避免 values.example 里的默认值（例如 public）被误带入清理流程。
+		if !dbSection.Managed {
+			deleteNestedValue(structured, []string{"database", "schema"})
+			deleteNestedValue(structured, []string{"database", "search_path"})
+			deleteNestedValue(structured, []string{"database", "user"})
+			deleteNestedValue(structured, []string{"database", "password"})
+			deleteNestedValue(structured, []string{"database", "user_host"})
+			delete(selected, "POWERX_PLUGIN_DB_SCHEMA")
+		}
 	}
 
 	// Server 部分：仅在宿主显式指定时覆盖 bind_addr，避免固定端口
@@ -538,6 +547,7 @@ type databaseSection struct {
 	Password   string
 	UserHost   string
 	SearchPath string
+	Managed    bool
 }
 
 func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, error) {
@@ -563,14 +573,12 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 
 	db, cleanup, err := connectAdminDB(dbCfg)
 	if err != nil {
-		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): connect admin db failed: %v\n", pluginID, err)
-		return buildSharedDatabaseSection(dbCfg, driver), nil
+		return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: connect admin db: %w", pluginID, err)
 	}
 	defer cleanup()
 
 	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
-		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure schema failed: %v\n", pluginID, err)
-		return buildSharedDatabaseSection(dbCfg, driver), nil
+		return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure schema %s: %w", pluginID, schemaName, err)
 	}
 
 	section := &databaseSection{
@@ -578,20 +586,19 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 		Schema:   schemaName,
 		User:     userName,
 		Password: password,
+		Managed:  true,
 	}
 
 	switch driver {
 	case "postgres":
 		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
-			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure postgres user failed: %v\n", pluginID, err)
-			return buildSharedDatabaseSection(dbCfg, driver), nil
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure postgres user %s: %w", pluginID, section.User, err)
 		}
 		section.DSN = buildPostgresPluginDSN(dbCfg, section)
 		section.SearchPath = section.Schema
 	case "mysql":
 		if err := ensureMySQLUser(db, section); err != nil {
-			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure mysql user failed: %v\n", pluginID, err)
-			return buildSharedDatabaseSection(dbCfg, driver), nil
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure mysql user %s: %w", pluginID, section.User, err)
 		}
 		section.DSN = buildMySQLPluginDSN(dbCfg, section)
 	default:
@@ -599,19 +606,6 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 
 	return section, nil
-}
-
-func buildSharedDatabaseSection(cfg corexdb.DatabaseConfig, driver string) *databaseSection {
-	section := &databaseSection{
-		Driver: strings.TrimSpace(driver),
-		DSN:    makeDatabaseDSN(cfg),
-	}
-	if section.Driver == "" {
-		section.Driver = normalizeDriver(cfg.Driver)
-	}
-	section.User = strings.TrimSpace(cfg.UserName)
-	section.Password = cfg.Password
-	return section
 }
 
 func connectAdminDB(cfg corexdb.DatabaseConfig) (*gorm.DB, func(), error) {
@@ -950,6 +944,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 	if hostCfg == nil || m.opts.CoreConfig == nil {
 		return nil
 	}
+	if !m.opts.CoreConfig.Plugin.AllowDestructiveDBCleanup {
+		return nil
+	}
 	if hostCfg.Spec == nil {
 		return nil
 	}
@@ -988,6 +985,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 	switch driver {
 	case "postgres":
 		if schema != "" {
+			if err := m.assertPluginSchemaSafeToDrop(schema); err != nil {
+				return err
+			}
 			stmt := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", quoteIdentifier(driver, schema))
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
@@ -1013,6 +1013,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 		}
 	case "mysql":
 		if schema != "" {
+			if err := m.assertPluginSchemaSafeToDrop(schema); err != nil {
+				return err
+			}
 			stmt := fmt.Sprintf("DROP DATABASE IF EXISTS %s", quoteIdentifier(driver, schema))
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
@@ -1032,6 +1035,25 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 		}
 	default:
 		return fmt.Errorf("unsupported database driver for cleanup: %s", driver)
+	}
+	return nil
+}
+
+func (m *managerImpl) assertPluginSchemaSafeToDrop(schema string) error {
+	norm := strings.ToLower(strings.TrimSpace(schema))
+	if norm == "" {
+		return fmt.Errorf("refuse to drop schema/database: empty schema")
+	}
+	// 保护 PostgreSQL 系统/默认 schema，避免误删宿主核心数据。
+	if norm == "public" || norm == "information_schema" || norm == "pg_catalog" || strings.HasPrefix(norm, "pg_") {
+		return fmt.Errorf("refuse to drop protected schema/database: %s", schema)
+	}
+	if m != nil && m.opts.CoreConfig != nil {
+		coreDB := strings.ToLower(strings.TrimSpace(m.opts.CoreConfig.Database.Database))
+		// 在 MySQL 场景下 schema 字段承载 database 名称，也保护主库名。
+		if coreDB != "" && norm == coreDB {
+			return fmt.Errorf("refuse to drop core schema/database: %s", schema)
+		}
 	}
 	return nil
 }
@@ -1086,6 +1108,24 @@ func setNestedValue(root map[string]any, path []string, value any) {
 		if !ok {
 			next = map[string]any{}
 			current[key] = next
+		}
+		current = next
+	}
+}
+
+func deleteNestedValue(root map[string]any, path []string) {
+	if len(path) == 0 || root == nil {
+		return
+	}
+	current := root
+	for i, key := range path {
+		if i == len(path)-1 {
+			delete(current, key)
+			return
+		}
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			return
 		}
 		current = next
 	}

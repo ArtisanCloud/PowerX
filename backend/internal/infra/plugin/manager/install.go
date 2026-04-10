@@ -40,9 +40,10 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
 	if opts.Force {
-		// 若 registry 中已有记录，走完整卸载流程（含停用与目录清理）
+		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
 		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
-			if err := m.UninstallAndPurge(ctx, man.ID, man.Version); err != nil {
+			// 先逻辑卸载（保留数据库），目录清理由后续 force_cleanup 兜底执行。
+			if err := m.uninstall(ctx, false, man.ID, man.Version); err != nil {
 				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.force_uninstall"),
 					plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
