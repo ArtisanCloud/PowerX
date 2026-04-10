@@ -330,6 +330,9 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath st
 		log.Printf("[ADMIN-CLEAN-STATIC] plugin=%s raw=%q clean=%q", pluginID, p, clean)
 		p = clean
 	}
+	if shouldRewriteAdminDocToIndex(c.Request, p) {
+		p = "/index.html"
+	}
 
 	r.mu.RLock()
 	abs, ok := r.adminDirs[pluginID]

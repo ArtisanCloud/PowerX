@@ -99,7 +99,21 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT SELECT, INSERT, UPDATE, DELETE, TRIGGER, REFERENCES ON TABLES TO powerx;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO powerx;
+ALTER ROLE powerx CREATEROLE;
 SQL
+```
+
+若要启用“插件隔离库账号”安装（会自动创建 `pxu_*` 角色），还必须给 `powerx` 额外授权 `CREATEROLE`，否则插件安装会报：
+`permission denied to create role (SQLSTATE 42501)`。
+
+先检查：
+```bash
+sudo -u postgres psql -d powerx -c "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin FROM pg_roles WHERE rolname='powerx';"
+```
+
+授权：
+```bash
+sudo -u postgres psql -d powerx -c "ALTER ROLE powerx CREATEROLE;"
 ```
 
 > 说明（重要）：
@@ -205,3 +219,7 @@ redis-cli ping
 5. `permission denied for schema public (SQLSTATE 42501)`
 - 原因：应用账号缺少 `public` schema 的 `USAGE/CREATE` 或默认对象权限。
 - 处理：按 3.2 的 schema 授权 SQL 执行一次，再重试 setup/migrate。
+
+6. `permission denied to create role (SQLSTATE 42501)`
+- 原因：应用账号 `powerx` 没有 `CREATEROLE`，无法创建插件隔离角色（`pxu_*`）。
+- 处理：按 3.2 中“插件隔离库账号”章节执行 `ALTER ROLE powerx CREATEROLE;`。

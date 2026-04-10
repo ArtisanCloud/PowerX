@@ -51,10 +51,11 @@ curl -s http://127.0.0.1:8080/api/v1/admin/setup/status | jq '.data.install_stat
 
 ```bash
 cd /opt/powerx/backend
-./database migrate
+POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate
 # 仅在需要初始化/补数时执行
-# ./database seed
+# POWERX_CONFIG=/etc/powerx/config.yaml ./database seed
 ```
+说明：发布产物目录请使用 `./database migrate|seed`，不要使用 `./powerx database migrate`。
 
 ## 3. 插件平滑升级演练
 

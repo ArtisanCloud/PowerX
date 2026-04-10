@@ -182,8 +182,8 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 
 发布模式建议：
 - 代码升级（无 DB 变更）：只执行 `make dist + switch-release`，不走 `/setup`。
-- 结构升级（有 migration）：发布后执行 `database migrate`，不自动 seed。
-- 初始化或补数（需要 seed）：显式执行 seed，避免与常规发布绑定。
+- 结构升级（有 migration）：发布后执行 `POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate`，不自动 seed。
+- 初始化或补数（需要 seed）：显式执行 `POWERX_CONFIG=/etc/powerx/config.yaml ./database seed`，避免与常规发布绑定。
 
 ## 10.1 前后端日志查看（systemd）
 
@@ -258,10 +258,12 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/setup/status
 若本次版本含 DB 变更，显式执行：
 ```bash
 cd /opt/powerx/backend
-./database migrate
+POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate
 # 仅在需要初始化/补数时执行
-# ./database seed
+# POWERX_CONFIG=/etc/powerx/config.yaml ./database seed
 ```
+说明：
+- 发布产物目录请使用 `./database migrate|seed`，不要使用 `./powerx database migrate`（`powerx` 是服务进程入口，不是迁移 CLI）。
 
 ## 11.1 安装后租户与用户管理（给同事开账号）
 
@@ -301,7 +303,7 @@ export POWERX_DEMO_PASSWORD='change_me_demo_password'
 然后执行（或在 setup 的 seed 阶段自动触发）：
 ```bash
 cd /opt/powerx/backend
-./database seed
+POWERX_CONFIG=/etc/powerx/config.yaml ./database seed
 ```
 
 说明：
