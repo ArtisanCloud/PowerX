@@ -27,16 +27,16 @@
 
 **⚠️ CRITICAL**: 本阶段完成前不得开始任一用户故事实现。
 
-- [ ] T005 [Foundation] 定义备份域持久化模型（Policy/Job/Artifact/Drill/Alert）：`backend/pkg/corex/db/persistence/model/backup_ops/*.go`
-- [ ] T006 [Foundation] 将备份域模型挂载到 CoreX 统一迁移入口：`backend/pkg/corex/db/database/migration.go`
-- [ ] T007 [P] [Foundation] 增加备份域 Repository（策略/作业/演练/告警查询与写入）：`backend/pkg/corex/db/persistence/repository/backup_ops/*.go`
-- [ ] T008 [P] [Foundation] 在 `backup_ops` 服务层补齐统一错误码与错误翻译：`backend/internal/service/backup_ops/errors.go`
-- [ ] T009 [Foundation] 为备份任务执行器补齐统一审计记录（操作者、动作、结果）：`backend/internal/service/backup_ops/*.go`
-- [ ] T010 [Foundation] 在管理端路由注册备份域 API 分组：`backend/internal/transport/http/admin/backup/api.go` 与 `backend/internal/transport/http/admin/routes.go`
-- [ ] T011 [P] [Foundation] 定义备份域 DTO（请求校验、列表响应、分页结构）：`backend/internal/transport/http/admin/backup/dto/*.go`
-- [ ] T012 [Foundation] 更新系统菜单合同（监控中心一级菜单与备份入口关联校验）：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
-- [ ] T041 [Foundation] 实现备份调度器注册与触发 wiring（按 interval/timezone 计算 next_run 并注册到现有 scheduler）：`backend/internal/service/backup_ops/job_service.go`、`backend/internal/bootstrap/app.go`（或现有调度装配点）
-- [ ] T042 [Foundation] 实现调度互斥与防重入（上一轮未完成时跳过/排队策略）并写入作业状态：`backend/internal/service/backup_ops/job_service.go`
+- [X] T005 [Foundation] 定义备份域持久化模型（Policy/Job/Artifact/Drill/Alert）：`backend/pkg/corex/db/persistence/model/backup_ops/*.go`
+- [X] T006 [Foundation] 将备份域模型挂载到 CoreX 统一迁移入口：`backend/pkg/corex/db/database/migration.go`
+- [X] T007 [P] [Foundation] 增加备份域 Repository（策略/作业/演练/告警查询与写入）：`backend/pkg/corex/db/persistence/repository/backup_ops/*.go`
+- [X] T008 [P] [Foundation] 在 `backup_ops` 服务层补齐统一错误码与错误翻译：`backend/internal/service/backup_ops/errors.go`
+- [X] T009 [Foundation] 为备份任务执行器补齐统一审计记录（操作者、动作、结果）：`backend/internal/service/backup_ops/*.go`
+- [X] T010 [Foundation] 在管理端路由注册备份域 API 分组：`backend/internal/transport/http/admin/backup/api.go` 与 `backend/internal/transport/http/admin/routes.go`
+- [X] T011 [P] [Foundation] 定义备份域 DTO（请求校验、列表响应、分页结构）：`backend/internal/transport/http/admin/backup/dto/*.go`
+- [X] T012 [Foundation] 更新系统菜单合同（监控中心一级菜单与备份入口关联校验）：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
+- [X] T041 [Foundation] 实现备份调度器注册与触发 wiring（按 interval/timezone 计算 next_run 并注册到现有 scheduler）：`backend/internal/service/backup_ops/job_service.go`、`backend/internal/bootstrap/app.go`（或现有调度装配点）
+- [X] T042 [Foundation] 实现调度互斥与防重入（上一轮未完成时跳过/排队策略）并写入作业状态：`backend/internal/service/backup_ops/job_service.go`
 
 **Checkpoint**: 基础模型、迁移、路由、DTO、审计框架已就绪。
 

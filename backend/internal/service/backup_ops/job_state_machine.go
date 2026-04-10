@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-var (
-	ErrInvalidStateTransition = errors.New("invalid job state transition")
-	ErrInvalidJobState        = errors.New("invalid job state")
-)
-
 type JobState string
 
 type JobEvent string

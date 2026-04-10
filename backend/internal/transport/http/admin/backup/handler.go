@@ -1,14 +1,13 @@
 package backup
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	dtoops "github.com/ArtisanCloud/PowerX/internal/dto/ops"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
+	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -42,7 +41,7 @@ func (h *handler) ListPolicies(c *gin.Context) {
 }
 
 func (h *handler) UpsertPolicy(c *gin.Context) {
-	var req dtoops.BackupPolicyUpsertRequest
+	var req backupdto.BackupPolicyUpsertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
 		return
@@ -58,14 +57,14 @@ func (h *handler) UpsertPolicy(c *gin.Context) {
 		TraceID:       strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
 	})
 	if err != nil {
-		h.respondError(c, err)
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"policy": row})
 }
 
 func (h *handler) TriggerBackupJob(c *gin.Context) {
-	var req dtoops.BackupJobRunRequest
+	var req backupdto.BackupJobRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
 		return
@@ -73,7 +72,7 @@ func (h *handler) TriggerBackupJob(c *gin.Context) {
 	policyID := parseUint(req.PolicyID)
 	row, err := h.jobSvc.TriggerJob(c.Request.Context(), backupops.TriggerJobRequest{PolicyID: policyID, Operator: resolveOperator(c), TraceID: strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))})
 	if err != nil {
-		h.respondError(c, err)
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"job": row})
@@ -101,7 +100,7 @@ func (h *handler) TriggerCleanup(c *gin.Context) {
 }
 
 func (h *handler) TriggerRestoreDrill(c *gin.Context) {
-	var req dtoops.RestoreDrillRunRequest
+	var req backupdto.RestoreDrillRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
 		return
@@ -109,21 +108,10 @@ func (h *handler) TriggerRestoreDrill(c *gin.Context) {
 	sourceJobID := parseUint(req.SourceJobID)
 	row, err := h.restoreSvc.Trigger(c.Request.Context(), backupops.TriggerRestoreDrillRequest{SourceJobID: sourceJobID, Operator: resolveOperator(c), TraceID: strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))})
 	if err != nil {
-		h.respondError(c, err)
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"drill": row})
-}
-
-func (h *handler) respondError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, backupops.ErrInvalidBackupPolicy), errors.Is(err, backupops.ErrInvalidBackupRequest), errors.Is(err, backupops.ErrInvalidRestoreDrillRequest):
-		dto.ResponseError(c, http.StatusBadRequest, "invalid backup request", err)
-	case errors.Is(err, backupops.ErrBackupPolicyNotFound):
-		dto.ResponseError(c, http.StatusNotFound, "backup policy not found", err)
-	default:
-		dto.ResponseError(c, http.StatusInternalServerError, "backup operation failed", err)
-	}
 }
 
 func resolveOperator(c *gin.Context) string {

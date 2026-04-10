@@ -123,6 +123,17 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID:    "monitor_center",
 					Permissions: []string{"admin:root"},
 				},
+				{
+					Key:         "monitor_backup_center",
+					Title:       "备份中心",
+					Icon:        "i-heroicons-circle-stack",
+					URL:         "/ops/backup",
+					Order:       5,
+					Visible:     true,
+					Origin:      plugin_mgr.OriginSystem,
+					ParentID:    "monitor_center",
+					Permissions: []string{"admin:root"},
+				},
 			},
 		},
 		{

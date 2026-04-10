@@ -14,10 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrInvalidBackupPolicy = errors.New("invalid backup policy")
-)
-
 type PolicyService struct {
 	repo    *repoops.BackupPolicyRepository
 	auditor obsops.AuditWriter

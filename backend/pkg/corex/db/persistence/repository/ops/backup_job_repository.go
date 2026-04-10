@@ -37,3 +37,18 @@ func (r *BackupJobRepository) List(ctx context.Context, policyID uint64, limit, 
 	}
 	return rows, total, nil
 }
+
+func (r *BackupJobRepository) ExistsRunningByPolicy(ctx context.Context, policyID uint64) (bool, error) {
+	if policyID == 0 {
+		return false, nil
+	}
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&modelops.BackupJob{}).
+		Where("policy_id = ? AND status = ?", policyID, modelops.BackupJobStatusRunning).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

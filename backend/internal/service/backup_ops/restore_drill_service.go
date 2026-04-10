@@ -17,10 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrInvalidRestoreDrillRequest = errors.New("invalid restore drill request")
-)
-
 type RestoreDrillService struct {
 	restoreRepo *repoops.RestoreDrillRecordRepository
 	jobRepo     *repoops.BackupJobRepository
@@ -96,7 +92,7 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 		return nil, retErr
 	}
 
-	s.audit(ctx, obsops.AuditRecord{ResourceType: "restore_drill", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "trigger", Outcome: string(saved.Status), Severity: "info", Detail: map[string]any{"source_job_id": saved.SourceJobID, "rto_seconds": saved.RTOSec}})
+	s.audit(ctx, obsops.AuditRecord{ResourceType: "restore_drill", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "execute", Outcome: string(saved.Status), Severity: "info", Detail: map[string]any{"source_job_id": saved.SourceJobID, "rto_seconds": saved.RTOSec, "operator": saved.Operator, "trace_id": saved.TraceID}})
 	return saved, nil
 }
 

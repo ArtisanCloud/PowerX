@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
@@ -17,11 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrInvalidBackupRequest = errors.New("invalid backup request")
-	ErrBackupPolicyNotFound = errors.New("backup policy not found")
-)
-
 type JobService struct {
 	policyRepo *repoops.BackupPolicyRepository
 	jobRepo    *repoops.BackupJobRepository
@@ -29,13 +25,17 @@ type JobService struct {
 	auditor    obsops.AuditWriter
 	scriptDir  string
 	metrics    *inst.Recorder
+	lockMu     sync.Mutex
+	policyLock map[uint64]struct{}
+	nextRuns   map[uint64]time.Time
 }
 
 type TriggerJobRequest struct {
-	PolicyID  uint64
-	Operator  string
-	TraceID   string
-	ForceSync bool
+	PolicyID    uint64
+	Operator    string
+	TraceID     string
+	ForceSync   bool
+	TriggerType modelops.BackupTriggerType
 }
 
 type ListJobOptions struct {
@@ -56,6 +56,8 @@ func NewJobService(db *gorm.DB) *JobService {
 		auditor:    obsops.NewUnifiedAuditWriter(db),
 		scriptDir:  scriptDir,
 		metrics:    inst.NewRecorder("powerx.service.backup_job_ops"),
+		policyLock: make(map[uint64]struct{}),
+		nextRuns:   make(map[uint64]time.Time),
 	}
 }
 
@@ -84,6 +86,12 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		retErr = ErrInvalidBackupRequest
 		return nil, retErr
 	}
+	if !s.tryLockPolicy(req.PolicyID) {
+		retErr = ErrBackupJobAlreadyRunning
+		return nil, retErr
+	}
+	defer s.unlockPolicy(req.PolicyID)
+
 	policy, err := s.policyRepo.GetById(ctx, req.PolicyID, nil)
 	if err != nil {
 		retErr = err
@@ -93,12 +101,25 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		retErr = ErrBackupPolicyNotFound
 		return nil, retErr
 	}
+	running, err := s.jobRepo.ExistsRunningByPolicy(ctx, req.PolicyID)
+	if err != nil {
+		retErr = err
+		return nil, retErr
+	}
+	if running {
+		retErr = ErrBackupJobAlreadyRunning
+		return nil, retErr
+	}
 
 	now := time.Now().UTC()
+	triggerType := req.TriggerType
+	if strings.TrimSpace(string(triggerType)) == "" {
+		triggerType = modelops.BackupTriggerTypeManual
+	}
 	job := &modelops.BackupJob{
 		PolicyID:    req.PolicyID,
 		Status:      modelops.BackupJobStatusRunning,
-		TriggerType: modelops.BackupTriggerTypeManual,
+		TriggerType: triggerType,
 		StartedAt:   &now,
 		Operator:    normalizeOperator(req.Operator),
 		TraceID:     strings.TrimSpace(req.TraceID),
@@ -125,7 +146,7 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		return nil, retErr
 	}
 
-	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "trigger", Outcome: string(updated.Status), Severity: "info", Detail: map[string]any{"policy_id": updated.PolicyID, "status": updated.Status}})
+	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "execute", Outcome: string(updated.Status), Severity: "info", Detail: map[string]any{"policy_id": updated.PolicyID, "status": updated.Status, "operator": updated.Operator, "trigger_type": updated.TriggerType, "trace_id": updated.TraceID}})
 	return updated, nil
 }
 
@@ -141,9 +162,93 @@ func (s *JobService) TriggerCleanup(ctx context.Context, operator, traceID strin
 	return err
 }
 
+func (s *JobService) RegisterPolicyScheduler(ctx context.Context, tick time.Duration) {
+	if tick <= 0 {
+		tick = 30 * time.Second
+	}
+	ticker := time.NewTicker(tick)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.scanAndTrigger(ctx)
+			}
+		}
+	}()
+}
+
 func (s *JobService) runBackupScript(ctx context.Context, policyID uint64) error {
 	args := []string{strconv.FormatUint(policyID, 10)}
 	return s.runOptionalScript(ctx, "backup-db.sh", args)
+}
+
+func (s *JobService) scanAndTrigger(ctx context.Context) {
+	enabled := true
+	policies, _, err := s.policyRepo.List(ctx, &enabled, 500, 0)
+	if err != nil {
+		return
+	}
+	now := time.Now().UTC()
+	for i := range policies {
+		p := policies[i]
+		nextAt := s.nextRunAt(p.ID, now, p.Schedule)
+		if now.Before(nextAt) {
+			continue
+		}
+		_, _ = s.TriggerJob(ctx, TriggerJobRequest{
+			PolicyID:    p.ID,
+			Operator:    "system.scheduler",
+			TriggerType: modelops.BackupTriggerTypeScheduled,
+		})
+		s.setNextRunAt(p.ID, now.Add(parseScheduleDuration(p.Schedule)))
+	}
+}
+
+func (s *JobService) nextRunAt(policyID uint64, now time.Time, schedule string) time.Time {
+	s.lockMu.Lock()
+	defer s.lockMu.Unlock()
+	if v, ok := s.nextRuns[policyID]; ok && !v.IsZero() {
+		return v
+	}
+	v := now.Add(parseScheduleDuration(schedule))
+	s.nextRuns[policyID] = v
+	return v
+}
+
+func (s *JobService) setNextRunAt(policyID uint64, next time.Time) {
+	s.lockMu.Lock()
+	defer s.lockMu.Unlock()
+	s.nextRuns[policyID] = next
+}
+
+func parseScheduleDuration(schedule string) time.Duration {
+	schedule = strings.TrimSpace(strings.ToLower(schedule))
+	if schedule == "" {
+		return 6 * time.Hour
+	}
+	if d, err := time.ParseDuration(schedule); err == nil && d > 0 {
+		return d
+	}
+	return 6 * time.Hour
+}
+
+func (s *JobService) tryLockPolicy(policyID uint64) bool {
+	s.lockMu.Lock()
+	defer s.lockMu.Unlock()
+	if _, ok := s.policyLock[policyID]; ok {
+		return false
+	}
+	s.policyLock[policyID] = struct{}{}
+	return true
+}
+
+func (s *JobService) unlockPolicy(policyID uint64) {
+	s.lockMu.Lock()
+	defer s.lockMu.Unlock()
+	delete(s.policyLock, policyID)
 }
 
 func (s *JobService) runOptionalScript(ctx context.Context, scriptName string, args []string) error {
