@@ -99,6 +99,7 @@ fi
 RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx}"
+PLUGIN_RUNTIME_ROOT="${POWERX_PLUGIN_RUNTIME_ROOT:-${LINKS_ROOT}/plugins}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
@@ -444,14 +445,30 @@ sync_runtime_plugin_paths() {
     return
   fi
 
-  local plugin_installed_abs="${LINK_BACKEND}/plugins/installed"
-  local plugin_registry_abs="${LINK_BACKEND}/plugins/registry.json"
+  local plugin_installed_abs="${PLUGIN_RUNTIME_ROOT}/installed"
+  local plugin_registry_abs="${PLUGIN_RUNTIME_ROOT}/registry.json"
+  local legacy_installed_abs="${LINK_BACKEND}/plugins/installed"
+  local legacy_registry_abs="${LINK_BACKEND}/plugins/registry.json"
   local tmp_file
 
   install -d -m 0755 "${plugin_installed_abs}"
   install -d -m 0755 "$(dirname "${plugin_registry_abs}")"
+
+  # 从旧的 release 绑定路径迁移一次插件运行产物到持久目录（仅当目标为空时）。
+  if [[ -d "${legacy_installed_abs}" ]]; then
+    if [[ -z "$(find "${plugin_installed_abs}" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]]; then
+      cp -a "${legacy_installed_abs}/." "${plugin_installed_abs}/" 2>/dev/null || true
+      echo "[switch-release] plugin installed artifacts migrated: ${legacy_installed_abs} -> ${plugin_installed_abs}"
+    fi
+  fi
+
   if [[ ! -f "${plugin_registry_abs}" ]]; then
-    printf '{}\n' > "${plugin_registry_abs}"
+    if [[ -f "${legacy_registry_abs}" ]]; then
+      cp -a "${legacy_registry_abs}" "${plugin_registry_abs}" 2>/dev/null || true
+      echo "[switch-release] plugin registry migrated: ${legacy_registry_abs} -> ${plugin_registry_abs}"
+    else
+      printf '{}\n' > "${plugin_registry_abs}"
+    fi
   fi
   chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}" "$(dirname "${plugin_registry_abs}")"
   chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
@@ -503,8 +520,8 @@ sync_runtime_plugin_paths() {
 }
 
 normalize_plugin_runtime_artifacts() {
-  local plugin_installed_abs="${LINK_BACKEND}/plugins/installed"
-  local plugin_registry_abs="${LINK_BACKEND}/plugins/registry.json"
+  local plugin_installed_abs="${PLUGIN_RUNTIME_ROOT}/installed"
+  local plugin_registry_abs="${PLUGIN_RUNTIME_ROOT}/registry.json"
 
   if [[ ! -d "${plugin_installed_abs}" ]]; then
     echo "[switch-release] warning: plugin installed dir missing, skip artifact normalize: ${plugin_installed_abs}" >&2
