@@ -27,6 +27,9 @@ func registerProtectedRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
 		g.GET("/jobs/:job_id", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.GetBackupJob)
 		g.POST("/cleanup", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.TriggerCleanup)
 		g.POST("/restore-drills/run", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.TriggerRestoreDrill)
+		g.POST("/restore-drills", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.TriggerRestoreDrill)
+		g.GET("/restore-drills", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.ListRestoreDrills)
+		g.GET("/restore-drills/:drill_id", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.GetRestoreDrill)
 		g.GET("/alerts", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.ListAlerts)
 		g.POST("/alerts/:alert_id/ack", RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.AckAlert)
 	}

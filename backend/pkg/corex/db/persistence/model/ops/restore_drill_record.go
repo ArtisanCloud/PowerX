@@ -9,6 +9,7 @@ import (
 type RestoreDrillStatus string
 
 const (
+	RestoreDrillStatusQueued  RestoreDrillStatus = "queued"
 	RestoreDrillStatusRunning RestoreDrillStatus = "running"
 	RestoreDrillStatusSuccess RestoreDrillStatus = "success"
 	RestoreDrillStatusFailed  RestoreDrillStatus = "failed"

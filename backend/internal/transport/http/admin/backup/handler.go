@@ -204,12 +204,59 @@ func (h *handler) TriggerRestoreDrill(c *gin.Context) {
 		return
 	}
 	sourceJobID := parseUint(req.SourceJobID)
-	row, err := h.restoreSvc.Trigger(c.Request.Context(), backupops.TriggerRestoreDrillRequest{SourceJobID: sourceJobID, Operator: resolveOperator(c), TraceID: strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))})
+	artifactID := parseUint(req.ArtifactID)
+	row, err := h.restoreSvc.Trigger(c.Request.Context(), backupops.TriggerRestoreDrillRequest{
+		SourceJobID: sourceJobID,
+		ArtifactID:  artifactID,
+		Reason:      strings.TrimSpace(req.Reason),
+		Operator:    resolveOperator(c),
+		TraceID:     strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	})
 	if err != nil {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"drill": row})
+}
+
+func (h *handler) ListRestoreDrills(c *gin.Context) {
+	page := parseInt(c.DefaultQuery("page", "1"), 1)
+	pageSize := parseInt(c.DefaultQuery("page_size", "20"), 20)
+	sourceJobID := parseUint(c.Query("source_job_id"))
+	status := strings.TrimSpace(c.Query("status"))
+	from, fromErr := parseDateTime(c.Query("from"))
+	if fromErr != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid from datetime", fromErr)
+		return
+	}
+	to, toErr := parseDateTime(c.Query("to"))
+	if toErr != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid to datetime", toErr)
+		return
+	}
+	items, total, err := h.restoreSvc.List(c.Request.Context(), backupops.ListRestoreDrillOptions{
+		SourceJobID: sourceJobID,
+		Status:      status,
+		From:        from,
+		To:          to,
+		Page:        page,
+		PageSize:    pageSize,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
+}
+
+func (h *handler) GetRestoreDrill(c *gin.Context) {
+	drillID := parseUint(c.Param("drill_id"))
+	row, err := h.restoreSvc.Get(c.Request.Context(), drillID)
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"drill": buildDrillDetailResponse(row)})
 }
 
 // UpsertPolicy 仅为兼容旧调用方，内部转发到 CreatePolicy。
@@ -314,5 +361,24 @@ func buildJobDetailResponse(row *modelops.BackupJob) gin.H {
 		"trace_id":      row.TraceID,
 		"error_summary": row.ErrorMessage,
 		"operator":      row.Operator,
+	}
+}
+
+func buildDrillDetailResponse(row *modelops.RestoreDrillRecord) gin.H {
+	durationMs := row.UpdatedAt.Sub(row.CreatedAt).Milliseconds()
+	if durationMs < 0 {
+		durationMs = 0
+	}
+	return gin.H{
+		"id":             row.ID,
+		"source_job_id":  row.SourceJobID,
+		"status":         row.Status,
+		"started_at":     row.CreatedAt,
+		"ended_at":       row.UpdatedAt,
+		"duration_ms":    durationMs,
+		"rto_seconds":    row.RTOSec,
+		"result_summary": row.ReportURI,
+		"report_uri":     row.ReportURI,
+		"trace_id":       row.TraceID,
 	}
 }

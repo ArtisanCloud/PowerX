@@ -31,6 +31,11 @@ export interface RestoreDrillRecord {
   source_job_id: number | string;
   status: string;
   rto_seconds: number;
+  started_at?: string;
+  ended_at?: string;
+  duration_ms?: number;
+  result_summary?: string;
+  trace_id?: string;
   report_uri?: string;
 }
 
@@ -182,6 +187,50 @@ export const useBackupOpsService = () => {
 
     async triggerRestoreDrill(sourceJobId: string | number): Promise<RestoreDrillRecord> {
       const resp = await api.post(`${adminBase}/restore-drills/run`, { source_job_id: String(sourceJobId) });
+      const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
+      return data.drill;
+    },
+
+    async createRestoreDrill(payload: { source_job_id?: string | number; artifact_id?: string | number; reason?: string }): Promise<RestoreDrillRecord> {
+      const resp = await api.post(`${adminBase}/restore-drills`, {
+        source_job_id: payload.source_job_id ? String(payload.source_job_id) : undefined,
+        artifact_id: payload.artifact_id ? String(payload.artifact_id) : undefined,
+        reason: payload.reason,
+      });
+      const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
+      return data.drill;
+    },
+
+    async listRestoreDrills(params?: {
+      sourceJobId?: string | number;
+      status?: "queued" | "running" | "success" | "failed";
+      from?: string;
+      to?: string;
+      page?: number;
+      pageSize?: number;
+    }): Promise<{ items: RestoreDrillRecord[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/restore-drills`, {
+        params: {
+          source_job_id: params?.sourceJobId ? String(params.sourceJobId) : undefined,
+          status: params?.status,
+          from: params?.from,
+          to: params?.to,
+          page: params?.page ?? 1,
+          page_size: params?.pageSize ?? 20,
+        },
+      });
+      const data = unwrap<{ items?: RestoreDrillRecord[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async getRestoreDrill(drillId: string | number): Promise<RestoreDrillRecord> {
+      const resp = await api.get(`${adminBase}/restore-drills/${drillId}`);
       const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
       return data.drill;
     },

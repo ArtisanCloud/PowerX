@@ -25,6 +25,7 @@ type JobService struct {
 	auditor    obsops.AuditWriter
 	alertSvc   *AlertService
 	cleanupSvc *ArtifactCleanupService
+	restoreSvc *RestoreDrillService
 	scriptDir  string
 	metrics    *inst.Recorder
 	lockMu     sync.Mutex
@@ -61,6 +62,7 @@ func NewJobService(db *gorm.DB) *JobService {
 		auditor:    obsops.NewUnifiedAuditWriter(db),
 		alertSvc:   NewAlertService(db),
 		cleanupSvc: NewArtifactCleanupService(db),
+		restoreSvc: NewRestoreDrillService(db),
 		scriptDir:  scriptDir,
 		metrics:    inst.NewRecorder("powerx.service.backup_job_ops"),
 		policyLock: make(map[uint64]struct{}),
@@ -187,6 +189,21 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 					"deleted_artifacts":   cleanupRet.DeletedArtifacts,
 					"triggered_by_job_id": updated.ID,
 				},
+			})
+		}
+	}
+	if updated.Status == modelops.BackupJobStatusSuccess && policy.DrillEnabled && s.restoreSvc != nil {
+		interval := int(policy.DrillIntervalDays)
+		if interval <= 0 {
+			interval = 7
+		}
+		shouldTrigger, shouldErr := s.restoreSvc.ShouldTriggerByPolicy(ctx, policy.ID, interval, time.Now().UTC())
+		if shouldErr == nil && shouldTrigger {
+			_, _ = s.restoreSvc.Trigger(ctx, TriggerRestoreDrillRequest{
+				SourceJobID: updated.ID,
+				Reason:      "scheduled_by_policy",
+				Operator:    "system.scheduler",
+				TraceID:     updated.TraceID,
 			})
 		}
 	}

@@ -10,6 +10,7 @@ type JobState string
 type JobEvent string
 
 const (
+	JobStateQueued  JobState = "queued"
 	JobStatePending JobState = "pending"
 	JobStateRunning JobState = "running"
 	JobStateSuccess JobState = "success"
@@ -33,7 +34,7 @@ func (m *JobStateMachine) Next(current JobState, event JobEvent) (JobState, erro
 	}
 
 	switch current {
-	case JobStatePending:
+	case JobStateQueued, JobStatePending:
 		switch event {
 		case JobEventStart:
 			return JobStateRunning, nil
@@ -58,7 +59,7 @@ func (m *JobStateMachine) Next(current JobState, event JobEvent) (JobState, erro
 
 func (m *JobStateMachine) isKnownState(state JobState) bool {
 	switch state {
-	case JobStatePending, JobStateRunning, JobStateSuccess, JobStateFailed:
+	case JobStateQueued, JobStatePending, JobStateRunning, JobStateSuccess, JobStateFailed:
 		return true
 	default:
 		return false

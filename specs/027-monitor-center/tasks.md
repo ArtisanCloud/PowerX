@@ -96,12 +96,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] 实现恢复演练创建接口（artifact 可用性校验）：`backend/internal/transport/http/admin/backup/drill_handler.go`
-- [ ] T032 [US3] 实现恢复演练列表/详情接口：`backend/internal/transport/http/admin/backup/drill_handler.go`
-- [ ] T033 [US3] 在服务层实现演练任务状态机（queued/running/success/failed）：`backend/internal/service/backup_ops/restore_drill_service.go`
-- [ ] T034 [US3] 实现默认每周演练调度触发与策略覆盖：`backend/internal/service/backup_ops/job_service.go` 与 `backend/internal/service/backup_ops/restore_drill_service.go`
-- [ ] T035 [P] [US3] 备份中心页面新增“发起演练”与“演练历史”区域：`web-admin/app/components/ops/backup/RestoreDrillPanel.vue` 与 `web-admin/app/pages/ops/backup.vue`
-- [ ] T036 [P] [US3] 前端接入演练 API 客户端与 WebSocket/SSE 状态推送展示（轮询仅限临时诊断，不作为常驻方案）：`web-admin/app/composables/api/services/deployOpsService.ts`（或 `backupService.ts`）
+- [X] T031 [US3] 实现恢复演练创建接口（artifact 可用性校验）：`backend/internal/transport/http/admin/backup/handler.go`
+- [X] T032 [US3] 实现恢复演练列表/详情接口：`backend/internal/transport/http/admin/backup/handler.go`
+- [X] T033 [US3] 在服务层实现演练任务状态机（queued/running/success/failed）：`backend/internal/service/backup_ops/restore_drill_service.go`
+- [X] T034 [US3] 实现默认每周演练调度触发与策略覆盖：`backend/internal/service/backup_ops/job_service.go` 与 `backend/internal/service/backup_ops/restore_drill_service.go`
+- [X] T035 [P] [US3] 备份中心页面新增“发起演练”与“演练历史”区域：`web-admin/app/components/ops/backup/RestoreDrillPanel.vue` 与 `web-admin/app/pages/ops/backup.vue`
+- [X] T036 [P] [US3] 前端接入演练 API 客户端与 WebSocket/SSE 状态推送展示（轮询仅限临时诊断，不作为常驻方案）：`web-admin/app/composables/api/services/backupOpsService.ts`
 
 **Checkpoint**: US3 可独立验收（演练可发起、可跟踪、可判定）。
 

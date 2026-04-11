@@ -106,19 +106,20 @@
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
-      <RestoreDrillPanel :drill="latestDrill" />
+      <RestoreDrillPanel :drill="latestDrill" :history="drillHistory" :streaming="drillStreaming" />
       <LogObservabilityPanel />
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useBackupOpsService, type BackupAlert, type BackupJob, type BackupPolicy, type RestoreDrillRecord } from "~/composables/api/services/backupOpsService";
 import BackupJobTable from "~/components/ops/backup/BackupJobTable.vue";
 import RestoreDrillPanel from "~/components/ops/backup/RestoreDrillPanel.vue";
 import LogObservabilityPanel from "~/components/ops/backup/LogObservabilityPanel.vue";
 import { useOpsAccess } from "~/composables/useOpsAccess";
+import { useWSBus } from "~/composables/useWSBus";
 
 const backupSvc = useBackupOpsService();
 const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
@@ -126,6 +127,7 @@ const policies = ref<BackupPolicy[]>([]);
 const jobs = ref<BackupJob[]>([]);
 const alerts = ref<BackupAlert[]>([]);
 const latestDrill = ref<RestoreDrillRecord | null>(null);
+const drillHistory = ref<RestoreDrillRecord[]>([]);
 const selectedPolicyId = ref("");
 const editingPolicyId = ref<string>("");
 const policyError = ref("");
@@ -151,6 +153,9 @@ const policyForm = reactive({
 });
 
 const latestJob = computed(() => (jobs.value.length > 0 ? jobs.value[0] : null));
+const wsBus = useWSBus();
+const drillStreaming = computed(() => wsBus.connected.value);
+let wsDispose: (() => void) | null = null;
 
 const isValidTimezone = (timezone: string): boolean => {
   try {
@@ -190,6 +195,7 @@ const loadAlerts = async () => {
 
 const load = async () => {
   await Promise.all([loadPolicies(), loadJobs(), loadAlerts()]);
+  await loadDrillHistory();
 };
 
 const resetForm = () => {
@@ -267,7 +273,8 @@ const runCleanup = async () => {
 const runDrill = async () => {
   if (!canExecute.value) return;
   if (!latestJob.value) return;
-  latestDrill.value = await backupSvc.triggerRestoreDrill(latestJob.value.id);
+  latestDrill.value = await backupSvc.createRestoreDrill({ source_job_id: latestJob.value.id });
+  await loadDrillHistory();
 };
 
 const ackAlert = async (alertId: string | number) => {
@@ -276,8 +283,31 @@ const ackAlert = async (alertId: string | number) => {
   await loadAlerts();
 };
 
+const loadDrillHistory = async () => {
+  const result = await backupSvc.listRestoreDrills({ page: 1, pageSize: 10 });
+  drillHistory.value = result.items;
+  latestDrill.value = result.items.length > 0 ? result.items[0] : latestDrill.value;
+};
+
+const subscribeDrillEvents = async () => {
+  try {
+    await wsBus.connect();
+    wsDispose = wsBus.subscribe("_topic.ops.backup.restore_drill.status", async () => {
+      await loadDrillHistory();
+    });
+  } catch {
+    wsDispose = null;
+  }
+};
+
 onMounted(async () => {
   await loadUserContext();
   await load();
+  await subscribeDrillEvents();
+});
+
+onBeforeUnmount(() => {
+  if (wsDispose) wsDispose();
+  wsDispose = null;
 });
 </script>

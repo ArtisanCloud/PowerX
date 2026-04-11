@@ -25,5 +25,7 @@ type BackupJobRunRequest struct {
 }
 
 type RestoreDrillRunRequest struct {
-	SourceJobID string `json:"source_job_id" binding:"required"`
+	SourceJobID string `json:"source_job_id,omitempty"`
+	ArtifactID  string `json:"artifact_id,omitempty"`
+	Reason      string `json:"reason,omitempty" binding:"omitempty,max=255"`
 }
