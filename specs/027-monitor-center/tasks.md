@@ -72,17 +72,17 @@
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] 实现备份作业历史查询接口（状态/时间范围/策略过滤）：`backend/internal/transport/http/admin/backup/job_handler.go`
-- [ ] T023 [US2] 实现单作业详情接口（错误摘要、trace、耗时）：`backend/internal/transport/http/admin/backup/job_handler.go`
-- [ ] T024 [US2] 实现告警查询与确认接口（含 high 级别筛选）：`backend/internal/transport/http/admin/backup/alert_handler.go`
-- [ ] T025 [US2] 实现监控概览接口（next_run、last_result、连续失败次数）：`backend/internal/transport/http/admin/backup/monitor_handler.go`
-- [ ] T026 [US2] 在服务层实现“连续 2 次失败升级高优先级告警”规则：`backend/internal/service/backup_ops/alert_service.go`
-- [ ] T027 [US2] 在调度执行链路写入作业状态与失败摘要：`backend/internal/service/backup_ops/job_service.go`
-- [ ] T028 [P] [US2] 监控中心 Task/Cron 页面接入备份任务状态卡片：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
-- [ ] T029 [P] [US2] 监控中心 Logs/Trace 页面接入备份链路摘要：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
-- [ ] T030 [US2] 备份中心页面接入作业历史与告警列表：`web-admin/app/pages/ops/backup.vue`
-- [ ] T043 [US2] 实现过期备份清理执行逻辑（保留最近 N 份 + 不删除最新可用备份）：`backend/internal/service/backup_ops/artifact_cleanup_service.go`
-- [ ] T044 [US2] 实现清理失败补偿与告警（删除失败不影响新备份落库，告警可见）：`backend/internal/service/backup_ops/artifact_cleanup_service.go`、`backend/internal/service/backup_ops/alert_service.go`
+- [X] T022 [US2] 实现备份作业历史查询接口（状态/时间范围/策略过滤）：`backend/internal/transport/http/admin/backup/job_handler.go`
+- [X] T023 [US2] 实现单作业详情接口（错误摘要、trace、耗时）：`backend/internal/transport/http/admin/backup/job_handler.go`
+- [X] T024 [US2] 实现告警查询与确认接口（含 high 级别筛选）：`backend/internal/transport/http/admin/backup/alert_handler.go`
+- [X] T025 [US2] 实现监控概览接口（next_run、last_result、连续失败次数）：`backend/internal/transport/http/admin/backup/monitor_handler.go`
+- [X] T026 [US2] 在服务层实现“连续 2 次失败升级高优先级告警”规则：`backend/internal/service/backup_ops/alert_service.go`
+- [X] T027 [US2] 在调度执行链路写入作业状态与失败摘要：`backend/internal/service/backup_ops/job_service.go`
+- [X] T028 [P] [US2] 监控中心 Task/Cron 页面接入备份任务状态卡片：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [X] T029 [P] [US2] 监控中心 Logs/Trace 页面接入备份链路摘要：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [X] T030 [US2] 备份中心页面接入作业历史与告警列表：`web-admin/app/pages/ops/backup.vue`
+- [X] T043 [US2] 实现过期备份清理执行逻辑（保留最近 N 份 + 不删除最新可用备份）：`backend/internal/service/backup_ops/artifact_cleanup_service.go`
+- [X] T044 [US2] 实现清理失败补偿与告警（删除失败不影响新备份落库，告警可见）：`backend/internal/service/backup_ops/artifact_cleanup_service.go`、`backend/internal/service/backup_ops/alert_service.go`
 
 **Checkpoint**: US2 可独立验收（监控可见、失败可见、告警可见）。
 

@@ -23,6 +23,8 @@ type JobService struct {
 	jobRepo    *repoops.BackupJobRepository
 	runner     ScriptRunner
 	auditor    obsops.AuditWriter
+	alertSvc   *AlertService
+	cleanupSvc *ArtifactCleanupService
 	scriptDir  string
 	metrics    *inst.Recorder
 	lockMu     sync.Mutex
@@ -40,6 +42,9 @@ type TriggerJobRequest struct {
 
 type ListJobOptions struct {
 	PolicyID uint64
+	Status   string
+	From     *time.Time
+	To       *time.Time
 	Page     int
 	PageSize int
 }
@@ -54,6 +59,8 @@ func NewJobService(db *gorm.DB) *JobService {
 		jobRepo:    repoops.NewBackupJobRepository(db),
 		runner:     NewOSScriptRunner(),
 		auditor:    obsops.NewUnifiedAuditWriter(db),
+		alertSvc:   NewAlertService(db),
+		cleanupSvc: NewArtifactCleanupService(db),
 		scriptDir:  scriptDir,
 		metrics:    inst.NewRecorder("powerx.service.backup_job_ops"),
 		policyLock: make(map[uint64]struct{}),
@@ -74,7 +81,21 @@ func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelo
 		size = 200
 	}
 	offset := (page - 1) * size
-	return s.jobRepo.List(ctx, opt.PolicyID, size, offset)
+	return s.jobRepo.ListWithFilters(ctx, opt.PolicyID, opt.Status, opt.From, opt.To, size, offset)
+}
+
+func (s *JobService) GetJob(ctx context.Context, jobID uint64) (*modelops.BackupJob, error) {
+	if jobID == 0 {
+		return nil, ErrInvalidBackupRequest
+	}
+	row, err := s.jobRepo.GetById(ctx, jobID, nil)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil {
+		return nil, ErrBackupJobNotFound
+	}
+	return row, nil
 }
 
 func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*modelops.BackupJob, error) {
@@ -145,6 +166,30 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		retErr = err
 		return nil, retErr
 	}
+	if updated.Status == modelops.BackupJobStatusFailed && s.alertSvc != nil {
+		_ = s.alertSvc.HandleJobCompletionAlert(ctx, updated)
+	}
+	if updated.Status == modelops.BackupJobStatusSuccess && s.cleanupSvc != nil {
+		if cleanupRet, cleanupErr := s.cleanupSvc.CleanupByPolicy(ctx, policy.ID, int(policy.RetentionCount)); cleanupErr != nil {
+			if s.alertSvc != nil {
+				_ = s.alertSvc.CreateCleanupFailureAlert(ctx, policy.ID, updated.TraceID, cleanupErr)
+			}
+		} else {
+			s.audit(ctx, obsops.AuditRecord{
+				ResourceType: "backup_cleanup",
+				ResourceID:   fmt.Sprintf("%d", policy.ID),
+				Operation:    "cleanup",
+				Outcome:      "success",
+				Severity:     "info",
+				Detail: map[string]any{
+					"policy_id":           policy.ID,
+					"deleted_jobs":        cleanupRet.DeletedJobs,
+					"deleted_artifacts":   cleanupRet.DeletedArtifacts,
+					"triggered_by_job_id": updated.ID,
+				},
+			})
+		}
+	}
 
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "execute", Outcome: string(updated.Status), Severity: "info", Detail: map[string]any{"policy_id": updated.PolicyID, "status": updated.Status, "operator": updated.Operator, "trigger_type": updated.TriggerType, "trace_id": updated.TraceID}})
 	return updated, nil
@@ -153,10 +198,16 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 func (s *JobService) TriggerCleanup(ctx context.Context, operator, traceID string) error {
 	startedAt := time.Now()
 	err := s.runOptionalScript(ctx, "cleanup-backups.sh", nil)
+	if err == nil && s.cleanupSvc != nil {
+		_, err = s.cleanupSvc.CleanupAllPolicies(ctx)
+	}
 	s.metrics.Observe(ctx, "backup_trigger_cleanup", startedAt, err)
 	outcome := "success"
 	if err != nil {
 		outcome = "failed"
+		if s.alertSvc != nil {
+			_ = s.alertSvc.CreateCleanupFailureAlert(ctx, 0, traceID, err)
+		}
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_cleanup", ResourceID: "cleanup", Operation: "cleanup", Outcome: outcome, Severity: "info", Detail: map[string]any{"operator": normalizeOperator(operator), "trace_id": strings.TrimSpace(traceID)}})
 	return err

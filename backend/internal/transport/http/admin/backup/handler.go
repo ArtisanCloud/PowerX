@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
+	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -17,6 +19,7 @@ type handler struct {
 	policySvc  *backupops.PolicyService
 	jobSvc     *backupops.JobService
 	restoreSvc *backupops.RestoreDrillService
+	alertSvc   *backupops.AlertService
 }
 
 func NewHandler(deps *shared.Deps) *handler {
@@ -27,6 +30,7 @@ func NewHandler(deps *shared.Deps) *handler {
 		policySvc:  backupops.NewPolicyService(deps.DB),
 		jobSvc:     backupops.NewJobService(deps.DB),
 		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
+		alertSvc:   backupops.NewAlertService(deps.DB),
 	}
 }
 
@@ -148,12 +152,40 @@ func (h *handler) ListBackupJobs(c *gin.Context) {
 	policyID := parseUint(c.Query("policy_id"))
 	page := parseInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parseInt(c.DefaultQuery("page_size", "20"), 20)
-	items, total, err := h.jobSvc.ListJobs(c.Request.Context(), backupops.ListJobOptions{PolicyID: policyID, Page: page, PageSize: pageSize})
+	status := strings.TrimSpace(c.Query("status"))
+	from, fromErr := parseDateTime(c.Query("from"))
+	if fromErr != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid from datetime", fromErr)
+		return
+	}
+	to, toErr := parseDateTime(c.Query("to"))
+	if toErr != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid to datetime", toErr)
+		return
+	}
+	items, total, err := h.jobSvc.ListJobs(c.Request.Context(), backupops.ListJobOptions{
+		PolicyID: policyID,
+		Status:   status,
+		From:     from,
+		To:       to,
+		Page:     page,
+		PageSize: pageSize,
+	})
 	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "list backup jobs failed", err)
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
+}
+
+func (h *handler) GetBackupJob(c *gin.Context) {
+	jobID := parseUint(c.Param("job_id"))
+	row, err := h.jobSvc.GetJob(c.Request.Context(), jobID)
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"job": buildJobDetailResponse(row)})
 }
 
 func (h *handler) TriggerCleanup(c *gin.Context) {
@@ -185,6 +217,45 @@ func (h *handler) UpsertPolicy(c *gin.Context) {
 	h.CreatePolicy(c)
 }
 
+func (h *handler) ListAlerts(c *gin.Context) {
+	page := parseInt(c.DefaultQuery("page", "1"), 1)
+	pageSize := parseInt(c.DefaultQuery("page_size", "20"), 20)
+	var ackedPtr *bool
+	if raw := strings.TrimSpace(strings.ToLower(c.Query("acked"))); raw != "" {
+		acked := raw == "true" || raw == "1"
+		ackedPtr = &acked
+	}
+	items, total, err := h.alertSvc.ListAlerts(c.Request.Context(), backupops.ListAlertOptions{
+		Level:    strings.TrimSpace(c.Query("level")),
+		Acked:    ackedPtr,
+		Page:     page,
+		PageSize: pageSize,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
+}
+
+func (h *handler) AckAlert(c *gin.Context) {
+	alertID := parseUint(c.Param("alert_id"))
+	if err := h.alertSvc.AckAlert(c.Request.Context(), alertID, resolveOperator(c)); err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"alert_id": alertID, "acked": true})
+}
+
+func (h *handler) GetBackupOverview(c *gin.Context) {
+	overview, err := h.alertSvc.BuildOverview(c.Request.Context())
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"overview": overview})
+}
+
 func resolveOperator(c *gin.Context) string {
 	ctx := c.Request.Context()
 	if reqctx.IsRoot(ctx) {
@@ -210,4 +281,38 @@ func parseUint(raw string) uint64 {
 		return 0
 	}
 	return v
+}
+
+func parseDateTime(raw string) (*time.Time, error) {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, text)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func buildJobDetailResponse(row *modelops.BackupJob) gin.H {
+	durationMs := int64(0)
+	if row != nil && row.StartedAt != nil && row.EndedAt != nil {
+		durationMs = row.EndedAt.Sub(*row.StartedAt).Milliseconds()
+	}
+	if row == nil {
+		return gin.H{}
+	}
+	return gin.H{
+		"id":            row.ID,
+		"policy_id":     row.PolicyID,
+		"status":        row.Status,
+		"trigger_type":  row.TriggerType,
+		"started_at":    row.StartedAt,
+		"ended_at":      row.EndedAt,
+		"duration_ms":   durationMs,
+		"trace_id":      row.TraceID,
+		"error_summary": row.ErrorMessage,
+		"operator":      row.Operator,
+	}
 }

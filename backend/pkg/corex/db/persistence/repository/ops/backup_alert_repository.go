@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
@@ -23,8 +24,8 @@ func NewBackupAlertRepository(db *gorm.DB) *BackupAlertRepository {
 
 func (r *BackupAlertRepository) List(ctx context.Context, level string, acked *bool, limit, offset int) ([]modelops.BackupAlert, int64, error) {
 	q := r.db.WithContext(ctx).Model(&modelops.BackupAlert{})
-	if level != "" {
-		q = q.Where("level = ?", level)
+	if normalized := strings.TrimSpace(strings.ToLower(level)); normalized != "" {
+		q = q.Where("level = ?", normalized)
 	}
 	if acked != nil {
 		q = q.Where("acknowledged = ?", *acked)
@@ -40,6 +41,15 @@ func (r *BackupAlertRepository) List(ctx context.Context, level string, acked *b
 		return nil, 0, err
 	}
 	return rows, total, nil
+}
+
+func (r *BackupAlertRepository) CountUnackedByLevel(ctx context.Context, level modelops.BackupAlertLevel) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&modelops.BackupAlert{}).
+		Where("level = ? AND acknowledged = ?", level, false).
+		Count(&count).Error
+	return count, err
 }
 
 func (r *BackupAlertRepository) Ack(ctx context.Context, id uint64, ackBy string) error {

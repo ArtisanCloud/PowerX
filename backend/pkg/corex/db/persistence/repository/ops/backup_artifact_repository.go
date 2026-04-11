@@ -25,3 +25,10 @@ func (r *BackupArtifactRepository) ListByJobID(ctx context.Context, jobID uint64
 	err := r.db.WithContext(ctx).Where("job_id = ?", jobID).Order("id DESC").Find(&rows).Error
 	return rows, err
 }
+
+func (r *BackupArtifactRepository) DeleteByJobID(ctx context.Context, jobID uint64) error {
+	if jobID == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("job_id = ?", jobID).Delete(&modelops.BackupArtifact{}).Error
+}

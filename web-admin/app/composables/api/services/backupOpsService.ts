@@ -22,6 +22,8 @@ export interface BackupJob {
   error_message?: string;
   operator: string;
   trace_id?: string;
+  duration_ms?: number;
+  error_summary?: string;
 }
 
 export interface RestoreDrillRecord {
@@ -38,6 +40,38 @@ export interface BackupPolicyFilters {
   timezone?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface BackupJobFilters {
+  policyId?: string | number;
+  status?: "pending" | "running" | "success" | "failed";
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface BackupAlert {
+  id: number | string;
+  policy_id: number | string;
+  job_id: number | string;
+  level: "low" | "medium" | "high";
+  alert_type: string;
+  message: string;
+  suggestion?: string;
+  acknowledged: boolean;
+  ack_by?: string;
+  ack_at?: string;
+  trace_id?: string;
+  created_at?: string;
+}
+
+export interface BackupOverview {
+  policies_enabled: number;
+  jobs_running: number;
+  jobs_failed_24h: number;
+  alerts_high_unacked: number;
+  last_success_at?: string;
 }
 
 const unwrap = <T>(payload: unknown): T => {
@@ -115,12 +149,31 @@ export const useBackupOpsService = () => {
       return data.job;
     },
 
-    async listJobs(policyId?: string | number): Promise<BackupJob[]> {
+    async listJobs(filters?: BackupJobFilters): Promise<{ items: BackupJob[]; total: number; page: number; pageSize: number }> {
       const resp = await api.get(`${adminBase}/jobs`, {
-        params: { policy_id: policyId ? String(policyId) : undefined, page: 1, page_size: 50 },
+        params: {
+          policy_id: filters?.policyId ? String(filters.policyId) : undefined,
+          status: filters?.status,
+          from: filters?.from,
+          to: filters?.to,
+          page: filters?.page ?? 1,
+          page_size: filters?.pageSize ?? 50,
+        },
       });
-      const data = unwrap<{ items?: BackupJob[] }>(resp) || {};
-      return Array.isArray(data.items) ? data.items : [];
+      const data = unwrap<{ items?: BackupJob[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async getJob(jobId: string | number): Promise<BackupJob> {
+      const resp = await api.get(`${adminBase}/jobs/${jobId}`);
+      const data = unwrap<{ job: BackupJob }>(resp);
+      return data.job;
     },
 
     async triggerCleanup(): Promise<void> {
@@ -131,6 +184,35 @@ export const useBackupOpsService = () => {
       const resp = await api.post(`${adminBase}/restore-drills/run`, { source_job_id: String(sourceJobId) });
       const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
       return data.drill;
+    },
+
+    async listAlerts(params?: { level?: "low" | "medium" | "high"; acked?: boolean; page?: number; pageSize?: number }): Promise<{ items: BackupAlert[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/alerts`, {
+        params: {
+          level: params?.level,
+          acked: typeof params?.acked === "boolean" ? String(params.acked) : undefined,
+          page: params?.page ?? 1,
+          page_size: params?.pageSize ?? 20,
+        },
+      });
+      const data = unwrap<{ items?: BackupAlert[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async ackAlert(alertId: string | number): Promise<void> {
+      await api.post(`${adminBase}/alerts/${alertId}/ack`, {});
+    },
+
+    async getOverview(): Promise<BackupOverview> {
+      const resp = await api.get(`/admin/monitor/backup/overview`);
+      const data = unwrap<{ overview: BackupOverview }>(resp);
+      return data.overview;
     },
   };
 };

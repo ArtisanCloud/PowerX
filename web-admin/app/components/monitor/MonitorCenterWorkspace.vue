@@ -455,8 +455,43 @@
 
       <div v-else-if="activeTab === 'task-cron'" class="space-y-4">
         <UCard>
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="font-semibold text-sm">备份闭环观测</div>
+            <UButton size="xs" variant="outline" :loading="backupMonitorLoading" @click="loadBackupMonitor(true)">刷新备份监控</UButton>
+          </div>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">启用策略</div>
+              <div class="text-lg font-semibold">{{ backupOverview?.policies_enabled ?? 0 }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">运行中任务</div>
+              <div class="text-lg font-semibold">{{ backupOverview?.jobs_running ?? 0 }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">24h 失败</div>
+              <div class="text-lg font-semibold text-amber-600">{{ backupOverview?.jobs_failed_24h ?? 0 }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">高优先级未确认</div>
+              <div class="text-lg font-semibold text-red-600">{{ backupOverview?.alerts_high_unacked ?? 0 }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">最近成功</div>
+              <div class="text-xs font-mono break-all">{{ backupOverview?.last_success_at || "-" }}</div>
+            </div>
+          </div>
+
+          <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3">
+            <div class="mb-2 text-xs font-semibold text-gray-500">失败摘要（最近 5 条）</div>
+            <div v-for="job in backupFailedJobs" :key="job.id" class="mb-2 text-xs text-gray-600 dark:text-gray-300">
+              <div class="font-mono">job={{ job.id }} policy={{ job.policy_id }} trace={{ job.trace_id || "-" }}</div>
+              <div class="text-red-600">{{ job.error_summary || job.error_message || "未知失败" }}</div>
+            </div>
+            <div v-if="backupFailedJobs.length === 0" class="text-xs text-gray-500">暂无失败记录</div>
+          </div>
+
           <div class="text-xs text-gray-600 dark:text-gray-300 space-y-2">
-            <div class="font-semibold">备份闭环观测</div>
             <div>数据库定时备份任务请在「运维中心 / 备份中心」查看执行记录与恢复演练。</div>
             <div class="flex flex-wrap gap-2">
               <UButton size="xs" variant="outline" to="/ops/backup">打开备份中心</UButton>
@@ -730,6 +765,7 @@ import {
   type EventFabricTaskQueueStats,
   type EventFabricTaskQueueMessage,
 } from "~/composables/api/services/eventFabricService";
+import { useBackupOpsService, type BackupJob, type BackupOverview } from "~/composables/api/services/backupOpsService";
 import { EVENT_NOTIFICATION_KIND, EVENT_SUBSCRIBERS, EVENT_TOPICS } from "~/composables/domain/eventTopic";
 import { useWSBus } from "~/composables/useWSBus";
 
@@ -820,10 +856,14 @@ watch(resolvedForcedTab, (tab) => {
 });
 
 const svc = useEventFabricService();
+const backupSvc = useBackupOpsService();
 const toast = useToast();
 
 const loading = ref(false);
 const overview = ref<EventFabricOverview | null>(null);
+const backupMonitorLoading = ref(false);
+const backupOverview = ref<BackupOverview | null>(null);
+const backupFailedJobs = ref<BackupJob[]>([]);
 const replayLimit = 20;
 
 const filters = reactive({
@@ -1113,6 +1153,24 @@ async function refresh() {
     toast.add({ title: "加载失败", description: e?.message || "无法获取 overview", color: "error" });
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadBackupMonitor(showToast = false) {
+  backupMonitorLoading.value = true;
+  try {
+    const [overviewPayload, failedPayload] = await Promise.all([
+      backupSvc.getOverview(),
+      backupSvc.listJobs({ status: "failed", page: 1, pageSize: 5 }),
+    ]);
+    backupOverview.value = overviewPayload;
+    backupFailedJobs.value = failedPayload.items;
+  } catch (e: any) {
+    if (showToast) {
+      toast.add({ title: "加载备份监控失败", description: e?.message || "未知错误", color: "error" });
+    }
+  } finally {
+    backupMonitorLoading.value = false;
   }
 }
 
@@ -2059,6 +2117,9 @@ watch(activeTab, (tab) => {
   if (tab === "task-cron" && taskCronSubTab.value === "cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
     void loadCronJobsDebug();
   }
+  if (tab === "task-cron") {
+    void loadBackupMonitor(false);
+  }
 });
 
 watch(taskCronSubTab, (tab) => {
@@ -2100,6 +2161,9 @@ onMounted(async () => {
   }
   if (activeTab.value === "websocket") {
     await loadWsTopicCatalog();
+  }
+  if (activeTab.value === "task-cron") {
+    await loadBackupMonitor(false);
   }
 });
 

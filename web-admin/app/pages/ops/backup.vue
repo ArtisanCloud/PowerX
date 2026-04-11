@@ -73,6 +73,38 @@
 
     <BackupJobTable :items="jobs" />
 
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <h3 class="mb-3 text-sm font-medium text-gray-700">告警列表</h3>
+      <div class="mb-3 flex flex-wrap gap-2">
+        <select v-model="alertFilter.level" class="rounded border border-gray-300 px-3 py-2 text-sm">
+          <option value="">全部级别</option>
+          <option value="high">高</option>
+          <option value="medium">中</option>
+          <option value="low">低</option>
+        </select>
+        <select v-model="alertFilter.acked" class="rounded border border-gray-300 px-3 py-2 text-sm">
+          <option value="">全部状态</option>
+          <option value="false">未确认</option>
+          <option value="true">已确认</option>
+        </select>
+        <button class="rounded border border-gray-300 px-3 py-2 text-sm" @click="loadAlerts">筛选</button>
+      </div>
+      <div class="space-y-2">
+        <div v-for="alert in alerts" :key="String(alert.id)" class="rounded border border-gray-200 p-3 text-sm">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold">{{ alert.alert_type }}</span>
+              <span :class="alert.level === 'high' ? 'text-red-600' : alert.level === 'medium' ? 'text-amber-600' : 'text-gray-500'">{{ alert.level }}</span>
+            </div>
+            <button v-if="!alert.acknowledged" class="rounded border border-gray-300 px-2 py-1 text-xs" :disabled="!canExecute" @click="ackAlert(alert.id)">确认</button>
+          </div>
+          <p class="mt-1 text-xs text-gray-700">{{ alert.message }}</p>
+          <p class="text-xs text-gray-500">trace: {{ alert.trace_id || "-" }} · 状态: {{ alert.acknowledged ? "已确认" : "未确认" }}</p>
+        </div>
+        <p v-if="alerts.length === 0" class="text-xs text-gray-500">暂无告警</p>
+      </div>
+    </div>
+
     <div class="grid gap-4 md:grid-cols-2">
       <RestoreDrillPanel :drill="latestDrill" />
       <LogObservabilityPanel />
@@ -82,7 +114,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { useBackupOpsService, type BackupJob, type BackupPolicy, type RestoreDrillRecord } from "~/composables/api/services/backupOpsService";
+import { useBackupOpsService, type BackupAlert, type BackupJob, type BackupPolicy, type RestoreDrillRecord } from "~/composables/api/services/backupOpsService";
 import BackupJobTable from "~/components/ops/backup/BackupJobTable.vue";
 import RestoreDrillPanel from "~/components/ops/backup/RestoreDrillPanel.vue";
 import LogObservabilityPanel from "~/components/ops/backup/LogObservabilityPanel.vue";
@@ -92,6 +124,7 @@ const backupSvc = useBackupOpsService();
 const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
 const policies = ref<BackupPolicy[]>([]);
 const jobs = ref<BackupJob[]>([]);
+const alerts = ref<BackupAlert[]>([]);
 const latestDrill = ref<RestoreDrillRecord | null>(null);
 const selectedPolicyId = ref("");
 const editingPolicyId = ref<string>("");
@@ -100,6 +133,11 @@ const policyError = ref("");
 const filters = reactive({
   status: "" as "" | "enabled" | "disabled",
   keyword: "",
+});
+
+const alertFilter = reactive({
+  level: "" as "" | "low" | "medium" | "high",
+  acked: "",
 });
 
 const policyForm = reactive({
@@ -140,11 +178,18 @@ const loadPolicies = async () => {
 };
 
 const loadJobs = async () => {
-  jobs.value = await backupSvc.listJobs();
+  const result = await backupSvc.listJobs({ page: 1, pageSize: 50 });
+  jobs.value = result.items;
+};
+
+const loadAlerts = async () => {
+  const acked = alertFilter.acked === "" ? undefined : alertFilter.acked === "true";
+  const result = await backupSvc.listAlerts({ level: alertFilter.level || undefined, acked, page: 1, pageSize: 20 });
+  alerts.value = result.items;
 };
 
 const load = async () => {
-  await Promise.all([loadPolicies(), loadJobs()]);
+  await Promise.all([loadPolicies(), loadJobs(), loadAlerts()]);
 };
 
 const resetForm = () => {
@@ -216,12 +261,19 @@ const runBackup = async () => {
 const runCleanup = async () => {
   if (!canExecute.value) return;
   await backupSvc.triggerCleanup();
+  await loadAlerts();
 };
 
 const runDrill = async () => {
   if (!canExecute.value) return;
   if (!latestJob.value) return;
   latestDrill.value = await backupSvc.triggerRestoreDrill(latestJob.value.id);
+};
+
+const ackAlert = async (alertId: string | number) => {
+  if (!canExecute.value) return;
+  await backupSvc.ackAlert(alertId);
+  await loadAlerts();
 };
 
 onMounted(async () => {

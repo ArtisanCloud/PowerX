@@ -11,6 +11,8 @@ var (
 	ErrInvalidBackupPolicy        = errors.New("invalid backup policy")
 	ErrInvalidBackupRequest       = errors.New("invalid backup request")
 	ErrBackupPolicyNotFound       = errors.New("backup policy not found")
+	ErrBackupJobNotFound          = errors.New("backup job not found")
+	ErrBackupAlertNotFound        = errors.New("backup alert not found")
 	ErrInvalidRestoreDrillRequest = errors.New("invalid restore drill request")
 	ErrBackupJobAlreadyRunning    = errors.New("backup job already running")
 
@@ -22,6 +24,8 @@ const (
 	ErrorCodeInvalidPolicy       = "backup.invalid_policy"
 	ErrorCodeInvalidRequest      = "backup.invalid_request"
 	ErrorCodePolicyNotFound      = "backup.policy_not_found"
+	ErrorCodeJobNotFound         = "backup.job_not_found"
+	ErrorCodeAlertNotFound       = "backup.alert_not_found"
 	ErrorCodeInvalidDrillRequest = "backup.invalid_restore_drill_request"
 	ErrorCodePolicyBusy          = "backup.policy_busy"
 	ErrorCodeInvalidState        = "backup.invalid_state"
@@ -39,6 +43,10 @@ func ToAppError(err error) error {
 		return dto.WithCode(dto.NewBadRequest("恢复演练请求参数不合法", err), ErrorCodeInvalidDrillRequest)
 	case errors.Is(err, ErrBackupPolicyNotFound):
 		return dto.WithCode(dto.NewNotFound("备份策略不存在", err), ErrorCodePolicyNotFound)
+	case errors.Is(err, ErrBackupJobNotFound):
+		return dto.WithCode(dto.NewNotFound("备份任务不存在", err), ErrorCodeJobNotFound)
+	case errors.Is(err, ErrBackupAlertNotFound):
+		return dto.WithCode(dto.NewNotFound("备份告警不存在", err), ErrorCodeAlertNotFound)
 	case errors.Is(err, ErrBackupJobAlreadyRunning):
 		return dto.WithCode(dto.NewConflict("当前策略已有运行中的备份任务", err), ErrorCodePolicyBusy)
 	case errors.Is(err, ErrInvalidStateTransition), errors.Is(err, ErrInvalidJobState):
