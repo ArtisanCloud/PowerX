@@ -32,35 +32,101 @@ func NewHandler(deps *shared.Deps) *handler {
 
 func (h *handler) ListPolicies(c *gin.Context) {
 	enabledOnly := strings.EqualFold(strings.TrimSpace(c.Query("enabled_only")), "true")
-	items, total, err := h.policySvc.ListPolicies(c.Request.Context(), backupops.ListPolicyOptions{EnabledOnly: enabledOnly, Page: 1, PageSize: 200})
+	page := parseInt(c.DefaultQuery("page", "1"), 1)
+	pageSize := parseInt(c.DefaultQuery("page_size", "20"), 20)
+	items, total, err := h.policySvc.ListPolicies(c.Request.Context(), backupops.ListPolicyOptions{
+		EnabledOnly: enabledOnly,
+		Status:      strings.TrimSpace(c.Query("status")),
+		Keyword:     strings.TrimSpace(c.Query("keyword")),
+		Timezone:    strings.TrimSpace(c.Query("timezone")),
+		Page:        page,
+		PageSize:    pageSize,
+	})
 	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "list backup policies failed", err)
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": 1, "page_size": 200}})
+	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
 }
 
-func (h *handler) UpsertPolicy(c *gin.Context) {
+func (h *handler) CreatePolicy(c *gin.Context) {
 	var req backupdto.BackupPolicyUpsertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
 		return
 	}
-	row, err := h.policySvc.UpsertPolicy(c.Request.Context(), backupops.UpsertPolicyRequest{
-		Name:          req.Name,
-		BackupType:    req.BackupType,
-		Schedule:      req.Schedule,
-		RetentionDays: req.RetentionDays,
-		Enabled:       req.Enabled,
-		StorageTarget: req.StorageTarget,
-		Operator:      resolveOperator(c),
-		TraceID:       strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	row, err := h.policySvc.CreatePolicy(c.Request.Context(), backupops.CreatePolicyRequest{
+		Name:             req.Name,
+		IntervalHours:    req.IntervalHours,
+		RetentionCount:   req.RetentionCount,
+		Timezone:         req.Timezone,
+		DrillEnabled:     req.DrillEnabled,
+		DrillIntervalDay: req.DrillIntervalDays,
+		TargetRef:        req.TargetRef,
+		Operator:         resolveOperator(c),
+		TraceID:          strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
 	})
 	if err != nil {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"policy": row})
+}
+
+func (h *handler) UpdatePolicy(c *gin.Context) {
+	var req backupdto.BackupPolicyUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	policyID := parseUint(c.Param("policy_id"))
+	row, err := h.policySvc.UpdatePolicy(c.Request.Context(), backupops.UpdatePolicyRequest{
+		PolicyID:         policyID,
+		Name:             req.Name,
+		IntervalHours:    req.IntervalHours,
+		RetentionCount:   req.RetentionCount,
+		Timezone:         req.Timezone,
+		DrillEnabled:     req.DrillEnabled,
+		DrillIntervalDay: req.DrillIntervalDays,
+		TargetRef:        req.TargetRef,
+		Operator:         resolveOperator(c),
+		TraceID:          strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"policy": row})
+}
+
+func (h *handler) EnablePolicy(c *gin.Context) {
+	policyID := parseUint(c.Param("policy_id"))
+	err := h.policySvc.SetPolicyEnabled(c.Request.Context(), backupops.SetPolicyEnabledRequest{
+		PolicyID: policyID,
+		Enabled:  true,
+		Operator: resolveOperator(c),
+		TraceID:  strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"policy_id": policyID, "enabled": true})
+}
+
+func (h *handler) DisablePolicy(c *gin.Context) {
+	policyID := parseUint(c.Param("policy_id"))
+	err := h.policySvc.SetPolicyEnabled(c.Request.Context(), backupops.SetPolicyEnabledRequest{
+		PolicyID: policyID,
+		Enabled:  false,
+		Operator: resolveOperator(c),
+		TraceID:  strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"policy_id": policyID, "enabled": false})
 }
 
 func (h *handler) TriggerBackupJob(c *gin.Context) {
@@ -112,6 +178,11 @@ func (h *handler) TriggerRestoreDrill(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"drill": row})
+}
+
+// UpsertPolicy 仅为兼容旧调用方，内部转发到 CreatePolicy。
+func (h *handler) UpsertPolicy(c *gin.Context) {
+	h.CreatePolicy(c)
 }
 
 func resolveOperator(c *gin.Context) string {

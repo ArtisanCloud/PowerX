@@ -50,15 +50,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] 实现策略创建接口（含默认值注入与参数校验）：`backend/internal/transport/http/admin/backup/policy_handler.go`
-- [ ] T014 [US1] 实现策略更新接口（频率/保留/时区/演练参数）：`backend/internal/transport/http/admin/backup/policy_handler.go`
-- [ ] T015 [US1] 实现策略启用/停用接口：`backend/internal/transport/http/admin/backup/policy_handler.go`
-- [ ] T016 [US1] 实现策略列表查询接口（按状态与关键字过滤）：`backend/internal/transport/http/admin/backup/policy_handler.go`
-- [ ] T017 [US1] 在服务层实现策略校验规则（interval/retention/timezone/drill）：`backend/internal/service/backup_ops/policy_service.go`
-- [ ] T018 [US1] 在服务层实现默认调度参数落库（6h,14份,Asia/Shanghai,周演练）：`backend/internal/service/backup_ops/policy_service.go`
-- [ ] T019 [P] [US1] 在备份中心页面增加“策略管理”表单与列表：`web-admin/app/pages/ops/backup.vue`
-- [ ] T020 [P] [US1] 新增备份策略 API 客户端方法：`web-admin/app/composables/api/services/deployOpsService.ts`（或新增 `backupService.ts`）
-- [ ] T021 [US1] 前端表单校验与错误提示（非法频率/保留/时区）：`web-admin/app/components/ops/backup/*.vue`
+- [X] T013 [US1] 实现策略创建接口（含默认值注入与参数校验）：`backend/internal/transport/http/admin/backup/policy_handler.go`
+- [X] T014 [US1] 实现策略更新接口（频率/保留/时区/演练参数）：`backend/internal/transport/http/admin/backup/policy_handler.go`
+- [X] T015 [US1] 实现策略启用/停用接口：`backend/internal/transport/http/admin/backup/policy_handler.go`
+- [X] T016 [US1] 实现策略列表查询接口（按状态与关键字过滤）：`backend/internal/transport/http/admin/backup/policy_handler.go`
+- [X] T017 [US1] 在服务层实现策略校验规则（interval/retention/timezone/drill）：`backend/internal/service/backup_ops/policy_service.go`
+- [X] T018 [US1] 在服务层实现默认调度参数落库（6h,14份,Asia/Shanghai,周演练）：`backend/internal/service/backup_ops/policy_service.go`
+- [X] T019 [P] [US1] 在备份中心页面增加“策略管理”表单与列表：`web-admin/app/pages/ops/backup.vue`
+- [X] T020 [P] [US1] 新增备份策略 API 客户端方法：`web-admin/app/composables/api/services/deployOpsService.ts`（或新增 `backupService.ts`）
+- [X] T021 [US1] 前端表单校验与错误提示（非法频率/保留/时区）：`web-admin/app/components/ops/backup/*.vue`
 
 **Checkpoint**: US1 可独立验收（策略可配、可启停、默认值正确）。
 

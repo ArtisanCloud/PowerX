@@ -1,12 +1,23 @@
 package dto
 
 type BackupPolicyUpsertRequest struct {
-	Name          string `json:"name" binding:"required,min=1,max=128"`
-	BackupType    string `json:"backup_type" binding:"required,min=1,max=32"`
-	Schedule      string `json:"schedule" binding:"required,min=1,max=128"`
-	RetentionDays int    `json:"retention_days" binding:"required,min=1,max=3650"`
-	Enabled       bool   `json:"enabled"`
-	StorageTarget string `json:"storage_target" binding:"required,min=1,max=255"`
+	Name              string `json:"name" binding:"required,min=1,max=128"`
+	IntervalHours     int    `json:"interval_hours" binding:"omitempty,min=1,max=168"`
+	RetentionCount    int    `json:"retention_count" binding:"omitempty,min=1,max=10000"`
+	Timezone          string `json:"timezone" binding:"omitempty,min=1,max=64"`
+	DrillEnabled      *bool  `json:"drill_enabled"`
+	DrillIntervalDays int    `json:"drill_interval_days" binding:"omitempty,min=1,max=3650"`
+	TargetRef         string `json:"target_ref" binding:"omitempty,min=1,max=255"`
+}
+
+type BackupPolicyUpdateRequest struct {
+	Name              *string `json:"name" binding:"omitempty,min=1,max=128"`
+	IntervalHours     *int    `json:"interval_hours" binding:"omitempty,min=1,max=168"`
+	RetentionCount    *int    `json:"retention_count" binding:"omitempty,min=1,max=10000"`
+	Timezone          *string `json:"timezone" binding:"omitempty,min=1,max=64"`
+	DrillEnabled      *bool   `json:"drill_enabled"`
+	DrillIntervalDays *int    `json:"drill_interval_days" binding:"omitempty,min=1,max=3650"`
+	TargetRef         *string `json:"target_ref" binding:"omitempty,min=1,max=255"`
 }
 
 type BackupJobRunRequest struct {
