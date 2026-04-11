@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Backup Center Admin API
-  version: 0.2.0
+  version: 0.3.0
   description: 自动备份闭环管理接口（Root 管理员）
 servers:
   - url: /api/v1
@@ -42,16 +42,12 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/BackupPolicy'
-                          page:
+                          pagination:
                             $ref: '#/components/schemas/PageMeta'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
     post:
       summary: 创建备份策略
       requestBody:
@@ -71,15 +67,14 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/BackupPolicy'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        type: object
+                        properties:
+                          policy:
+                            $ref: '#/components/schemas/BackupPolicy'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/policies/{policy_id}:
     patch:
@@ -98,17 +93,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          policy:
+                            $ref: '#/components/schemas/BackupPolicy'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/policies/{policy_id}/enable:
     post:
@@ -121,15 +119,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          policy_id: { type: integer }
+                          enabled: { type: boolean, example: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/policies/{policy_id}/disable:
     post:
@@ -142,15 +144,51 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          policy_id: { type: integer }
+                          enabled: { type: boolean, example: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/ops/backup/jobs/run:
+    post:
+      summary: 手动触发备份任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_id]
+              properties:
+                policy_id:
+                  type: string
+      responses:
+        '200':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          job:
+                            $ref: '#/components/schemas/BackupJob'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/jobs:
     get:
@@ -166,7 +204,7 @@ paths:
           name: status
           schema:
             type: string
-            enum: [queued, running, success, failed, canceled]
+            enum: [pending, running, success, failed]
         - in: query
           name: from
           schema:
@@ -194,16 +232,12 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/BackupJob'
-                          page:
+                          pagination:
                             $ref: '#/components/schemas/PageMeta'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/jobs/{job_id}:
     get:
@@ -221,17 +255,37 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/BackupJob'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        type: object
+                        properties:
+                          job:
+                            $ref: '#/components/schemas/BackupJob'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
-  /admin/ops/backup/drills:
+  /admin/ops/backup/cleanup:
+    post:
+      summary: 触发备份清理任务
+      responses:
+        '200':
+          description: accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: success
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/ops/backup/restore-drills:
     post:
       summary: 发起恢复演练
       requestBody:
@@ -246,20 +300,26 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          drill:
+                            $ref: '#/components/schemas/RestoreDrillJob'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
     get:
       summary: 查询恢复演练历史
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
+        - in: query
+          name: source_job_id
+          schema:
+            type: string
         - in: query
           name: status
           schema:
@@ -292,18 +352,38 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/RestoreDrillJob'
-                          page:
+                          pagination:
                             $ref: '#/components/schemas/PageMeta'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
-  /admin/ops/backup/drills/{drill_id}:
+  /admin/ops/backup/restore-drills/run:
+    post:
+      deprecated: true
+      summary: 兼容旧调用方的恢复演练入口（建议改用 /restore-drills）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestoreDrillRequest'
+      responses:
+        '200':
+          description: accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          drill:
+                            $ref: '#/components/schemas/RestoreDrillJob'
+
+  /admin/ops/backup/restore-drills/{drill_id}:
     get:
       summary: 查询恢复演练详情
       parameters:
@@ -319,15 +399,12 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/RestoreDrillJob'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        type: object
+                        properties:
+                          drill:
+                            $ref: '#/components/schemas/RestoreDrillJob'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/alerts:
     get:
@@ -361,16 +438,10 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/BackupAlert'
-                          page:
+                          pagination:
                             $ref: '#/components/schemas/PageMeta'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/alerts/{alert_id}/ack:
     post:
@@ -383,15 +454,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          alert_id: { type: integer }
+                          acked: { type: boolean, example: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/monitor/backup/overview:
     get:
@@ -407,13 +480,11 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/BackupOverview'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        type: object
+                        properties:
+                          overview:
+                            $ref: '#/components/schemas/BackupOverview'
+        '500': { $ref: '#/components/responses/InternalError' }
 
 components:
   parameters:
@@ -482,6 +553,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 资源冲突（如策略存在运行中任务）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     InternalError:
       description: 服务内部错误
       content:
@@ -518,6 +595,12 @@ components:
           type: string
         details:
           type: object
+          properties:
+            code:
+              type: string
+              description: 业务错误码（示例：backup.invalid_policy/backup.policy_busy）
+            hint:
+              type: string
         timestamp:
           type: integer
         request_id:
@@ -525,47 +608,32 @@ components:
     PageMeta:
       type: object
       properties:
-        page:
-          type: integer
-        page_size:
-          type: integer
-        total:
-          type: integer
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
     BackupPolicy:
       type: object
       properties:
-        id:
-          type: string
-        name:
-          type: string
-        status:
-          type: string
-          enum: [enabled, disabled]
-        interval_hours:
-          type: integer
-        retention_count:
-          type: integer
-        timezone:
-          type: string
-        drill_enabled:
-          type: boolean
-        drill_interval_days:
-          type: integer
-        target_ref:
-          type: string
-        next_run_at:
-          type: string
-          format: date-time
+        id: { type: integer }
+        name: { type: string }
+        interval_hours: { type: integer }
+        retention_count: { type: integer }
+        timezone: { type: string }
+        drill_enabled: { type: boolean }
+        drill_interval_days: { type: integer }
+        target_ref: { type: string }
+        enabled: { type: boolean }
     BackupJob:
       type: object
       properties:
-        id:
-          type: string
-        policy_id:
-          type: string
+        id: { type: integer }
+        policy_id: { type: integer }
         status:
           type: string
-          enum: [queued, running, success, failed, canceled]
+          enum: [pending, running, success, failed]
+        trigger_type:
+          type: string
+          enum: [manual, scheduled]
         started_at:
           type: string
           format: date-time
@@ -578,13 +646,13 @@ components:
           type: string
         error_summary:
           type: string
+        operator:
+          type: string
     RestoreDrillJob:
       type: object
       properties:
-        id:
-          type: string
-        artifact_id:
-          type: string
+        id: { type: integer }
+        source_job_id: { type: integer }
         status:
           type: string
           enum: [queued, running, success, failed]
@@ -596,45 +664,46 @@ components:
           format: date-time
         duration_ms:
           type: integer
+        rto_seconds:
+          type: integer
         result_summary:
+          type: string
+        report_uri:
+          type: string
+        trace_id:
           type: string
     BackupAlert:
       type: object
       properties:
-        id:
-          type: string
+        id: { type: integer }
+        policy_id: { type: integer }
+        job_id: { type: integer }
         level:
           type: string
           enum: [low, medium, high]
-        type:
-          type: string
-        message:
-          type: string
-        acked:
-          type: boolean
-        created_at:
+        alert_type: { type: string }
+        message: { type: string }
+        suggestion: { type: string }
+        acknowledged: { type: boolean }
+        ack_by: { type: string }
+        ack_at:
           type: string
           format: date-time
-        trace_id:
-          type: string
+        trace_id: { type: string }
     BackupOverview:
       type: object
       properties:
-        policies_enabled:
-          type: integer
-        jobs_running:
-          type: integer
-        jobs_failed_24h:
-          type: integer
-        alerts_high_unacked:
-          type: integer
+        policies_enabled: { type: integer }
+        jobs_running: { type: integer }
+        jobs_failed_24h: { type: integer }
+        alerts_high_unacked: { type: integer }
         last_success_at:
           type: string
           format: date-time
 
     CreateBackupPolicyRequest:
       type: object
-      required: [name, interval_hours, retention_count, timezone]
+      required: [name]
       properties:
         name:
           type: string
@@ -649,11 +718,9 @@ components:
           example: Asia/Shanghai
         drill_enabled:
           type: boolean
-          default: true
         drill_interval_days:
           type: integer
           minimum: 1
-          default: 7
         target_ref:
           type: string
           example: powerx_bak
@@ -676,12 +743,17 @@ components:
         drill_interval_days:
           type: integer
           minimum: 1
+        target_ref:
+          type: string
 
     CreateRestoreDrillRequest:
       type: object
-      required: [artifact_id]
       properties:
+        source_job_id:
+          type: string
         artifact_id:
           type: string
         reason:
           type: string
+          maxLength: 255
+      description: source_job_id 与 artifact_id 至少提供一个

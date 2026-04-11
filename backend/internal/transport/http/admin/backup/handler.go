@@ -12,7 +12,9 @@ import (
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type handler struct {
@@ -145,6 +147,12 @@ func (h *handler) TriggerBackupJob(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
+	logger.Info(c.Request.Context(), "backup.api.trigger_job",
+		zap.Uint64("policy_id", policyID),
+		zap.Uint64("job_id", row.ID),
+		zap.String("status", string(row.Status)),
+		zap.String("trace_id", strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))),
+	)
 	dto.ResponseSuccess(c, gin.H{"job": row})
 }
 
@@ -194,6 +202,9 @@ func (h *handler) TriggerCleanup(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "trigger cleanup failed", err)
 		return
 	}
+	logger.Info(c.Request.Context(), "backup.api.trigger_cleanup",
+		zap.String("trace_id", strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))),
+	)
 	dto.ResponseSuccess(c, gin.H{"status": "success"})
 }
 
@@ -216,6 +227,12 @@ func (h *handler) TriggerRestoreDrill(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
+	logger.Info(c.Request.Context(), "backup.api.trigger_restore_drill",
+		zap.Uint64("source_job_id", row.SourceJobID),
+		zap.Uint64("drill_id", row.ID),
+		zap.String("status", string(row.Status)),
+		zap.String("trace_id", strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))),
+	)
 	dto.ResponseSuccess(c, gin.H{"drill": row})
 }
 

@@ -15,6 +15,7 @@ import (
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -209,6 +210,14 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	}
 
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "execute", Outcome: string(updated.Status), Severity: "info", Detail: map[string]any{"policy_id": updated.PolicyID, "status": updated.Status, "operator": updated.Operator, "trigger_type": updated.TriggerType, "trace_id": updated.TraceID}})
+	logOp(ctx, "info", "backup.job.execute",
+		zap.Uint64("job_id", updated.ID),
+		zap.Uint64("policy_id", updated.PolicyID),
+		zap.String("status", string(updated.Status)),
+		zap.String("trigger_type", string(updated.TriggerType)),
+		zap.String("trace_id", strings.TrimSpace(updated.TraceID)),
+		zap.Bool("script_failed", execErr != nil),
+	)
 	return updated, nil
 }
 
@@ -227,6 +236,11 @@ func (s *JobService) TriggerCleanup(ctx context.Context, operator, traceID strin
 		}
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_cleanup", ResourceID: "cleanup", Operation: "cleanup", Outcome: outcome, Severity: "info", Detail: map[string]any{"operator": normalizeOperator(operator), "trace_id": strings.TrimSpace(traceID)}})
+	logOp(ctx, "info", "backup.cleanup.trigger",
+		zap.String("outcome", outcome),
+		zap.String("operator", normalizeOperator(operator)),
+		zap.String("trace_id", strings.TrimSpace(traceID)),
+	)
 	return err
 }
 

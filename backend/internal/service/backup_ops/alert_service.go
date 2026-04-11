@@ -118,10 +118,7 @@ func (s *AlertService) HandleJobCompletionAlert(ctx context.Context, job *modelo
 	if err != nil {
 		return err
 	}
-	level := modelops.BackupAlertLevelMedium
-	if consecutive >= 2 {
-		level = modelops.BackupAlertLevelHigh
-	}
+	level := alertLevelForConsecutiveFailures(consecutive)
 
 	msg := fmt.Sprintf("备份任务执行失败（策略 %d，连续失败 %d 次）", job.PolicyID, consecutive)
 	if strings.TrimSpace(job.ErrorMessage) != "" {
@@ -139,6 +136,13 @@ func (s *AlertService) HandleJobCompletionAlert(ctx context.Context, job *modelo
 	alert.Normalize()
 	_, err = s.alertRepo.Create(ctx, alert)
 	return err
+}
+
+func alertLevelForConsecutiveFailures(consecutive int) modelops.BackupAlertLevel {
+	if consecutive >= 2 {
+		return modelops.BackupAlertLevelHigh
+	}
+	return modelops.BackupAlertLevelMedium
 }
 
 func (s *AlertService) CreateCleanupFailureAlert(ctx context.Context, policyID uint64, traceID string, err error) error {

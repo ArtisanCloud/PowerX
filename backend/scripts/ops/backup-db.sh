@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 触发单策略备份。
+# 参数: <policy_id>
+# 约定:
+# - 成功返回 0，失败返回非 0。
+# - 通过 stdout 输出结构化前缀 [backup-db] 便于日志检索。
 POLICY_ID="${1:-}"
 if [[ -z "${POLICY_ID}" ]]; then
   echo "usage: $0 <policy_id>" >&2

@@ -14,6 +14,7 @@ import (
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -146,6 +147,14 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 	}
 
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "restore_drill", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "execute", Outcome: string(saved.Status), Severity: "info", Detail: map[string]any{"source_job_id": saved.SourceJobID, "rto_seconds": saved.RTOSec, "operator": saved.Operator, "trace_id": saved.TraceID}})
+	logOp(ctx, "info", "backup.restore_drill.execute",
+		zap.Uint64("drill_id", saved.ID),
+		zap.Uint64("source_job_id", saved.SourceJobID),
+		zap.String("status", string(saved.Status)),
+		zap.Int64("rto_seconds", saved.RTOSec),
+		zap.String("operator", saved.Operator),
+		zap.String("trace_id", saved.TraceID),
+	)
 	return saved, nil
 }
 

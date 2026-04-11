@@ -111,14 +111,14 @@
 
 **Purpose**: 全链路一致性、文档与回归校验。
 
-- [ ] T037 [Polish] 对齐 OpenAPI 与 Handler 实际返回字段（含错误码）：`specs/027-monitor-center/contracts/backup-center.openapi.yaml` 与 `backend/internal/transport/http/admin/backup/*.go`
-- [ ] T038 [Polish] 完成 quickstart 全流程实测并修订：`specs/027-monitor-center/quickstart.md`
-- [ ] T039 [Polish] 补充运维脚本说明（备份、清理、演练、回滚）：`backend/scripts/ops/*.sh` 与 `specs/027-monitor-center/quickstart.md`
-- [ ] T040 [Polish] 执行后端与前端构建 + 质量门禁回归（测试覆盖、OTel Trace、关键指标）并记录结果：`backend`、`web-admin`
-- [ ] T045 [Polish] 补充服务层测试（策略校验、调度防重入、连续失败升级、保留清理幂等）：`backend/internal/service/backup_ops/*_test.go`
-- [ ] T046 [Polish] 补充前端 E2E smoke（策略启停、作业可见、告警可见、演练状态推送）：`web-admin/tests/e2e/backup-center.spec.ts`（或现有测试目录）
-- [ ] T047 [Polish] 补充可观测性埋点（结构化日志字段 + 指标：成功率/失败率/延迟）：`backend/internal/service/backup_ops/*.go`、`backend/internal/transport/http/admin/backup/*.go`
-- [ ] T048 [Polish] 补充 OTel 全链路验证步骤（策略操作 -> 调度执行 -> 告警/演练）：`specs/027-monitor-center/quickstart.md`
+- [X] T037 [Polish] 对齐 OpenAPI 与 Handler 实际返回字段（含错误码）：`specs/027-monitor-center/contracts/backup-center.openapi.yaml` 与 `backend/internal/transport/http/admin/backup/*.go`
+- [X] T038 [Polish] 完成 quickstart 全流程实测并修订：`specs/027-monitor-center/quickstart.md`
+- [X] T039 [Polish] 补充运维脚本说明（备份、清理、演练、回滚）：`backend/scripts/ops/*.sh` 与 `specs/027-monitor-center/quickstart.md`
+- [X] T040 [Polish] 执行后端与前端构建 + 质量门禁回归（测试覆盖、OTel Trace、关键指标）并记录结果：`backend`、`web-admin`
+- [X] T045 [Polish] 补充服务层测试（策略校验、调度防重入、连续失败升级、保留清理幂等）：`backend/internal/service/backup_ops/*_test.go`
+- [X] T046 [Polish] 补充前端 E2E smoke（策略启停、作业可见、告警可见、演练状态推送）：`web-admin/tests/e2e/ops/backup-center.spec.ts`
+- [X] T047 [Polish] 补充可观测性埋点（结构化日志字段 + 指标：成功率/失败率/延迟）：`backend/internal/service/backup_ops/*.go`、`backend/internal/transport/http/admin/backup/*.go`
+- [X] T048 [Polish] 补充 OTel 全链路验证步骤（策略操作 -> 调度执行 -> 告警/演练）：`specs/027-monitor-center/quickstart.md`
 
 ---
 

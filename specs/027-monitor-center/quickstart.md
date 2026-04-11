@@ -19,6 +19,16 @@ cd /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin
 npm run dev
 ```
 
+## 2.1 关键脚本说明（运维侧）
+
+- `backend/scripts/ops/backup-db.sh <policy_id>`: 执行备份脚本入口（由调度/手动触发调用）。
+- `backend/scripts/ops/cleanup-backups.sh`: 执行过期产物清理入口（保留策略在服务层执行，脚本负责外部清理动作）。
+- `backend/scripts/ops/restore-drill.sh <source_job_id>`: 执行恢复演练入口。
+- `backend/scripts/ops/rollback-release.sh`: 发布回滚入口（与备份中心联动时可作为紧急回退动作）。
+
+回滚建议：
+- 当备份/演练持续失败且影响生产变更窗口时，先停用策略，再执行发布回滚脚本，最后通过告警确认恢复状态。
+
 ## 3. 创建并启用自动备份策略
 
 ```bash
@@ -81,7 +91,7 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/alerts?level=high&acked=
 # 假设已有可用备份产物
 ARTIFACT_ID=<artifact_id>
 
-DRILL_JSON=$(curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/drills" \
+DRILL_JSON=$(curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"artifact_id\":\"${ARTIFACT_ID}\",\"reason\":\"weekly-drill\"}")
@@ -89,7 +99,7 @@ DRILL_JSON=$(curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/dri
 echo "$DRILL_JSON" | jq
 DRILL_ID=$(echo "$DRILL_JSON" | jq -r '.data.id // empty')
 
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/drills/${DRILL_ID}" \
+curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/${DRILL_ID}" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -108,3 +118,27 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/drills/${DRILL_ID}" \
 - 策略创建/启用成功，默认值符合：`6h / 14 份 / Asia/Shanghai / 每周演练`。
 - 作业、告警、演练接口均支持分页与关键过滤参数。
 - 监控页面可形成“策略 -> 作业 -> 告警 -> 演练”可观察闭环。
+
+## 9. OTel 与指标验证（Phase 6）
+
+```bash
+# 建议在启动 backend 前设置
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
+export OTEL_SERVICE_NAME=powerx-backend
+
+# 触发一轮策略操作 + 任务 + 演练后，检查指标
+curl -sS http://127.0.0.1:2112/metrics | grep -E "powerx_ops_backup_total|powerx_ops_backup_error_total|powerx_ops_backup_latency_ms"
+```
+
+验收点：
+- 指标包含 `operation` 与 `result` 标签（`success/failed`）。
+- Trace 可串联 `策略操作 -> 备份执行 -> 告警/演练` 链路。
+
+## 10. 回归记录模板（Phase 6）
+
+- Backend:
+  - `cd backend && GOCACHE=../tmp/gocache GOMODCACHE=../tmp/gomodcache go test ./internal/service/backup_ops ./internal/transport/http/admin/backup ./pkg/corex/db/persistence/repository/ops`
+- Frontend:
+  - `cd web-admin && npm run build`
+- E2E Smoke（可选，CI 或本地浏览器环境）:
+  - `cd web-admin && npm run test:e2e -- tests/e2e/ops/backup-center.spec.ts`

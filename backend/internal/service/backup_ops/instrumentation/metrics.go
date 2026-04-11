@@ -37,7 +37,14 @@ func (r *Recorder) Observe(ctx context.Context, operation string, startedAt time
 	if r == nil {
 		return
 	}
-	attrs := metric.WithAttributes(attribute.String("operation", operation))
+	result := "success"
+	if err != nil {
+		result = "failed"
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("operation", operation),
+		attribute.String("result", result),
+	)
 	if r.total != nil {
 		r.total.Add(ctx, 1, attrs)
 	}

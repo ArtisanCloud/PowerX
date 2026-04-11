@@ -11,6 +11,7 @@ import (
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -158,6 +159,15 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 		return nil, retErr
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "create", Outcome: "success", Severity: "info", Detail: map[string]any{"name": saved.Name, "interval_hours": saved.IntervalHours, "retention_count": saved.RetentionCount, "timezone": saved.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
+	logOp(ctx, "info", "backup.policy.create",
+		zap.Uint64("policy_id", saved.ID),
+		zap.String("name", saved.Name),
+		zap.Int32("interval_hours", saved.IntervalHours),
+		zap.Int32("retention_count", saved.RetentionCount),
+		zap.String("timezone", saved.Timezone),
+		zap.Bool("drill_enabled", saved.DrillEnabled),
+		zap.String("trace_id", strings.TrimSpace(req.TraceID)),
+	)
 	return saved, nil
 }
 
@@ -244,6 +254,12 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 		return nil, retErr
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "update", Outcome: "success", Severity: "info", Detail: map[string]any{"name": updated.Name, "interval_hours": updated.IntervalHours, "retention_count": updated.RetentionCount, "timezone": updated.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
+	logOp(ctx, "info", "backup.policy.update",
+		zap.Uint64("policy_id", updated.ID),
+		zap.String("name", updated.Name),
+		zap.Bool("enabled", updated.Enabled),
+		zap.String("trace_id", strings.TrimSpace(req.TraceID)),
+	)
 	return updated, nil
 }
 
@@ -274,6 +290,11 @@ func (s *PolicyService) SetPolicyEnabled(ctx context.Context, req SetPolicyEnabl
 		operation = "enable"
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", req.PolicyID), Operation: operation, Outcome: "success", Severity: "info", Detail: map[string]any{"enabled": req.Enabled, "trace_id": strings.TrimSpace(req.TraceID)}})
+	logOp(ctx, "info", "backup.policy.toggle",
+		zap.Uint64("policy_id", req.PolicyID),
+		zap.Bool("enabled", req.Enabled),
+		zap.String("trace_id", strings.TrimSpace(req.TraceID)),
+	)
 	return nil
 }
 

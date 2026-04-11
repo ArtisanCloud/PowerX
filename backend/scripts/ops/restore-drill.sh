@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 执行恢复演练。
+# 参数: <source_job_id>
+# 约定:
+# - 以备份任务为来源执行只读/隔离恢复验证；
+# - 输出 [restore-drill] 前缀日志供监控中心与 trace 排查。
 SOURCE_JOB_ID="${1:-}"
 if [[ -z "${SOURCE_JOB_ID}" ]]; then
   echo "usage: $0 <source_job_id>" >&2
