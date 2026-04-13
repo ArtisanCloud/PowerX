@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	lumberjack "github.com/ArtisanCloud/PowerX/pkg/utils/logger/lib"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/runtimebuffer"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/writer"
 	"os"
@@ -63,7 +64,7 @@ func NewLogger(config *config.LogConfig) *Logger {
 
 	// Console 日志
 	if config.Console {
-		consoleCore := zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), config.ParseLogLevel())
+		consoleCore := zapcore.NewCore(encoder, runtimebuffer.NewTeeWriteSyncer(zapcore.AddSync(os.Stdout)), config.ParseLogLevel())
 		cores = append(cores, consoleCore)
 	}
 

@@ -1,4 +1,4 @@
-# Tasks: 自动备份闭环（Backup Center）
+# Tasks: 监控中心闭环（Backup + Logs）
 
 **Input**: Design documents from `/specs/027-monitor-center/`  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
@@ -131,12 +131,14 @@
 - T041/T042 属于 Foundation 补充阻塞项，需在 US1 前完成。
 - Phase 3/4/5（US1/US2/US3）均依赖 Phase 2 完成。
 - Phase 6（Polish）依赖已交付的用户故事阶段。
+- Phase 7（US4 日志监控）依赖 Phase 2，建议在 US2 后执行以复用作业与告警上下文。
 
 ### User Story Dependencies
 
 - **US1 (P1)**: 无其他故事依赖，Foundation 后可先做（MVP）。
 - **US2 (P1)**: 依赖基础调度/作业写入能力；建议在 US1 后执行。
 - **US3 (P2)**: 依赖可用备份产物与作业记录；建议在 US1+US2 后执行。
+- **US4 (P1)**: 依赖监控页基础框架与作业上下文；建议在 US2 后执行。
 
 ### Within Each User Story
 
@@ -192,3 +194,26 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - 每个用户故事都可独立验收，避免跨故事强耦合。
 - 先保证“任务可观察”，再扩展“高级分析”。
 - 任何涉及调度、清理、演练的改动都必须保留审计轨迹。
+
+---
+
+## Phase 7: User Story 4 - 日志与链路追踪监控 (Priority: P1)
+
+**Goal**: 监控中心 Logs/Trace 页面支持 `loki/file/stdio` 三驱动能力感知，提供统一检索与可操作排障入口。
+
+**Independent Test**: 仅启用监控日志能力时，管理员可以在日志页按 `trace_id/job_id/policy_id` 查询并获得正确驱动提示。
+
+### Implementation for User Story 4
+
+- [ ] T049 [US4] 新增日志配置查询接口（返回 driver + capabilities + grafana_link_enabled）：`backend/internal/transport/http/admin/monitor/log_config_handler.go`
+- [ ] T050 [US4] 新增统一日志查询接口（trace/job/policy/time_range/keyword）：`backend/internal/transport/http/admin/monitor/log_query_handler.go`
+- [ ] T051 [US4] 实现日志驱动适配层（loki/file/stdio dispatch）：`backend/internal/service/monitor_logs/*.go`
+- [ ] T052 [US4] 实现 Loki 查询与 Grafana 深链生成：`backend/internal/service/monitor_logs/loki_provider.go`
+- [ ] T053 [US4] 实现 File 驱动查询（时间窗口 + 关键字 + 结构化映射）：`backend/internal/service/monitor_logs/file_provider.go`
+- [ ] T054 [US4] 实现 Stdio ring buffer 查询与窗口限制提示：`backend/internal/service/monitor_logs/stdio_provider.go`
+- [ ] T055 [P] [US4] 监控中心 Logs/Trace 页面改为能力感知 UI（禁用态+提示文案+深链按钮）：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [ ] T056 [P] [US4] 新增 monitor logs API client 与 store：`web-admin/app/composables/api/services/monitorService.ts`、`web-admin/app/stores/monitorLogs.ts`
+- [ ] T057 [US4] 日志查询与深链操作审计埋点（操作人/筛选摘要/结果状态）：`backend/internal/transport/http/admin/monitor/*.go`
+- [ ] T058 [US4] quickstart 补充三驱动验收步骤与故障排查：`specs/027-monitor-center/quickstart.md`
+
+**Checkpoint**: US4 可独立验收（多驱动可用、能力提示清晰、排障链路完整）。
