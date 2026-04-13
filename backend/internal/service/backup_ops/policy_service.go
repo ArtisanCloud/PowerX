@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -40,6 +41,9 @@ type ListPolicyOptions struct {
 type CreatePolicyRequest struct {
 	Name             string
 	IntervalHours    int
+	IntervalValue    int
+	IntervalUnit     string
+	Schedule         string
 	RetentionCount   int
 	Timezone         string
 	DrillEnabled     *bool
@@ -53,6 +57,9 @@ type UpdatePolicyRequest struct {
 	PolicyID         uint64
 	Name             *string
 	IntervalHours    *int
+	IntervalValue    *int
+	IntervalUnit     *string
+	Schedule         *string
 	RetentionCount   *int
 	Timezone         *string
 	DrillEnabled     *bool
@@ -65,6 +72,12 @@ type UpdatePolicyRequest struct {
 type SetPolicyEnabledRequest struct {
 	PolicyID uint64
 	Enabled  bool
+	Operator string
+	TraceID  string
+}
+
+type SetCurrentPolicyRequest struct {
+	PolicyID uint64
 	Operator string
 	TraceID  string
 }
@@ -122,8 +135,14 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 		return nil, retErr
 	}
 
-	interval, retention, timezone, drillEnabled, drillInterval, targetRef, err := normalizePolicyValues(
-		req.IntervalHours,
+	schedule, intervalHours, err := resolveScheduleForCreate(req)
+	if err != nil {
+		retErr = err
+		return nil, retErr
+	}
+
+	_, retention, timezone, drillEnabled, drillInterval, targetRef, err := normalizePolicyValues(
+		intervalHours,
 		req.RetentionCount,
 		req.Timezone,
 		req.DrillEnabled,
@@ -139,9 +158,9 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 	row := &modelops.BackupPolicy{
 		Name:              name,
 		BackupType:        modelops.BackupTypeLogical,
-		Schedule:          fmt.Sprintf("%dh", interval),
+		Schedule:          schedule,
 		RetentionDays:     int32(retention),
-		IntervalHours:     int32(interval),
+		IntervalHours:     int32(intervalHours),
 		RetentionCount:    int32(retention),
 		Timezone:          timezone,
 		DrillEnabled:      drillEnabled,
@@ -199,13 +218,14 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 		}
 		row.Name = name
 	}
-	if req.IntervalHours != nil {
-		if *req.IntervalHours <= 0 {
-			retErr = ErrInvalidBackupPolicy
+	if req.Schedule != nil || req.IntervalHours != nil || req.IntervalValue != nil || req.IntervalUnit != nil {
+		schedule, intervalHours, resolveErr := resolveScheduleForUpdate(req, int(row.IntervalHours), row.Schedule)
+		if resolveErr != nil {
+			retErr = resolveErr
 			return nil, retErr
 		}
-		row.IntervalHours = int32(*req.IntervalHours)
-		row.Schedule = fmt.Sprintf("%dh", *req.IntervalHours)
+		row.Schedule = schedule
+		row.IntervalHours = int32(intervalHours)
 	}
 	if req.RetentionCount != nil {
 		if *req.RetentionCount <= 0 {
@@ -285,6 +305,12 @@ func (s *PolicyService) SetPolicyEnabled(ctx context.Context, req SetPolicyEnabl
 		retErr = err
 		return retErr
 	}
+	if !req.Enabled && row.IsCurrent {
+		if err := s.repo.SetCurrent(ctx, 0, normalizeOperator(req.Operator)); err != nil {
+			retErr = err
+			return retErr
+		}
+	}
 	operation := "disable"
 	if req.Enabled {
 		operation = "enable"
@@ -293,6 +319,50 @@ func (s *PolicyService) SetPolicyEnabled(ctx context.Context, req SetPolicyEnabl
 	logOp(ctx, "info", "backup.policy.toggle",
 		zap.Uint64("policy_id", req.PolicyID),
 		zap.Bool("enabled", req.Enabled),
+		zap.String("trace_id", strings.TrimSpace(req.TraceID)),
+	)
+	return nil
+}
+
+func (s *PolicyService) SetCurrentPolicy(ctx context.Context, req SetCurrentPolicyRequest) error {
+	startedAt := time.Now()
+	var retErr error
+	defer func() { s.metrics.Observe(ctx, "backup_set_current_policy", startedAt, retErr) }()
+
+	if req.PolicyID == 0 {
+		retErr = ErrInvalidBackupPolicy
+		return retErr
+	}
+	row, err := s.repo.GetById(ctx, req.PolicyID, nil)
+	if err != nil {
+		retErr = err
+		return retErr
+	}
+	if row == nil {
+		retErr = ErrBackupPolicyNotFound
+		return retErr
+	}
+	if !row.Enabled {
+		retErr = ErrInvalidBackupPolicy
+		return retErr
+	}
+	if err := s.repo.SetCurrent(ctx, req.PolicyID, normalizeOperator(req.Operator)); err != nil {
+		retErr = err
+		return retErr
+	}
+	s.audit(ctx, obsops.AuditRecord{
+		ResourceType: "backup_policy",
+		ResourceID:   fmt.Sprintf("%d", req.PolicyID),
+		Operation:    "set_current",
+		Outcome:      "success",
+		Severity:     "info",
+		Detail: map[string]any{
+			"policy_id": req.PolicyID,
+			"trace_id":  strings.TrimSpace(req.TraceID),
+		},
+	})
+	logOp(ctx, "info", "backup.policy.set_current",
+		zap.Uint64("policy_id", req.PolicyID),
 		zap.String("trace_id", strings.TrimSpace(req.TraceID)),
 	)
 	return nil
@@ -326,12 +396,12 @@ func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyReques
 		_ = s.SetPolicyEnabled(ctx, SetPolicyEnabledRequest{PolicyID: created.ID, Enabled: req.Enabled, Operator: req.Operator, TraceID: req.TraceID})
 		return s.repo.GetById(ctx, created.ID, nil)
 	}
-	interval := parseScheduleHours(req.Schedule)
+	schedule := strings.TrimSpace(req.Schedule)
 	retention := req.RetentionDays
 	target := req.StorageTarget
 	updated, err := s.UpdatePolicy(ctx, UpdatePolicyRequest{
 		PolicyID:         existing.ID,
-		IntervalHours:    &interval,
+		Schedule:         &schedule,
 		RetentionCount:   &retention,
 		TargetRef:        &target,
 		Operator:         req.Operator,
@@ -380,21 +450,117 @@ func normalizePolicyValues(intervalHours, retentionCount int, timezone string, d
 }
 
 func parseScheduleHours(schedule string) int {
-	raw := strings.TrimSpace(strings.ToLower(schedule))
-	if raw == "" {
+	d, _, err := parseScheduleDurationStrict(schedule)
+	if err != nil {
 		return defaultIntervalHours
 	}
-	if strings.HasSuffix(raw, "h") {
-		num := strings.TrimSpace(strings.TrimSuffix(raw, "h"))
-		if num != "" {
-			var v int
-			_, _ = fmt.Sscanf(num, "%d", &v)
-			if v > 0 {
-				return v
+	return durationToLegacyIntervalHours(d)
+}
+
+func resolveScheduleForCreate(req CreatePolicyRequest) (string, int, error) {
+	if strings.TrimSpace(req.Schedule) != "" {
+		d, normalized, err := parseScheduleDurationStrict(req.Schedule)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
+	}
+	if req.IntervalValue > 0 || strings.TrimSpace(req.IntervalUnit) != "" {
+		d, normalized, err := scheduleFromValueUnit(req.IntervalValue, req.IntervalUnit)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
+	}
+	if req.IntervalHours > 0 {
+		d, normalized, err := scheduleFromValueUnit(req.IntervalHours, intervalUnitHour)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
+	}
+	d, normalized, err := scheduleFromValueUnit(defaultIntervalHours, intervalUnitHour)
+	if err != nil {
+		return "", 0, err
+	}
+	if err := validateScheduleDurationByEnv(d); err != nil {
+		return "", 0, err
+	}
+	return normalized, durationToLegacyIntervalHours(d), nil
+}
+
+func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int, currentSchedule string) (string, int, error) {
+	if req.Schedule != nil && strings.TrimSpace(*req.Schedule) != "" {
+		d, normalized, err := parseScheduleDurationStrict(*req.Schedule)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
+	}
+	if req.IntervalValue != nil || req.IntervalUnit != nil {
+		value := 0
+		if req.IntervalValue != nil {
+			value = *req.IntervalValue
+		} else {
+			d, _, err := parseScheduleDurationStrict(currentSchedule)
+			if err != nil {
+				value = currentIntervalHours
+			} else {
+				value = durationToLegacyIntervalHours(d)
 			}
 		}
+		unit := intervalUnitHour
+		if req.IntervalUnit != nil {
+			unit = *req.IntervalUnit
+		}
+		d, normalized, err := scheduleFromValueUnit(value, unit)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
 	}
-	return defaultIntervalHours
+	if req.IntervalHours != nil {
+		d, normalized, err := scheduleFromValueUnit(*req.IntervalHours, intervalUnitHour)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := validateScheduleDurationByEnv(d); err != nil {
+			return "", 0, err
+		}
+		return normalized, durationToLegacyIntervalHours(d), nil
+	}
+	return currentSchedule, currentIntervalHours, nil
+}
+
+func validateScheduleDurationByEnv(d time.Duration) error {
+	if d <= 0 {
+		return ErrInvalidBackupPolicy
+	}
+	env := strings.TrimSpace(strings.ToLower(os.Getenv("APP_ENV")))
+	if env == "" {
+		env = strings.TrimSpace(strings.ToLower(os.Getenv("POWERX_ENV")))
+	}
+	if env == "prod" || env == "production" {
+		if d < time.Hour {
+			return ErrInvalidBackupPolicy
+		}
+	}
+	return nil
 }
 
 func boolPtr(v bool) *bool {

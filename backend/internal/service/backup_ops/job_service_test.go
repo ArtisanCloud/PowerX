@@ -33,7 +33,17 @@ func TestJobService_NextRunAt(t *testing.T) {
 		t.Fatalf("next run mismatch, got %s", next)
 	}
 
-	fallback := svc.nextRunAt(1, now, "bad")
+	byMinute := svc.nextRunAt(2, now, "30m")
+	if !byMinute.Equal(now.Add(30 * time.Minute)) {
+		t.Fatalf("minute next run mismatch, got %s", byMinute)
+	}
+
+	byDay := svc.nextRunAt(3, now, "2d")
+	if !byDay.Equal(now.Add(48 * time.Hour)) {
+		t.Fatalf("day next run mismatch, got %s", byDay)
+	}
+
+	fallback := svc.nextRunAt(4, now, "bad")
 	if !fallback.Equal(now.Add(time.Duration(defaultIntervalHours) * time.Hour)) {
 		t.Fatalf("fallback next run mismatch, got %s", fallback)
 	}

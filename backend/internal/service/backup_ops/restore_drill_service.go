@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -87,6 +88,11 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 		retErr = ErrInvalidRestoreDrillRequest
 		return nil, retErr
 	}
+	artifactPath, err := s.resolveRestoreArtifactPath(ctx, sourceJobID, req.ArtifactID)
+	if err != nil {
+		retErr = err
+		return nil, retErr
+	}
 
 	operator := normalizeOperator(req.Operator)
 	initial := &modelops.RestoreDrillRecord{
@@ -117,14 +123,24 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 		return nil, retErr
 	}
 
-	execErr := s.runRestoreScript(ctx, sourceJobID)
+	scriptStart := time.Now()
+	summary, execErr := s.runRestoreScript(ctx, sourceJobID, artifactPath)
 	successState, smErr := s.sm.Next(JobState(saved.Status), JobEventSucceed)
 	if smErr != nil {
 		retErr = smErr
 		return nil, retErr
 	}
-	rto := int64(120)
-	report := strings.TrimSpace(req.Reason)
+	rto := time.Since(scriptStart).Milliseconds() / 1000
+	if rto < 0 {
+		rto = 0
+	}
+	report := strings.TrimSpace(summary)
+	if report == "" {
+		report = strings.TrimSpace(req.Reason)
+	}
+	if report == "" {
+		report = "restore drill completed"
+	}
 	finalStatus := modelops.RestoreDrillStatus(successState)
 	if execErr != nil {
 		failState, failErr := s.sm.Next(JobState(saved.Status), JobEventFail)
@@ -155,6 +171,14 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 		zap.String("operator", saved.Operator),
 		zap.String("trace_id", saved.TraceID),
 	)
+	publishRestoreDrillStatus(ctx, map[string]any{
+		"drill_id":      toStringUint(saved.ID),
+		"source_job_id": toStringUint(saved.SourceJobID),
+		"status":        string(saved.Status),
+		"rto_seconds":   saved.RTOSec,
+		"trace_id":      strings.TrimSpace(saved.TraceID),
+		"operator":      strings.TrimSpace(saved.Operator),
+	})
 	return saved, nil
 }
 
@@ -223,19 +247,60 @@ func (s *RestoreDrillService) resolveSourceJobID(ctx context.Context, sourceJobI
 	return 0, ErrInvalidRestoreDrillRequest
 }
 
-func (s *RestoreDrillService) runRestoreScript(ctx context.Context, sourceJobID uint64) error {
+func (s *RestoreDrillService) resolveRestoreArtifactPath(ctx context.Context, sourceJobID, artifactID uint64) (string, error) {
+	var artifact *modelops.BackupArtifact
+	var err error
+	if artifactID > 0 {
+		artifact, err = s.artifactRepo.GetById(ctx, artifactID, nil)
+	} else {
+		artifact, err = s.artifactRepo.GetLatestByJobID(ctx, sourceJobID)
+	}
+	if err != nil {
+		return "", err
+	}
+	if artifact == nil || strings.TrimSpace(artifact.StorageURI) == "" {
+		return "", ErrInvalidRestoreDrillRequest
+	}
+	path, err := parseFileStorageURI(artifact.StorageURI)
+	if err != nil {
+		return "", fmt.Errorf("invalid restore artifact uri: %w", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("restore artifact unavailable: %w", err)
+	}
+	return path, nil
+}
+
+func (s *RestoreDrillService) runRestoreScript(ctx context.Context, sourceJobID uint64, artifactPath string) (string, error) {
 	if s.runner == nil {
-		return nil
+		return "", nil
 	}
 	path := filepath.Join(s.scriptDir, "restore-drill.sh")
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			return "", nil
 		}
-		return err
+		return "", err
 	}
-	_, err := s.runner.Run(ctx, ScriptSpec{Command: path, Args: []string{strconv.FormatUint(sourceJobID, 10)}, Timeout: 2 * time.Minute})
-	return err
+	res, err := s.runner.Run(ctx, ScriptSpec{
+		Command: path,
+		Args:    []string{strconv.FormatUint(sourceJobID, 10), artifactPath},
+		Timeout: 10 * time.Minute,
+	})
+	if err != nil {
+		if res != nil {
+			return "", fmt.Errorf("%w stdout=%s stderr=%s", err, strings.TrimSpace(res.Stdout), strings.TrimSpace(res.Stderr))
+		}
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+	summary := strings.TrimSpace(res.Stdout)
+	if summary == "" {
+		summary = "restore drill completed"
+	}
+	return summary, nil
 }
 
 func (s *RestoreDrillService) audit(ctx context.Context, rec obsops.AuditRecord) {
@@ -243,4 +308,23 @@ func (s *RestoreDrillService) audit(ctx context.Context, rec obsops.AuditRecord)
 		return
 	}
 	_ = s.auditor.Write(ctx, rec)
+}
+
+func parseFileStorageURI(uri string) (string, error) {
+	trimmed := strings.TrimSpace(uri)
+	if trimmed == "" {
+		return "", fmt.Errorf("empty storage uri")
+	}
+	if !strings.HasPrefix(strings.ToLower(trimmed), "file://") {
+		return trimmed, nil
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return "", err
+	}
+	path := strings.TrimSpace(u.Path)
+	if path == "" {
+		return "", fmt.Errorf("empty file path")
+	}
+	return path, nil
 }

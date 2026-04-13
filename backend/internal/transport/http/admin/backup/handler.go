@@ -10,6 +10,7 @@ import (
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
+	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -18,10 +19,11 @@ import (
 )
 
 type handler struct {
-	policySvc  *backupops.PolicyService
-	jobSvc     *backupops.JobService
-	restoreSvc *backupops.RestoreDrillService
-	alertSvc   *backupops.AlertService
+	policySvc    *backupops.PolicyService
+	jobSvc       *backupops.JobService
+	restoreSvc   *backupops.RestoreDrillService
+	alertSvc     *backupops.AlertService
+	artifactRepo *repoops.BackupArtifactRepository
 }
 
 func NewHandler(deps *shared.Deps) *handler {
@@ -29,10 +31,11 @@ func NewHandler(deps *shared.Deps) *handler {
 		return nil
 	}
 	return &handler{
-		policySvc:  backupops.NewPolicyService(deps.DB),
-		jobSvc:     backupops.NewJobService(deps.DB),
-		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
-		alertSvc:   backupops.NewAlertService(deps.DB),
+		policySvc:    backupops.NewPolicyService(deps.DB),
+		jobSvc:       backupops.NewJobService(deps.DB),
+		restoreSvc:   backupops.NewRestoreDrillService(deps.DB),
+		alertSvc:     backupops.NewAlertService(deps.DB),
+		artifactRepo: repoops.NewBackupArtifactRepository(deps.DB),
 	}
 }
 
@@ -64,6 +67,9 @@ func (h *handler) CreatePolicy(c *gin.Context) {
 	row, err := h.policySvc.CreatePolicy(c.Request.Context(), backupops.CreatePolicyRequest{
 		Name:             req.Name,
 		IntervalHours:    req.IntervalHours,
+		IntervalValue:    req.IntervalValue,
+		IntervalUnit:     req.IntervalUnit,
+		Schedule:         req.Schedule,
 		RetentionCount:   req.RetentionCount,
 		Timezone:         req.Timezone,
 		DrillEnabled:     req.DrillEnabled,
@@ -90,6 +96,9 @@ func (h *handler) UpdatePolicy(c *gin.Context) {
 		PolicyID:         policyID,
 		Name:             req.Name,
 		IntervalHours:    req.IntervalHours,
+		IntervalValue:    req.IntervalValue,
+		IntervalUnit:     req.IntervalUnit,
+		Schedule:         req.Schedule,
 		RetentionCount:   req.RetentionCount,
 		Timezone:         req.Timezone,
 		DrillEnabled:     req.DrillEnabled,
@@ -133,6 +142,20 @@ func (h *handler) DisablePolicy(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"policy_id": policyID, "enabled": false})
+}
+
+func (h *handler) SetCurrentPolicy(c *gin.Context) {
+	policyID := parseUint(c.Param("policy_id"))
+	err := h.policySvc.SetCurrentPolicy(c.Request.Context(), backupops.SetCurrentPolicyRequest{
+		PolicyID: policyID,
+		Operator: resolveOperator(c),
+		TraceID:  strings.TrimSpace(reqctx.GetTraceID(c.Request.Context())),
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"policy_id": policyID, "is_current": true})
 }
 
 func (h *handler) TriggerBackupJob(c *gin.Context) {
@@ -183,7 +206,12 @@ func (h *handler) ListBackupJobs(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"items": items, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
+	artifactMap := h.getLatestArtifactMap(c, items)
+	respItems := make([]gin.H, 0, len(items))
+	for i := range items {
+		respItems = append(respItems, buildJobDetailResponse(&items[i], artifactMap[items[i].ID]))
+	}
+	dto.ResponseSuccess(c, gin.H{"items": respItems, "pagination": gin.H{"total": total, "page": page, "page_size": pageSize}})
 }
 
 func (h *handler) GetBackupJob(c *gin.Context) {
@@ -193,7 +221,11 @@ func (h *handler) GetBackupJob(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"job": buildJobDetailResponse(row)})
+	var artifact *modelops.BackupArtifact
+	if h.artifactRepo != nil {
+		artifact, _ = h.artifactRepo.GetLatestByJobID(c.Request.Context(), row.ID)
+	}
+	dto.ResponseSuccess(c, gin.H{"job": buildJobDetailResponse(row, artifact)})
 }
 
 func (h *handler) TriggerCleanup(c *gin.Context) {
@@ -206,6 +238,37 @@ func (h *handler) TriggerCleanup(c *gin.Context) {
 		zap.String("trace_id", strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))),
 	)
 	dto.ResponseSuccess(c, gin.H{"status": "success"})
+}
+
+func (h *handler) TestTargetConnection(c *gin.Context) {
+	var req backupdto.BackupTargetTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	result, err := backupops.ProbeTargetConnection(c.Request.Context(), backupops.TargetProbeRequest{
+		Driver:            req.Driver,
+		Host:              req.Host,
+		Port:              req.Port,
+		Database:          req.Database,
+		Username:          req.Username,
+		Password:          req.Password,
+		SSLMode:           req.SSLMode,
+		ConnectTimeoutSec: req.ConnectTimeoutSec,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"reachable":   result.Reachable,
+		"latency_ms":  result.LatencyMs,
+		"driver":      result.Driver,
+		"server_info": result.ServerInfo,
+		"message":     result.Message,
+	})
 }
 
 func (h *handler) TriggerRestoreDrill(c *gin.Context) {
@@ -359,13 +422,43 @@ func parseDateTime(raw string) (*time.Time, error) {
 	return &t, nil
 }
 
-func buildJobDetailResponse(row *modelops.BackupJob) gin.H {
+func (h *handler) getLatestArtifactMap(c *gin.Context, jobs []modelops.BackupJob) map[uint64]*modelops.BackupArtifact {
+	if h.artifactRepo == nil || len(jobs) == 0 {
+		return map[uint64]*modelops.BackupArtifact{}
+	}
+	ids := make([]uint64, 0, len(jobs))
+	for i := range jobs {
+		if jobs[i].ID > 0 {
+			ids = append(ids, jobs[i].ID)
+		}
+	}
+	rows, err := h.artifactRepo.GetLatestByJobIDs(c.Request.Context(), ids)
+	if err != nil {
+		return map[uint64]*modelops.BackupArtifact{}
+	}
+	out := make(map[uint64]*modelops.BackupArtifact, len(rows))
+	for id, row := range rows {
+		copyRow := row
+		out[id] = &copyRow
+	}
+	return out
+}
+
+func buildJobDetailResponse(row *modelops.BackupJob, artifact *modelops.BackupArtifact) gin.H {
 	durationMs := int64(0)
 	if row != nil && row.StartedAt != nil && row.EndedAt != nil {
 		durationMs = row.EndedAt.Sub(*row.StartedAt).Milliseconds()
 	}
 	if row == nil {
 		return gin.H{}
+	}
+	storageURI := ""
+	sizeBytes := int64(0)
+	checksum := ""
+	if artifact != nil {
+		storageURI = strings.TrimSpace(artifact.StorageURI)
+		sizeBytes = artifact.SizeBytes
+		checksum = strings.TrimSpace(artifact.Checksum)
 	}
 	return gin.H{
 		"id":            row.ID,
@@ -378,6 +471,9 @@ func buildJobDetailResponse(row *modelops.BackupJob) gin.H {
 		"trace_id":      row.TraceID,
 		"error_summary": row.ErrorMessage,
 		"operator":      row.Operator,
+		"storage_uri":   storageURI,
+		"size_bytes":    sizeBytes,
+		"checksum":      checksum,
 	}
 }
 
@@ -386,16 +482,49 @@ func buildDrillDetailResponse(row *modelops.RestoreDrillRecord) gin.H {
 	if durationMs < 0 {
 		durationMs = 0
 	}
-	return gin.H{
-		"id":             row.ID,
-		"source_job_id":  row.SourceJobID,
-		"status":         row.Status,
-		"started_at":     row.CreatedAt,
-		"ended_at":       row.UpdatedAt,
-		"duration_ms":    durationMs,
-		"rto_seconds":    row.RTOSec,
-		"result_summary": row.ReportURI,
-		"report_uri":     row.ReportURI,
-		"trace_id":       row.TraceID,
+	report := strings.TrimSpace(row.ReportURI)
+	reportMeta := parseRestoreDrillReportMeta(report)
+	restoredTableCount := int64(0)
+	if v := strings.TrimSpace(reportMeta["tables"]); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			restoredTableCount = n
+		}
 	}
+	keepProbeDB := false
+	if v := strings.TrimSpace(reportMeta["keep_db"]); v == "1" || strings.EqualFold(v, "true") {
+		keepProbeDB = true
+	}
+	return gin.H{
+		"id":                   row.ID,
+		"source_job_id":        row.SourceJobID,
+		"status":               row.Status,
+		"started_at":           row.CreatedAt,
+		"ended_at":             row.UpdatedAt,
+		"duration_ms":          durationMs,
+		"rto_seconds":          row.RTOSec,
+		"result_summary":       report,
+		"report_uri":           report,
+		"trace_id":             row.TraceID,
+		"restore_target_db":    strings.TrimSpace(reportMeta["db"]),
+		"restored_table_count": restoredTableCount,
+		"artifact_path":        strings.TrimSpace(reportMeta["artifact"]),
+		"keep_probe_db":        keepProbeDB,
+	}
+}
+
+func parseRestoreDrillReportMeta(report string) map[string]string {
+	out := make(map[string]string)
+	for _, token := range strings.Fields(report) {
+		idx := strings.Index(token, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(strings.Trim(token[:idx], "[]"))
+		val := strings.TrimSpace(strings.Trim(token[idx+1:], "[]"))
+		if key == "" || val == "" {
+			continue
+		}
+		out[key] = val
+	}
+	return out
 }

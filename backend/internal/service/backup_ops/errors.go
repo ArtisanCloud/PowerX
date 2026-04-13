@@ -10,6 +10,8 @@ import (
 var (
 	ErrInvalidBackupPolicy        = errors.New("invalid backup policy")
 	ErrInvalidBackupRequest       = errors.New("invalid backup request")
+	ErrInvalidBackupTarget        = errors.New("invalid backup target")
+	ErrBackupTargetConnectFailed  = errors.New("backup target connect failed")
 	ErrBackupPolicyNotFound       = errors.New("backup policy not found")
 	ErrBackupJobNotFound          = errors.New("backup job not found")
 	ErrBackupAlertNotFound        = errors.New("backup alert not found")
@@ -24,6 +26,8 @@ var (
 const (
 	ErrorCodeInvalidPolicy       = "backup.invalid_policy"
 	ErrorCodeInvalidRequest      = "backup.invalid_request"
+	ErrorCodeInvalidTarget       = "backup.invalid_target"
+	ErrorCodeTargetConnectFailed = "backup.target_connect_failed"
 	ErrorCodePolicyNotFound      = "backup.policy_not_found"
 	ErrorCodeJobNotFound         = "backup.job_not_found"
 	ErrorCodeAlertNotFound       = "backup.alert_not_found"
@@ -41,6 +45,10 @@ func ToAppError(err error) error {
 		return dto.WithCode(dto.NewBadRequest("备份策略参数不合法", err), ErrorCodeInvalidPolicy)
 	case errors.Is(err, ErrInvalidBackupRequest):
 		return dto.WithCode(dto.NewBadRequest("备份请求参数不合法", err), ErrorCodeInvalidRequest)
+	case errors.Is(err, ErrInvalidBackupTarget):
+		return dto.WithCode(dto.NewBadRequest("目标连接参数不合法", err), ErrorCodeInvalidTarget)
+	case errors.Is(err, ErrBackupTargetConnectFailed):
+		return dto.WithCode(dto.NewBadRequest("目标连接失败，请检查地址和凭据", err), ErrorCodeTargetConnectFailed)
 	case errors.Is(err, ErrInvalidRestoreDrillRequest):
 		return dto.WithCode(dto.NewBadRequest("恢复演练请求参数不合法", err), ErrorCodeInvalidDrillRequest)
 	case errors.Is(err, ErrRestoreDrillNotFound):

@@ -699,15 +699,31 @@ func Load(configPath string) (*Config, error) {
 }
 
 func loadDotEnvCandidates(configPath string) {
-	candidates := make([]string, 0, 6)
+	candidates := make([]string, 0, 12)
 	if configPath != "" {
 		if absCfg, err := filepath.Abs(configPath); err == nil {
 			cfgDir := filepath.Dir(absCfg)
 			candidates = append(candidates, filepath.Join(cfgDir, ".env"))
 			candidates = append(candidates, filepath.Join(filepath.Dir(cfgDir), ".env"))
+			// repo-root/config 下的 PowerX 本地环境（适配 GoLand 等直接启动）
+			repoRoot := filepath.Dir(filepath.Dir(cfgDir))
+			candidates = append(candidates, filepath.Join(repoRoot, "config", "powerx.env.local"))
+			candidates = append(candidates, filepath.Join(repoRoot, "config", "powerx.env"))
 		}
 	}
-	candidates = append(candidates, ".env", "backend/.env")
+	candidates = append(
+		candidates,
+		".env",
+		"backend/.env",
+		"config/powerx.env.local",
+		"config/powerx.env",
+	)
+	if p := findConfigPath("config/powerx.env.local"); p != "" {
+		candidates = append(candidates, p)
+	}
+	if p := findConfigPath("config/powerx.env"); p != "" {
+		candidates = append(candidates, p)
+	}
 
 	seen := map[string]struct{}{}
 	for _, p := range candidates {

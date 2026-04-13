@@ -28,6 +28,7 @@ type BackupPolicy struct {
 	DrillEnabled      bool       `gorm:"column:drill_enabled;not null;default:true" json:"drill_enabled"`
 	DrillIntervalDays int32      `gorm:"column:drill_interval_days;not null;default:7" json:"drill_interval_days"`
 	TargetRef         string     `gorm:"column:target_ref;type:varchar(255);not null;default:''" json:"target_ref"`
+	IsCurrent         bool       `gorm:"column:is_current;not null;default:false;index:idx_ops_backup_policy_current" json:"is_current"`
 	Enabled           bool       `gorm:"column:enabled;not null;default:true;index:idx_ops_backup_policy_enabled" json:"enabled"`
 	StorageTarget     string     `gorm:"column:storage_target;type:varchar(255);not null" json:"storage_target"`
 	CreatedBy         string     `gorm:"column:created_by;type:varchar(128);not null" json:"created_by"`

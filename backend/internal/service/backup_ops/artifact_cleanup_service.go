@@ -27,7 +27,7 @@ func NewArtifactCleanupService(db *gorm.DB) *ArtifactCleanupService {
 	}
 }
 
-// CleanupByPolicy 保留最近 N 份成功备份，且不删除最新可用备份。
+// CleanupByPolicy 保留最近 N 份成功备份，仅清理备份产物，不删除任务记录。
 func (s *ArtifactCleanupService) CleanupByPolicy(ctx context.Context, policyID uint64, retentionCount int) (*CleanupResult, error) {
 	if policyID == 0 {
 		return &CleanupResult{}, nil
@@ -59,11 +59,6 @@ func (s *ArtifactCleanupService) CleanupByPolicy(ctx context.Context, policyID u
 			return nil, delErr
 		}
 		result.DeletedArtifacts += len(artifacts)
-		_, delJobErr := s.jobRepo.Delete(ctx, map[string]interface{}{"id": job.ID}, nil, true)
-		if delJobErr != nil {
-			return nil, delJobErr
-		}
-		result.DeletedJobs++
 	}
 	return result, nil
 }

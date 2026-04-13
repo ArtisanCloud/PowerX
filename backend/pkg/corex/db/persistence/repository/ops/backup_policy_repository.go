@@ -51,7 +51,7 @@ func (r *BackupPolicyRepository) ListWithFilters(ctx context.Context, status, ke
 	}
 
 	var rows []modelops.BackupPolicy
-	if err := q.Order("id DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+	if err := q.Order("is_current DESC, id DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 	return rows, total, nil
@@ -65,6 +65,44 @@ func (r *BackupPolicyRepository) SetEnabled(ctx context.Context, id uint64, enab
 			"enabled":    enabled,
 			"updated_by": strings.TrimSpace(updatedBy),
 		}).Error
+}
+
+func (r *BackupPolicyRepository) SetCurrent(ctx context.Context, id uint64, updatedBy string) error {
+	updatedBy = strings.TrimSpace(updatedBy)
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&modelops.BackupPolicy{}).
+			Where("is_current = ?", true).
+			Updates(map[string]any{
+				"is_current": false,
+				"updated_by": updatedBy,
+			}).Error; err != nil {
+			return err
+		}
+		if id == 0 {
+			return nil
+		}
+		return tx.Model(&modelops.BackupPolicy{}).
+			Where("id = ?", id).
+			Updates(map[string]any{
+				"is_current": true,
+				"updated_by": updatedBy,
+			}).Error
+	})
+}
+
+func (r *BackupPolicyRepository) GetCurrent(ctx context.Context) (*modelops.BackupPolicy, error) {
+	var row modelops.BackupPolicy
+	if err := r.db.WithContext(ctx).
+		Where("is_current = ?", true).
+		Order("id DESC").
+		Limit(1).
+		Find(&row).Error; err != nil {
+		return nil, err
+	}
+	if row.ID == 0 {
+		return nil, nil
+	}
+	return &row, nil
 }
 
 func (r *BackupPolicyRepository) UpsertByName(ctx context.Context, row *modelops.BackupPolicy) (*modelops.BackupPolicy, error) {

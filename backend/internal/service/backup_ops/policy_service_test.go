@@ -40,6 +40,8 @@ func TestParseScheduleHours(t *testing.T) {
 		want int
 	}{
 		{"6h", 6},
+		{"30m", 1},
+		{"2d", 48},
 		{" 12H ", 12},
 		{"bad", defaultIntervalHours},
 		{"", defaultIntervalHours},

@@ -3,12 +3,14 @@ import { useApiClient } from "../index";
 export interface BackupPolicy {
   id: number | string;
   name: string;
+  schedule?: string;
   interval_hours: number;
   retention_count: number;
   timezone: string;
   drill_enabled: boolean;
   drill_interval_days: number;
   target_ref: string;
+  is_current?: boolean;
   enabled: boolean;
 }
 
@@ -24,6 +26,9 @@ export interface BackupJob {
   trace_id?: string;
   duration_ms?: number;
   error_summary?: string;
+  storage_uri?: string;
+  size_bytes?: number;
+  checksum?: string;
 }
 
 export interface RestoreDrillRecord {
@@ -37,6 +42,10 @@ export interface RestoreDrillRecord {
   result_summary?: string;
   trace_id?: string;
   report_uri?: string;
+  restore_target_db?: string;
+  restored_table_count?: number;
+  artifact_path?: string;
+  keep_probe_db?: boolean;
 }
 
 export interface BackupPolicyFilters {
@@ -79,6 +88,14 @@ export interface BackupOverview {
   last_success_at?: string;
 }
 
+export interface BackupTargetTestResponse {
+  reachable: boolean;
+  latency_ms: number;
+  driver: string;
+  server_info?: string;
+  message?: string;
+}
+
 const unwrap = <T>(payload: unknown): T => {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as any).data as T;
@@ -114,6 +131,9 @@ export const useBackupOpsService = () => {
 
     async createPolicy(payload: {
       name: string;
+      interval_value?: number;
+      interval_unit?: "minute" | "hour" | "day";
+      schedule?: string;
       interval_hours?: number;
       retention_count?: number;
       timezone?: string;
@@ -128,6 +148,9 @@ export const useBackupOpsService = () => {
 
     async updatePolicy(policyId: string | number, payload: {
       name?: string;
+      interval_value?: number;
+      interval_unit?: "minute" | "hour" | "day";
+      schedule?: string;
       interval_hours?: number;
       retention_count?: number;
       timezone?: string;
@@ -146,6 +169,10 @@ export const useBackupOpsService = () => {
 
     async disablePolicy(policyId: string | number): Promise<void> {
       await api.post(`${adminBase}/policies/${policyId}/disable`, {});
+    },
+
+    async setCurrentPolicy(policyId: string | number): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/current`, {});
     },
 
     async triggerJob(policyId: string | number): Promise<BackupJob> {
@@ -183,6 +210,20 @@ export const useBackupOpsService = () => {
 
     async triggerCleanup(): Promise<void> {
       await api.post(`${adminBase}/cleanup`, {});
+    },
+
+    async testTargetConnection(payload: {
+      driver?: "postgres";
+      host: string;
+      port?: number;
+      database: string;
+      username: string;
+      password: string;
+      ssl_mode?: "disable" | "require" | "verify-ca" | "verify-full";
+      connect_timeout_sec?: number;
+    }): Promise<BackupTargetTestResponse> {
+      const resp = await api.post(`${adminBase}/targets/test`, payload);
+      return unwrap<BackupTargetTestResponse>(resp);
     },
 
     async triggerRestoreDrill(sourceJobId: string | number): Promise<RestoreDrillRecord> {
