@@ -99,4 +99,6 @@ export type {
   MonitorLogEntry,
   MonitorLogQueryMeta,
   MonitorLogQueryFilters,
+  MonitorRetentionRun,
+  MonitorRetentionRuns,
 } from "./monitorService";

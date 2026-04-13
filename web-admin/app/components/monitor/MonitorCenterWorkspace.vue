@@ -744,53 +744,126 @@
             :description="monitorCapabilityHint"
           />
 
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <UInput v-model="monitorLogFilters.traceId" icon="i-heroicons-finger-print" placeholder="trace_id" :disabled="!monitorCapabilities.supports_trace_query" />
-            <UInput v-model="monitorLogFilters.jobId" icon="i-heroicons-hashtag" placeholder="job_id" :disabled="!monitorCapabilities.supports_job_query" />
-            <UInput v-model="monitorLogFilters.policyId" icon="i-heroicons-hashtag" placeholder="policy_id" :disabled="!monitorCapabilities.supports_policy_query" />
-            <UInput v-model="monitorLogFilters.keyword" icon="i-heroicons-magnifying-glass" placeholder="关键字（message/raw）" />
-            <UInput v-model="monitorLogFilters.from" placeholder="from (RFC3339)" />
-            <UInput v-model="monitorLogFilters.to" placeholder="to (RFC3339)" />
+          <UTabs v-model="logsTraceSubTab" :items="logsTraceSubTabs" />
+
+          <div v-if="logsTraceSubTab === 'query'" class="space-y-4">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <UInput v-model="monitorLogFilters.traceId" icon="i-heroicons-finger-print" placeholder="trace_id" :disabled="!monitorCapabilities.supports_trace_query" />
+              <UInput v-model="monitorLogFilters.jobId" icon="i-heroicons-hashtag" placeholder="job_id" :disabled="!monitorCapabilities.supports_job_query" />
+              <UInput v-model="monitorLogFilters.policyId" icon="i-heroicons-hashtag" placeholder="policy_id" :disabled="!monitorCapabilities.supports_policy_query" />
+              <UInput v-model="monitorLogFilters.keyword" icon="i-heroicons-magnifying-glass" placeholder="关键字（message/raw）" />
+              <UInput v-model="monitorLogFilters.from" placeholder="from (RFC3339)" />
+              <UInput v-model="monitorLogFilters.to" placeholder="to (RFC3339)" />
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <UButton size="sm" color="primary" :loading="monitorLogsLoading" @click="queryMonitorLogs">查询日志</UButton>
+              <UButton size="sm" variant="outline" :disabled="!monitorGrafanaUrl" @click="openMonitorGrafana">打开 Grafana</UButton>
+              <UButton size="sm" variant="ghost" @click="resetMonitorLogFilters">重置筛选</UButton>
+            </div>
+
+            <div class="text-xs text-gray-500">
+              共 {{ monitorLogsTotal }} 条，当前第 {{ monitorLogsPage }} 页（每页 {{ monitorLogsPageSize }} 条）
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
+                <thead class="bg-gray-50 dark:bg-gray-800/50">
+                  <tr>
+                    <th class="text-left px-3 py-2">时间</th>
+                    <th class="text-left px-3 py-2">级别</th>
+                    <th class="text-left px-3 py-2">模块</th>
+                    <th class="text-left px-3 py-2">trace_id</th>
+                    <th class="text-left px-3 py-2">job_id</th>
+                    <th class="text-left px-3 py-2">policy_id</th>
+                    <th class="text-left px-3 py-2">消息</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, idx) in monitorLogsItems" :key="`${row.ts}-${idx}`" class="border-t border-gray-200 dark:border-gray-700">
+                    <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(row.ts) }}</td>
+                    <td class="px-3 py-2"><UBadge :color="monitorLevelColor(row.level)" variant="soft">{{ row.level || '-' }}</UBadge></td>
+                    <td class="px-3 py-2 font-mono">{{ row.module || '-' }}</td>
+                    <td class="px-3 py-2 font-mono break-all">{{ row.trace_id || '-' }}</td>
+                    <td class="px-3 py-2 font-mono">{{ row.job_id || '-' }}</td>
+                    <td class="px-3 py-2 font-mono">{{ row.policy_id || '-' }}</td>
+                    <td class="px-3 py-2 whitespace-normal break-all">{{ row.message || row.raw || '-' }}</td>
+                  </tr>
+                  <tr v-if="monitorLogsItems.length === 0">
+                    <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志数据，先执行一次查询。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <UButton size="sm" color="primary" :loading="monitorLogsLoading" @click="queryMonitorLogs">查询日志</UButton>
-            <UButton size="sm" variant="outline" :disabled="!monitorGrafanaUrl" @click="openMonitorGrafana">打开 Grafana</UButton>
-            <UButton size="sm" variant="ghost" @click="resetMonitorLogFilters">重置筛选</UButton>
-          </div>
+          <div v-else class="space-y-4">
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm font-medium">日志清理策略</div>
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" variant="ghost" :loading="monitorLogsLoading" @click="refreshMonitorRetentionPolicy">刷新策略</UButton>
+                  <UButton size="xs" color="primary" :loading="monitorLogsLoading" @click="saveMonitorRetentionPolicy">保存策略</UButton>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="flex items-center gap-2">
+                  <UCheckbox v-model="retentionPolicyForm.enabled" />
+                  <span class="text-xs text-gray-500">启用定时清理</span>
+                </div>
+                <UInput v-model="retentionPolicyForm.cron" placeholder="cron，例如 10 3 * * *" />
+                <UInput v-model="retentionPolicyForm.timezone" placeholder="timezone，例如 Asia/Shanghai" />
+                <UInput v-model.number="retentionPolicyForm.defaultRetentionDays" type="number" min="1" placeholder="默认保留天数" />
+                <UInput v-model.number="retentionPolicyForm.batchSize" type="number" min="1" placeholder="单批删除上限" />
+                <UInput v-model.number="retentionPolicyForm.maxDeleteRowsPerRun" type="number" min="1" placeholder="单次最大删除行数" />
+              </div>
+              <UInput v-model="retentionPolicyForm.filePathsText" placeholder="文件路径（逗号分隔），例如 logs,logs/audit" />
+            </div>
 
-          <div class="text-xs text-gray-500">
-            共 {{ monitorLogsTotal }} 条，当前第 {{ monitorLogsPage }} 页（每页 {{ monitorLogsPageSize }} 条）
-          </div>
+            <div class="flex flex-wrap gap-2">
+              <UButton size="sm" color="primary" variant="outline" :loading="monitorLogsLoading" @click="triggerMonitorRetentionRun">立即执行日志保留</UButton>
+              <UButton size="sm" variant="ghost" :loading="monitorLogsLoading" @click="refreshMonitorRetentionRuns">刷新保留任务</UButton>
+            </div>
 
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
-              <thead class="bg-gray-50 dark:bg-gray-800/50">
-                <tr>
-                  <th class="text-left px-3 py-2">时间</th>
-                  <th class="text-left px-3 py-2">级别</th>
-                  <th class="text-left px-3 py-2">模块</th>
-                  <th class="text-left px-3 py-2">trace_id</th>
-                  <th class="text-left px-3 py-2">job_id</th>
-                  <th class="text-left px-3 py-2">policy_id</th>
-                  <th class="text-left px-3 py-2">消息</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, idx) in monitorLogsItems" :key="`${row.ts}-${idx}`" class="border-t border-gray-200 dark:border-gray-700">
-                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(row.ts) }}</td>
-                  <td class="px-3 py-2"><UBadge :color="monitorLevelColor(row.level)" variant="soft">{{ row.level || '-' }}</UBadge></td>
-                  <td class="px-3 py-2 font-mono">{{ row.module || '-' }}</td>
-                  <td class="px-3 py-2 font-mono break-all">{{ row.trace_id || '-' }}</td>
-                  <td class="px-3 py-2 font-mono">{{ row.job_id || '-' }}</td>
-                  <td class="px-3 py-2 font-mono">{{ row.policy_id || '-' }}</td>
-                  <td class="px-3 py-2 whitespace-normal break-all">{{ row.message || row.raw || '-' }}</td>
-                </tr>
-                <tr v-if="monitorLogsItems.length === 0">
-                  <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志数据，先执行一次查询。</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm font-medium">
+                  日志保留任务（{{ monitorRetention.enabled ? "已启用" : "未启用" }}）
+                </div>
+                <div class="text-xs text-gray-500">
+                  cron={{ monitorRetention.cron || "-" }} / timezone={{ monitorRetention.timezone || "-" }} / next={{ formatMonitorRetentionTs(monitorRetention.next_run) }}
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
+                  <thead class="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                      <th class="text-left px-3 py-2">开始时间</th>
+                      <th class="text-left px-3 py-2">状态</th>
+                      <th class="text-left px-3 py-2">触发来源</th>
+                      <th class="text-left px-3 py-2">删除文件</th>
+                      <th class="text-left px-3 py-2">删除记录</th>
+                      <th class="text-left px-3 py-2">耗时(ms)</th>
+                      <th class="text-left px-3 py-2">错误摘要</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in monitorRetention.items" :key="item.run_id" class="border-t border-gray-200 dark:border-gray-700">
+                      <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorRetentionTs(item.started_at) }}</td>
+                      <td class="px-3 py-2"><UBadge :color="item.status === 'success' ? 'success' : 'error'" variant="soft">{{ item.status }}</UBadge></td>
+                      <td class="px-3 py-2 font-mono">{{ item.triggered_by || "-" }}</td>
+                      <td class="px-3 py-2 font-mono">{{ item.deleted_files ?? 0 }}</td>
+                      <td class="px-3 py-2 font-mono">{{ item.deleted_rows ?? 0 }}</td>
+                      <td class="px-3 py-2 font-mono">{{ item.duration_ms ?? 0 }}</td>
+                      <td class="px-3 py-2 whitespace-normal break-all">{{ item.error_summary || "-" }}</td>
+                    </tr>
+                    <tr v-if="(monitorRetention.items || []).length === 0">
+                      <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志保留任务记录。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </UCard>
@@ -818,6 +891,7 @@ type MonitorTabKey = "event-fabric" | "websocket" | "task-cron" | "logs-trace";
 type EventSubTabKey = "queue" | "debug";
 type TaskCronSubTabKey = "replay" | "cron";
 type TaskDebugMode = "replay" | "pipeline" | "retry";
+type LogsTraceSubTabKey = "query" | "retention";
 type MonitorCenterProps = {
   forcedTab?: MonitorTabKey | "";
   hideTopTabs?: boolean;
@@ -840,6 +914,10 @@ const taskModeOptions: Array<{ label: string; value: TaskDebugMode }> = [
   { label: "Replay", value: "replay" },
   { label: "Pipeline", value: "pipeline" },
   { label: "Retry", value: "retry" },
+];
+const logsTraceSubTabs: Array<{ label: string; value: LogsTraceSubTabKey }> = [
+  { label: "日志查询", value: "query" },
+  { label: "日志清理", value: "retention" },
 ];
 
 const userStore = useUserStore();
@@ -875,6 +953,7 @@ const showTopTabs = computed(() => !props.hideTopTabs && !resolvedForcedTab.valu
 const activeTab = ref<MonitorTabKey>(resolvedForcedTab.value || resolveTab(route.query.tab));
 const eventSubTab = ref<EventSubTabKey>("queue");
 const taskCronSubTab = ref<TaskCronSubTabKey>("replay");
+const logsTraceSubTab = ref<LogsTraceSubTabKey>("query");
 const setTab = (tab: MonitorTabKey) => {
   if (resolvedForcedTab.value) return;
   activeTab.value = tab;
@@ -913,6 +992,8 @@ const {
   total: monitorLogsTotal,
   queryMeta: monitorLogsQueryMeta,
   loaded: monitorLogsLoaded,
+  retention: monitorRetention,
+  retentionPolicy: monitorRetentionPolicy,
 } = storeToRefs(monitorLogsStore);
 
 const monitorLogFilters = reactive({
@@ -922,6 +1003,16 @@ const monitorLogFilters = reactive({
   keyword: "",
   from: "",
   to: "",
+});
+
+const retentionPolicyForm = reactive({
+  enabled: false,
+  cron: "",
+  timezone: "",
+  defaultRetentionDays: 30,
+  batchSize: 5000,
+  maxDeleteRowsPerRun: 200000,
+  filePathsText: "",
 });
 
 const loading = ref(false);
@@ -1711,6 +1802,14 @@ function formatMonitorLogTs(input?: string) {
   return t.toLocaleString();
 }
 
+function formatMonitorRetentionTs(input?: string) {
+  const raw = String(input || "").trim();
+  if (!raw) return "-";
+  const t = new Date(raw);
+  if (Number.isNaN(t.getTime())) return raw;
+  return t.toLocaleString();
+}
+
 function resetMonitorLogFilters() {
   monitorLogFilters.traceId = "";
   monitorLogFilters.jobId = "";
@@ -1745,8 +1844,82 @@ async function queryMonitorLogs() {
   }
 }
 
+async function refreshMonitorRetentionRuns() {
+  try {
+    await monitorLogsStore.fetchRetentionRuns(20);
+  } catch (e: any) {
+    toast.add({ title: "查询日志保留任务失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+function syncRetentionPolicyFormFromStore() {
+  const policy = monitorRetentionPolicy.value;
+  retentionPolicyForm.enabled = Boolean(policy?.enabled);
+  retentionPolicyForm.cron = String(policy?.cron || "");
+  retentionPolicyForm.timezone = String(policy?.timezone || "Asia/Shanghai");
+  retentionPolicyForm.defaultRetentionDays = Number(policy?.default_retention_days || 30);
+  retentionPolicyForm.batchSize = Number(policy?.batch_size || 5000);
+  retentionPolicyForm.maxDeleteRowsPerRun = Number(policy?.max_delete_rows_per_run || 200000);
+  retentionPolicyForm.filePathsText = Array.isArray(policy?.file_paths) ? policy.file_paths.join(",") : "";
+}
+
+async function refreshMonitorRetentionPolicy() {
+  try {
+    await monitorLogsStore.fetchRetentionPolicy();
+    syncRetentionPolicyFormFromStore();
+  } catch (e: any) {
+    toast.add({ title: "读取日志清理策略失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function saveMonitorRetentionPolicy() {
+  if (!retentionPolicyForm.cron.trim()) {
+    toast.add({ title: "保存失败", description: "cron 不能为空", color: "warning" });
+    return;
+  }
+  if (!retentionPolicyForm.timezone.trim()) {
+    toast.add({ title: "保存失败", description: "timezone 不能为空", color: "warning" });
+    return;
+  }
+  const policy = monitorRetentionPolicy.value;
+  try {
+    await monitorLogsStore.updateRetentionPolicy({
+      enabled: retentionPolicyForm.enabled,
+      cron: retentionPolicyForm.cron.trim(),
+      timezone: retentionPolicyForm.timezone.trim(),
+      default_retention_days: Math.max(1, Number(retentionPolicyForm.defaultRetentionDays || 30)),
+      batch_size: Math.max(1, Number(retentionPolicyForm.batchSize || 5000)),
+      max_delete_rows_per_run: Math.max(1, Number(retentionPolicyForm.maxDeleteRowsPerRun || 200000)),
+      file_paths: String(retentionPolicyForm.filePathsText || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      db_tables: Array.isArray(policy?.db_tables) ? policy.db_tables : [],
+    });
+    syncRetentionPolicyFormFromStore();
+    toast.add({ title: "日志清理策略已保存", color: "success" });
+  } catch (e: any) {
+    toast.add({ title: "保存日志清理策略失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function triggerMonitorRetentionRun() {
+  try {
+    const run = await monitorLogsStore.triggerRetentionRun();
+    toast.add({
+      title: "日志保留任务已执行",
+      description: `status=${run.status}, deleted_files=${run.deleted_files}, deleted_rows=${run.deleted_rows}`,
+      color: run.status === "success" ? "success" : "warning",
+    });
+  } catch (e: any) {
+    toast.add({ title: "执行日志保留任务失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
 async function ensureMonitorLogsReady() {
   await refreshMonitorLogsConfig();
+  await refreshMonitorRetentionPolicy();
+  await refreshMonitorRetentionRuns();
   if (!monitorLogsLoaded.value) {
     await queryMonitorLogs();
   }

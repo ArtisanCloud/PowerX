@@ -5,6 +5,9 @@ import {
   type MonitorLogEntry,
   type MonitorLogQueryFilters,
   type MonitorLogQueryMeta,
+  type MonitorRetentionPolicy,
+  type MonitorRetentionRun,
+  type MonitorRetentionRuns,
 } from "~/composables/api/services/monitorService";
 
 export const useMonitorLogsStore = defineStore("monitorLogs", {
@@ -17,6 +20,23 @@ export const useMonitorLogsStore = defineStore("monitorLogs", {
     page: 1,
     pageSize: 50,
     queryMeta: null as MonitorLogQueryMeta | null,
+    retention: {
+      items: [] as MonitorRetentionRun[],
+      next_run: "",
+      enabled: false,
+      cron: "",
+      timezone: "",
+    } as MonitorRetentionRuns,
+    retentionPolicy: {
+      enabled: false,
+      cron: "",
+      timezone: "",
+      default_retention_days: 30,
+      file_paths: [],
+      batch_size: 5000,
+      max_delete_rows_per_run: 200000,
+      db_tables: [],
+    } as MonitorRetentionPolicy,
   }),
 
   actions: {
@@ -43,6 +63,52 @@ export const useMonitorLogsStore = defineStore("monitorLogs", {
         this.queryMeta = res.query_meta;
         this.loaded = true;
         return res;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchRetentionRuns(limit = 20) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.retention = await svc.getRetentionRuns(limit);
+        return this.retention;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async triggerRetentionRun() {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        const run = await svc.triggerRetentionRun();
+        await this.fetchRetentionRuns();
+        return run;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchRetentionPolicy() {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.retentionPolicy = await svc.getRetentionPolicy();
+        return this.retentionPolicy;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async updateRetentionPolicy(policy: MonitorRetentionPolicy) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.retentionPolicy = await svc.updateRetentionPolicy(policy);
+        await this.fetchRetentionRuns();
+        return this.retentionPolicy;
       } finally {
         this.loading = false;
       }

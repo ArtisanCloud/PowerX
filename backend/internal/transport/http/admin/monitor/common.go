@@ -4,14 +4,15 @@ import (
 	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type handler struct {
 	svc *monitorlogs.Service
 }
 
-func NewHandler() *handler {
-	return &handler{svc: monitorlogs.NewService()}
+func NewHandler(db *gorm.DB) *handler {
+	return &handler{svc: monitorlogs.NewService(db)}
 }
 
 func resolveOperator(c *gin.Context) string {

@@ -145,6 +145,51 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 - `file 无数据`：检查 `log.file.info_file_path/error_file_path` 路径与权限。
 - `stdio 无数据`：确认进程已输出日志；该模式仅保留最近窗口，不保证跨重启历史。
 
+详细步骤可参考：`specs/027-monitor-center/checklists/logs-trace-e2e.md`
+
+## 8.2 Log Retention（统一日志保留）验收
+
+在 `config/powerx.env.local`（本地）或 `/etc/powerx/powerx.env`（生产）启用 `log.retention`（示例）：
+
+```bash
+CORE_X_LOG_RETENTION_ENABLED=true
+CORE_X_LOG_RETENTION_CRON="10 3 * * *"
+CORE_X_LOG_RETENTION_TIMEZONE=Asia/Shanghai
+CORE_X_LOG_RETENTION_DEFAULT_DAYS=30
+```
+
+或在 `config.yaml` 中配置：
+
+```yaml
+log:
+  retention:
+    enabled: true
+    cron: "10 3 * * *"
+    default_retention_days: 30
+```
+
+验收步骤：
+- 触发一次手动清理（或等待定时任务）；
+- 查询监控中心 Logs/Trace 中“日志保留任务最近执行”；
+- 确认输出包含：`source`、`deleted_count`、`duration_ms`、`status`、`error`（失败时）。
+
+可选 API 验证：
+
+```bash
+# 立即执行一次日志保留清理
+curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/monitor/logs/retention/run" \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# 查看最近执行记录
+curl -sS "http://127.0.0.1:8080/api/v1/admin/monitor/logs/retention/runs?limit=20" \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
+通过标准：
+- 文件日志和数据库日志均按 retention 生效；
+- 清理失败时可在页面与日志中看到明确错误原因；
+- 连续执行后磁盘使用率与日志表增长趋势可控。
+
 ## 9. OTel 与指标验证（Phase 6）
 
 ```bash

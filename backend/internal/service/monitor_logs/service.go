@@ -1,19 +1,23 @@
 package monitorlogs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	driver    Driver
 	providers map[Driver]Provider
+	retention *RetentionService
 }
 
-func NewService() *Service {
+func NewService(db *gorm.DB) *Service {
+	_ = db
 	cfg := config.GetGlobalConfig()
 	driver := detectDriver(cfg)
 
@@ -22,7 +26,11 @@ func NewService() *Service {
 	providers[DriverFile] = NewFileProvider(cfg)
 	providers[DriverStdio] = NewStdioProvider(cfg)
 
-	return &Service{driver: driver, providers: providers}
+	return &Service{
+		driver:    driver,
+		providers: providers,
+		retention: GetRetentionService(),
+	}
 }
 
 func (s *Service) GetConfig() (ConfigView, error) {
@@ -48,6 +56,34 @@ func (s *Service) Query(req QueryRequest) (QueryResult, error) {
 		req.PageSize = 200
 	}
 	return p.Query(req)
+}
+
+func (s *Service) RetentionRuns(limit int) RetentionRunList {
+	if s == nil || s.retention == nil {
+		return RetentionRunList{}
+	}
+	return s.retention.ListRuns(limit)
+}
+
+func (s *Service) TriggerRetentionNow(ctx context.Context, operator string) (RetentionRun, error) {
+	if s == nil || s.retention == nil {
+		return RetentionRun{}, fmt.Errorf("retention service unavailable")
+	}
+	return s.retention.TriggerNow(ctx, operator), nil
+}
+
+func (s *Service) GetRetentionPolicy() (RetentionPolicy, error) {
+	if s == nil || s.retention == nil {
+		return RetentionPolicy{}, fmt.Errorf("retention service unavailable")
+	}
+	return s.retention.Policy(), nil
+}
+
+func (s *Service) UpdateRetentionPolicy(ctx context.Context, policy RetentionPolicy, operator string) (RetentionPolicy, error) {
+	if s == nil || s.retention == nil {
+		return RetentionPolicy{}, fmt.Errorf("retention service unavailable")
+	}
+	return s.retention.UpdatePolicy(ctx, policy, operator)
 }
 
 func (s *Service) currentProvider() (Provider, error) {

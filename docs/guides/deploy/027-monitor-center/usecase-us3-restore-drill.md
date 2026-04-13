@@ -1,35 +1,43 @@
-# Use Case：US3 快速演练恢复可用性
+# Use Case US3：触发恢复任务验证可用性
 
 ## 1. 功能背景与目标
-- 背景：仅有备份文件不代表可恢复。
-- 目标：支持按备份来源发起恢复演练，并可追踪状态与结果。
+
+### 1.1 为什么要做
+- 业务背景：备份价值最终由“可恢复”定义。
+- 当前痛点：只看备份成功并不能证明文件可用。
+- 目标收益：通过恢复任务验证备份有效性，并记录 RTO/结果摘要。
+
+### 1.2 本文解决什么问题
+- 面向角色：运维、QA。
+- 本文范围：从作业触发恢复任务并查看结果。
+- 非本文范围：生产级全量灾备切换。
 
 ## 2. 角色与适用范围
-- 角色：Root 管理员、运维、QA。
-- 范围：恢复演练创建、列表、详情、实时状态展示。
+
+- 运维：执行恢复任务和结果复核。
+- QA：验证成功/失败分支可观察。
+- 环境：local/staging（prod 需严格隔离）。
 
 ## 3. 整体架构与模块关系
 
 ```mermaid
 flowchart LR
-  UI["RestoreDrillPanel"] --> API["/api/v1/admin/ops/backup/restore-drills*"]
-  API --> H["Trigger/List/Get handler"] --> S["RestoreDrillService"] --> R["RestoreDrillRepository"] --> DB[(PostgreSQL)]
-  S --> SCRIPT["restore-drill.sh"]
+  UI["/ops/backup 恢复按钮"] --> API["/admin/ops/backup/restore-drills*"]
+  API --> SVC["restore_drill_service"]
+  SVC --> SCRIPT["restore-drill.sh"]
+  SVC --> DB["restore_drill_records"]
 ```
 
 ## 4. 核心流程
 
 ```mermaid
 flowchart TD
-  A[输入 source_job_id 或 artifact_id] --> B[校验来源可用性]
-  B -->|失败| E[返回 backup.invalid_restore_drill_request]
-  B -->|通过| C[创建 queued 记录]
-  C --> D[状态迁移到 running]
-  D --> F[执行 restore-drill.sh]
-  F -->|成功| G[写入 success + rto_seconds]
-  F -->|失败| H[写入 failed + 错误摘要]
-  G --> I[返回 drill 结果]
-  H --> I
+  A[选择 source_job/artifact] --> B[触发 restore-drill]
+  B --> C{脚本执行成功?}
+  C -->|是| D[状态 success + rto_seconds]
+  C -->|否| E[状态 failed + error_summary]
+  D --> F[页面显示结果]
+  E --> F
 ```
 
 ## 5. 跨角色协作流程
@@ -37,89 +45,104 @@ flowchart TD
 ```mermaid
 flowchart LR
   subgraph L1[Web Admin]
-    U1[点击“触发恢复演练”]
-    U2[查看演练历史与状态]
+    U1[发起恢复任务]
+    U2[查看任务结果]
   end
   subgraph L2[PowerX Backend]
-    B1[Handler 接收请求]
-    B2[RestoreDrillService 状态机]
-    B3[DB 持久化 + Audit]
+    B1[创建任务记录]
+    B2[执行恢复脚本]
+    B3[更新状态]
   end
-  subgraph L3[External]
-    X1[restore-drill.sh]
+  subgraph L3[Target DB]
+    X1[接收恢复数据]
   end
   U1 --> B1 --> B2 --> X1 --> B3 --> U2
 ```
 
 ## 6. 前置条件与依赖
-- 至少存在一个可用作业/产物。
-- `backend/scripts/ops/restore-drill.sh` 可执行。
 
-## 7. 操作步骤（按场景拆分）
+- 至少有一条成功备份作业（包含可用 `storage_uri`）。
+- 恢复脚本存在：`backend/scripts/ops/restore-drill.sh`。
+- 目标库连接配置正确且隔离。
 
-### 7.1 页面操作步骤
-1. 动作：在备份中心触发演练。
-   - 入口：`/ops/backup` -> “触发恢复演练”。
-   - 预期结果：面板显示“最近一次演练状态”。
-   - 失败处理：查看接口错误与后端日志。
-2. 动作：观察历史与实时状态。
-   - 入口：恢复演练面板“演练历史（最近10条）”。
-   - 预期结果：看到 `queued/running/success/failed` 与 `trace_id`。
-   - 失败处理：若无实时更新，检查 WS 连接与 topic 发布。
+## 7. 操作步骤（可执行）
 
-### 7.2 接口调用步骤
+### 场景 A：页面操作（Web Admin）
+1. 动作：在备份中心选择成功作业并点击“恢复数据任务”。  
+入口：`/ops/backup`。  
+预期结果：新增一条恢复任务记录。  
+失败处理：查看任务详情中的失败原因。
+
+2. 动作：展开任务详情查看 `status/rto_seconds/result_summary`。  
+入口：恢复任务列表。  
+预期结果：状态明确为 `success` 或 `failed`。  
+失败处理：复制 `trace_id` 到日志页查询。
+
+### 场景 B：接口调用（Admin API）
+1. 触发命令：
 ```bash
-# 发起演练（按 source_job_id）
-curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills" \
-  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"source_job_id":"<JOB_ID>","reason":"weekly-drill"}' | jq
-
-# 查询列表
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills?page=1&page_size=20" \
-  -H "Authorization: Bearer <TOKEN>" | jq
-
-# 查询详情
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/<DRILL_ID>" \
-  -H "Authorization: Bearer <TOKEN>" | jq
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"source_job_id":"5","reason":"manual-check"}' \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/run" | jq
 ```
-- 预期结果：返回 `data.drill` 或 `data.items`，状态可见。
-- 失败处理：`backup.restore_drill_not_found` 表示目标不存在。
-
-### 7.3 本地联调步骤
+2. 查询命令：
 ```bash
-cd backend && GOCACHE=$PWD/../tmp/gocache GOMODCACHE=$PWD/../tmp/gomodcache go test ./internal/service/backup_ops -run TestJobService_TryLockPolicy_ReentrantBlocked -count=1
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills?page=1&page_size=20" | jq
 ```
-- 预期结果：测试通过，基本并发防护有效。
-- 失败处理：检查 `job_service.go` 锁逻辑与状态流转。
+3. 失败处理：
+```bash
+journalctl -u powerx-backend -n 300 --no-pager | grep -E "backup.restore_drill|restore"
+```
+
+### 场景 C：本地联调
+1. 启动命令：
+```bash
+cd backend && make dev
+cd web-admin && npm run dev
+```
+2. 验证命令：
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills?page=1&page_size=10" | jq
+```
+3. 日志定位：
+```bash
+journalctl -u powerx-backend -n 300 --no-pager | grep -E "restore_drill|trace_id"
+```
 
 ## 8. 预期结果与验收标准
-- [ ] 演练请求可创建记录。
-- [ ] 状态机符合 queued->running->success/failed。
-- [ ] 历史列表和详情可查询。
-- [ ] 页面可展示状态、rto、trace。
+
+- [ ] 恢复任务可创建并进入状态机。
+- [ ] 成功时有 RTO/结果摘要；失败时有明确错误信息。
+- [ ] 可用 trace_id 继续在 Logs/Trace 页面定位。
 
 ## 9. 代码实现映射
 
-| 步骤 | 代码路径 | 说明 |
+| 文档步骤 | 代码位置 | 说明 |
 |---|---|---|
-| 路由 | `backend/internal/transport/http/admin/backup/routes.go` | `restore-drills*` 路由 |
-| Handler | `backend/internal/transport/http/admin/backup/handler.go` | Trigger/List/Get |
-| 服务 | `backend/internal/service/backup_ops/restore_drill_service.go` | 校验、状态机、脚本执行 |
-| 状态机 | `backend/internal/service/backup_ops/job_state_machine.go` | queued/running/success/failed |
-| 前端展示 | `web-admin/app/components/ops/backup/RestoreDrillPanel.vue` | 状态与历史展示 |
+| 恢复路由 | `backend/internal/transport/http/admin/backup/routes.go` | `/restore-drills*` |
+| 恢复 handler | `backend/internal/transport/http/admin/backup/handler.go` | Trigger/List/Get |
+| 恢复服务 | `backend/internal/service/backup_ops/restore_drill_service.go` | 状态机与审计 |
+| 脚本执行 | `backend/internal/service/backup_ops/script_runner.go` | 调用恢复脚本 |
 
 ## 10. 常见问题与排障
-- Q：演练一直失败。
-  - 现象：状态为 `failed`，`result_summary` 为脚本错误。
-  - 排查：检查 `restore-drill.sh` 执行权限与输入作业是否有效。
-  - 修复：修复脚本环境后重新发起演练。
+
+### Q1：恢复任务失败但 UI 看不懂
+- 现象：状态 failed，错误描述不明确。
+- 排查命令：
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/<drill_id>" | jq
+```
+- 修复建议：结合 `trace_id` 到 `/monitor/logs-trace` 检索并确认脚本失败点。
 
 ## 11. 回滚与风险控制
-- 演练属于验证动作，不应直接改写生产数据。
-- 若演练导致异常负载：暂停触发，优先保证备份链路稳定。
+
+- 回滚开关：停止恢复任务触发，仅保留备份执行。
+- 回滚步骤：停用策略恢复链路按钮（或临时屏蔽操作流程）。
+- 风险提示：恢复目标库必须隔离，避免覆盖业务库。
 
 ## 12. 变更记录
-- 版本：v0.3
-- 日期：2026-04-11
-- 修改人：Codex
-- 变更：首次生成 US3 指导文档。
+
+- 2026-04-13 / Codex：首版 US3 指导文档。

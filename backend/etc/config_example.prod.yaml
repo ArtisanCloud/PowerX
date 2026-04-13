@@ -124,6 +124,25 @@ log:
     job_name: corex
     batch_wait: 1
     batch_size: 100
+  retention:
+    enabled: true
+    cron: "10 3 * * *"
+    timezone: Asia/Shanghai
+    default_retention_days: 30
+    file_paths:
+      - logs
+    db_tables:
+      - name: audit_event
+        time_column: occurred_at
+        retention_days: 30
+      - name: admin_console_audit_events
+        time_column: created_at
+        retention_days: 30
+      - name: runtime_audit_events
+        time_column: created_at
+        retention_days: 14
+    batch_size: 5000
+    max_delete_rows_per_run: 200000
   agent_debug:
     enable: false
     dir: logs/agent_debug

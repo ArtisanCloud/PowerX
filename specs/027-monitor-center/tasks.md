@@ -217,3 +217,23 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - [X] T058 [US4] quickstart 补充三驱动验收步骤与故障排查：`specs/027-monitor-center/quickstart.md`
 
 **Checkpoint**: US4 可独立验收（多驱动可用、能力提示清晰、排障链路完整）。
+
+---
+
+## Phase 8: User Story 5 - 统一日志保留与定时清理 (Priority: P1)
+
+**Goal**: 在 `log.retention` 下统一治理文件日志与数据库日志保留，避免磁盘与日志表无限增长。
+
+**Independent Test**: 启用 `log.retention` 后，管理员可观察到定时清理执行记录，且文件/DB 日志都按策略删除过期数据。
+
+### Implementation for User Story 5
+
+- [X] T059 [US5] 扩展日志配置模型与校验（`log.retention` 配置项、默认值、合法性校验）：`backend/config/config.go`、`backend/config/defaults.go`、`backend/config/validator.go`
+- [X] T060 [US5] 实现统一日志保留调度器（cron 触发、批量删除上限、失败重试与状态记录）：`backend/internal/service/monitor_logs/retention_service.go`
+- [X] T061 [P] [US5] 实现文件日志清理器（多目录、按 mtime + retention_days 清理）：`backend/internal/service/monitor_logs/file_retention_provider.go`
+- [X] T062 [P] [US5] 实现数据库日志清理器（`audit_event` + 兼容日志表，分批 DELETE）：`backend/internal/service/monitor_logs/db_retention_provider.go`
+- [X] T063 [US5] 增加日志保留执行审计与结构化日志字段（source/deleted_count/duration/status/error）：`backend/internal/service/monitor_logs/retention_service.go`
+- [X] T064 [P] [US5] 监控中心 Logs/Trace 页面增加“日志保留任务最近执行”展示：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [X] T065 [US5] quickstart 增加 `log.retention` 配置样例与验收步骤：`specs/027-monitor-center/quickstart.md`
+
+**Checkpoint**: US5 可独立验收（统一策略生效、执行可见、失败可排障）。

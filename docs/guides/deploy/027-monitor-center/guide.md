@@ -1,231 +1,187 @@
-# 自动备份闭环（027-monitor-center）使用指导（版本：v0.3）
+# 监控中心闭环（Backup + Logs）使用指导（版本：v0.2）
 
 ## 1. 功能背景与目标
 
 ### 1.1 为什么要做
-- 业务背景：生产环境需要稳定的数据库备份与可恢复能力，且需要在监控中心可观察。
-- 当前痛点：仅“有备份脚本”无法保证可持续执行与可追踪，失败后定位成本高。
-- 目标收益：形成“策略 -> 作业 -> 告警 -> 演练”闭环，降低数据风险与值班成本。
+- 业务背景：PowerX 需要把“备份可执行、恢复可验证、日志可定位”沉淀为统一运维能力。
+- 当前痛点：历史上存在“有备份任务但不可观测”、“失败只能查服务器日志”、“驱动差异导致页面行为不一致”。
+- 目标收益：在监控中心形成端到端闭环，Root 管理员可在一个入口完成策略配置、任务观测、恢复验证、日志排障。
 
 ### 1.2 本文解决什么问题
-- 面向角色：Root 管理员、运维、QA、后端研发、前端研发。
-- 本文范围：自动备份策略管理、任务监控、告警确认、恢复演练、观测与回滚。
-- 非本文范围：gRPC 合同与实现（本期仅 Admin HTTP）。
+- 面向角色：平台管理员（Root）、运维、QA、研发。
+- 本文范围：`027-monitor-center` 的 Backup + Logs 功能（Admin HTTP、Web Admin）。
+- 非本文范围：gRPC 对外合同、多集群备份编排、对象存储生命周期治理。
 
 ## 2. 角色与适用范围
 
-- 适用环境：dev/staging/prod（建议先在 staging 验证）。
-- 权限要求：Root 管理员，且具备 `ops.backup` 读写能力（后端通过 `RequireOpsPermission` 校验）。
-- 入口页面：`/ops/backup`（备份恢复中心）、`/monitor`（监控中心，含备份入口跳转）。
+| 角色 | 主要职责 | 环境 |
+|---|---|---|
+| Root 管理员 | 策略配置、手动触发、恢复任务、日志查询 | dev / staging / prod |
+| 运维 | 调度巡检、故障排查、回滚操作 | staging / prod |
+| QA | 主链路与失败分支验收 | dev / staging |
+| 研发 | 本地联调与问题定位 | local dev |
+
+权限边界：
+- 本特性所有入口默认按 Root 或 `platform_ops.backup` 权限控制。
+- Logs API 当前复用 Ops Backup 读权限中间件。
 
 ## 3. 整体架构与模块关系
 
 ```mermaid
 flowchart LR
-  UI["Web Admin /ops/backup"] --> API["Admin API /api/v1/admin/ops/backup/*"]
-  API --> HANDLER["backup handler"]
-  HANDLER --> SVC["PolicyService/JobService/AlertService/RestoreDrillService"]
-  SVC --> REPO["Repository (Policy/Job/Artifact/Drill/Alert)"]
-  REPO --> DB[(PostgreSQL)]
-  SVC --> SCRIPT["backend/scripts/ops/*.sh"]
-  SVC --> OBS["OTel Metrics + Structured Logs + Audit"]
-  UI --> WS["WSBus 订阅 _topic.ops.backup.restore_drill.status"]
-  WS --> UI
+  UI["Web Admin\n/ops/backup\n/monitor/logs-trace"] --> API["Admin API\n/api/v1/admin/ops/backup/*\n/api/v1/admin/monitor/logs/*"]
+  API --> SVC1["backup_ops service"]
+  API --> SVC2["monitor_logs service"]
+  SVC1 --> DB["PostgreSQL\npolicy/job/artifact/drill/alert"]
+  SVC1 --> FS["备份产物目录\n(tmp/ops-backup 或 /var/lib/powerx/ops-backup)"]
+  SVC2 --> LOGDRV["Log Driver\nloki/file/stdio"]
+  LOGDRV --> EXT["Loki / Grafana / 本地日志文件 / 进程 ring buffer"]
 ```
 
-- 前端模块：
-  - `web-admin/app/pages/ops/backup.vue`
-  - `web-admin/app/components/ops/backup/RestoreDrillPanel.vue`
-  - `web-admin/app/composables/api/services/backupOpsService.ts`
-- 后端模块：
-  - `backend/internal/transport/http/admin/backup/routes.go`
-  - `backend/internal/transport/http/admin/backup/handler.go`
-  - `backend/internal/service/backup_ops/*.go`
-- 外部依赖：PostgreSQL、脚本执行环境、OTel/Prometheus。
+- 前端模块：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`、`/ops/backup` 页面。
+- 后端模块：`backup` handler + `backup_ops` service，`monitor` handler + `monitor_logs` service。
+- 外部依赖：PostgreSQL、可选 Loki/Grafana、系统文件系统、systemd 日志。
+- 与其他功能关系：与事件总线监控、审计日志、OTel 指标共同组成运维观测面。
 
 ## 4. 核心流程
 
 ```mermaid
 flowchart TD
-  A[输入: Root 在 /ops/backup 提交策略或触发动作] --> B[后端校验参数与权限]
-  B -->|通过| C[Service 执行: 策略落库/触发作业/演练]
-  B -->|失败| E[返回 4xx + 业务错误码]
-  C --> D[写入 Job/Alert/Drill + 审计 + 指标]
-  D --> F[输出: 页面列表与详情更新]
-  D -->|脚本或执行失败| G[记录 failed + 生成告警]
-  G --> H[运维处理/必要时回滚发布]
+  A["输入：管理员配置策略/查询日志"] --> B["Admin API 参数与权限校验"]
+  B -->|通过| C["backup_ops 或 monitor_logs 执行业务"]
+  B -->|失败| E["返回 4xx 并记录审计/请求日志"]
+  C --> D["写库/读日志驱动/生成结果"]
+  D -->|成功| F["页面展示状态、历史、日志明细"]
+  D -->|失败| G["返回错误 + hint + trace_id"]
+  G --> H["运维按日志/API 继续排障或回滚"]
 ```
 
-## 5. 跨角色协作流程
+## 5. 跨角色协作流程（泳道图）
 
 ```mermaid
 flowchart LR
-  subgraph L1["Web Admin（Root/QA）"]
-    U1["配置策略/触发备份"]
+  subgraph L1["Web Admin（管理员/QA）"]
+    U1["配置策略 / 手动触发"]
     U2["查看作业与告警"]
-    U3["触发恢复演练"]
+    U3["Logs/Trace 查询"]
   end
 
   subgraph L2["PowerX Backend"]
-    B1["Handler + RBAC"]
-    B2["backup_ops 服务层"]
-    B3["DB/Audit/Metrics"]
+    B1["backup handler + service"]
+    B2["monitor logs handler + service"]
+    B3["审计与结构化日志"]
   end
 
-  subgraph L3["External System（脚本/存储）"]
-    X1["backup-db.sh"]
-    X2["cleanup-backups.sh / restore-drill.sh"]
-    X3["rollback-release.sh"]
+  subgraph L3["External Systems"]
+    X1["PostgreSQL + 文件系统"]
+    X2["Loki/Grafana 或 file/stdio"]
   end
 
-  U1 --> B1 --> B2 --> X1 --> B3 --> U2
-  U3 --> B1 --> B2 --> X2 --> B3 --> U2
-  B2 -->|连续失败/异常| U2
-  U2 -->|高风险处置| X3
+  U1 --> B1 --> X1 --> B3 --> U2
+  U3 --> B2 --> X2 --> B3 --> U3
 ```
 
 ## 6. 前置条件与依赖
 
 ### 6.1 配置
-- 必要：`TOKEN`（Root 登录态）。
-- 推荐：
-  - `OTEL_EXPORTER_OTLP_ENDPOINT`
-  - `OTEL_SERVICE_NAME=powerx-backend`
-- 可选：`POWERX_OPS_SCRIPT_DIR`（覆盖默认脚本目录 `backend/scripts/ops`）。
+- 基础配置：`backend/etc/config.yaml` 或 `POWERX_CONFIG` 指定路径。
+- 关键项：
+  - 备份：`POWERX_OPS_SCRIPT_DIR`、`POWERX_OPS_BACKUP_ARTIFACT_DIR`、`POWERX_OPS_BACKUP_SOURCE_DSN`（可选）
+  - 日志驱动：`log.loki.enable/url`、`log.file.enable/info_file_path/error_file_path`
+  - 回退项：`POWERX_LOG_DRIVER`（`loki|file`，未命中时默认 `stdio`）
+- 配置优先级（日志驱动）：
+  1. `log.loki.enable=true` -> `loki`
+  2. `log.file.enable=true` -> `file`
+  3. `POWERX_LOG_DRIVER` -> `loki/file`
+  4. 默认 `stdio`
 
 ### 6.2 权限与数据
-- 角色：Root 管理员。
-- 初始数据：目标备份标识（默认 `powerx_bak`）。
-- 数据库：已执行包含 `backup_policy/job/artifact/drill/alert` 的迁移。
+- 需要 Root 登录态（或具备 Ops Backup 对应 RBAC 权限）。
+- 至少存在 1 条可用备份策略用于观测。
+- 若验证恢复链路，需可访问源库与目标探测库。
 
-### 6.3 运行依赖
-- backend 与 web-admin 可启动。
-- 脚本可执行：`backup-db.sh`、`cleanup-backups.sh`、`restore-drill.sh`、`rollback-release.sh`。
+### 6.3 依赖可用性
+- `pg_dump`/`psql` 可执行（备份/恢复脚本依赖）。
+- 若使用 Loki：`log.loki.url` 网络可达。
 
 ## 7. 操作步骤（按场景拆分）
 
-### 7.1 Use Case 索引
+本特性按可独立验收链路拆分为 4 个 Use Case：
 
 | Use Case | 文档 | 适用角色 | 验收口径 |
 |---|---|---|---|
-| US1 自动备份策略配置与启停 | [usecase-us1-policy-automation.md](./usecase-us1-policy-automation.md) | Root/QA | 策略可创建、可编辑、可启停，默认值正确 |
-| US2 任务与告警监控 | [usecase-us2-monitor-and-alert.md](./usecase-us2-monitor-and-alert.md) | Root/运维/QA | 作业历史可见，失败可见，告警可确认 |
-| US3 恢复演练可用性验证 | [usecase-us3-restore-drill.md](./usecase-us3-restore-drill.md) | Root/运维/QA | 演练可发起、状态可追踪、结论可判定 |
-
-### 7.2 页面操作步骤（Web Admin）
-1. 动作：进入备份中心页面。
-   - 入口：`/ops/backup`
-   - 预期结果：看到“备份恢复中心”标题和“策略管理/执行动作/告警列表/恢复演练”。
-   - 失败处理：检查是否 Root 权限，查看页面提示与 `permissionHint`。
-2. 动作：创建策略并启用。
-   - 入口：策略管理表单 + 策略列表“启用”按钮。
-   - 预期结果：列表出现策略，状态为“启用中”。
-   - 失败处理：按表单错误提示修正（如时区非法）。
-
-### 7.3 接口调用步骤（Admin API）
-1. 动作：创建策略。
-   - 命令：
-```bash
-curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/policies" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"prod-default-policy","interval_hours":6,"retention_count":14,"timezone":"Asia/Shanghai","drill_enabled":true,"drill_interval_days":7,"target_ref":"powerx_bak"}' | jq
-```
-   - 预期结果：`data.policy.id` 非空。
-   - 失败处理：查看 `message/error/details.code`（如 `backup.invalid_policy`）。
-2. 动作：触发作业并查看历史。
-   - 命令：
-```bash
-curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs/run" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"policy_id":"<POLICY_ID>"}' | jq
-
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?page=1&page_size=20" \
-  -H "Authorization: Bearer $TOKEN" | jq
-```
-   - 预期结果：`data.job` 与 `data.items` 返回有效。
-   - 失败处理：如 `backup.policy_busy`，等待运行中任务结束后重试。
-
-### 7.4 本地联调步骤（backend/web-admin/脚本）
-1. 动作：启动服务。
-   - 命令：
-```bash
-cd backend && make dev
-cd web-admin && npm run dev
-```
-   - 预期结果：`/ops/backup` 可访问。
-   - 失败处理：检查端口占用、环境变量、日志权限。
-2. 动作：校验指标与日志。
-   - 命令：
-```bash
-curl -sS http://127.0.0.1:2112/metrics | grep -E "powerx_ops_backup_total|powerx_ops_backup_error_total|powerx_ops_backup_latency_ms"
-journalctl -u powerx-backend -n 300 --no-pager | grep -E "backup\.api|backup\.job\.execute|backup\.restore_drill\.execute"
-```
-   - 预期结果：指标有数据，日志含结构化字段（`policy_id/job_id/drill_id/status/trace_id`）。
-   - 失败处理：确认 OTel/Prometheus 暴露与 backend 日志级别。
+| US1 配置并启用自动备份策略 | [usecase-us1-policy-automation.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/docs/guides/deploy/027-monitor-center/usecase-us1-policy-automation.md) | 管理员/QA | 策略保存成功且能启停 |
+| US2 监控备份任务状态与历史 | [usecase-us2-monitor-and-alert.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/docs/guides/deploy/027-monitor-center/usecase-us2-monitor-and-alert.md) | 运维/QA | 可观察作业、告警、摘要 |
+| US3 触发恢复任务验证可用性 | [usecase-us3-restore-drill.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/docs/guides/deploy/027-monitor-center/usecase-us3-restore-drill.md) | 运维/QA | 恢复任务有明确成功/失败结论 |
+| US4 日志与链路追踪监控 | [usecase-us4-logs-trace.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/docs/guides/deploy/027-monitor-center/usecase-us4-logs-trace.md) | 运维/研发/QA | 三驱动能力一致、可查询可排障 |
 
 ## 8. 预期结果与验收标准
 
-- [ ] Root 可在 3 分钟内完成策略创建与启用。
-- [ ] 自动备份按策略触发，作业历史可检索。
-- [ ] 连续失败会升级高优先级告警，且可在页面确认。
-- [ ] 恢复演练有明确状态与结果摘要。
-- [ ] 指标、日志、trace_id 可用于端到端排障。
+- [ ] 策略创建、启停、设为当前策略可用。
+- [ ] 自动/手动作业记录可分页查询，失败摘要清晰。
+- [ ] 恢复任务可执行，状态机可见（queued/running/success/failed）。
+- [ ] Logs/Trace 页根据 `loki/file/stdio` 正确降级。
+- [ ] 至少完成 1 条失败分支验收（如脚本缺失、驱动不可达）。
+- [ ] 审计/日志可检索到 `monitor.logs.config`、`monitor.logs.query`。
 
 ## 9. 代码实现映射
 
 | 文档步骤 | 代码位置 | 说明 |
 |---|---|---|
-| 路由注册 | `backend/internal/transport/http/admin/backup/routes.go` | `/admin/ops/backup/*` 与兼容 `/admin/backup/*` |
-| Handler | `backend/internal/transport/http/admin/backup/handler.go` | 参数校验、统一回包、结构化日志 |
-| 策略服务 | `backend/internal/service/backup_ops/policy_service.go` | 默认值注入、时区校验、启停 |
-| 作业/调度服务 | `backend/internal/service/backup_ops/job_service.go` | 触发、调度、防重入、清理、周演练触发 |
-| 演练服务 | `backend/internal/service/backup_ops/restore_drill_service.go` | queued/running/success/failed 状态机 |
-| 告警服务 | `backend/internal/service/backup_ops/alert_service.go` | 连续失败升级 high、告警确认 |
-| 可观测性 | `backend/internal/service/backup_ops/instrumentation/metrics.go` | `operation/result` 标签指标 |
-| 前端页面 | `web-admin/app/pages/ops/backup.vue` | 策略/作业/告警/演练一体化页面 |
-| 前端 API 客户端 | `web-admin/app/composables/api/services/backupOpsService.ts` | 备份域 API 封装 |
-| E2E Smoke | `web-admin/tests/e2e/ops/backup-center.spec.ts` | 主链路回归样例 |
+| 备份路由入口 | `backend/internal/transport/http/admin/backup/routes.go` | `/admin/ops/backup/*` 注册与权限中间件 |
+| 备份 Handler | `backend/internal/transport/http/admin/backup/handler.go` | 策略/作业/恢复/告警 API |
+| 备份核心逻辑 | `backend/internal/service/backup_ops/*.go` | 调度、执行、清理、恢复、告警 |
+| 监控日志路由入口 | `backend/internal/transport/http/admin/monitor/routes.go` | `/admin/monitor/logs/config|query` |
+| 监控日志 Handler | `backend/internal/transport/http/admin/monitor/log_config_handler.go`、`log_query_handler.go` | 配置查询、日志查询、审计日志 |
+| 日志驱动适配 | `backend/internal/service/monitor_logs/*.go` | loki/file/stdio provider dispatch |
+| stdio ring buffer | `backend/pkg/utils/logger/runtimebuffer/buffer.go`、`backend/pkg/utils/logger/manager.go` | stdout 同步写入 ring buffer |
+| 前端监控页面 | `web-admin/app/components/monitor/MonitorCenterWorkspace.vue` | Logs/Trace 能力感知 UI |
+| 前端 API 客户端 | `web-admin/app/composables/api/services/monitorService.ts` | `logs/config` + `logs/query` |
+| 前端状态存储 | `web-admin/app/stores/monitorLogs.ts` | 配置、列表、分页、query_meta |
 
 ## 10. 常见问题与排障
 
-### Q1：接口返回 `backup.policy_busy`
-- 现象：触发备份返回冲突。
+### Q1：Logs 页没有 provider/model 或日志能力空白
+- 现象：Logs/Trace 页面无数据或 driver 与预期不一致。
 - 排查命令：
 ```bash
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?status=running&page=1&page_size=20" -H "Authorization: Bearer $TOKEN" | jq
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/config" | jq
 ```
-- 修复建议：等待运行中的同策略任务结束，避免并发触发。
+- 修复建议：检查 `config.yaml` 的 `log.loki`/`log.file` 与 backend 重启状态。
 
-### Q2：恢复演练状态不更新
-- 现象：页面显示“实时推送未连接”或状态停留。
+### Q2：备份任务成功但产物太小或不可恢复
+- 现象：`size_bytes` 异常小或恢复失败。
 - 排查命令：
 ```bash
-journalctl -u powerx-backend -n 300 --no-pager | grep -E "restore_drill|_topic.ops.backup.restore_drill.status"
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?page=1&page_size=20" | jq
+journalctl -u powerx-backend -n 300 --no-pager | grep -E "backup.job.execute|error"
 ```
-- 修复建议：确认 WS 链路可用，确认后端是否发布 `_topic.ops.backup.restore_drill.status` 事件。
+- 修复建议：检查 `pg_dump` 可执行性、源库 DSN、脚本路径与执行权限。
 
-### Q3：日志出现脚本执行失败
-- 现象：`trigger cleanup failed` 或作业 `failed`。
+### Q3：stdio 模式查不到历史日志
+- 现象：查询结果仅少量或为空。
 - 排查命令：
 ```bash
-ls -l backend/scripts/ops/*.sh
-journalctl -u powerx-backend -n 500 --no-pager | grep -E "backup-db|cleanup-backups|restore-drill"
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/query?page=1&page_size=20" | jq '.data.query_meta'
 ```
-- 修复建议：检查脚本可执行权限、脚本目录配置（`POWERX_OPS_SCRIPT_DIR`）与目标环境连通性。
+- 修复建议：stdio 仅保证最近窗口；需要历史检索时切换到 `file` 或 `loki`。
 
 ## 11. 回滚与风险控制
 
-- 回滚开关：停用策略 `POST /admin/ops/backup/policies/{policy_id}/disable`。
+- 回滚开关：
+  - 临时停用自动备份策略：`POST /api/v1/admin/ops/backup/policies/{id}/disable`
+  - 临时停止日志深链依赖：关闭 `log.loki.enable` 并重启 backend
 - 回滚步骤：
-  1. 停用策略，防止继续触发失败任务。
-  2. 确认高优先级告警并记录处置。
-  3. 如与发布变更相关，执行 `backend/scripts/ops/rollback-release.sh` 回滚版本。
-- 风险提示：清理与演练失败不应阻塞新备份写入；但必须确保告警可见并及时处理。
+  1. 先停策略，避免持续失败告警扩大。
+  2. 若发布导致异常，执行 `backend/scripts/ops/rollback-release.sh`。
+  3. 使用作业历史与日志查询确认系统恢复。
+- 风险提示：
+  - 在 prod 切换日志驱动时，需确认可观测能力降级影响（Grafana 深链是否可用）。
+  - 恢复任务需确保目标库隔离，避免误覆盖业务库。
 
 ## 12. 变更记录
 
-- 版本：v0.3
-- 日期：2026-04-11
-- 修改人：Codex
-- 变更内容：基于 `027-monitor-center` 当前实现生成总览手册与分场景用例文档索引。
+- 2026-04-13 / Codex：新增监控中心闭环总览文档，拆分 4 条 Use Case 指导。

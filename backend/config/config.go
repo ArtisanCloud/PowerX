@@ -1009,8 +1009,43 @@ func loadFromEnv(cfg *Config) {
 	}
 
 	// LogConfig配置 - 使用外部logger配置
-	// 这里可以根据需要添加对LogConfig字段的环境变量支持
-	// 例如：cfg.LogConfig.Level, cfg.LogConfig.Format 等
+	if v := os.Getenv("CORE_X_LOG_RETENTION_ENABLED"); v != "" {
+		cfg.LogConfig.Retention.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_CRON")); v != "" {
+		cfg.LogConfig.Retention.Cron = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_TIMEZONE")); v != "" {
+		cfg.LogConfig.Retention.Timezone = v
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_DEFAULT_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.DefaultRetentionDays = n
+		}
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_BATCH_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.BatchSize = n
+		}
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_MAX_DELETE_ROWS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.MaxDeleteRowsPerRun = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_FILE_PATHS")); v != "" {
+		raw := strings.Split(v, ",")
+		paths := make([]string, 0, len(raw))
+		for i := range raw {
+			if p := strings.TrimSpace(raw[i]); p != "" {
+				paths = append(paths, p)
+			}
+		}
+		if len(paths) > 0 {
+			cfg.LogConfig.Retention.FilePaths = paths
+		}
+	}
+
 	if v := os.Getenv("CORE_X_AUDIT_PERSIST_TO_DB"); v != "" {
 		cfg.Audit.PersistToDB = strings.EqualFold(v, "true") || v == "1"
 	}

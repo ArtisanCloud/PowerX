@@ -60,3 +60,10 @@
 - Rationale: 降低密钥泄露风险，便于审计和限流，并统一错误语义。
 - Alternatives considered:
   - 前端直连 Loki：凭据暴露风险高，跨环境配置复杂。
+
+## Decision 10: 统一日志保留收敛到 `log.retention`
+- Decision: 采用 `log.retention` 作为唯一日志保留配置入口，统一治理文件日志与数据库日志记录清理。
+- Rationale: `log.file.max_age/max_backups` 只解决单文件 rotate，无法保证全局日志总量可控；必须补充统一计划清理机制防止磁盘与表膨胀。
+- Alternatives considered:
+  - 仅靠 rotate：DB 日志表与多目录日志不可控。
+  - 各模块独立清理脚本：治理口径分裂、排障复杂度高。

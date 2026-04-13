@@ -1,33 +1,41 @@
-# Use Case：US2 监控备份任务状态与告警
+# Use Case US2：监控备份任务状态与历史
 
 ## 1. 功能背景与目标
-- 背景：自动执行后，必须保证可观察与可干预。
-- 目标：管理员能看到作业历史、失败摘要、告警并完成确认。
+
+### 1.1 为什么要做
+- 业务背景：自动备份必须可观测，才能支撑值班与故障响应。
+- 当前痛点：任务失败后若无统一视图，定位时间长。
+- 目标收益：在监控中心与备份中心快速看到作业状态、失败摘要、告警。
+
+### 1.2 本文解决什么问题
+- 面向角色：运维、QA、管理员。
+- 本文范围：作业列表、告警列表、监控概览。
+- 非本文范围：恢复执行细节。
 
 ## 2. 角色与适用范围
-- 角色：Root 管理员、运维、QA。
-- 范围：作业列表/详情、告警列表/确认、监控概览。
+
+- 运维：日常巡检和告警确认。
+- QA：验证状态统计与分页过滤。
+- 环境：staging/prod 优先。
 
 ## 3. 整体架构与模块关系
 
 ```mermaid
 flowchart LR
-  UI["/ops/backup + /monitor"] --> API["/api/v1/admin/ops/backup/jobs|alerts"]
-  API --> H["job/alert handler"] --> S["JobService + AlertService"] --> DB[(PostgreSQL)]
+  UI["/monitor/task-cron + /ops/backup"] --> API["jobs/alerts/overview API"]
+  API --> SVC["job_service + alert_service"]
+  SVC --> DB["backup_jobs + backup_alerts"]
 ```
 
 ## 4. 核心流程
 
 ```mermaid
 flowchart TD
-  A[备份任务执行] --> B{是否失败}
-  B -->|否| C[记录 success]
-  B -->|是| D[记录 failed + 失败摘要]
-  D --> E[统计连续失败次数]
-  E -->|>=2| F[生成 high 告警]
-  E -->|<2| G[生成 medium 告警]
-  F --> H[页面可见并可确认]
-  G --> H
+  A[进入监控页面] --> B[拉取 overview + jobs + alerts]
+  B --> C{存在失败?}
+  C -->|否| D[展示健康状态]
+  C -->|是| E[高亮失败摘要 + 高优先告警]
+  E --> F[运维确认告警或触发排障]
 ```
 
 ## 5. 跨角色协作流程
@@ -35,87 +43,108 @@ flowchart TD
 ```mermaid
 flowchart LR
   subgraph L1[Web Admin]
-    U1[查看作业历史]
-    U2[查看并确认告警]
+    U1[查看 Task/Cron]
+    U2[查看备份中心列表]
   end
   subgraph L2[PowerX Backend]
-    B1[JobService 写入作业状态]
-    B2[AlertService 升级告警]
-    B3[API 返回列表]
+    B1[查询作业与告警]
+    B2[聚合 overview]
   end
-  subgraph L3[External]
-    X1[脚本执行结果]
+  subgraph L3[PostgreSQL]
+    D1[backup_jobs]
+    D2[backup_alerts]
   end
-  X1 --> B1 --> B2 --> B3 --> U1
-  B3 --> U2
+  U1 --> B1 --> D1
+  U2 --> B1 --> D2
+  D1 --> B2 --> U1
 ```
 
 ## 6. 前置条件与依赖
-- 至少已有一个策略并可触发作业。
-- Root `TOKEN` 可用。
 
-## 7. 操作步骤（按场景拆分）
+- 至少存在 1 条已启用策略。
+- 已有作业记录（手动或定时触发）。
+- Root 权限可读取监控页面。
 
-### 7.1 页面操作步骤
-1. 动作：查看作业历史。
-   - 入口：`/ops/backup` 的作业表格区域。
-   - 预期结果：看到状态、触发类型、耗时、trace。
-   - 失败处理：刷新并检查后端作业查询接口。
-2. 动作：筛选并确认告警。
-   - 入口：告警列表筛选项（级别、确认状态）+ “确认”按钮。
-   - 预期结果：告警状态变为已确认。
-   - 失败处理：查看 `alert_id` 是否存在、权限是否充足。
+## 7. 操作步骤（可执行）
 
-### 7.2 接口调用步骤
+### 场景 A：页面操作（Web Admin）
+1. 动作：打开 `监控中心 -> Task / Cron`。  
+入口：`/monitor/task-cron`。  
+预期结果：显示启用策略数、运行中任务数、24h 失败数。  
+失败处理：点击“刷新备份监控”，若仍失败查看 API 返回。
+
+2. 动作：打开 `运维中心 -> 备份中心` 查看作业与告警。  
+入口：`/ops/backup`。  
+预期结果：作业列表可按状态分页；失败作业有 `error_summary`。  
+失败处理：检查后端日志 `backup.api.*`。
+
+### 场景 B：接口调用（Admin API）
+1. 调用命令：
 ```bash
-# 作业列表
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?page=1&page_size=20&status=failed" \
-  -H "Authorization: Bearer <TOKEN>" | jq
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?page=1&page_size=20" | jq
 
-# 告警列表
-curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/alerts?level=high&acked=false&page=1&page_size=20" \
-  -H "Authorization: Bearer <TOKEN>" | jq
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/alerts?page=1&page_size=20&level=high" | jq
 
-# 确认告警
-curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/alerts/<ALERT_ID>/ack" \
-  -H "Authorization: Bearer <TOKEN>" | jq
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/backup/overview" | jq
 ```
-- 预期结果：列表返回 `data.items`，确认返回 `data.acked=true`。
-- 失败处理：若 `backup.alert_not_found`，检查告警 ID。
-
-### 7.3 本地联调步骤
+2. 预期响应：返回 `items + pagination`，overview 返回聚合字段。
+3. 失败处理：
 ```bash
-cd backend && GOCACHE=$PWD/../tmp/gocache GOMODCACHE=$PWD/../tmp/gomodcache go test ./internal/service/backup_ops -run TestAlertLevelForConsecutiveFailures -count=1
+journalctl -u powerx-backend -n 300 --no-pager | grep -E "backup.api|backup.job.execute|backup.alert"
 ```
-- 预期结果：测试通过，证明连续失败升级规则有效。
-- 失败处理：检查 `alert_service.go` 规则函数。
+
+### 场景 C：本地联调
+1. 启动命令：
+```bash
+cd backend && make dev
+cd web-admin && npm run dev
+```
+2. 制造样本：
+```bash
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"policy_id":"1"}' "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs/run" | jq
+```
+3. 验证命令：
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?policy_id=1&page=1&page_size=20" | jq
+```
 
 ## 8. 预期结果与验收标准
-- [ ] 失败作业可见且包含失败摘要。
-- [ ] 连续 2 次失败出现 high 告警。
-- [ ] 告警可确认且状态持久化。
+
+- [ ] 监控页可看到最新备份健康摘要。
+- [ ] 作业分页筛选有效。
+- [ ] 高优先告警可识别并确认。
 
 ## 9. 代码实现映射
 
-| 步骤 | 代码路径 | 说明 |
+| 文档步骤 | 代码位置 | 说明 |
 |---|---|---|
-| 作业查询 | `backend/internal/transport/http/admin/backup/handler.go` | `ListBackupJobs/GetBackupJob` |
-| 告警查询确认 | `backend/internal/transport/http/admin/backup/handler.go` | `ListAlerts/AckAlert` |
-| 失败升级规则 | `backend/internal/service/backup_ops/alert_service.go` | 连续失败到告警级别映射 |
-| 监控入口提示 | `web-admin/app/components/monitor/MonitorCenterWorkspace.vue` | 跳转备份中心 |
+| 监控概览接口 | `backend/internal/transport/http/admin/backup/routes.go` | `/admin/monitor/backup/overview` |
+| 作业查询 | `backend/internal/transport/http/admin/backup/handler.go` | ListBackupJobs/GetBackupJob |
+| 告警查询/确认 | `backend/internal/transport/http/admin/backup/handler.go` | ListAlerts/AckAlert |
+| 告警升级规则 | `backend/internal/service/backup_ops/alert_service.go` | 连续失败升级 |
 
 ## 10. 常见问题与排障
-- Q：high 告警没有出现。
-  - 现象：失败后仍是 medium 或无告警。
-  - 排查：检查连续失败是否属于同一策略，查看最近作业状态序列。
-  - 修复：确保同策略连续失败达到阈值 2。
+
+### Q1：页面显示只有少量任务
+- 现象：UI 中仅展示最近 N 条。
+- 排查命令：
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/ops/backup/jobs?page=1&page_size=100" | jq '.data.pagination'
+```
+- 修复建议：调整页面分页参数或切换过滤条件。
 
 ## 11. 回滚与风险控制
-- 若告警风暴：先停用对应策略，防止持续失败刷屏。
-- 风险：忽略 high 告警可能导致“有策略无可用备份”。
+
+- 回滚开关：暂停当前策略，防止继续产生失败任务。
+- 回滚步骤：停策略 -> 处理告警 -> 验证恢复。
+- 风险提示：不要删除任务历史，仅清理产物。
 
 ## 12. 变更记录
-- 版本：v0.3
-- 日期：2026-04-11
-- 修改人：Codex
-- 变更：首次生成 US2 指导文档。
+
+- 2026-04-13 / Codex：首版 US2 指导文档。

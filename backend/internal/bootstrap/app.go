@@ -17,6 +17,7 @@ import (
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -571,6 +572,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 
 	deps := shared.NewDeps(db, opts)
 	backupops.RegisterPolicyScheduler(ctx, db, time.Duration(globalSchedulerInterval)*time.Second)
+	monitorlogs.StartRetentionScheduler(ctx, cfg, db)
 
 	return deps, nil
 }

@@ -95,6 +95,13 @@ web-admin/
 - Grafana 跳转仅生成受控链接参数，不拼接敏感 token。
 - 所有查询写审计日志（操作者、时间、过滤条件摘要、结果状态）。
 
+## Log Retention Architecture（新增）
+
+- 统一入口：`log.retention`（不新增平级配置对象），在同一日志域下治理文件日志与 DB 日志表清理。
+- 执行模型：后端定时任务按 cron 执行，分批删除并限制单次最大删除量，避免高峰期 IO/DB 抖动。
+- 覆盖范围：应用日志文件目录、审计/运行日志表（含历史兼容表）、驱动映射策略（如 Loki retention 提示）。
+- 可观测性：每次清理写结构化运行日志与审计记录，监控中心可查询最近执行结果与失败原因。
+
 ## Phase Outputs
 
 ## Phase 0: Research Output
