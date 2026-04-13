@@ -205,15 +205,15 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] 新增日志配置查询接口（返回 driver + capabilities + grafana_link_enabled）：`backend/internal/transport/http/admin/monitor/log_config_handler.go`
-- [ ] T050 [US4] 新增统一日志查询接口（trace/job/policy/time_range/keyword）：`backend/internal/transport/http/admin/monitor/log_query_handler.go`
-- [ ] T051 [US4] 实现日志驱动适配层（loki/file/stdio dispatch）：`backend/internal/service/monitor_logs/*.go`
-- [ ] T052 [US4] 实现 Loki 查询与 Grafana 深链生成：`backend/internal/service/monitor_logs/loki_provider.go`
-- [ ] T053 [US4] 实现 File 驱动查询（时间窗口 + 关键字 + 结构化映射）：`backend/internal/service/monitor_logs/file_provider.go`
-- [ ] T054 [US4] 实现 Stdio ring buffer 查询与窗口限制提示：`backend/internal/service/monitor_logs/stdio_provider.go`
-- [ ] T055 [P] [US4] 监控中心 Logs/Trace 页面改为能力感知 UI（禁用态+提示文案+深链按钮）：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
-- [ ] T056 [P] [US4] 新增 monitor logs API client 与 store：`web-admin/app/composables/api/services/monitorService.ts`、`web-admin/app/stores/monitorLogs.ts`
-- [ ] T057 [US4] 日志查询与深链操作审计埋点（操作人/筛选摘要/结果状态）：`backend/internal/transport/http/admin/monitor/*.go`
-- [ ] T058 [US4] quickstart 补充三驱动验收步骤与故障排查：`specs/027-monitor-center/quickstart.md`
+- [X] T049 [US4] 新增日志配置查询接口（返回 driver + capabilities + grafana_link_enabled）：`backend/internal/transport/http/admin/monitor/log_config_handler.go`
+- [X] T050 [US4] 新增统一日志查询接口（trace/job/policy/time_range/keyword）：`backend/internal/transport/http/admin/monitor/log_query_handler.go`
+- [X] T051 [US4] 实现日志驱动适配层（loki/file/stdio dispatch）：`backend/internal/service/monitor_logs/*.go`
+- [X] T052 [US4] 实现 Loki 查询与 Grafana 深链生成：`backend/internal/service/monitor_logs/loki_provider.go`
+- [X] T053 [US4] 实现 File 驱动查询（时间窗口 + 关键字 + 结构化映射）：`backend/internal/service/monitor_logs/file_provider.go`
+- [X] T054 [US4] 实现 Stdio ring buffer 查询与窗口限制提示：`backend/internal/service/monitor_logs/stdio_provider.go`
+- [X] T055 [P] [US4] 监控中心 Logs/Trace 页面改为能力感知 UI（禁用态+提示文案+深链按钮）：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [X] T056 [P] [US4] 新增 monitor logs API client 与 store：`web-admin/app/composables/api/services/monitorService.ts`、`web-admin/app/stores/monitorLogs.ts`
+- [X] T057 [US4] 日志查询与深链操作审计埋点（操作人/筛选摘要/结果状态）：`backend/internal/transport/http/admin/monitor/*.go`
+- [X] T058 [US4] quickstart 补充三驱动验收步骤与故障排查：`specs/027-monitor-center/quickstart.md`
 
 **Checkpoint**: US4 可独立验收（多驱动可用、能力提示清晰、排障链路完整）。

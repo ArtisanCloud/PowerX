@@ -717,36 +717,80 @@
       </div>
 
       <UCard v-else>
-        <template #header><div class="font-semibold">Logs / Trace</div></template>
-        <div class="space-y-3">
-          <div class="rounded border border-emerald-300/40 bg-emerald-500/5 p-3 text-xs text-emerald-200 dark:text-emerald-200">
-            备份任务日志建议对齐查看路径：先在「运维中心 / 备份中心」看作业状态，再回这里做链路 Trace 对照。
-          </div>
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-            <div class="font-semibold">当前实现可观测入口</div>
-            <div>1) 实时链路：WebSocket 页签（消息里包含 topic/trace_id）。</div>
-            <div>2) 任务链路：事件总线 Queue 详情（运行态 + 历史态）。</div>
-            <div>3) 调度链路：Task/Cron 页签（run-now / pause / resume 操作日志）。</div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 text-xs">
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-1">
-              <div class="text-gray-500">最近 WS topic</div>
-              <div class="font-mono">{{ wsEvents[0]?.topic || '-' }}</div>
-              <div class="text-gray-500 mt-2">最近 WS trace_id</div>
-              <div class="font-mono">{{ wsEvents[0]?.traceId || '-' }}</div>
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-1">
-              <div class="text-gray-500">最近 Replay task_id</div>
-              <div class="font-mono">{{ taskDebug.taskId || flowDebug.taskId || '-' }}</div>
-              <div class="text-gray-500 mt-2">最近阶段</div>
-              <div class="font-mono">{{ flowDebug.phase || '-' }}</div>
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div class="font-semibold">Logs / Trace</div>
+            <div class="flex items-center gap-2">
+              <UBadge color="neutral" variant="soft">driver={{ monitorDriverText }}</UBadge>
+              <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="refreshMonitorLogsConfig">刷新配置</UButton>
             </div>
           </div>
+        </template>
 
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono space-y-1 max-h-56 overflow-auto">
-            <div v-for="(line, idx) in mergedTraceLogs" :key="idx">{{ line }}</div>
-            <div v-if="mergedTraceLogs.length === 0" class="text-gray-500">暂无可展示日志，先去 WebSocket / Task-Cron 页签执行一次联调。</div>
+        <div class="space-y-4">
+          <div class="flex flex-wrap gap-2">
+            <UBadge :color="monitorCapabilityColor('trace')" variant="soft">trace 查询 {{ monitorCapabilities.supports_trace_query ? '可用' : '不可用' }}</UBadge>
+            <UBadge :color="monitorCapabilityColor('job')" variant="soft">job 查询 {{ monitorCapabilities.supports_job_query ? '可用' : '不可用' }}</UBadge>
+            <UBadge :color="monitorCapabilityColor('policy')" variant="soft">policy 查询 {{ monitorCapabilities.supports_policy_query ? '可用' : '不可用' }}</UBadge>
+            <UBadge :color="monitorCapabilityColor('grafana')" variant="soft">Grafana 深链 {{ monitorCapabilities.supports_grafana_link ? '可用' : '不可用' }}</UBadge>
+          </div>
+
+          <UAlert
+            v-if="monitorCapabilityHint"
+            icon="i-heroicons-information-circle"
+            color="amber"
+            variant="subtle"
+            title="能力提示"
+            :description="monitorCapabilityHint"
+          />
+
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <UInput v-model="monitorLogFilters.traceId" icon="i-heroicons-finger-print" placeholder="trace_id" :disabled="!monitorCapabilities.supports_trace_query" />
+            <UInput v-model="monitorLogFilters.jobId" icon="i-heroicons-hashtag" placeholder="job_id" :disabled="!monitorCapabilities.supports_job_query" />
+            <UInput v-model="monitorLogFilters.policyId" icon="i-heroicons-hashtag" placeholder="policy_id" :disabled="!monitorCapabilities.supports_policy_query" />
+            <UInput v-model="monitorLogFilters.keyword" icon="i-heroicons-magnifying-glass" placeholder="关键字（message/raw）" />
+            <UInput v-model="monitorLogFilters.from" placeholder="from (RFC3339)" />
+            <UInput v-model="monitorLogFilters.to" placeholder="to (RFC3339)" />
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <UButton size="sm" color="primary" :loading="monitorLogsLoading" @click="queryMonitorLogs">查询日志</UButton>
+            <UButton size="sm" variant="outline" :disabled="!monitorGrafanaUrl" @click="openMonitorGrafana">打开 Grafana</UButton>
+            <UButton size="sm" variant="ghost" @click="resetMonitorLogFilters">重置筛选</UButton>
+          </div>
+
+          <div class="text-xs text-gray-500">
+            共 {{ monitorLogsTotal }} 条，当前第 {{ monitorLogsPage }} 页（每页 {{ monitorLogsPageSize }} 条）
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
+              <thead class="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <th class="text-left px-3 py-2">时间</th>
+                  <th class="text-left px-3 py-2">级别</th>
+                  <th class="text-left px-3 py-2">模块</th>
+                  <th class="text-left px-3 py-2">trace_id</th>
+                  <th class="text-left px-3 py-2">job_id</th>
+                  <th class="text-left px-3 py-2">policy_id</th>
+                  <th class="text-left px-3 py-2">消息</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, idx) in monitorLogsItems" :key="`${row.ts}-${idx}`" class="border-t border-gray-200 dark:border-gray-700">
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(row.ts) }}</td>
+                  <td class="px-3 py-2"><UBadge :color="monitorLevelColor(row.level)" variant="soft">{{ row.level || '-' }}</UBadge></td>
+                  <td class="px-3 py-2 font-mono">{{ row.module || '-' }}</td>
+                  <td class="px-3 py-2 font-mono break-all">{{ row.trace_id || '-' }}</td>
+                  <td class="px-3 py-2 font-mono">{{ row.job_id || '-' }}</td>
+                  <td class="px-3 py-2 font-mono">{{ row.policy_id || '-' }}</td>
+                  <td class="px-3 py-2 whitespace-normal break-all">{{ row.message || row.raw || '-' }}</td>
+                </tr>
+                <tr v-if="monitorLogsItems.length === 0">
+                  <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志数据，先执行一次查询。</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </UCard>
@@ -768,6 +812,7 @@ import {
 import { useBackupOpsService, type BackupJob, type BackupOverview } from "~/composables/api/services/backupOpsService";
 import { EVENT_NOTIFICATION_KIND, EVENT_SUBSCRIBERS, EVENT_TOPICS } from "~/composables/domain/eventTopic";
 import { useWSBus } from "~/composables/useWSBus";
+import { useMonitorLogsStore } from "~/stores/monitorLogs";
 
 type MonitorTabKey = "event-fabric" | "websocket" | "task-cron" | "logs-trace";
 type EventSubTabKey = "queue" | "debug";
@@ -858,6 +903,26 @@ watch(resolvedForcedTab, (tab) => {
 const svc = useEventFabricService();
 const backupSvc = useBackupOpsService();
 const toast = useToast();
+const monitorLogsStore = useMonitorLogsStore();
+const {
+  config: monitorLogsConfig,
+  items: monitorLogsItems,
+  loading: monitorLogsLoading,
+  page: monitorLogsPage,
+  pageSize: monitorLogsPageSize,
+  total: monitorLogsTotal,
+  queryMeta: monitorLogsQueryMeta,
+  loaded: monitorLogsLoaded,
+} = storeToRefs(monitorLogsStore);
+
+const monitorLogFilters = reactive({
+  traceId: "",
+  jobId: "",
+  policyId: "",
+  keyword: "",
+  from: "",
+  to: "",
+});
 
 const loading = ref(false);
 const overview = ref<EventFabricOverview | null>(null);
@@ -1600,24 +1665,100 @@ const canRunFlowDebug = computed(() => {
   return Boolean(effectiveTenantUuid.value);
 });
 
-const mergedTraceLogs = computed(() => {
-  const lines: string[] = [];
-  if (wsEvents.value.length > 0) {
-    const ws = wsEvents.value[0];
-    lines.push(`[WS] topic=${ws.topic} trace_id=${ws.traceId || "-"} ts=${ws.ts}`);
-  }
-  if (flowDebug.timeline.length > 0) {
-    const flow = flowDebug.timeline[0];
-    lines.push(`[FLOW] ${flow.ts} ${flow.stage} ${flow.detail}`);
-  }
-  if (taskDebug.logs.length > 0) {
-    lines.push(`[TASK] ${taskDebug.logs[0]}`);
-  }
-  if (cronDebug.logs.length > 0) {
-    lines.push(`[CRON] ${cronDebug.logs[0]}`);
-  }
-  return lines;
+const monitorCapabilities = computed(() => {
+  return monitorLogsConfig.value?.capabilities || {
+    supports_label_query: false,
+    supports_trace_query: false,
+    supports_job_query: false,
+    supports_policy_query: false,
+    supports_grafana_link: false,
+    history_limited: true,
+    limitation_note: "日志能力尚未初始化",
+  };
 });
+
+const monitorDriverText = computed(() => monitorLogsConfig.value?.driver || "stdio");
+const monitorCapabilityHint = computed(() => {
+  const fromConfig = String(monitorCapabilities.value?.limitation_note || "").trim();
+  if (fromConfig) return fromConfig;
+  const fromQuery = String(monitorLogsQueryMeta.value?.hint || "").trim();
+  return fromQuery;
+});
+const monitorGrafanaUrl = computed(() => {
+  return String(monitorLogsQueryMeta.value?.grafana_url || "").trim();
+});
+
+function monitorCapabilityColor(kind: "trace" | "job" | "policy" | "grafana") {
+  if (kind === "trace") return monitorCapabilities.value.supports_trace_query ? "success" : "warning";
+  if (kind === "job") return monitorCapabilities.value.supports_job_query ? "success" : "warning";
+  if (kind === "policy") return monitorCapabilities.value.supports_policy_query ? "success" : "warning";
+  return monitorCapabilities.value.supports_grafana_link ? "success" : "warning";
+}
+
+function monitorLevelColor(level: string) {
+  const normalized = String(level || "").trim().toLowerCase();
+  if (normalized === "error") return "error";
+  if (normalized === "warn" || normalized === "warning") return "warning";
+  if (normalized === "debug") return "neutral";
+  return "success";
+}
+
+function formatMonitorLogTs(input?: string) {
+  const raw = String(input || "").trim();
+  if (!raw) return "-";
+  const t = new Date(raw);
+  if (Number.isNaN(t.getTime())) return raw;
+  return t.toLocaleString();
+}
+
+function resetMonitorLogFilters() {
+  monitorLogFilters.traceId = "";
+  monitorLogFilters.jobId = "";
+  monitorLogFilters.policyId = "";
+  monitorLogFilters.keyword = "";
+  monitorLogFilters.from = "";
+  monitorLogFilters.to = "";
+}
+
+async function refreshMonitorLogsConfig() {
+  try {
+    await monitorLogsStore.fetchConfig();
+  } catch (e: any) {
+    toast.add({ title: "刷新日志配置失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function queryMonitorLogs() {
+  try {
+    await monitorLogsStore.fetchLogs({
+      trace_id: monitorLogFilters.traceId || undefined,
+      job_id: monitorLogFilters.jobId || undefined,
+      policy_id: monitorLogFilters.policyId || undefined,
+      keyword: monitorLogFilters.keyword || undefined,
+      from: monitorLogFilters.from || undefined,
+      to: monitorLogFilters.to || undefined,
+      page: monitorLogsPage.value || 1,
+      page_size: monitorLogsPageSize.value || 50,
+    });
+  } catch (e: any) {
+    toast.add({ title: "查询日志失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function ensureMonitorLogsReady() {
+  await refreshMonitorLogsConfig();
+  if (!monitorLogsLoaded.value) {
+    await queryMonitorLogs();
+  }
+}
+
+function openMonitorGrafana() {
+  if (!monitorGrafanaUrl.value) {
+    toast.add({ title: "当前没有可用 Grafana 深链", color: "warning" });
+    return;
+  }
+  window.open(monitorGrafanaUrl.value, "_blank", "noopener,noreferrer");
+}
 
 
 async function ensureTenantContextLoaded() {
@@ -2120,6 +2261,9 @@ watch(activeTab, (tab) => {
   if (tab === "task-cron") {
     void loadBackupMonitor(false);
   }
+  if (tab === "logs-trace") {
+    void ensureMonitorLogsReady();
+  }
 });
 
 watch(taskCronSubTab, (tab) => {
@@ -2164,6 +2308,9 @@ onMounted(async () => {
   }
   if (activeTab.value === "task-cron") {
     await loadBackupMonitor(false);
+  }
+  if (activeTab.value === "logs-trace") {
+    await ensureMonitorLogsReady();
   }
 });
 

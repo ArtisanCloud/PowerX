@@ -119,6 +119,32 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/${DRILL_I
 - 作业、告警、演练接口均支持分页与关键过滤参数。
 - 监控页面可形成“策略 -> 作业 -> 告警 -> 演练”可观察闭环。
 
+## 8.1 Logs / Trace（三驱动验收）
+
+先获取日志能力配置：
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/config" | jq
+```
+
+再执行统一日志查询：
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/query?trace_id=<trace_id>&page=1&page_size=20" | jq
+```
+
+验收点：
+- `driver=loki`：`query_meta.grafana_url` 有值，且页面“打开 Grafana”按钮可用。
+- `driver=file`：可返回日志列表；页面提示“无标签聚合/无 Grafana 深链”。
+- `driver=stdio`：可返回最近窗口日志；页面提示“历史窗口受限”。
+
+常见排障：
+- `loki.url 未配置`：检查 `config.yaml -> log.loki.url`。
+- `file 无数据`：检查 `log.file.info_file_path/error_file_path` 路径与权限。
+- `stdio 无数据`：确认进程已输出日志；该模式仅保留最近窗口，不保证跨重启历史。
+
 ## 9. OTel 与指标验证（Phase 6）
 
 ```bash

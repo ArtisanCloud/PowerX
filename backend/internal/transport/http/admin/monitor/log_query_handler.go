@@ -7,8 +7,11 @@ import (
 	"time"
 
 	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func (h *handler) QueryLogs(c *gin.Context) {
@@ -27,8 +30,12 @@ func (h *handler) QueryLogs(c *gin.Context) {
 		return
 	}
 
+	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
+	queryTraceID := strings.TrimSpace(c.Query("trace_id"))
+	operator := resolveOperator(c)
+
 	result, err := h.svc.Query(monitorlogs.QueryRequest{
-		TraceID:  strings.TrimSpace(c.Query("trace_id")),
+		TraceID:  queryTraceID,
 		JobID:    jobID,
 		PolicyID: policyID,
 		Keyword:  strings.TrimSpace(c.Query("keyword")),
@@ -38,9 +45,35 @@ func (h *handler) QueryLogs(c *gin.Context) {
 		PageSize: pageSize,
 	})
 	if err != nil {
+		logger.Info(c.Request.Context(), "monitor.logs.query",
+			zap.String("operator", operator),
+			zap.String("trace_id", traceID),
+			zap.String("filter_trace_id", queryTraceID),
+			zap.Uint64("filter_job_id", jobID),
+			zap.Uint64("filter_policy_id", policyID),
+			zap.String("filter_keyword", strings.TrimSpace(c.Query("keyword"))),
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+			zap.String("status", "failed"),
+			zap.String("error", err.Error()),
+		)
 		dto.ResponseError(c, http.StatusInternalServerError, "query monitor logs failed", err)
 		return
 	}
+	logger.Info(c.Request.Context(), "monitor.logs.query",
+		zap.String("operator", operator),
+		zap.String("trace_id", traceID),
+		zap.String("filter_trace_id", queryTraceID),
+		zap.Uint64("filter_job_id", jobID),
+		zap.Uint64("filter_policy_id", policyID),
+		zap.String("filter_keyword", strings.TrimSpace(c.Query("keyword"))),
+		zap.Int("page", page),
+		zap.Int("page_size", pageSize),
+		zap.String("driver", string(result.Meta.Driver)),
+		zap.Int("result_total", result.Total),
+		zap.Bool("degraded", result.Meta.Degraded),
+		zap.String("status", "success"),
+	)
 
 	dto.ResponseSuccess(c, gin.H{
 		"items": result.Items,
