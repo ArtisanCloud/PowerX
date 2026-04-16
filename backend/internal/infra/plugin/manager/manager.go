@@ -15,6 +15,7 @@ import (
 
 type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
 type PostInstallManifestHook func(ctx context.Context, manifest plugin_mgr.Manifest) error
+type PostUninstallHook func(ctx context.Context, pluginID string) error
 
 // Options 注入依赖与基础配置
 type Options struct {
@@ -31,6 +32,7 @@ type Options struct {
 	Supervisor          *supervisor.Supervisor
 	PostEnable          PostEnableHook
 	PostInstallManifest PostInstallManifestHook
+	PostUninstall       PostUninstallHook
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）
@@ -95,6 +97,16 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 				plugin_mgr.WithPlugin(id),
 				plugin_mgr.WithVersion(ver),
 			)
+		}
+		// 启动扫描时补做一次权限同步（upsert 幂等），修复历史安装遗漏。
+		if m.opts.PostInstallManifest != nil {
+			if err := m.opts.PostInstallManifest(ctx, d.Manifest); err != nil {
+				return plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
+					plugin_mgr.WithOp("bootstrap.register_permissions"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(ver),
+				)
+			}
 		}
 	}
 

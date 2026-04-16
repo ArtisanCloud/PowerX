@@ -89,6 +89,9 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
 			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
 		},
+		PostUninstall: func(ctx context.Context, pluginID string) error {
+			return syncPluginPermissionsRemoval(ctx, deps.DB, pluginID)
+		},
 		PostEnable: func(ctx context.Context, tenantUUID, pluginID string) error {
 			svc := setting.NewPluginInstanceConfigService(deps)
 

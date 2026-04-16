@@ -29,6 +29,23 @@ func syncPluginManifestPermissions(ctx context.Context, db *gorm.DB, manifest pl
 	return nil
 }
 
+func syncPluginPermissionsRemoval(ctx context.Context, db *gorm.DB, pluginID string) error {
+	if db == nil {
+		return nil
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return nil
+	}
+	service := iamsvc.NewPermissionService(db)
+	source := "plugin:" + pluginID
+	_, err := service.SyncPermissions(ctx, source, "", nil, false)
+	if err != nil {
+		return fmt.Errorf("revoke plugin permissions failed: %w", err)
+	}
+	return nil
+}
+
 func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permission {
 	pluginID := strings.TrimSpace(manifest.ID)
 	if pluginID == "" {

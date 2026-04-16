@@ -58,13 +58,14 @@ func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id stri
 	}
 
 	// 4) 若删除当前版本，则连带清理该插件所有旧版本
+	allVersions := m.opts.Registry.ListVersions(ctx, id)
 	removeVersions := []string{targetVer}
 	if currentVer != "" && targetVer == currentVer {
-		all := m.opts.Registry.ListVersions(ctx, id)
-		if len(all) > 0 {
-			removeVersions = all
+		if len(allVersions) > 0 {
+			removeVersions = allVersions
 		}
 	}
+	willRemoveAllVersions := len(allVersions) > 0 && len(removeVersions) == len(allVersions)
 
 	// 5) 清理由宿主创建的数据库资源 + 从注册表删除
 	for _, ver := range removeVersions {
@@ -87,6 +88,14 @@ func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id stri
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.save"),
 			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
+	}
+
+	// 6) 完整卸载插件后，回收插件来源权限（幂等）
+	if willRemoveAllVersions && m.opts.PostUninstall != nil {
+		if err := m.opts.PostUninstall(ctx, id); err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.revoke_permissions"),
+				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
+		}
 	}
 	return nil
 }
