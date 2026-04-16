@@ -22,8 +22,8 @@ async function main() {
 	});
 
 	if (args.dryRun) {
-		console.log('📝 Dry-run result (no file written):');
-		console.log(JSON.stringify(payload, null, 2));
+		console.info('📝 Dry-run result (no file written):');
+		console.info(JSON.stringify(payload, null, 2));
 		return;
 	}
 
@@ -32,10 +32,10 @@ async function main() {
 
 	if (args.baseUrl) {
 		const scanResp = await runRemoteScan(args, payload);
-		console.log('✅ remote scan created tasks:', scanResp.taskIds.length);
+		console.info('✅ remote scan created tasks:', scanResp.taskIds.length);
 		if (args.restoreFirst && scanResp.taskIds.length > 0) {
 			await runRemoteRestore(args, scanResp.taskIds[0]);
-			console.log('✅ remote restore completed (first task)');
+			console.info('✅ remote restore completed (first task)');
 		}
 	}
 
@@ -43,7 +43,7 @@ async function main() {
 		await printLocalReports(args.reportPath, args.aggregatePath);
 	}
 
-	console.log(`✅ decay scan draft written to ${args.output}`);
+	console.info(`✅ decay scan draft written to ${args.output}`);
 }
 
 function parseArgs(argv) {
@@ -235,15 +235,15 @@ function normalizeApiBase(raw) {
 async function printLocalReports(reportPath, aggregatePath) {
 	try {
 		const raw = await readFile(reportPath, 'utf8');
-		console.log('--- backend report: knowledge-decay.json ---');
-		console.log(raw);
+		console.info('--- backend report: knowledge-decay.json ---');
+		console.info(raw);
 	} catch (err) {
 		console.warn(`[warn] cannot read ${reportPath}: ${err.message}`);
 	}
 	try {
 		const raw = await readFile(aggregatePath, 'utf8');
-		console.log('--- aggregate report: knowledge-update.json ---');
-		console.log(raw);
+		console.info('--- aggregate report: knowledge-update.json ---');
+		console.info(raw);
 	} catch (err) {
 		console.warn(`[warn] cannot read ${aggregatePath}: ${err.message}`);
 	}

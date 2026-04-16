@@ -73,9 +73,22 @@ capability-gen-dry:
 		$(CAPABILITY_GEN_FLAGS)
 
 # 代码质量检查
-.PHONY: lint format vet check-all
-lint: vet format
+.PHONY: lint format vet check-all check-log-unification refresh-log-unification-baseline
+lint: vet format check-log-unification
 	@echo "✅ 代码检查完成"
+
+check-log-unification:
+	@bash scripts/ci/check-runtime-log-unification.sh
+
+refresh-log-unification-baseline:
+	@rg -n "\\bfmt\\.(Print|Printf|Println)|\\blog\\.(Print|Printf|Println)" backend \
+		--glob '*.go' \
+		--glob '!**/*_test.go' \
+		--glob '!backend/cmd/**' \
+		--glob '!backend/tools/**' \
+		--glob '!backend/tests/**' \
+		| sort -u > scripts/ci/baseline/runtime-log-direct-output.txt
+	@echo "✅ 已刷新日志统一基线: scripts/ci/baseline/runtime-log-direct-output.txt"
 
 # 代码格式化
 format:

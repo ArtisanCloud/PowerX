@@ -2,15 +2,16 @@ package config
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	agentCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	grpcCfg "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	mcpCfg "github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	cacheCfg "github.com/ArtisanCloud/PowerX/pkg/cache"
 	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gopkg.in/yaml.v3"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -82,7 +83,8 @@ func GetGlobalConfig() *Config {
 				lastErr = err
 			}
 		}
-		log.Fatalf("初始化全局配置失败: %v", lastErr)
+		logger.ErrorF(context.Background(), "初始化全局配置失败: %v", lastErr)
+		os.Exit(1)
 	}
 	return GlobalConfig
 }
@@ -699,30 +701,24 @@ func Load(configPath string) (*Config, error) {
 }
 
 func loadDotEnvCandidates(configPath string) {
-	candidates := make([]string, 0, 12)
+	// 本地开发模式统一只认 backend/.env，避免多来源导致覆盖混乱。
+	envMode := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_ENV")))
+	if envMode != "" && envMode != "dev" {
+		return
+	}
+	candidates := make([]string, 0, 3)
 	if configPath != "" {
 		if absCfg, err := filepath.Abs(configPath); err == nil {
-			cfgDir := filepath.Dir(absCfg)
-			candidates = append(candidates, filepath.Join(cfgDir, ".env"))
-			candidates = append(candidates, filepath.Join(filepath.Dir(cfgDir), ".env"))
-			// repo-root/config 下的 PowerX 本地环境（适配 GoLand 等直接启动）
-			repoRoot := filepath.Dir(filepath.Dir(cfgDir))
-			candidates = append(candidates, filepath.Join(repoRoot, "config", "powerx.env.local"))
-			candidates = append(candidates, filepath.Join(repoRoot, "config", "powerx.env"))
+			backendDir := filepath.Dir(filepath.Dir(absCfg))
+			candidates = append(candidates, filepath.Join(backendDir, ".env"))
 		}
 	}
-	candidates = append(
-		candidates,
-		".env",
-		"backend/.env",
-		"config/powerx.env.local",
-		"config/powerx.env",
-	)
-	if p := findConfigPath("config/powerx.env.local"); p != "" {
+	if p := findConfigPath("backend/.env"); p != "" {
 		candidates = append(candidates, p)
 	}
-	if p := findConfigPath("config/powerx.env"); p != "" {
-		candidates = append(candidates, p)
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(wd, "backend", ".env"))
+		candidates = append(candidates, filepath.Join(wd, ".env"))
 	}
 
 	seen := map[string]struct{}{}
@@ -1009,6 +1005,21 @@ func loadFromEnv(cfg *Config) {
 	}
 
 	// LogConfig配置 - 使用外部logger配置
+	if v := os.Getenv("CORE_X_LOG_FILE_ENABLE"); v != "" {
+		cfg.LogConfig.File.Enable = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_LOG_FILE_INFO_PATH"); v != "" {
+		cfg.LogConfig.File.InfoFilePath = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_FILE_ERROR_PATH"); v != "" {
+		cfg.LogConfig.File.ErrorFilePath = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_AGENT_DEBUG_DIR"); v != "" {
+		cfg.LogConfig.AgentDebug.Dir = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_CONSOLE"); v != "" {
+		cfg.LogConfig.Console = strings.EqualFold(v, "true") || v == "1"
+	}
 	if v := os.Getenv("CORE_X_LOG_RETENTION_ENABLED"); v != "" {
 		cfg.LogConfig.Retention.Enabled = strings.EqualFold(v, "true") || v == "1"
 	}

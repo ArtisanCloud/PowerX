@@ -6,6 +6,7 @@ import {
   type MonitorLogQueryFilters,
   type MonitorLogQueryMeta,
   type MonitorRetentionPolicy,
+  type MonitorRetentionExport,
   type MonitorRetentionRun,
   type MonitorRetentionRuns,
 } from "~/composables/api/services/monitorService";
@@ -86,6 +87,32 @@ export const useMonitorLogsStore = defineStore("monitorLogs", {
         const run = await svc.triggerRetentionRun();
         await this.fetchRetentionRuns();
         return run;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async triggerRetentionDryRun(retentionDays?: number) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        const run = await svc.triggerRetentionDryRun(retentionDays);
+        await this.fetchRetentionRuns();
+        return run;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async exportRetentionDryRun(payload?: {
+      format?: "txt" | "json";
+      retention_days?: number;
+      cutoff_at?: string;
+    }): Promise<MonitorRetentionExport> {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        return await svc.exportRetentionDryRun(payload);
       } finally {
         this.loading = false;
       }

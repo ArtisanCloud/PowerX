@@ -21,9 +21,9 @@ import (
 	skillmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	logcfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gorm.io/gorm"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,10 +75,10 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	if db != nil {
 		lastSkills, lastToolings := 0, 0
 		if loadedSkills, loadedToolings, loadErr := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, true); loadErr != nil {
-			log.Printf("[agent] warm unified candidates failed: %v", loadErr)
+			logger.InfoF(context.Background(), "[agent] warm unified candidates failed: %v", loadErr)
 		} else {
 			lastSkills, lastToolings = loadedSkills, loadedToolings
-			log.Printf("[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
+			logger.InfoF(context.Background(), "[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
 		}
 		// 周期刷新，避免“仅重启时更新”导致候选陈旧。
 		go func() {
@@ -91,11 +91,11 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 				case <-ticker.C:
 					s, t, err := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, false)
 					if err != nil {
-						log.Printf("[agent] refresh unified candidates failed: %v", err)
+						logger.InfoF(context.Background(), "[agent] refresh unified candidates failed: %v", err)
 						continue
 					}
 					if s != lastSkills || t != lastToolings {
-						log.Printf("[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
+						logger.InfoF(context.Background(), "[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
 						lastSkills, lastToolings = s, t
 					}
 				}
@@ -201,13 +201,6 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 		})
 	}
 
-	// 打印路由信息
-	//specs := gAgentManager.ListFlowRoutesByAgent(config.AgentCRMKey)
-	//fmt.Printf("routes specs = %d\n", len(specs))
-	//for _, sp := range specs {
-	//	fmt.Printf("flow=%s pos=%d neg=%d\n", sp.FlowID, len(sp.Examples.Positive), len(sp.Examples.Negative))
-	//}
-
 	// 向量器（OpenAI/Ollama 任选其一）
 	vec, err := intent2.NewVectorizerFromConfig(cfg.IntentRecognizer.Embedding)
 	if err != nil {
@@ -231,7 +224,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 				Threshold: threshold,
 			})
 		} else if clsErr != nil {
-			log.Printf("[intent] classifier init skipped: %v", clsErr)
+			logger.InfoF(context.Background(), "[intent] classifier init skipped: %v", clsErr)
 		}
 	}
 
@@ -325,10 +318,10 @@ func diagEmbedding(ctx context.Context, vec embed.Vectorizer) {
 	q := "创建线索"
 	qs, err := vec.Embed(ctx, []string{q})
 	if err != nil || len(qs) == 0 {
-		log.Printf("[EMB] query embed failed: %v", err)
+		logger.InfoF(context.Background(), "[EMB] query embed failed: %v", err)
 		return
 	}
-	log.Printf("[EMB] query dim=%d first3=%v", len(qs[0]), qs[0][:min(3, len(qs[0]))])
+	logger.InfoF(context.Background(), "[EMB] query dim=%d first3=%v", len(qs[0]), qs[0][:min(3, len(qs[0]))])
 }
 
 const (
@@ -356,7 +349,7 @@ func warmUnifiedCandidatesFromDB(ctx context.Context, db *gorm.DB, mgr *agent.Ma
 			}
 			return skills, toolings, nil
 		} else if err != nil {
-			log.Printf("[agent] read unified candidates cache failed: %v", err)
+			logger.InfoF(context.Background(), "[agent] read unified candidates cache failed: %v", err)
 		}
 	}
 
@@ -410,7 +403,7 @@ func warmUnifiedCandidatesFromDB(ctx context.Context, db *gorm.DB, mgr *agent.Ma
 		loadedToolings++
 	}
 	if err := saveUnifiedCandidatesToCache(ctx, candidates); err != nil {
-		log.Printf("[agent] write unified candidates cache failed: %v", err)
+		logger.InfoF(context.Background(), "[agent] write unified candidates cache failed: %v", err)
 	}
 	return loadedSkills, loadedToolings, nil
 }

@@ -1,7 +1,6 @@
 package lumberjack
 
 import (
-	"fmt"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -20,7 +19,7 @@ func assertUp(condition bool, t testing.TB, caller int, msg string, v ...interfa
 	if !condition {
 		_, file, line, _ := runtime.Caller(caller + 1)
 		v = append([]interface{}{filepath.Base(file), line}, v...)
-		fmt.Printf("%s:%d: "+msg+"\n", v...)
+		t.Logf("%s:%d: "+msg, v...)
 		t.FailNow()
 	}
 }
@@ -36,7 +35,7 @@ func equals(exp, act interface{}, t testing.TB) {
 func equalsUp(exp, act interface{}, t testing.TB, caller int) {
 	if !reflect.DeepEqual(exp, act) {
 		_, file, line, _ := runtime.Caller(caller + 1)
-		fmt.Printf("%s:%d: exp: %v (%T), got: %v (%T)\n",
+		t.Logf("%s:%d: exp: %v (%T), got: %v (%T)",
 			filepath.Base(file), line, exp, exp, act, act)
 		t.FailNow()
 	}
@@ -54,7 +53,7 @@ func isNil(obtained interface{}, t testing.TB) {
 func isNilUp(obtained interface{}, t testing.TB, caller int) {
 	if !_isNil(obtained) {
 		_, file, line, _ := runtime.Caller(caller + 1)
-		fmt.Printf("%s:%d: expected nil, got: %v\n", filepath.Base(file), line, obtained)
+		t.Logf("%s:%d: expected nil, got: %v", filepath.Base(file), line, obtained)
 		t.FailNow()
 	}
 }
@@ -70,7 +69,7 @@ func notNil(obtained interface{}, t testing.TB) {
 func notNilUp(obtained interface{}, t testing.TB, caller int) {
 	if _isNil(obtained) {
 		_, file, line, _ := runtime.Caller(caller + 1)
-		fmt.Printf("%s:%d: expected non-nil, got: %v\n", filepath.Base(file), line, obtained)
+		t.Logf("%s:%d: expected non-nil, got: %v", filepath.Base(file), line, obtained)
 		t.FailNow()
 	}
 }

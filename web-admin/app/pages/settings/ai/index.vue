@@ -1617,7 +1617,7 @@ function loadExistingConfiguration() {
 
 // 获取当前激活的配置
 async function loadActiveConfiguration() {
-  // console.log("加载激活配置", { env: env.value, modality: modality.value });
+  // console.info("加载激活配置", { env: env.value, modality: modality.value });
   try {
     const activeData = await aiSettingsStore.fetchActiveProfile(
       env.value,
@@ -1643,7 +1643,7 @@ async function loadActiveConfiguration() {
         config.topP = profile.defaults.topP ?? config.topP;
       }
 
-      // console.log("激活配置加载成功", profile);
+      // console.info("激活配置加载成功", profile);
 
       // 加载对应的模型列表
       if (profile.provider) {

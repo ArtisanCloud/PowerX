@@ -16,7 +16,7 @@ async function main() {
 	printSummary(matrix);
 	if (args.export) {
 		await writeFile(args.export, JSON.stringify(matrix, null, 2));
-		console.log(`✅ Matrix exported to ${args.export}`);
+		console.info(`✅ Matrix exported to ${args.export}`);
 	}
 
 	if (args.baseUrl) {
@@ -25,12 +25,12 @@ async function main() {
 		if (args.publishVersion) {
 			assertFlagEnabled('PX_KNOWLEDGE_GRAY_RELEASE');
 			const published = await publishRelease(args, policyId, args.publishVersion);
-			console.log(`✅ publish ok: releaseId=${published.releaseId} batchToken=${published.batchToken}`);
+			console.info(`✅ publish ok: releaseId=${published.releaseId} batchToken=${published.batchToken}`);
 			if (args.autoPromote) {
 				let token = published.batchToken;
 				for (;;) {
 					const promoted = await promoteRelease(args, policyId, args.publishVersion, token, []);
-					console.log(`✅ promote: state=${promoted.state} coverage=${promoted.tenantCoverage}`);
+					console.info(`✅ promote: state=${promoted.state} coverage=${promoted.tenantCoverage}`);
 					if (!promoted.nextBatchToken) break;
 					token = promoted.nextBatchToken;
 				}
@@ -39,13 +39,13 @@ async function main() {
 		if (args.rollbackReason) {
 			assertFlagEnabled('PX_KNOWLEDGE_GRAY_RELEASE');
 			await rollbackRelease(args, policyId, args.rollbackVersion || args.publishVersion || '', args.rollbackReason);
-			console.log('✅ rollback requested');
+			console.info('✅ rollback requested');
 		}
 		if (args.printStatus && (args.publishVersion || args.rollbackVersion)) {
 			const version = args.rollbackVersion || args.publishVersion;
 			const status = await fetchStatus(args, policyId, version);
-			console.log('--- release status ---');
-			console.log(JSON.stringify(status, null, 2));
+			console.info('--- release status ---');
+			console.info(JSON.stringify(status, null, 2));
 		}
 	}
 
@@ -125,7 +125,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-	console.log(`knowledge-release-matrix
+	console.info(`knowledge-release-matrix
 
 Usage:
   node scripts/ops/knowledge-release-matrix.mjs [--matrix=path] [--export=path]
@@ -192,14 +192,14 @@ function printSummary(matrix) {
 	(matrix?.batches || []).forEach((batch) => {
 		(batch?.tenants || []).forEach((tenant) => tenants.add(tenant));
 	});
-	console.log('📋 Release Matrix Summary');
-	console.log(`- Matrix Version: ${matrix.matrixVersion}`);
-	console.log(`- Pilot Tenants: ${(matrix.pilotTenants || []).join(', ') || 'N/A'}`);
-	console.log(`- Batch Count: ${matrix.batches?.length || 0}`);
-	console.log(`- Tenant Coverage: ${tenants.size}`);
-	console.log('- Guardrails:');
+	console.info('📋 Release Matrix Summary');
+	console.info(`- Matrix Version: ${matrix.matrixVersion}`);
+	console.info(`- Pilot Tenants: ${(matrix.pilotTenants || []).join(', ') || 'N/A'}`);
+	console.info(`- Batch Count: ${matrix.batches?.length || 0}`);
+	console.info(`- Tenant Coverage: ${tenants.size}`);
+	console.info('- Guardrails:');
 	Object.entries(matrix.guardrails || {}).forEach(([key, value]) => {
-		console.log(`  • ${key}: ${value}`);
+		console.info(`  • ${key}: ${value}`);
 	});
 }
 
@@ -308,15 +308,15 @@ function normalizeApiBase(raw) {
 async function printLocalReports(releaseReportPath, aggregateReportPath) {
 	try {
 		const raw = await readFile(releaseReportPath, 'utf8');
-		console.log('--- backend report: knowledge-release.json ---');
-		console.log(raw);
+		console.info('--- backend report: knowledge-release.json ---');
+		console.info(raw);
 	} catch (err) {
 		console.warn(`[warn] cannot read ${releaseReportPath}: ${err.message}`);
 	}
 	try {
 		const raw = await readFile(aggregateReportPath, 'utf8');
-		console.log('--- aggregate report: knowledge-update.json ---');
-		console.log(raw);
+		console.info('--- aggregate report: knowledge-update.json ---');
+		console.info(raw);
 	} catch (err) {
 		console.warn(`[warn] cannot read ${aggregateReportPath}: ${err.message}`);
 	}

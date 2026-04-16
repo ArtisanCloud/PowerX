@@ -1,14 +1,15 @@
 package loader
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // Resolver 负责：索引 -> 解析（单目录，无多目录合并）
@@ -37,7 +38,7 @@ func NewResolver(dir string) *Resolver {
 
 func (r *Resolver) dbg(format string, args ...any) {
 	if r.Debug {
-		log.Printf("[resolver] "+format, args...)
+		logger.DebugF(context.Background(), "[resolver] "+format, args...)
 	}
 }
 
@@ -78,10 +79,10 @@ func (r *Resolver) BuildIndex() error {
 		}
 		sort.Strings(al)
 
-		log.Printf("[resolver] index_count=%d alias_count=%d", len(ids), len(al))
-		log.Printf("[resolver] index_ids(sample)=%s", sample(ids, 12))
+		logger.DebugF(context.Background(), "[resolver] index_count=%d alias_count=%d", len(ids), len(al))
+		logger.DebugF(context.Background(), "[resolver] index_ids(sample)=%s", sample(ids, 12))
 		if len(al) > 0 {
-			log.Printf("[resolver] aliases(sample)=%s", sample(al, 12))
+			logger.DebugF(context.Background(), "[resolver] aliases(sample)=%s", sample(al, 12))
 		}
 	}
 	return nil
@@ -159,9 +160,9 @@ func (r *Resolver) resolveInternal(flowID string, visiting map[string]bool) (*fl
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		log.Printf("[resolver] Resolve: NOT FOUND id=%s ; have_ids(sample)=%s ; dir=%s", flowID, sample(keys, 20), r.Dir)
+		logger.DebugF(context.Background(), "[resolver] Resolve: NOT FOUND id=%s ; have_ids(sample)=%s ; dir=%s", flowID, sample(keys, 20), r.Dir)
 		if tgt, ok := r.aliases[flowID]; ok {
-			log.Printf("[resolver] Resolve: alias entry exists id=%s -> target=%s BUT no file indexed (check loader/index)", flowID, tgt)
+			logger.DebugF(context.Background(), "[resolver] Resolve: alias entry exists id=%s -> target=%s BUT no file indexed (check loader/index)", flowID, tgt)
 		}
 	}
 	return nil, fmt.Errorf("flow not found: %s", flowID)

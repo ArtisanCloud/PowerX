@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
 )
@@ -117,7 +119,7 @@ func main() {
 	}
 
 	if cfg.DryRun {
-		fmt.Printf("%s", raw)
+		logger.InfoF(context.Background(), "%s", raw)
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(cfg.Out), 0o755); err != nil {
@@ -126,7 +128,7 @@ func main() {
 	if err := os.WriteFile(cfg.Out, raw, 0o644); err != nil {
 		fatalf("write output failed: %v", err)
 	}
-	fmt.Printf("generated %d capabilities -> %s\n", len(entries), cfg.Out)
+	logger.InfoF(context.Background(), "generated %d capabilities -> %s", len(entries), cfg.Out)
 }
 
 func buildCapabilities(cfg config) ([]capabilityEntry, error) {
@@ -616,7 +618,7 @@ func escapeJSONPointer(path string) string {
 }
 
 func fatalf(format string, args ...interface{}) {
-	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
+	logger.ErrorF(context.Background(), format, args...)
 	os.Exit(1)
 }
 

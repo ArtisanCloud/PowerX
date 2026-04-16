@@ -10,8 +10,8 @@ const reportPath = path.join(repoRoot, 'backend', 'reports', '_state', 'knowledg
 async function main() {
   try {
     const raw = await readFile(reportPath, 'utf8');
-    console.log('--- latest event hotfix report ---');
-    console.log(raw);
+    console.info('--- latest event hotfix report ---');
+    console.info(raw);
   } catch (err) {
     console.error('no event report available:', err.message);
     process.exit(1);

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // localEventBus 本地内存事件总线实现
@@ -27,12 +29,12 @@ func (leb *localEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 	defer leb.mu.Unlock()
 
 	if leb.closed {
-		fmt.Printf("警告: 事件总线已关闭，无法订阅事件 %s\n", eventType)
+		logger.WarnF(context.Background(), "事件总线已关闭，无法订阅事件 %s", eventType)
 		return func() {}
 	}
 
 	leb.subscribers[eventType] = append(leb.subscribers[eventType], handler)
-	fmt.Printf("事件 %s 订阅成功，当前订阅者数量: %d\n", eventType, len(leb.subscribers[eventType]))
+	logger.DebugF(context.Background(), "事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(leb.subscribers[eventType]))
 
 	// 返回取消订阅函数
 	return func() {
@@ -44,7 +46,7 @@ func (leb *localEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 			// 通过函数指针地址比较来找到要删除的handler
 			if fmt.Sprintf("%p", h) == fmt.Sprintf("%p", handler) {
 				leb.subscribers[eventType] = append(handlers[:i], handlers[i+1:]...)
-				fmt.Printf("事件 %s 取消订阅成功\n", eventType)
+				logger.DebugF(context.Background(), "事件 %s 取消订阅成功", eventType)
 				break
 			}
 		}
@@ -62,13 +64,13 @@ func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx con
 	defer leb.mu.RUnlock()
 
 	if leb.closed {
-		fmt.Printf("警告: 事件总线已关闭，无法发布事件 %s\n", eventType)
+		logger.WarnF(context.Background(), "事件总线已关闭，无法发布事件 %s", eventType)
 		return
 	}
 
 	handlers := leb.subscribers[eventType]
 	if len(handlers) == 0 {
-		fmt.Printf("事件 %s 没有订阅者\n", eventType)
+		logger.DebugF(context.Background(), "事件 %s 没有订阅者", eventType)
 		return
 	}
 
@@ -90,19 +92,19 @@ func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx con
 		}
 	}
 
-	fmt.Printf("发布事件 %s，通知 %d 个订阅者\n", eventType, len(handlers))
+	logger.DebugF(context.Background(), "发布事件 %s，通知 %d 个订阅者", eventType, len(handlers))
 
 	// 异步处理所有handler
 	for _, handler := range handlers {
 		go func(h Handler, evt Event) {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("事件处理器发生panic: %v\n", r)
+					logger.ErrorF(context.Background(), "事件处理器发生panic: %v", r)
 				}
 			}()
 
 			if err := h(evt); err != nil {
-				fmt.Printf("事件 %s 处理失败: %v\n", eventType, err)
+				logger.ErrorF(context.Background(), "事件 %s 处理失败: %v", eventType, err)
 			}
 		}(handler, event)
 	}
@@ -119,7 +121,7 @@ func (leb *localEventBus) Close() error {
 
 	leb.closed = true
 	leb.subscribers = make(map[string][]Handler)
-	fmt.Println("本地事件总线已关闭")
+	logger.Info(context.Background(), "本地事件总线已关闭")
 	return nil
 }
 

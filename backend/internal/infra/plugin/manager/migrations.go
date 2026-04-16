@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opts plugin_mgr.InstallOptions) (*plugin_mgr.MigrationRecord, error) {
@@ -157,9 +158,9 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 		cmd.Dir = workDir
 	}
 	cmd.Env = cmdEnv
-	fmt.Printf("[plugin-install] 运行迁移：plugin=%s version=%s entry=%s args=%v workdir=%s\n", desc.Manifest.ID, desc.Manifest.Version, resolvedEntry, record.Args, workDir)
+	logger.InfoF(ctx, "[plugin-install] 运行迁移：plugin=%s version=%s entry=%s args=%v workdir=%s", desc.Manifest.ID, desc.Manifest.Version, resolvedEntry, record.Args, workDir)
 	if dsn := envMap["POWERX_DB_DSN"]; dsn != "" {
-		fmt.Printf("[plugin-install] 使用数据库 DSN: %s\n", dsn)
+		logger.InfoF(ctx, "[plugin-install] 使用数据库 DSN: %s", dsn)
 	}
 
 	var stdout, stderr bytes.Buffer

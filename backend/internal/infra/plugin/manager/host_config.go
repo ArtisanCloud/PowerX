@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 const hostValuesFileName = "host-values.yaml"
@@ -41,7 +43,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	if bindOverride == "" {
 		delete(selected, "POWERX_HTTP_ADDR")
 	}
-	fmt.Printf("[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q\n",
+	logger.InfoF(context.Background(), "[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q",
 		man.ID, cfgDir, bindOverride, selected["POWERX_HTTP_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件

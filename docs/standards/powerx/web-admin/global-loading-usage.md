@@ -261,11 +261,11 @@ try {
 
 ```javascript
 // 查看当前状态
-console.log("Auto visible:", useState("gl:autoVisible").value);
-console.log("Manual visible:", useState("gl:manualVisible").value);
-console.log("Lock count:", useState("gl:lockCount").value);
-console.log("Nav pending:", useState("gl:navPending").value);
-console.log("Req pending:", useState("gl:reqPending").value);
+console.info("Auto visible:", useState("gl:autoVisible").value);
+console.info("Manual visible:", useState("gl:manualVisible").value);
+console.info("Lock count:", useState("gl:lockCount").value);
+console.info("Nav pending:", useState("gl:navPending").value);
+console.info("Req pending:", useState("gl:reqPending").value);
 ```
 
 这个全局 Loading 系统提供了完整的加载状态管理，既能自动处理常见场景，也支持精细的手动控制。

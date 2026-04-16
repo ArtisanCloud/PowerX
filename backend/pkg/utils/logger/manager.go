@@ -209,22 +209,7 @@ func (l *Logger) formatMessage(format string, args ...interface{}) string {
 			// 移除末尾的换行符
 			prettyJson = strings.TrimSuffix(prettyJson, "\n")
 
-			// 如果是控制台输出且不使用 JSON 格式，直接输出美化的内容
-			if l.config.Console && !l.config.UseJsonFormat {
-				// 提取格式字符串的前缀部分
-				prefix := format
-				if strings.Contains(format, "%+v") {
-					prefix = strings.Split(format, "%+v")[0]
-				} else if strings.Contains(format, "%v") {
-					prefix = strings.Split(format, "%v")[0]
-				}
-
-				// 直接在控制台输出美化的 JSON
-				fmt.Printf("%s\n%s\n", prefix, prettyJson)
-				return "" // 返回空字符串，避免 zap 重复输出
-			}
-
-			// 对于其他情况，直接替换格式字符串
+			// 直接替换格式字符串，统一由 logger sink 输出（console/file/loki）
 			if strings.Contains(format, "%+v") {
 				return strings.ReplaceAll(format, "%+v", "\n"+prettyJson)
 			}

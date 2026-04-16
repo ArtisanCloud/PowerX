@@ -54,7 +54,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (process.server) return;
 
   const publicHit = PUBLIC_RULES.some((re) => re.test(to.path));
-  console.log("🚦 publicHit:", publicHit);
+  console.info("🚦 publicHit:", publicHit);
   if (publicHit) return;
 
   if (skipAuth) {

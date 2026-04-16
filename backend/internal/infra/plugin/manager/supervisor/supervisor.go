@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 const healthDebug = false
@@ -92,8 +93,7 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	s.proc[id] = pr
 
 	// 4) 将 stdout/stderr 输出到控制台 + 缓冲
-	cmd.Stdout = io.MultiWriter(os.Stdout, pr.logs)
-	cmd.Stderr = io.MultiWriter(os.Stderr, pr.logs)
+	attachProcessWriters(cmd, pr.logs)
 
 	// 5) 启动
 	if err := cmd.Start(); err != nil {
@@ -194,8 +194,7 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 			// 重新拉起
 			cmd := exec.Command(p.cmd.Path, p.cmd.Args[1:]...)
 			cmd.Env = p.cmd.Env
-			cmd.Stdout = io.MultiWriter(os.Stdout, p.logs)
-			cmd.Stderr = io.MultiWriter(os.Stderr, p.logs)
+			attachProcessWriters(cmd, p.logs)
 			if err := cmd.Start(); err != nil {
 				p.info.LastExitErr = err.Error()
 			} else {
@@ -212,6 +211,25 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 				backoff = p.opts.BackoffMax
 			}
 		}
+	}
+}
+
+func attachProcessWriters(cmd *exec.Cmd, logs io.Writer) {
+	if allowForwardToStdIO() {
+		cmd.Stdout = io.MultiWriter(os.Stdout, logs)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logs)
+		return
+	}
+	cmd.Stdout = logs
+	cmd.Stderr = logs
+}
+
+func allowForwardToStdIO() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_SUPERVISOR_FORWARD_STDIO"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -234,7 +252,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 	}
 
 	if healthDebug {
-		log.Printf("[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
+		logger.InfoF(context.Background(), "[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
 	}
 
 	t := time.NewTicker(interval)
@@ -244,7 +262,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 		select {
 		case <-ctx.Done():
 			if healthDebug {
-				log.Printf("[plugin:health] stop  id=%s", p.id)
+				logger.InfoF(context.Background(), "[plugin:health] stop  id=%s", p.id)
 			}
 			return
 		case <-t.C:
@@ -265,7 +283,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 				p.info.State = ProcUnhealthy
 				if p.info.HealthFails >= 5 && p.cmd != nil && p.cmd.Process != nil {
 					if healthDebug {
-						log.Printf("[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
+						logger.WarnF(context.Background(), "[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
 							p.id, p.port, url, p.info.HealthFails)
 					}
 					_ = p.cmd.Process.Signal(syscall.SIGTERM)
@@ -275,7 +293,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 			mu.Unlock()
 
 			if healthDebug {
-				log.Printf("[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
+				logger.DebugF(context.Background(), "[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
 					p.id, p.port, url, ok, prevState, curState, prevHealthy, curHealthy, p.info.HealthFails, p.info.HealthOKCount)
 			}
 		}

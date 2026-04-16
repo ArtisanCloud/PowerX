@@ -38,7 +38,7 @@ async function main() {
   }
 
   const payload = await response.json()
-  console.log('[fusion] rollback triggered:', JSON.stringify(payload.data ?? payload, null, 2))
+  console.info('[fusion] rollback triggered:', JSON.stringify(payload.data ?? payload, null, 2))
 }
 
 function normalizeApiBase(raw) {

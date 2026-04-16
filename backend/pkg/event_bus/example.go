@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // ExampleUsage 展示事件总线的使用方法
@@ -14,11 +16,11 @@ func ExampleUsage() {
 
 	// 2. 订阅用户注册事件
 	unsubscribeUserReg := bus.Subscribe("user_registered", func(event Event) error {
-		fmt.Printf("用户注册事件: %+v\n", event)
+		logger.InfoF(context.Background(), "用户注册事件: %+v", event)
 
 		// 从事件中获取用户信息
 		if userInfo, ok := event.Payload.(map[string]interface{}); ok {
-			fmt.Printf("新用户: %s, 邮箱: %s\n", userInfo["name"], userInfo["email"])
+			logger.InfoF(context.Background(), "新用户: %s, 邮箱: %s", userInfo["name"], userInfo["email"])
 		}
 
 		return nil
@@ -26,10 +28,10 @@ func ExampleUsage() {
 
 	// 3. 订阅订单创建事件
 	unsubscribeOrderCreated := bus.Subscribe("order_created", func(event Event) error {
-		fmt.Printf("订单创建事件: 租户=%s, 追踪ID=%s\n", event.TenantUUID, event.TraceID)
+		logger.InfoF(context.Background(), "订单创建事件: 租户=%s, 追踪ID=%s", event.TenantUUID, event.TraceID)
 
 		if orderInfo, ok := event.Payload.(map[string]interface{}); ok {
-			fmt.Printf("订单ID: %s, 金额: %v\n", orderInfo["order_id"], orderInfo["amount"])
+			logger.InfoF(context.Background(), "订单ID: %s, 金额: %v", orderInfo["order_id"], orderInfo["amount"])
 		}
 
 		return nil
@@ -59,7 +61,7 @@ func ExampleUsage() {
 	unsubscribeUserReg()
 	unsubscribeOrderCreated()
 
-	fmt.Println("事件总线示例完成")
+	logger.InfoF(context.Background(), "事件总线示例完成")
 }
 
 // ExampleRedisEventBus 展示Redis事件总线的使用
@@ -77,14 +79,14 @@ func ExampleRedisEventBus() {
 	// 创建Redis事件总线
 	bus, err := NewEventBusWithConfig(config)
 	if err != nil {
-		fmt.Printf("创建Redis事件总线失败: %v\n", err)
+		logger.ErrorF(context.Background(), "创建Redis事件总线失败: %v", err)
 		return
 	}
 	defer bus.Close()
 
 	// 订阅事件
 	bus.Subscribe("redis_test", func(event Event) error {
-		fmt.Printf("Redis事件: %+v\n", event)
+		logger.InfoF(context.Background(), "Redis事件: %+v", event)
 		return nil
 	})
 
@@ -94,7 +96,7 @@ func ExampleRedisEventBus() {
 
 	// 等待处理
 	time.Sleep(time.Second)
-	fmt.Println("Redis事件总线示例完成")
+	logger.InfoF(context.Background(), "Redis事件总线示例完成")
 }
 
 // ExampleFactoryPattern 展示工厂模式的使用
@@ -102,21 +104,21 @@ func ExampleFactoryPattern() {
 	// 从环境变量创建事件总线
 	bus, err := NewEventBusFromEnv()
 	if err != nil {
-		fmt.Printf("创建事件总线失败: %v\n", err)
+		logger.ErrorF(context.Background(), "创建事件总线失败: %v", err)
 		return
 	}
 	defer bus.Close()
 
 	// 初始化默认事件总线
 	if err := InitDefaultEventBus(&Config{Type: "local"}); err != nil {
-		fmt.Printf("初始化默认事件总线失败: %v\n", err)
+		logger.ErrorF(context.Background(), "初始化默认事件总线失败: %v", err)
 		return
 	}
 	defer Close()
 
 	// 使用默认事件总线
 	Subscribe("global_event", func(event Event) error {
-		fmt.Printf("全局事件: %+v\n", event)
+		logger.InfoF(context.Background(), "全局事件: %+v", event)
 		return nil
 	})
 
@@ -128,7 +130,7 @@ func ExampleFactoryPattern() {
 	})
 
 	time.Sleep(100 * time.Millisecond)
-	fmt.Println("工厂模式示例完成")
+	logger.InfoF(context.Background(), "工厂模式示例完成")
 }
 
 // ExampleErrorHandling 展示错误处理
@@ -138,13 +140,13 @@ func ExampleErrorHandling() {
 
 	// 订阅会出错的处理器
 	bus.Subscribe("error_event", func(event Event) error {
-		fmt.Printf("处理事件: %+v\n", event)
+		logger.InfoF(context.Background(), "处理事件: %+v", event)
 		return fmt.Errorf("模拟处理错误")
 	})
 
 	// 订阅正常的处理器
 	bus.Subscribe("error_event", func(event Event) error {
-		fmt.Printf("正常处理事件: %+v\n", event)
+		logger.InfoF(context.Background(), "正常处理事件: %+v", event)
 		return nil
 	})
 
@@ -153,7 +155,7 @@ func ExampleErrorHandling() {
 	bus.Publish("error_event", "测试错误处理", ctx)
 
 	time.Sleep(100 * time.Millisecond)
-	fmt.Println("错误处理示例完成")
+	logger.InfoF(context.Background(), "错误处理示例完成")
 }
 
 // ExampleMultiTenant 展示多租户场景
@@ -163,7 +165,7 @@ func ExampleMultiTenant() {
 
 	// 订阅所有租户的事件
 	bus.Subscribe("tenant_action", func(event Event) error {
-		fmt.Printf("租户 %s 执行了操作: %v\n", event.TenantUUID, event.Payload)
+		logger.InfoF(context.Background(), "租户 %s 执行了操作: %v", event.TenantUUID, event.Payload)
 		return nil
 	})
 
@@ -176,5 +178,5 @@ func ExampleMultiTenant() {
 	bus.Publish("tenant_action", "删除订单", ctxB)
 
 	time.Sleep(100 * time.Millisecond)
-	fmt.Println("多租户示例完成")
+	logger.InfoF(context.Background(), "多租户示例完成")
 }

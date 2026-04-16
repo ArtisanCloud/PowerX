@@ -12,6 +12,7 @@ import (
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func mAction(plugin, resource, action string) []byte {
@@ -65,7 +66,7 @@ func SeedSystemPermissions(db *gorm.DB) error {
 	if err := pr.UpsertBatch(seedCtx(), perms); err != nil {
 		return fmt.Errorf("upsert system permissions: %w", err)
 	}
-	fmt.Printf("[seed] system permissions ready: %d\n", len(perms))
+	logger.InfoF(context.Background(), "[seed] system permissions ready: %d", len(perms))
 	return nil
 }
 

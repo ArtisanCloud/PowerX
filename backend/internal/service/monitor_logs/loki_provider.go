@@ -28,7 +28,7 @@ func NewLokiProvider(cfg *config.Config) *LokiProvider {
 		p.jobName = strings.TrimSpace(cfg.LogConfig.Loki.JobName)
 	}
 	if p.jobName == "" {
-		p.jobName = "corex"
+		p.jobName = "powerx"
 	}
 	return p
 }

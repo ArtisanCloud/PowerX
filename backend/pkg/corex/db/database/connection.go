@@ -1,14 +1,14 @@
 package database
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -48,7 +48,7 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 			SingularTable: true,
 		},
 		Logger: gormLogger.New(
-			log.New(os.Stdout, "\r\n", log.LstdFlags),
+			&gormLogWriter{},
 			gormLogger.Config{
 				SlowThreshold:             200 * time.Millisecond,
 				LogLevel:                  logMode,
@@ -135,4 +135,10 @@ func GetDB(cfg *corexdb.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("nil database config")
 	}
 	return Connect(*cfg)
+}
+
+type gormLogWriter struct{}
+
+func (w *gormLogWriter) Printf(format string, args ...interface{}) {
+	logger.InfoF(context.Background(), strings.TrimSpace(format), args...)
 }

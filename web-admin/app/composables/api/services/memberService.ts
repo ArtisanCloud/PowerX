@@ -129,7 +129,7 @@ export function useMemberService() {
           `${baseUrl}${toQueryString(query)}`
         );
         const serverResp = res?.data ?? res;
-        // console.log("获取成员列表成功:", serverResp);
+        // console.info("获取成员列表成功:", serverResp);
         return parseMembersFromResponse(serverResp);
       } catch (error) {
         console.error("获取成员列表失败:", error);

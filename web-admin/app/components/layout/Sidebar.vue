@@ -488,7 +488,7 @@ onMounted(async () => {
   try {
     await userStore.fetchUserContext();
     // 调试菜单数据结构
-    // console.log("菜单数据:", menuResponse.value);
+    // console.info("菜单数据:", menuResponse.value);
   } catch (e) {
     console.error("初始化用户数据失败:", e);
   }

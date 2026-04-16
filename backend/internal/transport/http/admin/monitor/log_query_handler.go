@@ -32,9 +32,14 @@ func (h *handler) QueryLogs(c *gin.Context) {
 
 	traceID := strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
 	queryTraceID := strings.TrimSpace(c.Query("trace_id"))
+	driverRaw := strings.TrimSpace(strings.ToLower(c.Query("driver")))
+	if driverRaw != "" && driverRaw != string(monitorlogs.DriverFile) && driverRaw != string(monitorlogs.DriverStdio) && driverRaw != string(monitorlogs.DriverLoki) {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid driver, must be one of: file|stdio|loki", nil)
+		return
+	}
 	operator := resolveOperator(c)
 
-	result, err := h.svc.Query(monitorlogs.QueryRequest{
+	req := monitorlogs.QueryRequest{
 		TraceID:  queryTraceID,
 		JobID:    jobID,
 		PolicyID: policyID,
@@ -43,11 +48,22 @@ func (h *handler) QueryLogs(c *gin.Context) {
 		To:       to,
 		Page:     page,
 		PageSize: pageSize,
-	})
-	if err != nil {
+	}
+	var (
+		result   monitorlogs.QueryResult
+		queryErr error
+	)
+	if driverRaw != "" {
+		driver := monitorlogs.Driver(driverRaw)
+		result, queryErr = h.svc.QueryByDriver(req, driver)
+	} else {
+		result, queryErr = h.svc.Query(req)
+	}
+	if queryErr != nil {
 		logger.Info(c.Request.Context(), "monitor.logs.query",
 			zap.String("operator", operator),
 			zap.String("trace_id", traceID),
+			zap.String("filter_driver", driverRaw),
 			zap.String("filter_trace_id", queryTraceID),
 			zap.Uint64("filter_job_id", jobID),
 			zap.Uint64("filter_policy_id", policyID),
@@ -55,14 +71,15 @@ func (h *handler) QueryLogs(c *gin.Context) {
 			zap.Int("page", page),
 			zap.Int("page_size", pageSize),
 			zap.String("status", "failed"),
-			zap.String("error", err.Error()),
+			zap.String("error", queryErr.Error()),
 		)
-		dto.ResponseError(c, http.StatusInternalServerError, "query monitor logs failed", err)
+		dto.ResponseError(c, http.StatusInternalServerError, "query monitor logs failed", queryErr)
 		return
 	}
 	logger.Info(c.Request.Context(), "monitor.logs.query",
 		zap.String("operator", operator),
 		zap.String("trace_id", traceID),
+		zap.String("filter_driver", driverRaw),
 		zap.String("filter_trace_id", queryTraceID),
 		zap.Uint64("filter_job_id", jobID),
 		zap.Uint64("filter_policy_id", policyID),

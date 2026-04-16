@@ -2,9 +2,11 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -58,6 +60,6 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		}
 	}
 
-	fmt.Printf("[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)\n", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
+	logger.InfoF(context.Background(), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
 	return nil
 }

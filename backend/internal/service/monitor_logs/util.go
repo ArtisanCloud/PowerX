@@ -13,6 +13,10 @@ import (
 )
 
 var tsRegex = regexp.MustCompile(`\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?`)
+var linePrefixRegex = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+(debug|info|warn|warning|error)\s+([A-Za-z0-9._:/-]+)\s*(.*)$`)
+var traceIDRegex = regexp.MustCompile(`(?i)trace[_-]?id["'=:\s]+([a-z0-9-]{16,})`)
+var jobIDRegex = regexp.MustCompile(`(?i)job[_-]?id["'=:\s]+(\d+)`)
+var policyIDRegex = regexp.MustCompile(`(?i)policy[_-]?id["'=:\s]+(\d+)`)
 
 func parseLineToEntry(line string) Entry {
 	entry := Entry{Raw: line, Message: strings.TrimSpace(line), Level: "info"}
@@ -21,33 +25,23 @@ func parseLineToEntry(line string) Entry {
 		return entry
 	}
 
-	var payload map[string]any
-	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") && json.Unmarshal([]byte(trimmed), &payload) == nil {
-		if v := getString(payload, "time"); v != "" {
-			if t, ok := parseFlexibleTime(v); ok {
-				entry.Timestamp = t
-			}
+	body := trimmed
+	if m := linePrefixRegex.FindStringSubmatch(trimmed); len(m) == 5 {
+		if t, ok := parseFlexibleTime(m[1]); ok {
+			entry.Timestamp = t
 		}
-		if entry.Timestamp.IsZero() {
-			if v := getString(payload, "timestamp"); v != "" {
-				if t, ok := parseFlexibleTime(v); ok {
-					entry.Timestamp = t
-				}
-			}
+		entry.Level = normalizeLevel(m[2])
+		entry.Module = strings.TrimSpace(m[3])
+		body = strings.TrimSpace(m[4])
+		if body != "" {
+			entry.Message = body
 		}
-		if v := strings.ToLower(getString(payload, "level")); v != "" {
-			entry.Level = v
-		}
-		entry.Module = getString(payload, "component")
-		entry.TraceID = getString(payload, "trace_id")
-		if entry.TraceID == "" {
-			entry.TraceID = getString(payload, "traceId")
-		}
-		entry.JobID = getUint64(payload, "job_id")
-		entry.PolicyID = getUint64(payload, "policy_id")
-		if msg := getString(payload, "msg"); msg != "" {
-			entry.Message = msg
-		}
+	}
+
+	if payload, ok := parseJSONPayload(body); ok {
+		mergePayloadToEntry(&entry, payload)
+	} else if payload, ok := parseJSONPayload(trimmed); ok {
+		mergePayloadToEntry(&entry, payload)
 	}
 
 	if entry.Timestamp.IsZero() {
@@ -69,8 +63,121 @@ func parseLineToEntry(line string) Entry {
 	} else if strings.Contains(lower, " debug ") || strings.Contains(lower, "\"level\":\"debug\"") {
 		entry.Level = "debug"
 	}
+	if entry.TraceID == "" {
+		if m := traceIDRegex.FindStringSubmatch(trimmed); len(m) == 2 {
+			entry.TraceID = strings.TrimSpace(m[1])
+		}
+	}
+	if entry.JobID == 0 {
+		if m := jobIDRegex.FindStringSubmatch(trimmed); len(m) == 2 {
+			if v, err := strconv.ParseUint(strings.TrimSpace(m[1]), 10, 64); err == nil {
+				entry.JobID = v
+			}
+		}
+	}
+	if entry.PolicyID == 0 {
+		if m := policyIDRegex.FindStringSubmatch(trimmed); len(m) == 2 {
+			if v, err := strconv.ParseUint(strings.TrimSpace(m[1]), 10, 64); err == nil {
+				entry.PolicyID = v
+			}
+		}
+	}
+	entry.Level = normalizeLevel(entry.Level)
 
 	return entry
+}
+
+func parseJSONPayload(input string) (map[string]any, bool) {
+	raw := strings.TrimSpace(input)
+	if raw == "" {
+		return nil, false
+	}
+	if strings.HasPrefix(raw, "{") && strings.HasSuffix(raw, "}") {
+		var payload map[string]any
+		if json.Unmarshal([]byte(raw), &payload) == nil {
+			return payload, true
+		}
+	}
+	start := strings.Index(raw, "{")
+	end := strings.LastIndex(raw, "}")
+	if start < 0 || end <= start {
+		return nil, false
+	}
+	candidate := strings.TrimSpace(raw[start : end+1])
+	var payload map[string]any
+	if json.Unmarshal([]byte(candidate), &payload) == nil {
+		return payload, true
+	}
+	return nil, false
+}
+
+func mergePayloadToEntry(entry *Entry, payload map[string]any) {
+	if entry == nil || payload == nil {
+		return
+	}
+	if entry.Timestamp.IsZero() {
+		if v := getString(payload, "time"); v != "" {
+			if t, ok := parseFlexibleTime(v); ok {
+				entry.Timestamp = t
+			}
+		}
+	}
+	if entry.Timestamp.IsZero() {
+		if v := getString(payload, "timestamp"); v != "" {
+			if t, ok := parseFlexibleTime(v); ok {
+				entry.Timestamp = t
+			}
+		}
+	}
+	if v := strings.TrimSpace(getString(payload, "level")); v != "" {
+		entry.Level = normalizeLevel(v)
+	}
+	if entry.Module == "" {
+		entry.Module = firstNonEmpty(
+			getString(payload, "component"),
+			getString(payload, "module"),
+			getString(payload, "logger"),
+			getString(payload, "source"),
+		)
+	}
+	if entry.TraceID == "" {
+		entry.TraceID = firstNonEmpty(
+			getString(payload, "trace_id"),
+			getString(payload, "traceId"),
+			getString(payload, "traceID"),
+		)
+	}
+	if entry.JobID == 0 {
+		entry.JobID = getUint64(payload, "job_id")
+	}
+	if entry.PolicyID == 0 {
+		entry.PolicyID = getUint64(payload, "policy_id")
+	}
+	if msg := firstNonEmpty(getString(payload, "msg"), getString(payload, "message")); msg != "" {
+		entry.Message = msg
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for i := range values {
+		if v := strings.TrimSpace(values[i]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func normalizeLevel(level string) string {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "warn", "warning":
+		return "warn"
+	case "error":
+		return "error"
+	case "debug":
+		return "debug"
+	default:
+		return "info"
+	}
 }
 
 func parseFlexibleTime(s string) (time.Time, bool) {

@@ -20,6 +20,7 @@ import (
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func SeedRoot(db *gorm.DB) error {
@@ -102,7 +103,7 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	} else if hasSetupDraft {
 		// setup 进行中但尚未提供管理员密码：不提前写入默认 root。
-		fmt.Println("[seed] skip root identity before setup admin is confirmed")
+		logger.InfoF(context.Background(), "[seed] skip root identity before setup admin is confirmed")
 		return nil
 	}
 
@@ -254,7 +255,7 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed demo readonly account: %w", err)
 	}
 
-	fmt.Printf("[seed] root ready. tenant=%s username=%s identifier=%s password=%s\n", tenantKey, rootUserName, rootIdentifier, rootPassword)
+	logger.InfoF(context.Background(), "[seed] root ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, rootUserName, rootIdentifier, rootPassword)
 	return nil
 }
 
@@ -463,7 +464,7 @@ func SeedDemoReadonlyAccount(db *gorm.DB) error {
 		return fmt.Errorf("bind demo readonly role: %w", err)
 	}
 
-	fmt.Printf("[seed] demo readonly ready. tenant=%s username=%s identifier=%s password=%s\n", tenantKey, username, identifier, password)
+	logger.InfoF(context.Background(), "[seed] demo readonly ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, username, identifier, password)
 	return nil
 }
 

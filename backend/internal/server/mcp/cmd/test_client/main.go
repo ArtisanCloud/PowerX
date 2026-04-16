@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
-	"log"
+	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // MCPRequest MCP请求结构
@@ -26,8 +29,8 @@ type MCPResponse struct {
 }
 
 func main() {
-	log.Println("🔌 CoreX MCP 客户端测试工具")
-	log.Println("========================================")
+	logger.InfoF(context.Background(), "🔌 CoreX MCP 客户端测试工具")
+	logger.InfoF(context.Background(), "========================================")
 
 	// 启动MCP服务器进程
 	cmd := exec.Command("go", "run", "./mcp/cmd/main.go")
@@ -36,39 +39,39 @@ func main() {
 	// 获取stdin和stdout管道
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		log.Fatalf("创建stdin管道失败: %v", err)
+		fatalf("创建stdin管道失败: %v", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatalf("创建stdout管道失败: %v", err)
+		fatalf("创建stdout管道失败: %v", err)
 	}
 
 	// 启动服务器
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("启动MCP服务器失败: %v", err)
+		fatalf("启动MCP服务器失败: %v", err)
 	}
 
-	log.Println("✅ MCP服务器已启动")
+	logger.InfoF(context.Background(), "✅ MCP服务器已启动")
 
 	// 等待服务器初始化完成
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
-		log.Printf("服务器输出: %s", line)
+		logger.InfoF(context.Background(), "服务器输出: %s", line)
 		if strings.Contains(line, "等待客户端连接") {
 			break
 		}
 	}
 
-	log.Println("🔍 开始测试MCP协议通信...")
+	logger.InfoF(context.Background(), "🔍 开始测试MCP协议通信...")
 
 	// 测试1: 获取工具列表
-	log.Println("\n📋 测试1: 获取工具列表")
+	logger.InfoF(context.Background(), "📋 测试1: 获取工具列表")
 	testListTools(stdin, stdout)
 
 	// 测试2: 调用list_blueprints工具
-	log.Println("\n🔧 测试2: 调用list_blueprints工具")
+	logger.InfoF(context.Background(), "🔧 测试2: 调用list_blueprints工具")
 	testCallTool(stdin, stdout, "list_blueprints", map[string]interface{}{})
 
 	// 清理
@@ -76,7 +79,7 @@ func main() {
 	cmd.Process.Kill()
 	cmd.Wait()
 
-	log.Println("\n✅ 测试完成")
+	logger.InfoF(context.Background(), "✅ 测试完成")
 }
 
 func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
@@ -99,10 +102,10 @@ func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
 	initResponse := readResponse(stdout)
 
 	if initResponse.Error != nil {
-		log.Printf("❌ 初始化失败: %v", initResponse.Error)
+		logger.ErrorF(context.Background(), "❌ 初始化失败: %v", initResponse.Error)
 		return
 	} else {
-		log.Printf("✅ 初始化成功: %v", initResponse.Result)
+		logger.InfoF(context.Background(), "✅ 初始化成功: %v", initResponse.Result)
 	}
 
 	// 然后获取工具列表
@@ -119,9 +122,9 @@ func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
 	response := readResponse(stdout)
 
 	if response.Error != nil {
-		log.Printf("❌ 错误: %v", response.Error)
+		logger.ErrorF(context.Background(), "❌ 错误: %v", response.Error)
 	} else {
-		log.Printf("✅ 成功获取工具列表: %v", response.Result)
+		logger.InfoF(context.Background(), "✅ 成功获取工具列表: %v", response.Result)
 	}
 }
 
@@ -143,23 +146,23 @@ func testCallTool(stdin io.WriteCloser, stdout io.ReadCloser, toolName string, p
 	response := readResponse(stdout)
 
 	if response.Error != nil {
-		log.Printf("❌ 调用工具失败: %v", response.Error)
+		logger.ErrorF(context.Background(), "❌ 调用工具失败: %v", response.Error)
 	} else {
-		log.Printf("✅ 工具调用成功: %v", response.Result)
+		logger.InfoF(context.Background(), "✅ 工具调用成功: %v", response.Result)
 	}
 }
 
 func sendRequest(stdin io.WriteCloser, req MCPRequest) {
 	data, err := json.Marshal(req)
 	if err != nil {
-		log.Fatalf("序列化请求失败: %v", err)
+		fatalf("序列化请求失败: %v", err)
 	}
 
-	log.Printf("📤 发送请求: %s", string(data))
+	logger.InfoF(context.Background(), "📤 发送请求: %s", string(data))
 
 	_, err = stdin.Write(append(data, '\n'))
 	if err != nil {
-		log.Fatalf("发送请求失败: %v", err)
+		fatalf("发送请求失败: %v", err)
 	}
 }
 
@@ -172,11 +175,16 @@ func readResponse(stdout io.ReadCloser) MCPResponse {
 		if strings.HasPrefix(line, "{") {
 			var response MCPResponse
 			if err := json.Unmarshal([]byte(line), &response); err == nil {
-				log.Printf("📥 收到响应: %s", line)
+				logger.InfoF(context.Background(), "📥 收到响应: %s", line)
 				return response
 			}
 		}
 	}
 
 	return MCPResponse{}
+}
+
+func fatalf(format string, args ...any) {
+	logger.ErrorF(context.Background(), format, args...)
+	os.Exit(1)
 }

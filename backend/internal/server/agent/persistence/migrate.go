@@ -3,9 +3,10 @@ package persistence
 // internal/server/agent/persistence/migrate.go
 
 import (
+	"context"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
-	"log"
 )
 
 func MigrateAgentModels(db *gorm.DB) error {
@@ -34,16 +35,16 @@ func MigrateAgentModels(db *gorm.DB) error {
 
 	// 可以顺手确认一下（开发期）：
 	if ok := db.Migrator().HasIndex(&dbmodel.AIProviderCredential{}, "ai_cred_uniq_global"); !ok {
-		log.Println("warn: ai_cred_uniq_global not created")
+		logger.WarnF(context.Background(), "warn: ai_cred_uniq_global not created")
 	}
 	if ok := db.Migrator().HasIndex(&dbmodel.AIProviderCredential{}, "ai_cred_uniq_tenant"); !ok {
-		log.Println("warn: ai_cred_uniq_tenant not created")
+		logger.WarnF(context.Background(), "warn: ai_cred_uniq_tenant not created")
 	}
 	if ok := db.Migrator().HasIndex(&dbmodel.AIModelProfile{}, "ai_model_uniq_global"); !ok {
-		log.Println("warn: ai_model_uniq_global not created")
+		logger.WarnF(context.Background(), "warn: ai_model_uniq_global not created")
 	}
 	if ok := db.Migrator().HasIndex(&dbmodel.AIModelProfile{}, "ai_model_uniq_tenant"); !ok {
-		log.Println("warn: ai_model_uniq_tenant not created")
+		logger.WarnF(context.Background(), "warn: ai_model_uniq_tenant not created")
 	}
 	return nil
 

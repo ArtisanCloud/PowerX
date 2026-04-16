@@ -20,6 +20,8 @@ func registerProtectedRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
 	g.GET("/query", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.QueryLogs)
 	g.GET("/retention/runs", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.ListRetentionRuns)
 	g.POST("/retention/run", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.TriggerRetentionRun)
+	g.POST("/retention/dry-run", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.TriggerRetentionDryRun)
+	g.GET("/retention/export", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.ExportRetentionDryRun)
 	g.GET("/retention/policy", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionRead), h.GetRetentionPolicy)
 	g.PUT("/retention/policy", backupHTTP.RequireOpsPermission(deps, iamsvc.OpsResourceBackup, iamsvc.OpsActionExecute), h.UpdateRetentionPolicy)
 }

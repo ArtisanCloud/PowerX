@@ -72,6 +72,50 @@ func (p *DBRetentionProvider) Cleanup(ctx context.Context, defaultRetentionDays 
 	return totalDeleted, errs
 }
 
+func (p *DBRetentionProvider) Preview(ctx context.Context, defaultRetentionDays int) (int64, []string) {
+	total, _, errs := p.PreviewBreakdown(ctx, defaultRetentionDays)
+	return total, errs
+}
+
+func (p *DBRetentionProvider) PreviewBreakdown(ctx context.Context, defaultRetentionDays int) (int64, map[string]int64, []string) {
+	if p == nil || p.db == nil || len(p.tableCfg) == 0 {
+		return 0, map[string]int64{}, nil
+	}
+	var totalMatched int64
+	perTable := make(map[string]int64, len(p.tableCfg))
+	errs := make([]string, 0, 4)
+	for i := range p.tableCfg {
+		cfg := p.tableCfg[i]
+		name := strings.TrimSpace(cfg.Name)
+		col := strings.TrimSpace(cfg.TimeColumn)
+		if name == "" || col == "" {
+			continue
+		}
+		if !isSafeTableName(name) || !isSafeIdent(col) {
+			errs = append(errs, fmt.Sprintf("skip unsafe table config: %s.%s", name, col))
+			continue
+		}
+		if !p.db.Migrator().HasTable(name) {
+			continue
+		}
+		retentionDays := cfg.RetentionDays
+		if retentionDays <= 0 {
+			retentionDays = defaultRetentionDays
+		}
+		if retentionDays <= 0 {
+			continue
+		}
+		cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
+		matched, err := p.countTable(ctx, name, col, cutoff)
+		totalMatched += matched
+		perTable[name] += matched
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", name, err))
+		}
+	}
+	return totalMatched, perTable, errs
+}
+
 func (p *DBRetentionProvider) cleanupTable(ctx context.Context, table, timeColumn string, cutoff time.Time) (int64, error) {
 	quotedTable := quoteCompositeName(table)
 	quotedCol := quoteIdent(timeColumn)
@@ -104,6 +148,26 @@ WHERE ctid IN (
 		remaining -= int(res.RowsAffected)
 	}
 	return total, nil
+}
+
+func (p *DBRetentionProvider) countTable(ctx context.Context, table, timeColumn string, cutoff time.Time) (int64, error) {
+	quotedTable := quoteCompositeName(table)
+	quotedCol := quoteIdent(timeColumn)
+	sql := fmt.Sprintf(`
+SELECT COUNT(1)
+FROM (
+  SELECT 1 FROM %s
+  WHERE %s < @cutoff
+  LIMIT @limit
+) t`, quotedTable, quotedCol)
+	var matched int64
+	if err := p.db.WithContext(ctx).Raw(sql, map[string]any{
+		"cutoff": cutoff,
+		"limit":  p.maxRows,
+	}).Scan(&matched).Error; err != nil {
+		return 0, err
+	}
+	return matched, nil
 }
 
 func isSafeTableName(name string) bool {

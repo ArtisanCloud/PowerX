@@ -79,4 +79,4 @@ if (badPageApi.length > 0) {
 }
 
 if (failed) process.exit(1);
-console.log('✅ API 响应解包与页面调用边界检查通过');
+console.info('✅ API 响应解包与页面调用边界检查通过');

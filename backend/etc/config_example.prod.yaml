@@ -120,8 +120,8 @@ log:
     compress: true
   loki:
     enable: false
-    url: ""
-    job_name: corex
+    url: "http://<loki-host>:3100"
+    job_name: powerx
     batch_wait: 1
     batch_size: 100
   retention:

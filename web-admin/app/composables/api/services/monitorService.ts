@@ -12,6 +12,7 @@ export interface MonitorLogCapabilities {
 
 export interface MonitorLogConfig {
   driver: "loki" | "file" | "stdio";
+  output_channels?: Array<"loki" | "file" | "stdio" | string>;
   capabilities: MonitorLogCapabilities;
   grafana_base_url?: string;
 }
@@ -35,6 +36,7 @@ export interface MonitorLogEntry {
 }
 
 export interface MonitorLogQueryFilters {
+  driver?: "loki" | "file" | "stdio" | string;
   trace_id?: string;
   job_id?: string | number;
   policy_id?: string | number;
@@ -48,6 +50,10 @@ export interface MonitorLogQueryFilters {
 export interface MonitorRetentionRun {
   run_id: string;
   triggered_by: string;
+  dry_run?: boolean;
+  retention_days?: number;
+  cutoff_at?: string;
+  preview_details?: string[];
   started_at: string;
   ended_at: string;
   status: "success" | "failed" | string;
@@ -83,6 +89,27 @@ export interface MonitorRetentionPolicy {
   db_tables: MonitorRetentionDBTable[];
 }
 
+export interface MonitorRetentionExportFile {
+  name: string;
+  size_bytes: number;
+  content: string;
+  mime_type: string;
+}
+
+export interface MonitorRetentionExport {
+  run_id: string;
+  format: "txt" | "json" | string;
+  retention_days: number;
+  cutoff_at: string;
+  matched_files: number;
+  matched_rows: number;
+  per_table_rows: Record<string, number>;
+  files?: string[];
+  sources: string[];
+  errors?: string[];
+  file: MonitorRetentionExportFile;
+}
+
 const unwrap = <T>(payload: unknown): T => {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as any).data as T;
@@ -109,6 +136,7 @@ export const useMonitorService = () => {
       const resp = await api.get(`${adminBase}/query`, {
         params: {
           trace_id: filters?.trace_id || undefined,
+          driver: filters?.driver || undefined,
           job_id: filters?.job_id ? String(filters.job_id) : undefined,
           policy_id: filters?.policy_id ? String(filters.policy_id) : undefined,
           keyword: filters?.keyword || undefined,
@@ -157,6 +185,41 @@ export const useMonitorService = () => {
         throw new Error("retention run response missing run");
       }
       return data.run;
+    },
+
+    async triggerRetentionDryRun(retentionDays?: number): Promise<MonitorRetentionRun> {
+      const params: Record<string, string> = {};
+      if (Number.isFinite(Number(retentionDays)) && Number(retentionDays) >= 0) {
+        params.retention_days = String(Math.floor(Number(retentionDays)));
+      }
+      const resp = await api.post(`${adminBase}/retention/dry-run`, {}, { params });
+      const data = unwrap<{ run?: MonitorRetentionRun }>(resp) || {};
+      if (!data.run) {
+        throw new Error("retention dry-run response missing run");
+      }
+      return data.run;
+    },
+
+    async exportRetentionDryRun(payload?: {
+      format?: "txt" | "json";
+      retention_days?: number;
+      cutoff_at?: string;
+    }): Promise<MonitorRetentionExport> {
+      const params: Record<string, string> = {
+        format: payload?.format === "json" ? "json" : "txt",
+      };
+      if (Number.isFinite(Number(payload?.retention_days)) && Number(payload?.retention_days) >= 0) {
+        params.retention_days = String(Math.floor(Number(payload?.retention_days)));
+      }
+      if (payload?.cutoff_at) {
+        params.cutoff_at = String(payload.cutoff_at);
+      }
+      const resp = await api.get(`${adminBase}/retention/export`, { params });
+      const data = unwrap<{ export?: MonitorRetentionExport }>(resp) || {};
+      if (!data.export) {
+        throw new Error("retention export response missing export");
+      }
+      return data.export;
     },
 
     async getRetentionPolicy(): Promise<MonitorRetentionPolicy> {

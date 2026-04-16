@@ -346,7 +346,7 @@ const languageOptions = [
 async function saveSettings() {
   try {
     // 这里应该调用 API 保存设置
-    console.log("保存设置:", settings);
+    console.info("保存设置:", settings);
 
     const toast = useToast();
     toast.add({

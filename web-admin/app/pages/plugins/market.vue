@@ -290,7 +290,7 @@ const selectedPlugin = ref<MarketplacePlugin | undefined>(undefined);
 function openInstall(p: MarketplacePlugin) {
   selectedPlugin.value = p;
   installOpen.value = true;
-  console.log("[openInstall] fired with", p); // 便于确认点击链路没问题
+  console.info("[openInstall] fired with", p); // 便于确认点击链路没问题
 }
 function openInstallGeneric() {
   selectedPlugin.value = undefined as any;

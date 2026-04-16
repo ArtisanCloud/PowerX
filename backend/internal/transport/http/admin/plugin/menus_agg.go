@@ -4,13 +4,13 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 type PluginMenusPublic struct {
@@ -21,13 +21,13 @@ type PluginMenusPublic struct {
 func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []string) PluginMenusPublic {
 	cfg := config.GetGlobalConfig()
 	if cfg != nil && !cfg.Plugin.Enabled {
-		log.Printf("[menu-builder] plugin runtime disabled, skip plugin menus")
+		logger.DebugF(ctx, "[menu-builder] plugin runtime disabled, skip plugin menus")
 		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
 	}
 
 	mgr, err := tryGetPluginManager()
 	if err != nil {
-		log.Printf("[menu-builder] plugin manager unavailable, skip plugin menus: %v", err)
+		logger.WarnF(ctx, "[menu-builder] plugin manager unavailable, skip plugin menus: %v", err)
 		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
 	}
 	list, err := mgr.List(ctx)
@@ -36,23 +36,23 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 	}
 
 	// ★ 新增：总览
-	log.Printf("[menu-builder] registry=%d", len(list))
+	logger.DebugF(ctx, "[menu-builder] registry=%d", len(list))
 
 	preferredLocales := normalizeLocalePreference(locales)
 	out := PluginMenusPublic{Items: make([]admdto.AdminMenuItem, 0, len(list))}
 	for _, p := range list {
 		// ★ 新增：逐插件观测
-		log.Printf("[menu-builder] id=%s state=%s kind=%s adminDir=%q menus=%d",
+		logger.DebugF(ctx, "[menu-builder] id=%s state=%s kind=%s adminDir=%q menus=%d",
 			p.ID, p.State, p.Frontend.Admin.Kind, p.Paths.FrontendAdminDir, len(p.Frontend.Admin.Menus))
 
 		if p.State != plugin_mgr.StateEnabled {
-			log.Printf("[menu-builder] skip=%s reason=state=%s", p.ID, p.State)
+			logger.DebugF(ctx, "[menu-builder] skip=%s reason=state=%s", p.ID, p.State)
 			continue
 		}
 
 		// 只要插件声明了菜单，就接入（无论 static / process / proxy）
 		if len(p.Frontend.Admin.Menus) == 0 {
-			log.Printf("[menu-builder] skip=%s reason=no-menus", p.ID)
+			logger.DebugF(ctx, "[menu-builder] skip=%s reason=no-menus", p.ID)
 			continue
 		}
 

@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -125,7 +124,7 @@ func (s *Server) Start(ctx context.Context) error {
 		// 查找可用端口
 		availablePort := http.FindAvailablePort(activeCfg, activeCfg.Server.Port)
 		if availablePort != activeCfg.Server.Port {
-			log.Printf("⚠️ 配置端口 %d 已被占用，自动切换到端口 %d", activeCfg.Server.Port, availablePort)
+			logger.WarnF(ctx, "⚠️ 配置端口 %d 已被占用，自动切换到端口 %d", activeCfg.Server.Port, availablePort)
 		}
 		addr := fmt.Sprintf("%s:%d", activeCfg.Server.Host, availablePort)
 		httpSrv := server.NewStreamableHTTPServer(s.mcpServer)

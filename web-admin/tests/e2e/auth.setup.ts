@@ -53,5 +53,5 @@ export default async function globalSetup(config: FullConfig) {
 
   await fs.mkdir(path.dirname(adminState), { recursive: true })
   await fs.writeFile(adminState, JSON.stringify(storageState, null, 2), 'utf-8')
-  console.log(`✅ Global auth storage prepared at ${adminState}`)
+  console.info(`✅ Global auth storage prepared at ${adminState}`)
 }

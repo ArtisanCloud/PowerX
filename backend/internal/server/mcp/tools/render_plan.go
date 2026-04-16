@@ -113,7 +113,7 @@ func RenderPlanTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		tplName, ok := templateMap[step.Use]
 		if !ok {
 			// 如果找不到，跳过或打印警告
-			fmt.Println("未找到模板映射:", step.Use)
+			logger.WarnF(ctx, "未找到模板映射: %s", step.Use)
 			continue
 		}
 		tplPath := filepath.Join(cfg.TemplatesDir, tplName+".tmpl")

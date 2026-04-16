@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -58,7 +57,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 
 	// 读取 Wrap 密钥
 	if _, err := cfg.Server.ParseKey(); err != nil {
-		log.Fatalf("读取 server.secret_key 失败: %v", err)
+		return nil, fmt.Errorf("%w: 读取 server.secret_key 失败: %v", ErrBootstrapDependencyUnavailable, err)
 	} else {
 		logger.Info(ctx, "Wrap 密钥已设置到全局")
 	}

@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit/partition"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func main() {
@@ -30,14 +30,14 @@ func main() {
 	flag.Parse()
 
 	if mode == "" {
-		fmt.Println("usage: -mode=ensure|retire|ensure-parent [flags]")
+		logger.ErrorF(context.Background(), "usage: -mode=ensure|retire|ensure-parent [flags]")
 		os.Exit(2)
 	}
 
 	cfg := config.GetGlobalConfig()
 	db, err := database.GetDB(&cfg.Database)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "db init failed: %v\n", err)
+		logger.ErrorF(context.Background(), "db init failed: %v", err)
 		os.Exit(1)
 	}
 
@@ -47,7 +47,7 @@ func main() {
 	switch mode {
 	case "ensure-parent":
 		if err := pm.EnsureParent(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "ensure-parent failed: %v\n", err)
+			logger.ErrorF(ctx, "ensure-parent failed: %v", err)
 			os.Exit(1)
 		}
 	case "ensure":
@@ -55,7 +55,7 @@ func main() {
 		if ok, _ := pm.TryAdvisoryLock(ctx, 43210); ok {
 			defer pm.AdvisoryUnlock(ctx, 43210)
 			if err := pm.EnsureMonthlyPartitions(ctx, now, past, future); err != nil {
-				fmt.Fprintf(os.Stderr, "ensure failed: %v\n", err)
+				logger.ErrorF(ctx, "ensure failed: %v", err)
 				os.Exit(1)
 			}
 		}
@@ -66,12 +66,12 @@ func main() {
 		if ok, _ := pm.TryAdvisoryLock(ctx, 43211); ok {
 			defer pm.AdvisoryUnlock(ctx, 43211)
 			if err := pm.RetireOlderThan(ctx, cutoff); err != nil {
-				fmt.Fprintf(os.Stderr, "retire failed: %v\n", err)
+				logger.ErrorF(ctx, "retire failed: %v", err)
 				os.Exit(1)
 			}
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown mode: %s\n", mode)
+		logger.ErrorF(ctx, "unknown mode: %s", mode)
 		os.Exit(2)
 	}
 }

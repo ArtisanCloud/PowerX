@@ -206,13 +206,13 @@ export const useNotifications = () => {
         }
         break;
       case "retry":
-        console.log("重试操作:", action.params);
+        console.info("重试操作:", action.params);
         break;
       case "update":
-        console.log("更新操作:", action.params);
+        console.info("更新操作:", action.params);
         break;
       default:
-        console.log("执行操作:", action.action, action.params);
+        console.info("执行操作:", action.action, action.params);
     }
 
     // 标记为已读

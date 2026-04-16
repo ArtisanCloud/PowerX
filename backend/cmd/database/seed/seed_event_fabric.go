@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -86,7 +88,7 @@ func SeedEventFabricTopics(db *gorm.DB) error {
 		}
 	}
 
-	fmt.Printf("[seed] event fabric topics ready: %d\n", len(seeds))
+	logger.InfoF(context.Background(), "[seed] event fabric topics ready: %d", len(seeds))
 	return nil
 }
 
@@ -118,7 +120,7 @@ func SeedEventFabricDefaultACL(db *gorm.DB) error {
 		return fmt.Errorf("list event topics failed: %w", err)
 	}
 	if len(topics) == 0 {
-		fmt.Println("[seed] event fabric default acl skipped: no topics")
+		logger.InfoF(context.Background(), "[seed] event fabric default acl skipped: no topics")
 		return nil
 	}
 
@@ -153,6 +155,6 @@ func SeedEventFabricDefaultACL(db *gorm.DB) error {
 	if _, err := repo.UpsertBindings(seedCtx(), bindings); err != nil {
 		return fmt.Errorf("upsert event fabric default acl failed: %w", err)
 	}
-	fmt.Printf("[seed] event fabric default acl ready: topics=%d bindings=%d\n", len(topics), len(bindings))
+	logger.InfoF(context.Background(), "[seed] event fabric default acl ready: topics=%d bindings=%d", len(topics), len(bindings))
 	return nil
 }

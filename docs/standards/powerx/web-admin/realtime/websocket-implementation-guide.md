@@ -121,7 +121,7 @@ await chat.sendMessage("Hello", "chat", {
 
 // 监听消息
 chat.onMessage = (data) => {
-  console.log("收到消息:", data);
+  console.info("收到消息:", data);
 };
 
 // 监听错误

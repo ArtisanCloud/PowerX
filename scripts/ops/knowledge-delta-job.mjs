@@ -25,7 +25,7 @@ async function main() {
 	const outPath = args.output || path.join(repoRoot, 'tmp', `delta-start-${Date.now()}.json`);
 	await mkdir(path.dirname(outPath), {recursive: true});
 	await writeFile(outPath, JSON.stringify(job, null, 2));
-	console.log(`✅ delta job draft written to ${outPath}`);
+	console.info(`✅ delta job draft written to ${outPath}`);
 }
 
 function parseArgs(argv) {

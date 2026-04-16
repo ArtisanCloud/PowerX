@@ -64,7 +64,7 @@ async function rotateSecrets(args) {
   const env = args.env || "default";
   const body = { env };
   if (args.dryRun) {
-    console.log(`[dry-run] would rotate secrets for ${args.provider} in ${env}`);
+    console.info(`[dry-run] would rotate secrets for ${args.provider} in ${env}`);
     return;
   }
   await postJSON(`/providers/${args.provider}/rotate-secrets`, body, args);
@@ -97,7 +97,7 @@ async function postJSON(path, body, args) {
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
   const json = await res.json().catch(() => ({}));
-  console.log(JSON.stringify(json, null, 2));
+  console.info(JSON.stringify(json, null, 2));
   return json;
 }
 
@@ -168,7 +168,7 @@ function parseTenants(value) {
 }
 
 function printHelp() {
-  console.log(`
+  console.info(`
 Usage: provider-release <command> [options]
 Commands:
   register --payload file.json --token xxx        Register provider draft via HTTP API

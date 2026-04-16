@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -62,7 +63,7 @@ func (reb *redisEventBus) startSubscriberLoop() {
 func (reb *redisEventBus) handleRedisMessage(msg *redis.Message) {
 	var evt Event
 	if err := json.Unmarshal([]byte(msg.Payload), &evt); err != nil {
-		fmt.Printf("反序列化事件失败: %v\n", err)
+		logger.ErrorF(context.Background(), "反序列化事件失败: %v", err)
 		return
 	}
 
@@ -88,12 +89,12 @@ func (reb *redisEventBus) handleRedisMessage(msg *redis.Message) {
 		go func(h Handler, event Event) {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Redis事件处理器发生panic: %v\n", r)
+					logger.ErrorF(context.Background(), "Redis事件处理器发生panic: %v", r)
 				}
 			}()
 
 			if err := h(event); err != nil {
-				fmt.Printf("[redis_event_bus] 事件 %s 处理失败: %v\n", event.Name, err)
+				logger.ErrorF(context.Background(), "[redis_event_bus] 事件 %s 处理失败: %v", event.Name, err)
 			}
 		}(handler, evt)
 	}
@@ -133,12 +134,12 @@ func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 	defer reb.handlersMu.Unlock()
 
 	if reb.closed {
-		fmt.Printf("警告: Redis事件总线已关闭，无法订阅事件 %s\n", eventType)
+		logger.WarnF(context.Background(), "Redis事件总线已关闭，无法订阅事件 %s", eventType)
 		return func() {}
 	}
 
 	reb.handlers[eventType] = append(reb.handlers[eventType], handler)
-	fmt.Printf("Redis事件 %s 订阅成功，当前订阅者数量: %d\n", eventType, len(reb.handlers[eventType]))
+	logger.DebugF(context.Background(), "Redis事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(reb.handlers[eventType]))
 
 	return func() {
 		reb.handlersMu.Lock()
@@ -148,7 +149,7 @@ func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 		for i, h := range handlers {
 			if fmt.Sprintf("%p", h) == fmt.Sprintf("%p", handler) {
 				reb.handlers[eventType] = append(handlers[:i], handlers[i+1:]...)
-				fmt.Printf("Redis事件 %s 取消订阅成功\n", eventType)
+				logger.DebugF(context.Background(), "Redis事件 %s 取消订阅成功", eventType)
 				break
 			}
 		}
@@ -162,7 +163,7 @@ func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 // Publish 发布事件
 func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx context.Context) {
 	if reb.closed {
-		fmt.Printf("警告: Redis事件总线已关闭，无法发布事件 %s\n", eventType)
+		logger.WarnF(context.Background(), "Redis事件总线已关闭，无法发布事件 %s", eventType)
 		return
 	}
 
@@ -187,18 +188,18 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 	// 序列化事件
 	b, err := json.Marshal(evt)
 	if err != nil {
-		fmt.Printf("序列化事件失败: %v\n", err)
+		logger.ErrorF(context.Background(), "序列化事件失败: %v", err)
 		return
 	}
 
 	// 发布到Redis
 	channel := fmt.Sprintf("corex:event:%s", eventType)
 	if err := reb.client.Publish(context.Background(), channel, b).Err(); err != nil {
-		fmt.Printf("发布Redis事件失败: %v\n", err)
+		logger.ErrorF(context.Background(), "发布Redis事件失败: %v", err)
 		return
 	}
 
-	fmt.Printf("Redis事件 %s 发布成功\n", eventType)
+	logger.DebugF(context.Background(), "Redis事件 %s 发布成功", eventType)
 }
 
 // Close 关闭事件总线
@@ -226,6 +227,6 @@ func (reb *redisEventBus) Close() error {
 	reb.processed = make(map[string]time.Time)
 	reb.dedupeMu.Unlock()
 
-	fmt.Println("Redis事件总线已关闭")
+	logger.Info(context.Background(), "Redis事件总线已关闭")
 	return nil
 }

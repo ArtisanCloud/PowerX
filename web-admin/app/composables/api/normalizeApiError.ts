@@ -22,7 +22,7 @@ export function normalizeApiError(
   const backendMsg = String(data?.error || data?.message || err?.message || "");
   const fields: Record<string, string> = {};
 
-  console.log("Normalize API error:", err, res, data);
+  console.info("Normalize API error:", err, res, data);
   const rawFields = data?.errors || data?.fieldErrors;
   if (rawFields && typeof rawFields === "object") {
     for (const k of Object.keys(rawFields)) {
@@ -43,7 +43,7 @@ export function normalizeApiError(
     if (!fields.key) fields.key = "Key 不合法";
   }
 
-  console.log("Normalized API error:", { code, backendMsg, fields });
+  console.info("Normalized API error:", { code, backendMsg, fields });
 
   if (code === 422 && Object.keys(fields).length) {
     const firstKey = Object.keys(fields)[0];

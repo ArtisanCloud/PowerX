@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"log"
 	"strings"
 	"sync"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
@@ -81,7 +81,7 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		if d.Manifest.Frontend.Admin.Menus != nil {
 			adminMenus = len(d.Manifest.Frontend.Admin.Menus) // frontend.admin.menus
 		}
-		log.Printf("[plugin-bootstrap] discover id=%s ver=%s admin=%d admin.static_dir=%q",
+		logger.InfoF(context.Background(), "[plugin-bootstrap] discover id=%s ver=%s admin=%d admin.static_dir=%q",
 			id, ver, adminMenus, d.Paths.FrontendAdminDir)
 
 		prevState := plugin_mgr.StateInstalled

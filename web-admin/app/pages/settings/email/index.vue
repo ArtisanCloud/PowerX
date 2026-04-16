@@ -51,7 +51,7 @@ const isTestingSMTP = ref(false);
 const saveEmailConfig = async () => {
   try {
     // 这里应该调用 API 保存配置
-    console.log("保存邮件配置:", emailConfig);
+    console.info("保存邮件配置:", emailConfig);
 
     const toast = useToast();
     toast.add({

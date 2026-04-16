@@ -49,8 +49,8 @@ func GetDefaults() *Config {
 			},
 			Loki: logCfg.LokiConfig{
 				Enable:    false,
-				URL:       "",
-				JobName:   "corex",
+				URL:       "http://<loki-host>:3100",
+				JobName:   "powerx",
 				BatchWait: 1,
 				BatchSize: 100,
 			},

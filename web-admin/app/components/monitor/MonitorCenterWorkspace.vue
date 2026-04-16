@@ -721,7 +721,6 @@
           <div class="flex items-center justify-between gap-3">
             <div class="font-semibold">Logs / Trace</div>
             <div class="flex items-center gap-2">
-              <UBadge color="neutral" variant="soft">driver={{ monitorDriverText }}</UBadge>
               <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="refreshMonitorLogsConfig">刷新配置</UButton>
             </div>
           </div>
@@ -747,7 +746,26 @@
           <UTabs v-model="logsTraceSubTab" :items="logsTraceSubTabs" />
 
           <div v-if="logsTraceSubTab === 'query'" class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <UBadge variant="soft" color="neutral">查询驱动：{{ monitorDriverText }}</UBadge>
+              <UBadge
+                v-for="channel in monitorOutputChannels"
+                :key="`out-${channel}`"
+                variant="soft"
+                color="success"
+              >
+                输出通道：{{ channel }}
+              </UBadge>
+              <UBadge v-if="monitorDriverText === 'file'" variant="soft" color="info">来源：info.log + error.log</UBadge>
+              <UBadge v-if="monitorLogsQueryMeta?.degraded" variant="soft" color="warning">降级模式</UBadge>
+            </div>
+
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <USelect
+                v-model="monitorLogDriverSelection"
+                :items="monitorDriverOptions"
+                placeholder="日志源（auto/file/stdio/loki）"
+              />
               <UInput v-model="monitorLogFilters.traceId" icon="i-heroicons-finger-print" placeholder="trace_id" :disabled="!monitorCapabilities.supports_trace_query" />
               <UInput v-model="monitorLogFilters.jobId" icon="i-heroicons-hashtag" placeholder="job_id" :disabled="!monitorCapabilities.supports_job_query" />
               <UInput v-model="monitorLogFilters.policyId" icon="i-heroicons-hashtag" placeholder="policy_id" :disabled="!monitorCapabilities.supports_policy_query" />
@@ -757,7 +775,7 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
-              <UButton size="sm" color="primary" :loading="monitorLogsLoading" @click="queryMonitorLogs">查询日志</UButton>
+              <UButton size="sm" color="primary" :loading="monitorLogsLoading" @click="queryMonitorLogs(true)">查询日志</UButton>
               <UButton size="sm" variant="outline" :disabled="!monitorGrafanaUrl" @click="openMonitorGrafana">打开 Grafana</UButton>
               <UButton size="sm" variant="ghost" @click="resetMonitorLogFilters">重置筛选</UButton>
             </div>
@@ -780,14 +798,14 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in monitorLogsItems" :key="`${row.ts}-${idx}`" class="border-t border-gray-200 dark:border-gray-700">
-                    <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(row.ts) }}</td>
+                  <tr v-for="(row, idx) in monitorLogsItems" :key="`${row.ts}-${idx}`" class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50/40 dark:hover:bg-gray-800/20">
+                    <td :class="['px-3 py-2 font-mono whitespace-nowrap', monitorTimestampClass(row.level)]">{{ formatMonitorLogTs(row.ts) }}</td>
                     <td class="px-3 py-2"><UBadge :color="monitorLevelColor(row.level)" variant="soft">{{ row.level || '-' }}</UBadge></td>
-                    <td class="px-3 py-2 font-mono">{{ row.module || '-' }}</td>
+                    <td class="px-3 py-2 font-mono text-cyan-300">{{ row.module || '-' }}</td>
                     <td class="px-3 py-2 font-mono break-all">{{ row.trace_id || '-' }}</td>
                     <td class="px-3 py-2 font-mono">{{ row.job_id || '-' }}</td>
                     <td class="px-3 py-2 font-mono">{{ row.policy_id || '-' }}</td>
-                    <td class="px-3 py-2 whitespace-normal break-all">{{ row.message || row.raw || '-' }}</td>
+                    <td class="px-3 py-2 max-w-[56rem] whitespace-pre-wrap break-words leading-5 text-gray-100">{{ row.message || row.raw || '-' }}</td>
                   </tr>
                   <tr v-if="monitorLogsItems.length === 0">
                     <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志数据，先执行一次查询。</td>
@@ -795,34 +813,170 @@
                 </tbody>
               </table>
             </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>每页</span>
+                <USelectMenu
+                  v-model="monitorLogPageSizeDraft"
+                  :items="monitorLogPageSizeOptions"
+                  value-key="value"
+                  label-key="label"
+                  class="w-24"
+                />
+                <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="applyMonitorLogPageSize">应用</UButton>
+              </div>
+              <div class="flex items-center gap-2">
+                <UButton size="xs" variant="outline" :disabled="monitorLogsLoading || !canMonitorLogPrevPage" @click="prevMonitorLogsPage">上一页</UButton>
+                <span class="text-xs text-gray-500">第 {{ monitorLogsPage }} / {{ monitorLogsTotalPages }} 页</span>
+                <UButton size="xs" variant="outline" :disabled="monitorLogsLoading || !canMonitorLogNextPage" @click="nextMonitorLogsPage">下一页</UButton>
+              </div>
+            </div>
           </div>
 
           <div v-else class="space-y-4">
             <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
               <div class="flex items-center justify-between gap-2">
-                <div class="text-sm font-medium">日志清理策略</div>
+                <div class="text-sm font-medium">日志清理策略（单策略）</div>
                 <div class="flex items-center gap-2">
                   <UButton size="xs" variant="ghost" :loading="monitorLogsLoading" @click="refreshMonitorRetentionPolicy">刷新策略</UButton>
                   <UButton size="xs" color="primary" :loading="monitorLogsLoading" @click="saveMonitorRetentionPolicy">保存策略</UButton>
                 </div>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div class="flex items-center gap-2">
-                  <UCheckbox v-model="retentionPolicyForm.enabled" />
-                  <span class="text-xs text-gray-500">启用定时清理</span>
+              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/60 dark:bg-gray-900/30">
+                <div class="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                  <div>当前模式：全局只保存一套日志清理策略。</div>
+                  <div>作用范围：删除过期日志文件 + 清理日志表历史数据。</div>
+                  <div>生效方式：点击“保存策略”后立即生效，不需要重启。</div>
                 </div>
-                <UInput v-model="retentionPolicyForm.cron" placeholder="cron，例如 10 3 * * *" />
-                <UInput v-model="retentionPolicyForm.timezone" placeholder="timezone，例如 Asia/Shanghai" />
-                <UInput v-model.number="retentionPolicyForm.defaultRetentionDays" type="number" min="1" placeholder="默认保留天数" />
-                <UInput v-model.number="retentionPolicyForm.batchSize" type="number" min="1" placeholder="单批删除上限" />
-                <UInput v-model.number="retentionPolicyForm.maxDeleteRowsPerRun" type="number" min="1" placeholder="单次最大删除行数" />
               </div>
-              <UInput v-model="retentionPolicyForm.filePathsText" placeholder="文件路径（逗号分隔），例如 logs,logs/audit" />
+
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 md:col-span-12">
+                  <div class="flex items-center gap-2">
+                    <UCheckbox v-model="retentionPolicyForm.enabled" />
+                    <span class="text-sm font-medium">开启自动清理</span>
+                  </div>
+                  <div class="mt-1 text-xs text-gray-500">关闭后不会按计划自动执行，但仍可手动执行一次清理。</div>
+                </div>
+
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2 md:col-span-8">
+                  <div class="text-xs text-gray-500">执行频率（Cron）</div>
+                  <USelectMenu
+                    v-model="retentionScheduleForm.mode"
+                    :items="retentionScheduleModeOptions"
+                    value-key="value"
+                    label-key="label"
+                    class="w-full"
+                  />
+                  <div v-if="retentionScheduleForm.mode === 'minutes'" class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">每</span>
+                    <UInput v-model.number="retentionScheduleForm.every" type="number" min="1" max="59" class="w-28" />
+                    <span class="text-xs text-gray-500">分钟执行一次</span>
+                  </div>
+                  <div v-else-if="retentionScheduleForm.mode === 'hours'" class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">每</span>
+                    <UInput v-model.number="retentionScheduleForm.every" type="number" min="1" max="23" class="w-28" />
+                    <span class="text-xs text-gray-500">小时执行一次</span>
+                  </div>
+                  <div v-else-if="retentionScheduleForm.mode === 'daily'" class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">每天</span>
+                    <UInput v-model.number="retentionScheduleForm.dailyHour" type="number" min="0" max="23" class="w-24" />
+                    <span class="text-xs text-gray-500">:</span>
+                    <UInput v-model.number="retentionScheduleForm.dailyMinute" type="number" min="0" max="59" class="w-24" />
+                    <span class="text-xs text-gray-500">执行</span>
+                  </div>
+                  <div v-else class="space-y-2">
+                    <div class="text-xs text-gray-500">自定义 Cron（5段：分 时 日 月 周）</div>
+                    <UInput
+                      v-model="retentionScheduleForm.customCron"
+                      class="font-mono"
+                      placeholder="例如：10 3 * * *"
+                    />
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    生成结果：<span class="font-mono">{{ retentionPolicyForm.cron || "-" }}</span>
+                  </div>
+                </div>
+
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2 md:col-span-4">
+                  <div class="text-xs text-gray-500">执行时区</div>
+                  <UInput v-model="retentionPolicyForm.timezone" placeholder="例如：Asia/Shanghai" />
+                  <div class="text-xs text-gray-500">推荐固定为 `Asia/Shanghai`，避免跨时区误差。</div>
+                </div>
+
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2 md:col-span-4">
+                  <div class="text-xs text-gray-500">保留时长（天）</div>
+                  <UInput v-model.number="retentionPolicyForm.defaultRetentionDays" type="number" min="1" placeholder="例如：30" />
+                  <div class="text-xs text-gray-500">超过该天数的日志会被清理。</div>
+                </div>
+
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2 md:col-span-8">
+                  <div class="text-xs text-gray-500">当前生效策略</div>
+                  <div class="text-xs whitespace-normal break-all">
+                    <span class="font-medium">状态：</span>{{ monitorRetention.enabled ? "已启用" : "未启用" }}
+                    <span class="mx-2 text-gray-300">|</span>
+                    <span class="font-medium">Cron：</span><span class="font-mono">{{ monitorRetention.cron || "-" }}</span>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <span class="font-medium">时区：</span><span class="font-mono">{{ monitorRetention.timezone || "-" }}</span>
+                  </div>
+                  <div class="text-xs">
+                    <span class="font-medium">下一次执行：</span>
+                    <span class="font-mono">{{ formatMonitorRetentionTs(monitorRetention.next_run) }}</span>
+                  </div>
+                </div>
+
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2 md:col-span-12">
+                  <div class="text-xs text-gray-500">日志文件目录（多个用逗号分隔）</div>
+                  <UInput v-model="retentionPolicyForm.filePathsText" placeholder="例如：logs,logs/audit,/var/log/powerx" />
+                  <div class="text-xs text-gray-500">
+                    只填目录，不填具体文件名。程序会在这些目录下按保留期删除过期文件。
+                  </div>
+                </div>
+              </div>
+
+              <details class="rounded border border-gray-200 dark:border-gray-700 p-3">
+                <summary class="cursor-pointer text-sm font-medium">性能保护参数（一般保持默认）</summary>
+                <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div class="space-y-2">
+                    <div class="text-xs text-gray-500">每批删除条数</div>
+                    <UInput v-model.number="retentionPolicyForm.batchSize" type="number" min="1" placeholder="例如：5000" />
+                    <div class="text-xs text-gray-500">值越小越稳，但总耗时会更长。</div>
+                  </div>
+                  <div class="space-y-2">
+                    <div class="text-xs text-gray-500">单次最多删除条数</div>
+                    <UInput v-model.number="retentionPolicyForm.maxDeleteRowsPerRun" type="number" min="1" placeholder="例如：200000" />
+                    <div class="text-xs text-gray-500">防止一次任务删太多导致数据库压力过大。</div>
+                  </div>
+                </div>
+              </details>
             </div>
 
-            <div class="flex flex-wrap gap-2">
-              <UButton size="sm" color="primary" variant="outline" :loading="monitorLogsLoading" @click="triggerMonitorRetentionRun">立即执行日志保留</UButton>
-              <UButton size="sm" variant="ghost" :loading="monitorLogsLoading" @click="refreshMonitorRetentionRuns">刷新保留任务</UButton>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="rounded border border-amber-200 dark:border-amber-800 p-3 space-y-2">
+                  <div class="text-sm font-medium text-amber-500">试运行（不删除）</div>
+                  <div class="text-xs text-gray-500">按下方输入的天数估算影响范围，不会删除数据。</div>
+                  <div class="flex items-center gap-2">
+                    <UInput v-model.number="retentionDryRunDays" type="number" min="0" class="w-40" placeholder="例如：0" />
+                    <span class="text-xs text-gray-500 whitespace-nowrap">天</span>
+                    <UButton size="sm" color="warning" variant="soft" :loading="monitorLogsLoading" @click="triggerMonitorRetentionDryRun">执行试运行</UButton>
+                  </div>
+                </div>
+
+                <div class="rounded border border-emerald-200 dark:border-emerald-800 p-3 space-y-2">
+                  <div class="text-sm font-medium text-emerald-500">真实清理（会删除）</div>
+                  <div class="text-xs text-gray-500">
+                    按已保存策略执行，不读取左侧试运行天数。
+                    当前策略：保留 <span class="font-mono">{{ monitorRetentionPolicy.default_retention_days || 30 }}</span> 天。
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <UButton size="sm" color="primary" variant="outline" :loading="monitorLogsLoading" @click="triggerMonitorRetentionRun">按策略清理一次</UButton>
+                    <UButton size="sm" variant="ghost" :loading="monitorLogsLoading" @click="refreshMonitorRetentionRuns">刷新任务列表</UButton>
+                  </div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">建议流程：先试运行看命中范围，再按策略执行真实清理。</div>
             </div>
 
             <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
@@ -839,26 +993,82 @@
                   <thead class="bg-gray-50 dark:bg-gray-800/50">
                     <tr>
                       <th class="text-left px-3 py-2">开始时间</th>
+                      <th class="text-left px-3 py-2">模式</th>
                       <th class="text-left px-3 py-2">状态</th>
                       <th class="text-left px-3 py-2">触发来源</th>
                       <th class="text-left px-3 py-2">删除文件</th>
                       <th class="text-left px-3 py-2">删除记录</th>
                       <th class="text-left px-3 py-2">耗时(ms)</th>
+                      <th class="text-left px-3 py-2">明细</th>
                       <th class="text-left px-3 py-2">错误摘要</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="item in monitorRetention.items" :key="item.run_id" class="border-t border-gray-200 dark:border-gray-700">
-                      <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorRetentionTs(item.started_at) }}</td>
-                      <td class="px-3 py-2"><UBadge :color="item.status === 'success' ? 'success' : 'error'" variant="soft">{{ item.status }}</UBadge></td>
-                      <td class="px-3 py-2 font-mono">{{ item.triggered_by || "-" }}</td>
-                      <td class="px-3 py-2 font-mono">{{ item.deleted_files ?? 0 }}</td>
-                      <td class="px-3 py-2 font-mono">{{ item.deleted_rows ?? 0 }}</td>
-                      <td class="px-3 py-2 font-mono">{{ item.duration_ms ?? 0 }}</td>
-                      <td class="px-3 py-2 whitespace-normal break-all">{{ item.error_summary || "-" }}</td>
-                    </tr>
+                    <template v-for="item in monitorRetention.items" :key="item.run_id">
+                      <tr class="border-t border-gray-200 dark:border-gray-700">
+                        <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorRetentionTs(item.started_at) }}</td>
+                        <td class="px-3 py-2">
+                          <UBadge :color="item.dry_run ? 'warning' : 'primary'" variant="soft">{{ item.dry_run ? "试运行" : "真实执行" }}</UBadge>
+                        </td>
+                        <td class="px-3 py-2"><UBadge :color="item.status === 'success' ? 'success' : 'error'" variant="soft">{{ item.status }}</UBadge></td>
+                        <td class="px-3 py-2 font-mono">{{ item.triggered_by || "-" }}</td>
+                        <td class="px-3 py-2 font-mono">{{ item.deleted_files ?? 0 }}</td>
+                        <td class="px-3 py-2 font-mono">{{ item.deleted_rows ?? 0 }}</td>
+                        <td class="px-3 py-2 font-mono">{{ item.duration_ms ?? 0 }}</td>
+                        <td class="px-3 py-2">
+                          <UButton
+                            v-if="item.dry_run && (item.preview_details || []).length > 0"
+                            size="xs"
+                            variant="soft"
+                            color="neutral"
+                            @click="toggleRetentionRunDetails(item.run_id)"
+                          >
+                            {{ retentionDetailRunID === item.run_id ? "收起" : "查看" }}
+                          </UButton>
+                          <span v-else class="text-gray-500">-</span>
+                        </td>
+                        <td class="px-3 py-2 whitespace-normal break-all">{{ item.error_summary || "-" }}</td>
+                      </tr>
+                      <tr
+                        v-if="retentionDetailRunID === item.run_id && item.dry_run && (item.preview_details || []).length > 0"
+                        class="border-t border-gray-200 dark:border-gray-700"
+                      >
+                        <td class="px-3 py-2 text-xs text-gray-300" colspan="9">
+                          <div class="space-y-1">
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-gray-400">
+                              <span>预估明细（命中总数：{{ item.deleted_files ?? 0 }}，当前展示：{{ (item.preview_details || []).length }}，仅样本）</span>
+                              <div class="flex items-center gap-2">
+                                <UButton
+                                  size="xs"
+                                  variant="outline"
+                                  :loading="Boolean(retentionExportLoadingMap[item.run_id])"
+                                  @click="exportRetentionDetails(item, 'txt')"
+                                >
+                                  导出全量 TXT
+                                </UButton>
+                                <UButton
+                                  size="xs"
+                                  variant="outline"
+                                  :loading="Boolean(retentionExportLoadingMap[item.run_id])"
+                                  @click="exportRetentionDetails(item, 'json')"
+                                >
+                                  导出全量 JSON
+                                </UButton>
+                              </div>
+                            </div>
+                            <div
+                              v-for="(line, lineIdx) in item.preview_details"
+                              :key="`${item.run_id}-detail-${lineIdx}`"
+                              class="font-mono break-all"
+                            >
+                              {{ line }}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
                     <tr v-if="(monitorRetention.items || []).length === 0">
-                      <td class="px-3 py-3 text-gray-500" colspan="7">暂无日志保留任务记录。</td>
+                      <td class="px-3 py-3 text-gray-500" colspan="9">暂无日志保留任务记录。</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1004,6 +1214,15 @@ const monitorLogFilters = reactive({
   from: "",
   to: "",
 });
+const monitorDriverOptions = ["auto", "file", "stdio", "loki"];
+const monitorLogDriverSelection = ref("auto");
+
+const monitorLogPageSizeOptions = [
+  { label: "20", value: 20 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+];
+const monitorLogPageSizeDraft = ref(50);
 
 const retentionPolicyForm = reactive({
   enabled: false,
@@ -1013,6 +1232,26 @@ const retentionPolicyForm = reactive({
   batchSize: 5000,
   maxDeleteRowsPerRun: 200000,
   filePathsText: "",
+});
+const retentionDryRunDays = ref(0);
+const retentionDetailRunID = ref("");
+const retentionExportLoadingMap = reactive<Record<string, boolean>>({});
+
+type RetentionScheduleMode = "minutes" | "hours" | "daily" | "custom";
+
+const retentionScheduleModeOptions: Array<{ label: string; value: RetentionScheduleMode }> = [
+  { label: "每 N 分钟", value: "minutes" },
+  { label: "每 N 小时", value: "hours" },
+  { label: "每天固定时间", value: "daily" },
+  { label: "自定义 Cron", value: "custom" },
+];
+
+const retentionScheduleForm = reactive({
+  mode: "daily" as RetentionScheduleMode,
+  every: 15,
+  dailyHour: 3,
+  dailyMinute: 10,
+  customCron: "",
 });
 
 const loading = ref(false);
@@ -1769,6 +2008,13 @@ const monitorCapabilities = computed(() => {
 });
 
 const monitorDriverText = computed(() => monitorLogsConfig.value?.driver || "stdio");
+const monitorOutputChannels = computed(() => {
+  const channels = Array.isArray(monitorLogsConfig.value?.output_channels)
+    ? monitorLogsConfig.value?.output_channels || []
+    : [];
+  if (channels.length > 0) return channels;
+  return [monitorDriverText.value];
+});
 const monitorCapabilityHint = computed(() => {
   const fromConfig = String(monitorCapabilities.value?.limitation_note || "").trim();
   if (fromConfig) return fromConfig;
@@ -1794,6 +2040,14 @@ function monitorLevelColor(level: string) {
   return "success";
 }
 
+function monitorTimestampClass(level: string) {
+  const normalized = String(level || "").trim().toLowerCase();
+  if (normalized === "error") return "text-red-300";
+  if (normalized === "warn" || normalized === "warning") return "text-amber-300";
+  if (normalized === "debug") return "text-gray-400";
+  return "text-emerald-300";
+}
+
 function formatMonitorLogTs(input?: string) {
   const raw = String(input || "").trim();
   if (!raw) return "-";
@@ -1811,6 +2065,7 @@ function formatMonitorRetentionTs(input?: string) {
 }
 
 function resetMonitorLogFilters() {
+  monitorLogDriverSelection.value = "auto";
   monitorLogFilters.traceId = "";
   monitorLogFilters.jobId = "";
   monitorLogFilters.policyId = "";
@@ -1827,21 +2082,52 @@ async function refreshMonitorLogsConfig() {
   }
 }
 
-async function queryMonitorLogs() {
+async function queryMonitorLogs(resetPage = false) {
   try {
+    const targetPage = resetPage ? 1 : (monitorLogsPage.value || 1);
     await monitorLogsStore.fetchLogs({
+      driver: monitorLogDriverSelection.value === "auto" ? undefined : monitorLogDriverSelection.value,
       trace_id: monitorLogFilters.traceId || undefined,
       job_id: monitorLogFilters.jobId || undefined,
       policy_id: monitorLogFilters.policyId || undefined,
       keyword: monitorLogFilters.keyword || undefined,
       from: monitorLogFilters.from || undefined,
       to: monitorLogFilters.to || undefined,
-      page: monitorLogsPage.value || 1,
+      page: targetPage,
       page_size: monitorLogsPageSize.value || 50,
     });
+    monitorLogPageSizeDraft.value = monitorLogsPageSize.value || 50;
   } catch (e: any) {
     toast.add({ title: "查询日志失败", description: e?.message || "未知错误", color: "error" });
   }
+}
+
+const monitorLogsTotalPages = computed(() => {
+  const total = Number(monitorLogsTotal.value || 0);
+  const size = Math.max(1, Number(monitorLogsPageSize.value || 50));
+  return Math.max(1, Math.ceil(total / size));
+});
+
+const canMonitorLogPrevPage = computed(() => Number(monitorLogsPage.value || 1) > 1);
+const canMonitorLogNextPage = computed(() => Number(monitorLogsPage.value || 1) < monitorLogsTotalPages.value);
+
+async function prevMonitorLogsPage() {
+  if (!canMonitorLogPrevPage.value) return;
+  monitorLogsPage.value = Math.max(1, Number(monitorLogsPage.value || 1) - 1);
+  await queryMonitorLogs(false);
+}
+
+async function nextMonitorLogsPage() {
+  if (!canMonitorLogNextPage.value) return;
+  monitorLogsPage.value = Number(monitorLogsPage.value || 1) + 1;
+  await queryMonitorLogs(false);
+}
+
+async function applyMonitorLogPageSize() {
+  const size = Number(monitorLogPageSizeDraft.value || 50);
+  monitorLogsPageSize.value = [20, 50, 100].includes(size) ? size : 50;
+  monitorLogsPage.value = 1;
+  await queryMonitorLogs(false);
 }
 
 async function refreshMonitorRetentionRuns() {
@@ -1861,6 +2147,71 @@ function syncRetentionPolicyFormFromStore() {
   retentionPolicyForm.batchSize = Number(policy?.batch_size || 5000);
   retentionPolicyForm.maxDeleteRowsPerRun = Number(policy?.max_delete_rows_per_run || 200000);
   retentionPolicyForm.filePathsText = Array.isArray(policy?.file_paths) ? policy.file_paths.join(",") : "";
+  syncRetentionScheduleFromCron(retentionPolicyForm.cron);
+}
+
+function toIntInRange(value: any, min: number, max: number, fallback: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
+function buildCronFromRetentionSchedule(): string {
+  if (retentionScheduleForm.mode === "minutes") {
+    const every = toIntInRange(retentionScheduleForm.every, 1, 59, 15);
+    return `*/${every} * * * *`;
+  }
+  if (retentionScheduleForm.mode === "hours") {
+    const every = toIntInRange(retentionScheduleForm.every, 1, 23, 1);
+    return `0 */${every} * * *`;
+  }
+  if (retentionScheduleForm.mode === "daily") {
+    const hour = toIntInRange(retentionScheduleForm.dailyHour, 0, 23, 3);
+    const minute = toIntInRange(retentionScheduleForm.dailyMinute, 0, 59, 10);
+    return `${minute} ${hour} * * *`;
+  }
+  return String(retentionScheduleForm.customCron || "").trim();
+}
+
+function syncRetentionScheduleFromCron(cronRaw: string) {
+  const cron = String(cronRaw || "").trim();
+  retentionScheduleForm.customCron = cron;
+  if (!cron) {
+    retentionScheduleForm.mode = "daily";
+    retentionScheduleForm.dailyHour = 3;
+    retentionScheduleForm.dailyMinute = 10;
+    return;
+  }
+
+  const minuteMatch = cron.match(/^\*\/(\d{1,2}) \* \* \* \*$/);
+  if (minuteMatch) {
+    retentionScheduleForm.mode = "minutes";
+    retentionScheduleForm.every = toIntInRange(minuteMatch[1], 1, 59, 15);
+    return;
+  }
+
+  const hourMatch = cron.match(/^0 \*\/(\d{1,2}) \* \* \*$/);
+  if (hourMatch) {
+    retentionScheduleForm.mode = "hours";
+    retentionScheduleForm.every = toIntInRange(hourMatch[1], 1, 23, 1);
+    return;
+  }
+
+  if (cron === "0 * * * *") {
+    retentionScheduleForm.mode = "hours";
+    retentionScheduleForm.every = 1;
+    return;
+  }
+
+  const dailyMatch = cron.match(/^(\d{1,2}) (\d{1,2}) \* \* \*$/);
+  if (dailyMatch) {
+    retentionScheduleForm.mode = "daily";
+    retentionScheduleForm.dailyMinute = toIntInRange(dailyMatch[1], 0, 59, 10);
+    retentionScheduleForm.dailyHour = toIntInRange(dailyMatch[2], 0, 23, 3);
+    return;
+  }
+
+  retentionScheduleForm.mode = "custom";
 }
 
 async function refreshMonitorRetentionPolicy() {
@@ -1916,12 +2267,72 @@ async function triggerMonitorRetentionRun() {
   }
 }
 
+async function triggerMonitorRetentionDryRun() {
+  try {
+    const days = Math.max(0, Number(retentionDryRunDays.value || 0));
+    const run = await monitorLogsStore.triggerRetentionDryRun(days);
+    toast.add({
+      title: "日志清理试运行完成",
+      description: `days=${run.retention_days ?? days}, matched_files=${run.deleted_files}, matched_rows=${run.deleted_rows}`,
+      color: run.status === "success" ? "success" : "warning",
+    });
+  } catch (e: any) {
+    toast.add({ title: "执行试运行失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+function toggleRetentionRunDetails(runID: string) {
+  retentionDetailRunID.value = retentionDetailRunID.value === runID ? "" : runID;
+}
+
+function downloadTextAsFile(content: string, filename: string, mimeType = "text/plain;charset=utf-8") {
+  if (typeof window === "undefined") return;
+  const blob = new Blob([content || ""], { type: mimeType });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename || `retention-export-${Date.now()}.txt`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+async function exportRetentionDetails(item: { run_id?: string; retention_days?: number; cutoff_at?: string }, format: "txt" | "json") {
+  const runID = String(item?.run_id || "");
+  if (!runID) return;
+  if (retentionExportLoadingMap[runID]) return;
+  retentionExportLoadingMap[runID] = true;
+  try {
+    const exported = await monitorLogsStore.exportRetentionDryRun({
+      format,
+      retention_days: Number(item?.retention_days || 0),
+      cutoff_at: String(item?.cutoff_at || ""),
+    });
+    const file = exported?.file;
+    if (!file?.content) {
+      throw new Error("导出内容为空");
+    }
+    downloadTextAsFile(file.content, file.name || `retention-hits.${format}`, file.mime_type || "text/plain;charset=utf-8");
+    toast.add({
+      title: "导出成功",
+      description: `matched_files=${exported.matched_files ?? 0}, matched_rows=${exported.matched_rows ?? 0}`,
+      color: "success",
+    });
+  } catch (e: any) {
+    toast.add({ title: "导出失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    retentionExportLoadingMap[runID] = false;
+  }
+}
+
 async function ensureMonitorLogsReady() {
   await refreshMonitorLogsConfig();
   await refreshMonitorRetentionPolicy();
   await refreshMonitorRetentionRuns();
+  monitorLogPageSizeDraft.value = monitorLogsPageSize.value || 50;
   if (!monitorLogsLoaded.value) {
-    await queryMonitorLogs();
+    await queryMonitorLogs(true);
   }
 }
 
@@ -2465,6 +2876,19 @@ watch(
     taskDebug.resultCount = null;
     taskDebug.failureReason = "";
     resetTaskQueueHit();
+  }
+);
+
+watch(
+  () => [
+    retentionScheduleForm.mode,
+    retentionScheduleForm.every,
+    retentionScheduleForm.dailyHour,
+    retentionScheduleForm.dailyMinute,
+    retentionScheduleForm.customCron,
+  ],
+  () => {
+    retentionPolicyForm.cron = buildCronFromRetentionSchedule();
   }
 );
 

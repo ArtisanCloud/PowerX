@@ -2,8 +2,10 @@ package monitorlogs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -171,13 +173,117 @@ func (s *RetentionService) TriggerNow(ctx context.Context, operator string) Rete
 		return RetentionRun{
 			RunID:        fmt.Sprintf("ret-%d", time.Now().UnixNano()),
 			TriggeredBy:  operator,
+			DryRun:       false,
 			StartedAt:    time.Now(),
 			EndedAt:      time.Now(),
 			Status:       "failed",
 			ErrorSummary: "retention service unavailable",
 		}
 	}
-	return s.execute(ctx, strings.TrimSpace(operator))
+	return s.execute(ctx, strings.TrimSpace(operator), false, nil)
+}
+
+func (s *RetentionService) TriggerDryRun(ctx context.Context, operator string, retentionDays *int) RetentionRun {
+	if s == nil {
+		return RetentionRun{
+			RunID:        fmt.Sprintf("ret-%d", time.Now().UnixNano()),
+			TriggeredBy:  operator,
+			DryRun:       true,
+			StartedAt:    time.Now(),
+			EndedAt:      time.Now(),
+			Status:       "failed",
+			ErrorSummary: "retention service unavailable",
+		}
+	}
+	return s.execute(ctx, strings.TrimSpace(operator), true, retentionDays)
+}
+
+func (s *RetentionService) ExportDryRun(ctx context.Context, operator string, retentionDays *int, cutoffAt *time.Time, format string) (RetentionExport, error) {
+	if s == nil {
+		return RetentionExport{}, fmt.Errorf("retention service unavailable")
+	}
+	if strings.TrimSpace(operator) == "" {
+		operator = "system"
+	}
+	fmtLower := strings.ToLower(strings.TrimSpace(format))
+	if fmtLower == "" {
+		fmtLower = "txt"
+	}
+	if fmtLower != "txt" && fmtLower != "json" {
+		return RetentionExport{}, fmt.Errorf("unsupported format: %s", format)
+	}
+
+	s.mu.RLock()
+	cfg := s.cfg
+	fileRet := s.fileRet
+	dbRet := s.dbRet
+	s.mu.RUnlock()
+
+	now := time.Now()
+	effectiveRetentionDays := cfg.DefaultRetentionDays
+	if retentionDays != nil && *retentionDays >= 0 {
+		effectiveRetentionDays = *retentionDays
+	}
+	cutoff := now.Add(-time.Duration(effectiveRetentionDays) * 24 * time.Hour)
+	if cutoffAt != nil && !cutoffAt.IsZero() {
+		cutoff = cutoffAt.UTC()
+	}
+
+	files := make([]string, 0, 128)
+	perTableRows := map[string]int64{}
+	sources := make([]string, 0, 8)
+	errs := make([]string, 0, 8)
+	var matchedFiles int64
+	var matchedRows int64
+
+	if fileRet != nil {
+		fileTotal, fileItems, fileErrs := fileRet.PreviewDetailed(ctx, cutoff, 0)
+		matchedFiles = fileTotal
+		files = append(files, fileItems...)
+		if fileTotal > 0 {
+			sources = append(sources, "file")
+		}
+		if len(fileErrs) > 0 {
+			errs = append(errs, fileErrs...)
+		}
+	}
+
+	if dbRet != nil {
+		dbTotal, breakdown, dbErrs := dbRet.PreviewBreakdown(ctx, effectiveRetentionDays)
+		matchedRows = dbTotal
+		for table, rows := range breakdown {
+			if rows > 0 {
+				perTableRows[table] = rows
+			}
+		}
+		if dbTotal > 0 {
+			sources = append(sources, "db")
+		}
+		if len(dbErrs) > 0 {
+			errs = append(errs, dbErrs...)
+		}
+	}
+
+	sort.Strings(files)
+	runID := fmt.Sprintf("ret-export-%d", now.UnixNano())
+	exp := RetentionExport{
+		RunID:         runID,
+		Format:        fmtLower,
+		RetentionDays: effectiveRetentionDays,
+		CutoffAt:      cutoff,
+		MatchedFiles:  matchedFiles,
+		MatchedRows:   matchedRows,
+		PerTableRows:  perTableRows,
+		Files:         files,
+		Sources:       uniqueStrings(sources),
+		Errors:        uniqueStrings(errs),
+	}
+	file, err := buildRetentionExportFile(exp, fmtLower)
+	if err != nil {
+		return RetentionExport{}, err
+	}
+	exp.File = file
+	return exp, nil
 }
 
 func (s *RetentionService) loop(ctx context.Context) {
@@ -222,7 +328,7 @@ func (s *RetentionService) loop(ctx context.Context) {
 			continue
 		case <-timer.C:
 		}
-		run := s.execute(ctx, "system.scheduler")
+		run := s.execute(ctx, "system.scheduler", false, nil)
 		last := run.EndedAt.UTC()
 		lastRun = &last
 	}
@@ -245,7 +351,7 @@ func (s *RetentionService) computeNext(lastRun *time.Time) (*time.Time, error) {
 	return res.NextRunAt, nil
 }
 
-func (s *RetentionService) execute(ctx context.Context, operator string) RetentionRun {
+func (s *RetentionService) execute(ctx context.Context, operator string, dryRun bool, retentionDays *int) RetentionRun {
 	if strings.TrimSpace(operator) == "" {
 		operator = "system"
 	}
@@ -255,14 +361,29 @@ func (s *RetentionService) execute(ctx context.Context, operator string) Retenti
 	dbRet := s.dbRet
 	s.mu.RUnlock()
 	start := time.Now()
-	cutoff := start.Add(-time.Duration(cfg.DefaultRetentionDays) * 24 * time.Hour)
+	effectiveRetentionDays := cfg.DefaultRetentionDays
+	if retentionDays != nil && *retentionDays >= 0 {
+		effectiveRetentionDays = *retentionDays
+	}
+	cutoff := start.Add(-time.Duration(effectiveRetentionDays) * 24 * time.Hour)
 	var deletedFiles int64
 	var deletedRows int64
+	previewDetails := make([]string, 0, 24)
 	sources := make([]string, 0, 8)
 	errs := make([]string, 0, 8)
 
 	if fileRet != nil {
-		files, fileErrs := fileRet.Cleanup(ctx, cutoff)
+		files := int64(0)
+		fileErrs := []string(nil)
+		if dryRun {
+			var samples []string
+			files, samples, fileErrs = fileRet.PreviewDetailed(ctx, cutoff, 20)
+			for i := range samples {
+				previewDetails = append(previewDetails, fmt.Sprintf("file:%s", samples[i]))
+			}
+		} else {
+			files, fileErrs = fileRet.Cleanup(ctx, cutoff)
+		}
 		deletedFiles += files
 		if files > 0 {
 			sources = append(sources, "file")
@@ -272,7 +393,25 @@ func (s *RetentionService) execute(ctx context.Context, operator string) Retenti
 		}
 	}
 	if dbRet != nil {
-		rows, dbErrs := dbRet.Cleanup(ctx, cfg.DefaultRetentionDays)
+		rows := int64(0)
+		dbErrs := []string(nil)
+		if dryRun {
+			var perTable map[string]int64
+			rows, perTable, dbErrs = dbRet.PreviewBreakdown(ctx, effectiveRetentionDays)
+			tableNames := make([]string, 0, len(perTable))
+			for table := range perTable {
+				if perTable[table] > 0 {
+					tableNames = append(tableNames, table)
+				}
+			}
+			sort.Strings(tableNames)
+			for i := range tableNames {
+				table := tableNames[i]
+				previewDetails = append(previewDetails, fmt.Sprintf("db:%s rows=%d", table, perTable[table]))
+			}
+		} else {
+			rows, dbErrs = dbRet.Cleanup(ctx, cfg.DefaultRetentionDays)
+		}
 		deletedRows += rows
 		if rows > 0 {
 			sources = append(sources, "db")
@@ -283,13 +422,17 @@ func (s *RetentionService) execute(ctx context.Context, operator string) Retenti
 	}
 
 	run := RetentionRun{
-		RunID:        fmt.Sprintf("ret-%d", start.UnixNano()),
-		TriggeredBy:  operator,
-		StartedAt:    start,
-		EndedAt:      time.Now(),
-		DeletedFiles: deletedFiles,
-		DeletedRows:  deletedRows,
-		Sources:      uniqueStrings(sources),
+		RunID:          fmt.Sprintf("ret-%d", start.UnixNano()),
+		TriggeredBy:    operator,
+		DryRun:         dryRun,
+		RetentionDays:  effectiveRetentionDays,
+		CutoffAt:       cutoff,
+		PreviewDetails: uniqueStrings(previewDetails),
+		StartedAt:      start,
+		EndedAt:        time.Now(),
+		DeletedFiles:   deletedFiles,
+		DeletedRows:    deletedRows,
+		Sources:        uniqueStrings(sources),
 	}
 	run.DurationMS = run.EndedAt.Sub(run.StartedAt).Milliseconds()
 	if len(errs) > 0 {
@@ -302,6 +445,9 @@ func (s *RetentionService) execute(ctx context.Context, operator string) Retenti
 	logger.Info(ctx, "log.retention.execute",
 		zap.String("run_id", run.RunID),
 		zap.String("operator", run.TriggeredBy),
+		zap.Bool("dry_run", run.DryRun),
+		zap.Int("retention_days", run.RetentionDays),
+		zap.String("cutoff_at", run.CutoffAt.Format(time.RFC3339)),
 		zap.String("status", run.Status),
 		zap.Int64("deleted_files", run.DeletedFiles),
 		zap.Int64("deleted_rows", run.DeletedRows),
@@ -341,6 +487,98 @@ func (s *RetentionService) notifyScheduleReload() {
 	case s.updateCh <- struct{}{}:
 	default:
 	}
+}
+
+func buildRetentionExportFile(exp RetentionExport, format string) (RetentionExportFile, error) {
+	ts := time.Now().Format("20060102-150405")
+	if format == "json" {
+		type payload struct {
+			RunID         string           `json:"run_id"`
+			GeneratedAt   string           `json:"generated_at"`
+			Format        string           `json:"format"`
+			RetentionDays int              `json:"retention_days"`
+			CutoffAt      string           `json:"cutoff_at"`
+			MatchedFiles  int64            `json:"matched_files"`
+			MatchedRows   int64            `json:"matched_rows"`
+			PerTableRows  map[string]int64 `json:"per_table_rows"`
+			FileCount     int              `json:"file_count"`
+			Files         []string         `json:"files"`
+			Sources       []string         `json:"sources"`
+			Errors        []string         `json:"errors,omitempty"`
+		}
+		out := payload{
+			RunID:         exp.RunID,
+			GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+			Format:        format,
+			RetentionDays: exp.RetentionDays,
+			CutoffAt:      exp.CutoffAt.UTC().Format(time.RFC3339),
+			MatchedFiles:  exp.MatchedFiles,
+			MatchedRows:   exp.MatchedRows,
+			PerTableRows:  exp.PerTableRows,
+			FileCount:     len(exp.Files),
+			Files:         exp.Files,
+			Sources:       exp.Sources,
+			Errors:        exp.Errors,
+		}
+		raw, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return RetentionExportFile{}, err
+		}
+		content := string(raw) + "\n"
+		return RetentionExportFile{
+			Name:      fmt.Sprintf("retention-hits-%s.json", ts),
+			SizeBytes: len(content),
+			Content:   content,
+			MimeType:  "application/json; charset=utf-8",
+		}, nil
+	}
+
+	tableNames := make([]string, 0, len(exp.PerTableRows))
+	for table, rows := range exp.PerTableRows {
+		if rows > 0 {
+			tableNames = append(tableNames, table)
+		}
+	}
+	sort.Strings(tableNames)
+	lines := make([]string, 0, len(exp.Files)+32+len(tableNames))
+	lines = append(lines,
+		fmt.Sprintf("run_id=%s", exp.RunID),
+		fmt.Sprintf("generated_at=%s", time.Now().UTC().Format(time.RFC3339)),
+		fmt.Sprintf("format=%s", format),
+		fmt.Sprintf("retention_days=%d", exp.RetentionDays),
+		fmt.Sprintf("cutoff_at=%s", exp.CutoffAt.UTC().Format(time.RFC3339)),
+		fmt.Sprintf("matched_files=%d", exp.MatchedFiles),
+		fmt.Sprintf("matched_rows=%d", exp.MatchedRows),
+		fmt.Sprintf("file_count=%d", len(exp.Files)),
+		fmt.Sprintf("sources=%s", strings.Join(exp.Sources, ",")),
+		"",
+		"[db_tables]",
+	)
+	if len(tableNames) == 0 {
+		lines = append(lines, "(none)")
+	} else {
+		for i := range tableNames {
+			table := tableNames[i]
+			lines = append(lines, fmt.Sprintf("%s rows=%d", table, exp.PerTableRows[table]))
+		}
+	}
+	lines = append(lines, "", "[files]")
+	if len(exp.Files) == 0 {
+		lines = append(lines, "(none)")
+	} else {
+		lines = append(lines, exp.Files...)
+	}
+	if len(exp.Errors) > 0 {
+		lines = append(lines, "", "[errors]")
+		lines = append(lines, exp.Errors...)
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	return RetentionExportFile{
+		Name:      fmt.Sprintf("retention-hits-%s.txt", ts),
+		SizeBytes: len(content),
+		Content:   content,
+		MimeType:  "text/plain; charset=utf-8",
+	}, nil
 }
 
 func (s *RetentionService) applyPersistedPolicy(ctx context.Context) {

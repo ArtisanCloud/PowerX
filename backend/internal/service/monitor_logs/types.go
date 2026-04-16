@@ -22,6 +22,7 @@ type Capabilities struct {
 
 type ConfigView struct {
 	Driver         Driver       `json:"driver"`
+	OutputChannels []Driver     `json:"output_channels,omitempty"`
 	Capabilities   Capabilities `json:"capabilities"`
 	GrafanaBaseURL string       `json:"grafana_base_url"`
 }

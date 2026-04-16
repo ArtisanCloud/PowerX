@@ -1,16 +1,17 @@
 package catalog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -169,7 +170,7 @@ func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
 		wd, _ := os.Getwd()
 		return fmt.Errorf("no provider manifests loaded from dirs=%v (wd=%s)", absDirs, wd)
 	}
-	log.Printf("[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
+	logger.InfoF(context.Background(), "[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
 	return nil
 }
 
@@ -387,14 +388,14 @@ func InitFromAppConfig(cfg CatalogConfig, embedded fs.FS) error {
 	if len(cfg.Dirs) == 0 {
 		cfg.Dirs = []string{"./config/agents/providers.d"}
 	}
-	log.Printf("[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
+	logger.InfoF(context.Background(), "[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
 	reg := NewRegistry()
 	if err := reg.LoadByConfig(cfg, embedded); err != nil {
 		return err
 	}
 	if len(reg.providers) == 0 {
 		wd, _ := os.Getwd()
-		log.Printf("[ai.catalog] warning: registry empty after load (wd=%s)", wd)
+		logger.WarnF(context.Background(), "[ai.catalog] warning: registry empty after load (wd=%s)", wd)
 	}
 	GlobalAIRegister = reg
 

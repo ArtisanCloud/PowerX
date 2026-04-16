@@ -41,7 +41,7 @@ async function main() {
     verbose: args.verbose,
   };
 
-  console.log(
+  console.info(
     `[DRILL] tenant=${args.tenant_uuid} provider=${
       args.providerId || "tenant"
     } env=${args.env}`
@@ -61,7 +61,7 @@ async function main() {
     env: args.env,
     events,
   });
-  console.log(
+  console.info(
     `[DRILL] reported ${events.length} usage events totalling $${spikeAmount.toFixed(
       2
     )}`
@@ -83,7 +83,7 @@ async function main() {
       } attempts. Last snapshot usage=${poll.snapshot?.totals?.usage || 0}`
     );
   } else {
-    console.log(
+    console.info(
       `[DRILL] usage increased by ${poll.delta.toFixed(
         2
       )}, status=${poll.statusFlags.join(",") || "healthy"}`
@@ -99,7 +99,7 @@ async function main() {
       reason: args.reason || "provider-drill",
       ticketId: args.ticketId || `DRILL-${Date.now()}`,
     });
-    console.log(`[DRILL] enforcement '${args.action}' submitted.`);
+    console.info(`[DRILL] enforcement '${args.action}' submitted.`);
   }
 
   if (args.grafanaUrl) {
@@ -150,7 +150,7 @@ async function main() {
       await fs.mkdir(dir, { recursive: true }).catch(() => {});
     }
     await fs.writeFile(outputFile, JSON.stringify(summary, null, 2));
-    console.log(`[DRILL] summary saved to ${outputFile}`);
+    console.info(`[DRILL] summary saved to ${outputFile}`);
   }
 }
 
@@ -348,7 +348,7 @@ function buildUsageEvents(totalCost, count) {
 async function pingGrafana(url) {
   try {
     const res = await fetch(url, { method: "GET" });
-    console.log(`[DRILL] Grafana probe ${url} -> ${res.status}`);
+    console.info(`[DRILL] Grafana probe ${url} -> ${res.status}`);
   } catch (err) {
     console.warn(`[WARN] Grafana probe failed for ${url}: ${err.message}`);
   }
@@ -373,7 +373,7 @@ async function notifyPagerDuty(url, payload) {
   if (!res.ok) {
     throw new Error(`PagerDuty responded with ${res.status}`);
   }
-  console.log("[DRILL] PagerDuty notification sent.");
+  console.info("[DRILL] PagerDuty notification sent.");
 }
 
 async function request(url, { method, token, body, params }) {

@@ -226,7 +226,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 
 	fallback := func(reason string) ([]flowschema.DetectedTask, error) {
 		if strings.TrimSpace(reason) != "" {
-			fmt.Printf("[intent-tool-calling] fallback: %s\n", strings.TrimSpace(reason))
+			logger.WarnF(ctx, "[intent-tool-calling] fallback: %s", strings.TrimSpace(reason))
 			dlogRun.FallbackReason = strings.TrimSpace(reason)
 		}
 		// 先走统一候选池召回，避免直接退化为 rule-only。

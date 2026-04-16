@@ -65,7 +65,7 @@ type ListJobOptions struct {
 func NewJobService(db *gorm.DB) *JobService {
 	scriptDir := strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))
 	if scriptDir == "" {
-		scriptDir = filepath.Join("backend", "scripts", "ops")
+		scriptDir = resolveOpsScriptDir()
 	}
 	artifactBaseDir := strings.TrimSpace(os.Getenv("POWERX_OPS_BACKUP_ARTIFACT_DIR"))
 	if artifactBaseDir == "" {
@@ -76,7 +76,7 @@ func NewJobService(db *gorm.DB) *JobService {
 		if appEnv == "prod" || appEnv == "production" {
 			artifactBaseDir = "/var/lib/powerx/ops-backup/artifacts"
 		} else {
-			artifactBaseDir = filepath.Join("backend", "tmp", "ops-backup", "artifacts")
+			artifactBaseDir = resolveDevArtifactBaseDir()
 		}
 	}
 	return &JobService{
@@ -96,6 +96,56 @@ func NewJobService(db *gorm.DB) *JobService {
 		policyLock:          make(map[uint64]struct{}),
 		nextRuns:            make(map[uint64]time.Time),
 	}
+}
+
+func resolveOpsScriptDir() string {
+	candidates := []string{
+		filepath.Join("scripts", "ops"),
+		filepath.Join("backend", "scripts", "ops"),
+	}
+	for i := range candidates {
+		if pathExists(filepath.Join(candidates[i], "backup-db.sh")) {
+			return candidates[i]
+		}
+	}
+	if root := detectProjectRoot(); root != "" {
+		return filepath.Join(root, "backend", "scripts", "ops")
+	}
+	return filepath.Join("backend", "scripts", "ops")
+}
+
+func resolveDevArtifactBaseDir() string {
+	if root := detectProjectRoot(); root != "" {
+		return filepath.Join(root, "backend", "tmp", "ops-backup", "artifacts")
+	}
+	if pathExists("tmp") {
+		return filepath.Join("tmp", "ops-backup", "artifacts")
+	}
+	return filepath.Join("backend", "tmp", "ops-backup", "artifacts")
+}
+
+func detectProjectRoot() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Clean(wd)
+	for {
+		if pathExists(filepath.Join(dir, "backend", "etc", "config.yaml")) {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir || next == "." || next == string(filepath.Separator) {
+			break
+		}
+		dir = next
+	}
+	return ""
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelops.BackupJob, int64, error) {

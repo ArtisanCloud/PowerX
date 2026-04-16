@@ -322,7 +322,7 @@ export const useMenuService = () => {
       deepFreezeDev(flatMenus);
       deepFreezeDev(categories);
 
-      // console.log(
+      // console.info(
       //   "[getUserMenus] menus =",
       //   menus.map((m) => `${m.title}(${m.id})`)
       // );
