@@ -3174,6 +3174,328 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
           auth_type: tenant_jwt
           tool_scope: media.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.getdeployhealth
+      module: platform_ops
+      title: OpsAdminService.GetDeployHealth
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.getdeployhealth
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: GetDeployHealth
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.getinstancemigration
+      module: platform_ops
+      title: OpsAdminService.GetInstanceMigration
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.getinstancemigration
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: GetInstanceMigration
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.listbackupjobs
+      module: platform_ops
+      title: OpsAdminService.ListBackupJobs
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.listbackupjobs
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: ListBackupJobs
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.listbackuppolicies
+      module: platform_ops
+      title: OpsAdminService.ListBackupPolicies
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.listbackuppolicies
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: ListBackupPolicies
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.listdeployreleases
+      module: platform_ops
+      title: OpsAdminService.ListDeployReleases
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.listdeployreleases
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: ListDeployReleases
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.listpluginlifecycleaudits
+      module: platform_ops
+      title: OpsAdminService.ListPluginLifecycleAudits
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.listpluginlifecycleaudits
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: ListPluginLifecycleAudits
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerbackupjob
+      module: platform_ops
+      title: OpsAdminService.TriggerBackupJob
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerbackupjob
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerBackupJob
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerdeployrelease
+      module: platform_ops
+      title: OpsAdminService.TriggerDeployRelease
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerdeployrelease
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerDeployRelease
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerdeployrollback
+      module: platform_ops
+      title: OpsAdminService.TriggerDeployRollback
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerdeployrollback
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerDeployRollback
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerinstancemigration
+      module: platform_ops
+      title: OpsAdminService.TriggerInstanceMigration
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerinstancemigration
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerInstanceMigration
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerpluginlifecycleaction
+      module: platform_ops
+      title: OpsAdminService.TriggerPluginLifecycleAction
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerpluginlifecycleaction
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerPluginLifecycleAction
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggerrestoredrill
+      module: platform_ops
+      title: OpsAdminService.TriggerRestoreDrill
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggerrestoredrill
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerRestoreDrill
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.triggertrafficswitch
+      module: platform_ops
+      title: OpsAdminService.TriggerTrafficSwitch
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.triggertrafficswitch
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: TriggerTrafficSwitch
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
+    - capability_id: com.corex.grpc.platform_ops.opsadminservice.upsertbackuppolicy
+      module: platform_ops
+      title: OpsAdminService.UpsertBackupPolicy
+      description: Generated from proto
+      categories:
+        - platform_ops
+        - grpc
+        - generated
+      intents:
+        - platform_ops.upsertbackuppolicy
+      tool_scopes:
+        - platform_ops.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.platform_ops.v1.OpsAdminService
+          rpc: UpsertBackupPolicy
+          schema_ref: api/grpc/contracts/powerx/platform_ops/v1/ops_admin.proto#OpsAdminService
+          auth_type: tenant_jwt
+          tool_scope: platform_ops.grpc
     - capability_id: com.corex.grpc.plugin.controlservice.upserttenantcredentials
       module: plugin
       title: ControlService.UpsertTenantCredentials
@@ -3841,6 +4163,144 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/setting/ai_setting.proto#SettingAIService
           auth_type: tenant_jwt
           tool_scope: setting.grpc
+    - capability_id: com.corex.grpc.skills.skilladminservice.bindcapability
+      module: skills
+      title: SkillAdminService.BindCapability
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.bindcapability
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillAdminService
+          rpc: BindCapability
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillAdminService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.skills.skilladminservice.importskill
+      module: skills
+      title: SkillAdminService.ImportSkill
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.importskill
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillAdminService
+          rpc: ImportSkill
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillAdminService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.skills.skilladminservice.listskills
+      module: skills
+      title: SkillAdminService.ListSkills
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.listskills
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillAdminService
+          rpc: ListSkills
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillAdminService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.skills.skilladminservice.publishskill
+      module: skills
+      title: SkillAdminService.PublishSkill
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.publishskill
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillAdminService
+          rpc: PublishSkill
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillAdminService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.skills.skilladminservice.rollbackskill
+      module: skills
+      title: SkillAdminService.RollbackSkill
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.rollbackskill
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillAdminService
+          rpc: RollbackSkill
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillAdminService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.skills.skillinvokeservice.invokeskill
+      module: skills
+      title: SkillInvokeService.InvokeSkill
+      description: Generated from proto
+      categories:
+        - skills
+        - grpc
+        - generated
+      intents:
+        - skills.invokeskill
+      tool_scopes:
+        - skills.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/skills/v1/skills.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.skills.v1.SkillInvokeService
+          rpc: InvokeSkill
+          schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillInvokeService
+          auth_type: tenant_jwt
+          tool_scope: skills.grpc
     - capability_id: com.corex.grpc.workflow.workflowservice.archivedefinition
       module: workflow
       title: WorkflowService.ArchiveDefinition
@@ -4600,6 +5060,52 @@ capabilities:
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_settings_context_optimizer_active
+      module: admin
+      title: GET /api/v1/admin/agents/settings/context-optimizer/active
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_agents_settings_context_optimizer_active
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/context-optimizer/active
+          method: GET
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_settings_context_optimizer_versions
+      module: admin
+      title: GET /api/v1/admin/agents/settings/context-optimizer/versions
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_agents_settings_context_optimizer_versions
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/context-optimizer/versions
+          method: GET
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_settings_credentials
       module: admin
       title: GET /api/v1/admin/agents/settings/credentials
@@ -4642,6 +5148,29 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/agents/settings/profiles
+          method: GET
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_settings_skills_source_policy
+      module: admin
+      title: GET /api/v1/admin/agents/settings/skills/source-policy
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_agents_settings_skills_source_policy
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/skills/source-policy
           method: GET
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
@@ -4715,73 +5244,27 @@ capabilities:
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_auth_me_context
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ai_llm_models
       module: admin
-      title: GET /api/v1/admin/user/auth/me/context
+      title: GET /api/v1/admin/ai/llm/models
       description: Generated from Gin route source
       categories:
         - admin
         - gin
         - generated
       intents:
-        - admin.get_api_v1_admin_auth_me_context
+        - admin.get_api_v1_admin_ai_llm_models
       tool_scopes:
         - admin.api
       policy:
         prefer: rest
       docs:
-        - internal/transport/http/admin/user/auth/api.go
+        - internal/transport/http/admin/agent/api.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/user/auth/me/context
+          endpoint: /api/v1/admin/ai/llm/models
           method: GET
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
-          auth_type: tenant_jwt
-          tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_auth_me_departments
-      module: admin
-      title: GET /api/v1/admin/user/auth/me/departments
-      description: Generated from Gin route source
-      categories:
-        - admin
-        - gin
-        - generated
-      intents:
-        - admin.get_api_v1_admin_auth_me_departments
-      tool_scopes:
-        - admin.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/user/auth/api.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/admin/user/auth/me/departments
-          method: GET
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
-          auth_type: tenant_jwt
-          tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_auth_me_tenants
-      module: admin
-      title: GET /api/v1/admin/user/auth/me/tenants
-      description: Generated from Gin route source
-      categories:
-        - admin
-        - gin
-        - generated
-      intents:
-        - admin.get_api_v1_admin_auth_me_tenants
-      tool_scopes:
-        - admin.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/user/auth/api.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/admin/user/auth/me/tenants
-          method: GET
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_capabilities_capabilityid
@@ -4851,6 +5334,52 @@ capabilities:
           endpoint: /api/v1/admin/capability-sync/jobs
           method: GET
           schema_ref: internal/transport/http/admin/capability_registry/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_deploy_health
+      module: admin
+      title: GET /api/v1/admin/deploy/health
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_deploy_health
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/deploy/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/deploy/health
+          method: GET
+          schema_ref: internal/transport/http/admin/deploy/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_deploy_releases
+      module: admin
+      title: GET /api/v1/admin/deploy/releases
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_deploy_releases
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/deploy/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/deploy/releases
+          method: GET
+          schema_ref: internal/transport/http/admin/deploy/routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_event_fabric_acl
@@ -5428,6 +5957,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_integration_permissions
+      module: admin
+      title: GET /api/v1/admin/integration/permissions
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_integration_permissions
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/integration/permissions
+          method: GET
+          schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_integration_permissions_catalog
       module: admin
       title: GET /api/v1/admin/integration/permissions/catalog
@@ -5934,6 +6486,167 @@ capabilities:
           schema_ref: internal/transport/http/admin/media/router.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_migration_runbooks_migrationid
+      module: admin
+      title: GET /api/v1/admin/migration/runbooks/:migrationId
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_migration_runbooks_migrationid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/migration/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/migration/runbooks/:migrationId
+          method: GET
+          schema_ref: internal/transport/http/admin/migration/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_backup_overview
+      module: admin
+      title: GET /api/v1/admin/monitor/backup/overview
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_backup_overview
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/backup/overview
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_logs_config
+      module: admin
+      title: GET /api/v1/admin/monitor/logs/config
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_logs_config
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/config
+          method: GET
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_logs_query
+      module: admin
+      title: GET /api/v1/admin/monitor/logs/query
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_logs_query
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/query
+          method: GET
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_logs_retention_export
+      module: admin
+      title: GET /api/v1/admin/monitor/logs/retention/export
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_logs_retention_export
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/export
+          method: GET
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_logs_retention_policy
+      module: admin
+      title: GET /api/v1/admin/monitor/logs/retention/policy
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_logs_retention_policy
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/policy
+          method: GET
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_monitor_logs_retention_runs
+      module: admin
+      title: GET /api/v1/admin/monitor/logs/retention/runs
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_monitor_logs_retention_runs
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/runs
+          method: GET
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_notifications_uuid
       module: admin
       title: GET /api/v1/admin/notifications/:uuid
@@ -6047,6 +6760,29 @@ capabilities:
           endpoint: /api/v1/admin/plugins/:id
           method: GET
           schema_ref: internal/transport/http/admin/plugin/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_plugins_id_audit
+      module: admin
+      title: GET /api/v1/admin/plugins/:id/audit
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_plugins_id_audit
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/deploy/plugin_lifecycle_routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/plugins/:id/audit
+          method: GET
+          schema_ref: internal/transport/http/admin/deploy/plugin_lifecycle_routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_plugins_id_credentials
@@ -6187,6 +6923,213 @@ capabilities:
           schema_ref: internal/transport/http/admin/plugin/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_setup_config
+      module: admin
+      title: GET /api/v1/admin/setup/config
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_setup_config
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/config
+          method: GET
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_setup_status
+      module: admin
+      title: GET /api/v1/admin/setup/status
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_setup_status
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/status
+          method: GET
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_audits
+      module: admin
+      title: GET /api/v1/admin/skills/audits
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_audits
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/audits
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_catalog
+      module: admin
+      title: GET /api/v1/admin/skills/catalog
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_catalog
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/catalog
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_install_tasks
+      module: admin
+      title: GET /api/v1/admin/skills/install-tasks
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_install_tasks
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/install-tasks
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_install_tasks_taskid
+      module: admin
+      title: GET /api/v1/admin/skills/install-tasks/:taskId
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_install_tasks_taskid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/install-tasks/:taskId
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_marketplace_preview
+      module: admin
+      title: GET /api/v1/admin/skills/marketplace/preview
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_marketplace_preview
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/marketplace/preview
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_traces
+      module: admin
+      title: GET /api/v1/admin/skills/traces
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_traces
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/traces
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_skills_traces_traceid
+      module: admin
+      title: GET /api/v1/admin/skills/traces/:traceId
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_skills_traces_traceid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/traces/:traceId
+          method: GET
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_system_settings_effective_key
       module: admin
       title: GET /api/v1/admin/system/settings/effective/:key
@@ -6325,6 +7268,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/system/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_system_users_id_roles
+      module: admin
+      title: GET /api/v1/admin/system/users/:id/roles
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_system_users_id_roles
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/system/users/:id/roles
+          method: GET
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_tenants_id
       module: admin
       title: GET /api/v1/admin/tenants/:id
@@ -6346,6 +7312,75 @@ capabilities:
           endpoint: /api/v1/admin/tenants/:id
           method: GET
           schema_ref: internal/transport/http/admin/tenants/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_user_auth_me_context
+      module: admin
+      title: GET /api/v1/admin/user/auth/me/context
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_user_auth_me_context
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/context
+          method: GET
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_user_auth_me_departments
+      module: admin
+      title: GET /api/v1/admin/user/auth/me/departments
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_user_auth_me_departments
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/departments
+          method: GET
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_user_auth_me_tenants
+      module: admin
+      title: GET /api/v1/admin/user/auth/me/tenants
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_user_auth_me_tenants
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/tenants
+          method: GET
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflow_templates
@@ -6762,6 +7797,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/notifications/routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_skills_catalog_catalogskillid_active
+      module: admin
+      title: PATCH /api/v1/admin/skills/catalog/:catalogSkillId/active
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_skills_catalog_catalogskillid_active
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/catalog/:catalogSkillId/active
+          method: PATCH
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_system_users_id
       module: admin
       title: PATCH /api/v1/admin/system/users/:id
@@ -7015,6 +8073,75 @@ capabilities:
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_settings_context_optimizer_drafts
+      module: admin
+      title: POST /api/v1/admin/agents/settings/context-optimizer/drafts
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_agents_settings_context_optimizer_drafts
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/context-optimizer/drafts
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_settings_context_optimizer_publish
+      module: admin
+      title: POST /api/v1/admin/agents/settings/context-optimizer/publish
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_agents_settings_context_optimizer_publish
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/context-optimizer/publish
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_settings_context_optimizer_rollback
+      module: admin
+      title: POST /api/v1/admin/agents/settings/context-optimizer/rollback
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_agents_settings_context_optimizer_rollback
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/context-optimizer/rollback
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_settings_save
       module: admin
       title: POST /api/v1/admin/agents/settings/save
@@ -7245,27 +8372,50 @@ capabilities:
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_auth_me_switch_tenant
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_deploy_releases
       module: admin
-      title: POST /api/v1/admin/user/auth/me/switch-tenant
+      title: POST /api/v1/admin/deploy/releases
       description: Generated from Gin route source
       categories:
         - admin
         - gin
         - generated
       intents:
-        - admin.post_api_v1_admin_auth_me_switch_tenant
+        - admin.post_api_v1_admin_deploy_releases
       tool_scopes:
         - admin.api
       policy:
         prefer: rest
       docs:
-        - internal/transport/http/admin/user/auth/api.go
+        - internal/transport/http/admin/deploy/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/user/auth/me/switch-tenant
+          endpoint: /api/v1/admin/deploy/releases
           method: POST
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          schema_ref: internal/transport/http/admin/deploy/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_deploy_rollback
+      module: admin
+      title: POST /api/v1/admin/deploy/rollback
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_deploy_rollback
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/deploy/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/deploy/rollback
+          method: POST
+          schema_ref: internal/transport/http/admin/deploy/routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_event_fabric_acl
@@ -8326,6 +9476,121 @@ capabilities:
           schema_ref: internal/transport/http/admin/media/router.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_migration_runbooks_migrationid_acceptance
+      module: admin
+      title: POST /api/v1/admin/migration/runbooks/:migrationId/acceptance
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_migration_runbooks_migrationid_acceptance
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/migration/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/migration/runbooks/:migrationId/acceptance
+          method: POST
+          schema_ref: internal/transport/http/admin/migration/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_migration_runbooks_run
+      module: admin
+      title: POST /api/v1/admin/migration/runbooks/run
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_migration_runbooks_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/migration/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/migration/runbooks/run
+          method: POST
+          schema_ref: internal/transport/http/admin/migration/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_migration_traffic_switch
+      module: admin
+      title: POST /api/v1/admin/migration/traffic/switch
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_migration_traffic_switch
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/migration/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/migration/traffic/switch
+          method: POST
+          schema_ref: internal/transport/http/admin/migration/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_monitor_logs_retention_dry_run
+      module: admin
+      title: POST /api/v1/admin/monitor/logs/retention/dry-run
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_monitor_logs_retention_dry_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/dry-run
+          method: POST
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_monitor_logs_retention_run
+      module: admin
+      title: POST /api/v1/admin/monitor/logs/retention/run
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_monitor_logs_retention_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/run
+          method: POST
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_notifications_test
       module: admin
       title: POST /api/v1/admin/notifications/test
@@ -8370,6 +9635,29 @@ capabilities:
           endpoint: /api/v1/admin/notifications/test-queue
           method: POST
           schema_ref: internal/transport/http/admin/notifications/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_plugins_id_actions
+      module: admin
+      title: POST /api/v1/admin/plugins/:id/actions
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_plugins_id_actions
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/deploy/plugin_lifecycle_routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/plugins/:id/actions
+          method: POST
+          schema_ref: internal/transport/http/admin/deploy/plugin_lifecycle_routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_plugins_id_credentials_rotate
@@ -8648,6 +9936,282 @@ capabilities:
           schema_ref: internal/transport/http/admin/capability_registry/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_complete
+      module: admin
+      title: POST /api/v1/admin/setup/complete
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_complete
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/complete
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_llm_test_call
+      module: admin
+      title: POST /api/v1/admin/setup/llm/test-call
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_llm_test_call
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/llm/test-call
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_llm_test_connection
+      module: admin
+      title: POST /api/v1/admin/setup/llm/test-connection
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_llm_test_connection
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/llm/test-connection
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_provision
+      module: admin
+      title: POST /api/v1/admin/setup/provision
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_provision
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/provision
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_test_cache
+      module: admin
+      title: POST /api/v1/admin/setup/test/cache
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_test_cache
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/test/cache
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_setup_test_database
+      module: admin
+      title: POST /api/v1/admin/setup/test/database
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_setup_test_database
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/test/database
+          method: POST
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_catalog
+      module: admin
+      title: POST /api/v1/admin/skills/catalog
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_catalog
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/catalog
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_import
+      module: admin
+      title: POST /api/v1/admin/skills/import
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_import
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/import
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_install_tasks
+      module: admin
+      title: POST /api/v1/admin/skills/install-tasks
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_install_tasks
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/install-tasks
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_skillid_bind_capability
+      module: admin
+      title: POST /api/v1/admin/skills/:skillId/bind-capability
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_skillid_bind_capability
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/:skillId/bind-capability
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_skillid_publish
+      module: admin
+      title: POST /api/v1/admin/skills/:skillId/publish
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_skillid_publish
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/:skillId/publish
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_skills_skillid_rollback
+      module: admin
+      title: POST /api/v1/admin/skills/:skillId/rollback
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_skills_skillid_rollback
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/skills/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/skills/:skillId/rollback
+          method: POST
+          schema_ref: internal/transport/http/admin/skills/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_system_sts_pluginid
       module: admin
       title: POST /api/v1/admin/system/sts/:pluginId
@@ -8759,6 +10323,29 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/user/auth/logout
+          method: POST
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_user_auth_me_switch_tenant
+      module: admin
+      title: POST /api/v1/admin/user/auth/me/switch-tenant
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_user_auth_me_switch_tenant
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/switch-tenant
           method: POST
           schema_ref: internal/transport/http/admin/user/auth/api.go#source
           auth_type: tenant_jwt
@@ -8947,6 +10534,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/agentlifecycle/routes.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_agents_settings_skills_source_policy
+      module: admin
+      title: PUT /api/v1/admin/agents/settings/skills/source-policy
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_agents_settings_skills_source_policy
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/settings/skills/source-policy
+          method: PUT
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_agents_uuid_ai_setting
       module: admin
       title: PUT /api/v1/admin/agents/:uuid/ai-setting
@@ -9108,6 +10718,52 @@ capabilities:
           schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_monitor_logs_retention_policy
+      module: admin
+      title: PUT /api/v1/admin/monitor/logs/retention/policy
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_monitor_logs_retention_policy
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/monitor/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/monitor/logs/retention/policy
+          method: PUT
+          schema_ref: internal/transport/http/admin/monitor/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_setup_config
+      module: admin
+      title: PUT /api/v1/admin/setup/config
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_setup_config
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/setup/config
+          method: PUT
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_system_settings_system_key
       module: admin
       title: PUT /api/v1/admin/system/settings/system/:key
@@ -9154,6 +10810,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/system/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_system_users_id_password
+      module: admin
+      title: PUT /api/v1/admin/system/users/:id/password
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_system_users_id_password
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/system/users/:id/password
+          method: PUT
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_system_users_id_restore
       module: admin
       title: PUT /api/v1/admin/system/users/:id/restore
@@ -9173,6 +10852,29 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/system/users/:id/restore
+          method: PUT
+          schema_ref: internal/transport/http/admin/system/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_system_users_id_roles
+      module: admin
+      title: PUT /api/v1/admin/system/users/:id/roles
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_system_users_id_roles
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/system/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/system/users/:id/roles
           method: PUT
           schema_ref: internal/transport/http/admin/system/api.go#source
           auth_type: tenant_jwt
@@ -9221,6 +10923,52 @@ capabilities:
           endpoint: /api/v1/admin/tenants/upsert
           method: PUT
           schema_ref: internal/transport/http/admin/tenants/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_user_auth_me_password
+      module: admin
+      title: PUT /api/v1/admin/user/auth/me/password
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_user_auth_me_password
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/password
+          method: PUT
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          auth_type: tenant_jwt
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_user_auth_me_profile
+      module: admin
+      title: PUT /api/v1/admin/user/auth/me/profile
+      description: Generated from Gin route source
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_user_auth_me_profile
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/user/auth/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/user/auth/me/profile
+          method: PUT
+          schema_ref: internal/transport/http/admin/user/auth/api.go#source
           auth_type: tenant_jwt
           tool_scope: admin.api
     - capability_id: com.corex.rest.agent.gin.post_api_v1_agent_weights_refresh
@@ -9591,6 +11339,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
           tool_scope: agents.api
+    - capability_id: com.corex.rest.ai.gin.get_api_v1_ai_llm_models
+      module: ai
+      title: GET /api/v1/ai/llm/models
+      description: Generated from Gin route source
+      categories:
+        - ai
+        - gin
+        - generated
+      intents:
+        - ai.get_api_v1_ai_llm_models
+      tool_scopes:
+        - ai.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/ai/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/ai/llm/models
+          method: GET
+          schema_ref: internal/transport/http/openapi/ai/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: ai.api
     - capability_id: com.corex.rest.ai.gin.get_api_v1_ai_llm_sessions_session_id_stream
       module: ai
       title: GET /api/v1/ai/llm/sessions/:session_id/stream
@@ -9606,12 +11377,12 @@ capabilities:
       policy:
         prefer: rest
       docs:
-        - internal/transport/http/openapi/ai/routes.go
+        - internal/transport/http/openapi/ai/handler_stream_test.go
       protocols:
         - channel: rest
           endpoint: /api/v1/ai/llm/sessions/:session_id/stream
           method: GET
-          schema_ref: internal/transport/http/openapi/ai/routes.go#source
+          schema_ref: internal/transport/http/openapi/ai/handler_stream_test.go#source
           auth_type: tenant_jwt
           tool_scope: ai.api
     - capability_id: com.corex.rest.ai.gin.get_api_v1_ai_status
@@ -9752,6 +11523,29 @@ capabilities:
           schema_ref: internal/transport/http/openapi/ai/routes.go#source
           auth_type: tenant_jwt
           tool_scope: ai.api
+    - capability_id: com.corex.rest.ai.gin.post_api_v1_ai_llm_stream
+      module: ai
+      title: POST /api/v1/ai/llm/stream
+      description: Generated from Gin route source
+      categories:
+        - ai
+        - gin
+        - generated
+      intents:
+        - ai.post_api_v1_ai_llm_stream
+      tool_scopes:
+        - ai.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/ai/handler_stream_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/ai/llm/stream
+          method: POST
+          schema_ref: internal/transport/http/openapi/ai/handler_stream_test.go#source
+          auth_type: tenant_jwt
+          tool_scope: ai.api
     - capability_id: com.corex.rest.ai.gin.post_api_v1_ai_tts_invoke
       module: ai
       title: POST /api/v1/ai/tts/invoke
@@ -9821,29 +11615,52 @@ capabilities:
           schema_ref: internal/transport/http/openapi/ai/routes.go#source
           auth_type: tenant_jwt
           tool_scope: ai.api
-    - capability_id: com.corex.rest.auth.gin.get_api_v1_auth_me_context
-      module: auth
-      title: GET /api/v1/auth/me/context
+    - capability_id: com.corex.rest.alerts.gin.get_api_v1_alerts
+      module: alerts
+      title: GET /api/v1/alerts
       description: Generated from Gin route source
       categories:
-        - auth
+        - alerts
         - gin
         - generated
       intents:
-        - auth.get_api_v1_auth_me_context
+        - alerts.get_api_v1_alerts
       tool_scopes:
-        - auth.api
+        - alerts.api
       policy:
         prefer: rest
       docs:
-        - internal/transport/http/admin/user/auth/api.go
+        - internal/transport/http/admin/backup/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/auth/me/context
+          endpoint: /api/v1/alerts
           method: GET
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
           auth_type: tenant_jwt
-          tool_scope: auth.api
+          tool_scope: alerts.api
+    - capability_id: com.corex.rest.alerts.gin.post_api_v1_alerts_alert_id_ack
+      module: alerts
+      title: POST /api/v1/alerts/:alert_id/ack
+      description: Generated from Gin route source
+      categories:
+        - alerts
+        - gin
+        - generated
+      intents:
+        - alerts.post_api_v1_alerts_alert_id_ack
+      tool_scopes:
+        - alerts.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/alerts/:alert_id/ack
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: alerts.api
     - capability_id: com.corex.rest.capabilitykey.gin.get_api_v1_capabilitykey_version_policy
       module: capabilitykey
       title: GET /api/v1/:capabilityKey/version-policy
@@ -10051,6 +11868,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/capability/api.go#source
           auth_type: tenant_jwt
           tool_scope: capabilitykey.api
+    - capability_id: com.corex.rest.cleanup.gin.post_api_v1_cleanup
+      module: cleanup
+      title: POST /api/v1/cleanup
+      description: Generated from Gin route source
+      categories:
+        - cleanup
+        - gin
+        - generated
+      intents:
+        - cleanup.post_api_v1_cleanup
+      tool_scopes:
+        - cleanup.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/cleanup
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: cleanup.api
     - capability_id: com.corex.rest.connector_platforms.post_connector_platforms_platform_instances
       module: connector_platforms
       title: Register or update an external platform instance
@@ -10787,6 +12627,29 @@ capabilities:
           schema_ref: internal/transport/http/admin/routes.go#source
           auth_type: tenant_jwt
           tool_scope: health.api
+    - capability_id: com.corex.rest.healthz.gin.get_api_v1_healthz
+      module: healthz
+      title: GET /api/v1/healthz
+      description: Generated from Gin route source
+      categories:
+        - healthz
+        - gin
+        - generated
+      intents:
+        - healthz.get_api_v1_healthz
+      tool_scopes:
+        - healthz.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/healthz
+          method: GET
+          schema_ref: internal/transport/http/admin/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: healthz.api
     - capability_id: com.corex.rest.index.gin.get_api_v1_index_versions
       module: index
       title: GET /api/v1/index/versions
@@ -12121,6 +13984,75 @@ capabilities:
           schema_ref: internal/transport/http/admin/runtime/routes.go#source
           auth_type: tenant_jwt
           tool_scope: internal.api
+    - capability_id: com.corex.rest.jobs.gin.get_api_v1_jobs
+      module: jobs
+      title: GET /api/v1/jobs
+      description: Generated from Gin route source
+      categories:
+        - jobs
+        - gin
+        - generated
+      intents:
+        - jobs.get_api_v1_jobs
+      tool_scopes:
+        - jobs.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/jobs
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: jobs.api
+    - capability_id: com.corex.rest.jobs.gin.get_api_v1_jobs_job_id
+      module: jobs
+      title: GET /api/v1/jobs/:job_id
+      description: Generated from Gin route source
+      categories:
+        - jobs
+        - gin
+        - generated
+      intents:
+        - jobs.get_api_v1_jobs_job_id
+      tool_scopes:
+        - jobs.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/jobs/:job_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: jobs.api
+    - capability_id: com.corex.rest.jobs.gin.post_api_v1_jobs_run
+      module: jobs
+      title: POST /api/v1/jobs/run
+      description: Generated from Gin route source
+      categories:
+        - jobs
+        - gin
+        - generated
+      intents:
+        - jobs.post_api_v1_jobs_run
+      tool_scopes:
+        - jobs.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/jobs/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: jobs.api
     - capability_id: com.corex.rest.knowledge.gin.get_api_v1_knowledge_decay_status
       module: knowledge
       title: GET /api/v1/knowledge/decay/status
@@ -12696,6 +14628,29 @@ capabilities:
           schema_ref: api/openapi/swagger.json#/paths/model-routing~1route/post
           auth_type: tenant_jwt
           tool_scope: model_routing.api
+    - capability_id: com.corex.rest.notifications.gin.post_api_v1_notifications_test
+      module: notifications
+      title: POST /api/v1/notifications/test
+      description: Generated from Gin route source
+      categories:
+        - notifications
+        - gin
+        - generated
+      intents:
+        - notifications.post_api_v1_notifications_test
+      tool_scopes:
+        - notifications.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/notifications/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/notifications/test
+          method: POST
+          schema_ref: internal/transport/http/openapi/notifications/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: notifications.api
     - capability_id: com.corex.rest.openapi.gin.get_api_v1_openapi_agents_agent_id_bridge_state
       module: openapi
       title: GET /api/v1/openapi/agents/:agent_id/bridge/state
@@ -13156,6 +15111,144 @@ capabilities:
           schema_ref: internal/transport/http/admin/plugin_release/routes.go#source
           auth_type: tenant_jwt
           tool_scope: plugin_release.api
+    - capability_id: com.corex.rest.policies.gin.get_api_v1_policies
+      module: policies
+      title: GET /api/v1/policies
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.get_api_v1_policies
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
+    - capability_id: com.corex.rest.policies.gin.patch_api_v1_policies_policy_id
+      module: policies
+      title: PATCH /api/v1/policies/:policy_id
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.patch_api_v1_policies_policy_id
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies/:policy_id
+          method: PATCH
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
+    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies
+      module: policies
+      title: POST /api/v1/policies
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.post_api_v1_policies
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
+    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_current
+      module: policies
+      title: POST /api/v1/policies/:policy_id/current
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.post_api_v1_policies_policy_id_current
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies/:policy_id/current
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
+    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_disable
+      module: policies
+      title: POST /api/v1/policies/:policy_id/disable
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.post_api_v1_policies_policy_id_disable
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies/:policy_id/disable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
+    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_enable
+      module: policies
+      title: POST /api/v1/policies/:policy_id/enable
+      description: Generated from Gin route source
+      categories:
+        - policies
+        - gin
+        - generated
+      intents:
+        - policies.post_api_v1_policies_policy_id_enable
+      tool_scopes:
+        - policies.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/policies/:policy_id/enable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: policies.api
     - capability_id: com.corex.rest.provider_quotas.get_provider_quotas
       module: provider_quotas
       title: Retrieve quota configuration for a tenant
@@ -13386,6 +15479,121 @@ capabilities:
           schema_ref: internal/transport/http/admin/knowledge_space/profile_handlers.go#source
           auth_type: tenant_jwt
           tool_scope: rag.api
+    - capability_id: com.corex.rest.restore_drills.gin.get_api_v1_restore_drills
+      module: restore_drills
+      title: GET /api/v1/restore-drills
+      description: Generated from Gin route source
+      categories:
+        - restore_drills
+        - gin
+        - generated
+      intents:
+        - restore_drills.get_api_v1_restore_drills
+      tool_scopes:
+        - restore_drills.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/restore-drills
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: restore_drills.api
+    - capability_id: com.corex.rest.restore_drills.gin.get_api_v1_restore_drills_drill_id
+      module: restore_drills
+      title: GET /api/v1/restore-drills/:drill_id
+      description: Generated from Gin route source
+      categories:
+        - restore_drills
+        - gin
+        - generated
+      intents:
+        - restore_drills.get_api_v1_restore_drills_drill_id
+      tool_scopes:
+        - restore_drills.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/restore-drills/:drill_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: restore_drills.api
+    - capability_id: com.corex.rest.restore_drills.gin.post_api_v1_restore_drills
+      module: restore_drills
+      title: POST /api/v1/restore-drills
+      description: Generated from Gin route source
+      categories:
+        - restore_drills
+        - gin
+        - generated
+      intents:
+        - restore_drills.post_api_v1_restore_drills
+      tool_scopes:
+        - restore_drills.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/restore-drills
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: restore_drills.api
+    - capability_id: com.corex.rest.restore_drills.gin.post_api_v1_restore_drills_run
+      module: restore_drills
+      title: POST /api/v1/restore-drills/run
+      description: Generated from Gin route source
+      categories:
+        - restore_drills
+        - gin
+        - generated
+      intents:
+        - restore_drills.post_api_v1_restore_drills_run
+      tool_scopes:
+        - restore_drills.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/restore-drills/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: restore_drills.api
+    - capability_id: com.corex.rest.targets.gin.post_api_v1_targets_test
+      module: targets
+      title: POST /api/v1/targets/test
+      description: Generated from Gin route source
+      categories:
+        - targets
+        - gin
+        - generated
+      intents:
+        - targets.post_api_v1_targets_test
+      tool_scopes:
+        - targets.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/targets/test
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: targets.api
     - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_plugin_release_local_sessions_sessionid
       module: tenant
       title: DELETE /api/v1/tenant/plugin-release/local/sessions/:sessionId
@@ -13428,6 +15636,29 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/tenant/capabilities
+          method: GET
+          schema_ref: internal/transport/http/openapi/capability_registry/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_capabilities_resolve
+      module: tenant
+      title: GET /api/v1/tenant/capabilities/resolve
+      description: Generated from Gin route source
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_capabilities_resolve
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/capability_registry/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/capabilities/resolve
           method: GET
           schema_ref: internal/transport/http/openapi/capability_registry/routes.go#source
           auth_type: tenant_jwt
@@ -13593,6 +15824,29 @@ capabilities:
           schema_ref: internal/transport/http/openapi/capability_registry/routes.go#source
           auth_type: tenant_jwt
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_invocations_stream
+      module: tenant
+      title: POST /api/v1/tenant/invocations/stream
+      description: Generated from Gin route source
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_invocations_stream
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/capability_registry/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/invocations/stream
+          method: POST
+          schema_ref: internal/transport/http/openapi/capability_registry/routes.go#source
+          auth_type: tenant_jwt
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_plugin_release_local_sessions
       module: tenant
       title: POST /api/v1/tenant/plugin-release/local/sessions
@@ -13616,26 +15870,26 @@ capabilities:
           schema_ref: internal/transport/http/openapi/plugin_release/routes.go#source
           auth_type: tenant_jwt
           tool_scope: tenant.api
-    - capability_id: com.corex.rest.user.gin.post_api_v1_user_auth_logout
-      module: user
-      title: POST /api/v1/user/auth/logout
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_skills_invoke
+      module: tenant
+      title: POST /api/v1/tenant/skills/invoke
       description: Generated from Gin route source
       categories:
-        - user
+        - tenant
         - gin
         - generated
       intents:
-        - user.post_api_v1_user_auth_logout
+        - tenant.post_api_v1_tenant_skills_invoke
       tool_scopes:
-        - user.api
+        - tenant.api
       policy:
         prefer: rest
       docs:
-        - internal/transport/http/admin/user/auth/api.go
+        - internal/transport/http/openapi/skills/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/user/auth/logout
+          endpoint: /api/v1/tenant/skills/invoke
           method: POST
-          schema_ref: internal/transport/http/admin/user/auth/api.go#source
+          schema_ref: internal/transport/http/openapi/skills/routes.go#source
           auth_type: tenant_jwt
-          tool_scope: user.api
+          tool_scope: tenant.api

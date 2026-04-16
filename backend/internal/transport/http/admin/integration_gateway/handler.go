@@ -42,6 +42,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.PATCH("/api-key-profiles/:profile_id", apiKeyHandler.UpdateAPIKeyProfile)
 	group.GET("/api-key-profiles/:profile_id/permissions", apiKeyHandler.GetAPIKeyProfilePermissions)
 	group.PUT("/api-key-profiles/:profile_id/permissions", apiKeyHandler.SetAPIKeyProfilePermissions)
+	group.GET("/permissions", apiKeyHandler.GetPermissionsByAPIKey)
 	group.GET("/permissions/catalog", apiKeyHandler.ListAPIKeyPermissionCatalog)
 	group.POST("/api-keys", apiKeyHandler.CreateAPIKey)
 	group.GET("/api-keys", apiKeyHandler.ListAPIKeys)

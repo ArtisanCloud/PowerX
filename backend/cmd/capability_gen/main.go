@@ -468,7 +468,12 @@ func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string
 			continue
 		}
 		base := groupBase[target]
-		full := cleanPath(joinPath(apiPrefix, base, localPath))
+		joined := cleanPath(joinPath(base, localPath))
+		full := joined
+		// 部分路由组已包含 /api/v1 前缀，避免重复拼出 /api/v1/api/v1/*
+		if !strings.HasPrefix(joined, "/api/") {
+			full = cleanPath(joinPath(apiPrefix, joined))
+		}
 		if !strings.HasPrefix(full, "/api/") {
 			continue
 		}
