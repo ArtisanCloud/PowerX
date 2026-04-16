@@ -8,7 +8,7 @@ import (
 func TestJobService_TryLockPolicy_ReentrantBlocked(t *testing.T) {
 	svc := &JobService{
 		policyLock: make(map[uint64]struct{}),
-		nextRuns:   make(map[uint64]time.Time),
+		nextRuns:   make(map[uint64]nextRunCache),
 	}
 	if ok := svc.tryLockPolicy(7); !ok {
 		t.Fatalf("first lock should succeed")
@@ -25,7 +25,7 @@ func TestJobService_TryLockPolicy_ReentrantBlocked(t *testing.T) {
 func TestJobService_NextRunAt(t *testing.T) {
 	svc := &JobService{
 		policyLock: make(map[uint64]struct{}),
-		nextRuns:   make(map[uint64]time.Time),
+		nextRuns:   make(map[uint64]nextRunCache),
 	}
 	now := time.Date(2026, 4, 11, 10, 0, 0, 0, time.UTC)
 	next := svc.nextRunAt(1, now, "6h")
@@ -46,5 +46,23 @@ func TestJobService_NextRunAt(t *testing.T) {
 	fallback := svc.nextRunAt(4, now, "bad")
 	if !fallback.Equal(now.Add(time.Duration(defaultIntervalHours) * time.Hour)) {
 		t.Fatalf("fallback next run mismatch, got %s", fallback)
+	}
+}
+
+func TestJobService_NextRunAt_RecomputeWhenScheduleChanged(t *testing.T) {
+	svc := &JobService{
+		policyLock: make(map[uint64]struct{}),
+		nextRuns:   make(map[uint64]nextRunCache),
+	}
+	now := time.Date(2026, 4, 11, 10, 0, 0, 0, time.UTC)
+
+	original := svc.nextRunAt(1, now, "24h")
+	if !original.Equal(now.Add(24 * time.Hour)) {
+		t.Fatalf("original next run mismatch, got %s", original)
+	}
+
+	updated := svc.nextRunAt(1, now, "1h")
+	if !updated.Equal(now.Add(1 * time.Hour)) {
+		t.Fatalf("updated next run mismatch, got %s", updated)
 	}
 }

@@ -42,7 +42,12 @@ type JobService struct {
 	metrics             *inst.Recorder
 	lockMu              sync.Mutex
 	policyLock          map[uint64]struct{}
-	nextRuns            map[uint64]time.Time
+	nextRuns            map[uint64]nextRunCache
+}
+
+type nextRunCache struct {
+	At       time.Time
+	Schedule string
 }
 
 type TriggerJobRequest struct {
@@ -94,7 +99,7 @@ func NewJobService(db *gorm.DB) *JobService {
 		backupScriptTimeout: resolveBackupScriptTimeout(),
 		metrics:             inst.NewRecorder("powerx.service.backup_job_ops"),
 		policyLock:          make(map[uint64]struct{}),
-		nextRuns:            make(map[uint64]time.Time),
+		nextRuns:            make(map[uint64]nextRunCache),
 	}
 }
 
@@ -463,7 +468,7 @@ func (s *JobService) scanAndTrigger(ctx context.Context) {
 			Operator:    "system.scheduler",
 			TriggerType: modelops.BackupTriggerTypeScheduled,
 		})
-		s.setNextRunAt(p.ID, now.Add(parseScheduleDuration(p.Schedule)))
+		s.setNextRunAt(p.ID, now.Add(parseScheduleDuration(p.Schedule)), p.Schedule)
 	}
 }
 
@@ -496,18 +501,25 @@ func (s *JobService) ensureTenantContext(ctx context.Context) context.Context {
 func (s *JobService) nextRunAt(policyID uint64, now time.Time, schedule string) time.Time {
 	s.lockMu.Lock()
 	defer s.lockMu.Unlock()
-	if v, ok := s.nextRuns[policyID]; ok && !v.IsZero() {
-		return v
+	normalizedSchedule := normalizeScheduleKey(schedule)
+	if v, ok := s.nextRuns[policyID]; ok && !v.At.IsZero() && v.Schedule == normalizedSchedule {
+		return v.At
 	}
-	v := now.Add(parseScheduleDuration(schedule))
-	s.nextRuns[policyID] = v
-	return v
+	nextAt := now.Add(parseScheduleDuration(schedule))
+	s.nextRuns[policyID] = nextRunCache{
+		At:       nextAt,
+		Schedule: normalizedSchedule,
+	}
+	return nextAt
 }
 
-func (s *JobService) setNextRunAt(policyID uint64, next time.Time) {
+func (s *JobService) setNextRunAt(policyID uint64, next time.Time, schedule string) {
 	s.lockMu.Lock()
 	defer s.lockMu.Unlock()
-	s.nextRuns[policyID] = next
+	s.nextRuns[policyID] = nextRunCache{
+		At:       next,
+		Schedule: normalizeScheduleKey(schedule),
+	}
 }
 
 func parseScheduleDuration(schedule string) time.Duration {
@@ -516,6 +528,10 @@ func parseScheduleDuration(schedule string) time.Duration {
 		return d
 	}
 	return 6 * time.Hour
+}
+
+func normalizeScheduleKey(schedule string) string {
+	return strings.TrimSpace(strings.ToLower(schedule))
 }
 
 func (s *JobService) tryLockPolicy(policyID uint64) bool {

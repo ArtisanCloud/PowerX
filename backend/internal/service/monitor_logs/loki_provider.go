@@ -99,10 +99,10 @@ func (p *LokiProvider) buildQuery(req QueryRequest) string {
 		filters = append(filters, fmt.Sprintf("|= \"%s\"", escapeLokiString(v)))
 	}
 	if req.JobID > 0 {
-		filters = append(filters, fmt.Sprintf("|= \"job_id\\\": %d\"", req.JobID))
+		filters = append(filters, fmt.Sprintf("|~ \"\\\\\\\"job_id\\\\\\\"\\\\s*:\\\\s*%d\"", req.JobID))
 	}
 	if req.PolicyID > 0 {
-		filters = append(filters, fmt.Sprintf("|= \"policy_id\\\": %d\"", req.PolicyID))
+		filters = append(filters, fmt.Sprintf("|~ \"\\\\\\\"policy_id\\\\\\\"\\\\s*:\\\\s*%d\"", req.PolicyID))
 	}
 	if v := strings.TrimSpace(req.Keyword); v != "" {
 		filters = append(filters, fmt.Sprintf("|= \"%s\"", escapeLokiString(v)))
