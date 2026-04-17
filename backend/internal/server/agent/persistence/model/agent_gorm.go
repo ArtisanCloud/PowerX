@@ -59,10 +59,13 @@ type Agent struct {
 	Description string `gorm:"type:text" json:"description"`
 
 	// 来源/范围/可见性/状态
-	Source     string `gorm:"size:128;index" json:"source"`                     // core | plugin:<plugin_id>
-	Scope      string `gorm:"size:16;default:'tenant'" json:"scope"`            // system | tenant
-	Visibility string `gorm:"size:16;default:'tenant';index" json:"visibility"` // private | tenant | public
-	Status     string `gorm:"size:16;default:'draft';index" json:"status"`      // draft|active|disabled|broken|archived
+	Source          string  `gorm:"size:128;index" json:"source"`                               // core | plugin:<plugin_id>
+	OwnerPluginID   *string `gorm:"column:owner_plugin_id;size:128;index" json:"ownerPluginId"` // 归属插件（为空表示底座）
+	OwnerTenantUUID *string `gorm:"column:owner_tenant_uuid;index" json:"ownerTenantUuid"`      // 归属租户（插件托管时等于 tenant_uuid）
+	ManagedByPlugin bool    `gorm:"column:managed_by_plugin;default:false;index" json:"managedByPlugin"`
+	Scope           string  `gorm:"size:16;default:'tenant'" json:"scope"`            // system | tenant
+	Visibility      string  `gorm:"size:16;default:'tenant';index" json:"visibility"` // private | tenant | public
+	Status          string  `gorm:"size:16;default:'draft';index" json:"status"`      // draft|active|disabled|broken|archived
 
 	// Persona / Blueprint / 工具清单
 	DefaultPersonaID *uint64        `gorm:"index" json:"defaultPersonaId,omitempty"`

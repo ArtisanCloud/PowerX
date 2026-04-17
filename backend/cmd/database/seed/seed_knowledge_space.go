@@ -1,10 +1,10 @@
 package seed
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 type policyTemplateSeed struct {
@@ -90,7 +91,7 @@ func SeedKnowledgePolicyTemplates(db *gorm.DB) error {
 		if err := db.WithContext(seedCtx()).Create(row).Error; err != nil {
 			return err
 		}
-		fmt.Printf("[seed] policy templates ready: %s-%s (id=%d)\n", name, ver, row.ID)
+		logger.InfoF(context.Background(), "[seed] policy templates ready: %s-%s (id=%d)", name, ver, row.ID)
 	}
 	return nil
 }

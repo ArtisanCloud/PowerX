@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	eventscheduler "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/scheduler"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 )
 
@@ -46,6 +47,44 @@ func (c *Config) Validate() error {
 	// --- Event Bus ---
 	if c.Event.Bus.Type != "local" && c.Event.Bus.Type != "redis" {
 		errors = append(errors, "event_bus.type 必须是 'local' 或 'redis'")
+	}
+
+	// --- Log Retention ---
+	if c.LogConfig.Retention.Enabled {
+		ret := c.LogConfig.Retention
+		if strings.TrimSpace(ret.Cron) == "" {
+			errors = append(errors, "log.retention.cron 不能为空")
+		} else {
+			svc := eventscheduler.NewService()
+			if _, err := svc.ComputeNextRun(eventscheduler.ComputeNextRunInput{
+				CronExpr: strings.TrimSpace(ret.Cron),
+				Timezone: strings.TrimSpace(ret.Timezone),
+				Now:      time.Now(),
+			}); err != nil {
+				errors = append(errors, fmt.Sprintf("log.retention.cron 非法: %v", err))
+			}
+		}
+		if ret.DefaultRetentionDays <= 0 {
+			errors = append(errors, "log.retention.default_retention_days 必须大于0")
+		}
+		if ret.BatchSize <= 0 {
+			errors = append(errors, "log.retention.batch_size 必须大于0")
+		}
+		if ret.MaxDeleteRowsPerRun <= 0 {
+			errors = append(errors, "log.retention.max_delete_rows_per_run 必须大于0")
+		}
+		for idx := range ret.DBTables {
+			row := ret.DBTables[idx]
+			if strings.TrimSpace(row.Name) == "" {
+				errors = append(errors, fmt.Sprintf("log.retention.db_tables[%d].name 不能为空", idx))
+			}
+			if strings.TrimSpace(row.TimeColumn) == "" {
+				errors = append(errors, fmt.Sprintf("log.retention.db_tables[%d].time_column 不能为空", idx))
+			}
+			if row.RetentionDays <= 0 {
+				errors = append(errors, fmt.Sprintf("log.retention.db_tables[%d].retention_days 必须大于0", idx))
+			}
+		}
 	}
 	if c.Event.Bus.Type == "redis" && strings.TrimSpace(c.Event.Bus.RedisAddr) == "" {
 		errors = append(errors, "使用 redis 事件总线时，event_bus.redis_addr 不能为空")

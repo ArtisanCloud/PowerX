@@ -159,7 +159,7 @@ watch(
   () => messages.value.length,
   (len, oldLen) => {
     if (!DEBUG) return;
-    console.log("[ChatInterface] messages.length:", oldLen, "→", len);
+    console.info("[ChatInterface] messages.length:", oldLen, "→", len);
   },
   { immediate: true }
 );
@@ -181,7 +181,7 @@ watch(
   }),
   (val, oldVal) => {
     if (!DEBUG) return;
-    console.log("[ChatInterface] lastMessage snapshot:", oldVal, "→", val);
+    console.info("[ChatInterface] lastMessage snapshot:", oldVal, "→", val);
   },
   { deep: false }
 );
@@ -192,7 +192,7 @@ watch(
   () => props.messages,
   (now) => {
     if (!DEBUG) return;
-    console.log(
+    console.info(
       "[ChatInterface] props.messages pointer changed?",
       now === _prevPtr ? "NO" : "YES",
       now
@@ -207,7 +207,7 @@ onUpdated(() => {
   if (!DEBUG) return;
   nextTick(() => {
     const cur = messages.value.at(-1);
-    // console.log("[ChatInterface] onUpdated: last message now =", {
+    // console.info("[ChatInterface] onUpdated: last message now =", {
     //   id: cur?.id,
     //   role: cur?.role,
     //   content:
@@ -263,7 +263,7 @@ watch(
 let ro: ResizeObserver | null = null;
 onMounted(() => {
   if (!DEBUG) return;
-  console.log("[ChatInterface] mounted; initial messages =", messages.value);
+  console.info("[ChatInterface] mounted; initial messages =", messages.value);
   if ("ResizeObserver" in window) {
     ro = new ResizeObserver(() => {
       if (isAtBottom.value) scrollToBottom();
@@ -316,7 +316,7 @@ function handlePaste(e: ClipboardEvent) {
     if (it.kind === "file") {
       const file = it.getAsFile();
       if (file && file.type.startsWith("image/")) {
-        console.log("粘贴图片:", file.name);
+        console.info("粘贴图片:", file.name);
         e.preventDefault();
         break;
       }
@@ -350,13 +350,13 @@ function toggleRecording() {
 }
 
 function startRecording() {
-  console.log("开始录音");
+  console.info("开始录音");
 }
 function stopRecording() {
-  console.log("停止录音");
+  console.info("停止录音");
 }
 function stopGeneration() {
-  console.log("停止生成");
+  console.info("停止生成");
 }
 
 function handleFileUpload() {
@@ -366,7 +366,7 @@ function handleFileUpload() {
   input.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) {
-      console.log("上传文件:", file.name);
+      console.info("上传文件:", file.name);
     }
   };
   input.click();
@@ -379,17 +379,17 @@ function handleImageUpload() {
   input.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) {
-      console.log("上传图片:", file.name);
+      console.info("上传图片:", file.name);
     }
   };
   input.click();
 }
 
 function handleCreateDocument() {
-  console.log("创建文档");
+  console.info("创建文档");
 }
 function handleCreateChart() {
-  console.log("生成图表");
+  console.info("生成图表");
 }
 
 /* ---------- ChatGPT 风格：左侧 + 面板 & 模式切换 ---------- */

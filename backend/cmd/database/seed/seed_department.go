@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -127,7 +128,7 @@ func SeedSMEDepartments(db *gorm.DB, tenantKey string) error {
 				return err
 			}
 		}
-		fmt.Printf("[seed] departments ready for tenant=%s (uuid=%s)\n", tenantKey, tenantUUID)
+		logger.InfoF(context.Background(), "[seed] departments ready for tenant=%s (uuid=%s)", tenantKey, tenantUUID)
 		return nil
 	})
 }

@@ -16,7 +16,11 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 	if repo == nil {
 		return nil
 	}
-	return repo.UpsertBatch(ctx, BuildTemplatePermissions())
+	rows := BuildTemplatePermissions()
+	if platformRows, err := BuildPlatformCapabilityPermissions(); err == nil {
+		rows = append(rows, platformRows...)
+	}
+	return repo.UpsertBatch(ctx, rows)
 }
 
 const (
@@ -167,6 +171,15 @@ func BuildTemplatePermissions() []modelsiam.Permission {
 		}),
 		build("integration_gateway", "api_key.iam.member", "read", "API Key：组织架构-成员详情只读", map[string]string{
 			"scope": "_scope.iam.member.read", "action": "read", "resource_type": "api", "resource_pattern": "GET:/api/v1/admin/iam/members/:id",
+		}),
+		build("integration_gateway", "api_key.agent", "invoke", "API Key：Agent 对话调用", map[string]string{
+			"scope": "_scope.agent.invoke", "action": "invoke", "resource_type": "api", "resource_pattern": "POST:/api/v1/agents/invoke",
+		}),
+		build("integration_gateway", "api_key.agent", "stream", "API Key：Agent SSE 流式调用", map[string]string{
+			"scope": "_scope.agent.stream", "action": "stream", "resource_type": "api", "resource_pattern": "GET:/api/v1/agents/stream/sse",
+		}),
+		build("integration_gateway", "api_key.agent.session", "manage", "API Key：Agent 会话管理", map[string]string{
+			"scope": "_scope.agent.session.manage", "action": "manage", "resource_type": "api", "resource_pattern": "POST:/api/v1/agents/sessions",
 		}),
 	}
 }

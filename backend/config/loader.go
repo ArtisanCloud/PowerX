@@ -1,9 +1,11 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -11,7 +13,7 @@ import (
 func loadFromYAML(cfg *Config, configPath string) error {
 	// 检查文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		fmt.Printf("提示：配置文件 %s 不存在，使用默认配置\n", configPath)
+		logger.InfoF(context.Background(), "提示：配置文件 %s 不存在，使用默认配置", configPath)
 		return nil
 	}
 
@@ -26,7 +28,7 @@ func loadFromYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("解析YAML配置失败: %w", err)
 	}
 
-	fmt.Printf("✅ 成功加载配置文件: %s\n", configPath)
+	logger.InfoF(context.Background(), "✅ 成功加载配置文件: %s", configPath)
 	return nil
 }
 
@@ -41,6 +43,6 @@ func SaveToYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("写入配置文件失败: %w", err)
 	}
 
-	fmt.Printf("✅ 配置已保存到: %s\n", configPath)
+	logger.InfoF(context.Background(), "✅ 配置已保存到: %s", configPath)
 	return nil
 }

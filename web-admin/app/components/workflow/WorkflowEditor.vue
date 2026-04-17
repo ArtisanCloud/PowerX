@@ -303,12 +303,12 @@ const canRedo = ref(false);
 
 function undo() {
   // 简单的撤销实现
-  console.log("撤销操作");
+  console.info("撤销操作");
 }
 
 function redo() {
   // 简单的重做实现
-  console.log("重做操作");
+  console.info("重做操作");
 }
 
 // 允许拖拽
@@ -324,7 +324,7 @@ function onDragOver(event: DragEvent) {
 
 // 连接节点
 function handleConnect(params: Connection) {
-  console.log("连接节点:", params);
+  console.info("连接节点:", params);
   addEdges([params]);
 }
 
@@ -415,7 +415,7 @@ function getNumberStep(key: string, schema: any) {
 // 运行工作流
 function runWorkflow() {
   // 这里应该调用API运行工作流
-  console.log("运行工作流", currentWorkflow.value?.id);
+  console.info("运行工作流", currentWorkflow.value?.id);
 }
 
 // 注意：在当前版本的 Vue Flow 中，我们通过点击事件来处理节点选择

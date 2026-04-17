@@ -67,6 +67,23 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				)
 			}
 		} else {
+			// 同版本重复安装按幂等处理：仍执行一次权限同步（upsert），再返回已安装版本。
+			if m.opts.PostInstallManifest != nil {
+				if err := m.opts.PostInstallManifest(ctx, man); err != nil {
+					return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+						plugin_mgr.CodeInternal,
+						err,
+						plugin_mgr.WithOp("install_file.register_permissions"),
+						plugin_mgr.WithPlugin(man.ID),
+						plugin_mgr.WithVersion(man.Version),
+					)
+				}
+			}
+			if m.opts.Registry != nil {
+				if p, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
+					return p, nil
+				}
+			}
 			return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 				plugin_mgr.CodeAlreadyExists, plugin_mgr.WithOp("install_file"),
 				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),

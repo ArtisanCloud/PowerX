@@ -49,10 +49,24 @@ func GetDefaults() *Config {
 			},
 			Loki: logCfg.LokiConfig{
 				Enable:    false,
-				URL:       "",
-				JobName:   "corex",
+				URL:       "http://<loki-host>:3100",
+				JobName:   "powerx",
 				BatchWait: 1,
 				BatchSize: 100,
+			},
+			Retention: logCfg.RetentionConfig{
+				Enabled:              false,
+				Cron:                 "10 3 * * *",
+				Timezone:             "Asia/Shanghai",
+				DefaultRetentionDays: 30,
+				FilePaths:            []string{"logs"},
+				DBTables: []logCfg.RetentionDBTable{
+					{Name: "audit_event", TimeColumn: "occurred_at", RetentionDays: 30},
+					{Name: "admin_console_audit_events", TimeColumn: "created_at", RetentionDays: 30},
+					{Name: "runtime_audit_events", TimeColumn: "created_at", RetentionDays: 14},
+				},
+				BatchSize:           5000,
+				MaxDeleteRowsPerRun: 200000,
 			},
 			AgentDebug: logCfg.AgentDebugConfig{
 				Enable:       false,

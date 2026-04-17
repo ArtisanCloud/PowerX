@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 type occurrence struct {
@@ -45,7 +48,7 @@ func main() {
 	flag.Parse()
 	matcher, err := regexp.Compile(patterns)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid regex: %v\n", err)
+		logger.ErrorF(context.Background(), "invalid regex: %v", err)
 		os.Exit(1)
 	}
 
@@ -79,7 +82,7 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "walk error: %v\n", err)
+		logger.ErrorF(context.Background(), "walk error: %v", err)
 		os.Exit(1)
 	}
 
@@ -94,11 +97,11 @@ func main() {
 	writeReport(builder, occs)
 
 	if outputFile == "" {
-		fmt.Print(builder.String())
+		logger.InfoF(context.Background(), "%s", builder.String())
 		return
 	}
 	if err := os.WriteFile(outputFile, []byte(builder.String()), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "write output failed: %v\n", err)
+		logger.ErrorF(context.Background(), "write output failed: %v", err)
 		os.Exit(1)
 	}
 }

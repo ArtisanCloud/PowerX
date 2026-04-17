@@ -267,7 +267,7 @@ const handleReset = async () => {
 
 // 显示配置信息（调试用）
 const showConfigInfo = () => {
-  console.log("系统配置信息:", systemConfigStore.getConfigInfo());
+  console.info("系统配置信息:", systemConfigStore.getConfigInfo());
   alert("配置信息已输出到控制台");
 };
 </script>

@@ -2,9 +2,10 @@ package agent
 
 import (
 	"context"
-	"fmt"
+
 	agentSchemas "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/cloudwego/eino/schema"
 	"regexp"
 	"sort"
@@ -28,7 +29,7 @@ const intentDebugAllRuleHits = true // 可选：扫描并打印“本子句命�
 // 轻量日志函数
 func dlog(format string, args ...any) {
 	if intentDebug {
-		fmt.Printf("[intent-debug] "+format+"\n", args...)
+		logger.DebugF(context.Background(), "[intent-debug] "+format, args...)
 	}
 }
 

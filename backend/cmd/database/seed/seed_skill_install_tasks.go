@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func SeedDemoSkillInstallTasks(db *gorm.DB) error {
@@ -76,6 +78,6 @@ func SeedDemoSkillInstallTasks(db *gorm.DB) error {
 		return fmt.Errorf("upsert demo skill install task failed: %w", err)
 	}
 
-	fmt.Println("[seed] demo install task ready: seed-install-hello-echo-v1")
+	logger.InfoF(context.Background(), "[seed] demo install task ready: seed-install-hello-echo-v1")
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,8 +17,8 @@ import (
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
-	pxcrypto "github.com/ArtisanCloud/PowerX/pkg/crypto"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	pxcrypto "github.com/ArtisanCloud/PowerX/pkg/crypto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -38,7 +37,8 @@ func main() {
 	// 加载全局配置
 	cfg := config.GetGlobalConfig()
 	if cfg == nil {
-		log.Fatalf("加载配置文件失败")
+		logger.ErrorF(context.Background(), "加载配置文件失败")
+		os.Exit(1)
 	}
 	// 必须在任何 logger 输出之前初始化全局 logger，避免默认配置先占位。
 	logger.InitGlobalLogger(&cfg.LogConfig)

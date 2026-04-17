@@ -41,7 +41,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(
+  console.info(
     `Running routing simulator for tenant=${args.tenant} scenario=${args.scenario} env=${args.env}`
   );
   const summary = await runScenario({
@@ -63,7 +63,7 @@ async function main() {
   });
 
   await writeReport(args.output, summary);
-  console.log(
+  console.info(
     `Simulation complete: ${summary.metrics.total} tasks replayed, fallbackRate=${summary.metrics.fallbackRate.toFixed(
       2
     )}. Report saved to ${args.output}`
@@ -185,9 +185,9 @@ async function loadScenarios(file) {
 }
 
 function listScenarios(scenarios) {
-  console.log("Available scenarios:");
+  console.info("Available scenarios:");
   for (const [name, spec] of Object.entries(scenarios)) {
-    console.log(
+    console.info(
       `  - ${name}${spec?.description ? `: ${spec.description}` : ""} (tasks: ${
         Array.isArray(spec?.tasks) ? spec.tasks.length : 0
       })`
@@ -370,7 +370,7 @@ function summarizeResults(results) {
 function logTaskResult(result) {
   const status = result.success ? "PASS" : "FAIL";
   const provider = result.decision?.primaryProviderId || "n/a";
-  console.log(
+  console.info(
     `[${status}] ${result.name} -> ${provider} (${result.latencyMs}ms)${
       result.fallbackUsed ? " [fallback]" : ""
     }${result.safeMode ? " [safe-mode]" : ""}${result.error ? ` :: ${result.error}` : ""}`
@@ -406,7 +406,7 @@ function evaluateSlo({ metrics, thresholds, safeModeFirstMs, requireSafeMode }) 
 }
 
 function logSloResults(slo) {
-  console.log(
+  console.info(
     `[SLO] hitRate ok=${slo.hitPass} fallbackSuccess ok=${slo.fallbackPass} safeMode ok=${slo.safeModePass} overall=${slo.overall}`,
   );
   if (!slo.overall) {

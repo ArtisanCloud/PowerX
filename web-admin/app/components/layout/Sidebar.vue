@@ -272,7 +272,6 @@ const viewGroups = computed<MenuGroup[]>(() => {
 
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
 const EVENT_MANAGE_PATH = "/settings/event-fabric";
-const EVENT_MONITOR_PATH = "/settings/monitor";
 const SETTINGS_ROOT_PATH = "/settings";
 
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
@@ -345,19 +344,6 @@ const manualEventManageMenu = computed<MenuItem | null>(() => {
   };
 });
 
-const manualEventMonitorMenu = computed<MenuItem | null>(() => {
-  if (!userStore.isRoot) return null;
-  return {
-    id: "event-monitor",
-    title: t("menu.monitorCenter"),
-    icon: "i-heroicons-eye",
-    path: EVENT_MONITOR_PATH,
-    order: 130,
-    visible: true,
-    origin: "system",
-  };
-});
-
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
     ...group,
@@ -366,7 +352,6 @@ const renderedGroups = computed<MenuGroup[]>(() => {
   const extras = [
     manualOpenCapabilityMenu.value,
     manualEventManageMenu.value,
-    manualEventMonitorMenu.value,
   ].filter(
     (item): item is MenuItem => !!item
   );
@@ -503,7 +488,7 @@ onMounted(async () => {
   try {
     await userStore.fetchUserContext();
     // 调试菜单数据结构
-    // console.log("菜单数据:", menuResponse.value);
+    // console.info("菜单数据:", menuResponse.value);
   } catch (e) {
     console.error("初始化用户数据失败:", e);
   }

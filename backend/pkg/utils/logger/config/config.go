@@ -13,6 +13,7 @@ type LogConfig struct {
 	ShowCaller    bool             `yaml:"show_caller"`     // 是否显示调用者信息
 	File          FileConfig       `yaml:"file"`            // 文件输出配置
 	Loki          LokiConfig       `yaml:"loki"`            // Loki输出配置
+	Retention     RetentionConfig  `yaml:"retention"`       // 统一日志保留配置
 	AgentDebug    AgentDebugConfig `yaml:"agent_debug"`     // Agent 运行时调试落盘
 	HttpDebug     bool             `yaml:"http_debug"`      // HTTP调试日志
 	Debug         bool             `yaml:"debug"`           // 调试模式
@@ -43,6 +44,25 @@ type AgentDebugConfig struct {
 	Enable       bool   `yaml:"enable"`
 	Dir          string `yaml:"dir"`
 	MaxBodyBytes int    `yaml:"max_body_bytes"`
+}
+
+// RetentionConfig 统一日志保留与清理配置。
+type RetentionConfig struct {
+	Enabled              bool               `yaml:"enabled"`
+	Cron                 string             `yaml:"cron"`
+	Timezone             string             `yaml:"timezone"`
+	DefaultRetentionDays int                `yaml:"default_retention_days"`
+	FilePaths            []string           `yaml:"file_paths"`
+	DBTables             []RetentionDBTable `yaml:"db_tables"`
+	BatchSize            int                `yaml:"batch_size"`
+	MaxDeleteRowsPerRun  int                `yaml:"max_delete_rows_per_run"`
+}
+
+// RetentionDBTable 指定数据库日志表的清理规则。
+type RetentionDBTable struct {
+	Name          string `yaml:"name"`
+	TimeColumn    string `yaml:"time_column"`
+	RetentionDays int    `yaml:"retention_days"`
 }
 
 // ParseLogLevel 解析日志级别

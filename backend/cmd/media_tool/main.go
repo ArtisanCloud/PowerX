@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -63,10 +62,11 @@ func main() {
 			if errors.Is(err, flag.ErrHelp) {
 				return
 			}
-			log.Fatalf("执行清理任务失败: %v", err)
+			logger.ErrorF(context.Background(), "执行清理任务失败: %v", err)
+			os.Exit(1)
 		}
 	default:
-		log.Printf("未知子命令: %s", os.Args[1])
+		logger.ErrorF(context.Background(), "未知子命令: %s", os.Args[1])
 		printRootUsage()
 		os.Exit(2)
 	}
@@ -151,7 +151,7 @@ func parseCleanupFlags(args []string) (cleanupFlags, error) {
 func loadConfig(path string) *config.Config {
 	cfg, err := config.Load(path)
 	if err != nil {
-		log.Printf("加载配置失败(%v)，回退到默认配置", err)
+		logger.WarnF(context.Background(), "加载配置失败(%v)，回退到默认配置", err)
 		return config.GetDefaults()
 	}
 	return cfg
@@ -163,7 +163,7 @@ func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manage
 	for {
 		assets, err := repo.CleanupCandidates(ctx, filter)
 		if err != nil {
-			log.Printf("查询待清理资产失败: %v", err)
+			logger.ErrorF(ctx, "查询待清理资产失败: %v", err)
 			stats.failed++
 			return stats
 		}
@@ -188,19 +188,19 @@ func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manage
 		for _, asset := range batch {
 			stats.processed++
 			if dryRun {
-				log.Printf("[DRY-RUN] tenant=%s uuid=%s driver=%s key=%s", asset.TenantUUID, asset.UUID.String(), asset.Driver, asset.StorageKey)
+				logger.InfoF(ctx, "[DRY-RUN] tenant=%s uuid=%s driver=%s key=%s", asset.TenantUUID, asset.UUID.String(), asset.Driver, asset.StorageKey)
 				continue
 			}
 			if err := purgeObject(ctx, manager, &asset); err != nil {
 				stats.failed++
 				emitCleanupAudit(ctx, audit, &asset, err)
-				log.Printf("清理对象失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
+				logger.ErrorF(ctx, "清理对象失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
 				continue
 			}
 			if err := removeRecord(ctx, repo, &asset); err != nil {
 				stats.failed++
 				emitCleanupAudit(ctx, audit, &asset, err)
-				log.Printf("删除数据库记录失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
+				logger.ErrorF(ctx, "删除数据库记录失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
 				continue
 			}
 			stats.succeeded++
@@ -306,11 +306,11 @@ func closeSQL(db *gorm.DB) {
 }
 
 func printRootUsage() {
-	fmt.Fprintf(os.Stderr, "用法: %s <子命令> [参数]\n\n", os.Args[0])
-	fmt.Fprintln(os.Stderr, "可用子命令:")
-	fmt.Fprintf(os.Stderr, "  %s\t清理软删除媒资并写入审计记录\n", commandCleanup)
-	fmt.Fprintln(os.Stderr, "\n示例:")
-	fmt.Fprintf(os.Stderr, "  go run ./cmd/media_tool %s --dry-run --before=24h\n", commandCleanup)
+	logger.InfoF(context.Background(), "用法: %s <子命令> [参数]", os.Args[0])
+	logger.InfoF(context.Background(), "可用子命令:")
+	logger.InfoF(context.Background(), "  %s\t清理软删除媒资并写入审计记录", commandCleanup)
+	logger.InfoF(context.Background(), "示例:")
+	logger.InfoF(context.Background(), "  go run ./cmd/media_tool %s --dry-run --before=24h", commandCleanup)
 }
 
 func printCommandUsage(cmd string) {
@@ -326,10 +326,10 @@ func printCommandUsage(cmd string) {
 		flagSet.IntVar(&dummy.limit, "limit", 100, "单次扫描的最大数量")
 		flagSet.StringVar(&dummy.tenantUUID, "tenant", "", "仅处理指定租户 UUID，留空表示全部租户")
 		flagSet.StringVar(&drivers, "drivers", "", "仅处理指定驱动，逗号分隔")
-		fmt.Fprintf(os.Stderr, "用法: %s %s [参数]\n\n", os.Args[0], commandCleanup)
+		logger.InfoF(context.Background(), "用法: %s %s [参数]", os.Args[0], commandCleanup)
 		flagSet.PrintDefaults()
 	default:
-		fmt.Fprintf(os.Stderr, "未知子命令: %s\n", cmd)
+		logger.ErrorF(context.Background(), "未知子命令: %s", cmd)
 		printRootUsage()
 	}
 }

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 发布回滚入口。
+# 参数: <environment> <target_version> [mode]
+# 依赖:
+# - POWERX_BASE_URL (默认 http://127.0.0.1:8080)
+# - POWERX_DEPLOY_ROLLBACK_PATH (默认 /api/v1/admin/deploy/rollback)
+# - POWERX_ADMIN_AUTH_HEADER (可选)
 if [[ $# -lt 2 ]]; then
   echo "usage: $0 <environment> <target_version> [mode]" >&2
   exit 1

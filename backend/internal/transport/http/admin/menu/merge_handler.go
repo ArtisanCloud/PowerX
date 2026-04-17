@@ -3,7 +3,7 @@ package menu
 // api/http/admin/menu/merge_handler.go
 
 import (
-	"log"
+	"context"
 	"sort"
 	"strings"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,7 +21,7 @@ const i18nDebug = false
 
 func dbgI18n(format string, args ...any) {
 	if i18nDebug {
-		log.Printf("[i18n] "+format, args...)
+		logger.DebugF(context.Background(), "[i18n] "+format, args...)
 	}
 }
 
@@ -51,7 +52,7 @@ func filterMenusByPermission(
 	out := make([]admdto.AdminMenuItem, 0, len(items))
 	for _, item := range items {
 		if !allow(item.Permissions) {
-			log.Printf("[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			logger.DebugF(context.Background(), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
 			continue
 		}
 		if len(item.Children) > 0 {
@@ -436,7 +437,7 @@ func translateMenuItemsRecursive(nodes []admdto.AdminMenuItem, i18n []admdto.Men
 			}
 
 			if i18nDebug && strings.HasPrefix(string(node.Key), "plugin:") {
-				log.Printf("[i18n] item=%s hasI18n=%v before=%q after=%q applied=%v", node.Key, hasI18n, node.Title, translated, applied)
+				logger.DebugF(context.Background(), "[i18n] item=%s hasI18n=%v before=%q after=%q applied=%v", node.Key, hasI18n, node.Title, translated, applied)
 			}
 
 			if applied && translated != "" {
@@ -457,23 +458,21 @@ func AdminMenusHandler(c *gin.Context) {
 	locales := parseLocaleQuery(c)
 	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
-	//log.Printf("[menus] plugin items=%d, i18n=%d", len(plug.Items), len(plug.I18n))
-
 	if i18nDebug {
-		log.Printf("[i18n] locales query = %v", locales)
-		log.Printf("[i18n] plugin i18n packages = %d", len(plug.I18n))
+		logger.DebugF(context.Background(), "[i18n] locales query = %v", locales)
+		logger.DebugF(context.Background(), "[i18n] plugin i18n packages = %d", len(plug.I18n))
 		for pi, pkg := range plug.I18n {
 			var keys []string
 			for loc := range pkg.Locales {
 				keys = append(keys, loc)
 			}
-			log.Printf("[i18n] pkg#%d locales: %v", pi, keys)
+			logger.DebugF(context.Background(), "[i18n] pkg#%d locales: %v", pi, keys)
 			for loc, nsMap := range pkg.Locales {
 				var nsKeys []string
 				for ns := range nsMap {
 					nsKeys = append(nsKeys, ns)
 				}
-				log.Printf("[i18n]   - %s namespaces: %v", loc, nsKeys)
+				logger.DebugF(context.Background(), "[i18n]   - %s namespaces: %v", loc, nsKeys)
 			}
 		}
 	}

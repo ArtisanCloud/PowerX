@@ -111,7 +111,7 @@ export async function createMenusViaAPI() {
       badge: undefined
     })
 
-    console.log('父菜单创建成功:', parentMenu)
+    console.info('父菜单创建成功:', parentMenu)
 
     // 创建子菜单
     for (const item of pluginReleaseMenuConfig.items) {
@@ -125,7 +125,7 @@ export async function createMenusViaAPI() {
         permissions: ['admin:plugin:release:view'],
         badge: undefined
       })
-      console.log(`子菜单创建成功: ${item.title}`, childMenu)
+      console.info(`子菜单创建成功: ${item.title}`, childMenu)
     }
 
     return { success: true }

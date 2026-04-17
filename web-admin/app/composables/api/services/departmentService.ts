@@ -92,7 +92,7 @@ export function useDepartmentService() {
         }
 
         const serverResp = res?.data ?? res;
-        // console.log("获取部门数据成功:", serverResp);
+        // console.info("获取部门数据成功:", serverResp);
         return parseDepartmentsFromResponse(serverResp);
       } catch (error) {
         throw error;

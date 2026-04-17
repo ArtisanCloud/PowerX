@@ -44,8 +44,8 @@ package main
 
 import (
     "context"
-    "fmt"
     "github.com/ArtisanCloud/PowerX/pkg/event_bus"
+    "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 
     // 订阅事件
     unsubscribe := bus.Subscribe("user_login", func(event event_bus.Event) error {
-        fmt.Printf("用户登录: %+v\n", event)
+        logger.InfoF(context.Background(), "用户登录: %+v", event)
         return nil
     })
     defer unsubscribe()
@@ -193,13 +193,13 @@ type Event struct {
 bus.Subscribe("risky_event", func(event Event) error {
     defer func() {
         if r := recover(); r != nil {
-            log.Printf("事件处理panic: %v", r)
+            logger.ErrorF(context.Background(), "事件处理panic: %v", r)
         }
     }()
     
     // 业务逻辑
     if err := processEvent(event); err != nil {
-        log.Printf("事件处理失败: %v", err)
+        logger.ErrorF(context.Background(), "事件处理失败: %v", err)
         return err
     }
     
@@ -223,7 +223,7 @@ bus.Subscribe("user_action", func(event Event) error {
     traceID := event.TraceID
     
     // 使用上下文信息
-    log.Printf("租户 %s 的用户操作，追踪ID: %s", tenantUUID, traceID)
+    logger.InfoF(context.Background(), "租户 %s 的用户操作，追踪ID: %s", tenantUUID, traceID)
     return nil
 })
 ```
@@ -272,8 +272,8 @@ func main() {
 // 获取事件总线状态（仅本地实现）
 if localBus, ok := bus.(*event_bus.LocalEventBus); ok {
     stats := localBus.GetStats()
-    fmt.Printf("订阅者数量: %d\n", stats.SubscriberCount)
-    fmt.Printf("事件类型: %v\n", stats.EventTypes)
+    logger.InfoF(context.Background(), "订阅者数量: %d", stats.SubscriberCount)
+    logger.InfoF(context.Background(), "事件类型: %v", stats.EventTypes)
 }
 ```
 

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -182,20 +183,24 @@ type createAgentReq struct {
 	ToolAllowlist    datatypes.JSON    `json:"toolAllowlist"`
 	KBStrategy       string            `json:"kbStrategy"`
 	Meta             datatypes.JSONMap `json:"meta"`
+	Source           string            `json:"source,omitempty"`          // core | plugin:<plugin_id>
+	OwnerPluginID    string            `json:"ownerPluginId,omitempty"`   // 插件归属
+	ManagedByPlugin  *bool             `json:"managedByPlugin,omitempty"` // true 时归属插件托管
 }
 
 type updateAgentReq struct {
-	Name             *string           `json:"name,omitempty"`
-	Description      *string           `json:"description,omitempty"`
-	Visibility       *string           `json:"visibility,omitempty"`
-	Status           *string           `json:"status,omitempty"`
-	Scope            *string           `json:"scope,omitempty"`
-	DefaultPersonaID *uint64           `json:"defaultPersonaId,omitempty"`
-	BlueprintRefs    datatypes.JSON    `json:"blueprintRefs,omitempty"`
-	IntentCardsRef   datatypes.JSON    `json:"intentCardsRef,omitempty"`
-	ToolAllowlist    datatypes.JSON    `json:"toolAllowlist,omitempty"`
-	KBStrategy       *string           `json:"kbStrategy,omitempty"`
-	Meta             datatypes.JSONMap `json:"meta,omitempty"`
+	Name                  *string           `json:"name,omitempty"`
+	Description           *string           `json:"description,omitempty"`
+	Visibility            *string           `json:"visibility,omitempty"`
+	Status                *string           `json:"status,omitempty"`
+	Scope                 *string           `json:"scope,omitempty"`
+	DefaultPersonaID      *uint64           `json:"defaultPersonaId,omitempty"`
+	BlueprintRefs         datatypes.JSON    `json:"blueprintRefs,omitempty"`
+	IntentCardsRef        datatypes.JSON    `json:"intentCardsRef,omitempty"`
+	ToolAllowlist         datatypes.JSON    `json:"toolAllowlist,omitempty"`
+	KBStrategy            *string           `json:"kbStrategy,omitempty"`
+	Meta                  datatypes.JSONMap `json:"meta,omitempty"`
+	ExpectedOwnerPluginID *string           `json:"expectedOwnerPluginId,omitempty"`
 }
 
 func (h *AgentHandler) CreateAgent(c *gin.Context) {
@@ -210,6 +215,39 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
+	reqOwnerPluginID := strings.TrimSpace(req.OwnerPluginID)
+	if callerPluginID != "" {
+		if reqOwnerPluginID != "" && !strings.EqualFold(reqOwnerPluginID, callerPluginID) {
+			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
+			return
+		}
+		reqOwnerPluginID = callerPluginID
+	}
+	var ownerPluginID *string
+	if reqOwnerPluginID != "" {
+		ownerPluginID = &reqOwnerPluginID
+	}
+	managedByPlugin := ownerPluginID != nil
+	if req.ManagedByPlugin != nil {
+		managedByPlugin = *req.ManagedByPlugin
+	}
+	if managedByPlugin && ownerPluginID == nil {
+		dtoRequest.ResponseError(c, 400, "managedByPlugin=true 时必须提供 ownerPluginId", nil)
+		return
+	}
+	source := strings.TrimSpace(req.Source)
+	if source == "" {
+		if ownerPluginID != nil {
+			source = "plugin:" + *ownerPluginID
+		} else {
+			source = "core"
+		}
+	}
+	var ownerTenantUUID *string
+	if managedByPlugin {
+		ownerTenantUUID = tenantRef
+	}
 
 	in := &dbmodel.Agent{
 		Env:              req.Env,
@@ -217,7 +255,10 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		Key:              strings.TrimSpace(req.Key),
 		Name:             strings.TrimSpace(req.Name),
 		Description:      req.Description,
-		Source:           "core",
+		Source:           source,
+		OwnerPluginID:    ownerPluginID,
+		OwnerTenantUUID:  ownerTenantUUID,
+		ManagedByPlugin:  managedByPlugin,
 		Scope:            utils.FirstNonEmpty(req.Scope, "tenant"),
 		Visibility:       utils.FirstNonEmpty(req.Visibility, "tenant"),
 		Status:           utils.FirstNonEmpty(req.Status, "draft"),
@@ -252,6 +293,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
 
 	var statuses []string
 	if s := strings.TrimSpace(c.Query("status")); s != "" {
@@ -261,8 +303,16 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 			}
 		}
 	}
+	ownerPluginID := strings.TrimSpace(c.Query("owner_plugin_id"))
+	if callerPluginID != "" {
+		if ownerPluginID != "" && !strings.EqualFold(ownerPluginID, callerPluginID) {
+			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
+			return
+		}
+		ownerPluginID = callerPluginID
+	}
 
-	list, err := h.srv.List(c.Request.Context(), envVal, tenantRef, statuses...)
+	list, err := h.srv.List(c.Request.Context(), envVal, tenantRef, ownerPluginID, statuses...)
 	if err != nil {
 		dtoRequest.ResponseError(c, 500, "查询失败", err)
 		return
@@ -278,6 +328,7 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
 	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
@@ -286,6 +337,10 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 	out, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	if callerPluginID != "" && !agentOwnedByPlugin(out, callerPluginID) {
+		dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
 		return
 	}
 	dtoRequest.ResponseSuccess(c, out)
@@ -304,6 +359,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
 	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
@@ -316,20 +372,26 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 	}
 
 	patch := agentSvc.AgentPatch{
-		Name:             req.Name,
-		Description:      req.Description,
-		Visibility:       req.Visibility,
-		Status:           req.Status,
-		Scope:            req.Scope,
-		DefaultPersonaID: req.DefaultPersonaID,
-		BlueprintRefs:    req.BlueprintRefs,
-		IntentCardsRef:   req.IntentCardsRef,
-		ToolAllowlist:    req.ToolAllowlist,
-		KBStrategy:       req.KBStrategy,
-		Meta:             req.Meta,
+		Name:                  req.Name,
+		Description:           req.Description,
+		Visibility:            req.Visibility,
+		Status:                req.Status,
+		Scope:                 req.Scope,
+		DefaultPersonaID:      req.DefaultPersonaID,
+		BlueprintRefs:         req.BlueprintRefs,
+		IntentCardsRef:        req.IntentCardsRef,
+		ToolAllowlist:         req.ToolAllowlist,
+		KBStrategy:            req.KBStrategy,
+		Meta:                  req.Meta,
+		ExpectedOwnerPluginID: req.ExpectedOwnerPluginID,
+		CallerPluginID:        callerPluginID,
 	}
 	out, err := h.srv.Update(c.Request.Context(), env, tenantRef, exist.ID, patch)
 	if err != nil {
+		if errors.Is(err, agentSvc.ErrAgentOwnerForbidden) {
+			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -346,6 +408,7 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
 	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
@@ -354,6 +417,10 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 	exist, err := h.srv.GetByUUID(c.Request.Context(), env, tenantRef, agentUUID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	if callerPluginID != "" && !agentOwnedByPlugin(exist, callerPluginID) {
+		dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
 		return
 	}
 	if err := h.srv.SetStatus(c.Request.Context(), env, tenantRef, exist.ID, status); err != nil {
@@ -371,6 +438,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
+	callerPluginID := callerPluginIDFromAudience(c)
 	agentUUID, err := parseAgentUUIDParam(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "uuid 非法", nil)
@@ -381,11 +449,43 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
 	}
-	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, exist.ID); err != nil {
+	var expectedOwnerPluginID *string
+	if v := strings.TrimSpace(c.Query("owner_plugin_id")); v != "" {
+		expectedOwnerPluginID = &v
+	}
+	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, exist.ID, expectedOwnerPluginID, callerPluginID); err != nil {
+		if errors.Is(err, agentSvc.ErrAgentOwnerForbidden) {
+			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+func callerPluginIDFromAudience(c *gin.Context) string {
+	aud := strings.TrimSpace(reqctx.GetAudience(c.Request.Context()))
+	lower := strings.ToLower(aud)
+	if strings.HasPrefix(lower, "plugin:") {
+		return strings.TrimSpace(aud[len("plugin:"):])
+	}
+	return ""
+}
+
+func agentOwnedByPlugin(agent *dbmodel.Agent, pluginID string) bool {
+	if agent == nil || strings.TrimSpace(pluginID) == "" {
+		return false
+	}
+	if agent.OwnerPluginID != nil && strings.EqualFold(strings.TrimSpace(*agent.OwnerPluginID), strings.TrimSpace(pluginID)) {
+		return true
+	}
+	src := strings.TrimSpace(agent.Source)
+	lower := strings.ToLower(src)
+	if strings.HasPrefix(lower, "plugin:") && strings.EqualFold(strings.TrimSpace(src[len("plugin:"):]), strings.TrimSpace(pluginID)) {
+		return true
+	}
+	return false
 }
 
 // ====== 管理接口：Agent 级 AI Setting ======

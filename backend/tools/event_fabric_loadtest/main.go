@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 )
 
@@ -62,15 +63,15 @@ func main() {
 	flag.Parse()
 
 	if strings.TrimSpace(*tenant) == "" || strings.TrimSpace(*topic) == "" {
-		fmt.Fprintln(os.Stderr, "tenant 与 topic 为必填参数")
+		logger.ErrorF(context.Background(), "tenant 与 topic 为必填参数")
 		os.Exit(1)
 	}
 	if *totalEvents <= 0 {
-		fmt.Fprintln(os.Stderr, "events 必须大于 0")
+		logger.ErrorF(context.Background(), "events 必须大于 0")
 		os.Exit(1)
 	}
 	if *concurrency <= 0 {
-		fmt.Fprintln(os.Stderr, "concurrency 必须大于 0")
+		logger.ErrorF(context.Background(), "concurrency 必须大于 0")
 		os.Exit(1)
 	}
 
@@ -163,7 +164,7 @@ func main() {
 	for res := range results {
 		if res.err != nil {
 			failed++
-			fmt.Fprintf(os.Stderr, "[error] %v\n", res.err)
+			logger.ErrorF(context.Background(), "[error] %v", res.err)
 			continue
 		}
 		success++
@@ -179,7 +180,7 @@ func main() {
 
 	if *reportPath != "" {
 		if err := writeReport(*reportPath, rep); err != nil {
-			fmt.Fprintf(os.Stderr, "写入报告失败: %v\n", err)
+			logger.ErrorF(context.Background(), "写入报告失败: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -250,16 +251,16 @@ func writeReport(path string, rep report) error {
 }
 
 func printReport(rep report) {
-	fmt.Printf("Load Test Summary\n")
-	fmt.Printf("Endpoint      : %s\n", rep.Endpoint)
-	fmt.Printf("Tenant/Topic  : %s / %s\n", rep.Tenant, rep.Topic)
-	fmt.Printf("Total Events  : %d (success=%d, failed=%d)\n", rep.Events, rep.Success, rep.Failed)
-	fmt.Printf("Concurrency   : %d\n", rep.Concurrency)
-	fmt.Printf("Duration      : %d ms\n", rep.DurationMS)
-	fmt.Printf("Throughput    : %.2f events/s\n", rep.Throughput)
-	fmt.Printf("Avg Latency   : %.2f ms\n", rep.AverageLatency)
+	logger.InfoF(context.Background(), "Load Test Summary")
+	logger.InfoF(context.Background(), "Endpoint      : %s", rep.Endpoint)
+	logger.InfoF(context.Background(), "Tenant/Topic  : %s / %s", rep.Tenant, rep.Topic)
+	logger.InfoF(context.Background(), "Total Events  : %d (success=%d, failed=%d)", rep.Events, rep.Success, rep.Failed)
+	logger.InfoF(context.Background(), "Concurrency   : %d", rep.Concurrency)
+	logger.InfoF(context.Background(), "Duration      : %d ms", rep.DurationMS)
+	logger.InfoF(context.Background(), "Throughput    : %.2f events/s", rep.Throughput)
+	logger.InfoF(context.Background(), "Avg Latency   : %.2f ms", rep.AverageLatency)
 	if len(rep.Percentiles) > 0 {
-		fmt.Printf("P50/P90/P95/P99: %.2f / %.2f / %.2f / %.2f ms\n",
+		logger.InfoF(context.Background(), "P50/P90/P95/P99: %.2f / %.2f / %.2f / %.2f ms",
 			rep.Percentiles["p50"],
 			rep.Percentiles["p90"],
 			rep.Percentiles["p95"],

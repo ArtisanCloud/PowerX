@@ -28,12 +28,6 @@ func RegisterBuiltinHandlers() error {
 			return err
 		}
 	}
-	// 调试用：打印所有 core handler
-	//cores := mgr.ListHandlers(handler.ScopeCore)
-	//for _, d := range cores {
-	//	fmt.Printf("use=%s owner=%s desc=%s\n", d.Use, d.Meta.Owner, d.Meta.Description)
-	//}
-
 	return nil
 }
 

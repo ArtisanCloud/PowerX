@@ -122,10 +122,10 @@ function main() {
   }
 
   if (changedFiles.length === 0) {
-    console.log('未发现需要修改的 UIcon 用法（或已全部符合规范）。');
+    console.info('未发现需要修改的 UIcon 用法（或已全部符合规范）。');
   } else {
-    console.log(`已修改 ${changedFiles.length} 个文件：`);
-    for (const f of changedFiles) console.log(' - ' + path.relative(process.cwd(), f));
+    console.info(`已修改 ${changedFiles.length} 个文件：`);
+    for (const f of changedFiles) console.info(' - ' + path.relative(process.cwd(), f));
   }
 }
 

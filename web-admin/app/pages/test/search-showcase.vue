@@ -412,7 +412,7 @@ const goToSearchPage = () => {
 };
 
 const performSearch = () => {
-  console.log("执行搜索:", searchQuery.value);
+  console.info("执行搜索:", searchQuery.value);
   // 这里会调用实际的搜索 API
 };
 

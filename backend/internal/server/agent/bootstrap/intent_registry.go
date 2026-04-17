@@ -2,9 +2,10 @@
 package bootstrap
 
 import (
-	"fmt"
+	"context"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/loader"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"os"
 	"strings"
 )
@@ -32,7 +33,7 @@ func diagRoutesOnce(agentID string) {
 	}
 	mgr := agent.GetAgentManager()
 	specs := mgr.ListFlowRoutesByAgent(agentID)
-	fmt.Printf("=== ROUTES: %d ===\n", len(specs))
+	logger.InfoF(context.Background(), "=== ROUTES: %d ===", len(specs))
 	for _, sp := range specs {
 		nm := 0
 		for _, mt := range sp.Matchers {
@@ -45,7 +46,7 @@ func diagRoutesOnce(agentID string) {
 				}
 			}
 		}
-		fmt.Printf("flow=%s matchers=%d group=%s weight=%.2f\n",
+		logger.InfoF(context.Background(), "flow=%s matchers=%d group=%s weight=%.2f",
 			sp.FlowID, nm, sp.Group, sp.Weight)
 	}
 }

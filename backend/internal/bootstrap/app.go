@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -14,8 +13,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
+	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -56,7 +57,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 
 	// 读取 Wrap 密钥
 	if _, err := cfg.Server.ParseKey(); err != nil {
-		log.Fatalf("读取 server.secret_key 失败: %v", err)
+		return nil, fmt.Errorf("%w: 读取 server.secret_key 失败: %v", ErrBootstrapDependencyUnavailable, err)
 	} else {
 		logger.Info(ctx, "Wrap 密钥已设置到全局")
 	}
@@ -569,6 +570,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	deps := shared.NewDeps(db, opts)
+	backupops.RegisterPolicyScheduler(ctx, db, time.Duration(globalSchedulerInterval)*time.Second)
+	monitorlogs.StartRetentionScheduler(ctx, cfg, db)
 
 	return deps, nil
 }

@@ -146,7 +146,7 @@ const ensureSessionForSend = async (): Promise<string | number | null> => {
 };
 
 const retryLastMessage = async () => {
-  console.log("重试最后一条消息");
+  console.info("重试最后一条消息");
 };
 
 // 初始化
@@ -197,7 +197,7 @@ const handleSelectSession = async (payload: {
     chat.messages.value = Array.isArray(historyMessages)
       ? [...historyMessages]
       : [];
-    // console.log("加载会话消息成功，已通过缓存同步", historyMessages);
+    // console.info("加载会话消息成功，已通过缓存同步", historyMessages);
   } catch (error) {
     console.error("加载会话消息失败:", error);
     notifyOnce("加载会话消息失败", error instanceof Error ? error.message : "");
@@ -268,7 +268,7 @@ const handlePinSession = async (payload: {
   pinned: boolean;
 }) => {
   // TODO: 后端暂不支持置顶功能，这里先保留接口
-  console.log("置顶会话功能待实现:", payload);
+  console.info("置顶会话功能待实现:", payload);
 };
 
 const handleLoadMoreSessions = async () => {

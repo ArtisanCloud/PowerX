@@ -162,7 +162,7 @@ bus.Subscribe(Subscription{
     Topic: "workflow:run_8f2d",
     Group: "orchestrator",
     Callback: func(evt *Event) error {
-        fmt.Println(evt.Type, evt.Data)
+        logger.InfoF(context.Background(), "%s %v", evt.Type, evt.Data)
         return nil
     },
 })

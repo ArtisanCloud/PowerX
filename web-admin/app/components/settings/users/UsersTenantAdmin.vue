@@ -156,7 +156,7 @@ function importUsers() {
       }
 
       // 这里可以添加数据验证和转换逻辑
-      console.log("导入的数据:", importedData);
+      console.info("导入的数据:", importedData);
       toast.add({
         title: "导入成功",
         description: `成功导入 ${importedData.length} 条记录`,

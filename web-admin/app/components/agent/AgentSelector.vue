@@ -163,7 +163,7 @@ const makeMenuItems = (agent: Agent): any[][] => {
 };
 
 const onDropdownSelect = (item: any, agent: Agent) => {
-  console.log(item);
+  console.info(item);
   if (item?.value === "edit") emit("edit", agent.uuid);
   if (item?.value === "delete") emit("delete", agent.uuid);
 };

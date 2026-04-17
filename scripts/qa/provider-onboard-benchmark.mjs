@@ -113,7 +113,7 @@ async function main() {
 
   await writeReport(args.output, summary);
 
-  console.log(
+  console.info(
     `[Benchmark] providers=${runs.length} p95=${p95Hours.toFixed(
       4,
     )}h threshold=${thresholdHours}h failures=${failures} leaks=${violations.length}`,

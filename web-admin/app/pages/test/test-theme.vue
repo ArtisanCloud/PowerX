@@ -51,7 +51,7 @@ const isDark = computed(() => colorMode.value === "dark");
 watch(
   () => colorMode.value,
   (newValue) => {
-    console.log("主题已切换到:", newValue);
+    console.info("主题已切换到:", newValue);
   }
 );
 

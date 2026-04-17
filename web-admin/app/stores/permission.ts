@@ -219,7 +219,7 @@ export const usePermissionStore = defineStore("permission", () => {
         const pgn = payload?.pagination ?? {};
         pages = Number(pgn?.pages || 1);
         all.push(...items);
-        // console.log(
+        // console.info(
         //   `fetchAllActive: page=${page}, pages=${pages}, total=${pgn.total}, items=${items.length}`
         // );
         page++;

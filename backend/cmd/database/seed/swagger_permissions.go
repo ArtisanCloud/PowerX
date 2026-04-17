@@ -2,6 +2,7 @@
 package seed
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 var allowHTTP = map[string]bool{"get": true, "post": true, "put": true, "patch": true, "delete": true}
@@ -21,7 +23,7 @@ func SeedSwaggerPermissions(db *gorm.DB, swaggerPath string) error {
 	b, err := os.ReadFile(swaggerPath)
 	if err != nil {
 		// 软跳过：文件不存在不算错误
-		fmt.Printf("[seed] swagger not found, skip: %s\n", swaggerPath)
+		logger.InfoF(context.Background(), "[seed] swagger not found, skip: %s", swaggerPath)
 		return nil
 	}
 	var doc struct {
@@ -55,7 +57,7 @@ func SeedSwaggerPermissions(db *gorm.DB, swaggerPath string) error {
 	if err := pr.UpsertBatch(seedCtx(), rows); err != nil {
 		return fmt.Errorf("upsert swagger perms: %w", err)
 	}
-	fmt.Printf("[seed] swagger permissions upserted: %d (from %d)\n", len(rows), raw)
+	logger.InfoF(context.Background(), "[seed] swagger permissions upserted: %d (from %d)", len(rows), raw)
 	return nil
 }
 

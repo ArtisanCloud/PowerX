@@ -35,12 +35,12 @@ const testLogin = async () => {
       password: "123456",
     });
 
-    console.log("完整响应:", response);
+    console.info("完整响应:", response);
 
     if (response.code === 200) {
       setAuth(response.data);
-      console.log("登录成功:", response.data);
-      console.log("时间戳:", response.timestamp);
+      console.info("登录成功:", response.data);
+      console.info("时间戳:", response.timestamp);
     } else {
       error.value = response.message || "登录失败";
     }

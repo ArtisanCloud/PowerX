@@ -23,6 +23,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const capabilityResolvePageSize = 200
+
 type tenantHandler struct {
 	catalog      *capservice.RegistryService
 	invoker      *capservice.InvocationService
@@ -139,6 +141,123 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 	})
 }
 
+type capabilityResolveMatch struct {
+	CapabilityID      string `json:"capability_id"`
+	PluginID          string `json:"plugin_id"`
+	Source            string `json:"source"`
+	Protocol          string `json:"protocol"`
+	Method            string `json:"method"`
+	PatternEndpoint   string `json:"pattern_endpoint"`
+	RequestedEndpoint string `json:"requested_endpoint"`
+	Title             string `json:"title,omitempty"`
+}
+
+func (h *tenantHandler) ResolveCapability(c *gin.Context) {
+	if h == nil || h.catalog == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
+		return
+	}
+
+	method := strings.ToUpper(strings.TrimSpace(c.Query("method")))
+	endpoint := normalizeResolveEndpoint(c.Query("endpoint"))
+	if method == "" || endpoint == "" {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("method and endpoint are required"), nil)
+		return
+	}
+
+	source := capservice.CapabilitySourceCoreX
+	if rawSource := strings.TrimSpace(c.Query("source")); rawSource != "" {
+		source, err = capservice.NormalizeCapabilitySource(rawSource)
+		if err != nil {
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("source must be corex or plugin"), err)
+			return
+		}
+	}
+
+	matches := make([]capabilityResolveMatch, 0, 4)
+	offset := 0
+	var expectedTotal int64 = -1
+	for {
+		includeTotal := offset == 0
+		views, total, listErr := h.catalog.ListCapabilities(c.Request.Context(), capservice.CapabilityListOptions{
+			Source:       source,
+			TenantUUID:   tenantUUID,
+			Status:       []string{"published"},
+			Limit:        capabilityResolvePageSize,
+			Offset:       offset,
+			IncludeTotal: includeTotal,
+		})
+		if listErr != nil {
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, listErr)
+			return
+		}
+		if includeTotal {
+			expectedTotal = total
+		}
+		if len(views) == 0 {
+			break
+		}
+		for _, view := range views {
+			for _, protocol := range capability_registrydto.CapabilityViewToDTO(view, false).Protocols {
+				if !strings.EqualFold(strings.TrimSpace(protocol.Channel), "rest") {
+					continue
+				}
+				pattern := normalizeResolveEndpoint(protocol.Endpoint)
+				if !strings.EqualFold(strings.TrimSpace(protocol.Method), method) {
+					continue
+				}
+				if !routePatternMatches(pattern, endpoint) {
+					continue
+				}
+				matches = append(matches, capabilityResolveMatch{
+					CapabilityID:      strings.TrimSpace(view.Record.CapabilityID),
+					PluginID:          strings.TrimSpace(view.Record.PluginID),
+					Source:            capservice.CapabilitySource(view.Record),
+					Protocol:          "rest",
+					Method:            strings.ToUpper(strings.TrimSpace(protocol.Method)),
+					PatternEndpoint:   pattern,
+					RequestedEndpoint: endpoint,
+					Title:             strings.TrimSpace(view.Record.Title),
+				})
+			}
+		}
+		offset += len(views)
+		if expectedTotal >= 0 && int64(offset) >= expectedTotal {
+			break
+		}
+	}
+
+	if len(matches) == 0 {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrNotFound.WithHint("capability not found for method+endpoint"), nil)
+		return
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		wi := routeWildcardCount(matches[i].PatternEndpoint)
+		wj := routeWildcardCount(matches[j].PatternEndpoint)
+		if wi != wj {
+			return wi < wj
+		}
+		if matches[i].CapabilityID != matches[j].CapabilityID {
+			return matches[i].CapabilityID < matches[j].CapabilityID
+		}
+		return matches[i].PatternEndpoint < matches[j].PatternEndpoint
+	})
+
+	dto.ResponseSuccess(c, gin.H{
+		"method":            method,
+		"endpoint":          endpoint,
+		"source":            source,
+		"primary_match":     matches[0],
+		"matched_count":     len(matches),
+		"candidate_matches": matches,
+	})
+}
+
 func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if h == nil || h.selector == nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
@@ -222,6 +341,67 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		Result:       result.Result,
 	}
 	dto.ResponseSuccess(c, resp)
+}
+
+func normalizeResolveEndpoint(raw string) string {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return ""
+	}
+	if !strings.HasPrefix(v, "/") {
+		v = "/" + v
+	}
+	for strings.Contains(v, "//") {
+		v = strings.ReplaceAll(v, "//", "/")
+	}
+	if len(v) > 1 && strings.HasSuffix(v, "/") {
+		v = strings.TrimSuffix(v, "/")
+	}
+	return v
+}
+
+func routePatternMatches(pattern, actual string) bool {
+	if pattern == "" || actual == "" {
+		return false
+	}
+	patternSegs := strings.Split(strings.Trim(pattern, "/"), "/")
+	actualSegs := strings.Split(strings.Trim(actual, "/"), "/")
+	if len(patternSegs) != len(actualSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		p := strings.TrimSpace(patternSegs[i])
+		a := strings.TrimSpace(actualSegs[i])
+		if p == "" || a == "" {
+			return false
+		}
+		if isRouteParam(p) {
+			continue
+		}
+		if !strings.EqualFold(p, a) {
+			return false
+		}
+	}
+	return true
+}
+
+func isRouteParam(seg string) bool {
+	seg = strings.TrimSpace(seg)
+	return strings.HasPrefix(seg, ":") || (strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}"))
+}
+
+func routeWildcardCount(pattern string) int {
+	if pattern == "" {
+		return 99
+	}
+	parts := strings.Split(strings.Trim(pattern, "/"), "/")
+	count := 0
+	for _, part := range parts {
+		if isRouteParam(part) {
+			count++
+		}
+	}
+	return count
 }
 
 func (h *tenantHandler) GetInvocation(c *gin.Context) {

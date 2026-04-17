@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	httpOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -92,22 +94,22 @@ func SetupSetupOnlyRouter(cfg *config.Config, r *gin.Engine) error {
 
 // PrintRouteInfo 打印路由信息
 func PrintRouteInfo(r *gin.Engine, cfg *config.Config) {
-	fmt.Println()
-	fmt.Println("📋 已注册的 API 路由（摘要）:")
-	fmt.Println("┌─────────────────────────────────────────────────────────────┐")
-	fmt.Printf("│ 服务地址: http://localhost:%-29d│\n", cfg.Server.Port)
-	fmt.Println("├─────────────────────────────────────────────────────────────┤")
+	logger.Info(context.Background(), "")
+	logger.Info(context.Background(), "📋 已注册的 API 路由（摘要）:")
+	logger.Info(context.Background(), "┌─────────────────────────────────────────────────────────────┐")
+	logger.InfoF(context.Background(), "│ 服务地址: http://localhost:%-29d│", cfg.Server.Port)
+	logger.Info(context.Background(), "├─────────────────────────────────────────────────────────────┤")
 	routes := r.Routes()
 	if len(routes) == 0 {
-		fmt.Println("│ (未发现已注册路由，请确认路由是否在 bootstrap 阶段同步注册)        │")
+		logger.Info(context.Background(), "│ (未发现已注册路由，请确认路由是否在 bootstrap 阶段同步注册)        │")
 	}
 
 	for _, route := range routes {
 		handlerName := trimHandlerName(route.Handler)
-		fmt.Printf("│ %-6s %-25s - %-60s │\n", route.Method, route.Path, handlerName)
+		logger.InfoF(context.Background(), "│ %-6s %-25s - %-60s │", route.Method, route.Path, handlerName)
 	}
-	fmt.Println("└─────────────────────────────────────────────────────────────┘")
-	fmt.Println()
+	logger.Info(context.Background(), "└─────────────────────────────────────────────────────────────┘")
+	logger.Info(context.Background(), "")
 }
 
 // trimHandlerName 提取 handler 名字的最后一段

@@ -184,7 +184,7 @@ const categoryOptions = [
 async function onSubmit() {
   try {
     // 这里应该调用 API 保存文章
-    console.log("保存文章:", state);
+    console.info("保存文章:", state);
 
     // 显示成功消息
     const toast = useToast();

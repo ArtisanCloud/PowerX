@@ -90,7 +90,7 @@ watch(
     metaThink: (props.message as any)?.meta?.think,
   }),
   (v) => {
-    // console.log("[MessageItem]", v);
+    // console.info("[MessageItem]", v);
   },
   { deep: false, immediate: true }
 );
@@ -212,7 +212,7 @@ const completedThinkBlocks = computed(() => {
       }))
       .filter((b) => b.content.replace(/\s+/g, " ").trim().length > 0) ?? null;
 
-  // console.log("[MessageItem] blocksFromMeta", blocksFromMeta);
+  // console.info("[MessageItem] blocksFromMeta", blocksFromMeta);
   const dedupe = (blocks: any[]) => {
     const seen = new Set<string>();
     const result: any[] = [];
@@ -226,13 +226,13 @@ const completedThinkBlocks = computed(() => {
   };
 
   if (blocksFromMeta && blocksFromMeta.length > 0) {
-    // console.log("[MessageItem] blocksFromMeta", blocksFromMeta);
+    // console.info("[MessageItem] blocksFromMeta", blocksFromMeta);
     return dedupe(blocksFromMeta);
   }
 
   // 2) 回退解析：仅当正文包含 <think>…</think> 时
   if (!hasNonEmptyThinkTag.value) return [];
-  // console.log("[MessageItem] parsedMessage", parsedMessage.value);
+  // console.info("[MessageItem] parsedMessage", parsedMessage.value);
   const parsed = parsedMessage.value.thinkBlocks || [];
   return dedupe(
     parsed.filter(
@@ -751,7 +751,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
                     :key="action.label"
                     :variant="action.variant || 'outline'"
                     size="xs"
-                    @click="console.log('Action:', action.action)"
+                    @click="console.info('Action:', action.action)"
                   >
                     {{ action.label }}
                   </UButton>

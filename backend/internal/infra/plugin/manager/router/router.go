@@ -2,12 +2,12 @@ package router
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -255,7 +255,7 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 		clientPath = "/"
 	}
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
-		log.Printf("[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
+		logger.InfoF(context.Background(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
 		clientPath = clean
 	}
 
@@ -327,7 +327,7 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath st
 	if p == "" || p == "/" {
 		p = "/index.html"
 	} else if clean, changed := normalizeAdminClientPath(pluginID, p); changed {
-		log.Printf("[ADMIN-CLEAN-STATIC] plugin=%s raw=%q clean=%q", pluginID, p, clean)
+		logger.InfoF(context.Background(), "[ADMIN-CLEAN-STATIC] plugin=%s raw=%q clean=%q", pluginID, p, clean)
 		p = clean
 	}
 	if shouldRewriteAdminDocToIndex(c.Request, p) {
@@ -395,7 +395,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if q := c.Request.URL.RawQuery; q != "" {
 			hostPath += "?" + q
 		}
-		log.Printf("[API-REDIRECT] plugin=%s method=%s clientPath=%s -> hostPath=%s",
+		logger.InfoF(context.Background(), "[API-REDIRECT] plugin=%s method=%s clientPath=%s -> hostPath=%s",
 			pluginID, c.Request.Method, clientPath, hostPath)
 		c.Redirect(http.StatusTemporaryRedirect, hostPath)
 		c.Abort()
@@ -405,7 +405,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		return
 	}
 	// === 关键日志：API 入口 ===
-	log.Printf("[API-IN] %s %s plugin=%s clientPath=%s",
+	logger.InfoF(context.Background(), "[API-IN] %s %s plugin=%s clientPath=%s",
 		c.Request.Method, c.Request.URL.Path, pluginID, clientPath)
 	r.mu.RLock()
 	up, ok := r.apis[pluginID]
@@ -415,7 +415,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	}
 	r.mu.RUnlock()
 	if !ok || up.target == nil {
-		log.Printf("[API-MISS] plugin=%s registered=%v", pluginID, registered)
+		logger.InfoF(context.Background(), "[API-MISS] plugin=%s registered=%v", pluginID, registered)
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error":      "plugin api upstream unavailable",
 			"reason":     "plugin not mounted into /_p/{id}/api proxy",
@@ -473,7 +473,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			return
 		}
 		pluginToken = tok
-		log.Printf("[GATE-ALLOW] plugin=%s method=%s clientPath=%s", pluginID, c.Request.Method, clientPath)
+		logger.InfoF(context.Background(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s", pluginID, c.Request.Method, clientPath)
 
 	}
 
@@ -487,7 +487,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("[PROXY-BACKEND-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
+			logger.InfoF(context.Background(), "[PROXY-BACKEND-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
 			return nil
 		}
 		_ = resp.Body.Close()
@@ -499,12 +499,12 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if len(msg) > 1024 {
 			msg = msg[:1024] + "...(truncated)"
 		}
-		log.Printf("[PROXY-BACKEND-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
+		logger.InfoF(context.Background(), "[PROXY-BACKEND-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
 			pluginID, c.Request.Method, c.Request.URL.Path, resp.StatusCode, msg)
 		return nil
 	}
 	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
-		log.Printf("[PROXY-TRANSPORT-ERR] plugin=%s method=%s req=%s err=%v",
+		logger.InfoF(context.Background(), "[PROXY-TRANSPORT-ERR] plugin=%s method=%s req=%s err=%v",
 			pluginID, c.Request.Method, c.Request.URL.Path, err)
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusBadGateway)
@@ -538,12 +538,12 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.URL.Path = reqPath
 		req.URL.RawPath = reqPath
 		// === 关键日志：最终上游路径 ===
-		log.Printf("[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s => upstream=%s",
+		logger.InfoF(context.Background(), "[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s => upstream=%s",
 			pluginID, up.basePath, clientPath, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
-			log.Printf("[GATE-TOKEN] plugin=%s token.head=%s... tid=%s", pluginID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
+			logger.InfoF(context.Background(), "[GATE-TOKEN] plugin=%s token.head=%s... tid=%s", pluginID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
 		}
 		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
@@ -551,11 +551,11 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			tenantUUID = strings.TrimSpace(claims.TenantUUID)
 		}
 		if tenantUUID != "" {
-			log.Printf("[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
+			logger.InfoF(context.Background(), "[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
 			req.Header.Set("tenant_uuid", tenantUUID)
 			req.Header.Set("X-PowerX-Tenant", tenantUUID)
 		} else {
-			log.Printf("[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)
+			logger.InfoF(context.Background(), "[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)
 			req.Header.Del("tenant_uuid")
 			req.Header.Del("X-PowerX-Tenant")
 		}
@@ -936,7 +936,7 @@ func (r *DynamicRouter) redirectAdminFromAPI(c *gin.Context, pluginID, clientPat
 	if q := c.Request.URL.RawQuery; q != "" {
 		dest += "?" + q
 	}
-	log.Printf("[ADMIN-REDIRECT] plugin=%s apiPath=%s => %s", pluginID, clientPath, dest)
+	logger.InfoF(context.Background(), "[ADMIN-REDIRECT] plugin=%s apiPath=%s => %s", pluginID, clientPath, dest)
 	c.Redirect(http.StatusFound, dest)
 	c.Abort()
 	return true

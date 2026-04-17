@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -8,6 +9,7 @@ import (
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	tenantModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -49,7 +51,7 @@ func SeedKnowledgeProfiles(db *gorm.DB, tenantKey string) error {
 		}
 	}
 
-	fmt.Printf("[seed] knowledge profiles ready for tenant=%s (uuid=%s)\n", tenantKey, ten.UUID.String())
+	logger.InfoF(context.Background(), "[seed] knowledge profiles ready for tenant=%s (uuid=%s)", tenantKey, ten.UUID.String())
 	return nil
 }
 

@@ -118,5 +118,5 @@ const report = {
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, JSON.stringify(report, null, 2));
 
-console.log(`Burndown snapshot written to ${output}`);
-console.log(`Open issues: ${openIssues.length}, closed issues: ${closedIssues.length}`);
+console.info(`Burndown snapshot written to ${output}`);
+console.info(`Open issues: ${openIssues.length}, closed issues: ${closedIssues.length}`);

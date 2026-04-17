@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,6 +15,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database" // 你的 DB 连接封装
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 var idParamRe = regexp.MustCompile(`\{[^}]*id[^}]*\}`) // 匹配 {id} / {userId} 等
@@ -46,7 +45,7 @@ func main() {
 			"items":      items,
 		}
 		b, _ := json.MarshalIndent(payload, "", "  ")
-		fmt.Printf("%s\n", b)
+		logger.InfoF(context.Background(), "%s", b)
 		return
 	}
 
@@ -62,7 +61,7 @@ func main() {
 		panic(err)
 	}
 	out, _ := json.MarshalIndent(res, "", "  ")
-	fmt.Println(string(out))
+	logger.InfoF(context.Background(), "%s", string(out))
 }
 
 func loadOpenAPI(path string) (*openapi3.T, error) {
@@ -80,7 +79,7 @@ func loadOpenAPI(path string) (*openapi3.T, error) {
 	}
 	if err = doc.Validate(ldr.Context); err != nil {
 		// 放宽校验：非致命错误只告警
-		fmt.Fprintf(os.Stderr, "[warn] openapi validation: %v\n", err)
+		logger.WarnF(context.Background(), "[warn] openapi validation: %v", err)
 	}
 	return doc, nil
 }

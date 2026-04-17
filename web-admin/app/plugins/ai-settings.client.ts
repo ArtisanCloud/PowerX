@@ -33,7 +33,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       const store = useAISettingsStore();
       await store.initialize();
       initialized.value = true;
-      console.log("✅ AI Settings 初始化完成");
+      console.info("✅ AI Settings 初始化完成");
     } catch (err) {
       console.error("❌ AI Settings 初始化失败", err);
     }

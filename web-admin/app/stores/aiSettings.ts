@@ -141,14 +141,14 @@ export const useAISettingsStore = defineStore("aiSettings", {
         this.currentEnv =
           profiles?.env || credentials?.env || this.currentEnv || "default";
 
-        // console.log("AI store设置初始化成功", {
+        // console.info("AI store设置初始化成功", {
         //   providers: this.providers.length,
         //   profiles: this.profiles.length,
         //   credentials: this.credentials.length,
         // });
 
         // 添加调试日志
-        // console.log(
+        // console.info(
         //   "providers after init in store",
         //   JSON.stringify(this.providers)
         // );
@@ -161,7 +161,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
           );
           if (resActiveProfile) {
             this.activeProfile = resActiveProfile.profile;
-            // console.log("默认激活配置加载成功", resActiveProfile);
+            // console.info("默认激活配置加载成功", resActiveProfile);
           }
         } catch (error) {
           console.warn("获取默认激活配置失败，将使用现有配置", error);
@@ -220,7 +220,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
     async fetchModels(provider?: string, modality?: string, env?: string, app?: string) {
       // 关键：参数不全就短路，但不清空 models
       if (!provider || !modality) {
-        console.log("fetchModels -> 参数不全，跳过:", { provider, modality });
+        console.info("fetchModels -> 参数不全，跳过:", { provider, modality });
         return;
       }
 
@@ -238,7 +238,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
         );
 
         // ✅ 打印原始响应
-        // console.log("raw models response", JSON.stringify(res));
+        // console.info("raw models response", JSON.stringify(res));
 
         // ✅ 容错取值
         if (Array.isArray(res)) {
@@ -247,7 +247,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
           const data = res as any;
           this.models = data?.models ?? data?.items ?? [];
         }
-        // console.log("store.models set to", this.models);
+        // console.info("store.models set to", this.models);
       } catch (error) {
         console.error("获取模型列表失败:", error);
         // 发生错误时才清空 models
@@ -450,10 +450,10 @@ export const useAISettingsStore = defineStore("aiSettings", {
       env: string = "default",
       modality: string = "llm"
     ) {
-      // console.log("AI Settings Store: 获取激活配置", { env, modality });
+      // console.info("AI Settings Store: 获取激活配置", { env, modality });
       try {
         const response = await AISettingService.getActiveProfile(env, modality);
-        // console.log("AI Settings Store: 激活配置响应", response);
+        // console.info("AI Settings Store: 激活配置响应", response);
 
         if (response.code === 200 && response.data) {
           return response.data;

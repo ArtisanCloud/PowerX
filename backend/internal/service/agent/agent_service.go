@@ -4,6 +4,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -22,6 +23,8 @@ type AgentService struct {
 	pluginRepo *repo.AgentPluginLinkRepository
 }
 
+var ErrAgentOwnerForbidden = errors.New("agent.owner_forbidden")
+
 func NewAgentService(db *gorm.DB) *AgentService {
 	return &AgentService{
 		db:         db,
@@ -38,11 +41,10 @@ func (s *AgentService) List(
 	ctx context.Context,
 	env string,
 	tenantUUID *string,
+	ownerPluginID string,
 	statuses ...string,
 ) ([]dbmodel.Agent, error) {
-	// 如果你的仓储方法签名是：ListByScope(ctx, env, tenantUUID, statuses []string)
-	// 就这么调用（不要写 ...）
-	return s.agRepo.ListByScope(ctx, env, tenantUUID, statuses)
+	return s.agRepo.ListByScope(ctx, env, tenantUUID, statuses, ownerPluginID)
 }
 
 func (s *AgentService) Create(ctx context.Context, env string, tenantUUID *string, in *dbmodel.Agent) (*dbmodel.Agent, error) {
@@ -66,7 +68,7 @@ func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string
 	// 插入默认记录
 	rec := &dbmodel.AgentSetting{
 		Env:           env,
-		TenantUUID:      tenantUUID,
+		TenantUUID:    tenantUUID,
 		AgentID:       agentID,
 		Provider:      "",
 		Model:         "",
@@ -80,17 +82,19 @@ func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string
 }
 
 type AgentPatch struct {
-	Name             *string
-	Description      *string
-	Visibility       *string
-	Status           *string
-	Scope            *string
-	DefaultPersonaID *uint64
-	BlueprintRefs    datatypes.JSON
-	IntentCardsRef   datatypes.JSON
-	ToolAllowlist    datatypes.JSON
-	KBStrategy       *string
-	Meta             datatypes.JSONMap
+	Name                  *string
+	Description           *string
+	Visibility            *string
+	Status                *string
+	Scope                 *string
+	DefaultPersonaID      *uint64
+	BlueprintRefs         datatypes.JSON
+	IntentCardsRef        datatypes.JSON
+	ToolAllowlist         datatypes.JSON
+	KBStrategy            *string
+	Meta                  datatypes.JSONMap
+	ExpectedOwnerPluginID *string
+	CallerPluginID        string
 }
 
 func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *string, agentID uint64, patch AgentPatch) (*dbmodel.Agent, error) {
@@ -101,6 +105,9 @@ func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *strin
 	// 租户隔离（简单校验）
 	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return nil, gorm.ErrRecordNotFound
+	}
+	if err := assertPluginOwnership(exist, patch.ExpectedOwnerPluginID, patch.CallerPluginID); err != nil {
+		return nil, err
 	}
 
 	// 组装要更新字段
@@ -158,13 +165,16 @@ func (s *AgentService) SetStatus(ctx context.Context, env string, tenantUUID *st
 	return s.agRepo.UpdateStatus(ctx, agentID, status)
 }
 
-func (s *AgentService) Delete(ctx context.Context, env string, tenantUUID *string, agentID uint64) error {
+func (s *AgentService) Delete(ctx context.Context, env string, tenantUUID *string, agentID uint64, expectedOwnerPluginID *string, callerPluginID string) error {
 	exist, err := s.agRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
 	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return gorm.ErrRecordNotFound
+	}
+	if err := assertPluginOwnership(exist, expectedOwnerPluginID, callerPluginID); err != nil {
+		return err
 	}
 	// 保护：内置不可删
 	if v, ok := exist.Meta["protect_from_delete"]; ok {
@@ -261,4 +271,40 @@ func equalTenant(a, b *string) bool {
 		return false
 	}
 	return strings.TrimSpace(*a) == strings.TrimSpace(*b)
+}
+
+func assertPluginOwnership(rec *dbmodel.Agent, expectedOwnerPluginID *string, callerPluginID string) error {
+	owner := strings.TrimSpace(pluginOwner(rec))
+	if expectedOwnerPluginID != nil {
+		expected := strings.TrimSpace(*expectedOwnerPluginID)
+		if expected == "" {
+			if owner != "" {
+				return ErrAgentOwnerForbidden
+			}
+		} else if !strings.EqualFold(expected, owner) {
+			return fmt.Errorf("%w: expected=%s actual=%s", ErrAgentOwnerForbidden, expected, owner)
+		}
+	}
+	callerPluginID = strings.TrimSpace(callerPluginID)
+	if callerPluginID == "" {
+		return nil
+	}
+	if owner == "" || !strings.EqualFold(owner, callerPluginID) {
+		return fmt.Errorf("%w: caller=%s actual=%s", ErrAgentOwnerForbidden, callerPluginID, owner)
+	}
+	return nil
+}
+
+func pluginOwner(rec *dbmodel.Agent) string {
+	if rec == nil {
+		return ""
+	}
+	if rec.OwnerPluginID != nil && strings.TrimSpace(*rec.OwnerPluginID) != "" {
+		return strings.TrimSpace(*rec.OwnerPluginID)
+	}
+	src := strings.TrimSpace(rec.Source)
+	if strings.HasPrefix(strings.ToLower(src), "plugin:") {
+		return strings.TrimSpace(src[len("plugin:"):])
+	}
+	return ""
 }

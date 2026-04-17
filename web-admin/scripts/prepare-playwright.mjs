@@ -13,7 +13,7 @@ async function ensureStub(dir) {
   } catch {
     await fs.mkdir(targetDir, { recursive: true })
     await fs.writeFile(targetFile, stub, 'utf8')
-    console.log(`✅ 写入 Playwright stub: ${targetFile}`)
+    console.info(`✅ 写入 Playwright stub: ${targetFile}`)
   }
 }
 

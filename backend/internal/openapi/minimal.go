@@ -2,14 +2,15 @@
 package openapi
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 )
@@ -165,7 +166,7 @@ func applyStaticStubs(doc map[string]any) {
 	}
 	var stub map[string]any
 	if err := yaml.Unmarshal(agentModelHubStub, &stub); err != nil {
-		fmt.Printf("openapi: failed to parse agent model hub stub: %v\n", err)
+		logger.WarnF(context.Background(), "openapi: failed to parse agent model hub stub: %v", err)
 		return
 	}
 	mergeTags(doc, stub)

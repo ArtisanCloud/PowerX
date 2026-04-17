@@ -42,7 +42,7 @@ async function main() {
     steps: {},
   };
 
-  console.log(`[Chaos] Baseline routing check for tenant=${args.tenant}`);
+  console.info(`[Chaos] Baseline routing check for tenant=${args.tenant}`);
   const baseline = await routeTask({
     apiBase: args.api,
     token: args.token,
@@ -52,7 +52,7 @@ async function main() {
   });
   summary.steps.baseline = baseline;
 
-  console.log("[Chaos] Enabling safe-mode (simulated provider outage) ...");
+  console.info("[Chaos] Enabling safe-mode (simulated provider outage) ...");
   const enableState = await toggleSafeMode({
     apiBase: args.api,
     token: args.token,
@@ -65,7 +65,7 @@ async function main() {
   });
   summary.steps.enable = enableState;
 
-  console.log("[Chaos] Routing during outage (expect fallback + safe-mode=true) ...");
+  console.info("[Chaos] Routing during outage (expect fallback + safe-mode=true) ...");
   const degraded = await routeTask({
     apiBase: args.api,
     token: args.token,
@@ -75,7 +75,7 @@ async function main() {
   });
   summary.steps.degraded = degraded;
 
-  console.log("[Chaos] Disabling safe-mode (recovery) ...");
+  console.info("[Chaos] Disabling safe-mode (recovery) ...");
   const disableState = await toggleSafeMode({
     apiBase: args.api,
     token: args.token,
@@ -105,7 +105,7 @@ async function main() {
   ];
 
   await writeReport(args.output, summary);
-  console.log(
+  console.info(
     `[Chaos] Completed. Report saved to ${args.output}. Verdict: ${
       summary.verdict.ok ? "PASS" : "FAIL"
     }`,
