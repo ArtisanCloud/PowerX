@@ -153,6 +153,12 @@ const permissionGroups = computed<PermissionResourceGroup[]>(() => {
     }));
 });
 
+const allPermissionItems = computed<IntegrationGatewayPermissionCatalogItem[]>(() => permissionCatalog.value || []);
+
+const totalPermissionCount = computed(() => allPermissionItems.value.length);
+
+const totalCheckedPermissionCount = computed(() => checkedCount(allPermissionItems.value));
+
 function permissionTitle(item: IntegrationGatewayPermissionCatalogItem) {
   const label = String(item.meta?.label || "").trim();
   if (label) return label;
@@ -203,6 +209,10 @@ function togglePermissions(items: IntegrationGatewayPermissionCatalogItem[], che
     else current.delete(permissionID);
   }
   selectedPermissionIDs.value = Array.from(current);
+}
+
+function toggleAllPermissions(checked: boolean) {
+  togglePermissions(allPermissionItems.value, checked);
 }
 
 function checkedCount(items: IntegrationGatewayPermissionCatalogItem[]) {
@@ -690,6 +700,9 @@ onMounted(async () => {
                 <div v-if="selectedProfile" class="text-xs text-gray-500">
                   Profile：{{ selectedProfile.name }} · <span class="font-mono">#{{ selectedProfile.id }}</span>
                 </div>
+                <div v-if="selectedProfile" class="text-xs text-gray-500">
+                  全模块：已选 {{ totalCheckedPermissionCount }}/{{ totalPermissionCount }}
+                </div>
               </div>
               <div class="flex flex-wrap gap-2">
                 <UButton
@@ -719,6 +732,23 @@ onMounted(async () => {
                   @click="toggleSelectedProfileStatus(1)"
                 >
                   启用
+                </UButton>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  :disabled="!selectedProfile || selectedProfile.status !== 1 || totalPermissionCount === 0"
+                  @click="toggleAllPermissions(true)"
+                >
+                  全模块全选
+                </UButton>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  :disabled="!selectedProfile || selectedProfile.status !== 1 || totalPermissionCount === 0"
+                  @click="toggleAllPermissions(false)"
+                >
+                  全模块清空
                 </UButton>
                 <UButton
                   size="xs"

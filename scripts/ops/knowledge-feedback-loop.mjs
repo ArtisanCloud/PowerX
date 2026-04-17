@@ -20,7 +20,7 @@ async function main() {
 	const summary = evaluate(metrics, config);
 	await persistAggregate(summary);
 	await writeAudit(summary, config);
-	console.log('✅ feedback-loop summary updated');
+	console.info('✅ feedback-loop summary updated');
 }
 
 async function loadConfig() {

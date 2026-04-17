@@ -527,12 +527,12 @@ function toggleWorkflowStatus(id: string) {
 
 // 复制工作流
 function duplicateWorkflow(id: string) {
-  console.log("复制工作流:", id);
+  console.info("复制工作流:", id);
 }
 
 // 导出工作流
 function exportWorkflow(id: string) {
-  console.log("导出工作流:", id);
+  console.info("导出工作流:", id);
 }
 
 // 删除工作流

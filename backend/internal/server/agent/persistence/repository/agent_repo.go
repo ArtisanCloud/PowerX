@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"gorm.io/gorm/clause"
+	"strings"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -45,6 +46,9 @@ func (r *AgentRepository) UpsertByScopeKey(
 		"name":               in.Name,
 		"description":        in.Description,
 		"source":             in.Source,
+		"owner_plugin_id":    in.OwnerPluginID,
+		"owner_tenant_uuid":  in.OwnerTenantUUID,
+		"managed_by_plugin":  in.ManagedByPlugin,
 		"scope":              in.Scope,
 		"visibility":         in.Visibility,
 		"status":             in.Status,
@@ -106,12 +110,16 @@ func (r *AgentRepository) ListByScope(
 	env string,
 	tenantUUID *string,
 	statuses []string,
+	ownerPluginID string,
 ) ([]dbmodel.Agent, error) {
 	tx := r.db.WithContext(ctx).
 		Scopes(dbmodel.WithScope(env, tenantUUID))
 
 	if len(statuses) > 0 {
 		tx = tx.Where("status IN ?", statuses)
+	}
+	if ownerPluginID = strings.TrimSpace(ownerPluginID); ownerPluginID != "" {
+		tx = tx.Where("owner_plugin_id = ?", ownerPluginID)
 	}
 
 	var list []dbmodel.Agent

@@ -1,10 +1,12 @@
 package loader
 
 import (
+	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/errors"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -118,7 +120,7 @@ func (l *YAMLSpecLoader) LoadToolSpecsFromDir(dir string) (map[string]*schemas.T
 		spec, loadErr := l.LoadToolSpec(path)
 		if loadErr != nil {
 			// 记录错误但继续处理其他文件
-			fmt.Printf("Warning: Failed to load tool spec from '%s': %v\n", path, loadErr)
+			logger.WarnF(context.Background(), "Warning: Failed to load tool spec from '%s': %v", path, loadErr)
 			return nil
 		}
 
@@ -152,7 +154,7 @@ func (l *YAMLSpecLoader) LoadBlueprintsFromDir(dir string) (map[string]*schemas.
 		blueprint, loadErr := l.LoadFlowBlueprint(path)
 		if loadErr != nil {
 			// 记录错误但继续处理其他文件
-			fmt.Printf("Warning: Failed to load blueprint from '%s': %v\n", path, loadErr)
+			logger.WarnF(context.Background(), "Warning: Failed to load blueprint from '%s': %v", path, loadErr)
 			return nil
 		}
 		//ctx := context.Background()

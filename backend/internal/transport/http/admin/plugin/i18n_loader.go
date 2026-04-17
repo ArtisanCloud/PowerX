@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +13,7 @@ import (
 
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,7 +22,7 @@ const i18nDebug = true
 
 func dbgI18n(format string, args ...any) {
 	if i18nDebug {
-		log.Printf("[i18n] "+format, args...)
+		logger.DebugF(context.Background(), "[i18n] "+format, args...)
 	}
 }
 

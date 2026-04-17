@@ -1,14 +1,15 @@
 package integration_gateway
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -180,5 +181,5 @@ func logPlatformCapabilityError(err error) {
 	if err == nil {
 		return
 	}
-	log.Printf("[integration_gateway] load platform capabilities config failed: %v", err)
+	logger.WarnF(context.Background(), "[integration_gateway] load platform capabilities config failed: %v", err)
 }

@@ -11,6 +11,7 @@
 - 数据库存储：仅作兼容与审计，不作为首判定来源
 - 未安装访问策略：全局硬拦截
 - 运行配置落点：`/etc/powerx`（`config.yaml` + `powerx.env`）
+- Docker 宿主机映射建议：配置层 `/etc/powerx`，数据层 `/var/lib/powerx`
 
 ## 3. 配置模型
 

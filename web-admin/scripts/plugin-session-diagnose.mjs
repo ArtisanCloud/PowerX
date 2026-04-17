@@ -43,7 +43,7 @@ context.on('requestfailed', request => {
   })
 })
 
-console.log('打开宿主地址以复用同一浏览器会话:', HOST_URL)
+console.info('打开宿主地址以复用同一浏览器会话:', HOST_URL)
 await page.goto(HOST_URL, { waitUntil: 'domcontentloaded' })
 
 if (!AUTO_CONTINUE) {
@@ -52,7 +52,7 @@ if (!AUTO_CONTINUE) {
   )
 }
 
-console.log('跳转到插件 iframe 页:', PLUGIN_URL)
+console.info('跳转到插件 iframe 页:', PLUGIN_URL)
 let pluginResponseStatus = null
 try {
   const res = await page.goto(PLUGIN_URL, { waitUntil: 'domcontentloaded' })
@@ -67,25 +67,25 @@ const hostCookies = await context.cookies(HOST_URL)
 const pluginCookies = await context.cookies(PLUGIN_URL)
 const pluginDocumentCookie = await page.evaluate(() => document.cookie)
 
-console.log('\n=== auth/me/context 请求捕获 ===')
+console.info('\n=== auth/me/context 请求捕获 ===')
 if (!authCalls.length) {
-  console.log('未捕获到匹配请求，请确认插件前端是否会调用该接口。')
+  console.info('未捕获到匹配请求，请确认插件前端是否会调用该接口。')
 } else {
   authCalls.forEach((call, index) => {
-    console.log(
+    console.info(
       `#${index + 1} ${call.method} ${call.url} -> ${call.status ?? 'n/a'}`
     )
-    console.log('  Cookie 头:', call.cookieHeader || '<空>')
-    console.log('  Content-Type:', call.contentType || '<空>')
-    console.log('  WWW-Authenticate:', call.wwwAuthenticate || '<空>')
+    console.info('  Cookie 头:', call.cookieHeader || '<空>')
+    console.info('  Content-Type:', call.contentType || '<空>')
+    console.info('  WWW-Authenticate:', call.wwwAuthenticate || '<空>')
   })
 }
 
-console.log('\n=== Cookie 对比 ===')
-console.log('宿主域 Cookie:', formatCookies(hostCookies))
-console.log('插件域 Cookie:', formatCookies(pluginCookies))
-console.log('插件 document.cookie:', pluginDocumentCookie || '<空>')
-console.log('插件页面初始响应状态:', pluginResponseStatus ?? '<未知>')
+console.info('\n=== Cookie 对比 ===')
+console.info('宿主域 Cookie:', formatCookies(hostCookies))
+console.info('插件域 Cookie:', formatCookies(pluginCookies))
+console.info('插件 document.cookie:', pluginDocumentCookie || '<空>')
+console.info('插件页面初始响应状态:', pluginResponseStatus ?? '<未知>')
 
 await browser.close()
 process.exit(0)

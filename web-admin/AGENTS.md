@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-PowerX Admin is a Nuxt 4 application. Core UI work happens in `app/`: `app/pages/` defines routes, `app/components/` holds shared widgets, `app/composables/` wraps reusable logic, and `app/stores/` contains Pinia state. Middleware and server handlers sit in `server/` and `app/server/`, static assets belong in `public/`, and long-form specs live in `docs/`. Keep locale strings in `i18n/locales/*.json` and update `scripts/check-refactor.sh` whenever agent-critical files move.
+PowerX Admin is a Nuxt 4 application. Core UI work happens in `app/`: `app/pages/` defines routes, `app/components/` holds shared widgets, `app/composables/` wraps reusable logic, and `app/stores/` contains Pinia state. Middleware and server handlers sit in `server/`, static assets belong in `public/`, and long-form specs live in `docs/`. Keep locale strings in `i18n/locales/*.json` and update `scripts/check-refactor.sh` whenever agent-critical files move.
 
 ## Build, Test, and Development Commands
 Install dependencies with `npm install` after every pull. Use `npm run dev` for the hot-reloading workspace, `npm run build` for the Nitro production bundle, and `npm run preview` to validate the bundle locally. `npm run generate` produces a static export for demos or documentation drops. Run `bash scripts/check-refactor.sh` before shipping agent-layer changes to confirm expected file layout.

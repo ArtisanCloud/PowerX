@@ -27,8 +27,9 @@ func PluginUninstallHandler(c *gin.Context) {
 	}
 
 	mgr, err := tryGetPluginManager()
+	ctx := c.Request.Context()
 	if err != nil {
-		if fallbackErr := uninstallFromRegistry(c, id, req.Version, req.Purge); fallbackErr != nil {
+		if fallbackErr := uninstallFromRegistry(ctx, id, req.Version, req.Purge); fallbackErr != nil {
 			respondPluginRuntimeUnavailable(c, fallbackErr)
 			return
 		}
@@ -43,15 +44,15 @@ func PluginUninstallHandler(c *gin.Context) {
 
 	if req.Purge {
 		if req.Version != "" {
-			err = mgr.UninstallAndPurge(c, id, req.Version)
+			err = mgr.UninstallAndPurge(ctx, id, req.Version)
 		} else {
-			err = mgr.UninstallAndPurge(c, id)
+			err = mgr.UninstallAndPurge(ctx, id)
 		}
 	} else {
 		if req.Version != "" {
-			err = mgr.Uninstall(c, id, req.Version)
+			err = mgr.Uninstall(ctx, id, req.Version)
 		} else {
-			err = mgr.Uninstall(c, id)
+			err = mgr.Uninstall(ctx, id)
 		}
 	}
 	if err != nil {

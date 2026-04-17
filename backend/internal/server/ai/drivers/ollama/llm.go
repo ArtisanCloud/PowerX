@@ -31,6 +31,7 @@ type ollamaChatReq struct {
 	Model    string              `json:"model"`
 	Messages []map[string]string `json:"messages"`
 	Stream   bool                `json:"stream"`
+	Think    *bool               `json:"think,omitempty"`
 	Options  map[string]any      `json:"options,omitempty"`
 }
 
@@ -84,7 +85,16 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		opts["top_p"] = mc.TopP
 	}
 	// 透传扩展参数（如果你在 ModelConfig 里有 Extra）
+	var thinkPtr *bool
 	for k, v := range mc.Extra {
+		kl := strings.ToLower(strings.TrimSpace(k))
+		if kl == "think" || kl == "thinking" {
+			if b, ok := boolFromAny(v); ok {
+				bv := b
+				thinkPtr = &bv
+			}
+			continue
+		}
 		// 避免覆盖已有强约束字段
 		if k == "temperature" || k == "num_predict" || k == "top_p" {
 			continue
@@ -95,11 +105,27 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		Model:    model,
 		Messages: msgs,
 		Stream:   streaming,
+		Think:    thinkPtr,
 	}
 	if len(opts) > 0 {
 		req.Options = opts
 	}
 	return json.Marshal(req)
+}
+
+func boolFromAny(v any) (bool, bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "true", "1", "yes", "y", "on":
+			return true, true
+		case "false", "0", "no", "n", "off":
+			return false, true
+		}
+	}
+	return false, false
 }
 
 /* ------------------- Invoke（非流式） ------------------- */

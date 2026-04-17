@@ -197,7 +197,7 @@ const backupFrequencyOptions = [
 const saveConfig = async (category: string) => {
   try {
     // 这里应该调用API保存配置
-    console.log(`保存${category}配置`);
+    console.info(`保存${category}配置`);
 
     // 显示成功提示
     const toast = useToast();
@@ -220,14 +220,14 @@ const saveConfig = async (category: string) => {
 // 重置配置
 const resetConfig = (category: string) => {
   // 这里应该重置对应分类的配置到默认值
-  console.log(`重置${category}配置`);
+  console.info(`重置${category}配置`);
 };
 
 // 测试连接（用于邮件、短信等配置）
 const testConnection = async (type: string) => {
   try {
     // 这里应该调用API测试连接
-    console.log(`测试${type}连接`);
+    console.info(`测试${type}连接`);
 
     const toast = useToast();
     toast.add({

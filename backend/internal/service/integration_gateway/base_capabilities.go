@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -212,7 +211,7 @@ func platformCapabilityDefinitions() []platformCapabilityDefinition {
 		}
 		if len(defs) == 0 {
 			if err == nil {
-				log.Printf("[integration_gateway] no platform capability config found, using built-in defaults")
+				pxlog.Info(context.Background(), "[integration_gateway] no platform capability config found, using built-in defaults")
 			}
 			defs = builtinPlatformCapabilityDefinitions()
 		}

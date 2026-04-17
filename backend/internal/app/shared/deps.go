@@ -398,7 +398,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 		httpBaseURL := strings.TrimSpace(os.Getenv("POWERX_HTTP_PROXY_BASE"))
 		if httpBaseURL == "" {
-			httpBaseURL = "http://127.0.0.1:8077"
+			httpPort := 8080
+			if opts.Server.HTTPPort > 0 {
+				httpPort = opts.Server.HTTPPort
+			}
+			httpBaseURL = fmt.Sprintf("http://127.0.0.1:%d", httpPort)
 		}
 		httpProxyClient := &http.Client{
 			Timeout: defaultHTTPTimeout,
@@ -431,6 +435,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
 			Catalog:           capabilityCatalogSvc,
 			Router:            routerSvc,
+			TraceRepo:         capTraceRepo,
+			EventRepo:         capEventRepo,
+			EventBus:          bus,
+			Auditor:           aud,
 			Audit:             capAuditSvc,
 			Clock:             time.Now,
 			VersionLock:       versionLockStore,

@@ -2,15 +2,16 @@ package config
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	agentCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	grpcCfg "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	mcpCfg "github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	cacheCfg "github.com/ArtisanCloud/PowerX/pkg/cache"
 	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gopkg.in/yaml.v3"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -82,7 +83,8 @@ func GetGlobalConfig() *Config {
 				lastErr = err
 			}
 		}
-		log.Fatalf("初始化全局配置失败: %v", lastErr)
+		logger.ErrorF(context.Background(), "初始化全局配置失败: %v", lastErr)
+		os.Exit(1)
 	}
 	return GlobalConfig
 }
@@ -699,15 +701,25 @@ func Load(configPath string) (*Config, error) {
 }
 
 func loadDotEnvCandidates(configPath string) {
-	candidates := make([]string, 0, 6)
+	// 本地开发模式统一只认 backend/.env，避免多来源导致覆盖混乱。
+	envMode := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_ENV")))
+	if envMode != "" && envMode != "dev" {
+		return
+	}
+	candidates := make([]string, 0, 3)
 	if configPath != "" {
 		if absCfg, err := filepath.Abs(configPath); err == nil {
-			cfgDir := filepath.Dir(absCfg)
-			candidates = append(candidates, filepath.Join(cfgDir, ".env"))
-			candidates = append(candidates, filepath.Join(filepath.Dir(cfgDir), ".env"))
+			backendDir := filepath.Dir(filepath.Dir(absCfg))
+			candidates = append(candidates, filepath.Join(backendDir, ".env"))
 		}
 	}
-	candidates = append(candidates, ".env", "backend/.env")
+	if p := findConfigPath("backend/.env"); p != "" {
+		candidates = append(candidates, p)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(wd, "backend", ".env"))
+		candidates = append(candidates, filepath.Join(wd, ".env"))
+	}
 
 	seen := map[string]struct{}{}
 	for _, p := range candidates {
@@ -993,8 +1005,58 @@ func loadFromEnv(cfg *Config) {
 	}
 
 	// LogConfig配置 - 使用外部logger配置
-	// 这里可以根据需要添加对LogConfig字段的环境变量支持
-	// 例如：cfg.LogConfig.Level, cfg.LogConfig.Format 等
+	if v := os.Getenv("CORE_X_LOG_FILE_ENABLE"); v != "" {
+		cfg.LogConfig.File.Enable = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_LOG_FILE_INFO_PATH"); v != "" {
+		cfg.LogConfig.File.InfoFilePath = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_FILE_ERROR_PATH"); v != "" {
+		cfg.LogConfig.File.ErrorFilePath = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_AGENT_DEBUG_DIR"); v != "" {
+		cfg.LogConfig.AgentDebug.Dir = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("CORE_X_LOG_CONSOLE"); v != "" {
+		cfg.LogConfig.Console = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_ENABLED"); v != "" {
+		cfg.LogConfig.Retention.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_CRON")); v != "" {
+		cfg.LogConfig.Retention.Cron = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_TIMEZONE")); v != "" {
+		cfg.LogConfig.Retention.Timezone = v
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_DEFAULT_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.DefaultRetentionDays = n
+		}
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_BATCH_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.BatchSize = n
+		}
+	}
+	if v := os.Getenv("CORE_X_LOG_RETENTION_MAX_DELETE_ROWS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.LogConfig.Retention.MaxDeleteRowsPerRun = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_FILE_PATHS")); v != "" {
+		raw := strings.Split(v, ",")
+		paths := make([]string, 0, len(raw))
+		for i := range raw {
+			if p := strings.TrimSpace(raw[i]); p != "" {
+				paths = append(paths, p)
+			}
+		}
+		if len(paths) > 0 {
+			cfg.LogConfig.Retention.FilePaths = paths
+		}
+	}
+
 	if v := os.Getenv("CORE_X_AUDIT_PERSIST_TO_DB"); v != "" {
 		cfg.Audit.PersistToDB = strings.EqualFold(v, "true") || v == "1"
 	}

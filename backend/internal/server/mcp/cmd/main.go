@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"log"
+	"os"
 )
 
 // mcp/cmd/main.go
@@ -14,7 +14,8 @@ func main() {
 	// 加载配置
 	cfg := config.GetGlobalConfig()
 	if cfg == nil {
-		log.Fatalf("加载配置文件失败")
+		logger.ErrorF(context.Background(), "加载配置文件失败")
+		os.Exit(1)
 	}
 
 	ctx := context.Background()

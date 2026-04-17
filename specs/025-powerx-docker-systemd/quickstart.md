@@ -12,6 +12,7 @@
   - 生效语义：修改 setup 端口后需要重启 backend/web-admin，重启前 `desired_ports` 可变更但 `effective_ports` 不变
 - 安装状态机制：参考 `specs/025-powerx-docker-systemd/install-mechanism.md`（`config.install.status` 为首判定源）。
 - 运行时配置真源：`/etc/powerx/config.yaml`（版本切换不覆盖）。
+- Docker 目录规范：配置层 `/etc/powerx`，数据层 `/var/lib/powerx`（建议映射 `postgres/redis/uploads` 子目录）。
 
 ## 2. 部署基线验证
 
@@ -50,10 +51,11 @@ curl -s http://127.0.0.1:8080/api/v1/admin/setup/status | jq '.data.install_stat
 
 ```bash
 cd /opt/powerx/backend
-./database migrate
+POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate
 # 仅在需要初始化/补数时执行
-# ./database seed
+# POWERX_CONFIG=/etc/powerx/config.yaml ./database seed
 ```
+说明：发布产物目录请使用 `./database migrate|seed`，不要使用 `./powerx database migrate`。
 
 ## 3. 插件平滑升级演练
 

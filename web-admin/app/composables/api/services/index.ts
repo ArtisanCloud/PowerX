@@ -91,3 +91,14 @@ export type {
   MigrationAcceptancePayload,
   TriggerTrafficSwitchPayload,
 } from "./migrationOpsService";
+
+export { useMonitorService } from "./monitorService";
+export type {
+  MonitorLogConfig,
+  MonitorLogCapabilities,
+  MonitorLogEntry,
+  MonitorLogQueryMeta,
+  MonitorLogQueryFilters,
+  MonitorRetentionRun,
+  MonitorRetentionRuns,
+} from "./monitorService";

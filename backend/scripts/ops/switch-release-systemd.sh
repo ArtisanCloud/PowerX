@@ -99,6 +99,7 @@ fi
 RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx}"
+PLUGIN_RUNTIME_ROOT="${POWERX_PLUGIN_RUNTIME_ROOT:-${LINKS_ROOT}/plugins}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
@@ -361,6 +362,34 @@ EOF
   echo "[switch-release] using NODE_BIN=${node_bin}"
 }
 
+sync_http_proxy_base_env() {
+  local env_file="${RUNTIME_ROOT}/powerx.env"
+  local proxy_base="http://127.0.0.1:8080"
+  local current_value=""
+
+  install -d -m 0755 "${RUNTIME_ROOT}"
+  if [[ ! -f "$env_file" ]]; then
+    touch "$env_file"
+    chown root:root "$env_file"
+    chmod 0644 "$env_file"
+  fi
+
+  if grep -q '^POWERX_HTTP_PROXY_BASE=' "$env_file"; then
+    current_value="$(awk -F= '/^POWERX_HTTP_PROXY_BASE=/{print substr($0, index($0,$2)); exit}' "$env_file" | xargs)"
+    if [[ -n "${current_value}" ]]; then
+      echo "[switch-release] keep existing POWERX_HTTP_PROXY_BASE=${current_value}"
+      return 0
+    fi
+    sed -i "s|^POWERX_HTTP_PROXY_BASE=.*$|POWERX_HTTP_PROXY_BASE=${proxy_base}|" "$env_file"
+  else
+    printf 'POWERX_HTTP_PROXY_BASE=%s\n' "${proxy_base}" >> "$env_file"
+  fi
+
+  chown root:root "$env_file"
+  chmod 0644 "$env_file"
+  echo "[switch-release] synced POWERX_HTTP_PROXY_BASE=${proxy_base}"
+}
+
 set_setup_reentry_env() {
   local env_file="${RUNTIME_ROOT}/powerx.env"
   if [[ ! -f "$env_file" ]]; then
@@ -438,6 +467,151 @@ ensure_runtime_config_external() {
   fi
 }
 
+sync_runtime_plugin_paths() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip plugin path sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local plugin_installed_abs="${PLUGIN_RUNTIME_ROOT}/installed"
+  local plugin_registry_abs="${PLUGIN_RUNTIME_ROOT}/registry.json"
+  local legacy_installed_abs="${LINK_BACKEND}/plugins/installed"
+  local legacy_registry_abs="${LINK_BACKEND}/plugins/registry.json"
+  local tmp_file
+
+  install -d -m 0755 "${plugin_installed_abs}"
+  install -d -m 0755 "$(dirname "${plugin_registry_abs}")"
+
+  # 从旧的 release 绑定路径迁移一次插件运行产物到持久目录（仅当目标为空时）。
+  if [[ -d "${legacy_installed_abs}" ]]; then
+    if [[ -z "$(find "${plugin_installed_abs}" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]]; then
+      cp -a "${legacy_installed_abs}/." "${plugin_installed_abs}/" 2>/dev/null || true
+      echo "[switch-release] plugin installed artifacts migrated: ${legacy_installed_abs} -> ${plugin_installed_abs}"
+    fi
+  fi
+
+  if [[ ! -f "${plugin_registry_abs}" ]]; then
+    if [[ -f "${legacy_registry_abs}" ]]; then
+      cp -a "${legacy_registry_abs}" "${plugin_registry_abs}" 2>/dev/null || true
+      echo "[switch-release] plugin registry migrated: ${legacy_registry_abs} -> ${plugin_registry_abs}"
+    else
+      printf '{}\n' > "${plugin_registry_abs}"
+    fi
+  fi
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}" "$(dirname "${plugin_registry_abs}")"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
+  chmod 0644 "${plugin_registry_abs}"
+
+  if grep -Eq '^[[:space:]]*installed_dir[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.plugin-installed.XXXXXX")"
+    awk -v val="${plugin_installed_abs}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*installed_dir[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "installed_dir: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key plugin.installed_dir not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  if grep -Eq '^[[:space:]]*registry_file[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.plugin-registry.XXXXXX")"
+    awk -v val="${plugin_registry_abs}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*registry_file[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "registry_file: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key plugin.registry_file not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime plugin paths synced: installed_dir=${plugin_installed_abs} registry_file=${plugin_registry_abs}"
+}
+
+normalize_plugin_runtime_artifacts() {
+  local plugin_installed_abs="${PLUGIN_RUNTIME_ROOT}/installed"
+  local plugin_registry_abs="${PLUGIN_RUNTIME_ROOT}/registry.json"
+
+  if [[ ! -d "${plugin_installed_abs}" ]]; then
+    echo "[switch-release] warning: plugin installed dir missing, skip artifact normalize: ${plugin_installed_abs}" >&2
+    return
+  fi
+
+  # 统一属主，避免切换后插件目录落成 root 导致运行用户不可读/不可执行。
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}"
+  if [[ -f "${plugin_registry_abs}" ]]; then
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
+    chmod 0644 "${plugin_registry_abs}"
+  fi
+
+  # 给插件后端可执行产物补执行位（migrate/plugin 等）。
+  while IFS= read -r -d '' bin_dir; do
+    find "${bin_dir}" -maxdepth 1 -type f -exec chmod 0755 {} \;
+  done < <(find "${plugin_installed_abs}" -type d -path '*/backend/bin' -print0)
+
+  echo "[switch-release] plugin runtime artifacts normalized under ${plugin_installed_abs}"
+}
+
+sync_runtime_config_version() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local escaped_version
+  local quoted_version
+  local tmp_file
+  escaped_version="${TARGET_REF//\\/\\\\}"
+  escaped_version="${escaped_version//\"/\\\"}"
+  quoted_version="\"${escaped_version}\""
+  tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.switch.XXXXXX")"
+
+  if grep -Eq '^[[:space:]]*version[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    awk -v version_value="${quoted_version}" '
+      BEGIN { updated = 0 }
+      /^[[:space:]]*version[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "version: " version_value
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+  else
+    {
+      printf 'version: %s\n' "${quoted_version}"
+      cat "${RUNTIME_CONFIG_PATH}"
+    } > "${tmp_file}"
+  fi
+
+  mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime config version synced: ${RUNTIME_CONFIG_PATH} => ${TARGET_REF}"
+}
+
 rollback() {
   echo "[switch-release] rollback start"
   if [[ -n "$PREV_BACKEND" ]]; then
@@ -468,6 +642,10 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+sync_http_proxy_base_env
+sync_runtime_plugin_paths
+normalize_plugin_runtime_artifacts
+sync_runtime_config_version
 set_setup_reentry_env
 
 if [[ -d "$TARGET_SYSTEMD" ]]; then

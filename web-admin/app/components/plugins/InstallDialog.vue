@@ -339,6 +339,15 @@ function notifyMenuRefresh() {
   menuRefreshToken.value += 1;
 }
 
+function isAlreadyInstalledConflict(error: any): boolean {
+  const message = String(error?.message || "").toLowerCase();
+  const status = Number(error?.status || error?.statusCode || error?.cause?.status || 0);
+  return (
+    status === 409 &&
+    (message.includes("already_exists") || message.includes("already installed"))
+  );
+}
+
 async function confirmInstall() {
   // 检查是否有有效的安装来源
   if (state.installMode === "远程URL" && !state.url) {
@@ -419,6 +428,15 @@ async function confirmInstall() {
     close();
   } catch (error: any) {
     console.error("插件安装失败:", error);
+    if (isAlreadyInstalledConflict(error)) {
+      toast.add({
+        title: "已安装同版本",
+        description: "该版本已存在。可勾选“强制覆盖同版本(Force)”后重试，或先卸载旧版本。",
+        color: "warning",
+      });
+      notifyMenuRefresh();
+      return;
+    }
     toast.add({
       title: "安装失败",
       description: error?.message || "插件安装过程中发生错误，请重试",

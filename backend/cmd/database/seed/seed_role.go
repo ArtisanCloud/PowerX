@@ -2,13 +2,15 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
-// SeedGrantDefaultRolesForTenant：为指定租户把权限授予给内置角色（admin=全量，user=只读）
+// SeedGrantDefaultRolesForTenant：为指定租户把权限授予给内置角色（admin=全量，user/readonly=只读）
 func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	roleRepo := infraiam.NewRoleRepository(db)
 	rpRepo := infraiam.NewRolePermissionRepository(db)
@@ -24,6 +26,10 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	user, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_user")
 	if err != nil {
 		return fmt.Errorf("find role_user: %w", err)
+	}
+	readonly, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_readonly")
+	if err != nil {
+		return fmt.Errorf("find role_readonly: %w", err)
 	}
 
 	// 2) 查全量和只读权限 ID（全局 permission 表）
@@ -49,8 +55,11 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		if err := rpRepo.BindPermissions(seedCtx(), user.ID, readIDs...); err != nil {
 			return fmt.Errorf("grant to user: %w", err)
 		}
+		if err := rpRepo.BindPermissions(seedCtx(), readonly.ID, readIDs...); err != nil {
+			return fmt.Errorf("grant to readonly: %w", err)
+		}
 	}
 
-	fmt.Printf("[seed] granted defaults for tenant=%s (admin:%d, user:%d)\n", tenantUUID, len(allIDs), len(readIDs))
+	logger.InfoF(context.Background(), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
 	return nil
 }

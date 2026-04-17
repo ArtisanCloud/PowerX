@@ -2,10 +2,12 @@ package fmt
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"reflect"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 const (
@@ -43,8 +45,6 @@ func dump(data interface{}) {
 		err        error
 	)
 	if data == nil {
-		//fmt.Print("[nil]\r\n")
-
 	} else if reflect.TypeOf(data).Kind() != reflect.String {
 		prettyJson, err = PrettyJson(data)
 
@@ -54,11 +54,11 @@ func dump(data interface{}) {
 	}
 
 	if err != nil {
-		fmt.Printf("convert pretty fmt error:%v \r\n", err)
+		logger.ErrorF(context.Background(), "convert pretty fmt error:%v", err)
 	}
-	fmt.Printf("%+v \r\n", prettyJson)
+	logger.InfoF(context.Background(), "%+v", prettyJson)
 }
 
 func PrintSlice(s []int) {
-	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
+	logger.InfoF(context.Background(), "len=%d cap=%d %v", len(s), cap(s), s)
 }

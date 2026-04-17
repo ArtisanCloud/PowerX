@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func SeedDemoThirdPartySkills(db *gorm.DB) error {
@@ -204,6 +206,6 @@ func SeedDemoThirdPartySkills(db *gorm.DB) error {
 		return fmt.Errorf("upsert demo incident triage skill failed: %w", err)
 	}
 
-	fmt.Println("[seed] demo third-party skills ready: skill.thirdparty.prompt-template@1.0.0, skill.thirdparty.hello-echo@1.0.0, incident-triage@1.0.0")
+	logger.InfoF(context.Background(), "[seed] demo third-party skills ready: skill.thirdparty.prompt-template@1.0.0, skill.thirdparty.hello-echo@1.0.0, incident-triage@1.0.0")
 	return nil
 }

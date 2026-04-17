@@ -54,17 +54,18 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
 		mgr, err := tryGetPluginManager()
 		var list []pmdto.MarketplaceItem
 		var plugs []plugin_mgr.Plugin
 		if err == nil {
-			plugs, err = mgr.List(c)
+			plugs, err = mgr.List(ctx)
 			if err != nil {
 				dto.ResponseError(c, 500, "加载插件失败", err)
 				return
 			}
 		} else {
-			plugs, err = listPluginsFromRegistry(c)
+			plugs, err = listPluginsFromRegistry(ctx)
 			if err != nil {
 				dto.ResponseList(c, []pmdto.MarketplaceItem{}, nil)
 				return
@@ -144,16 +145,17 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
 		mgr, err := tryGetPluginManager()
 		var list []plugin_mgr.Plugin
 		if err == nil {
-			list, err = mgr.List(c)
+			list, err = mgr.List(ctx)
 			if err != nil {
 				dto.ResponseError(c, 500, "加载插件失败", err)
 				return
 			}
 		} else {
-			list, err = listPluginsFromRegistry(c)
+			list, err = listPluginsFromRegistry(ctx)
 			if err != nil {
 				dto.ResponseList(c, []gin.H{}, nil)
 				return

@@ -9,7 +9,9 @@ import (
 
 func TestParseReasoningConfig(t *testing.T) {
 	cfg := parseReasoningConfig(map[string]interface{}{
-		"thinking": true,
+		"thinking":        true,
+		"enable_thinking": false,
+		"thinking_budget": 512,
 		"reasoning": map[string]interface{}{
 			"enabled": true,
 			"effort":  "high",
@@ -24,6 +26,12 @@ func TestParseReasoningConfig(t *testing.T) {
 	}
 	if cfg.Expose != "summary" {
 		t.Fatalf("expected expose=summary, got %s", cfg.Expose)
+	}
+	if cfg.ProviderThink == nil || *cfg.ProviderThink {
+		t.Fatalf("expected enable_thinking=false passthrough")
+	}
+	if cfg.Budget != 512 {
+		t.Fatalf("expected thinking_budget=512, got %d", cfg.Budget)
 	}
 }
 
@@ -49,6 +57,54 @@ func TestApplyReasoningConfig(t *testing.T) {
 	})
 	if len(other.Extra) != 0 {
 		t.Fatalf("expected no passthrough for unsupported provider, got %+v", other.Extra)
+	}
+}
+
+func TestApplyReasoningConfig_DisableThinkingByProvider(t *testing.T) {
+	mc := &aiconfig.ModelConfig{Extra: map[string]any{}}
+	applyReasoningConfig("qwen-cn", mc, map[string]interface{}{
+		"thinking": false,
+	})
+	if mc.Extra["enable_thinking"] != false {
+		t.Fatalf("expected enable_thinking=false, got %+v", mc.Extra["enable_thinking"])
+	}
+	if _, ok := mc.Extra["reasoning"]; ok {
+		t.Fatalf("did not expect reasoning payload when thinking=false")
+	}
+}
+
+func TestApplyReasoningConfig_OllamaThinkingSwitch(t *testing.T) {
+	mc := &aiconfig.ModelConfig{Extra: map[string]any{}}
+	applyReasoningConfig("ollama", mc, map[string]interface{}{
+		"thinking": false,
+	})
+	if mc.Extra["think"] != false {
+		t.Fatalf("expected think=false, got %+v", mc.Extra["think"])
+	}
+	if mc.Extra["thinking"] != false {
+		t.Fatalf("expected thinking=false, got %+v", mc.Extra["thinking"])
+	}
+}
+
+func TestApplyReasoningConfig_QwenIntlThinkingSwitchAndBudget(t *testing.T) {
+	mc := &aiconfig.ModelConfig{Extra: map[string]any{}}
+	applyReasoningConfig("qwen-intl", mc, map[string]interface{}{
+		"thinking":        false,
+		"thinking_budget": 256,
+	})
+	if mc.Extra["enable_thinking"] != false {
+		t.Fatalf("expected enable_thinking=false, got %+v", mc.Extra["enable_thinking"])
+	}
+	if mc.Extra["thinking_budget"] != 256 {
+		t.Fatalf("expected thinking_budget=256, got %+v", mc.Extra["thinking_budget"])
+	}
+}
+
+func TestStripThinkingTags(t *testing.T) {
+	in := "<think>\nprivate chain\n</think>\n\n{\"intent\":\"start_new_design\",\"confidence\":0.95}"
+	out := stripThinkingTags(in)
+	if out != "{\"intent\":\"start_new_design\",\"confidence\":0.95}" {
+		t.Fatalf("unexpected stripped output: %q", out)
 	}
 }
 

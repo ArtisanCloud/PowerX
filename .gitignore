@@ -44,6 +44,8 @@ temp/
 .env
 .env.local
 .env.*.local
+config/powerx.env
+config/powerx.env.local
 
 # 构建输出
 dist/

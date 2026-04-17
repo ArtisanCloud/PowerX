@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"google.golang.org/grpc"
 )
 
@@ -35,7 +35,7 @@ func main() {
 	case "validate":
 		assertFlagEnabled("PX_TENANT_RELEASE_MATRIX")
 		_ = buildUpsertRequest(*matrixPath)
-		fmt.Println("✅ matrix validate ok")
+		logger.InfoF(ctx, "✅ matrix validate ok")
 	case "upsert":
 		assertFlagEnabled("PX_TENANT_RELEASE_MATRIX")
 		client, closeFn := dialClient(ctx, *endpoint)
@@ -43,7 +43,7 @@ func main() {
 		req := buildUpsertRequest(*matrixPath)
 		resp, err := client.UpsertReleasePolicy(ctx, req)
 		exitOnErr(err)
-		fmt.Printf("Policy saved: id=%s status=%s\n", resp.GetPolicyId(), resp.GetStatus())
+		logger.InfoF(ctx, "Policy saved: id=%s status=%s", resp.GetPolicyId(), resp.GetStatus())
 	case "publish":
 		assertFlagEnabled("PX_KNOWLEDGE_GRAY_RELEASE")
 		client, closeFn := dialClient(ctx, *endpoint)
@@ -56,7 +56,7 @@ func main() {
 			RequestedBy: *requestedBy,
 		})
 		exitOnErr(err)
-		fmt.Printf("Release published: releaseId=%s batchToken=%s tenants=%v\n", resp.GetReleaseId(), resp.GetBatchToken(), resp.GetTenants())
+		logger.InfoF(ctx, "Release published: releaseId=%s batchToken=%s tenants=%v", resp.GetReleaseId(), resp.GetBatchToken(), resp.GetTenants())
 	case "promote":
 		assertFlagEnabled("PX_KNOWLEDGE_GRAY_RELEASE")
 		client, closeFn := dialClient(ctx, *endpoint)
@@ -72,7 +72,7 @@ func main() {
 			RequestedBy: *requestedBy,
 		})
 		exitOnErr(err)
-		fmt.Printf("Batch promoted: state=%s nextToken=%s tenants=%v coverage=%.2f\n", resp.GetState(), resp.GetNextBatchToken(), resp.GetTenants(), resp.GetTenantCoverage())
+		logger.InfoF(ctx, "Batch promoted: state=%s nextToken=%s tenants=%v coverage=%.2f", resp.GetState(), resp.GetNextBatchToken(), resp.GetTenants(), resp.GetTenantCoverage())
 	case "rollback":
 		assertFlagEnabled("PX_KNOWLEDGE_GRAY_RELEASE")
 		assertFlagEnabled("PX_KNOWLEDGE_RELEASE_GUARD")
@@ -87,18 +87,18 @@ func main() {
 			RequestedBy: *requestedBy,
 		})
 		exitOnErr(err)
-		fmt.Printf("Rollback completed: status=%s\n", resp.GetStatus())
+		logger.InfoF(ctx, "Rollback completed: status=%s", resp.GetStatus())
 	case "export-report":
 		printReport(*releaseReport, *aggregateReport)
 	default:
-		log.Fatalf("unknown cmd %s", *cmd)
+		fatalf("unknown cmd %s", *cmd)
 	}
 }
 
 func dialClient(ctx context.Context, endpoint string) (knowledgev1.KnowledgeSpaceAdminServiceClient, func()) {
 	conn, err := grpc.DialContext(ctx, endpoint, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("dial gRPC failed: %v", err)
+		fatalf("dial gRPC failed: %v", err)
 	}
 	return knowledgev1.NewKnowledgeSpaceAdminServiceClient(conn), func() { _ = conn.Close() }
 }
@@ -106,7 +106,7 @@ func dialClient(ctx context.Context, endpoint string) (knowledgev1.KnowledgeSpac
 func buildUpsertRequest(matrixPath string) *knowledgev1.UpsertReleasePolicyRequest {
 	data, err := os.ReadFile(matrixPath)
 	if err != nil {
-		log.Fatalf("read matrix failed: %v", err)
+		fatalf("read matrix failed: %v", err)
 	}
 	var payload struct {
 		MatrixVersion string   `json:"matrixVersion"`
@@ -120,7 +120,7 @@ func buildUpsertRequest(matrixPath string) *knowledgev1.UpsertReleasePolicyReque
 		CreatedBy  string            `json:"createdBy"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
-		log.Fatalf("parse matrix failed: %v", err)
+		fatalf("parse matrix failed: %v", err)
 	}
 	req := &knowledgev1.UpsertReleasePolicyRequest{
 		MatrixVersion: payload.MatrixVersion,
@@ -146,7 +146,7 @@ func assertFlagEnabled(flag string) {
 	}
 	value = strings.ToLower(value)
 	if value == "0" || value == "false" || value == "disabled" || value == "off" || value == "no" {
-		log.Fatalf("feature flag disabled: %s", flag)
+		fatalf("feature flag disabled: %s", flag)
 	}
 }
 
@@ -155,18 +155,18 @@ func printReport(releasePath, aggregatePath string) {
 	aggregatePath = strings.TrimSpace(aggregatePath)
 	if releasePath != "" {
 		if data, err := os.ReadFile(releasePath); err == nil {
-			fmt.Println("--- knowledge-release.json ---")
-			fmt.Println(string(data))
+			logger.InfoF(context.Background(), "--- knowledge-release.json ---")
+			logger.InfoF(context.Background(), "%s", string(data))
 		} else {
-			fmt.Printf("[warn] cannot read %s: %v\n", releasePath, err)
+			logger.WarnF(context.Background(), "[warn] cannot read %s: %v", releasePath, err)
 		}
 	}
 	if aggregatePath != "" {
 		if data, err := os.ReadFile(aggregatePath); err == nil {
-			fmt.Println("--- knowledge-update.json ---")
-			fmt.Println(string(data))
+			logger.InfoF(context.Background(), "--- knowledge-update.json ---")
+			logger.InfoF(context.Background(), "%s", string(data))
 		} else {
-			fmt.Printf("[warn] cannot read %s: %v\n", aggregatePath, err)
+			logger.WarnF(context.Background(), "[warn] cannot read %s: %v", aggregatePath, err)
 		}
 	}
 }
@@ -189,12 +189,17 @@ func splitAlerts(raw string) []string {
 
 func ensure(ok bool, msg string) {
 	if !ok {
-		log.Fatalf("%s", msg)
+		fatalf("%s", msg)
 	}
 }
 
 func exitOnErr(err error) {
 	if err != nil {
-		log.Fatalf("command failed: %v", err)
+		fatalf("command failed: %v", err)
 	}
+}
+
+func fatalf(format string, args ...any) {
+	logger.ErrorF(context.Background(), format, args...)
+	os.Exit(1)
 }

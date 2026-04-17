@@ -1,6 +1,10 @@
 package event_bus
 
-import "fmt"
+import (
+	"context"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+)
 
 // InitEventBus 订阅全局事件（示例 plugin 行为）
 func InitEventBus(cfg *Config) error {
@@ -18,7 +22,7 @@ func InitEventBus(cfg *Config) error {
 	// 订阅认证成功事件
 	Subscribe("auth_succeeded", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			fmt.Printf("[plugin] auth_succeeded: tenant_uuid=%v subject=%v platform=%v trace_id=%v scope=%v\n",
+			logger.InfoF(context.Background(), "[plugin] auth_succeeded: tenant_uuid=%v subject=%v platform=%v trace_id=%v scope=%v",
 				payload["tenant_uuid"], payload["subject"], payload["platform"], payload["trace_id"], payload["scope"])
 		}
 		return nil
@@ -27,7 +31,7 @@ func InitEventBus(cfg *Config) error {
 	// 订阅流程完成事件
 	Subscribe("flow_completed", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			fmt.Printf("[plugin] flow_completed: tenant_uuid=%v flow=%v subject=%v trace_id=%v\n",
+			logger.InfoF(context.Background(), "[plugin] flow_completed: tenant_uuid=%v flow=%v subject=%v trace_id=%v",
 				payload["tenant_uuid"], payload["flow_name"], payload["subject"], payload["trace_id"])
 		}
 		return nil

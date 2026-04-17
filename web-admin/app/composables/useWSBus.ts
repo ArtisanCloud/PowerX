@@ -52,6 +52,20 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
     return appendAuth(wsPath);
   }
   if (wsPath.startsWith("/")) {
+    // 开发态优先直连 wsUpstream，避免 dev server 代理 WS 时出现“握手成功但无业务帧”。
+    if (import.meta.dev && (upstream.startsWith("ws://") || upstream.startsWith("wss://"))) {
+      try {
+        const u = new URL(upstream);
+        if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
+          const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+          return appendAuth(`${protocol}//${location.host}${wsPath}`);
+        }
+        const base = upstream.replace(/\/+$/, "");
+        return appendAuth(`${base}${wsPath}`);
+      } catch {
+        // ignore: fallback below
+      }
+    }
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     return appendAuth(`${protocol}//${location.host}${wsPath}`);
   }
@@ -134,7 +148,7 @@ const scheduleReconnect = (token: string | null) => {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     reconnectAttempts += 1;
-    ensureConnection(token, resolveTenantUUIDForRequest());
+    ensureConnection(token, activeTenant || resolveTenantUUIDForRequest());
   }, delay);
 };
 
@@ -190,6 +204,11 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     try {
       const env = JSON.parse(String(evt.data || "")) as WSBusEnvelope;
       if (!env || !env.type) return;
+      if (env.type === WS_BUS_TYPE.ERROR) {
+        const payload = normalizePayload(env.payload) as any;
+        wsError.value = String(payload?.message || "订阅失败");
+        return;
+      }
       if (env.type === WS_BUS_TYPE.EVENT && env.topic && subscriptions.has(env.topic)) {
         const handlers = Array.from(subscriptions.get(env.topic) || []);
         const payload = normalizePayload(env.payload);
@@ -210,12 +229,20 @@ export const useWSBus = () => {
   const toast = useToast();
   const auth = useAuth();
   const me = useMe();
+  const tokenCookie = useCookie<string | null>("token", {
+    sameSite: "lax",
+    path: "/",
+  });
   const token = computed(() => {
     const fresh = auth.getToken();
+    const cookieToken = String(tokenCookie.value || "").trim();
     if (fresh && fresh !== auth.token.value) {
       auth.token.value = fresh;
     }
-    return fresh || auth.token.value;
+    if (!fresh && cookieToken && cookieToken !== auth.token.value) {
+      auth.token.value = cookieToken;
+    }
+    return fresh || auth.token.value || cookieToken || null;
   });
   const getTenantForConnection = () => me.currentTenantUuid.value || resolveTenantUUIDForRequest();
 
@@ -264,11 +291,11 @@ export const useWSBus = () => {
     }
   }
 
-  const connect = () => {
+  const connect = (tenantOverride?: string | null) => {
     if (!hasActiveSubscriptions()) return;
     reconnectAttempts = 0;
     allowReconnect = true;
-    const tenantNow = getTenantForConnection();
+    const tenantNow = String(tenantOverride || "").trim() || getTenantForConnection();
     activeTenant = tenantNow || null;
     ensureConnection(token.value || null, tenantNow);
   };
@@ -289,7 +316,7 @@ export const useWSBus = () => {
       subscriptions.set(topic, new Set());
     }
     subscriptions.get(topic)!.add(handler);
-    connect();
+    connect(activeTenant);
     sendCommand({ type: WS_BUS_CMD.SUBSCRIBE, topic, req_id: reqId });
     return () => {
       unsubscribe(topic, handler, reqId);

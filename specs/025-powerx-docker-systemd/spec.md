@@ -124,6 +124,7 @@
 - **FR-021**: 系统在未安装状态必须执行全局访问硬拦截，仅放行 setup/health/静态资源，其他 API 必须返回统一错误码。
 - **FR-022**: 安装完成流程必须采用“两阶段闭环”：先配置与连通性校验，再执行迁移初始化并原子切换到 `installed`。
 - **FR-023**: 安装流程写入的运行配置必须落到外置运行目录（`/etc/powerx`），并可被 systemd/docker 直接消费。
+- **FR-023a**: Docker 部署必须支持宿主机双层映射：配置层（`/etc/powerx`）与数据层（`/var/lib/powerx`），保证容器重建后配置与数据可持续。
 - **FR-025**: 系统在 `install.status=installed` 时必须禁止 setup 写操作（`setup/config`、`setup/provision`、`setup/complete`），避免已安装实例被误重置。
 - **FR-026**: 系统必须区分“首次安装流程”与“版本升级流程”：已安装实例升级默认仅切换代码版本，数据库变更通过显式 `migrate/seed` 通道执行，不依赖 `/setup`。
 - **FR-024**: 前端必须将“系统安装引导”与“AI 功能引导”解耦，未安装状态不得出现 AI onboarding 弹层。

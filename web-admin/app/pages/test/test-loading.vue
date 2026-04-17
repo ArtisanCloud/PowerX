@@ -78,23 +78,23 @@ const debugInfo = computed(() => ({
 }));
 
 function testShow() {
-  console.log("显示 Loading");
+  console.info("显示 Loading");
   gl.show({ message: "测试显示 Loading..." });
 
   // 3秒后自动关闭
   setTimeout(() => {
     gl.hide();
-    console.log("自动关闭 Loading");
+    console.info("自动关闭 Loading");
   }, 3000);
 }
 
 function testHide() {
-  console.log("隐藏 Loading");
+  console.info("隐藏 Loading");
   gl.hide();
 }
 
 function testLock() {
-  console.log("锁屏测试开始");
+  console.info("锁屏测试开始");
   gl.show({
     lock: true,
     message: "锁屏测试中...",
@@ -102,14 +102,14 @@ function testLock() {
   });
 
   setTimeout(() => {
-    console.log("锁屏测试结束");
+    console.info("锁屏测试结束");
     gl.hide();
     gl.unlock();
   }, 3000);
 }
 
 function testCountdown() {
-  console.log("倒计时测试开始");
+  console.info("倒计时测试开始");
   let countdown = 5;
 
   gl.show({
@@ -127,14 +127,14 @@ function testCountdown() {
       setTimeout(() => {
         gl.hide();
         gl.unlock();
-        console.log("倒计时测试结束");
+        console.info("倒计时测试结束");
       }, 500);
     }
   }, 1000);
 }
 
 function testProgress() {
-  console.log("进度条测试开始");
+  console.info("进度条测试开始");
   let progress = 0;
 
   gl.show({
@@ -148,11 +148,11 @@ function testProgress() {
       progress = 100;
       gl.setProgress(100);
       gl.setMessage("上传完成！");
-      console.log("进度条测试完成");
+      console.info("进度条测试完成");
 
       setTimeout(() => {
         gl.hide();
-        console.log("进度条测试结束");
+        console.info("进度条测试结束");
       }, 1000);
 
       clearInterval(timer);
@@ -165,7 +165,7 @@ function testProgress() {
 
 // 页面加载时的调试信息
 onMounted(() => {
-  console.log("简单测试页面已加载");
-  console.log("GlobalLoading 状态:", debugInfo.value);
+  console.info("简单测试页面已加载");
+  console.info("GlobalLoading 状态:", debugInfo.value);
 });
 </script>

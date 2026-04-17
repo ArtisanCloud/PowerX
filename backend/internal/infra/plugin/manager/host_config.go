@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 const hostValuesFileName = "host-values.yaml"
@@ -41,7 +43,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	if bindOverride == "" {
 		delete(selected, "POWERX_HTTP_ADDR")
 	}
-	fmt.Printf("[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q\n",
+	logger.InfoF(context.Background(), "[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q",
 		man.ID, cfgDir, bindOverride, selected["POWERX_HTTP_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件
@@ -91,7 +93,16 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		if dbSection.UserHost != "" {
 			setNestedValue(structured, []string{"database", "user_host"}, dbSection.UserHost)
 		}
-		setNestedValue(structured, []string{"database", "managed"}, true)
+		setNestedValue(structured, []string{"database", "managed"}, dbSection.Managed)
+		// 共享库回退模式必须显式剔除隔离字段，避免 values.example 里的默认值（例如 public）被误带入清理流程。
+		if !dbSection.Managed {
+			deleteNestedValue(structured, []string{"database", "schema"})
+			deleteNestedValue(structured, []string{"database", "search_path"})
+			deleteNestedValue(structured, []string{"database", "user"})
+			deleteNestedValue(structured, []string{"database", "password"})
+			deleteNestedValue(structured, []string{"database", "user_host"})
+			delete(selected, "POWERX_PLUGIN_DB_SCHEMA")
+		}
 	}
 
 	// Server 部分：仅在宿主显式指定时覆盖 bind_addr，避免固定端口
@@ -123,6 +134,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
+	applyDelegatedHostContract(selected, structured)
 	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
@@ -176,6 +188,88 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		GeneratedAt: now,
 		Spec:        stripHostConfigMeta(structured),
 	}, nil
+}
+
+// applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
+// Some plugin runtimes prefer reading host-values.yaml over process env.
+func applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
+	if selected == nil {
+		return
+	}
+	// 安装产物在宿主内运行，默认按 delegated_proxy 契约写入 taskbus provider=host。
+	selected["TASKBUS_PROVIDER"] = "host"
+	selected["taskbus_provider"] = "host"
+	selected["POWERX_TASKBUS_PROVIDER"] = "host"
+	selected["EVENT_BRIDGE_TASKBUS_PROVIDER"] = "host"
+
+	if structured == nil {
+		return
+	}
+	setNestedValue(structured, []string{"taskbus_provider"}, "host")
+	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
+}
+
+// ensureDelegatedHostContractForEnable repairs stale host-values before process start.
+// This keeps old installed versions self-healing without forcing reinstall.
+func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin) error {
+	if p == nil {
+		return nil
+	}
+	hvPath := strings.TrimSpace(p.Paths.HostValuesFile)
+
+	hc := p.HostConfig
+	if hc == nil && hvPath != "" {
+		if loaded, err := loadHostConfig(hvPath); err == nil && loaded != nil {
+			hc = loaded
+			p.HostConfig = loaded
+		}
+	}
+	if hc == nil {
+		hc = &plugin_mgr.HostConfig{}
+		p.HostConfig = hc
+	}
+
+	values := cloneStringMap(hc.Values)
+	spec := cloneAnyMap(hc.Spec)
+	applyDelegatedHostContract(values, spec)
+	hc.Values = values
+	hc.Spec = spec
+
+	if hvPath == "" {
+		hc.ValuesFile = hvPath
+		return nil
+	}
+
+	doc := map[string]any{}
+	if raw, err := os.ReadFile(hvPath); err == nil && len(raw) > 0 {
+		_ = yaml.Unmarshal(raw, &doc)
+	}
+	if doc == nil {
+		doc = map[string]any{}
+	}
+
+	envDoc := map[string]any{}
+	if m0, ok := doc["env"].(map[string]any); ok {
+		envDoc = cloneAnyMap(m0)
+	}
+	for k, v := range values {
+		envDoc[k] = v
+	}
+	doc["env"] = envDoc
+	setNestedValue(doc, []string{"taskbus_provider"}, "host")
+	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
+
+	data, err := yaml.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(hvPath, data, 0o640); err != nil {
+		return err
+	}
+
+	hc.ValuesFile = hvPath
+	hc.Spec = stripHostConfigMeta(cloneAnyMap(doc))
+	return nil
 }
 
 func loadHostConfig(path string) (*plugin_mgr.HostConfig, error) {
@@ -455,6 +549,7 @@ type databaseSection struct {
 	Password   string
 	UserHost   string
 	SearchPath string
+	Managed    bool
 }
 
 func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, error) {
@@ -480,14 +575,12 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 
 	db, cleanup, err := connectAdminDB(dbCfg)
 	if err != nil {
-		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): connect admin db failed: %v\n", pluginID, err)
-		return buildSharedDatabaseSection(dbCfg, driver), nil
+		return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: connect admin db: %w", pluginID, err)
 	}
 	defer cleanup()
 
 	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
-		fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure schema failed: %v\n", pluginID, err)
-		return buildSharedDatabaseSection(dbCfg, driver), nil
+		return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure schema %s: %w", pluginID, schemaName, err)
 	}
 
 	section := &databaseSection{
@@ -495,20 +588,19 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 		Schema:   schemaName,
 		User:     userName,
 		Password: password,
+		Managed:  true,
 	}
 
 	switch driver {
 	case "postgres":
 		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
-			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure postgres user failed: %v\n", pluginID, err)
-			return buildSharedDatabaseSection(dbCfg, driver), nil
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure postgres user %s: %w", pluginID, section.User, err)
 		}
 		section.DSN = buildPostgresPluginDSN(dbCfg, section)
 		section.SearchPath = section.Schema
 	case "mysql":
 		if err := ensureMySQLUser(db, section); err != nil {
-			fmt.Printf("[plugin-host-config] plugin=%s db-isolation fallback(shared): ensure mysql user failed: %v\n", pluginID, err)
-			return buildSharedDatabaseSection(dbCfg, driver), nil
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure mysql user %s: %w", pluginID, section.User, err)
 		}
 		section.DSN = buildMySQLPluginDSN(dbCfg, section)
 	default:
@@ -516,19 +608,6 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 
 	return section, nil
-}
-
-func buildSharedDatabaseSection(cfg corexdb.DatabaseConfig, driver string) *databaseSection {
-	section := &databaseSection{
-		Driver: strings.TrimSpace(driver),
-		DSN:    makeDatabaseDSN(cfg),
-	}
-	if section.Driver == "" {
-		section.Driver = normalizeDriver(cfg.Driver)
-	}
-	section.User = strings.TrimSpace(cfg.UserName)
-	section.Password = cfg.Password
-	return section
 }
 
 func connectAdminDB(cfg corexdb.DatabaseConfig) (*gorm.DB, func(), error) {
@@ -867,6 +946,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 	if hostCfg == nil || m.opts.CoreConfig == nil {
 		return nil
 	}
+	if !m.opts.CoreConfig.Plugin.AllowDestructiveDBCleanup {
+		return nil
+	}
 	if hostCfg.Spec == nil {
 		return nil
 	}
@@ -905,6 +987,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 	switch driver {
 	case "postgres":
 		if schema != "" {
+			if err := m.assertPluginSchemaSafeToDrop(schema); err != nil {
+				return err
+			}
 			stmt := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", quoteIdentifier(driver, schema))
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
@@ -930,6 +1015,9 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 		}
 	case "mysql":
 		if schema != "" {
+			if err := m.assertPluginSchemaSafeToDrop(schema); err != nil {
+				return err
+			}
 			stmt := fmt.Sprintf("DROP DATABASE IF EXISTS %s", quoteIdentifier(driver, schema))
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
@@ -949,6 +1037,25 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 		}
 	default:
 		return fmt.Errorf("unsupported database driver for cleanup: %s", driver)
+	}
+	return nil
+}
+
+func (m *managerImpl) assertPluginSchemaSafeToDrop(schema string) error {
+	norm := strings.ToLower(strings.TrimSpace(schema))
+	if norm == "" {
+		return fmt.Errorf("refuse to drop schema/database: empty schema")
+	}
+	// 保护 PostgreSQL 系统/默认 schema，避免误删宿主核心数据。
+	if norm == "public" || norm == "information_schema" || norm == "pg_catalog" || strings.HasPrefix(norm, "pg_") {
+		return fmt.Errorf("refuse to drop protected schema/database: %s", schema)
+	}
+	if m != nil && m.opts.CoreConfig != nil {
+		coreDB := strings.ToLower(strings.TrimSpace(m.opts.CoreConfig.Database.Database))
+		// 在 MySQL 场景下 schema 字段承载 database 名称，也保护主库名。
+		if coreDB != "" && norm == coreDB {
+			return fmt.Errorf("refuse to drop core schema/database: %s", schema)
+		}
 	}
 	return nil
 }
@@ -1003,6 +1110,24 @@ func setNestedValue(root map[string]any, path []string, value any) {
 		if !ok {
 			next = map[string]any{}
 			current[key] = next
+		}
+		current = next
+	}
+}
+
+func deleteNestedValue(root map[string]any, path []string) {
+	if len(path) == 0 || root == nil {
+		return
+	}
+	current := root
+	for i, key := range path {
+		if i == len(path)-1 {
+			delete(current, key)
+			return
+		}
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			return
 		}
 		current = next
 	}

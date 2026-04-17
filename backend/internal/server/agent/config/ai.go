@@ -2,6 +2,9 @@ package config
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -109,8 +112,13 @@ type AIRouting struct {
 func (c *AIConfig) SetDefaults() {
 	// Catalog
 	if len(c.Catalog.Dirs) == 0 {
-		// 默认使用仓库内置的 provider 目录，避免忘记配置时 registry 为空
-		c.Catalog.Dirs = []string{"./config/agents/providers.d"}
+		// 优先使用发行目录（POWERX_LINKS_ROOT/backend/config/...），
+		// 未配置时回退到开发态相对路径。
+		if linksRoot := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); linksRoot != "" {
+			c.Catalog.Dirs = []string{filepath.Join(linksRoot, "backend", "config", "agents", "providers.d")}
+		} else {
+			c.Catalog.Dirs = []string{"./config/agents/providers.d"}
+		}
 	}
 	// Defaults.LLM
 	if c.Defaults.LLM.Temperature == 0 {

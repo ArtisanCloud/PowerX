@@ -32,7 +32,7 @@ const loginForm = reactive({
 const handleLogin = async () => {
   try {
     const response = await userService.login(loginForm);
-    console.log('登录成功:', response);
+    console.info('登录成功:', response);
     
     // 保存 token
     const authToken = useCookie('auth_token');
@@ -81,7 +81,7 @@ const apiClient = useApiClient();
 const fetchData = async () => {
   try {
     const response = await apiClient.get('/custom-endpoint');
-    console.log(response);
+    console.info(response);
   } catch (error) {
     console.error(error);
   }
@@ -91,7 +91,7 @@ const fetchData = async () => {
 const createData = async (data: any) => {
   try {
     const response = await apiClient.post('/custom-endpoint', data);
-    console.log(response);
+    console.info(response);
   } catch (error) {
     console.error(error);
   }
@@ -104,7 +104,7 @@ const uploadFile = async (file: File) => {
   
   try {
     const response = await apiClient.upload('/upload', formData);
-    console.log(response);
+    console.info(response);
   } catch (error) {
     console.error(error);
   }

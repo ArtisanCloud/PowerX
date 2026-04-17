@@ -16,7 +16,7 @@ const copyRequestId = async () => {
         props.connection.currentRequestId.value
       );
       // 可以添加一个 toast 提示
-      console.log("请求ID已复制到剪贴板");
+      console.info("请求ID已复制到剪贴板");
     } catch (error) {
       console.error("复制失败:", error);
     }

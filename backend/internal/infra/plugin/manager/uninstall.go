@@ -11,6 +11,14 @@ import (
 
 // 逻辑卸载：停用（如在用）+ 从注册表移除 + Save
 func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional ...string) error {
+	// 安全默认：UI/常规卸载不执行数据库 destructive 清理。
+	return m.uninstall(ctx, false, id, versionOptional...)
+}
+
+// uninstall 允许调用方控制是否清理由宿主创建的数据库资源。
+// clearDatabase=true: 保持历史行为（卸载时清理 schema/role）
+// clearDatabase=false: 仅停用与注册表移除，不触碰数据库资源
+func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id string, versionOptional ...string) error {
 	if id == "" {
 		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("uninstall"), plugin_mgr.WithMsg("empty plugin id"))
 	}
@@ -50,22 +58,25 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 	}
 
 	// 4) 若删除当前版本，则连带清理该插件所有旧版本
+	allVersions := m.opts.Registry.ListVersions(ctx, id)
 	removeVersions := []string{targetVer}
 	if currentVer != "" && targetVer == currentVer {
-		all := m.opts.Registry.ListVersions(ctx, id)
-		if len(all) > 0 {
-			removeVersions = all
+		if len(allVersions) > 0 {
+			removeVersions = allVersions
 		}
 	}
+	willRemoveAllVersions := len(allVersions) > 0 && len(removeVersions) == len(allVersions)
 
 	// 5) 清理由宿主创建的数据库资源 + 从注册表删除
 	for _, ver := range removeVersions {
 		if pl, ok := m.opts.Registry.GetVersion(ctx, id, ver); ok {
-			if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
-				return plugin_mgr.Wrap(
-					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
-					plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver),
-				)
+			if clearDatabase {
+				if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
+					return plugin_mgr.Wrap(
+						plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
+						plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver),
+					)
+				}
 			}
 		}
 		if err := m.opts.Registry.Remove(ctx, id, ver); err != nil {
@@ -77,6 +88,14 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.save"),
 			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
+	}
+
+	// 6) 完整卸载插件后，回收插件来源权限（幂等）
+	if willRemoveAllVersions && m.opts.PostUninstall != nil {
+		if err := m.opts.PostUninstall(ctx, id); err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.revoke_permissions"),
+				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))
+		}
 	}
 	return nil
 }
@@ -122,7 +141,8 @@ func (m *managerImpl) UninstallAndPurge(ctx context.Context, id string, versionO
 	}
 
 	// 先逻辑卸载
-	if err := m.Uninstall(ctx, id, targetVer); err != nil {
+	// 即便 purge（磁盘产物清理）也不触发数据库 destructive 操作。
+	if err := m.uninstall(ctx, false, id, targetVer); err != nil {
 		return err
 	}
 

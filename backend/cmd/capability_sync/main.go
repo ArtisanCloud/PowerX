@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -34,12 +33,12 @@ func main() {
 
 	cfg, err := config.Load(flags.configPath)
 	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
+		fatalf("加载配置失败: %v", err)
 	}
 	config.GlobalConfig = cfg
 
 	if err := ensureWorkerLogging(cfg, flags.logFile); err != nil {
-		log.Fatalf("初始化日志失败: %v", err)
+		fatalf("初始化日志失败: %v", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -47,7 +46,7 @@ func main() {
 
 	deps, err := bootstrap.BootstrapApp(ctx, cfg)
 	if err != nil {
-		log.Fatalf("初始化核心依赖失败: %v", err)
+		fatalf("初始化核心依赖失败: %v", err)
 	}
 	defer closeDeps(deps)
 
@@ -58,7 +57,7 @@ func main() {
 	})
 
 	if err := runner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		log.Fatalf("Capability Sync Worker 运行失败: %v", err)
+		fatalf("Capability Sync Worker 运行失败: %v", err)
 	}
 }
 
@@ -124,4 +123,9 @@ func closeSQL(db *gorm.DB) {
 	if err = sqlDB.Close(); err != nil {
 		pxlog.Warn(context.Background(), "关闭数据库连接失败: "+err.Error())
 	}
+}
+
+func fatalf(format string, args ...any) {
+	pxlog.ErrorF(context.Background(), format, args...)
+	os.Exit(1)
 }

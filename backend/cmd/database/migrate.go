@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -30,7 +31,7 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 	// - pgvector is conditional on driver=pgvector.
 	if cfg != nil && cfg.FeatureGate.EnableKnowledgeSpace {
 		driver := strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.Driver)
-		fmt.Printf("[migrate] knowledge_space enabled=true vector_store.driver=%q db=%s@%s:%d/%s\n",
+		logger.InfoF(ctx, "[migrate] knowledge_space enabled=true vector_store.driver=%q db=%s@%s:%d/%s",
 			driver,
 			strings.TrimSpace(cfg.Database.UserName),
 			strings.TrimSpace(cfg.Database.Host),
@@ -43,7 +44,7 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 		}
 
 		if driver == "pgvector" {
-			fmt.Printf("[migrate] pgvector migration target=%s.%s\n",
+			logger.InfoF(ctx, "[migrate] pgvector migration target=%s.%s",
 				coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Schema), "public"),
 				coalesce(strings.TrimSpace(cfg.KnowledgeSpace.VectorStore.PgVector.Table), "knowledge_vectors_v1_1536"),
 			)
@@ -90,7 +91,7 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 				if strings.TrimSpace(regclass) == "" {
 					return fmt.Errorf("pgvector 迁移已执行但未发现表：%s.%s（请检查 schema/search_path/权限）", schema, table)
 				}
-				fmt.Printf("[migrate] pgvector table ready: %s\n", strings.TrimSpace(regclass))
+				logger.InfoF(ctx, "[migrate] pgvector table ready: %s", strings.TrimSpace(regclass))
 			}
 		}
 

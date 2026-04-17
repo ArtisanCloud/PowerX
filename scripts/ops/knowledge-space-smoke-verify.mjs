@@ -37,11 +37,11 @@ async function main() {
   }
 
   if (!args.quiet) {
-    console.log('✅ smoke verify ok')
-    console.log(`- ${rel(knowledgeSpacesPath)}`)
-    console.log(`- ${rel(knowledgeUpdatePath)}`)
-    console.log(`- ${rel(decayPath)}`)
-    console.log(`- ${rel(releasePath)}`)
+    console.info('✅ smoke verify ok')
+    console.info(`- ${rel(knowledgeSpacesPath)}`)
+    console.info(`- ${rel(knowledgeUpdatePath)}`)
+    console.info(`- ${rel(decayPath)}`)
+    console.info(`- ${rel(releasePath)}`)
   }
 }
 

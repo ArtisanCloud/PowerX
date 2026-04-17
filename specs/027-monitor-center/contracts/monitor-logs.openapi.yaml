@@ -1,0 +1,370 @@
+openapi: 3.0.3
+info:
+  title: Monitor Logs Admin API
+  version: 0.1.0
+  description: 监控中心日志能力接口（Root 管理员）
+servers:
+  - url: /api/v1
+paths:
+  /admin/monitor/logs/config:
+    get:
+      summary: 查询日志驱动配置与能力矩阵
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogConfigResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/monitor/logs/query:
+    get:
+      summary: 按条件查询日志
+      parameters:
+        - in: query
+          name: trace_id
+          schema:
+            type: string
+        - in: query
+          name: job_id
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: policy_id
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: keyword
+          schema:
+            type: string
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogQueryResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/monitor/logs/retention/runs:
+    get:
+      summary: 查询日志保留任务最近执行记录
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionRunsResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/monitor/logs/retention/run:
+    post:
+      summary: 立即执行一次日志保留清理任务
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionRunTriggerResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/monitor/logs/retention/policy:
+    get:
+      summary: 查询日志保留策略
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      summary: 更新日志保留策略
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionPolicyUpdateRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionPolicyResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        error: { type: string }
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    LogCapabilities:
+      type: object
+      properties:
+        supports_label_query: { type: boolean }
+        supports_trace_query: { type: boolean }
+        supports_job_query: { type: boolean }
+        supports_policy_query: { type: boolean }
+        supports_grafana_link: { type: boolean }
+        history_limited: { type: boolean }
+        limitation_note: { type: string }
+
+    LogConfigData:
+      type: object
+      properties:
+        driver:
+          type: string
+          enum: [loki, file, stdio]
+        capabilities:
+          $ref: '#/components/schemas/LogCapabilities'
+        grafana_base_url:
+          type: string
+          description: 当 supports_grafana_link=false 时可为空
+
+    LogConfigResponse:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: success }
+        data:
+          $ref: '#/components/schemas/LogConfigData'
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    LogEntry:
+      type: object
+      properties:
+        ts:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        module: { type: string }
+        trace_id: { type: string }
+        job_id: { type: integer, format: int64 }
+        policy_id: { type: integer, format: int64 }
+        message: { type: string }
+        raw: { type: string }
+
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+
+    LogQueryData:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        pagination:
+          $ref: '#/components/schemas/PageMeta'
+        query_meta:
+          type: object
+          properties:
+            driver:
+              type: string
+              enum: [loki, file, stdio]
+            degraded:
+              type: boolean
+            hint:
+              type: string
+
+    LogQueryResponse:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: success }
+        data:
+          $ref: '#/components/schemas/LogQueryData'
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    RetentionRun:
+      type: object
+      properties:
+        run_id: { type: string }
+        triggered_by: { type: string }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        status: { type: string, enum: [success, failed] }
+        deleted_files: { type: integer, format: int64 }
+        deleted_rows: { type: integer, format: int64 }
+        sources:
+          type: array
+          items: { type: string }
+        error_summary: { type: string }
+        duration_ms: { type: integer, format: int64 }
+
+    RetentionRunsData:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetentionRun'
+        next_run: { type: string, format: date-time }
+        enabled: { type: boolean }
+        cron: { type: string }
+        timezone: { type: string }
+
+    RetentionRunsResponse:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: success }
+        data:
+          $ref: '#/components/schemas/RetentionRunsData'
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    RetentionRunTriggerData:
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/RetentionRun'
+
+    RetentionRunTriggerResponse:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: success }
+        data:
+          $ref: '#/components/schemas/RetentionRunTriggerData'
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    RetentionDBTable:
+      type: object
+      properties:
+        name: { type: string }
+        time_column: { type: string }
+        retention_days: { type: integer }
+
+    RetentionPolicy:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        cron: { type: string }
+        timezone: { type: string }
+        default_retention_days: { type: integer }
+        file_paths:
+          type: array
+          items: { type: string }
+        batch_size: { type: integer }
+        max_delete_rows_per_run: { type: integer }
+        db_tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetentionDBTable'
+
+    RetentionPolicyData:
+      type: object
+      properties:
+        policy:
+          $ref: '#/components/schemas/RetentionPolicy'
+
+    RetentionPolicyResponse:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: success }
+        data:
+          $ref: '#/components/schemas/RetentionPolicyData'
+        timestamp: { type: integer }
+        request_id: { type: string }
+
+    RetentionPolicyUpdateRequest:
+      type: object
+      properties:
+        policy:
+          $ref: '#/components/schemas/RetentionPolicy'
+
+  responses:
+    BadRequest:
+      description: bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalError:
+      description: internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

@@ -641,11 +641,6 @@ func (h *APIKeyAdminHandler) CreateAPIKeyProfile(c *gin.Context) {
 }
 
 func (h *APIKeyAdminHandler) UpdateAPIKeyProfile(c *gin.Context) {
-	profileID, err := strconv.ParseUint(strings.TrimSpace(c.Param("profile_id")), 10, 64)
-	if err != nil || profileID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid profile_id", err))
-		return
-	}
 	var req updateAPIKeyProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -657,12 +652,12 @@ func (h *APIKeyAdminHandler) UpdateAPIKeyProfile(c *gin.Context) {
 		return
 	}
 
-	item, err := h.profiles.GetById(c.Request.Context(), profileID, nil)
+	item, err := h.resolveAPIKeyProfile(c.Request.Context(), canonical, c.Param("profile_id"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("load api key profile failed", err))
 		return
 	}
-	if item == nil || !strings.EqualFold(strings.TrimSpace(item.TenantUUID), canonical) {
+	if item == nil {
 		dto.RespondErrorFrom(c, dto.NewNotFound("api key profile not found", nil))
 		return
 	}
@@ -753,26 +748,64 @@ func (h *APIKeyAdminHandler) ListAPIKeyPermissionCatalog(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"items": items})
 }
 
-func (h *APIKeyAdminHandler) GetAPIKeyProfilePermissions(c *gin.Context) {
-	profileID, err := strconv.ParseUint(strings.TrimSpace(c.Param("profile_id")), 10, 64)
-	if err != nil || profileID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid profile_id", err))
+func (h *APIKeyAdminHandler) GetPermissionsByAPIKey(c *gin.Context) {
+	canonical, err := h.resolveTenantScope(c, c.Query("tenant_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
+	plainKey := strings.TrimSpace(c.Query("apikey"))
+	if plainKey == "" {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("apikey is required", nil))
+		return
+	}
+	sum := sha256.Sum256([]byte(plainKey))
+	keyHash := hex.EncodeToString(sum[:])
+
+	apiKey, err := h.keys.FindActiveByHash(c.Request.Context(), canonical, keyHash)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("load api key failed", err))
+		return
+	}
+	if apiKey == nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("api key not found", nil))
+		return
+	}
+	perms, err := h.perms.ListByAPIKeyUUID(c.Request.Context(), apiKey.UUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("list api key permissions failed", err))
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"tenant_uuid":  canonical,
+		"apikey_found": true,
+		"key_id":       apiKey.UUID.String(),
+		"profile_id":   apiKey.ProfileID,
+		"key_name":     apiKey.Name,
+		"key_prefix":   apiKey.KeyPrefix,
+		"status":       apiKey.Status,
+		"permissions":  toPermissionResponses(perms),
+		"count":        len(perms),
+	})
+}
+
+func (h *APIKeyAdminHandler) GetAPIKeyProfilePermissions(c *gin.Context) {
 	canonical, err := h.resolveTenantScope(c, "")
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	profile, err := h.profiles.GetById(c.Request.Context(), profileID, nil)
+	profile, err := h.resolveAPIKeyProfile(c.Request.Context(), canonical, c.Param("profile_id"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("load api key profile failed", err))
 		return
 	}
-	if profile == nil || !strings.EqualFold(strings.TrimSpace(profile.TenantUUID), canonical) {
+	if profile == nil {
 		dto.RespondErrorFrom(c, dto.NewNotFound("api key profile not found", nil))
 		return
 	}
+	profileID := profile.ID
 	permissionIDs, err := h.profPerm.ListPermissionIDsOfProfile(c.Request.Context(), profileID)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("list profile permissions failed", err))
@@ -806,11 +839,6 @@ func (h *APIKeyAdminHandler) GetAPIKeyProfilePermissions(c *gin.Context) {
 }
 
 func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
-	profileID, err := strconv.ParseUint(strings.TrimSpace(c.Param("profile_id")), 10, 64)
-	if err != nil || profileID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid profile_id", err))
-		return
-	}
 	var req setAPIKeyProfilePermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -821,15 +849,16 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	profile, err := h.profiles.GetById(c.Request.Context(), profileID, nil)
+	profile, err := h.resolveAPIKeyProfile(c.Request.Context(), canonical, c.Param("profile_id"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("load api key profile failed", err))
 		return
 	}
-	if profile == nil || !strings.EqualFold(strings.TrimSpace(profile.TenantUUID), canonical) {
+	if profile == nil {
 		dto.RespondErrorFrom(c, dto.NewNotFound("api key profile not found", nil))
 		return
 	}
+	profileID := profile.ID
 	if err := h.ensureAPIKeyPermissionTemplates(c.Request.Context()); err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("ensure api key permissions failed", err))
 		return
@@ -905,12 +934,41 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 	_ = apikeycache.InvalidateAll(c.Request.Context())
 	dto.ResponseSuccess(c, gin.H{
 		"profile_id":     profileID,
+		"profile_key":    profile.Key,
 		"permission_ids": validIDs,
 		"added":          toAdd,
 		"removed":        toRemove,
 		"synced_keys":    syncedKeys,
 		"synced_perms":   syncedPermissions,
 	})
+}
+
+func (h *APIKeyAdminHandler) resolveAPIKeyProfile(ctx context.Context, tenantUUID string, profileOrKey string) (*modelsiam.APIKeyProfile, error) {
+	raw := strings.TrimSpace(profileOrKey)
+	if raw == "" {
+		return nil, nil
+	}
+	if profileID, err := strconv.ParseUint(raw, 10, 64); err == nil && profileID > 0 {
+		item, getErr := h.profiles.GetById(ctx, profileID, nil)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if item == nil || !strings.EqualFold(strings.TrimSpace(item.TenantUUID), strings.TrimSpace(tenantUUID)) {
+			return nil, nil
+		}
+		return item, nil
+	}
+	item, err := h.profiles.FindByKey(ctx, strings.TrimSpace(tenantUUID), raw)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if item == nil || !strings.EqualFold(strings.TrimSpace(item.TenantUUID), strings.TrimSpace(tenantUUID)) {
+		return nil, nil
+	}
+	return item, nil
 }
 
 func (h *APIKeyAdminHandler) resolveProfileAPIKeyPermissions(ctx context.Context, profileID uint64) ([]apiKeyPermissionRequest, error) {

@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -17,17 +18,31 @@ type LokiWriter struct {
 	retryCount int
 }
 
-// 新增重试次数参数
 func NewLokiWriter(conf *config.LokiConfig) *LokiWriter {
+	jobName := "powerx"
+	rawURL := ""
+	if conf != nil {
+		if strings.TrimSpace(conf.JobName) != "" {
+			jobName = strings.TrimSpace(conf.JobName)
+		}
+		rawURL = strings.TrimSpace(conf.URL)
+	}
 
 	return &LokiWriter{
-		url:    conf.URL,
-		client: &http.Client{Timeout: 10 * time.Second},
+		url: normalizeLokiPushURL(rawURL),
+		labels: map[string]string{
+			"job": jobName,
+		},
+		client:     &http.Client{Timeout: 10 * time.Second},
+		retryCount: 3,
 	}
 }
 
 // Write 方法实现
 func (w *LokiWriter) Write(p []byte) (n int, err error) {
+	if strings.TrimSpace(w.url) == "" {
+		return 0, fmt.Errorf("failed to send log to Loki: push url is empty")
+	}
 	// 获取当前时间的 Unix 纳秒时间戳
 	timestamp := time.Now().UnixNano()
 
@@ -83,4 +98,16 @@ func (w *LokiWriter) Write(p []byte) (n int, err error) {
 func (w *LokiWriter) Sync() error {
 	// 如果需要处理清理工作，可以在这里做（如连接池关闭等），目前不需要做任何操作
 	return nil
+}
+
+func normalizeLokiPushURL(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		return ""
+	}
+	base = strings.TrimRight(base, "/")
+	if strings.Contains(base, "/loki/api/v1/push") {
+		return base
+	}
+	return base + "/loki/api/v1/push"
 }

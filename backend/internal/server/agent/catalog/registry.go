@@ -1,16 +1,17 @@
 package catalog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -169,7 +170,7 @@ func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
 		wd, _ := os.Getwd()
 		return fmt.Errorf("no provider manifests loaded from dirs=%v (wd=%s)", absDirs, wd)
 	}
-	log.Printf("[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
+	logger.InfoF(context.Background(), "[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
 	return nil
 }
 
@@ -387,14 +388,14 @@ func InitFromAppConfig(cfg CatalogConfig, embedded fs.FS) error {
 	if len(cfg.Dirs) == 0 {
 		cfg.Dirs = []string{"./config/agents/providers.d"}
 	}
-	log.Printf("[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
+	logger.InfoF(context.Background(), "[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
 	reg := NewRegistry()
 	if err := reg.LoadByConfig(cfg, embedded); err != nil {
 		return err
 	}
 	if len(reg.providers) == 0 {
 		wd, _ := os.Getwd()
-		log.Printf("[ai.catalog] warning: registry empty after load (wd=%s)", wd)
+		logger.WarnF(context.Background(), "[ai.catalog] warning: registry empty after load (wd=%s)", wd)
 	}
 	GlobalAIRegister = reg
 
@@ -422,12 +423,31 @@ func expandPath(p string) string {
 		return filepath.Clean(p)
 	}
 	wd, _ := os.Getwd()
-	clean := filepath.Clean(filepath.Join(wd, p))
-	if pathExists(clean) {
-		return clean
+	trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
+	candidates := make([]string, 0, 6)
+	if wd != "" {
+		candidates = append(candidates, filepath.Clean(filepath.Join(wd, p)))
 	}
+	if linksRoot := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); linksRoot != "" {
+		candidates = append(candidates,
+			filepath.Clean(filepath.Join(linksRoot, trim)),
+			filepath.Clean(filepath.Join(linksRoot, "backend", trim)),
+		)
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Clean(filepath.Join(exeDir, trim)),
+			filepath.Clean(filepath.Join(filepath.Dir(exeDir), trim)),
+		)
+	}
+	for _, candidate := range candidates {
+		if pathExists(candidate) {
+			return candidate
+		}
+	}
+	clean := filepath.Clean(filepath.Join(wd, p))
 	if root := findRepoRoot(wd); root != "" {
-		trim := strings.TrimPrefix(p, "."+string(filepath.Separator))
 		if candidate := filepath.Clean(filepath.Join(root, trim)); pathExists(candidate) {
 			return candidate
 		}

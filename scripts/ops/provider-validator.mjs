@@ -122,7 +122,7 @@ async function main() {
     });
   }
 
-  console.log(
+  console.info(
     `Validation completed: ${passed}/${results.length} passed. Report saved to ${args.output || DEFAULT_OUTPUT}`
   );
 
@@ -320,11 +320,11 @@ function resolveObjectTemplates(obj, vars) {
 
 function reportProgress(result) {
   const status = result.success ? "PASS" : "FAIL";
-  console.log(
+  console.info(
     `[${status}] ${result.name} (${result.modality}) - ${result.latencyMs ?? 0}ms`
   );
   if (!result.success && result.error) {
-    console.log(`  ↳ ${result.error}`);
+    console.info(`  ↳ ${result.error}`);
   }
 }
 

@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 type builtinSkillSeed struct {
@@ -126,6 +128,6 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 		}
 	}
 
-	fmt.Printf("[seed] skills builtin catalog ready: %d\n", len(seeds))
+	logger.InfoF(context.Background(), "[seed] skills builtin catalog ready: %d", len(seeds))
 	return nil
 }

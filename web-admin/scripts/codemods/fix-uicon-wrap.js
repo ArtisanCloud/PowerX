@@ -130,10 +130,10 @@ function main() {
   }
 
   if (changedFiles.length === 0) {
-    console.log('没有发现需要修复的已包裹 UIcon。')
+    console.info('没有发现需要修复的已包裹 UIcon。')
   } else {
-    console.log(`已修复 ${changedFiles.length} 个文件：`)
-    for (const f of changedFiles) console.log(' - ' + path.relative(process.cwd(), f))
+    console.info(`已修复 ${changedFiles.length} 个文件：`)
+    for (const f of changedFiles) console.info(' - ' + path.relative(process.cwd(), f))
   }
 }
 

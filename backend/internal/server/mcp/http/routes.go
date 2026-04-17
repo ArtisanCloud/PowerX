@@ -1,14 +1,15 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/handlers"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/register"
-	"log"
 	"net"
 
 	"github.com/gin-gonic/gin"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // setupRoutes 设置路由
@@ -36,23 +37,23 @@ func SetupRoutes(cfg *config.MCPConfig, ginEngine *gin.Engine) {
 func PrintRouteInfo(cfg *config.MCPConfig, ginEngine *gin.Engine) {
 	// logger.InfoF(context.Background(), "%+v", cfg)
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	log.Println("📍 已注册的 MCP 路由:")
-	log.Println("┌─────────────────────────────────────────────────────────────┐")
-	log.Printf("│ 服务地址: http://%-42s│", addr)
-	log.Println("├─────────────────────────────────────────────────────────────┤")
+	pxlog.Info(context.Background(), "📍 已注册的 MCP 路由:")
+	pxlog.Info(context.Background(), "┌─────────────────────────────────────────────────────────────┐")
+	pxlog.InfoF(context.Background(), "│ 服务地址: http://%-42s│", addr)
+	pxlog.Info(context.Background(), "├─────────────────────────────────────────────────────────────┤")
 
 	routes := ginEngine.Routes()
 	if len(routes) == 0 {
-		log.Println("│ (未发现已注册路由，请确认路由是否正确注册)                    │")
+		pxlog.Info(context.Background(), "│ (未发现已注册路由，请确认路由是否正确注册)                    │")
 	}
 
 	// 动态获取路由信息并打印
 	for _, route := range routes {
 		// 从路由的 HandlerName 或其他属性动态获取描述
 		description := getRouteDescription(route, cfg)
-		log.Printf("│ %-6s %-25s - %-25s│", route.Method, route.Path, description)
+		pxlog.InfoF(context.Background(), "│ %-6s %-25s - %-25s│", route.Method, route.Path, description)
 	}
-	log.Println("└─────────────────────────────────────────────────────────────┘")
+	pxlog.Info(context.Background(), "└─────────────────────────────────────────────────────────────┘")
 }
 
 // getRouteDescription 动态获取路由描述
@@ -96,7 +97,7 @@ func FindAvailablePort(cfg *config.MCPConfig, startPort int) int {
 		port++
 		// 防止无限循环，限制端口范围
 		if port > startPort+100 {
-			log.Printf("⚠️ 无法在端口范围 %d-%d 内找到可用端口，使用原始端口 %d", startPort, port-1, startPort)
+			pxlog.WarnF(context.Background(), "⚠️ 无法在端口范围 %d-%d 内找到可用端口，使用原始端口 %d", startPort, port-1, startPort)
 			return startPort
 		}
 	}

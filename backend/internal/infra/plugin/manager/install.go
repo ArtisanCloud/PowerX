@@ -40,9 +40,10 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
 	if opts.Force {
-		// 若 registry 中已有记录，走完整卸载流程（含停用与目录清理）
+		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
 		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
-			if err := m.UninstallAndPurge(ctx, man.ID, man.Version); err != nil {
+			// 先逻辑卸载（保留数据库），目录清理由后续 force_cleanup 兜底执行。
+			if err := m.uninstall(ctx, false, man.ID, man.Version); err != nil {
 				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.force_uninstall"),
 					plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
@@ -66,6 +67,23 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				)
 			}
 		} else {
+			// 同版本重复安装按幂等处理：仍执行一次权限同步（upsert），再返回已安装版本。
+			if m.opts.PostInstallManifest != nil {
+				if err := m.opts.PostInstallManifest(ctx, man); err != nil {
+					return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+						plugin_mgr.CodeInternal,
+						err,
+						plugin_mgr.WithOp("install_file.register_permissions"),
+						plugin_mgr.WithPlugin(man.ID),
+						plugin_mgr.WithVersion(man.Version),
+					)
+				}
+			}
+			if m.opts.Registry != nil {
+				if p, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
+					return p, nil
+				}
+			}
 			return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 				plugin_mgr.CodeAlreadyExists, plugin_mgr.WithOp("install_file"),
 				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
@@ -150,7 +168,8 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	// 6) 可选：安装后立即启用
 	installedState := plugin_mgr.StateInstalled
 	if opts.AutoEnable {
-		if err := m.Enable(ctx, man.ID); err != nil {
+		// 安装后必须切到“本次安装版本”再启用，避免命中旧 current 版本导致 already_enabled。
+		if _, err := m.SwitchVersion(ctx, man.ID, man.Version, true); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}
 		installedState = plugin_mgr.StateEnabled

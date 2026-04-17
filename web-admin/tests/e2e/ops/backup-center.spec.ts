@@ -14,40 +14,52 @@ test.describe("ops backup center", () => {
       },
     ]
 
-    await page.route("**/api/v1/admin/backup/policies**", async (route) => {
+    await page.route("**/api/v1/admin/ops/backup/policies**", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ data: { items: policies, pagination: { total: 1, page: 1, page_size: 200 } } }),
+          body: JSON.stringify({ code: 200, message: "success", data: { items: policies, pagination: { total: 1, page: 1, page_size: 200 } } }),
         })
         return
       }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: { policy: policies[0] } }),
+        body: JSON.stringify({ code: 200, message: "success", data: { policy: policies[0] } }),
       })
     })
 
-    await page.route("**/api/v1/admin/backup/jobs**", async (route) => {
+    await page.route("**/api/v1/admin/ops/backup/jobs**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: { items: [{ id: 10, policy_id: 1, status: "success", trigger_type: "manual", operator: "root" }], pagination: { total: 1, page: 1, page_size: 50 } } }),
+        body: JSON.stringify({ code: 200, message: "success", data: { items: [{ id: 10, policy_id: 1, status: "success", trigger_type: "manual", operator: "root" }], pagination: { total: 1, page: 1, page_size: 50 } } }),
       })
     })
 
-    await page.route("**/api/v1/admin/backup/jobs/run", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { job: { id: 11, policy_id: 1, status: "success", trigger_type: "manual", operator: "root" } } }) })
+    await page.route("**/api/v1/admin/ops/backup/jobs/run", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, message: "success", data: { job: { id: 11, policy_id: 1, status: "success", trigger_type: "manual", operator: "root" } } }) })
     })
 
-    await page.route("**/api/v1/admin/backup/cleanup", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { status: "success" } }) })
+    await page.route("**/api/v1/admin/ops/backup/cleanup", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, message: "success", data: { status: "success" } }) })
     })
 
-    await page.route("**/api/v1/admin/backup/restore-drills/run", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { drill: { id: 21, source_job_id: 11, status: "success", rto_seconds: 120 } } }) })
+    await page.route("**/api/v1/admin/ops/backup/alerts**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, message: "success", data: { items: [], pagination: { total: 0, page: 1, page_size: 20 } } }) })
+    })
+
+    await page.route("**/api/v1/admin/ops/backup/restore-drills**", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ code: 200, message: "success", data: { items: [{ id: 21, source_job_id: 11, status: "success", rto_seconds: 120, trace_id: "trace-demo" }], pagination: { total: 1, page: 1, page_size: 10 } } }),
+        })
+        return
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, message: "success", data: { drill: { id: 21, source_job_id: 11, status: "success", rto_seconds: 120, trace_id: "trace-demo" } } }) })
     })
 
     await page.goto("/ops/backup")
@@ -57,5 +69,6 @@ test.describe("ops backup center", () => {
     await page.getByRole("button", { name: "手动触发备份" }).click()
     await page.getByRole("button", { name: "触发恢复演练" }).click()
     await expect(page.getByText("最近一次演练状态：success")).toBeVisible()
+    await expect(page.getByText("演练历史（最近 10 条）")).toBeVisible()
   })
 })

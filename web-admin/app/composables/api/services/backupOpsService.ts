@@ -3,11 +3,15 @@ import { useApiClient } from "../index";
 export interface BackupPolicy {
   id: number | string;
   name: string;
-  backup_type: string;
-  schedule: string;
-  retention_days: number;
+  schedule?: string;
+  interval_hours: number;
+  retention_count: number;
+  timezone: string;
+  drill_enabled: boolean;
+  drill_interval_days: number;
+  target_ref: string;
+  is_current?: boolean;
   enabled: boolean;
-  storage_target: string;
 }
 
 export interface BackupJob {
@@ -20,6 +24,11 @@ export interface BackupJob {
   error_message?: string;
   operator: string;
   trace_id?: string;
+  duration_ms?: number;
+  error_summary?: string;
+  storage_uri?: string;
+  size_bytes?: number;
+  checksum?: string;
 }
 
 export interface RestoreDrillRecord {
@@ -27,7 +36,64 @@ export interface RestoreDrillRecord {
   source_job_id: number | string;
   status: string;
   rto_seconds: number;
+  started_at?: string;
+  ended_at?: string;
+  duration_ms?: number;
+  result_summary?: string;
+  trace_id?: string;
   report_uri?: string;
+  restore_target_db?: string;
+  restored_table_count?: number;
+  artifact_path?: string;
+  keep_probe_db?: boolean;
+}
+
+export interface BackupPolicyFilters {
+  status?: "enabled" | "disabled";
+  keyword?: string;
+  timezone?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface BackupJobFilters {
+  policyId?: string | number;
+  status?: "pending" | "running" | "success" | "failed";
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface BackupAlert {
+  id: number | string;
+  policy_id: number | string;
+  job_id: number | string;
+  level: "low" | "medium" | "high";
+  alert_type: string;
+  message: string;
+  suggestion?: string;
+  acknowledged: boolean;
+  ack_by?: string;
+  ack_at?: string;
+  trace_id?: string;
+  created_at?: string;
+}
+
+export interface BackupOverview {
+  policies_enabled: number;
+  jobs_running: number;
+  jobs_failed_24h: number;
+  alerts_high_unacked: number;
+  last_success_at?: string;
+}
+
+export interface BackupTargetTestResponse {
+  reachable: boolean;
+  latency_ms: number;
+  driver: string;
+  server_info?: string;
+  message?: string;
 }
 
 const unwrap = <T>(payload: unknown): T => {
@@ -37,53 +103,206 @@ const unwrap = <T>(payload: unknown): T => {
   return payload as T;
 };
 
+const adminBase = "/admin/ops/backup";
+
 export const useBackupOpsService = () => {
   const api = useApiClient();
 
   return {
-    async listPolicies(enabledOnly = false): Promise<BackupPolicy[]> {
-      const resp = await api.get("/admin/backup/policies", {
-        params: { enabled_only: enabledOnly ? "true" : undefined },
+    async listPolicies(filters?: BackupPolicyFilters): Promise<{ items: BackupPolicy[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/policies`, {
+        params: {
+          status: filters?.status,
+          keyword: filters?.keyword,
+          timezone: filters?.timezone,
+          page: filters?.page,
+          page_size: filters?.pageSize,
+        },
       });
-      const data = unwrap<{ items?: BackupPolicy[] }>(resp) || {};
-      return Array.isArray(data.items) ? data.items : [];
+      const data = unwrap<{ items?: BackupPolicy[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
     },
 
-    async upsertPolicy(payload: {
+    async createPolicy(payload: {
       name: string;
-      backup_type: string;
-      schedule: string;
-      retention_days: number;
-      enabled: boolean;
-      storage_target: string;
+      interval_value?: number;
+      interval_unit?: "minute" | "hour" | "day";
+      schedule?: string;
+      interval_hours?: number;
+      retention_count?: number;
+      timezone?: string;
+      drill_enabled?: boolean;
+      drill_interval_days?: number;
+      target_ref?: string;
     }): Promise<BackupPolicy> {
-      const resp = await api.post("/admin/backup/policies", payload);
+      const resp = await api.post(`${adminBase}/policies`, payload);
       const data = unwrap<{ policy: BackupPolicy }>(resp);
       return data.policy;
     },
 
+    async updatePolicy(policyId: string | number, payload: {
+      name?: string;
+      interval_value?: number;
+      interval_unit?: "minute" | "hour" | "day";
+      schedule?: string;
+      interval_hours?: number;
+      retention_count?: number;
+      timezone?: string;
+      drill_enabled?: boolean;
+      drill_interval_days?: number;
+      target_ref?: string;
+    }): Promise<BackupPolicy> {
+      const resp = await api.patch(`${adminBase}/policies/${policyId}`, payload);
+      const data = unwrap<{ policy: BackupPolicy }>(resp);
+      return data.policy;
+    },
+
+    async enablePolicy(policyId: string | number): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/enable`, {});
+    },
+
+    async disablePolicy(policyId: string | number): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/disable`, {});
+    },
+
+    async setCurrentPolicy(policyId: string | number): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/current`, {});
+    },
+
     async triggerJob(policyId: string | number): Promise<BackupJob> {
-      const resp = await api.post("/admin/backup/jobs/run", { policy_id: String(policyId) });
+      const resp = await api.post(`${adminBase}/jobs/run`, { policy_id: String(policyId) });
       const data = unwrap<{ job: BackupJob }>(resp);
       return data.job;
     },
 
-    async listJobs(policyId?: string | number): Promise<BackupJob[]> {
-      const resp = await api.get("/admin/backup/jobs", {
-        params: { policy_id: policyId ? String(policyId) : undefined, page: 1, page_size: 50 },
+    async listJobs(filters?: BackupJobFilters): Promise<{ items: BackupJob[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/jobs`, {
+        params: {
+          policy_id: filters?.policyId ? String(filters.policyId) : undefined,
+          status: filters?.status,
+          from: filters?.from,
+          to: filters?.to,
+          page: filters?.page ?? 1,
+          page_size: filters?.pageSize ?? 50,
+        },
       });
-      const data = unwrap<{ items?: BackupJob[] }>(resp) || {};
-      return Array.isArray(data.items) ? data.items : [];
+      const data = unwrap<{ items?: BackupJob[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async getJob(jobId: string | number): Promise<BackupJob> {
+      const resp = await api.get(`${adminBase}/jobs/${jobId}`);
+      const data = unwrap<{ job: BackupJob }>(resp);
+      return data.job;
     },
 
     async triggerCleanup(): Promise<void> {
-      await api.post("/admin/backup/cleanup", {});
+      await api.post(`${adminBase}/cleanup`, {});
+    },
+
+    async testTargetConnection(payload: {
+      driver?: "postgres";
+      host: string;
+      port?: number;
+      database: string;
+      username: string;
+      password: string;
+      ssl_mode?: "disable" | "require" | "verify-ca" | "verify-full";
+      connect_timeout_sec?: number;
+    }): Promise<BackupTargetTestResponse> {
+      const resp = await api.post(`${adminBase}/targets/test`, payload);
+      return unwrap<BackupTargetTestResponse>(resp);
     },
 
     async triggerRestoreDrill(sourceJobId: string | number): Promise<RestoreDrillRecord> {
-      const resp = await api.post("/admin/backup/restore-drills/run", { source_job_id: String(sourceJobId) });
+      const resp = await api.post(`${adminBase}/restore-drills/run`, { source_job_id: String(sourceJobId) });
       const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
       return data.drill;
+    },
+
+    async createRestoreDrill(payload: { source_job_id?: string | number; artifact_id?: string | number; reason?: string }): Promise<RestoreDrillRecord> {
+      const resp = await api.post(`${adminBase}/restore-drills`, {
+        source_job_id: payload.source_job_id ? String(payload.source_job_id) : undefined,
+        artifact_id: payload.artifact_id ? String(payload.artifact_id) : undefined,
+        reason: payload.reason,
+      });
+      const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
+      return data.drill;
+    },
+
+    async listRestoreDrills(params?: {
+      sourceJobId?: string | number;
+      status?: "queued" | "running" | "success" | "failed";
+      from?: string;
+      to?: string;
+      page?: number;
+      pageSize?: number;
+    }): Promise<{ items: RestoreDrillRecord[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/restore-drills`, {
+        params: {
+          source_job_id: params?.sourceJobId ? String(params.sourceJobId) : undefined,
+          status: params?.status,
+          from: params?.from,
+          to: params?.to,
+          page: params?.page ?? 1,
+          page_size: params?.pageSize ?? 20,
+        },
+      });
+      const data = unwrap<{ items?: RestoreDrillRecord[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async getRestoreDrill(drillId: string | number): Promise<RestoreDrillRecord> {
+      const resp = await api.get(`${adminBase}/restore-drills/${drillId}`);
+      const data = unwrap<{ drill: RestoreDrillRecord }>(resp);
+      return data.drill;
+    },
+
+    async listAlerts(params?: { level?: "low" | "medium" | "high"; acked?: boolean; page?: number; pageSize?: number }): Promise<{ items: BackupAlert[]; total: number; page: number; pageSize: number }> {
+      const resp = await api.get(`${adminBase}/alerts`, {
+        params: {
+          level: params?.level,
+          acked: typeof params?.acked === "boolean" ? String(params.acked) : undefined,
+          page: params?.page ?? 1,
+          page_size: params?.pageSize ?? 20,
+        },
+      });
+      const data = unwrap<{ items?: BackupAlert[]; pagination?: { total?: number; page?: number; page_size?: number } }>(resp) || {};
+      const pagination = data.pagination || {};
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        total: Number(pagination.total || 0),
+        page: Number(pagination.page || 1),
+        pageSize: Number(pagination.page_size || 20),
+      };
+    },
+
+    async ackAlert(alertId: string | number): Promise<void> {
+      await api.post(`${adminBase}/alerts/${alertId}/ack`, {});
+    },
+
+    async getOverview(): Promise<BackupOverview> {
+      const resp = await api.get(`/admin/monitor/backup/overview`);
+      const data = unwrap<{ overview: BackupOverview }>(resp);
+      return data.overview;
     },
   };
 };

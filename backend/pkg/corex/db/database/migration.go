@@ -272,6 +272,7 @@ func migrateOpsModels(db *gorm.DB) error {
 		&modelOps.BackupPolicy{},
 		&modelOps.BackupJob{},
 		&modelOps.BackupArtifact{},
+		&modelOps.BackupAlert{},
 		&modelOps.RestoreDrillRecord{},
 		&modelOps.ApprovalPolicyProfile{},
 		&modelOps.MigrationRunbookRecord{},

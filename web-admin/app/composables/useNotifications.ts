@@ -148,6 +148,13 @@ export const useNotifications = () => {
     if (totalCount.value > 0) totalCount.value -= 1;
   };
 
+  // 清空通知
+  const clearAllNotifications = async () => {
+    await api.clearAll();
+    notifications.value = [];
+    totalCount.value = 0;
+  };
+
   // 获取统计信息
   const getStats = (): NotificationStats => {
     const total = totalCount.value;
@@ -199,13 +206,13 @@ export const useNotifications = () => {
         }
         break;
       case "retry":
-        console.log("重试操作:", action.params);
+        console.info("重试操作:", action.params);
         break;
       case "update":
-        console.log("更新操作:", action.params);
+        console.info("更新操作:", action.params);
         break;
       default:
-        console.log("执行操作:", action.action, action.params);
+        console.info("执行操作:", action.action, action.params);
     }
 
     // 标记为已读
@@ -229,6 +236,7 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    clearAllNotifications,
     getStats,
     setFilter,
     clearFilter,

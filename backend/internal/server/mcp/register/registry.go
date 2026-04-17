@@ -1,12 +1,13 @@
 package register
 
 import (
+	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/types"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/loader"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
-	fmt2 "github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"sync"
@@ -416,9 +417,9 @@ func LoadToolSpecsFromConfig(cfg *config.MCPConfig) error {
 			continue
 		}
 		specs, err := specLoader.LoadToolSpecsFromDir(dir)
-		fmt2.Dump("check app specs", specs)
+		logger.DebugF(context.Background(), "check app specs: dir=%s count=%d", dir, len(specs))
 		if err != nil {
-			fmt.Printf("Warning: 从 %s 加载应用规范失败: %v\n", dir, err)
+			logger.WarnF(context.Background(), "Warning: 从 %s 加载应用规范失败: %v", dir, err)
 			continue
 		}
 		for id, spec := range specs {

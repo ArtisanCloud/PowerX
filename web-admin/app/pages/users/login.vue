@@ -40,7 +40,7 @@ const handleLogin = async () => {
       password: form.password,
     });
 
-    // console.log("登录结果:", response);
+    // console.info("登录结果:", response);
 
     if (response.code === 200) {
       // 保存认证信息
@@ -66,7 +66,7 @@ const handleLogin = async () => {
 // 忘记密码
 const handleForgotPassword = () => {
   // 这里添加忘记密码逻辑
-  console.log("忘记密码");
+  console.info("忘记密码");
 };
 </script>
 

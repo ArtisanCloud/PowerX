@@ -99,11 +99,11 @@ const regionData: TreeItemBase[] = [
 
 // 事件处理
 const handleChange = (value: string | null) => {
-  console.log("选择变化:", value);
+  console.info("选择变化:", value);
 };
 
 const handleClear = () => {
-  console.log("已清除选择");
+  console.info("已清除选择");
 };
 </script>
 

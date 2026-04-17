@@ -6,28 +6,7 @@ import { useAuth } from "~/composables/useAuth";
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
   const { getToken, isTokenExpired, clearAuth } = useAuth();
-  const apiBase = String(config.public?.apiBase || "/api").replace(/\/+$/, "");
-  const setupStatusPath = `${apiBase}/admin/setup/status`;
-  const loadSetupStatus = async (): Promise<{
-    configured: boolean;
-    requires_login: boolean;
-    restart_required: boolean;
-  } | null> => {
-    try {
-      const resp: any = await $fetch(setupStatusPath, {
-        method: "GET",
-        timeout: 5000,
-      });
-      const payload = resp?.data ?? resp;
-      return {
-        configured: Boolean(payload?.configured),
-        requires_login: Boolean(payload?.requires_login),
-        restart_required: Boolean(payload?.restart_required),
-      };
-    } catch {
-      return null;
-    }
-  };
+  const setupStatus = useSetupStatus();
   const resolveStatusCode = (error: any): number => {
     const direct = Number(
       error?.response?.status ||
@@ -94,7 +73,7 @@ export default defineNuxtPlugin(() => {
           if (statusCode === 401) {
             if (process.client) {
               const router = useRouter();
-              const setup = await loadSetupStatus();
+              const setup = await setupStatus.load({ ttlMs: 5000 });
               const shouldStayInSetup = Boolean(
                 setup &&
                 !setup.configured &&

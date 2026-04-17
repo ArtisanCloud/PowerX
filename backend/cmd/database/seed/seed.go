@@ -2,7 +2,6 @@ package seed
 
 import (
 	"context"
-	"log"
 	"os"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func seedCtx() context.Context { return context.Background() }
@@ -30,12 +30,10 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	}
 	db, err := database.Connect(cfg.Database)
 	if err != nil {
-		//log.Fatal(err)
 		return err
 	}
 
 	if err = SeedRoot(db); err != nil {
-		//log.Fatal(err)
 		return err
 	}
 	if err = SeedDefaultDevAPIKeys(db); err != nil {
@@ -50,12 +48,10 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	}
 
 	if err = SeedSMEDepartments(db, "system"); err != nil {
-		//log.Fatal(err)
 		return err
 	}
 
 	if err = SeedSystemDefaultAgent(db); err != nil {
-		//log.Fatal(err)
 		return err
 	}
 
@@ -84,7 +80,7 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	log.Println("seed ok")
+	logger.InfoF(context.Background(), "seed ok")
 
 	return nil
 }

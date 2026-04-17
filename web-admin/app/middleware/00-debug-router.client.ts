@@ -1,9 +1,9 @@
 export default defineNuxtPlugin(() => {
   const router = useRouter()
   router.beforeEach((to, from) => {
-    console.log('[PXAdmin][ROUTER→]', to.fullPath, 'from', from.fullPath || '(entry)')
+    console.info('[PXAdmin][ROUTER→]', to.fullPath, 'from', from.fullPath || '(entry)')
   })
   router.afterEach((to) => {
-    console.log('[PXAdmin][ROUTER✓]', to.fullPath)
+    console.info('[PXAdmin][ROUTER✓]', to.fullPath)
   })
 })

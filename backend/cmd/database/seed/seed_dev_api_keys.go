@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	repoigw "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -228,7 +228,7 @@ func upsertDevAPIKey(
 			return fmt.Errorf("replace api key permissions failed: %w", err)
 		}
 
-		log.Printf("[seed] ensured dev api key %s prefix=%s tenant=%s", item.EnvName, prefix, tenantUUID)
+		logger.InfoF(context.Background(), "[seed] ensured dev api key %s prefix=%s tenant=%s", item.EnvName, prefix, tenantUUID)
 		return nil
 	})
 }

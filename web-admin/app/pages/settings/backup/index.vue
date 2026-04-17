@@ -190,7 +190,7 @@ const downloadBackup = (backup) => {
 const saveBackupConfig = async () => {
   try {
     // 这里应该调用 API 保存配置
-    console.log("保存备份配置:", backupConfig);
+    console.info("保存备份配置:", backupConfig);
 
     const toast = useToast();
     toast.add({

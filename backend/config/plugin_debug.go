@@ -44,11 +44,11 @@ func DefaultPluginDebugConfig() PluginDebugConfig {
 		HostSimulator: PluginDebugHostSimulatorConfig{
 			Enabled:     true,
 			FeatureFlag: "PX_PLUGIN_HOST_SIMULATOR",
-			ConfigPath:  "./config/plugins/debug/host_simulator.yaml",
+			ConfigPath:  defaultBackendConfigPath("plugins/debug/host_simulator.yaml"),
 		},
 		Reports: PluginDebugReportConfig{
-			TemplatePath:    "./config/plugins/debug/report_template.yaml",
-			MaskingRules:    "./config/security/data_masking_rules.yaml",
+			TemplatePath:    defaultBackendConfigPath("plugins/debug/report_template.yaml"),
+			MaskingRules:    defaultBackendConfigPath("security/data_masking_rules.yaml"),
 			FallbackLogBase: "",
 		},
 		TicketBridge: PluginDebugTicketBridgeConfig{
@@ -59,7 +59,7 @@ func DefaultPluginDebugConfig() PluginDebugConfig {
 		Sandbox: PluginDebugSandboxConfig{
 			Enabled:       true,
 			FeatureFlag:   "plugin-sandbox-suite",
-			DataSuitePath: "./config/plugins/debug/data_suite.yaml",
+			DataSuitePath: defaultBackendConfigPath("plugins/debug/data_suite.yaml"),
 		},
 	}
 }

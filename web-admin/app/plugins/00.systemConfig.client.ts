@@ -151,7 +151,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     applyTheme();
 
     if (pub.debugMode) {
-      console.log("🎯 init applied:", {
+      console.info("🎯 init applied:", {
         lang: defaultLang,
         theme: defaultTheme,
         htmlClass: document.documentElement.className,

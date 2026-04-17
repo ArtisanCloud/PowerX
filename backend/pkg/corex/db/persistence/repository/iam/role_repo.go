@@ -51,6 +51,7 @@ func (r *RoleRepository) FindByCode(ctx context.Context, scope string, tenantUUI
 // EnsureDefaultRoles 仅用于“租户级”默认角色（要求 tenantID>0）
 // - role_admin：租户管理员
 // - role_user ：租户普通用户
+// - role_readonly：租户只读账号（演示/巡检）
 func (r *RoleRepository) EnsureDefaultRoles(ctx context.Context, tenantUUID string) error {
 	if strings.TrimSpace(tenantUUID) == "" {
 		return fmt.Errorf("EnsureDefaultRoles: tenantUUID required")
@@ -59,6 +60,7 @@ func (r *RoleRepository) EnsureDefaultRoles(ctx context.Context, tenantUUID stri
 	defs := []dbm.Role{
 		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleAdmin, Name: "Tenant Admin", Builtin: true},
 		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleUser, Name: "Tenant User", Builtin: true},
+		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleReadonly, Name: "Tenant Readonly", Builtin: true},
 	}
 	for i := range defs {
 		if err := r.db.WithContext(ctx).Clauses(clause.OnConflict{

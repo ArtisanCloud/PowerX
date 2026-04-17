@@ -31,7 +31,7 @@ onMounted(async () => {
   if (workflowId) {
     try {
       await loadWorkflow(workflowId)
-      console.log('工作流加载成功:', currentWorkflow.value)
+      console.info('工作流加载成功:', currentWorkflow.value)
     } catch (error) {
       console.error('加载工作流失败:', error)
       // 可以添加错误提示，但不立即重定向
@@ -39,7 +39,7 @@ onMounted(async () => {
     }
   } else {
     // 创建一个演示工作流，展示前端功能
-    console.log('创建演示工作流')
+    console.info('创建演示工作流')
     currentWorkflow.value = {
       id: 'demo-workflow',
       name: '演示工作流',

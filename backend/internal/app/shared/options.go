@@ -72,7 +72,8 @@ type QueueNATSOptions struct {
 }
 
 type ServerOptions struct {
-	GRPC GRPCServerOptions
+	HTTPPort int
+	GRPC     GRPCServerOptions
 }
 
 type GRPCServerOptions struct {

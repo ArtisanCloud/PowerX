@@ -1,12 +1,13 @@
 package http
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,7 +33,7 @@ func InstallGuardMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		log.Printf("[install-guard] blocked path=%s status=%s lock_mode=%s", c.Request.URL.Path, cfg.Install.EffectiveStatus(), cfg.Install.EffectiveLockMode())
+		logger.InfoF(context.Background(), "[install-guard] blocked path=%s status=%s lock_mode=%s", c.Request.URL.Path, cfg.Install.EffectiveStatus(), cfg.Install.EffectiveLockMode())
 
 		err := dto.NewErrorWithCode(http.StatusServiceUnavailable, ErrCodeSystemNotInstalled, "系统尚未安装，请先完成 /setup 引导", nil)
 		dto.ResponseError(c, http.StatusServiceUnavailable, "系统尚未安装", err)

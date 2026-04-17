@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	iamservice "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -20,6 +20,7 @@ import (
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func SeedRoot(db *gorm.DB) error {
@@ -102,7 +103,7 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	} else if hasSetupDraft {
 		// setup 进行中但尚未提供管理员密码：不提前写入默认 root。
-		fmt.Println("[seed] skip root identity before setup admin is confirmed")
+		logger.InfoF(context.Background(), "[seed] skip root identity before setup admin is confirmed")
 		return nil
 	}
 
@@ -250,7 +251,11 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("bind role_admin to root member: %w", err)
 	}
 
-	fmt.Printf("[seed] root ready. tenant=%s username=%s identifier=%s password=%s\n", tenantKey, rootUserName, rootIdentifier, rootPassword)
+	if err := SeedDemoReadonlyAccount(db); err != nil {
+		return fmt.Errorf("seed demo readonly account: %w", err)
+	}
+
+	logger.InfoF(context.Background(), "[seed] root ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, rootUserName, rootIdentifier, rootPassword)
 	return nil
 }
 
@@ -296,4 +301,179 @@ func loadSetupAdminFromDraft() (setupDraftAdminConfig, bool, bool) {
 		return admin, true, hasPassword
 	}
 	return setupDraftAdminConfig{}, false, false
+}
+
+func SeedDemoReadonlyAccount(db *gorm.DB) error {
+	if !isTruthyEnv("POWERX_ENABLE_DEMO_ACCOUNT") {
+		return nil
+	}
+	ctx := seedCtx()
+	tenantKey := strings.TrimSpace(envOrDefault("POWERX_DEMO_TENANT_KEY", "demo"))
+	tenantName := strings.TrimSpace(envOrDefault("POWERX_DEMO_TENANT_NAME", "Demo Space"))
+	username := strings.TrimSpace(envOrDefault("POWERX_DEMO_USERNAME", "demo"))
+	displayName := strings.TrimSpace(envOrDefault("POWERX_DEMO_DISPLAY_NAME", "Demo User"))
+	email := strings.ToLower(strings.TrimSpace(envOrDefault("POWERX_DEMO_EMAIL", "demo@powerx.local")))
+	phone := strings.TrimSpace(envOrDefault("POWERX_DEMO_PHONE", ""))
+	password := strings.TrimSpace(envOrDefault("POWERX_DEMO_PASSWORD", "demo123456"))
+	if tenantKey == "" || tenantName == "" || username == "" || password == "" {
+		return errors.New("invalid demo seed env: tenant key/name, username and password are required")
+	}
+	identifier := email
+	if identifier == "" {
+		identifier = strings.ToLower(username)
+	}
+	if identifier == "" {
+		return errors.New("invalid demo seed env: identifier is empty")
+	}
+
+	tenRepo := tenantrepo.NewTenantRepository(db)
+	ten, err := tenRepo.EnsureByKey(ctx, tenantKey, tenantName, dbm.TenantPlanFree, dbm.TenantTypePersonal)
+	if err != nil {
+		return fmt.Errorf("ensure demo tenant: %w", err)
+	}
+	tenantUUID := ten.UUID.String()
+	roleRepo := infraiam.NewRoleRepository(db)
+	if err := roleRepo.EnsureDefaultRoles(ctx, tenantUUID); err != nil {
+		return fmt.Errorf("ensure default roles for demo tenant: %w", err)
+	}
+	if err := SeedGrantDefaultRolesForTenant(db, tenantUUID); err != nil {
+		return fmt.Errorf("grant defaults for demo tenant: %w", err)
+	}
+	readonlyRole, err := roleRepo.FindByCode(ctx, "tenant", &tenantUUID, "role_readonly")
+	if err != nil {
+		return fmt.Errorf("find demo readonly role: %w", err)
+	}
+
+	userRepo := infraiam.NewUserRepository(db)
+	memberRepo := infraiam.NewMemberRepository(db)
+	credRepo := infraiam.NewCredentialRepository(db)
+
+	var userID uint64
+	cred, err := credRepo.FindByProviderIdentifier(ctx, "password", identifier)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find demo credential: %w", err)
+	}
+	if cred != nil {
+		userID = cred.UserID
+	}
+	if userID == 0 && email != "" {
+		if u, findErr := userRepo.FindByEmail(ctx, email); findErr == nil && u != nil {
+			userID = u.ID
+		}
+	}
+	if userID == 0 && phone != "" {
+		if u, findErr := userRepo.FindByPhone(ctx, phone); findErr == nil && u != nil {
+			userID = u.ID
+		}
+	}
+	if userID == 0 {
+		u := &model.User{
+			DisplayName: displayName,
+			Phone:       phone,
+			Email:       email,
+			Status:      model.UserStatusActive,
+			IsRoot:      false,
+		}
+		if _, err = userRepo.Create(ctx, u); err != nil {
+			return fmt.Errorf("create demo user: %w", err)
+		}
+		userID = u.ID
+	} else {
+		updates := map[string]any{
+			"display_name": displayName,
+			"is_root":      false,
+			"status":       model.UserStatusActive,
+		}
+		if email != "" {
+			updates["email"] = email
+		}
+		if phone != "" {
+			updates["phone"] = phone
+		}
+		if err := db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			return fmt.Errorf("update demo user: %w", err)
+		}
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash demo password: %w", err)
+	}
+	if cred != nil && cred.UserID != userID {
+		return fmt.Errorf("demo identifier already bound to another user: %s", identifier)
+	}
+	if err := credRepo.Upsert(ctx, &model.Credential{
+		UserID:     userID,
+		Provider:   "password",
+		Identifier: identifier,
+		SecretHash: string(hash),
+		IsPrimary:  true,
+	}, "user_id", "secret_hash", "is_primary"); err != nil {
+		return fmt.Errorf("upsert demo credential: %w", err)
+	}
+	if strings.ToLower(username) != identifier {
+		if err := credRepo.Upsert(ctx, &model.Credential{
+			UserID:     userID,
+			Provider:   "password",
+			Identifier: strings.ToLower(username),
+			SecretHash: string(hash),
+			IsPrimary:  false,
+		}, "user_id", "secret_hash", "is_primary"); err != nil {
+			return fmt.Errorf("upsert demo username credential: %w", err)
+		}
+	}
+
+	member, err := memberRepo.FindByTenantAndUser(ctx, tenantUUID, userID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find demo member: %w", err)
+	}
+	var memberID uint64
+	if member == nil {
+		m := &model.Member{
+			TenantUUID:  tenantUUID,
+			UserID:      userID,
+			Username:    username,
+			DisplayName: displayName,
+			Status:      1,
+		}
+		if _, err := memberRepo.Create(ctx, m); err != nil {
+			return fmt.Errorf("create demo member: %w", err)
+		}
+		memberID = m.ID
+	} else {
+		memberID = member.ID
+		if err := db.Model(&model.Member{}).Where("id = ?", memberID).Updates(map[string]any{
+			"username":     username,
+			"display_name": displayName,
+			"status":       1,
+		}).Error; err != nil {
+			return fmt.Errorf("update demo member: %w", err)
+		}
+	}
+
+	if err := db.WithContext(ctx).
+		Where("tenant_uuid = ? AND subject_type = ? AND subject_id = ?", tenantUUID, model.SubMember, memberID).
+		Delete(&model.RoleBinding{}).Error; err != nil {
+		return fmt.Errorf("clear demo member role bindings: %w", err)
+	}
+	if err := infraiam.NewRoleBindingRepository(db).Create(ctx, &model.RoleBinding{
+		TenantUUID:  tenantUUID,
+		RoleID:      readonlyRole.ID,
+		SubjectType: model.SubMember,
+		SubjectID:   memberID,
+	}); err != nil {
+		return fmt.Errorf("bind demo readonly role: %w", err)
+	}
+
+	logger.InfoF(context.Background(), "[seed] demo readonly ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, username, identifier, password)
+	return nil
+}
+
+func isTruthyEnv(key string) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	switch v {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
 }

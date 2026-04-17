@@ -11,54 +11,53 @@ const canAccessSettings = computed(
 );
 
 // 使用通知系统
-const { getStats, notifications, fetchNotifications, addNotification } = useNotifications();
+const { getStats, notifications, fetchNotifications, addNotification, clearAllNotifications } =
+  useNotifications();
 const wsBus = useWSBus();
 
 // 获取通知统计信息
 const notificationStats = computed(() => getStats());
 const unreadCount = computed(() => notificationStats.value.unread);
 
-// 使用统一的认证工具方法
-const { getToken } = useAuth();
-
-const hasValidToken = () => !!getToken();
 let unsubscribeNotifications: (() => void) | null = null;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const ensureWSNotificationSubscription = (tenantUUID: string) => {
+  if (!UUID_RE.test(tenantUUID)) return;
+  wsBus.connect(tenantUUID);
+  if (unsubscribeNotifications) return;
+  unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
+    if (!payload) return;
+    addNotification(payload);
+  });
+};
+
 // 初始化通知数据和用户数据
 onMounted(async () => {
-  // ⚠️ 只有有有效 token 才去取"需要登录"的数据
-  if (hasValidToken()) {
-    try {
-      await userStore.fetchUserContext();
-    } catch (error) {
-      console.error("初始化用户数据失败:", error);
-    }
-
-    // 通知接口通常也需要登录
-    try {
-      fetchNotifications();
-    } catch (error) {
-      console.error("fetchNotifications error:", error);
-    }
-
-    const tenantUUID = String(userStore.currentTenantUuid || "").trim();
-    if (UUID_RE.test(tenantUUID)) {
-      wsBus.connect();
-      unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
-        if (!payload) return;
-        addNotification(payload);
-      });
-    }
-  } else {
-    // 匿名态：不要调用会 401 的接口
-    // 可选：清一次"旧状态"
-    if (userStore.clearUserState) {
-      userStore.clearUserState();
-    }
+  try {
+    await userStore.fetchUserContext();
+  } catch (error) {
+    console.error("初始化用户数据失败:", error);
   }
+
+  try {
+    fetchNotifications();
+  } catch (error) {
+    console.error("fetchNotifications error:", error);
+  }
+
+  // WS 只要求有效 tenant_uuid；token 由 useWSBus 内部从 localStorage/cookie 解析。
+  ensureWSNotificationSubscription(String(userStore.currentTenantUuid || "").trim());
 });
+
+watch(
+  () => String(userStore.currentTenantUuid || "").trim(),
+  (tenantUUID) => {
+    ensureWSNotificationSubscription(tenantUUID);
+  },
+  { immediate: true }
+);
 
 onBeforeUnmount(() => {
   if (unsubscribeNotifications) {
@@ -113,6 +112,15 @@ const notificationItems = computed(() => {
   // 添加分隔符和查看全部按钮
   const menuItems = [notificationMenuItems];
 
+  menuItems.push([
+    {
+      label: "清空消息",
+      icon: "i-heroicons-trash",
+      onSelect: handleClearNotifications,
+      description: "",
+    },
+  ]);
+
   if (recentNotifications.length > 0) {
     menuItems.push([
       {
@@ -136,6 +144,14 @@ const notificationItems = computed(() => {
 
   return menuItems;
 });
+
+const handleClearNotifications = async () => {
+  try {
+    await clearAllNotifications();
+  } catch (error) {
+    console.error("clearAllNotifications error:", error);
+  }
+};
 
 // 获取通知图标
 const getNotificationIcon = (type: string) => {

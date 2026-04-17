@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -63,24 +62,24 @@ func main() {
 
 	cfg, err := config.Load(flags.configPath)
 	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
+		fatalf("加载配置失败: %v", err)
 	}
 	config.GlobalConfig = cfg
 	logger.InitGlobalLogger(&cfg.LogConfig)
 
 	deps, err := bootstrap.BootstrapApp(ctx, cfg)
 	if err != nil {
-		log.Fatalf("初始化核心依赖失败: %v", err)
+		fatalf("初始化核心依赖失败: %v", err)
 	}
 	defer closeDeps(deps)
 
 	if deps.EventFabric == nil || deps.EventFabric.Seeder == nil {
-		log.Fatalf("Event Fabric Seeder 未初始化，请检查配置")
+		fatalf("Event Fabric Seeder 未初始化，请检查配置")
 	}
 
 	registry, err := loadPluginRegistry(ctx, cfg.Plugin.RegistryFile)
 	if err != nil {
-		log.Fatalf("加载插件 Registry 失败: %v", err)
+		fatalf("加载插件 Registry 失败: %v", err)
 	}
 	cache := pluginCache{plugins: map[string]pm.Plugin{}}
 	for _, plugin := range registry.List(ctx) {
@@ -88,23 +87,23 @@ func main() {
 	}
 
 	if flags.manifestPath != "" && len(flags.plugins) != 1 {
-		log.Fatalf("使用 --manifest 时必须通过 --plugin 指定唯一插件 ID")
+		fatalf("使用 --manifest 时必须通过 --plugin 指定唯一插件 ID")
 	}
 	manifestOverride := ""
 	if flags.manifestPath != "" {
 		path, err := filepath.Abs(flags.manifestPath)
 		if err != nil {
-			log.Fatalf("解析 manifest 路径失败: %v", err)
+			fatalf("解析 manifest 路径失败: %v", err)
 		}
 		manifestOverride = path
 	}
 
 	targets, err := loadTargets(ctx, deps, flags.tenants, flags.plugins)
 	if err != nil {
-		log.Fatalf("查询租户-插件绑定失败: %v", err)
+		fatalf("查询租户-插件绑定失败: %v", err)
 	}
 	if len(targets) == 0 {
-		log.Println("没有匹配的租户-插件绑定，退出。")
+		logger.InfoF(ctx, "没有匹配的租户-插件绑定，退出。")
 		return
 	}
 
@@ -123,7 +122,7 @@ func main() {
 		}
 		plugin, ok := cache.plugins[target.PluginID]
 		if !ok {
-			log.Printf("[SKIP] tenant=%s plugin=%s 不存在于 Registry", target.TenantUUID, target.PluginID)
+			logger.WarnF(ctx, "[SKIP] tenant=%s plugin=%s 不存在于 Registry", target.TenantUUID, target.PluginID)
 			skipCount++
 			continue
 		}
@@ -132,21 +131,21 @@ func main() {
 		if manifestPath == "" {
 			path, err := autoseed.ResolveManifestPath(plugin)
 			if err != nil {
-				log.Printf("[ERROR] tenant=%s plugin=%s 解析 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
+				logger.ErrorF(ctx, "[ERROR] tenant=%s plugin=%s 解析 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
 				failCount++
 				continue
 			}
 			manifestPath = path
 		}
 		if manifestPath == "" {
-			log.Printf("[SKIP] tenant=%s plugin=%s 未发现 event_fabric manifest", target.TenantUUID, target.PluginID)
+			logger.WarnF(ctx, "[SKIP] tenant=%s plugin=%s 未发现 event_fabric manifest", target.TenantUUID, target.PluginID)
 			skipCount++
 			continue
 		}
 
 		doc, err := loadManifest(manifestPath, manifestCache)
 		if err != nil {
-			log.Printf("[ERROR] tenant=%s plugin=%s 加载 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
+			logger.ErrorF(ctx, "[ERROR] tenant=%s plugin=%s 加载 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
 			failCount++
 			continue
 		}
@@ -161,24 +160,24 @@ func main() {
 
 		plan, err := doc.Render(seedCtx)
 		if err != nil {
-			log.Printf("[ERROR] tenant=%s plugin=%s 渲染 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
+			logger.ErrorF(ctx, "[ERROR] tenant=%s plugin=%s 渲染 manifest 失败: %v", target.TenantUUID, target.PluginID, err)
 			failCount++
 			continue
 		}
 
-		fmt.Printf("处理 tenant=%s plugin=%s manifest=%s topics=%d\n",
+		logger.InfoF(ctx, "处理 tenant=%s plugin=%s manifest=%s topics=%d",
 			target.TenantUUID, target.PluginID, manifestPath, len(plan.Topics))
-		printPlan(plan)
+		printPlan(ctx, plan)
 
 		if flags.dryRun {
-			fmt.Println("  [dry-run] 仅预览，不执行播种。")
+			logger.InfoF(ctx, "  [dry-run] 仅预览，不执行播种。")
 			skipCount++
 			continue
 		}
 
 		result, err := deps.EventFabric.Seeder.ApplyPlan(ctx, plan, seedCtx)
 		if err != nil {
-			log.Printf("[ERROR] tenant=%s plugin=%s 播种失败: %v", target.TenantUUID, target.PluginID, err)
+			logger.ErrorF(ctx, "[ERROR] tenant=%s plugin=%s 播种失败: %v", target.TenantUUID, target.PluginID, err)
 			failCount++
 			continue
 		}
@@ -190,11 +189,11 @@ func main() {
 			}
 			grants += topic.GrantedActions
 		}
-		fmt.Printf("  ✅ 完成：topics=%d created=%d grants=%d\n", len(result.Topics), createdTopics, grants)
+		logger.InfoF(ctx, "  ✅ 完成：topics=%d created=%d grants=%d", len(result.Topics), createdTopics, grants)
 		successCount++
 	}
 
-	fmt.Printf("\n完成：success=%d skipped=%d failed=%d\n", successCount, skipCount, failCount)
+	logger.InfoF(ctx, "完成：success=%d skipped=%d failed=%d", successCount, skipCount, failCount)
 	if failCount > 0 {
 		os.Exit(1)
 	}
@@ -270,9 +269,9 @@ func loadManifest(path string, cache map[string]*manifest.Manifest) (*manifest.M
 	return doc, nil
 }
 
-func printPlan(plan *manifest.SeedPlan) {
+func printPlan(ctx context.Context, plan *manifest.SeedPlan) {
 	for _, topic := range plan.Topics {
-		fmt.Printf("  - %s (namespace=%s acl=%d)\n", topic.FullTopic, topic.Topic.Namespace, len(topic.ACL))
+		logger.InfoF(ctx, "  - %s (namespace=%s acl=%d)", topic.FullTopic, topic.Topic.Namespace, len(topic.ACL))
 	}
 }
 
@@ -297,4 +296,9 @@ func closeSQL(db *gorm.DB) {
 	if err = sqlDB.Close(); err != nil {
 		logger.Warn(context.Background(), "关闭数据库连接失败: "+err.Error())
 	}
+}
+
+func fatalf(format string, args ...any) {
+	logger.ErrorF(context.Background(), format, args...)
+	os.Exit(1)
 }

@@ -1,26 +1,7 @@
 // middleware/app.global.ts
 export default defineNuxtRouteMiddleware(async (to) => {
   const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase = String(runtimeConfig.public?.apiBase || "/api").replace(/\/+$/, "");
-  const setupStatusPath = `${apiBase}/admin/setup/status`;
-
-  const loadSetupStatus = async (): Promise<{ configured: boolean; requires_login: boolean; restart_required: boolean } | null> => {
-    try {
-      const resp: any = await $fetch(setupStatusPath, {
-        method: "GET",
-        timeout: 5000,
-      });
-      const payload = resp?.data ?? resp;
-      return {
-        configured: Boolean(payload?.configured),
-        requires_login: Boolean(payload?.requires_login),
-        restart_required: Boolean(payload?.restart_required),
-      };
-    } catch {
-      return null;
-    }
-  };
+  const setupStatus = useSetupStatus();
 
   // —— 若你有 i18n，to.path 可能是 /zh/home、/en/intro 等
   //    下面做一个“可选语言前缀”的正则匹配
@@ -41,7 +22,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   ];
 
   // 1) 首装判定在服务端/客户端都执行，避免首屏 SSR 进入业务页
-  const setup = await loadSetupStatus();
+  const setup = await setupStatus.load({ ttlMs: 5000 });
   const shouldStayInSetup = Boolean(
     setup &&
     !setup.configured &&
@@ -73,7 +54,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (process.server) return;
 
   const publicHit = PUBLIC_RULES.some((re) => re.test(to.path));
-  console.log("🚦 publicHit:", publicHit);
+  console.info("🚦 publicHit:", publicHit);
   if (publicHit) return;
 
   if (skipAuth) {

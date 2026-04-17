@@ -32,7 +32,7 @@ const densityClass = computed(() =>
 );
 
 /* ---------- helpers ---------- */
-const isPluginPath = (p?: string) => !!p && p.startsWith("//_p/");
+const isPluginPath = (p?: string) => !!p && /^\/+_p\//.test(p);
 const normalizeForCompare = (input?: string): string => {
   if (!input) return "";
   let value = input.trim();
@@ -272,7 +272,6 @@ const viewGroups = computed<MenuGroup[]>(() => {
 
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
 const EVENT_MANAGE_PATH = "/settings/event-fabric";
-const EVENT_MONITOR_PATH = "/settings/monitor";
 const SETTINGS_ROOT_PATH = "/settings";
 
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
@@ -345,19 +344,6 @@ const manualEventManageMenu = computed<MenuItem | null>(() => {
   };
 });
 
-const manualEventMonitorMenu = computed<MenuItem | null>(() => {
-  if (!userStore.isRoot) return null;
-  return {
-    id: "event-monitor",
-    title: t("menu.monitorCenter"),
-    icon: "i-heroicons-eye",
-    path: EVENT_MONITOR_PATH,
-    order: 130,
-    visible: true,
-    origin: "system",
-  };
-});
-
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
     ...group,
@@ -366,7 +352,6 @@ const renderedGroups = computed<MenuGroup[]>(() => {
   const extras = [
     manualOpenCapabilityMenu.value,
     manualEventManageMenu.value,
-    manualEventMonitorMenu.value,
   ].filter(
     (item): item is MenuItem => !!item
   );
@@ -503,7 +488,7 @@ onMounted(async () => {
   try {
     await userStore.fetchUserContext();
     // 调试菜单数据结构
-    // console.log("菜单数据:", menuResponse.value);
+    // console.info("菜单数据:", menuResponse.value);
   } catch (e) {
     console.error("初始化用户数据失败:", e);
   }
@@ -560,9 +545,9 @@ function onTreeKeydown(e: KeyboardEvent) {
     <div
       class="flex items-center justify-between h-16 border-b border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 px-2"
     >
-      <NuxtLink :to="$localePath('/')" class="flex items-center space-x-2 px-2">
+      <NuxtLink :to="$localePath('/')" class="flex items-center gap-2 px-2 min-w-0">
         <img :src="LOGO_M_URL" alt="Logo" class="w-8 h-8 rounded-lg" />
-        <div v-if="!collapsed" class="flex items-center gap-2 min-w-0">
+        <div v-if="!collapsed" class="flex flex-col justify-center min-w-0 leading-none">
           <span
             class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate"
           >
@@ -573,7 +558,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             size="xs"
             color="neutral"
             variant="soft"
-            class="shrink-0"
+            class="mt-1 w-fit max-w-full truncate"
           >
             {{ appVersion }}
           </UBadge>

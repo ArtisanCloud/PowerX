@@ -360,7 +360,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
 
     // 如果有缓存且不强制刷新，则返回缓存的消息
     if (!force && messageStore.getMessagesBySession(sessionIdStr).length > 0) {
-      // console.log(
+      // console.info(
       //   "使用缓存的消息:",
       //   messageStore.getMessagesBySession(sessionIdStr)
       // );
@@ -387,7 +387,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
 
       if (response.code === 200) {
         const messages = response.data.items.map(mapMessageDTO);
-        // console.log("[useChatSessions] 加载会话消息成功:", messages);
+        // console.info("[useChatSessions] 加载会话消息成功:", messages);
         messageStore.setMessages(sessionIdStr, messages);
         return messages;
       }

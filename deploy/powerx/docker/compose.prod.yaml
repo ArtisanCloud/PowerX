@@ -11,7 +11,7 @@ services:
     ports:
       - "${POWERX_POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerx} -d ${POSTGRES_DB:-powerx}"]
       interval: 10s
@@ -23,21 +23,66 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - redis_data:/data
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 10
 
+  loki:
+    image: grafana/loki:2.9.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "${POWERX_LOKI_PORT:-3100}:3100"
+    volumes:
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/loki:/loki
+      - ./observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/promtail:/tmp
+      - ./observability/promtail-config.yaml:/etc/promtail/config.yml:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    restart: unless-stopped
+    ports:
+      - "${POWERX_GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${POWERX_GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${POWERX_GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: ${POWERX_GRAFANA_ANONYMOUS_ENABLED:-false}
+    volumes:
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/grafana:/var/lib/grafana
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - loki
+
   backend:
-    image: ghcr.io/artisancloud/powerx-backend:${POWERX_BACKEND_TAG}
+    image: powerx-backend:${POWERX_IMAGE_TAG:-local}
+    build:
+      context: ../../..
+      dockerfile: deploy/powerx/docker/dockerfiles/backend.Dockerfile
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # 配置真源：容器内 backend 读取的 YAML 路径，可在 .env 覆盖
-      POWERX_CONFIG: ${POWERX_CONFIG:-/app/backend/etc/config.yaml}
+      # 配置真源：优先使用宿主机映射到容器内 /etc/powerx 的运行时配置
+      POWERX_CONFIG: ${POWERX_CONFIG:-/etc/powerx/config.yaml}
+    volumes:
+      # 配置层映射：宿主机 /etc/powerx -> 容器 /etc/powerx
+      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx
+      # 数据层映射：本地存储场景（如 storage.local_path=/data/uploads）
+      - ${POWERX_HOST_DATA_DIR:-/var/lib/powerx}/uploads:/data/uploads
     ports:
       - "${POWERX_BACKEND_PORT:-8080}:8080"
     healthcheck:
@@ -50,18 +95,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  runner:
-    image: ghcr.io/artisancloud/powerx-runner:${POWERX_RUNNER_TAG}
-    restart: unless-stopped
-    env_file:
-      - .env
-    depends_on:
-      backend:
-        condition: service_healthy
+      loki:
+        condition: service_started
 
   web-admin:
-    image: ghcr.io/artisancloud/powerx-web-admin:${POWERX_WEB_ADMIN_TAG}
+    image: powerx-web-admin:${POWERX_IMAGE_TAG:-local}
+    build:
+      context: ../../..
+      dockerfile: deploy/powerx/docker/dockerfiles/web-admin.Dockerfile
     restart: unless-stopped
     env_file:
       - .env
@@ -69,12 +110,10 @@ services:
       # 前端代理真源：优先 .env 中的 POWERX_BACKEND/WS_UPSTREAM，未设置时走 backend 服务名
       POWERX_BACKEND: ${POWERX_BACKEND:-http://backend:8080}
       WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
+    volumes:
+      - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx:ro
     ports:
       - "${POWERX_WEB_ADMIN_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
-
-volumes:
-  postgres_data:
-  redis_data:
