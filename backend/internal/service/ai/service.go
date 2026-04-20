@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
@@ -112,6 +113,7 @@ func (s *Service) LLMInvoke(
 	if err != nil {
 		return nil, err
 	}
+	applyTimeoutFromContext(ctx, mc)
 	mc.SystemPrompt = "You are a helpful assistant."
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
@@ -203,6 +205,7 @@ func (s *Service) LLMStream(
 	if err != nil {
 		return "", err
 	}
+	applyTimeoutFromContext(ctx, mc)
 	mc.SystemPrompt = "You are a helpful assistant."
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
@@ -227,6 +230,20 @@ func (s *Service) LLMStream(
 		return stripThinkingTags(final), nil
 	}
 	return final, nil
+}
+
+func applyTimeoutFromContext(ctx context.Context, mc *aiconfig.ModelConfig) {
+	if mc == nil || mc.Timeout > 0 || ctx == nil {
+		return
+	}
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return
+	}
+	remaining := time.Until(deadline)
+	if remaining > 0 {
+		mc.Timeout = remaining
+	}
 }
 
 type reasoningConfig struct {
