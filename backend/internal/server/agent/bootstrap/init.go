@@ -13,6 +13,7 @@ import (
 	intent2 "github.com/ArtisanCloud/PowerX/internal/server/agent/factory/intent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/intent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agentsvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	caprouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
@@ -105,6 +106,11 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 
 	// 统一节点执行器（skill/tooling）接线到真实服务链路
 	if db != nil {
+		ctxRefSvc := agentsvc.NewContextRefService(db)
+		gAgentManager.SetContextRefAuthorizer(func(ctx context.Context, tenantUUID string, childAgentID uint64, contextRefID string) error {
+			return ctxRefSvc.CanAccess(ctx, tenantUUID, childAgentID, contextRefID)
+		})
+
 		// skill invoker
 		skillRegistryRepo := skillrepo.NewSkillRegistryRepository(db)
 		skillBindingRepo := skillrepo.NewSkillCapabilityBindingRepository(db)

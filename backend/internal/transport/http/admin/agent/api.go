@@ -12,6 +12,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	agentH := NewAgentHandler(deps)
 	chatH := NewAgentChatHandler(deps)
 	shareH := NewShareHandler(deps)
+	teamH := NewTeamHandler(deps)
 
 	sessionH := NewAgentSessionHandler(deps)
 	tenantFormH := NewTenantAgentFormHandler(deps)
@@ -89,6 +90,18 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 			tenantFormsGroup.GET("/:form_id", tenantFormH.GetTenantForm)
 			tenantFormsGroup.POST("/:form_id/approve", tenantFormH.ApproveTenantForm)
 			tenantFormsGroup.POST("/:form_id/reject", tenantFormH.RejectTenantForm)
+		}
+
+		teamGroup := agentAdminGroup.Group("/teams")
+		{
+			teamGroup.POST("", teamH.CreateTeam)
+			teamGroup.GET("", teamH.ListTeams)
+			teamGroup.PATCH("/:teamId", teamH.UpdateTeam)
+			teamGroup.PATCH("/:teamId/status", teamH.SetTeamStatus)
+			teamGroup.DELETE("/:teamId", teamH.DeleteTeam)
+			teamGroup.GET("/:teamId/members", teamH.ListTeamMembers)
+			teamGroup.PUT("/:teamId/members", teamH.UpsertTeamMember)
+			teamGroup.DELETE("/:teamId/members/:childAgentId", teamH.DeleteTeamMember)
 		}
 	}
 

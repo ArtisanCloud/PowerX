@@ -6,6 +6,7 @@ import (
 
 	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
@@ -183,6 +184,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
 	}
+	if err = migrateAgentA2AModels(db); err != nil {
+		return err
+	}
 
 	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
 		return err
@@ -262,6 +266,15 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationGatewayAPIKey{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
+	)
+}
+
+func migrateAgentA2AModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelAgent.AgentTeam{},
+		&modelAgent.AgentTeamMember{},
+		&modelAgent.AgentHandoffTask{},
+		&modelAgent.AgentSharedContextRef{},
 	)
 }
 

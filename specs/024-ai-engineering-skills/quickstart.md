@@ -258,3 +258,85 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
   - `usage.total_prompt_tokens / total_completion_tokens / total_tokens`
   - `usage.hops[phase=planner].latency_ms`
   - `usage.planner_candidates_before / usage.planner_candidates_after`
+
+## 13. A2A 最小可理解用例（1 主 2 子）
+
+目标：验证主 Agent 能把一次复杂请求分发给两个子 Agent 并汇总返回，且保留子任务状态。
+
+### 13.1 准备团队（动态团队，不写死 ID）
+
+先在团队管理页创建一个可用团队：
+
+- 路径：`/settings/ai/agent-teams`
+- 约束：
+  - TL 唯一 `planner`
+  - 子 Agent 仅 `retriever/executor/reviewer`
+  - 子 Agent 必须是同租户、active、非 system、非内置
+
+创建后记录：
+
+- `TEAM_ID`（本次验收团队）
+- `PARENT_AGENT_ID`（TL 对应 agent）
+- `TEAM_NAME`
+
+通过团队任务页进入：
+
+- `/agent/team-tasks?team_id=<TEAM_ID>`
+
+### 13.2 发起测试请求（最小并行协作）
+
+```bash
+curl -N -G "$POWERX_BASE_URL/api/v1/agents/stream/sse" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  --data-urlencode "agent_id=<PARENT_AGENT_ID>" \
+  --data-urlencode "q=请先检索 INC-1001 的最近变更，再给出修复建议并做风险复核"
+```
+
+页面预期（必须看到）：
+
+1. 助手消息中出现“执行过程”卡片。
+2. 卡片内出现 `Intent：候选 N 个` 与 `Plan：节点 M 个`。
+3. 节点列表出现至少 2 条记录，且状态从 `running` 进入 `completed/failed`。
+4. 最终正文包含“检索结果 + 建议 + 汇总结论”。
+
+### 13.3 失败策略验证（continue）
+
+做法：临时让子 Agent B 的一个依赖 capability 不可用，再重复 13.2 请求。
+
+页面预期：
+
+1. 主流程不整体失败。
+2. 最终返回“部分成功”，并给出失败步骤说明。
+
+审计预期（页面不可见字段）：
+
+1. `GET /admin/skills/traces?team_id=<TEAM_ID>&limit=50`
+2. 可定位 `handoff_task_id`、`team_id`、`node_status`、`error_summary`。
+
+### 13.4 关键日志核对
+
+检查：
+
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_stream_*.json`
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_planner_*.json`
+
+重点字段：
+
+- `plan_id`
+- `team_id`
+- `task_id`
+- `parent_agent_id`
+- `child_agent_id`
+- `failure_policy`
+- `node_status`
+
+### 13.5 验收记录（每次执行必须留档）
+
+1. 执行时间
+2. 团队名称 / `TEAM_ID`
+3. TL 名称 / `PARENT_AGENT_ID`
+4. 输入指令
+5. 页面可见节点数
+6. 最终状态：成功 / 部分成功 / 失败
+7. `trace_id`
+8. 失败节点与原因（如有）

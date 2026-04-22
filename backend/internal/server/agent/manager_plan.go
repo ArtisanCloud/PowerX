@@ -191,15 +191,19 @@ func (m *Manager) assemblePlanTasks(
 			sourceScope = "system"
 		}
 		pt := schemas.PlanTask{
-			TaskID:      t.TaskID,
-			FlowID:      t.FlowID,
-			NodeKind:    nodeKind,
-			NodeRef:     nodeRef,
-			SourceScope: sourceScope,
-			AgentID:     t.AgentID,
-			Params:      params,
-			ParamRefs:   map[string]string{},
-			Stage:       level[fid],
+			TaskID:        t.TaskID,
+			FlowID:        t.FlowID,
+			NodeKind:      nodeKind,
+			NodeRef:       nodeRef,
+			SourceScope:   sourceScope,
+			AgentID:       t.AgentID,
+			TeamID:        readTaskTeamID(t),
+			HandoffTaskID: readTaskHandoffTaskID(t),
+			FailurePolicy: readTaskFailurePolicy(t),
+			ContextRefID:  readTaskContextRefID(t),
+			Params:        params,
+			ParamRefs:     map[string]string{},
+			Stage:         level[fid],
 		}
 
 		// 依赖（按 requires 顺序）
@@ -299,6 +303,46 @@ func readTaskSourceScope(t schemas.DetectedTask) string {
 	}
 	if v, ok := t.Params["_source_scope"]; ok {
 		return strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+	}
+	return ""
+}
+
+func readTaskTeamID(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_team_id"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	return ""
+}
+
+func readTaskHandoffTaskID(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_handoff_task_id"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	return ""
+}
+
+func readTaskFailurePolicy(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_failure_policy"]; ok {
+		return strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+	}
+	return ""
+}
+
+func readTaskContextRefID(t schemas.DetectedTask) string {
+	if t.Params == nil {
+		return ""
+	}
+	if v, ok := t.Params["_context_ref_id"]; ok {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
 	}
 	return ""
 }

@@ -273,6 +273,7 @@ const viewGroups = computed<MenuGroup[]>(() => {
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
 const EVENT_MANAGE_PATH = "/settings/event-fabric";
 const SETTINGS_ROOT_PATH = "/settings";
+const AGENT_ROOT_PATH = "/agent";
 
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
   const normalizedTarget = normalizeMenuPath(SETTINGS_ROOT_PATH);
@@ -317,6 +318,42 @@ const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
   return false;
 };
 
+const attachToAgentMenu = (groups: MenuGroup[], children: MenuItem[]): boolean => {
+  const normalizedTarget = normalizeMenuPath(AGENT_ROOT_PATH);
+  if (!normalizedTarget || children.length === 0) return false;
+
+  const queue: MenuItem[] = [];
+  for (const group of groups) {
+    queue.push(...group.items);
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    const normalized = normalizeMenuPath(current.path);
+    const isAgentRoot =
+      normalized === normalizedTarget ||
+      (typeof current.id === "string" &&
+        current.id.trim().toLowerCase() === "agent");
+    if (isAgentRoot) {
+      const existing = current.children ? [...current.children] : [];
+      const merged = [...existing];
+      for (const child of children) {
+        const normalizedChild = normalizeMenuPath(child.path);
+        if (!normalizedChild) continue;
+        const exists = merged.some(
+          (it) => normalizeMenuPath(it.path) === normalizedChild
+        );
+        if (!exists) merged.push(child);
+      }
+      current.children = merged.sort(sortChildren);
+      return true;
+    }
+    if (current.children?.length) queue.push(...current.children);
+  }
+  return false;
+};
+
 const manualOpenCapabilityMenu = computed<MenuItem | null>(() => {
   if (!userStore.isRoot) return null;
   const label = t("menu.openCapabilities", "开放能力");
@@ -343,6 +380,45 @@ const manualEventManageMenu = computed<MenuItem | null>(() => {
     origin: "system",
   };
 });
+
+const manualAgentSubMenus = computed<MenuItem[]>(() => [
+  {
+    id: "agent-sub-management",
+    title: "智能体管理",
+    icon: "i-heroicons-rectangle-group",
+    path: "/settings/ai/agents",
+    order: 11,
+    visible: true,
+    origin: "system",
+  },
+  {
+    id: "agent-sub-team-management",
+    title: "团队管理",
+    icon: "i-heroicons-user-group",
+    path: "/settings/ai/agent-teams",
+    order: 12,
+    visible: true,
+    origin: "system",
+  },
+  {
+    id: "agent-sub-smart-session",
+    title: "智能会话",
+    icon: "i-heroicons-chat-bubble-left-right",
+    path: "/agent/sessions",
+    order: 13,
+    visible: true,
+    origin: "system",
+  },
+  {
+    id: "agent-sub-team-task",
+    title: "团队任务",
+    icon: "i-heroicons-queue-list",
+    path: "/agent/team-tasks",
+    order: 14,
+    visible: true,
+    origin: "system",
+  },
+]);
 
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
@@ -378,6 +454,8 @@ const renderedGroups = computed<MenuGroup[]>(() => {
       });
     }
   }
+
+  attachToAgentMenu(base, manualAgentSubMenus.value);
 
   return base;
 });

@@ -147,6 +147,15 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 4. **观测增强**：增加 `planner_candidates_before/after`、`planner_cache_hit`、`planner_latency_ms`、`planner_parse_retry` 等可观测字段。  
 5. **灰度上线**：按租户灰度启用并对比基线，满足性能门槛后全量开启。  
 
+## Phase 14 – A2A 多 Agent 协作基线
+
+1. **团队模型**：新增主 Agent 与子 Agent 的 Team 配置模型，支持角色定义（planner/retriever/executor/reviewer）与启停控制。  
+2. **任务分发**：在 Planner 中支持 `node.kind=agent_handoff`，由主 Agent 按依赖把子任务分发到指定子 Agent。  
+3. **上下文隔离**：handoff 仅透传结构化输入与上下文引用（`context_ref`），禁止默认传递完整历史会话。  
+4. **失败策略**：统一支持 `fail-fast|continue|retry-once`，并在最终汇总中返回子任务级状态。  
+5. **审计与观测**：新增 `team_id/task_id/parent_agent_id/child_agent_id/handoff_trace_id` 字段，接入审计与 trace。  
+6. **最小用例验证**：以“1 主 2 子”并行协作为验收基线，验证分发、回收、部分失败与越权阻断。  
+
 ## Implementation Backwrite (2026-03-19)
 
 - 已完成 `T046`：新增 `backend/internal/service/skills/lifecycle_integrity_invoke_test.go`，覆盖状态机、完整性策略、默认版本解析单元测试。

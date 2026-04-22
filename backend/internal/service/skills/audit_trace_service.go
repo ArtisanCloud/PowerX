@@ -39,6 +39,9 @@ type ExecutionTraceInput struct {
 	CapabilityID    string
 	PlanID          string
 	NodeID          string
+	TeamID          string
+	HandoffTaskID   string
+	HandoffTraceID  string
 	NodeStatus      string
 	RetryTrace      string
 	LatencyMS       int
@@ -125,6 +128,9 @@ func (s *AuditTraceService) RecordExecutionTrace(ctx context.Context, in Executi
 		CapabilityID:           strings.TrimSpace(in.CapabilityID),
 		PlanID:                 strings.TrimSpace(in.PlanID),
 		NodeID:                 strings.TrimSpace(in.NodeID),
+		TeamID:                 strings.TrimSpace(in.TeamID),
+		HandoffTaskID:          strings.TrimSpace(in.HandoffTaskID),
+		HandoffTraceID:         strings.TrimSpace(in.HandoffTraceID),
 		NodeStatus:             strings.ToLower(strings.TrimSpace(in.NodeStatus)),
 		RetryTrace:             strings.TrimSpace(in.RetryTrace),
 		FallbackUsed:           in.FallbackUsed,

@@ -18,16 +18,19 @@ var (
 
 // SkillExecutionTraceFilter controls query conditions for trace list.
 type SkillExecutionTraceFilter struct {
-	TenantUUID string
-	SkillID    string
-	Version    string
-	PlanID     string
-	NodeID     string
-	NodeStatus string
-	Status     []string
-	Limit      int
-	Offset     int
-	OrderBy    string
+	TenantUUID     string
+	SkillID        string
+	Version        string
+	PlanID         string
+	NodeID         string
+	TeamID         string
+	HandoffTaskID  string
+	HandoffTraceID string
+	NodeStatus     string
+	Status         []string
+	Limit          int
+	Offset         int
+	OrderBy        string
 }
 
 // SkillExecutionTraceRepository persists execution traces.
@@ -87,6 +90,15 @@ func (r *SkillExecutionTraceRepository) List(ctx context.Context, filter SkillEx
 	}
 	if filter.NodeID != "" {
 		query = query.Where("node_id = ?", strings.TrimSpace(filter.NodeID))
+	}
+	if filter.TeamID != "" {
+		query = query.Where("team_id = ?", strings.TrimSpace(filter.TeamID))
+	}
+	if filter.HandoffTaskID != "" {
+		query = query.Where("handoff_task_id = ?", strings.TrimSpace(filter.HandoffTaskID))
+	}
+	if filter.HandoffTraceID != "" {
+		query = query.Where("handoff_trace_id = ?", strings.TrimSpace(filter.HandoffTraceID))
 	}
 	if filter.NodeStatus != "" {
 		query = query.Where("node_status = ?", strings.ToLower(strings.TrimSpace(filter.NodeStatus)))

@@ -136,6 +136,11 @@ const TableSkillsExecutionTraces = "skills_execution_traces"
 const TableSkillsLifecycleAudits = "skills_lifecycle_audits"
 const TableSkillsInstallTasks = "skills_install_tasks"
 
+const TableAgentTeams = "agent_teams"
+const TableAgentTeamMembers = "agent_team_members"
+const TableAgentHandoffTasks = "agent_handoff_tasks"
+const TableAgentSharedContextRefs = "agent_shared_context_refs"
+
 const TableOpsDeployReleaseRecords = "ops_deploy_release_records"
 const TableOpsPluginLifecycleAudits = "ops_plugin_lifecycle_audits"
 const TableOpsBackupPolicies = "ops_backup_policies"

@@ -45,6 +45,7 @@ echo "TMP_DIR=$TMP_DIR"
 6. [06_authz_and_tenant_isolation.md](./06_authz_and_tenant_isolation.md)
 7. [07_open_source_skill_installation.md](./07_open_source_skill_installation.md)
 8. [08_stability_regression.md](./08_stability_regression.md)
+9. 多智能体协作分层用例已迁移至：`docs/guides/agent/multi_agent/09_a2a_team_collab_progressive.md`
 
 ## 留证要求
 

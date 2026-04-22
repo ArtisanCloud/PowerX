@@ -103,6 +103,67 @@
   - 每次关键动作必须写审计
   - 支持按 trace_id 或 skill/version 关联检索
 
+## AgentTeam
+- **标识**: `team_id`
+- **核心字段**:
+  - `tenant_uuid`
+  - `parent_agent_id`
+  - `team_name`
+  - `dispatch_mode`（`serial|parallel|mixed`）
+  - `default_failure_policy`（`fail-fast|continue|retry-once`）
+  - `status`（`active|disabled`）
+  - `created_by`, `created_at`, `updated_at`
+- **规则**:
+  - `team_id` 仅在单租户作用域内有效
+  - `parent_agent_id` 必须属于同租户
+
+## AgentTeamMember
+- **标识**: `team_id` + `child_agent_id`
+- **核心字段**:
+  - `role`（`planner|retriever|executor|reviewer`）
+  - `priority`
+  - `enabled`
+  - `created_at`, `updated_at`
+- **规则**:
+  - 同一 `team_id` 下 `child_agent_id` 唯一
+  - 禁止跨租户 agent 加入同一 team
+
+## AgentHandoffTask
+- **标识**: `task_id`
+- **核心字段**:
+  - `team_id`
+  - `tenant_uuid`
+  - `parent_agent_id`
+  - `child_agent_id`
+  - `session_id`
+  - `plan_id`
+  - `node_id`
+  - `context_ref`（引用切片，不存整段大上下文）
+  - `input_digest`
+  - `output_digest`
+  - `failure_policy`（`fail-fast|continue|retry-once`）
+  - `status`（`queued|running|completed|failed|timed_out|cancelled`）
+  - `error_code`, `error_summary`
+  - `started_at`, `ended_at`, `created_at`
+- **规则**:
+  - 必须记录 `parent_agent_id` 与 `child_agent_id`
+  - 失败也必须保留 `error_code/error_summary` 便于回放
+
+## AgentSharedContextRef
+- **标识**: `context_ref_id`
+- **核心字段**:
+  - `tenant_uuid`
+  - `session_id`
+  - `owner_agent_id`
+  - `visible_to_agent_ids[]`
+  - `payload_uri`（对象存储或内部文档 URI）
+  - `checksum`
+  - `expires_at`
+  - `created_at`
+- **规则**:
+  - 子 Agent 仅能访问 `visible_to_agent_ids` 内授权引用
+  - 过期引用不可继续参与 handoff
+
 ## 状态机与并发约束
 - **状态迁移**:
   - `draft -> published`

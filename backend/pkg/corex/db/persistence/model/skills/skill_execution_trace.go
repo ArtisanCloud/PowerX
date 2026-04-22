@@ -26,6 +26,9 @@ type SkillExecutionTrace struct {
 	CapabilityID           string `gorm:"column:capability_id;type:varchar(128);index:idx_skill_execution_capability" json:"capability_id,omitempty"`
 	PlanID                 string `gorm:"column:plan_id;type:varchar(128);index:idx_skill_execution_plan" json:"plan_id,omitempty"`
 	NodeID                 string `gorm:"column:node_id;type:varchar(128);index:idx_skill_execution_node" json:"node_id,omitempty"`
+	TeamID                 string `gorm:"column:team_id;type:varchar(64);index:idx_skill_execution_team" json:"team_id,omitempty"`
+	HandoffTaskID          string `gorm:"column:handoff_task_id;type:varchar(128);index:idx_skill_execution_handoff_task" json:"handoff_task_id,omitempty"`
+	HandoffTraceID         string `gorm:"column:handoff_trace_id;type:varchar(128);index:idx_skill_execution_handoff_trace" json:"handoff_trace_id,omitempty"`
 	NodeStatus             string `gorm:"column:node_status;type:varchar(32);index:idx_skill_execution_node_status" json:"node_status,omitempty"`
 	RetryTrace             string `gorm:"column:retry_trace;type:text" json:"retry_trace,omitempty"`
 	FallbackUsed           bool   `gorm:"column:fallback_used;not null;default:false" json:"fallback_used"`
@@ -47,6 +50,9 @@ func (t *SkillExecutionTrace) Normalize() {
 	t.Status = strings.TrimSpace(strings.ToLower(t.Status))
 	t.PlanID = strings.TrimSpace(t.PlanID)
 	t.NodeID = strings.TrimSpace(t.NodeID)
+	t.TeamID = strings.TrimSpace(t.TeamID)
+	t.HandoffTaskID = strings.TrimSpace(t.HandoffTaskID)
+	t.HandoffTraceID = strings.TrimSpace(t.HandoffTraceID)
 	t.NodeStatus = strings.TrimSpace(strings.ToLower(t.NodeStatus))
 	t.RetryTrace = strings.TrimSpace(t.RetryTrace)
 }
