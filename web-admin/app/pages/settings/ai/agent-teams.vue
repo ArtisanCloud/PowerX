@@ -313,15 +313,10 @@
 import { h, resolveComponent } from "vue";
 import { useAgentManager } from "~/composables/agent/useAgentManager";
 import { useAgentTeamService, type AgentTeamRecord } from "~/composables/api/services/agentTeamService";
-import { useApiClient } from "~/composables/api";
-import { useEnvStore } from "~/stores/envStore";
 import type { Agent } from "~/types/agent";
 
 const localePath = useLocalePath();
 const { t } = useI18n();
-const { get } = useApiClient();
-const envStore = useEnvStore();
-const ENV = computed(() => envStore.currentEnv || "dev");
 
 definePageMeta({
   title: "团队管理",
@@ -536,24 +531,8 @@ const resolveAgentProfile = (agentId: number) => {
 };
 
 const loadAgentCatalog = async () => {
-  try {
-    const resp: any = await get("/admin/agents", {
-      params: {
-        env: ENV.value,
-      },
-      useGlobalLoading: false,
-    });
-    const envelope = resp?.data ?? resp;
-    const payload = envelope?.data ?? envelope;
-    const items = Array.isArray(payload?.items) ? payload.items : [];
-    if (items.length) {
-      agentCatalog.value = items as Agent[];
-      return;
-    }
-  } catch {
-    // fallback below
-  }
   await fetchAgents();
+  agentCatalog.value = ((agents.value || []) as Agent[]).slice();
 };
 
 const loadMembersForModal = async () => {
