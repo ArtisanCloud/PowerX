@@ -837,6 +837,24 @@
     }
   },
   "agent": {
+    "teamManagement": {
+      "roles": {
+        "retriever": "Retriever",
+        "executor": "Executor",
+        "reviewer": "Reviewer"
+      },
+      "roleGuide": {
+        "title": "Role Guide",
+        "description": "TL (main agent) is always planner; child agents can only be retriever / executor / reviewer. Dispatching should rely on skill/capability matching."
+      },
+      "noChildCandidates": {
+        "title": "No Available Child Agents",
+        "description": "Only active, non-system, non-builtin agents in current tenant can be selected. Create and enable collaboration-ready agents first."
+      },
+      "create": {
+        "tlFixedRoleHint": "TL is fixed to planner (read-only)"
+      }
+    },
     "list": {
       "loadFailed": "Failed to load agent list"
     },

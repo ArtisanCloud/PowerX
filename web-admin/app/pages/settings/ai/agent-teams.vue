@@ -92,7 +92,7 @@
       <template #body>
         <div class="space-y-4">
           <div class="rounded-md border border-gray-200 p-3 text-xs text-gray-500">
-            团队：{{ editingTeam?.team_name || "-" }} · TL：{{ resolveAgentName(editingTeam?.parent_agent_id || 0) || "未知智能体" }} (#{{ editingTeam?.parent_agent_id || "-" }}) ·
+            团队：{{ editingTeam?.team_name || "-" }} · TL：{{ resolveAgentProfile(editingTeam?.parent_agent_id || 0).title }} ·
             Mode：{{ editingTeam?.dispatch_mode || "-" }} · Failure：{{ editingTeam?.default_failure_policy || "-" }}
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -108,7 +108,13 @@
               />
             </UFormField>
             <UFormField label="角色" class="md:col-span-3">
-              <USelect v-model="newMemberRole" :items="roleOptions" class="w-full" />
+              <USelect
+                v-model="newMemberRole"
+                :items="roleOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+              />
             </UFormField>
             <div class="flex items-end md:col-span-4">
               <UButton
@@ -126,16 +132,16 @@
             color="neutral"
             variant="soft"
             icon="i-heroicons-information-circle"
-            title="角色说明"
-            description="TL 唯一承担 planner。子智能体角色：retriever=取资料，executor=执行动作，reviewer=复核。子智能体统一使用默认调度优先级。"
+            :title="t('agent.teamManagement.roleGuide.title')"
+            :description="t('agent.teamManagement.roleGuide.description')"
           />
           <UAlert
             v-if="memberCandidateOptions.length === 0"
             color="warning"
             variant="soft"
             icon="i-heroicons-exclamation-triangle"
-            title="暂无可选子智能体"
-            description="仅可选择当前租户下 active 且非系统/非内置智能体。请先创建并启用可协作智能体。"
+            :title="t('agent.teamManagement.noChildCandidates.title')"
+            :description="t('agent.teamManagement.noChildCandidates.description')"
           />
 
           <div class="rounded-lg border border-gray-200 overflow-hidden">
@@ -150,11 +156,17 @@
               <tbody>
                 <tr v-for="item in editingMembers" :key="item.child_agent_id" class="border-t border-gray-100">
                   <td class="px-3 py-2">
-                    <div class="font-medium">#{{ item.child_agent_id }}</div>
-                    <div class="text-xs text-gray-500">{{ item.name || "未知智能体" }}</div>
+                    <div class="font-medium">{{ item.name || "未知智能体" }}</div>
+                    <div class="text-xs text-gray-500">{{ item.key || "无 Key" }}</div>
+                    <div class="text-[11px] text-gray-400">ID: {{ item.child_agent_id }}</div>
                   </td>
                   <td class="px-3 py-2">
-                    <USelect v-model="item.role" :items="roleOptions" />
+                    <USelect
+                      v-model="item.role"
+                      :items="roleOptions"
+                      option-attribute="label"
+                      value-attribute="value"
+                    />
                   </td>
                   <td class="px-3 py-2">
                     <div class="flex items-center gap-2">
@@ -204,7 +216,8 @@
               >
                 <div class="min-w-0">
                   <div class="font-medium truncate">{{ agent.name }}</div>
-                  <div class="text-xs text-gray-500 truncate">{{ agent.key }} · #{{ agent.id }}</div>
+                  <div class="text-xs text-gray-500 truncate">{{ agent.key || "无 Key" }}</div>
+                  <div class="text-[11px] text-gray-400 truncate">ID: {{ agent.id }}</div>
                 </div>
                 <UButton
                   size="xs"
@@ -230,7 +243,8 @@
                 <div class="flex items-center justify-between gap-2">
                   <div>
                     <div class="font-medium">{{ member.name }}</div>
-                    <div class="text-xs text-gray-500">#{{ member.agentId }}</div>
+                    <div class="text-xs text-gray-500">{{ member.key || "无 Key" }}</div>
+                    <div class="text-[11px] text-gray-400">ID: {{ member.agentId }}</div>
                   </div>
                   <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click="removeMember(member.agentId)">
                     移除
@@ -238,7 +252,16 @@
                 </div>
                 <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <UFormField label="角色">
-                    <USelect v-model="member.role" :items="roleOptions" />
+                    <USelect
+                      v-model="member.role"
+                      :items="roleOptions"
+                      option-attribute="label"
+                      value-attribute="value"
+                      :disabled="tlAgentId === member.agentId"
+                    />
+                    <div v-if="tlAgentId === member.agentId" class="mt-1 text-xs text-gray-500">
+                      {{ t("agent.teamManagement.create.tlFixedRoleHint") }}
+                    </div>
                   </UFormField>
                   <UFormField label="TL">
                     <UButton
@@ -295,6 +318,7 @@ import { useEnvStore } from "~/stores/envStore";
 import type { Agent } from "~/types/agent";
 
 const localePath = useLocalePath();
+const { t } = useI18n();
 const { get } = useApiClient();
 const envStore = useEnvStore();
 const ENV = computed(() => envStore.currentEnv || "dev");
@@ -323,13 +347,14 @@ const teamName = ref("incident-a2a-demo");
 const dispatchMode = ref<"parallel" | "serial" | "mixed">("parallel");
 const failurePolicy = ref<"continue" | "fail-fast" | "retry-once">("continue");
 const tlAgentId = ref<number | null>(null);
-const selectedMembers = ref<Array<{ agentId: number; name: string; role: "retriever" | "executor" | "reviewer" }>>([]);
+type ChildRole = "retriever" | "executor" | "reviewer";
+const selectedMembers = ref<Array<{ agentId: number; name: string; key: string; role: ChildRole }>>([]);
 const editingTeam = ref<AgentTeamRecord | null>(null);
-const editingMembers = ref<Array<{ child_agent_id: number; role: "retriever" | "executor" | "reviewer"; enabled: boolean; name: string }>>([]);
+const editingMembers = ref<Array<{ child_agent_id: number; role: ChildRole; enabled: boolean; name: string; key: string }>>([]);
 const memberSubmitting = ref(false);
 const editSubmitting = ref(false);
 const newMemberAgentId = ref<number | null>(null);
-const newMemberRole = ref<"retriever" | "executor" | "reviewer">("executor");
+const newMemberRole = ref<ChildRole>("executor");
 const editingTeamForm = ref<{
   id: number;
   parent_agent_id: number;
@@ -344,7 +369,11 @@ const editingTeamForm = ref<{
   default_failure_policy: "continue",
 });
 
-const roleOptions = ["retriever", "executor", "reviewer"];
+const roleOptions = computed(() => [
+  { label: t("agent.teamManagement.roles.retriever"), value: "retriever" as const },
+  { label: t("agent.teamManagement.roles.executor"), value: "executor" as const },
+  { label: t("agent.teamManagement.roles.reviewer"), value: "reviewer" as const },
+]);
 const dispatchModeOptions = ["parallel", "serial", "mixed"];
 const failurePolicyOptions = ["continue", "fail-fast", "retry-once"];
 const agentPool = computed<Agent[]>(() =>
@@ -352,7 +381,7 @@ const agentPool = computed<Agent[]>(() =>
 );
 const agentOptions = computed(() =>
   agentPool.value.map((agent) => ({
-    label: `${agent.name || "未命名"} (#${agent.id})`,
+    label: `${agent.name || "未命名"} (${agent.key || "无 Key"})`,
     value: Number(agent.id),
   }))
 );
@@ -368,7 +397,7 @@ const memberCandidateOptions = computed(() => {
   const currentTL = Number(editingTeam.value?.parent_agent_id || 0);
   const list = eligibleChildAgents.value.filter((agent) => Number(agent.id || 0) !== currentTL);
   return list.map((agent) => ({
-    label: `${agent.name || "未命名"} (#${agent.id})`,
+    label: `${agent.name || "未命名"} (${agent.key || "无 Key"})`,
     value: Number(agent.id),
   }));
 });
@@ -386,16 +415,29 @@ const filteredAgents = computed(() => {
 });
 
 const columns = [
-  { accessorKey: "id", header: "ID" },
-  { accessorKey: "team_name", header: "Team" },
+  {
+    accessorKey: "team_name",
+    header: "Team",
+    cell: ({ row }: any) => {
+      const id = Number(row.original.id || 0);
+      return h("div", { class: "space-y-0.5" }, [
+        h("div", { class: "font-medium text-gray-900" }, row.original.team_name || "未命名团队"),
+        h("div", { class: "text-xs text-gray-500" }, `ID: ${id}`),
+      ]);
+    },
+  },
   {
     id: "parent",
     accessorKey: "parent_agent_id",
     header: "TL(主智能体)",
     cell: ({ row }: any) => {
       const id = Number(row.original.parent_agent_id || 0);
-      const name = resolveAgentName(id) || "未知智能体";
-      return `${name} (#${id})`;
+      const profile = resolveAgentProfile(id);
+      return h("div", { class: "space-y-0.5" }, [
+        h("div", { class: "font-medium text-gray-900" }, profile.name),
+        h("div", { class: "text-xs text-gray-500" }, profile.key),
+        h("div", { class: "text-[11px] text-gray-400" }, `ID: ${id}`),
+      ]);
     },
   },
   { accessorKey: "dispatch_mode", header: "Mode" },
@@ -477,9 +519,20 @@ const openCreateModal = async () => {
   await loadAgentCatalog();
 };
 
-const resolveAgentName = (agentId: number) => {
+const resolveAgentProfile = (agentId: number) => {
   const item = agentPool.value.find((agent) => Number(agent.id) === Number(agentId));
-  return item?.name || `智能体#${agentId}`;
+  if (!item) {
+    return {
+      name: `智能体#${agentId}`,
+      key: "无 Key",
+      title: `智能体#${agentId}`,
+    };
+  }
+  return {
+    name: item.name || `智能体#${agentId}`,
+    key: item.key || "无 Key",
+    title: `${item.name || `智能体#${agentId}`} (${item.key || "无 Key"})`,
+  };
 };
 
 const loadAgentCatalog = async () => {
@@ -512,7 +565,8 @@ const loadMembersForModal = async () => {
       child_agent_id: Number(item.child_agent_id),
       role: item.role === "planner" ? "executor" : item.role,
       enabled: Boolean(item.enabled),
-      name: resolveAgentName(Number(item.child_agent_id)),
+      name: resolveAgentProfile(Number(item.child_agent_id)).name,
+      key: resolveAgentProfile(Number(item.child_agent_id)).key,
     }));
   } catch (e: any) {
     message.value = e?.message || "加载成员失败";
@@ -557,7 +611,7 @@ const submitTeamEdit = async () => {
       dispatch_mode: editingTeamForm.value.dispatch_mode,
       default_failure_policy: editingTeamForm.value.default_failure_policy,
     });
-    message.value = `团队已更新：team_id=${updated.id}`;
+    message.value = `团队已更新：${updated.team_name}`;
     editOpen.value = false;
     parentAgentId.value = Number(updated.parent_agent_id);
     await loadTeams();
@@ -573,7 +627,7 @@ const deleteTeam = async (team: AgentTeamRecord) => {
   if (!ok) return;
   try {
     await svc.deleteTeam(Number(team.id));
-    message.value = `团队已删除：team_id=${team.id}`;
+    message.value = `团队已删除：${team.team_name}`;
     if (Number(parentAgentId.value) === Number(team.parent_agent_id)) {
       await loadTeams();
       return;
@@ -605,7 +659,7 @@ const addOrUpdateMember = async () => {
       priority: 1,
       enabled: true,
     });
-    message.value = `成员已写入：team_id=${teamId}, child_agent_id=${childAgentID}`;
+    message.value = `成员已写入：${resolveAgentProfile(childAgentID).title}`;
     await loadMembersForModal();
   } catch (e: any) {
     message.value = e?.message || "写入成员失败";
@@ -614,7 +668,7 @@ const addOrUpdateMember = async () => {
   }
 };
 
-const saveMember = async (item: { child_agent_id: number; role: "retriever" | "executor" | "reviewer" }) => {
+const saveMember = async (item: { child_agent_id: number; role: ChildRole }) => {
   const teamId = Number(editingTeam.value?.id || 0);
   if (!teamId) return;
   memberSubmitting.value = true;
@@ -625,7 +679,7 @@ const saveMember = async (item: { child_agent_id: number; role: "retriever" | "e
       priority: 1,
       enabled: true,
     });
-    message.value = `成员已更新：child_agent_id=${item.child_agent_id}`;
+    message.value = `成员已更新：${resolveAgentProfile(item.child_agent_id).title}`;
     await loadMembersForModal();
   } catch (e: any) {
     message.value = e?.message || "更新成员失败";
@@ -640,7 +694,7 @@ const removeMemberFromTeam = async (childAgentID: number) => {
   memberSubmitting.value = true;
   try {
     await svc.deleteMember(teamId, childAgentID);
-    message.value = `成员已删除：child_agent_id=${childAgentID}`;
+    message.value = `成员已删除：${resolveAgentProfile(childAgentID).title}`;
     await loadMembersForModal();
   } catch (e: any) {
     message.value = e?.message || "删除成员失败";
@@ -654,6 +708,7 @@ const addMember = (agent: Agent) => {
   selectedMembers.value.push({
     agentId: agent.id,
     name: agent.name,
+    key: agent.key || "",
     role: "executor",
   });
   if (!tlAgentId.value) tlAgentId.value = agent.id;
@@ -714,7 +769,7 @@ const createTeamFromModal = async () => {
     }
 
     parentAgentId.value = created.parent_agent_id;
-    message.value = `创建成功：team_id=${created.id}，成员写入 ${children.length} 个`;
+    message.value = `创建成功：${created.team_name}，成员写入 ${children.length} 个`;
     createOpen.value = false;
     resetModalForm();
     await loadTeams();

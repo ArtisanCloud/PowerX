@@ -59,6 +59,7 @@ const workspaceTeamId = computed(() => {
 const teamOptions = ref<SelectOption[]>([]);
 const teamMap = ref<Record<string, AgentTeamRecord>>({});
 const teamMemberAgents = ref<Array<{ id: number; name: string; avatar?: string }>>([]);
+const teamWorkspaceNotice = ref("");
 
 const findAgentUUIDByNumericID = (id: number) => {
   const hit = (agents.value || []).find((a) => Number(a.id) === Number(id));
@@ -84,12 +85,15 @@ const syncTeamRoute = async (teamId: string) => {
 const loadTeamsForSelector = async () => {
   if (workspaceMode.value !== "team") return;
   let merged: AgentTeamRecord[] = [];
+  teamWorkspaceNotice.value = "";
   try {
     const res = await teamService.listTeams(undefined, false);
     merged = res.items || [];
   } catch (e: any) {
     teamOptions.value = [];
     teamMap.value = {};
+    teamMemberAgents.value = [];
+    teamWorkspaceNotice.value = "团队列表加载失败，请先检查团队配置后重试。";
     notifyOnce("加载团队失败", e?.message || "");
     return;
   }
@@ -111,10 +115,20 @@ const loadTeamsForSelector = async () => {
   teamMap.value = map;
   teamOptions.value = options;
 
+  if (!options.length) {
+    teamMemberAgents.value = [];
+    teamWorkspaceNotice.value = "当前租户暂无可用团队，请先到“团队管理”创建团队。";
+    return;
+  }
+
   const picked =
     (workspaceTeamId.value && map[workspaceTeamId.value] && workspaceTeamId.value) ||
     (options[0]?.value ? String(options[0].value) : "");
   if (!picked) return;
+
+  if (workspaceTeamId.value && !map[workspaceTeamId.value]) {
+    teamWorkspaceNotice.value = `team_id=${workspaceTeamId.value} 不存在或不可用，已自动切换到默认团队。`;
+  }
 
   const pickedTeam = map[picked];
   if (!pickedTeam) return;
@@ -493,9 +507,14 @@ const handleAgentSelect = async (agentId: string) => {
 const handleTeamSelect = async (teamId: string) => {
   const picked = String(teamId || "").trim();
   const team = teamMap.value[picked];
-  if (!picked || !team) return;
+  if (!picked || !team) {
+    teamWorkspaceNotice.value = "请选择一个可用团队后再继续。";
+    return;
+  }
+  teamWorkspaceNotice.value = "";
   const parentUUID = findAgentUUIDByNumericID(team.parent_agent_id);
   if (!parentUUID) {
+    teamWorkspaceNotice.value = "团队主智能体不可用，请检查团队配置。";
     notifyOnce("团队主智能体不存在", `team_id=${picked} 的 parent_agent_id 未匹配到可用智能体。`);
     return;
   }
@@ -821,6 +840,8 @@ watch(
   async () => {
     if (workspaceMode.value === "team") {
       await loadTeamsForSelector();
+    } else {
+      teamWorkspaceNotice.value = "";
     }
   }
 );
@@ -965,6 +986,15 @@ const getAgentIcon = (agent: Agent) => {
             </div>
             <div class="flex items-center gap-2">
               <UButton
+                v-if="workspaceMode === 'team' && workspaceTeamId"
+                size="xs"
+                variant="ghost"
+                icon="i-heroicons-clipboard-document-list"
+                :to="`${localePath('/settings/ai/skills')}?trace_view=a2a&team_id=${encodeURIComponent(workspaceTeamId)}`"
+              >
+                协作审计
+              </UButton>
+              <UButton
                 v-if="workspaceMode !== 'smart'"
                 size="xs"
                 variant="ghost"
@@ -984,6 +1014,19 @@ const getAgentIcon = (agent: Agent) => {
               </UButton>
             </div>
           </div>
+          <UAlert
+            v-if="workspaceMode === 'team' && teamWorkspaceNotice"
+            color="warning"
+            variant="soft"
+            icon="i-heroicons-exclamation-triangle"
+            :title="teamWorkspaceNotice"
+          >
+            <template #actions>
+              <UButton size="xs" variant="soft" :to="localePath('/settings/ai/agent-teams')">
+                去团队管理
+              </UButton>
+            </template>
+          </UAlert>
           <ConnectionIndicators :connection="chat" />
         </div>
 

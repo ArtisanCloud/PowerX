@@ -6,11 +6,12 @@ import PluginWebView from "@/components/PluginWebView.vue"
 const route = useRoute()
 const pluginId = computed(() => String(route.params.pluginId || ""))
 
-// 统一用插件前缀 + 尾斜杠
-const src = computed(() => `/_p/${pluginId.value}/admin/`)
+// iframe 基础入口固定为 admin 根路径，避免同插件内跳转时反复重载 iframe
+const src = computed(() => `/_p/${pluginId.value}/admin/?__px_iframe=1`)
+const navigatePath = computed(() => `/_p/${pluginId.value}/admin/`)
 
 </script>
 
 <template>
-  <PluginWebView :plugin-id="pluginId" :src="src" />
+  <PluginWebView :plugin-id="pluginId" :src="src" :navigate-path="navigatePath" />
 </template>
