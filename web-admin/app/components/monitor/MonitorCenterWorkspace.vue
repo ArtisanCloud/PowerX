@@ -780,6 +780,41 @@
               <UButton size="sm" variant="ghost" @click="resetMonitorLogFilters">重置筛选</UButton>
             </div>
 
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm font-medium">插件日志策略编排</div>
+                <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="refreshPluginLoggingTargets">刷新插件列表</UButton>
+              </div>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <USelectMenu
+                  v-model="pluginLoggingOrch.pluginId"
+                  :items="pluginLoggingTargetOptions"
+                  value-key="value"
+                  label-key="label"
+                  placeholder="选择插件"
+                />
+                <div class="flex flex-wrap gap-2">
+                  <UButton size="sm" variant="outline" :disabled="!pluginLoggingOrch.pluginId" :loading="monitorLogsLoading" @click="loadPluginLoggingPolicy">读取策略</UButton>
+                  <UButton size="sm" color="primary" :disabled="!pluginLoggingOrch.pluginId" :loading="monitorLogsLoading" @click="savePluginLoggingPolicy">下发策略</UButton>
+                  <UButton size="sm" color="warning" variant="soft" :disabled="!pluginLoggingOrch.pluginId" :loading="monitorLogsLoading" @click="probePluginLoggingPolicy">执行 Probe</UButton>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="space-y-2">
+                  <div class="text-xs text-gray-500">策略 JSON（PUT /policy）</div>
+                  <UTextarea v-model="pluginLoggingOrch.policyJson" :rows="8" class="font-mono text-xs" />
+                </div>
+                <div class="space-y-2">
+                  <div class="text-xs text-gray-500">Probe JSON（POST /probe）</div>
+                  <UTextarea v-model="pluginLoggingOrch.probeJson" :rows="8" class="font-mono text-xs" />
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="text-xs text-gray-500">最近结果</div>
+                <pre class="rounded bg-gray-900 text-gray-100 text-xs p-3 overflow-x-auto">{{ pluginLoggingOrch.resultJson || "-" }}</pre>
+              </div>
+            </div>
+
             <div class="text-xs text-gray-500">
               共 {{ monitorLogsTotal }} 条，当前第 {{ monitorLogsPage }} 页（每页 {{ monitorLogsPageSize }} 条）
             </div>
@@ -1202,6 +1237,7 @@ const {
   total: monitorLogsTotal,
   queryMeta: monitorLogsQueryMeta,
   loaded: monitorLogsLoaded,
+  pluginTargets: monitorPluginTargets,
   retention: monitorRetention,
   retentionPolicy: monitorRetentionPolicy,
 } = storeToRefs(monitorLogsStore);
@@ -1223,6 +1259,12 @@ const monitorLogPageSizeOptions = [
   { label: "100", value: 100 },
 ];
 const monitorLogPageSizeDraft = ref(50);
+const pluginLoggingOrch = reactive({
+  pluginId: "",
+  policyJson: "{\n  \"mode\": \"host\",\n  \"sinks\": [\"stdout\"],\n  \"format\": \"json\",\n  \"level\": \"info\",\n  \"retry\": {\n    \"enabled\": true,\n    \"max_attempts\": 3,\n    \"backoff_ms\": 200\n  }\n}",
+  probeJson: "{\n  \"message\": \"monitor plugin logger probe\",\n  \"level\": \"info\",\n  \"component\": \"monitor.logs.ui\",\n  \"trace_id\": \"monitor-probe-001\",\n  \"tenant_uuid\": \"\"\n}",
+  resultJson: "",
+});
 
 const retentionPolicyForm = reactive({
   enabled: false,
@@ -2024,6 +2066,12 @@ const monitorCapabilityHint = computed(() => {
 const monitorGrafanaUrl = computed(() => {
   return String(monitorLogsQueryMeta.value?.grafana_url || "").trim();
 });
+const pluginLoggingTargetOptions = computed(() => {
+  return (monitorPluginTargets.value || []).map((item) => ({
+    value: item.plugin_id,
+    label: `${item.name || item.plugin_id} (${item.plugin_id})`,
+  }));
+});
 
 function monitorCapabilityColor(kind: "trace" | "job" | "policy" | "grafana") {
   if (kind === "trace") return monitorCapabilities.value.supports_trace_query ? "success" : "warning";
@@ -2079,6 +2127,76 @@ async function refreshMonitorLogsConfig() {
     await monitorLogsStore.fetchConfig();
   } catch (e: any) {
     toast.add({ title: "刷新日志配置失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+function parseOrchJSON(raw: string, label: string) {
+  const text = String(raw || "").trim();
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`${label} 必须是 JSON 对象`);
+    }
+    return parsed as Record<string, any>;
+  } catch (e: any) {
+    throw new Error(`${label} 解析失败: ${e?.message || "invalid json"}`);
+  }
+}
+
+async function refreshPluginLoggingTargets() {
+  try {
+    await monitorLogsStore.fetchPluginTargets();
+    if (!pluginLoggingOrch.pluginId) {
+      pluginLoggingOrch.pluginId = String(monitorPluginTargets.value?.[0]?.plugin_id || "");
+    }
+  } catch (e: any) {
+    toast.add({ title: "读取插件列表失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function loadPluginLoggingPolicy() {
+  if (!pluginLoggingOrch.pluginId) {
+    toast.add({ title: "请先选择插件", color: "warning" });
+    return;
+  }
+  try {
+    const policy = await monitorLogsStore.fetchPluginPolicy(pluginLoggingOrch.pluginId);
+    pluginLoggingOrch.policyJson = JSON.stringify(policy || {}, null, 2);
+    pluginLoggingOrch.resultJson = JSON.stringify(policy || {}, null, 2);
+  } catch (e: any) {
+    toast.add({ title: "读取插件策略失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function savePluginLoggingPolicy() {
+  if (!pluginLoggingOrch.pluginId) {
+    toast.add({ title: "请先选择插件", color: "warning" });
+    return;
+  }
+  try {
+    const payload = parseOrchJSON(pluginLoggingOrch.policyJson, "策略 JSON");
+    const result = await monitorLogsStore.updatePluginPolicy(pluginLoggingOrch.pluginId, payload);
+    pluginLoggingOrch.resultJson = JSON.stringify(result || {}, null, 2);
+    pluginLoggingOrch.policyJson = JSON.stringify(result || {}, null, 2);
+    toast.add({ title: "插件策略下发成功", color: "success" });
+  } catch (e: any) {
+    toast.add({ title: "下发插件策略失败", description: e?.message || "未知错误", color: "error" });
+  }
+}
+
+async function probePluginLoggingPolicy() {
+  if (!pluginLoggingOrch.pluginId) {
+    toast.add({ title: "请先选择插件", color: "warning" });
+    return;
+  }
+  try {
+    const payload = parseOrchJSON(pluginLoggingOrch.probeJson, "Probe JSON");
+    const result = await monitorLogsStore.probePluginPolicy(pluginLoggingOrch.pluginId, payload);
+    pluginLoggingOrch.resultJson = JSON.stringify(result || {}, null, 2);
+    toast.add({ title: "插件策略探测完成", color: "success" });
+  } catch (e: any) {
+    toast.add({ title: "执行插件 Probe 失败", description: e?.message || "未知错误", color: "error" });
   }
 }
 
@@ -2328,6 +2446,7 @@ async function exportRetentionDetails(item: { run_id?: string; retention_days?: 
 
 async function ensureMonitorLogsReady() {
   await refreshMonitorLogsConfig();
+  await refreshPluginLoggingTargets();
   await refreshMonitorRetentionPolicy();
   await refreshMonitorRetentionRuns();
   monitorLogPageSizeDraft.value = monitorLogsPageSize.value || 50;

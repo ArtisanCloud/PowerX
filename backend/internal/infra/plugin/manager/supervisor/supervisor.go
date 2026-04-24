@@ -226,10 +226,14 @@ func attachProcessWriters(cmd *exec.Cmd, logs io.Writer) {
 
 func allowForwardToStdIO() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_SUPERVISOR_FORWARD_STDIO"))) {
-	case "1", "true", "yes", "on":
+	case "", "1", "true", "yes", "on":
 		return true
-	default:
+	case "0", "false", "no", "off":
 		return false
+	default:
+		// Unknown value falls back to enabled, keeping host-mode plugin logs
+		// on the unified stdout collection path by default.
+		return true
 	}
 }
 
