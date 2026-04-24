@@ -129,9 +129,12 @@ func (s *TeamService) ListByTenant(ctx context.Context, tenantUUID string, inclu
 	return s.teamRepo.ListByTenant(ctx, tenantUUID, includeDisabled)
 }
 
-func (s *TeamService) SetTeamStatus(ctx context.Context, teamID uint64, status string) error {
+func (s *TeamService) SetTeamStatus(ctx context.Context, teamID uint64, tenantUUID string, status string) error {
 	if s == nil || s.teamRepo == nil {
 		return gorm.ErrInvalidDB
+	}
+	if _, err := s.ValidateTeamTenant(ctx, teamID, tenantUUID); err != nil {
+		return err
 	}
 	return s.teamRepo.UpdateStatus(ctx, teamID, status)
 }
@@ -245,9 +248,12 @@ func isBuiltinOrProtected(meta map[string]any) bool {
 	return false
 }
 
-func (s *TeamService) RemoveMember(ctx context.Context, teamID uint64, childAgentID uint64) error {
+func (s *TeamService) RemoveMember(ctx context.Context, teamID uint64, tenantUUID string, childAgentID uint64) error {
 	if s == nil || s.memberRepo == nil {
 		return gorm.ErrInvalidDB
+	}
+	if _, err := s.ValidateTeamTenant(ctx, teamID, tenantUUID); err != nil {
+		return err
 	}
 	return s.memberRepo.DeleteByTeamChild(ctx, teamID, childAgentID)
 }
@@ -274,9 +280,12 @@ func (s *TeamService) DeleteTeam(ctx context.Context, teamID uint64, tenantUUID 
 	})
 }
 
-func (s *TeamService) ListMembers(ctx context.Context, teamID uint64) ([]modelagent.AgentTeamMember, error) {
+func (s *TeamService) ListMembers(ctx context.Context, teamID uint64, tenantUUID string) ([]modelagent.AgentTeamMember, error) {
 	if s == nil || s.memberRepo == nil {
 		return nil, gorm.ErrInvalidDB
+	}
+	if _, err := s.ValidateTeamTenant(ctx, teamID, tenantUUID); err != nil {
+		return nil, err
 	}
 	return s.memberRepo.ListEnabledByTeam(ctx, teamID)
 }

@@ -108,6 +108,11 @@ func (h *TeamHandler) SetTeamStatus(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent team service unavailable", nil)
 		return
 	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context required", err)
+		return
+	}
 	teamID, _ := strconv.ParseUint(strings.TrimSpace(c.Param("teamId")), 10, 64)
 	if teamID == 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid team_id", nil)
@@ -116,12 +121,19 @@ func (h *TeamHandler) SetTeamStatus(c *gin.Context) {
 	var req struct {
 		Status string `json:"status" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err = c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 		return
 	}
-	if err := h.svc.SetTeamStatus(c.Request.Context(), teamID, req.Status); err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "update team status failed", err)
+	if err = h.svc.SetTeamStatus(c.Request.Context(), teamID, tenantCtx.UUID(), req.Status); err != nil {
+		switch {
+		case errors.Is(err, agentSvc.ErrTeamNotFound):
+			dto.ResponseError(c, http.StatusNotFound, "team not found", err)
+		case errors.Is(err, agentSvc.ErrTeamInvalidTenant):
+			dto.ResponseError(c, http.StatusForbidden, "team tenant mismatch", err)
+		default:
+			dto.ResponseError(c, http.StatusInternalServerError, "update team status failed", err)
+		}
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"team_id": teamID, "status": strings.ToLower(strings.TrimSpace(req.Status))})
@@ -240,14 +252,26 @@ func (h *TeamHandler) ListTeamMembers(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent team service unavailable", nil)
 		return
 	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context required", err)
+		return
+	}
 	teamID, _ := strconv.ParseUint(strings.TrimSpace(c.Param("teamId")), 10, 64)
 	if teamID == 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid team_id", nil)
 		return
 	}
-	rows, err := h.svc.ListMembers(c.Request.Context(), teamID)
+	rows, err := h.svc.ListMembers(c.Request.Context(), teamID, tenantCtx.UUID())
 	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "list team members failed", err)
+		switch {
+		case errors.Is(err, agentSvc.ErrTeamNotFound):
+			dto.ResponseError(c, http.StatusNotFound, "team not found", err)
+		case errors.Is(err, agentSvc.ErrTeamInvalidTenant):
+			dto.ResponseError(c, http.StatusForbidden, "team tenant mismatch", err)
+		default:
+			dto.ResponseError(c, http.StatusInternalServerError, "list team members failed", err)
+		}
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"items": rows, "total": len(rows)})
@@ -258,14 +282,26 @@ func (h *TeamHandler) DeleteTeamMember(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent team service unavailable", nil)
 		return
 	}
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "tenant context required", err)
+		return
+	}
 	teamID, _ := strconv.ParseUint(strings.TrimSpace(c.Param("teamId")), 10, 64)
 	childID, _ := strconv.ParseUint(strings.TrimSpace(c.Param("childAgentId")), 10, 64)
 	if teamID == 0 || childID == 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid team/member id", nil)
 		return
 	}
-	if err := h.svc.RemoveMember(c.Request.Context(), teamID, childID); err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "delete team member failed", err)
+	if err = h.svc.RemoveMember(c.Request.Context(), teamID, tenantCtx.UUID(), childID); err != nil {
+		switch {
+		case errors.Is(err, agentSvc.ErrTeamNotFound):
+			dto.ResponseError(c, http.StatusNotFound, "team not found", err)
+		case errors.Is(err, agentSvc.ErrTeamInvalidTenant):
+			dto.ResponseError(c, http.StatusForbidden, "team tenant mismatch", err)
+		default:
+			dto.ResponseError(c, http.StatusInternalServerError, "delete team member failed", err)
+		}
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"team_id": teamID, "child_agent_id": childID, "deleted": true})
