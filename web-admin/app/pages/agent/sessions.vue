@@ -2,12 +2,11 @@
 import AgentWorkspace from "~/components/agent/AgentWorkspace.vue";
 
 definePageMeta({
-  title: "Agent 对话",
-  icon: "i-heroicons-chat-bubble-left-right",
-  order: 1,
+  title: "智能会话",
+  layout: "default",
 });
 </script>
 
 <template>
-  <AgentWorkspace />
+  <AgentWorkspace forced-workspace-mode="smart" />
 </template>

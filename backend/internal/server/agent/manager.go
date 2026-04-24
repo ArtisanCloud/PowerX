@@ -69,8 +69,35 @@ type ToolingInvokeOutput struct {
 	Result       map[string]any
 }
 
+type AgentHandoffInput struct {
+	TenantUUID     string
+	ParentAgentID  uint64
+	ChildAgentID   uint64
+	TeamID         uint64
+	TaskID         string
+	PlanID         string
+	NodeID         string
+	SessionID      uint64
+	FailurePolicy  string
+	ContextRefID   string
+	HandoffTraceID string
+	FlowID         string
+	Message        string
+	Payload        map[string]any
+	Context        map[string]any
+}
+
+type AgentHandoffOutput struct {
+	TaskID         string
+	HandoffTraceID string
+	Status         string
+	Result         map[string]any
+}
+
 type SkillInvoker func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error)
 type ToolingInvoker func(ctx context.Context, in ToolingInvokeInput) (*ToolingInvokeOutput, error)
+type AgentHandoffInvoker func(ctx context.Context, in AgentHandoffInput) (*AgentHandoffOutput, error)
+type ContextRefAuthorizer func(ctx context.Context, tenantUUID string, childAgentID uint64, contextRefID string) error
 
 type DebugTraceConfig struct {
 	Enabled      bool
@@ -120,6 +147,8 @@ type Manager struct {
 	unifiedCandidates map[string]ToolCallCandidate // key=name
 	skillInvoker      SkillInvoker
 	toolingInvoker    ToolingInvoker
+	handoffInvoker    AgentHandoffInvoker
+	contextRefAuthz   ContextRefAuthorizer
 
 	// —— 意图字段（方法挪到 manager_intent.go，需要这些字段作为状态） —— //
 	intentStrategies []contract.IntentStrategy
@@ -288,6 +317,18 @@ func (m *Manager) SetToolingInvoker(inv ToolingInvoker) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.toolingInvoker = inv
+}
+
+func (m *Manager) SetAgentHandoffInvoker(inv AgentHandoffInvoker) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.handoffInvoker = inv
+}
+
+func (m *Manager) SetContextRefAuthorizer(fn ContextRefAuthorizer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.contextRefAuthz = fn
 }
 
 func (m *Manager) setPlannerUsage(traceID string, usage map[string]any) {

@@ -311,7 +311,8 @@ export const useMenuService = () => {
       const resolvedLocale =
         (localeParamMap[currentLocale] ?? currentLocale) || "zh-CN";
       const res = await apiClient.get<ApiResponse<MenusResponse>>(baseUrl, {
-        params: { locale: resolvedLocale },
+        // 避免浏览器命中历史 301 永久重定向缓存（/menus <-> /menus/）导致死循环
+        params: { locale: resolvedLocale, _ts: Date.now() },
       });
       const serverResp = (res?.data ?? res) as ApiResponse<MenusResponse>;
       const { flatMenus, categories, i18nPayloads } =

@@ -15,6 +15,7 @@ type PluginMeta = {
 type PowerXToPlugin =
   | { source: 'powerx'; type: 'locale'; locale: string }
   | { source: 'powerx'; type: 'theme'; theme: 'light' | 'dark' | 'system' }
+  | { source: 'powerx'; type: 'navigate'; path: string }
   | {
   source: 'powerx';
   type: 'sync';
@@ -39,6 +40,7 @@ type PowerXToPlugin =
   ctxSig?: string;
   ctxJwt?: string;
   tenantUuid?: string;
+  tenant_uuid?: string;
 }
 
 type PluginToPowerX =
@@ -130,6 +132,7 @@ const fetchCtxOnce = () => {
 
 export function usePluginBridge() {
   const registry = useState<Map<HTMLIFrameElement, PluginMeta>>('px:iframes', () => new Map())
+  const pendingNavigate = useState<Map<HTMLIFrameElement, string>>('px:pendingNavigate', () => new Map())
   const auth = useAuth()
   const userStore = useUserStore()
   const { currentTenantUuid } = storeToRefs(userStore)
@@ -214,6 +217,7 @@ export function usePluginBridge() {
       ctxSig,
       ctxJwt,
       tenantUuid,
+      tenant_uuid: tenantUuid,
     }
     log('prepared auth-token', { pluginId, token: maskToken(accessToken), expiresIn })
     return payload
@@ -250,12 +254,35 @@ export function usePluginBridge() {
       if (m) {
         syncMeta(m)
         sendAuthToken(m)
+        const pendingPath = pendingNavigate.value.get(frame)
+        if (pendingPath) {
+          sendTo(m, { source: 'powerx', type: 'navigate', path: pendingPath })
+        }
       }
     } else {
       registry.value.forEach(m => {
         syncMeta(m)
         sendAuthToken(m)
+        const pendingPath = pendingNavigate.value.get(m.frame)
+        if (pendingPath) {
+          sendTo(m, { source: 'powerx', type: 'navigate', path: pendingPath })
+        }
       })
+    }
+  }
+
+  const navigateFrame = (frame?: HTMLIFrameElement | null, path?: string) => {
+    if (!process.client || !frame || !path) return
+    pendingNavigate.value.set(frame, path)
+    const m = registry.value.get(frame)
+    if (m) {
+      sendTo(m, { source: 'powerx', type: 'navigate', path })
+      return
+    }
+    try {
+      frame.contentWindow?.postMessage({ source: 'powerx', type: 'navigate', path }, '*')
+    } catch {
+      // ignore
     }
   }
 
@@ -309,6 +336,7 @@ export function usePluginBridge() {
   const unregister = (el?: HTMLIFrameElement | null) => {
     if (!el || !process.client) return
     registry.value.delete(el)
+    pendingNavigate.value.delete(el)
   }
 
   if (process.client && !(window as any).__pxBridgeBound__) {
@@ -331,5 +359,5 @@ export function usePluginBridge() {
     ;(window as any).__pxBridgeBound__ = true
   }
 
-  return {register, unregister, syncFrame, broadcast}
+  return {register, unregister, syncFrame, navigateFrame, broadcast}
 }

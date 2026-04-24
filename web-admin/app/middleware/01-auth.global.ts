@@ -53,11 +53,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 2) 只在客户端做 localStorage 鉴权
   if (process.server) return;
 
+  const tokenCookie = useCookie<string | null>("token", {
+    sameSite: "lax",
+    path: "/",
+  });
+
   const publicHit = PUBLIC_RULES.some((re) => re.test(to.path));
   console.info("🚦 publicHit:", publicHit);
-  if (publicHit) return;
 
   if (skipAuth) {
+    const localToken = String(localStorage.getItem("access_token") || "").trim();
+    tokenCookie.value = localToken || null;
+    if (publicHit) return;
     return;
   }
 
@@ -78,6 +85,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       "scope",
       "px_current_tenant_uuid",
     ].forEach((k) => localStorage.removeItem(k));
+    tokenCookie.value = null;
   };
 
   const redirectToLogin = () => {
@@ -92,6 +100,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const token = localStorage.getItem("access_token");
   const refreshToken = localStorage.getItem("refresh_token");
   const needRefresh = !token || isTokenExpired();
+  tokenCookie.value = needRefresh ? null : String(token || "").trim() || null;
+
+  if (publicHit) return;
 
   if (needRefresh && refreshToken) {
     return $fetch("/api/v1/admin/user/auth/refresh", {
@@ -115,6 +126,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
         const expiresAt = Date.now() + expiresInSec * 1000;
 
         localStorage.setItem("access_token", String(payload.access_token));
+        tokenCookie.value = String(payload.access_token);
         localStorage.setItem("token_type", tokenType);
         localStorage.setItem("expires_in", String(expiresInSec));
         localStorage.setItem("expires_at", String(expiresAt));

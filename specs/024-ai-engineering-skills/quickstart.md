@@ -258,3 +258,112 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
   - `usage.total_prompt_tokens / total_completion_tokens / total_tokens`
   - `usage.hops[phase=planner].latency_ms`
   - `usage.planner_candidates_before / usage.planner_candidates_after`
+
+## 13. A2A 页面验收（搭团队 + 三个场景）
+
+目标：只通过页面操作验证“1 个 TL（planner）调度多个子智能体协作执行”已跑通。
+
+### 13.1 页面搭建团队（先做）
+
+1. 打开：`/settings/ai/agent-teams`，点击 `创建团队`。
+2. 选择 2~3 个可用智能体（至少 `1 TL + 1 子智能体`）。
+3. 设定 TL：在成员卡片点击 `设为 TL`。
+4. 角色设置：
+   - TL 固定为 `planner`（不可改）
+   - 子智能体可选：`retriever / executor / reviewer`
+5. 团队名建议：`a2a-minimal-demo`，创建后确认团队状态为 `active`。
+6. 在团队列表点击该团队的 `进入任务`（或手动打开 `/agent/team-tasks` 后在顶部选择器选团队）。
+
+推荐角色组合：
+
+1. TL：planner
+2. 子智能体 A：retriever
+3. 子智能体 B：executor（可选）
+4. 子智能体 C：reviewer（可选）
+
+### 13.2 场景 A：最小并行协作（先跑）
+
+在 `/agent/team-tasks` 会话输入：
+
+`请并行完成两件事：1）检索 INC-支付网关-延迟飙高 最近24小时变更；2）给出三条可执行修复建议。最后汇总成一个结论。`
+
+页面通过标准：
+
+1. 助手消息出现“执行过程”卡片。
+2. 出现 `Intent：候选 N 个`，`N >= 2`。
+3. 出现 `Plan：节点 M 个`，`M >= 2`。
+4. 节点状态最终进入 `completed` 或 `failed`（不能长期停留在 `running`）。
+5. 最终正文包含：变更摘要 + 3 条建议 + 汇总结论。
+6. 若有子步骤失败，正文必须明确失败步骤（不能假装全成功）。
+
+### 13.3 场景 B：上下文串联协作（先查再判）
+
+推荐使用：`retriever + reviewer` 子智能体组合。
+
+会话输入：
+
+`先查询 INC-订单服务-连接池耗尽 的变更记录，再根据查询结果输出风险复核结论（高/中/低）和依据。`
+
+页面通过标准：
+
+1. 执行过程先出现检索类节点，再出现复核类节点。
+2. 节点数至少 2 条，且体现串联关系。
+3. 最终正文包含“风险等级 + 依据”。
+4. 依据与前序检索结果一致，若证据不足必须明确说明。
+
+### 13.4 场景 C：插件组合协作（业务闭环）
+
+前置：告警/工单/通知等插件能力已接入，否则该场景不计通过。
+
+会话输入：
+
+`拉取当前 P1 告警，自动创建工单，并发送值班通知。最后返回告警数、工单号、通知状态。`
+
+页面通过标准：
+
+1. 执行过程节点数 >= 3。
+2. 节点状态完整展示执行生命周期。
+3. 最终正文包含：`告警数`、`工单号`、`通知状态` 三项回执。
+4. 某步失败时，返回“部分成功 + 失败步骤说明”。
+
+### 13.5 页面审计核验（推荐）
+
+1. 打开：`/settings/ai/skills`。
+2. 点击：`按 Team 查看 A2A 审计`。
+3. 输入 `team_id`（来自团队管理列表），可选 `handoff_task_id` / `handoff_trace_id` 过滤。
+4. 预期可见字段：`team / task / trace / node / protocol / status`。
+5. 失败场景应可对上 `error_summary` 与失败节点。
+
+### 13.6 API/日志核验（可选兜底）
+
+API：
+
+- `GET /admin/skills/traces?team_id=<TEAM_ID>&limit=50`
+
+日志：
+
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_stream_*.json`
+- `backend/logs/agent_debug/<YYYYMMDD>/trace-*_planner_*.json`
+
+重点字段：
+
+- `plan_id`
+- `team_id`
+- `task_id`
+- `parent_agent_id`
+- `child_agent_id`
+- `failure_policy`
+- `node_status`
+
+### 13.7 验收记录（每次执行必须留档）
+
+1. 执行时间
+2. 团队名称 / `TEAM_ID`
+3. TL 名称 / `PARENT_AGENT_ID`
+4. 场景编号（A/B/C）
+5. 输入指令
+6. 页面可见节点数
+7. 最终状态：成功 / 部分成功 / 失败
+8. 回执摘要
+9. `trace_id`
+10. 失败节点与原因（如有）

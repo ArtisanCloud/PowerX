@@ -248,13 +248,16 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					Ts: start, Input: inSan.JSON(finalParams),
 				})
 
-				// 执行：workflow 走 Agent；其余节点走统一节点执行器（当前为轻量内置实现）
-				var out *aschema.ExecutionResult
-				var err error
-				if taskKind == "workflow" {
-					out, err = ag.Invoke(egCtx, task.FlowID, ctxVars, mt)
-				} else {
-					out, err = m.executeNonWorkflowTask(egCtx, task, ctxVars, mt)
+				runOnce := func(runCtx context.Context) (*aschema.ExecutionResult, error) {
+					if taskKind == "workflow" {
+						return ag.Invoke(runCtx, task.FlowID, ctxVars, mt)
+					}
+					return m.executeNonWorkflowTask(runCtx, task, ctxVars, mt)
+				}
+				// 执行：workflow 走 Agent；其余节点走统一节点执行器
+				out, err := runOnce(egCtx)
+				if err != nil && planTaskFailurePolicy(task) == "retry-once" {
+					out, err = runOnce(egCtx)
 				}
 				dur := time.Since(start).Milliseconds()
 				if err != nil {
@@ -266,6 +269,25 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 						Ts: time.Now(), DurationMS: dur, Error: err.Error(),
 					})
+					policy := planTaskFailurePolicy(task)
+					if policy == "continue" {
+						stageOut[i] = &aschema.ExecutionResult{
+							Success: false,
+							StepID:  task.TaskID,
+							Data: flowschema.Result{
+								"task_id":   task.TaskID,
+								"flow_id":   flowID,
+								"error":     err.Error(),
+								"node_kind": taskKind,
+							},
+							Metadata: flowschema.Result{
+								"is_final":       false,
+								"status":         "failed",
+								"failure_policy": policy,
+							},
+						}
+						return nil
+					}
 					return fmt.Errorf("invoke task(%s/%s) failed: %w", task.TaskID, flowID, err)
 				}
 				if out != nil {
@@ -393,6 +415,19 @@ func planTaskRef(t flowschema.PlanTask) string {
 	return strings.TrimSpace(t.FlowID)
 }
 
+func planTaskFailurePolicy(t flowschema.PlanTask) string {
+	raw := strings.ToLower(strings.TrimSpace(t.FailurePolicy))
+	if raw == "" {
+		raw = strings.ToLower(strings.TrimSpace(asString(t.Params["failure_policy"])))
+	}
+	switch raw {
+	case "fail-fast", "continue", "retry-once":
+		return raw
+	default:
+		return "fail-fast"
+	}
+}
+
 func (m *Manager) executeNonWorkflowTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta) (*aschema.ExecutionResult, error) {
 	kind := planTaskKind(t)
 	ref := planTaskRef(t)
@@ -401,6 +436,8 @@ func (m *Manager) executeNonWorkflowTask(ctx context.Context, t flowschema.PlanT
 		return m.executeSkillTask(ctx, t, params, mt, ref)
 	case "tooling":
 		return m.executeToolingTask(ctx, t, params, mt, ref)
+	case "agent_handoff":
+		return m.executeAgentHandoffTask(ctx, t, params, mt, ref)
 	case "llm":
 		msg := strings.TrimSpace(fmt.Sprintf("%v", params["message"]))
 		if msg == "" {
@@ -428,6 +465,134 @@ func (m *Manager) executeNonWorkflowTask(ctx context.Context, t flowschema.PlanT
 			"planner_mode": "unified",
 		},
 	}, nil
+}
+
+func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
+	childAgentKey := firstNonEmpty(strings.TrimSpace(t.AgentID), asString(params["child_agent_key"]), asString(t.Params["child_agent_key"]))
+	childAgentID := firstPositiveUint64(asUint64(params["child_agent_id"]), asUint64(t.Params["child_agent_id"]))
+	if childAgentKey == "" && childAgentID == 0 {
+		return nil, errors.New("agent_handoff missing child_agent identifier")
+	}
+	contextRefID := firstNonEmpty(t.ContextRefID, asString(params["context_ref_id"]), asString(t.Params["context_ref_id"]))
+	m.mu.RLock()
+	authz := m.contextRefAuthz
+	inv := m.handoffInvoker
+	m.mu.RUnlock()
+	if childAgentID == 0 && childAgentKey != "" {
+		childAgentID = asUint64(childAgentKey)
+	}
+	if authz != nil && contextRefID != "" {
+		if err := authz(ctx, firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])), childAgentID, contextRefID); err != nil {
+			return nil, err
+		}
+	}
+
+	msg := strings.TrimSpace(asString(params["message"]))
+	if msg == "" {
+		msg = strings.TrimSpace(asString(params["query"]))
+	}
+	if msg == "" {
+		msg = "继续处理当前任务"
+	}
+	flowID := firstNonEmpty(asString(t.Params["child_flow_id"]), asString(params["child_flow_id"]), t.FlowID)
+	if flowID == "" {
+		flowID = ref
+	}
+	taskID := firstNonEmpty(t.HandoffTaskID, t.TaskID)
+	failurePolicy := firstNonEmpty(strings.ToLower(strings.TrimSpace(t.FailurePolicy)), asString(t.Params["failure_policy"]), asString(params["failure_policy"]), "continue")
+	teamID := firstNonEmpty(t.TeamID, asString(t.Params["team_id"]), asString(params["team_id"]))
+	sessionID := firstPositiveUint64(asUint64(params["session_id"]), asUint64(t.Params["session_id"]))
+	handoffTraceID := firstNonEmpty(asString(mt.Metadata["trace_id"]), mt.TraceID, fmt.Sprintf("handoff_%d", time.Now().UnixNano()))
+
+	payload := payloadFromTaskParams(t, params)
+	contextMap := contextFromTaskParams(t, params)
+	contextMap["context_ref_id"] = contextRefID
+
+	in := AgentHandoffInput{
+		TenantUUID:     firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
+		ParentAgentID:  firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["parent_agent_id"])),
+		ChildAgentID:   childAgentID,
+		TeamID:         asUint64(teamID),
+		TaskID:         taskID,
+		PlanID:         firstNonEmpty(asString(t.Params["plan_id"]), asString(params["plan_id"])),
+		NodeID:         firstNonEmpty(t.TaskID, taskID),
+		SessionID:      sessionID,
+		FailurePolicy:  failurePolicy,
+		ContextRefID:   contextRefID,
+		HandoffTraceID: handoffTraceID,
+		FlowID:         flowID,
+		Message:        msg,
+		Payload:        payload,
+		Context:        contextMap,
+	}
+	if inv != nil {
+		out, err := inv(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		if out == nil {
+			return nil, errors.New("agent_handoff invoker returns nil output")
+		}
+		return &aschema.ExecutionResult{
+			Success: !strings.EqualFold(strings.TrimSpace(out.Status), "failed"),
+			Data: map[string]any{
+				"task_id":          out.TaskID,
+				"handoff_trace_id": out.HandoffTraceID,
+				"status":           out.Status,
+				"result":           out.Result,
+				"content":          asString(out.Result["content"]),
+			},
+			Metadata: flowschema.Result{
+				"is_final":        false,
+				"node_kind":       "agent_handoff",
+				"node_ref":        firstNonEmpty(ref, flowID),
+				"team_id":         teamID,
+				"handoff_task_id": out.TaskID,
+				"failure_policy":  failurePolicy,
+				"context_ref_id":  contextRefID,
+				"trace_id":        out.HandoffTraceID,
+				"planner_mode":    "unified",
+			},
+		}, nil
+	}
+
+	// fallback: no explicit handoff invoker configured, directly dispatch to child agent route.
+	childTask := flowschema.PlanTask{
+		TaskID:   taskID,
+		FlowID:   flowID,
+		AgentID:  childAgentKey,
+		NodeKind: "workflow",
+	}
+	if childTask.AgentID == "" && childAgentID > 0 {
+		childTask.AgentID = strconv.FormatUint(childAgentID, 10)
+	}
+	ag, _, err := m.resolveAgentForTask(childTask)
+	if err != nil {
+		return nil, err
+	}
+	out, err := ag.Invoke(ctx, flowID, flowschema.Context{
+		"message": msg,
+		"payload": payload,
+		"context": contextMap,
+	}, mt)
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, errors.New("agent_handoff fallback output is nil")
+	}
+	if out.Metadata == nil {
+		out.Metadata = flowschema.Result{}
+	}
+	out.Metadata["node_kind"] = "agent_handoff"
+	out.Metadata["node_ref"] = firstNonEmpty(ref, flowID)
+	out.Metadata["team_id"] = teamID
+	out.Metadata["handoff_task_id"] = taskID
+	out.Metadata["failure_policy"] = failurePolicy
+	out.Metadata["context_ref_id"] = contextRefID
+	out.Metadata["trace_id"] = handoffTraceID
+	out.Metadata["planner_mode"] = "unified"
+	return out, nil
 }
 
 func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {

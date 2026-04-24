@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
 
-const { register, unregister } = usePluginBridge()
+const { register, unregister, navigateFrame } = usePluginBridge()
 
 type TrustLevel = "trusted" | "untrusted";
 
@@ -16,6 +16,7 @@ const props = withDefaults(
     title?: string;
     pluginId: string
     instanceId?: string
+    navigatePath?: string
   }>(),
   {
     trust: "trusted",
@@ -40,13 +41,13 @@ const debugEnabled = computed(() => {
 
 /**
  * 可信模式：
- *  - sandbox 允许 same-origin，父页可读 iframe 文档，做自适应
+ *  - 不设置 sandbox（同源受信任插件），避免浏览器对 allow-same-origin+allow-scripts 的警告
  * 不可信模式：
  *  - 去掉 same-origin，无法读内部文档，降级为“填满视口”，iframe 自身滚动
  */
 const sandbox = computed(() =>
   props.trust === "trusted"
-    ? "allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+    ? undefined
     : "allow-scripts allow-forms allow-popups allow-downloads"
 );
 
@@ -137,6 +138,14 @@ function onLoad() {
   loading.value = false;
   error.value = null;
   silenceIframeBridgeLogsIfNeeded();
+  if (props.navigatePath && iframeRef.value) {
+    navigateFrame(iframeRef.value, props.navigatePath)
+    setTimeout(() => {
+      if (props.navigatePath && iframeRef.value) {
+        navigateFrame(iframeRef.value, props.navigatePath)
+      }
+    }, 120)
+  }
   measureOnce();
   setObservers();
 }
@@ -247,6 +256,15 @@ watch(cleanSrc, async () => {
     register(iframeRef.value, { pluginId: props.pluginId, instanceId: props.instanceId });
   }
 })
+
+watch(
+  () => props.navigatePath,
+  (path) => {
+    if (!iframeRef.value || !path) return
+    navigateFrame(iframeRef.value, path)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>

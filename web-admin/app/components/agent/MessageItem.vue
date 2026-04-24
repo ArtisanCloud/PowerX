@@ -295,6 +295,70 @@ const processNodes = computed<any[]>(() => {
   const nodes = processMeta.value?.nodes;
   return Array.isArray(nodes) ? nodes : [];
 });
+const nodeKindLabelMap: Record<string, string> = {
+  agent_handoff: "子智能体分发",
+  workflow: "流程节点",
+  skill: "技能节点",
+  tooling: "工具节点",
+  llm: "模型直答",
+};
+const processNodeStats = computed(() => {
+  const summary: {
+    total: number;
+    running: number;
+    completed: number;
+    failed: number;
+    byKind: Record<string, number>;
+  } = {
+    total: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+    byKind: {},
+  };
+  for (const node of processNodes.value) {
+    summary.total += 1;
+    const status = String(node?.status || "completed")
+      .trim()
+      .toLowerCase();
+    if (status === "running") summary.running += 1;
+    else if (status === "failed") summary.failed += 1;
+    else summary.completed += 1;
+    const kind = String(node?.node_kind || "node")
+      .trim()
+      .toLowerCase();
+    summary.byKind[kind] = (summary.byKind[kind] || 0) + 1;
+  }
+  return summary;
+});
+const processNodeKindSummary = computed(() =>
+  Object.entries(processNodeStats.value.byKind).map(([kind, count]) => ({
+    kind,
+    label: nodeKindLabelMap[kind] || kind,
+    count,
+  }))
+);
+const formatNodeKind = (kind: string) => {
+  const key = String(kind || "")
+    .trim()
+    .toLowerCase();
+  return nodeKindLabelMap[key] || (key || "节点");
+};
+const formatNodeStatus = (status: string) => {
+  const v = String(status || "")
+    .trim()
+    .toLowerCase();
+  if (v === "running") return "执行中";
+  if (v === "failed") return "失败";
+  return "完成";
+};
+const buildNodeTitle = (node: any) => {
+  const kind = formatNodeKind(node?.node_kind || "node");
+  const ref = String(node?.node_ref || node?.flow_id || "-");
+  const task = String(node?.task_id || "").trim();
+  if (task) return `${kind} · ${ref} · task=${task}`;
+  return `${kind} · ${ref}`;
+};
 
 // ====== 主体渲染内容（纯主内容，剥离 think；流式时走打字机）======
 const processedContent = computed<MessageContent[]>(() => {
@@ -483,6 +547,23 @@ const downloadFile = (url: string, downloadUrl?: string) => {
           </div>
 
           <div v-if="processNodes.length > 0" class="space-y-1">
+            <div class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1.5">
+              <div class="text-[11px] text-gray-500 dark:text-gray-400">
+                节点总数 {{ processNodeStats.total }} · 进行中 {{ processNodeStats.running }} · 完成 {{ processNodeStats.completed }} · 失败 {{ processNodeStats.failed }}
+              </div>
+              <div
+                v-if="processNodeKindSummary.length > 0"
+                class="mt-1 flex flex-wrap gap-1"
+              >
+                <span
+                  v-for="item in processNodeKindSummary"
+                  :key="`node-kind-${item.kind}`"
+                  class="text-[11px] rounded-full bg-gray-100 dark:bg-white/10 px-2 py-0.5 text-gray-600 dark:text-gray-300"
+                >
+                  {{ item.label }} {{ item.count }}
+                </span>
+              </div>
+            </div>
             <div
               v-for="(n, i) in processNodes"
               :key="`${n?.node_id || n?.task_id || i}`"
@@ -490,7 +571,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             >
               <div class="flex items-center justify-between gap-2">
                 <div class="text-xs text-gray-700 dark:text-gray-200 truncate">
-                  {{ n?.node_kind || "node" }} · {{ n?.node_ref || n?.flow_id || "-" }}
+                  {{ buildNodeTitle(n) }}
                 </div>
                 <div
                   class="text-[11px] px-2 py-0.5 rounded-full"
@@ -502,7 +583,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
                         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200'
                   "
                 >
-                  {{ n?.status || "completed" }}
+                  {{ formatNodeStatus(n?.status || "completed") }}
                 </div>
               </div>
               <div
