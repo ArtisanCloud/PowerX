@@ -1,7 +1,7 @@
 # Implementation Plan: 监控中心闭环（Backup + Logs）
 
-**Branch**: `027-monitor-center` | **Date**: 2026-04-13 | **Spec**: [/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md)
-**Plan Status**: In Progress（Backup 已实现，Logs 进入实施）
+**Branch**: `027-monitor-center` | **Date**: 2026-04-24 | **Spec**: [/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md)
+**Plan Status**: In Progress（Backup 已实现，Logs 已实施；新增 Plugin Logger Host 对齐）
 **Input**: Feature specification from `/specs/027-monitor-center/spec.md`
 
 ## Summary
@@ -9,6 +9,7 @@
 围绕 Root 管理员构建“监控中心闭环”：
 - 已落地：自动备份策略、作业历史、告警升级、恢复任务、监控入口联动。
 - 本轮补齐：日志与链路追踪能力（`loki/file/stdio` 三驱动能力感知 UI、统一查询接口、Grafana 深链）。
+- 本轮新增：插件 framework logger 与宿主采集链路对齐（stdout+json 默认链路、policy/probe 编排、低基数标签约束）。
 
 ## Technical Context
 
@@ -101,6 +102,39 @@ web-admin/
 - 执行模型：后端定时任务按 cron 执行，分批删除并限制单次最大删除量，避免高峰期 IO/DB 抖动。
 - 覆盖范围：应用日志文件目录、审计/运行日志表（含历史兼容表）、驱动映射策略（如 Loki retention 提示）。
 - 可观测性：每次清理写结构化运行日志与审计记录，监控中心可查询最近执行结果与失败原因。
+
+## Plugin Logger Host Alignment（新增）
+
+### Scope
+
+- 宿主模式插件日志默认采集链路与 027 监控中心日志能力对齐。
+- 插件 `policy/probe` 管理能力纳入平台运维流程与审计。
+- 对齐低基数标签策略：`plugin_id/tenant_uuid/component/level`。
+
+### Current Gaps (as of 2026-04-24)
+
+- 插件进程 stdout 默认可能仅落进程 ring buffer（未必统一透传宿主 stdout）。
+- Promtail 配置未对插件 JSON 做稳定标签抽取与约束。
+- 平台侧缺少统一的插件日志 `policy/probe` 编排流程。
+
+### Implementation Strategy
+
+- Host Runtime:
+  - 确保插件子进程 stdout/stderr 默认进入宿主采集链路（systemd/journald 或等效管道）。
+- Collector:
+  - 在 Promtail pipeline 中对插件 JSON 提取低基数标签；高基数字段仅保留内容体。
+- Control Plane:
+  - 在插件 enable/变更流程中编排 `GET/PUT /admin/runtime/logging/policy` 与 `POST /admin/runtime/logging/probe`。
+  - 记录策略变更与探测审计（operator/plugin_id/tenant_uuid/result）。
+
+### Risks & Mitigations
+
+- 风险：开启 stdout 透传后日志量上涨。  
+  缓解：先灰度插件范围并设置采样/保留策略阈值。
+- 风险：标签膨胀导致 Loki 查询性能下降。  
+  缓解：严格固定低基数标签白名单，审计变更。
+- 风险：插件侧策略不一致。  
+  缓解：以平台下发策略为准，探测失败阻断变更发布。
 
 ## Phase Outputs
 

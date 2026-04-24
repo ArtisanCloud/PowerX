@@ -147,6 +147,72 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 详细步骤可参考：`specs/027-monitor-center/checklists/logs-trace-e2e.md`
 
+## 8.3 插件日志（Host 模式）对齐验收
+
+前置条件：
+- 插件已通过宿主启用（`POWERX_PROXY=1`）。
+- 能通过 `/_p/<plugin_id>/api/v1` 访问插件 Admin API。
+- 已启用 Loki/Promtail 或等效统一采集链路。
+
+步骤 A：确认宿主采集开关
+
+```bash
+# 本地开发示例（生产请改 /etc/powerx/powerx.env）
+grep POWERX_SUPERVISOR_FORWARD_STDIO /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/config/powerx.env.example
+```
+
+验收点：
+- 宿主环境应开启插件 stdout 透传（建议 `POWERX_SUPERVISOR_FORWARD_STDIO=true`）。
+
+步骤 B：读取插件日志策略
+
+```bash
+PLUGIN_ID=<plugin_id>
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:3030/_p/${PLUGIN_ID}/api/v1/admin/runtime/logging/policy" | jq
+```
+
+验收点：
+- `mode=host`。
+- `format=json`。
+- 默认 `sinks` 包含 `stdout`。
+
+步骤 C：执行策略探测
+
+```bash
+curl -sS -X POST \
+  "http://127.0.0.1:3030/_p/${PLUGIN_ID}/api/v1/admin/runtime/logging/probe" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "powerx monitor plugin logger probe",
+    "level": "info",
+    "component": "monitor.logs.quickstart",
+    "trace_id": "probe-quickstart-001",
+    "tenant_uuid": "demo-tenant"
+  }' | jq
+```
+
+验收点：
+- 返回 `outcomes`，并包含每个 sink 的状态：`success/failed/retrying/dropped`。
+- `trace_id` 回显可用于后续日志检索。
+
+步骤 D：在监控中心检索插件探测日志
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/query?trace_id=probe-quickstart-001&page=1&page_size=20" | jq
+```
+
+验收点：
+- 可检索到插件探测日志。
+- 日志内容包含 `plugin_id/tenant_uuid/component/level/trace_id`。
+
+常见排障：
+- 仅插件 RuntimeLogs 可见、监控日志不可见：优先检查 stdout 透传是否开启。
+- Loki 可达但字段过滤不稳定：检查 Promtail 是否已做 JSON 字段提取与低基数标签约束。
+- policy/probe 401/403：检查 Root 权限与插件 RBAC（`runtime.ops`）。
+
 ## 8.2 Log Retention（统一日志保留）验收
 
 在 `config/powerx.env.local`（本地）或 `/etc/powerx/powerx.env`（生产）启用 `log.retention`（示例）：
