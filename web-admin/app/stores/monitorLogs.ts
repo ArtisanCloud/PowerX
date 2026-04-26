@@ -5,6 +5,7 @@ import {
   type MonitorLogEntry,
   type MonitorLogQueryFilters,
   type MonitorLogQueryMeta,
+  type MonitorPluginLoggingTarget,
   type MonitorRetentionPolicy,
   type MonitorRetentionExport,
   type MonitorRetentionRun,
@@ -21,6 +22,9 @@ export const useMonitorLogsStore = defineStore("monitorLogs", {
     page: 1,
     pageSize: 50,
     queryMeta: null as MonitorLogQueryMeta | null,
+    pluginTargets: [] as MonitorPluginLoggingTarget[],
+    pluginPolicy: {} as Record<string, any>,
+    pluginProbeResult: null as Record<string, any> | null,
     retention: {
       items: [] as MonitorRetentionRun[],
       next_run: "",
@@ -75,6 +79,50 @@ export const useMonitorLogsStore = defineStore("monitorLogs", {
         const svc = useMonitorService();
         this.retention = await svc.getRetentionRuns(limit);
         return this.retention;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchPluginTargets() {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.pluginTargets = await svc.listPluginLoggingTargets();
+        return this.pluginTargets;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchPluginPolicy(pluginId: string) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.pluginPolicy = await svc.getPluginLoggingPolicy(pluginId);
+        return this.pluginPolicy;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async updatePluginPolicy(pluginId: string, payload: Record<string, any>) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.pluginPolicy = await svc.updatePluginLoggingPolicy(pluginId, payload);
+        return this.pluginPolicy;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async probePluginPolicy(pluginId: string, payload: Record<string, any>) {
+      this.loading = true;
+      try {
+        const svc = useMonitorService();
+        this.pluginProbeResult = await svc.probePluginLoggingPolicy(pluginId, payload);
+        return this.pluginProbeResult;
       } finally {
         this.loading = false;
       }

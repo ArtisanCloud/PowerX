@@ -31,6 +31,18 @@ scrape_configs:
         regex: "powerx-(backend|web-admin|runner)\\.service"
         replacement: "$1"
         target_label: app
+    pipeline_stages:
+      - json:
+          expressions:
+            plugin_id: plugin_id
+            tenant_uuid: tenant_uuid
+            component: component
+            level: level
+      - labels:
+          plugin_id:
+          tenant_uuid:
+          component:
+          level:
 
   # 可选：如果插件写文件日志，可补采集目录
   - job_name: powerx-plugin-files
@@ -41,3 +53,15 @@ scrape_configs:
           app: plugin
           env: prod
           __path__: /opt/powerx/backend/logs/plugins/**/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            plugin_id: plugin_id
+            tenant_uuid: tenant_uuid
+            component: component
+            level: level
+      - labels:
+          plugin_id:
+          tenant_uuid:
+          component:
+          level:

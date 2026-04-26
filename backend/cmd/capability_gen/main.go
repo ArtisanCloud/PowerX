@@ -434,7 +434,7 @@ func collectGoFiles(inputs []string) ([]string, error) {
 
 var (
 	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]+)"\)`)
-	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]+)"`)
+	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]*)"`)
 )
 
 func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string]struct{}) ([]capabilityEntry, error) {

@@ -167,6 +167,15 @@ grep POWERX_SUPERVISOR_FORWARD_STDIO /private/var/www/html/ArtisanCloud/X/PowerX
 步骤 B：读取插件日志策略
 
 ```bash
+## 先通过 PowerX 监控编排接口列出可操作插件
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/plugins" | jq
+
+# 方式一：通过 PowerX 监控编排接口读取策略（推荐）
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/plugins/${PLUGIN_ID}/policy" | jq
+
+# 方式二：直连插件接口读取策略（联调用）
 PLUGIN_ID=<plugin_id>
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:3030/_p/${PLUGIN_ID}/api/v1/admin/runtime/logging/policy" | jq
@@ -180,6 +189,20 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 步骤 C：执行策略探测
 
 ```bash
+# 方式一：通过 PowerX 监控编排接口执行 probe（推荐）
+curl -sS -X POST \
+  "http://127.0.0.1:8080/api/v1/admin/monitor/logs/plugins/${PLUGIN_ID}/probe" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "powerx monitor plugin logger probe",
+    "level": "info",
+    "component": "monitor.logs.quickstart",
+    "trace_id": "probe-quickstart-001",
+    "tenant_uuid": "demo-tenant"
+  }' | jq
+
+# 方式二：直连插件接口执行 probe（联调用）
 curl -sS -X POST \
   "http://127.0.0.1:3030/_p/${PLUGIN_ID}/api/v1/admin/runtime/logging/probe" \
   -H "Authorization: Bearer $TOKEN" \

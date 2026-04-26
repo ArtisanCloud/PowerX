@@ -79,6 +79,22 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 			invokePath := joinPolicyPath(base, "/integration/capabilities/invoke")
 			pol.Routes["POST:"+invokePath] = pmrouter.Permission{Resource: res, Action: "create"}
 		}
+		// ⑤ 插件日志编排入口：为 /admin/runtime/logging/{policy,probe} 提供稳定映射
+		// 避免由于路径首段是 "admin" 且插件未声明 admin 资源导致 no permission rule。
+		if res := pickRuntimeLoggingResource(pol.Resources); res != "" {
+			if readAct := pickRouteAction(pol.Resources[res], []string{"read", "view", "list", "query"}); readAct != "" {
+				policyPath := joinPolicyPath(base, "/admin/runtime/logging/policy")
+				pol.Routes["GET:"+policyPath] = pmrouter.Permission{Resource: res, Action: readAct}
+			}
+			if updateAct := pickRouteAction(pol.Resources[res], []string{"update", "edit", "write", "create", "read"}); updateAct != "" {
+				policyPath := joinPolicyPath(base, "/admin/runtime/logging/policy")
+				pol.Routes["PUT:"+policyPath] = pmrouter.Permission{Resource: res, Action: updateAct}
+			}
+			if probeAct := pickRouteAction(pol.Resources[res], []string{"create", "write", "update", "read"}); probeAct != "" {
+				probePath := joinPolicyPath(base, "/admin/runtime/logging/probe")
+				pol.Routes["POST:"+probePath] = pmrouter.Permission{Resource: res, Action: probeAct}
+			}
+		}
 	}
 	return pol
 }
@@ -127,6 +143,40 @@ func pickCapabilityInvokeResource(resources map[string]map[string]bool) string {
 	}
 	for name := range resources {
 		return name
+	}
+	return ""
+}
+
+func pickRuntimeLoggingResource(resources map[string]map[string]bool) string {
+	if len(resources) == 0 {
+		return ""
+	}
+	prefer := []string{"runtime", "logging", "logger", "system", "admin", "integration", "capability"}
+	for _, name := range prefer {
+		if _, ok := resources[name]; ok {
+			return name
+		}
+	}
+	for name := range resources {
+		return name
+	}
+	return ""
+}
+
+func pickRouteAction(actions map[string]bool, prefer []string) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	for _, act := range prefer {
+		if actions[strings.ToLower(strings.TrimSpace(act))] {
+			return strings.ToLower(strings.TrimSpace(act))
+		}
+	}
+	for act := range actions {
+		clean := strings.ToLower(strings.TrimSpace(act))
+		if clean != "" {
+			return clean
+		}
 	}
 	return ""
 }

@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	apikeycache "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeycache"
@@ -37,6 +38,9 @@ type APIKeyAdminHandler struct {
 	profiles *iamrepo.APIKeyProfileRepository
 	permRepo *iamrepo.PermissionRepository
 	profPerm *iamrepo.APIKeyProfilePermissionRepository
+
+	ensureTemplateMu      sync.Mutex
+	templatesEnsuredOnce  bool
 }
 
 func NewAPIKeyAdminHandler(db *gorm.DB) *APIKeyAdminHandler {
@@ -1039,7 +1043,17 @@ func (h *APIKeyAdminHandler) syncActiveAPIKeySnapshotsForProfileTx(ctx context.C
 }
 
 func (h *APIKeyAdminHandler) ensureAPIKeyPermissionTemplates(ctx context.Context) error {
-	return apikeypermissions.EnsureTemplatePermissions(ctx, h.permRepo)
+	h.ensureTemplateMu.Lock()
+	defer h.ensureTemplateMu.Unlock()
+	if h.templatesEnsuredOnce {
+		return nil
+	}
+	if err := apikeypermissions.EnsureTemplatePermissions(ctx, h.permRepo); err != nil {
+		return err
+	}
+	h.templatesEnsuredOnce = true
+	logger.InfoF(ctx, "[integration_gateway.apikey] ensure permission templates initialized once")
+	return nil
 }
 
 type apiKeyPermissionMeta struct {

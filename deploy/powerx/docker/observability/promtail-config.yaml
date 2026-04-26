@@ -16,6 +16,18 @@ scrape_configs:
         labels:
           job: varlogs
           __path__: /var/log/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            plugin_id: plugin_id
+            tenant_uuid: tenant_uuid
+            component: component
+            level: level
+      - labels:
+          plugin_id:
+          tenant_uuid:
+          component:
+          level:
 
   - job_name: docker
     static_configs:
@@ -24,3 +36,16 @@ scrape_configs:
         labels:
           job: docker
           __path__: /var/lib/docker/containers/*/*-json.log
+    pipeline_stages:
+      - docker: {}
+      - json:
+          expressions:
+            plugin_id: plugin_id
+            tenant_uuid: tenant_uuid
+            component: component
+            level: level
+      - labels:
+          plugin_id:
+          tenant_uuid:
+          component:
+          level:

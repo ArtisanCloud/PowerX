@@ -47,6 +47,22 @@ export interface MonitorLogQueryFilters {
   page_size?: number;
 }
 
+export interface MonitorPluginLoggingTarget {
+  plugin_id: string;
+  name: string;
+  version: string;
+  state: string;
+  api_base: string;
+}
+
+export interface MonitorPluginLoggingPolicyPayload {
+  [key: string]: any;
+}
+
+export interface MonitorPluginLoggingProbePayload {
+  [key: string]: any;
+}
+
 export interface MonitorRetentionRun {
   run_id: string;
   triggered_by: string;
@@ -162,6 +178,27 @@ export const useMonitorService = () => {
         },
         query_meta: data.query_meta || { driver: "stdio", degraded: true, hint: "query_meta unavailable" },
       };
+    },
+
+    async listPluginLoggingTargets(): Promise<MonitorPluginLoggingTarget[]> {
+      const resp = await api.get(`${adminBase}/plugins`);
+      const data = unwrap<{ items?: MonitorPluginLoggingTarget[] }>(resp) || {};
+      return Array.isArray(data.items) ? data.items : [];
+    },
+
+    async getPluginLoggingPolicy(pluginId: string): Promise<MonitorPluginLoggingPolicyPayload> {
+      const resp = await api.get(`${adminBase}/plugins/${encodeURIComponent(pluginId)}/policy`);
+      return unwrap<MonitorPluginLoggingPolicyPayload>(resp) || {};
+    },
+
+    async updatePluginLoggingPolicy(pluginId: string, payload: MonitorPluginLoggingPolicyPayload): Promise<MonitorPluginLoggingPolicyPayload> {
+      const resp = await api.put(`${adminBase}/plugins/${encodeURIComponent(pluginId)}/policy`, payload || {});
+      return unwrap<MonitorPluginLoggingPolicyPayload>(resp) || {};
+    },
+
+    async probePluginLoggingPolicy(pluginId: string, payload: MonitorPluginLoggingProbePayload): Promise<MonitorPluginLoggingProbePayload> {
+      const resp = await api.post(`${adminBase}/plugins/${encodeURIComponent(pluginId)}/probe`, payload || {});
+      return unwrap<MonitorPluginLoggingProbePayload>(resp) || {};
     },
 
     async getRetentionRuns(limit = 20): Promise<MonitorRetentionRuns> {
