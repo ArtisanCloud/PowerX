@@ -9,6 +9,29 @@ import {
   setResponseStatus,
 } from "h3";
 
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "upgrade",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "host",
+  "content-length",
+]);
+
+function buildProxyHeaders(input: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(input || {})) {
+    const key = String(k || "").toLowerCase();
+    if (!key || HOP_BY_HOP_HEADERS.has(key)) continue;
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+}
+
 export default defineEventHandler(async (event) => {
   const u = getRequestURL(event);
   const p = u.pathname || "/";
@@ -96,10 +119,7 @@ export default defineEventHandler(async (event) => {
   const targetAuthLogin = /^\/api\/v1\/admin\/user\/auth\/(login|refresh)$/.test(targetPath);
   const targetAuthLogout = /^\/api\/v1\/admin\/user\/auth\/logout$/.test(targetPath);
   if (targetAuthLogin || targetAuthLogout) {
-    const reqHeaders: Record<string, string> = {};
-    for (const [k, v] of Object.entries(event.node.req.headers || {})) {
-      if (typeof v === "string") reqHeaders[k] = v;
-    }
+    const reqHeaders = buildProxyHeaders(event.node.req.headers as Record<string, unknown>);
     const target = `${upstream}${targetPath}${qs}`;
     const resp = await fetch(target, {
       method: String(event.method || "GET").toUpperCase(),
@@ -164,10 +184,7 @@ export default defineEventHandler(async (event) => {
     /^\/_p\/[^/]+\/admin(?:\/|$)/.test(targetPath);
 
   if (shouldInjectBridge) {
-    const reqHeaders: Record<string, string> = {};
-    for (const [k, v] of Object.entries(event.node.req.headers || {})) {
-      if (typeof v === "string") reqHeaders[k] = v;
-    }
+    const reqHeaders = buildProxyHeaders(event.node.req.headers as Record<string, unknown>);
 
     const resp = await fetch(target, {
       method: String(event.method || "GET").toUpperCase(),
