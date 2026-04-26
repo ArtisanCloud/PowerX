@@ -783,7 +783,12 @@
             <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
               <div class="flex items-center justify-between gap-2">
                 <div class="text-sm font-medium">插件日志策略编排</div>
-                <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="refreshPluginLoggingTargets">刷新插件列表</UButton>
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" variant="outline" :loading="monitorLogsLoading" @click="refreshPluginLoggingTargets">刷新插件列表</UButton>
+                  <UButton size="xs" variant="soft" color="neutral" @click="togglePluginAdvancedJson">
+                    {{ pluginAdvancedJsonOpen ? "收起高级 JSON" : "高级 JSON" }}
+                  </UButton>
+                </div>
               </div>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <USelectMenu
@@ -799,14 +804,48 @@
                   <UButton size="sm" color="warning" variant="soft" :disabled="!pluginLoggingOrch.pluginId" :loading="monitorLogsLoading" @click="probePluginLoggingPolicy">执行 Probe</UButton>
                 </div>
               </div>
+
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-xs text-gray-500">策略配置（表单）</div>
+                    <UButton size="xs" variant="outline" :disabled="!pluginLoggingOrch.pluginId" @click="openPluginPolicyForm">编辑策略</UButton>
+                  </div>
+                  <div class="flex flex-wrap gap-2 text-xs">
+                    <UBadge variant="soft" color="neutral">mode: {{ pluginPolicyForm.mode }}</UBadge>
+                    <UBadge variant="soft" color="neutral">format: {{ pluginPolicyForm.format }}</UBadge>
+                    <UBadge variant="soft" color="neutral">level: {{ pluginPolicyForm.level }}</UBadge>
+                    <UBadge variant="soft" color="neutral">sinks: {{ pluginPolicyForm.sinksText || "-" }}</UBadge>
+                    <UBadge variant="soft" :color="pluginPolicyForm.retryEnabled ? 'success' : 'warning'">
+                      retry: {{ pluginPolicyForm.retryEnabled ? "on" : "off" }}
+                    </UBadge>
+                  </div>
+                </div>
+                <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-xs text-gray-500">Probe 配置（表单）</div>
+                    <UButton size="xs" variant="outline" :disabled="!pluginLoggingOrch.pluginId" @click="openPluginProbeForm">编辑 Probe</UButton>
+                  </div>
+                  <div class="text-xs text-gray-500 space-y-1">
+                    <div><span class="font-mono">message</span>: {{ pluginProbeForm.message }}</div>
+                    <div><span class="font-mono">component</span>: {{ pluginProbeForm.component }}</div>
+                    <div><span class="font-mono">trace_id</span>: {{ pluginProbeForm.traceId }}</div>
+                    <div><span class="font-mono">tenant_uuid</span>: {{ pluginProbeForm.tenantUuid || "-" }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="pluginAdvancedJsonOpen" class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div class="space-y-2">
-                  <div class="text-xs text-gray-500">策略 JSON（PUT /policy）</div>
-                  <UTextarea v-model="pluginLoggingOrch.policyJson" :rows="8" class="font-mono text-xs" />
+                  <div class="text-xs text-amber-400">策略 JSON（高级模式，PUT /policy）</div>
+                  <UTextarea v-model="pluginLoggingOrch.policyJson" :rows="10" class="font-mono text-xs" />
                 </div>
                 <div class="space-y-2">
-                  <div class="text-xs text-gray-500">Probe JSON（POST /probe）</div>
-                  <UTextarea v-model="pluginLoggingOrch.probeJson" :rows="8" class="font-mono text-xs" />
+                  <div class="text-xs text-amber-400">Probe JSON（高级模式，POST /probe）</div>
+                  <UTextarea v-model="pluginLoggingOrch.probeJson" :rows="10" class="font-mono text-xs" />
+                </div>
+                <div class="md:col-span-2">
+                  <UButton size="xs" variant="outline" @click="applyAdvancedJsonToForms">从高级 JSON 同步到表单</UButton>
                 </div>
               </div>
               <div class="space-y-2">
@@ -814,6 +853,78 @@
                 <pre class="rounded bg-gray-900 text-gray-100 text-xs p-3 overflow-x-auto">{{ pluginLoggingOrch.resultJson || "-" }}</pre>
               </div>
             </div>
+
+            <UModal
+              v-model:open="pluginPolicyFormOpen"
+              title="插件日志策略配置"
+              description="优先使用表单配置；未知字段可切换高级 JSON。"
+              :ui="{ content: 'max-w-3xl w-full' }"
+            >
+              <template #body>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <UFormField label="Mode">
+                    <USelect v-model="pluginPolicyForm.mode" :items="pluginPolicyModeOptions" />
+                  </UFormField>
+                  <UFormField label="Format">
+                    <USelect v-model="pluginPolicyForm.format" :items="pluginPolicyFormatOptions" />
+                  </UFormField>
+                  <UFormField label="Level">
+                    <USelect v-model="pluginPolicyForm.level" :items="pluginLevelOptions" />
+                  </UFormField>
+                  <UFormField label="Sinks" description="逗号分隔，如 stdout,file">
+                    <UInput v-model="pluginPolicyForm.sinksText" placeholder="stdout" />
+                  </UFormField>
+                  <UFormField label="Retry Enabled">
+                    <UCheckbox v-model="pluginPolicyForm.retryEnabled" />
+                  </UFormField>
+                  <UFormField label="Retry Max Attempts">
+                    <UInput v-model.number="pluginPolicyForm.retryMaxAttempts" type="number" min="1" />
+                  </UFormField>
+                  <UFormField label="Retry Backoff (ms)" class="md:col-span-2">
+                    <UInput v-model.number="pluginPolicyForm.retryBackoffMs" type="number" min="0" />
+                  </UFormField>
+                </div>
+              </template>
+              <template #footer>
+                <div class="flex items-center justify-end gap-2">
+                  <UButton color="neutral" variant="soft" @click="pluginPolicyFormOpen = false">取消</UButton>
+                  <UButton color="primary" @click="applyPluginPolicyForm">应用到策略</UButton>
+                </div>
+              </template>
+            </UModal>
+
+            <UModal
+              v-model:open="pluginProbeFormOpen"
+              title="插件 Probe 配置"
+              description="用于生成探测日志事件。"
+              :ui="{ content: 'max-w-3xl w-full' }"
+            >
+              <template #body>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <UFormField label="Message" class="md:col-span-2">
+                    <UInput v-model="pluginProbeForm.message" />
+                  </UFormField>
+                  <UFormField label="Level">
+                    <USelect v-model="pluginProbeForm.level" :items="pluginLevelOptions" />
+                  </UFormField>
+                  <UFormField label="Component">
+                    <UInput v-model="pluginProbeForm.component" />
+                  </UFormField>
+                  <UFormField label="Trace ID">
+                    <UInput v-model="pluginProbeForm.traceId" />
+                  </UFormField>
+                  <UFormField label="Tenant UUID">
+                    <UInput v-model="pluginProbeForm.tenantUuid" />
+                  </UFormField>
+                </div>
+              </template>
+              <template #footer>
+                <div class="flex items-center justify-end gap-2">
+                  <UButton color="neutral" variant="soft" @click="pluginProbeFormOpen = false">取消</UButton>
+                  <UButton color="primary" @click="applyPluginProbeForm">应用到 Probe</UButton>
+                </div>
+              </template>
+            </UModal>
 
             <div class="text-xs text-gray-500">
               共 {{ monitorLogsTotal }} 条，当前第 {{ monitorLogsPage }} 页（每页 {{ monitorLogsPageSize }} 条）
@@ -1259,6 +1370,44 @@ const monitorLogPageSizeOptions = [
   { label: "100", value: 100 },
 ];
 const monitorLogPageSizeDraft = ref(50);
+
+const pluginPolicyModeOptions = [
+  { label: "host", value: "host" },
+  { label: "plugin", value: "plugin" },
+];
+const pluginPolicyFormatOptions = [
+  { label: "json", value: "json" },
+  { label: "text", value: "text" },
+];
+const pluginLevelOptions = [
+  { label: "debug", value: "debug" },
+  { label: "info", value: "info" },
+  { label: "warn", value: "warn" },
+  { label: "error", value: "error" },
+];
+
+const pluginPolicyFormOpen = ref(false);
+const pluginProbeFormOpen = ref(false);
+const pluginAdvancedJsonOpen = ref(false);
+
+const pluginPolicyForm = reactive({
+  mode: "host",
+  format: "json",
+  level: "info",
+  sinksText: "stdout",
+  retryEnabled: true,
+  retryMaxAttempts: 3,
+  retryBackoffMs: 200,
+});
+
+const pluginProbeForm = reactive({
+  message: "monitor plugin logger probe",
+  level: "info",
+  component: "monitor.logs.ui",
+  traceId: "monitor-probe-001",
+  tenantUuid: "",
+});
+
 const pluginLoggingOrch = reactive({
   pluginId: "",
   policyJson: "{\n  \"mode\": \"host\",\n  \"sinks\": [\"stdout\"],\n  \"format\": \"json\",\n  \"level\": \"info\",\n  \"retry\": {\n    \"enabled\": true,\n    \"max_attempts\": 3,\n    \"backoff_ms\": 200\n  }\n}",
@@ -2144,11 +2293,125 @@ function parseOrchJSON(raw: string, label: string) {
   }
 }
 
+function normalizeStringArray(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => String(item || "").trim())
+    .filter((item) => Boolean(item));
+}
+
+function prettyJSON(value: Record<string, any>) {
+  return JSON.stringify(value || {}, null, 2);
+}
+
+function toPositiveInt(raw: any, fallback: number) {
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v <= 0) return fallback;
+  return Math.floor(v);
+}
+
+function toNonNegativeInt(raw: any, fallback: number) {
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < 0) return fallback;
+  return Math.floor(v);
+}
+
+function buildPolicyPayloadFromForm() {
+  const sinks = String(pluginPolicyForm.sinksText || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => Boolean(item));
+  return {
+    mode: String(pluginPolicyForm.mode || "host"),
+    sinks: sinks.length > 0 ? sinks : ["stdout"],
+    format: String(pluginPolicyForm.format || "json"),
+    level: String(pluginPolicyForm.level || "info"),
+    retry: {
+      enabled: Boolean(pluginPolicyForm.retryEnabled),
+      max_attempts: toPositiveInt(pluginPolicyForm.retryMaxAttempts, 3),
+      backoff_ms: toNonNegativeInt(pluginPolicyForm.retryBackoffMs, 200),
+    },
+  };
+}
+
+function applyPolicyFormFromPayload(payload: Record<string, any>) {
+  pluginPolicyForm.mode = String(payload?.mode || "host");
+  pluginPolicyForm.format = String(payload?.format || "json");
+  pluginPolicyForm.level = String(payload?.level || "info");
+  const sinks = normalizeStringArray(payload?.sinks);
+  pluginPolicyForm.sinksText = sinks.length > 0 ? sinks.join(",") : "stdout";
+  const retry = payload?.retry || {};
+  pluginPolicyForm.retryEnabled = Boolean(retry?.enabled ?? true);
+  pluginPolicyForm.retryMaxAttempts = toPositiveInt(retry?.max_attempts, 3);
+  pluginPolicyForm.retryBackoffMs = toNonNegativeInt(retry?.backoff_ms, 200);
+}
+
+function buildProbePayloadFromForm() {
+  return {
+    message: String(pluginProbeForm.message || "monitor plugin logger probe"),
+    level: String(pluginProbeForm.level || "info"),
+    component: String(pluginProbeForm.component || "monitor.logs.ui"),
+    trace_id: String(pluginProbeForm.traceId || `monitor-probe-${Date.now()}`),
+    tenant_uuid: String(pluginProbeForm.tenantUuid || ""),
+  };
+}
+
+function applyProbeFormFromPayload(payload: Record<string, any>) {
+  pluginProbeForm.message = String(payload?.message || "monitor plugin logger probe");
+  pluginProbeForm.level = String(payload?.level || "info");
+  pluginProbeForm.component = String(payload?.component || "monitor.logs.ui");
+  pluginProbeForm.traceId = String(payload?.trace_id || "monitor-probe-001");
+  pluginProbeForm.tenantUuid = String(payload?.tenant_uuid || "");
+}
+
+function syncOrchJsonFromForm() {
+  pluginLoggingOrch.policyJson = prettyJSON(buildPolicyPayloadFromForm());
+  pluginLoggingOrch.probeJson = prettyJSON(buildProbePayloadFromForm());
+}
+
+function openPluginPolicyForm() {
+  pluginPolicyFormOpen.value = true;
+}
+
+function openPluginProbeForm() {
+  pluginProbeFormOpen.value = true;
+}
+
+function applyPluginPolicyForm() {
+  syncOrchJsonFromForm();
+  pluginPolicyFormOpen.value = false;
+}
+
+function applyPluginProbeForm() {
+  if (!String(pluginProbeForm.traceId || "").trim()) {
+    pluginProbeForm.traceId = `monitor-probe-${Date.now()}`;
+  }
+  syncOrchJsonFromForm();
+  pluginProbeFormOpen.value = false;
+}
+
+function togglePluginAdvancedJson() {
+  pluginAdvancedJsonOpen.value = !pluginAdvancedJsonOpen.value;
+}
+
+function applyAdvancedJsonToForms() {
+  const policy = parseOrchJSON(pluginLoggingOrch.policyJson, "策略 JSON");
+  const probe = parseOrchJSON(pluginLoggingOrch.probeJson, "Probe JSON");
+  applyPolicyFormFromPayload(policy);
+  applyProbeFormFromPayload(probe);
+  pluginLoggingOrch.policyJson = prettyJSON(policy);
+  pluginLoggingOrch.probeJson = prettyJSON(probe);
+}
+
 async function refreshPluginLoggingTargets() {
   try {
     await monitorLogsStore.fetchPluginTargets();
     if (!pluginLoggingOrch.pluginId) {
       pluginLoggingOrch.pluginId = String(monitorPluginTargets.value?.[0]?.plugin_id || "");
+    }
+    if (!pluginProbeForm.tenantUuid) {
+      pluginProbeForm.tenantUuid = String(effectiveTenantUuid.value || "");
+      syncOrchJsonFromForm();
     }
   } catch (e: any) {
     toast.add({ title: "读取插件列表失败", description: e?.message || "未知错误", color: "error" });
@@ -2162,8 +2425,10 @@ async function loadPluginLoggingPolicy() {
   }
   try {
     const policy = await monitorLogsStore.fetchPluginPolicy(pluginLoggingOrch.pluginId);
-    pluginLoggingOrch.policyJson = JSON.stringify(policy || {}, null, 2);
-    pluginLoggingOrch.resultJson = JSON.stringify(policy || {}, null, 2);
+    const normalized = (policy || {}) as Record<string, any>;
+    applyPolicyFormFromPayload(normalized);
+    syncOrchJsonFromForm();
+    pluginLoggingOrch.resultJson = prettyJSON(normalized);
   } catch (e: any) {
     toast.add({ title: "读取插件策略失败", description: e?.message || "未知错误", color: "error" });
   }
@@ -2175,10 +2440,14 @@ async function savePluginLoggingPolicy() {
     return;
   }
   try {
-    const payload = parseOrchJSON(pluginLoggingOrch.policyJson, "策略 JSON");
+    const payload = pluginAdvancedJsonOpen.value
+      ? parseOrchJSON(pluginLoggingOrch.policyJson, "策略 JSON")
+      : buildPolicyPayloadFromForm();
     const result = await monitorLogsStore.updatePluginPolicy(pluginLoggingOrch.pluginId, payload);
-    pluginLoggingOrch.resultJson = JSON.stringify(result || {}, null, 2);
-    pluginLoggingOrch.policyJson = JSON.stringify(result || {}, null, 2);
+    const normalized = (result || {}) as Record<string, any>;
+    applyPolicyFormFromPayload(normalized);
+    syncOrchJsonFromForm();
+    pluginLoggingOrch.resultJson = prettyJSON(normalized);
     toast.add({ title: "插件策略下发成功", color: "success" });
   } catch (e: any) {
     toast.add({ title: "下发插件策略失败", description: e?.message || "未知错误", color: "error" });
@@ -2191,9 +2460,12 @@ async function probePluginLoggingPolicy() {
     return;
   }
   try {
-    const payload = parseOrchJSON(pluginLoggingOrch.probeJson, "Probe JSON");
+    const payload = pluginAdvancedJsonOpen.value
+      ? parseOrchJSON(pluginLoggingOrch.probeJson, "Probe JSON")
+      : buildProbePayloadFromForm();
     const result = await monitorLogsStore.probePluginPolicy(pluginLoggingOrch.pluginId, payload);
-    pluginLoggingOrch.resultJson = JSON.stringify(result || {}, null, 2);
+    pluginLoggingOrch.probeJson = prettyJSON(payload);
+    pluginLoggingOrch.resultJson = prettyJSON((result || {}) as Record<string, any>);
     toast.add({ title: "插件策略探测完成", color: "success" });
   } catch (e: any) {
     toast.add({ title: "执行插件 Probe 失败", description: e?.message || "未知错误", color: "error" });
@@ -3011,8 +3283,19 @@ watch(
   }
 );
 
+watch(effectiveTenantUuid, (tenantUUID) => {
+  if (!pluginProbeForm.tenantUuid) {
+    pluginProbeForm.tenantUuid = String(tenantUUID || "");
+    syncOrchJsonFromForm();
+  }
+});
+
 onMounted(async () => {
   loadThresholdConfig();
+  if (!pluginProbeForm.tenantUuid) {
+    pluginProbeForm.tenantUuid = String(currentTenantUuid.value || "");
+  }
+  syncOrchJsonFromForm();
   activeTab.value = resolvedForcedTab.value || resolveTab(route.query.tab);
   await ensureTenantContextLoaded();
   ensureReplayStatusSubscription();

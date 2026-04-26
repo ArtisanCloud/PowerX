@@ -43,10 +43,12 @@ const revokingKeyID = ref("");
 const deletingKeyID = ref("");
 const savingPermissions = ref(false);
 const loadingPermissions = ref(false);
+let refreshInFlight: Promise<void> | null = null;
 
 const tenantUUID = ref("");
 const selectedTenantUUID = ref("");
 const searchProfile = ref("");
+const searchPermission = ref("");
 
 const apiKeyProfiles = ref<IntegrationGatewayApiKeyProfile[]>([]);
 const apiKeys = ref<IntegrationGatewayApiKeyRecord[]>([]);
@@ -153,6 +155,63 @@ const permissionGroups = computed<PermissionResourceGroup[]>(() => {
     }));
 });
 
+function metaString(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+function permissionCapabilityID(item: IntegrationGatewayPermissionCatalogItem): string {
+  return String(
+    metaString(item.meta?.capability_id) ||
+      metaString(item.meta?.permission_code) ||
+      metaString(item.meta?.code)
+  ).trim();
+}
+
+function permissionSearchText(item: IntegrationGatewayPermissionCatalogItem): string {
+  const title = permissionTitle(item);
+  const capabilityID = permissionCapabilityID(item);
+  const metaText = item.meta ? JSON.stringify(item.meta) : "";
+  return [
+    title,
+    capabilityID,
+    item.module,
+    item.resource,
+    item.action,
+    item.description || "",
+    metaText,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+const filteredPermissionGroups = computed<PermissionResourceGroup[]>(() => {
+  const keyword = searchPermission.value.trim().toLowerCase();
+  if (!keyword) return permissionGroups.value;
+  const groups: PermissionResourceGroup[] = [];
+  for (const resourceGroup of permissionGroups.value) {
+    const actions: PermissionActionGroup[] = [];
+    for (const actionGroup of resourceGroup.actions) {
+      const permissions = actionGroup.permissions.filter((item) => permissionSearchText(item).includes(keyword));
+      if (permissions.length > 0) {
+        actions.push({
+          actionName: actionGroup.actionName,
+          permissions,
+        });
+      }
+    }
+    if (actions.length > 0) {
+      groups.push({
+        resourceName: resourceGroup.resourceName,
+        actions,
+      });
+    }
+  }
+  return groups;
+});
+
 const allPermissionItems = computed<IntegrationGatewayPermissionCatalogItem[]>(() => permissionCatalog.value || []);
 
 const totalPermissionCount = computed(() => allPermissionItems.value.length);
@@ -221,32 +280,40 @@ function checkedCount(items: IntegrationGatewayPermissionCatalogItem[]) {
 
 async function refreshAll() {
   if (!allowAccess.value || !hasValidTenant.value) return;
-  loading.value = true;
-  try {
-    const [profileResp, keyResp, catalogResp] = await Promise.all([
-      svc.listApiKeyProfiles(effectiveTenantUUID.value),
-      svc.listApiKeys({ tenant_uuid: effectiveTenantUUID.value, page: 1, page_size: 200 }),
-      svc.listPermissionCatalog(),
-    ]);
-    apiKeyProfiles.value = Array.isArray(profileResp?.data?.items) ? profileResp.data.items : [];
-    apiKeys.value = Array.isArray(keyResp?.data?.items) ? keyResp.data.items : [];
-    permissionCatalog.value = Array.isArray(catalogResp?.data?.items) ? catalogResp.data.items : [];
-
-    const currentSelected = selectedProfileID.value || 0;
-    const exists = apiKeyProfiles.value.some((item) => item.id === currentSelected);
-    if (!exists) {
-      const active = apiKeyProfiles.value.find((item) => item.status === 1);
-      selectedProfileID.value = active?.id || apiKeyProfiles.value[0]?.id || null;
-    }
-  } catch (err: any) {
-    toast.add({
-      title: "加载失败",
-      description: err?.message || "无法加载 API Key 数据",
-      color: "error",
-    });
-  } finally {
-    loading.value = false;
+  if (refreshInFlight) {
+    await refreshInFlight;
+    return;
   }
+  refreshInFlight = (async () => {
+    loading.value = true;
+    try {
+      const [profileResp, keyResp, catalogResp] = await Promise.all([
+        svc.listApiKeyProfiles(effectiveTenantUUID.value),
+        svc.listApiKeys({ tenant_uuid: effectiveTenantUUID.value, page: 1, page_size: 200 }),
+        svc.listPermissionCatalog(),
+      ]);
+      apiKeyProfiles.value = Array.isArray(profileResp?.data?.items) ? profileResp.data.items : [];
+      apiKeys.value = Array.isArray(keyResp?.data?.items) ? keyResp.data.items : [];
+      permissionCatalog.value = Array.isArray(catalogResp?.data?.items) ? catalogResp.data.items : [];
+
+      const currentSelected = selectedProfileID.value || 0;
+      const exists = apiKeyProfiles.value.some((item) => item.id === currentSelected);
+      if (!exists) {
+        const active = apiKeyProfiles.value.find((item) => item.status === 1);
+        selectedProfileID.value = active?.id || apiKeyProfiles.value[0]?.id || null;
+      }
+    } catch (err: any) {
+      toast.add({
+        title: "加载失败",
+        description: err?.message || "无法加载 API Key 数据",
+        color: "error",
+      });
+    } finally {
+      loading.value = false;
+      refreshInFlight = null;
+    }
+  })();
+  await refreshInFlight;
 }
 
 async function loadSelectedProfilePermissions() {
@@ -785,8 +852,13 @@ onMounted(async () => {
             </div>
 
             <div v-else class="mt-3 space-y-3 max-h-[72vh] overflow-auto pr-1">
+              <UInput
+                v-model="searchPermission"
+                icon="i-heroicons-magnifying-glass"
+                placeholder="搜索权限（支持 capability_id / 路径 / resource / action）"
+              />
               <div
-                v-for="resourceGroup in permissionGroups"
+                v-for="resourceGroup in filteredPermissionGroups"
                 :key="`resource-${resourceGroup.resourceName}`"
                 class="rounded border border-gray-200 dark:border-gray-700 p-3"
               >
@@ -845,6 +917,12 @@ onMounted(async () => {
                           <div class="font-mono text-[11px] text-gray-500 break-all">
                             #{{ item.id }} · {{ item.resource }} · {{ item.action }}
                           </div>
+                          <div
+                            v-if="permissionCapabilityID(item)"
+                            class="font-mono text-[11px] text-gray-500 break-all"
+                          >
+                            capability: {{ permissionCapabilityID(item) }}
+                          </div>
                         </div>
                       </label>
                     </div>
@@ -854,6 +932,12 @@ onMounted(async () => {
 
               <div v-if="permissionCatalog.length === 0" class="rounded border border-dashed p-4 text-sm text-gray-500">
                 权限目录为空，请先检查后端权限初始化。
+              </div>
+              <div
+                v-else-if="filteredPermissionGroups.length === 0"
+                class="rounded border border-dashed p-4 text-sm text-gray-500"
+              >
+                未找到匹配权限，请换一个关键词（例如：`POST /api/v1/admin/agents`、`admin_agents`）。
               </div>
             </div>
 
