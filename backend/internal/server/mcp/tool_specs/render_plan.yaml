@@ -135,7 +135,7 @@ examples:
           }
           
           func createProject(name string) {
-              logger.InfoF(context.Background(), "Creating project: %s", name)
+              logger.InfoF(ctx, "Creating project: %s", name)
           }
         files:
           - path: main.go

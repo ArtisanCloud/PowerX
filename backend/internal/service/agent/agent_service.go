@@ -16,22 +16,26 @@ import (
 )
 
 type AgentService struct {
-	db         *gorm.DB
-	agRepo     *repo.AgentRepository
-	setRepo    *repo.AgentSettingRepository
-	kbRepo     *repo.AgentKBBindingRepository
-	pluginRepo *repo.AgentPluginLinkRepository
+	db                *gorm.DB
+	agRepo            *repo.AgentRepository
+	setRepo           *repo.AgentSettingRepository
+	kbRepo            *repo.AgentKBBindingRepository
+	skillBindRepo     *repo.AgentSkillBindingRepository
+	knowledgeBindRepo *repo.AgentKnowledgeBindingRepository
+	pluginRepo        *repo.AgentPluginLinkRepository
 }
 
 var ErrAgentOwnerForbidden = errors.New("agent.owner_forbidden")
 
 func NewAgentService(db *gorm.DB) *AgentService {
 	return &AgentService{
-		db:         db,
-		agRepo:     repo.NewAgentRepository(db),
-		setRepo:    repo.NewAgentSettingRepository(db),
-		kbRepo:     repo.NewAgentKBBindingRepository(db),
-		pluginRepo: repo.NewAgentPluginLinkRepository(db),
+		db:                db,
+		agRepo:            repo.NewAgentRepository(db),
+		setRepo:           repo.NewAgentSettingRepository(db),
+		kbRepo:            repo.NewAgentKBBindingRepository(db),
+		skillBindRepo:     repo.NewAgentSkillBindingRepository(db),
+		knowledgeBindRepo: repo.NewAgentKnowledgeBindingRepository(db),
+		pluginRepo:        repo.NewAgentPluginLinkRepository(db),
 	}
 }
 
@@ -84,6 +88,10 @@ func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string
 type AgentPatch struct {
 	Name                  *string
 	Description           *string
+	TypeID                *string
+	Scene                 *string
+	PromptSeed            *string
+	Persona               *string
 	Visibility            *string
 	Status                *string
 	Scope                 *string
@@ -93,6 +101,8 @@ type AgentPatch struct {
 	ToolAllowlist         datatypes.JSON
 	KBStrategy            *string
 	Meta                  datatypes.JSONMap
+	SkillIDs              *[]string
+	KnowledgeBaseUUIDs    *[]string
 	ExpectedOwnerPluginID *string
 	CallerPluginID        string
 }
@@ -117,6 +127,18 @@ func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *strin
 	}
 	if patch.Description != nil {
 		up["description"] = *patch.Description
+	}
+	if patch.TypeID != nil {
+		up["type_id"] = strings.TrimSpace(*patch.TypeID)
+	}
+	if patch.Scene != nil {
+		up["scene"] = strings.TrimSpace(*patch.Scene)
+	}
+	if patch.PromptSeed != nil {
+		up["prompt_seed"] = strings.TrimSpace(*patch.PromptSeed)
+	}
+	if patch.Persona != nil {
+		up["persona"] = strings.TrimSpace(*patch.Persona)
 	}
 	if patch.Visibility != nil {
 		up["visibility"] = *patch.Visibility
@@ -151,7 +173,31 @@ func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *strin
 			return nil, err
 		}
 	}
+	if patch.SkillIDs != nil {
+		if err := s.ReplaceSkillBindings(ctx, env, tenantUUID, agentID, *patch.SkillIDs); err != nil {
+			return nil, err
+		}
+	}
+	if patch.KnowledgeBaseUUIDs != nil {
+		if err := s.ReplaceKnowledgeBindings(ctx, env, tenantUUID, agentID, *patch.KnowledgeBaseUUIDs); err != nil {
+			return nil, err
+		}
+	}
 	return s.agRepo.GetByID(ctx, agentID)
+}
+
+func (s *AgentService) ReplaceSkillBindings(ctx context.Context, env string, tenantUUID *string, agentID uint64, skillIDs []string) error {
+	if s == nil || s.skillBindRepo == nil {
+		return nil
+	}
+	return s.skillBindRepo.Replace(ctx, env, tenantUUID, agentID, normalizeStringSlice(skillIDs))
+}
+
+func (s *AgentService) ReplaceKnowledgeBindings(ctx context.Context, env string, tenantUUID *string, agentID uint64, knowledgeSpaceUUIDs []string) error {
+	if s == nil || s.knowledgeBindRepo == nil {
+		return nil
+	}
+	return s.knowledgeBindRepo.Replace(ctx, env, tenantUUID, agentID, normalizeStringSlice(knowledgeSpaceUUIDs))
 }
 
 func (s *AgentService) SetStatus(ctx context.Context, env string, tenantUUID *string, agentID uint64, status string) error {
@@ -271,6 +317,30 @@ func equalTenant(a, b *string) bool {
 		return false
 	}
 	return strings.TrimSpace(*a) == strings.TrimSpace(*b)
+}
+
+func normalizeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		s := strings.TrimSpace(v)
+		if s == "" {
+			continue
+		}
+		k := strings.ToLower(s)
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, s)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func assertPluginOwnership(rec *dbmodel.Agent, expectedOwnerPluginID *string, callerPluginID string) error {

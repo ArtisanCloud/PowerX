@@ -43,7 +43,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	if bindOverride == "" {
 		delete(selected, "POWERX_HTTP_ADDR")
 	}
-	logger.InfoF(context.Background(), "[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q",
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "plugin.host_config"}), "[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q",
 		man.ID, cfgDir, bindOverride, selected["POWERX_HTTP_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件

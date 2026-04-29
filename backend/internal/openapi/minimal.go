@@ -166,7 +166,7 @@ func applyStaticStubs(doc map[string]any) {
 	}
 	var stub map[string]any
 	if err := yaml.Unmarshal(agentModelHubStub, &stub); err != nil {
-		logger.WarnF(context.Background(), "openapi: failed to parse agent model hub stub: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "openapi.minimal"}), "openapi: failed to parse agent model hub stub: %v", err)
 		return
 	}
 	mergeTags(doc, stub)

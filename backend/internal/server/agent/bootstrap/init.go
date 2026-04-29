@@ -76,10 +76,10 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	if db != nil {
 		lastSkills, lastToolings := 0, 0
 		if loadedSkills, loadedToolings, loadErr := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, true); loadErr != nil {
-			logger.InfoF(context.Background(), "[agent] warm unified candidates failed: %v", loadErr)
+			logger.InfoF(ctx, "[agent] warm unified candidates failed: %v", loadErr)
 		} else {
 			lastSkills, lastToolings = loadedSkills, loadedToolings
-			logger.InfoF(context.Background(), "[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
+			logger.InfoF(ctx, "[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
 		}
 		// 周期刷新，避免“仅重启时更新”导致候选陈旧。
 		go func() {
@@ -92,11 +92,11 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 				case <-ticker.C:
 					s, t, err := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, false)
 					if err != nil {
-						logger.InfoF(context.Background(), "[agent] refresh unified candidates failed: %v", err)
+						logger.InfoF(ctx, "[agent] refresh unified candidates failed: %v", err)
 						continue
 					}
 					if s != lastSkills || t != lastToolings {
-						logger.InfoF(context.Background(), "[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
+						logger.InfoF(ctx, "[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
 						lastSkills, lastToolings = s, t
 					}
 				}
@@ -230,7 +230,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 				Threshold: threshold,
 			})
 		} else if clsErr != nil {
-			logger.InfoF(context.Background(), "[intent] classifier init skipped: %v", clsErr)
+			logger.InfoF(ctx, "[intent] classifier init skipped: %v", clsErr)
 		}
 	}
 
@@ -324,10 +324,10 @@ func diagEmbedding(ctx context.Context, vec embed.Vectorizer) {
 	q := "创建线索"
 	qs, err := vec.Embed(ctx, []string{q})
 	if err != nil || len(qs) == 0 {
-		logger.InfoF(context.Background(), "[EMB] query embed failed: %v", err)
+		logger.InfoF(ctx, "[EMB] query embed failed: %v", err)
 		return
 	}
-	logger.InfoF(context.Background(), "[EMB] query dim=%d first3=%v", len(qs[0]), qs[0][:min(3, len(qs[0]))])
+	logger.InfoF(ctx, "[EMB] query dim=%d first3=%v", len(qs[0]), qs[0][:min(3, len(qs[0]))])
 }
 
 const (
@@ -355,7 +355,7 @@ func warmUnifiedCandidatesFromDB(ctx context.Context, db *gorm.DB, mgr *agent.Ma
 			}
 			return skills, toolings, nil
 		} else if err != nil {
-			logger.InfoF(context.Background(), "[agent] read unified candidates cache failed: %v", err)
+			logger.InfoF(ctx, "[agent] read unified candidates cache failed: %v", err)
 		}
 	}
 
@@ -409,7 +409,7 @@ func warmUnifiedCandidatesFromDB(ctx context.Context, db *gorm.DB, mgr *agent.Ma
 		loadedToolings++
 	}
 	if err := saveUnifiedCandidatesToCache(ctx, candidates); err != nil {
-		logger.InfoF(context.Background(), "[agent] write unified candidates cache failed: %v", err)
+		logger.InfoF(ctx, "[agent] write unified candidates cache failed: %v", err)
 	}
 	return loadedSkills, loadedToolings, nil
 }

@@ -228,7 +228,7 @@ func upsertDevAPIKey(
 			return fmt.Errorf("replace api key permissions failed: %w", err)
 		}
 
-		logger.InfoF(context.Background(), "[seed] ensured dev api key %s prefix=%s tenant=%s", item.EnvName, prefix, tenantUUID)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] ensured dev api key %s prefix=%s tenant=%s", item.EnvName, prefix, tenantUUID)
 		return nil
 	})
 }

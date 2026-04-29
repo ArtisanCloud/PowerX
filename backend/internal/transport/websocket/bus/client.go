@@ -174,7 +174,7 @@ func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 	select {
 	case ch <- env:
 	default:
-		logger.DebugF(context.Background(), "[ws-bus] drop message topic=%s client=%s", env.Topic, c.ID)
+		logger.DebugF(c.ctx, "[ws-bus] drop message topic=%s client=%s", env.Topic, c.ID)
 	}
 }
 

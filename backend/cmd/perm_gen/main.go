@@ -45,7 +45,7 @@ func main() {
 			"items":      items,
 		}
 		b, _ := json.MarshalIndent(payload, "", "  ")
-		logger.InfoF(context.Background(), "%s", b)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%s", b)
 		return
 	}
 
@@ -61,7 +61,7 @@ func main() {
 		panic(err)
 	}
 	out, _ := json.MarshalIndent(res, "", "  ")
-	logger.InfoF(context.Background(), "%s", string(out))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%s", string(out))
 }
 
 func loadOpenAPI(path string) (*openapi3.T, error) {
@@ -79,7 +79,7 @@ func loadOpenAPI(path string) (*openapi3.T, error) {
 	}
 	if err = doc.Validate(ldr.Context); err != nil {
 		// 放宽校验：非致命错误只告警
-		logger.WarnF(context.Background(), "[warn] openapi validation: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[warn] openapi validation: %v", err)
 	}
 	return doc, nil
 }

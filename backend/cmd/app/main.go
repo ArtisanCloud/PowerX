@@ -37,7 +37,7 @@ func main() {
 	// 加载全局配置
 	cfg := config.GetGlobalConfig()
 	if cfg == nil {
-		logger.ErrorF(context.Background(), "加载配置文件失败")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "加载配置文件失败")
 		os.Exit(1)
 	}
 	// 必须在任何 logger 输出之前初始化全局 logger，避免默认配置先占位。

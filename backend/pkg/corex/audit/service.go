@@ -120,7 +120,7 @@ func (s *serviceImpl) loop() {
 		now := time.Now()
 		if !now.Before(s.dropUntil) {
 			if err := s.repo.InsertBatch(context.Background(), rows); err != nil {
-				pxlog.Error(context.Background(), "audit insert batch failed: "+err.Error())
+				pxlog.Error(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "audit insert batch failed: "+err.Error())
 				s.consecFail++
 				backoffs := []time.Duration{time.Second, 5 * time.Second, 30 * time.Second, 2 * time.Minute, 5 * time.Minute}
 				idx := s.consecFail - 1

@@ -22,7 +22,7 @@ const i18nDebug = true
 
 func dbgI18n(format string, args ...any) {
 	if i18nDebug {
-		logger.DebugF(context.Background(), "[i18n] "+format, args...)
+		logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.plugin.i18n"}), "[i18n] "+format, args...)
 	}
 }
 

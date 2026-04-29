@@ -30,14 +30,14 @@ func main() {
 	flag.Parse()
 
 	if mode == "" {
-		logger.ErrorF(context.Background(), "usage: -mode=ensure|retire|ensure-parent [flags]")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "usage: -mode=ensure|retire|ensure-parent [flags]")
 		os.Exit(2)
 	}
 
 	cfg := config.GetGlobalConfig()
 	db, err := database.GetDB(&cfg.Database)
 	if err != nil {
-		logger.ErrorF(context.Background(), "db init failed: %v", err)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "db init failed: %v", err)
 		os.Exit(1)
 	}
 

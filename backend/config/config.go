@@ -83,7 +83,7 @@ func GetGlobalConfig() *Config {
 				lastErr = err
 			}
 		}
-		logger.ErrorF(context.Background(), "初始化全局配置失败: %v", lastErr)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "config.global"}), "初始化全局配置失败: %v", lastErr)
 		os.Exit(1)
 	}
 	return GlobalConfig

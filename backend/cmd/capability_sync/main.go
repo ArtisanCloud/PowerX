@@ -121,11 +121,11 @@ func closeSQL(db *gorm.DB) {
 		return
 	}
 	if err = sqlDB.Close(); err != nil {
-		pxlog.Warn(context.Background(), "关闭数据库连接失败: "+err.Error())
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "关闭数据库连接失败: "+err.Error())
 	}
 }
 
 func fatalf(format string, args ...any) {
-	pxlog.ErrorF(context.Background(), format, args...)
+	pxlog.ErrorF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
 }

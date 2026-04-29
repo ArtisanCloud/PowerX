@@ -170,7 +170,7 @@ func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
 		wd, _ := os.Getwd()
 		return fmt.Errorf("no provider manifests loaded from dirs=%v (wd=%s)", absDirs, wd)
 	}
-	logger.InfoF(context.Background(), "[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "agent.catalog"}), "[ai.catalog] loaded %d provider manifests from dirs=%v", total, absDirs)
 	return nil
 }
 
@@ -388,14 +388,15 @@ func InitFromAppConfig(cfg CatalogConfig, embedded fs.FS) error {
 	if len(cfg.Dirs) == 0 {
 		cfg.Dirs = []string{"./config/agents/providers.d"}
 	}
-	logger.InfoF(context.Background(), "[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "agent.catalog"})
+	logger.InfoF(logCtx, "[ai.catalog] initializing registry, dirs=%v include_embedded=%v", cfg.Dirs, cfg.IncludeEmbedded)
 	reg := NewRegistry()
 	if err := reg.LoadByConfig(cfg, embedded); err != nil {
 		return err
 	}
 	if len(reg.providers) == 0 {
 		wd, _ := os.Getwd()
-		logger.WarnF(context.Background(), "[ai.catalog] warning: registry empty after load (wd=%s)", wd)
+		logger.WarnF(logCtx, "[ai.catalog] warning: registry empty after load (wd=%s)", wd)
 	}
 	GlobalAIRegister = reg
 

@@ -181,5 +181,5 @@ func logPlatformCapabilityError(err error) {
 	if err == nil {
 		return
 	}
-	logger.WarnF(context.Background(), "[integration_gateway] load platform capabilities config failed: %v", err)
+	logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "integration_gateway.config"}), "[integration_gateway] load platform capabilities config failed: %v", err)
 }

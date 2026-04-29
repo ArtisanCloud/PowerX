@@ -556,7 +556,7 @@ func mapLocalError(err error) error {
 	case errors.Is(err, local.ErrSessionNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
-		logger.WarnF(context.Background(), "local install operation failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "grpc.plugin_release"}), "local install operation failed: %v", err)
 		return status.Error(codes.Internal, "local install operation failed")
 	}
 }
@@ -703,7 +703,7 @@ func mapPipelineError(err error) error {
 	case errors.Is(err, pipeline.ErrGateNotPassed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		logger.WarnF(context.Background(), "pipeline operation failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "grpc.plugin_release"}), "pipeline operation failed: %v", err)
 		return status.Error(codes.Internal, "pipeline operation failed")
 	}
 }
@@ -717,7 +717,7 @@ func mapRuntimeError(err error) error {
 	case errors.Is(err, runtime.ErrBatchNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
-		logger.WarnF(context.Background(), "runtime operation failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "grpc.plugin_release"}), "runtime operation failed: %v", err)
 		return status.Error(codes.Internal, "runtime operation failed")
 	}
 }
@@ -733,7 +733,7 @@ func mapDistributionError(err error) error {
 		errors.Is(err, distribution.ErrListingNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
-		logger.WarnF(context.Background(), "distribution operation failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "grpc.plugin_release"}), "distribution operation failed: %v", err)
 		return status.Error(codes.Internal, "distribution operation failed")
 	}
 }

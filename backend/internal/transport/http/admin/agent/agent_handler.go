@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -13,10 +16,18 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+)
+
+var agentKeyNonWordChars = regexp.MustCompile(`[^a-z0-9._-]+`)
+
+const (
+	agentKeyMaxLen        = 64
+	agentKeyHashHexLength = 16
 )
 
 // ====== DTO ======
@@ -174,6 +185,12 @@ type createAgentReq struct {
 	Key              string            `json:"key" validate:"required"`
 	Name             string            `json:"name" validate:"required"`
 	Description      string            `json:"description"`
+	TypeID           string            `json:"typeId,omitempty"`
+	Scene            string            `json:"scene,omitempty"`
+	PromptSeed       string            `json:"promptSeed,omitempty"`
+	Persona          string            `json:"persona,omitempty"`
+	SkillIDs         []string          `json:"skillIds,omitempty"`
+	KnowledgeBaseIDs []string          `json:"knowledgeBaseIds,omitempty"`
 	Visibility       string            `json:"visibility"` // private|tenant|public
 	Status           string            `json:"status"`     // draft|active...
 	Scope            string            `json:"scope"`      // system|tenant（语义标签）
@@ -191,6 +208,12 @@ type createAgentReq struct {
 type updateAgentReq struct {
 	Name                  *string           `json:"name,omitempty"`
 	Description           *string           `json:"description,omitempty"`
+	TypeID                *string           `json:"typeId,omitempty"`
+	Scene                 *string           `json:"scene,omitempty"`
+	PromptSeed            *string           `json:"promptSeed,omitempty"`
+	Persona               *string           `json:"persona,omitempty"`
+	SkillIDs              *[]string         `json:"skillIds,omitempty"`
+	KnowledgeBaseIDs      *[]string         `json:"knowledgeBaseIds,omitempty"`
 	Visibility            *string           `json:"visibility,omitempty"`
 	Status                *string           `json:"status,omitempty"`
 	Scope                 *string           `json:"scope,omitempty"`
@@ -249,12 +272,22 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		ownerTenantUUID = tenantRef
 	}
 
+	normalizedKey := normalizeAgentKey(strings.TrimSpace(req.Key))
+	if normalizedKey == "" {
+		dtoRequest.ResponseError(c, 400, "key 不能为空", nil)
+		return
+	}
+
 	in := &dbmodel.Agent{
 		Env:              req.Env,
 		TenantUUID:       tenantRef,
-		Key:              strings.TrimSpace(req.Key),
+		Key:              normalizedKey,
 		Name:             strings.TrimSpace(req.Name),
 		Description:      req.Description,
+		TypeID:           utils.FirstNonEmpty(req.TypeID, extractMetaString(req.Meta, "type_id"), extractMetaString(req.Meta, "typeId")),
+		Scene:            utils.FirstNonEmpty(req.Scene, extractMetaString(req.Meta, "scene")),
+		PromptSeed:       utils.FirstNonEmpty(req.PromptSeed, extractMetaString(req.Meta, "prompt_seed"), extractMetaString(req.Meta, "promptSeed")),
+		Persona:          utils.FirstNonEmpty(req.Persona, extractMetaPersona(req.Meta)),
 		Source:           source,
 		OwnerPluginID:    ownerPluginID,
 		OwnerTenantUUID:  ownerTenantUUID,
@@ -274,7 +307,43 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	skillIDs := firstNonEmptyStringSlice(req.SkillIDs, extractMetaStringSlice(req.Meta, "skill_ids", "skillIds"), extractMetaParameterStringSlice(req.Meta, "skill_ids", "skillIds"))
+	knowledgeIDs := firstNonEmptyStringSlice(req.KnowledgeBaseIDs, extractMetaStringSlice(req.Meta, "knowledge_base_ids", "knowledgeBaseIds"), extractMetaParameterStringSlice(req.Meta, "knowledge_base_ids", "knowledgeBaseIds"))
+	if err := h.srv.ReplaceSkillBindings(c.Request.Context(), req.Env, tenantRef, out.ID, skillIDs); err != nil {
+		dtoRequest.ResponseError(c, 400, "sync skill bindings failed", err)
+		return
+	}
+	if err := h.srv.ReplaceKnowledgeBindings(c.Request.Context(), req.Env, tenantRef, out.ID, knowledgeIDs); err != nil {
+		dtoRequest.ResponseError(c, 400, "sync knowledge bindings failed", err)
+		return
+	}
 	dtoRequest.ResponseSuccess(c, out)
+}
+
+func normalizeAgentKey(raw string) string {
+	key := strings.ToLower(strings.TrimSpace(raw))
+	if key == "" {
+		return ""
+	}
+	key = agentKeyNonWordChars.ReplaceAllString(key, "-")
+	key = strings.Trim(key, "-_.")
+	if key == "" {
+		return ""
+	}
+	if len(key) <= agentKeyMaxLen {
+		return key
+	}
+	sum := sha256.Sum256([]byte(key))
+	suffix := hex.EncodeToString(sum[:])[:agentKeyHashHexLength]
+	prefixLen := agentKeyMaxLen - 1 - len(suffix)
+	if prefixLen < 1 {
+		prefixLen = 1
+	}
+	prefix := strings.Trim(key[:prefixLen], "-_.")
+	if prefix == "" {
+		prefix = "agent"
+	}
+	return prefix + "-" + suffix
 }
 
 func (h *AgentHandler) ListAgents(c *gin.Context) {
@@ -370,10 +439,26 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
 	}
+	if req.SkillIDs == nil {
+		if metaSkillIDs := firstNonEmptyStringSlice(extractMetaStringSlice(req.Meta, "skill_ids", "skillIds"), extractMetaParameterStringSlice(req.Meta, "skill_ids", "skillIds")); len(metaSkillIDs) > 0 {
+			req.SkillIDs = &metaSkillIDs
+		}
+	}
+	if req.KnowledgeBaseIDs == nil {
+		if metaKBIDs := firstNonEmptyStringSlice(extractMetaStringSlice(req.Meta, "knowledge_base_ids", "knowledgeBaseIds"), extractMetaParameterStringSlice(req.Meta, "knowledge_base_ids", "knowledgeBaseIds")); len(metaKBIDs) > 0 {
+			req.KnowledgeBaseIDs = &metaKBIDs
+		}
+	}
 
 	patch := agentSvc.AgentPatch{
 		Name:                  req.Name,
 		Description:           req.Description,
+		TypeID:                req.TypeID,
+		Scene:                 req.Scene,
+		PromptSeed:            req.PromptSeed,
+		Persona:               req.Persona,
+		SkillIDs:              req.SkillIDs,
+		KnowledgeBaseUUIDs:    req.KnowledgeBaseIDs,
 		Visibility:            req.Visibility,
 		Status:                req.Status,
 		Scope:                 req.Scope,
@@ -396,6 +481,121 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	dtoRequest.ResponseSuccess(c, out)
+}
+
+func extractMetaString(meta datatypes.JSONMap, key string) string {
+	if len(meta) == 0 || strings.TrimSpace(key) == "" {
+		return ""
+	}
+	v, ok := meta[key]
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+func extractMetaPersona(meta datatypes.JSONMap) string {
+	if p := extractMetaString(meta, "persona"); p != "" {
+		return p
+	}
+	raw, ok := meta["parameters"]
+	if !ok {
+		return ""
+	}
+	switch m := raw.(type) {
+	case map[string]interface{}:
+		return strings.TrimSpace(fmt.Sprint(m["persona"]))
+	default:
+		return ""
+	}
+}
+
+func extractMetaStringSlice(meta datatypes.JSONMap, keys ...string) []string {
+	if len(meta) == 0 || len(keys) == 0 {
+		return nil
+	}
+	for _, key := range keys {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		if raw, ok := meta[key]; ok {
+			if out := parseStringSlice(raw); len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
+}
+
+func extractMetaParameterStringSlice(meta datatypes.JSONMap, keys ...string) []string {
+	if len(meta) == 0 || len(keys) == 0 {
+		return nil
+	}
+	raw, ok := meta["parameters"]
+	if !ok {
+		return nil
+	}
+	params, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	for _, key := range keys {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		if out := parseStringSlice(params[key]); len(out) > 0 {
+			return out
+		}
+	}
+	return nil
+}
+
+func parseStringSlice(raw interface{}) []string {
+	switch v := raw.(type) {
+	case []string:
+		return normalizeStringSlice(v)
+	case []interface{}:
+		items := make([]string, 0, len(v))
+		for _, item := range v {
+			items = append(items, strings.TrimSpace(fmt.Sprint(item)))
+		}
+		return normalizeStringSlice(items)
+	default:
+		return nil
+	}
+}
+
+func firstNonEmptyStringSlice(candidates ...[]string) []string {
+	for _, c := range candidates {
+		if out := normalizeStringSlice(c); len(out) > 0 {
+			return out
+		}
+	}
+	return nil
+}
+
+func normalizeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		s := strings.TrimSpace(v)
+		if s == "" {
+			continue
+		}
+		key := strings.ToLower(s)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, s)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (h *AgentHandler) EnableAgent(c *gin.Context)  { h.setAgentStatus(c, dbmodel.AgentStatusActive) }

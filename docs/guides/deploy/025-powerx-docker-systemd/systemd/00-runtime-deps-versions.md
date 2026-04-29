@@ -219,6 +219,13 @@ redis-cli ping
 
 - `../00-required-config.md`
 - `01-deploy-config-start.md`
+- `04-observability-loki-grafana.md`（Loki/Grafana/Promtail 安装与启动）
+
+## 5.1 关于 systemd 日志观测
+
+- `journalctl` 适合单机实时排障。
+- 若你需要“跨服务聚合检索 + 长期保存 + 按 trace_id 联查”，请直接接入 `Loki + Grafana + Promtail`。
+- 完整步骤见：`04-observability-loki-grafana.md`（已包含 systemd 原生安装与 Docker 两种方案）。
 
 ## 6. 常见报错对照
 

@@ -8,6 +8,10 @@ export interface Agent {
   key: string;
   name: string;
   description: string;
+  typeId?: string;
+  scene?: string;
+  promptSeed?: string;
+  persona?: string;
   source: string;
   scope: string;
   visibility: string;
@@ -60,6 +64,12 @@ export interface CreateAgentRequest {
   key: string;
   name: string;
   description: string;
+  typeId?: string;
+  scene?: string;
+  promptSeed?: string;
+  persona?: string;
+  skillIds?: string[];
+  knowledgeBaseIds?: string[];
   status: "draft" | "active" | "disabled";
   meta?: Record<string, any>;
 }

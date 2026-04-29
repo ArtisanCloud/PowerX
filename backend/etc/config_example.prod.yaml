@@ -121,7 +121,12 @@ log:
   loki:
     enable: false
     url: "http://<loki-host>:3100"
-    job_name: powerx
+    labels:
+      system: powerx
+      service: powerx-backend
+      env: prod
+      instance: local
+      module: runtime
     batch_wait: 1
     batch_size: 100
   retention:

@@ -66,7 +66,7 @@ func SeedSystemPermissions(db *gorm.DB) error {
 	if err := pr.UpsertBatch(seedCtx(), perms); err != nil {
 		return fmt.Errorf("upsert system permissions: %w", err)
 	}
-	logger.InfoF(context.Background(), "[seed] system permissions ready: %d", len(perms))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] system permissions ready: %d", len(perms))
 	return nil
 }
 

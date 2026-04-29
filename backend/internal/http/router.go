@@ -94,22 +94,23 @@ func SetupSetupOnlyRouter(cfg *config.Config, r *gin.Engine) error {
 
 // PrintRouteInfo 打印路由信息
 func PrintRouteInfo(r *gin.Engine, cfg *config.Config) {
-	logger.Info(context.Background(), "")
-	logger.Info(context.Background(), "📋 已注册的 API 路由（摘要）:")
-	logger.Info(context.Background(), "┌─────────────────────────────────────────────────────────────┐")
-	logger.InfoF(context.Background(), "│ 服务地址: http://localhost:%-29d│", cfg.Server.Port)
-	logger.Info(context.Background(), "├─────────────────────────────────────────────────────────────┤")
+	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "http.router"})
+	logger.Info(ctx, "")
+	logger.Info(ctx, "📋 已注册的 API 路由（摘要）:")
+	logger.Info(ctx, "┌─────────────────────────────────────────────────────────────┐")
+	logger.InfoF(ctx, "│ 服务地址: http://localhost:%-29d│", cfg.Server.Port)
+	logger.Info(ctx, "├─────────────────────────────────────────────────────────────┤")
 	routes := r.Routes()
 	if len(routes) == 0 {
-		logger.Info(context.Background(), "│ (未发现已注册路由，请确认路由是否在 bootstrap 阶段同步注册)        │")
+		logger.Info(ctx, "│ (未发现已注册路由，请确认路由是否在 bootstrap 阶段同步注册)        │")
 	}
 
 	for _, route := range routes {
 		handlerName := trimHandlerName(route.Handler)
-		logger.InfoF(context.Background(), "│ %-6s %-25s - %-60s │", route.Method, route.Path, handlerName)
+		logger.InfoF(ctx, "│ %-6s %-25s - %-60s │", route.Method, route.Path, handlerName)
 	}
-	logger.Info(context.Background(), "└─────────────────────────────────────────────────────────────┘")
-	logger.Info(context.Background(), "")
+	logger.Info(ctx, "└─────────────────────────────────────────────────────────────┘")
+	logger.Info(ctx, "")
 }
 
 // trimHandlerName 提取 handler 名字的最后一段

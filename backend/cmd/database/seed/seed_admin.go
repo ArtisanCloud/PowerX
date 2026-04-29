@@ -103,7 +103,7 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	} else if hasSetupDraft {
 		// setup 进行中但尚未提供管理员密码：不提前写入默认 root。
-		logger.InfoF(context.Background(), "[seed] skip root identity before setup admin is confirmed")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] skip root identity before setup admin is confirmed")
 		return nil
 	}
 
@@ -255,7 +255,7 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed demo readonly account: %w", err)
 	}
 
-	logger.InfoF(context.Background(), "[seed] root ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, rootUserName, rootIdentifier, rootPassword)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] root ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, rootUserName, rootIdentifier, rootPassword)
 	return nil
 }
 
@@ -464,7 +464,7 @@ func SeedDemoReadonlyAccount(db *gorm.DB) error {
 		return fmt.Errorf("bind demo readonly role: %w", err)
 	}
 
-	logger.InfoF(context.Background(), "[seed] demo readonly ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, username, identifier, password)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] demo readonly ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, username, identifier, password)
 	return nil
 }
 

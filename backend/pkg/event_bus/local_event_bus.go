@@ -25,16 +25,17 @@ func NewLocalEventBus() EventBus {
 
 // Subscribe 订阅事件
 func (leb *localEventBus) Subscribe(eventType string, handler Handler) (unsubscribe func()) {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.local"})
 	leb.mu.Lock()
 	defer leb.mu.Unlock()
 
 	if leb.closed {
-		logger.WarnF(context.Background(), "事件总线已关闭，无法订阅事件 %s", eventType)
+		logger.WarnF(logCtx, "事件总线已关闭，无法订阅事件 %s", eventType)
 		return func() {}
 	}
 
 	leb.subscribers[eventType] = append(leb.subscribers[eventType], handler)
-	logger.DebugF(context.Background(), "事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(leb.subscribers[eventType]))
+	logger.DebugF(logCtx, "事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(leb.subscribers[eventType]))
 
 	// 返回取消订阅函数
 	return func() {
@@ -46,7 +47,7 @@ func (leb *localEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 			// 通过函数指针地址比较来找到要删除的handler
 			if fmt.Sprintf("%p", h) == fmt.Sprintf("%p", handler) {
 				leb.subscribers[eventType] = append(handlers[:i], handlers[i+1:]...)
-				logger.DebugF(context.Background(), "事件 %s 取消订阅成功", eventType)
+				logger.DebugF(logCtx, "事件 %s 取消订阅成功", eventType)
 				break
 			}
 		}
@@ -60,17 +61,21 @@ func (leb *localEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 
 // Publish 发布事件
 func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx context.Context) {
+	logCtx := ctx
+	if logCtx == nil {
+		logCtx = logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.local"})
+	}
 	leb.mu.RLock()
 	defer leb.mu.RUnlock()
 
 	if leb.closed {
-		logger.WarnF(context.Background(), "事件总线已关闭，无法发布事件 %s", eventType)
+		logger.WarnF(logCtx, "事件总线已关闭，无法发布事件 %s", eventType)
 		return
 	}
 
 	handlers := leb.subscribers[eventType]
 	if len(handlers) == 0 {
-		logger.DebugF(context.Background(), "事件 %s 没有订阅者", eventType)
+		logger.DebugF(logCtx, "事件 %s 没有订阅者", eventType)
 		return
 	}
 
@@ -92,19 +97,19 @@ func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx con
 		}
 	}
 
-	logger.DebugF(context.Background(), "发布事件 %s，通知 %d 个订阅者", eventType, len(handlers))
+	logger.DebugF(logCtx, "发布事件 %s，通知 %d 个订阅者", eventType, len(handlers))
 
 	// 异步处理所有handler
 	for _, handler := range handlers {
 		go func(h Handler, evt Event) {
 			defer func() {
 				if r := recover(); r != nil {
-					logger.ErrorF(context.Background(), "事件处理器发生panic: %v", r)
+					logger.ErrorF(logCtx, "事件处理器发生panic: %v", r)
 				}
 			}()
 
 			if err := h(evt); err != nil {
-				logger.ErrorF(context.Background(), "事件 %s 处理失败: %v", eventType, err)
+				logger.ErrorF(logCtx, "事件 %s 处理失败: %v", eventType, err)
 			}
 		}(handler, event)
 	}
@@ -112,6 +117,7 @@ func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx con
 
 // Close 关闭事件总线
 func (leb *localEventBus) Close() error {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.local"})
 	leb.mu.Lock()
 	defer leb.mu.Unlock()
 
@@ -121,7 +127,7 @@ func (leb *localEventBus) Close() error {
 
 	leb.closed = true
 	leb.subscribers = make(map[string][]Handler)
-	logger.Info(context.Background(), "本地事件总线已关闭")
+	logger.Info(logCtx, "本地事件总线已关闭")
 	return nil
 }
 

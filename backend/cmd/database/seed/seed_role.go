@@ -60,6 +60,6 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		}
 	}
 
-	logger.InfoF(context.Background(), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
 	return nil
 }

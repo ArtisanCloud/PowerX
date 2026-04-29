@@ -13,7 +13,7 @@ import (
 func loadFromYAML(cfg *Config, configPath string) error {
 	// 检查文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		logger.InfoF(context.Background(), "提示：配置文件 %s 不存在，使用默认配置", configPath)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "config.loader"}), "提示：配置文件 %s 不存在，使用默认配置", configPath)
 		return nil
 	}
 
@@ -28,7 +28,7 @@ func loadFromYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("解析YAML配置失败: %w", err)
 	}
 
-	logger.InfoF(context.Background(), "✅ 成功加载配置文件: %s", configPath)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "config.loader"}), "✅ 成功加载配置文件: %s", configPath)
 	return nil
 }
 
@@ -43,6 +43,6 @@ func SaveToYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("写入配置文件失败: %w", err)
 	}
 
-	logger.InfoF(context.Background(), "✅ 配置已保存到: %s", configPath)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "config.loader"}), "✅ 配置已保存到: %s", configPath)
 	return nil
 }

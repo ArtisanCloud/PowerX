@@ -142,7 +142,16 @@ func TraceInjectionMiddleware() gin.HandlerFunc {
 		// 将 trace_id 放进 context 便于以后取
 		ctx := c.Request.Context()
 		ctx = contextWithTraceID(ctx, traceID)
+		ctx = context.WithValue(ctx, "trace_id", traceID)
+		ctx = context.WithValue(ctx, "request_id", requestID)
 		ctx = context.WithValue(ctx, requestIDContextKey, requestID)
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		if tenantUUID != "" {
+			ctx = context.WithValue(ctx, "tenant_uuid", tenantUUID)
+		}
+		if pluginID := extractPluginIDFromPath(c.Request.URL.Path); pluginID != "" {
+			ctx = context.WithValue(ctx, "plugin_id", pluginID)
+		}
 		c.Request = c.Request.WithContext(ctx)
 		c.Set("trace_id", traceID)
 		c.Set("request_id", requestID)

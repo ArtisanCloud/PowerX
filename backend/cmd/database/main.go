@@ -49,32 +49,32 @@ func main() {
 		if err := MigrateDatabase(ctx, db, cfg); err != nil {
 			fatalf("migrate failed: %v", err)
 		}
-		logger.InfoF(context.Background(), "migrate ok")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "migrate ok")
 
 	case "seed":
 		if err := seed.SeedCoreX(ctx, db, cfg); err != nil {
 			fatalf("seed failed: %v", err)
 		}
-		logger.InfoF(context.Background(), "seed ok")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
 	case "refresh":
 		// 先 drop database（或 drop all tables）
 		if err := ResetDatabase(ctx, db); err != nil {
 			fatalf("reset failed: %v", err)
 		}
-		logger.InfoF(context.Background(), "reset ok")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "reset ok")
 
 		// 再 migrate
 		if err := MigrateDatabase(ctx, db, cfg); err != nil {
 			fatalf("migrate failed: %v", err)
 		}
-		logger.InfoF(context.Background(), "migrate ok")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "migrate ok")
 
 		// 最后 seed
 		if err := seed.SeedCoreX(ctx, db, cfg); err != nil {
 			fatalf("seed failed: %v", err)
 		}
-		logger.InfoF(context.Background(), "seed ok")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
 	default:
 		fatalf("Unknown command: %s", cmd)
@@ -82,6 +82,6 @@ func main() {
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
 }

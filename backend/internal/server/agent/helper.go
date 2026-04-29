@@ -29,7 +29,7 @@ const intentDebugAllRuleHits = true // 可选：扫描并打印“本子句命�
 // 轻量日志函数
 func dlog(format string, args ...any) {
 	if intentDebug {
-		logger.DebugF(context.Background(), "[intent-debug] "+format, args...)
+		logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "agent.intent_debug"}), "[intent-debug] "+format, args...)
 	}
 }
 

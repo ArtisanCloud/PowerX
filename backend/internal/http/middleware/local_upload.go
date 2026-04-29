@@ -31,17 +31,17 @@ func RegisterLocalUploadEndpoint(group *gin.RouterGroup, cfg *config.Config, med
 
 	absBasePath, err := filepath.Abs(basePath)
 	if err != nil {
-		pxlog.Warn(context.Background(), "resolve local media base path failed: "+err.Error())
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "resolve local media base path failed: "+err.Error())
 		return
 	}
 	if err = os.MkdirAll(absBasePath, 0o755); err != nil {
-		pxlog.Warn(context.Background(), "init local media base path failed: "+err.Error())
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init local media base path failed: "+err.Error())
 		return
 	}
 
 	secret := strings.TrimSpace(localOpts.UploadTokenSecret)
 	if secret == "" {
-		pxlog.Warn(context.Background(), "storage.local.upload_token_secret 未配置，本地上传将跳过 Token 校验")
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "storage.local.upload_token_secret 未配置，本地上传将跳过 Token 校验")
 	}
 	maxSize := localOpts.MaxUploadSizeBytes
 	if maxSize < 0 {
@@ -49,7 +49,7 @@ func RegisterLocalUploadEndpoint(group *gin.RouterGroup, cfg *config.Config, med
 	}
 	handler, err := newLocalUploadHandler(absBasePath, secret, maxSize, mediaSvc, "local")
 	if err != nil {
-		pxlog.Warn(context.Background(), "init local upload handler failed: "+err.Error())
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init local upload handler failed: "+err.Error())
 		return
 	}
 	group.PUT("/media/assets/:uuid", handler.handle)

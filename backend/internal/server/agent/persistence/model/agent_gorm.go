@@ -10,10 +10,12 @@ import (
 
 // ---------- 表名常量 ----------
 const (
-	TableAgent           = "agents"
-	TableAgentSetting    = "agent_settings"
-	TableAgentKBBinding  = "agent_kb_bindings"
-	TableAgentPluginLink = "agent_plugin_links"
+	TableAgent                 = "agents"
+	TableAgentSetting          = "agent_settings"
+	TableAgentKBBinding        = "agent_kb_bindings"
+	TableAgentSkillBinding     = "agent_skill_bindings"
+	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
+	TableAgentPluginLink       = "agent_plugin_links"
 
 	TableAgentChatSession   = "agent_chat_sessions"
 	TableAgentChatMessage   = "agent_chat_messages"
@@ -57,6 +59,10 @@ type Agent struct {
 	Key         string `gorm:"size:64;index:agent_key_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:agent_key_uniq_tenant,unique,priority:3" json:"key"`
 	Name        string `gorm:"size:128" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
+	TypeID      string `gorm:"column:type_id;size:128;index" json:"typeId,omitempty"`
+	Scene       string `gorm:"column:scene;size:128;index" json:"scene,omitempty"`
+	PromptSeed  string `gorm:"column:prompt_seed;type:text" json:"promptSeed,omitempty"`
+	Persona     string `gorm:"column:persona;type:text" json:"persona,omitempty"`
 
 	// 来源/范围/可见性/状态
 	Source          string  `gorm:"size:128;index" json:"source"`                               // core | plugin:<plugin_id>
@@ -173,6 +179,54 @@ type AgentPluginLink struct {
 	PluginID       string `gorm:"size:128;index:agent_plug_uniq,unique,priority:3" json:"pluginId"`
 	PluginAgentKey string `gorm:"size:64;index:agent_plug_uniq,unique,priority:4"  json:"pluginAgentKey"` // 插件内部 agent key
 	InstallStatus  string `gorm:"size:16;default:'installed';index" json:"installStatus"`                 // installed|disabled|broken
+}
+
+// ---------- 5) Agent ↔ Skill 绑定表 ----------
+type AgentSkillBinding struct {
+	coremodel.PowerModel
+
+	Env        string  `gorm:"size:32;index:agent_skill_uniq,unique,priority:1" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_skill_uniq,unique,priority:2" json:"-"`
+
+	AgentID uint64 `gorm:"column:agent_id;index:agent_skill_uniq,unique,priority:3;index" json:"agentId"`
+	SkillID string `gorm:"column:skill_id;size:128;index:agent_skill_uniq,unique,priority:4;index" json:"skillId"`
+
+	Priority int  `gorm:"column:priority;default:100" json:"priority"`
+	Enabled  bool `gorm:"column:enabled;default:true;index" json:"enabled"`
+}
+
+func (mdl *AgentSkillBinding) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentSkillBinding
+}
+func (mdl *AgentSkillBinding) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentSkillBinding
+}
+
+// ---------- 6) Agent ↔ Knowledge Space 绑定表 ----------
+type AgentKnowledgeBinding struct {
+	coremodel.PowerModel
+
+	Env        string  `gorm:"size:32;index:agent_knowledge_uniq,unique,priority:1" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_knowledge_uniq,unique,priority:2" json:"-"`
+
+	AgentID            uint64 `gorm:"column:agent_id;index:agent_knowledge_uniq,unique,priority:3;index" json:"agentId"`
+	KnowledgeSpaceUUID string `gorm:"column:knowledge_space_uuid;size:64;index:agent_knowledge_uniq,unique,priority:4;index" json:"knowledgeSpaceUuid"`
+
+	Weight  int  `gorm:"column:weight;default:1" json:"weight"`
+	Enabled bool `gorm:"column:enabled;default:true;index" json:"enabled"`
+}
+
+func (mdl *AgentKnowledgeBinding) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentKnowledgeBinding
+}
+func (mdl *AgentKnowledgeBinding) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentKnowledgeBinding
 }
 
 func (mdl *AgentPluginLink) TableName() string {

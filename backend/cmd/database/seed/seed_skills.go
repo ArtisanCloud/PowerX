@@ -128,6 +128,6 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 		}
 	}
 
-	logger.InfoF(context.Background(), "[seed] skills builtin catalog ready: %d", len(seeds))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] skills builtin catalog ready: %d", len(seeds))
 	return nil
 }

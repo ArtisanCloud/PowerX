@@ -155,18 +155,18 @@ func printReport(releasePath, aggregatePath string) {
 	aggregatePath = strings.TrimSpace(aggregatePath)
 	if releasePath != "" {
 		if data, err := os.ReadFile(releasePath); err == nil {
-			logger.InfoF(context.Background(), "--- knowledge-release.json ---")
-			logger.InfoF(context.Background(), "%s", string(data))
+			logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "--- knowledge-release.json ---")
+			logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%s", string(data))
 		} else {
-			logger.WarnF(context.Background(), "[warn] cannot read %s: %v", releasePath, err)
+			logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[warn] cannot read %s: %v", releasePath, err)
 		}
 	}
 	if aggregatePath != "" {
 		if data, err := os.ReadFile(aggregatePath); err == nil {
-			logger.InfoF(context.Background(), "--- knowledge-update.json ---")
-			logger.InfoF(context.Background(), "%s", string(data))
+			logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "--- knowledge-update.json ---")
+			logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%s", string(data))
 		} else {
-			logger.WarnF(context.Background(), "[warn] cannot read %s: %v", aggregatePath, err)
+			logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[warn] cannot read %s: %v", aggregatePath, err)
 		}
 	}
 }
@@ -200,6 +200,6 @@ func exitOnErr(err error) {
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
 }

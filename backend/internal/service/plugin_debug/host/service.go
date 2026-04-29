@@ -65,13 +65,14 @@ type catalog struct {
 }
 
 func loadCatalog(path string) *catalog {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "plugin_debug.host"})
 	data := []byte{}
 	if path != "" {
 		b, err := os.ReadFile(path)
 		if err == nil {
 			data = b
 		} else {
-			logger.WarnF(context.Background(), "[plugin_debug.host] load catalog failed: %v", err)
+			logger.WarnF(logCtx, "[plugin_debug.host] load catalog failed: %v", err)
 		}
 	}
 	if len(data) == 0 {
@@ -79,7 +80,7 @@ func loadCatalog(path string) *catalog {
 	}
 	var cfg catalog
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		logger.WarnF(context.Background(), "[plugin_debug.host] parse catalog failed: %v", err)
+		logger.WarnF(logCtx, "[plugin_debug.host] parse catalog failed: %v", err)
 		return defaultCatalog()
 	}
 	return &cfg

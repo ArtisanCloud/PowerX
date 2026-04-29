@@ -55,7 +55,7 @@ func main() {
 
     // 订阅事件
     unsubscribe := bus.Subscribe("user_login", func(event event_bus.Event) error {
-        logger.InfoF(context.Background(), "用户登录: %+v", event)
+        logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "用户登录: %+v", event)
         return nil
     })
     defer unsubscribe()
@@ -193,13 +193,13 @@ type Event struct {
 bus.Subscribe("risky_event", func(event Event) error {
     defer func() {
         if r := recover(); r != nil {
-            logger.ErrorF(context.Background(), "事件处理panic: %v", r)
+            logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "事件处理panic: %v", r)
         }
     }()
     
     // 业务逻辑
     if err := processEvent(event); err != nil {
-        logger.ErrorF(context.Background(), "事件处理失败: %v", err)
+        logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "事件处理失败: %v", err)
         return err
     }
     
@@ -223,7 +223,7 @@ bus.Subscribe("user_action", func(event Event) error {
     traceID := event.TraceID
     
     // 使用上下文信息
-    logger.InfoF(context.Background(), "租户 %s 的用户操作，追踪ID: %s", tenantUUID, traceID)
+    logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "租户 %s 的用户操作，追踪ID: %s", tenantUUID, traceID)
     return nil
 })
 ```
@@ -272,8 +272,8 @@ func main() {
 // 获取事件总线状态（仅本地实现）
 if localBus, ok := bus.(*event_bus.LocalEventBus); ok {
     stats := localBus.GetStats()
-    logger.InfoF(context.Background(), "订阅者数量: %d", stats.SubscriberCount)
-    logger.InfoF(context.Background(), "事件类型: %v", stats.EventTypes)
+    logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "订阅者数量: %d", stats.SubscriberCount)
+    logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.example"}), "事件类型: %v", stats.EventTypes)
 }
 ```
 

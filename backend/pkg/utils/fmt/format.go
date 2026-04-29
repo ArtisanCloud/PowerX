@@ -54,11 +54,11 @@ func dump(data interface{}) {
 	}
 
 	if err != nil {
-		logger.ErrorF(context.Background(), "convert pretty fmt error:%v", err)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "convert pretty fmt error:%v", err)
 	}
-	logger.InfoF(context.Background(), "%+v", prettyJson)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%+v", prettyJson)
 }
 
 func PrintSlice(s []int) {
-	logger.InfoF(context.Background(), "len=%d cap=%d %v", len(s), cap(s), s)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "len=%d cap=%d %v", len(s), cap(s), s)
 }

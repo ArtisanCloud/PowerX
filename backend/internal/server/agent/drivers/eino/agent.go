@@ -150,11 +150,12 @@ func (a *AgentClient) registerBuiltins() {
 /* ================= Flow 获取（缓存） ================= */
 
 func (a *AgentClient) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "agent.eino"})
 	// 命中缓存
 	a.flowMu.RLock()
 	if f := a.flowCache[flowID]; f != nil {
 		a.flowMu.RUnlock()
-		logger.DebugF(context.Background(), "[agent.eino] getOrBuildFlow: cache hit id=%s nodes=%d", flowID, len(f.Nodes))
+		logger.DebugF(logCtx, "[agent.eino] getOrBuildFlow: cache hit id=%s nodes=%d", flowID, len(f.Nodes))
 		return f, nil
 	}
 	a.flowMu.RUnlock()
@@ -164,7 +165,7 @@ func (a *AgentClient) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
 		flowID = alt
 	}
 
-	logger.DebugF(context.Background(), "[agent.eino] getOrBuildFlow: resolving id=%s", flowID)
+	logger.DebugF(logCtx, "[agent.eino] getOrBuildFlow: resolving id=%s", flowID)
 
 	// 尝试从蓝图解析
 	f, err := a.resolver.Resolve(flowID)
@@ -172,16 +173,16 @@ func (a *AgentClient) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
 		// 如果是兜底 flow，则动态构建一个“单 LLM 节点”的最小可用流程
 		if strings.EqualFold(flowID, config.BaseFlowKey) {
 			f = a.buildFallbackBaseFlow(flowID)
-			logger.WarnF(context.Background(), "[agent.eino] getOrBuildFlow: build FALLBACK base_flow id=%s nodes=%d", flowID, len(f.Nodes))
+			logger.WarnF(logCtx, "[agent.eino] getOrBuildFlow: build FALLBACK base_flow id=%s nodes=%d", flowID, len(f.Nodes))
 		} else {
 			if err == nil {
 				err = fmt.Errorf("resolve flow(%s) failed: empty", flowID)
 			}
-			logger.WarnF(context.Background(), "[agent.eino] getOrBuildFlow: resolve FAILED id=%s err=%v", flowID, err)
+			logger.WarnF(logCtx, "[agent.eino] getOrBuildFlow: resolve FAILED id=%s err=%v", flowID, err)
 			return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
 		}
 	} else {
-		logger.DebugF(context.Background(), "[agent.eino] getOrBuildFlow: resolve OK id=%s nodes=%d", f.FlowID, len(f.Nodes))
+		logger.DebugF(logCtx, "[agent.eino] getOrBuildFlow: resolve OK id=%s nodes=%d", f.FlowID, len(f.Nodes))
 	}
 
 	// 缓存

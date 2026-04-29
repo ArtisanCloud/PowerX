@@ -18,6 +18,10 @@ CURL_BASE := curl -s -S $(CURL_AUTH_FLAGS) $(CURL_TENANT_FLAGS)
 
 # 基础测试命令
 .PHONY: test-health test-chat test-plan test-execute test-config test-batch test-all test-quick
+.PHONY: log-unification-check
+
+log-unification-check:
+	@bash backend/scripts/ci/log-unification-check.sh
 
 # 测试健康检查
 test-health:

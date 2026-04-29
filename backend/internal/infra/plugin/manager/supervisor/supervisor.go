@@ -72,7 +72,7 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	cmd.Env = env
 
 	// 3) 准备 process
-	pctx, cancel := context.WithCancel(context.Background())
+	pctx, cancel := context.WithCancel(ctx)
 	pr := &process{
 		id:     id,
 		cmd:    cmd,
@@ -256,7 +256,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 	}
 
 	if healthDebug {
-		logger.InfoF(context.Background(), "[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
+		logger.InfoF(ctx, "[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
 	}
 
 	t := time.NewTicker(interval)
@@ -266,7 +266,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 		select {
 		case <-ctx.Done():
 			if healthDebug {
-				logger.InfoF(context.Background(), "[plugin:health] stop  id=%s", p.id)
+				logger.InfoF(ctx, "[plugin:health] stop  id=%s", p.id)
 			}
 			return
 		case <-t.C:
@@ -287,7 +287,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 				p.info.State = ProcUnhealthy
 				if p.info.HealthFails >= 5 && p.cmd != nil && p.cmd.Process != nil {
 					if healthDebug {
-						logger.WarnF(context.Background(), "[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
+						logger.WarnF(ctx, "[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
 							p.id, p.port, url, p.info.HealthFails)
 					}
 					_ = p.cmd.Process.Signal(syscall.SIGTERM)
@@ -297,7 +297,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 			mu.Unlock()
 
 			if healthDebug {
-				logger.DebugF(context.Background(), "[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
+				logger.DebugF(ctx, "[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
 					p.id, p.port, url, ok, prevState, curState, prevHealthy, curHealthy, p.info.HealthFails, p.info.HealthOKCount)
 			}
 		}

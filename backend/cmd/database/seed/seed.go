@@ -95,7 +95,7 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	logger.InfoF(context.Background(), "seed ok")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
 	return nil
 }

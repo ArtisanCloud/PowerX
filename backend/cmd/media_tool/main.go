@@ -62,11 +62,11 @@ func main() {
 			if errors.Is(err, flag.ErrHelp) {
 				return
 			}
-			logger.ErrorF(context.Background(), "执行清理任务失败: %v", err)
+			logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "执行清理任务失败: %v", err)
 			os.Exit(1)
 		}
 	default:
-		logger.ErrorF(context.Background(), "未知子命令: %s", os.Args[1])
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "未知子命令: %s", os.Args[1])
 		printRootUsage()
 		os.Exit(2)
 	}
@@ -151,7 +151,7 @@ func parseCleanupFlags(args []string) (cleanupFlags, error) {
 func loadConfig(path string) *config.Config {
 	cfg, err := config.Load(path)
 	if err != nil {
-		logger.WarnF(context.Background(), "加载配置失败(%v)，回退到默认配置", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "加载配置失败(%v)，回退到默认配置", err)
 		return config.GetDefaults()
 	}
 	return cfg
@@ -301,16 +301,16 @@ func closeSQL(db *gorm.DB) {
 		return
 	}
 	if err = sqlDB.Close(); err != nil {
-		logger.Warn(context.Background(), "关闭数据库连接失败: "+err.Error())
+		logger.Warn(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "关闭数据库连接失败: "+err.Error())
 	}
 }
 
 func printRootUsage() {
-	logger.InfoF(context.Background(), "用法: %s <子命令> [参数]", os.Args[0])
-	logger.InfoF(context.Background(), "可用子命令:")
-	logger.InfoF(context.Background(), "  %s\t清理软删除媒资并写入审计记录", commandCleanup)
-	logger.InfoF(context.Background(), "示例:")
-	logger.InfoF(context.Background(), "  go run ./cmd/media_tool %s --dry-run --before=24h", commandCleanup)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "用法: %s <子命令> [参数]", os.Args[0])
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "可用子命令:")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "  %s\t清理软删除媒资并写入审计记录", commandCleanup)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "示例:")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "  go run ./cmd/media_tool %s --dry-run --before=24h", commandCleanup)
 }
 
 func printCommandUsage(cmd string) {
@@ -326,10 +326,10 @@ func printCommandUsage(cmd string) {
 		flagSet.IntVar(&dummy.limit, "limit", 100, "单次扫描的最大数量")
 		flagSet.StringVar(&dummy.tenantUUID, "tenant", "", "仅处理指定租户 UUID，留空表示全部租户")
 		flagSet.StringVar(&drivers, "drivers", "", "仅处理指定驱动，逗号分隔")
-		logger.InfoF(context.Background(), "用法: %s %s [参数]", os.Args[0], commandCleanup)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "用法: %s %s [参数]", os.Args[0], commandCleanup)
 		flagSet.PrintDefaults()
 	default:
-		logger.ErrorF(context.Background(), "未知子命令: %s", cmd)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "未知子命令: %s", cmd)
 		printRootUsage()
 	}
 }

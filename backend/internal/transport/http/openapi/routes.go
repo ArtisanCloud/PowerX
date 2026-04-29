@@ -12,6 +12,7 @@ import (
 	mediaOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media"
 	notificationsOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/notifications"
 	pluginReleaseOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_release"
+	pluginRuntimeOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_runtime"
 	skillsOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/skills"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +46,7 @@ func RegisterAPIRoutes(
 	notificationsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	aiOpenAPI.Register(publicGroup, protectedGroup, deps)
 	pluginReleaseOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	pluginRuntimeOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	knowledgeSpaceOpenAPI.Register(publicGroup, protectedGroup, deps)
 	mediaOpenAPI.Register(publicGroup, protectedGroup, deps)
 }

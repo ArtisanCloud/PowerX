@@ -35,10 +35,10 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	tenantUUID, hasTenant := tenantUUIDFromContext(ctx)
 	if hasTenant {
 		if err := m.ensureDelegatedHostContractForEnable(&p); err != nil {
-			logger.WarnF(context.Background(), "[plugin-enable] id=%s host contract auto-repair failed: %v", p.ID, err)
+			logger.WarnF(ctx, "[plugin-enable] id=%s host contract auto-repair failed: %v", p.ID, err)
 		}
 	}
-	logger.InfoF(context.Background(), "[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
+	logger.InfoF(ctx, "[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
 		p.ID, p.Version, p.State, len(p.Frontend.Admin.Menus))
 
 	if m.http == nil {
@@ -312,7 +312,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	}
 	apiURL, _ := url.Parse(apiBaseURL)
 	m.http.MountAPIProxy(p.ID, apiURL, basePath, apiHealthPath)
-	logger.InfoF(context.Background(), "[plugin-enable] plugin=%s api_upstream=%s base_path=%s health=%s",
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s api_upstream=%s base_path=%s health=%s",
 		p.ID, apiBaseURL, basePath, apiHealthPath)
 
 	// ---------- 前端：三种形态 ----------
@@ -400,7 +400,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		} else {
 			// Auto-restore 无租户上下文时，admin 进程也注入 bootstrap 契约。
 			if err := m.injectGatewayBootstrapEnv(envADM, p.ID); err != nil {
-				logger.WarnF(context.Background(), "[plugin-enable] id=%s admin bootstrap gateway env failed: %v", p.ID, err)
+				logger.WarnF(ctx, "[plugin-enable] id=%s admin bootstrap gateway env failed: %v", p.ID, err)
 			}
 		}
 		envADM["POWERX_PROXY"] = "1"
@@ -434,14 +434,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 				if fi, err := os.Stat(nodeBin); err == nil && !fi.IsDir() {
 					adminEntry = nodeBin
 				} else {
-					logger.WarnF(context.Background(), "[plugin-enable] plugin=%s NODE_BIN invalid: %q err=%v (keep entry=node)", p.ID, nodeBin, err)
+					logger.WarnF(ctx, "[plugin-enable] plugin=%s NODE_BIN invalid: %q err=%v (keep entry=node)", p.ID, nodeBin, err)
 				}
 			}
 		}
 		// ★ 关键：按插件给的 entry/args 原样执行（entry 仅做绝对路径解析）
 		adminPort, err := m.sup.Start(ctx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
 		if err != nil {
-			logger.WarnF(context.Background(), "[plugin-enable] plugin=%s admin process start failed: %v (fallback)", p.ID, err)
+			logger.WarnF(ctx, "[plugin-enable] plugin=%s admin process start failed: %v (fallback)", p.ID, err)
 			// 回退：若有静态目录挂静态，否则复用后端端口
 			if p.Paths.FrontendAdminDir != "" {
 				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
@@ -462,7 +462,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		// ★ 成功：挂 Admin 反代
 		adminURL, _ := url.Parse(adminBaseURL)
 		m.http.MountAdminProxy(p.ID, adminURL)
-		logger.InfoF(context.Background(), "[plugin-enable] plugin=%s admin_upstream=%s entry=%q args=%v",
+		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_upstream=%s entry=%q args=%v",
 			p.ID, adminBaseURL, adminEntry, adminArgs)
 
 	}

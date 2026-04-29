@@ -1,8 +1,6 @@
 package event_bus
 
 import (
-	"context"
-
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
@@ -22,7 +20,7 @@ func InitEventBus(cfg *Config) error {
 	// 订阅认证成功事件
 	Subscribe("auth_succeeded", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			logger.InfoF(context.Background(), "[plugin] auth_succeeded: tenant_uuid=%v subject=%v platform=%v trace_id=%v scope=%v",
+			logger.InfoF(e.Ctx, "[plugin] auth_succeeded: tenant_uuid=%v subject=%v platform=%v trace_id=%v scope=%v",
 				payload["tenant_uuid"], payload["subject"], payload["platform"], payload["trace_id"], payload["scope"])
 		}
 		return nil
@@ -31,7 +29,7 @@ func InitEventBus(cfg *Config) error {
 	// 订阅流程完成事件
 	Subscribe("flow_completed", func(e Event) error {
 		if payload, ok := e.Payload.(map[string]interface{}); ok {
-			logger.InfoF(context.Background(), "[plugin] flow_completed: tenant_uuid=%v flow=%v subject=%v trace_id=%v",
+			logger.InfoF(e.Ctx, "[plugin] flow_completed: tenant_uuid=%v flow=%v subject=%v trace_id=%v",
 				payload["tenant_uuid"], payload["flow_name"], payload["subject"], payload["trace_id"])
 		}
 		return nil

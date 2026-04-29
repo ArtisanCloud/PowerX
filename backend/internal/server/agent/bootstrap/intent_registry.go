@@ -33,7 +33,8 @@ func diagRoutesOnce(agentID string) {
 	}
 	mgr := agent.GetAgentManager()
 	specs := mgr.ListFlowRoutesByAgent(agentID)
-	logger.InfoF(context.Background(), "=== ROUTES: %d ===", len(specs))
+	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "agent.intent_registry"})
+	logger.InfoF(ctx, "=== ROUTES: %d ===", len(specs))
 	for _, sp := range specs {
 		nm := 0
 		for _, mt := range sp.Matchers {
@@ -46,7 +47,7 @@ func diagRoutesOnce(agentID string) {
 				}
 			}
 		}
-		logger.InfoF(context.Background(), "flow=%s matchers=%d group=%s weight=%.2f",
+		logger.InfoF(ctx, "flow=%s matchers=%d group=%s weight=%.2f",
 			sp.FlowID, nm, sp.Group, sp.Weight)
 	}
 }

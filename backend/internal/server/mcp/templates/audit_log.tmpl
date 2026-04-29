@@ -284,7 +284,7 @@ func (a *{{.EntityName}}AuditLogger) logAudit(ctx context.Context, auditLog *aud
 	// 异步记录审计日志，避免影响主业务流程
 	go func() {
 		if err := a.auditRepository.Create(context.Background(), auditLog); err != nil {
-{{if .HasLogger}}			a.logger.ErrorF(context.Background(), "记录{{.Description}}审计日志失败: %v", err)
+{{if .HasLogger}}			a.logger.ErrorF(ctx, "记录{{.Description}}审计日志失败: %v", err)
 {{end}}		}
 	}()
 

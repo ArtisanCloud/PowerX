@@ -50,7 +50,7 @@ func GetDefaults() *Config {
 			Loki: logCfg.LokiConfig{
 				Enable:    false,
 				URL:       "http://<loki-host>:3100",
-				JobName:   "powerx",
+				Labels:    map[string]string{"system": "powerx", "service": "powerx-backend", "env": "dev", "instance": "local", "module": "runtime"},
 				BatchWait: 1,
 				BatchSize: 100,
 			},

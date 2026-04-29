@@ -38,7 +38,7 @@ func NewResolver(dir string) *Resolver {
 
 func (r *Resolver) dbg(format string, args ...any) {
 	if r.Debug {
-		logger.DebugF(context.Background(), "[resolver] "+format, args...)
+		logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "flow.resolver"}), "[resolver] "+format, args...)
 	}
 }
 
@@ -79,10 +79,11 @@ func (r *Resolver) BuildIndex() error {
 		}
 		sort.Strings(al)
 
-		logger.DebugF(context.Background(), "[resolver] index_count=%d alias_count=%d", len(ids), len(al))
-		logger.DebugF(context.Background(), "[resolver] index_ids(sample)=%s", sample(ids, 12))
+		logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "flow.resolver"})
+		logger.DebugF(logCtx, "[resolver] index_count=%d alias_count=%d", len(ids), len(al))
+		logger.DebugF(logCtx, "[resolver] index_ids(sample)=%s", sample(ids, 12))
 		if len(al) > 0 {
-			logger.DebugF(context.Background(), "[resolver] aliases(sample)=%s", sample(al, 12))
+			logger.DebugF(logCtx, "[resolver] aliases(sample)=%s", sample(al, 12))
 		}
 	}
 	return nil
@@ -160,9 +161,10 @@ func (r *Resolver) resolveInternal(flowID string, visiting map[string]bool) (*fl
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		logger.DebugF(context.Background(), "[resolver] Resolve: NOT FOUND id=%s ; have_ids(sample)=%s ; dir=%s", flowID, sample(keys, 20), r.Dir)
+		logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "flow.resolver"})
+		logger.DebugF(logCtx, "[resolver] Resolve: NOT FOUND id=%s ; have_ids(sample)=%s ; dir=%s", flowID, sample(keys, 20), r.Dir)
 		if tgt, ok := r.aliases[flowID]; ok {
-			logger.DebugF(context.Background(), "[resolver] Resolve: alias entry exists id=%s -> target=%s BUT no file indexed (check loader/index)", flowID, tgt)
+			logger.DebugF(logCtx, "[resolver] Resolve: alias entry exists id=%s -> target=%s BUT no file indexed (check loader/index)", flowID, tgt)
 		}
 	}
 	return nil, fmt.Errorf("flow not found: %s", flowID)

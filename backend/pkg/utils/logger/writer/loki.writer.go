@@ -7,6 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"io"
 	"net/http"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -19,20 +21,16 @@ type LokiWriter struct {
 }
 
 func NewLokiWriter(conf *config.LokiConfig) *LokiWriter {
-	jobName := "powerx"
 	rawURL := ""
+	labels := defaultLokiLabels()
 	if conf != nil {
-		if strings.TrimSpace(conf.JobName) != "" {
-			jobName = strings.TrimSpace(conf.JobName)
-		}
 		rawURL = strings.TrimSpace(conf.URL)
+		labels = mergeLokiLabels(labels, conf.Labels)
 	}
 
 	return &LokiWriter{
-		url: normalizeLokiPushURL(rawURL),
-		labels: map[string]string{
-			"job": jobName,
-		},
+		url:        normalizeLokiPushURL(rawURL),
+		labels:     labels,
 		client:     &http.Client{Timeout: 10 * time.Second},
 		retryCount: 3,
 	}
@@ -110,4 +108,56 @@ func normalizeLokiPushURL(raw string) string {
 		return base
 	}
 	return base + "/loki/api/v1/push"
+}
+
+func defaultLokiLabels() map[string]string {
+	return map[string]string{
+		"system":   "powerx",
+		"service":  "powerx-backend",
+		"env":      "dev",
+		"instance": "local",
+		"module":   "runtime",
+	}
+}
+
+func mergeLokiLabels(base map[string]string, overrides map[string]string) map[string]string {
+	out := make(map[string]string, len(base)+len(overrides))
+	for k, v := range base {
+		out[k] = v
+	}
+	if len(overrides) == 0 {
+		return out
+	}
+	for _, key := range sortedKeys(overrides) {
+		cleanKey := sanitizeLabelKey(key)
+		cleanVal := sanitizeLabelValue(overrides[key])
+		if cleanKey == "" || cleanVal == "" {
+			continue
+		}
+		out[cleanKey] = cleanVal
+	}
+	return out
+}
+
+var lokiLabelKeyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func sanitizeLabelKey(v string) string {
+	k := strings.TrimSpace(v)
+	if k == "" || !lokiLabelKeyPattern.MatchString(k) {
+		return ""
+	}
+	return k
+}
+
+func sanitizeLabelValue(v string) string {
+	return strings.TrimSpace(v)
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

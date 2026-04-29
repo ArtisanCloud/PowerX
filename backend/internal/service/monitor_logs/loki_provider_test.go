@@ -6,11 +6,14 @@ import (
 )
 
 func TestLokiProvider_BuildQuery_UsesFlexibleNumericJSONFilter(t *testing.T) {
-	p := &LokiProvider{jobName: "powerx"}
+	p := &LokiProvider{labels: map[string]string{"service": "powerx-backend", "env": "dev"}}
 	query := p.buildQuery(QueryRequest{
 		JobID:    42,
 		PolicyID: 7,
 	})
+	if !strings.Contains(query, `service="powerx-backend"`) {
+		t.Fatalf("service selector mismatch: %s", query)
+	}
 
 	if !strings.Contains(query, `|~ "\\\"job_id\\\"\\s*:\\s*42"`) {
 		t.Fatalf("job_id filter mismatch: %s", query)

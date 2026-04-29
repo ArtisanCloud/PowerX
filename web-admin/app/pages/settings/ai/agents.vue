@@ -21,11 +21,11 @@
       <UCard v-for="agent in agents" :key="agent.uuid" class="border border-[var(--border-color)]">
         <div class="space-y-3">
           <div class="flex items-start justify-between gap-3">
-            <div>
+            <div class="min-w-0">
               <div class="text-base font-medium text-[var(--text-primary)]">{{ agent.name }}</div>
-              <div class="text-xs text-[var(--text-secondary)]">{{ agent.key }}</div>
+              <div class="break-all text-xs text-[var(--text-secondary)]">{{ agent.key }}</div>
             </div>
-            <UBadge :color="agent.status === 'active' ? 'success' : 'neutral'" variant="soft">
+            <UBadge class="shrink-0" :color="agent.status === 'active' ? 'success' : 'neutral'" variant="soft">
               {{ agent.status || 'unknown' }}
             </UBadge>
           </div>
@@ -41,8 +41,8 @@
             <UButton size="xs" variant="soft" icon="i-heroicons-user-group" :to="localePath('/settings/ai/agent-teams')">
               创建团队
             </UButton>
-            <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" @click="editAgentName(agent.uuid, agent.name)">
-              重命名
+            <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" @click="openEditForm(agent)">
+              编辑
             </UButton>
           </div>
         </div>
@@ -56,17 +56,105 @@
       icon="i-heroicons-exclamation-triangle"
       :title="errorText"
     />
+
+    <UModal
+      v-model:open="editOpen"
+      title="编辑智能体"
+      description="维护基础信息、生成策略与资源绑定"
+      :ui="{ content: 'sm:max-w-5xl' }"
+    >
+      <template #body>
+        <div class="pr-1">
+          <div class="mx-auto max-w-4xl space-y-5">
+            <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
+              <div class="text-sm font-semibold text-[var(--text-primary)]">基础信息</div>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <UFormField class="lg:col-span-5" label="智能体名称" required>
+                  <UInput v-model="editForm.name" class="w-full" placeholder="请输入智能体名称" />
+                </UFormField>
+                <UFormField class="lg:col-span-3" label="类型标识（Type ID）">
+                  <UInput v-model="editForm.typeId" class="w-full" placeholder="如 brand.story.v1" />
+                </UFormField>
+                <UFormField class="lg:col-span-2" label="场景（Scene）">
+                  <UInput v-model="editForm.scene" class="w-full" placeholder="如 brand_story" />
+                </UFormField>
+                <UFormField class="lg:col-span-2" label="状态">
+                  <USelect v-model="editForm.status" class="w-full" :items="statusItems" />
+                </UFormField>
+                <UFormField class="lg:col-span-12" label="对外简介（可选）" description="用于列表展示的简短说明，建议 30~80 字">
+                  <UInput v-model="editForm.description" class="w-full" placeholder="例如：用于短视频口播脚本生成与投流建议" />
+                </UFormField>
+                <UFormField class="lg:col-span-12" label="系统 Key（只读）">
+                  <UInput class="w-full" :model-value="editForm.key" disabled />
+                </UFormField>
+              </div>
+            </section>
+
+            <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
+              <div class="text-sm font-semibold text-[var(--text-primary)]">生成策略</div>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <UFormField class="lg:col-span-12" label="系统提示词（主指令）" description="必填主策略：任务目标、输出格式、约束边界都写在这里">
+                  <UTextarea v-model="editForm.promptSeed" class="w-full min-h-56" :rows="8" placeholder="请输入主指令（建议包含目标、结构、边界、禁止项）" />
+                </UFormField>
+                <UFormField class="lg:col-span-12" label="角色设定（高级可选）" description="仅在你需要补充固定人设时填写；会在主指令之外作为补充上下文">
+                  <UTextarea v-model="editForm.persona" class="w-full min-h-40" :rows="5" placeholder="可选：如未填写则仅使用系统提示词" />
+                </UFormField>
+              </div>
+            </section>
+
+            <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
+              <div class="text-sm font-semibold text-[var(--text-primary)]">资源绑定</div>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <UFormField class="lg:col-span-12" label="技能 IDs" description="使用英文逗号分隔">
+                  <UInput v-model="editForm.skillIdsText" class="w-full" placeholder="如 skill.a,skill.b" />
+                </UFormField>
+                <UFormField class="lg:col-span-12" label="知识库 IDs" description="使用英文逗号分隔（UUID）">
+                  <UInput v-model="editForm.knowledgeBaseIdsText" class="w-full" placeholder="如 uuid1,uuid2" />
+                </UFormField>
+              </div>
+            </section>
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <div class="sticky bottom-0 z-10 -mx-6 -mb-6 flex justify-end gap-2 border-t border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-4">
+          <UButton variant="soft" @click="editOpen = false">取消</UButton>
+          <UButton color="primary" :loading="submitting" @click="submitEdit">保存</UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useAgentManager } from '~/composables/agent/useAgentManager'
+import type { Agent } from '~/types/agent'
 
 const localePath = useLocalePath()
 const toast = useToast()
 const { agents, fetchAgents, createAgent, updateAgent } = useAgentManager()
 
 const errorText = ref('')
+const editOpen = ref(false)
+const submitting = ref(false)
+const editUUID = ref('')
+const editForm = reactive({
+  key: '',
+  name: '',
+  description: '',
+  status: 'draft',
+  typeId: '',
+  scene: '',
+  promptSeed: '',
+  persona: '',
+  skillIdsText: '',
+  knowledgeBaseIdsText: '',
+})
+const statusItems = [
+  { label: 'draft', value: 'draft' },
+  { label: 'active', value: 'active' },
+  { label: 'disabled', value: 'disabled' },
+]
 
 const load = async () => {
   try {
@@ -94,17 +182,60 @@ const createAgentQuick = async () => {
   }
 }
 
-const editAgentName = async (uuid: string, current: string) => {
-  const next = window.prompt('请输入新的智能体名称', current || '')
-  if (!next || !next.trim()) return
+const openEditForm = (agent: Agent) => {
+  editUUID.value = agent.uuid
+  editForm.key = agent.key || ''
+  editForm.name = agent.name || ''
+  editForm.description = agent.description || ''
+  editForm.status = agent.status || 'draft'
+  editForm.typeId = (agent as any).typeId || ''
+  editForm.scene = (agent as any).scene || ''
+  editForm.promptSeed = (agent as any).promptSeed || ''
+  editForm.persona = (agent as any).persona || ''
+  editForm.skillIdsText = normalizeArrayText((agent as any).skillIds)
+  editForm.knowledgeBaseIdsText = normalizeArrayText((agent as any).knowledgeBaseIds)
+  editOpen.value = true
+}
+
+const submitEdit = async () => {
+  if (!editUUID.value) return
+  if (!editForm.name.trim()) {
+    toast.add({ title: '名称不能为空', color: 'warning' })
+    return
+  }
   try {
-    await updateAgent(uuid, { name: next.trim() })
+    submitting.value = true
+    await updateAgent(editUUID.value, {
+      name: editForm.name.trim(),
+      description: editForm.description.trim(),
+      status: editForm.status,
+      typeId: editForm.typeId.trim(),
+      scene: editForm.scene.trim(),
+      promptSeed: editForm.promptSeed.trim(),
+      persona: editForm.persona.trim(),
+      skillIds: parseCommaValues(editForm.skillIdsText),
+      knowledgeBaseIds: parseCommaValues(editForm.knowledgeBaseIdsText),
+    })
     toast.add({ title: '更新成功', color: 'success' })
+    editOpen.value = false
     await load()
   } catch (e: any) {
     toast.add({ title: '更新失败', description: e?.message || '未知错误', color: 'error' })
+  } finally {
+    submitting.value = false
   }
 }
 
 onMounted(load)
+
+const parseCommaValues = (raw: string): string[] => {
+  if (!raw) return []
+  const parts = raw.split(',').map((item) => item.trim()).filter(Boolean)
+  return Array.from(new Set(parts))
+}
+
+const normalizeArrayText = (value: unknown): string => {
+  if (!Array.isArray(value)) return ''
+  return value.map((item) => String(item || '').trim()).filter(Boolean).join(',')
+}
 </script>

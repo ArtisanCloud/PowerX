@@ -14,7 +14,7 @@ func main() {
 	// 加载配置
 	cfg := config.GetGlobalConfig()
 	if cfg == nil {
-		logger.ErrorF(context.Background(), "加载配置文件失败")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.cmd"}), "加载配置文件失败")
 		os.Exit(1)
 	}
 

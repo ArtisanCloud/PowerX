@@ -43,6 +43,7 @@ func NewRedisEventBus(opts *redis.Options) EventBus {
 
 // startSubscriberLoop 启动订阅循环
 func (reb *redisEventBus) startSubscriberLoop() {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
 	reb.pubsub = reb.client.PSubscribe(context.Background(), "corex:event:*")
 	ch := reb.pubsub.Channel()
 
@@ -52,7 +53,7 @@ func (reb *redisEventBus) startSubscriberLoop() {
 			if msg == nil {
 				continue
 			}
-			reb.handleRedisMessage(msg)
+			reb.handleRedisMessage(logCtx, msg)
 		case <-reb.closeCh:
 			return
 		}
@@ -60,10 +61,10 @@ func (reb *redisEventBus) startSubscriberLoop() {
 }
 
 // handleRedisMessage 处理Redis消息
-func (reb *redisEventBus) handleRedisMessage(msg *redis.Message) {
+func (reb *redisEventBus) handleRedisMessage(logCtx context.Context, msg *redis.Message) {
 	var evt Event
 	if err := json.Unmarshal([]byte(msg.Payload), &evt); err != nil {
-		logger.ErrorF(context.Background(), "反序列化事件失败: %v", err)
+		logger.ErrorF(logCtx, "反序列化事件失败: %v", err)
 		return
 	}
 
@@ -89,12 +90,12 @@ func (reb *redisEventBus) handleRedisMessage(msg *redis.Message) {
 		go func(h Handler, event Event) {
 			defer func() {
 				if r := recover(); r != nil {
-					logger.ErrorF(context.Background(), "Redis事件处理器发生panic: %v", r)
+					logger.ErrorF(logCtx, "Redis事件处理器发生panic: %v", r)
 				}
 			}()
 
 			if err := h(event); err != nil {
-				logger.ErrorF(context.Background(), "[redis_event_bus] 事件 %s 处理失败: %v", event.Name, err)
+				logger.ErrorF(logCtx, "[redis_event_bus] 事件 %s 处理失败: %v", event.Name, err)
 			}
 		}(handler, evt)
 	}
@@ -130,16 +131,17 @@ func (reb *redisEventBus) cleanupExpiredRecords() {
 
 // Subscribe 订阅事件
 func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscribe func()) {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
 	reb.handlersMu.Lock()
 	defer reb.handlersMu.Unlock()
 
 	if reb.closed {
-		logger.WarnF(context.Background(), "Redis事件总线已关闭，无法订阅事件 %s", eventType)
+		logger.WarnF(logCtx, "Redis事件总线已关闭，无法订阅事件 %s", eventType)
 		return func() {}
 	}
 
 	reb.handlers[eventType] = append(reb.handlers[eventType], handler)
-	logger.DebugF(context.Background(), "Redis事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(reb.handlers[eventType]))
+	logger.DebugF(logCtx, "Redis事件 %s 订阅成功，当前订阅者数量: %d", eventType, len(reb.handlers[eventType]))
 
 	return func() {
 		reb.handlersMu.Lock()
@@ -149,7 +151,7 @@ func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 		for i, h := range handlers {
 			if fmt.Sprintf("%p", h) == fmt.Sprintf("%p", handler) {
 				reb.handlers[eventType] = append(handlers[:i], handlers[i+1:]...)
-				logger.DebugF(context.Background(), "Redis事件 %s 取消订阅成功", eventType)
+				logger.DebugF(logCtx, "Redis事件 %s 取消订阅成功", eventType)
 				break
 			}
 		}
@@ -162,8 +164,12 @@ func (reb *redisEventBus) Subscribe(eventType string, handler Handler) (unsubscr
 
 // Publish 发布事件
 func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx context.Context) {
+	logCtx := ctx
+	if logCtx == nil {
+		logCtx = logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
+	}
 	if reb.closed {
-		logger.WarnF(context.Background(), "Redis事件总线已关闭，无法发布事件 %s", eventType)
+		logger.WarnF(logCtx, "Redis事件总线已关闭，无法发布事件 %s", eventType)
 		return
 	}
 
@@ -188,22 +194,23 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 	// 序列化事件
 	b, err := json.Marshal(evt)
 	if err != nil {
-		logger.ErrorF(context.Background(), "序列化事件失败: %v", err)
+		logger.ErrorF(logCtx, "序列化事件失败: %v", err)
 		return
 	}
 
 	// 发布到Redis
 	channel := fmt.Sprintf("corex:event:%s", eventType)
 	if err := reb.client.Publish(context.Background(), channel, b).Err(); err != nil {
-		logger.ErrorF(context.Background(), "发布Redis事件失败: %v", err)
+		logger.ErrorF(logCtx, "发布Redis事件失败: %v", err)
 		return
 	}
 
-	logger.DebugF(context.Background(), "Redis事件 %s 发布成功", eventType)
+	logger.DebugF(logCtx, "Redis事件 %s 发布成功", eventType)
 }
 
 // Close 关闭事件总线
 func (reb *redisEventBus) Close() error {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
 	if reb.closed {
 		return nil
 	}
@@ -227,6 +234,6 @@ func (reb *redisEventBus) Close() error {
 	reb.processed = make(map[string]time.Time)
 	reb.dedupeMu.Unlock()
 
-	logger.Info(context.Background(), "Redis事件总线已关闭")
+	logger.Info(logCtx, "Redis事件总线已关闭")
 	return nil
 }

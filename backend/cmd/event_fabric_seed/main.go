@@ -294,11 +294,11 @@ func closeSQL(db *gorm.DB) {
 		return
 	}
 	if err = sqlDB.Close(); err != nil {
-		logger.Warn(context.Background(), "关闭数据库连接失败: "+err.Error())
+		logger.Warn(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "关闭数据库连接失败: "+err.Error())
 	}
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
 }

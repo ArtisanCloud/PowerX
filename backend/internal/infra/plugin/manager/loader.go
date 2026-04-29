@@ -59,7 +59,7 @@ func (l *FSLoader) Discover(ctx context.Context, installedRoot string) ([]Descri
 			desc, err := l.LoadDescriptor(ctx, root)
 			if err != nil {
 				// 跳过坏包，避免单个插件阻断整个平台启动
-				logger.WarnF(context.Background(), "[plugin-bootstrap] skip invalid plugin root=%s err=%v", root, err)
+				logger.WarnF(ctx, "[plugin-bootstrap] skip invalid plugin root=%s err=%v", root, err)
 				continue
 			}
 			out = append(out, desc)
@@ -75,7 +75,7 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 		return Descriptor{}, err
 	}
 	if err := persistMergedManifest(absRoot, m); err != nil {
-		logger.WarnF(context.Background(), "[plugin-bootstrap] persist merged manifest failed root=%s err=%v", absRoot, err)
+		logger.WarnF(ctx, "[plugin-bootstrap] persist merged manifest failed root=%s err=%v", absRoot, err)
 	}
 
 	// 组装 Paths（把相对路径转为绝对/规范路径）
