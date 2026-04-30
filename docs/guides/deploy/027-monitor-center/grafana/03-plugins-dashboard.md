@@ -1,52 +1,83 @@
-# 03. Plugins Dashboard（分层标签版）
+# 03. Plugins Dashboard（可直接配置版）
 
 ## 1. 目标
 
 用于定位插件调用异常、受影响租户、单次调用链路。
 
-## 2. 变量（沿用全局）
+## 2. 前置条件
 
-- `system/service/env/instance/module`
-- `level` 使用 `Custom`：`debug,info,warn,error`（多选 + All=`.*`）
-
-## 3. 面板清单（建议最小集）
-
-1. 插件错误趋势
+- 先在 Explore 验证基础查询可出数：
 
 ```logql
-sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | level=~"warn|error" | plugin_id!="" [5m]))
+{system="powerx",service="powerx-backend",env="dev"} |= "com.powerx.plugins."
 ```
 
-2. 插件错误 TopN
+- Dashboard 变量沿用全局：`system/service/env/instance/module`。
+- 说明：当前插件链路常见日志是文本前缀（如 `[API-IN]`、`[GATE-DENY]`），不是每条都可 `| json`。
+
+## 3. 新建面板通用步骤（每个面板重复）
+
+1. 进入目标 Dashboard，右上角点 `Edit`。
+2. 点 `Add` -> `Visualization`。
+3. `Data source` 选择 `loki-PowerX`。
+4. 粘贴本节对应查询，点 `Run query`。
+5. 按本节建议设置可视化类型与标题。
+6. 点 `Apply` 保存面板，最后点 `Save dashboard` 保存看板。
+
+## 4. 面板清单（建议最小集）
+
+1. Panel 标题：`Plugin Requests (API-IN)`
+- 可视化：`Time series`
 
 ```logql
-topk(10, sum by (plugin_id) (count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | level=~"warn|error" | plugin_id!="" [15m])))
+sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} |= "[API-IN]" |= "plugin=com.powerx.plugins." [5m]))
 ```
 
-3. 受影响租户 TopN
+2. Panel 标题：`Plugin Deny/Error (5m)`
+- 可视化：`Time series`
 
 ```logql
-topk(10, sum by (tenant_uuid) (count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | level=~"warn|error" | plugin_id!="" | tenant_uuid!="" [15m])))
+sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} |= "[GATE-DENY]" [5m]))
 ```
 
-4. 插件状态码分布
+3. Panel 标题：`Denied Plugin Top 10 (15m)`
+- 可视化：`Table`
+- Query options：`Instant = On`
 
 ```logql
-sum by (plugin_id, status_code) (count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | plugin_id!="" | status_code!="" [10m]))
+topk(
+  10,
+  sum by (plugin) (
+    count_over_time(
+      {system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"}
+      |= "[GATE-DENY]"
+      | regexp "plugin=(?P<plugin>[^ ]+)"
+      [15m]
+    )
+  )
+)
 ```
 
-5. 插件实时日志流
+4. Panel 标题：`Plugin Products Route Deny (5m)`
+- 可视化：`Time series`
 
 ```logql
-{system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | plugin_id!=""
+sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} |= "[GATE-DENY]" |= "/v1/agent/ai-craft/products" [5m]))
 ```
 
-## 4. Drilldown 模板
+5. Panel 标题：`Plugin Realtime Logs`
+- 可视化：`Logs`
+
+```logql
+{system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} |= "com.powerx.plugins."
+```
+
+## 5. Drilldown 查询模板（Explore）
 
 按插件：
 
 ```logql
-{system="$system",service="$service",env="$env"} | json | plugin_id="$plugin_id"
+{system="$system",service="$service",env="$env"} |= "plugin=$plugin_id"
 ```
 
 按插件 + 会话：
@@ -61,7 +92,27 @@ sum by (plugin_id, status_code) (count_over_time({system="$system",service="$ser
 {system="$system",service="$service",env="$env"} | json | message_id="$message_id"
 ```
 
-## 5. 验收
+## 6. 你当前问题的直接排障查询
+
+插件 products 请求：
+
+```logql
+{system="$system",service="$service",env="$env"} |= "/api/v1/agent/ai-craft/products"
+```
+
+插件权限拒绝（403 线索）：
+
+```logql
+{system="$system",service="$service",env="$env"} |= "no permission rule for this route"
+```
+
+同一秒回放 API-IN + GATE-DENY：
+
+```logql
+{system="$system",service="$service",env="$env"} |= "ai-craft/products"
+```
+
+## 7. 验收
 
 1. 执行一次插件调用，实时流可见插件日志。
 2. 制造一次失败，错误趋势和 TopN 有变化。

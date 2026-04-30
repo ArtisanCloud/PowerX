@@ -12,7 +12,10 @@
 - `env`
 - `instance`
 - `module`
-- `level`
+
+说明：
+- `level` 不强制作为 Loki label。
+- 当前 Grafana Explore 可以从日志内容检测 `detected_level`，但不等价于 Loki 索引 label。
 
 2. 高基数字段只放日志正文（JSON fields），不要放 label：
 - `trace_id`
@@ -166,3 +169,31 @@ sum by (path, status_code) (
 ```logql
 {system="$system",service="$service",env="$env"} | json | message_id="$message_id"
 ```
+
+## 10. 与当前线上日志格式的对齐说明（重要）
+
+当前你们线上日志同时存在两类：
+
+1. 结构化 JSON 行（可用 `| json` 解析字段）。
+2. 文本前缀行（如 `[API-IN]`、`[GATE-DENY]`，字段在正文中，需 `|=`, `| regexp` 过滤）。
+
+因此建议：
+
+1. 看趋势：优先用 label + 文本关键词。
+2. 看字段聚合：仅在确认该类日志是 JSON 后再 `| json`。
+
+示例（你当前已验证可用）：
+
+```logql
+{system="powerx",service="powerx-backend",env="dev"} |= "no permission rule for this route"
+```
+
+```logql
+{system="powerx",service="powerx-backend",env="dev"} |= "/api/v1/agent/ai-craft/products"
+```
+
+## 11. Dashboard 变量建议（避免空值无结果）
+
+1. `system`：建议 `Custom`，默认值 `powerx`（可不提供 All）。
+2. `service/env/instance/module`：`Query` 变量。
+3. `level`：`Custom` 变量，值 `debug,info,warn,error`，All value=`.*`（用于正文级别过滤）。

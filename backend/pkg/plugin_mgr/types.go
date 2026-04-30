@@ -242,6 +242,7 @@ type RBACSpec struct {
 type PermissionSpec struct {
 	Resource    string                `yaml:"resource" json:"resource"`
 	Actions     []string              `yaml:"actions"  json:"actions"`
+	Path        string                `yaml:"path,omitempty" json:"path,omitempty"`
 	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
 	Label       string                `yaml:"label,omitempty" json:"label,omitempty"`
 	Module      string                `yaml:"module,omitempty" json:"module,omitempty"`

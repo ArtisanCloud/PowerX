@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -199,6 +200,38 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 	// http_base_path 格式
 	if m.Endpoints.HTTPBasePath != "" && !strings.HasPrefix(m.Endpoints.HTTPBasePath, "/") {
 		ferrs = append(ferrs, plugin_mgr.FieldError{Field: "endpoints.http_base_path", Reason: "must start with '/'"})
+	}
+	if strings.TrimSpace(m.Routes.BasePath) != "" {
+		if !strings.HasPrefix(strings.TrimSpace(m.Routes.BasePath), "/api/") {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "routes.basePath", Reason: "must start with '/api/'"})
+		}
+	}
+
+	// permissions.path 规范（单一标准）：
+	// - 必须是相对资源段：/xxx
+	// - 禁止写 /api/... 或 /v1/...（前缀由 basePath 负责）
+	if len(m.Permissions) > 0 {
+		basePath := strings.TrimSpace(m.Endpoints.HTTPBasePath)
+		if strings.TrimSpace(m.Routes.BasePath) != "" {
+			basePath = strings.TrimSpace(m.Routes.BasePath)
+		}
+		for i := range m.Permissions {
+			path := strings.TrimSpace(m.Permissions[i].Path)
+			if path == "" {
+				continue
+			}
+			field := "permissions[" + strconv.Itoa(i) + "].path"
+			if !strings.HasPrefix(path, "/") {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field, Reason: "must start with '/' and be relative to basePath"})
+				continue
+			}
+			if strings.HasPrefix(path, "/api/") || path == "/api" || strings.HasPrefix(path, "/v1/") || path == "/v1" {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field, Reason: "must be relative path segment, do not include '/api' or '/v1' prefix"})
+			}
+			if strings.TrimSpace(basePath) == "" {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field, Reason: "requires routes.basePath or endpoints.http_base_path"})
+			}
+		}
 	}
 
 	// 解析 duration
