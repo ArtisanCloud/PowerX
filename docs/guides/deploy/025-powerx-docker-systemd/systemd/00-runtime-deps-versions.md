@@ -227,6 +227,50 @@ redis-cli ping
 - 若你需要“跨服务聚合检索 + 长期保存 + 按 trace_id 联查”，请直接接入 `Loki + Grafana + Promtail`。
 - 完整步骤见：`04-observability-loki-grafana.md`（已包含 systemd 原生安装与 Docker 两种方案）。
 
+## 5.2 systemd 运行用户与工作目录基线（重要）
+
+依赖安装正确后，如果 `powerx-backend` 的运行用户/工作目录被 override 覆盖错误，仍会出现：
+
+- `mkdir ./logs: permission denied`
+- 日志刷屏影响排障（如 403 / 网关问题被噪音淹没）
+
+推荐基线：
+
+```ini
+[Service]
+User=powerx
+Group=powerx
+WorkingDirectory=/opt/powerx
+```
+
+修复步骤：
+
+```bash
+sudo systemctl edit powerx-backend.service
+```
+
+写入上述 `[Service]` 后，准备日志目录权限：
+
+```bash
+sudo mkdir -p /opt/powerx/logs
+sudo chown -R powerx:powerx /opt/powerx/logs
+sudo chmod 755 /opt/powerx/logs
+```
+
+重载并重启：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart powerx-backend.service
+```
+
+生效验证：
+
+```bash
+systemctl show powerx-backend.service -p User,Group,WorkingDirectory
+journalctl -u powerx-backend.service -n 100 --no-pager | grep -Ei "mkdir logs|permission denied"
+```
+
 ## 6. 常见报错对照
 
 1. `E: Unable to locate package postgresql-16`

@@ -207,11 +207,24 @@ ensure_service_identity() {
 apply_service_user_override() {
   local unit="$1"
   local dir="/etc/systemd/system/${unit}.service.d"
+  local working_dir="${LINKS_ROOT}"
+  case "${unit}" in
+    powerx-backend)
+      working_dir="${LINKS_ROOT}/backend"
+      ;;
+    powerx-web-admin)
+      working_dir="${LINKS_ROOT}/web-admin"
+      ;;
+    powerx-runner)
+      working_dir="${LINKS_ROOT}/runner"
+      ;;
+  esac
   install -d -m 0755 "$dir"
   cat > "${dir}/zz-runtime-user.conf" <<EOF
 [Service]
 User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
+WorkingDirectory=${working_dir}
 EOF
 }
 
