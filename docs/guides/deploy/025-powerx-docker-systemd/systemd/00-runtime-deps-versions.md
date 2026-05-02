@@ -234,13 +234,13 @@ redis-cli ping
 - `mkdir ./logs: permission denied`
 - 日志刷屏影响排障（如 403 / 网关问题被噪音淹没）
 
-推荐基线：
+推荐基线（与仓库 unit 文件保持一致，优先稳态启动）：
 
 ```ini
 [Service]
 User=powerx
 Group=powerx
-WorkingDirectory=/opt/powerx
+WorkingDirectory=/
 ```
 
 修复步骤：
@@ -249,7 +249,15 @@ WorkingDirectory=/opt/powerx
 sudo systemctl edit powerx-backend.service
 ```
 
-写入上述 `[Service]` 后，准备日志目录权限：
+如果你必须使用自定义工作目录（例如 `/opt/powerx/backend`），务必先确保目录存在，再重启服务。
+
+可用预检脚本（推荐）：
+
+```bash
+scripts/observability/powerx-systemd-precheck.sh
+```
+
+写入上述 `[Service]` 后，准备日志目录权限（按实际日志目录）：
 
 ```bash
 sudo mkdir -p /opt/powerx/logs

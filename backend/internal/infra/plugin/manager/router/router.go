@@ -22,6 +22,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/security"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type apiUpstream struct {
@@ -807,6 +808,20 @@ func getRequestTraceIDs(c *gin.Context) (requestID, traceID string) {
 	if traceID == "" {
 		traceID = strings.TrimSpace(c.GetHeader("X-Trace-ID"))
 	}
+	// 兜底：保证网关链路日志不出现空 request_id/trace_id
+	if requestID == "" {
+		requestID = uuid.NewString()
+	}
+	if traceID == "" {
+		traceID = requestID
+	}
+	// 回写到上下文与请求头，确保后续日志点保持一致
+	c.Set("request_id", requestID)
+	c.Set("trace_id", traceID)
+	c.Request.Header.Set("X-Request-Id", requestID)
+	c.Request.Header.Set("X-Request-ID", requestID)
+	c.Request.Header.Set("X-Trace-Id", traceID)
+	c.Request.Header.Set("X-Trace-ID", traceID)
 	return requestID, traceID
 }
 
