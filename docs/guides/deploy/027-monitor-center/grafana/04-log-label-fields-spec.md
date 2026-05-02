@@ -1,35 +1,89 @@
-# 04. 日志标签与字段埋点规范
+# 04. 日志标签与字段规范（执行版）
 
 ## 1. 目标
 
-统一 PowerX 与插件的日志结构，避免高基数字段污染 Loki label，保证可聚合、可回放、可排障。
+1. 用一个 `request_id` 串起网关与插件链路。
+2. 保证 Loki 成本可控，不因高基数字段爆炸。
+3. 统一字段命名，避免团队各写各的。
 
-## 2. 强制规则
+## 2. 日志分级策略（必须）
 
-1. Loki `labels` 只放低基数维度：
+1. `INFO`：只打最小字段集。
+2. `WARN`：最小字段集 + 诊断字段集。
+3. `ERROR`：最小字段集 + 诊断字段集 + 错误细节（截断）。
+
+## 3. 字段分层规范
+
+### 3.1 最小字段集（INFO/WARN/ERROR 都必须有）
+
+- `timestamp`
+- `level`
 - `system`
 - `service`
 - `env`
 - `instance`
 - `module`
-
-说明：
-- `level` 不强制作为 Loki label。
-- 当前 Grafana Explore 可以从日志内容检测 `detected_level`，但不等价于 Loki 索引 label。
-
-2. 高基数字段只放日志正文（JSON fields），不要放 label：
-- `trace_id`
+- `event`（如 `API-IN`、`GATE-DENY`、`PROXY-RESP`）
 - `request_id`
+- `trace_id`
 - `tenant_uuid`
 - `plugin_id`
+- `method`
+- `path`（或 `client_path`）
+- `status`
+- `latency_ms`
+
+### 3.2 诊断字段集（WARN/ERROR 必须有，INFO 可选）
+
+- `gate_decision`
+- `deny_reason`
+- `upstream_host`
+- `upstream_path`
+- `upstream_status`
+- `upstream_request_id`
+- `correlation_id`
+- `user_id`
+- `member_id`
+
+### 3.3 错误细节（仅 ERROR）
+
+- `error_code`
+- `error_message`（最大 512 字符）
+- `transport_error`（最大 512 字符）
+- `upstream_body_excerpt`（最大 1024 字符）
+
+## 4. Loki Label 白名单/黑名单（必须）
+
+### 4.1 允许作为 label（低基数）
+
+- `system`
+- `service`
+- `env`
+- `instance`
+- `module`
+- `level`（可选）
+
+### 4.2 禁止作为 label（高基数）
+
+- `request_id`
+- `trace_id`
+- `tenant_uuid`
+- `plugin_id`
+- `user_id`
+- `member_id`
+- `path`
+- `correlation_id`
+- `upstream_request_id`
 - `session_id`
 - `message_id`
 - `job_id`
-- `agent_id`
-- `knowledge_base_id`
-- `capability_id`
-- `user_id`
-- `error_detail`
+
+## 5. 命名统一（强制）
+
+1. 只用 `request_id`，禁用 `reqId/requestId`。
+2. 只用 `trace_id`，禁用 `trace`。
+3. 只用 `tenant_uuid`，禁用 `tid/tenantId`。
+4. 只用 `plugin_id`，禁用 `plugin/pluginId`。
 
 ## 3. PowerX 侧配置示例
 
@@ -48,9 +102,9 @@ log:
       module: runtime
 ```
 
-## 4. 代码埋点规范（PowerX/插件通用）
+## 6. 代码埋点规范（PowerX/插件通用）
 
-### 4.1 基础上下文键
+### 6.1 基础上下文键
 
 直接在 `context.Context` 放入以下键（字符串键）：
 - `trace_id`
@@ -63,7 +117,7 @@ log:
 
 Logger 会自动提取。
 
-### 4.2 扩展业务字段
+### 6.2 扩展业务字段
 
 通过 `logger.WithLogFields(ctx, map[string]interface{}{...})` 注入。
 
@@ -79,7 +133,19 @@ ctx = logger.WithLogFields(ctx, map[string]interface{}{
 logger.Info(ctx, "plugin invocation accepted")
 ```
 
-## 5. 场景示例（tenant + session + message）
+## 7. _p 代理链路必打事件（PowerX framework）
+
+以下事件每条都必须带最小字段集：
+
+1. `API-IN`
+2. `GATE-ALLOW`
+3. `GATE-DENY`
+4. `PROXY-OUT`
+5. `PROXY-RESP`
+6. `PROXY-BACKEND-ERR`
+7. `PROXY-TRANSPORT-ERR`
+
+## 8. 场景示例（tenant + session + message）
 
 一次会话链路建议最少包含：
 - `tenant_uuid`
@@ -97,7 +163,7 @@ logger.Info(ctx, "plugin invocation accepted")
 {service="powerx-backend",env="prod"} | json | message_id="msg_456"
 ```
 
-## 6. 插件对齐建议
+## 9. 插件对齐建议
 
 插件框架统一输出两层对象：
 
@@ -110,7 +176,7 @@ logger.Info(ctx, "plugin invocation accepted")
 
 其中 `labels` 必须限制在 `{system,service,env,instance,module,level}`，其余字段强制降级到 `fields`。
 
-## 7. 必填字段矩阵（执行标准）
+## 10. 必填字段矩阵（执行标准）
 
 | 场景 | 必填 labels | 必填 fields |
 |---|---|---|
@@ -120,7 +186,17 @@ logger.Info(ctx, "plugin invocation accepted")
 | Agent 执行日志 | `system,service,env,instance,module,level` | `trace_id,tenant_uuid,agent_id,session_id,message_id,phase` |
 | Job/调度日志 | `system,service,env,instance,module,level` | `trace_id,tenant_uuid,job_id,job_type,attempt,status,latency_ms` |
 
-## 8. 反例（禁止）
+## 11. 成本控制（防日志库爆炸）
+
+1. 仅 `WARN/ERROR` 打诊断字段，`INFO` 保持最小集。
+2. 高频成功请求可采样（10%~30%，按业务可调）。
+3. `WARN/ERROR` 不采样。
+4. 健康检查、探针、静态资源日志降噪或抑制。
+5. 保留策略建议：
+- `INFO`：7~15 天
+- `WARN/ERROR`：30~90 天
+
+## 12. 反例（禁止）
 
 1. 把 UUID 放到 label：
 
@@ -140,7 +216,7 @@ logger.Info(context.Background(), "job started")
 labels: {customer_name="...", page_url="..."}
 ```
 
-## 9. Grafana 查询模板（直接可用）
+## 13. Grafana 查询模板（直接可用）
 
 先按 labels 选流，再按 fields 过滤。
 
@@ -170,7 +246,13 @@ sum by (path, status_code) (
 {system="$system",service="$service",env="$env"} | json | message_id="$message_id"
 ```
 
-## 10. 与当前线上日志格式的对齐说明（重要）
+## 14. 验收标准（上线前必须满足）
+
+1. 任意一个 `_p` 请求，能用同一 `request_id` 查询到完整网关链路。
+2. 任意日志行可按 `tenant_uuid + plugin_id` 快速过滤。
+3. 发布前后 Loki label cardinality 无异常飙升。
+
+## 15. 与当前线上日志格式的对齐说明（重要）
 
 当前你们线上日志同时存在两类：
 
@@ -192,7 +274,7 @@ sum by (path, status_code) (
 {system="powerx",service="powerx-backend",env="dev"} |= "/api/v1/agent/ai-craft/products"
 ```
 
-## 11. Dashboard 变量建议（避免空值无结果）
+## 16. Dashboard 变量建议（避免空值无结果）
 
 1. `system`：建议 `Custom`，默认值 `powerx`（可不提供 All）。
 2. `service/env/instance/module`：`Query` 变量。

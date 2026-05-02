@@ -38,6 +38,9 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 		}
 
 		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
+		traceID := reqctx.GetTraceID(c.Request.Context())
+		requestID := c.GetString("request_id")
+		pluginID := extractPluginIDFromPath(c.Request.URL.Path)
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
 			TenantUUID:    tenantUUID,
@@ -50,7 +53,33 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ClientIP:      ipPtr,
 			ClientUA:      c.Request.UserAgent(),
 			CorrelationID: CorrelationIDFromContext(c.Request.Context()), // ★ 回填
-			Meta:          mustJSON(map[string]any{"status": status, "latency_ms": time.Since(start).Milliseconds()}),
+			Meta: mustJSON(map[string]any{
+				"status":      status,
+				"latency_ms":  time.Since(start).Milliseconds(),
+				"request_id":  requestID,
+				"trace_id":    traceID,
+				"plugin_id":   pluginID,
+				"tenant_uuid": tenantUUID,
+			}),
 		})
 	}
+}
+
+func extractPluginIDFromPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	if len(path) < 4 || path[:4] != "/_p/" {
+		return ""
+	}
+	rest := path[4:]
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == '/' {
+			if i == 0 {
+				return ""
+			}
+			return rest[:i]
+		}
+	}
+	return rest
 }

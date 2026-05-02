@@ -10,8 +10,12 @@
   - `env`
   - `instance`
   - `module`
+- 可选业务维度（若日志中已做 label）：
+  - `tenant_uuid`
+  - `plugin_id`
 - `level` 在当前实现中按日志字段过滤，不作为 label 下拉变量查询。
-- 禁止再用旧口径 `job` / `service_name` 作为看板主变量。
+- `job` 当前不作为统一 label；建议用 `Text box` 变量做模糊/关键字筛选。
+- 禁止再用旧口径 `service_name` 作为看板主变量。
 
 ## 2. 文档清单
 
@@ -22,7 +26,7 @@
 
 ## 3. 推荐实施顺序
 
-1. 先完成变量统一（`system/service/env/instance/module` + `level` 自定义变量）。
+1. 先完成变量统一（`system/service/env/instance/module/tenant_uuid/plugin_id/job` + `level` 自定义变量）。
 2. 再按 01/02/03 三份文档创建看板与面板。
 3. 最后用 `trace_id/request_id/tenant_uuid/session_id/message_id` 做 Drilldown 验证。
 

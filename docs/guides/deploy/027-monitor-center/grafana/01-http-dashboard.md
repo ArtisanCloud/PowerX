@@ -7,22 +7,124 @@
 - 哪些接口在失败或变慢？
 - 问题集中在哪个模块/实例？
 
-## 2. 先配置变量（必须）
+## 2. 先配置变量（必须，逐项照填）
 
-Dashboard -> Settings -> Variables 新增：
+路径：`Dashboard -> Settings -> Variables -> Add variable`
 
-1. `system`: `label_values(system)`
-2. `service`: `label_values(service)`
-3. `env`: `label_values(env)`
-4. `instance`: `label_values(instance)`
-5. `module`: `label_values(module)`
-6. `level`: `Custom`，值为 `debug,info,warn,error`，打开 `Multi-value` 与 `Include All(.*)`
+### 2.1 system
+
+- Variable type：`Query`
+- Name：`system`
+- Query options -> Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`system`
+- Stream selector：留空
+- Multi-value：`Off`
+- Include All option：`Off`
+- Allow custom values：`Off`
+
+### 2.2 service
+
+- Variable type：`Query`
+- Name：`service`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`service`
+- Stream selector：`{system=~"$system"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+- Allow custom values：`Off`
+
+### 2.3 env
+
+- Variable type：`Query`
+- Name：`env`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`env`
+- Stream selector：`{system=~"$system",service=~"$service"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+
+### 2.4 instance
+
+- Variable type：`Query`
+- Name：`instance`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`instance`
+- Stream selector：`{system=~"$system",service=~"$service",env=~"$env"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+
+### 2.5 module
+
+- Variable type：`Query`
+- Name：`module`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`module`
+- Stream selector：`{system=~"$system",service=~"$service",env=~"$env",instance=~"$instance"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+
+### 2.6 tenant_uuid（可选，推荐）
+
+- Variable type：`Query`
+- Name：`tenant_uuid`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`tenant_uuid`
+- Stream selector：`{system=~"$system",service=~"$service",env=~"$env"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+- Allow custom values：`On`（无下拉值时可手输）
+
+### 2.7 plugin_id（可选，推荐）
+
+- Variable type：`Query`
+- Name：`plugin_id`
+- Data source：`loki-PowerX`
+- Query type：`Label values`
+- Label：`plugin_id`
+- Stream selector：`{system=~"$system",service=~"$service",env=~"$env"}`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.+`
+- Allow custom values：`On`
+
+### 2.8 job（推荐文本变量）
+
+- Variable type：`Text box`
+- Name：`job`
+- 默认值：留空
+
+说明：
+- 当前 job 形态未完全统一（可能是 `job_id`、`job=...`、`job ...`）。
+- 用 `Text box` 比用 `Label values` 稳定。
+
+### 2.9 level
+
+- Variable type：`Custom`
+- Name：`level`
+- Values：`debug,info,warn,error`
+- Multi-value：`On`
+- Include All option：`On`
+- Custom all value：`.*`
 
 ## 3. 基础查询模板
 
 ```logql
-{system="$system",service="$service",env="$env",instance=~"$instance",module=~"$module"} | json | level=~"$level"
+{system=~"$system",service=~"$service",env=~"$env",instance=~"$instance",module=~"$module"} |= "$tenant_uuid" |= "$plugin_id" |= "$job" | json | level=~"$level"
 ```
+
+说明：
+- 当 `tenant_uuid/plugin_id/job` 留空时，可临时删掉对应 `|= "$变量"` 片段避免误过滤。
 
 ## 4. 面板清单（建议最小集）
 

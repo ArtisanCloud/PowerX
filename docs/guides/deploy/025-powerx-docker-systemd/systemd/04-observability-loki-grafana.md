@@ -34,8 +34,9 @@ echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stab
 sudo apt-get update
 sudo apt-get install -y loki grafana
 
-# 3) 准备目录
-sudo mkdir -p /etc/powerx/observability/loki /var/lib/loki /var/lib/grafana
+# 3) 准备目录（按 Loki 默认配置）
+sudo mkdir -p /etc/powerx/observability/loki /var/loki /var/lib/grafana
+sudo chown -R loki:loki /var/loki
 sudo chown -R 472:472 /var/lib/grafana
 ```
 
@@ -47,6 +48,16 @@ sudo chown -R 472:472 /var/lib/grafana
 sudo cp deploy/observability/loki/loki-config.yaml /etc/powerx/observability/loki/
 sudo cp /etc/powerx/observability/loki/loki-config.yaml /etc/loki/config.yml
 ```
+
+说明：
+- 仓库里的 `deploy/observability/loki/loki-config.yaml` 只是模板。
+- 线上是否生效，以服务器上的 `/etc/loki/config.yml` 为准。
+- 你更新模板后，仍需要手动同步到服务器并重启 Loki。
+
+说明（重要）：
+- 目录与权限以 `/etc/loki/config.yml` 为准。
+- 若配置中是 `path_prefix: /var/loki`，必须确保 `/var/loki` 及其子目录对 Loki 运行用户可写。
+- 不要按经验混用 `/var/lib/loki` 与 `/var/loki`，否则可能出现 `mkdir /var/loki: permission denied`。
 
 2) 启动 Loki：
 
@@ -63,6 +74,72 @@ curl -sS http://127.0.0.1:3100/ready
 ```
 
 返回 `ready` 即正常。
+
+若未就绪，先检查目录权限：
+
+```bash
+systemctl show loki -p User,Group
+sudo mkdir -p /var/loki /var/loki/chunks /var/loki/rules /var/loki/compactor
+sudo chown -R loki:loki /var/loki
+sudo chmod -R 755 /var/loki
+sudo systemctl restart loki
+```
+
+### 4.1 Loki 保留与自动清理（建议默认开启）
+
+本项目模板已启用：
+
+- `limits_config.retention_period: 720h`（30 天）
+- `compactor.retention_enabled: true`
+
+只要 Loki 正常运行，达到保留期后会自动清理历史数据，不需要你手工每天执行脚本。
+
+如果你要调整保留期（例如改成 7 天）：
+
+```bash
+sudo sed -i 's/retention_period: 720h/retention_period: 168h/' /etc/loki/config.yml
+sudo systemctl restart loki
+```
+
+### 4.2 手动清空 Loki 历史数据（一次性）
+
+适用场景：测试环境需要“从零开始”。
+
+```bash
+sudo systemctl stop loki
+sudo rm -rf /var/loki/chunks /var/loki/index /var/loki/rules /var/loki/compactor /var/loki/wal
+sudo mkdir -p /var/loki/chunks /var/loki/rules /var/loki/compactor
+sudo chown -R loki:loki /var/loki
+sudo chmod -R 755 /var/loki
+sudo systemctl start loki
+curl -sS http://127.0.0.1:3100/ready
+```
+
+注意：
+- 这是破坏性操作，会删除 Loki 中已有历史日志。
+- 生产环境不建议直接清空，优先依赖保留策略自动回收。
+
+### 4.3 推荐：使用维护脚本（避免手输出错）
+
+仓库已提供脚本：
+
+`scripts/observability/loki-maintenance.sh`
+
+常用命令：
+
+```bash
+# 查看状态 + ready + retention 生效配置
+scripts/observability/loki-maintenance.sh status
+
+# 将仓库模板同步到 /etc/loki/config.yml 并重启
+scripts/observability/loki-maintenance.sh apply-config
+
+# 指定配置源文件
+scripts/observability/loki-maintenance.sh apply-config /opt/powerx/backend/deploy/observability/loki/loki-config.yaml
+
+# 清空 Loki 历史数据（破坏性操作，必须显式 --yes）
+scripts/observability/loki-maintenance.sh purge --yes
+```
 
 ## 5. Grafana 配置与启动
 
@@ -211,6 +288,10 @@ curl -sS -H "Authorization: Bearer <ADMIN_TOKEN>" \
 - 先确认 Loki ready：`curl http://127.0.0.1:3100/ready`
 - 再看 Loki 日志：`sudo journalctl -u loki -n 200 --no-pager`
 - 再确认 PowerX 端 `loki=true` 且地址可达。
+
+补充：
+- 如果日志出现 `field max_look_back_period not found`，说明 Loki 配置含旧字段，请从 `/etc/loki/config.yml` 移除该字段后重启。
+- 如果日志出现 `mkdir /var/loki: permission denied`，按上文目录权限步骤修复。
 
 2) 重复日志
 - 原因：应用直推 + Promtail 重采同一源。

@@ -92,6 +92,18 @@ sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$
 {system="$system",service="$service",env="$env"} | json | message_id="$message_id"
 ```
 
+按 request_id（优先，最稳）：
+
+```logql
+{system="$system",service="$service",env="$env"} |= "request_id=$request_id"
+```
+
+按 trace_id：
+
+```logql
+{system="$system",service="$service",env="$env"} |= "trace_id=$trace_id"
+```
+
 ## 6. 你当前问题的直接排障查询
 
 插件 products 请求：
@@ -117,3 +129,4 @@ sum(count_over_time({system="$system",service="$service",env="$env",instance=~"$
 1. 执行一次插件调用，实时流可见插件日志。
 2. 制造一次失败，错误趋势和 TopN 有变化。
 3. 用 `plugin_id + message_id` 能回放完整调用日志链路。
+4. 用单个 `request_id` 能命中 `API-IN -> GATE-* -> PROXY-*` 链路日志。

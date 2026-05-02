@@ -386,6 +386,8 @@ func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
 func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	pluginID := c.Param("id")
 	clientPath := c.Param("filepath")
+	requestID, traceID := getRequestTraceIDs(c)
+	logTenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 	if clientPath == "" {
 		clientPath = "/"
 	}
@@ -394,8 +396,8 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if q := c.Request.URL.RawQuery; q != "" {
 			hostPath += "?" + q
 		}
-		logger.InfoF(c.Request.Context(), "[API-REDIRECT] plugin=%s method=%s clientPath=%s -> hostPath=%s",
-			pluginID, c.Request.Method, clientPath, hostPath)
+		logger.InfoF(c.Request.Context(), "[API-REDIRECT] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s -> hostPath=%s",
+			pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID, hostPath)
 		c.Redirect(http.StatusTemporaryRedirect, hostPath)
 		c.Abort()
 		return
@@ -404,8 +406,8 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		return
 	}
 	// === 关键日志：API 入口 ===
-	logger.InfoF(c.Request.Context(), "[API-IN] %s %s plugin=%s clientPath=%s",
-		c.Request.Method, c.Request.URL.Path, pluginID, clientPath)
+	logger.InfoF(c.Request.Context(), "[API-IN] %s %s plugin=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s",
+		c.Request.Method, c.Request.URL.Path, pluginID, clientPath, logTenantUUID, requestID, traceID)
 	r.mu.RLock()
 	up, ok := r.apis[pluginID]
 	registered := make([]string, 0, len(r.apis))
@@ -414,7 +416,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	}
 	r.mu.RUnlock()
 	if !ok || up.target == nil {
-		logger.InfoF(c.Request.Context(), "[API-MISS] plugin=%s registered=%v", pluginID, registered)
+		logger.InfoF(c.Request.Context(), "[API-MISS] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s registered=%v", pluginID, logTenantUUID, requestID, traceID, registered)
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error":      "plugin api upstream unavailable",
 			"reason":     "plugin not mounted into /_p/{id}/api proxy",
@@ -466,13 +468,13 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if r.gate != nil {
 		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, clientPath, claims)
 		if !allowed {
-			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s reason=%s",
-				pluginID, c.Request.Method, clientPath, reason)
+			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
+				pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID, reason)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
 			return
 		}
 		pluginToken = tok
-		logger.InfoF(c.Request.Context(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s", pluginID, c.Request.Method, clientPath)
+		logger.InfoF(c.Request.Context(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s", pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID)
 
 	}
 
@@ -481,12 +483,17 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		resp.Header.Set("X-PowerX-Upstream-Plugin", pluginID)
 		resp.Header.Set("X-PowerX-Upstream-Status", http.StatusText(resp.StatusCode))
 		if resp.StatusCode < http.StatusBadRequest {
+			upstreamRequestID := extractUpstreamRequestID(resp.Header, nil)
+			logger.InfoF(c.Request.Context(), "[PROXY-RESP] plugin=%s method=%s req=%s tenant_uuid=%s request_id=%s trace_id=%s upstream_request_id=%s upstream_status=%d",
+				pluginID, c.Request.Method, c.Request.URL.Path, logTenantUUID, requestID, traceID, upstreamRequestID, resp.StatusCode)
 			return nil
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			logger.InfoF(c.Request.Context(), "[PROXY-BACKEND-ERR] plugin=%s status=%d read_body_err=%v", pluginID, resp.StatusCode, err)
+			upstreamRequestID := strings.TrimSpace(resp.Header.Get("X-Request-ID"))
+			logger.InfoF(c.Request.Context(), "[PROXY-BACKEND-ERR] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s upstream_request_id=%s status=%d read_body_err=%v",
+				pluginID, logTenantUUID, requestID, traceID, upstreamRequestID, resp.StatusCode, err)
 			return nil
 		}
 		_ = resp.Body.Close()
@@ -498,13 +505,16 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if len(msg) > 1024 {
 			msg = msg[:1024] + "...(truncated)"
 		}
-		logger.InfoF(c.Request.Context(), "[PROXY-BACKEND-ERR] plugin=%s method=%s req=%s upstream_status=%d upstream_body=%q",
-			pluginID, c.Request.Method, c.Request.URL.Path, resp.StatusCode, msg)
+		upstreamRequestID := extractUpstreamRequestID(resp.Header, body)
+		logger.InfoF(c.Request.Context(), "[PROXY-BACKEND-ERR] plugin=%s method=%s req=%s tenant_uuid=%s request_id=%s trace_id=%s upstream_request_id=%s upstream_status=%d upstream_body=%q",
+			pluginID, c.Request.Method, c.Request.URL.Path, logTenantUUID, requestID, traceID, upstreamRequestID, resp.StatusCode, msg)
+		logger.InfoF(c.Request.Context(), "[PROXY-RESP] plugin=%s method=%s req=%s tenant_uuid=%s request_id=%s trace_id=%s upstream_request_id=%s upstream_status=%d",
+			pluginID, c.Request.Method, c.Request.URL.Path, logTenantUUID, requestID, traceID, upstreamRequestID, resp.StatusCode)
 		return nil
 	}
 	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
-		logger.InfoF(c.Request.Context(), "[PROXY-TRANSPORT-ERR] plugin=%s method=%s req=%s err=%v",
-			pluginID, c.Request.Method, c.Request.URL.Path, err)
+		logger.InfoF(c.Request.Context(), "[PROXY-TRANSPORT-ERR] plugin=%s method=%s req=%s tenant_uuid=%s request_id=%s trace_id=%s err=%v",
+			pluginID, c.Request.Method, c.Request.URL.Path, logTenantUUID, requestID, traceID, err)
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusBadGateway)
 		_, _ = rw.Write([]byte(`{"error":"plugin upstream transport error"}`))
@@ -537,12 +547,13 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.URL.Path = reqPath
 		req.URL.RawPath = reqPath
 		// === 关键日志：最终上游路径 ===
-		logger.InfoF(c.Request.Context(), "[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s => upstream=%s",
-			pluginID, up.basePath, clientPath, reqPath)
+		logger.InfoF(c.Request.Context(), "[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s => upstream=%s",
+			pluginID, up.basePath, clientPath, logTenantUUID, requestID, traceID, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
-			logger.InfoF(c.Request.Context(), "[GATE-TOKEN] plugin=%s token.head=%s... tid=%s", pluginID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
+			logger.InfoF(c.Request.Context(), "[GATE-TOKEN] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s token.head=%s... tid=%s",
+				pluginID, logTenantUUID, requestID, traceID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
 		}
 		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
@@ -550,11 +561,11 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			tenantUUID = strings.TrimSpace(claims.TenantUUID)
 		}
 		if tenantUUID != "" {
-			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
+			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID=%s", pluginID, requestID, traceID, tenantUUID)
 			req.Header.Set("tenant_uuid", tenantUUID)
 			req.Header.Set("X-PowerX-Tenant", tenantUUID)
 		} else {
-			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)
+			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID missing", pluginID, requestID, traceID)
 			req.Header.Del("tenant_uuid")
 			req.Header.Del("X-PowerX-Tenant")
 		}
@@ -763,22 +774,64 @@ func attachTraceHeaders(c *gin.Context, req *http.Request) {
 	if c == nil || req == nil {
 		return
 	}
-	traceID := strings.TrimSpace(c.GetHeader("X-Trace-Id"))
-	if traceID == "" {
-		traceID = strings.TrimSpace(c.GetHeader("X-Trace-ID"))
-	}
+	_, traceID := getRequestTraceIDs(c)
 	if traceID != "" {
 		req.Header.Set("X-Trace-Id", traceID)
 		req.Header.Set("X-Trace-ID", traceID)
 	}
-	requestID := strings.TrimSpace(c.GetHeader("X-Request-Id"))
-	if requestID == "" {
-		requestID = strings.TrimSpace(c.GetHeader("X-Request-ID"))
-	}
+	requestID, _ := getRequestTraceIDs(c)
 	if requestID != "" {
 		req.Header.Set("X-Request-Id", requestID)
 		req.Header.Set("X-Request-ID", requestID)
 	}
+}
+
+func getRequestTraceIDs(c *gin.Context) (requestID, traceID string) {
+	if c == nil {
+		return "", ""
+	}
+	requestID = strings.TrimSpace(c.GetString("request_id"))
+	if requestID == "" {
+		requestID = strings.TrimSpace(c.GetHeader("X-Request-Id"))
+	}
+	if requestID == "" {
+		requestID = strings.TrimSpace(c.GetHeader("X-Request-ID"))
+	}
+	traceID = strings.TrimSpace(c.GetString("trace_id"))
+	if traceID == "" {
+		traceID = strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))
+	}
+	if traceID == "" {
+		traceID = strings.TrimSpace(c.GetHeader("X-Trace-Id"))
+	}
+	if traceID == "" {
+		traceID = strings.TrimSpace(c.GetHeader("X-Trace-ID"))
+	}
+	return requestID, traceID
+}
+
+func extractUpstreamRequestID(header http.Header, body []byte) string {
+	if header != nil {
+		v := strings.TrimSpace(header.Get("X-Request-ID"))
+		if v != "" {
+			return v
+		}
+		v = strings.TrimSpace(header.Get("X-Request-Id"))
+		if v != "" {
+			return v
+		}
+	}
+	if len(body) == 0 {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	if v, ok := payload["request_id"].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 // 从 "/_p/<id>/api/*" 裁剪为插件侧期望的 client path（保留前导斜杠）
