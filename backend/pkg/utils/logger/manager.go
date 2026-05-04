@@ -56,10 +56,9 @@ func NewLogger(config *config.LogConfig) *Logger {
 		encoderConfig.CallerKey = "" // 如果也不想要 caller，可以去掉
 	}
 
-	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	if config.UseJsonFormat { // 如果需要 caller，可以去掉
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	}
+	// Console/stdout must always emit single-line JSON so Loki `| json` can parse
+	// plugin_id/request_id/trace_id fields deterministically.
+	encoder := zapcore.NewJSONEncoder(encoderConfig)
 
 	var cores []zapcore.Core
 

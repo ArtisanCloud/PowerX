@@ -1,8 +1,6 @@
 package audit
 
 import (
-	"strings"
-
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
@@ -40,14 +38,6 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 		}
 
 		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
-		traceID := reqctx.GetTraceID(c.Request.Context())
-		requestID := strings.TrimSpace(c.GetString("request_id"))
-		if requestID == "" {
-			if v, ok := c.Request.Context().Value("request_id").(string); ok {
-				requestID = strings.TrimSpace(v)
-			}
-		}
-		pluginID := reqctx.ResolvePluginIDFromPath(c.Request.URL.Path)
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
 			TenantUUID:    tenantUUID,
@@ -61,12 +51,8 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ClientUA:      c.Request.UserAgent(),
 			CorrelationID: CorrelationIDFromContext(c.Request.Context()), // ★ 回填
 			Meta: mustJSON(map[string]any{
-				"status":      status,
-				"latency_ms":  time.Since(start).Milliseconds(),
-				"request_id":  requestID,
-				"trace_id":    traceID,
-				"plugin_id":   pluginID,
-				"tenant_uuid": tenantUUID,
+				"status":     status,
+				"latency_ms": time.Since(start).Milliseconds(),
 			}),
 		})
 	}

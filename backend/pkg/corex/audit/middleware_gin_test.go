@@ -44,9 +44,22 @@ func TestGinAudit_ResolvesPluginIDForIntegrationRoute(t *testing.T) {
 	if err := json.Unmarshal(svc.last.Meta, &meta); err != nil {
 		t.Fatalf("unmarshal meta failed: %v", err)
 	}
-	got, _ := meta["plugin_id"].(string)
-	if got != "com.powerx.plugins.demo-plugin" {
-		t.Fatalf("unexpected plugin_id in meta: %q", got)
+	if _, exists := meta["plugin_id"]; exists {
+		t.Fatalf("plugin_id should not be duplicated in meta")
+	}
+	if _, exists := meta["request_id"]; exists {
+		t.Fatalf("request_id should not be duplicated in meta")
+	}
+	if _, exists := meta["trace_id"]; exists {
+		t.Fatalf("trace_id should not be duplicated in meta")
+	}
+	if _, exists := meta["tenant_uuid"]; exists {
+		t.Fatalf("tenant_uuid should not be duplicated in meta")
+	}
+	if _, exists := meta["status"]; !exists {
+		t.Fatalf("status should remain in meta as extended diagnostic field")
+	}
+	if _, exists := meta["latency_ms"]; !exists {
+		t.Fatalf("latency_ms should remain in meta as extended diagnostic field")
 	}
 }
-
