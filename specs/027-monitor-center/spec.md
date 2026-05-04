@@ -123,6 +123,10 @@
 - **FR-028**: 系统 MUST 对插件日志标签执行低基数约束，固定标签至少包括 `plugin_id/tenant_uuid/component/level`；高基数字段仅保留在日志内容中。
 - **FR-029**: 系统 MUST 保证 `trace_id/tenant_uuid/plugin_id/component/level` 在采集、转发、检索链路中可用且不丢失。
 - **FR-030**: 当插件日志策略变更或 sink 不可用时，系统 MUST 给出可操作探测结果与降级状态，且不阻断主业务链路。
+- **FR-031**: 系统 MUST 在宿主 HTTP 最外层统一解析并注入 `plugin_id`，至少覆盖 `/_p/<plugin_id>/...` 与 `/api/v1/integration/<slug>/...` 两类路径；其中 `<slug>` 必须通过稳定映射解析为 `plugin_id`。
+- **FR-032**: 系统 MUST 让以下日志源统一从同一上下文读取 `request_id/trace_id/plugin_id/tenant_uuid`：`http_request`、`audit_event`、`API-IN/GATE-*/PROXY-*`、`wsbus.*`、插件 supervisor 日志、异步 worker（cron/queue/retry/event-fabric）。
+- **FR-033**: 系统 MUST 在异步链路禁止无条件使用 `context.Background()` 覆盖原请求上下文；若上下文缺失，sink 层必须执行字段兜底回填（事件 payload/meta/响应头）并记录 `reason`。
+- **FR-034**: 系统 MUST 将 `plugin_id/request_id/trace_id/tenant_uuid` 作为日志顶层字段输出，禁止仅写入 `meta` 字符串；`meta` 仅用于扩展诊断信息。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -162,3 +166,4 @@
 - **SC-007**: `loki/file/stdio` 三驱动下，监控页均可正确展示可用能力与不可用能力提示，误点击率为 0。
 - **SC-008**: 宿主模式插件启用后，95% 以上插件日志在 1 分钟内可进入统一日志检索链路。
 - **SC-009**: 插件日志策略变更后，`policy/probe` 联调链路在 3 分钟内可完成并返回可审计结果。
+- **SC-010**: 对同一次 `/api/v1/integration/<slug>/...` 请求，使用同一个 `request_id` 可在 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`、`wsbus.*` 中命中，且 `plugin_id` 非空。

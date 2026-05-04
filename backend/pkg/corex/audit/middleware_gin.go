@@ -1,6 +1,8 @@
 package audit
 
 import (
+	"strings"
+
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
@@ -39,8 +41,13 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 
 		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
 		traceID := reqctx.GetTraceID(c.Request.Context())
-		requestID := c.GetString("request_id")
-		pluginID := extractPluginIDFromPath(c.Request.URL.Path)
+		requestID := strings.TrimSpace(c.GetString("request_id"))
+		if requestID == "" {
+			if v, ok := c.Request.Context().Value("request_id").(string); ok {
+				requestID = strings.TrimSpace(v)
+			}
+		}
+		pluginID := reqctx.ResolvePluginIDFromPath(c.Request.URL.Path)
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
 			TenantUUID:    tenantUUID,
@@ -63,23 +70,4 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			}),
 		})
 	}
-}
-
-func extractPluginIDFromPath(path string) string {
-	if path == "" {
-		return ""
-	}
-	if len(path) < 4 || path[:4] != "/_p/" {
-		return ""
-	}
-	rest := path[4:]
-	for i := 0; i < len(rest); i++ {
-		if rest[i] == '/' {
-			if i == 0 {
-				return ""
-			}
-			return rest[:i]
-		}
-	}
-	return rest
 }

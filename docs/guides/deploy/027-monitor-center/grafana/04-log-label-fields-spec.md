@@ -145,6 +145,21 @@ logger.Info(ctx, "plugin invocation accepted")
 6. `PROXY-BACKEND-ERR`
 7. `PROXY-TRANSPORT-ERR`
 
+## 7.1 日志源覆盖范围（统一上下文字段）
+
+除 `_p` 代理链路外，以下日志源同样必须输出并对齐 `request_id/trace_id/plugin_id/tenant_uuid`：
+
+1. `http_request`
+2. `audit_event`
+3. `wsbus.*`（publish/subscribe/emit/deliver/ack/drop）
+4. plugin supervisor 日志
+5. 异步 worker（cron/queue/retry/event-fabric）
+
+补充要求：
+- `/api/v1/integration/<slug>/...` 必须解析并注入 `plugin_id`（slug -> plugin_id）。
+- 关键字段不得只放在 `meta`；必须作为顶层字段可检索。
+- 异步链路禁止无条件 `context.Background()` 断链。
+
 ## 8. 场景示例（tenant + session + message）
 
 一次会话链路建议最少包含：

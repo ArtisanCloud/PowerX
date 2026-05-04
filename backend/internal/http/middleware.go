@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -39,7 +40,7 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		if strings.TrimSpace(path) == "" {
 			path = c.Request.URL.Path
 		}
-		pluginID := extractPluginIDFromPath(c.Request.URL.Path)
+		pluginID := reqctx.ResolvePluginIDFromPathWithAPIPrefix(c.Request.URL.Path, config.ResolveAPIPrefix(config.GetGlobalConfig()))
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
@@ -149,7 +150,7 @@ func TraceInjectionMiddleware() gin.HandlerFunc {
 		if tenantUUID != "" {
 			ctx = context.WithValue(ctx, "tenant_uuid", tenantUUID)
 		}
-		if pluginID := extractPluginIDFromPath(c.Request.URL.Path); pluginID != "" {
+		if pluginID := reqctx.ResolvePluginIDFromPathWithAPIPrefix(c.Request.URL.Path, config.ResolveAPIPrefix(config.GetGlobalConfig())); pluginID != "" {
 			ctx = context.WithValue(ctx, "plugin_id", pluginID)
 		}
 		c.Request = c.Request.WithContext(ctx)
@@ -173,19 +174,4 @@ func FeatureInjectionMiddleware() gin.HandlerFunc {
 		// 例如：从 header 拿 feature flag source 写入 context，或者注入 request_id
 		c.Next()
 	}
-}
-
-func extractPluginIDFromPath(path string) string {
-	path = strings.TrimSpace(path)
-	if !strings.HasPrefix(path, "/_p/") {
-		return ""
-	}
-	rest := strings.TrimPrefix(path, "/_p/")
-	if rest == "" {
-		return ""
-	}
-	if idx := strings.IndexByte(rest, '/'); idx > 0 {
-		return rest[:idx]
-	}
-	return ""
 }

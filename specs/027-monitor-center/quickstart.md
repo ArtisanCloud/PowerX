@@ -236,6 +236,40 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 - Loki 可达但字段过滤不稳定：检查 Promtail 是否已做 JSON 字段提取与低基数标签约束。
 - policy/probe 401/403：检查 Root 权限与插件 RBAC（`runtime.ops`）。
 
+## 8.4 request_id 全链路串联验收（integration + gateway + audit + wsbus）
+
+目标：验证同一次 `/api/v1/integration/<slug>/...` 请求可被单个 `request_id` 串联，且 `plugin_id` 非空。
+
+步骤 A：触发一次 integration 请求（示例）
+
+```bash
+curl -i -sS -X POST \
+  "http://127.0.0.1:8080/api/v1/integration/ai-craft/webhooks/shopify" \
+  -H "Content-Type: application/json" \
+  -d '{"probe":"quickstart-chain"}'
+```
+
+记录响应头 `X-Request-ID=<RID>`。
+
+步骤 B：用统一日志查询接口按 `request_id` 检索
+
+```bash
+curl -sS -H "$AUTH" \
+  "$BASE/admin/monitor/logs/query?page=1&page_size=200&request_id=<RID>" | jq
+```
+
+步骤 C：在 Grafana Explore 验证（Loki 驱动）
+
+```logql
+{system="powerx",service="powerx-backend",env="prod"} |= "request_id=<RID>"
+```
+
+通过标准：
+- 同一 `request_id` 至少命中：`http_request`、`audit_event`。
+- 若经过 `_p` 代理链路，应命中 `API-IN/GATE-*/PROXY-*`。
+- 若触发 WS 总线事件，应命中 `wsbus.*`。
+- 命中日志中的 `plugin_id` 非空（不得出现稳定复现的 `plugin_id=""`）。
+
 ## 8.2 Log Retention（统一日志保留）验收
 
 在 `config/powerx.env.local`（本地）或 `/etc/powerx/powerx.env`（生产）启用 `log.retention`（示例）：

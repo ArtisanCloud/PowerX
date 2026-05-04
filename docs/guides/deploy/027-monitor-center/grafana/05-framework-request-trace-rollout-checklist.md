@@ -10,6 +10,7 @@
 
 - PowerX backend（framework / gateway）
 - `_p/:id/api/*` 代理链路
+- `/api/v1/integration/<slug>/...` 入口链路（含 slug -> plugin_id 映射）
 - 日志采集与 Grafana 查询模板
 
 ## 3. 实施清单（按优先级）
@@ -23,6 +24,7 @@
 - 响应头必须回写 `X-Request-ID`、`X-Trace-ID`。
 
 2. `_p` 路由处理函数不得二次随机生成 request/trace id。
+3. `/api/v1/integration/<slug>/...` 必须注入 `plugin_id`（通过稳定映射解析），不得出现 `plugin_id=""`。
 
 ### P0：_p 关键日志点补齐
 
@@ -81,6 +83,18 @@
 3. `plugin_id`
 4. `tenant_uuid`
 
+### P2：日志源全覆盖对齐
+
+以下日志源必须统一从同一上下文取值（`request_id/trace_id/plugin_id/tenant_uuid`）：
+1. `http_request`
+2. `audit_event`
+3. `API-IN/GATE-*/PROXY-*`
+4. `wsbus.*`（publish/subscribe/emit/deliver/ack/drop）
+5. plugin supervisor 日志
+6. 异步 worker（cron/queue/retry/event-fabric）
+
+异步链路禁止无条件使用 `context.Background()` 覆盖原上下文；若上下文缺失，sink 必须记录 `reason` 并执行字段兜底回填。
+
 ## 4. Loki 与成本控制（必须遵守）
 
 1. label 白名单：`system,service,env,instance,module,level`。
@@ -108,6 +122,11 @@
 
 4. 多租户过滤
 - 任意日志可按 `tenant_uuid + plugin_id` 过滤。
+
+5. integration 路由链路
+- 触发一次 `/api/v1/integration/ai-craft/...` 请求。
+- 同一 `request_id` 必须命中 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`（如经过该链路）与 `wsbus.*`（如有事件）。
+- 命中结果中的 `plugin_id` 必须非空。
 
 ## 6. 变更窗口与回滚
 

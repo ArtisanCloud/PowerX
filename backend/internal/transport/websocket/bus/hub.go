@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/google/uuid"
 )
 
 // Hub manages WS sessions and topic subscriptions.
@@ -77,6 +78,9 @@ func (h *Hub) Unsubscribe(client *Client, topic string) {
 func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
 	if topic == "" {
 		return
+	}
+	if traceID == "" {
+		traceID = uuid.NewString()
 	}
 	env, err := dto.NewWSBusEnvelope(dto.WSBusTypeEvent, topic, payload, traceID)
 	if err != nil {

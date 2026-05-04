@@ -254,5 +254,10 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - [ ] T069 [US6] 新增插件日志策略编排服务（GET/PUT policy + POST probe）并记录审计：`backend/internal/service/monitor_logs/*`、`backend/internal/transport/http/admin/monitor/*`
 - [ ] T070 [P] [US6] 监控中心 Logs/Trace 页面增加“插件策略探测结果”可视化区块：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
 - [ ] T071 [US6] quickstart 补充插件日志联调验收与回滚步骤：`specs/027-monitor-center/quickstart.md`
+- [ ] T072 [US6] 在宿主 HTTP 最外层统一实现 `plugin_id` 注入，覆盖 `/_p/<plugin_id>/...` 与 `/api/v1/integration/<slug>/...`（含 slug->plugin_id 映射）：`backend/internal/transport/http/middleware/*`、`backend/internal/infra/plugin/manager/router/*`
+- [ ] T073 [US6] 对齐 `http_request` 与 `audit_event` 字段读取策略，统一从上下文输出 `request_id/trace_id/plugin_id/tenant_uuid`（禁止仅依赖 meta）：`backend/internal/transport/http/middleware/*`、`backend/pkg/corex/audit/*`
+- [ ] T074 [US6] 对齐 `_p` 网关链路日志（`API-IN/GATE-*/PROXY-*`）字段注入与命名，补齐 `upstream_request_id` 回填：`backend/internal/infra/plugin/manager/router/*`
+- [ ] T075 [US6] 对齐 `wsbus.*` 与异步 worker（cron/queue/retry/event-fabric）上下文透传，移除无条件 `context.Background()` 断链点：`backend/internal/transport/websocket/*`、`backend/internal/app/shared/*`、`backend/internal/app/shared/workers/*`
+- [ ] T076 [US6] 新增日志上下文字段回归用例：同一 `request_id` 串联 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`、`wsbus.*`，且 `plugin_id` 非空：`backend/tests/integration/ops/*`
 
 **Checkpoint**: US6 可独立验收（插件日志接入稳定、策略可编排、结果可审计）。
