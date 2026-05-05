@@ -2,8 +2,10 @@ package bus
 
 import (
 	"context"
+	"strings"
 	"sync"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -79,8 +81,19 @@ func (h *Hub) Unsubscribe(client *Client, topic string) {
 }
 
 func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
+	h.PublishWithContext(context.Background(), tenantUUID, topic, payload, traceID)
+}
+
+func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, payload any, traceID string) {
 	if topic == "" {
 		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	requestID := requestIDFromContext(ctx)
+	if strings.TrimSpace(traceID) == "" {
+		traceID = reqctx.GetTraceID(ctx)
 	}
 	if traceID == "" {
 		traceID = uuid.NewString()
@@ -106,6 +119,7 @@ func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
 				zap.String("tenant_uuid", tenantUUID),
 				zap.String("client_tenant_uuid", client.TenantUUID),
 				zap.String("connection_id", client.ID),
+				zap.String("request_id", requestID),
 				zap.String("trace_id", traceID),
 			)
 			continue
@@ -118,9 +132,23 @@ func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
 		zap.String("stage", "emit"),
 		zap.String("topic", topic),
 		zap.String("tenant_uuid", tenantUUID),
+		zap.String("request_id", requestID),
 		zap.String("trace_id", traceID),
 		zap.Int("subscriber_count", subscriberCount),
 		zap.Int("emitted_count", emittedCount),
 		zap.Int("dropped_tenant_mismatch", droppedTenantMismatch),
 	)
+}
+
+func requestIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if v, ok := ctx.Value("request_id").(string); ok {
+		return strings.TrimSpace(v)
+	}
+	if v, ok := ctx.Value("powerx.request_id").(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }

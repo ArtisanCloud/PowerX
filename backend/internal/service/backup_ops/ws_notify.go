@@ -28,7 +28,7 @@ func publishBackupJobStatus(ctx context.Context, payload map[string]any) {
 	for k, v := range payload {
 		body[k] = v
 	}
-	wsbus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, body, strings.TrimSpace(reqctx.GetTraceID(ctx)))
+	wsbus.DefaultHub.PublishWithContext(ctx, tenantUUID, eventbus.TopicSystemNotification, body, strings.TrimSpace(reqctx.GetTraceID(ctx)))
 }
 
 func publishRestoreDrillStatus(ctx context.Context, payload map[string]any) {
@@ -48,7 +48,7 @@ func publishRestoreDrillStatus(ctx context.Context, payload map[string]any) {
 	for k, v := range payload {
 		body[k] = v
 	}
-	wsbus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, body, strings.TrimSpace(reqctx.GetTraceID(ctx)))
+	wsbus.DefaultHub.PublishWithContext(ctx, tenantUUID, eventbus.TopicSystemNotification, body, strings.TrimSpace(reqctx.GetTraceID(ctx)))
 }
 
 func toStringUint(v uint64) string {

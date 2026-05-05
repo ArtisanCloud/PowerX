@@ -1180,7 +1180,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			WaitTimeout:  3 * time.Second,
 			RetryDelay:   5 * time.Second,
 			Publish: func(tenantKey, topic string, payload any, traceID string) {
-				wsbus.DefaultHub.Publish(tenantKey, topic, payload, traceID)
+				wsbus.DefaultHub.PublishWithContext(context.Background(), tenantKey, topic, payload, traceID)
 			},
 			Logger: pxlog.GetGlobalLogger(),
 			Clock:  time.Now,
@@ -1618,7 +1618,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			if strings.TrimSpace(update.TenantUUID) == "" {
 				return
 			}
-			wsbus.DefaultHub.Publish(update.TenantUUID, eventbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
+			wsbus.DefaultHub.PublishWithContext(ctx, update.TenantUUID, eventbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
 		}),
 	})
 	svc.AttachIngestion(ingestionSvc)

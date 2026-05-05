@@ -511,7 +511,7 @@ func publishInstallTaskStatus(tenantUUID, taskID, status, errorSummary string) {
 		"createdAt":     time.Now().UTC().Format(time.RFC3339),
 		"isRead":        false,
 	}
-	wsbus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, payload, "")
+	wsbus.DefaultHub.PublishWithContext(context.Background(), tenantUUID, eventbus.TopicSystemNotification, payload, "")
 }
 
 func installSourceURL(task *models.SkillInstallTask) string {
