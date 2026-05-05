@@ -51,11 +51,16 @@ type serviceImpl struct {
 	sinks []Sink
 	opt   AuditOptions
 
-	ch    chan *dbm.AuditEvent
+	ch    chan queuedAuditEvent
 	stopC chan struct{}
 
 	consecFail int
 	dropUntil  time.Time
+}
+
+type queuedAuditEvent struct {
+	ctx context.Context
+	evt *dbm.AuditEvent
 }
 
 func NewService(opts ServiceOptions) Service {
@@ -81,7 +86,7 @@ func NewService(opts ServiceOptions) Service {
 		repo:  repoImpl,
 		sinks: sinks,
 		opt:   opt,
-		ch:    make(chan *dbm.AuditEvent, opt.BatchSize*8),
+		ch:    make(chan queuedAuditEvent, opt.BatchSize*8),
 		stopC: make(chan struct{}),
 	}
 	go s.loop()
@@ -89,13 +94,14 @@ func NewService(opts ServiceOptions) Service {
 }
 
 func (s *serviceImpl) Emit(ctx context.Context, evt *dbm.AuditEvent) error {
+	item := queuedAuditEvent{ctx: ctx, evt: evt}
 	select {
-	case s.ch <- evt:
+	case s.ch <- item:
 		return nil
 	default:
 		// 背压降级：Meta 只留摘要
 		evt.Meta = mustJSON(map[string]any{"_dropped_detail": true})
-		s.ch <- evt
+		s.ch <- item
 		return nil
 	}
 }
@@ -105,7 +111,7 @@ func (s *serviceImpl) Close() { close(s.stopC) }
 func (s *serviceImpl) loop() {
 	t := time.NewTimer(s.opt.BatchWait)
 	defer t.Stop()
-	var buf []*dbm.AuditEvent
+	var buf []queuedAuditEvent
 
 	flush := func() {
 		if len(buf) == 0 {
@@ -113,7 +119,8 @@ func (s *serviceImpl) loop() {
 		}
 		// 预处理（截断/哈希）
 		rows := make([]dbm.AuditEvent, 0, len(buf))
-		for _, e := range buf {
+		for _, item := range buf {
+			e := item.evt
 			s.prepare(e)
 			rows = append(rows, *e)
 		}
@@ -136,9 +143,14 @@ func (s *serviceImpl) loop() {
 			// 熔断窗口内：跳过落库，只旁路
 		}
 
-		for _, e := range buf {
+		for _, item := range buf {
+			e := item.evt
+			emitCtx := item.ctx
+			if emitCtx == nil {
+				emitCtx = context.Background()
+			}
 			for _, sk := range s.sinks {
-				_ = sk.Emit(context.Background(), e)
+				_ = sk.Emit(emitCtx, e)
 			}
 		}
 		buf = buf[:0]

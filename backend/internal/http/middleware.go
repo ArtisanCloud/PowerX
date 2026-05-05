@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
@@ -31,26 +30,17 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		c.Next()
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
-		traceID := audit.GetTraceID(c.Request.Context())
-		requestID, _ := c.Get("request_id")
-		requestIDStr, _ := requestID.(string)
 		query := sanitizeQuery(c.Request.URL.Query())
 		path := c.FullPath()
 		if strings.TrimSpace(path) == "" {
 			path = c.Request.URL.Path
 		}
-		pluginID := reqctx.ResolvePluginIDFromPathWithAPIPrefix(c.Request.URL.Path, config.ResolveAPIPrefix(config.GetGlobalConfig()))
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.String("query", query),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
-			zap.String("tenant_uuid", tenantUUID),
-			zap.String("trace_id", traceID),
-			zap.String("request_id", requestIDStr),
-			zap.String("plugin_id", pluginID),
 		)
 	}
 }

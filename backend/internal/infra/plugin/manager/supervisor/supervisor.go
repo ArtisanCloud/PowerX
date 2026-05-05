@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 const healthDebug = false
@@ -93,7 +95,7 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	s.proc[id] = pr
 
 	// 4) 将 stdout/stderr 输出到控制台 + 缓冲
-	attachProcessWriters(cmd, pr.logs)
+	attachProcessWriters(cmd, id, pr.logs)
 
 	// 5) 启动
 	if err := cmd.Start(); err != nil {
@@ -194,7 +196,7 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 			// 重新拉起
 			cmd := exec.Command(p.cmd.Path, p.cmd.Args[1:]...)
 			cmd.Env = p.cmd.Env
-			attachProcessWriters(cmd, p.logs)
+			attachProcessWriters(cmd, p.id, p.logs)
 			if err := cmd.Start(); err != nil {
 				p.info.LastExitErr = err.Error()
 			} else {
@@ -214,14 +216,74 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 	}
 }
 
-func attachProcessWriters(cmd *exec.Cmd, logs io.Writer) {
+func attachProcessWriters(cmd *exec.Cmd, pluginID string, logs io.Writer) {
+	stdoutForwarder := newProcessStreamForwarder(pluginID, "stdout")
+	stderrForwarder := newProcessStreamForwarder(pluginID, "stderr")
+
+	stdoutWriter := io.MultiWriter(logs, stdoutForwarder)
+	stderrWriter := io.MultiWriter(logs, stderrForwarder)
+
 	if allowForwardToStdIO() {
-		cmd.Stdout = io.MultiWriter(os.Stdout, logs)
-		cmd.Stderr = io.MultiWriter(os.Stderr, logs)
+		cmd.Stdout = io.MultiWriter(os.Stdout, stdoutWriter)
+		cmd.Stderr = io.MultiWriter(os.Stderr, stderrWriter)
 		return
 	}
-	cmd.Stdout = logs
-	cmd.Stderr = logs
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
+}
+
+type processStreamForwarder struct {
+	mu       sync.Mutex
+	pluginID string
+	stream   string
+	buf      bytes.Buffer
+}
+
+func newProcessStreamForwarder(pluginID, stream string) *processStreamForwarder {
+	return &processStreamForwarder{
+		pluginID: strings.TrimSpace(pluginID),
+		stream:   strings.TrimSpace(stream),
+	}
+}
+
+func (w *processStreamForwarder) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	_, _ = w.buf.Write(p)
+	for {
+		line, ok := w.readLine()
+		if !ok {
+			break
+		}
+		w.emit(line)
+	}
+	return len(p), nil
+}
+
+func (w *processStreamForwarder) readLine() (string, bool) {
+	data := w.buf.Bytes()
+	idx := bytes.IndexByte(data, '\n')
+	if idx < 0 {
+		return "", false
+	}
+	line := strings.TrimSpace(string(data[:idx]))
+	rest := append([]byte(nil), data[idx+1:]...)
+	w.buf.Reset()
+	_, _ = w.buf.Write(rest)
+	return line, true
+}
+
+func (w *processStreamForwarder) emit(line string) {
+	if line == "" {
+		return
+	}
+	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{
+		"module":    "plugin.runtime",
+		"plugin_id": w.pluginID,
+		"stream":    w.stream,
+	})
+	logger.Info(ctx, "plugin_runtime_log", zap.String("line", line))
 }
 
 func allowForwardToStdIO() bool {
