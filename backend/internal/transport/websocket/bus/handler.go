@@ -9,8 +9,10 @@ import (
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -85,6 +87,14 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	client.IsRoot = isRoot
 
 	h.hub.Register(client)
+	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "connected"),
+		zap.String("connection_id", client.ID),
+		zap.String("tenant_uuid", client.TenantUUID),
+		zap.Uint64("member_id", client.MemberID),
+		zap.Uint64("user_id", client.UserID),
+		zap.Bool("is_root", client.IsRoot),
+	)
 	_ = sendWelcome(client)
 	client.Run()
 }

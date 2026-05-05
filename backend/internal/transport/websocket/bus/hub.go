@@ -1,10 +1,13 @@
 package bus
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Hub manages WS sessions and topic subscriptions.
@@ -88,11 +91,36 @@ func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
 	}
 	h.mu.RLock()
 	subs := h.subscribers[topic]
+	subscriberCount := len(subs)
+	emittedCount := 0
+	droppedTenantMismatch := 0
 	for _, client := range subs {
-		if client == nil || client.TenantUUID != tenantUUID {
+		if client == nil {
+			continue
+		}
+		if client.TenantUUID != tenantUUID {
+			droppedTenantMismatch++
+			logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+				zap.String("stage", "drop_tenant_mismatch"),
+				zap.String("topic", topic),
+				zap.String("tenant_uuid", tenantUUID),
+				zap.String("client_tenant_uuid", client.TenantUUID),
+				zap.String("connection_id", client.ID),
+				zap.String("trace_id", traceID),
+			)
 			continue
 		}
 		client.sendEnvelope(env)
+		emittedCount++
 	}
 	h.mu.RUnlock()
+	logger.Info(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+		zap.String("stage", "emit"),
+		zap.String("topic", topic),
+		zap.String("tenant_uuid", tenantUUID),
+		zap.String("trace_id", traceID),
+		zap.Int("subscriber_count", subscriberCount),
+		zap.Int("emitted_count", emittedCount),
+		zap.Int("dropped_tenant_mismatch", droppedTenantMismatch),
+	)
 }

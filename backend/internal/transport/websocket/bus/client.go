@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 const (
@@ -78,6 +79,15 @@ func (c *Client) readLoop() {
 		if err := c.conn.ReadJSON(&cmd); err != nil {
 			return
 		}
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+			zap.String("stage", "request"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("request_type", strings.TrimSpace(cmd.Type)),
+			zap.String("request_topic", strings.TrimSpace(cmd.Topic)),
+			zap.Int("request_topics_count", len(cmd.Topics)),
+			zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+		)
 		switch strings.TrimSpace(cmd.Type) {
 		case dto.WSBusCmdSubscribe:
 			c.handleSubscribe(cmd)
@@ -123,6 +133,13 @@ func (c *Client) handleSubscribe(cmd dto.WSBusCommand) {
 	if len(allowed) == 0 {
 		return
 	}
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "subscribed"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.Strings("topics", allowed),
+		zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+	)
 	c.sendAck(cmd.ReqID, "subscribed", allowed)
 }
 
@@ -152,6 +169,15 @@ func (c *Client) sendAck(reqID, message string, topics []string) {
 }
 
 func (c *Client) sendError(reqID, code, message, detail string) {
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "send_error"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.String("request_id", strings.TrimSpace(reqID)),
+		zap.String("code", strings.TrimSpace(code)),
+		zap.String("message", strings.TrimSpace(message)),
+		zap.String("detail", strings.TrimSpace(detail)),
+	)
 	env, err := dto.NewWSBusEnvelope(dto.WSBusTypeError, "", dto.WSBusErrorPayload{
 		ReqID:   reqID,
 		Code:    code,
@@ -174,7 +200,12 @@ func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 	select {
 	case ch <- env:
 	default:
-		logger.DebugF(c.ctx, "[ws-bus] drop message topic=%s client=%s", env.Topic, c.ID)
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_queue_full"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("topic", env.Topic),
+		)
 	}
 }
 
