@@ -163,6 +163,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	// 宿主托管插件始终按 delegated_proxy 运行，不因启动时是否有租户上下文切换 runtime mode。
 	envAPI["POWERX_PROXY"] = "1"
 	applyDelegatedRuntimeEnv(envAPI)
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+		p.ID,
+		strings.TrimSpace(envAPI["IAMMode"]),
+		strings.TrimSpace(envAPI["IAM_MODE"]),
+		strings.TrimSpace(envAPI["POWERX_PROXY"]),
+		strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
+	)
 	if hasTenant {
 		if err := m.injectGatewaySecurityEnv(ctx, envAPI, p.ID, tenantUUID); err != nil {
 			recordGatewayContractValid(p.ID, false)
@@ -405,6 +412,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 		envADM["POWERX_PROXY"] = "1"
 		applyDelegatedRuntimeEnv(envADM)
+		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+			p.ID,
+			strings.TrimSpace(envADM["IAMMode"]),
+			strings.TrimSpace(envADM["IAM_MODE"]),
+			strings.TrimSpace(envADM["POWERX_PROXY"]),
+			strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
+		)
 		envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
 
 		if _, ok := envADM["NITRO_HOST"]; !ok {
@@ -568,6 +582,12 @@ func applyDelegatedRuntimeEnv(env map[string]string) {
 	if env == nil {
 		return
 	}
+	// Enforce delegated host-runtime contract for all managed plugins.
+	env["POWERX_PROXY"] = "1"
+	env["IAMMode"] = "delegated"
+	env["IAM_MODE"] = "delegated"
+	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
+
 	env["TASKBUS_PROVIDER"] = "host"
 	env["taskbus_provider"] = "host"
 	env["POWERX_TASKBUS_PROVIDER"] = "host"
