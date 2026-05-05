@@ -2,14 +2,20 @@ package plugin
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -83,6 +89,10 @@ func PluginTenantEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 			}
 			if err := svc.SetEnabled(c, tenantUUID, id, true); err != nil {
 				dtoRequest.ResponseError(c, 500, "启用失败", err)
+				return
+			}
+			if err := ensureTenantEventFabricTopics(c, deps, tenantUUID, id); err != nil {
+				dtoRequest.ResponseError(c, 500, "启用失败：Topic 注册失败", err)
 				return
 			}
 			// 首次创建会返回一次性明文 secret，此时尝试通过 gRPC 下发到插件（best-effort）
@@ -212,6 +222,53 @@ func tenantUUIDFromGin(c *gin.Context) (string, bool) {
 		return "", false
 	}
 	return canonical, true
+}
+
+func ensureTenantEventFabricTopics(c *gin.Context, deps *shared.Deps, tenantUUID, pluginID string) error {
+	if deps == nil || deps.EventFabric == nil || deps.EventFabric.Seeder == nil {
+		return nil
+	}
+	manager := pmimpl.GetPluginManager()
+	if manager == nil {
+		return fmt.Errorf("plugin manager is not initialized")
+	}
+	plugin, err := manager.Get(c.Request.Context(), pluginID)
+	if err != nil {
+		return fmt.Errorf("load plugin %s failed: %w", pluginID, err)
+	}
+
+	manifestPath, err := autoseed.ResolveManifestPath(plugin)
+	if err != nil {
+		return fmt.Errorf("resolve event manifest failed: %w", err)
+	}
+	if manifestPath == "" {
+		logger.DebugF(c.Request.Context(), "[plugin-tenant-enable] no event_fabric manifest found plugin=%s tenant=%s", pluginID, tenantUUID)
+		return nil
+	}
+
+	file, err := os.Open(manifestPath)
+	if err != nil {
+		return fmt.Errorf("open manifest %s failed: %w", manifestPath, err)
+	}
+	defer file.Close()
+
+	doc, err := manifest.Parse(file)
+	if err != nil {
+		return fmt.Errorf("parse manifest %s failed: %w", manifestPath, err)
+	}
+
+	seedCtx := manifest.SeedContext{
+		TenantUUID:    tenantUUID,
+		PluginID:      plugin.ID,
+		PluginVersion: plugin.Version,
+		Operator:      "plugin-tenant-enable",
+		Variables:     autoseed.BuildSeedVariables(plugin),
+	}
+	if _, err := deps.EventFabric.Seeder.ApplyManifest(c.Request.Context(), doc, seedCtx); err != nil {
+		return fmt.Errorf("seed event_fabric manifest failed: %w", err)
+	}
+	logger.InfoF(c.Request.Context(), "[plugin-tenant-enable] event_fabric seeded plugin=%s tenant=%s manifest=%s", pluginID, tenantUUID, manifestPath)
+	return nil
 }
 
 // DELETE /api/.../admin/plugins/:id/tenant_config
