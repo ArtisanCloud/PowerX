@@ -63,6 +63,11 @@ var busUpgrader = websocket.Upgrader{
 }
 
 func (h *Handler) ServeWS(c *gin.Context) {
+	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "serve_ws_enter"),
+		zap.String("path", strings.TrimSpace(c.Request.URL.Path)),
+		zap.String("query", strings.TrimSpace(c.Request.URL.RawQuery)),
+	)
 	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
@@ -77,8 +82,17 @@ func (h *Handler) ServeWS(c *gin.Context) {
 
 	conn, err := busUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+			zap.String("stage", "upgrade_failed"),
+			zap.Error(err),
+		)
 		return
 	}
+	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "upgraded"),
+		zap.String("tenant_uuid", strings.TrimSpace(tenantUUID)),
+		zap.Uint64("member_id", memberID),
+	)
 
 	client := NewClient(c.Request.Context(), conn, h.hub, h.authorizer)
 	client.TenantUUID = strings.TrimSpace(tenantUUID)
