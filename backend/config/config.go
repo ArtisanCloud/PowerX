@@ -302,6 +302,7 @@ type EventConfig struct {
 
 // HTTP服务器配置
 type ServerConfig struct {
+	Host                string             `yaml:"host"`                  // HTTP 监听主机
 	Port                int                `yaml:"port"`                  // HTTP 端口
 	ReadTimeoutSeconds  int                `yaml:"read_timeout_seconds"`  // 读取超时
 	WriteTimeoutSeconds int                `yaml:"write_timeout_seconds"` // 写入超时
@@ -778,6 +779,11 @@ func loadDotEnvFile(path string) error {
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) {
 	// Server配置
+	if host := os.Getenv("POWERX_BACKEND_HOST"); host != "" {
+		cfg.Server.Host = strings.TrimSpace(host)
+	} else if host := os.Getenv("CORE_X_SERVER_HOST"); host != "" {
+		cfg.Server.Host = strings.TrimSpace(host)
+	}
 	if port := os.Getenv("POWERX_BACKEND_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p

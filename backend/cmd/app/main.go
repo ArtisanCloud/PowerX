@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	pxcrypto "github.com/ArtisanCloud/PowerX/pkg/crypto"
+	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -71,8 +74,9 @@ func main() {
 	// 初始化应用核心依赖
 	setupOnlyMode := canFallbackToSetupOnly(cfg)
 	var (
-		deps *shared.Deps
-		err  error
+		deps      *shared.Deps
+		err       error
+		pluginMgr pm.Manager
 	)
 	if setupOnlyMode {
 		if err := ensureWrapKeyForSetupOnly(ctx, cfg); err != nil {
@@ -114,7 +118,7 @@ func main() {
 		r.Use(audit.GinAudit(deps.Auditor))
 
 		// 初始化插件管理器
-		_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
+		pluginMgr, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
 		if err != nil {
 			logger.WarnF(ctx, "BootstrapPlugin failed, continue without plugin runtime: %s", err.Error())
 		}
@@ -163,11 +167,15 @@ func main() {
 	}
 
 	// 启动 HTTP 服务
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	if setupOnlyMode {
-		logger.WarnF(ctx, "🚧 安装模式启动成功（setup-only），监听地址: http://localhost%s", addr)
-	} else {
-		logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://localhost%s\n", addr)
+	host := strings.TrimSpace(cfg.Server.Host)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", host, cfg.Server.Port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
+		return
 	}
 
 	// 挂载 Swagger UI（UI 默认读取 swagger.json，也可指定 openapi.min.json）
@@ -193,14 +201,25 @@ func main() {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
 
+	// 核心路由与依赖初始化完成后，再异步恢复插件，避免反向阻塞宿主启动。
+	if !setupOnlyMode && pluginMgr != nil {
+		bootstrap.StartPluginAutoRestore(ctx, pluginMgr, cfg)
+	}
+
+	if setupOnlyMode {
+		logger.WarnF(ctx, "🚧 安装模式启动成功（setup-only），监听地址: http://%s", addr)
+	} else {
+		logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://%s", addr)
+	}
+
 	// 打印路由（受 log.http_debug 控制）
 	// if cfg.LogConfig.HttpDebug {
 	// 	http.PrintRouteInfo(r, cfg)
 	// }
 
 	// 运行 HTTP 服务
-	err = r.Run(addr)
-	if err != nil {
+	srv := &nethttp.Server{Handler: r}
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
 }

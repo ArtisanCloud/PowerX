@@ -139,7 +139,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		HealthPath:     apiHealthPath,
 		HealthInterval: parseDurDefault(apiHC.Interval, 2*time.Second),
 		HealthTimeout:  parseDurDefault(apiHC.Timeout, 1*time.Second),
-		AutoRestart:    true,
+		AutoRestart:    false,
 		BackoffBase:    time.Second,
 		BackoffMax:     10 * time.Second,
 	}
@@ -436,7 +436,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			HealthPath:     adminHealthPath,
 			HealthInterval: parseDurDefault(adminHC.Interval, 2*time.Second),
 			HealthTimeout:  parseDurDefault(adminHC.Timeout, 1*time.Second),
-			AutoRestart:    true,
+			AutoRestart:    false,
 			BackoffBase:    time.Second,
 			BackoffMax:     10 * time.Second,
 		}

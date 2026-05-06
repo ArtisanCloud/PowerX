@@ -11,6 +11,7 @@ func GetDefaults() *Config {
 	return &Config{
 		Version: DefaultSystemVersion,
 		Server: ServerConfig{
+			Host:                "127.0.0.1",
 			Port:                8077,
 			ReadTimeoutSeconds:  5,
 			WriteTimeoutSeconds: 10,
