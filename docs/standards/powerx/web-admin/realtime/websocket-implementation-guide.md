@@ -31,6 +31,16 @@ location /api/ws {
 { "type": "subscribe", "topics": ["ai_craft.shopify.sync.progress.<tenant_uuid>"] }
 ```
 
+下行业务事件（统一规范）：
+```json
+{
+  "type": "event",
+  "topic": "ai_craft.shopify.product.sync.progress.tenant_<tenant_uuid>",
+  "payload": { "percent": 12, "stage": "sync_products" },
+  "trace_id": "<trace_id>"
+}
+```
+
 失败返回：
 ```json
 {
@@ -53,7 +63,8 @@ location /api/ws {
 
 1. grant 200 且 `data.topics` 非空。
 2. ws `subscribe` 无 `topic not allowed`。
-3. 宿主日志出现 `stage=subscribed` 与 `stage=emit`，并有 `emitted_count > 0`。
+3. 浏览器 WS 能收到 `type=event` 的目标 topic 消息。
+4. 宿主日志出现 `wsbus publish succeeded` 与 `SYNC_PROGRESS_PUBLISH`。
 
 ## 6. 常见故障定位
 
@@ -63,6 +74,7 @@ location /api/ws {
 2. `grant success but no event`
 - 先看 grant 是否仅 fallback；
 - 再看 ws subscribe 是否被拒绝。
+- 若 subscribe ack 成功但 UI 不更新：优先检查前端是否按 `type=event` 消费。
 
 3. `topic not allowed`
 - 核查 topic 是否已在 registry 精确注册；

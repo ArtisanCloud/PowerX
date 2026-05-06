@@ -32,6 +32,16 @@
 ```
 
 3. 注意：当前协议是 `topics[]`，不是单字段 `topic`。
+4. 下行业务事件统一使用：
+```json
+{
+  "type": "event",
+  "topic": "ai_craft.shopify.product.sync.progress.tenant_<tenant_uuid>",
+  "payload": { "percent": 12, "stage": "sync_products" },
+  "trace_id": "<trace_id>"
+}
+```
+5. 规范要求：前端统一按 `type = "event"` 消费，不再依赖 `emit` 类型。
 
 ## 3. 前端时序（推荐）
 
@@ -49,12 +59,13 @@
 
 2. 看浏览器 WS 帧
 - 必须看到：`{"type":"subscribe","topics":[...]}`
+- 必须看到：`{"type":"event","topic":"...","payload":{...}}`
 - 不应出现：`permission_denied / topic not allowed`
 
 3. 看宿主日志
 ```bash
 sudo journalctl -u powerx-backend --since "10 min ago" --no-pager -l | \
-grep -E 'transport.wsbus|stage":"subscribed"|stage":"emit"|topic not allowed'
+grep -E 'wsbus publish succeeded|SYNC_PROGRESS_PUBLISH|topic not allowed'
 ```
 
 ## 5. 已知边界

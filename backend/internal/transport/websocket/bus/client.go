@@ -106,10 +106,38 @@ func (c *Client) writeLoop() {
 		if c.conn == nil {
 			return
 		}
+		subscribedTopics := c.snapshotTopics()
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_downlink_attempt"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("type", strings.TrimSpace(env.Type)),
+			zap.String("topic", strings.TrimSpace(env.Topic)),
+			zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+			zap.Int("subscribed_topics_count", len(subscribedTopics)),
+			zap.Strings("subscribed_topics", subscribedTopics),
+		)
 		_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := c.conn.WriteJSON(env); err != nil {
+			logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+				zap.String("stage", "send_downlink_failed"),
+				zap.String("connection_id", c.ID),
+				zap.String("tenant_uuid", c.TenantUUID),
+				zap.String("type", strings.TrimSpace(env.Type)),
+				zap.String("topic", strings.TrimSpace(env.Topic)),
+				zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+				zap.Error(err),
+			)
 			return
 		}
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_downlink_ok"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("type", strings.TrimSpace(env.Type)),
+			zap.String("topic", strings.TrimSpace(env.Topic)),
+			zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+		)
 	}
 }
 
@@ -219,6 +247,19 @@ func (c *Client) removeTopic(topic string) {
 	c.mu.Lock()
 	delete(c.topics, topic)
 	c.mu.Unlock()
+}
+
+func (c *Client) snapshotTopics() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.topics) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(c.topics))
+	for topic := range c.topics {
+		out = append(out, topic)
+	}
+	return out
 }
 
 func normalizeTopics(cmd dto.WSBusCommand) []string {

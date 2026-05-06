@@ -38,6 +38,39 @@
 
 说明：当前版本不依赖占位符模板匹配；按精确组合注册最稳。
 
+### 3.2 动态变量语法（强制）
+
+当前 PowerX event-fabric manifest 仅支持 **双花括号模板语法**：
+
+- 正确：`{{tenant_uuid}}`
+- 错误：`{tenant_uuid}`
+
+如果写成单花括号，变量不会渲染，会直接参与 `name` 校验，触发：
+- `name must match ^[a-z][a-z0-9-_]*$`
+
+示例（正确）：
+
+```yaml
+topics:
+  - topic: ai_craft.shopify.sync.progress.tenant_{{tenant_uuid}}
+  - topic: ai_craft.notify.tenant.tenant_{{tenant_uuid}}
+  - topic: ai_craft.order.tenant.tenant_{{tenant_uuid}}
+```
+
+### 3.3 Name 命名约束（强制）
+
+当前底座 `event_fabric` 目录校验要求 `name` 必须匹配：
+
+- `^[a-z][a-z0-9-_]*$`
+
+因此：
+
+1. 不要使用裸 UUID 作为 `name`（例如 `{{tenant_uuid}}`），因为租户 UUID 常以数字开头，会被拒绝。
+2. 推荐使用字母前缀方案：
+   - `tenant_{{tenant_uuid}}`
+3. 对应完整 topic 示例：
+   - `ai_craft.shopify.sync.progress.tenant_{{tenant_uuid}}`
+
 ---
 
 ## 3.1 字段映射（按当前代码实现）
