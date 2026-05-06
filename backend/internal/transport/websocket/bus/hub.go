@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -105,6 +106,7 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 	h.mu.RLock()
 	subs := h.subscribers[topic]
 	subscriberCount := len(subs)
+	fmt.Printf("[ws-probe] emit_start topic=%s tenant=%s trace_id=%s subscriber_count=%d\n", topic, tenantUUID, traceID, subscriberCount)
 	emittedCount := 0
 	droppedTenantMismatch := 0
 	for _, client := range subs {
@@ -128,6 +130,7 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 		emittedCount++
 	}
 	h.mu.RUnlock()
+	fmt.Printf("[ws-probe] emit_done topic=%s tenant=%s trace_id=%s emitted_count=%d dropped_tenant_mismatch=%d\n", topic, tenantUUID, traceID, emittedCount, droppedTenantMismatch)
 	logger.Info(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
 		zap.String("stage", "emit"),
 		zap.String("topic", topic),
