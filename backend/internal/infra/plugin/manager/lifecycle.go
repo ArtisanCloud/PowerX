@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
@@ -27,6 +28,13 @@ import (
 // Enable: 启用插件 = (挂 Admin 静态) + (启动进程并健康检查) + (挂 API/Admin 反代) + (更新注册表)
 // internal/infra/plugin/manager/lifecycle.go
 func (m *managerImpl) Enable(ctx context.Context, id string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// 进程生命周期不能绑定在 HTTP 请求上下文上：
+	// 安装/启用 API 返回后请求 ctx 会被取消，若直接传给 exec.CommandContext
+	// 将导致刚拉起的插件进程被意外杀掉（表现为安装后首访 502，重启后恢复）。
+	procCtx := context.WithoutCancel(ctx)
 	p, err := m.mustGet(ctx, id)
 
 	if err != nil {
@@ -269,7 +277,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	}
 
 	// —— 启动后端
-	apiPort, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envAPI, supOpts)
+	apiPort, err := m.sup.Start(procCtx, p.ID, p.Paths.Entry, p.Runtime.Args, envAPI, supOpts)
 	if err != nil {
 		// 若启动失败，避免保留半初始化的进程记录
 		_ = m.sup.Stop(p.ID)
@@ -411,15 +419,21 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			}
 		}
 		envADM["POWERX_PROXY"] = "1"
-		applyDelegatedRuntimeEnv(envADM)
-		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
-			p.ID,
-			strings.TrimSpace(envADM["IAMMode"]),
-			strings.TrimSpace(envADM["IAM_MODE"]),
-			strings.TrimSpace(envADM["POWERX_PROXY"]),
-			strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
-		)
-		envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
+	applyDelegatedRuntimeEnv(envADM)
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+		p.ID,
+		strings.TrimSpace(envADM["IAMMode"]),
+		strings.TrimSpace(envADM["IAM_MODE"]),
+		strings.TrimSpace(envADM["POWERX_PROXY"]),
+		strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
+	)
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s ws_contract ws_base=%s ws_upstream=%s ws_url=%s",
+		p.ID,
+		strings.TrimSpace(envADM["PX_WS_BASE_URL"]),
+		strings.TrimSpace(envADM["WS_UPSTREAM"]),
+		strings.TrimSpace(envADM["NUXT_PUBLIC_WS_URL"]),
+	)
+	envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
 
 		if _, ok := envADM["NITRO_HOST"]; !ok {
 			envADM["NITRO_HOST"] = "127.0.0.1" // 无害缺省，保留可被 env 覆盖
@@ -430,8 +444,10 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		// 健康探针参数（按清单）
+		// Admin 进程默认不强制 health 探针，避免不同框架/构建形态下
+		// 未暴露 /healthz 导致被 supervisor 误判并主动 SIGTERM。
 		adminHC := adm.Health
-		adminHealthPath := utils.FirstNonEmpty(adminHC.HTTPPath, "/healthz")
+		adminHealthPath := strings.TrimSpace(adminHC.HTTPPath)
 		adminSup := supervisor.Options{
 			HealthPath:     adminHealthPath,
 			HealthInterval: parseDurDefault(adminHC.Interval, 2*time.Second),
@@ -453,7 +469,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			}
 		}
 		// ★ 关键：按插件给的 entry/args 原样执行（entry 仅做绝对路径解析）
-		adminPort, err := m.sup.Start(ctx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
+		adminPort, err := m.sup.Start(procCtx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
 		if err != nil {
 			logger.WarnF(ctx, "[plugin-enable] plugin=%s admin process start failed: %v (fallback)", p.ID, err)
 			// 回退：若有静态目录挂静态，否则复用后端端口
@@ -470,8 +486,31 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		adminBaseURL := "http://127.0.0.1:" + strconv.Itoa(adminPort)
-		// 健康探测失败也不阻塞；最多少等一会
-		_ = waitHealthy(ctx, adminBaseURL, adminHealthPath, adminSup.HealthInterval, adminSup.HealthTimeout)
+		ready := true
+		if strings.TrimSpace(adminHealthPath) != "" {
+			if err := waitHealthy(ctx, adminBaseURL, adminHealthPath, adminSup.HealthInterval, adminSup.HealthTimeout); err != nil {
+				ready = false
+				logger.WarnF(ctx, "[plugin-enable] plugin=%s admin health check failed: %v", p.ID, err)
+			}
+		} else {
+			if err := waitSupervisorProcessStable(procCtx, m.sup, adminProcID, 3*time.Second); err != nil {
+				ready = false
+				logger.WarnF(ctx, "[plugin-enable] plugin=%s admin process not stable after start: %v", p.ID, err)
+			}
+		}
+		if !ready {
+			_ = m.sup.Stop(adminProcID)
+			if p.Paths.FrontendAdminDir != "" {
+				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
+					if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
+						m.http.MountAdminStatic(p.ID, abs)
+					}
+				}
+			} else {
+				m.http.MountAdminProxy(p.ID, apiURL)
+			}
+			break
+		}
 
 		// ★ 成功：挂 Admin 反代
 		adminURL, _ := url.Parse(adminBaseURL)
@@ -627,6 +666,34 @@ func waitHealthy(ctx context.Context, baseURL, healthPath string, interval, time
 	return fmt.Errorf("health check timeout for %s", healthURL)
 }
 
+func waitSupervisorProcessStable(ctx context.Context, sup *supervisor.Supervisor, procID string, window time.Duration) error {
+	if sup == nil {
+		return fmt.Errorf("supervisor is nil")
+	}
+	if strings.TrimSpace(procID) == "" {
+		return fmt.Errorf("proc id is empty")
+	}
+	if window <= 0 {
+		window = 2 * time.Second
+	}
+	deadline := time.Now().Add(window)
+	if dl, ok := ctx.Deadline(); ok && dl.Before(deadline) {
+		deadline = dl
+	}
+	for time.Now().Before(deadline) {
+		info, ok := sup.Status(procID)
+		if !ok {
+			return fmt.Errorf("process not found")
+		}
+		switch info.State {
+		case supervisor.ProcStopped, supervisor.ProcExited, supervisor.ProcCrashed:
+			return fmt.Errorf("state=%s exit=%s", info.State, strings.TrimSpace(info.LastExitErr))
+		}
+		time.Sleep(120 * time.Millisecond)
+	}
+	return nil
+}
+
 func cloneEnvMap(src map[string]string) map[string]string {
 	if len(src) == 0 {
 		return map[string]string{}
@@ -732,6 +799,7 @@ func (m *managerImpl) injectGatewaySecurityEnv(ctx context.Context, env map[stri
 	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
 	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 	env["PX_PLUGIN_TOOL_TOKEN"] = toolToken
+	applyWSContractEnv(env, cfg)
 	delete(env, "PX_GATEWAY_API_KEY")
 	delete(env, "PX_PLUGIN_API_KEY")
 	delete(env, "PX_TOOL_TOKEN")
@@ -808,10 +876,44 @@ func (m *managerImpl) injectGatewayBootstrapEnv(env map[string]string, pluginID 
 	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
 	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 	env["PX_PLUGIN_TOOL_TOKEN"] = toolToken
+	applyWSContractEnv(env, cfg)
 	delete(env, "PX_GATEWAY_API_KEY")
 	delete(env, "PX_PLUGIN_API_KEY")
 	delete(env, "PX_TOOL_TOKEN")
 	return nil
+}
+
+func applyWSContractEnv(env map[string]string, cfg *config.Config) {
+	if env == nil || cfg == nil {
+		return
+	}
+	if strings.TrimSpace(env["NUXT_PUBLIC_WS_URL"]) == "" {
+		env["NUXT_PUBLIC_WS_URL"] = "/api/ws"
+	}
+	if strings.TrimSpace(env["PX_WS_BASE_URL"]) != "" && strings.TrimSpace(env["WS_UPSTREAM"]) != "" {
+		return
+	}
+
+	// 可由运维显式覆盖：优先使用 POWERX_GATEWAY_WS_BASE_URL（如 wss://agent.example.com）
+	wsBase := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_WS_BASE_URL"))
+	if wsBase == "" {
+		host := "127.0.0.1"
+		if h := strings.TrimSpace(cfg.Server.Host); h != "" && h != "0.0.0.0" && h != "::" {
+			host = h
+		}
+		port := cfg.Server.Port
+		if port <= 0 {
+			port = 8080
+		}
+		wsBase = fmt.Sprintf("ws://%s:%d", host, port)
+	}
+	wsBase = strings.TrimRight(wsBase, "/")
+	if strings.TrimSpace(env["PX_WS_BASE_URL"]) == "" {
+		env["PX_WS_BASE_URL"] = wsBase
+	}
+	if strings.TrimSpace(env["WS_UPSTREAM"]) == "" {
+		env["WS_UPSTREAM"] = wsBase
+	}
 }
 
 func (m *managerImpl) resolveBootstrapTenantUUID(pluginID string) (string, error) {

@@ -180,6 +180,16 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 	if err != nil {
 		p.info.LastExitErr = err.Error()
 	}
+	// 无论是否自动重启，都把退出原因和最近日志打到主日志，便于定位插件子进程秒退问题。
+	exitTail := ""
+	if p.logs != nil {
+		exitTail = strings.TrimSpace(string(p.logs.Snapshot(8 * 1024)))
+	}
+	if err != nil {
+		logger.ErrorF(context.Background(), "[plugin-runtime-exit] id=%s pid=%d port=%d err=%v tail=%q", p.id, p.info.PID, p.port, err, exitTail)
+	} else {
+		logger.WarnF(context.Background(), "[plugin-runtime-exit] id=%s pid=%d port=%d err=<nil> tail=%q", p.id, p.info.PID, p.port, exitTail)
+	}
 	// 如果是 Stop 显式终止，外层会置 Stopped；这里分情况
 	if p.info.State != ProcStopped {
 		p.info.State = ProcExited

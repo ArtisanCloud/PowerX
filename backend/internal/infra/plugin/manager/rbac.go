@@ -114,6 +114,15 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 				probePath := joinPolicyPath(base, "/admin/runtime/logging/probe")
 				pol.Routes["POST:"+probePath] = pmrouter.Permission{Resource: res, Action: probeAct}
 			}
+			// ⑦ WS-Bus 调试入口：统一补齐 test-flow/grant/publish，避免 admin 首段自动推导 miss。
+			if wsAct := pickRouteAction(pol.Resources[res], []string{"create", "write", "update", "read"}); wsAct != "" {
+				wsTestPath := joinPolicyPath(base, "/admin/runtime/ws-bus/test-flow")
+				wsGrantPath := joinPolicyPath(base, "/admin/runtime/ws-bus/grant")
+				wsPublishPath := joinPolicyPath(base, "/admin/runtime/ws-bus/publish")
+				pol.Routes["POST:"+wsTestPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+				pol.Routes["POST:"+wsGrantPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+				pol.Routes["POST:"+wsPublishPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+			}
 		}
 	}
 	return pol
@@ -127,7 +136,7 @@ func InstallPolicy(dr *pmrouter.DynamicRouter, pluginID string, pol *pmrouter.Po
 }
 
 // --------- helpers ---------
-// 鉴权视角的 HTTPBase：把 manifest 的 "/api/v1" → "/v1"；"/api" → "/"
+// 鉴权视角的 HTTPBase：与宿主网关坐标保持一致，保留插件声明（通常是 "/api/v1"）。
 func toPolicyHTTPBase(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -136,13 +145,6 @@ func toPolicyHTTPBase(s string) string {
 	if s[0] != '/' {
 		s = "/" + s
 	}
-	if s == "/api" {
-		return "/"
-	}
-	if strings.HasPrefix(s, "/api/") {
-		return "/" + strings.TrimPrefix(s, "/api/")
-	}
-	// 已经是 "/v1" 这类，原样返回
 	return s
 }
 

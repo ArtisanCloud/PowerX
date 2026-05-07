@@ -69,7 +69,7 @@ export default defineNuxtConfig({
       wsUpstream: process.env.WS_UPSTREAM || DEFAULT_WS_UPSTREAM,
       wsAgentPrefix: process.env.NUXT_PUBLIC_WS_AGENT_PREFIX || "/ws",
       apiBase: API_BASE_PREFIX, // 前端请求前缀（可由 POWERX_BACKEND path 推断）
-      wsUrl: "/api/ws",
+      wsUrl: process.env.NUXT_PUBLIC_WS_URL || "/api/ws",
 
       // 语言配置
       defaultLanguage: process.env.NUXT_DEFAULT_LANGUAGE || "zh",

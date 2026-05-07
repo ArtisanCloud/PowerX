@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // --------- 1) 抽象：Authorizer（外部注入，实现从 DB/缓存等取“谁拥有什么”） ---------
@@ -222,6 +224,10 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 	var need *Permission
 	if pol := g.policies[pluginID]; pol != nil {
 		need = pol.Required(method, reqPath)
+		logger.DebugF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s policy_base=%s routes=%d resources=%d need=%s",
+			pluginID, method, reqPath, strings.TrimSpace(pol.HTTPBase), len(pol.Routes), len(pol.Resources), formatPermission(need))
+	} else {
+		logger.DebugF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s policy=nil", pluginID, method, reqPath)
 	}
 	if need == nil {
 		return "", false, "no permission rule for this route"
@@ -234,6 +240,8 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 			return "", false, "authz backend unavailable"
 		}
 		if !hasPermission(perms, *need) {
+			logger.WarnF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s deny=permission_miss need=%s user_perms=%s",
+				pluginID, method, reqPath, formatPermission(need), strings.Join(normalizePermsForLog(perms), ","))
 			return "", false, fmt.Sprintf("permission required: %s:%s", need.Resource, need.Action)
 		}
 	}
@@ -244,6 +252,29 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 		return "", false, "mint token failed"
 	}
 	return tok, true, ""
+}
+
+func formatPermission(p *Permission) string {
+	if p == nil {
+		return "<nil>"
+	}
+	return strings.TrimSpace(p.Resource) + ":" + strings.TrimSpace(p.Action)
+}
+
+func normalizePermsForLog(perms []string) []string {
+	if len(perms) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(perms))
+	for _, p := range perms {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (g *authzGate) mintPluginToken(pluginID string, base reqctx.CoreXClaims) (string, error) {

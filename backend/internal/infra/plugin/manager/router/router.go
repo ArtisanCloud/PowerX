@@ -466,16 +466,19 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 
 	// 预检 + 下发短期 Token（可选）
 	var pluginToken string
+	gatePath := normalizeGatePathForPolicy(clientPath, up.basePath)
+	logger.DebugF(c.Request.Context(), "[GATE-PATH] plugin=%s method=%s raw=%s normalized=%s basePath=%s tenant_uuid=%s request_id=%s trace_id=%s",
+		pluginID, c.Request.Method, clientPath, gatePath, up.basePath, logTenantUUID, requestID, traceID)
 	if r.gate != nil {
-		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, clientPath, claims)
+		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
-				pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID, reason)
+				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, reason)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
 			return
 		}
 		pluginToken = tok
-		logger.InfoF(c.Request.Context(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s", pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID)
+		logger.DebugF(c.Request.Context(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s", pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID)
 
 	}
 
@@ -529,32 +532,20 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			req.URL.Host = up.target.Host
 		}
 
-		// 只做传球：把 "/_p/<id>/api/*" 裁剪为插件真实 basePath
+		// 只做传球：把 "/_p/<id>/api/*" 裁剪并归一为策略坐标，再映射到上游路径。
 		trimmed := trimToAPIClientPath(joinURLPath(r.basePrefix, pluginID, "api", clientPath))
-		versionBase := up.basePath
-		if strings.HasPrefix(versionBase, "/api/") {
-			versionBase = "/" + strings.TrimPrefix(versionBase, "/api/")
-		} else if versionBase == "/api" {
-			versionBase = "/"
-		}
-		tail := trimmed
-		if versionBase != "/" && strings.HasPrefix(trimmed, versionBase) {
-			tail = strings.TrimPrefix(trimmed, versionBase)
-			if !strings.HasPrefix(tail, "/") {
-				tail = "/" + tail
-			}
-		}
-		reqPath := joinURLPath(up.target.Path, up.basePath, tail)
+		normalized := normalizeGatePathForPolicy(trimmed, up.basePath)
+		reqPath := buildAPIUpstreamPath(up.target.Path, up.basePath, normalized)
 		req.URL.Path = reqPath
 		req.URL.RawPath = reqPath
 		// === 关键日志：最终上游路径 ===
-		logger.InfoF(c.Request.Context(), "[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s => upstream=%s",
+		logger.DebugF(c.Request.Context(), "[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s => upstream=%s",
 			pluginID, up.basePath, clientPath, logTenantUUID, requestID, traceID, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
-			logger.InfoF(c.Request.Context(), "[GATE-TOKEN] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s token.head=%s... tid=%s",
-				pluginID, logTenantUUID, requestID, traceID, pluginToken[:40], extractJWTStringClaim(pluginToken, "tid"))
+			logger.DebugF(c.Request.Context(), "[GATE-TOKEN] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s tid=%s",
+				pluginID, logTenantUUID, requestID, traceID, extractJWTStringClaim(pluginToken, "tid"))
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
 		}
 		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
@@ -562,11 +553,11 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			tenantUUID = strings.TrimSpace(claims.TenantUUID)
 		}
 		if tenantUUID != "" {
-			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID=%s", pluginID, requestID, traceID, tenantUUID)
+			logger.DebugF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID=%s", pluginID, requestID, traceID, tenantUUID)
 			req.Header.Set("tenant_uuid", tenantUUID)
 			req.Header.Set("X-PowerX-Tenant", tenantUUID)
 		} else {
-			logger.InfoF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID missing", pluginID, requestID, traceID)
+			logger.DebugF(c.Request.Context(), "[PROXY-CTX] plugin=%s request_id=%s trace_id=%s tenantUUID missing", pluginID, requestID, traceID)
 			req.Header.Del("tenant_uuid")
 			req.Header.Del("X-PowerX-Tenant")
 		}
@@ -582,6 +573,65 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.Host = up.target.Host
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func normalizeGatePathForPolicy(clientPath, basePath string) string {
+	path := strings.TrimSpace(clientPath)
+	if path == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	base := strings.TrimSpace(basePath)
+	if base == "" {
+		return path
+	}
+	if !strings.HasPrefix(base, "/") {
+		base = "/" + base
+	}
+	base = strings.TrimRight(base, "/")
+
+	// 常见场景：route 是 "/_p/:id/api/*filepath"，传入 clientPath 变为 "/v1/..."
+	// 而策略希望在 "/api/v1/..." 坐标匹配。这里按插件声明的 basePath 进行归一。
+	if strings.HasPrefix(base, "/api/") && strings.HasPrefix(path, "/v1/") {
+		return "/api" + path
+	}
+	if strings.HasPrefix(base, "/api") && !strings.HasPrefix(path, "/api/") {
+		return joinURLPath("/api", path)
+	}
+	return path
+}
+
+func buildAPIUpstreamPath(targetPath, basePath, normalizedPath string) string {
+	base := strings.TrimSpace(basePath)
+	if base == "" {
+		base = "/"
+	}
+	if !strings.HasPrefix(base, "/") {
+		base = "/" + base
+	}
+	base = strings.TrimRight(base, "/")
+	if base == "" {
+		base = "/"
+	}
+
+	p := strings.TrimSpace(normalizedPath)
+	if p == "" {
+		p = "/"
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+
+	if base == "/" {
+		return joinURLPath(targetPath, p)
+	}
+	if p == base || strings.HasPrefix(p, base+"/") {
+		return joinURLPath(targetPath, p)
+	}
+	return joinURLPath(targetPath, base, p)
 }
 
 func extractJWTStringClaim(token, claim string) string {
@@ -860,7 +910,8 @@ func trimToAPIClientPath(p string) string {
 	if i < 0 {
 		return p
 	}
-	return rest[i+len("/api/")-1:] // 保留前导 '/'
+	// 仅剥离 "/_p/<id>" 挂载前缀，保留后续完整 client path（含 "/api/v1"）。
+	return rest[i:] // 结果以 '/' 开头
 }
 
 func isIdentityAuthClientPath(clientPath string) bool {
