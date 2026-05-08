@@ -19,21 +19,22 @@ type Instruments struct {
 
 // NewInstruments initializes the debug instrumentation set.
 func NewInstruments(component string) *Instruments {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "plugin_debug.instrumentation"})
 	meter := otel.Meter(component)
 
 	latency, err := meter.Float64Histogram("debug.hot_reload.duration_ms")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create debug hot reload duration histogram failed: %v", err)
+		logger.ErrorF(logCtx, "create debug hot reload duration histogram failed: %v", err)
 	}
 
 	failures, err := meter.Int64Counter("debug.hot_reload.failure_total")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create debug hot reload failure counter failed: %v", err)
+		logger.ErrorF(logCtx, "create debug hot reload failure counter failed: %v", err)
 	}
 
 	mismatch, err := meter.Int64Counter("debug.host.version_mismatch_total")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create debug host version mismatch counter failed: %v", err)
+		logger.ErrorF(logCtx, "create debug host version mismatch counter failed: %v", err)
 	}
 
 	return &Instruments{

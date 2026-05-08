@@ -94,7 +94,7 @@ func InitDefaultEventBus(config *Config) error {
 // Subscribe 使用默认事件总线订阅事件
 func Subscribe(eventType string, handler Handler) (unsubscribe func()) {
 	if DefaultEventBus == nil {
-		logger.WarnF(context.Background(), "警告: 默认事件总线未初始化")
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.factory"}), "警告: 默认事件总线未初始化")
 		return func() {}
 	}
 	return DefaultEventBus.Subscribe(eventType, handler)
@@ -103,7 +103,7 @@ func Subscribe(eventType string, handler Handler) (unsubscribe func()) {
 // Publish 使用默认事件总线发布事件
 func Publish(event Event) {
 	if DefaultEventBus == nil {
-		logger.WarnF(context.Background(), "警告: 默认事件总线未初始化")
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.factory"}), "警告: 默认事件总线未初始化")
 		return
 	}
 	DefaultEventBus.Publish(event.Name, event.Payload, event.Ctx)

@@ -246,7 +246,7 @@ func (h *Handler) PushTestNotification(c *gin.Context) {
 		return
 	}
 	payload := toNotificationView(item)
-	bus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
 	dto.ResponseSuccess(c, payload)
 }
 

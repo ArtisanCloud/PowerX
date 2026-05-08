@@ -237,3 +237,27 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - [X] T065 [US5] quickstart 增加 `log.retention` 配置样例与验收步骤：`specs/027-monitor-center/quickstart.md`
 
 **Checkpoint**: US5 可独立验收（统一策略生效、执行可见、失败可排障）。
+
+---
+
+## Phase 9: User Story 6 - 插件日志统一接入（Host 模式）(Priority: P1)
+
+**Goal**: 宿主模式下插件日志稳定进入 PowerX 统一日志链路，并支持平台化 `policy/probe` 编排与审计。
+
+**Independent Test**: 启用宿主模式插件后，在监控中心可检索插件日志字段；执行 policy/probe 可返回并审计结果。
+
+### Implementation for User Story 6
+
+- [ ] T066 [US6] 调整插件 supervisor 默认 stdout/stderr 透传策略，确保插件日志进入宿主采集链路：`backend/internal/infra/plugin/manager/supervisor/supervisor.go`、`config/powerx.env.example`
+- [ ] T067 [US6] systemd 部署模板补充 `POWERX_SUPERVISOR_FORWARD_STDIO` 推荐值与说明：`deploy/powerx/systemd/powerx.env.example`、`docs/guides/deploy/*`
+- [ ] T068 [US6] 为 Promtail 增加插件 JSON pipeline 与低基数标签提取：`deploy/observability/promtail/promtail-config.yaml`、`deploy/powerx/docker/observability/promtail-config.yaml`
+- [ ] T069 [US6] 新增插件日志策略编排服务（GET/PUT policy + POST probe）并记录审计：`backend/internal/service/monitor_logs/*`、`backend/internal/transport/http/admin/monitor/*`
+- [ ] T070 [P] [US6] 监控中心 Logs/Trace 页面增加“插件策略探测结果”可视化区块：`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`
+- [ ] T071 [US6] quickstart 补充插件日志联调验收与回滚步骤：`specs/027-monitor-center/quickstart.md`
+- [ ] T072 [US6] 在宿主 HTTP 最外层统一实现 `plugin_id` 注入，覆盖 `/_p/<plugin_id>/...` 与 `/api/v1/integration/<slug>/...`（含 slug->plugin_id 映射）：`backend/internal/transport/http/middleware/*`、`backend/internal/infra/plugin/manager/router/*`
+- [ ] T073 [US6] 对齐 `http_request` 与 `audit_event` 字段读取策略，统一从上下文输出 `request_id/trace_id/plugin_id/tenant_uuid`（禁止仅依赖 meta）：`backend/internal/transport/http/middleware/*`、`backend/pkg/corex/audit/*`
+- [ ] T074 [US6] 对齐 `_p` 网关链路日志（`API-IN/GATE-*/PROXY-*`）字段注入与命名，补齐 `upstream_request_id` 回填：`backend/internal/infra/plugin/manager/router/*`
+- [ ] T075 [US6] 对齐 `wsbus.*` 与异步 worker（cron/queue/retry/event-fabric）上下文透传，移除无条件 `context.Background()` 断链点：`backend/internal/transport/websocket/*`、`backend/internal/app/shared/*`、`backend/internal/app/shared/workers/*`
+- [ ] T076 [US6] 新增日志上下文字段回归用例：同一 `request_id` 串联 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`、`wsbus.*`，且 `plugin_id` 非空：`backend/tests/integration/ops/*`
+
+**Checkpoint**: US6 可独立验收（插件日志接入稳定、策略可编排、结果可审计）。

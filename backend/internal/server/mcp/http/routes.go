@@ -35,25 +35,25 @@ func SetupRoutes(cfg *config.MCPConfig, ginEngine *gin.Engine) {
 
 // printRouteInfo 动态打印路由信息（参考 internal/http/router.go）
 func PrintRouteInfo(cfg *config.MCPConfig, ginEngine *gin.Engine) {
-	// logger.InfoF(context.Background(), "%+v", cfg)
+	// logger.InfoF(ctx, "%+v", cfg)
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	pxlog.Info(context.Background(), "📍 已注册的 MCP 路由:")
-	pxlog.Info(context.Background(), "┌─────────────────────────────────────────────────────────────┐")
-	pxlog.InfoF(context.Background(), "│ 服务地址: http://%-42s│", addr)
-	pxlog.Info(context.Background(), "├─────────────────────────────────────────────────────────────┤")
+	pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "📍 已注册的 MCP 路由:")
+	pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "┌─────────────────────────────────────────────────────────────┐")
+	pxlog.InfoF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "│ 服务地址: http://%-42s│", addr)
+	pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "├─────────────────────────────────────────────────────────────┤")
 
 	routes := ginEngine.Routes()
 	if len(routes) == 0 {
-		pxlog.Info(context.Background(), "│ (未发现已注册路由，请确认路由是否正确注册)                    │")
+		pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "│ (未发现已注册路由，请确认路由是否正确注册)                    │")
 	}
 
 	// 动态获取路由信息并打印
 	for _, route := range routes {
 		// 从路由的 HandlerName 或其他属性动态获取描述
 		description := getRouteDescription(route, cfg)
-		pxlog.InfoF(context.Background(), "│ %-6s %-25s - %-25s│", route.Method, route.Path, description)
+		pxlog.InfoF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "│ %-6s %-25s - %-25s│", route.Method, route.Path, description)
 	}
-	pxlog.Info(context.Background(), "└─────────────────────────────────────────────────────────────┘")
+	pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "└─────────────────────────────────────────────────────────────┘")
 }
 
 // getRouteDescription 动态获取路由描述
@@ -97,7 +97,7 @@ func FindAvailablePort(cfg *config.MCPConfig, startPort int) int {
 		port++
 		// 防止无限循环，限制端口范围
 		if port > startPort+100 {
-			pxlog.WarnF(context.Background(), "⚠️ 无法在端口范围 %d-%d 内找到可用端口，使用原始端口 %d", startPort, port-1, startPort)
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "⚠️ 无法在端口范围 %d-%d 内找到可用端口，使用原始端口 %d", startPort, port-1, startPort)
 			return startPort
 		}
 	}

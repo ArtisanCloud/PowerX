@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 const healthDebug = false
@@ -72,7 +74,7 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	cmd.Env = env
 
 	// 3) 准备 process
-	pctx, cancel := context.WithCancel(context.Background())
+	pctx, cancel := context.WithCancel(ctx)
 	pr := &process{
 		id:     id,
 		cmd:    cmd,
@@ -93,7 +95,7 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	s.proc[id] = pr
 
 	// 4) 将 stdout/stderr 输出到控制台 + 缓冲
-	attachProcessWriters(cmd, pr.logs)
+	attachProcessWriters(cmd, id, pr.logs)
 
 	// 5) 启动
 	if err := cmd.Start(); err != nil {
@@ -178,6 +180,16 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 	if err != nil {
 		p.info.LastExitErr = err.Error()
 	}
+	// 无论是否自动重启，都把退出原因和最近日志打到主日志，便于定位插件子进程秒退问题。
+	exitTail := ""
+	if p.logs != nil {
+		exitTail = strings.TrimSpace(string(p.logs.Snapshot(8 * 1024)))
+	}
+	if err != nil {
+		logger.ErrorF(context.Background(), "[plugin-runtime-exit] id=%s pid=%d port=%d err=%v tail=%q", p.id, p.info.PID, p.port, err, exitTail)
+	} else {
+		logger.WarnF(context.Background(), "[plugin-runtime-exit] id=%s pid=%d port=%d err=<nil> tail=%q", p.id, p.info.PID, p.port, exitTail)
+	}
 	// 如果是 Stop 显式终止，外层会置 Stopped；这里分情况
 	if p.info.State != ProcStopped {
 		p.info.State = ProcExited
@@ -194,7 +206,7 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 			// 重新拉起
 			cmd := exec.Command(p.cmd.Path, p.cmd.Args[1:]...)
 			cmd.Env = p.cmd.Env
-			attachProcessWriters(cmd, p.logs)
+			attachProcessWriters(cmd, p.id, p.logs)
 			if err := cmd.Start(); err != nil {
 				p.info.LastExitErr = err.Error()
 			} else {
@@ -214,22 +226,86 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 	}
 }
 
-func attachProcessWriters(cmd *exec.Cmd, logs io.Writer) {
+func attachProcessWriters(cmd *exec.Cmd, pluginID string, logs io.Writer) {
+	stdoutForwarder := newProcessStreamForwarder(pluginID, "stdout")
+	stderrForwarder := newProcessStreamForwarder(pluginID, "stderr")
+
+	stdoutWriter := io.MultiWriter(logs, stdoutForwarder)
+	stderrWriter := io.MultiWriter(logs, stderrForwarder)
+
 	if allowForwardToStdIO() {
-		cmd.Stdout = io.MultiWriter(os.Stdout, logs)
-		cmd.Stderr = io.MultiWriter(os.Stderr, logs)
+		cmd.Stdout = io.MultiWriter(os.Stdout, stdoutWriter)
+		cmd.Stderr = io.MultiWriter(os.Stderr, stderrWriter)
 		return
 	}
-	cmd.Stdout = logs
-	cmd.Stderr = logs
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
+}
+
+type processStreamForwarder struct {
+	mu       sync.Mutex
+	pluginID string
+	stream   string
+	buf      bytes.Buffer
+}
+
+func newProcessStreamForwarder(pluginID, stream string) *processStreamForwarder {
+	return &processStreamForwarder{
+		pluginID: strings.TrimSpace(pluginID),
+		stream:   strings.TrimSpace(stream),
+	}
+}
+
+func (w *processStreamForwarder) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	_, _ = w.buf.Write(p)
+	for {
+		line, ok := w.readLine()
+		if !ok {
+			break
+		}
+		w.emit(line)
+	}
+	return len(p), nil
+}
+
+func (w *processStreamForwarder) readLine() (string, bool) {
+	data := w.buf.Bytes()
+	idx := bytes.IndexByte(data, '\n')
+	if idx < 0 {
+		return "", false
+	}
+	line := strings.TrimSpace(string(data[:idx]))
+	rest := append([]byte(nil), data[idx+1:]...)
+	w.buf.Reset()
+	_, _ = w.buf.Write(rest)
+	return line, true
+}
+
+func (w *processStreamForwarder) emit(line string) {
+	if line == "" {
+		return
+	}
+	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{
+		"module":    "plugin.runtime",
+		"plugin_id": w.pluginID,
+		"stream":    w.stream,
+	})
+	logger.Info(ctx, "plugin_runtime_log", zap.String("line", line))
 }
 
 func allowForwardToStdIO() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_SUPERVISOR_FORWARD_STDIO"))) {
-	case "1", "true", "yes", "on":
+	case "", "1", "true", "yes", "on":
 		return true
-	default:
+	case "0", "false", "no", "off":
 		return false
+	default:
+		// Unknown value falls back to enabled, keeping host-mode plugin logs
+		// on the unified stdout collection path by default.
+		return true
 	}
 }
 
@@ -252,7 +328,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 	}
 
 	if healthDebug {
-		logger.InfoF(context.Background(), "[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
+		logger.InfoF(ctx, "[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
 	}
 
 	t := time.NewTicker(interval)
@@ -262,7 +338,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 		select {
 		case <-ctx.Done():
 			if healthDebug {
-				logger.InfoF(context.Background(), "[plugin:health] stop  id=%s", p.id)
+				logger.InfoF(ctx, "[plugin:health] stop  id=%s", p.id)
 			}
 			return
 		case <-t.C:
@@ -283,7 +359,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 				p.info.State = ProcUnhealthy
 				if p.info.HealthFails >= 5 && p.cmd != nil && p.cmd.Process != nil {
 					if healthDebug {
-						logger.WarnF(context.Background(), "[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
+						logger.WarnF(ctx, "[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
 							p.id, p.port, url, p.info.HealthFails)
 					}
 					_ = p.cmd.Process.Signal(syscall.SIGTERM)
@@ -293,7 +369,7 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 			mu.Unlock()
 
 			if healthDebug {
-				logger.DebugF(context.Background(), "[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
+				logger.DebugF(ctx, "[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
 					p.id, p.port, url, ok, prevState, curState, prevHealthy, curHealthy, p.info.HealthFails, p.info.HealthOKCount)
 			}
 		}

@@ -45,6 +45,10 @@ func (r *AgentRepository) UpsertByScopeKey(
 	assign := clause.Assignments(map[string]any{
 		"name":               in.Name,
 		"description":        in.Description,
+		"type_id":            in.TypeID,
+		"scene":              in.Scene,
+		"prompt_seed":        in.PromptSeed,
+		"persona":            in.Persona,
 		"source":             in.Source,
 		"owner_plugin_id":    in.OwnerPluginID,
 		"owner_tenant_uuid":  in.OwnerTenantUUID,

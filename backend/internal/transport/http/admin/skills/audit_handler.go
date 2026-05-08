@@ -98,6 +98,9 @@ func (h *auditHandler) GetTrace(c *gin.Context) {
 		"capability_id":            record.CapabilityID,
 		"plan_id":                  record.PlanID,
 		"node_id":                  record.NodeID,
+		"team_id":                  record.TeamID,
+		"handoff_task_id":          record.HandoffTaskID,
+		"handoff_trace_id":         record.HandoffTraceID,
 		"node_status":              record.NodeStatus,
 		"retry_trace":              record.RetryTrace,
 		"fallback_used":            record.FallbackUsed,
@@ -120,14 +123,17 @@ func (h *auditHandler) ListTraces(c *gin.Context) {
 		}
 	}
 	filter := skillrepo.SkillExecutionTraceFilter{
-		TenantUUID: strings.TrimSpace(c.Query("tenant_uuid")),
-		SkillID:    strings.TrimSpace(c.Query("skill_id")),
-		Version:    strings.TrimSpace(c.Query("version")),
-		PlanID:     strings.TrimSpace(c.Query("plan_id")),
-		NodeID:     strings.TrimSpace(c.Query("node_id")),
-		NodeStatus: strings.TrimSpace(c.Query("node_status")),
-		Limit:      limit,
-		Offset:     offset,
+		TenantUUID:     strings.TrimSpace(c.Query("tenant_uuid")),
+		SkillID:        strings.TrimSpace(c.Query("skill_id")),
+		Version:        strings.TrimSpace(c.Query("version")),
+		PlanID:         strings.TrimSpace(c.Query("plan_id")),
+		NodeID:         strings.TrimSpace(c.Query("node_id")),
+		TeamID:         strings.TrimSpace(c.Query("team_id")),
+		HandoffTaskID:  strings.TrimSpace(c.Query("handoff_task_id")),
+		HandoffTraceID: strings.TrimSpace(c.Query("handoff_trace_id")),
+		NodeStatus:     strings.TrimSpace(c.Query("node_status")),
+		Limit:          limit,
+		Offset:         offset,
 	}
 	rows, err := h.traceRepo.List(c.Request.Context(), filter)
 	if err != nil {
@@ -153,6 +159,9 @@ func (h *auditHandler) ListTraces(c *gin.Context) {
 			"capability_id":            rows[i].CapabilityID,
 			"plan_id":                  rows[i].PlanID,
 			"node_id":                  rows[i].NodeID,
+			"team_id":                  rows[i].TeamID,
+			"handoff_task_id":          rows[i].HandoffTaskID,
+			"handoff_trace_id":         rows[i].HandoffTraceID,
 			"node_status":              rows[i].NodeStatus,
 			"retry_trace":              rows[i].RetryTrace,
 			"fallback_used":            rows[i].FallbackUsed,

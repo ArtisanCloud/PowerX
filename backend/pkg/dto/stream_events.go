@@ -29,4 +29,5 @@ const (
 	NodeKindSkill    = "skill"
 	NodeKindTooling  = "tooling"
 	NodeKindLLM      = "llm"
+	NodeKindHandoff  = "agent_handoff"
 )

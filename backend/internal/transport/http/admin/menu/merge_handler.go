@@ -21,7 +21,7 @@ const i18nDebug = false
 
 func dbgI18n(format string, args ...any) {
 	if i18nDebug {
-		logger.DebugF(context.Background(), "[i18n] "+format, args...)
+		logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.i18n"}), "[i18n] "+format, args...)
 	}
 }
 
@@ -52,7 +52,7 @@ func filterMenusByPermission(
 	out := make([]admdto.AdminMenuItem, 0, len(items))
 	for _, item := range items {
 		if !allow(item.Permissions) {
-			logger.DebugF(context.Background(), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
 			continue
 		}
 		if len(item.Children) > 0 {
@@ -437,7 +437,7 @@ func translateMenuItemsRecursive(nodes []admdto.AdminMenuItem, i18n []admdto.Men
 			}
 
 			if i18nDebug && strings.HasPrefix(string(node.Key), "plugin:") {
-				logger.DebugF(context.Background(), "[i18n] item=%s hasI18n=%v before=%q after=%q applied=%v", node.Key, hasI18n, node.Title, translated, applied)
+				dbgI18n("item=%s hasI18n=%v before=%q after=%q applied=%v", node.Key, hasI18n, node.Title, translated, applied)
 			}
 
 			if applied && translated != "" {
@@ -459,20 +459,20 @@ func AdminMenusHandler(c *gin.Context) {
 	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
 	if i18nDebug {
-		logger.DebugF(context.Background(), "[i18n] locales query = %v", locales)
-		logger.DebugF(context.Background(), "[i18n] plugin i18n packages = %d", len(plug.I18n))
+		dbgI18n("locales query = %v", locales)
+		dbgI18n("plugin i18n packages = %d", len(plug.I18n))
 		for pi, pkg := range plug.I18n {
 			var keys []string
 			for loc := range pkg.Locales {
 				keys = append(keys, loc)
 			}
-			logger.DebugF(context.Background(), "[i18n] pkg#%d locales: %v", pi, keys)
+			dbgI18n("pkg#%d locales: %v", pi, keys)
 			for loc, nsMap := range pkg.Locales {
 				var nsKeys []string
 				for ns := range nsMap {
 					nsKeys = append(nsKeys, ns)
 				}
-				logger.DebugF(context.Background(), "[i18n]   - %s namespaces: %v", loc, nsKeys)
+				dbgI18n("  - %s namespaces: %v", loc, nsKeys)
 			}
 		}
 	}

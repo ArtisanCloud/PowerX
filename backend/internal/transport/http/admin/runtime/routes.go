@@ -10,7 +10,19 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 		return
 	}
 	h := newWSBusHandler(deps)
+
+	// Canonical internal endpoints (existing contract).
 	internalGroup := protectedGroup.Group("/internal")
 	internalGroup.POST("/ws-bus/grant", h.grant)
 	internalGroup.POST("/ws-bus/publish", h.publish)
+
+	// Compatibility endpoints for framework/plugin runtimes using admin/runtime prefix.
+	compatGroup := protectedGroup.Group("/admin/runtime/internal")
+	compatGroup.POST("/ws-bus/grant", h.grant)
+	compatGroup.POST("/ws-bus/publish", h.publish)
+
+	// Standardized endpoints for plugin runtimes.
+	standardGroup := protectedGroup.Group("/admin/runtime")
+	standardGroup.POST("/ws-bus/grant", h.grant)
+	standardGroup.POST("/ws-bus/publish", h.publish)
 }

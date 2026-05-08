@@ -128,7 +128,7 @@ func SeedSMEDepartments(db *gorm.DB, tenantKey string) error {
 				return err
 			}
 		}
-		logger.InfoF(context.Background(), "[seed] departments ready for tenant=%s (uuid=%s)", tenantKey, tenantUUID)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] departments ready for tenant=%s (uuid=%s)", tenantKey, tenantUUID)
 		return nil
 	})
 }

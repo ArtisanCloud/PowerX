@@ -91,7 +91,7 @@ func SeedKnowledgePolicyTemplates(db *gorm.DB) error {
 		if err := db.WithContext(seedCtx()).Create(row).Error; err != nil {
 			return err
 		}
-		logger.InfoF(context.Background(), "[seed] policy templates ready: %s-%s (id=%d)", name, ver, row.ID)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] policy templates ready: %s-%s (id=%d)", name, ver, row.ID)
 	}
 	return nil
 }

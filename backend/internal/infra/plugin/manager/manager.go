@@ -83,7 +83,7 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		if d.Manifest.Frontend.Admin.Menus != nil {
 			adminMenus = len(d.Manifest.Frontend.Admin.Menus) // frontend.admin.menus
 		}
-		logger.InfoF(context.Background(), "[plugin-bootstrap] discover id=%s ver=%s admin=%d admin.static_dir=%q",
+		logger.InfoF(ctx, "[plugin-bootstrap] discover id=%s ver=%s admin=%d admin.static_dir=%q",
 			id, ver, adminMenus, d.Paths.FrontendAdminDir)
 
 		prevState := plugin_mgr.StateInstalled

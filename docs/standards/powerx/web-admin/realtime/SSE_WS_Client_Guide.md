@@ -1,123 +1,75 @@
-# SSE / WebSocket 客户端指南
+# SSE / WebSocket 客户端指南（当前实现）
 
-> 指导如何在 PowerX Web Admin 中使用双通道实时连接（SSE + WebSocket），涵盖初始化、断线重连、主题订阅和背压处理，帮助前端快速集成实时能力。
+> 本文仅描述当前已落地的实时链路：**业务流走 SSE，事件总线走 ws-bus WebSocket**。
 
----
+## 1. 实时链路分工
 
-## 1. 架构总览
+1. SSE（Agent/推理流）
+- 用途：LLM 对话与流式文本输出。
+- 典型路径：`/api/agents/stream/sse`。
 
-- **双通道封装**：`useDualChannelConnection()`（`app/composables/agent/useDualChannelConnection.ts: "27`）同时管理 SSE 与 WebSocket，提供统一的 `sendMessage`、`reconnectSSE`、`reconnectWS`、`messages` 等接口。"
-- **数据路径**：前端请求 `/api/agents/stream/sse` 和 `/api/agents/stream/ws`（相对路径），由 Nitro `devProxy` 将请求转发至后端 `POWERX_BACKEND`（`nuxt.config.ts: "55`）。"
-- **鉴权**：请求头携带 `Authorization: "<token_type> <access_token>`，token 来源于 `localStorage`（`getAuthToken()`）。"
-- **测试入口**：`/test/connection` 页面使用该 composable 验证探活、消息收发与日志记录（`app/pages/test/connection.vue: "1`）。"
+2. ws-bus WebSocket（事件流）
+- 用途：进度、通知、异步任务事件（例如 Shopify 同步进度）。
+- 典型路径：`/api/ws`（同源反代后由宿主处理）。
 
----
+## 2. ws-bus 协议要点（必须对齐）
 
-## 2. 初始化与依赖
-
-```ts
-const connection = useDualChannelConnection(
-  ref(currentAgentId),
-  ref(activeSessionId)
-);
-
-await connection.reconnectSSE();
-await connection.reconnectWS();
+1. 连接建立后，客户端发送订阅命令：
+```json
+{ "type": "subscribe", "topics": ["ai_craft.shopify.sync.progress.<tenant_uuid>"] }
 ```
 
-- **Agent / Session**：传入 `Ref`，自动缓存消息到 `messageStore`（`app/stores/message.ts:23`），切换会话时恢复历史记录。  
-- **环境选择**：`getEnv()` 从 `localStorage: env-store` 读取当前环境，用于请求参数 `env`。  
-- **Token 管理**：`getTokenType()`、`getAuthToken()` 读取 `localStorage`，若无 token 会禁用 WebSocket 连接。
+2. 服务端授权失败时返回：
+```json
+{
+  "type": "error",
+  "payload": {
+    "code": "permission_denied",
+    "message": "subscription rejected",
+    "detail": "topic not allowed"
+  }
+}
+```
 
----
+3. 注意：当前协议是 `topics[]`，不是单字段 `topic`。
+4. 下行业务事件统一使用：
+```json
+{
+  "type": "event",
+  "topic": "ai_craft.shopify.product.sync.progress.tenant_<tenant_uuid>",
+  "payload": { "percent": 12, "stage": "sync_products" },
+  "trace_id": "<trace_id>"
+}
+```
+5. 规范要求：前端统一按 `type = "event"` 消费，不再依赖 `emit` 类型。
 
-## 3. SSE 流程
+## 3. 前端时序（推荐）
 
-### 3.1 请求发起
+1. 先调用 `grant`（插件 runtime grant 入口）。
+2. 确认 `grant.data.topics` 命中目标 topic（非空）。
+3. 再发送 ws `subscribe`。
+4. 收到事件后更新 UI。
 
-- 调用 `sendSSEMessage(message, flowId, meta)`：  
-  - 生成 `requestId` 并写入 `currentRequestId`。  
-  - 构造查询参数：`q`、`env`、`flow_id`、`agent_id`、`session_id`。  
-  - GET `/agents/stream/sse`，请求头 `Accept: text/event-stream`。
+若 `grant` 仅返回 fallback（`topics: []`），后续很可能被 `topic not allowed` 拒绝。
 
-### 3.2 事件处理
+## 4. 调试最短步骤
 
-- 使用 `TextDecoder` 将流拆分为 `event:`/`data:` 行，兼容 `[DONE]` 结束标记。  
-- 各事件类型（`ACK`、`START`、`TOKEN`、`CHUNK`、`FINAL` 等）通过 `useStreamingThinkParser()` 解析思维链，填充 `messages`。  
-- `applyMainContent()`、`dedupeThinkBlocks()` 避免重复内容并保持快照一致性。  
-- 超时机制：若 10 秒未收到数据则标记为 `isError`，提示“连接超时：服务器未响应确认包。”。
+1. 看 grant 响应
+- 目标：`data.topics` 包含完整 topic。
 
-### 3.3 背压控制
+2. 看浏览器 WS 帧
+- 必须看到：`{"type":"subscribe","topics":[...]}`
+- 必须看到：`{"type":"event","topic":"...","payload":{...}}`
+- 不应出现：`permission_denied / topic not allowed`
 
-- SSE 不支持双向流控，因此在收到大段消息时先写入内存，再在空闲时同步至 `messageStore`（`syncMessagesToCache()`）。  
-- 如需进一步控制，可在后端实现分块/节流，并在前端对 `messages` 加限长或分页。
+3. 看宿主日志
+```bash
+sudo journalctl -u powerx-backend --since "10 min ago" --no-pager -l | \
+grep -E 'wsbus publish succeeded|SYNC_PROGRESS_PUBLISH|topic not allowed'
+```
 
----
+## 5. 已知边界
 
-## 4. WebSocket 流程
-
-### 4.1 探活与重连
-
-- `reconnectWS()` 建立短连验证：  
-  - 构造协议 `bearer.<base64(token)>`。  
-  - 连接 `ws(s)://<host><apiBase>/agents/stream/ws?probe=1&authorization=Bearer xxx`。  
-  - `onopen/onmessage` 标记成功，`onerror/onclose` 标记失败。  
-  - 超时时间 5 秒，失败后保持 `wsActive=false`。
-
-### 4.2 正式连接（TODO）
-
-- 当前 `sendMessage` 仍使用 SSE。若需要使用 WS 进行指令交互，可扩展：  
-  ```ts
-  const ws = new WebSocket(buildWSUrl("/agents/stream/ws"));
-  ws.send(JSON.stringify({ type: "message", payload }));
-  ```
-- 与后端约定消息格式（如 `type`、`topic`、`payload`），并在前端处理 ACK/ERROR。
-
-### 4.3 主题订阅
-
-- 未来可按 `topic` 订阅不同流：  
-  - 调用 `ws.send({ type: "subscribe", topic: "agent:<id>" })`。  
-  - 收到 `topic` 字段后路由至对应 store。  
-- 订阅信息应缓存，断线重连后重新发送。
-
----
-
-## 5. 错误处理与通知
-
-- `onErrorCallback` 可由业务层注入，统一处理网络异常、权限问题（401/403）。  
-- 出现错误后组件可提示用户点击“重试 SSE/WS”按钮（见测试页）。  
-- 对于无法恢复的错误，记录日志，并引导用户提交工单。
-
----
-
-## 6. 背压与资源释放
-
-- **消息长度限制**：在 `appendMessages()` 时可检测数组长度，超过阈值（比如 500 条）时移除最早记录或归档。  
-- **取消请求**：`cancel()` 应调用 `AbortController`（未来待实现）终止 SSE 读取，避免长时间挂起。  
-- **清理**：在组件卸载时执行 `disconnect()`，关闭 WS 并清空事件监听；消息保存在 `messageStore` 以便重新进入页面恢复。
-
----
-
-## 7. 调试与测试
-
-- `/test/connection` 提供：  
-  - SSE/WS 探活按钮，展示 `connection.sseActive/wsActive`。  
-  - 消息发送、取消、日志查看。  
-  - 预期事件说明（ACK → token 流 → END）。  
-- 浏览器 DevTools：  
-  - Network → EventStream 查看 SSE。  
-  - Network → WS 查看帧。  
-  - Console 查看 `useDualChannelConnection` 打印的错误信息。
-
----
-
-## 8. 上线检查表
-
-- [ ] `POWERX_BACKEND` / `WS_UPSTREAM` 指向正确，HTTPS 环境下确认证书信任。  
-- [ ] WebSocket 代理开启 `ws: true`（`nuxt.config.ts:55`），生产 Nginx/Ingress 同步配置。  
-- [ ] 断线重连逻辑在网络抖动、刷新 Token 后仍可恢复。  
-- [ ] SSE 流在长时间会话中不会累积未释放的 reader。  
-- [ ] 消息列表在租户/会话切换时正确缓存与恢复。  
-- [ ] 测试页 `/test/connection` 通过 QA 验收，并在生产环境加访问守卫。
-
-> 后续如需支持多路并发、队列优先级或扩展至 WebRTC，可在此文档继续沉淀协商协议与数据结构。
+1. 当前 topic 注册是 `FindByComposite(tenant, namespace, name)` 精确命中。
+2. 占位符/前缀模板匹配不是默认行为。
+3. 需要在插件启用阶段完成 topic registry upsert（见 `Topic_Registry_and_Grant_SOP.md`）。

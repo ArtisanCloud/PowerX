@@ -142,57 +142,72 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		logger.WarnF(ctx, "install policies: list failed: %v", err)
 	}
 
-	// ★ 自动恢复：把上次 state=enabled 的插件重新启用
-	if list, err := mgr.List(ctx); err != nil {
+	return mgr, nil
+}
+
+// StartPluginAutoRestore 在宿主服务完成初始化后异步恢复插件。
+func StartPluginAutoRestore(ctx context.Context, mgr pm.Manager, cfg *config.Config) {
+	if mgr == nil || cfg == nil || !cfg.Plugin.Enabled {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	list, err := mgr.List(ctx)
+	if err != nil {
 		logger.WarnF(ctx, "auto-restore: list failed: %v", err)
-	} else {
-		enabledPlugins := make([]pm.Plugin, 0, len(list))
-		for _, p := range list {
-			logger.InfoF(ctx, "boot state: id=%s ver=%s state=%s", p.ID, p.Version, p.State)
-			if p.State == pm.StateEnabled {
-				enabledPlugins = append(enabledPlugins, p)
+		return
+	}
+	enabledPlugins := make([]pm.Plugin, 0, len(list))
+	for _, p := range list {
+		logger.InfoF(ctx, "boot state: id=%s ver=%s state=%s", p.ID, p.Version, p.State)
+		if p.State == pm.StateEnabled {
+			enabledPlugins = append(enabledPlugins, p)
+		}
+	}
+	parallelism := resolvePluginAutoRestoreParallelism(cfg.Plugin.AutoRestoreParallelism)
+	if parallelism > len(enabledPlugins) {
+		parallelism = len(enabledPlugins)
+	}
+
+	logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d parallelism=%d", len(list), len(enabledPlugins), parallelism)
+	if len(enabledPlugins) == 0 {
+		return
+	}
+	go runAutoRestoreWorkers(ctx, mgr, enabledPlugins, parallelism)
+}
+
+func runAutoRestoreWorkers(ctx context.Context, mgr pm.Manager, enabledPlugins []pm.Plugin, parallelism int) {
+	if parallelism <= 1 || len(enabledPlugins) <= 1 {
+		for _, p := range enabledPlugins {
+			if err := mgr.Enable(ctx, p.ID); err != nil {
+				logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
+			} else {
+				logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
 			}
 		}
-		parallelism := resolvePluginAutoRestoreParallelism(cfg.Plugin.AutoRestoreParallelism)
-		if parallelism > len(enabledPlugins) {
-			parallelism = len(enabledPlugins)
-		}
-
-		logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d parallelism=%d", len(list), len(enabledPlugins), parallelism)
-
-		if parallelism <= 1 || len(enabledPlugins) <= 1 {
-			for _, p := range enabledPlugins {
+		return
+	}
+	jobs := make(chan pm.Plugin, len(enabledPlugins))
+	var wg sync.WaitGroup
+	for i := 0; i < parallelism; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for p := range jobs {
 				if err := mgr.Enable(ctx, p.ID); err != nil {
 					logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
 				} else {
 					logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
 				}
 			}
-		} else {
-			jobs := make(chan pm.Plugin, len(enabledPlugins))
-			var wg sync.WaitGroup
-			for i := 0; i < parallelism; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for p := range jobs {
-						if err := mgr.Enable(ctx, p.ID); err != nil {
-							logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
-						} else {
-							logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
-						}
-					}
-				}()
-			}
-			for _, p := range enabledPlugins {
-				jobs <- p
-			}
-			close(jobs)
-			wg.Wait()
-		}
+		}()
 	}
-
-	return mgr, nil
+	for _, p := range enabledPlugins {
+		jobs <- p
+	}
+	close(jobs)
+	wg.Wait()
 }
 
 func resolvePluginAutoRestoreParallelism(cfgValue int) int {

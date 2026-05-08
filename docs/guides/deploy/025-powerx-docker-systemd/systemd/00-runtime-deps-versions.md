@@ -219,6 +219,65 @@ redis-cli ping
 
 - `../00-required-config.md`
 - `01-deploy-config-start.md`
+- `04-observability-loki-grafana.md`（Loki/Grafana/Promtail 安装与启动）
+
+## 5.1 关于 systemd 日志观测
+
+- `journalctl` 适合单机实时排障。
+- 若你需要“跨服务聚合检索 + 长期保存 + 按 trace_id 联查”，请直接接入 `Loki + Grafana + Promtail`。
+- 完整步骤见：`04-observability-loki-grafana.md`（已包含 systemd 原生安装与 Docker 两种方案）。
+
+## 5.2 systemd 运行用户与工作目录基线（重要）
+
+依赖安装正确后，如果 `powerx-backend` 的运行用户/工作目录被 override 覆盖错误，仍会出现：
+
+- `mkdir ./logs: permission denied`
+- 日志刷屏影响排障（如 403 / 网关问题被噪音淹没）
+
+推荐基线（与仓库 unit 文件保持一致，优先稳态启动）：
+
+```ini
+[Service]
+User=powerx
+Group=powerx
+WorkingDirectory=/
+```
+
+修复步骤：
+
+```bash
+sudo systemctl edit powerx-backend.service
+```
+
+如果你必须使用自定义工作目录（例如 `/opt/powerx/backend`），务必先确保目录存在，再重启服务。
+
+可用预检脚本（推荐）：
+
+```bash
+scripts/observability/powerx-systemd-precheck.sh
+```
+
+写入上述 `[Service]` 后，准备日志目录权限（按实际日志目录）：
+
+```bash
+sudo mkdir -p /opt/powerx/logs
+sudo chown -R powerx:powerx /opt/powerx/logs
+sudo chmod 755 /opt/powerx/logs
+```
+
+重载并重启：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart powerx-backend.service
+```
+
+生效验证：
+
+```bash
+systemctl show powerx-backend.service -p User,Group,WorkingDirectory
+journalctl -u powerx-backend.service -n 100 --no-pager | grep -Ei "mkdir logs|permission denied"
+```
 
 ## 6. 常见报错对照
 

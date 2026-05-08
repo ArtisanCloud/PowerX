@@ -50,7 +50,10 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ClientIP:      ipPtr,
 			ClientUA:      c.Request.UserAgent(),
 			CorrelationID: CorrelationIDFromContext(c.Request.Context()), // ★ 回填
-			Meta:          mustJSON(map[string]any{"status": status, "latency_ms": time.Since(start).Milliseconds()}),
+			Meta: mustJSON(map[string]any{
+				"status":     status,
+				"latency_ms": time.Since(start).Milliseconds(),
+			}),
 		})
 	}
 }

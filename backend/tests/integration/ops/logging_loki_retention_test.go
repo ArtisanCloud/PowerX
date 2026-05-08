@@ -19,7 +19,7 @@ func TestLokiRetentionAndPromtailLabeling(t *testing.T) {
 	require.NoError(t, err)
 	lokiText := string(lokiRaw)
 	require.Contains(t, lokiText, "retention_period: 720h", "loki retention should be 30 days")
-	require.Contains(t, lokiText, "max_look_back_period", "loki query lookback should be configured")
+	require.Contains(t, lokiText, "retention_enabled: true", "loki compactor retention must be enabled")
 
 	promtailRaw, err := os.ReadFile(promtailPath)
 	require.NoError(t, err)

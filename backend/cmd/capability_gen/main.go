@@ -119,7 +119,7 @@ func main() {
 	}
 
 	if cfg.DryRun {
-		logger.InfoF(context.Background(), "%s", raw)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "%s", raw)
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(cfg.Out), 0o755); err != nil {
@@ -128,7 +128,7 @@ func main() {
 	if err := os.WriteFile(cfg.Out, raw, 0o644); err != nil {
 		fatalf("write output failed: %v", err)
 	}
-	logger.InfoF(context.Background(), "generated %d capabilities -> %s", len(entries), cfg.Out)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "generated %d capabilities -> %s", len(entries), cfg.Out)
 }
 
 func buildCapabilities(cfg config) ([]capabilityEntry, error) {
@@ -434,7 +434,7 @@ func collectGoFiles(inputs []string) ([]string, error) {
 
 var (
 	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]+)"\)`)
-	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]+)"`)
+	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]*)"`)
 )
 
 func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string]struct{}) ([]capabilityEntry, error) {
@@ -623,7 +623,7 @@ func escapeJSONPointer(path string) string {
 }
 
 func fatalf(format string, args ...interface{}) {
-	logger.ErrorF(context.Background(), format, args...)
+	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
 }
 

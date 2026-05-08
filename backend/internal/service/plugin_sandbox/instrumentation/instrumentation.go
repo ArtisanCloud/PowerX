@@ -21,14 +21,15 @@ func NewInstruments(component string) *Instruments {
 	if component == "" {
 		component = "plugin_sandbox"
 	}
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "plugin_sandbox.instrumentation"})
 	meter := otel.Meter(component)
 	deploy, err := meter.Float64Histogram("sandbox.deploy.duration_ms")
 	if err != nil {
-		logger.Warn(context.Background(), "create sandbox deploy histogram failed: "+err.Error())
+		logger.Warn(logCtx, "create sandbox deploy histogram failed: "+err.Error())
 	}
 	passRate, err := meter.Float64Histogram("sandbox.test.pass_rate")
 	if err != nil {
-		logger.Warn(context.Background(), "create sandbox pass rate histogram failed: "+err.Error())
+		logger.Warn(logCtx, "create sandbox pass rate histogram failed: "+err.Error())
 	}
 	return &Instruments{
 		deployLatency: deploy,

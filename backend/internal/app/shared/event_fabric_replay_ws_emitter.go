@@ -28,5 +28,5 @@ func (e *replayTaskWSStatusEmitter) EmitReplayTaskStatus(ctx context.Context, ev
 		"kind": eventbus.NotificationKindEventFabricReplayTask,
 		"data": event,
 	}
-	wsbus.DefaultHub.Publish(tenantKey, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
+	wsbus.DefaultHub.PublishWithContext(ctx, tenantKey, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
 }

@@ -1359,7 +1359,7 @@ func isSetupProvisionWorkDir(dir string) bool {
 func scheduleSetupOnlyAutoRestart(runtimePath string) {
 	exe, err := os.Executable()
 	if err != nil {
-		logger.WarnF(context.Background(), "setup auto-restart skipped: resolve executable failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart skipped: resolve executable failed: %v", err)
 		return
 	}
 	workDir := resolveSetupProvisionWorkDir(runtimePath)
@@ -1369,21 +1369,21 @@ func scheduleSetupOnlyAutoRestart(runtimePath string) {
 		}
 	}
 	if strings.TrimSpace(workDir) == "" {
-		logger.WarnF(context.Background(), "setup auto-restart skipped: empty workdir")
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart skipped: empty workdir")
 		return
 	}
 
 	// 优先在当前进程内原地 exec（保留当前终端会话与 PID 语义）。
 	// 仅当不可用时，回退为后台 nohup 启动。
 	if isInteractiveSession() {
-		logger.InfoF(context.Background(), "setup auto-restart scheduled in-place: exe=%s workdir=%s", exe, workDir)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart scheduled in-place: exe=%s workdir=%s", exe, workDir)
 		go func() {
 			time.Sleep(300 * time.Millisecond)
 			_ = os.Chdir(workDir)
 			if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
-				logger.WarnF(context.Background(), "setup in-place restart failed, fallback to detached mode: %v", err)
+				logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup in-place restart failed, fallback to detached mode: %v", err)
 				if fbErr := scheduleDetachedRestart(exe, workDir); fbErr != nil {
-					logger.WarnF(context.Background(), "setup detached restart fallback failed: %v", fbErr)
+					logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup detached restart fallback failed: %v", fbErr)
 					return
 				}
 				time.Sleep(300 * time.Millisecond)
@@ -1394,7 +1394,7 @@ func scheduleSetupOnlyAutoRestart(runtimePath string) {
 	}
 
 	if err := scheduleDetachedRestart(exe, workDir); err != nil {
-		logger.WarnF(context.Background(), "setup auto-restart skipped: detached restart failed: %v", err)
+		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart skipped: detached restart failed: %v", err)
 		return
 	}
 	go func() {

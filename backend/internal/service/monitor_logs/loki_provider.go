@@ -15,20 +15,28 @@ import (
 
 type LokiProvider struct {
 	baseURL string
-	jobName string
+	labels  map[string]string
 	client  *http.Client
 }
 
 func NewLokiProvider(cfg *config.Config) *LokiProvider {
 	p := &LokiProvider{
 		client: &http.Client{Timeout: 10 * time.Second},
+		labels: map[string]string{
+			"system":  "powerx",
+			"service": "powerx-backend",
+		},
 	}
 	if cfg != nil {
 		p.baseURL = strings.TrimSpace(cfg.LogConfig.Loki.URL)
-		p.jobName = strings.TrimSpace(cfg.LogConfig.Loki.JobName)
-	}
-	if p.jobName == "" {
-		p.jobName = "powerx"
+		for k, v := range cfg.LogConfig.Loki.Labels {
+			k = strings.TrimSpace(k)
+			v = strings.TrimSpace(v)
+			if k == "" || v == "" {
+				continue
+			}
+			p.labels[k] = v
+		}
 	}
 	return p
 }
@@ -92,7 +100,15 @@ func (p *LokiProvider) Query(req QueryRequest) (QueryResult, error) {
 }
 
 func (p *LokiProvider) buildQuery(req QueryRequest) string {
-	selectors := []string{fmt.Sprintf("job=\"%s\"", escapeLokiString(p.jobName))}
+	selectors := make([]string, 0, len(p.labels))
+	for _, k := range []string{"system", "service", "env", "instance", "module"} {
+		if v := strings.TrimSpace(p.labels[k]); v != "" {
+			selectors = append(selectors, fmt.Sprintf("%s=\"%s\"", k, escapeLokiString(v)))
+		}
+	}
+	if len(selectors) == 0 {
+		selectors = append(selectors, "service=~\".+\"")
+	}
 	base := "{" + strings.Join(selectors, ",") + "}"
 	filters := make([]string, 0, 4)
 	if v := strings.TrimSpace(req.TraceID); v != "" {

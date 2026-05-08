@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -33,7 +32,7 @@ func InstallGuardMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		logger.InfoF(context.Background(), "[install-guard] blocked path=%s status=%s lock_mode=%s", c.Request.URL.Path, cfg.Install.EffectiveStatus(), cfg.Install.EffectiveLockMode())
+		logger.InfoF(c.Request.Context(), "[install-guard] blocked path=%s status=%s lock_mode=%s", c.Request.URL.Path, cfg.Install.EffectiveStatus(), cfg.Install.EffectiveLockMode())
 
 		err := dto.NewErrorWithCode(http.StatusServiceUnavailable, ErrCodeSystemNotInstalled, "系统尚未安装，请先完成 /setup 引导", nil)
 		dto.ResponseError(c, http.StatusServiceUnavailable, "系统尚未安装", err)

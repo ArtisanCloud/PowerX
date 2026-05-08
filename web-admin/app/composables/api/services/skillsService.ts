@@ -128,6 +128,9 @@ export interface SkillTraceRecord {
   capability_id?: string;
   plan_id?: string;
   node_id?: string;
+  team_id?: string;
+  handoff_task_id?: string;
+  handoff_trace_id?: string;
   node_status?: string;
   retry_trace?: string;
   fallback_used?: boolean;
@@ -284,6 +287,9 @@ export const useSkillsService = () => {
       version?: string;
       plan_id?: string;
       node_id?: string;
+      team_id?: string;
+      handoff_task_id?: string;
+      handoff_trace_id?: string;
       node_status?: string;
       limit?: number;
       offset?: number;

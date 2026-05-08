@@ -18,5 +18,5 @@ func publishCorpusCheckUpdate(ctx context.Context, job *models.CorpusCheckJob) {
 	if tenant == "" {
 		return
 	}
-	wsbus.DefaultHub.Publish(tenant, eventbus.TopicKnowledgeCorpusCheckJob, job, reqctx.GetTraceID(ctx))
+	wsbus.DefaultHub.PublishWithContext(ctx, tenant, eventbus.TopicKnowledgeCorpusCheckJob, job, reqctx.GetTraceID(ctx))
 }

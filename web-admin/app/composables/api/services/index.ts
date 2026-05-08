@@ -61,6 +61,12 @@ export type {
   UpsertSkillCatalogPayload,
 } from "./skillsService";
 
+export { useAgentTeamService } from "./agentTeamService";
+export type {
+  AgentTeamRecord,
+  AgentTeamMemberRecord,
+} from "./agentTeamService";
+
 export { useDeployOpsService } from "./deployOpsService";
 export type {
   DeployReleaseRecord,

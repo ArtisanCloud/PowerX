@@ -26,7 +26,17 @@ schema_config:
         period: 24h
 
 limits_config:
+  retention_period: 720h
   allow_structured_metadata: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
 
 ruler:
   alertmanager_url: http://localhost:9093

@@ -120,7 +120,7 @@ func (l *YAMLSpecLoader) LoadToolSpecsFromDir(dir string) (map[string]*schemas.T
 		spec, loadErr := l.LoadToolSpec(path)
 		if loadErr != nil {
 			// 记录错误但继续处理其他文件
-			logger.WarnF(context.Background(), "Warning: Failed to load tool spec from '%s': %v", path, loadErr)
+			logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "flow.spec_loader"}), "Warning: Failed to load tool spec from '%s': %v", path, loadErr)
 			return nil
 		}
 
@@ -154,7 +154,7 @@ func (l *YAMLSpecLoader) LoadBlueprintsFromDir(dir string) (map[string]*schemas.
 		blueprint, loadErr := l.LoadFlowBlueprint(path)
 		if loadErr != nil {
 			// 记录错误但继续处理其他文件
-			logger.WarnF(context.Background(), "Warning: Failed to load blueprint from '%s': %v", path, loadErr)
+			logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "flow.spec_loader"}), "Warning: Failed to load blueprint from '%s': %v", path, loadErr)
 			return nil
 		}
 		//ctx := context.Background()

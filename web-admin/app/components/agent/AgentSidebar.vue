@@ -14,6 +14,12 @@ export interface ChatSession {
 interface Props {
   agents?: Agent[];
   currentAgentId?: string | null;
+  selectorMode?: "agent" | "team";
+  selectorValue?: string | null;
+  selectorOptions?: SelectOption[];
+  selectorPlaceholder?: string;
+  selectorLabel?: string;
+  showSessions?: boolean;
   currentSessionId?: number | string; // ✅ 高亮当前会话
   loading?: boolean;
   busy?: boolean;
@@ -49,6 +55,12 @@ const props = withDefaults(defineProps<Props>(), {
   agents: () => [],
   loading: false,
   currentAgentId: "",
+  selectorMode: "agent",
+  selectorValue: "",
+  selectorOptions: () => [],
+  selectorPlaceholder: "",
+  selectorLabel: "",
+  showSessions: true,
   currentSessionId: undefined,
   busy: false,
   sessionsByAgent: () => ({}),
@@ -58,8 +70,24 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { t } = useI18n();
 const isBusy = computed(() => !!props.busy);
+const primaryActionLabel = computed(() =>
+  props.selectorMode === "team" ? "新建任务" : (t("agent.selector.newSession") || "新会话")
+);
 
 /* ---------- 顶部：Agent 选择 + 新建 ---------- */
+const effectiveSelectorOptions = computed<SelectOption[]>(() => {
+  if (props.selectorOptions && props.selectorOptions.length > 0) {
+    return props.selectorOptions;
+  }
+  if (props.selectorMode === "team") {
+    return [];
+  }
+  return (props.agents || []).map((a) => ({
+    label: a.name,
+    value: a.uuid,
+  }));
+});
+
 const agentOptions = computed<SelectOption[]>(() =>
   (props.agents || []).map((a) => ({
     label: a.name,
@@ -88,11 +116,15 @@ function getAgentIcon(agent: Agent) {
 // ✅ 选中项改为 SelectOption（对象）
 const selectedAgent = computed<SelectOption>({
   get: () => {
-    const id = props.currentAgentId || "";
+    const id = props.selectorValue || props.currentAgentId || "";
     const found =
-      agentOptions.value.find((o) => o.value === id) ??
+      effectiveSelectorOptions.value.find((o) => String(o.value) === id) ??
       ({
-        label: t("agent.selector.pickAgent") || "选择 Agent",
+        label:
+          props.selectorPlaceholder ||
+          props.selectorLabel ||
+          t("agent.selector.pickAgent") ||
+          "选择 Agent",
         value: null,
       } as SelectOption);
     return found;
@@ -108,6 +140,10 @@ const selectedAgent = computed<SelectOption>({
 // 当前选中 Agent 的图标
 const currentIcon = computed(() => {
   const val = selectedAgent.value?.value as string | null;
+  const fromSelector = effectiveSelectorOptions.value.find(
+    (o: any) => String(o.value) === String(val || "")
+  ) as any;
+  if (fromSelector?.icon) return String(fromSelector.icon);
   const hit = agentOptionsWithIcon.value.find((o) => o.value === val);
   return hit?.icon || "i-heroicons-cpu-chip";
 });
@@ -254,12 +290,18 @@ function fmtTime(ts?: string | number | Date) {
         <!-- ChatGPT风格：选择器在上方 -->
         <USelectMenu
           v-model="selectedAgent"
-          :items="agentOptions"
+          :items="effectiveSelectorOptions"
           option-attribute="label"
           value-attribute="value"
           searchable
           :disabled="isBusy"
           class="flex-1"
+          :placeholder="
+            selectorPlaceholder ||
+            selectorLabel ||
+            t('agent.selector.pickAgent') ||
+            '选择 Agent'
+          "
         >
           <template #leading>
             <UIcon :name="currentIcon" class="w-4 h-4 text-gray-500" />
@@ -268,6 +310,7 @@ function fmtTime(ts?: string | number | Date) {
 
         <!-- 编辑当前 Agent 按钮 -->
         <UButton
+          v-if="selectorMode !== 'team'"
           icon="i-heroicons-pencil-square"
           size="sm"
           variant="ghost"
@@ -278,6 +321,7 @@ function fmtTime(ts?: string | number | Date) {
 
         <!-- 新建 Agent 按钮 -->
         <UButton
+          v-if="selectorMode !== 'team'"
           icon="i-heroicons-plus-circle"
           size="sm"
           variant="outline"
@@ -297,9 +341,10 @@ function fmtTime(ts?: string | number | Date) {
           @click="createSession"
           class="shrink-0 px-3"
         >
-          {{ t("agent.selector.newSession") || "新会话" }}
+          {{ primaryActionLabel }}
         </UButton>
         <UButton
+          v-if="showSessions"
           icon="i-heroicons-trash"
           size="sm"
           variant="outline"
@@ -310,6 +355,7 @@ function fmtTime(ts?: string | number | Date) {
           :title="t('agent.selector.clearSessions') || '清空该智能体全部会话'"
         />
         <UInput
+          v-if="showSessions"
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
           size="sm"
@@ -317,15 +363,18 @@ function fmtTime(ts?: string | number | Date) {
           :placeholder="t('agent.selector.searchSessions') || '搜索会话…'"
           class="flex-1"
         />
+        <div v-else class="flex-1"></div>
       </div>
     </div>
 
     <!-- 会话列表 -->
-    <div class="flex-1 overflow-y-auto pb-2">
+    <div v-if="showSessions" class="flex-1 overflow-y-auto pb-2">
       <div v-if="!currentAgentId" class="p-6 text-center text-gray-400">
         {{
-          t("agent.selector.pickAgentToSeeSessions") ||
-          "请选择一个 Agent 查看会话列表"
+          selectorMode === "team"
+            ? "请选择一个团队查看会话列表"
+            : t("agent.selector.pickAgentToSeeSessions") ||
+              "请选择一个 Agent 查看会话列表"
         }}
       </div>
 
@@ -547,6 +596,8 @@ function fmtTime(ts?: string | number | Date) {
         </template>
       </template>
     </div>
+
+    <div v-else class="flex-1 overflow-y-auto"></div>
 
     <!-- 底部（可放设置/回收站/账号信息） -->
     <div class="p-3 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-10">

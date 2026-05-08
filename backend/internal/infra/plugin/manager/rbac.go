@@ -22,8 +22,7 @@ func BindAuthorizer(dr *pmrouter.DynamicRouter, az Authorizer, issuer string, tt
 
 // PolicyFromPlugin：根据 manifest 的 HTTP 基础前缀 + 资源/动作清单
 func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
-	// 关键：将 manifest 的 "/api/v1" 转成鉴权视角的 "/v1"
-	policyBase := toPolicyHTTPBase(p.Endpoints.HTTPBasePath)
+	policyBase := toPolicyHTTPBase(resolveRouteBasePath(p))
 	pol := &pmrouter.Policy{
 		Routes:      map[string]pmrouter.Permission{},
 		HTTPBase:    policyBase,
@@ -72,12 +71,58 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 		ensure(short) // 用于自动推导能命中 "note"
 		// ensure(orig) // 如果你希望兼容原来的 "base:note"，可以保留这一行
 	}
-	// ④ 宿主能力网关调试入口：为 POST /integration/capabilities/invoke 提供稳定映射
+	// ④ 编译插件显式路径权限（单一标准：basePath + permissions.path）
+	for _, spec := range p.Permissions {
+		relPath := strings.TrimSpace(spec.Path)
+		resource := strings.ToLower(strings.TrimSpace(spec.Resource))
+		if i := strings.LastIndex(resource, ":"); i >= 0 {
+			resource = resource[i+1:]
+		}
+		if relPath == "" || resource == "" || len(spec.Actions) == 0 || policyBase == "" {
+			continue
+		}
+		finalPath := joinPolicyPath(policyBase, relPath)
+		for _, action := range spec.Actions {
+			act := strings.ToLower(strings.TrimSpace(action))
+			if act == "" {
+				continue
+			}
+			for _, method := range actionToHTTPMethods(act) {
+				pol.Routes[method+":"+finalPath] = pmrouter.Permission{Resource: resource, Action: act}
+			}
+		}
+	}
+	// ⑤ 宿主能力网关调试入口：为 POST /integration/capabilities/invoke 提供稳定映射
 	// 兼容插件侧“功能页调试按钮”场景，避免因自动推导命中不到资源而 403。
 	if base := pol.HTTPBase; base != "" {
 		if res := pickCapabilityInvokeResource(pol.Resources); res != "" {
 			invokePath := joinPolicyPath(base, "/integration/capabilities/invoke")
 			pol.Routes["POST:"+invokePath] = pmrouter.Permission{Resource: res, Action: "create"}
+		}
+		// ⑥ 插件日志编排入口：为 /admin/runtime/logging/{policy,probe} 提供稳定映射
+		// 避免由于路径首段是 "admin" 且插件未声明 admin 资源导致 no permission rule。
+		if res := pickRuntimeLoggingResource(pol.Resources); res != "" {
+			if readAct := pickRouteAction(pol.Resources[res], []string{"read", "view", "list", "query"}); readAct != "" {
+				policyPath := joinPolicyPath(base, "/admin/runtime/logging/policy")
+				pol.Routes["GET:"+policyPath] = pmrouter.Permission{Resource: res, Action: readAct}
+			}
+			if updateAct := pickRouteAction(pol.Resources[res], []string{"update", "edit", "write", "create", "read"}); updateAct != "" {
+				policyPath := joinPolicyPath(base, "/admin/runtime/logging/policy")
+				pol.Routes["PUT:"+policyPath] = pmrouter.Permission{Resource: res, Action: updateAct}
+			}
+			if probeAct := pickRouteAction(pol.Resources[res], []string{"create", "write", "update", "read"}); probeAct != "" {
+				probePath := joinPolicyPath(base, "/admin/runtime/logging/probe")
+				pol.Routes["POST:"+probePath] = pmrouter.Permission{Resource: res, Action: probeAct}
+			}
+			// ⑦ WS-Bus 调试入口：统一补齐 test-flow/grant/publish，避免 admin 首段自动推导 miss。
+			if wsAct := pickRouteAction(pol.Resources[res], []string{"create", "write", "update", "read"}); wsAct != "" {
+				wsTestPath := joinPolicyPath(base, "/admin/runtime/ws-bus/test-flow")
+				wsGrantPath := joinPolicyPath(base, "/admin/runtime/ws-bus/grant")
+				wsPublishPath := joinPolicyPath(base, "/admin/runtime/ws-bus/publish")
+				pol.Routes["POST:"+wsTestPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+				pol.Routes["POST:"+wsGrantPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+				pol.Routes["POST:"+wsPublishPath] = pmrouter.Permission{Resource: res, Action: wsAct}
+			}
 		}
 	}
 	return pol
@@ -91,7 +136,7 @@ func InstallPolicy(dr *pmrouter.DynamicRouter, pluginID string, pol *pmrouter.Po
 }
 
 // --------- helpers ---------
-// 鉴权视角的 HTTPBase：把 manifest 的 "/api/v1" → "/v1"；"/api" → "/"
+// 鉴权视角的 HTTPBase：与宿主网关坐标保持一致，保留插件声明（通常是 "/api/v1"）。
 func toPolicyHTTPBase(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -100,14 +145,29 @@ func toPolicyHTTPBase(s string) string {
 	if s[0] != '/' {
 		s = "/" + s
 	}
-	if s == "/api" {
-		return "/"
-	}
-	if strings.HasPrefix(s, "/api/") {
-		return "/" + strings.TrimPrefix(s, "/api/")
-	}
-	// 已经是 "/v1" 这类，原样返回
 	return s
+}
+
+func resolveRouteBasePath(p plugin_mgr.Plugin) string {
+	if p.Routes != nil && strings.TrimSpace(p.Routes.BasePath) != "" {
+		return strings.TrimSpace(p.Routes.BasePath)
+	}
+	return strings.TrimSpace(p.Endpoints.HTTPBasePath)
+}
+
+func actionToHTTPMethods(action string) []string {
+	switch action {
+	case "read", "view", "list", "query":
+		return []string{"GET", "HEAD"}
+	case "create", "write":
+		return []string{"POST"}
+	case "update", "edit":
+		return []string{"PUT", "PATCH"}
+	case "delete", "remove":
+		return []string{"DELETE"}
+	default:
+		return nil
+	}
 }
 
 func normRes(s string) string {
@@ -127,6 +187,40 @@ func pickCapabilityInvokeResource(resources map[string]map[string]bool) string {
 	}
 	for name := range resources {
 		return name
+	}
+	return ""
+}
+
+func pickRuntimeLoggingResource(resources map[string]map[string]bool) string {
+	if len(resources) == 0 {
+		return ""
+	}
+	prefer := []string{"runtime", "logging", "logger", "system", "admin", "integration", "capability"}
+	for _, name := range prefer {
+		if _, ok := resources[name]; ok {
+			return name
+		}
+	}
+	for name := range resources {
+		return name
+	}
+	return ""
+}
+
+func pickRouteAction(actions map[string]bool, prefer []string) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	for _, act := range prefer {
+		if actions[strings.ToLower(strings.TrimSpace(act))] {
+			return strings.ToLower(strings.TrimSpace(act))
+		}
+	}
+	for act := range actions {
+		clean := strings.ToLower(strings.TrimSpace(act))
+		if clean != "" {
+			return clean
+		}
 	}
 	return ""
 }

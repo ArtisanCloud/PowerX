@@ -123,7 +123,7 @@ func (h *handler) pushTest(c *gin.Context) {
 	}
 
 	payload := toNotificationView(item)
-	bus.DefaultHub.Publish(tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(c.Request.Context()))
 	dto.ResponseSuccess(c, payload)
 }
 

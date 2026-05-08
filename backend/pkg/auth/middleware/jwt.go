@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -45,11 +46,31 @@ func JwtMiddleware(
 		// 1) Authorization: Bearer <token>
 		authz := c.GetHeader("Authorization")
 		if authz == "" || !strings.HasPrefix(strings.ToLower(authz), "bearer ") {
+			pxlog.WarnF(
+				c.Request.Context(),
+				"[auth.jwt] unauthorized stage=missing_bearer method=%s path=%s trace_id=%s reason=%q issuer=%s audiences=%v",
+				c.Request.Method,
+				c.Request.URL.Path,
+				reqctx.GetTraceID(c.Request.Context()),
+				"missing or invalid Authorization header",
+				issuer,
+				audiences,
+			)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
 			return
 		}
 		tokenString := strings.TrimSpace(authz[len("Bearer "):])
 		if tokenString == "" {
+			pxlog.WarnF(
+				c.Request.Context(),
+				"[auth.jwt] unauthorized stage=empty_bearer method=%s path=%s trace_id=%s reason=%q issuer=%s audiences=%v",
+				c.Request.Method,
+				c.Request.URL.Path,
+				reqctx.GetTraceID(c.Request.Context()),
+				"invalid bearer token",
+				issuer,
+				audiences,
+			)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid bearer token"})
 			return
 		}
@@ -60,6 +81,16 @@ func JwtMiddleware(
 		// 注意：ParseAndValidate 需返回 *reqctx.CoreXClaims（见 pkg/auth/jwt.go）
 		claims, err := auth.ParseAndValidate(tokenString, secret, issuer, audiences...)
 		if err != nil {
+			pxlog.WarnF(
+				c.Request.Context(),
+				"[auth.jwt] unauthorized stage=parse_validate_failed method=%s path=%s trace_id=%s reason=%q issuer=%s audiences=%v",
+				c.Request.Method,
+				c.Request.URL.Path,
+				reqctx.GetTraceID(c.Request.Context()),
+				err.Error(),
+				issuer,
+				audiences,
+			)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
@@ -74,6 +105,16 @@ func JwtMiddleware(
 		authCache := cache.GetCache()
 		if authCache != nil && claims.ID != "" {
 			if ok, _ := authCache.Exists(reqCtx, KRevoked(claims.ID)); ok {
+				pxlog.WarnF(
+					c.Request.Context(),
+					"[auth.jwt] unauthorized stage=token_revoked method=%s path=%s trace_id=%s reason=%q issuer=%s audiences=%v",
+					c.Request.Method,
+					c.Request.URL.Path,
+					reqctx.GetTraceID(c.Request.Context()),
+					"token revoked",
+					issuer,
+					audiences,
+				)
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token revoked"})
 				return
 			}

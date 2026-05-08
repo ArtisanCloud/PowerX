@@ -417,9 +417,9 @@ func LoadToolSpecsFromConfig(cfg *config.MCPConfig) error {
 			continue
 		}
 		specs, err := specLoader.LoadToolSpecsFromDir(dir)
-		logger.DebugF(context.Background(), "check app specs: dir=%s count=%d", dir, len(specs))
+		logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.register"}), "check app specs: dir=%s count=%d", dir, len(specs))
 		if err != nil {
-			logger.WarnF(context.Background(), "Warning: 从 %s 加载应用规范失败: %v", dir, err)
+			logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.register"}), "Warning: 从 %s 加载应用规范失败: %v", dir, err)
 			continue
 		}
 		for id, spec := range specs {

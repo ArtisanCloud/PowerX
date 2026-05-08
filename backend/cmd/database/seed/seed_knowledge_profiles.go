@@ -51,7 +51,7 @@ func SeedKnowledgeProfiles(db *gorm.DB, tenantKey string) error {
 		}
 	}
 
-	logger.InfoF(context.Background(), "[seed] knowledge profiles ready for tenant=%s (uuid=%s)", tenantKey, ten.UUID.String())
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] knowledge profiles ready for tenant=%s (uuid=%s)", tenantKey, ten.UUID.String())
 	return nil
 }
 

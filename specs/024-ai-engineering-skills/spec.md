@@ -86,6 +86,22 @@
 
 ---
 
+### User Story 5 - 主 Agent 发起 A2A 多 Agent 协作 (Priority: P2)
+
+作为平台 AI 应用负责人，我希望主 Agent 能把复杂任务拆分给多个子 Agent 并汇总结果，以便在保持租户隔离与审计可追溯的前提下提升任务完成质量与稳定性。
+
+**Why this priority**: 现有单 Agent 编排已可用，但复杂任务在“规划、检索、执行、复核”多环节下需要明确的 A2A 分工与调度协议。
+
+**Independent Test**: 仅实现“主 Agent 分发给两个子 Agent 并回收结果”的最小用例即可验证 A2A 主链路。
+
+**Acceptance Scenarios**:
+
+1. **Given** 主 Agent 收到复合任务，**When** Planner 识别需并行子任务，**Then** 系统生成包含子 Agent 节点的计划并按依赖执行。
+2. **Given** 一个子 Agent 执行失败且策略为 `continue`，**When** 其他子任务成功完成，**Then** 主 Agent 返回部分成功结果并标注失败子任务详情。
+3. **Given** 子 Agent 访问上下文，**When** 请求超出授权上下文范围，**Then** 系统阻断访问并记录拒绝审计。
+
+---
+
 ### Edge Cases
 
 - 当同一 `skill_id` 同时存在多个可用版本时，如何明确“当前生效版本”并避免歧义调用？
@@ -146,6 +162,16 @@
 - **FR-038**: 系统必须支持 Provider 无关的 Prompt/Context Cache 策略（`auto|force_off|force_on`），并通过能力探测决定是否启用缓存优化。
 - **FR-039**: 系统必须记录并暴露上下文优化观测字段（至少 `prompt_tokens/completion_tokens/cached_tokens/trim_actions/context_layers_size`），用于排障与成本分析。
 - **FR-040**: 系统必须保证 Context 优化不改变主路由原则：`/command` 以规则为快捷入口，其他自然语言请求仍由 LLM 意图识别与规划主导。
+- **FR-041**: 系统必须支持主 Agent 在单次请求内创建 A2A 执行计划，并将子任务分发给多个子 Agent（至少支持串行与并行两种调度模式）。
+- **FR-042**: 系统必须支持 A2A 任务级上下文隔离，子 Agent 仅可读取主 Agent 显式下发的上下文切片与引用，不得默认继承完整会话。
+- **FR-043**: 系统必须支持 A2A 协作的失败策略（`fail-fast|continue|retry-once`），并在最终响应中返回子任务级执行状态。
+- **FR-044**: 系统必须为 A2A 协作写入全链路审计，至少包含 `team_id/task_id/parent_agent_id/child_agent_id/handoff_trace_id` 与状态变更时间线。
+- **FR-045**: 系统必须保证 A2A 子 Agent 调用继续遵循租户隔离与授权约束，禁止子 Agent 越权调用未授权的 `workflow|skill|tooling` 候选。
+- **FR-046**: 系统必须保证团队任务工作台按用户所选团队动态路由，禁止在页面逻辑中硬编码固定 `team_id` 或固定主 Agent。
+- **FR-047**: 系统必须在团队管理与成员管理界面默认展示 Agent 可读标识（名称/Key），`id` 仅作为辅助信息，不得作为主要识别信息。
+- **FR-048**: 系统必须在团队配置界面强约束“TL 唯一 planner，子 Agent 禁止 planner”，并提供清晰角色说明（retriever/executor/reviewer）。
+- **FR-049**: 系统必须在会话界面提供可视化协作过程（Intent/Plan/Node 状态），并支持用户基于页面信息判断“是否发生协作、协作是否完成”。
+- **FR-050**: 系统必须提供“页面可见字段”和“审计可查字段”的一致口径，当前端未展示 `team_id/child_agent_id/handoff_task_id` 时，需提供可操作的审计查询路径。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -154,6 +180,8 @@
 - **Skill Source Descriptor**: Skill 来源描述，包含来源类型、来源地址、来源版本标识与导入操作者信息。
 - **Capability Binding**: Skill 与统一能力入口之间的映射关系，包含可见性和授权约束。
 - **Skill Lifecycle Event**: 生命周期关键动作事件，包含导入、发布、回滚、停用等动作及其操作者与时间。
+- **Agent Team**: 主 Agent 与子 Agent 的协作编组定义，包含团队成员、角色、权限边界与默认调度策略。
+- **Agent Handoff Task**: 一次主 Agent 到子 Agent 的任务交接记录，包含输入摘要、上下文引用、失败策略、执行状态与回传结果摘要。
 
 ## Success Criteria *(mandatory)*
 
@@ -169,6 +197,8 @@
 - **SC-008**: 上线 Context 优化后，在稳定流量样本中，Agent 主入口 `prompt_tokens` P50 相对基线下降至少 30%。
 - **SC-009**: 在支持缓存能力的模型上，固定前缀缓存命中率达到 60% 以上（以平台观测字段为准）。
 - **SC-010**: 在 30 轮以上会话中，超上下文窗口错误发生率降至 1% 以下，且请求失败可通过 `trim_actions` 与 token 指标定位。
+- **SC-011**: 在最小 A2A 用例中（1 主 2 子并行），95% 请求可在目标 SLA 内返回完整或部分成功结果，且子任务状态可追溯。
+- **SC-012**: 团队任务验收中，100% 用例可在页面看到 `Intent + Plan + Node` 三段执行过程；不可见字段可在 3 分钟内通过审计接口定位。
 
 ## Assumptions
 
@@ -181,3 +211,4 @@
 - 首版来源策略遵循“请求上下文 > Agent 级 > 租户级 > 默认值”的优先级。
 - 统一意图识别与编排以 LLM 决策为主，规则仅用于硬过滤与约束，不参与替代式主路由。
 - Context 优化机制以“降成本与降延迟”为目标，不得改变既有授权边界、租户隔离和审计语义。
+- A2A 协作首版只支持单租户内调度，不支持跨租户或跨组织边界的 Agent 任务委派。

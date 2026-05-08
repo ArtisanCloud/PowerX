@@ -11,6 +11,7 @@ func GetDefaults() *Config {
 	return &Config{
 		Version: DefaultSystemVersion,
 		Server: ServerConfig{
+			Host:                "127.0.0.1",
 			Port:                8077,
 			ReadTimeoutSeconds:  5,
 			WriteTimeoutSeconds: 10,
@@ -50,7 +51,7 @@ func GetDefaults() *Config {
 			Loki: logCfg.LokiConfig{
 				Enable:    false,
 				URL:       "http://<loki-host>:3100",
-				JobName:   "powerx",
+				Labels:    map[string]string{"system": "powerx", "service": "powerx-backend", "env": "dev", "instance": "local", "module": "runtime"},
 				BatchWait: 1,
 				BatchSize: 100,
 			},

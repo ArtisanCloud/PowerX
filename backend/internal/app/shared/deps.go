@@ -989,7 +989,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 				PollTimeout:    time.Duration(queueOpts.Kafka.PollTimeoutMs) * time.Millisecond,
 				FallbackDriver: redisTaskDriver,
 			})
-			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=kafka enabled; using kafka adapter with redis fallback")
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[event_fabric.task_driver] queue.driver=kafka enabled; using kafka adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
 		case "rabbitmq":
 			taskDriver = rabbitdriver.NewDriver(rabbitdriver.DriverOptions{
@@ -1001,7 +1001,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 				PollTimeout:    time.Duration(queueOpts.Rabbit.PollTimeoutMs) * time.Millisecond,
 				FallbackDriver: redisTaskDriver,
 			})
-			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=rabbitmq enabled; using rabbitmq adapter with redis fallback")
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[event_fabric.task_driver] queue.driver=rabbitmq enabled; using rabbitmq adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
 		case "nats":
 			taskDriver = natsdriver.NewDriver(natsdriver.DriverOptions{
@@ -1011,14 +1011,14 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 				PollTimeout:    time.Duration(queueOpts.NATS.PollTimeoutMs) * time.Millisecond,
 				FallbackDriver: redisTaskDriver,
 			})
-			pxlog.WarnF(context.Background(), "[event_fabric.task_driver] queue.driver=nats enabled; using nats adapter with redis fallback")
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[event_fabric.task_driver] queue.driver=nats enabled; using nats adapter with redis fallback")
 			retryWorkerDriverName = string(taskDriver.Type())
 		}
 		scheduler = deliveryService.NewBackoffScheduler(reliableQueue)
 		if metricsRecorder != nil {
 			capability := taskDriver.Capability()
 			metricsRecorder.ObserveTaskDriverInit(context.Background(), string(taskDriver.Type()), capability.SupportsBlockingDequeue)
-			pxlog.InfoF(context.Background(), "[event_fabric.task_driver] initialized driver=%s blocking=%s ack_timeout=%s",
+			pxlog.InfoF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[event_fabric.task_driver] initialized driver=%s blocking=%s ack_timeout=%s",
 				taskDriver.Type(), cfg.SchedulerInterval, cfg.AckTimeout)
 		}
 	}
@@ -1101,7 +1101,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			EnableDatabaseFallbackLookup: retryWorkerFallbackEnabled,
 		})
 		if err != nil {
-			pxlog.WarnF(context.Background(), "init delivery service failed: %v", err)
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init delivery service failed: %v", err)
 			deliverySvc = nil
 		}
 	}
@@ -1117,7 +1117,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			Metrics:  metricsRecorder,
 		})
 		if err != nil {
-			pxlog.WarnF(context.Background(), "init dlq service failed: %v", err)
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init dlq service failed: %v", err)
 			dlqSvc = nil
 		}
 	}
@@ -1180,7 +1180,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			WaitTimeout:  3 * time.Second,
 			RetryDelay:   5 * time.Second,
 			Publish: func(tenantKey, topic string, payload any, traceID string) {
-				wsbus.DefaultHub.Publish(tenantKey, topic, payload, traceID)
+				wsbus.DefaultHub.PublishWithContext(context.Background(), tenantKey, topic, payload, traceID)
 			},
 			Logger: pxlog.GetGlobalLogger(),
 			Clock:  time.Now,
@@ -1263,7 +1263,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			Logger:       pxlog.GetGlobalLogger(),
 		})
 		if err != nil {
-			pxlog.WarnF(context.Background(), "init authorization service failed: %v", err)
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init authorization service failed: %v", err)
 			authService = nil
 		}
 
@@ -1449,15 +1449,15 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		case vectorstorepkg.DriverPinecone:
 			driverCfg = opts.VectorStore.Pinecone
 		default:
-			pxlog.WarnF(context.Background(), "[knowledge_space] 不支持的向量存储驱动: %s", driverName)
+			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[knowledge_space] 不支持的向量存储驱动: %s", driverName)
 		}
 		if driverCfg != nil {
 			store, err := vectorstorepkg.Open(driverName, driverCfg)
 			if err != nil {
 				if err == vectorstorepkg.ErrNotImplemented {
-					pxlog.WarnF(context.Background(), "[knowledge_space] 向量存储驱动 %s 暂未实现", driverName)
+					pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[knowledge_space] 向量存储驱动 %s 暂未实现", driverName)
 				} else {
-					pxlog.WarnF(context.Background(), "[knowledge_space] 初始化向量存储失败: %v", err)
+					pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[knowledge_space] 初始化向量存储失败: %v", err)
 				}
 			} else {
 				vectorStore = store
@@ -1618,7 +1618,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			if strings.TrimSpace(update.TenantUUID) == "" {
 				return
 			}
-			wsbus.DefaultHub.Publish(update.TenantUUID, eventbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
+			wsbus.DefaultHub.PublishWithContext(ctx, update.TenantUUID, eventbus.TopicKnowledgeIngestionJob, update, reqctx.GetTraceID(ctx))
 		}),
 	})
 	svc.AttachIngestion(ingestionSvc)

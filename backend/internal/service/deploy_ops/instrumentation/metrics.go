@@ -17,18 +17,19 @@ type Recorder struct {
 }
 
 func NewRecorder(component string) *Recorder {
+	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "deploy_ops.instrumentation"})
 	meter := otel.Meter(component)
 	total, err := meter.Int64Counter("powerx_ops_deploy_total")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create deploy total counter failed: %v", err)
+		logger.ErrorF(logCtx, "create deploy total counter failed: %v", err)
 	}
 	errorsCounter, err := meter.Int64Counter("powerx_ops_deploy_error_total")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create deploy error counter failed: %v", err)
+		logger.ErrorF(logCtx, "create deploy error counter failed: %v", err)
 	}
 	latency, err := meter.Float64Histogram("powerx_ops_deploy_latency_ms")
 	if err != nil {
-		logger.ErrorF(context.Background(), "create deploy latency histogram failed: %v", err)
+		logger.ErrorF(logCtx, "create deploy latency histogram failed: %v", err)
 	}
 	return &Recorder{total: total, errors: errorsCounter, latency: latency}
 }

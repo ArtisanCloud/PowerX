@@ -1,143 +1,81 @@
-# WebSocket 实现指南
+# WebSocket 实现指南（ws-bus）
 
 ## 概述
 
-本项目实现了基于同源反代 + 子协议携带 Token 的 WebSocket 连接方案，确保开发和生产环境的一致性和安全性。
+本文描述 PowerX 当前 ws-bus WebSocket 的实现与联调方式，适用于插件进度/通知等事件场景。
 
-## 架构设计
+## 1. 当前接入路径
 
-```
-前端 (浏览器)
-    ↓ wss://domain.com/api/agents/stream/ws
-    ↓ Sec-WebSocket-Protocol: bearer.base64url_token
-开发环境: Nitro 插件代理
-生产环境: Nginx 代理
-    ↓ 透传所有头部
-后端 WebSocket 服务 (127.0.0.1:8077)
-```
+1. 浏览器连接：`wss://<domain>/api/ws?tenant_uuid=<tenant_uuid>&authorization=Bearer+<token>`
+2. 反代：Nginx 将 `/api/ws` 升级转发到后端服务。
+3. 协议：连接建立后发送 `subscribe`（`topics[]`）。
 
-## 核心文件
-
-### 1. Nitro WebSocket 代理插件
-
-**文件**: `server/plugins/ws-proxy.ts`
-
-- 处理 WebSocket 升级请求
-- 透传 `Sec-WebSocket-Protocol` 头部
-- 只代理 `/api/agents/stream/ws` 路径
-
-### 2. 前端连接管理
-
-**文件**: `app/composables/agent/useDualChannelConnection.ts`
-
-- 统一使用同源 WebSocket URL
-- Token 仅通过子协议传递
-- 实现心跳、重连、取消机制
-
-### 3. 页面集成
-
-**文件**: `app/pages/agent/index.vue`
-
-- 使用 `sendMessage(message, flowId, meta)` 发送消息
-- 支持会话上下文传递
-
-## 安全特性
-
-1. **Token 保护**: 不在 URL 中暴露认证信息
-2. **同源策略**: 避免跨域安全问题
-3. **子协议认证**: 标准的 WebSocket 认证方式
-
-## 连接增强
-
-1. **指数退避重连**: 1s → 2s → 4s → 8s → 16s → 30s
-2. **心跳机制**: 每 25 秒发送 ping 防止连接断开
-3. **请求取消**: 支持 AbortController 取消 SSE 请求
-
-## 部署配置
-
-### 开发环境
-
-无需额外配置，Nitro 插件自动处理 WebSocket 代理。
-
-### 生产环境 (Nginx)
+## 2. Nginx 关键配置
 
 ```nginx
-location /api/agents/stream/ws {
-    proxy_pass http://127.0.0.1:8077;
+location /api/ws {
+    proxy_pass http://127.0.0.1:8080/api/ws;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
-    proxy_set_header Origin $http_origin;
-    proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
-    proxy_read_timeout 3600;
-    proxy_send_timeout 3600;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
 }
 ```
 
-## 测试验证
+## 3. 订阅协议
 
-### 1. 构建测试
-
-```bash
-npm run build
+```json
+{ "type": "subscribe", "topics": ["ai_craft.shopify.sync.progress.<tenant_uuid>"] }
 ```
 
-### 2. WebSocket 连接测试
-
-```bash
-node test-websocket.js
+下行业务事件（统一规范）：
+```json
+{
+  "type": "event",
+  "topic": "ai_craft.shopify.product.sync.progress.tenant_<tenant_uuid>",
+  "payload": { "percent": 12, "stage": "sync_products" },
+  "trace_id": "<trace_id>"
+}
 ```
 
-### 3. 手动测试 (websocat)
-
-```bash
-websocat "ws://localhost:3000/api/agents/stream/ws?probe=1" \
-  --header "Sec-WebSocket-Protocol: bearer.test_token"
+失败返回：
+```json
+{
+  "type": "error",
+  "payload": {
+    "code": "permission_denied",
+    "message": "subscription rejected",
+    "detail": "topic not allowed"
+  }
+}
 ```
 
-## 故障排除
+## 4. 与 grant 的关系
 
-### 常见问题
+1. grant 是“授权准备”，不是自动订阅。
+2. 只有 `grant.data.topics` 命中目标 topic，订阅才稳定通过。
+3. 若 grant 仅 fallback（`topics: []`），订阅可能被拒绝。
 
-1. **连接被拒绝**: 检查后端服务是否在 8077 端口运行
-2. **认证失败**: 确认 Token 格式正确 (`bearer.base64url_token`)
-3. **代理不工作**: 检查 Nitro 插件是否正确加载
+## 5. 验收标准
 
-### 调试方法
+1. grant 200 且 `data.topics` 非空。
+2. ws `subscribe` 无 `topic not allowed`。
+3. 浏览器 WS 能收到 `type=event` 的目标 topic 消息。
+4. 宿主日志出现 `wsbus publish succeeded` 与 `SYNC_PROGRESS_PUBLISH`。
 
-1. 查看浏览器开发者工具的网络面板
-2. 检查服务器日志中的 WebSocket 连接信息
-3. 使用 `console.log` 在代理插件中添加调试信息
+## 6. 常见故障定位
 
-## API 使用示例
+1. `401/400 on grant`
+- 查插件 runtime grant 日志与宿主鉴权日志。
 
-```typescript
-// 发送消息
-await chat.sendMessage("Hello", "chat", {
-  sessionId: "session-123",
-  agentId: 456,
-});
+2. `grant success but no event`
+- 先看 grant 是否仅 fallback；
+- 再看 ws subscribe 是否被拒绝。
+- 若 subscribe ack 成功但 UI 不更新：优先检查前端是否按 `type=event` 消费。
 
-// 监听消息
-chat.onMessage = (data) => {
-  console.info("收到消息:", data);
-};
-
-// 监听错误
-chat.onError = (error) => {
-  console.error("连接错误:", error);
-};
-```
-
-## 性能优化
-
-1. **连接复用**: 同一会话复用 WebSocket 连接
-2. **智能重连**: 指数退避避免频繁重连
-3. **心跳优化**: 25 秒间隔平衡性能和稳定性
-
-## 未来扩展
-
-1. **多后端支持**: 可扩展支持多个后端服务
-2. **负载均衡**: 配合 Nginx upstream 实现负载均衡
-3. **监控集成**: 添加连接状态监控和告警
+3. `topic not allowed`
+- 核查 topic 是否已在 registry 精确注册；
+- 核查当前连接租户与 topic tenant 是否一致。

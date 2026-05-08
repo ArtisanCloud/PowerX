@@ -1,138 +1,312 @@
-# 04. Observability（可选）：接入 Loki + Grafana + Promtail
+# 04. Observability：PowerX 直推 Loki + Grafana（Ubuntu）
 
-## 1. 目标与策略
-你当前采用两阶段是正确的：
+## 1. 目标
 
-1. 阶段 1（默认）：先完成 PowerX 安装与启动，不接入 Promtail。
-2. 阶段 2（可选）：再接入 Loki + Grafana + Promtail，把日志统一打入 Loki。
+本文只覆盖你当前使用的主链路：
 
-结论：
-- Promtail 未接入不会阻塞 PowerX 启动。
-- Promtail 只影响“日志观测”，不影响“业务服务可用性”。
-
-## 2. 日志驱动建议（生产）
-- backend：`console=false`、`file=true`、`loki=false`
-- web-admin/runner/插件：优先输出到 stdout/stderr（systemd journal）
-- 统一采集：Promtail 采集 journald -> Loki -> Grafana
+`PowerX(应用直推) -> Loki -> Grafana`
 
 说明：
-- 不建议 backend 同时直推 loki + promtail 采集，避免重复写入。
+- 不要求 Docker。
+- 不依赖 Promtail。
+- 不依赖 journald。
+- 你已有 PowerX 直推能力，本篇只讲 Loki/Grafana 的安装与接入。
 
-## 3. 准备目录与配置
+## 2. 部署模式约束
+
+- 本文采用：**应用直推 Loki**。
+- 同一份日志不要再被 Promtail 重采，避免重复写入。
+- 如果你后续切到 Promtail 采集模式，请单独使用采集文档，不要与本文混用。
+
+## 3. Ubuntu 快速安装（Loki + Grafana）
+
+在服务器执行：
+
 ```bash
-sudo mkdir -p /etc/powerx/observability/{loki,promtail,grafana}
-sudo mkdir -p /var/lib/loki /var/lib/promtail /var/lib/grafana
+# 1) 安装依赖与 Grafana 源
+sudo apt-get update
+sudo apt-get install -y apt-transport-https software-properties-common wget gnupg
+sudo mkdir -p /etc/apt/keyrings
+wget -q -O - https://apt.grafana.com/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+
+# 2) 安装 loki + grafana
+sudo apt-get update
+sudo apt-get install -y loki grafana
+
+# 3) 准备目录（按 Loki 默认配置）
+sudo mkdir -p /etc/powerx/observability/loki /var/loki /var/lib/grafana
+sudo chown -R loki:loki /var/loki
 sudo chown -R 472:472 /var/lib/grafana
 ```
 
-拷贝仓库配置：
+## 4. Loki 配置与启动
+
+1) 放置 Loki 配置：
+
 ```bash
 sudo cp deploy/observability/loki/loki-config.yaml /etc/powerx/observability/loki/
-sudo cp deploy/observability/promtail/promtail-config.yaml /etc/powerx/observability/promtail/
-sudo cp -R deploy/observability/grafana/provisioning /etc/powerx/observability/grafana/
-```
-
-## 4. 安装与启动（Docker 方式，推荐）
-创建 compose 文件：
-```bash
-cat >/tmp/powerx-observability.compose.yaml <<'YAML'
-version: "3.9"
-
-services:
-  loki:
-    image: grafana/loki:2.9.8
-    command: ["-config.file=/etc/loki/loki-config.yaml"]
-    volumes:
-      - /etc/powerx/observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
-      - /var/lib/loki:/var/loki
-    ports:
-      - "3100:3100"
-    restart: unless-stopped
-
-  promtail:
-    image: grafana/promtail:2.9.8
-    command: ["-config.file=/etc/promtail/promtail-config.yaml"]
-    volumes:
-      - /etc/powerx/observability/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-      - /var/lib/promtail:/var/lib/promtail
-      - /var/log:/var/log:ro
-      - /run/log/journal:/run/log/journal:ro
-      - /etc/machine-id:/etc/machine-id:ro
-    restart: unless-stopped
-    depends_on:
-      - loki
-
-  grafana:
-    image: grafana/grafana:11.1.4
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin123
-    volumes:
-      - /var/lib/grafana:/var/lib/grafana
-      - /etc/powerx/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports:
-      - "3001:3000"
-    restart: unless-stopped
-    depends_on:
-      - loki
-YAML
-```
-
-启动：
-```bash
-sudo docker compose -f /tmp/powerx-observability.compose.yaml up -d
-sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-```
-
-## 5. Promtail 读 journald 的关键点
-`deploy/observability/promtail/promtail-config.yaml` 已按 systemd 方式配置：
-- 采集 `powerx-backend.service`
-- 采集 `powerx-web-admin.service`
-- 采集 `powerx-runner.service`
-- 可选采集插件文件日志：`/opt/powerx/backend/logs/plugins/**/*.log`
-
-若 promtail 容器日志提示 journal 权限问题，可改宿主机 systemd 方式部署 promtail，或额外检查宿主机 journal 权限策略。
-
-## 6. 验证
-### 6.1 服务健康
-```bash
-curl -sS http://127.0.0.1:3100/ready
-curl -sS http://127.0.0.1:9080/ready
-curl -sS http://127.0.0.1:3001/api/health
-```
-
-### 6.2 PowerX 侧生成日志
-```bash
-sudo systemctl restart powerx-backend powerx-web-admin powerx-runner
-sudo journalctl -u powerx-backend -n 30 --no-pager
-```
-
-### 6.3 Grafana 检索
-访问 `http://<host>:3001`（默认 `admin/admin123`），Loki 数据源已预置。  
-示例查询：
-```logql
-{job="powerx",app="backend"}
-{job="powerx",app="web-admin"}
-{job="powerx",app="runner"}
-```
-
-## 7. 回滚（关闭观测，不影响业务）
-```bash
-sudo docker compose -f /tmp/powerx-observability.compose.yaml down
+sudo cp /etc/powerx/observability/loki/loki-config.yaml /etc/loki/config.yml
 ```
 
 说明：
-- 关闭 Loki/Grafana/Promtail 不会影响 `powerx-backend/web-admin/runner`。
-- 你可随时再次 `up -d` 恢复观测。
+- 仓库里的 `deploy/observability/loki/loki-config.yaml` 只是模板。
+- 线上是否生效，以服务器上的 `/etc/loki/config.yml` 为准。
+- 你更新模板后，仍需要手动同步到服务器并重启 Loki。
+
+说明（重要）：
+- 目录与权限以 `/etc/loki/config.yml` 为准。
+- 若配置中是 `path_prefix: /var/loki`，必须确保 `/var/loki` 及其子目录对 Loki 运行用户可写。
+- 不要按经验混用 `/var/lib/loki` 与 `/var/loki`，否则可能出现 `mkdir /var/loki: permission denied`。
+
+2) 启动 Loki：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now loki
+sudo systemctl status loki --no-pager
+```
+
+3) 验证 Loki：
+
+```bash
+curl -sS http://127.0.0.1:3100/ready
+```
+
+返回 `ready` 即正常。
+
+若未就绪，先检查目录权限：
+
+```bash
+systemctl show loki -p User,Group
+sudo mkdir -p /var/loki /var/loki/chunks /var/loki/rules /var/loki/compactor
+sudo chown -R loki:loki /var/loki
+sudo chmod -R 755 /var/loki
+sudo systemctl restart loki
+```
+
+### 4.1 Loki 保留与自动清理（建议默认开启）
+
+本项目模板已启用：
+
+- `limits_config.retention_period: 720h`（30 天）
+- `compactor.retention_enabled: true`
+
+只要 Loki 正常运行，达到保留期后会自动清理历史数据，不需要你手工每天执行脚本。
+
+如果你要调整保留期（例如改成 7 天）：
+
+```bash
+sudo sed -i 's/retention_period: 720h/retention_period: 168h/' /etc/loki/config.yml
+sudo systemctl restart loki
+```
+
+### 4.2 手动清空 Loki 历史数据（一次性）
+
+适用场景：测试环境需要“从零开始”。
+
+```bash
+sudo systemctl stop loki
+sudo rm -rf /var/loki/chunks /var/loki/index /var/loki/rules /var/loki/compactor /var/loki/wal
+sudo mkdir -p /var/loki/chunks /var/loki/rules /var/loki/compactor
+sudo chown -R loki:loki /var/loki
+sudo chmod -R 755 /var/loki
+sudo systemctl start loki
+curl -sS http://127.0.0.1:3100/ready
+```
+
+注意：
+- 这是破坏性操作，会删除 Loki 中已有历史日志。
+- 生产环境不建议直接清空，优先依赖保留策略自动回收。
+
+### 4.3 推荐：使用维护脚本（避免手输出错）
+
+仓库已提供脚本：
+
+`scripts/observability/loki-maintenance.sh`
+
+常用命令：
+
+```bash
+# 查看状态 + ready + retention 生效配置
+scripts/observability/loki-maintenance.sh status
+
+# 将仓库模板同步到 /etc/loki/config.yml 并重启
+scripts/observability/loki-maintenance.sh apply-config
+
+# 指定配置源文件
+scripts/observability/loki-maintenance.sh apply-config /opt/powerx/backend/deploy/observability/loki/loki-config.yaml
+
+# 清空 Loki 历史数据（破坏性操作，必须显式 --yes）
+scripts/observability/loki-maintenance.sh purge --yes
+```
+
+## 5. Grafana 配置与启动
+
+1) 放置 provisioning（可选但推荐）：
+
+```bash
+sudo mkdir -p /etc/powerx/observability/grafana
+sudo cp -R deploy/observability/grafana/provisioning /etc/powerx/observability/grafana/
+
+# 仅拷贝 Loki 数据源与仪表盘（默认安全）
+sudo mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards
+sudo cp -R /etc/powerx/observability/grafana/provisioning/datasources/* /etc/grafana/provisioning/datasources/
+sudo cp -R /etc/powerx/observability/grafana/provisioning/dashboards/* /etc/grafana/provisioning/dashboards/
+```
+
+说明：
+- 默认不要直接拷贝 `provisioning/alerting`，不同 Grafana 版本可能因规则校验差异导致启动失败。
+- 若你已拷贝 alerting 并启动失败，可先禁用：
+```bash
+sudo mkdir -p /etc/grafana/provisioning/_disabled_alerting
+sudo mv /etc/grafana/provisioning/alerting/*.yaml /etc/grafana/provisioning/_disabled_alerting/ 2>/dev/null || true
+```
+
+2) 修正权限（Ubuntu deb 包必须）：
+```bash
+sudo chown -R grafana:grafana /var/lib/grafana /var/log/grafana /etc/grafana
+sudo chmod -R u+rwX,g+rX /var/lib/grafana /var/log/grafana /etc/grafana
+```
+
+2) 启动 Grafana：
+
+```bash
+sudo systemctl enable --now grafana-server
+sudo systemctl status grafana-server --no-pager
+```
+
+3) 验证 Grafana（先确认端口归属）：
+
+```bash
+sudo ss -lntp | grep :3000
+curl -sS http://127.0.0.1:3000/api/health
+```
+
+说明：
+- 若返回 JSON（包含 `database`、`version`），表示命中 Grafana。
+- 若返回 HTML（如 Nuxt 页面），表示 `3000` 被其他服务占用（常见是 `powerx-web-admin`），此时需修改 Grafana 监听端口（如 `3001`）：
+
+```bash
+sudo sed -i 's/^;*http_port = .*/http_port = 3001/' /etc/grafana/grafana.ini
+sudo systemctl restart grafana-server
+curl -sS http://127.0.0.1:3001/api/health
+```
+
+访问：`http://<host>:3000`（或你改后的端口，如 `3001`）
+
+4) 初始化登录与重置管理员密码：
+
+- 推荐：先用默认账号 `admin / admin` 登录 Grafana，首次登录会强制要求在页面内修改密码。
+- 仅在“忘记密码且无法登录 UI”时，再使用 CLI 重置：
+
+```bash
+sudo grafana cli --homepath /usr/share/grafana --config /etc/grafana/grafana.ini \
+  admin reset-admin-password 'YourStrongPassword'
+```
+
+说明：
+- 若提示找不到配置/默认值，通常是未传 `--homepath`。
+- 重置后可直接重新登录，无需重装。
+
+## 6. PowerX 直推 Loki 配置检查
+
+确保 PowerX 采用直推模式（重点：修改运行时配置，而不是改编译产物模板）：
+
+- 生效配置文件通常是：`/etc/powerx/config.yaml`
+- 先用 service 确认真实配置路径：
+
+```bash
+systemctl cat powerx-backend | grep -E "POWERX_CONFIG|-config"
+```
+
+然后编辑该运行时配置文件（通常 `/etc/powerx/config.yaml`）：
+
+```yaml
+log:
+  loki:
+    enable: true
+    url: http://127.0.0.1:3100
+    labels:
+      system: powerx
+      service: powerx-backend
+      env: prod
+      instance: ${HOSTNAME}
+      module: runtime
+    batch_wait: 1
+    batch_size: 100
+```
+
+改完后重启后端：
+
+```bash
+sudo systemctl restart powerx-backend
+sudo systemctl status powerx-backend --no-pager
+```
+
+再验证能力是否生效：
+
+```bash
+curl -sS -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  "http://127.0.0.1:8077/api/v1/admin/monitor/logs/config"
+```
+
+- 应用日志配置中 `loki=true`。
+- Loki 地址指向 `http://127.0.0.1:3100`（或实际 Loki 地址）。
+- 不要再让 Promtail 采集同一日志源。
+
+建议保留字段（便于检索）：
+
+- `trace_id`
+- `request_id`
+- `tenant_uuid`
+- `plugin_id`
+- `level`
+- `message`
+
+## 7. 验证链路（PowerX -> Loki -> Grafana）
+
+1) 触发一条业务请求（任意 API 或后台操作）。
+
+2) 在 Grafana Explore 查询：
+
+```logql
+{service="powerx-backend"}
+```
+
+如你们标签不同，改为实际值。
+
+3) 按 trace 检索：
+
+```logql
+{service="powerx-backend"} |= "trace_id"
+```
 
 ## 8. 常见问题
-1. Grafana 无数据
-- 先看 promtail 日志：`sudo docker logs --tail=200 <promtail-container-name>`
-- 再看 Loki ready：`curl http://127.0.0.1:3100/ready`
 
-2. 只有 backend 有日志，runner/web-admin 没有
-- 检查对应 service 是否启动：
-  - `sudo systemctl status powerx-web-admin powerx-runner --no-pager`
+1) Grafana 无数据
+- 先确认 Loki ready：`curl http://127.0.0.1:3100/ready`
+- 再看 Loki 日志：`sudo journalctl -u loki -n 200 --no-pager`
+- 再确认 PowerX 端 `loki=true` 且地址可达。
 
-3. 插件日志没采到
-- 插件必须输出到 journald 或 `/opt/powerx/backend/logs/plugins/**/*.log`。
+补充：
+- 如果日志出现 `field max_look_back_period not found`，说明 Loki 配置含旧字段，请从 `/etc/loki/config.yml` 移除该字段后重启。
+- 如果日志出现 `mkdir /var/loki: permission denied`，按上文目录权限步骤修复。
+
+2) 重复日志
+- 原因：应用直推 + Promtail 重采同一源。
+- 处理：保留一种，本文场景保留“应用直推”。
+
+3) 能查到日志但字段不全
+- 检查应用输出是否为结构化 JSON。
+- 检查是否包含 `trace_id/tenant_uuid/plugin_id`。
+
+## 9. 回滚
+
+```bash
+sudo systemctl stop loki grafana-server
+sudo systemctl disable loki grafana-server
+```
+
+说明：
+- 关闭 Loki/Grafana 不影响 PowerX 主业务。

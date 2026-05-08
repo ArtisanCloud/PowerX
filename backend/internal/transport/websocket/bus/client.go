@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 const (
@@ -78,6 +80,15 @@ func (c *Client) readLoop() {
 		if err := c.conn.ReadJSON(&cmd); err != nil {
 			return
 		}
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+			zap.String("stage", "request"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("request_type", strings.TrimSpace(cmd.Type)),
+			zap.String("request_topic", strings.TrimSpace(cmd.Topic)),
+			zap.Int("request_topics_count", len(cmd.Topics)),
+			zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+		)
 		switch strings.TrimSpace(cmd.Type) {
 		case dto.WSBusCmdSubscribe:
 			c.handleSubscribe(cmd)
@@ -96,15 +107,44 @@ func (c *Client) writeLoop() {
 		if c.conn == nil {
 			return
 		}
+		subscribedTopics := c.snapshotTopics()
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_downlink_attempt"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("type", strings.TrimSpace(env.Type)),
+			zap.String("topic", strings.TrimSpace(env.Topic)),
+			zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+			zap.Int("subscribed_topics_count", len(subscribedTopics)),
+			zap.Strings("subscribed_topics", subscribedTopics),
+		)
 		_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := c.conn.WriteJSON(env); err != nil {
+			logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+				zap.String("stage", "send_downlink_failed"),
+				zap.String("connection_id", c.ID),
+				zap.String("tenant_uuid", c.TenantUUID),
+				zap.String("type", strings.TrimSpace(env.Type)),
+				zap.String("topic", strings.TrimSpace(env.Topic)),
+				zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+				zap.Error(err),
+			)
 			return
 		}
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_downlink_ok"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("type", strings.TrimSpace(env.Type)),
+			zap.String("topic", strings.TrimSpace(env.Topic)),
+			zap.String("trace_id", strings.TrimSpace(env.TraceID)),
+		)
 	}
 }
 
 func (c *Client) handleSubscribe(cmd dto.WSBusCommand) {
 	topics := normalizeTopics(cmd)
+	fmt.Printf("[ws-probe] subscribe_received conn=%s tenant=%s req_id=%s topics=%v\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID), topics)
 	if len(topics) == 0 {
 		c.sendError(cmd.ReqID, "bad_request", "topics required", "")
 		return
@@ -121,8 +161,17 @@ func (c *Client) handleSubscribe(cmd dto.WSBusCommand) {
 		allowed = append(allowed, topic)
 	}
 	if len(allowed) == 0 {
+		fmt.Printf("[ws-probe] subscribe_denied conn=%s tenant=%s req_id=%s\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID))
 		return
 	}
+	fmt.Printf("[ws-probe] subscribe_ok conn=%s tenant=%s req_id=%s topics=%v\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID), allowed)
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "subscribed"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.Strings("topics", allowed),
+		zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+	)
 	c.sendAck(cmd.ReqID, "subscribed", allowed)
 }
 
@@ -152,6 +201,15 @@ func (c *Client) sendAck(reqID, message string, topics []string) {
 }
 
 func (c *Client) sendError(reqID, code, message, detail string) {
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "send_error"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.String("request_id", strings.TrimSpace(reqID)),
+		zap.String("code", strings.TrimSpace(code)),
+		zap.String("message", strings.TrimSpace(message)),
+		zap.String("detail", strings.TrimSpace(detail)),
+	)
 	env, err := dto.NewWSBusEnvelope(dto.WSBusTypeError, "", dto.WSBusErrorPayload{
 		ReqID:   reqID,
 		Code:    code,
@@ -174,7 +232,12 @@ func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 	select {
 	case ch <- env:
 	default:
-		logger.DebugF(context.Background(), "[ws-bus] drop message topic=%s client=%s", env.Topic, c.ID)
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+			zap.String("stage", "send_queue_full"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("topic", env.Topic),
+		)
 	}
 }
 
@@ -188,6 +251,19 @@ func (c *Client) removeTopic(topic string) {
 	c.mu.Lock()
 	delete(c.topics, topic)
 	c.mu.Unlock()
+}
+
+func (c *Client) snapshotTopics() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.topics) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(c.topics))
+	for topic := range c.topics {
+		out = append(out, topic)
+	}
+	return out
 }
 
 func normalizeTopics(cmd dto.WSBusCommand) []string {

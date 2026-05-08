@@ -89,6 +89,7 @@ flowchart LR
   - 备份：`POWERX_OPS_SCRIPT_DIR`、`POWERX_OPS_BACKUP_ARTIFACT_DIR`、`POWERX_OPS_BACKUP_SOURCE_DSN`（可选）
   - 日志驱动：`log.loki.enable/url`、`log.file.enable/info_file_path/error_file_path`
   - 回退项：`POWERX_LOG_DRIVER`（`loki|file`，未命中时默认 `stdio`）
+  - 插件采集：`POWERX_SUPERVISOR_FORWARD_STDIO=true`（建议开启，保证宿主模式插件日志进入统一采集链路）
 - 配置优先级（日志驱动）：
   1. `log.loki.enable=true` -> `loki`
   2. `log.file.enable=true` -> `file`
@@ -169,6 +170,14 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 ```
 - 修复建议：stdio 仅保证最近窗口；需要历史检索时切换到 `file` 或 `loki`。
 
+### Q4：插件日志在 Runtime Logs 可见，但监控日志页检索不到
+- 现象：插件进程有输出，`/admin/plugins/:id/logs` 能看到，但 `/admin/monitor/logs/query` 命中率低。
+- 排查命令：
+```bash
+grep POWERX_SUPERVISOR_FORWARD_STDIO /etc/powerx/powerx.env
+```
+- 修复建议：将 `POWERX_SUPERVISOR_FORWARD_STDIO=true` 并重启 `powerx-backend`，确保插件 stdout/stderr 进入 journald/promtail 采集链路。
+
 ## 11. 回滚与风险控制
 
 - 回滚开关：
@@ -185,3 +194,4 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 ## 12. 变更记录
 
 - 2026-04-13 / Codex：新增监控中心闭环总览文档，拆分 4 条 Use Case 指导。
+- 2026-04-24 / Codex：补充插件日志采集对齐说明（`POWERX_SUPERVISOR_FORWARD_STDIO`）与常见排障场景。

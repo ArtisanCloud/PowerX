@@ -218,6 +218,36 @@
 
 ---
 
+## Phase 14: A2A 多 Agent 协作（主 Agent 分发与子 Agent 回收）
+
+- [X] T099 [Shared] 扩展 Agent 计划模型：新增 `node.kind=agent_handoff` 与 handoff metadata（team_id/task_id/failure_policy）：`backend/pkg/corex/flow/schemas/plan.go`, `backend/internal/server/agent/manager_plan.go`
+- [X] T100 [P] [Shared] 新增 A2A 数据模型与迁移：`AgentTeam/AgentTeamMember/AgentHandoffTask/AgentSharedContextRef`：`backend/pkg/corex/db/persistence/model/agent/*`, `backend/pkg/corex/db/database/migration.go`
+- [X] T101 [Shared] 实现 Team 管理服务（创建团队、成员绑定、启停、策略更新）：`backend/internal/service/agent/team_service.go`, `backend/pkg/corex/db/persistence/repository/agent/*`
+- [X] T102 [P] [US3] 实现 A2A 分发执行器（主 Agent -> 子 Agent 调用、结果回传、超时控制）：`backend/internal/server/agent/runtime/engine.go`, `backend/internal/server/agent/manager_execute.go`
+- [X] T103 [P] [US4] 实现上下文引用隔离与授权校验（context_ref allowlist）：`backend/internal/service/agent/context_ref_service.go`, `backend/internal/server/agent/runtime/*`
+- [X] T104 [US4] 扩展审计与追踪字段（team/task/handoff 维度）：`backend/internal/service/skills/audit_trace_service.go`, `backend/internal/transport/http/admin/skills/audit_handler.go`
+- [X] T105 [P] [US3] 集成测试：最小 A2A 并行用例（1 主 2 子）端到端通过：`backend/tests/integration/skills/skill_agent_a2a_basic_integration_test.go`
+- [X] T106 [P] [US3] 集成测试：子 Agent 失败策略 `continue` 返回部分成功：`backend/tests/integration/skills/skill_agent_a2a_partial_failure_integration_test.go`
+- [X] T107 [P] [US4] 集成测试：子 Agent 越权访问上下文被阻断并记录审计：`backend/tests/integration/skills/skill_agent_a2a_context_authz_integration_test.go`
+- [X] T108 [US1] Web Admin 增加 A2A 团队配置页（主 Agent、子 Agent、失败策略）：`web-admin/app/pages/settings/ai/agent-teams.vue`, `web-admin/app/composables/api/services/agentTeamService.ts`
+- [X] T109 [Shared] 文档回写与 runbook：A2A 调试步骤、回滚策略、指标口径：`specs/024-ai-engineering-skills/*.md`, `docs/guides/agent/skills/*`
+
+---
+
+## Phase 15: A2A 团队体验收敛（可见性、可操作性、验收一致性）
+
+- [X] T110 [US1] 团队管理页信息层级重构：默认展示 Agent 名称/Key，ID 下沉为次级信息，修正成员表格与弹窗排版：`web-admin/app/pages/settings/ai/agent-teams.vue`
+- [X] T111 [US1] 团队任务入口去硬编码：统一从路由参数与团队选择器驱动 `team_id`，并在无有效 team 时给出可操作提示：`web-admin/app/components/agent/AgentWorkspace.vue`, `web-admin/app/pages/agent/team-tasks.vue`
+- [X] T112 [US1] 角色配置体验增强：明确“TL 唯一 planner，子 Agent 仅 retriever/executor/reviewer”的前端交互与文案：`web-admin/app/pages/settings/ai/agent-teams.vue`, `web-admin/i18n/locales/zh.json`, `web-admin/i18n/locales/en.json`
+- [X] T113 [US3] 协作过程展示强化：执行过程卡片补充节点分组与状态可读性，减少“只看到状态看不懂语义”的情况：`web-admin/app/components/agent/MessageItem.vue`
+- [X] T114 [US4] 增加 A2A 审计查询前端能力（按 team_id/handoff_task_id 过滤）并与会话页面建立跳转：`web-admin/app/composables/api/services/skillsService.ts`, `web-admin/app/pages/settings/ai/skills.vue`, `web-admin/app/components/settings/ai/skills/*`
+- [X] T115 [US4] 后端补充 A2A trace 查询契约回归测试（team/handoff 维度筛选与租户隔离）：`backend/tests/integration/skills/skill_agent_a2a_trace_filter_integration_test.go`
+- [X] T116 [US3] 前端 E2E：覆盖“1 主 2 子并行 + 部分失败 continue”场景，断言页面出现 Intent/Plan/Node 与最终汇总：`web-admin/tests/e2e/agent-team-collab.spec.ts`
+- [X] T117 [US1] 文档对齐：将团队协作验收剧本接入 024 快速验收主线，补齐“页面可见 vs 审计可查”步骤：`specs/024-ai-engineering-skills/quickstart.md`, `docs/guides/agent/multi_agent/09_a2a_team_collab_progressive.md`
+- [ ] T118 [Shared] 回归与发布门禁：执行 `go test ./internal/transport/http/admin/agent ./internal/service/agent` 与前端 lint/E2E 基线，记录证据：`specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -226,6 +256,7 @@
 - Phase 2 依赖 Phase 1，且阻塞全部用户故事。
 - Phase 3-6 均依赖 Phase 2 完成。
 - Phase 7 依赖至少一个用户故事完成，最终收敛前需全部故事完成。
+- Phase 15 依赖 Phase 14，作为 A2A 体验与验收收口阶段，发布前必须完成。
 
 ### User Story Dependencies
 

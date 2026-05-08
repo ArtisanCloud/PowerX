@@ -29,8 +29,8 @@ type MCPResponse struct {
 }
 
 func main() {
-	logger.InfoF(context.Background(), "🔌 CoreX MCP 客户端测试工具")
-	logger.InfoF(context.Background(), "========================================")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "🔌 CoreX MCP 客户端测试工具")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "========================================")
 
 	// 启动MCP服务器进程
 	cmd := exec.Command("go", "run", "./mcp/cmd/main.go")
@@ -52,26 +52,26 @@ func main() {
 		fatalf("启动MCP服务器失败: %v", err)
 	}
 
-	logger.InfoF(context.Background(), "✅ MCP服务器已启动")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "✅ MCP服务器已启动")
 
 	// 等待服务器初始化完成
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
-		logger.InfoF(context.Background(), "服务器输出: %s", line)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "服务器输出: %s", line)
 		if strings.Contains(line, "等待客户端连接") {
 			break
 		}
 	}
 
-	logger.InfoF(context.Background(), "🔍 开始测试MCP协议通信...")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "🔍 开始测试MCP协议通信...")
 
 	// 测试1: 获取工具列表
-	logger.InfoF(context.Background(), "📋 测试1: 获取工具列表")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "📋 测试1: 获取工具列表")
 	testListTools(stdin, stdout)
 
 	// 测试2: 调用list_blueprints工具
-	logger.InfoF(context.Background(), "🔧 测试2: 调用list_blueprints工具")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "🔧 测试2: 调用list_blueprints工具")
 	testCallTool(stdin, stdout, "list_blueprints", map[string]interface{}{})
 
 	// 清理
@@ -79,7 +79,7 @@ func main() {
 	cmd.Process.Kill()
 	cmd.Wait()
 
-	logger.InfoF(context.Background(), "✅ 测试完成")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "✅ 测试完成")
 }
 
 func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
@@ -102,10 +102,10 @@ func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
 	initResponse := readResponse(stdout)
 
 	if initResponse.Error != nil {
-		logger.ErrorF(context.Background(), "❌ 初始化失败: %v", initResponse.Error)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "❌ 初始化失败: %v", initResponse.Error)
 		return
 	} else {
-		logger.InfoF(context.Background(), "✅ 初始化成功: %v", initResponse.Result)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "✅ 初始化成功: %v", initResponse.Result)
 	}
 
 	// 然后获取工具列表
@@ -122,9 +122,9 @@ func testListTools(stdin io.WriteCloser, stdout io.ReadCloser) {
 	response := readResponse(stdout)
 
 	if response.Error != nil {
-		logger.ErrorF(context.Background(), "❌ 错误: %v", response.Error)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "❌ 错误: %v", response.Error)
 	} else {
-		logger.InfoF(context.Background(), "✅ 成功获取工具列表: %v", response.Result)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "✅ 成功获取工具列表: %v", response.Result)
 	}
 }
 
@@ -146,9 +146,9 @@ func testCallTool(stdin io.WriteCloser, stdout io.ReadCloser, toolName string, p
 	response := readResponse(stdout)
 
 	if response.Error != nil {
-		logger.ErrorF(context.Background(), "❌ 调用工具失败: %v", response.Error)
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "❌ 调用工具失败: %v", response.Error)
 	} else {
-		logger.InfoF(context.Background(), "✅ 工具调用成功: %v", response.Result)
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "✅ 工具调用成功: %v", response.Result)
 	}
 }
 
@@ -158,7 +158,7 @@ func sendRequest(stdin io.WriteCloser, req MCPRequest) {
 		fatalf("序列化请求失败: %v", err)
 	}
 
-	logger.InfoF(context.Background(), "📤 发送请求: %s", string(data))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "📤 发送请求: %s", string(data))
 
 	_, err = stdin.Write(append(data, '\n'))
 	if err != nil {
@@ -175,7 +175,7 @@ func readResponse(stdout io.ReadCloser) MCPResponse {
 		if strings.HasPrefix(line, "{") {
 			var response MCPResponse
 			if err := json.Unmarshal([]byte(line), &response); err == nil {
-				logger.InfoF(context.Background(), "📥 收到响应: %s", line)
+				logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), "📥 收到响应: %s", line)
 				return response
 			}
 		}
@@ -185,6 +185,6 @@ func readResponse(stdout io.ReadCloser) MCPResponse {
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "mcp.test_client"}), format, args...)
 	os.Exit(1)
 }

@@ -1055,6 +1055,24 @@
   },
   "agent": {
     "confirmDelete": "确定删除吗？",
+    "teamManagement": {
+      "roles": {
+        "retriever": "资料检索（Retriever）",
+        "executor": "任务执行（Executor）",
+        "reviewer": "结果复核（Reviewer）"
+      },
+      "roleGuide": {
+        "title": "角色说明",
+        "description": "TL（主智能体）固定承担 planner；子智能体仅承担 retriever / executor / reviewer。调度时按 skill/capability 选择执行者。"
+      },
+      "noChildCandidates": {
+        "title": "暂无可选子智能体",
+        "description": "仅可选择当前租户下 active 且非系统/非内置智能体。请先创建并启用可协作智能体。"
+      },
+      "create": {
+        "tlFixedRoleHint": "TL 固定为 planner（不可修改）"
+      }
+    },
     "list": {
       "loadFailed": "加载智能体列表失败"
     },

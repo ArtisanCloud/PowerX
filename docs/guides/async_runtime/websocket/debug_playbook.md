@@ -1,162 +1,99 @@
-# WebSocket 联调手册（Host / Standalone / Proxy）
+# WebSocket 联调与排障手册（Host / 插件 / Framework）
 
 > 入口：`docs/guides/async_runtime/websocket/README.md`
 
-## 1. 目标
+## 1. 先做的三件事（避免无效排查）
 
-用同一套 WS 协议验证三种模式：
+1. 明确当前模式：Host 还是插件 standalone。
+2. 明确 WS 最终地址是怎么计算出来的（来自 runtime contract，而不是手写端口）。
+3. 明确 token 类型：用户 token、delegated token、tool token 分工不同。
 
-1. Host（直连 PowerX）
-2. Standalone（直连插件本地 WS）
-3. Standalone Proxy（连插件 `/api/ws`，由插件转发到 PowerX）
+## 2. 地址与鉴权硬规则
 
-并验证总线能力：**单连接复用多 topic 信道**（来自 `specs/023-websocket-notify/spec.md`）。
+1. WS 连接地址
+- 必须走：`PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL`（通常 `/api/ws`）。
+- 禁止直接拼前端端口（例如 `127.0.0.1:3030`）去当后端地址。
 
-## 2. 协议与消息结构（当前实现）
+2. 宿主 ws-bus 接口鉴权
+- `POST /api/v1/admin/runtime/ws-bus/grant`
+- `POST /api/v1/admin/runtime/ws-bus/publish`
+- 插件后端调用这两个接口时，必须优先用 `PX_PLUGIN_TOOL_TOKEN`。
+- 禁止透传 plugin delegated bearer 去调用上述接口，否则常见报错是 `token has invalid audience`。
 
-客户端命令（`type`）：
+## 3. 五段状态验收（前端）
 
-1. `subscribe`
-2. `unsubscribe`
-3. `ping`
+必须依次可观测：
 
-服务端消息（`type`）：
+1. `connected`
+2. `welcome_received`
+3. `subscribe_sent`
+4. `ack_received`
+5. `event_received`
 
-1. `welcome`
-2. `ack`
-3. `error`
-4. `event`
+说明：
+- 前四步成功但第五步失败，通常是 topic 不匹配、未真正 publish、或 ACL 未生效。
 
-统一 envelope：
+## 4. 统一协议（当前实现）
 
-```json
-{
-  "type": "ack|error|event|welcome",
-  "topic": "_topic.system.notification",
-  "payload": {},
-  "ts": 1770000000000,
-  "trace_id": "..."
-}
-```
+1. 客户端命令：`subscribe` / `unsubscribe` / `ping`
+2. 服务端消息：`welcome` / `ack` / `error` / `event`
+3. 前端业务消费只看 `type=event`
 
-## 3. 鉴权方式（WS）
+## 5. 最小联调命令
 
-当前支持两种：
-
-1. Query：`?authorization=Bearer <JWT>`
-2. 子协议：`Sec-WebSocket-Protocol: bearer.<b64url(jwt)>`
-
-## 4. 连接地址矩阵
-
-1. **PowerX 宿主（推荐）**  
-   - `ws://127.0.0.1:8077/api/ws?authorization=Bearer $USER_TOKEN`
-2. **插件 standalone（本地 WS）**  
-   - `ws://127.0.0.1:8078/api/ws?authorization=Bearer $USER_TOKEN`
-3. **插件 standalone proxy（转发到宿主）**  
-   - `ws://127.0.0.1:8078/api/ws?authorization=Bearer $USER_TOKEN`
-
-> 你之前使用的 `wscat -c "ws://127.0.0.1:8078/api/ws?authorization=Bearer $USER_TOKEN"`  
-> 属于第 3 类（standalone proxy）调试方式。
-
-## 5. `wscat` 快速调试
-
-安装（如未安装）：
-
+1. `grant`
 ```bash
-npm i -g wscat
-```
-
-连接（示例：standalone proxy）：
-
-```bash
-wscat -c "ws://127.0.0.1:8078/api/ws?authorization=Bearer $USER_TOKEN"
-```
-
-连接成功后应先收到 `welcome`。
-
-### 5.0 多 topic 复用（同一连接）
-
-在同一 `wscat` 连接里发送：
-
-```json
-{"type":"subscribe","topics":["_topic.system.notification","_topic.knowledge.space.feedback.reprocess"],"req_id":"sub-multi-1"}
-```
-
-期望：
-
-1. 只保持当前这一条 WS 连接，不新建第二条连接。
-2. 收到 `ack`，`payload.topics` 含两个 topic（被授权者）。
-3. 后续来自两个 topic 的事件都从这条连接返回。
-
-### 5.1 订阅
-
-发送：
-
-```json
-{"type":"subscribe","topics":["_topic.system.notification"],"req_id":"sub-1"}
-```
-
-期望：
-
-```json
-{"type":"ack","payload":{"req_id":"sub-1","ok":true,"message":"subscribed","topics":["_topic.system.notification"]}}
-```
-
-### 5.2 心跳
-
-发送：
-
-```json
-{"type":"ping","req_id":"ping-1"}
-```
-
-期望：
-
-```json
-{"type":"ack","payload":{"req_id":"ping-1","ok":true,"message":"pong"}}
-```
-
-### 5.3 取消订阅
-
-发送：
-
-```json
-{"type":"unsubscribe","topics":["_topic.system.notification"],"req_id":"unsub-1"}
-```
-
-期望：
-
-```json
-{"type":"ack","payload":{"req_id":"unsub-1","ok":true,"message":"unsubscribed","topics":["_topic.system.notification"]}}
-```
-
-## 6. 用 Event Fabric 触发一条 WS 事件
-
-在另一个终端执行：
-
-```bash
-curl -sS -X POST \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
+curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/grant" \
   -H "Content-Type: application/json" \
-  "http://127.0.0.1:8077/api/v1/admin/event-fabric/pipeline/tasks" \
-  -d '{"title":"WS联调","content":"from websocket playbook","type":"system","category":"system"}' | jq
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"topics":["_topic.system.notification"]}'
 ```
 
-如果已订阅 `_topic.system.notification`，`wscat` 应收到 `type=event` 推送。
+2. `publish`
+```bash
+curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/publish" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"topic":"_topic.system.notification","payload":{"msg":"ping"}}'
+```
 
-## 7. Host / Standalone 一致性验收
+3. 页面/客户端必须已完成 `subscribe` 且收到 `ack`。
 
-同一 `subscribe/ping/unsubscribe` 命令在三种模式都应满足：
+## 6. 日志判读模板（按优先级）
 
-1. 都收到 `welcome`
-2. 都能 `ack subscribed`
-3. 都能 `ack pong`
-4. 都能收到相同语义的 `event` 推送
-5. 都支持“单连接多 topic 复用”能力
+1. 宿主网关
+- 看 `[GATE-DENY]` / `[GATE-ALLOW]`
+- 看 `[PROXY-BACKEND-ERR]` 是否有上游 4xx/5xx
 
-## 8. 常见失败定位
+2. 插件后端
+- 若出现 `grant rejected with status 401` 且伴随 `invalid audience`：
+- 直接定位为“插件调用宿主 ws-bus 接口时 token 选错”。
 
-1. `permission_denied`：ACL 未授权对应 topic 的 subscribe
-2. `bad_request topics required`：subscribe/unsubscribe 未传 `topics` 或 `topic`
-3. 连接即断开：JWT 无效、tenant/member 上下文不满足
-4. 有 ack 无 event：订阅 topic 不对，或触发链路未产生该 topic 事件
+3. WS 服务端
+- 有 `subscribe ack` 无 `event`：
+  - 先查 topic 是否一致
+  - 再查 tenant 是否一致
+  - 再查是否确实执行了 publish
+
+## 7. 本轮典型故障与修复对照
+
+1. 403 `no permission rule for this route`
+- 原因：宿主网关路径归一化与策略坐标不一致。
+- 修复：统一到 `/api/v1/...` 坐标并补显式 route 映射。
+
+2. 404 `/api/v1/api/v1/...`
+- 原因：反代路径重复拼接 basePath。
+- 修复：上游路径构造去重。
+
+3. 401 `invalid audience` on `/admin/runtime/ws-bus/grant`
+- 原因：插件透传 delegated token。
+- 修复：插件调用宿主 ws-bus 接口改用 `PX_PLUGIN_TOOL_TOKEN`。
+
+## 8. Framework/插件对齐清单（上线前）
+
+1. 前端只读 contract 构造 WS URL，不猜端口。
+2. 后端 internal 调用 token 源正确（tool token 优先）。
+2. 后端 ws-bus 调用 token 源正确（tool token 优先）。
+3. 页面具备五段状态可视化。
+4. topic 命名与 tenant 前缀全链路一致。
+5. `grant -> subscribe -> publish -> event` 端到端演练通过。

@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/writer"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -55,10 +56,9 @@ func NewLogger(config *config.LogConfig) *Logger {
 		encoderConfig.CallerKey = "" // 如果也不想要 caller，可以去掉
 	}
 
-	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	if config.UseJsonFormat { // 如果需要 caller，可以去掉
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	}
+	// Console/stdout must always emit single-line JSON so Loki `| json` can parse
+	// plugin_id/request_id/trace_id fields deterministically.
+	encoder := zapcore.NewJSONEncoder(encoderConfig)
 
 	var cores []zapcore.Core
 
@@ -153,6 +153,10 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 func (l *Logger) extractFieldsFromContext(ctx context.Context) []zap.Field {
 	var fields []zap.Field
 
+	if ctx == nil {
+		return fields
+	}
+
 	// 提取请求ID
 	if requestID := ctx.Value("request_id"); requestID != nil {
 		if id, ok := requestID.(string); ok && id != "" {
@@ -188,7 +192,74 @@ func (l *Logger) extractFieldsFromContext(ctx context.Context) []zap.Field {
 		}
 	}
 
+	// 提取租户与插件维度
+	if tenantUUID := ctx.Value("tenant_uuid"); tenantUUID != nil {
+		if v, ok := tenantUUID.(string); ok && v != "" {
+			fields = append(fields, zap.String("tenant_uuid", v))
+		}
+	}
+	if pluginID := ctx.Value("plugin_id"); pluginID != nil {
+		if v, ok := pluginID.(string); ok && v != "" {
+			fields = append(fields, zap.String("plugin_id", v))
+		}
+	}
+	if messageID := ctx.Value("message_id"); messageID != nil {
+		if v, ok := messageID.(string); ok && v != "" {
+			fields = append(fields, zap.String("message_id", v))
+		}
+	}
+
+	// 提取附加业务字段（高基数字段请放这里，不要进 Loki labels）
+	if raw := ctx.Value(contextLogFieldsKey); raw != nil {
+		if extra, ok := raw.(map[string]interface{}); ok {
+			fields = append(fields, toZapFields(extra)...)
+		}
+	}
+
 	return fields
+}
+
+func toZapFields(in map[string]interface{}) []zap.Field {
+	if len(in) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(in))
+	for k := range in {
+		if strings.TrimSpace(k) == "" {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]zap.Field, 0, len(keys))
+	for _, k := range keys {
+		v := in[k]
+		switch vv := v.(type) {
+		case string:
+			out = append(out, zap.String(k, vv))
+		case bool:
+			out = append(out, zap.Bool(k, vv))
+		case int:
+			out = append(out, zap.Int(k, vv))
+		case int32:
+			out = append(out, zap.Int32(k, vv))
+		case int64:
+			out = append(out, zap.Int64(k, vv))
+		case uint:
+			out = append(out, zap.Uint(k, vv))
+		case uint32:
+			out = append(out, zap.Uint32(k, vv))
+		case uint64:
+			out = append(out, zap.Uint64(k, vv))
+		case float32:
+			out = append(out, zap.Float32(k, vv))
+		case float64:
+			out = append(out, zap.Float64(k, vv))
+		default:
+			out = append(out, zap.Any(k, vv))
+		}
+	}
+	return out
 }
 
 // PrettyJson 美化 JSON 输出

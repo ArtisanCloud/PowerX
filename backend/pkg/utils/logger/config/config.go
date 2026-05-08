@@ -32,11 +32,11 @@ type FileConfig struct {
 
 // LokiConfig Loki日志配置
 type LokiConfig struct {
-	Enable    bool   `yaml:"enable"`     // 是否启用Loki
-	URL       string `yaml:"url"`        // Loki服务器地址
-	JobName   string `yaml:"job_name"`   // 作业名称
-	BatchWait int    `yaml:"batch_wait"` // 批量等待时间(秒)
-	BatchSize int    `yaml:"batch_size"` // 批量大小
+	Enable    bool              `yaml:"enable"`     // 是否启用Loki
+	URL       string            `yaml:"url"`        // Loki服务器地址
+	Labels    map[string]string `yaml:"labels"`     // 低基数标签（system/service/env/instance/module）
+	BatchWait int               `yaml:"batch_wait"` // 批量等待时间(秒)
+	BatchSize int               `yaml:"batch_size"` // 批量大小
 }
 
 // AgentDebugConfig 控制 Agent 单请求调试追踪文件。

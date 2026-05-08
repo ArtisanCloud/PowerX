@@ -2,6 +2,7 @@
 version: v1.0.0
 
 server:
+  host: 127.0.0.1
   port: 8080
   read_timeout_seconds: 5
   write_timeout_seconds: 10
@@ -121,7 +122,12 @@ log:
   loki:
     enable: false
     url: "http://<loki-host>:3100"
-    job_name: powerx
+    labels:
+      system: powerx
+      service: powerx-backend
+      env: prod
+      instance: local
+      module: runtime
     batch_wait: 1
     batch_size: 100
   retention:

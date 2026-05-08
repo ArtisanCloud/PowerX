@@ -78,6 +78,7 @@ services:
     environment:
       # 配置真源：优先使用宿主机映射到容器内 /etc/powerx 的运行时配置
       POWERX_CONFIG: ${POWERX_CONFIG:-/etc/powerx/config.yaml}
+      POWERX_BACKEND_HOST: ${POWERX_BACKEND_HOST:-0.0.0.0}
     volumes:
       # 配置层映射：宿主机 /etc/powerx -> 容器 /etc/powerx
       - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx

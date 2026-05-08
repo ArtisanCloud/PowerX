@@ -11,6 +11,9 @@
         <UButton v-if="allowAccess" color="neutral" variant="soft" icon="i-heroicons-share" @click="openPlannerTraceDrawer()">
           按 Plan ID 查看执行图
         </UButton>
+        <UButton v-if="allowAccess" color="neutral" variant="soft" icon="i-heroicons-user-group" @click="openA2ATraceDrawer()">
+          按 Team 查看 A2A 审计
+        </UButton>
         <UButton v-if="allowAccess && activeTab === 'catalog'" color="neutral" variant="soft" icon="i-heroicons-plus" @click="openCatalogEditor()">
           新增目录项
         </UButton>
@@ -31,6 +34,12 @@
       <SettingsAiSkillsImportForm v-model:open="importModalOpen" @imported="onImported" />
       <SettingsAiSkillsAuditDrawer v-model="auditDrawerOpen" :skill-id="selectedSkillId" />
       <SettingsAiSkillsPlannerTraceDrawer v-model="plannerDrawerOpen" :initial-plan-id="plannerInitialPlanId" />
+      <SettingsAiSkillsA2ATraceDrawer
+        v-model="a2aDrawerOpen"
+        :initial-team-id="a2aInitialTeamId"
+        :initial-handoff-task-id="a2aInitialHandoffTaskId"
+        :initial-handoff-trace-id="a2aInitialHandoffTraceId"
+      />
       <UModal
         v-model:open="catalogEditorOpen"
         :title="catalogEditorMode === 'create' ? '新增官方目录项' : '编辑官方目录项'"
@@ -134,6 +143,7 @@ const toast = useToast();
 const skillsService = useSkillsService();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
+const route = useRoute();
 
 definePageMeta({
   title: "Skills",
@@ -155,6 +165,10 @@ const rollbackDraft = reactive<Record<string, string>>({});
 const auditDrawerOpen = ref(false);
 const plannerDrawerOpen = ref(false);
 const plannerInitialPlanId = ref("");
+const a2aDrawerOpen = ref(false);
+const a2aInitialTeamId = ref("");
+const a2aInitialHandoffTaskId = ref("");
+const a2aInitialHandoffTraceId = ref("");
 const importModalOpen = ref(false);
 const selectedSkillId = ref("");
 const catalogEditorOpen = ref(false);
@@ -604,8 +618,21 @@ function openPlannerTraceDrawer(planId?: string) {
   plannerInitialPlanId.value = String(planId || "").trim();
   plannerDrawerOpen.value = true;
 }
+function openA2ATraceDrawer(teamId?: string, handoffTaskId?: string, handoffTraceId?: string) {
+  a2aInitialTeamId.value = String(teamId || "").trim();
+  a2aInitialHandoffTaskId.value = String(handoffTaskId || "").trim();
+  a2aInitialHandoffTraceId.value = String(handoffTraceId || "").trim();
+  a2aDrawerOpen.value = true;
+}
 
 onMounted(async () => {
   await Promise.all([fetchCatalog(), fetchRegistry()]);
+  if (String(route.query.trace_view || "").trim() === "a2a") {
+    openA2ATraceDrawer(
+      String(route.query.team_id || "").trim(),
+      String(route.query.handoff_task_id || "").trim(),
+      String(route.query.handoff_trace_id || "").trim()
+    );
+  }
 });
 </script>

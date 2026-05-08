@@ -146,3 +146,39 @@ journalctl -u powerx-backend -n 200 --no-pager | grep -E "monitor.logs.config|mo
 - `loki` 无结果：检查 `log.loki.url` 可达性与 Loki 数据源内容。
 - `file` 无结果：检查日志路径、权限、是否有实际写入。
 - `stdio` 无结果：先触发几次请求产生日志；stdio 仅保留最近窗口，不保证历史。
+
+## 7. request_id 全链路验收（SC-010）
+
+### 7.1 触发 integration 请求
+
+```bash
+curl -i -sS -X POST \
+  "http://127.0.0.1:8080/api/v1/integration/ai-craft/webhooks/shopify" \
+  -H "Content-Type: application/json" \
+  -d '{"probe":"logs-trace-e2e"}'
+```
+
+记录响应头 `X-Request-ID=<RID>`。
+
+### 7.2 Admin 查询接口验证
+
+```bash
+curl -sS -H "$AUTH" \
+  "$BASE/admin/monitor/logs/query?page=1&page_size=200&request_id=<RID>" | jq '.data.items'
+```
+
+通过标准：
+- 能命中 `http_request`。
+- 能命中 `audit_event`。
+- `plugin_id` 非空（不得持续出现空值）。
+
+### 7.3 Loki Explore 验证（可选但推荐）
+
+```logql
+{system="powerx",service="powerx-backend",env="prod"} |= "request_id=<RID>"
+```
+
+通过标准：
+- 若请求经过 `_p` 代理，命中 `API-IN/GATE-*/PROXY-*`。
+- 若请求触发 WS 事件，命中 `wsbus.*`。
+- 同一 `request_id` 可串联至少两类日志源（HTTP + 审计为最低要求）。

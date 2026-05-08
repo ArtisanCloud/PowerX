@@ -47,6 +47,7 @@ export function useDualChannelConnection(
 ): DualChannelConnection {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
+  const wsAgentPrefix = String((config.public as any).wsAgentPrefix || "/ws").trim() || "/ws";
   const envStore = useEnvStore();
 
   const sseActive = ref(false);
@@ -95,10 +96,40 @@ export function useDualChannelConnection(
   const toBase64Url = (s: string) =>
     btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-  const buildWSUrl = (path: string, params?: Record<string, any>) => {
+  const normalizePathPrefix = (input: string, fallback: string) => {
+    const raw = String(input || "").trim();
+    if (!raw) return fallback;
+    const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
+    return withLeading.replace(/\/+$/, "") || fallback;
+  };
+
+  const isLoopbackHost = (host?: string | null) => {
+    const h = String(host || "").trim().toLowerCase();
+    return h === "127.0.0.1" || h === "localhost" || h === "::1";
+  };
+
+  const resolveWSOrigin = () => {
+    const upstream = String((config.public as any).wsUpstream || "").trim();
+    if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
+      try {
+        const u = new URL(upstream);
+        if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
+          const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+          return `${protocol}//${location.host}`;
+        }
+        return `${u.protocol}//${u.host}`;
+      } catch {
+        // ignore and fallback to current origin
+      }
+    }
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const host = location.host;
-    let url = `${protocol}//${host}${apiBase}${path}`;
+    return `${protocol}//${location.host}`;
+  };
+
+  const buildWSUrl = (path: string, params?: Record<string, any>) => {
+    const prefix = normalizePathPrefix(wsAgentPrefix, "/ws");
+    const origin = resolveWSOrigin();
+    let url = `${origin}${prefix}${path}`;
     if (params) {
       const qs = Object.entries(params)
         .filter(([, v]) => v != null)

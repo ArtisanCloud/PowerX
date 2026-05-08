@@ -63,15 +63,15 @@ func main() {
 	flag.Parse()
 
 	if strings.TrimSpace(*tenant) == "" || strings.TrimSpace(*topic) == "" {
-		logger.ErrorF(context.Background(), "tenant 与 topic 为必填参数")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "tenant 与 topic 为必填参数")
 		os.Exit(1)
 	}
 	if *totalEvents <= 0 {
-		logger.ErrorF(context.Background(), "events 必须大于 0")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "events 必须大于 0")
 		os.Exit(1)
 	}
 	if *concurrency <= 0 {
-		logger.ErrorF(context.Background(), "concurrency 必须大于 0")
+		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "concurrency 必须大于 0")
 		os.Exit(1)
 	}
 
@@ -164,7 +164,7 @@ func main() {
 	for res := range results {
 		if res.err != nil {
 			failed++
-			logger.ErrorF(context.Background(), "[error] %v", res.err)
+			logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[error] %v", res.err)
 			continue
 		}
 		success++
@@ -180,7 +180,7 @@ func main() {
 
 	if *reportPath != "" {
 		if err := writeReport(*reportPath, rep); err != nil {
-			logger.ErrorF(context.Background(), "写入报告失败: %v", err)
+			logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "写入报告失败: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -251,16 +251,16 @@ func writeReport(path string, rep report) error {
 }
 
 func printReport(rep report) {
-	logger.InfoF(context.Background(), "Load Test Summary")
-	logger.InfoF(context.Background(), "Endpoint      : %s", rep.Endpoint)
-	logger.InfoF(context.Background(), "Tenant/Topic  : %s / %s", rep.Tenant, rep.Topic)
-	logger.InfoF(context.Background(), "Total Events  : %d (success=%d, failed=%d)", rep.Events, rep.Success, rep.Failed)
-	logger.InfoF(context.Background(), "Concurrency   : %d", rep.Concurrency)
-	logger.InfoF(context.Background(), "Duration      : %d ms", rep.DurationMS)
-	logger.InfoF(context.Background(), "Throughput    : %.2f events/s", rep.Throughput)
-	logger.InfoF(context.Background(), "Avg Latency   : %.2f ms", rep.AverageLatency)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Load Test Summary")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Endpoint      : %s", rep.Endpoint)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Tenant/Topic  : %s / %s", rep.Tenant, rep.Topic)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Total Events  : %d (success=%d, failed=%d)", rep.Events, rep.Success, rep.Failed)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Concurrency   : %d", rep.Concurrency)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Duration      : %d ms", rep.DurationMS)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Throughput    : %.2f events/s", rep.Throughput)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "Avg Latency   : %.2f ms", rep.AverageLatency)
 	if len(rep.Percentiles) > 0 {
-		logger.InfoF(context.Background(), "P50/P90/P95/P99: %.2f / %.2f / %.2f / %.2f ms",
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "P50/P90/P95/P99: %.2f / %.2f / %.2f / %.2f ms",
 			rep.Percentiles["p50"],
 			rep.Percentiles["p90"],
 			rep.Percentiles["p95"],

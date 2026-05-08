@@ -6,7 +6,10 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
 
 	"gorm.io/gorm"
 
@@ -37,6 +40,18 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 	if err = SeedDefaultDevAPIKeys(db); err != nil {
+		return err
+	}
+	// Keep capability catalog aligned with the generated platform capabilities file.
+	// Without this, newly generated capability IDs can exist in permission catalog
+	// but still be missing from capability registry records.
+	baseCapabilitySeeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
+		RecordRepo:   caprepo.NewCapabilityRecordRepository(db, nil),
+		RegistryRepo: caprepo.NewCapabilityRegistryRepository(db),
+		TenantRepo:   tenantrepo.NewTenantRepository(db),
+		Logger:       logger.GetGlobalLogger(),
+	})
+	if err = baseCapabilitySeeder.Ensure(ctx); err != nil {
 		return err
 	}
 
@@ -80,7 +95,7 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	logger.InfoF(context.Background(), "seed ok")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
 	return nil
 }

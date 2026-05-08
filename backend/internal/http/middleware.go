@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
@@ -30,26 +30,17 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		c.Next()
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
-		traceID := audit.GetTraceID(c.Request.Context())
-		requestID, _ := c.Get("request_id")
-		requestIDStr, _ := requestID.(string)
 		query := sanitizeQuery(c.Request.URL.Query())
 		path := c.FullPath()
 		if strings.TrimSpace(path) == "" {
 			path = c.Request.URL.Path
 		}
-		pluginID := extractPluginIDFromPath(c.Request.URL.Path)
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.String("query", query),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
-			zap.String("tenant_uuid", tenantUUID),
-			zap.String("trace_id", traceID),
-			zap.String("request_id", requestIDStr),
-			zap.String("plugin_id", pluginID),
 		)
 	}
 }
@@ -142,7 +133,16 @@ func TraceInjectionMiddleware() gin.HandlerFunc {
 		// 将 trace_id 放进 context 便于以后取
 		ctx := c.Request.Context()
 		ctx = contextWithTraceID(ctx, traceID)
+		ctx = context.WithValue(ctx, "trace_id", traceID)
+		ctx = context.WithValue(ctx, "request_id", requestID)
 		ctx = context.WithValue(ctx, requestIDContextKey, requestID)
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		if tenantUUID != "" {
+			ctx = context.WithValue(ctx, "tenant_uuid", tenantUUID)
+		}
+		if pluginID := reqctx.ResolvePluginIDFromPathWithAPIPrefix(c.Request.URL.Path, config.ResolveAPIPrefix(config.GetGlobalConfig())); pluginID != "" {
+			ctx = context.WithValue(ctx, "plugin_id", pluginID)
+		}
 		c.Request = c.Request.WithContext(ctx)
 		c.Set("trace_id", traceID)
 		c.Set("request_id", requestID)
@@ -164,19 +164,4 @@ func FeatureInjectionMiddleware() gin.HandlerFunc {
 		// 例如：从 header 拿 feature flag source 写入 context，或者注入 request_id
 		c.Next()
 	}
-}
-
-func extractPluginIDFromPath(path string) string {
-	path = strings.TrimSpace(path)
-	if !strings.HasPrefix(path, "/_p/") {
-		return ""
-	}
-	rest := strings.TrimPrefix(path, "/_p/")
-	if rest == "" {
-		return ""
-	}
-	if idx := strings.IndexByte(rest, '/'); idx > 0 {
-		return rest[:idx]
-	}
-	return ""
 }

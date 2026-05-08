@@ -140,5 +140,5 @@ func GetDB(cfg *corexdb.DatabaseConfig) (*gorm.DB, error) {
 type gormLogWriter struct{}
 
 func (w *gormLogWriter) Printf(format string, args ...interface{}) {
-	logger.InfoF(context.Background(), strings.TrimSpace(format), args...)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), strings.TrimSpace(format), args...)
 }

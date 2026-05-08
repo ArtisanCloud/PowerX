@@ -211,7 +211,7 @@ func platformCapabilityDefinitions() []platformCapabilityDefinition {
 		}
 		if len(defs) == 0 {
 			if err == nil {
-				pxlog.Info(context.Background(), "[integration_gateway] no platform capability config found, using built-in defaults")
+				pxlog.Info(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[integration_gateway] no platform capability config found, using built-in defaults")
 			}
 			defs = builtinPlatformCapabilityDefinitions()
 		}

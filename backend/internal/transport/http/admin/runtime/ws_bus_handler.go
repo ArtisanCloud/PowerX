@@ -239,7 +239,7 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 		traceID = reqctx.GetTraceID(c.Request.Context())
 	}
 
-	bus.DefaultHub.Publish(strings.TrimSpace(tenantUUID), reqTopic, req.Payload, traceID)
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), strings.TrimSpace(tenantUUID), reqTopic, req.Payload, traceID)
 	logger.InfoF(c.Request.Context(), "[ws-bus] publish topic=%s tenant=%s trace_id=%s", reqTopic, strings.TrimSpace(tenantUUID), traceID)
 
 	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{

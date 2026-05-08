@@ -14,6 +14,9 @@ func (c *Config) Validate() error {
 	var errors []string
 
 	// --- Server ---
+	if strings.TrimSpace(c.Server.Host) == "" {
+		errors = append(errors, "server.host 不能为空")
+	}
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		errors = append(errors, "server.port 必须在 1-65535 范围内")
 	}

@@ -2,8 +2,8 @@
 
 **Feature Branch**: `027-monitor-center`  
 **Created**: 2026-04-10  
-**Updated**: 2026-04-13  
-**Status**: In Progress（Backup 已落地，Logs 方案已对齐）  
+**Updated**: 2026-04-24  
+**Status**: In Progress（Backup 已落地，Logs 方案已对齐；新增插件日志统一接入对齐）  
 **Input**: User description: "先做自动备份功能，在监控中心形成可观察闭环；再补齐日志监控方案（loki/file/stdio）"
 
 **Domain Ownership**: CoreX (`corex.ops`)  
@@ -24,6 +24,12 @@
 - Q: 监控日志页是否只支持 Loki？ → A: 否，必须支持 `loki/file/stdio` 三驱动，并按能力降级。
 - Q: 正式环境日志检索链路怎么定？ → A: 采用“应用内查询 + Grafana 深链”双层模式。
 - Q: file/stdio 驱动是否复用 Loki 全功能？ → A: 否，必须明确能力矩阵并在 UI 显示限制。
+
+### Session 2026-04-24（Plugin Logger 对齐）
+
+- Q: 是否需要在 027 范围内对齐插件 framework logger 接入策略？ → A: 是，需补充宿主采集与策略编排对齐要求。
+- Q: 宿主模式插件日志默认采集链路如何约束？ → A: 插件进程默认 stdout+json，并进入 PowerX 统一采集链路。
+- Q: 平台是否必须支持插件 policy/probe 编排？ → A: 是，至少支持下发策略与变更探测闭环。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -57,6 +63,19 @@
 1. **Given** 系统日志驱动为 `loki`，**When** 管理员进入日志页，**Then** 可按 trace_id/policy_id/job_id 检索并获得 Grafana 深链。
 2. **Given** 系统日志驱动为 `file`，**When** 管理员检索日志，**Then** 返回本地日志内容并提示“不可用能力”（如无标签聚合）。
 3. **Given** 系统日志驱动为 `stdio`，**When** 管理员检索日志，**Then** 返回 ring buffer 最近窗口数据并提示历史窗口受限。
+
+### User Story 5 - 插件日志统一接入（Host 模式）(Priority: P1)
+
+作为 Root 管理员，我可以让宿主模式下的插件日志统一进入 PowerX 日志采集链路，并对插件日志策略进行统一编排（policy/probe），从而保证跨 CoreX 与插件的链路排障一致性。
+
+**Why this priority**: 监控中心已经提供日志检索能力，但若插件日志未稳定进入统一链路，跨系统定位仍存在盲区。  
+**Independent Test**: 在宿主模式启用插件后，日志页可检索到插件 `plugin_id/tenant_uuid/component/level/trace_id` 字段并完成链路定位。
+
+**Acceptance Scenarios**:
+
+1. **Given** 宿主模式启用插件，**When** 插件输出结构化日志，**Then** 日志必须进入 PowerX 统一采集链路并可在监控日志页检索。
+2. **Given** 平台下发插件日志策略，**When** 管理员执行策略探测，**Then** 系统返回各 sink 的 `success/failed/retrying/dropped` 结果并可审计。
+3. **Given** 平台未授权额外 sink，**When** 插件处于 host 模式，**Then** 仅允许 `stdout+json` 默认生效，防止插件侧私自扩展出站。
 
 ---
 
@@ -99,6 +118,15 @@
 - **FR-023**: 当日志驱动不可用或查询失败时，系统 MUST 返回可操作错误提示（驱动状态、建议步骤、trace_id）。
 - **FR-024**: 系统 MUST 提供统一日志保留策略入口 `log.retention`，覆盖文件日志与数据库日志清理策略（按来源可配置 retention 与执行计划），避免仅依赖 rotate 导致总量不可控。
 - **FR-025**: 系统 MUST 提供日志保留任务执行记录与审计信息（执行时间、清理来源、删除数量、状态、失败原因），供监控中心查询与告警使用。
+- **FR-026**: 系统 MUST 在宿主模式下确保插件进程日志默认进入统一采集链路（stdout+json），不得因默认配置导致插件日志仅保留于进程内缓冲。
+- **FR-027**: 系统 MUST 提供插件日志策略编排能力，至少覆盖 `GET/PUT policy` 与 `POST probe` 的平台化调用与审计记录。
+- **FR-028**: 系统 MUST 对插件日志标签执行低基数约束，固定标签至少包括 `plugin_id/tenant_uuid/component/level`；高基数字段仅保留在日志内容中。
+- **FR-029**: 系统 MUST 保证 `trace_id/tenant_uuid/plugin_id/component/level` 在采集、转发、检索链路中可用且不丢失。
+- **FR-030**: 当插件日志策略变更或 sink 不可用时，系统 MUST 给出可操作探测结果与降级状态，且不阻断主业务链路。
+- **FR-031**: 系统 MUST 在宿主 HTTP 最外层统一解析并注入 `plugin_id`，至少覆盖 `/_p/<plugin_id>/...` 与 `/api/v1/integration/<slug>/...` 两类路径；其中 `<slug>` 必须通过稳定映射解析为 `plugin_id`。
+- **FR-032**: 系统 MUST 让以下日志源统一从同一上下文读取 `request_id/trace_id/plugin_id/tenant_uuid`：`http_request`、`audit_event`、`API-IN/GATE-*/PROXY-*`、`wsbus.*`、插件 supervisor 日志、异步 worker（cron/queue/retry/event-fabric）。
+- **FR-033**: 系统 MUST 在异步链路禁止无条件使用 `context.Background()` 覆盖原请求上下文；若上下文缺失，sink 层必须执行字段兜底回填（事件 payload/meta/响应头）并记录 `reason`。
+- **FR-034**: 系统 MUST 将 `plugin_id/request_id/trace_id/tenant_uuid` 作为日志顶层字段输出，禁止仅写入 `meta` 字符串；`meta` 仅用于扩展诊断信息。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -123,6 +151,7 @@
 - 需要调度能力稳定运行，以保证计划任务按时触发。
 - 需要审计与日志能力可用，以支持失败排查与合规留痕。
 - 若驱动为 `loki`，需要 Loki API 与 Grafana 地址配置可用。
+- 需要插件运行时可由宿主注入并识别 host 模式信号（`POWERX_PROXY=1`）以及统一日志策略接口。
 
 ## Success Criteria *(mandatory)*
 
@@ -135,3 +164,6 @@
 - **SC-005**: 任意一次恢复任务在结束后 1 分钟内可查看明确结论（成功/失败）与原因摘要。
 - **SC-006**: 日志页在 10 秒内返回最近 15 分钟内的备份链路日志（同城网络条件）。
 - **SC-007**: `loki/file/stdio` 三驱动下，监控页均可正确展示可用能力与不可用能力提示，误点击率为 0。
+- **SC-008**: 宿主模式插件启用后，95% 以上插件日志在 1 分钟内可进入统一日志检索链路。
+- **SC-009**: 插件日志策略变更后，`policy/probe` 联调链路在 3 分钟内可完成并返回可审计结果。
+- **SC-010**: 对同一次 `/api/v1/integration/<slug>/...` 请求，使用同一个 `request_id` 可在 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`、`wsbus.*` 中命中，且 `plugin_id` 非空。

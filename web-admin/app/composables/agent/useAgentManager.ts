@@ -49,7 +49,6 @@ export const useAgentManager = () => {
       const response = await get<AgentListResponse>("/admin/agents", {
         params: {
           env: ENV.value,
-          status: "active",
         },
       });
 
@@ -123,6 +122,13 @@ export const useAgentManager = () => {
       if (typeof agentData.description === "string")
         payload.description = agentData.description;
       if (typeof agentData.status === "string") payload.status = agentData.status;
+      if (typeof agentData.typeId === "string") payload.typeId = agentData.typeId;
+      if (typeof agentData.scene === "string") payload.scene = agentData.scene;
+      if (typeof agentData.promptSeed === "string") payload.promptSeed = agentData.promptSeed;
+      if (typeof agentData.persona === "string") payload.persona = agentData.persona;
+      if (Array.isArray(agentData.skillIds)) payload.skillIds = agentData.skillIds;
+      if (Array.isArray(agentData.knowledgeBaseIds))
+        payload.knowledgeBaseIds = agentData.knowledgeBaseIds;
       if (agentData.meta && typeof agentData.meta === "object")
         payload.meta = agentData.meta;
       const response = await patch<AgentDetailResponse>(

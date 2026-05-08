@@ -88,7 +88,7 @@ func SeedEventFabricTopics(db *gorm.DB) error {
 		}
 	}
 
-	logger.InfoF(context.Background(), "[seed] event fabric topics ready: %d", len(seeds))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] event fabric topics ready: %d", len(seeds))
 	return nil
 }
 
@@ -120,7 +120,7 @@ func SeedEventFabricDefaultACL(db *gorm.DB) error {
 		return fmt.Errorf("list event topics failed: %w", err)
 	}
 	if len(topics) == 0 {
-		logger.InfoF(context.Background(), "[seed] event fabric default acl skipped: no topics")
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] event fabric default acl skipped: no topics")
 		return nil
 	}
 
@@ -155,6 +155,6 @@ func SeedEventFabricDefaultACL(db *gorm.DB) error {
 	if _, err := repo.UpsertBindings(seedCtx(), bindings); err != nil {
 		return fmt.Errorf("upsert event fabric default acl failed: %w", err)
 	}
-	logger.InfoF(context.Background(), "[seed] event fabric default acl ready: topics=%d bindings=%d", len(topics), len(bindings))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] event fabric default acl ready: topics=%d bindings=%d", len(topics), len(bindings))
 	return nil
 }

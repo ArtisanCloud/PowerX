@@ -78,6 +78,6 @@ func SeedDemoSkillInstallTasks(db *gorm.DB) error {
 		return fmt.Errorf("upsert demo skill install task failed: %w", err)
 	}
 
-	logger.InfoF(context.Background(), "[seed] demo install task ready: seed-install-hello-echo-v1")
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] demo install task ready: seed-install-hello-echo-v1")
 	return nil
 }
