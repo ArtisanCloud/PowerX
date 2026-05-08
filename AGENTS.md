@@ -53,4 +53,5 @@ Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plu
 
 <!-- MANUAL ADDITIONS START -->
 Always respond in Chinese-simplified
+Do not preserve compatibility with legacy, incorrect, or deprecated specifications/code paths; prefer explicit failure and strict enforcement over fallback behavior.
 <!-- MANUAL ADDITIONS END -->

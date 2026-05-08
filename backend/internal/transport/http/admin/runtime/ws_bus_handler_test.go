@@ -152,3 +152,49 @@ func TestWSBusGrantRegistryMissFallbackToDynamic(t *testing.T) {
 		t.Fatalf("publish failed: status=%d body=%s", publishRec.Code, publishRec.Body.String())
 	}
 }
+
+func TestWSBusGrantThenPublishAdminRuntimePath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
+
+	originHub := bus.DefaultHub
+	bus.DefaultHub = bus.NewHub()
+	t.Cleanup(func() { bus.DefaultHub = originHub })
+
+	tenantUUID := "tenant-ws-bus"
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		ctx := reqctx.WithTenantUUID(context.Background(), tenantUUID)
+		ctx = reqctx.WithIsRoot(ctx, true)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
+		c.Next()
+	})
+	protectedGroup := router.Group("/api/v1")
+	RegisterAPIRoutes(nil, protectedGroup, nil)
+
+	grantBody, _ := json.Marshal(map[string]any{
+		"topics": []string{"custom.progress.admin_runtime"},
+	})
+	grantReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/runtime/ws-bus/grant", bytes.NewReader(grantBody))
+	grantReq.Header.Set("Content-Type", "application/json")
+	grantRec := httptest.NewRecorder()
+	router.ServeHTTP(grantRec, grantReq)
+	if grantRec.Code != http.StatusOK {
+		t.Fatalf("grant failed: status=%d body=%s", grantRec.Code, grantRec.Body.String())
+	}
+
+	publishBody, _ := json.Marshal(map[string]any{
+		"topic":   "custom.progress.admin_runtime",
+		"payload": map[string]any{"ok": true},
+	})
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/runtime/ws-bus/publish", bytes.NewReader(publishBody))
+	publishReq.Header.Set("Content-Type", "application/json")
+	publishRec := httptest.NewRecorder()
+	router.ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("publish failed: status=%d body=%s", publishRec.Code, publishRec.Body.String())
+	}
+}

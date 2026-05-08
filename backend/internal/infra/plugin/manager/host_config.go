@@ -134,7 +134,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
-	applyDelegatedHostContract(selected, structured)
+	m.applyDelegatedHostContract(selected, structured)
 	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
@@ -192,21 +192,49 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 // applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
 // Some plugin runtimes prefer reading host-values.yaml over process env.
-func applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
+func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
 	if selected == nil {
 		return
 	}
 	// 安装产物在宿主内运行，默认按 delegated_proxy 契约写入 taskbus provider=host。
+	selected["POWERX_PROXY"] = "1"
+	selected["IAMMode"] = "delegated"
+	selected["IAM_MODE"] = "delegated"
 	selected["TASKBUS_PROVIDER"] = "host"
 	selected["taskbus_provider"] = "host"
 	selected["POWERX_TASKBUS_PROVIDER"] = "host"
 	selected["EVENT_BRIDGE_TASKBUS_PROVIDER"] = "host"
+	selected["EVENT_BRIDGE_ENABLED"] = "true"
+	selected["EVENT_BRIDGE_MODE"] = "taskbus"
+	selected["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
+
+	// 统一补齐网关基址，避免插件只读 host-values 时拿不到宿主地址。
+	baseURL := strings.TrimSpace(selected["PX_GATEWAY_BASE_URL"])
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
+	}
+	if baseURL == "" && m != nil && m.opts.CoreConfig != nil && m.opts.CoreConfig.Server.Port > 0 {
+		baseURL = fmt.Sprintf("http://127.0.0.1:%d", m.opts.CoreConfig.Server.Port)
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL != "" {
+		selected["PX_GATEWAY_BASE_URL"] = baseURL
+	}
+	if strings.TrimSpace(selected["NUXT_PUBLIC_WS_URL"]) == "" {
+		selected["NUXT_PUBLIC_WS_URL"] = "/api/ws"
+	}
+	if m != nil && m.opts.CoreConfig != nil {
+		applyWSContractEnv(selected, m.opts.CoreConfig)
+	}
 
 	if structured == nil {
 		return
 	}
+	setNestedValue(structured, []string{"context", "iam_mode"}, "delegated")
 	setNestedValue(structured, []string{"taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
+	setNestedValue(structured, []string{"event_bridge", "enabled"}, true)
+	setNestedValue(structured, []string{"event_bridge", "mode"}, "taskbus")
 }
 
 // ensureDelegatedHostContractForEnable repairs stale host-values before process start.
@@ -231,7 +259,7 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin)
 
 	values := cloneStringMap(hc.Values)
 	spec := cloneAnyMap(hc.Spec)
-	applyDelegatedHostContract(values, spec)
+	m.applyDelegatedHostContract(values, spec)
 	hc.Values = values
 	hc.Spec = spec
 
@@ -258,6 +286,8 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin)
 	doc["env"] = envDoc
 	setNestedValue(doc, []string{"taskbus_provider"}, "host")
 	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
+	setNestedValue(doc, []string{"event_bridge", "enabled"}, true)
+	setNestedValue(doc, []string{"event_bridge", "mode"}, "taskbus")
 
 	data, err := yaml.Marshal(doc)
 	if err != nil {

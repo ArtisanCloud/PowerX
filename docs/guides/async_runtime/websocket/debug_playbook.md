@@ -14,11 +14,11 @@
 - 必须走：`PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL`（通常 `/api/ws`）。
 - 禁止直接拼前端端口（例如 `127.0.0.1:3030`）去当后端地址。
 
-2. 宿主 internal 接口鉴权
-- `POST /api/v1/internal/ws-bus/grant`
-- `POST /api/v1/internal/ws-bus/publish`
+2. 宿主 ws-bus 接口鉴权
+- `POST /api/v1/admin/runtime/ws-bus/grant`
+- `POST /api/v1/admin/runtime/ws-bus/publish`
 - 插件后端调用这两个接口时，必须优先用 `PX_PLUGIN_TOOL_TOKEN`。
-- 禁止透传 plugin delegated bearer 去调用上述 internal 接口，否则常见报错是 `token has invalid audience`。
+- 禁止透传 plugin delegated bearer 去调用上述接口，否则常见报错是 `token has invalid audience`。
 
 ## 3. 五段状态验收（前端）
 
@@ -43,7 +43,7 @@
 
 1. `grant`
 ```bash
-curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/internal/ws-bus/grant" \
+curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/grant" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"topics":["_topic.system.notification"]}'
@@ -51,7 +51,7 @@ curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/internal/ws-bus/grant" 
 
 2. `publish`
 ```bash
-curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/internal/ws-bus/publish" \
+curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/publish" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"topic":"_topic.system.notification","payload":{"msg":"ping"}}'
@@ -67,7 +67,7 @@ curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/internal/ws-bus/publish
 
 2. 插件后端
 - 若出现 `grant rejected with status 401` 且伴随 `invalid audience`：
-  - 直接定位为“插件调用宿主 internal 接口时 token 选错”。
+- 直接定位为“插件调用宿主 ws-bus 接口时 token 选错”。
 
 3. WS 服务端
 - 有 `subscribe ack` 无 `event`：
@@ -85,14 +85,15 @@ curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/internal/ws-bus/publish
 - 原因：反代路径重复拼接 basePath。
 - 修复：上游路径构造去重。
 
-3. 401 `invalid audience` on `/internal/ws-bus/grant`
+3. 401 `invalid audience` on `/admin/runtime/ws-bus/grant`
 - 原因：插件透传 delegated token。
-- 修复：插件调用宿主 internal 接口改用 `PX_PLUGIN_TOOL_TOKEN`。
+- 修复：插件调用宿主 ws-bus 接口改用 `PX_PLUGIN_TOOL_TOKEN`。
 
 ## 8. Framework/插件对齐清单（上线前）
 
 1. 前端只读 contract 构造 WS URL，不猜端口。
 2. 后端 internal 调用 token 源正确（tool token 优先）。
+2. 后端 ws-bus 调用 token 源正确（tool token 优先）。
 3. 页面具备五段状态可视化。
 4. topic 命名与 tenant 前缀全链路一致。
 5. `grant -> subscribe -> publish -> event` 端到端演练通过。

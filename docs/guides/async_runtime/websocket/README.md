@@ -20,7 +20,7 @@
 ## 3. Host / 插件 / Framework 职责边界
 
 1. 宿主 PowerX
-- 提供 `/api/ws` 与 `/api/v1/internal/ws-bus/{grant,publish}`。
+- 提供 `/api/ws` 与 `/api/v1/admin/runtime/ws-bus/{grant,publish}`。
 - 在插件启用时注入运行时契约（环境变量）：
   - `PX_WS_BASE_URL`
   - `PX_GATEWAY_BASE_URL`
@@ -30,14 +30,56 @@
 
 2. 插件（含 Framework/Skeleton）
 - 前端只读契约构造 WS URL，不自行推导 `localhost:8077/8080/3030`。
-- 后端调用宿主 internal 接口时，必须使用宿主契约 token（`PX_PLUGIN_TOOL_TOKEN`），不能透传插件 delegated bearer 去撞 `aud=user` 接口。
+- 后端调用宿主 ws-bus 接口时，必须使用宿主契约 token（`PX_PLUGIN_TOOL_TOKEN`），不能透传插件 delegated bearer。
 - UI 只按 `type=event` 消费业务事件。
 
 3. Framework
 - 提供统一 WS 客户端与诊断状态机（`welcome/sub_sent/ack_ok/event_ok`）。
 - 任何模板页不得绕开契约自行拼接宿主地址。
 
-## 4. 地址契约（强约束）
+## 4. 调试链路图（标准工序）
+
+```mermaid
+flowchart TD
+    A[前端初始化]
+    B[计算WS地址]
+    C[连接api ws]
+    D{welcome成功}
+    E[发送subscribe]
+    F{ack成功}
+    G[触发业务动作]
+    H[后端调用grant admin runtime ws bus grant]
+    I{grant成功}
+    J[后端调用publish admin runtime ws bus publish]
+    K{publish成功}
+    L{前端收到event}
+    M[链路通过]
+    D1[检查WS地址网关租户]
+    F1[检查topic和ACL]
+    I1[检查PX PLUGIN TOOL TOKEN]
+    K1[检查topic tenant payload和网关响应]
+    L1[比对topic tenant trace id和订阅连接]
+
+    A --> B
+    B --> C
+    C --> D
+    D -- 否 --> D1
+    D -- 是 --> E
+    E --> F
+    F -- 否 --> F1
+    F -- 是 --> G
+    G --> H
+    H --> I
+    I -- 否 --> I1
+    I -- 是 --> J
+    J --> K
+    K -- 否 --> K1
+    K -- 是 --> L
+    L -- 否 --> L1
+    L -- 是 --> M
+```
+
+## 5. 地址契约（强约束）
 
 1. 禁止把前端端口当后端地址
 - 错误示例：`ws://127.0.0.1:3030/...`
@@ -45,10 +87,10 @@
 
 2. 推荐优先级（插件前端）
 1. `PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL`
-2. 兼容：`WS_UPSTREAM`
+2. 备用：`WS_UPSTREAM`
 3. 最后才允许本地 fallback（仅 standalone dev）
 
-## 5. 协议最小契约（插件必须满足）
+## 6. 协议最小契约（插件必须满足）
 
 1. 连接成功后应收到 `welcome`（允许极短延迟）。
 2. 发送 `subscribe` 后必须有 `ack`（成功或失败都要回）。
@@ -59,8 +101,8 @@
 - WS 连接存活
 - 已订阅该 topic
 
-## 6. 常见误区（本次联调踩坑总结）
+## 7. 常见误区（本次联调踩坑总结）
 
 1. 把 3030 当宿主后端：会导致连接/鉴权混乱。
-2. 插件用 delegated token 调宿主 internal grant：会触发 `invalid audience`。
+2. 插件用 delegated token 调宿主 ws-bus grant：会触发 `invalid audience`。
 3. 只看 grant/publish 200，不看 `welcome/ack/event`：会误判“已通”。

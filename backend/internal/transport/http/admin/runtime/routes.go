@@ -20,4 +20,9 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	compatGroup := protectedGroup.Group("/admin/runtime/internal")
 	compatGroup.POST("/ws-bus/grant", h.grant)
 	compatGroup.POST("/ws-bus/publish", h.publish)
+
+	// Standardized endpoints for plugin runtimes.
+	standardGroup := protectedGroup.Group("/admin/runtime")
+	standardGroup.POST("/ws-bus/grant", h.grant)
+	standardGroup.POST("/ws-bus/publish", h.publish)
 }

@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -35,7 +36,16 @@ func (h *Hub) Register(client *Client) {
 	}
 	h.mu.Lock()
 	h.sessions[client.ID] = client
+	sessionCount := len(h.sessions)
 	h.mu.Unlock()
+	fmt.Printf("[ws-probe] register conn=%s tenant=%s pid=%d sessions=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), os.Getpid(), sessionCount)
+	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "hub_register"),
+		zap.String("connection_id", client.ID),
+		zap.String("tenant_uuid", strings.TrimSpace(client.TenantUUID)),
+		zap.Int("session_count", sessionCount),
+		zap.Int("pid", os.Getpid()),
+	)
 }
 
 func (h *Hub) Unregister(client *Client) {
@@ -43,14 +53,28 @@ func (h *Hub) Unregister(client *Client) {
 		return
 	}
 	h.mu.Lock()
+	removedTopics := make([]string, 0, 8)
 	delete(h.sessions, client.ID)
 	for topic, subs := range h.subscribers {
-		delete(subs, client.ID)
+		if _, exists := subs[client.ID]; exists {
+			delete(subs, client.ID)
+			removedTopics = append(removedTopics, topic)
+		}
 		if len(subs) == 0 {
 			delete(h.subscribers, topic)
 		}
 	}
+	sessionCount := len(h.sessions)
 	h.mu.Unlock()
+	fmt.Printf("[ws-probe] unregister conn=%s tenant=%s pid=%d sessions=%d removed_topics=%v\n", client.ID, strings.TrimSpace(client.TenantUUID), os.Getpid(), sessionCount, removedTopics)
+	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "hub_unregister"),
+		zap.String("connection_id", client.ID),
+		zap.String("tenant_uuid", strings.TrimSpace(client.TenantUUID)),
+		zap.Int("session_count", sessionCount),
+		zap.Int("pid", os.Getpid()),
+		zap.Strings("removed_topics", removedTopics),
+	)
 }
 
 func (h *Hub) Subscribe(client *Client, topic string) {
@@ -62,8 +86,10 @@ func (h *Hub) Subscribe(client *Client, topic string) {
 		h.subscribers[topic] = make(map[string]*Client)
 	}
 	h.subscribers[topic][client.ID] = client
+	topicSubscriberCount := len(h.subscribers[topic])
 	h.mu.Unlock()
 	client.addTopic(topic)
+	fmt.Printf("[ws-probe] hub_subscribe conn=%s tenant=%s topic=%s topic_subscribers=%d pid=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), strings.TrimSpace(topic), topicSubscriberCount, os.Getpid())
 }
 
 func (h *Hub) Unsubscribe(client *Client, topic string) {
@@ -71,14 +97,17 @@ func (h *Hub) Unsubscribe(client *Client, topic string) {
 		return
 	}
 	h.mu.Lock()
+	topicSubscriberCount := 0
 	if subs, ok := h.subscribers[topic]; ok {
 		delete(subs, client.ID)
+		topicSubscriberCount = len(subs)
 		if len(subs) == 0 {
 			delete(h.subscribers, topic)
 		}
 	}
 	h.mu.Unlock()
 	client.removeTopic(topic)
+	fmt.Printf("[ws-probe] hub_unsubscribe conn=%s tenant=%s topic=%s topic_subscribers=%d pid=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), strings.TrimSpace(topic), topicSubscriberCount, os.Getpid())
 }
 
 func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
@@ -106,7 +135,11 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 	h.mu.RLock()
 	subs := h.subscribers[topic]
 	subscriberCount := len(subs)
-	fmt.Printf("[ws-probe] emit_start topic=%s tenant=%s trace_id=%s subscriber_count=%d\n", topic, tenantUUID, traceID, subscriberCount)
+	topicKeys := make([]string, 0, len(h.subscribers))
+	for topicKey := range h.subscribers {
+		topicKeys = append(topicKeys, topicKey)
+	}
+	fmt.Printf("[ws-probe] emit_start topic=%s tenant=%s trace_id=%s subscriber_count=%d pid=%d topics=%v\n", topic, tenantUUID, traceID, subscriberCount, os.Getpid(), topicKeys)
 	emittedCount := 0
 	droppedTenantMismatch := 0
 	for _, client := range subs {
