@@ -103,25 +103,7 @@ export function useDualChannelConnection(
     return withLeading.replace(/\/+$/, "") || fallback;
   };
 
-  const isLoopbackHost = (host?: string | null) => {
-    const h = String(host || "").trim().toLowerCase();
-    return h === "127.0.0.1" || h === "localhost" || h === "::1";
-  };
-
   const resolveWSOrigin = () => {
-    const upstream = String((config.public as any).wsUpstream || "").trim();
-    if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
-      try {
-        const u = new URL(upstream);
-        if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
-          const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-          return `${protocol}//${location.host}`;
-        }
-        return `${u.protocol}//${u.host}`;
-      } catch {
-        // ignore and fallback to current origin
-      }
-    }
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${location.host}`;
   };

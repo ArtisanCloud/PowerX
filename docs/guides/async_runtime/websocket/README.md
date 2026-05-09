@@ -22,9 +22,9 @@
 1. 宿主 PowerX
 - 提供 `/api/ws` 与 `/api/v1/admin/runtime/ws-bus/{grant,publish}`。
 - 在插件启用时注入运行时契约（环境变量）：
-  - `PX_WS_BASE_URL`
-  - `PX_GATEWAY_BASE_URL`
-  - `NUXT_PUBLIC_WS_URL`（默认 `/api/ws`）
+  - `NUXT_PUBLIC_WS_ORIGIN`
+  - `NUXT_PUBLIC_WS_PATH`（默认 `/api/ws`）
+  - `NUXT_PUBLIC_POWERX_CORE_BASE`
   - `NUXT_PUBLIC_API_BASE`（默认 `/api/v1`）
 - 负责插件网关鉴权与代理，不允许插件猜宿主端口。
 
@@ -83,11 +83,11 @@ flowchart TD
 
 1. 禁止把前端端口当后端地址
 - 错误示例：`ws://127.0.0.1:3030/...`
-- 正确做法：由 `PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL` 计算最终 WS 地址。
+- 正确做法：由 `NUXT_PUBLIC_WS_ORIGIN + NUXT_PUBLIC_WS_PATH` 计算最终 WS 地址。
 
 2. 推荐优先级（插件前端）
-1. `PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL`
-2. 备用：`WS_UPSTREAM`
+1. `NUXT_PUBLIC_WS_ORIGIN + NUXT_PUBLIC_WS_PATH`
+2. `NUXT_PUBLIC_POWERX_CORE_BASE + NUXT_PUBLIC_WS_PATH`
 3. 最后才允许本地 fallback（仅 standalone dev）
 
 ## 6. 协议最小契约（插件必须满足）

@@ -39,6 +39,9 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.String("query", query),
+			zap.String("origin", strings.TrimSpace(c.GetHeader("Origin"))),
+			zap.String("referer", strings.TrimSpace(c.GetHeader("Referer"))),
+			zap.String("user_agent", strings.TrimSpace(c.GetHeader("User-Agent"))),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
 		)

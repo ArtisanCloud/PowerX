@@ -2,7 +2,6 @@ package bus
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -144,7 +143,13 @@ func (c *Client) writeLoop() {
 
 func (c *Client) handleSubscribe(cmd dto.WSBusCommand) {
 	topics := normalizeTopics(cmd)
-	fmt.Printf("[ws-probe] subscribe_received conn=%s tenant=%s req_id=%s topics=%v\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID), topics)
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "subscribe_received"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+		zap.Strings("topics", topics),
+	)
 	if len(topics) == 0 {
 		c.sendError(cmd.ReqID, "bad_request", "topics required", "")
 		return
@@ -161,10 +166,21 @@ func (c *Client) handleSubscribe(cmd dto.WSBusCommand) {
 		allowed = append(allowed, topic)
 	}
 	if len(allowed) == 0 {
-		fmt.Printf("[ws-probe] subscribe_denied conn=%s tenant=%s req_id=%s\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID))
+		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+			zap.String("stage", "subscribe_denied"),
+			zap.String("connection_id", c.ID),
+			zap.String("tenant_uuid", c.TenantUUID),
+			zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+		)
 		return
 	}
-	fmt.Printf("[ws-probe] subscribe_ok conn=%s tenant=%s req_id=%s topics=%v\n", c.ID, c.TenantUUID, strings.TrimSpace(cmd.ReqID), allowed)
+	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "subscribe_ok"),
+		zap.String("connection_id", c.ID),
+		zap.String("tenant_uuid", c.TenantUUID),
+		zap.String("request_id", strings.TrimSpace(cmd.ReqID)),
+		zap.Strings("topics", allowed),
+	)
 	logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "subscribed"),
 		zap.String("connection_id", c.ID),

@@ -5,10 +5,7 @@ import type {
   ContextMember,
 } from "~/composables/api/services/meService";
 import { useMe } from "~/composables/useMe";
-import {
-  persistTenantUUID,
-  getStoredTenantUUID,
-} from "~/utils/tenant-context";
+import { persistTenantUUID } from "~/utils/tenant-context";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
@@ -34,7 +31,7 @@ export const useUserStore = defineStore("user", {
 
     // 当前租户 UUID
     currentTenantUuid: (state): string | null =>
-      state.context?.current_tenant_uuid || getStoredTenantUUID() || null,
+      state.context?.current_tenant_uuid || null,
 
     // 当前成员ID
     currentMemberId: (state): number | null =>

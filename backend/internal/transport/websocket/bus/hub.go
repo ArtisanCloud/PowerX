@@ -2,7 +2,6 @@ package bus
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -38,7 +37,6 @@ func (h *Hub) Register(client *Client) {
 	h.sessions[client.ID] = client
 	sessionCount := len(h.sessions)
 	h.mu.Unlock()
-	fmt.Printf("[ws-probe] register conn=%s tenant=%s pid=%d sessions=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), os.Getpid(), sessionCount)
 	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "hub_register"),
 		zap.String("connection_id", client.ID),
@@ -66,7 +64,6 @@ func (h *Hub) Unregister(client *Client) {
 	}
 	sessionCount := len(h.sessions)
 	h.mu.Unlock()
-	fmt.Printf("[ws-probe] unregister conn=%s tenant=%s pid=%d sessions=%d removed_topics=%v\n", client.ID, strings.TrimSpace(client.TenantUUID), os.Getpid(), sessionCount, removedTopics)
 	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "hub_unregister"),
 		zap.String("connection_id", client.ID),
@@ -89,7 +86,14 @@ func (h *Hub) Subscribe(client *Client, topic string) {
 	topicSubscriberCount := len(h.subscribers[topic])
 	h.mu.Unlock()
 	client.addTopic(topic)
-	fmt.Printf("[ws-probe] hub_subscribe conn=%s tenant=%s topic=%s topic_subscribers=%d pid=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), strings.TrimSpace(topic), topicSubscriberCount, os.Getpid())
+	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "hub_subscribe"),
+		zap.String("connection_id", client.ID),
+		zap.String("tenant_uuid", strings.TrimSpace(client.TenantUUID)),
+		zap.String("topic", strings.TrimSpace(topic)),
+		zap.Int("topic_subscribers", topicSubscriberCount),
+		zap.Int("pid", os.Getpid()),
+	)
 }
 
 func (h *Hub) Unsubscribe(client *Client, topic string) {
@@ -107,7 +111,14 @@ func (h *Hub) Unsubscribe(client *Client, topic string) {
 	}
 	h.mu.Unlock()
 	client.removeTopic(topic)
-	fmt.Printf("[ws-probe] hub_unsubscribe conn=%s tenant=%s topic=%s topic_subscribers=%d pid=%d\n", client.ID, strings.TrimSpace(client.TenantUUID), strings.TrimSpace(topic), topicSubscriberCount, os.Getpid())
+	logger.Info(logger.WithLogFields(client.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
+		zap.String("stage", "hub_unsubscribe"),
+		zap.String("connection_id", client.ID),
+		zap.String("tenant_uuid", strings.TrimSpace(client.TenantUUID)),
+		zap.String("topic", strings.TrimSpace(topic)),
+		zap.Int("topic_subscribers", topicSubscriberCount),
+		zap.Int("pid", os.Getpid()),
+	)
 }
 
 func (h *Hub) Publish(tenantUUID, topic string, payload any, traceID string) {
@@ -139,7 +150,15 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 	for topicKey := range h.subscribers {
 		topicKeys = append(topicKeys, topicKey)
 	}
-	fmt.Printf("[ws-probe] emit_start topic=%s tenant=%s trace_id=%s subscriber_count=%d pid=%d topics=%v\n", topic, tenantUUID, traceID, subscriberCount, os.Getpid(), topicKeys)
+	logger.Info(logger.WithLogFields(ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+		zap.String("stage", "emit_start"),
+		zap.String("topic", topic),
+		zap.String("tenant_uuid", tenantUUID),
+		zap.String("trace_id", traceID),
+		zap.Int("subscriber_count", subscriberCount),
+		zap.Int("pid", os.Getpid()),
+		zap.Strings("topics", topicKeys),
+	)
 	emittedCount := 0
 	droppedTenantMismatch := 0
 	for _, client := range subs {
@@ -163,8 +182,7 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 		emittedCount++
 	}
 	h.mu.RUnlock()
-	fmt.Printf("[ws-probe] emit_done topic=%s tenant=%s trace_id=%s emitted_count=%d dropped_tenant_mismatch=%d\n", topic, tenantUUID, traceID, emittedCount, droppedTenantMismatch)
-	logger.Info(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
+	logger.Info(logger.WithLogFields(ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
 		zap.String("stage", "emit"),
 		zap.String("topic", topic),
 		zap.String("tenant_uuid", tenantUUID),

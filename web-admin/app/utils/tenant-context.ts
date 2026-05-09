@@ -60,8 +60,9 @@ export const resolveTenantUUIDForRequest = () =>
       (typeof claims?.tid === "string" && claims.tid) ||
       (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||
       "";
-    if (stored) return normalize(stored);
     const tokenNormalized = tokenTenantUUID ? normalize(tokenTenantUUID) : "";
+    if (tokenNormalized) return tokenNormalized;
+    if (stored) return normalize(stored);
     return tokenNormalized || undefined;
   })();
 

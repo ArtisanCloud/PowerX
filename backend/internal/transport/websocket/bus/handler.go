@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -64,11 +63,16 @@ var busUpgrader = websocket.Upgrader{
 }
 
 func (h *Handler) ServeWS(c *gin.Context) {
-	fmt.Printf("[ws-probe] serve_ws_enter path=%s query=%s\n", strings.TrimSpace(c.Request.URL.Path), strings.TrimSpace(c.Request.URL.RawQuery))
+	origin := strings.TrimSpace(c.GetHeader("Origin"))
+	referer := strings.TrimSpace(c.GetHeader("Referer"))
+	userAgent := strings.TrimSpace(c.GetHeader("User-Agent"))
 	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "serve_ws_enter"),
 		zap.String("path", strings.TrimSpace(c.Request.URL.Path)),
 		zap.String("query", strings.TrimSpace(c.Request.URL.RawQuery)),
+		zap.String("origin", origin),
+		zap.String("referer", referer),
+		zap.String("user_agent", userAgent),
 	)
 	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
 	if err != nil {
@@ -84,14 +88,12 @@ func (h *Handler) ServeWS(c *gin.Context) {
 
 	conn, err := busUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		fmt.Printf("[ws-probe] upgrade_failed err=%v\n", err)
 		logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 			zap.String("stage", "upgrade_failed"),
 			zap.Error(err),
 		)
 		return
 	}
-	fmt.Printf("[ws-probe] upgraded tenant=%s member_id=%d\n", strings.TrimSpace(tenantUUID), memberID)
 	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "upgraded"),
 		zap.String("tenant_uuid", strings.TrimSpace(tenantUUID)),
@@ -105,7 +107,6 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	client.IsRoot = isRoot
 
 	h.hub.Register(client)
-	fmt.Printf("[ws-probe] connected conn=%s tenant=%s member_id=%d user_id=%d\n", client.ID, client.TenantUUID, client.MemberID, client.UserID)
 	logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
 		zap.String("stage", "connected"),
 		zap.String("connection_id", client.ID),

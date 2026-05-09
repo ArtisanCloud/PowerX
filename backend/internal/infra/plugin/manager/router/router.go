@@ -469,6 +469,21 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	gatePath := normalizeGatePathForPolicy(clientPath, up.basePath)
 	logger.DebugF(c.Request.Context(), "[GATE-PATH] plugin=%s method=%s raw=%s normalized=%s basePath=%s tenant_uuid=%s request_id=%s trace_id=%s",
 		pluginID, c.Request.Method, clientPath, gatePath, up.basePath, logTenantUUID, requestID, traceID)
+	if isTenantScopedWSBusPath(gatePath) {
+		resolvedTenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+		if resolvedTenant == "" {
+			resolvedTenant = strings.TrimSpace(claims.TenantUUID)
+		}
+		if resolvedTenant == "" {
+			logger.WarnF(c.Request.Context(), "[PROXY-TENANT-DENY] plugin=%s method=%s clientPath=%s normalized=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
+				pluginID, c.Request.Method, clientPath, gatePath, resolvedTenant, requestID, traceID, "tenant scoped ws-bus route requires tenant from auth context")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":  "access denied at gateway",
+				"reason": "tenant scoped ws-bus route requires tenant from auth context",
+			})
+			return
+		}
+	}
 	if r.gate != nil {
 		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
@@ -653,8 +668,21 @@ func extractJWTStringClaim(token, claim string) string {
 	return ""
 }
 
+func isRootTenantUUID(v string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(v))
+	return normalized == "00000000-0000-0000-0000-000000000000" ||
+		normalized == "00000000-0000-0000-0000-000000000001"
+}
+
 func isZeroTenantUUID(v string) bool {
-	return strings.EqualFold(strings.TrimSpace(v), "00000000-0000-0000-0000-000000000000")
+	return isRootTenantUUID(v)
+}
+
+func isTenantScopedWSBusPath(path string) bool {
+	p := strings.TrimSpace(path)
+	return strings.HasSuffix(p, "/admin/runtime/ws-bus/test-flow") ||
+		strings.HasSuffix(p, "/admin/runtime/ws-bus/grant") ||
+		strings.HasSuffix(p, "/admin/runtime/ws-bus/publish")
 }
 
 // ===== 工具/辅助 =====

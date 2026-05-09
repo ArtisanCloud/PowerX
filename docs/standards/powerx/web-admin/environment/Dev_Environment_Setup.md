@@ -9,7 +9,7 @@
 - Node.js ≥ 20.11（推荐使用 `nvm` 或 `fnm` 管理多版本）。
 - 包管理器默认使用 `npm`，确保 `npm@10` 以上。
 - 克隆仓库后执行 `npm install`，完成 Nuxt 预处理（自动触发 `nuxt prepare`）。
-- 根据 `.env.example` 创建 `.env`，至少填入 `POWERX_BACKEND` 与 `WS_UPSTREAM`。
+- 根据 `.env.example` 创建 `.env`，至少填入 `POWERX_BACKEND`、`NUXT_PUBLIC_WS_ORIGIN`、`NUXT_PUBLIC_WS_PATH`。
 - 启动热更新服务器：`npm run dev`（默认端口 `3000`）。
 - 功能开发或文档更新后，必要的验证流程：打开 `http: "//localhost:3000` → 登录/切换语言 → 访问 Agent、插件市场、仪表盘。"
 
@@ -82,7 +82,8 @@ cp .env.example .env
 | `NUXT_DEFAULT_LANGUAGE` | UI 默认语言 | `zh` | 支持 `zh,en,ja,ko`。 |
 | `NUXT_FORCE_THEME` | 强制主题 | `dark` | 若希望跟随系统，可改为 `auto`。 |
 | `POWERX_BACKEND` | REST API 网关地址 | `http://127.0.0.1:8077` | 对接后端 Mock/本地接口。 |
-| `WS_UPSTREAM` | WebSocket 地址 | `ws://127.0.0.1:3001` | 本地调试实时消息时需保持可达。 |
+| `NUXT_PUBLIC_WS_ORIGIN` | WebSocket 主机地址 | `ws://127.0.0.1:8077` | 本地调试实时消息时需保持可达。 |
+| `NUXT_PUBLIC_WS_PATH` | WebSocket 路径 | `/api/ws` | 建议固定此值。 |
 
 - 更完整的变量说明参考 `docs/environment/Env_Variables_Schema.md`（补全中）。
 - `.env` 默认被列入 `.gitignore`，请勿提交到版本库。如需共享环境配置，可在团队 wiki 或私有 vault 中维护。
