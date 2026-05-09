@@ -179,6 +179,15 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 - `POWERX_RELEASES_ROOT`：默认 `/opt/powerx/releases`
 - `POWERX_RUNTIME_ROOT`：默认 `/etc/powerx`
 - `POWERX_CONFIG`：默认 `${POWERX_RUNTIME_ROOT}/config.yaml`
+- `POWERX_GATEWAY_BASE_URL`：插件网关基址（用于插件 host-values 合同注入）
+- `POWERX_GATEWAY_WS_BASE_URL`：插件 WS 基址（用于插件 host-values 合同注入）
+
+远程部署建议（示例）：
+```env
+POWERX_GATEWAY_BASE_URL=https://agent.example.com
+POWERX_GATEWAY_WS_BASE_URL=wss://agent.example.com
+```
+注意：不要把以上两个变量配置为 `127.0.0.1`，否则远程浏览器会连接到访问者本机回环地址。
 
 发布模式建议：
 - 代码升级（无 DB 变更）：只执行 `make dist + switch-release`，不走 `/setup`。
