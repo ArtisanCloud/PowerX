@@ -3,6 +3,7 @@ package supervisor
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -288,11 +289,39 @@ func (w *processStreamForwarder) emit(line string) {
 	if line == "" {
 		return
 	}
-	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{
+	fields := map[string]interface{}{
 		"module":    "plugin.runtime",
 		"plugin_id": w.pluginID,
 		"stream":    w.stream,
-	})
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(line), &parsed); err == nil && len(parsed) > 0 {
+		for _, key := range []string{
+			"component",
+			"tenant_uuid",
+			"tenant_key",
+			"trace_id",
+			"request_id",
+			"session_id",
+			"run_id",
+			"trace_ref",
+			"trace_type",
+			"trace_kind",
+			"job_id",
+			"policy_id",
+			"message_id",
+			"channel_message_id",
+			"provider_message_id",
+		} {
+			if value, ok := parsed[key]; ok {
+				fields[key] = value
+			}
+		}
+		if msg := strings.TrimSpace(fmt.Sprint(parsed["message"])); msg != "" {
+			fields["plugin_message"] = msg
+		}
+	}
+	ctx := logger.WithLogFields(context.Background(), fields)
 	logger.Info(ctx, "plugin_runtime_log", zap.String("line", line))
 }
 

@@ -33,14 +33,14 @@ var (
 )
 
 func getFileWriteSyncer(fileConfig *config.FileConfig, fileName string) zapcore.WriteSyncer {
-
-	return zapcore.AddSync(&lumberjack.Logger{
+	lw := &lumberjack.Logger{
 		Filename:   fileName,
 		MaxSize:    fileConfig.MaxSize, // megabytes
 		MaxBackups: fileConfig.MaxBackups,
 		MaxAge:     fileConfig.MaxAge,   // days
 		Compress:   fileConfig.Compress, // disabled by default
-	})
+	}
+	return zapcore.AddSync(newDailyRotateWriter(lw, fileConfig.RotateDaily))
 }
 
 func NewLogger(config *config.LogConfig) *Logger {
@@ -85,6 +85,8 @@ func NewLogger(config *config.LogConfig) *Logger {
 		})
 		infoFileCore := zapcore.NewCore(encoder, getFileWriteSyncer(&config.File, config.File.InfoFilePath), infoLevelEnabler)
 		cores = append(cores, infoFileCore)
+		pluginInfoCore := zapcore.NewCore(encoder, newPluginRouterWriter("info", &config.File), infoLevelEnabler)
+		cores = append(cores, pluginInfoCore)
 
 		// 只记录 Error 及以上级别的日志
 		errorLevelEnabler := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
@@ -92,6 +94,8 @@ func NewLogger(config *config.LogConfig) *Logger {
 		})
 		errorFileCore := zapcore.NewCore(encoder, getFileWriteSyncer(&config.File, config.File.ErrorFilePath), errorLevelEnabler)
 		cores = append(cores, errorFileCore)
+		pluginErrorCore := zapcore.NewCore(encoder, newPluginRouterWriter("error", &config.File), errorLevelEnabler)
+		cores = append(cores, pluginErrorCore)
 	}
 
 	// Loki 日志

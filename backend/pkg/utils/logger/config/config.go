@@ -28,6 +28,7 @@ type FileConfig struct {
 	MaxBackups    int    `yaml:"max_backups"`     // 保留的备份文件数量
 	MaxAge        int    `yaml:"max_age"`         // 保留的天数
 	Compress      bool   `yaml:"compress"`        // 是否压缩备份文件
+	RotateDaily   bool   `yaml:"rotate_daily"`    // 是否按天切分（跨天首次写入触发）
 }
 
 // LokiConfig Loki日志配置

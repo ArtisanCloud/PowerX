@@ -119,6 +119,7 @@ log:
     max_backups: 5
     max_age: 30
     compress: true
+    rotate_daily: true
   loki:
     enable: false
     url: "http://<loki-host>:3100"

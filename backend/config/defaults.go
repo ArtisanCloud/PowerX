@@ -47,6 +47,7 @@ func GetDefaults() *Config {
 				MaxBackups:    5,
 				MaxAge:        30,
 				Compress:      true,
+				RotateDaily:   true,
 			},
 			Loki: logCfg.LokiConfig{
 				Enable:    false,
