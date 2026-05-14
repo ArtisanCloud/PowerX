@@ -27,6 +27,7 @@ const UUID_RE =
 const hasActiveSubscriptions = () => subscriptions.size > 0;
 const isValidTenantUUID = (tenantUUID?: string | null) =>
   UUID_RE.test(String(tenantUUID || "").trim());
+const shouldBlockReconnectForCloseCode = (code: number) => code === 1008 || code === 1003;
 
 const isLoopbackHost = (host?: string | null) => {
   const h = String(host || "").trim().toLowerCase();
@@ -160,7 +161,6 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     wsConnecting.value = false;
     wsConnected.value = false;
     wsError.value = null;
-    allowReconnect = false;
     return;
   }
   if (wsInstance && wsConnected.value) return;
@@ -182,22 +182,25 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     });
   };
   ws.onclose = (event) => {
+    if (wsInstance !== ws) return;
     wsConnected.value = false;
     wsConnecting.value = false;
     wsInstance = null;
-    allowReconnect = false;
-    if (event.code === 1008 || event.code === 1003) {
+    if (shouldBlockReconnectForCloseCode(event.code)) {
+      allowReconnect = false;
       wsError.value = "租户上下文无效";
       return;
     }
     wsError.value = "连接被关闭";
+    scheduleReconnect(token);
   };
   ws.onerror = () => {
+    if (wsInstance !== ws) return;
     wsConnected.value = false;
     wsConnecting.value = false;
     wsError.value = "连接失败";
     wsInstance = null;
-    allowReconnect = false;
+    scheduleReconnect(token);
   };
   ws.onmessage = (evt) => {
     try {
@@ -255,12 +258,16 @@ export const useWSBus = () => {
           resetConnection("tenant_missing", false);
           return;
         }
+        allowReconnect = true;
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
           ensureConnection(token.value || null, nextTenant);
         } else {
           activeTenant = nextTenant;
+          if (!prevTenant && hasActiveSubscriptions()) {
+            ensureConnection(token.value || null, nextTenant);
+          }
         }
       },
       { immediate: true }
