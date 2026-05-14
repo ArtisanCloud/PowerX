@@ -101,10 +101,11 @@ type Plugin struct {
 	State   PluginState `json:"state"`
 
 	// 这些来自 manifest：
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Metadata    Metadata    `json:"metadata"` // ✅ 建议用值类型，避免 nil
-	Catalogs    CatalogSpec `json:"catalogs,omitempty"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Metadata    Metadata     `json:"metadata"` // ✅ 建议用值类型，避免 nil
+	Catalogs    CatalogSpec  `json:"catalogs,omitempty"`
+	Exposure    ExposureSpec `json:"exposure,omitempty"`
 
 	Runtime     RuntimeSpec      `json:"runtime"`
 	Frontend    FrontendSpec     `json:"frontend"`
@@ -237,6 +238,21 @@ type MenuLabel struct {
 
 type RBACSpec struct {
 	Resources []RBACResource `yaml:"resources" json:"resources"`
+}
+
+type ExposureSpec struct {
+	Channels []ExposureChannel `yaml:"channels" json:"channels"`
+}
+
+type ExposureChannel struct {
+	Type       string         `yaml:"type" json:"type"`
+	Method     string         `yaml:"method,omitempty" json:"method,omitempty"`
+	Entrypoint string         `yaml:"entrypoint" json:"entrypoint"`
+	Auth       string         `yaml:"auth" json:"auth"`
+	Capability string         `yaml:"capability,omitempty" json:"capability,omitempty"`
+	RBAC       string         `yaml:"rbac,omitempty" json:"rbac,omitempty"`
+	Purpose    string         `yaml:"purpose,omitempty" json:"purpose,omitempty"`
+	Security   map[string]any `yaml:"security,omitempty" json:"security,omitempty"`
 }
 
 type PermissionSpec struct {

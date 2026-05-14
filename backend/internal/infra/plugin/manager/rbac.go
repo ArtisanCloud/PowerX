@@ -29,6 +29,7 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 		Resources:   map[string]map[string]bool{},
 		DefaultOnly: false,
 	}
+	pol.PublicRoutes = publicRoutesFromPlugin(p, policyBase)
 	// ① health 检查：无条件允许（映射到一个虚拟 resource）
 	pol.Routes["GET:/healthz"] = pmrouter.Permission{Resource: "system", Action: "read"}
 	pol.Routes["HEAD:/healthz"] = pmrouter.Permission{Resource: "system", Action: "read"}
@@ -126,6 +127,56 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 		}
 	}
 	return pol
+}
+
+func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.PublicRoute {
+	routes := make([]pmrouter.PublicRoute, 0)
+	for _, ch := range p.Exposure.Channels {
+		if strings.ToLower(strings.TrimSpace(ch.Type)) != "rest" {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(ch.Auth)) != "public" {
+			continue
+		}
+		method := strings.ToUpper(strings.TrimSpace(ch.Method))
+		entrypoint := normalizeExposureEntrypoint(ch.Entrypoint, policyBase)
+		if method == "" || entrypoint == "" {
+			continue
+		}
+		routes = append(routes, pmrouter.PublicRoute{Method: method, Path: entrypoint})
+	}
+	return routes
+}
+
+func normalizeExposureEntrypoint(entrypoint, policyBase string) string {
+	value := strings.TrimSpace(entrypoint)
+	if value == "" {
+		return ""
+	}
+	for {
+		start := strings.Index(value, "${")
+		if start < 0 {
+			break
+		}
+		endRel := strings.Index(value[start:], "}")
+		if endRel < 0 {
+			break
+		}
+		end := start + endRel
+		expr := value[start+2 : end]
+		replacement := policyBase
+		if i := strings.Index(expr, ":-"); i >= 0 {
+			replacement = strings.TrimSpace(expr[i+2:])
+		}
+		if strings.Contains(expr, "POWERX_PLUGIN_HTTP_BASE") && strings.TrimSpace(policyBase) != "" {
+			replacement = strings.TrimSpace(policyBase)
+		}
+		value = value[:start] + replacement + value[end+1:]
+	}
+	if !strings.HasPrefix(value, "/") {
+		value = "/" + value
+	}
+	return value
 }
 
 // 安装（或更新）某个插件的路由策略到动态路由器

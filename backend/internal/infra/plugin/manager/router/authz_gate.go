@@ -42,6 +42,13 @@ type Policy struct {
 
 	// DefaultOnly: 如果为 true，则忽略 Routes，仅使用自动推导（默认 false）
 	DefaultOnly bool
+
+	PublicRoutes []PublicRoute
+}
+
+type PublicRoute struct {
+	Method string `json:"method" yaml:"method"`
+	Path   string `json:"path" yaml:"path"`
 }
 
 func (p *Policy) Required(method, reqPath string) *Permission {
@@ -62,26 +69,26 @@ func (p *Policy) Required(method, reqPath string) *Permission {
 	}
 
 	// 2) 自动推导：method -> action；reqPath -> resource
-    act := methodToAction(method)
-    if act == "" {
-        return nil
-    }
-    res := p.pickResourceFromPath(reqPath)
-    if res == "" {
-        return nil
-    }
-    if acts, ok := p.Resources[res]; ok {
-        if acts[act] {
-            return &Permission{Resource: res, Action: act}
-        }
-        // 动作同义词兜底（提高与插件 manifest 的契合度）
-        for _, alt := range methodActionSynonyms(method) {
-            if acts[alt] {
-                return &Permission{Resource: res, Action: alt}
-            }
-        }
-    }
-    return nil
+	act := methodToAction(method)
+	if act == "" {
+		return nil
+	}
+	res := p.pickResourceFromPath(reqPath)
+	if res == "" {
+		return nil
+	}
+	if acts, ok := p.Resources[res]; ok {
+		if acts[act] {
+			return &Permission{Resource: res, Action: act}
+		}
+		// 动作同义词兜底（提高与插件 manifest 的契合度）
+		for _, alt := range methodActionSynonyms(method) {
+			if acts[alt] {
+				return &Permission{Resource: res, Action: alt}
+			}
+		}
+	}
+	return nil
 }
 
 func splitKey(key string) (method, p string) {
@@ -93,34 +100,34 @@ func splitKey(key string) (method, p string) {
 }
 
 func methodToAction(m string) string {
-    switch strings.ToUpper(m) {
-    case "GET", "HEAD":
-        return "read"
+	switch strings.ToUpper(m) {
+	case "GET", "HEAD":
+		return "read"
 	case "POST":
 		return "create"
 	case "PUT", "PATCH":
 		return "update"
 	case "DELETE":
 		return "delete"
-    default:
-        return ""
-    }
+	default:
+		return ""
+	}
 }
 
 // methodActionSynonyms: 针对常见 HTTP 方法提供动作同义词回退
 func methodActionSynonyms(m string) []string {
-    switch strings.ToUpper(m) {
-    case "GET", "HEAD":
-        return []string{"view", "list"}
-    case "POST":
-        return []string{"write", "create"}
-    case "PUT", "PATCH":
-        return []string{"edit", "update"}
-    case "DELETE":
-        return []string{"remove", "delete"}
-    default:
-        return nil
-    }
+	switch strings.ToUpper(m) {
+	case "GET", "HEAD":
+		return []string{"view", "list"}
+	case "POST":
+		return []string{"write", "create"}
+	case "PUT", "PATCH":
+		return []string{"edit", "update"}
+	case "DELETE":
+		return []string{"remove", "delete"}
+	default:
+		return nil
+	}
 }
 
 func (p *Policy) pickResourceFromPath(reqPath string) string {
@@ -208,6 +215,39 @@ func (g *authzGate) InstallPolicy(pluginID string, pol *Policy) {
 	if pol != nil {
 		g.policies[pluginID] = pol
 	}
+}
+
+func (g *authzGate) IsPublicRoute(pluginID, method, reqPath string) bool {
+	if g == nil {
+		return false
+	}
+	pol := g.policies[pluginID]
+	if pol == nil {
+		return false
+	}
+	method = strings.ToUpper(strings.TrimSpace(method))
+	reqPath = normalizePath(reqPath)
+	for _, route := range pol.PublicRoutes {
+		routeMethod := strings.ToUpper(strings.TrimSpace(route.Method))
+		if routeMethod != "*" && routeMethod != method {
+			continue
+		}
+		if normalizePath(route.Path) == reqPath {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(value, "/") {
+		value = "/" + value
+	}
+	return path.Clean(value)
 }
 
 func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath string, base reqctx.CoreXClaims) (string, bool, string) {
