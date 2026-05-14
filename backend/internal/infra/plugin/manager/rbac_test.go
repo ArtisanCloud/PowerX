@@ -69,3 +69,34 @@ func TestPolicyFromPlugin_AddWSBusRoutes(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicyFromPlugin_AddPublicExposureRoutes(t *testing.T) {
+	t.Parallel()
+
+	p := plugin_mgr.Plugin{
+		Endpoints: plugin_mgr.EndpointSpec{HTTPBasePath: "/api/v1"},
+		Exposure: plugin_mgr.ExposureSpec{
+			Channels: []plugin_mgr.ExposureChannel{
+				{
+					Type:       "rest",
+					Method:     "POST",
+					Entrypoint: "${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/acme/webhooks/shopify",
+					Auth:       "public",
+					Security:   map[string]any{"verifier": "shopify_hmac"},
+				},
+			},
+		},
+	}
+
+	pol := PolicyFromPlugin(p)
+	if pol == nil {
+		t.Fatalf("PolicyFromPlugin returned nil")
+	}
+	if len(pol.PublicRoutes) != 1 {
+		t.Fatalf("PublicRoutes len=%d, want 1", len(pol.PublicRoutes))
+	}
+	got := pol.PublicRoutes[0]
+	if got.Method != "POST" || got.Path != "/api/v1/integration/acme/webhooks/shopify" {
+		t.Fatalf("unexpected public route: %+v", got)
+	}
+}

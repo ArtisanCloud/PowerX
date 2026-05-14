@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // InvocationServiceOptions 配置能力调用服务。
@@ -484,8 +486,33 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	}
 
 	httpClient := s.selectRESTHTTPClient(capabilityID, payload.Endpoint, useAIMultimodalTimeout)
+	requestStartedAt := time.Now()
+	modelKey := extractModelKeyFromRESTPayload(payload)
+	provider := extractProviderFromRESTPayload(payload)
+	timeoutMs := int64(0)
+	if httpClient != nil && httpClient.Timeout > 0 {
+		timeoutMs = httpClient.Timeout.Milliseconds()
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		elapsedMs := time.Since(requestStartedAt).Milliseconds()
+		pxlog.WarnF(
+			ctx,
+			"[capability_registry.invoke] rest_proxy_failed capability_id=%s method=%s upstream_url=%s provider=%s model_key=%s trace_id=%s request_id=%s tenant_uuid=%s use_ai_modal_timeout=%t client_timeout_ms=%d elapsed_ms=%d timeout_source=%s error=%v",
+			strings.TrimSpace(capabilityID),
+			strings.ToUpper(strings.TrimSpace(payload.Method)),
+			sanitizeURLForLog(parsed),
+			provider,
+			modelKey,
+			strings.TrimSpace(traceID),
+			extractCtxString(ctx, "request_id"),
+			extractCtxString(ctx, "tenant_uuid"),
+			useAIMultimodalTimeout,
+			timeoutMs,
+			elapsedMs,
+			classifyTimeoutSource(ctx, err),
+			err,
+		)
 		return nil, fmt.Errorf("proxy REST request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -493,6 +520,25 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read REST response failed: %w", err)
+	}
+	elapsedMs := time.Since(requestStartedAt).Milliseconds()
+	if resp.StatusCode >= 500 {
+		pxlog.WarnF(
+			ctx,
+			"[capability_registry.invoke] rest_proxy_upstream_5xx capability_id=%s method=%s upstream_url=%s upstream_status_code=%d provider=%s model_key=%s trace_id=%s request_id=%s tenant_uuid=%s use_ai_modal_timeout=%t client_timeout_ms=%d elapsed_ms=%d",
+			strings.TrimSpace(capabilityID),
+			strings.ToUpper(strings.TrimSpace(payload.Method)),
+			sanitizeURLForLog(parsed),
+			resp.StatusCode,
+			provider,
+			modelKey,
+			strings.TrimSpace(traceID),
+			extractCtxString(ctx, "request_id"),
+			extractCtxString(ctx, "tenant_uuid"),
+			useAIMultimodalTimeout,
+			timeoutMs,
+			elapsedMs,
+		)
 	}
 	if resp.StatusCode >= 400 {
 		snippet := string(respBytes)
@@ -533,6 +579,63 @@ func (s *InvocationService) selectRESTHTTPClient(capabilityID, endpoint string, 
 		return s.httpClient
 	}
 	return &http.Client{Timeout: 20 * time.Second}
+}
+
+func sanitizeURLForLog(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	return strings.TrimSpace(u.Scheme + "://" + u.Host + u.Path)
+}
+
+func classifyTimeoutSource(ctx context.Context, err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "context_deadline_exceeded"
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "transport_timeout"
+	}
+	if ctx != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return "request_context_deadline"
+	}
+	return "non_timeout_error"
+}
+
+func extractModelKeyFromRESTPayload(payload restInvokePayload) string {
+	if payload.Body == nil {
+		return ""
+	}
+	bodyMap, ok := payload.Body.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(extractString(bodyMap, "model_key"))
+}
+
+func extractProviderFromRESTPayload(payload restInvokePayload) string {
+	if payload.Body == nil {
+		return ""
+	}
+	bodyMap, ok := payload.Body.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(extractString(bodyMap, "provider"))
+}
+
+func extractCtxString(ctx context.Context, key string) string {
+	if ctx == nil || strings.TrimSpace(key) == "" {
+		return ""
+	}
+	value := ctx.Value(key)
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func shouldUseAIMultimodalTimeout(capabilityID, endpoint string, labels map[string]string, payload map[string]interface{}) bool {

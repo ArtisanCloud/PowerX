@@ -427,12 +427,12 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		strings.TrimSpace(envADM["POWERX_PROXY"]),
 		strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
 	)
-	logger.InfoF(ctx, "[plugin-enable] plugin=%s ws_contract ws_base=%s ws_upstream=%s ws_url=%s",
-		p.ID,
-		strings.TrimSpace(envADM["PX_WS_BASE_URL"]),
-		strings.TrimSpace(envADM["WS_UPSTREAM"]),
-		strings.TrimSpace(envADM["NUXT_PUBLIC_WS_URL"]),
-	)
+		logger.InfoF(ctx, "[plugin-enable] plugin=%s ws_contract ws_origin=%s ws_path=%s core_base=%s",
+			p.ID,
+			strings.TrimSpace(envADM["NUXT_PUBLIC_WS_ORIGIN"]),
+			strings.TrimSpace(envADM["NUXT_PUBLIC_WS_PATH"]),
+			strings.TrimSpace(envADM["NUXT_PUBLIC_POWERX_CORE_BASE"]),
+		)
 	envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
 
 		if _, ok := envADM["NITRO_HOST"]; !ok {
@@ -887,14 +887,18 @@ func applyWSContractEnv(env map[string]string, cfg *config.Config) {
 	if env == nil || cfg == nil {
 		return
 	}
-	if strings.TrimSpace(env["NUXT_PUBLIC_WS_URL"]) == "" {
-		env["NUXT_PUBLIC_WS_URL"] = "/api/ws"
-	}
-	if strings.TrimSpace(env["PX_WS_BASE_URL"]) != "" && strings.TrimSpace(env["WS_UPSTREAM"]) != "" {
+	baseURL := strings.TrimRight(strings.TrimSpace(env["PX_GATEWAY_BASE_URL"]), "/")
+	if baseURL == "" {
 		return
 	}
+	env["NUXT_PUBLIC_POWERX_CORE_BASE"] = baseURL
 
-	// 可由运维显式覆盖：优先使用 POWERX_GATEWAY_WS_BASE_URL（如 wss://agent.example.com）
+	wsPath := strings.TrimSpace(env["NUXT_PUBLIC_WS_PATH"])
+	if wsPath == "" {
+		wsPath = "/api/ws"
+	}
+	env["NUXT_PUBLIC_WS_PATH"] = wsPath
+
 	wsBase := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_WS_BASE_URL"))
 	if wsBase == "" {
 		host := "127.0.0.1"
@@ -908,12 +912,7 @@ func applyWSContractEnv(env map[string]string, cfg *config.Config) {
 		wsBase = fmt.Sprintf("ws://%s:%d", host, port)
 	}
 	wsBase = strings.TrimRight(wsBase, "/")
-	if strings.TrimSpace(env["PX_WS_BASE_URL"]) == "" {
-		env["PX_WS_BASE_URL"] = wsBase
-	}
-	if strings.TrimSpace(env["WS_UPSTREAM"]) == "" {
-		env["WS_UPSTREAM"] = wsBase
-	}
+	env["NUXT_PUBLIC_WS_ORIGIN"] = wsBase
 }
 
 func (m *managerImpl) resolveBootstrapTenantUUID(pluginID string) (string, error) {

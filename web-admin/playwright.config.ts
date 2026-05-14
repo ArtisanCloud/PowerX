@@ -44,7 +44,7 @@ export default defineConfig({
   webServer: skipWebServer
     ? undefined
     : {
-        command: `POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host ${webHost} --port ${webPort}`,
+        command: `POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 NUXT_PUBLIC_WS_ORIGIN=ws://127.0.0.1:8080 NUXT_PUBLIC_WS_PATH=/api/ws NUXT_PUBLIC_POWERX_CORE_BASE=http://127.0.0.1:8080 NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build && POWERX_ENV=prod POWERX_BACKEND=http://127.0.0.1:8080 NUXT_PUBLIC_WS_ORIGIN=ws://127.0.0.1:8080 NUXT_PUBLIC_WS_PATH=/api/ws NUXT_PUBLIC_POWERX_CORE_BASE=http://127.0.0.1:8080 NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt preview --host ${webHost} --port ${webPort}`,
         url: defaultBaseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

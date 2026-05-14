@@ -13,6 +13,8 @@ const props = withDefaults(
     min?: number;                  // 最小高度 px
     max?: number;                  // 最大高度 px
     viewOffset?: number;           // 视口高度模式减去的顶部/头部高度(px)
+    autoResize?: boolean;          // 是否按 iframe 内容高度自适应
+    constrainToViewport?: boolean; // 自适应时是否把高度限制在宿主可视区域内
     title?: string;
     pluginId: string
     instanceId?: string
@@ -23,6 +25,8 @@ const props = withDefaults(
     min: 400,
     max: 4096,
     viewOffset: 0,
+    autoResize: true,
+    constrainToViewport: false,
   }
 );
 
@@ -59,19 +63,56 @@ const canMeasure = ref<boolean>(false); // 是否能同域测量
 let ro: ResizeObserver | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-function clamp(h: number) {
-  return Math.max(props.min, Math.min(props.max, h));
+function getViewportAvailableHeight() {
+  const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+  const iframeTop = iframeRef.value?.getBoundingClientRect().top || 0;
+  const main = iframeRef.value?.closest("main") as HTMLElement | null;
+  const mainBottom = main?.getBoundingClientRect().bottom || vh;
+  const availableByContainer = Math.floor(mainBottom - iframeTop - (props.viewOffset || 0));
+  const availableByViewport = Math.floor(vh - iframeTop - (props.viewOffset || 0));
+  const candidates = [availableByContainer, availableByViewport].filter((value) => Number.isFinite(value) && value > 0);
+  return candidates.length ? Math.min(...candidates) : props.max;
+}
+
+function clamp(h: number, constrainToViewport = false) {
+  const maxHeight = constrainToViewport
+    ? Math.min(props.max, getViewportAvailableHeight())
+    : props.max;
+  return Math.max(props.min, Math.min(maxHeight, h));
 }
 
 /** 视口填充（降级方案）：用 100vh 减去可选偏移 */
 function applyViewportFill() {
-  const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-  height.value = clamp(vh - (props.viewOffset || 0));
+  height.value = clamp(getViewportAvailableHeight(), true);
+}
+
+function measureDocumentContentHeight(doc: Document) {
+  const body = doc.body;
+  const root = doc.documentElement;
+  const scrollY = doc.defaultView?.scrollY || 0;
+
+  let contentBottom = 0;
+  for (const child of Array.from(body.children)) {
+    const rect = child.getBoundingClientRect();
+    contentBottom = Math.max(contentBottom, rect.bottom + scrollY);
+  }
+
+  // scrollHeight/clientHeight 会受 iframe 当前 viewport 影响，只作为空文档兜底。
+  if (contentBottom > 0) {
+    return Math.ceil(contentBottom);
+  }
+
+  return Math.max(body.scrollHeight, root.scrollHeight, props.min);
 }
 
 /** 同域测量：读取 iframe 内文档高度 */
 function measureOnce() {
   if (!iframeRef.value) return;
+  if (!props.autoResize) {
+    canMeasure.value = false;
+    applyViewportFill();
+    return;
+  }
   try {
     const win = iframeRef.value.contentWindow;
     const doc = win?.document;
@@ -80,16 +121,9 @@ function measureOnce() {
     // 访问成功 => 确认是可测量
     canMeasure.value = true;
 
-    const b = doc.body;
-    const e = doc.documentElement;
+    const h = measureDocumentContentHeight(doc);
 
-    const h = Math.max(
-      b.scrollHeight, e.scrollHeight,
-      b.offsetHeight, e.offsetHeight,
-      b.clientHeight, e.clientHeight
-    );
-
-    height.value = clamp(h || props.min);
+    height.value = clamp(h || props.min, props.constrainToViewport);
   } catch {
     // 跨域/被 CSP 限制等 => 降级
     canMeasure.value = false;
@@ -101,7 +135,7 @@ function measureOnce() {
 function setObservers() {
   clearObservers();
 
-  if (!canMeasure.value) {
+  if (!props.autoResize || !canMeasure.value) {
     // 跨域降级：监听窗口尺寸变化，更新视口填充高度
     window.addEventListener("resize", applyViewportFill);
     applyViewportFill();
@@ -233,7 +267,10 @@ function silenceIframeBridgeLogsIfNeeded() {
 
 /** 首次挂载：高度兜底 + 桥注册 */
 onMounted(() => {
-  applyViewportFill();
+  if (!props.autoResize) {
+    applyViewportFill();
+  }
+  window.addEventListener("resize", measureOnce);
   if (iframeRef.value) {
     register(iframeRef.value, { pluginId: props.pluginId, instanceId: props.instanceId }); // CHG: 只注册一次
   }
@@ -241,6 +278,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearObservers();
+  window.removeEventListener("resize", measureOnce);
   unregister(iframeRef.value);
 })
 

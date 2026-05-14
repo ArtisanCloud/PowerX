@@ -59,7 +59,8 @@ func abs(p string) string {
 }
 
 func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config, r *gin.Engine) (pm.Manager, error) {
-	pluginAuth := middleware.JwtMiddleware(
+	pluginAuth := middleware.APIKeyOrJwtMiddleware(
+		deps.DB,
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},

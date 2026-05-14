@@ -3,12 +3,15 @@ package supervisor
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,6 +22,13 @@ import (
 )
 
 const healthDebug = false
+
+var (
+	pluginLogANSIRegexp   = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	pluginLogFieldRegexp  = regexp.MustCompile(`(?:^|\s)([A-Za-z0-9_.-]+)=((?:"(?:\\.|[^"])*")|[^\s]+)`)
+	pluginLogPromoteKeys  = []string{"component", "tenant_uuid", "tenant_key", "trace_id", "request_id", "session_id", "run_id", "trace_ref", "trace_type", "trace_kind", "node_name", "node_seq", "job_id", "policy_id", "message_id", "channel_message_id", "provider_message_id", "trigger_message_id", "stage", "status", "reason"}
+	pluginLogMessageKeys  = []string{"message", "msg"}
+)
 
 type Supervisor struct {
 	mu   sync.RWMutex
@@ -288,12 +298,71 @@ func (w *processStreamForwarder) emit(line string) {
 	if line == "" {
 		return
 	}
-	ctx := logger.WithLogFields(context.Background(), map[string]interface{}{
+	fields := map[string]interface{}{
 		"module":    "plugin.runtime",
 		"plugin_id": w.pluginID,
 		"stream":    w.stream,
-	})
+	}
+	for key, value := range extractPluginRuntimeLogFields(line) {
+		fields[key] = value
+	}
+	ctx := logger.WithLogFields(context.Background(), fields)
 	logger.Info(ctx, "plugin_runtime_log", zap.String("line", line))
+}
+
+func extractPluginRuntimeLogFields(line string) map[string]interface{} {
+	fields := map[string]interface{}{}
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return fields
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err == nil && len(parsed) > 0 {
+		for _, key := range pluginLogPromoteKeys {
+			if value, ok := parsed[key]; ok {
+				fields[key] = value
+			}
+		}
+		for _, key := range pluginLogMessageKeys {
+			if msg := strings.TrimSpace(fmt.Sprint(parsed[key])); msg != "" && msg != "<nil>" {
+				fields["plugin_message"] = msg
+				break
+			}
+		}
+		return fields
+	}
+	clean := pluginLogANSIRegexp.ReplaceAllString(trimmed, "")
+	for _, match := range pluginLogFieldRegexp.FindAllStringSubmatch(clean, -1) {
+		if len(match) != 3 {
+			continue
+		}
+		key := strings.TrimSpace(match[1])
+		if !shouldPromotePluginLogKey(key) {
+			continue
+		}
+		fields[key] = unquotePluginLogFieldValue(match[2])
+	}
+	return fields
+}
+
+func shouldPromotePluginLogKey(key string) bool {
+	for _, allowed := range pluginLogPromoteKeys {
+		if key == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func unquotePluginLogFieldValue(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 && strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+		if unquoted, err := strconv.Unquote(value); err == nil {
+			return strings.TrimSpace(unquoted)
+		}
+		return strings.TrimSpace(strings.Trim(value, `"`))
+	}
+	return value
 }
 
 func allowForwardToStdIO() bool {

@@ -13,5 +13,5 @@ const navigatePath = computed(() => `/_p/${pluginId.value}/admin/`)
 </script>
 
 <template>
-  <PluginWebView :plugin-id="pluginId" :src="src" :navigate-path="navigatePath" />
+  <PluginWebView :plugin-id="pluginId" :src="src" :navigate-path="navigatePath" constrain-to-viewport />
 </template>

@@ -35,6 +35,8 @@ Thumbs.db
 
 # 日志文件
 *.log
+backend/logs/
+backend/logs/**
 
 # 临时文件
 tmp/

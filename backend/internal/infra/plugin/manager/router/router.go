@@ -44,7 +44,8 @@ type DynamicRouter struct {
 	apis          map[string]apiUpstream
 	ctxHMACSecret []byte
 
-	gate *authzGate
+	gate          *authzGate
+	apiMiddleware []gin.HandlerFunc
 }
 
 // ===== 构造 & 路由注册 =====
@@ -57,6 +58,7 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine, apiMiddleware ...gi
 		adminUps:   make(map[string]adminUpstream),
 		apis:       make(map[string]apiUpstream),
 	}
+	dr.apiMiddleware = append([]gin.HandlerFunc(nil), apiMiddleware...)
 
 	// ---------- 一次性规范化入口：把 /__up/_p/... 302/307 到干净的 /_p/... ----------
 	// 1) /__up/_p/:id/admin/*rest → 302 /_p/:id/admin/<rest>   （去掉任何嵌套前缀）
@@ -114,9 +116,7 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine, apiMiddleware ...gi
 	}
 
 	apiGrp := grp.Group("/:id/api")
-	if len(apiMiddleware) > 0 {
-		apiGrp.Use(apiMiddleware...)
-	}
+	apiGrp.Use(dr.publicAwareAPIAuth())
 	apiGrp.Any("/*filepath", dr.serveAPIProxy)
 
 	// ---------- 调试端点 ----------
@@ -244,6 +244,37 @@ func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
 	dup := make([]byte, len(secret))
 	copy(dup, secret)
 	r.ctxHMACSecret = dup
+}
+
+func (r *DynamicRouter) publicAwareAPIAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		pluginID := c.Param("id")
+		clientPath := c.Param("filepath")
+		if r.isPublicAPIRequest(pluginID, c.Request.Method, clientPath) {
+			c.Set("powerx_plugin_public_route", true)
+			c.Writer.Header().Set("X-PowerX-Plugin-Public-Route", "1")
+			c.Next()
+			return
+		}
+		for _, mw := range r.apiMiddleware {
+			mw(c)
+			if c.IsAborted() {
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
+func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) bool {
+	if r == nil || r.gate == nil {
+		return false
+	}
+	r.mu.RLock()
+	up := r.apis[pluginID]
+	r.mu.RUnlock()
+	reqPath := normalizeGatePathForPolicy(clientPath, up.basePath)
+	return r.gate.IsPublicRoute(pluginID, method, reqPath)
 }
 
 // ===== Admin（前端）统一入口：优先反代 Nuxt/Nitro，未配置则回静态目录 =====
@@ -467,9 +498,25 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	// 预检 + 下发短期 Token（可选）
 	var pluginToken string
 	gatePath := normalizeGatePathForPolicy(clientPath, up.basePath)
+	publicRoute, _ := c.Get("powerx_plugin_public_route")
 	logger.DebugF(c.Request.Context(), "[GATE-PATH] plugin=%s method=%s raw=%s normalized=%s basePath=%s tenant_uuid=%s request_id=%s trace_id=%s",
 		pluginID, c.Request.Method, clientPath, gatePath, up.basePath, logTenantUUID, requestID, traceID)
-	if r.gate != nil {
+	if publicRoute != true && isTenantScopedWSBusPath(gatePath) {
+		resolvedTenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+		if resolvedTenant == "" {
+			resolvedTenant = strings.TrimSpace(claims.TenantUUID)
+		}
+		if resolvedTenant == "" {
+			logger.WarnF(c.Request.Context(), "[PROXY-TENANT-DENY] plugin=%s method=%s clientPath=%s normalized=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
+				pluginID, c.Request.Method, clientPath, gatePath, resolvedTenant, requestID, traceID, "tenant scoped ws-bus route requires tenant from auth context")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":  "access denied at gateway",
+				"reason": "tenant scoped ws-bus route requires tenant from auth context",
+			})
+			return
+		}
+	}
+	if r.gate != nil && publicRoute != true {
 		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
@@ -480,6 +527,10 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		pluginToken = tok
 		logger.DebugF(c.Request.Context(), "[GATE-ALLOW] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s", pluginID, c.Request.Method, clientPath, logTenantUUID, requestID, traceID)
 
+	}
+	if publicRoute == true {
+		logger.InfoF(c.Request.Context(), "[GATE-PUBLIC] plugin=%s method=%s clientPath=%s normalized=%s request_id=%s trace_id=%s",
+			pluginID, c.Request.Method, clientPath, gatePath, requestID, traceID)
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(up.target)
@@ -543,7 +594,10 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			pluginID, up.basePath, clientPath, logTenantUUID, requestID, traceID, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
-		if pluginToken != "" {
+		if publicRoute == true {
+			req.Header.Set("X-PowerX-Plugin-Public-Route", "1")
+			req.Header.Set("X-PowerX-Public-Auth", "exposure")
+		} else if pluginToken != "" {
 			logger.DebugF(c.Request.Context(), "[GATE-TOKEN] plugin=%s tenant_uuid=%s request_id=%s trace_id=%s tid=%s",
 				pluginID, logTenantUUID, requestID, traceID, extractJWTStringClaim(pluginToken, "tid"))
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
@@ -653,8 +707,21 @@ func extractJWTStringClaim(token, claim string) string {
 	return ""
 }
 
+func isRootTenantUUID(v string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(v))
+	return normalized == "00000000-0000-0000-0000-000000000000" ||
+		normalized == "00000000-0000-0000-0000-000000000001"
+}
+
 func isZeroTenantUUID(v string) bool {
-	return strings.EqualFold(strings.TrimSpace(v), "00000000-0000-0000-0000-000000000000")
+	return isRootTenantUUID(v)
+}
+
+func isTenantScopedWSBusPath(path string) bool {
+	p := strings.TrimSpace(path)
+	return strings.HasSuffix(p, "/admin/runtime/ws-bus/test-flow") ||
+		strings.HasSuffix(p, "/admin/runtime/ws-bus/grant") ||
+		strings.HasSuffix(p, "/admin/runtime/ws-bus/publish")
 }
 
 // ===== 工具/辅助 =====

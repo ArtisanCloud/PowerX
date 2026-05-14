@@ -23,5 +23,6 @@ const navigatePath = computed(() => {
     :src="src"
     :navigate-path="navigatePath"
     :instance-id="route.fullPath"
+    constrain-to-viewport
   />
 </template>

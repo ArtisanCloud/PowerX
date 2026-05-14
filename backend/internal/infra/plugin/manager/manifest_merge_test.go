@@ -82,6 +82,42 @@ events:
 	}, manifest.Events)
 }
 
+func TestLoadManifestWithCatalogs_MergeExposure(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "plugin.yaml", `
+id: com.powerx.plugins.base
+name: base
+version: 0.8.0
+runtime:
+  kind: process
+  entry: backend/bin/plugin
+endpoints:
+  http_base_path: /api/v1
+frontend:
+  admin:
+    kind: process
+catalogs:
+  exposure: plugin.d/exposure.yaml
+`)
+	writeTestFile(t, root, "plugin.d/exposure.yaml", `
+exposure:
+  channels:
+    - type: rest
+      method: POST
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/acme/webhooks/shopify
+      auth: public
+      purpose: external_webhook
+      security:
+        verifier: shopify_hmac
+`)
+
+	manifest, err := loadManifestWithCatalogs(root)
+	require.NoError(t, err)
+	require.Len(t, manifest.Exposure.Channels, 1)
+	require.Equal(t, "public", manifest.Exposure.Channels[0].Auth)
+	require.Equal(t, "shopify_hmac", manifest.Exposure.Channels[0].Security["verifier"])
+}
+
 func TestLoadManifestWithCatalogs_Conflict(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "plugin.yaml", `

@@ -219,9 +219,12 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	baseURL = strings.TrimRight(baseURL, "/")
 	if baseURL != "" {
 		selected["PX_GATEWAY_BASE_URL"] = baseURL
+		if strings.TrimSpace(selected["NUXT_PUBLIC_POWERX_CORE_BASE"]) == "" {
+			selected["NUXT_PUBLIC_POWERX_CORE_BASE"] = baseURL
+		}
 	}
-	if strings.TrimSpace(selected["NUXT_PUBLIC_WS_URL"]) == "" {
-		selected["NUXT_PUBLIC_WS_URL"] = "/api/ws"
+	if strings.TrimSpace(selected["NUXT_PUBLIC_WS_PATH"]) == "" {
+		selected["NUXT_PUBLIC_WS_PATH"] = "/api/ws"
 	}
 	if m != nil && m.opts.CoreConfig != nil {
 		applyWSContractEnv(selected, m.opts.CoreConfig)

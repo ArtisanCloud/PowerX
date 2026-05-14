@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -234,6 +235,43 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 		}
 	}
 
+	basePath := strings.TrimSpace(m.Endpoints.HTTPBasePath)
+	if strings.TrimSpace(m.Routes.BasePath) != "" {
+		basePath = strings.TrimSpace(m.Routes.BasePath)
+	}
+	for i, ch := range m.Exposure.Channels {
+		field := "exposure.channels[" + strconv.Itoa(i) + "]"
+		channelType := strings.ToLower(strings.TrimSpace(ch.Type))
+		authMode := strings.ToLower(strings.TrimSpace(ch.Auth))
+		if channelType == "" {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".type", Reason: "required"})
+			continue
+		}
+		if authMode == "" {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".auth", Reason: "required"})
+			continue
+		}
+		if channelType == "rest" {
+			if strings.TrimSpace(ch.Method) == "" {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".method", Reason: "required for rest exposure"})
+			}
+			entrypoint := strings.TrimSpace(ch.Entrypoint)
+			if entrypoint == "" {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".entrypoint", Reason: "required"})
+			} else if !strings.HasPrefix(entrypoint, "/") && !strings.HasPrefix(entrypoint, "${") {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".entrypoint", Reason: "must start with '/' or supported base placeholder"})
+			}
+			if authMode == "public" {
+				if len(ch.Security) == 0 || strings.TrimSpace(anyString(ch.Security["verifier"])) == "" {
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".security.verifier", Reason: "required for public rest exposure"})
+				}
+				if strings.TrimSpace(basePath) == "" {
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: field + ".entrypoint", Reason: "requires routes.basePath or endpoints.http_base_path"})
+				}
+			}
+		}
+	}
+
 	// 解析 duration
 	parseDur := func(s string) error {
 		if strings.TrimSpace(s) == "" {
@@ -287,4 +325,18 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 		return ve.ToManagerError()
 	}
 	return nil
+}
+
+func anyString(v any) string {
+	switch typed := v.(type) {
+	case string:
+		return typed
+	case []byte:
+		return string(typed)
+	default:
+		if typed == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
 }

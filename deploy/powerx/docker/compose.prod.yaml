@@ -108,9 +108,11 @@ services:
     env_file:
       - .env
     environment:
-      # 前端代理真源：优先 .env 中的 POWERX_BACKEND/WS_UPSTREAM，未设置时走 backend 服务名
+      # 前端代理真源：优先 .env 中的标准 WS/CORE 变量，未设置时走 backend 服务名
       POWERX_BACKEND: ${POWERX_BACKEND:-http://backend:8080}
-      WS_UPSTREAM: ${WS_UPSTREAM:-ws://backend:8080/api/ws}
+      NUXT_PUBLIC_POWERX_CORE_BASE: ${NUXT_PUBLIC_POWERX_CORE_BASE:-http://backend:8080}
+      NUXT_PUBLIC_WS_ORIGIN: ${NUXT_PUBLIC_WS_ORIGIN:-ws://backend:8080}
+      NUXT_PUBLIC_WS_PATH: ${NUXT_PUBLIC_WS_PATH:-/api/ws}
     volumes:
       - ${POWERX_HOST_CONFIG_DIR:-/etc/powerx}:/etc/powerx:ro
     ports:

@@ -54,4 +54,5 @@ Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plu
 <!-- MANUAL ADDITIONS START -->
 Always respond in Chinese-simplified
 Do not preserve compatibility with legacy, incorrect, or deprecated specifications/code paths; prefer explicit failure and strict enforcement over fallback behavior.
+Without explicit user request, do not implement fallback, graceful degradation, or backward-compatibility branches; implement exact behavior with fail-fast errors when required inputs/context are missing.
 <!-- MANUAL ADDITIONS END -->

@@ -21,7 +21,7 @@ const isProdEnv =
 const DEFAULT_HTTP_UPSTREAM = isProdEnv
   ? "http://127.0.0.1:8080"
   : "http://127.0.0.1:8077";
-const DEFAULT_WS_UPSTREAM = isProdEnv
+const DEFAULT_WS_ORIGIN = isProdEnv
   ? "ws://127.0.0.1:8080"
   : "ws://127.0.0.1:8077";
 
@@ -43,6 +43,10 @@ try {
 const API_BASE =
   process.env.NUXT_PUBLIC_API_BASE || inferredApiBase || "/api/v1";
 const API_BASE_PREFIX = API_BASE.replace(/\/+$/, "");
+const WS_PATH = process.env.NUXT_PUBLIC_WS_PATH || "/api/ws";
+const WS_ORIGIN = process.env.NUXT_PUBLIC_WS_ORIGIN || DEFAULT_WS_ORIGIN;
+const POWERX_CORE_BASE =
+  process.env.NUXT_PUBLIC_POWERX_CORE_BASE || upstreamOrigin;
 
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -63,13 +67,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // 仅服务端可见
     upstream: upstreamOrigin,
-    wsUpstream: process.env.WS_UPSTREAM || DEFAULT_WS_UPSTREAM,
     public: {
       upstreamOrigin, // 公开：用于拼接 presign 返回的相对 URL（如 /media/:uuid/resource）
-      wsUpstream: process.env.WS_UPSTREAM || DEFAULT_WS_UPSTREAM,
+      wsOrigin: WS_ORIGIN,
+      wsPath: WS_PATH,
+      powerxCoreBase: POWERX_CORE_BASE,
       wsAgentPrefix: process.env.NUXT_PUBLIC_WS_AGENT_PREFIX || "/ws",
       apiBase: API_BASE_PREFIX, // 前端请求前缀（可由 POWERX_BACKEND path 推断）
-      wsUrl: process.env.NUXT_PUBLIC_WS_URL || "/api/ws",
 
       // 语言配置
       defaultLanguage: process.env.NUXT_DEFAULT_LANGUAGE || "zh",

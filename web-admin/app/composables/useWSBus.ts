@@ -1,7 +1,6 @@
 import { computed, ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import { useMe } from "~/composables/useMe";
-import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { WS_BUS_CMD, WS_BUS_TYPE, type WSBusCommand, type WSBusEnvelope } from "~/composables/wsBus";
 
 type TopicHandler = (payload: any, envelope: WSBusEnvelope) => void;
@@ -28,6 +27,7 @@ const UUID_RE =
 const hasActiveSubscriptions = () => subscriptions.size > 0;
 const isValidTenantUUID = (tenantUUID?: string | null) =>
   UUID_RE.test(String(tenantUUID || "").trim());
+const shouldBlockReconnectForCloseCode = (code: number) => code === 1008 || code === 1003;
 
 const isLoopbackHost = (host?: string | null) => {
   const h = String(host || "").trim().toLowerCase();
@@ -37,8 +37,8 @@ const isLoopbackHost = (host?: string | null) => {
 const buildWSUrl = (token: string, tenantUUID?: string | null) => {
   const auth = encodeURIComponent(`Bearer ${token}`);
   const cfg = useRuntimeConfig();
-  const upstream = String(cfg.public?.wsUpstream || "").trim();
-  const wsPath = String(cfg.public?.wsUrl || "/api/ws").trim() || "/api/ws";
+  const origin = String((cfg.public as any)?.wsOrigin || "").trim();
+  const wsPath = String((cfg.public as any)?.wsPath || "/api/ws").trim() || "/api/ws";
   const tenant = encodeURIComponent(String(tenantUUID || ""));
   const tenantQuery = tenant ? `tenant_uuid=${tenant}` : "";
   const appendAuth = (base: string) => {
@@ -52,15 +52,15 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
     return appendAuth(wsPath);
   }
   if (wsPath.startsWith("/")) {
-    // 开发态优先直连 wsUpstream，避免 dev server 代理 WS 时出现“握手成功但无业务帧”。
-    if (import.meta.dev && (upstream.startsWith("ws://") || upstream.startsWith("wss://"))) {
+    // 开发态优先直连 wsOrigin，避免 dev server 代理 WS 时出现“握手成功但无业务帧”。
+    if (import.meta.dev && (origin.startsWith("ws://") || origin.startsWith("wss://"))) {
       try {
-        const u = new URL(upstream);
+        const u = new URL(origin);
         if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
           const protocol = location.protocol === "https:" ? "wss:" : "ws:";
           return appendAuth(`${protocol}//${location.host}${wsPath}`);
         }
-        const base = upstream.replace(/\/+$/, "");
+        const base = origin.replace(/\/+$/, "");
         return appendAuth(`${base}${wsPath}`);
       } catch {
         // ignore: fallback below
@@ -70,10 +70,10 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
     return appendAuth(`${protocol}//${location.host}${wsPath}`);
   }
 
-  if (upstream.startsWith("ws://") || upstream.startsWith("wss://")) {
+  if (origin.startsWith("ws://") || origin.startsWith("wss://")) {
     // 页面在公网域名访问时，禁止使用 loopback 上游（浏览器会连到访问者自己的本机）。
     try {
-      const u = new URL(upstream);
+      const u = new URL(origin);
       if (isLoopbackHost(u.hostname) && !isLoopbackHost(location.hostname)) {
         const protocol = location.protocol === "https:" ? "wss:" : "ws:";
         return appendAuth(`${protocol}//${location.host}/api/ws`);
@@ -81,7 +81,7 @@ const buildWSUrl = (token: string, tenantUUID?: string | null) => {
     } catch {
       // ignore
     }
-    let base = upstream.replace(/\/+$/, "");
+    let base = origin.replace(/\/+$/, "");
     if (base.endsWith("/api/ws")) return appendAuth(base);
     if (base.endsWith("/ws")) {
       base = `${base.slice(0, -3)}/api/ws`;
@@ -148,7 +148,7 @@ const scheduleReconnect = (token: string | null) => {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     reconnectAttempts += 1;
-    ensureConnection(token, activeTenant || resolveTenantUUIDForRequest());
+    ensureConnection(token, activeTenant);
   }, delay);
 };
 
@@ -161,7 +161,6 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     wsConnecting.value = false;
     wsConnected.value = false;
     wsError.value = null;
-    allowReconnect = false;
     return;
   }
   if (wsInstance && wsConnected.value) return;
@@ -183,17 +182,20 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     });
   };
   ws.onclose = (event) => {
+    if (wsInstance !== ws) return;
     wsConnected.value = false;
     wsConnecting.value = false;
     wsInstance = null;
-    if (event.code === 1008 || event.code === 1003) {
+    if (shouldBlockReconnectForCloseCode(event.code)) {
       allowReconnect = false;
       wsError.value = "租户上下文无效";
       return;
     }
+    wsError.value = "连接被关闭";
     scheduleReconnect(token);
   };
   ws.onerror = () => {
+    if (wsInstance !== ws) return;
     wsConnected.value = false;
     wsConnecting.value = false;
     wsError.value = "连接失败";
@@ -244,7 +246,7 @@ export const useWSBus = () => {
     }
     return fresh || auth.token.value || cookieToken || null;
   });
-  const getTenantForConnection = () => me.currentTenantUuid.value || resolveTenantUUIDForRequest();
+  const getTenantForConnection = () => me.currentTenantUuid.value;
 
   if (process.client && !watchersInitialized) {
     watchersInitialized = true;
@@ -256,12 +258,16 @@ export const useWSBus = () => {
           resetConnection("tenant_missing", false);
           return;
         }
+        allowReconnect = true;
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
           ensureConnection(token.value || null, nextTenant);
         } else {
           activeTenant = nextTenant;
+          if (!prevTenant && hasActiveSubscriptions()) {
+            ensureConnection(token.value || null, nextTenant);
+          }
         }
       },
       { immediate: true }

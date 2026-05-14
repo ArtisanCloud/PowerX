@@ -11,7 +11,7 @@
 ## 2. 地址与鉴权硬规则
 
 1. WS 连接地址
-- 必须走：`PX_WS_BASE_URL + NUXT_PUBLIC_WS_URL`（通常 `/api/ws`）。
+- 必须走：`NUXT_PUBLIC_WS_ORIGIN + NUXT_PUBLIC_WS_PATH`（通常 `/api/ws`）。
 - 禁止直接拼前端端口（例如 `127.0.0.1:3030`）去当后端地址。
 
 2. 宿主 ws-bus 接口鉴权
