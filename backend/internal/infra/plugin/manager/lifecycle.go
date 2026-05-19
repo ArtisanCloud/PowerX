@@ -277,6 +277,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	}
 
 	// —— 启动后端
+	logPluginGatewayLaunchEnv(ctx, p.ID, envAPI)
 	apiPort, err := m.sup.Start(procCtx, p.ID, p.Paths.Entry, p.Runtime.Args, envAPI, supOpts)
 	if err != nil {
 		// 若启动失败，避免保留半初始化的进程记录
@@ -419,21 +420,21 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			}
 		}
 		envADM["POWERX_PROXY"] = "1"
-	applyDelegatedRuntimeEnv(envADM)
-	logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
-		p.ID,
-		strings.TrimSpace(envADM["IAMMode"]),
-		strings.TrimSpace(envADM["IAM_MODE"]),
-		strings.TrimSpace(envADM["POWERX_PROXY"]),
-		strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
-	)
+		applyDelegatedRuntimeEnv(envADM)
+		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+			p.ID,
+			strings.TrimSpace(envADM["IAMMode"]),
+			strings.TrimSpace(envADM["IAM_MODE"]),
+			strings.TrimSpace(envADM["POWERX_PROXY"]),
+			strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
+		)
 		logger.InfoF(ctx, "[plugin-enable] plugin=%s ws_contract ws_origin=%s ws_path=%s core_base=%s",
 			p.ID,
 			strings.TrimSpace(envADM["NUXT_PUBLIC_WS_ORIGIN"]),
 			strings.TrimSpace(envADM["NUXT_PUBLIC_WS_PATH"]),
 			strings.TrimSpace(envADM["NUXT_PUBLIC_POWERX_CORE_BASE"]),
 		)
-	envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
+		envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
 
 		if _, ok := envADM["NITRO_HOST"]; !ok {
 			envADM["NITRO_HOST"] = "127.0.0.1" // 无害缺省，保留可被 env 覆盖
@@ -703,6 +704,20 @@ func cloneEnvMap(src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+func logPluginGatewayLaunchEnv(ctx context.Context, pluginID string, env map[string]string) {
+	if env == nil {
+		env = map[string]string{}
+	}
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s launch_env gateway_base_url_present=%t plugin_tool_token_present=%t auth_scheme=%s host_values_present=%t host_values=%s",
+		pluginID,
+		strings.TrimSpace(env["PX_GATEWAY_BASE_URL"]) != "",
+		strings.TrimSpace(env["PX_PLUGIN_TOOL_TOKEN"]) != "",
+		strings.TrimSpace(env["PX_GATEWAY_AUTH_SCHEME"]),
+		strings.TrimSpace(env["POWERX_PLUGIN_HOST_VALUES"]) != "",
+		strings.TrimSpace(env["POWERX_PLUGIN_HOST_VALUES"]),
+	)
 }
 
 func (m *managerImpl) injectGatewaySecurityEnv(ctx context.Context, env map[string]string, pluginID string, tenantUUID string) error {

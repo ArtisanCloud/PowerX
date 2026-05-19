@@ -29,7 +29,7 @@ var (
 	once           sync.Once
 	instance       *Logger
 	globalInstance *Logger
-	globalOnce     sync.Once
+	globalMu       sync.RWMutex
 )
 
 func getFileWriteSyncer(fileConfig *config.FileConfig, fileName string) zapcore.WriteSyncer {
@@ -380,16 +380,30 @@ func (l *Logger) WarnF(ctx context.Context, format string, args ...interface{}) 
 
 // InitGlobalLogger 初始化全局Logger实例
 func InitGlobalLogger(config *config.LogConfig) {
-	globalOnce.Do(func() {
-		globalInstance = NewLogger(config)
-	})
+	next := NewLogger(config)
+	globalMu.Lock()
+	prev := globalInstance
+	globalInstance = next
+	globalMu.Unlock()
+	if prev != nil && prev.driver != nil {
+		_ = prev.driver.Sync()
+	}
 }
 
 // GetGlobalLogger 获取全局Logger实例
 func GetGlobalLogger() *Logger {
+	globalMu.RLock()
+	current := globalInstance
+	globalMu.RUnlock()
+	if current != nil {
+		return current
+	}
+
+	globalMu.Lock()
+	defer globalMu.Unlock()
 	if globalInstance == nil {
 		// 如果没有初始化，使用默认配置
-		InitGlobalLogger(&config.LogConfig{
+		globalInstance = NewLogger(&config.LogConfig{
 			Level:         "debug",
 			Console:       true,
 			UseJsonFormat: false,
@@ -404,6 +418,15 @@ func GetGlobalLogger() *Logger {
 		})
 	}
 	return globalInstance
+}
+
+func GlobalConsoleEnabled() bool {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
+	if globalInstance == nil {
+		return true
+	}
+	return globalInstance.config.Console
 }
 
 // 全局便捷函数 - 支持 context 作为第一个参数
