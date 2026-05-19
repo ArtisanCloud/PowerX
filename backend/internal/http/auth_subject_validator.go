@@ -135,9 +135,26 @@ func isPowerXAPISTSClaims(claims *reqctx.CoreXClaims) bool {
 
 func isSTSAllowedRequestPath(ctx context.Context) bool {
 	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
-	return strings.Contains(path, "/ws-bus/grant") ||
-		strings.Contains(path, "/ws-bus/publish") ||
-		strings.Contains(path, "/tenant/invocations")
+	path = strings.TrimSuffix(path, "/")
+	return strings.HasSuffix(path, "/admin/runtime/ws-bus/grant") ||
+		strings.HasSuffix(path, "/admin/runtime/ws-bus/publish") ||
+		strings.HasSuffix(path, "/tenant/invocations") ||
+		strings.HasSuffix(path, "/tenant/invocations/stream") ||
+		isSTSAICapabilityPath(path)
+}
+
+func isSTSAICapabilityPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if !strings.EqualFold(parts[i], "ai") {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(parts[i+1])) {
+		case "llm", "vlm", "image", "video", "tts", "embedding":
+			return true
+		}
+	}
+	return false
 }
 
 func loadTenantSnapshot(ctx context.Context, repo *tenantrepo.TenantRepository, tenantUUID string) (*tenantSnapshot, error) {
