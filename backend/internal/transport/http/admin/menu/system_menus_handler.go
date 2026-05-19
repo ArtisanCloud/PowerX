@@ -103,7 +103,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 				},
 				{
 					Key:         "monitor_task_cron",
-					Title:       "Task / Cron",
+					Title:       "后台任务",
 					Icon:        "i-heroicons-command-line",
 					URL:         "/monitor/task-cron",
 					Order:       3,

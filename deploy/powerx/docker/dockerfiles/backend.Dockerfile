@@ -17,6 +17,7 @@ RUN apk add --no-cache ca-certificates curl tzdata && \
 COPY --from=builder /out/powerx-app /app/powerx-app
 COPY --from=builder /out/database /app/database
 COPY backend/config/ /app/backend/config/
+COPY backend/scripts/ops/ /app/backend/scripts/ops/
 
 EXPOSE 8080
 CMD ["./powerx-app"]

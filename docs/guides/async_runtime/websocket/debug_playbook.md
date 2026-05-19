@@ -1,12 +1,13 @@
 # WebSocket 联调与排障手册（Host / 插件 / Framework）
 
 > 入口：`docs/guides/async_runtime/websocket/README.md`
+> Token 边界：以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 
 ## 1. 先做的三件事（避免无效排查）
 
 1. 明确当前模式：Host 还是插件 standalone。
 2. 明确 WS 最终地址是怎么计算出来的（来自 runtime contract，而不是手写端口）。
-3. 明确 token 类型：用户 token、delegated token、tool token 分工不同。
+3. 明确 token 类型：用户 token、plugin request token、STS access token、bootstrap tool token 分工不同。
 
 ## 2. 地址与鉴权硬规则
 
@@ -17,8 +18,9 @@
 2. 宿主 ws-bus 接口鉴权
 - `POST /api/v1/admin/runtime/ws-bus/grant`
 - `POST /api/v1/admin/runtime/ws-bus/publish`
-- 插件后端调用这两个接口时，必须优先用 `PX_PLUGIN_TOOL_TOKEN`。
-- 禁止透传 plugin delegated bearer 去调用上述接口，否则常见报错是 `token has invalid audience`。
+- 插件后端调用这两个接口时，必须使用 STS access token（`aud=powerx:api`）。
+- `PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，不作为 ws-bus 业务调用主凭证。
+- 禁止透传 plugin request token 去调用上述接口，否则常见报错是 `token has invalid audience`。
 
 ## 3. 五段状态验收（前端）
 
@@ -67,7 +69,7 @@ curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/publish" \
 
 2. 插件后端
 - 若出现 `grant rejected with status 401` 且伴随 `invalid audience`：
-- 直接定位为“插件调用宿主 ws-bus 接口时 token 选错”。
+- 直接定位为“插件调用宿主 ws-bus 接口时 token 选错”。应检查是否误用了 `aud=plugin:<plugin_id>` 的 plugin request token，正确凭证是 `aud=powerx:api` 的 STS access token。
 
 3. WS 服务端
 - 有 `subscribe ack` 无 `event`：
@@ -86,14 +88,14 @@ curl -X POST "http://127.0.0.1:8077/api/v1/admin/runtime/ws-bus/publish" \
 - 修复：上游路径构造去重。
 
 3. 401 `invalid audience` on `/admin/runtime/ws-bus/grant`
-- 原因：插件透传 delegated token。
-- 修复：插件调用宿主 ws-bus 接口改用 `PX_PLUGIN_TOOL_TOKEN`。
+- 原因：插件透传 plugin request token。
+- 修复：插件调用宿主 ws-bus 接口改用 STS access token（`aud=powerx:api`）。
 
 ## 8. Framework/插件对齐清单（上线前）
 
 1. 前端只读 contract 构造 WS URL，不猜端口。
-2. 后端 internal 调用 token 源正确（tool token 优先）。
-2. 后端 ws-bus 调用 token 源正确（tool token 优先）。
-3. 页面具备五段状态可视化。
-4. topic 命名与 tenant 前缀全链路一致。
-5. `grant -> subscribe -> publish -> event` 端到端演练通过。
+2. 后端 internal 调用 token 源正确（业务调用使用 STS access token）。
+3. 后端 ws-bus 调用 token 源正确（业务调用使用 STS access token）。
+4. 页面具备五段状态可视化。
+5. topic 命名与 tenant 前缀全链路一致。
+6. `grant -> subscribe -> publish -> event` 端到端演练通过。

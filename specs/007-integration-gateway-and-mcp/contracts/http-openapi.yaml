@@ -4,8 +4,11 @@ info:
   version: 0.2.0
   description: |
     Breaking Change（Delegated Gateway Contract v1）：
-    delegated 模式仅允许 `PX_PLUGIN_TOOL_TOKEN` + `bearer` + `PX_GATEWAY_BASE_URL`，
+    delegated 模式业务调用统一使用 STS access token（aud=powerx:api）。
+    `PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活。
+    Gateway 固定入口为 `PX_GATEWAY_BASE_URL` + `PX_GATEWAY_AUTH_SCHEME=bearer`，
     不再兼容 `PX_TOOL_TOKEN` 与 `PX_GATEWAY_API_KEY`。
+    Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 servers:
   - url: https://api.powerx.local
 paths:

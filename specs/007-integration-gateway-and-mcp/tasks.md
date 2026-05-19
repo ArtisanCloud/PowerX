@@ -217,7 +217,7 @@
 
 ## Phase 14: Delegated Gateway Contract v1（精准版，不兼容）
 
-**目标**：在 delegated 模式下统一 Capability Gateway 鉴权契约，只允许 `PX_PLUGIN_TOOL_TOKEN + bearer`，并将缺失配置前置到启动失败（fail-fast）。
+**目标**：在 delegated 模式下统一 Capability Gateway 鉴权契约；业务调用统一使用 STS access token，`PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，并将缺失配置前置到启动失败（fail-fast）。Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 
 ### Design / Contracts
 
@@ -234,7 +234,7 @@
 ### PowerXPlugin Implementation（外部仓库：`Core/Plugins/PowerXPlugin`）
 
 - [ ] **T109 [P]** 删除 delegated 兼容读取：移除 `PX_TOOL_TOKEN`、`PX_GATEWAY_API_KEY` 在 delegated 分支下的读取与 fallback。
-- [ ] **T110 [P]** Gateway Client 强校验：delegated 模式下仅允许 `PX_PLUGIN_TOOL_TOKEN` + `bearer`，缺失即进程启动失败。
+- [ ] **T110 [P]** Gateway Client 强校验：delegated 模式下业务调用仅允许 STS access token；如执行 bootstrap probe，`PX_PLUGIN_TOOL_TOKEN` 缺失即进程启动失败。
 - [ ] **T111** 统一 Guard 与错误码：所有 capability 入口复用统一 guard，返回 `GW_CFG_MISSING_BASE_URL`、`GW_CFG_MISSING_PLUGIN_TOOL_TOKEN` 等错误码。
 - [ ] **T112** 启动日志脱敏矩阵：固定输出 `iam_mode`、`gateway_auth_scheme`、`gateway_base_url_present`、`plugin_tool_token_present`。
 

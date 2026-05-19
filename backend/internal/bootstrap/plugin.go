@@ -69,9 +69,6 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{RequireUUID: cfg.Tenants.RequireUUID}),
 	)
 	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r, pluginAuth)
-	if sec := strings.TrimSpace(cfg.Auth.JWTSecret); sec != "" {
-		dr.SetContextHMACSecret([]byte(sec))
-	}
 	sup := supervisor.New()
 
 	installedRoot := abs(cfg.Plugin.InstalledDir)

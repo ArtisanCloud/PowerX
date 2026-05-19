@@ -40,15 +40,18 @@ type tenantSnapshot struct {
 
 func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, claims *reqctx.CoreXClaims) error {
 	if db == nil {
-		return nil
+		return validateSTSRouteOnly
 	}
 	userRepo := iamrepo.NewUserRepository(db)
 	memberRepo := iamrepo.NewMemberRepository(db)
 	tenantRepo := tenantrepo.NewTenantRepository(db)
 
 	return func(ctx context.Context, claims *reqctx.CoreXClaims) error {
-		if claims == nil {
-			return fmt.Errorf("claims missing")
+		if err := validateSTSRouteOnly(ctx, claims); err != nil {
+			return err
+		}
+		if isPowerXAPISTSClaims(claims) {
+			return nil
 		}
 		if claims.UserID == 0 {
 			return fmt.Errorf("user id missing")
@@ -100,6 +103,39 @@ func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, cl
 		}
 		return nil
 	}
+}
+
+func validateSTSRouteOnly(ctx context.Context, claims *reqctx.CoreXClaims) error {
+	if claims == nil {
+		return fmt.Errorf("claims missing")
+	}
+	if !isPowerXAPISTSClaims(claims) {
+		return nil
+	}
+	if isWSBusRequestPath(ctx) {
+		if _, err := reqctx.RequireTenantUUID(ctx); err != nil {
+			return fmt.Errorf("tenant uuid missing")
+		}
+		return nil
+	}
+	return fmt.Errorf("sts token not allowed for this route")
+}
+
+func isPowerXAPISTSClaims(claims *reqctx.CoreXClaims) bool {
+	if claims == nil || !strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") {
+		return false
+	}
+	for _, aud := range claims.Audience {
+		if strings.EqualFold(strings.TrimSpace(aud), "powerx:api") {
+			return true
+		}
+	}
+	return false
+}
+
+func isWSBusRequestPath(ctx context.Context) bool {
+	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
+	return strings.Contains(path, "/ws-bus/grant") || strings.Contains(path, "/ws-bus/publish")
 }
 
 func loadTenantSnapshot(ctx context.Context, repo *tenantrepo.TenantRepository, tenantUUID string) (*tenantSnapshot, error) {

@@ -6,8 +6,7 @@
 import MonitorCenterWorkspace from "~/components/monitor/MonitorCenterWorkspace.vue";
 
 definePageMeta({
-  title: "监控中心 - Task / Cron",
+  title: "监控中心 - 后台任务中心",
   layout: "default",
 });
 </script>
-

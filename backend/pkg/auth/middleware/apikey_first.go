@@ -187,7 +187,7 @@ func applyAPIKeyContext(c *gin.Context, db *gorm.DB, apiKey string, cfg jwtMiddl
 		Scope:      "api_key",
 	}
 
-	ctx := c.Request.Context()
+	ctx := reqctx.WithRequestPath(c.Request.Context(), c.Request.URL.Path)
 	ctx = reqctx.WithClaims(ctx, claims)
 	ctx = reqctx.WithTenantUUID(ctx, keyRecord.tenantUUID)
 	ctx = reqctx.WithMemberID(ctx, keyRecord.profileID)
@@ -231,7 +231,7 @@ func applyCachedAPIKeyContext(c *gin.Context, cfg jwtMiddlewareConfig, snapshot 
 		Scope:      "api_key",
 	}
 
-	ctx := c.Request.Context()
+	ctx := reqctx.WithRequestPath(c.Request.Context(), c.Request.URL.Path)
 	ctx = reqctx.WithClaims(ctx, claims)
 	ctx = reqctx.WithTenantUUID(ctx, snapshot.TenantUUID)
 	ctx = reqctx.WithMemberID(ctx, snapshot.ProfileID)

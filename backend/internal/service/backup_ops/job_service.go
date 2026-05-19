@@ -17,6 +17,7 @@ import (
 
 	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
+	opsscripts "github.com/ArtisanCloud/PowerX/internal/service/ops_scripts"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -68,10 +69,7 @@ type ListJobOptions struct {
 }
 
 func NewJobService(db *gorm.DB) *JobService {
-	scriptDir := strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))
-	if scriptDir == "" {
-		scriptDir = resolveOpsScriptDir()
-	}
+	scriptDir := opsscripts.ResolveDir("backup-db.sh")
 	artifactBaseDir := strings.TrimSpace(os.Getenv("POWERX_OPS_BACKUP_ARTIFACT_DIR"))
 	if artifactBaseDir == "" {
 		appEnv := strings.TrimSpace(strings.ToLower(os.Getenv("APP_ENV")))
@@ -84,6 +82,12 @@ func NewJobService(db *gorm.DB) *JobService {
 			artifactBaseDir = resolveDevArtifactBaseDir()
 		}
 	}
+	logOp(context.Background(), "info", "backup.job_service.config",
+		zap.String("script_dir", scriptDir),
+		zap.String("backup_script", filepath.Join(scriptDir, "backup-db.sh")),
+		zap.String("artifact_base_dir", artifactBaseDir),
+		zap.String("env_POWERX_OPS_SCRIPT_DIR", strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))),
+	)
 	return &JobService{
 		db:                  db,
 		policyRepo:          repoops.NewBackupPolicyRepository(db),
@@ -104,23 +108,11 @@ func NewJobService(db *gorm.DB) *JobService {
 }
 
 func resolveOpsScriptDir() string {
-	candidates := []string{
-		filepath.Join("scripts", "ops"),
-		filepath.Join("backend", "scripts", "ops"),
-	}
-	for i := range candidates {
-		if pathExists(filepath.Join(candidates[i], "backup-db.sh")) {
-			return candidates[i]
-		}
-	}
-	if root := detectProjectRoot(); root != "" {
-		return filepath.Join(root, "backend", "scripts", "ops")
-	}
-	return filepath.Join("backend", "scripts", "ops")
+	return opsscripts.ResolveDir("backup-db.sh")
 }
 
 func resolveDevArtifactBaseDir() string {
-	if root := detectProjectRoot(); root != "" {
+	if root := opsscripts.DetectProjectRoot(); root != "" {
 		return filepath.Join(root, "backend", "tmp", "ops-backup", "artifacts")
 	}
 	if pathExists("tmp") {
@@ -130,22 +122,7 @@ func resolveDevArtifactBaseDir() string {
 }
 
 func detectProjectRoot() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	dir := filepath.Clean(wd)
-	for {
-		if pathExists(filepath.Join(dir, "backend", "etc", "config.yaml")) {
-			return dir
-		}
-		next := filepath.Dir(dir)
-		if next == dir || next == "." || next == string(filepath.Separator) {
-			break
-		}
-		dir = next
-	}
-	return ""
+	return opsscripts.DetectProjectRoot()
 }
 
 func pathExists(path string) bool {

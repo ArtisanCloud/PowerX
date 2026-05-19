@@ -2,6 +2,7 @@
 
 > 状态：已实现（按 Host Contract v2 对齐）  
 > 平台入口：`docs/guides/async_runtime/README.md`
+> Token 边界：以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 
 ## 1. 文档定位
 
@@ -30,7 +31,8 @@
 
 2. 插件（含 Framework/Skeleton）
 - 前端只读契约构造 WS URL，不自行推导 `localhost:8077/8080/3030`。
-- 后端调用宿主 ws-bus 接口时，必须使用宿主契约 token（`PX_PLUGIN_TOOL_TOKEN`），不能透传插件 delegated bearer。
+- 后端调用宿主 ws-bus 接口属于插件主动调用 PowerX 底座业务接口，必须使用 STS access token（`aud=powerx:api`）。`PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，不能作为业务调用主凭证。
+- 禁止透传 PowerX 代理到插件时下发的 delegated/plugin request token 调宿主 ws-bus；该 token 的 `aud=plugin:<plugin_id>`，不是 PowerX 底座业务接口凭证。
 - UI 只按 `type=event` 消费业务事件。
 
 3. Framework
@@ -56,7 +58,7 @@ flowchart TD
     M[链路通过]
     D1[检查WS地址网关租户]
     F1[检查topic和ACL]
-    I1[检查PX PLUGIN TOOL TOKEN]
+    I1[检查STS token audience scope tenant]
     K1[检查topic tenant payload和网关响应]
     L1[比对topic tenant trace id和订阅连接]
 
@@ -104,5 +106,5 @@ flowchart TD
 ## 7. 常见误区（本次联调踩坑总结）
 
 1. 把 3030 当宿主后端：会导致连接/鉴权混乱。
-2. 插件用 delegated token 调宿主 ws-bus grant：会触发 `invalid audience`。
+2. 插件用 delegated/plugin request token 调宿主 ws-bus grant：会触发 `invalid audience`。宿主 ws-bus 业务调用应使用 STS access token。
 3. 只看 grant/publish 200，不看 `welcome/ack/event`：会误判“已通”。

@@ -74,7 +74,6 @@ export default defineEventHandler(async (event) => {
   if (!hasAuthHeader) {
     const bearer = String(
       getCookie(event, "token") ||
-      getCookie(event, "px_ctx_jwt") ||
       getCookie(event, "access_token") ||
       ""
     ).trim();

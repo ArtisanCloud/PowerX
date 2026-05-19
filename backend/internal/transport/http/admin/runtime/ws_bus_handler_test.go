@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
-	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 )
 
 func TestWSBusGrantThenPublish(t *testing.T) {
@@ -56,6 +59,72 @@ func TestWSBusGrantThenPublish(t *testing.T) {
 	})
 	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/internal/ws-bus/publish", bytes.NewReader(publishBody))
 	publishReq.Header.Set("Content-Type", "application/json")
+	publishRec := httptest.NewRecorder()
+	router.ServeHTTP(publishRec, publishReq)
+	if publishRec.Code != http.StatusOK {
+		t.Fatalf("publish failed: status=%d body=%s", publishRec.Code, publishRec.Body.String())
+	}
+}
+
+func TestWSBusAcceptsPowerXAPISTSToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	bus.SetDynamicTopicCompatEnabledForTest(true)
+	t.Cleanup(func() { bus.SetDynamicTopicCompatEnabledForTest(false) })
+
+	originHub := bus.DefaultHub
+	bus.DefaultHub = bus.NewHub()
+	t.Cleanup(func() { bus.DefaultHub = originHub })
+
+	const (
+		tenantUUID = "11111111-1111-1111-1111-111111111111"
+		secret     = "test-secret"
+		issuer     = "powerx-auth"
+	)
+
+	token, err := auth.GenerateAccessJWT(reqctx.CoreXClaims{
+		TenantUUID: tenantUUID,
+		MemberUUID: "client:com.powerx.plugins.test." + tenantUUID,
+	}, "powerx-sts", []string{"powerx:api"}, time.Minute, []byte(secret))
+	if err != nil {
+		t.Fatalf("GenerateAccessJWT error: %v", err)
+	}
+
+	router := gin.New()
+	authMW := middleware.APIKeyOrJwtMiddleware(
+		nil,
+		[]byte(secret),
+		issuer,
+		[]string{"user"},
+		[]string{"access"},
+		nil,
+		middleware.WithExtraTokenChecks(middleware.TokenCheck{
+			Issuer:    "powerx-sts",
+			Audiences: []string{"powerx:api"},
+		}),
+	)
+	protectedGroup := router.Group("/api/v1")
+	protectedGroup.Use(authMW)
+	RegisterAPIRoutes(nil, protectedGroup, nil)
+
+	grantBody, _ := json.Marshal(map[string]any{
+		"topics": []string{"custom.sts.progress"},
+	})
+	grantReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/runtime/ws-bus/grant", bytes.NewReader(grantBody))
+	grantReq.Header.Set("Content-Type", "application/json")
+	grantReq.Header.Set("Authorization", "Bearer "+token)
+	grantRec := httptest.NewRecorder()
+	router.ServeHTTP(grantRec, grantReq)
+	if grantRec.Code != http.StatusOK {
+		t.Fatalf("grant failed: status=%d body=%s", grantRec.Code, grantRec.Body.String())
+	}
+
+	publishBody, _ := json.Marshal(map[string]any{
+		"topic":   "custom.sts.progress",
+		"payload": map[string]any{"ok": true},
+	})
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/runtime/ws-bus/publish", bytes.NewReader(publishBody))
+	publishReq.Header.Set("Content-Type", "application/json")
+	publishReq.Header.Set("Authorization", "Bearer "+token)
 	publishRec := httptest.NewRecorder()
 	router.ServeHTTP(publishRec, publishReq)
 	if publishRec.Code != http.StatusOK {

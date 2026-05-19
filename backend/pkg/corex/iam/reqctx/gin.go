@@ -68,6 +68,9 @@ func CopyCtxToGin(c *gin.Context) {
 	if v := ctx.Value(KeyTraceID); v != nil {
 		c.Set(string(KeyTraceID), v)
 	}
+	if v := ctx.Value(KeyRequestPath); v != nil {
+		c.Set(string(KeyRequestPath), v)
+	}
 	if v := ctx.Value(KeyClaims); v != nil {
 		c.Set(string(KeyClaims), v)
 	}

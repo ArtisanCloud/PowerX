@@ -2,8 +2,6 @@ package router
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -36,13 +34,12 @@ type adminUpstream struct {
 }
 
 type DynamicRouter struct {
-	basePrefix    string // 固定 "/_p"
-	engine        *gin.Engine
-	mu            sync.RWMutex
-	adminDirs     map[string]string
-	adminUps      map[string]adminUpstream
-	apis          map[string]apiUpstream
-	ctxHMACSecret []byte
+	basePrefix string // 固定 "/_p"
+	engine     *gin.Engine
+	mu         sync.RWMutex
+	adminDirs  map[string]string
+	adminUps   map[string]adminUpstream
+	apis       map[string]apiUpstream
 
 	gate          *authzGate
 	apiMiddleware []gin.HandlerFunc
@@ -234,16 +231,6 @@ func (r *DynamicRouter) InstallPolicy(pluginID string, pol *Policy) {
 	if r.gate != nil && pol != nil {
 		r.gate.InstallPolicy(pluginID, pol)
 	}
-}
-
-func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
-	if len(secret) == 0 {
-		r.ctxHMACSecret = nil
-		return
-	}
-	dup := make([]byte, len(secret))
-	copy(dup, secret)
-	r.ctxHMACSecret = dup
 }
 
 func (r *DynamicRouter) publicAwareAPIAuth() gin.HandlerFunc {
@@ -616,11 +603,6 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			req.Header.Del("X-PowerX-Tenant")
 		}
 
-		// 透传签名上下文
-		if ctxB64, sig, ok := r.buildSignedCtx(c); ok {
-			req.Header.Set("X-PowerX-CTX", ctxB64)
-			req.Header.Set("X-PowerX-CTX-SIG", sig)
-		}
 		attachTraceHeaders(c, req)
 		req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 
@@ -842,26 +824,6 @@ func looksLikeLocaleSegment(seg string) bool {
 		}
 	}
 	return true
-}
-
-func (r *DynamicRouter) buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
-	if len(r.ctxHMACSecret) == 0 {
-		return "", "", false
-	}
-	claimsAny, exists := c.Get("auth_claims")
-	if !exists {
-		return "", "", false
-	}
-	claims, ok := claimsAny.(reqctx.CoreXClaims)
-	if !ok {
-		return "", "", false
-	}
-	raw, _ := json.Marshal(claims)
-	ctxB64 = base64.StdEncoding.EncodeToString(raw)
-	mac := hmac.New(sha256.New, r.ctxHMACSecret)
-	mac.Write([]byte(ctxB64))
-	sig = base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	return ctxB64, sig, true
 }
 
 func joinURLPath(parts ...string) string {

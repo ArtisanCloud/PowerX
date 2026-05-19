@@ -2,6 +2,8 @@
 
 本文件给出插件以租户维度访问 PowerX 的 STS（Security Token Service）鉴权流程，含接口位置与最小实现要点，便于在其他项目中复用。
 
+Token 总边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准；本文只描述“插件主动调用 PowerX 底座”的 STS 主路径。
+
 ## 总览
 
 - 安装态（系统）：宿主仅需安装一次插件（与租户无关）。

@@ -327,8 +327,11 @@ func (g *authzGate) mintPluginToken(pluginID string, base reqctx.CoreXClaims) (s
 		MemberUUID: base.MemberUUID,
 		Platforms:  base.Platforms,
 		TenantID:   base.TenantID,
+		UserUUID:   base.UserUUID,
 		UserID:     base.UserID,
 		MemberID:   base.MemberID,
+		Email:      strings.ToLower(strings.TrimSpace(base.Email)),
+		Phone:      strings.TrimSpace(base.Phone),
 		IsRoot:     base.IsRoot,
 	}
 

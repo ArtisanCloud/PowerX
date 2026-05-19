@@ -13,6 +13,7 @@ import (
 
 	inst "github.com/ArtisanCloud/PowerX/internal/service/migration_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
+	opsscripts "github.com/ArtisanCloud/PowerX/internal/service/ops_scripts"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"gorm.io/gorm"
@@ -54,14 +55,10 @@ type SwitchRequest struct {
 }
 
 func NewService(db *gorm.DB) *Service {
-	scriptDir := strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))
-	if scriptDir == "" {
-		scriptDir = filepath.Join("backend", "scripts", "ops")
-	}
 	return &Service{
 		repo:      repoops.NewMigrationRunbookRecordRepository(db),
 		auditor:   obsops.NewUnifiedAuditWriter(db),
-		scriptDir: scriptDir,
+		scriptDir: opsscripts.ResolveDir("verify-migration.sh"),
 		metrics:   inst.NewRecorder("powerx.service.migration_ops"),
 	}
 }

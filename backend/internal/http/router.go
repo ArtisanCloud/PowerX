@@ -38,6 +38,10 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
 			RequireUUID: cfg.Tenants.RequireUUID,
 		}),
+		middleware.WithExtraTokenChecks(middleware.TokenCheck{
+			Issuer:    "powerx-sts",
+			Audiences: []string{"powerx:api"},
+		}),
 	)
 	// 给外部注册 CoreX Admin 相关路由（含 ops 管理域预留挂载点）
 	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)
