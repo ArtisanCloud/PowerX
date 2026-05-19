@@ -14,12 +14,14 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,6 +32,7 @@ type tenantHandler struct {
 	invoker      *capservice.InvocationService
 	selector     *capservice.Selector
 	skillAdapter *skillservice.AdapterService
+	memberSvc    *iamsvc.MemberService
 	httpClient   *http.Client
 }
 
@@ -63,6 +66,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		})
 	}
 	var skillAdapter *skillservice.AdapterService
+	var memberSvc *iamsvc.MemberService
 	if deps.DB != nil {
 		skillRegistryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
 		skillBindingRepo := skillrepo.NewSkillCapabilityBindingRepository(deps.DB)
@@ -71,6 +75,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		skillInvokeSvc := skillservice.NewInvokeService(skillRegistryRepo, skillservice.NewAuditTraceService(skillTraceRepo, skillAuditRepo))
 		skillAdapter = skillservice.NewAdapterService(skillInvokeSvc, skillBindingRepo).
 			WithSourcePolicyResolver(skillservice.NewDBSourcePolicyResolver(deps.DB))
+		memberSvc = iamsvc.NewMemberService(deps.DB)
 	}
 
 	return &tenantHandler{
@@ -78,6 +83,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		invoker:      invocationSvc,
 		selector:     selector,
 		skillAdapter: skillAdapter,
+		memberSvc:    memberSvc,
 		httpClient:   &http.Client{},
 	}
 }
@@ -275,6 +281,10 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	}
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(req.CapabilityID), "com.corex.rest.admin.gin.get_api_v1_admin_iam_members") {
+		h.invokeIAMMembersCapability(c, req, tenantUUID)
 		return
 	}
 
@@ -791,4 +801,70 @@ func injectDefaultHeaders(payload map[string]interface{}, c *gin.Context) {
 		}
 	}
 	payload["headers"] = headers
+}
+
+func (h *tenantHandler) invokeIAMMembersCapability(c *gin.Context, req capabilityInvokeRequest, tenantUUID string) {
+	if h == nil || h.memberSvc == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable.WithHint("iam member service unavailable"), nil)
+		return
+	}
+	query := mapStringString(req.Payload["query"])
+	page := parsePositiveInt(query["page"], 1)
+	pageSize := parsePositiveInt(query["page_size"], 100)
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	var status *int16
+	if raw := strings.TrimSpace(query["status"]); raw != "" && !strings.EqualFold(raw, "all") {
+		parsed, err := strconv.ParseInt(raw, 10, 16)
+		if err != nil {
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("query.status must be int16"), err)
+			return
+		}
+		v := int16(parsed)
+		status = &v
+	}
+	rows, total, err := h.memberSvc.ListMembersByTenantUUID(c.Request.Context(), tenantUUID, iamsvc.ListMembersOption{
+		Page:      page,
+		PageSize:  pageSize,
+		Keyword:   strings.TrimSpace(query["q"]),
+		Status:    status,
+		Recursive: true,
+	})
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
+		return
+	}
+	logger.InfoF(c.Request.Context(), "[tenant-invocations] capability=%s protocol=internal tenant_uuid=%s page=%d page_size=%d total=%d",
+		strings.TrimSpace(req.CapabilityID),
+		tenantUUID,
+		page,
+		pageSize,
+		total,
+	)
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		item := gin.H{
+			"Member": row.Member,
+			"User":   row.User,
+		}
+		if len(row.DeptIDs) > 0 {
+			item["DeptIDs"] = row.DeptIDs
+		}
+		items = append(items, item)
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"trace_id":      strings.TrimSpace(req.TraceID),
+		"status":        "completed",
+		"protocol_used": "internal",
+		"fallback_used": false,
+		"result": gin.H{
+			"items": items,
+			"pagination": gin.H{
+				"total":     total,
+				"page":      page,
+				"page_size": pageSize,
+			},
+		},
+	})
 }

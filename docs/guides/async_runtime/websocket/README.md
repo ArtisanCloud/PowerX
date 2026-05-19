@@ -31,7 +31,7 @@
 
 2. 插件（含 Framework/Skeleton）
 - 前端只读契约构造 WS URL，不自行推导 `localhost:8077/8080/3030`。
-- 后端调用宿主 ws-bus 接口属于插件主动调用 PowerX 底座业务接口，必须使用 STS access token（`aud=powerx:api`）。`PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，不能作为业务调用主凭证。
+- 后端调用宿主 ws-bus 接口属于插件主动调用 PowerX 底座业务接口，必须使用 STS access token（`aud=powerx:api`）。不得使用 `PX_PLUGIN_TOOL_TOKEN`。
 - 禁止透传 PowerX 代理到插件时下发的 delegated/plugin request token 调宿主 ws-bus；该 token 的 `aud=plugin:<plugin_id>`，不是 PowerX 底座业务接口凭证。
 - UI 只按 `type=event` 消费业务事件。
 

@@ -82,28 +82,28 @@ func TestAllowForwardToStdIOEnvOverridesGlobalConsoleConfig(t *testing.T) {
 
 func TestMapToEnvKeepsSingleOverriddenKey(t *testing.T) {
 	base := envToMap([]string{
-		"PX_PLUGIN_TOOL_TOKEN=old-token",
+		"PX_GATEWAY_BASE_URL=http://old.example",
 		"PX_GATEWAY_AUTH_SCHEME=apikey",
 	})
-	base["PX_PLUGIN_TOOL_TOKEN"] = "new-token"
+	base["PX_GATEWAY_BASE_URL"] = "http://new.example"
 	base["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 
 	env := mapToEnv(base)
 
-	countToken := 0
+	countBaseURL := 0
 	countScheme := 0
 	for _, item := range env {
 		switch item {
-		case "PX_PLUGIN_TOOL_TOKEN=new-token":
-			countToken++
+		case "PX_GATEWAY_BASE_URL=http://new.example":
+			countBaseURL++
 		case "PX_GATEWAY_AUTH_SCHEME=bearer":
 			countScheme++
-		case "PX_PLUGIN_TOOL_TOKEN=old-token", "PX_GATEWAY_AUTH_SCHEME=apikey":
+		case "PX_GATEWAY_BASE_URL=http://old.example", "PX_GATEWAY_AUTH_SCHEME=apikey":
 			t.Fatalf("mapToEnv kept stale env value %q in %#v", item, env)
 		}
 	}
-	if countToken != 1 {
-		t.Fatalf("PX_PLUGIN_TOOL_TOKEN count = %d, want 1; env=%#v", countToken, env)
+	if countBaseURL != 1 {
+		t.Fatalf("PX_GATEWAY_BASE_URL count = %d, want 1; env=%#v", countBaseURL, env)
 	}
 	if countScheme != 1 {
 		t.Fatalf("PX_GATEWAY_AUTH_SCHEME count = %d, want 1; env=%#v", countScheme, env)

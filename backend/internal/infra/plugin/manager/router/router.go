@@ -480,6 +480,12 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if claims.UserUUID == "" {
 			claims.UserUUID = strings.TrimSpace(rc.UserUUID)
 		}
+		if claims.Email == "" {
+			claims.Email = strings.TrimSpace(rc.Email)
+		}
+		if claims.Phone == "" {
+			claims.Phone = strings.TrimSpace(rc.Phone)
+		}
 	}
 
 	// 预检 + 下发短期 Token（可选）

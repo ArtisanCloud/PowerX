@@ -112,7 +112,7 @@ func validateSTSRouteOnly(ctx context.Context, claims *reqctx.CoreXClaims) error
 	if !isPowerXAPISTSClaims(claims) {
 		return nil
 	}
-	if isWSBusRequestPath(ctx) {
+	if isSTSAllowedRequestPath(ctx) {
 		if _, err := reqctx.RequireTenantUUID(ctx); err != nil {
 			return fmt.Errorf("tenant uuid missing")
 		}
@@ -133,9 +133,11 @@ func isPowerXAPISTSClaims(claims *reqctx.CoreXClaims) bool {
 	return false
 }
 
-func isWSBusRequestPath(ctx context.Context) bool {
+func isSTSAllowedRequestPath(ctx context.Context) bool {
 	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
-	return strings.Contains(path, "/ws-bus/grant") || strings.Contains(path, "/ws-bus/publish")
+	return strings.Contains(path, "/ws-bus/grant") ||
+		strings.Contains(path, "/ws-bus/publish") ||
+		strings.Contains(path, "/tenant/invocations")
 }
 
 func loadTenantSnapshot(ctx context.Context, repo *tenantrepo.TenantRepository, tenantUUID string) (*tenantSnapshot, error) {

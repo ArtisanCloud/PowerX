@@ -7,7 +7,7 @@
 
 1. 明确当前模式：Host 还是插件 standalone。
 2. 明确 WS 最终地址是怎么计算出来的（来自 runtime contract，而不是手写端口）。
-3. 明确 token 类型：用户 token、plugin request token、STS access token、bootstrap tool token 分工不同。
+3. 明确 token 类型：用户 token、plugin request token、STS access token 分工不同。
 
 ## 2. 地址与鉴权硬规则
 
@@ -19,7 +19,7 @@
 - `POST /api/v1/admin/runtime/ws-bus/grant`
 - `POST /api/v1/admin/runtime/ws-bus/publish`
 - 插件后端调用这两个接口时，必须使用 STS access token（`aud=powerx:api`）。
-- `PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，不作为 ws-bus 业务调用主凭证。
+- 不得使用 `PX_PLUGIN_TOOL_TOKEN`。
 - 禁止透传 plugin request token 去调用上述接口，否则常见报错是 `token has invalid audience`。
 
 ## 3. 五段状态验收（前端）

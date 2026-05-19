@@ -6,7 +6,7 @@
 
 插件主动调用 PowerX 底座业务接口时，统一使用 STS Exchange 签发的短期 Bearer token。
 
-`PX_PLUGIN_TOOL_TOKEN` 只允许作为 bootstrap/过渡凭证，不作为插件业务调用底座的主凭证。
+`PX_PLUGIN_TOOL_TOKEN` 已废弃。宿主模式不得再注入、读取或依赖该变量。
 
 `plugin:<plugin_id>` audience 的短期 token 只用于 PowerX 动态代理把当前用户请求转发给插件后端，不用于插件主动调用 PowerX 底座。
 
@@ -18,7 +18,6 @@ Root 手工 mint 的插件 token 只用于开发和调试。
 | --- | --- | --- | --- | --- | --- |
 | STS access token | 插件 -> PowerX | STSService.Exchange | `powerx:api` | 插件调用 PowerX Gateway、Capability、ws-bus、底座开放 API | 是 |
 | Plugin request token | PowerX -> 插件 | 动态插件代理 `authz_gate` | `plugin:<plugin_id>` | PowerX 代理当前用户请求到插件后端 | 是，但仅限该方向 |
-| `PX_PLUGIN_TOOL_TOKEN` | 插件 -> PowerX | 插件生命周期注入 | 当前实现依赖宿主配置 | 启动期探活、过渡期引导 | 否 |
 | Root debug token | Root/Admin -> 插件调试 | Admin system STS handler | `plugin:<plugin_id>` | 开发/调试手工签发 | 否 |
 
 ## 插件调用 PowerX 底座
@@ -107,29 +106,18 @@ plugin:<plugin_id>
 
 插件不得把该 token 当作调用 PowerX 底座业务接口的凭证。
 
-## PX_PLUGIN_TOOL_TOKEN
+## 废弃变量
 
-`PX_PLUGIN_TOOL_TOKEN` 是插件生命周期注入到插件进程环境变量里的宿主契约 token。
-
-统一后的定位：
-
-```text
-bootstrap only
-```
-
-允许用途：
-
-- 插件启动期探活。
-- 拉取 STS 配置或完成引导检查。
-- 过渡期兼容尚未迁移到 STS 的内部链路。
+`PX_PLUGIN_TOOL_TOKEN` 和 `PX_TOOL_TOKEN` 不再属于宿主模式插件鉴权契约。
 
 禁止用途：
 
-- 作为插件业务请求调用 PowerX 底座的长期凭证。
+- 作为插件业务请求调用 PowerX 底座的凭证。
+- 作为 ws-bus、taskbus、capability invoke、IAM 查询的出站 token。
 - 作为当前访问用户身份。
-- 作为插件 SDK 对外暴露的默认业务 token provider。
+- 作为插件 SDK 对外暴露的默认 token provider。
 
-新代码不得新增依赖 `PX_PLUGIN_TOOL_TOKEN` 的业务调用路径。
+新代码不得新增读取 `PX_PLUGIN_TOOL_TOKEN` 或 `PX_TOOL_TOKEN` 的宿主模式路径。
 
 ## Root Debug Token
 
@@ -139,31 +127,25 @@ Root 手工 mint token 仅用于开发和调试。
 
 ## 环境变量契约
 
-插件正式调用 PowerX 底座时，推荐环境变量为：
+插件正式调用 PowerX 底座时，环境变量为：
 
 ```text
 PX_GATEWAY_BASE_URL
-PX_STS_CLIENT_ID
-PX_STS_CLIENT_SECRET
-PX_STS_AUDIENCE=powerx:api
-PX_STS_SCOPE=access
+POWERX_STS_CLIENT_ID
+POWERX_STS_CLIENT_SECRET
+POWERX_STS_AUDIENCE=powerx:api
+POWERX_STS_SCOPE=access
+POWERX_GRPC_UPSTREAM_ADDRESS
+POWERX_GRPC_UPSTREAM_TENANT_UUID
 ```
-
-过渡期可继续注入：
-
-```text
-PX_PLUGIN_TOOL_TOKEN
-```
-
-但所有新业务调用必须优先接入 STS。
 
 ## 迁移规则
 
 1. 插件 SDK 增加统一 token provider：`getPowerXAccessToken()`，内部只负责 STS Exchange、缓存和刷新。
 2. PowerX Gateway 业务接口统一接受 STS token，并校验 `audience=powerx:api`。
 3. `plugin:<plugin_id>` token 只允许出现在 PowerX 代理到插件后端的方向。
-4. `PX_PLUGIN_TOOL_TOKEN` 调用路径逐步改为 bootstrap-only。
-5. 文档中“业务调用优先使用 PX_PLUGIN_TOOL_TOKEN”的描述必须改为“业务调用使用 STS token”。
+4. 移除 `PX_PLUGIN_TOOL_TOKEN` / `PX_TOOL_TOKEN` 注入、读取和探活路径。
+5. 文档中所有 “业务调用使用 PX_PLUGIN_TOOL_TOKEN” 的描述必须改为 “业务调用使用 STS token”。
 
 ## 代码映射
 
@@ -174,7 +156,6 @@ PX_PLUGIN_TOOL_TOKEN
 | gRPC STS 注册 | `backend/internal/server/grpc/server.go` |
 | Plugin request token 签发 | `backend/internal/infra/plugin/manager/router/authz_gate.go` |
 | PowerX 动态代理改写 Authorization | `backend/internal/infra/plugin/manager/router/router.go` |
-| `PX_PLUGIN_TOOL_TOKEN` 注入 | `backend/internal/infra/plugin/manager/lifecycle.go` |
 | Root 调试 token | `backend/internal/transport/http/admin/system/sts_handler.go` |
 
 ## 验收
@@ -183,5 +164,5 @@ PX_PLUGIN_TOOL_TOKEN
 - STS token 的 `aud` 为 `powerx:api`。
 - PowerX 代理到插件后端时，使用 `Authorization: Bearer <plugin_request_token>`。
 - Plugin request token 的 `aud` 为 `plugin:<plugin_id>`。
-- 插件业务代码不直接读取 `PX_PLUGIN_TOOL_TOKEN`。
+- 插件业务代码不读取 `PX_PLUGIN_TOOL_TOKEN` 或 `PX_TOOL_TOKEN`。
 - 旧的 `X-PowerX-CTX*` 和 `px_ctx*` 链路不得恢复。
