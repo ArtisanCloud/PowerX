@@ -18,6 +18,7 @@ import (
 	integrationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	platformopsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/platform_ops/v1"
+	schedulerv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/scheduler/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	skillsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1"
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
@@ -36,6 +37,7 @@ import (
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	opsgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/ops"
 	pluginreleasegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/plugin_release"
+	schedulergrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/scheduler"
 	skillsgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/skills"
 	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -153,6 +155,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	if deps.Workflow != nil && deps.Workflow.Service != nil {
 		workflowv1.RegisterWorkflowServiceServer(s, workflowgrpc.NewServer(deps.Workflow.Service))
 	}
+	schedulergrpc.RegisterServer(s, deps)
 	skillsgrpc.RegisterAdminService(s, deps)
 	skillsgrpc.RegisterInvokeService(s, deps)
 	if opsAdminHandler := opsgrpc.NewDeployHandler(deps); opsAdminHandler != nil {
@@ -181,6 +184,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			integrationpb.IntegrationGatewayAdminService_ServiceDesc.ServiceName,
 			integrationpb.IntegrationGatewayTenantService_ServiceDesc.ServiceName,
 			workflowv1.WorkflowService_ServiceDesc.ServiceName,
+			schedulerv1.SchedulerService_ServiceDesc.ServiceName,
 			skillsv1.SkillAdminService_ServiceDesc.ServiceName,
 			skillsv1.SkillInvokeService_ServiceDesc.ServiceName,
 			platformopsv1.OpsAdminService_ServiceDesc.ServiceName,

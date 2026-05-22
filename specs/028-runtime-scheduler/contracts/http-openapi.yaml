@@ -1,0 +1,359 @@
+openapi: 3.0.3
+info:
+  title: PowerX Runtime Scheduler Admin API
+  version: 0.1.0
+  description: Admin HTTP contract for Runtime Scheduler jobs. Event Fabric Cron is not part of this contract.
+servers:
+  - url: /api/v1/admin
+paths:
+  /scheduler/jobs:
+    get:
+      summary: List scheduler jobs
+      parameters:
+        - name: tenant_uuid
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: owner_type
+          in: query
+          schema:
+            type: string
+            enum: [core, plugin]
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, paused, deleted]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        "200":
+          description: Scheduler job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListJobsResponse"
+    post:
+      summary: Create scheduler job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulerJobCreate"
+      responses:
+        "200":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+  /scheduler/jobs/{job_id}:
+    get:
+      summary: Get scheduler job
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: Scheduler job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+    patch:
+      summary: Update scheduler job
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulerJobUpdate"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+  /scheduler/jobs/{job_id}/pause:
+    post:
+      summary: Pause scheduler job
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: Paused job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+  /scheduler/jobs/{job_id}/resume:
+    post:
+      summary: Resume scheduler job
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: Resumed job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+  /scheduler/jobs/{job_id}/trigger:
+    post:
+      summary: Trigger scheduler job manually
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+      responses:
+        "200":
+          description: Triggered job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerResponse"
+  /scheduler/jobs/{job_id}/runs:
+    get:
+      summary: List scheduler job runs
+      parameters:
+        - $ref: "#/components/parameters/JobID"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        "200":
+          description: Scheduler run list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRunsResponse"
+components:
+  parameters:
+    JobID:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    SchedulerJobCreate:
+      type: object
+      required: [tenant_uuid, owner_type, owner_id, name, schedule_type, schedule_expr, payload]
+      properties:
+        tenant_uuid:
+          type: string
+          format: uuid
+        owner_type:
+          type: string
+          enum: [core, plugin]
+        owner_id:
+          type: string
+        name:
+          type: string
+        schedule_type:
+          type: string
+          enum: [once, interval, cron]
+        schedule_expr:
+          type: string
+        timezone:
+          type: string
+          default: UTC
+        payload:
+          type: object
+          additionalProperties: true
+        misfire_policy:
+          type: string
+          enum: [skip, run_catchup]
+          default: skip
+        overlap_policy:
+          type: string
+          enum: [skip, queue, parallel]
+          default: skip
+        idempotency_key:
+          type: string
+    SchedulerJobUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        schedule_type:
+          type: string
+          enum: [once, interval, cron]
+        schedule_expr:
+          type: string
+        timezone:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        misfire_policy:
+          type: string
+          enum: [skip, run_catchup]
+        overlap_policy:
+          type: string
+          enum: [skip, queue, parallel]
+        idempotency_key:
+          type: string
+    SchedulerJob:
+      allOf:
+        - $ref: "#/components/schemas/SchedulerJobCreate"
+        - type: object
+          required: [job_id, status, topic, created_at, updated_at]
+          properties:
+            job_id:
+              type: string
+              format: uuid
+            topic:
+              type: string
+              enum: [powerx.runtime.scheduler.triggered.v1]
+            status:
+              type: string
+              enum: [active, paused, deleted]
+            next_run_at:
+              type: string
+              format: date-time
+            last_run_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    SchedulerRun:
+      type: object
+      required: [run_id, job_id, tenant_uuid, owner_type, owner_id, trigger_source, status, trace_id, created_at]
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        tenant_uuid:
+          type: string
+          format: uuid
+        owner_type:
+          type: string
+          enum: [core, plugin]
+        owner_id:
+          type: string
+        trigger_source:
+          type: string
+          enum: [once, interval, cron, manual, retry]
+        scheduled_at:
+          type: string
+          format: date-time
+        fired_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [triggered, skipped, failed]
+        event_id:
+          type: string
+        trace_id:
+          type: string
+        error_code:
+          type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    JobResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: "#/components/schemas/SchedulerJob"
+    TriggerResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            job:
+              $ref: "#/components/schemas/SchedulerJob"
+            run:
+              $ref: "#/components/schemas/SchedulerRun"
+    ListJobsResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SchedulerJob"
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+    ListRunsResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SchedulerRun"
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer

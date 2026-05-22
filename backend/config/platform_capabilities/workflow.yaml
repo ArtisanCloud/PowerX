@@ -1,35 +1,85 @@
 version: 1
 capabilities:
   - capability_id: com.corex.scheduler.jobs
-    module: workflow
-    title: Workflow Scheduler
-    description: 触发或控制 Workflow/Scheduler 实例，支持重试、暂停与继续。
-    categories: [workflow, scheduler]
-    intents: [workflow.scheduler.invoke]
-    tool_scopes: [workflow.scheduler]
+    module: scheduler
+    title: Runtime Scheduler
+    description: 管理 PowerX Runtime Scheduler 任务，支持创建、查询、更新、暂停、恢复、手动触发与运行记录查看。
+    categories: [runtime, scheduler]
+    intents: [runtime.scheduler.jobs.manage, runtime.scheduler.jobs.run, runtime.scheduler.jobs.read]
+    tool_scopes: [scheduler.job.manage, scheduler.job.run, scheduler.job.read]
     policy:
-      prefer: grpc
+      prefer: rest
+      fallback: [grpc]
     docs:
-      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/028-runtime-scheduler/spec.md
+      - backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto
     protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs
+        method: GET
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.read
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs
+        method: POST
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.manage
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}
+        method: GET
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.read
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}
+        method: PATCH
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.manage
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}/trigger
+        method: POST
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.run
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}/pause
+        method: POST
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.manage
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}/resume
+        method: POST
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.manage
+      - channel: rest
+        endpoint: /api/v1/admin/scheduler/jobs/{job_id}/runs
+        method: GET
+        schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
+        auth_type: api_key_or_bearer
+        tool_scope: scheduler.job.read
       - channel: grpc
-        endpoint: powerx.workflow.v1.WorkflowService
-        rpc: StartInstance
-        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        endpoint: powerx.scheduler.v1.SchedulerService
+        rpc: CreateJob
+        schema_ref: backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto#SchedulerService
         auth_type: tenant_jwt
-        tool_scope: workflow.scheduler
+        tool_scope: scheduler.job.manage
       - channel: grpc
-        endpoint: powerx.workflow.v1.WorkflowService
-        rpc: ControlInstance
-        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        endpoint: powerx.scheduler.v1.SchedulerService
+        rpc: TriggerJob
+        schema_ref: backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto#SchedulerService
         auth_type: tenant_jwt
-        tool_scope: workflow.scheduler
+        tool_scope: scheduler.job.run
       - channel: grpc
-        endpoint: powerx.workflow.v1.WorkflowService
-        rpc: ListInstances
-        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        endpoint: powerx.scheduler.v1.SchedulerService
+        rpc: ListJobs
+        schema_ref: backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto#SchedulerService
         auth_type: tenant_jwt
-        tool_scope: workflow.scheduler
+        tool_scope: scheduler.job.read
   - capability_id: com.corex.workflow.builder
     module: workflow
     title: Workflow Definition Builder

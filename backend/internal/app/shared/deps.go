@@ -72,6 +72,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
+	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
@@ -184,9 +185,10 @@ type Deps struct {
 	CapabilityDefaultHTTPTimeout      time.Duration
 	CapabilityAIMultimodalHTTPTimeout time.Duration
 
-	EventFabric    *EventFabricDeps
-	Workflow       *WorkflowDeps
-	KnowledgeSpace *KnowledgeSpaceDeps
+	EventFabric      *EventFabricDeps
+	Workflow         *WorkflowDeps
+	RuntimeScheduler *RuntimeSchedulerDeps
+	KnowledgeSpace   *KnowledgeSpaceDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -335,6 +337,25 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		ReliableQueue: workflowReliable,
 		Scheduler:     workflowScheduler,
 	})
+	runtimeSchedulerSvc := runtimescheduler.NewService(runtimescheduler.Options{
+		DB:       db,
+		EventBus: bus,
+		Clock:    time.Now,
+	})
+	var runtimeSchedulerWorker *workers.RuntimeSchedulerDispatcher
+	if runtimeSchedulerSvc != nil {
+		interval := 5 * time.Second
+		if eventFabricDeps != nil && eventFabricDeps.Config.SchedulerInterval > 0 {
+			interval = eventFabricDeps.Config.SchedulerInterval
+		}
+		runtimeSchedulerWorker = workers.NewRuntimeSchedulerDispatcher(workers.RuntimeSchedulerDispatcherOptions{
+			Service:   runtimeSchedulerSvc,
+			Interval:  interval,
+			BatchSize: 100,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+		})
+	}
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
 
@@ -734,6 +755,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Scheduler:     workflowScheduler,
 			ReliableQueue: workflowReliable,
 		},
+		RuntimeScheduler: &RuntimeSchedulerDeps{
+			Service:    runtimeSchedulerSvc,
+			Dispatcher: runtimeSchedulerWorker,
+		},
 	}
 }
 
@@ -818,6 +843,11 @@ type WorkflowDeps struct {
 	Service       *workflowsvc.Service
 	Scheduler     *workflowsvc.Scheduler
 	ReliableQueue event_bus.ReliableQueue
+}
+
+type RuntimeSchedulerDeps struct {
+	Service    *runtimescheduler.Service
+	Dispatcher *workers.RuntimeSchedulerDispatcher
 }
 
 // IntegrationGatewayDeps 聚合集成网关运行时所需依赖。

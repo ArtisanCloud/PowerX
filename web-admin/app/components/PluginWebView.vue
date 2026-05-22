@@ -86,6 +86,20 @@ function applyViewportFill() {
   height.value = clamp(getViewportAvailableHeight(), true);
 }
 
+function ensureIframeDocumentScroll(doc: Document) {
+  const scrollRoots = [
+    doc.documentElement,
+    doc.body,
+    doc.getElementById("__nuxt"),
+    doc.getElementById("app"),
+  ].filter((el): el is HTMLElement => !!el);
+
+  for (const el of scrollRoots) {
+    el.style.overflowY = "auto";
+    el.style.minHeight = "100%";
+  }
+}
+
 function measureDocumentContentHeight(doc: Document) {
   const body = doc.body;
   const root = doc.documentElement;
@@ -121,9 +135,16 @@ function measureOnce() {
     // 访问成功 => 确认是可测量
     canMeasure.value = true;
 
+    if (props.constrainToViewport) {
+      ensureIframeDocumentScroll(doc);
+      const h = measureDocumentContentHeight(doc);
+      height.value = Math.max(clamp(getViewportAvailableHeight(), true), clamp(h || props.min, false));
+      return;
+    }
+
     const h = measureDocumentContentHeight(doc);
 
-    height.value = clamp(h || props.min, props.constrainToViewport);
+    height.value = clamp(h || props.min, false);
   } catch {
     // 跨域/被 CSP 限制等 => 降级
     canMeasure.value = false;
@@ -319,6 +340,7 @@ watch(
       :sandbox="sandbox"
       allow="clipboard-read *; clipboard-write *; fullscreen *"
       referrerpolicy="strict-origin-when-cross-origin"
+      scrolling="auto"
       class="block w-full border-0 bg-transparent rounded-lg transition-[height] duration-300"
       :style="{ height: height + 'px' }"
       @load="onLoad"

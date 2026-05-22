@@ -27,6 +27,7 @@ import (
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
+	schedulerHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/scheduler"
 	skillsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/skills"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
@@ -84,6 +85,7 @@ func RegisterAPIRoutes(
 	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	schedulerHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	monitorHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

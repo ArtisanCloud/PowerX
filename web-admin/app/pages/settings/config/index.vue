@@ -270,17 +270,17 @@ const testConnection = async (type: string) => {
               :key="category.id"
               @click="selectedCategory = category.id"
               :class="[
-                'w-full text-left p-3 rounded-lg transition-colors',
+                'config-category-button w-full text-left p-3 rounded-lg transition-colors',
                 selectedCategory === category.id
-                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                  : 'hover:bg-gray-50',
+                  ? 'is-selected'
+                  : 'is-idle hover:bg-gray-50',
               ]"
             >
               <div class="flex items-center space-x-3">
                 <UIcon :name="category.icon" class="w-5 h-5" />
                 <div>
                   <div class="font-medium">{{ category.name }}</div>
-                  <div class="text-sm text-gray-500">
+                  <div class="category-description text-sm text-gray-500">
                     {{ category.description }}
                   </div>
                 </div>
@@ -1006,3 +1006,57 @@ const testConnection = async (type: string) => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.config-category-button {
+  border: 1px solid transparent !important;
+  color: var(--text-secondary);
+}
+
+.config-category-button.is-idle {
+  background: transparent !important;
+}
+
+.config-category-button.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--color-primary-500) 14%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary-400) 38%,
+    transparent
+  ) !important;
+  color: var(--color-primary-300) !important;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-primary-500) 8%, transparent);
+}
+
+.config-category-button.is-selected .category-description {
+  color: color-mix(
+    in srgb,
+    var(--color-primary-100) 72%,
+    transparent
+  ) !important;
+}
+
+:global(html:not(.dark)) .config-category-button.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--color-primary-500) 10%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary-500) 26%,
+    transparent
+  ) !important;
+  color: var(--color-primary-700) !important;
+  box-shadow: none;
+}
+
+:global(html:not(.dark)) .config-category-button.is-selected .category-description {
+  color: var(--color-primary-600) !important;
+}
+</style>

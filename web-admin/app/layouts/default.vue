@@ -13,7 +13,7 @@ const route = useRoute();
 // 判断是否应该隐藏 FooterBar
 const shouldHideFooter = computed(() => {
   const path = route.path;
-  return path.startsWith("/agent") || path.startsWith("/workflow");
+  return path.startsWith("/agent") || path.startsWith("/workflow") || path.startsWith("/_p/");
 });
 
 // 侧边栏折叠状态 - 使用与 Sidebar 组件相同的状态
