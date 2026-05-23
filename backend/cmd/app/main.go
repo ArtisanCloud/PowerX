@@ -163,6 +163,11 @@ func main() {
 		if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.Dispatcher != nil {
 			go deps.RuntimeScheduler.Dispatcher.Run(ctx)
 		}
+		if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.NotificationProbe != nil {
+			if err := deps.RuntimeScheduler.NotificationProbe.Start(ctx); err != nil {
+				logger.WarnF(ctx, "runtime scheduler notification probe disabled: %v", err)
+			}
+		}
 	}
 	if err := assertGlobalWrapKeyInitialized(); err != nil {
 		logger.ErrorF(ctx, "startup aborted: %v", err)

@@ -333,6 +333,7 @@ func (g *authzGate) mintPluginToken(pluginID string, base reqctx.CoreXClaims) (s
 		Email:      strings.ToLower(strings.TrimSpace(base.Email)),
 		Phone:      strings.TrimSpace(base.Phone),
 		IsRoot:     base.IsRoot,
+		Roles:      append([]string(nil), base.Roles...),
 	}
 
 	aud := []string{"plugin:" + pluginID}

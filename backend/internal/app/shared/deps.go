@@ -342,7 +342,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		EventBus: bus,
 		Clock:    time.Now,
 	})
+	notificationsSvc := notificationssvc.NewService(db)
 	var runtimeSchedulerWorker *workers.RuntimeSchedulerDispatcher
+	var runtimeSchedulerNotificationProbe *workers.RuntimeSchedulerNotificationProbe
 	if runtimeSchedulerSvc != nil {
 		interval := 5 * time.Second
 		if eventFabricDeps != nil && eventFabricDeps.Config.SchedulerInterval > 0 {
@@ -354,6 +356,14 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			BatchSize: 100,
 			Logger:    pxlog.GetGlobalLogger(),
 			Clock:     time.Now,
+		})
+	}
+	if bus != nil && db != nil {
+		runtimeSchedulerNotificationProbe = workers.NewRuntimeSchedulerNotificationProbe(workers.RuntimeSchedulerNotificationProbeOptions{
+			EventBus:      bus,
+			Notifications: notificationsSvc,
+			Logger:        pxlog.GetGlobalLogger(),
+			Clock:         time.Now,
 		})
 	}
 
@@ -716,7 +726,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:                           aud,
 		MediaMgr:                          mediaManager,
 		MediaSvc:                          mediaSvc,
-		Notifications:                     notificationssvc.NewService(db),
+		Notifications:                     notificationsSvc,
 		EventBus:                          bus,
 		CapabilityRegistrySvc:             capRegistrySvc,
 		CapabilityCatalogSvc:              capabilityCatalogSvc,
@@ -756,8 +766,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			ReliableQueue: workflowReliable,
 		},
 		RuntimeScheduler: &RuntimeSchedulerDeps{
-			Service:    runtimeSchedulerSvc,
-			Dispatcher: runtimeSchedulerWorker,
+			Service:           runtimeSchedulerSvc,
+			Dispatcher:        runtimeSchedulerWorker,
+			NotificationProbe: runtimeSchedulerNotificationProbe,
 		},
 	}
 }
@@ -846,8 +857,9 @@ type WorkflowDeps struct {
 }
 
 type RuntimeSchedulerDeps struct {
-	Service    *runtimescheduler.Service
-	Dispatcher *workers.RuntimeSchedulerDispatcher
+	Service           *runtimescheduler.Service
+	Dispatcher        *workers.RuntimeSchedulerDispatcher
+	NotificationProbe *workers.RuntimeSchedulerNotificationProbe
 }
 
 // IntegrationGatewayDeps 聚合集成网关运行时所需依赖。
