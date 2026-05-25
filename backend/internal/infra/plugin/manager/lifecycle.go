@@ -108,8 +108,10 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if m.http != nil {
 		m.http.Unmount(p.ID)
 	}
-	// ---------- Admin 静态兜底（保留，不影响进程模式） ----------
-	if p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "" {
+	// ---------- Admin 静态目录 ----------
+	// process 类型的 admin 也可能通过 public/ 暴露 icon、favicon 等资产。
+	// 这些资产需要在插件启用前后都能被 /_p/{id}/admin/* 稳定访问。
+	if p.Paths.FrontendAdminDir != "" {
 		if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
 			if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
 				m.http.MountAdminStatic(p.ID, abs)

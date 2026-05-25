@@ -3,8 +3,11 @@ import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
 import { useWSBus } from "~/composables/useWSBus";
+import type { MenuCategory, MenuItem, UserMenusResult } from "~/composables/api/services/menuService";
 
-const { t } = useI18n();
+const { t, te } = useI18n();
+const route = useRoute();
+const localePath = useLocalePath() as (path: string) => string;
 const userStore = useUserStore();
 const canAccessSettings = computed(
   () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
@@ -18,6 +21,134 @@ const wsBus = useWSBus();
 // 获取通知统计信息
 const notificationStats = computed(() => getStats());
 const unreadCount = computed(() => notificationStats.value.unread);
+const { data: menuResponse } = useNuxtData<UserMenusResult>("user-menus");
+
+const pageTitle = computed(() => {
+  const raw = route.meta.title;
+  const title = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof title === "string" && title.trim()) {
+    return title.startsWith("menu.") ? t(title) : title;
+  }
+  return t("dashboard.title");
+});
+
+const isPluginPath = (path?: string) => !!path && /^\/+_p\//.test(path);
+
+const normalizeForCompare = (input?: string): string => {
+  if (!input) return "";
+  let value = input.trim();
+  if (!value) return "";
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return "";
+  if (!value.startsWith("/")) value = `/${value}`;
+  value = value.replace(/\/{2,}/g, "/");
+  if (value.length > 1 && value.endsWith("/")) value = value.slice(0, -1);
+  return value;
+};
+
+const normalizeMenuPath = (path?: string): string => {
+  if (!path) return "";
+  const raw = isPluginPath(path) ? path : localePath(path);
+  return normalizeForCompare(raw);
+};
+
+const linkFor = (path?: string) => {
+  if (!path) return "";
+  return isPluginPath(path) ? path : localePath(path);
+};
+
+const toSegments = (path: string): string[] =>
+  path && path !== "/" ? path.split("/").filter(Boolean) : [];
+
+const translateMenuTitle = (item: MenuItem): string => {
+  const key = item.titleI18n?.key?.trim();
+  if (key) {
+    const fallback = item.titleI18n?.default ?? item.title ?? key;
+    return te(key) ? t(key) : fallback;
+  }
+  if (item.title?.startsWith?.("menu.")) {
+    return te(item.title) ? t(item.title) : item.title;
+  }
+  return item.title || item.titleI18n?.default || t("menu.untitled", "未命名菜单");
+};
+
+type BreadcrumbEntry = {
+  title: string;
+  path?: string;
+  normalized: string;
+  segments: string[];
+};
+
+const collectMenuBreadcrumbs = (
+  items: MenuItem[] | undefined,
+  parents: BreadcrumbEntry[] = []
+): BreadcrumbEntry[][] => {
+  if (!items?.length) return [];
+  const chains: BreadcrumbEntry[][] = [];
+  for (const item of items) {
+    if (!item || item.visible === false) continue;
+    const normalized = normalizeMenuPath(item.path);
+    const entry: BreadcrumbEntry = {
+      title: translateMenuTitle(item),
+      path: item.path,
+      normalized,
+      segments: toSegments(normalized),
+    };
+    const chain = [...parents, entry];
+    if (normalized) chains.push(chain);
+    chains.push(...collectMenuBreadcrumbs(item.children, chain));
+  }
+  return chains;
+};
+
+const menuBreadcrumbs = computed(() => {
+  const payload = menuResponse.value;
+  const categories = (payload?.categories || []) as MenuCategory[];
+  const sourceItems =
+    categories.length > 0
+      ? categories.flatMap((category) => category.children || [])
+      : payload?.data || [];
+  const chains = collectMenuBreadcrumbs(sourceItems);
+  const current = normalizeForCompare(route.path);
+  const currentSegments = toSegments(current);
+  let best: BreadcrumbEntry[] = [];
+  let bestDepth = -1;
+
+  for (const chain of chains) {
+    const leaf = chain[chain.length - 1];
+    if (!leaf?.normalized) continue;
+    if (currentSegments.length < leaf.segments.length) continue;
+    let matched = true;
+    for (let i = 0; i < leaf.segments.length; i += 1) {
+      const menuSegment = leaf.segments[i];
+      const routeSegment = currentSegments[i];
+      if (menuSegment === "*") continue;
+      if (menuSegment.startsWith(":")) {
+        if (!routeSegment) matched = false;
+        continue;
+      }
+      if (menuSegment !== routeSegment) {
+        matched = false;
+        break;
+      }
+    }
+    if (
+      matched &&
+      (leaf.segments.length > bestDepth ||
+        (leaf.segments.length === bestDepth && chain.length > best.length))
+    ) {
+      bestDepth = leaf.segments.length;
+      best = chain;
+    }
+  }
+
+  if (best.length === 0) {
+    return [{ title: pageTitle.value }];
+  }
+  return best.map((entry, index) => ({
+    title: entry.title,
+    path: index < best.length - 1 ? entry.path : undefined,
+  }));
+});
 
 let unsubscribeNotifications: (() => void) | null = null;
 const UUID_RE =
@@ -300,14 +431,28 @@ const getSearchResultTypeIcon = (type: string) => {
               <UIcon class="w-4 h-4 inline-block" name="i-heroicons-home" />
             </NuxtLink>
           </li>
-          <li class="flex items-center">
+          <li
+            v-for="(crumb, index) in menuBreadcrumbs"
+            :key="`${index}:${crumb.title}`"
+            class="flex items-center"
+          >
             <UIcon
               class="w-4 h-4 text-gray-400 mx-2 inline-block"
               name="i-heroicons-chevron-right"
             />
-            <span class="text-sm font-medium text-gray-900">{{
-              $route.meta.title || t("dashboard.title")
-            }}</span>
+            <NuxtLink
+              v-if="crumb.path"
+              :to="linkFor(crumb.path)"
+              class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              {{ crumb.title }}
+            </NuxtLink>
+            <span
+              v-else
+              class="text-sm font-medium text-gray-900 dark:text-gray-100"
+            >
+              {{ crumb.title }}
+            </span>
           </li>
         </ol>
       </nav>

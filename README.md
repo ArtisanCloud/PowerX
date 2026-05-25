@@ -1,166 +1,306 @@
-# PowerX – 企业级 AgentOS 操作系统
+# PowerX
 
 [![English](https://img.shields.io/badge/English-README-blue)](./README-en.md)
-[![Official Docs](https://img.shields.io/badge/Official_Docs-powerx.artisan--cloud.com-green)](https://powerx.artisan-cloud.com)
-[![License](https://img.shields.io/badge/License-Apache%202.0-red.svg)](LICENSE)
+[![Official Docs](https://img.shields.io/badge/Official_Docs-powerx--doc.artisan--cloud.com-green)](https://powerx-doc.artisan-cloud.com)
+[![Go](https://img.shields.io/badge/Go-1.24-00ADD8)](https://go.dev/)
+[![Nuxt](https://img.shields.io/badge/Nuxt-4-00DC82)](https://nuxt.com/)
 
-> PowerX 是企业级 **Agent Operating System (AgentOS)**，以 **插件化智能体** 为核心的企业操作系统。它通过 AI Agent 编排、插件生态和统一协议，让企业业务模块（CRM、电商、SCRM、审批流等）以智能体形式 **自主协作与进化**。
->
-> **PowerX = AI Agent 编排内核 + 插件市场 + MCP/gRPC/REST 多协议统一**
+PowerX 是面向企业 AI 应用与插件生态的 **AgentOS 底座**。它把 IAM、插件运行时、集成网关、事件骨干、Runtime Scheduler、AI Engine、Knowledge Space、通知与运维监控放在同一个可扩展内核里，让 SCRM、电商、营销自动化等业务能力以插件和智能体的方式接入、运行和协作。
+
+> 简单说：PowerX 不是单一业务系统，而是企业插件与 AI Agent 的运行底座。
 
 ---
 
-## 🌟 预览图
+## 产品预览
 
 ### 管理后台
 
-![管理后台](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-home-zh.png)
+PowerX 管理后台提供统一入口，用于查看系统概览、插件状态、AI 配置、事件运行情况与平台能力。
+
+![PowerX 管理后台](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/dashboard-dark.png)
 
 ### 插件市场
 
-![插件市场](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-market-zh.png)
+插件可以独立打包、安装、启用、停用和升级。底座负责插件运行时、健康检查、代理路由、权限与运行记录。
+
+![PowerX 插件市场](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/plugin-market-dark.png)
+
+### 智能体工作台
+
+智能体工作台用于面向业务场景进行咨询、规划、配置辅助和会话沉淀。它与模型设置、通知、权限和插件能力逐步形成统一工作面。
+
+![PowerX 智能体工作台](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/agent-workspace-dark.png)
+
+### 平台能力
+
+PowerX 将模型配置、事件监控、插件能力注册等底座能力集中到同一个管理端，方便插件开发、运维联调和权限治理。
+
+| AI 设置 | 事件监控 |
+| --- | --- |
+| ![AI 设置](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/ai-settings.png) | ![事件监控](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/event-fabric-monitor.png) |
+
+| 插件能力注册 |
+| --- |
+| ![插件能力注册](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/readme/zh/plugin-capabilities.png) |
 
 ---
 
-## 🏗️ 架构哲学
+## PowerX 解决什么问题
 
-PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核心原则：
+企业内部通常会同时存在 CRM/SCRM、电商、营销、客服、审批流、数据分析、AI 助手等系统。它们常见的问题是身份割裂、权限重复、插件无法统一治理、AI 能力难以沉淀、任务和事件链路不可观测。
 
-### 1. 内核最小化
+PowerX 把这些共性能力收敛到底座：
 
-- 内核只提供通用能力：用户与组织（IAM）、权限与访问控制（RBAC）、事件总线（Event Bus）、审计（Audit）、数据库抽象（DB Layer）、运行时流引擎（Flow）
-- 这些能力作为 SDK (`pkg/corex/*`) 暴露，任何插件和外部系统都可以复用
+- **统一身份与租户上下文**：插件共享 IAM、成员、租户、权限上下文。
+- **统一插件运行时**：插件可以独立开发、安装、启用、健康检查、升级和下线。
+- **统一网关与鉴权**：通过 STS、API Key、Capability Registry 管理插件与底座之间的调用边界。
+- **统一事件与调度**：Event Fabric 负责底座事件和队列，Runtime Scheduler 负责插件业务调度任务。
+- **统一 AI 能力入口**：模型 Provider、AI Engine、Knowledge Space、Agent 编排统一纳入管理后台。
+- **统一运维观测**：日志、Trace、任务、通知、备份、运行记录集中在 Monitor Center。
 
-### 2. 智能体优先（Agent-First）
+PowerX 适合这些场景：
 
-- 业务功能（电商、SCRM、审批流、直播…）以 **AI Agent 智能体** 形式存在
-- 智能体通过 **契约（Contract）** 与内核对接，独立开发、独立部署、独立数据库 Schema
-- 智能体可由官方/第三方/客户自己开发，并通过 **插件市场** 分发，支持自主学习和协同
-
-### 3. 契约驱动 + AI 原生
-
-- 插件之间 **不直接依赖**，通过 **契约接口 / 事件订阅** 解耦
-- 支持 **MCP (Model Context Protocol)** 标准化 AI 工具接入
-- 所有对外接口（HTTP/gRPC）、事件（Event Topics）、数据模型（OpenAPI/Proto）均在 `/contracts` 目录集中管理
-- 内置工具链会自动生成 SDK（Go/TypeScript），保证前后端一致
-
----
-
-## 🔑 核心组件
-
-| 组件 | 功能描述 | 技术特性 |
-|------|----------|----------|
-| **IAM（身份与组织）** | 用户、部门、角色、标签 | 所有插件共享的组织架构 |
-| **RBAC（权限控制）** | 统一权限模型（Role/Policy） | 可扩展至插件级别：插件只声明"资源与动作"，授权由内核托管 |
-| **Event Bus（事件总线）** | 插件间的主要通信机制 | 支持 Local/Redis 实现，插件只需订阅 Topic，不关心消息来源 |
-| **Audit（审计日志）** | 统一采集所有事件/操作 | 内核级别可扩展至合规（安全/风控） |
-| **DB Layer（数据库抽象）** | 多租户隔离（Tenant） | 插件独立 Schema，但共享 Postgres/MySQL 实例，统一迁移工具（Goose 兼容） |
-| **Flow（业务流程引擎）** | 内置可编排的执行流（Plan/Task/Node） | 插件可挂载定制 Flow 节点 |
-| **Agent Lifecycle & Observability（代理生命周期与可观测性）** | 覆盖代理注册、激活、暂停、扩缩容与退役的完整控制平面（HTTP / gRPC） | 内建健康评分聚合、趋势查询、订阅过滤与企业 IM 告警，支持 13 个月保留策略 |
+- 将已有 CRM/SCRM、电商、营销、内容、采集、自动化等系统拆成可治理插件。
+- 为多个业务插件提供统一登录、租户、成员、权限、菜单和审计。
+- 让插件通过网关调用底座能力，而不是直接读写底座数据库。
+- 用事件、通知、调度任务和运行记录把插件之间的异步协作串起来。
+- 在同一控制台管理模型供应商、智能体会话、能力注册和运行监控。
 
 ---
 
-## 🔌 插件机制
+## 默认插件生态
 
-### 插件结构
+PowerX 默认围绕企业增长与交易场景建设插件生态：
 
+| 插件方向 | 定位 | 当前开放策略 |
+| --- | --- | --- |
+| **SCRM 插件** | 客户、会话、企微/社媒触点、跟进与运营协同 | 提供开源仓库版本 |
+| **电商插件** | 商品、订单、交易、履约与售后业务基础能力 | 提供开源仓库版本 |
+| **营销工具插件** | 营销自动化、触达编排、活动与转化工具 | 商用版本，授权与收费模式以正式发布说明为准 |
+
+这些业务插件不应该重复实现 IAM、权限、调度、通知、网关和审计。它们通过 PowerXPlugin Framework 调用底座能力，把业务逻辑聚焦在自身领域。
+
+插件边界建议保持清晰：
+
+- **底座负责**：IAM、RBAC、插件运行时、Gateway、Event Fabric、Runtime Scheduler、通知、审计、监控。
+- **插件负责**：领域模型、业务规则、页面体验、外部服务对接和插件自身数据表。
+- **Framework 负责**：封装 local / host / proxy 场景下的鉴权、网关、调度、事件与前端桥接。
+
+---
+
+## 核心能力地图
+
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| IAM 与多租户上下文 | Ready | 用户、成员、租户、Root/Admin 上下文，供底座与插件共享 |
+| RBAC 与菜单权限 | Ready | 管理端权限、菜单、插件资源动作授权 |
+| 插件运行时 | Ready | 插件安装、启用、健康检查、代理路由、动态页面、运行日志 |
+| 插件发布与治理 | Beta | 离线包入库、版本切换、发布守卫、兼容性与安全基线 |
+| Integration Gateway | Ready | API Key / STS 鉴权、Capability Registry、调用 Trace、插件能力路由 |
+| Event Fabric | Ready | Topic、订阅、任务队列、Cron 运维任务、Retry/DLQ、授权挑战 |
+| Runtime Scheduler | Ready | 插件/运行时持久化 job，支持 once / interval / cron、pause/resume/trigger、运行记录 |
+| Notification & WebSocket | Ready | 系统通知、WS Topic 订阅、实时推送、调试通知链路 |
+| AI Engine | Beta | 模型 Provider、连接测试、LLM 调用入口、AI 设置管理 |
+| Knowledge Space | Beta | 文档入库、OCR、Embedding、检索、反馈与压测指南 |
+| Agent Workspace | Beta | 智能体会话、会话历史、模型参数、双通道连接与基础工作台 |
+| Agent Lifecycle & Observability | Beta | Agent 注册、健康评分、趋势、告警与保留策略 |
+| Monitor Center | Ready | Event Fabric Cron、Runtime Scheduler、备份、日志/Trace 与运行记录入口 |
+| Docker / systemd 部署 | Beta | Docker、systemd、Nginx、Loki/Grafana、备份与迁移方案 |
+
+---
+
+## 架构概览
+
+```mermaid
+flowchart LR
+  Admin[Web Admin<br/>Nuxt 4] --> API[PowerX Backend<br/>Gin / gRPC]
+  API --> IAM[IAM / RBAC]
+  API --> PluginRuntime[Plugin Runtime]
+  API --> Gateway[Integration Gateway<br/>STS / API Key / Capability]
+  API --> EventFabric[Event Fabric<br/>Topic / Queue / Retry / Cron]
+  API --> Scheduler[Runtime Scheduler<br/>Plugin Business Jobs]
+  API --> AI[AI Engine]
+  API --> Knowledge[Knowledge Space]
+  API --> Monitor[Monitor Center]
+
+  PluginRuntime --> Plugins[Plugins<br/>SCRM / Commerce / Marketing]
+  Plugins --> Gateway
+  Plugins --> Scheduler
+  Scheduler --> EventFabric
+  EventFabric --> Notifications[Notification / WebSocket]
+
+  API --> Postgres[(PostgreSQL)]
+  API --> Redis[(Redis)]
+  API --> ObjectStorage[(MinIO / S3)]
 ```
-插件包/
-├── plugin.yaml          # 插件元数据
-├── backend/             # 后端可执行文件
-│   └── main
-├── web-admin/           # 前端资源
-│   ├── pages/
-│   └── assets/
-└── contract/            # 契约定义
-    └── api.yaml
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| Backend | Go 1.24, Gin, gRPC, GORM |
+| Frontend | Nuxt 4, Vue 3, Pinia, Nuxt UI |
+| Storage | PostgreSQL, Redis, MinIO/S3 |
+| Protocols | REST, gRPC, WebSocket, MCP |
+| Observability | structured logs, audit, trace, Loki/Grafana 方案 |
+| Plugin Framework | PowerXPlugin Framework, STS, API Key, Gateway Contract |
+
+---
+
+## 快速开始
+
+> 当前仓库是 PowerX Core。完整安装、部署和插件联调仍以官方文档和 `docs/` 下的指南为准。
+
+### 环境要求
+
+- Go 1.24+
+- Node.js 20+
+- PostgreSQL
+- Redis
+- 可选：MinIO/S3、Loki/Grafana
+
+### 启动后端
+
+```bash
+make db-migrate
+make db-seed
+make dev
 ```
 
-### 插件生命周期
+默认后端地址：
 
-- **安装**：将插件包放入 `/plugins` 目录
-- **注册**：系统启动时自动扫描并注册插件
-- **加载**：动态加载插件菜单和页面
-- **通信**：通过事件总线或契约接口与其他插件协作
+```text
+http://localhost:8077
+```
 
----
+### 启动管理后台
 
-## 🖥️ 多端支持
+```bash
+cd web-admin
+npm install
+npm run dev
+```
 
-PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支持多种协议和框架：
+管理后台默认由 Nuxt 启动，端口以终端输出为准，常见为：
 
-| 前端壳/协议 | 适用场景 | 特性 |
-|------------|----------|------|
-| **Admin 管理后台** | 运营/管理人员 | 动态加载菜单和插件页面 |
-| **Web User 前端** | C 端用户界面 | 响应式设计，支持多端 |
-| **MiniApp 小程序** | 轻量级触达场景 | 微信/支付宝小程序支持 |
-| **OpenAPI** | 第三方系统 | RESTful API 统一调用接口 |
-| **MCP (Model Context Protocol)** | AI Agent 与插件交互 | 标准化 AI 工具接入协议 |
-| **gRPC** | 高性能服务间通信 | 基于 Protobuf 的高效 RPC |
+```text
+http://localhost:3000
+```
 
----
+### 常用验证
 
-## 📚 文档资源
+```bash
+cd backend
+go test ./internal/service/runtime_scheduler ./internal/transport/http/admin/scheduler
 
-详细的安装、部署、使用指南请参考：
-
-- **🚀 [官方文档 - 快速开始](https://powerx.artisan-cloud.com)** - 完整的安装部署指南
-- **📖 [API 文档](https://powerx.artisan-cloud.com/api-docs)** - 接口规范与示例
-- **🏗️ [架构设计](https://powerx.artisan-cloud.com/architecture)** - 深入理解系统设计
-- **🔌 [插件开发指南](https://powerx.artisan-cloud.com/plugin-development)** - 开发自定义插件
-- **☁️ [部署指南](https://powerx.artisan-cloud.com/deployment)** - 生产环境部署方案
-- **🛠️ [运维手册](https://powerx.artisan-cloud.com/operations)** - 监控、备份、升级
-- **📘 [Knowledge Space Quickstart](specs/011-knowledge-space/quickstart.md)** - 端到端创建/入库/融合/反馈示例
-- **🧯 [Knowledge Space Runbook](docs/guides/knowledge_space/runbook.md)** - 入库/融合/反馈故障处理与脚本
-- **🧭 [Knowledge Space UI Guide](docs/guides/knowledge_space/ui_guide.md)** - 管理台界面操作（含“场景→策略包/Corpus Check/OCR 提示/Playground”）
-- **📊 [Perf & Resiliency Validation](docs/guides/knowledge_space/perf_validation.md)** - 压测/降级/反馈风暴验证
-- **✅ [Smoke Checklist](docs/guides/knowledge_space/smoke_checklist.md)** - 发布前的冒烟检查表
-
-## ✅ 能力目录 QA Checklist
-
-1. **能力链路巡检**：执行 `scripts/capability_registry/verify.sh`（需要 `POWERX_BASE_URL`、`ADMIN_TOKEN`、`TENANT_TOKEN`、`TENANT_UUID`、`PLUGIN_ID`、`CAPABILITY_ID`），自动完成 capability-sync、Admin/Tenant API 校验与 `/tenant/invocations` 调用，并输出可追踪的 `trace_id`。
-2. **负载与容错**：在 `backend` 目录运行 `go test ./tests/integration/capability_registry/load`，覆盖 5k+ Selector 调用、Redis 缓存击穿保护与 fallback chaos case，确保 `integration.gateway.invocation.failed` 事件与指标一致。
-3. **Prometheus / OTEL**：以目标配置启动 backend（例如 `LOG_LEVEL=info make dev` 或自定义部署），在执行脚本期间 `curl http://localhost:2112/metrics | grep powerx_capability_invoke_total`，验证 `powerx_capability_invoke_total`、`powerx_capability_invoke_error_total` 等指标；若接入 OTLP，设置 `OTEL_EXPORTER_OTLP_ENDPOINT` 并确认 Trace 可在链路平台检索到步骤 1 的 `trace_id`。
-4. **事件补偿与日志**：订阅或 tail `integration.gateway.invocation.failed`、`capability.catalog.sync_*` 事件，`LOG_LEVEL=debug` 跑巡检脚本，检查 stdout/采集日志均包含 `capability_id`、`plugin_id`、`protocol` 字段，确保异常重试过程与事件内容一致。
+cd ../web-admin
+npm run build
+```
 
 ---
 
-## 📬 联系我们
+## 插件开发入口
 
-如需商务合作或社区支持，请扫描下方二维码添加官方微信：
+PowerX 插件建议通过 **PowerXPlugin Framework** 开发。插件与底座之间的关键边界如下：
 
-申请添加好友时，请备注产品名称，比如：“我关注PowerX”
+- 插件前端嵌入宿主管理后台，通过 PowerX Bridge 同步主题、语言和登录态。
+- 插件后端通过宿主代理接收短期 STS token，不直接消费宿主用户 JWT。
+- 插件调用底座能力时使用 Gateway Contract，按场景选择 STS 或 API Key。
+- 插件业务调度通过 Framework Scheduler Facade 进入 Runtime Scheduler。
+- Event Fabric Cron 只用于底座内部运维任务；插件业务 schedule 不使用 Event Fabric Cron。
+- 插件不直接读写 PowerX 的 IAM 表，也不在 host 模式维护本地内存 timer。
 
-<img src="https://powerx.artisan-cloud.com/images/wx-qr-code.jpg" alt="PowerX 微信二维码" width="220" />
+相关文档：
 
----
-
-## 🤝 贡献指南
-
-我们欢迎所有形式的贡献！
-
-- 提交 [Issue](https://github.com/ArtisanCloud/PowerX/issues) 反馈问题
-- 提交 [Pull Request](https://github.com/ArtisanCloud/PowerX/pulls) 贡献代码
-- 查看 [贡献指南](./CONTRIBUTING.md) 了解更多细节
-
-### 贡献者
-
-感谢所有为 PowerX 做出贡献的开发者！ 🙏
+- [插件鉴权与 Token 模型](docs/guides/auth/plugin_auth_token_model.md)
+- [Gateway Contract](docs/guides/develop/gateway_contract.md)
+- [API Key / Token Playbook](docs/guides/develop/api_key_token_playbook.md)
+- [插件发布运行手册](docs/guides/plugin_release/application_runbook.md)
+- [Runtime Scheduler 规格](specs/028-runtime-scheduler/spec.md)
+- [Runtime Scheduler Quickstart](specs/028-runtime-scheduler/quickstart.md)
 
 ---
 
-## 📄 许可证
+## 文档入口
 
-本项目采用 Apache 2.0 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+PowerX 文档分三层：
+
+- **官网文档**：面向产品、部署、用户指南和完整说明。
+- **`docs/`**：面向开发、运维、插件联调和故障处理。
+- **`specs/`**：面向功能规格、实现计划、数据模型和验收用例。
+
+常用入口：
+
+- [PowerX 官方文档](https://powerx-doc.artisan-cloud.com)
+- [开发与网关契约](docs/guides/develop/gateway_contract.md)
+- [插件鉴权模型](docs/guides/auth/plugin_auth_token_model.md)
+- [插件发布与安装](docs/guides/plugin_release/application_runbook.md)
+- [Knowledge Space UI 指南](docs/guides/knowledge_space/ui_guide.md)
+- [Knowledge Space Runbook](docs/guides/knowledge_space/runbook.md)
+- [部署计划](docs/plan/deploy/README.md)
+- [测试策略](docs/guides/test/strategy.md)
+- [功能规格索引](specs/README.md)
 
 ---
 
-## 🏆 致谢
+## 仓库结构
 
-感谢所有为 PowerX 项目提供支持的开发者、设计师和用户！
+```text
+.
+├── backend/        # Go 后端、HTTP/gRPC、服务层、迁移、插件运行时
+├── web-admin/      # Nuxt 4 管理后台
+├── docs/           # 开发、运维、插件、部署指南
+├── specs/          # 功能规格、计划、数据模型、任务拆解
+├── scripts/        # 校验、运维、生成脚本
+├── deploy/         # 部署相关配置
+├── config/         # 配置样例与平台配置
+└── make_files/     # Makefile 子任务
+```
 
 ---
 
-**⭐ 如果这个项目对您有帮助，请给我们一个 Star！**
+## 开发约定
 
-👉 **一句话总结**：**PowerX 是企业级 AgentOS（Agent Operating System），让 CRM、SCRM、电商、审批流等业务模块以 AI 智能体形式共存和协作，通过 MCP/gRPC/REST 多协议统一，实现自主学习与进化，大幅降低运维成本并提供标准化扩展点。**
+- 新增后端能力优先落在 service/repository/transport 分层，避免 handler 直接做 DB IO。
+- 新增插件能力必须明确鉴权模式：STS、API Key 或宿主登录态代理。
+- 插件业务 schedule 使用 Runtime Scheduler，不使用 Event Fabric Cron。
+- 详细功能说明写入 `docs/`，规格与验收写入 `specs/`，README 只保留入口级说明。
+- 默认不保留错误或废弃链路的兼容分支，关键上下文缺失时应 fail-fast。
+
+---
+
+## 当前路线图
+
+### 已完成或可用
+
+- IAM / RBAC / 菜单权限
+- 插件安装、启用、健康检查、代理路由
+- Integration Gateway 与 Capability Registry
+- Event Fabric 基础链路
+- Runtime Scheduler 持久化任务与运行记录
+- WebSocket 通知与系统通知
+- Monitor Center 任务与调度视图
+
+### 持续完善
+
+- 插件发布治理与 Marketplace 审核流
+- Knowledge Space 生产级稳定性
+- AI Engine Provider 覆盖与观测
+- Runtime Scheduler 多实例抢占、延迟观测与告警
+- Docker / systemd 标准部署包
+
+---
+
+## 联系我们
+
+如需商务合作或社区支持，请扫描下方二维码添加官方微信。
+
+申请添加好友时，请备注产品名称，例如：“我关注 PowerX”。
+
+<img src="https://powerx-doc.artisan-cloud.com/images/wx-qr-code.jpg" alt="PowerX 微信二维码" width="220" />
+
+---
+
+## 许可证
+
+PowerX Core 与各插件的授权策略以对应仓库的正式许可文件或发布说明为准。不同插件可能采用不同授权策略；SCRM 与电商插件提供开源仓库版本，营销工具插件为商用版本，授权与收费模式以对应插件发布说明为准。

@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 export type MarketplacePlugin = {
   id: string;
@@ -125,6 +125,13 @@ const emit = defineEmits<{
 
 // 图片加载错误状态
 const imageError = ref(false);
+
+watch(
+  () => props.plugin.icon,
+  () => {
+    imageError.value = false;
+  }
+);
 
 // 处理图片加载错误
 const handleImageError = () => {

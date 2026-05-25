@@ -88,13 +88,6 @@ const effectiveSelectorOptions = computed<SelectOption[]>(() => {
   }));
 });
 
-const agentOptions = computed<SelectOption[]>(() =>
-  (props.agents || []).map((a) => ({
-    label: a.name,
-    value: a.uuid,
-  }))
-);
-
 const agentOptionsWithIcon = computed(() =>
   (props.agents || []).map((a) => ({
     label: a.name,
@@ -113,24 +106,12 @@ function getAgentIcon(agent: Agent) {
   return "i-heroicons-cpu-chip";
 }
 
-// ✅ 选中项改为 SelectOption（对象）
-const selectedAgent = computed<SelectOption>({
+const selectedAgentId = computed<string>({
   get: () => {
-    const id = props.selectorValue || props.currentAgentId || "";
-    const found =
-      effectiveSelectorOptions.value.find((o) => String(o.value) === id) ??
-      ({
-        label:
-          props.selectorPlaceholder ||
-          props.selectorLabel ||
-          t("agent.selector.pickAgent") ||
-          "选择 Agent",
-        value: null,
-      } as SelectOption);
-    return found;
+    return String(props.selectorValue || props.currentAgentId || "");
   },
-  set: (opt) => {
-    const id = String(opt?.value || "").trim();
+  set: (value) => {
+    const id = String(value || "").trim();
     if (!id) return;
     emit("select", id);
     ensureSessionsLoaded(id, { force: true });
@@ -139,7 +120,7 @@ const selectedAgent = computed<SelectOption>({
 
 // 当前选中 Agent 的图标
 const currentIcon = computed(() => {
-  const val = selectedAgent.value?.value as string | null;
+  const val = selectedAgentId.value;
   const fromSelector = effectiveSelectorOptions.value.find(
     (o: any) => String(o.value) === String(val || "")
   ) as any;
@@ -289,10 +270,10 @@ function fmtTime(ts?: string | number | Date) {
       <div class="flex items-center gap-1">
         <!-- ChatGPT风格：选择器在上方 -->
         <USelectMenu
-          v-model="selectedAgent"
+          v-model="selectedAgentId"
           :items="effectiveSelectorOptions"
-          option-attribute="label"
-          value-attribute="value"
+          label-key="label"
+          value-key="value"
           searchable
           :disabled="isBusy"
           class="flex-1"

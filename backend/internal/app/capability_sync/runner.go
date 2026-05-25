@@ -89,20 +89,16 @@ func (r *Runner) runOnce(ctx context.Context) error {
 		return fmt.Errorf("list artifact directory: %w", err)
 	}
 
-	var errs []error
-	for _, entry := range entries {
-		artifactPath := filepath.Join(r.opts.ArtifactDir, entry.Name())
-		if entry.IsDir() {
-			if !hasPluginManifest(artifactPath) {
-				continue
-			}
-		} else if !isArtifactFile(entry.Name()) {
-			continue
-		}
+	artifactPaths, err := discoverArtifactPaths(r.opts.ArtifactDir, entries)
+	if err != nil {
+		return err
+	}
 
+	var errs []error
+	for _, artifactPath := range artifactPaths {
 		if err := syncWorker.ProcessArtifact(ctx, artifactPath); err != nil {
 			r.logger.WarnF(ctx, "[capability_sync] artifact %s failed: %v", artifactPath, err)
-			errs = append(errs, fmt.Errorf("%s: %w", entry.Name(), err))
+			errs = append(errs, fmt.Errorf("%s: %w", artifactPath, err))
 		}
 	}
 
@@ -110,7 +106,7 @@ func (r *Runner) runOnce(ctx context.Context) error {
 		return errors.Join(errs...)
 	}
 
-	r.logger.InfoF(ctx, "[capability_sync] processed %d artifact(s)", len(entries))
+	r.logger.InfoF(ctx, "[capability_sync] processed %d artifact(s)", len(artifactPaths))
 	return nil
 }
 
@@ -131,6 +127,39 @@ func hasPluginManifest(dir string) bool {
 		return true
 	}
 	return false
+}
+
+func discoverArtifactPaths(artifactDir string, entries []os.DirEntry) ([]string, error) {
+	artifactPaths := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		artifactPath := filepath.Join(artifactDir, entry.Name())
+		if !entry.IsDir() {
+			if isArtifactFile(entry.Name()) {
+				artifactPaths = append(artifactPaths, artifactPath)
+			}
+			continue
+		}
+
+		if hasPluginManifest(artifactPath) {
+			artifactPaths = append(artifactPaths, artifactPath)
+			continue
+		}
+
+		versionEntries, err := os.ReadDir(artifactPath)
+		if err != nil {
+			return nil, fmt.Errorf("list plugin version directory %s: %w", artifactPath, err)
+		}
+		for _, versionEntry := range versionEntries {
+			if !versionEntry.IsDir() {
+				continue
+			}
+			versionPath := filepath.Join(artifactPath, versionEntry.Name())
+			if hasPluginManifest(versionPath) {
+				artifactPaths = append(artifactPaths, versionPath)
+			}
+		}
+	}
+	return artifactPaths, nil
 }
 
 func isArtifactFile(name string) bool {

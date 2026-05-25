@@ -104,6 +104,12 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 			plugin_mgr.WithPath(fmt.Sprintf("%s -> %s", absSrc, destRoot)),
 		)
 	}
+	if err := ensureExecutableBits(destRoot); err != nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.chmod"),
+			plugin_mgr.WithPath(destRoot),
+		)
+	}
 	if err := persistMergedManifest(destRoot, man); err != nil {
 		return plugin_mgr.Plugin{}, err
 	}
@@ -235,4 +241,26 @@ func copyDir(src, dst string) error {
 		}
 		return os.WriteFile(target, data, info.Mode())
 	})
+}
+
+func ensureExecutableBits(root string) error {
+	for _, rel := range []string{filepath.Join("bin", "plugin"), filepath.Join("bin", "migrate")} {
+		path := filepath.Join(root, rel)
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if info.IsDir() {
+			continue
+		}
+		if info.Mode()&0o111 == 0 {
+			if err := os.Chmod(path, info.Mode()|0o755); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

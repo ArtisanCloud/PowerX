@@ -35,6 +35,9 @@ func TestServiceCreateTriggerAndRuns(t *testing.T) {
 	if job.UUID.String() == "" || job.NextRunAt == nil {
 		t.Fatalf("created job missing uuid or next_run_at: %+v", job)
 	}
+	if job.ActorMemberID != 22 || job.ActorMemberUUID != "member-1" || job.ActorUserID != 33 || job.ActorUserUUID != "user-1" {
+		t.Fatalf("created job actor mismatch: %+v", job)
+	}
 
 	triggered, err := svc.TriggerJob(ctx, job.UUID.String(), "tester", "trace-trigger")
 	if err != nil {
@@ -42,6 +45,9 @@ func TestServiceCreateTriggerAndRuns(t *testing.T) {
 	}
 	if triggered.Run == nil || triggered.Run.Status != models.RunStatusTriggered {
 		t.Fatalf("unexpected trigger result: %+v", triggered)
+	}
+	if triggered.Run.ActorMemberID != 22 || triggered.Run.ActorMemberUUID != "member-1" || triggered.Run.ActorUserID != 33 || triggered.Run.ActorUserUUID != "user-1" {
+		t.Fatalf("triggered run actor mismatch: %+v", triggered.Run)
 	}
 
 	runs, total, err := svc.ListRuns(ctx, ListRunsInput{JobID: job.UUID.String(), Page: 1, PageSize: 10})
@@ -163,9 +169,13 @@ func TestServicePauseResume(t *testing.T) {
 func TestServiceDispatchDueOnceJobOnlyOnce(t *testing.T) {
 	now := time.Date(2026, 5, 20, 8, 0, 0, 0, time.UTC)
 	var published int
+	var publishedPayload map[string]any
 	svc, ctx := newTestServiceWithClock(t, func() time.Time { return now }, eventBusFunc(func(topic string, payload interface{}, ctx context.Context) {
 		if topic == models.TopicSchedulerTriggeredV1 {
 			published++
+			if typed, ok := payload.(map[string]any); ok {
+				publishedPayload = typed
+			}
 		}
 	}))
 	job, err := svc.CreateJob(ctx, JobSpec{
@@ -186,6 +196,10 @@ func TestServiceDispatchDueOnceJobOnlyOnce(t *testing.T) {
 	}
 	if result.DispatchedCount != 1 || published != 1 {
 		t.Fatalf("dispatch=%+v published=%d", result, published)
+	}
+	actor, _ := publishedPayload["actor"].(map[string]any)
+	if actor["type"] != "system" || actor["subject"] != "runtime_scheduler" {
+		t.Fatalf("dispatch actor mismatch: %#v", actor)
 	}
 	result, err = svc.DispatchDue(ctx, DispatchDueInput{Now: now.Add(time.Second), Limit: 10})
 	if err != nil {
@@ -235,6 +249,9 @@ func newTestServiceWithClockAndClaims(t *testing.T, clock func() time.Time, bus 
 	claims := &reqctx.CoreXClaims{
 		TenantUUID: schedulerTestTenant,
 		MemberUUID: "member-1",
+		MemberID:   22,
+		UserUUID:   "user-1",
+		UserID:     33,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Audience: jwt.ClaimStrings{"plugin:com.powerx.plugins.ai-craft"},
 		},
@@ -245,6 +262,10 @@ func newTestServiceWithClockAndClaims(t *testing.T, clock func() time.Time, bus 
 	ctx := reqctx.WithClaims(context.Background(), claims)
 	ctx = reqctx.WithTenantUUID(ctx, schedulerTestTenant)
 	ctx = reqctx.WithSubject(ctx, claims.MemberUUID)
+	ctx = reqctx.WithMemberID(ctx, claims.MemberID)
+	ctx = reqctx.WithMemberUUID(ctx, claims.MemberUUID)
+	ctx = reqctx.WithUserID(ctx, claims.UserID)
+	ctx = reqctx.WithUserUUID(ctx, claims.UserUUID)
 	return svc, ctx
 }
 

@@ -38,11 +38,11 @@ const renderPluginVersion = () => false;
       <button
         @click="toggleExpanded(item.id)"
         :class="[
-          'w-full flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
+          'w-full flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
           collapsed ? 'justify-center px-2' : 'justify-between px-3',
           densityClass,
           hasActiveChild(item.children)
-            ? 'text-blue-700 dark:text-blue-100 bg-blue-500/10 ring-1 ring-blue-500/10'
+            ? 'text-primary bg-primary/10 ring-1 ring-primary/15'
             : 'text-slate-700 dark:text-slate-200 hover:bg-slate-900/5 dark:hover:bg-white/5',
         ]"
       >
@@ -118,11 +118,11 @@ const renderPluginVersion = () => false;
       v-else-if="item.path"
       :to="linkFor(item.path)"
       :class="[
-        'menu-item group relative flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
+        'menu-item group relative flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         collapsed ? 'justify-center px-2' : 'justify-between px-3',
         densityClass,
         isActive(item.path)
-          ? 'text-blue-700 dark:text-blue-100 bg-blue-500/10 ring-1 ring-blue-500/20'
+          ? 'text-primary bg-primary/10 ring-1 ring-primary/20'
           : 'text-slate-700 dark:text-slate-200 hover:bg-slate-900/5 dark:hover:bg-white/5',
       ]"
       :aria-current="isActive(item.path) ? 'page' : undefined"
@@ -130,7 +130,7 @@ const renderPluginVersion = () => false;
     >
       <span
         v-if="isActive(item.path)"
-        class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r bg-blue-500 dark:bg-blue-400"
+        class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r bg-primary"
         aria-hidden="true"
       />
       <div v-if="collapsed" class="flex items-center justify-center">

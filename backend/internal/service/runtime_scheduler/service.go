@@ -101,6 +101,15 @@ type TriggerResult struct {
 	Run *models.SchedulerJobRun `json:"run"`
 }
 
+type actorContext struct {
+	Type       string `json:"type,omitempty"`
+	UserID     uint64 `json:"user_id,omitempty"`
+	UserUUID   string `json:"user_uuid,omitempty"`
+	MemberID   uint64 `json:"member_id,omitempty"`
+	MemberUUID string `json:"member_uuid,omitempty"`
+	Subject    string `json:"subject,omitempty"`
+}
+
 type DispatchDueInput struct {
 	Now   time.Time
 	Limit int
@@ -127,24 +136,30 @@ func (s *Service) CreateJob(ctx context.Context, spec JobSpec, operator, traceID
 	if err != nil {
 		return nil, err
 	}
+	actor := actorFromContext(ctx, strings.TrimSpace(operator))
 	row := &models.SchedulerJob{
-		TenantUUID:     normalized.TenantUUID,
-		OwnerType:      normalized.OwnerType,
-		OwnerID:        normalized.OwnerID,
-		Name:           normalized.Name,
-		ScheduleType:   normalized.ScheduleType,
-		ScheduleExpr:   normalized.ScheduleExpr,
-		Timezone:       normalized.Timezone,
-		Topic:          models.TopicSchedulerTriggeredV1,
-		PayloadJSON:    datatypes.JSON(payload),
-		Status:         models.JobStatusActive,
-		NextRunAt:      next,
-		MisfirePolicy:  normalized.MisfirePolicy,
-		OverlapPolicy:  normalized.OverlapPolicy,
-		IdempotencyKey: normalized.IdempotencyKey,
-		CreatedBy:      strings.TrimSpace(operator),
-		UpdatedBy:      strings.TrimSpace(operator),
-		TraceID:        strings.TrimSpace(traceID),
+		TenantUUID:      normalized.TenantUUID,
+		OwnerType:       normalized.OwnerType,
+		OwnerID:         normalized.OwnerID,
+		Name:            normalized.Name,
+		ScheduleType:    normalized.ScheduleType,
+		ScheduleExpr:    normalized.ScheduleExpr,
+		Timezone:        normalized.Timezone,
+		Topic:           models.TopicSchedulerTriggeredV1,
+		PayloadJSON:     datatypes.JSON(payload),
+		Status:          models.JobStatusActive,
+		NextRunAt:       next,
+		MisfirePolicy:   normalized.MisfirePolicy,
+		OverlapPolicy:   normalized.OverlapPolicy,
+		IdempotencyKey:  normalized.IdempotencyKey,
+		ActorType:       actor.Type,
+		ActorUserID:     actor.UserID,
+		ActorUserUUID:   actor.UserUUID,
+		ActorMemberID:   actor.MemberID,
+		ActorMemberUUID: actor.MemberUUID,
+		CreatedBy:       strings.TrimSpace(operator),
+		UpdatedBy:       strings.TrimSpace(operator),
+		TraceID:         strings.TrimSpace(traceID),
 	}
 	created, err := s.jobs.Create(ctx, row)
 	if err != nil {
@@ -210,6 +225,12 @@ func (s *Service) UpdateJob(ctx context.Context, input UpdateJobInput) (*models.
 	}
 	job.NextRunAt = next
 	job.Topic = models.TopicSchedulerTriggeredV1
+	actor := actorFromContext(ctx, strings.TrimSpace(input.Operator))
+	job.ActorType = actor.Type
+	job.ActorUserID = actor.UserID
+	job.ActorUserUUID = actor.UserUUID
+	job.ActorMemberID = actor.MemberID
+	job.ActorMemberUUID = actor.MemberUUID
 	job.UpdatedBy = strings.TrimSpace(input.Operator)
 	job.TraceID = strings.TrimSpace(input.TraceID)
 	updated, err := s.jobs.Update(ctx, job)
@@ -264,6 +285,12 @@ func (s *Service) ResumeJob(ctx context.Context, jobID, operator, traceID string
 	}
 	job.Status = models.JobStatusActive
 	job.NextRunAt = next
+	actor := actorFromContext(ctx, strings.TrimSpace(operator))
+	job.ActorType = actor.Type
+	job.ActorUserID = actor.UserID
+	job.ActorUserUUID = actor.UserUUID
+	job.ActorMemberID = actor.MemberID
+	job.ActorMemberUUID = actor.MemberUUID
 	job.UpdatedBy = strings.TrimSpace(operator)
 	job.TraceID = strings.TrimSpace(traceID)
 	return s.jobs.Update(ctx, job)
@@ -284,18 +311,24 @@ func (s *Service) TriggerJob(ctx context.Context, jobID, operator, traceID strin
 	if strings.TrimSpace(traceID) == "" {
 		traceID = reqctx.GetTraceID(ctx)
 	}
+	actor := actorFromContext(ctx, strings.TrimSpace(operator))
 	eventID := fmt.Sprintf("scheduler.%s.%d", job.UUID.String(), now.UnixMilli())
 	run := &models.SchedulerJobRun{
-		JobUUID:       job.UUID,
-		TenantUUID:    job.TenantUUID,
-		OwnerType:     job.OwnerType,
-		OwnerID:       job.OwnerID,
-		TriggerSource: models.TriggerSourceManual,
-		ScheduledAt:   job.NextRunAt,
-		FiredAt:       &now,
-		Status:        models.RunStatusTriggered,
-		EventID:       eventID,
-		TraceID:       strings.TrimSpace(traceID),
+		JobUUID:         job.UUID,
+		TenantUUID:      job.TenantUUID,
+		OwnerType:       job.OwnerType,
+		OwnerID:         job.OwnerID,
+		TriggerSource:   models.TriggerSourceManual,
+		ScheduledAt:     job.NextRunAt,
+		FiredAt:         &now,
+		Status:          models.RunStatusTriggered,
+		EventID:         eventID,
+		TraceID:         strings.TrimSpace(traceID),
+		ActorType:       actor.Type,
+		ActorUserID:     actor.UserID,
+		ActorUserUUID:   actor.UserUUID,
+		ActorMemberID:   actor.MemberID,
+		ActorMemberUUID: actor.MemberUUID,
 	}
 	createdRun, err := s.runs.Create(ctx, run)
 	if err != nil {
@@ -314,6 +347,11 @@ func (s *Service) TriggerJob(ctx context.Context, jobID, operator, traceID strin
 	}
 	job.LastRunAt = &now
 	job.UpdatedBy = strings.TrimSpace(operator)
+	job.ActorType = actor.Type
+	job.ActorUserID = actor.UserID
+	job.ActorUserUUID = actor.UserUUID
+	job.ActorMemberID = actor.MemberID
+	job.ActorMemberUUID = actor.MemberUUID
 	job.TraceID = strings.TrimSpace(traceID)
 	if updated, updateErr := s.jobs.Update(ctx, job); updateErr == nil {
 		job = updated
@@ -384,17 +422,23 @@ func (s *Service) dispatchDueJob(ctx context.Context, jobID uuid.UUID, now time.
 		}
 		source := triggerSourceForSchedule(job.ScheduleType)
 		eventID := fmt.Sprintf("scheduler.%s.%d", job.UUID.String(), now.UnixMilli())
+		actor := systemSchedulerActor()
 		run := &models.SchedulerJobRun{
-			JobUUID:       job.UUID,
-			TenantUUID:    job.TenantUUID,
-			OwnerType:     job.OwnerType,
-			OwnerID:       job.OwnerID,
-			TriggerSource: source,
-			ScheduledAt:   job.NextRunAt,
-			FiredAt:       &now,
-			Status:        models.RunStatusTriggered,
-			EventID:       eventID,
-			TraceID:       traceID,
+			JobUUID:         job.UUID,
+			TenantUUID:      job.TenantUUID,
+			OwnerType:       job.OwnerType,
+			OwnerID:         job.OwnerID,
+			TriggerSource:   source,
+			ScheduledAt:     job.NextRunAt,
+			FiredAt:         &now,
+			Status:          models.RunStatusTriggered,
+			EventID:         eventID,
+			TraceID:         traceID,
+			ActorType:       actor.Type,
+			ActorUserID:     actor.UserID,
+			ActorUserUUID:   actor.UserUUID,
+			ActorMemberID:   actor.MemberID,
+			ActorMemberUUID: actor.MemberUUID,
 		}
 		if err := tx.Create(run).Error; err != nil {
 			return err
@@ -448,6 +492,12 @@ func (s *Service) setStatus(ctx context.Context, jobID, status, operator, traceI
 		return nil, err
 	}
 	job.Status = status
+	actor := actorFromContext(ctx, strings.TrimSpace(operator))
+	job.ActorType = actor.Type
+	job.ActorUserID = actor.UserID
+	job.ActorUserUUID = actor.UserUUID
+	job.ActorMemberID = actor.MemberID
+	job.ActorMemberUUID = actor.MemberUUID
 	job.UpdatedBy = strings.TrimSpace(operator)
 	job.TraceID = strings.TrimSpace(traceID)
 	updated, err := s.jobs.Update(ctx, job)
@@ -542,6 +592,8 @@ func (s *Service) normalizeSpec(ctx context.Context, spec JobSpec, requirePayloa
 func (s *Service) buildTriggerPayload(job *models.SchedulerJob, run *models.SchedulerJobRun, triggerSource string, firedAt time.Time) map[string]any {
 	payload := map[string]any{}
 	_ = json.Unmarshal(job.PayloadJSON, &payload)
+	runActor := actorFromRun(run)
+	jobActor := actorFromJob(job)
 	return map[string]any{
 		"job_id":          job.UUID.String(),
 		"job_name":        job.Name,
@@ -555,8 +607,100 @@ func (s *Service) buildTriggerPayload(job *models.SchedulerJob, run *models.Sche
 		"event_id":        run.EventID,
 		"idempotency_key": job.IdempotencyKey,
 		"business_action": payload["business_action"],
+		"actor":           actorToMap(runActor),
+		"job_actor":       actorToMap(jobActor),
 		"payload":         payload,
 	}
+}
+
+func actorFromContext(ctx context.Context, subject string) actorContext {
+	actorType := "user"
+	if strings.EqualFold(strings.TrimSpace(reqctx.GetScope(ctx)), "api_key") {
+		actorType = "api_key"
+	}
+	if strings.TrimSpace(subject) == "" {
+		subject = reqctx.GetSubject(ctx)
+	}
+	if strings.TrimSpace(subject) == "" {
+		subject = reqctx.GetUserUUID(ctx)
+	}
+	return actorContext{
+		Type:       actorType,
+		UserID:     reqctx.GetUserID(ctx),
+		UserUUID:   strings.TrimSpace(reqctx.GetUserUUID(ctx)),
+		MemberID:   reqctx.GetMemberID(ctx),
+		MemberUUID: strings.TrimSpace(reqctx.GetMemberUUID(ctx)),
+		Subject:    strings.TrimSpace(subject),
+	}
+}
+
+func systemSchedulerActor() actorContext {
+	return actorContext{Type: "system", Subject: "runtime_scheduler"}
+}
+
+func actorFromJob(job *models.SchedulerJob) actorContext {
+	if job == nil {
+		return actorContext{}
+	}
+	subject := strings.TrimSpace(job.ActorMemberUUID)
+	if subject == "" {
+		subject = strings.TrimSpace(job.ActorUserUUID)
+	}
+	if subject == "" {
+		subject = strings.TrimSpace(job.UpdatedBy)
+	}
+	return actorContext{
+		Type:       strings.TrimSpace(job.ActorType),
+		UserID:     job.ActorUserID,
+		UserUUID:   strings.TrimSpace(job.ActorUserUUID),
+		MemberID:   job.ActorMemberID,
+		MemberUUID: strings.TrimSpace(job.ActorMemberUUID),
+		Subject:    subject,
+	}
+}
+
+func actorFromRun(run *models.SchedulerJobRun) actorContext {
+	if run == nil {
+		return actorContext{}
+	}
+	subject := strings.TrimSpace(run.ActorMemberUUID)
+	if subject == "" {
+		subject = strings.TrimSpace(run.ActorUserUUID)
+	}
+	if subject == "" && strings.TrimSpace(run.ActorType) == "system" {
+		subject = "runtime_scheduler"
+	}
+	return actorContext{
+		Type:       strings.TrimSpace(run.ActorType),
+		UserID:     run.ActorUserID,
+		UserUUID:   strings.TrimSpace(run.ActorUserUUID),
+		MemberID:   run.ActorMemberID,
+		MemberUUID: strings.TrimSpace(run.ActorMemberUUID),
+		Subject:    subject,
+	}
+}
+
+func actorToMap(actor actorContext) map[string]any {
+	out := map[string]any{}
+	if actor.Type != "" {
+		out["type"] = actor.Type
+	}
+	if actor.Subject != "" {
+		out["subject"] = actor.Subject
+	}
+	if actor.UserID > 0 {
+		out["user_id"] = actor.UserID
+	}
+	if actor.UserUUID != "" {
+		out["user_uuid"] = actor.UserUUID
+	}
+	if actor.MemberID > 0 {
+		out["member_id"] = actor.MemberID
+	}
+	if actor.MemberUUID != "" {
+		out["member_uuid"] = actor.MemberUUID
+	}
+	return out
 }
 
 func computeNextRun(scheduleType, expr, timezone string, now time.Time) (*time.Time, error) {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -277,6 +278,10 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 		clientPath = clean
 	}
 
+	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
+		return
+	}
+
 	// 反代优先
 	r.mu.RLock()
 	up, hasProxy := r.adminUps[pluginID]
@@ -338,6 +343,43 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 
 	// 未挂反代时，落回静态目录（若没有，将 404）
 	r.serveAdminStatic(c, pluginID, clientPath)
+}
+
+func (r *DynamicRouter) tryServeAdminStaticAsset(c *gin.Context, pluginID, clientPath string) bool {
+	method := strings.ToUpper(strings.TrimSpace(c.Request.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	if shouldRewriteAdminDocToIndex(c.Request, p) {
+		return false
+	}
+	if strings.ToLower(filepath.Ext(p)) == "" {
+		return false
+	}
+
+	r.mu.RLock()
+	abs, ok := r.adminDirs[pluginID]
+	r.mu.RUnlock()
+	if !ok || abs == "" {
+		return false
+	}
+
+	absReq := filepath.Join(abs, filepath.Clean(p))
+	if !isSubPath(abs, absReq) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return true
+	}
+	if fi, err := os.Stat(absReq); err != nil || fi.IsDir() {
+		return false
+	}
+
+	applyAdminFrameHeaders(c.Writer.Header())
+	http.ServeFile(c.Writer, c.Request, absReq)
+	return true
 }
 
 func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath string) {

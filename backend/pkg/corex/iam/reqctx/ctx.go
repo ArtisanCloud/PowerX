@@ -56,7 +56,9 @@ const (
 	KeyTenantUUID      ctxKey = "corex.tenant_uuid"
 	KeyTenantUUIDValue ctxKey = "corex.tenant_uuid_value"
 	KeyUserID          ctxKey = "corex.user_id"
+	KeyUserUUID        ctxKey = "corex.user_uuid"
 	KeyMemberID        ctxKey = "corex.member_id"
+	KeyMemberUUID      ctxKey = "corex.member_uuid"
 	KeyIsRoot          ctxKey = "corex.is_root"
 	KeySubject         ctxKey = "corex.subject"
 	KeyAudience        ctxKey = "corex.audience"
@@ -95,8 +97,14 @@ func WithTenantUUIDValue(ctx context.Context, v uuid.UUID) context.Context {
 func WithUserID(ctx context.Context, v uint64) context.Context {
 	return context.WithValue(ctx, KeyUserID, v)
 }
+func WithUserUUID(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyUserUUID, v)
+}
 func WithMemberID(ctx context.Context, v uint64) context.Context {
 	return context.WithValue(ctx, KeyMemberID, v)
+}
+func WithMemberUUID(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyMemberUUID, v)
 }
 func WithIsRoot(ctx context.Context, v bool) context.Context {
 	return context.WithValue(ctx, KeyIsRoot, v)
@@ -230,6 +238,16 @@ func GetUserID(ctx context.Context) uint64 {
 	return 0
 }
 
+func GetUserUUID(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyUserUUID).(string); ok && v != "" {
+		return v
+	}
+	if c := GetClaims(ctx); c != nil && c.UserUUID != "" {
+		return c.UserUUID
+	}
+	return ""
+}
+
 func GetMemberID(ctx context.Context) uint64 {
 	if v, ok := ctx.Value(KeyMemberID).(uint64); ok && v > 0 {
 		return v
@@ -241,6 +259,16 @@ func GetMemberID(ctx context.Context) uint64 {
 		return c.MemberID
 	}
 	return 0
+}
+
+func GetMemberUUID(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyMemberUUID).(string); ok && v != "" {
+		return v
+	}
+	if c := GetClaims(ctx); c != nil && c.MemberUUID != "" {
+		return c.MemberUUID
+	}
+	return ""
 }
 
 func IsRoot(ctx context.Context) bool {
@@ -265,6 +293,9 @@ func GetSubject(ctx context.Context) string {
 	}
 	if c := GetClaims(ctx); c != nil && c.MemberUUID != "" {
 		return c.MemberUUID
+	}
+	if c := GetClaims(ctx); c != nil && c.UserUUID != "" {
+		return c.UserUUID
 	}
 	return ""
 }

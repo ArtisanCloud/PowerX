@@ -56,8 +56,14 @@ func CopyCtxToGin(c *gin.Context) {
 	if v := ctx.Value(KeyUserID); v != nil {
 		c.Set(string(KeyUserID), v)
 	}
+	if v := ctx.Value(KeyUserUUID); v != nil {
+		c.Set(string(KeyUserUUID), v)
+	}
 	if v := ctx.Value(KeyMemberID); v != nil {
 		c.Set(string(KeyMemberID), v)
+	}
+	if v := ctx.Value(KeyMemberUUID); v != nil {
+		c.Set(string(KeyMemberUUID), v)
 	}
 	if v := ctx.Value(KeyIsRoot); v != nil {
 		c.Set(string(KeyIsRoot), v)

@@ -20,6 +20,46 @@ Root 手工 mint 的插件 token 只用于开发和调试。
 | Plugin request token | PowerX -> 插件 | 动态插件代理 `authz_gate` | `plugin:<plugin_id>` | PowerX 代理当前用户请求到插件后端 | 是，但仅限该方向 |
 | Root debug token | Root/Admin -> 插件调试 | Admin system STS handler | `plugin:<plugin_id>` | 开发/调试手工签发 | 否 |
 
+## Claims 标准
+
+PowerX 统一使用 `CoreXClaims` 表达鉴权主体。租户模式下必须区分全局用户和租户成员：
+
+| Claim | 含义 | 用户态 token | 插件服务 STS token |
+| --- | --- | --- | --- |
+| `tid` | 当前租户 UUID | 必填 | 必填 |
+| `tid_n` | 当前租户数值 ID | 必填 | 必填 |
+| `uid` | 全局用户 UUID | 必填 | 不填 |
+| `uid_n` | 全局用户数值 ID | 必填 | 不填 |
+| `mid` | 当前租户成员 UUID | 必填 | 不填 |
+| `mid_n` | 当前租户成员数值 ID | 必填 | 不填 |
+| `email` | 当前用户邮箱 | 可选，短期 token 可携带 | 不填 |
+| `phone` | 当前用户手机号 | 可选，短期 token 可携带 | 不填 |
+| `scope` | token scope | `access` | `access` |
+| `aud` | token audience | `user` 或 `plugin:<plugin_id>` | `powerx:api` |
+| `sub` | JWT subject | `mid`，即当前成员 UUID | `client:<client_id>` |
+
+标准语义：
+
+- `uid/uid_n` 表示全局账号。同一个用户可以加入多个租户。
+- `mid/mid_n` 表示该用户在当前租户下的成员身份。权限、部门、角色、状态、通知订阅和审计归属必须优先使用 `tenant + member`。
+- 用户登录 token 和 Plugin request token 都属于用户态 token，必须带 `tid + uid + mid`。
+- STS access token 属于插件服务 token，代表某个插件实例在某个租户下调用 PowerX，不代表某个登录成员，因此不携带 `uid/mid`。
+- 如果未来需要“插件代表某个用户/member 调用 PowerX”，必须新增明确的 on-behalf-of/delegated actor 机制，不得把普通 STS token 混用成用户态 token。
+
+## 资源边界与行为归属
+
+Token 已经能表达 member 身份，但 PowerX 的平台资源边界不因此全部改成 member 级。
+
+标准规则：
+
+1. 平台资源默认仍按 `tenant_uuid` 隔离，例如 topic、queue、scheduler job、capability、plugin installation、gateway API key。
+2. 行为记录必须补齐 actor 上下文，例如 audit、invocation trace、scheduler run、event metadata、WS session、notification。
+3. 用户态行为 actor 必须记录 `tenant_uuid + uid/uid_n + mid/mid_n`。
+4. 插件服务态行为 actor 必须记录 `tenant_uuid + plugin_id/client_id`，不得伪造 `uid/mid`。
+5. 系统自动触发行为 actor 必须记录 `actor_type=system` 和系统组件名。
+
+也就是说，topic 不因为当前登录成员不同而拆成 member topic；消费者需要个人态过滤时，应从 event payload、metadata 或业务 payload 中读取 member actor。
+
 ## 插件调用 PowerX 底座
 
 插件调用 PowerX 底座业务接口时必须走 STS。
@@ -64,6 +104,8 @@ tenant_uuid 存在且有效
 subject = client:<client_id>
 ```
 
+STS access token 的主体是插件服务账号，不是当前登录用户。该 token 的 claims 必须包含 `tid/tid_n`，不应要求或伪造 `uid/uid_n/mid/mid_n`。需要写审计时应记录 `actor_type=plugin` 或 `actor_type=service_account`，并记录 `client_id/plugin_id/tenant_uuid`。
+
 插件 SDK 应在内存中缓存 STS token，并在剩余寿命不足时刷新。遇到 401/403 可强制刷新一次后重试；仍失败则直接返回鉴权错误。
 
 ## PowerX 代理当前用户请求到插件
@@ -97,12 +139,17 @@ plugin:<plugin_id>
 ```json
 {
   "tid": "tenant_uuid",
+  "tid_n": 1,
   "uid": "user_uuid",
+  "uid_n": 10,
   "mid": "member_uuid",
+  "mid_n": 20,
   "email": "user@example.invalid",
   "phone": "0000000000"
 }
 ```
+
+Plugin request token 必须表达当前登录成员身份。插件后端做业务归属、通知、审计或权限二次判断时，应使用 `tenant + member`，不要只使用 `user`。
 
 插件不得把该 token 当作调用 PowerX 底座业务接口的凭证。
 
@@ -162,7 +209,10 @@ POWERX_GRPC_UPSTREAM_TENANT_UUID
 
 - 插件业务调用 PowerX 底座时，使用 `Authorization: Bearer <sts_access_token>`。
 - STS token 的 `aud` 为 `powerx:api`。
+- STS token 代表插件服务身份，包含 `tid/tid_n`，不包含用户态 `uid/mid`。
 - PowerX 代理到插件后端时，使用 `Authorization: Bearer <plugin_request_token>`。
 - Plugin request token 的 `aud` 为 `plugin:<plugin_id>`。
+- Plugin request token 包含当前用户态 claims：`tid/tid_n`、`uid/uid_n`、`mid/mid_n`。
+- 用户登录 token 和 refresh 后的新 access token 都保留 `tid + uid + mid`。
 - 插件业务代码不读取 `PX_PLUGIN_TOOL_TOKEN` 或 `PX_TOOL_TOKEN`。
 - 旧的 `X-PowerX-CTX*` 和 `px_ctx*` 链路不得恢复。

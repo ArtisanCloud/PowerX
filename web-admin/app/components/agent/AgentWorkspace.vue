@@ -523,6 +523,14 @@ const handleTeamSelect = async (teamId: string) => {
   await loadTeamMembers(picked);
 };
 
+const handleSidebarSelect = async (value: string) => {
+  if (workspaceMode.value === "team") {
+    await handleTeamSelect(value);
+    return;
+  }
+  await handleAgentSelect(value);
+};
+
 const handleSendMessage = async (content: string) => {
   if (!canSendMessage.value) return;
   if (isSending.value) return;
@@ -914,7 +922,7 @@ const getAgentIcon = (agent: Agent) => {
             :sessions-by-agent="sessionsByAgent"
             :sessions-loading-by-agent="sessionsLoadingByAgent"
             :has-more-by-agent="hasMoreByAgent"
-            @select="workspaceMode === 'team' ? handleTeamSelect : handleAgentSelect"
+            @select="handleSidebarSelect"
             @create-agent="handleCreateAgent"
             @edit-agent="handleEditAgent"
             @new-session="handleNewSession"

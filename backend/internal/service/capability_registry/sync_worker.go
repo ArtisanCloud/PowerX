@@ -519,19 +519,233 @@ func loadManifest(root string) (*plugin_mgr.Manifest, error) {
 func loadCatalog(root string) (*capabilityCatalog, error) {
 	path := filepath.Join(root, "capabilities", "catalog.json")
 	raw, err := os.ReadFile(path)
+	if err == nil {
+		var catalog capabilityCatalog
+		if err := json.Unmarshal(raw, &catalog); err != nil {
+			return nil, err
+		}
+		return &catalog, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return loadCatalogFromPluginCapabilities(root)
+}
+
+func loadCatalogFromPluginCapabilities(root string) (*capabilityCatalog, error) {
+	path := filepath.Join(root, "plugin.d", "capabilities.yaml")
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var catalog capabilityCatalog
-	if err := json.Unmarshal(raw, &catalog); err != nil {
-		return nil, err
+
+	var manifest capabilityManifestCatalog
+	if err := yaml.Unmarshal(raw, &manifest); err != nil {
+		return nil, fmt.Errorf("parse plugin.d/capabilities.yaml: %w", err)
 	}
-	return &catalog, nil
+	if len(manifest.Capabilities.Provides) == 0 {
+		return nil, errors.New("plugin.d/capabilities.yaml has no capabilities.provides")
+	}
+
+	catalog := &capabilityCatalog{
+		Capabilities: make([]catalogCapability, 0, len(manifest.Capabilities.Provides)),
+	}
+	for _, provide := range manifest.Capabilities.Provides {
+		capability, err := loadDescriptorCapability(root, provide)
+		if err != nil {
+			return nil, err
+		}
+		catalog.Capabilities = append(catalog.Capabilities, capability)
+	}
+	return catalog, nil
+}
+
+func loadDescriptorCapability(root string, provide capabilityManifestProvide) (catalogCapability, error) {
+	descriptor := strings.TrimSpace(provide.Descriptor)
+	if descriptor == "" {
+		return catalogCapability{}, fmt.Errorf("capability %s descriptor missing", provide.ID)
+	}
+	descriptorPath := filepath.Join(root, filepath.Clean(descriptor))
+	if !strings.HasPrefix(filepath.Clean(descriptorPath), filepath.Clean(root)) {
+		return catalogCapability{}, fmt.Errorf("capability descriptor path escapes plugin root: %s", descriptor)
+	}
+	raw, err := os.ReadFile(descriptorPath)
+	if err != nil {
+		return catalogCapability{}, fmt.Errorf("read capability descriptor %s: %w", descriptor, err)
+	}
+
+	var descriptorDoc struct {
+		ID          string `yaml:"id"`
+		Type        string `yaml:"type"`
+		Version     string `yaml:"version"`
+		Title       string `yaml:"title"`
+		Description string `yaml:"description"`
+		Status      string `yaml:"status"`
+		RBAC        struct {
+			Resource string   `yaml:"resource"`
+			Actions  []string `yaml:"actions"`
+		} `yaml:"rbac"`
+		Metadata struct {
+			Protocols map[string]any `yaml:"protocols"`
+		} `yaml:"metadata"`
+	}
+	if err := yaml.Unmarshal(raw, &descriptorDoc); err != nil {
+		return catalogCapability{}, fmt.Errorf("parse capability descriptor %s: %w", descriptor, err)
+	}
+
+	capabilityID := strings.TrimSpace(provide.ID)
+	if capabilityID == "" {
+		capabilityID = strings.TrimSpace(descriptorDoc.ID)
+	}
+	if capabilityID == "" {
+		return catalogCapability{}, fmt.Errorf("capability descriptor %s id missing", descriptor)
+	}
+
+	protocols, err := buildProtocolBindings(descriptorDoc.Metadata.Protocols, provide)
+	if err != nil {
+		return catalogCapability{}, fmt.Errorf("%s protocols: %w", capabilityID, err)
+	}
+
+	title := strings.TrimSpace(descriptorDoc.Title)
+	if title == "" {
+		title = capabilityID
+	}
+	version := strings.TrimSpace(provide.Version)
+	if version == "" {
+		version = strings.TrimSpace(descriptorDoc.Version)
+	}
+
+	annotations := mustRawJSON(map[string]any{
+		"descriptor": descriptor,
+		"type":       strings.TrimSpace(descriptorDoc.Type),
+		"version":    version,
+		"rbac": map[string]any{
+			"resource": strings.TrimSpace(descriptorDoc.RBAC.Resource),
+			"actions":  descriptorDoc.RBAC.Actions,
+		},
+	})
+
+	return catalogCapability{
+		ID:          capabilityID,
+		Type:        strings.TrimSpace(descriptorDoc.Type),
+		Version:     version,
+		Title:       title,
+		Description: strings.TrimSpace(descriptorDoc.Description),
+		ToolScope:   append([]string(nil), descriptorDoc.RBAC.Actions...),
+		Protocols:   protocols,
+		Annotations: annotations,
+		Status:      strings.TrimSpace(descriptorDoc.Status),
+	}, nil
+}
+
+func buildProtocolBindings(protocols map[string]any, provide capabilityManifestProvide) ([]models.ProtocolBinding, error) {
+	if len(protocols) == 0 {
+		return nil, errors.New("metadata.protocols missing")
+	}
+	bindings := make([]models.ProtocolBinding, 0)
+	for channel, raw := range protocols {
+		channel = strings.TrimSpace(channel)
+		if channel == "" {
+			continue
+		}
+		items, err := normalizeProtocolItems(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", channel, err)
+		}
+		for _, item := range items {
+			binding := models.ProtocolBinding{
+				Channel:   channel,
+				Endpoint:  strings.TrimSpace(readString(item, "path", "endpoint")),
+				Method:    strings.TrimSpace(readString(item, "method")),
+				RPC:       strings.TrimSpace(readString(item, "rpc")),
+				ToolRef:   strings.TrimSpace(readString(item, "tool_ref", "toolRef")),
+				ToolScope: strings.TrimSpace(readString(item, "tool_scope", "toolScope")),
+				AuthType:  strings.TrimSpace(readString(item, "auth_type", "authType")),
+			}
+			if schemaRef := schemaRefForChannel(channel, provide); schemaRef != "" {
+				binding.SchemaRef = schemaRef
+			}
+			bindings = append(bindings, binding)
+		}
+	}
+	if len(bindings) == 0 {
+		return nil, errors.New("metadata.protocols has no bindings")
+	}
+	return bindings, nil
+}
+
+func normalizeProtocolItems(raw any) ([]map[string]any, error) {
+	switch value := raw.(type) {
+	case []any:
+		items := make([]map[string]any, 0, len(value))
+		for _, entry := range value {
+			item, ok := entry.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("binding must be object")
+			}
+			items = append(items, item)
+		}
+		return items, nil
+	case map[string]any:
+		return []map[string]any{value}, nil
+	default:
+		return nil, fmt.Errorf("binding must be object or array")
+	}
+}
+
+func readString(item map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := item[key]; ok {
+			if s, ok := value.(string); ok {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func schemaRefForChannel(channel string, provide capabilityManifestProvide) string {
+	if !strings.EqualFold(channel, "rest") {
+		return ""
+	}
+	if schema := strings.TrimSpace(provide.Schemas.Input); schema != "" {
+		return schema
+	}
+	if schema := strings.TrimSpace(provide.Schemas.Output); schema != "" {
+		return schema
+	}
+	return ""
+}
+
+func mustRawJSON(value interface{}) json.RawMessage {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return json.RawMessage([]byte("{}"))
+	}
+	return json.RawMessage(raw)
 }
 
 type capabilityCatalog struct {
 	Plugin       pluginMetadata      `json:"plugin"`
 	Capabilities []catalogCapability `json:"capabilities"`
+}
+
+type capabilityManifestCatalog struct {
+	Capabilities struct {
+		Provides []capabilityManifestProvide `yaml:"provides"`
+	} `yaml:"capabilities"`
+}
+
+type capabilityManifestProvide struct {
+	ID         string                          `yaml:"id"`
+	Version    string                          `yaml:"version"`
+	Descriptor string                          `yaml:"descriptor"`
+	Schemas    capabilityManifestProvideSchema `yaml:"schemas"`
+}
+
+type capabilityManifestProvideSchema struct {
+	Input  string `yaml:"input"`
+	Output string `yaml:"output"`
 }
 
 type pluginMetadata struct {
@@ -543,6 +757,8 @@ type pluginMetadata struct {
 type catalogCapability struct {
 	ID                string                    `json:"id"`
 	CapabilityIDAlias string                    `json:"capability_id"`
+	Type              string                    `json:"-"`
+	Version           string                    `json:"-"`
 	Title             string                    `json:"title"`
 	Description       string                    `json:"description"`
 	Categories        []string                  `json:"categories"`

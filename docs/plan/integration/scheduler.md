@@ -92,6 +92,11 @@ scheduler_jobs:
   overlap_policy text not null      # skip | queue | parallel
   retry_policy_json jsonb
   idempotency_key text
+  actor_type text                  # user | api_key | plugin | service_account | system
+  actor_user_id bigint
+  actor_user_uuid text
+  actor_member_id bigint
+  actor_member_uuid text
   created_by text
   created_at timestamptz not null
   updated_at timestamptz not null
@@ -108,6 +113,11 @@ scheduler_job_runs:
   status text not null              # triggered | skipped | failed
   event_id text
   trace_id text
+  actor_type text
+  actor_user_id bigint
+  actor_user_uuid text
+  actor_member_id bigint
+  actor_member_uuid text
   error_code text
   error_message text
   created_at timestamptz not null
@@ -119,6 +129,7 @@ scheduler_job_runs:
 2. `owner_type=plugin` 时 `owner_id` 必须是插件 ID。
 3. `topic` 首期固定为 `powerx.runtime.scheduler.triggered.v1`，不允许业务插件自定义任意 topic。
 4. `tenant_uuid` 只能来自 token claims 或受信任宿主上下文，不接受未授权覆盖。
+5. job 资源归属保持 `tenant_uuid + owner_type + owner_id`，不按 member 拆分；创建、更新、手动触发、自动触发的行为归属必须记录 actor。
 
 ## 6. 调度类型
 
@@ -200,6 +211,18 @@ Payload 最小结构：
   "trace_id": "trace-id",
   "idempotency_key": "tenant:plugin:job:business-key",
   "business_action": "sample_progress_50",
+  "actor": {
+    "type": "system",
+    "subject": "runtime_scheduler"
+  },
+  "job_actor": {
+    "type": "user",
+    "user_id": 33,
+    "user_uuid": "user_uuid",
+    "member_id": 22,
+    "member_uuid": "member_uuid",
+    "subject": "member_uuid"
+  },
   "payload": {}
 }
 ```
@@ -207,8 +230,10 @@ Payload 最小结构：
 发布要求：
 
 1. 事件必须带 `tenant_uuid`、`owner_id`、`job_id`、`trace_id`。
-2. 事件发布失败必须记录 run 失败，并按 retry policy 处理。
-3. 消费方 ack/nack 归属 Event Bus / TaskBus，不由 Scheduler 直接调用业务代码。
+2. 事件必须带 `actor`。手动触发时 `actor` 是当前用户/member 或 API key；到点自动触发时 `actor.type=system`。
+3. 事件应带 `job_actor`，表示 job 最近一次创建/更新/操作的用户态归属，便于业务侧追踪来源。
+4. 事件发布失败必须记录 run 失败，并按 retry policy 处理。
+5. 消费方 ack/nack 归属 Event Bus / TaskBus，不由 Scheduler 直接调用业务代码。
 
 ## 10. Framework 对接方式
 
@@ -269,6 +294,9 @@ scheduler.RegisterHandler("sample_progress_50", func(ctx context.Context, job sc
 8. `trigger_source`
 9. `trace_id`
 10. `event_id`
+11. `actor_type`
+12. `actor_member_id`
+13. `actor_user_id`
 
 指标建议：
 
