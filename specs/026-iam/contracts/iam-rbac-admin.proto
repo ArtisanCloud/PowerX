@@ -8,6 +8,12 @@ service IamRbacAdminService {
   rpc GetMeContext(GetMeContextRequest) returns (GetMeContextResponse);
   rpc SwitchTenant(SwitchTenantRequest) returns (GetMeContextResponse);
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+  rpc SignupSaaSTenant(SignupSaaSTenantRequest) returns (SignupSaaSTenantResponse);
+  rpc GetIAMMigrationReport(GetIAMMigrationReportRequest) returns (IAMMigrationReportResponse);
+  rpc FixMissingTenantOwner(FixMissingTenantOwnerRequest) returns (IAMMigrationReportResponse);
+  rpc StartRootSupportSession(StartRootSupportSessionRequest) returns (RootSupportSessionResponse);
+  rpc EndRootSupportSession(EndRootSupportSessionRequest) returns (RootSupportSessionResponse);
+  rpc ListTenantPluginInstances(ListTenantPluginInstancesRequest) returns (ListTenantPluginInstancesResponse);
 }
 
 message GetMeContextRequest {}
@@ -32,9 +38,7 @@ message GetMeContextResponse {
   int64 current_member_id = 3;
   UserSummary user = 4;
   repeated TenantMembership members = 5;
-  string ctx = 6;
-  string ctx_sig = 7;
-  string ctx_jwt = 8;
+  string current_member_uuid = 6;
 }
 
 message UserSummary {
@@ -50,4 +54,72 @@ message TenantMembership {
   string tenant_name = 2;
   int64 member_id = 3;
   bool is_admin = 4;
+  string member_uuid = 5;
+  bool is_owner = 6;
+}
+
+message SignupSaaSTenantRequest {
+  string tenant_key = 1;
+  string tenant_name = 2;
+  string plan = 3;
+  string owner_email = 4;
+  string owner_phone = 5;
+  string owner_password = 6;
+  string owner_display_name = 7;
+}
+
+message SignupSaaSTenantResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  GetMeContextResponse context = 3;
+}
+
+message GetIAMMigrationReportRequest {}
+
+message FixMissingTenantOwnerRequest {
+  bool dry_run = 1;
+}
+
+message IAMMigrationReportResponse {
+  repeated UserSummary root_users = 1;
+  string system_tenant_status = 2;
+  string root_system_member_status = 3;
+  repeated string tenant_owner_missing = 4;
+  repeated string tenant_admin_missing = 5;
+  repeated string auto_fix_candidates = 6;
+  repeated string manual_fix_required = 7;
+}
+
+message StartRootSupportSessionRequest {
+  string target_tenant_uuid = 1;
+  string reason = 2;
+  string mode = 3;
+}
+
+message EndRootSupportSessionRequest {
+  int64 id = 1;
+}
+
+message RootSupportSessionResponse {
+  int64 id = 1;
+  int64 root_user_id = 2;
+  string target_tenant_uuid = 3;
+  string reason = 4;
+  string mode = 5;
+  string status = 6;
+  string started_at = 7;
+  string ended_at = 8;
+}
+
+message ListTenantPluginInstancesRequest {}
+
+message ListTenantPluginInstancesResponse {
+  repeated TenantPluginInstance items = 1;
+}
+
+message TenantPluginInstance {
+  string tenant_uuid = 1;
+  string plugin_id = 2;
+  string version = 3;
+  bool enabled = 4;
 }

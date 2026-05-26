@@ -1,11 +1,41 @@
 openapi: 3.0.3
 info:
   title: PowerX IAM User Role RBAC Admin API
-  version: "0.1.0"
-  description: HTTP contract for IAM role boundaries, user-management action semantics, and me/context consistency.
+  version: "0.2.0"
+  description: HTTP contract for IAM role boundaries, SaaS signup, root support sessions, tenant plugin isolation, and me/context consistency.
 servers:
   - url: https://api.powerx.local/api/v1
 paths:
+  /public/saas/signup:
+    post:
+      summary: Create a SaaS tenant and bootstrap owner/admin member
+      operationId: signupSaaSTenant
+      tags: [SaaSSignup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaaSSignupRequest'
+      responses:
+        '200':
+          description: Tenant created and current context issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaaSSignupResponse'
+        '400':
+          description: Invalid request or duplicate tenant key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Tenant key or account conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /admin/user/auth/me/context:
     get:
       summary: Get current identity context for UI routing
@@ -129,6 +159,103 @@ paths:
       responses:
         '200':
           description: Permission decision
+  /admin/iam/migration/report:
+    get:
+      summary: Inspect existing IAM data before SaaS semantic migration
+      operationId: getIAMMigrationReport
+      tags: [IAMMigration]
+      responses:
+        '200':
+          description: Migration inspection report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMMigrationReportResponse'
+  /admin/iam/migration/fix-owner:
+    post:
+      summary: Auto-fill tenant owner role for deterministic candidates
+      operationId: fixMissingTenantOwner
+      tags: [IAMMigration]
+      responses:
+        '200':
+          description: Owner role auto-fix result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMMigrationReportResponse'
+  /admin/root/support-sessions:
+    post:
+      summary: Start a root support session for a target tenant
+      operationId: startRootSupportSession
+      tags: [RootSupport]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RootSupportSessionCreateRequest'
+      responses:
+        '200':
+          description: Support session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RootSupportSessionResponse'
+  /admin/root/support-sessions/{id}/end:
+    post:
+      summary: End a root support session
+      operationId: endRootSupportSession
+      tags: [RootSupport]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Support session ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RootSupportSessionResponse'
+  /admin/plugins/tenant-instances:
+    get:
+      summary: List plugin instances enabled for current tenant
+      operationId: listTenantPluginInstances
+      tags: [TenantPlugins]
+      responses:
+        '200':
+          description: Tenant plugin instances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantPluginInstanceListResponse'
+  /admin/plugins/tenant-instances/{plugin_id}/enable:
+    post:
+      summary: Enable a plugin package for current tenant
+      operationId: enableTenantPluginInstance
+      tags: [TenantPlugins]
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Plugin enabled for tenant
+  /admin/plugins/tenant-instances/{plugin_id}/disable:
+    post:
+      summary: Disable a plugin package for current tenant
+      operationId: disableTenantPluginInstance
+      tags: [TenantPlugins]
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Plugin disabled for tenant
 components:
   schemas:
     MeContextResponse:
@@ -156,9 +283,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MemberTenant'
-        ctx: { type: string, nullable: true }
-        ctx_sig: { type: string, nullable: true }
-        ctx_jwt: { type: string, nullable: true }
     UserSummary:
       type: object
       properties:
@@ -175,7 +299,121 @@ components:
           format: uuid
         tenant_name: { type: string }
         member_id: { type: integer }
+        member_uuid:
+          type: string
+          format: uuid
         is_admin: { type: boolean }
+        is_owner: { type: boolean }
+    SaaSSignupRequest:
+      type: object
+      required: [tenant_key, tenant_name, owner_password]
+      properties:
+        tenant_key: { type: string }
+        tenant_name: { type: string }
+        plan: { type: string, default: free }
+        owner_email: { type: string }
+        owner_phone: { type: string }
+        owner_password: { type: string, format: password }
+        owner_display_name: { type: string }
+    SaaSSignupResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            access_token: { type: string }
+            refresh_token: { type: string }
+            context:
+              $ref: '#/components/schemas/MeContext'
+    RootSupportSessionCreateRequest:
+      type: object
+      required: [target_tenant_uuid, reason]
+      properties:
+        target_tenant_uuid:
+          type: string
+          format: uuid
+        reason: { type: string }
+        mode:
+          type: string
+          enum: [read_only, write_enabled]
+          default: read_only
+    RootSupportSession:
+      type: object
+      properties:
+        id: { type: integer }
+        root_user_id: { type: integer }
+        target_tenant_uuid:
+          type: string
+          format: uuid
+        reason: { type: string }
+        mode:
+          type: string
+          enum: [read_only, write_enabled]
+        status:
+          type: string
+          enum: [active, ended, revoked]
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+    RootSupportSessionResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/RootSupportSession'
+    TenantPluginInstance:
+      type: object
+      properties:
+        tenant_uuid:
+          type: string
+          format: uuid
+        plugin_id: { type: string }
+        version: { type: string }
+        enabled: { type: boolean }
+        config:
+          type: object
+          additionalProperties: true
+    TenantPluginInstanceListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantPluginInstance'
+    IAMMigrationReportResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            root_users:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserSummary'
+            system_tenant_status:
+              type: string
+              enum: [ok, missing, invalid]
+            root_system_member_status:
+              type: string
+              enum: [ok, missing, invalid]
+            tenant_owner_missing:
+              type: array
+              items: { type: string, format: uuid }
+            tenant_admin_missing:
+              type: array
+              items: { type: string, format: uuid }
+            auto_fix_candidates:
+              type: array
+              items: { type: string, format: uuid }
+            manual_fix_required:
+              type: array
+              items: { type: string, format: uuid }
     ErrorResponse:
       type: object
       properties:

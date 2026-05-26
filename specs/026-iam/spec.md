@@ -71,6 +71,76 @@
 
 ---
 
+### User Story 5 - SaaS 自助开通租户 (Priority: P1)
+
+作为 SaaS 新用户，我希望通过公开注册入口创建自己的租户，并自动成为该租户 owner/admin，以便不用平台 root 手工初始化租户。
+
+**Why this priority**: SaaS 模式的核心入口是 tenant bootstrap；没有这个能力，多租户仍然依赖平台后台手动开通。
+
+**Independent Test**: 使用新邮箱注册新租户，验证 tenant、user、member、role binding、默认租户设置在一个事务语义下创建完成，且登录后上下文指向新租户。
+
+**Acceptance Scenarios**:
+
+1. **Given** 新邮箱和唯一 tenant key，**When** 调用 SaaS signup，**Then** 系统创建 tenant、user、member，并绑定 `role_owner`、`role_admin`、`role_user`。
+2. **Given** 已有邮箱且密码正确，**When** 调用 SaaS signup 创建第二租户，**Then** 系统复用 user 并创建新的 tenant member。
+3. **Given** 已有邮箱但密码错误，**When** 调用 SaaS signup，**Then** 系统拒绝创建租户。
+4. **Given** tenant key 已存在，**When** 调用 SaaS signup，**Then** 系统拒绝并不留下半成品 tenant。
+
+---
+
+### User Story 6 - Root 平台身份与租户身份隔离 (Priority: P1)
+
+作为平台 root，我希望默认只进入平台控制台，而不是被自动当成某个租户管理员，以避免误操作租户业务配置。
+
+**Why this priority**: root 与租户 admin 混用会直接破坏 SaaS 权限边界，尤其影响 AI Settings、插件启用、业务数据页面。
+
+**Independent Test**: 使用 root 登录，验证默认菜单、AI Settings、租户插件业务页、租户切换行为都符合平台身份边界。
+
+**Acceptance Scenarios**:
+
+1. **Given** root 已登录，**When** 打开默认后台，**Then** 进入 Platform Console，而不是 Tenant Console。
+2. **Given** root 未进入 Support Session，**When** 访问租户 AI Settings，**Then** 系统拒绝或隐藏入口。
+3. **Given** root 未进入 Support Session，**When** 访问租户插件业务页面，**Then** 系统拒绝或隐藏入口。
+4. **Given** root 需要查看某租户，**When** 创建 Support Session，**Then** 系统记录 target tenant、reason、actor 和审计事件。
+
+---
+
+### User Story 7 - 租户插件实例隔离 (Priority: P2)
+
+作为租户 owner/admin，我希望启用插件只影响当前租户，不会重装或删除其他租户正在使用的插件包。
+
+**Why this priority**: 当前插件物理安装目录是全局版本维度，SaaS 场景必须拆分全局插件包与租户插件实例，否则一个租户操作会影响其他租户。
+
+**Independent Test**: 租户 A 启用插件、租户 B 不启用；分别访问菜单、插件 admin、插件 api，验证租户隔离生效。
+
+**Acceptance Scenarios**:
+
+1. **Given** 租户 A 启用插件且租户 B 未启用，**When** 两个租户加载菜单，**Then** 只有租户 A 看到插件菜单。
+2. **Given** 租户 B 未启用插件，**When** 直接访问 `/_p/<plugin>/admin`，**Then** 系统拒绝。
+3. **Given** 租户 B 未启用插件，**When** 直接访问 `/_p/<plugin>/api`，**Then** 系统拒绝。
+4. **Given** 租户 A 停用插件，**When** 租户 B 使用同一插件包，**Then** 租户 B 不受影响。
+5. **Given** 租户 A 和租户 B 都启用同一插件，**When** 查看 PowerX 节点内存运行时，**Then** 同一插件只存在一组全局运行进程，而不是每租户一组进程。
+6. **Given** 插件进程收到来自不同租户的请求，**When** 处理业务逻辑，**Then** 插件必须从当前请求/事件上下文识别 tenant/member，而不是使用进程启动时固定租户。
+
+---
+
+### User Story 8 - 历史数据语义迁移可控 (Priority: P2)
+
+作为平台运维人员，我希望 SaaS IAM 语义上线时不破坏已有组织架构、root 安装记录和租户成员关系，并能通过巡检发现需要补齐的数据。
+
+**Why this priority**: 服务器已有组织架构数据不能靠人工删改；迁移必须先巡检、再自动补齐可推导数据，并明确无法推导的数据。
+
+**Independent Test**: 在已有数据环境执行 IAM 巡检，验证 root、system tenant、业务租户 owner/admin 缺失情况可见，且自动补齐不会破坏部门和角色关系。
+
+**Acceptance Scenarios**:
+
+1. **Given** 已有 root user 和 `system` tenant member，**When** 执行迁移，**Then** 两者不会被删除或重建。
+2. **Given** 业务租户缺少 `role_owner` 但存在 `role_admin`，**When** 执行补齐迁移，**Then** 系统把最早 admin 补为 owner 并写审计。
+3. **Given** 业务租户没有 active admin，**When** 执行巡检，**Then** 系统只报告异常，不自动猜测 owner。
+4. **Given** 已有部门树和成员部门关系，**When** 执行迁移后登录，**Then** 组织架构显示不变。
+
+---
+
 ### Edge Cases
 
 - root 账号仅存在一个系统租户成员关系时，仍需保持其跨租户管理能力表达清晰。
@@ -78,6 +148,12 @@
 - 会话未过期但租户成员关系发生变更时，页面需及时反映新的可操作边界。
 - 跨标签页中一个标签执行租户切换，其他标签页应避免出现静默错位。
 - 新租户尚无成员数据时，空态文案需区分“无数据”与“无权限”。
+- root 默认不应被前端 `isCurrentTenantAdmin` 判定为当前业务租户 admin。
+- 插件物理包已安装但当前租户未启用时，菜单和代理入口都必须拒绝访问。
+- 插件全局进程正在运行但当前租户停用时，停用操作不得停止全局进程。
+- 插件进程启动环境不得绑定某一个业务租户作为全局运行时身份。
+- SaaS signup 任一步失败时不得留下半成品 tenant/member/role binding。
+- 历史租户缺少 owner/admin 时必须显式报告，不允许静默降级为 root 代管。
 
 ## Requirements *(mandatory)*
 
@@ -96,6 +172,27 @@
 - **FR-013**: 新租户初始化管理员的角色绑定必须显式包含 `role_admin`（`role_owner` 仅作为可选附加角色），以保证 `me/context.members[].is_admin` 与实际管理权限一致。
 - **FR-011**: 跨租户访问尝试必须被拒绝，并返回一致的授权失败语义。
 - **FR-012**: 用户管理功能文档必须包含角色边界、交互语义和状态一致性规则，作为实现与验收依据。
+- **FR-014**: 系统必须提供 SaaS 自助注册接口，用于事务化创建 tenant、owner user/member、默认角色绑定和基础租户配置。
+- **FR-015**: SaaS 自助注册的首个成员必须绑定 `role_owner`、`role_admin`、`role_user`。
+- **FR-016**: 已有 user 创建新租户时，系统必须重新校验登录凭证，禁止只凭 email/phone 复用账号。
+- **FR-017**: 租户切换必须让 token/context 同步指向新的 `tenant_uuid + member_id/member_uuid`，禁止只修改前端本地状态。
+- **FR-018**: root 默认必须进入 Platform Console，且不得被自动视为当前业务租户 owner/admin。
+- **FR-019**: root 访问业务租户上下文必须通过 Support Session，并记录 target tenant、reason、actor、start/end time 和写操作审计。
+- **FR-020**: 系统必须区分全局 Plugin Package 与 Tenant Plugin Instance。
+- **FR-021**: 插件菜单、`/_p/<plugin>/admin`、`/_p/<plugin>/api` 必须校验当前租户是否启用对应插件实例。
+- **FR-022**: 租户启用/停用插件不得删除或重装全局插件物理包，也不得影响其他租户实例。
+- **FR-027**: 插件运行时进程必须按全局插件包维度管理，同一 PowerX 节点内同一 `plugin_id` 不得因多个租户启用而启动多组进程。
+- **FR-028**: 租户插件实例启用/停用只能改变租户级可见性、配置、凭证和 capability 状态，不得直接停止全局插件进程。
+- **FR-029**: 插件后端必须从每次请求或事件上下文解析 `tenant_uuid + member_uuid`，禁止把进程启动时注入的某个租户作为全局当前租户。
+- **FR-030**: 插件后台任务事件必须携带 `tenant_uuid`、`plugin_id`、业务 payload 和幂等 key，确保共享进程内的租户隔离。
+- **FR-031**: 系统必须明确区分租户生命周期、插件包生命周期、租户插件实例生命周期和插件共享运行时生命周期。
+- **FR-032**: 租户暂停或归档时，系统必须关闭该租户插件业务入口和后台任务，但不得停止全局插件运行时。
+- **FR-033**: 插件包卸载或全局停用必须由 Root/Platform 执行，并必须检查或处理受影响的租户实例。
+- **FR-034**: 租户插件实例过期或停用时，系统必须保留租户配置和历史业务数据，除非执行明确的数据删除流程。
+- **FR-023**: IAM 迁移必须保留现有 root user、`system` tenant member、setup 完成记录、组织架构和角色绑定数据。
+- **FR-024**: IAM 迁移必须提供只读巡检能力，报告 root、system tenant、业务租户 owner/admin 缺失情况。
+- **FR-025**: 对缺少 `role_owner` 但存在 active `role_admin` 的历史租户，系统可以自动补齐 owner，并必须写审计。
+- **FR-026**: 对缺少 active admin 的历史租户，系统必须只报告异常，禁止自动猜测 owner。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -103,6 +200,10 @@
 - **Tenant Membership**: 用户与租户之间的成员关系，定义用户在租户内的角色与管理权限。
 - **Role Capability Boundary**: 角色对应的可见范围与可执行动作集合，用于页面分流与操作授权判定。
 - **User Management Action**: 用户管理页面内可触发的动作语义实体，至少包含查看详情、切换上下文、页面跳转三类。
+- **SaaS Signup Request**: 公开注册新租户的请求，包含 tenant key/name、owner identifier、凭证和初始套餐。
+- **Root Support Session**: root 进入某业务租户上下文的显式支持会话，必须具备原因和审计边界。
+- **Tenant Plugin Instance**: 某租户启用某全局插件包后的租户实例状态和配置。
+- **IAM Migration Report**: 历史 IAM 数据巡检结果，包含可自动补齐项和必须人工处理项。
 
 ## Success Criteria *(mandatory)*
 
@@ -113,6 +214,10 @@
 - **SC-003**: 在缓存冲突与跨标签场景测试中，角色视图与服务端上下文一致率达到 100%。
 - **SC-004**: 新租户注册后，租户管理员在 5 分钟内可完成首次成员管理操作的成功率达到 95% 以上。
 - **SC-005**: 与用户管理权限语义相关的误报/工单数量在一个发布周期内下降 60% 以上。
+- **SC-006**: SaaS signup 在重复 key、错误密码、初始化失败场景中半成品 tenant/member 残留率为 0%。
+- **SC-007**: root 默认菜单中租户 AI Settings 和租户插件业务入口误展示率为 0%。
+- **SC-008**: 插件租户隔离回归中，未启用租户直接访问插件 admin/api 的拒绝率为 100%。
+- **SC-009**: IAM 历史数据巡检报告覆盖 root、system tenant、owner/admin 缺失三类问题，漏报率为 0%。
 
 ## Assumptions
 
@@ -120,6 +225,8 @@
 - root 账号为平台级特殊身份，不受单租户成员可见性限制。
 - 租户管理员初始能力由租户注册流程或管理员授权流程保证。
 - 本规格不扩展外部身份源同步细节，仅约束平台内身份与交互语义一致性。
+- 现有 root 初始化记录和 `system` tenant member 需要保留，不能通过手动删库方式切换 SaaS 语义。
+- 插件物理包仍是全局安装，SaaS 隔离发生在租户实例配置和代理访问控制层。
 
 ## Dependencies
 
