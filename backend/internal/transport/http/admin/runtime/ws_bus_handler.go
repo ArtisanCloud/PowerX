@@ -209,13 +209,14 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 		return
 	}
 	if h.authorizer != nil {
-		if !isAPIKeyAuth(c) && !isSTSClient {
+		if !isAPIKeyAuth(c) {
 			if err := h.authorizer.AuthorizePublish(c.Request.Context(), bus.PublishAuthorizeInput{
 				TenantUUID: tenantUUID,
 				MemberID:   memberID,
 				UserID:     reqctx.GetUserID(c.Request.Context()),
 				IsRoot:     isRoot,
 				Topic:      reqTopic,
+				Principal:  publishACLPrincipal(c, memberID, reqctx.GetUserID(c.Request.Context())),
 			}); err != nil {
 				logger.DebugF(c.Request.Context(), "[ws-bus] publish rejected tenant=%s topic=%s err=%v", strings.TrimSpace(tenantUUID), reqTopic, err)
 				dto.ResponseError(c, http.StatusForbidden, "topic not allowed", err)
@@ -331,6 +332,13 @@ func normalizeRegisterTopics(topics []string) []string {
 		out = append(out, topic)
 	}
 	return out
+}
+
+func publishACLPrincipal(c *gin.Context, memberID, userID uint64) string {
+	if isPowerXAPISTSClient(c) {
+		return buildWSPrincipalID(c, 0, 0)
+	}
+	return buildWSPrincipalID(c, memberID, userID)
 }
 
 func buildWSPrincipalID(c *gin.Context, memberID, userID uint64) string {

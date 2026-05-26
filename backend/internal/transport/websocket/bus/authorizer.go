@@ -33,6 +33,7 @@ type PublishAuthorizeInput struct {
 	UserID     uint64
 	IsRoot     bool
 	Topic      string
+	Principal  string
 }
 
 type topicLookup interface {
@@ -113,7 +114,7 @@ func (a *DefaultAuthorizer) AuthorizePublish(ctx context.Context, input PublishA
 	if strings.TrimSpace(input.TenantUUID) == "" {
 		return ErrTenantRequired
 	}
-	if !input.IsRoot && input.MemberID == 0 {
+	if !input.IsRoot && input.MemberID == 0 && strings.TrimSpace(input.Principal) == "" {
 		return ErrMemberRequired
 	}
 	if err := a.authorizeAction(ctx, authorizeInput{
@@ -123,6 +124,7 @@ func (a *DefaultAuthorizer) AuthorizePublish(ctx context.Context, input PublishA
 		IsRoot:     input.IsRoot,
 		Topic:      input.Topic,
 		Action:     "publish",
+		Principal:  input.Principal,
 	}); err != nil {
 		logger.DebugF(ctx, "[ws-bus] publish authorize rejected: tenant=%s topic=%s err=%v", strings.TrimSpace(input.TenantUUID), strings.TrimSpace(input.Topic), err)
 		return err
@@ -137,6 +139,7 @@ type authorizeInput struct {
 	IsRoot     bool
 	Topic      string
 	Action     string
+	Principal  string
 }
 
 func (a *DefaultAuthorizer) authorizeAction(ctx context.Context, input authorizeInput) error {
@@ -176,7 +179,10 @@ func (a *DefaultAuthorizer) authorizeAction(ctx context.Context, input authorize
 	if input.IsRoot {
 		return nil
 	}
-	principal := buildACLPrincipal(input.MemberID, input.UserID)
+	principal := strings.TrimSpace(input.Principal)
+	if principal == "" {
+		principal = buildACLPrincipal(input.MemberID, input.UserID)
+	}
 	if principal == "" {
 		return ErrMemberRequired
 	}

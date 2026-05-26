@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -40,6 +41,37 @@ func TestServerCreateAndListJobs(t *testing.T) {
 	}
 	if len(listed.GetJobs()) != 1 {
 		t.Fatalf("len(jobs)=%d, want 1", len(listed.GetJobs()))
+	}
+}
+
+func TestServerUpdateJobPreservesPayloadWhenOmitted(t *testing.T) {
+	server, ctx := newTestServer(t)
+	created, err := server.CreateJob(ctx, &schedulerv1.CreateJobRequest{Job: &schedulerv1.SchedulerJob{
+		TenantUuid:   schedulerGRPCTestTenant,
+		OwnerType:    models.OwnerTypePlugin,
+		OwnerId:      "com.powerx.plugins.ai-craft",
+		Name:         "grpc_job_payload",
+		ScheduleType: models.ScheduleTypeInterval,
+		ScheduleExpr: "10m",
+		PayloadJson:  []byte(`{"business_action":"keep_me","plan_id":"plan-1"}`),
+	}})
+	if err != nil {
+		t.Fatalf("CreateJob() err = %v", err)
+	}
+
+	updated, err := server.UpdateJob(ctx, &schedulerv1.UpdateJobRequest{Job: &schedulerv1.SchedulerJob{
+		JobId: created.GetJob().GetJobId(),
+		Name:  "renamed",
+	}})
+	if err != nil {
+		t.Fatalf("UpdateJob() err = %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(updated.GetJob().GetPayloadJson(), &payload); err != nil {
+		t.Fatalf("payload json invalid: %v", err)
+	}
+	if payload["business_action"] != "keep_me" || payload["plan_id"] != "plan-1" {
+		t.Fatalf("payload=%v, want original payload preserved", payload)
 	}
 }
 

@@ -81,7 +81,7 @@ func (s *Server) UpdateJob(ctx context.Context, req *schedulerv1.UpdateJobReques
 	if jobReq == nil {
 		return nil, status.Error(codes.InvalidArgument, "job is required")
 	}
-	payload, err := decodePayload(jobReq.GetPayloadJson())
+	payload, err := decodeOptionalPayload(jobReq.GetPayloadJson())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "payload_json must be a JSON object")
 	}
@@ -161,6 +161,17 @@ func decodePayload(raw []byte) (map[string]any, error) {
 	if len(raw) == 0 {
 		return map[string]any{}, nil
 	}
+	return decodeNonEmptyPayload(raw)
+}
+
+func decodeOptionalPayload(raw []byte) (map[string]any, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	return decodeNonEmptyPayload(raw)
+}
+
+func decodeNonEmptyPayload(raw []byte) (map[string]any, error) {
 	var payload map[string]any
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, err

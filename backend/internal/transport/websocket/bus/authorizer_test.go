@@ -62,6 +62,37 @@ func TestAuthorizeRejectsCrossTenantTopic(t *testing.T) {
 	}
 }
 
+func TestAuthorizePublishUsesExplicitPrincipal(t *testing.T) {
+	topicID := uuid.New()
+	acl := &mockACLStore{allowed: true}
+	authorizer := NewDefaultAuthorizerWithOptions(DefaultAuthorizerOptions{
+		TopicStore: &mockTopicLookup{
+			topic: &eventfabricmodel.TopicDefinition{
+				PowerUUIDModel: coremodel.PowerUUIDModel{UUID: topicID},
+				TenantKey:      "tenant-authorizer",
+				Namespace:      "custom",
+				Name:           "progress",
+			},
+		},
+		ACLStore: acl,
+		Clock:    time.Now,
+	})
+	err := authorizer.AuthorizePublish(context.Background(), PublishAuthorizeInput{
+		TenantUUID: "tenant-authorizer",
+		Topic:      "custom.progress",
+		Principal:  "plugin:com.powerx.plugins.ai-craft",
+	})
+	if err != nil {
+		t.Fatalf("AuthorizePublish() err = %v", err)
+	}
+	if acl.principal != "plugin:com.powerx.plugins.ai-craft" {
+		t.Fatalf("principal=%q, want plugin principal", acl.principal)
+	}
+	if acl.action != "publish" {
+		t.Fatalf("action=%q, want publish", acl.action)
+	}
+}
+
 type mockTopicLookup struct {
 	topic *eventfabricmodel.TopicDefinition
 }
@@ -75,9 +106,13 @@ func (m *mockTopicLookup) FindByComposite(_ context.Context, _, _, _ string) (*e
 }
 
 type mockACLStore struct {
-	allowed bool
+	allowed   bool
+	principal string
+	action    string
 }
 
-func (m *mockACLStore) HasPermission(_ context.Context, _ string, _ uuid.UUID, _ string, _ string, _ time.Time) (bool, error) {
+func (m *mockACLStore) HasPermission(_ context.Context, _ string, _ uuid.UUID, principal string, action string, _ time.Time) (bool, error) {
+	m.principal = principal
+	m.action = action
 	return m.allowed, nil
 }
