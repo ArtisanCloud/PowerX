@@ -86,25 +86,29 @@ const translateCategoryTitle = (category: MenuCategory) => {
   const key = category.titleI18n?.key?.trim();
   if (key) {
     const fallback = category.titleI18n?.default ?? category.title ?? key;
-    return t(key, fallback);
+    return te(key) ? t(key) : fallback;
   }
   if (category.title?.startsWith?.("menu.")) {
-    return t(category.title);
+    return te(category.title) ? t(category.title) : category.title;
   }
   return category.title || t("menu.section.untitled", "未命名分类");
 };
 
 const resolveIcon = (name?: string) => {
   if (!name) return "i-heroicons-puzzle-piece";
-  if (name.startsWith("i-")) return name;
+  const normalized = name.trim();
   const iconMap: Record<string, string> = {
     Smile: "i-heroicons-face-smile",
     Settings: "i-heroicons-cog-6-tooth",
     User: "i-heroicons-user",
     Home: "i-heroicons-home",
     Plugin: "i-heroicons-puzzle-piece",
+    "i-heroicons-folder-tree": "i-heroicons-folder",
+    "heroicons:folder-tree": "i-heroicons-folder",
   };
-  return iconMap[name] || "i-heroicons-puzzle-piece";
+  if (iconMap[normalized]) return iconMap[normalized];
+  if (normalized.startsWith("i-")) return normalized;
+  return "i-heroicons-puzzle-piece";
 };
 
 const withMenuIconFallback = (item: MenuItem): string => {
@@ -643,7 +647,7 @@ function onTreeKeydown(e: KeyboardEvent) {
         </div>
       </NuxtLink>
       <button
-        class="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 transition-colors"
+        class="p-2 rounded-lg hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
         @click="collapsed = !collapsed"
         :aria-label="
           collapsed
@@ -709,9 +713,9 @@ function onTreeKeydown(e: KeyboardEvent) {
         </li>
 
         <template v-for="group in renderedGroups" :key="group.id">
-          <!-- Sticky 分组 Header -->
+          <!-- 分组 Header -->
           <li
-            class="mt-4 first:mt-2 mb-1 px-2 sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm"
+            class="mt-4 first:mt-2 mb-1 px-2"
           >
             <div
               class="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 flex items-center justify-between"
@@ -847,7 +851,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             />
           </button>
           <button
-            class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 transition-colors"
+            class="p-1.5 rounded-lg hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
             @click="collapsed = !collapsed"
             :aria-label="
               collapsed

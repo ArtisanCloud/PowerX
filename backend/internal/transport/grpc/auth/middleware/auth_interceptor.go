@@ -91,14 +91,33 @@ func attachClaimsToCtx(ctx context.Context, ring KeyResolver) context.Context {
 	}
 	if claims != nil {
 		ctx = reqctx.WithClaims(ctx, claims)
+		if claims.TenantUUID != "" {
+			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+		}
 		if claims.TenantID > 0 {
 			ctx = reqctx.WithTenantID(ctx, claims.TenantID)
 		}
 		if claims.UserID > 0 {
 			ctx = reqctx.WithUserID(ctx, claims.UserID)
 		}
+		if claims.UserUUID != "" {
+			ctx = reqctx.WithUserUUID(ctx, claims.UserUUID)
+		}
 		if claims.MemberID > 0 {
 			ctx = reqctx.WithMemberID(ctx, claims.MemberID)
+		}
+		if claims.MemberUUID != "" {
+			ctx = reqctx.WithMemberUUID(ctx, claims.MemberUUID)
+			ctx = reqctx.WithSubject(ctx, claims.MemberUUID)
+		} else if claims.UserUUID != "" {
+			ctx = reqctx.WithSubject(ctx, claims.UserUUID)
+		}
+		ctx = reqctx.WithIsRoot(ctx, claims.IsRoot)
+		if len(claims.Audience) > 0 {
+			ctx = reqctx.WithAudience(ctx, claims.Audience[0])
+		}
+		if len(claims.Platforms) > 0 {
+			ctx = reqctx.WithPlatform(ctx, claims.Platforms[0])
 		}
 		if claims.Env != "" {
 			ctx = reqctx.WithEnv(ctx, claims.Env)

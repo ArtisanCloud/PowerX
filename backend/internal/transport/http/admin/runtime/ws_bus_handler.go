@@ -78,7 +78,8 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 	}
 	memberID := reqctx.GetMemberID(c.Request.Context())
 	isRoot := reqctx.IsRoot(c.Request.Context())
-	if !isRoot && memberID == 0 {
+	isSTSClient := isPowerXAPISTSClient(c)
+	if !isRoot && memberID == 0 && !isSTSClient {
 		dto.ResponseError(c, http.StatusForbidden, "member required", nil)
 		return
 	}
@@ -95,11 +96,13 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 			dto.ResponseError(c, http.StatusForbidden, "api key forbidden: insufficient ws topic permissions", err)
 			return
 		}
-		principalID := buildWSPrincipalID(memberID, reqctx.GetUserID(c.Request.Context()))
+		principalID := buildWSPrincipalID(c, memberID, reqctx.GetUserID(c.Request.Context()))
 		principalType := "member"
 		if isAPIKeyAuth(c) {
 			principalType = "api_key_profile"
 			principalID = fmt.Sprintf("api_key_profile:%d", memberID)
+		} else if isSTSClient {
+			principalType = "plugin"
 		}
 		if !isRoot && principalID == "" {
 			dto.ResponseError(c, http.StatusForbidden, "principal required", nil)
@@ -190,7 +193,8 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 	}
 	memberID := reqctx.GetMemberID(c.Request.Context())
 	isRoot := reqctx.IsRoot(c.Request.Context())
-	if !isRoot && memberID == 0 {
+	isSTSClient := isPowerXAPISTSClient(c)
+	if !isRoot && memberID == 0 && !isSTSClient {
 		dto.ResponseError(c, http.StatusForbidden, "member required", nil)
 		return
 	}
@@ -212,6 +216,7 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 				UserID:     reqctx.GetUserID(c.Request.Context()),
 				IsRoot:     isRoot,
 				Topic:      reqTopic,
+				Principal:  publishACLPrincipal(c, memberID, reqctx.GetUserID(c.Request.Context())),
 			}); err != nil {
 				logger.DebugF(c.Request.Context(), "[ws-bus] publish rejected tenant=%s topic=%s err=%v", strings.TrimSpace(tenantUUID), reqTopic, err)
 				dto.ResponseError(c, http.StatusForbidden, "topic not allowed", err)
@@ -329,12 +334,28 @@ func normalizeRegisterTopics(topics []string) []string {
 	return out
 }
 
-func buildWSPrincipalID(memberID, userID uint64) string {
+func publishACLPrincipal(c *gin.Context, memberID, userID uint64) string {
+	if isPowerXAPISTSClient(c) {
+		return buildWSPrincipalID(c, 0, 0)
+	}
+	return buildWSPrincipalID(c, memberID, userID)
+}
+
+func buildWSPrincipalID(c *gin.Context, memberID, userID uint64) string {
 	if memberID > 0 {
 		return fmt.Sprintf("member:%d", memberID)
 	}
 	if userID > 0 {
 		return fmt.Sprintf("user:%d", userID)
+	}
+	if isPowerXAPISTSClient(c) {
+		subject := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+		if strings.HasPrefix(subject, "client:") {
+			subject = strings.TrimSpace(strings.TrimPrefix(subject, "client:"))
+		}
+		if subject != "" {
+			return "plugin:" + subject
+		}
 	}
 	return ""
 }
@@ -385,6 +406,22 @@ func isAPIKeyAuth(c *gin.Context) bool {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(fmt.Sprint(raw)), "api_key")
+}
+
+func isPowerXAPISTSClient(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	claims := reqctx.GetClaims(c.Request.Context())
+	if claims == nil || !strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") {
+		return false
+	}
+	for _, aud := range claims.Audience {
+		if strings.EqualFold(strings.TrimSpace(aud), "powerx:api") {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *wsBusHandler) authorizeAPIKeyRegister(c *gin.Context, actions []aclservice.PrincipalAction, topics []string) error {

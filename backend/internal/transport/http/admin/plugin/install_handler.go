@@ -377,7 +377,7 @@ func untarToTemp(pkgPath string) (string, func(), error) {
 	)
 }
 
-// ensureBackendBinsExecutable makes sure backend/bin/* files are executable after extraction.
+// ensureBackendBinsExecutable makes sure packaged backend entries are executable after extraction.
 func ensureBackendBinsExecutable(root string) error {
 	if root == "" {
 		return nil
@@ -386,15 +386,28 @@ func ensureBackendBinsExecutable(root string) error {
 		if err != nil {
 			return nil // ignore individual path errors
 		}
-		if d.Type().IsRegular() && strings.Contains(path, string(filepath.Separator)+"backend"+string(filepath.Separator)+"bin"+string(filepath.Separator)) {
-			info, statErr := d.Info()
-			if statErr != nil {
-				return nil
-			}
-			_ = os.Chmod(path, info.Mode()|0o755)
+		if !d.Type().IsRegular() || !isPluginExecutablePath(root, path) {
+			return nil
 		}
+		info, statErr := d.Info()
+		if statErr != nil {
+			return nil
+		}
+		_ = os.Chmod(path, info.Mode()|0o755)
 		return nil
 	})
+}
+
+func isPluginExecutablePath(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	rel = filepath.Clean(rel)
+	if rel == filepath.Join("bin", "plugin") || rel == filepath.Join("bin", "migrate") {
+		return true
+	}
+	return strings.HasPrefix(rel, filepath.Join("backend", "bin")+string(filepath.Separator))
 }
 
 // --- Switch Version ---

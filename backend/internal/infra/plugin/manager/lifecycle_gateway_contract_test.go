@@ -28,8 +28,13 @@ func TestInjectGatewaySecurityEnvSuccess(t *testing.T) {
 	}
 
 	env := map[string]string{
-		"PX_GATEWAY_API_KEY": "legacy-api-key",
-		"PX_TOOL_TOKEN":      "legacy-tool-token",
+		"PX_GATEWAY_API_KEY":               "legacy-api-key",
+		"PX_PLUGIN_TOOL_TOKEN":             "stale-tool-token",
+		"PX_TOOL_TOKEN":                    "legacy-tool-token",
+		"POWERX_STS_CLIENT_ID":             "com.powerx.plugins.demo.tenant",
+		"POWERX_STS_CLIENT_SECRET":         "secret",
+		"POWERX_GRPC_UPSTREAM_ADDRESS":     "127.0.0.1:9001",
+		"POWERX_GRPC_UPSTREAM_TENANT_UUID": "6b5d0240-9920-46da-b707-88200e0f51ea",
 	}
 	ctx := reqctx.WithUserID(context.Background(), 1)
 	ctx = reqctx.WithMemberID(ctx, 1)
@@ -44,8 +49,11 @@ func TestInjectGatewaySecurityEnvSuccess(t *testing.T) {
 	if got := env["PX_GATEWAY_AUTH_SCHEME"]; got != "bearer" {
 		t.Fatalf("PX_GATEWAY_AUTH_SCHEME = %q, want bearer", got)
 	}
-	if strings.TrimSpace(env["PX_PLUGIN_TOOL_TOKEN"]) == "" {
-		t.Fatalf("PX_PLUGIN_TOOL_TOKEN should be generated")
+	if got := env["PX_GATEWAY_TENANT_UUID"]; got != "6b5d0240-9920-46da-b707-88200e0f51ea" {
+		t.Fatalf("PX_GATEWAY_TENANT_UUID = %q", got)
+	}
+	if _, ok := env["PX_PLUGIN_TOOL_TOKEN"]; ok {
+		t.Fatalf("PX_PLUGIN_TOOL_TOKEN should not be set in delegated STS contract")
 	}
 	if _, ok := env["PX_GATEWAY_API_KEY"]; ok {
 		t.Fatalf("PX_GATEWAY_API_KEY should be removed in delegated contract")
@@ -80,16 +88,14 @@ func TestInjectGatewaySecurityEnvFailFastMissingBaseURL(t *testing.T) {
 	}
 }
 
-func TestInjectGatewaySecurityEnvFailFastInvalidAuthScheme(t *testing.T) {
+func TestInjectGatewaySecurityEnvFailFastMissingSTSClient(t *testing.T) {
 	t.Setenv("POWERX_GATEWAY_BASE_URL", "http://127.0.0.1:8077")
 	m := &managerImpl{
 		opts: Options{
 			CoreConfig: &config.Config{
 				Server: config.ServerConfig{Port: 8077},
 				Auth: config.AuthConfig{
-					JWTSecret:    "0123456789abcdef0123456789abcdef",
-					Issuer:       "",
-					AudienceUser: "user",
+					JWTSecret: "0123456789abcdef0123456789abcdef",
 				},
 			},
 		},
@@ -100,8 +106,48 @@ func TestInjectGatewaySecurityEnvFailFastInvalidAuthScheme(t *testing.T) {
 	if err == nil {
 		t.Fatalf("injectGatewaySecurityEnv() expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "GW_CFG_INVALID_AUTH_SCHEME") {
-		t.Fatalf("injectGatewaySecurityEnv() err = %v, want GW_CFG_INVALID_AUTH_SCHEME", err)
+	if !strings.Contains(err.Error(), "STS_BOOTSTRAP_CONTRACT_BROKEN") {
+		t.Fatalf("injectGatewaySecurityEnv() err = %v, want STS_BOOTSTRAP_CONTRACT_BROKEN", err)
+	}
+}
+
+func TestInjectGatewayBootstrapEnvDoesNotMintToolToken(t *testing.T) {
+	t.Setenv("POWERX_GATEWAY_BASE_URL", "http://127.0.0.1:8077/")
+	t.Setenv("POWERX_GATEWAY_BOOTSTRAP_TENANT_UUID", "6b5d0240-9920-46da-b707-88200e0f51ea")
+	m := &managerImpl{
+		opts: Options{
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8077},
+			},
+		},
+	}
+
+	env := map[string]string{
+		"PX_PLUGIN_TOOL_TOKEN": "stale-token",
+		"PX_GATEWAY_API_KEY":   "legacy-api-key",
+		"PX_TOOL_TOKEN":        "legacy-tool-token",
+	}
+	if err := m.injectGatewayBootstrapEnv(env, "com.powerx.plugins.demo"); err != nil {
+		t.Fatalf("injectGatewayBootstrapEnv() err = %v", err)
+	}
+
+	if got := env["PX_GATEWAY_BASE_URL"]; got != "http://127.0.0.1:8077" {
+		t.Fatalf("PX_GATEWAY_BASE_URL = %q, want %q", got, "http://127.0.0.1:8077")
+	}
+	if got := env["PX_GATEWAY_AUTH_SCHEME"]; got != "bearer" {
+		t.Fatalf("PX_GATEWAY_AUTH_SCHEME = %q, want bearer", got)
+	}
+	if got := env["PX_GATEWAY_TENANT_UUID"]; got != "6b5d0240-9920-46da-b707-88200e0f51ea" {
+		t.Fatalf("PX_GATEWAY_TENANT_UUID = %q", got)
+	}
+	if _, ok := env["PX_PLUGIN_TOOL_TOKEN"]; ok {
+		t.Fatalf("PX_PLUGIN_TOOL_TOKEN should not be set during bootstrap")
+	}
+	if _, ok := env["PX_GATEWAY_API_KEY"]; ok {
+		t.Fatalf("PX_GATEWAY_API_KEY should be removed in delegated bootstrap contract")
+	}
+	if _, ok := env["PX_TOOL_TOKEN"]; ok {
+		t.Fatalf("PX_TOOL_TOKEN should be removed in delegated bootstrap contract")
 	}
 }
 
@@ -132,22 +178,22 @@ func TestProbeGatewayContractSuccess(t *testing.T) {
 
 	m := &managerImpl{}
 	env := map[string]string{
-		"PX_GATEWAY_BASE_URL":  gatewaySrv.URL,
-		"PX_PLUGIN_TOOL_TOKEN": "tool-token-1",
+		"PX_GATEWAY_BASE_URL":            gatewaySrv.URL,
+		"PX_GATEWAY_PROBE_AUTH_REQUIRED": "false",
 	}
-	err := m.probeGatewayContract(context.Background(), "com.powerx.plugins.demo", apiSrv.URL, "/healthz", env, true, "tenant-1")
+	err := m.probeGatewayContract(context.Background(), "com.powerx.plugins.demo", apiSrv.URL, "/healthz", env, true, "6b5d0240-9920-46da-b707-88200e0f51ea")
 	if err != nil {
 		t.Fatalf("probeGatewayContract() err = %v", err)
 	}
-	if gotAuth != "Bearer tool-token-1" {
-		t.Fatalf("Authorization header = %q, want %q", gotAuth, "Bearer tool-token-1")
+	if gotAuth != "" {
+		t.Fatalf("Authorization header = %q, want empty for unauthenticated dry-run", gotAuth)
 	}
-	if gotTenant != "tenant-1" {
-		t.Fatalf("tenant_uuid header = %q, want %q", gotTenant, "tenant-1")
+	if gotTenant != "6b5d0240-9920-46da-b707-88200e0f51ea" {
+		t.Fatalf("tenant_uuid header = %q, want %q", gotTenant, "6b5d0240-9920-46da-b707-88200e0f51ea")
 	}
 }
 
-func TestProbeGatewayContractFailFastMissingToken(t *testing.T) {
+func TestProbeGatewayContractSkipsBootstrapWhenTokenMissing(t *testing.T) {
 	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
 			w.WriteHeader(http.StatusOK)
@@ -161,12 +207,9 @@ func TestProbeGatewayContractFailFastMissingToken(t *testing.T) {
 	env := map[string]string{
 		"PX_GATEWAY_BASE_URL": "http://127.0.0.1:8077",
 	}
-	err := m.probeGatewayContract(context.Background(), "com.powerx.plugins.demo", apiSrv.URL, "/healthz", env, true, "tenant-1")
-	if err == nil {
-		t.Fatalf("probeGatewayContract() expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "GW_CFG_MISSING_PLUGIN_TOOL_TOKEN") {
-		t.Fatalf("probeGatewayContract() err = %v, want GW_CFG_MISSING_PLUGIN_TOOL_TOKEN", err)
+	err := m.probeGatewayContract(context.Background(), "com.powerx.plugins.demo", apiSrv.URL, "/healthz", env, true, "6b5d0240-9920-46da-b707-88200e0f51ea")
+	if err != nil {
+		t.Fatalf("probeGatewayContract() err = %v", err)
 	}
 }
 

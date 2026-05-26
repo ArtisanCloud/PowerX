@@ -11,8 +11,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -75,11 +75,11 @@ func JwtMiddleware(
 			return
 		}
 
-		reqCtx := c.Request.Context()
+		reqCtx := reqctx.WithRequestPath(c.Request.Context(), c.Request.URL.Path)
 
 		// A. 解析 + 标准校验（Issuer / Audience / exp / nbf / iat / 签名）
 		// 注意：ParseAndValidate 需返回 *reqctx.CoreXClaims（见 pkg/auth/jwt.go）
-		claims, err := auth.ParseAndValidate(tokenString, secret, issuer, audiences...)
+		claims, err := parseWithConfiguredChecks(tokenString, secret, issuer, audiences, cfg.extraTokenChecks)
 		if err != nil {
 			pxlog.WarnF(
 				c.Request.Context(),
@@ -194,7 +194,11 @@ func JwtMiddleware(
 		reqCtx = reqctx.WithIsRoot(reqCtx, claims.IsRoot)
 
 		// subject / audience / platform
-		reqCtx = reqctx.WithSubject(reqCtx, claims.MemberUUID)
+		subject := strings.TrimSpace(claims.Subject)
+		if subject == "" {
+			subject = strings.TrimSpace(claims.MemberUUID)
+		}
+		reqCtx = reqctx.WithSubject(reqCtx, subject)
 		if len(claims.Audience) > 0 {
 			reqCtx = reqctx.WithAudience(reqCtx, claims.Audience[0])
 		}
@@ -230,6 +234,25 @@ func JwtMiddleware(
 		incTenantUUIDOnlyRequest()
 		c.Next()
 	}
+}
+
+func parseWithConfiguredChecks(tokenString string, secret []byte, issuer string, audiences []string, extra []TokenCheck) (*reqctx.CoreXClaims, error) {
+	claims, err := auth.ParseAndValidate(tokenString, secret, issuer, audiences...)
+	if err == nil {
+		return claims, nil
+	}
+	firstErr := err
+	for _, check := range extra {
+		checkIssuer := strings.TrimSpace(check.Issuer)
+		if checkIssuer == "" {
+			checkIssuer = issuer
+		}
+		claims, err := auth.ParseAndValidate(tokenString, secret, checkIssuer, check.Audiences...)
+		if err == nil {
+			return claims, nil
+		}
+	}
+	return nil, firstErr
 }
 
 func scopeAllowed(got string, allow []string) bool {

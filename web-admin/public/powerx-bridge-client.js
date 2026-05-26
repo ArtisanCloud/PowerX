@@ -52,18 +52,6 @@
         var exp = Date.now() + payload.expiresIn * 1000;
         ls.setItem("expires_at", String(exp));
       }
-      if (payload.ctx) {
-        ls.setItem("px_ctx", payload.ctx);
-        setCookie("px_ctx", payload.ctx);
-      }
-      if (payload.ctxSig) {
-        ls.setItem("px_ctx_sig", payload.ctxSig);
-        setCookie("px_ctx_sig", payload.ctxSig);
-      }
-      if (payload.ctxJwt) {
-        ls.setItem("px_ctx_jwt", payload.ctxJwt);
-        setCookie("px_ctx_jwt", payload.ctxJwt);
-      }
       var tenantUUID = payload.tenant_uuid || payload.tenantUuid || payload.tenantUUID;
       if (tenantUUID) {
         ls.setItem("px_current_tenant_uuid", tenantUUID);
@@ -87,9 +75,6 @@
       var ls = window.localStorage;
       var token = getCookie("token") || getCookie("access_token");
       var refreshToken = getCookie("refresh_token");
-      var ctx = getCookie("px_ctx");
-      var ctxSig = getCookie("px_ctx_sig");
-      var ctxJwt = getCookie("px_ctx_jwt");
       var tenantUUID = getCookie("px_current_tenant_uuid");
 
       if (token) {
@@ -111,15 +96,6 @@
       }
       if (refreshToken) {
         ls.setItem("refresh_token", refreshToken);
-      }
-      if (ctx) {
-        ls.setItem("px_ctx", ctx);
-      }
-      if (ctxSig) {
-        ls.setItem("px_ctx_sig", ctxSig);
-      }
-      if (ctxJwt) {
-        ls.setItem("px_ctx_jwt", ctxJwt);
       }
       if (tenantUUID) {
         ls.setItem("px_current_tenant_uuid", tenantUUID);

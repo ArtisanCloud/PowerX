@@ -455,157 +455,56 @@
 
       <div v-else-if="activeTab === 'task-cron'" class="space-y-4">
         <UCard>
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <div class="font-semibold text-sm">备份闭环观测</div>
-            <UButton size="xs" variant="outline" :loading="backupMonitorLoading" @click="loadBackupMonitor(true)">刷新备份监控</UButton>
-          </div>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-5">
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
-              <div class="text-xs text-gray-500">启用策略</div>
-              <div class="text-lg font-semibold">{{ backupOverview?.policies_enabled ?? 0 }}</div>
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">后台任务中心</h2>
+                <UBadge color="success" variant="soft">平台内置任务已接入</UBadge>
+                <UBadge color="primary" variant="soft">Runtime Scheduler 已接入</UBadge>
+              </div>
+              <p class="max-w-3xl text-sm text-gray-600 dark:text-gray-400">
+                区分平台内置后台任务和插件/运行时调度任务；队列明细与链路排查分别在事件总线和 Logs / Trace 查看。
+              </p>
             </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
-              <div class="text-xs text-gray-500">运行中任务</div>
-              <div class="text-lg font-semibold">{{ backupOverview?.jobs_running ?? 0 }}</div>
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
-              <div class="text-xs text-gray-500">24h 失败</div>
-              <div class="text-lg font-semibold text-amber-600">{{ backupOverview?.jobs_failed_24h ?? 0 }}</div>
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
-              <div class="text-xs text-gray-500">高优先级未确认</div>
-              <div class="text-lg font-semibold text-red-600">{{ backupOverview?.alerts_high_unacked ?? 0 }}</div>
-            </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
-              <div class="text-xs text-gray-500">最近成功</div>
-              <div class="text-xs font-mono break-all">{{ backupOverview?.last_success_at || "-" }}</div>
-            </div>
-          </div>
-
-          <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3">
-            <div class="mb-2 text-xs font-semibold text-gray-500">失败摘要（最近 5 条）</div>
-            <div v-for="job in backupFailedJobs" :key="job.id" class="mb-2 text-xs text-gray-600 dark:text-gray-300">
-              <div class="font-mono">job={{ job.id }} policy={{ job.policy_id }} trace={{ job.trace_id || "-" }}</div>
-              <div class="text-red-600">{{ job.error_summary || job.error_message || "未知失败" }}</div>
-            </div>
-            <div v-if="backupFailedJobs.length === 0" class="text-xs text-gray-500">暂无失败记录</div>
-          </div>
-
-          <div class="text-xs text-gray-600 dark:text-gray-300 space-y-2">
-            <div>数据库定时备份任务请在「运维中心 / 备份中心」查看执行记录与恢复演练。</div>
             <div class="flex flex-wrap gap-2">
-              <UButton size="xs" variant="outline" to="/ops/backup">打开备份中心</UButton>
-              <UButton size="xs" variant="soft" to="/monitor/logs-trace">查看监控日志汇总</UButton>
+              <UButton size="xs" variant="outline" to="/monitor/event-bus">事件总线</UButton>
+              <UButton size="xs" variant="soft" to="/monitor/logs-trace">查看 Logs / Trace</UButton>
             </div>
           </div>
-        </UCard>
 
-        <UCard>
-          <div class="flex flex-wrap gap-2">
-            <UButton size="sm" :variant="taskCronSubTab === 'replay' ? 'solid' : 'outline'" :color="taskCronSubTab === 'replay' ? 'primary' : 'neutral'" @click="taskCronSubTab = 'replay'">Task 联调</UButton>
-            <UButton size="sm" :variant="taskCronSubTab === 'cron' ? 'solid' : 'outline'" :color="taskCronSubTab === 'cron' ? 'primary' : 'neutral'" @click="taskCronSubTab = 'cron'">Cron 调度</UButton>
+          <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50/80 p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+            平台内置后台任务来自 Event Fabric Cron；Runtime Scheduler 任务来自 <span class="font-mono">/admin/scheduler/jobs</span>，插件通过网关创建的调度会显示在 Runtime Scheduler 区域。
           </div>
         </UCard>
 
-        <UCard v-if="taskCronSubTab === 'replay'">
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1 mb-3">
-            <div class="font-semibold">Task 联调器说明</div>
-            <div>先选任务类型（Replay / Pipeline / Retry），再选 topic，点击「创建任务」。</div>
-            <div>任务会进入既有 <span class="font-mono">tenant_key + subscriber_id</span> 分片队列，不会新建队列。</div>
-            <div>执行后会显示命中队列（tenant_key + subscriber_id），可直接去 Queue 面板核对历史。</div>
-          </div>
-          <template #header><div class="font-semibold">Task 联调器</div></template>
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-            <div class="font-semibold">接口与行为说明</div>
-            <div>• Replay：<span class="font-mono">POST /admin/event-fabric/replay/tasks</span>，可继续查询/取消。</div>
-            <div>• Pipeline：<span class="font-mono">POST /admin/event-fabric/pipeline/tasks</span>，按 topic + subscriber 分发。</div>
-            <div>• Retry：请在「Cron 调度」面板先制造样本，再在作业行点「立即执行」。</div>
-          </div>
+        <UTabs v-model="taskCronSubTab" :items="taskCronSubTabs" />
 
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-4 mt-3">
-            <USelectMenu
-              v-model="taskDebug.mode"
-              :items="taskModeOptions"
-              value-key="value"
-              label-key="label"
-              placeholder="请选择任务类型"
-              class="w-full"
-            />
-            <USelectMenu
-              v-model="taskDebug.topic"
-              :items="wsTopicOptions"
-              value-key="value"
-              label-key="label"
-              placeholder="请选择 Task topic"
-              class="md:col-span-2 w-full"
-            />
-            <UInput v-model="taskDebug.traceId" placeholder="trace_id（Replay 可选）" />
-          </div>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <UButton size="sm" color="primary" :loading="taskDebug.loading" @click="createTaskDebug">创建任务</UButton>
-            <UButton size="sm" color="info" variant="soft" :loading="taskDebug.loading" :disabled="taskDebug.mode !== 'replay'" @click="runReplayQuickCheck">
-              创建并查询
-            </UButton>
-            <UButton size="sm" variant="outline" :loading="taskDebug.loading" :disabled="!taskDebug.taskId || taskDebug.mode !== 'replay'" @click="queryReplayTaskDebug">
-              查询任务
-            </UButton>
-            <UButton size="sm" variant="soft" color="warning" :loading="taskDebug.loading" :disabled="!taskDebug.taskId || taskDebug.mode !== 'replay'" @click="cancelReplayTaskDebug">
-              取消任务
-            </UButton>
-          </div>
-
-          <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono space-y-1">
-            <div>mode: {{ taskDebug.mode }}</div>
-            <div>current_task_id: {{ taskDebug.taskId || '-' }}</div>
-            <div>status: {{ taskDebug.status || '-' }}</div>
-            <div>result_count: {{ taskDebug.resultCount ?? '-' }}</div>
-            <div>failure_reason: {{ taskDebug.failureReason || '-' }}</div>
-            <div>queue_tenant_key: {{ taskDebug.queueTenantKey || '-' }}</div>
-            <div>queue_subscriber_id: {{ taskDebug.queueSubscriberId || '-' }}</div>
-            <div>queue_hit_state: {{ taskDebug.queueHitState || '-' }}</div>
-            <div>queue_hit_source: {{ taskDebug.queueHitSource || '-' }}</div>
-          </div>
-          <div class="mt-2 text-xs text-gray-500">
-            判定：创建后若命中队列可看到 queue_* 字段；Replay 出现 <span class="font-semibold">completed</span> 视为成功。
-          </div>
-
-          <div class="mt-3 flex justify-end">
-            <UButton size="xs" variant="ghost" @click="taskDebug.logs = []">清空 Replay 日志</UButton>
-          </div>
-          <div class="mt-2 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
-            <div v-for="(line, idx) in taskDebug.logs" :key="idx" class="mb-1">{{ line }}</div>
-            <div v-if="taskDebug.logs.length === 0" class="text-gray-500">点击按钮开始 Task 联调。</div>
-          </div>
-        </UCard>
-
-        <UCard v-else>
-          <div class="rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300 space-y-1 mb-3">
-            <div class="font-semibold">Cron 场景说明</div>
-            <div>点击「立即执行 / 暂停 / 恢复」，验证调度器控制与作业状态变化。</div>
-            <div>Cron 不是 Replay 后置步骤；它用于定时/重试调度验证。</div>
-            <div>run-now 成功不保证新增任务（取决于到期任务或可重试任务）。</div>
-            <div>• `event_fabric.retry_dispatch` 的立即执行：马上扫描“到期可重试”任务并重新投递。</div>
-            <div>• `event_fabric.authorization_challenge_timeout` 的立即执行：马上扫描授权超时队列并执行超时处理。</div>
-            <div>验收时到「事件总线 -> Queue」核对任务历史变化。</div>
-          </div>
-          <div class="mb-3 flex flex-wrap gap-2">
-            <UButton size="sm" color="warning" variant="outline" :loading="taskDebug.loading" @click="createRetrySampleTaskDebug">
-              制造 Retry 样本
-            </UButton>
-          </div>
+        <UCard v-if="taskCronSubTab === 'platform'">
           <template #header>
             <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold">Cron 调度</div>
-              <UButton size="sm" variant="outline" :loading="cronDebug.loading" @click="loadCronJobsDebug">刷新作业</UButton>
+              <div>
+                <div class="font-semibold">平台内置后台任务</div>
+                <div class="mt-1 text-xs text-gray-500">只展示 PowerX 内置的扫描任务和队列消费任务，不包含插件创建的 Runtime Scheduler Job。</div>
+              </div>
+              <div class="flex flex-wrap justify-end gap-2">
+                <UButton
+                  size="sm"
+                  variant="outline"
+                  icon="i-heroicons-adjustments-horizontal"
+                  @click="thresholdModalOpen = true"
+                >
+                  队列高亮阈值
+                </UButton>
+                <UButton size="sm" variant="outline" :loading="cronDebug.loading" @click="loadCronJobsDebug">刷新</UButton>
+              </div>
             </div>
           </template>
 
           <UAlert
             icon="i-heroicons-information-circle"
             variant="subtle"
-            title="调度说明"
-            description="“立即执行”是立刻跑一次当前作业逻辑：retry_dispatch 扫描到期重试并重投；authorization_challenge_timeout 扫描授权超时并处理。"
+            title="当前展示的是平台内置后台任务"
+            description="“重试投递扫描”是定时扫描任务；“授权超时处理”是队列消费任务。它们不是插件业务任务。"
           />
 
           <div class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300">
@@ -616,12 +515,12 @@
             <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
               <thead class="bg-gray-50 dark:bg-gray-800/50">
                 <tr>
-                  <th class="text-left px-3 py-2">任务</th>
-                  <th class="text-left px-3 py-2">类型</th>
-                  <th class="text-left px-3 py-2">状态</th>
-                  <th class="text-left px-3 py-2">周期/触发方式</th>
-                  <th class="text-left px-3 py-2">subscriber/tenant</th>
-                  <th class="text-left px-3 py-2">下次执行</th>
+                  <th class="text-left px-3 py-2">任务名称</th>
+                  <th class="text-left px-3 py-2">触发方式</th>
+                  <th class="text-left px-3 py-2">运行状态</th>
+                  <th class="text-left px-3 py-2">触发条件</th>
+                  <th class="text-left px-3 py-2">处理内容</th>
+                  <th class="text-left px-3 py-2">下次运行</th>
                   <th class="text-left px-3 py-2">最近手动触发</th>
                   <th class="text-left px-3 py-2">操作</th>
                 </tr>
@@ -629,16 +528,17 @@
               <tbody>
                 <tr v-for="job in cronDebug.jobs" :key="job.id" class="border-t border-gray-200 dark:border-gray-700">
                   <td class="px-3 py-2">
-                    <div class="font-medium">{{ job.name }}</div>
+                    <div class="font-medium">{{ formatSchedulerJobName(job) }}</div>
                     <div class="text-gray-500 font-mono">{{ job.id }}</div>
+                    <div v-if="job.description" class="mt-1 text-gray-500">{{ job.description }}</div>
                   </td>
-                  <td class="px-3 py-2">{{ job.kind || '-' }}</td>
+                  <td class="px-3 py-2">{{ formatSchedulerKind(job) }}</td>
                   <td class="px-3 py-2"><UBadge :color="cronStatusColor(job.status)" variant="soft">{{ job.status }}</UBadge></td>
                   <td class="px-3 py-2">
                     {{ formatCronSchedule(job) }}
                   </td>
                   <td class="px-3 py-2 font-mono whitespace-normal break-all">
-                    {{ job.subscriber_id || '-' }} / {{ job.tenant_key || '-' }}
+                    {{ formatSchedulerTarget(job) }}
                   </td>
                   <td class="px-3 py-2 font-mono whitespace-nowrap">{{ job.next_run_at || '-' }}</td>
                   <td class="px-3 py-2 font-mono whitespace-nowrap">{{ cronLastRunAtMap[job.id] || '-' }}</td>
@@ -656,64 +556,173 @@
                     </div>
                   </td>
                 </tr>
+                <tr v-if="cronDebug.jobs.length === 0">
+                  <td class="px-3 py-6 text-center text-gray-500" colspan="8">
+                    暂无作业数据。
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-          <div class="mt-2 text-xs text-gray-500">
-            字段说明：<span class="font-mono">interval=Ns</span> 表示固定周期任务；<span class="font-mono">trigger=queue</span> 表示队列触发任务（无固定周期）。
-          </div>
-          <div class="mt-2 text-xs text-gray-500">
-            判定：run-now 返回成功仅表示“该作业被触发”；是否产生任务增量取决于该作业当下是否有可处理数据。
-          </div>
           <div class="mt-1 text-xs text-gray-500">
-            说明：这两类作业是常驻 worker，状态通常保持 <span class="font-mono">running</span>，不会出现“completed”。
+            这张表只代表平台 worker 定义；队列积压在事件总线查看，链路排查在 Logs / Trace 查看。
           </div>
 
           <div class="mt-3 flex justify-end">
-            <UButton size="xs" variant="ghost" @click="cronDebug.logs = []">清空 Cron 日志</UButton>
+            <UButton size="xs" variant="ghost" @click="cronDebug.logs = []">清空任务日志</UButton>
           </div>
           <div class="mt-2 max-h-40 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 text-xs font-mono">
             <div v-for="(line, idx) in cronDebug.logs" :key="idx" class="mb-1">{{ line }}</div>
-            <div v-if="cronDebug.logs.length === 0" class="text-gray-500">点击“刷新作业”开始 Cron 联调。</div>
+            <div v-if="cronDebug.logs.length === 0" class="text-gray-500">暂无任务操作日志。</div>
           </div>
         </UCard>
 
-        <details class="rounded border border-gray-200 dark:border-gray-700 p-3">
-          <summary class="cursor-pointer text-sm font-semibold">高级：监控阈值设置（任务队列高亮）</summary>
-          <div class="mt-3">
-            <div class="flex items-center justify-end gap-2 mb-3">
-              <UButton size="xs" variant="outline" @click="resetThresholdConfig">重置默认</UButton>
-              <UButton size="xs" color="primary" @click="saveThresholdConfig">保存阈值</UButton>
+        <UCard v-else-if="taskCronSubTab === 'runtime'">
+          <template #header>
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div class="font-semibold">Runtime Scheduler</div>
+                <div class="mt-1 text-xs text-gray-500">
+                  插件或运行时通过 SchedulerService 创建的调度任务。这里显示持久化 job 和最近触发状态。
+                </div>
+              </div>
+              <div class="flex flex-wrap justify-end gap-2">
+                <UInput
+                  v-model="runtimeSchedulerFilters.ownerId"
+                  size="sm"
+                  class="w-64"
+                  placeholder="owner_id，例如 com.powerx.plugins.base"
+                />
+                <USelect
+                  v-model="runtimeSchedulerFilters.status"
+                  size="sm"
+                  class="w-36"
+                  :items="runtimeSchedulerStatusOptions"
+                />
+                <UButton size="sm" variant="outline" :loading="runtimeScheduler.loading" @click="loadRuntimeSchedulerJobs">刷新</UButton>
+              </div>
             </div>
+          </template>
 
-            <div class="text-xs text-gray-500 mb-3">
-              规则：数值 ≥ warn 且 &lt; danger 显示黄色；数值 ≥ danger 显示红色。
+          <UAlert
+            icon="i-heroicons-clock"
+            variant="subtle"
+            title="当前展示的是 Runtime Scheduler Job"
+            description="插件网关 Scheduler 测试创建的 once/interval/cron job 会在这里出现；once 到点触发后会变成 completed。"
+          />
+
+          <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
+              <thead class="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <th class="text-left px-3 py-2">任务</th>
+                  <th class="text-left px-3 py-2">Owner</th>
+                  <th class="text-left px-3 py-2">类型</th>
+                  <th class="text-left px-3 py-2">状态</th>
+                  <th class="text-left px-3 py-2">表达式</th>
+                  <th class="text-left px-3 py-2">下次运行</th>
+                  <th class="text-left px-3 py-2">最近触发</th>
+                  <th class="text-left px-3 py-2">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="job in runtimeScheduler.jobs" :key="runtimeSchedulerJobID(job)" class="border-t border-gray-200 dark:border-gray-700">
+                  <td class="px-3 py-2">
+                    <div class="font-medium">{{ job.name || '-' }}</div>
+                    <div class="font-mono text-gray-500">{{ runtimeSchedulerJobID(job) }}</div>
+                    <div class="mt-1 font-mono text-gray-500">{{ job.topic || '-' }}</div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <div>{{ job.owner_type || '-' }}</div>
+                    <div class="font-mono text-gray-500">{{ job.owner_id || '-' }}</div>
+                  </td>
+                  <td class="px-3 py-2">{{ formatRuntimeSchedulerType(job) }}</td>
+                  <td class="px-3 py-2">
+                    <UBadge :color="runtimeSchedulerStatusColor(job.status)" variant="soft">{{ job.status || '-' }}</UBadge>
+                  </td>
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ job.schedule_expr || '-' }}</td>
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ job.next_run_at || '-' }}</td>
+                  <td class="px-3 py-2 font-mono whitespace-nowrap">{{ normalizeZeroTime(job.last_run_at) }}</td>
+                  <td class="px-3 py-2 whitespace-nowrap">
+                    <div class="flex flex-nowrap gap-2 min-w-max">
+                      <UButton size="xs" color="primary" :loading="runtimeScheduler.loading" :disabled="!canTriggerRuntimeScheduler(job)" @click="triggerRuntimeSchedulerJob(job)">
+                        立即触发
+                      </UButton>
+                      <UButton size="xs" variant="outline" :loading="runtimeScheduler.loading" :disabled="job.status !== 'active'" @click="pauseRuntimeSchedulerJob(job)">
+                        暂停
+                      </UButton>
+                      <UButton size="xs" variant="soft" color="success" :loading="runtimeScheduler.loading" :disabled="job.status !== 'paused'" @click="resumeRuntimeSchedulerJob(job)">
+                        恢复
+                      </UButton>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="runtimeScheduler.jobs.length === 0">
+                  <td class="px-3 py-6 text-center text-gray-500" colspan="8">
+                    暂无 Runtime Scheduler Job。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="rounded border border-gray-200 p-3 text-xs dark:border-gray-700">
+              <div class="text-gray-500">总数</div>
+              <div class="mt-1 text-lg font-semibold">{{ runtimeScheduler.total }}</div>
             </div>
-
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-                <div class="text-sm font-medium">pending</div>
-                <UInput v-model.number="thresholdConfig.pendingWarn" type="number" min="0" placeholder="warn" />
-                <UInput v-model.number="thresholdConfig.pendingDanger" type="number" min="0" placeholder="danger" />
-              </div>
-              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-                <div class="text-sm font-medium">deferred</div>
-                <UInput v-model.number="thresholdConfig.deferredWarn" type="number" min="0" placeholder="warn" />
-                <UInput v-model.number="thresholdConfig.deferredDanger" type="number" min="0" placeholder="danger" />
-              </div>
-              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-                <div class="text-sm font-medium">processing</div>
-                <UInput v-model.number="thresholdConfig.processingWarn" type="number" min="0" placeholder="warn" />
-                <UInput v-model.number="thresholdConfig.processingDanger" type="number" min="0" placeholder="danger" />
-              </div>
-              <div class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-                <div class="text-sm font-medium">inflight</div>
-                <UInput v-model.number="thresholdConfig.inflightWarn" type="number" min="0" placeholder="warn" />
-                <UInput v-model.number="thresholdConfig.inflightDanger" type="number" min="0" placeholder="danger" />
-              </div>
+            <div class="rounded border border-gray-200 p-3 text-xs dark:border-gray-700">
+              <div class="text-gray-500">最近刷新</div>
+              <div class="mt-1 font-mono">{{ runtimeScheduler.lastLoadedAt || '-' }}</div>
+            </div>
+            <div class="rounded border border-gray-200 p-3 text-xs dark:border-gray-700">
+              <div class="text-gray-500">最近操作</div>
+              <div class="mt-1 font-mono">{{ runtimeScheduler.lastAction || '-' }}</div>
             </div>
           </div>
-        </details>
+        </UCard>
+
+        <UModal
+          v-model:open="thresholdModalOpen"
+          title="队列高亮阈值"
+          description="用于后台任务队列统计的 warn / danger 高亮。"
+          :ui="{ content: 'max-w-2xl w-full' }"
+        >
+          <template #body>
+            <div class="space-y-4">
+              <div class="rounded border border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                数值达到 warn 显示黄色，达到 danger 显示红色。danger 必须大于或等于 warn。
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div
+                  v-for="metric in thresholdMetricFields"
+                  :key="metric.key"
+                  class="rounded border border-gray-200 p-3 dark:border-gray-700"
+                >
+                  <div class="mb-3 text-sm font-medium">{{ metric.label }}</div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <UFormField label="warn">
+                      <UInput v-model.number="thresholdConfig[metric.warnKey]" type="number" min="0" />
+                    </UFormField>
+                    <UFormField label="danger">
+                      <UInput v-model.number="thresholdConfig[metric.dangerKey]" type="number" min="0" />
+                    </UFormField>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template #footer>
+            <div class="flex w-full items-center justify-between gap-2">
+              <UButton color="neutral" variant="ghost" @click="resetThresholdConfig">重置默认</UButton>
+              <div class="flex items-center gap-2">
+                <UButton color="neutral" variant="soft" @click="thresholdModalOpen = false">取消</UButton>
+                <UButton color="primary" @click="saveThresholdConfig">保存</UButton>
+              </div>
+            </div>
+          </template>
+        </UModal>
       </div>
 
       <UCard v-else>
@@ -1235,18 +1244,18 @@ import {
   useEventFabricService,
   type EventFabricOverview,
   type EventFabricCronJob,
+  type RuntimeSchedulerJob,
   type EventFabricTaskQueueStats,
   type EventFabricTaskQueueMessage,
 } from "~/composables/api/services/eventFabricService";
-import { useBackupOpsService, type BackupJob, type BackupOverview } from "~/composables/api/services/backupOpsService";
 import { EVENT_NOTIFICATION_KIND, EVENT_SUBSCRIBERS, EVENT_TOPICS } from "~/composables/domain/eventTopic";
 import { useWSBus } from "~/composables/useWSBus";
 import { useMonitorLogsStore } from "~/stores/monitorLogs";
 
 type MonitorTabKey = "event-fabric" | "websocket" | "task-cron" | "logs-trace";
 type EventSubTabKey = "queue" | "debug";
-type TaskCronSubTabKey = "replay" | "cron";
 type TaskDebugMode = "replay" | "pipeline" | "retry";
+type TaskCronSubTabKey = "platform" | "runtime";
 type LogsTraceSubTabKey = "query" | "retention";
 type MonitorCenterProps = {
   forcedTab?: MonitorTabKey | "";
@@ -1259,7 +1268,7 @@ const props = withDefaults(defineProps<MonitorCenterProps>(), {
 const monitorTabs: Array<{ key: MonitorTabKey; label: string }> = [
   { key: "event-fabric", label: "事件总线" },
   { key: "websocket", label: "WebSocket" },
-  { key: "task-cron", label: "Task / Cron" },
+  { key: "task-cron", label: "后台任务" },
   { key: "logs-trace", label: "Logs / Trace" },
 ];
 const eventSubTabs: Array<{ key: EventSubTabKey; label: string }> = [
@@ -1270,6 +1279,10 @@ const taskModeOptions: Array<{ label: string; value: TaskDebugMode }> = [
   { label: "Replay", value: "replay" },
   { label: "Pipeline", value: "pipeline" },
   { label: "Retry", value: "retry" },
+];
+const taskCronSubTabs: Array<{ label: string; value: TaskCronSubTabKey }> = [
+  { label: "平台内置任务", value: "platform" },
+  { label: "Runtime Scheduler", value: "runtime" },
 ];
 const logsTraceSubTabs: Array<{ label: string; value: LogsTraceSubTabKey }> = [
   { label: "日志查询", value: "query" },
@@ -1308,7 +1321,7 @@ const resolvedForcedTab = computed<MonitorTabKey | "">(() => {
 const showTopTabs = computed(() => !props.hideTopTabs && !resolvedForcedTab.value);
 const activeTab = ref<MonitorTabKey>(resolvedForcedTab.value || resolveTab(route.query.tab));
 const eventSubTab = ref<EventSubTabKey>("queue");
-const taskCronSubTab = ref<TaskCronSubTabKey>("replay");
+const taskCronSubTab = ref<TaskCronSubTabKey>("platform");
 const logsTraceSubTab = ref<LogsTraceSubTabKey>("query");
 const setTab = (tab: MonitorTabKey) => {
   if (resolvedForcedTab.value) return;
@@ -1336,7 +1349,6 @@ watch(resolvedForcedTab, (tab) => {
 });
 
 const svc = useEventFabricService();
-const backupSvc = useBackupOpsService();
 const toast = useToast();
 const monitorLogsStore = useMonitorLogsStore();
 const {
@@ -1447,9 +1459,6 @@ const retentionScheduleForm = reactive({
 
 const loading = ref(false);
 const overview = ref<EventFabricOverview | null>(null);
-const backupMonitorLoading = ref(false);
-const backupOverview = ref<BackupOverview | null>(null);
-const backupFailedJobs = ref<BackupJob[]>([]);
 const replayLimit = 20;
 
 const filters = reactive({
@@ -1563,6 +1572,18 @@ const defaultThresholdConfig = {
   inflightDanger: 20,
 } as const;
 const thresholdConfig = reactive({ ...defaultThresholdConfig });
+const thresholdModalOpen = ref(false);
+const thresholdMetricFields: Array<{
+  key: string;
+  label: string;
+  warnKey: keyof typeof thresholdConfig;
+  dangerKey: keyof typeof thresholdConfig;
+}> = [
+  { key: "pending", label: "pending", warnKey: "pendingWarn", dangerKey: "pendingDanger" },
+  { key: "deferred", label: "deferred", warnKey: "deferredWarn", dangerKey: "deferredDanger" },
+  { key: "processing", label: "processing", warnKey: "processingWarn", dangerKey: "processingDanger" },
+  { key: "inflight", label: "inflight", warnKey: "inflightWarn", dangerKey: "inflightDanger" },
+];
 
 function thresholdPairs() {
   return [
@@ -1610,6 +1631,7 @@ function saveThresholdConfig() {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(thresholdStorageKey, JSON.stringify({ ...thresholdConfig }));
   }
+  thresholdModalOpen.value = false;
   toast.add({ title: "阈值已保存", color: "success" });
 }
 
@@ -1739,24 +1761,6 @@ async function refresh() {
     toast.add({ title: "加载失败", description: e?.message || "无法获取 overview", color: "error" });
   } finally {
     loading.value = false;
-  }
-}
-
-async function loadBackupMonitor(showToast = false) {
-  backupMonitorLoading.value = true;
-  try {
-    const [overviewPayload, failedPayload] = await Promise.all([
-      backupSvc.getOverview(),
-      backupSvc.listJobs({ status: "failed", page: 1, pageSize: 5 }),
-    ]);
-    backupOverview.value = overviewPayload;
-    backupFailedJobs.value = failedPayload.items;
-  } catch (e: any) {
-    if (showToast) {
-      toast.add({ title: "加载备份监控失败", description: e?.message || "未知错误", color: "error" });
-    }
-  } finally {
-    backupMonitorLoading.value = false;
   }
 }
 
@@ -2758,6 +2762,31 @@ const cronDebug = reactive<{
 });
 const cronLastRunAtMap = reactive<Record<string, string>>({});
 
+const runtimeSchedulerStatusOptions = [
+  { label: "全部状态", value: "all" },
+  { label: "active", value: "active" },
+  { label: "paused", value: "paused" },
+  { label: "completed", value: "completed" },
+  { label: "deleted", value: "deleted" },
+];
+const runtimeSchedulerFilters = reactive({
+  ownerId: "",
+  status: "all",
+});
+const runtimeScheduler = reactive<{
+  loading: boolean;
+  jobs: RuntimeSchedulerJob[];
+  total: number;
+  lastLoadedAt: string;
+  lastAction: string;
+}>({
+  loading: false,
+  jobs: [],
+  total: 0,
+  lastLoadedAt: "",
+  lastAction: "",
+});
+
 const pushCronDebug = (msg: string) => {
   cronDebug.logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
   cronDebug.logs = cronDebug.logs.slice(0, 60);
@@ -2941,6 +2970,108 @@ async function resumeCronJobDebug(jobId: string) {
   }
 }
 
+async function loadRuntimeSchedulerJobs() {
+  runtimeScheduler.loading = true;
+  try {
+    const res = await svc.listRuntimeSchedulerJobs({
+      owner_type: "plugin",
+      owner_id: runtimeSchedulerFilters.ownerId.trim() || undefined,
+      status: runtimeSchedulerFilters.status === "all" ? undefined : runtimeSchedulerFilters.status,
+      page: 1,
+      page_size: 50,
+    });
+    const payload = res.data;
+    runtimeScheduler.jobs = payload.items || [];
+    runtimeScheduler.total = Number(payload.pagination?.total ?? payload.total ?? runtimeScheduler.jobs.length);
+    runtimeScheduler.lastLoadedAt = new Date().toLocaleTimeString();
+    runtimeScheduler.lastAction = `list ok: jobs=${runtimeScheduler.jobs.length}`;
+  } catch (e: any) {
+    runtimeScheduler.lastAction = `list failed: ${e?.message || e}`;
+    toast.add({ title: "加载 Runtime Scheduler 失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    runtimeScheduler.loading = false;
+  }
+}
+
+function runtimeSchedulerJobID(job: RuntimeSchedulerJob) {
+  return String(job.job_id || job.uuid || "").trim();
+}
+
+function runtimeSchedulerStatusColor(status: string) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "active") return "success";
+  if (normalized === "paused") return "warning";
+  if (normalized === "completed") return "neutral";
+  if (normalized === "deleted") return "error";
+  return "neutral";
+}
+
+function formatRuntimeSchedulerType(job: RuntimeSchedulerJob) {
+  const scheduleType = String(job.schedule_type || "").trim();
+  const timezone = String(job.timezone || "").trim();
+  if (!timezone) return scheduleType || "-";
+  return `${scheduleType || "-"} / ${timezone}`;
+}
+
+function normalizeZeroTime(value?: string) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.startsWith("0001-01-01")) return "-";
+  return raw;
+}
+
+function canTriggerRuntimeScheduler(job: RuntimeSchedulerJob) {
+  return runtimeSchedulerJobID(job) !== "" && String(job.status || "").trim().toLowerCase() === "active";
+}
+
+async function triggerRuntimeSchedulerJob(job: RuntimeSchedulerJob) {
+  const jobID = runtimeSchedulerJobID(job);
+  if (!jobID) return;
+  runtimeScheduler.loading = true;
+  try {
+    await svc.triggerRuntimeSchedulerJob(jobID);
+    runtimeScheduler.lastAction = `trigger ok: ${jobID}`;
+    toast.add({ title: "Runtime Scheduler 已触发", description: jobID, color: "success" });
+    await loadRuntimeSchedulerJobs();
+  } catch (e: any) {
+    runtimeScheduler.lastAction = `trigger failed: ${jobID}`;
+    toast.add({ title: "触发 Runtime Scheduler 失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    runtimeScheduler.loading = false;
+  }
+}
+
+async function pauseRuntimeSchedulerJob(job: RuntimeSchedulerJob) {
+  const jobID = runtimeSchedulerJobID(job);
+  if (!jobID) return;
+  runtimeScheduler.loading = true;
+  try {
+    await svc.pauseRuntimeSchedulerJob(jobID);
+    runtimeScheduler.lastAction = `pause ok: ${jobID}`;
+    await loadRuntimeSchedulerJobs();
+  } catch (e: any) {
+    runtimeScheduler.lastAction = `pause failed: ${jobID}`;
+    toast.add({ title: "暂停 Runtime Scheduler 失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    runtimeScheduler.loading = false;
+  }
+}
+
+async function resumeRuntimeSchedulerJob(job: RuntimeSchedulerJob) {
+  const jobID = runtimeSchedulerJobID(job);
+  if (!jobID) return;
+  runtimeScheduler.loading = true;
+  try {
+    await svc.resumeRuntimeSchedulerJob(jobID);
+    runtimeScheduler.lastAction = `resume ok: ${jobID}`;
+    await loadRuntimeSchedulerJobs();
+  } catch (e: any) {
+    runtimeScheduler.lastAction = `resume failed: ${jobID}`;
+    toast.add({ title: "恢复 Runtime Scheduler 失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    runtimeScheduler.loading = false;
+  }
+}
+
 const pushTaskDebug = (msg: string) => {
   taskDebug.logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
   taskDebug.logs = taskDebug.logs.slice(0, 60);
@@ -3048,8 +3179,8 @@ async function createTaskDebug() {
     }
     if (taskDebug.mode === "pipeline") {
       const res = await svc.createPipelineTask({
-        title: "Task 联调器 Pipeline 通知",
-        content: "通过 Task 联调器触发的 Pipeline 任务",
+        title: "Queue / Task 联调通知",
+        content: "通过 Queue / Task 联调器触发的 Pipeline 任务",
         type: "system",
         category: "system",
         topic,
@@ -3085,9 +3216,9 @@ async function createTaskDebug() {
     taskDebug.queueSubscriberId = String(seed.subscriber_id || "");
     taskDebug.queueHitState = "scheduled";
     taskDebug.queueHitSource = "retry_seed";
-    pushTaskDebug(`retry seed ok: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}`);
+    pushTaskDebug(`retry task created: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}`);
     toast.add({
-      title: "Retry 样本已制造",
+      title: "重试测试任务已创建",
       description: `retry_at=${seed.retry_at}`,
       color: "success",
     });
@@ -3125,13 +3256,13 @@ async function createRetrySampleTaskDebug() {
     taskDebug.queueSubscriberId = String(seed.subscriber_id || "");
     taskDebug.queueHitState = "scheduled";
     taskDebug.queueHitSource = "retry_seed";
-    pushTaskDebug(`retry seed ok: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
-    pushCronDebug(`retry seed ok: delivery_id=${seed.delivery_id}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
-    toast.add({ title: "Retry 样本已制造", description: "样本已入重试池，请在 Cron 表格行点击“立即执行”", color: "success" });
+    pushTaskDebug(`retry task created: delivery_id=${taskDebug.taskId}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
+    pushCronDebug(`retry task created: delivery_id=${seed.delivery_id}, event_id=${seed.event_id}, retry_at=${seed.retry_at}, waiting_run_now=true`);
+    toast.add({ title: "重试测试任务已创建", description: "任务已进入重试池，请在 Schedule 配置表格行点击“立即执行”", color: "success" });
   } catch (e: any) {
-    pushTaskDebug(`retry seed failed: ${e?.message || e}`);
-    pushCronDebug(`retry seed failed: ${e?.message || e}`);
-    toast.add({ title: "制造 Retry 样本失败", description: e?.message || "未知错误", color: "error" });
+    pushTaskDebug(`retry task create failed: ${e?.message || e}`);
+    pushCronDebug(`retry task create failed: ${e?.message || e}`);
+    toast.add({ title: "创建重试测试任务失败", description: e?.message || "未知错误", color: "error" });
   } finally {
     taskDebug.loading = false;
     queueStatsDirty.value = true;
@@ -3188,16 +3319,40 @@ function cronStatusColor(status: string) {
 function formatCronSchedule(job: EventFabricCronJob) {
   const kind = String(job.kind || "").trim().toLowerCase();
   const batch = Number(job.batch_size ?? 0);
-  const batchText = `batch=${Number.isFinite(batch) && batch > 0 ? batch : "-"}`;
+  const batchText = `每批 ${Number.isFinite(batch) && batch > 0 ? batch : "-"} 条`;
   if (kind === "interval") {
     const interval = Number(job.interval_sec ?? 0);
-    const intervalText = Number.isFinite(interval) && interval > 0 ? `${interval}s` : "-";
-    return `interval=${intervalText} · ${batchText}`;
+    const intervalText = Number.isFinite(interval) && interval > 0 ? `${interval} 秒` : "-";
+    return `每 ${intervalText} 触发 · ${batchText}`;
   }
   if (kind === "queue") {
-    return `trigger=queue · ${batchText}`;
+    return `队列有待处理消息时消费 · ${batchText}`;
   }
-  return `schedule=- · ${batchText}`;
+  return `未配置 · ${batchText}`;
+}
+
+function formatSchedulerJobName(job: EventFabricCronJob) {
+  const id = String(job.id || "").trim();
+  if (id === "event_fabric.retry_dispatch") return "重试投递扫描";
+  if (id === "event_fabric.authorization_challenge_timeout") return "授权超时处理";
+  return String(job.name || id || "-");
+}
+
+function formatSchedulerKind(job: EventFabricCronJob) {
+  const kind = String(job.kind || "").trim().toLowerCase();
+  if (kind === "interval") return "定时扫描";
+  if (kind === "queue") return "队列消费";
+  return kind || "-";
+}
+
+function formatSchedulerTarget(job: EventFabricCronJob) {
+  const id = String(job.id || "").trim();
+  if (id === "event_fabric.retry_dispatch") return "扫描全部到期重试投递";
+  if (id === "event_fabric.authorization_challenge_timeout") return "授权挑战超时队列";
+  const subscriber = String(job.subscriber_id || "").trim();
+  const tenant = String(job.tenant_key || "").trim();
+  if (!subscriber && !tenant) return "-";
+  return `${subscriber || "-"} / ${tenant || "-"}`;
 }
 
 async function cancelReplayTaskDebug() {
@@ -3230,11 +3385,9 @@ watch(activeTab, (tab) => {
     wsTopic.value = EVENT_TOPICS.SYSTEM_NOTIFICATION;
     void loadWsTopicCatalog();
   }
-  if (tab === "task-cron" && taskCronSubTab.value === "cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
+  if (tab === "task-cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
     void loadCronJobsDebug();
-  }
-  if (tab === "task-cron") {
-    void loadBackupMonitor(false);
+    void loadRuntimeSchedulerJobs();
   }
   if (tab === "logs-trace") {
     void ensureMonitorLogsReady();
@@ -3243,8 +3396,11 @@ watch(activeTab, (tab) => {
 
 watch(taskCronSubTab, (tab) => {
   if (activeTab.value !== "task-cron") return;
-  if (tab === "cron" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
+  if (tab === "platform" && cronDebug.jobs.length === 0 && !cronDebug.loading) {
     void loadCronJobsDebug();
+  }
+  if (tab === "runtime" && runtimeScheduler.jobs.length === 0 && !runtimeScheduler.loading) {
+    void loadRuntimeSchedulerJobs();
   }
 });
 
@@ -3306,7 +3462,8 @@ onMounted(async () => {
     await loadWsTopicCatalog();
   }
   if (activeTab.value === "task-cron") {
-    await loadBackupMonitor(false);
+    await loadCronJobsDebug();
+    await loadRuntimeSchedulerJobs();
   }
   if (activeTab.value === "logs-trace") {
     await ensureMonitorLogsReady();

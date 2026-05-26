@@ -40,15 +40,18 @@ type tenantSnapshot struct {
 
 func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, claims *reqctx.CoreXClaims) error {
 	if db == nil {
-		return nil
+		return validateSTSRouteOnly
 	}
 	userRepo := iamrepo.NewUserRepository(db)
 	memberRepo := iamrepo.NewMemberRepository(db)
 	tenantRepo := tenantrepo.NewTenantRepository(db)
 
 	return func(ctx context.Context, claims *reqctx.CoreXClaims) error {
-		if claims == nil {
-			return fmt.Errorf("claims missing")
+		if err := validateSTSRouteOnly(ctx, claims); err != nil {
+			return err
+		}
+		if isPowerXAPISTSClaims(claims) {
+			return nil
 		}
 		if claims.UserID == 0 {
 			return fmt.Errorf("user id missing")
@@ -100,6 +103,58 @@ func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, cl
 		}
 		return nil
 	}
+}
+
+func validateSTSRouteOnly(ctx context.Context, claims *reqctx.CoreXClaims) error {
+	if claims == nil {
+		return fmt.Errorf("claims missing")
+	}
+	if !isPowerXAPISTSClaims(claims) {
+		return nil
+	}
+	if isSTSAllowedRequestPath(ctx) {
+		if _, err := reqctx.RequireTenantUUID(ctx); err != nil {
+			return fmt.Errorf("tenant uuid missing")
+		}
+		return nil
+	}
+	return fmt.Errorf("sts token not allowed for this route")
+}
+
+func isPowerXAPISTSClaims(claims *reqctx.CoreXClaims) bool {
+	if claims == nil || !strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") {
+		return false
+	}
+	for _, aud := range claims.Audience {
+		if strings.EqualFold(strings.TrimSpace(aud), "powerx:api") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSTSAllowedRequestPath(ctx context.Context) bool {
+	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
+	path = strings.TrimSuffix(path, "/")
+	return strings.HasSuffix(path, "/admin/runtime/ws-bus/grant") ||
+		strings.HasSuffix(path, "/admin/runtime/ws-bus/publish") ||
+		strings.HasSuffix(path, "/tenant/invocations") ||
+		strings.HasSuffix(path, "/tenant/invocations/stream") ||
+		isSTSAICapabilityPath(path)
+}
+
+func isSTSAICapabilityPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if !strings.EqualFold(parts[i], "ai") {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(parts[i+1])) {
+		case "llm", "vlm", "image", "video", "tts", "embedding":
+			return true
+		}
+	}
+	return false
 }
 
 func loadTenantSnapshot(ctx context.Context, repo *tenantrepo.TenantRepository, tenantUUID string) (*tenantSnapshot, error) {

@@ -48,6 +48,10 @@ dist-systemd:
 		cp -R config/security/* "$(DIST_OUT_DIR)/backend/config/security/"; \
 	fi; \
 	echo "[dist] copy backend runtime assets"; \
+	if [ -d backend/scripts/ops ]; then \
+		mkdir -p "$(DIST_OUT_DIR)/backend/scripts"; \
+		cp -R backend/scripts/ops "$(DIST_OUT_DIR)/backend/scripts/"; \
+	fi; \
 	if [ -d backend/internal/server/agent/blueprints ]; then \
 		mkdir -p "$(DIST_OUT_DIR)/backend/internal/server/agent"; \
 		cp -R backend/internal/server/agent/blueprints "$(DIST_OUT_DIR)/backend/internal/server/agent/"; \

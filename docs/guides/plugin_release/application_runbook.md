@@ -2,6 +2,8 @@
 
 本指南基于 `specs/009-install-plugin-pxp` 的交付内容，串联开发者、审核员、运维和租户管理员在现实场景中的操作步骤。按照顺序执行即可完成从本地调试到多渠道分发的整条流水线。
 
+插件与底座之间的 token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
+
 ## 0. 角色及工具准备
 - **开发者**：安装 `px-plugin` 与 `px` CLI。
 - **发布经理 / 审核员**：具备 Admin API Token。
@@ -165,11 +167,11 @@ web-admin/app/services/menuConfig.ts
 - 插件 Console 看到 `[Bridge][Plugin] onAuthToken <- ...` 且 `after setAuth localStorage.access_token ...` 表示 token 已写入；localStorage 的 key 会落在 iframe 实际 origin（可能是 3030 而非 8077）。
 - 静态资源 `/_p/.../admin/assets/...` 不带 Authorization，不影响登录态；检查业务接口 `/api/v1/...` 的请求头是否包含 Authorization/JWT claims（tid/tenant_uuid） 以判定会话是否生效。
 
-### 流程速查（token/locale/theme/ctx）
-- 会话来源：宿主登录后，后端会在 `/api/v1/admin/user/auth/me/context` 返回 `ctx/ctx_sig/ctx_jwt`（或响应头同名）；需要配好 `auth.jwt_secret`，否则不会生成签名上下文。
-- 宿主桥接：`usePluginBridge` 从 token/localStorage/cookie/window 读取 token/locale/theme/ctx，构造 `auth-token`/`sync`，`postMessage('*')` 给 iframe。
-- 插件接收：`powerx-bridge-client` 收到后调用 `useHostBridgeAdapter`，`useAuth.setAuth` 写入本域 localStorage，ctx 存 Pinia `hostCtx`。
-- API 发起：插件 `useApiClient` 自动附带 `Authorization`（租户由 JWT claims 提供）、以及 `X-PowerX-CTX/CTX-SIG/CTX-JWT`（若 hostCtx 有值）直连 8077。
+### 流程速查（token/locale/theme）
+- 会话来源：宿主登录后，`/api/v1/admin/user/auth/me/context` 只返回用户、租户和成员上下文，不返回签名上下文或宿主 JWT 桥接字段。
+- 宿主桥接：`usePluginBridge` 从 token/localStorage 读取 token，并带上 locale/theme/tenant，构造 `auth-token`/`sync`，`postMessage('*')` 给 iframe。
+- 插件接收：`powerx-bridge-client` 收到后调用 `useHostBridgeAdapter`，`useAuth.setAuth` 写入本域 localStorage。
+- API 发起：插件业务 API 通过宿主 `/_p/:pluginId/api/*` proxy 访问；宿主 proxy 完成 RBAC 判定后向插件后端下发 STS 短期令牌。
 - 身份接口边界：`/api/v1/admin/{identity}/auth/*` 必须走宿主主路由；不要通过 `/_p/:pluginId/api/v1/admin/{identity}/auth/*`。`/_p/:pluginId/api/*` 只用于插件业务 API。
 - 渲染同步：`sync` 内的 locale/theme 直接应用到 i18n/colorMode，保持宿主与插件一致。
 
@@ -178,20 +180,20 @@ web-admin/app/services/menuConfig.ts
 flowchart LR
   subgraph Host[宿主 3030]
     H1[登录 @3030<br>拿 token / tid]
-    H2[调用 /api/v1/admin/user/auth/me/context<br>取 ctx / ctx_sig / ctx_jwt<br>存 localStorage / cookie]
-    H3[usePluginBridge<br>构造 sync + auth-token<br>带 locale / theme / token / ctx]
+    H2[调用 /api/v1/admin/user/auth/me/context<br>取用户 / 租户 / 成员上下文]
+    H3[usePluginBridge<br>构造 sync + auth-token<br>带 locale / theme / token / tenant]
   end
   subgraph Bridge[postMessage]
-    M[postMessage '*' 到 iframe<br>sync + auth-token<br>含 locale / theme / token / ctx]
+    M[postMessage '*' 到 iframe<br>sync + auth-token<br>含 locale / theme / token / tenant]
   end
   subgraph Plugin[插件 8077]
     P1[powerx-bridge-client<br>接收消息]
-    P2[useHostBridgeAdapter<br>setAuth 写本域 token<br>hostCtx 保存 ctx]
-    P3[useApiClient<br>带 Authorization<br>JWT claims（tid/tenant_uuid） 解自 token tid<br>X-PowerX-CTX / CTX-SIG / CTX-JWT from hostCtx<br>请求 8077]
+    P2[useHostBridgeAdapter<br>setAuth 写本域 token]
+    P3[useApiClient<br>请求宿主 /_p/:pluginId/api/*<br>宿主 proxy 下发 STS 到插件后端]
     P4[渲染同步<br>locale / theme]
   end
   H1 --> H2 --> H3 --> M --> P1 --> P2 --> P3
   M --> P4
 ```
 
-注意：如果 `/api/v1/admin/user/auth/me/context` 未返回 `ctx/ctx_sig/ctx_jwt`（后端未生成签名上下文），插件请求缺少 `X-PowerX-CTX*` 会被判 “tenant context missing”。
+注意：插件不得依赖宿主 JWT 或签名上下文透传。租户与权限由宿主 proxy 的入站登录态、RBAC 判定和下游 STS 令牌承载。

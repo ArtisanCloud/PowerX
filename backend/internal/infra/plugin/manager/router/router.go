@@ -2,14 +2,13 @@ package router
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -36,13 +35,12 @@ type adminUpstream struct {
 }
 
 type DynamicRouter struct {
-	basePrefix    string // 固定 "/_p"
-	engine        *gin.Engine
-	mu            sync.RWMutex
-	adminDirs     map[string]string
-	adminUps      map[string]adminUpstream
-	apis          map[string]apiUpstream
-	ctxHMACSecret []byte
+	basePrefix string // 固定 "/_p"
+	engine     *gin.Engine
+	mu         sync.RWMutex
+	adminDirs  map[string]string
+	adminUps   map[string]adminUpstream
+	apis       map[string]apiUpstream
 
 	gate          *authzGate
 	apiMiddleware []gin.HandlerFunc
@@ -236,16 +234,6 @@ func (r *DynamicRouter) InstallPolicy(pluginID string, pol *Policy) {
 	}
 }
 
-func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
-	if len(secret) == 0 {
-		r.ctxHMACSecret = nil
-		return
-	}
-	dup := make([]byte, len(secret))
-	copy(dup, secret)
-	r.ctxHMACSecret = dup
-}
-
 func (r *DynamicRouter) publicAwareAPIAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		pluginID := c.Param("id")
@@ -288,6 +276,10 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
 		logger.InfoF(c.Request.Context(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
 		clientPath = clean
+	}
+
+	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
+		return
 	}
 
 	// 反代优先
@@ -351,6 +343,43 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 
 	// 未挂反代时，落回静态目录（若没有，将 404）
 	r.serveAdminStatic(c, pluginID, clientPath)
+}
+
+func (r *DynamicRouter) tryServeAdminStaticAsset(c *gin.Context, pluginID, clientPath string) bool {
+	method := strings.ToUpper(strings.TrimSpace(c.Request.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	if shouldRewriteAdminDocToIndex(c.Request, p) {
+		return false
+	}
+	if strings.ToLower(filepath.Ext(p)) == "" {
+		return false
+	}
+
+	r.mu.RLock()
+	abs, ok := r.adminDirs[pluginID]
+	r.mu.RUnlock()
+	if !ok || abs == "" {
+		return false
+	}
+
+	absReq := filepath.Join(abs, filepath.Clean(p))
+	if !isSubPath(abs, absReq) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return true
+	}
+	if fi, err := os.Stat(absReq); err != nil || fi.IsDir() {
+		return false
+	}
+
+	applyAdminFrameHeaders(c.Writer.Header())
+	http.ServeFile(c.Writer, c.Request, absReq)
+	return true
 }
 
 func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath string) {
@@ -493,6 +522,12 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if claims.UserUUID == "" {
 			claims.UserUUID = strings.TrimSpace(rc.UserUUID)
 		}
+		if claims.Email == "" {
+			claims.Email = strings.TrimSpace(rc.Email)
+		}
+		if claims.Phone == "" {
+			claims.Phone = strings.TrimSpace(rc.Phone)
+		}
 	}
 
 	// 预检 + 下发短期 Token（可选）
@@ -616,11 +651,6 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			req.Header.Del("X-PowerX-Tenant")
 		}
 
-		// 透传签名上下文
-		if ctxB64, sig, ok := r.buildSignedCtx(c); ok {
-			req.Header.Set("X-PowerX-CTX", ctxB64)
-			req.Header.Set("X-PowerX-CTX-SIG", sig)
-		}
 		attachTraceHeaders(c, req)
 		req.Header.Set("X-PowerX-Plugin-Id", pluginID)
 
@@ -842,26 +872,6 @@ func looksLikeLocaleSegment(seg string) bool {
 		}
 	}
 	return true
-}
-
-func (r *DynamicRouter) buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
-	if len(r.ctxHMACSecret) == 0 {
-		return "", "", false
-	}
-	claimsAny, exists := c.Get("auth_claims")
-	if !exists {
-		return "", "", false
-	}
-	claims, ok := claimsAny.(reqctx.CoreXClaims)
-	if !ok {
-		return "", "", false
-	}
-	raw, _ := json.Marshal(claims)
-	ctxB64 = base64.StdEncoding.EncodeToString(raw)
-	mac := hmac.New(sha256.New, r.ctxHMACSecret)
-	mac.Write([]byte(ctxB64))
-	sig = base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	return ctxB64, sig, true
 }
 
 func joinURLPath(parts ...string) string {

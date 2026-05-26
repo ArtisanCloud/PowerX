@@ -6,7 +6,8 @@ type TenantHeaderPolicy struct {
 }
 
 type jwtMiddlewareConfig struct {
-	headerPolicy TenantHeaderPolicy
+	headerPolicy     TenantHeaderPolicy
+	extraTokenChecks []TokenCheck
 }
 
 // JwtOption 自定义中间件行为。
@@ -16,5 +17,16 @@ type JwtOption func(*jwtMiddlewareConfig)
 func WithTenantHeaderPolicy(policy TenantHeaderPolicy) JwtOption {
 	return func(c *jwtMiddlewareConfig) {
 		c.headerPolicy = policy
+	}
+}
+
+type TokenCheck struct {
+	Issuer    string
+	Audiences []string
+}
+
+func WithExtraTokenChecks(checks ...TokenCheck) JwtOption {
+	return func(c *jwtMiddlewareConfig) {
+		c.extraTokenChecks = append(c.extraTokenChecks, checks...)
 	}
 }

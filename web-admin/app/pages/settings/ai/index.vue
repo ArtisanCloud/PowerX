@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">
-          {{ $t("settings.ai.title") }}
+          {{ $t("menu.aiSettingsModel") }}
         </h1>
         <p class="text-sm text-[var(--text-secondary)]">
           {{ $t("settings.ai.description") }}
@@ -255,6 +255,11 @@ import {
   type SaveSettingsPayload,
 } from "~/composables/api/services/aiSettingService";
 import type { SelectOption } from "~/composables/api/types/select";
+
+definePageMeta({
+  title: "menu.aiSettingsModel",
+  layout: "default",
+});
 
 type Modality =
   | "llm"

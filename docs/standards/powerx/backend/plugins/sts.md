@@ -2,6 +2,8 @@
 
 本文描述插件服务以租户维度访问宿主 PowerX 时的鉴权机制：插件使用租户侧的 client_id/client_secret 调用 STS（Security Token Service）换取短期访问令牌（JWT），并用该令牌调用 PowerX 的 gRPC/HTTP 接口。
 
+Token 总边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准；本文只描述“插件主动调用 PowerX 底座”的 STS 主路径。
+
 ## 核心目标
 
 - 每租户独立凭证：同一插件对不同租户拥有不同 `client_id/client_secret`。
@@ -43,7 +45,8 @@
 
 令牌内容（要点）：
 - 算法/密钥：HS256（KeyRing），header.kid = 所用密钥的标识；
-- Claims：`tenant_uuid`（以及 `tenant_id` 仅在仍需兼容时回填）、`scope`、`aud`、`iss`、`sub=client:<client_id>`、`iat/exp`；
+- Claims：`tid/tid_n`、`scope`、`aud`、`iss`、`sub=client:<client_id>`、`iat/exp`；
+- STS token 代表插件服务身份，不代表登录用户，因此不携带 `uid/uid_n/mid/mid_n`。用户态 token 与 Plugin request token 的 claims 标准见 `docs/guides/auth/plugin_auth_token_model.md`；
 - 仅短期有效（`exp = iat + ttl`）。
 
 ## 使用令牌访问 PowerX

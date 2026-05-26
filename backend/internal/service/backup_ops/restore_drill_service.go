@@ -13,6 +13,7 @@ import (
 
 	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
+	opsscripts "github.com/ArtisanCloud/PowerX/internal/service/ops_scripts"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"go.uber.org/zap"
@@ -48,17 +49,13 @@ type ListRestoreDrillOptions struct {
 }
 
 func NewRestoreDrillService(db *gorm.DB) *RestoreDrillService {
-	scriptDir := strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))
-	if scriptDir == "" {
-		scriptDir = filepath.Join("backend", "scripts", "ops")
-	}
 	return &RestoreDrillService{
 		restoreRepo:  repoops.NewRestoreDrillRecordRepository(db),
 		jobRepo:      repoops.NewBackupJobRepository(db),
 		artifactRepo: repoops.NewBackupArtifactRepository(db),
 		runner:       NewOSScriptRunner(),
 		auditor:      obsops.NewUnifiedAuditWriter(db),
-		scriptDir:    scriptDir,
+		scriptDir:    opsscripts.ResolveDir("restore-drill.sh"),
 		metrics:      inst.NewRecorder("powerx.service.restore_drill_ops"),
 		sm:           NewJobStateMachine(),
 	}

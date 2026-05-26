@@ -72,6 +72,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
+	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
@@ -184,9 +185,10 @@ type Deps struct {
 	CapabilityDefaultHTTPTimeout      time.Duration
 	CapabilityAIMultimodalHTTPTimeout time.Duration
 
-	EventFabric    *EventFabricDeps
-	Workflow       *WorkflowDeps
-	KnowledgeSpace *KnowledgeSpaceDeps
+	EventFabric      *EventFabricDeps
+	Workflow         *WorkflowDeps
+	RuntimeScheduler *RuntimeSchedulerDeps
+	KnowledgeSpace   *KnowledgeSpaceDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -335,6 +337,35 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		ReliableQueue: workflowReliable,
 		Scheduler:     workflowScheduler,
 	})
+	runtimeSchedulerSvc := runtimescheduler.NewService(runtimescheduler.Options{
+		DB:       db,
+		EventBus: bus,
+		Clock:    time.Now,
+	})
+	notificationsSvc := notificationssvc.NewService(db)
+	var runtimeSchedulerWorker *workers.RuntimeSchedulerDispatcher
+	var runtimeSchedulerNotificationProbe *workers.RuntimeSchedulerNotificationProbe
+	if runtimeSchedulerSvc != nil {
+		interval := 5 * time.Second
+		if eventFabricDeps != nil && eventFabricDeps.Config.SchedulerInterval > 0 {
+			interval = eventFabricDeps.Config.SchedulerInterval
+		}
+		runtimeSchedulerWorker = workers.NewRuntimeSchedulerDispatcher(workers.RuntimeSchedulerDispatcherOptions{
+			Service:   runtimeSchedulerSvc,
+			Interval:  interval,
+			BatchSize: 100,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+		})
+	}
+	if bus != nil && db != nil {
+		runtimeSchedulerNotificationProbe = workers.NewRuntimeSchedulerNotificationProbe(workers.RuntimeSchedulerNotificationProbeOptions{
+			EventBus:      bus,
+			Notifications: notificationsSvc,
+			Logger:        pxlog.GetGlobalLogger(),
+			Clock:         time.Now,
+		})
+	}
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
 
@@ -695,7 +726,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:                           aud,
 		MediaMgr:                          mediaManager,
 		MediaSvc:                          mediaSvc,
-		Notifications:                     notificationssvc.NewService(db),
+		Notifications:                     notificationsSvc,
 		EventBus:                          bus,
 		CapabilityRegistrySvc:             capRegistrySvc,
 		CapabilityCatalogSvc:              capabilityCatalogSvc,
@@ -733,6 +764,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,
 			ReliableQueue: workflowReliable,
+		},
+		RuntimeScheduler: &RuntimeSchedulerDeps{
+			Service:           runtimeSchedulerSvc,
+			Dispatcher:        runtimeSchedulerWorker,
+			NotificationProbe: runtimeSchedulerNotificationProbe,
 		},
 	}
 }
@@ -818,6 +854,12 @@ type WorkflowDeps struct {
 	Service       *workflowsvc.Service
 	Scheduler     *workflowsvc.Scheduler
 	ReliableQueue event_bus.ReliableQueue
+}
+
+type RuntimeSchedulerDeps struct {
+	Service           *runtimescheduler.Service
+	Dispatcher        *workers.RuntimeSchedulerDispatcher
+	NotificationProbe *workers.RuntimeSchedulerNotificationProbe
 }
 
 // IntegrationGatewayDeps 聚合集成网关运行时所需依赖。

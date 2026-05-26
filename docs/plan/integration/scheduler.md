@@ -1,336 +1,343 @@
 # Scheduler（统一调度器）
 
-## 目标
-- 给 PowerX 底座、插件、插件之间提供**统一的定时/计划机制**。
-- 通过 `com.corex.scheduler.jobs` 暴露能力：创建/更新/暂停/删除/触发调度任务。
-- 与 Event Bus 协同：**到点触发 → 发布事件 → 订阅者执行**。
+> 状态：规划契约，尚未完整落地为可供插件调用的生产服务。  
+> 已落地的 `/admin/event-fabric/cron/jobs` 只支撑平台内置 Schedule 配置运维，不等同于本文定义的插件通用 SchedulerService。
 
-## 统一能力模型（Capability）
-- `com.corex.scheduler.jobs`  
-  - intents: `workflow.scheduler.invoke`（可扩展）
-  - tool scopes: `workflow.scheduler`
+## 1. 目标
 
-## 支持的计划类型
-- `cron`（标准 5/6 段 cron）
-- `interval`（如 `5m`、`2h`）
-- `once`（指定时间点）
+1. 给 PowerX 底座、插件、插件之间提供统一的定时/计划机制。
+2. 通过 `powerx.scheduler.v1.SchedulerService` 和 `com.corex.scheduler.jobs` 暴露创建、更新、暂停、恢复、触发、查询调度任务的能力。
+3. 支持 `once`、`interval`、`cron` 三类调度。
+4. Scheduler 只负责“何时触发”，业务执行统一通过 Event Bus / TaskBus / Framework handler 完成。
+5. 插件业务代码只依赖 PowerXPlugin Framework scheduler facade，不直接调用底座 Admin Cron 接口，不自行维护本地内存 timer。
 
-## 核心设计
-- **Job Registry（注册表）**：统一保存调度任务（DB）。
-- **Planner**：解析 cron/interval，计算 next_run_at。
-- **Dispatcher**：到点触发 → 发布事件到 Event Bus。
-- **Worker**：消费“调度触发事件”，调用插件或内部执行器。
-- **状态机**：scheduled → running → succeeded/failed → rescheduled（含重试）。
+## 2. 当前状态
 
-## 数据模型（草案）
-```
+1. 已有 gRPC proto：`backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto`。
+2. 已有生成代码和 capability 记录：`com.corex.grpc.scheduler.schedulerservice.*`。
+3. 当前仓库未发现真实 `SchedulerServiceServer` 注册与完整业务实现。
+4. 已实现的 Event Fabric Cron 能力主要服务底座内部 worker，例如：
+   - `event_fabric.retry_dispatch`
+   - `event_fabric.authorization_challenge_timeout`
+5. `/admin/event-fabric/cron/jobs` 只能作为底座内部 Cron 运维接口，不能作为插件通用 Scheduler API。
+
+## 3. 职责边界
+
+### 3.1 PowerX 底座
+
+PowerX 底座负责生产环境可靠调度：
+
+1. 持久化 job 与 run 记录。
+2. 校验租户、owner、schedule 表达式和权限。
+3. 计算 `next_run_at`。
+4. 到点后发布标准调度触发事件。
+5. 提供分布式锁或等效防重机制。
+6. 提供至少一次触发语义。
+7. 提供 pause、resume、trigger、get、list 等管理能力。
+8. 写入审计、指标与结构化日志。
+
+### 3.2 PowerXPlugin Framework
+
+Framework 负责对插件屏蔽运行模式差异：
+
+1. `host` 模式调用 PowerX 底座 `SchedulerService`。
+2. `local` 模式使用 framework 本地 provider。
+3. `dual` 模式仅用于迁移验证，不作为长期默认。
+4. 到点事件由 framework 接收后分发到插件注册的 handler。
+5. 业务插件只调用 `scheduler.CreateJob(...)` 和 `scheduler.RegisterHandler(...)` 等 framework 接口。
+
+### 3.3 业务插件
+
+业务插件负责声明计划任务和处理业务动作：
+
+1. 创建 job 时设置 `owner_type=plugin`、`owner_id=<plugin_id>`。
+2. 在 payload 中携带 `business_action` 和业务主键。
+3. 注册 handler 处理 `business_action`。
+4. handler 必须幂等处理，因为底座提供至少一次触发语义。
+5. 不直接调用 `/admin/event-fabric/cron/jobs`。
+6. 不在业务代码里写 host/local 分支。
+
+## 4. 统一能力模型
+
+Capability：`com.corex.scheduler.jobs`
+
+建议 scope：
+
+1. `scheduler.job.manage`：创建、更新、暂停、恢复、删除。
+2. `scheduler.job.run`：手动触发。
+3. `scheduler.job.read`：查询 job 和 run 状态。
+
+现有 `workflow.scheduler` 只适合 workflow scheduler 场景，插件通用调度需要独立 scheduler scope，避免把 workflow 能力误复用成通用插件调度能力。
+
+## 5. 数据模型
+
+建议新增独立表，不直接复用平台内置 Schedule 运维接口作为插件公共契约。
+
+```text
 scheduler_jobs:
-  job_id (uuid)
-  tenant_uuid
-  owner_type (core/plugin)
-  owner_id (service_name/plugin_id)
-  name
-  schedule_type (cron/interval/once)
-  schedule_expr
-  payload (json)
-  status (active/paused/deleted)
-  next_run_at
-  last_run_at
-  misfire_policy (skip/run_catchup)
-  retry_policy (max, backoff)
-  created_at/updated_at
+  job_id uuid primary key
+  tenant_uuid uuid not null
+  owner_type text not null          # core | plugin
+  owner_id text not null            # service_name | plugin_id
+  name text not null
+  schedule_type text not null       # once | interval | cron
+  schedule_expr text not null       # RFC3339 | duration | cron expr
+  timezone text not null default 'UTC'
+  topic text not null               # powerx.runtime.scheduler.triggered.v1
+  payload_json jsonb not null
+  status text not null              # active | paused | deleted
+  next_run_at timestamptz
+  last_run_at timestamptz
+  misfire_policy text not null      # skip | run_catchup
+  overlap_policy text not null      # skip | queue | parallel
+  retry_policy_json jsonb
+  idempotency_key text
+  actor_type text                  # user | api_key | plugin | service_account | system
+  actor_user_id bigint
+  actor_user_uuid text
+  actor_member_id bigint
+  actor_member_uuid text
+  created_by text
+  created_at timestamptz not null
+  updated_at timestamptz not null
+
+scheduler_job_runs:
+  run_id uuid primary key
+  job_id uuid not null
+  tenant_uuid uuid not null
+  owner_type text not null
+  owner_id text not null
+  trigger_source text not null      # once | interval | cron | manual | retry
+  scheduled_at timestamptz
+  fired_at timestamptz
+  status text not null              # triggered | skipped | failed
+  event_id text
+  trace_id text
+  actor_type text
+  actor_user_id bigint
+  actor_user_uuid text
+  actor_member_id bigint
+  actor_member_uuid text
+  error_code text
+  error_message text
+  created_at timestamptz not null
 ```
 
-## API 草案（HTTP）
-```
-POST /api/v1/admin/scheduler/jobs
-  body:
-    tenant_uuid: string
-    owner_type: core|plugin
-    owner_id: string
-    name: string
-    schedule_type: cron|interval|once
-    schedule_expr: string
-    payload: object
-    misfire_policy: skip|run_catchup
-    retry_policy:
-      max_attempts: number
-      backoff_seconds: number
+约束：
 
-PATCH /api/v1/admin/scheduler/jobs/:jobId
-  body: (same as create, partial)
+1. `tenant_uuid + owner_type + owner_id + name` 必须唯一。
+2. `owner_type=plugin` 时 `owner_id` 必须是插件 ID。
+3. `topic` 首期固定为 `powerx.runtime.scheduler.triggered.v1`，不允许业务插件自定义任意 topic。
+4. `tenant_uuid` 只能来自 token claims 或受信任宿主上下文，不接受未授权覆盖。
+5. job 资源归属保持 `tenant_uuid + owner_type + owner_id`，不按 member 拆分；创建、更新、手动触发、自动触发的行为归属必须记录 actor。
 
-POST /api/v1/admin/scheduler/jobs/:jobId/pause
-POST /api/v1/admin/scheduler/jobs/:jobId/resume
-POST /api/v1/admin/scheduler/jobs/:jobId/trigger
-GET  /api/v1/admin/scheduler/jobs
-GET  /api/v1/admin/scheduler/jobs/:jobId
-```
+## 6. 调度类型
 
-## 查询与分页（建议）
-- `GET /api/v1/admin/scheduler/jobs`
-  - `page`（默认 1）
-  - `page_size`（默认 20，最大 200）
-  - `status`（active/paused）
-  - `owner_id`（可选）
-  - `schedule_type`（可选）
+1. `once`：`schedule_expr` 必须是 RFC3339 时间。
+2. `interval`：`schedule_expr` 必须是 Go duration 风格，例如 `5m`、`2h`。
+3. `cron`：`schedule_expr` 支持标准 5/6 段 cron。
+4. `timezone` 默认 `UTC`，允许显式设置 `Asia/Shanghai` 等 IANA timezone。
 
-## OpenAPI Schema（草案）
-```yaml
-paths:
-  /api/v1/admin/scheduler/jobs:
-    post:
-      summary: Create scheduler job
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                tenant_uuid: { type: string }
-                owner_type: { type: string, enum: [core, plugin] }
-                owner_id: { type: string }
-                name: { type: string }
-                schedule_type: { type: string, enum: [cron, interval, once] }
-                schedule_expr: { type: string }
-                payload: { type: object }
-                misfire_policy: { type: string, enum: [skip, run_catchup] }
-                retry_policy:
-                  type: object
-                  properties:
-                    max_attempts: { type: integer }
-                    backoff_seconds: { type: integer }
-              required: [tenant_uuid, owner_type, owner_id, schedule_type, schedule_expr]
-      responses:
-        "200":
-          description: ok
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OkResponse"
-        "401":
-          description: unauthorized
-        "403":
-          description: forbidden
-        "500":
-          description: internal_error
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-  schemas:
-    ErrorResponse:
-      type: object
-      properties:
-        code: { type: string }
-        message: { type: string }
-        detail: { type: string }
-      required: [code, message]
-    OkResponse:
-      type: object
-      properties:
-        ok: { type: boolean }
-        data: { type: object }
-      required: [ok]
+非法表达式必须 fail-fast 返回 `scheduler.invalid_schedule`，不得静默修正。
+
+## 7. gRPC 契约
+
+目标服务：`powerx.scheduler.v1.SchedulerService`
+
+当前 proto 路径：`backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto`
+
+方法：
+
+```text
+CreateJob
+UpdateJob
+PauseJob
+ResumeJob
+TriggerJob
+GetJob
+ListJobs
 ```
 
-## API 草案（gRPC）
-```
-service SchedulerService {
-  rpc CreateJob(SchedulerJobCreateRequest) returns (SchedulerJobReply);
-  rpc UpdateJob(SchedulerJobUpdateRequest) returns (SchedulerJobReply);
-  rpc PauseJob(SchedulerJobControlRequest) returns (SchedulerJobReply);
-  rpc ResumeJob(SchedulerJobControlRequest) returns (SchedulerJobReply);
-  rpc TriggerJob(SchedulerJobControlRequest) returns (SchedulerJobReply);
-  rpc GetJob(SchedulerJobGetRequest) returns (SchedulerJobReply);
-  rpc ListJobs(SchedulerJobListRequest) returns (SchedulerJobListReply);
-}
+实现要求：
+
+1. 服务必须在 gRPC server 注册，不能只存在 generated 代码。
+2. 所有方法必须经过统一 authn/authz interceptor。
+3. `tenant_uuid` 与 token claims 不一致时必须拒绝。
+4. `owner_type=plugin` 时必须校验调用方插件身份与 `owner_id` 一致，或具备显式管理授权。
+
+## 8. HTTP 管理 API
+
+HTTP API 只作为管理端与调试入口，不是 framework host provider 的首选调用方式。
+
+```text
+POST   /api/v1/admin/scheduler/jobs
+PATCH  /api/v1/admin/scheduler/jobs/:job_id
+POST   /api/v1/admin/scheduler/jobs/:job_id/pause
+POST   /api/v1/admin/scheduler/jobs/:job_id/resume
+POST   /api/v1/admin/scheduler/jobs/:job_id/trigger
+GET    /api/v1/admin/scheduler/jobs
+GET    /api/v1/admin/scheduler/jobs/:job_id
+GET    /api/v1/admin/scheduler/jobs/:job_id/runs
 ```
 
-## Proto Message（草案）
-```
-message SchedulerJob {
-  string job_id = 1;
-  string tenant_uuid = 2;
-  string owner_type = 3;
-  string owner_id = 4;
-  string name = 5;
-  string schedule_type = 6;
-  string schedule_expr = 7;
-  bytes payload_json = 8;
-  string status = 9;
-  string next_run_at = 10;
-  string last_run_at = 11;
-}
-message SchedulerJobCreateRequest { SchedulerJob job = 1; }
-message SchedulerJobUpdateRequest { SchedulerJob job = 1; }
-message SchedulerJobControlRequest { string job_id = 1; string tenant_uuid = 2; }
-message SchedulerJobGetRequest { string job_id = 1; string tenant_uuid = 2; }
-message SchedulerJobListRequest { string tenant_uuid = 1; int32 limit = 2; }
-message SchedulerJobReply { SchedulerJob job = 1; }
-message SchedulerJobListReply { repeated SchedulerJob jobs = 1; }
+要求：
+
+1. Admin API 必须写审计。
+2. Admin API 不替代插件 framework API。
+3. `/admin/event-fabric/cron/jobs` 继续只用于 Event Fabric 内置 worker 运维。
+
+## 9. 标准触发事件
+
+统一 topic：
+
+```text
+powerx.runtime.scheduler.triggered.v1
 ```
 
-## SDK 示例（伪代码）
-```
-sch := scheduler.NewClient(baseURL, token)
-sch.CreateJob(ctx, SchedulerJob{
-  TenantUUID: "...",
-  OwnerType: "plugin",
-  OwnerID: "com.powerx.helloworld",
-  ScheduleType: "cron",
-  ScheduleExpr: "0 * * * *",
-  Payload: map[string]any{
-    "plugin_action": "knowledge.sync",
-    "params": map[string]any{"space_id": "..."},
+旧草案名称 `scheduler.job.triggered` 不再作为新实现推荐 topic。
+
+Payload 最小结构：
+
+```json
+{
+  "job_id": "uuid",
+  "job_name": "sample_progress_50",
+  "owner_type": "plugin",
+  "owner_id": "com.powerx.plugins.ai-craft",
+  "tenant_uuid": "uuid",
+  "trigger_source": "once",
+  "scheduled_at": "2026-05-16T10:00:00+08:00",
+  "fired_at": "2026-05-16T10:00:00+08:00",
+  "trace_id": "trace-id",
+  "idempotency_key": "tenant:plugin:job:business-key",
+  "business_action": "sample_progress_50",
+  "actor": {
+    "type": "system",
+    "subject": "runtime_scheduler"
   },
+  "job_actor": {
+    "type": "user",
+    "user_id": 33,
+    "user_uuid": "user_uuid",
+    "member_id": 22,
+    "member_uuid": "member_uuid",
+    "subject": "member_uuid"
+  },
+  "payload": {}
+}
+```
+
+发布要求：
+
+1. 事件必须带 `tenant_uuid`、`owner_id`、`job_id`、`trace_id`。
+2. 事件必须带 `actor`。手动触发时 `actor` 是当前用户/member 或 API key；到点自动触发时 `actor.type=system`。
+3. 事件应带 `job_actor`，表示 job 最近一次创建/更新/操作的用户态归属，便于业务侧追踪来源。
+4. 事件发布失败必须记录 run 失败，并按 retry policy 处理。
+5. 消费方 ack/nack 归属 Event Bus / TaskBus，不由 Scheduler 直接调用业务代码。
+
+## 10. Framework 对接方式
+
+业务插件侧目标代码：
+
+```go
+scheduler.CreateJob(ctx, scheduler.JobSpec{
+    TenantUUID:   tenantUUID,
+    OwnerType:    "plugin",
+    OwnerID:      "com.powerx.plugins.ai-craft",
+    Name:         "sample_progress_50",
+    ScheduleType: "once",
+    ScheduleExpr: eta50.Format(time.RFC3339),
+    Topic:        "powerx.runtime.scheduler.triggered.v1",
+    Payload: map[string]any{
+        "business_action": "sample_progress_50",
+        "design_task_id":  designTaskID,
+        "order_id":        orderID,
+    },
 })
 ```
 
-## 字段校验与时区
-- `schedule_type=cron`：支持 5/6 段 Cron，默认使用 `UTC`。
-- `schedule_type=interval`：支持 `Ns/Nm/Nh/Nd` 格式（如 `5m`、`2h`）。
-- `schedule_type=once`：`schedule_expr` 为 RFC3339 时间。
-- `timezone`：默认 `UTC`，可扩展为 `Asia/Shanghai` 等。
+Handler 注册：
 
-## 幂等与重复创建
-- 建议支持 `Idempotency-Key` 头。
-- 同一 `owner_id + name` 默认视为唯一（冲突返回 `scheduler.conflict`）。
-
-## 并发与重叠策略
-- `overlap_policy`（可选）：`skip` / `queue` / `parallel`。
-- 默认 `skip`：上次未完成时跳过本次。
-
-## 限流与负载
-- 默认限流：按租户 + owner_id 维度限制创建频率。
-- 超限错误：`scheduler.rate_limited`（HTTP 429）。
-
-## 示例（HTTP）
-```
-POST /api/v1/admin/scheduler/jobs
-Authorization: Bearer <TOKEN>
-tenant_uuid: <TENANT_UUID>
-Idempotency-Key: 7c4d...
-
-{
-  "tenant_uuid": "...",
-  "owner_type": "plugin",
-  "owner_id": "com.powerx.helloworld",
-  "name": "sync-knowledge",
-  "schedule_type": "cron",
-  "schedule_expr": "0 * * * *",
-  "payload": { "plugin_action": "knowledge.sync", "params": { "space_id": "..." } },
-  "misfire_policy": "skip",
-  "retry_policy": { "max_attempts": 3, "backoff_seconds": 30 }
-}
+```go
+scheduler.RegisterHandler("sample_progress_50", func(ctx context.Context, job scheduler.TriggeredJob) error {
+    return sampleService.HandleProgress50(ctx, job.Payload)
+})
 ```
 
-## 认证与租户头部
-- `Authorization: Bearer <TOKEN>`
-- `tenant_uuid: <TENANT_UUID>`（可选，优先于 token 中租户）
+要求：
 
-## 错误码（建议）
-- `scheduler.invalid_schedule`
-- `scheduler.job_not_found`
-- `scheduler.permission_denied`
-- `scheduler.conflict`
- - `scheduler.rate_limited`
+1. `host` provider 调底座 SchedulerService。
+2. `local` provider 在 framework 本地实现相同语义。
+3. host provider 失败时必须返回明确错误，不得自动降级到 local provider。生产环境静默降级会造成重复触发、漏触发和审计断链。
+4. `dual` provider 只能用于迁移验证，必须显式开启。
 
-## 触发链路
-1) Job 到点 → Scheduler 生成触发事件 `scheduler.job.triggered`
-2) Event Bus 投递给订阅者（插件/核心模块）
-3) Subscriber 执行任务 → ack / nack
-4) 失败按 retry_policy 重试（延迟队列）
+## 11. 可靠性与一致性
 
-## 插件注册与消费
-- **注册**：插件通过 Manifest 或 API 注册 cron/interval/once。
-  - `owner_type=plugin`，`owner_id=plugin_id`
-  - payload 内包含 `plugin_action`、`params`
-- **消费**：插件声明订阅 `scheduler.job.triggered`，由插件 handler 执行。
+1. Scheduler 提供至少一次触发。
+2. Consumer 必须基于 `idempotency_key` 或业务主键幂等。
+3. `overlap_policy=skip` 时，上次未完成不得并发触发同 job。
+4. `misfire_policy=skip` 时，错过窗口直接记录 skipped run。
+5. `misfire_policy=run_catchup` 时，只补跑一次，不追赶多次历史窗口。
+6. 分布式部署必须使用 Redis/DB 锁或同等机制防重复触发。
 
-## Plugin Manifest 示例
-```
-scheduler:
-  jobs:
-    - name: "sync-knowledge"
-      schedule_type: "cron"
-      schedule_expr: "0 * * * *"
-      payload:
-        plugin_action: "knowledge.sync"
-        params:
-          space_id: "..."
-```
+## 12. 观测与审计
 
-## PowerXPlugin Scheduler Bridge
-- 插件通过统一 Scheduler Bridge 调用 PowerX Scheduler。
-- 模式建议：
-  - `local`：仅本地调度（不依赖底座）
-  - `corex`：调用 PowerX Scheduler（HTTP/gRPC/SDK）
-  - `dual`：双写/双读，便于灰度与回滚
-- 兜底策略：底座不可用时自动降级到本地调度。
-- 触发事件：`scheduler.job.triggered`，payload 包含：
-  - `job_id`、`tenant_uuid`、`owner_id`、`scheduled_at`、`payload`
+日志字段必须包含：
 
-## `scheduler.job.triggered` Payload Schema（草案）
-```
-{
-  "job_id": "uuid",
-  "tenant_uuid": "uuid",
-  "owner_type": "core|plugin",
-  "owner_id": "service_name|plugin_id",
-  "scheduled_at": "RFC3339",
-  "payload": {
-    "plugin_action": "string",
-    "params": {}
-  },
-  "attempt": 1
-}
-```
+1. `job_id`
+2. `job_name`
+3. `tenant_uuid`
+4. `owner_type`
+5. `owner_id`
+6. `schedule_type`
+7. `schedule_expr`
+8. `trigger_source`
+9. `trace_id`
+10. `event_id`
+11. `actor_type`
+12. `actor_member_id`
+13. `actor_user_id`
 
-## 最小落地实现建议
-- 存储：`scheduler_jobs` + `scheduler_job_runs`（runs 记录执行结果）。
-- 触发器：独立 worker 每 N 秒扫描 `next_run_at`（DB + Redis 锁）。
-- 锁：`scheduler:lock:{job_id}`，TTL 覆盖执行窗口。
-- 误触发策略：
-  - `skip`：错过就跳过
-  - `run_catchup`：补跑一次（不多次追赶）
-- 对接 Event Bus：统一发布 `scheduler.job.triggered` 事件。
+指标建议：
 
-## 接口与队列策略
-- 接口优先级：HTTP 为第一优先；gRPC 与 SDK 作为后续扩展。
-- 队列默认：Redis（延迟/重试、租户隔离、轻量落地）。
-- 可替换：通过 Provider 接口切换 Kafka/NATS/SQS 等。
+1. `scheduler_trigger_total`
+2. `scheduler_trigger_failed_total`
+3. `scheduler_misfire_total`
+4. `scheduler_latency_ms`
+5. `scheduler_active_jobs`
 
-## 管理 API（草案）
-```
-POST   /api/v1/admin/scheduler/jobs
-PATCH  /api/v1/admin/scheduler/jobs/:jobId
-POST   /api/v1/admin/scheduler/jobs/:jobId/pause
-POST   /api/v1/admin/scheduler/jobs/:jobId/resume
-POST   /api/v1/admin/scheduler/jobs/:jobId/trigger
-GET    /api/v1/admin/scheduler/jobs
-GET    /api/v1/admin/scheduler/jobs/:jobId
-```
+审计动作：
 
-## 可靠性与一致性
-- 至少一次触发，消费方需幂等。
-- 使用 Redis/DB 锁避免重复触发。
-- 支持“错过执行”策略：跳过或补跑。
+1. create
+2. update
+3. pause
+4. resume
+5. trigger
+6. delete
 
-## 与现有模块的关系
-- Event Bus 已有延迟重试能力（可复用）。
-- workflow scheduler / knowledge source sync / plugin upgrade 等逐步迁移到统一 Scheduler。
+## 13. 与现有 Event Fabric Cron 的关系
 
-## 观测与审计
-- 指标：scheduler.trigger_total、scheduler.missed_total、scheduler.latency_p95、scheduler.retry_total。
-- 日志：job_id、tenant_uuid、owner_id、schedule_expr、trace_id。
-- 审计：创建/修改/暂停/恢复记录入 audit trail。
+1. Event Fabric Cron 是当前已实现的底座内部调度能力。
+2. 插件通用 SchedulerService 是面向插件和核心模块的公共调度契约。
+3. 两者可以复用底层 Task/EventBus/Retry/DLQ 能力。
+4. 两者不共享 Admin API 语义。
+5. 不能把 `/admin/event-fabric/cron/jobs` 暴露为插件通用 scheduler。
 
-## 迁移建议
-1) 先接入 core 模块（knowledge source sync、corpus check）。
-2) 再开放给插件注册。
-3) 逐步替换现有分散 cron/内部定时器。
+## 14. 最小落地顺序
+
+1. 补 `SchedulerService` server 实现与注册。
+2. 补 `scheduler_jobs`、`scheduler_job_runs` 模型、迁移、repository。
+3. 实现 Create/Update/Pause/Resume/Trigger/Get/List service。
+4. 实现 due scanner/dispatcher，发布 `powerx.runtime.scheduler.triggered.v1`。
+5. 接入 capability registry 与权限 scope。
+6. 接入审计、指标、结构化日志。
+7. 提供 framework host provider 联调用例。
+8. 再让 AI Craft 等插件接入业务 job。
+
+## 15. 非目标
+
+1. 不扩展 `/admin/event-fabric/cron/jobs` 作为插件通用 Scheduler API。
+2. 不让 Scheduler 直接调用插件业务函数。
+3. 不允许 host provider 失败后静默切换 local provider。
+4. 不在插件业务代码中维护本地内存 timer。
+5. 不把 workflow scheduler scope 直接当作插件通用 scheduler scope。

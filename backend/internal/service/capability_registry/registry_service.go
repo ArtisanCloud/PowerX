@@ -114,7 +114,12 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 		Limit:    s.normalizeLimit(opts.Limit),
 		Offset:   opts.Offset,
 	}
-	includeTotal := opts.IncludeTotal && !requiresPostFilter(opts)
+	postFilter := requiresPostFilter(opts)
+	if postFilter {
+		filter.Limit = 0
+		filter.Offset = 0
+	}
+	includeTotal := opts.IncludeTotal && !postFilter
 	var total int64
 	if includeTotal {
 		count, err := s.records.Count(ctx, filter)
@@ -129,11 +134,25 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 	}
 
 	filtered := make([]CapabilityRecordView, 0, len(records))
+	matched := 0
+	limit := s.normalizeLimit(opts.Limit)
+	offset := opts.Offset
 	for i := range records {
 		record := records[i]
 		if !recordMatchesFilters(record, opts) {
 			continue
 		}
+		if postFilter {
+			if matched < offset {
+				matched++
+				continue
+			}
+			if len(filtered) >= limit {
+				matched++
+				continue
+			}
+		}
+		matched++
 		recordPtr := &records[i]
 		view := CapabilityRecordView{Record: recordPtr}
 		if opts.IncludeWorkflowTemplates {
@@ -146,7 +165,7 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 		filtered = append(filtered, view)
 	}
 	if !includeTotal {
-		total = int64(len(filtered))
+		total = int64(matched)
 	}
 	return filtered, total, nil
 }

@@ -39,32 +39,32 @@ useHead({
 // 统计数据
 const stats = ref([
   {
-    title: t("dashboard.stats.totalUsers"),
-    value: "12,345",
-    change: "+12%",
+    title: "已安装插件",
+    value: "8",
+    change: "6 active",
     changeType: "positive",
-    icon: "i-heroicons-users",
+    icon: "i-heroicons-puzzle-piece",
   },
   {
-    title: t("dashboard.stats.todayVisits"),
-    value: "2,847",
-    change: "+5.2%",
+    title: "Gateway 调用",
+    value: "18.4K",
+    change: "99.3%",
     changeType: "positive",
-    icon: "i-heroicons-eye",
+    icon: "i-heroicons-bolt",
   },
   {
-    title: t("dashboard.stats.totalRevenue"),
-    value: "¥89,432",
-    change: "-2.1%",
-    changeType: "negative",
-    icon: "i-heroicons-currency-yen",
+    title: "调度任务",
+    value: "126",
+    change: "24h",
+    changeType: "positive",
+    icon: "i-heroicons-clock",
   },
   {
-    title: t("dashboard.stats.activeUsers"),
-    value: "8,921",
-    change: "+8.7%",
+    title: "AI / Knowledge",
+    value: "42",
+    change: "ready",
     changeType: "positive",
-    icon: "i-heroicons-chart-bar-square",
+    icon: "i-heroicons-sparkles",
   },
 ]);
 
@@ -104,10 +104,68 @@ const agentStats = ref([
   },
 ]);
 
+const platformModules = ref([
+  {
+    name: "插件运行时",
+    desc: "安装、启用、健康检查、代理路由与动态页面",
+    status: "Ready",
+    icon: "i-heroicons-cube-transparent",
+    tone: "blue",
+  },
+  {
+    name: "Integration Gateway",
+    desc: "STS / API Key、Capability Registry、调用 Trace",
+    status: "Ready",
+    icon: "i-heroicons-arrows-right-left",
+    tone: "green",
+  },
+  {
+    name: "Runtime Scheduler",
+    desc: "插件业务 once / interval / cron job 统一托管",
+    status: "Ready",
+    icon: "i-heroicons-calendar-days",
+    tone: "emerald",
+  },
+  {
+    name: "AI Engine",
+    desc: "模型 Provider、连接测试、LLM 调用入口",
+    status: "Beta",
+    icon: "i-heroicons-cpu-chip",
+    tone: "violet",
+  },
+]);
+
+const pluginPortfolio = ref([
+  { name: "SCRM 插件", status: "开源仓库版本", desc: "客户、会话、触点与跟进协同" },
+  { name: "电商插件", status: "开源仓库版本", desc: "商品、订单、交易与履约基础能力" },
+  { name: "营销工具插件", status: "商用版本", desc: "营销自动化、活动编排与触达计划" },
+]);
+
+const runtimeEvents = ref([
+  {
+    title: "Runtime Scheduler job triggered",
+    desc: "framework_lab_scheduler_probe -> system notification",
+    time: "2 分钟前",
+    tone: "green",
+  },
+  {
+    title: "Gateway capability invoked",
+    desc: "com.powerx.plugins.ai-craft / ai-engine.test",
+    time: "8 分钟前",
+    tone: "blue",
+  },
+  {
+    title: "Plugin healthcheck passed",
+    desc: "com.powerx.plugins.base active",
+    time: "15 分钟前",
+    tone: "emerald",
+  },
+]);
+
 // 访问趋势图表配置
 const visitTrendOption = computed<EChartsOption>(() => ({
   title: {
-    text: "访问趋势",
+    text: "底座能力调用趋势",
     left: "center",
     textStyle: {
       fontSize: 16,
@@ -152,7 +210,7 @@ const visitTrendOption = computed<EChartsOption>(() => ({
       type: "line",
       smooth: true,
       data: [
-        1200, 1320, 1010, 1340, 1890, 2300, 2100, 2400, 2200, 1800, 1600, 1900,
+        4200, 5100, 4600, 6200, 8100, 9600, 10400, 12800, 11700, 13500, 14200, 15600,
       ],
       itemStyle: {
         color: "#3b82f6",
@@ -178,11 +236,11 @@ const visitTrendOption = computed<EChartsOption>(() => ({
       },
     },
     {
-      name: "独立访客",
+      name: "Gateway 调用",
       type: "line",
       smooth: true,
       data: [
-        800, 900, 700, 950, 1200, 1500, 1300, 1600, 1400, 1100, 1000, 1250,
+        1800, 2400, 2200, 3100, 4700, 5600, 6100, 7400, 6900, 7800, 8400, 9200,
       ],
       itemStyle: {
         color: "#10b981",
@@ -489,37 +547,36 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
   ],
 }));
 
-// 最近活动
-const recentActivities = ref([
-  {
-    id: 1,
-    user: t("dashboard.activities.users.zhangsan"),
-    action: t("dashboard.activities.actions.createArticle"),
-    target: t("dashboard.activities.targets.vueBestPractices"),
-    time: t("dashboard.activities.times.minutesAgo", { minutes: 2 }),
-    type: "create",
-  },
-  {
-    id: 2,
-    user: t("dashboard.activities.users.lisi"),
-    action: t("dashboard.activities.actions.updateProfile"),
-    target: "",
-    time: t("dashboard.activities.times.minutesAgo", { minutes: 5 }),
-    type: "update",
-  },
-  {
-    id: 3,
-    user: t("dashboard.activities.users.wangwu"),
-    action: t("dashboard.activities.actions.deleteComment"),
-    target: t("dashboard.activities.targets.onTechShare"),
-    time: t("dashboard.activities.times.minutesAgo", { minutes: 10 }),
-    type: "delete",
-  },
-]);
 </script>
 
 <template>
   <div class="space-y-6 p-4">
+    <section class="rounded-xl border border-gray-200 bg-white p-6">
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl">
+          <p class="text-sm font-semibold text-green-600">PowerX AgentOS</p>
+          <h1 class="mt-2 text-2xl font-semibold text-gray-950">
+            企业插件与 AI Agent 的统一运行底座
+          </h1>
+          <p class="mt-3 text-sm leading-6 text-gray-600">
+            统一管理插件运行时、Integration Gateway、Runtime Scheduler、AI Engine 与 Knowledge Space，
+            让 SCRM、电商和营销工具插件共享 IAM、权限、调度、通知和可观测能力。
+          </p>
+        </div>
+        <div class="grid min-w-[320px] grid-cols-3 gap-3">
+          <div
+            v-for="item in pluginPortfolio"
+            :key="item.name"
+            class="rounded-lg border border-gray-200 bg-gray-50 p-3"
+          >
+            <p class="text-sm font-semibold text-gray-900">{{ item.name }}</p>
+            <p class="mt-1 text-xs font-medium text-green-600">{{ item.status }}</p>
+            <p class="mt-2 text-xs leading-5 text-gray-500">{{ item.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <UCard v-for="stat in stats" :key="stat.title" class="p-6">
@@ -539,9 +596,7 @@ const recentActivities = ref([
               >
                 {{ stat.change }}
               </span>
-              <span class="text-sm text-gray-500 ml-1">{{
-                $t("dashboard.stats.vsLastMonth")
-              }}</span>
+              <span class="text-sm text-gray-500 ml-1">当前状态</span>
             </div>
           </div>
           <div class="p-3 bg-blue-50 rounded-lg">
@@ -554,6 +609,25 @@ const recentActivities = ref([
       </UCard>
     </div>
 
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <UCard v-for="module in platformModules" :key="module.name">
+        <div class="flex items-start gap-3">
+          <div class="rounded-lg bg-gray-50 p-2">
+            <UIcon :name="module.icon" class="inline-block h-5 w-5 text-green-600" />
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-semibold text-gray-900">{{ module.name }}</h3>
+              <span class="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                {{ module.status }}
+              </span>
+            </div>
+            <p class="mt-2 text-xs leading-5 text-gray-500">{{ module.desc }}</p>
+          </div>
+        </div>
+      </UCard>
+    </div>
+
     <!-- 访问趋势图表 -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- 访问趋势线图 -->
@@ -561,7 +635,7 @@ const recentActivities = ref([
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-gray-900">访问趋势分析</h3>
+              <h3 class="text-lg font-semibold text-gray-900">底座能力调用趋势</h3>
               <UButton variant="ghost" size="sm"> 查看详情 </UButton>
             </div>
           </template>
@@ -576,44 +650,35 @@ const recentActivities = ref([
       <div>
         <UCard>
           <template #header>
-            <h3 class="text-lg font-semibold text-gray-900">
-              {{ $t("dashboard.activities.title") }}
-            </h3>
+            <h3 class="text-lg font-semibold text-gray-900">最近运行事件</h3>
           </template>
 
           <div class="space-y-4">
             <div
-              v-for="activity in recentActivities"
-              :key="activity.id"
+              v-for="event in runtimeEvents"
+              :key="event.title"
               class="flex items-start space-x-3"
             >
               <div
                 class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white"
                 :class="{
-                  'bg-green-500': activity.type === 'create',
-                  'bg-blue-500': activity.type === 'update',
-                  'bg-red-500': activity.type === 'delete',
+                  'bg-green-500': event.tone === 'green',
+                  'bg-blue-500': event.tone === 'blue',
+                  'bg-emerald-500': event.tone === 'emerald',
                 }"
               >
-                {{ activity.user.charAt(0) }}
+                <UIcon name="i-heroicons-check" class="h-4 w-4" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-900">
-                  <span class="font-medium">{{ activity.user }}</span>
-                  {{ activity.action }}
-                  <span v-if="activity.target" class="font-medium">{{
-                    activity.target
-                  }}</span>
-                </p>
-                <p class="text-xs text-gray-500 mt-1">{{ activity.time }}</p>
+                <p class="text-sm font-medium text-gray-900">{{ event.title }}</p>
+                <p class="mt-1 text-xs leading-5 text-gray-500">{{ event.desc }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ event.time }}</p>
               </div>
             </div>
           </div>
 
           <template #footer>
-            <UButton variant="ghost" block>
-              {{ $t("dashboard.activities.viewAll") }}
-            </UButton>
+            <UButton variant="ghost" block> 打开 Monitor Center </UButton>
           </template>
         </UCard>
       </div>

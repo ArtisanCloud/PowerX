@@ -8,9 +8,6 @@ export interface UserContextData {
   is_root: boolean;
   current_tenant_uuid: string;
   current_member_id?: number | null;
-  ctx?: string;
-  ctx_sig?: string;
-  ctx_jwt?: string;
   user: ContextUser;
   members: ContextMember[];
 }

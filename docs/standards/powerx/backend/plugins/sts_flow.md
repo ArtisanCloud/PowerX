@@ -2,6 +2,8 @@
 
 本文件给出插件以租户维度访问 PowerX 的 STS（Security Token Service）鉴权流程，含接口位置与最小实现要点，便于在其他项目中复用。
 
+Token 总边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准；本文只描述“插件主动调用 PowerX 底座”的 STS 主路径。
+
 ## 总览
 
 - 安装态（系统）：宿主仅需安装一次插件（与租户无关）。
@@ -44,6 +46,7 @@
 3) 首次业务调用前（需要 token）
 - 调用 STS `Exchange(client_id, client_secret, audience, scope, ttl)` 获取短期 token。
 - STS 校验凭证/能力（aud/scope），用 KeyRing 签发 HS256 JWT（header.kid 指示密钥）。
+- STS token 的主体是 `client:<client_id>`，只表达 `tenant + plugin service`，不表达登录用户/member；不得向其中伪造 `uid/mid`。
 - 插件缓存 token 与过期时间于内存（不落盘）。
 
 4) 后续业务调用

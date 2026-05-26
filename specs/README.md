@@ -17,3 +17,11 @@
     - `specs/026-iam/spec.md`
     - `specs/026-iam/quickstart.md`
     - `specs/026-iam/tasks.md`
+- `028-runtime-scheduler`
+  - 目标：统一插件与核心模块的运行时调度能力
+  - 重点：`powerx.scheduler.v1.SchedulerService`、`/api/v1/admin/scheduler/jobs`、`scheduler_jobs`、`scheduler_job_runs`、`powerx.runtime.scheduler.triggered.v1`
+  - 边界：`/admin/event-fabric/cron/jobs` 仅用于 Event Fabric 内部 Cron 运维，不作为插件业务 Scheduler API
+  - 入口：
+    - `specs/028-runtime-scheduler/spec.md`
+    - `specs/028-runtime-scheduler/quickstart.md`
+    - `specs/028-runtime-scheduler/tasks.md`

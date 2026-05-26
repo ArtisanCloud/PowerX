@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,11 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
+)
+
+var (
+	topicNamespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_]*)(\.[a-z][a-z0-9_]*)*$`)
+	topicNamePattern      = regexp.MustCompile(`^[a-z][a-z0-9-_]*$`)
 )
 
 // Manifest describes the declarative topic + ACL requirements for a plugin.
@@ -149,6 +155,9 @@ func (m *Manifest) Validate() error {
 			if name == "" {
 				name = legacyName
 			}
+		}
+		if err := validateTopicSegments(namespace, name); err != nil {
+			return fmt.Errorf("topic[%d] %w", idx, err)
 		}
 		key := topic.Key
 		if key == "" {
@@ -314,6 +323,18 @@ func parseLegacyTopicSpec(topic string) (string, string, error) {
 		return "", "", fmt.Errorf("legacy topic %q invalid", topic)
 	}
 	return namespace, name, nil
+}
+
+func validateTopicSegments(namespace, name string) error {
+	namespace = strings.ToLower(strings.TrimSpace(namespace))
+	name = strings.ToLower(strings.TrimSpace(name))
+	if !topicNamespacePattern.MatchString(namespace) {
+		return fmt.Errorf("namespace must match %s", topicNamespacePattern.String())
+	}
+	if !topicNamePattern.MatchString(name) {
+		return fmt.Errorf("name must match %s", topicNamePattern.String())
+	}
+	return nil
 }
 
 func (m *Manifest) TopicCount() int {

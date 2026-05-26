@@ -1020,11 +1020,11 @@ const resetClientStateAfterSetupComplete = () => {
     sessionStorage.clear();
   } catch {}
 
-  // 清理与登录/上下文相关的 cookie，避免安装后首跳仍携带旧上下文。
+  // 清理与登录相关的 cookie，避免安装后首跳仍携带旧登录态。
   const clearCookie = (name: string) => {
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
   };
-  ["px_ctx", "px_ctx_sig", "px_ctx_jwt"].forEach(clearCookie);
+  ["token", "access_token", "refresh_token", "px_current_tenant_uuid"].forEach(clearCookie);
 };
 
 // 完成设置

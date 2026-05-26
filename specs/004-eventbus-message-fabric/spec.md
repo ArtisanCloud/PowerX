@@ -34,6 +34,7 @@
 - 新增 Cron 任务能力：仅负责按计划投递 Task Event，不直接执行业务。
 - Cron 执行结果必须复用统一 Retry/DLQ/Replay 通道，不允许私有轮询消费器。
 - Cron 运维与审计复用 Event Fabric Admin API 与运维页面。
+- 该 Cron 能力仅用于 Event Fabric 内部 worker 运维，不作为插件业务通用 Scheduler API；插件业务调度的权威规格见 `specs/028-runtime-scheduler/spec.md`。
 
 ### 增量范围（Phase 13）
 - 新增「系统设置 / 事件权限（Event ACL）」治理页，维护 Topic 与角色（或主体）的授权关系。
@@ -44,6 +45,7 @@
 - 业务编排流程（Workflow/Orchestration）具体执行逻辑。
 - 能力注册 Registry 的业务逻辑与数据模型。
 - 非 Event Fabric 运维台范围内的通用 Gateway/Admin UI 业务界面与交互。
+- 插件业务 schedule 的创建、更新、暂停、恢复、触发和运行记录；这些能力归属 Runtime Scheduler，不通过 `/admin/event-fabric/cron/jobs` 暴露。
 
 ### 依赖
 - 安全策略与角色矩阵（Security Policy）需作为 ACL 引用源。
@@ -217,8 +219,9 @@
 - **FR-016**: 文档治理流程必须要求“改 WS/TaskBus 代码即同步主契约文档”，并通过文档一致性检查阻止漂移。
 - **FR-017**: 系统必须提供 Task Queue 可观测接口（pending/deferred/processing/inflight），并可按 tenant/topic/subscriber 过滤。
 - **FR-018**: 系统必须提供统一运维处置入口（DLQ 重放、任务刷新、状态巡检），所有动作写入审计字段（`operator_id`,`tenant_uuid`,`trace_id`）。
-- **FR-019**: 系统必须支持 Cron 任务定义（cron_expr/timezone/enabled/misfire_policy），并在到点时投递标准 Task Event。
+- **FR-019**: 系统必须支持 Event Fabric 内部 Cron 任务定义（cron_expr/timezone/enabled/misfire_policy），并在到点时投递标准 Task Event；该能力不得接受插件业务 job 注册。
 - **FR-020**: Cron 触发后的执行链路必须复用既有 Retry/DLQ/Replay 机制，禁止引入独立队列或数据库轮询消费主路径。
+- **FR-021**: `/admin/event-fabric/cron/jobs` MUST 仅作为 Event Fabric 内部 Cron 运维接口，禁止作为 `owner_type=plugin` 的通用 SchedulerService 入口；插件通用调度 MUST 使用 `powerx.scheduler.v1.SchedulerService` 与 `/api/v1/admin/scheduler/jobs`。
 
 ### Non-Functional Requirements
 

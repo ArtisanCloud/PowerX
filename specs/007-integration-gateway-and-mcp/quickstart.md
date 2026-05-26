@@ -24,6 +24,8 @@
 
 ### Delegated Gateway Contract v1（Breaking Change）
 
+Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
+
 - delegated 模式仅允许以下三项：
   - `PX_GATEWAY_BASE_URL`
   - `PX_GATEWAY_AUTH_SCHEME=bearer`
@@ -32,7 +34,7 @@
   - `PX_GATEWAY_API_KEY`
   - `PX_TOOL_TOKEN`
 - 业务调用凭证规则：
-  - `auth_required=true`：必须按当前请求上下文执行 STS exchange
+  - `auth_required=true`：必须执行 STS exchange，并使用 `aud=powerx:api` 的 STS access token
   - `tenant_scoped=true`：STS token 必须带 tenant claim
   - `auth_required=false`：允许匿名调用（不要求 STS）
 - PowerX 在插件启用阶段会执行 fail-fast；缺失时直接失败并返回结构化错误码：

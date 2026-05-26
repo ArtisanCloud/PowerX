@@ -47,7 +47,7 @@
   - 来自插件 manifest：`endpoints.http_base_path` 与 `rbac.resources[*].actions`；健康检查 `GET|HEAD:/healthz` 固定放行。
   - 先匹配显式规则（`METHOD:/pattern`），否则自动推导（方法→动作；路径→资源，移除 `http_base_path`）。
 - Authorizer：网关调用 `Authorizer.Permissions(ctx, tenantID, userID, pluginID)` 获取当前用户在该插件下拥有的权限集合（如 `note:read`）。
-- 通过则颁发 STS 短期令牌（aud=`plugin:<id>`，TTL 默认 60s），替换下游 `Authorization` 头；同时透传签名上下文 `X-PowerX-CTX` 与 `X-PowerX-CTX-SIG`（HMAC）。
+- 通过则颁发 STS 短期令牌（aud=`plugin:<id>`，TTL 默认 60s），替换下游 `Authorization` 头；租户、插件与主体信息必须由 STS claims 和审计字段承载。
 - 建议生产实现：
   - 用 DB/缓存实现 `Authorizer`，复用 `PermissionRepository.MemberHasPermissionViaBinding` 或等价查询；
   - 在 STS Claims 中可包含 `policy_version`/`perms_hash` 以便插件侧做细化校验与缓存版本控制。
@@ -104,14 +104,14 @@ DELETE /v1/notes/1 -> note:delete
 
 ```go
 claims, err := auth.ParseAndValidate(bearer, secret, "powerx-auth", "plugin:<id>")
-// 校验通过后可按需读取 X-PowerX-CTX 并验签作审计
+// 校验通过后从 STS claims 读取 tenant/plugin/subject 做审计
 ```
 
 ## 安全注意事项
 
 - 严格区分 Audience：CoreX 入站 JWT（如 `aud=user`）与下发至插件的 STS（`aud=plugin:<id>`）。
 - 短期令牌 TTL 要短，并考虑时钟偏移；必要时支持撤销（黑名单）。
-- 插件侧尽量校验 `X-PowerX-CTX-SIG`，避免上游上下文被伪造。
+- 插件侧不得信任前端传入的宿主上下文头；必须校验 STS 的 `iss/aud/scope/exp` 与签名。
 - 警惕通配权限（`*`/`res:*`）的滥用，最小授权原则。
 
 ## 建议的微调（保持现实现状）

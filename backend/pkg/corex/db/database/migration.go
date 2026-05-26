@@ -25,6 +25,7 @@ import (
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
+	modelRuntimeScheduler "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -135,6 +136,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migrateEventFabricModels(db); err != nil {
+		return err
+	}
+
+	if err = migrateRuntimeSchedulerModels(db); err != nil {
 		return err
 	}
 
@@ -321,6 +326,13 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		return err
 	}
 	return migration.EnsureEventTopicsGovernanceMigration(db)
+}
+
+func migrateRuntimeSchedulerModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelRuntimeScheduler.SchedulerJob{},
+		&modelRuntimeScheduler.SchedulerJobRun{},
+	)
 }
 
 func migrateWorkflowModels(db *gorm.DB) error {

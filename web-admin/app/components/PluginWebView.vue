@@ -14,7 +14,7 @@ const props = withDefaults(
     max?: number;                  // 最大高度 px
     viewOffset?: number;           // 视口高度模式减去的顶部/头部高度(px)
     autoResize?: boolean;          // 是否按 iframe 内容高度自适应
-    constrainToViewport?: boolean; // 自适应时是否把高度限制在宿主可视区域内
+    constrainToViewport?: boolean; // 固定为宿主可视高度，滚动交给 iframe 内部
     title?: string;
     pluginId: string
     instanceId?: string
@@ -86,6 +86,14 @@ function applyViewportFill() {
   height.value = clamp(getViewportAvailableHeight(), true);
 }
 
+function ensureIframeDocumentScroll(doc: Document) {
+  doc.documentElement.style.overflowY = "auto";
+  doc.documentElement.style.overflowX = "hidden";
+  doc.body.style.overflowY = "auto";
+  doc.body.style.overflowX = "hidden";
+  doc.body.style.overscrollBehavior = "contain";
+}
+
 function measureDocumentContentHeight(doc: Document) {
   const body = doc.body;
   const root = doc.documentElement;
@@ -121,9 +129,15 @@ function measureOnce() {
     // 访问成功 => 确认是可测量
     canMeasure.value = true;
 
+    if (props.constrainToViewport) {
+      ensureIframeDocumentScroll(doc);
+      applyViewportFill();
+      return;
+    }
+
     const h = measureDocumentContentHeight(doc);
 
-    height.value = clamp(h || props.min, props.constrainToViewport);
+    height.value = clamp(h || props.min, false);
   } catch {
     // 跨域/被 CSP 限制等 => 降级
     canMeasure.value = false;
@@ -135,7 +149,7 @@ function measureOnce() {
 function setObservers() {
   clearObservers();
 
-  if (!props.autoResize || !canMeasure.value) {
+  if (props.constrainToViewport || !props.autoResize || !canMeasure.value) {
     // 跨域降级：监听窗口尺寸变化，更新视口填充高度
     window.addEventListener("resize", applyViewportFill);
     applyViewportFill();
@@ -168,9 +182,10 @@ function clearObservers() {
   window.removeEventListener("resize", applyViewportFill);
 }
 
-function onLoad() {
+async function onLoad() {
   loading.value = false;
   error.value = null;
+  await nextTick();
   silenceIframeBridgeLogsIfNeeded();
   if (props.navigatePath && iframeRef.value) {
     navigateFrame(iframeRef.value, props.navigatePath)
@@ -267,7 +282,7 @@ function silenceIframeBridgeLogsIfNeeded() {
 
 /** 首次挂载：高度兜底 + 桥注册 */
 onMounted(() => {
-  if (!props.autoResize) {
+  if (props.constrainToViewport || !props.autoResize) {
     applyViewportFill();
   }
   window.addEventListener("resize", measureOnce);
@@ -306,8 +321,11 @@ watch(
 </script>
 
 <template>
-  <div class="w-full">
-    <div v-if="loading" class="w-full h-40 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700" />
+  <div class="relative w-full">
+    <div
+      v-if="loading"
+      class="pointer-events-none absolute inset-x-0 top-0 z-10 h-40 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700"
+    />
     <div v-if="error" class="text-red-600 dark:text-red-400 text-sm my-2 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
       {{ error }}
     </div>
@@ -319,7 +337,8 @@ watch(
       :sandbox="sandbox"
       allow="clipboard-read *; clipboard-write *; fullscreen *"
       referrerpolicy="strict-origin-when-cross-origin"
-      class="block w-full border-0 bg-transparent rounded-lg transition-[height] duration-300"
+      scrolling="auto"
+      class="block w-full border-0 bg-transparent rounded-lg"
       :style="{ height: height + 'px' }"
       @load="onLoad"
       @error="onError"

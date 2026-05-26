@@ -35,6 +35,10 @@
 
 - Q: delegated 模式下插件访问 Capability Gateway 是否继续保留 `PX_TOOL_TOKEN`/`PX_GATEWAY_API_KEY` 兼容？ → A: 不保留兼容，执行 Delegated Gateway Contract v1（breaking change）；仅允许 `PX_GATEWAY_BASE_URL + bearer` 作为固定入口，业务调用凭证改为按请求上下文动态 STS 交换。
 
+### Session 2026-05-20
+
+- Q: 插件业务 schedule 是否应该通过 Gateway 暴露为底座能力？ → A: 是，但能力 ID 必须是 `com.corex.scheduler.jobs`，实现归属 `specs/028-runtime-scheduler`；Gateway 只负责 STS/delegated 调用和能力治理，不复用 Event Fabric Cron 运维接口。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 3 分钟能力目录同步与治理 (Priority: P1)
@@ -142,6 +146,7 @@
 - **FR-030**: delegated 模式下，PowerX 宿主在插件启用前必须强制注入 `PX_GATEWAY_BASE_URL`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止下发 `PX_GATEWAY_API_KEY`、`PX_TOOL_TOKEN`；启动期如需探活 token，仅允许短时效 bootstrap token，且不得作为业务调用长期凭证。
 - **FR-031**: delegated 模式下，插件启用完成后必须执行 Gateway 契约探活（health + dry-run）；探活目标由接口元数据决策（`auth_required`、`tenant_scoped`），不得写死到单一路径；失败时返回 `enable_failed_gateway_contract` 并记录审计字段 `gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`、`tenant_uuid_present`。
 - **FR-032**: 插件调用 PowerX Gateway 时，凭证策略必须由接口元数据驱动而非 URL 前缀驱动：`auth_required=true` 走 STS exchange，`tenant_scoped=true` 的交换结果必须包含 tenant claim；`auth_required=false` 的开放接口允许匿名调用。
+- **FR-033**: 平台必须将 Runtime Scheduler 纳入 `source=corex` 的能力目录，能力 ID 固定为 `com.corex.scheduler.jobs`，scope 至少包含 `scheduler.job.read`、`scheduler.job.manage`、`scheduler.job.run`；插件通过 STS/delegated gateway 调用该能力，禁止通过 Gateway 暴露 `/admin/event-fabric/cron/jobs` 作为插件业务 scheduler。
 
 #### Gateway Proxy Envelope（请求/响应）
 
@@ -182,6 +187,8 @@
 
 1. **Media Assets Management 能力开放**：基于 `specs/001-docs-media-storage/contracts/http-admin.yaml` 的实体再输出一份对外 OpenAPI（对外开放路径定义在 `specs/001-docs-media-storage/contracts/http-openapi.yaml`），并由 Integration Gateway 提供 `media.assets.*` 预置能力记录，使插件以 `/tenant/invocations` 即可消费媒资存储、预签名等能力。
 2. **事件/任务接口统一**：事件总线（Event Fabric）、定时任务、AI 知识库与 Workflow Builder 的底座功能都需要在 Registry 中登记“平台级能力”，通过 Admin API 暴露配置入口，通过 Tenant API/gRPC 暴露调用入口，确保宿主与 Skeleton 走同一认证/限流/审计链路。
+   - 定时任务中的“插件业务通用调度”统一指 Runtime Scheduler，规格入口为 `specs/028-runtime-scheduler/spec.md`，能力 ID 为 `com.corex.scheduler.jobs`。
+   - Event Fabric Cron 仅为底座内部 worker 运维能力，不作为插件创建业务 schedule 的入口。
 3. **Agent & 多模态能力开放**：统一对外 REST/SSE/gRPC 契约（HTTP：`specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml` 与 `ai-multimodal.http-openapi.yaml`；gRPC：`backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto` 与 `backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto`），并通过 Registry 标记 `source=corex`，允许插件统一经 `/tenant/invocations` 或直接 OpenAPI 访问。
 4. **对外契约集中维护**：所有底座能力的 HTTP 契约统一放在 `specs/<module>/contracts/http-openapi.yaml`，gRPC 契约统一放在 `backend/api/grpc/contracts/...`，并在本 spec 的 `FR` 条目下跟踪落地。Integration Gateway 负责汇总这些契约并生成供插件调用的 SDK/文档。
 5. **Registry 标签**：为区分“插件能力”与“平台能力”，Registry 数据模型新增 `source=corex|plugin` 字段；Platform 能力默认内置 Tool Grant，可按租户启用/限流，插件调用时无需关心来源差异。

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,10 +25,11 @@ import (
 const healthDebug = false
 
 var (
-	pluginLogANSIRegexp   = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-	pluginLogFieldRegexp  = regexp.MustCompile(`(?:^|\s)([A-Za-z0-9_.-]+)=((?:"(?:\\.|[^"])*")|[^\s]+)`)
-	pluginLogPromoteKeys  = []string{"component", "tenant_uuid", "tenant_key", "trace_id", "request_id", "session_id", "run_id", "trace_ref", "trace_type", "trace_kind", "node_name", "node_seq", "job_id", "policy_id", "message_id", "channel_message_id", "provider_message_id", "trigger_message_id", "stage", "status", "reason"}
-	pluginLogMessageKeys  = []string{"message", "msg"}
+	pluginLogANSIRegexp  = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	pluginLogFieldRegexp = regexp.MustCompile(`(?:^|\s)([A-Za-z0-9_.-]+)=((?:"(?:\\.|[^"])*")|[^\s]+)`)
+	pluginLogPromoteKeys = []string{"component", "tenant_uuid", "tenant_key", "trace_id", "request_id", "session_id", "run_id", "trace_ref", "trace_type", "trace_kind", "node_name", "node_seq", "job_id", "policy_id", "message_id", "channel_message_id", "provider_message_id", "trigger_message_id", "stage", "status", "reason"}
+	pluginLogMessageKeys = []string{"message", "msg"}
+	globalConsoleEnabled = logger.GlobalConsoleEnabled
 )
 
 type Supervisor struct {
@@ -70,8 +72,8 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 
 	// 2) 组装命令
 	cmd := exec.CommandContext(ctx, entry, args...)
-	env := os.Environ()
-	env = append(env, fmt.Sprintf("PORT=%d", port))
+	envMap := envToMap(os.Environ())
+	envMap["PORT"] = strconv.Itoa(port)
 	if extraEnv == nil {
 		extraEnv = map[string]string{}
 	}
@@ -79,9 +81,13 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 		extraEnv["POWERX_HTTP_ADDR"] = fmt.Sprintf("127.0.0.1:%d", port)
 	}
 	for k, v := range extraEnv {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		envMap[key] = v
 	}
-	cmd.Env = env
+	cmd.Env = mapToEnv(envMap)
 
 	// 3) 准备 process
 	pctx, cancel := context.WithCancel(ctx)
@@ -366,15 +372,16 @@ func unquotePluginLogFieldValue(value string) string {
 }
 
 func allowForwardToStdIO() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_SUPERVISOR_FORWARD_STDIO"))) {
-	case "", "1", "true", "yes", "on":
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv("POWERX_SUPERVISOR_FORWARD_STDIO")))
+	switch raw {
+	case "1", "true", "yes", "on":
 		return true
 	case "0", "false", "no", "off":
 		return false
+	case "":
+		return globalConsoleEnabled()
 	default:
-		// Unknown value falls back to enabled, keeping host-mode plugin logs
-		// on the unified stdout collection path by default.
-		return true
+		return globalConsoleEnabled()
 	}
 }
 
@@ -478,6 +485,25 @@ func envToMap(env []string) map[string]string {
 		if kv, ok := splitOnce(e, '='); ok {
 			out[kv[0]] = kv[1]
 		}
+	}
+	return out
+}
+
+func mapToEnv(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		if strings.TrimSpace(k) == "" {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, fmt.Sprintf("%s=%s", k, env[k]))
 	}
 	return out
 }

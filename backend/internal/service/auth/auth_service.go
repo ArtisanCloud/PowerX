@@ -264,6 +264,8 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 		TenantUUID: ten.UUID.String(), TenantID: ten.ID,
 		MemberUUID: m.UUID.String(), MemberID: m.ID,
 		UserUUID: u.UUID.String(), UserID: u.ID,
+		Email:     strings.ToLower(strings.TrimSpace(u.Email)),
+		Phone:     strings.TrimSpace(u.Phone),
 		Platforms: s.Platforms,
 		IsRoot:    u.IsRoot,
 	}
@@ -391,6 +393,8 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 
 	// 4) 重新签发新的 access（沿用 claims 的主体信息，刷新有效期）
 	claims.TenantID = ten.ID
+	claims.Email = strings.ToLower(strings.TrimSpace(u.Email))
+	claims.Phone = strings.TrimSpace(u.Phone)
 	access, err := pkgauth.GenerateAccessJWT(
 		*claims, // Tenant/User/Member/Platforms/Env 都沿用
 		s.Issuer,

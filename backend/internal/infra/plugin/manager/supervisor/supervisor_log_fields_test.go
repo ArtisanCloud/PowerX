@@ -41,3 +41,71 @@ func TestExtractPluginRuntimeLogFieldsFromLogrusTextLine(t *testing.T) {
 		t.Fatalf("user_text should not be promoted to runtime log top-level: %#v", fields)
 	}
 }
+
+func TestAllowForwardToStdIOFollowsGlobalConsoleConfig(t *testing.T) {
+	t.Setenv("POWERX_SUPERVISOR_FORWARD_STDIO", "")
+
+	prev := globalConsoleEnabled
+	t.Cleanup(func() {
+		globalConsoleEnabled = prev
+	})
+
+	globalConsoleEnabled = func() bool { return false }
+	if allowForwardToStdIO() {
+		t.Fatalf("allowForwardToStdIO() = true, want false when log.console=false")
+	}
+
+	globalConsoleEnabled = func() bool { return true }
+	if !allowForwardToStdIO() {
+		t.Fatalf("allowForwardToStdIO() = false, want true when log.console=true")
+	}
+}
+
+func TestAllowForwardToStdIOEnvOverridesGlobalConsoleConfig(t *testing.T) {
+	prev := globalConsoleEnabled
+	t.Cleanup(func() {
+		globalConsoleEnabled = prev
+	})
+
+	globalConsoleEnabled = func() bool { return false }
+	t.Setenv("POWERX_SUPERVISOR_FORWARD_STDIO", "true")
+	if !allowForwardToStdIO() {
+		t.Fatalf("allowForwardToStdIO() = false, want true when env override is true")
+	}
+
+	globalConsoleEnabled = func() bool { return true }
+	t.Setenv("POWERX_SUPERVISOR_FORWARD_STDIO", "false")
+	if allowForwardToStdIO() {
+		t.Fatalf("allowForwardToStdIO() = true, want false when env override is false")
+	}
+}
+
+func TestMapToEnvKeepsSingleOverriddenKey(t *testing.T) {
+	base := envToMap([]string{
+		"PX_GATEWAY_BASE_URL=http://old.example",
+		"PX_GATEWAY_AUTH_SCHEME=apikey",
+	})
+	base["PX_GATEWAY_BASE_URL"] = "http://new.example"
+	base["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
+
+	env := mapToEnv(base)
+
+	countBaseURL := 0
+	countScheme := 0
+	for _, item := range env {
+		switch item {
+		case "PX_GATEWAY_BASE_URL=http://new.example":
+			countBaseURL++
+		case "PX_GATEWAY_AUTH_SCHEME=bearer":
+			countScheme++
+		case "PX_GATEWAY_BASE_URL=http://old.example", "PX_GATEWAY_AUTH_SCHEME=apikey":
+			t.Fatalf("mapToEnv kept stale env value %q in %#v", item, env)
+		}
+	}
+	if countBaseURL != 1 {
+		t.Fatalf("PX_GATEWAY_BASE_URL count = %d, want 1; env=%#v", countBaseURL, env)
+	}
+	if countScheme != 1 {
+		t.Fatalf("PX_GATEWAY_AUTH_SCHEME count = %d, want 1; env=%#v", countScheme, env)
+	}
+}

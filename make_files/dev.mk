@@ -30,9 +30,8 @@ dev-demo:
 	@echo "🚀 启动演示开发服务器..."
 	@echo "服务地址: http://$(DEV_HOST):$(DEV_PORT)"
 	@echo "API 文档: http://$(DEV_HOST):$(DEV_PORT)/api/v1/docs"
-	@echo "测试页面: temp/agent/test.html"
 	@echo "按 Ctrl+C 停止服务器"
-	@LOG_LEVEL=$(LOG_LEVEL) go run cmd/demo/main.go
+	@cd backend && set -a; [ -f .env ] && . ./.env; set +a; LOG_LEVEL=$(LOG_LEVEL) go run ./cmd/app
 
 # 监控文件变化并自动重启（需要安装 air）
 dev-watch:

@@ -1,8 +1,12 @@
 # Delegated Gateway Contract v1（精准版，不做兼容）
 
+> Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
+
 ## 1. 目标
 
 在宿主模式（delegated）下，插件访问 PowerX Capability Gateway 的认证链路只保留一套契约，避免多变量、多策略并存导致排障困难。
+
+业务调用主凭证统一为 STS access token；`PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活。
 
 ## 2. 强约束（MUST）
 

@@ -1,7 +1,7 @@
 # PowerX 异步运行时总览（平台级）
 
 > 这份是平台级入口，不属于某一个子域。  
-> 目标：统一解释 **Event Topic / Task Queue / WebSocket / Cron** 的关系与边界。
+> 目标：统一解释 **Schedule / Event Topic / Task Queue / WebSocket** 的关系与边界。
 
 ## 1. 系统边界（先分层）
 
@@ -13,8 +13,10 @@
    - 分片键：`tenant_key + subscriber_id`
 3. **实时分发层（WebSocket）**  
    - 定义“谁实时收到结果/通知”
-4. **调度层（Cron/Retry）**  
-   - 定义“何时触发、何时重试、如何补偿”
+4. **调度层（Schedule）**  
+   - 定义“何时触发”
+5. **运行记录层（Runs）**  
+   - 定义“哪一次触发发生了什么”
 
 结论：`event_fabric` 是这套运行时的当前实现域，不等于全部概念本身。
 
@@ -45,7 +47,7 @@
    - `docs/guides/async_runtime/cache/README.md`
 6. 我想看 DLQ / Retry：  
    - `docs/guides/async_runtime/dlq_retry/README.md`
-7. 我想看 Scheduler / Cron：  
+7. 我想看调度运行中心：  
    - `docs/guides/async_runtime/scheduler/README.md`
 8. 我想看 ACL 与安全：  
    - `docs/guides/async_runtime/acl_security/README.md`
@@ -73,7 +75,7 @@
 1. **语义一致**：Topic/Subscriber/Kind 命名统一
 2. **链路打通**：Replay 与 Pipeline 都可端到端联调
 3. **可观测**：Queue 运行态 + 历史可追溯 + WS 可见
-4. **可运维**：Cron/Retry 可手动触发且结果可判定
+4. **可运维**：调度配置可控制，触发后有运行记录和关联任务可追溯
 
 只要这四项成立，就说明 WebSocket/Event/Task 是一套系统，而不是“只做了 Event”。
 
@@ -87,7 +89,8 @@
 
 1. **Host（宿主模式）**
    - 插件运行在 PowerX 宿主上下文
-   - 优先复用 Core 的 async_runtime 能力（Event/Task/WS/Cron）
+   - 优先复用 Core 的 async_runtime 能力（Event/Task/WS）
+   - 插件通用 Scheduler 需要通过 `powerx.scheduler.v1.SchedulerService` 暴露；当前 Event Fabric Cron 只属于底座内部运维能力
 2. **Standalone（独立模式）**
    - 插件独立运行
    - 可以复用同一语义契约，但执行底座可为插件本地实现或网关转发
@@ -112,8 +115,10 @@
    - 联调与观测上下文字段（trace_id/task_id/topic/subscriber_id）
 2. **P1（按项目推进）**
    - Retry / DLQ 管理接口
-   - Cron run-now / pause / resume
+   - 插件通用 Scheduler facade：CreateJob/UpdateJob/PauseJob/ResumeJob/TriggerJob/GetJob/ListJobs
+   - 标准调度触发事件：`powerx.runtime.scheduler.triggered.v1`
 3. **P2（规划中）**
+   - 调度运行中心：平台内置调度配置、手动触发、暂停、恢复、运行记录、关联任务视图
    - 容量治理策略接口
    - 故障恢复编排接口
 
@@ -125,3 +130,5 @@
 4. WS 子系统：`docs/guides/async_runtime/websocket/README.md`
 5. Task 子系统：`docs/guides/async_runtime/task/README.md`
 6. 可观测性：`docs/guides/async_runtime/observability/README.md`
+7. 插件通用 Scheduler 规划：`docs/plan/integration/scheduler.md`
+8. 调度运行中心：`docs/guides/async_runtime/scheduler/README.md`

@@ -22,36 +22,61 @@ func SetMarketplaceBasePrefix(p string) {
 	MarketBasePrefix = strings.TrimRight(p, "/")
 }
 
+func resolveMarketplaceIconURL(basePrefix string, p plugin_mgr.Plugin) string {
+	basePrefix = strings.TrimRight(strings.TrimSpace(basePrefix), "/")
+	if basePrefix == "" {
+		basePrefix = "/_p"
+	}
+
+	iconFromMeta := strings.TrimSpace(p.Metadata.Icon)
+	if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
+		return iconFromMeta
+	}
+
+	candidates := make([]string, 0, 3)
+	if dir := strings.TrimSpace(p.Paths.FrontendAdminDir); dir != "" {
+		if abs, err := filepath.Abs(dir); err == nil {
+			candidates = append(candidates, abs)
+		}
+	}
+	if root := strings.TrimSpace(p.Paths.Root); root != "" {
+		if staticDir := strings.TrimSpace(p.Frontend.Admin.StaticDir); staticDir != "" {
+			if abs, err := filepath.Abs(filepath.Join(root, staticDir)); err == nil {
+				candidates = append(candidates, abs)
+			}
+		}
+		if abs, err := filepath.Abs(filepath.Join(root, "web-admin/.output/public")); err == nil {
+			candidates = append(candidates, abs)
+		}
+	}
+
+	rels := []string{}
+	if iconFromMeta != "" {
+		rels = append(rels, strings.TrimPrefix(iconFromMeta, "./"))
+	} else {
+		rels = append(rels, "icon.svg", "icon.png", "assets/icon.svg", "assets/icon.png")
+	}
+
+	for _, dir := range candidates {
+		if dir == "" {
+			continue
+		}
+		for _, rel := range rels {
+			if rel == "" || filepath.IsAbs(rel) {
+				continue
+			}
+			if fi, err := os.Stat(filepath.Join(dir, rel)); err == nil && !fi.IsDir() {
+				return basePrefix + "/" + p.ID + "/admin/" + filepath.ToSlash(rel)
+			}
+		}
+	}
+	return ""
+}
+
 // 工厂：注入 basePrefix（例如 "/_p"），返回 gin.HandlerFunc
 func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 
 	getInstallsCount := func(_ string) int64 { return 0 } // TODO: 接入真实统计
-
-	// 优先尝试把 manifest.metadata.icon 映射到 admin 静态目录
-	resolveIconURL := func(pID, adminDirAbs, iconFromMeta string) string {
-		if iconFromMeta == "" {
-			// 回退：尝试常见文件名
-			for _, rel := range []string{"icon.svg", "icon.png", "assets/icon.svg", "assets/icon.png"} {
-				if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-					return basePrefix + "/" + pID + "/admin/" + rel
-				}
-			}
-			return ""
-		}
-		// 规范化相对路径（去掉 "./" 前缀）
-		rel := strings.TrimPrefix(iconFromMeta, "./")
-		// 如果作者把 icon 放在插件根的 assets/ 下，而不是 admin 静态目录，
-		// 这时你暂时无法通过 admin 静态路由访问。建议将 icon 放到 frontend/admin 下。
-		// 这里我们先尝试在 adminDir 里找这个相对路径：
-		if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-			return basePrefix + "/" + pID + "/admin/" + rel
-		}
-		// 允许直接给 http(s) 链接
-		if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
-			return iconFromMeta
-		}
-		return ""
-	}
 
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -74,12 +99,7 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 
 		out := make([]pmdto.MarketplaceItem, 0, len(plugs))
 		for _, p := range plugs {
-			iconURL := ""
-			if p.Frontend.Admin.Kind == "static" && p.Paths.FrontendAdminDir != "" {
-				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
-					iconURL = resolveIconURL(p.ID, abs, p.Metadata.Icon)
-				}
-			}
+			iconURL := resolveMarketplaceIconURL(basePrefix, p)
 
 			out = append(out, pmdto.MarketplaceItem{
 				ID:          p.ID,
@@ -102,26 +122,6 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 // MarketplaceListV2Handler: 返回贴合前端 Plugin 类型的结构（本地模拟）
 // 说明：无远端 Marketplace 时，使用当前已安装列表 + 元数据补齐字段；后续可改为远端合并。
 func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
-	// 复用与 v1 相同的图标解析逻辑
-	resolveIconURL := func(pID, adminDirAbs, iconFromMeta string) string {
-		if iconFromMeta == "" {
-			for _, rel := range []string{"icon.svg", "icon.png", "assets/icon.svg", "assets/icon.png"} {
-				if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-					return basePrefix + "/" + pID + "/admin/" + rel
-				}
-			}
-			return ""
-		}
-		rel := strings.TrimPrefix(iconFromMeta, "./")
-		if fi, err := os.Stat(filepath.Join(adminDirAbs, rel)); err == nil && !fi.IsDir() {
-			return basePrefix + "/" + pID + "/admin/" + rel
-		}
-		if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
-			return iconFromMeta
-		}
-		return ""
-	}
-
 	slugify := func(id string) string {
 		s := strings.ReplaceAll(id, ".", "-")
 		s = strings.ReplaceAll(s, "_", "-")
@@ -164,12 +164,7 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 
 		out := make([]gin.H, 0, len(list))
 		for _, p := range list {
-			iconURL := ""
-			if p.Frontend.Admin.Kind == "static" && p.Paths.FrontendAdminDir != "" {
-				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
-					iconURL = resolveIconURL(p.ID, abs, p.Metadata.Icon)
-				}
-			}
+			iconURL := resolveMarketplaceIconURL(basePrefix, p)
 
 			systemStatus := toSystemStatus(string(p.State))
 			isInstalled := systemStatus != "not_installed"

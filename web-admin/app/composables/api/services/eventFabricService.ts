@@ -121,6 +121,34 @@ export interface EventFabricCronJobListResult {
   now: string;
 }
 
+export interface RuntimeSchedulerJob {
+  uuid?: string;
+  job_id?: string;
+  tenant_uuid: string;
+  owner_type: string;
+  owner_id: string;
+  name: string;
+  schedule_type: string;
+  schedule_expr: string;
+  timezone?: string;
+  topic?: string;
+  status: string;
+  next_run_at?: string;
+  last_run_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RuntimeSchedulerJobListResult {
+  items: RuntimeSchedulerJob[];
+  pagination?: {
+    total: number;
+    page: number;
+    page_size: number;
+  };
+  total?: number;
+}
+
 export interface EventFabricTaskQueueSubscriberStats {
   subscriber_id: string;
   tenant_key: string;
@@ -291,6 +319,7 @@ export const useEventFabricService = () => {
   const apiClient = useApiClient();
   // Event Fabric 监管属于 Admin 能力（Root 可见），后端路由在 /api/v1/admin/event-fabric/*
   const baseUrl = "/admin/event-fabric";
+  const schedulerBaseUrl = "/admin/scheduler";
 
   return {
     getOverview: (params?: {
@@ -422,6 +451,40 @@ export const useEventFabricService = () => {
     resumeCronJob: (jobId: string) => {
       return apiClient.post<ApiResponse<EventFabricCronJob>>(
         `${baseUrl}/cron/jobs/${jobId}/resume`,
+        {}
+      );
+    },
+
+    listRuntimeSchedulerJobs: (params?: {
+      owner_type?: string;
+      owner_id?: string;
+      status?: string;
+      page?: number;
+      page_size?: number;
+    }) => {
+      return apiClient.get<ApiResponse<RuntimeSchedulerJobListResult>>(
+        `${schedulerBaseUrl}/jobs`,
+        { params }
+      );
+    },
+
+    triggerRuntimeSchedulerJob: (jobId: string) => {
+      return apiClient.post<ApiResponse<any>>(
+        `${schedulerBaseUrl}/jobs/${jobId}/trigger`,
+        {}
+      );
+    },
+
+    pauseRuntimeSchedulerJob: (jobId: string) => {
+      return apiClient.post<ApiResponse<{ job: RuntimeSchedulerJob }>>(
+        `${schedulerBaseUrl}/jobs/${jobId}/pause`,
+        {}
+      );
+    },
+
+    resumeRuntimeSchedulerJob: (jobId: string) => {
+      return apiClient.post<ApiResponse<{ job: RuntimeSchedulerJob }>>(
+        `${schedulerBaseUrl}/jobs/${jobId}/resume`,
         {}
       );
     },

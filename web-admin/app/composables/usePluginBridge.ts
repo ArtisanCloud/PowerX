@@ -1,7 +1,6 @@
 import { computed, watch } from "vue";
 import { useI18n, useColorMode } from "#imports";
 import { storeToRefs } from "pinia";
-import { useApiClient } from "~/composables/api";
 import { useUserStore } from "~/stores/user";
 import { getStoredTenantUUID } from "~/utils/tenant-context";
 
@@ -36,9 +35,6 @@ type PowerXToPlugin =
   scope?: string;
   pluginId?: string;
   hostOrigin?: string;
-  ctx?: string;
-  ctxSig?: string;
-  ctxJwt?: string;
   tenantUuid?: string;
   tenant_uuid?: string;
 }
@@ -85,49 +81,6 @@ const maskToken = (token?: string | null) => {
   if (!token) return '<empty>'
   if (token.length <= 8) return `${token.slice(0, 3)}...`
   return `${token.slice(0, 4)}...${token.slice(-6)}`
-}
-
-const readCookie = (name: string) => {
-  if (typeof document === 'undefined') return undefined
-  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))
-  return m ? decodeURIComponent(m[1]) : undefined
-}
-
-let ctxFetchStarted = false
-let ctxFetchPromise: Promise<void> | null = null
-const fetchCtxOnce = () => {
-  if (!process.client) return undefined
-  if (localStorage.getItem('px_ctx') || localStorage.getItem('px_ctx_sig') || localStorage.getItem('px_ctx_jwt')) return undefined
-  if (ctxFetchStarted) return ctxFetchPromise || undefined
-  ctxFetchStarted = true
-  log('ctx fetch start')
-
-  const api = useApiClient()
-  ctxFetchPromise = api
-    .get('/admin/user/auth/me/context', {
-      credentials: 'include',
-      useGlobalLoading: false,
-    })
-    .then(resp => {
-      const d = api.unwrap(resp)
-      log('ctx fetch response', {
-        hasCtx: Boolean(d?.ctx),
-        hasCtxSig: Boolean(d?.ctx_sig || d?.ctxSig),
-        hasCtxJwt: Boolean(d?.ctx_jwt || d?.ctxJwt)
-      })
-      if (!d) return
-      if (d.ctx) localStorage.setItem('px_ctx', d.ctx)
-      if (d.ctx_sig) localStorage.setItem('px_ctx_sig', d.ctx_sig)
-      if (d.ctx_jwt) localStorage.setItem('px_ctx_jwt', d.ctx_jwt)
-    })
-    .catch(err => {
-      console.warn('[Bridge][Admin] ctx fetch failed', err)
-    })
-    .finally(() => {
-      log('ctx fetch done')
-      ctxFetchPromise = null
-    })
-  return ctxFetchPromise
 }
 
 export function usePluginBridge() {
@@ -191,10 +144,6 @@ export function usePluginBridge() {
       expiresAtRaw && expiresAtRaw > now
         ? Math.max(1, Math.floor((expiresAtRaw - now) / 1000))
         : 0
-    // 可选：从全局读取上下文（若后端有暴露）
-    const ctx = (window as any).__PX_CTX__ || localStorage.getItem('px_ctx') || readCookie('px_ctx') || undefined
-    const ctxSig = (window as any).__PX_CTX_SIG__ || localStorage.getItem('px_ctx_sig') || readCookie('px_ctx_sig') || undefined
-    const ctxJwt = (window as any).__PX_CTX_JWT__ || localStorage.getItem('px_ctx_jwt') || readCookie('px_ctx_jwt') || undefined
     const tenantUuid = resolveTenantUUID()
 
     if (!accessToken || expiresIn <= 0) {
@@ -213,9 +162,6 @@ export function usePluginBridge() {
       scope,
       pluginId,
       hostOrigin: typeof window !== 'undefined' ? window.location.origin : undefined,
-      ctx,
-      ctxSig,
-      ctxJwt,
       tenantUuid,
       tenant_uuid: tenantUuid,
     }
@@ -226,12 +172,7 @@ export function usePluginBridge() {
   const sendAuthToken = (meta: PluginMeta) => {
     const payload = buildAuthPayload(meta.pluginId)
     if (payload) {
-      log('broadcast auth-token', {
-        pluginId: meta.pluginId,
-        hasCtx: Boolean(payload.ctx),
-        hasCtxSig: Boolean(payload.ctxSig),
-        hasCtxJwt: Boolean(payload.ctxJwt)
-      })
+      log('broadcast auth-token', { pluginId: meta.pluginId })
       sendTo(meta, payload)
     } else {
       log('auth-token payload empty', { pluginId: meta.pluginId })
@@ -243,9 +184,6 @@ export function usePluginBridge() {
     log('broadcast auth-token to all iframes', { count: registry.value.size })
     registry.value.forEach(meta => sendAuthToken(meta))
   }
-
-  const ctxPromise = fetchCtxOnce()
-  ctxPromise?.then(() => broadcastAuthToken())
 
   const syncFrame = (frame?: HTMLIFrameElement | null) => {
     if (!process.client) return

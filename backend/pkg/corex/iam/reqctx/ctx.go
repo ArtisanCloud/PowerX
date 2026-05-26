@@ -14,14 +14,15 @@ type ctxKey string
 
 // —— 中间件常用键（你原有的一组）——
 const (
-	TenantIDKey   ctxKey = "tenant_id"
-	TenantUUIDKey ctxKey = "tenant_uuid"
-	SubjectKey    ctxKey = "subject"
-	ScopeKey      ctxKey = "scope"
-	AudienceKey   ctxKey = "audience"
-	PlatformKey   ctxKey = "platform"
-	TraceIDKey    ctxKey = "trace_id"
-	JWTClaimsKey  ctxKey = "jwt_claims"
+	TenantIDKey    ctxKey = "tenant_id"
+	TenantUUIDKey  ctxKey = "tenant_uuid"
+	SubjectKey     ctxKey = "subject"
+	ScopeKey       ctxKey = "scope"
+	AudienceKey    ctxKey = "audience"
+	PlatformKey    ctxKey = "platform"
+	TraceIDKey     ctxKey = "trace_id"
+	JWTClaimsKey   ctxKey = "jwt_claims"
+	RequestPathKey ctxKey = "request_path"
 
 	UserIDKey   ctxKey = "auth.user_id"
 	MemberIDKey ctxKey = "auth.member_id"
@@ -38,6 +39,8 @@ type CoreXClaims struct {
 	MemberID   uint64   `json:"mid_n"`
 	UserUUID   string   `json:"uid"`
 	UserID     uint64   `json:"uid_n"`
+	Email      string   `json:"email,omitempty"`
+	Phone      string   `json:"phone,omitempty"`
 	IsRoot     bool     `json:"is_root"`
 	Roles      []string `json:"roles,omitempty"`
 	Platforms  []string `json:"plats,omitempty"`
@@ -53,12 +56,15 @@ const (
 	KeyTenantUUID      ctxKey = "corex.tenant_uuid"
 	KeyTenantUUIDValue ctxKey = "corex.tenant_uuid_value"
 	KeyUserID          ctxKey = "corex.user_id"
+	KeyUserUUID        ctxKey = "corex.user_uuid"
 	KeyMemberID        ctxKey = "corex.member_id"
+	KeyMemberUUID      ctxKey = "corex.member_uuid"
 	KeyIsRoot          ctxKey = "corex.is_root"
 	KeySubject         ctxKey = "corex.subject"
 	KeyAudience        ctxKey = "corex.audience"
 	KeyPlatform        ctxKey = "corex.platform"
 	KeyTraceID         ctxKey = "corex.trace_id"
+	KeyRequestPath     ctxKey = "corex.request_path"
 
 	KeyEnv  ctxKey = "corex.env"
 	KeyEnvs ctxKey = "corex.envs"
@@ -91,8 +97,14 @@ func WithTenantUUIDValue(ctx context.Context, v uuid.UUID) context.Context {
 func WithUserID(ctx context.Context, v uint64) context.Context {
 	return context.WithValue(ctx, KeyUserID, v)
 }
+func WithUserUUID(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyUserUUID, v)
+}
 func WithMemberID(ctx context.Context, v uint64) context.Context {
 	return context.WithValue(ctx, KeyMemberID, v)
+}
+func WithMemberUUID(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyMemberUUID, v)
 }
 func WithIsRoot(ctx context.Context, v bool) context.Context {
 	return context.WithValue(ctx, KeyIsRoot, v)
@@ -108,6 +120,9 @@ func WithPlatform(ctx context.Context, v string) context.Context {
 }
 func WithTraceID(ctx context.Context, v string) context.Context {
 	return context.WithValue(ctx, KeyTraceID, v)
+}
+func WithRequestPath(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyRequestPath, v)
 }
 func WithEnv(ctx context.Context, e string) context.Context {
 	return context.WithValue(ctx, KeyEnv, env.Canonicalize(e))
@@ -223,6 +238,16 @@ func GetUserID(ctx context.Context) uint64 {
 	return 0
 }
 
+func GetUserUUID(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyUserUUID).(string); ok && v != "" {
+		return v
+	}
+	if c := GetClaims(ctx); c != nil && c.UserUUID != "" {
+		return c.UserUUID
+	}
+	return ""
+}
+
 func GetMemberID(ctx context.Context) uint64 {
 	if v, ok := ctx.Value(KeyMemberID).(uint64); ok && v > 0 {
 		return v
@@ -234,6 +259,16 @@ func GetMemberID(ctx context.Context) uint64 {
 		return c.MemberID
 	}
 	return 0
+}
+
+func GetMemberUUID(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyMemberUUID).(string); ok && v != "" {
+		return v
+	}
+	if c := GetClaims(ctx); c != nil && c.MemberUUID != "" {
+		return c.MemberUUID
+	}
+	return ""
 }
 
 func IsRoot(ctx context.Context) bool {
@@ -258,6 +293,9 @@ func GetSubject(ctx context.Context) string {
 	}
 	if c := GetClaims(ctx); c != nil && c.MemberUUID != "" {
 		return c.MemberUUID
+	}
+	if c := GetClaims(ctx); c != nil && c.UserUUID != "" {
+		return c.UserUUID
 	}
 	return ""
 }
@@ -305,6 +343,16 @@ func GetTraceID(ctx context.Context) string {
 		return v
 	}
 	if v, ok := ctx.Value(TraceIDKey).(string); ok && v != "" {
+		return v
+	}
+	return ""
+}
+
+func GetRequestPath(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyRequestPath).(string); ok && v != "" {
+		return v
+	}
+	if v, ok := ctx.Value(RequestPathKey).(string); ok && v != "" {
 		return v
 	}
 	return ""
