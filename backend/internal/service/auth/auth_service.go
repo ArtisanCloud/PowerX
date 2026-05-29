@@ -225,37 +225,42 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 	var m *model.Member
 	if tenantUUID != "" {
 		ten, err = s.tenantByUUID(ctx, tenantUUID)
+		if err == nil {
+			m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
+		}
+		if err != nil {
+			ten = nil
+			m = nil
+			tenantUUID = ""
+		}
+	}
+	if tenantUUID == "" {
+		members, err := s.MemberRepo.ListByUserID(ctx, u.ID)
 		if err != nil {
 			return "", "", err
 		}
-		m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
+		m, err = chooseLoginMember(members, u.LastTenantUUID)
 		if err != nil {
-			return "", "", errors.New("no membership in tenant")
-		}
-	} else {
-		// 未显式指定租户：按 membership 数量自动/报错
-		members, err := s.MemberRepo.ListByUserID(ctx, u.ID) // 需要实现：按 user_id 列出成员
-		if err != nil {
-			return "", "", err
-		}
-		switch len(members) {
-		case 0:
 			return "", "", errors.New("no membership found")
-		case 1:
-			m = members[0]
-			if strings.TrimSpace(m.TenantUUID) == "" {
-				return "", "", errors.New("member missing tenant uuid")
-			}
-			ten, err = s.tenantRepo.GetByUUID(ctx, m.TenantUUID)
-			if err != nil {
-				return "", "", err
-			}
-		default:
-			return "", "", errors.New("tenant uuid required")
+		}
+		if strings.TrimSpace(m.TenantUUID) == "" {
+			return "", "", errors.New("member missing tenant uuid")
+		}
+		ten, err = s.tenantRepo.GetByUUID(ctx, m.TenantUUID)
+		if err != nil {
+			return "", "", err
 		}
 	}
 	if m.Status != 1 {
 		return "", "", errors.New("member disabled")
+	}
+	if ten.Status != tenantmdl.TenantStatusActive {
+		return "", "", errors.New("tenant disabled")
+	}
+	_ = s.UserRepo.UpdateLastTenantUUID(ctx, u.ID, ten.UUID.String())
+	roleCodes, err := s.roleCodesForMember(ctx, ten.UUID.String(), m.ID)
+	if err != nil {
+		return "", "", err
 	}
 
 	// 3) 用 UUID 签发（audience 必须非空）
@@ -268,6 +273,7 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 		Phone:     strings.TrimSpace(u.Phone),
 		Platforms: s.Platforms,
 		IsRoot:    u.IsRoot,
+		Roles:     roleCodes,
 	}
 	//fmtx.Dump(ctx, "jwt sign(access)",
 	//	"issuer", s.Issuer,
@@ -319,6 +325,75 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 	return access, refresh, nil
 }
 
+func chooseLoginMember(members []*model.Member, preferredTenantUUID string) (*model.Member, error) {
+	preferredTenantUUID = strings.TrimSpace(preferredTenantUUID)
+	var firstActive *model.Member
+	for _, member := range members {
+		if member == nil || member.Status != model.UserStatusActive {
+			continue
+		}
+		if firstActive == nil {
+			firstActive = member
+		}
+		if preferredTenantUUID != "" && strings.EqualFold(strings.TrimSpace(member.TenantUUID), preferredTenantUUID) {
+			return member, nil
+		}
+	}
+	if firstActive == nil {
+		return nil, errors.New("no active membership found")
+	}
+	return firstActive, nil
+}
+
+type TenantSwitchTokenResult struct {
+	AccessToken  string
+	RefreshToken string
+	TenantID     uint64
+	TenantUUID   string
+	MemberID     uint64
+	MemberUUID   string
+}
+
+func (s *AuthService) IssueTokensForTenantSwitch(ctx context.Context, userID uint64, tenantUUID string) (*TenantSwitchTokenResult, error) {
+	if s == nil {
+		return nil, errors.New("auth service not configured")
+	}
+	ten, err := s.tenantByUUID(ctx, tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	u, err := s.UserRepo.FindByID(ctx, userID)
+	if err != nil || u == nil {
+		return nil, errors.New("user not found")
+	}
+	if u.Status != model.UserStatusActive {
+		return nil, errors.New("user disabled")
+	}
+	m, err := s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
+	if err != nil {
+		return nil, errors.New("no membership in tenant")
+	}
+	if m.Status != model.UserStatusActive {
+		return nil, errors.New("member disabled")
+	}
+	if ten.Status != tenantmdl.TenantStatusActive {
+		return nil, errors.New("tenant disabled")
+	}
+	_ = s.UserRepo.UpdateLastTenantUUID(ctx, u.ID, ten.UUID.String())
+	access, refresh, err := s.issueTokensFor(ctx, ten, u, m)
+	if err != nil {
+		return nil, err
+	}
+	return &TenantSwitchTokenResult{
+		AccessToken:  access,
+		RefreshToken: refresh,
+		TenantID:     ten.ID,
+		TenantUUID:   ten.UUID.String(),
+		MemberID:     m.ID,
+		MemberUUID:   m.UUID.String(),
+	}, nil
+}
+
 // tenantByUUID 解析并加载租户记录（仅接受 UUID）
 func (s *AuthService) tenantByUUID(ctx context.Context, tenantUUID string) (*tenantmdl.Tenant, error) {
 	tenantUUID = strings.TrimSpace(tenantUUID)
@@ -339,6 +414,30 @@ func (s *AuthService) tenantByUUID(ctx context.Context, tenantUUID string) (*ten
 		return nil, errors.New("tenant not found")
 	}
 	return ten, nil
+}
+
+func (s *AuthService) roleCodesForMember(ctx context.Context, tenantUUID string, memberID uint64) ([]string, error) {
+	if s == nil || s.RoleBindingRepo == nil {
+		return nil, errors.New("role binding repository not configured")
+	}
+	roles, err := s.RoleBindingRepo.ListRolesByMember(ctx, tenantUUID, memberID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(roles))
+	seen := map[string]struct{}{}
+	for _, role := range roles {
+		code := strings.ToLower(strings.TrimSpace(string(role.Code)))
+		if code == "" {
+			continue
+		}
+		if _, ok := seen[code]; ok {
+			continue
+		}
+		seen[code] = struct{}{}
+		out = append(out, code)
+	}
+	return out, nil
 }
 
 func looksLikeUUID(s string) bool {

@@ -32,6 +32,7 @@ const TableIAMRoleBinding = "iam_role_binding"
 const TableIAMAPIKeyProfile = "iam_api_key_profile"
 const TableIAMAPIKeyProfilePermission = "iam_api_key_profile_permission"
 const TableIAMAPIKey = "iam_api_key"
+const TableIAMRootSupportSession = "iam_root_support_sessions"
 
 const TableAuditEvent = "audit_event"
 

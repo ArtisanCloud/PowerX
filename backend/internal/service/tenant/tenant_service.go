@@ -5,14 +5,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	mdltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"gorm.io/gorm/clause"
-	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm"
@@ -342,6 +345,13 @@ func (s *TenantService) Update(ctx context.Context, id uint64, in UpdateTenantIn
 
 	// 可按需补充唯一性校验（domain 唯一等）
 	_, err = s.Repo.Patch(ctx, map[string]any{"id": id}, fields)
+	if err != nil {
+		return err
+	}
+	if in.Status != nil && *in.Status != mdltenant.TenantStatusActive && s.DB != nil {
+		tenantPlugins := pluginservice.NewTenantPluginInstanceServiceWithRepository(settingrepo.NewPluginInstanceConfigRepository(s.DB))
+		_, err = tenantPlugins.DisableByTenant(ctx, t.UUID.String())
+	}
 	return err
 }
 

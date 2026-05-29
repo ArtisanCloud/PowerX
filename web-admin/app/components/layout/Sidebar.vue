@@ -6,7 +6,6 @@ import {
   type MenuCategory,
   type UserMenusResult,
 } from "~/composables/api/services/menuService";
-import { useSettingsService } from "~/composables/api/services/settingsService";
 import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
@@ -15,11 +14,15 @@ import { LOGO_M_URL } from "~/utils/assets";
 /* ---------- stores / utils ---------- */
 const route = useRoute();
 const menuService = useMenuService();
-const settingsService = useSettingsService();
+const setupStatus = useSetupStatus();
 const userStore = useUserStore();
 const { t, te, locale } = useI18n({ useScope: "global" });
 const localePath = useLocalePath() as (p: string) => string;
 const appVersion = useState<string>("app-runtime-version", () => "");
+const userContactLabel = computed(() => {
+  const user = userStore.user;
+  return user?.email || user?.phone || "";
+});
 
 /* ========== 折叠与密度 ========== */
 const collapsed = useState<boolean>("sidebar-collapsed", () => false);
@@ -162,8 +165,7 @@ const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
 const loadRuntimeVersion = async () => {
   try {
-    const resp: any = await settingsService.getSetupStatus();
-    const payload = resp?.data ?? resp;
+    const payload: any = await setupStatus.load({ ttlMs: 5000 });
     const version = String(payload?.version || "").trim();
     if (version) {
       appVersion.value = version;
@@ -830,7 +832,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             {{ userStore.displayName || $t("user.admin") }}
           </p>
           <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {{ userStore.user?.email || "admin@powerx.com" }}
+            {{ userContactLabel || "-" }}
           </p>
         </div>
 

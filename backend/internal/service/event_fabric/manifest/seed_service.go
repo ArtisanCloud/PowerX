@@ -35,6 +35,8 @@ type SeedServiceOptions struct {
 	Clock      func() time.Time
 	MaxRetries int
 	Bindings   BindingStore
+	// PluginUsageGuard rejects new plugin-owned Event Fabric resources while a plugin is draining.
+	PluginUsageGuard func(ctx context.Context, pluginID string) error
 }
 
 // SeedService 根据 manifest 计划自动创建 Topic 与 ACL。
@@ -46,6 +48,7 @@ type SeedService struct {
 	clock      func() time.Time
 	maxRetries int
 	bindings   BindingStore
+	guard      func(ctx context.Context, pluginID string) error
 }
 
 // SeedResult 描述一次播种操作的结果。
@@ -81,6 +84,7 @@ func NewSeedService(opts SeedServiceOptions) *SeedService {
 		clock:      opts.Clock,
 		maxRetries: opts.MaxRetries,
 		bindings:   opts.Bindings,
+		guard:      opts.PluginUsageGuard,
 	}
 }
 
@@ -103,6 +107,9 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 	}
 	if s.dir == nil || s.acl == nil {
 		return nil, fmt.Errorf("seed service not fully configured")
+	}
+	if err := s.ensurePluginAcceptsNewUsage(ctx, seedCtx.PluginID); err != nil {
+		return nil, err
 	}
 	result := &SeedResult{Topics: make([]TopicResult, 0, len(plan.Topics))}
 	var combinedErr error
@@ -145,6 +152,14 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 		return result, combinedErr
 	}
 	return result, nil
+}
+
+func (s *SeedService) ensurePluginAcceptsNewUsage(ctx context.Context, pluginID string) error {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" || s.guard == nil {
+		return nil
+	}
+	return s.guard(ctx, pluginID)
 }
 
 func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPlan, record *topicRecord, seedCtx SeedContext) {

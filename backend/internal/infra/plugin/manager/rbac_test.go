@@ -100,3 +100,34 @@ func TestPolicyFromPlugin_AddPublicExposureRoutes(t *testing.T) {
 		t.Fatalf("unexpected public route: %+v", got)
 	}
 }
+
+func TestPolicyFromPlugin_AddProtectedExposureRoutes(t *testing.T) {
+	t.Parallel()
+
+	p := plugin_mgr.Plugin{
+		Endpoints: plugin_mgr.EndpointSpec{HTTPBasePath: "/api/v1"},
+		Exposure: plugin_mgr.ExposureSpec{
+			Channels: []plugin_mgr.ExposureChannel{
+				{
+					Type:       "rest",
+					Method:     "GET",
+					Entrypoint: "${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}",
+					Auth:       "jwt",
+					RBAC:       "scrm.social_channel_accounts:read",
+				},
+			},
+		},
+	}
+
+	pol := PolicyFromPlugin(p)
+	if pol == nil {
+		t.Fatalf("PolicyFromPlugin returned nil")
+	}
+	perm, ok := pol.Routes["GET:/api/v1/admin/social/channel-accounts/*"]
+	if !ok {
+		t.Fatalf("protected exposure route not installed: %+v", pol.Routes)
+	}
+	if perm.Resource != "scrm.social_channel_accounts" || perm.Action != "read" {
+		t.Fatalf("permission = %+v, want scrm.social_channel_accounts:read", perm)
+	}
+}

@@ -119,3 +119,14 @@ func (r *UserRepository) IsRootUser(ctx context.Context, userID uint64) (bool, e
 	}
 	return u.IsRoot, err
 }
+
+func (r *UserRepository) UpdateLastTenantUUID(ctx context.Context, userID uint64, tenantUUID string) error {
+	if userID == 0 {
+		return nil
+	}
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	return r.db.WithContext(ctx).
+		Model(&dbm.User{}).
+		Where("id = ?", userID).
+		Update("last_tenant_uuid", tenantUUID).Error
+}

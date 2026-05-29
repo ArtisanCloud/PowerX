@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
 
-const { register, unregister, navigateFrame } = usePluginBridge()
+const { register, unregister } = usePluginBridge()
 
 type TrustLevel = "trusted" | "untrusted";
 
@@ -60,8 +60,11 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const height = ref<number>(props.min);
 const canMeasure = ref<boolean>(false); // 是否能同域测量
+const retryNonce = ref(0);
+const retryAttempts = ref(0);
 let ro: ResizeObserver | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getViewportAvailableHeight() {
   const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
@@ -182,19 +185,49 @@ function clearObservers() {
   window.removeEventListener("resize", applyViewportFill);
 }
 
+function clearRetryTimer() {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
+
+function iframeShowsAdminNotReady() {
+  try {
+    const text = iframeRef.value?.contentWindow?.document?.body?.innerText || "";
+    return text.includes("PLUGIN_ADMIN_UPSTREAM_NOT_READY") ||
+      text.includes("plugin admin upstream not ready");
+  } catch {
+    return false;
+  }
+}
+
+function scheduleAdminReadyRetry() {
+  if (retryAttempts.value >= 12) {
+    error.value = "插件管理页面启动超时，请稍后刷新";
+    return;
+  }
+  retryAttempts.value += 1;
+  loading.value = true;
+  error.value = null;
+  clearRetryTimer();
+  retryTimer = setTimeout(() => {
+    retryNonce.value += 1;
+  }, 1000);
+}
+
 async function onLoad() {
+  if (iframeShowsAdminNotReady()) {
+    scheduleAdminReadyRetry();
+    applyViewportFill();
+    return;
+  }
   loading.value = false;
   error.value = null;
+  retryAttempts.value = 0;
+  clearRetryTimer();
   await nextTick();
   silenceIframeBridgeLogsIfNeeded();
-  if (props.navigatePath && iframeRef.value) {
-    navigateFrame(iframeRef.value, props.navigatePath)
-    setTimeout(() => {
-      if (props.navigatePath && iframeRef.value) {
-        navigateFrame(iframeRef.value, props.navigatePath)
-      }
-    }, 120)
-  }
   measureOnce();
   setObservers();
 }
@@ -293,6 +326,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearObservers();
+  clearRetryTimer();
   window.removeEventListener("resize", measureOnce);
   unregister(iframeRef.value);
 })
@@ -301,6 +335,8 @@ onBeforeUnmount(() => {
 watch(cleanSrc, async () => {
   loading.value = true;
   error.value = null;
+  retryAttempts.value = 0;
+  clearRetryTimer();
   clearObservers();
 
   await nextTick(); // 等 DOM 应用新 src
@@ -310,14 +346,18 @@ watch(cleanSrc, async () => {
   }
 })
 
-watch(
-  () => props.navigatePath,
-  (path) => {
-    if (!iframeRef.value || !path) return
-    navigateFrame(iframeRef.value, path)
-  },
-  { immediate: true }
-)
+const frameSrc = computed(() => {
+  if (!retryNonce.value) return cleanSrc.value;
+  try {
+    const u = new URL(cleanSrc.value, "http://localhost");
+    u.searchParams.set("__px_retry", String(retryNonce.value));
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    const joiner = cleanSrc.value.includes("?") ? "&" : "?";
+    return `${cleanSrc.value}${joiner}__px_retry=${retryNonce.value}`;
+  }
+})
+
 </script>
 
 <template>
@@ -332,7 +372,7 @@ watch(
 
     <iframe
       ref="iframeRef"
-      :src="cleanSrc"
+      :src="frameSrc"
       :title="title || 'Plugin WebView'"
       :sandbox="sandbox"
       allow="clipboard-read *; clipboard-write *; fullscreen *"

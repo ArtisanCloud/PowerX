@@ -117,6 +117,7 @@ type AckRequest struct {
 	TenantKey    string
 	SubscriberID string
 	MessageID    string
+	Metadata     map[string]string
 }
 
 // NackRequest 描述一次拒绝消费请求。

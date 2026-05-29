@@ -1,12 +1,15 @@
 package runtime
 
 import (
+	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -15,6 +18,7 @@ import (
 
 type taskQueueHandler struct {
 	driver event_bus.TaskDriver
+	guard  func(ctx context.Context, pluginID string) error
 }
 
 type taskQueueMessageDTO struct {
@@ -43,9 +47,10 @@ type taskQueueDequeueRequest struct {
 }
 
 type taskQueueAckRequest struct {
-	TenantKey    string `json:"tenant_key"`
-	SubscriberID string `json:"subscriber_id"`
-	MessageID    string `json:"message_id"`
+	TenantKey    string            `json:"tenant_key"`
+	SubscriberID string            `json:"subscriber_id"`
+	MessageID    string            `json:"message_id"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 type taskQueueNackRequest struct {
@@ -67,7 +72,11 @@ func newTaskQueueHandler(deps *shared.Deps) *taskQueueHandler {
 	if deps == nil || deps.EventFabric == nil || deps.EventFabric.TaskDriver == nil {
 		return nil
 	}
-	return &taskQueueHandler{driver: deps.EventFabric.TaskDriver}
+	var guard func(ctx context.Context, pluginID string) error
+	if deps.DB != nil {
+		guard = pluginservice.NewPluginDrainJobService(deps.DB).EnsurePluginAcceptsNewUsage
+	}
+	return &taskQueueHandler{driver: deps.EventFabric.TaskDriver, guard: guard}
 }
 
 func (h *taskQueueHandler) enqueue(c *gin.Context) {
@@ -79,6 +88,10 @@ func (h *taskQueueHandler) enqueue(c *gin.Context) {
 	msg, err := req.Message.toTaskMessage(requireTenantKey(c, req.Message.TenantKey))
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid message", err)
+		return
+	}
+	if err := h.ensurePluginAcceptsNewUsage(c, msg.Metadata); err != nil {
+		dto.ResponseError(c, dto.StatusCode(err), dto.MessageOf(err), err)
 		return
 	}
 	if err := h.driver.Enqueue(c.Request.Context(), msg); err != nil {
@@ -123,6 +136,7 @@ func (h *taskQueueHandler) ack(c *gin.Context) {
 		TenantKey:    requireTenantKey(c, req.TenantKey),
 		SubscriberID: strings.TrimSpace(req.SubscriberID),
 		MessageID:    strings.TrimSpace(req.MessageID),
+		Metadata:     req.Metadata,
 	}); err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "ack task failed", err)
 		return
@@ -165,6 +179,10 @@ func (h *taskQueueHandler) retry(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid message", err)
 		return
 	}
+	if err := h.ensurePluginAcceptsNewUsage(c, msg.Metadata); err != nil {
+		dto.ResponseError(c, dto.StatusCode(err), dto.MessageOf(err), err)
+		return
+	}
 	var retryAt time.Time
 	if req.RetryAt != nil {
 		retryAt = req.RetryAt.UTC()
@@ -178,6 +196,20 @@ func (h *taskQueueHandler) retry(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]any{"ok": true, "message_id": msg.ID})
+}
+
+func (h *taskQueueHandler) ensurePluginAcceptsNewUsage(c *gin.Context, metadata map[string]string) error {
+	if h == nil || h.guard == nil || len(metadata) == 0 {
+		return nil
+	}
+	pluginID := strings.TrimSpace(metadata["plugin_id"])
+	if pluginID == "" {
+		return nil
+	}
+	if c == nil || c.Request == nil {
+		return dto.NewErrorWithCode(http.StatusBadRequest, pluginservice.ErrCodePluginDrainInvalidRequest, "缺少请求上下文", errors.New("request context required"))
+	}
+	return h.guard(c.Request.Context(), pluginID)
 }
 
 func (m taskQueueMessageDTO) toTaskMessage(defaultTenantKey string) (event_bus.TaskMessage, error) {
@@ -228,8 +260,11 @@ func taskMessageToDTO(msg event_bus.TaskMessage) taskQueueMessageDTO {
 }
 
 func requireTenantKey(c *gin.Context, fallback string) string {
+	if strings.TrimSpace(fallback) != "" {
+		return strings.TrimSpace(fallback)
+	}
 	if tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c); err == nil && strings.TrimSpace(tenantUUID) != "" {
 		return strings.TrimSpace(tenantUUID)
 	}
-	return strings.TrimSpace(fallback)
+	return ""
 }

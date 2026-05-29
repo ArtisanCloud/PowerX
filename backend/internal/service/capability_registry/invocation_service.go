@@ -372,6 +372,7 @@ func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpo
 	if endpoint == "" {
 		return restInvokePayload{}, errors.New("payload.endpoint required for REST invocation")
 	}
+	endpoint = applyRESTPathParams(endpoint, raw)
 	headers := mapStringString(raw["headers"])
 	query := mapStringString(raw["query"])
 
@@ -438,7 +439,7 @@ func buildGRPCInvokePayloadWithDefaults(raw map[string]interface{}, endpoint str
 }
 
 func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string, payload restInvokePayload, traceID string, useAIMultimodalTimeout bool) (map[string]interface{}, error) {
-	target := payload.Endpoint
+	target := applyRESTPathParams(payload.Endpoint, bodyMapForPathParams(payload.Body))
 	if !strings.HasPrefix(strings.ToLower(target), "http://") && !strings.HasPrefix(strings.ToLower(target), "https://") {
 		target = strings.TrimRight(s.httpBaseURL, "/") + "/" + strings.TrimLeft(target, "/")
 	}
@@ -483,6 +484,9 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	}
 	if traceID != "" && req.Header.Get("X-Trace-Id") == "" {
 		req.Header.Set("X-Trace-Id", traceID)
+	}
+	if tenantUUID := strings.TrimSpace(extractCtxString(ctx, "tenant_uuid")); tenantUUID != "" && req.Header.Get("X-Tenant-UUID") == "" {
+		req.Header.Set("X-Tenant-UUID", tenantUUID)
 	}
 
 	httpClient := s.selectRESTHTTPClient(capabilityID, payload.Endpoint, useAIMultimodalTimeout)
@@ -566,6 +570,34 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 		"value":  out,
 		"status": resp.Status,
 	}, nil
+}
+
+func applyRESTPathParams(endpoint string, raw map[string]interface{}) string {
+	result := strings.TrimSpace(endpoint)
+	if result == "" || len(raw) == 0 || !strings.Contains(result, "{") {
+		return result
+	}
+	for key, value := range raw {
+		name := strings.TrimSpace(key)
+		if name == "" {
+			continue
+		}
+		placeholder := "{" + name + "}"
+		if !strings.Contains(result, placeholder) {
+			continue
+		}
+		replacement := url.PathEscape(strings.TrimSpace(fmt.Sprint(value)))
+		result = strings.ReplaceAll(result, placeholder, replacement)
+	}
+	return result
+}
+
+func bodyMapForPathParams(body interface{}) map[string]interface{} {
+	out, ok := toStringAnyMap(body)
+	if !ok {
+		return nil
+	}
+	return out
 }
 
 func (s *InvocationService) selectRESTHTTPClient(capabilityID, endpoint string, useAIMultimodalTimeout bool) *http.Client {

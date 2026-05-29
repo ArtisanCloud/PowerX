@@ -46,6 +46,38 @@ func TestInvocationServiceInvokeREST(t *testing.T) {
 	require.Equal(t, "ok", result["status"])
 }
 
+func TestInvocationServiceInvokeRESTAppliesPathParamsAndTenantHeader(t *testing.T) {
+	t.Parallel()
+	testutil.SkipIfNoLocalListener(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/media/assets/asset-001/presign", r.URL.Path)
+		require.Equal(t, "tenant-001", r.Header.Get("X-Tenant-UUID"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"url":"https://assets.example/signed","method":"PUT"}`))
+	}))
+	defer server.Close()
+
+	svc := &InvocationService{
+		httpClient:  server.Client(),
+		httpBaseURL: server.URL,
+	}
+
+	ctx := context.WithValue(context.Background(), "tenant_uuid", "tenant-001")
+	payload := restInvokePayload{
+		Method:   http.MethodPost,
+		Endpoint: "/media/assets/{uuid}/presign",
+		Body: map[string]interface{}{
+			"uuid":   "asset-001",
+			"action": "upload",
+		},
+	}
+	result, err := svc.invokeREST(ctx, "com.corex.media.assets.manage", payload, "trace-http", false)
+	require.NoError(t, err)
+	require.Equal(t, "https://assets.example/signed", result["url"])
+}
+
 func TestInvocationServiceInvokeGRPC(t *testing.T) {
 	t.Parallel()
 

@@ -43,12 +43,15 @@
 1. 承载全局登录凭证，例如 email、phone、password credential。
 2. 承载全局账号状态，例如 active/disabled。
 3. 承载平台级 Root 标识：`is_root`。
+4. 记录最近使用租户：`last_tenant_uuid`。
 
 约束：
 
 1. `User` 不直接代表租户权限。
 2. `User` 可以在多个租户中拥有多个 `Member`。
 3. `User.is_root=true` 只表示平台 Root，不等于任何租户 admin。
+4. `last_tenant_uuid` 只是登录默认租户偏好，不得绕过 active member 校验。
+5. 手机号注册用户不得写入伪造默认邮箱；界面展示按真实 email、phone、`-` 的顺序选择。
 
 ### 3.2 Tenant
 
@@ -84,6 +87,8 @@
 ### 3.4 Root
 
 Root 是平台级身份，来源于 `User.is_root=true`。
+
+Root 可以并且应该保留 `system` 特殊租户下的 member/admin 记录。这个 member 是平台身份锚点，用于登录 token 中的 `tenant_uuid + member_id/member_uuid`、审计、STS、API Key Profile、setup 初始化和历史安装兼容；它不是普通业务租户成员，也不表示 root 是所有业务租户的 owner/admin。
 
 Root 默认进入 Platform Console。
 
@@ -208,18 +213,28 @@ POST /api/v1/public/saas/signup
 
 行为：
 
-1. 校验 `tenant_key` 全局唯一。
-2. 校验 email/phone 至少一个可作为登录 identifier。
-3. 如果 user 不存在，创建全局 `User` 和 credential。
-4. 如果 user 已存在，必须校验密码正确，才允许创建新租户成员。
-5. 创建 `Tenant`。
-6. 创建该 user 在新租户下的 `Member`。
-7. 确保租户默认角色存在。
-8. 绑定 `role_owner`、`role_admin`、`role_user`。
-9. 初始化租户默认 API Key Profile。
-10. 初始化 tenant keypair。
-11. 初始化必要 tenant settings。
-12. 签发 access token 和 refresh token，当前上下文指向新租户和新 member。
+1. `tenant_key` 可由用户填写；未填写时按 `tenant_name` 自动生成唯一 key，例如 `acme-inc`、`acme-inc-2`。
+2. 显式填写的 `tenant_key` 必须全局唯一；冲突时失败并回滚。
+3. 租户名称可以重复；唯一性由 `tenant_key/domain` 保证。
+4. 校验 email/phone 至少一个可作为登录 identifier。
+5. 如果 user 不存在，创建全局 `User` 和 credential。
+6. 如果 user 已存在，必须校验密码正确，才允许创建新租户成员。
+7. 创建 `Tenant`，domain 按 `tenant_key` 派生。
+8. 创建该 user 在新租户下的 `Member`。
+9. 确保租户默认角色存在。
+10. 绑定 `role_owner`、`role_admin`、`role_user`。
+11. 初始化租户默认 API Key Profile。
+12. 初始化 tenant keypair。
+13. 初始化必要 tenant settings。
+14. 更新 `User.last_tenant_uuid` 为新租户。
+15. 签发 access token 和 refresh token，当前上下文指向新租户和新 member。
+
+验证码策略：
+
+1. 由 `feature_gate.enable_saas_signup_verification_code` 控制，默认关闭。
+2. 关闭时前端不展示验证码字段，后端不要求 `verification_code`。
+3. 开启时必须先调用 `/api/v1/public/saas/signup/verification-code`。
+4. 当前本地开发驱动只把验证码写入日志；生产必须接入 SMTP/短信驱动后再开启。
 
 失败策略：
 
@@ -248,6 +263,27 @@ POST /api/v1/admin/user/auth/me/switch-tenant
 1. 前端、HTTP API、WS、插件代理、后台任务都能拿到一致的 tenant/member claims。
 2. 避免只更新前端 context 而 token 仍指向旧租户。
 3. 插件 STS 和 Gateway 调用可直接依赖 token claims。
+
+### 6.1 登录默认租户选择
+
+登录入口只要求全局 user 凭证：
+
+1. 邮箱或手机号。
+2. 密码。
+
+登录时不要求用户先选择组织。服务端按以下顺序确定当前租户：
+
+1. 如果请求显式传入 `tenant_uuid`，且当前 user 拥有该租户 active member，则使用该租户。
+2. 如果显式 `tenant_uuid` 无效或无权限，不得越权使用，继续回退到默认选择。
+3. 如果 `User.last_tenant_uuid` 指向当前 user 的 active member，则使用最近租户。
+4. 否则选择该 user 的第一个 active member。
+5. 如果没有任何 active member，登录失败。
+
+登录成功后必须：
+
+1. 签发包含最终 `tenant_uuid + member_id/member_uuid` 的 token。
+2. 更新 `User.last_tenant_uuid`。
+3. 返回与 token claims 一致的 `me/context`。
 
 Root 规则：
 
@@ -499,7 +535,143 @@ stopped -> starting -> running -> unhealthy -> stopped
 6. 插件所有请求必须按每次请求解析 `tenant_uuid + member_uuid`。
 7. 插件所有后台任务必须按事件 payload 解析 `tenant_uuid` 和业务 id。
 
-#### 7.5.5 权限矩阵
+#### 7.5.5 插件 uninstall / drain / replace 语义
+
+SaaS 模型下，插件删除不是“点一次按钮立即删除物理目录”。必须先区分四种动作：
+
+1. `disable tenant instance`：租户 owner/admin 停用本租户插件实例，只影响当前 `tenant_uuid + plugin_id`。
+2. `emergency disable`：Root 立即禁止目标插件继续被使用，保留租户实例、业务数据和物理包，用于安全事故或严重故障止血。
+3. `uninstall`：Root 下架或删除全局插件包，最终会删除 `plugins/installed/<plugin_id>/<version>`，必须等所有受影响租户实例完成 drain。
+4. `replace installed version`：Root 替换同一个 `plugin_id + version` 的物理包，用于本地开发或受控热修；不得删除租户实例、订阅、权限、配置和业务数据。
+
+Root 发起的插件下架、删除、drain、replace 指令必须只作用于明确目标：
+
+```text
+plugin_id
+plugin_id + version
+plugin_id + tenant_uuid
+plugin_id + version + tenant_uuid
+```
+
+禁止因为某个插件进入 drain 而影响其他插件、同租户其他业务、PowerX 底座能力或无关租户实例。
+
+插件卸载不得被理解为 PowerX 底座重启。Root 对插件执行 drain、final uninstall 或 purge 时，生命周期边界如下：
+
+1. 目标只允许是明确的 `plugin_id` 或 `plugin_id + version`。
+2. PowerX 可以停止目标插件运行时、卸载目标插件动态路由、更新目标插件 registry 状态，并按 `purge` 清理目标版本物理目录。
+3. PowerX backend、web-admin、数据库、Redis、Event Fabric、Scheduler、STS、Gateway 等底座服务不得因插件卸载而重启。
+4. 其他插件的运行时、动态路由、菜单、租户实例、订阅、配置、凭证和业务数据不得被该插件卸载连带修改。
+5. 前端全局 loading 只能表示卸载请求正在执行或等待响应，不得作为“系统正在重启”的状态表达。
+
+##### 7.5.5.1 uninstall 主流程
+
+普通 uninstall 必须先做影响检查：
+
+```mermaid
+flowchart TD
+  A[Root 请求卸载 plugin/version] --> B{存在 tenant plugin instances?}
+  B -- 否 --> C[停止目标全局运行时]
+  C --> D[删除目标版本 registry 与物理目录]
+  D --> E[标记 uninstalled]
+  B -- 是 --> F[拒绝同步卸载: 409 DRAIN_REQUIRED]
+  F --> G[创建 drain plan]
+  G --> H[逐租户实例进入 draining_requested]
+  H --> I{所有目标实例 drained?}
+  I -- 否 --> H
+  I -- 是 --> C
+```
+
+当仍存在任意 `TenantPluginInstance` 时，同步 uninstall 必须失败并返回 `409 DRAIN_REQUIRED`，不得隐式删除租户实例，也不得绕过检查强删目录。
+
+##### 7.5.5.2 drain plan
+
+drain plan 是 Root 对目标插件或目标版本发起的可审计删除计划。
+
+建议字段：
+
+```yaml
+plugin_drain_jobs:
+  job_id
+  plugin_id
+  version
+  scope: plugin | plugin_version
+  status: requested | blocking_new_usage | draining | ready_to_uninstall | completed | failed | cancelled
+  reason
+  requested_by_root_user_id
+  requested_at
+  completed_at
+```
+
+drain plan 启动后，PowerX 必须对目标插件或版本关闭新增入口：
+
+1. 不再允许新租户订阅或启用该插件。
+2. 已进入 drain 的租户实例不再允许新的插件业务写入 API。
+3. 不再创建该插件的新 scheduler job、queue task、workflow run、webhook delivery 或 Event Fabric subscription。
+4. 已有菜单、插件 admin、插件 api 入口返回明确的 disabled/draining 错误。
+5. 不影响其他插件，也不影响同租户非目标插件能力。
+
+##### 7.5.5.3 per-tenant draining 判定
+
+每个租户插件实例独立进入 drain，不按全局插件进程一次性判定。
+
+建议 `TenantPluginInstance` 增加状态：
+
+```text
+available -> subscribed -> enabled -> disabled -> draining_requested -> disabled_by_platform -> drained -> expired
+```
+
+租户实例可从 `draining_requested` 进入 `drained`，必须同时满足：
+
+1. 当前租户目标插件没有活跃 browser/admin/api session。
+2. 当前租户目标插件没有进行中的业务写入请求。
+3. 当前租户目标插件没有 active/running queue task、workflow run、scheduler job。
+4. 当前租户目标插件没有未完成 webhook delivery、event subscriber offset 或补偿任务。
+5. 插件提供的 `DrainStatus` hook 返回 `ready`，或该插件声明无额外业务 drain hook。
+6. 目标插件实例已被平台标记为禁止新增使用，不能继续叠加新任务。
+
+`idle` 不等于 `drained`：
+
+1. `idle` 只表示当前暂时没有活跃任务，但入口仍开放，用户可以继续新增任务。
+2. `drained` 表示入口已关闭，存量任务清零，插件确认可安全下架。
+
+##### 7.5.5.4 emergency disable
+
+Root 可对目标 `plugin_id` 或 `plugin_id + version` 执行 emergency disable。
+
+语义：
+
+1. 立即禁止目标插件菜单、admin/api 入口和新增后台任务。
+2. 立即暂停目标插件的租户 scheduler jobs、queue consumers、webhook/event delivery。
+3. 保留租户实例、订阅、配置、凭证引用和历史业务数据。
+4. 不删除物理包。
+5. 后续必须通过恢复、迁移、drain 或 final uninstall 处理。
+
+emergency disable 是止血动作，不等于 uninstall。
+
+##### 7.5.5.5 replace installed version
+
+`replaceInstalledVersion` 只用于替换同一个全局版本包文件。
+
+本地开发语义：
+
+1. 停止目标 `plugin_id + version` 当前运行时和路由。
+2. 移除该版本 registry。
+3. 删除该版本物理目录。
+4. 复制新的同版本 dist。
+5. 重新注册、健康检查并启动目标版本。
+6. 不删除租户实例，不撤销订阅，不清理租户配置，不变更业务数据。
+
+生产语义不应依赖同版本 replace。生产升级必须走版本化 rolling upgrade：
+
+1. 安装新版本到 `plugins/installed/<plugin_id>/<new_version>`。
+2. 运行新版本 migration 和 healthcheck。
+3. 按策略切换全局 current version 或按租户灰度切换。
+4. 新版本就绪后停止旧版本运行时。
+5. 失败时回滚 current version 和路由。
+
+replace 和 rolling upgrade 都只能影响目标插件/版本，不得影响其他插件。
+
+#### 7.5.6 权限矩阵
 
 | 动作 | Root / Platform | Tenant Owner/Admin | Tenant Member |
 |---|---:|---:|---:|
@@ -508,6 +680,9 @@ stopped -> starting -> running -> unhealthy -> stopped
 | 启动/停止全局插件进程 | 是 | 否 | 否 |
 | 切换插件全局版本 | 是 | 否 | 否 |
 | 设置插件套餐可见范围 | 是 | 否 | 否 |
+| 发起插件 drain plan | 是 | 否 | 否 |
+| emergency disable 插件 | 是 | 否 | 否 |
+| replace 同版本插件包 | 是 | 否 | 否 |
 | 订阅/购买插件 | 可代操作 | 是 | 否 |
 | 启用/停用本租户插件实例 | 可代操作或支持模式 | 是 | 否 |
 | 配置本租户插件参数 | 支持模式 | 是 | 否 |
@@ -666,7 +841,7 @@ admin:member    # Tenant member
 兼容语义：
 
 1. `iam_users.is_root = true` 表示平台 root 身份。
-2. root 在 `system` tenant 下的 member 只用于登录上下文和系统初始化兼容。
+2. root 在 `system` tenant 下的 member/admin 是身份锚点，只用于登录上下文、审计、STS、API Key Profile、setup 初始化和系统历史兼容。
 3. root 不是所有业务租户的 owner/admin。
 4. root 默认进入 Platform Console。
 5. root 需要进入业务租户时，后续必须通过 Support Session。
@@ -675,7 +850,19 @@ admin:member    # Tenant member
 
 ### 10.3 自动迁移/巡检
 
-建议新增一个只读巡检命令，后续再扩展为可控迁移。
+已提供只读巡检和受控补齐命令：
+
+```bash
+make iam-migration-report
+make iam-migration-fix-owner
+```
+
+等价 CLI：
+
+```bash
+cd backend && go run ./cmd/database iam-report
+cd backend && go run ./cmd/database iam-fix-owner
+```
 
 巡检内容：
 
@@ -691,6 +878,7 @@ admin:member    # Tenant member
 1. 如果业务租户缺少 `role_owner`，但存在 active `role_admin`，选择最早创建的 admin member 补 `role_owner`。
 2. 如果业务租户没有 active admin，不自动指定 owner，只输出异常。
 3. 所有自动补齐必须写审计日志，记录租户、member、原因和迁移版本。
+4. 自动补齐不会删除或重建 root user、`system` tenant member、setup 完成记录、部门树和已有角色绑定。
 
 ### 10.4 建议巡检 SQL
 
@@ -723,7 +911,8 @@ order by t.key, r.code;
 2. 执行只读巡检，生成异常报告。
 3. 对缺少 owner 但有 admin 的租户执行自动补齐迁移。
 4. 对缺少 admin 的租户，由 Root 在 Platform Console 手动指定管理员。
-5. 巡检通过后再开启 SaaS 自助注册和租户插件实例隔离。
+5. 再次执行只读巡检，确认 `auto_fix_candidates` 清空，`manual_fix_required` 已被人工处理。
+6. 巡检通过后再开启 SaaS 自助注册和租户插件实例隔离。
 
 这套策略不会破坏现有服务器组织架构数据，也不要求手动改 root 安装记录。
 
@@ -799,3 +988,4 @@ order by t.key, r.code;
 7. 所有租户业务写操作必须具备明确 `tenant_uuid + member_uuid`。
 8. 第一阶段保留现有 root user、`system` tenant member、组织架构数据和 setup 完成记录。
 9. 历史数据补齐通过自动巡检/迁移完成，不要求人工直接改数据库。
+10. Root 的 `system` tenant member/admin 是平台身份锚点，不参与普通业务租户成员列表和租户业务授权。

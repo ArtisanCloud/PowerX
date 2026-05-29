@@ -19,10 +19,13 @@ import (
 
 // ======= 对外返回结构（供 Handler 使用） =======
 type MeMemberBrief struct {
-	TenantUUID string `json:"tenant_uuid"`
-	TenantName string `json:"tenant_name"`
-	MemberID   uint64 `json:"member_id"`
-	IsAdmin    bool   `json:"is_admin"`
+	TenantUUID   string `json:"tenant_uuid"`
+	TenantKey    string `json:"tenant_key"`
+	TenantName   string `json:"tenant_name"`
+	TenantDomain string `json:"tenant_domain"`
+	MemberID     uint64 `json:"member_id"`
+	IsAdmin      bool   `json:"is_admin"`
+	IsOwner      bool   `json:"is_owner"`
 }
 
 type MeUserBrief struct {
@@ -115,8 +118,9 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	}
 	tenantBasicMap, _ := s.TenantRepo.MapBasicByUUIDs(ctx, tenantUUIDs)
 
-	// 4) 先批量计算成员是否具备租户管理员角色（role_admin）
+	// 4) 先批量计算成员是否具备租户管理员/所有者角色
 	adminMemberIDSet := map[uint64]struct{}{}
+	ownerMemberIDSet := map[uint64]struct{}{}
 	if len(members) > 0 {
 		memberIDs := make([]uint64, 0, len(members))
 		for _, mem := range members {
@@ -126,9 +130,13 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		tRB := (&modelIAM.RoleBinding{}).GetTableName(true)
 		tRole := (&modelIAM.Role{}).GetTableName(true)
 
-		var adminMemberIDs []uint64
+		var rows []struct {
+			SubjectID uint64 `gorm:"column:subject_id"`
+			Code      string `gorm:"column:code"`
+		}
 		err := s.DB.WithContext(ctx).
 			Table(tRB+" AS rb").
+			Select("rb.subject_id, r.code").
 			Joins("JOIN "+tRole+" AS r ON r.id = rb.role_id").
 			Where("rb.subject_type = ? AND rb.subject_id IN ?", modelIAM.SubMember, memberIDs).
 			Where(
@@ -136,12 +144,20 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 				string(coreiam.RoleScopeTenant),
 				[]string{string(coreiam.CodeRoleAdmin), "role_owner"},
 			).
-			Pluck("rb.subject_id", &adminMemberIDs).Error
+			Scan(&rows).Error
 		if err != nil {
 			return nil, dto.NewError(http.StatusInternalServerError, "查询成员管理员角色失败", err)
 		}
-		for _, id := range adminMemberIDs {
-			adminMemberIDSet[id] = struct{}{}
+		for _, row := range rows {
+			code := strings.ToLower(strings.TrimSpace(row.Code))
+			if code == string(coreiam.CodeRoleOwner) {
+				ownerMemberIDSet[row.SubjectID] = struct{}{}
+				adminMemberIDSet[row.SubjectID] = struct{}{}
+				continue
+			}
+			if code == string(coreiam.CodeRoleAdmin) {
+				adminMemberIDSet[row.SubjectID] = struct{}{}
+			}
 		}
 	}
 
@@ -158,11 +174,15 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		}
 		memberByTenant[uuidStr] = mem.ID
 		_, isAdmin := adminMemberIDSet[mem.ID]
+		_, isOwner := ownerMemberIDSet[mem.ID]
 		brs = append(brs, MeMemberBrief{
-			TenantUUID: uuidStr,
-			TenantName: name,
-			MemberID:   mem.ID,
-			IsAdmin:    isAdmin,
+			TenantUUID:   uuidStr,
+			TenantKey:    info.Key,
+			TenantName:   name,
+			TenantDomain: info.Domain,
+			MemberID:     mem.ID,
+			IsAdmin:      isAdmin,
+			IsOwner:      isOwner,
 		})
 	}
 

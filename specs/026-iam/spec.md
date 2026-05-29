@@ -35,7 +35,7 @@
 **Acceptance Scenarios**:
 
 1. **Given** 用户位于租户列表，**When** 点击某租户记录，**Then** 系统仅进入该租户详情/用户列表视图，不隐式跳转其他页面。
-2. **Given** 用户需要切换租户上下文，**When** 触发“切换租户”独立动作，**Then** 系统仅更新当前租户上下文，不执行无关跳转。
+2. **Given** 用户需要切换租户上下文，**When** 触发“切换租户”独立动作，**Then** 系统重新签发指向目标租户成员的 token/context，不执行无关跳转。
 3. **Given** 用户需要进入其他业务页，**When** 触发“进入仪表盘”等独立动作，**Then** 系统按动作目标跳转且不改变未声明的上下文。
 
 ---
@@ -53,6 +53,8 @@
 1. **Given** 用户身份与租户上下文已在服务端确定，**When** 进入用户管理模块，**Then** 页面使用最新上下文进行角色分流展示。
 2. **Given** 本地缓存与服务端上下文不一致，**When** 页面加载关键管理视图，**Then** 以服务端上下文为准并完成本地状态纠正。
 3. **Given** 会话已失效或上下文异常，**When** 请求当前身份上下文，**Then** 系统返回可识别错误并引导到统一会话恢复路径。
+4. **Given** 同一 user 加入多个租户，**When** 使用邮箱或手机号登录且未显式选择租户，**Then** 系统选择最近使用且仍有效的租户；若最近租户无效，则选择第一个 active member。
+5. **Given** 登录请求显式传入目标租户，**When** 该 user 拥有目标租户 active member，**Then** token/context 指向该租户成员；无权限或无效时不得越权使用该租户。
 
 ---
 
@@ -81,7 +83,7 @@
 
 **Acceptance Scenarios**:
 
-1. **Given** 新邮箱和唯一 tenant key，**When** 调用 SaaS signup，**Then** 系统创建 tenant、user、member，并绑定 `role_owner`、`role_admin`、`role_user`。
+1. **Given** 新邮箱/手机号和租户名称，**When** 调用 SaaS signup，**Then** 系统按租户名称生成唯一 tenant key，或使用用户显式填写且未冲突的 tenant key，创建 tenant、user、member，并绑定 `role_owner`、`role_admin`、`role_user`。
 2. **Given** 已有邮箱且密码正确，**When** 调用 SaaS signup 创建第二租户，**Then** 系统复用 user 并创建新的 tenant member。
 3. **Given** 已有邮箱但密码错误，**When** 调用 SaaS signup，**Then** 系统拒绝创建租户。
 4. **Given** tenant key 已存在，**When** 调用 SaaS signup，**Then** 系统拒绝并不留下半成品 tenant。
@@ -121,6 +123,9 @@
 4. **Given** 租户 A 停用插件，**When** 租户 B 使用同一插件包，**Then** 租户 B 不受影响。
 5. **Given** 租户 A 和租户 B 都启用同一插件，**When** 查看 PowerX 节点内存运行时，**Then** 同一插件只存在一组全局运行进程，而不是每租户一组进程。
 6. **Given** 插件进程收到来自不同租户的请求，**When** 处理业务逻辑，**Then** 插件必须从当前请求/事件上下文识别 tenant/member，而不是使用进程启动时固定租户。
+7. **Given** 任意租户仍存在目标插件实例，**When** root 直接卸载全局插件包，**Then** 系统必须拒绝同步卸载并要求进入 drain 流程。
+8. **Given** root 对目标插件发起 drain，**When** 某租户实例仍有活跃 session、API 写入、scheduler job、queue task 或插件 DrainStatus 未 ready，**Then** 该租户实例不得被标记为 drained。
+9. **Given** root 执行同版本 replace，**When** 替换完成，**Then** 租户插件实例、订阅、配置、权限和业务数据不得被删除。
 
 ---
 
@@ -152,7 +157,13 @@
 - 插件物理包已安装但当前租户未启用时，菜单和代理入口都必须拒绝访问。
 - 插件全局进程正在运行但当前租户停用时，停用操作不得停止全局进程。
 - 插件进程启动环境不得绑定某一个业务租户作为全局运行时身份。
+- 插件进入 drain 后，只能阻断目标 `plugin_id` 或 `plugin_id + version` 的新增使用，不得影响其他插件或同租户其他业务。
+- 插件实例处于 idle 但入口仍开放时，不得被当作 drained。
+- 插件 emergency disable 只能立即禁止目标插件继续被使用，不得删除租户实例、订阅、配置或业务数据。
 - SaaS signup 任一步失败时不得留下半成品 tenant/member/role binding。
+- 登录凭证属于全局 user；登录入口不得要求用户先选择组织，租户上下文由 request tenant、最近租户或 active member 推导。
+- `iam_user.last_tenant_uuid` 只是最近使用偏好，不代表权限；每次使用前必须重新校验当前 user 是否拥有目标租户 active member。
+- 手机号注册用户不得被写入虚假的默认邮箱；界面展示应优先使用真实 email，否则使用 phone。
 - 历史租户缺少 owner/admin 时必须显式报告，不允许静默降级为 root 代管。
 
 ## Requirements *(mandatory)*
@@ -176,6 +187,10 @@
 - **FR-015**: SaaS 自助注册的首个成员必须绑定 `role_owner`、`role_admin`、`role_user`。
 - **FR-016**: 已有 user 创建新租户时，系统必须重新校验登录凭证，禁止只凭 email/phone 复用账号。
 - **FR-017**: 租户切换必须让 token/context 同步指向新的 `tenant_uuid + member_id/member_uuid`，禁止只修改前端本地状态。
+- **FR-017A**: 登录必须以全局 user 凭证为准，支持邮箱或手机号登录；未传租户时必须按 `last_tenant_uuid`、第一个 active member 的顺序选择默认租户。
+- **FR-017B**: `last_tenant_uuid` 只能作为登录默认租户偏好，不得绕过 active member 校验；登录和切换成功后必须更新该字段。
+- **FR-017C**: SaaS signup 的 `tenant_key` 支持用户显式填写；未填写时由系统根据 `tenant_name` 自动生成唯一 key，显式 key 冲突必须失败并回滚。
+- **FR-017D**: SaaS signup 验证码必须由配置开关控制；关闭时前端不展示验证码字段，后端不要求 `verification_code`。
 - **FR-018**: root 默认必须进入 Platform Console，且不得被自动视为当前业务租户 owner/admin。
 - **FR-019**: root 访问业务租户上下文必须通过 Support Session，并记录 target tenant、reason、actor、start/end time 和写操作审计。
 - **FR-020**: 系统必须区分全局 Plugin Package 与 Tenant Plugin Instance。
@@ -189,6 +204,15 @@
 - **FR-032**: 租户暂停或归档时，系统必须关闭该租户插件业务入口和后台任务，但不得停止全局插件运行时。
 - **FR-033**: 插件包卸载或全局停用必须由 Root/Platform 执行，并必须检查或处理受影响的租户实例。
 - **FR-034**: 租户插件实例过期或停用时，系统必须保留租户配置和历史业务数据，除非执行明确的数据删除流程。
+- **FR-035**: 当目标插件仍存在任意租户插件实例时，普通 uninstall 必须拒绝同步卸载并返回 drain required 语义，禁止隐式删除租户实例或强删插件目录。
+- **FR-036**: Root 发起插件 drain、uninstall、emergency disable、replace 时，作用范围必须精确限定为目标 `plugin_id`、`plugin_id + version`、`plugin_id + tenant_uuid` 或 `plugin_id + version + tenant_uuid`。
+- **FR-037**: 插件 drain 启动后，系统必须禁止目标插件新增订阅、启用、业务写入、scheduler job、queue task、workflow run、webhook/event delivery。
+- **FR-038**: 每个租户插件实例必须独立完成 drain 判定；只有活跃 session、写入请求、queue/task/workflow/scheduler、webhook/event 补偿和插件 DrainStatus 均清零或 ready 后，才能进入 drained。
+- **FR-039**: emergency disable 必须立即阻断目标插件继续使用并保留租户实例、订阅、配置、凭证引用和历史业务数据。
+- **FR-039A**: 插件 final uninstall 必须是目标插件级生命周期操作，只能停止目标插件运行时、卸载目标插件动态路由、更新目标插件 registry，并按 `purge` 清理目标版本物理目录；不得重启 PowerX backend、web-admin、数据库、Redis、Event Fabric、Scheduler、STS 或 Gateway。
+- **FR-039B**: 插件 final uninstall 不得影响其他插件的运行时、动态路由、菜单、租户实例、订阅、配置、凭证和业务数据；前端 loading 只能表示卸载请求等待中，不得表达为 PowerX 底座重启。
+- **FR-040**: replace installed version 只能替换目标同版本物理包和运行时，不得删除 Tenant Plugin Instance、订阅、权限、配置或业务数据。
+- **FR-041**: 生产插件升级必须采用版本化安装、healthcheck、current version 切换和失败回滚语义；不得把同版本 replace 作为常规生产升级路径。
 - **FR-023**: IAM 迁移必须保留现有 root user、`system` tenant member、setup 完成记录、组织架构和角色绑定数据。
 - **FR-024**: IAM 迁移必须提供只读巡检能力，报告 root、system tenant、业务租户 owner/admin 缺失情况。
 - **FR-025**: 对缺少 `role_owner` 但存在 active `role_admin` 的历史租户，系统可以自动补齐 owner，并必须写审计。
@@ -200,9 +224,10 @@
 - **Tenant Membership**: 用户与租户之间的成员关系，定义用户在租户内的角色与管理权限。
 - **Role Capability Boundary**: 角色对应的可见范围与可执行动作集合，用于页面分流与操作授权判定。
 - **User Management Action**: 用户管理页面内可触发的动作语义实体，至少包含查看详情、切换上下文、页面跳转三类。
-- **SaaS Signup Request**: 公开注册新租户的请求，包含 tenant key/name、owner identifier、凭证和初始套餐。
+- **SaaS Signup Request**: 公开注册新租户的请求，包含 tenant name、可选 tenant key、owner identifier、凭证和初始套餐。
 - **Root Support Session**: root 进入某业务租户上下文的显式支持会话，必须具备原因和审计边界。
 - **Tenant Plugin Instance**: 某租户启用某全局插件包后的租户实例状态和配置。
+- **Plugin Drain Job**: root 发起的插件下架或卸载前 drain 计划，负责按目标插件/版本逐租户关闭新增入口、等待存量任务清零并驱动 final uninstall。
 - **IAM Migration Report**: 历史 IAM 数据巡检结果，包含可自动补齐项和必须人工处理项。
 
 ## Success Criteria *(mandatory)*
@@ -218,6 +243,8 @@
 - **SC-007**: root 默认菜单中租户 AI Settings 和租户插件业务入口误展示率为 0%。
 - **SC-008**: 插件租户隔离回归中，未启用租户直接访问插件 admin/api 的拒绝率为 100%。
 - **SC-009**: IAM 历史数据巡检报告覆盖 root、system tenant、owner/admin 缺失三类问题，漏报率为 0%。
+- **SC-010**: 插件 uninstall 回归中，存在租户实例时同步卸载拒绝率为 100%，且响应可定位到 drain required。
+- **SC-011**: 插件 replace 回归中，目标版本替换后租户实例、订阅、配置和业务数据保留率为 100%。
 
 ## Assumptions
 

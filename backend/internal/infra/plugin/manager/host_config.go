@@ -134,7 +134,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
-	m.applyDelegatedHostContract(selected, structured)
+	m.applyDelegatedHostContract(selected, structured, man.ID, nil)
 	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
@@ -192,7 +192,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 // applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
 // Some plugin runtimes prefer reading host-values.yaml over process env.
-func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
+func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any, pluginID string, runtimeCred *PluginRuntimeCredential) {
 	if selected == nil {
 		return
 	}
@@ -229,6 +229,14 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	if m != nil && m.opts.CoreConfig != nil {
 		applyWSContractEnv(selected, m.opts.CoreConfig)
 	}
+	deleteDeprecatedGatewayRuntimeEnv(selected)
+	if runtimeCred != nil {
+		applyRuntimeCredentialToEnv(selected, runtimeCred)
+	} else if m != nil && m.opts.RuntimeCredential != nil {
+		if resolved, err := m.opts.RuntimeCredential(context.Background(), strings.TrimSpace(pluginID)); err == nil && resolved != nil {
+			applyRuntimeCredentialToEnv(selected, resolved)
+		}
+	}
 
 	if structured == nil {
 		return
@@ -242,7 +250,7 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 
 // ensureDelegatedHostContractForEnable repairs stale host-values before process start.
 // This keeps old installed versions self-healing without forcing reinstall.
-func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin) error {
+func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin, runtimeCred *PluginRuntimeCredential) error {
 	if p == nil {
 		return nil
 	}
@@ -262,7 +270,7 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin)
 
 	values := cloneStringMap(hc.Values)
 	spec := cloneAnyMap(hc.Spec)
-	m.applyDelegatedHostContract(values, spec)
+	m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred)
 	hc.Values = values
 	hc.Spec = spec
 

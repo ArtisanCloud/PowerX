@@ -6,11 +6,11 @@ option go_package = "github.com/ArtisanCloud/PowerX/backend/api/grpc/gen/go/powe
 
 service IamRbacAdminService {
   rpc GetMeContext(GetMeContextRequest) returns (GetMeContextResponse);
-  rpc SwitchTenant(SwitchTenantRequest) returns (GetMeContextResponse);
+  rpc SwitchTenant(SwitchTenantRequest) returns (SwitchTenantResponse);
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
   rpc SignupSaaSTenant(SignupSaaSTenantRequest) returns (SignupSaaSTenantResponse);
   rpc GetIAMMigrationReport(GetIAMMigrationReportRequest) returns (IAMMigrationReportResponse);
-  rpc FixMissingTenantOwner(FixMissingTenantOwnerRequest) returns (IAMMigrationReportResponse);
+  rpc FixMissingTenantOwner(FixMissingTenantOwnerRequest) returns (IAMMigrationFixOwnerResponse);
   rpc StartRootSupportSession(StartRootSupportSessionRequest) returns (RootSupportSessionResponse);
   rpc EndRootSupportSession(EndRootSupportSessionRequest) returns (RootSupportSessionResponse);
   rpc ListTenantPluginInstances(ListTenantPluginInstancesRequest) returns (ListTenantPluginInstancesResponse);
@@ -20,6 +20,15 @@ message GetMeContextRequest {}
 
 message SwitchTenantRequest {
   string tenant_uuid = 1;
+}
+
+message SwitchTenantResponse {
+  string token_type = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_in = 4;
+  string scope = 5;
+  GetMeContextResponse context = 6;
 }
 
 message CheckPermissionRequest {
@@ -66,6 +75,7 @@ message SignupSaaSTenantRequest {
   string owner_phone = 5;
   string owner_password = 6;
   string owner_display_name = 7;
+  string verification_code = 8;
 }
 
 message SignupSaaSTenantResponse {
@@ -88,6 +98,11 @@ message IAMMigrationReportResponse {
   repeated string tenant_admin_missing = 5;
   repeated string auto_fix_candidates = 6;
   repeated string manual_fix_required = 7;
+}
+
+message IAMMigrationFixOwnerResponse {
+  repeated string fixed_tenant_uuids = 1;
+  IAMMigrationReportResponse report = 2;
 }
 
 message StartRootSupportSessionRequest {

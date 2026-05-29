@@ -1,5 +1,6 @@
 import type { LoginResponse } from "./api/services/authService";
 import { useAuthService } from "./api/services/authService";
+import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
 /**
  * 认证状态管理
  */
@@ -25,12 +26,8 @@ export const useAuth = () => {
       const expiresAt = Date.now() + authData.expires_in * 1000;
       localStorage.setItem("expires_at", expiresAt.toString());
 
-      // 同步一份 cookie 供 iframe/插件使用（保持与 localStorage 同步）
-      const tokenCookie = useCookie("token", {
-        sameSite: "lax",
-        path: "/",
-      });
-      tokenCookie.value = authData.access_token;
+      // 同步 cookie 供 iframe/插件代理层注入 Authorization。
+      syncAuthCookies(authData.access_token, authData.refresh_token);
     }
 
     // 更新状态
@@ -50,11 +47,7 @@ export const useAuth = () => {
       localStorage.removeItem("expires_at");
       localStorage.removeItem("px_current_tenant_uuid");
 
-      const tokenCookie = useCookie<string | null>("token", {
-        sameSite: "lax",
-        path: "/",
-      });
-      tokenCookie.value = null;
+      clearAuthCookies();
     }
 
     token.value = null;

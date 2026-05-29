@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -42,4 +43,34 @@ func TestMintPluginTokenIncludesUserIdentityClaims(t *testing.T) {
 	if claims.UserUUID != "user-uuid" {
 		t.Fatalf("user uuid = %q, want user-uuid", claims.UserUUID)
 	}
+}
+
+func TestCheckAndMintAllowsRootWithoutRouteRule(t *testing.T) {
+	secret := []byte("test-secret")
+	auth.SetJWTSecret(secret)
+
+	g := newAuthzGate(nonRootAuthorizer{}, "powerx-auth", time.Minute)
+	token, allowed, reason := g.CheckAndMint(context.Background(), "com.powerx.plugins.test", "GET", "/api/v1/admin/unknown", reqctx.CoreXClaims{
+		TenantUUID: "tenant-uuid",
+		TenantID:   11,
+		UserID:     33,
+		IsRoot:     true,
+		Roles:      []string{"root"},
+	})
+	if !allowed {
+		t.Fatalf("allowed=false reason=%q", reason)
+	}
+	if token == "" {
+		t.Fatalf("expected plugin token")
+	}
+}
+
+type nonRootAuthorizer struct{}
+
+func (nonRootAuthorizer) Permissions(context.Context, uint64, uint64, string) ([]string, string, error) {
+	return nil, "", nil
+}
+
+func (nonRootAuthorizer) IsSuperAdmin(context.Context, uint64, uint64, []string) bool {
+	return false
 }

@@ -22,6 +22,20 @@ func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id stri
 	if id == "" {
 		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("uninstall"), plugin_mgr.WithMsg("empty plugin id"))
 	}
+	if m != nil && m.opts.TenantInstanceCount != nil {
+		count, err := m.opts.TenantInstanceCount(ctx, id)
+		if err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.tenant_instance_check"), plugin_mgr.WithPlugin(id))
+		}
+		if count > 0 {
+			return plugin_mgr.NewError(
+				plugin_mgr.CodeConflict,
+				plugin_mgr.WithOp("uninstall.tenant_instance_check"),
+				plugin_mgr.WithPlugin(id),
+				plugin_mgr.WithMsg("PLUGIN_HAS_TENANT_INSTANCES: plugin %s has %d tenant instances", id, count),
+			)
+		}
+	}
 
 	// 1) 目标版本
 	targetVer := ""
@@ -104,6 +118,20 @@ func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id stri
 func (m *managerImpl) UninstallAndPurge(ctx context.Context, id string, versionOptional ...string) error {
 	if id == "" {
 		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("uninstall_purge"), plugin_mgr.WithMsg("empty plugin id"))
+	}
+	if m != nil && m.opts.TenantInstanceCount != nil {
+		count, err := m.opts.TenantInstanceCount(ctx, id)
+		if err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall_purge.tenant_instance_check"), plugin_mgr.WithPlugin(id))
+		}
+		if count > 0 {
+			return plugin_mgr.NewError(
+				plugin_mgr.CodeConflict,
+				plugin_mgr.WithOp("uninstall_purge.tenant_instance_check"),
+				plugin_mgr.WithPlugin(id),
+				plugin_mgr.WithMsg("PLUGIN_HAS_TENANT_INSTANCES: plugin %s has %d tenant instances", id, count),
+			)
+		}
 	}
 
 	// 先确定目标版本 & 路径（卸载前先拿路径）

@@ -2,6 +2,7 @@ package router
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -44,7 +45,12 @@ type DynamicRouter struct {
 
 	gate          *authzGate
 	apiMiddleware []gin.HandlerFunc
+	tenantGuard   TenantPluginGuard
+	usageGuard    PluginUsageGuard
 }
+
+type TenantPluginGuard func(ctx context.Context, tenantUUID, pluginID string) error
+type PluginUsageGuard func(ctx context.Context, pluginID string) error
 
 // ===== 构造 & 路由注册 =====
 
@@ -109,8 +115,8 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine, apiMiddleware ...gi
 	// ---------- 标准对外路由：仅这两条 ----------
 	grp := engine.Group(basePrefix) // "/_p"
 	{
-		grp.GET("/:id/admin/*filepath", dr.serveAdmin)
-		grp.HEAD("/:id/admin/*filepath", dr.serveAdmin)
+		grp.GET("/:id/admin/*filepath", dr.adminAuth(), dr.serveAdmin)
+		grp.HEAD("/:id/admin/*filepath", dr.adminAuth(), dr.serveAdmin)
 	}
 
 	apiGrp := grp.Group("/:id/api")
@@ -228,6 +234,14 @@ func (r *DynamicRouter) BindAuthorizer(a Authorizer, issuer string, ttl time.Dur
 	r.gate = newAuthzGate(a, issuer, ttl)
 }
 
+func (r *DynamicRouter) BindTenantPluginGuard(guard TenantPluginGuard) {
+	r.tenantGuard = guard
+}
+
+func (r *DynamicRouter) BindPluginUsageGuard(guard PluginUsageGuard) {
+	r.usageGuard = guard
+}
+
 func (r *DynamicRouter) InstallPolicy(pluginID string, pol *Policy) {
 	if r.gate != nil && pol != nil {
 		r.gate.InstallPolicy(pluginID, pol)
@@ -265,6 +279,18 @@ func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) 
 	return r.gate.IsPublicRoute(pluginID, method, reqPath)
 }
 
+func (r *DynamicRouter) adminAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, mw := range r.apiMiddleware {
+			mw(c)
+			if c.IsAborted() {
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
 // ===== Admin（前端）统一入口：优先反代 Nuxt/Nitro，未配置则回静态目录 =====
 
 func (r *DynamicRouter) serveAdmin(c *gin.Context) {
@@ -272,6 +298,10 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	clientPath := c.Param("filepath") // 例如：/、/en/dashboard、/assets/...
 	if clientPath == "" {
 		clientPath = "/"
+	}
+	if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
+		abortTenantPluginGuard(c, err)
+		return
 	}
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
 		logger.InfoF(c.Request.Context(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
@@ -298,12 +328,13 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 				req.URL.Scheme = up.target.Scheme
 				req.URL.Host = up.target.Host
 			}
-			upstreamPath := clientPath
+			upstreamPath := joinURLPath(r.basePrefix, pluginID, "admin", clientPath)
 			if shouldRewriteAdminDocToIndex(c.Request, clientPath) {
-				upstreamPath = "/"
+				upstreamPath = joinURLPath(r.basePrefix, pluginID, "admin")
 			}
-			// —— 只做传球：/_p/<id>/admin/*filepath（不做任何 locale 注入/剥离）
-			req.URL.Path = joinURLPath(r.basePrefix, pluginID, "admin", upstreamPath)
+			// 插件 Web Admin 进程自身按 NUXT_APP_BASE_URL=/_p/<id>/admin/ 构建。
+			// 反代到插件 Nuxt 时必须保留完整挂载路径，否则 Nuxt 会 302 回 base path。
+			req.URL.Path = upstreamPath
 			req.URL.RawPath = req.URL.Path
 
 			// 仅传递宿主挂载点（不含 locale）
@@ -341,8 +372,30 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 		return
 	}
 
+	if shouldRewriteAdminDocToIndex(c.Request, clientPath) && !r.hasAdminStaticIndex(pluginID) {
+		c.Writer.Header().Set("Retry-After", "1")
+		applyAdminFrameHeaders(c.Writer.Header())
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+			"error":      "plugin admin upstream not ready",
+			"error_code": "PLUGIN_ADMIN_UPSTREAM_NOT_READY",
+			"plugin_id":  pluginID,
+		})
+		return
+	}
+
 	// 未挂反代时，落回静态目录（若没有，将 404）
 	r.serveAdminStatic(c, pluginID, clientPath)
+}
+
+func (r *DynamicRouter) hasAdminStaticIndex(pluginID string) bool {
+	r.mu.RLock()
+	abs, ok := r.adminDirs[pluginID]
+	r.mu.RUnlock()
+	if !ok || strings.TrimSpace(abs) == "" {
+		return false
+	}
+	fi, err := os.Stat(filepath.Join(abs, "index.html"))
+	return err == nil && !fi.IsDir()
 }
 
 func (r *DynamicRouter) tryServeAdminStaticAsset(c *gin.Context, pluginID, clientPath string) bool {
@@ -412,6 +465,63 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath st
 	http.ServeFile(c.Writer, c.Request, absReq)
 }
 
+func (r *DynamicRouter) requireTenantPluginEnabled(c *gin.Context, pluginID string) error {
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+	if tenantUUID == "" {
+		return tenantPluginGuardError{
+			status: http.StatusForbidden,
+			code:   "TENANT_PLUGIN_TENANT_MISSING",
+			reason: "tenant context required for plugin entry",
+		}
+	}
+	if r == nil || r.tenantGuard == nil {
+		return tenantPluginGuardError{
+			status: http.StatusForbidden,
+			code:   "TENANT_PLUGIN_GUARD_NOT_CONFIGURED",
+			reason: "tenant plugin guard not configured",
+		}
+	}
+	if err := r.tenantGuard(c.Request.Context(), tenantUUID, pluginID); err != nil {
+		return err
+	}
+	if r.usageGuard != nil {
+		if err := r.usageGuard(c.Request.Context(), pluginID); err != nil {
+			return tenantPluginGuardError{
+				status: http.StatusConflict,
+				code:   "PLUGIN_DRAINING",
+				reason: err.Error(),
+			}
+		}
+	}
+	return nil
+}
+
+type tenantPluginGuardError struct {
+	status int
+	code   string
+	reason string
+}
+
+func (e tenantPluginGuardError) Error() string { return e.reason }
+
+func abortTenantPluginGuard(c *gin.Context, err error) {
+	status := http.StatusForbidden
+	reason := "tenant plugin instance disabled"
+	code := "TENANT_PLUGIN_DISABLED"
+	if e, ok := err.(tenantPluginGuardError); ok {
+		status = e.status
+		reason = e.reason
+		code = e.code
+	} else if err != nil && strings.TrimSpace(err.Error()) != "" {
+		reason = err.Error()
+	}
+	c.AbortWithStatusJSON(status, gin.H{
+		"error":      "access denied at gateway",
+		"error_code": code,
+		"reason":     reason,
+	})
+}
+
 func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
 	if req == nil {
 		return false
@@ -465,6 +575,13 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	}
 	if r.redirectAdminFromAPI(c, pluginID, clientPath) {
 		return
+	}
+	publicRoute, _ := c.Get("powerx_plugin_public_route")
+	if publicRoute != true {
+		if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
+			abortTenantPluginGuard(c, err)
+			return
+		}
 	}
 	// === 关键日志：API 入口 ===
 	logger.InfoF(c.Request.Context(), "[API-IN] %s %s plugin=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s",
@@ -528,12 +645,20 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if claims.Phone == "" {
 			claims.Phone = strings.TrimSpace(rc.Phone)
 		}
+		if !claims.IsRoot {
+			claims.IsRoot = rc.IsRoot
+		}
+		if len(claims.Roles) == 0 && len(rc.Roles) > 0 {
+			claims.Roles = append([]string(nil), rc.Roles...)
+		}
+	}
+	if !claims.IsRoot {
+		claims.IsRoot = reqctx.IsRoot(c.Request.Context())
 	}
 
 	// 预检 + 下发短期 Token（可选）
 	var pluginToken string
 	gatePath := normalizeGatePathForPolicy(clientPath, up.basePath)
-	publicRoute, _ := c.Get("powerx_plugin_public_route")
 	logger.DebugF(c.Request.Context(), "[GATE-PATH] plugin=%s method=%s raw=%s normalized=%s basePath=%s tenant_uuid=%s request_id=%s trace_id=%s",
 		pluginID, c.Request.Method, clientPath, gatePath, up.basePath, logTenantUUID, requestID, traceID)
 	if publicRoute != true && isTenantScopedWSBusPath(gatePath) {

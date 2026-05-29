@@ -12,3 +12,10 @@ func TryInternalToken(mgr plugin_mgr.Manager, pluginID string) (string, bool) {
 	}
 	return "", false
 }
+
+func TryRuntimeProcesses(mgr plugin_mgr.Manager, pluginID string) ([]RuntimeProcessView, bool) {
+	if impl, ok := mgr.(*managerImpl); ok {
+		return impl.RuntimeProcesses(pluginID), true
+	}
+	return nil, false
+}

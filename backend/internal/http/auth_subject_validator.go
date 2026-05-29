@@ -138,6 +138,7 @@ func isSTSAllowedRequestPath(ctx context.Context) bool {
 	path = strings.TrimSuffix(path, "/")
 	return strings.HasSuffix(path, "/admin/runtime/ws-bus/grant") ||
 		strings.HasSuffix(path, "/admin/runtime/ws-bus/publish") ||
+		strings.HasSuffix(path, "/notifications/test") ||
 		strings.HasSuffix(path, "/tenant/invocations") ||
 		strings.HasSuffix(path, "/tenant/invocations/stream") ||
 		isSTSAICapabilityPath(path)

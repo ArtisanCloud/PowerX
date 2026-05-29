@@ -117,6 +117,7 @@ type Options struct {
 	Negotiator                   VersionNegotiator
 	Metrics                      eventmetrics.Recorder
 	EnableDatabaseFallbackLookup bool
+	PluginUsageGuard             func(ctx context.Context, pluginID string) error
 }
 
 type serviceImpl struct {
@@ -133,6 +134,7 @@ type serviceImpl struct {
 	negotiator                   VersionNegotiator
 	metrics                      eventmetrics.Recorder
 	enableDatabaseFallbackLookup bool
+	pluginUsageGuard             func(ctx context.Context, pluginID string) error
 }
 
 // NewService 构建事件投递服务。
@@ -211,6 +213,7 @@ func NewService(opts Options) (Service, error) {
 		negotiator:                   negotiator,
 		metrics:                      metrics,
 		enableDatabaseFallbackLookup: opts.EnableDatabaseFallbackLookup,
+		pluginUsageGuard:             opts.PluginUsageGuard,
 	}, nil
 }
 
@@ -262,6 +265,9 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 
 	if auditTopic == "" {
 		err = fmt.Errorf("topic is required")
+		return err
+	}
+	if err = s.ensurePluginAcceptsNewUsage(ctx, req.Attributes); err != nil {
 		return err
 	}
 
@@ -400,6 +406,17 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		}
 	}
 	return nil
+}
+
+func (s *serviceImpl) ensurePluginAcceptsNewUsage(ctx context.Context, attrs map[string]string) error {
+	if s == nil || s.pluginUsageGuard == nil || len(attrs) == 0 {
+		return nil
+	}
+	pluginID := strings.TrimSpace(attrs["plugin_id"])
+	if pluginID == "" {
+		return nil
+	}
+	return s.pluginUsageGuard(ctx, pluginID)
 }
 
 func (s *serviceImpl) Ack(ctx context.Context, deliveryID string, subscriberID string) (err error) {

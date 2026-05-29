@@ -305,4 +305,10 @@ When sending the friend request, include the product name, for example: "I am in
 
 ## License
 
-Licensing for PowerX Core and each plugin follows the corresponding repository license file or release notes. Different plugins may use different licensing models. SCRM and e-commerce plugins provide open-source repository versions; the marketing tools plugin is commercial, and its license/pricing model is subject to its plugin release notes.
+PowerX Core is open source under the [Apache License 2.0](./LICENSE).
+
+Plugins may use different licensing models:
+
+- SCRM plugin: the open-source repository version is licensed under Apache License 2.0.
+- E-commerce plugin: the open-source repository version is licensed under Apache License 2.0.
+- Marketing tools plugin: licensed under a separate commercial license (PowerX Commercial Plugin License). Unless otherwise agreed in writing, the commercial license only permits use within the instances, tenants, term, and usage scope defined by the applicable contract or order. It does not grant rights to redistribute source code, resell, sublicense, reverse engineer, bypass license enforcement, or repackage the plugin as a competing service. The final scope, pricing, SLA, source access, and delivery terms are governed by the signed agreement or plugin release notes.

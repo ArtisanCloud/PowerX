@@ -23,6 +23,36 @@
         </div>
       </template>
 
+      <div v-if="currentTenant" class="mb-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-medium text-[var(--text-primary)]">当前组织</div>
+            <div class="text-xs text-[var(--text-secondary)]">当前 token 对应的租户身份，不属于个人资料字段</div>
+          </div>
+          <UBadge :color="currentTenant.is_owner ? 'primary' : currentTenant.is_admin ? 'success' : 'neutral'" variant="subtle">
+            {{ currentTenantRoleLabel }}
+          </UBadge>
+        </div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div>
+            <div class="text-xs text-[var(--text-secondary)]">组织名称</div>
+            <div class="mt-1 text-sm text-[var(--text-primary)]">{{ currentTenant.tenant_name || "-" }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-[var(--text-secondary)]">组织标识</div>
+            <div class="mt-1 font-mono text-sm text-[var(--text-primary)]">{{ currentTenant.tenant_key || "-" }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-[var(--text-secondary)]">租户 UUID</div>
+            <div class="mt-1 break-all font-mono text-xs text-[var(--text-primary)]">{{ currentTenant.tenant_uuid }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-[var(--text-secondary)]">域名</div>
+            <div class="mt-1 text-sm text-[var(--text-primary)]">{{ currentTenant.tenant_domain || "-" }}</div>
+          </div>
+        </div>
+      </div>
+
       <UForm :state="form" @submit="saveProfile">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <UFormField label="显示名称" required>
@@ -105,7 +135,15 @@ const passwordForm = reactive({
 
 const roleLabel = computed(() => {
   if (userStore.isRoot) return "Root";
+  if (currentTenant.value?.is_owner) return "租户所有者";
   if (userStore.isCurrentTenantAdmin) return "租户管理员";
+  return "普通成员";
+});
+const currentTenant = computed(() => userStore.currentTenant);
+const currentTenantRoleLabel = computed(() => {
+  if (!currentTenant.value) return "-";
+  if (currentTenant.value.is_owner) return "租户所有者";
+  if (currentTenant.value.is_admin) return "租户管理员";
   return "普通成员";
 });
 

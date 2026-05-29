@@ -52,6 +52,16 @@ db-status:
 	@echo "查看数据库迁移状态..."
 	@cd backend && go run ./cmd/database status
 
+.PHONY: iam-migration-report
+iam-migration-report:
+	@echo "执行 IAM SaaS 语义迁移只读巡检..."
+	@cd backend && go run ./cmd/database iam-report
+
+.PHONY: iam-migration-fix-owner
+iam-migration-fix-owner:
+	@echo "执行 IAM owner 自动补齐（仅处理有 active admin 的租户）..."
+	@cd backend && go run ./cmd/database iam-fix-owner
+
 
 # 帮助信息
 .PHONY: help
@@ -63,3 +73,5 @@ help:
 	@echo "  make db-refresh    - 刷新数据库（回滚+迁移+种子）"
 	@echo "  make db-status     - 查看数据库迁移状态"
 	@echo "  make db-check      - 检查数据库是否存在"
+	@echo "  make iam-migration-report     - IAM SaaS 语义迁移只读巡检"
+	@echo "  make iam-migration-fix-owner  - 自动补齐缺 owner 且有 active admin 的租户"

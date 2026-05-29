@@ -217,7 +217,7 @@
 
 ## Phase 14: Delegated Gateway Contract v1（精准版，不兼容）
 
-**目标**：在 delegated 模式下统一 Capability Gateway 鉴权契约；业务调用统一使用 STS access token，`PX_PLUGIN_TOOL_TOKEN` 仅用于 bootstrap/过渡探活，并将缺失配置前置到启动失败（fail-fast）。Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
+**目标**：在 delegated 模式下统一 Capability Gateway 鉴权契约；业务调用和启动期平台调用统一使用 STS access token，`PX_PLUGIN_TOOL_TOKEN` 不再属于 delegated 契约，并将缺失配置前置到启动失败（fail-fast）。Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 
 ### Design / Contracts
 
@@ -225,18 +225,18 @@
 
 ### PowerX Implementation（本仓库）
 
-- [x] **T104 [P]** 宿主注入链路：在插件进程 env 生成/覆盖逻辑中强制注入 `PX_GATEWAY_BASE_URL`、`PX_PLUGIN_TOOL_TOKEN`、`PX_GATEWAY_AUTH_SCHEME=bearer`，并禁止 delegated 注入 `PX_GATEWAY_API_KEY`。
+- [x] **T104 [P]** 宿主注入链路：在插件进程 env 生成/覆盖逻辑中强制注入 `PX_GATEWAY_BASE_URL`、`PX_GATEWAY_AUTH_SCHEME=bearer`、`POWERX_STS_CLIENT_ID`、`POWERX_STS_CLIENT_SECRET`、`POWERX_GRPC_UPSTREAM_ADDRESS`、`POWERX_GRPC_UPSTREAM_TENANT_UUID`，并禁止 delegated 注入 `PX_GATEWAY_API_KEY`、`PX_TOOL_TOKEN`、`PX_PLUGIN_TOOL_TOKEN`。
 - [x] **T105 [P]** 启用前校验：在插件 `Enable` 流程加入 delegated 网关契约检查，缺失配置直接 fail（结构化错误码）。
 - [x] **T106** 启用后探活：插件启用后执行一次 capability dry-run/health check，失败则标记 `enable_failed_gateway_contract` 并审计落库。
 - [x] **T107** 凭证下发链路收敛：禁用默认 stub 行为（或在非真实下发链路时显式 fail），确保不会出现“日志成功、运行缺凭证”。
-- [x] **T108 [P]** 观测与审计：新增 `plugin_gateway_contract_valid` 指标与审计字段（`gateway_base_url_present`、`plugin_tool_token_present`、`auth_scheme`）。
+- [x] **T108 [P]** 观测与审计：新增 `plugin_gateway_contract_valid` 指标与审计字段（`gateway_base_url_present`、`sts_client_present`、`auth_scheme`）。
 
 ### PowerXPlugin Implementation（外部仓库：`Core/Plugins/PowerXPlugin`）
 
 - [ ] **T109 [P]** 删除 delegated 兼容读取：移除 `PX_TOOL_TOKEN`、`PX_GATEWAY_API_KEY` 在 delegated 分支下的读取与 fallback。
-- [ ] **T110 [P]** Gateway Client 强校验：delegated 模式下业务调用仅允许 STS access token；如执行 bootstrap probe，`PX_PLUGIN_TOOL_TOKEN` 缺失即进程启动失败。
-- [ ] **T111** 统一 Guard 与错误码：所有 capability 入口复用统一 guard，返回 `GW_CFG_MISSING_BASE_URL`、`GW_CFG_MISSING_PLUGIN_TOOL_TOKEN` 等错误码。
-- [ ] **T112** 启动日志脱敏矩阵：固定输出 `iam_mode`、`gateway_auth_scheme`、`gateway_base_url_present`、`plugin_tool_token_present`。
+- [ ] **T110 [P]** Gateway Client 强校验：delegated 模式下业务调用仅允许 STS access token；`POWERX_STS_CLIENT_ID` / `POWERX_STS_CLIENT_SECRET` 缺失即进程启动失败。
+- [ ] **T111** 统一 Guard 与错误码：所有 capability 入口复用统一 guard，返回 `GW_CFG_MISSING_BASE_URL`、`GW_CFG_MISSING_STS_CLIENT` 等错误码。
+- [ ] **T112** 启动日志脱敏矩阵：固定输出 `iam_mode`、`gateway_auth_scheme`、`gateway_base_url_present`、`sts_client_present`。
 
 ### Tests
 

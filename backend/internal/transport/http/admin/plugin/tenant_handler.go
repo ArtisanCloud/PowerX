@@ -11,6 +11,7 @@ import (
 	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -59,16 +60,44 @@ func PluginTenantConfigHandler(deps *shared.Deps) gin.HandlerFunc {
 }
 
 type tenantEnableReq struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool           `json:"enabled"`
+	Config  map[string]any `json:"config"`
 }
 
-// POST /api/.../admin/plugins/:id/tenant_enable
-// body: {"enabled": true}
-func PluginTenantEnableHandler(deps *shared.Deps) gin.HandlerFunc {
+func TenantPluginInstanceListHandler(deps *shared.Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
+		tenantUUID, ok := tenantUUIDFromGin(c)
+		if !ok {
+			return
+		}
+		manager := pmimpl.GetPluginManager()
+		if manager == nil {
+			dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "插件管理器未初始化", nil)
+			return
+		}
+		plugins, err := manager.List(c.Request.Context())
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "加载插件失败", err)
+			return
+		}
+		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+		items, err := svc.List(c.Request.Context(), tenantUUID, plugins)
+		if err != nil {
+			dtoRequest.RespondErrorFrom(c, err)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, items)
+	}
+}
+
+func TenantPluginInstanceEnableHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("plugin_id")
 		if id == "" {
-			dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
+			id = c.Param("id")
+		}
+		if id == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 			return
 		}
 		tenantUUID, ok := tenantUUIDFromGin(c)
@@ -80,42 +109,109 @@ func PluginTenantEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
-		svc := setting.NewPluginInstanceConfigService(deps)
+
+		manager := pmimpl.GetPluginManager()
+		if manager == nil {
+			dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "插件管理器未初始化", nil)
+			return
+		}
+		p, err := manager.Get(c.Request.Context(), id)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+			return
+		}
+		if string(p.State) != "enabled" {
+			dtoRequest.ResponseError(c, http.StatusConflict, "全局插件包未启用", fmt.Errorf("plugin %s state=%s", p.ID, p.State))
+			return
+		}
+
+		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+		instance, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, req.Config)
+		if err != nil {
+			dtoRequest.RespondErrorFrom(c, err)
+			return
+		}
+		if err := ensureTenantEventFabricTopics(c, deps, tenantUUID, id); err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用失败：Topic 注册失败", err)
+			return
+		}
+		if clientSecret != "" {
+			_ = pmimplnotify.PushTenantCredentials(c, id, tenantUUID, clientID, clientSecret)
+		}
+		proc, _ := pmimpl.TryRuntimeStatus(manager, id)
+		out := gin.H{"instance": instance, "enabled": true, "client_id": clientID, "just_issued": clientSecret != ""}
+		out["runtime_scope"] = gin.H{
+			"scope":             "global_plugin_process",
+			"tenant_isolated":   false,
+			"shared_by_tenants": true,
+			"process_id":        id,
+			"pid":               proc.PID,
+		}
+		if clientSecret != "" {
+			out["client_secret"] = clientSecret
+		}
+		dtoRequest.ResponseSuccess(c, out)
+	}
+}
+
+func TenantPluginInstanceDisableHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("plugin_id")
+		if id == "" {
+			id = c.Param("id")
+		}
+		if id == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+			return
+		}
+		tenantUUID, ok := tenantUUIDFromGin(c)
+		if !ok {
+			return
+		}
+		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+		instance, err := svc.Disable(c.Request.Context(), tenantUUID, id)
+		if err != nil {
+			dtoRequest.RespondErrorFrom(c, err)
+			return
+		}
+		manager := pmimpl.GetPluginManager()
+		proc, _ := pmimpl.TryRuntimeStatus(manager, id)
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"instance": instance,
+			"enabled":  false,
+			"runtime_scope": gin.H{
+				"scope":             "global_plugin_process",
+				"tenant_isolated":   false,
+				"shared_by_tenants": true,
+				"process_id":        id,
+				"pid":               proc.PID,
+			},
+		})
+	}
+}
+
+// POST /api/.../admin/plugins/:id/tenant_enable
+// body: {"enabled": true}
+func PluginTenantEnableHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
+			return
+		}
+		if _, ok := tenantUUIDFromGin(c); !ok {
+			return
+		}
+		var req tenantEnableReq
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
+			return
+		}
 		if req.Enabled {
-			clientID, clientSecret, err := svc.EnsureCredentials(c, tenantUUID, id, nil)
-			if err != nil {
-				dtoRequest.ResponseError(c, 500, "启用失败", err)
-				return
-			}
-			if err := svc.SetEnabled(c, tenantUUID, id, true); err != nil {
-				dtoRequest.ResponseError(c, 500, "启用失败", err)
-				return
-			}
-			if err := ensureTenantEventFabricTopics(c, deps, tenantUUID, id); err != nil {
-				dtoRequest.ResponseError(c, 500, "启用失败：Topic 注册失败", err)
-				return
-			}
-			// 首次创建会返回一次性明文 secret，此时尝试通过 gRPC 下发到插件（best-effort）
-			if clientSecret != "" {
-				_ = pmimplnotify.PushTenantCredentials(c, id, tenantUUID, clientID, clientSecret)
-			}
-			// 仅当首次创建时返回一次性 secret（非空）
-			out := gin.H{"ok": true, "enabled": true, "client_id": clientID}
-			if clientSecret != "" {
-				out["just_issued"] = true
-				out["client_secret"] = clientSecret
-			} else {
-				out["just_issued"] = false
-			}
-			dtoRequest.ResponseSuccess(c, out)
+			TenantPluginInstanceEnableHandler(deps)(c)
 			return
 		}
-		// 停用（仅影响本租户的启用态，不影响进程与其他租户）
-		if err := svc.SetEnabled(c, tenantUUID, id, false); err != nil {
-			dtoRequest.ResponseError(c, 500, "停用失败", err)
-			return
-		}
-		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "enabled": false})
+		TenantPluginInstanceDisableHandler(deps)(c)
 	}
 }
 

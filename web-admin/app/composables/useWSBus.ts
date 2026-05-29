@@ -231,13 +231,13 @@ export const useWSBus = () => {
   const toast = useToast();
   const auth = useAuth();
   const me = useMe();
-  const tokenCookie = useCookie<string | null>("token", {
+  const accessTokenCookie = useCookie<string | null>("access_token", {
     sameSite: "lax",
     path: "/",
   });
   const token = computed(() => {
     const fresh = auth.getToken();
-    const cookieToken = String(tokenCookie.value || "").trim();
+    const cookieToken = String(accessTokenCookie.value || "").trim();
     if (fresh && fresh !== auth.token.value) {
       auth.token.value = fresh;
     }

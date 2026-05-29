@@ -1,9 +1,14 @@
 {
   "menu": {
     "openMarket": "Open Market",
+    "plugins": "Plugins",
     "openCapabilities": "Platform Capabilities",
     "eventFabric": "Async Tasks",
     "pluginMarketplace": "Plugin Marketplace",
+    "pluginManagement": "Plugin Management",
+    "pluginSubscriptions": "Plugin Subscriptions",
+    "pluginSubscriptionsAvailable": "Available Plugins",
+    "pluginSubscriptionsMine": "My Subscriptions",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
     "aiSettings": "AI Settings",
@@ -501,6 +506,7 @@
     }
   },
   "privacyPolicy": "Privacy Policy",
+  "termsOfService": "Terms of Service",
   "header": {
     "searchPlaceholder": "Search…",
     "profile": "Profile",
@@ -520,10 +526,38 @@
     "backToHome": "Back to home",
     "welcomeBack": "Welcome back",
     "loginSubtitle": "Sign in with your account to continue.",
+    "createAccount": "Create account",
+    "registerSubtitle": "Create a tenant and administrator account",
+    "email": "Email",
+    "username": "Username",
     "identifier": "Email or phone",
     "password": "Password",
+    "confirmPassword": "Confirm password",
     "remember": "Remember me",
+    "creatingAccount": "Creating account...",
+    "hasAccount": "Already have an account?",
     "signUpNow": "Sign up now",
+    "signInNow": "Sign in now",
+    "required": "This field is required",
+    "registerFailed": "Registration failed. Please try again.",
+    "registerSuccess": "Registration succeeded.",
+    "redirectingToLogin": "Redirecting to login...",
+    "invalidEmail": "Please enter a valid email address",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match",
+    "mustAgreeTerms": "Please agree to the terms and privacy policy first",
+    "agreeTerms": "I have read and agree to",
+    "and": "and",
+    "termsInfo": "By registering, you agree to the Terms of Service and Privacy Policy.",
+    "passwordStrength": {
+      "weak": "Weak",
+      "medium": "Medium",
+      "strong": "Strong"
+    },
+    "register": {
+      "username": "Username",
+      "confirmPassword": "Confirm password"
+    },
     "login": {
       "noAccount": "Don’t have an account?",
       "forgotPassword": "Forgot password?"

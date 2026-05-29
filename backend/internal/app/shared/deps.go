@@ -64,6 +64,7 @@ import (
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	notificationssvc "github.com/ArtisanCloud/PowerX/internal/service/notifications"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
@@ -1118,13 +1119,15 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 	}
 
 	if directorySvc != nil && aclSvc != nil {
+		pluginUsageGuard := pluginservice.NewPluginDrainJobService(db)
 		seedSvc = manifestService.NewSeedService(manifestService.SeedServiceOptions{
-			Directory: directorySvc,
-			ACL:       aclSvc,
-			Audit:     auditSvcEF,
-			Logger:    pxlog.GetGlobalLogger(),
-			Clock:     time.Now,
-			Bindings:  bindingStore,
+			Directory:        directorySvc,
+			ACL:              aclSvc,
+			Audit:            auditSvcEF,
+			Logger:           pxlog.GetGlobalLogger(),
+			Clock:            time.Now,
+			Bindings:         bindingStore,
+			PluginUsageGuard: pluginUsageGuard.EnsurePluginAcceptsNewUsage,
 		})
 	}
 
@@ -1141,6 +1144,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			Audit:                        auditSvcEF,
 			Metrics:                      metricsRecorder,
 			EnableDatabaseFallbackLookup: retryWorkerFallbackEnabled,
+			PluginUsageGuard:             pluginservice.NewPluginDrainJobService(db).EnsurePluginAcceptsNewUsage,
 		})
 		if err != nil {
 			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init delivery service failed: %v", err)

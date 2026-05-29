@@ -109,6 +109,12 @@ func (d *taskHistoryDriver) Ack(ctx context.Context, request event_bus.AckReques
 		item.Source = "task_driver"
 		item.Status = eventfabricmodel.TaskHistoryStatusCompleted
 		item.ErrorMessage = ""
+		if len(request.Metadata) > 0 {
+			item.Metadata = mergeJSONMap(item.Metadata, request.Metadata)
+			if payload := strings.TrimSpace(request.Metadata["powerx_task_history_payload"]); payload != "" {
+				item.Payload = payload
+			}
+		}
 		completed := now
 		item.CompletedAt = &completed
 		if item.SubmittedAt == nil {
@@ -208,4 +214,19 @@ func toJSON(m map[string]string) datatypes.JSON {
 		return datatypes.JSON([]byte("{}"))
 	}
 	return datatypes.JSON(raw)
+}
+
+func mergeJSONMap(existing datatypes.JSON, updates map[string]string) datatypes.JSON {
+	out := map[string]string{}
+	if len(existing) > 0 {
+		_ = json.Unmarshal(existing, &out)
+	}
+	for key, value := range updates {
+		key = strings.TrimSpace(key)
+		if key == "" || key == "powerx_task_history_payload" {
+			continue
+		}
+		out[key] = value
+	}
+	return toJSON(out)
 }

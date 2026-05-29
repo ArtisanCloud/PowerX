@@ -6,6 +6,26 @@ info:
 servers:
   - url: https://api.powerx.local/api/v1
 paths:
+  /public/saas/signup/verification-code:
+    post:
+      summary: Send SaaS signup verification code
+      operationId: sendSaaSSignupVerificationCode
+      tags: [SaaSSignup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaaSSignupVerificationCodeRequest'
+      responses:
+        '200':
+          description: Verification code sent
+        '400':
+          description: Invalid contact
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /public/saas/signup:
     post:
       summary: Create a SaaS tenant and bootstrap owner/admin member
@@ -66,11 +86,11 @@ paths:
                   format: uuid
       responses:
         '200':
-          description: Context switched
+          description: Tenant switched and tokens reissued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MeContextResponse'
+                $ref: '#/components/schemas/SwitchTenantResponse'
         '403':
           description: Tenant not allowed
           content:
@@ -182,7 +202,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IAMMigrationReportResponse'
+                $ref: '#/components/schemas/IAMMigrationFixOwnerResponse'
+        '403':
+          description: Caller is not root
   /admin/root/support-sessions:
     post:
       summary: Start a root support session for a target tenant
@@ -201,6 +223,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RootSupportSessionResponse'
+        '403':
+          description: Caller is not root
+        '404':
+          description: Target tenant not found
   /admin/root/support-sessions/{id}/end:
     post:
       summary: End a root support session
@@ -218,6 +244,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RootSupportSessionResponse'
+        '403':
+          description: Caller is not root
+        '404':
+          description: Support session not found
   /admin/plugins/tenant-instances:
     get:
       summary: List plugin instances enabled for current tenant
@@ -256,6 +286,88 @@ paths:
       responses:
         '200':
           description: Plugin disabled for tenant
+  /admin/plugins/{plugin_id}/uninstall:
+    post:
+      summary: Uninstall a global plugin package
+      operationId: uninstallGlobalPluginPackage
+      tags: [TenantPlugins]
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Global plugin package uninstalled
+        '409':
+          description: Plugin still has tenant instances and requires drain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/plugins/{plugin_id}/drain:
+    post:
+      summary: Create a root controlled plugin drain plan
+      operationId: createPluginDrainJob
+      tags: [TenantPlugins]
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginDrainJobCreateRequest'
+      responses:
+        '200':
+          description: Drain job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDrainJobResponse'
+        '403':
+          description: Caller is not root
+    get:
+      summary: List root controlled plugin drain plans
+      operationId: listPluginDrainJobs
+      tags: [TenantPlugins]
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: Drain jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDrainJobListResponse'
+  /admin/plugins/drain/{job_id}:
+    get:
+      summary: Get a root controlled plugin drain plan
+      operationId: getPluginDrainJob
+      tags: [TenantPlugins]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Drain job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDrainJobResponse'
+        '404':
+          description: Drain job not found
 components:
   schemas:
     MeContextResponse:
@@ -306,15 +418,27 @@ components:
         is_owner: { type: boolean }
     SaaSSignupRequest:
       type: object
-      required: [tenant_key, tenant_name, owner_password]
+      required: [tenant_name, owner_password]
       properties:
-        tenant_key: { type: string }
+        tenant_key:
+          type: string
+          description: Optional. If omitted, generated from tenant_name; if provided, it must be globally unique.
         tenant_name: { type: string }
         plan: { type: string, default: free }
         owner_email: { type: string }
         owner_phone: { type: string }
         owner_password: { type: string, format: password }
         owner_display_name: { type: string }
+        verification_code:
+          type: string
+          description: Required only when feature_gate.enable_saas_signup_verification_code is enabled.
+    SaaSSignupVerificationCodeRequest:
+      type: object
+      required: [contact]
+      properties:
+        contact:
+          type: string
+          description: Email address or mobile number.
     SaaSSignupResponse:
       type: object
       properties:
@@ -325,6 +449,23 @@ components:
           properties:
             access_token: { type: string }
             refresh_token: { type: string }
+            context:
+              $ref: '#/components/schemas/MeContext'
+    SwitchTenantResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            token_type:
+              type: string
+              enum: [Bearer]
+            access_token: { type: string }
+            refresh_token: { type: string }
+            expires_in: { type: integer }
+            scope: { type: string }
             context:
               $ref: '#/components/schemas/MeContext'
     RootSupportSessionCreateRequest:
@@ -372,6 +513,12 @@ components:
         plugin_id: { type: string }
         version: { type: string }
         enabled: { type: boolean }
+        status:
+          type: string
+          enum: [available, subscribed, enabled, disabled, draining_requested, disabled_by_platform, drained, expired]
+        drain_job_id:
+          type: string
+          nullable: true
         config:
           type: object
           additionalProperties: true
@@ -384,7 +531,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TenantPluginInstance'
-    IAMMigrationReportResponse:
+    PluginDrainJobCreateRequest:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Optional target version. Empty means all versions for the plugin.
+        reason: { type: string }
+        mode:
+          type: string
+          enum: [drain, emergency_disable]
+          default: drain
+    PluginDrainJob:
+      type: object
+      properties:
+        job_id: { type: string }
+        plugin_id: { type: string }
+        version: { type: string }
+        scope:
+          type: string
+          enum: [plugin, plugin_version]
+        status:
+          type: string
+          enum: [requested, blocking_new_usage, draining, ready_to_uninstall, completed, failed, cancelled]
+        reason: { type: string }
+        requested_by_root_user_id: { type: integer }
+        affected_tenant_count: { type: integer }
+        drained_tenant_count: { type: integer }
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+    PluginDrainJobResponse:
       type: object
       properties:
         code: { type: integer }
@@ -392,28 +570,65 @@ components:
         data:
           type: object
           properties:
-            root_users:
+            job:
+              $ref: '#/components/schemas/PluginDrainJob'
+    PluginDrainJobListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
               type: array
               items:
-                $ref: '#/components/schemas/UserSummary'
-            system_tenant_status:
-              type: string
-              enum: [ok, missing, invalid]
-            root_system_member_status:
-              type: string
-              enum: [ok, missing, invalid]
-            tenant_owner_missing:
+                $ref: '#/components/schemas/PluginDrainJob'
+    IAMMigrationReportResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/IAMMigrationReport'
+    IAMMigrationFixOwnerResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            fixed_tenant_uuids:
               type: array
               items: { type: string, format: uuid }
-            tenant_admin_missing:
-              type: array
-              items: { type: string, format: uuid }
-            auto_fix_candidates:
-              type: array
-              items: { type: string, format: uuid }
-            manual_fix_required:
-              type: array
-              items: { type: string, format: uuid }
+            report:
+              $ref: '#/components/schemas/IAMMigrationReport'
+    IAMMigrationReport:
+      type: object
+      properties:
+        root_users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        system_tenant_status:
+          type: string
+          enum: [ok, missing, invalid]
+        root_system_member_status:
+          type: string
+          enum: [ok, missing, invalid]
+        tenant_owner_missing:
+          type: array
+          items: { type: string, format: uuid }
+        tenant_admin_missing:
+          type: array
+          items: { type: string, format: uuid }
+        auto_fix_candidates:
+          type: array
+          items: { type: string, format: uuid }
+        manual_fix_required:
+          type: array
+          items: { type: string, format: uuid }
     ErrorResponse:
       type: object
       properties:

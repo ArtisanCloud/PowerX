@@ -11,6 +11,7 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
+import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
 
 /** =========================
  * API 客户端配置
@@ -28,6 +29,26 @@ let refreshingAccessTokenPromise: Promise<string | null> | null = null;
 const isAuthRefreshEndpoint = (url?: string): boolean => {
   const u = String(url || "");
   return /\/admin\/user\/auth\/refresh(?:\?|$)/.test(u);
+};
+
+const getRequestPath = (url?: string): string => {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  try {
+    const origin = process.client ? window.location.origin : "http://localhost";
+    return new URL(raw, origin).pathname;
+  } catch {
+    return raw.split("?")[0] || "";
+  }
+};
+
+const shouldRefreshForRequest = (url?: string): boolean => {
+  const path = getRequestPath(url);
+  if (!path) return false;
+  if (path.startsWith("/_p/") || path.startsWith("/__up/") || path === "/api/ws") {
+    return false;
+  }
+  return path.startsWith("/api/");
 };
 
 const getErrorStatusCode = (error: any): number => {
@@ -52,6 +73,7 @@ const clearClientAuthStorage = () => {
     "scope",
     "px_current_tenant_uuid",
   ].forEach((k) => localStorage.removeItem(k));
+  clearAuthCookies();
 };
 
 const updateClientAuthStorage = (payload: any) => {
@@ -71,6 +93,7 @@ const updateClientAuthStorage = (payload: any) => {
   if (typeof payload.refresh_token === "string" && payload.refresh_token) {
     localStorage.setItem("refresh_token", payload.refresh_token);
   }
+  syncAuthCookies(String(payload.access_token), typeof payload.refresh_token === "string" ? payload.refresh_token : undefined);
 };
 
 const isTokenExpiredByLocalClock = (): boolean => {
@@ -504,7 +527,8 @@ export const useApiClient = () => {
         !config.skipAuth &&
         !retried &&
         statusCode === 401 &&
-        !isAuthRefreshEndpoint(url);
+        !isAuthRefreshEndpoint(url) &&
+        shouldRefreshForRequest(url);
 
       if (shouldTryRefresh) {
         const refreshedToken = await tryRefreshAccessToken();

@@ -47,7 +47,7 @@
 
 ## Decision 7: root 保留 system tenant member 但不等于业务租户 admin
 
-- Decision: 保留 root user、`system` tenant member 和 setup 完成记录；代码语义上 root 默认进入 Platform Console，不自动拥有业务租户 owner/admin 能力。
+- Decision: 保留 root user、`system` tenant member/admin 和 setup 完成记录；`system` member 是平台身份锚点，用于登录 token、审计、STS、API Key Profile、setup 初始化和历史安装兼容。代码语义上 root 默认进入 Platform Console，不自动拥有业务租户 owner/admin 能力。
 - Rationale: 不破坏已有初始化数据，同时切断 root 与租户业务后台的隐式权限混用。
 - Alternatives considered:
   - 删除 root 的 system member：会破坏登录上下文和历史安装兼容。

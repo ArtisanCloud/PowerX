@@ -28,6 +28,15 @@ func PluginStatusHandler(c *gin.Context) {
 			"runtime": gin.H{
 				"state": "unknown",
 			},
+			"runtime_scope": gin.H{
+				"scope":               "global_plugin_process",
+				"tenant_isolated":     false,
+				"tenant_instance_key": "",
+				"process_id_prefix":   id,
+			},
+			"tenant_instances": gin.H{
+				"managed_by": "TenantPluginInstance",
+			},
 			"fallback": true,
 		})
 		return
@@ -42,11 +51,24 @@ func PluginStatusHandler(c *gin.Context) {
 
 	// 运行态（supervisor）
 	proc, _ := mgrimpl.TryRuntimeStatus(mgr, id)
+	processes, _ := mgrimpl.TryRuntimeProcesses(mgr, id)
 
 	dtoRequest.ResponseSuccess(c, gin.H{
 		"id":      id,
 		"version": p.Version,
 		"state":   string(p.State),
+		"runtime_scope": gin.H{
+			"scope":               "global_plugin_process",
+			"tenant_isolated":     false,
+			"shared_by_tenants":   true,
+			"tenant_instance_key": "",
+			"process_id_prefix":   id,
+		},
+		"processes": processes,
+		"tenant_instances": gin.H{
+			"managed_by": "TenantPluginInstance",
+			"note":       "租户启用/停用只改变租户实例访问权，不复制或停止全局插件进程",
+		},
 		"runtime": gin.H{
 			"pid":           proc.PID,
 			"port":          proc.Port,

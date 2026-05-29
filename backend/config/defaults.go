@@ -366,6 +366,7 @@ func GetDefaults() *Config {
 			EnableKnowledgeSpace:       true,
 			EnableMediaPlatform:        true,
 			EnableExperimentalFeatures: true,
+			EnableSaaSSignupVerificationCode: false,
 		},
 		Storage: StorageConfig{
 			DefaultDriver: "local",
