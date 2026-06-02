@@ -31,21 +31,21 @@
               plugin.version
             }}</UBadge>
             <UBadge
-              v-if="isSystemEnabled"
+              v-if="showSystemState && isSystemEnabled"
               color="success"
               variant="soft"
               size="xs"
-              >已启用</UBadge
+              >系统已启用</UBadge
             >
             <UBadge
-              v-else-if="isBroken"
+              v-else-if="showSystemState && isBroken"
               color="error"
               variant="soft"
               size="xs"
               >异常</UBadge
             >
             <UBadge
-              v-else-if="isSystemInstalled"
+              v-else-if="showSystemState && isSystemInstalled"
               color="info"
               variant="soft"
               size="xs"
@@ -63,7 +63,7 @@
         >
           <span>作者：{{ plugin.author }}</span>
           <span>分类：{{ plugin.category }}</span>
-          <span>安装量：{{ formatCount(plugin.installs) }}</span>
+          <span>{{ showSystemState ? "安装量" : "订阅量" }}：{{ formatCount(plugin.installs) }}</span>
         </div>
       </div>
     </div>
@@ -76,13 +76,31 @@
         }}</UBadge>
       </div>
       <div class="flex items-center gap-2">
+        <UBadge
+          v-if="isSystemEnabled"
+          :color="isTenantEnabled ? 'success' : 'neutral'"
+          variant="soft"
+          size="xs"
+          >{{ isTenantEnabled ? "本租户已启用" : "本租户未启用" }}</UBadge
+        >
         <UButton
+          v-if="canManageDetail"
           size="xs"
           variant="ghost"
           :to="`/plugins/${plugin.id}`"
           icon="i-heroicons-cog-6-tooth"
           >管理</UButton
         >
+        <UButton
+          v-if="canManageTenant && isSystemEnabled"
+          size="xs"
+          :variant="isTenantEnabled ? 'outline' : 'solid'"
+          :color="isTenantEnabled ? 'error' : 'primary'"
+          :icon="isTenantEnabled ? 'i-heroicons-pause' : 'i-heroicons-play'"
+          @click="$emit('toggle-tenant', plugin)"
+        >
+          {{ isTenantEnabled ? "取消订阅" : "订阅启用" }}
+        </UButton>
         <UButton
           v-if="canInstall && !isSystemInstalled"
           size="xs"
@@ -116,11 +134,17 @@ const props = defineProps<{
   isSystemInstalled?: boolean;
   isSystemEnabled?: boolean;
   systemStatus?: string;
+  isTenantEnabled?: boolean;
+  tenantStatus?: string;
   canInstall?: boolean;
+  canManageTenant?: boolean;
+  showSystemState?: boolean;
+  canManageDetail?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "install", plugin: MarketplacePlugin): void;
+  (e: "toggle-tenant", plugin: MarketplacePlugin): void;
 }>();
 
 // 图片加载错误状态
@@ -146,8 +170,12 @@ function formatCount(n: number) {
 
 const isSystemInstalled = computed(() => !!props.isSystemInstalled);
 const isSystemEnabled = computed(() => !!props.isSystemEnabled);
+const isTenantEnabled = computed(() => !!props.isTenantEnabled);
 const isBroken = computed(
   () => String(props.systemStatus || "").toLowerCase() === "broken"
 );
 const canInstall = computed(() => !!props.canInstall);
+const canManageTenant = computed(() => !!props.canManageTenant);
+const showSystemState = computed(() => props.showSystemState !== false);
+const canManageDetail = computed(() => props.canManageDetail !== false);
 </script>

@@ -5,6 +5,7 @@ import type {
   ContextMember,
 } from "~/composables/api/services/meService";
 import { useMe } from "~/composables/useMe";
+import { useAuth } from "~/composables/useAuth";
 import { persistTenantUUID } from "~/utils/tenant-context";
 
 export const useUserStore = defineStore("user", {
@@ -37,6 +38,15 @@ export const useUserStore = defineStore("user", {
     currentMemberId: (state): number | null =>
       state.context?.current_member_id || null,
 
+    // 当前成员 UUID
+    currentMemberUuid: (state): string | null =>
+      state.context?.current_member_uuid ||
+      state.context?.members?.find(
+        (m: ContextMember) =>
+          m.tenant_uuid === state.context?.current_tenant_uuid
+      )?.member_uuid ||
+      null,
+
     // 用户所属的租户列表
     memberTenants: (state): ContextMember[] => state.context?.members || [],
 
@@ -52,9 +62,20 @@ export const useUserStore = defineStore("user", {
       );
     },
 
+    // 是否为当前租户所有者
+    isCurrentTenantOwner: (state): boolean => {
+      if (state.context?.is_root) return false;
+      const currentTenant =
+        state.context?.members?.find(
+          (m: ContextMember) =>
+            m.tenant_uuid === state.context!.current_tenant_uuid
+        ) || null;
+      return currentTenant?.is_owner || false;
+    },
+
     // 是否为当前租户的管理员
     isCurrentTenantAdmin: (state): boolean => {
-      if (state.context?.is_root) return true;
+      if (state.context?.is_root) return false;
       const currentTenant =
         state.context?.members?.find(
           (m: ContextMember) =>
@@ -141,9 +162,16 @@ export const useUserStore = defineStore("user", {
       try {
         const { switchTenant } = useMe();
         const response = await switchTenant(tenantUuid);
+        const { setAuth } = useAuth();
+        setAuth({
+          token_type: response.token_type || "Bearer",
+          access_token: response.access_token,
+          refresh_token: response.refresh_token,
+          expires_in: response.expires_in || 3600,
+          scope: response.scope || "access",
+        });
 
-        // 直接更新上下文，无需再次请求
-        this.context = response;
+        this.context = response.context;
         this.lastFetchedAt = Date.now();
         this.persistCurrentTenantUUID();
       } catch (error: any) {

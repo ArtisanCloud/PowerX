@@ -205,7 +205,9 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	}
 
-	// 7) 在 system 租户确保 root 成员
+	// 7) 在 system 租户确保 root 成员。
+	// SaaS IAM 语义要求保留 root user + system tenant member 作为平台身份锚点；
+	// 不要在 seed 中把 root 自动补进任何业务租户。
 	var memberID uint64
 	mem, err := memberRepo.FindByTenantAndUser(seedCtx(), tenantUUID, userID)
 

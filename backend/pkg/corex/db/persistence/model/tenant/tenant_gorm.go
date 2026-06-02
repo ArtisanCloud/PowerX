@@ -28,7 +28,7 @@ type Tenant struct {
 	Status      int16  `gorm:"column:status;default:1;index"                     json:"status"`      // 1=active,0=disabled
 	Type        string `gorm:"column:type;type:varchar(32);not null;default:'personal'" json:"type"` // 可选值: personal / enterprise / system
 	Plan        string `gorm:"column:plan;type:varchar(64);default:'free'"       json:"plan"`
-	Domain      string `gorm:"column:domain;type:varchar(256);uniqueIndex" json:"domain"`
+	Domain      string `gorm:"column:domain;type:varchar(256);index" json:"domain"`
 	Description string `gorm:"column:description;type:text"                  json:"description"`
 }
 

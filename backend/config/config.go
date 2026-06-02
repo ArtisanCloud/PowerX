@@ -117,6 +117,9 @@ func ResolveEffectivePorts(cfg *Config) EffectivePorts {
 	if cfg != nil && cfg.Server.Port > 0 {
 		ports.BackendPort = cfg.Server.Port
 	}
+	if cfg != nil && cfg.WebAdminPort > 0 {
+		ports.WebAdminPort = cfg.WebAdminPort
+	}
 	if port := parsePortEnv("POWERX_BACKEND_PORT"); port > 0 {
 		ports.BackendPort = port
 	}
@@ -189,6 +192,8 @@ type HTTPSecurityConfig struct {
 	// 允许作为父页面的来源（CSP frame-ancestors 白名单）
 	// 取值示例： "https://admin.powerx.io", "http://localhost:3030", "https://*.powerx.io", "'self'"
 	FrameAncestors []string `yaml:"frame_ancestors"`
+	// 浏览器访问 PowerX Web Admin 的公开 Origin，用于插件宿主模式 CORS/Origin 契约。
+	WebAdminOrigins []string `yaml:"web_admin_origins"`
 }
 
 // TenantConfig 控制租户头部解析与缓存策略。
@@ -225,6 +230,7 @@ func (c InstallConfig) EffectiveLockMode() string {
 type Config struct {
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
+	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
@@ -667,12 +673,13 @@ type LowCodeConfig struct {
 
 // 功能开关配置
 type FeatureGateConfig struct {
-	LicenseKey                 string `yaml:"license_key"`                  // license 或灰度控制 token
-	EnableEventFabric          bool   `yaml:"enable_event_fabric"`          // 是否启用事件骨干
-	EnableWorkflow             bool   `yaml:"enable_workflow"`              // 是否启用 Workflow 能力
-	EnableKnowledgeSpace       bool   `yaml:"enable_knowledge_space"`       // 是否启用知识空间
-	EnableMediaPlatform        bool   `yaml:"enable_media_platform"`        // 是否启用平台 Media 能力
-	EnableExperimentalFeatures bool   `yaml:"enable_experimental_features"` // 是否开启实验特性
+	LicenseKey                       string `yaml:"license_key"`                         // license 或灰度控制 token
+	EnableEventFabric                bool   `yaml:"enable_event_fabric"`                 // 是否启用事件骨干
+	EnableWorkflow                   bool   `yaml:"enable_workflow"`                     // 是否启用 Workflow 能力
+	EnableKnowledgeSpace             bool   `yaml:"enable_knowledge_space"`              // 是否启用知识空间
+	EnableMediaPlatform              bool   `yaml:"enable_media_platform"`               // 是否启用平台 Media 能力
+	EnableExperimentalFeatures       bool   `yaml:"enable_experimental_features"`        // 是否开启实验特性
+	EnableSaaSSignupVerificationCode bool   `yaml:"enable_saas_signup_verification_code"` // SaaS 注册是否要求邮箱/手机验证码
 }
 
 // Load 加载配置文件并合并环境变量
@@ -1106,6 +1113,9 @@ func loadFromEnv(cfg *Config) {
 	// FeatureGate配置
 	if license := os.Getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
 		cfg.FeatureGate.LicenseKey = license
+	}
+	if v := os.Getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP_VERIFICATION_CODE"); v != "" {
+		cfg.FeatureGate.EnableSaaSSignupVerificationCode = strings.EqualFold(v, "true") || v == "1"
 	}
 
 	// Plugin Release 配置

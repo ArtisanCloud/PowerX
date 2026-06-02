@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { useAuthService } from "~/composables/api/services/authService";
+import {
+  extractTenantUUIDFromJWT,
+  getStoredTenantUUID,
+  persistTenantUUID,
+} from "~/utils/tenant-context";
 
 definePageMeta({
   layout: false, // 禁用layout
@@ -35,7 +40,7 @@ const handleLogin = async () => {
   try {
     // 调用登录API
     const response = await login({
-      tenant: "",
+      tenant: getStoredTenantUUID() || "",
       identifier: form.identifier,
       password: form.password,
     });
@@ -45,6 +50,7 @@ const handleLogin = async () => {
     if (response.code === 200) {
       // 保存认证信息
       setAuth(response.data);
+      persistTenantUUID(extractTenantUUIDFromJWT(response.data.access_token) || null);
 
       // 获取重定向URL
       const route = useRoute();

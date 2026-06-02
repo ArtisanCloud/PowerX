@@ -14,9 +14,12 @@ import (
 // BindingStore 提供 Topic/ACL 播种记录的读写能力。
 type BindingStore interface {
 	GetTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) (*TopicBindingRecord, error)
+	ListTopics(ctx context.Context, tenantUUID, pluginID string) ([]TopicBindingRecord, error)
 	UpsertTopic(ctx context.Context, record TopicBindingRecord) error
+	DeleteTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) error
 	GetACL(ctx context.Context, tenantUUID, pluginID, topicKey, principalType, principalID string) (*ACLBindingRecord, error)
 	UpsertACL(ctx context.Context, record ACLBindingRecord) error
+	DeleteACLByTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) error
 }
 
 type bindingStore struct {
@@ -79,6 +82,33 @@ func (s *bindingStore) UpsertTopic(ctx context.Context, record TopicBindingRecor
 	})
 }
 
+func (s *bindingStore) ListTopics(ctx context.Context, tenantUUID, pluginID string) ([]TopicBindingRecord, error) {
+	models, err := s.repo.ListTopicBindings(ctx, tenantUUID, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	records := make([]TopicBindingRecord, 0, len(models))
+	for _, model := range models {
+		if model == nil {
+			continue
+		}
+		records = append(records, TopicBindingRecord{
+			TenantUUID: model.TenantKey,
+			PluginID:   model.PluginID,
+			TopicKey:   model.TopicKey,
+			Namespace:  model.Namespace,
+			Name:       model.Name,
+			FullTopic:  model.FullTopic,
+			TopicID:    model.TopicUUID,
+		})
+	}
+	return records, nil
+}
+
+func (s *bindingStore) DeleteTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) error {
+	return s.repo.DeleteTopicBinding(ctx, tenantUUID, pluginID, topicKey)
+}
+
 func (s *bindingStore) GetACL(ctx context.Context, tenantUUID, pluginID, topicKey, principalType, principalID string) (*ACLBindingRecord, error) {
 	model, err := s.repo.GetAclBinding(ctx, tenantUUID, pluginID, topicKey, principalType, principalID)
 	if err != nil || model == nil {
@@ -119,6 +149,10 @@ func (s *bindingStore) UpsertACL(ctx context.Context, record ACLBindingRecord) e
 		ActionsHash:   record.ActionsHash,
 		LastAppliedAt: time.Now().UTC(),
 	})
+}
+
+func (s *bindingStore) DeleteACLByTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) error {
+	return s.repo.DeleteAclBindingsByTopic(ctx, tenantUUID, pluginID, topicKey)
 }
 
 func aclActionsToJSON(actions []acl.PrincipalAction) (datatypes.JSON, error) {

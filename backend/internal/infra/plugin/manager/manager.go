@@ -13,9 +13,20 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
-type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
 type PostInstallManifestHook func(ctx context.Context, manifest plugin_mgr.Manifest) error
 type PostUninstallHook func(ctx context.Context, pluginID string) error
+type TenantPluginInstanceChecker func(ctx context.Context, pluginID string) (int64, error)
+type PluginRuntimeCredentialProvider func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error)
+
+type PluginRuntimeCredential struct {
+	TenantUUID     string
+	ClientID       string
+	ClientSecret   string
+	GRPCAddress    string
+	STSAudience    string
+	STSScope       string
+	GatewayBaseURL string
+}
 
 // Options 注入依赖与基础配置
 type Options struct {
@@ -30,9 +41,10 @@ type Options struct {
 	Registry            Registry
 	HTTP                *router.DynamicRouter
 	Supervisor          *supervisor.Supervisor
-	PostEnable          PostEnableHook
 	PostInstallManifest PostInstallManifestHook
 	PostUninstall       PostUninstallHook
+	TenantInstanceCount TenantPluginInstanceChecker
+	RuntimeCredential   PluginRuntimeCredentialProvider
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）

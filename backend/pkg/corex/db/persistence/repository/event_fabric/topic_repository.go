@@ -3,6 +3,8 @@ package eventfabric
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -79,6 +81,86 @@ func (r *TopicRepository) FindByComposite(ctx context.Context, tenantKey, namesp
 		return nil, err
 	}
 	return &record, nil
+}
+
+func (r *TopicRepository) FindTemplateMatch(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
+	lookupTenantKeys := make([]string, 0, 3)
+	if key := strings.TrimSpace(tenantKey); key != "" {
+		lookupTenantKeys = append(lookupTenantKeys, key)
+	}
+	lookupTenantKeys = append(lookupTenantKeys, "global", "system")
+
+	var records []*eventfabricmodel.TopicDefinition
+	query := r.db.WithContext(ctx).
+		Where("(COALESCE(NULLIF(scope_id, ''), tenant_key) IN ?)", lookupTenantKeys).
+		Where("(scope_type IS NULL OR scope_type IN ?)", []string{string(eventfabricmodel.TopicScopeTenant), string(eventfabricmodel.TopicScopeSystem)}).
+		Where("(namespace LIKE ? OR name LIKE ?)", "%{{%", "%{{%")
+	if len(lookupTenantKeys) > 1 {
+		query = query.Order(gorm.Expr("CASE WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = ? THEN 0 WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = 'global' THEN 1 WHEN COALESCE(NULLIF(scope_id, ''), tenant_key) = 'system' THEN 2 ELSE 999 END", strings.TrimSpace(tenantKey)))
+	}
+	if err := query.Find(&records).Error; err != nil {
+		return nil, err
+	}
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		ok, err := matchTopicTemplate(record.Namespace, namespace, strings.TrimSpace(tenantKey))
+		if err != nil {
+			return nil, fmt.Errorf("topic template namespace %q: %w", record.Namespace, err)
+		}
+		if !ok {
+			continue
+		}
+		ok, err = matchTopicTemplate(record.Name, name, strings.TrimSpace(tenantKey))
+		if err != nil {
+			return nil, fmt.Errorf("topic template name %q: %w", record.Name, err)
+		}
+		if ok {
+			clone := *record
+			return &clone, nil
+		}
+	}
+	return nil, nil
+}
+
+func matchTopicTemplate(template, value, tenantUUID string) (bool, error) {
+	template = strings.TrimSpace(template)
+	value = strings.TrimSpace(value)
+	if template == "" || value == "" {
+		return false, nil
+	}
+	var pattern strings.Builder
+	pattern.WriteString("^")
+	for {
+		start := strings.Index(template, "{{")
+		if start == -1 {
+			pattern.WriteString(regexp.QuoteMeta(template))
+			break
+		}
+		pattern.WriteString(regexp.QuoteMeta(template[:start]))
+		template = template[start+2:]
+		end := strings.Index(template, "}}")
+		if end == -1 {
+			return false, fmt.Errorf("unclosed template token")
+		}
+		token := strings.ToLower(strings.TrimSpace(template[:end]))
+		template = template[end+2:]
+		switch token {
+		case "tenant_uuid", "tenant.uuid":
+			pattern.WriteString(regexp.QuoteMeta(strings.TrimSpace(tenantUUID)))
+		case "member_uuid", "member.uuid", "thread_id", "thread.id":
+			pattern.WriteString(`[A-Za-z0-9][A-Za-z0-9_-]*`)
+		default:
+			return false, fmt.Errorf("unsupported template token %s", token)
+		}
+	}
+	pattern.WriteString("$")
+	matched, err := regexp.MatchString(pattern.String(), value)
+	if err != nil {
+		return false, err
+	}
+	return matched, nil
 }
 
 func (r *TopicRepository) List(ctx context.Context, queryCtx QueryContext) ([]*eventfabricmodel.TopicDefinition, int64, error) {

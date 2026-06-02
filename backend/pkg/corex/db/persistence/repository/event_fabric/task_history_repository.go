@@ -106,3 +106,36 @@ func (r *TaskHistoryRepository) ListRecent(ctx context.Context, tenantKey, subsc
 	}
 	return records, nil
 }
+
+func (r *TaskHistoryRepository) ListPage(ctx context.Context, tenantKey, subscriberID string, page, pageSize int) ([]*eventfabricmodel.TaskHistory, int64, error) {
+	if r == nil || r.db == nil {
+		return []*eventfabricmodel.TaskHistory{}, 0, nil
+	}
+	tenantKey = strings.TrimSpace(tenantKey)
+	subscriberID = strings.TrimSpace(subscriberID)
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	query := r.db.WithContext(ctx).Model(&eventfabricmodel.TaskHistory{})
+	if tenantKey != "" {
+		query = query.Where("tenant_key = ?", tenantKey)
+	}
+	if subscriberID != "" {
+		query = query.Where("subscriber_id = ?", subscriberID)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var records []*eventfabricmodel.TaskHistory
+	if err := query.Order("last_seen_at DESC, submitted_at DESC, task_id DESC").Limit(pageSize).Offset((page - 1) * pageSize).Find(&records).Error; err != nil {
+		return nil, 0, err
+	}
+	return records, total, nil
+}

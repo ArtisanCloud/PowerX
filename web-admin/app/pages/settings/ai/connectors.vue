@@ -65,4 +65,15 @@ import { computed } from "vue";
 
 const localePath = useLocalePath();
 const modelSettingsLink = computed(() => localePath("/settings/ai"));
+const userStore = useUserStore();
+const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
+
+onMounted(async () => {
+  if (!userStore.context) {
+    await userStore.fetchUserContext();
+  }
+  if (isRoot.value || !isCurrentTenantAdmin.value) {
+    await navigateTo("/dashboard");
+  }
+});
 </script>

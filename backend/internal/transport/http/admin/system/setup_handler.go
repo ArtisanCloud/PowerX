@@ -1038,6 +1038,7 @@ func (h *SetupHandler) readSetupCompletedFlag(ctx context.Context) bool {
 	if h == nil || h.s == nil {
 		return false
 	}
+	// SaaS IAM 迁移必须保留 setup 完成记录；巡检只读取这些 key，不重建或删除历史安装状态。
 	if v := h.readBoolSystemSetting(ctx, setupCompletedKey); v {
 		return true
 	}

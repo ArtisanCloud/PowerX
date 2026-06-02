@@ -16,9 +16,6 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
-	"github.com/ArtisanCloud/PowerX/internal/service/setting"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
-	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -41,20 +38,18 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	tenantUUID, hasTenant := tenantUUIDFromContext(ctx)
-	if !hasTenant {
-		if resolvedTenant, err := m.resolveBootstrapTenantUUID(p.ID); err == nil {
-			tenantUUID = resolvedTenant
-			hasTenant = true
-			logger.InfoF(ctx, "[plugin-enable] plugin=%s tenant_uuid_resolved_for_bootstrap tenant_uuid=%s", p.ID, tenantUUID)
-		} else {
-			logger.WarnF(ctx, "[plugin-enable] plugin=%s tenant_uuid_resolve_failed err=%v", p.ID, err)
-		}
+	runtimeCred, err := m.resolvePluginRuntimeCredential(ctx, p.ID)
+	if err != nil {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeLifecycleError,
+			plugin_mgr.WithOp("enable"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(p.Version),
+			plugin_mgr.WithMsg("GW_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
+		)
 	}
-	if hasTenant {
-		if err := m.ensureDelegatedHostContractForEnable(&p); err != nil {
-			logger.WarnF(ctx, "[plugin-enable] id=%s host contract auto-repair failed: %v", p.ID, err)
-		}
+	if err := m.ensureDelegatedHostContractForEnable(&p, runtimeCred); err != nil {
+		logger.WarnF(ctx, "[plugin-enable] id=%s host contract auto-repair failed: %v", p.ID, err)
 	}
 	logger.InfoF(ctx, "[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
 		p.ID, p.Version, p.State, len(p.Frontend.Admin.Menus))
@@ -190,60 +185,20 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		strings.TrimSpace(envAPI["POWERX_PROXY"]),
 		strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
 	)
-	hasActor := reqctx.GetUserID(ctx) != 0
-	if hasTenant && hasActor {
-		if err := m.injectPluginSTSClientEnv(ctx, envAPI, p.ID, tenantUUID); err != nil {
-			return plugin_mgr.NewError(
-				plugin_mgr.CodeLifecycleError,
-				plugin_mgr.WithOp("enable"),
-				plugin_mgr.WithPlugin(id),
-				plugin_mgr.WithVersion(p.Version),
-				plugin_mgr.WithMsg("STS_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
-			)
-		}
-		if err := m.injectGatewaySecurityEnv(ctx, envAPI, p.ID, tenantUUID); err != nil {
-			recordGatewayContractValid(p.ID, false)
-			recordGatewayContractProbeResult("bootstrap_failed")
-			emitGatewayContractAudit(ctx, p.ID, map[string]any{
-				"gateway_base_url_present": strings.TrimSpace(envAPI["PX_GATEWAY_BASE_URL"]) != "",
-				"sts_client_present":       strings.TrimSpace(envAPI["POWERX_STS_CLIENT_ID"]) != "",
-				"auth_scheme":              strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
-				"reason":                   err.Error(),
-			}, "bootstrap_failed")
-			return plugin_mgr.NewError(
-				plugin_mgr.CodeLifecycleError,
-				plugin_mgr.WithOp("enable"),
-				plugin_mgr.WithPlugin(id),
-				plugin_mgr.WithVersion(p.Version),
-				plugin_mgr.WithMsg("GW_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
-			)
-		}
-	} else if hasTenant {
-		if err := m.injectPluginSTSClientEnv(ctx, envAPI, p.ID, tenantUUID); err != nil {
-			return plugin_mgr.NewError(
-				plugin_mgr.CodeLifecycleError,
-				plugin_mgr.WithOp("enable"),
-				plugin_mgr.WithPlugin(id),
-				plugin_mgr.WithVersion(p.Version),
-				plugin_mgr.WithMsg("STS_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
-			)
-		}
-		if err := m.injectGatewayBootstrapEnv(envAPI, p.ID); err != nil {
-			return plugin_mgr.NewError(
-				plugin_mgr.CodeLifecycleError,
-				plugin_mgr.WithOp("enable"),
-				plugin_mgr.WithPlugin(id),
-				plugin_mgr.WithVersion(p.Version),
-				plugin_mgr.WithMsg("GW_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
-			)
-		}
-	} else {
+	if err := m.injectGlobalGatewayRuntimeEnv(envAPI, p.ID, runtimeCred); err != nil {
+		recordGatewayContractValid(p.ID, false)
+		recordGatewayContractProbeResult("bootstrap_failed")
+		emitGatewayContractAudit(ctx, p.ID, map[string]any{
+			"gateway_base_url_present": strings.TrimSpace(envAPI["PX_GATEWAY_BASE_URL"]) != "",
+			"auth_scheme":              strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
+			"reason":                   err.Error(),
+		}, "bootstrap_failed")
 		return plugin_mgr.NewError(
 			plugin_mgr.CodeLifecycleError,
 			plugin_mgr.WithOp("enable"),
 			plugin_mgr.WithPlugin(id),
 			plugin_mgr.WithVersion(p.Version),
-			plugin_mgr.WithMsg("STS_BOOTSTRAP_CONTRACT_BROKEN: tenant uuid missing"),
+			plugin_mgr.WithMsg("GW_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
 		)
 	}
 
@@ -320,14 +275,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		_ = m.sup.Stop(p.ID)
 		return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 	}
-	if err := m.probeGatewayContract(ctx, p.ID, apiBaseURL, apiHealthPath, envAPI, hasTenant, tenantUUID); err != nil {
+	if err := m.probeGatewayContract(ctx, p.ID, apiBaseURL, apiHealthPath, envAPI, false, ""); err != nil {
 		recordGatewayContractValid(p.ID, false)
 		recordGatewayContractProbeResult("probe_failed")
 		emitGatewayContractAudit(ctx, p.ID, map[string]any{
 			"gateway_base_url_present": strings.TrimSpace(envAPI["PX_GATEWAY_BASE_URL"]) != "",
-			"sts_client_present":       strings.TrimSpace(envAPI["POWERX_STS_CLIENT_ID"]) != "",
 			"auth_scheme":              strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
-			"tenant_uuid_present":      hasTenant,
+			"tenant_uuid_present":      false,
 			"reason":                   err.Error(),
 		}, "probe_failed")
 		_ = m.sup.Stop(p.ID)
@@ -345,9 +299,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	recordGatewayContractProbeResult("success")
 	emitGatewayContractAudit(ctx, p.ID, map[string]any{
 		"gateway_base_url_present": strings.TrimSpace(envAPI["PX_GATEWAY_BASE_URL"]) != "",
-		"sts_client_present":       strings.TrimSpace(envAPI["POWERX_STS_CLIENT_ID"]) != "",
 		"auth_scheme":              strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
-		"tenant_uuid_present":      hasTenant,
+		"tenant_uuid_present":      false,
 	}, "probe_success")
 
 	// —— 挂 API 反代
@@ -440,13 +393,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			}
 		}
 		envADM["NODE_ENV"] = "production"
-		if hasTenant {
-			// no-op, delegated env set below
-		} else {
-			// Auto-restore 无租户上下文时，admin 进程也注入 bootstrap 契约。
-			if err := m.injectGatewayBootstrapEnv(envADM, p.ID); err != nil {
-				logger.WarnF(ctx, "[plugin-enable] id=%s admin bootstrap gateway env failed: %v", p.ID, err)
-			}
+		if err := m.injectGlobalGatewayRuntimeEnv(envADM, p.ID, runtimeCred); err != nil {
+			logger.WarnF(ctx, "[plugin-enable] id=%s admin bootstrap gateway env failed: %v", p.ID, err)
 		}
 		envADM["POWERX_PROXY"] = "1"
 		applyDelegatedRuntimeEnv(envADM)
@@ -557,100 +505,112 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return err
 	}
-	if m.opts.PostEnable != nil {
-		if tenantUUID, ok := tenantUUIDFromContext(ctx); ok {
-			if err := m.opts.PostEnable(ctx, tenantUUID, p.ID); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
-func (m *managerImpl) injectPluginSTSClientEnv(ctx context.Context, env map[string]string, pluginID string, tenantUUID string) error {
+func (m *managerImpl) injectGlobalGatewayRuntimeEnv(env map[string]string, pluginID string, runtimeCred *PluginRuntimeCredential) error {
 	if env == nil {
-		return fmt.Errorf("env missing")
+		return fmt.Errorf("gateway contract env is nil")
 	}
 	pluginID = strings.TrimSpace(pluginID)
-	tenantUUID = strings.TrimSpace(tenantUUID)
 	if pluginID == "" {
-		return fmt.Errorf("plugin_id missing")
+		return fmt.Errorf("gateway contract plugin id is empty")
 	}
-	canonicalTenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
-	if err != nil {
-		return fmt.Errorf("tenant_uuid invalid: %w", err)
+	cfg := m.opts.CoreConfig
+	if cfg == nil {
+		return fmt.Errorf("gateway contract core config missing")
 	}
-	if m == nil || m.opts.CoreConfig == nil {
-		return fmt.Errorf("core config missing")
+	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
+	if baseURL == "" {
+		port := cfg.Server.Port
+		if port <= 0 {
+			return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
+		}
+		baseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
 	}
-	gdb, err := database.Connect(m.opts.CoreConfig.Database)
-	if err != nil {
-		return fmt.Errorf("connect db failed: %w", err)
+	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
+	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
+	applyWSContractEnv(env, cfg)
+	deleteDeprecatedGatewayRuntimeEnv(env)
+	if err := m.injectRuntimeSTSContract(env, pluginID, runtimeCred); err != nil {
+		return err
 	}
-	sqlDB, _ := gdb.DB()
-	if sqlDB != nil {
-		defer sqlDB.Close()
-	}
-	svc := &setting.PluginInstanceConfigService{
-		PluginInstanceRepo: reposetting.NewPluginInstanceConfigRepository(gdb),
-	}
-	clientID, _, err := svc.EnsureCredentials(ctx, canonicalTenantUUID, pluginID, nil)
-	if err != nil {
-		return fmt.Errorf("ensure credentials failed: %w", err)
-	}
-	clientSecret, err := svc.RotateSecret(ctx, canonicalTenantUUID, pluginID)
-	if err != nil {
-		return fmt.Errorf("rotate credentials failed: %w", err)
-	}
-	env["POWERX_STS_CLIENT_ID"] = strings.TrimSpace(clientID)
-	env["POWERX_STS_CLIENT_SECRET"] = strings.TrimSpace(clientSecret)
-	env["POWERX_STS_AUDIENCE"] = "powerx:api"
-	env["POWERX_STS_SCOPE"] = "access"
-	env["POWERX_GRPC_UPSTREAM_TENANT_UUID"] = canonicalTenantUUID
-	if upstreamAddr := resolvePowerXGRPCUpstreamAddress(m.opts.CoreConfig); upstreamAddr != "" {
-		env["POWERX_GRPC_UPSTREAM_ADDRESS"] = upstreamAddr
-	}
-	if strings.TrimSpace(env["POWERX_GRPC_UPSTREAM_ADDRESS"]) == "" {
-		return fmt.Errorf("grpc upstream address missing")
-	}
-	logger.InfoF(ctx, "[plugin-enable] plugin=%s sts_client_env_injected tenant_uuid=%s client_id=%s grpc_upstream=%s",
-		pluginID,
-		canonicalTenantUUID,
-		clientID,
-		strings.TrimSpace(env["POWERX_GRPC_UPSTREAM_ADDRESS"]),
-	)
 	return nil
 }
 
-func resolvePowerXGRPCUpstreamAddress(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
+func (m *managerImpl) resolvePluginRuntimeCredential(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
+	if m == nil || m.opts.RuntimeCredential == nil {
+		return nil, fmt.Errorf("GW_CFG_MISSING_STS_PROVIDER: plugin runtime credential provider is not configured")
 	}
-	if addr := strings.TrimSpace(os.Getenv("POWERX_GRPC_UPSTREAM_ADDRESS")); addr != "" {
-		return addr
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	grpcCfg := cfg.Server.GRPC
-	port := grpcCfg.Port
-	if port <= 0 {
-		return ""
+	cred, err := m.opts.RuntimeCredential(ctx, pluginID)
+	if err != nil {
+		return nil, fmt.Errorf("GW_CFG_STS_PROVIDER_FAILED: %w", err)
 	}
-	host := strings.TrimSpace(grpcCfg.Host)
-	if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" {
-		host = "127.0.0.1"
+	if cred == nil {
+		return nil, fmt.Errorf("GW_CFG_MISSING_STS_CLIENT: plugin runtime credential is nil")
 	}
-	return net.JoinHostPort(host, strconv.Itoa(port))
+	return cred, nil
 }
 
-func tenantUUIDFromContext(ctx context.Context) (string, bool) {
-	uuid, err := reqctx.RequireTenantUUID(ctx)
-	if err != nil {
-		return "", false
+func (m *managerImpl) injectRuntimeSTSContract(env map[string]string, pluginID string, cred *PluginRuntimeCredential) error {
+	if cred == nil {
+		var err error
+		cred, err = m.resolvePluginRuntimeCredential(context.Background(), pluginID)
+		if err != nil {
+			return err
+		}
 	}
-	canonical, err := reqctx.CanonicalTenantUUID(uuid)
-	if err != nil {
-		return "", false
+	clientID := strings.TrimSpace(cred.ClientID)
+	clientSecret := strings.TrimSpace(cred.ClientSecret)
+	tenantUUID := strings.TrimSpace(cred.TenantUUID)
+	grpcAddress := strings.TrimSpace(cred.GRPCAddress)
+	if clientID == "" || clientSecret == "" {
+		return fmt.Errorf("GW_CFG_MISSING_STS_CLIENT: delegated host mode requires STS client env")
 	}
-	return canonical, true
+	if tenantUUID == "" {
+		return fmt.Errorf("GW_CFG_MISSING_STS_TENANT: delegated host mode requires POWERX_GRPC_UPSTREAM_TENANT_UUID")
+	}
+	if grpcAddress == "" {
+		return fmt.Errorf("GW_CFG_MISSING_GRPC_UPSTREAM: delegated host mode requires POWERX_GRPC_UPSTREAM_ADDRESS")
+	}
+	applyRuntimeCredentialToEnv(env, cred)
+	return nil
+}
+
+func applyRuntimeCredentialToEnv(env map[string]string, cred *PluginRuntimeCredential) {
+	if env == nil || cred == nil {
+		return
+	}
+	if baseURL := strings.TrimSpace(cred.GatewayBaseURL); baseURL != "" {
+		env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
+	}
+	env["POWERX_STS_CLIENT_ID"] = strings.TrimSpace(cred.ClientID)
+	env["POWERX_STS_CLIENT_SECRET"] = strings.TrimSpace(cred.ClientSecret)
+	env["POWERX_STS_AUDIENCE"] = strings.TrimSpace(cred.STSAudience)
+	if env["POWERX_STS_AUDIENCE"] == "" {
+		env["POWERX_STS_AUDIENCE"] = "powerx:api"
+	}
+	env["POWERX_STS_SCOPE"] = strings.TrimSpace(cred.STSScope)
+	if env["POWERX_STS_SCOPE"] == "" {
+		env["POWERX_STS_SCOPE"] = "access"
+	}
+	env["POWERX_GRPC_UPSTREAM_ADDRESS"] = strings.TrimSpace(cred.GRPCAddress)
+	env["POWERX_GRPC_UPSTREAM_TENANT_UUID"] = strings.TrimSpace(cred.TenantUUID)
+}
+
+func deleteDeprecatedGatewayRuntimeEnv(env map[string]string) {
+	for _, key := range []string{
+		"PX_GATEWAY_TENANT_UUID",
+		"PX_GATEWAY_API_KEY",
+		"PX_PLUGIN_API_KEY",
+		"PX_TOOL_TOKEN",
+		"PX_PLUGIN_TOOL_TOKEN",
+	} {
+		delete(env, key)
+	}
 }
 
 // Disable: 停用插件 = (卸载路由) + (停进程) + (更新注册表)
@@ -813,106 +773,15 @@ func logPluginGatewayLaunchEnv(ctx context.Context, pluginID string, env map[str
 	if env == nil {
 		env = map[string]string{}
 	}
-	logger.InfoF(ctx, "[plugin-enable] plugin=%s launch_env gateway_base_url_present=%t sts_client_present=%t auth_scheme=%s host_values_present=%t host_values=%s",
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s launch_env gateway_base_url_present=%t sts_client_present=%t grpc_upstream_present=%t auth_scheme=%s host_values_present=%t host_values=%s",
 		pluginID,
 		strings.TrimSpace(env["PX_GATEWAY_BASE_URL"]) != "",
 		strings.TrimSpace(env["POWERX_STS_CLIENT_ID"]) != "",
+		strings.TrimSpace(env["POWERX_GRPC_UPSTREAM_ADDRESS"]) != "",
 		strings.TrimSpace(env["PX_GATEWAY_AUTH_SCHEME"]),
 		strings.TrimSpace(env["POWERX_PLUGIN_HOST_VALUES"]) != "",
 		strings.TrimSpace(env["POWERX_PLUGIN_HOST_VALUES"]),
 	)
-}
-
-func (m *managerImpl) injectGatewaySecurityEnv(ctx context.Context, env map[string]string, pluginID string, tenantUUID string) error {
-	if env == nil {
-		return fmt.Errorf("gateway contract env is nil")
-	}
-	pluginID = strings.TrimSpace(pluginID)
-	if pluginID == "" {
-		return fmt.Errorf("gateway contract plugin id is empty")
-	}
-	tenantUUID = strings.TrimSpace(tenantUUID)
-	if tenantUUID == "" {
-		return fmt.Errorf("GW_CFG_MISSING_TENANT_UUID: tenant uuid missing")
-	}
-	canonicalTenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
-	if err != nil {
-		return fmt.Errorf("GW_CFG_INVALID_TENANT_UUID: %w", err)
-	}
-	cfg := m.opts.CoreConfig
-	if cfg == nil {
-		return fmt.Errorf("gateway contract core config missing")
-	}
-	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
-	if baseURL == "" {
-		port := cfg.Server.Port
-		if port <= 0 {
-			return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
-		}
-		baseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-	}
-
-	if strings.TrimSpace(env["POWERX_STS_CLIENT_ID"]) == "" ||
-		strings.TrimSpace(env["POWERX_STS_CLIENT_SECRET"]) == "" ||
-		strings.TrimSpace(env["POWERX_GRPC_UPSTREAM_ADDRESS"]) == "" ||
-		strings.TrimSpace(env["POWERX_GRPC_UPSTREAM_TENANT_UUID"]) == "" {
-		return fmt.Errorf("STS_BOOTSTRAP_CONTRACT_BROKEN: sts client env missing")
-	}
-
-	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
-	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
-	env["PX_GATEWAY_TENANT_UUID"] = canonicalTenantUUID
-	applyWSContractEnv(env, cfg)
-	delete(env, "PX_GATEWAY_API_KEY")
-	delete(env, "PX_PLUGIN_API_KEY")
-	delete(env, "PX_TOOL_TOKEN")
-	delete(env, "PX_PLUGIN_TOOL_TOKEN")
-	return nil
-}
-
-func (m *managerImpl) injectGatewayBootstrapEnv(env map[string]string, pluginID string) error {
-	if env == nil {
-		return fmt.Errorf("gateway contract env is nil")
-	}
-	pluginID = strings.TrimSpace(pluginID)
-	if pluginID == "" {
-		return fmt.Errorf("gateway contract plugin id is empty")
-	}
-	cfg := m.opts.CoreConfig
-	if cfg == nil {
-		return fmt.Errorf("gateway contract core config missing")
-	}
-	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
-	if baseURL == "" {
-		port := cfg.Server.Port
-		if port <= 0 {
-			return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
-		}
-		baseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-	}
-
-	bootstrapTenant := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BOOTSTRAP_TENANT_UUID"))
-	if bootstrapTenant == "" {
-		resolvedTenant, err := m.resolveBootstrapTenantUUID(pluginID)
-		if err != nil {
-			return fmt.Errorf("GW_CFG_MISSING_TENANT_UUID: %w", err)
-		}
-		bootstrapTenant = resolvedTenant
-	}
-	canonicalTenantUUID, err := reqctx.CanonicalTenantUUID(bootstrapTenant)
-	if err != nil {
-		return fmt.Errorf("GW_CFG_INVALID_TENANT_UUID: %w", err)
-	}
-
-	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
-	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
-	env["PX_GATEWAY_TENANT_UUID"] = canonicalTenantUUID
-	applyWSContractEnv(env, cfg)
-	delete(env, "PX_GATEWAY_API_KEY")
-	delete(env, "PX_PLUGIN_API_KEY")
-	delete(env, "PX_TOOL_TOKEN")
-	delete(env, "PX_PLUGIN_TOOL_TOKEN")
-	return nil
 }
 
 func applyWSContractEnv(env map[string]string, cfg *config.Config) {
@@ -947,55 +816,6 @@ func applyWSContractEnv(env map[string]string, cfg *config.Config) {
 	env["NUXT_PUBLIC_WS_ORIGIN"] = wsBase
 }
 
-func (m *managerImpl) resolveBootstrapTenantUUID(pluginID string) (string, error) {
-	pluginID = strings.TrimSpace(pluginID)
-	cfg := m.opts.CoreConfig
-	if cfg == nil {
-		return "", fmt.Errorf("core config missing")
-	}
-	gdb, err := database.Connect(cfg.Database)
-	if err != nil {
-		return "", fmt.Errorf("connect db failed: %w", err)
-	}
-	sqlDB, _ := gdb.DB()
-	if sqlDB != nil {
-		defer sqlDB.Close()
-	}
-
-	type tenantRow struct {
-		TenantUUID string `gorm:"column:tenant_uuid"`
-	}
-	var pRow tenantRow
-	err = gdb.Table("public.plugin_instance_configs").
-		Select("tenant_uuid").
-		Where("plugin_id = ? AND enabled = ? AND deleted_at IS NULL AND tenant_uuid IS NOT NULL AND tenant_uuid <> ''", pluginID, true).
-		Order("updated_at DESC").
-		Limit(1).
-		Take(&pRow).Error
-	if err == nil {
-		if canonical, cerr := reqctx.CanonicalTenantUUID(strings.TrimSpace(pRow.TenantUUID)); cerr == nil && !strings.EqualFold(canonical, "00000000-0000-0000-0000-000000000000") {
-			return canonical, nil
-		}
-	}
-
-	type activeTenantRow struct {
-		UUID string `gorm:"column:uuid"`
-	}
-	var tRow activeTenantRow
-	err = gdb.Table("public.iam_tenant").
-		Select("uuid").
-		Where("status = ? AND deleted_at IS NULL", 1).
-		Order("updated_at DESC").
-		Limit(1).
-		Take(&tRow).Error
-	if err == nil {
-		if canonical, cerr := reqctx.CanonicalTenantUUID(strings.TrimSpace(tRow.UUID)); cerr == nil && !strings.EqualFold(canonical, "00000000-0000-0000-0000-000000000000") {
-			return canonical, nil
-		}
-	}
-	return "", fmt.Errorf("bootstrap tenant uuid missing")
-}
-
 func (m *managerImpl) probeGatewayContract(
 	ctx context.Context,
 	pluginID, apiBaseURL, apiHealthPath string,
@@ -1016,7 +836,6 @@ func (m *managerImpl) probeGatewayContract(
 	if policy.AuthRequired {
 		emitGatewayContractAudit(ctx, pluginID, map[string]any{
 			"tenant_uuid_present": hasTenant,
-			"sts_client_present":  strings.TrimSpace(env["POWERX_STS_CLIENT_ID"]) != "",
 			"auth_scheme":         strings.TrimSpace(env["PX_GATEWAY_AUTH_SCHEME"]),
 		}, "dry_run_skipped_sts_only")
 		return nil

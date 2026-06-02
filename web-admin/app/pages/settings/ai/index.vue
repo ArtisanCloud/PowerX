@@ -287,21 +287,8 @@ const registryLink = computed(() =>
 
 const route = useRoute();
 const userStore = useUserStore();
-const { isRoot } = storeToRefs(userStore);
-
-onMounted(async () => {
-  try {
-    const queryModality = resolveModalityFromQuery(route.query?.modality);
-    if (queryModality) {
-      modality.value = queryModality;
-    }
-    if (!userStore.context) {
-      await userStore.fetchUserContext();
-    }
-  } catch (error) {
-    console.error("加载用户上下文失败:", error);
-  }
-});
+const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
+const allowTenantAISettings = computed(() => !isRoot.value && isCurrentTenantAdmin.value);
 
 /**
  * Tab & 环境
@@ -1567,6 +1554,17 @@ async function handleEnvChange(nextEnv: string) {
 // 页面初始化
 onMounted(async () => {
   try {
+    const queryModality = resolveModalityFromQuery(route.query?.modality);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
+    if (!userStore.context) {
+      await userStore.fetchUserContext();
+    }
+    if (!allowTenantAISettings.value) {
+      await navigateTo("/dashboard");
+      return;
+    }
     envStore.initialize();
     await aiSettingsStore.initialize(env.value);
     await refreshStateForEnvAndModality();

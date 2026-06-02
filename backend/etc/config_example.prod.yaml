@@ -44,6 +44,8 @@ server:
       max_concurrent_streams: 0
 
 http_security:
+  web_admin_origins:
+    - "https://admin.powerx.io"
   frame_ancestors:
     - "'self'"
     - "http://localhost:3000"
@@ -62,6 +64,7 @@ feature_gate:
   enable_knowledge_space: true
   enable_media_platform: true
   enable_experimental_features: true
+  enable_saas_signup_verification_code: false
 
 database:
   driver: postgres

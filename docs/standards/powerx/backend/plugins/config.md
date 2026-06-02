@@ -16,6 +16,10 @@ database:
   managed: true
 runtime:
   run_migrate: true
+host:
+  web_admin_origins:
+    - http://localhost:3030
+    - http://127.0.0.1:3030
 server:
   bind_addr: ":8091"
   log_level: debug
@@ -29,6 +33,12 @@ env:
 ```
 
 > **提示**：`env` 字段用于回写宿主注入的环境变量，插件代码可继续兼容原有的 `POWERX_*` 读取方式。
+
+## 配置边界
+
+`host-values.yaml` 由 PowerX 底座在插件安装、替换、启用自修复时生成。插件侧可以通过示例配置声明自己支持的私有字段，但 PowerX 不应猜测或写入插件私有字段，例如 `security.cors_origins`、`crawler.*`、`provider.*`。
+
+PowerX 只写入平台标准 Host Contract 字段和宿主确定的运行参数。插件如需将标准字段映射到自身配置，应在插件配置加载器内完成。
 
 ## 数据库隔离策略
 
@@ -49,7 +59,32 @@ env:
 | `database.user_host` | MySQL 用户绑定的 Host（默认 `%`），用于后续回收账号。 |
 | `database.managed` | 标记该段配置由宿主管理，卸载时触发自动清理。 |
 | `runtime.run_migrate` | 首次启用时默认执行数据库迁移，可按需关闭。 |
+| `host.web_admin_origins` | 宿主 Web Admin 来源白名单。插件可用它补齐自身 CORS 配置，但 PowerX 不直接写插件私有 CORS 字段。 |
 | `env.*` | 注入给插件进程的环境变量，其中 `POWERX_DB_*` 已替换为隔离账号。 |
+
+## Web Admin Origin 规则
+
+`host.web_admin_origins` 表示浏览器访问 PowerX Web Admin 的公开 Origin，用于插件宿主模式下的 CORS/Origin 校验。它不是插件后端监听端口，也不是插件前端静态资源目录。
+
+PowerX 生成该字段时会读取：
+
+1. `http_security.web_admin_origins` 中配置的公开 Web Admin Origin。
+2. `http_security.frame_ancestors` 中配置的明确 Origin（仅作为兼容同源安全配置的补充来源）。
+3. setup/install 保存的 `web_admin_port`，生成本机开发来源，例如 `http://localhost:3030`、`http://127.0.0.1:3030`。
+4. 环境变量 `POWERX_WEB_ADMIN_ORIGINS` 中的补充 Origin，多个值用英文逗号分隔。
+5. 环境变量 `POWERX_PLUGIN_CORS_ORIGINS` 中的补充 Origin，多个值用英文逗号分隔。
+
+生产环境应显式配置公网管理后台 Origin，例如 `https://admin.example.com`。只配置端口只能覆盖本机 Origin，不能推导反向代理后的域名、协议或外部端口。
+
+推荐生产配置：
+
+```yaml
+web_admin_port: 3000
+
+http_security:
+  web_admin_origins:
+    - https://admin.example.com
+```
 
 ## 迁移执行流程
 
@@ -81,5 +116,6 @@ migrations:
 2. 迁移脚本应假定仅能访问自己的 Schema，避免直接引用宿主表；如需跨 Schema 数据，请通过宿主提供的 API 访问。
 3. 插件卸载或版本切换后，如需保留数据，请在卸载前自行导出；宿主默认会回收 Schema 与账号。
 4. 若插件需要额外的外部资源（Redis、消息总线等），可在 Manifest `runtime.env` 中声明，宿主会在 `env` 段中补齐。
+5. 插件有私有配置结构时，应显式把 `host.*` 标准字段映射到私有字段。例如插件内部使用 `security.cors_origins` 时，应读取 `host.web_admin_origins` 并合并到自身 CORS 白名单。
 
 通过以上机制，即使插件被攻破，也只能访问自己受限的 Schema，从数据库层面最大限度降低越权风险。

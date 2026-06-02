@@ -152,11 +152,18 @@ export interface RuntimeSchedulerJobListResult {
 export interface EventFabricTaskQueueSubscriberStats {
   subscriber_id: string;
   tenant_key: string;
+  queue_scope?: "powerx" | "plugin" | string;
+  plugin_id?: string;
+  plugin_tenant_key?: string;
   pending: number;
   deferred: number;
   processing: number;
   inflight: number;
   total_tasks?: number;
+  history_total?: number;
+  completed?: number;
+  failed?: number;
+  last_seen_at?: string;
 }
 
 export interface EventFabricTaskQueueStats {
@@ -181,6 +188,9 @@ export interface EventFabricTaskQueueMessage {
   attempt: number;
   visible_at?: string;
   metadata?: Record<string, string>;
+  queue_scope?: "powerx" | "plugin" | string;
+  plugin_id?: string;
+  plugin_tenant_key?: string;
 }
 
 export interface EventFabricTaskQueueMessagesResult {
@@ -189,6 +199,11 @@ export interface EventFabricTaskQueueMessagesResult {
   tenant_key: string;
   subscriber_id: string;
   limit: number;
+  pagination?: {
+    total: number;
+    page: number;
+    page_size: number;
+  };
   messages: {
     pending: EventFabricTaskQueueMessage[];
     deferred: EventFabricTaskQueueMessage[];
@@ -198,6 +213,9 @@ export interface EventFabricTaskQueueMessagesResult {
   history: Array<{
     task_id: string;
     tenant_key: string;
+    queue_scope?: "powerx" | "plugin" | string;
+    plugin_id?: string;
+    plugin_tenant_key?: string;
     subscriber_id: string;
     topic: string;
     kind: string;
@@ -206,8 +224,12 @@ export interface EventFabricTaskQueueMessagesResult {
     attempt: number;
     source: string;
     submitted_at?: string;
+    started_at?: string;
     completed_at?: string;
     last_seen_at?: string;
+    error_message?: string;
+    payload?: string;
+    metadata?: Record<string, string>;
   }>;
 }
 
@@ -495,9 +517,15 @@ export const useEventFabricService = () => {
         { params }
       );
     },
-    getTaskQueueMessages: (params: { tenant_key: string; subscriber_id: string; limit?: number }) => {
+    getTaskQueueMessages: (params: { tenant_key: string; subscriber_id: string; limit?: number; page?: number; page_size?: number }) => {
       return apiClient.get<ApiResponse<EventFabricTaskQueueMessagesResult>>(
         `${baseUrl}/task-queue/messages`,
+        { params }
+      );
+    },
+    getTaskQueueTask: (taskId: string, params: { tenant_key: string; subscriber_id: string }) => {
+      return apiClient.get<ApiResponse<EventFabricTaskQueueMessagesResult["history"][number]>>(
+        `${baseUrl}/task-queue/tasks/${encodeURIComponent(taskId)}`,
         { params }
       );
     },

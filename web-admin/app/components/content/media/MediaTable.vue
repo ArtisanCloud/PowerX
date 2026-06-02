@@ -16,14 +16,27 @@ import MediaThumbnail from "~/components/content/media/MediaThumbnail.vue";
 const props = defineProps<{
   items: MediaAssetAdminView[];
   loading?: boolean;
+  selectedUuids?: string[];
 }>();
 
 const emit = defineEmits<{
   (e: "select", uuid: string): void;
   (e: "copyLink", uuid: string): void;
+  (e: "toggleSelected", uuid: string, selected: boolean): void;
 }>();
 
 const columns = [
+  {
+    accessorKey: "selected",
+    header: "",
+    cell: ({ row }: any) =>
+      h(resolveComponent("UCheckbox"), {
+        modelValue: isSelected(row.original.uuid),
+        "aria-label": `选择 ${row.original.name || row.original.uuid}`,
+        onClick: (event: Event) => event.stopPropagation(),
+        "onUpdate:modelValue": (value: boolean) => emit("toggleSelected", row.original.uuid, Boolean(value)),
+      }),
+  },
   {
     accessorKey: "name",
     header: "名称/类型",
@@ -130,4 +143,9 @@ function formatTime(value: string) {
 }
 
 const loading = computed(() => !!props.loading);
+const selectedSet = computed(() => new Set((props.selectedUuids || []).map((id) => String(id || "").trim()).filter(Boolean)));
+
+function isSelected(uuid: string) {
+  return selectedSet.value.has(String(uuid || "").trim());
+}
 </script>

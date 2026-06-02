@@ -34,7 +34,6 @@
       var ls = window.localStorage;
       if (payload.accessToken) {
         ls.setItem("access_token", payload.accessToken);
-        setCookie("token", payload.accessToken);
         setCookie("access_token", payload.accessToken);
       }
       if (payload.refreshToken) {
@@ -73,13 +72,12 @@
   function bootstrapAuthFromCookies() {
     try {
       var ls = window.localStorage;
-      var token = getCookie("token") || getCookie("access_token");
+      var token = getCookie("access_token");
       var refreshToken = getCookie("refresh_token");
       var tenantUUID = getCookie("px_current_tenant_uuid");
 
       if (token) {
         ls.setItem("access_token", token);
-        ls.setItem("token", token);
         ls.setItem("token_type", "Bearer");
         if (!ls.getItem("expires_at")) {
           try {
@@ -110,6 +108,26 @@
     var p = path.trim();
     if (!p) return "/";
     if (!p.startsWith("/")) p = "/" + p;
+
+    var adminBase =
+      (window.__NUXT__ &&
+        window.__NUXT__.config &&
+        window.__NUXT__.config.public &&
+        window.__NUXT__.config.public.pluginAdminBase) ||
+      (window.__NUXT__ &&
+        window.__NUXT__.config &&
+        window.__NUXT__.config.app &&
+        window.__NUXT__.config.app.baseURL) ||
+      "";
+    adminBase = String(adminBase || "").replace(/\/?$/, "/");
+
+    var match = p.match(/^\/_p\/[^/]+\/admin(\/.*)?$/);
+    if (match) {
+      return p;
+    }
+    if (adminBase && adminBase.startsWith("/_p/") && !p.startsWith(adminBase)) {
+      p = adminBase.replace(/\/$/, "") + p;
+    }
     return p;
   }
 

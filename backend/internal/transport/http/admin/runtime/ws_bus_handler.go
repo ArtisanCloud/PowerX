@@ -1,15 +1,18 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	aclservice "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	apikeycache "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeycache"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
@@ -41,6 +44,8 @@ type wsBusHandler struct {
 
 type wsTopicLookup interface {
 	FindByComposite(ctx *gin.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error)
+	FindTemplateMatch(ctx *gin.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error)
+	CreateFromTemplate(ctx *gin.Context, template *eventfabricmodel.TopicDefinition, namespace, name, createdBy string) (*eventfabricmodel.TopicDefinition, error)
 }
 
 type wsACLGrantService interface {
@@ -55,7 +60,11 @@ func newWSBusHandler(deps *shared.Deps) *wsBusHandler {
 	var permRepo *integrationrepo.IntegrationGatewayAPIKeyPermissionRepository
 	if deps != nil && deps.DB != nil {
 		authorizer = bus.NewDefaultAuthorizer(deps.DB)
-		topics = newGinTopicLookup(eventshared.NewCachedTopicLookup(eventfabricrepo.NewTopicRepository(deps.DB), eventshared.CachedTopicLookupOptions{}))
+		topicRepo := eventfabricrepo.NewTopicRepository(deps.DB)
+		topics = newGinTopicLookup(
+			eventshared.NewCachedTopicLookup(topicRepo, eventshared.CachedTopicLookupOptions{}),
+			directory.NewDirectoryService(directory.Options{Store: topicRepo}),
+		)
 		apiKeyRepo = integrationrepo.NewIntegrationGatewayAPIKeyRepository(deps.DB)
 		permRepo = integrationrepo.NewIntegrationGatewayAPIKeyPermissionRepository(deps.DB)
 	}
@@ -110,7 +119,6 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 		}
 
 		bound := make([]string, 0, len(registered))
-		fallback := make([]string, 0, len(registered))
 		for _, topicKey := range registered {
 			topicDef, err := resolveTopicForRegister(c, h.topics, strings.TrimSpace(tenantUUID), topicKey)
 			if err != nil {
@@ -118,12 +126,8 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 				return
 			}
 			if topicDef == nil {
-				if isAPIKeyAuth(c) {
-					dto.ResponseError(c, http.StatusNotFound, "topic not found", fmt.Errorf("topic %s not found", topicKey))
-					return
-				}
-				fallback = append(fallback, topicKey)
-				continue
+				dto.ResponseError(c, http.StatusNotFound, "topic not found", fmt.Errorf("topic %s not found", topicKey))
+				return
 			}
 
 			if h.acl != nil {
@@ -145,39 +149,19 @@ func (h *wsBusHandler) grant(c *gin.Context) {
 			bound = append(bound, topicKey)
 		}
 
-		if len(fallback) > 0 {
-			bus.RegisterPublishTopics(tenantUUID, fallback)
-			logger.WarnF(
-				c.Request.Context(),
-				"[ws-bus] grant topic missing in registry, fallback to dynamic tenant=%s topics=%v",
-				strings.TrimSpace(tenantUUID),
-				fallback,
-			)
-		}
-
 		mode := "registry_acl"
-		if len(fallback) > 0 {
-			mode = "registry_acl_compat_dynamic"
-		}
 		logger.InfoF(c.Request.Context(), "[ws-bus] grant via registry tenant=%s topics=%v actions=%v", strings.TrimSpace(tenantUUID), bound, actions)
 		dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
 			"tenant_uuid": strings.TrimSpace(tenantUUID),
 			"topics":      bound,
-			"fallback":    fallback,
+			"fallback":    []string{},
 			"actions":     actions,
 			"mode":        mode,
 		})
 		return
 	}
 
-	registered = bus.RegisterPublishTopics(tenantUUID, registered)
-
-	logger.InfoF(c.Request.Context(), "[ws-bus] grant topics tenant=%s topics=%v", strings.TrimSpace(tenantUUID), registered)
-	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusOK, map[string]interface{}{
-		"tenant_uuid": strings.TrimSpace(tenantUUID),
-		"topics":      registered,
-		"mode":        "compat_dynamic",
-	})
+	dto.ResponseError(c, http.StatusInternalServerError, "topic registry not configured", nil)
 }
 
 func (h *wsBusHandler) publish(c *gin.Context) {
@@ -224,19 +208,8 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 			}
 		}
 	} else {
-		allowed, whitelistHit, dynamicHit := bus.PublishTopicCheck(tenantUUID, reqTopic)
-		if !allowed {
-			logger.DebugF(
-				c.Request.Context(),
-				"[ws-bus] publish rejected tenant=%s topic=%s whitelist=%t dynamic=%t",
-				strings.TrimSpace(tenantUUID),
-				reqTopic,
-				whitelistHit,
-				dynamicHit,
-			)
-			dto.ResponseError(c, http.StatusForbidden, "topic not allowed", nil)
-			return
-		}
+		dto.ResponseError(c, http.StatusInternalServerError, "topic authorizer not configured", nil)
+		return
 	}
 
 	traceID := strings.TrimSpace(req.TraceID)
@@ -254,14 +227,19 @@ func (h *wsBusHandler) publish(c *gin.Context) {
 }
 
 type ginTopicLookup struct {
-	base eventshared.TopicLookup
+	base      eventshared.TopicLookup
+	directory wsTopicDirectory
 }
 
-func newGinTopicLookup(base eventshared.TopicLookup) *ginTopicLookup {
+type wsTopicDirectory interface {
+	CreateTopic(ctx context.Context, input directory.CreateTopicInput) (*directory.Topic, error)
+}
+
+func newGinTopicLookup(base eventshared.TopicLookup, dir wsTopicDirectory) *ginTopicLookup {
 	if base == nil {
 		return nil
 	}
-	return &ginTopicLookup{base: base}
+	return &ginTopicLookup{base: base, directory: dir}
 }
 
 func (l *ginTopicLookup) FindByComposite(ctx *gin.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
@@ -269,6 +247,62 @@ func (l *ginTopicLookup) FindByComposite(ctx *gin.Context, tenantKey, namespace,
 		return nil, nil
 	}
 	return l.base.FindByComposite(ctx.Request.Context(), tenantKey, namespace, name)
+}
+
+func (l *ginTopicLookup) FindTemplateMatch(ctx *gin.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
+	if l == nil || l.base == nil {
+		return nil, nil
+	}
+	templateLookup, ok := l.base.(interface {
+		FindTemplateMatch(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error)
+	})
+	if !ok {
+		return nil, nil
+	}
+	return templateLookup.FindTemplateMatch(ctx.Request.Context(), tenantKey, namespace, name)
+}
+
+func (l *ginTopicLookup) CreateFromTemplate(ctx *gin.Context, template *eventfabricmodel.TopicDefinition, namespace, name, createdBy string) (*eventfabricmodel.TopicDefinition, error) {
+	if l == nil || l.directory == nil || template == nil {
+		return nil, nil
+	}
+	topic, err := l.directory.CreateTopic(ctx.Request.Context(), directory.CreateTopicInput{
+		TenantUUID:      strings.TrimSpace(template.TenantKey),
+		Namespace:       strings.TrimSpace(namespace),
+		Name:            strings.TrimSpace(name),
+		PayloadFormat:   template.PayloadFormat,
+		MaxRetry:        int32(template.MaxRetry),
+		AckTimeoutSec:   int32(template.AckTimeoutSec),
+		VersioningMode:  template.VersioningMode,
+		RetentionPolicy: string(template.RetentionPolicy),
+		Metadata:        instantiateTopicMetadata(template.Metadata),
+		CreatedBy:       strings.TrimSpace(createdBy),
+	})
+	if err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(topic.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &eventfabricmodel.TopicDefinition{
+		PowerUUIDModel:  coremodel.PowerUUIDModel{UUID: id},
+		ScopeType:       eventfabricmodel.TopicScopeTenant,
+		ScopeID:         topic.TenantKey,
+		TenantKey:       topic.TenantKey,
+		Namespace:       topic.Namespace,
+		Name:            topic.Name,
+		FullTopic:       topic.FullTopic,
+		Lifecycle:       topic.Lifecycle,
+		PayloadFormat:   topic.PayloadFormat,
+		RetentionPolicy: template.RetentionPolicy,
+		VersioningMode:  topic.VersioningMode,
+		MaxRetry:        int(topic.MaxRetry),
+		AckTimeoutSec:   int(topic.AckTimeoutSec),
+		Metadata:        template.Metadata,
+		CreatedBy:       strings.TrimSpace(createdBy),
+		Status:          1,
+	}, nil
 }
 
 type ginACLGrantService struct {
@@ -371,7 +405,51 @@ func resolveTopicForRegister(c *gin.Context, store wsTopicLookup, tenantKey stri
 	if topicTenant != "" && !strings.EqualFold(topicTenant, tenantKey) && !isSharedWSRegisterTopicTenant(topicTenant) {
 		return nil, fmt.Errorf("topic tenant mismatch: %s", topic)
 	}
-	return store.FindByComposite(c, tenantKey, namespace, name)
+	topicDef, err := store.FindByComposite(c, tenantKey, namespace, name)
+	if err != nil || topicDef != nil {
+		return topicDef, err
+	}
+	template, err := store.FindTemplateMatch(c, tenantKey, namespace, name)
+	if err != nil || template == nil {
+		return nil, err
+	}
+	if !templateHasRuntimeTokens(template) {
+		return nil, fmt.Errorf("matched topic template has no runtime tokens: %s.%s", template.Namespace, template.Name)
+	}
+	createdBy := buildWSPrincipalID(c, reqctx.GetMemberID(c.Request.Context()), reqctx.GetUserID(c.Request.Context()))
+	if createdBy == "" {
+		createdBy = "ws-bus-grant"
+	}
+	created, err := store.CreateFromTemplate(c, template, namespace, name, createdBy)
+	if err != nil {
+		existing, findErr := store.FindByComposite(c, tenantKey, namespace, name)
+		if findErr == nil && existing != nil && isTopicExistsError(err) {
+			return existing, nil
+		}
+		return nil, err
+	}
+	return created, nil
+}
+
+func templateHasRuntimeTokens(topic *eventfabricmodel.TopicDefinition) bool {
+	if topic == nil {
+		return false
+	}
+	raw := strings.ToLower(strings.TrimSpace(topic.Namespace + "." + topic.Name))
+	return strings.Contains(raw, "{{member_uuid}}") ||
+		strings.Contains(raw, "{{member.uuid}}") ||
+		strings.Contains(raw, "{{thread_id}}") ||
+		strings.Contains(raw, "{{thread.id}}")
+}
+
+func isTopicExistsError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "already exists")
+}
+
+func instantiateTopicMetadata(_ []byte) map[string]interface{} {
+	return map[string]interface{}{
+		"runtime_instance": true,
+	}
 }
 
 func parseRegisterTopic(topic string) (tenant string, namespace string, name string, err error) {

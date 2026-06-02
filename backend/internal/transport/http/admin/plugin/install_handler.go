@@ -4,13 +4,21 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
+	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -25,97 +33,120 @@ type installLocalReq struct {
 	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
-func PluginInstallLocalHandler(c *gin.Context) {
-	var (
-		req     installLocalReq
-		srcPath string
-		cleanup func()
-		err     error
-	)
+func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			req     installLocalReq
+			srcPath string
+			cleanup func()
+			err     error
+		)
 
-	// multipart 优先：文件选择器上传
-	if strings.HasPrefix(strings.ToLower(c.ContentType()), "multipart/form-data") {
-		req.Enable = parseBool(c.PostForm("enable"))
-		req.Force = parseBool(c.PostForm("force"))
+		// multipart 优先：文件选择器上传
+		if strings.HasPrefix(strings.ToLower(c.ContentType()), "multipart/form-data") {
+			req.Enable = parseBool(c.PostForm("enable"))
+			req.Force = parseBool(c.PostForm("force"))
 
-		var uploadedPath string
-		fileHeader, ferr := c.FormFile("file")
-		if ferr == nil && fileHeader != nil {
-			uploadedPath, cleanup, err = saveUploadedFileToTemp(fileHeader)
-		} else {
-			var formErr error
-			var form *multipart.Form
-			form, formErr = c.MultipartForm()
-			if formErr != nil || form == nil || len(form.File["files"]) == 0 {
-				dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
+			var uploadedPath string
+			fileHeader, ferr := c.FormFile("file")
+			if ferr == nil && fileHeader != nil {
+				uploadedPath, cleanup, err = saveUploadedFileToTemp(fileHeader)
+			} else {
+				var formErr error
+				var form *multipart.Form
+				form, formErr = c.MultipartForm()
+				if formErr != nil || form == nil || len(form.File["files"]) == 0 {
+					dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
+					return
+				}
+				uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], form.Value["file_paths"])
+			}
+			if err != nil {
+				dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
 				return
 			}
-			uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], form.Value["file_paths"])
-		}
-		if err != nil {
-			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-			return
-		}
-		var resolveCleanup func()
-		srcPath, resolveCleanup, err = resolveInstallSource(uploadedPath)
-		if err != nil {
-			if cleanup != nil {
-				cleanup()
-				cleanup = nil
+			var resolveCleanup func()
+			srcPath, resolveCleanup, err = resolveInstallSource(uploadedPath)
+			if err != nil {
+				if cleanup != nil {
+					cleanup()
+					cleanup = nil
+				}
+				dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+				return
 			}
-			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-			return
-		}
-		if resolveCleanup != nil {
-			prevCleanup := cleanup
-			cleanup = func() {
-				resolveCleanup()
-				if prevCleanup != nil {
-					prevCleanup()
+			if resolveCleanup != nil {
+				prevCleanup := cleanup
+				cleanup = func() {
+					resolveCleanup()
+					if prevCleanup != nil {
+						prevCleanup()
+					}
 				}
 			}
+		} else {
+			// JSON 兼容：服务端本地路径安装
+			if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+				dtoRequest.ResponseValidationError(c, err)
+				return
+			}
+			srcPath, cleanup, err = resolveInstallSource(req.SrcDir)
+			if err != nil {
+				dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+				return
+			}
 		}
-	} else {
-		// JSON 兼容：服务端本地路径安装
-		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
-			dtoRequest.ResponseValidationError(c, err)
-			return
+		if cleanup != nil {
+			defer cleanup()
 		}
-		srcPath, cleanup, err = resolveInstallSource(req.SrcDir)
-		if err != nil {
-			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-			return
-		}
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
 
-	mgr, err := tryGetPluginManager()
-	if err != nil {
-		respondPluginRuntimeUnavailable(c, err)
-		return
+		mgr, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		ctx := c.Request.Context()
+		meta := coalesceInstallMetadata(c, req.Metadata)
+		p, err := mgr.InstallFromFile(ctx, srcPath, plugin_mgr.InstallOptions{
+			AutoEnable: req.Enable,
+			Force:      req.Force,
+			Metadata:   meta,
+		})
+		if err != nil {
+			respondPluginInstallError(c, "安装失败", err)
+			return
+		}
+		seeded := 0
+		var tenantInstance any
+		if req.Enable {
+			if err := completeReadyDrainJobsAfterRuntimeEnabled(c, deps, p.ID); err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Drain 状态恢复失败", err)
+				return
+			}
+			tenantInstance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
+			if err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：租户插件启用失败", err)
+				return
+			}
+			seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
+			if err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Topic 注册失败", err)
+				return
+			}
+		}
+		// 安装接口返回“刚安装的版本”（已在 InstallFromFile 内保证）
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"installed": gin.H{
+				"id":      p.ID,
+				"version": p.Version,
+				"state":   p.State,
+			},
+			"enabled":                     req.Enable,
+			"tenant_instance":             tenantInstance,
+			"event_fabric_seeded_tenants": seeded,
+			"metadata":                    meta,
+		})
 	}
-	ctx := c.Request.Context()
-	meta := coalesceInstallMetadata(c, req.Metadata)
-	p, err := mgr.InstallFromFile(ctx, srcPath, plugin_mgr.InstallOptions{
-		AutoEnable: req.Enable,
-		Force:      req.Force,
-		Metadata:   meta,
-	})
-	if err != nil {
-		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-		return
-	}
-	// 安装接口返回“刚安装的版本”（已在 InstallFromFile 内保证）
-	dtoRequest.ResponseSuccess(c, gin.H{
-		"installed": gin.H{
-			"id":      p.ID,
-			"version": p.Version,
-			"state":   p.State,
-		},
-		"metadata": meta,
-	})
 }
 
 func parseBool(v string) bool {
@@ -418,33 +449,44 @@ type switchVersionReq struct {
 	Enable  bool   `json:"enable"`
 }
 
-func PluginSwitchVersionHandler(c *gin.Context) {
-	var req switchVersionReq
-	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
-		dtoRequest.ResponseValidationError(c, err)
-		return
-	}
-	id := c.Param("id")
-	if id == "" {
-		dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
-		return
-	}
+func PluginSwitchVersionHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req switchVersionReq
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
+			return
+		}
+		id := c.Param("id")
+		if id == "" {
+			dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
+			return
+		}
 
-	mgr, err := tryGetPluginManager()
-	if err != nil {
-		respondPluginRuntimeUnavailable(c, err)
-		return
+		mgr, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		p, err := mgr.SwitchVersion(c.Request.Context(), id, req.Version, req.Enable)
+		if err != nil {
+			respondPluginInstallError(c, "切换版本失败", err)
+			return
+		}
+		seeded := 0
+		if req.Enable {
+			seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, id)
+			if err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "切换版本失败：Topic 注册失败", err)
+				return
+			}
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"id":                          p.ID,
+			"version":                     p.Version,
+			"state":                       p.State,
+			"event_fabric_seeded_tenants": seeded,
+		})
 	}
-	p, err := mgr.SwitchVersion(c.Request.Context(), id, req.Version, req.Enable)
-	if err != nil {
-		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "切换版本失败", err)
-		return
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{
-		"id":      p.ID,
-		"version": p.Version,
-		"state":   p.State,
-	})
 }
 
 // POST /api/admin/plugins/install/url
@@ -458,50 +500,126 @@ type installURLReq struct {
 	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
-func PluginInstallURLHandler(c *gin.Context) {
-	var req installURLReq
-	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
-		dtoRequest.ResponseValidationError(c, err)
-		return
-	}
-	mgr, err := tryGetPluginManager()
-	if err != nil {
-		respondPluginRuntimeUnavailable(c, err)
-		return
-	}
-	ctx := c.Request.Context()
-
-	// 安装（只登记、不自动启用）
-	meta := coalesceInstallMetadata(c, req.Metadata)
-	p, err := mgr.InstallFromURL(ctx, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
-		VerifyChecksum:  req.SHA256 != "", // 传了就校验
-		VerifySignature: false,            // 先关；后续接公钥再开
-		AutoEnable:      req.Enable,
-		Force:           req.Force,
-		Metadata:        meta,
-	})
-	if err != nil {
-		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
-		return
-	}
-
-	// 可选：安装完切换并启用该版本
-	if req.Enable {
-		if _, err := mgr.SwitchVersion(ctx, p.ID, p.Version, true); err != nil {
-			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装成功但启用失败", err)
+func PluginInstallURLHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req installURLReq
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
-	}
+		mgr, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		ctx := c.Request.Context()
 
-	dtoRequest.ResponseSuccess(c, gin.H{
-		"installed": gin.H{
-			"id":      p.ID,
-			"version": p.Version,
-			"state":   string(p.State),
-		},
-		"enabled":  req.Enable,
-		"metadata": meta,
-	})
+		// 安装（只登记、不自动启用）
+		meta := coalesceInstallMetadata(c, req.Metadata)
+		p, err := mgr.InstallFromURL(ctx, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
+			VerifyChecksum:  req.SHA256 != "", // 传了就校验
+			VerifySignature: false,            // 先关；后续接公钥再开
+			AutoEnable:      req.Enable,
+			Force:           req.Force,
+			Metadata:        meta,
+		})
+		if err != nil {
+			respondPluginInstallError(c, "安装失败", err)
+			return
+		}
+
+		// 可选：安装完切换并启用该版本
+		if req.Enable {
+			if _, err := mgr.SwitchVersion(ctx, p.ID, p.Version, true); err != nil {
+				respondPluginInstallError(c, "安装成功但启用失败", err)
+				return
+			}
+		}
+		seeded := 0
+		var tenantInstance any
+		if req.Enable {
+			if err := completeReadyDrainJobsAfterRuntimeEnabled(c, deps, p.ID); err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Drain 状态恢复失败", err)
+				return
+			}
+			tenantInstance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
+			if err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：租户插件启用失败", err)
+				return
+			}
+			seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
+			if err != nil {
+				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Topic 注册失败", err)
+				return
+			}
+		}
+
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"installed": gin.H{
+				"id":      p.ID,
+				"version": p.Version,
+				"state":   string(p.State),
+			},
+			"enabled":                     req.Enable,
+			"tenant_instance":             tenantInstance,
+			"event_fabric_seeded_tenants": seeded,
+			"metadata":                    meta,
+		})
+	}
+}
+
+func completeReadyDrainJobsAfterRuntimeEnabled(c *gin.Context, deps *shared.Deps, pluginID string) error {
+	if deps == nil || deps.DB == nil {
+		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("database dependency missing"))
+	}
+	_, err := reposetting.NewPluginDrainJobRepository(deps.DB).MarkReadyJobsCompletedByPlugin(c.Request.Context(), pluginID, time.Now().UTC())
+	return err
+}
+
+func enableInstalledPluginForCurrentTenant(c *gin.Context, deps *shared.Deps, p plugin_mgr.Plugin) (any, error) {
+	if deps == nil || deps.DB == nil {
+		return nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("database dependency missing"))
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		return nil, err
+	}
+	tenantUUID, err = reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	instance, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, nil)
+	if err != nil {
+		return nil, err
+	}
+	if clientSecret != "" {
+		_ = pmimplnotify.PushTenantCredentials(c, p.ID, tenantUUID, clientID, clientSecret)
+	}
+	return instance, nil
+}
+
+func respondPluginInstallError(c *gin.Context, message string, err error) {
+	status := plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err))
+	if plugin_mgr.IsCode(err, plugin_mgr.CodeConflict) && strings.Contains(strings.ToLower(err.Error()), "tenant instances") {
+		pluginID := ""
+		version := ""
+		var managerErr *plugin_mgr.ManagerError
+		if errors.As(err, &managerErr) && managerErr != nil {
+			pluginID = managerErr.PluginID
+			version = managerErr.Version
+		}
+		dtoRequest.ResponseErrorWithDetails(c, status, message, nil, gin.H{
+			"code":           "PLUGIN_DRAIN_REQUIRED",
+			"plugin_id":      pluginID,
+			"version":        version,
+			"reason":         "active_tenant_instances",
+			"requires_drain": true,
+			"hint":           "当前插件仍有租户实例在使用。请先发起并完成 drain，再重新安装或切换版本。",
+		})
+		return
+	}
+	dtoRequest.ResponseError(c, status, message, err)
 }
 
 func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {

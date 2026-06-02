@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
@@ -42,12 +43,8 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	if opts.Force {
 		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
 		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
-			// 先逻辑卸载（保留数据库），目录清理由后续 force_cleanup 兜底执行。
-			if err := m.uninstall(ctx, false, man.ID, man.Version); err != nil {
-				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.force_uninstall"),
-					plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
-				)
+			if err := m.replaceInstalledVersion(ctx, man.ID, man.Version, destRoot); err != nil {
+				return plugin_mgr.Plugin{}, err
 			}
 		} else if _, err := os.Stat(destRoot); err == nil {
 			if err := os.RemoveAll(destRoot); err != nil {
@@ -195,6 +192,91 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		HostConfig:      hostCfg,
 		InstallMetadata: opts.Metadata,
 	}, nil
+}
+
+func (m *managerImpl) replaceInstalledVersion(ctx context.Context, id, version, destRoot string) error {
+	if strings.TrimSpace(id) == "" || strings.TrimSpace(version) == "" {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("install_file.force_replace"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithMsg("id or version empty"),
+		)
+	}
+	if m == nil || m.opts.Registry == nil {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInternal,
+			plugin_mgr.WithOp("install_file.force_replace"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithMsg("registry not provided"),
+		)
+	}
+
+	if cur, ok := m.opts.Registry.Get(ctx, id); ok && cur.Version == version && cur.State == plugin_mgr.StateEnabled {
+		if m.opts.TenantInstanceCount != nil {
+			count, err := m.opts.TenantInstanceCount(ctx, id)
+			if err != nil {
+				return plugin_mgr.Wrap(
+					plugin_mgr.CodeLifecycleError,
+					err,
+					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(version),
+				)
+			}
+			if count > 0 {
+				return plugin_mgr.NewError(
+					plugin_mgr.CodeConflict,
+					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(version),
+					plugin_mgr.WithMsg("plugin has %d active tenant instances; drain required before replacing enabled runtime", count),
+				)
+			}
+		}
+		if err := m.Disable(ctx, id); err != nil {
+			return plugin_mgr.Wrap(
+				plugin_mgr.CodeLifecycleError,
+				err,
+				plugin_mgr.WithOp("install_file.force_replace.disable"),
+				plugin_mgr.WithPlugin(id),
+				plugin_mgr.WithVersion(version),
+			)
+		}
+	}
+
+	if err := m.opts.Registry.Remove(ctx, id, version); err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeRegistryError,
+			err,
+			plugin_mgr.WithOp("install_file.force_replace.registry_remove"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+		)
+	}
+	if err := m.opts.Registry.Save(ctx); err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeRegistryError,
+			err,
+			plugin_mgr.WithOp("install_file.force_replace.registry_save"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+		)
+	}
+
+	if err := os.RemoveAll(destRoot); err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeIOError,
+			err,
+			plugin_mgr.WithOp("install_file.force_replace.cleanup"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(destRoot),
+		)
+	}
+	return nil
 }
 
 // 轻量目录拷贝（忽略 .git / .DS_Store）

@@ -67,10 +67,10 @@ Token 已经能表达 member 身份，但 PowerX 的平台资源边界不因此�
 插件持有租户维度凭证：
 
 ```text
-PX_STS_CLIENT_ID=<plugin_id>.<tenant_uuid>
-PX_STS_CLIENT_SECRET=<one_time_or_rotated_secret>
-PX_STS_AUDIENCE=powerx:api
-PX_STS_SCOPE=access
+POWERX_STS_CLIENT_ID=<plugin_id>.<tenant_uuid>
+POWERX_STS_CLIENT_SECRET=<one_time_or_rotated_secret>
+POWERX_STS_AUDIENCE=powerx:api
+POWERX_STS_SCOPE=access
 ```
 
 插件启动后或 token 过期前调用：
@@ -82,8 +82,8 @@ powerx.auth.sts.v1.STSService.Exchange
 请求字段：
 
 ```text
-client_id=<PX_STS_CLIENT_ID>
-client_secret=<PX_STS_CLIENT_SECRET>
+client_id=<POWERX_STS_CLIENT_ID>
+client_secret=<POWERX_STS_CLIENT_SECRET>
 audience=powerx:api
 scope=access
 ttl_seconds=300
@@ -107,6 +107,27 @@ subject = client:<client_id>
 STS access token 的主体是插件服务账号，不是当前登录用户。该 token 的 claims 必须包含 `tid/tid_n`，不应要求或伪造 `uid/uid_n/mid/mid_n`。需要写审计时应记录 `actor_type=plugin` 或 `actor_type=service_account`，并记录 `client_id/plugin_id/tenant_uuid`。
 
 插件 SDK 应在内存中缓存 STS token，并在剩余寿命不足时刷新。遇到 401/403 可强制刷新一次后重试；仍失败则直接返回鉴权错误。
+
+## 托管插件运行态凭证
+
+PowerX 托管的插件进程是全局运行态，按 `plugin_id` 启动，不按业务租户复制进程。
+
+因此，插件进程启动 env 不得绑定某个普通业务租户。PowerX 在启动全局插件进程时，使用 `system` tenant 生成插件 runtime STS 凭证，并注入：
+
+```text
+PX_GATEWAY_BASE_URL
+PX_GATEWAY_AUTH_SCHEME=bearer
+POWERX_STS_CLIENT_ID=<plugin_id>.<system_tenant_uuid>
+POWERX_STS_CLIENT_SECRET=<rotated_runtime_secret>
+POWERX_STS_AUDIENCE=powerx:api
+POWERX_STS_SCOPE=access
+POWERX_GRPC_UPSTREAM_ADDRESS
+POWERX_GRPC_UPSTREAM_TENANT_UUID=<system_tenant_uuid>
+```
+
+该凭证只表达“插件运行态服务身份”，用于启动期注册、taskbus/ws-bus/capability 等平台调用。它不代表任何业务租户成员，也不能作为当前用户身份使用。
+
+租户是否能看到菜单、访问 `/_p/<plugin_id>/admin/*` 或 `/_p/<plugin_id>/api/*`，仍由当前请求的用户 token 和该租户的 `TenantPluginInstance` 启用状态决定。
 
 ## PowerX 代理当前用户请求到插件
 

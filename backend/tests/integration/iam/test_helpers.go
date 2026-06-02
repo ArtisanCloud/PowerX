@@ -6,8 +6,11 @@ import (
 
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	modelbase "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	modelaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modeliam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	modelsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modeltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -37,7 +40,29 @@ func setupIAMFixture(t *testing.T) *iamFixture {
 		&modeliam.Member{},
 		&modeliam.Role{},
 		&modeliam.RoleBinding{},
+		&modeliam.Credential{},
+		&modeliam.RefreshToken{},
+		&modeliam.Permission{},
+		&modeliam.APIKeyProfile{},
+		&modeliam.APIKeyProfilePermission{},
+		&modeliam.RootSupportSession{},
+		&modelaudit.AuditEvent{},
+		&modelsetting.PluginInstanceConfig{},
 	))
+	require.NoError(t, db.Exec(`CREATE TABLE iam_tenant_key_pairs (
+		id integer primary key autoincrement,
+		created_at datetime,
+		updated_at datetime,
+		deleted_at datetime,
+		env text,
+		tenant_uuid text,
+		k_id text,
+		alg text,
+		public_pem text,
+		enc_private JSON,
+		active numeric
+	)`).Error)
+	require.NoError(t, crypto.SetGlobalKeyB64("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="))
 
 	return &iamFixture{
 		DB: db,

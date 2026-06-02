@@ -19,6 +19,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
+	coreconfig "github.com/ArtisanCloud/PowerX/config"
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -129,12 +130,14 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
 	setNestedValue(structured, []string{"runtime", "run_migrate"}, true)
+	m.applyHostCORSContract(selected, structured)
 
 	if seed != nil {
 		selected = mergeStringMapMissing(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
-	m.applyDelegatedHostContract(selected, structured)
+	m.applyDelegatedHostContract(selected, structured, man.ID, nil)
+	m.applyHostCORSContract(selected, structured)
 	normalizePluginLogEnv(selected)
 
 	// 插件 API 网关安全配置：默认使用宿主 JWT 模式，需覆盖 seed/旧配置
@@ -192,7 +195,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 // applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
 // Some plugin runtimes prefer reading host-values.yaml over process env.
-func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any) {
+func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any, pluginID string, runtimeCred *PluginRuntimeCredential) {
 	if selected == nil {
 		return
 	}
@@ -229,6 +232,14 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	if m != nil && m.opts.CoreConfig != nil {
 		applyWSContractEnv(selected, m.opts.CoreConfig)
 	}
+	deleteDeprecatedGatewayRuntimeEnv(selected)
+	if runtimeCred != nil {
+		applyRuntimeCredentialToEnv(selected, runtimeCred)
+	} else if m != nil && m.opts.RuntimeCredential != nil {
+		if resolved, err := m.opts.RuntimeCredential(context.Background(), strings.TrimSpace(pluginID)); err == nil && resolved != nil {
+			applyRuntimeCredentialToEnv(selected, resolved)
+		}
+	}
 
 	if structured == nil {
 		return
@@ -240,9 +251,72 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	setNestedValue(structured, []string{"event_bridge", "mode"}, "taskbus")
 }
 
+func (m *managerImpl) applyHostCORSContract(selected map[string]string, structured map[string]any) {
+	origins := m.hostCORSOrigins()
+	if len(origins) == 0 {
+		return
+	}
+	setNestedValue(structured, []string{"host", "web_admin_origins"}, origins)
+	if selected != nil {
+		selected["POWERX_HOST_WEB_ADMIN_ORIGINS"] = strings.Join(origins, ",")
+	}
+}
+
+func (m *managerImpl) hostCORSOrigins() []string {
+	values := make([]string, 0, 6)
+	if m != nil && m.opts.CoreConfig != nil {
+		values = append(values, m.opts.CoreConfig.HTTPSecurity.WebAdminOrigins...)
+		values = append(values, m.opts.CoreConfig.HTTPSecurity.FrameAncestors...)
+		ports := coreconfig.ResolveEffectivePorts(m.opts.CoreConfig)
+		if ports.WebAdminPort > 0 {
+			values = append(values,
+				fmt.Sprintf("http://localhost:%d", ports.WebAdminPort),
+				fmt.Sprintf("http://127.0.0.1:%d", ports.WebAdminPort),
+			)
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("POWERX_PLUGIN_CORS_ORIGINS")); raw != "" {
+		for _, part := range strings.Split(raw, ",") {
+			values = append(values, strings.TrimSpace(part))
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("POWERX_WEB_ADMIN_ORIGINS")); raw != "" {
+		for _, part := range strings.Split(raw, ",") {
+			values = append(values, strings.TrimSpace(part))
+		}
+	}
+	return sanitizeHostCORSOrigins(values)
+}
+
+func sanitizeHostCORSOrigins(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		origin := strings.TrimSpace(value)
+		if origin == "" || origin == "'self'" || strings.Contains(origin, "*") {
+			continue
+		}
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			continue
+		}
+		scheme := strings.ToLower(parsed.Scheme)
+		if scheme != "http" && scheme != "https" {
+			continue
+		}
+		key := scheme + "://" + strings.ToLower(parsed.Host)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	return out
+}
+
 // ensureDelegatedHostContractForEnable repairs stale host-values before process start.
 // This keeps old installed versions self-healing without forcing reinstall.
-func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin) error {
+func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin, runtimeCred *PluginRuntimeCredential) error {
 	if p == nil {
 		return nil
 	}
@@ -262,7 +336,8 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin)
 
 	values := cloneStringMap(hc.Values)
 	spec := cloneAnyMap(hc.Spec)
-	m.applyDelegatedHostContract(values, spec)
+	m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred)
+	m.applyHostCORSContract(values, spec)
 	hc.Values = values
 	hc.Spec = spec
 
@@ -291,6 +366,7 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin)
 	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
 	setNestedValue(doc, []string{"event_bridge", "enabled"}, true)
 	setNestedValue(doc, []string{"event_bridge", "mode"}, "taskbus")
+	m.applyHostCORSContract(values, doc)
 
 	data, err := yaml.Marshal(doc)
 	if err != nil {

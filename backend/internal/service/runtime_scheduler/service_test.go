@@ -2,11 +2,14 @@ package runtimescheduler
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
+	modelsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
+	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/golang-jwt/jwt/v5"
@@ -56,6 +59,32 @@ func TestServiceCreateTriggerAndRuns(t *testing.T) {
 	}
 	if total != 1 || len(runs) != 1 {
 		t.Fatalf("unexpected runs total=%d len=%d", total, len(runs))
+	}
+}
+
+func TestServiceRejectsCreateJobWhenPluginDraining(t *testing.T) {
+	svc, ctx := newTestService(t, nil)
+	err := reposetting.NewPluginInstanceConfigRepository(svc.db).Upsert(ctx, &modelsetting.PluginInstanceConfig{
+		TenantUUID: schedulerTestTenant,
+		PluginID:   "com.powerx.plugins.ai-craft",
+		Key:        reposetting.KeyClientCredentials,
+		Enabled:    false,
+		Status:     modelsetting.PluginInstanceStatusDrainingRequested,
+	})
+	if err != nil {
+		t.Fatalf("seed draining plugin instance: %v", err)
+	}
+	_, err = svc.CreateJob(ctx, JobSpec{
+		TenantUUID:   schedulerTestTenant,
+		OwnerType:    models.OwnerTypePlugin,
+		OwnerID:      "com.powerx.plugins.ai-craft",
+		Name:         "blocked",
+		ScheduleType: models.ScheduleTypeInterval,
+		ScheduleExpr: "15m",
+		Payload:      map[string]any{"business_action": "blocked"},
+	}, "tester", "trace-blocked")
+	if err == nil {
+		t.Fatal("CreateJob() err = nil, want plugin draining conflict")
 	}
 }
 
@@ -238,11 +267,11 @@ func newTestServiceWithClockAndClaims(t *testing.T, clock func() time.Time, bus 
 	previousSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() { coremodel.PowerXSchema = previousSchema })
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&parseTime=true&_loc=UTC"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared&parseTime=true&_loc=UTC", t.Name())), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&models.SchedulerJob{}, &models.SchedulerJobRun{}); err != nil {
+	if err := db.AutoMigrate(&models.SchedulerJob{}, &models.SchedulerJobRun{}, &modelsetting.PluginInstanceConfig{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	svc := NewService(Options{DB: db, Clock: clock, EventBus: bus})

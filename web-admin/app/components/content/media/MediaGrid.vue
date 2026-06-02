@@ -3,9 +3,17 @@
     <UCard
       v-for="asset in items"
       :key="asset.uuid"
-      class="cursor-pointer hover:shadow-md transition-shadow"
+      class="relative cursor-pointer hover:shadow-md transition-shadow"
       @click="$emit('select', asset.uuid)"
     >
+      <div class="absolute left-3 top-3 z-10 rounded-md bg-[var(--bg-primary)]/90 px-1 py-0.5 shadow-sm">
+        <UCheckbox
+          :model-value="isSelected(asset.uuid)"
+          :aria-label="`选择 ${asset.name || asset.uuid}`"
+          @click.stop
+          @update:model-value="$emit('toggleSelected', asset.uuid, Boolean($event))"
+        />
+      </div>
       <div class="space-y-3">
         <MediaThumbnail :asset="asset" container-class="h-36 w-full" />
 
@@ -37,13 +45,21 @@
 import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
 import MediaThumbnail from "~/components/content/media/MediaThumbnail.vue";
 
-defineProps<{
+const props = defineProps<{
   items: MediaAssetAdminView[];
+  selectedUuids?: string[];
 }>();
 
 defineEmits<{
   (e: "select", uuid: string): void;
+  (e: "toggleSelected", uuid: string, selected: boolean): void;
 }>();
+
+const selectedSet = computed(() => new Set((props.selectedUuids || []).map((id) => String(id || "").trim()).filter(Boolean)));
+
+function isSelected(uuid: string) {
+  return selectedSet.value.has(String(uuid || "").trim());
+}
 
 function statusColor(status: string) {
   switch (String(status || "").toLowerCase()) {

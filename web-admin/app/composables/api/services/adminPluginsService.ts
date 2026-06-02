@@ -11,12 +11,31 @@ export type AdminPluginItem = {
   isSystemInstalled?: boolean;
   isSystemEnabled?: boolean;
   systemStatus?: string;
+  tenantEnabled?: boolean;
+  tenantStatus?: string;
+  tenantInstance?: TenantPluginInstance | null;
+};
+
+export type TenantPluginInstance = {
+  tenant_uuid: string;
+  plugin_id: string;
+  version: string;
+  enabled: boolean;
+  status?: string;
+  drain_job_id?: string;
+  config?: Record<string, any>;
 };
 
 export const useAdminPluginsService = () => {
   const api = useApiClient();
   const base = "/admin/plugins";
   const unwrap = (r: any) => (r && typeof r === 'object' && 'data' in r ? (r as any).data : r);
+  const listTenantInstances = async (): Promise<TenantPluginInstance[]> => {
+    const d = unwrap(await api.get(`${base}/tenant-instances`));
+    if (Array.isArray(d)) return d as TenantPluginInstance[];
+    if (d && Array.isArray((d as any).items)) return (d as any).items as TenantPluginInstance[];
+    return [];
+  };
 
   return {
     // 市场列表
@@ -72,6 +91,32 @@ export const useAdminPluginsService = () => {
         )
       ),
 
+    createDrainJob: async (id: string, payload?: { version?: string; reason?: string; mode?: string }) =>
+      unwrap(
+        await api.post(
+          `${base}/${encodeURIComponent(id)}/drain`,
+          payload || {},
+          { timeout: 120000 }
+        )
+      ),
+    listDrainJobs: async (id: string, params?: Record<string, any>) =>
+      unwrap(await api.get(`${base}/${encodeURIComponent(id)}/drain`, { params } as any)),
+    refreshDrainJob: async (jobId: string) =>
+      unwrap(await api.post(`${base}/drain/${encodeURIComponent(jobId)}/refresh`, {}, { timeout: 120000 })),
+    listDrainBlockers: async (
+      id: string,
+      params?: { kind?: "event_task" | "scheduler_job"; page?: number; page_size?: number }
+    ) =>
+      unwrap(await api.get(`${base}/${encodeURIComponent(id)}/drain/blockers`, { params } as any)),
+    cancelDrainBlockers: async (id: string, payload?: { reason?: string; event_task_ids?: number[]; scheduler_job_uuids?: string[] }) =>
+      unwrap(
+        await api.post(
+          `${base}/${encodeURIComponent(id)}/drain/cancel_blockers`,
+          payload || {},
+          { timeout: 120000 }
+        )
+      ),
+
     // 运行状态/日志
     status: async (id: string) => unwrap(await api.get(`${base}/${encodeURIComponent(id)}/status`)),
     logs: async (id: string, params?: Record<string, any>) => unwrap(await api.get(`${base}/${encodeURIComponent(id)}/logs`, { params } as any)),
@@ -82,8 +127,15 @@ export const useAdminPluginsService = () => {
       unwrap(await api.post(`${base}/${encodeURIComponent(id)}/switch_version`, { version, ...(payload || {}) })),
 
     // 租户级
-    getTenantConfig: async (id: string) => unwrap(await api.get(`${base}/${encodeURIComponent(id)}/tenant_config`)),
-    setTenantEnabled: async (id: string, enabled: boolean) => unwrap(await api.post(`${base}/${encodeURIComponent(id)}/tenant_enable`, { enabled })),
+    listTenantInstances,
+    getTenantConfig: async (id: string) => {
+      const rows = await listTenantInstances();
+      return rows.find((row: TenantPluginInstance) => row.plugin_id === id) || null;
+    },
+    setTenantEnabled: async (id: string, enabled: boolean) => {
+      const endpoint = enabled ? "enable" : "disable";
+      return unwrap(await api.post(`${base}/tenant-instances/${encodeURIComponent(id)}/${endpoint}`, {}));
+    },
     getCredentials: async (id: string) => unwrap(await api.get(`${base}/${encodeURIComponent(id)}/credentials`)),
     rotateCredentials: async (id: string) => unwrap(await api.post(`${base}/${encodeURIComponent(id)}/credentials/rotate`)),
     deleteTenantConfig: (id: string) => api.delete(`${base}/${encodeURIComponent(id)}/tenant_config`),

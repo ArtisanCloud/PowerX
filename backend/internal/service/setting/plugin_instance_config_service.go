@@ -21,7 +21,7 @@ import (
 
 const (
 	// 统一把插件凭证落在同一个 key 下
-	KeyClientCredentials = "auth.credentials"
+	KeyClientCredentials = reposetting.KeyClientCredentials
 )
 
 // 插件凭证（落在 value_json）

@@ -28,10 +28,13 @@ export interface RegisterParams {
 
 // 前端表单数据接口（包含确认密码）
 export interface RegisterFormData {
-  username: string;
-  email: string;
+  tenantName: string;
+  contact: string;
   password: string;
   confirmPassword: string;
+  verificationCode: string;
+  tenantKey?: string;
+  email?: string;
   phone?: string;
   displayName?: string;
   avatarUrl?: string;
@@ -120,6 +123,26 @@ export interface LoginResponse {
   scope: string;
 }
 
+export interface SaaSSignupParams {
+  tenant_key?: string;
+  tenant_name: string;
+  plan?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  owner_password: string;
+  owner_display_name?: string;
+  verification_code?: string;
+}
+
+export interface SaaSSignupResponse {
+  token_type?: string;
+  access_token: string;
+  expires_in?: number;
+  refresh_token: string;
+  scope?: string;
+  context: Record<string, any>;
+}
+
 // 用户信息响应接口（用于获取用户详情）
 export interface UserInfoResponse {
   user: User;
@@ -198,22 +221,30 @@ export const useAuthService = () => {
      * 前端表单注册（转换数据格式）
      */
     registerFromForm: (formData: RegisterFormData) => {
-      const registerData: RegisterParams = {
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        display_name: formData.displayName || formData.username,
-        avatar_url: formData.avatarUrl,
-        invite_token: formData.inviteToken,
-        meta: {
-          locale: "zh-CN", // 默认语言
-          title: "User", // 默认标题
-        },
+      const contact = formData.contact.trim();
+      const isEmail = contact.includes("@");
+      const registerData: SaaSSignupParams = {
+        tenant_key: formData.tenantKey || undefined,
+        tenant_name: formData.tenantName || "",
+        owner_email: isEmail ? contact : undefined,
+        owner_phone: isEmail ? undefined : contact,
+        owner_password: formData.password,
+        owner_display_name: formData.displayName || contact,
+        verification_code: formData.verificationCode || undefined,
+        plan: "free",
       };
-      return apiClient.post<ApiResponse<RegisterResponse>>(
-        `${baseUrl}/register`,
-        registerData
+      return apiClient.post<ApiResponse<SaaSSignupResponse>>(
+        "/public/saas/signup",
+        registerData,
+        { skipAuth: true }
+      );
+    },
+
+    sendSignupVerificationCode: (contact: string) => {
+      return apiClient.post<ApiResponse<{ sent: boolean; contact: string }>>(
+        "/public/saas/signup/verification-code",
+        { contact },
+        { skipAuth: true }
       );
     },
 

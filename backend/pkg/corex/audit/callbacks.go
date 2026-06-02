@@ -47,7 +47,7 @@ func RegisterAuditCallbacks(db *gorm.DB, svc Service) {
 		if shouldSkip(tx) {
 			return
 		}
-		_ = svc.Emit(tx.Statement.Context, &dbm.AuditEvent{
+		evt := &dbm.AuditEvent{
 			OccurredAt:   time.Now(),
 			Source:       "db",
 			Operation:    "CREATE",
@@ -55,14 +55,15 @@ func RegisterAuditCallbacks(db *gorm.DB, svc Service) {
 			ResourceID:   tx.Statement.Table,
 			Outcome:      "SUCCESS",
 			Severity:     "INFO",
-		})
+		}
+		_ = svc.Emit(tx.Statement.Context, evt)
 	})
 
 	db.Callback().Update().After("gorm:after_update").Register("audit:update", func(tx *gorm.DB) {
 		if shouldSkip(tx) {
 			return
 		}
-		_ = svc.Emit(tx.Statement.Context, &dbm.AuditEvent{
+		evt := &dbm.AuditEvent{
 			OccurredAt:   time.Now(),
 			Source:       "db",
 			Operation:    "UPDATE",
@@ -70,14 +71,15 @@ func RegisterAuditCallbacks(db *gorm.DB, svc Service) {
 			ResourceID:   tx.Statement.Table,
 			Outcome:      "SUCCESS",
 			Severity:     "INFO",
-		})
+		}
+		_ = svc.Emit(tx.Statement.Context, evt)
 	})
 
 	db.Callback().Delete().After("gorm:after_delete").Register("audit:delete", func(tx *gorm.DB) {
 		if shouldSkip(tx) {
 			return
 		}
-		_ = svc.Emit(tx.Statement.Context, &dbm.AuditEvent{
+		evt := &dbm.AuditEvent{
 			OccurredAt:   time.Now(),
 			Source:       "db",
 			Operation:    "DELETE",
@@ -85,6 +87,7 @@ func RegisterAuditCallbacks(db *gorm.DB, svc Service) {
 			ResourceID:   tx.Statement.Table,
 			Outcome:      "SUCCESS",
 			Severity:     "INFO",
-		})
+		}
+		_ = svc.Emit(tx.Statement.Context, evt)
 	})
 }

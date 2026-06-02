@@ -47,6 +47,18 @@ func (r *ManifestBindingRepository) GetTopicBinding(ctx context.Context, tenantK
 	return &record, nil
 }
 
+func (r *ManifestBindingRepository) ListTopicBindings(ctx context.Context, tenantKey, pluginID string) ([]*eventfabricmodel.TopicManifestBinding, error) {
+	var records []*eventfabricmodel.TopicManifestBinding
+	err := r.db.WithContext(ctx).
+		Where("tenant_key = ? AND plugin_id = ?", r.tenantKey(tenantKey), r.pluginID(pluginID)).
+		Order("topic_key ASC").
+		Find(&records).Error
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func (r *ManifestBindingRepository) UpsertTopicBinding(ctx context.Context, record *eventfabricmodel.TopicManifestBinding) error {
 	if record == nil {
 		return nil
@@ -65,6 +77,12 @@ func (r *ManifestBindingRepository) UpsertTopicBinding(ctx context.Context, reco
 		},
 		DoUpdates: clause.AssignmentColumns([]string{"namespace", "name", "full_topic", "topic_uuid", "last_applied_at", "updated_at"}),
 	}).Create(record).Error
+}
+
+func (r *ManifestBindingRepository) DeleteTopicBinding(ctx context.Context, tenantKey, pluginID, topicKey string) error {
+	return r.db.WithContext(ctx).
+		Where("tenant_key = ? AND plugin_id = ? AND topic_key = ?", r.tenantKey(tenantKey), r.pluginID(pluginID), r.topicKey(topicKey)).
+		Delete(&eventfabricmodel.TopicManifestBinding{}).Error
 }
 
 func (r *ManifestBindingRepository) GetAclBinding(ctx context.Context, tenantKey, pluginID, topicKey, principalType, principalID string) (*eventfabricmodel.AclManifestBinding, error) {
@@ -110,4 +128,10 @@ func (r *ManifestBindingRepository) UpsertAclBinding(ctx context.Context, record
 			"updated_at":      time.Now().UTC(),
 		}),
 	}).Create(record).Error
+}
+
+func (r *ManifestBindingRepository) DeleteAclBindingsByTopic(ctx context.Context, tenantKey, pluginID, topicKey string) error {
+	return r.db.WithContext(ctx).
+		Where("tenant_key = ? AND plugin_id = ? AND topic_key = ?", r.tenantKey(tenantKey), r.pluginID(pluginID), r.topicKey(topicKey)).
+		Delete(&eventfabricmodel.AclManifestBinding{}).Error
 }

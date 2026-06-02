@@ -94,6 +94,7 @@ func NewService(opts ServiceOptions) Service {
 }
 
 func (s *serviceImpl) Emit(ctx context.Context, evt *dbm.AuditEvent) error {
+	AttachSupportSessionMeta(ctx, evt)
 	item := queuedAuditEvent{ctx: ctx, evt: evt}
 	select {
 	case s.ch <- item:

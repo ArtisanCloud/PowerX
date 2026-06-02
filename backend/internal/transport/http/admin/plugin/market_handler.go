@@ -2,10 +2,15 @@
 package plugin
 
 import (
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	pmdto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,17 +27,8 @@ func SetMarketplaceBasePrefix(p string) {
 	MarketBasePrefix = strings.TrimRight(p, "/")
 }
 
-func resolveMarketplaceIconURL(basePrefix string, p plugin_mgr.Plugin) string {
-	basePrefix = strings.TrimRight(strings.TrimSpace(basePrefix), "/")
-	if basePrefix == "" {
-		basePrefix = "/_p"
-	}
-
+func resolveMarketplaceIconFile(p plugin_mgr.Plugin) string {
 	iconFromMeta := strings.TrimSpace(p.Metadata.Icon)
-	if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
-		return iconFromMeta
-	}
-
 	candidates := make([]string, 0, 3)
 	if dir := strings.TrimSpace(p.Paths.FrontendAdminDir); dir != "" {
 		if abs, err := filepath.Abs(dir); err == nil {
@@ -65,12 +61,57 @@ func resolveMarketplaceIconURL(basePrefix string, p plugin_mgr.Plugin) string {
 			if rel == "" || filepath.IsAbs(rel) {
 				continue
 			}
-			if fi, err := os.Stat(filepath.Join(dir, rel)); err == nil && !fi.IsDir() {
-				return basePrefix + "/" + p.ID + "/admin/" + filepath.ToSlash(rel)
+			abs := filepath.Join(dir, rel)
+			if fi, err := os.Stat(abs); err == nil && !fi.IsDir() {
+				return abs
 			}
 		}
 	}
 	return ""
+}
+
+func resolveMarketplaceIconURL(_ string, p plugin_mgr.Plugin) string {
+	iconFromMeta := strings.TrimSpace(p.Metadata.Icon)
+	if strings.HasPrefix(iconFromMeta, "http://") || strings.HasPrefix(iconFromMeta, "https://") {
+		return iconFromMeta
+	}
+	if resolveMarketplaceIconFile(p) == "" {
+		return ""
+	}
+	return "/api/v1/public/plugins/" + url.PathEscape(p.ID) + "/icon"
+}
+
+func PluginIconHandler(c *gin.Context) {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+		return
+	}
+	mgr, err := tryGetPluginManager()
+	var list []plugin_mgr.Plugin
+	if err == nil {
+		list, err = mgr.List(c.Request.Context())
+	} else {
+		list, err = listPluginsFromRegistry(c.Request.Context())
+	}
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "加载插件失败", err)
+		return
+	}
+	for _, p := range list {
+		if p.ID != id {
+			continue
+		}
+		iconFile := resolveMarketplaceIconFile(p)
+		if iconFile == "" {
+			dto.ResponseError(c, http.StatusNotFound, "插件图标不存在", nil)
+			return
+		}
+		c.Header("Cache-Control", "public, max-age=300")
+		http.ServeFile(c.Writer, c.Request, iconFile)
+		return
+	}
+	dto.ResponseError(c, http.StatusNotFound, "插件不存在", nil)
 }
 
 // 工厂：注入 basePrefix（例如 "/_p"），返回 gin.HandlerFunc
@@ -121,7 +162,7 @@ func MarketplaceListHandler(basePrefix string) gin.HandlerFunc {
 
 // MarketplaceListV2Handler: 返回贴合前端 Plugin 类型的结构（本地模拟）
 // 说明：无远端 Marketplace 时，使用当前已安装列表 + 元数据补齐字段；后续可改为远端合并。
-func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
+func MarketplaceListV2Handler(basePrefix string, deps *shared.Deps) gin.HandlerFunc {
 	slugify := func(id string) string {
 		s := strings.ReplaceAll(id, ".", "-")
 		s = strings.ReplaceAll(s, "_", "-")
@@ -146,6 +187,7 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
+		isRoot := reqctx.IsRoot(ctx)
 		mgr, err := tryGetPluginManager()
 		var list []plugin_mgr.Plugin
 		if err == nil {
@@ -162,6 +204,16 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 			}
 		}
 
+		tenantInstances := map[string]pluginservice.TenantPluginInstance{}
+		if tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx)); tenantUUID != "" {
+			svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+			if items, err := svc.List(ctx, tenantUUID, list); err == nil {
+				for _, item := range items {
+					tenantInstances[item.PluginID] = item
+				}
+			}
+		}
+
 		out := make([]gin.H, 0, len(list))
 		for _, p := range list {
 			iconURL := resolveMarketplaceIconURL(basePrefix, p)
@@ -169,6 +221,9 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 			systemStatus := toSystemStatus(string(p.State))
 			isInstalled := systemStatus != "not_installed"
 			isEnabled := systemStatus == "enabled"
+			if !isRoot && !isEnabled {
+				continue
+			}
 
 			// 补齐前端需要的字段；无远端 marketplace 时给默认值
 			item := gin.H{
@@ -201,6 +256,19 @@ func MarketplaceListV2Handler(basePrefix string) gin.HandlerFunc {
 				"lastUpdated":       "",
 				"createdAt":         "",
 				"updatedAt":         "",
+			}
+			if instance, ok := tenantInstances[p.ID]; ok {
+				item["tenantInstance"] = instance
+				item["tenantEnabled"] = instance.Enabled
+				if instance.Enabled {
+					item["tenantStatus"] = "enabled"
+				} else {
+					item["tenantStatus"] = "disabled"
+				}
+			} else {
+				item["tenantInstance"] = nil
+				item["tenantEnabled"] = false
+				item["tenantStatus"] = "not_enabled"
 			}
 			out = append(out, item)
 		}

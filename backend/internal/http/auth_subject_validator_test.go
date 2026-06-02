@@ -22,6 +22,7 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndAICapabilityRoutes(t *testing.T) {
 		"/api/v1/tenant/invocations/stream",
 		"/api/v1/admin/runtime/ws-bus/grant",
 		"/api/v1/admin/runtime/ws-bus/publish",
+		"/api/v1/notifications/test",
 		"/api/v1/ai/llm/invoke",
 		"/api/v1/ai/llm/models",
 		"/custom-prefix/ai/llm/invoke",

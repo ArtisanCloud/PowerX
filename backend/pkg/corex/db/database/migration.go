@@ -58,6 +58,18 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsureSkillsInstallTaskTenantUUIDMigration(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureIAMTenantDomainBackfillMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMMemberUsernameScopeMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureAPIKeyProfileTenantScopedKeyMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMUserLastTenantUUIDMigration(db); err != nil {
+		return err
+	}
 
 	// 迁移动态表单
 	err = db.AutoMigrate(
@@ -99,6 +111,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.APIKeyProfile{},
 		&modelIAM.APIKeyProfilePermission{},
 		&modelIAM.APIKey{},
+		&modelIAM.RootSupportSession{},
 	)
 	if err != nil {
 		return err
@@ -111,8 +124,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelSetting.TLSCertRef{},
 		&modelSetting.AuthProviderConfig{},
 		&modelSetting.PluginInstanceConfig{},
+		&modelSetting.PluginDrainJob{},
 	)
 	if err != nil {
+		return err
+	}
+	if err = normalizePluginInstanceStatusAfterMigrate(db); err != nil {
 		return err
 	}
 
@@ -232,6 +249,29 @@ func ensurePostgresSchemas(db *gorm.DB) error {
 func quotePostgresIdentifier(name string) string {
 	escaped := strings.ReplaceAll(name, `"`, `""`)
 	return `"` + escaped + `"`
+}
+
+func normalizePluginInstanceStatusAfterMigrate(db *gorm.DB) error {
+	table := (&modelSetting.PluginInstanceConfig{}).TableName()
+	if !db.Migrator().HasTable(&modelSetting.PluginInstanceConfig{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&modelSetting.PluginInstanceConfig{}, "status") {
+		return nil
+	}
+	if err := db.Exec(
+		fmt.Sprintf("UPDATE %s SET status = ? WHERE enabled = ? AND (status IS NULL OR status = '' OR status = ?)", table),
+		modelSetting.PluginInstanceStatusDisabled,
+		false,
+		modelSetting.PluginInstanceStatusEnabled,
+	).Error; err != nil {
+		return err
+	}
+	return db.Exec(
+		fmt.Sprintf("UPDATE %s SET status = ? WHERE enabled = ? AND (status IS NULL OR status = '')", table),
+		modelSetting.PluginInstanceStatusEnabled,
+		true,
+	).Error
 }
 
 func migrateCapabilityModels(db *gorm.DB) error {

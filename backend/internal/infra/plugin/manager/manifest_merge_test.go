@@ -38,6 +38,12 @@ permissions:
 routes:
   basePath: /api/v1
   rbac: strict
+  permissions:
+    - method: POST
+      path: /admin/rss/feeds
+      permission:
+        resource: rss.feeds
+        action: write
 `)
 
 	manifest, err := loadManifestWithCatalogs(root)
@@ -47,6 +53,11 @@ routes:
 	require.Len(t, manifest.Permissions, 1)
 	require.NotNil(t, manifest.Routes)
 	require.Equal(t, "/api/v1", manifest.Routes.BasePath)
+	require.Len(t, manifest.Routes.Permissions, 1)
+	require.Equal(t, "POST", manifest.Routes.Permissions[0].Method)
+	require.Equal(t, "/admin/rss/feeds", manifest.Routes.Permissions[0].Path)
+	require.Equal(t, "rss.feeds", manifest.Routes.Permissions[0].Permission.Resource)
+	require.Equal(t, "write", manifest.Routes.Permissions[0].Permission.Action)
 }
 
 func TestLoadManifestWithCatalogs_MergeEvents(t *testing.T) {

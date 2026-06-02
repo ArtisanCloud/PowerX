@@ -9,8 +9,12 @@ const { t, te } = useI18n();
 const route = useRoute();
 const localePath = useLocalePath() as (path: string) => string;
 const userStore = useUserStore();
+const userContactLabel = computed(() => {
+  const user = userStore.user;
+  return user?.email || user?.phone || "";
+});
 const canAccessSettings = computed(
-  () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
+  () => Boolean(userStore.isCurrentTenantAdmin)
 );
 
 // 使用通知系统
@@ -556,7 +560,7 @@ const getSearchResultTypeIcon = (type: string) => {
               {{ userStore.displayName || "管理员" }}
             </div>
             <div class="text-xs text-gray-500 dark:text-gray-400">
-              {{ userStore.user?.email || "admin@powerx.com" }}
+              {{ userContactLabel || "-" }}
             </div>
           </div>
 

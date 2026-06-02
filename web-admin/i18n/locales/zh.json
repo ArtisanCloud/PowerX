@@ -1,9 +1,14 @@
 {
   "menu": {
     "openMarket": "开放市场",
+    "plugins": "插件",
     "openCapabilities": "开放能力",
     "eventFabric": "异步任务",
     "pluginMarketplace": "插件市场",
+    "pluginManagement": "插件管理",
+    "pluginSubscriptions": "插件订阅",
+    "pluginSubscriptionsAvailable": "可订阅插件",
+    "pluginSubscriptionsMine": "我的订阅",
     "pluginReleaseCandidates": "发布候选",
     "agent": "智能体",
     "aiSettings": "AI 设置",
@@ -46,10 +51,38 @@
     "backToHome": "返回首页",
     "welcomeBack": "欢迎回来",
     "loginSubtitle": "请登录以继续。",
+    "createAccount": "创建账号",
+    "registerSubtitle": "创建租户并开通管理员账号",
+    "email": "邮箱",
+    "username": "用户名",
     "identifier": "邮箱或手机号",
     "password": "密码",
+    "confirmPassword": "确认密码",
     "remember": "记住我",
+    "creatingAccount": "正在创建账号…",
+    "hasAccount": "已有账号？",
     "signUpNow": "立即注册",
+    "signInNow": "立即登录",
+    "required": "此项必填",
+    "registerFailed": "注册失败，请稍后重试。",
+    "registerSuccess": "注册成功。",
+    "redirectingToLogin": "正在跳转到登录页…",
+    "invalidEmail": "请输入有效邮箱地址",
+    "passwordTooShort": "密码至少需要 6 个字符",
+    "passwordMismatch": "两次输入的密码不一致",
+    "mustAgreeTerms": "请先同意服务条款和隐私政策",
+    "agreeTerms": "我已阅读并同意",
+    "and": "和",
+    "termsInfo": "注册即表示你同意服务条款和隐私政策。",
+    "passwordStrength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "强"
+    },
+    "register": {
+      "username": "用户名",
+      "confirmPassword": "确认密码"
+    },
     "login": {
       "noAccount": "还没有账号？",
       "forgotPassword": "忘记密码？"
@@ -619,6 +652,7 @@
     }
   },
   "privacyPolicy": "隐私政策",
+  "termsOfService": "服务条款",
   "header": {
     "searchPlaceholder": "搜索…",
     "profile": "个人中心",
