@@ -4,6 +4,7 @@ export type SetupStatus = {
   configured: boolean;
   requires_login: boolean;
   restart_required: boolean;
+  version: string;
 };
 
 type SetupStatusCache = {
@@ -46,6 +47,7 @@ export function useSetupStatus() {
         configured: Boolean(payload?.configured),
         requires_login: Boolean(payload?.requires_login),
         restart_required: Boolean(payload?.restart_required),
+        version: String(payload?.version || "").trim(),
       };
     } catch {
       return null;
