@@ -100,6 +100,18 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 			}
 		}
 	}
+	for _, route := range routePermissionsFromPlugin(p) {
+		method := strings.ToUpper(strings.TrimSpace(route.Method))
+		relPath := strings.TrimSpace(route.Path)
+		resource := normalizePolicyResource(route.Permission.Resource)
+		action := strings.ToLower(strings.TrimSpace(route.Permission.Action))
+		if method == "" || relPath == "" || resource == "" || action == "" || policyBase == "" {
+			continue
+		}
+		finalPath := normalizePolicyRoutePattern(joinPolicyPath(policyBase, relPath))
+		ensureResourceAction(pol.Resources, resource, action)
+		pol.Routes[method+":"+finalPath] = pmrouter.Permission{Resource: resource, Action: action}
+	}
 	// ⑤ 编译受保护 REST exposure。
 	// 插件对外暴露的 HTTP API 如果声明了 auth + rbac，PowerX 网关必须用该声明做预检；
 	// 未声明 rbac 的业务 API 继续 fail-fast，避免把未知接口隐式放行。
@@ -189,6 +201,24 @@ func ensureResourceAction(resources map[string]map[string]bool, resource, action
 		}
 		resources[name][action] = true
 	}
+}
+
+func routePermissionsFromPlugin(p plugin_mgr.Plugin) []plugin_mgr.RoutePermissionSpec {
+	if p.Routes == nil || len(p.Routes.Permissions) == 0 {
+		return nil
+	}
+	return p.Routes.Permissions
+}
+
+func normalizePolicyResource(resource string) string {
+	resource = strings.ToLower(strings.TrimSpace(resource))
+	if resource == "" {
+		return ""
+	}
+	if i := strings.LastIndex(resource, ":"); i >= 0 {
+		return strings.TrimSpace(resource[i+1:])
+	}
+	return resource
 }
 
 func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.PublicRoute {

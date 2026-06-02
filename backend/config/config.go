@@ -117,6 +117,9 @@ func ResolveEffectivePorts(cfg *Config) EffectivePorts {
 	if cfg != nil && cfg.Server.Port > 0 {
 		ports.BackendPort = cfg.Server.Port
 	}
+	if cfg != nil && cfg.WebAdminPort > 0 {
+		ports.WebAdminPort = cfg.WebAdminPort
+	}
 	if port := parsePortEnv("POWERX_BACKEND_PORT"); port > 0 {
 		ports.BackendPort = port
 	}
@@ -189,6 +192,8 @@ type HTTPSecurityConfig struct {
 	// 允许作为父页面的来源（CSP frame-ancestors 白名单）
 	// 取值示例： "https://admin.powerx.io", "http://localhost:3030", "https://*.powerx.io", "'self'"
 	FrameAncestors []string `yaml:"frame_ancestors"`
+	// 浏览器访问 PowerX Web Admin 的公开 Origin，用于插件宿主模式 CORS/Origin 契约。
+	WebAdminOrigins []string `yaml:"web_admin_origins"`
 }
 
 // TenantConfig 控制租户头部解析与缓存策略。
@@ -225,6 +230,7 @@ func (c InstallConfig) EffectiveLockMode() string {
 type Config struct {
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
+	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动

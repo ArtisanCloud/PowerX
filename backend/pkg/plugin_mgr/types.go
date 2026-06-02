@@ -287,9 +287,21 @@ type EventSpec struct {
 }
 
 type RouteSpec struct {
-	BasePath      string `yaml:"basePath"       json:"basePath"`
-	AdminManifest string `yaml:"adminManifest" json:"adminManifest"`
-	RBAC          string `yaml:"rbac"          json:"rbac"`
+	BasePath      string                `yaml:"basePath"       json:"basePath"`
+	AdminManifest string                `yaml:"adminManifest" json:"adminManifest"`
+	RBAC          string                `yaml:"rbac"          json:"rbac"`
+	Permissions   []RoutePermissionSpec `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+}
+
+type RoutePermissionSpec struct {
+	Method     string          `yaml:"method" json:"method"`
+	Path       string          `yaml:"path" json:"path"`
+	Permission RoutePermission `yaml:"permission" json:"permission"`
+}
+
+type RoutePermission struct {
+	Resource string `yaml:"resource" json:"resource"`
+	Action   string `yaml:"action" json:"action"`
 }
 
 type I18nSpec struct {

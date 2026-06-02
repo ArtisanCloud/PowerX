@@ -8,6 +8,7 @@ export interface UserContextData {
   is_root: boolean;
   current_tenant_uuid: string;
   current_member_id?: number | null;
+  current_member_uuid?: string | null;
   user: ContextUser;
   members: ContextMember[];
 }
@@ -37,6 +38,7 @@ export interface ContextMember {
   tenant_name: string;
   tenant_domain?: string;
   member_id: number;
+  member_uuid?: string;
   is_admin: boolean;
   is_owner?: boolean;
 }

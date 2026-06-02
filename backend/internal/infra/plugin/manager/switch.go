@@ -26,6 +26,27 @@ func (m *managerImpl) SwitchVersion(ctx context.Context, id, version string, ena
 
 	// 2) 如当前启用，先停
 	if cur, ok := m.opts.Registry.Get(ctx, id); ok && cur.State == plugin_mgr.StateEnabled {
+		if m.opts.TenantInstanceCount != nil {
+			count, err := m.opts.TenantInstanceCount(ctx, id)
+			if err != nil {
+				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+					plugin_mgr.CodeLifecycleError,
+					err,
+					plugin_mgr.WithOp("switch_version.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(cur.Version),
+				)
+			}
+			if count > 0 {
+				return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+					plugin_mgr.CodeConflict,
+					plugin_mgr.WithOp("switch_version.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(cur.Version),
+					plugin_mgr.WithMsg("plugin has %d active tenant instances; drain required before switching enabled runtime", count),
+				)
+			}
+		}
 		if err := m.Disable(ctx, id); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 				plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("switch_version.disable"))

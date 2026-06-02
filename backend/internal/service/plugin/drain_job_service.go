@@ -14,6 +14,7 @@ import (
 	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -29,6 +30,7 @@ type PluginDrainJobService struct {
 	db           *gorm.DB
 	jobs         *reposetting.PluginDrainJobRepository
 	tenantConfig *reposetting.PluginInstanceConfigRepository
+	taskDriver   event_bus.TaskDriver
 }
 
 type CreateDrainJobInput struct {
@@ -73,6 +75,7 @@ type DrainBlockerPage struct {
 type DrainBlockerEventTask struct {
 	ID           uint64     `json:"id"`
 	TaskID       string     `json:"task_id"`
+	TenantKey    string     `json:"tenant_key"`
 	SubscriberID string     `json:"subscriber_id"`
 	Topic        string     `json:"topic"`
 	Status       string     `json:"status"`
@@ -104,6 +107,12 @@ func NewPluginDrainJobService(db *gorm.DB) *PluginDrainJobService {
 	}
 }
 
+func NewPluginDrainJobServiceWithTaskDriver(db *gorm.DB, taskDriver event_bus.TaskDriver) *PluginDrainJobService {
+	svc := NewPluginDrainJobService(db)
+	svc.taskDriver = taskDriver
+	return svc
+}
+
 func NewPluginDrainJobServiceFromRepository(repo *reposetting.PluginInstanceConfigRepository) *PluginDrainJobService {
 	svc := &PluginDrainJobService{tenantConfig: repo}
 	if db := repo.DB(); db != nil {
@@ -114,6 +123,14 @@ func NewPluginDrainJobServiceFromRepository(repo *reposetting.PluginInstanceConf
 }
 
 func (s *PluginDrainJobService) RequireNoActiveTenantInstances(ctx context.Context, pluginID, version string) (*PluginDrainImpact, error) {
+	return s.requireNoActiveTenantInstancesForOperation(ctx, pluginID, version, "uninstall")
+}
+
+func (s *PluginDrainJobService) RequireNoActiveTenantInstancesForDisable(ctx context.Context, pluginID string) (*PluginDrainImpact, error) {
+	return s.requireNoActiveTenantInstancesForOperation(ctx, pluginID, "", "disable")
+}
+
+func (s *PluginDrainJobService) requireNoActiveTenantInstancesForOperation(ctx context.Context, pluginID, version, operation string) (*PluginDrainImpact, error) {
 	if s == nil || s.tenantConfig == nil {
 		return nil, dto.NewErrorWithCode(http.StatusServiceUnavailable, ErrCodePluginDrainInvalidRequest, "插件 drain 服务不可用", nil)
 	}
@@ -155,7 +172,7 @@ func (s *PluginDrainJobService) RequireNoActiveTenantInstances(ctx context.Conte
 							"required_drain_job_status":        dbsetting.PluginDrainJobStatusReadyToUninstall,
 							"blocking_drain_job_id":            job.JobID,
 							"blocking_drain_job_status":        job.Status,
-							"blocked_operation":                "uninstall",
+							"blocked_operation":                strings.TrimSpace(operation),
 							"scope":                            drainScope(version),
 						},
 					)
@@ -179,7 +196,7 @@ func (s *PluginDrainJobService) RequireNoActiveTenantInstances(ctx context.Conte
 				"requires_tenant_instance_cleanup": true,
 				"requires_drain":                   true,
 				"required_tenant_instance_status":  impact.RequiredStatus,
-				"blocked_operation":                "uninstall",
+				"blocked_operation":                strings.TrimSpace(operation),
 				"scope":                            drainScope(impact.Version),
 			},
 		)
@@ -253,6 +270,16 @@ func (s *PluginDrainJobService) CancelRuntimeBlockers(ctx context.Context, input
 			Where("status IN ?", []string{"pending", "deferred", "running"}).
 			Where("deleted_at IS NULL")
 		if len(eventTaskIDs) > 0 {
+			var rows []DrainBlockerEventTask
+			if err := eventTasks.
+				Where("id IN ?", eventTaskIDs).
+				Select("id, task_id, tenant_key, subscriber_id, topic, status").
+				Scan(&rows).Error; err != nil {
+				return err
+			}
+			if err := s.cancelEventTaskDriverMessages(ctx, rows); err != nil {
+				return err
+			}
 			eventTasks = eventTasks.Where("id IN ?", eventTaskIDs)
 			eventTasks = eventTasks.Updates(map[string]any{
 				"status":        "cancelled",
@@ -277,6 +304,31 @@ func (s *PluginDrainJobService) CancelRuntimeBlockers(ctx context.Context, input
 	}
 	result.DrainJobs = jobs
 	return result, nil
+}
+
+func (s *PluginDrainJobService) cancelEventTaskDriverMessages(ctx context.Context, rows []DrainBlockerEventTask) error {
+	if s == nil || s.taskDriver == nil {
+		return nil
+	}
+	for _, row := range rows {
+		tenantKey := strings.TrimSpace(row.TenantKey)
+		subscriberID := strings.TrimSpace(row.SubscriberID)
+		taskID := strings.TrimSpace(row.TaskID)
+		if tenantKey == "" || subscriberID == "" || taskID == "" {
+			continue
+		}
+		if err := s.taskDriver.Ack(ctx, event_bus.AckRequest{
+			TenantKey:    tenantKey,
+			SubscriberID: subscriberID,
+			MessageID:    taskID,
+			Metadata: map[string]string{
+				"plugin_drain_cancelled": "true",
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *PluginDrainJobService) ListRuntimeBlockers(ctx context.Context, input ListDrainBlockersInput) (*DrainBlockerPage, error) {
@@ -336,7 +388,7 @@ func (s *PluginDrainJobService) ListRuntimeBlockers(ctx context.Context, input L
 		}
 		var rows []DrainBlockerEventTask
 		if err := s.eventTaskBlockerQuery(ctx, pluginID).
-			Select("id, task_id, subscriber_id, topic, status, error_message, last_seen_at, updated_at").
+			Select("id, task_id, tenant_key, subscriber_id, topic, status, error_message, last_seen_at, updated_at").
 			Order("updated_at DESC, id DESC").
 			Limit(pageSize).
 			Offset(offset).
@@ -518,6 +570,11 @@ func (s *PluginDrainJobService) RefreshDrainJobProgress(ctx context.Context, job
 	blockers, err := s.autoMarkDrainedWhenNoBlockers(ctx, job)
 	if err != nil {
 		return nil, err
+	}
+	if blockers == 0 && job.Status == dbsetting.PluginDrainJobStatusDraining {
+		if _, err := s.tenantConfig.MarkPluginDrainInstancesDrained(ctx, job.PluginID, job.JobID, time.Now().UTC()); err != nil {
+			return nil, err
+		}
 	}
 	active, err := s.tenantConfig.CountActiveTenantPluginBindings(ctx, job.PluginID)
 	if err != nil {
@@ -745,6 +802,30 @@ func publishPluginDrainStatus(ctx context.Context, job *dbsetting.PluginDrainJob
 		"drained_tenant_count":  job.DrainedTenantCount,
 		"createdAt":             time.Now().UTC().Format(time.RFC3339),
 		"isRead":                false,
+	}
+	wsbus.DefaultHub.PublishWithContext(ctx, tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
+}
+
+func PublishPluginUninstallStatus(ctx context.Context, pluginID, version string, purge bool) {
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	if tenantUUID == "" {
+		return
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return
+	}
+	payload := map[string]any{
+		"type":      "success",
+		"title":     "插件已最终卸载",
+		"content":   "插件 " + pluginID + " 已完成最终卸载。",
+		"kind":      "plugin.uninstall.status",
+		"plugin_id": pluginID,
+		"version":   strings.TrimSpace(version),
+		"purge":     purge,
+		"status":    "completed",
+		"createdAt": time.Now().UTC().Format(time.RFC3339),
+		"isRead":    false,
 	}
 	wsbus.DefaultHub.PublishWithContext(ctx, tenantUUID, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
 }

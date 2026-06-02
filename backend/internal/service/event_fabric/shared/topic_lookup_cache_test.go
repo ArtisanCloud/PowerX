@@ -59,9 +59,48 @@ func TestCachedTopicLookup_FindByComposite_MissCached(t *testing.T) {
 	}
 }
 
+func TestCachedTopicLookup_FindTemplateMatchDelegatesToBase(t *testing.T) {
+	ctx := context.Background()
+	base := &mockTopicLookup{
+		templateResult: &eventfabricmodel.TopicDefinition{
+			PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.New()},
+			TenantKey:      "tenant-a",
+			Namespace:      "ai_craft.progress.tenant_{{tenant_uuid}}",
+			Name:           "member_{{member_uuid}}",
+		},
+	}
+	lookup := NewCachedTopicLookup(base, CachedTopicLookupOptions{Cache: cache.NewMemoryCache()})
+
+	topic, err := lookup.FindTemplateMatch(ctx, "tenant-a", "ai_craft.progress.tenant_tenant-a", "member_abc")
+	if err != nil {
+		t.Fatalf("template lookup error: %v", err)
+	}
+	if topic == nil {
+		t.Fatalf("expected template topic")
+	}
+	if base.templateCalls != 1 {
+		t.Fatalf("expected base template lookup called once, got %d", base.templateCalls)
+	}
+}
+
+func TestCachedTopicLookup_FindTemplateMatchReturnsNilWhenBaseUnsupported(t *testing.T) {
+	ctx := context.Background()
+	lookup := NewCachedTopicLookup(&plainTopicLookup{}, CachedTopicLookupOptions{Cache: cache.NewMemoryCache()})
+
+	topic, err := lookup.FindTemplateMatch(ctx, "tenant-a", "ai_craft.progress.tenant_tenant-a", "member_abc")
+	if err != nil {
+		t.Fatalf("template lookup error: %v", err)
+	}
+	if topic != nil {
+		t.Fatalf("expected nil template topic")
+	}
+}
+
 type mockTopicLookup struct {
-	result *eventfabricmodel.TopicDefinition
-	calls  int
+	result         *eventfabricmodel.TopicDefinition
+	templateResult *eventfabricmodel.TopicDefinition
+	calls          int
+	templateCalls  int
 }
 
 func (m *mockTopicLookup) FindByComposite(_ context.Context, _, _, _ string) (*eventfabricmodel.TopicDefinition, error) {
@@ -79,4 +118,23 @@ func (m *mockTopicLookup) FindByUUID(_ context.Context, _ uuid.UUID) (*eventfabr
 	}
 	clone := *m.result
 	return &clone, nil
+}
+
+func (m *mockTopicLookup) FindTemplateMatch(_ context.Context, _, _, _ string) (*eventfabricmodel.TopicDefinition, error) {
+	m.templateCalls++
+	if m.templateResult == nil {
+		return nil, nil
+	}
+	clone := *m.templateResult
+	return &clone, nil
+}
+
+type plainTopicLookup struct{}
+
+func (p *plainTopicLookup) FindByComposite(context.Context, string, string, string) (*eventfabricmodel.TopicDefinition, error) {
+	return nil, nil
+}
+
+func (p *plainTopicLookup) FindByUUID(context.Context, uuid.UUID) (*eventfabricmodel.TopicDefinition, error) {
+	return nil, nil
 }

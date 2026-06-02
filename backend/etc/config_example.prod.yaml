@@ -44,6 +44,8 @@ server:
       max_concurrent_streams: 0
 
 http_security:
+  web_admin_origins:
+    - "https://admin.powerx.io"
   frame_ancestors:
     - "'self'"
     - "http://localhost:3000"

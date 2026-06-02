@@ -131,3 +131,52 @@ func TestPolicyFromPlugin_AddProtectedExposureRoutes(t *testing.T) {
 		t.Fatalf("permission = %+v, want scrm.social_channel_accounts:read", perm)
 	}
 }
+
+func TestPolicyFromPlugin_AddRoutePermissionRules(t *testing.T) {
+	t.Parallel()
+
+	p := plugin_mgr.Plugin{
+		Routes: &plugin_mgr.RouteSpec{
+			BasePath: "/api/v1",
+			Permissions: []plugin_mgr.RoutePermissionSpec{
+				{
+					Method: "POST",
+					Path:   "/admin/rss/feeds",
+					Permission: plugin_mgr.RoutePermission{
+						Resource: "rss.feeds",
+						Action:   "write",
+					},
+				},
+				{
+					Method: "POST",
+					Path:   "/admin/rss/feeds/:feedID/refresh",
+					Permission: plugin_mgr.RoutePermission{
+						Resource: "rss.feeds",
+						Action:   "refresh",
+					},
+				},
+			},
+		},
+	}
+
+	pol := PolicyFromPlugin(p)
+	if pol == nil {
+		t.Fatalf("PolicyFromPlugin returned nil")
+	}
+
+	perm, ok := pol.Routes["POST:/api/v1/admin/rss/feeds"]
+	if !ok {
+		t.Fatalf("route permission not installed: %+v", pol.Routes)
+	}
+	if perm.Resource != "rss.feeds" || perm.Action != "write" {
+		t.Fatalf("permission = %+v, want rss.feeds:write", perm)
+	}
+
+	perm, ok = pol.Routes["POST:/api/v1/admin/rss/feeds/*/refresh"]
+	if !ok {
+		t.Fatalf("parameterized route permission not installed: %+v", pol.Routes)
+	}
+	if perm.Resource != "rss.feeds" || perm.Action != "refresh" {
+		t.Fatalf("permission = %+v, want rss.feeds:refresh", perm)
+	}
+}

@@ -114,7 +114,11 @@ const tryRefreshAccessToken = async (): Promise<string | null> => {
 
   refreshingAccessTokenPromise = (async () => {
     try {
-      const response: any = await $fetch("/api/admin/user/auth/refresh", {
+      const refreshURL = `${String(globalConfig.baseURL || "").replace(
+        /\/+$/,
+        ""
+      )}/admin/user/auth/refresh`;
+      const response: any = await $fetch(refreshURL, {
         method: "POST",
         body: { refresh_token: refreshToken },
         headers: {
@@ -402,6 +406,11 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
     if (msg) {
       const e = new Error(msg);
       (e as any).cause = result;
+      (e as any).status = result?.status || result?.statusCode || result?.response?.status;
+      (e as any).statusCode = (e as any).status;
+      (e as any).data = data;
+      (e as any).details = typeof data === "object" ? data.details : undefined;
+      (e as any).errorCode = typeof data === "object" ? (data.error_code || data.code) : undefined;
       throw e;
     }
   }

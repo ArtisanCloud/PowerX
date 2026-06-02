@@ -44,10 +44,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
 		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
 			if err := m.replaceInstalledVersion(ctx, man.ID, man.Version, destRoot); err != nil {
-				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.force_replace"),
-					plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
-				)
+				return plugin_mgr.Plugin{}, err
 			}
 		} else if _, err := os.Stat(destRoot); err == nil {
 			if err := os.RemoveAll(destRoot); err != nil {
@@ -218,6 +215,27 @@ func (m *managerImpl) replaceInstalledVersion(ctx context.Context, id, version, 
 	}
 
 	if cur, ok := m.opts.Registry.Get(ctx, id); ok && cur.Version == version && cur.State == plugin_mgr.StateEnabled {
+		if m.opts.TenantInstanceCount != nil {
+			count, err := m.opts.TenantInstanceCount(ctx, id)
+			if err != nil {
+				return plugin_mgr.Wrap(
+					plugin_mgr.CodeLifecycleError,
+					err,
+					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(version),
+				)
+			}
+			if count > 0 {
+				return plugin_mgr.NewError(
+					plugin_mgr.CodeConflict,
+					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
+					plugin_mgr.WithPlugin(id),
+					plugin_mgr.WithVersion(version),
+					plugin_mgr.WithMsg("plugin has %d active tenant instances; drain required before replacing enabled runtime", count),
+				)
+			}
+		}
 		if err := m.Disable(ctx, id); err != nil {
 			return plugin_mgr.Wrap(
 				plugin_mgr.CodeLifecycleError,

@@ -1,16 +1,21 @@
 package plugin
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
+	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
 	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -97,46 +102,121 @@ func PluginListHandler(c *gin.Context) {
 }
 
 // POST /api/.../admin/plugins/:id/enable
-func PluginEnableHandler(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
-		return
+func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+			return
+		}
+		mgr, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		ctx := c.Request.Context()
+		tenantUUID := optionalTenantContext(c)
+		if tenantUUID != "" {
+			ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
+		}
+		if err := mgr.Enable(ctx, id); err != nil {
+			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
+			return
+		}
+		seeded, err := ensureEnabledTenantEventFabricTopics(c, deps, id)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：Topic 注册失败", err)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "event_fabric_seeded_tenants": seeded})
 	}
-	mgr, err := tryGetPluginManager()
+}
+
+func ensureEnabledTenantEventFabricTopics(c *gin.Context, deps *shared.Deps, pluginID string) (int, error) {
+	if deps == nil || deps.DB == nil {
+		return 0, nil
+	}
+	repo := reposetting.NewPluginInstanceConfigRepository(deps.DB)
+	bindings, err := repo.ListTenantPluginBindings(c.Request.Context(), reposetting.ListTenantPluginOptions{
+		PluginIDs:   []string{pluginID},
+		Key:         reposetting.KeyClientCredentials,
+		OnlyEnabled: true,
+	})
 	if err != nil {
-		respondPluginRuntimeUnavailable(c, err)
-		return
+		return 0, err
 	}
-	ctx := c.Request.Context()
-	tenantUUID := optionalTenantContext(c)
-	if tenantUUID != "" {
-		ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
+	seeded := 0
+	for _, binding := range bindings {
+		tenantUUID := strings.TrimSpace(binding.TenantUUID)
+		if tenantUUID == "" {
+			return seeded, fmt.Errorf("empty tenant uuid for plugin %s", pluginID)
+		}
+		if err := ensureTenantEventFabricTopics(c, deps, tenantUUID, pluginID); err != nil {
+			return seeded, err
+		}
+		seeded++
 	}
-	if err := mgr.Enable(ctx, id); err != nil {
-		dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
-		return
+	logger.InfoF(c.Request.Context(), "[plugin-enable] event_fabric seeded existing tenants plugin=%s count=%d", pluginID, seeded)
+	return seeded, nil
+}
+
+// POST /api/.../admin/plugins/:id/event_fabric/resync
+func PluginEventFabricResyncHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+			return
+		}
+		manager, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		if _, err := manager.Get(c.Request.Context(), id); err != nil {
+			dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+			return
+		}
+		seeded, err := ensureEnabledTenantEventFabricTopics(c, deps, id)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "Topic 重新同步失败", err)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"ok":                          true,
+			"plugin_id":                   id,
+			"event_fabric_seeded_tenants": seeded,
+		})
 	}
-	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // POST /api/.../admin/plugins/:id/disable
-func PluginDisableHandler(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
-		return
+func PluginDisableHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+			return
+		}
+		ctx := c.Request.Context()
+		if deps != nil && deps.DB != nil {
+			drainSvc := pluginservice.NewPluginDrainJobService(deps.DB)
+			if _, drainErr := drainSvc.RequireNoActiveTenantInstancesForDisable(ctx, id); drainErr != nil {
+				dtoRequest.RespondErrorFrom(c, drainErr)
+				return
+			}
+		}
+		mgr, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
+		if err := mgr.Disable(ctx, id); err != nil {
+			dtoRequest.ResponseError(c, statusFromManagerErr(err), "停用插件失败", err)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	}
-	mgr, err := tryGetPluginManager()
-	if err != nil {
-		respondPluginRuntimeUnavailable(c, err)
-		return
-	}
-	if err := mgr.Disable(c.Request.Context(), id); err != nil {
-		dtoRequest.ResponseError(c, statusFromManagerErr(err), "停用插件失败", err)
-		return
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 func optionalTenantContext(c *gin.Context) string {

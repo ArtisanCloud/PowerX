@@ -778,6 +778,9 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 
 		attachTraceHeaders(c, req)
 		req.Header.Set("X-PowerX-Plugin-Id", pluginID)
+		req.Header.Set("X-Forwarded-Host", c.Request.Host)
+		req.Header.Set("X-Forwarded-Proto", "http")
+		req.Header.Set("X-Forwarded-Prefix", joinURLPath(r.basePrefix, pluginID, "api"))
 
 		req.Host = up.target.Host
 	}

@@ -142,6 +142,39 @@
               >
             </div>
 
+            <div
+              v-if="drainRequired"
+              class="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100"
+            >
+              <div class="font-medium text-amber-50">需要先完成 drain</div>
+              <div class="mt-1 text-amber-100/90">
+                {{ drainNoticeText }}
+              </div>
+              <div class="mt-3 flex flex-wrap items-center gap-2">
+                <UButton
+                  v-if="!drainCreated"
+                  size="sm"
+                  color="warning"
+                  variant="solid"
+                  icon="i-heroicons-bolt"
+                  :loading="creatingDrain"
+                  :disabled="!drainTargetPluginId"
+                  @click="createDrainFromInstall"
+                >
+                  发起 drain
+                </UButton>
+                <UButton
+                  size="sm"
+                  :color="drainCreated ? 'warning' : 'neutral'"
+                  :variant="drainCreated ? 'solid' : 'ghost'"
+                  icon="i-heroicons-arrow-right"
+                  @click="goDrainDetail"
+                >
+                  {{ drainCreated ? "查看 drain 进度" : "查看详情" }}
+                </UButton>
+              </div>
+            </div>
+
             <div>
               <div class="text-sm mb-2 text-[var(--text-secondary)]">
                 申请权限
@@ -195,6 +228,8 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import type { MarketplacePlugin } from "~/components/plugins/PluginCard.vue";
+
+const router = useRouter();
 
 const props = defineProps<{
   modelValue: boolean;
@@ -260,6 +295,10 @@ const state = reactive({
 });
 
 const installing = ref(false);
+const creatingDrain = ref(false);
+const drainRequired = ref(false);
+const drainCreated = ref(false);
+const drainPluginId = ref("");
 const localDirInputRef = ref<HTMLInputElement | null>(null);
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 
@@ -280,6 +319,52 @@ watch(
 
 function close() {
   open.value = false;
+}
+
+const drainTargetPluginId = computed(() => drainPluginId.value || props.plugin?.id || "");
+const drainNoticeText = computed(() =>
+  drainCreated.value
+    ? "已发起 drain，并已阻断新增使用入口。可以稍后重试安装，或查看 drain 进度。"
+    : "当前插件仍有租户实例在使用。可以现在发起 drain，系统会阻断新增使用并等待存量实例退出。"
+);
+
+function goDrainDetail() {
+  const id = drainTargetPluginId.value;
+  if (!id) return;
+  close();
+  router.push(`/plugins/${encodeURIComponent(id)}`);
+}
+
+async function createDrainFromInstall() {
+  const id = drainTargetPluginId.value;
+  if (!id || creatingDrain.value) return;
+  creatingDrain.value = true;
+  const toast = useToast();
+  try {
+    const { useAdminPluginsService } = await import(
+      "~/composables/api/services/adminPluginsService"
+    );
+    const svc = useAdminPluginsService();
+    await svc.createDrainJob(id, {
+      reason: "install requires plugin drain",
+      mode: "drain",
+    });
+    toast.add({
+      title: "已发起 drain",
+      description: "已阻断新增使用入口，请在插件详情页等待 drain 完成。",
+      color: "success",
+    });
+    drainCreated.value = true;
+  } catch (error: any) {
+    console.error("发起 drain 失败:", error);
+    toast.add({
+      title: "发起 drain 失败",
+      description: error?.message || "请进入插件详情页查看 drain 状态。",
+      color: "error",
+    });
+  } finally {
+    creatingDrain.value = false;
+  }
 }
 
 function buildInstallMetadataPayload() {
@@ -348,7 +433,37 @@ function isAlreadyInstalledConflict(error: any): boolean {
   );
 }
 
+function getErrorDetails(error: any): Record<string, any> {
+  return (
+    error?.details ||
+    error?.data?.details ||
+    error?.response?._data?.details ||
+    error?.response?.data?.details ||
+    error?.cause?.details ||
+    {}
+  );
+}
+
+function isDrainRequiredError(error: any): boolean {
+  const details = getErrorDetails(error);
+  const message = String(error?.message || error?.data?.error || error?.response?._data?.error || "").toLowerCase();
+  return (
+    details?.requires_drain === true ||
+    details?.code === "PLUGIN_DRAIN_REQUIRED" ||
+    message.includes("drain required") ||
+    message.includes("plugin_drain_required")
+  );
+}
+
+function resolveDrainPluginId(error: any): string {
+  const details = getErrorDetails(error);
+  return String(details?.plugin_id || props.plugin?.id || "").trim();
+}
+
 async function confirmInstall() {
+  drainRequired.value = false;
+  drainCreated.value = false;
+  drainPluginId.value = "";
   // 检查是否有有效的安装来源
   if (state.installMode === "远程URL" && !state.url) {
     const toast = useToast();
@@ -435,6 +550,16 @@ async function confirmInstall() {
         color: "warning",
       });
       notifyMenuRefresh();
+      return;
+    }
+    if (isDrainRequiredError(error)) {
+      drainRequired.value = true;
+      drainPluginId.value = resolveDrainPluginId(error);
+      toast.add({
+        title: "需要先完成 drain",
+        description: "当前插件仍有租户实例在使用。请进入插件详情发起并完成 drain。",
+        color: "warning",
+      });
       return;
     }
     toast.add({

@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,7 +36,11 @@ func PluginDrainCreateHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
-		svc := pluginservice.NewPluginDrainJobService(deps.DB)
+		var taskDriver event_bus.TaskDriver
+		if deps != nil && deps.EventFabric != nil {
+			taskDriver = deps.EventFabric.TaskDriver
+		}
+		svc := pluginservice.NewPluginDrainJobServiceWithTaskDriver(deps.DB, taskDriver)
 		job, err := svc.CreateDrainJob(c.Request.Context(), pluginservice.CreateDrainJobInput{
 			PluginID: id,
 			Version:  req.Version,
@@ -58,7 +63,11 @@ func PluginDrainListHandler(deps *shared.Deps) gin.HandlerFunc {
 			return
 		}
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
-		svc := pluginservice.NewPluginDrainJobService(deps.DB)
+		var taskDriver event_bus.TaskDriver
+		if deps != nil && deps.EventFabric != nil {
+			taskDriver = deps.EventFabric.TaskDriver
+		}
+		svc := pluginservice.NewPluginDrainJobServiceWithTaskDriver(deps.DB, taskDriver)
 		items, err := svc.ListDrainJobs(c.Request.Context(), id, limit)
 		if err != nil {
 			dtoRequest.RespondErrorFrom(c, err)
@@ -92,7 +101,11 @@ func PluginDrainRefreshHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少 drain job id", nil)
 			return
 		}
-		svc := pluginservice.NewPluginDrainJobService(deps.DB)
+		var taskDriver event_bus.TaskDriver
+		if deps != nil && deps.EventFabric != nil {
+			taskDriver = deps.EventFabric.TaskDriver
+		}
+		svc := pluginservice.NewPluginDrainJobServiceWithTaskDriver(deps.DB, taskDriver)
 		job, err := svc.RefreshDrainJobProgress(c.Request.Context(), jobID)
 		if err != nil {
 			dtoRequest.RespondErrorFrom(c, err)
@@ -139,7 +152,11 @@ func PluginDrainCancelBlockersHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
-		svc := pluginservice.NewPluginDrainJobService(deps.DB)
+		var taskDriver event_bus.TaskDriver
+		if deps != nil && deps.EventFabric != nil {
+			taskDriver = deps.EventFabric.TaskDriver
+		}
+		svc := pluginservice.NewPluginDrainJobServiceWithTaskDriver(deps.DB, taskDriver)
 		result, err := svc.CancelRuntimeBlockers(c.Request.Context(), pluginservice.CancelDrainBlockersInput{
 			PluginID:          id,
 			Reason:            req.Reason,

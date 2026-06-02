@@ -38,22 +38,23 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		grp.GET("/menus", tenantAdmin, PluginMenusHandler) // GET  /api/v1/admin/plugins/menus
 
 		// 系统级：启停/重启/状态/安装/卸载/切换版本
-		grp.POST("/:id/enable", rootOnly, PluginEnableHandler)                // POST /api/v1/admin/plugins/:id/enable
-		grp.POST("/:id/disable", rootOnly, PluginDisableHandler)              // POST /api/v1/admin/plugins/:id/disable
-		grp.POST("/:id/restart", rootOnly, PluginRestartHandler)              // POST /api/v1/admin/plugins/:id/restart
-		grp.GET("/:id/status", tenantAdmin, PluginStatusHandler)              // GET /api/v1/admin/plugins/:id/status
-		grp.GET("/:id/logs", rootOnly, PluginLogsHandler)                     // GET /api/v1/admin/plugins/:id/logs
-		grp.POST("/:id/switch_version", rootOnly, PluginSwitchVersionHandler) // POST /api/v1/admin/plugins/:id/switch_version
-		grp.POST("/:id/uninstall", rootOnly, PluginUninstallHandler(deps))    // POST /api/v1/admin/plugins/:id/uninstall
-		grp.POST("/:id/drain", rootOnly, PluginDrainCreateHandler(deps))      // POST /api/v1/admin/plugins/:id/drain
-		grp.GET("/:id/drain", rootOnly, PluginDrainListHandler(deps))         // GET  /api/v1/admin/plugins/:id/drain
+		grp.POST("/:id/enable", rootOnly, PluginEnableHandler(deps))   // POST /api/v1/admin/plugins/:id/enable
+		grp.POST("/:id/disable", rootOnly, PluginDisableHandler(deps)) // POST /api/v1/admin/plugins/:id/disable
+		grp.POST("/:id/restart", rootOnly, PluginRestartHandler)       // POST /api/v1/admin/plugins/:id/restart
+		grp.GET("/:id/status", tenantAdmin, PluginStatusHandler)       // GET /api/v1/admin/plugins/:id/status
+		grp.GET("/:id/logs", rootOnly, PluginLogsHandler)              // GET /api/v1/admin/plugins/:id/logs
+		grp.POST("/:id/event_fabric/resync", rootOnly, PluginEventFabricResyncHandler(deps))
+		grp.POST("/:id/switch_version", rootOnly, PluginSwitchVersionHandler(deps)) // POST /api/v1/admin/plugins/:id/switch_version
+		grp.POST("/:id/uninstall", rootOnly, PluginUninstallHandler(deps))          // POST /api/v1/admin/plugins/:id/uninstall
+		grp.POST("/:id/drain", rootOnly, PluginDrainCreateHandler(deps))            // POST /api/v1/admin/plugins/:id/drain
+		grp.GET("/:id/drain", rootOnly, PluginDrainListHandler(deps))               // GET  /api/v1/admin/plugins/:id/drain
 		grp.POST("/drain/:job_id/refresh", rootOnly, PluginDrainRefreshHandler(deps))
 		grp.GET("/:id/drain/blockers", rootOnly, PluginDrainBlockersListHandler(deps))
 		grp.POST("/:id/drain/cancel_blockers", rootOnly, PluginDrainCancelBlockersHandler(deps))
 		grp.GET("/drain/:job_id", rootOnly, PluginDrainGetHandler(deps)) // GET  /api/v1/admin/plugins/drain/:job_id
 
-		grp.POST("/install/local", rootOnly, PluginInstallLocalHandler) // POST /api/v1/admin/plugins/install/local
-		grp.POST("/install/url", rootOnly, PluginInstallURLHandler)     // POST /api/v1/admin/plugins/install/url
+		grp.POST("/install/local", rootOnly, PluginInstallLocalHandler(deps)) // POST /api/v1/admin/plugins/install/local
+		grp.POST("/install/url", rootOnly, PluginInstallURLHandler(deps))     // POST /api/v1/admin/plugins/install/url
 
 		// 租户级：查询配置、启用/停用（仅影响本租户）、凭证查看与轮换
 		grp.GET("/:id/tenant_config", tenantAdmin, PluginTenantConfigHandler(deps))

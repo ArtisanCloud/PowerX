@@ -88,6 +88,7 @@ func PluginUninstallHandler(deps *shared.Deps) gin.HandlerFunc {
 				return
 			}
 		}
+		pluginservice.PublishPluginUninstallStatus(ctx, id, req.Version, req.Purge)
 
 		dtoRequest.ResponseSuccess(c, gin.H{
 			"id":      id,
