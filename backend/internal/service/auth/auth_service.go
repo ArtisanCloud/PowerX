@@ -225,13 +225,12 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 	var m *model.Member
 	if tenantUUID != "" {
 		ten, err = s.tenantByUUID(ctx, tenantUUID)
-		if err == nil {
-			m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
-		}
 		if err != nil {
-			ten = nil
-			m = nil
-			tenantUUID = ""
+			return "", "", err
+		}
+		m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
+		if err != nil {
+			return "", "", errors.New("no membership in tenant")
 		}
 	}
 	if tenantUUID == "" {
@@ -460,7 +459,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	if err != nil || rt == nil || (rt.RevokedAt != nil) || time.Now().UnixMilli() > rt.ExpiresAt {
 		return "", errors.New("refresh expired or revoked")
 	}
-	if rt.MemberUUID != claims.MemberUUID || rt.TenantUUID != claims.TenantUUID {
+	if rt.MemberUUID != claims.MemberUUID || rt.TenantUUID != claims.TenantUUID || rt.UserUUID != claims.UserUUID {
 		return "", errors.New("refresh token mismatch")
 	}
 
@@ -489,11 +488,25 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	if ten.Status != 1 {
 		return "", errors.New("tenant disabled")
 	}
+	if strings.TrimSpace(m.UUID.String()) != strings.TrimSpace(claims.MemberUUID) ||
+		strings.TrimSpace(u.UUID.String()) != strings.TrimSpace(claims.UserUUID) {
+		return "", errors.New("refresh token mismatch")
+	}
+	roleCodes, err := s.roleCodesForMember(ctx, ten.UUID.String(), m.ID)
+	if err != nil {
+		return "", err
+	}
 
-	// 4) 重新签发新的 access（沿用 claims 的主体信息，刷新有效期）
+	// 4) 重新签发新的 access。角色必须从数据库重新加载，不能复用 refresh token 里的旧角色快照。
 	claims.TenantID = ten.ID
+	claims.MemberID = m.ID
+	claims.MemberUUID = m.UUID.String()
+	claims.UserID = u.ID
+	claims.UserUUID = u.UUID.String()
 	claims.Email = strings.ToLower(strings.TrimSpace(u.Email))
 	claims.Phone = strings.TrimSpace(u.Phone)
+	claims.IsRoot = u.IsRoot
+	claims.Roles = roleCodes
 	access, err := pkgauth.GenerateAccessJWT(
 		*claims, // Tenant/User/Member/Platforms/Env 都沿用
 		s.Issuer,
