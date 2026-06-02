@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
@@ -123,6 +125,14 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
 			return
 		}
+		if err := completeReadyDrainJobsForPlugin(c, deps, id); err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：Drain 状态恢复失败", err)
+			return
+		}
+		if err := enablePluginForCurrentTenantIfPresent(c, deps, id); err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：租户插件启用失败", err)
+			return
+		}
 		seeded, err := ensureEnabledTenantEventFabricTopics(c, deps, id)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：Topic 注册失败", err)
@@ -130,6 +140,45 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "event_fabric_seeded_tenants": seeded})
 	}
+}
+
+func completeReadyDrainJobsForPlugin(c *gin.Context, deps *shared.Deps, pluginID string) error {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	_, err := reposetting.NewPluginDrainJobRepository(deps.DB).MarkReadyJobsCompletedByPlugin(c.Request.Context(), pluginID, time.Now().UTC())
+	return err
+}
+
+func enablePluginForCurrentTenantIfPresent(c *gin.Context, deps *shared.Deps, pluginID string) error {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	tenantUUID := strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
+	if tenantUUID == "" {
+		return nil
+	}
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
+	mgr, err := tryGetPluginManager()
+	if err != nil {
+		return err
+	}
+	p, err := mgr.Get(c.Request.Context(), pluginID)
+	if err != nil {
+		return err
+	}
+	svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	_, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, nil)
+	if err != nil {
+		return err
+	}
+	if clientSecret != "" {
+		_ = pmimplnotify.PushTenantCredentials(c, pluginID, tenantUUID, clientID, clientSecret)
+	}
+	return nil
 }
 
 func ensureEnabledTenantEventFabricTopics(c *gin.Context, deps *shared.Deps, pluginID string) (int, error) {

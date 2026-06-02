@@ -229,11 +229,8 @@ func (r *PluginInstanceConfigRepository) CountActiveTenantPluginBindings(ctx con
 		PluginIDs: []string{pluginID},
 		Key:       KeyClientCredentials,
 		Statuses: []string{
-			dbsetting.PluginInstanceStatusAvailable,
 			dbsetting.PluginInstanceStatusSubscribed,
 			dbsetting.PluginInstanceStatusEnabled,
-			dbsetting.PluginInstanceStatusDisabled,
-			dbsetting.PluginInstanceStatusExpired,
 		},
 	})
 }
@@ -266,7 +263,10 @@ func (r *PluginInstanceConfigRepository) MarkPluginInstancesDraining(ctx context
 	db := r.with(ctx).
 		Model(&dbsetting.PluginInstanceConfig{}).
 		Where("plugin_id = ? AND key = ?", pluginID, KeyClientCredentials).
-		Where("status <> ?", dbsetting.PluginInstanceStatusDrained)
+		Where("status IN ?", []string{
+			dbsetting.PluginInstanceStatusSubscribed,
+			dbsetting.PluginInstanceStatusEnabled,
+		})
 	res := db.Updates(map[string]any{
 		"enabled":            false,
 		"status":             dbsetting.PluginInstanceStatusDrainingRequested,
@@ -285,7 +285,10 @@ func (r *PluginInstanceConfigRepository) MarkPluginInstancesDisabledByPlatform(c
 	db := r.with(ctx).
 		Model(&dbsetting.PluginInstanceConfig{}).
 		Where("plugin_id = ? AND key = ?", pluginID, KeyClientCredentials).
-		Where("status <> ?", dbsetting.PluginInstanceStatusDrained)
+		Where("status IN ?", []string{
+			dbsetting.PluginInstanceStatusSubscribed,
+			dbsetting.PluginInstanceStatusEnabled,
+		})
 	res := db.Updates(map[string]any{
 		"enabled":            false,
 		"status":             dbsetting.PluginInstanceStatusDisabledByPlatform,

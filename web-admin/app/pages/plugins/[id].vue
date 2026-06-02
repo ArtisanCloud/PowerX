@@ -144,11 +144,11 @@
               }}</UBadge>
             </div>
             <div
-              v-if="latestDrainJob"
+              v-if="currentDrainJob"
               class="rounded-md border border-[var(--border-color)] bg-[var(--ui-bg-elevated)] p-2 text-xs space-y-1"
             >
-              <div>drain_job：{{ latestDrainJob.job_id || latestDrainJob.id || "-" }}</div>
-              <div>状态：{{ latestDrainJob.status || "-" }}</div>
+              <div>drain_job：{{ currentDrainJob.job_id || currentDrainJob.id || "-" }}</div>
+              <div>状态：{{ currentDrainJob.status || "-" }}</div>
               <div v-if="drainBlockerSummary">
                 阻断：{{ drainBlockerSummary }}
               </div>
@@ -261,11 +261,12 @@
                 size="sm"
                 variant="outline"
                 icon="i-heroicons-key"
+                :disabled="!canRotateTenantSecret"
                 @click="rotateTenantSecret"
                 >轮换凭证</UButton
               >
               <UButton
-                v-if="canManageTenantInstance"
+                v-if="canDeleteTenantConfig"
                 size="sm"
                 variant="outline"
                 color="error"
@@ -541,6 +542,7 @@ const tenantEnabled = ref<boolean>(false);
 const tenantStatus = ref<string>("");
 const clientId = ref<string>("");
 const drainJobs = ref<any[]>([]);
+const pendingStopDrainJob = ref<any | null>(null);
 
 const showSecret = ref(false);
 const oneTimeSecret = ref<string>("");
@@ -585,9 +587,22 @@ const DRAIN_TERMINAL_JOB_STATUSES = new Set([
   "canceled",
 ]);
 
+function normalizeDrainJobStatus(job: any) {
+  return String(job?.status || "").toLowerCase();
+}
+
+const blockingDrainJob = computed(() =>
+  drainJobs.value.find((job: any) => {
+    const status = normalizeDrainJobStatus(job);
+    return DRAIN_ACTIVE_JOB_STATUSES.has(status) || DRAIN_READY_JOB_STATUSES.has(status);
+  }) || null
+);
 const latestDrainJob = computed(() => drainJobs.value[0] || null);
+const currentDrainJob = computed(() => {
+  return blockingDrainJob.value || latestDrainJob.value || null;
+});
 const drainBlockerData = computed(() => {
-  const raw = latestDrainJob.value?.last_blocker_json || latestDrainJob.value?.LastBlockerJSON;
+  const raw = currentDrainJob.value?.last_blocker_json || currentDrainJob.value?.LastBlockerJSON;
   if (!raw) return null;
   return typeof raw === "string" ? safeParseJSON(raw) : raw;
 });
@@ -646,25 +661,36 @@ const drainBlockerRecommendation = computed(() => {
 });
 const normalizedTenantStatus = computed(() => (tenantStatus.value || "").toLowerCase());
 const normalizedDrainJobStatus = computed(() =>
-  String(latestDrainJob.value?.status || "").toLowerCase()
+  String(currentDrainJob.value?.status || "").toLowerCase()
 );
+const currentDrainPurpose = computed(() => {
+  const reason = String(currentDrainJob.value?.reason || "").toLowerCase();
+  if (reason.includes("disable")) return "disable";
+  if (reason.includes("uninstall")) return "uninstall";
+  return "manual";
+});
 const isDrainActive = computed(() => {
 	if (DRAIN_ACTIVE_JOB_STATUSES.has(normalizedDrainJobStatus.value)) return true;
 	return false;
 });
 const isDrained = computed(() => {
-  if (sysEnabled.value) return false;
   if (DRAIN_READY_JOB_STATUSES.has(normalizedDrainJobStatus.value)) return true;
   return false;
 });
+const isReadyForDisable = computed(
+  () => isDrained.value && currentDrainPurpose.value === "disable"
+);
+const isReadyForFinalUninstall = computed(
+  () => isDrained.value && currentDrainPurpose.value !== "disable"
+);
 const canStartDrain = computed(
   () => isRoot.value && sysInstalled.value && !isDrainActive.value && !isDrained.value
 );
 const canFinalUninstall = computed(
-  () => isRoot.value && sysInstalled.value && Boolean(latestDrainJob.value) && isDrained.value
+  () => isRoot.value && sysInstalled.value && Boolean(currentDrainJob.value) && isReadyForFinalUninstall.value
 );
 const canToggleSystem = computed(
-  () => isRoot.value && sysInstalled.value && !isDrainActive.value && (sysEnabled.value || !isDrained.value)
+  () => isRoot.value && sysInstalled.value && !isDrainActive.value && (isReadyForDisable.value || !isDrained.value)
 );
 const canMutateSystemRuntime = computed(
   () => isRoot.value && sysInstalled.value && !isDrainActive.value && !isDrained.value
@@ -673,15 +699,29 @@ const canManageTenantInstance = computed(() => isRoot.value || isTenantAdmin.val
 const canToggleTenant = computed(() => {
   if (!canManageTenantInstance.value) return false;
   if (tenantEnabled.value) return true;
-  return !isDrainActive.value && !isDrained.value;
+  return sysInstalled.value && sysEnabled.value && !isDrainActive.value && !isDrained.value;
 });
+const canRotateTenantSecret = computed(
+  () => canManageTenantInstance.value && tenantEnabled.value && sysInstalled.value && sysEnabled.value && !isDrainActive.value && !isDrained.value
+);
+const canDeleteTenantConfig = computed(
+  () => canManageTenantInstance.value && Boolean(clientId.value || tenantEnabled.value || tenantStatus.value)
+);
 const topUninstallAction = computed(() => {
-  if (isDrained.value) {
+  if (isReadyForFinalUninstall.value) {
     return {
       label: "最终卸载",
       color: "error" as const,
       icon: "i-heroicons-trash",
       disabled: !canFinalUninstall.value,
+    };
+  }
+  if (isReadyForDisable.value) {
+    return {
+      label: "等待停用",
+      color: "warning" as const,
+      icon: "i-heroicons-pause",
+      disabled: false,
     };
   }
   if (isDrainActive.value) {
@@ -693,14 +733,15 @@ const topUninstallAction = computed(() => {
     };
   }
   return {
-    label: "发起 drain",
-    color: "warning" as const,
-    icon: "i-heroicons-no-symbol",
-    disabled: !canStartDrain.value,
+    label: "卸载",
+    color: "error" as const,
+    icon: "i-heroicons-trash",
+    disabled: false,
   };
 });
 const drainBadge = computed(() => {
-  if (isDrained.value) return { label: "可最终卸载", color: "success" as const };
+  if (isReadyForDisable.value) return { label: "可停用", color: "success" as const };
+  if (isReadyForFinalUninstall.value) return { label: "可最终卸载", color: "success" as const };
   if (isDrainActive.value) return { label: "drain 中", color: "warning" as const };
   if (DRAIN_TERMINAL_JOB_STATUSES.has(normalizedDrainJobStatus.value)) {
     return { label: "历史已完成", color: "neutral" as const };
@@ -862,8 +903,8 @@ async function toggleEnable() {
   if (!canToggleSystem.value) {
     const description = isDrainActive.value
       ? "drain 完成前不能启用、停用或改变系统运行状态。"
-      : isDrained.value && !sysEnabled.value
-        ? "插件已 drained，不允许重新启用；请执行最终卸载或重新安装。"
+      : isReadyForFinalUninstall.value
+        ? "插件已完成卸载 drain，不允许重新启用；请执行最终卸载或重新安装。"
         : "当前状态不允许改变系统运行状态。";
     toast.add({
       title: "不能操作系统运行状态",
@@ -882,17 +923,38 @@ async function toggleEnable() {
     if (sysEnabled.value) {
       const { useConfirm } = await import("~/composables/useConfirm");
       const { confirm } = useConfirm();
-      if (!isDrained.value) {
+      if (!isDrained.value && !currentDrainJob.value) {
         const ok = await confirm({
-          title: "发起插件 drain",
+          title: "停用前需要 drain",
           description: "停用前必须先 drain，系统会先阻断新增使用入口并等待存量任务完成。",
-          message: "是否现在发起 drain？drain 完成后再执行停用。",
+          message: "是否现在发起 drain？如果 drain 立即完成，系统会继续执行停用。",
           confirmLabel: "发起 drain",
           cancelLabel: "取消",
           tone: "warning",
         });
         if (!ok) return;
-        await startDrain();
+        const job = await createDrainJobForPurpose("disable");
+        pendingStopDrainJob.value = job;
+        await refreshLatestDrainJobProgress();
+        await refreshDrainJobs();
+        const stopDrainStatus = String(job?.status || pendingStopDrainJob.value?.status || currentDrainJob.value?.status || "").toLowerCase();
+        if (!DRAIN_READY_JOB_STATUSES.has(stopDrainStatus)) {
+          toast.add({
+            title: "等待 drain 完成",
+            description: "drain 尚未完成，完成后再次点击停用即可继续。",
+            color: "warning",
+            icon: "i-heroicons-clock",
+          });
+          return;
+        }
+      }
+      if (!isDrained.value && currentDrainJob.value && !DRAIN_READY_JOB_STATUSES.has(normalizedDrainJobStatus.value)) {
+        toast.add({
+          title: "等待 drain 完成",
+          description: "当前插件正在 drain，完成后才能停用。",
+          color: "warning",
+          icon: "i-heroicons-clock",
+        });
         return;
       }
       const ok = await confirm({
@@ -905,6 +967,7 @@ async function toggleEnable() {
       });
       if (!ok) return;
       await svc.disable(id.value);
+      pendingStopDrainJob.value = null;
     } else {
       // 启用：先提示，再调用接口并轮询状态
       const pending = toast.add({
@@ -1183,9 +1246,16 @@ async function refreshTenant() {
 
 async function toggleTenant() {
   if (!canToggleTenant.value) {
+    const description = tenantEnabled.value
+      ? "当前状态不允许取消订阅。"
+      : !sysEnabled.value
+        ? "系统插件未启用，不能新增租户订阅。"
+        : isDrained.value
+          ? "插件已完成 drain，当前只允许最终卸载或重新安装后再订阅。"
+          : "当前插件不再允许新增租户订阅；已订阅租户只能取消订阅或删除配置。";
     toast.add({
-      title: "插件正在 drain",
-      description: "当前插件不再允许新增租户订阅；已订阅租户只能取消订阅或删除配置。",
+      title: "不能操作租户订阅",
+      description,
       color: "warning",
       icon: "i-heroicons-exclamation-triangle",
     });
@@ -1222,12 +1292,30 @@ async function toggleTenant() {
       }
       tenantEnabled.value = true;
     }
+    await refreshPluginLifecycleState({ force: true });
   } catch (e) {
     console.error("toggle tenant failed:", e);
+    toast.add({
+      title: "租户订阅操作失败",
+      description: e?.message || String(e),
+      color: "error",
+      icon: "i-heroicons-exclamation-triangle",
+    });
   }
 }
 
 async function rotateTenantSecret() {
+  if (!canRotateTenantSecret.value) {
+    toast.add({
+      title: "不能轮换凭证",
+      description: isDrainActive.value || isDrained.value
+        ? "插件处于 drain 生命周期时不能轮换租户凭证。"
+        : "系统插件未启用或当前租户未订阅，不能轮换凭证。",
+      color: "warning",
+      icon: "i-heroicons-exclamation-triangle",
+    });
+    return;
+  }
   const { useConfirm } = await import("~/composables/useConfirm");
   const { confirm } = useConfirm();
   const ok = await confirm({
@@ -1367,7 +1455,18 @@ const isTenantAdmin = computed(() => userStore.isCurrentTenantAdmin);
 async function uninstallPlugin() {
   if (!canFinalUninstall.value) {
     if (canStartDrain.value) {
-      await startDrain();
+      const { useConfirm } = await import("~/composables/useConfirm");
+      const { confirm } = useConfirm();
+      const ok = await confirm({
+        title: "卸载前需要 drain",
+        description: "系统会先阻断新增使用入口，并等待当前租户实例退出。drain 完成后才能最终卸载。",
+        message: "是否现在发起 drain？",
+        confirmLabel: "发起 drain",
+        cancelLabel: "取消",
+        tone: "warning",
+      });
+      if (!ok) return;
+      await createDrainJobForPurpose("uninstall");
       return;
     }
     toast.add({
@@ -1437,11 +1536,20 @@ async function uninstallPlugin() {
 
 async function handleUninstallAction() {
   if (canStartDrain.value) {
-    await startDrain();
+    await uninstallPlugin();
     return;
   }
   if (canFinalUninstall.value) {
     await uninstallPlugin();
+    return;
+  }
+  if (isReadyForDisable.value) {
+    toast.add({
+      title: "drain 已完成",
+      description: "这次 drain 的目标是停用插件，请在“系统运行”卡片点击停用。",
+      color: "warning",
+      icon: "i-heroicons-pause",
+    });
     return;
   }
   toast.add({
@@ -1469,7 +1577,7 @@ function isPluginDrainRequiredError(error: any) {
   return text.includes("PLUGIN_DRAIN_REQUIRED");
 }
 
-async function startDrain() {
+async function startDrain(options?: { confirm?: boolean }) {
   if (!canStartDrain.value) {
     const description = isDrainActive.value
       ? "插件已经处于 drain 中。"
@@ -1484,35 +1592,28 @@ async function startDrain() {
     });
     return;
   }
-  const { useConfirm } = await import("~/composables/useConfirm");
-  const { confirm } = useConfirm();
-  const ok = await confirm({
-    title: "发起插件 drain",
-    description: "系统将停止该插件的新使用入口，并等待现有租户实例完成退出。完成后才能最终卸载。",
-    message: "是否现在发起 drain？",
-    confirmLabel: "发起 drain",
-    cancelLabel: "取消",
-    tone: "warning",
-  });
-  if (!ok) return;
-  try {
-    const { useAdminPluginsService } = await import(
-      "~/composables/api/services/adminPluginsService"
-    );
-    const svc = useAdminPluginsService();
-    const version = (currentVersion.value || plugin.value?.version || "").trim();
-    const result: any = await svc.createDrainJob(id.value, {
-      version: version && version !== "-" ? version : undefined,
-      reason: "root uninstall requested",
-      mode: "normal",
+  if (options?.confirm !== false) {
+    const { useConfirm } = await import("~/composables/useConfirm");
+    const { confirm } = useConfirm();
+    const ok = await confirm({
+      title: "发起插件 drain",
+      description: "系统将停止该插件的新使用入口，并等待现有租户实例完成退出。完成后才能最终卸载。",
+      message: "是否现在发起 drain？",
+      confirmLabel: "发起 drain",
+      cancelLabel: "取消",
+      tone: "warning",
     });
-    upsertDrainJob(result?.job || result);
+    if (!ok) return null;
+  }
+  try {
+    const job = await createDrainJobForPurpose("manual");
     toast.add({
       title: "已发起 drain",
       description: "新增订阅、调度任务和事件写入会被阻断；存量任务可继续完成。",
       color: "success",
       icon: "i-heroicons-check-circle",
     });
+    return job;
   } catch (err) {
     console.error("create drain job failed:", err);
     toast.add({
@@ -1521,7 +1622,30 @@ async function startDrain() {
       color: "error",
       icon: "i-heroicons-exclamation-triangle",
     });
+    return null;
   }
+}
+
+async function createDrainJobForPurpose(purpose: "uninstall" | "disable" | "manual") {
+  const { useAdminPluginsService } = await import(
+    "~/composables/api/services/adminPluginsService"
+  );
+  const svc = useAdminPluginsService();
+  const version = (currentVersion.value || plugin.value?.version || "").trim();
+  const reason =
+    purpose === "disable"
+      ? "root disable requested"
+      : purpose === "uninstall"
+        ? "root uninstall requested"
+        : "root drain requested";
+  const result: any = await svc.createDrainJob(id.value, {
+    version: version && version !== "-" ? version : undefined,
+    reason,
+    mode: "normal",
+  });
+  const job = result?.job || result;
+  upsertDrainJob(job);
+  return job;
 }
 
 async function cancelDrainBlockers() {

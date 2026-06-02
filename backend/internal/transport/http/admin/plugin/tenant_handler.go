@@ -124,7 +124,6 @@ func TenantPluginInstanceEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseError(c, http.StatusConflict, "全局插件包未启用", fmt.Errorf("plugin %s state=%s", p.ID, p.State))
 			return
 		}
-
 		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
 		instance, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, req.Config)
 		if err != nil {

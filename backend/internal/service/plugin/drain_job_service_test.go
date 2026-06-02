@@ -2,12 +2,15 @@ package plugin
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -44,6 +47,79 @@ func TestCreateDrainJobAutoDrainsWhenNoRuntimeBlockers(t *testing.T) {
 	}
 	if err := svc.EnsurePluginAcceptsNewUsage(ctx, "com.powerx.plugins.base"); err == nil {
 		t.Fatal("EnsurePluginAcceptsNewUsage() err = nil, want conflict")
+	}
+}
+
+func TestTenantPluginEnableRejectedWhileReadyDrainJobBlocksNewUsage(t *testing.T) {
+	db := newPluginDrainTestDB(t)
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true, UserID: 7})
+	jobRepo := reposetting.NewPluginDrainJobRepository(db)
+	if err := jobRepo.Create(ctx, &dbsetting.PluginDrainJob{
+		JobID:               "drain-job-ready",
+		PluginID:            "com.powerx.plugins.base",
+		Status:              dbsetting.PluginDrainJobStatusReadyToUninstall,
+		AffectedTenantCount: 1,
+		DrainedTenantCount:  1,
+		Reason:              "root uninstall requested",
+	}); err != nil {
+		t.Fatalf("seed ready drain job: %v", err)
+	}
+
+	svc := NewTenantPluginInstanceService(db)
+	_, _, _, err := svc.Enable(ctx, "6b5d0240-9920-46da-b707-88200e0f51ea", plugin_mgr.Plugin{
+		ID:      "com.powerx.plugins.base",
+		Version: "0.1.0",
+	}, nil)
+	if err == nil {
+		t.Fatal("Enable() err = nil, want plugin draining conflict")
+	}
+	if dto.CodeOf(err) != ErrCodePluginDraining || dto.StatusCode(err) != http.StatusConflict {
+		t.Fatalf("Enable() err = %v, code=%s status=%d; want %s/%d", err, dto.CodeOf(err), dto.StatusCode(err), ErrCodePluginDraining, http.StatusConflict)
+	}
+	job, err := jobRepo.GetByJobID(ctx, "drain-job-ready")
+	if err != nil {
+		t.Fatalf("load ready drain job: %v", err)
+	}
+	if job.Status != dbsetting.PluginDrainJobStatusReadyToUninstall {
+		t.Fatalf("ready drain job was mutated: %+v", job)
+	}
+}
+
+func TestDisabledTenantPluginBindingDoesNotRequireDrain(t *testing.T) {
+	db := newPluginDrainTestDB(t)
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true, UserID: 7})
+	repo := reposetting.NewPluginInstanceConfigRepository(db)
+	if err := repo.Upsert(ctx, &dbsetting.PluginInstanceConfig{
+		TenantUUID: "6b5d0240-9920-46da-b707-88200e0f51ea",
+		PluginID:   "com.powerx.plugins.base",
+		Key:        reposetting.KeyClientCredentials,
+		Enabled:    false,
+		Status:     dbsetting.PluginInstanceStatusDisabled,
+	}); err != nil {
+		t.Fatalf("seed disabled tenant plugin instance: %v", err)
+	}
+
+	svc := NewPluginDrainJobService(db)
+	impact, err := svc.RequireNoActiveTenantInstances(ctx, "com.powerx.plugins.base", "")
+	if err != nil {
+		t.Fatalf("RequireNoActiveTenantInstances() err = %v", err)
+	}
+	if impact == nil || impact.TenantCount != 0 || impact.DrainRequired {
+		t.Fatalf("unexpected drain impact for disabled binding: %+v", impact)
+	}
+	job, err := svc.CreateDrainJob(ctx, CreateDrainJobInput{PluginID: "com.powerx.plugins.base", Reason: "root uninstall requested"})
+	if err != nil {
+		t.Fatalf("CreateDrainJob() err = %v", err)
+	}
+	if job.AffectedTenantCount != 0 || job.Status != dbsetting.PluginDrainJobStatusReadyToUninstall {
+		t.Fatalf("unexpected drain job for disabled binding: %+v", job)
+	}
+	cfg, err := repo.Get(ctx, "6b5d0240-9920-46da-b707-88200e0f51ea", "com.powerx.plugins.base", reposetting.KeyClientCredentials)
+	if err != nil {
+		t.Fatalf("load disabled tenant plugin instance: %v", err)
+	}
+	if cfg.Status != dbsetting.PluginInstanceStatusDisabled || cfg.DrainJobID != "" {
+		t.Fatalf("disabled tenant instance was mutated by drain: %+v", cfg)
 	}
 }
 
