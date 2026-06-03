@@ -157,27 +157,19 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return redirectToLogin();
   }
 
-  const rootAllowedRoutes = [
-    "/settings/ai/capability-registry",
-    "/settings/ai/connectors",
-  ];
-  const isRootAllowedPath = rootAllowedRoutes.some((path) =>
-    withLocale(path).test(to.path)
-  );
-
   const tenantOnlyRoots = [
     "/settings/ai",
   ];
   const isTenantOnlyPath = tenantOnlyRoots.some((path) =>
     withLocale(path).test(to.path)
   );
-  if (isTenantOnlyPath && !isRootAllowedPath) {
+  if (isTenantOnlyPath) {
     const userStore = useUserStore();
     try {
       if (!userStore.context) {
         await userStore.fetchUserContext({ force: true });
       }
-      if (userStore.isRoot && !userStore.isCurrentTenantAdmin) {
+      if (!userStore.isRoot && !userStore.isCurrentTenantAdmin) {
         return navigateTo("/dashboard");
       }
     } catch {

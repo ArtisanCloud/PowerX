@@ -255,6 +255,9 @@
         "general": "General",
         "parameters": "Parameters"
       },
+      "errors": {
+        "ollamaModelNotFound": "Ollama model not found: {model}. Run ollama pull {model}, or choose an installed local model from the dropdown."
+      },
       "actions": {
         "openCostGuard": "Open Cost Guard",
         "backToModels": "Back to models",
@@ -987,5 +990,87 @@
     "editTitle": "Update Release Candidate",
     "buildArtifact": "Build Artifact URI",
     "labelsHelp": "JSON object, e.g. channel=dev"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "Selected directory",
+      "drain": {
+        "noticeCreated": "Drain has started and new usage has been blocked. Retry installation later or open the drain progress page.",
+        "noticeRequired": "This plugin still has tenant instances in use. You can start drain now; PowerX will block new usage and wait for existing instances to exit.",
+        "title": "Drain required first",
+        "action": "Start drain",
+        "viewProgress": "View drain progress",
+        "viewDetail": "View details"
+      },
+      "toast": {
+        "drainCreatedTitle": "Drain started",
+        "drainCreatedDesc": "New usage has been blocked. Wait for drain to complete on the plugin details page.",
+        "drainCreateFailedTitle": "Failed to start drain",
+        "drainCreateFailedDesc": "Open the plugin details page to check drain status.",
+        "invalidDirectoryTitle": "Invalid directory",
+        "invalidDirectoryDesc": "The directory must contain plugin.yaml or *.tar.gz/.tgz.",
+        "urlRequired": "Enter the remote plugin URL.",
+        "localDirectoryRequired": "Select a plugin directory.",
+        "successTitle": "Success",
+        "successDesc": "Plugin installed successfully.",
+        "noticeTitle": "Notice",
+        "sourceMissingDesc": "No URL or local directory was selected, so installation was not started.",
+        "alreadyInstalledTitle": "Same version already installed",
+        "alreadyInstalledDesc": "This version already exists. Enable Force and retry, or uninstall the existing version first.",
+        "drainRequiredTitle": "Drain required first",
+        "drainRequiredDesc": "This plugin still has tenant instances in use. Open the plugin details page and complete drain first.",
+        "platformIncompatibleTitle": "Package platform incompatible",
+        "platformIncompatibleTargets": "The package target is {packageTarget}, but this PowerX host is {hostTarget}. Select a plugin artifact built for the current host platform.",
+        "platformIncompatiblePath": "{path} in the package is incompatible with this PowerX host. Select a plugin artifact built for the current host platform.",
+        "platformIncompatibleDesc": "This plugin package is incompatible with the PowerX host architecture. Select a plugin artifact built for the current host platform.",
+        "installFailedTitle": "Installation failed",
+        "installFailedDesc": "An error occurred during plugin installation. Please retry."
+      },
+      "title": "Install plugin",
+      "subtitle": "Choose an install source: remote URL or local upload",
+      "headerTitle": "Install plugin",
+      "headerTitleWithName": "Install plugin: {name}",
+      "meta": "Version: {version} · Author: {author}",
+      "installMethod": "Install method",
+      "enableAfterInstall": "Enable after installation",
+      "packageSource": "Package source (supports px-plugin build artifacts)",
+      "sha256Placeholder": "Optional: expected SHA256 checksum",
+      "chooseLocalSource": "Choose local source",
+      "selectedDirectory": "Selected directory: {name} ({count} files)",
+      "localUploadHelpPrefix": "Local upload: select the plugin directory. It must contain",
+      "localUploadHelpMiddle": "or",
+      "localUploadHelpSuffix": "to install.",
+      "scope": {
+        "label": "Install scope",
+        "system": "System",
+        "org": "Organization",
+        "user": "User"
+      },
+      "namespace": {
+        "label": "Namespace (optional)",
+        "placeholder": "Example: company.crm"
+      },
+      "environment": "Target environment",
+      "autoUpdate": "Auto update",
+      "forceInstall": "Force overwrite same version",
+      "permissions": {
+        "title": "Requested permissions",
+        "network": "Network access (call external APIs)",
+        "storage": "Local storage (read/write plugin data)",
+        "files": "File access (read/upload files)"
+      },
+      "notes": {
+        "label": "Notes (optional)",
+        "placeholder": "Add a note for this installation…"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "install": "Install"
+      },
+      "mode": {
+        "url": "Remote URL",
+        "local": "Local upload"
+      }
+    }
   }
 }

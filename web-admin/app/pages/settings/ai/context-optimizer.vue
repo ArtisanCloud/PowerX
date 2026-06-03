@@ -433,7 +433,7 @@ onMounted(async () => {
   if (!userStore.context) {
     await userStore.fetchUserContext();
   }
-  if (isRoot.value || !isCurrentTenantAdmin.value) {
+  if (!isRoot.value && !isCurrentTenantAdmin.value) {
     await navigateTo("/dashboard");
     return;
   }

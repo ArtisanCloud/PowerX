@@ -11,7 +11,7 @@ type authReq struct {
 // 从全局 registry 读取 provider 的 AuthSpec 与 defaults；
 // - needKey：fields 含 "api_key" 或 scheme 属于 bearer/oauth2/aksk 之一
 // - needBaseURL：fields 含 "base_url"
-// - defaultBaseURL：优先取 auth.defaults["base_url"]；若为 ollama 且没给 defaults，则回退为 http://localhost:11434
+// - defaultBaseURL：优先取 auth.defaults["base_url"]；若为 ollama 且没给 defaults，则回退为 http://127.0.0.1:11434
 func AuthReqFromCatalog(provider string) authReq {
 	reg := GetGlobalAIRegister()
 	m, ok := reg.Manifest(provider)
@@ -48,7 +48,7 @@ func AuthReqFromCatalog(provider string) authReq {
 	llmDriver := strings.ToLower(strings.TrimSpace(m.Drivers["llm"]))
 	if req.DefaultBaseURL == "" &&
 		(req.NeedBaseURL && (llmDriver == "ollama" || strings.ToLower(m.ID) == "ollama" || strings.Contains(strings.ToLower(m.Name), "ollama"))) {
-		req.DefaultBaseURL = "http://localhost:11434"
+		req.DefaultBaseURL = "http://127.0.0.1:11434"
 	}
 
 	return req

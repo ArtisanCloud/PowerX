@@ -56,7 +56,16 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, deps *shared.Deps) {
 	publicGroup.POST("/public/saas/signup", h.Signup)
 }
 
+func saasSignupEnabled() bool {
+	cfg := config.GetGlobalConfig()
+	return cfg != nil && cfg.FeatureGate.EnableSaaSSignup
+}
+
 func (h *SignupHandler) SendVerificationCode(c *gin.Context) {
+	if !saasSignupEnabled() {
+		dtoRequest.ResponseError(c, http.StatusForbidden, "saas signup disabled", nil)
+		return
+	}
 	if h == nil || h.verifier == nil {
 		dtoRequest.ResponseError(c, http.StatusNotFound, "saas signup verification code disabled", nil)
 		return
@@ -78,6 +87,10 @@ func (h *SignupHandler) SendVerificationCode(c *gin.Context) {
 }
 
 func (h *SignupHandler) Signup(c *gin.Context) {
+	if !saasSignupEnabled() {
+		dtoRequest.ResponseError(c, http.StatusForbidden, "saas signup disabled", nil)
+		return
+	}
 	if h == nil || h.service == nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "saas signup service not configured", nil)
 		return

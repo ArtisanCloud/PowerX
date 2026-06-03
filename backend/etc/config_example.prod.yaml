@@ -64,6 +64,7 @@ feature_gate:
   enable_knowledge_space: true
   enable_media_platform: true
   enable_experimental_features: true
+  enable_saas_signup: false
   enable_saas_signup_verification_code: false
 
 database:

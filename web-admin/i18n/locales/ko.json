@@ -946,5 +946,87 @@
     "chatSignal": "채팅 신호",
     "commandChannel": "명령 채널",
     "reconnect": "재연결"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "선택한 디렉터리",
+      "drain": {
+        "noticeCreated": "drain을 시작했고 신규 사용 진입을 차단했습니다. 나중에 설치를 다시 시도하거나 drain 진행 상태를 확인하세요.",
+        "noticeRequired": "이 플러그인은 아직 테넌트 인스턴스에서 사용 중입니다. 지금 drain을 시작하면 신규 사용을 차단하고 기존 인스턴스 종료를 기다립니다.",
+        "title": "먼저 drain 필요",
+        "action": "drain 시작",
+        "viewProgress": "drain 진행 보기",
+        "viewDetail": "상세 보기"
+      },
+      "toast": {
+        "drainCreatedTitle": "drain 시작됨",
+        "drainCreatedDesc": "신규 사용 진입을 차단했습니다. 플러그인 상세 페이지에서 drain 완료를 기다리세요.",
+        "drainCreateFailedTitle": "drain 시작 실패",
+        "drainCreateFailedDesc": "플러그인 상세 페이지에서 drain 상태를 확인하세요.",
+        "invalidDirectoryTitle": "유효하지 않은 디렉터리",
+        "invalidDirectoryDesc": "디렉터리에는 plugin.yaml 또는 *.tar.gz/.tgz가 포함되어야 합니다.",
+        "urlRequired": "플러그인의 원격 URL을 입력하세요.",
+        "localDirectoryRequired": "플러그인 디렉터리를 선택하세요.",
+        "successTitle": "성공",
+        "successDesc": "플러그인을 설치했습니다.",
+        "noticeTitle": "알림",
+        "sourceMissingDesc": "URL 또는 로컬 디렉터리를 선택하지 않아 설치를 시작하지 않았습니다.",
+        "alreadyInstalledTitle": "동일 버전이 이미 설치됨",
+        "alreadyInstalledDesc": "이 버전은 이미 존재합니다. Force를 켜고 다시 시도하거나 기존 버전을 먼저 제거하세요.",
+        "drainRequiredTitle": "먼저 drain 필요",
+        "drainRequiredDesc": "이 플러그인은 아직 테넌트 인스턴스에서 사용 중입니다. 플러그인 상세 페이지에서 drain을 완료하세요.",
+        "platformIncompatibleTitle": "패키지 플랫폼 비호환",
+        "platformIncompatibleTargets": "패키지 대상은 {packageTarget}이고 현재 PowerX 호스트는 {hostTarget}입니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "platformIncompatiblePath": "패키지의 {path}는 현재 PowerX 호스트와 호환되지 않습니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "platformIncompatibleDesc": "이 플러그인 패키지는 PowerX 호스트 아키텍처와 호환되지 않습니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "installFailedTitle": "설치 실패",
+        "installFailedDesc": "플러그인 설치 중 오류가 발생했습니다. 다시 시도하세요."
+      },
+      "title": "플러그인 설치",
+      "subtitle": "설치 소스를 선택하세요: 원격 URL 또는 로컬 업로드",
+      "headerTitle": "플러그인 설치",
+      "headerTitleWithName": "플러그인 설치: {name}",
+      "meta": "버전: {version} · 작성자: {author}",
+      "installMethod": "설치 방식",
+      "enableAfterInstall": "설치 후 바로 활성화",
+      "packageSource": "패키지 소스 (px-plugin build 산출물 지원)",
+      "sha256Placeholder": "선택 사항: 예상 SHA256 체크섬",
+      "chooseLocalSource": "로컬 소스 선택",
+      "selectedDirectory": "선택한 디렉터리: {name} ({count}개 파일)",
+      "localUploadHelpPrefix": "로컬 업로드: 플러그인 디렉터리를 선택하세요. 디렉터리에는",
+      "localUploadHelpMiddle": "또는",
+      "localUploadHelpSuffix": "가 있어야 설치할 수 있습니다.",
+      "scope": {
+        "label": "설치 범위",
+        "system": "시스템",
+        "org": "조직",
+        "user": "사용자"
+      },
+      "namespace": {
+        "label": "네임스페이스 (선택 사항)",
+        "placeholder": "예: company.crm"
+      },
+      "environment": "대상 환경",
+      "autoUpdate": "자동 업데이트",
+      "forceInstall": "동일 버전 강제 덮어쓰기",
+      "permissions": {
+        "title": "요청 권한",
+        "network": "네트워크 접근 (외부 API 호출)",
+        "storage": "로컬 스토리지 (플러그인 데이터 읽기/쓰기)",
+        "files": "파일 접근 (파일 읽기/업로드)"
+      },
+      "notes": {
+        "label": "메모 (선택 사항)",
+        "placeholder": "이번 설치에 대한 메모를 입력…"
+      },
+      "actions": {
+        "cancel": "취소",
+        "install": "설치"
+      },
+      "mode": {
+        "url": "원격 URL",
+        "local": "로컬 업로드"
+      }
+    }
   }
 }

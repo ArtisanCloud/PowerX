@@ -300,6 +300,9 @@
         "general": "通用",
         "parameters": "参数"
       },
+      "errors": {
+        "ollamaModelNotFound": "Ollama 模型不存在：{model}。请先执行 ollama pull {model}，或在模型下拉选择本机已安装的模型。"
+      },
       "actions": {
         "openCostGuard": "进入成本防护",
         "backToModels": "返回模型列表",
@@ -1256,5 +1259,87 @@
     "editTitle": "更新发布候选",
     "buildArtifact": "构建产物 URI",
     "labelsHelp": "JSON 对象，例如 channel=dev"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "已选目录",
+      "drain": {
+        "noticeCreated": "已发起 drain，并已阻断新增使用入口。可以稍后重试安装，或查看 drain 进度。",
+        "noticeRequired": "当前插件仍有租户实例在使用。可以现在发起 drain，系统会阻断新增使用并等待存量实例退出。",
+        "title": "需要先完成 drain",
+        "action": "发起 drain",
+        "viewProgress": "查看 drain 进度",
+        "viewDetail": "查看详情"
+      },
+      "toast": {
+        "drainCreatedTitle": "已发起 drain",
+        "drainCreatedDesc": "已阻断新增使用入口，请在插件详情页等待 drain 完成。",
+        "drainCreateFailedTitle": "发起 drain 失败",
+        "drainCreateFailedDesc": "请进入插件详情页查看 drain 状态。",
+        "invalidDirectoryTitle": "目录无效",
+        "invalidDirectoryDesc": "目录内需包含 plugin.yaml 或 *.tar.gz/.tgz",
+        "urlRequired": "请填写插件的远程 URL 地址。",
+        "localDirectoryRequired": "请选择插件目录。",
+        "successTitle": "成功",
+        "successDesc": "插件安装成功。",
+        "noticeTitle": "提示",
+        "sourceMissingDesc": "未填写 URL 或未选择本地目录，未发起安装请求。",
+        "alreadyInstalledTitle": "已安装同版本",
+        "alreadyInstalledDesc": "该版本已存在。可勾选“强制覆盖同版本 (Force)”后重试，或先卸载旧版本。",
+        "drainRequiredTitle": "需要先完成 drain",
+        "drainRequiredDesc": "当前插件仍有租户实例在使用。请进入插件详情发起并完成 drain。",
+        "platformIncompatibleTitle": "安装包平台不兼容",
+        "platformIncompatibleTargets": "安装包平台是 {packageTarget}，当前 PowerX 宿主是 {hostTarget}。请重新选择当前宿主平台对应的插件产物后安装。",
+        "platformIncompatiblePath": "安装包中的 {path} 与当前 PowerX 宿主系统不兼容。请重新选择当前宿主平台对应的插件产物后安装。",
+        "platformIncompatibleDesc": "当前安装包与 PowerX 宿主系统架构不兼容。请重新选择当前宿主平台对应的插件产物后安装。",
+        "installFailedTitle": "安装失败",
+        "installFailedDesc": "插件安装过程中发生错误，请重试。"
+      },
+      "title": "安装插件",
+      "subtitle": "选择安装来源：远程 URL 或本地上传",
+      "headerTitle": "安装插件",
+      "headerTitleWithName": "安装插件：{name}",
+      "meta": "版本：{version} · 作者：{author}",
+      "installMethod": "安装方式",
+      "enableAfterInstall": "安装后立即启用",
+      "packageSource": "安装包来源（支持 px-plugin build 产物）",
+      "sha256Placeholder": "可选：期望的 SHA256 校验值",
+      "chooseLocalSource": "选择本地来源",
+      "selectedDirectory": "已选择目录：{name}（{count} 个文件）",
+      "localUploadHelpPrefix": "本地上传：请选择插件目录。目录内包含",
+      "localUploadHelpMiddle": "或",
+      "localUploadHelpSuffix": "即可安装。",
+      "scope": {
+        "label": "安装范围",
+        "system": "系统级",
+        "org": "组织级",
+        "user": "用户级"
+      },
+      "namespace": {
+        "label": "命名空间（可选）",
+        "placeholder": "如: company.crm"
+      },
+      "environment": "目标环境",
+      "autoUpdate": "自动更新",
+      "forceInstall": "强制覆盖同版本（Force）",
+      "permissions": {
+        "title": "申请权限",
+        "network": "网络访问（调用外部 API）",
+        "storage": "本地存储（读写插件数据）",
+        "files": "文件访问（读取/上传文件）"
+      },
+      "notes": {
+        "label": "备注（可选）",
+        "placeholder": "为本次安装记录备注…"
+      },
+      "actions": {
+        "cancel": "取消",
+        "install": "安装"
+      },
+      "mode": {
+        "url": "远程 URL",
+        "local": "本地上传"
+      }
+    }
   }
 }

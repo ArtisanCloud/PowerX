@@ -673,12 +673,13 @@ type LowCodeConfig struct {
 
 // 功能开关配置
 type FeatureGateConfig struct {
-	LicenseKey                       string `yaml:"license_key"`                         // license 或灰度控制 token
-	EnableEventFabric                bool   `yaml:"enable_event_fabric"`                 // 是否启用事件骨干
-	EnableWorkflow                   bool   `yaml:"enable_workflow"`                     // 是否启用 Workflow 能力
-	EnableKnowledgeSpace             bool   `yaml:"enable_knowledge_space"`              // 是否启用知识空间
-	EnableMediaPlatform              bool   `yaml:"enable_media_platform"`               // 是否启用平台 Media 能力
-	EnableExperimentalFeatures       bool   `yaml:"enable_experimental_features"`        // 是否开启实验特性
+	LicenseKey                       string `yaml:"license_key"`                          // license 或灰度控制 token
+	EnableEventFabric                bool   `yaml:"enable_event_fabric"`                  // 是否启用事件骨干
+	EnableWorkflow                   bool   `yaml:"enable_workflow"`                      // 是否启用 Workflow 能力
+	EnableKnowledgeSpace             bool   `yaml:"enable_knowledge_space"`               // 是否启用知识空间
+	EnableMediaPlatform              bool   `yaml:"enable_media_platform"`                // 是否启用平台 Media 能力
+	EnableExperimentalFeatures       bool   `yaml:"enable_experimental_features"`         // 是否开启实验特性
+	EnableSaaSSignup                 bool   `yaml:"enable_saas_signup"`                   // 是否开放 SaaS 新租户注册
 	EnableSaaSSignupVerificationCode bool   `yaml:"enable_saas_signup_verification_code"` // SaaS 注册是否要求邮箱/手机验证码
 }
 
@@ -1113,6 +1114,9 @@ func loadFromEnv(cfg *Config) {
 	// FeatureGate配置
 	if license := os.Getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
 		cfg.FeatureGate.LicenseKey = license
+	}
+	if v := os.Getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP"); v != "" {
+		cfg.FeatureGate.EnableSaaSSignup = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := os.Getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP_VERIFICATION_CODE"); v != "" {
 		cfg.FeatureGate.EnableSaaSSignupVerificationCode = strings.EqualFold(v, "true") || v == "1"

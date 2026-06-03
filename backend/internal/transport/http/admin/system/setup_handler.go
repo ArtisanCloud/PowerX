@@ -183,10 +183,12 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	installStatus := "installed"
 	guardMode := "strict"
 	version := ""
+	saasSignupEnabled := false
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		installStatus = cfg.Install.EffectiveStatus()
 		guardMode = cfg.Install.EffectiveLockMode()
 		version = cfg.EffectiveSystemVersion()
+		saasSignupEnabled = cfg.FeatureGate.EnableSaaSSignup
 	}
 
 	userCount, tenantCount, aiProfileCount := int64(0), int64(0), int64(0)
@@ -235,12 +237,13 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, gin.H{
-		"configured":      configured,
-		"requires_login":  requiresLogin,
-		"completed_by_kv": completedBySetting,
-		"install_status":  installStatus,
-		"guard_mode":      guardMode,
-		"version":         version,
+		"configured":          configured,
+		"requires_login":      requiresLogin,
+		"completed_by_kv":     completedBySetting,
+		"install_status":      installStatus,
+		"guard_mode":          guardMode,
+		"version":             version,
+		"saas_signup_enabled": saasSignupEnabled,
 		"desired_ports": gin.H{
 			"backend_port":   desiredPorts.BackendPort,
 			"web_admin_port": desiredPorts.WebAdminPort,

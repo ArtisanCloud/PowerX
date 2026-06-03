@@ -66,7 +66,7 @@ func NewVectorizerFromConfig(llm config.EmbeddingConfig) (embed.Vectorizer, erro
 		}, nil
 	case "ollama":
 		return &ollama.OllamaEmbedder{
-			BaseURL:  llm.Endpoint, // e.g. http://localhost:11434
+			BaseURL:  llm.Endpoint, // e.g. http://127.0.0.1:11434
 			Model:    llm.Model,    // e.g. bge-m3
 			Timeout:  60 * time.Second,
 			MaxBatch: llm.MaxBatch,

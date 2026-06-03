@@ -12,6 +12,9 @@ const compactError = (raw: unknown): string => {
   if (!message) return "未知错误";
 
   const lower = message.toLowerCase();
+  if (lower.includes("ollama_model_not_found")) {
+    return "Ollama model not found";
+  }
   if (
     lower.includes("accessdenied.unpurchased") ||
     lower.includes("access to model denied")

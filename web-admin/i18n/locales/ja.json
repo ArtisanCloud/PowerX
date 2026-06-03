@@ -983,5 +983,87 @@
     "chatSignal": "チャット信号",
     "commandChannel": "コマンドチャンネル",
     "reconnect": "再接続"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "選択済みディレクトリ",
+      "drain": {
+        "noticeCreated": "drain を開始し、新規利用をブロックしました。後でインストールを再試行するか、drain の進行状況を確認してください。",
+        "noticeRequired": "このプラグインはまだテナントインスタンスで利用されています。今 drain を開始すると、新規利用をブロックし、既存インスタンスの終了を待ちます。",
+        "title": "先に drain が必要です",
+        "action": "drain を開始",
+        "viewProgress": "drain の進行状況を表示",
+        "viewDetail": "詳細を表示"
+      },
+      "toast": {
+        "drainCreatedTitle": "drain を開始しました",
+        "drainCreatedDesc": "新規利用をブロックしました。プラグイン詳細ページで drain の完了を待ってください。",
+        "drainCreateFailedTitle": "drain の開始に失敗しました",
+        "drainCreateFailedDesc": "プラグイン詳細ページで drain 状態を確認してください。",
+        "invalidDirectoryTitle": "ディレクトリが無効です",
+        "invalidDirectoryDesc": "ディレクトリには plugin.yaml または *.tar.gz/.tgz が必要です。",
+        "urlRequired": "プラグインのリモート URL を入力してください。",
+        "localDirectoryRequired": "プラグインディレクトリを選択してください。",
+        "successTitle": "成功",
+        "successDesc": "プラグインをインストールしました。",
+        "noticeTitle": "通知",
+        "sourceMissingDesc": "URL またはローカルディレクトリが未指定のため、インストールを開始していません。",
+        "alreadyInstalledTitle": "同じバージョンが既にインストール済みです",
+        "alreadyInstalledDesc": "このバージョンは既に存在します。Force を有効にして再試行するか、既存バージョンを先にアンインストールしてください。",
+        "drainRequiredTitle": "先に drain が必要です",
+        "drainRequiredDesc": "このプラグインはまだテナントインスタンスで利用されています。プラグイン詳細ページで drain を完了してください。",
+        "platformIncompatibleTitle": "パッケージのプラットフォームが非互換です",
+        "platformIncompatibleTargets": "パッケージ対象は {packageTarget} ですが、この PowerX ホストは {hostTarget} です。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "platformIncompatiblePath": "パッケージ内の {path} はこの PowerX ホストと互換性がありません。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "platformIncompatibleDesc": "このプラグインパッケージは PowerX ホストのアーキテクチャと互換性がありません。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "installFailedTitle": "インストールに失敗しました",
+        "installFailedDesc": "プラグインのインストール中にエラーが発生しました。再試行してください。"
+      },
+      "title": "プラグインをインストール",
+      "subtitle": "インストール元を選択: リモート URL またはローカルアップロード",
+      "headerTitle": "プラグインをインストール",
+      "headerTitleWithName": "プラグインをインストール: {name}",
+      "meta": "バージョン: {version} · 作者: {author}",
+      "installMethod": "インストール方法",
+      "enableAfterInstall": "インストール後すぐに有効化",
+      "packageSource": "パッケージ元（px-plugin build 成果物をサポート）",
+      "sha256Placeholder": "任意: 期待する SHA256 チェックサム",
+      "chooseLocalSource": "ローカルソースを選択",
+      "selectedDirectory": "選択済みディレクトリ: {name}（{count} ファイル）",
+      "localUploadHelpPrefix": "ローカルアップロード: プラグインディレクトリを選択してください。ディレクトリには",
+      "localUploadHelpMiddle": "または",
+      "localUploadHelpSuffix": "が必要です。",
+      "scope": {
+        "label": "インストール範囲",
+        "system": "システム",
+        "org": "組織",
+        "user": "ユーザー"
+      },
+      "namespace": {
+        "label": "名前空間（任意）",
+        "placeholder": "例: company.crm"
+      },
+      "environment": "対象環境",
+      "autoUpdate": "自動更新",
+      "forceInstall": "同一バージョンを強制上書き",
+      "permissions": {
+        "title": "要求権限",
+        "network": "ネットワークアクセス（外部 API 呼び出し）",
+        "storage": "ローカルストレージ（プラグインデータの読み書き）",
+        "files": "ファイルアクセス（ファイルの読み取り/アップロード）"
+      },
+      "notes": {
+        "label": "メモ（任意）",
+        "placeholder": "このインストールのメモを入力…"
+      },
+      "actions": {
+        "cancel": "キャンセル",
+        "install": "インストール"
+      },
+      "mode": {
+        "url": "リモート URL",
+        "local": "ローカルアップロード"
+      }
+    }
   }
 }

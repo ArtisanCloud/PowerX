@@ -21,7 +21,7 @@ func NewClassifierFromConfig(llmCfg config.ClassifierConfig) (llm.Classifier, er
 		}, nil
 	case "ollama":
 		return &llm.OllamaClassifier{
-			BaseURL: llmCfg.Endpoint, // http://localhost:11434
+			BaseURL: llmCfg.Endpoint, // http://127.0.0.1:11434
 			Model:   llmCfg.Model,    // qwen/llama instruct
 			Timeout: 20 * time.Second,
 		}, nil

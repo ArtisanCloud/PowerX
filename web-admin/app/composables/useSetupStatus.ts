@@ -5,6 +5,7 @@ export type SetupStatus = {
   requires_login: boolean;
   restart_required: boolean;
   version: string;
+  saas_signup_enabled: boolean;
 };
 
 type SetupStatusCache = {
@@ -48,6 +49,7 @@ export function useSetupStatus() {
         requires_login: Boolean(payload?.requires_login),
         restart_required: Boolean(payload?.restart_required),
         version: String(payload?.version || "").trim(),
+        saas_signup_enabled: Boolean(payload?.saas_signup_enabled),
       };
     } catch {
       return null;

@@ -5,9 +5,20 @@ definePageMeta({
 
 const { t } = useI18n();
 const runtimeConfig = useRuntimeConfig();
+const setupStatus = useSetupStatus();
 const verificationEnabled = computed(
   () => String(runtimeConfig.public.saasSignupVerificationEnabled) === "true"
 );
+const signupGateLoaded = ref(false);
+const signupEnabled = computed(() => setupStatus.status.value?.saas_signup_enabled === true);
+
+onMounted(async () => {
+  try {
+    await setupStatus.load({ force: true, timeout: 5000 });
+  } finally {
+    signupGateLoaded.value = true;
+  }
+});
 
 // ========== 强制阅读功能开关 ==========
 // 设置为 false 可以关闭强制阅读功能，用户可以直接勾选同意
@@ -296,6 +307,10 @@ const validateForm = () => {
 };
 
 const sendVerificationCode = async () => {
+  if (!signupEnabled.value) {
+    error.value = "当前暂未开放新租户注册";
+    return;
+  }
   const contact = form.contact.trim();
   if (!contact) {
     error.value = "请先填写邮箱或手机号";
@@ -322,6 +337,10 @@ const sendVerificationCode = async () => {
 
 // 注册处理
 const handleRegister = async () => {
+  if (!signupEnabled.value) {
+    error.value = "当前暂未开放新租户注册";
+    return;
+  }
   if (!validateForm()) return;
 
   loading.value = true;
@@ -480,6 +499,28 @@ const handleTenantKeyInput = (value: string) => {
               </p>
             </template>
           </UAlert>
+
+          <div v-else-if="!signupGateLoaded" class="py-8 flex justify-center">
+            <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-500" />
+          </div>
+
+          <div v-else-if="!signupEnabled" class="space-y-5">
+            <UAlert
+              color="warning"
+              variant="soft"
+              title="当前暂未开放新租户注册"
+              description="请使用已有账号登录，或联系系统管理员开通租户。"
+            />
+            <UButton
+              block
+              size="lg"
+              color="primary"
+              variant="solid"
+              :to="$localePath('/users/login')"
+            >
+              返回登录
+            </UButton>
+          </div>
 
           <form v-else @submit.prevent="handleRegister" class="space-y-5">
             <!-- 错误提示 -->

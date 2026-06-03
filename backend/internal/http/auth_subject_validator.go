@@ -24,6 +24,24 @@ const authSubjectCacheTTL = 60 * time.Second
 
 var authCacheCallbackOnce sync.Once
 
+var stsAllowedCoreCapabilityRoutes = []string{
+	"/media/assets",
+	"/media/assets/{uuid}",
+	"/media/assets/{uuid}/presign",
+	"/agents/invoke",
+	"/agents/stream/sse",
+	"/agents/sessions",
+	"/ai/llm/invoke",
+	"/ai/llm/stream",
+	"/ai/llm/models",
+	"/ai/llm/sessions",
+	"/ai/llm/sessions/{session_id}/messages",
+	"/ai/image/invoke",
+	"/ai/video/invoke",
+	"/ai/tts/invoke",
+	"/ai/embedding/invoke",
+}
+
 type userSnapshot struct {
 	Status int16 `json:"status"`
 }
@@ -142,21 +160,43 @@ func isSTSAllowedRequestPath(ctx context.Context) bool {
 		strings.HasSuffix(path, "/notifications/test") ||
 		strings.HasSuffix(path, "/tenant/invocations") ||
 		strings.HasSuffix(path, "/tenant/invocations/stream") ||
-		isSTSAICapabilityPath(path)
+		isSTSCoreCapabilityPath(path)
 }
 
-func isSTSAICapabilityPath(path string) bool {
+func isSTSCoreCapabilityPath(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	for i := 0; i+1 < len(parts); i++ {
-		if !strings.EqualFold(parts[i], "ai") {
+	for start := range parts {
+		if start > 0 && strings.EqualFold(parts[start-1], "admin") {
 			continue
 		}
-		switch strings.ToLower(strings.TrimSpace(parts[i+1])) {
-		case "llm", "vlm", "image", "video", "tts", "embedding":
-			return true
+		for _, pattern := range stsAllowedCoreCapabilityRoutes {
+			if matchSTSRoutePattern(parts[start:], pattern) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func matchSTSRoutePattern(pathParts []string, pattern string) bool {
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	if len(pathParts) != len(patternParts) {
+		return false
+	}
+	for i := range patternParts {
+		actual := strings.TrimSpace(pathParts[i])
+		expected := strings.TrimSpace(patternParts[i])
+		if actual == "" || expected == "" {
+			return false
+		}
+		if strings.HasPrefix(expected, "{") && strings.HasSuffix(expected, "}") {
+			continue
+		}
+		if !strings.EqualFold(actual, expected) {
+			return false
+		}
+	}
+	return true
 }
 
 func loadTenantSnapshot(ctx context.Context, repo *tenantrepo.TenantRepository, tenantUUID string) (*tenantSnapshot, error) {

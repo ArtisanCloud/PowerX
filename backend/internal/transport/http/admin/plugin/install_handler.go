@@ -601,6 +601,10 @@ func enableInstalledPluginForCurrentTenant(c *gin.Context, deps *shared.Deps, p 
 
 func respondPluginInstallError(c *gin.Context, message string, err error) {
 	status := plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err))
+	if details := platformPreflightErrorDetails(err); len(details) > 0 {
+		dtoRequest.ResponseErrorWithDetails(c, status, "plugin package platform incompatible", nil, details)
+		return
+	}
 	if plugin_mgr.IsCode(err, plugin_mgr.CodeConflict) && strings.Contains(strings.ToLower(err.Error()), "tenant instances") {
 		pluginID := ""
 		version := ""
@@ -620,6 +624,24 @@ func respondPluginInstallError(c *gin.Context, message string, err error) {
 		return
 	}
 	dtoRequest.ResponseError(c, status, message, err)
+}
+
+func platformPreflightErrorDetails(err error) gin.H {
+	var managerErr *plugin_mgr.ManagerError
+	if !errors.As(err, &managerErr) || managerErr == nil {
+		return nil
+	}
+	if managerErr.Op != "install_file.platform_preflight" {
+		return nil
+	}
+	return gin.H{
+		"code":      "PLUGIN_PACKAGE_PLATFORM_INCOMPATIBLE",
+		"plugin_id": managerErr.PluginID,
+		"version":   managerErr.Version,
+		"path":      managerErr.Path,
+		"reason":    managerErr.Msg,
+		"hint":      "Select a plugin artifact built for the current PowerX host platform.",
+	}
 }
 
 func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {

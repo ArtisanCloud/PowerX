@@ -288,7 +288,7 @@ const registryLink = computed(() =>
 const route = useRoute();
 const userStore = useUserStore();
 const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
-const allowTenantAISettings = computed(() => !isRoot.value && isCurrentTenantAdmin.value);
+const allowTenantAISettings = computed(() => isRoot.value || isCurrentTenantAdmin.value);
 
 /**
  * Tab & 环境
@@ -334,6 +334,11 @@ const getErrorMessage = (error: unknown) => {
   const compact = (raw: unknown) => {
     const message = String(raw ?? "").trim();
     if (!message) return "未知错误";
+    const ollamaNotFound = message.match(/OLLAMA_MODEL_NOT_FOUND\s+model=([^:\s]+)/i);
+    if (ollamaNotFound?.[1]) {
+      const model = ollamaNotFound[1];
+      return t("settings.ai.errors.ollamaModelNotFound", { model });
+    }
     const lower = message.toLowerCase();
     if (
       lower.includes("accessdenied.unpurchased") ||

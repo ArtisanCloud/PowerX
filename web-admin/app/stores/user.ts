@@ -21,6 +21,8 @@ export const useUserStore = defineStore("user", {
     lastFetchedAt: null as number | null,
     // 跨标签页 storage 监听是否已初始化
     storageSyncInited: false,
+    contextRefreshInFlight: null as Promise<void> | null,
+    lastForcedContextRefreshAt: 0,
   }),
 
   getters: {
@@ -122,6 +124,14 @@ export const useUserStore = defineStore("user", {
 
     // 加载用户上下文
     async fetchUserContext({ force = false }: { force?: boolean } = {}) {
+      if (force && this.contextRefreshInFlight) {
+        return this.contextRefreshInFlight;
+      }
+
+      if (force && Date.now() - this.lastForcedContextRefreshAt < 1000) {
+        return;
+      }
+
       // 如果正在加载，直接返回
       if (this.isLoading) return;
 
@@ -130,22 +140,35 @@ export const useUserStore = defineStore("user", {
         return;
       }
 
-      this.isLoading = true;
-      this.error = null;
-
-      try {
+      const run = async () => {
+        this.isLoading = true;
+        this.error = null;
         const { getUserContext } = useMe();
         const response = await getUserContext();
 
         this.context = response;
         this.lastFetchedAt = Date.now();
+        if (force) {
+          this.lastForcedContextRefreshAt = this.lastFetchedAt;
+        }
         this.persistCurrentTenantUUID();
+      };
+
+      const inflight = run();
+      if (force) {
+        this.contextRefreshInFlight = inflight;
+      }
+      try {
+        await inflight;
       } catch (error: any) {
         this.error = error?.message || "网络请求失败";
         console.error("获取用户上下文失败:", error);
         throw error;
       } finally {
         this.isLoading = false;
+        if (this.contextRefreshInFlight === inflight) {
+          this.contextRefreshInFlight = null;
+        }
       }
     },
 
@@ -224,6 +247,9 @@ export const useUserStore = defineStore("user", {
           key !== "refresh_token" &&
           key !== "expires_at"
         ) {
+          return;
+        }
+        if (event.oldValue === event.newValue) {
           return;
         }
 

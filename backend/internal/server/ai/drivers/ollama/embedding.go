@@ -42,7 +42,7 @@ func (e *OllamaEmbedder) client() *http.Client {
 
 func (e *OllamaEmbedder) base() string {
 	if e.BaseURL == "" {
-		return "http://localhost:11434"
+		return "http://127.0.0.1:11434"
 	}
 	return e.BaseURL
 }

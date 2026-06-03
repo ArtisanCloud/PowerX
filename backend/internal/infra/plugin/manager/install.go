@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -35,6 +36,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	}
 	// 安装阶段提前做一次完整校验，避免把坏包复制进 installed 目录。
 	if err := NewFSLoader().Validate(ctx, man, absSrc); err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	if err := validateInstallPackagePlatform(man, absSrc); err != nil {
 		return plugin_mgr.Plugin{}, err
 	}
 
@@ -277,6 +281,192 @@ func (m *managerImpl) replaceInstalledVersion(ctx context.Context, id, version, 
 		)
 	}
 	return nil
+}
+
+func validateInstallPackagePlatform(man plugin_mgr.Manifest, root string) error {
+	candidates := executableCompatibilityCandidates(man)
+	for _, candidate := range candidates {
+		if err := validateExecutableCompatibility(root, candidate, man.ID, man.Version); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func executableCompatibilityCandidates(man plugin_mgr.Manifest) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(path string) {
+		path = strings.TrimSpace(path)
+		if path == "" || !isPluginPackageExecutablePath(path) || seen[path] {
+			return
+		}
+		seen[path] = true
+		out = append(out, path)
+	}
+	if man.Runtime.Kind == plugin_mgr.RuntimeKindProcess {
+		add(man.Runtime.Entry)
+	}
+	if man.Frontend.Admin.Kind == plugin_mgr.FrontendKindProcess && man.Frontend.Admin.Process != nil {
+		add(man.Frontend.Admin.Process.Entry)
+	}
+	if man.Migrations != nil {
+		add(man.Migrations.Entry)
+		add(man.Migrations.RollbackEntry)
+	}
+	return out
+}
+
+func isPluginPackageExecutablePath(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return false
+	}
+	if filepath.IsAbs(path) {
+		return true
+	}
+	if strings.HasPrefix(path, ".") || strings.ContainsAny(path, `/\`) {
+		return true
+	}
+	return false
+}
+
+func validateExecutableCompatibility(root, relPath, pluginID, version string) error {
+	if filepath.IsAbs(relPath) {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(relPath),
+			plugin_mgr.WithMsg("executable entry must be relative to plugin root"),
+		)
+	}
+	cleanRel := filepath.Clean(relPath)
+	if cleanRel == "." || strings.HasPrefix(cleanRel, ".."+string(filepath.Separator)) || cleanRel == ".." {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(relPath),
+			plugin_mgr.WithMsg("executable entry escapes plugin root"),
+		)
+	}
+	path := filepath.Join(root, cleanRel)
+	info, err := os.Stat(path)
+	if err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeMissingFile,
+			err,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(cleanRel),
+		)
+	}
+	if info.IsDir() {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(cleanRel),
+			plugin_mgr.WithMsg("executable entry is a directory"),
+		)
+	}
+	format, osName, arch, err := detectExecutableFormat(path)
+	if err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeIOError,
+			err,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(cleanRel),
+		)
+	}
+	if format == "" {
+		return nil
+	}
+	if osName != runtime.GOOS || arch != runtime.GOARCH {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("install_file.platform_preflight"),
+			plugin_mgr.WithPlugin(pluginID),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithPath(cleanRel),
+			plugin_mgr.WithMsg("incompatible executable %s: package target %s/%s (%s), host target %s/%s", cleanRel, osName, arch, format, runtime.GOOS, runtime.GOARCH),
+		)
+	}
+	return nil
+}
+
+func detectExecutableFormat(path string) (format, osName, arch string, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer f.Close()
+
+	var hdr [20]byte
+	n, err := f.Read(hdr[:])
+	if err != nil && n == 0 {
+		return "", "", "", err
+	}
+	if n < 4 {
+		return "", "", "", nil
+	}
+	if hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F' {
+		if n < 20 {
+			return "elf", "", "", nil
+		}
+		machine := uint16(hdr[18]) | uint16(hdr[19])<<8
+		switch machine {
+		case 0x3e:
+			return "elf", "linux", "amd64", nil
+		case 0xb7:
+			return "elf", "linux", "arm64", nil
+		case 0x03:
+			return "elf", "linux", "386", nil
+		default:
+			return "elf", "linux", fmt.Sprintf("machine-0x%x", machine), nil
+		}
+	}
+	magicBE := uint32(hdr[0])<<24 | uint32(hdr[1])<<16 | uint32(hdr[2])<<8 | uint32(hdr[3])
+	magicLE := uint32(hdr[3])<<24 | uint32(hdr[2])<<16 | uint32(hdr[1])<<8 | uint32(hdr[0])
+	switch magicBE {
+	case 0xfeedface, 0xfeedfacf:
+		if n < 8 {
+			return "mach-o", "darwin", "", nil
+		}
+		cpuType := uint32(hdr[4])<<24 | uint32(hdr[5])<<16 | uint32(hdr[6])<<8 | uint32(hdr[7])
+		return "mach-o", "darwin", machoArch(cpuType), nil
+	case 0xcafebabe, 0xcafebabf:
+		return "mach-o-fat", "darwin", "universal", nil
+	}
+	switch magicLE {
+	case 0xfeedface, 0xfeedfacf:
+		if n < 8 {
+			return "mach-o", "darwin", "", nil
+		}
+		cpuType := uint32(hdr[7])<<24 | uint32(hdr[6])<<16 | uint32(hdr[5])<<8 | uint32(hdr[4])
+		return "mach-o", "darwin", machoArch(cpuType), nil
+	}
+	return "", "", "", nil
+}
+
+func machoArch(cpuType uint32) string {
+	switch cpuType {
+	case 0x01000007:
+		return "amd64"
+	case 0x0100000c:
+		return "arm64"
+	case 0x00000007:
+		return "386"
+	default:
+		return fmt.Sprintf("cpu-0x%x", cpuType)
+	}
 }
 
 // 轻量目录拷贝（忽略 .git / .DS_Store）

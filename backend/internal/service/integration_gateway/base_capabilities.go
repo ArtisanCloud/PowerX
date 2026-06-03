@@ -308,6 +308,13 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 				},
 				{
 					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}",
+					Method:    "PUT",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets/{uuid}/presign",
 					Method:    "POST",
 					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post",

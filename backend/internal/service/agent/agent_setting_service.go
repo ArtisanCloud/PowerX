@@ -1856,6 +1856,11 @@ func normalizePingLLMError(provider, model string, err error) error {
 		strings.Contains(msg, "is not a valid model ID") {
 		return fmt.Errorf("OpenRouter 模型 ID 无效（可能已更名或你账号无权限）：%s；建议在“模型”下拉刷新后重选，或到 OpenRouter 控制台确认可用模型 ID：%w", model, err)
 	}
+	if strings.EqualFold(strings.TrimSpace(provider), "ollama") &&
+		strings.Contains(strings.ToLower(msg), "model") &&
+		strings.Contains(strings.ToLower(msg), "not found") {
+		return fmt.Errorf("OLLAMA_MODEL_NOT_FOUND model=%s: %w", model, err)
+	}
 	return err
 }
 
