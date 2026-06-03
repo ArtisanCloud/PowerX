@@ -122,7 +122,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
 	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
 	if localTokenSecret == "" {
-		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点将跳过 Token 校验，不建议在生产环境使用")
+		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点不会注册")
 	}
 	publicTokenSecret := strings.TrimSpace(cfg.Storage.Local.PublicTokenSecret)
 	if publicTokenSecret == "" {

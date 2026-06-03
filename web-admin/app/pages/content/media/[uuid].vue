@@ -28,7 +28,7 @@
           :disabled="!uuid"
           @click="copyDownloadLink"
         >
-          复制下载链接
+          复制原图下载链接
         </UButton>
         <UButton
           icon="i-lucide-shield"
@@ -104,11 +104,12 @@
           </template>
 
           <MediaPreview
-            :asset="asset"
-            :preview-url="previewUrl"
-            :state="previewState"
-            :kind="previewKind"
-            @openExternal="openExternal"
+          :asset="asset"
+          :preview-url="previewUrl"
+          :preview-source="previewSource"
+          :state="previewState"
+          :kind="previewKind"
+          @openExternal="openExternal"
           />
         </UCard>
       </div>
@@ -129,7 +130,11 @@
 <script setup lang="ts">
 import { useToast } from "#imports";
 import { useApiClient } from "~/composables/api";
-import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
+import {
+  useMediaAssetService,
+  type MediaAssetAdminView,
+  type MediaAssetBusinessStatus,
+} from "~/composables/api/services/mediaAssetService";
 import { useConfirm } from "~/composables/useConfirm";
 import MediaAssetDetailPanel from "~/components/content/media/MediaAssetDetailPanel.vue";
 import MediaPreview from "~/components/content/media/MediaPreview.vue";
@@ -138,36 +143,6 @@ definePageMeta({
   title: "媒体详情",
   layout: "default",
 });
-
-type MediaAssetBusinessStatus =
-  | "draft"
-  | "under_review"
-  | "published"
-  | "archived"
-  | string;
-
-interface MediaAssetAdminView {
-  uuid: string;
-  tenant_uuid: string;
-  name: string;
-  description?: string;
-  driver: string;
-  folder?: string;
-  objectKey: string;
-  externalUrl?: string;
-  sizeBytes?: number | null;
-  mimeType?: string;
-  ownerSubjectType?: string;
-  ownerSubjectId?: string;
-  tags?: string[];
-  businessStatus: MediaAssetBusinessStatus;
-  downloadUrl?: string;
-  downloadExpiredAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  deleted?: boolean;
-  metadata?: Record<string, any>;
-}
 
 const toast = useToast();
 const apiClient = useApiClient();
@@ -194,6 +169,7 @@ const form = ref({
 });
 
 const previewUrl = ref<string | null>(null);
+const previewSource = ref<"preview" | "thumbnail" | null>(null);
 const previewState = ref<"idle" | "loading" | "ready" | "error">("idle");
 
 const isImage = computed(() => (asset.value?.mimeType || "").toLowerCase().startsWith("image/"));
@@ -272,10 +248,19 @@ async function fetchDetail() {
 
 function revokePreviewUrl() {
   if (previewUrl.value && process.client) {
-    URL.revokeObjectURL(previewUrl.value);
+    URL.revokeObjectURL(stripObjectUrlFragment(previewUrl.value));
   }
   previewUrl.value = null;
+  previewSource.value = null;
   previewState.value = "idle";
+}
+
+function stripObjectUrlFragment(url: string) {
+  return String(url || "").split("#", 1)[0];
+}
+
+function withMediaSourceFragment(url: string, source: "preview" | "thumbnail") {
+  return `${url}#media-source=${encodeURIComponent(source)}`;
 }
 
 async function fetchResourceBlob(disposition: "inline" | "attachment" = "inline") {
@@ -290,6 +275,11 @@ async function fetchResourceBlob(disposition: "inline" | "attachment" = "inline"
   } as any);
 }
 
+async function fetchPreviewBlob() {
+  if (!asset.value) throw new Error("missing media asset");
+  return media.getPreviewResourceBlob(asset.value, "inline");
+}
+
 async function loadPreview() {
   revokePreviewUrl();
   if (!asset.value || asset.value.externalUrl) return;
@@ -300,9 +290,12 @@ async function loadPreview() {
 
   previewState.value = "loading";
   try {
-    const blob = await fetchResourceBlob("inline");
+    const selected = media.selectPreviewVariant(asset.value);
+    const blob = await fetchPreviewBlob();
     if (!blob) throw new Error("empty blob");
-    previewUrl.value = URL.createObjectURL(blob);
+    if (!selected) throw new Error("missing preview variant");
+    previewSource.value = selected;
+    previewUrl.value = withMediaSourceFragment(URL.createObjectURL(blob), selected);
     previewState.value = "ready";
   } catch {
     previewState.value = "error";
@@ -434,10 +427,10 @@ async function deleteAsset() {
   if (!process.client) return;
 
   const ok = await confirm({
-    title: "删除媒体资产",
-    description: "软删除（可在回收站查看）",
-    message: `确认删除 ${asset.value.name || asset.value.uuid}？`,
-    confirmLabel: "删除",
+    title: "移入回收站",
+    description: "该操作只做软删除，不会释放磁盘空间。",
+    message: `确认将 ${asset.value.name || asset.value.uuid} 移入回收站？`,
+    confirmLabel: "移入回收站",
     cancelLabel: "取消",
     confirmColor: "red",
     tone: "danger",
@@ -448,7 +441,7 @@ async function deleteAsset() {
   deleting.value = true;
   try {
     await apiClient.delete(`/admin/media/assets/${encodeURIComponent(uuid.value)}`);
-    toast.add({ title: "已删除（软删除）" });
+    toast.add({ title: "已移入回收站", description: "如需释放磁盘空间，请在回收站中执行永久删除。" });
     navigateTo(localePath("/content/media?onlyDeleted=1"));
   } catch (e: any) {
     toast.add({ title: "删除失败", description: String(e?.message || ""), color: "red" });

@@ -1184,6 +1184,10 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 	}
 	root["database"] = db
 
+	if err := applyStorageConfig(root, payload.Storage); err != nil {
+		return err
+	}
+
 	install := asMap(root["install"])
 	install["status"] = installStatus
 	if _, ok := install["lock_mode"]; !ok {
@@ -1199,6 +1203,59 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func applyStorageConfig(root map[string]any, in setupStorageConfig) error {
+	if root == nil {
+		return nil
+	}
+	storageType := strings.ToLower(strings.TrimSpace(in.Type))
+	if storageType == "" {
+		storageType = "local"
+	}
+	storage := asMap(root["storage"])
+	local := asMap(storage["local"])
+	s3 := asMap(storage["s3"])
+	switch storageType {
+	case "local":
+		storage["default_driver"] = "local"
+		if path := strings.TrimSpace(in.LocalPath); path != "" {
+			local["base_path"] = path
+		}
+		secret := ""
+		if raw, ok := local["upload_token_secret"]; ok && raw != nil {
+			secret = strings.TrimSpace(fmt.Sprint(raw))
+		}
+		if secret == "" {
+			local["upload_token_secret"] = utils.RandomString(64)
+		}
+		storage["local"] = local
+	case "s3", "minio", "oss", "cos":
+		storage["default_driver"] = "s3"
+		if v := strings.TrimSpace(in.Endpoint); v != "" {
+			s3["endpoint"] = v
+		}
+		if v := strings.TrimSpace(in.Region); v != "" {
+			s3["region"] = v
+		}
+		if v := strings.TrimSpace(in.AccessKey); v != "" {
+			s3["access_key"] = v
+		}
+		if v := strings.TrimSpace(in.SecretKey); v != "" {
+			s3["secret_key"] = v
+		}
+		if v := strings.TrimSpace(in.Bucket); v != "" {
+			s3["bucket"] = v
+		}
+		if v := strings.TrimSpace(in.PublicURL); v != "" {
+			s3["external_domain"] = v
+		}
+		storage["s3"] = s3
+	default:
+		return fmt.Errorf("storage.type 不合法")
+	}
+	root["storage"] = storage
+	return nil
 }
 
 func runSetupProvisionSteps(runtimePath string) error {

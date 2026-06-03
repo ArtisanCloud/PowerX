@@ -251,6 +251,78 @@ func (r *AssetRepository) ListByDriverAndStorageKey(ctx context.Context, driver,
 	return assets, nil
 }
 
+// FindVariant 按资产与版本名读取媒体资源版本。
+func (r *AssetRepository) FindVariant(ctx context.Context, tenantUUID, assetUUID, variant string) (*mediamodel.MediaAssetVariant, error) {
+	if assetUUID == "" || variant == "" {
+		return nil, errors.New("assetUUID 与 variant 不能为空")
+	}
+	var item mediamodel.MediaAssetVariant
+	err := r.db.WithContext(ctx).
+		Where("tenant_uuid = ? AND asset_uuid = ? AND variant = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(assetUUID), strings.TrimSpace(variant)).
+		First(&item).Error
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+// FindVariantByStorageKey 按驱动与存储键读取媒体资源版本。
+func (r *AssetRepository) FindVariantByStorageKey(ctx context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
+	if driver == "" || storageKey == "" {
+		return nil, errors.New("driver 与 storageKey 不能为空")
+	}
+	var item mediamodel.MediaAssetVariant
+	err := r.db.WithContext(ctx).
+		Where("driver = ? AND storage_key = ?", strings.TrimSpace(driver), strings.TrimSpace(storageKey)).
+		First(&item).Error
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+// ListVariants 返回指定资产的所有资源版本。
+func (r *AssetRepository) ListVariants(ctx context.Context, tenantUUID, assetUUID string, includeDeleted bool) ([]mediamodel.MediaAssetVariant, error) {
+	if assetUUID == "" {
+		return nil, errors.New("assetUUID 不能为空")
+	}
+	query := r.db.WithContext(ctx)
+	if includeDeleted {
+		query = query.Unscoped()
+	}
+	var items []mediamodel.MediaAssetVariant
+	err := query.
+		Where("tenant_uuid = ? AND asset_uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(assetUUID)).
+		Order("variant ASC").
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// CreateVariant 创建媒体资源版本。
+func (r *AssetRepository) CreateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	if variant == nil {
+		return nil, errors.New("variant 不能为空")
+	}
+	if err := r.db.WithContext(ctx).Create(variant).Error; err != nil {
+		return nil, err
+	}
+	return variant, nil
+}
+
+// UpdateVariant 更新媒体资源版本。
+func (r *AssetRepository) UpdateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	if variant == nil {
+		return nil, errors.New("variant 不能为空")
+	}
+	if err := r.db.WithContext(ctx).Save(variant).Error; err != nil {
+		return nil, err
+	}
+	return variant, nil
+}
+
 // CreateAsset 创建新的媒体资产。
 func (r *AssetRepository) CreateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
 	if asset == nil {
@@ -298,6 +370,37 @@ func (r *AssetRepository) SoftDeleteByUUID(ctx context.Context, tenantUUID strin
 		return gorm.ErrRecordNotFound
 	}
 
+	return tx.Commit().Error
+}
+
+// HardDeleteByUUID 永久删除资产及其资源版本记录。
+func (r *AssetRepository) HardDeleteByUUID(ctx context.Context, tenantUUID string, uuid string) error {
+	if uuid == "" {
+		return errors.New("uuid 不能为空")
+	}
+	tx := r.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	var asset mediamodel.MediaAsset
+	if err := tx.Unscoped().
+		Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(uuid)).
+		First(&asset).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Unscoped().
+		Where("tenant_uuid = ? AND asset_uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(uuid)).
+		Delete(&mediamodel.MediaAssetVariant{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Unscoped().
+		Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(uuid)).
+		Delete(&mediamodel.MediaAsset{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
 	return tx.Commit().Error
 }
 

@@ -10,7 +10,7 @@
 2. **对外契约**：每个底座模块维护 `specs/<module>/contracts/http-openapi.yaml` 与 `backend/api/grpc/contracts/<module>/v1/*.proto`，Integration Gateway 以这些契约为源生成 SDK 和文档。
 3. **统一调用入口**：第三方通过 `/tenant/capabilities` 与 `/tenant/invocations`（或 gRPC `IntegrationGatewayTenantService`）调用底座能力；宿主模式可继续使用 Admin API 进行配置，但实际能力调用全部归口 Integration Gateway。
 4. **观测与治理**：沿用 FR-001~FR-015 的追踪/限流/审计要求，对平台能力与插件能力实施一致的 metrics/audit/event 采集。
-5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token（租户由 JWT claims 提供）即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
+5. **媒资公开 API**：PowerX 底座的 **Media Assets Management** 模块已在 `specs/001-media-storage/contracts/http-openapi.yaml` 提供 `{APIPrefix}/media/assets` 路径，包含上传、列表、详情、软删、预签名能力；插件（宿主或 Skeleton）只需携带 Bearer Token（租户由 JWT claims 提供）即可直接调用，对应调用流程记录在本计划与 Quickstart 中。
 6. **Agent & 多模态统一开放**：补齐 Agent 运行时与多模态模型调用的对外接口标准（REST/SSE/gRPC/SDK），并将租户隔离、流式协议与幂等错误码纳入统一规范（见下文“Agent 能力开放计划”“多模态模型调用标准”与 `specs/007-integration-gateway-and-mcp/spec.md` 的 FR-019~FR-020）。
 
 ## 已内置的平台能力（2025.01）

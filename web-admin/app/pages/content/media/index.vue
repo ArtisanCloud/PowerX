@@ -61,7 +61,7 @@
                 :loading="deletingSelected"
                 @click="deleteSelected"
               >
-                删除选中
+                {{ filters.onlyDeleted ? "永久删除选中" : "移入回收站" }}
               </UButton>
             </div>
           </div>
@@ -251,10 +251,13 @@ function clearSelection() {
 async function deleteSelected() {
   const ids = selectedUUIDs.value.map((id) => String(id || "").trim()).filter(Boolean);
   if (ids.length === 0) return;
+  const purge = filters.value.onlyDeleted;
   const ok = await confirm({
-    title: "删除媒体资产",
-    description: `确认删除选中的 ${ids.length} 个媒体资产？该操作会进入回收站，可通过回收站筛选查看。`,
-    confirmLabel: "删除",
+    title: purge ? "永久删除媒体资产" : "移入回收站",
+    description: purge
+      ? `确认永久删除选中的 ${ids.length} 个媒体资产？该操作会同时删除原图和所有预览版本，无法恢复。`
+      : `确认删除选中的 ${ids.length} 个媒体资产？该操作会进入回收站，可通过回收站筛选查看。`,
+    confirmLabel: purge ? "永久删除" : "移入回收站",
     confirmColor: "red",
     cancelLabel: "取消",
   });
@@ -265,19 +268,26 @@ async function deleteSelected() {
   try {
     for (const id of ids) {
       try {
-        await media.deleteAsset(id);
+        if (purge) {
+          await media.purgeAsset(id);
+        } else {
+          await media.deleteAsset(id);
+        }
         success += 1;
       } catch (e: any) {
-        failures.push(`${id}: ${String(e?.message || "删除失败")}`);
+        failures.push(`${id}: ${String(e?.message || (purge ? "永久删除失败" : "删除失败"))}`);
       }
     }
     selectedUUIDs.value = [];
     await fetchList();
     if (failures.length === 0) {
-      toast.add({ title: "删除完成", description: `已删除 ${success} 个媒体资产` });
+      toast.add({
+        title: purge ? "永久删除完成" : "已移入回收站",
+        description: purge ? `已永久删除 ${success} 个媒体资产` : `已将 ${success} 个媒体资产移入回收站`,
+      });
     } else {
       toast.add({
-        title: "部分删除失败",
+        title: purge ? "部分永久删除失败" : "部分移入回收站失败",
         description: `成功 ${success} 个，失败 ${failures.length} 个`,
         color: "red",
       });
@@ -370,6 +380,8 @@ function handleUploadDone(asset: MediaAssetAdminView) {
 }
 
 onMounted(() => {
+  const route = useRoute();
+  filters.value.onlyDeleted = route.query.onlyDeleted === "1" || route.query.onlyDeleted === "true";
   fetchList();
 });
 </script>

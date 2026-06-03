@@ -30,6 +30,24 @@ export interface MediaAssetAdminView {
   updatedAt: string;
   deleted?: boolean;
   metadata?: Record<string, any>;
+  variants?: MediaAssetVariantAdminView[];
+}
+
+export interface MediaAssetVariantAdminView {
+  uuid: string;
+  tenant_uuid: string;
+  assetUuid: string;
+  variant: "origin" | "preview" | "thumbnail" | string;
+  name?: string;
+  driver: MediaAssetDriver;
+  objectKey: string;
+  sizeBytes?: number | null;
+  mimeType?: string;
+  downloadUrl?: string;
+  downloadExpiredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, any>;
 }
 
 export interface MediaAssetListParams {
@@ -124,10 +142,24 @@ const toInternalApiPath = (url: string): string => {
   return raw;
 };
 
+export const selectMediaPreviewVariant = (asset?: MediaAssetAdminView | null): "preview" | "thumbnail" | null => {
+  const variants = Array.isArray(asset?.variants) ? asset.variants : [];
+  const available = new Set(
+    variants
+      .map((item) => String(item?.variant || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (available.has("preview")) return "preview";
+  if (available.has("thumbnail")) return "thumbnail";
+  return null;
+};
+
 export const useMediaAssetService = () => {
   const apiClient = useApiClient();
 
   return {
+    selectPreviewVariant: selectMediaPreviewVariant,
+
     listAssets: async (params: MediaAssetListParams = {}): Promise<MediaAssetListResult> => {
       const resp = await apiClient.get(baseUrl, { params });
       const { items, pagination } = apiClient.unwrapList<MediaAssetAdminView>(resp);
@@ -163,6 +195,11 @@ export const useMediaAssetService = () => {
     deleteAsset: async (uuid: string): Promise<void> => {
       const id = uuid?.trim();
       await apiClient.delete(`${baseUrl}/${encodeURIComponent(id)}`);
+    },
+
+    purgeAsset: async (uuid: string): Promise<void> => {
+      const id = uuid?.trim();
+      await apiClient.delete(`${baseUrl}/${encodeURIComponent(id)}/purge`);
     },
 
     presign: async (uuid: string, payload: PresignMediaAssetPayload): Promise<PresignMediaAssetResult> => {
@@ -205,6 +242,47 @@ export const useMediaAssetService = () => {
       disposition: "inline" | "attachment" = "inline"
     ): Promise<Blob> => {
       const url = `${baseUrl}/${encodeURIComponent(uuid.trim())}/resource?disposition=${encodeURIComponent(disposition)}`;
+      return apiClient.request<Blob>("GET", url, undefined, {
+        responseType: "blob",
+        headers: { Accept: "*/*" },
+        useGlobalLoading: false,
+      } as any);
+    },
+
+    buildVariantResourcePath: (
+      uuid: string,
+      variant: "origin" | "preview" | "thumbnail",
+      disposition: "inline" | "attachment" = "inline"
+    ) => {
+      const id = uuid?.trim();
+      const name = variant?.trim();
+      return `${baseUrl}/${encodeURIComponent(id)}/variants/${encodeURIComponent(name)}/resource?disposition=${encodeURIComponent(disposition)}`;
+    },
+
+    getVariantResourceBlob: async (
+      uuid: string,
+      variant: "origin" | "preview" | "thumbnail",
+      disposition: "inline" | "attachment" = "inline"
+    ): Promise<Blob> => {
+      const id = uuid?.trim();
+      const name = variant?.trim();
+      const url = `${baseUrl}/${encodeURIComponent(id)}/variants/${encodeURIComponent(name)}/resource?disposition=${encodeURIComponent(disposition)}`;
+      return apiClient.request<Blob>("GET", url, undefined, {
+        responseType: "blob",
+        headers: { Accept: "*/*" },
+        useGlobalLoading: false,
+      } as any);
+    },
+
+    getPreviewResourceBlob: async (
+      asset: MediaAssetAdminView,
+      disposition: "inline" | "attachment" = "inline"
+    ): Promise<Blob> => {
+      const id = String(asset?.uuid || "").trim();
+      if (!id) throw new Error("missing media asset uuid");
+      const variant = selectMediaPreviewVariant(asset);
+      if (!variant) throw new Error("missing media asset preview variant");
+      const url = `${baseUrl}/${encodeURIComponent(id)}/variants/${encodeURIComponent(variant)}/resource?disposition=${encodeURIComponent(disposition)}`;
       return apiClient.request<Blob>("GET", url, undefined, {
         responseType: "blob",
         headers: { Accept: "*/*" },

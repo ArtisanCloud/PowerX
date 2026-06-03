@@ -17,8 +17,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		group.GET("", handler.ListAssets)
 		group.GET("/:uuid", handler.GetAsset)
 		group.GET("/:uuid/resource", handler.Resource)
+		group.GET("/:uuid/variants/:variant/resource", handler.VariantResource)
 		group.PATCH("/:uuid", handler.UpdateAsset)
 		group.DELETE("/:uuid", handler.DeleteAsset)
+		group.DELETE("/:uuid/purge", handler.PurgeAsset)
 		group.POST("/:uuid/presign", handler.PresignAsset)
 	}
 }

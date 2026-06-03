@@ -10,6 +10,7 @@ const TableAgentConnectorInstances = "agent_connector_instances"
 const TableAgentCostQuotaLedgers = "agent_cost_quota_ledgers"
 
 const TableMediaAsset = "media_assets"
+const TableMediaAssetVariant = "media_asset_variants"
 const TableSystemNotifications = "system_notifications"
 
 const TableIAMTenant = "iam_tenant"

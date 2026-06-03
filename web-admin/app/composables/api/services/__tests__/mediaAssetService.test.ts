@@ -85,5 +85,93 @@ describe("MediaAssetService", () => {
       "/admin/media/assets/abc/resource?disposition=inline"
     );
   });
-});
 
+  it("buildVariantResourcePath 应该生成资源版本路径", () => {
+    const svc = useMediaAssetService();
+    expect(svc.buildVariantResourcePath("abc", "preview", "inline")).toBe(
+      "/admin/media/assets/abc/variants/preview/resource?disposition=inline"
+    );
+  });
+
+  it("getPreviewResourceBlob 应该只请求已声明的预览版本", async () => {
+    const svc = useMediaAssetService();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(new Blob(["preview"], { type: "image/jpeg" })),
+      blob: () => Promise.resolve(new Blob(["preview"], { type: "image/jpeg" })),
+    });
+
+    await svc.getPreviewResourceBlob({
+      uuid: "abc",
+      name: "demo.jpg",
+      tenant_uuid: "t",
+      driver: "local",
+      objectKey: "abc/origin",
+      mimeType: "image/jpeg",
+      businessStatus: "draft",
+      createdAt: "",
+      updatedAt: "",
+      variants: [
+        {
+          uuid: "v1",
+          tenant_uuid: "t",
+          assetUuid: "abc",
+          variant: "preview",
+          driver: "local",
+          objectKey: "abc/preview",
+          createdAt: "",
+          updatedAt: "",
+        },
+      ],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/admin/media/assets/abc/variants/preview/resource?disposition=inline",
+      expect.objectContaining({
+        method: "GET",
+      })
+    );
+  });
+
+  it("getPreviewResourceBlob 缺少预览版本时应失败", async () => {
+    const svc = useMediaAssetService();
+    await expect(
+      svc.getPreviewResourceBlob({
+        uuid: "abc",
+        name: "demo.jpg",
+        tenant_uuid: "t",
+        driver: "local",
+        objectKey: "abc/origin",
+        mimeType: "image/jpeg",
+        businessStatus: "draft",
+        createdAt: "",
+        updatedAt: "",
+        variants: [],
+      })
+    ).rejects.toThrow("missing media asset preview variant");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("purgeAsset 应该调用永久删除接口", async () => {
+    const svc = useMediaAssetService();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          code: 200,
+          message: "success",
+          data: { purged: true },
+          timestamp: Date.now(),
+        }),
+    });
+
+    await svc.purgeAsset("abc");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/admin/media/assets/abc/purge",
+      expect.objectContaining({
+        method: "DELETE",
+      })
+    );
+  });
+});

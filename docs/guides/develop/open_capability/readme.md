@@ -139,7 +139,7 @@ curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
 | 背景 | 文件/目录 | 作用 |
 | --- | --- | --- |
 | 能力注册定义 | `backend/config/platform_capabilities/*.yaml`（建议结构：`base.yaml`, `media.yaml`, `workflow.yaml`, …）<br>`backend/internal/service/integration_gateway/base_capabilities.go` | YAML 文件用于声明各模块的能力条目；`base_capabilities.go` 负责加载并写入 Registry。新增/禁用能力时优先修改 YAML，再通过进程重启生效，可通过环境变量 `PLATFORM_CAPABILITIES_DIR` 指定自定义目录。 |
-| OpenAPI 契约 | `specs/001-docs-media-storage/contracts/http-openapi.yaml` 等 `specs/<module>/contracts/*.yaml` | 描述对外 REST 契约，Web Admin/CLI/Scripts 都引用这些文件生成示例。 |
+| OpenAPI 契约 | `specs/001-media-storage/contracts/http-openapi.yaml` 等 `specs/<module>/contracts/*.yaml` | 描述对外 REST 契约，Web Admin/CLI/Scripts 都引用这些文件生成示例。 |
 | gRPC 契约 | `backend/api/grpc/contracts/...` | 包含 Media/Event/Workflow/Knowledge 等 gRPC 服务定义，与 Registry 中 `protocols` 字段一一对应。 |
 | Web Admin 指南 | `docs/guides/develop/open_capability/<module>.md` | 本目录下的各模块文档（media/event_fabric/workflow/knowledge）提供调试示例。 |
 | 路由与实现 | `backend/internal/transport/http/openapi/<module>/`、`backend/internal/transport/grpc/<module>/` | 可直接阅读 Handler 代码了解参数校验和实际调用流程。 |

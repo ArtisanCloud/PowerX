@@ -160,11 +160,94 @@ paths:
           $ref: '#/components/responses/NotFound'
   /media/assets/{uuid}/resource:
     get:
-      summary: 获取媒体资产内容
+      summary: 获取媒体资产原图内容
+      description: >
+        返回该 asset 的 origin 主资源。该接口只用于原图下载或后端原始文件处理；
+        Web UI、插件页面、外部嵌入页等 inline 预览不得使用该接口作为预览图，
+        必须改用 `/media/assets/{uuid}/variants/preview/resource` 或
+        `/media/assets/{uuid}/variants/thumbnail/resource`。
       tags: [MediaAssets]
       operationId: downloadMediaAsset
       parameters:
         - $ref: '#/components/parameters/UUID'
+        - name: disposition
+          in: query
+          schema:
+            type: string
+            enum: [inline, attachment]
+          description: 控制 `Content-Disposition`。原图下载必须使用 attachment；inline 不表示可作为 UI 预览。
+      responses:
+        '200':
+          description: 返回二进制内容
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '302':
+          description: 若该资产为外链，将重定向到目标 URL
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /media/assets/{uuid}/variants/{variant}:
+    post:
+      summary: 创建或声明媒体资产资源版本
+      tags: [MediaAssets]
+      operationId: createMediaAssetVariant
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+        - $ref: '#/components/parameters/Variant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMediaAssetVariantPayload'
+      responses:
+        '201':
+          description: 创建成功；已存在时返回现有版本
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAssetVariant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /media/assets/{uuid}/variants/{variant}/presign:
+    post:
+      summary: 生成指定资源版本的上传/下载预签名链接
+      tags: [MediaAssets]
+      operationId: presignMediaAssetVariant
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+        - $ref: '#/components/parameters/Variant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresignRequestPayload'
+      responses:
+        '200':
+          description: 返回预签名数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresignResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /media/assets/{uuid}/variants/{variant}/resource:
+    get:
+      summary: 获取指定媒体资产资源版本内容
+      description: >
+        返回同一 asset 的指定资源版本。Web UI 和外部插件的页面渲染必须使用
+        `preview` 或 `thumbnail` variant；缺少 variant 时应显示预览未就绪或触发补偿，
+        不得 fallback 到 origin 资源接口。
+      tags: [MediaAssets]
+      operationId: downloadMediaAssetVariant
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+        - $ref: '#/components/parameters/Variant'
         - name: disposition
           in: query
           schema:
@@ -179,8 +262,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        '302':
-          description: 若该资产为外链，将重定向到目标 URL
         '404':
           $ref: '#/components/responses/NotFound'
 components:
@@ -212,6 +293,16 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Variant:
+      name: variant
+      in: path
+      required: true
+      description: >
+        资源版本名称。页面/插件 inline 渲染只能使用 preview 或 thumbnail；
+        origin 只代表原始文件，不作为预览版本。
+      schema:
+        type: string
+        enum: [origin, preview, thumbnail]
   responses:
     BadRequest:
       description: 参数校验失败
@@ -308,6 +399,49 @@ components:
           type: integer
         pageSize:
           type: integer
+    MediaAssetVariant:
+      type: object
+      required:
+        - assetUuid
+        - variant
+        - driver
+        - objectKey
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        tenant_uuid:
+          type: string
+        assetUuid:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          enum: [origin, preview, thumbnail]
+          description: origin 为原始文件；preview/thumbnail 为页面渲染版本。
+        name:
+          type: string
+        driver:
+          type: string
+        objectKey:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        downloadUrl:
+          type: string
+          nullable: true
+        downloadExpiredAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
     CreateMediaAssetPayload:
       type: object
       required:
@@ -359,6 +493,24 @@ components:
         expiresInSeconds:
           type: integer
           default: 43200
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    CreateMediaAssetVariantPayload:
+      type: object
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+        objectKey:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        mimeType:
+          type: string
         metadata:
           type: object
           additionalProperties:

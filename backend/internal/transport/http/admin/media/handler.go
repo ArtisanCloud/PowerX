@@ -66,7 +66,7 @@ func (h *Handler) CreateAsset(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "创建媒体资产失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, assetView(asset))
+	dto.ResponseSuccess(c, h.assetViewWithVariants(c, tenantUUID, asset, false))
 }
 
 func (h *Handler) ListAssets(c *gin.Context) {
@@ -111,7 +111,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	}
 	items := make([]assetResponse, 0, len(assets))
 	for i := range assets {
-		items = append(items, assetView(&assets[i]))
+		items = append(items, h.assetViewWithVariants(c, tenantUUID, &assets[i], req.IncludeDeleted || req.OnlyDeleted))
 	}
 	dto.ResponseList(c, items, &dto.PaginationResponse{Total: total, Page: req.Page, PageSize: req.PageSize})
 }
@@ -128,7 +128,7 @@ func (h *Handler) GetAsset(c *gin.Context) {
 		dto.ResponseError(c, http.StatusNotFound, "媒体资产不存在", err)
 		return
 	}
-	dto.ResponseSuccess(c, assetView(asset))
+	dto.ResponseSuccess(c, h.assetViewWithVariants(c, tenantUUID, asset, false))
 }
 
 func (h *Handler) UpdateAsset(c *gin.Context) {
@@ -163,7 +163,7 @@ func (h *Handler) UpdateAsset(c *gin.Context) {
 		dto.ResponseError(c, status, "更新媒体资产失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, assetView(asset))
+	dto.ResponseSuccess(c, h.assetViewWithVariants(c, tenantUUID, asset, false))
 }
 
 func (h *Handler) DeleteAsset(c *gin.Context) {
@@ -188,6 +188,30 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"deleted": true})
+}
+
+func (h *Handler) PurgeAsset(c *gin.Context) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	operatorID := operatorIDFromRequest(c)
+	uuid := c.Param("uuid")
+	err = h.svc.PurgeAsset(c.Request.Context(), mediasvc.DeleteAssetInput{
+		TenantUUID: tenantUUID,
+		UUID:       uuid,
+		OperatorID: operatorID,
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, "永久删除媒体资产失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"purged": true})
 }
 
 func (h *Handler) PresignAsset(c *gin.Context) {
@@ -292,6 +316,37 @@ func (h *Handler) Resource(c *gin.Context) {
 	c.DataFromReader(http.StatusOK, length, mimeType, object.Body, headers)
 }
 
+func (h *Handler) VariantResource(c *gin.Context) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	asset, object, err := h.svc.OpenAssetVariantResource(c.Request.Context(), tenantUUID, c.Param("uuid"), c.Param("variant"))
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, "打开资源版本失败", err)
+		return
+	}
+	if asset == nil || object == nil || object.Body == nil {
+		dto.ResponseError(c, http.StatusNotFound, "媒资版本内容不存在", nil)
+		return
+	}
+	defer object.Body.Close()
+
+	mimeType := deriveAdminVariantMime(asset, object.ContentType)
+	fileName := deriveAdminVariantFileName(asset)
+	disposition := sanitizeDisposition(c.DefaultQuery("disposition", "inline"))
+	headers := map[string]string{
+		"Content-Disposition":    fmt.Sprintf("%s; filename=%q", disposition, fileName),
+		"X-Content-Type-Options": "nosniff",
+	}
+	c.DataFromReader(http.StatusOK, object.Size, mimeType, object.Body, headers)
+}
+
 func operatorIDFromRequest(c *gin.Context) *uint64 {
 	value := strings.TrimSpace(c.GetHeader("X-Operator-ID"))
 	if value == "" {
@@ -305,26 +360,57 @@ func operatorIDFromRequest(c *gin.Context) *uint64 {
 }
 
 type assetResponse struct {
+	UUID              string            `json:"uuid"`
+	TenantUUID        string            `json:"tenant_uuid"`
+	Name              string            `json:"name"`
+	Description       string            `json:"description,omitempty"`
+	Driver            string            `json:"driver"`
+	Folder            string            `json:"folder,omitempty"`
+	ObjectKey         string            `json:"objectKey"`
+	ExternalURL       string            `json:"externalUrl,omitempty"`
+	SizeBytes         *int64            `json:"sizeBytes,omitempty"`
+	MimeType          string            `json:"mimeType,omitempty"`
+	OwnerSubjectType  string            `json:"ownerSubjectType,omitempty"`
+	OwnerSubjectID    string            `json:"ownerSubjectId,omitempty"`
+	Tags              []string          `json:"tags,omitempty"`
+	BusinessStatus    string            `json:"businessStatus"`
+	DownloadURL       string            `json:"downloadUrl,omitempty"`
+	DownloadExpiredAt *time.Time        `json:"downloadExpiredAt,omitempty"`
+	CreatedAt         time.Time         `json:"createdAt"`
+	UpdatedAt         time.Time         `json:"updatedAt"`
+	Deleted           bool              `json:"deleted,omitempty"`
+	Metadata          map[string]any    `json:"metadata,omitempty"`
+	Variants          []variantResponse `json:"variants,omitempty"`
+}
+
+type variantResponse struct {
 	UUID              string         `json:"uuid"`
 	TenantUUID        string         `json:"tenant_uuid"`
-	Name              string         `json:"name"`
-	Description       string         `json:"description,omitempty"`
+	AssetUUID         string         `json:"assetUuid"`
+	Variant           string         `json:"variant"`
+	Name              string         `json:"name,omitempty"`
 	Driver            string         `json:"driver"`
-	Folder            string         `json:"folder,omitempty"`
 	ObjectKey         string         `json:"objectKey"`
-	ExternalURL       string         `json:"externalUrl,omitempty"`
 	SizeBytes         *int64         `json:"sizeBytes,omitempty"`
 	MimeType          string         `json:"mimeType,omitempty"`
-	OwnerSubjectType  string         `json:"ownerSubjectType,omitempty"`
-	OwnerSubjectID    string         `json:"ownerSubjectId,omitempty"`
-	Tags              []string       `json:"tags,omitempty"`
-	BusinessStatus    string         `json:"businessStatus"`
 	DownloadURL       string         `json:"downloadUrl,omitempty"`
 	DownloadExpiredAt *time.Time     `json:"downloadExpiredAt,omitempty"`
 	CreatedAt         time.Time      `json:"createdAt"`
 	UpdatedAt         time.Time      `json:"updatedAt"`
-	Deleted           bool           `json:"deleted,omitempty"`
 	Metadata          map[string]any `json:"metadata,omitempty"`
+}
+
+func (h *Handler) assetViewWithVariants(c *gin.Context, tenantUUID string, asset *mediasvc.Asset, includeDeleted bool) assetResponse {
+	resp := assetView(asset)
+	if h == nil || h.svc == nil || asset == nil || asset.UUID == "" {
+		return resp
+	}
+	variants, err := h.svc.ListAssetVariants(c.Request.Context(), tenantUUID, asset.UUID, includeDeleted)
+	if err != nil {
+		return resp
+	}
+	resp.Variants = variantViews(variants)
+	return resp
 }
 
 func assetView(asset *mediasvc.Asset) assetResponse {
@@ -354,6 +440,43 @@ func assetView(asset *mediasvc.Asset) assetResponse {
 	}
 	if asset.SizeBytes > 0 {
 		size := asset.SizeBytes
+		resp.SizeBytes = &size
+	}
+	return resp
+}
+
+func variantViews(variants []mediasvc.AssetVariant) []variantResponse {
+	if len(variants) == 0 {
+		return nil
+	}
+	items := make([]variantResponse, 0, len(variants))
+	for i := range variants {
+		items = append(items, variantView(&variants[i]))
+	}
+	return items
+}
+
+func variantView(variant *mediasvc.AssetVariant) variantResponse {
+	if variant == nil {
+		return variantResponse{}
+	}
+	resp := variantResponse{
+		UUID:              variant.UUID,
+		TenantUUID:        variant.TenantUUID,
+		AssetUUID:         variant.AssetUUID,
+		Variant:           variant.Variant,
+		Name:              variant.Name,
+		Driver:            variant.Driver,
+		ObjectKey:         variant.StorageKey,
+		MimeType:          variant.MimeType,
+		DownloadURL:       variant.DownloadURL,
+		DownloadExpiredAt: variant.DownloadExpiry,
+		CreatedAt:         variant.CreatedAt,
+		UpdatedAt:         variant.UpdatedAt,
+		Metadata:          cloneMetadataMap(variant.Metadata),
+	}
+	if variant.SizeBytes > 0 {
+		size := variant.SizeBytes
 		resp.SizeBytes = &size
 	}
 	return resp
@@ -413,6 +536,36 @@ func deriveAdminFileName(asset *mediasvc.Asset) string {
 	}
 	if asset.UUID != "" {
 		return asset.UUID
+	}
+	return "media.bin"
+}
+
+func deriveAdminVariantMime(asset *mediasvc.AssetVariant, fallback string) string {
+	if asset != nil {
+		if mt := strings.TrimSpace(asset.MimeType); mt != "" {
+			return mt
+		}
+	}
+	if trimmed := strings.TrimSpace(fallback); trimmed != "" {
+		return trimmed
+	}
+	return "application/octet-stream"
+}
+
+func deriveAdminVariantFileName(asset *mediasvc.AssetVariant) string {
+	if asset == nil {
+		return "media.bin"
+	}
+	if name := strings.TrimSpace(asset.Name); name != "" {
+		return name
+	}
+	if key := strings.TrimSpace(asset.StorageKey); key != "" {
+		if base := path.Base(key); base != "" && base != "." && base != "/" {
+			return base
+		}
+	}
+	if asset.Variant != "" {
+		return asset.Variant
 	}
 	return "media.bin"
 }

@@ -19,6 +19,9 @@ func Register(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, dep
 	group.PATCH("/:uuid", h.UpdateAsset)
 	group.DELETE("/:uuid", h.DeleteAsset)
 	group.POST("/:uuid/presign", h.PresignAsset)
+	group.POST("/:uuid/variants/:variant", h.CreateAssetVariant)
+	group.GET("/:uuid/variants/:variant/resource", h.StreamAssetVariantResource)
+	group.POST("/:uuid/variants/:variant/presign", h.PresignAssetVariant)
 }
 
 // RegisterPublicResource mounts anonymous resource endpoint at root level (e.g., /media/:uuid/resource).

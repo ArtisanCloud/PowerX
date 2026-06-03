@@ -375,7 +375,7 @@ func GetDefaults() *Config {
 			Local: LocalStorageConfig{
 				BasePath:           "./storage/media",
 				PublicBaseURL:      "http://localhost:8077/media",
-				UploadTokenSecret:  "",
+				UploadTokenSecret:  "dev-local-media-upload-secret-change-before-production",
 				PublicTokenSecret:  "",
 				MaxUploadSizeBytes: 100 << 20, // 100MB
 			},

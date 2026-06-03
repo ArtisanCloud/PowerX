@@ -65,7 +65,13 @@ type assetRepository interface {
 	CreateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
 	UpdateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
 	SoftDeleteByUUID(ctx context.Context, tenantUUID string, uuid string, deletedBy *uint64) error
+	ListVariants(ctx context.Context, tenantUUID, assetUUID string, includeDeleted bool) ([]mediamodel.MediaAssetVariant, error)
+	HardDeleteByUUID(ctx context.Context, tenantUUID string, uuid string) error
 	FindByUUIDGlobal(ctx context.Context, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
+	FindVariant(ctx context.Context, tenantUUID, assetUUID, variant string) (*mediamodel.MediaAssetVariant, error)
+	FindVariantByStorageKey(ctx context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error)
+	CreateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error)
+	UpdateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error)
 }
 
 type MediaService struct {
@@ -208,12 +214,29 @@ type DeleteAssetInput struct {
 type PresignAssetInput struct {
 	TenantUUID  string
 	UUID        string
+	Variant     string
 	OperatorID  *uint64
 	Action      string
 	Method      string
 	TTL         time.Duration
 	Headers     http.Header
 	ContentType string
+}
+
+// CreateAssetVariantInput 定义创建媒体资产资源版本所需参数。
+type CreateAssetVariantInput struct {
+	TenantUUID string
+	AssetUUID  string
+	Variant    string
+	OperatorID *uint64
+	Name       string
+	Driver     string
+	Bucket     string
+	BaseURL    string
+	StorageKey string
+	SizeBytes  int64
+	MimeType   string
+	Metadata   map[string]any
 }
 
 // ListAssetsInput 定义分页查询参数。
@@ -259,6 +282,26 @@ type Asset struct {
 	CreatedBy      *uint64
 	UpdatedBy      *uint64
 	Deleted        bool
+}
+
+// AssetVariant 为媒体资产的资源版本视图。
+type AssetVariant struct {
+	UUID           string
+	TenantUUID     string
+	AssetUUID      string
+	Variant        string
+	Name           string
+	Driver         string
+	StorageKey     string
+	Bucket         string
+	BaseURL        string
+	SizeBytes      int64
+	MimeType       string
+	DownloadURL    string
+	DownloadExpiry *time.Time
+	Metadata       map[string]any
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // CreateAsset 创建媒体资产，默认进入 draft 状态。
@@ -311,14 +354,14 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	var assetUUID uuid.UUID
 	if storageKey == "" {
 		assetUUID = uuid.New()
-		storageKey = assetUUID.String()
+		storageKey = mediaAssetOriginStorageKey(assetUUID.String())
 	} else {
 		parsed, parseErr := uuid.Parse(storageKey)
 		if parseErr != nil {
 			return nil, ErrObjectKeyMustBeUUID
 		}
 		assetUUID = parsed
-		storageKey = assetUUID.String()
+		storageKey = mediaAssetOriginStorageKey(assetUUID.String())
 	}
 
 	if existing, findErr := s.repo.FindByStorageKey(ctx, tenantUUID, driverName, storageKey); findErr == nil {
@@ -564,6 +607,62 @@ func (s *MediaService) DeleteAsset(ctx context.Context, in DeleteAssetInput) err
 	return nil
 }
 
+// PurgeAsset 永久删除媒体资产及其所有资源版本，并释放底层存储对象。
+func (s *MediaService) PurgeAsset(ctx context.Context, in DeleteAssetInput) error {
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	assetUUID := strings.TrimSpace(in.UUID)
+	if tenantUUID == "" || assetUUID == "" {
+		return fmt.Errorf("tenant uuid and asset uuid required")
+	}
+	entity, err := s.repo.FindByUUID(ctx, tenantUUID, assetUUID, true)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAssetNotFound
+		}
+		return err
+	}
+	variants, err := s.repo.ListVariants(ctx, tenantUUID, assetUUID, true)
+	if err != nil {
+		return err
+	}
+	if s.manager == nil {
+		return fmt.Errorf("media manager not configured")
+	}
+	deleteObject := func(driverName, bucket, objectKey string) error {
+		driverName = strings.TrimSpace(driverName)
+		objectKey = strings.TrimSpace(objectKey)
+		if driverName == "" || objectKey == "" {
+			return nil
+		}
+		if err := s.manager.Delete(ctx, driverName, driver.DeleteObjectInput{
+			Bucket:    strings.TrimSpace(bucket),
+			ObjectKey: objectKey,
+			Force:     true,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err := deleteObject(entity.Driver, entity.Bucket, entity.StorageKey); err != nil {
+		return fmt.Errorf("delete media origin object failed: %w", err)
+	}
+	for _, variant := range variants {
+		if err := deleteObject(variant.Driver, variant.Bucket, variant.StorageKey); err != nil {
+			return fmt.Errorf("delete media variant object failed: variant=%s: %w", variant.Variant, err)
+		}
+	}
+	if err := s.repo.HardDeleteByUUID(ctx, tenantUUID, assetUUID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAssetNotFound
+		}
+		return err
+	}
+	s.emitAudit(ctx, tenantUUID, "media.asset.purge", assetUUID, in.OperatorID, map[string]any{
+		"variants": len(variants),
+	})
+	return nil
+}
+
 // RollbackAsset 用于异常回滚（测试夹具使用）。
 func (s *MediaService) RollbackAsset(ctx context.Context, in DeleteAssetInput) error {
 	tenantUUID := strings.TrimSpace(in.TenantUUID)
@@ -576,6 +675,262 @@ func (s *MediaService) RollbackAsset(ctx context.Context, in DeleteAssetInput) e
 	}
 	s.emitAudit(ctx, tenantUUID, "media.asset.rollback", in.UUID, in.OperatorID, nil)
 	return nil
+}
+
+// CreateAssetVariant 创建或返回媒体资产的资源版本。
+func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVariantInput) (*AssetVariant, error) {
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	assetUUID := strings.TrimSpace(in.AssetUUID)
+	variantName := normalizeVariantName(in.Variant)
+	if tenantUUID == "" || assetUUID == "" {
+		return nil, fmt.Errorf("tenant uuid and asset uuid required")
+	}
+	if variantName == "" {
+		return nil, fmt.Errorf("variant required")
+	}
+	if variantName == "origin" {
+		asset, err := s.GetAsset(ctx, tenantUUID, assetUUID, false)
+		if err != nil {
+			return nil, err
+		}
+		return originAssetVariant(asset), nil
+	}
+	parent, err := s.repo.FindByUUID(ctx, tenantUUID, assetUUID, false)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAssetNotFound
+		}
+		return nil, err
+	}
+	if existing, findErr := s.repo.FindVariant(ctx, tenantUUID, assetUUID, variantName); findErr == nil {
+		return toAssetVariant(existing), nil
+	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		return nil, findErr
+	}
+
+	driverName := strings.TrimSpace(in.Driver)
+	if driverName == "" {
+		driverName = parent.Driver
+	}
+	if driverName == "" {
+		if s.manager == nil {
+			return nil, fmt.Errorf("driver required")
+		}
+		resolved, err := s.manager.DefaultDriver()
+		if err != nil {
+			return nil, err
+		}
+		driverName = resolved
+	}
+	if s.manager != nil {
+		if err := s.manager.EnsureDriver(driverName); err != nil {
+			return nil, err
+		}
+	}
+
+	storageKey := strings.TrimSpace(in.StorageKey)
+	if storageKey == "" {
+		storageKey = mediaAssetVariantStorageKey(assetUUID, variantName)
+	}
+
+	meta := make(map[string]any, len(in.Metadata))
+	for k, v := range in.Metadata {
+		if strings.TrimSpace(k) == "" || v == nil {
+			continue
+		}
+		meta[k] = v
+	}
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("encode variant meta failed: %w", err)
+	}
+	ttlSeconds := int32(s.defaultTTL / time.Second)
+	if ttlSeconds <= 0 {
+		ttlSeconds = int32((12 * time.Hour) / time.Second)
+	}
+	entity := &mediamodel.MediaAssetVariant{
+		PowerUUIDModel:          coremodel.PowerUUIDModel{UUID: uuid.New()},
+		TenantUUID:              tenantUUID,
+		AssetUUID:               assetUUID,
+		Variant:                 variantName,
+		Name:                    strings.TrimSpace(in.Name),
+		Driver:                  driverName,
+		StorageKey:              storageKey,
+		Bucket:                  firstNonEmptyString(strings.TrimSpace(in.Bucket), parent.Bucket),
+		BaseURL:                 firstNonEmptyString(strings.TrimSpace(in.BaseURL), parent.BaseURL),
+		SizeBytes:               in.SizeBytes,
+		MimeType:                strings.TrimSpace(in.MimeType),
+		Meta:                    datatypes.JSON(metaJSON),
+		LastPresignedTTLSeconds: ttlSeconds,
+	}
+	if in.OperatorID != nil {
+		entity.CreatedBy = in.OperatorID
+		entity.UpdatedBy = in.OperatorID
+	}
+	created, err := s.repo.CreateVariant(ctx, entity)
+	if err != nil {
+		return nil, err
+	}
+	s.emitAudit(ctx, tenantUUID, "media.asset.variant.create", assetUUID, in.OperatorID, map[string]any{"variant": variantName})
+	return toAssetVariant(created), nil
+}
+
+// OpenAssetVariantResource 返回指定版本的二进制内容。origin 读取主资源。
+func (s *MediaService) OpenAssetVariantResource(ctx context.Context, tenantUUID, assetUUID, variant string) (*AssetVariant, *driver.GetObjectResult, error) {
+	variantName := normalizeVariantName(variant)
+	if variantName == "" {
+		return nil, nil, fmt.Errorf("invalid media asset variant")
+	}
+	if variantName == "origin" {
+		asset, object, err := s.OpenAssetResource(ctx, tenantUUID, assetUUID)
+		if err != nil {
+			return nil, nil, err
+		}
+		return originAssetVariant(asset), object, nil
+	}
+	entity, err := s.repo.FindVariant(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(assetUUID), variantName)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, ErrAssetNotFound
+		}
+		return nil, nil, err
+	}
+	out := toAssetVariant(entity)
+	if s.manager == nil {
+		return out, nil, fmt.Errorf("media manager not configured")
+	}
+	if strings.TrimSpace(entity.StorageKey) == "" {
+		return out, nil, driver.ErrNotFound
+	}
+	object, err := s.manager.Get(ctx, entity.Driver, driver.GetObjectInput{
+		Bucket:    entity.Bucket,
+		ObjectKey: entity.StorageKey,
+	})
+	if err != nil {
+		if errors.Is(err, driver.ErrNotFound) {
+			return nil, nil, ErrAssetNotFound
+		}
+		return nil, nil, err
+	}
+	return out, object, nil
+}
+
+// ListAssetVariants 返回指定媒体资产已生成的资源版本。
+func (s *MediaService) ListAssetVariants(ctx context.Context, tenantUUID, assetUUID string, includeDeleted bool) ([]AssetVariant, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("media repository not configured")
+	}
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	assetUUID = strings.TrimSpace(assetUUID)
+	if tenantUUID == "" || assetUUID == "" {
+		return nil, fmt.Errorf("tenant uuid and asset uuid required")
+	}
+	items, err := s.repo.ListVariants(ctx, tenantUUID, assetUUID, includeDeleted)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AssetVariant, 0, len(items))
+	for i := range items {
+		view := toAssetVariant(&items[i])
+		if view == nil {
+			continue
+		}
+		out = append(out, *view)
+	}
+	return out, nil
+}
+
+// PresignAssetVariant 生成指定资源版本的上传/下载链接。
+func (s *MediaService) PresignAssetVariant(ctx context.Context, in PresignAssetInput) (*driver.GenerateURLOutput, error) {
+	variantName := normalizeVariantName(in.Variant)
+	if variantName == "" {
+		return nil, fmt.Errorf("invalid media asset variant")
+	}
+	if variantName == "origin" {
+		return s.PresignAsset(ctx, in)
+	}
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	entity, err := s.repo.FindVariant(ctx, tenantUUID, strings.TrimSpace(in.UUID), variantName)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAssetNotFound
+		}
+		return nil, err
+	}
+	action := strings.ToLower(strings.TrimSpace(in.Action))
+	if action == "" {
+		action = "download"
+	}
+	ttl := in.TTL
+	if ttl <= 0 {
+		ttl = s.defaultTTL
+	}
+	if ttl <= 0 {
+		ttl = 12 * time.Hour
+	}
+	if s.manager == nil {
+		return nil, fmt.Errorf("media manager not configured")
+	}
+	method := strings.ToUpper(strings.TrimSpace(in.Method))
+	if method == "" {
+		if action == "upload" {
+			method = http.MethodPut
+		} else {
+			method = http.MethodGet
+		}
+	}
+	contentType := strings.TrimSpace(in.ContentType)
+	if contentType == "" && in.Headers != nil {
+		contentType = strings.TrimSpace(in.Headers.Get("Content-Type"))
+	}
+	if contentType != "" {
+		if in.Headers == nil {
+			in.Headers = http.Header{}
+		}
+		in.Headers.Set("Content-Type", contentType)
+	}
+	urlOut, err := s.manager.GenerateURL(ctx, entity.Driver, driver.GenerateURLInput{
+		Bucket:      entity.Bucket,
+		ObjectKey:   entity.StorageKey,
+		Method:      method,
+		TTL:         ttl,
+		Headers:     in.Headers,
+		ContentType: contentType,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(entity.Driver, "local") {
+		switch action {
+		case "upload":
+			urlOut.URL = fmt.Sprintf("/api/v1/media/assets/%s/variants/%s", entity.AssetUUID, entity.Variant)
+		case "download":
+			urlOut.URL = fmt.Sprintf("/api/v1/media/assets/%s/variants/%s/resource", entity.AssetUUID, entity.Variant)
+		}
+	}
+	expireAt := urlOut.ExpireAt
+	entity.LastPresignedAt = &expireAt
+	ttlSeconds := int32(ttl / time.Second)
+	if ttlSeconds <= 0 {
+		ttlSeconds = 1
+	}
+	entity.LastPresignedTTLSeconds = ttlSeconds
+	if in.OperatorID != nil {
+		entity.UpdatedBy = in.OperatorID
+	}
+	updated, updateErr := s.repo.UpdateVariant(ctx, entity)
+	if updateErr != nil {
+		return nil, updateErr
+	}
+	entity = updated
+	s.emitAudit(ctx, tenantUUID, "media.asset.variant.presign", in.UUID, in.OperatorID, map[string]any{
+		"method":  method,
+		"ttl":     ttl.Seconds(),
+		"action":  action,
+		"variant": variantName,
+	})
+	urlOut.Method = method
+	return urlOut, nil
 }
 
 // PresignAsset 生成预签名链接并记录审计事件。
@@ -790,6 +1145,64 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 	}
 }
 
+func toAssetVariant(entity *mediamodel.MediaAssetVariant) *AssetVariant {
+	if entity == nil {
+		return nil
+	}
+	meta := extractMeta(entity.Meta)
+	downloadURL := stringFromMeta(meta, "last_download_url")
+	if downloadURL == "" {
+		downloadURL = resolveDownloadURL(entity.BaseURL, entity.StorageKey)
+	}
+	var downloadExpiry *time.Time
+	if entity.LastPresignedAt != nil {
+		expiry := *entity.LastPresignedAt
+		downloadExpiry = &expiry
+	}
+	return &AssetVariant{
+		UUID:           entity.UUID.String(),
+		TenantUUID:     entity.TenantUUID,
+		AssetUUID:      entity.AssetUUID,
+		Variant:        entity.Variant,
+		Name:           entity.Name,
+		Driver:         entity.Driver,
+		StorageKey:     entity.StorageKey,
+		Bucket:         entity.Bucket,
+		BaseURL:        entity.BaseURL,
+		SizeBytes:      entity.SizeBytes,
+		MimeType:       entity.MimeType,
+		DownloadURL:    downloadURL,
+		DownloadExpiry: downloadExpiry,
+		Metadata:       cloneMetadata(meta),
+		CreatedAt:      entity.CreatedAt,
+		UpdatedAt:      entity.UpdatedAt,
+	}
+}
+
+func originAssetVariant(asset *Asset) *AssetVariant {
+	if asset == nil {
+		return nil
+	}
+	return &AssetVariant{
+		UUID:           asset.UUID,
+		TenantUUID:     asset.TenantUUID,
+		AssetUUID:      asset.UUID,
+		Variant:        "origin",
+		Name:           asset.Name,
+		Driver:         asset.Driver,
+		StorageKey:     asset.StorageKey,
+		Bucket:         asset.Bucket,
+		BaseURL:        asset.BaseURL,
+		SizeBytes:      asset.SizeBytes,
+		MimeType:       asset.MimeType,
+		DownloadURL:    asset.DownloadURL,
+		DownloadExpiry: asset.DownloadExpiry,
+		Metadata:       cloneMetadata(asset.Metadata),
+		CreatedAt:      asset.CreatedAt,
+		UpdatedAt:      asset.UpdatedAt,
+	}
+}
+
 func extractTags(data datatypes.JSON) []string {
 	if len(data) == 0 {
 		return nil
@@ -842,6 +1255,28 @@ func cloneMetadata(meta map[string]any) map[string]any {
 
 func normalizeTags(tags []string) []string {
 	return normalizeStrings(tags)
+}
+
+func normalizeVariantName(value string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	if trimmed == "" {
+		return "origin"
+	}
+	switch trimmed {
+	case "origin", "preview", "thumbnail":
+		return trimmed
+	default:
+		return ""
+	}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func normalizeStrings(values []string) []string {
@@ -899,6 +1334,19 @@ func resolveDownloadURL(baseURL, objectKey string) string {
 	return base + "/" + key
 }
 
+func mediaAssetOriginStorageKey(assetUUID string) string {
+	return mediaAssetVariantStorageKey(assetUUID, "origin")
+}
+
+func mediaAssetVariantStorageKey(assetUUID string, variant string) string {
+	assetUUID = strings.TrimSpace(assetUUID)
+	variant = normalizeVariantName(variant)
+	if assetUUID == "" || variant == "" {
+		return ""
+	}
+	return assetUUID + "/" + variant
+}
+
 // SyncUploadedFileMetadata 在本地上传完成后回填实际文件大小与 MIME。
 func (s *MediaService) SyncUploadedFileMetadata(ctx context.Context, driver, storageKey string, size int64, mimeType string) error {
 	if s == nil || s.repo == nil {
@@ -909,9 +1357,34 @@ func (s *MediaService) SyncUploadedFileMetadata(ctx context.Context, driver, sto
 	if driver == "" || storageKey == "" {
 		return nil
 	}
-	assets, err := s.repo.ListByDriverAndStorageKey(ctx, driver, storageKey)
-	if err != nil || len(assets) == 0 {
+	if variant, err := s.repo.FindVariantByStorageKey(ctx, driver, storageKey); err == nil && variant != nil {
+		mimeTrimmed := strings.TrimSpace(mimeType)
+		changed := false
+		if size > 0 && variant.SizeBytes != size {
+			variant.SizeBytes = size
+			changed = true
+		}
+		if mimeTrimmed != "" {
+			if strings.TrimSpace(variant.MimeType) == "" || !strings.EqualFold(variant.MimeType, mimeTrimmed) {
+				variant.MimeType = mimeTrimmed
+				changed = true
+			}
+		}
+		if changed {
+			if _, err := s.repo.UpdateVariant(ctx, variant); err != nil {
+				return err
+			}
+		}
+		return nil
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
+	}
+	assets, err := s.repo.ListByDriverAndStorageKey(ctx, driver, storageKey)
+	if err != nil {
+		return err
+	}
+	if len(assets) == 0 {
+		return fmt.Errorf("uploaded media metadata target not found: driver=%s storage_key=%s", driver, storageKey)
 	}
 	mimeTrimmed := strings.TrimSpace(mimeType)
 	for idx := range assets {

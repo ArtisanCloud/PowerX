@@ -25,6 +25,7 @@
       :src="objectUrl"
       :alt="asset?.name || 'media'"
       :class="['h-full w-full object-contain', imgClass]"
+      :data-media-source="previewSource || undefined"
       loading="lazy"
       decoding="async"
     />
@@ -63,6 +64,7 @@ const media = useMediaAssetService();
 
 const objectUrl = ref<string | null>(null);
 const state = ref<"idle" | "loading" | "ready" | "error">("idle");
+const previewSource = ref<"preview" | "thumbnail" | null>(null);
 
 const mimeType = computed(() => String(props.asset?.mimeType || "").toLowerCase());
 const isImage = computed(() => mimeType.value.startsWith("image/"));
@@ -87,9 +89,18 @@ const fallbackLabel = computed(() => {
 
 function revoke() {
   if (!process.client) return;
-  if (objectUrl.value) URL.revokeObjectURL(objectUrl.value);
+  if (objectUrl.value) URL.revokeObjectURL(stripObjectUrlFragment(objectUrl.value));
   objectUrl.value = null;
+  previewSource.value = null;
   state.value = "idle";
+}
+
+function stripObjectUrlFragment(url: string) {
+  return String(url || "").split("#", 1)[0];
+}
+
+function withMediaSourceFragment(url: string, source: "preview" | "thumbnail") {
+  return `${url}#media-source=${encodeURIComponent(source)}`;
 }
 
 let loadSeq = 0;
@@ -100,14 +111,23 @@ async function load() {
   const seq = ++loadSeq;
   state.value = "loading";
   try {
-    const blob = await media.getResourceBlob(props.asset.uuid, "inline");
+    const blob = await loadPreferredPreviewBlob(props.asset.uuid);
     if (seq !== loadSeq) return;
-    objectUrl.value = URL.createObjectURL(blob);
+    const source = media.selectPreviewVariant(props.asset);
+    if (!source) throw new Error("missing media asset preview variant");
+    previewSource.value = source;
+    objectUrl.value = withMediaSourceFragment(URL.createObjectURL(blob), source);
     state.value = "ready";
   } catch {
     if (seq !== loadSeq) return;
     state.value = "error";
   }
+}
+
+async function loadPreferredPreviewBlob(uuid: string): Promise<Blob> {
+  const id = String(uuid || "").trim();
+  if (!id) throw new Error("missing media asset uuid");
+  return media.getPreviewResourceBlob(props.asset, "inline");
 }
 
 watch(
@@ -118,4 +138,3 @@ watch(
 
 onBeforeUnmount(() => revoke());
 </script>
-

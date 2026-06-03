@@ -235,6 +235,9 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(c.Storage.Local.BasePath) == "" {
 			errors = append(errors, "storage.local.base_path 不能为空")
 		}
+		if strings.TrimSpace(c.Storage.Local.UploadTokenSecret) == "" {
+			errors = append(errors, "storage.local.upload_token_secret 不能为空")
+		}
 	}
 	if strings.EqualFold(c.Storage.DefaultDriver, "s3") {
 		if strings.TrimSpace(c.Storage.S3.Endpoint) == "" {

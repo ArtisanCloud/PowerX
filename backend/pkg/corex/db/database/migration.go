@@ -133,7 +133,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
-	if err = db.AutoMigrate(&mediaModel.MediaAsset{}); err != nil {
+	if err = db.AutoMigrate(&mediaModel.MediaAsset{}, &mediaModel.MediaAssetVariant{}); err != nil {
 		return err
 	}
 	if err = db.AutoMigrate(&modelNotification.Notification{}); err != nil {

@@ -29,3 +29,28 @@ func TestBuiltinPlatformCapabilitiesDeclareMediaUploadREST(t *testing.T) {
 
 	t.Fatalf("platform capability %s not found", wantCapability)
 }
+
+func TestBuiltinPlatformCapabilitiesDeclareMediaVariantREST(t *testing.T) {
+	want := map[string]string{
+		"POST /api/v1/media/assets/{uuid}/variants/{variant}":         "",
+		"PUT /api/v1/media/assets/{uuid}/variants/{variant}":          "",
+		"POST /api/v1/media/assets/{uuid}/variants/{variant}/presign": "",
+		"GET /api/v1/media/assets/{uuid}/variants/{variant}/resource": "",
+	}
+	for _, def := range builtinPlatformCapabilityDefinitions() {
+		if def.CapabilityID != "com.corex.media.assets.manage" {
+			continue
+		}
+		for _, binding := range def.Protocols {
+			key := strings.ToUpper(strings.TrimSpace(binding.Method)) + " " + strings.TrimSpace(binding.Endpoint)
+			if _, ok := want[key]; ok && strings.EqualFold(strings.TrimSpace(binding.AuthType), "tenant_jwt") {
+				delete(want, key)
+			}
+		}
+		if len(want) > 0 {
+			t.Fatalf("media variant REST bindings missing: %#v", want)
+		}
+		return
+	}
+	t.Fatal("platform capability com.corex.media.assets.manage not found")
+}

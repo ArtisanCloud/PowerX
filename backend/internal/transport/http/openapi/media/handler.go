@@ -207,6 +207,84 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 	})
 }
 
+func (h *Handler) CreateAssetVariant(c *gin.Context) {
+	var req CreateVariantRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, "missing tenant context", err)
+		return
+	}
+	sizeBytes := int64(0)
+	if req.SizeBytes != nil {
+		sizeBytes = *req.SizeBytes
+	}
+	variant, err := h.svc.CreateAssetVariant(c.Request.Context(), mediasvc.CreateAssetVariantInput{
+		TenantUUID: tenantUUID,
+		AssetUUID:  c.Param("uuid"),
+		Variant:    c.Param("variant"),
+		Name:       strings.TrimSpace(req.Name),
+		Driver:     req.Driver,
+		Bucket:     req.Bucket,
+		BaseURL:    req.BaseURL,
+		StorageKey: req.ObjectKey,
+		SizeBytes:  sizeBytes,
+		MimeType:   req.MimeType,
+		Metadata:   metadataToAny(req.Metadata),
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		respondError(c, status, "create media asset variant failed", err)
+		return
+	}
+	respondCreated(c, assetVariantView(variant))
+}
+
+func (h *Handler) PresignAssetVariant(c *gin.Context) {
+	var req PresignRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, "missing tenant context", err)
+		return
+	}
+	if req.ExpiresInSeconds <= 0 {
+		req.ExpiresInSeconds = 43200
+	}
+	out, err := h.svc.PresignAssetVariant(c.Request.Context(), mediasvc.PresignAssetInput{
+		TenantUUID: tenantUUID,
+		UUID:       c.Param("uuid"),
+		Variant:    c.Param("variant"),
+		Action:     req.Action,
+		Method:     req.Method,
+		TTL:        time.Duration(req.ExpiresInSeconds) * time.Second,
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		respondError(c, status, "generate media asset variant presign url failed", err)
+		return
+	}
+	respondSuccess(c, gin.H{
+		"url":              out.URL,
+		"method":           out.Method,
+		"expiresInSeconds": req.ExpiresInSeconds,
+		"headers":          flattenHeaders(out.Headers),
+		"objectKey":        out.ObjectKey,
+	})
+}
+
 func (h *Handler) StreamAssetResource(c *gin.Context) {
 	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
 	if err != nil {
@@ -214,6 +292,51 @@ func (h *Handler) StreamAssetResource(c *gin.Context) {
 		return
 	}
 	h.streamResource(c, tenantUUID)
+}
+
+func (h *Handler) StreamAssetVariantResource(c *gin.Context) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, "missing tenant context", err)
+		return
+	}
+	asset, object, err := h.svc.OpenAssetVariantResource(c.Request.Context(), tenantUUID, c.Param("uuid"), c.Param("variant"))
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		respondError(c, status, "open media asset variant resource failed", err)
+		return
+	}
+	if object == nil || object.Body == nil {
+		respondError(c, http.StatusNotFound, "media asset variant object not found", nil)
+		return
+	}
+	defer object.Body.Close()
+	mimeType := strings.TrimSpace(asset.MimeType)
+	if mimeType == "" {
+		mimeType = strings.TrimSpace(object.ContentType)
+	}
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	filename := path.Base(strings.TrimSpace(asset.Name))
+	if filename == "." || filename == "/" || filename == "" {
+		filename = path.Base(strings.TrimSpace(asset.StorageKey))
+	}
+	if filename == "." || filename == "/" || filename == "" {
+		filename = asset.Variant
+	}
+	disposition := sanitizeDisposition(c.DefaultQuery("disposition", "inline"))
+	if object.Size > 0 {
+		c.Header("Content-Length", strconv.FormatInt(object.Size, 10))
+	}
+	c.Header("Content-Type", mimeType)
+	c.Header("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, filename))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Status(http.StatusOK)
+	_, _ = io.Copy(c.Writer, object.Body)
 }
 
 // StreamAssetResourcePublic 提供无需租户上下文的公开访问。
