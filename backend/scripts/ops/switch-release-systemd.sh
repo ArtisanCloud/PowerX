@@ -24,6 +24,7 @@ Environment overrides:
   POWERX_RELEASES_ROOT     Default: /opt/powerx/releases
   POWERX_LINKS_ROOT        Default: /opt/powerx
   POWERX_RUNTIME_ROOT      Default: /etc/powerx
+  POWERX_STORAGE_ROOT      Default: /opt/powerx/storage
   POWERX_HEALTH_URL        Default: http://127.0.0.1:8080/api/v1/health
   POWERX_HEALTH_EXPECT     Default: 200
   POWERX_SERVICE_USER      Default: current login user (sudo user), fallback: powerx
@@ -100,6 +101,7 @@ RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx}"
 PLUGIN_RUNTIME_ROOT="${POWERX_PLUGIN_RUNTIME_ROOT:-${LINKS_ROOT}/plugins}"
+STORAGE_RUNTIME_ROOT="${POWERX_STORAGE_ROOT:-${LINKS_ROOT}/storage}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
@@ -584,6 +586,71 @@ normalize_plugin_runtime_artifacts() {
   echo "[switch-release] plugin runtime artifacts normalized under ${plugin_installed_abs}"
 }
 
+sync_runtime_storage_paths() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip storage path sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local media_abs="${STORAGE_RUNTIME_ROOT}/media"
+  local legacy_paths=()
+  local legacy
+  local tmp_file
+
+  install -d -m 0755 "${media_abs}"
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${STORAGE_RUNTIME_ROOT}"
+
+  legacy_paths+=("${LINK_BACKEND}/storage/media")
+  if [[ -n "${PREV_BACKEND}" ]]; then
+    legacy_paths+=("${PREV_BACKEND}/storage/media")
+  fi
+  legacy_paths+=("${TARGET_BACKEND}/storage/media")
+
+  for legacy in "${legacy_paths[@]}"; do
+    if [[ -d "${legacy}" && "${legacy}" != "${media_abs}" ]]; then
+      if [[ -n "$(find "${legacy}" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]]; then
+        cp -a "${legacy}/." "${media_abs}/" 2>/dev/null || true
+        echo "[switch-release] media storage migrated: ${legacy} -> ${media_abs}"
+      fi
+    fi
+  done
+
+  if grep -Eq '^[[:space:]]*base_path[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.storage.XXXXXX")"
+    awk -v val="${media_abs}" '
+      BEGIN { updated = 0; in_storage = 0; in_local = 0 }
+      /^[^[:space:]][^:]*:[[:space:]]*$/ {
+        in_storage = ($0 ~ /^storage[[:space:]]*:/)
+        in_local = 0
+      }
+      in_storage && /^[[:space:]]{2}local[[:space:]]*:[[:space:]]*$/ {
+        in_local = 1
+      }
+      in_storage && /^[[:space:]]{2}[A-Za-z0-9_]+[[:space:]]*:/ && $0 !~ /^[[:space:]]{2}local[[:space:]]*:/ {
+        in_local = 0
+      }
+      in_storage && in_local && /^[[:space:]]*base_path[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "base_path: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key storage.local.base_path not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${media_abs}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime media storage synced: base_path=${media_abs}"
+}
+
 sync_runtime_config_version() {
   if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
     echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
@@ -656,6 +723,7 @@ fi
 ensure_service_identity
 ensure_runtime_config_external
 sync_http_proxy_base_env
+sync_runtime_storage_paths
 sync_runtime_plugin_paths
 normalize_plugin_runtime_artifacts
 sync_runtime_config_version

@@ -373,7 +373,7 @@ func GetDefaults() *Config {
 			DefaultDriver: "local",
 			TTLSeconds:    43200,
 			Local: LocalStorageConfig{
-				BasePath:           "./storage/media",
+				BasePath:           "/opt/powerx/storage/media",
 				PublicBaseURL:      "http://localhost:8077/media",
 				UploadTokenSecret:  "dev-local-media-upload-secret-change-before-production",
 				PublicTokenSecret:  "",
