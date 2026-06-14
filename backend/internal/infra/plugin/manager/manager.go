@@ -14,6 +14,7 @@ import (
 )
 
 type PostInstallManifestHook func(ctx context.Context, manifest plugin_mgr.Manifest) error
+type PostEnablePluginHook func(ctx context.Context, plugin plugin_mgr.Plugin, apiBaseURL string) error
 type PostUninstallHook func(ctx context.Context, pluginID string) error
 type TenantPluginInstanceChecker func(ctx context.Context, pluginID string) (int64, error)
 type PluginRuntimeCredentialProvider func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error)
@@ -42,6 +43,7 @@ type Options struct {
 	HTTP                *router.DynamicRouter
 	Supervisor          *supervisor.Supervisor
 	PostInstallManifest PostInstallManifestHook
+	PostEnablePlugin    PostEnablePluginHook
 	PostUninstall       PostUninstallHook
 	TenantInstanceCount TenantPluginInstanceChecker
 	RuntimeCredential   PluginRuntimeCredentialProvider

@@ -67,6 +67,15 @@ export type {
   AgentTeamMemberRecord,
 } from "./agentTeamService";
 
+export { useAgentTraceService } from "./agentTraceService";
+export type {
+  AgentTraceEvent,
+  AgentTraceNode,
+  AgentTraceQuery,
+  AgentTraceReport,
+  AgentTraceTimelineResult,
+} from "../types/agentTrace";
+
 export { useDeployOpsService } from "./deployOpsService";
 export type {
   DeployReleaseRecord,

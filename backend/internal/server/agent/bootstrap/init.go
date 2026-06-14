@@ -135,7 +135,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 					PreferredProtocol: "skill",
 					ToolGrantIDs:      in.ToolGrantIDs,
 					AgentID:           in.AgentID,
-					Context:           in.Context,
+					Context:           enrichSkillContext(in.Context, in),
 					Payload:           in.Payload,
 					TraceID:           in.TraceID,
 				})
@@ -159,7 +159,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 				Entrypoint: in.Entrypoint,
 				InvokePath: "agent.plan.skill",
 				TraceID:    in.TraceID,
-			}, in.Payload, in.Context)
+			}, in.Payload, enrichSkillContext(in.Context, in))
 			if err != nil {
 				return nil, err
 			}
@@ -256,6 +256,38 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 	WireAgentRunLogger(db)
 
 	return err
+}
+
+func enrichSkillContext(ctxMap map[string]any, in agent.SkillInvokeInput) map[string]any {
+	out := make(map[string]any, len(ctxMap)+8)
+	for k, v := range ctxMap {
+		out[k] = v
+	}
+	if in.TenantUUID != "" {
+		out["tenant_uuid"] = in.TenantUUID
+	}
+	if in.UserUUID != "" {
+		out["user_uuid"] = in.UserUUID
+	}
+	if in.AgentID > 0 {
+		out["agent_id"] = fmt.Sprintf("%d", in.AgentID)
+	}
+	if in.SessionID != "" {
+		out["session_id"] = in.SessionID
+	}
+	if in.MessageID != "" {
+		out["message_id"] = in.MessageID
+	}
+	if in.SkillID != "" {
+		out["skill_id"] = in.SkillID
+	}
+	if in.TraceID != "" {
+		out["trace_id"] = in.TraceID
+	}
+	if in.CapabilityID != "" {
+		out["capability_id"] = in.CapabilityID
+	}
+	return out
 }
 
 func normalizeAgentRuntimePaths(cfg *config.AgentConfig) {

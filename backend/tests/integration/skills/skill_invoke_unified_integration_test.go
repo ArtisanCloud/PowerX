@@ -20,18 +20,18 @@ import (
 func TestSkillInvokeUnifiedPath(t *testing.T) {
 	db := setupSkillsDB(t)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.invoke.unified",
+		SkillID:           "skill.invoke.unified.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourcePlugin,
 		Status:            skillmodel.SkillStatusPublished,
 		IsLatestPublished: true,
-		BundleURI:         "s3://skills/skill.invoke.unified-1.0.0.tgz",
+		BundleURI:         "s3://skills/skill.invoke.unified.incident-triage-1.0.0.tgz",
 		Checksum:          "sha256:invoke-unified",
 		ImportType:        "upload",
 		UpdatedBy:         "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillCapabilityBinding{
-		SkillID:         "skill.invoke.unified",
+		SkillID:         "skill.invoke.unified.incident-triage",
 		Version:         "1.0.0",
 		CapabilityID:    "cap.skill.unified",
 		BindingStatus:   "active",
@@ -86,7 +86,7 @@ func TestSkillInvokeUnifiedPath(t *testing.T) {
 	body := map[string]interface{}{
 		"capability_id":      "cap.skill.unified",
 		"preferred_protocol": "skill",
-		"payload":            map[string]interface{}{"input": "hello"},
+		"payload":            map[string]interface{}{"incident_id": "INC-2001", "query": "database warning"},
 	}
 	raw, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/tenant/invocations", bytes.NewReader(raw))
@@ -114,7 +114,7 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 	}).Error)
 
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.policy.builtin",
+		SkillID:           "skill.policy.builtin.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourceBuiltin,
 		Status:            skillmodel.SkillStatusPublished,
@@ -125,7 +125,7 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 		UpdatedBy:         "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.policy.plugin",
+		SkillID:           "skill.policy.plugin.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourcePlugin,
 		Status:            skillmodel.SkillStatusPublished,
@@ -136,7 +136,7 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 		UpdatedBy:         "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillCapabilityBinding{
-		SkillID:         "skill.policy.builtin",
+		SkillID:         "skill.policy.builtin.incident-triage",
 		Version:         "1.0.0",
 		CapabilityID:    "cap.skill.policy",
 		BindingStatus:   "active",
@@ -145,7 +145,7 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 		UpdatedBy:       "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillCapabilityBinding{
-		SkillID:         "skill.policy.plugin",
+		SkillID:         "skill.policy.plugin.incident-triage",
 		Version:         "1.0.0",
 		CapabilityID:    "cap.skill.policy",
 		BindingStatus:   "active",
@@ -217,5 +217,5 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 
 	var payload map[string]interface{}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &payload))
-	require.Equal(t, "skill.policy.builtin", payload["skill_id"])
+	require.Equal(t, "skill.policy.builtin.incident-triage", payload["skill_id"])
 }

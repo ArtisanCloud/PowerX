@@ -7,12 +7,17 @@
 
 交付 PowerX Skills 的平台级治理与 Agent 统一编排闭环：官方固有 Skills 目录管理、第三方 Bundle 受控导入、人工审批发布、版本回滚、Capability 绑定、Tenant/Agent 双路径调用一致性，以及“LLM 统一意图识别 + workflow/skill/tooling/llm 计划编排（串并行） + LLM Tool-Calling”统一执行。当前基线采用“上传 Bundle + 来源元数据登记、默认最新发布版本调用、checksum 强制校验、signature 策略可配置”，并通过多租户隔离与审计链路保障可追溯和可回放。
 新增对齐目标：建立 Provider 无关的 Context 优化机制（分层上下文、预算裁剪、结构化摘要、Prompt/Context Cache 与 token 观测），在不改变 LLM 主路由原则下显著降低 token 成本与时延。
+新增插件桥接目标：建立 PowerX Agent Skill Bridge，统一 PowerX Agent Runtime 与 PowerXPlugin Skill Executor 的边界；渠道和插件自有 Chat 必须进入 PowerX Agent Session，插件只声明源定义态 Skill 并提供 executor，PowerX 负责治理态 Skill、会话、权限、租户上下文、Planner 和审计。
+新增插件 Plugin Registry 同步目标：PowerXPlugin 可在插件自有维护 Agent/Skill 开发态记录，但必须通过插件 backend proxy 同步到底座生成治理态 Skill、运行态 Agent 与 Agent-Skill Binding；PowerX 底座记录是 Agent Runtime 权威源，插件 Registry 只作为声明源、开发态配置和同步状态排障依据。
+新增运行追踪目标：建立 PowerX Agent Run Trace & Report，按 Session/Message/Node 三层记录 Agent Runtime 结构化日志；本地开发写入 `backend/logs/agents`，生产写入 Loki；root 用户可在 Web Admin 查看节点链路并下载智能对话报告。
 
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend services），Node 20 + Nuxt 4（web-admin）  
 **Primary Dependencies**: Gin HTTP、google.golang.org/grpc（Buf）、GORM、Redis、PostgreSQL、OpenTelemetry、Nuxt UI、Pinia  
-**Storage**: PostgreSQL（skills registry/execution trace/audit refs + capability registry tooling catalog/trace）、Redis（selector/cache/policy snapshot）  
+**Storage**: PostgreSQL（skills registry/execution trace/audit refs + plugin skill invocation trace + capability registry tooling catalog/trace）、Redis（selector/cache/policy snapshot）  
+**Plugin Registry Storage**: PowerX 底座保存插件 Registry 来源映射与同步审计（`provider_plugin_id/plugin_agent_id/plugin_skill_id -> powerx_agent_uuid/powerx_skill_id`）；PowerXPlugin 插件侧保存开发态插件记录，二者通过同步 API 对齐。
+**Agent Trace Storage**: Local File（`backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}`）+ Loki（生产日志源，可选）  
 **Testing**: Go `go test`（unit/integration/contract）、OpenAPI/Proto 合约校验、web-admin 端 Vitest/Playwright 冒烟  
 **Target Platform**: Linux server + modern browsers  
 **Project Type**: CoreX backend module + web-admin management feature  
@@ -61,7 +66,9 @@ backend/
 ├── api/grpc/contracts/powerx/skills/v1/
 ├── api/grpc/gen/go/powerx/skills/v1/
 ├── internal/service/skills/
+├── internal/service/agent_trace/
 ├── internal/transport/http/admin/skills/
+├── internal/transport/http/admin/agenttrace/
 ├── internal/transport/http/openapi/skills/
 ├── internal/transport/grpc/skills/
 ├── pkg/corex/db/persistence/model/skills/
@@ -70,8 +77,16 @@ backend/
 
 web-admin/
 ├── app/pages/settings/ai/skills.vue
+├── app/pages/agent/traces/
 ├── app/components/settings/ai/skills/
+├── app/components/agent/trace/
 └── app/composables/api/services/skillsService.ts
+
+powerx-plugin/
+├── framework/
+│   ├── skills/
+│   └── client/
+└── connectors/
 ```
 
 **Structure Decision**: 采用 CoreX 单体后端 + Nuxt 管理端的既有结构；合同先行（HTTP + gRPC）驱动 service/transport 实现，并由 web-admin 消费 admin contracts。
@@ -155,6 +170,49 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 4. **失败策略**：统一支持 `fail-fast|continue|retry-once`，并在最终汇总中返回子任务级状态。  
 5. **审计与观测**：新增 `team_id/task_id/parent_agent_id/child_agent_id/handoff_trace_id` 字段，接入审计与 trace。  
 6. **最小用例验证**：以“1 主 2 子”并行协作为验收基线，验证分发、回收、部分失败与越权阻断。  
+
+## Phase 16 – PowerX Agent Skill Bridge 与插件 Framework 对齐
+
+Reference: [`docs/plan/ai_engineering/skills/agent_skill_bridge.md`](../../docs/plan/ai_engineering/skills/agent_skill_bridge.md)
+
+1. **Skill Package 源格式**：PowerX 与插件统一采用 `SKILL.md` 目录包作为 Skill 源格式；manifest/DTO/DB 仅作为解析后对象与治理态索引。
+2. **桥接契约**：定义 `PluginSkillPackage/PluginSkillManifest/Invocation/Context/Result/Error`，明确插件源定义态 Skill 与 PowerX 治理态 Skill 的转换关系。
+3. **Framework Runtime**：在 `powerx-plugin/framework/skills` 提供 Skill Package loader、validator、注册、schema 暴露、executor 分发和上下文校验封装。
+4. **Framework Client**：在 `powerx-plugin/framework/client` 封装 STS、Agent Session HTTP、Agent SSE Stream、Agent WebSocket、Capability Invoke。
+5. **插件发现导入**：PowerX 插件安装/启用时调用 `GET /api/v1/plugin/skills`，校验后导入为 `source=plugin/source_format=skill_package` 草稿 Skill，审批发布后进入 Agent 候选池。
+6. **Registry 入库字段**：Skill Registry 保存 `raw_markdown/frontmatter_json/body_markdown/package_uri/package_checksum`，用于审计、导出和漂移检测。
+7. **Executor 调用链路**：Agent `node.kind=skill` 命中插件来源 Skill 时，通过 Agent Skill Bridge 调用 `POST /api/v1/plugin/skills/invoke`，并注入 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id`。
+8. **本地 Chat 约束**：插件自有 Chat 页面只调用 PowerX Agent Session/Stream API，不直连插件领域业务接口；SSE/WS 事件由 Framework Client 解码。
+9. **审计与阻断**：缺少关键上下文、插件未安装、executor capability 不匹配、Skill 未发布或未绑定 Agent 时必须 fail-fast 并记录审计。
+10. **MediaX 验证样例**：以 `mediax.video_rebuilder.cn` 的 `SKILL.md` 包作为插件 Skill 样例，验证渠道消息、Web Chat 和插件自有 Chat 走同一 Agent Runtime 链路。
+
+## Phase 16A – 插件 Agent/Skill Plugin Registry 同步
+
+Reference: [`docs/plan/ai_engineering/skills/plugin_third_party_integration.md`](../../docs/plan/ai_engineering/skills/plugin_third_party_integration.md)
+
+1. **同步边界**：PowerXPlugin 插件 Agent/Skill Local 是开发态声明源；PowerX 底座 `SkillRegistryRecord/Agent/AgentSkillBinding` 是运行态权威源。
+2. **Skill 同步**：插件 backend proxy 提交插件 Skill manifest、prompt/schema、executor、capability、checksum；PowerX 校验后创建或更新 `source=plugin` 治理态 Skill，并返回 `powerx_skill_id/sync_status`。
+3. **Agent 同步**：插件 backend proxy 提交插件 Agent 配置、模型配置引用、system prompt、已同步 Skill 列表；PowerX 创建或更新 Agent，并写入 Agent-Skill Binding。
+4. **绑定校验**：Agent 同步请求绑定的 Skill 必须已发布、已审批、租户可见且来源插件匹配；不满足条件时 fail-fast，不创建半成品 Agent。
+5. **状态刷新**：插件可通过后端 proxy 查询 PowerX 侧 Agent/Skill 状态，回写插件 Registry 的 `sync_status/sync_error/last_sync_at`。
+6. **调试约束**：插件 Agent Chat 只能选择已同步成功的 `powerx_agent_uuid` 创建 PowerX Agent Session；未同步、漂移或失败记录只能展示为草稿/异常。
+7. **漂移检测**：PowerX 保存 `manifest_snapshot/checksum/prompt_snapshot/bound_skill_ids`，用于识别插件自有 Local 与底座运行态记录差异。
+8. **审计**：所有同步动作写入 `PluginRegistrySyncAudit`，字段至少包含 `provider_plugin_id/plugin_agent_id/plugin_skill_id/powerx_agent_uuid/powerx_skill_id/sync_action/sync_status/trace_id`。
+9. **页面对齐**：PowerX 底座 Agent/Skill 管理页继续管理运行态记录；PowerXPlugin 可做对称页面，但其所有底座操作必须经插件 backend proxy。
+
+## Phase 17 – Agent Run Trace & Report
+
+Reference: [`docs/plan/ai_engineering/skills/agent_run_trace_report.md`](../../docs/plan/ai_engineering/skills/agent_run_trace_report.md)
+
+1. **Trace DTO 与 Logger**：新增 `AgentRunMeta/AgentTraceEvent/AgentTraceNode/AgentRunReport` 与 `AgentTraceLogger`，作为 Agent Runtime 唯一结构化追踪入口。
+2. **Local Sink**：实现 `PluginAgentTraceSink`，按 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}` 写入 `run.json/timeline.jsonl/nodes/*.json/artifacts/*`。
+3. **Loki Sink**：实现 `LokiAgentTraceSink`，使用低基数 label 写入生产日志源；不将完整 prompt/payload 作为 label。
+4. **Runtime 接入**：在 Agent Session/Runtime/Planner/Executor 关键节点接入 `StartNode/EndNode/FailNode`，覆盖 receive、context、intent、planner、skill/tool/llm、final、history。
+5. **Root-only API**：新增 `/api/v1/admin/agent-traces/*` 查询与下载接口；后端强制 root 权限，非 root 返回 `AGENT_TRACE_ROOT_REQUIRED`。
+6. **报告生成**：支持 Message 级 `report.md/report.json`，预留 Session 级与 zip 下载；报告必须包含 Summary、User Message、Runtime Timeline、Skill/Tool Invocation、Final Response、Errors。
+7. **Web Admin 页面**：新增 root-only Agent Trace 页面，参考 AI Craft 报告布局：指标卡片、Message 列表、节点链路、Slot/Context 快照、下载按钮。
+8. **脱敏与大小限制**：artifact 默认 redacted，支持 max bytes 限制；敏感字段必须通过策略进入报告。
+9. **关联审计**：Agent Trace 必须与 `SkillExecutionTrace/InvocationTrace/A2A Handoff Trace` 通过 `trace_id/run_id/plan_id/node_id` 可互跳。
 
 ## Implementation Backwrite (2026-03-19)
 

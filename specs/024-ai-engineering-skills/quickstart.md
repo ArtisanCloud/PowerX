@@ -367,3 +367,369 @@ API：
 8. 回执摘要
 9. `trace_id`
 10. 失败节点与原因（如有）
+
+## 14. Agent Skill Bridge 插件验收（Phase 16）
+
+目标：验证插件 Skill 源定义、PowerX 治理态导入、Agent Runtime 调用插件 executor、插件调试 Chat 统一走 PowerX Agent Session。
+
+### 14.1 插件 Skill 发现
+
+示例插件暴露：
+
+```bash
+curl -X GET "$PLUGIN_BASE_URL/api/v1/plugin/skills" \
+  -H "Authorization: Bearer $PLUGIN_RUNTIME_TOKEN"
+```
+
+预期返回包含：
+
+```json
+{
+  "skill_id": "mediax.video_rebuilder.cn",
+  "provider": "com.powerx.plugin.mediax-studio",
+  "version": "1.0.0",
+  "executor": {
+    "type": "plugin_http",
+    "path": "/api/v1/plugin/skills/invoke",
+    "capability": "creation.video_automation.ingest"
+  }
+}
+```
+
+强校验：
+
+1. 缺少 `skill_id/version/description/input_schema/executor` 时，PowerX 导入必须拒绝。
+2. 插件源定义只进入 `draft`，不得直接对租户或 Agent 可见。
+3. 发布后 `source=plugin`，并能在 Agent Skill 候选池看到。
+
+### 14.2 Agent 调用插件 Skill
+
+通过 PowerX Agent Stream 发起自然语言请求：
+
+```bash
+curl -N -G "$POWERX_BASE_URL/api/v1/agents/stream/sse" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  --data-urlencode "agent_id=1001" \
+  --data-urlencode "q=帮我用篮球模板重构这个视频：https://example.com/video.mp4"
+```
+
+预期：
+
+1. SSE 出现 `intent -> plan -> node_start -> node_end -> final -> end`。
+2. `plan` 中存在 `node.kind=skill`，`skill_id=mediax.video_rebuilder.cn`。
+3. PowerX 调用插件：
+
+```text
+POST /api/v1/plugin/skills/invoke
+```
+
+4. 插件收到完整 context：
+
+```json
+{
+  "tenant_uuid": "tenant_xxx",
+  "user_uuid": "user_xxx",
+  "agent_id": "agent_xxx",
+  "session_id": "session_xxx",
+  "message_id": "message_xxx",
+  "trace_id": "trace_xxx"
+}
+```
+
+5. 最终回复来自插件 `PluginSkillResult` 归一化结果，例如任务号、状态、摘要。
+
+### 14.3 插件调试 Chat 验收
+
+打开插件调试 Chat 页面，发送同样请求。
+
+预期：
+
+1. 页面通过 PowerXPlugin Framework Client 调用 PowerX Agent Session/Stream。
+2. 网络请求目标是 PowerX：
+
+```text
+POST /api/v1/agents/invoke
+GET  /api/v1/agents/stream/sse
+WS   /api/v1/agents/stream/ws
+```
+
+3. 页面不得直接调用：
+
+```text
+POST /api/v1/creation/video-automation/ingest
+```
+
+4. 本地 Chat 与 Web Agent Chat 的 trace 均能关联到 `session_id/skill_id/plugin_id`。
+
+### 14.4 Fail-fast 验收
+
+构造缺失上下文请求：
+
+```bash
+curl -X POST "$PLUGIN_BASE_URL/api/v1/plugin/skills/invoke" \
+  -H "Authorization: Bearer $PLUGIN_RUNTIME_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "skill_id": "mediax.video_rebuilder.cn",
+    "input": {"urls": ["https://example.com/video.mp4"]},
+    "context": {"trace_id": "trace_missing_tenant"}
+  }'
+```
+
+预期：
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "skill.plugin_context_missing",
+    "message": "tenant_uuid is required for plugin skill invocation"
+  }
+}
+```
+
+审计检查：
+
+```bash
+curl -X GET "$POWERX_BASE_URL/api/v1/admin/skills/traces?skill_id=mediax.video_rebuilder.cn&limit=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+重点字段：
+
+1. `trace_id`
+2. `tenant_uuid`
+3. `provider_plugin_id`
+4. `skill_id`
+5. `agent_id`
+6. `session_id`
+7. `executor_path`
+8. `status`
+9. `error_code`
+
+### 14.5 本地验证记录（2026-06-08）
+
+```bash
+cd backend && go test ./internal/service/skills ./internal/server/agent -count=1
+# 结果：ok
+
+cd backend && go test ./tests/integration/skills -count=1
+# 结果：ok
+
+cd /private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin/framework/backend/go && \
+  go test ./runtime/skills ./runtime/powerx/agent ./runtime/powerx/sts -count=1
+# 结果：ok
+```
+
+当前实现边界：
+
+1. 已完成插件 Framework runtime/client、插件 skill discovery service、plugin HTTP executor、context fail-fast、trace 字段与错误码映射。
+2. `T125` 的服务能力已具备，但尚未挂入 `backend/internal/infra/plugin/manager/*` 的安装/启用生命周期。
+3. `T130/T134` 已补验收规格，真实插件调试 Chat 页面仍需在插件 connector 或 Web Admin 插件页实现后再完成勾选。
+4. `web-admin/tests/e2e/plugin-agent-skill-bridge.spec.ts` 当前为 `describe.skip`，原因是本阶段尚未交付插件调试 Chat 页面与可用连接前置；启用前需先完成 `T130`。
+
+## 15. Agent Run Trace & Report 验收
+
+目标：验证一轮 Agent 消息可以生成结构化运行时日志，root 用户可查看节点链路并下载智能对话报告。
+
+### 15.1 本地配置
+
+建议本地开发默认启用 Local Sink：
+
+```bash
+export AGENT_TRACE_ENABLED=true
+export AGENT_TRACE_LOCAL_ENABLED=true
+export AGENT_TRACE_LOCAL_DIR=backend/logs/agents
+export AGENT_TRACE_ARTIFACT_POLICY=redacted
+export AGENT_TRACE_MAX_ARTIFACT_BYTES=1048576
+```
+
+预期写入目录：
+
+```text
+backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}/
+  run.json
+  timeline.jsonl
+  nodes/*.json
+  artifacts/*
+  report.md
+  report.json
+```
+
+### 15.2 触发一轮 Agent Run
+
+```bash
+curl -N -G "$POWERX_BASE_URL/api/v1/agents/stream/sse" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  --data-urlencode "agent_id=$AGENT_ID" \
+  --data-urlencode "session_id=$SESSION_ID" \
+  --data-urlencode "q=帮我分析这个视频并给出重构建议"
+```
+
+记录返回或服务端生成的：
+
+```text
+tenant_uuid
+session_id
+message_id
+trace_id
+run_id
+```
+
+本地文件检查：
+
+```bash
+find backend/logs/agents -path "*/$SESSION_ID/*" -maxdepth 5 -type f | sort
+```
+
+必须至少存在：
+
+1. `run.json`
+2. `timeline.jsonl`
+3. `nodes/*receive_message*.json`
+4. `nodes/*intent_recognition*.json`
+5. `nodes/*planner*.json`
+6. `nodes/*final_response*.json`
+
+### 15.3 Root 查询 Message Trace
+
+```bash
+curl -G "$POWERX_BASE_URL/api/v1/admin/agent-traces/messages/$MESSAGE_ID" \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  --data-urlencode "tenant_uuid=$TENANT_UUID" \
+  --data-urlencode "source=local"
+```
+
+预期响应包含：
+
+```json
+{
+  "tenant_uuid": "tenant_xxx",
+  "session_id": "session_xxx",
+  "message_id": "message_xxx",
+  "run_id": "run_xxx",
+  "trace_id": "trace_xxx",
+  "summary": {
+    "status": "completed",
+    "node_count": 6,
+    "event_count": 12,
+    "error_count": 0
+  }
+}
+```
+
+### 15.4 下载 Message 报告
+
+Markdown：
+
+```bash
+curl -L "$POWERX_BASE_URL/api/v1/admin/agent-traces/messages/$MESSAGE_ID/report?format=markdown&source=local" \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  -o agent-message-report.md
+```
+
+JSON：
+
+```bash
+curl -L "$POWERX_BASE_URL/api/v1/admin/agent-traces/messages/$MESSAGE_ID/report?format=json&source=local" \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  -o agent-message-report.json
+```
+
+报告必须包含：
+
+1. Summary
+2. User Message
+3. Runtime Timeline
+4. Intent Recognition
+5. Planner
+6. Skill / Tool Invocation
+7. Final Response
+8. Errors / Warnings
+
+### 15.5 Root-only 权限验收
+
+非 root token：
+
+```bash
+curl -i "$POWERX_BASE_URL/api/v1/admin/agent-traces/messages/$MESSAGE_ID" \
+  -H "Authorization: Bearer $ADMIN_OR_TENANT_TOKEN"
+```
+
+预期：
+
+```json
+{
+  "code": 403,
+  "message": "AGENT_TRACE_ROOT_REQUIRED"
+}
+```
+
+### 15.6 Loki 查询样例
+
+生产环境启用：
+
+```bash
+export AGENT_TRACE_LOKI_ENABLED=true
+export AGENT_TRACE_LOKI_ENDPOINT=http://loki:3100
+```
+
+LogQL 示例：
+
+```logql
+{service="powerx-agent", component="agent-runtime", tenant_uuid="$TENANT_UUID", session_id="$SESSION_ID", message_id="$MESSAGE_ID"}
+```
+
+节点筛选：
+
+```logql
+{service="powerx-agent", component="agent-runtime", run_id="$RUN_ID", node_kind="skill_invoke", status="success"}
+```
+
+### 15.7 页面验收
+
+Root 用户打开：
+
+```text
+/agent/traces
+```
+
+验收点：
+
+1. 可按 `tenant_uuid/session_id/message_id/run_id/trace_id` 搜索。
+2. 顶部指标卡显示状态、节点、事件、错误。
+3. 中间展示节点链路 timeline。
+4. 右侧展示节点快照、Skill/Tool 输入输出、错误详情。
+5. 可点击下载 Message JSON 与 Markdown 报告。
+
+### 15.8 回归命令
+
+```bash
+cd backend && go test ./internal/service/agent_trace ./internal/server/agent ./internal/server/agent/runtime ./internal/transport/http/admin/agenttrace -count=1
+cd backend && go test ./tests/integration/skills -run TestAgentRunTraceReportQueryByMessageID -count=1
+cd backend && go test ./tests/contract/http/agent_trace -run TestAgentTraceRootOnlyContract -count=1
+cd web-admin && npm run test:e2e -- tests/e2e/agent-run-trace-report.spec.ts
+```
+
+### 15.9 本地验证记录（2026-06-08）
+
+本轮已执行：
+
+```bash
+cd backend && go test ./internal/bootstrap ./internal/infra/plugin/manager ./internal/transport/http/admin/agenttrace ./tests/contract/http/agent_trace ./tests/integration/skills -run 'TestAgentRunTraceReportQueryByMessageID|TestSkillAgentCompositePlanExecuteWithEventSourceScope|TestSkillAgentNoIntentFallbackToNormalReply'
+cd backend && go test ./tests/contract/http/agent_trace -run TestAgentTraceRootOnlyContract
+cd web-admin && npm run build
+```
+
+结果：
+
+1. Agent Trace API、root-only contract、目标 integration 均通过。
+2. Nuxt build 通过；存在项目既有 Browserslist、dynamic import、chunk size warning。
+3. `go test ./tests/integration/skills` 全量当前仍受既有 SQLite `agent_settings` 表缺失测试影响，目标 Agent Trace/Skill Bridge 用例已定向通过。
+
+### 15.10 回滚策略
+
+1. 设置 `AGENT_TRACE_ENABLED=false` 可关闭 Agent Trace Logger。
+2. 设置 `AGENT_TRACE_LOKI_ENABLED=false` 可仅保留本地文件 sink。
+3. 删除或隐藏 `/agent/traces` 菜单入口不影响后端 API；后端 root-only 仍保留权限边界。
+4. 插件 Skill 发现接入在插件 enable 阶段执行；如插件暂未实现 `GET /api/v1/plugin/skills`，启用会 fail-fast，应先补插件 Framework Skill 路由再启用。

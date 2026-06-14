@@ -69,6 +69,24 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
 - `skill_registry_publish_total`
 - `skill_registry_rollback_total`
 
+### 5.1 Agent Run Trace & Report 验收
+
+Agent Runtime 调试报告作为独立验收项，必须覆盖：
+
+1. 本地模式：一轮 Agent 消息执行后，`backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}/run.json`、`timeline.jsonl`、`nodes/*.json` 可生成。
+2. 节点完整性：`receive_message/context_load/intent_recognition/planner/skill_invoke/final_response` 至少具备 start/end 或 error 事件。
+3. Root 权限：非 root 用户访问 `/api/v1/admin/agent-traces/*` 必须返回 `AGENT_TRACE_ROOT_REQUIRED`。
+4. 报告下载：root 用户可下载 Message 级 `report.md/report.json`，报告包含 Summary、User Message、Runtime Timeline、Skill/Tool Invocation、Final Response、Errors。
+5. Loki 模式：生产配置启用 Loki Sink 后，可按 `tenant_uuid/session_id/message_id/run_id/node_kind/status` 查询到同一轮事件。
+6. 脱敏策略：prompt、context、tool payload、executor result 的明细保存必须受 artifact policy 控制，不允许默认泄露完整敏感字段。
+
+建议专项命令：
+
+```bash
+cd backend && go test ./internal/server/agent ./internal/service/agent_trace -run 'TestAgentRunTrace|TestAgentRunReport|TestAgentTraceRootOnly' -count=1
+cd web-admin && npm run test:e2e -- tests/e2e/agent-run-trace-report.spec.ts
+```
+
 ## 6. 回滚策略
 
 1. 配置回滚：关闭 `protocol=skill` 选择权重。

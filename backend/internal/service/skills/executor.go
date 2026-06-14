@@ -9,14 +9,16 @@ import (
 )
 
 type ExecuteInput struct {
-	TenantUUID string
-	TraceID    string
-	SkillID    string
-	Version    string
-	Entrypoint string
-	Payload    map[string]interface{}
-	Context    map[string]interface{}
-	Manifest   map[string]interface{}
+	TenantUUID   string
+	TraceID      string
+	SkillID      string
+	Version      string
+	Entrypoint   string
+	Payload      map[string]interface{}
+	Context      map[string]interface{}
+	Manifest     map[string]interface{}
+	Source       string
+	CapabilityID string
 }
 
 type SkillExecutor interface {
@@ -52,4 +54,3 @@ func validateEntrypointAllowed(manifest map[string]interface{}, entrypoint strin
 }
 
 var errNoExecutorMatched = errors.New("no executor matched for skill")
-

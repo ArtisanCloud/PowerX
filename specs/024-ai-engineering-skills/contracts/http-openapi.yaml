@@ -68,8 +68,15 @@ paths:
       parameters:
         - name: q
           in: query
-          required: true
+          required: false
           schema: { type: string }
+        - name: intent
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [agent.bound_capabilities, agent.bound_skills]
+          description: Structured Runtime Intent. When supplied, deterministic handlers may bypass LLM and planner.
         - name: agent_id
           in: query
           required: true
@@ -87,6 +94,125 @@ paths:
             text/event-stream:
               schema:
                 type: string
+  /admin/agent-traces/messages/{messageId}:
+    get:
+      summary: Get root-only Agent message trace detail
+      operationId: getAgentMessageTrace
+      tags: [AdminAgentTrace]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string, enum: [local, loki], default: local }
+        - name: tenant_uuid
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agent message trace detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunTraceDetail'
+        '403':
+          description: Root permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/agent-traces/messages/{messageId}/timeline:
+    get:
+      summary: List root-only Agent message trace timeline events
+      operationId: listAgentMessageTraceTimeline
+      tags: [AdminAgentTrace]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string, enum: [local, loki], default: local }
+        - name: node_kind
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agent trace timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentTraceEvent'
+  /admin/agent-traces/messages/{messageId}/report:
+    get:
+      summary: Download root-only Agent message report
+      operationId: downloadAgentMessageReport
+      tags: [AdminAgentTrace]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, markdown], default: markdown }
+        - name: source
+          in: query
+          schema: { type: string, enum: [local, loki], default: local }
+      responses:
+        '200':
+          description: Agent message report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunReport'
+            text/markdown:
+              schema:
+                type: string
+        '403':
+          description: Root permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/agent-traces/sessions/{sessionId}/report:
+    get:
+      summary: Download root-only Agent session report
+      operationId: downloadAgentSessionReport
+      tags: [AdminAgentTrace]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, markdown, zip], default: json }
+        - name: source
+          in: query
+          schema: { type: string, enum: [local, loki], default: local }
+      responses:
+        '200':
+          description: Agent session report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunReport'
+            application/zip:
+              schema:
+                type: string
+                format: binary
   /admin/skills/catalog:
     get:
       summary: List official built-in skill catalog entries
@@ -469,11 +595,17 @@ components:
           $ref: '#/components/schemas/UsageSummary'
     AgentInvokeRequest:
       type: object
-      required: [agent_id, message]
+      required: [agent_id]
       properties:
         agent_id: { type: string }
         session_id: { type: string }
         message: { type: string }
+        intent:
+          type: string
+          enum: [agent.bound_capabilities, agent.bound_skills]
+          description: Structured Runtime Intent. Control-plane intents may omit message.
+        model_policy:
+          $ref: '#/components/schemas/NodeModelPolicy'
         meta:
           type: object
           additionalProperties: true
@@ -485,6 +617,29 @@ components:
         agent_id: { type: string }
         plan_id: { type: string }
         reply: { type: string }
+        model_policy:
+          $ref: '#/components/schemas/NodeModelPolicy'
+    NodeModelSelection:
+      type: object
+      properties:
+        node:
+          type: string
+          enum: [runtime_intent, intent_classifier, planner, skill_param_extractor, final_response, reviewer]
+        mode:
+          type: string
+          enum: [deterministic, inherit_default, explicit]
+        provider: { type: string }
+        model: { type: string }
+        source: { type: string }
+    NodeModelPolicy:
+      type: object
+      properties:
+        default_provider: { type: string }
+        default_model: { type: string }
+        selections:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/NodeModelSelection'
     PlannerNodeEvent:
       type: object
       required: [plan_id, node_id, node_kind, stage, status]
@@ -659,6 +814,152 @@ components:
         total: { type: integer }
         limit: { type: integer }
         offset: { type: integer }
+    AgentRunTrace:
+      type: object
+      required: [trace_id, run_id, tenant_uuid, agent_id, session_id, message_id, status]
+      properties:
+        trace_id: { type: string }
+        run_id: { type: string }
+        tenant_uuid: { type: string }
+        user_uuid: { type: string, nullable: true }
+        agent_id: { type: string }
+        session_id: { type: string }
+        message_id: { type: string }
+        plan_id: { type: string, nullable: true }
+        channel: { type: string, nullable: true }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        node_count: { type: integer }
+        event_count: { type: integer }
+        error_count: { type: integer }
+        warning_count: { type: integer }
+        duration_ms: { type: integer, nullable: true }
+        user_message_digest: { type: string, nullable: true }
+        final_response_digest: { type: string, nullable: true }
+        artifact_root: { type: string, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        ended_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    AgentTraceEvent:
+      type: object
+      required: [trace_id, run_id, message_id, node_id, node_kind, phase, status, created_at]
+      properties:
+        event_id: { type: string }
+        trace_id: { type: string }
+        run_id: { type: string }
+        tenant_uuid: { type: string }
+        agent_id: { type: string }
+        session_id: { type: string }
+        message_id: { type: string }
+        plan_id: { type: string, nullable: true }
+        node_id: { type: string }
+        node_seq: { type: integer }
+        node_kind: { type: string }
+        node_ref: { type: string, nullable: true }
+        phase: { type: string, enum: [start, end, error, delta] }
+        status: { type: string, enum: [running, success, error, skipped] }
+        duration_ms: { type: integer, nullable: true }
+        input_digest: { type: string, nullable: true }
+        output_digest: { type: string, nullable: true }
+        artifact_refs:
+          type: array
+          items: { type: string }
+        error_code: { type: string, nullable: true }
+        error_summary: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    AgentTraceNodeSnapshot:
+      type: object
+      required: [node_id, node_kind, phase_status]
+      properties:
+        node_id: { type: string }
+        node_seq: { type: integer }
+        node_kind: { type: string }
+        node_ref: { type: string, nullable: true }
+        phase_status: { type: string }
+        input_summary:
+          type: object
+          additionalProperties: true
+        output_summary:
+          type: object
+          additionalProperties: true
+        context_ref: { type: string, nullable: true }
+        skill_id: { type: string, nullable: true }
+        plugin_id: { type: string, nullable: true }
+        capability_id: { type: string, nullable: true }
+        executor_path: { type: string, nullable: true }
+        prompt_tokens: { type: integer, nullable: true }
+        completion_tokens: { type: integer, nullable: true }
+        cached_tokens: { type: integer, nullable: true }
+        trim_actions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        error_code: { type: string, nullable: true }
+        error_summary: { type: string, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        ended_at: { type: string, format: date-time, nullable: true }
+    AgentTraceArtifact:
+      type: object
+      required: [artifact_id, artifact_kind, uri, redaction_policy]
+      properties:
+        artifact_id: { type: string }
+        run_id: { type: string }
+        node_id: { type: string }
+        artifact_kind: { type: string, enum: [prompt, context, tool_payload, executor_result, response, error_stack] }
+        uri: { type: string }
+        checksum: { type: string, nullable: true }
+        redaction_policy: { type: string, enum: [redacted, summary, raw_root_only] }
+        size_bytes: { type: integer }
+        created_at: { type: string, format: date-time }
+    AgentRunTraceDetail:
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/AgentRunTrace'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTraceEvent'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTraceNodeSnapshot'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTraceArtifact'
+    AgentRunReport:
+      type: object
+      required: [report_scope, format, trace_id, run_id, generated_at]
+      properties:
+        report_scope: { type: string, enum: [message, session] }
+        format: { type: string, enum: [json, markdown, zip] }
+        tenant_uuid: { type: string }
+        session_id: { type: string }
+        message_id: { type: string, nullable: true }
+        run_id: { type: string }
+        trace_id: { type: string }
+        generated_by: { type: string, nullable: true }
+        generated_at: { type: string, format: date-time }
+        summary:
+          type: object
+          additionalProperties: true
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTraceEvent'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTraceNodeSnapshot'
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        artifact_refs:
+          type: array
+          items: { type: string }
     Error:
       type: object
       required: [code, message]
@@ -672,4 +973,7 @@ components:
             - skill.execution_failed
             - skill.source_untrusted
             - skill.checksum_mismatch
+            - AGENT_TRACE_ROOT_REQUIRED
+            - AGENT_TRACE_NOT_FOUND
+            - AGENT_TRACE_SOURCE_UNAVAILABLE
         message: { type: string }

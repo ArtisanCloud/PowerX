@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/handler"
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/run_log"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 
@@ -31,11 +32,18 @@ type SkillInvokeInput struct {
 	TenantUUID   string
 	Env          string
 	AgentID      uint64
+	UserUUID     string
+	SessionID    string
+	MessageID    string
 	SkillID      string
 	Version      string
 	CapabilityID string
 	Entrypoint   string
 	TraceID      string
+	RunID        string
+	PlanID       string
+	NodeID       string
+	PluginID     string
 	Payload      map[string]any
 	Context      map[string]any
 	ToolGrantIDs []string
@@ -57,6 +65,9 @@ type ToolingInvokeInput struct {
 	CapabilityID      string
 	PreferredProtocol string
 	TraceID           string
+	RunID             string
+	PlanID            string
+	NodeID            string
 	Payload           map[string]any
 	Context           map[string]any
 }
@@ -81,6 +92,7 @@ type AgentHandoffInput struct {
 	FailurePolicy  string
 	ContextRefID   string
 	HandoffTraceID string
+	RunID          string
 	FlowID         string
 	Message        string
 	Payload        map[string]any
@@ -161,6 +173,8 @@ type Manager struct {
 
 	// 事件记录
 	runLog run_log.RunLogger
+	// Agent Run Trace：面向 root 调试与智能对话报告。
+	agentTrace agenttrace.AgentTraceLogger
 	// 调试追踪：单请求落单文件，便于还原输入/输出。
 	debugTraceCfg DebugTraceConfig
 	// 上下文优化运行参数。
@@ -185,6 +199,7 @@ func NewAgentManager() *Manager {
 		routesByFlow:        make(map[string]routeRecord),
 		flowsByAgent:        make(map[string]map[string]struct{}),
 		unifiedCandidates:   make(map[string]ToolCallCandidate),
+		agentTrace:          agenttrace.NewLoggerFromEnv(),
 		plannerUsageByTrace: make(map[string]map[string]any),
 		plannerOptimizerCfg: PlannerOptimizerConfig{
 			Enabled:       true,
@@ -207,6 +222,21 @@ func GetAgentManager() *Manager {
 }
 
 func (m *Manager) SetRunLogger(l run_log.RunLogger) { m.runLog = l }
+
+func (m *Manager) SetAgentTraceLogger(l agenttrace.AgentTraceLogger) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.agentTrace = l
+}
+
+func (m *Manager) AgentTraceLogger() agenttrace.AgentTraceLogger {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.agentTrace == nil {
+		return nil
+	}
+	return m.agentTrace
+}
 
 func (m *Manager) SetDebugTraceConfig(cfg DebugTraceConfig) {
 	m.mu.Lock()

@@ -2,12 +2,18 @@
 
 本文定义 Skill 在 PowerX 的双路径运行时接入方案。
 
+补充机制：
+
+1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Skill，插件仅作为 Skill Executor 执行业务。
+2. Agent Runtime 结构化日志、节点追踪与报告下载机制见 [`agent_run_trace_report.md`](./agent_run_trace_report.md)。所有 Agent 主入口、Skill/Tooling 节点、插件 Skill Bridge 调用都必须写入同一套 Agent Run Trace。
+
 ## 1. 总体架构
 
 Skill 运行时支持两条路径：
 
 1. 路径A：Agent 内 SkillRunner
 2. 路径B：Capability Gateway 的 SkillAdapter（`preferred_protocol=skill`）
+3. 路径C：Agent Skill Bridge 调用插件 Skill Executor（`plugin_http` / delegated runtime）
 
 两条路径共享：
 
@@ -16,12 +22,41 @@ Skill 运行时支持两条路径：
 - SkillManifest 校验
 - 审计与追踪模型
 - 安全策略（tool_grants/safe_mode）
+- PowerXPlugin Framework Client 的 Agent SSE/WS/HTTP 调用封装
+
+插件侧本地 Chat、渠道插件、移动端调试面板均不得直接调用业务插件私有接口来模拟 Agent；必须经 PowerX Agent Session/Stream API 进入同一条运行时链路。
 
 ## 2. 路径A：Agent + Skill
 
 ### 2.1 触发条件
 
 当 Agent Planner 识别到任务节点类型为 `skill` 时，进入 SkillRunner。
+
+### 2.0 Runtime Intent / Control Command
+
+Agent 主入口必须先区分“控制面 Runtime Intent”和“自然语言任务意图”：
+
+1. Runtime Intent 是结构化控制命令，由请求字段显式传入，例如 `intent=agent.bound_capabilities`。
+2. Runtime Intent 不依赖自然语言关键词匹配，不进入 LLM，不进入 Planner。
+3. Runtime Intent 只执行确定性 handler，例如 `agent.bound_capabilities` 只读取当前 Agent 的 `agent_skill_bindings`。
+4. 普通自然语言请求必须进入 `intent_classifier -> planner -> node executor` 主链路。
+5. 前端、插件 Chat 或渠道若需要展示“当前 Agent 已绑定能力”，必须调用结构化 Runtime Intent，不得让 LLM 从候选池或 prompt 中猜测。
+
+首批 Runtime Intent：
+
+| intent | handler | 数据源 | LLM/Planner |
+| --- | --- | --- | --- |
+| `agent.bound_capabilities` | `BoundCapabilitiesHandler` | `agent_skill_bindings` + `skills_registry_records` | bypass |
+| `agent.bound_skills` | `BoundCapabilitiesHandler` | `agent_skill_bindings` + `skills_registry_records` | bypass |
+
+Runtime Intent 与自然语言意图的入口顺序：
+
+```text
+Agent Session Request
+  -> RuntimeIntentRouter
+      -> matched: deterministic handler -> final/end
+      -> not matched: NaturalLanguageIntent -> Planner -> NodeExecutor
+```
 
 ### 2.1.1 决策分层（Intent / Planner / Executor）
 
@@ -62,11 +97,50 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 
 不建议每个 Agent 独立硬编码；建议在现有 Intent 层统一增加 `Skill Resolver`：
 
-1. 召回：关键词/标签规则匹配。
-2. 语义：向量检索候选 skills。
-3. 重排：LLM 打分并输出 top-k；规则仅用于 `/command` 快捷命令，不参与普通自然语言主路由。
+1. 结构化 Runtime Intent：由 `RuntimeIntentRouter` 处理，不进入 Skill Resolver。
+2. 快捷命令：`/command` 可走规则，必须显式命令格式。
+3. 硬过滤：按 Agent 绑定、租户、发布状态、权限、source allowlist、tool grants 过滤候选。
+4. 召回：关键词/标签/向量检索只在硬过滤后的可见范围内执行。
+5. 重排：LLM 或 reranker 输出 top-k；不得臆造未授权 `skill_id`。
 
 最终由 Planner 消解冲突并定案。
+
+### 2.1.2a 节点级模型选择策略
+
+Agent Runtime 必须支持节点级模型选择。首版可以全部继承 Agent 默认模型，但运行时接口和 Trace 必须保留节点模型选择结果。
+
+标准节点：
+
+| 节点 | 默认模式 | 后续可选模型 |
+| --- | --- | --- |
+| `runtime_intent` | deterministic | 不使用模型 |
+| `intent_classifier` | inherit Agent default | 小模型 / 分类模型 |
+| `planner` | inherit Agent default | 中/大模型 / 推理模型 |
+| `skill_param_extractor` | inherit Agent default | 小/中模型 |
+| `final_response` | inherit Agent default | Agent 默认模型 |
+| `reviewer` | inherit Agent default | 中模型 / 审核模型 |
+
+策略对象：
+
+```json
+{
+  "default_provider": "openai",
+  "default_model": "gpt-4o-mini",
+  "selections": {
+    "runtime_intent": {"mode": "deterministic", "source": "runtime_command"},
+    "intent_classifier": {"mode": "inherit_default", "provider": "openai", "model": "gpt-4o-mini"},
+    "planner": {"mode": "inherit_default", "provider": "openai", "model": "gpt-4o-mini"},
+    "final_response": {"mode": "inherit_default", "provider": "openai", "model": "gpt-4o-mini"}
+  }
+}
+```
+
+约束：
+
+1. 缺省策略必须等价于“所有模型节点使用 Agent 默认模型”。
+2. Planner 调用必须读取 `planner` 节点选择结果。
+3. Trace/SSE metadata 必须输出 `model_policy`，便于排障。
+4. 后续引入 DB 路由策略时，只能覆盖节点选择结果，不得绕过 Agent 权限边界。
 
 ### 2.1.3 提示词策略（统一模板）
 
@@ -94,6 +168,14 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 6. 节点结果回填 Planner 上下文（供后续节点引用）
 7. 输出到 Agent stream（intent/plan/node_start/token/node_end/final）
 8. 写审计与指标（trace_id + plan_id + node_id）
+
+当计划节点命中 `source=plugin` 且 executor 类型为 `plugin_http` 时，SkillRunner 不直接调用插件领域业务 URL，而是通过 Agent Skill Bridge 组装 `PluginSkillInvocation`，携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id` 调用插件统一入口：
+
+```text
+POST /api/v1/plugin/skills/invoke
+```
+
+插件内部可将该调用分发到领域服务，但该内部映射不得暴露为渠道或移动端的长期直接入口。
 
 组合规划可追溯元信息（落地约束）：
 
@@ -123,6 +205,30 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 4. Runner 执行 Skill
 5. 返回统一 envelope（trace/status/protocol/result）
 6. 写 InvocationTrace 与审计事件
+
+## 3.1 插件 Executor 路径（Agent Skill Bridge）
+
+触发条件：
+
+1. Agent Planner 选择 `source=plugin` 的 Skill。
+2. Skill Manifest 中 executor 声明 `type=plugin_http` 或 delegated runtime。
+3. 当前租户已安装并启用对应插件实例。
+
+执行流程：
+
+1. PowerX 从治理态 Skill Registry 读取插件 Skill Manifest 快照。
+2. 校验 Skill 已发布、租户可见、Agent 已绑定、tool_grants/source allowlist 通过。
+3. 通过 STS/delegated context 解析插件调用凭证和 endpoint。
+4. 组装 `PluginSkillInvocation`，注入租户、用户、Agent、Session、Message、Channel、Trace 上下文。
+5. 调用插件统一 executor：`POST /api/v1/plugin/skills/invoke`。
+6. 插件校验上下文并执行领域任务。
+7. PowerX 归一化 `PluginSkillResult`，写入 Agent Stream、会话消息、trace/audit。
+
+失败约束：
+
+1. 缺少关键上下文必须返回 fail-fast 错误。
+2. 插件 endpoint、skill_id、capability 不匹配时必须拒绝调用。
+3. 不允许降级为匿名调用、跨租户调用或渠道直连业务接口。
 
 ## 3.3 Agent 主入口（闭环入口）
 
@@ -156,6 +262,8 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 - Agent：`backend/internal/server/agent/*`
 - Selector/Invocation：`backend/internal/service/capability_registry/*`
 - Tenant API：`backend/internal/transport/http/openapi/capability_registry/*`
+- PowerXPlugin Framework：`powerx-plugin/`（目标落点，提供 Skill Runtime 与 Client 封装）
+- Plugin Runtime/Gateway：`backend/internal/infra/plugin/manager/*`
 
 ## 5.1 落库权威（Skill vs Tooling）
 
@@ -172,6 +280,48 @@ Skill 是否执行，不由单一阶段直接拍板，而是三层决策：
 - Audit 字段：`source`, `entrypoint`, `tool_grants`
 - Plan 字段：`plan_id`, `node_id`, `node_kind`, `node_status`, `depends_on`, `retry_count`
 - Query API：`GET /api/v1/admin/skills/traces`（支持 `plan_id/node_id/node_status` 过滤）
+
+### 6.1 Agent Run Trace & Report 观测基线
+
+SkillExecutionTrace 只覆盖 Skill 调用治理维度；Agent Run Trace 覆盖 Agent Runtime 的会话、消息、计划、节点与报告维度。两者必须通过 `trace_id/run_id/plan_id/node_id/skill_id` 关联，但不得互相替代。
+
+Agent Runtime 每轮消息必须创建 `run_id`，并按以下粒度写结构化事件：
+
+1. `Session`：`tenant_uuid/session_id/agent_id/channel`。
+2. `Message`：`message_id/run_id/user_uuid/user_message_digest`。
+3. `Plan`：`plan_id/candidate_count/node_count/failure_policy`。
+4. `Node`：`node_id/node_kind/node_ref/phase/status/duration_ms`。
+5. `Artifact`：prompt、上下文、tool payload、executor response 的脱敏引用。
+
+本地开发写入：
+
+```text
+backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}/
+```
+
+生产环境写入 Loki，且必须使用低基数 label：
+
+```text
+service=powerx-agent
+component=agent-runtime
+tenant_uuid=...
+agent_id=...
+session_id=...
+message_id=...
+run_id=...
+node_kind=...
+status=...
+```
+
+Root-only 查询与下载入口：
+
+```text
+GET /api/v1/admin/agent-traces/messages/:message_id
+GET /api/v1/admin/agent-traces/messages/:message_id/report
+GET /api/v1/admin/agent-traces/sessions/:session_id/report
+```
+
+非 root 请求必须返回 `AGENT_TRACE_ROOT_REQUIRED`，禁止只依赖前端菜单隐藏。
 
 ## 7. 决策流程图（三层抉择）
 

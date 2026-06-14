@@ -9,9 +9,10 @@ import (
 
 	agentpkg "github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
+	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/stretchr/testify/require"
 )
@@ -124,8 +125,9 @@ func TestSkillAgentCompositePlanExecuteWithEventSourceScope(t *testing.T) {
 	})
 
 	sink := &collectSink{}
+	ctx := reqctx.WithTraceID(reqctx.WithTenantUUID(context.Background(), "tenant-composite"), "trace-composite")
 	out, plan, err := runtime.NewEngine().RunPlanInvoke(
-		context.Background(),
+		ctx,
 		"先执行 skill 步骤，然后执行 tooling 步骤，最后 workflow 汇总",
 		&dto.ChatConfig{},
 		"",
@@ -168,4 +170,3 @@ func TestSkillAgentCompositePlanExecuteWithEventSourceScope(t *testing.T) {
 	require.True(t, hasSkillNodeStart)
 	require.True(t, hasToolingNodeEnd)
 }
-

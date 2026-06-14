@@ -3,6 +3,7 @@ package skills
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -65,6 +66,22 @@ func NewInvokeService(
 			newVideoFramesExecutor(),
 		},
 	}
+}
+
+func (s *InvokeService) WithExecutors(executors ...SkillExecutor) *InvokeService {
+	if s == nil {
+		return nil
+	}
+	s.executors = append([]SkillExecutor(nil), executors...)
+	return s
+}
+
+func (s *InvokeService) AddExecutor(executor SkillExecutor) *InvokeService {
+	if s == nil || executor == nil {
+		return s
+	}
+	s.executors = append(s.executors, executor)
+	return s
 }
 
 func (s *InvokeService) Resolve(ctx context.Context, req InvokeRequest) (*InvokeResolution, error) {
@@ -167,14 +184,16 @@ func (s *InvokeService) Execute(
 	}
 
 	in := ExecuteInput{
-		TenantUUID: req.TenantUUID,
-		TraceID:    resolved.TraceID,
-		SkillID:    resolved.SkillID,
-		Version:    resolved.Version,
-		Entrypoint: resolved.Entrypoint,
-		Payload:    payload,
-		Context:    contextMap,
-		Manifest:   manifest,
+		TenantUUID:   req.TenantUUID,
+		TraceID:      resolved.TraceID,
+		SkillID:      resolved.SkillID,
+		Version:      resolved.Version,
+		Entrypoint:   resolved.Entrypoint,
+		Payload:      payload,
+		Context:      contextMap,
+		Manifest:     manifest,
+		Source:       rec.Source,
+		CapabilityID: strings.TrimSpace(asStringInterface(contextMap["capability_id"])),
 	}
 	outcome := &InvokeExecutionResult{
 		TraceID:      resolved.TraceID,
@@ -190,7 +209,7 @@ func (s *InvokeService) Execute(
 	if executor != nil {
 		result, execErr := executor.Execute(ctx, in)
 		if execErr != nil {
-			s.recordFailedTrace(ctx, startAt, resolved, req.TenantUUID, payload, execErr)
+			s.recordFailedTraceWithInput(ctx, startAt, resolved, req.TenantUUID, payload, execErr, in)
 			return nil, execErr
 		}
 		if result == nil {
@@ -198,28 +217,85 @@ func (s *InvokeService) Execute(
 		}
 		outcome.Result = result
 	} else {
-		outcome.FallbackUsed = true
+		execErr := errNoExecutorMatched
+		s.recordFailedTrace(ctx, startAt, resolved, req.TenantUUID, payload, execErr)
+		return nil, execErr
 	}
 
 	if s.auditService != nil {
 		_ = s.auditService.RecordExecutionTrace(ctx, ExecutionTraceInput{
-			TraceID:         outcome.TraceID,
-			TenantUUID:      req.TenantUUID,
-			SkillID:         outcome.SkillID,
-			Version:         outcome.Version,
-			Entrypoint:      resolved.Entrypoint,
-			InvokePath:      resolved.InvokePath,
-			ProtocolUsed:    "skill",
-			Status:          outcome.Status,
-			LatencyMS:       int(time.Since(startAt).Milliseconds()),
-			RequestPayload:  payload,
-			ResponsePayload: outcome.Result,
-			FallbackUsed:    outcome.FallbackUsed,
-			AuthPass:        true,
+			TraceID:          outcome.TraceID,
+			TenantUUID:       req.TenantUUID,
+			SkillID:          outcome.SkillID,
+			Version:          outcome.Version,
+			Entrypoint:       resolved.Entrypoint,
+			InvokePath:       resolved.InvokePath,
+			ProtocolUsed:     "skill",
+			Status:           outcome.Status,
+			LatencyMS:        int(time.Since(startAt).Milliseconds()),
+			RequestPayload:   payload,
+			ResponsePayload:  outcome.Result,
+			FallbackUsed:     outcome.FallbackUsed,
+			AuthPass:         true,
+			CapabilityID:     firstTraceString(in.CapabilityID, in.Context["capability_id"], in.Context["capability"]),
+			ProviderPluginID: firstTraceString(in.Manifest["provider"], in.Context["provider_plugin_id"], in.Context["plugin_id"]),
+			AgentID:          firstTraceString(in.Context["agent_id"]),
+			SessionID:        firstTraceString(in.Context["session_id"]),
+			MessageID:        firstTraceString(in.Context["message_id"]),
+			ExecutorPath:     manifestExecutorPath(in.Manifest),
+			PluginTaskID:     firstTraceString(outcome.Result["task_id"], outcome.Result["plugin_task_id"]),
 		})
 	}
 
 	return outcome, nil
+}
+
+func (s *InvokeService) recordFailedTraceWithInput(
+	ctx context.Context,
+	startAt time.Time,
+	resolved *InvokeResolution,
+	tenantUUID string,
+	payload map[string]interface{},
+	err error,
+	in ExecuteInput,
+) {
+	if s == nil || s.auditService == nil || resolved == nil || err == nil {
+		return
+	}
+	_ = s.auditService.RecordExecutionTrace(ctx, ExecutionTraceInput{
+		TraceID:          resolved.TraceID,
+		TenantUUID:       tenantUUID,
+		SkillID:          resolved.SkillID,
+		Version:          resolved.Version,
+		Entrypoint:       resolved.Entrypoint,
+		InvokePath:       resolved.InvokePath,
+		ProtocolUsed:     "skill",
+		Status:           "failed",
+		LatencyMS:        int(time.Since(startAt).Milliseconds()),
+		ErrorCode:        errorCodeFromError(err),
+		ErrorSummary:     strings.TrimSpace(err.Error()),
+		RequestPayload:   payload,
+		FallbackUsed:     false,
+		AuthPass:         true,
+		CapabilityID:     firstTraceString(in.CapabilityID, in.Context["capability_id"], in.Context["capability"]),
+		ProviderPluginID: firstTraceString(in.Manifest["provider"], in.Context["provider_plugin_id"], in.Context["plugin_id"]),
+		AgentID:          firstTraceString(in.Context["agent_id"]),
+		SessionID:        firstTraceString(in.Context["session_id"]),
+		MessageID:        firstTraceString(in.Context["message_id"]),
+		ExecutorPath:     manifestExecutorPath(in.Manifest),
+	})
+}
+
+func asStringInterface(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	default:
+		return strings.TrimSpace(strings.Trim(fmt.Sprint(x), " "))
+	}
 }
 
 func (s *InvokeService) recordFailedTrace(
@@ -243,10 +319,51 @@ func (s *InvokeService) recordFailedTrace(
 		ProtocolUsed:   "skill",
 		Status:         "failed",
 		LatencyMS:      int(time.Since(startAt).Milliseconds()),
-		ErrorCode:      ErrorCodeExecutionFailed,
+		ErrorCode:      errorCodeFromError(err),
 		ErrorSummary:   strings.TrimSpace(err.Error()),
 		RequestPayload: payload,
 		FallbackUsed:   false,
 		AuthPass:       true,
 	})
+}
+
+func errorCodeFromError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	for _, code := range []string{
+		ErrorCodePluginNotInstalled,
+		ErrorCodePluginExecutorUnavailable,
+		ErrorCodePluginContextMissing,
+		ErrorCodePluginCapabilityMismatch,
+		ErrorCodeSkillNotFound,
+		ErrorCodeVersionNotFound,
+		ErrorCodePermissionDenied,
+	} {
+		if strings.Contains(msg, strings.ToLower(code)) {
+			return code
+		}
+	}
+	return ErrorCodeExecutionFailed
+}
+
+func firstTraceString(values ...interface{}) string {
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		if s := strings.TrimSpace(fmt.Sprint(value)); s != "" && s != "<nil>" {
+			return s
+		}
+	}
+	return ""
+}
+
+func manifestExecutorPath(manifest map[string]interface{}) string {
+	raw, ok := manifest["executor"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	return firstTraceString(raw["path"])
 }

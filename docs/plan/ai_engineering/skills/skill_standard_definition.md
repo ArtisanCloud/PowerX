@@ -71,6 +71,93 @@ OpenAI Codex 文档与 `openai/skills` 仓库也明确指向同一个 open stand
 3. Skill 元信息应至少覆盖公开标准必填字段，并扩展治理字段：
    - `source/checksum/signature/tenant_scope/tool_grants`
 
+### 4.1 PowerX 与插件的双层 Skill 定义
+
+PowerX 采用“双层 Skill”模型：
+
+1. 插件侧 Skill：源定义态能力包，包含 `SKILL.md`、metadata、prompt 规范、schema、executor 声明、脚本和资源。
+2. PowerX 侧 Skill：治理态平台能力，包含版本、状态、来源、审批、租户可见性、Agent 绑定、capability 绑定、审计与 trace。
+
+插件可以定义自己的 Skill 目录，但只有被 PowerX 导入、校验、审批发布后的 Skill 才能进入 Agent 候选池。PowerX 不接受插件在运行时绕过 Registry 动态声明并立即执行未治理 Skill。
+
+推荐插件侧目录：
+
+```text
+skills/<skill_id>/SKILL.md
+skills/<skill_id>/schema.json
+skills/<skill_id>/prompts/system.md
+skills/<skill_id>/executor.yaml
+skills/<skill_id>/scripts/
+skills/<skill_id>/references/
+skills/<skill_id>/assets/
+```
+
+`SKILL.md` 仍保持开放格式兼容；PowerX 扩展字段放在 manifest snapshot 或 `executor.yaml` 中，避免破坏标准正文语义。
+
+### 4.2 PowerX Skill Package 标准源格式
+
+PowerX 统一采用 `SKILL.md` 目录包作为 Skill 源格式。Go struct、HTTP DTO、数据库记录都只能是 `SKILL.md` 解析后的中间态或治理态，不得作为长期唯一源定义。
+
+最小目录：
+
+```text
+skills/<skill_id>/
+  SKILL.md
+```
+
+推荐目录：
+
+```text
+skills/<skill_id>/
+  SKILL.md
+  schema.input.json
+  schema.output.json
+  executor.yaml
+  scripts/
+  references/
+  assets/
+```
+
+`SKILL.md` 必须包含 YAML frontmatter 与 Markdown 正文：
+
+```md
+---
+id: powerxplugin.template_crud.basic
+name: template-crud
+title: 模板对象管理
+provider: com.powerx.plugins.base
+version: 1.0.0
+description: 创建、查询、更新和删除插件模板对象
+capability: powerxplugin.template.crud
+visibility: tenant
+status: active
+executor:
+  type: plugin_http
+  method: POST
+  path: /api/v1/plugin/skills/invoke
+input_schema: ./schema.input.json
+output_schema: ./schema.output.json
+---
+
+# 模板对象管理
+
+## When To Use
+当用户希望创建、查询、更新、删除模板对象时使用。
+
+## Instructions
+将自然语言意图转换为结构化 action，并调用插件 executor。
+```
+
+规则：
+
+1. `id/name/description/version/provider/executor` 必填。
+2. `description` 用于候选召回，必须可描述“何时使用此 Skill”。
+3. Markdown 正文用于 prompt/instructions，不得只保存空壳 metadata。
+4. schema 可内联在 frontmatter，也可引用相对路径；引用路径必须限制在 Skill 包目录内。
+5. `scripts/references/assets` 可选，但必须纳入 checksum。
+6. 导入数据库时必须保存 `raw_markdown/frontmatter_json/package_checksum/package_uri`，确保可审计、可导出、可漂移检测。
+7. PowerX Agent Runtime 运行时读取数据库治理态记录，不直接依赖插件文件系统。
+
 ## 5. Agent 如何调度 Skill（PowerX 调度原理）
 
 这一节回答“Agent 在运行时到底怎么用 Skill”。
@@ -255,6 +342,7 @@ PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 
 
 ## 9. 与本目录其他文档关系
 
+- 插件桥接机制：`agent_skill_bridge.md`
 - 规范映射细节：`standard_mapping.md`
 - 运行时实现：`runtime_architecture.md`
 - API 合同：`api_contracts.md`

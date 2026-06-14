@@ -47,6 +47,8 @@ type CandidateBuildContext struct {
 	AgentID       string
 	ToolGrantIDs  []string
 	AllowedSource []string
+	BoundSkillIDs []string
+	BoundToolIDs  []string
 }
 
 type toolCallingDecision struct {
@@ -88,6 +90,14 @@ func CandidateBuildContextFromRequest(ctx context.Context) CandidateBuildContext
 	out.AllowedSource = readContextStringSlice(ctx, "skill_source_allowlist")
 	if len(out.AllowedSource) == 0 {
 		out.AllowedSource = readContextStringSlice(ctx, "skills_source_allowlist")
+	}
+	out.BoundSkillIDs = readContextStringSlice(ctx, "agent_bound_skill_ids")
+	if len(out.BoundSkillIDs) == 0 {
+		out.BoundSkillIDs = readContextStringSlice(ctx, "agentBoundSkillIDs")
+	}
+	out.BoundToolIDs = readContextStringSlice(ctx, "agent_bound_tool_ids")
+	if len(out.BoundToolIDs) == 0 {
+		out.BoundToolIDs = readContextStringSlice(ctx, "agentBoundToolIDs")
 	}
 	return out
 }
@@ -251,6 +261,12 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 	}
 	provider := strings.TrimSpace(reqCfg.Provider)
 	model := strings.TrimSpace(reqCfg.ModelName)
+	if routedProvider := strings.TrimSpace(readContextString(ctx, "agent_model_planner_provider")); routedProvider != "" {
+		provider = routedProvider
+	}
+	if routedModel := strings.TrimSpace(readContextString(ctx, "agent_model_planner_model")); routedModel != "" {
+		model = routedModel
+	}
 	if provider == "" || model == "" {
 		return fallback("provider/model missing")
 	}
@@ -1277,6 +1293,24 @@ func isCandidateAllowed(c ToolCallCandidate, cctx CandidateBuildContext) bool {
 	if status == "disabled" || status == "deprecated" {
 		return false
 	}
+	if strings.TrimSpace(cctx.AgentID) != "" {
+		switch strings.ToLower(strings.TrimSpace(c.NodeKind)) {
+		case "skill":
+			if !containsFold(cctx.BoundSkillIDs, candidateBindingRef(c)) {
+				return false
+			}
+		case "tooling":
+			if !containsFold(cctx.BoundToolIDs, candidateBindingRef(c)) {
+				return false
+			}
+		case "workflow":
+			if strings.TrimSpace(c.AgentID) == "" || !strings.EqualFold(strings.TrimSpace(c.AgentID), strings.TrimSpace(cctx.AgentID)) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
 	if c.SourceScope == "agent" && cctx.AgentID != "" && c.AgentID != "" && !strings.EqualFold(c.AgentID, cctx.AgentID) {
 		return false
 	}
@@ -1320,6 +1354,26 @@ func isCandidateAllowed(c ToolCallCandidate, cctx CandidateBuildContext) bool {
 		}
 	}
 	return true
+}
+
+func candidateBindingRef(c ToolCallCandidate) string {
+	if ref := strings.TrimSpace(c.NodeRef); ref != "" {
+		return ref
+	}
+	return strings.TrimSpace(c.Name)
+}
+
+func containsFold(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
 }
 
 func readContextString(ctx context.Context, key string) string {

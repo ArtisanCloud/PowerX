@@ -112,3 +112,42 @@ func TestScoreCandidateForQuery_AliasMatch(t *testing.T) {
 		t.Fatalf("expected alias hit score > 0, got %d", score)
 	}
 }
+
+func TestBuildToolCallCandidatesWithContextRestrictsToAgentBindings(t *testing.T) {
+	m := NewAgentManager()
+	m.UpsertUnifiedCandidate(ToolCallCandidate{
+		Name:        "powerxplugin.template.basic",
+		NodeKind:    "skill",
+		NodeRef:     "powerxplugin.template.basic",
+		SourceScope: "system",
+		Source:      "plugin",
+		Visibility:  "public",
+	})
+	m.UpsertUnifiedCandidate(ToolCallCandidate{
+		Name:        "global.unbound.skill",
+		NodeKind:    "skill",
+		NodeRef:     "global.unbound.skill",
+		SourceScope: "system",
+		Source:      "plugin",
+		Visibility:  "public",
+	})
+	m.UpsertUnifiedCandidate(ToolCallCandidate{
+		Name:        "global.unbound.tool",
+		NodeKind:    "tooling",
+		NodeRef:     "global.unbound.tool",
+		SourceScope: "system",
+		Source:      "builtin",
+		Visibility:  "public",
+	})
+
+	out := m.BuildToolCallCandidatesWithContext(CandidateBuildContext{
+		AgentID:       "8",
+		BoundSkillIDs: []string{"powerxplugin.template.basic"},
+	}, 0)
+	if len(out) != 1 {
+		t.Fatalf("expected only one bound candidate, got %d: %+v", len(out), out)
+	}
+	if out[0].NodeKind != "skill" || out[0].NodeRef != "powerxplugin.template.basic" {
+		t.Fatalf("expected bound template skill only, got %+v", out[0])
+	}
+}

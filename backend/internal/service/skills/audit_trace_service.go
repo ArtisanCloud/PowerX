@@ -28,29 +28,35 @@ type LifecycleAuditInput struct {
 
 // ExecutionTraceInput is an execution trace payload.
 type ExecutionTraceInput struct {
-	TraceID         string
-	TenantUUID      string
-	SkillID         string
-	Version         string
-	Entrypoint      string
-	InvokePath      string
-	ProtocolUsed    string
-	Status          string
-	CapabilityID    string
-	PlanID          string
-	NodeID          string
-	TeamID          string
-	HandoffTaskID   string
-	HandoffTraceID  string
-	NodeStatus      string
-	RetryTrace      string
-	LatencyMS       int
-	ErrorCode       string
-	ErrorSummary    string
-	RequestPayload  interface{}
-	ResponsePayload interface{}
-	FallbackUsed    bool
-	AuthPass        bool
+	TraceID          string
+	TenantUUID       string
+	SkillID          string
+	Version          string
+	Entrypoint       string
+	InvokePath       string
+	ProtocolUsed     string
+	Status           string
+	CapabilityID     string
+	ProviderPluginID string
+	AgentID          string
+	SessionID        string
+	MessageID        string
+	ExecutorPath     string
+	PluginTaskID     string
+	PlanID           string
+	NodeID           string
+	TeamID           string
+	HandoffTaskID    string
+	HandoffTraceID   string
+	NodeStatus       string
+	RetryTrace       string
+	LatencyMS        int
+	ErrorCode        string
+	ErrorSummary     string
+	RequestPayload   interface{}
+	ResponsePayload  interface{}
+	FallbackUsed     bool
+	AuthPass         bool
 }
 
 // AuditTraceService writes lifecycle audits and execution traces.
@@ -126,6 +132,12 @@ func (s *AuditTraceService) RecordExecutionTrace(ctx context.Context, in Executi
 		RequestPayloadDigest:   digestJSON(in.RequestPayload),
 		ResponsePayloadDigest:  digestJSON(in.ResponsePayload),
 		CapabilityID:           strings.TrimSpace(in.CapabilityID),
+		ProviderPluginID:       strings.TrimSpace(in.ProviderPluginID),
+		AgentID:                strings.TrimSpace(in.AgentID),
+		SessionID:              strings.TrimSpace(in.SessionID),
+		MessageID:              strings.TrimSpace(in.MessageID),
+		ExecutorPath:           strings.TrimSpace(in.ExecutorPath),
+		PluginTaskID:           strings.TrimSpace(in.PluginTaskID),
 		PlanID:                 strings.TrimSpace(in.PlanID),
 		NodeID:                 strings.TrimSpace(in.NodeID),
 		TeamID:                 strings.TrimSpace(in.TeamID),
