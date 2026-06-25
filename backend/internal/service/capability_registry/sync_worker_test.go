@@ -95,6 +95,24 @@ func TestSyncWorkerProcessArtifactCreatesTenantRegistration(t *testing.T) {
 	require.Equal(t, "demo.capability.demo-tool", reg.Adapters[0].AdapterID)
 }
 
+func TestRegistrationAdapterFromProtocolPrefixesPluginProxyForREST(t *testing.T) {
+	adapter := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
+		Channel:  "rest",
+		Method:   "POST",
+		Endpoint: "/api/v1/templates",
+	})
+
+	require.Equal(t, "rest", adapter.TransportType)
+	require.Equal(t, "/_p/demo.plugin/api/v1/templates", adapter.Endpoint)
+
+	absolute := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
+		Channel:  "rest",
+		Method:   "POST",
+		Endpoint: "http://127.0.0.1:18080/api/v1/templates",
+	})
+	require.Equal(t, "http://127.0.0.1:18080/api/v1/templates", absolute.Endpoint)
+}
+
 func TestSyncWorkerProcessArtifactMissingSchema(t *testing.T) {
 	ctx := context.Background()
 	db := newMemoryDB(t)

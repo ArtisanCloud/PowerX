@@ -281,7 +281,9 @@ const processMeta = computed(() => {
 const runStateMeta = computed(() => {
   const state =
     (props.message as any)?.meta?.runState ??
+    (props.message as any)?.meta?.run_state ??
     (props.message as any)?.metadata?.runState ??
+    (props.message as any)?.metadata?.run_state ??
     null;
   if (!state || typeof state !== "object") return null;
   return state;

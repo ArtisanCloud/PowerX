@@ -140,6 +140,12 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
       session_id: (dto as any).sessionId ?? (dto as any).session_id,
       agent_id: (dto as any).agentId ?? (dto as any).agent_id,
     };
+    if ((meta as any).run_state && !(meta as any).runState) {
+      (meta as any).runState = (meta as any).run_state;
+    }
+    if ((meta as any).pending_task && !(meta as any).pendingTask) {
+      (meta as any).pendingTask = (meta as any).pending_task;
+    }
     return {
       id: dto.id,
       role: dto.role,

@@ -106,4 +106,17 @@ export POWERX_WEB_ADMIN_SERVICE="${POWERX_WEB_ADMIN_SERVICE:-powerx-dev-web-admi
 export POWERX_RUNNER_SERVICE="${POWERX_RUNNER_SERVICE:-powerx-dev-runner}"
 export POWERX_SYNC_SYSTEMD_UNITS="${POWERX_SYNC_SYSTEMD_UNITS:-0}"
 
+if [[ ! -f "/etc/systemd/system/${POWERX_BACKEND_SERVICE}.service" || ! -f "/etc/systemd/system/${POWERX_WEB_ADMIN_SERVICE}.service" ]]; then
+  cat >&2 <<EOF
+[switch-develop] missing dev systemd unit files.
+[switch-develop] run first:
+  sudo bash ${SCRIPT_DIR}/install-develop-systemd-units.sh --with-runner
+
+[switch-develop] expected:
+  /etc/systemd/system/${POWERX_BACKEND_SERVICE}.service
+  /etc/systemd/system/${POWERX_WEB_ADMIN_SERVICE}.service
+EOF
+  exit 1
+fi
+
 exec "${SCRIPT_DIR}/switch-release-systemd.sh" "$@"

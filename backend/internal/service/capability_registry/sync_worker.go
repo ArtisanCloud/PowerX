@@ -313,7 +313,7 @@ func (w *SyncWorker) syncCapability(ctx context.Context, artifactPath, root stri
 		syncErr = err
 		return syncErr
 	}
-	if err := w.syncCapabilityRegistration(ctx, capabilityID, capability); err != nil {
+	if err := w.syncCapabilityRegistration(ctx, plugin.ID, capabilityID, capability); err != nil {
 		syncErr = err
 		return syncErr
 	}
@@ -321,7 +321,7 @@ func (w *SyncWorker) syncCapability(ctx context.Context, artifactPath, root stri
 	return nil
 }
 
-func (w *SyncWorker) syncCapabilityRegistration(ctx context.Context, capabilityID string, capability catalogCapability) error {
+func (w *SyncWorker) syncCapabilityRegistration(ctx context.Context, pluginID string, capabilityID string, capability catalogCapability) error {
 	tenantUUID := strings.TrimSpace(w.tenantUUID)
 	if tenantUUID == "" {
 		return nil
@@ -331,7 +331,7 @@ func (w *SyncWorker) syncCapabilityRegistration(ctx context.Context, capabilityI
 	}
 	adapters := make([]registryservice.AdapterEndpoint, 0, len(capability.Protocols))
 	for _, protocol := range capability.Protocols {
-		adapter := registrationAdapterFromProtocol(capabilityID, protocol)
+		adapter := registrationAdapterFromProtocol(capabilityID, pluginID, protocol)
 		if adapter.AdapterID == "" {
 			continue
 		}
@@ -377,7 +377,7 @@ func defaultString(value, fallback string) string {
 	return fallback
 }
 
-func registrationAdapterFromProtocol(capabilityID string, protocol models.ProtocolBinding) registryservice.AdapterEndpoint {
+func registrationAdapterFromProtocol(capabilityID string, pluginID string, protocol models.ProtocolBinding) registryservice.AdapterEndpoint {
 	channel := strings.TrimSpace(protocol.Channel)
 	if channel == "" {
 		return registryservice.AdapterEndpoint{}
@@ -392,7 +392,7 @@ func registrationAdapterFromProtocol(capabilityID string, protocol models.Protoc
 	if adapterID == "" {
 		adapterID = channel
 	}
-	endpoint := strings.TrimSpace(protocol.Endpoint)
+	endpoint := normalizePluginProtocolEndpoint(pluginID, channel, protocol.Endpoint)
 	serviceRef := strings.TrimSpace(protocol.RPC)
 	if serviceRef == "" {
 		serviceRef = strings.TrimSpace(protocol.ToolRef)
@@ -409,6 +409,29 @@ func registrationAdapterFromProtocol(capabilityID string, protocol models.Protoc
 		},
 		IsActive: true,
 	}
+}
+
+func normalizePluginProtocolEndpoint(pluginID string, channel string, endpoint string) string {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return ""
+	}
+	lowerEndpoint := strings.ToLower(endpoint)
+	if strings.HasPrefix(lowerEndpoint, "http://") || strings.HasPrefix(lowerEndpoint, "https://") || strings.HasPrefix(endpoint, "/_p/") {
+		return endpoint
+	}
+	normalizedChannel := strings.ToLower(strings.TrimSpace(channel))
+	if normalizedChannel != "rest" && normalizedChannel != "http" {
+		return endpoint
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return endpoint
+	}
+	if !strings.HasPrefix(endpoint, "/") {
+		endpoint = "/" + endpoint
+	}
+	return "/_p/" + pluginID + endpoint
 }
 
 func (w *SyncWorker) syncWorkflowTemplates(ctx context.Context, capabilityID string, templates []catalogWorkflowTemplate, capabilityHash string) error {

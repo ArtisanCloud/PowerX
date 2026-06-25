@@ -175,78 +175,21 @@ sudo mv /etc/powerx/powerx-dev.env /etc/powerx-dev/powerx.env
 sudo rm -f /etc/powerx/powerx-dev.env
 ```
 
-## 9. 创建 dev backend service
+## 9. 安装 dev systemd unit
+推荐使用仓库脚本生成 `powerx-dev-*` unit，避免手工复制 production unit 后漏改路径或 service name：
+
 ```bash
-sudo tee /etc/systemd/system/powerx-dev-backend.service >/dev/null <<'EOF_UNIT'
-[Unit]
-Description=PowerX Dev Backend Service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=powerx
-Group=powerx
-WorkingDirectory=/
-EnvironmentFile=-/etc/powerx-dev/powerx.env
-ExecStart=/bin/sh -c 'ROOT=${POWERX_LINKS_ROOT:-/opt/powerx-dev}; exec "$ROOT/backend/powerx"'
-Restart=always
-RestartSec=3
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-EOF_UNIT
+sudo bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 ```
 
-## 10. 创建 dev web-admin service
-```bash
-sudo tee /etc/systemd/system/powerx-dev-web-admin.service >/dev/null <<'EOF_UNIT'
-[Unit]
-Description=PowerX Dev Web Admin Service
-After=powerx-dev-backend.service
-Requires=powerx-dev-backend.service
+该脚本会写入：
+- `/etc/systemd/system/powerx-dev-backend.service`
+- `/etc/systemd/system/powerx-dev-web-admin.service`
+- `/etc/systemd/system/powerx-dev-runner.service`
 
-[Service]
-Type=simple
-User=powerx
-Group=powerx
-WorkingDirectory=/
-EnvironmentFile=-/etc/powerx-dev/powerx.env
-ExecStart=/bin/sh -c 'ROOT=${POWERX_RUNTIME_ROOT:-/etc/powerx-dev}; CFG=${POWERX_CONFIG:-$${ROOT}/config.yaml}; [ -f "$$CFG" ] || CFG=${POWERX_LINKS_ROOT:-/opt/powerx-dev}/backend/etc/config.yaml; BPORT=$$(awk "/^[[:space:]]*server:[[:space:]]*/{in_server=1; next} in_server && /^[[:space:]]*port:[[:space:]]*[0-9]+/{print; exit} in_server && /^[^[:space:]]/{in_server=0}" "$$CFG" | tr -cd "0-9"); WPORT=$$(awk "/^[[:space:]]*web_admin_port:[[:space:]]*[0-9]+/{print; exit}" "$$CFG" | tr -cd "0-9"); [ -z "$$BPORT" ] && BPORT=8081; [ -z "$$WPORT" ] && WPORT=3001; export POWERX_BACKEND=http://127.0.0.1:$$BPORT; export NUXT_PUBLIC_POWERX_CORE_BASE=http://127.0.0.1:$$BPORT; export NUXT_PUBLIC_WS_ORIGIN=ws://127.0.0.1:$$BPORT; export NUXT_PUBLIC_WS_PATH=/api/ws; PORT=$$WPORT exec "${NODE_BIN:-/usr/bin/node}" ${POWERX_LINKS_ROOT:-/opt/powerx-dev}/web-admin/.output/server/index.mjs'
-Restart=always
-RestartSec=3
+这些 unit 会读取 `/etc/powerx-dev/powerx.env`，并通过 `POWERX_CONFIG=/etc/powerx-dev/config.yaml` 使用 dev runtime config。
 
-[Install]
-WantedBy=multi-user.target
-EOF_UNIT
-```
-
-## 11. 创建 dev runner service（可选）
-```bash
-sudo tee /etc/systemd/system/powerx-dev-runner.service >/dev/null <<'EOF_UNIT'
-[Unit]
-Description=PowerX Dev Runner Service
-After=powerx-dev-backend.service
-Requires=powerx-dev-backend.service
-
-[Service]
-Type=simple
-User=powerx
-Group=powerx
-WorkingDirectory=/
-EnvironmentFile=-/etc/powerx-dev/powerx.env
-ExecCondition=/bin/sh -c 'test -f "${POWERX_LINKS_ROOT:-/opt/powerx-dev}/runner/dist/main.js"'
-ExecStart=/bin/sh -c 'ROOT=${POWERX_LINKS_ROOT:-/opt/powerx-dev}; exec "${NODE_BIN:-/usr/bin/node}" "$ROOT/runner/dist/main.js"'
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF_UNIT
-```
-
-## 12. 授权运行目录
+## 10. 授权运行目录
 ```bash
 sudo mkdir -p /opt/powerx-dev/storage/media /opt/powerx-dev/plugins/installed
 sudo touch /opt/powerx-dev/plugins/registry.json
@@ -263,7 +206,7 @@ sudo setfacl -R -m u:ubuntu:rwx,u:powerx:rwx /opt/powerx-dev/storage /opt/powerx
 sudo setfacl -R -d -m u:ubuntu:rwx,u:powerx:rwx /opt/powerx-dev/storage /opt/powerx-dev/plugins
 ```
 
-## 13. 启动 dev service
+## 11. 启动 dev service
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now powerx-dev-backend.service
@@ -273,10 +216,10 @@ sudo systemctl enable --now powerx-dev-web-admin.service
 sudo systemctl enable --now powerx-dev-runner.service
 ```
 
-## 14. 后续切换 dev release
+## 12. 后续切换 dev release
 切换 dev release 有两种方式。推荐使用 `switch-develop-systemd.sh`，它会固定 dev root、dev service name 与 dev health url，避免误操作生产 service。
 
-### 14.1 使用切换脚本
+### 12.1 使用切换脚本
 ```bash
 export POWERX_DEV_VERSION=develop-dev-$(date +%Y%m%d-%H%M)
 make dist DIST_VERSION=${POWERX_DEV_VERSION} NPM_INSTALL=0
@@ -294,7 +237,7 @@ sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --
 - 默认 dev service 是 `powerx-dev-backend`、`powerx-dev-web-admin`、`powerx-dev-runner`。
 - 如需临时覆盖 dev root 或 service name，仍可通过 `POWERX_RELEASES_ROOT`、`POWERX_LINKS_ROOT`、`POWERX_RUNTIME_ROOT`、`POWERX_BACKEND_SERVICE` 等环境变量覆盖。
 
-### 14.2 手动切换 symlink
+### 12.2 手动切换 symlink
 也可以只更新 `/opt/powerx-dev` 下的 symlink，并重启 dev service：
 
 ```bash
@@ -311,7 +254,7 @@ sudo setfacl -R -d -m u:ubuntu:rwx,u:powerx:rx /opt/powerx-dev/releases/${POWERX
 sudo systemctl restart powerx-dev-backend powerx-dev-web-admin powerx-dev-runner
 ```
 
-## 15. 切换脚本边界
+## 13. 切换脚本边界
 `backend/scripts/ops/switch-release-systemd.sh` 默认用于生产环境，默认操作：
 - `/opt/powerx/releases`
 - `/opt/powerx`
