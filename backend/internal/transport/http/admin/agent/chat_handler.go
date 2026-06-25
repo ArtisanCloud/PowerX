@@ -1647,7 +1647,7 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		_ = h.his.RenameSession(c, env, tenantRef, sess.ID, title)
 	}
 
-	_, _ = h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
+	userMsg, _ := h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
 
 	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
 	if cfgErr != nil {
@@ -1681,10 +1681,32 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	if traceID == "" {
 		traceID = uuid.NewString()
 	}
+	boundSkillIDs, err := h.listBoundSkillIDs(c.Request.Context(), env, tenantRef, agentID)
+	if err != nil {
+		dto.ResponseError(c, 500, "读取 Agent 绑定技能失败", err)
+		return
+	}
+	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantUUID))
+	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
+	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
+	runCtx = context.WithValue(runCtx, "session_uuid", sess.UUID.String())
+	runCtx = context.WithValue(runCtx, "sessionUuid", sess.UUID.String())
+	if userMsg != nil && userMsg.ID > 0 {
+		runCtx = context.WithValue(runCtx, "message_id", fmt.Sprintf("%d", userMsg.ID))
+		runCtx = context.WithValue(runCtx, "messageId", fmt.Sprintf("%d", userMsg.ID))
+	}
+	runCtx = context.WithValue(runCtx, "agent_id", fmt.Sprintf("%d", agentID))
+	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
+	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
+	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	if pendingTask, ok, err := h.his.LatestPendingTask(c.Request.Context(), env, tenantRef, sess.ID, 12); err == nil && ok {
+		runCtx = context.WithValue(runCtx, "agent_pending_task", map[string]any(pendingTask))
+	}
 	baseSink := &agentInvokeSink{}
 	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
 	traceSink := newPlannerTraceSink(histSink, h.skillAudit, tenantUUID, traceID)
-	_, plan, err := runtime.NewEngine().RunPlanInvoke(c.Request.Context(), msg, cfg, "", traceSink)
+	_, plan, err := runtime.NewEngine().RunPlanInvoke(runCtx, msg, cfg, "", traceSink)
 	status := "completed"
 	if err != nil {
 		status = "failed"

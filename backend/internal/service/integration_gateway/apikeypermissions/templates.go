@@ -56,6 +56,7 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 	var profile *modelsiam.APIKeyProfile
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		profileRepo := iamrepo.NewAPIKeyProfileRepository(tx)
+		profilePermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
 
 		existed, findErr := profileRepo.FindByKey(ctx, tenantUUID, DefaultAPIKeyProfileKey)
 		if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
@@ -98,6 +99,11 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 		}
 
 		profile = existed
+		if profile != nil && profile.ID > 0 {
+			if grantErr := profilePermRepo.GrantByIDsTx(tx, profile.ID, permissionIDs); grantErr != nil {
+				return grantErr
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -115,6 +121,9 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 		if err != nil {
 			return nil, nil, err
 		}
+	}
+	if len(currentIDs) == 0 {
+		currentIDs = permissionIDs
 	}
 	return profile, currentIDs, nil
 }

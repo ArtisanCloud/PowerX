@@ -21,6 +21,7 @@ type traceRuntime struct {
 	startedAt time.Time
 	seq       int
 	starts    map[string]time.Time
+	nodeSeq   map[string]int
 }
 
 func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow, transport string) (*traceRuntime, error) {
@@ -73,7 +74,7 @@ func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.Ch
 	if runCtx != nil {
 		meta = runCtx.Meta
 	}
-	return &traceRuntime{logger: logger, meta: meta, startedAt: time.Now().UTC(), starts: map[string]time.Time{}}, nil
+	return &traceRuntime{logger: logger, meta: meta, startedAt: time.Now().UTC(), starts: map[string]time.Time{}, nodeSeq: map[string]int{}}, nil
 }
 
 func (tr *traceRuntime) appendRunStateEvent(ctx context.Context, event string, payload any) {
@@ -120,6 +121,7 @@ func (tr *traceRuntime) startNode(ctx context.Context, kind, ref string, attrs m
 	nodeID := firstTraceString(fmt.Sprint(attrs["node_id"]), fmt.Sprintf("%03d_%s", tr.seq, kind))
 	now := time.Now().UTC()
 	tr.starts[nodeID] = now
+	tr.nodeSeq[nodeID] = tr.seq
 	node := agenttrace.AgentTraceNode{
 		AgentRunMeta: tr.meta,
 		NodeID:       nodeID,
@@ -147,7 +149,7 @@ func (tr *traceRuntime) endNode(ctx context.Context, nodeID, kind, ref string, o
 	_ = tr.logger.EndNode(ctx, agenttrace.AgentTraceNodeResult{
 		AgentRunMeta:  tr.meta,
 		NodeID:        nodeID,
-		NodeSeq:       tr.seq,
+		NodeSeq:       tr.nodeSeqFor(nodeID),
 		NodeKind:      kind,
 		NodeRef:       strings.TrimSpace(ref),
 		OutputDigest:  digestAny(out),
@@ -170,7 +172,7 @@ func (tr *traceRuntime) failNode(ctx context.Context, nodeID, kind, ref string, 
 		AgentTraceNodeResult: agenttrace.AgentTraceNodeResult{
 			AgentRunMeta: tr.meta,
 			NodeID:       nodeID,
-			NodeSeq:      tr.seq,
+			NodeSeq:      tr.nodeSeqFor(nodeID),
 			NodeKind:     kind,
 			NodeRef:      strings.TrimSpace(ref),
 			StartedAt:    tr.starts[nodeID],
@@ -179,6 +181,16 @@ func (tr *traceRuntime) failNode(ctx context.Context, nodeID, kind, ref string, 
 		ErrorCode:    "AGENT_RUNTIME_NODE_FAILED",
 		ErrorSummary: summary,
 	})
+}
+
+func (tr *traceRuntime) nodeSeqFor(nodeID string) int {
+	if tr == nil || strings.TrimSpace(nodeID) == "" {
+		return 0
+	}
+	if seq, ok := tr.nodeSeq[nodeID]; ok && seq > 0 {
+		return seq
+	}
+	return tr.seq
 }
 
 func (tr *traceRuntime) complete(ctx context.Context, status string, finalText string, runErr error) {
