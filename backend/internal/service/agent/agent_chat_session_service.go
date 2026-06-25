@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -62,39 +63,17 @@ func (s *AgentChatSessionService) TrimByPolicy(
 		return nil
 	}
 
-	// 简易策略：按最旧开始删除非 pinned 直至低于阈值（可扩展为先摘要后删除）
-	var deleted int64
-	for i := 0; i < 10; i++ { // 最多 10 批
-		items, e := s.msg.ListOldestN(ctx, env, tenantUUID, sess.ID, 200, true)
-		if e != nil {
-			return e
-		}
-		if len(items) == 0 {
-			break
-		}
-		var ids []uint64
-		var sz, tk int
-		for _, it := range items {
-			ids = append(ids, it.ID)
-			sz += it.SizeBytes
-			tk += it.Tokens
-			stats.TotalSize -= it.SizeBytes
-			stats.TotalTokens -= it.Tokens
-			if (limitBytes > 0 && stats.TotalSize <= limitBytes) &&
-				(limitTokens > 0 && stats.TotalTokens <= limitTokens) {
-				break
-			}
-		}
-		n, e := s.msg.DeleteByIDs(ctx, env, tenantUUID, ids)
-		if e != nil {
-			return e
-		}
-		deleted += n
-		if (limitBytes <= 0 || stats.TotalSize <= limitBytes) &&
-			(limitTokens <= 0 || stats.TotalTokens <= limitTokens) {
-			break
-		}
+	history := NewChatHistoryService(s.db)
+	res, err := history.RollingCompressIfNeeded(ctx, env, tenantUUID, sess, RollingContextCompressionPolicy{
+		RecentMessages: 20,
+		MaxMessages:    500,
+		DeleteCovered:  true,
+	})
+	if err != nil {
+		return err
 	}
-	// TODO: 可在此触发摘要：把剩余上下文做 summary，写回 SetSummary(...)
+	if res == nil || !res.Compressed {
+		return errors.New("agent chat session exceeds context policy but no compressible messages are available")
+	}
 	return nil
 }

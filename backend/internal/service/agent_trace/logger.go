@@ -12,6 +12,7 @@ import (
 type AgentTraceLogger interface {
 	StartRun(ctx context.Context, meta AgentRunMeta) (*AgentRunContext, error)
 	AppendEvent(ctx context.Context, event AgentTraceEvent) error
+	AppendRunStateEvent(ctx context.Context, meta AgentRunMeta, event string, payload any) error
 	StartNode(ctx context.Context, node AgentTraceNode) error
 	EndNode(ctx context.Context, result AgentTraceNodeResult) error
 	FailNode(ctx context.Context, failure AgentTraceNodeFailure) error
@@ -106,6 +107,20 @@ func (l *Logger) AppendEvent(ctx context.Context, event AgentTraceEvent) error {
 	return nil
 }
 
+func (l *Logger) AppendRunStateEvent(ctx context.Context, meta AgentRunMeta, event string, payload any) error {
+	if l == nil || !l.cfg.Enabled {
+		return nil
+	}
+	if err := validateRunMeta(meta); err != nil {
+		return err
+	}
+	event = strings.TrimSpace(event)
+	if event == "" {
+		return missingFieldsError("event")
+	}
+	return l.eachSink(ctx, func(s Sink) error { return s.AppendRunStateEvent(ctx, meta, event, payload) })
+}
+
 func (l *Logger) StartNode(ctx context.Context, node AgentTraceNode) error {
 	if l == nil || !l.cfg.Enabled {
 		return nil
@@ -159,6 +174,7 @@ func (l *Logger) StartNode(ctx context.Context, node AgentTraceNode) error {
 		CapabilityID: node.CapabilityID,
 		ExecutorPath: node.ExecutorPath,
 		ArtifactRefs: append([]string(nil), node.ArtifactRefs...),
+		Attributes:   cloneMap(node.Attributes),
 		StartedAt:    &startedAt,
 	}
 	return l.eachSink(ctx, func(s Sink) error { return s.WriteNodeSnapshot(ctx, node.AgentRunMeta, snapshot) })
@@ -302,6 +318,7 @@ func (l *Logger) finishNode(ctx context.Context, result AgentTraceNodeResult, er
 		ErrorCode:        strings.TrimSpace(errorCode),
 		ErrorSummary:     strings.TrimSpace(errorSummary),
 		ArtifactRefs:     append([]string(nil), result.ArtifactRefs...),
+		Attributes:       cloneMap(result.Attributes),
 		StartedAt:        startedPtr,
 		EndedAt:          &endedAt,
 	}
@@ -457,4 +474,15 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

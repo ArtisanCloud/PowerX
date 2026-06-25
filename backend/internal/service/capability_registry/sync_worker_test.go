@@ -72,6 +72,29 @@ func TestSyncWorkerProcessArtifact(t *testing.T) {
 	}
 }
 
+func TestSyncWorkerProcessArtifactCreatesTenantRegistration(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{
+		DB:         db,
+		TenantUUID: "tenant-corex",
+		Clock: func() time.Time {
+			return time.Unix(1700000000, 0).UTC()
+		},
+	})
+
+	root := buildSamplePlugin(t, true)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	regRepo := repo.NewCapabilityRegistryRepository(db)
+	reg, err := regRepo.GetLatest(ctx, nil, "demo.capability", "tenant-corex")
+	require.NoError(t, err)
+	require.Equal(t, "published", reg.Status)
+	require.Len(t, reg.Adapters, 1)
+	require.Equal(t, "mcp", reg.Adapters[0].TransportType)
+	require.Equal(t, "demo.capability.demo-tool", reg.Adapters[0].AdapterID)
+}
+
 func TestSyncWorkerProcessArtifactMissingSchema(t *testing.T) {
 	ctx := context.Background()
 	db := newMemoryDB(t)
@@ -139,6 +162,10 @@ func newMemoryDB(t *testing.T) *gorm.DB {
 
 	require.NoError(t, db.AutoMigrate(
 		&models.CapabilityRecord{},
+		&models.CapabilityRegistration{},
+		&models.AdapterEndpoint{},
+		&models.RoutingPolicy{},
+		&models.FallbackPlan{},
 		&models.WorkflowTemplateRef{},
 		&models.CapabilitySyncJob{},
 	))

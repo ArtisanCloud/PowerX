@@ -202,7 +202,44 @@ agent:
   - `trim_actions/trim_reason`
 - 检查 Planner 调试日志 `trace-*_planner_*.json` 的 prompt 前缀顺序是否稳定（L0-L2 固定）。
 
-### 11.4 验收门槛（与 spec Success Criteria 对齐）
+### 11.4 滚动摘要压缩检查
+
+当会话超过 `max_tokens/max_kb` 或触发手动压缩后，检查数据库：
+
+```sql
+select id, summary_at, summary
+from agent_chat_sessions
+where tenant_uuid = '<tenant_uuid>'
+order by updated_at desc
+limit 5;
+
+select count(*), min(id), max(id)
+from agent_chat_messages
+where session_id = <session_id>;
+
+select summary_id, source_summary_id, from_message_id, to_message_id,
+       compressed_messages, recent_messages_kept, compression_policy, checksum
+from agent_chat_context_summaries
+where session_id = <session_id>
+order by id desc
+limit 10;
+```
+
+预期：
+
+1. `agent_chat_sessions.summary` 是 `schema=powerx.agent.summary.v1` 的结构化 JSON。
+2. `agent_chat_sessions.meta.active_context_summary_id` 指向 `agent_chat_context_summaries.summary_id`。
+3. `agent_chat_context_summaries` 每次 compact 新增一条记录，包含 `from_message_id/to_message_id/compressed_messages/recent_messages_kept/compression_policy/checksum`。
+4. `agent_chat_messages` 保留最近窗口原文与 pinned 消息；被 summary 覆盖的非 pinned 旧消息可被删除。
+5. Agent Trace / 上下文状态面板能看到 `session_summary` 与 `recent_messages` 两层同时参与本轮上下文。
+
+定向测试：
+
+```bash
+cd backend && go test ./tests/integration/skills -run TestSkillAgentContextBudget_RollingCompressionKeepsRecentWindow -count=1
+```
+
+### 11.5 验收门槛（与 spec Success Criteria 对齐）
 
 - `prompt_tokens` P50 相比基线下降 >= 30%。
 - 缓存能力模型前缀命中率 >= 60%。
@@ -261,7 +298,7 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
 
 ## 13. A2A 页面验收（搭团队 + 三个场景）
 
-目标：只通过页面操作验证“1 个 TL（planner）调度多个子智能体协作执行”已跑通。
+目标：只通过页面操作验证“1 个 TL 调度多个子智能体协作执行”已跑通。Team Role 是平台固定协作枚举，不开放用户自定义维护。
 
 ### 13.1 页面搭建团队（先做）
 
@@ -269,8 +306,8 @@ cd backend && GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache \
 2. 选择 2~3 个可用智能体（至少 `1 TL + 1 子智能体`）。
 3. 设定 TL：在成员卡片点击 `设为 TL`。
 4. 角色设置：
-   - TL 固定为 `planner`（不可改）
-   - 子智能体可选：`retriever / executor / reviewer`
+   - TL 由 `parent_agent_id` 表示，语义上对应 `planner`。
+   - 子智能体 Role 固定可选：`retriever / executor / reviewer`。
 5. 团队名建议：`a2a-minimal-demo`，创建后确认团队状态为 `active`。
 6. 在团队列表点击该团队的 `进入任务`（或手动打开 `/agent/team-tasks` 后在顶部选择器选团队）。
 
@@ -370,7 +407,7 @@ API：
 
 ## 14. Agent Skill Bridge 插件验收（Phase 16）
 
-目标：验证插件 Skill 源定义、PowerX 治理态导入、Agent Runtime 调用插件 executor、插件调试 Chat 统一走 PowerX Agent Session。
+目标：验证插件 Skill 源定义、PowerX 治理态导入、Agent Runtime 调用插件 capability handler、插件调试 Chat 统一走 PowerX Agent Session。
 
 ### 14.1 插件 Skill 发现
 
@@ -389,9 +426,8 @@ curl -X GET "$PLUGIN_BASE_URL/api/v1/plugin/skills" \
   "provider": "com.powerx.plugin.mediax-studio",
   "version": "1.0.0",
   "executor": {
-    "type": "plugin_http",
-    "path": "/api/v1/plugin/skills/invoke",
-    "capability": "creation.video_automation.ingest"
+    "type": "capability",
+        "capability": "creation.video_automation.ingest"
   }
 }
 ```
@@ -420,7 +456,7 @@ curl -N -G "$POWERX_BASE_URL/api/v1/agents/stream/sse" \
 3. PowerX 调用插件：
 
 ```text
-POST /api/v1/plugin/skills/invoke
+PowerX Capability Invocation
 ```
 
 4. 插件收到完整 context：
@@ -463,15 +499,15 @@ POST /api/v1/creation/video-automation/ingest
 
 ### 14.4 Fail-fast 验收
 
-构造缺失上下文请求：
+构造缺失上下文请求应走 Capability Invocation：
 
 ```bash
-curl -X POST "$PLUGIN_BASE_URL/api/v1/plugin/skills/invoke" \
+curl -X POST "$PLUGIN_BASE_URL/api/v1/integration/capabilities/invoke" \
   -H "Authorization: Bearer $PLUGIN_RUNTIME_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "skill_id": "mediax.video_rebuilder.cn",
-    "input": {"urls": ["https://example.com/video.mp4"]},
+    "capability_id": "com.powerx.plugins.mediax.video_rebuilder.create",
+    "payload": {"urls": ["https://example.com/video.mp4"]},
     "context": {"trace_id": "trace_missing_tenant"}
   }'
 ```
@@ -733,3 +769,233 @@ cd web-admin && npm run build
 2. 设置 `AGENT_TRACE_LOKI_ENABLED=false` 可仅保留本地文件 sink。
 3. 删除或隐藏 `/agent/traces` 菜单入口不影响后端 API；后端 root-only 仍保留权限边界。
 4. 插件 Skill 发现接入在插件 enable 阶段执行；如插件暂未实现 `GET /api/v1/plugin/skills`，启用会 fail-fast，应先补插件 Framework Skill 路由再启用。
+
+## 16. Core-only A2A 发布准备 MVP
+
+目标：验证 PowerX 底座自己的多智能体机制，不依赖 PowerXPlugin、MediaX、AI Craft 或任意插件 capability handler。
+
+### 16.1 Seed 初始化
+
+执行：
+
+```bash
+cd backend
+make seed
+```
+
+预期 seed 以 upsert 方式初始化以下对象，重复执行不会重复插入或唯一索引冲突：
+
+| 类型 | Key |
+| --- | --- |
+| Agent | `release.coordinator` |
+| Agent | `release.knowledge_analyst` |
+| Agent | `release.workflow_planner` |
+| Agent | `release.notification_scheduler` |
+| Team | `release.readiness.team` |
+| Skill | `powerx.release.knowledge_analysis` |
+| Skill | `powerx.release.workflow_planning` |
+| Skill | `powerx.release.notification_schedule` |
+| Skill | `powerx.release.report_synthesis` |
+
+SQL 校验示例：
+
+```sql
+select key, name from agents
+where key in (
+  'release.coordinator',
+  'release.knowledge_analyst',
+  'release.workflow_planner',
+  'release.notification_scheduler'
+);
+
+select skill_id, status, is_latest_published
+from skills_registry_records
+where skill_id like 'powerx.release.%';
+
+select team_name, status
+from agent_teams
+where team_name = 'release.readiness.team';
+```
+
+预期：
+
+1. 四个 Agent 均存在。
+2. 四个 `powerx.release.*` Skill 均为 `published` 且 `is_latest_published=true`。
+3. `release.readiness.team` 为 active。
+4. Agent-Skill Binding 与 TeamMember 关系存在。
+
+### 16.2 MVP 测试命令
+
+```bash
+cd backend && go test ./tests/integration/skills \
+  -run 'TestSkillAgentA2AReleaseReadinessSeed|TestSkillAgentA2AReleaseReadinessMVP|TestSkillAgentA2AReleaseReadinessPartialFailure' \
+  -count=1
+```
+
+测试必须满足：
+
+1. 不启动 PowerXPlugin。
+2. 不安装任何插件。
+3. 不调用插件 capability handler。
+4. 从数据库读取 seed 出来的 Agent、Skill、Team。
+5. 显式执行包含三个 `agent_handoff` 节点的发布准备 plan。
+
+### 16.3 业务验收输入
+
+用于页面或 API 调试的自然语言输入：
+
+```text
+帮我准备 6 月 18 日 PowerX Core v0.9.2 的发布准备报告，
+重点检查 Agent Skill Bridge、插件安装、回滚风险，并生成通知计划。
+```
+
+预期最终报告包含：
+
+1. 发布目标与范围。
+2. Agent Skill Bridge / 插件安装 / 回滚风险摘要。
+3. 发布执行步骤。
+4. 验证 checklist。
+5. 回滚步骤。
+6. 通知对象、通知时间和值班升级路径。
+7. 子任务状态，如果某个子 Agent 失败，必须明确标注部分失败。
+
+### 16.4 Trace 验收
+
+root 用户在 Agent Trace 中应能看到：
+
+1. `node_kind=agent_handoff` 的三个子节点。
+2. 每个节点包含 `team_id/team_name/parent_agent_id/child_agent_id/handoff_task_id/failure_policy`。
+3. 汇总节点依赖三个子节点。
+4. Message 报告包含三个子 Agent 的输入摘要、输出摘要或失败原因。
+
+### 16.5 设计参考
+
+团队角色说明：
+
+- Team Role 是平台固定枚举，集中维护为 `planner/retriever/executor/reviewer`。
+- 页面只给子 Agent 展示 `retriever/executor/reviewer`。
+- 后端写入成员时拒绝 `planner` 或未知 role。
+- Role 只表达团队职责语义；实际可用能力仍取决于 Agent-Skill Binding。
+
+完整设计见：
+
+```text
+docs/plan/ai_engineering/skills/multi_agent_a2a.md
+```
+
+### 16.6 本地验证记录（2026-06-15）
+
+本轮已执行：
+
+```bash
+cd backend && go test ./tests/integration/skills -run 'TestSkillAgentA2AReleaseReadiness' -count=1
+cd backend && go test ./internal/server/agent/persistence/repository -run 'TestAgentSkillBinding|Test.*Agent' -count=1
+cd backend && go test ./internal/server/agent -run 'Test.*Invoker|Test.*Handoff|Test.*Execute' -count=1
+```
+
+结果：
+
+1. Core-only A2A seed 幂等测试通过，重复 seed 后 Agent、Skill、Binding、Team、TeamMember 数量稳定。
+2. 发布准备 MVP plan 测试通过，3 个 `agent_handoff` 节点和 1 个 `powerx.release.report_synthesis` 汇总节点可执行。
+3. `failure_policy=continue` 部分失败测试通过，最终报告标注部分成功。
+4. 上下文隔离测试通过，子 Agent 只收到 release metadata/context refs，不包含完整 session 或全局候选池。
+
+## 17. Agent Response Planning 回归
+
+目标：验证 Agent 最终回复已按 `ResponsePlanner -> Context Builder -> Final Response -> Message Meta` 分层执行，避免把全局候选池误当成当前 Agent 能力。
+
+### 17.1 能力介绍只展示当前 Agent 绑定能力
+
+前置条件：
+
+1. 准备一个只绑定单个 Skill 的 Agent。
+2. 确认该 Skill 为 `published` 且 `is_latest_published=true`。
+3. 确认当前租户有该 Agent 和 Skill 的使用权限。
+
+操作：
+
+```text
+在 Agent Chat 中发送：你能做什么？
+```
+
+预期：
+
+1. SSE/debug event 出现 `response_plan`。
+2. `response_plan.response_mode=capability_intro`。
+3. `response_plan.target_capability_ids` 只包含当前 Agent 已绑定能力。
+4. 最终回答不出现未绑定的全局 system/public skills 或平台内部 tools。
+5. Agent Trace 中存在 `response_planner/context_builder/final_response/history_persist` 节点。
+
+失败定位：
+
+1. 如果回答出现全局能力，检查 Context Builder 是否仍注入全局候选池。
+2. 如果没有 `response_plan`，检查 Agent Stream handler 是否透传 debug event。
+
+### 17.2 能力使用说明不重复完整介绍
+
+操作：
+
+```text
+第一轮：你能做什么？
+第二轮：第一个能力怎么用？
+```
+
+预期：
+
+1. 第一轮 assistant message meta 写入 `response_mode=capability_intro`。
+2. 第二轮 `response_mode=capability_howto`。
+3. 第二轮回答只说明目标能力需要哪些信息和示例，不重新完整介绍所有能力。
+4. 去重依据来自 assistant message meta，不是文本匹配。
+
+### 17.3 缺参数进入澄清模式
+
+操作：
+
+```text
+帮我创建一个模板
+```
+
+预期：
+
+1. 如果目标 Skill `input_schema.required` 缺少必要字段，`response_mode=clarify_params`。
+2. `missing_fields` 列出缺失字段。
+3. 最终回答引导用户补充参数，不直接执行失败。
+
+### 17.4 执行结果进入 skill_execution
+
+操作：
+
+```text
+帮我创建一个名称为 Release Notice 的模板，类型是通知
+```
+
+预期：
+
+1. Planner 产生 skill/tool task。
+2. 执行后 `response_mode=skill_execution`。
+3. 最终回答总结成功/失败状态和下一步，不暴露 executor path、stack 或 raw trace。
+
+### 17.5 错误解释进入 error_explain
+
+操作：构造一个 executor 返回稳定错误码的测试用例。
+
+预期：
+
+1. `response_mode=error_explain`。
+2. 回复包含用户可理解的失败原因和可操作下一步。
+3. Agent Trace 节点保留 `error_code/error_summary`。
+
+### 17.6 建议测试命令
+
+```bash
+cd backend && go test ./internal/server/agent/... \
+  -run 'Test.*ResponsePlan|Test.*ContextBuilder|Test.*FinalResponse|Test.*AssistantMessageMeta' \
+  -count=1
+```
+
+验收口径：
+
+1. ResponsePlan schema 校验通过。
+2. Context Builder 按 mode 注入正确上下文层。
+3. Message meta 持久化并可用于下一轮去重。
+4. Trace 报告可查看 response plan、context layers 和 final response model。

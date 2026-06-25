@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	appcfg "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
@@ -16,7 +17,6 @@ import (
 	agentsvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	caprouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
-	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	cachepkg "github.com/ArtisanCloud/PowerX/pkg/cache"
 	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	skillmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
@@ -113,66 +113,6 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 
 		// skill invoker
 		skillRegistryRepo := skillrepo.NewSkillRegistryRepository(db)
-		skillBindingRepo := skillrepo.NewSkillCapabilityBindingRepository(db)
-		skillTraceRepo := skillrepo.NewSkillExecutionTraceRepository(db)
-		skillAuditRepo := skillrepo.NewSkillLifecycleAuditRepository(db)
-		skillAuditSvc := skillservice.NewAuditTraceService(skillTraceRepo, skillAuditRepo)
-		skillInvokeSvc := skillservice.NewInvokeService(skillRegistryRepo, skillAuditSvc)
-		skillAdapter := skillservice.NewAdapterService(skillInvokeSvc, skillBindingRepo).
-			WithSourcePolicyResolver(skillservice.NewDBSourcePolicyResolver(db))
-		gAgentManager.SetSkillInvoker(func(ctx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
-			if in.Payload == nil {
-				in.Payload = map[string]any{}
-			}
-			if in.Context == nil {
-				in.Context = map[string]any{}
-			}
-			if capID := strings.TrimSpace(in.CapabilityID); capID != "" {
-				result, err := skillAdapter.InvokeUnified(ctx, skillservice.UnifiedInvokeRequest{
-					TenantUUID:        in.TenantUUID,
-					Env:               in.Env,
-					CapabilityID:      capID,
-					PreferredProtocol: "skill",
-					ToolGrantIDs:      in.ToolGrantIDs,
-					AgentID:           in.AgentID,
-					Context:           enrichSkillContext(in.Context, in),
-					Payload:           in.Payload,
-					TraceID:           in.TraceID,
-				})
-				if err != nil {
-					return nil, err
-				}
-				return &agent.SkillInvokeOutput{
-					TraceID:      result.TraceID,
-					Status:       result.Status,
-					ProtocolUsed: result.ProtocolUsed,
-					FallbackUsed: result.FallbackUsed,
-					SkillID:      result.SkillID,
-					Version:      result.Version,
-					Result:       result.Result,
-				}, nil
-			}
-			executed, err := skillInvokeSvc.Execute(ctx, skillservice.InvokeRequest{
-				TenantUUID: in.TenantUUID,
-				SkillID:    in.SkillID,
-				Version:    in.Version,
-				Entrypoint: in.Entrypoint,
-				InvokePath: "agent.plan.skill",
-				TraceID:    in.TraceID,
-			}, in.Payload, enrichSkillContext(in.Context, in))
-			if err != nil {
-				return nil, err
-			}
-			return &agent.SkillInvokeOutput{
-				TraceID:      executed.TraceID,
-				Status:       executed.Status,
-				ProtocolUsed: executed.ProtocolUsed,
-				FallbackUsed: executed.FallbackUsed,
-				SkillID:      executed.SkillID,
-				Version:      executed.Version,
-				Result:       executed.Result,
-			}, nil
-		})
 
 		// tooling invoker（capability registry 为 tooling 的数据库权威源）
 		catalog := capservice.NewRegistryService(capservice.RegistryServiceOptions{DB: db})
@@ -184,6 +124,62 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 			Router:    router,
 			TraceRepo: capTraceRepo,
 			EventRepo: capEventRepo,
+		})
+		gAgentManager.SetSkillInvoker(func(ctx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
+			if in.Payload == nil {
+				in.Payload = map[string]any{}
+			}
+			if in.Context == nil {
+				in.Context = map[string]any{}
+			}
+			enrichedCtx := enrichSkillContext(in.Context, in)
+			if capID := strings.TrimSpace(in.CapabilityID); capID != "" {
+				result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
+					CapabilityID:      capID,
+					TenantUUID:        in.TenantUUID,
+					PreferredProtocol: firstNonEmptyString(asStringFromMap(in.Payload, "preferred_protocol"), asStringFromMap(enrichedCtx, "preferred_protocol"), "rest"),
+					TraceID:           in.TraceID,
+					Payload:           in.Payload,
+					Context:           enrichedCtx,
+				})
+				if err != nil {
+					return nil, err
+				}
+				return &agent.SkillInvokeOutput{
+					TraceID:      result.TraceID,
+					Status:       result.Status,
+					ProtocolUsed: result.ProtocolUsed,
+					FallbackUsed: result.FallbackUsed,
+					SkillID:      in.SkillID,
+					Version:      in.Version,
+					Result:       result.Result,
+				}, nil
+			}
+			if capID, resolveErr := resolveSkillActionCapability(ctx, skillRegistryRepo, in.SkillID, in.Version, in.Payload); capID != "" {
+				result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
+					CapabilityID:      capID,
+					TenantUUID:        in.TenantUUID,
+					PreferredProtocol: firstNonEmptyString(asStringFromMap(in.Payload, "preferred_protocol"), asStringFromMap(enrichedCtx, "preferred_protocol"), "rest"),
+					TraceID:           in.TraceID,
+					Payload:           in.Payload,
+					Context:           enrichedCtx,
+				})
+				if err != nil {
+					return nil, err
+				}
+				return &agent.SkillInvokeOutput{
+					TraceID:      result.TraceID,
+					Status:       result.Status,
+					ProtocolUsed: result.ProtocolUsed,
+					FallbackUsed: result.FallbackUsed,
+					SkillID:      in.SkillID,
+					Version:      in.Version,
+					Result:       result.Result,
+				}, nil
+			} else if resolveErr != nil {
+				return nil, resolveErr
+			}
+			return nil, fmt.Errorf("skill %q cannot execute without action_capabilities mapping or explicit capability_id", strings.TrimSpace(in.SkillID))
 		})
 		gAgentManager.SetToolingInvoker(func(ctx context.Context, in agent.ToolingInvokeInput) (*agent.ToolingInvokeOutput, error) {
 			result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
@@ -288,6 +284,83 @@ func enrichSkillContext(ctxMap map[string]any, in agent.SkillInvokeInput) map[st
 		out["capability_id"] = in.CapabilityID
 	}
 	return out
+}
+
+func resolveSkillActionCapability(ctx context.Context, repo *skillrepo.SkillRegistryRepository, skillID, version string, payload map[string]any) (string, error) {
+	if repo == nil {
+		return "", errors.New("skill registry repository is not configured")
+	}
+	skillID = strings.TrimSpace(skillID)
+	if skillID == "" {
+		return "", errors.New("skill_id is required")
+	}
+	var rec *skillmodels.SkillRegistryRecord
+	var err error
+	if strings.TrimSpace(version) != "" {
+		rec, err = repo.GetBySkillVersion(ctx, skillID, version)
+	} else {
+		rec, err = repo.GetLatestPublished(ctx, skillID)
+	}
+	if err != nil || rec == nil || len(rec.ManifestJSON) == 0 {
+		return "", fmt.Errorf("skill %q manifest is not published or empty", skillID)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(rec.ManifestJSON, &manifest); err != nil {
+		return "", fmt.Errorf("skill %q manifest json is invalid: %w", skillID, err)
+	}
+	actions := actionCapabilityMap(manifest)
+	if len(actions) == 0 {
+		return "", fmt.Errorf("skill %q missing action_capabilities or executor.action_map", skillID)
+	}
+	action := strings.ToLower(strings.TrimSpace(firstNonEmptyString(
+		asStringFromMap(payload, "action"),
+		asStringFromMap(payload, "operation"),
+		asStringFromNestedMap(payload, "input", "action"),
+		asStringFromNestedMap(payload, "template", "action"),
+	)))
+	if action == "" {
+		return "", fmt.Errorf("skill %q requires action before capability invocation", skillID)
+	}
+	capabilityID := strings.TrimSpace(fmt.Sprint(actions[action]))
+	if capabilityID == "" || capabilityID == "<nil>" {
+		return "", fmt.Errorf("skill %q action %q has no capability mapping", skillID, action)
+	}
+	return capabilityID, nil
+}
+
+func actionCapabilityMap(manifest map[string]any) map[string]any {
+	if manifest == nil {
+		return nil
+	}
+	if actions, ok := manifest["action_capabilities"].(map[string]any); ok && len(actions) > 0 {
+		return actions
+	}
+	executor, ok := manifest["executor"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	if actions, ok := executor["action_map"].(map[string]any); ok && len(actions) > 0 {
+		return actions
+	}
+	return nil
+}
+
+func asStringFromMap(values map[string]any, key string) string {
+	if values == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(values[key]))
+}
+
+func asStringFromNestedMap(values map[string]any, objectKey, key string) string {
+	if values == nil {
+		return ""
+	}
+	nested, ok := values[objectKey].(map[string]any)
+	if !ok {
+		return ""
+	}
+	return asStringFromMap(nested, key)
 }
 
 func normalizeAgentRuntimePaths(cfg *config.AgentConfig) {
@@ -494,23 +567,76 @@ func skillCandidateFromRegistry(rec skillmodels.SkillRegistryRecord) (agent.Tool
 		strings.TrimSpace(rec.ApprovalNote),
 		skillID,
 	)
+	displayName := firstNonEmptyString(
+		readManifestString(manifest, "title"),
+		readManifestString(manifest, "name"),
+		skillID,
+	)
 	requiredArgs, optionalArgs := extractManifestInputArgs(manifest)
+	examples := extractManifestStringArray(manifest, "intent_examples")
+	actions := extractManifestStringEnum(manifest, "input_schema", "action")
+	responseGuidance := extractManifestResponseGuidance(manifest)
+	actionRequiredArgs := extractManifestActionRequiredArgs(manifest)
 	return agent.ToolCallCandidate{
-		Name:          skillID,
-		NodeKind:      "skill",
-		NodeRef:       skillID,
-		FlowID:        skillID,
-		SourceScope:   "system",
-		Source:        strings.TrimSpace(rec.Source),
-		Visibility:    "public",
-		BindingStatus: "active",
-		Description:   desc,
-		IntentHints:   extractManifestStringArray(manifest, "entrypoints"),
-		Tags:          []string{"registry", strings.TrimSpace(rec.Source)},
-		SemanticText:  desc,
-		RequiredArgs:  requiredArgs,
-		OptionalArgs:  optionalArgs,
+		Name:               skillID,
+		DisplayName:        displayName,
+		NodeKind:           "skill",
+		NodeRef:            skillID,
+		FlowID:             skillID,
+		SourceScope:        "system",
+		Source:             strings.TrimSpace(rec.Source),
+		Visibility:         "public",
+		BindingStatus:      "active",
+		Description:        desc,
+		IntentHints:        append(extractManifestStringArray(manifest, "entrypoints"), examples...),
+		Examples:           examples,
+		Actions:            actions,
+		ResponseGuidance:   responseGuidance,
+		ActionRequiredArgs: actionRequiredArgs,
+		Tags:               []string{"registry", strings.TrimSpace(rec.Source)},
+		SemanticText:       desc,
+		RequiredArgs:       requiredArgs,
+		OptionalArgs:       optionalArgs,
 	}, true
+}
+
+func extractManifestActionRequiredArgs(m map[string]interface{}) map[string][]string {
+	if m == nil {
+		return nil
+	}
+	out := actionRequiredArgsFromValue(m["action_required_args"])
+	if len(out) == 0 {
+		if promptSpec, ok := m["prompt_spec"].(map[string]interface{}); ok {
+			out = actionRequiredArgsFromValue(promptSpec["action_required_args"])
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func actionRequiredArgsFromValue(raw interface{}) map[string][]string {
+	obj, ok := raw.(map[string]interface{})
+	if !ok || len(obj) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(obj))
+	for action, fields := range obj {
+		action = strings.ToLower(strings.TrimSpace(action))
+		if action == "" {
+			continue
+		}
+		values := normalizeBootstrapStringList(anyToStringSlice(fields))
+		if values == nil {
+			values = []string{}
+		}
+		out[action] = values
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func toolingCandidateFromCapability(rec capmodels.CapabilityRecord) (agent.ToolCallCandidate, bool) {
@@ -527,8 +653,10 @@ func toolingCandidateFromCapability(rec capmodels.CapabilityRecord) (agent.ToolC
 		source = "builtin"
 	}
 	desc := firstNonEmptyString(strings.TrimSpace(rec.Description), strings.TrimSpace(rec.Title), capabilityID)
+	displayName := firstNonEmptyString(strings.TrimSpace(rec.Title), capabilityID)
 	return agent.ToolCallCandidate{
 		Name:          capabilityID,
+		DisplayName:   displayName,
 		NodeKind:      "tooling",
 		NodeRef:       capabilityID,
 		FlowID:        capabilityID,
@@ -566,6 +694,66 @@ func extractManifestStringArray(m map[string]interface{}, key string) []string {
 		return nil
 	}
 	return anyToStringSlice(raw)
+}
+
+func extractManifestResponseGuidance(m map[string]interface{}) []string {
+	if m == nil {
+		return nil
+	}
+	out := make([]string, 0, 8)
+	out = append(out, responseGuidanceFromValue(m["response_guidance"])...)
+	if promptSpec, ok := m["prompt_spec"].(map[string]interface{}); ok {
+		out = append(out, responseGuidanceFromValue(promptSpec["response_guidance"])...)
+	}
+	return normalizeBootstrapStringList(out)
+}
+
+func responseGuidanceFromValue(raw interface{}) []string {
+	switch x := raw.(type) {
+	case nil:
+		return nil
+	case string:
+		if trimmed := strings.TrimSpace(x); trimmed != "" {
+			return []string{trimmed}
+		}
+	case []string, []interface{}:
+		return anyToStringSlice(x)
+	case map[string]interface{}:
+		out := make([]string, 0, len(x))
+		for _, key := range []string{"general", "capability_intro", "capability_howto", "clarify_params", "skill_execution", "error_explain"} {
+			values := responseGuidanceFromValue(x[key])
+			if len(values) == 0 {
+				continue
+			}
+			for _, value := range values {
+				if key == "general" {
+					out = append(out, value)
+				} else {
+					out = append(out, key+": "+value)
+				}
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+func normalizeBootstrapStringList(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		key := strings.ToLower(value)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func extractManifestInputArgs(m map[string]interface{}) ([]string, []string) {
@@ -606,6 +794,29 @@ func extractManifestInputArgs(m map[string]interface{}) ([]string, []string) {
 		}
 	}
 	return requiredArgs, optionalArgs
+}
+
+func extractManifestStringEnum(m map[string]interface{}, objectKey string, propertyKey string) []string {
+	if m == nil {
+		return nil
+	}
+	raw, ok := m[objectKey]
+	if !ok {
+		return nil
+	}
+	obj, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	props, ok := obj["properties"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	prop, ok := props[propertyKey].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return anyToStringSlice(prop["enum"])
 }
 
 func anyToStringSlice(v interface{}) []string {

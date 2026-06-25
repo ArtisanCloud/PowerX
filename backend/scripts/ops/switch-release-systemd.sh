@@ -7,15 +7,15 @@ Usage:
   $0 <target_tag_or_version> [--with-runner] [--with-setup-trace|--without-setup-trace] [--with-setup-reentry|--without-setup-reentry] [--timeout-sec N]
 
 Description:
-  Switch /opt/powerx symlinks to /opt/powerx/releases/<target_tag_or_version>,
+  Switch release symlinks to the target release,
   restart systemd services, and run backend health check.
   If health check fails, auto rollback to previous symlink targets.
   Production should use immutable git tag names (e.g. v2.0.2).
 
 Options:
-  --with-runner            Also switch/restart powerx-runner.
-  --with-setup-trace       Enable setup/status trace log on powerx-backend.
-  --without-setup-trace    Disable setup/status trace log on powerx-backend.
+  --with-runner            Also switch/restart runner service.
+  --with-setup-trace       Enable setup/status trace log on backend service.
+  --without-setup-trace    Disable setup/status trace log on backend service.
   --with-setup-reentry     Temporarily allow setup write APIs on installed instance.
   --without-setup-reentry  Disable setup reentry (recommended default).
   --timeout-sec N          Health check timeout seconds (default: 90).
@@ -25,10 +25,17 @@ Environment overrides:
   POWERX_LINKS_ROOT        Default: /opt/powerx
   POWERX_RUNTIME_ROOT      Default: /etc/powerx
   POWERX_STORAGE_ROOT      Default: /opt/powerx/storage
+  POWERX_PLUGIN_RUNTIME_ROOT
+                            Default: POWERX_LINKS_ROOT/plugins
   POWERX_HEALTH_URL        Default: http://127.0.0.1:8080/api/v1/health
   POWERX_HEALTH_EXPECT     Default: 200
   POWERX_SERVICE_USER      Default: current login user (sudo user), fallback: powerx
   POWERX_SERVICE_GROUP     Default: primary group of POWERX_SERVICE_USER
+  POWERX_BACKEND_SERVICE   Default: powerx-backend
+  POWERX_WEB_ADMIN_SERVICE Default: powerx-web-admin
+  POWERX_RUNNER_SERVICE    Default: powerx-runner
+  POWERX_SYNC_SYSTEMD_UNITS
+                            Default: 1. Set to 0 when dev service unit files are managed separately.
 USAGE
 }
 
@@ -106,6 +113,10 @@ HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
 SERVICE_GROUP="${POWERX_SERVICE_GROUP:-}"
+BACKEND_SERVICE="${POWERX_BACKEND_SERVICE:-powerx-backend}"
+WEB_ADMIN_SERVICE="${POWERX_WEB_ADMIN_SERVICE:-powerx-web-admin}"
+RUNNER_SERVICE="${POWERX_RUNNER_SERVICE:-powerx-runner}"
+SYNC_SYSTEMD_UNITS="${POWERX_SYNC_SYSTEMD_UNITS:-1}"
 RUNTIME_CONFIG_PATH="${RUNTIME_ROOT}/config.yaml"
 RUNTIME_SETUP_DRAFT_PATH="${RUNTIME_ROOT}/setup.wizard.config.json"
 
@@ -159,6 +170,25 @@ echo "[switch-release] target ref: $TARGET_REF"
 echo "[switch-release] releases root: $RELEASES_ROOT"
 echo "[switch-release] links root: $LINKS_ROOT"
 echo "[switch-release] service identity: ${SERVICE_USER}:${SERVICE_GROUP:-<auto>}"
+echo "[switch-release] services: backend=${BACKEND_SERVICE}, web-admin=${WEB_ADMIN_SERVICE}, runner=${RUNNER_SERVICE}"
+
+service_working_dir() {
+  local unit="$1"
+  case "${unit}" in
+    "${BACKEND_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/backend"
+      ;;
+    "${WEB_ADMIN_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/web-admin"
+      ;;
+    "${RUNNER_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/runner"
+      ;;
+    *)
+      printf "%s" "${LINKS_ROOT}"
+      ;;
+  esac
+}
 
 ensure_service_identity() {
   if id -u "${SERVICE_USER}" >/dev/null 2>&1; then
@@ -209,18 +239,8 @@ ensure_service_identity() {
 apply_service_user_override() {
   local unit="$1"
   local dir="/etc/systemd/system/${unit}.service.d"
-  local working_dir="${LINKS_ROOT}"
-  case "${unit}" in
-    powerx-backend)
-      working_dir="${LINKS_ROOT}/backend"
-      ;;
-    powerx-web-admin)
-      working_dir="${LINKS_ROOT}/web-admin"
-      ;;
-    powerx-runner)
-      working_dir="${LINKS_ROOT}/runner"
-      ;;
-  esac
+  local working_dir
+  working_dir="$(service_working_dir "${unit}")"
   install -d -m 0755 "$dir"
   cat > "${dir}/zz-runtime-user.conf" <<EOF
 [Service]
@@ -231,7 +251,7 @@ EOF
 }
 
 apply_setup_trace_override() {
-  local dir="/etc/systemd/system/powerx-backend.service.d"
+  local dir="/etc/systemd/system/${BACKEND_SERVICE}.service.d"
   local file="${dir}/90-setup-trace.conf"
   install -d -m 0755 "$dir"
   cat > "$file" <<EOF
@@ -242,7 +262,7 @@ EOF
 }
 
 remove_setup_trace_override() {
-  local file="/etc/systemd/system/powerx-backend.service.d/90-setup-trace.conf"
+  local file="/etc/systemd/system/${BACKEND_SERVICE}.service.d/90-setup-trace.conf"
   if [[ -f "$file" ]]; then
     rm -f "$file"
     echo "[switch-release] setup trace disabled: ${file}"
@@ -338,7 +358,7 @@ ensure_node_bin_env() {
   if ! node_bin="$(detect_node_bin)"; then
     cat >&2 <<EOF
 [switch-release] error: no executable node found for user '${SERVICE_USER}'.
-[switch-release] required by: powerx-web-admin.service / powerx-runner.service
+[switch-release] required by: ${WEB_ADMIN_SERVICE}.service / ${RUNNER_SERVICE}.service
 [switch-release] options:
   1) install system node and set NODE_BIN=/usr/bin/node
   2) use custom node path and ensure '${SERVICE_USER}' has execute permission on full path (ACL/chmod)
@@ -705,9 +725,9 @@ rollback() {
   fi
 
   systemctl daemon-reload
-  systemctl restart powerx-backend powerx-web-admin
+  systemctl restart "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
   if [[ "$WITH_RUNNER" == "1" ]]; then
-    systemctl restart powerx-runner
+    systemctl restart "${RUNNER_SERVICE}"
   fi
   echo "[switch-release] rollback done"
 }
@@ -729,13 +749,15 @@ normalize_plugin_runtime_artifacts
 sync_runtime_config_version
 set_setup_reentry_env
 
-if [[ -d "$TARGET_SYSTEMD" ]]; then
+if [[ "$SYNC_SYSTEMD_UNITS" == "1" && -d "$TARGET_SYSTEMD" ]]; then
   cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/
+elif [[ "$SYNC_SYSTEMD_UNITS" != "1" ]]; then
+  echo "[switch-release] skip systemd unit sync: POWERX_SYNC_SYSTEMD_UNITS=${SYNC_SYSTEMD_UNITS}"
 fi
-apply_service_user_override "powerx-backend"
-apply_service_user_override "powerx-web-admin"
+apply_service_user_override "${BACKEND_SERVICE}"
+apply_service_user_override "${WEB_ADMIN_SERVICE}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  apply_service_user_override "powerx-runner"
+  apply_service_user_override "${RUNNER_SERVICE}"
 fi
 if [[ "$WITH_SETUP_TRACE" == "1" ]]; then
   apply_setup_trace_override
@@ -745,19 +767,19 @@ if [[ "$WITHOUT_SETUP_TRACE" == "1" ]]; then
 fi
 
 systemctl daemon-reload
-assert_effective_service_user "powerx-backend.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
-assert_effective_service_user "powerx-web-admin.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+assert_effective_service_user "${BACKEND_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+assert_effective_service_user "${WEB_ADMIN_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  assert_effective_service_user "powerx-runner.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+  assert_effective_service_user "${RUNNER_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
 fi
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl enable powerx-backend powerx-web-admin powerx-runner
+  systemctl enable "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}" "${RUNNER_SERVICE}"
 else
-  systemctl enable powerx-backend powerx-web-admin
+  systemctl enable "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
 fi
-systemctl restart powerx-backend powerx-web-admin
+systemctl restart "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl restart powerx-runner
+  systemctl restart "${RUNNER_SERVICE}"
 fi
 
 START_TS="$(date +%s)"
@@ -777,7 +799,7 @@ done
 trap - ERR
 
 echo "[switch-release] success: switched to ${TARGET_REF}"
-systemctl --no-pager --full status powerx-backend powerx-web-admin | sed -n '1,40p'
+systemctl --no-pager --full status "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}" | sed -n '1,40p'
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl --no-pager --full status powerx-runner | sed -n '1,20p'
+  systemctl --no-pager --full status "${RUNNER_SERVICE}" | sed -n '1,20p'
 fi

@@ -194,6 +194,7 @@ type AgentTraceNodeSnapshot struct {
 	ErrorCode        string           `json:"error_code,omitempty"`
 	ErrorSummary     string           `json:"error_summary,omitempty"`
 	ArtifactRefs     []string         `json:"artifact_refs,omitempty"`
+	Attributes       map[string]any   `json:"attributes,omitempty"`
 	StartedAt        *time.Time       `json:"started_at,omitempty"`
 	EndedAt          *time.Time       `json:"ended_at,omitempty"`
 }
@@ -249,6 +250,113 @@ type AgentRunReport struct {
 	Summary      map[string]any           `json:"summary,omitempty"`
 	Timeline     []AgentTraceEvent        `json:"timeline,omitempty"`
 	Nodes        []AgentTraceNodeSnapshot `json:"nodes,omitempty"`
+	RunState     *AgentRunStateSnapshot   `json:"run_state,omitempty"`
 	Errors       []map[string]any         `json:"errors,omitempty"`
 	ArtifactRefs []string                 `json:"artifact_refs,omitempty"`
+}
+
+type AgentRunStateSnapshot struct {
+	Run           map[string]any       `json:"run,omitempty"`
+	Summary       map[string]any       `json:"summary,omitempty"`
+	ResponsePlan  map[string]any       `json:"response_plan,omitempty"`
+	Intent        map[string]any       `json:"intent,omitempty"`
+	Plan          map[string]any       `json:"plan,omitempty"`
+	Tasks         []AgentTaskStateItem `json:"tasks,omitempty"`
+	PendingParams []AgentTaskStateItem `json:"pending_params,omitempty"`
+	Results       []AgentTaskStateItem `json:"results,omitempty"`
+	Errors        []AgentTaskStateItem `json:"errors,omitempty"`
+	TraceLinks    []map[string]any     `json:"trace_links,omitempty"`
+	Final         map[string]any       `json:"final,omitempty"`
+	Ended         bool                 `json:"ended,omitempty"`
+	UpdatedAt     time.Time            `json:"updated_at,omitempty"`
+}
+
+type AgentTaskStateItem struct {
+	RunID           string           `json:"run_id,omitempty"`
+	SessionID       string           `json:"session_id,omitempty"`
+	MessageID       string           `json:"message_id,omitempty"`
+	TraceID         string           `json:"trace_id,omitempty"`
+	TaskID          string           `json:"task_id,omitempty"`
+	ParentTaskID    string           `json:"parent_task_id,omitempty"`
+	DependsOn       []string         `json:"depends_on,omitempty"`
+	Stage           int              `json:"stage,omitempty"`
+	ParallelGroup   string           `json:"parallel_group,omitempty"`
+	TeamID          string           `json:"team_id,omitempty"`
+	AgentID         string           `json:"agent_id,omitempty"`
+	AgentKey        string           `json:"agent_key,omitempty"`
+	AgentName       string           `json:"agent_name,omitempty"`
+	NodeKind        string           `json:"node_kind,omitempty"`
+	NodeRef         string           `json:"node_ref,omitempty"`
+	SkillID         string           `json:"skill_id,omitempty"`
+	CapabilityID    string           `json:"capability_id,omitempty"`
+	Action          string           `json:"action,omitempty"`
+	FailurePolicy   string           `json:"failure_policy,omitempty"`
+	Status          string           `json:"status,omitempty"`
+	Message         string           `json:"message,omitempty"`
+	Summary         string           `json:"summary,omitempty"`
+	CollectedParams map[string]any   `json:"collected_params,omitempty"`
+	MissingFields   []string         `json:"missing_fields,omitempty"`
+	Result          any              `json:"result,omitempty"`
+	Links           []map[string]any `json:"links,omitempty"`
+	Error           any              `json:"error,omitempty"`
+	UpdatedAt       string           `json:"updated_at,omitempty"`
+}
+
+type AgentRunListQuery struct {
+	TenantUUID string `json:"tenant_uuid,omitempty"`
+	SessionID  string `json:"session_id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Offset     int    `json:"offset,omitempty"`
+	Limit      int    `json:"limit,omitempty"`
+}
+
+type AgentRunListItem struct {
+	TenantUUID       string     `json:"tenant_uuid"`
+	SessionID        string     `json:"session_id"`
+	MessageID        string     `json:"message_id"`
+	MessagePreview   string     `json:"message_preview,omitempty"`
+	MessageRole      string     `json:"message_role,omitempty"`
+	MessageCreatedAt *time.Time `json:"message_created_at,omitempty"`
+	RunID            string     `json:"run_id"`
+	TraceID          string     `json:"trace_id"`
+	AgentID          string     `json:"agent_id"`
+	Status           string     `json:"status"`
+	NodeCount        int        `json:"node_count"`
+	EventCount       int        `json:"event_count"`
+	ErrorCount       int        `json:"error_count"`
+	DurationMS       int64      `json:"duration_ms,omitempty"`
+	StartedAt        *time.Time `json:"started_at,omitempty"`
+	EndedAt          *time.Time `json:"ended_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+}
+
+type AgentRunListResult struct {
+	Items      []AgentRunListItem `json:"items"`
+	TenantUUID string             `json:"tenant_uuid"`
+	Total      int                `json:"total"`
+	Offset     int                `json:"offset"`
+	Limit      int                `json:"limit"`
+}
+
+type AgentSessionListItem struct {
+	TenantUUID   string     `json:"tenant_uuid"`
+	SessionID    string     `json:"session_id"`
+	AgentID      string     `json:"agent_id"`
+	Status       string     `json:"status"`
+	MessageCount int        `json:"message_count"`
+	NodeCount    int        `json:"node_count"`
+	EventCount   int        `json:"event_count"`
+	ErrorCount   int        `json:"error_count"`
+	DurationMS   int64      `json:"duration_ms,omitempty"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	EndedAt      *time.Time `json:"ended_at,omitempty"`
+	LatestAt     time.Time  `json:"latest_at"`
+}
+
+type AgentSessionListResult struct {
+	Items      []AgentSessionListItem `json:"items"`
+	TenantUUID string                 `json:"tenant_uuid"`
+	Total      int                    `json:"total"`
+	Offset     int                    `json:"offset"`
+	Limit      int                    `json:"limit"`
 }

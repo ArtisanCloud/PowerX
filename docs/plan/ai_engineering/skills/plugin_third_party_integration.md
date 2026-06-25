@@ -37,7 +37,7 @@ PowerX 治理态 Skill + 运行态 Agent + Binding
 ```text
 GET  /api/v1/plugin/skills
 GET  /api/v1/plugin/skills/:skill_id/schema
-POST /api/v1/plugin/skills/invoke
+PowerX Capability Invocation
 GET  /api/v1/plugin/skills/invocations/:invocation_id
 ```
 
@@ -75,7 +75,7 @@ Agent 在规划中引用 skill 节点，由 SkillRunner 执行。
 Agent 主路径：
 
 ```text
-用户消息 -> PowerX Agent Session -> Agent Runtime -> Skill Bridge -> Plugin Skill Executor
+用户消息 -> PowerX Agent Session -> Agent Runtime -> Skill Bridge -> Plugin Capability Handler
 ```
 
 适用于 Telegram、Discord、企业微信、微信、SCRM、移动端、插件自有 Chat 等所有对话渠道。
@@ -127,7 +127,7 @@ Agent 同步：
 1. 插件卸载前需处理 Skill 绑定关系。
 2. 第三方 Skill 升级必须记录来源变更。
 3. 不允许“无版本覆盖式更新”。
-4. 插件 executor 调用必须携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id`。
+4. 插件 capability handler 调用必须携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id`。
 5. 缺少关键上下文、插件未安装、Skill 未发布、capability 不匹配时必须 fail-fast。
 6. 不允许为兼容旧渠道而保留绕过 PowerX Agent Runtime 的长期直连业务入口。
 7. 插件 Agent/Skill Plugin Registry 同步动作必须写审计，至少包含 `provider_plugin_id/plugin_agent_id/plugin_skill_id/powerx_agent_uuid/powerx_skill_id/sync_status/trace_id`。

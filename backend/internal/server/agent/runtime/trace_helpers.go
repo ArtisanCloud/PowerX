@@ -34,19 +34,21 @@ func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.Ch
 	}
 	runID := fmt.Sprintf("run_%d", time.Now().UnixNano())
 	sessionID := firstTraceString(
+		traceContextValue(ctx, "session_id"),
+		traceContextValue(ctx, "sessionId"),
 		traceValue(reqCfg, "session_id"),
 		traceValue(reqCfg, "sessionId"),
-		fmt.Sprintf("session_%s", runID),
 	)
 	messageID := firstTraceString(
+		traceContextValue(ctx, "message_id"),
+		traceContextValue(ctx, "messageId"),
 		traceValue(reqCfg, "message_id"),
 		traceValue(reqCfg, "messageId"),
-		fmt.Sprintf("message_%d", time.Now().UnixNano()),
 	)
-	agentID := firstTraceString(traceValue(reqCfg, "agent_id"), traceValue(reqCfg, "agentId"), "system_default_agent")
+	agentID := firstTraceString(traceContextValue(ctx, "agent_id"), traceContextValue(ctx, "agentId"), traceValue(reqCfg, "agent_id"), traceValue(reqCfg, "agentId"), "system_default_agent")
 	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
 	if tenantUUID == "" {
-		tenantUUID = firstTraceString(traceValue(reqCfg, "tenant_uuid"), traceValue(reqCfg, "tenantUuid"))
+		tenantUUID = firstTraceString(traceContextValue(ctx, "tenant_uuid"), traceContextValue(ctx, "tenantUuid"), traceValue(reqCfg, "tenant_uuid"), traceValue(reqCfg, "tenantUuid"))
 	}
 	meta := agenttrace.AgentRunMeta{
 		TraceID:           traceID,
@@ -72,6 +74,13 @@ func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.Ch
 		meta = runCtx.Meta
 	}
 	return &traceRuntime{logger: logger, meta: meta, startedAt: time.Now().UTC(), starts: map[string]time.Time{}}, nil
+}
+
+func (tr *traceRuntime) appendRunStateEvent(ctx context.Context, event string, payload any) {
+	if tr == nil || tr.logger == nil {
+		return
+	}
+	_ = tr.logger.AppendRunStateEvent(ctx, tr.meta, event, payload)
 }
 
 func (tr *traceRuntime) withPlan(planID string) {
@@ -226,6 +235,13 @@ func traceValue(cfg *dto.ChatConfig, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(m[key]))
+}
+
+func traceContextValue(ctx context.Context, key string) string {
+	if ctx == nil || strings.TrimSpace(key) == "" {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(ctx.Value(key)))
 }
 
 func firstTraceString(values ...string) string {

@@ -157,6 +157,9 @@ func BuildTemplatePermissions() []modelsiam.Permission {
 		build("integration_gateway", "api_key.plugin.skill_registry", "sync", "API Key：插件 Skill 注册同步", map[string]string{
 			"scope": "_scope.plugin.skill_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/admin/skills/plugin-registry*",
 		}),
+		build("integration_gateway", "api_key.plugin.capability_catalog", "sync", "API Key：插件 Capability Catalog 同步", map[string]string{
+			"scope": "_scope.plugin.capability_catalog.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/internal/plugins/capabilities/catalog",
+		}),
 		build("integration_gateway", "api_key.plugin.agent_registry", "sync", "API Key：插件 Agent 注册同步", map[string]string{
 			"scope": "_scope.plugin.agent_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/admin/agents*",
 		}),

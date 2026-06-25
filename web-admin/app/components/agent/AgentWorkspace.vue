@@ -12,7 +12,12 @@ import { useConfirm } from "~/composables/useConfirm";
 import { useApiClient } from "~/composables/api";
 import { usePrompt } from "~/composables/usePrompt";
 import { useEnvStore } from "~/stores/envStore";
-import { useAgentTeamService, type AgentTeamRecord } from "~/composables/api/services/agentTeamService";
+import { useUserStore } from "~/stores/user";
+import {
+  useAgentTeamService,
+  type AgentTeamMemberRecord,
+  type AgentTeamRecord,
+} from "~/composables/api/services/agentTeamService";
 import type { SelectOption } from "~/composables/api/types/select";
 
 const props = withDefaults(
@@ -29,6 +34,7 @@ const { confirm } = useConfirm();
 const { prompt } = usePrompt();
 const { get, put, delete: del } = useApiClient();
 const envStore = useEnvStore();
+const userStore = useUserStore();
 const ENV = computed(() => envStore.currentEnv || "dev");
 const route = useRoute();
 const localePath = useLocalePath();
@@ -58,7 +64,15 @@ const workspaceTeamId = computed(() => {
 
 const teamOptions = ref<SelectOption[]>([]);
 const teamMap = ref<Record<string, AgentTeamRecord>>({});
-const teamMemberAgents = ref<Array<{ id: number; name: string; avatar?: string }>>([]);
+const teamMemberAgents = ref<Array<{
+  id: number;
+  name: string;
+  key?: string;
+  avatar?: string;
+  role: string;
+  isTL?: boolean;
+  skillHint?: string;
+}>>([]);
 const teamWorkspaceNotice = ref("");
 
 const findAgentUUIDByNumericID = (id: number) => {
@@ -105,7 +119,7 @@ const loadTeamsForSelector = async () => {
     if (map[key]) continue;
     map[key] = team;
     options.push({
-      label: `团队: ${team.team_name} (#${team.id})`,
+      label: `团队: ${team.team_name}`,
       value: key,
       // @ts-expect-error UI 层会读取 icon 字段
       icon: "i-heroicons-user-group",
@@ -165,12 +179,27 @@ const loadTeamMembers = async (teamId: string) => {
   }
   try {
     const res = await teamService.listMembers(parsed);
-    const memberIDs = new Set<number>([...((res.items || []).map((m) => Number(m.child_agent_id))), Number(teamMap.value[teamId]?.parent_agent_id || 0)]);
+    const members = (res.items || []) as AgentTeamMemberRecord[];
+    const parentID = Number(teamMap.value[teamId]?.parent_agent_id || 0);
+    const roleByAgent = new Map<number, string>();
+    for (const member of members) {
+      roleByAgent.set(Number(member.child_agent_id), String(member.role || "executor"));
+    }
+    const memberIDs = new Set<number>([
+      ...members.map((m) => Number(m.child_agent_id)),
+      parentID,
+    ]);
     const mapped = (agents.value || [])
       .filter((agent) => memberIDs.has(Number(agent.id)))
+      .sort((a, b) =>
+        Number(a.id) === parentID ? -1 : Number(b.id) === parentID ? 1 : Number(a.id) - Number(b.id)
+      )
       .map((agent) => ({
         id: Number(agent.id),
         name: agent.name,
+        key: agent.key,
+        role: Number(agent.id) === parentID ? "planner" : roleByAgent.get(Number(agent.id)) || "executor",
+        isTL: Number(agent.id) === parentID,
         avatar: typeof agent.meta?.avatar === "string" ? agent.meta.avatar : undefined,
       }));
     teamMemberAgents.value = mapped;
@@ -184,6 +213,9 @@ const loadTeamMembers = async (teamId: string) => {
           {
             id: Number(parent.id),
             name: parent.name,
+            key: parent.key,
+            role: "planner",
+            isTL: true,
             avatar:
               typeof parent.meta?.avatar === "string"
                 ? parent.meta.avatar
@@ -831,6 +863,22 @@ const currentAgentForChat = computed(() => {
     capabilities: [],
   };
 });
+const currentTenantUuid = computed(() => userStore.currentTenantUuid || "");
+const hasCurrentTraceSession = computed(
+  () => Boolean(currentTenantUuid.value && currentSessionId.value)
+);
+const currentTraceSessionUrl = computed(() => {
+  if (!hasCurrentTraceSession.value) return "";
+  const q = new URLSearchParams();
+  q.set("tenant_uuid", currentTenantUuid.value);
+  q.set("session_id", String(currentSessionId.value));
+  return `${localePath("/agent/traces")}?${q.toString()}`;
+});
+const currentTraceSessionTitle = computed(() =>
+  hasCurrentTraceSession.value
+    ? "查看当前会话下所有消息的运行追踪"
+    : "请先选择、新建或发送一条消息生成当前会话"
+);
 
 watch(
   () => ENV.value,
@@ -916,7 +964,7 @@ const getAgentIcon = (agent: Agent) => {
             :selector-value="workspaceMode === 'team' ? workspaceTeamId : undefined"
             :selector-label="workspaceMode === 'team' ? '选择团队' : '选择智能体'"
             :selector-placeholder="workspaceMode === 'team' ? '选择团队' : '选择智能体'"
-            :show-sessions="workspaceMode !== 'team'"
+            :show-sessions="true"
             :current-session-id="currentSessionId || undefined"
             :busy="isUiBusy"
             :sessions-by-agent="sessionsByAgent"
@@ -975,32 +1023,68 @@ const getAgentIcon = (agent: Agent) => {
                 <div class="text-sm font-medium text-gray-900">{{ workspaceTitle }}</div>
                 <div class="text-xs text-gray-500">{{ workspaceSubtitle }}</div>
               </div>
-              <div
+              <UPopover
                 v-if="workspaceMode === 'team' && teamMemberAgents.length"
-                class="ml-1 flex items-center gap-2"
+                :ui="{ content: 'w-96 p-0' }"
               >
-                <div class="flex -space-x-2">
-                  <UAvatar
-                    v-for="member in teamMemberAgents.slice(0, 5)"
-                    :key="member.id"
-                    :src="member.avatar"
-                    :alt="member.name"
-                    size="xs"
-                    class="ring-2 ring-white"
-                  />
-                </div>
-                <span class="text-xs text-gray-400">{{ teamMemberAgents.length }} 人</span>
-              </div>
+                <button class="ml-1 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-white/10" type="button">
+                  <div class="flex -space-x-2">
+                    <UAvatar
+                      v-for="member in teamMemberAgents.slice(0, 5)"
+                      :key="member.id"
+                      :src="member.avatar"
+                      :alt="member.name"
+                      size="xs"
+                      class="ring-2 ring-white"
+                    />
+                  </div>
+                  <span class="text-xs text-gray-400">{{ teamMemberAgents.length }} 人</span>
+                </button>
+                <template #content>
+                  <div class="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-gray-900">
+                    <div class="mb-2 flex items-center justify-between">
+                      <div>
+                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">团队成员</div>
+                        <div class="text-xs text-gray-500">当前协作团队</div>
+                      </div>
+                      <UButton size="xs" variant="ghost" icon="i-heroicons-cog-6-tooth" :to="localePath('/settings/ai/agent-teams')">
+                        管理
+                      </UButton>
+                    </div>
+                    <div class="max-h-80 space-y-2 overflow-auto">
+                      <div
+                        v-for="member in teamMemberAgents"
+                        :key="member.id"
+                        class="flex items-start gap-3 rounded-md border border-gray-100 p-2 dark:border-white/10"
+                      >
+                        <UAvatar :src="member.avatar" :alt="member.name" size="sm" />
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center gap-2">
+                            <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{{ member.name }}</div>
+                            <UBadge size="xs" :color="member.isTL ? 'warning' : 'neutral'" variant="soft">
+                              {{ member.isTL ? 'TL' : member.role }}
+                            </UBadge>
+                          </div>
+                          <div class="truncate text-xs text-gray-500">{{ member.key || '无 Key' }}</div>
+                          <div v-if="member.skillHint" class="truncate text-[11px] text-gray-400">{{ member.skillHint }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </UPopover>
             </div>
             <div class="flex items-center gap-2">
               <UButton
-                v-if="workspaceMode === 'team' && workspaceTeamId"
+                v-if="currentAgentId"
                 size="xs"
                 variant="ghost"
-                icon="i-heroicons-clipboard-document-list"
-                :to="`${localePath('/settings/ai/skills')}?trace_view=a2a&team_id=${encodeURIComponent(workspaceTeamId)}`"
+                icon="i-heroicons-bug-ant"
+                :to="hasCurrentTraceSession ? currentTraceSessionUrl : undefined"
+                :disabled="!hasCurrentTraceSession"
+                :title="currentTraceSessionTitle"
               >
-                协作审计
+                运行追踪
               </UButton>
               <UButton
                 v-if="workspaceMode !== 'smart'"
@@ -1045,6 +1129,8 @@ const getAgentIcon = (agent: Agent) => {
             :is-streaming="!!isStreaming"
             :is-typing="!!isTyping"
             :current-agent="currentAgentForChat"
+            :current-session-id="currentSessionId || undefined"
+            :tenant-uuid="currentTenantUuid"
             :connection-indicators="true"
             :can-send-message="canSendMessage"
             @send-message="handleSendMessage"

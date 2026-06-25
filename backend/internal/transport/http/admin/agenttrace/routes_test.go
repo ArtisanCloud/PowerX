@@ -88,6 +88,16 @@ func TestAgentTraceReportAndTimelineAPI(t *testing.T) {
 		t.Fatalf("timeline body is not json: %s", rec.Body.String())
 	}
 
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/runs?tenant_uuid=tenant-1", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("runs status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !json.Valid(rec.Body.Bytes()) {
+		t.Fatalf("runs body is not json: %s", rec.Body.String())
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-1/report?tenant_uuid=tenant-1&session_id=session-1&format=markdown", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -96,5 +106,15 @@ func TestAgentTraceReportAndTimelineAPI(t *testing.T) {
 	}
 	if got := rec.Header().Get("Content-Type"); got != "text/markdown; charset=utf-8" {
 		t.Fatalf("content-type=%q", got)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/sessions/session-1/report?tenant_uuid=tenant-1&format=markdown", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session report status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); got != "text/markdown; charset=utf-8" {
+		t.Fatalf("session report content-type=%q", got)
 	}
 }

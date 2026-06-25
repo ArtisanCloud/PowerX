@@ -35,6 +35,13 @@ const TableIAMAPIKeyProfilePermission = "iam_api_key_profile_permission"
 const TableIAMAPIKey = "iam_api_key"
 const TableIAMRootSupportSession = "iam_root_support_sessions"
 
+const TableCustomerAccounts = "customer_accounts"
+const TableCustomerAuthIdentities = "customer_auth_identities"
+const TableCustomerTenantMemberships = "customer_tenant_memberships"
+const TableMiniAppEntries = "mini_app_entries"
+const TableCustomerSessions = "customer_sessions"
+const TableCustomerLoginEvents = "customer_login_events"
+
 const TableAuditEvent = "audit_event"
 
 const TableCapabilityContract = "capability_contracts"

@@ -257,17 +257,174 @@
   - 调用失败也必须尽量记录 token/trim 观测字段（可空但需保留字段语义）
   - `trim_actions` 需可回放，便于定位“为何丢失上下文”
 
+## ResponseMode
+- **标识**: `response_mode`
+- **枚举值**:
+  - `capability_intro`
+  - `capability_howto`
+  - `skill_execution`
+  - `clarify_params`
+  - `normal_chat`
+  - `error_explain`
+- **规则**:
+  - 只能由 ResponsePlanner 输出或由 Runtime error handler 明确设置。
+  - `capability_intro/capability_howto` 不代表一定执行 Skill。
+  - `skill_execution` 必须能关联 planner task、tool call 或 executor result。
+  - `clarify_params` 必须包含缺失字段。
+  - `normal_chat` 默认不注入完整能力目录。
+
+## ResponsePlan
+- **标识**: `response_plan_id`
+- **作用**: 表示一轮 Agent Message Run 在最终回复前的结构化回答计划。
+- **核心字段**:
+  - `response_plan_id`
+  - `tenant_uuid`
+  - `agent_id`
+  - `session_id`
+  - `message_id`
+  - `run_id`
+  - `trace_id`
+  - `response_mode`
+  - `response_intents[]`
+  - `answer_requirements[]`
+  - `should_call_tool`
+  - `target_capability_ids[]`
+  - `use_capability_context`
+  - `include_examples`
+  - `include_schema`
+  - `repeat_full_intro`
+  - `needs_clarification`
+  - `missing_fields[]`
+  - `reason`
+  - `model_selection`
+  - `created_at`
+- **规则**:
+  - `response_mode` 是主回答模式，负责选择上下文策略。
+  - `response_intents[]` 是同一条用户消息里的可组合意图，例如 `greeting/agent_identity/capability_intro/test_recommendation` 可以同时存在。
+  - `answer_requirements[]` 是最终回复必须满足的回答要求；`recent_capability_intro` 只能影响展开程度，不能删除当前消息要求回答的问题。
+  - `target_capability_ids[]` 必须来自当前 Agent 已绑定、已发布、租户可见且权限通过的能力集合。
+  - `reason` 只进入 trace/debug，不直接展示给终端用户。
+  - ResponsePlan 可以作为 Trace artifact，也可以将摘要写入 message meta；不得在普通 message meta 中保存完整 prompt 或敏感上下文。
+
+## ResponseGuidance
+
+- **标识**: `response_guidance`
+- **作用**: 表示 Agent/Skill 给 Final Response 的表达规范材料。它不是 Core Runtime 的业务分支，而是由 Agent 配置和 Skill metadata 提供的数据。
+- **来源**:
+  - Agent `persona`
+  - Agent `prompt_seed`
+  - Skill `manifest_json.response_guidance`
+  - Skill `manifest_json.prompt_spec.response_guidance`
+- **标准分组**:
+  - `general`
+  - `capability_intro`
+  - `capability_howto`
+  - `clarify_params`
+  - `skill_execution`
+  - `error_explain`
+- **运行态映射**:
+  - `ToolCallCandidate.ResponseGuidance`
+  - `CapabilityContextItem.ResponseGuidance`
+  - `[CONTEXT-L1 CAPABILITIES]` 的 `回复规范`
+- **规则**:
+  - Core Runtime 只负责抽取、去重、保留 mode 标签和拼装上下文。
+  - 业务字段规则、执行话术、行业示例必须写入 Agent/Skill 数据，不得写进 Core prompt 代码。
+  - `response_guidance` 不得携带租户、用户、token、session 或权限判断等运行时身份信息。
+  - `general` 可作为所有 mode 的通用规范；其他分组必须按 `mode: text` 形式进入候选能力上下文。
+
+## AssistantMessageMeta
+- **标识**: `message_id`
+- **作用**: assistant 消息的结构化 metadata，用于上下文去重、追问、质量评估和 Trace 关联。
+- **核心字段**:
+  - `response_mode`
+  - `capability_ids[]`
+  - `response_plan_id`
+  - `used_context_layers[]`
+  - `tool_calls[]`
+  - `final_response_model`
+  - `model_selection`
+  - `trace_id`
+  - `run_id`
+  - `plan_id`
+- **规则**:
+  - 去重判断必须基于 `response_mode/capability_ids` 等 meta，不得依赖自然语言文本匹配。
+  - `capability_ids[]` 只能包含当前 Agent 可见能力。
+  - 不得保存完整 executor payload、原始 prompt 或敏感 context；这些内容必须进入受控 artifact。
+
+## AgentContextDriver
+- **作用**: 定义 Agent Runtime 中上下文来源的职责边界。
+- **驱动分层**:
+  - `runtime_memory`: 本轮请求过程态，例如 ResponsePlan、节点输出、短生命周期执行状态。
+  - `postgres`: 权威源，保存 session/message/message meta、Skill Registry、Agent-Skill Binding、模型策略、结构化摘要、context_ref metadata。
+  - `redis`: 短 TTL 缓存，保存 planner decision、response_plan、候选快照、recent meta hot window。
+  - `local_file`: 本地 Agent Trace artifact，路径为 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}`。
+  - `loki`: 生产 Agent Trace 事件检索源。
+  - `object_storage`: 大型 prompt/context/tool payload artifact，DB 保存 URI/checksum。
+- **规则**:
+  - Runtime Memory 不得作为权限、候选、会话或 message meta 的唯一事实来源。
+  - Redis key 必须包含租户、Agent、Session、候选指纹或策略版本，禁止跨租户复用。
+  - Context Builder 必须以 DB 权威记录为准，Redis 命中只能加速。
+  - Trace/Report 存储不替代业务会话主数据。
+  - PostgreSQL 默认保存 session/message/message meta、结构化摘要、context_ref、checksum、artifact URI 与配置；完整 prompt、完整上下文正文、tool payload、executor result 不默认入库。
+  - Root 调试页面的上下文状态面板读取 message meta 与 Agent Trace 节点摘要；完整上下文正文必须通过受控 Trace artifact、Loki body 或对象存储引用下载。
+
 ## AgentChatSession Summary Schema（扩展）
 - **目标**: 从纯文本摘要升级为结构化摘要。
 - **建议结构**:
+  - `schema`
   - `facts[]`
   - `decisions[]`
   - `open_issues[]`
   - `constraints[]`
+  - `source_summary_ids[]`
+  - `from_message_id`
+  - `to_message_id`
+  - `compressed_messages`
+  - `recent_messages_kept`
+  - `compression_policy`
+  - `previous_summary_at`
+  - `last_compressed_trace_id`
   - `updated_at`
+- **首版持久化**:
+  - 每次压缩必须插入 `agent_chat_context_summaries`。
+  - 当前 active summary 快照保存在 `agent_chat_sessions.summary`。
+  - `agent_chat_sessions.summary_at` 保存最新摘要更新时间。
+  - `agent_chat_sessions.meta.active_context_summary_id` 指向当前 active summary 对应的压缩记录。
+  - 被 active summary 覆盖的非 pinned 旧消息可以从 `agent_chat_messages` 删除，以控制业务表体积。
+  - 完整上下文正文、完整 prompt 与 executor payload 不进入 `summary`。
+- **表职责**:
+  - `agent_chat_context_summaries` 是压缩历史、审计、报告和回放事实来源。
+  - `agent_chat_sessions.summary` 是运行时 active snapshot，不承载历史版本职责。
 - **兼容策略**:
   - 旧文本摘要可继续读取
   - 新写入优先结构化 JSON，必要时降级为文本镜像
+
+## AgentChatContextSummary
+- **表名**: `agent_chat_context_summaries`
+- **作用**: 保存每次 Agent 会话上下文压缩记录，与 `agent_chat_sessions.summary` 的 active snapshot 配合使用。
+- **核心字段**:
+  - `summary_id`
+  - `source_summary_id`
+  - `tenant_uuid`
+  - `session_id`
+  - `agent_id`
+  - `user_id`
+  - `schema`
+  - `from_message_id`
+  - `to_message_id`
+  - `compressed_messages`
+  - `recent_messages_kept`
+  - `compression_policy`
+  - `summary_json`
+  - `summary_text`
+  - `checksum`
+  - `artifact_uri`
+  - `meta`
+- **规则**:
+  - 每次 compact 必须新增一条记录，不覆盖旧记录。
+  - `summary_id` 必须写回 `agent_chat_sessions.meta.active_context_summary_id`。
+  - `summary_json` 保存结构化摘要；`summary_text` 是可读镜像，不作为唯一事实源。
+  - `artifact_uri` 只保存受控 artifact 引用，不直接存完整 prompt 或敏感 payload。
 
 ## SkillLifecycleAudit
 - **标识**: `audit_id`

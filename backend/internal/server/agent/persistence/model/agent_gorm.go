@@ -17,9 +17,10 @@ const (
 	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
 	TableAgentPluginLink       = "agent_plugin_links"
 
-	TableAgentChatSession   = "agent_chat_sessions"
-	TableAgentChatMessage   = "agent_chat_messages"
-	TableAgentRuntimeConfig = "agent_runtime_configs"
+	TableAgentChatSession    = "agent_chat_sessions"
+	TableAgentChatMessage    = "agent_chat_messages"
+	TableAgentContextSummary = "agent_chat_context_summaries"
+	TableAgentRuntimeConfig  = "agent_runtime_configs"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------

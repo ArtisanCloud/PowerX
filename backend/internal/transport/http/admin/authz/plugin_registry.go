@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	ScopePluginSkillRegistrySync = "_scope.plugin.skill_registry.sync"
-	ScopePluginAgentRegistrySync = "_scope.plugin.agent_registry.sync"
+	ScopePluginSkillRegistrySync     = "_scope.plugin.skill_registry.sync"
+	ScopePluginAgentRegistrySync     = "_scope.plugin.agent_registry.sync"
+	ScopePluginCapabilityCatalogSync = "_scope.plugin.capability_catalog.sync"
 )
 
 // PluginRegistrySyncMiddleware allows root callers and API keys with the required plugin registry sync scope.

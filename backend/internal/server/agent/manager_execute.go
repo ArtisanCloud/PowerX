@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"sort"
 	"strconv"
 	"strings"
@@ -626,12 +627,18 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	taskID := firstNonEmpty(t.HandoffTaskID, t.TaskID)
 	failurePolicy := firstNonEmpty(strings.ToLower(strings.TrimSpace(t.FailurePolicy)), asString(t.Params["failure_policy"]), asString(params["failure_policy"]), "continue")
 	teamID := firstNonEmpty(t.TeamID, asString(t.Params["team_id"]), asString(params["team_id"]))
+	teamName := firstNonEmpty(asString(t.Params["team_name"]), asString(params["team_name"]))
 	sessionID := firstPositiveUint64(asUint64(params["session_id"]), asUint64(t.Params["session_id"]))
 	handoffTraceID := firstNonEmpty(asString(mt.Metadata["trace_id"]), mt.TraceID, fmt.Sprintf("handoff_%d", time.Now().UnixNano()))
 
 	payload := payloadFromTaskParams(t, params)
 	contextMap := contextFromTaskParams(t, params)
 	contextMap["context_ref_id"] = contextRefID
+	contextMap["team_id"] = teamID
+	contextMap["team_name"] = teamName
+	contextMap["parent_agent_id"] = firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["parent_agent_id"]))
+	contextMap["child_agent_id"] = childAgentID
+	contextMap["child_agent_key"] = childAgentKey
 
 	in := AgentHandoffInput{
 		TenantUUID:     firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
@@ -673,6 +680,10 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 				"node_kind":       "agent_handoff",
 				"node_ref":        firstNonEmpty(ref, flowID),
 				"team_id":         teamID,
+				"team_name":       teamName,
+				"parent_agent_id": in.ParentAgentID,
+				"child_agent_id":  in.ChildAgentID,
+				"child_agent_key": childAgentKey,
 				"handoff_task_id": out.TaskID,
 				"failure_policy":  failurePolicy,
 				"context_ref_id":  contextRefID,
@@ -713,6 +724,10 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	out.Metadata["node_kind"] = "agent_handoff"
 	out.Metadata["node_ref"] = firstNonEmpty(ref, flowID)
 	out.Metadata["team_id"] = teamID
+	out.Metadata["team_name"] = teamName
+	out.Metadata["parent_agent_id"] = in.ParentAgentID
+	out.Metadata["child_agent_id"] = in.ChildAgentID
+	out.Metadata["child_agent_key"] = childAgentKey
 	out.Metadata["handoff_task_id"] = taskID
 	out.Metadata["failure_policy"] = failurePolicy
 	out.Metadata["context_ref_id"] = contextRefID
@@ -754,6 +769,14 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	in.Context["node_id"] = in.NodeID
 	in.Context["plugin_id"] = in.PluginID
 	in.Context["capability_id"] = in.CapabilityID
+	logger.InfoF(ctx, "[agent.skill.invoke] skill_id=%s action=%s capability_id=%s plugin_id=%s trace_id=%s payload=%s",
+		in.SkillID,
+		firstNonEmpty(asString(in.Payload["action"]), asString(in.Payload["operation"]), asString(params["action"]), asString(t.Params["action"])),
+		in.CapabilityID,
+		in.PluginID,
+		in.TraceID,
+		utils.J(in.Payload),
+	)
 	out, err := inv(ctx, in)
 	if err != nil {
 		return nil, err
@@ -796,11 +819,65 @@ func pickSkillVisibleContent(result map[string]any) string {
 	if len(result) == 0 {
 		return ""
 	}
+	if s := pickTemplateVisibleContent(result); s != "" {
+		return s
+	}
 	for _, key := range []string{"content", "rendered_text", "text", "output", "answer", "message"} {
 		if v, ok := result[key]; ok {
 			if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
 				return s
 			}
+		}
+	}
+	return ""
+}
+
+func pickTemplateVisibleContent(result map[string]any) string {
+	action := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", result["action"])))
+	if action == "" {
+		return ""
+	}
+	rawTemplate, ok := result["template"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	id := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(result["template_id"], rawTemplate["id"])))
+	title := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(rawTemplate["title"], rawTemplate["name"])))
+	detailPath := strings.TrimSpace(fmt.Sprintf("%v", rawTemplate["detail_path"]))
+	switch action {
+	case "create":
+		parts := []string{"模板已创建成功。"}
+		if title != "" {
+			parts = append(parts, "标题："+title)
+		}
+		if id != "" {
+			parts = append(parts, "ID："+id)
+		}
+		if detailPath != "" {
+			parts = append(parts, "查看："+detailPath)
+		}
+		return strings.Join(parts, "\n")
+	case "update":
+		parts := []string{"模板已更新成功。"}
+		if title != "" {
+			parts = append(parts, "标题："+title)
+		}
+		if id != "" {
+			parts = append(parts, "ID："+id)
+		}
+		if detailPath != "" {
+			parts = append(parts, "查看："+detailPath)
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return ""
+	}
+}
+
+func firstNonEmptyAny(values ...any) any {
+	for _, value := range values {
+		if strings.TrimSpace(fmt.Sprintf("%v", value)) != "" && strings.TrimSpace(fmt.Sprintf("%v", value)) != "<nil>" {
+			return value
 		}
 	}
 	return ""

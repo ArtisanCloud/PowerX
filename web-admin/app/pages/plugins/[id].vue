@@ -601,7 +601,10 @@ const latestDrainJob = computed(() => drainJobs.value[0] || null);
 const currentDrainJob = computed(() => {
   return blockingDrainJob.value || latestDrainJob.value || null;
 });
+const currentOperationalDrainJob = computed(() => blockingDrainJob.value || null);
 const drainBlockerData = computed(() => {
+  const summary = currentDrainJob.value?.last_blocker_summary || currentDrainJob.value?.LastBlockerSummary;
+  if (summary && typeof summary === "object") return summary;
   const raw = currentDrainJob.value?.last_blocker_json || currentDrainJob.value?.LastBlockerJSON;
   if (!raw) return null;
   return typeof raw === "string" ? safeParseJSON(raw) : raw;
@@ -663,18 +666,21 @@ const normalizedTenantStatus = computed(() => (tenantStatus.value || "").toLower
 const normalizedDrainJobStatus = computed(() =>
   String(currentDrainJob.value?.status || "").toLowerCase()
 );
+const normalizedOperationalDrainJobStatus = computed(() =>
+  String(currentOperationalDrainJob.value?.status || "").toLowerCase()
+);
 const currentDrainPurpose = computed(() => {
-  const reason = String(currentDrainJob.value?.reason || "").toLowerCase();
+  const reason = String(currentOperationalDrainJob.value?.reason || "").toLowerCase();
   if (reason.includes("disable")) return "disable";
   if (reason.includes("uninstall")) return "uninstall";
   return "manual";
 });
 const isDrainActive = computed(() => {
-	if (DRAIN_ACTIVE_JOB_STATUSES.has(normalizedDrainJobStatus.value)) return true;
+	if (DRAIN_ACTIVE_JOB_STATUSES.has(normalizedOperationalDrainJobStatus.value)) return true;
 	return false;
 });
 const isDrained = computed(() => {
-  if (DRAIN_READY_JOB_STATUSES.has(normalizedDrainJobStatus.value)) return true;
+  if (DRAIN_READY_JOB_STATUSES.has(normalizedOperationalDrainJobStatus.value)) return true;
   return false;
 });
 const isReadyForDisable = computed(
@@ -923,7 +929,7 @@ async function toggleEnable() {
     if (sysEnabled.value) {
       const { useConfirm } = await import("~/composables/useConfirm");
       const { confirm } = useConfirm();
-      if (!isDrained.value && !currentDrainJob.value) {
+      if (!isDrained.value && !currentOperationalDrainJob.value) {
         const ok = await confirm({
           title: "停用前需要 drain",
           description: "停用前必须先 drain，系统会先阻断新增使用入口并等待存量任务完成。",
@@ -937,7 +943,7 @@ async function toggleEnable() {
         pendingStopDrainJob.value = job;
         await refreshLatestDrainJobProgress();
         await refreshDrainJobs();
-        const stopDrainStatus = String(job?.status || pendingStopDrainJob.value?.status || currentDrainJob.value?.status || "").toLowerCase();
+        const stopDrainStatus = String(job?.status || pendingStopDrainJob.value?.status || currentOperationalDrainJob.value?.status || "").toLowerCase();
         if (!DRAIN_READY_JOB_STATUSES.has(stopDrainStatus)) {
           toast.add({
             title: "等待 drain 完成",
@@ -948,7 +954,7 @@ async function toggleEnable() {
           return;
         }
       }
-      if (!isDrained.value && currentDrainJob.value && !DRAIN_READY_JOB_STATUSES.has(normalizedDrainJobStatus.value)) {
+      if (!isDrained.value && currentOperationalDrainJob.value && !DRAIN_READY_JOB_STATUSES.has(normalizedOperationalDrainJobStatus.value)) {
         toast.add({
           title: "等待 drain 完成",
           description: "当前插件正在 drain，完成后才能停用。",

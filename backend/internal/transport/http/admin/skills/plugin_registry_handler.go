@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -70,6 +71,9 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		"source":          "plugin",
 		"sync_source":     "plugin_registry",
 	}
+	if actions := actionCapabilitiesFromExecutor(manifest["executor"]); len(actions) > 0 {
+		manifest["action_capabilities"] = actions
+	}
 	raw, err := json.Marshal(manifest)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid manifest", err)
@@ -107,6 +111,40 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		"source":          record.Source,
 		"checksum":        record.Checksum,
 	})
+}
+
+func actionCapabilitiesFromExecutor(executor any) map[string]string {
+	raw, ok := executor.(map[string]any)
+	if !ok {
+		if rawInterface, okInterface := executor.(map[string]interface{}); okInterface {
+			raw = rawInterface
+		}
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+	actionMap, ok := raw["action_map"].(map[string]any)
+	if !ok {
+		if typed, okTyped := raw["action_map"].(map[string]string); okTyped {
+			out := make(map[string]string, len(typed))
+			for k, v := range typed {
+				if strings.TrimSpace(k) != "" && strings.TrimSpace(v) != "" {
+					out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+				}
+			}
+			return out
+		}
+		return nil
+	}
+	out := make(map[string]string, len(actionMap))
+	for k, v := range actionMap {
+		key := strings.TrimSpace(k)
+		value := strings.TrimSpace(firstNonEmpty(fmt.Sprint(v)))
+		if key != "" && value != "" && value != "<nil>" {
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func decodeRaw(raw json.RawMessage, fallback any) any {

@@ -213,7 +213,10 @@ func (s *TeamService) UpsertMember(ctx context.Context, in TeamMemberUpsertInput
 		return nil, ErrTeamMemberAgent
 	}
 	role := strings.ToLower(strings.TrimSpace(in.Role))
-	if role == "planner" {
+	if role == "" {
+		role = modelagent.DefaultChildTeamRole()
+	}
+	if !modelagent.IsChildTeamRole(role) {
 		return nil, ErrTeamMemberRole
 	}
 	rec := &modelagent.AgentTeamMember{

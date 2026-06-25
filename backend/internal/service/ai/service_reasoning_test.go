@@ -100,6 +100,30 @@ func TestApplyReasoningConfig_QwenIntlThinkingSwitchAndBudget(t *testing.T) {
 	}
 }
 
+func TestApplyLLMRuntimeExtras_OllamaNumCtx(t *testing.T) {
+	mc := &aiconfig.ModelConfig{}
+	applyLLMRuntimeExtras("ollama", mc, map[string]any{"num_ctx": 8192}, map[string]interface{}{"num_ctx": 32768})
+	if mc.Extra["num_ctx"] != 32768 {
+		t.Fatalf("expected request num_ctx override, got %+v", mc.Extra["num_ctx"])
+	}
+}
+
+func TestApplyLLMRuntimeExtras_OllamaContextWindowAlias(t *testing.T) {
+	mc := &aiconfig.ModelConfig{}
+	applyLLMRuntimeExtras("ollama", mc, nil, map[string]interface{}{"context_window": "16384"})
+	if mc.Extra["num_ctx"] != 16384 {
+		t.Fatalf("expected context_window alias mapped to num_ctx, got %+v", mc.Extra["num_ctx"])
+	}
+}
+
+func TestApplyLLMRuntimeExtras_NonOllamaIgnored(t *testing.T) {
+	mc := &aiconfig.ModelConfig{}
+	applyLLMRuntimeExtras("openai", mc, map[string]any{"num_ctx": 8192}, map[string]interface{}{"num_ctx": 32768})
+	if len(mc.Extra) != 0 {
+		t.Fatalf("expected non-ollama num_ctx ignored, got %+v", mc.Extra)
+	}
+}
+
 func TestStripThinkingTags(t *testing.T) {
 	in := "<think>\nprivate chain\n</think>\n\n{\"intent\":\"start_new_design\",\"confidence\":0.95}"
 	out := stripThinkingTags(in)

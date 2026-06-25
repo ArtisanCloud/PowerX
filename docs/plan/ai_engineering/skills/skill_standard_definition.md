@@ -132,10 +132,8 @@ capability: powerxplugin.template.crud
 visibility: tenant
 status: active
 executor:
-  type: plugin_http
-  method: POST
-  path: /api/v1/plugin/skills/invoke
-input_schema: ./schema.input.json
+  type: capability
+  method: POSTinput_schema: ./schema.input.json
 output_schema: ./schema.output.json
 ---
 
@@ -145,7 +143,7 @@ output_schema: ./schema.output.json
 当用户希望创建、查询、更新、删除模板对象时使用。
 
 ## Instructions
-将自然语言意图转换为结构化 action，并调用插件 executor。
+将自然语言意图转换为结构化 action，并调用插件 capability handler。
 ```
 
 规则：
@@ -157,6 +155,49 @@ output_schema: ./schema.output.json
 5. `scripts/references/assets` 可选，但必须纳入 checksum。
 6. 导入数据库时必须保存 `raw_markdown/frontmatter_json/package_checksum/package_uri`，确保可审计、可导出、可漂移检测。
 7. PowerX Agent Runtime 运行时读取数据库治理态记录，不直接依赖插件文件系统。
+
+### 4.3 Agent Run State 展示元数据
+
+Skill 包除了描述“什么时候用”和“怎么执行”，还必须能为 Agent Run State Protocol 提供可展示的任务语义。Core 不硬编码业务字段，缺参、补参和结果链接来自 Skill manifest 与 Agent persona/prompt_seed。
+
+推荐字段：
+
+```yaml
+action_required_args:
+  create:
+    - object.title
+    - object.description
+    - object.content
+
+action_optional_args:
+  list:
+    - q
+    - page
+    - page_size
+
+slot_mapping:
+  object.title:
+    labels: ["标题", "名称"]
+
+pending_task_policy:
+  enabled: true
+  merge_window_messages: 6
+  merge_window_seconds: 900
+
+result_presentation:
+  create:
+    title: "对象已创建"
+    primary_link: "object.detail_path"
+```
+
+这些字段进入 PowerX 治理态后，由 Agent Runtime 用于：
+
+1. 判断 action 必填参数是否齐全。
+2. 生成 `agent_run.awaiting_params` 与 `agent_run.task_status`。
+3. 在 PowerX Web Admin 与 PowerXPlugin 调试页渲染统一任务卡片。
+4. 约束 Final Response：没有真实 `task_completed/result` 时不得声称业务已完成。
+
+完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。
 
 ## 5. Agent 如何调度 Skill（PowerX 调度原理）
 

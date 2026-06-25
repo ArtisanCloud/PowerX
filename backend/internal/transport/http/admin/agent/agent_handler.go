@@ -286,8 +286,8 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		Description:      req.Description,
 		TypeID:           utils.FirstNonEmpty(req.TypeID, extractMetaString(req.Meta, "type_id"), extractMetaString(req.Meta, "typeId")),
 		Scene:            utils.FirstNonEmpty(req.Scene, extractMetaString(req.Meta, "scene")),
-		PromptSeed:       utils.FirstNonEmpty(req.PromptSeed, extractMetaString(req.Meta, "prompt_seed"), extractMetaString(req.Meta, "promptSeed")),
-		Persona:          utils.FirstNonEmpty(req.Persona, extractMetaPersona(req.Meta)),
+		PromptSeed:       strings.TrimSpace(req.PromptSeed),
+		Persona:          strings.TrimSpace(req.Persona),
 		Source:           source,
 		OwnerPluginID:    ownerPluginID,
 		OwnerTenantUUID:  ownerTenantUUID,
@@ -492,22 +492,6 @@ func extractMetaString(meta datatypes.JSONMap, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(v))
-}
-
-func extractMetaPersona(meta datatypes.JSONMap) string {
-	if p := extractMetaString(meta, "persona"); p != "" {
-		return p
-	}
-	raw, ok := meta["parameters"]
-	if !ok {
-		return ""
-	}
-	switch m := raw.(type) {
-	case map[string]interface{}:
-		return strings.TrimSpace(fmt.Sprint(m["persona"]))
-	default:
-		return ""
-	}
 }
 
 func extractMetaStringSlice(meta datatypes.JSONMap, keys ...string) []string {

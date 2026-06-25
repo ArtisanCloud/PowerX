@@ -9,12 +9,15 @@ import (
 type ModelPolicyNode string
 
 const (
-	ModelPolicyNodeRuntimeIntent  ModelPolicyNode = "runtime_intent"
-	ModelPolicyNodeIntent         ModelPolicyNode = "intent_classifier"
-	ModelPolicyNodePlanner        ModelPolicyNode = "planner"
-	ModelPolicyNodeParamExtractor ModelPolicyNode = "skill_param_extractor"
-	ModelPolicyNodeFinalResponse  ModelPolicyNode = "final_response"
-	ModelPolicyNodeReviewer       ModelPolicyNode = "reviewer"
+	ModelPolicyNodeRuntimeIntent   ModelPolicyNode = "runtime_intent"
+	ModelPolicyNodeIntent          ModelPolicyNode = "intent_classifier"
+	ModelPolicyNodePlanner         ModelPolicyNode = "planner"
+	ModelPolicyNodeParamExtractor  ModelPolicyNode = "skill_param_extractor"
+	ModelPolicyNodeResponsePlanner ModelPolicyNode = "response_planner"
+	ModelPolicyNodeContextBuilder  ModelPolicyNode = "context_builder"
+	ModelPolicyNodeFinalResponse   ModelPolicyNode = "final_response"
+	ModelPolicyNodeErrorExplain    ModelPolicyNode = "error_explain"
+	ModelPolicyNodeReviewer        ModelPolicyNode = "reviewer"
 )
 
 type NodeModelSelection struct {
@@ -47,7 +50,9 @@ func BuildDefaultNodeModelPolicy(cfg *dto.ChatConfig) NodeModelPolicy {
 		ModelPolicyNodeIntent,
 		ModelPolicyNodePlanner,
 		ModelPolicyNodeParamExtractor,
+		ModelPolicyNodeResponsePlanner,
 		ModelPolicyNodeFinalResponse,
+		ModelPolicyNodeErrorExplain,
 		ModelPolicyNodeReviewer,
 	} {
 		policy.Selections[string(node)] = NodeModelSelection{
@@ -62,6 +67,11 @@ func BuildDefaultNodeModelPolicy(cfg *dto.ChatConfig) NodeModelPolicy {
 		Node:   ModelPolicyNodeRuntimeIntent,
 		Mode:   "deterministic",
 		Source: "runtime_command",
+	}
+	policy.Selections[string(ModelPolicyNodeContextBuilder)] = NodeModelSelection{
+		Node:   ModelPolicyNodeContextBuilder,
+		Mode:   "deterministic",
+		Source: "runtime_context",
 	}
 	return policy
 }

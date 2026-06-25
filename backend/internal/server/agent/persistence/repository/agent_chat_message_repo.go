@@ -209,6 +209,48 @@ func (r *AgentChatMessageRepository) ListOldestN(
 	return out, nil
 }
 
+// ListCompressibleBeforeLatestN returns non-pinned messages that are older than
+// the latest keepLatest messages. It is used by rolling context compression to
+// summarize old history while preserving a raw recent window.
+func (r *AgentChatMessageRepository) ListCompressibleBeforeLatestN(
+	ctx context.Context,
+	env string, tenantUUID *string,
+	sessionID uint64,
+	keepLatest int,
+	limit int,
+) ([]dbmodel.AgentChatMessage, error) {
+	if keepLatest < 0 {
+		keepLatest = 0
+	}
+	if limit <= 0 {
+		limit = 500
+	}
+	var keepIDs []uint64
+	if keepLatest > 0 {
+		if err := r.db.WithContext(ctx).
+			Model(&dbmodel.AgentChatMessage{}).
+			Scopes(dbmodel.WithScope(env, tenantUUID)).
+			Where("session_id = ?", sessionID).
+			Order("id DESC").
+			Limit(keepLatest).
+			Pluck("id", &keepIDs).Error; err != nil {
+			return nil, err
+		}
+	}
+	tx := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("session_id = ?", sessionID).
+		Where("pinned = ?", false)
+	if len(keepIDs) > 0 {
+		tx = tx.Where("id NOT IN ?", keepIDs)
+	}
+	var out []dbmodel.AgentChatMessage
+	if err := tx.Order("id ASC").Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // 批量按 ID 删除（用于按策略裁剪）
 func (r *AgentChatMessageRepository) DeleteByIDs(
 	ctx context.Context, env string, tenantUUID *string, ids []uint64,

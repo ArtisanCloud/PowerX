@@ -14,6 +14,7 @@ import (
 	"time"
 
 	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
+	registryservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -40,6 +41,7 @@ type SyncWorkerConfig struct {
 	Audit           *AuditService
 	Alerting        CapabilityAlerting
 	WorkflowCatalog *WorkflowCatalog
+	TenantUUID      string
 }
 
 // SyncWorker ingests plugin artifacts and persists CapabilityRecords.
@@ -53,6 +55,8 @@ type SyncWorker struct {
 	audit           *AuditService
 	alerting        CapabilityAlerting
 	workflowCatalog *WorkflowCatalog
+	registrySvc     *registryservice.Service
+	tenantUUID      string
 }
 
 // NewSyncWorker constructs a new worker instance.
@@ -92,7 +96,18 @@ func NewSyncWorker(cfg SyncWorkerConfig) *SyncWorker {
 		audit:           audit,
 		alerting:        cfg.Alerting,
 		workflowCatalog: cfg.WorkflowCatalog,
+		registrySvc:     registryservice.NewService(registryservice.ServiceOptions{DB: cfg.DB, Clock: clock}),
+		tenantUUID:      strings.TrimSpace(cfg.TenantUUID),
 	}
+}
+
+func (w *SyncWorker) WithTenant(tenantUUID string) *SyncWorker {
+	if w == nil {
+		return nil
+	}
+	next := *w
+	next.tenantUUID = strings.TrimSpace(tenantUUID)
+	return &next
 }
 
 // ProcessArtifact processes a plugin artifact located at path (directory or .pxp archive).
@@ -298,8 +313,102 @@ func (w *SyncWorker) syncCapability(ctx context.Context, artifactPath, root stri
 		syncErr = err
 		return syncErr
 	}
+	if err := w.syncCapabilityRegistration(ctx, capabilityID, capability); err != nil {
+		syncErr = err
+		return syncErr
+	}
 
 	return nil
+}
+
+func (w *SyncWorker) syncCapabilityRegistration(ctx context.Context, capabilityID string, capability catalogCapability) error {
+	tenantUUID := strings.TrimSpace(w.tenantUUID)
+	if tenantUUID == "" {
+		return nil
+	}
+	if w.registrySvc == nil {
+		return errors.New("capability registry service is not configured")
+	}
+	adapters := make([]registryservice.AdapterEndpoint, 0, len(capability.Protocols))
+	for _, protocol := range capability.Protocols {
+		adapter := registrationAdapterFromProtocol(capabilityID, protocol)
+		if adapter.AdapterID == "" {
+			continue
+		}
+		adapters = append(adapters, adapter)
+	}
+	if len(adapters) == 0 {
+		return fmt.Errorf("capability %s has no executable protocol adapters", capabilityID)
+	}
+	latest, err := w.registrySvc.GetRegistration(ctx, capabilityID, tenantUUID, registryservice.GetRegistrationOptions{IncludeDisabled: true})
+	payload := registryservice.RegistrationPayload{
+		CapabilityID: capabilityID,
+		TenantUUID:   tenantUUID,
+		ContractRef:  defaultString(capability.Version, "1.0.0"),
+		Status:       "published",
+		Adapters:     adapters,
+		RoutingPolicy: registryservice.RoutingPolicy{
+			Strategy: "weighted_round_robin",
+		},
+	}
+	if err == nil {
+		payload.Version = latest.Version
+		_, err = w.registrySvc.UpdateRegistration(ctx, registryservice.UpdateRegistrationInput{
+			Registration: payload,
+			Actor:        "capability_sync",
+		})
+		return err
+	}
+	if !errors.Is(err, registryservice.ErrRegistrationNotFound) {
+		return err
+	}
+	_, err = w.registrySvc.CreateRegistration(ctx, registryservice.CreateRegistrationInput{
+		Registration: payload,
+		Actor:        "capability_sync",
+	})
+	return err
+}
+
+func defaultString(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func registrationAdapterFromProtocol(capabilityID string, protocol models.ProtocolBinding) registryservice.AdapterEndpoint {
+	channel := strings.TrimSpace(protocol.Channel)
+	if channel == "" {
+		return registryservice.AdapterEndpoint{}
+	}
+	adapterID := strings.TrimSpace(protocol.ToolRef)
+	if adapterID == "" {
+		adapterID = strings.TrimSpace(protocol.RPC)
+	}
+	if adapterID == "" {
+		adapterID = strings.TrimSpace(protocol.Method)
+	}
+	if adapterID == "" {
+		adapterID = channel
+	}
+	endpoint := strings.TrimSpace(protocol.Endpoint)
+	serviceRef := strings.TrimSpace(protocol.RPC)
+	if serviceRef == "" {
+		serviceRef = strings.TrimSpace(protocol.ToolRef)
+	}
+	return registryservice.AdapterEndpoint{
+		AdapterID:     capabilityID + "." + adapterID,
+		TransportType: channel,
+		Endpoint:      endpoint,
+		ServiceRef:    serviceRef,
+		Weight:        100,
+		TimeoutMS:     30000,
+		Labels: map[string]string{
+			"source": "plugin_catalog",
+		},
+		IsActive: true,
+	}
 }
 
 func (w *SyncWorker) syncWorkflowTemplates(ctx context.Context, capabilityID string, templates []catalogWorkflowTemplate, capabilityHash string) error {

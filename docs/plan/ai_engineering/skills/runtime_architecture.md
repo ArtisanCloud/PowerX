@@ -4,8 +4,11 @@
 
 补充机制：
 
-1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Skill，插件仅作为 Skill Executor 执行业务。
+1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Agent 已绑定 Skill，Skill action 映射到 capability_id，最终通过 PowerX Capability Invocation 执行业务。
 2. Agent Runtime 结构化日志、节点追踪与报告下载机制见 [`agent_run_trace_report.md`](./agent_run_trace_report.md)。所有 Agent 主入口、Skill/Tooling 节点、插件 Skill Bridge 调用都必须写入同一套 Agent Run Trace。
+3. PowerX Core 自有 A2A 多智能体协作机制见 [`multi_agent_a2a.md`](./multi_agent_a2a.md)。A2A 是底座 Agent Runtime 内部的 `agent_handoff` 编排能力，不依赖插件 capability handler；插件 Skill 只是在后续可作为子 Agent 绑定能力进入候选池。
+4. Agent 最终回复的 ResponsePlanner、Context Builder 与 Final Response 分层机制见 [`agent_response_planning.md`](./agent_response_planning.md)。自然语言回答不得直接复述全局候选池，必须先生成 `response_plan`，再按 `response_mode` 选择上下文并落库 message meta。
+5. Agent 对话、团队任务、插件调试页展示多任务/多智能体执行过程时，必须遵循 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。`agent_run.*` 是 Runtime 与 UI 的共享状态协议，覆盖 task 状态、缺参等待、执行结果链接和 trace 精确定位。
 
 ## 1. 总体架构
 
@@ -13,7 +16,7 @@ Skill 运行时支持两条路径：
 
 1. 路径A：Agent 内 SkillRunner
 2. 路径B：Capability Gateway 的 SkillAdapter（`preferred_protocol=skill`）
-3. 路径C：Agent Skill Bridge 调用插件 Skill Executor（`plugin_http` / delegated runtime）
+3. 路径C：Agent Skill Bridge 将插件 Skill action 解析为 capability invocation（`executor.type=capability`）
 
 两条路径共享：
 
@@ -169,13 +172,17 @@ Agent Runtime 必须支持节点级模型选择。首版可以全部继承 Agent
 7. 输出到 Agent stream（intent/plan/node_start/token/node_end/final）
 8. 写审计与指标（trace_id + plan_id + node_id）
 
-当计划节点命中 `source=plugin` 且 executor 类型为 `plugin_http` 时，SkillRunner 不直接调用插件领域业务 URL，而是通过 Agent Skill Bridge 组装 `PluginSkillInvocation`，携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id` 调用插件统一入口：
+当计划节点命中 `source=plugin` 的 Skill 时，SkillRunner 不调用插件 Skill 私有 executor。它必须读取 Skill Manifest 的 `action_capabilities` 或 `executor.action_map`，将 planner 提取的 `action` 解析为 `capability_id`，再进入 PowerX Capability Invocation。
 
 ```text
-POST /api/v1/plugin/skills/invoke
+Agent skill node
+  -> Skill Manifest action_capabilities[action]
+  -> capability_id
+  -> PowerX Capability Invocation
+  -> Plugin capability handler
 ```
 
-插件内部可将该调用分发到领域服务，但该内部映射不得暴露为渠道或移动端的长期直接入口。
+如果 action 为空、映射缺失、capability 未注册、租户无权访问或插件实例不可用，必须 fail-fast，并写入 Agent Trace。不得回退到插件私有 Skill 执行入口或插件私有业务 URL。
 
 组合规划可追溯元信息（落地约束）：
 
@@ -206,29 +213,29 @@ POST /api/v1/plugin/skills/invoke
 5. 返回统一 envelope（trace/status/protocol/result）
 6. 写 InvocationTrace 与审计事件
 
-## 3.1 插件 Executor 路径（Agent Skill Bridge）
+## 3.1 插件 Capability 路径（Agent Skill Bridge）
 
 触发条件：
 
 1. Agent Planner 选择 `source=plugin` 的 Skill。
-2. Skill Manifest 中 executor 声明 `type=plugin_http` 或 delegated runtime。
+2. Skill Manifest 中 executor 声明 `type=capability`。
 3. 当前租户已安装并启用对应插件实例。
 
 执行流程：
 
 1. PowerX 从治理态 Skill Registry 读取插件 Skill Manifest 快照。
 2. 校验 Skill 已发布、租户可见、Agent 已绑定、tool_grants/source allowlist 通过。
-3. 通过 STS/delegated context 解析插件调用凭证和 endpoint。
-4. 组装 `PluginSkillInvocation`，注入租户、用户、Agent、Session、Message、Channel、Trace 上下文。
-5. 调用插件统一 executor：`POST /api/v1/plugin/skills/invoke`。
-6. 插件校验上下文并执行领域任务。
-7. PowerX 归一化 `PluginSkillResult`，写入 Agent Stream、会话消息、trace/audit。
+3. 从 `action_capabilities` 或 `executor.action_map` 解析 action 对应的 `capability_id`。
+4. 组装 Capability Invocation，注入租户、用户、Agent、Session、Message、Channel、Trace 上下文。
+5. 调用 PowerX Capability Invocation，由 Gateway/Router 选择插件 capability adapter。
+6. 插件 capability handler 校验上下文并执行领域任务。
+7. PowerX 归一化 capability result，写入 Agent Stream、会话消息、trace/audit。
 
 失败约束：
 
 1. 缺少关键上下文必须返回 fail-fast 错误。
-2. 插件 endpoint、skill_id、capability 不匹配时必须拒绝调用。
-3. 不允许降级为匿名调用、跨租户调用或渠道直连业务接口。
+2. action 无映射、capability 不存在或 capability 与插件来源不匹配时必须拒绝调用。
+3. 不允许降级为匿名调用、跨租户调用、Skill 私有 executor 或渠道直连业务接口。
 
 ## 3.3 Agent 主入口（闭环入口）
 
@@ -242,6 +249,96 @@ POST /api/v1/plugin/skills/invoke
 - 调用方仅传 `message + agent_id(+session_id)`，不强制传 `skill_id`。
 - 系统自动执行 `intent -> plan -> tool/skill nodes -> final`。
 - tenant `/tenant/skills/invoke` 与 `/tenant/invocations` 保留为执行层接口，用于直接调用与治理复用。
+
+## 3.4 ResponsePlanner / Context Builder / Final Response
+
+Agent 主入口的 `final` 不是“把所有上下文直接塞给 LLM 后生成回答”。标准链路必须是：
+
+```text
+User Message
+  -> Intent / Tool Planner
+  -> Response Planner
+  -> Context Builder
+  -> Final Response LLM
+  -> Persist Message + Meta
+```
+
+ResponsePlanner 负责输出结构化 `ResponsePlan`：
+
+```json
+{
+  "response_mode": "capability_intro",
+  "should_call_tool": false,
+  "target_capability_ids": ["powerxplugin.template.basic"],
+  "use_capability_context": true,
+  "include_examples": true,
+  "include_schema": false,
+  "repeat_full_intro": false,
+  "needs_clarification": false,
+  "missing_fields": []
+}
+```
+
+标准 `response_mode`：
+
+1. `capability_intro`：介绍当前 Agent 已绑定能力。
+2. `capability_howto`：说明某项能力怎么用、需要哪些输入。
+3. `skill_execution`：总结 skill/tool/agent_handoff 执行结果。
+4. `clarify_params`：执行意图明确但缺少必要参数。
+5. `normal_chat`：普通上下文对话。
+6. `error_explain`：把执行错误转换成用户可理解的说明。
+
+Context Builder 必须按 `response_mode` 动态注入上下文：
+
+| Mode | 上下文要求 |
+| --- | --- |
+| `capability_intro` | 当前 Agent 已绑定能力摘要、title/description/examples、最近 message meta |
+| `capability_howto` | 目标能力详情、input_schema.required、action enum、prompt_spec 摘要 |
+| `skill_execution` | 执行结果摘要、artifact refs、目标能力 title |
+| `clarify_params` | 缺失字段、字段说明、示例提问 |
+| `normal_chat` | Agent profile、结构化会话摘要、最近消息；默认不注入完整能力目录 |
+| `error_explain` | error_code、error_summary、failed_node、可操作下一步 |
+
+硬约束：
+
+1. 用户可见能力上下文只能来自当前 Agent 的绑定能力，不能来自全局候选池。
+2. 平台内部 runtime 工具可以用于执行，但未被显式绑定/授权时不得作为“我能做什么”暴露给用户。
+3. Final Response LLM 只负责自然语言表达，不负责重新选择 capability。
+4. assistant message 必须保存 `response_mode/capability_ids/response_plan_id/used_context_layers/tool_calls/final_response_model` 等 meta，用于后续去重和追问。
+5. SSE/debug event 必须输出 `response_plan`，Agent Trace 必须记录 `response_planner/context_builder/final_response/history_persist` 节点。
+
+### 3.4.2 Response Guidance 来源与边界
+
+PowerX Agent Runtime 的通用 prompt 只表达平台级约束，不承载业务 Agent 的专属话术或字段规则。最终回复规范按以下来源合并：
+
+1. Core runtime rules：安全、权限、租户隔离、不得暴露内部字段、不得编造未绑定能力。
+2. Agent `persona`：Agent 身份、服务对象、表达边界。
+3. Agent `prompt_seed`：当前 Agent 的默认回答策略，例如如何介绍能力、如何引导用户测试。
+4. Skill `response_guidance`：能力级说明，来自 `manifest_json.response_guidance` 或 `manifest_json.prompt_spec.response_guidance`。
+5. ResponsePlan `answer_requirements`：本轮用户消息拆出的组合回答要求。
+
+Core Runtime 只负责抽取和拼装这些材料：
+
+- `SkillRegistryRecord.manifest_json.response_guidance`
+- `SkillRegistryRecord.manifest_json.prompt_spec.response_guidance`
+- `ToolCallCandidate.ResponseGuidance`
+- `CapabilityContextItem.ResponseGuidance`
+- `[CONTEXT-L1 CAPABILITIES]` 中的 `回复规范`
+
+严禁在 Core Runtime 中写入某个业务 Agent 的专用字段规则、行业示例或执行话术。例如模板对象的 `template.name/template.description/template.content` 要求必须来自模板 Skill 包，而不是 `final_response_prompt.go`。
+
+### 3.4.1 上下文存储驱动
+
+Agent 上下文不是 runtime 内存单点驱动。标准分层：
+
+1. Runtime Memory：只保存本轮请求过程态，例如 ResponsePlan、节点输出、短生命周期执行状态；不是权威源。
+2. PostgreSQL：保存 Agent Session/Message、assistant message meta、Skill Registry、Agent-Skill Binding、模型策略、结构化摘要、context_ref metadata；是业务与治理权威源。
+3. Redis：保存短 TTL planner/response_plan 缓存、候选快照、recent meta hot window；只能加速，不能改变可见能力边界。
+4. Local File：本地开发保存 Agent Trace artifact，路径为 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}`。
+5. Loki：生产保存 Agent Trace 事件，用于 root-only 调试检索。
+6. Object Storage：保存大 prompt/context/tool payload artifact，DB 只保存引用与 checksum。
+
+Context Builder 必须优先读取 DB 权威记录；Redis 或内存命中只能作为缓存。去重判断必须读取 assistant message meta，不允许靠自然语言文本匹配。
 
 ## 4. 统一结果模型
 
@@ -264,6 +361,7 @@ POST /api/v1/plugin/skills/invoke
 - Tenant API：`backend/internal/transport/http/openapi/capability_registry/*`
 - PowerXPlugin Framework：`powerx-plugin/`（目标落点，提供 Skill Runtime 与 Client 封装）
 - Plugin Runtime/Gateway：`backend/internal/infra/plugin/manager/*`
+- A2A Team/Handoff：`backend/internal/service/agent/team_service.go`, `backend/internal/server/agent/manager_execute.go`, `backend/pkg/corex/db/persistence/model/agent/*`
 
 ## 5.1 落库权威（Skill vs Tooling）
 
@@ -322,6 +420,22 @@ GET /api/v1/admin/agent-traces/sessions/:session_id/report
 ```
 
 非 root 请求必须返回 `AGENT_TRACE_ROOT_REQUIRED`，禁止只依赖前端菜单隐藏。
+
+### 6.2 A2A 多智能体观测基线
+
+A2A handoff 节点必须作为 Agent Run Trace 的一等节点记录，不能只保存在普通 backend log 中。每个 `agent_handoff` 节点至少携带：
+
+1. `team_id/team_name`
+2. `parent_agent_id/parent_agent_key`
+3. `child_agent_id/child_agent_key`
+4. `handoff_task_id`
+5. `failure_policy`
+6. `context_ref_ids`
+7. `child_run_id` 或 `handoff_trace_id`
+
+主 Agent 最终回复必须能关联到所有子 Agent 的节点结果。root 下载 Message 报告时，应能看到“主 Agent 拆分了什么、每个子 Agent 收到什么、返回什么、失败策略如何生效”。
+
+Core-only MVP 使用 `release.readiness.team` 作为 seed 演示团队，详见 [`multi_agent_a2a.md`](./multi_agent_a2a.md)。
 
 ## 7. 决策流程图（三层抉择）
 

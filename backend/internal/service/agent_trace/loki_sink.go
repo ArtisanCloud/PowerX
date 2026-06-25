@@ -43,6 +43,26 @@ func (s *LokiSink) AppendEvent(ctx context.Context, event AgentTraceEvent) error
 	return s.push(ctx, eventLabels(s.labels, event), event, event.CreatedAt)
 }
 
+func (s *LokiSink) AppendRunStateEvent(ctx context.Context, meta AgentRunMeta, event string, payload any) error {
+	if err := validateRunMeta(meta); err != nil {
+		return err
+	}
+	labels := runLabels(s.labels, AgentRunTrace{
+		TraceID:    meta.TraceID,
+		RunID:      meta.RunID,
+		TenantUUID: meta.TenantUUID,
+		AgentID:    meta.AgentID,
+		SessionID:  meta.SessionID,
+		MessageID:  meta.MessageID,
+	}, "agent_run", event)
+	return s.push(ctx, labels, map[string]any{
+		"type":    "run_state_event",
+		"event":   event,
+		"meta":    meta,
+		"payload": payload,
+	}, time.Now().UTC())
+}
+
 func (s *LokiSink) WriteNodeSnapshot(ctx context.Context, meta AgentRunMeta, snapshot AgentTraceNodeSnapshot) error {
 	if err := validateRunMeta(meta); err != nil {
 		return err

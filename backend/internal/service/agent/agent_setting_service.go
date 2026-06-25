@@ -1903,6 +1903,7 @@ func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provi
 		"action", "action_poll", "version", "service", "service_id",
 		"req_json", "result_req_json", "force_single", "scale", "min_ratio", "max_ratio",
 		"base_url", "api_path_submit", "api_path_poll", "parameters",
+		"num_ctx", "context_window", "context_length", "context_len",
 	} {
 		if raw, ok := manifest.Defaults[key]; ok {
 			out[key] = raw

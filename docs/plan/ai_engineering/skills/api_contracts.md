@@ -359,19 +359,16 @@ GET /api/v1/agents/stream/sse?intent=agent.bound_capabilities&agent_uuid=...&ses
         }
       },
       "executor": {
-        "type": "plugin_http",
-        "method": "POST",
-        "path": "/api/v1/plugin/skills/invoke",
-        "capability": "creation.video_automation.ingest"
+        "type": "capability",                "capability": "creation.video_automation.ingest"
       }
     }
   ]
 }
 ```
 
-### 3.4 插件 Skill Executor
+### 3.4 插件 Capability Handler
 
-`POST /api/v1/plugin/skills/invoke`
+PowerX Capability Invocation
 
 请求：
 
@@ -479,6 +476,91 @@ SSE 事件最小语义：
 ## 7. Agent Run Trace & Report API
 
 Agent Trace API 属于 root-only 调试能力，用于查看 Agent Session/Message/Node 的结构化运行轨迹并下载智能对话报告。
+
+## 7.0 Agent Stream Response Plan Event
+
+Agent Stream 在 `intent/plan/node_start/node_end/token/final/end` 之外必须支持 `response_plan` debug event，用于解释本轮最终回复为什么采用某种回答模式、注入了哪些上下文层。
+
+事件：
+
+```json
+{
+  "event": "response_plan",
+  "data": {
+    "response_plan_id": "rp_xxx",
+    "response_mode": "capability_intro",
+    "response_intents": [
+      "greeting",
+      "agent_identity",
+      "capability_intro",
+      "test_recommendation"
+    ],
+    "answer_requirements": [
+      "简短回应用户问候。",
+      "说明当前 Agent 的身份和服务对象。",
+      "只列出当前 Agent 已绑定能力，不能列出全局平台能力或未绑定能力。",
+      "基于当前已绑定能力推荐一个最适合先测试的能力或动作。"
+    ],
+    "should_call_tool": false,
+    "target_capability_ids": ["powerxplugin.template.basic"],
+    "use_capability_context": true,
+    "include_examples": true,
+    "include_schema": false,
+    "repeat_full_intro": false,
+    "needs_clarification": false,
+    "missing_fields": [],
+    "model_selection": {
+      "node": "response_planner",
+      "provider": "ollama",
+      "model": "qwen3:8b",
+      "source": "agent_default"
+    }
+  }
+}
+```
+
+约束：
+
+1. `target_capability_ids` 只能包含当前 Agent 已绑定、已发布、租户可见且权限通过的能力。
+2. `response_intents` 支持同一条消息多个意图，例如问候、身份询问、能力介绍和测试建议可以同时存在。
+3. `answer_requirements` 是最终回复必须满足的要求；`recent_capability_intro` 只能减少展开，不能删除当前问题。
+4. `response_mode=clarify_params` 时，`missing_fields` 不能为空。
+5. `response_mode=capability_intro|capability_howto` 时，Context Builder 不得读取全局候选池作为用户可见事实。
+6. `response_plan` 是调试事件，不等价于最终用户回复；最终回复仍通过 `final` 或 token stream 输出。
+
+## 7.0.1 Assistant Message Meta Contract
+
+Agent Runtime 持久化 assistant message 时必须写入 meta：
+
+```json
+{
+  "response_mode": "capability_intro",
+  "capability_ids": ["powerxplugin.template.basic"],
+  "response_plan_id": "rp_xxx",
+  "used_context_layers": ["agent_profile", "capabilities", "recent_message_meta"],
+  "tool_calls": [],
+  "final_response_model": "qwen3:8b",
+  "model_selection": {
+    "node": "final_response",
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "source": "agent_default"
+  }
+}
+```
+
+用途：
+
+1. 同一 session 内能力介绍去重。
+2. 支持“第一个能力怎么用？”这类追问关联。
+3. 支持 Agent Trace 页面解释本轮回复的上下文来源。
+4. 支持后续按 `response_mode` 做质量评估和调优。
+
+禁止事项：
+
+1. 不得通过文本匹配判断“是否已介绍过能力”。
+2. 不得把完整 prompt、原始 executor payload 或敏感 context 放入 message meta。
+3. 不得把未授权 capability 写入 `capability_ids`。
 
 ### 7.1 Message Trace 详情
 

@@ -530,6 +530,12 @@ func (m *Manager) detectTasksFromUnifiedCandidates(ctx context.Context, text str
 			"_candidate_name": c.Name,
 			"_candidate_desc": strings.TrimSpace(c.Description),
 		}
+		if action := inferCandidateAction(text, c.Actions); action != "" {
+			params["action"] = action
+		}
+		if missingRequiredCandidateParams(params, c.RequiredArgs) {
+			continue
+		}
 		out = append(out, schemas.DetectedTask{
 			TaskID:   fmt.Sprintf("u%d", i+1),
 			FlowID:   ref,
@@ -541,6 +547,57 @@ func (m *Manager) detectTasksFromUnifiedCandidates(ctx context.Context, text str
 		})
 	}
 	return out
+}
+
+func missingRequiredCandidateParams(params map[string]interface{}, required []string) bool {
+	for _, raw := range required {
+		key := strings.ToLower(strings.TrimSpace(raw))
+		if key == "" {
+			continue
+		}
+		value, ok := params[key]
+		if !ok {
+			return true
+		}
+		if strings.TrimSpace(fmt.Sprint(value)) == "" || strings.TrimSpace(fmt.Sprint(value)) == "<nil>" {
+			return true
+		}
+	}
+	return false
+}
+
+func inferCandidateAction(text string, actions []string) string {
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" || len(actions) == 0 {
+		return ""
+	}
+	actionSet := make(map[string]struct{}, len(actions))
+	for _, action := range actions {
+		action = strings.ToLower(strings.TrimSpace(action))
+		if action != "" {
+			actionSet[action] = struct{}{}
+		}
+	}
+	for _, item := range []struct {
+		action string
+		words  []string
+	}{
+		{action: "create", words: []string{"创建", "新建", "新增", "生成", "create", "add"}},
+		{action: "get", words: []string{"查询", "查看", "获取", "详情", "get", "read", "show"}},
+		{action: "update", words: []string{"更新", "修改", "编辑", "改成", "update", "edit"}},
+		{action: "delete", words: []string{"删除", "移除", "删掉", "delete", "remove"}},
+		{action: "list", words: []string{"列表", "列出", "有哪些", "全部", "list"}},
+	} {
+		if _, ok := actionSet[item.action]; !ok {
+			continue
+		}
+		for _, word := range item.words {
+			if strings.Contains(text, strings.ToLower(word)) {
+				return item.action
+			}
+		}
+	}
+	return ""
 }
 
 func tokenizeCandidateText(s string) []string {

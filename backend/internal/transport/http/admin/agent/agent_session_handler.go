@@ -7,13 +7,26 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
-	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
+
+func isDecimalID(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
 
 // ===== Service holder =====
 type AgentSessionHandler struct {
@@ -202,7 +215,12 @@ func (h *AgentSessionHandler) GetSession(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	idParam := strings.TrimSpace(c.Param("id"))
 	var out *dbmodel.AgentChatSession
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+	if isDecimalID(idParam) {
+		id, parseErr := utils.ParseUintID(idParam)
+		if parseErr != nil || id == 0 {
+			dto.ResponseError(c, 400, "id 非法", parseErr)
+			return
+		}
 		out, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
 	} else {
 		out, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
@@ -234,8 +252,10 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	idParam := strings.TrimSpace(c.Param("id"))
 	var sid uint64
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-		sid = id
+	if isDecimalID(idParam) {
+		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+			sid = id
+		}
 	} else {
 		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
 			sid = sess.ID
@@ -268,8 +288,10 @@ func (h *AgentSessionHandler) ArchiveSession(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	idParam := strings.TrimSpace(c.Param("id"))
 	var sid uint64
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-		sid = id
+	if isDecimalID(idParam) {
+		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+			sid = id
+		}
 	} else {
 		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
 			sid = sess.ID
@@ -303,8 +325,10 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 	// 软删
 	idParam := strings.TrimSpace(c.Param("id"))
 	var sid uint64
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-		sid = id
+	if isDecimalID(idParam) {
+		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+			sid = id
+		}
 	} else {
 		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
 			sid = sess.ID
@@ -336,8 +360,10 @@ func (h *AgentSessionHandler) ListMessages(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	idParam := strings.TrimSpace(c.Param("id"))
 	var sid uint64
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-		sid = id
+	if isDecimalID(idParam) {
+		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+			sid = id
+		}
 	} else {
 		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
 			sid = sess.ID
@@ -412,7 +438,12 @@ func (h *AgentSessionHandler) SummarizeIfNeeded(c *gin.Context) {
 	tenantRef := tenantCtx.UUIDPtr()
 	idParam := strings.TrimSpace(c.Param("id"))
 	var sess *dbmodel.AgentChatSession
-	if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
+	if isDecimalID(idParam) {
+		id, parseErr := utils.ParseUintID(idParam)
+		if parseErr != nil || id == 0 {
+			dto.ResponseError(c, 400, "id 非法", parseErr)
+			return
+		}
 		sess, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
 	} else {
 		sess, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)

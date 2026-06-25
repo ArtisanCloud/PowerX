@@ -23,9 +23,9 @@
 
 ### Session 2026-06-07
 
-- Q: PowerX 与插件之间的 Agent Skill 机制如何定位？ → A: 定义为 PowerX Agent Skill Bridge，由 PowerX 统一承接渠道、会话、Agent Runtime、权限、租户与 Skill 治理，插件只声明 Skill 源定义并提供 Executor。
+- Q: PowerX 与插件之间的 Agent Skill 机制如何定位？ → A: 定义为 PowerX Agent Skill Bridge，由 PowerX 统一承接渠道、会话、Agent Runtime、权限、租户与 Skill 治理，插件声明 Skill 源定义与 action-capability 映射，业务执行统一走 Capability Invocation。
 - Q: 插件是否可以有自己的 Skill 定义？ → A: 可以。插件侧 Skill 是源定义态能力包；PowerX 侧 Skill 是治理态平台能力。插件 Skill 必须经 PowerX 导入、校验、审批发布后才能进入 Agent 候选池。
-- Q: 插件自有 Chat 是否可以直接调用插件业务接口？ → A: 不可以作为长期路径。插件自有 Chat 必须通过 PowerXPlugin Framework Client 调用 PowerX Agent Session/Stream API，再由 Agent Runtime 触发插件 Skill Executor。
+- Q: 插件自有 Chat 是否可以直接调用插件业务接口？ → A: 不可以作为长期路径。插件自有 Chat 必须通过 PowerXPlugin Framework Client 调用 PowerX Agent Session/Stream API，再由 Agent Runtime 将 Skill action 映射为 capability 调用。
 
 ### Session 2026-06-08
 
@@ -40,6 +40,12 @@
 
 - Q: PowerX Skill 的源格式是否可以只是数据库 metadata 或 Go struct？ → A: 不可以。PowerX 统一采用 `SKILL.md` 目录包作为 Skill Package 源格式，数据库保存解析后的治理态与运行态索引。
 - Q: 插件 Skill 包与 PowerX 入库 Skill 是否冲突？ → A: 不冲突。插件交付 `SKILL.md` 包，PowerX 解析、校验、计算 checksum 后入库；Agent Runtime 调用数据库治理态记录，并通过 source/checksum 追溯到原始 Skill Package。
+
+### Session 2026-06-24
+
+- Q: 多任务、多智能体、缺参等待和执行结果应该用什么协议在 PowerX 与 PowerXPlugin 页面统一展示？ → A: 定义 PowerX Agent Run State Protocol。它不是 Google A2A 本身，而是 PowerX Runtime、Trace、Web Admin 与插件调试页共享的 `agent_run.*` 状态协议。
+- Q: Core 是否可以为某个插件业务硬编码缺参字段、结果链接或成功文案？ → A: 不可以。Core 只实现通用状态机、参数校验、trace 和 UI 协议；业务字段、slot 映射、结果展示来自 Agent persona/prompt_seed 与 Skill manifest。
+- Q: 实时 SSE 能否作为历史权威？ → A: 不可以。SSE/WS 只负责实时事件；历史恢复以 PostgreSQL 的 session/message/message meta/run state snapshot 和 Agent Trace artifact 为权威。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -112,30 +118,31 @@
 
 **Why this priority**: 现有单 Agent 编排已可用，但复杂任务在“规划、检索、执行、复核”多环节下需要明确的 A2A 分工与调度协议。
 
-**Independent Test**: 仅实现“主 Agent 分发给两个子 Agent 并回收结果”的最小用例即可验证 A2A 主链路。
+**Independent Test**: 通过 PowerX Core seed 初始化一个发布准备团队（1 个主 Agent + 3 个子 Agent + 4 个内置 demo Skills），然后显式执行包含 3 个 `agent_handoff` 节点和 1 个汇总节点的计划；该测试不得依赖 PowerXPlugin、MediaX、AI Craft 或插件 capability handler。
 
 **Acceptance Scenarios**:
 
-1. **Given** 主 Agent 收到复合任务，**When** Planner 识别需并行子任务，**Then** 系统生成包含子 Agent 节点的计划并按依赖执行。
-2. **Given** 一个子 Agent 执行失败且策略为 `continue`，**When** 其他子任务成功完成，**Then** 主 Agent 返回部分成功结果并标注失败子任务详情。
-3. **Given** 子 Agent 访问上下文，**When** 请求超出授权上下文范围，**Then** 系统阻断访问并记录拒绝审计。
+1. **Given** seed 已创建 `release.coordinator`、`release.knowledge_analyst`、`release.workflow_planner`、`release.notification_scheduler` 和 `release.readiness.team`，**When** 重复执行 seed，**Then** Agent、Skill、Binding、Team 与 TeamMember 均按 upsert 语义保持幂等。
+2. **Given** 主 Agent 收到发布准备复合任务，**When** 系统执行 release readiness MVP plan，**Then** 系统依次或按依赖执行知识分析、流程规划、通知调度三个子 Agent handoff，并由主 Agent 汇总报告。
+3. **Given** 一个子 Agent 执行失败且策略为 `continue`，**When** 其他子任务成功完成，**Then** 主 Agent 返回部分成功结果并标注失败子任务详情。
+4. **Given** 子 Agent 访问上下文，**When** 请求超出授权上下文范围，**Then** 系统阻断访问并记录拒绝审计。
 
 ---
 
 ### User Story 6 - 插件通过 Agent Skill Bridge 暴露领域能力 (Priority: P1)
 
-作为插件开发者，我希望通过 PowerXPlugin Framework 声明 Skill metadata、prompt/schema 和 executor，并由 PowerX Agent Runtime 统一调用，以便我的插件能力可以被 Telegram、SCRM、移动端和 Web Chat 等渠道复用，而不需要每个渠道直接适配插件业务 API。
+作为插件开发者，我希望通过 PowerXPlugin Framework 声明 Skill metadata、prompt/schema 和 action 到 capability 的映射，并由 PowerX Agent Runtime 统一规划，再通过 PowerX Capability Invocation 执行业务，以便我的插件能力可以被 Telegram、SCRM、移动端和 Web Chat 等渠道复用，而不需要每个渠道直接适配插件业务 API。
 
 **Why this priority**: 插件生态需要统一的 Agent 能力暴露机制；如果渠道直连插件业务接口，会破坏会话、权限、租户和审计边界。
 
-**Independent Test**: 安装一个示例插件，PowerX 发现其 `GET /api/v1/plugin/skills` 输出的 Skill，审批发布并绑定 Agent；用户通过 Agent Stream 发起自然语言请求后，PowerX 调用 `POST /api/v1/plugin/skills/invoke`，插件收到完整租户/用户/会话上下文并返回结构化结果。
+**Independent Test**: 安装一个示例插件，PowerX 发现其 `GET /api/v1/plugin/skills` 输出的 Skill，审批发布并绑定 Agent；用户通过 Agent Stream 发起自然语言请求后，PowerX 从 Skill Manifest 解析 `action_capabilities` 得到 `capability_id`，再调用 Capability Invocation，插件 capability handler 收到完整租户/用户/会话上下文并返回结构化结果。
 
 **Acceptance Scenarios**:
 
 1. **Given** 插件暴露合法 Skill Manifest，**When** PowerX 执行插件 Skill 发现，**Then** 系统导入为 `source=plugin` 的治理态 Skill，并保留 provider、executor、schema 与 checksum 快照。
-2. **Given** 用户从任意渠道进入 PowerX Agent Session，**When** Agent Runtime 命中插件 Skill，**Then** PowerX 通过 Agent Skill Bridge 调用插件统一 executor，并携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id`。
+2. **Given** 用户从任意渠道进入 PowerX Agent Session，**When** Agent Runtime 命中插件 Skill，**Then** PowerX 通过 Agent Skill Bridge 将 action 映射到 capability，并携带 `tenant_uuid/user_uuid/agent_id/session_id/message_id/trace_id` 调用 Capability Invocation。
 3. **Given** 插件自有 Chat 页面发送消息，**When** 页面通过 Framework Client 调用 PowerX Agent Stream，**Then** 执行链路与生产渠道一致，不直接调用插件领域业务接口。
-4. **Given** 插件 executor 请求缺少租户、用户、会话或 trace 上下文，**When** 插件收到调用，**Then** 插件必须 fail-fast，并返回稳定错误码。
+4. **Given** capability 调用缺少租户、用户、会话或 trace 上下文，**When** 插件 capability handler 收到调用，**Then** 插件必须 fail-fast，并返回稳定错误码。
 
 ---
 
@@ -163,7 +170,7 @@
 
 **Why this priority**: 插件只做临时 manifest 暴露无法支撑长期开发调试、同步状态排障和 Agent/Skill 对称管理；但如果插件绕过底座自建 Agent，则会破坏 PowerX 会话、权限、租户和审计边界。
 
-**Independent Test**: 在 PowerXPlugin 创建一个模板对象 CRUD Skill 与一个绑定该 Skill 的 Agent；插件自有保存 Local 记录后，通过插件 backend 调用 PowerX API 创建或更新底座 Skill/Agent；调试页选择该 Agent 创建 PowerX Session 并通过 SSE 触发插件 executor。
+**Independent Test**: 在 PowerXPlugin 创建一个模板对象 CRUD Skill 与一个绑定该 Skill 的 Agent；插件自有保存 Local 记录后，通过插件 backend 调用 PowerX API 创建或更新底座 Skill/Agent；调试页选择该 Agent 创建 PowerX Session 并通过 SSE 触发插件 capability handler。
 
 **Acceptance Scenarios**:
 
@@ -248,24 +255,43 @@
 - **FR-040**: 系统必须保证 Context 优化不改变主路由原则：`/command` 以规则为快捷入口，其他自然语言请求仍由 LLM 意图识别与规划主导。
 - **FR-040a**: 系统必须支持节点级模型选择策略，至少覆盖 `runtime_intent/intent_classifier/planner/skill_param_extractor/final_response/reviewer`；首版允许全部继承 Agent 默认模型，但接口、上下文与 trace 必须保留节点选择结果。
 - **FR-040b**: Planner LLM 调用必须读取 `planner` 节点模型选择结果；当未配置节点级策略时，必须严格回落到当前 Agent 默认模型。
+- **FR-040c**: Agent 主入口必须引入 ResponsePlanner / Context Builder / Final Response 分层；最终自然语言回复不得直接由“全局候选能力摘要 + 最近消息”通用 prompt 生成。
+- **FR-040d**: ResponsePlanner 必须输出结构化 `ResponsePlan`，至少包含 `response_mode/response_intents/answer_requirements/should_call_tool/target_capability_ids/use_capability_context/include_examples/include_schema/repeat_full_intro/needs_clarification/missing_fields`；一条用户消息包含多个问题时必须保留多个 `response_intents`，不得被单一 `response_mode` 或 `recent_capability_intro` 覆盖。
+- **FR-040e**: 系统必须支持标准 `response_mode`：`capability_intro`、`capability_howto`、`skill_execution`、`clarify_params`、`normal_chat`、`error_explain`。
+- **FR-040f**: Context Builder 必须按 `response_mode` 动态注入上下文；能力介绍和能力使用说明只能读取当前 Agent 已绑定、已发布、租户可见且权限通过的能力，不得读取全局候选池作为用户可见事实。
+- **FR-040g**: assistant message 必须持久化 response meta，至少包含 `response_mode/capability_ids/response_plan_id/used_context_layers/tool_calls/final_response_model/model_selection`；后续去重和追问必须基于该 meta，不得基于自然语言文本匹配。
+- **FR-040h**: Agent Stream 必须输出 `response_plan` debug event，Agent Trace 必须记录 `response_planner/context_builder/final_response/history_persist` 节点，便于 root 用户回放本轮回答为什么这样生成。
+- **FR-040i**: Agent 上下文必须采用驱动分层：Runtime Memory 仅保存本轮过程态，PostgreSQL 作为 session/message/message meta/registry/binding/model policy/context_ref 权威源，Redis 仅作短 TTL 缓存，Local File/Loki 仅作 Trace/Report 存储。
+- **FR-040j**: Core Runtime 必须支持从 Agent `persona/prompt_seed` 与 Skill `response_guidance` 组合最终回复规范；Core 只允许实现通用安全和编排约束，禁止硬编码业务 Agent 的字段规则、专属话术或行业流程。
+- **FR-040k**: Skill `response_guidance` 必须支持 `general/capability_intro/capability_howto/clarify_params/skill_execution/error_explain` 分组，并在候选能力上下文中保留 mode 标签，供 Final Response 按当前 `response_mode` 使用。
+- **FR-040l**: 系统必须定义 Agent Run State Protocol，标准事件以 `agent_run.*` 为前缀，至少覆盖 `started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended`。
+- **FR-040m**: `agent_run.task_status` 必须携带 `run_id/session_id/message_id/trace_id/task_id/status`，并在适用时携带 `agent_key/agent_name/node_kind/skill_id/capability_id/action/missing_fields/result/links/error`。
+- **FR-040n**: Agent task 状态必须使用标准枚举 `pending|awaiting_params|running|completed|failed|skipped`；缺参时必须进入 `awaiting_params`，不得直接伪造成功或吞掉错误。
+- **FR-040o**: 系统必须支持 `AgentRunState` 历史快照；页面刷新、从 Chat 跳转 Trace、从 Trace 返回 Session 时必须能恢复本轮 message 的任务状态。
+- **FR-040p**: Web Admin Agent Chat、Team Task、Agent Trace 与 PowerXPlugin Agent Chat 调试页必须消费同一套 `AgentRunState` 语义，禁止插件调试页自定义一套私有任务状态协议。
+- **FR-040q**: Skill manifest 必须支持 Agent Run State 展示元数据，至少包含 `action_required_args/action_optional_args/slot_mapping/pending_task_policy/result_presentation` 的解析与治理态保存能力。
+- **FR-040r**: Final Response 在没有真实 `task_completed`、Skill result、Capability result 或 A2A child result 时，不得输出“已创建/已更新/已删除/已完成”等成功性业务结论。
 - **FR-041**: 系统必须支持主 Agent 在单次请求内创建 A2A 执行计划，并将子任务分发给多个子 Agent（至少支持串行与并行两种调度模式）。
+- **FR-041a**: 系统必须提供 PowerX Core 内置 A2A seed 数据，用于初始化发布准备多智能体演示团队；seed 至少包含 `release.coordinator`、三个发布准备子 Agent、四个 `powerx.release.*` 内置 demo Skills、Agent-Skill Binding、Agent Team 与 Team Members。
+- **FR-041b**: A2A seed 必须是 upsert 幂等语义，重复执行不得删除用户已有绑定，不得因唯一索引冲突失败。
+- **FR-041c**: 发布准备 A2A MVP 测试必须只依赖 PowerX Core 数据库与运行时，不得依赖插件安装、插件 capability handler 或 PowerXPlugin 本地记录。
 - **FR-042**: 系统必须支持 A2A 任务级上下文隔离，子 Agent 仅可读取主 Agent 显式下发的上下文切片与引用，不得默认继承完整会话。
 - **FR-043**: 系统必须支持 A2A 协作的失败策略（`fail-fast|continue|retry-once`），并在最终响应中返回子任务级执行状态。
 - **FR-044**: 系统必须为 A2A 协作写入全链路审计，至少包含 `team_id/task_id/parent_agent_id/child_agent_id/handoff_trace_id` 与状态变更时间线。
 - **FR-045**: 系统必须保证 A2A 子 Agent 调用继续遵循租户隔离与授权约束，禁止子 Agent 越权调用未授权的 `workflow|skill|tooling` 候选。
 - **FR-046**: 系统必须保证团队任务工作台按用户所选团队动态路由，禁止在页面逻辑中硬编码固定 `team_id` 或固定主 Agent。
 - **FR-047**: 系统必须在团队管理与成员管理界面默认展示 Agent 可读标识（名称/Key），`id` 仅作为辅助信息，不得作为主要识别信息。
-- **FR-048**: 系统必须在团队配置界面强约束“TL 唯一 planner，子 Agent 禁止 planner”，并提供清晰角色说明（retriever/executor/reviewer）。
+- **FR-048**: 系统必须通过平台固定 Team Role 枚举约束 A2A 团队角色；`planner` 只用于 TL/主 Agent 语义，子 Agent 成员只能使用 `retriever/executor/reviewer`，枚举必须集中维护，禁止业务层散落字符串判断。
 - **FR-049**: 系统必须在会话界面提供可视化协作过程（Intent/Plan/Node 状态），并支持用户基于页面信息判断“是否发生协作、协作是否完成”。
 - **FR-050**: 系统必须提供“页面可见字段”和“审计可查字段”的一致口径，当前端未展示 `team_id/child_agent_id/handoff_task_id` 时，需提供可操作的审计查询路径。
-- **FR-051**: 系统必须实现 PowerX Agent Skill Bridge，将 PowerX Agent Runtime 与插件 Skill Executor 连接为标准机制，禁止渠道、移动端或 SCRM 作为长期路径直接调用插件业务接口来绕过 Agent Runtime。
-- **FR-052**: 系统必须支持插件侧 Skill 源定义导入，源定义至少包含 metadata、description、intent_examples、input_schema、output_schema（可选）、prompt 规范（可选）和 executor 声明。
+- **FR-051**: 系统必须实现 PowerX Agent Skill Bridge，将 PowerX Agent Runtime、Agent 已绑定 Skill 与 PowerX Capability Invocation 连接为标准机制，禁止渠道、移动端、SCRM 或 Skill 私有 executor 作为长期路径直接调用插件业务接口来绕过 Agent Runtime。
+- **FR-052**: 系统必须支持插件侧 Skill 源定义导入，源定义至少包含 metadata、description、intent_examples、input_schema、output_schema（可选）、prompt/response 规范（可选）和 `action_capabilities` / `executor.action_map` 声明。
 - **FR-053**: 系统必须区分插件源定义态 Skill 与 PowerX 治理态 Skill；插件声明的 Skill 未经 PowerX 校验、审批和发布前，不得进入 Agent 候选池或 tenant 调用入口。
-- **FR-054**: PowerXPlugin Framework 必须提供插件 Skill Runtime 封装，至少包含 `PluginSkillManifest`、`PluginSkillRegistry`、`PluginSkillExecutor`、`PluginSkillInvocationContext`、`PluginSkillResult` 与稳定错误模型。
+- **FR-054**: PowerXPlugin Framework 必须提供插件 Skill Runtime 封装，至少包含 `PluginSkillManifest`、`PluginSkillRegistry`、`PluginSkillSchema`、`PluginSkillActionCapabilityMap` 与稳定错误模型。
 - **FR-055**: PowerXPlugin Framework Client 必须封装插件访问 PowerX Agent Session 的 HTTP/SSE/WS 通讯能力，插件自有 Chat 和调试页面必须复用该 Client。
-- **FR-056**: 插件必须统一暴露 Skill 发现与执行接口，至少包含 `GET /api/v1/plugin/skills`、`GET /api/v1/plugin/skills/:skill_id/schema`、`POST /api/v1/plugin/skills/invoke`。
-- **FR-057**: PowerX 调用插件 Skill Executor 时必须注入完整调用上下文，至少包含 `tenant_uuid`、`user_uuid`、`agent_id`、`session_id`、`message_id`、`skill_id`、`trace_id`、`channel`。
-- **FR-058**: 插件 Skill Executor 必须校验调用来源、租户上下文、Skill 启用状态和 executor capability；任一关键上下文缺失或不匹配时必须 fail-fast，禁止匿名 fallback 或跨租户降级。
+- **FR-056**: 插件必须统一暴露 Skill 发现接口，至少包含 `GET /api/v1/plugin/skills`、`GET /api/v1/plugin/skills/:skill_id/schema`；插件不得把 PowerX Capability Invocation 作为标准业务执行入口。
+- **FR-057**: PowerX 调用插件 capability handler 时必须注入完整调用上下文，至少包含 `tenant_uuid`、`user_uuid`、`agent_id`、`session_id`、`message_id`、`skill_id`、`trace_id`、`channel`。
+- **FR-058**: 插件 capability handler 必须校验调用来源、租户上下文、Skill/Agent 启用状态和 capability；任一关键上下文缺失、action 无映射或 capability 不匹配时必须 fail-fast，禁止匿名 fallback 或跨租户降级。
 - **FR-059**: Agent Stream 与插件自有 Chat 必须共享同一事件语义，至少覆盖 `intent`、`plan`、`node_start`、`node_end`、`token`、`final`、`end`。
 - **FR-060**: 插件卸载、停用或版本切换时，系统必须同步处置插件来源 Skill、Agent 绑定和 capability 绑定，避免 Agent Runtime 继续路由到不可用 executor。
 - **FR-061**: 系统必须提供 Agent Runtime 结构化追踪机制，按 `Session Trace`、`Message Trace`、`Node Trace` 三层记录 Agent 执行路径。
@@ -297,14 +323,18 @@
 - **Agent Team**: 主 Agent 与子 Agent 的协作编组定义，包含团队成员、角色、权限边界与默认调度策略。
 - **Agent Handoff Task**: 一次主 Agent 到子 Agent 的任务交接记录，包含输入摘要、上下文引用、失败策略、执行状态与回传结果摘要。
 - **Plugin Skill Definition**: 插件侧源定义态 Skill，包含 metadata、prompt/schema、executor、脚本资源与 provider 信息。
-- **Plugin Skill Invocation Context**: PowerX 调用插件 executor 时注入的上下文，包含租户、用户、Agent、会话、消息、渠道和 trace 字段。
-- **Plugin Skill Result**: 插件 executor 返回的结构化结果，包含执行状态、消息、任务标识、业务数据和 trace。
+- **Plugin Skill Invocation Context**: PowerX 调用插件 capability handler 时注入的上下文，包含租户、用户、Agent、会话、消息、渠道和 trace 字段。
+- **Plugin Skill Result**: 插件 capability handler 返回的结构化结果，包含执行状态、消息、任务标识、业务数据和 trace。
 - **Agent Run Trace**: 一轮 Agent Message Run 的结构化总览，包含租户、用户、Agent、Session、Message、Run、Plan、状态、耗时、错误摘要和 artifact 引用。
 - **Agent Trace Event**: Agent Runtime 执行过程中追加的单条事件，包含 node、phase、status、duration、input/output digest、error 和时间戳。
 - **Agent Trace Node Snapshot**: 单个 Runtime 节点的结构化快照，包含节点输入摘要、输出摘要、上下文引用、模型/skill/tool 调用信息和错误详情。
 - **Agent Run Report**: 面向 root 开发者下载的人读/机读报告，包含 Summary、User Message、Runtime Timeline、Intent/Planner、Skill/Tool Invocation、Final Response、Errors/Warnings。
+- **Agent Run State**: 一轮 Message Run 的 UI 可渲染状态树，包含 run、session、message、response plan、tasks、agents、pending params、results、errors 和 trace links。
+- **Agent Task State**: 单个任务节点的状态对象，关联 Agent、Skill、Capability、action、参数收集、结果、错误和 trace。
 - **Plugin Agent Plugin Source**: 插件自有 Agent 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Agent ID、同步动作、底座 Agent UUID 和绑定 Skill 快照。
 - **Plugin Skill Plugin Source**: 插件自有 Skill 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Skill ID、版本、manifest 快照、executor、capability 和 checksum。
+- **Response Plan**: Agent Runtime 在最终回复前生成的结构化回答计划，决定 `response_mode`、目标能力、上下文层、是否需要澄清和最终回复模型。
+- **Assistant Message Meta**: assistant 消息落库的结构化 metadata，包含 response mode、使用能力、上下文层、工具调用和模型选择，用于追问、去重和 Trace 分析。
 
 ## Success Criteria *(mandatory)*
 
@@ -320,11 +350,12 @@
 - **SC-008**: 上线 Context 优化后，在稳定流量样本中，Agent 主入口 `prompt_tokens` P50 相对基线下降至少 30%。
 - **SC-009**: 在支持缓存能力的模型上，固定前缀缓存命中率达到 60% 以上（以平台观测字段为准）。
 - **SC-010**: 在 30 轮以上会话中，超上下文窗口错误发生率降至 1% 以下，且请求失败可通过 `trim_actions` 与 token 指标定位。
-- **SC-011**: 在最小 A2A 用例中（1 主 2 子并行），95% 请求可在目标 SLA 内返回完整或部分成功结果，且子任务状态可追溯。
+- **SC-011**: 在发布准备 A2A MVP 用例中（1 主 3 子 + 1 汇总），95% 请求可在目标 SLA 内返回完整或部分成功结果，且子任务状态可按 `team_id/handoff_task_id/child_agent_id` 追溯。
+- **SC-011a**: A2A seed 重复执行 3 次后，Agent、Skill、Binding、Team、TeamMember 记录数量保持稳定，且 latest published Skill 指针正确。
 - **SC-012**: 团队任务验收中，100% 用例可在页面看到 `Intent + Plan + Node` 三段执行过程；不可见字段可在 3 分钟内通过审计接口定位。
 - **SC-013**: 插件 Skill 发现后，95% 合法 Skill 在 3 分钟内被导入为草稿治理记录，非法 manifest 100% 被拒绝并返回明确错误。
 - **SC-014**: 插件自有 Chat、Web Chat 与任一渠道入口触发同一插件 Skill 时，100% 走 PowerX Agent Session/Runtime，且 trace 中可看到相同的 `session_id/skill_id/plugin_id` 链路字段。
-- **SC-015**: 缺少关键上下文或 capability 不匹配的插件 executor 调用 100% 被拒绝，且拒绝事件可在审计中按 `trace_id/plugin_id/skill_id` 检索。
+- **SC-015**: 缺少关键上下文或 capability 不匹配的插件 capability handler 调用 100% 被拒绝，且拒绝事件可在审计中按 `trace_id/plugin_id/skill_id` 检索。
 - **SC-016**: Agent 主入口每轮消息 100% 生成 `run_id`，且成功或失败均可按 `tenant_uuid/session_id/message_id` 定位到 Agent Trace。
 - **SC-017**: 本地开发模式下，95% 以上 Agent Run 在完成后 1 秒内生成 `run.json/timeline.jsonl/nodes/*.json`。
 - **SC-018**: Root 用户可在 3 分钟内通过页面或 API 定位一轮 Message 的节点链路，并下载 Message 报告。
@@ -332,6 +363,13 @@
 - **SC-020**: 启用 Loki Sink 后，Agent Trace 事件 99% 可按 `run_id/message_id/node_kind/status` 在 Loki 中检索。
 - **SC-021**: 插件自有 Agent/Skill 创建后，95% 合法同步请求在 3 秒内返回 PowerX 侧 `agent_uuid/skill_id` 与同步状态，非法绑定 100% fail-fast。
 - **SC-022**: 插件调试页可运行 Agent 100% 来自已同步的 PowerX 底座 Agent 记录；未同步或同步失败的插件 Agent 不得进入 Agent Session 创建链路。
+- **SC-023**: 用户询问当前 Agent 能力时，100% 回复仅包含当前 Agent 已绑定且可见的能力；未绑定的全局 system/public 候选不得出现在最终回答。
+- **SC-024**: Agent Stream 中 100% 最终回复前产生 `response_plan` debug event，且 Message Trace 可定位到 `response_planner/context_builder/final_response` 节点。
+- **SC-025**: 同一 session 连续询问能力时，系统 95% 以上可通过 assistant message meta 识别最近已介绍能力，并避免重复完整介绍。
+- **SC-026**: 创建类任务缺少必填参数时，100% 在 PowerX Web Admin 与 PowerXPlugin 调试页展示 `awaiting_params` 状态和缺失字段，不得直接执行业务 capability。
+- **SC-027**: 多 Agent 团队任务中，100% 用例可在页面看到主 Agent 与子 Agent task 状态，并可从任一失败 task 精确跳转到对应 Trace。
+- **SC-028**: 页面刷新后，95% 以上已完成或失败的 Message Run 可从历史快照恢复 `AgentRunState`，不依赖重新执行 SSE。
+- **SC-029**: 没有真实 task result 的业务执行请求，最终回复成功性误报率为 0。
 
 ## Assumptions
 
@@ -349,3 +387,6 @@
 - 插件自有 Chat 是 PowerX Agent Session 的客户端，不是独立长期对话系统。
 - Agent Run Trace & Report 归属本 feature 的 Agent Runtime 可观测扩展；首版以本地文件 sink 为必选 MVP，Loki sink 为生产目标能力。
 - PowerXPlugin 插件 Agent/Skill Local 是开发态与声明源，不是运行态权威源；PowerX 底座 Agent/Skill/Binding 记录才是 Agent Runtime 权威源。
+- Agent Response Planning 归属 Core Agent Runtime；插件只提供 Skill 源事实材料，不负责最终自然语言话术和上下文选择。
+- Runtime Memory 不是 Agent 上下文权威源；任何影响权限、候选、message meta、会话历史或模型策略的上下文都必须可从 DB 权威记录恢复。
+- Agent Run State Protocol 是 PowerX Runtime/UI/Trace 的内部状态协议，不替代 Google A2A；A2A handoff 节点必须映射为该协议中的 task 状态。

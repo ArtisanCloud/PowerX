@@ -23,23 +23,28 @@ import (
 )
 
 type ToolCallCandidate struct {
-	Name           string
-	NodeKind       string
-	NodeRef        string
-	FlowID         string // 兼容旧字段：workflow 场景与 NodeRef 一致
-	AgentID        string
-	SourceScope    string   // system|agent
-	Source         string   // builtin|plugin|third_party|...
-	TenantUUID     string   // tenant scoped candidate
-	Visibility     string   // tenant|public|global|system
-	BindingStatus  string   // active|disabled|deprecated
-	RequiredGrants []string // hard-filter tool grants
-	Description    string
-	RequiredArgs   []string
-	OptionalArgs   []string
-	IntentHints    []string
-	Tags           []string
-	SemanticText   string
+	Name               string
+	DisplayName        string
+	NodeKind           string
+	NodeRef            string
+	FlowID             string // 兼容旧字段：workflow 场景与 NodeRef 一致
+	AgentID            string
+	SourceScope        string   // system|agent
+	Source             string   // builtin|plugin|third_party|...
+	TenantUUID         string   // tenant scoped candidate
+	Visibility         string   // tenant|public|global|system
+	BindingStatus      string   // active|disabled|deprecated
+	RequiredGrants     []string // hard-filter tool grants
+	Description        string
+	RequiredArgs       []string
+	ActionRequiredArgs map[string][]string
+	OptionalArgs       []string
+	Actions            []string
+	Examples           []string
+	ResponseGuidance   []string
+	IntentHints        []string
+	Tags               []string
+	SemanticText       string
 }
 
 type CandidateBuildContext struct {
@@ -348,7 +353,10 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 
 	out := buildDetectedTasksFromDecision(decision, cands)
 	if len(out) == 0 {
-		return fallback("tool decision produced zero valid tasks")
+		dlogRun.ResultSource = "tool_calling"
+		dlogRun.Tasks = out
+		dlogRun.FallbackReason = "tool decision intentionally selected zero tasks"
+		return out, nil
 	}
 	dlogRun.ResultSource = "tool_calling"
 	dlogRun.Tasks = out
@@ -968,6 +976,10 @@ func buildToolCallingPrompt(text string, cands []ToolCallCandidate, opt PlannerO
 	b.WriteString("必须只输出 JSON，不要输出解释文本。\\n")
 	b.WriteString(`输出格式: {"tool_calls":[{"name":"<candidate_name>","args":{...},"confidence":0.0-1.0,"reason":"..."}]}` + "\n")
 	b.WriteString("约束: 只能使用下方清单中的 name；args 只允许写该工具声明的参数。\\n\\n")
+	b.WriteString("判断规则:\\n")
+	b.WriteString("- 如果用户只是询问 Agent 自身、能力边界、可用能力或能力说明，且没有要求执行某个候选能力，输出 tool_calls=[]。\\n")
+	b.WriteString("- 这类元问题应该交给最终回答阶段基于能力上下文生成自然语言，不要选择 CRUD/执行型工具。\\n")
+	b.WriteString("- 只有当用户明确提出创建、查询、更新、删除、同步、调用、生成等实际动作，并且参数足够匹配候选能力时，才选择对应工具。\\n\\n")
 	b.WriteString("能力清单（按类型分区 + source_scope）:\\n")
 	appendCandidateSection(&b, "workflow_catalog", "workflow", cands, opt)
 	appendCandidateSection(&b, "skill_catalog", "skill", cands, opt)
@@ -1006,8 +1018,12 @@ func appendCandidateSection(b *strings.Builder, title, kind string, cands []Tool
 		if strings.EqualFold(strings.TrimSpace(opt.PromptSlimMode), "compact") {
 			desc = trimCandidateDesc(desc, 88)
 		}
-		b.WriteString(fmt.Sprintf("  {name:%q, kind:%q, source_scope:%q, ref:%q, required:%v, optional:%v, desc:%q}\n",
-			c.Name, c.NodeKind, c.SourceScope, c.NodeRef, c.RequiredArgs, c.OptionalArgs, desc))
+		displayName := strings.TrimSpace(c.DisplayName)
+		if displayName == "" {
+			displayName = strings.TrimSpace(c.Name)
+		}
+		b.WriteString(fmt.Sprintf("  {name:%q, title:%q, kind:%q, source_scope:%q, ref:%q, actions:%v, required:%v, optional:%v, examples:%v, desc:%q}\n",
+			c.Name, displayName, c.NodeKind, c.SourceScope, c.NodeRef, c.Actions, c.RequiredArgs, c.OptionalArgs, c.Examples, desc))
 	}
 	b.WriteString("]\n")
 }
@@ -1102,6 +1118,10 @@ func scoreCandidateForQuery(query string, c ToolCallCandidate) int {
 	name := strings.ToLower(strings.TrimSpace(c.Name))
 	if strings.Contains(query, name) {
 		score += 120
+	}
+	displayName := strings.ToLower(strings.TrimSpace(c.DisplayName))
+	if displayName != "" && strings.Contains(query, displayName) {
+		score += 100
 	}
 	ref := strings.ToLower(strings.TrimSpace(c.NodeRef))
 	if ref != "" && strings.Contains(query, ref) {
@@ -1255,6 +1275,7 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 	c.TenantUUID = strings.TrimSpace(c.TenantUUID)
 	c.Visibility = strings.ToLower(strings.TrimSpace(c.Visibility))
 	c.BindingStatus = strings.ToLower(strings.TrimSpace(c.BindingStatus))
+	c.ActionRequiredArgs = normalizeCandidateActionRequiredArgs(c.ActionRequiredArgs)
 	if c.SourceScope == "" {
 		c.SourceScope = "system"
 	}
@@ -1268,6 +1289,38 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 		c.FlowID = c.NodeRef
 	}
 	return c
+}
+
+func normalizeCandidateActionRequiredArgs(raw map[string][]string) map[string][]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(raw))
+	for action, fields := range raw {
+		action = strings.ToLower(strings.TrimSpace(action))
+		if action == "" {
+			continue
+		}
+		seen := map[string]struct{}{}
+		values := make([]string, 0, len(fields))
+		for _, field := range fields {
+			field = strings.TrimSpace(field)
+			if field == "" {
+				continue
+			}
+			key := strings.ToLower(field)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			values = append(values, field)
+		}
+		out[action] = values
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func candidatePriority(c ToolCallCandidate, cctx CandidateBuildContext) int {

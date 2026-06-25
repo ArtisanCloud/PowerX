@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gorm.io/gorm/clause"
 	"strings"
+	"time"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -62,7 +63,7 @@ func (r *AgentRepository) UpsertByScopeKey(
 		"tool_allowlist":     in.ToolAllowlist,
 		"kb_strategy":        in.KBStrategy,
 		"meta":               in.Meta,
-		"updated_at":         gorm.Expr("NOW()"),
+		"updated_at":         time.Now().UTC(),
 	})
 
 	return tx.

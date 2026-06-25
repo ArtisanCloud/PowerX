@@ -38,6 +38,7 @@ export interface AgentTraceNode {
   executor_path?: string;
   error_code?: string;
   error_summary?: string;
+  attributes?: Record<string, unknown>;
   started_at?: string;
   ended_at?: string;
 }
@@ -73,4 +74,55 @@ export interface AgentTraceQuery {
   message_id: string;
   run_id?: string;
   trace_id?: string;
+}
+
+export interface AgentRunListItem {
+  tenant_uuid: string;
+  session_id: string;
+  message_id: string;
+  message_preview?: string;
+  message_role?: string;
+  message_created_at?: string;
+  run_id: string;
+  trace_id: string;
+  agent_id: string;
+  status: string;
+  node_count: number;
+  event_count: number;
+  error_count: number;
+  duration_ms?: number;
+  started_at?: string;
+  ended_at?: string;
+  created_at: string;
+}
+
+export interface AgentRunListResult {
+  items: AgentRunListItem[];
+  tenant_uuid: string;
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface AgentSessionListItem {
+  tenant_uuid: string;
+  session_id: string;
+  agent_id: string;
+  status: string;
+  message_count: number;
+  node_count: number;
+  event_count: number;
+  error_count: number;
+  duration_ms?: number;
+  started_at?: string;
+  ended_at?: string;
+  latest_at: string;
+}
+
+export interface AgentSessionListResult {
+  items: AgentSessionListItem[];
+  tenant_uuid: string;
+  total: number;
+  offset: number;
+  limit: number;
 }

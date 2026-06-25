@@ -150,7 +150,10 @@ func (s *streamDebugTraceSink) capture(event string, payload any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch event {
-	case dto.EventIntent, dto.EventPlan, dto.EventNodeStart, dto.EventNodeEnd, dto.EventFinal, dto.EventError, dto.EventEnd:
+	case dto.EventIntent, dto.EventPlan, dto.EventNodeStart, dto.EventNodeEnd, dto.EventFinal, dto.EventError, dto.EventEnd,
+		dto.EventAgentRunStarted, dto.EventAgentRunResponsePlan, dto.EventAgentRunIntentDetected, dto.EventAgentRunPlanCreated,
+		dto.EventAgentRunTaskStatus, dto.EventAgentRunTaskStarted, dto.EventAgentRunAwaitingParams, dto.EventAgentRunTaskCompleted,
+		dto.EventAgentRunTaskFailed, dto.EventAgentRunFinal, dto.EventAgentRunEnded:
 		s.events = append(s.events, map[string]any{
 			"event": event,
 			"at":    time.Now().Format(time.RFC3339Nano),
@@ -584,24 +587,159 @@ func buildCandidateSummary(cands []agent.ToolCallCandidate, maxPerKind int) stri
 		if len(buckets[kind]) >= maxPerKind {
 			continue
 		}
-		name := strings.TrimSpace(c.Name)
+		name := strings.TrimSpace(c.DisplayName)
+		if name == "" {
+			name = strings.TrimSpace(c.Name)
+		}
 		if name == "" {
 			name = strings.TrimSpace(c.NodeRef)
 		}
 		if name == "" {
 			continue
 		}
-		buckets[kind] = append(buckets[kind], name)
+		desc := strings.TrimSpace(c.Description)
+		if desc == "" {
+			desc = strings.TrimSpace(c.SemanticText)
+		}
+		ref := strings.TrimSpace(c.NodeRef)
+		if ref == "" {
+			ref = strings.TrimSpace(c.FlowID)
+		}
+		lines := []string{"- " + name}
+		if desc != "" {
+			lines = append(lines, "  说明: "+trimCandidateRunes(desc, 180))
+		}
+		if len(c.Actions) > 0 {
+			lines = append(lines, "  可用动作: "+strings.Join(c.Actions, ", "))
+		}
+		if len(c.RequiredArgs) > 0 {
+			lines = append(lines, "  必要参数: "+strings.Join(c.RequiredArgs, ", "))
+		}
+		if len(c.OptionalArgs) > 0 {
+			lines = append(lines, "  可选参数: "+strings.Join(c.OptionalArgs, ", "))
+		}
+		if len(c.Examples) > 0 {
+			examples := c.Examples
+			if len(examples) > 3 {
+				examples = examples[:3]
+			}
+			lines = append(lines, "  示例问法: "+strings.Join(examples, "；"))
+		}
+		if len(c.ResponseGuidance) > 0 {
+			guidance := c.ResponseGuidance
+			if len(guidance) > 5 {
+				guidance = guidance[:5]
+			}
+			lines = append(lines, "  回复规范: "+strings.Join(guidance, "；"))
+		}
+		if ref != "" && !strings.EqualFold(ref, name) {
+			lines = append(lines, "  ref: "+ref)
+		}
+		buckets[kind] = append(buckets[kind], strings.Join(lines, "\n"))
 	}
 	parts := make([]string, 0, 4)
+	parts = append(parts, strings.Join([]string{
+		"下面是当前 Agent 已绑定/可用的能力上下文。",
+		"当用户询问 Agent 是什么、能做什么、有哪些能力或如何使用时：",
+		"- 请用对话式自然语言回答，像助手在介绍自己，不要机械复述上下文。",
+		"- 先用一句话概括当前 Agent 的定位。",
+		"- 再用 Markdown 分点说明每项能力能做什么，并给 1-2 个用户可以直接说的示例。",
+		"- 不要逐字照抄能力说明；请把能力说明改写成用户容易理解的话。",
+		"- 输出中保留自然换行，避免把多个示例挤在同一行。",
+		"- 只介绍当前已绑定能力，不要编造未绑定能力。",
+		"- 不要只输出 ref、机器 ID、字段名或原始 schema。",
+	}, "\n"))
 	for _, kind := range []string{"workflow", "skill", "tooling", "llm"} {
 		items := buckets[kind]
 		if len(items) == 0 {
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("%s(%d): %s", kind, len(items), strings.Join(items, ", ")))
+		parts = append(parts, fmt.Sprintf("%s(%d):\n%s", kind, len(items), strings.Join(items, "\n")))
 	}
 	return strings.Join(parts, "\n")
+}
+
+func responseCapabilityItemsFromCandidates(cands []agent.ToolCallCandidate) []runtime.CapabilityContextItem {
+	out := make([]runtime.CapabilityContextItem, 0, len(cands))
+	for _, c := range cands {
+		kind := strings.ToLower(strings.TrimSpace(c.NodeKind))
+		if kind != "skill" && kind != "tooling" && kind != "workflow" {
+			continue
+		}
+		id := strings.TrimSpace(c.NodeRef)
+		if id == "" {
+			id = strings.TrimSpace(c.Name)
+		}
+		if id == "" {
+			continue
+		}
+		title := strings.TrimSpace(c.DisplayName)
+		if title == "" {
+			title = strings.TrimSpace(c.Name)
+		}
+		out = append(out, runtime.CapabilityContextItem{
+			ID:                 id,
+			Title:              title,
+			Description:        strings.TrimSpace(c.Description),
+			RequiredArgs:       append([]string(nil), c.RequiredArgs...),
+			ActionRequiredArgs: copyStringSliceMap(c.ActionRequiredArgs),
+			OptionalArgs:       append([]string(nil), c.OptionalArgs...),
+			Actions:            append([]string(nil), c.Actions...),
+			Examples:           append([]string(nil), c.Examples...),
+			ResponseGuidance:   append([]string(nil), c.ResponseGuidance...),
+			NodeKind:           kind,
+			Source:             strings.TrimSpace(c.Source),
+		})
+	}
+	return out
+}
+
+func copyStringSliceMap(in map[string][]string) map[string][]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(in))
+	for k, values := range in {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		out[key] = append([]string(nil), values...)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func responseCapabilityIDs(items []runtime.CapabilityContextItem) []string {
+	out := make([]string, 0, len(items))
+	seen := map[string]struct{}{}
+	for _, item := range items {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		key := strings.ToLower(id)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func trimCandidateRunes(s string, maxRunes int) string {
+	s = strings.TrimSpace(s)
+	if maxRunes <= 0 {
+		return ""
+	}
+	rs := []rune(s)
+	if len(rs) <= maxRunes {
+		return s
+	}
+	return string(rs[:maxRunes]) + "..."
 }
 
 func (h *AgentChatHandler) listBoundSkillIDs(ctx context.Context, env string, tenantRef *string, agentID uint64) ([]string, error) {
@@ -920,6 +1058,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	)
 	defer debugSink.Flush()
 
+	userMessageID := uint64(0)
 	// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
 	if regenFromID > 0 {
 		msgRec, err := h.his.FindMessageByID(c, env, tenantRef, regenFromID)
@@ -936,6 +1075,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		}
 		_, _ = h.his.TruncateMessagesAfter(c, env, tenantRef, sess.ID, regenFromID)
 		q = strings.TrimSpace(msgRec.Content)
+		userMessageID = msgRec.ID
 		_ = debugSink.Emit(dto.EventMeta, map[string]any{
 			"session_id":              sess.ID,
 			"agent_id":                agentID,
@@ -947,11 +1087,16 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		if strings.TrimSpace(q) != "" {
 			userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 			if userMsg != nil {
+				userMessageID = userMsg.ID
 				_ = debugSink.Emit(dto.EventMeta, map[string]any{
-					"session_id":        sess.UUID.String(),
+					"tenant_uuid":       strings.TrimSpace(tenantCtx.UUID()),
+					"trace_id":          traceID,
+					"session_id":        fmt.Sprintf("%d", sess.ID),
+					"session_uuid":      sess.UUID.String(),
 					"session_id_num":    sess.ID,
 					"agent_id":          agentID,
 					"user_message_id":   userMsg.ID,
+					"message_id":        fmt.Sprintf("%d", userMsg.ID),
 					"client_msg_id":     clientMsgID,
 					"user_message_role": "user",
 				})
@@ -966,7 +1111,17 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		return
 	}
 	modelPolicy := runtime.BuildDefaultNodeModelPolicy(cfg)
-	runCtx := context.WithValue(c.Request.Context(), "planner_optimizer_enabled", plannerCfg.Enabled)
+	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantCtx.UUID()))
+	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
+	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
+	runCtx = context.WithValue(runCtx, "session_uuid", sess.UUID.String())
+	runCtx = context.WithValue(runCtx, "sessionUuid", sess.UUID.String())
+	if userMessageID > 0 {
+		runCtx = context.WithValue(runCtx, "message_id", fmt.Sprintf("%d", userMessageID))
+		runCtx = context.WithValue(runCtx, "messageId", fmt.Sprintf("%d", userMessageID))
+	}
+	runCtx = context.WithValue(runCtx, "planner_optimizer_enabled", plannerCfg.Enabled)
 	runCtx = context.WithValue(runCtx, "planner_optimizer_candidate_top_k", plannerCfg.CandidateTopK)
 	runCtx = context.WithValue(runCtx, "planner_optimizer_prompt_slim_mode", plannerCfg.PromptSlimMode)
 	runCtx = context.WithValue(runCtx, "planner_optimizer_decision_cache_enabled", plannerCfg.DecisionCacheEnabled)
@@ -979,13 +1134,26 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	var pendingTask map[string]any
+	if latestPendingTask, ok, err := h.his.LatestPendingTask(c.Request.Context(), env, tenantRef, sess.ID, 12); err == nil && ok {
+		pendingTask = map[string]any(latestPendingTask)
+		runCtx = context.WithValue(runCtx, "agent_pending_task", pendingTask)
+	}
 	runCtx = context.WithValue(runCtx, "agent_node_model_policy", modelPolicy)
 	runCtx = context.WithValue(runCtx, "agent_model_intent_provider", modelPolicy.Selection(runtime.ModelPolicyNodeIntent).Provider)
 	runCtx = context.WithValue(runCtx, "agent_model_intent_model", modelPolicy.Selection(runtime.ModelPolicyNodeIntent).Model)
 	runCtx = context.WithValue(runCtx, "agent_model_planner_provider", modelPolicy.Selection(runtime.ModelPolicyNodePlanner).Provider)
 	runCtx = context.WithValue(runCtx, "agent_model_planner_model", modelPolicy.Selection(runtime.ModelPolicyNodePlanner).Model)
+	runCtx = context.WithValue(runCtx, "agent_model_response_planner_provider", modelPolicy.Selection(runtime.ModelPolicyNodeResponsePlanner).Provider)
+	runCtx = context.WithValue(runCtx, "agent_model_response_planner_model", modelPolicy.Selection(runtime.ModelPolicyNodeResponsePlanner).Model)
 	runCtx = context.WithValue(runCtx, "agent_model_final_provider", modelPolicy.Selection(runtime.ModelPolicyNodeFinalResponse).Provider)
 	runCtx = context.WithValue(runCtx, "agent_model_final_model", modelPolicy.Selection(runtime.ModelPolicyNodeFinalResponse).Model)
+	runSink := runtime.NewRunStateSink(runCtx, debugSink)
+	_ = runSink.Emit(dto.EventStart, map[string]any{
+		"flow_id":      "agent_runtime",
+		"execution_id": traceID,
+		"status":       "running",
+	})
 	// 让前端/排障能看到“实际执行用的 provider/model”，避免把模型自报当成事实。
 	_ = debugSink.Emit(dto.EventMeta, map[string]any{
 		"env":          env,
@@ -995,8 +1163,70 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		"bound_skills": boundSkillIDs,
 	})
 
+	cctx := agent.CandidateBuildContextFromRequest(runCtx)
+	candidates := agent.GetAgentManager().BuildToolCallCandidatesWithContext(cctx, 64)
+	capabilityItems := responseCapabilityItemsFromCandidates(candidates)
+	capabilityIDs := responseCapabilityIDs(capabilityItems)
+	recentIntro, _ := h.his.HasRecentCapabilityIntro(c.Request.Context(), env, tenantRef, sess.ID, capabilityIDs, 12)
+	_ = runSink.Emit(dto.EventNodeStart, map[string]any{
+		"task_id":    "response_planner",
+		"node_kind":  dto.NodeKindLLM,
+		"node_ref":   "response_planner",
+		"stage":      1,
+		"action":     "plan_response",
+		"agent_id":   fmt.Sprintf("%d", agentID),
+		"agent_name": "Response Planner",
+	})
+	responsePlan, responsePlanErr := runtime.NewResponsePlanner().Plan(runCtx, runtime.ResponsePlanInput{
+		UserMessage:           q,
+		PlanHasExecutableNode: false,
+		AllowedCapabilities:   capabilityItems,
+		RecentCapabilityIntro: recentIntro,
+		PendingTask:           pendingTask,
+		ModelSelection:        modelPolicy.Selection(runtime.ModelPolicyNodeResponsePlanner),
+		TenantUUID:            strings.TrimSpace(tenantCtx.UUID()),
+		AgentID:               fmt.Sprintf("%d", agentID),
+		SessionID:             fmt.Sprintf("%d", sess.ID),
+		MessageID:             fmt.Sprintf("%d", userMessageID),
+		TraceID:               traceID,
+	})
+	if responsePlanErr != nil {
+		_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
+			"task_id":   "response_planner",
+			"node_kind": dto.NodeKindLLM,
+			"node_ref":  "response_planner",
+			"stage":     1,
+			"status":    dto.AgentTaskStatusFailed,
+			"error":     responsePlanErr.Error(),
+		})
+		_ = debugSink.Emit(dto.EventError, map[string]any{"code": runtime.ErrCodeResponsePlanInvalid, "message": responsePlanErr.Error()})
+		_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return
+	}
+	_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
+		"task_id":    "response_planner",
+		"node_kind":  dto.NodeKindLLM,
+		"node_ref":   "response_planner",
+		"stage":      1,
+		"status":     dto.AgentTaskStatusCompleted,
+		"result":     map[string]any{"response_mode": responsePlan.ResponseMode, "target_capability_ids": responsePlan.TargetCapabilityIDs},
+		"agent_id":   fmt.Sprintf("%d", agentID),
+		"agent_name": "Response Planner",
+	})
+	runCtx = context.WithValue(runCtx, "agent_response_plan", responsePlan.ToContextValue())
+	_ = runSink.Emit("response_plan", responsePlan.ToDebugEvent())
+
 	// Context 优化：分层上下文 + 预算裁剪（仅增强 system prompt，不改变用户输入）。
-	if optCfg.Enabled {
+	if optCfg.Enabled || responsePlan.UseCapabilityCtx {
+		_ = runSink.Emit(dto.EventNodeStart, map[string]any{
+			"task_id":    "context_builder",
+			"node_kind":  dto.NodeKindLLM,
+			"node_ref":   "context_builder",
+			"stage":      2,
+			"action":     "build_context",
+			"agent_id":   fmt.Sprintf("%d", agentID),
+			"agent_name": "Context Builder",
+		})
 		cfg.CacheMode = optCfg.CacheMode
 		cacheSupported := supportsProviderPromptCache(cfg.Provider)
 		cacheEnabled := false
@@ -1008,10 +1238,8 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		default:
 			cacheEnabled = cacheSupported
 		}
-		cctx := agent.CandidateBuildContextFromRequest(runCtx)
-		candidates := agent.GetAgentManager().BuildToolCallCandidatesWithContext(cctx, 64)
 		candidateSummary := buildCandidateSummary(candidates, 8)
-		build, buildErr := h.his.BuildContextForLLM(
+		build, buildErr := h.his.BuildContextForLLMWithResponsePlan(
 			c.Request.Context(),
 			env,
 			tenantRef,
@@ -1029,9 +1257,27 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 				CacheMode:                 optCfg.CacheMode,
 				SummaryRefreshIntervalSec: optCfg.SummaryRefreshIntervalSec,
 			},
+			&agentSvc.ResponseContextOptions{
+				ResponseMode:        string(responsePlan.ResponseMode),
+				TargetCapabilityIDs: responsePlan.TargetCapabilityIDs,
+				IncludeExamples:     responsePlan.IncludeExamples,
+				IncludeSchema:       responsePlan.IncludeSchema,
+				RepeatFullIntro:     responsePlan.RepeatFullIntro,
+			},
 		)
 		if buildErr == nil && build != nil {
-			cfg.SystemPrompt = strings.TrimSpace(build.SystemPrompt)
+			cfg.SystemPrompt = runtime.BuildModeSpecificSystemPrompt(strings.TrimSpace(build.SystemPrompt), responsePlan)
+			runCtx = context.WithValue(runCtx, "agent_response_context_layers", build.UsedContextLayers)
+			_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
+				"task_id":    "context_builder",
+				"node_kind":  dto.NodeKindLLM,
+				"node_ref":   "context_builder",
+				"stage":      2,
+				"status":     dto.AgentTaskStatusCompleted,
+				"result":     map[string]any{"used_context_layers": build.UsedContextLayers, "prompt_tokens": build.PromptTokens},
+				"agent_id":   fmt.Sprintf("%d", agentID),
+				"agent_name": "Context Builder",
+			})
 			_ = debugSink.Emit(dto.EventMeta, map[string]any{
 				"context_optimizer": map[string]any{
 					"enabled":                 build.Enabled,
@@ -1044,9 +1290,33 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 					"cache_supported":         cacheSupported,
 					"cache_enabled":           cacheEnabled,
 					"cached_tokens":           0,
+					"response_mode":           responsePlan.ResponseMode,
+					"used_context_layers":     build.UsedContextLayers,
 				},
 			})
+		} else if buildErr != nil {
+			_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
+				"task_id":   "context_builder",
+				"node_kind": dto.NodeKindLLM,
+				"node_ref":  "context_builder",
+				"stage":     2,
+				"status":    dto.AgentTaskStatusFailed,
+				"error":     buildErr.Error(),
+			})
+		} else if build == nil {
+			_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
+				"task_id":    "context_builder",
+				"node_kind":  dto.NodeKindLLM,
+				"node_ref":   "context_builder",
+				"stage":      2,
+				"status":     dto.AgentTaskStatusCompleted,
+				"result":     map[string]any{"used_context_layers": []string{}},
+				"agent_id":   fmt.Sprintf("%d", agentID),
+				"agent_name": "Context Builder",
+			})
 		}
+	} else {
+		cfg.SystemPrompt = runtime.BuildModeSpecificSystemPrompt(cfg.SystemPrompt, responsePlan)
 	}
 	_ = debugSink.Emit(dto.EventMeta, map[string]any{
 		"planner_optimizer": map[string]any{
@@ -1062,7 +1332,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		},
 	})
 
-	err = runtime.NewEngine().Run(runCtx, q, cfg, "", debugSink) // explicitFlow 传空，交给意图/plan 选择
+	err = runtime.NewEngine().Run(runCtx, q, cfg, "", runSink) // explicitFlow 传空，交给意图/plan 选择
 	if plannerUsage := agent.GetAgentManager().PopPlannerUsage(traceID); len(plannerUsage) > 0 {
 		if hops, ok := plannerUsage["hops"].([]map[string]any); ok {
 			for _, hop := range hops {

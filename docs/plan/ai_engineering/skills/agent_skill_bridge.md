@@ -4,7 +4,7 @@
 
 ## 1. 机制定位
 
-PowerX Agent Skill Bridge 不是“渠道直连插件业务接口”，也不是“插件自行实现一套 Agent 对话系统”，而是底座统一会话/Agent Runtime 与插件 Skill Executor 之间的能力桥。
+PowerX Agent Skill Bridge 不是“渠道直连插件业务接口”，也不是“插件自行实现一套 Agent 对话系统”，也不是新增一套独立 Skill 执行业务接口。它是底座统一会话/Agent Runtime、Agent 绑定 Skill 语义包、PowerX Capability Invocation 之间的桥接机制。
 
 标准调用链：
 
@@ -17,9 +17,9 @@ PowerX Agent Runtime
         ↓
 Intent Recognition / Planner / Skill Selection
         ↓
-PowerX Agent Skill Bridge
+Skill action -> capability_id resolution
         ↓
-PowerXPlugin Skill Executor
+PowerX Capability Invocation
         ↓
 插件领域业务任务
 ```
@@ -30,7 +30,7 @@ PowerXPlugin Skill Executor
 用户消息 -> 渠道插件 -> 业务插件私有 API
 ```
 
-渠道只负责消息进出；会话、身份、权限、租户、Agent 编排统一由 PowerX 管理；插件只声明 Skill 并执行领域业务。
+渠道只负责消息进出；会话、身份、权限、租户、Agent 编排统一由 PowerX 管理；插件声明 Skill 语义包和 capability handler。Skill 不能脱离 Agent 作为独立业务调用入口；业务执行统一落到 Capability Invocation。
 
 ## 2. 底座与插件职责边界
 
@@ -51,8 +51,8 @@ PowerX 底座负责：
 
 1. Skill 源定义（`SKILL.md` 目录包）
 2. Skill metadata / prompt / schema / executor 声明
-3. Skill Executor 实现
-4. 领域业务任务创建与状态查询
+3. action 到 capability 的映射声明
+4. Capability handler 实现
 5. 结果回调或事件发布
 6. 插件领域配置 UI
 
@@ -138,21 +138,18 @@ PowerXPlugin 需要提供两层封装。
 
 1. `PluginSkillManifest`
 2. `PluginSkillRegistry`
-3. `PluginSkillExecutor`
-4. `PluginSkillInvocation`
-5. `PluginSkillInvocationContext`
-6. `PluginSkillResult`
-7. `PluginSkillError`
-8. `PluginAuthMiddleware`
+3. `PluginSkillActionCapabilityMap`
+4. `PluginSkillSchema`
+5. `PluginAuthMiddleware`
 
 推荐插件统一暴露：
 
 ```text
 GET  /api/v1/plugin/skills
 GET  /api/v1/plugin/skills/:skill_id/schema
-POST /api/v1/plugin/skills/invoke
-GET  /api/v1/plugin/skills/invocations/:invocation_id
 ```
+
+插件不得把 PowerX Capability Invocation 作为标准业务执行入口。业务执行入口必须是既有 Capability Invocation，例如插件侧 `/api/v1/integration/capabilities/invoke` 或由 PowerX Capability Gateway 路由到插件 capability adapter。
 
 ### 4.2 Framework Client
 
@@ -176,48 +173,50 @@ client.Agent().StreamSSE(ctx, req)
 client.Agent().ConnectWS(ctx, req)
 ```
 
-## 5. 统一调用契约
+## 5. 统一执行契约
 
-PowerX 调插件 Skill Executor 的请求必须包含完整上下文：
+PowerX 不直接调用插件 Capability Handler。PowerX Agent Runtime 命中 Agent 已绑定 Skill 后，必须读取治理态 Skill Manifest 中的 `action_capabilities` 或 `executor.action_map`，把本轮 action 解析为 `capability_id`，再调用统一 Capability Invocation。
 
 ```json
 {
   "skill_id": "mediax.video_rebuilder.cn",
   "version": "1.0.0",
-  "input": {
-    "urls": ["https://example.com/video.mp4"],
-    "template_hint": "篮球模板"
-  },
-  "context": {
-    "tenant_uuid": "tenant_xxx",
-    "user_uuid": "user_xxx",
-    "agent_id": "agent_xxx",
-    "session_id": "session_xxx",
-    "message_id": "message_xxx",
-    "channel": "telegram",
-    "locale": "zh-CN",
-    "trace_id": "trace_xxx"
+  "executor": {
+    "type": "capability",
+    "capability": "mediax.video_rebuilder",
+    "action_map": {
+      "create": "com.powerx.plugins.mediax.video_rebuilder.create",
+      "status": "com.powerx.plugins.mediax.video_rebuilder.status"
+    }
   }
 }
 ```
 
-插件返回：
+Capability Invocation 请求必须携带完整上下文：
 
 ```json
 {
-  "success": true,
-  "skill_id": "mediax.video_rebuilder.cn",
-  "status": "queued",
-  "message": "已创建视频重构任务",
-  "task_id": "video-automation-task-xxx",
-  "data": {
-    "task_url": "/creation/video-automation/tasks/xxx"
+  "capability_id": "com.powerx.plugins.mediax.video_rebuilder.create",
+  "tenant_uuid": "tenant_xxx",
+  "preferred_protocol": "rest",
+  "payload": {
+    "action": "create",
+    "urls": ["https://example.com/video.mp4"],
+    "template_hint": "篮球模板"
   },
-  "trace_id": "trace_xxx"
+  "context": {
+    "user_uuid": "user_xxx",
+    "agent_id": "agent_xxx",
+    "session_id": "session_xxx",
+    "message_id": "message_xxx",
+    "skill_id": "mediax.video_rebuilder.cn",
+    "trace_id": "trace_xxx",
+    "channel": "telegram"
+  }
 }
 ```
 
-缺少 `tenant_uuid`、`user_uuid`、`agent_id`、`session_id`、`trace_id`、`skill_id` 等关键上下文时，插件必须 fail-fast，禁止降级为匿名调用。
+缺少 `tenant_uuid`、`agent_id`、`session_id`、`trace_id`、`skill_id` 或 action 无法映射到 capability 时，PowerX 必须 fail-fast，禁止降级为匿名调用、Skill 私有 executor 或渠道直连业务接口。
 
 ## 6. 插件自有 Agent Chat
 
@@ -232,9 +231,11 @@ PowerX Agent Session / Stream API
         ↓
 PowerX Agent Runtime
         ↓
-Agent Skill Bridge
+Skill action -> capability_id
         ↓
-当前插件 Skill Executor
+PowerX Capability Invocation
+        ↓
+当前插件 capability handler
 ```
 
 禁止本地 Chat 长期直接调用插件业务接口绕过 PowerX Agent Runtime。
@@ -315,19 +316,25 @@ MediaX 插件应声明：
       "template_hint": {"type": "string"}
     }
   },
+  "action_capabilities": {
+    "create": "com.powerx.plugins.mediax.video_rebuilder.create",
+    "status": "com.powerx.plugins.mediax.video_rebuilder.status"
+  },
   "executor": {
-    "type": "plugin_http",
-    "method": "POST",
-    "path": "/api/v1/plugin/skills/invoke",
-    "capability": "creation.video_automation.ingest"
+    "type": "capability",
+    "capability": "mediax.video_rebuilder",
+    "action_map": {
+      "create": "com.powerx.plugins.mediax.video_rebuilder.create",
+      "status": "com.powerx.plugins.mediax.video_rebuilder.status"
+    }
   }
 }
 ```
 
-MediaX 内部可以继续将该调用映射到领域接口，例如：
+MediaX 插件 capability handler 内部可以继续将 capability 调用映射到领域服务，例如：
 
 ```text
 POST /api/v1/creation/video-automation/ingest
 ```
 
-但 PowerX 只应调用统一 Skill Executor 入口。
+但 PowerX Agent Runtime 只应通过 Skill action -> capability_id -> Capability Invocation 进入执行链路。
