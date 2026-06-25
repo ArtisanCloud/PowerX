@@ -86,7 +86,12 @@ sudo -u postgres psql -d powerx_dev -Atc "SELECT nspname, pg_catalog.pg_get_user
 ```
 
 ## 7. 准备 dev 配置文件
-从生产配置复制一份后修改：
+推荐让 `switch-develop-systemd.sh` 在首次切换时自动初始化 `/etc/powerx-dev/config.yaml`：
+- 底层会从 release 包里的 `backend/etc/config.yaml` 复制一份到 `/etc/powerx-dev/config.yaml`。
+- dev wrapper 会在首次初始化时写入 dev 默认端口：backend `8081`，web-admin `3001`。
+- 后续 `/setup` 或人工维护会继续修改这份外置 runtime config，release 切换不会覆盖。
+
+如果你要在首次启动前就固定数据库、域名、storage 等配置，也可以先创建配置文件：
 
 ```bash
 sudo mkdir -p /etc/powerx-dev
@@ -101,7 +106,8 @@ sudo setfacl -m u:ubuntu:rw,u:powerx:r /etc/powerx-dev/config.yaml
 server:
   port: <dev-backend-port>
   bind_addr: ":<dev-backend-port>"
-  web_admin_port: <dev-web-port>
+
+web_admin_port: <dev-web-port>
 
 gateway:
   base_url: "https://<dev-domain>"
@@ -277,13 +283,13 @@ make dist DIST_VERSION=${POWERX_DEV_VERSION} NPM_INSTALL=0
 rm -rf /opt/powerx-dev/releases/${POWERX_DEV_VERSION}
 mv dist/systemd/${POWERX_DEV_VERSION} /opt/powerx-dev/releases/
 
-sudo env \
-  POWERX_DEV_BACKEND_PORT=${POWERX_DEV_BACKEND_PORT} \
-  bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
+sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
 ```
 
 说明：
 - `switch-develop-systemd.sh` 内部调用 `switch-release-systemd.sh`，但默认设置了 `POWERX_SYNC_SYSTEMD_UNITS=0`，不会从 release 里复制默认生产 unit 文件。
+- backend health check 端口默认从 `/etc/powerx-dev/config.yaml` 的 `server.port` 读取，读不到才 fallback 到 `8081`。
+- 如果 `/etc/powerx-dev/config.yaml` 不存在，首次切换会自动初始化，并写入 backend `8081`、web-admin `3001`。
 - 默认 dev root 是 `/opt/powerx-dev`，默认 dev runtime config 是 `/etc/powerx-dev`。
 - 默认 dev service 是 `powerx-dev-backend`、`powerx-dev-web-admin`、`powerx-dev-runner`。
 - 如需临时覆盖 dev root 或 service name，仍可通过 `POWERX_RELEASES_ROOT`、`POWERX_LINKS_ROOT`、`POWERX_RUNTIME_ROOT`、`POWERX_BACKEND_SERVICE` 等环境变量覆盖。

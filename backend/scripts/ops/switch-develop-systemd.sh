@@ -16,7 +16,9 @@ Description:
     - no release systemd unit sync
 
 Environment overrides:
-  POWERX_DEV_BACKEND_PORT  Default: 8081
+  POWERX_DEV_BACKEND_PORT  Default: read from /etc/powerx-dev/config.yaml, fallback 8081
+  POWERX_DEV_WEB_ADMIN_PORT
+                            Default: read from /etc/powerx-dev/config.yaml, fallback 3001
   POWERX_RELEASES_ROOT     Default: /opt/powerx-dev/releases
   POWERX_LINKS_ROOT        Default: /opt/powerx-dev
   POWERX_RUNTIME_ROOT      Default: /etc/powerx-dev
@@ -45,14 +47,60 @@ case "${1:-}" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEV_BACKEND_PORT="${POWERX_DEV_BACKEND_PORT:-8081}"
+DEV_RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx-dev}"
+DEV_CONFIG_PATH="${POWERX_CONFIG:-${DEV_RUNTIME_ROOT}/config.yaml}"
+
+read_backend_port() {
+  local cfg="$1"
+  if [[ ! -f "$cfg" ]]; then
+    return 1
+  fi
+  awk '
+    /^[[:space:]]*server:[[:space:]]*$/ { in_server=1; next }
+    in_server && /^[^[:space:]]/ { in_server=0 }
+    in_server && /^[[:space:]]*port:[[:space:]]*[0-9]+/ {
+      gsub(/[^0-9]/, "", $0)
+      print
+      exit
+    }
+  ' "$cfg"
+}
+
+read_web_admin_port() {
+  local cfg="$1"
+  if [[ ! -f "$cfg" ]]; then
+    return 1
+  fi
+  awk '
+    /^[[:space:]]*web_admin_port:[[:space:]]*[0-9]+/ {
+      gsub(/[^0-9]/, "", $0)
+      print
+      exit
+    }
+  ' "$cfg"
+}
+
+DEV_BACKEND_PORT="${POWERX_DEV_BACKEND_PORT:-}"
+if [[ -z "${DEV_BACKEND_PORT}" ]]; then
+  DEV_BACKEND_PORT="$(read_backend_port "${DEV_CONFIG_PATH}" || true)"
+fi
+DEV_BACKEND_PORT="${DEV_BACKEND_PORT:-8081}"
+
+DEV_WEB_ADMIN_PORT="${POWERX_DEV_WEB_ADMIN_PORT:-}"
+if [[ -z "${DEV_WEB_ADMIN_PORT}" ]]; then
+  DEV_WEB_ADMIN_PORT="$(read_web_admin_port "${DEV_CONFIG_PATH}" || true)"
+fi
+DEV_WEB_ADMIN_PORT="${DEV_WEB_ADMIN_PORT:-3001}"
 
 export POWERX_RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx-dev/releases}"
 export POWERX_LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx-dev}"
-export POWERX_RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx-dev}"
+export POWERX_RUNTIME_ROOT="${DEV_RUNTIME_ROOT}"
 export POWERX_STORAGE_ROOT="${POWERX_STORAGE_ROOT:-/opt/powerx-dev/storage}"
 export POWERX_PLUGIN_RUNTIME_ROOT="${POWERX_PLUGIN_RUNTIME_ROOT:-/opt/powerx-dev/plugins}"
 export POWERX_HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:${DEV_BACKEND_PORT}/api/v1/health}"
+export POWERX_HTTP_PROXY_BASE="${POWERX_HTTP_PROXY_BASE:-http://127.0.0.1:${DEV_BACKEND_PORT}}"
+export POWERX_BOOTSTRAP_BACKEND_PORT="${POWERX_BOOTSTRAP_BACKEND_PORT:-${DEV_BACKEND_PORT}}"
+export POWERX_BOOTSTRAP_WEB_ADMIN_PORT="${POWERX_BOOTSTRAP_WEB_ADMIN_PORT:-${DEV_WEB_ADMIN_PORT}}"
 export POWERX_BACKEND_SERVICE="${POWERX_BACKEND_SERVICE:-powerx-dev-backend}"
 export POWERX_WEB_ADMIN_SERVICE="${POWERX_WEB_ADMIN_SERVICE:-powerx-dev-web-admin}"
 export POWERX_RUNNER_SERVICE="${POWERX_RUNNER_SERVICE:-powerx-dev-runner}"

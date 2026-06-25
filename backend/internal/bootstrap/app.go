@@ -104,7 +104,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	logger.InfoF(ctx, "[catalog] loaded providers: %d", n)
 
 	// 初始化智能体工具（Agent Tools）
-	err = bootstrap.InitAgentTools(ctx, &cfg.Agent, &cfg.LogConfig, db)
+	err = bootstrap.InitAgentTools(ctx, cfg, db)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化工具失败: %s", err.Error())
 		return nil, err

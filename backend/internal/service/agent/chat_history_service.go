@@ -415,14 +415,132 @@ func (s *ChatHistoryService) LatestPendingTask(
 			continue
 		}
 		task := readJSONMapNestedMap(msg.Meta, "pending_task")
-		if len(task) == 0 {
-			continue
+		if len(task) > 0 && strings.EqualFold(strings.TrimSpace(fmt.Sprint(task["status"])), "awaiting_params") {
+			return task, true, nil
 		}
-		if strings.EqualFold(strings.TrimSpace(fmt.Sprint(task["status"])), "awaiting_params") {
+		task = pendingTaskFromClarifyMessage(msg, previousUserMessageBefore(msgs, i))
+		if len(task) > 0 {
 			return task, true, nil
 		}
 	}
 	return nil, false, nil
+}
+
+func pendingTaskFromClarifyMessage(msg dbmodel.AgentChatMessage, initialUserMessage string) datatypes.JSONMap {
+	mode := readJSONMapString(msg.Meta, "response_mode")
+	if mode == "" {
+		mode = readJSONMapNestedString(msg.Meta, "response_plan", "response_mode")
+	}
+	if !strings.EqualFold(strings.TrimSpace(mode), "clarify_params") {
+		return nil
+	}
+	targetIDs := readJSONMapStringList(msg.Meta, "capability_ids")
+	if len(targetIDs) == 0 {
+		targetIDs = readJSONMapNestedStringList(msg.Meta, "response_plan", "target_capability_ids")
+	}
+	if len(targetIDs) == 0 {
+		return nil
+	}
+	skillID := strings.TrimSpace(targetIDs[0])
+	if skillID == "" {
+		return nil
+	}
+	missingFields := readJSONMapNestedStringList(msg.Meta, "response_plan", "missing_fields")
+	if len(missingFields) == 0 {
+		missingFields = readJSONMapStringList(msg.Meta, "missing_fields")
+	}
+	task := datatypes.JSONMap{
+		"status":         "awaiting_params",
+		"task_id":        fmt.Sprintf("pending_msg_%d", msg.ID),
+		"node_kind":      "skill",
+		"node_ref":       skillID,
+		"skill_id":       skillID,
+		"source_scope":   "agent",
+		"agent_id":       fmt.Sprintf("%d", msg.AgentID),
+		"session_id":     fmt.Sprintf("%d", msg.SessionID),
+		"message_id":     fmt.Sprintf("%d", msg.ID),
+		"missing_fields": missingFields,
+	}
+	if strings.TrimSpace(initialUserMessage) != "" {
+		task["collected_params"] = datatypes.JSONMap{
+			"initial_user_message": strings.TrimSpace(initialUserMessage),
+		}
+	}
+	if trace := readJSONMapNestedMap(msg.Meta, "trace"); len(trace) > 0 {
+		for _, key := range []string{"trace_id", "run_id", "plan_id"} {
+			if value, ok := trace[key]; ok && strings.TrimSpace(fmt.Sprint(value)) != "" {
+				task[key] = value
+			}
+		}
+	}
+	action := inferPendingActionFromText(msg.Content)
+	if action != "" {
+		task["action"] = action
+	}
+	return task
+}
+
+func previousUserMessageBefore(msgs []dbmodel.AgentChatMessage, index int) string {
+	if index <= 0 || index > len(msgs) {
+		return ""
+	}
+	for j := index - 1; j >= 0; j-- {
+		msg := msgs[j]
+		if strings.EqualFold(strings.TrimSpace(msg.Role), "user") {
+			return strings.TrimSpace(msg.Content)
+		}
+	}
+	return ""
+}
+
+func inferPendingActionFromText(text string) string {
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" {
+		return ""
+	}
+	for _, item := range []struct {
+		action string
+		words  []string
+	}{
+		{action: "create", words: []string{"创建", "新建", "新增", "生成", "create", "add"}},
+		{action: "update", words: []string{"更新", "修改", "编辑", "update", "edit"}},
+		{action: "delete", words: []string{"删除", "移除", "delete", "remove"}},
+		{action: "list", words: []string{"列表", "列出", "list"}},
+		{action: "get", words: []string{"查询", "查看", "获取", "详情", "get", "read", "show"}},
+	} {
+		for _, word := range item.words {
+			if strings.Contains(text, strings.ToLower(word)) {
+				return item.action
+			}
+		}
+	}
+	return ""
+}
+
+func readJSONMapNestedString(meta datatypes.JSONMap, objectKey string, valueKey string) string {
+	if meta == nil {
+		return ""
+	}
+	raw, ok := meta[objectKey]
+	if !ok || raw == nil {
+		return ""
+	}
+	switch v := raw.(type) {
+	case map[string]any:
+		return strings.TrimSpace(fmt.Sprint(v[valueKey]))
+	case datatypes.JSONMap:
+		return strings.TrimSpace(fmt.Sprint(v[valueKey]))
+	case string:
+		text := strings.TrimSpace(v)
+		if text == "" {
+			return ""
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(text), &obj); err == nil {
+			return strings.TrimSpace(fmt.Sprint(obj[valueKey]))
+		}
+	}
+	return ""
 }
 
 func readJSONMapNestedMap(meta datatypes.JSONMap, key string) datatypes.JSONMap {

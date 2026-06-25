@@ -271,6 +271,28 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 			return result, err
 		} else if payload != nil {
 			responseMap = payload
+		} else {
+			err := fmt.Errorf("capability adapter %s returned empty response", strings.TrimSpace(routerResult.Transport))
+			result.Status = "failed"
+			result.Result = responseMap
+			if s.audit != nil {
+				s.audit.RecordInvocation(ctx, InvocationAuditInput{
+					TraceID:           traceID,
+					TenantUUID:        tenantUUID,
+					PluginID:          record.PluginID,
+					CapabilityID:      capabilityID,
+					PreferredProtocol: in.PreferredProtocol,
+					ProtocolUsed:      routerResult.Transport,
+					FallbackUsed:      routerResult.FallbackUsed,
+					Status:            result.Status,
+					IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
+					RequestPayload:    in.Payload,
+					ResponsePayload:   responseMap,
+					ErrorSummary:      err.Error(),
+					Latency:           latency,
+				})
+			}
+			return result, err
 		}
 	}
 
@@ -313,7 +335,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 	switch transport {
 	case "http", "rest":
 		if s.httpClient == nil || s.httpBaseURL == "" {
-			return nil, nil
+			return nil, errors.New("rest adapter selected but HTTP client/base URL is not configured")
 		}
 		restPayload, err := buildRESTInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
@@ -323,7 +345,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		return s.invokeREST(ctx, in.CapabilityID, restPayload, traceID, useAIMultimodalTimeout)
 	case "grpc":
 		if s.grpcConn == nil {
-			return nil, nil
+			return nil, errors.New("grpc adapter selected but gRPC connection is not configured")
 		}
 		grpcPayload, err := buildGRPCInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
@@ -331,7 +353,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		}
 		return s.invokeGRPC(ctx, grpcPayload)
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("unsupported capability adapter transport %q", transport)
 	}
 }
 

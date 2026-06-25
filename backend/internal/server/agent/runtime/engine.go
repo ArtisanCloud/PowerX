@@ -758,8 +758,8 @@ func mergePendingTaskParams(ctx context.Context, task flowschema.PlanTask) flows
 	if ctx == nil {
 		return task
 	}
-	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
-	if !ok || len(pending) == 0 {
+	pending := mapFromAny(ctx.Value("agent_pending_task"))
+	if len(pending) == 0 {
 		return task
 	}
 	pendingRef := firstNonEmpty(anyToString(pending["node_ref"]), anyToString(pending["skill_id"]), anyToString(pending["capability_id"]))
@@ -779,10 +779,7 @@ func mergePendingTaskParams(ctx context.Context, task flowschema.PlanTask) flows
 	if taskActionValue == "" && pendingAction != "" {
 		merged["action"] = pendingAction
 	}
-	if collected, ok := pending["collected_params"].(map[string]any); ok {
-		mergePlanParams(merged, collected)
-	}
-	if collected, ok := pending["collected_params"].(map[string]interface{}); ok {
+	if collected := mapFromAny(pending["collected_params"]); len(collected) > 0 {
 		mergePlanParams(merged, collected)
 	}
 	task.Params = merged
@@ -793,8 +790,8 @@ func pendingDetectedTaskFromContext(ctx context.Context, msg string) (flowschema
 	if ctx == nil {
 		return flowschema.DetectedTask{}, false
 	}
-	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
-	if !ok || !pendingTaskStatusAwaitingParams(pending) {
+	pending := mapFromAny(ctx.Value("agent_pending_task"))
+	if !pendingTaskStatusAwaitingParams(pending) {
 		return flowschema.DetectedTask{}, false
 	}
 	nodeRef := firstNonEmpty(anyToString(pending["node_ref"]), anyToString(pending["skill_id"]), anyToString(pending["capability_id"]))
@@ -803,10 +800,7 @@ func pendingDetectedTaskFromContext(ctx context.Context, msg string) (flowschema
 	}
 	nodeKind := firstNonEmpty(anyToString(pending["node_kind"]), dto.NodeKindSkill)
 	params := map[string]interface{}{}
-	if collected, ok := pending["collected_params"].(map[string]any); ok {
-		mergePlanParams(params, collected)
-	}
-	if collected, ok := pending["collected_params"].(map[string]interface{}); ok {
+	if collected := mapFromAny(pending["collected_params"]); len(collected) > 0 {
 		mergePlanParams(params, collected)
 	}
 	if action := strings.ToLower(strings.TrimSpace(anyToString(pending["action"]))); action != "" {
@@ -836,8 +830,8 @@ func isPendingResumePlan(ctx context.Context, plan *flowschema.ExecutionPlan) bo
 	if ctx == nil || plan == nil || len(plan.Tasks) == 0 {
 		return false
 	}
-	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
-	if !ok || !pendingTaskStatusAwaitingParams(pending) {
+	pending := mapFromAny(ctx.Value("agent_pending_task"))
+	if !pendingTaskStatusAwaitingParams(pending) {
 		return false
 	}
 	for _, task := range plan.Tasks {
@@ -915,12 +909,12 @@ func mergePlanParams(dst map[string]interface{}, src map[string]any) {
 			continue
 		}
 		if existing, ok := dst[k].(map[string]interface{}); ok {
-			if nested, ok := v.(map[string]any); ok {
+			if nested := mapFromAny(v); len(nested) > 0 {
 				mergePlanParams(existing, nested)
 				continue
 			}
 		}
-		if nested, ok := v.(map[string]any); ok {
+		if nested := mapFromAny(v); len(nested) > 0 {
 			child := map[string]interface{}{}
 			mergePlanParams(child, nested)
 			dst[k] = child

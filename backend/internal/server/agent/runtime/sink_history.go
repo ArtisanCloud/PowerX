@@ -2,6 +2,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -105,8 +106,25 @@ func (h *HistorySink) mergeRunStateMeta(meta datatypes.JSONMap) {
 
 func mapFromAny(payload any) map[string]any {
 	switch v := payload.(type) {
+	case nil:
+		return nil
 	case map[string]any:
 		return v
+	case datatypes.JSONMap:
+		out := make(map[string]any, len(v))
+		for k, item := range v {
+			out[k] = item
+		}
+		return out
+	case string:
+		text := strings.TrimSpace(v)
+		if text == "" {
+			return nil
+		}
+		var out map[string]any
+		if err := json.Unmarshal([]byte(text), &out); err == nil {
+			return out
+		}
 	case dto.AgentTaskState:
 		return map[string]any{
 			"run_id":           v.RunID,
@@ -135,6 +153,7 @@ func mapFromAny(payload any) map[string]any {
 	default:
 		return nil
 	}
+	return nil
 }
 
 func extractAssistantText(payload any) string {

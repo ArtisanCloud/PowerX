@@ -25,13 +25,19 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	logcfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gorm.io/gorm"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg.LogConfig, db *gorm.DB) error {
+func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) error {
+	if appConfig == nil {
+		return errors.New("app config is required")
+	}
+	cfg := &appConfig.Agent
+	logCfg := &appConfig.LogConfig
 	normalizeAgentRuntimePaths(cfg)
 
 	// 新建Agent Manager
@@ -120,10 +126,11 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, logCfg *logcfg
 		capTraceRepo := caprepo.NewInvocationTraceRepository(db)
 		capEventRepo := caprepo.NewCapabilityEventPublicationRepository(db)
 		capInvoker := capservice.NewInvocationService(capservice.InvocationServiceOptions{
-			Catalog:   catalog,
-			Router:    router,
-			TraceRepo: capTraceRepo,
-			EventRepo: capEventRepo,
+			Catalog:     catalog,
+			Router:      router,
+			TraceRepo:   capTraceRepo,
+			EventRepo:   capEventRepo,
+			HTTPBaseURL: resolveCoreHTTPBaseURL(appConfig),
 		})
 		gAgentManager.SetSkillInvoker(func(ctx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
 			if in.Payload == nil {
@@ -991,4 +998,20 @@ func resolvePlannerOptimizerConfig(agentCfg *config.AgentConfig) agent.PlannerOp
 		out.DecisionCacheTTLSec = c.DecisionCacheTTLSec
 	}
 	return out
+}
+
+func resolveCoreHTTPBaseURL(cfg *appcfg.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	host := strings.TrimSpace(cfg.Server.Host)
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+	port := cfg.Server.Port
+	if port <= 0 {
+		port = 8077
+	}
+	return "http://" + net.JoinHostPort(host, fmt.Sprintf("%d", port))
 }

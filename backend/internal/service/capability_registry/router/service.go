@@ -263,17 +263,12 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 	preferredTransport := normalizeTransport(in.PreferredProtocol)
 	if preferredTransport != "" {
 		var prioritized []registry.AdapterEndpoint
-		var rest []registry.AdapterEndpoint
 		for _, ep := range adapters {
 			if normalizeTransport(ep.TransportType) == preferredTransport {
 				prioritized = append(prioritized, ep)
-			} else {
-				rest = append(rest, ep)
 			}
 		}
-		if len(prioritized) > 0 {
-			adapters = append(prioritized, rest...)
-		}
+		adapters = prioritized
 	}
 
 	if in.StickyKey != "" {

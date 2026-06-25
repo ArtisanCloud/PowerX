@@ -781,6 +781,9 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	if err != nil {
 		return nil, err
 	}
+	if !strings.EqualFold(strings.TrimSpace(out.Status), "completed") {
+		return nil, fmt.Errorf("skill invocation failed: status=%s trace_id=%s protocol=%s", strings.TrimSpace(out.Status), strings.TrimSpace(out.TraceID), strings.TrimSpace(out.ProtocolUsed))
+	}
 	data := map[string]any{
 		"trace_id":      out.TraceID,
 		"status":        out.Status,

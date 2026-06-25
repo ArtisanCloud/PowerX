@@ -36,6 +36,10 @@ Environment overrides:
   POWERX_RUNNER_SERVICE    Default: powerx-runner
   POWERX_SYNC_SYSTEMD_UNITS
                             Default: 1. Set to 0 when dev service unit files are managed separately.
+  POWERX_BOOTSTRAP_BACKEND_PORT
+                            Optional. Used to initialize server.port when runtime config is first created.
+  POWERX_BOOTSTRAP_WEB_ADMIN_PORT
+                            Optional. Used to initialize top-level web_admin_port when runtime config is first created.
 USAGE
 }
 
@@ -119,6 +123,7 @@ RUNNER_SERVICE="${POWERX_RUNNER_SERVICE:-powerx-runner}"
 SYNC_SYSTEMD_UNITS="${POWERX_SYNC_SYSTEMD_UNITS:-1}"
 RUNTIME_CONFIG_PATH="${RUNTIME_ROOT}/config.yaml"
 RUNTIME_SETUP_DRAFT_PATH="${RUNTIME_ROOT}/setup.wizard.config.json"
+RUNTIME_CONFIG_CREATED=0
 
 TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
@@ -399,7 +404,7 @@ EOF
 
 sync_http_proxy_base_env() {
   local env_file="${RUNTIME_ROOT}/powerx.env"
-  local proxy_base="http://127.0.0.1:8080"
+  local proxy_base="${POWERX_HTTP_PROXY_BASE:-http://127.0.0.1:8080}"
   local current_value=""
 
   install -d -m 0755 "${RUNTIME_ROOT}"
@@ -463,6 +468,7 @@ ensure_runtime_config_external() {
       cp "${source_cfg}" "${RUNTIME_CONFIG_PATH}"
       chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
       chmod 0644 "${RUNTIME_CONFIG_PATH}"
+      RUNTIME_CONFIG_CREATED=1
       echo "[switch-release] runtime config initialized: ${RUNTIME_CONFIG_PATH} <= ${source_cfg}"
     else
       echo "[switch-release] warning: runtime config source not found, keep release-local config fallback" >&2
@@ -500,6 +506,83 @@ ensure_runtime_config_external() {
     chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_SETUP_DRAFT_PATH}"
     chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
   fi
+}
+
+apply_bootstrap_ports() {
+  if [[ "${RUNTIME_CONFIG_CREATED}" != "1" ]]; then
+    return
+  fi
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    return
+  fi
+
+  local backend_port="${POWERX_BOOTSTRAP_BACKEND_PORT:-}"
+  local web_admin_port="${POWERX_BOOTSTRAP_WEB_ADMIN_PORT:-}"
+  local tmp_file
+
+  if [[ -z "${backend_port}" && -z "${web_admin_port}" ]]; then
+    return
+  fi
+  if [[ -n "${backend_port}" && ! "${backend_port}" =~ ^[0-9]+$ ]]; then
+    echo "[switch-release] invalid POWERX_BOOTSTRAP_BACKEND_PORT=${backend_port}" >&2
+    exit 1
+  fi
+  if [[ -n "${web_admin_port}" && ! "${web_admin_port}" =~ ^[0-9]+$ ]]; then
+    echo "[switch-release] invalid POWERX_BOOTSTRAP_WEB_ADMIN_PORT=${web_admin_port}" >&2
+    exit 1
+  fi
+
+  tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.bootstrap-ports.XXXXXX")"
+  awk -v backend_port="${backend_port}" -v web_admin_port="${web_admin_port}" '
+    BEGIN {
+      in_server = 0
+      server_seen = 0
+      backend_done = backend_port == "" ? 1 : 0
+      web_done = web_admin_port == "" ? 1 : 0
+    }
+    /^[[:space:]]*server:[[:space:]]*$/ {
+      in_server = 1
+      server_seen = 1
+      print
+      next
+    }
+    in_server && /^[^[:space:]]/ {
+      if (!backend_done) {
+        print "  port: " backend_port
+        backend_done = 1
+      }
+      in_server = 0
+    }
+    in_server && /^[[:space:]]*port:[[:space:]]*/ && !backend_done {
+      print "  port: " backend_port
+      backend_done = 1
+      next
+    }
+    /^[[:space:]]*web_admin_port:[[:space:]]*/ && !web_done {
+      print "web_admin_port: " web_admin_port
+      web_done = 1
+      next
+    }
+    { print }
+    END {
+      if (!server_seen && !backend_done) {
+        print "server:"
+        print "  port: " backend_port
+        backend_done = 1
+      } else if (in_server && !backend_done) {
+        print "  port: " backend_port
+        backend_done = 1
+      }
+      if (!web_done) {
+        print "web_admin_port: " web_admin_port
+      }
+    }
+  ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+
+  mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime config bootstrap ports applied: backend=${backend_port:-<unchanged>} web_admin=${web_admin_port:-<unchanged>}"
 }
 
 sync_runtime_plugin_paths() {
@@ -742,6 +825,7 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+apply_bootstrap_ports
 sync_http_proxy_base_env
 sync_runtime_storage_paths
 sync_runtime_plugin_paths
