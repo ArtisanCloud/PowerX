@@ -133,7 +133,7 @@ func (c *WorkflowCatalog) Snapshot(ctx context.Context) (WorkflowCatalogSnapshot
 	if c == nil {
 		return WorkflowCatalogSnapshot{}, errors.New("workflow catalog is nil")
 	}
-	if c.redis != nil {
+	if !isNilUniversalClient(c.redis) {
 		raw, err := c.redis.Get(ctx, c.cacheKey).Bytes()
 		if err == nil && len(raw) > 0 {
 			var snapshot WorkflowCatalogSnapshot
@@ -149,7 +149,7 @@ func (c *WorkflowCatalog) Snapshot(ctx context.Context) (WorkflowCatalogSnapshot
 
 // cacheSnapshot 将快照写入 Redis。
 func (c *WorkflowCatalog) cacheSnapshot(ctx context.Context, snapshot WorkflowCatalogSnapshot) error {
-	if c == nil || c.redis == nil {
+	if c == nil || isNilUniversalClient(c.redis) {
 		return nil
 	}
 	payload, err := json.Marshal(snapshot)

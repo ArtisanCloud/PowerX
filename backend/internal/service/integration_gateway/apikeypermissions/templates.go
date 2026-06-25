@@ -56,7 +56,7 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 	var profile *modelsiam.APIKeyProfile
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		profileRepo := iamrepo.NewAPIKeyProfileRepository(tx)
-		profPermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
+		profilePermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
 
 		existed, findErr := profileRepo.FindByKey(ctx, tenantUUID, DefaultAPIKeyProfileKey)
 		if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
@@ -98,18 +98,12 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 			}
 		}
 
-		currentIDs, listErr := profPermRepo.ListPermissionIDsOfProfile(ctx, existed.ID)
-		if listErr != nil {
-			return listErr
-		}
-		toAdd, toRemove := diffPermissionIDs(currentIDs, permissionIDs)
-		if revokeErr := profPermRepo.RevokeByIDsTx(tx, existed.ID, toRemove); revokeErr != nil {
-			return revokeErr
-		}
-		if grantErr := profPermRepo.GrantByIDsTx(tx, existed.ID, toAdd); grantErr != nil {
-			return grantErr
-		}
 		profile = existed
+		if profile != nil && profile.ID > 0 {
+			if grantErr := profilePermRepo.GrantByIDsTx(tx, profile.ID, permissionIDs); grantErr != nil {
+				return grantErr
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -121,29 +115,17 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 			return nil, nil, err
 		}
 	}
-	return profile, permissionIDs, nil
-}
-
-func diffPermissionIDs(current []uint64, desired []uint64) (toAdd []uint64, toRemove []uint64) {
-	currentSet := make(map[uint64]struct{}, len(current))
-	desiredSet := make(map[uint64]struct{}, len(desired))
-	for _, id := range current {
-		currentSet[id] = struct{}{}
-	}
-	for _, id := range desired {
-		desiredSet[id] = struct{}{}
-	}
-	for _, id := range desired {
-		if _, ok := currentSet[id]; !ok {
-			toAdd = append(toAdd, id)
+	currentIDs := []uint64{}
+	if profile != nil && profile.ID > 0 {
+		currentIDs, err = iamrepo.NewAPIKeyProfilePermissionRepository(db).ListPermissionIDsOfProfile(ctx, profile.ID)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
-	for _, id := range current {
-		if _, ok := desiredSet[id]; !ok {
-			toRemove = append(toRemove, id)
-		}
+	if len(currentIDs) == 0 {
+		currentIDs = permissionIDs
 	}
-	return
+	return profile, currentIDs, nil
 }
 
 func BuildTemplatePermissions() []modelsiam.Permission {
@@ -180,6 +162,18 @@ func BuildTemplatePermissions() []modelsiam.Permission {
 		}),
 		build("integration_gateway", "api_key.agent.session", "manage", "API Key：Agent 会话管理", map[string]string{
 			"scope": "_scope.agent.session.manage", "action": "manage", "resource_type": "api", "resource_pattern": "POST:/api/v1/agents/sessions",
+		}),
+		build("integration_gateway", "api_key.plugin.skill_registry", "sync", "API Key：插件 Skill 注册同步", map[string]string{
+			"scope": "_scope.plugin.skill_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/admin/skills/plugin-registry*",
+		}),
+		build("integration_gateway", "api_key.plugin.capability_catalog", "sync", "API Key：插件 Capability Catalog 同步", map[string]string{
+			"scope": "_scope.plugin.capability_catalog.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/internal/plugins/capabilities/catalog",
+		}),
+		build("integration_gateway", "api_key.plugin.agent_registry", "sync", "API Key：插件 Agent 注册同步", map[string]string{
+			"scope": "_scope.plugin.agent_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/admin/agents*",
+		}),
+		build("integration_gateway", "api_key.plugin.agent_registry", "update", "API Key：插件 Agent 注册更新同步", map[string]string{
+			"scope": "_scope.plugin.agent_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "PATCH:/api/v1/admin/agents*",
 		}),
 	}
 }

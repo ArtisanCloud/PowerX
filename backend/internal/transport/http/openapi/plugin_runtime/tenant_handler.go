@@ -200,8 +200,8 @@ func (h *tenantRuntimeHandler) InstantiateAgent(c *gin.Context) {
 		Description:     strings.TrimSpace(req.Description),
 		TypeID:          firstNonEmpty(strings.TrimSpace(req.TypeID), extractMetaStringFromMap(req.Meta, "type_id"), extractMetaStringFromMap(req.Meta, "typeId")),
 		Scene:           firstNonEmpty(strings.TrimSpace(req.Scene), extractMetaStringFromMap(req.Meta, "scene")),
-		PromptSeed:      firstNonEmpty(strings.TrimSpace(req.PromptSeed), extractMetaStringFromMap(req.Meta, "prompt_seed"), extractMetaStringFromMap(req.Meta, "promptSeed")),
-		Persona:         firstNonEmpty(strings.TrimSpace(req.Persona), extractMetaPersonaFromMap(req.Meta), extractPersonaFromParameters(req.Parameters)),
+		PromptSeed:      strings.TrimSpace(req.PromptSeed),
+		Persona:         strings.TrimSpace(req.Persona),
 		Source:          "plugin-runtime",
 		Scope:           firstNonEmpty(strings.TrimSpace(req.Scope), dbmodel.AgentScopeTenant),
 		Visibility:      firstNonEmpty(strings.TrimSpace(req.Visibility), dbmodel.AgentVisibilityTenant),
@@ -305,18 +305,12 @@ func toAgentRuntimeItem(agent dbmodel.Agent) agentRuntimeItem {
 		if item.PromptSeed == "" {
 			item.PromptSeed = firstNonEmpty(strings.TrimSpace(fmt.Sprint(item.Meta["prompt_seed"])), strings.TrimSpace(fmt.Sprint(item.Meta["promptSeed"])))
 		}
-		if item.Persona == "" {
-			item.Persona = firstNonEmpty(strings.TrimSpace(fmt.Sprint(item.Meta["persona"])), extractMetaPersonaFromMap(item.Meta))
-		}
 		if p, ok := item.Meta["parameters"].(map[string]interface{}); ok {
 			item.Parameters = p
 		}
 	}
 	item.SkillIDs = firstNonEmptyStringSlice(extractStringSliceFromMap(item.Parameters, "skill_ids", "skillIds"), extractStringSliceFromMap(item.Meta, "skill_ids", "skillIds"), extractStringSliceFromParametersInMeta(item.Meta, "skill_ids", "skillIds"))
 	item.KnowledgeBaseIDs = firstNonEmptyStringSlice(extractStringSliceFromMap(item.Parameters, "knowledge_base_ids", "knowledgeBaseIds"), extractStringSliceFromMap(item.Meta, "knowledge_base_ids", "knowledgeBaseIds"), extractStringSliceFromParametersInMeta(item.Meta, "knowledge_base_ids", "knowledgeBaseIds"))
-	if item.Persona == "" {
-		item.Persona = extractPersonaFromParameters(item.Parameters)
-	}
 	return item
 }
 
@@ -423,28 +417,6 @@ func extractMetaStringFromMap(meta map[string]interface{}, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(meta[key]))
-}
-
-func extractMetaPersonaFromMap(meta map[string]interface{}) string {
-	if len(meta) == 0 {
-		return ""
-	}
-	if p := strings.TrimSpace(fmt.Sprint(meta["persona"])); p != "" {
-		return p
-	}
-	raw := meta["parameters"]
-	m, ok := raw.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(m["persona"]))
-}
-
-func extractPersonaFromParameters(parameters map[string]interface{}) string {
-	if len(parameters) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(parameters["persona"]))
 }
 
 func extractStringSliceFromMap(input map[string]interface{}, keys ...string) []string {

@@ -24,6 +24,12 @@ type SkillExecutionTrace struct {
 	RequestPayloadDigest   string `gorm:"column:request_payload_digest;type:varchar(128)" json:"request_payload_digest,omitempty"`
 	ResponsePayloadDigest  string `gorm:"column:response_payload_digest;type:varchar(128)" json:"response_payload_digest,omitempty"`
 	CapabilityID           string `gorm:"column:capability_id;type:varchar(128);index:idx_skill_execution_capability" json:"capability_id,omitempty"`
+	ProviderPluginID       string `gorm:"column:provider_plugin_id;type:varchar(128);index:idx_skill_execution_provider_plugin" json:"provider_plugin_id,omitempty"`
+	AgentID                string `gorm:"column:agent_id;type:varchar(64);index:idx_skill_execution_agent" json:"agent_id,omitempty"`
+	SessionID              string `gorm:"column:session_id;type:varchar(128);index:idx_skill_execution_session" json:"session_id,omitempty"`
+	MessageID              string `gorm:"column:message_id;type:varchar(128);index:idx_skill_execution_message" json:"message_id,omitempty"`
+	ExecutorPath           string `gorm:"column:executor_path;type:text" json:"executor_path,omitempty"`
+	PluginTaskID           string `gorm:"column:plugin_task_id;type:varchar(128);index:idx_skill_execution_plugin_task" json:"plugin_task_id,omitempty"`
 	PlanID                 string `gorm:"column:plan_id;type:varchar(128);index:idx_skill_execution_plan" json:"plan_id,omitempty"`
 	NodeID                 string `gorm:"column:node_id;type:varchar(128);index:idx_skill_execution_node" json:"node_id,omitempty"`
 	TeamID                 string `gorm:"column:team_id;type:varchar(64);index:idx_skill_execution_team" json:"team_id,omitempty"`
@@ -48,6 +54,12 @@ func (t *SkillExecutionTrace) Normalize() {
 	t.ProtocolUsed = strings.TrimSpace(strings.ToLower(t.ProtocolUsed))
 	t.InvokePath = strings.TrimSpace(strings.ToLower(t.InvokePath))
 	t.Status = strings.TrimSpace(strings.ToLower(t.Status))
+	t.ProviderPluginID = strings.TrimSpace(t.ProviderPluginID)
+	t.AgentID = strings.TrimSpace(t.AgentID)
+	t.SessionID = strings.TrimSpace(t.SessionID)
+	t.MessageID = strings.TrimSpace(t.MessageID)
+	t.ExecutorPath = strings.TrimSpace(t.ExecutorPath)
+	t.PluginTaskID = strings.TrimSpace(t.PluginTaskID)
 	t.PlanID = strings.TrimSpace(t.PlanID)
 	t.NodeID = strings.TrimSpace(t.NodeID)
 	t.TeamID = strings.TrimSpace(t.TeamID)

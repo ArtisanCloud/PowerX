@@ -20,7 +20,7 @@ export interface AgentTeamMemberRecord {
   team_id: number;
   tenant_uuid: string;
   child_agent_id: number;
-  role: "planner" | "retriever" | "executor" | "reviewer";
+  role: "retriever" | "executor" | "reviewer";
   priority: number;
   enabled: boolean;
 }

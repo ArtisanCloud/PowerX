@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
-	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
-	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
 
 	"gorm.io/gorm"
 
@@ -77,6 +77,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 	if err = SeedDemoSkillInstallTasks(db); err != nil {
+		return err
+	}
+	if err = SeedA2AReleaseReadinessDemo(db); err != nil {
 		return err
 	}
 

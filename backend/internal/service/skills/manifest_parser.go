@@ -77,13 +77,19 @@ func NormalizeManifestJSON(raw []byte, fallbackVersion string) (map[string]inter
 	if desc == "" {
 		desc = "no description"
 	}
-	return map[string]interface{}{
+	normalized := map[string]interface{}{
 		"name":        name,
 		"description": desc,
 		"version":     version,
 		"entrypoints": entrypoints,
 		"schema":      toString(obj["schema"]),
-	}, nil
+	}
+	for _, key := range []string{"skill_id", "provider", "title", "intent_examples", "input_schema", "output_schema", "prompt_refs", "executor", "visibility", "status"} {
+		if value, ok := obj[key]; ok {
+			normalized[key] = value
+		}
+	}
+	return normalized, nil
 }
 
 func extractYAMLFrontmatter(markdown string) (string, error) {
@@ -150,4 +156,3 @@ func toString(v interface{}) string {
 		return fmt.Sprintf("%v", x)
 	}
 }
-

@@ -21,6 +21,56 @@ const (
 )
 
 const (
+	TeamRolePlanner   = "planner"
+	TeamRoleRetriever = "retriever"
+	TeamRoleExecutor  = "executor"
+	TeamRoleReviewer  = "reviewer"
+)
+
+type TeamRoleOption struct {
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CanBeTL     bool   `json:"can_be_tl"`
+	CanBeChild  bool   `json:"can_be_child"`
+	Priority    int    `json:"priority"`
+}
+
+func TeamRoleOptions() []TeamRoleOption {
+	return []TeamRoleOption{
+		{Code: TeamRolePlanner, Name: "任务规划", Description: "TL 主智能体角色，负责拆解任务、规划协作并汇总结果。", CanBeTL: true, CanBeChild: false, Priority: 10},
+		{Code: TeamRoleRetriever, Name: "资料检索", Description: "子智能体角色，负责检索、整理事实、返回证据摘要。", CanBeTL: false, CanBeChild: true, Priority: 20},
+		{Code: TeamRoleExecutor, Name: "任务执行", Description: "子智能体角色，负责执行具体步骤、调用能力并返回执行结果。", CanBeTL: false, CanBeChild: true, Priority: 30},
+		{Code: TeamRoleReviewer, Name: "结果复核", Description: "子智能体角色，负责复核结果一致性、风险等级与遗漏项。", CanBeTL: false, CanBeChild: true, Priority: 40},
+	}
+}
+
+func TeamChildRoleOptions() []TeamRoleOption {
+	all := TeamRoleOptions()
+	out := make([]TeamRoleOption, 0, len(all))
+	for _, item := range all {
+		if item.CanBeChild {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func DefaultChildTeamRole() string {
+	return TeamRoleExecutor
+}
+
+func IsChildTeamRole(role string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(role))
+	for _, item := range TeamChildRoleOptions() {
+		if item.Code == normalized {
+			return true
+		}
+	}
+	return false
+}
+
+const (
 	TaskStatusQueued    = "queued"
 	TaskStatusRunning   = "running"
 	TaskStatusCompleted = "completed"
@@ -75,7 +125,7 @@ func (m *AgentTeamMember) Normalize() {
 	m.TenantUUID = strings.ToLower(strings.TrimSpace(m.TenantUUID))
 	m.Role = strings.ToLower(strings.TrimSpace(m.Role))
 	if m.Role == "" {
-		m.Role = "executor"
+		m.Role = DefaultChildTeamRole()
 	}
 	if m.Priority <= 0 {
 		m.Priority = 100

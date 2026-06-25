@@ -342,7 +342,7 @@ const teamName = ref("incident-a2a-demo");
 const dispatchMode = ref<"parallel" | "serial" | "mixed">("parallel");
 const failurePolicy = ref<"continue" | "fail-fast" | "retry-once">("continue");
 const tlAgentId = ref<number | null>(null);
-type ChildRole = "retriever" | "executor" | "reviewer";
+type ChildRole = string;
 const selectedMembers = ref<Array<{ agentId: number; name: string; key: string; role: ChildRole }>>([]);
 const editingTeam = ref<AgentTeamRecord | null>(null);
 const editingMembers = ref<Array<{ child_agent_id: number; role: ChildRole; enabled: boolean; name: string; key: string }>>([]);
@@ -364,11 +364,11 @@ const editingTeamForm = ref<{
   default_failure_policy: "continue",
 });
 
-const roleOptions = computed(() => [
-  { label: t("agent.teamManagement.roles.retriever"), value: "retriever" as const },
-  { label: t("agent.teamManagement.roles.executor"), value: "executor" as const },
-  { label: t("agent.teamManagement.roles.reviewer"), value: "reviewer" as const },
-]);
+const roleOptions = [
+  { label: "资料检索 (retriever)", value: "retriever" },
+  { label: "任务执行 (executor)", value: "executor" },
+  { label: "结果复核 (reviewer)", value: "reviewer" },
+];
 const dispatchModeOptions = ["parallel", "serial", "mixed"];
 const failurePolicyOptions = ["continue", "fail-fast", "retry-once"];
 const agentPool = computed<Agent[]>(() =>
@@ -542,7 +542,7 @@ const loadMembersForModal = async () => {
     const res = await svc.listMembers(teamId);
     editingMembers.value = (res.items || []).map((item) => ({
       child_agent_id: Number(item.child_agent_id),
-      role: item.role === "planner" ? "executor" : item.role,
+      role: roleOptions.some((role) => role.value === item.role) ? item.role : "executor",
       enabled: Boolean(item.enabled),
       name: resolveAgentProfile(Number(item.child_agent_id)).name,
       key: resolveAgentProfile(Number(item.child_agent_id)).key,

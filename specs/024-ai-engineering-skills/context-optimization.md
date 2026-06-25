@@ -53,16 +53,57 @@
 由当前“拼接最近 N 条的占位摘要”升级为结构化摘要：
 
 - 摘要 schema：
+  - `schema`
   - `facts[]`
   - `decisions[]`
   - `open_issues[]`
   - `constraints[]`
+  - `from_message_id`
+  - `to_message_id`
+  - `compressed_messages`
+  - `recent_messages_kept`
+  - `compression_policy`
   - `updated_at`
 - 触发条件：
   - `session.max_tokens` 或 `session.max_kb` 超阈值
   - 会话超过 `summary_refresh_interval`
   - 手动触发（运维或调试）
 - 摘要写回后，保留最近窗口（L3）与摘要（L2）共同组成会话记忆。
+
+滚动压缩算法：
+
+```text
+input:
+  active_summary = agent_chat_sessions.summary
+  summary_records = agent_chat_context_summaries(session_id)
+  all_messages = agent_chat_messages(session_id)
+  recent_window = latest N messages
+  compressible = all_messages - recent_window - pinned
+
+if over_budget and compressible not empty:
+  next_summary = merge(active_summary, compressible)
+  insert next_summary record -> agent_chat_context_summaries
+  save next_summary -> agent_chat_sessions.summary
+  save active_context_summary_id -> agent_chat_sessions.meta
+  mark/delete compressible messages according to policy
+  context = next_summary + recent_window + current_user_input
+```
+
+标准实现必须同时使用两层存储：
+
+1. `agent_chat_context_summaries` 保存每次 compact 的压缩记录、覆盖范围、checksum、summary JSON 与 artifact 引用。
+2. `agent_chat_sessions.summary` 只保存当前 active summary 快照，供 Context Builder 快速读取。
+3. `agent_chat_sessions.meta.active_context_summary_id` 指向当前 active summary 对应的压缩记录。
+
+被 active summary 覆盖的非 pinned 旧消息可以删除，以控制业务表体积；压缩记录必须保留，供 root 调试、报告下载与问题回放。
+
+约束：
+
+1. pinned 消息不参与压缩删除。
+2. 最近窗口必须保留原文，默认 20 条；Context Optimizer 仍可按 token budget 对 L3 做尾部裁剪。
+3. summary 是结构化记忆，不保存完整 prompt、完整 tool payload 或 executor result。
+4. 归并时必须把旧 summary 与新增旧消息一起生成新 summary，不能只总结新增消息后丢弃旧 summary。
+5. 如果超预算但没有可压缩消息，必须 fail-fast，不能静默删除最近窗口。
 
 ### 4.4 Prompt Cache Strategy
 

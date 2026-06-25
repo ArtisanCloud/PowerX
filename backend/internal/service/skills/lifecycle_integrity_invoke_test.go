@@ -94,6 +94,31 @@ func TestLifecycleService_PublishRollbackStateMachine(t *testing.T) {
 	require.ErrorContains(t, err, "disabled skill version cannot be published")
 }
 
+func TestImportServicePublishLatestMarksPluginSkillPublished(t *testing.T) {
+	db := setupSkillsServiceTestDB(t)
+	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	importSvc := NewImportService(registryRepo, nil)
+
+	_, err := importSvc.ImportDraft(context.Background(), ImportRequest{
+		SkillID:    "powerxplugin.template.basic",
+		Version:    "1.0.0",
+		Source:     skillmodel.SkillSourcePlugin,
+		BundleURI:  "plugin-registry://com.powerx.plugins.base/powerxplugin.template.basic/1.0.0",
+		Checksum:   "sha256:plugin-template-basic",
+		Manifest:   []byte(`{"skill_id":"powerxplugin.template.basic"}`),
+		Operator:   "plugin-sync",
+		ImportType: ImportTypeUpload,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, importSvc.PublishLatest(context.Background(), "powerxplugin.template.basic", "1.0.0", "plugin-sync", "plugin registry sync"))
+
+	rec, err := registryRepo.GetLatestPublished(context.Background(), "powerxplugin.template.basic")
+	require.NoError(t, err)
+	require.Equal(t, skillmodel.SkillStatusPublished, rec.Status)
+	require.True(t, rec.IsLatestPublished)
+}
+
 func TestIntegrityPolicy_ValidateImportAndPublish(t *testing.T) {
 	policy := &IntegrityPolicy{RequireChecksum: true, RequireSignature: true}
 
@@ -180,4 +205,3 @@ func TestInvokeService_ResolveDefaultVersion(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "skill version is not published")
 }
-

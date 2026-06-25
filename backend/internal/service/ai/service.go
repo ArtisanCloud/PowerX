@@ -124,6 +124,7 @@ func (s *Service) LLMInvoke(
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
+	applyLLMRuntimeExtras(provider, mc, defaults, params)
 	applyReasoningConfig(provider, mc, params)
 
 	cli, err := llmfactory.NewClient(provider)
@@ -216,6 +217,7 @@ func (s *Service) LLMStream(
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
+	applyLLMRuntimeExtras(provider, mc, defaults, params)
 	applyReasoningConfig(provider, mc, params)
 
 	cli, err := llmfactory.NewClient(provider)
@@ -244,6 +246,36 @@ func applyTimeoutFromContext(ctx context.Context, mc *aiconfig.ModelConfig) {
 	if remaining > 0 {
 		mc.Timeout = remaining
 	}
+}
+
+func applyLLMRuntimeExtras(provider string, mc *aiconfig.ModelConfig, defaults map[string]any, params map[string]interface{}) {
+	if mc == nil || !strings.EqualFold(strings.TrimSpace(provider), "ollama") {
+		return
+	}
+	if mc.Extra == nil {
+		mc.Extra = map[string]any{}
+	}
+	if v := firstPositiveInt(defaults, "num_ctx", "context_window", "context_length", "context_len"); v > 0 {
+		mc.Extra["num_ctx"] = v
+	}
+	if v := firstPositiveInt(params, "num_ctx", "context_window", "context_length", "context_len"); v > 0 {
+		mc.Extra["num_ctx"] = v
+	}
+	if len(mc.Extra) == 0 {
+		mc.Extra = nil
+	}
+}
+
+func firstPositiveInt(values map[string]interface{}, keys ...string) int {
+	if len(values) == 0 {
+		return 0
+	}
+	for _, key := range keys {
+		if v := intFromAny(values[key]); v > 0 {
+			return v
+		}
+	}
+	return 0
 }
 
 type reasoningConfig struct {

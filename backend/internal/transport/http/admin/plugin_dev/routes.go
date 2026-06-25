@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	capabilityregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
 	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
+	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -28,10 +30,11 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	}
 
 	handler := &handler{
-		bootstrap:   deps.PluginBootstrapService,
-		importSvc:   deps.PluginImportService,
-		host:        deps.PluginDebugHost,
-		diagnostics: deps.PluginDiagnostics,
+		bootstrap:      deps.PluginBootstrapService,
+		importSvc:      deps.PluginImportService,
+		host:           deps.PluginDebugHost,
+		diagnostics:    deps.PluginDiagnostics,
+		capabilitySync: deps.CapabilityRegistrySyncWorker,
 	}
 	if deps.PluginReleaseService != nil {
 		handler.local = deps.PluginReleaseService.LocalInstall()
@@ -49,14 +52,19 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.POST("/local/reload", handler.recordReload)
 	group.POST("/debug/report", handler.createDiagnosticsReport)
 	group.POST("/debug/logs/export", handler.exportLogs)
+
+	capabilityGroup := protected.Group("/internal/plugins")
+	capabilityGroup.Use(adminauthz.PluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginCapabilityCatalogSync))
+	capabilityGroup.POST("/capabilities/catalog", handler.syncCapabilityCatalog)
 }
 
 type handler struct {
-	bootstrap   *pluginbootstrap.Service
-	importSvc   *pluginimport.Service
-	host        *plugindebughost.Service
-	local       *local.InstallService
-	diagnostics *plugindiag.Service
+	bootstrap      *pluginbootstrap.Service
+	importSvc      *pluginimport.Service
+	host           *plugindebughost.Service
+	local          *local.InstallService
+	diagnostics    *plugindiag.Service
+	capabilitySync *capabilityregistry.SyncWorker
 }
 
 func (h *handler) listTemplates(c *gin.Context) {

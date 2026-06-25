@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -27,6 +29,13 @@ type Engine struct {
 
 func NewEngine() *Engine { return &Engine{mgr: agent.GetAgentManager()} }
 
+func (e *Engine) detectTasks(ctx context.Context, msg string, reqCfg *dto.ChatConfig) ([]flowschema.DetectedTask, error) {
+	if task, ok := pendingDetectedTaskFromContext(ctx, msg); ok {
+		return []flowschema.DetectedTask{task}, nil
+	}
+	return e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
+}
+
 func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) error {
 	// 统一超时：避免 LLM/下游卡死导致“前端永远生成中”
 	// - 目标体验是“不断开连接、持续可见”，但也要有上限兜底（默认 10 分钟）。
@@ -34,25 +43,90 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	ctx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 
+	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
+	if traceErr != nil {
+		return sink.Emit(dto.EventError, map[string]any{"message": "Agent Trace 初始化失败", "detail": traceErr.Error()})
+	}
+	if rs, ok := sink.(*RunStateSink); ok {
+		rs.SetRunStateRecorder(func(event string, payload any) {
+			tr.appendRunStateEvent(ctx, event, payload)
+		})
+	}
+	runStatus := agenttrace.RunStatusCompleted
+	var runErr error
+	var finalText string
+	defer func() {
+		if runErr != nil {
+			runStatus = agenttrace.RunStatusFailed
+		}
+		tr.complete(ctx, runStatus, finalText, runErr)
+	}()
+	receiveNode := tr.startNode(ctx, "receive_message", "agent.stream", map[string]any{"message_digest": digestString(msg)})
+	tr.endNode(ctx, receiveNode, "receive_message", "agent.stream", map[string]any{"accepted": true})
+	responsePlan := responsePlanFromContext(ctx)
+	if responsePlan != nil {
+		responsePlan.TraceID = tr.meta.TraceID
+		responsePlan.RunID = tr.meta.RunID
+		responsePlan.SessionID = tr.meta.SessionID
+		responsePlan.MessageID = tr.meta.MessageID
+		rpNode := tr.startNode(ctx, "response_planner", string(responsePlan.ResponseMode), responsePlan.ToDebugEvent())
+		tr.endNode(ctx, rpNode, "response_planner", string(responsePlan.ResponseMode), responsePlan.ToDebugEvent())
+		_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
+	}
+
+	intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
 	// 1) 多意图识别
-	tasks, err := e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
+	tasks, err := e.detectTasks(ctx, msg, reqCfg)
 	if err != nil {
+		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
+		runErr = err
 		return sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
 	}
+	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
 	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
 
+	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks)})
 	// 2) 生成计划（强/弱类型兼容）
 	rawPlan := e.mgr.BuildPlan(tasks) // FIX: 原来写成了 BuildPl
 	plan, ok := NormalizeExecPlan(rawPlan)
+	if ok && plan != nil {
+		tr.withPlan(plan.PlanID)
+		if missing := e.missingRequiredArgsForPlan(ctx, plan); len(missing) > 0 && !isPendingResumePlan(ctx, plan) {
+			pendingTask := pendingTaskPayloadForPlan(ctx, tr, plan, missing)
+			responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, missing)
+			finalText = BuildFinalResponseContent(responsePlan, "", nil)
+			tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{
+				"has_plan":            true,
+				"plan_id":             tr.meta.PlanID,
+				"needs_clarification": true,
+				"missing_fields":      missing,
+			})
+			_ = sink.Emit(dto.EventPlan, map[string]any{
+				"planner_mode": dto.PlannerModeUnified,
+				"plan":         PlanOrRaw(plan, rawPlan),
+			})
+			_ = sink.Emit(dto.EventAgentRunAwaitingParams, pendingTask)
+			_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
+			e.emitClarifyFinal(ctx, sink, tr, plan, responsePlan, finalText, missing)
+			return nil
+		}
+		markResponsePlanExecutable(responsePlan, plan)
+	}
+	tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{"has_plan": ok, "plan_id": tr.meta.PlanID})
 	_ = sink.Emit(dto.EventPlan, map[string]any{
 		"planner_mode": dto.PlannerModeUnified,
 		"plan":         PlanOrRaw(plan, rawPlan),
 	})
 	// skill/tooling 等非 workflow 节点必须走统一 Plan 执行链路，
 	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
-	if ok && planHasNonWorkflow(plan) {
-		_, err := e.runResolvedPlan(ctx, plan, sink)
-		return err
+	if planHasNonWorkflow(plan) {
+		if shouldExecutePlanForResponse(responsePlan, plan) {
+			_, err := e.runResolvedPlan(ctx, plan, sink, tr)
+			runErr = err
+			return err
+		}
+		ok = false
+		plan = nil
 	}
 
 	// 先根据 plan 拿一个候选 flowID（按 stage 最小、原序）
@@ -78,14 +152,13 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if len(tasks) == 0 && strings.TrimSpace(fallbackFlowID) != "" && flowID == fallbackFlowID {
 		reqCfg = applyBaseFlowDirectGuardrail(reqCfg)
 	}
+	llmMessage := BuildModeSpecificUserPrompt(msg, responsePlan)
 
 	execID := fmt.Sprintf("exec_%d", time.Now().UnixNano())
 	_ = sink.Emit(dto.EventStart, map[string]any{"flow_id": flowID, "execution_id": execID})
 
-	sr, err := ag.Stream(ctx, flowID, flowschema.Context{
-		"message": msg,
-		"config":  reqCfg,
-	}, agentschema.ExecutionMeta{
+	streamNode := tr.startNode(ctx, "llm_call", flowID, map[string]any{"execution_id": execID, "flow_id": flowID})
+	meta := tr.applyExecutionMeta(agentschema.ExecutionMeta{
 		RequestID:  execID,
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
@@ -96,7 +169,13 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
 		},
 	})
+	sr, err := ag.Stream(ctx, flowID, flowschema.Context{
+		"message": llmMessage,
+		"config":  reqCfg,
+	}, meta)
 	if err != nil {
+		tr.failNode(ctx, streamNode, "llm_call", flowID, err)
+		runErr = err
 		return sink.Emit(dto.EventError, map[string]any{"message": "流式聊天执行失败", "detail": err.Error()})
 	}
 
@@ -126,6 +205,8 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	for {
 		select {
 		case <-ctx.Done():
+			tr.failNode(ctx, streamNode, "llm_call", flowID, ctx.Err())
+			runErr = ctx.Err()
 			_ = sink.Emit(dto.EventError, map[string]any{"message": "请求超时或已取消", "detail": ctx.Err().Error()})
 			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 			return ctx.Err()
@@ -137,14 +218,18 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			})
 		case it, ok := <-recvCh:
 			if !ok {
+				tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true})
 				_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 				return nil
 			}
 			if it.err != nil {
 				if errors.Is(it.err, io.EOF) {
+					tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true})
 					_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 					return nil
 				}
+				tr.failNode(ctx, streamNode, "llm_call", flowID, it.err)
+				runErr = it.err
 				_ = sink.Emit(dto.EventError, map[string]any{"message": it.err.Error()})
 				_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 				return it.err
@@ -169,12 +254,34 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			})
 
 			if isFinal, _ := ch.Metadata["is_final"].(bool); isFinal {
+				finalText = BuildFinalResponseContent(responsePlan, buildFinalContent(ch), nil)
+				contextLayers := responseContextLayersFromContext(ctx)
+				cbNode := tr.startNode(ctx, "context_builder", responseModeString(responsePlan), map[string]any{
+					"response_mode":       responseModeString(responsePlan),
+					"used_context_layers": contextLayers,
+					"model_selection":     modelSelectionFromContext(ctx, ModelPolicyNodeContextBuilder),
+				})
+				tr.endNode(ctx, cbNode, "context_builder", responseModeString(responsePlan), map[string]any{"used_context_layers": contextLayers})
+				finalNode := tr.startNode(ctx, "final_response", "stream.final", map[string]any{
+					"step_id":               ch.StepID,
+					"response_mode":         responseModeString(responsePlan),
+					"target_capability_ids": responseTargetIDs(responsePlan),
+					"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+				})
 				_ = sink.Emit(dto.EventFinal, map[string]any{
 					"success":   ch.Success,
-					"data":      sanitizeExecutionData(ch.Data),
-					"metadata":  ch.Metadata,
+					"data":      mergeFinalContent(sanitizeExecutionData(ch.Data), finalText),
+					"metadata":  mergeResponseMetadata(mergeTraceMetadata(ch.Metadata, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
 					"timestamp": ch.Timestamp,
 				})
+				tr.endNode(ctx, finalNode, "final_response", "stream.final", map[string]any{
+					"success":               ch.Success,
+					"content_digest":        digestString(finalText),
+					"response_mode":         responseModeString(responsePlan),
+					"target_capability_ids": responseTargetIDs(responsePlan),
+					"used_context_layers":   contextLayers,
+				})
+				tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"final": true})
 				_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 				return nil
 			}
@@ -187,16 +294,77 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 	ctx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 
-	tasks, err := e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
+	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
+	if traceErr != nil {
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "Agent Trace 初始化失败", "detail": traceErr.Error()})
+		return nil, nil, traceErr
+	}
+	if rs, ok := sink.(*RunStateSink); ok {
+		rs.SetRunStateRecorder(func(event string, payload any) {
+			tr.appendRunStateEvent(ctx, event, payload)
+		})
+	}
+	var runErr error
+	var finalText string
+	defer func() {
+		status := agenttrace.RunStatusCompleted
+		if runErr != nil {
+			status = agenttrace.RunStatusFailed
+		}
+		tr.complete(ctx, status, finalText, runErr)
+	}()
+	receiveNode := tr.startNode(ctx, "receive_message", "agent.invoke", map[string]any{"message_digest": digestString(msg)})
+	tr.endNode(ctx, receiveNode, "receive_message", "agent.invoke", map[string]any{"accepted": true})
+	responsePlan := responsePlanFromContext(ctx)
+	if responsePlan != nil {
+		responsePlan.TraceID = tr.meta.TraceID
+		responsePlan.RunID = tr.meta.RunID
+		responsePlan.SessionID = tr.meta.SessionID
+		responsePlan.MessageID = tr.meta.MessageID
+		rpNode := tr.startNode(ctx, "response_planner", string(responsePlan.ResponseMode), responsePlan.ToDebugEvent())
+		tr.endNode(ctx, rpNode, "response_planner", string(responsePlan.ResponseMode), responsePlan.ToDebugEvent())
+		_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
+	}
+
+	intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
+	tasks, err := e.detectTasks(ctx, msg, reqCfg)
 	if err != nil {
+		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
+		runErr = err
 		_ = sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 		return nil, nil, err
 	}
+	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
 	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
 
+	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks)})
 	rawPlan := e.mgr.BuildPlan(tasks)
 	plan, ok := NormalizeExecPlan(rawPlan)
+	if ok && plan != nil {
+		tr.withPlan(plan.PlanID)
+		if missing := e.missingRequiredArgsForPlan(ctx, plan); len(missing) > 0 && !isPendingResumePlan(ctx, plan) {
+			pendingTask := pendingTaskPayloadForPlan(ctx, tr, plan, missing)
+			responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, missing)
+			finalText = BuildFinalResponseContent(responsePlan, "", nil)
+			tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{
+				"has_plan":            true,
+				"plan_id":             tr.meta.PlanID,
+				"needs_clarification": true,
+				"missing_fields":      missing,
+			})
+			_ = sink.Emit(dto.EventPlan, map[string]any{
+				"planner_mode": dto.PlannerModeUnified,
+				"plan":         PlanOrRaw(plan, rawPlan),
+			})
+			_ = sink.Emit(dto.EventAgentRunAwaitingParams, pendingTask)
+			_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
+			e.emitClarifyFinal(ctx, sink, tr, plan, responsePlan, finalText, missing)
+			return nil, plan, nil
+		}
+		markResponsePlanExecutable(responsePlan, plan)
+	}
+	tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{"has_plan": ok, "plan_id": tr.meta.PlanID})
 	_ = sink.Emit(dto.EventPlan, map[string]any{
 		"planner_mode": dto.PlannerModeUnified,
 		"plan":         PlanOrRaw(plan, rawPlan),
@@ -214,13 +382,14 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 			},
 		}
 		ok = true
+		tr.withPlan(plan.PlanID)
 		_ = sink.Emit(dto.EventPlan, map[string]any{
 			"planner_mode": dto.PlannerModeUnified,
 			"plan":         plan,
 		})
 	}
 
-	dispatchMeta := agentschema.ExecutionMeta{
+	dispatchMeta := tr.applyExecutionMeta(agentschema.ExecutionMeta{
 		RequestID:  fmt.Sprintf("req_%d", time.Now().UnixNano()),
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
@@ -230,7 +399,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
 		},
-	}
+	})
 	if dispatchMeta.TraceID == "" {
 		dispatchMeta.TraceID = fmt.Sprintf("trace_%d", time.Now().UnixNano())
 	}
@@ -238,38 +407,68 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		reqCfg = applyBaseFlowDirectGuardrail(reqCfg)
 	}
 
+	if !shouldExecutePlanForResponse(responsePlan, plan) {
+		ok = false
+		plan = nil
+	}
+
 	if !ok || plan == nil || len(plan.Tasks) == 0 {
+		dispatchNode := tr.startNode(ctx, "llm_call", "Dispatch", map[string]any{"request_id": dispatchMeta.RequestID})
 		out, _, dispatchErr := e.mgr.Dispatch(ctx, msg, flowschema.Context{
 			"message": msg,
 			"config":  reqCfg,
 		}, dispatchMeta)
 		if dispatchErr != nil {
+			tr.failNode(ctx, dispatchNode, "llm_call", "Dispatch", dispatchErr)
+			runErr = dispatchErr
 			_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": dispatchErr.Error()})
 			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 			return nil, nil, dispatchErr
 		}
-		content := buildFinalContent(out)
+		content := BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
+		finalText = content
+		tr.endNode(ctx, dispatchNode, "llm_call", "Dispatch", map[string]any{"success": out != nil && out.Success, "content_digest": digestString(content)})
 		traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
 		if raw := strings.TrimSpace(reqctx.GetTraceID(ctx)); raw != "" {
 			traceID = raw
 		}
+		contextLayers := responseContextLayersFromContext(ctx)
+		cbNode := tr.startNode(ctx, "context_builder", responseModeString(responsePlan), map[string]any{
+			"response_mode":       responseModeString(responsePlan),
+			"used_context_layers": contextLayers,
+			"model_selection":     modelSelectionFromContext(ctx, ModelPolicyNodeContextBuilder),
+		})
+		tr.endNode(ctx, cbNode, "context_builder", responseModeString(responsePlan), map[string]any{"used_context_layers": contextLayers})
+		finalNode := tr.startNode(ctx, "final_response", "invoke.final", map[string]any{
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+		})
 		_ = sink.Emit(dto.EventFinal, map[string]any{
 			"success": true,
 			"data": map[string]any{
 				"content": content,
 			},
-			"metadata": map[string]any{
+			"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 				"trace_id": traceID,
 				"plan_id":  "",
-			},
+			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
+		})
+		tr.endNode(ctx, finalNode, "final_response", "invoke.final", map[string]any{
+			"content_digest":        digestString(content),
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"used_context_layers":   contextLayers,
 		})
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 		return out, nil, nil
 	}
-	out, execErr := e.runResolvedPlan(ctx, plan, sink)
+	out, execErr := e.runResolvedPlan(ctx, plan, sink, tr)
 	if execErr != nil {
+		runErr = execErr
 		return nil, plan, execErr
 	}
+	finalText = BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
 	return out, plan, nil
 }
 
@@ -299,15 +498,16 @@ func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
 	return out
 }
 
-func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink) (*agentschema.ExecutionResult, error) {
+func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink, tr *traceRuntime) (*agentschema.ExecutionResult, error) {
 	if plan == nil || len(plan.Tasks) == 0 {
 		return nil, fmt.Errorf("empty plan")
 	}
+	tr.withPlan(plan.PlanID)
 	traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
 	if raw := strings.TrimSpace(reqctx.GetTraceID(ctx)); raw != "" {
 		traceID = raw
 	}
-	meta := agentschema.ExecutionMeta{
+	meta := tr.applyExecutionMeta(agentschema.ExecutionMeta{
 		RequestID:  fmt.Sprintf("req_%d", time.Now().UnixNano()),
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
@@ -317,7 +517,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
 		},
-	}
+	})
 
 	emitMu := &sync.Mutex{}
 	hooks := &agent.PlanExecutionHooks{
@@ -389,31 +589,69 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 
 	out, execErr := e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
 	if execErr != nil {
-		userMsg := humanizeExecutionError(execErr)
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID, "user_message": userMsg})
+		responsePlan := responsePlanFromContext(ctx)
+		if responsePlan != nil {
+			responsePlan.ResponseMode = ResponseModeErrorExplain
+		}
+		userMsg := BuildFinalResponseContent(responsePlan, "", execErr)
+		contextLayers := responseContextLayersFromContext(ctx)
+		finalNode := tr.startNode(ctx, "final_response", "plan.error", map[string]any{
+			"plan_id":               plan.PlanID,
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeErrorExplain),
+		})
 		_ = sink.Emit(dto.EventFinal, map[string]any{
 			"success": false,
 			"data": map[string]any{
 				"content": userMsg,
 			},
-			"metadata": map[string]any{
+			"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 				"trace_id": traceID,
 				"plan_id":  plan.PlanID,
-			},
+			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeErrorExplain)),
 		})
+		tr.endNode(ctx, finalNode, "final_response", "plan.error", map[string]any{
+			"success":               false,
+			"content_digest":        digestString(userMsg),
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"used_context_layers":   contextLayers,
+		})
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID, "user_message": userMsg})
 		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
 		return nil, execErr
 	}
-	content := buildFinalContent(out)
+	responsePlan := responsePlanFromContext(ctx)
+	content := BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
+	contextLayers := responseContextLayersFromContext(ctx)
+	cbNode := tr.startNode(ctx, "context_builder", responseModeString(responsePlan), map[string]any{
+		"response_mode":       responseModeString(responsePlan),
+		"used_context_layers": contextLayers,
+		"model_selection":     modelSelectionFromContext(ctx, ModelPolicyNodeContextBuilder),
+	})
+	tr.endNode(ctx, cbNode, "context_builder", responseModeString(responsePlan), map[string]any{"used_context_layers": contextLayers})
+	finalNode := tr.startNode(ctx, "final_response", "plan.final", map[string]any{
+		"plan_id":               plan.PlanID,
+		"response_mode":         responseModeString(responsePlan),
+		"target_capability_ids": responseTargetIDs(responsePlan),
+		"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+	})
 	_ = sink.Emit(dto.EventFinal, map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"content": content,
 		},
-		"metadata": map[string]any{
+		"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 			"trace_id": traceID,
 			"plan_id":  plan.PlanID,
-		},
+		}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
+	})
+	tr.endNode(ctx, finalNode, "final_response", "plan.final", map[string]any{
+		"content_digest":        digestString(content),
+		"response_mode":         responseModeString(responsePlan),
+		"target_capability_ids": responseTargetIDs(responsePlan),
+		"used_context_layers":   contextLayers,
 	})
 	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 	return out, nil
@@ -429,6 +667,358 @@ func planHasNonWorkflow(plan *flowschema.ExecutionPlan) bool {
 		}
 	}
 	return false
+}
+
+func shouldExecutePlanForResponse(responsePlan *ResponsePlan, execPlan *flowschema.ExecutionPlan) bool {
+	if execPlan == nil || len(execPlan.Tasks) == 0 {
+		return false
+	}
+	if responsePlan == nil {
+		return true
+	}
+	if responsePlan.ResponseMode == ResponseModeClarifyParams || responsePlan.NeedsClarification {
+		return false
+	}
+	return responsePlan.ShouldCallTool
+}
+
+func (e *Engine) emitClarifyFinal(ctx context.Context, sink EventSink, tr *traceRuntime, plan *flowschema.ExecutionPlan, responsePlan *ResponsePlan, content string, missing []string) {
+	contextLayers := responseContextLayersFromContext(ctx)
+	planID := ""
+	if plan != nil {
+		planID = plan.PlanID
+	}
+	finalNode := tr.startNode(ctx, "final_response", "clarify.params", map[string]any{
+		"plan_id":               planID,
+		"response_mode":         responseModeString(responsePlan),
+		"target_capability_ids": responseTargetIDs(responsePlan),
+		"missing_fields":        missing,
+		"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+	})
+	_ = sink.Emit(dto.EventFinal, map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"content": content,
+		},
+		"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
+			"trace_id": tr.meta.TraceID,
+			"plan_id":  planID,
+		}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
+	})
+	tr.endNode(ctx, finalNode, "final_response", "clarify.params", map[string]any{
+		"content_digest":        digestString(content),
+		"response_mode":         responseModeString(responsePlan),
+		"target_capability_ids": responseTargetIDs(responsePlan),
+		"used_context_layers":   contextLayers,
+	})
+	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+}
+
+func (e *Engine) missingRequiredArgsForPlan(ctx context.Context, plan *flowschema.ExecutionPlan) []string {
+	if e == nil || e.mgr == nil || plan == nil || len(plan.Tasks) == 0 {
+		return nil
+	}
+	candidates := e.mgr.BuildToolCallCandidatesWithContext(agent.CandidateBuildContextFromRequest(ctx), 0)
+	byRef := make(map[string]agent.ToolCallCandidate, len(candidates)*2)
+	for _, candidate := range candidates {
+		if ref := strings.TrimSpace(candidate.NodeRef); ref != "" {
+			byRef[strings.ToLower(ref)] = candidate
+		}
+		if name := strings.TrimSpace(candidate.Name); name != "" {
+			byRef[strings.ToLower(name)] = candidate
+		}
+		if flowID := strings.TrimSpace(candidate.FlowID); flowID != "" {
+			byRef[strings.ToLower(flowID)] = candidate
+		}
+	}
+	missing := make([]string, 0, 4)
+	for _, task := range plan.Tasks {
+		task = mergePendingTaskParams(ctx, task)
+		candidate, ok := byRef[strings.ToLower(strings.TrimSpace(normalizeNodeRef(task)))]
+		if !ok {
+			candidate, ok = byRef[strings.ToLower(strings.TrimSpace(task.FlowID))]
+		}
+		if !ok || len(candidate.ActionRequiredArgs) == 0 {
+			continue
+		}
+		action := taskAction(task)
+		if action == "" {
+			continue
+		}
+		for _, field := range candidate.ActionRequiredArgs[action] {
+			if !hasPlanParamPath(task.Params, field) {
+				missing = append(missing, field)
+			}
+		}
+	}
+	return normalizeStringList(missing)
+}
+
+func mergePendingTaskParams(ctx context.Context, task flowschema.PlanTask) flowschema.PlanTask {
+	if ctx == nil {
+		return task
+	}
+	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
+	if !ok || len(pending) == 0 {
+		return task
+	}
+	pendingRef := firstNonEmpty(anyToString(pending["node_ref"]), anyToString(pending["skill_id"]), anyToString(pending["capability_id"]))
+	taskRef := normalizeNodeRef(task)
+	if pendingRef != "" && taskRef != "" && !strings.EqualFold(pendingRef, taskRef) {
+		return task
+	}
+	pendingAction := strings.ToLower(strings.TrimSpace(anyToString(pending["action"])))
+	taskActionValue := taskAction(task)
+	if pendingAction != "" && taskActionValue != "" && pendingAction != taskActionValue {
+		return task
+	}
+	merged := clonePlanParams(task.Params)
+	if merged == nil {
+		merged = map[string]interface{}{}
+	}
+	if taskActionValue == "" && pendingAction != "" {
+		merged["action"] = pendingAction
+	}
+	if collected, ok := pending["collected_params"].(map[string]any); ok {
+		mergePlanParams(merged, collected)
+	}
+	if collected, ok := pending["collected_params"].(map[string]interface{}); ok {
+		mergePlanParams(merged, collected)
+	}
+	task.Params = merged
+	return task
+}
+
+func pendingDetectedTaskFromContext(ctx context.Context, msg string) (flowschema.DetectedTask, bool) {
+	if ctx == nil {
+		return flowschema.DetectedTask{}, false
+	}
+	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
+	if !ok || !pendingTaskStatusAwaitingParams(pending) {
+		return flowschema.DetectedTask{}, false
+	}
+	nodeRef := firstNonEmpty(anyToString(pending["node_ref"]), anyToString(pending["skill_id"]), anyToString(pending["capability_id"]))
+	if strings.TrimSpace(nodeRef) == "" {
+		return flowschema.DetectedTask{}, false
+	}
+	nodeKind := firstNonEmpty(anyToString(pending["node_kind"]), dto.NodeKindSkill)
+	params := map[string]interface{}{}
+	if collected, ok := pending["collected_params"].(map[string]any); ok {
+		mergePlanParams(params, collected)
+	}
+	if collected, ok := pending["collected_params"].(map[string]interface{}); ok {
+		mergePlanParams(params, collected)
+	}
+	if action := strings.ToLower(strings.TrimSpace(anyToString(pending["action"]))); action != "" {
+		params["action"] = action
+	}
+	params["_node_kind"] = nodeKind
+	params["_node_ref"] = nodeRef
+	params["_source_scope"] = firstNonEmpty(anyToString(pending["source_scope"]), "agent")
+	params["_candidate_name"] = firstNonEmpty(anyToString(pending["candidate_name"]), nodeRef)
+	params["_pending_task_id"] = anyToString(pending["task_id"])
+	params["_pending_trace_id"] = anyToString(pending["trace_id"])
+	if userText := strings.TrimSpace(msg); userText != "" {
+		params["user_message"] = userText
+	}
+	return flowschema.DetectedTask{
+		TaskID:   firstNonEmpty(anyToString(pending["task_id"]), fmt.Sprintf("pending_%d", time.Now().UnixNano())),
+		FlowID:   nodeRef,
+		AgentID:  anyToString(pending["agent_id"]),
+		Score:    1,
+		Strategy: "pending_task_resume:" + strings.TrimSpace(nodeKind),
+		Reason:   "resume awaiting-params task with latest user message",
+		Params:   params,
+	}, true
+}
+
+func isPendingResumePlan(ctx context.Context, plan *flowschema.ExecutionPlan) bool {
+	if ctx == nil || plan == nil || len(plan.Tasks) == 0 {
+		return false
+	}
+	pending, ok := ctx.Value("agent_pending_task").(map[string]any)
+	if !ok || !pendingTaskStatusAwaitingParams(pending) {
+		return false
+	}
+	for _, task := range plan.Tasks {
+		if task.Params == nil {
+			continue
+		}
+		if strings.TrimSpace(anyToString(task.Params["_pending_task_id"])) != "" ||
+			strings.TrimSpace(anyToString(task.Params["user_message"])) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func pendingTaskStatusAwaitingParams(task map[string]any) bool {
+	if len(task) == 0 {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(anyToString(task["status"])), dto.AgentTaskStatusAwaitingParams)
+}
+
+func pendingTaskPayloadForPlan(ctx context.Context, tr *traceRuntime, plan *flowschema.ExecutionPlan, missing []string) map[string]any {
+	payload := map[string]any{
+		"missing_fields": missing,
+		"status":         dto.AgentTaskStatusAwaitingParams,
+	}
+	if tr != nil {
+		payload["run_id"] = tr.meta.RunID
+		payload["session_id"] = tr.meta.SessionID
+		payload["message_id"] = tr.meta.MessageID
+		payload["trace_id"] = tr.meta.TraceID
+		payload["plan_id"] = tr.meta.PlanID
+		payload["agent_id"] = tr.meta.AgentID
+	}
+	if plan != nil && len(plan.Tasks) > 0 {
+		task := mergePendingTaskParams(ctx, plan.Tasks[0])
+		payload["task_id"] = task.TaskID
+		payload["node_kind"] = normalizeNodeKind(task.NodeKind)
+		payload["node_ref"] = normalizeNodeRef(task)
+		payload["skill_id"] = skillIDFromPlanTask(task)
+		if task.Params != nil {
+			payload["capability_id"] = strings.TrimSpace(fmt.Sprint(task.Params["capability_id"]))
+		}
+		payload["action"] = taskAction(task)
+		payload["collected_params"] = clonePlanParams(task.Params)
+	}
+	return payload
+}
+
+func skillIDFromPlanTask(task flowschema.PlanTask) string {
+	if normalizeNodeKind(task.NodeKind) == dto.NodeKindSkill {
+		return normalizeNodeRef(task)
+	}
+	return ""
+}
+
+func clonePlanParams(in map[string]interface{}) map[string]interface{} {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		if nested, ok := v.(map[string]interface{}); ok {
+			out[k] = clonePlanParams(nested)
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func mergePlanParams(dst map[string]interface{}, src map[string]any) {
+	for k, v := range src {
+		if strings.TrimSpace(k) == "" || isEmptyPlanParam(v) {
+			continue
+		}
+		if existing, ok := dst[k].(map[string]interface{}); ok {
+			if nested, ok := v.(map[string]any); ok {
+				mergePlanParams(existing, nested)
+				continue
+			}
+		}
+		if nested, ok := v.(map[string]any); ok {
+			child := map[string]interface{}{}
+			mergePlanParams(child, nested)
+			dst[k] = child
+			continue
+		}
+		dst[k] = v
+	}
+}
+
+func taskAction(task flowschema.PlanTask) string {
+	if task.Params == nil {
+		return ""
+	}
+	for _, key := range []string{"action", "operation", "op"} {
+		if v, ok := task.Params[key]; ok {
+			return strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+		}
+	}
+	return ""
+}
+
+func hasPlanParamPath(params map[string]interface{}, path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return true
+	}
+	if params == nil {
+		return false
+	}
+	if v, ok := params[path]; ok {
+		return !isEmptyPlanParam(v)
+	}
+	parts := strings.Split(path, ".")
+	var cur interface{} = params
+	for _, raw := range parts {
+		key := strings.TrimSpace(raw)
+		if key == "" {
+			return false
+		}
+		obj, ok := cur.(map[string]interface{})
+		if !ok {
+			return false
+		}
+		next, ok := obj[key]
+		if !ok {
+			lowerKey := strings.ToLower(key)
+			for candidateKey, candidateValue := range obj {
+				if strings.ToLower(strings.TrimSpace(candidateKey)) == lowerKey {
+					next = candidateValue
+					ok = true
+					break
+				}
+			}
+		}
+		if !ok {
+			return false
+		}
+		cur = next
+	}
+	return !isEmptyPlanParam(cur)
+}
+
+func isEmptyPlanParam(v interface{}) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(x) == ""
+	case []interface{}:
+		return len(x) == 0
+	case map[string]interface{}:
+		return len(x) == 0
+	default:
+		return false
+	}
+}
+
+func ensureResponsePlanForClarify(ctx context.Context, plan *ResponsePlan, missing []string) *ResponsePlan {
+	if plan == nil {
+		plan = &ResponsePlan{}
+	}
+	if plan.TenantUUID == "" {
+		plan.TenantUUID = strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	}
+	plan.ResponseMode = ResponseModeClarifyParams
+	plan.ResponseIntents = append(plan.ResponseIntents, ResponseIntentClarifyParams)
+	plan.AnswerRequirements = append(plan.AnswerRequirements, answerRequirementsForMode(ResponseModeClarifyParams)...)
+	plan.ShouldCallTool = false
+	plan.UseCapabilityCtx = true
+	plan.IncludeExamples = true
+	plan.IncludeSchema = true
+	plan.NeedsClarification = true
+	plan.MissingFields = normalizeStringList(append(plan.MissingFields, missing...))
+	plan.Reason = "plan has action-required args missing"
+	if plan.ResponsePlanID == "" {
+		plan.ResponsePlanID = fmt.Sprintf("rp_%d", time.Now().UnixNano())
+	}
+	return plan
 }
 
 func PickFirstFlowID(plan *flowschema.ExecutionPlan) string {
@@ -561,5 +1151,133 @@ func humanizeExecutionError(err error) string {
 			return "执行失败，请稍后重试。"
 		}
 		return "执行失败：" + raw
+	}
+}
+
+func responsePlanFromContext(ctx context.Context) *ResponsePlan {
+	if ctx == nil {
+		return nil
+	}
+	raw := ctx.Value("agent_response_plan")
+	if raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case *ResponsePlan:
+		return v
+	case ResponsePlan:
+		cp := v
+		return &cp
+	case map[string]any:
+		b, _ := json.Marshal(v)
+		var plan ResponsePlan
+		if err := json.Unmarshal(b, &plan); err == nil && plan.ResponseMode != "" {
+			return &plan
+		}
+	}
+	return nil
+}
+
+func responseContextLayersFromContext(ctx context.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	switch v := ctx.Value("agent_response_context_layers").(type) {
+	case []string:
+		return append([]string(nil), v...)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := strings.TrimSpace(fmt.Sprint(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func modelSelectionFromContext(ctx context.Context, node ModelPolicyNode) NodeModelSelection {
+	if ctx == nil {
+		return NodeModelSelection{Node: node}
+	}
+	if policy, ok := ctx.Value("agent_node_model_policy").(NodeModelPolicy); ok {
+		return policy.Selection(node)
+	}
+	if policy, ok := ctx.Value("agent_node_model_policy").(*NodeModelPolicy); ok && policy != nil {
+		return policy.Selection(node)
+	}
+	return NodeModelSelection{Node: node}
+}
+
+func mergeResponseMetadata(meta map[string]any, plan *ResponsePlan, contextLayers []string, selection NodeModelSelection) map[string]any {
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	if plan == nil {
+		return meta
+	}
+	plan.ModelSelection = selection
+	meta["response_plan"] = plan.ToDebugEvent()
+	meta["response_mode"] = plan.ResponseMode
+	meta["target_capability_ids"] = plan.TargetCapabilityIDs
+	meta["capability_ids"] = plan.TargetCapabilityIDs
+	meta["response_plan_id"] = plan.ResponsePlanID
+	meta["used_context_layers"] = contextLayers
+	meta["final_response_model"] = strings.TrimSpace(selection.Model)
+	meta["model_selection"] = selection
+	return meta
+}
+
+func mergeFinalContent(data flowschema.Result, content string) flowschema.Result {
+	if data == nil {
+		data = flowschema.Result{}
+	}
+	if strings.TrimSpace(content) == "" {
+		return data
+	}
+	data["content"] = content
+	if nested, ok := data["result"].(map[string]any); ok {
+		nested["content"] = content
+		data["result"] = nested
+	}
+	return data
+}
+
+func responseModeString(plan *ResponsePlan) string {
+	if plan == nil || plan.ResponseMode == "" {
+		return string(ResponseModeNormalChat)
+	}
+	return string(plan.ResponseMode)
+}
+
+func responseTargetIDs(plan *ResponsePlan) []string {
+	if plan == nil {
+		return nil
+	}
+	return append([]string(nil), plan.TargetCapabilityIDs...)
+}
+
+func markResponsePlanExecutable(plan *ResponsePlan, execPlan *flowschema.ExecutionPlan) {
+	if plan == nil || execPlan == nil || len(execPlan.Tasks) == 0 {
+		return
+	}
+	if plan.ResponseMode == ResponseModeClarifyParams || plan.NeedsClarification {
+		plan.ShouldCallTool = false
+		if plan.ResponsePlanID == "" {
+			plan.ResponsePlanID = fmt.Sprintf("rp_%d", time.Now().UnixNano())
+		}
+		return
+	}
+	plan.ShouldCallTool = true
+	if plan.ResponseMode == "" || plan.ResponseMode == ResponseModeNormalChat || plan.ResponseMode == ResponseModeClarifyParams {
+		plan.ResponseMode = ResponseModeSkillExecution
+		plan.NeedsClarification = false
+		plan.MissingFields = nil
+		plan.Reason = "planner produced executable task"
+	}
+	if plan.ResponsePlanID == "" {
+		plan.ResponsePlanID = fmt.Sprintf("rp_%d", time.Now().UnixNano())
 	}
 }

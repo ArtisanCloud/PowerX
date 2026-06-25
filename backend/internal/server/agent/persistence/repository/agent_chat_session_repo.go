@@ -8,6 +8,7 @@ import (
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -107,10 +108,20 @@ func (r *AgentChatSessionRepository) FindByID(
 func (r *AgentChatSessionRepository) FindByUUID(
 	ctx context.Context, env string, tenantUUID *string, uid string,
 ) (*dbmodel.AgentChatSession, error) {
+	parsedUUID, err := uuid.Parse(uid)
+	if err != nil {
+		return nil, err
+	}
 	var out dbmodel.AgentChatSession
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
-		Where("uuid = ?", uid).First(&out).Error
+		Where("uuid::text = ?", parsedUUID.String())
+	if r.db.Dialector != nil && r.db.Dialector.Name() == "sqlite" {
+		query = r.db.WithContext(ctx).
+			Scopes(dbmodel.WithScope(env, tenantUUID)).
+			Where("uuid = ?", parsedUUID.String())
+	}
+	err = query.First(&out).Error
 	if err != nil {
 		return nil, err
 	}
@@ -226,9 +237,27 @@ func (r *AgentChatSessionRepository) Archive(
 		Update("status", "archived").Error
 }
 
-// DeleteSoft：软删（保持和 Agent 的 DeleteSoft 一致风格）
-func (r *AgentChatSessionRepository) DeleteSoft(ctx context.Context, id uint64) error {
-	return r.db.WithContext(ctx).Delete(&dbmodel.AgentChatSession{}, id).Error
+// DeleteSoft marks the session as deleted and also sets deleted_at.
+// The status update keeps API list filters deterministic even on older schemas
+// where GORM soft-delete filtering is not enough to hide an active session.
+func (r *AgentChatSessionRepository) DeleteSoft(ctx context.Context, env string, tenantUUID *string, id uint64) error {
+	now := time.Now().UTC()
+	tx := r.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatSession{}).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"status":     "deleted",
+			"deleted_at": now,
+			"updated_at": now,
+		})
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // ListExpiredIDs：列出已过期会话 ID（用于服务层清理消息+会话）

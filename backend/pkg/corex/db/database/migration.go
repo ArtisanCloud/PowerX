@@ -11,6 +11,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelCapabilityRegistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	modelCustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
 	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
@@ -68,6 +69,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = migration.EnsureIAMUserLastTenantUUIDMigration(db); err != nil {
+		return err
+	}
+
+	if err = migrateCustomerModels(db); err != nil {
 		return err
 	}
 
@@ -282,6 +287,17 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityTransportProfile{},
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
+	)
+}
+
+func migrateCustomerModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelCustomer.Account{},
+		&modelCustomer.AuthIdentity{},
+		&modelCustomer.TenantMembership{},
+		&modelCustomer.MiniAppEntry{},
+		&modelCustomer.Session{},
+		&modelCustomer.LoginEvent{},
 	)
 }
 

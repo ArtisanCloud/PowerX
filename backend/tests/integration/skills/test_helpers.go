@@ -1,6 +1,8 @@
 package skillsintegration
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -12,7 +14,8 @@ import (
 
 func setupSkillsDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&parseTime=true&_loc=UTC"), &gorm.Config{})
+	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared&parseTime=true&_loc=UTC", dbName)), &gorm.Config{})
 	require.NoError(t, err)
 
 	prevSchema := coremodel.PowerXSchema

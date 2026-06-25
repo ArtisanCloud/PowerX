@@ -181,3 +181,10 @@ func (s *ImportService) ImportDraft(ctx context.Context, req ImportRequest) (*sk
 	}
 	return saved, nil
 }
+
+func (s *ImportService) PublishLatest(ctx context.Context, skillID, version, operator, approvalNote string) error {
+	if s == nil || s.registryRepo == nil {
+		return errors.New("skill import service is not configured")
+	}
+	return s.registryRepo.SetLatestPublished(ctx, skillID, version, operator, approvalNote)
+}

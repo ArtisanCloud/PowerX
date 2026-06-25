@@ -157,6 +157,7 @@ type Deps struct {
 	EventBus                          event_bus.EventBus
 	CapabilityRegistrySvc             *capabilityRegistry.Service
 	CapabilityCatalogSvc              *capabilitycatalog.RegistryService
+	CapabilityRegistrySyncWorker      *capabilitycatalog.SyncWorker
 	CapabilityRegistryAudit           *capabilitycatalog.AuditService
 	CapabilityRegistryAlerts          capabilitycatalog.CapabilityAlerting
 	CapabilityInvocationSvc           *capabilitycatalog.InvocationService
@@ -384,6 +385,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
 	var capabilitySelector *capabilitycatalog.Selector
+	var capabilitySyncWorker *capabilitycatalog.SyncWorker
 	var workflowCatalog *capabilitycatalog.WorkflowCatalog
 	var workflowTemplateSvc *capabilitycatalog.WorkflowTemplateService
 	var workflowStepAdapter *workflowengine.CapabilityStepAdapter
@@ -531,6 +533,15 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Redis:        redisClient,
 			Clock:        time.Now,
 			Telemetry:    workflowTelemetry,
+		})
+		capabilitySyncWorker = capabilitycatalog.NewSyncWorker(capabilitycatalog.SyncWorkerConfig{
+			DB:              db,
+			Redis:           redisClient,
+			EventBus:        bus,
+			Logger:          pxlog.GetGlobalLogger(),
+			Audit:           capAuditSvc,
+			Alerting:        capAlerting,
+			WorkflowCatalog: workflowCatalog,
 		})
 
 		workflowTemplateSvc = capabilitycatalog.NewWorkflowTemplateService(capabilitycatalog.WorkflowTemplateServiceOptions{
@@ -731,6 +742,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		EventBus:                          bus,
 		CapabilityRegistrySvc:             capRegistrySvc,
 		CapabilityCatalogSvc:              capabilityCatalogSvc,
+		CapabilityRegistrySyncWorker:      capabilitySyncWorker,
 		CapabilityRegistryAudit:           capAuditSvc,
 		CapabilityRegistryAlerts:          capAlerting,
 		CapabilityInvocationSvc:           capabilityInvocationSvc,

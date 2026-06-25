@@ -4,6 +4,7 @@ package agent
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
 	"github.com/gin-gonic/gin"
 )
 
@@ -66,10 +67,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.POST("/settings/context-optimizer/rollback", settingH.rollbackContextOptimizer)
 
 		// 智能体 CRUD
-		agentAdminGroup.POST("", agentH.CreateAgent)
+		agentAdminGroup.POST("", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.CreateAgent)
 		agentAdminGroup.GET("", agentH.ListAgents)
 		agentAdminGroup.GET("/:uuid", agentH.GetAgent)
-		agentAdminGroup.PATCH("/:uuid", agentH.UpdateAgent)
+		agentAdminGroup.PATCH("/:uuid", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.UpdateAgent)
 		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
 		agentAdminGroup.POST("/:uuid/disable", agentH.DisableAgent)
 

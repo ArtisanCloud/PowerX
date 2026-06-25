@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
+	agenttraceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agenttrace"
 	backupHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
@@ -70,6 +71,7 @@ func RegisterAPIRoutes(
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentmodelhubHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentlifecycleHTTP.Register(publicGroup, protectedGroup, deps)
+	agenttraceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capabilityRegistryHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

@@ -29,6 +29,17 @@ export const SSE_EVENT_TYPES = {
   ACK: "ack",
   META: "meta",
   CHUNK: "chunk",
+  AGENT_RUN_STARTED: "agent_run.started",
+  AGENT_RUN_RESPONSE_PLAN: "agent_run.response_plan",
+  AGENT_RUN_INTENT_DETECTED: "agent_run.intent_detected",
+  AGENT_RUN_PLAN_CREATED: "agent_run.plan_created",
+  AGENT_RUN_TASK_STATUS: "agent_run.task_status",
+  AGENT_RUN_TASK_STARTED: "agent_run.task_started",
+  AGENT_RUN_AWAITING_PARAMS: "agent_run.awaiting_params",
+  AGENT_RUN_TASK_COMPLETED: "agent_run.task_completed",
+  AGENT_RUN_TASK_FAILED: "agent_run.task_failed",
+  AGENT_RUN_FINAL: "agent_run.final",
+  AGENT_RUN_ENDED: "agent_run.ended",
 } as const;
 
 export type SSEEventType =

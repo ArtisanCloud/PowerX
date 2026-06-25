@@ -424,6 +424,28 @@ const manualAgentSubMenus = computed<MenuItem[]>(() => [
     visible: true,
     origin: "system",
   },
+  {
+    id: "agent-sub-plugin-chat",
+    title: "插件 Agent Chat",
+    icon: "i-heroicons-command-line",
+    path: "/plugins/agent-chat",
+    order: 15,
+    visible: true,
+    origin: "system",
+  },
+  ...(userStore.isRoot
+    ? [
+        {
+          id: "agent-sub-traces",
+          title: "Agent 运行追踪",
+          icon: "i-heroicons-document-magnifying-glass",
+          path: "/agent/traces",
+          order: 16,
+          visible: true,
+          origin: "system",
+        },
+      ]
+    : []),
 ]);
 
 const renderedGroups = computed<MenuGroup[]>(() => {

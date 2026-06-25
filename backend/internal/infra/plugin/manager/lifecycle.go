@@ -498,6 +498,21 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 
 	}
 
+	if m.opts.PostEnablePlugin != nil {
+		if err := m.opts.PostEnablePlugin(ctx, p, apiBaseURL); err != nil {
+			_ = m.sup.Stop(p.ID)
+			_ = m.sup.Stop(p.ID + "_admin")
+			m.http.Unmount(p.ID)
+			return plugin_mgr.Wrap(
+				plugin_mgr.CodeLifecycleError,
+				err,
+				plugin_mgr.WithOp("enable.discover_plugin_skills"),
+				plugin_mgr.WithPlugin(p.ID),
+				plugin_mgr.WithVersion(p.Version),
+			)
+		}
+	}
+
 	// ---------- 状态 ----------
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateEnabled); err != nil {
 		return err

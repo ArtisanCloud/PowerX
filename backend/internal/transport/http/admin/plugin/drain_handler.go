@@ -1,12 +1,15 @@
 package plugin
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
+	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
@@ -22,6 +25,92 @@ type cancelDrainBlockersReq struct {
 	Reason            string   `json:"reason"`
 	EventTaskIDs      []uint64 `json:"event_task_ids"`
 	SchedulerJobUUIDs []string `json:"scheduler_job_uuids"`
+}
+
+type pluginDrainJobView struct {
+	ID                  uint64                     `json:"id"`
+	UUID                string                     `json:"uuid,omitempty"`
+	JobID               string                     `json:"job_id"`
+	PluginID            string                     `json:"plugin_id"`
+	Version             string                     `json:"version,omitempty"`
+	Scope               string                     `json:"scope"`
+	Status              string                     `json:"status"`
+	Reason              string                     `json:"reason,omitempty"`
+	RequestedByRootUser uint64                     `json:"requested_by_root_user_id,omitempty"`
+	AffectedTenantCount int64                      `json:"affected_tenant_count"`
+	DrainedTenantCount  int64                      `json:"drained_tenant_count"`
+	LastBlockerSummary  *pluginDrainBlockerSummary `json:"last_blocker_summary,omitempty"`
+	CompletedAt         *time.Time                 `json:"completed_at,omitempty"`
+	CreatedAt           time.Time                  `json:"createdAt"`
+	UpdatedAt           time.Time                  `json:"updatedAt"`
+}
+
+type pluginDrainBlockerSummary struct {
+	EventTaskCount    int64  `json:"event_task_count"`
+	SchedulerJobCount int64  `json:"scheduler_job_count"`
+	HasBlockers       bool   `json:"has_blockers"`
+	PluginID          string `json:"plugin_id,omitempty"`
+}
+
+func toPluginDrainJobView(job *dbsetting.PluginDrainJob) *pluginDrainJobView {
+	if job == nil {
+		return nil
+	}
+	uuidText := ""
+	if job.UUID.String() != "00000000-0000-0000-0000-000000000000" {
+		uuidText = job.UUID.String()
+	}
+	return &pluginDrainJobView{
+		ID:                  job.ID,
+		UUID:                uuidText,
+		JobID:               job.JobID,
+		PluginID:            job.PluginID,
+		Version:             job.Version,
+		Scope:               job.Scope,
+		Status:              job.Status,
+		Reason:              job.Reason,
+		RequestedByRootUser: job.RequestedByRootUser,
+		AffectedTenantCount: job.AffectedTenantCount,
+		DrainedTenantCount:  job.DrainedTenantCount,
+		LastBlockerSummary:  toPluginDrainBlockerSummary(job),
+		CompletedAt:         job.CompletedAt,
+		CreatedAt:           job.CreatedAt,
+		UpdatedAt:           job.UpdatedAt,
+	}
+}
+
+func toPluginDrainJobViews(jobs []*dbsetting.PluginDrainJob) []*pluginDrainJobView {
+	out := make([]*pluginDrainJobView, 0, len(jobs))
+	for _, job := range jobs {
+		if view := toPluginDrainJobView(job); view != nil {
+			out = append(out, view)
+		}
+	}
+	return out
+}
+
+func toPluginDrainBlockerSummary(job *dbsetting.PluginDrainJob) *pluginDrainBlockerSummary {
+	if job == nil || len(job.LastBlockerJSON) == 0 {
+		return nil
+	}
+	var payload struct {
+		PluginID          string `json:"plugin_id"`
+		EventTaskCount    int64  `json:"event_task_count"`
+		SchedulerJobCount int64  `json:"scheduler_job_count"`
+	}
+	if err := json.Unmarshal(job.LastBlockerJSON, &payload); err != nil {
+		return nil
+	}
+	total := payload.EventTaskCount + payload.SchedulerJobCount
+	if total <= 0 {
+		return nil
+	}
+	return &pluginDrainBlockerSummary{
+		PluginID:          payload.PluginID,
+		EventTaskCount:    payload.EventTaskCount,
+		SchedulerJobCount: payload.SchedulerJobCount,
+		HasBlockers:       true,
+	}
 }
 
 func PluginDrainCreateHandler(deps *shared.Deps) gin.HandlerFunc {
@@ -51,7 +140,7 @@ func PluginDrainCreateHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		dtoRequest.ResponseSuccess(c, gin.H{"job": job})
+		dtoRequest.ResponseSuccess(c, gin.H{"job": toPluginDrainJobView(job)})
 	}
 }
 
@@ -73,7 +162,7 @@ func PluginDrainListHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		dtoRequest.ResponseSuccess(c, gin.H{"items": items})
+		dtoRequest.ResponseSuccess(c, gin.H{"items": toPluginDrainJobViews(items)})
 	}
 }
 
@@ -90,7 +179,7 @@ func PluginDrainGetHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		dtoRequest.ResponseSuccess(c, gin.H{"job": job})
+		dtoRequest.ResponseSuccess(c, gin.H{"job": toPluginDrainJobView(job)})
 	}
 }
 
@@ -111,7 +200,7 @@ func PluginDrainRefreshHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		dtoRequest.ResponseSuccess(c, gin.H{"job": job})
+		dtoRequest.ResponseSuccess(c, gin.H{"job": toPluginDrainJobView(job)})
 	}
 }
 
@@ -167,6 +256,11 @@ func PluginDrainCancelBlockersHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		dtoRequest.ResponseSuccess(c, result)
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"plugin_id":                result.PluginID,
+			"cancelled_scheduler_jobs": result.CancelledSchedulerJob,
+			"cancelled_event_tasks":    result.CancelledEventTask,
+			"drain_jobs":               toPluginDrainJobViews(result.DrainJobs),
+		})
 	}
 }

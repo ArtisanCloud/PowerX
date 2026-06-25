@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"sort"
 	"strconv"
 	"strings"
@@ -247,6 +249,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					AgentID: agID, Kind: "task.start", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 					Ts: start, Input: inSan.JSON(finalParams),
 				})
+				traceMeta, traceSeq := m.startPlanTraceNode(egCtx, mt, plan.PlanID, task, taskKind, nodeRef, flowID, start, finalParams)
 
 				runOnce := func(runCtx context.Context) (*aschema.ExecutionResult, error) {
 					if taskKind == "workflow" {
@@ -269,6 +272,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 						Ts: time.Now(), DurationMS: dur, Error: err.Error(),
 					})
+					m.failPlanTraceNode(egCtx, traceMeta, traceSeq, task, taskKind, nodeRef, start, err)
 					policy := planTaskFailurePolicy(task)
 					if policy == "continue" {
 						stageOut[i] = &aschema.ExecutionResult{
@@ -313,6 +317,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 						Output: outSan.JSON(safeOut.Data),
 						Meta:   outSan.JSON(safeOut.Metadata),
 					})
+					m.endPlanTraceNode(egCtx, traceMeta, traceSeq, task, taskKind, nodeRef, start, out)
 					if hooks != nil && hooks.OnTaskEnd != nil {
 						hooks.OnTaskEnd(task, out, nil)
 					}
@@ -395,6 +400,127 @@ func (m *Manager) GetDefaultRoute() (contract.AgentClient, string, error) {
 		return nil, "", fmt.Errorf("default agent not found: %s", m.defaultAgID)
 	}
 	return ag, m.defaultFlowID, nil
+}
+
+func (m *Manager) startPlanTraceNode(ctx context.Context, mt aschema.ExecutionMeta, planID string, task flowschema.PlanTask, kind, nodeRef, flowID string, startedAt time.Time, input map[string]any) (agenttrace.AgentRunMeta, int) {
+	logger := m.AgentTraceLogger()
+	if logger == nil {
+		return agenttrace.AgentRunMeta{}, 0
+	}
+	meta := agenttrace.AgentRunMeta{
+		TraceID:    firstNonEmpty(mt.TraceID, asString(mt.Metadata["trace_id"])),
+		RunID:      asString(mt.Metadata["run_id"]),
+		TenantUUID: firstNonEmpty(mt.TenantUUID, asString(mt.Metadata["tenant_uuid"])),
+		UserUUID:   asString(mt.Metadata["user_uuid"]),
+		AgentID:    firstNonEmpty(asString(mt.Metadata["agent_id"]), task.AgentID, m.defaultAgID),
+		SessionID:  asString(mt.Metadata["session_id"]),
+		MessageID:  asString(mt.Metadata["message_id"]),
+		PlanID:     firstNonEmpty(planID, asString(mt.Metadata["plan_id"])),
+		Channel:    asString(mt.Metadata["channel"]),
+	}
+	seq := task.Stage*1000 + stableTaskOrdinal(task.TaskID)
+	attrs := map[string]any{
+		"task_id":          task.TaskID,
+		"flow_id":          flowID,
+		"node_id":          task.TaskID,
+		"node_kind":        kind,
+		"node_ref":         nodeRef,
+		"source_scope":     firstNonEmpty(strings.TrimSpace(task.SourceScope), "system"),
+		"team_id":          strings.TrimSpace(task.TeamID),
+		"handoff_task_id":  strings.TrimSpace(task.HandoffTaskID),
+		"context_ref_id":   strings.TrimSpace(task.ContextRefID),
+		"failure_policy":   planTaskFailurePolicy(task),
+		"capability_id":    asString(input["capability_id"]),
+		"plugin_id":        firstNonEmpty(asString(input["plugin_id"]), asString(input["provider"]), asString(input["plugin"])),
+		"skill_id":         firstNonEmpty(nodeRef, asString(input["skill_id"])),
+		"stage":            task.Stage,
+		"depends_on_count": len(task.DependsOn),
+	}
+	_ = logger.StartNode(ctx, agenttrace.AgentTraceNode{
+		AgentRunMeta: meta,
+		NodeID:       task.TaskID,
+		NodeSeq:      seq,
+		NodeKind:     kind,
+		NodeRef:      nodeRef,
+		InputSummary: attrs,
+		ContextRef:   strings.TrimSpace(task.ContextRefID),
+		SkillID:      firstNonEmpty(nodeRef, asString(input["skill_id"])),
+		PluginID:     firstNonEmpty(asString(input["plugin_id"]), asString(input["provider"]), asString(input["plugin"])),
+		CapabilityID: asString(input["capability_id"]),
+		Attributes:   attrs,
+		StartedAt:    startedAt.UTC(),
+	})
+	return meta, seq
+}
+
+func (m *Manager) endPlanTraceNode(ctx context.Context, meta agenttrace.AgentRunMeta, seq int, task flowschema.PlanTask, kind, nodeRef string, startedAt time.Time, out *aschema.ExecutionResult) {
+	if meta.RunID == "" || seq == 0 {
+		return
+	}
+	logger := m.AgentTraceLogger()
+	if logger == nil {
+		return
+	}
+	summary := map[string]any{}
+	if out != nil {
+		summary["success"] = out.Success
+		summary["step_id"] = out.StepID
+		summary["duration_ms"] = out.Duration.Milliseconds()
+		if out.Metadata != nil {
+			summary["metadata"] = out.Metadata
+		}
+	}
+	_ = logger.EndNode(ctx, agenttrace.AgentTraceNodeResult{
+		AgentRunMeta:  meta,
+		NodeID:        task.TaskID,
+		NodeSeq:       seq,
+		NodeKind:      kind,
+		NodeRef:       nodeRef,
+		OutputSummary: summary,
+		StartedAt:     startedAt.UTC(),
+		EndedAt:       time.Now().UTC(),
+	})
+}
+
+func (m *Manager) failPlanTraceNode(ctx context.Context, meta agenttrace.AgentRunMeta, seq int, task flowschema.PlanTask, kind, nodeRef string, startedAt time.Time, runErr error) {
+	if meta.RunID == "" || seq == 0 {
+		return
+	}
+	logger := m.AgentTraceLogger()
+	if logger == nil {
+		return
+	}
+	summary := ""
+	if runErr != nil {
+		summary = runErr.Error()
+	}
+	_ = logger.FailNode(ctx, agenttrace.AgentTraceNodeFailure{
+		AgentTraceNodeResult: agenttrace.AgentTraceNodeResult{
+			AgentRunMeta: meta,
+			NodeID:       task.TaskID,
+			NodeSeq:      seq,
+			NodeKind:     kind,
+			NodeRef:      nodeRef,
+			StartedAt:    startedAt.UTC(),
+			EndedAt:      time.Now().UTC(),
+		},
+		ErrorCode:    "AGENT_PLAN_TASK_FAILED",
+		ErrorSummary: summary,
+	})
+}
+
+func stableTaskOrdinal(taskID string) int {
+	if strings.TrimSpace(taskID) == "" {
+		return 1
+	}
+	n := 0
+	for _, r := range taskID {
+		n += int(r)
+	}
+	if n <= 0 {
+		return 1
+	}
+	return n % 997
 }
 
 func planTaskKind(t flowschema.PlanTask) string {
@@ -501,12 +627,18 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	taskID := firstNonEmpty(t.HandoffTaskID, t.TaskID)
 	failurePolicy := firstNonEmpty(strings.ToLower(strings.TrimSpace(t.FailurePolicy)), asString(t.Params["failure_policy"]), asString(params["failure_policy"]), "continue")
 	teamID := firstNonEmpty(t.TeamID, asString(t.Params["team_id"]), asString(params["team_id"]))
+	teamName := firstNonEmpty(asString(t.Params["team_name"]), asString(params["team_name"]))
 	sessionID := firstPositiveUint64(asUint64(params["session_id"]), asUint64(t.Params["session_id"]))
 	handoffTraceID := firstNonEmpty(asString(mt.Metadata["trace_id"]), mt.TraceID, fmt.Sprintf("handoff_%d", time.Now().UnixNano()))
 
 	payload := payloadFromTaskParams(t, params)
 	contextMap := contextFromTaskParams(t, params)
 	contextMap["context_ref_id"] = contextRefID
+	contextMap["team_id"] = teamID
+	contextMap["team_name"] = teamName
+	contextMap["parent_agent_id"] = firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["parent_agent_id"]))
+	contextMap["child_agent_id"] = childAgentID
+	contextMap["child_agent_key"] = childAgentKey
 
 	in := AgentHandoffInput{
 		TenantUUID:     firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
@@ -514,12 +646,13 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 		ChildAgentID:   childAgentID,
 		TeamID:         asUint64(teamID),
 		TaskID:         taskID,
-		PlanID:         firstNonEmpty(asString(t.Params["plan_id"]), asString(params["plan_id"])),
+		PlanID:         firstNonEmpty(asString(mt.Metadata["plan_id"]), asString(t.Params["plan_id"]), asString(params["plan_id"])),
 		NodeID:         firstNonEmpty(t.TaskID, taskID),
 		SessionID:      sessionID,
 		FailurePolicy:  failurePolicy,
 		ContextRefID:   contextRefID,
 		HandoffTraceID: handoffTraceID,
+		RunID:          asString(mt.Metadata["run_id"]),
 		FlowID:         flowID,
 		Message:        msg,
 		Payload:        payload,
@@ -547,6 +680,10 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 				"node_kind":       "agent_handoff",
 				"node_ref":        firstNonEmpty(ref, flowID),
 				"team_id":         teamID,
+				"team_name":       teamName,
+				"parent_agent_id": in.ParentAgentID,
+				"child_agent_id":  in.ChildAgentID,
+				"child_agent_key": childAgentKey,
 				"handoff_task_id": out.TaskID,
 				"failure_policy":  failurePolicy,
 				"context_ref_id":  contextRefID,
@@ -587,6 +724,10 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	out.Metadata["node_kind"] = "agent_handoff"
 	out.Metadata["node_ref"] = firstNonEmpty(ref, flowID)
 	out.Metadata["team_id"] = teamID
+	out.Metadata["team_name"] = teamName
+	out.Metadata["parent_agent_id"] = in.ParentAgentID
+	out.Metadata["child_agent_id"] = in.ChildAgentID
+	out.Metadata["child_agent_key"] = childAgentKey
 	out.Metadata["handoff_task_id"] = taskID
 	out.Metadata["failure_policy"] = failurePolicy
 	out.Metadata["context_ref_id"] = contextRefID
@@ -606,24 +747,37 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		TenantUUID:   firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
 		Env:          firstNonEmpty(asString(mt.Metadata["env"]), asString(params["env"])),
 		AgentID:      firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["agent_id"])),
+		UserUUID:     firstNonEmpty(asString(mt.Metadata["user_uuid"]), asString(params["user_uuid"]), asString(params["member_uuid"])),
+		SessionID:    firstNonEmpty(asString(mt.Metadata["session_id"]), asString(params["session_id"])),
+		MessageID:    firstNonEmpty(asString(mt.Metadata["message_id"]), asString(params["message_id"])),
 		SkillID:      firstNonEmpty(ref, asString(params["skill_id"])),
 		Version:      firstNonEmpty(asString(params["version"]), asString(t.Params["version"])),
 		CapabilityID: asString(params["capability_id"]),
 		Entrypoint:   asString(params["entrypoint"]),
 		TraceID:      firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
+		RunID:        asString(mt.Metadata["run_id"]),
+		PlanID:       firstNonEmpty(asString(mt.Metadata["plan_id"]), asString(params["plan_id"])),
+		NodeID:       firstNonEmpty(t.TaskID, asString(params["node_id"])),
+		PluginID:     firstNonEmpty(asString(params["plugin_id"]), asString(params["provider"]), asString(t.Params["plugin_id"])),
 		Payload:      payloadFromTaskParams(t, params),
 		Context:      contextFromTaskParams(t, params),
 		ToolGrantIDs: toStringSlice(params["tool_grant_ids"]),
 	}
+	in.Context["trace_id"] = in.TraceID
+	in.Context["run_id"] = in.RunID
+	in.Context["plan_id"] = in.PlanID
+	in.Context["node_id"] = in.NodeID
+	in.Context["plugin_id"] = in.PluginID
+	in.Context["capability_id"] = in.CapabilityID
+	logger.InfoF(ctx, "[agent.skill.invoke] skill_id=%s action=%s capability_id=%s plugin_id=%s trace_id=%s payload=%s",
+		in.SkillID,
+		firstNonEmpty(asString(in.Payload["action"]), asString(in.Payload["operation"]), asString(params["action"]), asString(t.Params["action"])),
+		in.CapabilityID,
+		in.PluginID,
+		in.TraceID,
+		utils.J(in.Payload),
+	)
 	out, err := inv(ctx, in)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "skill record not found") {
-			if alt, ok := fallbackSkillIDAlias(in.SkillID); ok {
-				in.SkillID = alt
-				out, err = inv(ctx, in)
-			}
-		}
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -648,6 +802,11 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 			"node_kind":     "skill",
 			"node_ref":      ref,
 			"trace_id":      out.TraceID,
+			"run_id":        in.RunID,
+			"plan_id":       in.PlanID,
+			"node_id":       in.NodeID,
+			"plugin_id":     in.PluginID,
+			"capability_id": in.CapabilityID,
 			"status":        out.Status,
 			"protocol_used": out.ProtocolUsed,
 			"fallback_used": out.FallbackUsed,
@@ -660,6 +819,9 @@ func pickSkillVisibleContent(result map[string]any) string {
 	if len(result) == 0 {
 		return ""
 	}
+	if s := pickTemplateVisibleContent(result); s != "" {
+		return s
+	}
 	for _, key := range []string{"content", "rendered_text", "text", "output", "answer", "message"} {
 		if v, ok := result[key]; ok {
 			if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
@@ -670,19 +832,55 @@ func pickSkillVisibleContent(result map[string]any) string {
 	return ""
 }
 
-func fallbackSkillIDAlias(skillID string) (string, bool) {
-	raw := strings.TrimSpace(skillID)
-	if raw == "" {
-		return "", false
+func pickTemplateVisibleContent(result map[string]any) string {
+	action := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", result["action"])))
+	if action == "" {
+		return ""
 	}
-	// 兼容历史别名：skill.thirdparty.<id> -> <id>
-	if strings.HasPrefix(strings.ToLower(raw), "skill.thirdparty.") {
-		alt := strings.TrimSpace(raw[len("skill.thirdparty."):])
-		if alt != "" && !strings.EqualFold(alt, raw) {
-			return alt, true
+	rawTemplate, ok := result["template"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	id := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(result["template_id"], rawTemplate["id"])))
+	title := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(rawTemplate["title"], rawTemplate["name"])))
+	detailPath := strings.TrimSpace(fmt.Sprintf("%v", rawTemplate["detail_path"]))
+	switch action {
+	case "create":
+		parts := []string{"模板已创建成功。"}
+		if title != "" {
+			parts = append(parts, "标题："+title)
+		}
+		if id != "" {
+			parts = append(parts, "ID："+id)
+		}
+		if detailPath != "" {
+			parts = append(parts, "查看："+detailPath)
+		}
+		return strings.Join(parts, "\n")
+	case "update":
+		parts := []string{"模板已更新成功。"}
+		if title != "" {
+			parts = append(parts, "标题："+title)
+		}
+		if id != "" {
+			parts = append(parts, "ID："+id)
+		}
+		if detailPath != "" {
+			parts = append(parts, "查看："+detailPath)
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return ""
+	}
+}
+
+func firstNonEmptyAny(values ...any) any {
+	for _, value := range values {
+		if strings.TrimSpace(fmt.Sprintf("%v", value)) != "" && strings.TrimSpace(fmt.Sprintf("%v", value)) != "<nil>" {
+			return value
 		}
 	}
-	return "", false
+	return ""
 }
 
 func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
@@ -698,9 +896,17 @@ func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask,
 		CapabilityID:      firstNonEmpty(asString(params["capability_id"]), ref),
 		PreferredProtocol: firstNonEmpty(asString(params["preferred_protocol"]), "tooling"),
 		TraceID:           firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
+		RunID:             asString(mt.Metadata["run_id"]),
+		PlanID:            firstNonEmpty(asString(mt.Metadata["plan_id"]), asString(params["plan_id"])),
+		NodeID:            firstNonEmpty(t.TaskID, asString(params["node_id"])),
 		Payload:           payloadFromTaskParams(t, params),
 		Context:           contextFromTaskParams(t, params),
 	}
+	in.Context["trace_id"] = in.TraceID
+	in.Context["run_id"] = in.RunID
+	in.Context["plan_id"] = in.PlanID
+	in.Context["node_id"] = in.NodeID
+	in.Context["capability_id"] = in.CapabilityID
 	out, err := inv(ctx, in)
 	if err != nil {
 		return nil, err
@@ -720,6 +926,10 @@ func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask,
 			"node_kind":     "tooling",
 			"node_ref":      ref,
 			"trace_id":      out.TraceID,
+			"run_id":        in.RunID,
+			"plan_id":       in.PlanID,
+			"node_id":       in.NodeID,
+			"capability_id": in.CapabilityID,
 			"status":        out.Status,
 			"protocol_used": out.ProtocolUsed,
 			"fallback_used": out.FallbackUsed,

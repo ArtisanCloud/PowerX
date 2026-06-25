@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -24,17 +25,25 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	catalogH := newCatalogHandler(module.db, module.auditSvc)
 	registryH := newRegistryHandler(module.registry, module.importSvc)
 	importH := newImportHandler(module.importSvc)
+	pluginRegistryH := newPluginRegistryHandler(module.importSvc)
 	marketplaceH := newMarketplaceHandler(module.importSvc)
 	publishH := newPublishHandler(module.registry, module.lifecycle)
 	rollbackH := newRollbackHandler(module.registry, module.lifecycle)
 	bindingH := newBindingHandler(module.binding, module.auditSvc)
 	auditH := newAuditHandler(module.traceRepo, module.auditRepo)
 	installTaskH := newInstallTaskHandler(module.installer)
-	if catalogH == nil || registryH == nil || importH == nil || marketplaceH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil || installTaskH == nil {
+	if catalogH == nil || registryH == nil || importH == nil || pluginRegistryH == nil || marketplaceH == nil || publishH == nil || rollbackH == nil || bindingH == nil || auditH == nil || installTaskH == nil {
 		return
 	}
 
-	group := protectedGroup.Group("/admin/skills")
+	adminGroup := protectedGroup.Group("/admin/skills")
+
+	pluginRegistryGroup := adminGroup.Group("/plugin-registry")
+	pluginRegistryGroup.Use(adminauthz.PluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginSkillRegistrySync))
+	pluginRegistryGroup.POST("/sync", pluginRegistryH.Sync)
+	pluginRegistryGroup.POST("/:skillId/sync", pluginRegistryH.Sync)
+
+	group := adminGroup.Group("")
 	group.Use(middleware.AdminOnlyMiddleware())
 	group.Use(rootOnlyMiddleware())
 	group.GET("/catalog", catalogH.ListCatalog)

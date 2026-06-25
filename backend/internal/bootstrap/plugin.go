@@ -19,8 +19,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	settingservice "github.com/ArtisanCloud/PowerX/internal/service/setting"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -73,6 +75,7 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	dr.BindTenantPluginGuard(tenantPluginSvc.RequireEnabled)
 	dr.BindPluginUsageGuard(tenantPluginSvc.EnsurePluginAcceptsNewUsage)
 	sup := supervisor.New()
+	skillDiscoverySvc := newPluginSkillDiscoveryService(deps)
 
 	installedRoot := abs(cfg.Plugin.InstalledDir)
 	registryFile := abs(cfg.Plugin.RegistryFile)
@@ -89,6 +92,30 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		Supervisor:    sup,
 		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
 			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
+		},
+		PostEnablePlugin: func(ctx context.Context, plugin pm.Plugin, apiBaseURL string) error {
+			requiresDiscovery, err := pluginRequiresSkillDiscovery(plugin)
+			if err != nil {
+				return err
+			}
+			if !requiresDiscovery {
+				logger.InfoF(ctx, "[plugin-enable] plugin=%s skip_plugin_skill_discovery=true", plugin.ID)
+				return nil
+			}
+			if skillDiscoverySvc == nil {
+				return fmt.Errorf("plugin skill discovery service unavailable")
+			}
+			imported, err := skillDiscoverySvc.DiscoverAndImport(ctx, skillservice.DiscoverPluginSkillsInput{
+				ProviderPluginID: plugin.ID,
+				BaseURL:          apiBaseURL,
+				Operator:         "plugin-enable",
+				BundleURI:        fmt.Sprintf("plugin://%s/%s", plugin.ID, plugin.Version),
+			})
+			if err != nil {
+				return err
+			}
+			logger.InfoF(ctx, "[plugin-enable] plugin=%s imported_plugin_skills=%d", plugin.ID, len(imported))
+			return nil
 		},
 		PostUninstall: func(ctx context.Context, pluginID string) error {
 			return syncPluginPermissionsRemoval(ctx, deps.DB, pluginID)
@@ -123,6 +150,35 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	}
 
 	return mgr, nil
+}
+
+func pluginRequiresSkillDiscovery(plugin pm.Plugin) (bool, error) {
+	if strings.TrimSpace(plugin.Catalogs.AgentTools) != "" {
+		return true, nil
+	}
+	root := strings.TrimSpace(plugin.Paths.Root)
+	if root != "" {
+		info, err := os.Stat(filepath.Join(root, "skills"))
+		if err == nil && info.IsDir() {
+			return true, nil
+		}
+	}
+	if len(plugin.Agents) > 0 || len(plugin.Tools) > 0 {
+		return false, fmt.Errorf("plugin %s declares legacy agents/tools but does not declare Agent Skill Bridge skills; add skills/ package or catalogs.agent_tools and expose GET /api/v1/plugin/skills", plugin.ID)
+	}
+	return false, nil
+}
+
+func newPluginSkillDiscoveryService(deps *shared.Deps) *skillservice.PluginSkillDiscoveryService {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	registryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
+	traceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
+	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
+	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
+	importSvc := skillservice.NewImportService(registryRepo, auditSvc)
+	return skillservice.NewPluginSkillDiscoveryService(importSvc)
 }
 
 func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *config.Config, pluginID string) (*pmimpl.PluginRuntimeCredential, error) {

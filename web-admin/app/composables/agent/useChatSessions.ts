@@ -135,13 +135,18 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 将后端消息数据转换为前端格式
    */
   function mapMessageDTO(dto: MessageDTO): ChatMessage {
+    const meta = {
+      ...(dto.meta || {}),
+      session_id: (dto as any).sessionId ?? (dto as any).session_id,
+      agent_id: (dto as any).agentId ?? (dto as any).agent_id,
+    };
     return {
       id: dto.id,
       role: dto.role,
       content: dto.content,
       timestamp: new Date(dto.createdAt).getTime(),
       isError: dto.isError,
-      meta: dto.meta,
+      meta,
       // 历史消息不应该有流式状态
       isStreaming: false,
       done: true,
