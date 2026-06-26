@@ -20,6 +20,7 @@ func (p *ResponsePlanner) Plan(_ context.Context, in ResponsePlanInput) (*Respon
 	includeExamples := false
 	includeSchema := false
 	needsClarification := false
+	shouldCallTool := in.PlanHasExecutableNode
 	missingFields := []string(nil)
 	targetIDs := []string(nil)
 	intents := classifyResponseIntents(in.UserMessage)
@@ -48,6 +49,7 @@ func (p *ResponsePlanner) Plan(_ context.Context, in ResponsePlanInput) (*Respon
 			mode = ResponseModeSkillExecution
 			reason = "user supplied parameters for pending task"
 			intents = appendIntent(intents, ResponseIntentSkillExecution)
+			shouldCallTool = true
 		}
 		targetIDs = pendingTaskTargetCapabilityIDs(in.PendingTask, allowedIDs)
 	} else if len(in.AllowedCapabilities) > 0 {
@@ -100,7 +102,7 @@ func (p *ResponsePlanner) Plan(_ context.Context, in ResponsePlanInput) (*Respon
 		ResponseMode:          mode,
 		ResponseIntents:       intents,
 		AnswerRequirements:    answerRequirements,
-		ShouldCallTool:        in.PlanHasExecutableNode,
+		ShouldCallTool:        shouldCallTool,
 		TargetCapabilityIDs:   targetIDs,
 		UseCapabilityCtx:      useCapabilityContext,
 		IncludeExamples:       includeExamples,

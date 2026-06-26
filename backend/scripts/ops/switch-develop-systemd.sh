@@ -56,12 +56,29 @@ read_backend_port() {
     return 1
   fi
   awk '
-    /^[[:space:]]*server:[[:space:]]*$/ { in_server=1; next }
-    in_server && /^[^[:space:]]/ { in_server=0 }
-    in_server && /^[[:space:]]*port:[[:space:]]*[0-9]+/ {
-      gsub(/[^0-9]/, "", $0)
-      print
-      exit
+    function indent(s) {
+      match(s, /[^[:space:]]/)
+      return RSTART > 0 ? RSTART - 1 : -1
+    }
+    BEGIN { in_server = 0; direct_indent = -1 }
+    /^server:[[:space:]]*$/ {
+      in_server = 1
+      direct_indent = -1
+      next
+    }
+    in_server && /^[^[:space:]]/ {
+      in_server = 0
+    }
+    in_server && /^[[:space:]]*[^[:space:]]/ {
+      cur_indent = indent($0)
+      if (direct_indent < 0) {
+        direct_indent = cur_indent
+      }
+      if (cur_indent == direct_indent && $0 ~ /^[[:space:]]*port:[[:space:]]*[0-9]+/) {
+        gsub(/[^0-9]/, "", $0)
+        print
+        exit
+      }
     }
   ' "$cfg"
 }

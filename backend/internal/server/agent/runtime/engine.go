@@ -92,30 +92,6 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if ok && plan != nil {
 		tr.withPlan(plan.PlanID)
 		plan = e.applyRuntimeParamState(ctx, plan)
-		if missing := e.missingRequiredArgsForPlan(ctx, plan); len(missing) > 0 && !isPendingResumePlan(ctx, plan) {
-			pendingTask := pendingTaskPayloadForPlan(ctx, tr, plan, missing)
-			if err := persistAwaitingSkillState(ctx, pendingTask); err != nil {
-				tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
-				runErr = err
-				return sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
-			}
-			responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, missing)
-			finalText = BuildFinalResponseContent(responsePlan, "", nil)
-			tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{
-				"has_plan":            true,
-				"plan_id":             tr.meta.PlanID,
-				"needs_clarification": true,
-				"missing_fields":      missing,
-			})
-			_ = sink.Emit(dto.EventPlan, map[string]any{
-				"planner_mode": dto.PlannerModeUnified,
-				"plan":         PlanOrRaw(plan, rawPlan),
-			})
-			_ = sink.Emit(dto.EventAgentRunAwaitingParams, pendingTask)
-			_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
-			e.emitClarifyFinal(ctx, sink, tr, plan, responsePlan, finalText, missing)
-			return nil
-		}
 		markResponsePlanExecutable(responsePlan, plan)
 	}
 	tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{"has_plan": ok, "plan_id": tr.meta.PlanID})
@@ -350,32 +326,6 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 	if ok && plan != nil {
 		tr.withPlan(plan.PlanID)
 		plan = e.applyRuntimeParamState(ctx, plan)
-		if missing := e.missingRequiredArgsForPlan(ctx, plan); len(missing) > 0 && !isPendingResumePlan(ctx, plan) {
-			pendingTask := pendingTaskPayloadForPlan(ctx, tr, plan, missing)
-			if err := persistAwaitingSkillState(ctx, pendingTask); err != nil {
-				tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
-				runErr = err
-				_ = sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
-				_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
-				return nil, plan, err
-			}
-			responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, missing)
-			finalText = BuildFinalResponseContent(responsePlan, "", nil)
-			tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{
-				"has_plan":            true,
-				"plan_id":             tr.meta.PlanID,
-				"needs_clarification": true,
-				"missing_fields":      missing,
-			})
-			_ = sink.Emit(dto.EventPlan, map[string]any{
-				"planner_mode": dto.PlannerModeUnified,
-				"plan":         PlanOrRaw(plan, rawPlan),
-			})
-			_ = sink.Emit(dto.EventAgentRunAwaitingParams, pendingTask)
-			_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
-			e.emitClarifyFinal(ctx, sink, tr, plan, responsePlan, finalText, missing)
-			return nil, plan, nil
-		}
 		markResponsePlanExecutable(responsePlan, plan)
 	}
 	tr.endNode(ctx, plannerNode, "planner", "BuildPlan", map[string]any{"has_plan": ok, "plan_id": tr.meta.PlanID})
@@ -733,9 +683,6 @@ func shouldExecutePlanForResponse(responsePlan *ResponsePlan, execPlan *flowsche
 	}
 	if responsePlan == nil {
 		return true
-	}
-	if responsePlan.ResponseMode == ResponseModeClarifyParams || responsePlan.NeedsClarification {
-		return false
 	}
 	return responsePlan.ShouldCallTool
 }
@@ -1513,13 +1460,6 @@ func responseTargetIDs(plan *ResponsePlan) []string {
 
 func markResponsePlanExecutable(plan *ResponsePlan, execPlan *flowschema.ExecutionPlan) {
 	if plan == nil || execPlan == nil || len(execPlan.Tasks) == 0 {
-		return
-	}
-	if plan.ResponseMode == ResponseModeClarifyParams || plan.NeedsClarification {
-		plan.ShouldCallTool = false
-		if plan.ResponsePlanID == "" {
-			plan.ResponsePlanID = fmt.Sprintf("rp_%d", time.Now().UnixNano())
-		}
 		return
 	}
 	plan.ShouldCallTool = true

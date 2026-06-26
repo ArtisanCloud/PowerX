@@ -327,6 +327,9 @@ func TestResponsePlannerPendingTaskResumeExecutesWithUserMessage(t *testing.T) {
 	if !hasResponseIntent(plan.ResponseIntents, ResponseIntentSkillExecution) {
 		t.Fatalf("missing skill execution intent: %#v", plan.ResponseIntents)
 	}
+	if !plan.ShouldCallTool {
+		t.Fatalf("pending task resume must call tool")
+	}
 	if len(plan.TargetCapabilityIDs) != 1 || plan.TargetCapabilityIDs[0] != "powerxplugin.template.basic.local" {
 		t.Fatalf("target ids=%v", plan.TargetCapabilityIDs)
 	}
