@@ -241,6 +241,69 @@ func TestEngineMissingRequiredArgsMergesPendingTaskParams(t *testing.T) {
 	}
 }
 
+func TestEnginePendingTaskExtractsMissingSlotFromUserMessage(t *testing.T) {
+	mgr := agent.GetAgentManager()
+	skillID := "test.skill.pending.slot.runtime"
+	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
+		Name:        skillID,
+		NodeKind:    "skill",
+		NodeRef:     skillID,
+		SourceScope: "agent",
+		Source:      "plugin",
+		ActionRequiredArgs: map[string][]string{
+			"create": []string{"template.title", "template.description", "template.content"},
+		},
+		SlotMapping: map[string]any{
+			"template.title": map[string]any{
+				"labels": []any{"标题", "名称", "模板标题"},
+			},
+			"template.description": map[string]any{
+				"labels": []any{"描述", "用途", "说明"},
+			},
+			"template.content": map[string]any{
+				"labels": []any{"内容", "正文", "模板内容"},
+			},
+		},
+	})
+	engine := NewEngine()
+	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
+	ctx = context.WithValue(ctx, "agent_pending_task", map[string]any{
+		"node_ref": skillID,
+		"action":   "create",
+		"status":   "awaiting_params",
+		"collected_params": map[string]any{
+			"action": "create",
+			"template": map[string]any{
+				"title":       "测试模板",
+				"description": "用于验证插件 CRUD",
+			},
+		},
+	})
+	plan := &flowschema.ExecutionPlan{
+		PlanID: "plan_pending_slot",
+		Tasks: []flowschema.PlanTask{
+			{
+				TaskID:   "task_create",
+				FlowID:   skillID,
+				NodeKind: "skill",
+				NodeRef:  skillID,
+				Params: map[string]interface{}{
+					"action":       "create",
+					"user_message": "内容可以是“这是一条测试内容”",
+				},
+			},
+		},
+	}
+	plan = engine.applyRuntimeParamState(ctx, plan)
+	missing := engine.missingRequiredArgsForPlan(ctx, plan)
+	if len(missing) != 0 {
+		t.Fatalf("missing=%v plan=%#v", missing, plan.Tasks[0].Params)
+	}
+	if !hasPlanParamPath(plan.Tasks[0].Params, "template.content") {
+		t.Fatalf("content not extracted: %#v", plan.Tasks[0].Params)
+	}
+}
+
 func TestResponsePlannerPendingTaskResumeExecutesWithUserMessage(t *testing.T) {
 	plan, err := NewResponsePlanner().Plan(context.Background(), ResponsePlanInput{
 		UserMessage: "内容是：这是一条测试用的模板内容",

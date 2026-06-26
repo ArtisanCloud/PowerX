@@ -50,13 +50,19 @@ type SkillInvokeInput struct {
 }
 
 type SkillInvokeOutput struct {
-	TraceID      string
-	Status       string
-	ProtocolUsed string
-	FallbackUsed bool
-	SkillID      string
-	Version      string
-	Result       map[string]any
+	TraceID           string
+	Status            string
+	ProtocolUsed      string
+	FallbackUsed      bool
+	SkillID           string
+	Version           string
+	Result            map[string]any
+	ReadyToExecute    bool
+	MissingFields     []string
+	StatePatch        map[string]any
+	Message           string
+	CapabilityID      string
+	CapabilityPayload map[string]any
 }
 
 type ToolingInvokeInput struct {

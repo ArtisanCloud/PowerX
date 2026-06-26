@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +44,33 @@ type AgentChatHandler struct {
 	skillAudit  *skillservice.AuditTraceService
 	ctxOptSvc   *agentSvc.ContextOptimizerConfigService
 	skillBinds  *agentrepo.AgentSkillBindingRepository
+	skillStates *agentSvc.SkillStateService
+}
+
+type runtimeSkillStateStore struct {
+	service *agentSvc.SkillStateService
+}
+
+func (s runtimeSkillStateStore) UpsertSkillState(ctx context.Context, in runtime.SkillStateUpsert) error {
+	if s.service == nil {
+		return fmt.Errorf("skill state service is not configured")
+	}
+	_, err := s.service.Upsert(ctx, agentSvc.SkillStateUpsertInput{
+		Env:           in.Env,
+		TenantUUID:    in.TenantUUID,
+		SessionID:     in.SessionID,
+		AgentID:       in.AgentID,
+		SkillID:       in.SkillID,
+		StateKey:      in.StateKey,
+		SchemaVersion: in.SchemaVersion,
+		Status:        in.Status,
+		Action:        in.Action,
+		State:         in.State,
+		Meta:          in.Meta,
+		LastMessageID: in.LastMessageID,
+		TTLSeconds:    in.TTLSeconds,
+	})
+	return err
 }
 
 type agentInvokeRequest struct {
@@ -615,8 +643,14 @@ func buildCandidateSummary(cands []agent.ToolCallCandidate, maxPerKind int) stri
 		if len(c.RequiredArgs) > 0 {
 			lines = append(lines, "  必要参数: "+strings.Join(c.RequiredArgs, ", "))
 		}
+		if len(c.ActionRequiredArgs) > 0 {
+			lines = append(lines, "  动作必填参数: "+formatActionArgMap(c.ActionRequiredArgs, 4))
+		}
 		if len(c.OptionalArgs) > 0 {
 			lines = append(lines, "  可选参数: "+strings.Join(c.OptionalArgs, ", "))
+		}
+		if len(c.ActionOptionalArgs) > 0 {
+			lines = append(lines, "  动作可选参数: "+formatActionArgMap(c.ActionOptionalArgs, 4))
 		}
 		if len(c.Examples) > 0 {
 			examples := c.Examples
@@ -631,9 +665,6 @@ func buildCandidateSummary(cands []agent.ToolCallCandidate, maxPerKind int) stri
 				guidance = guidance[:5]
 			}
 			lines = append(lines, "  回复规范: "+strings.Join(guidance, "；"))
-		}
-		if ref != "" && !strings.EqualFold(ref, name) {
-			lines = append(lines, "  ref: "+ref)
 		}
 		buckets[kind] = append(buckets[kind], strings.Join(lines, "\n"))
 	}
@@ -683,6 +714,11 @@ func responseCapabilityItemsFromCandidates(cands []agent.ToolCallCandidate) []ru
 			Description:        strings.TrimSpace(c.Description),
 			RequiredArgs:       append([]string(nil), c.RequiredArgs...),
 			ActionRequiredArgs: copyStringSliceMap(c.ActionRequiredArgs),
+			ActionOptionalArgs: copyStringSliceMap(c.ActionOptionalArgs),
+			SlotMapping:        copyAnyMap(c.SlotMapping),
+			PendingTaskPolicy:  copyAnyMap(c.PendingTaskPolicy),
+			StateContract:      copyAnyMap(c.StateContract),
+			ResultPresentation: copyAnyMap(c.ResultPresentation),
 			OptionalArgs:       append([]string(nil), c.OptionalArgs...),
 			Actions:            append([]string(nil), c.Actions...),
 			Examples:           append([]string(nil), c.Examples...),
@@ -690,6 +726,45 @@ func responseCapabilityItemsFromCandidates(cands []agent.ToolCallCandidate) []ru
 			NodeKind:           kind,
 			Source:             strings.TrimSpace(c.Source),
 		})
+	}
+	return out
+}
+
+func formatActionArgMap(in map[string][]string, maxActions int) string {
+	if len(in) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(in))
+	for key := range in {
+		if strings.TrimSpace(key) != "" {
+			keys = append(keys, strings.TrimSpace(key))
+		}
+	}
+	sort.Strings(keys)
+	if maxActions > 0 && len(keys) > maxActions {
+		keys = keys[:maxActions]
+	}
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"("+strings.Join(in[key], ", ")+")")
+	}
+	return strings.Join(parts, "；")
+}
+
+func copyAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
@@ -796,6 +871,7 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 		skillAudit:  skillservice.NewAuditTraceService(traceRepo, auditRepo),
 		ctxOptSvc:   agentSvc.NewContextOptimizerConfigService(dep.DB),
 		skillBinds:  agentrepo.NewAgentSkillBindingRepository(dep.DB),
+		skillStates: agentSvc.NewSkillStateService(dep.DB),
 	}
 }
 
@@ -998,7 +1074,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		traceID = uuid.NewString()
 	}
 	baseSink := runtime.NewSSESink(c)
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true).WithSkillStateService(h.skillStates)
 	clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
 	debugReqBody := map[string]any{
 		"q":             q,
@@ -1112,6 +1188,8 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 	modelPolicy := runtime.BuildDefaultNodeModelPolicy(cfg)
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "env", env)
+	runCtx = context.WithValue(runCtx, "agent_env", env)
 	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantCtx.UUID()))
 	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
@@ -1134,8 +1212,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
 	var pendingTask map[string]any
-	if latestPendingTask, ok, err := h.his.LatestPendingTask(c.Request.Context(), env, tenantRef, sess.ID, 12); err == nil && ok {
+	if latestPendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
 		pendingTask = map[string]any(latestPendingTask)
 		runCtx = context.WithValue(runCtx, "agent_pending_task", pendingTask)
 	}
@@ -1687,6 +1766,8 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		return
 	}
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "env", env)
+	runCtx = context.WithValue(runCtx, "agent_env", env)
 	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantUUID))
 	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
@@ -1700,11 +1781,12 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
-	if pendingTask, ok, err := h.his.LatestPendingTask(c.Request.Context(), env, tenantRef, sess.ID, 12); err == nil && ok {
+	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
+	if pendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
 		runCtx = context.WithValue(runCtx, "agent_pending_task", map[string]any(pendingTask))
 	}
 	baseSink := &agentInvokeSink{}
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true).WithSkillStateService(h.skillStates)
 	traceSink := newPlannerTraceSink(histSink, h.skillAudit, tenantUUID, traceID)
 	_, plan, err := runtime.NewEngine().RunPlanInvoke(runCtx, msg, cfg, "", traceSink)
 	status := "completed"
@@ -1780,6 +1862,24 @@ func setSSEHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
+}
+
+func (h *AgentChatHandler) latestRuntimePendingTask(
+	ctx context.Context,
+	env string,
+	tenantRef *string,
+	sessionID uint64,
+	agentID uint64,
+	boundSkillIDs []string,
+) (map[string]any, bool, error) {
+	if h != nil && h.skillStates != nil {
+		if task, ok, err := h.skillStates.LatestPendingTask(ctx, env, tenantRef, sessionID, agentID, boundSkillIDs); err != nil {
+			return nil, false, err
+		} else if ok {
+			return map[string]any(task), true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 const (

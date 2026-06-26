@@ -101,6 +101,11 @@ type CapabilityContextItem struct {
 	Description        string              `json:"description,omitempty"`
 	RequiredArgs       []string            `json:"required_args,omitempty"`
 	ActionRequiredArgs map[string][]string `json:"action_required_args,omitempty"`
+	ActionOptionalArgs map[string][]string `json:"action_optional_args,omitempty"`
+	SlotMapping        map[string]any      `json:"slot_mapping,omitempty"`
+	PendingTaskPolicy  map[string]any      `json:"pending_task_policy,omitempty"`
+	StateContract      map[string]any      `json:"state_contract,omitempty"`
+	ResultPresentation map[string]any      `json:"result_presentation,omitempty"`
 	OptionalArgs       []string            `json:"optional_args,omitempty"`
 	Actions            []string            `json:"actions,omitempty"`
 	Examples           []string            `json:"examples,omitempty"`

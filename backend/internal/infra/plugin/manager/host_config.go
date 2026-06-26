@@ -211,20 +211,16 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	selected["EVENT_BRIDGE_MODE"] = "taskbus"
 	selected["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 
-	// 统一补齐网关基址，避免插件只读 host-values 时拿不到宿主地址。
-	baseURL := strings.TrimSpace(selected["PX_GATEWAY_BASE_URL"])
-	if baseURL == "" {
-		baseURL = strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
-	}
-	if baseURL == "" && m != nil && m.opts.CoreConfig != nil && m.opts.CoreConfig.Server.Port > 0 {
-		baseURL = fmt.Sprintf("http://127.0.0.1:%d", m.opts.CoreConfig.Server.Port)
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
+	// 内部回连地址与浏览器公开地址分开处理：
+	// PX_GATEWAY_BASE_URL 给插件后端进程访问宿主，默认走本机端口；
+	// NUXT_PUBLIC_* 会被浏览器执行，必须允许部署侧传入公网域名。
+	baseURL := strings.TrimRight(resolveInternalGatewayBaseURL(selected, m), "/")
 	if baseURL != "" {
 		selected["PX_GATEWAY_BASE_URL"] = baseURL
-		if strings.TrimSpace(selected["NUXT_PUBLIC_POWERX_CORE_BASE"]) == "" {
-			selected["NUXT_PUBLIC_POWERX_CORE_BASE"] = baseURL
-		}
+	}
+	publicBaseURL := strings.TrimRight(resolvePublicGatewayBaseURL(selected, baseURL), "/")
+	if publicBaseURL != "" {
+		selected["NUXT_PUBLIC_POWERX_CORE_BASE"] = publicBaseURL
 	}
 	if strings.TrimSpace(selected["NUXT_PUBLIC_WS_PATH"]) == "" {
 		selected["NUXT_PUBLIC_WS_PATH"] = "/api/ws"
@@ -454,6 +450,46 @@ func mergeEnvWithRuntime(env map[string]string, runtime map[string]string) map[s
 		out[key] = resolveRuntimeValue(raw, out)
 	}
 	return out
+}
+
+func resolveInternalGatewayBaseURL(selected map[string]string, m *managerImpl) string {
+	for _, key := range []string{
+		"POWERX_INTERNAL_GATEWAY_BASE_URL",
+		"POWERX_HTTP_PROXY_BASE",
+		"POWERX_GATEWAY_BASE_URL",
+	} {
+		if baseURL := strings.TrimSpace(os.Getenv(key)); baseURL != "" {
+			return baseURL
+		}
+	}
+	if selected != nil {
+		if baseURL := strings.TrimSpace(selected["PX_GATEWAY_BASE_URL"]); baseURL != "" {
+			return baseURL
+		}
+	}
+	if m != nil && m.opts.CoreConfig != nil && m.opts.CoreConfig.Server.Port > 0 {
+		return fmt.Sprintf("http://127.0.0.1:%d", m.opts.CoreConfig.Server.Port)
+	}
+	return ""
+}
+
+func resolvePublicGatewayBaseURL(env map[string]string, fallback string) string {
+	for _, key := range []string{
+		"POWERX_PUBLIC_BASE_URL",
+		"POWERX_EXTERNAL_BASE_URL",
+		"POWERX_GATEWAY_PUBLIC_BASE_URL",
+		"POWERX_GATEWAY_BASE_URL",
+	} {
+		if baseURL := strings.TrimSpace(os.Getenv(key)); baseURL != "" {
+			return baseURL
+		}
+	}
+	if env != nil {
+		if baseURL := strings.TrimSpace(env["NUXT_PUBLIC_POWERX_CORE_BASE"]); baseURL != "" {
+			return baseURL
+		}
+	}
+	return strings.TrimSpace(fallback)
 }
 
 var placeholderPattern = regexp.MustCompile(`^\$\{([^}:]+)(?::-(.*))?}$`)

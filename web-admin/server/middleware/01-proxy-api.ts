@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   const qs = u.search || "";
 
   const cfg = useRuntimeConfig(event);
-  const upstream = String(cfg.upstream || "http://127.0.0.1:8077").replace(/\/+$/, "");
+  const upstream = String(process.env.POWERX_BACKEND || cfg.upstream || "http://127.0.0.1:8077").replace(/\/+$/, "");
   const apiBase = String(cfg.public?.apiBase || "/api/v1").replace(/\/+$/, "");
 
   const shouldProxy =
@@ -25,4 +25,3 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "x-nitro-no-render", "1");
   return proxyRequest(event, target);
 });
-

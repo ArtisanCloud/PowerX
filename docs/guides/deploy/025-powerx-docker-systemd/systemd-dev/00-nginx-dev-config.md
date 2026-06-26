@@ -5,6 +5,7 @@
 - `https://<dev-domain>/` 转发到 web-admin dev 端口 `3001`
 - `https://<dev-domain>/api/` 转发到 backend dev 端口 `8081`
 - `https://<dev-domain>/api/ws` 支持 WebSocket
+- `https://<dev-domain>/_p/<plugin>/admin/...` 走 web-admin dev 端口 `3001` 的 Nuxt middleware，由 middleware 补齐宿主登录态后再代理到 backend
 - `https://<dev-domain>/_p/<plugin>/api/ws` 支持插件 host-mode WebSocket
 
 ## 2. 设置变量
@@ -143,3 +144,12 @@ Dev 服务启动后执行：
 curl -I https://${POWERX_DEV_DOMAIN}
 curl -f http://127.0.0.1:8081/api/v1/health
 ```
+
+插件 Admin 页面应走 web-admin middleware，以便补齐宿主登录态；插件 WS 单独直连 backend：
+
+```bash
+curl -I "https://${POWERX_DEV_DOMAIN}/_p/com.powerx.plugins.ai-craft/admin/"
+curl -I "https://${POWERX_DEV_DOMAIN}/_p/com.powerx.plugins.ai-craft/api/ws"
+```
+
+若插件 Admin 响应头出现 `x-px-proxy-target`，目标必须是 `127.0.0.1:${POWERX_DEV_BACKEND_PORT}`，不能是 prod backend `127.0.0.1:8080`。不要配置普通 `location /_p/` 直连 backend，否则浏览器顶层访问插件 Admin 时不会经过 web-admin 的 Bearer 回填逻辑。

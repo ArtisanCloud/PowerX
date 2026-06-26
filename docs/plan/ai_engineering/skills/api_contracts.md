@@ -222,41 +222,29 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
 
 ## 2. Tenant API
 
-### 2.1 直接调用 Skill
+### 2.1 统一入口调用
 
-`POST /api/v1/tenant/skills/invoke`
-
-```json
-{
-  "skill_id": "incident-triage",
-  "version": "1.0.0",
-  "payload": {
-    "incident_id": "INC-1001"
-  },
-  "context": {
-    "tool_scope": "ops"
-  }
-}
-```
-
-### 2.2 统一入口调用
-
-`POST /api/v1/tenant/invocations` with `preferred_protocol=skill`
+`POST /api/v1/tenant/invocations`
 
 ```json
 {
   "capability_id": "com.powerx.skill.incident-triage.invoke",
-  "preferred_protocol": "skill",
+  "preferred_protocol": "rest",
   "payload": {
-    "skill_id": "incident-triage",
     "incident_id": "INC-1001"
   }
 }
 ```
 
-## 2.3 Agent 主入口（推荐）
+说明：
 
-### 2.3.1 非流式调用
+1. Skill 业务执行必须先解析为 `capability_id`。
+2. Capability Registry 决定真实 adapter 与插件实例。
+3. `/api/v1/tenant/skills/invoke` 不作为新规范的标准业务入口。
+
+## 2.2 Agent 主入口（推荐）
+
+### 2.2.1 非流式调用
 
 `POST /api/v1/agents/invoke`
 

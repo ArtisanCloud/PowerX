@@ -2,6 +2,8 @@
 
 本文定义 PowerX Agent Runtime、Agent Trace、Web Admin 与 PowerXPlugin 调试页面之间共享的运行状态协议。它解决的问题不是“Agent 怎么想”，而是“用户在对话框里如何看懂当前这轮消息发生了哪些任务、哪些 Agent 参与、哪些参数缺失、哪个节点失败、结果在哪里、trace 怎么定位”。
 
+补充边界：`agent_run.*` 只负责 UI 可观察状态，业务任务状态权威由 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md) 中的 `SkillStateService` 提供。Runtime 必须先持久化或读取 SkillState，再生成 `awaiting_params/running/completed/failed` 等可见状态。
+
 ## 1. 功能背景与目标
 
 当前 Agent 对话和团队任务页面容易把复杂执行压成一段最终文本，导致用户只能看到“执行失败”或“已完成”的自然语言，而看不到任务节点、子 Agent、缺参、执行结果和 trace 入口。对于插件 Skill 调试，这还会造成“模型说成功，但业务没有执行”的假成功。
@@ -234,6 +236,15 @@ result_presentation:
 2. `slot_mapping` 只帮助自然语言抽取和 UI 展示，不改变业务 schema。
 3. `pending_task_policy` 只决定是否允许跨轮补参；不允许时必须 fail-fast。
 4. `result_presentation` 只定义结果如何展示，不允许伪造业务结果。
+
+这些字段必须同步进入 SkillStateService 的状态推进协议：
+
+1. `action_required_args` 决定 `missing_fields`。
+2. `slot_mapping` 决定自然语言抽取与用户可读字段标签。
+3. `pending_task_policy` 决定是否允许跨轮合并，以及合并窗口。
+4. `result_presentation` 决定 `completed` 状态下可见 `result/links`。
+
+Core 只执行通用校验和状态持久化；具体字段如 `template.title`、`order.address`、`video.urls` 的含义必须由 Skill manifest 定义。
 
 ## 7. UI State Reducer
 

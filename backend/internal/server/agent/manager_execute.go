@@ -20,8 +20,8 @@ import (
 )
 
 type PlanExecutionHooks struct {
-	OnTaskStart func(task flowschema.PlanTask)
-	OnTaskEnd   func(task flowschema.PlanTask, out *aschema.ExecutionResult, err error)
+	OnTaskStart func(task flowschema.PlanTask) error
+	OnTaskEnd   func(task flowschema.PlanTask, out *aschema.ExecutionResult, err error) error
 }
 
 /***************
@@ -242,7 +242,9 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 				// 任务开始日志
 				start := time.Now()
 				if hooks != nil && hooks.OnTaskStart != nil {
-					hooks.OnTaskStart(task)
+					if err := hooks.OnTaskStart(task); err != nil {
+						return err
+					}
 				}
 				m.log().TaskStart(egCtx, flow.AgentTaskEvent{
 					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
@@ -265,7 +267,9 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 				dur := time.Since(start).Milliseconds()
 				if err != nil {
 					if hooks != nil && hooks.OnTaskEnd != nil {
-						hooks.OnTaskEnd(task, nil, err)
+						if hookErr := hooks.OnTaskEnd(task, nil, err); hookErr != nil {
+							return hookErr
+						}
 					}
 					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: flowID, Stage: task.Stage,
@@ -319,7 +323,9 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					})
 					m.endPlanTraceNode(egCtx, traceMeta, traceSeq, task, taskKind, nodeRef, start, out)
 					if hooks != nil && hooks.OnTaskEnd != nil {
-						hooks.OnTaskEnd(task, out, nil)
+						if err := hooks.OnTaskEnd(task, out, nil); err != nil {
+							return err
+						}
 					}
 				}
 				return nil
@@ -769,6 +775,70 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	in.Context["node_id"] = in.NodeID
 	in.Context["plugin_id"] = in.PluginID
 	in.Context["capability_id"] = in.CapabilityID
+	enrichPayloadWithSkillState(in.Payload, in.Context)
+	prepareOut, err := m.prepareSkillTask(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if prepareOut != nil && !prepareOut.ReadyToExecute {
+		result := map[string]any{}
+		for k, v := range prepareOut.Result {
+			result[k] = v
+		}
+		if prepareOut.Message != "" {
+			result["message"] = prepareOut.Message
+		}
+		if len(prepareOut.MissingFields) > 0 {
+			result["missing_fields"] = prepareOut.MissingFields
+		}
+		if len(prepareOut.StatePatch) > 0 {
+			result["state_patch"] = prepareOut.StatePatch
+		}
+		return &aschema.ExecutionResult{
+			Success: false,
+			StepID:  t.TaskID,
+			Data: flowschema.Result{
+				"trace_id":         prepareOut.TraceID,
+				"status":           "awaiting_params",
+				"protocol_used":    firstNonEmpty(prepareOut.ProtocolUsed, "skill.prepare"),
+				"fallback_used":    prepareOut.FallbackUsed,
+				"skill_id":         in.SkillID,
+				"version":          firstNonEmpty(prepareOut.Version, in.Version),
+				"result":           result,
+				"message":          prepareOut.Message,
+				"missing_fields":   prepareOut.MissingFields,
+				"ready_to_execute": false,
+			},
+			Metadata: flowschema.Result{
+				"is_final":         false,
+				"node_kind":        "skill",
+				"node_ref":         ref,
+				"trace_id":         prepareOut.TraceID,
+				"run_id":           in.RunID,
+				"plan_id":          in.PlanID,
+				"node_id":          in.NodeID,
+				"plugin_id":        in.PluginID,
+				"capability_id":    in.CapabilityID,
+				"status":           "awaiting_params",
+				"protocol_used":    firstNonEmpty(prepareOut.ProtocolUsed, "skill.prepare"),
+				"fallback_used":    prepareOut.FallbackUsed,
+				"planner_mode":     "unified",
+				"missing_fields":   prepareOut.MissingFields,
+				"ready_to_execute": false,
+			},
+		}, nil
+	}
+	if prepareOut != nil && prepareOut.ReadyToExecute {
+		if strings.TrimSpace(prepareOut.CapabilityID) == "" {
+			return nil, errors.New("skill prepare ready_to_execute=true requires capability_request.capability_id")
+		}
+		if len(prepareOut.CapabilityPayload) == 0 {
+			return nil, errors.New("skill prepare ready_to_execute=true requires capability_request.payload")
+		}
+		in.CapabilityID = strings.TrimSpace(prepareOut.CapabilityID)
+		in.Context["capability_id"] = in.CapabilityID
+		in.Payload = prepareOut.CapabilityPayload
+	}
 	logger.InfoF(ctx, "[agent.skill.invoke] skill_id=%s action=%s capability_id=%s plugin_id=%s trace_id=%s payload=%s",
 		in.SkillID,
 		firstNonEmpty(asString(in.Payload["action"]), asString(in.Payload["operation"]), asString(params["action"]), asString(t.Params["action"])),
@@ -818,69 +888,52 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	}, nil
 }
 
+func (m *Manager) prepareSkillTask(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+	m.mu.RLock()
+	inv := m.skillInvoker
+	m.mu.RUnlock()
+	if inv == nil {
+		return nil, errors.New("skill invoker is not configured")
+	}
+	prepareIn := in
+	prepareIn.Entrypoint = "prepare"
+	prepareIn.CapabilityID = ""
+	if prepareIn.Context == nil {
+		prepareIn.Context = map[string]any{}
+	}
+	prepareIn.Context["entrypoint"] = "prepare"
+	out, err := inv(ctx, prepareIn)
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, errors.New("skill prepare output is nil")
+	}
+	status := strings.TrimSpace(out.Status)
+	if status == "" {
+		return nil, errors.New("skill prepare status is required")
+	}
+	if strings.EqualFold(status, "completed") {
+		if !out.ReadyToExecute {
+			return nil, errors.New("skill prepare completed without ready_to_execute=true")
+		}
+		return out, nil
+	}
+	if strings.EqualFold(status, "awaiting_params") || strings.EqualFold(status, "collecting") {
+		return out, nil
+	}
+	return nil, fmt.Errorf("skill prepare failed: status=%s trace_id=%s protocol=%s", status, strings.TrimSpace(out.TraceID), strings.TrimSpace(out.ProtocolUsed))
+}
+
 func pickSkillVisibleContent(result map[string]any) string {
 	if len(result) == 0 {
 		return ""
-	}
-	if s := pickTemplateVisibleContent(result); s != "" {
-		return s
 	}
 	for _, key := range []string{"content", "rendered_text", "text", "output", "answer", "message"} {
 		if v, ok := result[key]; ok {
 			if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
 				return s
 			}
-		}
-	}
-	return ""
-}
-
-func pickTemplateVisibleContent(result map[string]any) string {
-	action := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", result["action"])))
-	if action == "" {
-		return ""
-	}
-	rawTemplate, ok := result["template"].(map[string]any)
-	if !ok {
-		return ""
-	}
-	id := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(result["template_id"], rawTemplate["id"])))
-	title := strings.TrimSpace(fmt.Sprintf("%v", firstNonEmptyAny(rawTemplate["title"], rawTemplate["name"])))
-	detailPath := strings.TrimSpace(fmt.Sprintf("%v", rawTemplate["detail_path"]))
-	switch action {
-	case "create":
-		parts := []string{"模板已创建成功。"}
-		if title != "" {
-			parts = append(parts, "标题："+title)
-		}
-		if id != "" {
-			parts = append(parts, "ID："+id)
-		}
-		if detailPath != "" {
-			parts = append(parts, "查看："+detailPath)
-		}
-		return strings.Join(parts, "\n")
-	case "update":
-		parts := []string{"模板已更新成功。"}
-		if title != "" {
-			parts = append(parts, "标题："+title)
-		}
-		if id != "" {
-			parts = append(parts, "ID："+id)
-		}
-		if detailPath != "" {
-			parts = append(parts, "查看："+detailPath)
-		}
-		return strings.Join(parts, "\n")
-	default:
-		return ""
-	}
-}
-
-func firstNonEmptyAny(values ...any) any {
-	for _, value := range values {
-		if strings.TrimSpace(fmt.Sprintf("%v", value)) != "" && strings.TrimSpace(fmt.Sprintf("%v", value)) != "<nil>" {
-			return value
 		}
 	}
 	return ""
@@ -962,6 +1015,40 @@ func payloadFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map
 		return map[string]any{}
 	}
 	return out
+}
+
+func enrichPayloadWithSkillState(payload map[string]any, ctx map[string]any) {
+	if payload == nil || ctx == nil {
+		return
+	}
+	if state := mapValueFromAny(ctx["skill_state"]); len(state) > 0 {
+		payload["state"] = state
+		return
+	}
+	state := map[string]any{}
+	for _, key := range []string{"state_key", "schema_version", "skill_state_id", "skill_state_ver"} {
+		if value := strings.TrimSpace(asString(ctx[key])); value != "" {
+			state[key] = value
+		}
+	}
+	if collected := mapValueFromAny(ctx["collected_params"]); len(collected) > 0 {
+		state["collected"] = collected
+	}
+	if missing := toStringSlice(ctx["missing_fields"]); len(missing) > 0 {
+		state["missing"] = missing
+	}
+	if len(state) > 0 {
+		payload["state"] = state
+	}
+}
+
+func mapValueFromAny(value any) map[string]any {
+	switch v := value.(type) {
+	case map[string]any:
+		return v
+	default:
+		return nil
+	}
 }
 
 func contextFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map[string]any {

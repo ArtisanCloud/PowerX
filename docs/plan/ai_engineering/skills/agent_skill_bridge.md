@@ -46,6 +46,7 @@ PowerX 底座负责：
 8. Skill Invocation Routing
 9. Result Message Delivery
 10. Trace / Audit / Metrics
+11. SkillStateService / ContextService / ArtifactService 等 Agent Runtime 标准服务
 
 插件负责：
 
@@ -55,6 +56,9 @@ PowerX 底座负责：
 4. Capability handler 实现
 5. 结果回调或事件发布
 6. 插件领域配置 UI
+7. Skill 业务状态 schema、缺参规则、状态合并、执行就绪判断与结果展示元数据
+
+标准服务边界见 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。插件 Skill 可以通过 Core 注入的 session/context/skill_state/trace 上下文推进多轮任务，但不得直接访问 PowerX 数据库，也不得要求 Core 写死插件业务字段。
 
 ## 3. 双 Skill 模型
 
@@ -210,6 +214,7 @@ Capability Invocation 请求必须携带完整上下文：
     "session_id": "session_xxx",
     "message_id": "message_xxx",
     "skill_id": "mediax.video_rebuilder.cn",
+    "state_key": "mediax.video_rebuilder.create",
     "trace_id": "trace_xxx",
     "channel": "telegram"
   }
@@ -217,6 +222,24 @@ Capability Invocation 请求必须携带完整上下文：
 ```
 
 缺少 `tenant_uuid`、`agent_id`、`session_id`、`trace_id`、`skill_id` 或 action 无法映射到 capability 时，PowerX 必须 fail-fast，禁止降级为匿名调用、Skill 私有 executor 或渠道直连业务接口。
+
+多轮任务必须先经过 SkillState 协议：
+
+```text
+Core load context + skill_state
+        ↓
+Core call executor.prepare_capability
+        ↓
+Skill merge business state and validate required args
+        ↓
+Skill returns state_patch / missing_fields / ready_to_execute
+        ↓
+Core persists SkillState and emits agent_run.task_status
+        ↓
+ready_to_execute=true 才进入 Capability Invocation
+```
+
+`ready_to_execute` 与 `capability_request` 是 Skill 侧业务执行阀门。Core 只校验字段存在并调度 `capability_request.capability_id + payload`，不得根据业务字段、`action_required_args` 或 `executor.action_map` 自行判定可以执行。Core 也不允许因为 LLM 生成了“创建成功”文本就跳过真实 capability result。没有 `task_completed/result` 时，Final Response 只能解释缺参、等待、失败或未执行状态。
 
 ## 6. 插件自有 Agent Chat
 

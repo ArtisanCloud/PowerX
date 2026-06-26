@@ -53,30 +53,30 @@ GET  /api/v1/plugin/skills/invocations/:invocation_id
 
 ## 4. 开放模式
 
-### 4.1 独立 Skill 模式
+### 4.1 Agent + Skill 模式
 
-租户直接调用：
+Agent 在规划中引用 skill 节点，由 SkillRunner 读取 SkillState、校验必填参数，并生成 capability request。
 
-- `POST /api/v1/tenant/skills/invoke`
-
-### 4.2 Agent + Skill 模式
-
-Agent 在规划中引用 skill 节点，由 SkillRunner 执行。
-
-### 4.3 统一 capability 模式
+### 4.2 统一 capability 模式
 
 通过：
 
 - `/api/v1/tenant/invocations`
-- `preferred_protocol=skill`
+- `capability_id`
 
-### 4.4 Agent Skill Bridge 模式
+### 4.3 Agent Skill Bridge 模式
 
 Agent 主路径：
 
 ```text
 用户消息 -> PowerX Agent Session -> Agent Runtime -> Skill Bridge -> Plugin Capability Handler
 ```
+
+非标准路径：
+
+1. 新插件不得要求租户直接调用 `/api/v1/tenant/skills/invoke`。
+2. 新插件不得暴露 `/api/v1/plugin/skills/invoke` 作为业务执行入口。
+3. 插件业务执行必须通过 PowerX Capability Invocation 进入。
 
 适用于 Telegram、Discord、企业微信、微信、SCRM、移动端、插件自有 Chat 等所有对话渠道。
 

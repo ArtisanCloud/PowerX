@@ -21,6 +21,7 @@ type HistorySink struct {
 	tenantUUID *string
 	session    *dbmodel.AgentChatSession
 	agentID    uint64
+	skillState *agentSvc.SkillStateService
 	buf        strings.Builder
 	runState   map[string]any
 	pending    map[string]any
@@ -31,6 +32,13 @@ func NewHistorySink(next EventSink, his *agentSvc.ChatHistoryService, ginCtx *gi
 	env string, tenantUUID *string, session *dbmodel.AgentChatSession, agentID uint64, enabled bool,
 ) *HistorySink {
 	return &HistorySink{next: next, his: his, ginCtx: ginCtx, env: env, tenantUUID: tenantUUID, session: session, agentID: agentID, enabled: enabled}
+}
+
+func (h *HistorySink) WithSkillStateService(skillState *agentSvc.SkillStateService) *HistorySink {
+	if h != nil {
+		h.skillState = skillState
+	}
+	return h
 }
 
 func (h *HistorySink) Emit(event string, payload any) error {
@@ -63,8 +71,11 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		if strings.TrimSpace(text) != "" {
 			meta := extractAssistantTraceMeta(payload)
 			h.mergeRunStateMeta(meta)
-			_, _ = h.his.AppendMessage(h.ginCtx.Request.Context(),
+			msg, _ := h.his.AppendMessage(h.ginCtx.Request.Context(),
 				h.env, h.tenantUUID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, false, meta)
+			if err := h.persistPendingSkillState(msg, meta); err != nil {
+				return err
+			}
 			_, _ = h.his.SummarizeIfNeeded(h.ginCtx.Request.Context(), h.env, h.tenantUUID, h.session)
 		}
 	}
@@ -102,6 +113,71 @@ func (h *HistorySink) mergeRunStateMeta(meta datatypes.JSONMap) {
 	if len(h.pending) > 0 {
 		meta["pending_task"] = h.pending
 	}
+}
+
+func (h *HistorySink) persistPendingSkillState(msg *dbmodel.AgentChatMessage, meta datatypes.JSONMap) error {
+	if h == nil || h.skillState == nil || h.ginCtx == nil || h.session == nil || len(h.pending) == 0 {
+		return nil
+	}
+	skillID := strings.TrimSpace(readTraceMetaString(h.pending["skill_id"]))
+	if skillID == "" {
+		skillID = strings.TrimSpace(readTraceMetaString(h.pending["node_ref"]))
+	}
+	stateKey := strings.TrimSpace(readTraceMetaString(h.pending["state_key"]))
+	if stateKey == "" {
+		action := strings.TrimSpace(readTraceMetaString(h.pending["action"]))
+		if action == "" {
+			action = "default"
+		}
+		stateKey = skillID + "." + action
+	}
+	if skillID == "" || stateKey == "" {
+		return nil
+	}
+	state := datatypes.JSONMap{}
+	if action := strings.TrimSpace(readTraceMetaString(h.pending["action"])); action != "" {
+		state["action"] = action
+	}
+	if collected := mapFromAny(h.pending["collected_params"]); len(collected) > 0 {
+		state["collected"] = collected
+	}
+	if missing := stringSliceFromAny(h.pending["missing_fields"]); len(missing) > 0 {
+		state["missing"] = missing
+	}
+	if request := mapFromAny(h.pending["capability_request"]); len(request) > 0 {
+		state["capability_request"] = request
+	}
+	skillMeta := datatypes.JSONMap{}
+	if trace := mapFromAny(meta["trace"]); len(trace) > 0 {
+		for _, key := range []string{"trace_id", "run_id", "plan_id"} {
+			if value := strings.TrimSpace(readTraceMetaString(trace[key])); value != "" {
+				skillMeta[key] = value
+			}
+		}
+	}
+	lastMessageID := uint64(0)
+	if msg != nil {
+		lastMessageID = msg.ID
+	}
+	_, err := h.skillState.Upsert(h.ginCtx.Request.Context(), agentSvc.SkillStateUpsertInput{
+		Env:           h.env,
+		TenantUUID:    h.tenantUUID,
+		SessionID:     h.session.ID,
+		AgentID:       h.agentID,
+		SkillID:       skillID,
+		StateKey:      stateKey,
+		SchemaVersion: "1.0",
+		Status:        strings.TrimSpace(readTraceMetaString(h.pending["status"])),
+		Action:        strings.TrimSpace(readTraceMetaString(h.pending["action"])),
+		State:         state,
+		Meta:          skillMeta,
+		LastMessageID: lastMessageID,
+		TTLSeconds:    int64(h.session.TTLDays) * 24 * 3600,
+	})
+	if err != nil {
+		return fmt.Errorf("persist pending skill state: %w", err)
+	}
+	return nil
 }
 
 func mapFromAny(payload any) map[string]any {

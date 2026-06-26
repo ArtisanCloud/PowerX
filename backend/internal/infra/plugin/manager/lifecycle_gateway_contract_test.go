@@ -79,6 +79,44 @@ func TestInjectGlobalGatewayRuntimeEnvInjectsRuntimeSTSAndRemovesDeprecatedCrede
 	}
 }
 
+func TestDelegatedHostContractPrefersRuntimeEnvOverStaleHostValues(t *testing.T) {
+	t.Setenv("POWERX_HTTP_PROXY_BASE", "http://127.0.0.1:8081/")
+	t.Setenv("POWERX_PUBLIC_BASE_URL", "https://agent-dev.example.com/")
+	t.Setenv("POWERX_PUBLIC_WS_ORIGIN", "wss://agent-dev.example.com/")
+
+	m := &managerImpl{
+		opts: Options{
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8081},
+			},
+		},
+	}
+	env := map[string]string{
+		"PX_GATEWAY_BASE_URL":          "http://127.0.0.1:8080",
+		"NUXT_PUBLIC_POWERX_CORE_BASE": "https://agent.example.com",
+		"NUXT_PUBLIC_WS_ORIGIN":        "ws://127.0.0.1:8080",
+		"NUXT_PUBLIC_WS_PATH":          "/api/ws",
+		"POWERX_PLUGIN_INSTALLED_ROOT": "/opt/powerx/plugins/installed",
+		"POWERX_PLUGIN_REGISTRY_FILE":  "/opt/powerx/plugins/registry.json",
+		"POWERX_PLUGIN_CONFIG_DIR":     "/opt/powerx/plugins/installed/com.powerx.plugins.demo/config",
+		"POWERX_GRPC_UPSTREAM_ADDRESS": "127.0.0.1:9010",
+		"POWERX_DB_DATABASE":           "powerx",
+		"POWERX_SERVER_PORT":           "8080",
+	}
+
+	m.applyDelegatedHostContract(env, map[string]any{}, "com.powerx.plugins.demo", nil)
+
+	if got := env["PX_GATEWAY_BASE_URL"]; got != "http://127.0.0.1:8081" {
+		t.Fatalf("PX_GATEWAY_BASE_URL = %q, want dev internal backend", got)
+	}
+	if got := env["NUXT_PUBLIC_POWERX_CORE_BASE"]; got != "https://agent-dev.example.com" {
+		t.Fatalf("NUXT_PUBLIC_POWERX_CORE_BASE = %q, want dev public base", got)
+	}
+	if got := env["NUXT_PUBLIC_WS_ORIGIN"]; got != "wss://agent-dev.example.com" {
+		t.Fatalf("NUXT_PUBLIC_WS_ORIGIN = %q, want dev public ws origin", got)
+	}
+}
+
 func TestProbeGatewayContractSuccess(t *testing.T) {
 	var gotAuth string
 	var gotTenant string

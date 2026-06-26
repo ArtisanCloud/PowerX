@@ -2,6 +2,8 @@
 package model
 
 import (
+	"time"
+
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -17,10 +19,11 @@ const (
 	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
 	TableAgentPluginLink       = "agent_plugin_links"
 
-	TableAgentChatSession    = "agent_chat_sessions"
-	TableAgentChatMessage    = "agent_chat_messages"
-	TableAgentContextSummary = "agent_chat_context_summaries"
-	TableAgentRuntimeConfig  = "agent_runtime_configs"
+	TableAgentChatSession       = "agent_chat_sessions"
+	TableAgentChatMessage       = "agent_chat_messages"
+	TableAgentContextSummary    = "agent_chat_context_summaries"
+	TableAgentSessionSkillState = "agent_session_skill_states"
+	TableAgentRuntimeConfig     = "agent_runtime_configs"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------
@@ -228,6 +231,38 @@ func (mdl *AgentKnowledgeBinding) GetTableName(needFull bool) string {
 		return mdl.TableName()
 	}
 	return TableAgentKnowledgeBinding
+}
+
+// ---------- 7) Agent Session ↔ Skill 工作状态 ----------
+type AgentSessionSkillState struct {
+	coremodel.PowerModel
+
+	Env        string  `gorm:"size:32;index:agent_skill_state_uniq,unique,priority:1;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_skill_state_uniq,unique,priority:2;index" json:"-"`
+
+	SessionID uint64 `gorm:"column:session_id;index:agent_skill_state_uniq,unique,priority:3;index" json:"sessionId"`
+	AgentID   uint64 `gorm:"column:agent_id;index:agent_skill_state_uniq,unique,priority:4;index" json:"agentId"`
+	SkillID   string `gorm:"column:skill_id;size:128;index:agent_skill_state_uniq,unique,priority:5;index" json:"skillId"`
+	StateKey  string `gorm:"column:state_key;size:128;index:agent_skill_state_uniq,unique,priority:6;index" json:"stateKey"`
+
+	SchemaVersion string            `gorm:"column:schema_version;size:32;default:'1.0'" json:"schemaVersion"`
+	Status        string            `gorm:"column:status;size:32;default:'collecting';index" json:"status"`
+	Action        string            `gorm:"column:action;size:64;index" json:"action,omitempty"`
+	State         datatypes.JSONMap `gorm:"column:state;type:jsonb" json:"state"`
+	Meta          datatypes.JSONMap `gorm:"column:meta;type:jsonb" json:"meta"`
+	LastMessageID uint64            `gorm:"column:last_message_id;index" json:"lastMessageId"`
+	Version       int64             `gorm:"column:version;default:1" json:"version"`
+	ExpiresAt     *time.Time        `gorm:"column:expires_at;index" json:"expiresAt,omitempty"`
+}
+
+func (mdl *AgentSessionSkillState) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentSessionSkillState
+}
+func (mdl *AgentSessionSkillState) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentSessionSkillState
 }
 
 func (mdl *AgentPluginLink) TableName() string {

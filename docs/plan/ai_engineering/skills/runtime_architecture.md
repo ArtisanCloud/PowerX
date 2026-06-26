@@ -9,6 +9,7 @@
 3. PowerX Core 自有 A2A 多智能体协作机制见 [`multi_agent_a2a.md`](./multi_agent_a2a.md)。A2A 是底座 Agent Runtime 内部的 `agent_handoff` 编排能力，不依赖插件 capability handler；插件 Skill 只是在后续可作为子 Agent 绑定能力进入候选池。
 4. Agent 最终回复的 ResponsePlanner、Context Builder 与 Final Response 分层机制见 [`agent_response_planning.md`](./agent_response_planning.md)。自然语言回答不得直接复述全局候选池，必须先生成 `response_plan`，再按 `response_mode` 选择上下文并落库 message meta。
 5. Agent 对话、团队任务、插件调试页展示多任务/多智能体执行过程时，必须遵循 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。`agent_run.*` 是 Runtime 与 UI 的共享状态协议，覆盖 task 状态、缺参等待、执行结果链接和 trace 精确定位。
+6. Agent Runtime 标准服务面见 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。Core 只提供 session/context/skill state/capability invocation/trace/artifact/progress/model policy/tenant authz 等通用服务；业务字段、缺参规则、状态合并和执行就绪判断必须来自 Skill。
 
 ## 1. 总体架构
 
@@ -195,23 +196,29 @@ Agent skill node
 1. 可重试错误：依赖临时不可用、网络抖动
 2. 不可重试错误：鉴权失败、manifest 非法、签名不通过
 
-## 3. 路径B：Capability + Skill
+## 3. 路径B：Capability Invocation
 
 ### 3.1 触发条件
 
 租户调用：
 
-- `POST /api/v1/tenant/invocations` 且 `preferred_protocol=skill`
-- 或 `POST /api/v1/tenant/skills/invoke`
+- `POST /api/v1/tenant/invocations`
+- `preferred_protocol` 根据 capability 绑定的协议选择，例如 `rest/grpc/mcp/skill`
 
 ### 3.2 执行流程
 
 1. Selector 解析 capability/policy
-2. Router 选到 `transport=skill`
-3. SkillAdapter 装配执行上下文
-4. Runner 执行 Skill
+2. Router 选到对应 transport adapter
+3. Adapter 装配执行上下文
+4. 调用真实 capability handler
 5. 返回统一 envelope（trace/status/protocol/result）
 6. 写 InvocationTrace 与审计事件
+
+约束：
+
+1. Agent 业务执行优先使用 `Skill action -> capability_id -> Capability Invocation`。
+2. 不再把 `/tenant/skills/invoke` 作为标准业务执行路径。
+3. 若历史环境仍存在直接 Skill 调用接口，只能作为迁移期内部调试入口，不得写入新规范和插件开发指南。
 
 ## 3.1 插件 Capability 路径（Agent Skill Bridge）
 
@@ -248,7 +255,7 @@ Agent skill node
 
 - 调用方仅传 `message + agent_id(+session_id)`，不强制传 `skill_id`。
 - 系统自动执行 `intent -> plan -> tool/skill nodes -> final`。
-- tenant `/tenant/skills/invoke` 与 `/tenant/invocations` 保留为执行层接口，用于直接调用与治理复用。
+- 业务执行统一落到 `/tenant/invocations` / Capability Invocation；Skill 不能脱离 Agent 与 capability grant 独立执行业务。
 
 ## 3.4 ResponsePlanner / Context Builder / Final Response
 
@@ -327,7 +334,7 @@ Core Runtime 只负责抽取和拼装这些材料：
 
 严禁在 Core Runtime 中写入某个业务 Agent 的专用字段规则、行业示例或执行话术。例如模板对象的 `template.name/template.description/template.content` 要求必须来自模板 Skill 包，而不是 `final_response_prompt.go`。
 
-### 3.4.1 上下文存储驱动
+### 3.4.1 上下文与 SkillState 存储驱动
 
 Agent 上下文不是 runtime 内存单点驱动。标准分层：
 
@@ -339,6 +346,8 @@ Agent 上下文不是 runtime 内存单点驱动。标准分层：
 6. Object Storage：保存大 prompt/context/tool payload artifact，DB 只保存引用与 checksum。
 
 Context Builder 必须优先读取 DB 权威记录；Redis 或内存命中只能作为缓存。去重判断必须读取 assistant message meta，不允许靠自然语言文本匹配。
+
+多轮业务任务不得只依赖最近消息窗口或上下文摘要恢复参数。跨轮业务参数、缺参状态、确认状态和执行就绪状态必须进入 `SkillStateService`，其权威协议见 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md#23-skillstateservice)。Core 可以持久化业务状态 envelope，但不能写死某个 Skill 的字段含义。
 
 ## 4. 统一结果模型
 

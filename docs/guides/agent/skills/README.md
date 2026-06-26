@@ -4,6 +4,17 @@
 
 统一页面入口：左侧菜单 `技能库`（导入安装在页面右上角按钮）。
 
+开发设计入口：
+
+1. [Agent Runtime 标准服务设计](../../../plan/ai_engineering/skills/agent_runtime_standard_services.md)
+   定义 Core 为 Agent/Skill 提供的 session、context、skill state、capability invocation、trace、artifact、progress event、model policy 和权限服务。
+
+2. [PowerX Agent Skill Bridge 机制设计](../../../plan/ai_engineering/skills/agent_skill_bridge.md)
+   定义插件 Skill 如何通过 Agent Runtime 和 Capability Invocation 执行业务。
+
+3. [Agent Run State Protocol 设计](../../../plan/ai_engineering/skills/agent_run_state_protocol.md)
+   定义 Web Admin 与 PowerXPlugin 调试页统一展示任务状态、缺参、结果和 trace 的协议。
+
 ## 文档导航
 
 1. [01-admin-lifecycle.md](./01-admin-lifecycle.md)  
@@ -13,7 +24,7 @@
    开发者/第三方如何受控导入 Skill（仅 upload 模式）。
 
 3. [03-tenant-invoke-consistency.md](./03-tenant-invoke-consistency.md)  
-   如何验证 `tenant/skills/invoke` 与 `tenant/invocations`（`preferred_protocol=skill`）语义一致。
+   如何验证 Skill 映射到 capability 后通过 `tenant/invocations` 统一执行，并与 Agent 主入口的 trace/status/result 对齐。
 
 4. [04-audit-and-isolation.md](./04-audit-and-isolation.md)  
    如何查询 Skills 审计、执行 trace，并验证跨租户隔离。

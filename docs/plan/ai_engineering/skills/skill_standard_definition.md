@@ -158,7 +158,7 @@ output_schema: ./schema.output.json
 
 ### 4.3 Agent Run State 展示元数据
 
-Skill 包除了描述“什么时候用”和“怎么执行”，还必须能为 Agent Run State Protocol 提供可展示的任务语义。Core 不硬编码业务字段，缺参、补参和结果链接来自 Skill manifest 与 Agent persona/prompt_seed。
+Skill 包除了描述“什么时候用”和“怎么执行”，还必须能为 Agent Run State Protocol 和 SkillStateService 提供可展示、可持久化的任务语义。Core 不硬编码业务字段，缺参、补参、状态合并、执行就绪判断和结果链接来自 Skill manifest 与 Agent persona/prompt_seed。
 
 推荐字段：
 
@@ -188,16 +188,62 @@ result_presentation:
   create:
     title: "对象已创建"
     primary_link: "object.detail_path"
+
+executor:
+  type: capability
+  capability: object.management
+  prepare_capability: com.example.object.prepare
+  action_map:
+    create: com.example.object.create
 ```
 
 这些字段进入 PowerX 治理态后，由 Agent Runtime 用于：
 
-1. 判断 action 必填参数是否齐全。
-2. 生成 `agent_run.awaiting_params` 与 `agent_run.task_status`。
-3. 在 PowerX Web Admin 与 PowerXPlugin 调试页渲染统一任务卡片。
-4. 约束 Final Response：没有真实 `task_completed/result` 时不得声称业务已完成。
+1. 选择候选 Skill、构建 prepare 输入、限制可见能力范围。
+2. 调用 `executor.prepare_capability`，由 Skill 自己合并业务状态、判断缺参、返回 `ready_to_execute`。
+3. 根据 Skill 输出生成 `agent_run.awaiting_params` 与 `agent_run.task_status`。
+4. 在 PowerX Web Admin 与 PowerXPlugin 调试页渲染统一任务卡片。
+5. 约束 Final Response：没有真实 `task_completed/result` 时不得声称业务已完成。
 
-完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。
+Core 不把 `action_required_args` 当作业务执行引擎。它最多用于候选解释、提示构建和保护性校验；真正的执行请求必须来自 Skill prepare 输出的 `capability_request`。
+
+完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。
+
+### 4.4 SkillState 协议字段
+
+面向多轮任务的 Skill 必须声明可被 Core 持久化的状态协议。推荐字段：
+
+```yaml
+state_contract:
+  schema_version: "1.0"
+  state_keys:
+    template.create:
+      action: create
+      status_enum:
+        - collecting
+        - ready
+        - awaiting_confirmation
+        - executing
+        - completed
+        - failed
+      required_args:
+        - template.title
+        - template.description
+        - template.content
+      merge_policy:
+        mode: skill_defined
+        allow_cross_turn: true
+        window_messages: 6
+        window_seconds: 900
+```
+
+约束：
+
+1. `state_key` 是业务任务状态的稳定键，不能由 Core 猜测。
+2. `required_args` 是执行前参数完整性的权威。
+3. `merge_policy.mode=skill_defined` 表示业务状态合并由 Skill 定义，Core 只保存 `state_patch`。
+4. Core 可以用 LLM 做结构化抽取，但抽取 schema 必须来自 `state_contract/action_required_args/slot_mapping`。
+5. Skill 未声明 `state_contract` 时，不允许跨轮补参；需要执行则必须在单轮 payload 中提供完整参数，否则 fail-fast 或进入普通追问。
 
 ## 5. Agent 如何调度 Skill（PowerX 调度原理）
 
@@ -333,35 +379,32 @@ PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 
 1. 命中意图时，系统自动执行 `workflow|skill|tooling|llm` 节点并返回统一结果。
 2. 无意图命中时，系统直接返回普通上下文回答。
 
-### 7.2 模式 B：直接 Skill 执行接口（执行层）
+### 7.2 模式 B：统一能力网关执行（执行层）
 
 适用场景：
 
-1. 想快速验证某个 skill 是否可用。
-2. 业务方明确知道要执行的 `skill_id/version`。
+1. 想快速验证某个 Skill 映射的 capability 是否可用。
+2. 业务方明确知道要执行的 `capability_id`。
+3. 希望复用 ToolGrant、租户授权、审计、路由和 trace。
 
 方式：
 
-1. 调用 `POST /api/v1/tenant/skills/invoke`
-2. 传入 `skill_id + version + payload`
+1. 调用 `POST /api/v1/tenant/invocations`
+2. 传入 `capability_id + payload`
+3. 由 Capability Registry 解析绑定的 Skill/插件来源与 adapter
 
 结果：
 
 1. 返回统一执行结果（含 `trace_id/status/result`）。
 2. 可直接做冒烟测试和联调。
 
-### 7.3 模式 C：统一能力网关执行（执行层）
+### 7.3 非标准路径：直接 Skill invoke
 
-适用场景：
+`/api/v1/tenant/skills/invoke` 不再作为 PowerX Agent Skill Bridge 的标准业务执行路径。原因：
 
-1. 已接入 PowerX 统一调用入口。
-2. 希望和 http/grpc/mcp 复用同一调用治理链路。
-
-方式：
-
-1. 调用 `POST /api/v1/tenant/invocations`
-2. 设置 `preferred_protocol=skill`
-3. 使用绑定的 `capability_id`
+1. Skill 不能脱离 Agent binding、tenant grant 和 capability registry 独立执行业务。
+2. 插件业务执行必须通过 `Skill action -> capability_id -> Capability Invocation`。
+3. 新插件和新测试不得依赖直接 Skill invoke。
 
 结果：
 

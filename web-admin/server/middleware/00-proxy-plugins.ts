@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   if (!isUpstreamBypass && !isPluginRoute) return;
 
   const cfg = useRuntimeConfig(event);
-  const upstream = String(cfg.upstream || process.env.POWERX_BACKEND || "http://127.0.0.1:8077").replace(/\/+$/, "");
+  const upstream = String(process.env.POWERX_BACKEND || cfg.upstream || "http://127.0.0.1:8077").replace(/\/+$/, "");
   const accept = String(getHeader(event, "accept") || "").toLowerCase();
   if (isPluginRoute) {
     const secFetchDest = String(getHeader(event, "sec-fetch-dest") || "").toLowerCase();

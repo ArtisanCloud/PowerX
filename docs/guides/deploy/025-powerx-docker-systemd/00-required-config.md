@@ -77,8 +77,9 @@ umask 077 && head -c 32 /dev/urandom | base64
 - `POWERX_RELEASES_ROOT`（默认 `/opt/powerx/releases`）
 - `POWERX_RUNTIME_ROOT`（默认 `/etc/powerx`）
 - `POWERX_CONFIG`（建议 `${POWERX_RUNTIME_ROOT}/config.yaml`）
-- `POWERX_GATEWAY_BASE_URL`（插件后端访问网关基址；生产应为公网 HTTPS 地址）
-- `POWERX_GATEWAY_WS_BASE_URL`（插件前端 WS 基址；生产应为公网 WSS 地址）
+- `POWERX_HTTP_PROXY_BASE` 或 `POWERX_INTERNAL_GATEWAY_BASE_URL`（插件后端访问宿主网关的内部基址，常见为 `http://127.0.0.1:8080`）
+- `POWERX_PUBLIC_BASE_URL`（插件前端浏览器访问宿主的公网 HTTPS 地址）
+- `POWERX_PUBLIC_WS_ORIGIN`（插件前端浏览器访问宿主 WS 的公网 WSS origin）
 - `DATABASE_DSN`
 - `REDIS_ADDR`
 - （Docker 内置库模式）`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`
@@ -86,13 +87,15 @@ umask 077 && head -c 32 /dev/urandom | base64
 推荐示例（生产）：
 
 ```env
-POWERX_GATEWAY_BASE_URL=https://agent.example.com
-POWERX_GATEWAY_WS_BASE_URL=wss://agent.example.com
+POWERX_HTTP_PROXY_BASE=http://127.0.0.1:8080
+POWERX_PUBLIC_BASE_URL=https://agent.example.com
+POWERX_PUBLIC_WS_ORIGIN=wss://agent.example.com
 ```
 
 说明：
 - `POWERX_HTTP_PROXY_BASE` 是宿主内部代理地址（常见为 `http://127.0.0.1:8080`），不用于浏览器端 WS 合同注入。
-- 插件安装生成的 `host-values.yaml` 会使用上述两个 `POWERX_GATEWAY_*` 变量生成 `NUXT_PUBLIC_POWERX_CORE_BASE/NUXT_PUBLIC_WS_ORIGIN`。
+- 插件安装生成的 `host-values.yaml` 会使用内部地址生成 `PX_GATEWAY_BASE_URL`，使用 `POWERX_PUBLIC_*` 生成 `NUXT_PUBLIC_POWERX_CORE_BASE/NUXT_PUBLIC_WS_ORIGIN`。
+- 兼容旧变量：未设置 `POWERX_PUBLIC_BASE_URL` 时会回退到 `POWERX_GATEWAY_BASE_URL`；未设置 `POWERX_PUBLIC_WS_ORIGIN` 时会回退到 `POWERX_GATEWAY_WS_BASE_URL`。
 
 Docker 模式建议新增：
 - `POWERX_HOST_CONFIG_DIR`（建议 `/etc/powerx`）

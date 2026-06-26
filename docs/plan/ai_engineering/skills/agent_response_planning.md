@@ -4,6 +4,8 @@
 
 补充协议：最终回答前后的多任务、多 Agent、缺参等待、执行状态和结果链接展示，统一使用 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md) 定义的 `agent_run.*` 事件与 `AgentRunState` reducer。ResponsePlanner 只决定本轮回答模式；用户可见的执行过程必须由 run state task/status/result 事件表达。
 
+补充服务边界：跨轮业务参数、缺参状态、执行确认和 capability request 由 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md) 中的 `SkillStateService` 承载。ResponsePlanner 可以读取 SkillState 摘要决定 `clarify_params/skill_execution/error_explain`，但不能在 Core prompt 中写死某个 Skill 的业务字段规则。
+
 ## 1. 功能背景与目标
 
 当前 Agent Chat 不能把“候选能力摘要 + 最近消息”直接塞给 LLM 后让模型自由回答，否则会出现：
@@ -31,6 +33,7 @@ User Message
 2. PowerX Core 负责意图识别、候选过滤、响应模式选择、上下文选择、最终自然语言回复和 message meta 落库。
 3. LLM 只能看到当前模式允许注入的上下文，不得看到未授权候选或完整全局候选池。
 4. PowerX Core 不写业务型回复规则；业务表达规范必须来自 Agent persona/prompt_seed 或 Skill `response_guidance`。
+5. 多轮业务状态必须来自 SkillState，不得只靠最近消息文本让 LLM 每轮重新猜参数。
 
 ## 2. 角色与适用范围
 

@@ -91,9 +91,10 @@ sudo cat /etc/powerx-dev/powerx.env | grep -E 'POWERX|NUXT|WS'
 ```
 
 处理：
-- `POWERX_GATEWAY_BASE_URL` 必须是 dev 域名，例如 `https://${POWERX_DEV_DOMAIN}`
-- `POWERX_GATEWAY_WS_BASE_URL` 必须是 dev WS 域名，例如 `wss://${POWERX_DEV_DOMAIN}`
-- `POWERX_HTTP_PROXY_BASE` 必须是 `http://127.0.0.1:8081`
+- `POWERX_HTTP_PROXY_BASE` 必须是内部 backend 地址，例如 `http://127.0.0.1:8081`
+- `POWERX_PUBLIC_BASE_URL` 必须是 dev 域名，例如 `https://${POWERX_DEV_DOMAIN}`
+- `POWERX_PUBLIC_WS_ORIGIN` 必须是 dev WS 域名，例如 `wss://${POWERX_DEV_DOMAIN}`
+- `POWERX_GATEWAY_BASE_URL` / `POWERX_GATEWAY_WS_BASE_URL` 是兼容旧变量；新配置优先使用 `POWERX_PUBLIC_*`
 
 ### 6.4 Dev 与生产插件互相影响
 检查 config 中插件运行路径：

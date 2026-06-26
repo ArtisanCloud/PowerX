@@ -535,15 +535,11 @@ func (m *managerImpl) injectGlobalGatewayRuntimeEnv(env map[string]string, plugi
 	if cfg == nil {
 		return fmt.Errorf("gateway contract core config missing")
 	}
-	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
+	baseURL := strings.TrimRight(resolveInternalGatewayBaseURL(env, m), "/")
 	if baseURL == "" {
-		port := cfg.Server.Port
-		if port <= 0 {
-			return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
-		}
-		baseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+		return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
 	}
-	env["PX_GATEWAY_BASE_URL"] = strings.TrimRight(baseURL, "/")
+	env["PX_GATEWAY_BASE_URL"] = baseURL
 	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 	applyWSContractEnv(env, cfg)
 	deleteDeprecatedGatewayRuntimeEnv(env)
@@ -803,11 +799,10 @@ func applyWSContractEnv(env map[string]string, cfg *config.Config) {
 	if env == nil || cfg == nil {
 		return
 	}
-	baseURL := strings.TrimRight(strings.TrimSpace(env["PX_GATEWAY_BASE_URL"]), "/")
-	if baseURL == "" {
-		return
+	publicBaseURL := strings.TrimRight(resolvePublicGatewayBaseURL(env, strings.TrimSpace(env["PX_GATEWAY_BASE_URL"])), "/")
+	if publicBaseURL != "" {
+		env["NUXT_PUBLIC_POWERX_CORE_BASE"] = publicBaseURL
 	}
-	env["NUXT_PUBLIC_POWERX_CORE_BASE"] = baseURL
 
 	wsPath := strings.TrimSpace(env["NUXT_PUBLIC_WS_PATH"])
 	if wsPath == "" {
@@ -815,7 +810,13 @@ func applyWSContractEnv(env map[string]string, cfg *config.Config) {
 	}
 	env["NUXT_PUBLIC_WS_PATH"] = wsPath
 
-	wsBase := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_WS_BASE_URL"))
+	wsBase := strings.TrimSpace(os.Getenv("POWERX_PUBLIC_WS_ORIGIN"))
+	if wsBase == "" {
+		wsBase = strings.TrimSpace(os.Getenv("POWERX_GATEWAY_WS_BASE_URL"))
+	}
+	if wsBase == "" {
+		wsBase = strings.TrimSpace(env["NUXT_PUBLIC_WS_ORIGIN"])
+	}
 	if wsBase == "" {
 		host := "127.0.0.1"
 		if h := strings.TrimSpace(cfg.Server.Host); h != "" && h != "0.0.0.0" && h != "::" {

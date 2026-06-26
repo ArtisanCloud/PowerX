@@ -33,7 +33,7 @@
 
 1. 让 Skill 成为 Agent 一等能力（与 tool calling / MCP 并列）。
 2. 采用 Agent 主入口的统一编排策略：由 LLM 统一做意图识别并在 `workflow|skill|tooling|llm` 候选中规划执行。
-3. 保留 tenant 执行入口（`/tenant/skills/invoke` 与 `/tenant/invocations`）作为执行层接口，语义与 Agent 主入口对齐。
+3. 统一 tenant 执行入口为 `/tenant/invocations` / Capability Invocation，语义与 Agent 主入口对齐。
 4. 对插件与第三方开放 Skill 注册、发布、调用与治理能力。
 
 ### 2.2 非目标（首版）
@@ -47,8 +47,8 @@
 - Skill：以 `SKILL.md` 为入口、可执行的任务能力单元。
 - SkillManifest：PowerX 内部归一化后的 Skill 元数据结构。
 - Skill Bundle：Skill 资产包（文档、脚本、模板、引用等）。
-- SkillRunner：执行 Skill 的运行时组件（Agent 内）。
-- SkillAdapter：Capability Router 下 `protocol=skill` 的适配层。
+- SkillRunner：Agent Runtime 内解析 Skill manifest、维护 SkillState、生成 capability request 的运行时组件。
+- Capability Adapter：Capability Router 下执行具体协议的适配层。
 
 ## 4. 与现有能力的关系
 
@@ -61,7 +61,7 @@
 ## 5. 实施原则
 
 1. 标准优先：优先兼容公开 `SKILL.md` 规范。
-2. 双路径一致：Agent 内调用与 Gateway 调用在结果模型、错误模型、审计模型上保持一致。
+2. 调用链一致：Agent 内 Skill 执行最终落到 Capability Invocation，结果模型、错误模型、审计模型保持一致。
 3. 安全默认收敛：默认最小权限，显式授权放开。
 4. 可观测先行：每次 Skill 调用必须带 trace 与审计字段。
 5. 候选分层清晰：能力清单必须按 `workflow|skill|tooling` 分区，并区分 `system builtin` 与 `agent custom` 两层来源后再进入 LLM 决策。
@@ -80,7 +80,7 @@
 
 1. 标准基线：`SKILL.md` 兼容层。
 2. 分发方式：托管仓库 + 元数据注册。
-3. 调用模式：支持独立 Skill 调用与 Agent+Skill 混合调用。
+3. 调用模式：支持 Agent+Skill 编排与 Capability Invocation 执行，不把直接 Skill invoke 作为标准业务路径。
 4. 文档组织：总览 1 份 + 标准定义 1 份 + 开发分文档 7 份 + 示例 1 份。
 
 ## 8. 参考

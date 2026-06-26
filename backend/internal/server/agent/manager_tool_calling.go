@@ -38,6 +38,11 @@ type ToolCallCandidate struct {
 	Description        string
 	RequiredArgs       []string
 	ActionRequiredArgs map[string][]string
+	ActionOptionalArgs map[string][]string
+	SlotMapping        map[string]any
+	PendingTaskPolicy  map[string]any
+	StateContract      map[string]any
+	ResultPresentation map[string]any
 	OptionalArgs       []string
 	Actions            []string
 	Examples           []string
@@ -1276,6 +1281,11 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 	c.Visibility = strings.ToLower(strings.TrimSpace(c.Visibility))
 	c.BindingStatus = strings.ToLower(strings.TrimSpace(c.BindingStatus))
 	c.ActionRequiredArgs = normalizeCandidateActionRequiredArgs(c.ActionRequiredArgs)
+	c.ActionOptionalArgs = normalizeCandidateActionRequiredArgs(c.ActionOptionalArgs)
+	c.SlotMapping = normalizeCandidateAnyMap(c.SlotMapping)
+	c.PendingTaskPolicy = normalizeCandidateAnyMap(c.PendingTaskPolicy)
+	c.StateContract = normalizeCandidateAnyMap(c.StateContract)
+	c.ResultPresentation = normalizeCandidateAnyMap(c.ResultPresentation)
 	if c.SourceScope == "" {
 		c.SourceScope = "system"
 	}
@@ -1289,6 +1299,24 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 		c.FlowID = c.NodeRef
 	}
 	return c
+}
+
+func normalizeCandidateAnyMap(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(raw))
+	for key, value := range raw {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeCandidateActionRequiredArgs(raw map[string][]string) map[string][]string {

@@ -38,11 +38,12 @@ type PluginSkillManifest struct {
 }
 
 type PluginExecutorSpec struct {
-	Type       string            `json:"type"`
-	Method     string            `json:"method,omitempty"`
-	Path       string            `json:"path,omitempty"`
-	Capability string            `json:"capability"`
-	ActionMap  map[string]string `json:"action_map,omitempty"`
+	Type              string            `json:"type"`
+	Method            string            `json:"method,omitempty"`
+	Path              string            `json:"path,omitempty"`
+	Capability        string            `json:"capability"`
+	PrepareCapability string            `json:"prepare_capability,omitempty"`
+	ActionMap         map[string]string `json:"action_map,omitempty"`
 }
 
 type PluginSkillDiscoveryService struct {
@@ -146,11 +147,12 @@ func (s *PluginSkillDiscoveryService) DiscoverAndImport(ctx context.Context, in 
 
 func ValidatePluginSkillManifest(m PluginSkillManifest) error {
 	required := map[string]string{
-		"skill_id":            m.SkillID,
-		"provider":            m.Provider,
-		"version":             m.Version,
-		"description":         m.Description,
-		"executor.capability": m.Executor.Capability,
+		"skill_id":                    m.SkillID,
+		"provider":                    m.Provider,
+		"version":                     m.Version,
+		"description":                 m.Description,
+		"executor.capability":         m.Executor.Capability,
+		"executor.prepare_capability": m.Executor.PrepareCapability,
 	}
 	for field, value := range required {
 		if strings.TrimSpace(value) == "" {
