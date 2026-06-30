@@ -10,6 +10,7 @@
 - `root`: 平台超管，可跨租户管理
 - `tenant admin`: 非 root，仅管理本租户
 - `member`: 普通成员，无租户级用户管理权限
+- `vendor`: 供应商成员，绑定 `role_vendor`，默认只开放供应商工作台相关入口
 
 ## 2. 启动与基础检查
 
@@ -50,6 +51,106 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/user/auth/me/context
 - 新租户注册账号进入后应具备本租户 admin 能力；
 - 对其他租户数据访问应被拒绝。
 - 初始化管理员角色应包含 `role_admin`；`role_owner` 可选附加，不作为 admin 判定依据。
+
+## 3A. 菜单 RBAC 回归
+
+菜单权限是角色级权限，不做用户级单独授权。权限模型固定为：
+
+```text
+module=menu
+resource=<menu resource>
+action=read
+```
+
+常用菜单权限示例：
+
+```text
+menu:agent:read
+menu:agent.chat:read
+menu:skills:read
+menu:knowledge:read
+menu:workflow:read
+menu:dashboard:read
+menu:settings.users:read
+menu:plugin.com.powerx.plugins.base.templates:read
+```
+
+插件/App 菜单权限不通过人工创建。插件 manifest 声明 `frontend.admin.menus` 后，插件安装/启用/权限同步会自动生成：
+
+```text
+module=menu
+resource=plugin.<plugin_id>.<menu_id>
+action=read
+source=plugin:<plugin_id>
+```
+
+角色权限页面会把这类权限展示在“已安装 App / <插件名称>”分组；管理员只负责勾选授权，不维护菜单资源本身。
+
+验证步骤：
+
+1. 执行 seed，确保内置权限和角色写入：
+
+```bash
+cd backend
+make seed
+```
+
+2. 检查菜单权限是否存在：
+
+```sql
+SELECT module, resource, action, meta
+FROM public.iam_permission
+WHERE module = 'menu'
+ORDER BY resource;
+```
+
+检查插件/App 菜单权限：
+
+```sql
+SELECT module, resource, action, source, meta
+FROM public.iam_permission
+WHERE module = 'menu'
+  AND resource LIKE 'plugin.%'
+ORDER BY resource;
+```
+
+3. 检查供应商角色是否存在：
+
+```sql
+SELECT tenant_uuid, code, name, builtin
+FROM public.iam_role
+WHERE code = 'role_vendor';
+```
+
+4. 检查角色菜单授权：
+
+```sql
+SELECT r.code, p.module, p.resource, p.action
+FROM public.iam_role r
+JOIN public.iam_role_permission rp ON rp.role_id = r.id
+JOIN public.iam_permission p ON p.id = rp.permission_id
+WHERE p.module = 'menu'
+ORDER BY r.code, p.resource;
+```
+
+5. 登录不同角色后请求菜单：
+
+```bash
+curl --noproxy '*' -sS "$BASE/admin/menus" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+预期：
+- `role_admin` 默认拥有租户可用菜单；
+- `role_user`/`role_readonly` 只拥有白名单菜单；
+- `role_vendor` 默认只拥有 Dashboard、Agent、Agent Chat、Plugin Chat 等供应商工作台入口；
+- 插件/App 菜单只有在插件 manifest 同步出 `menu:plugin.<plugin_id>.<menu_id>:read`，且当前角色拥有该权限时才显示；
+- 没有对应 `menu:*:read` 的菜单不应出现在响应里。
+
+页面设计：
+- 第一版复用 `/settings/users` 的角色权限管理，不新增系统菜单 CRUD。
+- 权限列表中 `meta.type=menu` 的记录归入“菜单权限”分组；插件菜单按 `meta.plugin_name` 显示为“已安装 App / <插件名称>”。
+- 后续如需独立页面，新增 `/settings/menus`，只做菜单树预览、角色授权查看和跳转到角色权限编辑，不允许租户自由修改系统菜单结构。
 
 ## 4. SaaS IAM 扩展回归（US5 / US6 / US7 / US8）
 

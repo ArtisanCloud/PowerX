@@ -115,11 +115,13 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		// 启动扫描时补做一次权限同步（upsert 幂等），修复历史安装遗漏。
 		if m.opts.PostInstallManifest != nil {
 			if err := m.opts.PostInstallManifest(ctx, d.Manifest); err != nil {
-				return plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
+				wrapped := plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
 					plugin_mgr.WithOp("bootstrap.register_permissions"),
 					plugin_mgr.WithPlugin(id),
 					plugin_mgr.WithVersion(ver),
 				)
+				logger.WarnF(ctx, "[plugin-bootstrap] plugin permission sync failed, keep manager available: id=%s ver=%s err=%v", id, ver, wrapped)
+				continue
 			}
 		}
 	}

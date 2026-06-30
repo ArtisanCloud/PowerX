@@ -446,11 +446,22 @@ function notifyMenuRefresh() {
 }
 
 function isAlreadyInstalledConflict(error: any): boolean {
-  const message = String(error?.message || "").toLowerCase();
+  const message = String(
+    error?.message ||
+      error?.data?.error ||
+      error?.response?._data?.error ||
+      error?.cause?.data?.error ||
+      error?.cause?.response?._data?.error ||
+      ""
+  ).toLowerCase();
   const status = Number(error?.status || error?.statusCode || error?.cause?.status || 0);
   return (
     status === 409 &&
-    (message.includes("already_exists") || message.includes("already installed"))
+    (message.includes("already_exists") ||
+      message.includes("already installed") ||
+      message.includes("already_installed") ||
+      message.includes("version already installed") ||
+      message.includes("plugin version already installed"))
   );
 }
 

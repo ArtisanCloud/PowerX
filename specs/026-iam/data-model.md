@@ -34,7 +34,7 @@
 
 - Purpose: 角色与可执行动作的映射边界。
 - Fields:
-  - `role` (`root` | `tenant_admin` | `member`)
+  - `role` (`root` | `tenant_admin` | `member` | `vendor`)
   - `scope` (`cross_tenant` | `current_tenant` | `self`)
   - `allowed_actions` (array)
   - `denied_actions` (array)
@@ -42,6 +42,44 @@
   - `root` 必须允许跨租户管理读写。
   - `tenant_admin` 必须拒绝跨租户读写。
   - `member` 必须拒绝租户级管理写操作。
+  - `vendor` 是租户级供应商角色，只能获得显式授予的菜单与业务权限，不得继承租户管理权限。
+
+## 3A. MenuPermission
+
+- Purpose: 表达后台菜单入口的角色级可见性控制。
+- Fields:
+  - `module` = `menu`
+  - `resource` (string，例如 `agent`, `agent.chat`, `skills`, `workflow`, `settings.users`)
+  - `action` = `read`
+  - `meta.type` = `menu`
+  - `source` = `core` 或插件 ID
+- Validation Rules:
+  - 菜单权限必须绑定到角色，不直接绑定到用户。
+  - `/api/v1/admin/menus` 只能返回当前 `tenant_uuid + member_id` 通过角色拥有的菜单项。
+  - root 可通过平台身份看到 root 菜单，但 root 不应被自动视为业务租户 admin。
+  - `role_user`、`role_readonly`、`role_vendor` 只能获得显式白名单菜单权限，不能因为 `action=read` 自动拥有全部菜单。
+  - 菜单可见性只控制导航入口，不替代页面路由和 API 授权。
+
+### 3A.1 PluginMenuPermission
+
+- Purpose: 表达插件/App 后台菜单入口的角色级可见性控制。
+- Source:
+  - 插件 manifest 的 `frontend.admin.menus`
+  - 插件安装、启用或 manifest 权限同步流程自动写入
+  - 管理员不能人工创建或修改插件菜单资源本身，只能把已有菜单权限授予角色
+- Fields:
+  - `module` = `menu`
+  - `resource` = `plugin.<plugin_id>.<menu_id>`
+  - `action` = `read`
+  - `source` = `plugin:<plugin_id>`
+  - `meta.type` = `menu`
+  - `meta.origin` = `plugin`
+  - `meta.plugin_id` / `meta.plugin_name` / `meta.menu_id` / `meta.label`
+- Validation Rules:
+  - 插件菜单聚合返回的每个插件菜单项必须自动附加 `menu:plugin.<plugin_id>.<menu_id>:read`。
+  - 插件菜单权限只控制菜单显示，不替代租户插件实例启用校验、插件代理入口校验和插件 API/能力权限校验。
+  - 插件菜单子项必须递归生成独立菜单权限，父菜单在子项有权限时可作为容器保留。
+  - 插件菜单资源 ID 必须由 manifest 的稳定 `id` 优先生成；缺少 `id` 时只能从 route/path 派生稳定段，不允许前端或管理员临时造菜单资源。
 
 ## 4. UserManagementAction
 
@@ -61,6 +99,8 @@
 - `RoleCapabilityBoundary` 1:N `UserManagementAction`（按 role 限定可执行动作）
 - `User` 1:N `TenantMembership`
 - `Tenant` 1:N `TenantMembership`
+- `TenantMembership` N:M `Role` via `RoleBinding`
+- `Role` N:M `MenuPermission` via `RolePermission`
 - `Tenant` 1:N `TenantPluginInstance`
 - `RootUser` 1:N `RootSupportSession`
 

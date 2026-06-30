@@ -9,6 +9,7 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { resolveDefaultRoute } = useDefaultMenuRoute();
 
 // 主题色到科技绿的渐变配置
 const primaryToTechGreen = [
@@ -62,8 +63,9 @@ const canAccessSettings = computed(
   () => Boolean(userStore.isCurrentTenantAdmin)
 );
 
-// 计算属性：判断是否已登录
-const isLoggedIn = computed(() => !!userStore.user);
+// 首页是 public 页面，刷新后 userStore 可能尚未完成 me/context 初始化；
+// “开始使用”应以有效 token 判断是否已登录，避免误跳登录页后落到旧 redirect。
+const isLoggedIn = computed(() => hasValidToken());
 
 // 用户信息计算属性
 const userName = computed(() => {
@@ -84,6 +86,7 @@ const userInitials = computed(() => {
 // 用户菜单状态
 const showUserMenu = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
+const starting = ref(false);
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value;
@@ -104,6 +107,23 @@ const handleLogout = async () => {
     await logout();
   } catch (error) {
     console.error("退出登录失败:", error);
+  }
+};
+
+const handleGetStarted = async () => {
+  if (starting.value) return;
+  starting.value = true;
+  try {
+    if (!isLoggedIn.value) {
+      await navigateTo("/users/login?redirect=/home", { replace: true });
+      return;
+    }
+    const target = await resolveDefaultRoute();
+    await navigateTo(target, { replace: true });
+  } catch (error) {
+    console.error("解析默认入口失败:", error);
+  } finally {
+    starting.value = false;
   }
 };
 
@@ -454,9 +474,11 @@ onUnmounted(() => {
 
                   <!-- 控制按钮 -->
                   <div class="flex flex-col sm:flex-row gap-4">
-                    <NuxtLink
-                      :to="$localePath('/agent')"
-                      class="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl transition-all duration-300 text-center overflow-hidden shadow-lg shadow-blue-500/25"
+                    <button
+                      type="button"
+                      class="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl transition-all duration-300 text-center overflow-hidden shadow-lg shadow-blue-500/25 disabled:cursor-wait disabled:opacity-70"
+                      :disabled="starting"
+                      @click="handleGetStarted"
                     >
                       <span
                         class="relative z-10 flex items-center justify-center"
@@ -467,7 +489,7 @@ onUnmounted(() => {
                       <div
                         class="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       ></div>
-                    </NuxtLink>
+                    </button>
                     <NuxtLink
                       :to="$localePath('/home/intro')"
                       class="group px-8 py-4 border border-emerald-400/30 text-emerald-400 hover:border-emerald-400/60 hover:bg-emerald-400/10 font-semibold rounded-xl transition-all duration-300 text-center backdrop-blur-sm"

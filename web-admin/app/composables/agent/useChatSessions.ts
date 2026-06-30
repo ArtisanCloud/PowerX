@@ -164,6 +164,15 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 加载指定 agent 的会话列表
    */
   async function listSessions(agentId: string, force = false) {
+    const inFlight = useState<Record<string, Promise<void>>>(
+      "px-agent-session-list-inflight",
+      () => ({})
+    );
+    const key = `${ENV.value}:${agentId}`;
+    if (!force && inFlight.value[key]) {
+      return inFlight.value[key];
+    }
+
     // 如果已有缓存且不强制刷新，则跳过
     if (!force && sessionStore.getSessionsByAgent(agentId).length > 0) {
       return;
@@ -172,7 +181,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
     sessionStore.setLoading(agentId, true);
     sessionStore.clearError();
 
-    try {
+    const run = async () => {
       const response = await apiClient.get<ApiResponse<SessionDTO>>(
         `/agents/sessions`,
         {
@@ -190,6 +199,12 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         sessionStore.setSessions(agentId, sessions);
         sessionStore.setHasMore(agentId, false); // 暂时设为false，后续可根据分页信息调整
       }
+    };
+
+    const promise = run();
+    inFlight.value = { ...inFlight.value, [key]: promise };
+    try {
+      await promise;
     } catch (error: any) {
       console.error("加载会话列表失败:", error);
       sessionStore.setError(
@@ -200,6 +215,9 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
       throw error;
     } finally {
       sessionStore.setLoading(agentId, false);
+      const next = { ...inFlight.value };
+      delete next[key];
+      inFlight.value = next;
     }
   }
 

@@ -53,6 +53,7 @@ func (r *RoleRepository) FindByCode(ctx context.Context, scope string, tenantUUI
 // - role_admin：租户管理员
 // - role_user ：租户普通用户
 // - role_readonly：租户只读账号（演示/巡检）
+// - role_vendor：供应商账号（受限租户成员，默认只开放供应商工作台相关入口）
 func (r *RoleRepository) EnsureDefaultRoles(ctx context.Context, tenantUUID string) error {
 	if strings.TrimSpace(tenantUUID) == "" {
 		return fmt.Errorf("EnsureDefaultRoles: tenantUUID required")
@@ -63,6 +64,7 @@ func (r *RoleRepository) EnsureDefaultRoles(ctx context.Context, tenantUUID stri
 		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleAdmin, Name: "Tenant Admin", Builtin: true},
 		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleUser, Name: "Tenant User", Builtin: true},
 		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleReadonly, Name: "Tenant Readonly", Builtin: true},
+		{Scope: string(iam.RoleScopeTenant), TenantUUID: tenantUUID, Code: iam.CodeRoleVendor, Name: "Vendor", Builtin: true},
 	}
 	for i := range defs {
 		if err := r.db.WithContext(ctx).Clauses(clause.OnConflict{

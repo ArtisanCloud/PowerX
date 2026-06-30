@@ -23,6 +23,9 @@ type Account struct {
 	PrimaryEmail string         `gorm:"column:primary_email;type:varchar(255);index" json:"primary_email,omitempty"`
 	PrimaryPhone string         `gorm:"column:primary_phone;type:varchar(32);index" json:"primary_phone,omitempty"`
 	DisplayName  string         `gorm:"column:display_name;type:varchar(128)" json:"display_name,omitempty"`
+	Nickname     string         `gorm:"column:nickname;type:varchar(128)" json:"nickname,omitempty"`
+	GivenName    string         `gorm:"column:given_name;type:varchar(128)" json:"given_name,omitempty"`
+	FamilyName   string         `gorm:"column:family_name;type:varchar(128)" json:"family_name,omitempty"`
 	AvatarURL    string         `gorm:"column:avatar_url;type:text" json:"avatar_url,omitempty"`
 	Locale       string         `gorm:"column:locale;type:varchar(32)" json:"locale,omitempty"`
 	Timezone     string         `gorm:"column:timezone;type:varchar(64)" json:"timezone,omitempty"`

@@ -16,6 +16,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:agent:read",
+			},
 		},
 		{
 			Key:         "skill_management",
@@ -26,7 +29,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root"},
+			Permissions: []string{"admin:root", "menu:skills:read"},
 		},
 		{
 			Key:     plugin_mgr.KeyKnowledgeSpace,
@@ -37,6 +40,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:knowledge:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyWorkflow,
@@ -47,6 +53,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:workflow:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyMedia,
@@ -57,6 +66,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:media:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyDashboard,
@@ -67,6 +79,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:dashboard:read",
+			},
 		},
 		{
 			Key:         "monitor_center",
@@ -77,7 +92,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root"},
+			Permissions: []string{"admin:root", "menu:monitor:read"},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:         "monitor_event_bus",
@@ -88,7 +103,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_websocket",
@@ -99,7 +114,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_task_cron",
@@ -110,7 +125,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_logs_trace",
@@ -121,7 +136,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_backup_center",
@@ -132,7 +147,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 			},
 		},
@@ -144,7 +159,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root", "admin:tenant"},
+			Permissions: []string{"admin:root", "admin:tenant", "menu:plugins:read"},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:         "plugin_market",
@@ -155,18 +170,18 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.market:read"},
 				},
 				{
 					Key:         "plugin_subscriptions",
 					Title:       "menu.pluginSubscriptions",
 					Icon:        "i-heroicons-building-storefront",
-					URL:         "/plugins/market",
+					URL:         "/plugins/installed",
 					Order:       1,
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:tenant_only"},
+					Permissions: []string{"admin:tenant_only", "menu:plugins.subscriptions:read"},
 				},
 				{
 					Key:         "plugin_capabilities",
@@ -177,7 +192,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.capabilities:read"},
 				},
 				{
 					Key:         "plugin_release",
@@ -188,7 +203,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.release:read"},
 				},
 			},
 		},
@@ -199,6 +214,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Order:   9,
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
+			Permissions: []string{
+				"menu:settings:read",
+			},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:      plugin_mgr.KeyUserManagement,
@@ -209,6 +227,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"menu:settings.users:read",
+					},
 				},
 				{
 					Key:      plugin_mgr.KeyRoleManagement,
@@ -221,6 +242,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.roles:read",
 					},
 				},
 				{
@@ -234,6 +256,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.config:read",
 					},
 				},
 				{
@@ -247,6 +270,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.ai:read",
 					},
 					Children: []admdto.AdminMenuItem{
 						{
@@ -260,6 +284,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.model:read",
 							},
 						},
 						{
@@ -273,6 +298,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.cost:read",
 							},
 						},
 						{
@@ -286,6 +312,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.context_optimizer:read",
 							},
 						},
 					},
@@ -299,6 +326,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"menu:settings.integration_api_keys:read",
+					},
 				},
 			},
 		},

@@ -353,6 +353,20 @@ func TestClarifyParamsFallbackUsesUserFacingLanguage(t *testing.T) {
 	}
 }
 
+func TestSkillExecutionFallbackDoesNotClaimCompletionWithoutResult(t *testing.T) {
+	content := BuildFinalResponseContent(&ResponsePlan{ResponseMode: ResponseModeSkillExecution}, "", nil)
+	for _, forbidden := range []string{"已创建", "已完成", "请稍候", "大约", "正在创建"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("fallback claimed execution state %q in %s", forbidden, content)
+		}
+	}
+	for _, want := range []string{"没有收到", "执行结果", "不能确认"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("fallback missing safe wording %q in %s", want, content)
+		}
+	}
+}
+
 func TestResponsePlannerKeepsClarifyParamsWhenRuntimeNeedsMetadata(t *testing.T) {
 	plan, err := NewResponsePlanner().Plan(context.Background(), ResponsePlanInput{
 		UserMessage: "那我现在想要创建一个模板",
@@ -380,6 +394,27 @@ func TestResponsePlannerKeepsClarifyParamsWhenRuntimeNeedsMetadata(t *testing.T)
 	}
 	if plan.ShouldCallTool {
 		t.Fatalf("clarify mode should not call tool")
+	}
+}
+
+func TestRuntimeExecutesExistingPlanEvenWhenResponsePlannerDoesNotCallTool(t *testing.T) {
+	responsePlan := &ResponsePlan{
+		ResponseMode:   ResponseModeClarifyParams,
+		ShouldCallTool: false,
+	}
+	execPlan := &flowschema.ExecutionPlan{
+		PlanID: "plan_skill_prepare",
+		Tasks: []flowschema.PlanTask{
+			{
+				TaskID:   "task_skill_prepare",
+				FlowID:   "powerxplugin.template.basic",
+				NodeKind: "skill",
+				NodeRef:  "powerxplugin.template.basic",
+			},
+		},
+	}
+	if !shouldExecutePlanForResponse(responsePlan, execPlan) {
+		t.Fatalf("runtime must execute Tool/Skill Planner output; Response Planner only controls final wording")
 	}
 }
 

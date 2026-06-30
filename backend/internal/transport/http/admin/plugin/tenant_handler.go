@@ -70,9 +70,9 @@ func TenantPluginInstanceListHandler(deps *shared.Deps) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		manager := pmimpl.GetPluginManager()
-		if manager == nil {
-			dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "插件管理器未初始化", nil)
+		manager, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
 			return
 		}
 		plugins, err := manager.List(c.Request.Context())
@@ -114,9 +114,9 @@ func TenantPluginInstanceEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 }
 
 func enableTenantPluginInstance(c *gin.Context, deps *shared.Deps, id, tenantUUID string, config map[string]any) {
-	manager := pmimpl.GetPluginManager()
-	if manager == nil {
-		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "插件管理器未初始化", nil)
+	manager, err := tryGetPluginManager()
+	if err != nil {
+		respondPluginRuntimeUnavailable(c, err)
 		return
 	}
 	p, err := manager.Get(c.Request.Context(), id)
@@ -176,7 +176,11 @@ func TenantPluginInstanceDisableHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.RespondErrorFrom(c, err)
 			return
 		}
-		manager := pmimpl.GetPluginManager()
+		manager, err := tryGetPluginManager()
+		if err != nil {
+			respondPluginRuntimeUnavailable(c, err)
+			return
+		}
 		proc, _ := pmimpl.TryRuntimeStatus(manager, id)
 		dtoRequest.ResponseSuccess(c, gin.H{
 			"instance": instance,
@@ -327,9 +331,9 @@ func ensureTenantEventFabricTopics(c *gin.Context, deps *shared.Deps, tenantUUID
 	if deps == nil || deps.EventFabric == nil || deps.EventFabric.Seeder == nil {
 		return nil
 	}
-	manager := pmimpl.GetPluginManager()
-	if manager == nil {
-		return fmt.Errorf("plugin manager is not initialized")
+	manager, err := tryGetPluginManager()
+	if err != nil {
+		return err
 	}
 	plugin, err := manager.Get(c.Request.Context(), pluginID)
 	if err != nil {

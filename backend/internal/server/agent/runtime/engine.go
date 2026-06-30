@@ -681,10 +681,9 @@ func shouldExecutePlanForResponse(responsePlan *ResponsePlan, execPlan *flowsche
 	if execPlan == nil || len(execPlan.Tasks) == 0 {
 		return false
 	}
-	if responsePlan == nil {
-		return true
-	}
-	return responsePlan.ShouldCallTool
+	// Tool/Skill Planner 是执行意图的裁决层；Response Planner 只决定最终回复形态，
+	// 不能否决已经生成的执行计划，否则会退回 LLM 文案并造成“假成功”。
+	return true
 }
 
 func isAwaitingParamsResult(out *agentschema.ExecutionResult) bool {
@@ -1303,14 +1302,14 @@ func ExtractAssistantText(chunk *agentschema.ExecutionResult) string {
 
 func buildFinalContent(out *agentschema.ExecutionResult) string {
 	if out == nil {
-		return "任务已执行完成。"
+		return ""
 	}
 	if s := strings.TrimSpace(ExtractAssistantText(out)); s != "" {
 		return s
 	}
 	data := out.Data
 	if data == nil {
-		return "任务已执行完成。"
+		return ""
 	}
 	skillID := strings.TrimSpace(anyToString(data["skill_id"]))
 	status := strings.TrimSpace(anyToString(data["status"]))

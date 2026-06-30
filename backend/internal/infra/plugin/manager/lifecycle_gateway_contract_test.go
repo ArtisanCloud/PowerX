@@ -4,9 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"gopkg.in/yaml.v3"
 )
 
 func TestInjectGlobalGatewayRuntimeEnvInjectsRuntimeSTSAndRemovesDeprecatedCredentials(t *testing.T) {
@@ -114,6 +118,68 @@ func TestDelegatedHostContractPrefersRuntimeEnvOverStaleHostValues(t *testing.T)
 	}
 	if got := env["NUXT_PUBLIC_WS_ORIGIN"]; got != "wss://agent-dev.example.com" {
 		t.Fatalf("NUXT_PUBLIC_WS_ORIGIN = %q, want dev public ws origin", got)
+	}
+}
+
+func TestEnsureDelegatedHostContractForEnableWritesRuntimeSTSToHostValues(t *testing.T) {
+	dir := t.TempDir()
+	hostValuesPath := filepath.Join(dir, "host-values.yaml")
+	initial := []byte(`
+env:
+  PX_GATEWAY_BASE_URL: http://127.0.0.1:8077
+  PX_GATEWAY_AUTH_SCHEME: bearer
+`)
+	if err := os.WriteFile(hostValuesPath, initial, 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	m := &managerImpl{
+		opts: Options{
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8077},
+			},
+		},
+	}
+	plugin := plugin_mgr.Plugin{
+		ID: "com.powerx.plugins.demo",
+		Paths: plugin_mgr.InstalledPaths{
+			HostValuesFile: hostValuesPath,
+		},
+	}
+	cred := &PluginRuntimeCredential{
+		TenantUUID:     "00000000-0000-0000-0000-000000000001",
+		ClientID:       "com.powerx.plugins.demo.00000000-0000-0000-0000-000000000001",
+		ClientSecret:   "runtime-secret",
+		GRPCAddress:    "127.0.0.1:9001",
+		STSAudience:    "powerx:api",
+		STSScope:       "access",
+		GatewayBaseURL: "http://127.0.0.1:8077",
+	}
+
+	if err := m.ensureDelegatedHostContractForEnable(&plugin, cred); err != nil {
+		t.Fatalf("ensureDelegatedHostContractForEnable() err = %v", err)
+	}
+
+	raw, err := os.ReadFile(hostValuesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	env, ok := doc["env"].(map[string]any)
+	if !ok {
+		t.Fatalf("host-values env missing: %#v", doc)
+	}
+	if got := env["POWERX_STS_CLIENT_ID"]; got != cred.ClientID {
+		t.Fatalf("POWERX_STS_CLIENT_ID = %q, want %q", got, cred.ClientID)
+	}
+	if got := env["POWERX_STS_CLIENT_SECRET"]; got != cred.ClientSecret {
+		t.Fatalf("POWERX_STS_CLIENT_SECRET = %q, want %q", got, cred.ClientSecret)
+	}
+	if got := env["POWERX_GRPC_UPSTREAM_ADDRESS"]; got != cred.GRPCAddress {
+		t.Fatalf("POWERX_GRPC_UPSTREAM_ADDRESS = %q, want %q", got, cred.GRPCAddress)
 	}
 }
 

@@ -80,7 +80,8 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	installedRoot := abs(cfg.Plugin.InstalledDir)
 	registryFile := abs(cfg.Plugin.RegistryFile)
 
-	mgr := pmimpl.New(pmimpl.Options{
+	var mgr pm.Manager
+	mgr = pmimpl.New(pmimpl.Options{
 		Enabled:       cfg.Plugin.Enabled,
 		BasePrefix:    cfg.Plugin.BasePrefix,
 		InstalledRoot: installedRoot,
@@ -105,9 +106,14 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 			if skillDiscoverySvc == nil {
 				return fmt.Errorf("plugin skill discovery service unavailable")
 			}
+			discoveryToken, err := pmimpl.MintPluginAccessToken(mgr, plugin.ID)
+			if err != nil {
+				return fmt.Errorf("plugin skill discovery token: %w", err)
+			}
 			imported, err := skillDiscoverySvc.DiscoverAndImport(ctx, skillservice.DiscoverPluginSkillsInput{
 				ProviderPluginID: plugin.ID,
 				BaseURL:          apiBaseURL,
+				BearerToken:      discoveryToken,
 				Operator:         "plugin-enable",
 				BundleURI:        fmt.Sprintf("plugin://%s/%s", plugin.ID, plugin.Version),
 			})
@@ -127,11 +133,10 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 			return ensurePluginRuntimeCredential(ctx, deps, cfg, pluginID)
 		},
 	})
+	pmimpl.InitGlobal(mgr)
 	if err := mgr.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
-
-	pmimpl.InitGlobal(mgr)
 	if !cfg.Plugin.Enabled {
 		return mgr, nil
 	}

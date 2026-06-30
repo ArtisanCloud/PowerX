@@ -16,6 +16,7 @@ const (
 	CodeRoleAdmin     RoleCode = "role_admin"
 	CodeRoleUser      RoleCode = "role_user"
 	CodeRoleReadonly  RoleCode = "role_readonly"
+	CodeRoleVendor    RoleCode = "role_vendor"
 
 	SystemTenantID = uint64(0)
 )

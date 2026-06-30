@@ -9,7 +9,7 @@ defineProps<{
   densityClass: string;
   expandedItems: Set<string>;
   isActive: (path?: string) => boolean;
-  linkFor: (path?: string) => string;
+  linkFor: (path?: string, item?: MenuItem) => string;
   resolveIcon: (name?: string) => string;
   toggleExpanded: (id: string) => void;
   hasActiveChild: (children?: MenuItem[]) => boolean;
@@ -120,7 +120,7 @@ const renderPluginVersion = () => false;
     <!-- 2) 无子菜单（有 path） -->
     <NuxtLink
       v-else-if="item.path"
-      :to="linkFor(item.path)"
+      :to="linkFor(item.path, item)"
       :class="[
         'menu-item group relative flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         collapsed ? 'justify-center px-2' : 'justify-between px-3',

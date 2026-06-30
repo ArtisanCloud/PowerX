@@ -37,9 +37,9 @@ const (
 type Permission struct {
 	model.PowerModel
 
-	Module      string `gorm:"column:module;type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"module"`
-	Resource    string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"resource"`
-	Action      string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"action"`
+	Module      string `gorm:"column:module;type:varchar(255);not null;index:uk_perm_plugin_res_act,unique" json:"module"`
+	Resource    string `gorm:"type:varchar(255);not null;index:uk_perm_plugin_res_act,unique" json:"resource"`
+	Action      string `gorm:"type:varchar(255);not null;index:uk_perm_plugin_res_act,unique" json:"action"`
 	Effect      string `gorm:"type:varchar(16);not null;default:'allow'" json:"effect"`
 	Description string `gorm:"type:varchar(255)" json:"description"`
 	AllowAPIKey bool   `gorm:"column:allow_api_key;not null;default:false;index" json:"allow_api_key"`

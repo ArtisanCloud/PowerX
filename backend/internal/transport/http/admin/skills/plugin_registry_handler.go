@@ -71,6 +71,10 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		"source":          "plugin",
 		"sync_source":     "plugin_registry",
 	}
+	if err := validatePluginRegistryManifest(manifest); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid plugin skill manifest", err)
+		return
+	}
 	if actions := actionCapabilitiesFromExecutor(manifest["executor"]); len(actions) > 0 {
 		manifest["action_capabilities"] = actions
 	}
@@ -111,6 +115,30 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		"source":          record.Source,
 		"checksum":        record.Checksum,
 	})
+}
+
+func validatePluginRegistryManifest(manifest map[string]any) error {
+	executor, ok := manifest["executor"].(map[string]any)
+	if !ok || len(executor) == 0 {
+		return fmt.Errorf("executor is required")
+	}
+	required := map[string]string{
+		"executor.type":               strings.TrimSpace(fmt.Sprint(executor["type"])),
+		"executor.capability":         strings.TrimSpace(fmt.Sprint(executor["capability"])),
+		"executor.prepare_capability": strings.TrimSpace(fmt.Sprint(executor["prepare_capability"])),
+	}
+	for field, value := range required {
+		if value == "" || value == "<nil>" {
+			return fmt.Errorf("%s is required", field)
+		}
+	}
+	if required["executor.type"] != "capability" {
+		return fmt.Errorf("executor.type must be capability")
+	}
+	if len(actionCapabilitiesFromExecutor(executor)) == 0 {
+		return fmt.Errorf("executor.action_map is required")
+	}
+	return nil
 }
 
 func actionCapabilitiesFromExecutor(executor any) map[string]string {

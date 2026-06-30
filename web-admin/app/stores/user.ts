@@ -124,16 +124,13 @@ export const useUserStore = defineStore("user", {
 
     // 加载用户上下文
     async fetchUserContext({ force = false }: { force?: boolean } = {}) {
-      if (force && this.contextRefreshInFlight) {
+      if (this.contextRefreshInFlight) {
         return this.contextRefreshInFlight;
       }
 
       if (force && Date.now() - this.lastForcedContextRefreshAt < 1000) {
         return;
       }
-
-      // 如果正在加载，直接返回
-      if (this.isLoading) return;
 
       // 如果不强制刷新且缓存未过期（5分钟），直接返回
       if (this.shouldUseCachedContext(force)) {
@@ -155,9 +152,7 @@ export const useUserStore = defineStore("user", {
       };
 
       const inflight = run();
-      if (force) {
-        this.contextRefreshInFlight = inflight;
-      }
+      this.contextRefreshInFlight = inflight;
       try {
         await inflight;
       } catch (error: any) {

@@ -25,7 +25,13 @@ const wsBus = useWSBus();
 // 获取通知统计信息
 const notificationStats = computed(() => getStats());
 const unreadCount = computed(() => notificationStats.value.unread);
-const { data: menuResponse } = useNuxtData<UserMenusResult>("user-menus");
+const currentMenuDataKey = useState<string>(
+  "px-current-menu-data-key",
+  () => "user-menus"
+);
+const menuResponse = computed(
+  () => useNuxtData<UserMenusResult>(currentMenuDataKey.value).data.value
+);
 
 const pageTitle = computed(() => {
   const raw = route.meta.title;

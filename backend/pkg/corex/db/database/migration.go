@@ -47,6 +47,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsureIAMPermissionModuleRenameMigration(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureIAMPermissionKeyLengthMigration(db); err != nil {
+		return err
+	}
 	if err = migration.EnsureIAMPermissionAllowAPIKeyMigration(db); err != nil {
 		return err
 	}

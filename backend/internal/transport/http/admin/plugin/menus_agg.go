@@ -140,7 +140,7 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		Origin:        plugin_mgr.OriginPlugin,
 		Visible:       visible,
 		Slot:          slot,
-		Permissions:   m.RequiredPolicies,
+		Permissions:   appendPluginMenuPermission(m.RequiredPolicies, pluginID, m),
 		TitleI18n:     titleI18n,
 		PluginVersion: strings.TrimSpace(pluginVersion),
 	}
@@ -156,6 +156,36 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		}
 	}
 	return item
+}
+
+func appendPluginMenuPermission(existing []string, pluginID string, item plugin_mgr.MenuItem) []string {
+	policy := plugin_mgr.PluginMenuPermissionPolicy(pluginID, item)
+	if strings.TrimSpace(policy) == "" {
+		return dedupePolicies(existing)
+	}
+	out := append([]string{}, existing...)
+	out = append(out, policy)
+	return dedupePolicies(out)
+}
+
+func dedupePolicies(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		normalized := strings.TrimSpace(item)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
 }
 
 func makePluginMenuKey(pluginID string, m plugin_mgr.MenuItem, route string) plugin_mgr.MenuKey {

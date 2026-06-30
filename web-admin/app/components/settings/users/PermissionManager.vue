@@ -15,6 +15,7 @@ import { storeToRefs } from "pinia";
 import { useRoleStore } from "~/stores/role";
 import { usePermissionStore } from "~/stores/permission"; // ✅ 权限 store
 import SelectTree from "~/components/ui/SelectTree.vue";
+import MenuPermissionTree from "~/components/settings/users/MenuPermissionTree.vue";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
 import { useTenantService } from "~/composables/api/services/tenantService";
 import { normalizeApiError } from "~/composables/api/normalizeApiError";
@@ -48,6 +49,30 @@ type Permission = {
   apiEndpoint?: string;
   httpMethod?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   dataScope?: "own" | "department" | "company" | "all";
+  meta?: {
+    label?: string;
+    plugin_id?: string;
+    plugin_name?: string;
+    menu_id?: string;
+    origin?: string;
+  };
+};
+
+type MenuPermissionNode = {
+  key: string;
+  label: string;
+  icon: string;
+  hint?: string;
+  hidden?: boolean;
+  permission?: Permission;
+  children: MenuPermissionNode[];
+};
+
+type MenuPermissionSection = {
+  key: string;
+  label: string;
+  icon: string;
+  nodes: MenuPermissionNode[];
 };
 
 /** ====== Pinia Store ====== */
@@ -114,6 +139,17 @@ const getPermissionDisplayName = (perm: Permission) => {
 };
 
 const permissions = computed<Permission[]>(() => normalizedList.value as any);
+const menuPermissions = computed(() =>
+  permissions.value
+    .filter((p) => p.module === "menu" || p.type === "menu")
+    .sort(
+      (a, b) =>
+        menuPermissionOrder(a.resource) - menuPermissionOrder(b.resource),
+    ),
+);
+const nonMenuPermissions = computed(() =>
+  permissions.value.filter((p) => !(p.module === "menu" || p.type === "menu")),
+);
 
 /** ====== 当前选中角色 ====== */
 const selectedRole = ref<Role | null>((roles.value as any[])[0] ?? null);
@@ -135,6 +171,16 @@ const searchQuery = ref("");
 const showRoleForm = ref(false);
 const isEditing = ref(false);
 const editingId = ref<number | null>(null);
+const permissionTab = ref("menus");
+const roleFormPermissionTab = ref("menus");
+const permissionTabItems = [
+  { label: "菜单权限", value: "menus", icon: "i-heroicons-bars-3" },
+  {
+    label: "能力/API权限",
+    value: "capabilities",
+    icon: "i-heroicons-command-line",
+  },
+];
 
 const roleForm = reactive({
   name: "",
@@ -156,7 +202,7 @@ onMounted(async () => {
 /** 分组：module -> type -> Permission[] */
 const permissionGroups = computed(() => {
   const groups: Record<string, Record<string, Permission[]>> = {};
-  for (const p of permissions.value) {
+  for (const p of nonMenuPermissions.value) {
     const m = p.module;
     const t = p.type;
     if (!groups[m]) groups[m] = {};
@@ -165,6 +211,409 @@ const permissionGroups = computed(() => {
   }
   return groups;
 });
+
+const menuLabels: Record<
+  string,
+  { label: string; group: string; icon: string }
+> = {
+  dashboard: {
+    label: "仪表盘",
+    group: "工作台",
+    icon: "i-heroicons-arrow-trending-up",
+  },
+  agent: { label: "智能体", group: "智能体", icon: "i-heroicons-sparkles" },
+  "agent.chat": {
+    label: "智能会话",
+    group: "智能体",
+    icon: "i-heroicons-chat-bubble-left-right",
+  },
+  "agent.management": {
+    label: "智能体管理",
+    group: "智能体",
+    icon: "i-heroicons-squares-2x2",
+  },
+  "agent.team": {
+    label: "团队管理",
+    group: "智能体",
+    icon: "i-heroicons-user-group",
+  },
+  "agent.team_tasks": {
+    label: "团队任务",
+    group: "智能体",
+    icon: "i-heroicons-list-bullet",
+  },
+  "agent.plugin_chat": {
+    label: "插件 Agent Chat",
+    group: "智能体",
+    icon: "i-heroicons-command-line",
+  },
+  "agent.traces": {
+    label: "Agent 运行追踪",
+    group: "智能体",
+    icon: "i-heroicons-document-magnifying-glass",
+  },
+  skills: {
+    label: "技能库",
+    group: "AI 能力",
+    icon: "i-heroicons-squares-plus",
+  },
+  knowledge: {
+    label: "知识空间",
+    group: "AI 能力",
+    icon: "i-heroicons-book-open",
+  },
+  workflow: {
+    label: "流程",
+    group: "业务能力",
+    icon: "i-heroicons-arrow-path-rounded-square",
+  },
+  media: { label: "媒体", group: "业务能力", icon: "i-heroicons-photo" },
+  monitor: { label: "监控中心", group: "平台管理", icon: "i-heroicons-eye" },
+  plugins: {
+    label: "插件市场",
+    group: "平台管理",
+    icon: "i-heroicons-puzzle-piece",
+  },
+  "plugins.market": {
+    label: "插件管理",
+    group: "平台管理",
+    icon: "i-heroicons-building-storefront",
+  },
+  "plugins.subscriptions": {
+    label: "插件订阅",
+    group: "平台管理",
+    icon: "i-heroicons-building-storefront",
+  },
+  "plugins.capabilities": {
+    label: "插件能力",
+    group: "平台管理",
+    icon: "i-heroicons-table-cells",
+  },
+  "plugins.release": {
+    label: "插件发布候选",
+    group: "平台管理",
+    icon: "i-heroicons-queue-list",
+  },
+  settings: {
+    label: "设置",
+    group: "系统设置",
+    icon: "i-heroicons-cog-6-tooth",
+  },
+  "settings.users": {
+    label: "用户管理",
+    group: "系统设置",
+    icon: "i-heroicons-users",
+  },
+  "settings.roles": {
+    label: "角色管理",
+    group: "系统设置",
+    icon: "i-heroicons-key",
+  },
+  "settings.config": {
+    label: "系统配置",
+    group: "系统设置",
+    icon: "i-heroicons-wrench-screwdriver",
+  },
+  "settings.ai": {
+    label: "AI 设置",
+    group: "系统设置",
+    icon: "i-heroicons-cpu-chip",
+  },
+  "settings.ai.model": {
+    label: "模型设置",
+    group: "系统设置",
+    icon: "i-heroicons-cog-6-tooth",
+  },
+  "settings.ai.cost": {
+    label: "成本设置",
+    group: "系统设置",
+    icon: "i-heroicons-banknotes",
+  },
+  "settings.ai.context_optimizer": {
+    label: "上下文优化",
+    group: "系统设置",
+    icon: "i-heroicons-adjustments-horizontal",
+  },
+  "settings.integration_api_keys": {
+    label: "API Key 管理",
+    group: "系统设置",
+    icon: "i-heroicons-key",
+  },
+};
+
+const menuOrder = [
+  "dashboard",
+  "agent",
+  "agent.management",
+  "agent.team",
+  "agent.chat",
+  "agent.team_tasks",
+  "agent.plugin_chat",
+  "agent.traces",
+  "skills",
+  "knowledge",
+  "workflow",
+  "media",
+  "plugins",
+  "plugins.market",
+  "plugins.subscriptions",
+  "plugins.capabilities",
+  "plugins.release",
+  "monitor",
+  "settings",
+  "settings.users",
+  "settings.roles",
+  "settings.config",
+  "settings.ai",
+  "settings.ai.model",
+  "settings.ai.cost",
+  "settings.ai.context_optimizer",
+  "settings.integration_api_keys",
+];
+
+const menuPermissionOrder = (resource?: string) => {
+  if (resource?.startsWith("plugin.")) return 800;
+  const idx = menuOrder.indexOf(resource || "");
+  return idx === -1 ? 999 : idx;
+};
+
+const getPluginMenuDisplayName = (perm: Permission) => {
+  const meta = perm.meta || {};
+  const resource = perm.resource || "";
+  return (
+    meta.plugin_name ||
+    meta.plugin_id ||
+    resource.replace(/^plugin\./, "").split(".").slice(0, -1).join(".") ||
+    "未知 App"
+  );
+};
+
+const getMenuPermissionMeta = (perm: Permission) => {
+  if (perm.resource?.startsWith("plugin.")) {
+    return {
+      label: perm.meta?.label || perm.meta?.menu_id || perm.resource,
+      group: `已安装 App / ${getPluginMenuDisplayName(perm)}`,
+      icon: "i-heroicons-puzzle-piece",
+    };
+  }
+  return (
+    menuLabels[perm.resource || ""] || {
+    label: perm.resource || perm.name,
+    group: "其他菜单",
+    icon: "i-heroicons-bars-3",
+    }
+  );
+};
+
+const splitMenuPath = (perm: Permission) => {
+  const menuId = String(perm.meta?.menu_id || "").trim();
+  const resource = perm.resource || "";
+  if (resource.startsWith("plugin.")) {
+    const pluginId = String(perm.meta?.plugin_id || "").trim();
+    const stripPluginPrefix = (value: string) => {
+      let out = value.trim();
+      if (out.startsWith("plugin.")) out = out.slice("plugin.".length);
+      const prefixes = [
+        pluginId ? `plugins.${pluginId}.` : "",
+        pluginId ? `${pluginId}.` : "",
+        pluginId ? `plugins.${pluginId}` : "",
+        pluginId,
+      ].filter(Boolean);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const prefix of prefixes) {
+          if (out === prefix) {
+            out = "";
+            changed = true;
+            break;
+          }
+          const dotted = `${prefix}.`;
+          if (out.startsWith(dotted)) {
+            out = out.slice(dotted.length);
+            changed = true;
+            break;
+          }
+        }
+      }
+      return out;
+    };
+    const raw = stripPluginPrefix(menuId || resource);
+    if (!raw) return [];
+    const parts = raw.split(".").filter(Boolean);
+    return parts;
+  }
+  return (menuId || resource).split(".").filter(Boolean);
+};
+
+const fallbackMenuNodeLabel = (segment: string) =>
+  segment
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const makeVirtualMenuNode = (key: string, segment: string): MenuPermissionNode => ({
+  key,
+  label: fallbackMenuNodeLabel(segment),
+  icon: "i-heroicons-folder",
+  children: [],
+});
+
+const insertMenuPermissionNode = (
+  roots: MenuPermissionNode[],
+  pathParts: string[],
+  perm: Permission,
+) => {
+  const meta = getMenuPermissionMeta(perm);
+  const parts = pathParts.length ? pathParts : [`__root_${perm.id}`];
+  let cursor = roots;
+  let accumulated = "";
+  parts.forEach((part, index) => {
+    accumulated = accumulated ? `${accumulated}.${part}` : part;
+    let node = cursor.find((item) => item.key === accumulated);
+    if (!node) {
+      node = makeVirtualMenuNode(accumulated, part);
+      cursor.push(node);
+    }
+    if (index === parts.length - 1) {
+      node.label = meta.label;
+      node.icon = meta.icon;
+      node.hint = pathParts.length ? parts.join(" / ") : undefined;
+      node.hidden = pathParts.length === 0;
+      node.permission = perm;
+    }
+    cursor = node.children;
+  });
+};
+
+const pruneHiddenRootMenuNodes = (nodes: MenuPermissionNode[]) => {
+  for (let index = nodes.length - 1; index >= 0; index--) {
+    const node = nodes[index];
+    pruneHiddenRootMenuNodes(node.children);
+    if (node.hidden) {
+      nodes.splice(index, 1, ...node.children);
+    }
+  }
+};
+
+const sortMenuNodes = (nodes: MenuPermissionNode[]) => {
+  nodes.sort((a, b) => {
+    const ao = a.permission ? menuPermissionOrder(a.permission.resource) : 999;
+    const bo = b.permission ? menuPermissionOrder(b.permission.resource) : 999;
+    if (ao !== bo) return ao - bo;
+    return a.label.localeCompare(b.label, "zh-CN");
+  });
+  nodes.forEach((node) => sortMenuNodes(node.children));
+};
+
+const menuPermissionSections = computed<MenuPermissionSection[]>(() => {
+  const sections = new Map<string, MenuPermissionSection>();
+  for (const perm of menuPermissions.value) {
+    const meta = getMenuPermissionMeta(perm);
+    const sectionKey = perm.resource?.startsWith("plugin.")
+      ? `plugin:${perm.meta?.plugin_id || meta.group}`
+      : `system:${meta.group}`;
+    let section = sections.get(sectionKey);
+    if (!section) {
+      section = {
+        key: sectionKey,
+        label: meta.group,
+        icon: perm.resource?.startsWith("plugin.")
+          ? "i-heroicons-puzzle-piece"
+          : "i-heroicons-bars-3",
+        nodes: [],
+      };
+      sections.set(sectionKey, section);
+    }
+    insertMenuPermissionNode(section.nodes, splitMenuPath(perm), perm);
+  }
+  const out = Array.from(sections.values());
+  out.forEach((section) => {
+    pruneHiddenRootMenuNodes(section.nodes);
+    sortMenuNodes(section.nodes);
+  });
+  return out.sort((a, b) => {
+    const pluginDelta = Number(a.key.startsWith("plugin:")) - Number(b.key.startsWith("plugin:"));
+    if (pluginDelta !== 0) return pluginDelta;
+    return a.label.localeCompare(b.label, "zh-CN");
+  });
+});
+
+const collectMenuNodePermissionIds = (node: MenuPermissionNode): number[] => {
+  const ids = node.permission ? [node.permission.id] : [];
+  for (const child of node.children) ids.push(...collectMenuNodePermissionIds(child));
+  return ids;
+};
+
+const collectMenuNodeVisibleStateIds = (node: MenuPermissionNode): number[] => {
+  if (node.children.length) {
+    return node.children.flatMap((child) => collectMenuNodeVisibleStateIds(child));
+  }
+  return node.permission ? [node.permission.id] : [];
+};
+
+const collectMenuSectionPermissionIds = (section: MenuPermissionSection) =>
+  section.nodes.flatMap((node) => collectMenuNodePermissionIds(node));
+
+const collectMenuSectionVisibleStateIds = (section: MenuPermissionSection) =>
+  section.nodes.flatMap((node) => collectMenuNodeVisibleStateIds(node));
+
+const toggleMenuPermissionIds = (ids: number[], checked: boolean) => {
+  const roleId = selectedRole.value?.id;
+  if (!roleId) return;
+  const set = new Set(roleSelection.value[roleId] || []);
+  if (checked) ids.forEach((id) => set.add(id));
+  else ids.forEach((id) => set.delete(id));
+  roleSelection.value[roleId] = Array.from(set);
+};
+
+const isMenuPermissionIdsFullySelected = (ids: number[]) => {
+  const roleId = selectedRole.value?.id;
+  if (!roleId) return false;
+  const cur = new Set(roleSelection.value[roleId] || []);
+  return ids.length > 0 && ids.every((id) => cur.has(id));
+};
+
+const isMenuPermissionIdsPartiallySelected = (ids: number[]) => {
+  const roleId = selectedRole.value?.id;
+  if (!roleId) return false;
+  const cur = new Set(roleSelection.value[roleId] || []);
+  const picked = ids.filter((id) => cur.has(id)).length;
+  return picked > 0 && picked < ids.length;
+};
+
+const toggleMenuSectionPermissions = (
+  section: MenuPermissionSection,
+  checked: boolean,
+) => toggleMenuPermissionIds(collectMenuSectionPermissionIds(section), checked);
+
+const toggleMenuNodePermissions = (node: MenuPermissionNode, checked: boolean) =>
+  toggleMenuPermissionIds(collectMenuNodePermissionIds(node), checked);
+
+const currentRoleMenuPermissionIds = computed(() => {
+  const roleId = selectedRole.value?.id;
+  return roleId ? roleSelection.value[roleId] || [] : [];
+});
+
+const isMenuSectionFullySelected = (section: MenuPermissionSection) =>
+  isMenuPermissionIdsFullySelected(collectMenuSectionVisibleStateIds(section));
+
+const isMenuSectionPartiallySelected = (section: MenuPermissionSection) =>
+  isMenuPermissionIdsPartiallySelected(collectMenuSectionVisibleStateIds(section));
+
+const menuSectionCheckboxValue = (section: MenuPermissionSection) => {
+  if (isMenuSectionFullySelected(section)) return true;
+  if (isMenuSectionPartiallySelected(section)) return "indeterminate";
+  return false;
+};
+
+const formMenuSectionCheckboxValue = (section: MenuPermissionSection) => {
+  const ids = collectMenuSectionVisibleStateIds(section);
+  if (ids.length === 0) return false;
+  const picked = ids.filter((id) => roleForm.permissions.includes(id)).length;
+  if (picked === ids.length) return true;
+  if (picked > 0) return "indeterminate";
+  return false;
+};
 
 /** ====== 工具函数 ====== */
 const resetRoleForm = () => {
@@ -177,6 +626,7 @@ const resetRoleForm = () => {
   selectedTenant.value = null;
   isEditing.value = false;
   editingId.value = null;
+  roleFormPermissionTab.value = "menus";
 };
 
 const openAddRoleForm = () => {
@@ -232,7 +682,7 @@ const saveRole = async () => {
       roleSelection.value[editingId.value] = [...roleForm.permissions];
       await permissionStore.setRolePermissionIDs(
         editingId.value,
-        roleForm.permissions
+        roleForm.permissions,
       );
     } else {
       // 创建角色（直接带权限）
@@ -266,7 +716,7 @@ const saveRole = async () => {
       title || "保存角色失败",
       description,
       "error" as const,
-      "solid" as const
+      "solid" as const,
     );
   }
 };
@@ -277,7 +727,7 @@ const deleteRole = async (id: number) => {
     notifyOnce(
       "系统角色不能删除",
       "内置角色受系统保护，无法删除",
-      "warning" as const
+      "warning" as const,
     );
     return;
   }
@@ -297,7 +747,7 @@ const deleteRole = async (id: number) => {
         title || "删除失败",
         description,
         "error" as const,
-        "solid" as const
+        "solid" as const,
       );
     }
   }
@@ -310,7 +760,7 @@ const filteredRoles = computed<Role[]>(() => {
     (r: Role) =>
       r.name.toLowerCase().includes(q) ||
       r.code.toLowerCase().includes(q) ||
-      (r.description || "").toLowerCase().includes(q)
+      (r.description || "").toLowerCase().includes(q),
   );
 });
 
@@ -350,7 +800,7 @@ const togglePermission = (permissionId: number) => {
 const toggleModulePermissions = (module: string, checked: boolean) => {
   const roleId = selectedRole.value?.id;
   if (!roleId) return;
-  const ids = permissions.value
+  const ids = nonMenuPermissions.value
     .filter((p) => p.module === module)
     .map((p) => p.id);
   const set = new Set(roleSelection.value[roleId] || []);
@@ -362,7 +812,7 @@ const toggleModulePermissions = (module: string, checked: boolean) => {
 const isModuleFullySelected = (module: string) => {
   const roleId = selectedRole.value?.id;
   if (!roleId) return false;
-  const ids = permissions.value
+  const ids = nonMenuPermissions.value
     .filter((p) => p.module === module)
     .map((p) => p.id);
   const cur = new Set(roleSelection.value[roleId] || []);
@@ -372,7 +822,7 @@ const isModuleFullySelected = (module: string) => {
 const isModulePartiallySelected = (module: string) => {
   const roleId = selectedRole.value?.id;
   if (!roleId) return false;
-  const ids = permissions.value
+  const ids = nonMenuPermissions.value
     .filter((p) => p.module === module)
     .map((p) => p.id);
   const cur = new Set(roleSelection.value[roleId] || []);
@@ -398,7 +848,7 @@ const saveRolePermissions = async () => {
       title || "保存权限失败",
       description,
       "error" as const,
-      "solid" as const
+      "solid" as const,
     );
   } finally {
     saving.value = false;
@@ -471,7 +921,7 @@ const roleColumns = computed(() => {
                 icon: "i-heroicons-pencil-square",
                 onClick: () => openEditRoleForm(role),
               },
-              { default: () => "编辑" }
+              { default: () => "编辑" },
             ),
             !role.builtin &&
               h(
@@ -483,9 +933,9 @@ const roleColumns = computed(() => {
                   icon: "i-heroicons-trash",
                   onClick: () => deleteRole(role.id),
                 },
-                { default: () => "删除" }
+                { default: () => "删除" },
               ),
-          ].filter(Boolean)
+          ].filter(Boolean),
         );
       },
     },
@@ -494,13 +944,24 @@ const roleColumns = computed(() => {
 
 /** ====== 表单内权限选择（弹窗） ====== */
 const formModulePermissionIds = (module: string) =>
-  permissions.value.filter((p) => p.module === module).map((p) => p.id);
+  nonMenuPermissions.value.filter((p) => p.module === module).map((p) => p.id);
 const hasFormPermission = (permissionId: number) =>
   roleForm.permissions.includes(permissionId);
 const toggleFormPermission = (permissionId: number) => {
   const i = roleForm.permissions.indexOf(permissionId);
   if (i === -1) roleForm.permissions.push(permissionId);
   else roleForm.permissions.splice(i, 1);
+};
+const toggleFormPermissionIds = (permissionIds: number[], checked: boolean) => {
+  if (checked) {
+    for (const id of permissionIds) {
+      if (!roleForm.permissions.includes(id)) roleForm.permissions.push(id);
+    }
+    return;
+  }
+  roleForm.permissions = roleForm.permissions.filter(
+    (id) => !permissionIds.includes(id),
+  );
 };
 const toggleFormModulePermissions = (module: string, checked: boolean) => {
   const ids = formModulePermissionIds(module);
@@ -510,7 +971,7 @@ const toggleFormModulePermissions = (module: string, checked: boolean) => {
     });
   } else {
     roleForm.permissions = roleForm.permissions.filter(
-      (id) => !ids.includes(id)
+      (id) => !ids.includes(id),
     );
   }
 };
@@ -673,9 +1134,78 @@ const isFormModulePartiallySelected = (module: string) => {
             <p class="text-sm text-gray-500 mt-1">
               {{ $t("organization.permission.configDesc") }}
             </p>
+            <UTabs
+              v-model="permissionTab"
+              :items="permissionTabItems"
+              class="mt-4"
+            />
           </div>
 
-          <div class="p-4 max-h-[600px] overflow-y-auto">
+          <div
+            v-if="permissionTab === 'menus'"
+            class="p-4 max-h-[600px] overflow-y-auto"
+          >
+            <div
+              v-if="menuPermissions.length"
+              class="rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+            >
+              <div class="flex items-center gap-2 mb-4">
+                <UIcon
+                  name="i-heroicons-bars-3"
+                  class="w-5 h-5 text-primary-600"
+                />
+                <div>
+                  <h4 class="font-bold text-gray-900 text-lg">菜单权限</h4>
+                  <p class="text-xs text-gray-500">
+                    控制该角色登录后左侧菜单中可见的入口。
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div
+                  v-for="section in menuPermissionSections"
+                  :key="section.key"
+                  class="rounded-md border border-gray-200 bg-white p-3"
+                >
+                  <div class="flex items-center mb-3">
+                    <UCheckbox
+                      :model-value="menuSectionCheckboxValue(section)"
+                      @update:model-value="
+                        toggleMenuSectionPermissions(section, $event as boolean)
+                      "
+                    />
+                    <UIcon
+                      :name="section.icon"
+                      class="ml-2 h-4 w-4 text-gray-500"
+                    />
+                    <h5 class="ml-2 text-sm font-semibold text-gray-800">
+                      {{ section.label }}
+                    </h5>
+                    <UBadge
+                      size="xs"
+                      color="neutral"
+                      variant="subtle"
+                      class="ml-auto"
+                    >
+                      {{ collectMenuSectionPermissionIds(section).length }}
+                    </UBadge>
+                  </div>
+
+                  <MenuPermissionTree
+                    :nodes="section.nodes"
+                    :selected-ids="currentRoleMenuPermissionIds"
+                    @toggle="toggleMenuPermissionIds"
+                  />
+                </div>
+              </div>
+            </div>
+            <div v-else class="py-12 text-center text-sm text-gray-500">
+              暂无菜单权限。请先执行 seed 同步系统菜单权限。
+            </div>
+          </div>
+
+          <div v-else class="p-4 max-h-[600px] overflow-y-auto">
             <div
               v-for="(typeGroups, module) in permissionGroups"
               :key="module"
@@ -758,6 +1288,12 @@ const isFormModulePartiallySelected = (module: string) => {
               </div>
             </div>
             <!-- /module -->
+            <div
+              v-if="Object.keys(permissionGroups).length === 0"
+              class="py-12 text-center text-sm text-gray-500"
+            >
+              暂无能力/API权限。
+            </div>
           </div>
         </div>
       </div>
@@ -839,87 +1375,153 @@ const isFormModulePartiallySelected = (module: string) => {
                 <div
                   class="border rounded-md p-4 max-h-[300px] overflow-y-auto"
                 >
-                  <div
-                    v-for="(typeGroups, module) in permissionGroups"
-                    :key="module"
-                    class="mb-4 border-t border-gray-200 pt-4 first:border-t-0 first:pt-0"
-                  >
-                    <div class="flex items-center mb-2">
-                      <UCheckbox
-                        :model-value="isFormModuleFullySelected(module)"
-                        :indeterminate="isFormModulePartiallySelected(module)"
-                        @update:model-value="
-                          toggleFormModulePermissions(module, $event as boolean)
-                        "
-                      />
-                      <h4 class="ml-2 font-semibold text-gray-900">
-                        {{ module }}
-                      </h4>
-                    </div>
+                  <UTabs
+                    v-model="roleFormPermissionTab"
+                    :items="permissionTabItems"
+                    class="mb-4"
+                  />
 
-                    <div class="ml-6 space-y-3">
-                      <div
-                        v-for="type in Object.keys(typeGroups).sort(
-                          (a, b) => getTypeOrder(a) - getTypeOrder(b)
-                        )"
-                        :key="type"
-                        class="space-y-2"
-                      >
-                        <h5 class="text-xs font-medium text-gray-600">
-                          {{ getPermissionTypeLabel(type) }}
-                        </h5>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div
-                            v-for="perm in typeGroups[type]"
-                            :key="perm.id"
-                            class="flex items-start"
-                          >
+                  <div v-if="roleFormPermissionTab === 'menus'">
+                    <div
+                      v-if="menuPermissions.length"
+                      class="rounded-md border border-gray-200 bg-gray-50/60 p-3"
+                    >
+                      <div class="flex items-center gap-2 mb-3">
+                        <UIcon
+                          name="i-heroicons-bars-3"
+                          class="w-4 h-4 text-primary-600"
+                        />
+                        <h4 class="font-semibold text-gray-900">菜单权限</h4>
+                      </div>
+                      <div class="space-y-3">
+                        <div
+                          v-for="section in menuPermissionSections"
+                          :key="`form-${section.key}`"
+                          class="rounded-md border border-gray-200 bg-white p-3"
+                        >
+                          <div class="mb-2 flex items-center gap-2">
                             <UCheckbox
-                              :model-value="hasFormPermission(perm.id)"
+                              :model-value="
+                                formMenuSectionCheckboxValue(section)
+                              "
                               @update:model-value="
-                                toggleFormPermission(perm.id)
+                                toggleFormPermissionIds(
+                                  collectMenuSectionPermissionIds(section),
+                                  $event as boolean,
+                                )
                               "
                             />
-                            <div class="ml-2 flex-1">
-                              <div class="flex items-center gap-2">
-                                <span
-                                  class="text-sm font-medium"
-                                  :class="getPermissionTextColor(perm.type)"
-                                >
-                                  {{ perm.name }}
-                                </span>
-                                <UBadge
-                                  v-if="perm.type === 'api'"
-                                  size="xs"
-                                  :color="
-                                    getPermissionTypeColor(perm.httpMethod)
-                                  "
-                                >
-                                  {{ perm.httpMethod }}
-                                </UBadge>
-                              </div>
-                              <div class="text-xs text-gray-500">
-                                {{ perm.description }}
-                                <template
-                                  v-if="perm.type === 'api' && perm.apiEndpoint"
-                                >
-                                  · <code>{{ perm.apiEndpoint }}</code>
-                                </template>
-                                <template
-                                  v-if="perm.type === 'data' && perm.dataScope"
-                                >
-                                  · {{ getDataScopeLabel(perm.dataScope) }}
-                                </template>
+                            <UIcon
+                              :name="section.icon"
+                              class="h-4 w-4 text-gray-500"
+                            />
+                            <div class="text-xs font-medium text-gray-600">
+                              {{ section.label }}
+                            </div>
+                          </div>
+                          <MenuPermissionTree
+                            :nodes="section.nodes"
+                            :selected-ids="roleForm.permissions"
+                            @toggle="toggleFormPermissionIds"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="py-8 text-center text-sm text-gray-500">
+                      暂无菜单权限。请先执行 seed 同步系统菜单权限。
+                    </div>
+                  </div>
+
+                  <div v-else>
+                    <div
+                      v-for="(typeGroups, module) in permissionGroups"
+                      :key="module"
+                      class="mb-4 border-t border-gray-200 pt-4 first:border-t-0 first:pt-0"
+                    >
+                      <div class="flex items-center mb-2">
+                        <UCheckbox
+                          :model-value="isFormModuleFullySelected(module)"
+                          :indeterminate="isFormModulePartiallySelected(module)"
+                          @update:model-value="
+                            toggleFormModulePermissions(
+                              module,
+                              $event as boolean,
+                            )
+                          "
+                        />
+                        <h4 class="ml-2 font-semibold text-gray-900">
+                          {{ module }}
+                        </h4>
+                      </div>
+
+                      <div class="ml-6 space-y-3">
+                        <div
+                          v-for="type in Object.keys(typeGroups).sort(
+                            (a, b) => getTypeOrder(a) - getTypeOrder(b),
+                          )"
+                          :key="type"
+                          class="space-y-2"
+                        >
+                          <h5 class="text-xs font-medium text-gray-600">
+                            {{ getPermissionTypeLabel(type) }}
+                          </h5>
+
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div
+                              v-for="perm in typeGroups[type]"
+                              :key="perm.id"
+                              class="flex items-start"
+                            >
+                              <UCheckbox
+                                :model-value="hasFormPermission(perm.id)"
+                                @update:model-value="
+                                  toggleFormPermission(perm.id)
+                                "
+                              />
+                              <div class="ml-2 flex-1">
+                                <div class="flex items-center gap-2">
+                                  <span
+                                    class="text-sm font-medium"
+                                    :class="getPermissionTextColor(perm.type)"
+                                  >
+                                    {{ perm.name }}
+                                  </span>
+                                  <UBadge
+                                    v-if="perm.type === 'api'"
+                                    size="xs"
+                                    :color="
+                                      getPermissionTypeColor(perm.httpMethod)
+                                    "
+                                  >
+                                    {{ perm.httpMethod }}
+                                  </UBadge>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                  {{ perm.description }}
+                                  <template
+                                    v-if="
+                                      perm.type === 'api' && perm.apiEndpoint
+                                    "
+                                  >
+                                    · <code>{{ perm.apiEndpoint }}</code>
+                                  </template>
+                                  <template
+                                    v-if="
+                                      perm.type === 'data' && perm.dataScope
+                                    "
+                                  >
+                                    · {{ getDataScopeLabel(perm.dataScope) }}
+                                  </template>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
+                        <!-- /type -->
                       </div>
-                      <!-- /type -->
                     </div>
+                    <!-- /module -->
                   </div>
-                  <!-- /module -->
                 </div>
               </UFormField>
             </div>

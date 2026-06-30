@@ -46,6 +46,9 @@ PowerX Core 至少应提供以下 customer 权威表。
 | `primary_email` | 主邮箱，可空 |
 | `primary_phone` | 主手机号，可空 |
 | `display_name` | 通用展示名 |
+| `nickname` | 昵称/社交昵称 |
+| `given_name` | 名 |
+| `family_name` | 姓 |
 | `avatar_url` | 通用头像 |
 | `locale` | 语言偏好 |
 | `timezone` | 时区 |
@@ -187,6 +190,12 @@ PowerXPlugin framework 的 `customerfw` 不拥有生产表，只映射 Core 权�
 | `customerfw` 运行时合同 | PowerX Core 权威来源 |
 | --- | --- |
 | `CustomerContext.customer_uuid` | `customer_accounts.uuid` |
+| `CustomerContext.profile.display_name` | `customer_accounts.display_name` |
+| `CustomerContext.profile.nickname` | `customer_accounts.nickname` |
+| `CustomerContext.profile.given_name` | `customer_accounts.given_name` |
+| `CustomerContext.profile.family_name` | `customer_accounts.family_name` |
+| `CustomerContext.profile.avatar_url` | `customer_accounts.avatar_url` |
+| `CustomerContext.profile.locale/timezone` | `customer_accounts.locale/timezone` |
 | `CustomerContext.tenant_uuid` | `customer_tenant_memberships.tenant_uuid` 或 `mini_app_entries.tenant_uuid` |
 | `CustomerContext.membership_uuid` | `customer_tenant_memberships.uuid` |
 | `CustomerContext.roles/scopes` | `customer_tenant_memberships.roles/scopes` |

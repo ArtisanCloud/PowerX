@@ -157,6 +157,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return redirectToLogin();
   }
 
+  const shouldCheckMenuRoute = !publicHit;
+  if (shouldCheckMenuRoute) {
+    const { isMenuRouteAllowed, resolveDefaultRoute } = useDefaultMenuRoute();
+    try {
+      const allowed = await isMenuRouteAllowed(to.path);
+      if (!allowed) {
+        const target = await resolveDefaultRoute();
+        if (target !== to.path) {
+          return navigateTo(target, { replace: true });
+        }
+      }
+    } catch {
+      return navigateTo("/home", { replace: true });
+    }
+  }
+
   const tenantOnlyRoots = [
     "/settings/ai",
   ];
@@ -170,7 +186,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
         await userStore.fetchUserContext({ force: true });
       }
       if (!userStore.isRoot && !userStore.isCurrentTenantAdmin) {
-        return navigateTo("/dashboard");
+        const { resolveDefaultRoute } = useDefaultMenuRoute();
+        try {
+          return navigateTo(await resolveDefaultRoute(), { replace: true });
+        } catch {
+          return navigateTo("/home", { replace: true });
+        }
       }
     } catch {
       return redirectToLogin();

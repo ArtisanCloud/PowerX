@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/datatypes"
@@ -69,6 +70,11 @@ func persistTaskSkillState(ctx context.Context, task flowschema.PlanTask, status
 			payload["state_key"] = stateKey
 		}
 	}
+	if strings.EqualFold(status, dto.AgentTaskStatusAwaitingParams) {
+		if execOut, ok := out.(*agentschema.ExecutionResult); ok {
+			payload = mergeSkillStatePayload(payload, awaitingPayloadFromResult(task, execOut))
+		}
+	}
 	if runErr != nil {
 		payload["error"] = runErr.Error()
 	}
@@ -76,6 +82,16 @@ func persistTaskSkillState(ctx context.Context, task flowschema.PlanTask, status
 		payload["result"] = out
 	}
 	return persistRuntimeSkillState(ctx, payload, status, runErr)
+}
+
+func mergeSkillStatePayload(base map[string]any, patch map[string]any) map[string]any {
+	if base == nil {
+		base = map[string]any{}
+	}
+	for k, v := range patch {
+		base[k] = v
+	}
+	return base
 }
 
 func persistRuntimeSkillState(ctx context.Context, payload map[string]any, status string, runErr error) error {

@@ -1,6 +1,5 @@
 import { useApiClient } from "../index";
 import type { ApiResponse } from "../types/types";
-import { useI18n } from "vue-i18n";
 
 /** ===== Types ===== */
 export interface MenuTitleI18n {
@@ -52,6 +51,42 @@ export interface MenuI18nPayload {
 
 export type UserMenusResult = ApiResponse<MenuItem[]> & {
   categories: MenuCategory[];
+};
+
+const MENU_CACHE_TTL_MS = 10_000;
+
+type UserMenusCacheEntry = {
+  key: string;
+  fetchedAt: number;
+  data: UserMenusResult;
+};
+
+const normalizeTenantKey = () => {
+  if (!process.client) return "server";
+  return String(localStorage.getItem("px_current_tenant_uuid") || "no-tenant");
+};
+
+const normalizeTokenKey = () => {
+  if (!process.client) return "server";
+  const token = String(localStorage.getItem("access_token") || "");
+  if (!token) return "anonymous";
+  return `${token.length}:${token.slice(0, 12)}:${token.slice(-8)}`;
+};
+
+const resolveMenuCacheKey = (locale: string) =>
+  `${normalizeTenantKey()}:${normalizeTokenKey()}:${locale}`;
+
+export const invalidateUserMenusCache = () => {
+  const cache = useState<UserMenusCacheEntry | null>(
+    "px-user-menus-cache",
+    () => null
+  );
+  const inflight = useState<Promise<UserMenusResult> | null>(
+    "px-user-menus-inflight",
+    () => null
+  );
+  cache.value = null;
+  inflight.value = null;
 };
 
 export interface MenuCreateParams {
@@ -301,41 +336,78 @@ function toTopLevelMenusFromCategories(categories: unknown[]): MenuItem[] {
 
 export const useMenuService = () => {
   const apiClient = useApiClient();
-  const { locale, mergeLocaleMessage } = useI18n({ useScope: "global" });
+  const nuxtApp = useNuxtApp();
+  const i18n = nuxtApp.$i18n as any;
+  const locale = i18n?.global?.locale ?? i18n?.locale;
+  const mergeLocaleMessage =
+    i18n?.global?.mergeLocaleMessage?.bind(i18n.global) ??
+    i18n?.mergeLocaleMessage?.bind(i18n);
   const baseUrl = "/admin/menus";
 
   return {
     /** 获取用户菜单（根据权限过滤）——只返回顶层扁平 MenuItem[]，顺序符合后端规则 */
-    getUserMenus: async () => {
+    getUserMenus: async (options: { force?: boolean } = {}) => {
       const currentLocale = String(locale.value ?? "").trim();
       const resolvedLocale =
         (localeParamMap[currentLocale] ?? currentLocale) || "zh-CN";
-      const res = await apiClient.get<ApiResponse<MenusResponse>>(baseUrl, {
-        // 避免浏览器命中历史 301 永久重定向缓存（/menus <-> /menus/）导致死循环
-        params: { locale: resolvedLocale, _ts: Date.now() },
-      });
-      const serverResp = (res?.data ?? res) as ApiResponse<MenusResponse>;
-      const { flatMenus, categories, i18nPayloads } =
-        parseMenusFromResponse(serverResp);
+      const cacheKey = resolveMenuCacheKey(resolvedLocale);
+      const cache = useState<UserMenusCacheEntry | null>(
+        "px-user-menus-cache",
+        () => null
+      );
+      const inflight = useState<Promise<UserMenusResult> | null>(
+        "px-user-menus-inflight",
+        () => null
+      );
+      const cached = cache.value;
+      if (
+        !options.force &&
+        cached?.key === cacheKey &&
+        Date.now() - cached.fetchedAt < MENU_CACHE_TTL_MS
+      ) {
+        return cached.data;
+      }
+      if (!options.force && inflight.value) {
+        return inflight.value;
+      }
 
-      registerMenuLocales(i18nPayloads, mergeLocaleMessage);
+      const run = async () => {
+        const res = await apiClient.get<ApiResponse<MenusResponse>>(baseUrl, {
+          params: { locale: resolvedLocale },
+        });
+        const serverResp = (res?.data ?? res) as ApiResponse<MenusResponse>;
+        const { flatMenus, categories, i18nPayloads } =
+          parseMenusFromResponse(serverResp);
 
-      deepFreezeDev(flatMenus);
-      deepFreezeDev(categories);
+        registerMenuLocales(i18nPayloads, mergeLocaleMessage);
 
-      // console.info(
-      //   "[getUserMenus] menus =",
-      //   menus.map((m) => `${m.title}(${m.id})`)
-      // );
+        deepFreezeDev(flatMenus);
+        deepFreezeDev(categories);
 
-      const normalized: UserMenusResult = {
-        code: serverResp.code ?? 200,
-        message: serverResp.message ?? "success",
-        data: flatMenus,
-        timestamp: serverResp.timestamp,
-        categories,
+        const normalized: UserMenusResult = {
+          code: serverResp.code ?? 200,
+          message: serverResp.message ?? "success",
+          data: flatMenus,
+          timestamp: serverResp.timestamp,
+          categories,
+        };
+        cache.value = {
+          key: cacheKey,
+          fetchedAt: Date.now(),
+          data: normalized,
+        };
+        return normalized;
       };
-      return normalized;
+
+      const promise = run();
+      inflight.value = promise;
+      try {
+        return await promise;
+      } finally {
+        if (inflight.value === promise) {
+          inflight.value = null;
+        }
+      }
     },
 
     /** 其余 CRUD 直通 */

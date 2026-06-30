@@ -63,11 +63,8 @@ func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permiss
 			})
 		}
 	}
-	if len(specs) == 0 {
-		return nil
-	}
 	seen := make(map[string]struct{})
-	out := make([]modelsiam.Permission, 0, len(specs)*2)
+	out := make([]modelsiam.Permission, 0, len(specs)*2+len(manifest.Frontend.Admin.Menus))
 	for _, spec := range specs {
 		resource := strings.TrimSpace(spec.Resource)
 		if resource == "" {
@@ -112,6 +109,61 @@ func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permiss
 			})
 		}
 	}
+	out = appendPluginMenuPermissionRows(out, seen, manifest)
+	return out
+}
+
+func appendPluginMenuPermissionRows(out []modelsiam.Permission, seen map[string]struct{}, manifest plugin_mgr.Manifest) []modelsiam.Permission {
+	pluginID := strings.TrimSpace(manifest.ID)
+	if pluginID == "" || len(manifest.Frontend.Admin.Menus) == 0 {
+		return out
+	}
+	var walk func(items []plugin_mgr.MenuItem)
+	walk = func(items []plugin_mgr.MenuItem) {
+		for _, item := range items {
+			resource := plugin_mgr.PluginMenuPermissionResource(pluginID, item)
+			if resource != "" {
+				action := plugin_mgr.MenuPermissionAction
+				key := plugin_mgr.MenuPermissionModule + "|" + resource + "|" + action
+				if _, exists := seen[key]; !exists {
+					seen[key] = struct{}{}
+					label := strings.TrimSpace(item.Title)
+					if label == "" && item.TitleI18n != nil {
+						label = strings.TrimSpace(item.TitleI18n.Default)
+					}
+					if label == "" {
+						label = resource
+					}
+					meta := map[string]any{
+						"type":        "menu",
+						"module":      plugin_mgr.MenuPermissionModule,
+						"label":       label,
+						"plugin_id":   pluginID,
+						"plugin_name": strings.TrimSpace(manifest.Name),
+						"menu_id":     plugin_mgr.PluginMenuPermissionSegment(item),
+						"origin":      "plugin",
+					}
+					metaBytes, _ := json.Marshal(meta)
+					out = append(out, modelsiam.Permission{
+						Module:      plugin_mgr.MenuPermissionModule,
+						Resource:    resource,
+						Action:      action,
+						Effect:      "allow",
+						Description: fmt.Sprintf("Allow viewing plugin menu %s", label),
+						AllowAPIKey: false,
+						Meta:        metaBytes,
+						Status:      modelsiam.PermissionStatusActive,
+						Source:      "plugin:" + pluginID,
+						Introduced:  strings.TrimSpace(manifest.Version),
+					})
+				}
+			}
+			if len(item.Children) > 0 {
+				walk(item.Children)
+			}
+		}
+	}
+	walk(manifest.Frontend.Admin.Menus)
 	return out
 }
 

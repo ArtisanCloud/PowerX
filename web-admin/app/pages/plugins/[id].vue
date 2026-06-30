@@ -669,12 +669,6 @@ const normalizedDrainJobStatus = computed(() =>
 const normalizedOperationalDrainJobStatus = computed(() =>
   String(currentOperationalDrainJob.value?.status || "").toLowerCase()
 );
-const currentDrainPurpose = computed(() => {
-  const reason = String(currentOperationalDrainJob.value?.reason || "").toLowerCase();
-  if (reason.includes("disable")) return "disable";
-  if (reason.includes("uninstall")) return "uninstall";
-  return "manual";
-});
 const isDrainActive = computed(() => {
 	if (DRAIN_ACTIVE_JOB_STATUSES.has(normalizedOperationalDrainJobStatus.value)) return true;
 	return false;
@@ -683,11 +677,8 @@ const isDrained = computed(() => {
   if (DRAIN_READY_JOB_STATUSES.has(normalizedOperationalDrainJobStatus.value)) return true;
   return false;
 });
-const isReadyForDisable = computed(
-  () => isDrained.value && currentDrainPurpose.value === "disable"
-);
 const isReadyForFinalUninstall = computed(
-  () => isDrained.value && currentDrainPurpose.value !== "disable"
+  () => isDrained.value
 );
 const canStartDrain = computed(
   () => isRoot.value && sysInstalled.value && !isDrainActive.value && !isDrained.value
@@ -696,7 +687,11 @@ const canFinalUninstall = computed(
   () => isRoot.value && sysInstalled.value && Boolean(currentDrainJob.value) && isReadyForFinalUninstall.value
 );
 const canToggleSystem = computed(
-  () => isRoot.value && sysInstalled.value && !isDrainActive.value && (isReadyForDisable.value || !isDrained.value)
+  () =>
+    isRoot.value &&
+    sysInstalled.value &&
+    !isDrainActive.value &&
+    !isReadyForFinalUninstall.value
 );
 const canMutateSystemRuntime = computed(
   () => isRoot.value && sysInstalled.value && !isDrainActive.value && !isDrained.value
@@ -722,14 +717,6 @@ const topUninstallAction = computed(() => {
       disabled: !canFinalUninstall.value,
     };
   }
-  if (isReadyForDisable.value) {
-    return {
-      label: "等待停用",
-      color: "warning" as const,
-      icon: "i-heroicons-pause",
-      disabled: false,
-    };
-  }
   if (isDrainActive.value) {
     return {
       label: "等待 drain 完成",
@@ -746,7 +733,6 @@ const topUninstallAction = computed(() => {
   };
 });
 const drainBadge = computed(() => {
-  if (isReadyForDisable.value) return { label: "可停用", color: "success" as const };
   if (isReadyForFinalUninstall.value) return { label: "可最终卸载", color: "success" as const };
   if (isDrainActive.value) return { label: "drain 中", color: "warning" as const };
   if (DRAIN_TERMINAL_JOB_STATUSES.has(normalizedDrainJobStatus.value)) {
@@ -1547,15 +1533,6 @@ async function handleUninstallAction() {
   }
   if (canFinalUninstall.value) {
     await uninstallPlugin();
-    return;
-  }
-  if (isReadyForDisable.value) {
-    toast.add({
-      title: "drain 已完成",
-      description: "这次 drain 的目标是停用插件，请在“系统运行”卡片点击停用。",
-      color: "warning",
-      icon: "i-heroicons-pause",
-    });
     return;
   }
   toast.add({

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -54,12 +55,13 @@ func filterMenusByPermission(
 ) []admdto.AdminMenuItem {
 	out := make([]admdto.AdminMenuItem, 0, len(items))
 	for _, item := range items {
-		if !allow(item.Permissions) {
-			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
-			continue
-		}
+		allowedSelf := allow(item.Permissions)
 		if len(item.Children) > 0 {
 			item.Children = filterMenusByPermission(item.Children, allow)
+		}
+		if !allowedSelf && len(item.Children) == 0 {
+			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			continue
 		}
 		// 目录节点若无可见子项且自身无 path，则跳过，避免空分组
 		if strings.TrimSpace(item.URL) == "" && len(item.Children) == 0 {
@@ -487,30 +489,59 @@ func AdminMenusHandler(deps *shared.Deps) gin.HandlerFunc {
 		// 1) 权限过滤
 		isRoot := reqctx.IsRoot(c.Request.Context())
 		isTenantAdmin := hasTenantAdminRole(c.Request.Context(), deps)
+		rbac := iamsvc.NewRBACService(deps.DB)
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+		memberID := reqctx.GetMemberID(c.Request.Context())
+		actor := iamsvc.ActorContext{
+			IsRoot:     isRoot,
+			TenantUUID: tenantUUID,
+		}
+		rbacDecisionCache := map[string]bool{}
 		allow := func(perms []string) bool {
 			if len(perms) == 0 {
 				return true
 			}
-			hasAdminPolicy := false
 			for _, pol := range perms {
-				res, act := splitPolicy(pol)
-				if res == "" || act == "" {
+				module, res, act := splitPolicyTriple(pol)
+				if module == "" || res == "" || act == "" {
 					continue
 				}
-				if res != "admin" {
+				if module == "admin" {
+					switch {
+					case res == "root" && isRoot:
+						return true
+					case res == "tenant" && isTenantAdmin:
+						return true
+					case res == "tenant_only" && !isRoot && isTenantAdmin:
+						return true
+					}
 					continue
 				}
-				hasAdminPolicy = true
-				switch {
-				case act == "root" && isRoot:
+				if isRoot {
 					return true
-				case act == "tenant" && isTenantAdmin:
-					return true
-				case act == "tenant_only" && !isRoot && isTenantAdmin:
+				}
+				if tenantUUID == "" || memberID == 0 {
+					continue
+				}
+				cacheKey := module + ":" + res + ":" + act
+				if allowed, ok := rbacDecisionCache[cacheKey]; ok {
+					if allowed {
+						return true
+					}
+					continue
+				}
+				allowed, err := rbac.Enforce(c.Request.Context(), actor, tenantUUID, memberID, module, res, act)
+				if err != nil {
+					logger.WarnF(c.Request.Context(), "[menus] RBAC check failed permission=%s tenant=%s member=%d err=%v", cacheKey, tenantUUID, memberID, err)
+					rbacDecisionCache[cacheKey] = false
+					continue
+				}
+				rbacDecisionCache[cacheKey] = allowed
+				if allowed {
 					return true
 				}
 			}
-			return !hasAdminPolicy
+			return false
 		}
 
 		// 系统菜单与插件菜单共用 admin:* 显式菜单权限。
@@ -688,13 +719,16 @@ func indexSystemSlots(sys []admdto.AdminMenuItem) map[plugin_mgr.MenuKey]*admdto
 	return idx
 }
 
-func splitPolicy(p string) (string, string) {
-	for i := 0; i < len(p); i++ {
-		if p[i] == ':' {
-			return p[:i], p[i+1:]
-		}
+func splitPolicyTriple(p string) (string, string, string) {
+	parts := strings.Split(strings.TrimSpace(p), ":")
+	switch len(parts) {
+	case 2:
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), "view"
+	case 3:
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
+	default:
+		return "", "", ""
 	}
-	return p, "*"
 }
 
 func i18nOrDefault(key, def string, i18n []admdto.MenuI18nPackage, locales []string) string {

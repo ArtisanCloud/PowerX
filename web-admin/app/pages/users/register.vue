@@ -4,6 +4,7 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { resolveDefaultRoute } = useDefaultMenuRoute();
 const runtimeConfig = useRuntimeConfig();
 const setupStatus = useSetupStatus();
 const verificationEnabled = computed(
@@ -389,7 +390,9 @@ const handleRegister = async () => {
         if (countdown.value <= 0) {
           clearInterval(timer);
           const localePath = useLocalePath();
-          navigateTo(localePath("/agent"));
+          resolveDefaultRoute()
+            .then((path) => navigateTo(localePath(path), { replace: true }))
+            .catch(() => navigateTo(localePath("/home"), { replace: true }));
         }
       }, 1000);
     } else {

@@ -11,6 +11,7 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { resolveAccessibleRoute } = useDefaultMenuRoute();
 
 // 导入认证服务
 const { login } = useAuthService();
@@ -54,10 +55,11 @@ const handleLogin = async () => {
 
       // 获取重定向URL
       const route = useRoute();
-      const redirectTo = (route.query.redirect as string) || "/agent";
+      const redirectParam = String(route.query.redirect || "").trim();
+      const redirectTo = await resolveAccessibleRoute(redirectParam);
 
       // 登录成功后跳转
-      await navigateTo(redirectTo);
+      await navigateTo(redirectTo, { replace: true });
     } else {
       error.value = response.message || t("auth.loginFailed");
     }

@@ -84,12 +84,39 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				if p, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
 					return p, nil
 				}
+				if p, ok := m.opts.Registry.Get(ctx, man.ID); ok && p.Version == man.Version {
+					return p, nil
+				}
 			}
-			return plugin_mgr.Plugin{}, plugin_mgr.NewError(
-				plugin_mgr.CodeAlreadyExists, plugin_mgr.WithOp("install_file"),
-				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
-				plugin_mgr.WithMsg("plugin version already installed"),
-			)
+			return plugin_mgr.Plugin{
+				ID:          man.ID,
+				Version:     man.Version,
+				State:       plugin_mgr.StateInstalled,
+				Runtime:     man.Runtime,
+				Frontend:    man.Frontend,
+				Endpoints:   man.Endpoints,
+				Exposure:    man.Exposure,
+				RBAC:        man.RBAC,
+				Events:      man.Events,
+				Backend:     man.Backend,
+				Routes:      man.Routes,
+				Permissions: append([]plugin_mgr.PermissionSpec(nil), man.Permissions...),
+				Agents:      append([]plugin_mgr.AgentSpec(nil), man.Agents...),
+				Tools:       append([]plugin_mgr.ToolSpec(nil), man.Tools...),
+				Workflows:   append([]plugin_mgr.WorkflowSpec(nil), man.Workflows...),
+				Paths: plugin_mgr.InstalledPaths{
+					Root:              destRoot,
+					FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
+					Entry:             ResolvePath(destRoot, man.Runtime.Entry),
+					PublicDir:         ResolvePath(destRoot, "public"),
+					ContractsOpenAPI:  ResolvePath(destRoot, "contracts/openapi.yaml"),
+					ContractsProtoDir: ResolvePath(destRoot, "contracts/proto"),
+					ConfigDir:         ResolvePath(destRoot, "config"),
+				},
+				Name:        man.Name,
+				Description: man.Description,
+				Metadata:    man.Metadata,
+			}, nil
 		}
 	}
 	if err := os.MkdirAll(destRoot, 0o755); err != nil {

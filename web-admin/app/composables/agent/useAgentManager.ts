@@ -36,16 +36,23 @@ export const useAgentManager = () => {
   const error = ref<string | null>(null);
   const envStore = useEnvStore();
   const ENV = computed(() => envStore.currentEnv || "dev");
+  const fetchAgentsInFlight = useState<Promise<void> | null>(
+    "px-agent-manager-fetch-agents-inflight",
+    () => null
+  );
 
   // 使用封装的 API 客户端
   const { get, post, patch, delete: del } = useApiClient();
 
   // 获取 Agent 列表
   const fetchAgents = async () => {
+    if (fetchAgentsInFlight.value) {
+      return fetchAgentsInFlight.value;
+    }
     loading.value = true;
     error.value = null;
 
-    try {
+    const run = async () => {
       const response = await get<AgentListResponse>("/admin/agents", {
         params: {
           env: ENV.value,
@@ -57,12 +64,21 @@ export const useAgentManager = () => {
       } else {
         throw new Error(response.message || "获取 Agent 列表失败");
       }
+    };
+
+    const inflight = run();
+    fetchAgentsInFlight.value = inflight;
+    try {
+      await inflight;
     } catch (e: any) {
       error.value = e.message || "网络请求失败";
       console.error("获取 Agent 列表失败:", e);
       throw e;
     } finally {
       loading.value = false;
+      if (fetchAgentsInFlight.value === inflight) {
+        fetchAgentsInFlight.value = null;
+      }
     }
   };
 

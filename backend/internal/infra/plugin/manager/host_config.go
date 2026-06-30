@@ -332,6 +332,9 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin,
 
 	values := cloneStringMap(hc.Values)
 	spec := cloneAnyMap(hc.Spec)
+	if spec == nil {
+		spec = map[string]any{}
+	}
 	m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred)
 	m.applyHostCORSContract(values, spec)
 	hc.Values = values

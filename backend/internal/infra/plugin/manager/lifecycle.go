@@ -168,6 +168,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	envAPI["POWERX_PLUGIN_VERSION"] = p.Version
 	if p.Paths.Root != "" {
 		envAPI["POWERX_PLUGIN_ROOT"] = p.Paths.Root
+		injectPluginSkillsDir(envAPI, p.Paths.Root)
 	}
 	if p.Paths.ConfigDir != "" {
 		envAPI["POWERX_PLUGIN_CONFIG_DIR"] = p.Paths.ConfigDir
@@ -272,6 +273,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 
 	// 健康
 	if err := waitHealthy(ctx, apiBaseURL, apiHealthPath, supOpts.HealthInterval, supOpts.HealthTimeout); err != nil {
+		if detail := m.healthFailureDetail(p.ID); detail != "" {
+			err = fmt.Errorf("%w: %s", err, detail)
+		}
 		_ = m.sup.Stop(p.ID)
 		return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 	}
@@ -369,6 +373,10 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		envADM := cloneEnvMap(adm.Env)
 		for k, v := range m.hostEnvForPlugin(p) {
 			envADM[k] = v
+		}
+		if p.Paths.Root != "" {
+			envADM["POWERX_PLUGIN_ROOT"] = p.Paths.Root
+			injectPluginSkillsDir(envADM, p.Paths.Root)
 		}
 		if secret := strings.TrimSpace(envADM["POWERX_SECURITY_CTX_HMAC_SECRET"]); secret != "" {
 			if strings.TrimSpace(envADM["PLUGIN_CTX_HMAC_SECRET"]) == "" {
@@ -767,6 +775,27 @@ func waitSupervisorProcessStable(ctx context.Context, sup *supervisor.Supervisor
 		time.Sleep(120 * time.Millisecond)
 	}
 	return nil
+}
+
+func (m *managerImpl) healthFailureDetail(procID string) string {
+	if m == nil || m.sup == nil {
+		return ""
+	}
+	info, ok := m.sup.Status(procID)
+	if !ok {
+		return "plugin process is not registered in supervisor"
+	}
+	parts := []string{
+		fmt.Sprintf("process_state=%s", info.State),
+		fmt.Sprintf("pid=%d", info.PID),
+	}
+	if strings.TrimSpace(info.LastExitErr) != "" {
+		parts = append(parts, "exit="+strings.TrimSpace(info.LastExitErr))
+	}
+	if logs, _ := m.sup.Logs(procID, 4096); logs != "" {
+		parts = append(parts, "tail="+strconv.Quote(logs))
+	}
+	return strings.Join(parts, " ")
 }
 
 func cloneEnvMap(src map[string]string) map[string]string {

@@ -113,6 +113,11 @@ func BuildFinalResponseContent(plan *ResponsePlan, rawContent string, execErr er
 			return fmt.Sprintf("我还需要你补充这些信息：%s。请直接用自然语言说明。", strings.Join(humanizeMissingFields(plan.MissingFields), "、"))
 		}
 		return "我还需要你补充必要信息后才能继续。请直接用自然语言说明。"
+	case ResponseModeSkillExecution:
+		if content != "" {
+			return content
+		}
+		return "本轮没有收到技能或能力的执行结果，因此不能确认任务已经完成。请查看运行跟踪，确认是否已生成 Skill/Capability 执行节点。"
 	default:
 		if content != "" {
 			return content
