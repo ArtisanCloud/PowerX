@@ -3,11 +3,18 @@ package manager
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,6 +49,90 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 	require.Equal(t, plugin_mgr.StateInstalled, items[0].State)
 }
 
+func TestBootstrapRestoresEnabledPluginAPIProxy(t *testing.T) {
+	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
+		runBootstrapTestPluginProcess()
+		return
+	}
+
+	ctx := context.Background()
+	root := t.TempDir()
+	installedRoot := filepath.Join(root, "installed")
+	registry := NewJSONRegistry(filepath.Join(root, "registry.json"))
+	require.NoError(t, registry.Load(ctx))
+	pluginRoot := filepath.Join(installedRoot, "com.powerx.plugins.restore-test", "0.1.0")
+	writeBootstrapRestoreTestPlugin(t, pluginRoot)
+
+	desc, err := NewFSLoader().LoadDescriptor(ctx, pluginRoot)
+	require.NoError(t, err)
+	require.NoError(t, registry.Put(ctx, desc, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.UpdateState(ctx, desc.Manifest.ID, desc.Manifest.Version, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.Save(ctx))
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	dr := router.NewDynamicRouter("/_p", engine)
+	m := &managerImpl{
+		opts: Options{
+			Enabled:       true,
+			InstalledRoot: installedRoot,
+			Registry:      registry,
+			Loader:        NewFSLoader(),
+			HTTP:          dr,
+			Supervisor:    supervisor.New(),
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8077},
+			},
+			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
+				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
+				return &PluginRuntimeCredential{
+					TenantUUID:     "00000000-0000-0000-0000-000000000001",
+					ClientID:       "com.powerx.plugins.restore-test.00000000-0000-0000-0000-000000000001",
+					ClientSecret:   "runtime-secret",
+					GRPCAddress:    "127.0.0.1:9001",
+					STSAudience:    "powerx:api",
+					STSScope:       "access",
+					GatewayBaseURL: "http://127.0.0.1:8077",
+				}, nil
+			},
+		},
+		http: dr,
+		sup:  supervisor.New(),
+	}
+	m.sup = m.opts.Supervisor
+
+	require.NoError(t, m.Bootstrap(ctx))
+	t.Cleanup(func() {
+		_ = m.Disable(ctx, "com.powerx.plugins.restore-test")
+	})
+
+	resp := performBootstrapDebugRequest(engine)
+	require.Contains(t, resp, `"com.powerx.plugins.restore-test"`)
+	require.Contains(t, resp, `"basePath":"/api/v1"`)
+}
+
+func performBootstrapDebugRequest(engine *gin.Engine) string {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/__debug/plugins", nil)
+	engine.ServeHTTP(rec, req)
+	return rec.Body.String()
+}
+
+func runBootstrapTestPluginProcess() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "ok")
+	})
+	addr := os.Getenv("POWERX_HTTP_ADDR")
+	if addr == "" {
+		addr = "127.0.0.1:0"
+	}
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		os.Exit(1)
+	}
+}
+
 func writeBootstrapTestPlugin(t *testing.T, root string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -56,6 +147,34 @@ endpoints:
   http_base_path: /api/v1
 routes:
   basePath: /api/v1
+frontend:
+  admin:
+    kind: static
+    static_dir: web-admin
+`), 0o644))
+}
+
+func writeBootstrapRestoreTestPlugin(t *testing.T, root string) {
+	t.Helper()
+	exe, err := os.Executable()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "backend", "bin"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "web-admin"), 0o755))
+	wrapper := "#!/bin/sh\nPOWERX_TEST_PLUGIN_PROCESS=1 exec " + exe + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(root, "backend", "bin", "plugin"), []byte(wrapper), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: com.powerx.plugins.restore-test
+name: Restore Test
+version: 0.1.0
+runtime:
+  kind: process
+  entry: backend/bin/plugin
+  health:
+    http: /healthz
+    interval: 100ms
+    timeout: 100ms
+endpoints:
+  http_base_path: /api/v1
 frontend:
   admin:
     kind: static

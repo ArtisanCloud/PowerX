@@ -104,6 +104,7 @@ func TestRegistrationAdapterFromProtocolPrefixesPluginProxyForREST(t *testing.T)
 
 	require.Equal(t, "rest", adapter.TransportType)
 	require.Equal(t, "/_p/demo.plugin/api/v1/templates", adapter.Endpoint)
+	require.Equal(t, "POST", adapter.Labels["method"])
 
 	absolute := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
 		Channel:  "rest",

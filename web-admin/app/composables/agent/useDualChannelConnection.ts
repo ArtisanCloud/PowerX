@@ -564,7 +564,7 @@ export function useDualChannelConnection(
           const statusFromEvent =
             eventType === SSE_EVENT_TYPES.NODE_START
               ? "running"
-              : String(payload?.status || "completed");
+              : String(payload?.status || "pending");
           const patch = {
             node_id: nodeId,
             task_id: payload?.task_id,
@@ -812,6 +812,23 @@ export function useDualChannelConnection(
               type === SSE_EVENT_TYPES.NODE_END
             ) {
               applyProcessEvent(type, payload);
+              if (type === SSE_EVENT_TYPES.NODE_START || type === SSE_EVENT_TYPES.NODE_END) {
+                const { idx, msg } = getPendingAssistant();
+                if (idx >= 0 && msg) {
+                  const runState = ensureRunState(msg);
+                  const status =
+                    type === SSE_EVENT_TYPES.NODE_START
+                      ? "running"
+                      : String(payload?.status || "").trim().toLowerCase();
+                  if (status) {
+                    upsertRunTask(runState, {
+                      ...payload,
+                      status,
+                      task_id: payload?.task_id || payload?.node_id || payload?.flow_id,
+                    });
+                  }
+                }
+              }
             }
             return;
           }

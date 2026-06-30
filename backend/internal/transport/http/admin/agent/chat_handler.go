@@ -1190,6 +1190,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
 	runCtx = context.WithValue(runCtx, "env", env)
 	runCtx = context.WithValue(runCtx, "agent_env", env)
+	if authz := strings.TrimSpace(c.GetHeader("Authorization")); authz != "" {
+		runCtx = context.WithValue(runCtx, "authorization", authz)
+	}
 	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantCtx.UUID()))
 	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
@@ -1768,6 +1771,9 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
 	runCtx = context.WithValue(runCtx, "env", env)
 	runCtx = context.WithValue(runCtx, "agent_env", env)
+	if authz := strings.TrimSpace(c.GetHeader("Authorization")); authz != "" {
+		runCtx = context.WithValue(runCtx, "authorization", authz)
+	}
 	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantUUID))
 	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))

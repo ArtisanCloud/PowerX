@@ -366,7 +366,11 @@ func asStringFromMap(values map[string]any, key string) string {
 	if values == nil {
 		return ""
 	}
-	return strings.TrimSpace(fmt.Sprint(values[key]))
+	value, ok := values[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func boolFromMap(values map[string]any, key string) bool {

@@ -385,7 +385,7 @@ func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpo
 		method = strings.ToUpper(strings.TrimSpace(getLabel(labels, "method")))
 	}
 	if method == "" {
-		method = http.MethodGet
+		return restInvokePayload{}, errors.New("REST invocation requires method")
 	}
 	endpoint := strings.TrimSpace(getString(raw["endpoint"]))
 	if endpoint == "" {
@@ -504,6 +504,11 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/json")
 	}
+	if req.Header.Get("Authorization") == "" {
+		if authz := firstRESTContextString(ctx, "authorization", "Authorization"); authz != "" {
+			req.Header.Set("Authorization", authz)
+		}
+	}
 	if traceID != "" && req.Header.Get("X-Trace-Id") == "" {
 		req.Header.Set("X-Trace-Id", traceID)
 	}
@@ -592,6 +597,15 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 		"value":  out,
 		"status": resp.Status,
 	}, nil
+}
+
+func firstRESTContextString(ctx context.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(extractCtxString(ctx, key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func applyRESTPathParams(endpoint string, raw map[string]interface{}) string {

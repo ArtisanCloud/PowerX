@@ -81,7 +81,6 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		menuPerm("agent.management"),
 		menuPerm("agent.team"),
 		menuPerm("agent.team_tasks"),
-		menuPerm("agent.plugin_chat"),
 		menuPerm("agent.traces"),
 		menuPerm("skills"),
 		menuPerm("knowledge"),

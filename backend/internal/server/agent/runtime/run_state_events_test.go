@@ -62,6 +62,53 @@ func TestRunStateSinkTranslatesNodeEvents(t *testing.T) {
 	}
 }
 
+func TestRunStateSinkDoesNotCompleteTaskWithoutResultEvidence(t *testing.T) {
+	base := &captureSink{}
+	sink := NewRunStateSink(context.Background(), base)
+
+	if err := sink.Emit(dto.EventNodeEnd, map[string]any{
+		"task_id":   "t1",
+		"node_kind": dto.NodeKindSkill,
+		"node_ref":  "skill.template",
+		"status":    dto.AgentTaskStatusCompleted,
+	}); err != nil {
+		t.Fatalf("emit end: %v", err)
+	}
+
+	if len(base.events) != 1 {
+		t.Fatalf("events=%v", base.events)
+	}
+	if base.events[0] != dto.EventAgentRunTaskStatus {
+		t.Fatalf("event=%s want %s", base.events[0], dto.EventAgentRunTaskStatus)
+	}
+	state, ok := base.data[0].(dto.AgentTaskState)
+	if !ok {
+		t.Fatalf("payload type=%T", base.data[0])
+	}
+	if state.Status == dto.AgentTaskStatusCompleted {
+		t.Fatalf("task completed without result evidence: %#v", state)
+	}
+}
+
+func TestRunStateSinkCompletesTaskWithResultEvidence(t *testing.T) {
+	base := &captureSink{}
+	sink := NewRunStateSink(context.Background(), base)
+
+	if err := sink.Emit(dto.EventNodeEnd, map[string]any{
+		"task_id": "t1",
+		"status":  dto.AgentTaskStatusCompleted,
+		"result_summary": map[string]any{
+			"success": true,
+		},
+	}); err != nil {
+		t.Fatalf("emit end: %v", err)
+	}
+
+	if len(base.events) != 1 || base.events[0] != dto.EventAgentRunTaskCompleted {
+		t.Fatalf("events=%v", base.events)
+	}
+}
+
 func TestExtractAssistantTextFromAgentRunFinal(t *testing.T) {
 	payload := dto.AgentRunEvent{
 		Event: dto.EventFinal,

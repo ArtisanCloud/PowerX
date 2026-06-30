@@ -1,18 +1,7 @@
 import { test, expect } from "./fixtures/authenticatedTest";
-import type { Locator } from "@playwright/test";
-
-const setControlValue = async (locator: Locator, value: string) => {
-  await locator.evaluate((element: HTMLInputElement | HTMLTextAreaElement, nextValue: string) => {
-    const proto = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-    setter?.call(element, nextValue);
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-  }, value);
-};
 
 test.describe("plugin agent skill bridge", () => {
-  test("插件本地 Chat 与 Web Agent Chat 共用 Agent Runtime SSE 链路", async ({ page }) => {
+  test("平台 Agent 任务消费统一 Agent Runtime SSE 链路", async ({ page }) => {
     const agentRuntimeRequests: string[] = [];
     const directBusinessRequests: string[] = [];
 
@@ -170,15 +159,6 @@ test.describe("plugin agent skill bridge", () => {
       });
     });
 
-    await page.goto("/plugins/agent-chat");
-    await expect(page.locator("h1", { hasText: "插件 Agent Chat" })).toBeVisible();
-    const pluginInput = page.locator("textarea").first();
-    await setControlValue(pluginInput, "帮我重构这个 shorts：https://example.com/a.mp4");
-    const pluginSend = page.locator('button[aria-label="发送"]').first();
-    await expect(pluginSend).toBeEnabled();
-    await pluginSend.click();
-    await expect(page.getByText("已创建视频重构任务")).toBeVisible();
-
     await page.goto("/agent/team-tasks?team_id=11");
     await expect(page.getByText("团队任务", { exact: true }).first()).toBeVisible();
     await page.evaluate(async () => {
@@ -191,7 +171,7 @@ test.describe("plugin agent skill bridge", () => {
       });
     });
 
-    expect(agentRuntimeRequests.length).toBeGreaterThanOrEqual(2);
+    expect(agentRuntimeRequests.length).toBeGreaterThanOrEqual(1);
     expect(directBusinessRequests).toHaveLength(0);
   });
 });

@@ -397,6 +397,18 @@ func registrationAdapterFromProtocol(capabilityID string, pluginID string, proto
 	if serviceRef == "" {
 		serviceRef = strings.TrimSpace(protocol.ToolRef)
 	}
+	labels := map[string]string{
+		"source": "plugin_catalog",
+	}
+	if method := strings.ToUpper(strings.TrimSpace(protocol.Method)); method != "" {
+		labels["method"] = method
+	}
+	if rpc := strings.TrimSpace(protocol.RPC); rpc != "" {
+		labels["rpc"] = rpc
+	}
+	if toolRef := strings.TrimSpace(protocol.ToolRef); toolRef != "" {
+		labels["tool_ref"] = toolRef
+	}
 	return registryservice.AdapterEndpoint{
 		AdapterID:     capabilityID + "." + adapterID,
 		TransportType: channel,
@@ -404,9 +416,7 @@ func registrationAdapterFromProtocol(capabilityID string, pluginID string, proto
 		ServiceRef:    serviceRef,
 		Weight:        100,
 		TimeoutMS:     30000,
-		Labels: map[string]string{
-			"source": "plugin_catalog",
-		},
+		Labels:        labels,
 		IsActive: true,
 	}
 }

@@ -119,6 +119,107 @@ func TestImportServicePublishLatestMarksPluginSkillPublished(t *testing.T) {
 	require.True(t, rec.IsLatestPublished)
 }
 
+func TestImportDraftDoesNotDemotePublishedPluginSkill(t *testing.T) {
+	db := setupSkillsServiceTestDB(t)
+	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	importSvc := NewImportService(registryRepo, nil)
+
+	req := ImportRequest{
+		SkillID:    "powerxplugin.template.basic",
+		Version:    "1.0.0",
+		Source:     skillmodel.SkillSourcePlugin,
+		BundleURI:  "plugin-registry://com.powerx.plugins.base/powerxplugin.template.basic/1.0.0",
+		Checksum:   "sha256:plugin-template-basic",
+		Manifest:   []byte(`{"skill_id":"powerxplugin.template.basic","title":"模板对象基础能力"}`),
+		Operator:   "plugin-sync",
+		ImportType: ImportTypeUpload,
+	}
+	_, err := importSvc.ImportDraft(context.Background(), req)
+	require.NoError(t, err)
+	require.NoError(t, importSvc.PublishLatest(context.Background(), req.SkillID, req.Version, "plugin-sync", "plugin registry sync"))
+
+	req.Manifest = []byte(`{"skill_id":"powerxplugin.template.basic","title":"模板对象基础能力 updated"}`)
+	_, err = importSvc.ImportDraft(context.Background(), req)
+	require.NoError(t, err)
+
+	rec, err := registryRepo.GetLatestPublished(context.Background(), req.SkillID)
+	require.NoError(t, err)
+	require.Equal(t, skillmodel.SkillStatusPublished, rec.Status)
+	require.True(t, rec.IsLatestPublished)
+	require.Contains(t, string(rec.ManifestJSON), "updated")
+}
+
+func TestImportPluginPublishedCreatesPublishedRecordDirectly(t *testing.T) {
+	db := setupSkillsServiceTestDB(t)
+	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	importSvc := NewImportService(registryRepo, nil)
+
+	rec, err := importSvc.ImportPluginPublished(context.Background(), ImportRequest{
+		SkillID:    "powerxplugin.template.basic",
+		Version:    "1.0.0",
+		Source:     skillmodel.SkillSourcePlugin,
+		BundleURI:  "plugin-registry://com.powerx.plugins.base/powerxplugin.template.basic/1.0.0",
+		Checksum:   "sha256:plugin-template-basic",
+		Manifest:   []byte(`{"skill_id":"powerxplugin.template.basic","title":"模板对象基础能力"}`),
+		Operator:   "plugin-sync",
+		ImportType: ImportTypeUpload,
+	}, "plugin registry sync")
+	require.NoError(t, err)
+	require.Equal(t, skillmodel.SkillStatusPublished, rec.Status)
+	require.True(t, rec.IsLatestPublished)
+	require.NotNil(t, rec.PublishedAt)
+
+	latest, err := registryRepo.GetLatestPublished(context.Background(), "powerxplugin.template.basic")
+	require.NoError(t, err)
+	require.Equal(t, rec.ID, latest.ID)
+	require.Equal(t, skillmodel.SkillStatusPublished, latest.Status)
+}
+
+func TestImportPluginPublishedCreatesCapabilityBindings(t *testing.T) {
+	db := setupSkillsServiceTestDB(t)
+	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(db)
+	importSvc := NewImportService(registryRepo, nil).
+		WithCapabilityBindingRepository(bindingRepo)
+
+	_, err := importSvc.ImportPluginPublished(context.Background(), ImportRequest{
+		SkillID:   "court_mate.knowledge.basketball_extraction.local",
+		Version:   "1.0.0",
+		Source:    skillmodel.SkillSourcePlugin,
+		BundleURI: "plugin-registry://com.powerx.plugins.court-mate.local/court_mate.knowledge.basketball_extraction.local/1.0.0",
+		Checksum:  "sha256:plugin-court-mate-knowledge",
+		Manifest: []byte(`{
+			"skill_id":"court_mate.knowledge.basketball_extraction.local",
+			"title":"篮球训练知识抽取",
+			"description":"从文档抽取篮球训练知识候选",
+			"intent_examples":["抽取训练动作"],
+			"executor":{
+				"type":"capability",
+				"prepare_capability":"com.powerx.plugins.court-mate.local.knowledge.extract.prepare",
+				"action_map":{
+					"extract":"com.powerx.plugins.court-mate.local.knowledge.extract_basketball_training"
+				}
+			}
+		}`),
+		Operator:   "plugin-sync",
+		ImportType: ImportTypeUpload,
+	}, "plugin registry sync")
+	require.NoError(t, err)
+
+	bindings, err := bindingRepo.ListBySkillVersion(context.Background(), "court_mate.knowledge.basketball_extraction.local", "1.0.0")
+	require.NoError(t, err)
+	require.Len(t, bindings, 2)
+	capabilities := map[string]bool{}
+	for _, binding := range bindings {
+		capabilities[binding.CapabilityID] = true
+		require.Equal(t, "active", binding.BindingStatus)
+		require.Equal(t, "tenant", binding.VisibilityScope)
+		require.Equal(t, skillmodel.SkillSourcePlugin, binding.SourceConstraint)
+	}
+	require.True(t, capabilities["com.powerx.plugins.court-mate.local.knowledge.extract.prepare"])
+	require.True(t, capabilities["com.powerx.plugins.court-mate.local.knowledge.extract_basketball_training"])
+}
+
 func TestIntegrityPolicy_ValidateImportAndPublish(t *testing.T) {
 	policy := &IntegrityPolicy{RequireChecksum: true, RequireSignature: true}
 

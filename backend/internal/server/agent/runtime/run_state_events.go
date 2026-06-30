@@ -66,14 +66,20 @@ func (s *RunStateSink) translate(event string, payload any) (string, any, bool) 
 	case dto.EventNodeStart:
 		return dto.EventAgentRunTaskStarted, s.taskState(payload, dto.AgentTaskStatusRunning), true
 	case dto.EventNodeEnd:
-		status := dto.AgentTaskStatusCompleted
-		if strings.EqualFold(stringFromAny(mapValue(payload, "status")), dto.AgentTaskStatusFailed) {
+		rawStatus := strings.ToLower(strings.TrimSpace(stringFromAny(mapValue(payload, "status"))))
+		status := dto.AgentTaskStatusPending
+		if strings.EqualFold(rawStatus, dto.AgentTaskStatusFailed) {
 			status = dto.AgentTaskStatusFailed
+		} else if strings.EqualFold(rawStatus, dto.AgentTaskStatusCompleted) && hasTaskCompletionEvidence(payload) {
+			status = dto.AgentTaskStatusCompleted
 		}
 		if status == dto.AgentTaskStatusFailed {
 			return dto.EventAgentRunTaskFailed, s.taskState(payload, status), true
 		}
-		return dto.EventAgentRunTaskCompleted, s.taskState(payload, status), true
+		if status == dto.AgentTaskStatusCompleted {
+			return dto.EventAgentRunTaskCompleted, s.taskState(payload, status), true
+		}
+		return dto.EventAgentRunTaskStatus, s.taskState(payload, status), true
 	case dto.EventFinal:
 		return dto.EventAgentRunFinal, s.wrap(event, payload), true
 	case dto.EventError:
@@ -83,6 +89,36 @@ func (s *RunStateSink) translate(event string, payload any) (string, any, bool) 
 	default:
 		return "", nil, false
 	}
+}
+
+func hasTaskCompletionEvidence(payload any) bool {
+	for _, key := range []string{"result", "result_summary", "data", "links"} {
+		value := mapValue(payload, key)
+		if value == nil {
+			continue
+		}
+		switch v := value.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				return true
+			}
+		case []any:
+			if len(v) > 0 {
+				return true
+			}
+		case []map[string]any:
+			if len(v) > 0 {
+				return true
+			}
+		case map[string]any:
+			if len(v) > 0 {
+				return true
+			}
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func (s *RunStateSink) wrap(event string, payload any) dto.AgentRunEvent {

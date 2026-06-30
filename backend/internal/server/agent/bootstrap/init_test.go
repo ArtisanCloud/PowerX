@@ -30,3 +30,20 @@ func TestExtractManifestResponseGuidanceKeepsModeLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestAsStringFromMapTreatsMissingOrNilAsEmpty(t *testing.T) {
+	values := map[string]any{
+		"nil_value": nil,
+		"protocol":  " rest ",
+	}
+
+	if got := asStringFromMap(values, "missing"); got != "" {
+		t.Fatalf("missing key = %q, want empty", got)
+	}
+	if got := asStringFromMap(values, "nil_value"); got != "" {
+		t.Fatalf("nil value = %q, want empty", got)
+	}
+	if got := asStringFromMap(values, "protocol"); got != "rest" {
+		t.Fatalf("protocol = %q, want rest", got)
+	}
+}

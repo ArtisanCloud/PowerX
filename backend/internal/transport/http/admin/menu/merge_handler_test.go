@@ -88,3 +88,29 @@ func TestPluginSystemMenuChildrenUseDistinctPaths(t *testing.T) {
 		t.Fatalf("plugin market and subscriptions must not share one path")
 	}
 }
+
+func TestAgentSystemMenuContainsWorkspaceChildren(t *testing.T) {
+	want := map[plugin_mgr.MenuKey]string{
+		"agent_chat":        "/agent/sessions",
+		"agent_management":  "/settings/ai/agents",
+		"agent_team":        "/settings/ai/agent-teams",
+		"agent_team_tasks":  "/agent/team-tasks",
+		"agent_traces":      "/agent/traces",
+	}
+
+	got := map[plugin_mgr.MenuKey]string{}
+	for _, item := range BuildSystemMenus() {
+		if item.Key != plugin_mgr.KeyAgent {
+			continue
+		}
+		for _, child := range item.Children {
+			got[child.Key] = child.URL
+		}
+	}
+
+	for key, path := range want {
+		if got[key] != path {
+			t.Fatalf("agent child %s path mismatch: got %q want %q", key, got[key], path)
+		}
+	}
+}

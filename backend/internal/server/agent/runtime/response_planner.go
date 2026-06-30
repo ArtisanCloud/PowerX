@@ -52,7 +52,7 @@ func (p *ResponsePlanner) Plan(_ context.Context, in ResponsePlanInput) (*Respon
 			shouldCallTool = true
 		}
 		targetIDs = pendingTaskTargetCapabilityIDs(in.PendingTask, allowedIDs)
-	} else if len(in.AllowedCapabilities) > 0 {
+	} else {
 		switch primaryResponseMode(intents) {
 		case ResponseModeCapabilityHowTo:
 			mode = ResponseModeCapabilityHowTo
@@ -60,27 +60,33 @@ func (p *ResponsePlanner) Plan(_ context.Context, in ResponsePlanInput) (*Respon
 			useCapabilityContext = true
 			includeExamples = true
 			includeSchema = true
-			targetIDs = firstCapabilityID(allowedIDs)
-			if len(targetIDs) == 0 {
-				targetIDs = allowedIDs
+			if len(in.AllowedCapabilities) > 0 {
+				targetIDs = firstCapabilityID(allowedIDs)
+				if len(targetIDs) == 0 {
+					targetIDs = allowedIDs
+				}
 			}
 		case ResponseModeCapabilityIntro:
 			mode = ResponseModeCapabilityIntro
-			reason = "user asks current agent capabilities"
+			reason = "user asks current agent identity or capabilities"
 			useCapabilityContext = true
 			includeExamples = true
-			targetIDs = allowedIDs
+			if len(in.AllowedCapabilities) > 0 {
+				targetIDs = allowedIDs
+			}
 		case ResponseModeClarifyParams:
-			mode = ResponseModeClarifyParams
-			reason = "user asks to execute but required parameters are missing"
-			useCapabilityContext = true
-			includeExamples = true
-			includeSchema = true
-			targetIDs = firstCapabilityID(allowedIDs)
-			missingFields = missingRequiredFields(in.UserMessage, in.AllowedCapabilities)
-			needsClarification = len(missingFields) > 0
-			if !needsClarification {
-				reason = "user asks to execute but runtime needs capability metadata to clarify parameters"
+			if len(in.AllowedCapabilities) > 0 {
+				mode = ResponseModeClarifyParams
+				reason = "user asks to execute but required parameters are missing"
+				useCapabilityContext = true
+				includeExamples = true
+				includeSchema = true
+				targetIDs = firstCapabilityID(allowedIDs)
+				missingFields = missingRequiredFields(in.UserMessage, in.AllowedCapabilities)
+				needsClarification = len(missingFields) > 0
+				if !needsClarification {
+					reason = "user asks to execute but runtime needs capability metadata to clarify parameters"
+				}
 			}
 		}
 	}

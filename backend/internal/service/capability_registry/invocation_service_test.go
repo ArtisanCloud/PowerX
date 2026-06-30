@@ -78,6 +78,41 @@ func TestInvocationServiceInvokeRESTAppliesPathParamsAndTenantHeader(t *testing.
 	require.Equal(t, "https://assets.example/signed", result["url"])
 }
 
+func TestBuildRESTInvokePayloadRequiresMethod(t *testing.T) {
+	t.Parallel()
+
+	_, err := buildRESTInvokePayloadWithDefaults(map[string]interface{}{
+		"endpoint": "/api/v1/templates",
+	}, "", nil)
+	require.ErrorContains(t, err, "REST invocation requires method")
+}
+
+func TestInvocationServiceInvokeRESTForwardsAuthorizationFromContext(t *testing.T) {
+	t.Parallel()
+	testutil.SkipIfNoLocalListener(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "Bearer inherited", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer server.Close()
+
+	svc := &InvocationService{
+		httpClient:  server.Client(),
+		httpBaseURL: server.URL,
+	}
+
+	ctx := context.WithValue(context.Background(), "authorization", "Bearer inherited")
+	result, err := svc.invokeREST(ctx, "com.powerx.plugins.base.local.template.prepare", restInvokePayload{
+		Method:   http.MethodPost,
+		Endpoint: "/_p/com.powerx.plugins.base.local/api/v1/integration/capabilities/invoke",
+		Body:     map[string]interface{}{"action": "create"},
+	}, "trace-http", false)
+	require.NoError(t, err)
+	require.Equal(t, "ok", result["status"])
+}
+
 func TestInvocationServiceInvokeGRPC(t *testing.T) {
 	t.Parallel()
 

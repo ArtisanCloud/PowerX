@@ -179,10 +179,12 @@ func newPluginSkillDiscoveryService(deps *shared.Deps) *skillservice.PluginSkill
 		return nil
 	}
 	registryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(deps.DB)
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
 	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
-	importSvc := skillservice.NewImportService(registryRepo, auditSvc)
+	importSvc := skillservice.NewImportService(registryRepo, auditSvc).
+		WithCapabilityBindingRepository(bindingRepo)
 	return skillservice.NewPluginSkillDiscoveryService(importSvc)
 }
 

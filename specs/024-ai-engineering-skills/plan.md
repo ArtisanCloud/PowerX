@@ -244,6 +244,7 @@ Reference: [`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`](../..
 5. **历史恢复**：建立 `AgentRunState` 快照，页面刷新或从 Trace 页面进入时可恢复 session/message/task 状态。
 6. **UI 对齐**：PowerX Agent Chat、Team Task、Agent Trace 与 PowerXPlugin Agent Chat 调试页必须消费同一 reducer 语义和组件模型。
 7. **A2A 映射**：A2A `agent_handoff` 仍是多智能体调度能力，但必须映射为 `agent_run.task_status` 让用户看见子 Agent 节点状态。
+8. **Run/Task 边界**：`agent_run.final/ended` 只代表本轮回复流程结束，不代表业务任务完成；UI 只能依据 `agent_run.task_completed` 或 task snapshot `status=completed + result/links` 展示任务完成。
 
 ## Implementation Backwrite (2026-03-19)
 

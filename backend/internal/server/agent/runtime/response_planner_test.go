@@ -46,6 +46,27 @@ func TestResponsePlannerCapabilityIntroUsesBoundCapabilities(t *testing.T) {
 	}
 }
 
+func TestResponsePlannerAgentIdentityUsesAgentProfileWithoutCapabilities(t *testing.T) {
+	plan, err := NewResponsePlanner().Plan(context.Background(), ResponsePlanInput{
+		UserMessage: "你好，你是什么智能体？",
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if plan.ResponseMode != ResponseModeCapabilityIntro {
+		t.Fatalf("mode=%s", plan.ResponseMode)
+	}
+	if !plan.UseCapabilityCtx {
+		t.Fatalf("expected identity question to use context")
+	}
+	if !hasResponseIntent(plan.ResponseIntents, ResponseIntentAgentIdentity) {
+		t.Fatalf("missing agent identity intent: %#v", plan.ResponseIntents)
+	}
+	if len(plan.TargetCapabilityIDs) != 0 {
+		t.Fatalf("unexpected target ids without allowed capabilities: %#v", plan.TargetCapabilityIDs)
+	}
+}
+
 func TestResponsePlannerCapabilityIntroSupportsMultiIntent(t *testing.T) {
 	plan, err := NewResponsePlanner().Plan(context.Background(), ResponsePlanInput{
 		UserMessage: "你好，你是什么智能体？你能做什么？请只列出你已绑定的能力。你建议我先测试哪一个能力？",
@@ -363,6 +384,20 @@ func TestSkillExecutionFallbackDoesNotClaimCompletionWithoutResult(t *testing.T)
 	for _, want := range []string{"没有收到", "执行结果", "不能确认"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("fallback missing safe wording %q in %s", want, content)
+		}
+	}
+}
+
+func TestNormalChatFiltersBusinessCompletionWithoutExecutionResult(t *testing.T) {
+	content := BuildFinalResponseContent(&ResponsePlan{ResponseMode: ResponseModeNormalChat}, "已为您创建标题为“测试模板”的模板，操作已完成。", nil)
+	for _, forbidden := range []string{"已为您创建", "操作已完成", "创建成功"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("normal chat claimed execution state %q in %s", forbidden, content)
+		}
+	}
+	for _, want := range []string{"没有生成", "执行结果", "不能确认"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("safe fallback missing %q in %s", want, content)
 		}
 	}
 }

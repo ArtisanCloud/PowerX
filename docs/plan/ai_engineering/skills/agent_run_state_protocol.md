@@ -72,7 +72,29 @@ User Message
 pending | awaiting_params | running | completed | failed | skipped
 ```
 
-## 4.1 Run Summary 与 Task Graph
+## 4.1 Run Completion 与 Task Completion 边界
+
+`agent_run.ended` 和旧事件 `end success=true` 只表示一轮 Message Run 已经结束，不能表示业务任务完成。UI、Trace 和历史快照必须区分以下两类状态：
+
+| 状态类型 | 权威信号 | 含义 | UI 展示 |
+| --- | --- | --- | --- |
+| Run 完成 | `agent_run.ended` | 本轮对话流程结束，assistant 回复已生成并持久化 | 可显示“已回复”或收起运行摘要 |
+| Task 等待参数 | `agent_run.awaiting_params` 或 task `status=awaiting_params` | Skill 参数不完整，等待用户补充 | 显示缺参卡片 |
+| Task 执行中 | `agent_run.task_started` 或 task `status=running` | Skill/Tool/A2A 节点正在执行 | 显示执行中、进度、参与 Agent |
+| Task 完成 | `agent_run.task_completed` 或 task `status=completed` 且包含真实 `result` 或 `links` | 业务任务真实执行成功 | 显示任务完成和结果 |
+| Task 失败 | `agent_run.task_failed` 或 task `status=failed` 且包含 `error` | 业务任务真实执行失败 | 显示失败、错误摘要、trace 入口 |
+| 普通回复 | 没有 task 事件，只有 `agent_run.final/ended` | 本轮只生成自然语言回复，没有执行业务任务 | 不显示任务完成卡 |
+
+硬性规则：
+
+1. `agent_run.final` 和 `agent_run.ended` 不得驱动 task 进入 `completed`。
+2. `response_plan.should_call_tool=false` 且没有 task 事件时，UI 不得显示“任务完成”。
+3. 只有 `agent_run.task_completed` 或 task snapshot 中的 `status=completed` 可以驱动业务任务完成态。
+4. `completed` 必须有真实执行结果来源：Skill result、Capability result、A2A child result 或等价结构化 task result。
+5. 如果没有真实执行结果，但 final response 文案包含“已创建、已更新、已删除、已发布、已同步、已完成”等成功性业务结论，Runtime 必须拦截或改写，UI 也不得据此生成成功任务卡。
+6. 旧事件 `intent/plan/node_start/node_end/final/end` 只能作为兼容期内部输入，进入 UI 前必须转换为 `agent_run.*`；其中 `final/end` 只能更新 run 级状态，不能更新 task 级状态。
+
+## 4.2 Run Summary 与 Task Graph
 
 `agent_run.plan_created` 必须携带本轮总任务图，作为多任务、多 Agent 串并行展示的权威来源。
 

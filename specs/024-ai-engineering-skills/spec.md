@@ -271,6 +271,7 @@
 - **FR-040p**: Web Admin Agent Chat、Team Task、Agent Trace 与 PowerXPlugin Agent Chat 调试页必须消费同一套 `AgentRunState` 语义，禁止插件调试页自定义一套私有任务状态协议。
 - **FR-040q**: Skill manifest 必须支持 Agent Run State 展示元数据，至少包含 `action_required_args/action_optional_args/slot_mapping/pending_task_policy/result_presentation` 的解析与治理态保存能力。
 - **FR-040r**: Final Response 在没有真实 `task_completed`、Skill result、Capability result 或 A2A child result 时，不得输出“已创建/已更新/已删除/已完成”等成功性业务结论。
+- **FR-040s**: UI 与历史快照必须区分 Run 完成和 Task 完成：`agent_run.final/ended` 或旧 `final/end success=true` 只能表示本轮回复流程结束，不得驱动业务 task 进入 `completed`；只有 `agent_run.task_completed` 或 task snapshot `status=completed` 且包含真实 `result/links` 时，才能展示“任务完成”。
 - **FR-041**: 系统必须支持主 Agent 在单次请求内创建 A2A 执行计划，并将子任务分发给多个子 Agent（至少支持串行与并行两种调度模式）。
 - **FR-041a**: 系统必须提供 PowerX Core 内置 A2A seed 数据，用于初始化发布准备多智能体演示团队；seed 至少包含 `release.coordinator`、三个发布准备子 Agent、四个 `powerx.release.*` 内置 demo Skills、Agent-Skill Binding、Agent Team 与 Team Members。
 - **FR-041b**: A2A seed 必须是 upsert 幂等语义，重复执行不得删除用户已有绑定，不得因唯一索引冲突失败。

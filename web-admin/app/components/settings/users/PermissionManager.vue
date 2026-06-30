@@ -242,11 +242,6 @@ const menuLabels: Record<
     group: "智能体",
     icon: "i-heroicons-list-bullet",
   },
-  "agent.plugin_chat": {
-    label: "插件 Agent Chat",
-    group: "智能体",
-    icon: "i-heroicons-command-line",
-  },
   "agent.traces": {
     label: "Agent 运行追踪",
     group: "智能体",
@@ -348,7 +343,6 @@ const menuOrder = [
   "agent.team",
   "agent.chat",
   "agent.team_tasks",
-  "agent.plugin_chat",
   "agent.traces",
   "skills",
   "knowledge",

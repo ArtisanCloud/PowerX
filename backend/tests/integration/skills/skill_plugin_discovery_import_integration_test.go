@@ -13,12 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPluginSkillDiscoveryImportsDraftAndRejectsInvalidManifest(t *testing.T) {
+func TestPluginSkillDiscoveryImportsPublishedAndRejectsInvalidManifest(t *testing.T) {
 	db := setupSkillsDB(t)
 	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(db)
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(db)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(db)
-	importSvc := skillservice.NewImportService(registryRepo, skillservice.NewAuditTraceService(traceRepo, auditRepo))
+	importSvc := skillservice.NewImportService(registryRepo, skillservice.NewAuditTraceService(traceRepo, auditRepo)).
+		WithCapabilityBindingRepository(bindingRepo)
 
 	pluginServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/v1/plugin/skills", r.URL.Path)
@@ -41,12 +43,20 @@ func TestPluginSkillDiscoveryImportsDraftAndRejectsInvalidManifest(t *testing.T)
 	})
 	require.NoError(t, err)
 	require.Len(t, imported, 1)
-	require.Equal(t, skillmodel.SkillStatusDraft, imported[0].Status)
+	require.Equal(t, skillmodel.SkillStatusPublished, imported[0].Status)
+	require.True(t, imported[0].IsLatestPublished)
 	require.Equal(t, skillmodel.SkillSourcePlugin, imported[0].Source)
 
 	saved, err := registryRepo.GetBySkillVersion(context.Background(), "mediax.video_rebuilder.cn", "1.0.0")
 	require.NoError(t, err)
 	require.Equal(t, pluginServer.URL, saved.SourceURL)
+	require.Equal(t, skillmodel.SkillStatusPublished, saved.Status)
+
+	bindings, err := bindingRepo.ListBySkillVersion(context.Background(), "mediax.video_rebuilder.cn", "1.0.0")
+	require.NoError(t, err)
+	require.Len(t, bindings, 1)
+	require.Equal(t, "creation.video_automation.ingest", bindings[0].CapabilityID)
+	require.Equal(t, "active", bindings[0].BindingStatus)
 
 	invalidServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

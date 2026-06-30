@@ -428,12 +428,12 @@ const processNodeStats = computed(() => {
   };
   for (const node of runStateTasks.value) {
     summary.total += 1;
-    const status = String(node?.status || "completed")
+    const status = String(node?.status || "pending")
       .trim()
       .toLowerCase();
     if (status === "running") summary.running += 1;
     else if (status === "failed") summary.failed += 1;
-    else summary.completed += 1;
+    else if (status === "completed" || status === "skipped") summary.completed += 1;
     const kind = String(node?.node_kind || "node")
       .trim()
       .toLowerCase();
@@ -463,7 +463,8 @@ const formatNodeStatus = (status: string) => {
   if (v === "running") return "执行中";
   if (v === "failed") return "失败";
   if (v === "skipped") return "跳过";
-  return "完成";
+  if (v === "completed") return "完成";
+  return "待执行";
 };
 const buildNodeTitle = (node: any) => {
   const kind = formatNodeKind(node?.node_kind || node?.node_ref || "node");
@@ -612,7 +613,8 @@ const taskStatusClass = (status: string) => {
   if (v === "awaiting_params") return "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200";
   if (v === "failed") return "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200";
   if (v === "skipped") return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
-  return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
+  if (v === "completed") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
+  return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
 };
 const runStateStatusClass = (status: string) => {
   const v = String(status || "").toLowerCase();
@@ -627,7 +629,8 @@ const resolveRunStateStatus = (summary: ReturnType<typeof buildRunStateSummary>)
   if (summary.awaiting > 0) return "awaiting_params";
   if (summary.running > 0) return "running";
   if (summary.pending > 0) return "pending";
-  return "completed";
+  if (summary.total > 0 && summary.completed + summary.skipped >= summary.total) return "completed";
+  return "pending";
 };
 const formatMissingFields = (fields: any[]) =>
   fields.map((field) => String(field).replace(/^template\./, "")).join("、");

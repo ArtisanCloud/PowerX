@@ -84,7 +84,26 @@ func NormalizeManifestJSON(raw []byte, fallbackVersion string) (map[string]inter
 		"entrypoints": entrypoints,
 		"schema":      toString(obj["schema"]),
 	}
-	for _, key := range []string{"skill_id", "provider", "title", "intent_examples", "input_schema", "output_schema", "prompt_refs", "executor", "visibility", "status"} {
+	for _, key := range []string{
+		"skill_id",
+		"provider",
+		"title",
+		"intent_examples",
+		"response_guidance",
+		"action_capabilities",
+		"action_required_args",
+		"action_optional_args",
+		"slot_mapping",
+		"pending_task_policy",
+		"state_contract",
+		"result_presentation",
+		"input_schema",
+		"output_schema",
+		"prompt_refs",
+		"executor",
+		"visibility",
+		"status",
+	} {
 		if value, ok := obj[key]; ok {
 			normalized[key] = value
 		}

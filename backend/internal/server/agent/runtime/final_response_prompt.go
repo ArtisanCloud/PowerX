@@ -120,10 +120,43 @@ func BuildFinalResponseContent(plan *ResponsePlan, rawContent string, execErr er
 		return "本轮没有收到技能或能力的执行结果，因此不能确认任务已经完成。请查看运行跟踪，确认是否已生成 Skill/Capability 执行节点。"
 	default:
 		if content != "" {
+			if plan.ResponseMode == ResponseModeNormalChat && claimsBusinessCompletion(content) {
+				return "本轮没有生成技能或能力执行结果，因此不能确认任务已经完成。请重新发送明确的执行指令，或在运行跟踪中确认是否出现 Skill/Capability 执行节点。"
+			}
 			return content
 		}
-		return "任务已执行完成。"
+		return "本轮没有生成技能或能力执行结果，因此不能确认任务已经完成。"
 	}
+}
+
+func claimsBusinessCompletion(content string) bool {
+	normalized := strings.TrimSpace(content)
+	if normalized == "" {
+		return false
+	}
+	completionWords := []string{
+		"已创建",
+		"创建成功",
+		"成功创建",
+		"已成功创建",
+		"已更新",
+		"更新成功",
+		"已删除",
+		"删除成功",
+		"已发布",
+		"发布成功",
+		"已同步",
+		"同步成功",
+		"已完成",
+		"操作已完成",
+		"任务已执行完成",
+	}
+	for _, word := range completionWords {
+		if strings.Contains(normalized, word) {
+			return true
+		}
+	}
+	return false
 }
 
 func finalResponseModePrompt(mode ResponseMode) string {

@@ -29,6 +29,12 @@ type PluginSkillManifest struct {
 	IntentExamples     []string               `json:"intent_examples,omitempty"`
 	ResponseGuidance   map[string][]string    `json:"response_guidance,omitempty"`
 	ActionCapabilities map[string]string      `json:"action_capabilities,omitempty"`
+	ActionRequiredArgs map[string][]string    `json:"action_required_args,omitempty"`
+	ActionOptionalArgs map[string][]string    `json:"action_optional_args,omitempty"`
+	SlotMapping        map[string]interface{} `json:"slot_mapping,omitempty"`
+	PendingTaskPolicy  map[string]interface{} `json:"pending_task_policy,omitempty"`
+	StateContract      map[string]interface{} `json:"state_contract,omitempty"`
+	ResultPresentation map[string]interface{} `json:"result_presentation,omitempty"`
 	InputSchema        map[string]interface{} `json:"input_schema"`
 	OutputSchema       map[string]interface{} `json:"output_schema,omitempty"`
 	PromptRefs         []string               `json:"prompt_refs,omitempty"`
@@ -125,7 +131,7 @@ func (s *PluginSkillDiscoveryService) DiscoverAndImport(ctx context.Context, in 
 		if bundleURI == "" {
 			bundleURI = "plugin://" + provider + "/" + manifest.SkillID + "/" + manifest.Version
 		}
-		saved, err := s.importSvc.ImportDraft(ctx, ImportRequest{
+		saved, err := s.importSvc.ImportPluginPublished(ctx, ImportRequest{
 			SkillID:    manifest.SkillID,
 			Version:    manifest.Version,
 			Source:     skillmodel.SkillSourcePlugin,
@@ -136,7 +142,7 @@ func (s *PluginSkillDiscoveryService) DiscoverAndImport(ctx context.Context, in 
 			Manifest:   datatypes.JSON(raw),
 			Operator:   in.Operator,
 			ImportType: ImportTypeUpload,
-		})
+		}, "plugin skill discovery")
 		if err != nil {
 			return nil, err
 		}

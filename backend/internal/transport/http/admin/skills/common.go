@@ -74,14 +74,16 @@ func newModuleDeps(db *gorm.DB) *moduleDeps {
 		return nil
 	}
 	registryRepo := skillrepo.NewSkillRegistryRepository(db)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(db)
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(db)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(db)
 	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
-	importSvc := skillservice.NewImportService(registryRepo, auditSvc)
+	importSvc := skillservice.NewImportService(registryRepo, auditSvc).
+		WithCapabilityBindingRepository(bindingRepo)
 	return &moduleDeps{
 		db:        db,
 		registry:  registryRepo,
-		binding:   skillrepo.NewSkillCapabilityBindingRepository(db),
+		binding:   bindingRepo,
 		traceRepo: traceRepo,
 		auditRepo: auditRepo,
 		auditSvc:  auditSvc,

@@ -15,19 +15,26 @@ import (
 )
 
 type pluginRegistrySyncRequest struct {
-	SkillID        string          `json:"skill_id"`
-	PluginSkillID  string          `json:"plugin_skill_id"`
-	Provider       string          `json:"provider"`
-	Version        string          `json:"version"`
-	Title          string          `json:"title"`
-	Description    string          `json:"description"`
-	IntentExamples json.RawMessage `json:"intent_examples"`
-	InputSchema    json.RawMessage `json:"input_schema"`
-	OutputSchema   json.RawMessage `json:"output_schema"`
-	PromptSpec     json.RawMessage `json:"prompt_spec"`
-	Executor       json.RawMessage `json:"executor"`
-	Capability     string          `json:"capability"`
-	Checksum       string          `json:"checksum"`
+	SkillID            string          `json:"skill_id"`
+	PluginSkillID      string          `json:"plugin_skill_id"`
+	Provider           string          `json:"provider"`
+	Version            string          `json:"version"`
+	Title              string          `json:"title"`
+	Description        string          `json:"description"`
+	IntentExamples     json.RawMessage `json:"intent_examples"`
+	ResponseGuidance   json.RawMessage `json:"response_guidance"`
+	ActionRequiredArgs json.RawMessage `json:"action_required_args"`
+	ActionOptionalArgs json.RawMessage `json:"action_optional_args"`
+	SlotMapping        json.RawMessage `json:"slot_mapping"`
+	PendingTaskPolicy  json.RawMessage `json:"pending_task_policy"`
+	StateContract      json.RawMessage `json:"state_contract"`
+	ResultPresentation json.RawMessage `json:"result_presentation"`
+	InputSchema        json.RawMessage `json:"input_schema"`
+	OutputSchema       json.RawMessage `json:"output_schema"`
+	PromptSpec         json.RawMessage `json:"prompt_spec"`
+	Executor           json.RawMessage `json:"executor"`
+	Capability         string          `json:"capability"`
+	Checksum           string          `json:"checksum"`
 }
 
 func newPluginRegistryHandler(importSvc *skillservice.ImportService) *pluginRegistryHandler {
@@ -48,6 +55,16 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		return
 	}
 	skillID := strings.ToLower(strings.TrimSpace(firstNonEmpty(req.SkillID, req.PluginSkillID)))
+	pathSkillID := strings.ToLower(strings.TrimSpace(c.Param("skillId")))
+	if pathSkillID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "skill_id path parameter is required", nil)
+		return
+	}
+	if skillID != "" && skillID != pathSkillID {
+		dto.ResponseError(c, http.StatusBadRequest, "skill_id path and body mismatch", fmt.Errorf("path=%s body=%s", pathSkillID, skillID))
+		return
+	}
+	skillID = pathSkillID
 	version := strings.TrimSpace(firstNonEmpty(req.Version, "1.0.0"))
 	provider := strings.TrimSpace(req.Provider)
 	capability := strings.TrimSpace(req.Capability)
@@ -56,20 +73,27 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		return
 	}
 	manifest := map[string]any{
-		"skill_id":        skillID,
-		"plugin_skill_id": strings.TrimSpace(req.PluginSkillID),
-		"provider":        provider,
-		"version":         version,
-		"title":           strings.TrimSpace(req.Title),
-		"description":     strings.TrimSpace(req.Description),
-		"intent_examples": decodeRaw(req.IntentExamples, []any{}),
-		"input_schema":    decodeRaw(req.InputSchema, map[string]any{}),
-		"output_schema":   decodeRaw(req.OutputSchema, map[string]any{}),
-		"prompt_spec":     decodeRaw(req.PromptSpec, map[string]any{}),
-		"executor":        decodeRaw(req.Executor, map[string]any{}),
-		"capability":      capability,
-		"source":          "plugin",
-		"sync_source":     "plugin_registry",
+		"skill_id":             skillID,
+		"plugin_skill_id":      strings.TrimSpace(req.PluginSkillID),
+		"provider":             provider,
+		"version":              version,
+		"title":                strings.TrimSpace(req.Title),
+		"description":          strings.TrimSpace(req.Description),
+		"intent_examples":      decodeRaw(req.IntentExamples, []any{}),
+		"response_guidance":    decodeRaw(req.ResponseGuidance, map[string]any{}),
+		"action_required_args": decodeRaw(req.ActionRequiredArgs, map[string]any{}),
+		"action_optional_args": decodeRaw(req.ActionOptionalArgs, map[string]any{}),
+		"slot_mapping":         decodeRaw(req.SlotMapping, map[string]any{}),
+		"pending_task_policy":  decodeRaw(req.PendingTaskPolicy, map[string]any{}),
+		"state_contract":       decodeRaw(req.StateContract, map[string]any{}),
+		"result_presentation":  decodeRaw(req.ResultPresentation, map[string]any{}),
+		"input_schema":         decodeRaw(req.InputSchema, map[string]any{}),
+		"output_schema":        decodeRaw(req.OutputSchema, map[string]any{}),
+		"prompt_spec":          decodeRaw(req.PromptSpec, map[string]any{}),
+		"executor":             decodeRaw(req.Executor, map[string]any{}),
+		"capability":           capability,
+		"source":               "plugin",
+		"sync_source":          "plugin_registry",
 	}
 	if err := validatePluginRegistryManifest(manifest); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid plugin skill manifest", err)
@@ -88,7 +112,7 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		sum := sha256.Sum256(raw)
 		checksum = hex.EncodeToString(sum[:])
 	}
-	record, err := h.importSvc.ImportDraft(c.Request.Context(), skillservice.ImportRequest{
+	record, err := h.importSvc.ImportPluginPublished(c.Request.Context(), skillservice.ImportRequest{
 		SkillID:    skillID,
 		Version:    version,
 		Source:     "plugin",
@@ -98,12 +122,8 @@ func (h *pluginRegistryHandler) Sync(c *gin.Context) {
 		Manifest:   datatypes.JSON(raw),
 		Operator:   actorFromContext(c),
 		ImportType: skillservice.ImportTypeUpload,
-	})
+	}, "plugin registry sync")
 	if err != nil {
-		respondSkillError(c, err)
-		return
-	}
-	if err := h.importSvc.PublishLatest(c.Request.Context(), skillID, version, actorFromContext(c), "plugin registry sync"); err != nil {
 		respondSkillError(c, err)
 		return
 	}
