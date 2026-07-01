@@ -1065,18 +1065,19 @@ const responseFormatOptions = ["json", "text", "srt", "verbose_json", "vtt"];
 const topKOptions = [5, 10, 20, 50, 100];
 
 function buildPayloadForCurrentModality(promptOverride?: string) {
+  const clean = (value: unknown) => String(value ?? "").trim();
   const baseConn = {
-    provider: currentState.value.provider ?? "",
-    app: currentState.value.app ?? "",
-    model: currentState.value.model ?? "",
-    authMode: currentState.value.authMode ?? "",
-    apiKey: currentState.value.apiKey ?? "",
-    secretId: currentState.value.secretId ?? "",
-    secretKey: currentState.value.secretKey ?? "",
-    baseURL: currentState.value.baseURL ?? "",
-    organization: currentState.value.organization ?? "",
-    region: currentState.value.region ?? "",
-    azureDeployment: currentState.value.azureDeployment ?? "",
+    provider: clean(currentState.value.provider),
+    app: clean(currentState.value.app),
+    model: clean(currentState.value.model),
+    authMode: clean(currentState.value.authMode),
+    apiKey: clean(currentState.value.apiKey),
+    secretId: clean(currentState.value.secretId),
+    secretKey: clean(currentState.value.secretKey),
+    baseURL: clean(currentState.value.baseURL),
+    organization: clean(currentState.value.organization),
+    region: clean(currentState.value.region),
+    azureDeployment: clean(currentState.value.azureDeployment),
   };
 
   let body: Record<string, any> = { ...baseConn };

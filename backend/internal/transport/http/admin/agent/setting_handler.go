@@ -14,8 +14,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
-	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
@@ -169,6 +169,88 @@ type testCallReq struct {
 	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
 	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
 	Rerank    *modRerank        `json:"rerank,omitempty"`
+}
+
+func normalizeBaseConn(v *baseConn) {
+	if v == nil {
+		return
+	}
+	v.Name = strings.TrimSpace(v.Name)
+	v.Provider = strings.TrimSpace(v.Provider)
+	v.App = strings.TrimSpace(v.App)
+	v.Model = strings.TrimSpace(v.Model)
+	v.AuthMode = strings.TrimSpace(v.AuthMode)
+	v.APIKey = strings.TrimSpace(v.APIKey)
+	v.SecretID = strings.TrimSpace(v.SecretID)
+	v.SecretKey = strings.TrimSpace(v.SecretKey)
+	v.BaseURL = strings.TrimSpace(v.BaseURL)
+	v.Region = strings.TrimSpace(v.Region)
+	v.Organization = strings.TrimSpace(v.Organization)
+	v.AzureDeployment = strings.TrimSpace(v.AzureDeployment)
+}
+
+func normalizeSettingsRequest(req *saveSettingsReq) {
+	if req == nil {
+		return
+	}
+	req.Env = strings.TrimSpace(req.Env)
+	normalizeBaseConnFromAny(req.LLM, req.Image, req.Embedding, req.Video, req.Model3D, req.AudioTTS, req.AudioASR, req.Rerank)
+}
+
+func normalizeTestRequest(req *testReq) {
+	if req == nil {
+		return
+	}
+	req.Env = strings.TrimSpace(req.Env)
+	normalizeBaseConnFromAny(req.LLM, req.Image, req.Embedding, req.Video, req.Model3D, req.AudioTTS, req.AudioASR, req.Rerank)
+}
+
+func normalizeTestCallRequest(req *testCallReq) {
+	if req == nil {
+		return
+	}
+	req.Env = strings.TrimSpace(req.Env)
+	req.Prompt = strings.TrimSpace(req.Prompt)
+	normalizeBaseConnFromAny(req.LLM, req.Image, req.Embedding, req.Video, req.Model3D, req.AudioTTS, req.AudioASR, req.Rerank)
+}
+
+func normalizeBaseConnFromAny(items ...any) {
+	for _, item := range items {
+		switch v := item.(type) {
+		case *modLLM:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modImage:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modEmbed:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modVideo:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modModel3D:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modAudioTTS:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modAudioASR:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		case *modRerank:
+			if v != nil {
+				normalizeBaseConn(&v.baseConn)
+			}
+		}
+	}
 }
 
 // ---------- Providers / Models ----------
@@ -430,6 +512,7 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
+	normalizeSettingsRequest(&req)
 	// Normalize app:model if app provided
 	if req.LLM != nil {
 		req.LLM.Model = applyAppToModel(req.LLM.App, req.LLM.Model)
@@ -604,6 +687,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
+	normalizeTestRequest(&req)
 	logger.InfoF(c.Request.Context(), "[agent_setting] test_connection enter path=%s", c.FullPath())
 	// Normalize app:model if app provided
 	if req.LLM != nil {
@@ -832,6 +916,7 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
+	normalizeTestCallRequest(&req)
 	// Normalize app:model if app provided
 	if req.LLM != nil {
 		req.LLM.Model = applyAppToModel(req.LLM.App, req.LLM.Model)
