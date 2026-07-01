@@ -209,6 +209,10 @@ func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenant
 		return data, nil
 	}
 
+	if err := s.validateKeyPairReadable(kp); err != nil {
+		return nil, fmt.Errorf("active tenant key pair is not readable with current server.secret_key env=%s tenant=%s kid=%s: %w", env, tenantUUID, kp.KID, err)
+	}
+
 	sealed, err := crypto.SealJSONWithPub([]byte(kp.PublicPEM), kp.KID, secret)
 	if err != nil {
 		return nil, err
@@ -218,6 +222,18 @@ func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenant
 	_ = json.Unmarshal(b, &m)
 	data["__sealed"] = m
 	return data, nil
+}
+
+func (s *TenantKeyService) validateKeyPairReadable(kp *modeltenant.TenantKeyPair) error {
+	if kp == nil {
+		return errors.New("tenant key pair is nil")
+	}
+	w, err := wrappedFromJSONMap(kp.EncPrivate)
+	if err != nil {
+		return err
+	}
+	_, err = s.wrapper.UnwrapPrivateKey(&w)
+	return err
 }
 
 // UnsealSensitive：仅在后端需要明文时使用（例如连通性测试），解开 data["__sealed"] 到 out。
