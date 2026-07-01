@@ -1667,7 +1667,14 @@ func (s *AgentSettingService) prepareAuthInputs(
 	ak := strings.TrimSpace(apiKey)
 
 	if bu == "" || ak == "" {
-		if resolvedBase, resolvedKey, err := s.resolveConnFromStore(ctx, env, tenantUUID, provider, bu, ak); err == nil {
+		if resolvedBase, resolvedKey, err := s.resolveConnFromStore(ctx, env, tenantUUID, provider, bu, ak); err != nil {
+			if needKey && ak == "" {
+				return bu, ak, err
+			}
+			if needBase && bu == "" {
+				return bu, ak, err
+			}
+		} else {
 			if bu == "" && strings.TrimSpace(resolvedBase) != "" {
 				bu = strings.TrimSpace(resolvedBase)
 			}
