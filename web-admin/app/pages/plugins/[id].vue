@@ -163,10 +163,10 @@
                 :disabled="!canToggleSystem"
                 @click="toggleEnable"
               >
-                {{ sysEnabled ? "停用" : "启用" }}
+                {{ sysEnabled ? "停用" : isReadyForFinalUninstall ? "恢复启用" : "启用" }}
               </UButton>
               <UButton
-                v-if="isRoot && sysInstalled"
+                v-if="isRoot && sysInstalled && !isReadyForFinalUninstall"
                 size="sm"
                 variant="outline"
                 icon="i-heroicons-arrow-path"
@@ -175,7 +175,7 @@
                 >重启</UButton
               >
               <UButton
-                v-if="isRoot && sysInstalled"
+                v-if="isRoot && sysInstalled && !isReadyForFinalUninstall"
                 size="sm"
                 variant="outline"
                 icon="i-heroicons-arrow-up-on-square"
@@ -690,8 +690,7 @@ const canToggleSystem = computed(
   () =>
     isRoot.value &&
     sysInstalled.value &&
-    !isDrainActive.value &&
-    !isReadyForFinalUninstall.value
+    !isDrainActive.value
 );
 const canMutateSystemRuntime = computed(
   () => isRoot.value && sysInstalled.value && !isDrainActive.value && !isDrained.value
@@ -961,9 +960,22 @@ async function toggleEnable() {
       await svc.disable(id.value);
       pendingStopDrainJob.value = null;
     } else {
+      if (isReadyForFinalUninstall.value) {
+        const { useConfirm } = await import("~/composables/useConfirm");
+        const { confirm } = useConfirm();
+        const ok = await confirm({
+          title: "恢复启用插件",
+          description: "该插件已完成 drain，恢复启用会取消最终卸载状态、重新启动插件并恢复当前租户实例。",
+          message: "确定恢复启用该插件吗？",
+          confirmLabel: "恢复启用",
+          cancelLabel: "取消",
+          tone: "warning",
+        });
+        if (!ok) return;
+      }
       // 启用：先提示，再调用接口并轮询状态
       const pending = toast.add({
-        title: "正在启用插件…",
+        title: isReadyForFinalUninstall.value ? "正在恢复启用插件…" : "正在启用插件…",
         color: "info",
         icon: "i-heroicons-arrow-path",
         timeout: 0,
@@ -972,7 +984,7 @@ async function toggleEnable() {
       await pollStatusUntil(true);
       toast.remove(pending.id);
       toast.add({
-        title: "插件已启用",
+        title: isReadyForFinalUninstall.value ? "插件已恢复启用" : "插件已启用",
         color: "success",
         icon: "i-heroicons-check-circle",
       });

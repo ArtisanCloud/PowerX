@@ -121,12 +121,12 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 		if tenantUUID != "" {
 			ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
 		}
-		if err := mgr.Enable(ctx, id); err != nil {
-			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
-			return
-		}
 		if err := completeReadyDrainJobsForPlugin(c, deps, id); err != nil {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：Drain 状态恢复失败", err)
+			return
+		}
+		if err := mgr.Enable(ctx, id); err != nil {
+			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
 			return
 		}
 		if err := enablePluginForCurrentTenantIfPresent(c, deps, id); err != nil {

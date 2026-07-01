@@ -777,8 +777,13 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 			return
 		}
-		// ✅ 测试通过：自动保存该 provider 的凭据（不激活默认路由）
-		_ = saveVerifiedCredential(provider, req.LLM.APIKey, req.LLM.SecretID, req.LLM.SecretKey, req.LLM.BaseURL, req.LLM.Region, req.LLM.Organization, req.LLM.AzureDeployment, req.LLM.AuthMode)
+		// 测试通过后必须确认凭据持久化成功，否则后续运行时会读不到 key。
+		if err := saveVerifiedCredential(provider, req.LLM.APIKey, req.LLM.SecretID, req.LLM.SecretKey, req.LLM.BaseURL, req.LLM.Region, req.LLM.Organization, req.LLM.AzureDeployment, req.LLM.AuthMode); err != nil {
+			_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), provider, "unhealthy", err.Error())
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, provider, model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, provider, model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -799,7 +804,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.Image.Provider, req.Image.APIKey, "", "", req.Image.BaseURL, req.Image.Region, req.Image.Organization, req.Image.AzureDeployment, req.Image.AuthMode)
+		if err := saveVerifiedCredential(req.Image.Provider, req.Image.APIKey, "", "", req.Image.BaseURL, req.Image.Region, req.Image.Organization, req.Image.AzureDeployment, req.Image.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Image.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -826,7 +835,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "embedding 向量表创建失败", err)
 			return
 		}
-		_ = saveVerifiedCredential(req.Embedding.Provider, req.Embedding.APIKey, "", "", req.Embedding.BaseURL, req.Embedding.Region, req.Embedding.Organization, req.Embedding.AzureDeployment, req.Embedding.AuthMode)
+		if err := saveVerifiedCredential(req.Embedding.Provider, req.Embedding.APIKey, "", "", req.Embedding.BaseURL, req.Embedding.Region, req.Embedding.Organization, req.Embedding.AzureDeployment, req.Embedding.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Embedding.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "dimensions": dim})
@@ -841,7 +854,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.Video.Provider, req.Video.APIKey, "", "", req.Video.BaseURL, req.Video.Region, req.Video.Organization, req.Video.AzureDeployment, req.Video.AuthMode)
+		if err := saveVerifiedCredential(req.Video.Provider, req.Video.APIKey, "", "", req.Video.BaseURL, req.Video.Region, req.Video.Organization, req.Video.AzureDeployment, req.Video.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Video.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -856,7 +873,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.Model3D.Provider, req.Model3D.APIKey, req.Model3D.SecretID, req.Model3D.SecretKey, req.Model3D.BaseURL, req.Model3D.Region, req.Model3D.Organization, req.Model3D.AzureDeployment, req.Model3D.AuthMode)
+		if err := saveVerifiedCredential(req.Model3D.Provider, req.Model3D.APIKey, req.Model3D.SecretID, req.Model3D.SecretKey, req.Model3D.BaseURL, req.Model3D.Region, req.Model3D.Organization, req.Model3D.AzureDeployment, req.Model3D.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Model3D.Provider, req.Model3D.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Model3D.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Model3D.Provider, req.Model3D.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -871,7 +892,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.AudioTTS.Provider, req.AudioTTS.APIKey, "", "", req.AudioTTS.BaseURL, req.AudioTTS.Region, req.AudioTTS.Organization, req.AudioTTS.AzureDeployment, req.AudioTTS.AuthMode)
+		if err := saveVerifiedCredential(req.AudioTTS.Provider, req.AudioTTS.APIKey, "", "", req.AudioTTS.BaseURL, req.AudioTTS.Region, req.AudioTTS.Organization, req.AudioTTS.AzureDeployment, req.AudioTTS.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioTTS.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -886,7 +911,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.AudioASR.Provider, req.AudioASR.APIKey, "", "", req.AudioASR.BaseURL, req.AudioASR.Region, req.AudioASR.Organization, req.AudioASR.AzureDeployment, req.AudioASR.AuthMode)
+		if err := saveVerifiedCredential(req.AudioASR.Provider, req.AudioASR.APIKey, "", "", req.AudioASR.BaseURL, req.AudioASR.Region, req.AudioASR.Organization, req.AudioASR.AzureDeployment, req.AudioASR.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.AudioASR.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
@@ -901,7 +930,11 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
-		_ = saveVerifiedCredential(req.Rerank.Provider, req.Rerank.APIKey, "", "", req.Rerank.BaseURL, req.Rerank.Region, req.Rerank.Organization, req.Rerank.AzureDeployment, req.Rerank.AuthMode)
+		if err := saveVerifiedCredential(req.Rerank.Provider, req.Rerank.APIKey, "", "", req.Rerank.BaseURL, req.Rerank.Region, req.Rerank.Organization, req.Rerank.AzureDeployment, req.Rerank.AuthMode); err != nil {
+			h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, false, err.Error())
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "连接测试通过，但凭据保存失败", err)
+			return
+		}
 		_ = h.svc.UpsertTenantProviderHealth(c.Request.Context(), tenantUUID, req.Env, string(req.Modality), req.Rerank.Provider, "healthy", "ok")
 		h.emitAuditEvent(c, tenantUUID, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})

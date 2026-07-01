@@ -111,6 +111,22 @@ func TestBootstrapRestoresEnabledPluginAPIProxy(t *testing.T) {
 	require.Contains(t, resp, `"basePath":"/api/v1"`)
 }
 
+func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	dr := router.NewDynamicRouter("/_p", engine)
+	m := &managerImpl{http: dr}
+
+	require.NoError(t, MountDebugHost(m, "com.powerx.plugins.base.local", 3131))
+
+	resp := performBootstrapDebugRequest(engine)
+	require.Contains(t, resp, `"com.powerx.plugins.base.local"`)
+	require.NotContains(t, resp, `"com.powerx.plugins.base":`)
+	require.Contains(t, resp, `"basePath":"/api/v1"`)
+}
+
 func performBootstrapDebugRequest(engine *gin.Engine) string {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/__debug/plugins", nil)

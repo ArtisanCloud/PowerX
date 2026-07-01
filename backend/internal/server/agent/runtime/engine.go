@@ -99,6 +99,14 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		"planner_mode": dto.PlannerModeUnified,
 		"plan":         PlanOrRaw(plan, rawPlan),
 	})
+	if responsePlanRequiresExecution(responsePlan) && (!ok || plan == nil || len(plan.Tasks) == 0) {
+		err := fmt.Errorf("agent execution target selected but no executable task was produced: target_capability_ids=%s", strings.Join(responseTargetIDs(responsePlan), ","))
+		tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
+		runErr = err
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行计划生成失败", "detail": err.Error()})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return err
+	}
 	// skill/tooling 等非 workflow 节点必须走统一 Plan 执行链路，
 	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
 	if planHasNonWorkflow(plan) {
@@ -333,6 +341,14 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		"planner_mode": dto.PlannerModeUnified,
 		"plan":         PlanOrRaw(plan, rawPlan),
 	})
+	if responsePlanRequiresExecution(responsePlan) && (!ok || plan == nil || len(plan.Tasks) == 0) {
+		err := fmt.Errorf("agent execution target selected but no executable task was produced: target_capability_ids=%s", strings.Join(responseTargetIDs(responsePlan), ","))
+		tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
+		runErr = err
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行计划生成失败", "detail": err.Error()})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		return nil, nil, err
+	}
 
 	if explicitFlow = strings.TrimSpace(explicitFlow); explicitFlow != "" {
 		plan = &flowschema.ExecutionPlan{
@@ -684,6 +700,24 @@ func shouldExecutePlanForResponse(responsePlan *ResponsePlan, execPlan *flowsche
 	// Tool/Skill Planner 是执行意图的裁决层；Response Planner 只决定最终回复形态，
 	// 不能否决已经生成的执行计划，否则会退回 LLM 文案并造成“假成功”。
 	return true
+}
+
+func responsePlanRequiresExecution(responsePlan *ResponsePlan) bool {
+	if responsePlan == nil {
+		return false
+	}
+	if responsePlan.ShouldCallTool {
+		return true
+	}
+	if responsePlan.ResponseMode == ResponseModeSkillExecution {
+		return true
+	}
+	for _, intent := range responsePlan.ResponseIntents {
+		if intent == ResponseIntentSkillExecution {
+			return true
+		}
+	}
+	return false
 }
 
 func isAwaitingParamsResult(out *agentschema.ExecutionResult) bool {

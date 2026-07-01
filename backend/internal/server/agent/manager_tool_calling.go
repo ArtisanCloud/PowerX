@@ -358,10 +358,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 
 	out := buildDetectedTasksFromDecision(decision, cands)
 	if len(out) == 0 {
-		dlogRun.ResultSource = "tool_calling"
-		dlogRun.Tasks = out
-		dlogRun.FallbackReason = "tool decision intentionally selected zero tasks"
-		return out, nil
+		return fallback("tool decision produced zero tasks")
 	}
 	dlogRun.ResultSource = "tool_calling"
 	dlogRun.Tasks = out

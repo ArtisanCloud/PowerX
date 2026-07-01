@@ -1066,14 +1066,18 @@ const topKOptions = [5, 10, 20, 50, 100];
 
 function buildPayloadForCurrentModality(promptOverride?: string) {
   const clean = (value: unknown) => String(value ?? "").trim();
+  const cleanSecret = (value: unknown) => {
+    const text = clean(value);
+    return /^[*•]{6,}$/.test(text) ? "" : text;
+  };
   const baseConn = {
     provider: clean(currentState.value.provider),
     app: clean(currentState.value.app),
     model: clean(currentState.value.model),
     authMode: clean(currentState.value.authMode),
-    apiKey: clean(currentState.value.apiKey),
-    secretId: clean(currentState.value.secretId),
-    secretKey: clean(currentState.value.secretKey),
+    apiKey: cleanSecret(currentState.value.apiKey),
+    secretId: cleanSecret(currentState.value.secretId),
+    secretKey: cleanSecret(currentState.value.secretKey),
     baseURL: clean(currentState.value.baseURL),
     organization: clean(currentState.value.organization),
     region: clean(currentState.value.region),

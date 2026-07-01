@@ -21,7 +21,9 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // POST /api/admin/plugins/install/local
@@ -59,15 +61,18 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 					dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
 					return
 				}
+				logLocalInstallUpload(c, "multipart_received", "", form.File["files"], form.Value["file_paths"], nil)
 				uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], form.Value["file_paths"])
 			}
 			if err != nil {
 				dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
 				return
 			}
+			logLocalInstallResolve(c, "uploaded_source_saved", uploadedPath)
 			var resolveCleanup func()
 			srcPath, resolveCleanup, err = resolveInstallSource(uploadedPath)
 			if err != nil {
+				logLocalInstallResolve(c, "uploaded_source_resolve_failed", uploadedPath)
 				if cleanup != nil {
 					cleanup()
 					cleanup = nil
@@ -147,6 +152,77 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 			"metadata":                    meta,
 		})
 	}
+}
+
+func logLocalInstallUpload(c *gin.Context, stage string, uploadedPath string, files []*multipart.FileHeader, relPaths []string, err error) {
+	pxlog.Info(c.Request.Context(), "plugin.local_install.upload",
+		zap.String("stage", stage),
+		zap.String("content_type", c.ContentType()),
+		zap.Int("files_count", len(files)),
+		zap.Int("file_paths_count", len(relPaths)),
+		zap.Strings("sample_file_names", sampleUploadFileNames(files, 8)),
+		zap.Strings("sample_file_paths", sampleStrings(relPaths, 8)),
+		zap.String("uploaded_path", uploadedPath),
+		zap.Error(err),
+	)
+}
+
+func logLocalInstallResolve(c *gin.Context, stage string, src string) {
+	fields := []zap.Field{
+		zap.String("stage", stage),
+		zap.String("src", src),
+	}
+	if abs, err := filepath.Abs(src); err == nil {
+		fields = append(fields, zap.String("abs", abs))
+		if st, statErr := os.Stat(abs); statErr == nil {
+			fields = append(fields, zap.Bool("src_exists", true), zap.Bool("src_is_dir", st.IsDir()))
+		} else {
+			fields = append(fields, zap.Bool("src_exists", false), zap.String("src_stat_error", statErr.Error()))
+		}
+		manifestPath := filepath.Join(abs, "plugin.yaml")
+		if st, statErr := os.Stat(manifestPath); statErr == nil {
+			fields = append(fields, zap.Bool("manifest_exists", true), zap.Int64("manifest_size", st.Size()))
+		} else {
+			fields = append(fields, zap.Bool("manifest_exists", false), zap.String("manifest_stat_error", statErr.Error()))
+		}
+		payloadManifestPath := filepath.Join(abs, "payload", "plugin.yaml")
+		if st, statErr := os.Stat(payloadManifestPath); statErr == nil {
+			fields = append(fields, zap.Bool("payload_manifest_exists", true), zap.Int64("payload_manifest_size", st.Size()))
+		} else {
+			fields = append(fields, zap.Bool("payload_manifest_exists", false), zap.String("payload_manifest_stat_error", statErr.Error()))
+		}
+	}
+	pxlog.Info(c.Request.Context(), "plugin.local_install.resolve", fields...)
+}
+
+func sampleUploadFileNames(files []*multipart.FileHeader, limit int) []string {
+	if limit <= 0 || len(files) == 0 {
+		return nil
+	}
+	if len(files) < limit {
+		limit = len(files)
+	}
+	out := make([]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		if files[i] == nil {
+			out = append(out, "")
+			continue
+		}
+		out = append(out, files[i].Filename)
+	}
+	return out
+}
+
+func sampleStrings(values []string, limit int) []string {
+	if limit <= 0 || len(values) == 0 {
+		return nil
+	}
+	if len(values) < limit {
+		limit = len(values)
+	}
+	out := make([]string, limit)
+	copy(out, values[:limit])
+	return out
 }
 
 func parseBool(v string) bool {

@@ -48,6 +48,48 @@ var sensitiveCredentialKeys = []string{"api_key", "secret_id", "secret_key", "se
 const TenantSettingKeyAICurrentEnv = "ai.current_env"
 const tenantSettingKeyAIProviderHealthPrefix = "ai.provider_health"
 
+func isSecretPlaceholder(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	runes := []rune(trimmed)
+	if len(runes) < 6 {
+		return false
+	}
+	for _, r := range runes {
+		if r != '*' && r != '•' {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeCredentialSecretInput(data datatypes.JSONMap, keys ...string) (hasNewSecret bool, placeholderKeys []string) {
+	if data == nil {
+		return false, nil
+	}
+	for _, key := range keys {
+		raw, ok := data[key].(string)
+		if !ok {
+			continue
+		}
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			data[key] = ""
+			continue
+		}
+		if isSecretPlaceholder(value) {
+			delete(data, key)
+			placeholderKeys = append(placeholderKeys, key)
+			continue
+		}
+		data[key] = value
+		hasNewSecret = true
+	}
+	return hasNewSecret, placeholderKeys
+}
+
 type ProviderHealthRecord struct {
 	Status    string `json:"status"`    // healthy|unhealthy|unknown
 	CheckedAt int64  `json:"checkedAt"` // unix seconds
@@ -368,13 +410,7 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "secret_id", "secret_key", "access_token", "client_secret", "secret"}
-	hasNewSecret := false
-	for _, k := range sensKeys {
-		if v, _ := cred.Data[k].(string); strings.TrimSpace(v) != "" {
-			hasNewSecret = true
-			break
-		}
-	}
+	hasNewSecret, placeholderKeys := normalizeCredentialSecretInput(cred.Data, sensKeys...)
 
 	baseURL := ""
 	if v, _ := cred.Data["base_url"].(string); v != "" {
@@ -449,6 +485,8 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 					}
 				}
 			}
+		} else if len(placeholderKeys) > 0 {
+			return fmt.Errorf("密钥字段为占位符且没有可保留的已保存密钥：%s", strings.Join(placeholderKeys, ","))
 		}
 	}
 
@@ -495,15 +533,7 @@ func (s *AgentSettingService) SaveCredentialOnly(
 
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "access_token", "client_secret", "secret"}
-	hasNewSecret := false
-	for _, k := range sensKeys {
-		if cred.Data != nil {
-			if v, _ := cred.Data[k].(string); strings.TrimSpace(v) != "" {
-				hasNewSecret = true
-				break
-			}
-		}
-	}
+	hasNewSecret, placeholderKeys := normalizeCredentialSecretInput(cred.Data, sensKeys...)
 
 	baseURL := ""
 	if cred.Data != nil {
@@ -526,6 +556,8 @@ func (s *AgentSettingService) SaveCredentialOnly(
 					cred.Data["base_url"] = bu
 				}
 			}
+		} else if len(placeholderKeys) > 0 {
+			return fmt.Errorf("密钥字段为占位符且没有可保留的已保存密钥：%s", strings.Join(placeholderKeys, ","))
 		}
 	}
 
@@ -586,11 +618,14 @@ func (s *AgentSettingService) resolveConnFromStore(
 					keys = append(keys, k)
 				}
 				logger.WarnF(ctx, "[agent_setting] resolved empty api_key after unseal env=%s tenant=%s provider=%s sealed_keys=%v", env, s.tenantScopeKey(tenantUUID), provider, keys)
+				return baseURL, apiKey, fmt.Errorf("已保存凭据解封成功但不包含 api_key env=%s tenant=%s provider=%s sealed_keys=%v", env, s.tenantScopeKey(tenantUUID), provider, keys)
 			}
 		} else if cred.Data != nil && cred.Data["__sealed"] != nil {
 			logger.WarnF(ctx, "[agent_setting] unseal api_key failed env=%s tenant=%s provider=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, e)
+			return baseURL, apiKey, fmt.Errorf("解封已保存 api_key 失败 env=%s tenant=%s provider=%s: %w", env, s.tenantScopeKey(tenantUUID), provider, e)
 		} else {
 			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
+			return baseURL, apiKey, fmt.Errorf("已保存凭据缺少 __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
 	}
 	return baseURL, apiKey, nil

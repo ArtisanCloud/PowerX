@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	capabilityregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
 	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
@@ -18,6 +20,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -35,6 +38,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		host:           deps.PluginDebugHost,
 		diagnostics:    deps.PluginDiagnostics,
 		capabilitySync: deps.CapabilityRegistrySyncWorker,
+		deps:           deps,
 	}
 	if deps.PluginReleaseService != nil {
 		handler.local = deps.PluginReleaseService.LocalInstall()
@@ -65,6 +69,7 @@ type handler struct {
 	local          *local.InstallService
 	diagnostics    *plugindiag.Service
 	capabilitySync *capabilityregistry.SyncWorker
+	deps           *shared.Deps
 }
 
 func (h *handler) listTemplates(c *gin.Context) {
@@ -183,7 +188,39 @@ func (h *handler) startMockHost(c *gin.Context) {
 	if ttl <= 0 {
 		ttl = 10 * time.Minute
 	}
-	session := h.host.RegisterMockHost(c.Request.Context(), strings.TrimSpace(req.PluginID), strings.TrimSpace(req.Environment), ttl, req.HTTPPort, req.GRPCPort, req.Capabilities)
+	pluginID := strings.TrimSpace(req.PluginID)
+	if pluginID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "pluginId is required", nil)
+		return
+	}
+	if req.HTTPPort <= 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "httpPort is required", nil)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	mgr := pmimpl.GetPluginManager()
+	if err := pmimpl.MountDebugHost(mgr, pluginID, req.HTTPPort); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "debug host mount failed", err)
+		return
+	}
+	if h.deps == nil || h.deps.DB == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "database dependency missing", nil)
+		return
+	}
+	if _, _, _, err := pluginservice.NewTenantPluginInstanceService(h.deps.DB).Enable(c.Request.Context(), tenantUUID, pm.Plugin{
+		ID:      pluginID,
+		Version: "local",
+		State:   pm.StateEnabled,
+		Name:    pluginID,
+	}, nil); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "debug host tenant enable failed", err)
+		return
+	}
+	session := h.host.RegisterMockHost(c.Request.Context(), pluginID, strings.TrimSpace(req.Environment), ttl, req.HTTPPort, req.GRPCPort, req.Capabilities)
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{
 		"hostId":       session.ID.String(),
 		"pluginId":     session.PluginID,
