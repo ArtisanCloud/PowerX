@@ -306,6 +306,8 @@ const qwenFallbackModels = [
   "qwen3.5-flash",
   "qwen3.5-plus-2026-02-15",
   "qwen3.5-flash-2026-02-23",
+  "qwen3.7-plus",
+  "deepseek-v4-flash",
   "qwen3-max-latest",
   "qwen3-plus-latest",
   "qwen3-turbo-latest",

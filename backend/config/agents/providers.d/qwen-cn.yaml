@@ -44,6 +44,11 @@ modalities:
       - id: qwen3.5-flash-2026-02-23
         label: "Qwen3.5 Flash 2026-02-23"
 
+      - id: qwen3.7-plus
+        label: "Qwen3.7 Plus"
+      - id: deepseek-v4-flash
+        label: "DeepSeek V4 Flash (Bailian)"
+
       - id: qwen3-max
         label: "Qwen3 Max"
       - id: qwen3-max-latest

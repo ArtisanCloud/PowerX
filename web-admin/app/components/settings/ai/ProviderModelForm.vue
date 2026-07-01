@@ -6,13 +6,17 @@
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >Provider</label
         >
-        <USelect
+        <USelectMenu
           v-model="state.provider"
           :items="providerOptions"
+          value-key="value"
+          label-key="label"
           :disabled="!providerOptions?.length"
           :loading="!providerOptions?.length"
           icon="i-heroicons-building-library"
           class="w-full"
+          :ui="searchableSelectUi"
+          :search-input="{ placeholder: '搜索 Provider...' }"
           :placeholder="$t('agent.config.selectProvider')"
           @update:model-value="emit('providerChanged', $event)"
         />
@@ -34,12 +38,16 @@
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
           >Model</label
         >
-        <USelect
+        <USelectMenu
           v-model="state.model"
           :items="modelOptions"
+          value-key="value"
+          label-key="label"
           :disabled="!modelOptions?.length"
           icon="i-heroicons-cpu-chip"
           class="w-full"
+          :ui="searchableSelectUi"
+          :search-input="{ placeholder: '搜索 Model...' }"
           :placeholder="$t('agent.config.selectModel')"
           :loading="!modelOptions?.length"
         />
@@ -137,6 +145,26 @@ const emit = defineEmits<{
   (e: "providerChanged", provider: string): void;
   (e: "appChanged", app: string): void;
 }>();
+
+const searchableSelectUi = {
+  base: "h-10 bg-[#0f172a] ring-1 ring-[#334155] text-white hover:bg-[#111c30] focus-visible:ring-2 focus-visible:ring-primary",
+  leadingIcon: "text-white",
+  trailingIcon: "text-white",
+  value: "text-white truncate",
+  placeholder: "text-slate-400 truncate",
+  content:
+    "bg-[#0f172a] border border-[#334155] ring-0 shadow-xl rounded-md overflow-hidden",
+  input:
+    "border-b border-[#334155] bg-[#111c30] text-white placeholder:text-slate-500 [&_input]:bg-[#111c30] [&_input]:text-white [&_input::placeholder]:text-slate-500",
+  viewport: "max-h-72 overflow-y-auto divide-y-0 py-1",
+  group: "p-1",
+  item:
+    "text-slate-100 data-highlighted:not-data-disabled:text-white data-highlighted:not-data-disabled:before:bg-[#1f2f46]",
+  itemLabel: "truncate",
+  itemLeadingIcon: "text-slate-300",
+  itemTrailingIcon: "text-white",
+  empty: "px-3 py-3 text-sm text-slate-400",
+};
 
 const hasApp = computed(() => Boolean(props.appOptions?.length));
 const gridClass = computed(() =>
