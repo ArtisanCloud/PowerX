@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -185,6 +186,9 @@ func TestDetectTasksFromUnifiedCandidatesRecallsBoundTemplateSkill(t *testing.T)
 	}
 	if got := strings.TrimSpace(tasks[0].Params["action"].(string)); got != "create" {
 		t.Fatalf("expected create action, got %q params=%#v", got, tasks[0].Params)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(tasks[0].Params["user_message"])); got != "生成一个标题为活动公告的模板" {
+		t.Fatalf("expected user_message to be preserved, got %q params=%#v", got, tasks[0].Params)
 	}
 }
 

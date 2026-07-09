@@ -305,6 +305,47 @@ const { notifyOnce } = useOneShotAlert();
 const agentManager = useAgentManager();
 const { agents } = agentManager;
 
+const agentOwnerPluginID = (agent?: Agent | null) =>
+  String(
+    (agent as any)?.ownerPluginId ||
+      (agent as any)?.owner_plugin_id ||
+      agent?.meta?.pluginId ||
+      ""
+  ).trim();
+
+const stripLocalSuffix = (value: string) =>
+  value.endsWith(".local") ? value.slice(0, -".local".length) : value;
+
+const hasLocalDebugCounterpart = (agent: Agent, list: Agent[]) => {
+  const owner = agentOwnerPluginID(agent);
+  if (!owner || owner.endsWith(".local")) return false;
+  const expectedOwner = `${owner}.local`;
+  const expectedKey = agent.key ? `${agent.key}.local` : "";
+  return list.some((candidate) => {
+    const candidateOwner = agentOwnerPluginID(candidate);
+    if (candidateOwner !== expectedOwner) return false;
+    if (expectedKey && candidate.key === expectedKey) return true;
+    return stripLocalSuffix(candidate.key || "") === (agent.key || "");
+  });
+};
+
+const preferLocalDebugAgentID = (agentId: string, list: Agent[]) => {
+  const current = list.find((agent) => agent.uuid === agentId);
+  if (!current) return agentId;
+  const owner = agentOwnerPluginID(current);
+  if (!owner || owner.endsWith(".local")) return agentId;
+  const expectedOwner = `${owner}.local`;
+  const expectedKey = current.key ? `${current.key}.local` : "";
+  const local = list.find((candidate) => {
+    const candidateOwner = agentOwnerPluginID(candidate);
+    if (candidateOwner !== expectedOwner) return false;
+    if (expectedKey && candidate.key === expectedKey) return true;
+    if (stripLocalSuffix(candidate.key || "") === (current.key || "")) return true;
+    return candidate.name === current.name;
+  });
+  return local?.uuid || agentId;
+};
+
 // 使用双通道聊天的状态
 const isConnected = computed(() => chat.sseActive.value || chat.wsActive.value);
 const isStreaming = computed(() => chat.isGenerating.value);
@@ -366,10 +407,10 @@ onMounted(async () => {
       await loadTeamsForSelector();
     } else if (agents.value && agents.value.length > 0) {
       const last = chatSessions.getLastSelectedAgentId?.() ?? null;
-      const fallbackId = agents.value[0].uuid;
+      const fallbackId = agentsList.value[0]?.uuid || agents.value[0].uuid;
       const pickId =
         last && agents.value.some((a) => a.uuid === last) ? last : fallbackId;
-      await handleAgentSelect(pickId);
+      await handleAgentSelect(preferLocalDebugAgentID(pickId, agents.value));
     }
   } catch (e: any) {
     if (!(e?.status === 404 || e?.statusCode === 404)) {
@@ -386,9 +427,26 @@ onUnmounted(() => {
   chat.disconnect();
 });
 
-const agentsList = computed(() =>
-  Array.isArray(agents.value) ? agents.value : []
-);
+const agentsList = computed(() => {
+  if (!Array.isArray(agents.value)) return [];
+  return [...agents.value].sort((a, b) => {
+    const aOwner = agentOwnerPluginID(a);
+    const bOwner = agentOwnerPluginID(b);
+    const aBaseOwner = stripLocalSuffix(aOwner);
+    const bBaseOwner = stripLocalSuffix(bOwner);
+    const aBaseKey = stripLocalSuffix(a.key || "");
+    const bBaseKey = stripLocalSuffix(b.key || "");
+    if (aBaseOwner === bBaseOwner && aBaseKey === bBaseKey) {
+      const aLocal = aOwner.endsWith(".local");
+      const bLocal = bOwner.endsWith(".local");
+      if (aLocal !== bLocal) return aLocal ? -1 : 1;
+    }
+    const aHasLocal = hasLocalDebugCounterpart(a, agents.value as Agent[]);
+    const bHasLocal = hasLocalDebugCounterpart(b, agents.value as Agent[]);
+    if (aHasLocal !== bHasLocal) return aHasLocal ? 1 : -1;
+    return 0;
+  });
+});
 
 // ===== 会话事件处理 =====
 const handleSelectSession = async (payload: {

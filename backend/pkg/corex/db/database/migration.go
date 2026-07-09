@@ -74,6 +74,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsureIAMUserLastTenantUUIDMigration(db); err != nil {
 		return err
 	}
+	if err = migration.EnsurePluginDebugHostPermissionPathMigration(db); err != nil {
+		return err
+	}
 
 	if err = migrateCustomerModels(db); err != nil {
 		return err

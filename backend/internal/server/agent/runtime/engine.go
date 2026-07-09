@@ -537,7 +537,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 				_ = sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
 				return err
 			}
-			_ = sink.Emit(dto.EventNodeEnd, map[string]any{
+			taskEndPayload := map[string]any{
 				"planner_mode":    dto.PlannerModeUnified,
 				"plan_id":         plan.PlanID,
 				"task_id":         task.TaskID,
@@ -570,7 +570,9 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 						"step_id": out.StepID,
 					}
 				}(),
-			})
+			}
+			enrichTaskEndPayload(taskEndPayload, out)
+			_ = sink.Emit(dto.EventNodeEnd, taskEndPayload)
 			if status == dto.AgentTaskStatusAwaitingParams {
 				_ = sink.Emit(dto.EventAgentRunAwaitingParams, awaitingPayloadFromResult(task, out))
 			}
@@ -1124,6 +1126,9 @@ func extractSlotValueFromText(text string, labels []string) string {
 
 func trimSlotValueBoundary(value string) string {
 	value = strings.TrimSpace(value)
+	if quoted := leadingQuotedValue(value); quoted != "" {
+		return quoted
+	}
 	value = strings.Trim(value, "\"'“”‘’` ")
 	for _, sep := range []string{"，", ",", "。", "；", ";", "\n"} {
 		if idx := strings.Index(value, sep); idx >= 0 {
@@ -1131,6 +1136,31 @@ func trimSlotValueBoundary(value string) string {
 		}
 	}
 	return strings.Trim(value, "\"'“”‘’` ")
+}
+
+func leadingQuotedValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	pairs := map[rune]rune{
+		'\'': '\'',
+		'"':  '"',
+		'`':  '`',
+		'“':  '”',
+		'‘':  '’',
+	}
+	runes := []rune(value)
+	closeQuote, ok := pairs[runes[0]]
+	if !ok {
+		return ""
+	}
+	for i := 1; i < len(runes); i++ {
+		if runes[i] == closeQuote {
+			return strings.TrimSpace(string(runes[1:i]))
+		}
+	}
+	return ""
 }
 
 func setPlanParamPath(params map[string]interface{}, path string, value interface{}) {
@@ -1332,6 +1362,30 @@ func ExtractAssistantText(chunk *agentschema.ExecutionResult) string {
 		return SanitizeAssistantVisibleText(s)
 	}
 	return ""
+}
+
+func enrichTaskEndPayload(payload map[string]any, out *agentschema.ExecutionResult) {
+	if payload == nil || out == nil || out.Data == nil {
+		return
+	}
+	result, _ := out.Data["result"].(map[string]any)
+	if len(result) > 0 {
+		payload["result"] = result
+		if links, ok := result["links"]; ok {
+			payload["links"] = links
+		}
+		for _, key := range []string{"content", "message", "summary"} {
+			if value := strings.TrimSpace(anyToString(result[key])); value != "" {
+				payload["message"] = value
+				break
+			}
+		}
+	}
+	if payload["message"] == nil {
+		if content := strings.TrimSpace(ExtractAssistantText(out)); content != "" {
+			payload["message"] = content
+		}
+	}
 }
 
 func buildFinalContent(out *agentschema.ExecutionResult) string {

@@ -522,7 +522,10 @@ onMounted(async () => {
                 :items="packageItems"
                 value-key="value"
                 label-key="label"
+                :search-input="{ placeholder: '搜索策略包' }"
+                :portal="true"
                 class="w-full"
+                :ui="{ content: 'z-[80] min-w-[min(90vw,900px)] max-h-72 overflow-y-auto', item: 'whitespace-normal break-words' }"
               />
               <template #help>
                 <div class="text-[var(--text-secondary)]">{{ selectedPackage?.summary }}</div>

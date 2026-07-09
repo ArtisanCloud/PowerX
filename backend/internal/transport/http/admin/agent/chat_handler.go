@@ -1012,6 +1012,15 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	originTenantUUID := strings.TrimSpace(getParam("origin_tenant_uuid"))
+	if originTenantUUID != "" {
+		canonicalOriginTenantUUID, canonicalErr := reqctx.CanonicalTenantUUID(originTenantUUID)
+		if canonicalErr != nil {
+			dto.ResponseError(c, 400, "origin_tenant_uuid 非法", canonicalErr)
+			return
+		}
+		originTenantUUID = canonicalOriginTenantUUID
+	}
 	tenantRef := tenantCtx.UUIDPtr()
 	var agentID uint64
 	if agentUUIDStr := getParam("agent_uuid"); agentUUIDStr != "" {
@@ -1089,6 +1098,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	debugMeta := map[string]any{
 		"tenant_uuid": strings.TrimSpace(tenantCtx.UUID()),
 		"request_id":  strings.TrimSpace(c.GetString("request_id")),
+	}
+	if originTenantUUID != "" {
+		debugMeta["origin_tenant_uuid"] = originTenantUUID
 	}
 	optCfg := agent.GetAgentManager().GetContextOptimizerConfig()
 	plannerCfg := agent.GetAgentManager().GetPlannerOptimizerConfig()
@@ -1194,6 +1206,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		runCtx = context.WithValue(runCtx, "authorization", authz)
 	}
 	runCtx = context.WithValue(runCtx, "tenant_uuid", strings.TrimSpace(tenantCtx.UUID()))
+	if originTenantUUID != "" {
+		runCtx = context.WithValue(runCtx, "origin_tenant_uuid", originTenantUUID)
+	}
 	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "sessionId", fmt.Sprintf("%d", sess.ID))
 	runCtx = context.WithValue(runCtx, "session_uuid", sess.UUID.String())

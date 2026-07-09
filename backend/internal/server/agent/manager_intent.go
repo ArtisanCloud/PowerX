@@ -529,6 +529,7 @@ func (m *Manager) detectTasksFromUnifiedCandidates(ctx context.Context, text str
 			"_source_scope":   strings.TrimSpace(c.SourceScope),
 			"_candidate_name": c.Name,
 			"_candidate_desc": strings.TrimSpace(c.Description),
+			"user_message":    strings.TrimSpace(text),
 		}
 		if action := inferCandidateAction(text, c.Actions); action != "" {
 			params["action"] = action

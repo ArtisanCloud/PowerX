@@ -14421,16 +14421,16 @@ capabilities:
           schema_ref: internal/transport/http/admin/plugin_dev/routes.go#source
           auth_type: tenant_jwt
           tool_scope: internal.api
-    - capability_id: com.corex.rest.internal.gin.post_api_v1_internal_plugins_host_mock
+    - capability_id: com.corex.rest.internal.gin.post_api_v1_internal_plugins_debug_hosts
       module: internal
-      title: POST /api/v1/internal/plugins/host/mock
+      title: POST /api/v1/internal/plugins/debug-hosts
       description: Generated from Gin route source
       categories:
         - internal
         - gin
         - generated
       intents:
-        - internal.post_api_v1_internal_plugins_host_mock
+        - internal.post_api_v1_internal_plugins_debug_hosts
       tool_scopes:
         - internal.api
       policy:
@@ -14439,7 +14439,7 @@ capabilities:
         - internal/transport/http/admin/plugin_dev/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/internal/plugins/host/mock
+          endpoint: /api/v1/internal/plugins/debug-hosts
           method: POST
           schema_ref: internal/transport/http/admin/plugin_dev/routes.go#source
           auth_type: tenant_jwt

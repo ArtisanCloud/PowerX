@@ -51,11 +51,14 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.POST("/environments/check", handler.checkEnvironment)
 	group.POST("/import", handler.submitImport)
 	group.GET("/import/:id", handler.getImport)
-	group.POST("/host/mock", handler.startMockHost)
 	group.POST("/local/install", handler.startLocalInstall)
 	group.POST("/local/reload", handler.recordReload)
 	group.POST("/debug/report", handler.createDiagnosticsReport)
 	group.POST("/debug/logs/export", handler.exportLogs)
+
+	debugHostGroup := protected.Group("/internal/plugins")
+	debugHostGroup.Use(adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginDebugHostRegister))
+	debugHostGroup.POST("/debug-hosts", handler.registerDebugHost)
 
 	capabilityGroup := protected.Group("/internal/plugins")
 	capabilityGroup.Use(adminauthz.PluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginCapabilityCatalogSync))
@@ -174,12 +177,12 @@ func (h *handler) getImport(c *gin.Context) {
 	dto.ResponseSuccess(c, record)
 }
 
-func (h *handler) startMockHost(c *gin.Context) {
+func (h *handler) registerDebugHost(c *gin.Context) {
 	if h.host == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "plugin debug host service disabled", nil)
 		return
 	}
-	var req mockHostRequest
+	var req debugHostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -195,6 +198,10 @@ func (h *handler) startMockHost(c *gin.Context) {
 	}
 	if req.HTTPPort <= 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "httpPort is required", nil)
+		return
+	}
+	if err := validateLocalDebugHostRequest(pluginID, req.HTTPPort); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
@@ -231,6 +238,20 @@ func (h *handler) startMockHost(c *gin.Context) {
 		"ttlSeconds":   int(session.TTL.Seconds()),
 		"capabilities": session.Capabilities,
 	})
+}
+
+func validateLocalDebugHostRequest(pluginID string, httpPort int) error {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return errors.New("pluginId is required")
+	}
+	if !strings.HasSuffix(pluginID, ".local") {
+		return errors.New("debug host registration requires .local pluginId")
+	}
+	if httpPort <= 0 || httpPort > 65535 {
+		return errors.New("httpPort must be a valid local port")
+	}
+	return nil
 }
 
 func (h *handler) startLocalInstall(c *gin.Context) {
@@ -372,7 +393,7 @@ func unmarshalMap(data []byte) map[string]any {
 	return m
 }
 
-type mockHostRequest struct {
+type debugHostRequest struct {
 	PluginID     string   `json:"pluginId"`
 	Environment  string   `json:"environment"`
 	TTLSeconds   int      `json:"ttlSeconds"`

@@ -325,6 +325,74 @@ func TestEnginePendingTaskExtractsMissingSlotFromUserMessage(t *testing.T) {
 	}
 }
 
+func TestEngineInitialTaskExtractsRequiredSlotsFromUserMessage(t *testing.T) {
+	mgr := agent.GetAgentManager()
+	skillID := "test.skill.initial.slot.runtime"
+	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
+		Name:        skillID,
+		NodeKind:    "skill",
+		NodeRef:     skillID,
+		SourceScope: "agent",
+		Source:      "plugin",
+		ActionRequiredArgs: map[string][]string{
+			"create": []string{"template.title", "template.description", "template.content"},
+		},
+		SlotMapping: map[string]any{
+			"template.title": map[string]any{
+				"labels": []any{"标题", "名称", "模板标题"},
+			},
+			"template.description": map[string]any{
+				"labels": []any{"描述", "用途", "说明"},
+			},
+			"template.content": map[string]any{
+				"labels": []any{"内容", "正文", "模板内容"},
+			},
+		},
+	})
+	engine := NewEngine()
+	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
+	plan := &flowschema.ExecutionPlan{
+		PlanID: "plan_initial_slot",
+		Tasks: []flowschema.PlanTask{
+			{
+				TaskID:   "task_create",
+				FlowID:   skillID,
+				NodeKind: "skill",
+				NodeRef:  skillID,
+				Params: map[string]interface{}{
+					"action":       "create",
+					"user_message": "创建标题为'测试模板'的条目，描述是验证CRUD，内容是测试文本",
+				},
+			},
+		},
+	}
+	plan = engine.applyRuntimeParamState(ctx, plan)
+	missing := engine.missingRequiredArgsForPlan(ctx, plan)
+	if len(missing) != 0 {
+		t.Fatalf("missing=%v plan=%#v", missing, plan.Tasks[0].Params)
+	}
+	template, ok := plan.Tasks[0].Params["template"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("template params missing: %#v", plan.Tasks[0].Params)
+	}
+	if template["title"] != "测试模板" {
+		t.Fatalf("title=%#v params=%#v", template["title"], plan.Tasks[0].Params)
+	}
+	if template["description"] != "验证CRUD" {
+		t.Fatalf("description=%#v params=%#v", template["description"], plan.Tasks[0].Params)
+	}
+	if template["content"] != "测试文本" {
+		t.Fatalf("content=%#v params=%#v", template["content"], plan.Tasks[0].Params)
+	}
+}
+
+func TestExtractSlotValueFromTextHandlesQuotedChineseValue(t *testing.T) {
+	got := extractSlotValueFromText("创建标题为'测试模板'的条目，描述是验证CRUD，内容是测试文本", []string{"标题"})
+	if got != "测试模板" {
+		t.Fatalf("title=%q", got)
+	}
+}
+
 func TestResponsePlannerPendingTaskResumeExecutesWithUserMessage(t *testing.T) {
 	plan, err := NewResponsePlanner().Plan(context.Background(), ResponsePlanInput{
 		UserMessage: "内容是：这是一条测试用的模板内容",

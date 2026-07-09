@@ -337,7 +337,8 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		if s.httpClient == nil || s.httpBaseURL == "" {
 			return nil, errors.New("rest adapter selected but HTTP client/base URL is not configured")
 		}
-		restPayload, err := buildRESTInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
+		invokePayload := wrapPluginCapabilityInvokePayload(in, routerResult.Endpoint, routerResult.Labels)
+		restPayload, err := buildRESTInvokePayloadWithDefaults(invokePayload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -355,6 +356,91 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 	default:
 		return nil, fmt.Errorf("unsupported capability adapter transport %q", transport)
 	}
+}
+
+func wrapPluginCapabilityInvokePayload(in InvocationInput, endpoint string, labels map[string]string) map[string]interface{} {
+	raw := in.Payload
+	if len(raw) == 0 || !isPluginCapabilityInvokeEndpoint(endpoint) || hasPluginCapabilityInvokeEnvelope(raw) {
+		return raw
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(raw["method"])))
+	if method == "" {
+		method = strings.ToUpper(strings.TrimSpace(getLabel(labels, "method")))
+	}
+	if method == "" {
+		method = http.MethodPost
+	}
+	action := firstNonEmptyString(
+		getString(raw["action"]),
+		getString(raw["operation"]),
+		getString(raw["intent"]),
+	)
+	preferredProtocol := firstNonEmptyString(
+		getString(raw["preferredProtocol"]),
+		getString(raw["preferred_protocol"]),
+		strings.TrimSpace(in.PreferredProtocol),
+		"agent",
+	)
+	metadata := map[string]interface{}{
+		"capability_id": strings.TrimSpace(in.CapabilityID),
+	}
+	for k, v := range in.Context {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		if _, exists := metadata[key]; exists {
+			continue
+		}
+		metadata[key] = v
+	}
+	return map[string]interface{}{
+		"method":   method,
+		"endpoint": strings.TrimSpace(endpoint),
+		"headers":  mapStringString(raw["headers"]),
+		"query":    mapStringString(raw["query"]),
+		"body": map[string]interface{}{
+			"capabilityId":      strings.TrimSpace(in.CapabilityID),
+			"action":            action,
+			"preferredProtocol": preferredProtocol,
+			"payload":           stripEnvelopeKeys(raw),
+			"metadata":          metadata,
+		},
+	}
+}
+
+func isPluginCapabilityInvokeEndpoint(endpoint string) bool {
+	target := strings.TrimSpace(endpoint)
+	if target == "" {
+		return false
+	}
+	if parsed, err := url.Parse(target); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		target = parsed.Path
+	}
+	target = strings.ToLower(strings.TrimRight(strings.TrimSpace(target), "/"))
+	return strings.HasSuffix(target, "/integration/capabilities/invoke")
+}
+
+func hasPluginCapabilityInvokeEnvelope(raw map[string]interface{}) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	if strings.TrimSpace(getString(raw["capabilityId"])) != "" || strings.TrimSpace(getString(raw["capability_id"])) != "" {
+		return true
+	}
+	if body, ok := toStringAnyMap(raw["body"]); ok {
+		return strings.TrimSpace(getString(body["capabilityId"])) != "" || strings.TrimSpace(getString(body["capability_id"])) != ""
+	}
+	return false
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if s := strings.TrimSpace(value); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 type restInvokePayload struct {

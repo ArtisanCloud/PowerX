@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	modeligw "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	igwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"gorm.io/gorm"
 )
 
@@ -125,7 +127,57 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 	if len(currentIDs) == 0 {
 		currentIDs = permissionIDs
 	}
+	if profile != nil && profile.ID > 0 {
+		if err := syncActiveAPIKeyPermissions(ctx, db, tenantUUID, profile.ID, currentIDs); err != nil {
+			return nil, nil, err
+		}
+	}
 	return profile, currentIDs, nil
+}
+
+func syncActiveAPIKeyPermissions(ctx context.Context, db *gorm.DB, tenantUUID string, profileID uint64, permissionIDs []uint64) error {
+	if db == nil || profileID == 0 || len(permissionIDs) == 0 {
+		return nil
+	}
+	permissionRows, err := iamrepo.NewPermissionRepository(db).FindByIDs(ctx, permissionIDs)
+	if err != nil {
+		return fmt.Errorf("load api key permissions failed: %w", err)
+	}
+	permissionRequests := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRows))
+	for _, permission := range permissionRows {
+		if permission == nil || permission.Status != modelsiam.PermissionStatusActive || !permission.AllowAPIKey {
+			continue
+		}
+		resolved, ok := ResolvePermission(*permission)
+		if !ok {
+			continue
+		}
+		permissionRequests = append(permissionRequests, modeligw.IntegrationGatewayAPIKeyPermission{
+			Scope:           resolved.Scope,
+			Action:          resolved.Action,
+			ResourceType:    resolved.ResourceType,
+			ResourcePattern: resolved.ResourcePattern,
+			PluginID:        resolved.PluginID,
+			Effect:          resolved.Effect,
+		})
+	}
+	keys, err := igwrepo.NewIntegrationGatewayAPIKeyRepository(db).ListActiveByProfile(ctx, tenantUUID, profileID)
+	if err != nil {
+		return fmt.Errorf("list active api keys failed: %w", err)
+	}
+	keyPermRepo := igwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(db)
+	for i := range keys {
+		items := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRequests))
+		for j := range permissionRequests {
+			item := permissionRequests[j]
+			item.APIKeyUUID = keys[i].UUID
+			items = append(items, item)
+		}
+		if err := keyPermRepo.ReplaceAll(ctx, keys[i].UUID, items); err != nil {
+			return fmt.Errorf("sync api key permissions failed: %w", err)
+		}
+	}
+	return nil
 }
 
 func BuildTemplatePermissions() []modelsiam.Permission {
@@ -168,6 +220,9 @@ func BuildTemplatePermissions() []modelsiam.Permission {
 		}),
 		build("integration_gateway", "api_key.plugin.capability_catalog", "sync", "API Key：插件 Capability Catalog 同步", map[string]string{
 			"scope": "_scope.plugin.capability_catalog.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/internal/plugins/capabilities/catalog",
+		}),
+		build("integration_gateway", "api_key.plugin.debug_host", "register", "API Key：插件本地 Debug Host 注册", map[string]string{
+			"scope": "_scope.plugin.debug_host.register", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/internal/plugins/debug-hosts",
 		}),
 		build("integration_gateway", "api_key.plugin.agent_registry", "sync", "API Key：插件 Agent 注册同步", map[string]string{
 			"scope": "_scope.plugin.agent_registry.sync", "action": "sync", "resource_type": "api", "resource_pattern": "POST:/api/v1/admin/agents*",

@@ -305,7 +305,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		if decision, ok := readPlannerDecisionCache(ctx, cacheKey); ok {
 			dlogRun.PlannerCacheHit = true
 			dlogRun.Decision = decision
-			out := buildDetectedTasksFromDecision(decision, cands)
+			out := attachUserMessageToDetectedTasks(buildDetectedTasksFromDecision(decision, cands), text)
 			if len(out) > 0 {
 				dlogRun.ResultSource = "planner_cache"
 				dlogRun.Tasks = out
@@ -356,7 +356,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		writePlannerDecisionCache(ctx, cacheKey, decision, plannerCfg.DecisionCacheTTLSec)
 	}
 
-	out := buildDetectedTasksFromDecision(decision, cands)
+	out := attachUserMessageToDetectedTasks(buildDetectedTasksFromDecision(decision, cands), text)
 	if len(out) == 0 {
 		return fallback("tool decision produced zero tasks")
 	}
@@ -476,6 +476,22 @@ func buildDetectedTasksFromDecision(decision *toolCallingDecision, cands []ToolC
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
 	return dedupeAliasTasks(out)
+}
+
+func attachUserMessageToDetectedTasks(tasks []flowschema.DetectedTask, text string) []flowschema.DetectedTask {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return tasks
+	}
+	for i := range tasks {
+		if tasks[i].Params == nil {
+			tasks[i].Params = map[string]interface{}{}
+		}
+		if strings.TrimSpace(fmt.Sprint(tasks[i].Params["user_message"])) == "" {
+			tasks[i].Params["user_message"] = text
+		}
+	}
+	return tasks
 }
 
 func dedupeAliasTasks(in []flowschema.DetectedTask) []flowschema.DetectedTask {

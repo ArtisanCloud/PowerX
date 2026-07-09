@@ -13,6 +13,9 @@ export interface Agent {
   promptSeed?: string;
   persona?: string;
   source: string;
+  ownerPluginId?: string;
+  ownerTenantUuid?: string;
+  managedByPlugin?: boolean;
   scope: string;
   visibility: string;
   status: string;

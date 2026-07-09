@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -122,5 +123,31 @@ func TestExtractAssistantTextFromAgentRunFinal(t *testing.T) {
 
 	if got := extractAssistantText(payload); got != "模板智能体可以帮你管理模板对象。" {
 		t.Fatalf("extractAssistantText()=%q", got)
+	}
+}
+
+func TestEnrichTaskEndPayloadIncludesSkillBusinessResult(t *testing.T) {
+	payload := map[string]any{}
+	enrichTaskEndPayload(payload, &agentschema.ExecutionResult{
+		Success: true,
+		Data: map[string]any{
+			"result": map[string]any{
+				"content": "已创建模板「合同模板」。",
+				"links": []map[string]any{
+					{"label": "查看模板", "href": "/templates/crud?template_id=12"},
+				},
+			},
+		},
+	})
+
+	if payload["message"] != "已创建模板「合同模板」。" {
+		t.Fatalf("message=%v", payload["message"])
+	}
+	if _, ok := payload["result"].(map[string]any); !ok {
+		t.Fatalf("missing result: %#v", payload)
+	}
+	links, ok := payload["links"].([]map[string]any)
+	if !ok || len(links) != 1 || links[0]["href"] != "/templates/crud?template_id=12" {
+		t.Fatalf("bad links: %#v", payload["links"])
 	}
 }

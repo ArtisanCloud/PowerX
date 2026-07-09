@@ -580,6 +580,8 @@ func (s *AgentSettingService) resolveConnFromStore(
 	baseURL, apiKey = baseURLIn, apiKeyIn
 	// 名称规则与你 handler 构造时一致
 	name := utils.Slug(env + "-" + provider)
+	req := catalog.AuthReqFromCatalog(provider)
+	logger.InfoF(ctx, "[agent_setting] resolve_conn start env=%s tenant=%s provider=%s name=%s need_key=%t need_base=%t has_base=%t has_api_key=%t", env, s.tenantScopeKey(tenantUUID), provider, name, req.NeedKey, req.NeedBaseURL, strings.TrimSpace(baseURLIn) != "", strings.TrimSpace(apiKeyIn) != "")
 
 	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
@@ -592,8 +594,9 @@ func (s *AgentSettingService) resolveConnFromStore(
 			baseURL = v
 		}
 	}
-	// 再补 api_key（仅后端内部使用，不回前端）
-	if apiKey == "" {
+	// 再补 api_key（仅后端内部使用，不回前端）。只有 provider 明确要求 key 时才解封敏感字段；
+	// 例如 Ollama 只需要 base_url，不能因为没有 api_key 阻断运行时。
+	if apiKey == "" && req.NeedKey {
 		// 兼容：历史记录可能未加密 api_key（明文存放）
 		if v, ok := cred.Data["api_key"].(string); ok && strings.TrimSpace(v) != "" {
 			apiKey = strings.TrimSpace(v)
@@ -627,6 +630,9 @@ func (s *AgentSettingService) resolveConnFromStore(
 			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 			return baseURL, apiKey, fmt.Errorf("已保存凭据缺少 __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
+	}
+	if apiKey == "" && !req.NeedKey {
+		logger.InfoF(ctx, "[agent_setting] resolve_conn skip_api_key env=%s tenant=%s provider=%s name=%s reason=provider_does_not_require_key", env, s.tenantScopeKey(tenantUUID), provider, name)
 	}
 	return baseURL, apiKey, nil
 }

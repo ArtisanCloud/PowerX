@@ -117,7 +117,18 @@ func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	dr := router.NewDynamicRouter("/_p", engine)
-	m := &managerImpl{http: dr}
+	ctx := context.Background()
+	registry := NewJSONRegistry(filepath.Join(t.TempDir(), "registry.json"))
+	require.NoError(t, registry.Put(ctx, Descriptor{
+		Manifest: plugin_mgr.Manifest{
+			ID:      "com.powerx.plugins.base",
+			Version: "0.1.3",
+			Endpoints: plugin_mgr.EndpointSpec{
+				HTTPBasePath: "/api/v1",
+			},
+		},
+	}, plugin_mgr.StateEnabled))
+	m := &managerImpl{opts: Options{Registry: registry}, http: dr}
 
 	require.NoError(t, MountDebugHost(m, "com.powerx.plugins.base.local", 3131))
 
@@ -125,6 +136,44 @@ func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {
 	require.Contains(t, resp, `"com.powerx.plugins.base.local"`)
 	require.NotContains(t, resp, `"com.powerx.plugins.base":`)
 	require.Contains(t, resp, `"basePath":"/api/v1"`)
+}
+
+func TestDebugHostPolicyUsesSourcePluginManifestForLocalPlugin(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	registry := NewJSONRegistry(filepath.Join(t.TempDir(), "registry.json"))
+	require.NoError(t, registry.Put(ctx, Descriptor{
+		Manifest: plugin_mgr.Manifest{
+			ID:      "com.powerx.plugins.base",
+			Version: "0.1.3",
+			Endpoints: plugin_mgr.EndpointSpec{
+				HTTPBasePath: "/api/v1",
+			},
+			Exposure: plugin_mgr.ExposureSpec{
+				Channels: []plugin_mgr.ExposureChannel{
+					{
+						Type:       "rest",
+						Method:     http.MethodPost,
+						Entrypoint: "/api/v1/templates",
+						Auth:       "jwt",
+						RBAC:       "template:create",
+					},
+				},
+			},
+			RBAC: plugin_mgr.RBACSpec{
+				Resources: []plugin_mgr.RBACResource{
+					{Resource: "template", Actions: []string{"create"}},
+				},
+			},
+		},
+	}, plugin_mgr.StateEnabled))
+
+	policy, err := debugHostPolicyForPlugin(&managerImpl{opts: Options{Registry: registry}}, "com.powerx.plugins.base.local")
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+	require.Equal(t, "/api/v1", policy.HTTPBase)
+	require.Equal(t, &router.Permission{Resource: "template", Action: "create"}, policy.Required(http.MethodPost, "/api/v1/templates"))
 }
 
 func performBootstrapDebugRequest(engine *gin.Engine) string {

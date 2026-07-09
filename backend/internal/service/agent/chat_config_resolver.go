@@ -3,10 +3,12 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -70,7 +72,8 @@ func (r *ChatConfigResolver) ResolveForAgentChat(
 		return nil, errors.New("未配置默认 LLM：请先在「AI Settings」选择并保存一个可用的 Provider/Model（并配置凭据）")
 	}
 	if err := r.fillConnFromStore(ctx, env, tenantUUID, out); err != nil {
-		return nil, err
+		logger.WarnF(ctx, "[agent_chat_config] resolve credential failed env=%s tenant=%s provider=%s model=%s err=%v", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
+		return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
 	}
 
 	return out, nil
@@ -152,11 +155,18 @@ func (r *ChatConfigResolver) buildFromActiveProfile(
 	// profile 本身不含凭据，执行时需要补 base_url/api_key
 	if strings.TrimSpace(out.Provider) != "" {
 		if err := r.fillConnFromStore(ctx, env, tenantUUID, out); err != nil {
-			// 对“仅有 config.yaml 默认但没配凭据”的场景：给清晰引导
-			return nil, errors.New("AI Settings 未配置或凭据不可用：请先在「AI Settings」保存该 Provider 的连接信息（base_url/api_key），再开始对话")
+			logger.WarnF(ctx, "[agent_chat_config] active profile credential failed env=%s tenant=%s provider=%s model=%s err=%v", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
+			return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
 		}
 	}
 	return out, nil
+}
+
+func tenantScopeForLog(tenantUUID *string) string {
+	if tenantUUID == nil || strings.TrimSpace(*tenantUUID) == "" {
+		return "global"
+	}
+	return strings.TrimSpace(*tenantUUID)
 }
 
 func (r *ChatConfigResolver) buildFromAgentSetting(

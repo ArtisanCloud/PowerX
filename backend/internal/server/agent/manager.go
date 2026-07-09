@@ -29,24 +29,25 @@ type routeRecord struct {
 }
 
 type SkillInvokeInput struct {
-	TenantUUID   string
-	Env          string
-	AgentID      uint64
-	UserUUID     string
-	SessionID    string
-	MessageID    string
-	SkillID      string
-	Version      string
-	CapabilityID string
-	Entrypoint   string
-	TraceID      string
-	RunID        string
-	PlanID       string
-	NodeID       string
-	PluginID     string
-	Payload      map[string]any
-	Context      map[string]any
-	ToolGrantIDs []string
+	TenantUUID       string
+	OriginTenantUUID string
+	Env              string
+	AgentID          uint64
+	UserUUID         string
+	SessionID        string
+	MessageID        string
+	SkillID          string
+	Version          string
+	CapabilityID     string
+	Entrypoint       string
+	TraceID          string
+	RunID            string
+	PlanID           string
+	NodeID           string
+	PluginID         string
+	Payload          map[string]any
+	Context          map[string]any
+	ToolGrantIDs     []string
 }
 
 type SkillInvokeOutput struct {

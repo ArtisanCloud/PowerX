@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -102,6 +103,7 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 	}
 	tenantRef := tenantCtx.UUIDPtr()
 	agentID := req.AgentID
+	var requestedAgent *dbmodel.Agent
 	if strings.TrimSpace(req.AgentUUID) != "" {
 		agentUUID, err := uuid.Parse(strings.TrimSpace(req.AgentUUID))
 		if err != nil {
@@ -113,11 +115,24 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 			dto.ResponseError(c, 404, "未找到指定的 Agent", err)
 			return
 		}
+		requestedAgent = exist
 		agentID = exist.ID
 	}
 	if agentID == 0 {
 		dto.ResponseError(c, 400, "agentId/agentUuid 必填", nil)
 		return
+	}
+	if requestedAgent == nil {
+		exist, err := h.ag.Get(c.Request.Context(), req.Env, tenantRef, agentID)
+		if err != nil {
+			dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+			return
+		}
+		requestedAgent = exist
+	}
+	resolvedAgent := h.resolveLocalDebugAgentForSession(c, req.Env, tenantRef, requestedAgent)
+	if resolvedAgent != nil {
+		agentID = resolvedAgent.ID
 	}
 	userID := req.UserID
 	if userID == 0 {
@@ -144,6 +159,50 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, out)
+}
+
+func (h *AgentSessionHandler) resolveLocalDebugAgentForSession(c *gin.Context, env string, tenantRef *string, requested *dbmodel.Agent) *dbmodel.Agent {
+	if h == nil || h.ag == nil || requested == nil {
+		return requested
+	}
+	ctx := c.Request.Context()
+	requestedOwner := agentOwnerPluginID(requested)
+	if requestedOwner == "" {
+		logger.InfoF(ctx, "[agent_session] create_session agent_resolve requested_id=%d requested_key=%s requested_owner= resolved_id=%d resolved_key=%s resolved_owner= reason=no_owner_plugin", requested.ID, requested.Key, requested.ID, requested.Key)
+		return requested
+	}
+	if strings.HasSuffix(requestedOwner, ".local") {
+		logger.InfoF(ctx, "[agent_session] create_session agent_resolve requested_id=%d requested_key=%s requested_owner=%s resolved_id=%d resolved_key=%s resolved_owner=%s reason=already_local", requested.ID, requested.Key, requestedOwner, requested.ID, requested.Key, requestedOwner)
+		return requested
+	}
+	list, err := h.ag.List(ctx, env, tenantRef, "", dbmodel.AgentStatusActive)
+	if err != nil {
+		logger.WarnF(ctx, "[agent_session] create_session local_counterpart_lookup_failed requested_id=%d requested_key=%s requested_owner=%s err=%v", requested.ID, requested.Key, requestedOwner, err)
+		return requested
+	}
+	expectedOwner := requestedOwner + ".local"
+	expectedKey := requested.Key + ".local"
+	for idx := range list {
+		candidate := &list[idx]
+		candidateOwner := agentOwnerPluginID(candidate)
+		if candidateOwner != expectedOwner {
+			continue
+		}
+		if candidate.Key != expectedKey && strings.TrimSuffix(candidate.Key, ".local") != requested.Key && candidate.Name != requested.Name {
+			continue
+		}
+		logger.InfoF(ctx, "[agent_session] create_session agent_resolve requested_id=%d requested_uuid=%s requested_key=%s requested_owner=%s resolved_id=%d resolved_uuid=%s resolved_key=%s resolved_owner=%s reason=local_debug_counterpart", requested.ID, requested.UUID.String(), requested.Key, requestedOwner, candidate.ID, candidate.UUID.String(), candidate.Key, candidateOwner)
+		return candidate
+	}
+	logger.InfoF(ctx, "[agent_session] create_session agent_resolve requested_id=%d requested_uuid=%s requested_key=%s requested_owner=%s resolved_id=%d resolved_uuid=%s resolved_key=%s resolved_owner=%s reason=no_local_debug_counterpart", requested.ID, requested.UUID.String(), requested.Key, requestedOwner, requested.ID, requested.UUID.String(), requested.Key, requestedOwner)
+	return requested
+}
+
+func agentOwnerPluginID(agent *dbmodel.Agent) string {
+	if agent == nil || agent.OwnerPluginID == nil {
+		return ""
+	}
+	return strings.TrimSpace(*agent.OwnerPluginID)
 }
 
 // GET /agents/sessions?env=...&agent_id=1&status=active,archived&limit=50&offset=0

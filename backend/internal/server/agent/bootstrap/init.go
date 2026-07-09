@@ -280,6 +280,9 @@ func enrichSkillContext(ctxMap map[string]any, in agent.SkillInvokeInput) map[st
 	if in.TenantUUID != "" {
 		out["tenant_uuid"] = in.TenantUUID
 	}
+	if in.OriginTenantUUID != "" {
+		out["origin_tenant_uuid"] = in.OriginTenantUUID
+	}
 	if in.UserUUID != "" {
 		out["user_uuid"] = in.UserUUID
 	}

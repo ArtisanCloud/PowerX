@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -32,8 +33,26 @@ func MountDebugHost(mgr plugin_mgr.Manager, pluginID string, httpPort int) error
 	}
 	impl.http.MountAPIProxy(pluginID, target, "/api/v1", "/healthz")
 	impl.http.MountAdminProxy(pluginID, target)
-	impl.http.InstallPolicy(pluginID, debugHostPolicy())
+	policy, err := debugHostPolicyForPlugin(impl, pluginID)
+	if err != nil {
+		return err
+	}
+	impl.http.InstallPolicy(pluginID, policy)
 	return nil
+}
+
+func debugHostPolicyForPlugin(impl *managerImpl, pluginID string) (*pmrouter.Policy, error) {
+	sourcePluginID := strings.TrimSuffix(pluginID, ".local")
+	if sourcePluginID == "" || sourcePluginID == pluginID {
+		return debugHostPolicy(), nil
+	}
+	if impl == nil || impl.opts.Registry == nil {
+		return nil, fmt.Errorf("local debug host %s requires source plugin registry", pluginID)
+	}
+	if p, ok := impl.opts.Registry.Get(context.Background(), sourcePluginID); ok {
+		return PolicyFromPlugin(p), nil
+	}
+	return nil, fmt.Errorf("local debug host %s source plugin %s not found in registry", pluginID, sourcePluginID)
 }
 
 func debugHostPolicy() *pmrouter.Policy {

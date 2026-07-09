@@ -87,6 +87,42 @@ func TestBuildRESTInvokePayloadRequiresMethod(t *testing.T) {
 	require.ErrorContains(t, err, "REST invocation requires method")
 }
 
+func TestWrapPluginCapabilityInvokePayloadAddsEnvelope(t *testing.T) {
+	t.Parallel()
+
+	raw := map[string]interface{}{
+		"action": "create",
+	}
+	wrapped := wrapPluginCapabilityInvokePayload(InvocationInput{
+		CapabilityID:      "com.powerx.plugins.base.local.template.prepare",
+		PreferredProtocol: "rest",
+		Payload:           raw,
+		Context: map[string]interface{}{
+			"trace_id": "trace-prepare",
+		},
+	}, "/_p/com.powerx.plugins.base.local/api/v1/integration/capabilities/invoke", map[string]string{"method": "POST"})
+
+	restPayload, err := buildRESTInvokePayloadWithDefaults(wrapped, "/_p/com.powerx.plugins.base.local/api/v1/integration/capabilities/invoke", map[string]string{"method": "POST"})
+	require.NoError(t, err)
+	require.Equal(t, http.MethodPost, restPayload.Method)
+	require.Equal(t, "/_p/com.powerx.plugins.base.local/api/v1/integration/capabilities/invoke", restPayload.Endpoint)
+
+	body, ok := restPayload.Body.(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "com.powerx.plugins.base.local.template.prepare", body["capabilityId"])
+	require.Equal(t, "create", body["action"])
+	require.Equal(t, "rest", body["preferredProtocol"])
+
+	payload, ok := body["payload"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "create", payload["action"])
+
+	metadata, ok := body["metadata"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "com.powerx.plugins.base.local.template.prepare", metadata["capability_id"])
+	require.Equal(t, "trace-prepare", metadata["trace_id"])
+}
+
 func TestInvocationServiceInvokeRESTForwardsAuthorizationFromContext(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNoLocalListener(t)

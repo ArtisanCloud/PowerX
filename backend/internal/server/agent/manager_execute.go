@@ -750,26 +750,30 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		return nil, errors.New("skill invoker is not configured")
 	}
 	in := SkillInvokeInput{
-		TenantUUID:   firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
-		Env:          firstNonEmpty(asString(mt.Metadata["env"]), asString(params["env"])),
-		AgentID:      firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["agent_id"])),
-		UserUUID:     firstNonEmpty(asString(mt.Metadata["user_uuid"]), asString(params["user_uuid"]), asString(params["member_uuid"])),
-		SessionID:    firstNonEmpty(asString(mt.Metadata["session_id"]), asString(params["session_id"])),
-		MessageID:    firstNonEmpty(asString(mt.Metadata["message_id"]), asString(params["message_id"])),
-		SkillID:      firstNonEmpty(ref, asString(params["skill_id"])),
-		Version:      firstNonEmpty(asString(params["version"]), asString(t.Params["version"])),
-		CapabilityID: asString(params["capability_id"]),
-		Entrypoint:   asString(params["entrypoint"]),
-		TraceID:      firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
-		RunID:        asString(mt.Metadata["run_id"]),
-		PlanID:       firstNonEmpty(asString(mt.Metadata["plan_id"]), asString(params["plan_id"])),
-		NodeID:       firstNonEmpty(t.TaskID, asString(params["node_id"])),
-		PluginID:     firstNonEmpty(asString(params["plugin_id"]), asString(params["provider"]), asString(t.Params["plugin_id"])),
-		Payload:      payloadFromTaskParams(t, params),
-		Context:      contextFromTaskParams(t, params),
-		ToolGrantIDs: toStringSlice(params["tool_grant_ids"]),
+		TenantUUID:       firstNonEmpty(mt.TenantUUID, asString(params["tenant_uuid"])),
+		OriginTenantUUID: firstNonEmpty(asString(mt.Metadata["origin_tenant_uuid"]), asString(params["origin_tenant_uuid"]), asString(ctx.Value("origin_tenant_uuid"))),
+		Env:              firstNonEmpty(asString(mt.Metadata["env"]), asString(params["env"])),
+		AgentID:          firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["agent_id"])),
+		UserUUID:         firstNonEmpty(asString(mt.Metadata["user_uuid"]), asString(params["user_uuid"]), asString(params["member_uuid"])),
+		SessionID:        firstNonEmpty(asString(mt.Metadata["session_id"]), asString(params["session_id"])),
+		MessageID:        firstNonEmpty(asString(mt.Metadata["message_id"]), asString(params["message_id"])),
+		SkillID:          firstNonEmpty(ref, asString(params["skill_id"])),
+		Version:          firstNonEmpty(asString(params["version"]), asString(t.Params["version"])),
+		CapabilityID:     asString(params["capability_id"]),
+		Entrypoint:       asString(params["entrypoint"]),
+		TraceID:          firstNonEmpty(mt.TraceID, asString(params["trace_id"])),
+		RunID:            asString(mt.Metadata["run_id"]),
+		PlanID:           firstNonEmpty(asString(mt.Metadata["plan_id"]), asString(params["plan_id"])),
+		NodeID:           firstNonEmpty(t.TaskID, asString(params["node_id"])),
+		PluginID:         firstNonEmpty(asString(params["plugin_id"]), asString(params["provider"]), asString(t.Params["plugin_id"])),
+		Payload:          payloadFromTaskParams(t, params),
+		Context:          contextFromTaskParams(t, params),
+		ToolGrantIDs:     toStringSlice(params["tool_grant_ids"]),
 	}
 	in.Context["trace_id"] = in.TraceID
+	if in.OriginTenantUUID != "" {
+		in.Context["origin_tenant_uuid"] = in.OriginTenantUUID
+	}
 	in.Context["run_id"] = in.RunID
 	in.Context["plan_id"] = in.PlanID
 	in.Context["node_id"] = in.NodeID
