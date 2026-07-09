@@ -14,6 +14,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	chatH := NewAgentChatHandler(deps)
 	shareH := NewShareHandler(deps)
 	teamH := NewTeamHandler(deps)
+	authzH := NewAgentAuthzHandler(deps)
 
 	sessionH := NewAgentSessionHandler(deps)
 	tenantFormH := NewTenantAgentFormHandler(deps)
@@ -69,10 +70,14 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		// 智能体 CRUD
 		agentAdminGroup.POST("", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.CreateAgent)
 		agentAdminGroup.GET("", agentH.ListAgents)
+		agentAdminGroup.GET("/grantable-capabilities", authzH.ListGrantableCapabilities)
 		agentAdminGroup.GET("/:uuid", agentH.GetAgent)
 		agentAdminGroup.PATCH("/:uuid", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.UpdateAgent)
 		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
 		agentAdminGroup.POST("/:uuid/disable", agentH.DisableAgent)
+		agentAdminGroup.GET("/:uuid/grants", authzH.ListAgentGrants)
+		agentAdminGroup.PUT("/:uuid/grants", authzH.ReplaceAgentGrants)
+		agentAdminGroup.GET("/:uuid/my-effective-permissions", authzH.MyEffectivePermissions)
 
 		agentAdminGroup.POST("/:uuid/shares", shareH.CreateShare)
 		agentAdminGroup.POST("/shares/:share_id/revoke", shareH.RevokeShare)

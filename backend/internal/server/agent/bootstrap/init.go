@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/intent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentsvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	agentauthz "github.com/ArtisanCloud/PowerX/internal/service/agent_authz"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	caprouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	cachepkg "github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -22,6 +23,7 @@ import (
 	skillmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	logcfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"gorm.io/gorm"
@@ -132,6 +134,7 @@ func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) 
 			EventRepo:   capEventRepo,
 			HTTPBaseURL: resolveCoreHTTPBaseURL(appConfig),
 		})
+		authzSvc := agentauthz.NewService(db)
 		gAgentManager.SetSkillInvoker(func(ctx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
 			if in.Payload == nil {
 				in.Payload = map[string]any{}
@@ -144,6 +147,9 @@ func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) 
 				capID, resolveErr := resolveSkillPrepareCapability(ctx, skillRegistryRepo, in.SkillID, in.Version)
 				if resolveErr != nil {
 					return nil, resolveErr
+				}
+				if err := authorizeSkillCapabilityInvoke(ctx, authzSvc, in, capID, enrichedCtx); err != nil {
+					return nil, err
 				}
 				result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
 					CapabilityID:      capID,
@@ -176,6 +182,9 @@ func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) 
 				return out, nil
 			}
 			if capID := strings.TrimSpace(in.CapabilityID); capID != "" {
+				if err := authorizeSkillCapabilityInvoke(ctx, authzSvc, in, capID, enrichedCtx); err != nil {
+					return nil, err
+				}
 				result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
 					CapabilityID:      capID,
 					TenantUUID:        in.TenantUUID,
@@ -200,6 +209,9 @@ func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) 
 			return nil, fmt.Errorf("skill %q action invocation requires capability_id from prepare capability_request", strings.TrimSpace(in.SkillID))
 		})
 		gAgentManager.SetToolingInvoker(func(ctx context.Context, in agent.ToolingInvokeInput) (*agent.ToolingInvokeOutput, error) {
+			if err := authorizeToolingCapabilityInvoke(ctx, authzSvc, in); err != nil {
+				return nil, err
+			}
 			result, err := capInvoker.Invoke(ctx, capservice.InvocationInput{
 				CapabilityID:      in.CapabilityID,
 				TenantUUID:        in.TenantUUID,
@@ -304,6 +316,62 @@ func enrichSkillContext(ctxMap map[string]any, in agent.SkillInvokeInput) map[st
 	if in.CapabilityID != "" {
 		out["capability_id"] = in.CapabilityID
 	}
+	return out
+}
+
+func authorizeSkillCapabilityInvoke(ctx context.Context, svc *agentauthz.Service, in agent.SkillInvokeInput, capabilityID string, enrichedCtx map[string]any) error {
+	if svc == nil {
+		return fmt.Errorf("agent authorization service is not configured")
+	}
+	res, err := svc.AuthorizeCapability(ctx, agentauthz.AuthorizeInput{
+		Env:            firstNonEmptyString(in.Env, asStringFromMap(enrichedCtx, "env")),
+		TenantUUID:     firstNonEmptyString(in.TenantUUID, asStringFromMap(enrichedCtx, "tenant_uuid")),
+		UserUUID:       firstNonEmptyString(in.UserUUID, asStringFromMap(enrichedCtx, "user_uuid")),
+		MemberID:       reqctx.GetMemberID(ctx),
+		IsRoot:         reqctx.IsRoot(ctx),
+		AgentID:        in.AgentID,
+		CapabilityID:   capabilityID,
+		PermissionCode: firstNonEmptyString(asStringFromMap(enrichedCtx, "permission_code"), asStringFromMap(enrichedCtx, "scope")),
+	})
+	if err != nil {
+		return err
+	}
+	if !res.Allowed {
+		return fmt.Errorf("agent.capability_denied: reason=%s capability_id=%s permission_code=%s", res.DenyReason, strings.TrimSpace(capabilityID), res.PermissionCode)
+	}
+	return nil
+}
+
+func authorizeToolingCapabilityInvoke(ctx context.Context, svc *agentauthz.Service, in agent.ToolingInvokeInput) error {
+	if svc == nil {
+		return fmt.Errorf("agent authorization service is not configured")
+	}
+	res, err := svc.AuthorizeCapability(ctx, agentauthz.AuthorizeInput{
+		Env:            firstNonEmptyString(in.Env, asStringFromMap(in.Context, "env")),
+		TenantUUID:     firstNonEmptyString(in.TenantUUID, asStringFromMap(in.Context, "tenant_uuid")),
+		UserUUID:       firstNonEmptyString(asStringFromMap(in.Context, "user_uuid"), reqctx.GetUserUUID(ctx)),
+		MemberID:       reqctx.GetMemberID(ctx),
+		IsRoot:         reqctx.IsRoot(ctx),
+		AgentID:        firstPositiveUint64FromString(asStringFromMap(in.Context, "agent_id")),
+		CapabilityID:   in.CapabilityID,
+		PermissionCode: firstNonEmptyString(asStringFromMap(in.Context, "permission_code"), asStringFromMap(in.Context, "scope")),
+	})
+	if err != nil {
+		return err
+	}
+	if !res.Allowed {
+		return fmt.Errorf("agent.capability_denied: reason=%s capability_id=%s permission_code=%s", res.DenyReason, strings.TrimSpace(in.CapabilityID), res.PermissionCode)
+	}
+	return nil
+}
+
+func firstPositiveUint64FromString(raw string) uint64 {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	var out uint64
+	_, _ = fmt.Sscanf(raw, "%d", &out)
 	return out
 }
 

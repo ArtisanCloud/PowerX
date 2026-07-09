@@ -3,7 +3,9 @@ package capability_registry
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )
@@ -11,6 +13,8 @@ import (
 // CapabilityRecord 记录插件上报后的能力目录条目。
 type CapabilityRecord struct {
 	coremodel.PowerModel
+
+	UUID uuid.UUID `gorm:"type:uuid;column:uuid;uniqueIndex;index" json:"uuid"`
 
 	CapabilityID  string         `gorm:"column:capability_id;type:varchar(128);not null;uniqueIndex:uk_capability_record_capability" json:"capability_id"`
 	PluginID      string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_record_plugin" json:"plugin_id"`
@@ -37,6 +41,13 @@ type CapabilityRecord struct {
 
 func (CapabilityRecord) TableName() string {
 	return coremodel.PowerXSchema + "." + coremodel.TableCapabilityRegistryCapabilityRecord
+}
+
+func (r *CapabilityRecord) BeforeCreate(tx *gorm.DB) error {
+	if r.UUID == uuid.Nil {
+		r.UUID = uuid.New()
+	}
+	return nil
 }
 
 // ProtocolBinding 描述能力在各协议下的接入详情。

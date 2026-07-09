@@ -486,6 +486,17 @@
   "privacyPolicy": "개인정보 보호정책",
   "termsOfService": "서비스 약관",
   "agent": {
+    "management": {
+      "grants": {
+        "title": "도구 및 권한",
+        "description": "이 에이전트가 사용할 수 있는 플러그인 기능의 최대 범위를 설정합니다. 실행 시 현재 사용자의 IAM 권한과 교집합으로 판정됩니다.",
+        "loading": "기능 권한을 불러오는 중...",
+        "empty": "현재 테넌트에서 에이전트에 부여할 수 있는 기능이 없습니다.",
+        "available": "사용 가능",
+        "unavailable": "사용 불가",
+        "loadFailed": "에이전트 권한 로드 실패"
+      }
+    },
     "selector": {
       "title": "AI 에이전트",
       "create": "생성",

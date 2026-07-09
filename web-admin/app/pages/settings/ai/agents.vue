@@ -113,6 +113,69 @@
                 </UFormField>
               </div>
             </section>
+
+            <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-[var(--text-primary)]">
+                    {{ t('agent.management.grants.title') }}
+                  </div>
+                  <p class="text-xs text-[var(--text-secondary)]">
+                    {{ t('agent.management.grants.description') }}
+                  </p>
+                </div>
+                <UBadge variant="soft" color="neutral">
+                  {{ selectedGrantKeys.size }}/{{ grantableCapabilities.length }}
+                </UBadge>
+              </div>
+
+              <UAlert
+                v-if="grantError"
+                color="error"
+                variant="soft"
+                icon="i-heroicons-exclamation-triangle"
+                :title="grantError"
+              />
+
+              <div v-if="grantLoading" class="py-4 text-sm text-[var(--text-secondary)]">
+                {{ t('agent.management.grants.loading') }}
+              </div>
+              <div v-else-if="grantableCapabilities.length === 0" class="py-4 text-sm text-[var(--text-secondary)]">
+                {{ t('agent.management.grants.empty') }}
+              </div>
+              <div v-else class="max-h-80 space-y-2 overflow-y-auto pr-1">
+                <div
+                  v-for="item in grantableCapabilities"
+                  :key="grantKey(item.capability_uuid, item.permission_code)"
+                  class="flex items-start justify-between gap-4 rounded-md border border-[var(--border-color)] bg-[var(--bg-elevated)] p-3"
+                >
+                  <div class="min-w-0 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-medium text-[var(--text-primary)]">{{ item.display_name || item.capability_id }}</span>
+                      <UBadge size="xs" variant="soft" color="neutral">{{ item.risk_level || 'unknown' }}</UBadge>
+                      <UBadge
+                        size="xs"
+                        variant="soft"
+                        :color="item.tenant_enabled && item.agent_usable ? 'success' : 'warning'"
+                      >
+                        {{ item.tenant_enabled && item.agent_usable ? t('agent.management.grants.available') : t('agent.management.grants.unavailable') }}
+                      </UBadge>
+                    </div>
+                    <div class="break-all font-mono text-xs text-[var(--text-secondary)]">
+                      {{ item.permission_code }}
+                    </div>
+                    <div class="break-all text-xs text-[var(--text-muted)]">
+                      {{ item.plugin_id }} · {{ item.capability_id }}
+                    </div>
+                  </div>
+                  <USwitch
+                    :model-value="selectedGrantKeys.has(grantKey(item.capability_uuid, item.permission_code))"
+                    :disabled="!item.tenant_enabled || !item.agent_usable"
+                    @update:model-value="setGrantSelected(item, Boolean($event))"
+                  />
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </template>
@@ -128,15 +191,28 @@
 
 <script setup lang="ts">
 import { useAgentManager } from '~/composables/agent/useAgentManager'
-import type { Agent } from '~/types/agent'
+import type { Agent, AgentGrantableCapability } from '~/types/agent'
 
 const localePath = useLocalePath()
+const { t } = useI18n()
 const toast = useToast()
-const { agents, fetchAgents, createAgent, updateAgent } = useAgentManager()
+const {
+  agents,
+  fetchAgents,
+  createAgent,
+  updateAgent,
+  fetchGrantableCapabilities,
+  fetchAgentGrants,
+  updateAgentGrants,
+} = useAgentManager()
 
 const errorText = ref('')
 const editOpen = ref(false)
 const submitting = ref(false)
+const grantLoading = ref(false)
+const grantError = ref('')
+const grantableCapabilities = ref<AgentGrantableCapability[]>([])
+const selectedGrantKeys = reactive(new Set<string>())
 const editUUID = ref('')
 const editForm = reactive({
   key: '',
@@ -182,7 +258,7 @@ const createAgentQuick = async () => {
   }
 }
 
-const openEditForm = (agent: Agent) => {
+const openEditForm = async (agent: Agent) => {
   editUUID.value = agent.uuid
   editForm.key = agent.key || ''
   editForm.name = agent.name || ''
@@ -195,6 +271,7 @@ const openEditForm = (agent: Agent) => {
   editForm.skillIdsText = normalizeArrayText((agent as any).skillIds)
   editForm.knowledgeBaseIdsText = normalizeArrayText((agent as any).knowledgeBaseIds)
   editOpen.value = true
+  await loadAgentGrantState(agent.uuid)
 }
 
 const submitEdit = async () => {
@@ -216,6 +293,7 @@ const submitEdit = async () => {
       skillIds: parseCommaValues(editForm.skillIdsText),
       knowledgeBaseIds: parseCommaValues(editForm.knowledgeBaseIdsText),
     })
+    await updateAgentGrants(editUUID.value, grantPayload())
     toast.add({ title: '更新成功', color: 'success' })
     editOpen.value = false
     await load()
@@ -225,6 +303,44 @@ const submitEdit = async () => {
     submitting.value = false
   }
 }
+
+const loadAgentGrantState = async (agentUUID: string) => {
+  try {
+    grantLoading.value = true
+    grantError.value = ''
+    selectedGrantKeys.clear()
+    const [catalog, grants] = await Promise.all([
+      fetchGrantableCapabilities(),
+      fetchAgentGrants(agentUUID),
+    ])
+    grantableCapabilities.value = catalog
+    for (const grant of grants) {
+      if (grant.status === 'enabled') {
+        selectedGrantKeys.add(grantKey(grant.capability_uuid, grant.permission_code))
+      }
+    }
+  } catch (e: any) {
+    grantError.value = e?.message || t('agent.management.grants.loadFailed')
+  } finally {
+    grantLoading.value = false
+  }
+}
+
+const grantKey = (capabilityUUID: string, permissionCode: string) =>
+  `${String(capabilityUUID || '').toLowerCase()}|${String(permissionCode || '').toLowerCase()}`
+
+const setGrantSelected = (item: AgentGrantableCapability, selected: boolean) => {
+  const key = grantKey(item.capability_uuid, item.permission_code)
+  if (selected) selectedGrantKeys.add(key)
+  else selectedGrantKeys.delete(key)
+}
+
+const grantPayload = () =>
+  grantableCapabilities.value.map((item) => ({
+    capability_uuid: item.capability_uuid,
+    permission_code: item.permission_code,
+    enabled: selectedGrantKeys.has(grantKey(item.capability_uuid, item.permission_code)),
+  }))
 
 onMounted(load)
 

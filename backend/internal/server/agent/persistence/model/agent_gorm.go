@@ -18,6 +18,7 @@ const (
 	TableAgentSkillBinding     = "agent_skill_bindings"
 	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
 	TableAgentPluginLink       = "agent_plugin_links"
+	TableAgentCapabilityGrant  = "agent_capability_grants"
 
 	TableAgentChatSession       = "agent_chat_sessions"
 	TableAgentChatMessage       = "agent_chat_messages"
@@ -48,6 +49,10 @@ const (
 	InstallStatusInstalled = "installed"
 	InstallStatusDisabled  = "disabled"
 	InstallStatusBroken    = "broken"
+
+	AgentCapabilityGrantStatusEnabled  = "enabled"
+	AgentCapabilityGrantStatusDisabled = "disabled"
+	AgentCapabilityGrantSourceManual   = "manual"
 )
 
 // ---------- 1) Agent 主表 ----------
@@ -273,4 +278,36 @@ func (mdl *AgentPluginLink) GetTableName(needFull bool) string {
 		return mdl.TableName()
 	}
 	return TableAgentPluginLink
+}
+
+// AgentCapabilityGrant records the capabilities an Agent is explicitly allowed to use.
+type AgentCapabilityGrant struct {
+	coremodel.PowerUUIDModel
+
+	Env        string `gorm:"column:env;size:32;not null;index:agent_cap_grant_uniq,unique,priority:1" json:"-"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:agent_cap_grant_uniq,unique,priority:2;index" json:"tenant_uuid"`
+
+	AgentUUID      uuid.UUID  `gorm:"column:agent_uuid;type:uuid;not null;index:agent_cap_grant_uniq,unique,priority:3;index" json:"agent_uuid"`
+	CapabilityUUID uuid.UUID  `gorm:"column:capability_uuid;type:uuid;not null;index:agent_cap_grant_uniq,unique,priority:4;index" json:"capability_uuid"`
+	PluginUUID     *uuid.UUID `gorm:"column:plugin_uuid;type:uuid;index" json:"plugin_uuid,omitempty"`
+
+	CapabilityID   string `gorm:"column:capability_id;type:varchar(128);not null;index" json:"capability_id"`
+	PluginID       string `gorm:"column:plugin_id;type:varchar(128);index" json:"plugin_id,omitempty"`
+	PermissionCode string `gorm:"column:permission_code;type:varchar(255);not null;index:agent_cap_grant_uniq,unique,priority:5;index" json:"permission_code"`
+	RiskLevel      string `gorm:"column:risk_level;type:varchar(32);not null;default:'unknown';index" json:"risk_level"`
+	Status         string `gorm:"column:status;type:varchar(16);not null;default:'enabled';index" json:"status"`
+	Source         string `gorm:"column:source;type:varchar(32);not null;default:'manual';index" json:"source"`
+
+	CreatedByUserUUID string `gorm:"column:created_by_user_uuid;type:char(36);index" json:"created_by_user_uuid,omitempty"`
+	UpdatedByUserUUID string `gorm:"column:updated_by_user_uuid;type:char(36);index" json:"updated_by_user_uuid,omitempty"`
+}
+
+func (mdl *AgentCapabilityGrant) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentCapabilityGrant
+}
+func (mdl *AgentCapabilityGrant) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentCapabilityGrant
 }

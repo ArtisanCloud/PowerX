@@ -24,6 +24,7 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentSkillBinding{},
 		&dbmodel.AgentKnowledgeBinding{},
 		&dbmodel.AgentPluginLink{},
+		&dbmodel.AgentCapabilityGrant{},
 
 		&dbmodel.AgentChatSession{},
 		&dbmodel.AgentChatMessage{},

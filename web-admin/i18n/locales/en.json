@@ -895,6 +895,17 @@
     "list": {
       "loadFailed": "Failed to load agent list"
     },
+    "management": {
+      "grants": {
+        "title": "Tools and Permissions",
+        "description": "Configure the maximum plugin capabilities this agent may use. Runtime access still intersects with the current user's IAM permissions.",
+        "loading": "Loading capability grants...",
+        "empty": "No grantable capabilities are available for the current tenant.",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "loadFailed": "Failed to load agent grants"
+      }
+    },
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",

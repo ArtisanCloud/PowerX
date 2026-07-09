@@ -2,6 +2,9 @@ import type {
   Agent,
   AgentListResponse,
   AgentDetailResponse,
+  AgentEffectivePermissions,
+  AgentGrant,
+  AgentGrantableCapability,
   CreateAgentRequest,
   UpdateAgentRequest,
 } from "~/types/agent";
@@ -42,7 +45,7 @@ export const useAgentManager = () => {
   );
 
   // 使用封装的 API 客户端
-  const { get, post, patch, delete: del } = useApiClient();
+  const { get, post, patch, put, delete: del } = useApiClient();
 
   // 获取 Agent 列表
   const fetchAgents = async () => {
@@ -182,6 +185,67 @@ export const useAgentManager = () => {
     }
   };
 
+  const fetchGrantableCapabilities = async () => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentGrantableCapability[] };
+    }>("/admin/agents/grantable-capabilities", {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants catalog failed");
+    }
+    return response.data.items || [];
+  };
+
+  const fetchAgentGrants = async (agentUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentGrant[] };
+    }>(`/admin/agents/${agentUUID}/grants`, {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants failed");
+    }
+    return response.data.items || [];
+  };
+
+  const updateAgentGrants = async (
+    agentUUID: string,
+    grants: Array<{ capability_uuid: string; permission_code: string; enabled: boolean }>
+  ) => {
+    const response = await put<{
+      code: number;
+      message: string;
+      data: { items: AgentGrant[] };
+    }>(
+      `/admin/agents/${agentUUID}/grants`,
+      { grants },
+      { params: { env: ENV.value } }
+    );
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants update failed");
+    }
+    return response.data.items || [];
+  };
+
+  const fetchMyEffectivePermissions = async (agentUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: AgentEffectivePermissions;
+    }>(`/admin/agents/${agentUUID}/my-effective-permissions`, {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent effective permissions failed");
+    }
+    return response.data;
+  };
+
   return {
     agents: readonly(agents),
     loading: readonly(loading),
@@ -191,5 +255,9 @@ export const useAgentManager = () => {
     createAgent,
     updateAgent,
     deleteAgent,
+    fetchGrantableCapabilities,
+    fetchAgentGrants,
+    updateAgentGrants,
+    fetchMyEffectivePermissions,
   };
 };

@@ -1113,6 +1113,17 @@
     "list": {
       "loadFailed": "加载智能体列表失败"
     },
+    "management": {
+      "grants": {
+        "title": "工具与权限",
+        "description": "配置该智能体最多可使用的插件能力；实际执行时仍会与当前用户 IAM 权限取交集。",
+        "loading": "正在加载能力授权...",
+        "empty": "当前租户暂无可授权给智能体的能力。",
+        "available": "可授权",
+        "unavailable": "不可授权",
+        "loadFailed": "加载智能体授权失败"
+      }
+    },
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",

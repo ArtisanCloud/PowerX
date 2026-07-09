@@ -158,6 +158,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateCapabilityRegistryModels(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureCapabilityRecordUUIDMigration(db); err != nil {
+		return err
+	}
 
 	if err = migrateIntegrationGatewayModels(db); err != nil {
 		return err
