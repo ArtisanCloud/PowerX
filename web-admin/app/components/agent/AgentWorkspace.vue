@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent } from "~/types/agent";
+import type { Agent, AgentEffectivePermissions } from "~/types/agent";
 import ChatInterface from "@/components/agent/ChatInterface.vue";
 import ConfigPanel from "@/components/agent/ConfigPanel.vue";
 import ConnectionIndicators from "@/components/agent/ConnectionIndicators.vue";
@@ -304,6 +304,47 @@ const { notifyOnce } = useOneShotAlert();
 // Agent 管理
 const agentManager = useAgentManager();
 const { agents } = agentManager;
+const effectivePermissions = ref<AgentEffectivePermissions | null>(null);
+const effectivePermissionsLoading = ref(false);
+const effectivePermissionsError = ref("");
+
+const loadEffectivePermissions = async (agentId: string) => {
+  const uuid = String(agentId || "").trim();
+  effectivePermissions.value = null;
+  effectivePermissionsError.value = "";
+  if (!uuid) return;
+  effectivePermissionsLoading.value = true;
+  try {
+    effectivePermissions.value = await agentManager.fetchMyEffectivePermissions(uuid);
+  } catch (e: any) {
+    effectivePermissionsError.value =
+      e?.message || t("agent.effectivePermissions.loadFailed");
+  } finally {
+    effectivePermissionsLoading.value = false;
+  }
+};
+
+const effectivePermissionItems = computed(
+  () => effectivePermissions.value?.items || []
+);
+const effectivePermissionSummary = computed(() => {
+  const items = effectivePermissionItems.value;
+  const allowed = items.filter((item) => item.effective_allowed).length;
+  return { allowed, total: items.length };
+});
+const effectivePermissionStatusColor = (allowed: boolean) =>
+  allowed ? "success" : "neutral";
+const effectivePermissionStatusLabel = (allowed: boolean) =>
+  allowed
+    ? t("agent.effectivePermissions.status.allowed")
+    : t("agent.effectivePermissions.status.denied");
+const effectivePermissionReasonLabel = (reason?: string) => {
+  const key = String(reason || "").trim();
+  if (!key) return t("agent.effectivePermissions.reason.none");
+  const mapped = `agent.effectivePermissions.reason.${key}`;
+  const translated = t(mapped);
+  return translated === mapped ? key : translated;
+};
 
 const agentOwnerPluginID = (agent?: Agent | null) =>
   String(
@@ -588,6 +629,7 @@ const handleAgentSelect = async (agentId: string) => {
     chat.clearMessages();
     runtimeLLM.value = {};
     await loadAgentAISetting(agentId);
+    await loadEffectivePermissions(agentId);
   } catch (error) {
     console.error("选择 Agent 失败:", error);
     notifyOnce("加载会话列表失败", error instanceof Error ? error.message : "");
@@ -944,6 +986,7 @@ watch(
     await loadSystemDefaultLLM();
     if (currentAgentId.value) {
       await loadAgentAISetting(String(currentAgentId.value));
+      await loadEffectivePermissions(String(currentAgentId.value));
     }
   },
   { immediate: true }
@@ -1133,6 +1176,134 @@ const getAgentIcon = (agent: Agent) => {
               </UPopover>
             </div>
             <div class="flex items-center gap-2">
+              <UPopover
+                v-if="currentAgentId"
+                :ui="{ content: 'w-[32rem] max-w-[calc(100vw-2rem)] p-0' }"
+              >
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  icon="i-heroicons-shield-check"
+                  :loading="effectivePermissionsLoading"
+                >
+                  {{ t("agent.effectivePermissions.title") }}
+                  <UBadge size="xs" color="neutral" variant="soft" class="ml-1">
+                    {{
+                      t("agent.effectivePermissions.summary", {
+                        allowed: effectivePermissionSummary.allowed,
+                        total: effectivePermissionSummary.total,
+                      })
+                    }}
+                  </UBadge>
+                </UButton>
+                <template #content>
+                  <div class="rounded-lg border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-gray-900">
+                    <div class="border-b border-gray-100 p-3 dark:border-white/10">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {{ t("agent.effectivePermissions.title") }}
+                          </div>
+                          <div class="mt-0.5 text-xs text-gray-500">
+                            {{ t("agent.effectivePermissions.description") }}
+                          </div>
+                        </div>
+                        <UButton
+                          size="xs"
+                          variant="ghost"
+                          icon="i-heroicons-arrow-path"
+                          :loading="effectivePermissionsLoading"
+                          :title="t('agent.effectivePermissions.refresh')"
+                          @click="loadEffectivePermissions(String(currentAgentId || ''))"
+                        />
+                      </div>
+                    </div>
+                    <div class="max-h-96 overflow-auto p-3">
+                      <UAlert
+                        v-if="effectivePermissionsError"
+                        color="error"
+                        variant="soft"
+                        icon="i-heroicons-exclamation-circle"
+                        :title="t('agent.effectivePermissions.loadFailed')"
+                        :description="effectivePermissionsError"
+                      />
+                      <div
+                        v-else-if="effectivePermissionsLoading"
+                        class="space-y-2"
+                      >
+                        <USkeleton v-for="i in 4" :key="i" class="h-14 w-full" />
+                      </div>
+                      <div
+                        v-else-if="!effectivePermissionItems.length"
+                        class="rounded-md border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500 dark:border-white/10"
+                      >
+                        {{ t("agent.effectivePermissions.empty") }}
+                      </div>
+                      <div v-else class="space-y-2">
+                        <div
+                          v-for="item in effectivePermissionItems"
+                          :key="`${item.capability_uuid}:${item.permission_code}`"
+                          class="rounded-md border border-gray-100 p-3 dark:border-white/10"
+                        >
+                          <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                              <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {{ item.display_name || item.capability_id }}
+                              </div>
+                              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                                <UBadge size="xs" color="neutral" variant="soft">
+                                  {{ item.permission_code }}
+                                </UBadge>
+                                <span>{{ item.plugin_id }}</span>
+                              </div>
+                            </div>
+                            <UBadge
+                              size="xs"
+                              :color="effectivePermissionStatusColor(item.effective_allowed)"
+                              variant="soft"
+                            >
+                              {{ effectivePermissionStatusLabel(item.effective_allowed) }}
+                            </UBadge>
+                          </div>
+                          <div class="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                            <div>
+                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.user") }}</span>
+                              <div class="font-medium" :class="item.user_allowed ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ effectivePermissionStatusLabel(item.user_allowed) }}
+                              </div>
+                            </div>
+                            <div>
+                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.agent") }}</span>
+                              <div class="font-medium" :class="item.agent_allowed ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ effectivePermissionStatusLabel(item.agent_allowed) }}
+                              </div>
+                            </div>
+                            <div>
+                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.tenant") }}</span>
+                              <div class="font-medium" :class="item.tenant_enabled ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ effectivePermissionStatusLabel(item.tenant_enabled) }}
+                              </div>
+                            </div>
+                            <div>
+                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.policy") }}</span>
+                              <div class="font-medium" :class="item.policy_allowed ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ effectivePermissionStatusLabel(item.policy_allowed) }}
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            v-if="!item.effective_allowed"
+                            class="mt-2 text-xs text-amber-700 dark:text-amber-300"
+                          >
+                            {{ t("agent.effectivePermissions.columns.reason") }}:
+                            {{ effectivePermissionReasonLabel(item.deny_reason) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </UPopover>
               <UButton
                 v-if="currentAgentId"
                 size="xs"

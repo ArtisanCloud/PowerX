@@ -691,6 +691,35 @@
         "loadFailed": "エージェント権限の読み込みに失敗しました"
       }
     },
+    "effectivePermissions": {
+      "title": "有効権限",
+      "description": "現在のセッションで実際に使える権限は、ユーザー IAM 権限、Agent 権限、テナントの能力有効化、ポリシー結果の交差で決まります。",
+      "summary": "{allowed}/{total}",
+      "refresh": "有効権限を更新",
+      "empty": "現在の Agent に表示できる有効権限はありません。",
+      "loadFailed": "有効権限の読み込みに失敗しました",
+      "columns": {
+        "user": "ユーザー権限",
+        "agent": "Agent 権限",
+        "tenant": "テナント有効",
+        "policy": "ポリシー許可",
+        "reason": "拒否理由"
+      },
+      "status": {
+        "allowed": "許可",
+        "denied": "拒否"
+      },
+      "reason": {
+        "none": "なし",
+        "agent_grant_missing": "Agent にこの能力が付与されていません",
+        "user_permission_missing": "現在のユーザーに IAM 権限がありません",
+        "tenant_capability_disabled": "テナントでこの能力が有効化されていません",
+        "capability_policy_denied": "能力ポリシーにより拒否されました",
+        "policy_denied": "ポリシーにより拒否されました",
+        "permission_code_invalid": "能力の権限コードが無効です",
+        "permission_code_missing": "能力に構造化された権限コードがありません"
+      }
+    },
     "selector": {
       "title": "AI エージェント",
       "create": "作成",

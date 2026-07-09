@@ -1124,6 +1124,35 @@
         "loadFailed": "加载智能体授权失败"
       }
     },
+    "effectivePermissions": {
+      "title": "生效权限",
+      "description": "当前会话实际可用权限由用户 IAM 权限、Agent 授权、租户能力启用状态和策略结果取交集得出。",
+      "summary": "{allowed}/{total}",
+      "refresh": "刷新生效权限",
+      "empty": "当前 Agent 没有可展示的生效权限。",
+      "loadFailed": "加载生效权限失败",
+      "columns": {
+        "user": "用户权限",
+        "agent": "Agent 授权",
+        "tenant": "租户启用",
+        "policy": "策略允许",
+        "reason": "拒绝原因"
+      },
+      "status": {
+        "allowed": "允许",
+        "denied": "拒绝"
+      },
+      "reason": {
+        "none": "无",
+        "agent_grant_missing": "Agent 未授予该能力",
+        "user_permission_missing": "当前用户缺少 IAM 权限",
+        "tenant_capability_disabled": "租户未启用该能力",
+        "capability_policy_denied": "能力策略拒绝",
+        "policy_denied": "策略拒绝",
+        "permission_code_invalid": "能力权限码无效",
+        "permission_code_missing": "能力缺少结构化权限码"
+      }
+    },
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",

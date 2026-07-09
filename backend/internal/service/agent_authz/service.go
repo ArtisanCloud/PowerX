@@ -13,6 +13,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -296,13 +297,40 @@ func (s *Service) ResolveEffectivePermissions(ctx context.Context, env, tenantUU
 	}, nil
 }
 
-func (s *Service) AuthorizeCapability(ctx context.Context, in AuthorizeInput) (AuthorizeResult, error) {
+func (s *Service) AuthorizeCapability(ctx context.Context, in AuthorizeInput) (result AuthorizeResult, err error) {
 	tenantUUID := strings.TrimSpace(firstNonEmpty(in.TenantUUID, reqctx.GetTenantUUID(ctx)))
+	env := firstNonEmpty(strings.TrimSpace(in.Env), reqctx.GetEnv(ctx), "dev")
+	agentUUID := in.AgentUUID
+	capabilityID := strings.TrimSpace(in.CapabilityID)
+	defer func() {
+		memberID := in.MemberID
+		if memberID == 0 {
+			memberID = reqctx.GetMemberID(ctx)
+		}
+		fields := map[string]interface{}{
+			"module":          "agent_authz",
+			"event":           "agent.capability_authorize",
+			"env":             env,
+			"tenant_uuid":     tenantUUID,
+			"agent_uuid":      agentUUID.String(),
+			"agent_id":        in.AgentID,
+			"user_uuid":       strings.TrimSpace(firstNonEmpty(in.UserUUID, reqctx.GetUserUUID(ctx))),
+			"member_id":       memberID,
+			"capability_id":   capabilityID,
+			"permission_code": result.PermissionCode,
+			"allowed":         result.Allowed,
+			"deny_reason":     result.DenyReason,
+		}
+		logCtx := pxlog.WithLogFields(ctx, fields)
+		if err != nil || !result.Allowed {
+			pxlog.WarnF(logCtx, "agent capability authorization denied err=%v", err)
+			return
+		}
+		pxlog.Info(logCtx, "agent capability authorization allowed")
+	}()
 	if tenantUUID == "" {
 		return AuthorizeResult{Allowed: false, DenyReason: "tenant_missing"}, nil
 	}
-	env := firstNonEmpty(strings.TrimSpace(in.Env), reqctx.GetEnv(ctx), "dev")
-	agentUUID := in.AgentUUID
 	if agentUUID == uuid.Nil {
 		agent, err := s.agentByNumericID(ctx, in.AgentID, tenantUUID)
 		if err != nil {
@@ -310,7 +338,6 @@ func (s *Service) AuthorizeCapability(ctx context.Context, in AuthorizeInput) (A
 		}
 		agentUUID = agent.UUID
 	}
-	capabilityID := strings.TrimSpace(in.CapabilityID)
 	if capabilityID == "" {
 		return AuthorizeResult{Allowed: false, DenyReason: "capability_missing"}, nil
 	}

@@ -497,6 +497,35 @@
         "loadFailed": "에이전트 권한 로드 실패"
       }
     },
+    "effectivePermissions": {
+      "title": "유효 권한",
+      "description": "현재 세션에서 실제로 사용할 수 있는 권한은 사용자 IAM 권한, Agent 권한, 테넌트 기능 활성화, 정책 결과의 교집합으로 결정됩니다.",
+      "summary": "{allowed}/{total}",
+      "refresh": "유효 권한 새로고침",
+      "empty": "현재 Agent에 표시할 유효 권한이 없습니다.",
+      "loadFailed": "유효 권한 로드 실패",
+      "columns": {
+        "user": "사용자 권한",
+        "agent": "Agent 권한",
+        "tenant": "테넌트 활성화",
+        "policy": "정책 허용",
+        "reason": "거부 이유"
+      },
+      "status": {
+        "allowed": "허용",
+        "denied": "거부"
+      },
+      "reason": {
+        "none": "없음",
+        "agent_grant_missing": "Agent에 이 기능이 부여되지 않았습니다",
+        "user_permission_missing": "현재 사용자에게 IAM 권한이 없습니다",
+        "tenant_capability_disabled": "테넌트에서 이 기능이 활성화되지 않았습니다",
+        "capability_policy_denied": "기능 정책에 의해 거부됨",
+        "policy_denied": "정책에 의해 거부됨",
+        "permission_code_invalid": "기능 권한 코드가 유효하지 않습니다",
+        "permission_code_missing": "기능에 구조화된 권한 코드가 없습니다"
+      }
+    },
     "selector": {
       "title": "AI 에이전트",
       "create": "생성",

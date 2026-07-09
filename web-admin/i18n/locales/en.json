@@ -906,6 +906,35 @@
         "loadFailed": "Failed to load agent grants"
       }
     },
+    "effectivePermissions": {
+      "title": "Effective permissions",
+      "description": "The current session can use only the intersection of user IAM permissions, agent grants, tenant capability enablement, and policy result.",
+      "summary": "{allowed}/{total}",
+      "refresh": "Refresh effective permissions",
+      "empty": "No effective permissions are available for the current agent.",
+      "loadFailed": "Failed to load effective permissions",
+      "columns": {
+        "user": "User permission",
+        "agent": "Agent grant",
+        "tenant": "Tenant enabled",
+        "policy": "Policy allowed",
+        "reason": "Deny reason"
+      },
+      "status": {
+        "allowed": "Allowed",
+        "denied": "Denied"
+      },
+      "reason": {
+        "none": "None",
+        "agent_grant_missing": "Agent grant is missing",
+        "user_permission_missing": "Current user lacks the IAM permission",
+        "tenant_capability_disabled": "Tenant has not enabled this capability",
+        "capability_policy_denied": "Denied by capability policy",
+        "policy_denied": "Denied by policy",
+        "permission_code_invalid": "Capability permission code is invalid",
+        "permission_code_missing": "Capability is missing a structured permission code"
+      }
+    },
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",

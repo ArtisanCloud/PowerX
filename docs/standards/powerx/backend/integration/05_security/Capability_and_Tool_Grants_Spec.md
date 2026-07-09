@@ -67,6 +67,30 @@
 | L2 | **Tool Grant Evaluator** | 若是代理调用，是否在 Tool Grant 白名单内   |
 | L3 | **Policy Evaluator**     | 上下文是否合法（租户、身份、调用链信任）         |
 
+### 4.1 Agent 运行时生效权限
+
+当前实现中，Agent 管理页配置的是 **Agent 自身最大可用能力边界**，不是登录用户权限，也不是最终执行权限。Agent 运行时调用插件能力前，必须计算以下集合的交集：
+
+```text
+effective_permissions =
+  user_iam_permissions
+  ∩ agent_capability_grants
+  ∩ tenant_enabled_capabilities
+  ∩ capability_policy_allowed
+```
+
+任一维度不满足即拒绝调用，不允许静默降级、隐式补全或按旧字段猜测权限。缺少结构化 `permission_code` 的 capability 不可授权、不可执行。
+
+拒绝原因使用稳定机器码：
+
+| deny_reason | 含义 |
+| --- | --- |
+| `permission_code_invalid` | capability 未提供合法结构化权限码 |
+| `tenant_capability_disabled` | 当前租户未启用该 capability |
+| `agent_grant_missing` | Agent 未被授予该 capability + permission_code |
+| `user_permission_missing` | 当前登录用户缺少对应 IAM 权限 |
+| `capability_policy_denied` | capability 策略不允许 Agent 使用 |
+
 ---
 
 ## 5️⃣ Scope 语义规范
@@ -240,21 +264,22 @@ Agent-A ─ Grant1 ─▶ Agent-B ─ Grant2 ─▶ Agent-C
 
 ```json
 {
-  "event": "agent_proxy_call",
+  "event": "agent.capability_authorize",
   "trace_id": "trc_39d8a",
-  "tenant_id": "t001",
-  "actor": "agent:sales_copilot",
-  "proxy_target": "agent:crm_helper",
-  "granted_tools": ["crm.lead.fetch"],
-  "duration_ms": 820,
-  "status": "success"
+  "tenant_uuid": "0f7d0d9a-4f7f-43de-9a97-2cbd1c3a6b4e",
+  "agent_uuid": "9d3f5c02-7a65-47ef-a9ad-f2a8f41d3ef1",
+  "user_uuid": "2a0b93c1-ecb1-45fc-9f51-4f8420c12b01",
+  "member_id": 1024,
+  "capability_id": "crm.lead.create",
+  "permission_code": "crm.lead:create",
+  "allowed": false,
+  "deny_reason": "agent_grant_missing"
 }
 ```
 
-所有审计事件写入：
+运行时授权审计必须至少写入结构化日志，并携带上述字段，便于 Loki/Grafana 通过 `event=agent.capability_authorize`、`agent_uuid`、`permission_code`、`deny_reason` 检索。若落库审计表启用，字段名必须保持一致。
 
-* `security_audit_log` 表；
-* 也同步到 EventBus（Topic: `security:audit`）。
+管理侧变更 Agent grants 时，应记录操作人、租户、Agent、capability、permission_code、变更前后状态；缺少 `tenant_uuid` 或 `agent_uuid` 的审计事件视为无效事件。
 
 ---
 
@@ -262,6 +287,10 @@ Agent-A ─ Grant1 ─▶ Agent-B ─ Grant2 ─▶ Agent-C
 
 | Method   | Path                                | 功能            |
 | -------- | ----------------------------------- | ------------- |
+| `GET`    | `/api/v1/admin/agents/grantable-capabilities` | 查询当前租户可授予 Agent 的 capability |
+| `GET`    | `/api/v1/admin/agents/{agent_uuid}/grants` | 查询 Agent 已配置授权 |
+| `PUT`    | `/api/v1/admin/agents/{agent_uuid}/grants` | 全量替换 Agent 授权 |
+| `GET`    | `/api/v1/admin/agents/{agent_uuid}/my-effective-permissions` | 查询当前用户使用该 Agent 的生效权限交集 |
 | `POST`   | `/api/v1/security/tool-grants`      | 创建 Tool Grant |
 | `GET`    | `/api/v1/security/tool-grants/{id}` | 查看 Grant 信息   |
 | `DELETE` | `/api/v1/security/tool-grants/{id}` | 吊销 Grant      |
