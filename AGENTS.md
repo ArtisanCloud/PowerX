@@ -81,4 +81,10 @@ UUID 规范：
 - 如果中间表变成可审计/可引用/有状态对象，也必须有自己的 uuid。
 - 新增迁移、GORM、Proto、OpenAPI、前端类型、测试都按 UUID 规则执行。
 - 修正旧 numeric id 引用时不做兼容兜底，缺 UUID 明确失败并给迁移说明。
+
+STS 插件访问规范：
+- 任何提供给插件通过 STS token 调用的 PowerX Core HTTP 接口，必须在 STS route policy 中显式登记 method、path pattern、匹配模式和用途边界；只注册 Gin 路由不代表插件可访问。
+- STS route policy 必须按最小权限授权到 HTTP method，不允许只按路径放开管理接口。新增 `GET` 查询能力不得隐式放开 `POST`、`PUT`、`PATCH`、`DELETE` 等写操作。
+- 新增或调整插件可调用的 Core API 时，必须同步更新 STS validator 测试，至少覆盖允许的 method/path 和相同 path 下不允许的 method。
+- 不允许为方便插件调用而开放 `/admin/*`、`/tenant/*` 或能力前缀的泛化通配策略；需要逐条登记可访问接口。
 <!-- MANUAL ADDITIONS END -->

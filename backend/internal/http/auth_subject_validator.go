@@ -24,25 +24,54 @@ const authSubjectCacheTTL = 60 * time.Second
 
 var authCacheCallbackOnce sync.Once
 
-var stsAllowedCoreCapabilityRoutes = []string{
-	"/media/assets",
-	"/media/assets/{uuid}",
-	"/media/assets/{uuid}/presign",
-	"/media/assets/{uuid}/variants/{variant}",
-	"/media/assets/{uuid}/variants/{variant}/presign",
-	"/media/assets/{uuid}/variants/{variant}/resource",
-	"/agents/invoke",
-	"/agents/stream/sse",
-	"/agents/sessions",
-	"/ai/llm/invoke",
-	"/ai/llm/stream",
-	"/ai/llm/models",
-	"/ai/llm/sessions",
-	"/ai/llm/sessions/{session_id}/messages",
-	"/ai/image/invoke",
-	"/ai/video/invoke",
-	"/ai/tts/invoke",
-	"/ai/embedding/invoke",
+type stsRouteMatchMode string
+
+const (
+	stsRouteMatchSuffix      stsRouteMatchMode = "suffix"
+	stsRouteMatchCorePattern stsRouteMatchMode = "core_pattern"
+)
+
+type stsAllowedHTTPRoute struct {
+	Method  string
+	Pattern string
+	Match   stsRouteMatchMode
+}
+
+var stsAllowedHTTPRoutes = []stsAllowedHTTPRoute{
+	{Method: "POST", Pattern: "/admin/runtime/ws-bus/grant", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/ws-bus/publish", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/task-queue/enqueue", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/task-queue/dequeue", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/task-queue/ack", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/task-queue/nack", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/runtime/task-queue/retry", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/notifications/test", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/tenant/invocations", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/tenant/invocations/stream", Match: stsRouteMatchSuffix},
+	{Method: "GET", Pattern: "/admin/tenants", Match: stsRouteMatchSuffix},
+	{Method: "GET", Pattern: "/media/assets", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/media/assets", Match: stsRouteMatchCorePattern},
+	{Method: "GET", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
+	{Method: "PATCH", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
+	{Method: "PUT", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
+	{Method: "DELETE", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/media/assets/{uuid}/presign", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/media/assets/{uuid}/variants/{variant}", Match: stsRouteMatchCorePattern},
+	{Method: "PUT", Pattern: "/media/assets/{uuid}/variants/{variant}", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/media/assets/{uuid}/variants/{variant}/presign", Match: stsRouteMatchCorePattern},
+	{Method: "GET", Pattern: "/media/assets/{uuid}/variants/{variant}/resource", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/agents/invoke", Match: stsRouteMatchCorePattern},
+	{Method: "GET", Pattern: "/agents/stream/sse", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/agents/sessions", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/llm/invoke", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/llm/stream", Match: stsRouteMatchCorePattern},
+	{Method: "GET", Pattern: "/ai/llm/models", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/llm/sessions", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/llm/sessions/{session_id}/messages", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/image/invoke", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/video/invoke", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/tts/invoke", Match: stsRouteMatchCorePattern},
+	{Method: "POST", Pattern: "/ai/embedding/invoke", Match: stsRouteMatchCorePattern},
 }
 
 type userSnapshot struct {
@@ -158,30 +187,39 @@ func isSTSAllowedRequestPath(ctx context.Context) bool {
 	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
 	path = strings.TrimSuffix(path, "/")
 	method := strings.ToUpper(strings.TrimSpace(reqctx.GetRequestMethod(ctx)))
-	return strings.HasSuffix(path, "/admin/runtime/ws-bus/grant") ||
-		strings.HasSuffix(path, "/admin/runtime/ws-bus/publish") ||
-		strings.Contains(path, "/admin/runtime/task-queue/") ||
-		strings.HasSuffix(path, "/notifications/test") ||
-		strings.HasSuffix(path, "/tenant/invocations") ||
-		strings.HasSuffix(path, "/tenant/invocations/stream") ||
-		isSTSAllowedTenantLookup(method, path) ||
-		isSTSCoreCapabilityPath(path)
+	if method == "" || path == "" {
+		return false
+	}
+	for _, route := range stsAllowedHTTPRoutes {
+		if route.matches(method, path) {
+			return true
+		}
+	}
+	return false
 }
 
-func isSTSAllowedTenantLookup(method string, path string) bool {
-	return method == "GET" && strings.HasSuffix(path, "/admin/tenants")
+func (route stsAllowedHTTPRoute) matches(method string, path string) bool {
+	if route.Method == "" || route.Pattern == "" || !strings.EqualFold(route.Method, method) {
+		return false
+	}
+	switch route.Match {
+	case stsRouteMatchSuffix:
+		return strings.HasSuffix(path, route.Pattern)
+	case stsRouteMatchCorePattern:
+		return isSTSCoreCapabilityPath(path, route.Pattern)
+	default:
+		return false
+	}
 }
 
-func isSTSCoreCapabilityPath(path string) bool {
+func isSTSCoreCapabilityPath(path string, pattern string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	for start := range parts {
 		if start > 0 && strings.EqualFold(parts[start-1], "admin") {
 			continue
 		}
-		for _, pattern := range stsAllowedCoreCapabilityRoutes {
-			if matchSTSRoutePattern(parts[start:], pattern) {
-				return true
-			}
+		if matchSTSRoutePattern(parts[start:], pattern) {
+			return true
 		}
 	}
 	return false

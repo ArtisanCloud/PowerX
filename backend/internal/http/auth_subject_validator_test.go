@@ -2,11 +2,34 @@ package http
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func TestSTSAllowedHTTPRoutesRequireExplicitPolicy(t *testing.T) {
+	seen := make(map[string]struct{}, len(stsAllowedHTTPRoutes))
+	for _, route := range stsAllowedHTTPRoutes {
+		if strings.TrimSpace(route.Method) == "" {
+			t.Fatalf("STS route policy missing method: %#v", route)
+		}
+		if strings.TrimSpace(route.Pattern) == "" {
+			t.Fatalf("STS route policy missing pattern: %#v", route)
+		}
+		switch route.Match {
+		case stsRouteMatchSuffix, stsRouteMatchCorePattern:
+		default:
+			t.Fatalf("STS route policy has unsupported match mode: %#v", route)
+		}
+		key := strings.ToUpper(strings.TrimSpace(route.Method)) + " " + strings.TrimSpace(route.Pattern) + " " + string(route.Match)
+		if _, ok := seen[key]; ok {
+			t.Fatalf("STS route policy duplicated: %s", key)
+		}
+		seen[key] = struct{}{}
+	}
+}
 
 func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) {
 	claims := &reqctx.CoreXClaims{
@@ -17,33 +40,50 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		},
 	}
 
-	for _, path := range []string{
-		"/api/v1/tenant/invocations",
-		"/api/v1/tenant/invocations/stream",
-		"/api/v1/admin/runtime/ws-bus/grant",
-		"/api/v1/admin/runtime/ws-bus/publish",
-		"/api/v1/notifications/test",
-		"/api/v1/media/assets",
-		"/api/v1/media/assets/asset-001",
-		"/api/v1/media/assets/asset-001/presign",
-		"/custom-prefix/media/assets/asset-001/presign",
-		"/api/v1/agents/invoke",
-		"/api/v1/agents/stream/sse",
-		"/api/v1/agents/sessions",
-		"/custom-prefix/agents/invoke",
-		"/api/v1/ai/llm/invoke",
-		"/api/v1/ai/llm/stream",
-		"/api/v1/ai/llm/models",
-		"/api/v1/ai/llm/sessions",
-		"/api/v1/ai/llm/sessions/session-001/messages",
-		"/api/v1/ai/image/invoke",
-		"/api/v1/ai/video/invoke",
-		"/api/v1/ai/tts/invoke",
-		"/api/v1/ai/embedding/invoke",
-		"/custom-prefix/ai/llm/invoke",
+	for _, tt := range []struct {
+		method string
+		path   string
+	}{
+		{"POST", "/api/v1/tenant/invocations"},
+		{"POST", "/api/v1/tenant/invocations/stream"},
+		{"POST", "/api/v1/admin/runtime/ws-bus/grant"},
+		{"POST", "/api/v1/admin/runtime/ws-bus/publish"},
+		{"POST", "/api/v1/admin/runtime/task-queue/enqueue"},
+		{"POST", "/api/v1/admin/runtime/task-queue/dequeue"},
+		{"POST", "/api/v1/admin/runtime/task-queue/ack"},
+		{"POST", "/api/v1/admin/runtime/task-queue/nack"},
+		{"POST", "/api/v1/admin/runtime/task-queue/retry"},
+		{"POST", "/api/v1/notifications/test"},
+		{"GET", "/api/v1/media/assets"},
+		{"POST", "/api/v1/media/assets"},
+		{"GET", "/api/v1/media/assets/asset-001"},
+		{"PATCH", "/api/v1/media/assets/asset-001"},
+		{"PUT", "/api/v1/media/assets/asset-001"},
+		{"DELETE", "/api/v1/media/assets/asset-001"},
+		{"POST", "/api/v1/media/assets/asset-001/presign"},
+		{"POST", "/custom-prefix/media/assets/asset-001/presign"},
+		{"POST", "/api/v1/media/assets/asset-001/variants/thumb"},
+		{"PUT", "/api/v1/media/assets/asset-001/variants/thumb"},
+		{"POST", "/api/v1/media/assets/asset-001/variants/thumb/presign"},
+		{"GET", "/api/v1/media/assets/asset-001/variants/thumb/resource"},
+		{"POST", "/api/v1/agents/invoke"},
+		{"GET", "/api/v1/agents/stream/sse"},
+		{"POST", "/api/v1/agents/sessions"},
+		{"POST", "/custom-prefix/agents/invoke"},
+		{"POST", "/api/v1/ai/llm/invoke"},
+		{"POST", "/api/v1/ai/llm/stream"},
+		{"GET", "/api/v1/ai/llm/models"},
+		{"POST", "/api/v1/ai/llm/sessions"},
+		{"POST", "/api/v1/ai/llm/sessions/session-001/messages"},
+		{"POST", "/api/v1/ai/image/invoke"},
+		{"POST", "/api/v1/ai/video/invoke"},
+		{"POST", "/api/v1/ai/tts/invoke"},
+		{"POST", "/api/v1/ai/embedding/invoke"},
+		{"POST", "/custom-prefix/ai/llm/invoke"},
 	} {
-		t.Run(path, func(t *testing.T) {
-			ctx := reqctx.WithRequestPath(context.Background(), path)
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			ctx := reqctx.WithRequestPath(context.Background(), tt.path)
+			ctx = reqctx.WithRequestMethod(ctx, tt.method)
 			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
 			if err := validateSTSRouteOnly(ctx, claims); err != nil {
 				t.Fatalf("validateSTSRouteOnly() err = %v", err)
@@ -61,27 +101,35 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		},
 	}
 
-	for _, path := range []string{
-		"/api/v1/admin/iam/members",
-		"/api/v1/admin/ai/settings",
-		"/api/v1/admin/media/assets",
-		"/api/v1/admin/media/assets/asset-001",
-		"/api/v1/admin/media/assets/asset-001/presign",
-		"/api/v1/media/assets/asset-001/resource",
-		"/api/v1/media/assets/asset-001/presign/extra",
-		"/api/v1/media/assets/asset-001/unknown",
-		"/api/v1/admin/agents",
-		"/api/v1/admin/agents/providers",
-		"/api/v1/agents/sessions/session-001",
-		"/api/v1/agents/sessions/session-001/messages",
-		"/api/v1/agents/stream/mock",
-		"/api/v1/ai/vlm/invoke",
-		"/api/v1/ai/llm/sessions/session-001/stream",
-		"/api/v1/ai/llm/sessions/session-001/messages/extra",
-		"/api/v1/some-ai-like/path",
+	for _, tt := range []struct {
+		method string
+		path   string
+	}{
+		{"GET", "/api/v1/admin/iam/members"},
+		{"GET", "/api/v1/admin/ai/settings"},
+		{"GET", "/api/v1/admin/media/assets"},
+		{"GET", "/api/v1/admin/media/assets/asset-001"},
+		{"POST", "/api/v1/admin/media/assets/asset-001/presign"},
+		{"GET", "/api/v1/media/assets/asset-001/resource"},
+		{"POST", "/api/v1/media/assets/asset-001/presign/extra"},
+		{"GET", "/api/v1/media/assets/asset-001/unknown"},
+		{"GET", "/api/v1/admin/agents"},
+		{"GET", "/api/v1/admin/agents/providers"},
+		{"GET", "/api/v1/agents/sessions/session-001"},
+		{"POST", "/api/v1/agents/sessions/session-001/messages"},
+		{"GET", "/api/v1/agents/stream/mock"},
+		{"POST", "/api/v1/ai/vlm/invoke"},
+		{"GET", "/api/v1/ai/llm/sessions/session-001/stream"},
+		{"POST", "/api/v1/ai/llm/sessions/session-001/messages/extra"},
+		{"POST", "/api/v1/some-ai-like/path"},
+		{"GET", "/api/v1/tenant/invocations"},
+		{"GET", "/api/v1/admin/runtime/task-queue/enqueue"},
+		{"POST", "/api/v1/admin/runtime/task-queue/unknown"},
+		{"POST", "/api/v1/admin/tenants"},
 	} {
-		t.Run(path, func(t *testing.T) {
-			ctx := reqctx.WithRequestPath(context.Background(), path)
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			ctx := reqctx.WithRequestPath(context.Background(), tt.path)
+			ctx = reqctx.WithRequestMethod(ctx, tt.method)
 			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
 			if err := validateSTSRouteOnly(ctx, claims); err == nil {
 				t.Fatal("validateSTSRouteOnly() err = nil, want rejection")
