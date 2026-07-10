@@ -25,7 +25,9 @@ db-create:
 	@echo "✅ 完成"
 
 # 你的其他目标不变（已改为跑包路径的写法）：
-.PHONY: db-migrate
+.PHONY: migrate db-migrate
+migrate: db-migrate
+
 db-migrate:
 	@echo "执行数据库迁移..."
 	@cd backend && go run ./cmd/database migrate

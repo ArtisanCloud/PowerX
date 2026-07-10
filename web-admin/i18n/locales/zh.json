@@ -107,7 +107,8 @@
     "reload": "重新加载",
     "reset": "重置",
     "scrollToBottom": "回到底部",
-    "newMessages": "{count} 条新消息"
+    "newMessages": "{count} 条新消息",
+    "unknown": "未知"
   },
   "organization": {
     "description": "管理组织、成员与权限。",
@@ -1114,14 +1115,111 @@
       "loadFailed": "加载智能体列表失败"
     },
     "management": {
+      "title": "智能体管理",
+      "description": "统一管理单智能体，支持快速进入智能会话或创建团队。",
+      "enterChat": "进入智能会话",
+      "create": "新建智能体",
+      "emptyDescription": "暂无描述",
+      "defaultInitial": "智",
+      "status": {
+        "draft": "草稿",
+        "active": "启用",
+        "disabled": "停用"
+      },
+      "sources": {
+        "core": "底座创建",
+        "plugin": "插件托管"
+      },
+      "filters": {
+        "searchPlaceholder": "搜索智能体名称、Key 或插件",
+        "allSources": "全部来源",
+        "allStatuses": "全部状态"
+      },
+      "quickCreate": {
+        "name": "新智能体-{suffix}",
+        "description": "请在智能体管理中完善配置",
+        "success": "创建成功",
+        "successDescription": "已创建默认智能体",
+        "failed": "创建失败"
+      },
+      "edit": {
+        "title": "编辑智能体",
+        "description": "维护基础信息、生成策略与资源绑定",
+        "basicInfo": "基础信息",
+        "name": "智能体名称",
+        "namePlaceholder": "请输入智能体名称",
+        "typeId": "类型标识（Type ID）",
+        "typeIdPlaceholder": "如 brand.story.v1",
+        "scene": "场景（Scene）",
+        "scenePlaceholder": "如 brand_story",
+        "status": "状态",
+        "publicDescription": "对外简介（可选）",
+        "publicDescriptionHelp": "用于列表展示的简短说明，建议 30~80 字",
+        "publicDescriptionPlaceholder": "例如：用于短视频口播脚本生成与投流建议",
+        "systemKey": "系统 Key（只读）",
+        "generationPolicy": "生成策略",
+        "promptSeed": "系统提示词（主指令）",
+        "promptSeedHelp": "必填主策略：任务目标、输出格式、约束边界都写在这里",
+        "promptSeedPlaceholder": "请输入主指令（建议包含目标、结构、边界、禁止项）",
+        "persona": "角色设定（高级可选）",
+        "personaHelp": "仅在你需要补充固定人设时填写；会在主指令之外作为补充上下文",
+        "personaPlaceholder": "可选：如未填写则仅使用系统提示词",
+        "resourceBinding": "资源绑定",
+        "skillIds": "技能 IDs",
+        "commaSeparated": "使用英文逗号分隔",
+        "skillIdsPlaceholder": "如 skill.a,skill.b",
+        "knowledgeBaseIds": "知识库 IDs",
+        "uuidCommaSeparated": "使用英文逗号分隔（UUID）",
+        "knowledgeBaseIdsPlaceholder": "如 uuid1,uuid2",
+        "nameRequired": "名称不能为空",
+        "updated": "更新成功",
+        "updateFailed": "更新失败"
+      },
       "grants": {
         "title": "工具与权限",
         "description": "配置该智能体最多可使用的插件能力；实际执行时仍会与当前用户 IAM 权限取交集。",
         "loading": "正在加载能力授权...",
-        "empty": "当前租户暂无可授权给智能体的能力。",
+        "empty": "当前暂无已同步且带 permission_code 的可授权能力。请检查插件 capability 声明或重新同步能力目录。",
         "available": "可授权",
         "unavailable": "不可授权",
-        "loadFailed": "加载智能体授权失败"
+        "ownerPlugin": "所属插件",
+        "searchPlaceholder": "搜索能力、权限码或插件",
+        "filteredEmpty": "没有符合当前筛选条件的能力。",
+        "relatedEmpty": "该智能体当前没有匹配所属插件的可授权能力，可切换到全部能力查看跨插件授权。",
+        "tabs": {
+          "own": "自身插件（{count}）",
+          "core": "底座能力（{count}）",
+          "other": "其他插件（{count}）"
+        },
+        "hints": {
+          "ownEmpty": "该智能体所属插件 {pluginId} 当前没有已同步且可授权的能力。",
+          "noOwnerPlugin": "该智能体没有所属插件，请查看底座能力或其他插件能力。",
+          "coreEmpty": "当前没有已同步且可授权的底座能力。",
+          "otherEmpty": "当前没有其他插件的可授权能力。"
+        },
+        "filters": {
+          "related": "相关能力",
+          "all": "全部能力",
+          "allPlugins": "全部插件",
+          "anyAvailability": "全部状态",
+          "available": "可授权",
+          "unavailable": "不可授权",
+          "anySelection": "全部",
+          "selected": "已选",
+          "unselected": "未选"
+        },
+        "loadFailed": "加载智能体授权失败",
+        "saved": "权限配置已保存",
+        "saveFailed": "保存权限配置失败"
+      },
+      "actions": {
+        "chat": "智能会话",
+        "team": "创建团队",
+        "permissions": "配置权限",
+        "edit": "编辑"
+      },
+      "pagination": {
+        "total": "共 {total} 个智能体"
       }
     },
     "effectivePermissions": {

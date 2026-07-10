@@ -95,6 +95,43 @@ func TestSyncWorkerProcessArtifactCreatesTenantRegistration(t *testing.T) {
 	require.Equal(t, "demo.capability.demo-tool", reg.Adapters[0].AdapterID)
 }
 
+func TestSyncWorkerReadsDescriptorSecurityForAgentGrants(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+	root := buildDescriptorPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.descriptor.capability")
+	require.NoError(t, err)
+
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, "demo.template:create", annotations["permission_code"])
+	require.Equal(t, true, annotations["agent_usable"])
+	require.Equal(t, "medium", annotations["risk_level"])
+}
+
+func TestSyncWorkerDerivesPermissionCodeFromMergedExposureWhenDescriptorMissing(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+	root := buildExposureFallbackPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.fallback.template.create")
+	require.NoError(t, err)
+
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, true, annotations["descriptor_missing"])
+	require.Equal(t, []any{"demo.plugin.template:create"}, annotations["permission_codes"])
+}
+
 func TestRegistrationAdapterFromProtocolPrefixesPluginProxyForREST(t *testing.T) {
 	adapter := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
 		Channel:  "rest",
@@ -140,7 +177,7 @@ func TestSyncWorkerProcessArtifactMissingSchema(t *testing.T) {
 	require.Equal(t, "failed", jobs[0].Status)
 }
 
-func TestSyncWorkerProcessArtifactMissingExposureDir(t *testing.T) {
+func TestSyncWorkerProcessArtifactAllowsDerivedRESTCapabilityWithoutExposureDir(t *testing.T) {
 	ctx := context.Background()
 	db := newMemoryDB(t)
 	alerting := &fakeCapabilityAlerting{}
@@ -149,16 +186,114 @@ func TestSyncWorkerProcessArtifactMissingExposureDir(t *testing.T) {
 		Alerting: alerting,
 	})
 
-	root := buildSamplePlugin(t, true)
+	root := buildExposureFallbackPlugin(t)
 	require.NoError(t, os.RemoveAll(filepath.Join(root, "contracts")))
 
-	err := worker.ProcessArtifact(ctx, root)
-	require.Error(t, err)
-	var alertErr *AssetAlertError
-	require.True(t, errors.As(err, &alertErr))
-	require.Equal(t, AssetAlertReasonExposureMissing, alertErr.Reason)
-	require.Len(t, alerting.events, 1)
-	require.Equal(t, "contracts/exposure", alerting.events[0].AssetPath)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+	require.Empty(t, alerting.events)
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.fallback.template.create")
+	require.NoError(t, err)
+	require.Equal(t, "demo.plugin", record.PluginID)
+}
+
+func buildExposureFallbackPlugin(t *testing.T) string {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+catalogs:
+  capabilities: ./plugin.d/capabilities.yaml
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.merged.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+catalogs:
+  capabilities: ./plugin.d/capabilities.yaml
+exposure:
+  channels:
+    - type: rest
+      method: POST
+      entrypoint: /api/v1/templates
+      auth: jwt
+      capability: demo.fallback.template.create
+      rbac: template:create
+`), 0o644))
+
+	contractsDir := filepath.Join(root, "contracts", "exposure")
+	require.NoError(t, os.MkdirAll(contractsDir, 0o755))
+
+	pluginD := filepath.Join(root, "plugin.d")
+	require.NoError(t, os.MkdirAll(pluginD, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginD, "capabilities.yaml"), []byte(`
+capabilities:
+  provides:
+    - id: demo.fallback.template.create
+      version: "1.0.0"
+      descriptor: contracts/capabilities/missing.yaml
+`), 0o644))
+
+	return root
+}
+
+func buildDescriptorPlugin(t *testing.T) string {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+`), 0o644))
+
+	contractsDir := filepath.Join(root, "contracts", "exposure")
+	require.NoError(t, os.MkdirAll(contractsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(contractsDir, "input.json"), []byte(`{}`), 0o644))
+
+	pluginD := filepath.Join(root, "plugin.d")
+	require.NoError(t, os.MkdirAll(pluginD, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginD, "capabilities.yaml"), []byte(`
+capabilities:
+  provides:
+    - id: demo.descriptor.capability
+      version: "1.0.0"
+      descriptor: capabilities/demo.yaml
+      schemas:
+        input: contracts/exposure/input.json
+`), 0o644))
+
+	capDir := filepath.Join(root, "capabilities")
+	require.NoError(t, os.MkdirAll(capDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(capDir, "demo.yaml"), []byte(`
+id: demo.descriptor.capability
+type: tool
+version: "1.0.0"
+title: Descriptor Capability
+description: Descriptor capability provided by demo plugin
+security:
+  permission_code: demo.template:create
+agent:
+  usable: true
+  risk_level: medium
+metadata:
+  protocols:
+    rest:
+      path: /api/v1/templates
+      method: POST
+      auth_type: tenant_jwt
+`), 0o644))
+
+	return root
 }
 
 func newMemoryDB(t *testing.T) *gorm.DB {

@@ -3,12 +3,15 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -23,6 +26,7 @@ type AgentService struct {
 	skillBindRepo     *repo.AgentSkillBindingRepository
 	knowledgeBindRepo *repo.AgentKnowledgeBindingRepository
 	pluginRepo        *repo.AgentPluginLinkRepository
+	grantRepo         *repo.AgentCapabilityGrantRepository
 }
 
 var ErrAgentOwnerForbidden = errors.New("agent.owner_forbidden")
@@ -36,6 +40,7 @@ func NewAgentService(db *gorm.DB) *AgentService {
 		skillBindRepo:     repo.NewAgentSkillBindingRepository(db),
 		knowledgeBindRepo: repo.NewAgentKnowledgeBindingRepository(db),
 		pluginRepo:        repo.NewAgentPluginLinkRepository(db),
+		grantRepo:         repo.NewAgentCapabilityGrantRepository(db),
 	}
 }
 
@@ -191,6 +196,184 @@ func (s *AgentService) ReplaceSkillBindings(ctx context.Context, env string, ten
 		return nil
 	}
 	return s.skillBindRepo.Replace(ctx, env, tenantUUID, agentID, normalizeStringSlice(skillIDs))
+}
+
+func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID, skillIDs []string, actorUserUUID string) error {
+	if s == nil || s.db == nil || s.grantRepo == nil {
+		return nil
+	}
+	env = strings.TrimSpace(env)
+	if env == "" || tenantUUID == nil || strings.TrimSpace(*tenantUUID) == "" || agentUUID == uuid.Nil {
+		return fmt.Errorf("env, tenant_uuid and agent_uuid are required")
+	}
+	skillIDs = normalizeStringSlice(skillIDs)
+	if len(skillIDs) == 0 {
+		return s.grantRepo.ReplaceByAgentSource(ctx, env, strings.TrimSpace(*tenantUUID), agentUUID, dbmodel.AgentCapabilityGrantSourcePlugin, nil)
+	}
+	capabilityIDs, err := s.capabilityIDsForSkills(ctx, skillIDs)
+	if err != nil {
+		return err
+	}
+	if len(capabilityIDs) == 0 {
+		return fmt.Errorf("plugin registry agent grants require active skill capability bindings: skills=%s", strings.Join(skillIDs, ","))
+	}
+	records, err := s.capabilityRecordsByIDs(ctx, capabilityIDs)
+	if err != nil {
+		return err
+	}
+	if err := ensureCapabilityRecordsComplete(capabilityIDs, records); err != nil {
+		return err
+	}
+	rows := make([]dbmodel.AgentCapabilityGrant, 0, len(records))
+	for _, rec := range records {
+		for _, code := range permissionCodesFromCapabilityRecord(rec) {
+			rows = append(rows, dbmodel.AgentCapabilityGrant{
+				AgentUUID:         agentUUID,
+				CapabilityUUID:    rec.UUID,
+				CapabilityID:      rec.CapabilityID,
+				PluginID:          rec.PluginID,
+				PermissionCode:    code,
+				RiskLevel:         firstNonEmptyAgentString(riskLevelFromCapabilityRecord(rec), "unknown"),
+				Status:            dbmodel.AgentCapabilityGrantStatusEnabled,
+				Source:            dbmodel.AgentCapabilityGrantSourcePlugin,
+				CreatedByUserUUID: strings.TrimSpace(actorUserUUID),
+				UpdatedByUserUUID: strings.TrimSpace(actorUserUUID),
+			})
+		}
+	}
+	if len(rows) == 0 {
+		return fmt.Errorf("plugin registry agent grants require grantable capability permission codes: skills=%s", strings.Join(skillIDs, ","))
+	}
+	return s.grantRepo.ReplaceByAgentSource(ctx, env, strings.TrimSpace(*tenantUUID), agentUUID, dbmodel.AgentCapabilityGrantSourcePlugin, rows)
+}
+
+func (s *AgentService) capabilityIDsForSkills(ctx context.Context, skillIDs []string) ([]string, error) {
+	type row struct {
+		CapabilityID string `gorm:"column:capability_id"`
+	}
+	rows := make([]row, 0)
+	if err := s.db.WithContext(ctx).
+		Table("skills_capability_bindings").
+		Select("capability_id").
+		Where("skill_id IN ? AND binding_status IN ?", skillIDs, []string{"active", "published", "ready", "enabled"}).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		id := strings.TrimSpace(row.CapabilityID)
+		if id == "" {
+			continue
+		}
+		key := strings.ToLower(id)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func (s *AgentService) capabilityRecordsByIDs(ctx context.Context, capabilityIDs []string) ([]capmodels.CapabilityRecord, error) {
+	records := make([]capmodels.CapabilityRecord, 0)
+	if err := s.db.WithContext(ctx).
+		Model(&capmodels.CapabilityRecord{}).
+		Where("capability_id IN ? AND status IN ?", capabilityIDs, []string{"active", "published", "ready"}).
+		Order("plugin_id ASC, capability_id ASC").
+		Find(&records).Error; err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func ensureCapabilityRecordsComplete(capabilityIDs []string, records []capmodels.CapabilityRecord) error {
+	found := make(map[string]struct{}, len(records))
+	for _, rec := range records {
+		found[strings.ToLower(strings.TrimSpace(rec.CapabilityID))] = struct{}{}
+	}
+	missing := make([]string, 0)
+	for _, capabilityID := range capabilityIDs {
+		key := strings.ToLower(strings.TrimSpace(capabilityID))
+		if key == "" {
+			continue
+		}
+		if _, ok := found[key]; ok {
+			continue
+		}
+		missing = append(missing, capabilityID)
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("plugin registry agent grants require published capability records: missing=%s", strings.Join(missing, ","))
+	}
+	return nil
+}
+
+func permissionCodesFromCapabilityRecord(rec capmodels.CapabilityRecord) []string {
+	var annotations map[string]any
+	_ = json.Unmarshal(rec.Annotations, &annotations)
+	candidates := stringListFromAgentAny(annotations["permission_codes"])
+	if code := strings.TrimSpace(fmt.Sprint(annotations["permission_code"])); code != "" && code != "<nil>" {
+		candidates = append(candidates, code)
+	}
+	if len(candidates) == 0 {
+		_ = json.Unmarshal(rec.ToolScope, &candidates)
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		code := strings.TrimSpace(candidate)
+		if code == "" || !strings.Contains(code, ":") {
+			continue
+		}
+		key := strings.ToLower(code)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, code)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func riskLevelFromCapabilityRecord(rec capmodels.CapabilityRecord) string {
+	var annotations map[string]any
+	if err := json.Unmarshal(rec.Annotations, &annotations); err == nil {
+		if risk := strings.TrimSpace(fmt.Sprint(annotations["risk_level"])); risk != "" && risk != "<nil>" {
+			return risk
+		}
+	}
+	return ""
+}
+
+func stringListFromAgentAny(raw any) []string {
+	switch v := raw.(type) {
+	case []string:
+		return append([]string(nil), v...)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := strings.TrimSpace(fmt.Sprint(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func firstNonEmptyAgentString(values ...string) string {
+	for _, value := range values {
+		if s := strings.TrimSpace(value); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func (s *AgentService) ReplaceKnowledgeBindings(ctx context.Context, env string, tenantUUID *string, agentID uint64, knowledgeSpaceUUIDs []string) error {

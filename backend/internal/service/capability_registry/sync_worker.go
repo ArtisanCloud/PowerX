@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -133,7 +134,7 @@ func (w *SyncWorker) ProcessArtifact(ctx context.Context, path string) error {
 		return fmt.Errorf("load plugin manifest: %w", err)
 	}
 
-	catalog, err := loadCatalog(root)
+	catalog, err := loadCatalog(root, manifest)
 	if err != nil {
 		return fmt.Errorf("load capability catalog: %w", err)
 	}
@@ -150,21 +151,6 @@ func (w *SyncWorker) ProcessArtifact(ctx context.Context, path string) error {
 	}
 	if pluginMeta.Name == "" {
 		pluginMeta.Name = manifest.Name
-	}
-
-	if err := ensureExposureDir(root); err != nil {
-		alertErr := &AssetAlertError{
-			PluginID:      pluginMeta.ID,
-			PluginName:    pluginMeta.Name,
-			PluginVersion: pluginMeta.Version,
-			AssetPath:     "contracts/exposure",
-			ArtifactPath:  artifactPath,
-			Reason:        AssetAlertReasonExposureMissing,
-			Detail:        err.Error(),
-			Err:           err,
-		}
-		w.emitAssetAlert(ctx, alertErr)
-		return alertErr
 	}
 
 	var errs []error
@@ -417,7 +403,7 @@ func registrationAdapterFromProtocol(capabilityID string, pluginID string, proto
 		Weight:        100,
 		TimeoutMS:     30000,
 		Labels:        labels,
-		IsActive: true,
+		IsActive:      true,
 	}
 }
 
@@ -516,18 +502,6 @@ func (w *SyncWorker) validateSchemaRefs(ctx context.Context, artifactPath, root 
 	return nil
 }
 
-func ensureExposureDir(root string) error {
-	exposurePath := filepath.Join(root, "contracts", "exposure")
-	info, err := os.Stat(exposurePath)
-	if err != nil {
-		return fmt.Errorf("contracts/exposure missing: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("contracts/exposure is not a directory")
-	}
-	return nil
-}
-
 func buildCapabilityRecord(plugin pluginMetadata, capability catalogCapability, now time.Time) (*models.CapabilityRecord, error) {
 	record := &models.CapabilityRecord{
 		CapabilityID:         capability.capabilityID(),
@@ -542,7 +516,7 @@ func buildCapabilityRecord(plugin pluginMetadata, capability catalogCapability, 
 		Policy:               datatypes.JSON(capability.Policy),
 		WorkflowTemplateRefs: toJSON(capability.WorkflowTemplates),
 		CompositeGraphs:      datatypes.JSON(capability.CompositeGraphs),
-		Annotations:          datatypes.JSON(capability.Annotations),
+		Annotations:          datatypes.JSON(capability.normalizedAnnotations()),
 		Status:               defaultStatus(capability.Status),
 		PublishedAt:          firstNonZeroTime(capability.PublishedAt, &now),
 		CreatedBy:            plugin.ID,
@@ -642,6 +616,10 @@ func extractZipFile(file *zip.File, dest string) error {
 
 func loadManifest(root string) (*plugin_mgr.Manifest, error) {
 	candidates := []string{
+		filepath.Join(root, "plugin.merged.yaml"),
+		filepath.Join(root, "payload", "plugin.merged.yaml"),
+		filepath.Join(root, "plugin.merged.json"),
+		filepath.Join(root, "payload", "plugin.merged.json"),
 		filepath.Join(root, "plugin.yaml"),
 		filepath.Join(root, "payload", "plugin.yaml"),
 	}
@@ -649,8 +627,15 @@ func loadManifest(root string) (*plugin_mgr.Manifest, error) {
 		raw, err := os.ReadFile(candidate)
 		if err == nil {
 			var manifest plugin_mgr.Manifest
-			if err := yaml.Unmarshal(raw, &manifest); err != nil {
-				return nil, err
+			switch strings.ToLower(filepath.Ext(candidate)) {
+			case ".json":
+				if err := json.Unmarshal(raw, &manifest); err != nil {
+					return nil, err
+				}
+			default:
+				if err := yaml.Unmarshal(raw, &manifest); err != nil {
+					return nil, err
+				}
 			}
 			return &manifest, nil
 		}
@@ -658,7 +643,7 @@ func loadManifest(root string) (*plugin_mgr.Manifest, error) {
 	return nil, errors.New("plugin.yaml not found")
 }
 
-func loadCatalog(root string) (*capabilityCatalog, error) {
+func loadCatalog(root string, manifest *plugin_mgr.Manifest) (*capabilityCatalog, error) {
 	path := filepath.Join(root, "capabilities", "catalog.json")
 	raw, err := os.ReadFile(path)
 	if err == nil {
@@ -671,35 +656,143 @@ func loadCatalog(root string) (*capabilityCatalog, error) {
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	return loadCatalogFromPluginCapabilities(root)
+	return loadCatalogFromPluginCapabilities(root, manifest)
 }
 
-func loadCatalogFromPluginCapabilities(root string) (*capabilityCatalog, error) {
+func loadCatalogFromPluginCapabilities(root string, pluginManifest *plugin_mgr.Manifest) (*capabilityCatalog, error) {
 	path := filepath.Join(root, "plugin.d", "capabilities.yaml")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var manifest capabilityManifestCatalog
-	if err := yaml.Unmarshal(raw, &manifest); err != nil {
+	var capabilityManifest capabilityManifestCatalog
+	if err := yaml.Unmarshal(raw, &capabilityManifest); err != nil {
 		return nil, fmt.Errorf("parse plugin.d/capabilities.yaml: %w", err)
 	}
-	if len(manifest.Capabilities.Provides) == 0 {
+	if len(capabilityManifest.Capabilities.Provides) == 0 {
 		return nil, errors.New("plugin.d/capabilities.yaml has no capabilities.provides")
 	}
 
 	catalog := &capabilityCatalog{
-		Capabilities: make([]catalogCapability, 0, len(manifest.Capabilities.Provides)),
+		Capabilities: make([]catalogCapability, 0, len(capabilityManifest.Capabilities.Provides)),
 	}
-	for _, provide := range manifest.Capabilities.Provides {
+	exposureByCapability := exposureChannelsByCapability(pluginManifest)
+	for _, provide := range capabilityManifest.Capabilities.Provides {
 		capability, err := loadDescriptorCapability(root, provide)
 		if err != nil {
-			return nil, err
+			pluginID := ""
+			if pluginManifest != nil {
+				pluginID = pluginManifest.ID
+			}
+			capability, err = loadExposureCapability(pluginID, provide, exposureByCapability[provide.ID])
+			if err != nil {
+				return nil, err
+			}
 		}
 		catalog.Capabilities = append(catalog.Capabilities, capability)
 	}
 	return catalog, nil
+}
+
+func exposureChannelsByCapability(manifest *plugin_mgr.Manifest) map[string][]plugin_mgr.ExposureChannel {
+	out := map[string][]plugin_mgr.ExposureChannel{}
+	if manifest == nil {
+		return out
+	}
+	for _, channel := range manifest.Exposure.Channels {
+		capabilityID := strings.TrimSpace(channel.Capability)
+		if capabilityID == "" {
+			continue
+		}
+		out[capabilityID] = append(out[capabilityID], channel)
+	}
+	return out
+}
+
+func loadExposureCapability(pluginID string, provide capabilityManifestProvide, channels []plugin_mgr.ExposureChannel) (catalogCapability, error) {
+	capabilityID := strings.TrimSpace(provide.ID)
+	if capabilityID == "" {
+		return catalogCapability{}, fmt.Errorf("capability id missing")
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return catalogCapability{}, fmt.Errorf("plugin id missing")
+	}
+	if len(channels) == 0 {
+		return catalogCapability{}, fmt.Errorf("capability descriptor %s missing and no exposure channel fallback found", strings.TrimSpace(provide.Descriptor))
+	}
+	protocols := make([]models.ProtocolBinding, 0, len(channels))
+	permissionCodes := make([]string, 0, len(channels))
+	for _, channel := range channels {
+		protocols = append(protocols, models.ProtocolBinding{
+			Channel:  strings.TrimSpace(channel.Type),
+			Endpoint: strings.TrimSpace(channel.Entrypoint),
+			Method:   strings.TrimSpace(channel.Method),
+			AuthType: strings.TrimSpace(channel.Auth),
+		})
+		if code := permissionCodeFromExposure(pluginID, channel); code != "" {
+			permissionCodes = append(permissionCodes, code)
+		}
+	}
+	annotations := mustRawJSON(map[string]any{
+		"descriptor":         strings.TrimSpace(provide.Descriptor),
+		"version":            strings.TrimSpace(provide.Version),
+		"permission_codes":   dedupeSortedStrings(permissionCodes),
+		"agent_usable":       true,
+		"risk_level":         "unknown",
+		"source":             "exposure",
+		"descriptor_missing": true,
+	})
+	return catalogCapability{
+		ID:          capabilityID,
+		Version:     strings.TrimSpace(provide.Version),
+		Title:       capabilityID,
+		Description: "Capability derived from plugin exposure mapping",
+		ToolScope:   dedupeSortedStrings(permissionCodes),
+		Protocols:   protocols,
+		Annotations: annotations,
+		Status:      "published",
+	}, nil
+}
+
+func permissionCodeFromExposure(pluginID string, channel plugin_mgr.ExposureChannel) string {
+	securityCode := strings.TrimSpace(fmt.Sprint(channel.Security["permission_code"]))
+	if securityCode != "" && securityCode != "<nil>" {
+		return securityCode
+	}
+	resource, action, ok := strings.Cut(strings.TrimSpace(channel.RBAC), ":")
+	if !ok {
+		return ""
+	}
+	resource = strings.TrimSpace(resource)
+	action = strings.TrimSpace(action)
+	if resource == "" || action == "" {
+		return ""
+	}
+	if pluginID == "" {
+		return ""
+	}
+	return pluginID + "." + resource + ":" + action
+}
+
+func dedupeSortedStrings(items []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		normalized := strings.TrimSpace(item)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func loadDescriptorCapability(root string, provide capabilityManifestProvide) (catalogCapability, error) {
@@ -723,7 +816,15 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 		Title       string `yaml:"title"`
 		Description string `yaml:"description"`
 		Status      string `yaml:"status"`
-		RBAC        struct {
+		Security    struct {
+			PermissionCode string `yaml:"permission_code"`
+			RiskLevel      string `yaml:"risk_level"`
+		} `yaml:"security"`
+		Agent struct {
+			Usable    *bool  `yaml:"usable"`
+			RiskLevel string `yaml:"risk_level"`
+		} `yaml:"agent"`
+		RBAC struct {
 			Resource string   `yaml:"resource"`
 			Actions  []string `yaml:"actions"`
 		} `yaml:"rbac"`
@@ -758,12 +859,22 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 	}
 
 	annotations := mustRawJSON(map[string]any{
-		"descriptor": descriptor,
-		"type":       strings.TrimSpace(descriptorDoc.Type),
-		"version":    version,
+		"descriptor":      descriptor,
+		"type":            strings.TrimSpace(descriptorDoc.Type),
+		"version":         version,
+		"permission_code": strings.TrimSpace(descriptorDoc.Security.PermissionCode),
+		"agent_usable":    descriptorAgentUsable(descriptorDoc.Agent.Usable),
+		"risk_level":      firstNonEmptyDescriptorString(descriptorDoc.Agent.RiskLevel, descriptorDoc.Security.RiskLevel),
 		"rbac": map[string]any{
 			"resource": strings.TrimSpace(descriptorDoc.RBAC.Resource),
 			"actions":  descriptorDoc.RBAC.Actions,
+		},
+		"security": map[string]any{
+			"permission_code": strings.TrimSpace(descriptorDoc.Security.PermissionCode),
+		},
+		"agent": map[string]any{
+			"usable":     descriptorAgentUsable(descriptorDoc.Agent.Usable),
+			"risk_level": firstNonEmptyDescriptorString(descriptorDoc.Agent.RiskLevel, descriptorDoc.Security.RiskLevel),
 		},
 	})
 
@@ -778,6 +889,22 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 		Annotations: annotations,
 		Status:      strings.TrimSpace(descriptorDoc.Status),
 	}, nil
+}
+
+func descriptorAgentUsable(value *bool) bool {
+	if value == nil {
+		return true
+	}
+	return *value
+}
+
+func firstNonEmptyDescriptorString(values ...string) string {
+	for _, value := range values {
+		if s := strings.TrimSpace(value); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func buildProtocolBindings(protocols map[string]any, provide capabilityManifestProvide) ([]models.ProtocolBinding, error) {
@@ -903,6 +1030,9 @@ type catalogCapability struct {
 	Version           string                    `json:"-"`
 	Title             string                    `json:"title"`
 	Description       string                    `json:"description"`
+	PermissionCode    string                    `json:"permission_code"`
+	AgentUsable       *bool                     `json:"agent_usable"`
+	RiskLevel         string                    `json:"risk_level"`
 	Categories        []string                  `json:"categories"`
 	Intents           []string                  `json:"intents"`
 	ToolScope         []string                  `json:"tool_scope"`
@@ -920,6 +1050,23 @@ func (c catalogCapability) capabilityID() string {
 		return c.ID
 	}
 	return strings.TrimSpace(c.CapabilityIDAlias)
+}
+
+func (c catalogCapability) normalizedAnnotations() json.RawMessage {
+	annotations := map[string]any{}
+	if len(c.Annotations) > 0 && string(c.Annotations) != "null" {
+		_ = json.Unmarshal(c.Annotations, &annotations)
+	}
+	if code := strings.TrimSpace(c.PermissionCode); code != "" {
+		annotations["permission_code"] = code
+	}
+	if c.AgentUsable != nil {
+		annotations["agent_usable"] = *c.AgentUsable
+	}
+	if risk := strings.TrimSpace(c.RiskLevel); risk != "" {
+		annotations["risk_level"] = risk
+	}
+	return mustRawJSON(annotations)
 }
 
 func (c catalogCapability) hashSource() interface{} {

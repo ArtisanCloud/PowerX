@@ -85,6 +85,14 @@ func (s *TenantService) Get(ctx context.Context, id uint64) (*mdltenant.Tenant, 
 	return s.Repo.GetByID(ctx, id)
 }
 
+func (s *TenantService) GetByUUID(ctx context.Context, tenantUUID string) (*mdltenant.Tenant, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	return s.Repo.GetByUUID(ctx, tenantUUID)
+}
+
 func sanitizeSortBy(in string, allow []string) string {
 	if in == "" {
 		return "created_at"

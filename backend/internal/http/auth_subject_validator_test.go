@@ -89,3 +89,41 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateSTSRouteOnlyAllowsTenantLookupGetOnly(t *testing.T) {
+	claims := &reqctx.CoreXClaims{
+		TenantUUID: "6b5d0240-9920-46da-b707-88200e0f51ea",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:   "powerx-sts",
+			Audience: jwt.ClaimStrings{"powerx:api"},
+		},
+	}
+
+	ctx := reqctx.WithRequestPath(context.Background(), "/api/v1/admin/tenants")
+	ctx = reqctx.WithRequestMethod(ctx, "GET")
+	ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+	if err := validateSTSRouteOnly(ctx, claims); err != nil {
+		t.Fatalf("validateSTSRouteOnly() err = %v", err)
+	}
+}
+
+func TestValidateSTSRouteOnlyRejectsTenantMutationMethods(t *testing.T) {
+	claims := &reqctx.CoreXClaims{
+		TenantUUID: "6b5d0240-9920-46da-b707-88200e0f51ea",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:   "powerx-sts",
+			Audience: jwt.ClaimStrings{"powerx:api"},
+		},
+	}
+
+	for _, method := range []string{"", "POST", "PUT", "PATCH", "DELETE"} {
+		t.Run(method, func(t *testing.T) {
+			ctx := reqctx.WithRequestPath(context.Background(), "/api/v1/admin/tenants")
+			ctx = reqctx.WithRequestMethod(ctx, method)
+			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+			if err := validateSTSRouteOnly(ctx, claims); err == nil {
+				t.Fatal("validateSTSRouteOnly() err = nil, want rejection")
+			}
+		})
+	}
+}

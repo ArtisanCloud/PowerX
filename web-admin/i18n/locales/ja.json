@@ -5,9 +5,12 @@
   "common": {
     "language": "言語",
     "back": "戻る",
+    "cancel": "キャンセル",
+    "save": "保存",
     "reload": "再読み込み",
     "scrollToBottom": "一番下へ",
-    "newMessages": "新着 {count} 件"
+    "newMessages": "新着 {count} 件",
+    "unknown": "不明"
   },
   "user": {
     "admin": "管理者"
@@ -681,14 +684,111 @@
   },
   "agent": {
     "management": {
+      "title": "エージェント管理",
+      "description": "単体エージェントを管理し、スマートチャットやチーム作成へ素早く移動できます。",
+      "enterChat": "スマートチャットへ",
+      "create": "新規エージェント",
+      "emptyDescription": "説明なし",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "下書き",
+        "active": "有効",
+        "disabled": "無効"
+      },
+      "sources": {
+        "core": "基盤作成",
+        "plugin": "プラグイン管理"
+      },
+      "filters": {
+        "searchPlaceholder": "エージェント名、Key、プラグインを検索",
+        "allSources": "すべての作成元",
+        "allStatuses": "すべての状態"
+      },
+      "quickCreate": {
+        "name": "新規エージェント-{suffix}",
+        "description": "エージェント管理で設定を完了してください",
+        "success": "作成しました",
+        "successDescription": "デフォルトエージェントを作成しました",
+        "failed": "作成に失敗しました"
+      },
+      "edit": {
+        "title": "エージェントを編集",
+        "description": "基本情報、生成ポリシー、リソース関連付けを管理します",
+        "basicInfo": "基本情報",
+        "name": "エージェント名",
+        "namePlaceholder": "エージェント名を入力",
+        "typeId": "タイプ ID",
+        "typeIdPlaceholder": "例: brand.story.v1",
+        "scene": "シーン",
+        "scenePlaceholder": "例: brand_story",
+        "status": "ステータス",
+        "publicDescription": "公開説明（任意）",
+        "publicDescriptionHelp": "一覧に表示する短い説明です。30〜80 文字を推奨します",
+        "publicDescriptionPlaceholder": "例: ショート動画台本と広告提案を生成",
+        "systemKey": "システムキー（読み取り専用）",
+        "generationPolicy": "生成ポリシー",
+        "promptSeed": "システムプロンプト（主指示）",
+        "promptSeedHelp": "必須の主ポリシー: 目標、出力形式、制約境界をここに記述します",
+        "promptSeedPlaceholder": "目標、構造、境界、禁止事項を含む主指示を入力",
+        "persona": "ペルソナ（高度な任意項目）",
+        "personaHelp": "固定ペルソナを補足する場合のみ入力します。主指示とは別の補足コンテキストになります",
+        "personaPlaceholder": "任意: 未入力の場合はシステムプロンプトのみ使用します",
+        "resourceBinding": "リソース関連付け",
+        "skillIds": "スキル ID",
+        "commaSeparated": "英字カンマで区切ります",
+        "skillIdsPlaceholder": "例: skill.a,skill.b",
+        "knowledgeBaseIds": "ナレッジベース ID",
+        "uuidCommaSeparated": "UUID を英字カンマで区切ります",
+        "knowledgeBaseIdsPlaceholder": "例: uuid1,uuid2",
+        "nameRequired": "名前は必須です",
+        "updated": "更新しました",
+        "updateFailed": "更新に失敗しました"
+      },
       "grants": {
         "title": "ツールと権限",
         "description": "このエージェントが使用できるプラグイン能力の上限を設定します。実行時は現在ユーザーの IAM 権限と交差判定されます。",
         "loading": "能力権限を読み込み中...",
-        "empty": "現在のテナントでエージェントに付与できる能力はありません。",
+        "empty": "permission_code を持つ同期済みの付与可能な能力がありません。プラグインの capability 宣言を確認するか、能力カタログを再同期してください。",
         "available": "利用可能",
         "unavailable": "利用不可",
-        "loadFailed": "エージェント権限の読み込みに失敗しました"
+        "ownerPlugin": "所有プラグイン",
+        "searchPlaceholder": "能力、権限コード、プラグインを検索",
+        "filteredEmpty": "現在の絞り込み条件に一致する能力はありません。",
+        "relatedEmpty": "このエージェントの所有プラグインに一致する付与可能な能力はありません。全能力に切り替えるとクロスプラグイン権限を確認できます。",
+        "tabs": {
+          "own": "自身プラグイン（{count}）",
+          "core": "基盤能力（{count}）",
+          "other": "他プラグイン（{count}）"
+        },
+        "hints": {
+          "ownEmpty": "このエージェントの所有プラグイン {pluginId} には、同期済みの付与可能な能力がありません。",
+          "noOwnerPlugin": "このエージェントには所有プラグインがありません。基盤能力または他プラグイン能力を確認してください。",
+          "coreEmpty": "同期済みの付与可能な基盤能力はありません。",
+          "otherEmpty": "他プラグインの付与可能な能力はありません。"
+        },
+        "filters": {
+          "related": "関連能力",
+          "all": "全能力",
+          "allPlugins": "全プラグイン",
+          "anyAvailability": "すべての状態",
+          "available": "利用可能",
+          "unavailable": "利用不可",
+          "anySelection": "すべて",
+          "selected": "選択済み",
+          "unselected": "未選択"
+        },
+        "loadFailed": "エージェント権限の読み込みに失敗しました",
+        "saved": "権限設定を保存しました",
+        "saveFailed": "権限設定の保存に失敗しました"
+      },
+      "actions": {
+        "chat": "スマートチャット",
+        "team": "チームを作成",
+        "permissions": "権限を設定",
+        "edit": "編集"
+      },
+      "pagination": {
+        "total": "エージェント {total} 件"
       }
     },
     "effectivePermissions": {

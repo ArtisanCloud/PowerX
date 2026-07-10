@@ -754,7 +754,14 @@ const shortID = (value?: string) => {
 const loadTenants = async () => {
   tenantLoading.value = true;
   try {
-    const response = await tenantService.getTenants({ page: 1, page_size: 100 });
+    const params = isRoot.value
+      ? { page: 1, page_size: 100 }
+      : {
+          page: 1,
+          page_size: 1,
+          tenant_uuid: userStore.currentTenantUuid || "",
+        };
+    const response = await tenantService.getTenants(params);
     tenants.value = response.data?.items || [];
     if (!query.tenant_uuid) {
       query.tenant_uuid = userStore.currentTenantUuid || tenants.value[0]?.uuid || "";

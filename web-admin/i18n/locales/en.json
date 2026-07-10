@@ -62,7 +62,8 @@
     "reload": "Reload",
     "reset": "Reset",
     "scrollToBottom": "Scroll to bottom",
-    "newMessages": "{count} new messages"
+    "newMessages": "{count} new messages",
+    "unknown": "Unknown"
   },
   "organization": {
     "description": "Manage your organization, members and permissions.",
@@ -896,14 +897,111 @@
       "loadFailed": "Failed to load agent list"
     },
     "management": {
+      "title": "Agent Management",
+      "description": "Manage individual agents and jump quickly into smart chat or team creation.",
+      "enterChat": "Enter smart chat",
+      "create": "New agent",
+      "emptyDescription": "No description",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "sources": {
+        "core": "Core-created",
+        "plugin": "Plugin-managed"
+      },
+      "filters": {
+        "searchPlaceholder": "Search agent name, key, or plugin",
+        "allSources": "All sources",
+        "allStatuses": "All statuses"
+      },
+      "quickCreate": {
+        "name": "New Agent-{suffix}",
+        "description": "Complete the configuration in Agent Management",
+        "success": "Created",
+        "successDescription": "Default agent created",
+        "failed": "Create failed"
+      },
+      "edit": {
+        "title": "Edit Agent",
+        "description": "Maintain basic information, generation policy, and resource bindings",
+        "basicInfo": "Basic Information",
+        "name": "Agent Name",
+        "namePlaceholder": "Enter agent name",
+        "typeId": "Type ID",
+        "typeIdPlaceholder": "e.g. brand.story.v1",
+        "scene": "Scene",
+        "scenePlaceholder": "e.g. brand_story",
+        "status": "Status",
+        "publicDescription": "Public Description (Optional)",
+        "publicDescriptionHelp": "A short list description, recommended 30-80 characters",
+        "publicDescriptionPlaceholder": "Example: generates short-video scripts and ad suggestions",
+        "systemKey": "System Key (Read-only)",
+        "generationPolicy": "Generation Policy",
+        "promptSeed": "System Prompt (Primary Instruction)",
+        "promptSeedHelp": "Required primary policy: task goals, output format, and boundaries go here",
+        "promptSeedPlaceholder": "Enter the primary instruction, including goals, structure, boundaries, and deny rules",
+        "persona": "Persona (Advanced Optional)",
+        "personaHelp": "Use only when fixed persona context is needed; it is appended outside the primary instruction",
+        "personaPlaceholder": "Optional: if empty, only the system prompt is used",
+        "resourceBinding": "Resource Binding",
+        "skillIds": "Skill IDs",
+        "commaSeparated": "Separate with English commas",
+        "skillIdsPlaceholder": "e.g. skill.a,skill.b",
+        "knowledgeBaseIds": "Knowledge Base IDs",
+        "uuidCommaSeparated": "Separate UUIDs with English commas",
+        "knowledgeBaseIdsPlaceholder": "e.g. uuid1,uuid2",
+        "nameRequired": "Name is required",
+        "updated": "Updated",
+        "updateFailed": "Update failed"
+      },
       "grants": {
         "title": "Tools and Permissions",
         "description": "Configure the maximum plugin capabilities this agent may use. Runtime access still intersects with the current user's IAM permissions.",
         "loading": "Loading capability grants...",
-        "empty": "No grantable capabilities are available for the current tenant.",
+        "empty": "No synchronized grantable capabilities with permission_code are available. Check plugin capability declarations or resync the capability catalog.",
         "available": "Available",
         "unavailable": "Unavailable",
-        "loadFailed": "Failed to load agent grants"
+        "ownerPlugin": "Owning plugin",
+        "searchPlaceholder": "Search capability, permission code, or plugin",
+        "filteredEmpty": "No capabilities match the current filters.",
+        "relatedEmpty": "This agent has no grantable capabilities matching its owning plugin. Switch to all capabilities to review cross-plugin grants.",
+        "tabs": {
+          "own": "Own plugin ({count})",
+          "core": "Core ({count})",
+          "other": "Other plugins ({count})"
+        },
+        "hints": {
+          "ownEmpty": "This agent's owning plugin {pluginId} has no synchronized grantable capabilities.",
+          "noOwnerPlugin": "This agent has no owning plugin. Review core or other plugin capabilities.",
+          "coreEmpty": "No synchronized grantable core capabilities are available.",
+          "otherEmpty": "No grantable capabilities from other plugins are available."
+        },
+        "filters": {
+          "related": "Related",
+          "all": "All",
+          "allPlugins": "All plugins",
+          "anyAvailability": "Any status",
+          "available": "Available",
+          "unavailable": "Unavailable",
+          "anySelection": "All",
+          "selected": "Selected",
+          "unselected": "Unselected"
+        },
+        "loadFailed": "Failed to load agent grants",
+        "saved": "Permission settings saved",
+        "saveFailed": "Failed to save permission settings"
+      },
+      "actions": {
+        "chat": "Smart chat",
+        "team": "Create team",
+        "permissions": "Configure permissions",
+        "edit": "Edit"
+      },
+      "pagination": {
+        "total": "{total} agents"
       }
     },
     "effectivePermissions": {

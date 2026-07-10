@@ -106,16 +106,19 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 }
 
 type platformCapabilityDefinition struct {
-	CapabilityID string
-	Title        string
-	Description  string
-	Module       string
-	Categories   []string
-	Intents      []string
-	ToolScopes   []string
-	Policy       capabilityPolicy
-	Protocols    []models.ProtocolBinding
-	Docs         []string
+	CapabilityID   string
+	Title          string
+	Description    string
+	Module         string
+	PermissionCode string
+	AgentUsable    *bool
+	RiskLevel      string
+	Categories     []string
+	Intents        []string
+	ToolScopes     []string
+	Policy         capabilityPolicy
+	Protocols      []models.ProtocolBinding
+	Docs           []string
 }
 
 type capabilityPolicy struct {
@@ -124,9 +127,12 @@ type capabilityPolicy struct {
 }
 
 type capabilityAnnotations struct {
-	Source string   `json:"source"`
-	Module string   `json:"module,omitempty"`
-	Docs   []string `json:"docs,omitempty"`
+	Source         string   `json:"source"`
+	Module         string   `json:"module,omitempty"`
+	PermissionCode string   `json:"permission_code,omitempty"`
+	AgentUsable    *bool    `json:"agent_usable,omitempty"`
+	RiskLevel      string   `json:"risk_level,omitempty"`
+	Docs           []string `json:"docs,omitempty"`
 }
 
 func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, now time.Time) *models.CapabilityRecord {
@@ -145,9 +151,12 @@ func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, n
 		WorkflowTemplateRefs: encodeJSONValue([]interface{}{}, "[]"),
 		CompositeGraphs:      encodeJSONValue([]interface{}{}, "[]"),
 		Annotations: encodeJSONValue(capabilityAnnotations{
-			Source: "corex",
-			Module: d.Module,
-			Docs:   d.Docs,
+			Source:         "corex",
+			Module:         d.Module,
+			PermissionCode: d.PermissionCode,
+			AgentUsable:    d.AgentUsable,
+			RiskLevel:      d.RiskLevel,
+			Docs:           d.Docs,
 		}, "{}"),
 		Status:      "published",
 		PublishedAt: &publishedAt,

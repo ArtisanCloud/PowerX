@@ -313,6 +313,12 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 400, "sync skill bindings failed", err)
 		return
 	}
+	if out.ManagedByPlugin && len(skillIDs) > 0 {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), req.Env, tenantRef, out.UUID, skillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
+			return
+		}
+	}
 	if err := h.srv.ReplaceKnowledgeBindings(c.Request.Context(), req.Env, tenantRef, out.ID, knowledgeIDs); err != nil {
 		dtoRequest.ResponseError(c, 400, "sync knowledge bindings failed", err)
 		return
@@ -479,6 +485,12 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
+	}
+	if out.ManagedByPlugin && req.SkillIDs != nil {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), env, tenantRef, out.UUID, *req.SkillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
+			return
+		}
 	}
 	dtoRequest.ResponseSuccess(c, out)
 }

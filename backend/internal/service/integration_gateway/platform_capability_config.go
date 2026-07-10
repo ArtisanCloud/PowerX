@@ -23,16 +23,19 @@ type capabilityConfigFile struct {
 }
 
 type capabilityConfigEntry struct {
-	CapabilityID string                    `yaml:"capability_id"`
-	Title        string                    `yaml:"title"`
-	Description  string                    `yaml:"description"`
-	Module       string                    `yaml:"module"`
-	Categories   []string                  `yaml:"categories"`
-	Intents      []string                  `yaml:"intents"`
-	ToolScopes   []string                  `yaml:"tool_scopes"`
-	Policy       capabilityPolicy          `yaml:"policy"`
-	Protocols    []capabilityProtocolEntry `yaml:"protocols"`
-	Docs         []string                  `yaml:"docs"`
+	CapabilityID   string                    `yaml:"capability_id"`
+	Title          string                    `yaml:"title"`
+	Description    string                    `yaml:"description"`
+	Module         string                    `yaml:"module"`
+	PermissionCode string                    `yaml:"permission_code"`
+	AgentUsable    *bool                     `yaml:"agent_usable"`
+	RiskLevel      string                    `yaml:"risk_level"`
+	Categories     []string                  `yaml:"categories"`
+	Intents        []string                  `yaml:"intents"`
+	ToolScopes     []string                  `yaml:"tool_scopes"`
+	Policy         capabilityPolicy          `yaml:"policy"`
+	Protocols      []capabilityProtocolEntry `yaml:"protocols"`
+	Docs           []string                  `yaml:"docs"`
 }
 
 type capabilityProtocolEntry struct {
@@ -64,16 +67,19 @@ func (entry capabilityConfigEntry) toDefinition() platformCapabilityDefinition {
 		})
 	}
 	return platformCapabilityDefinition{
-		CapabilityID: strings.TrimSpace(entry.CapabilityID),
-		Title:        strings.TrimSpace(entry.Title),
-		Description:  entry.Description,
-		Module:       entry.Module,
-		Categories:   entry.Categories,
-		Intents:      entry.Intents,
-		ToolScopes:   entry.ToolScopes,
-		Policy:       entry.Policy,
-		Protocols:    bindings,
-		Docs:         entry.Docs,
+		CapabilityID:   strings.TrimSpace(entry.CapabilityID),
+		Title:          strings.TrimSpace(entry.Title),
+		Description:    entry.Description,
+		Module:         entry.Module,
+		PermissionCode: strings.TrimSpace(entry.PermissionCode),
+		AgentUsable:    entry.AgentUsable,
+		RiskLevel:      strings.TrimSpace(entry.RiskLevel),
+		Categories:     entry.Categories,
+		Intents:        entry.Intents,
+		ToolScopes:     entry.ToolScopes,
+		Policy:         entry.Policy,
+		Protocols:      bindings,
+		Docs:           entry.Docs,
 	}
 }
 

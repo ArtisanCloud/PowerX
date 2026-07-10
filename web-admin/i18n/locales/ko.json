@@ -5,9 +5,12 @@
   "common": {
     "language": "언어",
     "back": "뒤로",
+    "cancel": "취소",
+    "save": "저장",
     "reload": "새로고침",
     "scrollToBottom": "맨 아래로",
-    "newMessages": "새 메시지 {count}개"
+    "newMessages": "새 메시지 {count}개",
+    "unknown": "알 수 없음"
   },
   "user": {
     "admin": "관리자"
@@ -487,14 +490,111 @@
   "termsOfService": "서비스 약관",
   "agent": {
     "management": {
+      "title": "에이전트 관리",
+      "description": "개별 에이전트를 관리하고 스마트 채팅 또는 팀 생성으로 빠르게 이동합니다.",
+      "enterChat": "스마트 채팅으로 이동",
+      "create": "새 에이전트",
+      "emptyDescription": "설명 없음",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "초안",
+        "active": "활성",
+        "disabled": "비활성"
+      },
+      "sources": {
+        "core": "기반 생성",
+        "plugin": "플러그인 관리"
+      },
+      "filters": {
+        "searchPlaceholder": "에이전트 이름, Key 또는 플러그인 검색",
+        "allSources": "전체 출처",
+        "allStatuses": "전체 상태"
+      },
+      "quickCreate": {
+        "name": "새 에이전트-{suffix}",
+        "description": "에이전트 관리에서 설정을 완료하세요",
+        "success": "생성 완료",
+        "successDescription": "기본 에이전트를 생성했습니다",
+        "failed": "생성 실패"
+      },
+      "edit": {
+        "title": "에이전트 편집",
+        "description": "기본 정보, 생성 정책, 리소스 바인딩을 관리합니다",
+        "basicInfo": "기본 정보",
+        "name": "에이전트 이름",
+        "namePlaceholder": "에이전트 이름 입력",
+        "typeId": "유형 ID",
+        "typeIdPlaceholder": "예: brand.story.v1",
+        "scene": "시나리오",
+        "scenePlaceholder": "예: brand_story",
+        "status": "상태",
+        "publicDescription": "공개 설명(선택)",
+        "publicDescriptionHelp": "목록에 표시할 짧은 설명입니다. 30~80자를 권장합니다",
+        "publicDescriptionPlaceholder": "예: 숏폼 영상 스크립트와 광고 제안을 생성",
+        "systemKey": "시스템 키(읽기 전용)",
+        "generationPolicy": "생성 정책",
+        "promptSeed": "시스템 프롬프트(주 지시문)",
+        "promptSeedHelp": "필수 주 정책: 작업 목표, 출력 형식, 제약 경계를 여기에 작성합니다",
+        "promptSeedPlaceholder": "목표, 구조, 경계, 금지 항목을 포함한 주 지시문 입력",
+        "persona": "페르소나(고급 선택)",
+        "personaHelp": "고정 페르소나 보강이 필요할 때만 입력합니다. 주 지시문 외 보조 컨텍스트로 사용됩니다",
+        "personaPlaceholder": "선택: 비워두면 시스템 프롬프트만 사용합니다",
+        "resourceBinding": "리소스 바인딩",
+        "skillIds": "스킬 ID",
+        "commaSeparated": "영문 쉼표로 구분",
+        "skillIdsPlaceholder": "예: skill.a,skill.b",
+        "knowledgeBaseIds": "지식 베이스 ID",
+        "uuidCommaSeparated": "UUID를 영문 쉼표로 구분",
+        "knowledgeBaseIdsPlaceholder": "예: uuid1,uuid2",
+        "nameRequired": "이름은 필수입니다",
+        "updated": "업데이트 완료",
+        "updateFailed": "업데이트 실패"
+      },
       "grants": {
         "title": "도구 및 권한",
         "description": "이 에이전트가 사용할 수 있는 플러그인 기능의 최대 범위를 설정합니다. 실행 시 현재 사용자의 IAM 권한과 교집합으로 판정됩니다.",
         "loading": "기능 권한을 불러오는 중...",
-        "empty": "현재 테넌트에서 에이전트에 부여할 수 있는 기능이 없습니다.",
+        "empty": "permission_code가 포함된 동기화된 권한 부여 가능 기능이 없습니다. 플러그인 capability 선언을 확인하거나 기능 카탈로그를 다시 동기화하세요.",
         "available": "사용 가능",
         "unavailable": "사용 불가",
-        "loadFailed": "에이전트 권한 로드 실패"
+        "ownerPlugin": "소유 플러그인",
+        "searchPlaceholder": "기능, 권한 코드 또는 플러그인 검색",
+        "filteredEmpty": "현재 필터와 일치하는 기능이 없습니다.",
+        "relatedEmpty": "이 에이전트의 소유 플러그인과 일치하는 권한 부여 가능 기능이 없습니다. 전체 기능으로 전환해 플러그인 간 권한을 확인하세요.",
+        "tabs": {
+          "own": "자신의 플러그인({count})",
+          "core": "기반 기능({count})",
+          "other": "다른 플러그인({count})"
+        },
+        "hints": {
+          "ownEmpty": "이 에이전트의 소유 플러그인 {pluginId}에는 동기화된 권한 부여 가능 기능이 없습니다.",
+          "noOwnerPlugin": "이 에이전트에는 소유 플러그인이 없습니다. 기반 기능 또는 다른 플러그인 기능을 확인하세요.",
+          "coreEmpty": "동기화된 권한 부여 가능 기반 기능이 없습니다.",
+          "otherEmpty": "다른 플러그인의 권한 부여 가능 기능이 없습니다."
+        },
+        "filters": {
+          "related": "관련 기능",
+          "all": "전체 기능",
+          "allPlugins": "전체 플러그인",
+          "anyAvailability": "전체 상태",
+          "available": "사용 가능",
+          "unavailable": "사용 불가",
+          "anySelection": "전체",
+          "selected": "선택됨",
+          "unselected": "미선택"
+        },
+        "loadFailed": "에이전트 권한 로드 실패",
+        "saved": "권한 설정을 저장했습니다",
+        "saveFailed": "권한 설정 저장 실패"
+      },
+      "actions": {
+        "chat": "스마트 채팅",
+        "team": "팀 생성",
+        "permissions": "권한 설정",
+        "edit": "편집"
+      },
+      "pagination": {
+        "total": "에이전트 {total}개"
       }
     },
     "effectivePermissions": {

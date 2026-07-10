@@ -157,13 +157,19 @@ func isPowerXAPISTSClaims(claims *reqctx.CoreXClaims) bool {
 func isSTSAllowedRequestPath(ctx context.Context) bool {
 	path := strings.TrimSpace(reqctx.GetRequestPath(ctx))
 	path = strings.TrimSuffix(path, "/")
+	method := strings.ToUpper(strings.TrimSpace(reqctx.GetRequestMethod(ctx)))
 	return strings.HasSuffix(path, "/admin/runtime/ws-bus/grant") ||
 		strings.HasSuffix(path, "/admin/runtime/ws-bus/publish") ||
 		strings.Contains(path, "/admin/runtime/task-queue/") ||
 		strings.HasSuffix(path, "/notifications/test") ||
 		strings.HasSuffix(path, "/tenant/invocations") ||
 		strings.HasSuffix(path, "/tenant/invocations/stream") ||
+		isSTSAllowedTenantLookup(method, path) ||
 		isSTSCoreCapabilityPath(path)
+}
+
+func isSTSAllowedTenantLookup(method string, path string) bool {
+	return method == "GET" && strings.HasSuffix(path, "/admin/tenants")
 }
 
 func isSTSCoreCapabilityPath(path string) bool {

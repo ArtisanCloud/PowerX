@@ -42,6 +42,18 @@ type capabilityCatalogEntry struct {
 	Execution   map[string]interface{} `json:"execution"`
 }
 
+type catalogExposureDoc struct {
+	Exposure struct {
+		Channels []catalogExposureChannel `yaml:"channels"`
+	} `yaml:"exposure"`
+}
+
+type catalogExposureChannel struct {
+	Capability string                 `yaml:"capability"`
+	RBAC       string                 `yaml:"rbac"`
+	Security   map[string]interface{} `yaml:"security"`
+}
+
 type capabilityCatalogAsset struct {
 	Type     string `json:"type"`
 	Path     string `json:"path"`
@@ -115,6 +127,10 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 	if err := os.MkdirAll(filepath.Join(root, "contracts", "exposure"), 0o755); err != nil {
 		return err
 	}
+	exposurePermissions, err := permissionCodesFromCatalogAssets(req.Catalog.PluginID, req.Assets)
+	if err != nil {
+		return err
+	}
 	manifest := map[string]interface{}{
 		"id":      strings.TrimSpace(req.Catalog.PluginID),
 		"name":    strings.TrimSpace(req.Catalog.PluginID),
@@ -129,7 +145,7 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 			"name":    strings.TrimSpace(req.Catalog.PluginID),
 			"version": firstNonEmpty(strings.TrimSpace(req.Catalog.ManifestVersion), "1.0.0"),
 		},
-		"capabilities": buildSyncCapabilities(req.Catalog),
+		"capabilities": buildSyncCapabilities(req.Catalog, exposurePermissions),
 	}
 	if err := writeJSON(filepath.Join(root, "capabilities", "catalog.json"), catalog); err != nil {
 		return err
@@ -142,7 +158,7 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 	return nil
 }
 
-func buildSyncCapabilities(catalog capabilityCatalogSnapshot) []map[string]interface{} {
+func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermissions map[string][]string) []map[string]interface{} {
 	now := time.Now().UTC().Format(time.RFC3339)
 	out := make([]map[string]interface{}, 0, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
@@ -150,17 +166,113 @@ func buildSyncCapabilities(catalog capabilityCatalogSnapshot) []map[string]inter
 		if id == "" {
 			continue
 		}
+		permissionCodes := dedupeCatalogStrings(append(permissionCodesFromEntry(catalog.PluginID, entry), exposurePermissions[id]...))
 		out = append(out, map[string]interface{}{
 			"id":           id,
 			"title":        firstNonEmpty(strings.TrimSpace(entry.Title), id),
 			"description":  strings.TrimSpace(entry.Description),
 			"categories":   entry.Tags,
-			"tool_scope":   entry.Tags,
+			"tool_scope":   permissionCodes,
 			"protocols":    protocolsForSync(entry),
-			"annotations":  map[string]interface{}{"descriptor": strings.TrimSpace(entry.Descriptor), "version": strings.TrimSpace(entry.Version)},
+			"annotations":  map[string]interface{}{"descriptor": strings.TrimSpace(entry.Descriptor), "version": strings.TrimSpace(entry.Version), "permission_codes": permissionCodes, "agent_usable": true},
 			"status":       "published",
 			"published_at": now,
 		})
+	}
+	return out
+}
+
+func permissionCodesFromCatalogAssets(pluginID string, assets []capabilityCatalogAsset) (map[string][]string, error) {
+	out := map[string][]string{}
+	for _, asset := range assets {
+		rel := filepath.ToSlash(filepath.Clean(filepath.FromSlash(strings.TrimSpace(asset.Path))))
+		if rel != "plugin.d/exposure.yaml" && rel != "plugin.d/exposure.yml" && rel != "plugin.merged.yaml" && rel != "plugin.merged.yml" {
+			continue
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(asset.Content))
+		if err != nil {
+			return nil, fmt.Errorf("decode capability asset %s: %w", asset.Path, err)
+		}
+		var doc catalogExposureDoc
+		if err := yaml.Unmarshal(raw, &doc); err != nil {
+			return nil, fmt.Errorf("parse exposure asset %s: %w", asset.Path, err)
+		}
+		for _, channel := range doc.Exposure.Channels {
+			capabilityID := strings.TrimSpace(channel.Capability)
+			if capabilityID == "" {
+				continue
+			}
+			code := permissionCodeFromCatalogExposure(pluginID, channel)
+			if code == "" {
+				continue
+			}
+			out[capabilityID] = append(out[capabilityID], code)
+		}
+	}
+	for capabilityID, codes := range out {
+		out[capabilityID] = dedupeCatalogStrings(codes)
+	}
+	return out, nil
+}
+
+func permissionCodesFromEntry(pluginID string, entry capabilityCatalogEntry) []string {
+	codes := make([]string, 0)
+	for _, raw := range entry.Protocols {
+		for _, item := range normalizeProtocolPayload(raw) {
+			if code := strings.TrimSpace(firstNonEmpty(stringFromAny(item["permission_code"]), stringFromAny(item["permissionCode"]))); code != "" {
+				codes = append(codes, code)
+			}
+			if code := permissionCodeFromCatalogRBAC(pluginID, stringFromAny(item["rbac"])); code != "" {
+				codes = append(codes, code)
+			}
+			if code := strings.TrimSpace(firstNonEmpty(stringFromAny(item["tool_scope"]), stringFromAny(item["toolScope"]))); code != "" {
+				codes = append(codes, code)
+			}
+		}
+	}
+	return codes
+}
+
+func permissionCodeFromCatalogExposure(pluginID string, channel catalogExposureChannel) string {
+	if channel.Security != nil {
+		if code := strings.TrimSpace(fmt.Sprint(channel.Security["permission_code"])); code != "" && code != "<nil>" {
+			return code
+		}
+		if code := strings.TrimSpace(fmt.Sprint(channel.Security["permissionCode"])); code != "" && code != "<nil>" {
+			return code
+		}
+	}
+	return permissionCodeFromCatalogRBAC(pluginID, channel.RBAC)
+}
+
+func permissionCodeFromCatalogRBAC(pluginID, rbac string) string {
+	resource, action, ok := strings.Cut(strings.TrimSpace(rbac), ":")
+	if !ok {
+		return ""
+	}
+	resource = strings.TrimSpace(resource)
+	action = strings.TrimSpace(action)
+	pluginID = strings.TrimSpace(pluginID)
+	if resource == "" || action == "" || pluginID == "" {
+		return ""
+	}
+	return pluginID + "." + resource + ":" + action
+}
+
+func dedupeCatalogStrings(items []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		normalized := strings.TrimSpace(item)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
 	}
 	return out
 }

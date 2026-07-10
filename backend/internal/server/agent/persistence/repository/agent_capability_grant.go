@@ -72,6 +72,47 @@ func (r *AgentCapabilityGrantRepository) ReplaceByAgent(ctx context.Context, env
 	})
 }
 
+func (r *AgentCapabilityGrantRepository) ReplaceByAgentSource(ctx context.Context, env, tenantUUID string, agentUUID uuid.UUID, source string, rows []dbmodel.AgentCapabilityGrant) error {
+	env = strings.TrimSpace(env)
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	source = strings.TrimSpace(source)
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.
+			Where("env = ? AND tenant_uuid = ? AND agent_uuid = ? AND source = ?", env, tenantUUID, agentUUID, source).
+			Delete(&dbmodel.AgentCapabilityGrant{}).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		for i := range rows {
+			rows[i].Env = env
+			rows[i].TenantUUID = tenantUUID
+			rows[i].AgentUUID = agentUUID
+			rows[i].Source = source
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "env"},
+				{Name: "tenant_uuid"},
+				{Name: "agent_uuid"},
+				{Name: "capability_uuid"},
+				{Name: "permission_code"},
+			},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"capability_id",
+				"plugin_id",
+				"plugin_uuid",
+				"risk_level",
+				"status",
+				"source",
+				"updated_by_user_uuid",
+				"updated_at",
+			}),
+		}).Create(&rows).Error
+	})
+}
+
 func (r *AgentCapabilityGrantRepository) HasEnabledGrant(ctx context.Context, env, tenantUUID string, agentUUID uuid.UUID, capabilityID, permissionCode string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).

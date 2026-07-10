@@ -249,7 +249,7 @@ func (s *Service) ResolveEffectivePermissions(ctx context.Context, env, tenantUU
 	}
 	items := make([]EffectivePermissionItem, 0, len(catalog))
 	for _, cap := range catalog {
-		module, resource, action, parseOK := ParsePermissionCode(cap.PermissionCode)
+		module, resource, action, parseOK := ParsePermissionCodeForPlugin(cap.PermissionCode, cap.PluginID)
 		userAllowed := false
 		if parseOK {
 			userAllowed, err = s.rbac.Enforce(ctx, iamsvc.ActorContext{IsRoot: isRoot, TenantUUID: tenantUUID}, tenantUUID, memberID, module, resource, action)
@@ -352,7 +352,7 @@ func (s *Service) AuthorizeCapability(ctx context.Context, in AuthorizeInput) (r
 			permissionCode = codes[0]
 		}
 	}
-	module, resource, action, ok := ParsePermissionCode(permissionCode)
+	module, resource, action, ok := ParsePermissionCodeForPlugin(permissionCode, rec.PluginID)
 	if !ok {
 		return AuthorizeResult{Allowed: false, DenyReason: "permission_code_invalid", PermissionCode: permissionCode}, nil
 	}
@@ -435,7 +435,7 @@ func permissionCodesFromRecord(rec capmodels.CapabilityRecord) []string {
 	seen := map[string]struct{}{}
 	for _, code := range candidates {
 		code = strings.TrimSpace(code)
-		if _, _, _, ok := ParsePermissionCode(code); !ok {
+		if _, _, _, ok := ParsePermissionCodeForPlugin(code, rec.PluginID); !ok {
 			continue
 		}
 		key := strings.ToLower(code)
@@ -486,6 +486,28 @@ func ParsePermissionCode(code string) (module, resource, action string, ok bool)
 		return "", "", "", false
 	}
 	return module, resource, action, true
+}
+
+func ParsePermissionCodeForPlugin(code string, pluginID string) (module, resource, action string, ok bool) {
+	code = strings.TrimSpace(code)
+	left, right, found := strings.Cut(code, ":")
+	if !found {
+		return "", "", "", false
+	}
+	action = strings.TrimSpace(right)
+	left = strings.TrimSpace(left)
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID != "" {
+		prefix := pluginID + "."
+		if strings.HasPrefix(left, prefix) {
+			resource = strings.TrimSpace(strings.TrimPrefix(left, prefix))
+			if resource == "" || action == "" {
+				return "", "", "", false
+			}
+			return pluginID, resource, action, true
+		}
+	}
+	return ParsePermissionCode(code)
 }
 
 func grantViews(rows []agentmodel.AgentCapabilityGrant) []AgentGrantView {

@@ -1977,7 +1977,14 @@ function resetThresholdConfig() {
 
 async function loadQueueTenants() {
   try {
-    const res = await tenantSvc.getTenants({ page: 1, page_size: 100 });
+    const params = isRoot.value
+      ? { page: 1, page_size: 100 }
+      : {
+          page: 1,
+          page_size: 1,
+          tenant_uuid: currentTenantUuid.value || "",
+        };
+    const res = await tenantSvc.getTenants(params);
     queueTenants.value = res.data?.items || [];
   } catch (e: any) {
     queueTenants.value = [];

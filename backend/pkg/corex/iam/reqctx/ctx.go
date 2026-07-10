@@ -14,15 +14,16 @@ type ctxKey string
 
 // —— 中间件常用键（你原有的一组）——
 const (
-	TenantIDKey    ctxKey = "tenant_id"
-	TenantUUIDKey  ctxKey = "tenant_uuid"
-	SubjectKey     ctxKey = "subject"
-	ScopeKey       ctxKey = "scope"
-	AudienceKey    ctxKey = "audience"
-	PlatformKey    ctxKey = "platform"
-	TraceIDKey     ctxKey = "trace_id"
-	JWTClaimsKey   ctxKey = "jwt_claims"
-	RequestPathKey ctxKey = "request_path"
+	TenantIDKey      ctxKey = "tenant_id"
+	TenantUUIDKey    ctxKey = "tenant_uuid"
+	SubjectKey       ctxKey = "subject"
+	ScopeKey         ctxKey = "scope"
+	AudienceKey      ctxKey = "audience"
+	PlatformKey      ctxKey = "platform"
+	TraceIDKey       ctxKey = "trace_id"
+	JWTClaimsKey     ctxKey = "jwt_claims"
+	RequestPathKey   ctxKey = "request_path"
+	RequestMethodKey ctxKey = "request_method"
 
 	UserIDKey   ctxKey = "auth.user_id"
 	MemberIDKey ctxKey = "auth.member_id"
@@ -65,6 +66,7 @@ const (
 	KeyPlatform        ctxKey = "corex.platform"
 	KeyTraceID         ctxKey = "corex.trace_id"
 	KeyRequestPath     ctxKey = "corex.request_path"
+	KeyRequestMethod   ctxKey = "corex.request_method"
 
 	KeyEnv  ctxKey = "corex.env"
 	KeyEnvs ctxKey = "corex.envs"
@@ -123,6 +125,9 @@ func WithTraceID(ctx context.Context, v string) context.Context {
 }
 func WithRequestPath(ctx context.Context, v string) context.Context {
 	return context.WithValue(ctx, KeyRequestPath, v)
+}
+func WithRequestMethod(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, KeyRequestMethod, v)
 }
 func WithEnv(ctx context.Context, e string) context.Context {
 	return context.WithValue(ctx, KeyEnv, env.Canonicalize(e))
@@ -353,6 +358,16 @@ func GetRequestPath(ctx context.Context) string {
 		return v
 	}
 	if v, ok := ctx.Value(RequestPathKey).(string); ok && v != "" {
+		return v
+	}
+	return ""
+}
+
+func GetRequestMethod(ctx context.Context) string {
+	if v, ok := ctx.Value(KeyRequestMethod).(string); ok && v != "" {
+		return v
+	}
+	if v, ok := ctx.Value(RequestMethodKey).(string); ok && v != "" {
 		return v
 	}
 	return ""

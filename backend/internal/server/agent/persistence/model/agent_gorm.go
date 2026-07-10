@@ -53,6 +53,7 @@ const (
 	AgentCapabilityGrantStatusEnabled  = "enabled"
 	AgentCapabilityGrantStatusDisabled = "disabled"
 	AgentCapabilityGrantSourceManual   = "manual"
+	AgentCapabilityGrantSourcePlugin   = "plugin_registry"
 )
 
 // ---------- 1) Agent 主表 ----------
