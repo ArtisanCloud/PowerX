@@ -2,6 +2,8 @@
 
 本文定义 PowerX 底座 Agent Runtime 与 PowerXPlugin 插件业务能力之间的标准桥接机制。
 
+插件开发者落地 Agent/Skill 注册、template 示例、初始化和常见错误时，先阅读总入口：[PowerXPlugin Agent / Skill Bridge 开发指南](../../../guides/develop/plugin_agent_skill_bridge.md)。
+
 ## 1. 机制定位
 
 PowerX Agent Skill Bridge 不是“渠道直连插件业务接口”，也不是“插件自行实现一套 Agent 对话系统”，也不是新增一套独立 Skill 执行业务接口。它是底座统一会话/Agent Runtime、Agent 绑定 Skill 语义包、PowerX Capability Invocation 之间的桥接机制。

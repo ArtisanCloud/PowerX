@@ -5,6 +5,8 @@
 **Status**: Draft  
 **Input**: User description: "请根据 docs/plan/ai_engineering/skills 的开发计划文档，生成对应的 spec 文档"
 
+**Developer Guide**: 插件侧 Agent/Skill 注册和 Skill Bridge 落地总入口见 [PowerXPlugin Agent / Skill Bridge 开发指南](../../docs/guides/develop/plugin_agent_skill_bridge.md)。
+
 ## Clarifications
 
 ### Session 2026-03-09

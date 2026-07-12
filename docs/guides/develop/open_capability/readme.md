@@ -2,6 +2,8 @@
 
 本指南面向需要调试 PowerX 底座（`source=corex`）开放能力的开发者，帮助你在本地或测试环境中快速定位能力元数据、确认协议定义，并拿到可以直接调试的 API/CLI 命令。
 
+如果你要从 PowerXPlugin 注册 Agent/Skill，并通过 Skill action 调用 capability，请先阅读：[PowerXPlugin Agent / Skill Bridge 开发指南](../plugin_agent_skill_bridge.md)。
+
 > **前提条件**
 >
 > - 你需要一个 `IsRoot=true` 的管理员账号才能访问底座能力目录。
