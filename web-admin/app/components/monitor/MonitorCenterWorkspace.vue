@@ -39,7 +39,7 @@
           <template #header>
             <div class="flex flex-wrap items-center gap-3">
               <div class="text-sm text-gray-600 dark:text-gray-400">
-                当前租户：
+                当前登录租户：
                 <span class="font-mono">{{ effectiveTenantName }}</span>
               </div>
               <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -49,10 +49,29 @@
             </div>
           </template>
 
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-6">
             <UInput v-model="filters.namespace" icon="i-heroicons-tag" placeholder="事件域（例：_topic.knowledge.space.feedback）" />
             <UInput v-model="filters.name" icon="i-heroicons-hashtag" placeholder="事件名（例：reprocess）" />
-            <UInput v-model="filters.subscriberId" icon="i-heroicons-identification" placeholder="订阅者ID（例：_subscriber.knowledge_space.reprocess）" />
+            <UInput v-model="filters.subscriberId" icon="i-heroicons-identification" placeholder="订阅者ID（支持片段：llm_job_worker）" />
+            <USelect
+              v-model="selectedQueueScope"
+              :items="queueScopeOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+            <USelectMenu
+              v-model="selectedQueueTenant"
+              v-model:search-term="queueTenantSearch"
+              :items="queueTenantOptions"
+              searchable
+              value-key="value"
+              label-key="label"
+              :disabled="selectedQueueScope === 'all'"
+              :portal="false"
+              :placeholder="queueTenantPlaceholder"
+              class="w-full"
+            />
             <UButton variant="outline" @click="refresh">应用筛选</UButton>
           </div>
 
@@ -64,7 +83,7 @@
           </div>
 
           <div class="mt-1 text-xs text-gray-500">
-            说明：`事件域 + 事件名` 用来定位 topic，`订阅者ID` 用来看某个消费者的投递/队列情况。
+            说明：先选队列来源，再选对应租户。PowerX 底座队列按 PowerX 租户筛选；插件队列按插件上报的本地租户筛选。
           </div>
         </UCard>
 
@@ -119,57 +138,147 @@
             </div>
           </div>
 
-          <div class="mt-3 text-xs text-gray-500">统计时间：<span class="font-mono">{{ taskQueueNow || '-' }}</span></div>
+          <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">历史任务总数</div>
+              <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ taskQueueHistorySummary.total }}</div>
+            </div>
+            <div class="rounded border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
+              <div class="text-xs text-gray-500">已完成</div>
+              <div class="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{{ taskQueueHistorySummary.completed }}</div>
+            </div>
+            <div class="rounded border border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20 p-3">
+              <div class="text-xs text-gray-500">失败</div>
+              <div class="mt-1 text-xl font-semibold text-red-700 dark:text-red-300">{{ taskQueueHistorySummary.failed }}</div>
+            </div>
+            <div class="rounded border border-gray-200 dark:border-gray-700 p-3">
+              <div class="text-xs text-gray-500">最近执行</div>
+              <div class="mt-1 text-sm font-mono text-gray-900 dark:text-white">{{ formatMonitorLogTs(taskQueueHistorySummary.lastSeenAt) }}</div>
+            </div>
+          </div>
+
+          <div class="mt-3 text-xs text-gray-500">
+            统计时间：<span class="font-mono">{{ taskQueueNow || '-' }}</span>
+            <span class="ml-2">当前表为 subscriber + tenant_key 聚合视图；点击状态数字或“任务清单”进入该订阅分片的任务明细。</span>
+          </div>
 
           <div class="mt-3 overflow-x-auto">
             <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
               <thead class="bg-gray-50 dark:bg-gray-800/50">
                 <tr>
                   <th class="text-left px-3 py-2">subscriber_id</th>
-                  <th class="text-left px-3 py-2">tenant_key</th>
+                  <th class="text-left px-3 py-2">来源</th>
+                  <th class="text-left px-3 py-2">PowerX 租户 / tenant_key</th>
+                  <th class="text-left px-3 py-2">插件租户</th>
                   <th class="text-left px-3 py-2">pending</th>
                   <th class="text-left px-3 py-2">deferred</th>
                   <th class="text-left px-3 py-2">processing</th>
                   <th class="text-left px-3 py-2">inflight</th>
                   <th class="text-left px-3 py-2">total</th>
+                  <th class="text-left px-3 py-2">history</th>
+                  <th class="text-left px-3 py-2">completed</th>
+                  <th class="text-left px-3 py-2">failed</th>
+                  <th class="text-left px-3 py-2">last_seen_at</th>
                   <th class="text-left px-3 py-2">任务清单</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="row in taskQueueRows"
+                  v-for="row in filteredTaskQueueRows"
                   :key="`${row.tenant_key}-${row.subscriber_id}`"
-                  :class="['border-t border-gray-200 dark:border-gray-700', rowSeverityClass(row)]"
+                  :class="['cursor-pointer border-t border-gray-200 dark:border-gray-700', rowSeverityClass(row), queueDetailVisible && queueDetailTenantKey === row.tenant_key && queueDetailSubscriberID === row.subscriber_id ? 'ring-1 ring-primary-500/60' : '']"
+                  @click="openQueueDetail(row)"
                 >
-                  <td class="px-3 py-2 font-mono">{{ row.subscriber_id }}</td>
-                  <td class="px-3 py-2 font-mono">{{ row.tenant_key }}</td>
-                  <td :class="['px-3 py-2', metricValueClass(row.pending, 'pending')]">{{ row.pending }}</td>
-                  <td :class="['px-3 py-2', metricValueClass(row.deferred, 'deferred')]">{{ row.deferred }}</td>
-                  <td :class="['px-3 py-2', metricValueClass(row.processing, 'processing')]">{{ row.processing }}</td>
-                  <td :class="['px-3 py-2', metricValueClass(row.inflight, 'inflight')]">{{ row.inflight }}</td>
-                  <td class="px-3 py-2 font-semibold">{{ rowTotalTasks(row) }}</td>
                   <td class="px-3 py-2">
-                    <UButton size="xs" variant="outline" :loading="queueDetailLoading" @click="openQueueDetail(row)">
+                    <div class="font-mono">{{ row.subscriber_id }}</div>
+                    <UButton class="mt-2" size="xs" variant="soft" :loading="queueDetailLoading" @click.stop="openQueueDetail(row)">
+                      任务清单
+                    </UButton>
+                  </td>
+                  <td class="px-3 py-2">
+                    <UBadge :color="row.queue_scope === 'plugin' ? 'primary' : 'neutral'" variant="soft">
+                      {{ formatQueueScope(row.queue_scope) }}
+                    </UBadge>
+                    <div v-if="row.plugin_id" class="mt-1 font-mono text-[11px] text-gray-500 break-all">{{ row.plugin_id }}</div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="font-medium text-gray-900 dark:text-white">{{ formatTenantLabel(row.tenant_key) }}</div>
+                    <div v-if="formatTenantLabel(row.tenant_key) !== row.tenant_key" class="font-mono text-[11px] text-gray-500 break-all">
+                      {{ row.tenant_key }}
+                    </div>
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="font-mono text-[11px] break-all">{{ formatPluginTenantLabel(row) }}</div>
+                  </td>
+                  <td :class="['px-3 py-2', metricValueClass(row.pending, 'pending')]">
+                    <button class="font-semibold hover:underline" @click.stop="openQueueDetail(row, 'pending', 'runtime')">{{ row.pending }}</button>
+                  </td>
+                  <td :class="['px-3 py-2', metricValueClass(row.deferred, 'deferred')]">
+                    <button class="font-semibold hover:underline" @click.stop="openQueueDetail(row, 'deferred', 'runtime')">{{ row.deferred }}</button>
+                  </td>
+                  <td :class="['px-3 py-2', metricValueClass(row.processing, 'processing')]">
+                    <button class="font-semibold hover:underline" @click.stop="openQueueDetail(row, 'processing', 'runtime')">{{ row.processing }}</button>
+                  </td>
+                  <td :class="['px-3 py-2', metricValueClass(row.inflight, 'inflight')]">
+                    <button class="font-semibold hover:underline" @click.stop="openQueueDetail(row, 'inflight', 'runtime')">{{ row.inflight }}</button>
+                  </td>
+                  <td class="px-3 py-2 font-semibold">{{ rowTotalTasks(row) }}</td>
+                  <td class="px-3 py-2 font-semibold">
+                    <button class="hover:underline" @click.stop="openQueueDetail(row, 'pending', 'history')">{{ row.history_total ?? 0 }}</button>
+                  </td>
+                  <td class="px-3 py-2 text-emerald-700 dark:text-emerald-300">
+                    <button class="font-semibold hover:underline" @click.stop="openQueueDetail(row, 'pending', 'history')">{{ row.completed ?? 0 }}</button>
+                  </td>
+                  <td :class="['px-3 py-2', Number(row.failed || 0) > 0 ? 'text-red-700 dark:text-red-300 font-semibold' : 'text-gray-500']">
+                    <button class="hover:underline" @click.stop="openQueueDetail(row, 'pending', 'history')">{{ row.failed ?? 0 }}</button>
+                  </td>
+                  <td class="px-3 py-2 font-mono">{{ formatMonitorLogTs(row.last_seen_at) }}</td>
+                  <td class="px-3 py-2">
+                    <UButton size="xs" variant="outline" :loading="queueDetailLoading" @click.stop="openQueueDetail(row)">
                       查看任务
                     </UButton>
                   </td>
                 </tr>
-                <tr v-if="taskQueueRows.length === 0">
-                  <td class="px-3 py-3 text-gray-500" colspan="8">暂无 subscriber 统计数据</td>
+                <tr v-if="filteredTaskQueueRows.length === 0">
+                  <td class="px-3 py-3 text-gray-500" colspan="14">暂无 subscriber 统计数据</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div v-if="queueDetailVisible" class="mt-4 rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+        </UCard>
+
+        <UModal
+          v-model:open="queueDetailVisible"
+          title="订阅任务清单"
+          description="查看指定 subscriber + tenant_key 分片的运行态队列和历史任务。"
+          :ui="{ content: 'max-w-none w-[96vw] h-[88vh]' }"
+        >
+          <template #body>
+            <div ref="queueDetailCardRef" class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="text-sm">
-                任务清单：
-                <span class="font-mono">{{ queueDetailTenantKey }}</span>
-                /
-                <span class="font-mono">{{ queueDetailSubscriberID }}</span>
+              <div class="space-y-1 text-sm">
+                <div class="font-semibold text-gray-900 dark:text-white">订阅任务清单</div>
+                <div class="text-xs text-gray-500">
+                  <span>{{ formatTenantLabel(queueDetailTenantKey) }}</span>
+                  <span class="mx-1">/</span>
+                  <span class="font-mono">{{ queueDetailSubscriberID }}</span>
+                </div>
+                <div class="text-xs text-gray-500">
+                  来源：{{ formatQueueScope(queueDetailScope) }}
+                  <span v-if="queueDetailPluginID" class="ml-2 font-mono">{{ queueDetailPluginID }}</span>
+                </div>
+                <div v-if="formatTenantLabel(queueDetailTenantKey) !== queueDetailTenantKey" class="text-xs font-mono text-gray-500 break-all">
+                  tenant_key: {{ queueDetailTenantKey }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  运行态 {{ queueRuntimeRows.length }} 条，历史 {{ queueDetailHistory.length }} 条
+                </div>
               </div>
               <div class="flex gap-2">
+                <UButton size="xs" variant="soft" @click="queueDetailVisible = false">
+                  返回聚合
+                </UButton>
                 <UButton size="xs" variant="outline" :loading="queueDetailLoading" @click="loadQueueDetailMessages(queueDetailTenantKey, queueDetailSubscriberID, true)">
                   刷新
                 </UButton>
@@ -197,50 +306,103 @@
                 运行态队列
               </UButton>
               <UButton size="xs" :variant="queueTaskViewMode === 'history' ? 'solid' : 'outline'" @click="queueTaskViewMode = 'history'">
-                任务历史
+                任务历史 ({{ queueDetailHistory.length }})
               </UButton>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="min-w-full text-xs border border-gray-200 dark:border-gray-700 rounded">
-                <thead class="bg-gray-50 dark:bg-gray-800/50">
+            <div class="max-h-[56vh] overflow-auto rounded border border-gray-200 dark:border-gray-700">
+              <table class="min-w-[1800px] text-xs">
+                <thead class="sticky top-0 z-10 bg-gray-100 dark:bg-gray-800 shadow-sm">
                   <tr>
-                    <th class="text-left px-3 py-2">task_id</th>
-                    <th class="text-left px-3 py-2">topic</th>
-                    <th class="text-left px-3 py-2">status</th>
-                    <th class="text-left px-3 py-2">trace_id</th>
-                    <th class="text-left px-3 py-2">attempt</th>
-                    <th class="text-left px-3 py-2">topic_total</th>
-                    <th class="text-left px-3 py-2">visible_at</th>
-                    <th class="text-left px-3 py-2">submitted_at</th>
-                    <th class="text-left px-3 py-2">completed_at</th>
-                    <th class="text-left px-3 py-2">source</th>
+                    <th class="text-left px-3 py-2 w-64">task_id</th>
+                    <th class="text-left px-3 py-2 w-24">来源</th>
+                    <th class="text-left px-3 py-2 w-44">插件租户</th>
+                    <th class="text-left px-3 py-2 w-72">topic</th>
+                    <th class="text-left px-3 py-2 w-28">status</th>
+                    <th class="text-left px-3 py-2 w-60">trace_id</th>
+                    <th class="text-left px-3 py-2 w-20">attempt</th>
+                    <th class="text-left px-3 py-2 w-24">topic_total</th>
+                    <th class="text-left px-3 py-2 w-44">visible_at</th>
+                    <th class="text-left px-3 py-2 w-44">submitted_at</th>
+                    <th class="text-left px-3 py-2 w-44">completed_at</th>
+                    <th class="text-left px-3 py-2 w-28">source</th>
+                    <th class="text-left px-3 py-2 w-24">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="msg in queueUnifiedRows" :key="`${msg.source}-${msg.task_id}`" class="border-t border-gray-200 dark:border-gray-700">
-                    <td class="px-3 py-2 font-mono">{{ msg.task_id }}</td>
-                    <td class="px-3 py-2 font-mono">{{ formatTopicForDisplay(msg.topic) }}</td>
+                    <td class="px-3 py-2 font-mono break-all">{{ msg.task_id }}</td>
+                    <td class="px-3 py-2">{{ formatQueueScope(msg.queue_scope) }}</td>
+                    <td class="px-3 py-2 font-mono break-all">{{ msg.plugin_tenant_key || '-' }}</td>
+                    <td class="px-3 py-2 font-mono break-all">{{ formatTopicForDisplay(msg.topic) }}</td>
                     <td class="px-3 py-2">{{ msg.status }}</td>
-                    <td class="px-3 py-2 font-mono">{{ msg.trace_id }}</td>
+                    <td class="px-3 py-2 font-mono break-all">{{ msg.trace_id }}</td>
                     <td class="px-3 py-2">{{ msg.attempt }}</td>
                     <td class="px-3 py-2 font-semibold">{{ topicTaskCountMap[msg.topic] || 0 }}</td>
-                    <td class="px-3 py-2 font-mono">{{ msg.visible_at }}</td>
-                    <td class="px-3 py-2 font-mono">{{ msg.submitted_at }}</td>
-                    <td class="px-3 py-2 font-mono">{{ msg.completed_at }}</td>
+                    <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(msg.visible_at) }}</td>
+                    <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(msg.submitted_at) }}</td>
+                    <td class="px-3 py-2 font-mono whitespace-nowrap">{{ formatMonitorLogTs(msg.completed_at) }}</td>
                     <td class="px-3 py-2">{{ msg.source }}</td>
+                    <td class="px-3 py-2">
+                      <UButton size="xs" variant="outline" :loading="queueTaskDetailLoading" @click="openQueueTaskDetail(msg)">
+                        详情
+                      </UButton>
+                    </td>
                   </tr>
                   <tr v-if="queueUnifiedRows.length === 0">
-                    <td class="px-3 py-3 text-gray-500" colspan="10">当前视图没有任务。</td>
+                    <td class="px-3 py-3 text-gray-500" colspan="13">当前视图没有任务。</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div class="text-xs text-gray-500">
-              说明：运行态来自 Redis 队列；任务历史来自 `event_task_histories` 持久化表。
+            <div v-if="queueTaskViewMode === 'history' && queueDetailPagination.total > 0" class="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div class="text-gray-500">
+                共 {{ queueDetailPagination.total }} 条，第 {{ queueDetailPagination.page }}/{{ queueDetailPageCount }} 页。按 last_seen_at 倒序，时间显示为 {{ monitorTimeZoneLabel }}。
+              </div>
+              <UPagination
+                v-model:page="queueDetailPagination.page"
+                :total="queueDetailPagination.total"
+                :items-per-page="queueDetailPagination.pageSize"
+                :sibling-count="1"
+                show-edges
+                @update:page="loadCurrentQueueDetailPage"
+              />
             </div>
-          </div>
-        </UCard>
+            <div class="text-xs text-gray-500">
+              说明：运行态来自 Redis 队列；任务历史来自 `event_task_histories` 持久化表，默认按最近更新时间倒序。
+            </div>
+            </div>
+          </template>
+        </UModal>
+
+        <UModal
+          v-model:open="queueTaskDetailVisible"
+          title="任务详情"
+          description="查看任务历史记录、错误、payload 与 metadata。"
+          :ui="{ content: 'max-w-5xl w-[88vw]' }"
+        >
+          <template #body>
+            <div class="space-y-3 text-xs">
+              <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+                <div v-for="item in queueTaskDetailFields" :key="item.label" class="rounded border border-gray-200 dark:border-gray-700 p-2">
+                  <div class="text-gray-500">{{ item.label }}</div>
+                  <div class="mt-1 font-mono break-all">{{ item.value || '-' }}</div>
+                </div>
+              </div>
+              <div v-if="queueTaskDetail?.error_message" class="rounded border border-red-200 bg-red-50/60 p-3 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-300">
+                {{ queueTaskDetail.error_message }}
+              </div>
+              <div>
+                <div class="mb-1 font-semibold">Payload / 请求与返回</div>
+                <pre class="max-h-96 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 whitespace-pre-wrap">{{ formatTaskDetailPayload(queueTaskDetail?.payload) }}</pre>
+              </div>
+              <div>
+                <div class="mb-1 font-semibold">Metadata</div>
+                <pre class="max-h-72 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3 whitespace-pre-wrap">{{ formatJson(queueTaskDetail?.metadata) }}</pre>
+              </div>
+            </div>
+          </template>
+        </UModal>
 
         <UCard v-if="eventSubTab === 'debug'">
           <template #header>
@@ -1237,7 +1399,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "~/stores/user";
 import {
@@ -1248,6 +1410,7 @@ import {
   type EventFabricTaskQueueStats,
   type EventFabricTaskQueueMessage,
 } from "~/composables/api/services/eventFabricService";
+import { useTenantService, type Tenant } from "~/composables/api/services/tenantService";
 import { EVENT_NOTIFICATION_KIND, EVENT_SUBSCRIBERS, EVENT_TOPICS } from "~/composables/domain/eventTopic";
 import { useWSBus } from "~/composables/useWSBus";
 import { useMonitorLogsStore } from "~/stores/monitorLogs";
@@ -1349,6 +1512,7 @@ watch(resolvedForcedTab, (tab) => {
 });
 
 const svc = useEventFabricService();
+const tenantSvc = useTenantService();
 const toast = useToast();
 const monitorLogsStore = useMonitorLogsStore();
 const {
@@ -1489,11 +1653,140 @@ const taskQueueLoading = ref(false);
 const taskQueueStats = ref<EventFabricTaskQueueStats | null>(null);
 const taskQueueNow = ref("");
 const queueStatsDirty = ref(false);
-const taskQueueRows = computed(() => taskQueueStats.value?.by_subscriber || []);
+const queueTenants = ref<Tenant[]>([]);
+const selectedQueueTenant = ref("");
+const queueTenantSearch = ref("");
+const selectedQueueScope = ref<"all" | "powerx" | "plugin">("all");
+const queueScopeOptions = [
+  { label: "全部队列来源", value: "all" },
+  { label: "PowerX 底座队列", value: "powerx" },
+  { label: "插件队列", value: "plugin" },
+];
+const pluginTenantMissingValue = "__plugin_tenant_missing__";
+const queueTenantAllValue = "__all_queue_tenants__";
+const queueTenantPlaceholder = computed(() =>
+  selectedQueueScope.value === "all"
+    ? "请先选择队列来源"
+    : selectedQueueScope.value === "plugin"
+      ? "搜索并选择插件租户"
+      : "搜索并选择 PowerX 租户"
+);
+const queueTenantOptions = computed(() => {
+  const isPluginScope = selectedQueueScope.value === "plugin";
+  const options = [{ label: isPluginScope ? "全部插件租户" : "全部 PowerX 租户", value: queueTenantAllValue }];
+  const seen = new Set<string>();
+  if (isPluginScope) {
+    for (const row of taskQueueStats.value?.by_subscriber || []) {
+      if (String(row.queue_scope || "powerx") !== "plugin") continue;
+      const pluginID = String(row.plugin_id || "").trim();
+      const pluginTenantKey = String((row as any).plugin_tenant_key || "").trim();
+      const value = pluginTenantKey || pluginTenantMissingValue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      const label = pluginTenantKey
+        ? `${pluginTenantKey}${pluginID ? ` (${pluginID})` : ""}`
+        : `未上报插件租户${pluginID ? ` (${pluginID})` : ""}`;
+      options.push({ label, value });
+    }
+    return options;
+  }
+  if (selectedQueueScope.value !== "powerx") return [];
+  for (const item of queueTenants.value) {
+    const uuid = String(item.uuid || "").trim();
+    if (!uuid || seen.has(uuid)) continue;
+    seen.add(uuid);
+    options.push({ label: item.name ? `${item.name} (${uuid.slice(0, 8)})` : uuid, value: uuid });
+  }
+  for (const row of taskQueueStats.value?.by_subscriber || []) {
+    if (String(row.queue_scope || "powerx") !== "powerx") continue;
+    const tenantKey = String(row.tenant_key || "").trim();
+    if (!tenantKey || tenantKey === "global" || seen.has(tenantKey)) continue;
+    seen.add(tenantKey);
+    options.push({ label: tenantKey, value: tenantKey });
+  }
+  return options;
+});
+const queueTenantNameMap = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {};
+  for (const item of queueTenants.value) {
+    const uuid = String(item.uuid || "").trim();
+    if (uuid) out[uuid] = String(item.name || uuid);
+  }
+  return out;
+});
+const taskQueueRows = computed(() => {
+  return [...(taskQueueStats.value?.by_subscriber || [])].sort((a, b) => {
+    const aHistory = Number(a.history_total || 0);
+    const bHistory = Number(b.history_total || 0);
+    if (aHistory !== bHistory) return bHistory - aHistory;
+    const aRuntime = Number(a.pending || 0) + Number(a.deferred || 0) + Number(a.processing || 0) + Number(a.inflight || 0);
+    const bRuntime = Number(b.pending || 0) + Number(b.deferred || 0) + Number(b.processing || 0) + Number(b.inflight || 0);
+    if (aRuntime !== bRuntime) return bRuntime - aRuntime;
+    return String(a.subscriber_id || "").localeCompare(String(b.subscriber_id || ""));
+  });
+});
+const monitorDisplayTimeZone = "Asia/Shanghai";
+const monitorTimeZoneLabel = computed(() => "北京时间");
+const filteredTaskQueueRows = computed(() => {
+  const subscriberNeedle = String(filters.subscriberId || "").trim().toLowerCase();
+  const selectedTenantValueRaw = String(selectedQueueTenant.value || "").trim();
+  const selectedTenantValue = selectedTenantValueRaw === queueTenantAllValue ? "" : selectedTenantValueRaw;
+  const scopeNeedle = String(selectedQueueScope.value || "all").trim();
+  return taskQueueRows.value.filter((row) => {
+    if (scopeNeedle !== "all" && String(row.queue_scope || "powerx").trim() !== scopeNeedle) return false;
+    if (selectedTenantValue) {
+      if (scopeNeedle === "plugin") {
+        const pluginTenantKey = String((row as any).plugin_tenant_key || "").trim();
+        if (selectedTenantValue === pluginTenantMissingValue) {
+          if (pluginTenantKey) return false;
+        } else if (pluginTenantKey !== selectedTenantValue) {
+          return false;
+        }
+      } else if (String(row.tenant_key || "").trim() !== selectedTenantValue) {
+        return false;
+      }
+    }
+    if (subscriberNeedle && !String(row.subscriber_id || "").toLowerCase().includes(subscriberNeedle)) return false;
+    return true;
+  });
+});
+
+watch(selectedQueueScope, () => {
+  selectedQueueTenant.value = "";
+  queueTenantSearch.value = "";
+});
+
+watch(queueTenantOptions, (options) => {
+  const selected = String(selectedQueueTenant.value || "").trim();
+  if (!selected) return;
+  if (!options.some((item) => item.value === selected)) {
+    selectedQueueTenant.value = "";
+  }
+});
+const taskQueueHistorySummary = computed(() => {
+  let total = 0;
+  let completed = 0;
+  let failed = 0;
+  let lastSeenAt = "";
+  for (const row of filteredTaskQueueRows.value) {
+    total += Number(row.history_total || 0);
+    completed += Number(row.completed || 0);
+    failed += Number(row.failed || 0);
+    const ts = String(row.last_seen_at || "").trim();
+    if (!ts) continue;
+    if (!lastSeenAt || new Date(ts).getTime() > new Date(lastSeenAt).getTime()) {
+      lastSeenAt = ts;
+    }
+  }
+  return { total, completed, failed, lastSeenAt };
+});
 const queueDetailLoading = ref(false);
 const queueDetailVisible = ref(false);
+const queueDetailCardRef = ref<any>(null);
 const queueDetailTenantKey = ref("");
 const queueDetailSubscriberID = ref("");
+const queueDetailScope = ref("");
+const queueDetailPluginID = ref("");
 const queueDetailState = ref<"pending" | "deferred" | "processing" | "inflight">("pending");
 const queueTaskViewMode = ref<"runtime" | "history">("runtime");
 const queueDetailMessages = reactive<{
@@ -1511,6 +1804,9 @@ const queueDetailHistory = ref<Array<{
   task_id: string;
   tenant_key: string;
   subscriber_id: string;
+  queue_scope?: string;
+  plugin_id?: string;
+  plugin_tenant_key?: string;
   topic: string;
   kind: string;
   status: string;
@@ -1518,14 +1814,46 @@ const queueDetailHistory = ref<Array<{
   attempt: number;
   source: string;
   submitted_at?: string;
+  started_at?: string;
   completed_at?: string;
   last_seen_at?: string;
+  error_message?: string;
+  payload?: string;
+  metadata?: Record<string, string>;
 }>>([]);
+const queueDetailPagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+});
+const queueDetailPageCount = computed(() => Math.max(1, Math.ceil(queueDetailPagination.total / queueDetailPagination.pageSize)));
+const queueTaskDetailVisible = ref(false);
+const queueTaskDetailLoading = ref(false);
+const queueTaskDetail = ref<(typeof queueDetailHistory.value)[number] | null>(null);
+const queueTaskDetailFields = computed(() => {
+  const item = queueTaskDetail.value;
+  return [
+    { label: "task_id", value: item?.task_id || "" },
+    { label: "status", value: item?.status || "" },
+    { label: "topic", value: item?.topic || "" },
+    { label: "subscriber_id", value: item?.subscriber_id || "" },
+    { label: "tenant_key", value: item?.tenant_key || "" },
+    { label: "plugin_id", value: item?.plugin_id || "" },
+    { label: "plugin_tenant_key", value: item?.plugin_tenant_key || "" },
+    { label: "trace_id", value: item?.trace_id || "" },
+    { label: "attempt", value: String(item?.attempt ?? "") },
+    { label: "submitted_at", value: item?.submitted_at || "" },
+    { label: "started_at", value: item?.started_at || "" },
+    { label: "completed_at", value: item?.completed_at || "" },
+  ];
+});
 const currentQueueDetailRows = computed(() => queueDetailMessages[queueDetailState.value] || []);
 const queueHistoryRows = computed(() => {
   return queueDetailHistory.value.map((item) => ({
     source: item.source || "history",
     task_id: item.task_id || "-",
+    queue_scope: item.queue_scope || "powerx",
+    plugin_tenant_key: item.plugin_tenant_key || "-",
     topic: item.topic || "-",
     status: item.status || "-",
     trace_id: item.trace_id || "-",
@@ -1533,12 +1861,15 @@ const queueHistoryRows = computed(() => {
     visible_at: item.last_seen_at || "-",
     submitted_at: item.submitted_at || "-",
     completed_at: item.completed_at || "-",
+    raw: item,
   }));
 });
 const queueRuntimeRows = computed(() =>
   currentQueueDetailRows.value.map((msg) => ({
     source: "runtime",
     task_id: msg.id || "-",
+    queue_scope: msg.queue_scope || "powerx",
+    plugin_tenant_key: msg.plugin_tenant_key || "-",
     topic: msg.topic || "-",
     status: queueDetailState.value,
     trace_id: msg.trace_id || "-",
@@ -1546,6 +1877,7 @@ const queueRuntimeRows = computed(() =>
     visible_at: msg.visible_at || "-",
     submitted_at: "-",
     completed_at: "-",
+    raw: msg,
   }))
 );
 const queueUnifiedRows = computed(() =>
@@ -1643,12 +1975,71 @@ function resetThresholdConfig() {
   toast.add({ title: "已恢复默认阈值", color: "info" });
 }
 
+async function loadQueueTenants() {
+  try {
+    const params = isRoot.value
+      ? { page: 1, page_size: 100 }
+      : {
+          page: 1,
+          page_size: 1,
+          tenant_uuid: currentTenantUuid.value || "",
+        };
+    const res = await tenantSvc.getTenants(params);
+    queueTenants.value = res.data?.items || [];
+  } catch (e: any) {
+    queueTenants.value = [];
+  }
+}
+
+function formatTenantLabel(tenantKey: string) {
+  const key = String(tenantKey || "").trim();
+  if (!key) return "-";
+  if (key === "global") return "Global";
+  return queueTenantNameMap.value[key] || key;
+}
+
+function formatPluginTenantLabel(row: { queue_scope?: string; plugin_tenant_key?: string }) {
+  if (String(row.queue_scope || "powerx") !== "plugin") return "-";
+  const key = String((row as any).plugin_tenant_key || "").trim();
+  return key || "未上报插件租户";
+}
+
+function formatQueueScope(scope?: string) {
+  return String(scope || "powerx") === "plugin" ? "插件队列" : "PowerX 底座";
+}
+
+function formatJson(value: unknown) {
+  if (!value) return "-";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatTaskDetailPayload(value?: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+async function scrollToQueueDetail() {
+  await nextTick();
+  const raw = queueDetailCardRef.value;
+  const el = raw?.$el || raw;
+  if (el?.scrollIntoView) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 async function loadTaskQueueStats(showToast = false) {
   taskQueueLoading.value = true;
   try {
-    const res = await svc.getTaskQueueStats({
-      subscriber_id: filters.subscriberId || undefined,
-    });
+    const res = await svc.getTaskQueueStats();
     taskQueueStats.value = res.data.task_queue;
     taskQueueNow.value = res.data.now || "";
     queueStatsDirty.value = false;
@@ -1675,6 +2066,8 @@ async function loadQueueDetailMessages(tenantKey: string, subscriberID: string, 
       tenant_key: tenantKey,
       subscriber_id: subscriberID,
       limit: 30,
+      page: queueDetailPagination.page,
+      page_size: queueDetailPagination.pageSize,
     });
     const payload = res.data?.messages;
     queueDetailMessages.pending = payload?.pending || [];
@@ -1682,6 +2075,9 @@ async function loadQueueDetailMessages(tenantKey: string, subscriberID: string, 
     queueDetailMessages.processing = payload?.processing || [];
     queueDetailMessages.inflight = payload?.inflight || [];
     queueDetailHistory.value = res.data?.history || [];
+    queueDetailPagination.total = Number(res.data?.pagination?.total || queueDetailHistory.value.length || 0);
+    queueDetailPagination.page = Number(res.data?.pagination?.page || queueDetailPagination.page || 1);
+    queueDetailPagination.pageSize = Number(res.data?.pagination?.page_size || queueDetailPagination.pageSize || 20);
   } catch (e: any) {
     if (showToast) {
       toast.add({ title: "加载任务清单失败", description: e?.message || "未知错误", color: "error" });
@@ -1691,13 +2087,65 @@ async function loadQueueDetailMessages(tenantKey: string, subscriberID: string, 
   }
 }
 
-async function openQueueDetail(row: { tenant_key: string; subscriber_id: string }) {
+async function loadCurrentQueueDetailPage() {
+  await loadQueueDetailMessages(queueDetailTenantKey.value, queueDetailSubscriberID.value, true);
+}
+
+async function openQueueTaskDetail(row: any) {
+  const taskID = String(row?.task_id || "").trim();
+  if (!taskID || taskID === "-") return;
+  if (String(row?.source || "") === "runtime") {
+    const raw = row?.raw || {};
+    queueTaskDetail.value = {
+      task_id: taskID,
+      tenant_key: queueDetailTenantKey.value,
+      subscriber_id: queueDetailSubscriberID.value,
+      queue_scope: row?.queue_scope || queueDetailScope.value || "powerx",
+      plugin_id: queueDetailPluginID.value,
+      plugin_tenant_key: row?.plugin_tenant_key === "-" ? "" : row?.plugin_tenant_key,
+      topic: row?.topic || raw?.topic || "",
+      kind: "runtime_queue_message",
+      status: row?.status || queueDetailState.value,
+      trace_id: row?.trace_id === "-" ? "" : row?.trace_id,
+      attempt: Number(row?.attempt || raw?.attempt || 0),
+      source: "runtime",
+      last_seen_at: row?.visible_at === "-" ? "" : row?.visible_at,
+      payload: JSON.stringify(raw || {}, null, 2),
+      metadata: raw?.metadata || {},
+    } as any;
+    queueTaskDetailVisible.value = true;
+    return;
+  }
+  queueTaskDetailLoading.value = true;
+  try {
+    const res = await svc.getTaskQueueTask(taskID, {
+      tenant_key: queueDetailTenantKey.value,
+      subscriber_id: queueDetailSubscriberID.value,
+    });
+    queueTaskDetail.value = res.data as any;
+    queueTaskDetailVisible.value = true;
+  } catch (e: any) {
+    toast.add({ title: "加载任务详情失败", description: e?.message || "未知错误", color: "error" });
+  } finally {
+    queueTaskDetailLoading.value = false;
+  }
+}
+
+async function openQueueDetail(
+  row: { tenant_key: string; subscriber_id: string; queue_scope?: string; plugin_id?: string },
+  state: "pending" | "deferred" | "processing" | "inflight" = "pending",
+  viewMode: "runtime" | "history" = "history",
+) {
   queueDetailTenantKey.value = String(row.tenant_key || "").trim();
   queueDetailSubscriberID.value = String(row.subscriber_id || "").trim();
-  queueDetailState.value = "pending";
-  queueTaskViewMode.value = "runtime";
+  queueDetailScope.value = String(row.queue_scope || "powerx").trim();
+  queueDetailPluginID.value = String(row.plugin_id || "").trim();
+  queueDetailState.value = state;
+  queueTaskViewMode.value = viewMode;
+  queueDetailPagination.page = 1;
   queueDetailVisible.value = true;
   await loadQueueDetailMessages(queueDetailTenantKey.value, queueDetailSubscriberID.value, true);
+  await scrollToQueueDetail();
 }
 
 function metricLevel(value: number, kind: "pending" | "deferred" | "processing" | "inflight") {
@@ -2251,10 +2699,21 @@ function monitorTimestampClass(level: string) {
 
 function formatMonitorLogTs(input?: string) {
   const raw = String(input || "").trim();
-  if (!raw) return "-";
+  if (!raw || raw === "-") return "-";
   const t = new Date(raw);
   if (Number.isNaN(t.getTime())) return raw;
-  return t.toLocaleString();
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: monitorDisplayTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(t);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
 function formatMonitorRetentionTs(input?: string) {
@@ -3454,6 +3913,7 @@ onMounted(async () => {
   syncOrchJsonFromForm();
   activeTab.value = resolvedForcedTab.value || resolveTab(route.query.tab);
   await ensureTenantContextLoaded();
+  await loadQueueTenants();
   ensureReplayStatusSubscription();
   if (activeTab.value === "event-fabric") {
     await refresh();

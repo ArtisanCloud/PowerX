@@ -19,12 +19,12 @@ import (
 func TestSkillInvokeDirectPath(t *testing.T) {
 	db := setupSkillsDB(t)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.invoke.direct",
+		SkillID:           "skill.invoke.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourcePlugin,
 		Status:            skillmodel.SkillStatusPublished,
 		IsLatestPublished: true,
-		BundleURI:         "s3://skills/skill.invoke.direct-1.0.0.tgz",
+		BundleURI:         "s3://skills/skill.invoke.incident-triage-1.0.0.tgz",
 		Checksum:          "sha256:invoke-direct",
 		ImportType:        "upload",
 		UpdatedBy:         "seed",
@@ -41,8 +41,8 @@ func TestSkillInvokeDirectPath(t *testing.T) {
 	skillsopenapi.RegisterTenantRoutes(group, &shared.Deps{DB: db})
 
 	body := map[string]interface{}{
-		"skill_id": "skill.invoke.direct",
-		"payload":  map[string]interface{}{"input": "hello"},
+		"skill_id": "skill.invoke.incident-triage",
+		"payload":  map[string]interface{}{"incident_id": "INC-1001", "context": "database warning"},
 	}
 	raw, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/tenant/skills/invoke", bytes.NewReader(raw))

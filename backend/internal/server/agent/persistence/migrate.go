@@ -12,7 +12,7 @@ import (
 
 func MigrateAgentModels(db *gorm.DB) error {
 
-	db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&dbmodel.AIProviderCredential{},
 		&dbmodel.AIModelProfile{},
 		&dbmodel.AIRoutePolicy{},
@@ -24,9 +24,13 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentSkillBinding{},
 		&dbmodel.AgentKnowledgeBinding{},
 		&dbmodel.AgentPluginLink{},
+		&dbmodel.AgentCapabilityGrant{},
+		&dbmodel.AgentAccessGrant{},
 
 		&dbmodel.AgentChatSession{},
 		&dbmodel.AgentChatMessage{},
+		&dbmodel.AgentChatContextSummary{},
+		&dbmodel.AgentSessionSkillState{},
 		&dbmodel.AgentRuntimeConfig{},
 
 		&dbmodel.AgentProfileLifecycle{},
@@ -34,7 +38,9 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentHealthSnapshotRecord{},
 		&dbmodel.AgentShareRecord{},
 		&dbmodel.AgentTenantForm{},
-	)
+	); err != nil {
+		return err
+	}
 
 	// 可以顺手确认一下（开发期）：
 	if ok := db.Migrator().HasIndex(&dbmodel.AIProviderCredential{}, "ai_cred_uniq_global"); !ok {

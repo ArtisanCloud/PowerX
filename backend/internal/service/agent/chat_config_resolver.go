@@ -3,10 +3,12 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -59,15 +61,79 @@ func (r *ChatConfigResolver) ResolveForAgentChat(
 	// 3) 本次请求临时覆盖
 	mergeChatConfig(out, req)
 
+	// 4) Agent Profile 是运行时身份约束，必须始终合入最终 system prompt。
+	// LLM provider/model 只能作为执行引擎，不能覆盖当前 Agent 的 persona。
+	if err := r.appendAgentProfilePrompt(ctx, env, tenantUUID, agentID, out); err != nil {
+		return nil, err
+	}
+
 	// 最终校验 & 补全 endpoint/apiKey（仅当缺失时从 credential store 回填）
 	if strings.TrimSpace(out.Provider) == "" || strings.TrimSpace(out.ModelName) == "" {
 		return nil, errors.New("未配置默认 LLM：请先在「AI Settings」选择并保存一个可用的 Provider/Model（并配置凭据）")
 	}
 	if err := r.fillConnFromStore(ctx, env, tenantUUID, out); err != nil {
-		return nil, err
+		logger.WarnF(ctx, "[agent_chat_config] resolve credential failed env=%s tenant=%s provider=%s model=%s err=%v", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
+		return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
 	}
 
 	return out, nil
+}
+
+func (r *ChatConfigResolver) appendAgentProfilePrompt(
+	ctx context.Context,
+	env string,
+	tenantUUID *string,
+	agentID uint64,
+	out *dto.ChatConfig,
+) error {
+	if r == nil || r.agent == nil || out == nil || agentID == 0 {
+		return nil
+	}
+	rec, err := r.agent.Get(ctx, env, tenantUUID, agentID)
+	if err != nil {
+		return err
+	}
+	profilePrompt := renderAgentProfilePrompt(rec)
+	if profilePrompt == "" {
+		return nil
+	}
+	out.SystemPrompt = joinPromptSections(out.SystemPrompt, profilePrompt)
+	return nil
+}
+
+func renderAgentProfilePrompt(rec *dbmodel.Agent) string {
+	if rec == nil {
+		return ""
+	}
+	parts := []string{
+		"[AGENT_PROFILE]",
+		"你正在扮演当前数据库 Agent，而不是底层模型供应商或通用助手。",
+		"当用户询问“你是谁 / 你是什么智能体 / 你能做什么”时，必须基于本 Agent 的名称、描述、persona、prompt seed 和已绑定 Skill 上下文回答。",
+		"不得回答“我是通义千问”“我是 ChatGPT”“我是大语言模型”等模型供应商身份，除非 Agent persona 明确要求这样说。",
+	}
+	if name := strings.TrimSpace(rec.Name); name != "" {
+		parts = append(parts, "Agent 名称: "+name)
+	}
+	if desc := strings.TrimSpace(rec.Description); desc != "" {
+		parts = append(parts, "Agent 描述: "+desc)
+	}
+	if persona := strings.TrimSpace(rec.Persona); persona != "" {
+		parts = append(parts, "Agent persona: "+persona)
+	}
+	if seed := strings.TrimSpace(rec.PromptSeed); seed != "" {
+		parts = append(parts, "Agent prompt seed: "+seed)
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func joinPromptSections(parts ...string) string {
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return strings.Join(out, "\n\n")
 }
 
 func (r *ChatConfigResolver) buildFromActiveProfile(
@@ -89,11 +155,18 @@ func (r *ChatConfigResolver) buildFromActiveProfile(
 	// profile 本身不含凭据，执行时需要补 base_url/api_key
 	if strings.TrimSpace(out.Provider) != "" {
 		if err := r.fillConnFromStore(ctx, env, tenantUUID, out); err != nil {
-			// 对“仅有 config.yaml 默认但没配凭据”的场景：给清晰引导
-			return nil, errors.New("AI Settings 未配置或凭据不可用：请先在「AI Settings」保存该 Provider 的连接信息（base_url/api_key），再开始对话")
+			logger.WarnF(ctx, "[agent_chat_config] active profile credential failed env=%s tenant=%s provider=%s model=%s err=%v", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
+			return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
 		}
 	}
 	return out, nil
+}
+
+func tenantScopeForLog(tenantUUID *string) string {
+	if tenantUUID == nil || strings.TrimSpace(*tenantUUID) == "" {
+		return "global"
+	}
+	return strings.TrimSpace(*tenantUUID)
 }
 
 func (r *ChatConfigResolver) buildFromAgentSetting(

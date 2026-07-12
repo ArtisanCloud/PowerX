@@ -8,14 +8,19 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	capabilityregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
 	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
+	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -28,10 +33,12 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	}
 
 	handler := &handler{
-		bootstrap:   deps.PluginBootstrapService,
-		importSvc:   deps.PluginImportService,
-		host:        deps.PluginDebugHost,
-		diagnostics: deps.PluginDiagnostics,
+		bootstrap:      deps.PluginBootstrapService,
+		importSvc:      deps.PluginImportService,
+		host:           deps.PluginDebugHost,
+		diagnostics:    deps.PluginDiagnostics,
+		capabilitySync: deps.CapabilityRegistrySyncWorker,
+		deps:           deps,
 	}
 	if deps.PluginReleaseService != nil {
 		handler.local = deps.PluginReleaseService.LocalInstall()
@@ -44,19 +51,28 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.POST("/environments/check", handler.checkEnvironment)
 	group.POST("/import", handler.submitImport)
 	group.GET("/import/:id", handler.getImport)
-	group.POST("/host/mock", handler.startMockHost)
 	group.POST("/local/install", handler.startLocalInstall)
 	group.POST("/local/reload", handler.recordReload)
 	group.POST("/debug/report", handler.createDiagnosticsReport)
 	group.POST("/debug/logs/export", handler.exportLogs)
+
+	debugHostGroup := protected.Group("/internal/plugins")
+	debugHostGroup.Use(adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginDebugHostRegister))
+	debugHostGroup.POST("/debug-hosts", handler.registerDebugHost)
+
+	capabilityGroup := protected.Group("/internal/plugins")
+	capabilityGroup.Use(adminauthz.PluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginCapabilityCatalogSync))
+	capabilityGroup.POST("/capabilities/catalog", handler.syncCapabilityCatalog)
 }
 
 type handler struct {
-	bootstrap   *pluginbootstrap.Service
-	importSvc   *pluginimport.Service
-	host        *plugindebughost.Service
-	local       *local.InstallService
-	diagnostics *plugindiag.Service
+	bootstrap      *pluginbootstrap.Service
+	importSvc      *pluginimport.Service
+	host           *plugindebughost.Service
+	local          *local.InstallService
+	diagnostics    *plugindiag.Service
+	capabilitySync *capabilityregistry.SyncWorker
+	deps           *shared.Deps
 }
 
 func (h *handler) listTemplates(c *gin.Context) {
@@ -161,12 +177,12 @@ func (h *handler) getImport(c *gin.Context) {
 	dto.ResponseSuccess(c, record)
 }
 
-func (h *handler) startMockHost(c *gin.Context) {
+func (h *handler) registerDebugHost(c *gin.Context) {
 	if h.host == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "plugin debug host service disabled", nil)
 		return
 	}
-	var req mockHostRequest
+	var req debugHostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -175,7 +191,43 @@ func (h *handler) startMockHost(c *gin.Context) {
 	if ttl <= 0 {
 		ttl = 10 * time.Minute
 	}
-	session := h.host.RegisterMockHost(c.Request.Context(), strings.TrimSpace(req.PluginID), strings.TrimSpace(req.Environment), ttl, req.HTTPPort, req.GRPCPort, req.Capabilities)
+	pluginID := strings.TrimSpace(req.PluginID)
+	if pluginID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "pluginId is required", nil)
+		return
+	}
+	if req.HTTPPort <= 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "httpPort is required", nil)
+		return
+	}
+	if err := validateLocalDebugHostRequest(pluginID, req.HTTPPort); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	mgr := pmimpl.GetPluginManager()
+	if err := pmimpl.MountDebugHost(mgr, pluginID, req.HTTPPort); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "debug host mount failed", err)
+		return
+	}
+	if h.deps == nil || h.deps.DB == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "database dependency missing", nil)
+		return
+	}
+	if _, _, _, err := pluginservice.NewTenantPluginInstanceService(h.deps.DB).Enable(c.Request.Context(), tenantUUID, pm.Plugin{
+		ID:      pluginID,
+		Version: "local",
+		State:   pm.StateEnabled,
+		Name:    pluginID,
+	}, nil); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "debug host tenant enable failed", err)
+		return
+	}
+	session := h.host.RegisterMockHost(c.Request.Context(), pluginID, strings.TrimSpace(req.Environment), ttl, req.HTTPPort, req.GRPCPort, req.Capabilities)
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{
 		"hostId":       session.ID.String(),
 		"pluginId":     session.PluginID,
@@ -186,6 +238,20 @@ func (h *handler) startMockHost(c *gin.Context) {
 		"ttlSeconds":   int(session.TTL.Seconds()),
 		"capabilities": session.Capabilities,
 	})
+}
+
+func validateLocalDebugHostRequest(pluginID string, httpPort int) error {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return errors.New("pluginId is required")
+	}
+	if !strings.HasSuffix(pluginID, ".local") {
+		return errors.New("debug host registration requires .local pluginId")
+	}
+	if httpPort <= 0 || httpPort > 65535 {
+		return errors.New("httpPort must be a valid local port")
+	}
+	return nil
 }
 
 func (h *handler) startLocalInstall(c *gin.Context) {
@@ -327,7 +393,7 @@ func unmarshalMap(data []byte) map[string]any {
 	return m
 }
 
-type mockHostRequest struct {
+type debugHostRequest struct {
 	PluginID     string   `json:"pluginId"`
 	Environment  string   `json:"environment"`
 	TTLSeconds   int      `json:"ttlSeconds"`

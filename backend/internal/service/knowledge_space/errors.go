@@ -13,6 +13,8 @@ var (
 	ErrProvisioningBusy = errors.New("tenant provisioning in progress")
 	// ErrInvalidStatusTransition indicates unsupported status change.
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
+	// ErrSpaceDeleteRequiresRetired indicates hard deletion is blocked until the space is retired.
+	ErrSpaceDeleteRequiresRetired = errors.New("knowledge space must be retired before delete")
 	// ErrFusionConflict indicates conflicting fusion publish policy.
 	ErrFusionConflict = errors.New("fusion strategy conflict")
 	// ErrFusionStrategyNotFound indicates requested strategy does not exist.

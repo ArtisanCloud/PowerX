@@ -4,6 +4,9 @@ capabilities:
     module: notifications
     title: System Notification Test
     description: 发送一条系统测试通知，用于验证 Gateway -> Bell 通知链路。
+    permission_code: corex.notifications:test
+    agent_usable: false
+    risk_level: low
     categories: [notification, system]
     intents: [notifications.test.push]
     tool_scopes: [notifications.test]
@@ -17,4 +20,7 @@ capabilities:
         method: POST
         schema_ref: backend/internal/transport/http/openapi/notifications/routes.go#POST:/notifications/test
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: notifications.test

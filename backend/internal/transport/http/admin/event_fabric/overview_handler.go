@@ -52,37 +52,54 @@ func NewAdminOverviewHandler(opts AdminOverviewHandlerOptions) *AdminOverviewHan
 }
 
 type taskQueueSubscriberStats struct {
-	SubscriberID string `json:"subscriber_id"`
-	TenantKey    string `json:"tenant_key"`
-	Pending      int64  `json:"pending"`
-	Deferred     int64  `json:"deferred"`
-	Processing   int64  `json:"processing"`
-	Inflight     int64  `json:"inflight"`
-	TotalTasks   int64  `json:"total_tasks"`
+	SubscriberID    string `json:"subscriber_id"`
+	TenantKey       string `json:"tenant_key"`
+	QueueScope      string `json:"queue_scope"`
+	PluginID        string `json:"plugin_id,omitempty"`
+	PluginTenantKey string `json:"plugin_tenant_key,omitempty"`
+	Pending         int64  `json:"pending"`
+	Deferred        int64  `json:"deferred"`
+	Processing      int64  `json:"processing"`
+	Inflight        int64  `json:"inflight"`
+	TotalTasks      int64  `json:"total_tasks"`
+	HistoryTotal    int64  `json:"history_total"`
+	Completed       int64  `json:"completed"`
+	Failed          int64  `json:"failed"`
+	LastSeenAt      string `json:"last_seen_at,omitempty"`
 }
 
 type taskQueueMessageDTO struct {
-	ID       string            `json:"id"`
-	Topic    string            `json:"topic"`
-	TraceID  string            `json:"trace_id,omitempty"`
-	Attempt  int               `json:"attempt"`
-	Visible  string            `json:"visible_at,omitempty"`
-	Metadata map[string]string `json:"metadata,omitempty"`
+	ID              string            `json:"id"`
+	Topic           string            `json:"topic"`
+	TraceID         string            `json:"trace_id,omitempty"`
+	Attempt         int               `json:"attempt"`
+	Visible         string            `json:"visible_at,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
+	QueueScope      string            `json:"queue_scope"`
+	PluginID        string            `json:"plugin_id,omitempty"`
+	PluginTenantKey string            `json:"plugin_tenant_key,omitempty"`
 }
 
 type taskHistoryDTO struct {
-	TaskID      string `json:"task_id"`
-	TenantKey   string `json:"tenant_key"`
-	Subscriber  string `json:"subscriber_id"`
-	Topic       string `json:"topic"`
-	Kind        string `json:"kind"`
-	Status      string `json:"status"`
-	TraceID     string `json:"trace_id,omitempty"`
-	Attempt     int    `json:"attempt"`
-	Source      string `json:"source"`
-	SubmittedAt string `json:"submitted_at,omitempty"`
-	CompletedAt string `json:"completed_at,omitempty"`
-	LastSeenAt  string `json:"last_seen_at,omitempty"`
+	TaskID          string            `json:"task_id"`
+	TenantKey       string            `json:"tenant_key"`
+	QueueScope      string            `json:"queue_scope"`
+	PluginID        string            `json:"plugin_id,omitempty"`
+	PluginTenantKey string            `json:"plugin_tenant_key,omitempty"`
+	Subscriber      string            `json:"subscriber_id"`
+	Topic           string            `json:"topic"`
+	Kind            string            `json:"kind"`
+	Status          string            `json:"status"`
+	TraceID         string            `json:"trace_id,omitempty"`
+	Attempt         int               `json:"attempt"`
+	Source          string            `json:"source"`
+	SubmittedAt     string            `json:"submitted_at,omitempty"`
+	StartedAt       string            `json:"started_at,omitempty"`
+	CompletedAt     string            `json:"completed_at,omitempty"`
+	LastSeenAt      string            `json:"last_seen_at,omitempty"`
+	ErrorMessage    string            `json:"error_message,omitempty"`
+	Payload         string            `json:"payload,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
 }
 
 type topicDTO struct {
@@ -144,9 +161,6 @@ func (h *AdminOverviewHandler) GetOverview(c *gin.Context) {
 	namespace := strings.TrimSpace(c.Query("namespace"))
 	name := strings.TrimSpace(c.Query("name"))
 	subscriberID := strings.TrimSpace(c.Query("subscriber_id"))
-	if subscriberID == "" {
-		subscriberID = eventbus.SubscriberKnowledgeSpaceReprocess
-	}
 	subscriberID = canonicalSubscriberID(subscriberID)
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	if limit <= 0 {
@@ -236,9 +250,6 @@ func (h *AdminOverviewHandler) GetTaskQueueStats(c *gin.Context) {
 	}
 
 	subscriberID := strings.TrimSpace(c.Query("subscriber_id"))
-	if subscriberID == "" {
-		subscriberID = eventbus.SubscriberKnowledgeSpaceReprocess
-	}
 	subscriberID = canonicalSubscriberID(subscriberID)
 
 	taskQueueStats, err := h.queryTaskQueueStats(c, tenantUUID, subscriberID)
@@ -299,6 +310,17 @@ func (h *AdminOverviewHandler) GetTaskQueueMessages(c *gin.Context) {
 	if limit > 100 {
 		limit = 100
 	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if page <= 0 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", strconv.Itoa(limit)))
+	if pageSize <= 0 {
+		pageSize = limit
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
 
 	pending, err := h.readTaskQueueState(c, "q", tenantKey, subscriberID, limit)
 	if err != nil {
@@ -320,7 +342,7 @@ func (h *AdminOverviewHandler) GetTaskQueueMessages(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("read inflight queue failed", err))
 		return
 	}
-	history, err := h.queryTaskHistory(c, tenantKey, subscriberID, limit)
+	history, historyTotal, err := h.queryTaskHistoryPage(c, tenantKey, subscriberID, page, pageSize, false)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("read task history failed", err))
 		return
@@ -332,6 +354,11 @@ func (h *AdminOverviewHandler) GetTaskQueueMessages(c *gin.Context) {
 		"tenant_key":    tenantKey,
 		"subscriber_id": subscriberID,
 		"limit":         limit,
+		"pagination": gin.H{
+			"total":     historyTotal,
+			"page":      page,
+			"page_size": pageSize,
+		},
 		"messages": gin.H{
 			"pending":    pending,
 			"deferred":   deferred,
@@ -340,6 +367,30 @@ func (h *AdminOverviewHandler) GetTaskQueueMessages(c *gin.Context) {
 		},
 		"history": history,
 	})
+}
+
+func (h *AdminOverviewHandler) GetTaskQueueTask(c *gin.Context) {
+	if h == nil || h.history == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("event_fabric task history unavailable", nil))
+		return
+	}
+	tenantKey := strings.TrimSpace(c.Query("tenant_key"))
+	subscriberID := canonicalSubscriberID(strings.TrimSpace(c.Query("subscriber_id")))
+	taskID := strings.TrimSpace(c.Param("task_id"))
+	if tenantKey == "" || subscriberID == "" || taskID == "" {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_key, subscriber_id and task_id required", nil))
+		return
+	}
+	record, err := h.history.FindByKey(c.Request.Context(), tenantKey, subscriberID, taskID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("read task detail failed", err))
+		return
+	}
+	if record == nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("task not found", nil))
+		return
+	}
+	dto.ResponseSuccess(c, h.taskHistoryDTO(record, true))
 }
 
 func (h *AdminOverviewHandler) queryTaskQueueStats(c *gin.Context, tenantUUID, subscriberID string) (gin.H, error) {
@@ -390,13 +441,16 @@ func (h *AdminOverviewHandler) queryTaskQueueStats(c *gin.Context, tenantUUID, s
 		}
 
 		ordered = append(ordered, taskQueueSubscriberStats{
-			SubscriberID: subscriber,
-			TenantKey:    tenantKey,
-			Pending:      pending,
-			Deferred:     deferred,
-			Processing:   processing,
-			Inflight:     inflight,
-			TotalTasks:   pending + deferred + processing + inflight,
+			SubscriberID:    subscriber,
+			TenantKey:       tenantKey,
+			QueueScope:      inferTaskQueueScope(subscriber, ""),
+			PluginID:        inferTaskPluginID(subscriber, "", nil),
+			PluginTenantKey: "",
+			Pending:         pending,
+			Deferred:        deferred,
+			Processing:      processing,
+			Inflight:        inflight,
+			TotalTasks:      pending + deferred + processing + inflight,
 		})
 		return nil
 	}
@@ -493,15 +547,35 @@ func (h *AdminOverviewHandler) queryTaskQueueStats(c *gin.Context, tenantUUID, s
 		}
 	}
 
-	for idx := range ordered {
-		var historyCount int64
-		if err := h.db.Model(&eventfabricmodel.TaskHistory{}).
-			Where("tenant_key = ? AND subscriber_id = ?", ordered[idx].TenantKey, ordered[idx].SubscriberID).
-			Count(&historyCount).Error; err != nil {
-			return nil, err
+	if h.db != nil {
+		type historyAggregate struct {
+			Total      int64      `gorm:"column:total"`
+			Completed  int64      `gorm:"column:completed"`
+			Failed     int64      `gorm:"column:failed"`
+			LastSeenAt *time.Time `gorm:"column:last_seen_at"`
 		}
-		if historyCount > ordered[idx].TotalTasks {
-			ordered[idx].TotalTasks = historyCount
+		for idx := range ordered {
+			var agg historyAggregate
+			if err := h.db.Model(&eventfabricmodel.TaskHistory{}).
+				Select(`
+					COUNT(*) AS total,
+					COALESCE(SUM(CASE WHEN LOWER(status) IN ('completed', 'succeeded') THEN 1 ELSE 0 END), 0) AS completed,
+					COALESCE(SUM(CASE WHEN LOWER(status) IN ('failed', 'error') THEN 1 ELSE 0 END), 0) AS failed,
+					MAX(last_seen_at) AS last_seen_at
+				`).
+				Where("tenant_key = ? AND subscriber_id = ?", ordered[idx].TenantKey, ordered[idx].SubscriberID).
+				Scan(&agg).Error; err != nil {
+				return nil, err
+			}
+			ordered[idx].HistoryTotal = agg.Total
+			ordered[idx].Completed = agg.Completed
+			ordered[idx].Failed = agg.Failed
+			if agg.LastSeenAt != nil && !agg.LastSeenAt.IsZero() {
+				ordered[idx].LastSeenAt = agg.LastSeenAt.UTC().Format(time.RFC3339)
+			}
+			if agg.Total > ordered[idx].TotalTasks {
+				ordered[idx].TotalTasks = agg.Total
+			}
 		}
 	}
 
@@ -535,6 +609,75 @@ func canonicalSubscriberID(subscriber string) string {
 	default:
 		return strings.TrimSpace(subscriber)
 	}
+}
+
+func inferTaskQueueScope(subscriberID, topic string) string {
+	subscriber := strings.TrimSpace(subscriberID)
+	fullTopic := strings.TrimSpace(topic)
+	if strings.HasPrefix(subscriber, "com.powerx.plugins.") ||
+		strings.HasPrefix(fullTopic, "powerx.") ||
+		strings.Contains(subscriber, "_craft.") ||
+		strings.Contains(subscriber, ".llm_") ||
+		strings.Contains(fullTopic, ".ai_craft.") ||
+		strings.Contains(fullTopic, ".plugins.") {
+		return "plugin"
+	}
+	return "powerx"
+}
+
+func inferTaskPluginID(subscriberID, topic string, metadata map[string]string) string {
+	for _, key := range []string{"plugin_id", "pluginID", "plugin"} {
+		if v := strings.TrimSpace(metadata[key]); v != "" {
+			return v
+		}
+	}
+	subscriber := strings.TrimSpace(subscriberID)
+	if strings.HasPrefix(subscriber, "com.powerx.plugins.") {
+		parts := strings.Split(subscriber, ".")
+		if len(parts) >= 4 {
+			return strings.Join(parts[:4], ".")
+		}
+		return subscriber
+	}
+	fullTopic := strings.TrimSpace(topic)
+	if strings.Contains(fullTopic, ".ai_craft.") || strings.HasPrefix(subscriber, "ai_craft.") {
+		return "com.powerx.plugins.ai-craft"
+	}
+	return ""
+}
+
+func inferPluginTenantKey(metadata map[string]string) string {
+	for _, key := range []string{
+		"plugin_tenant_key",
+		"plugin_tenant_uuid",
+		"local_tenant_uuid",
+		"tenant_uuid",
+		"tenant_key",
+	} {
+		if v := strings.TrimSpace(metadata[key]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func stringMapFromJSON(raw []byte) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var flat map[string]string
+	if err := json.Unmarshal(raw, &flat); err == nil {
+		return flat
+	}
+	var anyMap map[string]any
+	if err := json.Unmarshal(raw, &anyMap); err != nil {
+		return nil
+	}
+	out := make(map[string]string, len(anyMap))
+	for key, value := range anyMap {
+		out[key] = strings.TrimSpace(fmt.Sprint(value))
+	}
+	return out
 }
 
 func (h *AdminOverviewHandler) readTaskQueueState(c *gin.Context, state, tenantKey, subscriberID string, limit int) ([]taskQueueMessageDTO, error) {
@@ -581,11 +724,14 @@ func (h *AdminOverviewHandler) readTaskQueueState(c *gin.Context, state, tenantK
 			continue
 		}
 		row := taskQueueMessageDTO{
-			ID:       strings.TrimSpace(msg.ID),
-			Topic:    strings.TrimSpace(msg.Topic),
-			TraceID:  strings.TrimSpace(msg.TraceID),
-			Attempt:  msg.Attempt,
-			Metadata: msg.Metadata,
+			ID:              strings.TrimSpace(msg.ID),
+			Topic:           strings.TrimSpace(msg.Topic),
+			TraceID:         strings.TrimSpace(msg.TraceID),
+			Attempt:         msg.Attempt,
+			Metadata:        msg.Metadata,
+			QueueScope:      inferTaskQueueScope(msg.SubscriberID, msg.Topic),
+			PluginID:        inferTaskPluginID(msg.SubscriberID, msg.Topic, msg.Metadata),
+			PluginTenantKey: inferPluginTenantKey(msg.Metadata),
 		}
 		if !msg.VisibleAt.IsZero() {
 			row.Visible = msg.VisibleAt.UTC().Format(time.RFC3339)
@@ -596,34 +742,57 @@ func (h *AdminOverviewHandler) readTaskQueueState(c *gin.Context, state, tenantK
 }
 
 func (h *AdminOverviewHandler) queryTaskHistory(c *gin.Context, tenantKey, subscriberID string, limit int) ([]taskHistoryDTO, error) {
+	items, _, err := h.queryTaskHistoryPage(c, tenantKey, subscriberID, 1, limit, false)
+	return items, err
+}
+
+func (h *AdminOverviewHandler) queryTaskHistoryPage(c *gin.Context, tenantKey, subscriberID string, page, pageSize int, includeDetail bool) ([]taskHistoryDTO, int64, error) {
 	if h == nil || h.history == nil {
-		return []taskHistoryDTO{}, nil
+		return []taskHistoryDTO{}, 0, nil
 	}
-	records, err := h.history.ListRecent(c.Request.Context(), strings.TrimSpace(tenantKey), strings.TrimSpace(subscriberID), limit)
+	records, total, err := h.history.ListPage(c.Request.Context(), strings.TrimSpace(tenantKey), strings.TrimSpace(subscriberID), page, pageSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]taskHistoryDTO, 0, len(records))
 	for _, item := range records {
 		if item == nil {
 			continue
 		}
-		out = append(out, taskHistoryDTO{
-			TaskID:      strings.TrimSpace(item.TaskID),
-			TenantKey:   strings.TrimSpace(item.TenantKey),
-			Subscriber:  strings.TrimSpace(item.SubscriberID),
-			Topic:       strings.TrimSpace(item.Topic),
-			Kind:        strings.TrimSpace(item.Kind),
-			Status:      strings.TrimSpace(item.Status),
-			TraceID:     strings.TrimSpace(item.TraceID),
-			Attempt:     item.Attempt,
-			Source:      strings.TrimSpace(item.Source),
-			SubmittedAt: toRFC3339Ptr(item.SubmittedAt),
-			CompletedAt: toRFC3339Ptr(item.CompletedAt),
-			LastSeenAt:  item.LastSeenAt.UTC().Format(time.RFC3339),
-		})
+		out = append(out, h.taskHistoryDTO(item, includeDetail))
 	}
-	return out, nil
+	return out, total, nil
+}
+
+func (h *AdminOverviewHandler) taskHistoryDTO(item *eventfabricmodel.TaskHistory, includeDetail bool) taskHistoryDTO {
+	if item == nil {
+		return taskHistoryDTO{}
+	}
+	meta := stringMapFromJSON(item.Metadata)
+	out := taskHistoryDTO{
+		TaskID:          strings.TrimSpace(item.TaskID),
+		TenantKey:       strings.TrimSpace(item.TenantKey),
+		QueueScope:      inferTaskQueueScope(item.SubscriberID, item.Topic),
+		PluginID:        inferTaskPluginID(item.SubscriberID, item.Topic, meta),
+		PluginTenantKey: inferPluginTenantKey(meta),
+		Subscriber:      strings.TrimSpace(item.SubscriberID),
+		Topic:           strings.TrimSpace(item.Topic),
+		Kind:            strings.TrimSpace(item.Kind),
+		Status:          strings.TrimSpace(item.Status),
+		TraceID:         strings.TrimSpace(item.TraceID),
+		Attempt:         item.Attempt,
+		Source:          strings.TrimSpace(item.Source),
+		SubmittedAt:     toRFC3339Ptr(item.SubmittedAt),
+		StartedAt:       toRFC3339Ptr(item.StartedAt),
+		CompletedAt:     toRFC3339Ptr(item.CompletedAt),
+		LastSeenAt:      item.LastSeenAt.UTC().Format(time.RFC3339),
+	}
+	if includeDetail {
+		out.ErrorMessage = strings.TrimSpace(item.ErrorMessage)
+		out.Payload = strings.TrimSpace(item.Payload)
+		out.Metadata = meta
+	}
+	return out
 }
 
 func toRFC3339Ptr(ts *time.Time) string {

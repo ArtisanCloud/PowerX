@@ -31,9 +31,13 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	if err != nil {
 		return fmt.Errorf("find role_readonly: %w", err)
 	}
+	vendor, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_vendor")
+	if err != nil {
+		return fmt.Errorf("find role_vendor: %w", err)
+	}
 
 	// 2) 查全量和只读权限 ID（全局 permission 表）
-	var allIDs, readIDs []uint64
+	var allIDs, readIDs, allMenuIDs, tenantDefaultMenuIDs, vendorIDs []uint64
 	if err := db.WithContext(seedCtx()).
 		Model(&dbm.Permission{}).Pluck("id", &allIDs).Error; err != nil {
 		return err
@@ -41,7 +45,30 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	if err := db.WithContext(seedCtx()).
 		Model(&dbm.Permission{}).
 		Where("action = ?", "read").
+		Where("module <> ?", "menu").
 		Pluck("id", &readIDs).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).
+		Where("module = ? AND action = ?", "menu", "read").
+		Pluck("id", &allMenuIDs).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).
+		Where("module = ? AND resource IN ? AND action = ?",
+			"menu",
+			[]string{"dashboard", "agent", "agent.chat", "knowledge"},
+			"read",
+		).
+		Pluck("id", &tenantDefaultMenuIDs).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).
+		Where("module = ? AND resource = ? AND action = ?", "iam", "permission", "read").
+		Pluck("id", &vendorIDs).Error; err != nil {
 		return err
 	}
 
@@ -59,7 +86,20 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 			return fmt.Errorf("grant to readonly: %w", err)
 		}
 	}
+	if len(tenantDefaultMenuIDs) > 0 {
+		if err := syncRoleMenuPermissionsTx(db, rpRepo, user.ID, allMenuIDs, tenantDefaultMenuIDs); err != nil {
+			return fmt.Errorf("grant default menu to user: %w", err)
+		}
+		if err := syncRoleMenuPermissionsTx(db, rpRepo, readonly.ID, allMenuIDs, tenantDefaultMenuIDs); err != nil {
+			return fmt.Errorf("grant default menu to readonly: %w", err)
+		}
+	}
+	if len(vendorIDs) > 0 {
+		if err := rpRepo.BindPermissions(seedCtx(), vendor.ID, vendorIDs...); err != nil {
+			return fmt.Errorf("grant to vendor: %w", err)
+		}
+	}
 
-	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d, vendor:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs), len(vendorIDs))
 	return nil
 }

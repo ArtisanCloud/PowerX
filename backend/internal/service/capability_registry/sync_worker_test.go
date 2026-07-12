@@ -12,6 +12,7 @@ import (
 	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	iammodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,10 @@ func TestSyncWorkerProcessArtifact(t *testing.T) {
 	require.Equal(t, "Demo Capability", record.Title)
 	require.NotEmpty(t, record.CapabilitiesHash)
 	require.Equal(t, "published", record.Status)
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, map[string]any{"zh-CN": "演示能力", "en": "Demo Capability"}, annotations["title_i18n"])
+	require.Equal(t, map[string]any{"zh-CN": "演示插件提供的能力", "en": "Capability provided by demo plugin"}, annotations["description_i18n"])
 
 	jobRepo := repo.NewCapabilitySyncJobRepository(db)
 	jobs, err := jobRepo.List(ctx, repo.CapabilitySyncJobFilter{})
@@ -70,6 +75,163 @@ func TestSyncWorkerProcessArtifact(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("expected capability.catalog.sync_succeeded event")
 	}
+}
+
+func TestSyncWorkerProcessArtifactCreatesTenantRegistration(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{
+		DB:         db,
+		TenantUUID: "tenant-corex",
+		Clock: func() time.Time {
+			return time.Unix(1700000000, 0).UTC()
+		},
+	})
+
+	root := buildSamplePlugin(t, true)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	regRepo := repo.NewCapabilityRegistryRepository(db)
+	reg, err := regRepo.GetLatest(ctx, nil, "demo.capability", "tenant-corex")
+	require.NoError(t, err)
+	require.Equal(t, "published", reg.Status)
+	require.Len(t, reg.Adapters, 1)
+	require.Equal(t, "mcp", reg.Adapters[0].TransportType)
+	require.Equal(t, "demo.capability.demo-tool", reg.Adapters[0].AdapterID)
+}
+
+func TestSyncWorkerReadsDescriptorSecurityForAgentGrants(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+	root := buildDescriptorPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.descriptor.capability")
+	require.NoError(t, err)
+
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, "demo.template:create", annotations["permission_code"])
+	require.Equal(t, true, annotations["agent_usable"])
+	require.Equal(t, "medium", annotations["risk_level"])
+}
+
+func TestSyncWorkerDerivesPermissionCodeFromMergedExposureWhenDescriptorMissing(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+	root := buildExposureFallbackPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.fallback.template.create")
+	require.NoError(t, err)
+
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, true, annotations["descriptor_missing"])
+	require.Equal(t, []any{"demo.plugin.template:create"}, annotations["permission_codes"])
+}
+
+func TestSyncWorkerRegistersCapabilityPermissionCodesToIAM(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+	root := buildExposureFallbackPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	var perm iammodel.Permission
+	require.NoError(t, db.WithContext(ctx).
+		Where("module = ? AND resource = ? AND action = ?", "demo.plugin", "template", "create").
+		First(&perm).Error)
+	require.Equal(t, "demo.plugin", perm.Source)
+	require.Equal(t, iammodel.PermissionStatusActive, perm.Status)
+	require.False(t, perm.AllowAPIKey)
+}
+
+func TestSyncWorkerGrantsCapabilityPermissionsToTenantOwnerAndAdminRoles(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	tenantUUID := "tenant-corex"
+	roles := []iammodel.Role{
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_owner", Name: "Tenant Owner", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_admin", Name: "Tenant Admin", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_user", Name: "Tenant User", Builtin: true},
+	}
+	require.NoError(t, db.Create(&roles).Error)
+
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db, TenantUUID: tenantUUID})
+	root := buildExposureFallbackPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	var perm iammodel.Permission
+	require.NoError(t, db.WithContext(ctx).
+		Where("module = ? AND resource = ? AND action = ?", "demo.plugin", "template", "create").
+		First(&perm).Error)
+
+	countRolePermission := func(roleID uint64) int64 {
+		var count int64
+		require.NoError(t, db.WithContext(ctx).
+			Model(&iammodel.RolePermission{}).
+			Where("role_id = ? AND permission_id = ?", roleID, perm.ID).
+			Count(&count).Error)
+		return count
+	}
+	require.Equal(t, int64(1), countRolePermission(roles[0].ID))
+	require.Equal(t, int64(1), countRolePermission(roles[1].ID))
+	require.Equal(t, int64(0), countRolePermission(roles[2].ID))
+}
+
+func TestSyncWorkerGrantsCapabilityPermissionsToDeclaredDefaultRoles(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	tenantUUID := "tenant-corex"
+	roles := []iammodel.Role{
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_owner", Name: "Tenant Owner", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_admin", Name: "Tenant Admin", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_user", Name: "Tenant User", Builtin: true},
+	}
+	require.NoError(t, db.Create(&roles).Error)
+
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db, TenantUUID: tenantUUID})
+	root := buildDescriptorPlugin(t)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	var perm iammodel.Permission
+	require.NoError(t, db.WithContext(ctx).
+		Where("module = ? AND resource = ? AND action = ?", "demo", "template", "create").
+		First(&perm).Error)
+
+	var count int64
+	require.NoError(t, db.WithContext(ctx).
+		Model(&iammodel.RolePermission{}).
+		Where("role_id = ? AND permission_id = ?", roles[2].ID, perm.ID).
+		Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
+
+func TestRegistrationAdapterFromProtocolPrefixesPluginProxyForREST(t *testing.T) {
+	adapter := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
+		Channel:  "rest",
+		Method:   "POST",
+		Endpoint: "/api/v1/templates",
+	})
+
+	require.Equal(t, "rest", adapter.TransportType)
+	require.Equal(t, "/_p/demo.plugin/api/v1/templates", adapter.Endpoint)
+	require.Equal(t, "POST", adapter.Labels["method"])
+
+	absolute := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
+		Channel:  "rest",
+		Method:   "POST",
+		Endpoint: "http://127.0.0.1:18080/api/v1/templates",
+	})
+	require.Equal(t, "http://127.0.0.1:18080/api/v1/templates", absolute.Endpoint)
 }
 
 func TestSyncWorkerProcessArtifactMissingSchema(t *testing.T) {
@@ -98,7 +260,7 @@ func TestSyncWorkerProcessArtifactMissingSchema(t *testing.T) {
 	require.Equal(t, "failed", jobs[0].Status)
 }
 
-func TestSyncWorkerProcessArtifactMissingExposureDir(t *testing.T) {
+func TestSyncWorkerProcessArtifactAllowsDerivedRESTCapabilityWithoutExposureDir(t *testing.T) {
 	ctx := context.Background()
 	db := newMemoryDB(t)
 	alerting := &fakeCapabilityAlerting{}
@@ -107,16 +269,116 @@ func TestSyncWorkerProcessArtifactMissingExposureDir(t *testing.T) {
 		Alerting: alerting,
 	})
 
-	root := buildSamplePlugin(t, true)
+	root := buildExposureFallbackPlugin(t)
 	require.NoError(t, os.RemoveAll(filepath.Join(root, "contracts")))
 
-	err := worker.ProcessArtifact(ctx, root)
-	require.Error(t, err)
-	var alertErr *AssetAlertError
-	require.True(t, errors.As(err, &alertErr))
-	require.Equal(t, AssetAlertReasonExposureMissing, alertErr.Reason)
-	require.Len(t, alerting.events, 1)
-	require.Equal(t, "contracts/exposure", alerting.events[0].AssetPath)
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+	require.Empty(t, alerting.events)
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.fallback.template.create")
+	require.NoError(t, err)
+	require.Equal(t, "demo.plugin", record.PluginID)
+}
+
+func buildExposureFallbackPlugin(t *testing.T) string {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+catalogs:
+  capabilities: ./plugin.d/capabilities.yaml
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.merged.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+catalogs:
+  capabilities: ./plugin.d/capabilities.yaml
+exposure:
+  channels:
+    - type: rest
+      method: POST
+      entrypoint: /api/v1/templates
+      auth: jwt
+      capability: demo.fallback.template.create
+      rbac: template:create
+`), 0o644))
+
+	contractsDir := filepath.Join(root, "contracts", "exposure")
+	require.NoError(t, os.MkdirAll(contractsDir, 0o755))
+
+	pluginD := filepath.Join(root, "plugin.d")
+	require.NoError(t, os.MkdirAll(pluginD, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginD, "capabilities.yaml"), []byte(`
+capabilities:
+  provides:
+    - id: demo.fallback.template.create
+      version: "1.0.0"
+      descriptor: contracts/capabilities/missing.yaml
+`), 0o644))
+
+	return root
+}
+
+func buildDescriptorPlugin(t *testing.T) string {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+`), 0o644))
+
+	contractsDir := filepath.Join(root, "contracts", "exposure")
+	require.NoError(t, os.MkdirAll(contractsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(contractsDir, "input.json"), []byte(`{}`), 0o644))
+
+	pluginD := filepath.Join(root, "plugin.d")
+	require.NoError(t, os.MkdirAll(pluginD, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginD, "capabilities.yaml"), []byte(`
+capabilities:
+  provides:
+    - id: demo.descriptor.capability
+      version: "1.0.0"
+      descriptor: capabilities/demo.yaml
+      schemas:
+        input: contracts/exposure/input.json
+`), 0o644))
+
+	capDir := filepath.Join(root, "capabilities")
+	require.NoError(t, os.MkdirAll(capDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(capDir, "demo.yaml"), []byte(`
+id: demo.descriptor.capability
+type: tool
+version: "1.0.0"
+title: Descriptor Capability
+description: Descriptor capability provided by demo plugin
+default_role_grants:
+  - role_user
+security:
+  permission_code: demo.template:create
+agent:
+  usable: true
+  risk_level: medium
+metadata:
+  protocols:
+    rest:
+      path: /api/v1/templates
+      method: POST
+      auth_type: tenant_jwt
+`), 0o644))
+
+	return root
 }
 
 func newMemoryDB(t *testing.T) *gorm.DB {
@@ -139,8 +401,15 @@ func newMemoryDB(t *testing.T) *gorm.DB {
 
 	require.NoError(t, db.AutoMigrate(
 		&models.CapabilityRecord{},
+		&models.CapabilityRegistration{},
+		&models.AdapterEndpoint{},
+		&models.RoutingPolicy{},
+		&models.FallbackPlan{},
 		&models.WorkflowTemplateRef{},
 		&models.CapabilitySyncJob{},
+		&iammodel.Permission{},
+		&iammodel.Role{},
+		&iammodel.RolePermission{},
 	))
 	return db
 }
@@ -173,11 +442,19 @@ runtime:
 		},
 		"capabilities": []map[string]interface{}{
 			{
-				"id":          "demo.capability",
-				"title":       "Demo Capability",
+				"id":    "demo.capability",
+				"title": "Demo Capability",
+				"title_i18n": map[string]string{
+					"zh-CN": "演示能力",
+					"en":    "Demo Capability",
+				},
 				"description": "Capability provided by demo plugin",
-				"intents":     []string{"demo.intent"},
-				"tool_scope":  []string{"global"},
+				"description_i18n": map[string]string{
+					"zh-CN": "演示插件提供的能力",
+					"en":    "Capability provided by demo plugin",
+				},
+				"intents":    []string{"demo.intent"},
+				"tool_scope": []string{"global"},
 				"policy": map[string]interface{}{
 					"prefer": "mcp",
 				},

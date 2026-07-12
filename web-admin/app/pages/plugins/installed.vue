@@ -1,14 +1,17 @@
 <template>
   <div class="space-y-6 p-4">
     <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <UButton variant="ghost" size="sm" :to="'/plugins/market'">{{
-          $t("menu.pluginsMarket") || "应用市场"
-        }}</UButton>
-        <UButton :variant="'solid'" size="sm" :to="'/plugins/installed'">{{
-          $t("menu.pluginsInstalled") || "已安装"
-        }}</UButton>
+      <div v-if="isRoot" class="flex items-center gap-2">
+        <UButton variant="ghost" size="sm" :to="'/plugins/market'">
+          {{ marketTabLabel }}
+        </UButton>
+        <UButton :variant="'solid'" size="sm" :to="'/plugins/installed'">
+          {{ installedTabLabel }}
+        </UButton>
       </div>
+      <h1 v-else class="text-lg font-semibold text-[var(--text-primary)]">
+        插件订阅
+      </h1>
       <div class="flex items-center gap-2">
         <UInput v-model="q" placeholder="搜索名称/描述/作者…" class="w-64" />
         <UButton
@@ -28,7 +31,7 @@
       </div>
     </div>
 
-    <UCard :ui="{ body: { padding: 'p-0' } }">
+    <UCard v-if="filtered.length > 0" :ui="{ body: { padding: 'p-0' } }">
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead
@@ -37,8 +40,10 @@
             <tr>
               <th class="text-left px-4 py-2 w-[24%]">插件</th>
               <th class="text-left px-4 py-2 w-[10%]">版本</th>
-              <th class="text-left px-4 py-2 w-[15%]">系统状态</th>
-              <th class="text-left px-4 py-2 w-[12%]">租户状态</th>
+              <th v-if="isRoot" class="text-left px-4 py-2 w-[15%]">系统状态</th>
+              <th class="text-left px-4 py-2 w-[12%]">
+                {{ isRoot ? "租户状态" : "订阅状态" }}
+              </th>
               <th class="text-left px-4 py-2 w-[15%]">客户端ID</th>
               <th class="text-left px-4 py-2 w-[24%]">操作</th>
             </tr>
@@ -72,7 +77,7 @@
                 </div>
               </td>
               <td class="px-4 py-3">{{ it.version || "-" }}</td>
-              <td class="px-4 py-3">
+              <td v-if="isRoot" class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <UBadge
                     :color="it.isSystemEnabled ? 'green' : 'neutral'"
@@ -88,7 +93,7 @@
                 <UBadge
                   :color="it.tenantEnabled ? 'green' : 'neutral'"
                   size="xs"
-                  >{{ it.tenantEnabled ? "已启用" : "未启用" }}</UBadge
+                  >{{ it.tenantEnabled ? "已订阅" : "未订阅" }}</UBadge
                 >
               </td>
               <td class="px-4 py-3">
@@ -121,7 +126,7 @@
 
                   <!-- 租户级启用/停用按钮（租户管理员） -->
                   <UButton
-                    v-if="isTenantAdmin && !isRoot"
+                    v-if="isTenantAdmin && !isRoot && it.tenantEnabled"
                     size="sm"
                     :variant="it.tenantEnabled ? 'outline' : 'solid'"
                     :color="it.tenantEnabled ? 'error' : 'primary'"
@@ -132,7 +137,7 @@
                     "
                     @click="toggleTenant(it)"
                   >
-                    {{ it.tenantEnabled ? "停用" : "启用" }}
+                    {{ it.tenantEnabled ? "取消订阅" : "订阅启用" }}
                   </UButton>
 
                   <!-- 更多操作按钮 -->
@@ -151,6 +156,22 @@
         </table>
       </div>
     </UCard>
+
+    <div
+      v-else
+      class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] py-16 text-center"
+    >
+      <UIcon
+        name="i-heroicons-archive-box"
+        class="mx-auto mb-4 size-10 text-[var(--text-secondary)]"
+      />
+      <h3 class="text-lg font-medium text-[var(--text-primary)]">
+        {{ isRoot ? "暂无已安装插件" : "暂无订阅插件" }}
+      </h3>
+      <p class="mt-2 text-sm text-[var(--text-secondary)]">
+        {{ isRoot ? "安装插件后会显示在这里。" : "从可订阅插件中启用后会显示在这里。" }}
+      </p>
+    </div>
 
     <!-- 安装对话框 -->
     <InstallDialog
@@ -172,6 +193,8 @@ type Row = any;
 const userStore = useUserStore();
 const isRoot = computed(() => userStore.isRoot);
 const isTenantAdmin = computed(() => userStore.isCurrentTenantAdmin);
+const marketTabLabel = computed(() => "插件市场");
+const installedTabLabel = computed(() => "已安装");
 
 const q = ref("");
 const rows = ref<Row[]>([]);
@@ -201,31 +224,40 @@ async function load() {
     "~/composables/api/services/adminPluginsService"
   );
   const svc = useAdminPluginsService();
-  const list = await svc.list();
-  rows.value = (list || []).map((p: any) => ({
+  const list = isRoot.value ? await svc.list() : await svc.getMarketplace();
+  const mapped = (list || []).map((p: any) => ({
     id: String(p.id || p.slug || p.name || ""),
     name: (p.menus && p.menus[0]?.title) || p.name || p.id || "-",
     description: p.description || "",
     author: p.author || "",
     version: p.version || "-",
-    // 此接口未提供图片地址，先不显示图标
-    icon: undefined,
-    isSystemInstalled: true,
-    isSystemEnabled: String(p.state || "").toLowerCase() === "enabled",
-    systemStatus: p.state || "",
-    tenantEnabled: false,
-    clientId: "",
+    icon: p.icon,
+    isSystemInstalled: isRoot.value ? true : !!p.isSystemInstalled,
+    isSystemEnabled: isRoot.value
+      ? String(p.state || "").toLowerCase() === "enabled"
+      : !!p.isSystemEnabled,
+    systemStatus: isRoot.value ? p.state || "" : p.systemStatus || "",
+    tenantEnabled: !!(p.tenantInstance?.enabled ?? p.tenantEnabled),
+    clientId:
+      p.tenantInstance?.config?.client_id ||
+      p.tenantInstance?.config?.clientId ||
+      "",
   }));
-  // 并发拉取租户配置
-  await Promise.all(
-    rows.value.map(async (r) => {
-      try {
-        const conf: any = await svc.getTenantConfig(r.id);
-        r.tenantEnabled = !!(conf?.enabled ?? conf?.isEnabled);
-        r.clientId = conf?.client_id || conf?.clientId || "";
-      } catch {}
-    })
-  );
+  rows.value = mapped;
+  if (isRoot.value) {
+    await Promise.all(
+      rows.value.map(async (r) => {
+        try {
+          const conf: any = await svc.getTenantConfig(r.id);
+          r.tenantEnabled = !!(conf?.enabled ?? conf?.isEnabled);
+          r.clientId =
+            conf?.client_id || conf?.clientId || conf?.config?.client_id || "";
+        } catch {}
+      })
+    );
+  } else {
+    rows.value = rows.value.filter((r) => r.isSystemEnabled && r.tenantEnabled);
+  }
 }
 
 onMounted(load);
@@ -265,9 +297,9 @@ async function toggleTenant(r: Row) {
     const { confirm } = useConfirm();
     const ok = await confirm({
       title: "停用本租户",
-      description: "仅影响当前租户访问",
-      message: `停用 ${r.name} 在本租户？`,
-      confirmLabel: "停用",
+      description: "仅取消当前租户订阅，不会停止平台插件进程。",
+      message: `取消订阅 ${r.name}？`,
+      confirmLabel: "取消订阅",
       tone: "warning",
     });
     if (!ok) return;
@@ -276,7 +308,7 @@ async function toggleTenant(r: Row) {
   } else {
     const resp: any = await svc.setTenantEnabled(r.id, true);
     r.tenantEnabled = true;
-    r.clientId = resp?.client_id || resp?.clientId || r.clientId;
+    r.clientId = resp?.client_id || resp?.clientId || resp?.instance?.config?.client_id || r.clientId;
   }
 }
 </script>

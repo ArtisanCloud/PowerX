@@ -2,13 +2,17 @@
 package tenants
 
 import (
-	mdltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	svc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
+	mdltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -24,11 +28,12 @@ func NewTenantHandler(s *svc.TenantService) *TenantHandler { return &TenantHandl
 
 type ListTenantsReq struct {
 	dto.PaginationRequest
-	Q         string  `form:"q"`          // 模糊 name/domain
-	Status    *string `form:"status"`     // 可选：active/inactive/suspended...
-	Plan      *string `form:"plan"`       // 可选：套餐过滤
-	SortBy    string  `form:"sort_by"`    // 默认 created_at
-	SortOrder string  `form:"sort_order"` // 默认 desc
+	Q          string  `form:"q"`           // 模糊 name/domain
+	TenantUUID string  `form:"tenant_uuid"` // 精确 UUID 查询
+	Status     *string `form:"status"`      // 可选：active/inactive/suspended...
+	Plan       *string `form:"plan"`        // 可选：套餐过滤
+	SortBy     string  `form:"sort_by"`     // 默认 created_at
+	SortOrder  string  `form:"sort_order"`  // 默认 desc
 }
 
 // GET /api/v1/admin/tenants
@@ -47,6 +52,36 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 		req.SortOrder = "desc"
 	}
 
+	if tenantUUID := strings.TrimSpace(req.TenantUUID); tenantUUID != "" {
+		if !reqctx.IsRoot(c.Request.Context()) {
+			currentTenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+			if currentTenantUUID == "" || !strings.EqualFold(currentTenantUUID, tenantUUID) {
+				dto.ResponseError(c, http.StatusForbidden, "tenant access denied", nil)
+				return
+			}
+		}
+		item, err := h.S.GetByUUID(c.Request.Context(), tenantUUID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				dto.ResponseError(c, http.StatusNotFound, "tenant not found", err)
+				return
+			}
+			dto.ResponseValidationError(c, err)
+			return
+		}
+		dto.ResponseList(c, tenantViews([]mdltenant.Tenant{*item}, map[string]int64{}), &dto.PaginationResponse{
+			Total:    1,
+			Page:     1,
+			PageSize: 1,
+		})
+		return
+	}
+
+	if !reqctx.IsRoot(c.Request.Context()) {
+		dto.ResponseError(c, http.StatusForbidden, "root permission required to list tenants", nil)
+		return
+	}
+
 	items, total, userCountMap, err := h.S.List(c.Request.Context(), svc.ListTenantsOption{
 		Page:      req.Page,
 		PageSize:  req.PageSize,
@@ -61,20 +96,7 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 		return
 	}
 
-	// 直接返回模型 + 附加 user_count 视图字段（匿名 struct），不新增 DTO 包
-	type tenantView struct {
-		mdltenant.Tenant
-		UserCount int64 `json:"user_count"`
-	}
-	out := make([]tenantView, 0, len(items))
-	for i := range items {
-		out = append(out, tenantView{
-			Tenant:    items[i],
-			UserCount: userCountMap[items[i].UUID.String()],
-		})
-	}
-
-	dto.ResponseList(c, out, &dto.PaginationResponse{
+	dto.ResponseList(c, tenantViews(items, userCountMap), &dto.PaginationResponse{
 		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
@@ -90,6 +112,22 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, res) // 直接返回 iam.Tenant
+}
+
+type tenantView struct {
+	mdltenant.Tenant
+	UserCount int64 `json:"user_count"`
+}
+
+func tenantViews(items []mdltenant.Tenant, userCountMap map[string]int64) []tenantView {
+	out := make([]tenantView, 0, len(items))
+	for i := range items {
+		out = append(out, tenantView{
+			Tenant:    items[i],
+			UserCount: userCountMap[items[i].UUID.String()],
+		})
+	}
+	return out
 }
 
 // -------- Handlers：Create / Upsert --------

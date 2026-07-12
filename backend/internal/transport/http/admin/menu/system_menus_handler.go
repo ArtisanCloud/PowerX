@@ -16,6 +16,79 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:agent:read",
+			},
+			Children: []admdto.AdminMenuItem{
+				{
+					Key:      "agent_chat",
+					Title:    "智能会话",
+					Icon:     "i-heroicons-chat-bubble-left-right",
+					URL:      "/agent/sessions",
+					Order:    1,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeyAgent,
+					Permissions: []string{
+						"menu:agent.chat:read",
+					},
+				},
+				{
+					Key:      "agent_management",
+					Title:    "智能体管理",
+					Icon:     "i-heroicons-squares-2x2",
+					URL:      "/settings/ai/agents",
+					Order:    2,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeyAgent,
+					Permissions: []string{
+						"admin:tenant",
+						"menu:agent.management:read",
+					},
+				},
+				{
+					Key:      "agent_team",
+					Title:    "团队管理",
+					Icon:     "i-heroicons-user-group",
+					URL:      "/settings/ai/agent-teams",
+					Order:    3,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeyAgent,
+					Permissions: []string{
+						"admin:tenant",
+						"menu:agent.team:read",
+					},
+				},
+				{
+					Key:      "agent_team_tasks",
+					Title:    "团队任务",
+					Icon:     "i-heroicons-list-bullet",
+					URL:      "/agent/team-tasks",
+					Order:    5,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeyAgent,
+					Permissions: []string{
+						"menu:agent.team_tasks:read",
+					},
+				},
+				{
+					Key:      "agent_traces",
+					Title:    "Agent 运行追踪",
+					Icon:     "i-heroicons-document-magnifying-glass",
+					URL:      "/agent/traces",
+					Order:    7,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeyAgent,
+					Permissions: []string{
+						"admin:root",
+						"menu:agent.traces:read",
+					},
+				},
+			},
 		},
 		{
 			Key:         "skill_management",
@@ -26,7 +99,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root"},
+			Permissions: []string{"admin:root", "menu:skills:read"},
 		},
 		{
 			Key:     plugin_mgr.KeyKnowledgeSpace,
@@ -37,6 +110,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:knowledge:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyWorkflow,
@@ -47,6 +123,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:workflow:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyMedia,
@@ -57,6 +136,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:media:read",
+			},
 		},
 		{
 			Key:     plugin_mgr.KeyDashboard,
@@ -67,6 +149,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
 			Slot:    plugin_mgr.SlotRoot,
+			Permissions: []string{
+				"menu:dashboard:read",
+			},
 		},
 		{
 			Key:         "monitor_center",
@@ -77,7 +162,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root"},
+			Permissions: []string{"admin:root", "menu:monitor:read"},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:         "monitor_event_bus",
@@ -88,7 +173,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_websocket",
@@ -99,7 +184,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_task_cron",
@@ -110,7 +195,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_logs_trace",
@@ -121,7 +206,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 				{
 					Key:         "monitor_backup_center",
@@ -132,63 +217,63 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:monitor:read"},
 				},
 			},
 		},
 		{
 			Key:         plugin_mgr.KeyPlugins,
-			Title:       "menu.openMarket",
+			Title:       "menu.pluginMarketplace",
 			Icon:        "i-heroicons-puzzle-piece",
 			Order:       8,
 			Visible:     true,
 			Origin:      plugin_mgr.OriginSystem,
 			Slot:        plugin_mgr.SlotRoot,
-			Permissions: []string{"admin:root"}, // 仅 root 可见
+			Permissions: []string{"admin:root", "admin:tenant", "menu:plugins:read"},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:         "plugin_market",
-					Title:       "menu.pluginMarketplace",
+					Title:       "menu.pluginManagement",
 					Icon:        "i-heroicons-building-storefront",
 					URL:         "/plugins/market",
 					Order:       1,
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.market:read"},
 				},
 				{
-					Key:         "plugin_release",
-					Title:       "menu.pluginReleaseCandidates",
-					Icon:        "i-heroicons-queue-list",
-					URL:         "/plugin-release",
-					Order:       4,
+					Key:         "plugin_subscriptions",
+					Title:       "menu.pluginSubscriptions",
+					Icon:        "i-heroicons-building-storefront",
+					URL:         "/plugins/installed",
+					Order:       1,
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:tenant_only", "menu:plugins.subscriptions:read"},
 				},
 				{
 					Key:         "plugin_capabilities",
 					Title:       "menu.pluginCapabilities",
 					Icon:        "i-heroicons-table-cells",
 					URL:         "/settings/ai/capability-registry",
-					Order:       2,
+					Order:       4,
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.capabilities:read"},
 				},
 				{
-					Key:         "platform_connectors",
-					Title:       "menu.intelligentPlatforms",
-					Icon:        "i-heroicons-link",
-					URL:         "/settings/ai/connectors",
-					Order:       3,
+					Key:         "plugin_release",
+					Title:       "menu.pluginReleaseCandidates",
+					Icon:        "i-heroicons-queue-list",
+					URL:         "/plugin-release",
+					Order:       5,
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    plugin_mgr.KeyPlugins,
-					Permissions: []string{"admin:root"},
+					Permissions: []string{"admin:root", "menu:plugins.release:read"},
 				},
 			},
 		},
@@ -199,6 +284,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Order:   9,
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,
+			Permissions: []string{
+				"menu:settings:read",
+			},
 			Children: []admdto.AdminMenuItem{
 				{
 					Key:      plugin_mgr.KeyUserManagement,
@@ -209,6 +297,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"menu:settings.users:read",
+					},
 				},
 				{
 					Key:      plugin_mgr.KeyRoleManagement,
@@ -221,6 +312,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.roles:read",
 					},
 				},
 				{
@@ -234,6 +326,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.config:read",
 					},
 				},
 				{
@@ -247,6 +340,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"admin:tenant",
+						"menu:settings.ai:read",
 					},
 					Children: []admdto.AdminMenuItem{
 						{
@@ -260,6 +354,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.model:read",
 							},
 						},
 						{
@@ -273,6 +368,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.cost:read",
 							},
 						},
 						{
@@ -286,6 +382,21 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 							ParentID: plugin_mgr.KeyAISettings,
 							Permissions: []string{
 								"admin:tenant",
+								"menu:settings.ai.context_optimizer:read",
+							},
+						},
+						{
+							Key:      plugin_mgr.KeyAISettingsAgentAccess,
+							Title:    "menu.aiSettingsAgentAccess",
+							Icon:     "i-heroicons-shield-check",
+							URL:      "/settings/ai/agent-access-grants",
+							Order:    4,
+							Visible:  true,
+							Origin:   plugin_mgr.OriginSystem,
+							ParentID: plugin_mgr.KeyAISettings,
+							Permissions: []string{
+								"admin:tenant",
+								"menu:agent.management:read",
 							},
 						},
 					},
@@ -299,6 +410,9 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:  true,
 					Origin:   plugin_mgr.OriginSystem,
 					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"menu:settings.integration_api_keys:read",
+					},
 				},
 			},
 		},

@@ -48,23 +48,29 @@ type retireSpaceRequest struct {
 	DropVectors bool   `json:"dropVectors"`
 }
 
+type deleteSpaceRequest struct {
+	RequestedBy string `json:"requestedBy"`
+	Force       bool   `json:"force"`
+	DropVectors bool   `json:"dropVectors"`
+}
+
 type knowledgeSpaceResponse struct {
-	SpaceID             string       `json:"spaceId"`
-	TenantUUID          string       `json:"tenant_uuid"`
-	SpaceName           string       `json:"spaceName"`
-	DepartmentCode      string       `json:"departmentCode"`
-	Status              string       `json:"status"`
-	PolicyTemplateID    string       `json:"policyTemplateVersionId"`
-	IngestionProfileKey string       `json:"ingestionProfileKey"`
-	IndexProfileKey     string       `json:"indexProfileKey"`
-	RAGProfileKey       string       `json:"ragProfileKey"`
-	EmbeddingProfileKey string       `json:"embeddingProfileKey"`
-	ActiveVectorIndexKey string      `json:"activeVectorIndexKey"`
-	FeatureFlags        []string     `json:"featureFlags"`
-	AuditToken          string       `json:"auditToken"`
-	RetentionExpiresAt  *time.Time   `json:"retentionExpiresAt,omitempty"`
-	Quotas              quotaPayload `json:"quotas"`
-	IAMStatus           string       `json:"iamStatus"`
+	SpaceID              string       `json:"spaceId"`
+	TenantUUID           string       `json:"tenant_uuid"`
+	SpaceName            string       `json:"spaceName"`
+	DepartmentCode       string       `json:"departmentCode"`
+	Status               string       `json:"status"`
+	PolicyTemplateID     string       `json:"policyTemplateVersionId"`
+	IngestionProfileKey  string       `json:"ingestionProfileKey"`
+	IndexProfileKey      string       `json:"indexProfileKey"`
+	RAGProfileKey        string       `json:"ragProfileKey"`
+	EmbeddingProfileKey  string       `json:"embeddingProfileKey"`
+	ActiveVectorIndexKey string       `json:"activeVectorIndexKey"`
+	FeatureFlags         []string     `json:"featureFlags"`
+	AuditToken           string       `json:"auditToken"`
+	RetentionExpiresAt   *time.Time   `json:"retentionExpiresAt,omitempty"`
+	Quotas               quotaPayload `json:"quotas"`
+	IAMStatus            string       `json:"iamStatus"`
 }
 
 func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
@@ -73,20 +79,20 @@ func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
 	}
 	flags := ksvc.FeatureFlagsFromJSON(space.FeatureFlags)
 	return knowledgeSpaceResponse{
-		SpaceID:             space.UUID.String(),
-		TenantUUID:          space.TenantUUID,
-		SpaceName:           space.SpaceName,
-		DepartmentCode:      space.DepartmentCode,
-		Status:              space.Status,
-		PolicyTemplateID:    ksvc.PolicyIDString(space.PolicyTemplateVersionID),
-		IngestionProfileKey: strings.TrimSpace(space.IngestionProfileKey),
-		IndexProfileKey:     strings.TrimSpace(space.IndexProfileKey),
-		RAGProfileKey:       strings.TrimSpace(space.RAGProfileKey),
-		EmbeddingProfileKey: strings.TrimSpace(space.EmbeddingProfileKey),
+		SpaceID:              space.UUID.String(),
+		TenantUUID:           space.TenantUUID,
+		SpaceName:            space.SpaceName,
+		DepartmentCode:       space.DepartmentCode,
+		Status:               space.Status,
+		PolicyTemplateID:     ksvc.PolicyIDString(space.PolicyTemplateVersionID),
+		IngestionProfileKey:  strings.TrimSpace(space.IngestionProfileKey),
+		IndexProfileKey:      strings.TrimSpace(space.IndexProfileKey),
+		RAGProfileKey:        strings.TrimSpace(space.RAGProfileKey),
+		EmbeddingProfileKey:  strings.TrimSpace(space.EmbeddingProfileKey),
 		ActiveVectorIndexKey: strings.TrimSpace(space.ActiveVectorIndexKey),
-		FeatureFlags:        flags,
-		AuditToken:          space.AuditToken,
-		RetentionExpiresAt:  space.RetentionExpiresAt,
+		FeatureFlags:         flags,
+		AuditToken:           space.AuditToken,
+		RetentionExpiresAt:   space.RetentionExpiresAt,
 		Quotas: quotaPayload{
 			CPUCores:             space.QuotaCPU,
 			StorageGB:            space.QuotaStorageGB,
@@ -125,8 +131,8 @@ type ingestionJobRequest struct {
 	RagPrimary   string `json:"ragPrimary"`
 	// Chunking controls (optional). When set, they are applied on top of processor output.
 	SegmentMode  string `json:"segmentMode" binding:"omitempty,oneof=unit heading clause semantic table_row code_block conversation"`
-	ChunkSize    int `json:"chunkSize" binding:"omitempty,min=0,max=20000"`
-	ChunkOverlap int `json:"chunkOverlap" binding:"omitempty,min=0,max=5000"`
+	ChunkSize    int    `json:"chunkSize" binding:"omitempty,min=0,max=20000"`
+	ChunkOverlap int    `json:"chunkOverlap" binding:"omitempty,min=0,max=5000"`
 	// SegmentSizePolicy controls how chunkSize is applied: cap | target.
 	SegmentSizePolicy string `json:"segmentSizePolicy" binding:"omitempty,oneof=cap target"`
 	// SegmentOrder defines the execution order of chunking steps.
@@ -137,34 +143,34 @@ type ingestionJobRequest struct {
 	// PagePriority: prefer page boundary before other segmentation (PDF only).
 	PagePriority bool `json:"pagePriority"`
 	// Anchors: included in chunk metadata (best-effort).
-	AnchorHeadingPath  bool `json:"anchorHeadingPath"`
-	AnchorClauseID     bool `json:"anchorClauseId"`
-	AnchorRowNumber    bool `json:"anchorRowNumber"`
-	AnchorSpeaker      bool `json:"anchorSpeaker"`
+	AnchorHeadingPath   bool `json:"anchorHeadingPath"`
+	AnchorClauseID      bool `json:"anchorClauseId"`
+	AnchorRowNumber     bool `json:"anchorRowNumber"`
+	AnchorSpeaker       bool `json:"anchorSpeaker"`
 	AnchorSentenceIndex bool `json:"anchorSentenceIndex"`
 }
 
 type ingestionJobView struct {
-	JobID               string  `json:"jobId"`
-	Status              string  `json:"status"`
-	RetryCount          int     `json:"retryCount"`
-	ErrorCode           string  `json:"errorCode,omitempty"`
-	Reason              string  `json:"reason,omitempty"`
-	ChunkTotal          int     `json:"chunkTotal"`
-	ChunkCoveragePct    float64 `json:"chunkCoveragePct"`
-	EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
-	EmbeddingMaxInputTokens int `json:"embeddingMaxInputTokens,omitempty"`
-	EmbeddingProvider   string  `json:"embeddingProvider,omitempty"`
-	EmbeddingModel      string  `json:"embeddingModel,omitempty"`
-	MaskingCoveragePct  float64 `json:"maskingCoveragePct"`
-	SegmentMode         string  `json:"segmentMode,omitempty"`
-	ChunkSize           int     `json:"chunkSize,omitempty"`
-	ChunkOverlap        int     `json:"chunkOverlap,omitempty"`
-	SegmentSizePolicy   string  `json:"segmentSizePolicy,omitempty"`
-	Separators          []string `json:"separators,omitempty"`
-	PagePriority        bool    `json:"pagePriority,omitempty"`
-	SegmentOrder        []string `json:"segmentOrder,omitempty"`
-	ChunkAnchors        map[string]bool `json:"chunkAnchors,omitempty"`
+	JobID                   string          `json:"jobId"`
+	Status                  string          `json:"status"`
+	RetryCount              int             `json:"retryCount"`
+	ErrorCode               string          `json:"errorCode,omitempty"`
+	Reason                  string          `json:"reason,omitempty"`
+	ChunkTotal              int             `json:"chunkTotal"`
+	ChunkCoveragePct        float64         `json:"chunkCoveragePct"`
+	EmbeddingSuccessPct     float64         `json:"embeddingSuccessPct"`
+	EmbeddingMaxInputTokens int             `json:"embeddingMaxInputTokens,omitempty"`
+	EmbeddingProvider       string          `json:"embeddingProvider,omitempty"`
+	EmbeddingModel          string          `json:"embeddingModel,omitempty"`
+	MaskingCoveragePct      float64         `json:"maskingCoveragePct"`
+	SegmentMode             string          `json:"segmentMode,omitempty"`
+	ChunkSize               int             `json:"chunkSize,omitempty"`
+	ChunkOverlap            int             `json:"chunkOverlap,omitempty"`
+	SegmentSizePolicy       string          `json:"segmentSizePolicy,omitempty"`
+	Separators              []string        `json:"separators,omitempty"`
+	PagePriority            bool            `json:"pagePriority,omitempty"`
+	SegmentOrder            []string        `json:"segmentOrder,omitempty"`
+	ChunkAnchors            map[string]bool `json:"chunkAnchors,omitempty"`
 }
 
 func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
@@ -187,26 +193,26 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 	segmentOrder := readStringSliceSnap(snap, "segment_order")
 	anchors := readBoolMapSnap(snap, "chunk_anchors")
 	return ingestionJobView{
-		JobID:               job.UUID.String(),
-		Status:              job.Status,
-		RetryCount:          job.RetryCount,
-		ErrorCode:           job.ErrorCode,
-		Reason:              job.BlockedReason,
-		ChunkTotal:          job.ChunkTotal,
-		ChunkCoveragePct:    job.ChunkCoveredPct,
-		EmbeddingSuccessPct: job.EmbeddingSuccessPct,
+		JobID:                   job.UUID.String(),
+		Status:                  job.Status,
+		RetryCount:              job.RetryCount,
+		ErrorCode:               job.ErrorCode,
+		Reason:                  job.BlockedReason,
+		ChunkTotal:              job.ChunkTotal,
+		ChunkCoveragePct:        job.ChunkCoveredPct,
+		EmbeddingSuccessPct:     job.EmbeddingSuccessPct,
 		EmbeddingMaxInputTokens: embeddingMaxInputTokens,
-		EmbeddingProvider:   embeddingProvider,
-		EmbeddingModel:      embeddingModel,
-		MaskingCoveragePct:  job.MaskingCoveragePct,
-		SegmentMode:         segmentMode,
-		ChunkSize:           chunkSize,
-		ChunkOverlap:        chunkOverlap,
-		SegmentSizePolicy:   segmentSizePolicy,
-		Separators:          separators,
-		PagePriority:        pagePriority,
-		SegmentOrder:        segmentOrder,
-		ChunkAnchors:        anchors,
+		EmbeddingProvider:       embeddingProvider,
+		EmbeddingModel:          embeddingModel,
+		MaskingCoveragePct:      job.MaskingCoveragePct,
+		SegmentMode:             segmentMode,
+		ChunkSize:               chunkSize,
+		ChunkOverlap:            chunkOverlap,
+		SegmentSizePolicy:       segmentSizePolicy,
+		Separators:              separators,
+		PagePriority:            pagePriority,
+		SegmentOrder:            segmentOrder,
+		ChunkAnchors:            anchors,
 	}
 }
 

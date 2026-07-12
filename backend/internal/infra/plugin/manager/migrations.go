@@ -128,6 +128,7 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 	}
 	if desc.Paths.Root != "" {
 		envMap["POWERX_PLUGIN_ROOT"] = desc.Paths.Root
+		injectPluginSkillsDir(envMap, desc.Paths.Root)
 	}
 	if desc.Paths.ConfigDir != "" {
 		envMap["POWERX_PLUGIN_CONFIG_DIR"] = desc.Paths.ConfigDir
@@ -213,6 +214,23 @@ func (m *managerImpl) shouldExecuteMigration(desc Descriptor, opts plugin_mgr.In
 		}
 	}
 	return run
+}
+
+func dirExists(path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
+	}
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
+}
+
+func injectPluginSkillsDir(env map[string]string, pluginRoot string) {
+	if env == nil {
+		return
+	}
+	if skillsDir := filepath.Join(strings.TrimSpace(pluginRoot), "skills"); dirExists(skillsDir) {
+		env["PLUGIN_SKILLS_DIR"] = skillsDir
+	}
 }
 
 func toBool(v any) (bool, bool) {

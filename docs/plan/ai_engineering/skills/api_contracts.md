@@ -2,6 +2,8 @@
 
 本文定义 Skill 管理与调用接口契约，供后端、前端、插件侧统一实现。
 
+插件与 PowerX Agent Runtime 的桥接契约遵循 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文件补充 HTTP/SSE/WS 层面的请求与响应样例。
+
 ## 0. LLM 基础接口（system + user 双消息位）
 
 ### 0.1 非流式
@@ -220,41 +222,29 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
 
 ## 2. Tenant API
 
-### 2.1 直接调用 Skill
+### 2.1 统一入口调用
 
-`POST /api/v1/tenant/skills/invoke`
-
-```json
-{
-  "skill_id": "incident-triage",
-  "version": "1.0.0",
-  "payload": {
-    "incident_id": "INC-1001"
-  },
-  "context": {
-    "tool_scope": "ops"
-  }
-}
-```
-
-### 2.2 统一入口调用
-
-`POST /api/v1/tenant/invocations` with `preferred_protocol=skill`
+`POST /api/v1/tenant/invocations`
 
 ```json
 {
   "capability_id": "com.powerx.skill.incident-triage.invoke",
-  "preferred_protocol": "skill",
+  "preferred_protocol": "rest",
   "payload": {
-    "skill_id": "incident-triage",
     "incident_id": "INC-1001"
   }
 }
 ```
 
-## 2.3 Agent 主入口（推荐）
+说明：
 
-### 2.3.1 非流式调用
+1. Skill 业务执行必须先解析为 `capability_id`。
+2. Capability Registry 决定真实 adapter 与插件实例。
+3. `/api/v1/tenant/skills/invoke` 不作为新规范的标准业务入口。
+
+## 2.2 Agent 主入口（推荐）
+
+### 2.2.1 非流式调用
 
 `POST /api/v1/agents/invoke`
 
@@ -287,6 +277,19 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
 
 `GET /api/v1/agents/stream/sse?q=...&agent_id=...&session_id=...`
 
+Runtime Intent 控制面查询使用结构化参数，不依赖自然语言短语：
+
+```text
+GET /api/v1/agents/stream/sse?intent=agent.bound_capabilities&agent_uuid=...&session_uuid=...&tenant_uuid=...&env=...
+```
+
+约束：
+
+1. `intent=agent.bound_capabilities|agent.bound_skills` 可以不传 `q`。
+2. Runtime Intent 命中后直接执行确定性 handler，不进入 LLM / Planner。
+3. 普通自然语言请求不得通过关键词穷举触发控制面逻辑。
+4. SSE `final.metadata` 必须包含 `runtime_intent`、`runtime_intent_kind`、`llm_bypassed`、`planner_bypassed` 和 `model_selection`。
+
 事件语义（建议）：
 
 1. `intent`：多候选 skill（top-k）
@@ -301,6 +304,7 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
 2. `node.kind=tooling` 通过 Capability InvocationService 真实执行（tooling 数据来自 capability registry 落库）。
 3. 未命中可执行节点时仅输出 `intent + final(+end)`，不发 `node_start/node_end`。
 4. `plan.tasks[]` 节点建议补充 `source_scope=system|agent`，用于区分系统固有能力与 Agent 自定义能力来源。
+5. `meta` 事件建议输出 `model_policy`，说明 `runtime_intent/intent_classifier/planner/skill_param_extractor/final_response/reviewer` 各节点使用的模型选择。首版可全部继承 Agent 默认模型。
 
 ## 3. Plugin / 第三方接口
 
@@ -318,6 +322,108 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
   "tool_grants": ["ops.incident.read"]
 }
 ```
+
+### 3.3 插件 Skill 发现
+
+`GET /api/v1/plugin/skills`
+
+响应示例：
+
+```json
+{
+  "items": [
+    {
+      "skill_id": "mediax.video_rebuilder.cn",
+      "provider": "com.powerx.plugin.mediax-studio",
+      "version": "1.0.0",
+      "title": "视频智能重构",
+      "description": "根据视频链接和模板要求创建视频自动化重构任务",
+      "intent_examples": ["帮我重构这个 shorts"],
+      "input_schema": {
+        "type": "object",
+        "required": ["urls"],
+        "properties": {
+          "urls": {"type": "array", "items": {"type": "string"}}
+        }
+      },
+      "executor": {
+        "type": "capability",                "capability": "creation.video_automation.ingest"
+      }
+    }
+  ]
+}
+```
+
+### 3.4 插件 Capability Handler
+
+PowerX Capability Invocation
+
+请求：
+
+```json
+{
+  "skill_id": "mediax.video_rebuilder.cn",
+  "version": "1.0.0",
+  "input": {
+    "urls": ["https://example.com/video.mp4"],
+    "template_hint": "篮球模板"
+  },
+  "context": {
+    "tenant_uuid": "tenant_xxx",
+    "user_uuid": "user_xxx",
+    "agent_id": "agent_xxx",
+    "session_id": "session_xxx",
+    "message_id": "message_xxx",
+    "channel": "telegram",
+    "locale": "zh-CN",
+    "trace_id": "trace_xxx"
+  }
+}
+```
+
+响应：
+
+```json
+{
+  "success": true,
+  "skill_id": "mediax.video_rebuilder.cn",
+  "status": "queued",
+  "message": "已创建视频重构任务",
+  "task_id": "video-automation-task-xxx",
+  "data": {
+    "task_url": "/creation/video-automation/tasks/xxx"
+  },
+  "trace_id": "trace_xxx"
+}
+```
+
+强约束：
+
+1. `tenant_uuid/user_uuid/agent_id/session_id/trace_id/skill_id` 缺失时必须失败。
+2. 插件必须校验 `skill_id` 存在且启用，executor capability 与声明一致。
+3. 不提供匿名 fallback，不绕过租户上下文。
+
+### 3.5 插件调用 PowerX Agent Stream（Framework Client 封装）
+
+插件本地 Chat 或插件内调试页面调用 PowerX Agent 主入口：
+
+```text
+POST /api/v1/agents/invoke
+GET  /api/v1/agents/stream/sse
+WS   /api/v1/agents/stream/ws
+```
+
+插件侧不直接拼接 SSE/WS 事件协议，应通过 PowerXPlugin Framework Client 使用。
+
+SSE 事件最小语义：
+
+1. `intent`
+2. `plan`
+3. `node_start`
+4. `node_end`
+5. `token`
+6. `final`
+7. `end`
 
 ## 4. 统一响应模型
 
@@ -341,9 +447,203 @@ data: {"success":true,"trace_id":"trc_xxx","usage":{"total_prompt_tokens":153,"t
 - `skill.permission_denied`
 - `skill.execution_failed`
 - `skill.source_untrusted`
+- `skill.plugin_not_installed`
+- `skill.plugin_executor_unavailable`
+- `skill.plugin_context_missing`
+- `skill.plugin_capability_mismatch`
+- `AGENT_TRACE_ROOT_REQUIRED`
+- `AGENT_TRACE_NOT_FOUND`
+- `AGENT_TRACE_SOURCE_UNAVAILABLE`
 
 ## 6. 鉴权与多租户
 
 1. 所有 Tenant 调用必须从请求上下文解析 `tenant_uuid`。
 2. 管理接口仅 Admin 可调用。
 3. Skill 调用需通过 ToolGrant 或 Policy 检查。
+
+## 7. Agent Run Trace & Report API
+
+Agent Trace API 属于 root-only 调试能力，用于查看 Agent Session/Message/Node 的结构化运行轨迹并下载智能对话报告。
+
+## 7.0 Agent Stream Response Plan Event
+
+Agent Stream 在 `intent/plan/node_start/node_end/token/final/end` 之外必须支持 `response_plan` debug event，用于解释本轮最终回复为什么采用某种回答模式、注入了哪些上下文层。
+
+事件：
+
+```json
+{
+  "event": "response_plan",
+  "data": {
+    "response_plan_id": "rp_xxx",
+    "response_mode": "capability_intro",
+    "response_intents": [
+      "greeting",
+      "agent_identity",
+      "capability_intro",
+      "test_recommendation"
+    ],
+    "answer_requirements": [
+      "简短回应用户问候。",
+      "说明当前 Agent 的身份和服务对象。",
+      "只列出当前 Agent 已绑定能力，不能列出全局平台能力或未绑定能力。",
+      "基于当前已绑定能力推荐一个最适合先测试的能力或动作。"
+    ],
+    "should_call_tool": false,
+    "target_capability_ids": ["powerxplugin.template.basic"],
+    "use_capability_context": true,
+    "include_examples": true,
+    "include_schema": false,
+    "repeat_full_intro": false,
+    "needs_clarification": false,
+    "missing_fields": [],
+    "model_selection": {
+      "node": "response_planner",
+      "provider": "ollama",
+      "model": "qwen3:8b",
+      "source": "agent_default"
+    }
+  }
+}
+```
+
+约束：
+
+1. `target_capability_ids` 只能包含当前 Agent 已绑定、已发布、租户可见且权限通过的能力。
+2. `response_intents` 支持同一条消息多个意图，例如问候、身份询问、能力介绍和测试建议可以同时存在。
+3. `answer_requirements` 是最终回复必须满足的要求；`recent_capability_intro` 只能减少展开，不能删除当前问题。
+4. `response_mode=clarify_params` 时，`missing_fields` 不能为空。
+5. `response_mode=capability_intro|capability_howto` 时，Context Builder 不得读取全局候选池作为用户可见事实。
+6. `response_plan` 是调试事件，不等价于最终用户回复；最终回复仍通过 `final` 或 token stream 输出。
+
+## 7.0.1 Assistant Message Meta Contract
+
+Agent Runtime 持久化 assistant message 时必须写入 meta：
+
+```json
+{
+  "response_mode": "capability_intro",
+  "capability_ids": ["powerxplugin.template.basic"],
+  "response_plan_id": "rp_xxx",
+  "used_context_layers": ["agent_profile", "capabilities", "recent_message_meta"],
+  "tool_calls": [],
+  "final_response_model": "qwen3:8b",
+  "model_selection": {
+    "node": "final_response",
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "source": "agent_default"
+  }
+}
+```
+
+用途：
+
+1. 同一 session 内能力介绍去重。
+2. 支持“第一个能力怎么用？”这类追问关联。
+3. 支持 Agent Trace 页面解释本轮回复的上下文来源。
+4. 支持后续按 `response_mode` 做质量评估和调优。
+
+禁止事项：
+
+1. 不得通过文本匹配判断“是否已介绍过能力”。
+2. 不得把完整 prompt、原始 executor payload 或敏感 context 放入 message meta。
+3. 不得把未授权 capability 写入 `capability_ids`。
+
+### 7.1 Message Trace 详情
+
+```text
+GET /api/v1/admin/agent-traces/messages/{message_id}
+```
+
+Query：
+
+1. `tenant_uuid`
+2. `source=local|loki`
+
+响应：
+
+```json
+{
+  "run": {
+    "trace_id": "trace_xxx",
+    "run_id": "run_xxx",
+    "tenant_uuid": "tenant_xxx",
+    "agent_id": "agent_xxx",
+    "session_id": "session_xxx",
+    "message_id": "message_xxx",
+    "status": "completed",
+    "node_count": 7,
+    "event_count": 16,
+    "duration_ms": 1820
+  },
+  "timeline": [],
+  "nodes": [],
+  "artifacts": []
+}
+```
+
+### 7.2 Message Timeline
+
+```text
+GET /api/v1/admin/agent-traces/messages/{message_id}/timeline
+```
+
+Query：
+
+1. `source=local|loki`
+2. `node_kind`
+3. `status`
+
+事件模型：
+
+```json
+{
+  "trace_id": "trace_xxx",
+  "run_id": "run_xxx",
+  "message_id": "message_xxx",
+  "node_id": "006_skill_invoke",
+  "node_kind": "skill_invoke",
+  "node_ref": "mediax.video_rebuilder.cn",
+  "phase": "end",
+  "status": "success",
+  "duration_ms": 320,
+  "created_at": "2026-06-08T12:00:00Z"
+}
+```
+
+### 7.3 Message Report 下载
+
+```text
+GET /api/v1/admin/agent-traces/messages/{message_id}/report?format=markdown|json&source=local|loki
+```
+
+报告必须包含：
+
+1. Summary
+2. User Message
+3. Runtime Timeline
+4. Intent Recognition
+5. Planner
+6. Skill / Tool Invocation
+7. Final Response
+8. Errors / Warnings
+
+### 7.4 Session Report 下载
+
+```text
+GET /api/v1/admin/agent-traces/sessions/{session_id}/report?format=json|markdown|zip&source=local|loki
+```
+
+首版可先实现 Message 级报告，Session 级报告作为扩展接口保留。
+
+### 7.5 权限错误
+
+非 root 用户访问任何 Agent Trace API 必须返回：
+
+```json
+{
+  "code": "AGENT_TRACE_ROOT_REQUIRED",
+  "message": "Agent trace inspection requires root permission"
+}
+```

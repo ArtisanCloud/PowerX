@@ -234,7 +234,7 @@ func (h *TeamHandler) UpsertTeamMember(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, agentSvc.ErrTeamMemberRole) {
-			dto.ResponseError(c, http.StatusBadRequest, "planner role is reserved for TL", err)
+			dto.ResponseError(c, http.StatusBadRequest, "role is not allowed for child agent", err)
 			return
 		}
 		if errors.Is(err, agentSvc.ErrTeamMemberAgent) {

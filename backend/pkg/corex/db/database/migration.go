@@ -11,6 +11,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelCapabilityRegistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	modelCustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
 	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
@@ -31,6 +32,7 @@ import (
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -46,6 +48,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migration.EnsureIAMPermissionModuleRenameMigration(db); err != nil {
 		return err
 	}
+	if err = migration.EnsureIAMPermissionKeyLengthMigration(db); err != nil {
+		return err
+	}
 	if err = migration.EnsureIAMPermissionAllowAPIKeyMigration(db); err != nil {
 		return err
 	}
@@ -56,6 +61,25 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = migration.EnsureSkillsInstallTaskTenantUUIDMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMTenantDomainBackfillMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMMemberUsernameScopeMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureAPIKeyProfileTenantScopedKeyMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureIAMUserLastTenantUUIDMigration(db); err != nil {
+		return err
+	}
+	if err = migration.EnsurePluginDebugHostPermissionPathMigration(db); err != nil {
+		return err
+	}
+
+	if err = migrateCustomerModels(db); err != nil {
 		return err
 	}
 
@@ -99,8 +123,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.APIKeyProfile{},
 		&modelIAM.APIKeyProfilePermission{},
 		&modelIAM.APIKey{},
+		&modelIAM.RootSupportSession{},
 	)
 	if err != nil {
+		return err
+	}
+	if err = backfillIAMRoleUUID(db); err != nil {
 		return err
 	}
 
@@ -111,12 +139,16 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelSetting.TLSCertRef{},
 		&modelSetting.AuthProviderConfig{},
 		&modelSetting.PluginInstanceConfig{},
+		&modelSetting.PluginDrainJob{},
 	)
 	if err != nil {
 		return err
 	}
+	if err = normalizePluginInstanceStatusAfterMigrate(db); err != nil {
+		return err
+	}
 
-	if err = db.AutoMigrate(&mediaModel.MediaAsset{}); err != nil {
+	if err = db.AutoMigrate(&mediaModel.MediaAsset{}, &mediaModel.MediaAssetVariant{}); err != nil {
 		return err
 	}
 	if err = db.AutoMigrate(&modelNotification.Notification{}); err != nil {
@@ -128,6 +160,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migrateCapabilityRegistryModels(db); err != nil {
+		return err
+	}
+	if err = migration.EnsureCapabilityRecordUUIDMigration(db); err != nil {
 		return err
 	}
 
@@ -211,6 +246,36 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	return nil
 }
 
+func backfillIAMRoleUUID(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(db.Dialector.Name()), "postgres") {
+		return nil
+	}
+	type roleRow struct {
+		ID uint64 `gorm:"column:id"`
+	}
+	var rows []roleRow
+	if err := db.Table((&modelIAM.Role{}).GetTableName(true)).
+		Select("id").
+		Where("uuid IS NULL OR uuid = ?", "00000000-0000-0000-0000-000000000000").
+		Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row.ID == 0 {
+			continue
+		}
+		if err := db.Table((&modelIAM.Role{}).GetTableName(true)).
+			Where("id = ?", row.ID).
+			Update("uuid", uuid.New()).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func ensurePostgresSchemas(db *gorm.DB) error {
 	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
 		return nil
@@ -234,6 +299,29 @@ func quotePostgresIdentifier(name string) string {
 	return `"` + escaped + `"`
 }
 
+func normalizePluginInstanceStatusAfterMigrate(db *gorm.DB) error {
+	table := (&modelSetting.PluginInstanceConfig{}).TableName()
+	if !db.Migrator().HasTable(&modelSetting.PluginInstanceConfig{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&modelSetting.PluginInstanceConfig{}, "status") {
+		return nil
+	}
+	if err := db.Exec(
+		fmt.Sprintf("UPDATE %s SET status = ? WHERE enabled = ? AND (status IS NULL OR status = '' OR status = ?)", table),
+		modelSetting.PluginInstanceStatusDisabled,
+		false,
+		modelSetting.PluginInstanceStatusEnabled,
+	).Error; err != nil {
+		return err
+	}
+	return db.Exec(
+		fmt.Sprintf("UPDATE %s SET status = ? WHERE enabled = ? AND (status IS NULL OR status = '')", table),
+		modelSetting.PluginInstanceStatusEnabled,
+		true,
+	).Error
+}
+
 func migrateCapabilityModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelCapability.CapabilityContract{},
@@ -242,6 +330,17 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityTransportProfile{},
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
+	)
+}
+
+func migrateCustomerModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelCustomer.Account{},
+		&modelCustomer.AuthIdentity{},
+		&modelCustomer.TenantMembership{},
+		&modelCustomer.MiniAppEntry{},
+		&modelCustomer.Session{},
+		&modelCustomer.LoginEvent{},
 	)
 }
 

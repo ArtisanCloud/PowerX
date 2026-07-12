@@ -47,6 +47,7 @@ type InvocationServiceOptions struct {
 	HTTPBaseURL       string
 	GRPCConn          *grpc.ClientConn
 	ModelVerifier     ModelKeyVerifier
+	CoreInvoker       CoreCapabilityInvoker
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
@@ -62,11 +63,30 @@ type InvocationService struct {
 	aiModalHTTPClient *http.Client
 	httpBaseURL       string
 	grpcConn          *grpc.ClientConn
+	coreInvoker       CoreCapabilityInvoker
 }
 
 // ModelKeyVerifier validates tenant-scoped model_key access.
 type ModelKeyVerifier interface {
 	VerifyModelKey(ctx context.Context, tenantUUID, env, modality, modelKey string) error
+}
+
+// CoreCapabilityInvoker handles service_actor Core capabilities without proxying
+// through user-facing admin HTTP routes.
+type CoreCapabilityInvoker interface {
+	InvokeCoreCapability(ctx context.Context, in CoreCapabilityInvokeInput) (map[string]interface{}, error)
+}
+
+// CoreCapabilityInvokeInput describes an internal Core capability invocation.
+type CoreCapabilityInvokeInput struct {
+	CapabilityID string
+	TenantUUID   string
+	Method       string
+	Endpoint     string
+	Query        map[string]string
+	Body         map[string]interface{}
+	Payload      map[string]interface{}
+	Context      map[string]interface{}
 }
 
 // InvocationInput 描述调用��求。
@@ -129,6 +149,7 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		aiModalHTTPClient: aiModalHTTPClient,
 		httpBaseURL:       strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
 		grpcConn:          opts.GRPCConn,
+		coreInvoker:       opts.CoreInvoker,
 	}
 }
 
@@ -271,6 +292,28 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 			return result, err
 		} else if payload != nil {
 			responseMap = payload
+		} else {
+			err := fmt.Errorf("capability adapter %s returned empty response", strings.TrimSpace(routerResult.Transport))
+			result.Status = "failed"
+			result.Result = responseMap
+			if s.audit != nil {
+				s.audit.RecordInvocation(ctx, InvocationAuditInput{
+					TraceID:           traceID,
+					TenantUUID:        tenantUUID,
+					PluginID:          record.PluginID,
+					CapabilityID:      capabilityID,
+					PreferredProtocol: in.PreferredProtocol,
+					ProtocolUsed:      routerResult.Transport,
+					FallbackUsed:      routerResult.FallbackUsed,
+					Status:            result.Status,
+					IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
+					RequestPayload:    in.Payload,
+					ResponsePayload:   responseMap,
+					ErrorSummary:      err.Error(),
+					Latency:           latency,
+				})
+			}
+			return result, err
 		}
 	}
 
@@ -310,12 +353,21 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		transport = strings.ToLower(strings.TrimSpace(in.PreferredProtocol))
 	}
 
+	if s.coreInvoker != nil {
+		if corePayload, ok, err := s.invokeCoreCapability(ctx, in, routerResult); ok || err != nil {
+			return corePayload, err
+		}
+	}
+
 	switch transport {
+	case "core_internal":
+		return nil, fmt.Errorf("core_internal adapter selected for unsupported capability %q", strings.TrimSpace(in.CapabilityID))
 	case "http", "rest":
 		if s.httpClient == nil || s.httpBaseURL == "" {
-			return nil, nil
+			return nil, errors.New("rest adapter selected but HTTP client/base URL is not configured")
 		}
-		restPayload, err := buildRESTInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
+		invokePayload := wrapPluginCapabilityInvokePayload(in, routerResult.Endpoint, routerResult.Labels)
+		restPayload, err := buildRESTInvokePayloadWithDefaults(invokePayload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -323,7 +375,7 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		return s.invokeREST(ctx, in.CapabilityID, restPayload, traceID, useAIMultimodalTimeout)
 	case "grpc":
 		if s.grpcConn == nil {
-			return nil, nil
+			return nil, errors.New("grpc adapter selected but gRPC connection is not configured")
 		}
 		grpcPayload, err := buildGRPCInvokePayloadWithDefaults(in.Payload, routerResult.Endpoint, routerResult.Labels)
 		if err != nil {
@@ -331,8 +383,136 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		}
 		return s.invokeGRPC(ctx, grpcPayload)
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("unsupported capability adapter transport %q", transport)
 	}
+}
+
+func (s *InvocationService) invokeCoreCapability(ctx context.Context, in InvocationInput, routerResult router.InvokeResult) (map[string]interface{}, bool, error) {
+	if s == nil || s.coreInvoker == nil {
+		return nil, false, nil
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(in.Payload["method"])))
+	if method == "" {
+		method = strings.ToUpper(strings.TrimSpace(getLabel(routerResult.Labels, "method")))
+	}
+	endpoint := strings.TrimSpace(getString(in.Payload["endpoint"]))
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(routerResult.Endpoint)
+	}
+	body := map[string]interface{}{}
+	if rawBody, ok := toStringAnyMap(in.Payload["body"]); ok {
+		body = rawBody
+	}
+	query := mapStringString(in.Payload["query"])
+	if method == "" || endpoint == "" {
+		return nil, false, nil
+	}
+	payload, err := s.coreInvoker.InvokeCoreCapability(ctx, CoreCapabilityInvokeInput{
+		CapabilityID: strings.TrimSpace(in.CapabilityID),
+		TenantUUID:   strings.TrimSpace(in.TenantUUID),
+		Method:       method,
+		Endpoint:     endpoint,
+		Query:        query,
+		Body:         body,
+		Payload:      in.Payload,
+		Context:      in.Context,
+	})
+	if err != nil {
+		if errors.Is(err, ErrCoreCapabilityNotHandled) {
+			return nil, false, nil
+		}
+		return nil, true, err
+	}
+	return payload, true, nil
+}
+
+// ErrCoreCapabilityNotHandled lets a Core invoker decline a capability so the
+// selected protocol adapter can handle it.
+var ErrCoreCapabilityNotHandled = errors.New("core capability not handled")
+
+func wrapPluginCapabilityInvokePayload(in InvocationInput, endpoint string, labels map[string]string) map[string]interface{} {
+	raw := in.Payload
+	if len(raw) == 0 || !isPluginCapabilityInvokeEndpoint(endpoint) || hasPluginCapabilityInvokeEnvelope(raw) {
+		return raw
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(raw["method"])))
+	if method == "" {
+		method = strings.ToUpper(strings.TrimSpace(getLabel(labels, "method")))
+	}
+	if method == "" {
+		method = http.MethodPost
+	}
+	action := firstNonEmptyString(
+		getString(raw["action"]),
+		getString(raw["operation"]),
+		getString(raw["intent"]),
+	)
+	preferredProtocol := firstNonEmptyString(
+		getString(raw["preferredProtocol"]),
+		getString(raw["preferred_protocol"]),
+		strings.TrimSpace(in.PreferredProtocol),
+		"agent",
+	)
+	metadata := map[string]interface{}{
+		"capability_id": strings.TrimSpace(in.CapabilityID),
+	}
+	for k, v := range in.Context {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		if _, exists := metadata[key]; exists {
+			continue
+		}
+		metadata[key] = v
+	}
+	return map[string]interface{}{
+		"method":   method,
+		"endpoint": strings.TrimSpace(endpoint),
+		"headers":  mapStringString(raw["headers"]),
+		"query":    mapStringString(raw["query"]),
+		"body": map[string]interface{}{
+			"capabilityId":      strings.TrimSpace(in.CapabilityID),
+			"action":            action,
+			"preferredProtocol": preferredProtocol,
+			"payload":           stripEnvelopeKeys(raw),
+			"metadata":          metadata,
+		},
+	}
+}
+
+func isPluginCapabilityInvokeEndpoint(endpoint string) bool {
+	target := strings.TrimSpace(endpoint)
+	if target == "" {
+		return false
+	}
+	if parsed, err := url.Parse(target); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		target = parsed.Path
+	}
+	target = strings.ToLower(strings.TrimRight(strings.TrimSpace(target), "/"))
+	return strings.HasSuffix(target, "/integration/capabilities/invoke")
+}
+
+func hasPluginCapabilityInvokeEnvelope(raw map[string]interface{}) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	if strings.TrimSpace(getString(raw["capabilityId"])) != "" || strings.TrimSpace(getString(raw["capability_id"])) != "" {
+		return true
+	}
+	if body, ok := toStringAnyMap(raw["body"]); ok {
+		return strings.TrimSpace(getString(body["capabilityId"])) != "" || strings.TrimSpace(getString(body["capability_id"])) != ""
+	}
+	return false
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if s := strings.TrimSpace(value); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 type restInvokePayload struct {
@@ -363,7 +543,7 @@ func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpo
 		method = strings.ToUpper(strings.TrimSpace(getLabel(labels, "method")))
 	}
 	if method == "" {
-		method = http.MethodGet
+		return restInvokePayload{}, errors.New("REST invocation requires method")
 	}
 	endpoint := strings.TrimSpace(getString(raw["endpoint"]))
 	if endpoint == "" {
@@ -372,6 +552,7 @@ func buildRESTInvokePayloadWithDefaults(raw map[string]interface{}, defaultEndpo
 	if endpoint == "" {
 		return restInvokePayload{}, errors.New("payload.endpoint required for REST invocation")
 	}
+	endpoint = applyRESTPathParams(endpoint, raw)
 	headers := mapStringString(raw["headers"])
 	query := mapStringString(raw["query"])
 
@@ -438,7 +619,7 @@ func buildGRPCInvokePayloadWithDefaults(raw map[string]interface{}, endpoint str
 }
 
 func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string, payload restInvokePayload, traceID string, useAIMultimodalTimeout bool) (map[string]interface{}, error) {
-	target := payload.Endpoint
+	target := applyRESTPathParams(payload.Endpoint, bodyMapForPathParams(payload.Body))
 	if !strings.HasPrefix(strings.ToLower(target), "http://") && !strings.HasPrefix(strings.ToLower(target), "https://") {
 		target = strings.TrimRight(s.httpBaseURL, "/") + "/" + strings.TrimLeft(target, "/")
 	}
@@ -481,8 +662,16 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/json")
 	}
+	if req.Header.Get("Authorization") == "" {
+		if authz := firstRESTContextString(ctx, "authorization", "Authorization"); authz != "" {
+			req.Header.Set("Authorization", authz)
+		}
+	}
 	if traceID != "" && req.Header.Get("X-Trace-Id") == "" {
 		req.Header.Set("X-Trace-Id", traceID)
+	}
+	if tenantUUID := strings.TrimSpace(extractCtxString(ctx, "tenant_uuid")); tenantUUID != "" && req.Header.Get("X-Tenant-UUID") == "" {
+		req.Header.Set("X-Tenant-UUID", tenantUUID)
 	}
 
 	httpClient := s.selectRESTHTTPClient(capabilityID, payload.Endpoint, useAIMultimodalTimeout)
@@ -566,6 +755,43 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 		"value":  out,
 		"status": resp.Status,
 	}, nil
+}
+
+func firstRESTContextString(ctx context.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(extractCtxString(ctx, key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func applyRESTPathParams(endpoint string, raw map[string]interface{}) string {
+	result := strings.TrimSpace(endpoint)
+	if result == "" || len(raw) == 0 || !strings.Contains(result, "{") {
+		return result
+	}
+	for key, value := range raw {
+		name := strings.TrimSpace(key)
+		if name == "" {
+			continue
+		}
+		placeholder := "{" + name + "}"
+		if !strings.Contains(result, placeholder) {
+			continue
+		}
+		replacement := url.PathEscape(strings.TrimSpace(fmt.Sprint(value)))
+		result = strings.ReplaceAll(result, placeholder, replacement)
+	}
+	return result
+}
+
+func bodyMapForPathParams(body interface{}) map[string]interface{} {
+	out, ok := toStringAnyMap(body)
+	if !ok {
+		return nil
+	}
+	return out
 }
 
 func (s *InvocationService) selectRESTHTTPClient(capabilityID, endpoint string, useAIMultimodalTimeout bool) *http.Client {

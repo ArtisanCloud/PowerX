@@ -35,6 +35,8 @@ const props = withDefaults(
     isStreaming?: boolean;
     isTyping?: boolean;
     currentAgent?: ViewAgent | null;
+    currentSessionId?: string | number | null;
+    tenantUuid?: string;
 
     canSendMessage?: boolean;
     connectionIndicators?: boolean;
@@ -45,9 +47,30 @@ const props = withDefaults(
     isStreaming: false,
     isTyping: false,
     currentAgent: null,
+    currentSessionId: null,
+    tenantUuid: "",
     canSendMessage: true,
   }
 );
+
+const currentSessionIdText = computed(() =>
+  String(props.currentSessionId ?? "").trim()
+);
+const tenantUuidText = computed(() => String(props.tenantUuid ?? "").trim());
+
+const findPreviousUserMessageId = (messageId: string | number) => {
+  const list = messages.value as any[];
+  const index = list.findIndex((item) => String(item?.id) === String(messageId));
+  if (index <= 0) return "";
+  for (let i = index - 1; i >= 0; i--) {
+    const candidate = list[i];
+    if (candidate?.role !== "user") continue;
+    const id = String(candidate?.id || "").trim();
+    if (!id) continue;
+    if (/^\d+$/.test(id)) return id;
+  }
+  return "";
+};
 
 const emit = defineEmits<{
   (e: "send-message", content: string): void;
@@ -517,6 +540,9 @@ function onSendClick() {
               (message as any).isStreaming
             "
             :agent-name="currentAgent?.name"
+            :fallback-trace-tenant-uuid="tenantUuidText"
+            :fallback-trace-session-id="currentSessionIdText"
+            :fallback-trace-message-id="findPreviousUserMessageId(message.id)"
             @retry="$emit('retry-message')"
             @regenerate="(id) => $emit('regenerate-from', id)"
             @copy="() => {}"

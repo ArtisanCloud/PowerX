@@ -1,12 +1,12 @@
 <!-- SidebarMenu.vue（修正版，不依赖 Tooltip，v-if 链相邻无歧义） -->
 <script setup lang="ts">
 import {
+  invalidateUserMenusCache,
   useMenuService,
   type MenuItem,
   type MenuCategory,
   type UserMenusResult,
 } from "~/composables/api/services/menuService";
-import { useSettingsService } from "~/composables/api/services/settingsService";
 import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
@@ -15,11 +15,26 @@ import { LOGO_M_URL } from "~/utils/assets";
 /* ---------- stores / utils ---------- */
 const route = useRoute();
 const menuService = useMenuService();
-const settingsService = useSettingsService();
+const setupStatus = useSetupStatus();
 const userStore = useUserStore();
 const { t, te, locale } = useI18n({ useScope: "global" });
 const localePath = useLocalePath() as (p: string) => string;
 const appVersion = useState<string>("app-runtime-version", () => "");
+const userContactLabel = computed(() => {
+  const user = userStore.user;
+  return user?.email || user?.phone || "";
+});
+const menuIdentityKey = computed(() => {
+  const userID = userStore.user?.id ?? "anonymous";
+  const tenantUUID = userStore.currentTenantUuid || "no-tenant";
+  const memberID = userStore.currentMemberId ?? "no-member";
+  const rootFlag = userStore.isRoot ? "root" : "tenant";
+  return `user-menus:${rootFlag}:${tenantUUID}:${memberID}:${userID}`;
+});
+const currentMenuDataKey = useState<string>(
+  "px-current-menu-data-key",
+  () => menuIdentityKey.value
+);
 
 /* ========== 折叠与密度 ========== */
 const collapsed = useState<boolean>("sidebar-collapsed", () => false);
@@ -45,16 +60,39 @@ const normalizeForCompare = (input?: string): string => {
 };
 const toSegments = (path: string): string[] =>
   path && path !== "/" ? path.split("/").filter(Boolean) : [];
-const normalizeMenuPath = (path?: string): string => {
-  if (!path) return "";
-  const raw = isPluginPath(path) ? path : localePath(path);
+const normalizeMenuPath = (path?: string, item?: MenuItem): string => {
+  const resolved = item ? routePathForItem(item) : String(path || "");
+  if (!resolved) return "";
+  const raw = isPluginPath(resolved) ? resolved : localePath(resolved);
   return normalizeForCompare(raw);
 };
 const normalizedRoutePath = computed(() => normalizeForCompare(route.path));
 const routeSegments = computed(() => toSegments(normalizedRoutePath.value));
-const linkFor = (p?: string) => {
-  if (!p) return "";
-  return isPluginPath(p) ? p : localePath(p);
+const resolvePluginID = (item?: MenuItem): string => {
+  const explicit = String((item as any)?.pluginId || "").trim();
+  if (explicit) return explicit;
+  const id = String(item?.id || "").trim();
+  const colonMatch = id.match(/^plugin:([^:]+):/);
+  if (colonMatch?.[1]) return colonMatch[1];
+  const dottedMatch = id.match(/^plugins\.((?:[^.]+\.){3}[^.]+)/);
+  if (dottedMatch?.[1]) return dottedMatch[1];
+  return "";
+};
+const routePathForItem = (item?: MenuItem): string => {
+  const rawPath = String(item?.path || "").trim();
+  if (!rawPath) return "";
+  if (String(item?.origin || "") !== "plugin" || isPluginPath(rawPath)) {
+    return rawPath;
+  }
+  const pluginID = resolvePluginID(item);
+  if (!pluginID) return rawPath;
+  const normalizedPath = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+  return `/_p/${pluginID}/admin${normalizedPath}`;
+};
+const linkFor = (p?: string, item?: MenuItem) => {
+  const resolved = item ? routePathForItem(item) : String(p || "");
+  if (!resolved) return "";
+  return isPluginPath(resolved) ? resolved : localePath(resolved);
 };
 
 const translateMenuTitle = (item: MenuItem) => {
@@ -112,7 +150,7 @@ const resolveIcon = (name?: string) => {
 };
 
 const withMenuIconFallback = (item: MenuItem): string => {
-  const normalized = normalizeMenuPath(item.path);
+  const normalized = normalizeMenuPath(item.path, item);
   if (normalized === normalizeMenuPath("/settings/event-fabric")) {
     return "i-heroicons-queue-list";
   }
@@ -139,7 +177,7 @@ const {
   pending: menuLoading,
   error: menuError,
   refresh: refreshMenus,
-} = await useAsyncData("user-menus", () => menuService.getUserMenus(), {
+} = await useAsyncData(menuIdentityKey, () => menuService.getUserMenus(), {
   default: () => ({ data: [] as MenuItem[], categories: [] as MenuCategory[] }),
   transform: (response: any) => {
     if (response && Array.isArray(response.categories)) {
@@ -159,11 +197,16 @@ const {
   watch: [locale],
 });
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+currentMenuDataKey.value = menuIdentityKey.value;
+
+const reloadMenus = async () => {
+  invalidateUserMenusCache();
+  await refreshMenus();
+};
 
 const loadRuntimeVersion = async () => {
   try {
-    const resp: any = await settingsService.getSetupStatus();
-    const payload = resp?.data ?? resp;
+    const payload: any = await setupStatus.load({ ttlMs: 5000 });
     const version = String(payload?.version || "").trim();
     if (version) {
       appVersion.value = version;
@@ -277,8 +320,6 @@ const viewGroups = computed<MenuGroup[]>(() => {
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
 const EVENT_MANAGE_PATH = "/settings/event-fabric";
 const SETTINGS_ROOT_PATH = "/settings";
-const AGENT_ROOT_PATH = "/agent";
-
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
   const normalizedTarget = normalizeMenuPath(SETTINGS_ROOT_PATH);
   const normalizedExtra = normalizeMenuPath(item.path);
@@ -322,42 +363,6 @@ const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
   return false;
 };
 
-const attachToAgentMenu = (groups: MenuGroup[], children: MenuItem[]): boolean => {
-  const normalizedTarget = normalizeMenuPath(AGENT_ROOT_PATH);
-  if (!normalizedTarget || children.length === 0) return false;
-
-  const queue: MenuItem[] = [];
-  for (const group of groups) {
-    queue.push(...group.items);
-  }
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) continue;
-    const normalized = normalizeMenuPath(current.path);
-    const isAgentRoot =
-      normalized === normalizedTarget ||
-      (typeof current.id === "string" &&
-        current.id.trim().toLowerCase() === "agent");
-    if (isAgentRoot) {
-      const existing = current.children ? [...current.children] : [];
-      const merged = [...existing];
-      for (const child of children) {
-        const normalizedChild = normalizeMenuPath(child.path);
-        if (!normalizedChild) continue;
-        const exists = merged.some(
-          (it) => normalizeMenuPath(it.path) === normalizedChild
-        );
-        if (!exists) merged.push(child);
-      }
-      current.children = merged.sort(sortChildren);
-      return true;
-    }
-    if (current.children?.length) queue.push(...current.children);
-  }
-  return false;
-};
-
 const manualOpenCapabilityMenu = computed<MenuItem | null>(() => {
   if (!userStore.isRoot) return null;
   const label = t("menu.openCapabilities", "开放能力");
@@ -384,45 +389,6 @@ const manualEventManageMenu = computed<MenuItem | null>(() => {
     origin: "system",
   };
 });
-
-const manualAgentSubMenus = computed<MenuItem[]>(() => [
-  {
-    id: "agent-sub-management",
-    title: "智能体管理",
-    icon: "i-heroicons-rectangle-group",
-    path: "/settings/ai/agents",
-    order: 11,
-    visible: true,
-    origin: "system",
-  },
-  {
-    id: "agent-sub-team-management",
-    title: "团队管理",
-    icon: "i-heroicons-user-group",
-    path: "/settings/ai/agent-teams",
-    order: 12,
-    visible: true,
-    origin: "system",
-  },
-  {
-    id: "agent-sub-smart-session",
-    title: "智能会话",
-    icon: "i-heroicons-chat-bubble-left-right",
-    path: "/agent/sessions",
-    order: 13,
-    visible: true,
-    origin: "system",
-  },
-  {
-    id: "agent-sub-team-task",
-    title: "团队任务",
-    icon: "i-heroicons-queue-list",
-    path: "/agent/team-tasks",
-    order: 14,
-    visible: true,
-    origin: "system",
-  },
-]);
 
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
@@ -459,8 +425,6 @@ const renderedGroups = computed<MenuGroup[]>(() => {
     }
   }
 
-  attachToAgentMenu(base, manualAgentSubMenus.value);
-
   return base;
 });
 
@@ -472,7 +436,7 @@ const menuPathEntries = computed<MenuPathEntry[]>(() => {
     for (const item of items) {
       if (!item) continue;
       if (item.path) {
-        const normalized = normalizeMenuPath(item.path);
+        const normalized = normalizeMenuPath(item.path, item);
         if (normalized) {
           entries.push({ normalized, segments: toSegments(normalized) });
         }
@@ -594,7 +558,17 @@ watch(
 watch(
   () => menuRefreshToken.value,
   () => {
-    refreshMenus();
+    reloadMenus();
+  }
+);
+
+watch(
+  () => menuIdentityKey.value,
+  async (next, prev) => {
+    if (next === prev) return;
+    currentMenuDataKey.value = next;
+    clearNuxtData(prev);
+    await reloadMenus();
   }
 );
 
@@ -691,7 +665,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             {{ $t("menu.loadFailedDesc") }}
           </p>
           <UButton
-            @click="() => refreshMenus()"
+            @click="reloadMenus"
             size="xs"
             color="error"
             variant="soft"
@@ -830,7 +804,7 @@ function onTreeKeydown(e: KeyboardEvent) {
             {{ userStore.displayName || $t("user.admin") }}
           </p>
           <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {{ userStore.user?.email || "admin@powerx.com" }}
+            {{ userContactLabel || "-" }}
           </p>
         </div>
 

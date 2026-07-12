@@ -183,10 +183,12 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	installStatus := "installed"
 	guardMode := "strict"
 	version := ""
+	saasSignupEnabled := false
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		installStatus = cfg.Install.EffectiveStatus()
 		guardMode = cfg.Install.EffectiveLockMode()
 		version = cfg.EffectiveSystemVersion()
+		saasSignupEnabled = cfg.FeatureGate.EnableSaaSSignup
 	}
 
 	userCount, tenantCount, aiProfileCount := int64(0), int64(0), int64(0)
@@ -235,12 +237,13 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, gin.H{
-		"configured":      configured,
-		"requires_login":  requiresLogin,
-		"completed_by_kv": completedBySetting,
-		"install_status":  installStatus,
-		"guard_mode":      guardMode,
-		"version":         version,
+		"configured":          configured,
+		"requires_login":      requiresLogin,
+		"completed_by_kv":     completedBySetting,
+		"install_status":      installStatus,
+		"guard_mode":          guardMode,
+		"version":             version,
+		"saas_signup_enabled": saasSignupEnabled,
 		"desired_ports": gin.H{
 			"backend_port":   desiredPorts.BackendPort,
 			"web_admin_port": desiredPorts.WebAdminPort,
@@ -1038,6 +1041,7 @@ func (h *SetupHandler) readSetupCompletedFlag(ctx context.Context) bool {
 	if h == nil || h.s == nil {
 		return false
 	}
+	// SaaS IAM 迁移必须保留 setup 完成记录；巡检只读取这些 key，不重建或删除历史安装状态。
 	if v := h.readBoolSystemSetting(ctx, setupCompletedKey); v {
 		return true
 	}
@@ -1180,6 +1184,10 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 	}
 	root["database"] = db
 
+	if err := applyStorageConfig(root, payload.Storage); err != nil {
+		return err
+	}
+
 	install := asMap(root["install"])
 	install["status"] = installStatus
 	if _, ok := install["lock_mode"]; !ok {
@@ -1195,6 +1203,59 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func applyStorageConfig(root map[string]any, in setupStorageConfig) error {
+	if root == nil {
+		return nil
+	}
+	storageType := strings.ToLower(strings.TrimSpace(in.Type))
+	if storageType == "" {
+		storageType = "local"
+	}
+	storage := asMap(root["storage"])
+	local := asMap(storage["local"])
+	s3 := asMap(storage["s3"])
+	switch storageType {
+	case "local":
+		storage["default_driver"] = "local"
+		if path := strings.TrimSpace(in.LocalPath); path != "" {
+			local["base_path"] = path
+		}
+		secret := ""
+		if raw, ok := local["upload_token_secret"]; ok && raw != nil {
+			secret = strings.TrimSpace(fmt.Sprint(raw))
+		}
+		if secret == "" {
+			local["upload_token_secret"] = utils.RandomString(64)
+		}
+		storage["local"] = local
+	case "s3", "minio", "oss", "cos":
+		storage["default_driver"] = "s3"
+		if v := strings.TrimSpace(in.Endpoint); v != "" {
+			s3["endpoint"] = v
+		}
+		if v := strings.TrimSpace(in.Region); v != "" {
+			s3["region"] = v
+		}
+		if v := strings.TrimSpace(in.AccessKey); v != "" {
+			s3["access_key"] = v
+		}
+		if v := strings.TrimSpace(in.SecretKey); v != "" {
+			s3["secret_key"] = v
+		}
+		if v := strings.TrimSpace(in.Bucket); v != "" {
+			s3["bucket"] = v
+		}
+		if v := strings.TrimSpace(in.PublicURL); v != "" {
+			s3["external_domain"] = v
+		}
+		storage["s3"] = s3
+	default:
+		return fmt.Errorf("storage.type 不合法")
+	}
+	root["storage"] = storage
+	return nil
 }
 
 func runSetupProvisionSteps(runtimePath string) error {

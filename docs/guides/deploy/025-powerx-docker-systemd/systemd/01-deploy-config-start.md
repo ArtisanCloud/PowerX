@@ -194,6 +194,13 @@ POWERX_GATEWAY_WS_BASE_URL=wss://agent.example.com
 - 结构升级（有 migration）：发布后执行 `POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate`，不自动 seed。
 - 初始化或补数（需要 seed）：显式执行 `POWERX_CONFIG=/etc/powerx/config.yaml ./database seed`，避免与常规发布绑定。
 
+运行时持久目录：
+- release 包只放不可变程序产物，位于 `/opt/powerx/releases/<version>`。
+- media 本地存储必须在 release 外部，默认 `/opt/powerx/storage/media`。
+- 插件安装产物必须在 release 外部，默认 `/opt/powerx/plugins/installed` 与 `/opt/powerx/plugins/registry.json`。
+- `switch-release-systemd.sh` 会把 `/etc/powerx/config.yaml` 中的 `storage.local.base_path` 归一为 `${POWERX_STORAGE_ROOT:-/opt/powerx/storage}/media`，并尝试从旧的 `backend/storage/media` 迁移一次已有文件。
+- 不要把 `storage.local.base_path` 配成 `./storage/media` 或 release 目录下路径；清理旧 release 时会删除该目录下的业务文件。
+
 ## 10.1 前后端日志查看（systemd）
 
 后端（backend）实时日志：

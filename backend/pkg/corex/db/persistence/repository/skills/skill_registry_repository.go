@@ -172,11 +172,85 @@ func (r *SkillRegistryRepository) UpsertDraft(ctx context.Context, rec *models.S
 	}
 	rec.Normalize()
 	rec.Status = models.SkillStatusDraft
-	saved, err := r.BaseRepository.Upsert(ctx, rec, []clause.Column{{Name: "skill_id"}, {Name: "version"}})
+	now := time.Now()
+	err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "skill_id"}, {Name: "version"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"source":        rec.Source,
+				"bundle_uri":    rec.BundleURI,
+				"checksum":      rec.Checksum,
+				"signature":     rec.Signature,
+				"manifest_json": rec.ManifestJSON,
+				"source_url":    rec.SourceURL,
+				"source_ref":    rec.SourceRef,
+				"import_type":   rec.ImportType,
+				"updated_by":    rec.UpdatedBy,
+				"updated_at":    now,
+				"status": gorm.Expr(
+					"CASE WHEN skills_registry_records.status = ? THEN skills_registry_records.status ELSE ? END",
+					models.SkillStatusPublished,
+					models.SkillStatusDraft,
+				),
+			}),
+		}).
+		Create(rec).Error
 	if err != nil {
 		return nil, err
 	}
-	return saved, nil
+	return r.GetBySkillVersion(ctx, rec.SkillID, rec.Version)
+}
+
+func (r *SkillRegistryRepository) UpsertPublished(ctx context.Context, rec *models.SkillRegistryRecord, updatedBy, approvalNote string) (*models.SkillRegistryRecord, error) {
+	if rec == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	rec.Normalize()
+	if rec.SkillID == "" || rec.Version == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	now := time.Now()
+	rec.Status = models.SkillStatusPublished
+	rec.IsLatestPublished = true
+	rec.PublishedAt = &now
+	rec.LatestSwitchedAt = &now
+	rec.UpdatedBy = updatedBy
+	rec.ApprovalNote = approvalNote
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.SkillRegistryRecord{}).
+			Where("skill_id = ?", rec.SkillID).
+			Updates(map[string]interface{}{
+				"is_latest_published": false,
+				"latest_switched_at":  now,
+				"updated_by":          updatedBy,
+			}).Error; err != nil {
+			return err
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "skill_id"}, {Name: "version"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"source":              rec.Source,
+				"status":              models.SkillStatusPublished,
+				"is_latest_published": true,
+				"bundle_uri":          rec.BundleURI,
+				"checksum":            rec.Checksum,
+				"signature":           rec.Signature,
+				"manifest_json":       rec.ManifestJSON,
+				"source_url":          rec.SourceURL,
+				"source_ref":          rec.SourceRef,
+				"import_type":         rec.ImportType,
+				"updated_by":          updatedBy,
+				"published_at":        now,
+				"latest_switched_at":  now,
+				"approval_note":       approvalNote,
+				"updated_at":          now,
+			}),
+		}).Create(rec).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.GetBySkillVersion(ctx, rec.SkillID, rec.Version)
 }
 
 // SkillCapabilityBindingRepository handles capability bindings for skill versions.

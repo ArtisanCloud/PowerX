@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capability Governance"
+  short_description: "审计 PowerX 底座能力候选并判断是否可发布到能力注册目录。"
+  default_prompt: "使用 PowerX Capability Governance 规则，重新审计底座能力候选、正式能力目录、ignore 清单和缺失能力，并给出可发布/不可发布/需实现/需修生成器的结论。"

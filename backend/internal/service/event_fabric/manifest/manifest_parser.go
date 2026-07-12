@@ -15,15 +15,16 @@ import (
 )
 
 var (
-	topicNamespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_]*)(\.[a-z][a-z0-9_]*)*$`)
+	topicNamespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_-]*)(\.[a-z][a-z0-9_-]*)*$`)
 	topicNamePattern      = regexp.MustCompile(`^[a-z][a-z0-9-_]*$`)
+	topicTemplateToken    = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}`)
 )
 
 // Manifest describes the declarative topic + ACL requirements for a plugin.
 type Manifest struct {
 	Version  ManifestVersion `yaml:"version" json:"version"`
-	Defaults TopicDefault `yaml:"defaults" json:"defaults"`
-	Topics   []TopicSpec  `yaml:"topics" json:"topics"`
+	Defaults TopicDefault    `yaml:"defaults" json:"defaults"`
+	Topics   []TopicSpec     `yaml:"topics" json:"topics"`
 }
 
 type ManifestVersion int
@@ -220,11 +221,11 @@ func (m *Manifest) Render(ctx SeedContext) (*SeedPlan, error) {
 				nameRaw = legacyName
 			}
 		}
-		namespace, err := renderToken(namespaceRaw, data)
+		namespace, err := renderTopicToken(namespaceRaw, data)
 		if err != nil {
 			return nil, fmt.Errorf("topic[%d] namespace: %w", idx, err)
 		}
-		name, err := renderToken(nameRaw, data)
+		name, err := renderTopicToken(nameRaw, data)
 		if err != nil {
 			return nil, fmt.Errorf("topic[%d] name: %w", idx, err)
 		}
@@ -328,10 +329,18 @@ func parseLegacyTopicSpec(topic string) (string, string, error) {
 func validateTopicSegments(namespace, name string) error {
 	namespace = strings.ToLower(strings.TrimSpace(namespace))
 	name = strings.ToLower(strings.TrimSpace(name))
-	if !topicNamespacePattern.MatchString(namespace) {
+	namespaceForValidation, err := normalizeTopicTemplateForValidation(namespace)
+	if err != nil {
+		return err
+	}
+	nameForValidation, err := normalizeTopicTemplateForValidation(name)
+	if err != nil {
+		return err
+	}
+	if !topicNamespacePattern.MatchString(namespaceForValidation) {
 		return fmt.Errorf("namespace must match %s", topicNamespacePattern.String())
 	}
-	if !topicNamePattern.MatchString(name) {
+	if !topicNamePattern.MatchString(nameForValidation) {
 		return fmt.Errorf("name must match %s", topicNamePattern.String())
 	}
 	return nil
@@ -371,6 +380,85 @@ func renderToken(raw string, data map[string]string) (string, error) {
 		out.WriteString(value)
 	}
 	return out.String(), nil
+}
+
+func renderTopicToken(raw string, data map[string]string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !strings.Contains(raw, "{{") {
+		return raw, nil
+	}
+	var out strings.Builder
+	for {
+		start := strings.Index(raw, "{{")
+		if start == -1 {
+			out.WriteString(raw)
+			break
+		}
+		out.WriteString(raw[:start])
+		raw = raw[start+2:]
+		end := strings.Index(raw, "}}")
+		if end == -1 {
+			return "", fmt.Errorf("unclosed template token")
+		}
+		token := strings.TrimSpace(raw[:end])
+		raw = raw[end+2:]
+		value, ok := data[strings.ToLower(token)]
+		if !ok {
+			value, ok = data[token]
+		}
+		if ok {
+			out.WriteString(value)
+			continue
+		}
+		if isRuntimeTopicToken(token) {
+			out.WriteString("{{")
+			out.WriteString(token)
+			out.WriteString("}}")
+			continue
+		}
+		return "", fmt.Errorf("variable %s not defined", token)
+	}
+	return out.String(), nil
+}
+
+func normalizeTopicTemplateForValidation(value string) (string, error) {
+	var tokenErr error
+	normalized := topicTemplateToken.ReplaceAllStringFunc(value, func(match string) string {
+		parts := topicTemplateToken.FindStringSubmatch(match)
+		if len(parts) != 2 || !isTopicTemplateTokenAllowedInManifest(parts[1]) {
+			tokenErr = fmt.Errorf("unsupported topic template token %s", strings.Trim(match, "{} "))
+			return match
+		}
+		return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(parts[1])), ".", "_")
+	})
+	if tokenErr != nil {
+		return "", tokenErr
+	}
+	if strings.Contains(normalized, "{{") || strings.Contains(normalized, "}}") {
+		return "", fmt.Errorf("invalid topic template token")
+	}
+	return normalized, nil
+}
+
+func isRuntimeTopicToken(token string) bool {
+	switch strings.ToLower(strings.TrimSpace(token)) {
+	case "member_uuid", "member.uuid", "thread_id", "thread.id":
+		return true
+	default:
+		return false
+	}
+}
+
+func isTopicTemplateTokenAllowedInManifest(token string) bool {
+	if isRuntimeTopicToken(token) {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(token)) {
+	case "tenant_uuid", "tenant.uuid":
+		return true
+	default:
+		return false
+	}
 }
 
 func coalesceString(values ...string) string {

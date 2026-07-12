@@ -7,12 +7,17 @@ export interface Agent {
   DeletedAt: string | null;
   key: string;
   name: string;
+  title_i18n?: Record<string, string>;
   description: string;
+  description_i18n?: Record<string, string>;
   typeId?: string;
   scene?: string;
   promptSeed?: string;
   persona?: string;
   source: string;
+  ownerPluginId?: string;
+  ownerTenantUuid?: string;
+  managedByPlugin?: boolean;
   scope: string;
   visibility: string;
   status: string;
@@ -77,4 +82,69 @@ export interface CreateAgentRequest {
 export interface UpdateAgentRequest extends Partial<CreateAgentRequest> {
   id?: number;
   uuid?: string;
+}
+
+export interface AgentGrantableCapability {
+  capability_uuid: string;
+  capability_id: string;
+  plugin_id: string;
+  plugin_uuid?: string;
+  module?: string;
+  display_name: string;
+  title_i18n?: Record<string, string>;
+  description?: string;
+  description_i18n?: Record<string, string>;
+  permission_code: string;
+  risk_level: string;
+  agent_usable: boolean;
+  tenant_enabled: boolean;
+  status: string;
+}
+
+export interface AgentGrant {
+  uuid: string;
+  agent_uuid: string;
+  capability_uuid: string;
+  plugin_uuid?: string;
+  capability_id: string;
+  plugin_id?: string;
+  permission_code: string;
+  risk_level: string;
+  status: "enabled" | "disabled";
+  source: string;
+}
+
+export type AgentAccessSubjectType = "member" | "role";
+
+export interface AgentAccessGrant {
+  uuid: string;
+  agent_uuid: string;
+  subject_type: AgentAccessSubjectType;
+  subject_uuid: string;
+  status: "enabled" | "disabled";
+  source: string;
+}
+
+export interface AgentEffectivePermissionItem {
+  capability_uuid: string;
+  capability_id: string;
+  plugin_id: string;
+  display_name: string;
+  permission_code: string;
+  risk_level: string;
+  user_allowed: boolean;
+  agent_allowed: boolean;
+  tenant_enabled: boolean;
+  policy_allowed: boolean;
+  effective_allowed: boolean;
+  deny_reason?: string;
+}
+
+export interface AgentEffectivePermissions {
+  tenant_uuid: string;
+  user_uuid: string;
+  member_uuid: string;
+  agent_uuid: string;
+  agent_access_allowed: boolean;
+  items: AgentEffectivePermissionItem[];
 }

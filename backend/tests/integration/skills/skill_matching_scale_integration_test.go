@@ -16,29 +16,29 @@ import (
 func TestSkillUnifiedInvokeHardFilterByToolGrants(t *testing.T) {
 	db := setupSkillsDB(t)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.filter.allowed",
+		SkillID:           "skill.filter.allowed.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourcePlugin,
 		Status:            skillmodel.SkillStatusPublished,
 		IsLatestPublished: true,
-		BundleURI:         "s3://skills/skill.filter.allowed-1.0.0.tgz",
+		BundleURI:         "s3://skills/skill.filter.allowed.incident-triage-1.0.0.tgz",
 		Checksum:          "sha256:allowed",
 		ImportType:        "upload",
 		UpdatedBy:         "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
-		SkillID:           "skill.filter.denied",
+		SkillID:           "skill.filter.denied.incident-triage",
 		Version:           "1.0.0",
 		Source:            skillmodel.SkillSourcePlugin,
 		Status:            skillmodel.SkillStatusPublished,
 		IsLatestPublished: true,
-		BundleURI:         "s3://skills/skill.filter.denied-1.0.0.tgz",
+		BundleURI:         "s3://skills/skill.filter.denied.incident-triage-1.0.0.tgz",
 		Checksum:          "sha256:denied",
 		ImportType:        "upload",
 		UpdatedBy:         "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillCapabilityBinding{
-		SkillID:         "skill.filter.allowed",
+		SkillID:         "skill.filter.allowed.incident-triage",
 		Version:         "1.0.0",
 		CapabilityID:    "cap.skill.filter",
 		ToolGrants:      datatypes.JSON([]byte(`["orders.read"]`)),
@@ -48,7 +48,7 @@ func TestSkillUnifiedInvokeHardFilterByToolGrants(t *testing.T) {
 		UpdatedBy:       "seed",
 	}).Error)
 	require.NoError(t, db.Create(&skillmodel.SkillCapabilityBinding{
-		SkillID:         "skill.filter.denied",
+		SkillID:         "skill.filter.denied.incident-triage",
 		Version:         "1.0.0",
 		CapabilityID:    "cap.skill.filter",
 		ToolGrants:      datatypes.JSON([]byte(`["inventory.write"]`)),
@@ -70,11 +70,11 @@ func TestSkillUnifiedInvokeHardFilterByToolGrants(t *testing.T) {
 		PreferredProtocol: "skill",
 		ToolGrantIDs:      []string{"orders.read"},
 		Payload: map[string]interface{}{
-			"input": "allowed skill please",
+			"query": "allowed incident triage please",
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "skill.filter.allowed", result.SkillID)
+	require.Equal(t, "skill.filter.allowed.incident-triage", result.SkillID)
 }
 
 func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
@@ -83,7 +83,7 @@ func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
 
 	const candidateCount = 10000
 	for i := 0; i < candidateCount; i++ {
-		skillID := fmt.Sprintf("skill.scale.%05d", i)
+		skillID := fmt.Sprintf("skill.scale.%05d.incident-triage", i)
 		rec := &skillmodel.SkillRegistryRecord{
 			SkillID:           skillID,
 			Version:           "1.0.0",
@@ -124,7 +124,7 @@ func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
 		PreferredProtocol: "skill",
 		ToolGrantIDs:      []string{"scale.read"},
 		Payload: map[string]interface{}{
-			"query": "skill scale",
+			"query": "skill scale incident triage",
 		},
 	})
 	cost := time.Since(start)

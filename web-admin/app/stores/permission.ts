@@ -21,6 +21,10 @@ export interface Permission {
     type?: "menu" | "action" | "api" | "data" | string;
     api_endpoint?: string;
     http_method?: string;
+    plugin_id?: string;
+    plugin_name?: string;
+    menu_id?: string;
+    origin?: string;
   };
 }
 
@@ -31,6 +35,10 @@ export type PermissionMeta = {
   type?: "menu" | "action" | "data" | "api";
   api_endpoint?: string;
   http_method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+  plugin_id?: string;
+  plugin_name?: string;
+  menu_id?: string;
+  origin?: string;
 };
 
 export type PermissionDTO = {
@@ -126,17 +134,27 @@ export const usePermissionStore = defineStore("permission", () => {
     const items: any[] = (listData.value?.items ?? []) as any[];
     return items.map((p: PermissionDTO) => {
       const m = p.meta || {};
-      const code = `${p.resource || ""}.${p.action || ""}`.replace(/^\./, "");
+      const moduleName = m.module || p.plugin || (p as any).module || "";
+      const resource = p.resource || "";
+      const action = p.action || "";
+      const code =
+        moduleName && resource && action
+          ? `${moduleName}:${resource}:${action}`
+          : `${resource}.${action}`.replace(/^\./, "");
       return {
         id: p.id,
         // 展示名称优先 label
         name: m.label || code,
         code,
-        module: m.module || p.plugin || "",
+        module: moduleName,
+        plugin: p.plugin || (p as any).module || moduleName,
+        resource,
+        action,
         description: p.description || "",
-        type: (m.type as any) || "action",
+        type: (m.type as any) || (moduleName === "menu" ? "menu" : "action"),
         apiEndpoint: m.api_endpoint,
         httpMethod: m.http_method,
+        meta: m,
         __raw: p,
       };
     });
@@ -201,41 +219,61 @@ export const usePermissionStore = defineStore("permission", () => {
     error.value = null;
     try {
       const pageSize = 200; // 分批取，避免一次超大
+      const all: Permission[] = [];
+
+      const menuRes = await get<any>(`${baseUrl}/permissions`, {
+        params: {
+          page: 1,
+          size: pageSize,
+          module: "menu",
+          status: "active",
+          sort: "resource asc, action asc",
+        },
+      });
+      const menuPayload = menuRes?.data || menuRes;
+      all.push(...(menuPayload?.items ?? []));
+
       let page = 1;
       let pages = 1;
-      const all: Permission[] = [];
 
       while (page <= pages) {
         const res = await get<any>(`${baseUrl}/permissions`, {
           params: {
             page,
-            page_size: pageSize,
+            size: pageSize,
             status: "active",
-            sort: "plugin asc, resource asc, action asc",
+            sort: "module asc, resource asc, action asc",
           },
         });
         const payload = res?.data || res;
         const items: Permission[] = payload?.items ?? [];
         const pgn = payload?.pagination ?? {};
         pages = Number(pgn?.pages || 1);
-        all.push(...items);
+        all.push(...items.filter((p: any) => p.module !== "menu"));
         // console.info(
         //   `fetchAllActive: page=${page}, pages=${pages}, total=${pgn.total}, items=${items.length}`
         // );
         page++;
       }
 
+      const seen = new Set<number>();
+      const deduped = all.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+
       // 全量塞进 listData，页面直接用 normalizedList 渲染
       listData.value = {
-        items: all,
+        items: deduped,
         pagination: {
-          total: all.length,
+          total: deduped.length,
           page: 1,
-          page_size: all.length,
+          page_size: deduped.length,
           pages: 1,
         },
       };
-      return all;
+      return deduped;
     } catch (err: any) {
       error.value = err?.message || "获取权限失败";
       throw err;
@@ -306,7 +344,7 @@ export const usePermissionStore = defineStore("permission", () => {
         tenantUuid?.trim() || getStoredTenantUUID() || undefined;
       const url = resolvedTenant
         ? `${baseUrl}/tenant-permissions?tenant_uuid=${encodeURIComponent(
-            resolvedTenant
+            resolvedTenant,
           )}`
         : `${baseUrl}/tenant-permissions`;
 
@@ -325,14 +363,13 @@ export const usePermissionStore = defineStore("permission", () => {
   const updateTenantPermission = async (
     tenantUuid: string,
     permissionId: number,
-    enabled: boolean
+    enabled: boolean,
   ) => {
     isLoading.value = true;
     error.value = null;
 
     try {
-      const resolvedTenant =
-        tenantUuid?.trim() || getStoredTenantUUID() || "";
+      const resolvedTenant = tenantUuid?.trim() || getStoredTenantUUID() || "";
       if (!resolvedTenant) {
         throw new Error("请先选择租户上下文");
       }
@@ -348,7 +385,8 @@ export const usePermissionStore = defineStore("permission", () => {
       // 更新本地状态
       const index = tenantPermissions.value.findIndex(
         (tp) =>
-          tp.tenant_uuid === resolvedTenant && tp.permission_id === permissionId
+          tp.tenant_uuid === resolvedTenant &&
+          tp.permission_id === permissionId,
       );
 
       if (index >= 0) {
@@ -402,7 +440,7 @@ export const usePermissionStore = defineStore("permission", () => {
     const payload = { ids };
     const res = await put(
       `${baseUrl}/roles/${roleId}/permissions/set-ids`,
-      payload
+      payload,
     );
     // 后端返回 { added, removed, now, skipped_deprecated }
     const now: number[] = res?.data?.now ?? ids;

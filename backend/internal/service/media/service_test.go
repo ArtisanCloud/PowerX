@@ -32,6 +32,7 @@ const mediaTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
 type stubAssetRepo struct {
 	mu          sync.Mutex
 	assets      map[string]*mediamodel.MediaAsset
+	variants    map[string]*mediamodel.MediaAssetVariant
 	createCalls int
 	updateCalls int
 	deleteCalls int
@@ -39,7 +40,7 @@ type stubAssetRepo struct {
 }
 
 func newStubAssetRepo() *stubAssetRepo {
-	return &stubAssetRepo{assets: make(map[string]*mediamodel.MediaAsset)}
+	return &stubAssetRepo{assets: make(map[string]*mediamodel.MediaAsset), variants: make(map[string]*mediamodel.MediaAssetVariant)}
 }
 
 func (s *stubAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error) {
@@ -99,6 +100,46 @@ func (s *stubAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, sto
 	return matches, nil
 }
 
+func (s *stubAssetRepo) FindVariant(_ context.Context, tenantUUID, assetUUID, variant string) (*mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	item, ok := s.variants[assetUUID+"|"+variant]
+	if !ok || (tenantUUID != "" && item.TenantUUID != tenantUUID) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return cloneVariant(item), nil
+}
+
+func (s *stubAssetRepo) FindVariantByStorageKey(_ context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, item := range s.variants {
+		if item.Driver == driver && item.StorageKey == storageKey {
+			return cloneVariant(item), nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (s *stubAssetRepo) CreateVariant(_ context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clone := cloneVariant(variant)
+	if clone.UUID == uuid.Nil {
+		clone.UUID = uuid.New()
+	}
+	s.variants[clone.AssetUUID+"|"+clone.Variant] = clone
+	return cloneVariant(clone), nil
+}
+
+func (s *stubAssetRepo) UpdateVariant(_ context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clone := cloneVariant(variant)
+	s.variants[clone.AssetUUID+"|"+clone.Variant] = clone
+	return cloneVariant(clone), nil
+}
+
 func (s *stubAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -129,6 +170,41 @@ func (s *stubAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string, i
 		return gorm.ErrRecordNotFound
 	}
 	asset.DeletedAt = gorm.DeletedAt{Valid: true, Time: time.Now()}
+	return nil
+}
+
+func (s *stubAssetRepo) ListVariants(_ context.Context, tenantUUID, assetUUID string, includeDeleted bool) ([]mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var items []mediamodel.MediaAssetVariant
+	for _, item := range s.variants {
+		if item.AssetUUID != assetUUID {
+			continue
+		}
+		if tenantUUID != "" && item.TenantUUID != tenantUUID {
+			continue
+		}
+		if !includeDeleted && item.DeletedAt.Valid {
+			continue
+		}
+		items = append(items, *cloneVariant(item))
+	}
+	return items, nil
+}
+
+func (s *stubAssetRepo) HardDeleteByUUID(_ context.Context, tenantUUID string, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	asset, ok := s.assets[id]
+	if !ok || (tenantUUID != "" && asset.TenantUUID != tenantUUID) {
+		return gorm.ErrRecordNotFound
+	}
+	delete(s.assets, id)
+	for key, item := range s.variants {
+		if item.AssetUUID == id && (tenantUUID == "" || item.TenantUUID == tenantUUID) {
+			delete(s.variants, key)
+		}
+	}
 	return nil
 }
 
@@ -236,6 +312,41 @@ func TestDeleteAsset_EmitAudit(t *testing.T) {
 	assert.Equal(t, "media.asset.delete", ops[0])
 }
 
+func TestPurgeAsset_RemovesObjectsAndRecords(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:     mediaTenantUUID,
+		Driver:         "local",
+		StorageKey:     assetID + "/origin",
+	}
+	repo.variants[assetID+"|preview"] = &mediamodel.MediaAssetVariant{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.New()},
+		TenantUUID:     mediaTenantUUID,
+		AssetUUID:      assetID,
+		Variant:        "preview",
+		Driver:         "local",
+		StorageKey:     assetID + "/preview",
+	}
+	driverStub := &stubStorageDriver{name: "local"}
+	manager := mediamgr.New("local")
+	manager.RegisterDriver(driverStub)
+	audit := &stubAuditService{}
+	svc := NewMediaService(nil, repo, manager, audit, 12*time.Hour)
+
+	require.NoError(t, svc.PurgeAsset(context.Background(), DeleteAssetInput{TenantUUID: mediaTenantUUID, UUID: assetID}))
+
+	assert.ElementsMatch(t, []string{assetID + "/origin", assetID + "/preview"}, driverStub.deletedKeys)
+	_, err := repo.FindByUUID(context.Background(), mediaTenantUUID, assetID, true)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = repo.FindVariant(context.Background(), mediaTenantUUID, assetID, "preview")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	ops := audit.Operations()
+	require.Len(t, ops, 1)
+	assert.Equal(t, "media.asset.purge", ops[0])
+}
+
 func TestMediaService_SyncUploadedFileMetadata(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
@@ -334,6 +445,36 @@ func TestMediaService_OpenAssetResource_ExternalLink(t *testing.T) {
 	assert.Nil(t, object)
 }
 
+func TestMediaService_CreatePreviewVariantUsesExistingAsset(t *testing.T) {
+	repo := newStubAssetRepo()
+	audit := &stubAuditService{}
+	assetID := uuid.New().String()
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		TenantUUID: mediaTenantUUID,
+		Name:       "design.png",
+		Driver:     "local",
+		StorageKey: assetID + "/origin",
+		Tags:       datatypes.JSON([]byte("[]")),
+		Meta:       datatypes.JSON([]byte("{}")),
+	}
+	repo.assets[assetID].UUID = uuid.MustParse(assetID)
+	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+
+	variant, err := svc.CreateAssetVariant(context.Background(), CreateAssetVariantInput{
+		TenantUUID: mediaTenantUUID,
+		AssetUUID:  assetID,
+		Variant:    "preview",
+		Name:       "design.preview.jpg",
+		MimeType:   "image/jpeg",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, variant)
+	assert.Equal(t, assetID, variant.AssetUUID)
+	assert.Equal(t, "preview", variant.Variant)
+	assert.Equal(t, assetID+"/preview", variant.StorageKey)
+	assert.Equal(t, 0, repo.createCalls)
+}
+
 func cloneAsset(src *mediamodel.MediaAsset) *mediamodel.MediaAsset {
 	if src == nil {
 		return nil
@@ -344,13 +485,24 @@ func cloneAsset(src *mediamodel.MediaAsset) *mediamodel.MediaAsset {
 	return &clone
 }
 
+func cloneVariant(src *mediamodel.MediaAssetVariant) *mediamodel.MediaAssetVariant {
+	if src == nil {
+		return nil
+	}
+	clone := *src
+	clone.Meta = append(datatypes.JSON(nil), src.Meta...)
+	return &clone
+}
+
 var _ assetRepository = (*stubAssetRepo)(nil)
 var _ auditsvc.Service = (*stubAuditService)(nil)
 
 type stubStorageDriver struct {
-	name      string
-	getResult *driver.GetObjectResult
-	getErr    error
+	name        string
+	getResult   *driver.GetObjectResult
+	getErr      error
+	deleteErr   error
+	deletedKeys []string
 }
 
 func (s *stubStorageDriver) Name() string {
@@ -372,7 +524,11 @@ func (s *stubStorageDriver) Get(ctx context.Context, in driver.GetObjectInput) (
 }
 
 func (s *stubStorageDriver) Delete(ctx context.Context, in driver.DeleteObjectInput) error {
-	return driver.ErrUnsupported
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deletedKeys = append(s.deletedKeys, in.ObjectKey)
+	return nil
 }
 
 func (s *stubStorageDriver) GenerateURL(ctx context.Context, in driver.GenerateURLInput) (*driver.GenerateURLOutput, error) {

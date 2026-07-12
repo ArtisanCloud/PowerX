@@ -238,13 +238,126 @@
 
 - [X] T110 [US1] 团队管理页信息层级重构：默认展示 Agent 名称/Key，ID 下沉为次级信息，修正成员表格与弹窗排版：`web-admin/app/pages/settings/ai/agent-teams.vue`
 - [X] T111 [US1] 团队任务入口去硬编码：统一从路由参数与团队选择器驱动 `team_id`，并在无有效 team 时给出可操作提示：`web-admin/app/components/agent/AgentWorkspace.vue`, `web-admin/app/pages/agent/team-tasks.vue`
-- [X] T112 [US1] 角色配置体验增强：明确“TL 唯一 planner，子 Agent 仅 retriever/executor/reviewer”的前端交互与文案：`web-admin/app/pages/settings/ai/agent-teams.vue`, `web-admin/i18n/locales/zh.json`, `web-admin/i18n/locales/en.json`
+- [X] T112 [US1] 角色配置体验增强：团队页面提供 TL 选择与固定子 Agent Role 选择，子 Agent role 为 `retriever/executor/reviewer`：`web-admin/app/pages/settings/ai/agent-teams.vue`, `web-admin/i18n/locales/zh.json`, `web-admin/i18n/locales/en.json`
 - [X] T113 [US3] 协作过程展示强化：执行过程卡片补充节点分组与状态可读性，减少“只看到状态看不懂语义”的情况：`web-admin/app/components/agent/MessageItem.vue`
 - [X] T114 [US4] 增加 A2A 审计查询前端能力（按 team_id/handoff_task_id 过滤）并与会话页面建立跳转：`web-admin/app/composables/api/services/skillsService.ts`, `web-admin/app/pages/settings/ai/skills.vue`, `web-admin/app/components/settings/ai/skills/*`
 - [X] T115 [US4] 后端补充 A2A trace 查询契约回归测试（team/handoff 维度筛选与租户隔离）：`backend/tests/integration/skills/skill_agent_a2a_trace_filter_integration_test.go`
 - [X] T116 [US3] 前端 E2E：覆盖“1 主 2 子并行 + 部分失败 continue”场景，断言页面出现 Intent/Plan/Node 与最终汇总：`web-admin/tests/e2e/agent-team-collab.spec.ts`
 - [X] T117 [US1] 文档对齐：将团队协作验收剧本接入 024 快速验收主线，补齐“页面可见 vs 审计可查”步骤：`specs/024-ai-engineering-skills/quickstart.md`, `docs/guides/agent/multi_agent/09_a2a_team_collab_progressive.md`
-- [ ] T118 [Shared] 回归与发布门禁：执行 `go test ./internal/transport/http/admin/agent ./internal/service/agent` 与前端 lint/E2E 基线，记录证据：`specs/024-ai-engineering-skills/quickstart.md`
+- [X] T118 [Shared] 回归与发布门禁：执行 `go test ./internal/transport/http/admin/agent ./internal/service/agent` 与前端 lint/E2E 基线，记录证据：`specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
+## Phase 16: PowerX Agent Skill Bridge 与插件 Framework 对齐
+
+- [X] T119 [Shared] 文档对齐：新增 Agent Skill Bridge 机制总说明并挂接 runtime/plugin/API/spec：`docs/plan/ai_engineering/skills/agent_skill_bridge.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T120 [P] [US6] 定义插件 Skill Runtime 标准类型：`powerx-plugin/framework/skills`（`PluginSkillManifest/PluginSkillInvocation/PluginSkillInvocationContext/PluginSkillResult/PluginSkillError`）
+- [X] T121 [P] [US6] 定义插件 Framework Client 标准接口：`powerx-plugin/framework/client`（STS、Agent Invoke、Agent SSE、Agent WS、Capability Invoke）
+- [X] T122 [US6] 实现插件 Skill 发现路由封装：`GET /api/v1/plugin/skills`, `GET /api/v1/plugin/skills/:skill_id/schema`，并提供 manifest 校验器：`powerx-plugin/framework/skills`
+- [X] T123 [US6] 实现插件 Capability Handler 路由封装：PowerX Capability Invocation，按 `skill_id` 分发到插件 capability handler：`powerx-plugin/framework/skills`
+- [X] T124 [US6] 实现插件 capability handler 上下文强校验：缺少 `tenant_uuid/user_uuid/agent_id/session_id/skill_id/trace_id` 必须 fail-fast：`powerx-plugin/framework/skills`
+- [X] T125 [US6] 在 PowerX 插件安装/启用流程接入 Skill 发现导入：调用插件 `GET /api/v1/plugin/skills`，导入为 `source=plugin` 草稿 Skill：`backend/internal/infra/plugin/manager/*`, `backend/internal/service/skills/import_service.go`
+- [X] T126 [US6] 在 Agent Skill 执行链路接入插件 capability handler 调用：`node.kind=skill` 且 `source=plugin` 时调用 PowerX Capability Invocation：`backend/internal/server/agent/manager_execute.go`, `backend/internal/service/skills/adapter_service.go`
+- [X] T127 [US6] 补齐插件调用 STS/delegated context 注入：禁止静态旧 token，按 `007-integration-gateway-and-mcp` delegated contract 获取 bearer：`backend/internal/infra/plugin/manager/*`, `powerx-plugin/framework/client`
+- [X] T128 [P] [US6] 新增插件 Skill Invocation Trace 模型与审计字段：`backend/pkg/corex/db/persistence/model/skills/*`, `backend/pkg/corex/db/persistence/repository/skills/*`, `backend/internal/service/skills/audit_trace_service.go`
+- [X] T129 [P] [US6] 扩展错误码映射：`skill.plugin_not_installed`, `skill.plugin_executor_unavailable`, `skill.plugin_context_missing`, `skill.plugin_capability_mismatch`：`backend/internal/service/skills/response_mapper.go`
+- [X] T130 [US6] 插件调试 Chat 示例接入 Framework Client：通过 PowerX Agent Session/Stream API 调试插件 Skill，不直连插件业务 API：`powerx-plugin/connectors/*`, `web-admin/app/pages/plugins/*`
+- [X] T131 [P] [US6] 集成测试：插件 Skill 发现导入为草稿，非法 manifest 被拒绝：`backend/tests/integration/skills/skill_plugin_discovery_import_integration_test.go`
+- [X] T132 [P] [US6] 集成测试：Agent 命中插件 Skill 后调用插件 capability handler，并校验上下文完整：`backend/tests/integration/skills/skill_plugin_bridge_invoke_integration_test.go`
+- [X] T133 [P] [US6] 集成测试：缺少上下文、capability 不匹配、插件未安装时 fail-fast 并写审计：`backend/tests/integration/skills/skill_plugin_bridge_failfast_integration_test.go`
+- [X] T134 [P] [US6] E2E 验证：插件调试 Chat 与 Web Agent Chat 走相同 Agent Runtime 事件链路：`web-admin/tests/e2e/plugin-agent-skill-bridge.spec.ts`
+- [X] T135 [Shared] Quickstart 回写：补充 MediaX `mediax.video_rebuilder.cn` 样例、插件调试 Chat、SSE/WS 验收和审计查询步骤：`specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
+## Phase 17: Agent Run Trace & Report（Root 调试与智能对话报告）
+
+- [X] T136 [Shared] 文档对齐：新增 Agent Run Trace & Report 机制说明，并挂接 runtime/spec/contracts/tasks：`docs/plan/ai_engineering/skills/agent_run_trace_report.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T137 [P] [US7] 定义 Agent Trace DTO 与 Logger 接口：`backend/internal/service/agent_trace/types.go`, `backend/internal/service/agent_trace/logger.go`
+- [X] T138 [P] [US7] 实现 Local Agent Trace Sink：按 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}` 写入 `run.json/timeline.jsonl/nodes/*.json`：`backend/internal/service/agent_trace/local_sink.go`
+- [X] T139 [P] [US7] 实现 Loki Agent Trace Sink 与 label 规范：`backend/internal/service/agent_trace/loki_sink.go`, `backend/internal/service/agent_trace/config.go`
+- [X] T140 [US7] 实现 Composite Sink 与 fail-fast context 校验：缺少 `tenant_uuid/session_id/message_id/run_id/trace_id` 必须返回稳定错误：`backend/internal/service/agent_trace/logger.go`
+- [X] T141 [US7] Agent Runtime 接入 StartRun/CompleteRun：`backend/internal/server/agent/manager.go`, `backend/internal/server/agent/runtime/engine.go`
+- [X] T142 [US7] Agent Runtime 关键节点接入 StartNode/EndNode/FailNode：覆盖 `receive_message/session_restore/permission_check/context_load/intent_recognition/planner/skill_invoke/tool_invoke/llm_call/final_response/history_persist`：`backend/internal/server/agent/*`
+- [X] T143 [US7] Agent Skill Bridge 与 A2A 节点补齐 trace 关联字段：`trace_id/run_id/plan_id/node_id/skill_id/plugin_id/capability_id/team_id/handoff_task_id`：`backend/internal/server/agent/manager_execute.go`, `backend/internal/service/skills/*`
+- [X] T144 [P] [US7] 实现 Agent Run Report Builder（`report.md/report.json`）：`backend/internal/service/agent_trace/report_builder.go`
+- [X] T145 [US7] 实现 root-only Agent Trace HTTP API：`GET /api/v1/admin/agent-traces/messages/:message_id`, `/timeline`, `/report`, `/sessions/:session_id/report`：`backend/internal/transport/http/admin/agenttrace/*`
+- [X] T146 [US7] Web Admin 新增 root-only Agent Trace 页面：指标卡片、Message 列表、节点链路、节点详情、下载按钮：`web-admin/app/pages/agent/traces/`, `web-admin/app/components/agent/trace/*`
+- [X] T147 [P] [US7] 前端 API service 与类型定义：`web-admin/app/composables/api/services/agentTraceService.ts`, `web-admin/app/composables/api/types/agentTrace.ts`
+- [X] T148 [P] [US7] 后端单元测试：Local Sink 目录与文件格式、Logger fail-fast、Report Builder 输出：`backend/internal/service/agent_trace/*_test.go`
+- [X] T149 [P] [US7] 后端集成测试：触发 Agent Stream 后可按 `message_id` 查询 timeline 与下载报告：`backend/tests/integration/skills/agent_run_trace_report_integration_test.go`
+- [X] T150 [P] [US7] 权限测试：非 root 查询/下载 Agent Trace 返回 `AGENT_TRACE_ROOT_REQUIRED`：`backend/tests/contract/http/agent_trace/root_only_contract_test.go`
+- [X] T151 [P] [US7] E2E：root 页面查看 Message Trace、节点详情并下载报告：`web-admin/tests/e2e/agent-run-trace-report.spec.ts`
+- [X] T152 [Shared] Quickstart 回写：记录本地 `backend/logs/agents` 验收、Loki 查询样例、报告下载样例与回滚策略：`specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
+## Phase 18: Runtime Intent 与节点级模型策略
+
+- [X] T153 [Shared] 文档对齐：补齐 Runtime Intent / Control Command、自然语言意图识别边界、节点级模型选择策略：`docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/api_contracts.md`, `specs/024-ai-engineering-skills/spec.md`
+- [X] T154 [Shared] OpenAPI 对齐：Agent invoke/stream 增加结构化 `intent` 与 `model_policy` 契约，明确 `agent.bound_capabilities` 可绕过 LLM/Planner：`specs/024-ai-engineering-skills/contracts/http-openapi.yaml`
+- [X] T155 [Shared] 实现 Runtime Intent Router：仅接受结构化 intent，禁止自然语言关键词穷举触发控制面查询：`backend/internal/server/agent/runtime/intent_router.go`, `backend/internal/transport/http/admin/agent/chat_handler.go`
+- [X] T156 [Shared] 实现节点级模型策略骨架：默认继承 Agent 默认模型，预留 `runtime_intent/intent_classifier/planner/skill_param_extractor/final_response/reviewer` 节点选择结果：`backend/internal/server/agent/runtime/model_policy.go`
+- [X] T157 [Shared] Planner 接入节点模型选择预留点：Planner LLM 调用读取 `planner` 节点 provider/model，默认不改变现有模型行为：`backend/internal/server/agent/manager_tool_calling.go`
+- [X] T158 [P] [US4] 观测对齐：SSE meta/final metadata 输出 `runtime_intent`、`model_policy`、`model_selection`、`llm_bypassed`、`planner_bypassed`：`backend/internal/transport/http/admin/agent/chat_handler.go`
+
+---
+
+## Phase 19: Core-only A2A 发布准备 MVP
+
+- [X] T159 [Shared] 文档对齐：新增 PowerX Core A2A 多智能体设计，明确不依赖插件 capability handler，并补齐发布准备业务故事、seed 对象、计划结构、trace 字段和测试矩阵：`docs/plan/ai_engineering/skills/multi_agent_a2a.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/testing_and_rollout.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T160 [Shared] 实现 Core A2A demo seed：upsert `release.coordinator`、`release.knowledge_analyst`、`release.workflow_planner`、`release.notification_scheduler`、`release.readiness.team`、`powerx.release.*` Skills、Agent-Skill Binding、Team Members：`backend/cmd/database/seed/seed_a2a_release_readiness.go`, `backend/cmd/database/seed/seed.go`
+- [X] T161 [P] [US5] Seed 回归测试：重复 seed 三次后 Agent、Skill、Binding、Team、TeamMember 数量稳定，Skill 均为 latest published：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
+- [X] T162 [US5] Core-only A2A MVP 执行测试：读取 seed 数据，显式构造 3 个 `agent_handoff` 节点和 1 个汇总节点，注入 deterministic handoff invoker，验证最终报告包含风险摘要、发布流程、回滚步骤、通知计划：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
+- [X] T163 [P] [US5] A2A 部分失败测试：`failure_policy=continue` 时单个子 Agent 失败，主 Agent 返回部分成功并在 trace/report 中标注失败子任务：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
+- [X] T164 [P] [US5] A2A 上下文隔离测试：子 Agent 只收到主 Agent 显式下发的 release metadata/context_refs/上游摘要，不能默认继承完整 session 或未授权候选：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
+- [X] T165 [US7] Agent Trace 对齐：`agent_handoff` 节点写入 `team_id/team_name/parent_agent_id/child_agent_id/handoff_task_id/failure_policy/child_run_id`，Message 报告展示三个子 Agent 输入输出摘要：`backend/internal/server/agent/manager_execute.go`
+- [X] T166 [Shared] Quickstart 回写：记录 seed 命令、SQL 校验、Core-only 测试命令和 Agent Trace 验收证据：`specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
+## Phase 20: A2A Fixed Team Role Enum
+
+- [X] T167 [Shared] 明确 Team Role 为平台固定协作枚举，集中维护 `planner/retriever/executor/reviewer`，不建立数据库字典表：`backend/pkg/corex/db/persistence/model/agent/a2a_gorm.go`
+- [X] T168 [US5] Team Service 写入成员时基于集中枚举校验子 Agent role，拒绝 `planner` 或未知 role：`backend/internal/service/agent/team_service.go`
+- [X] T169 [US5] Team 管理页面使用固定子 Agent role 选项 `retriever/executor/reviewer`，不调用角色目录接口：`web-admin/app/composables/api/services/agentTeamService.ts`, `web-admin/app/pages/settings/ai/agent-teams.vue`
+- [X] T170 [P] [US5] A2A release readiness 文档和测试移除 role catalog 依赖，保留 TeamMember 固定 role 验收：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`, `docs/plan/ai_engineering/skills/multi_agent_a2a.md`, `specs/024-ai-engineering-skills/quickstart.md`
+
+---
+
+## Phase 21: Agent Response Planning
+
+- [X] T171 [Shared] 文档对齐：补齐 Agent ResponsePlanner / Context Builder / Final Response 分层设计、上下文存储驱动、SSE event、message meta 和回归步骤：`docs/plan/ai_engineering/skills/agent_response_planning.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/api_contracts.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T172 [Shared] 定义 ResponseMode / ResponsePlan / AssistantMessageMeta 类型与 schema 校验：`backend/internal/server/agent/runtime/response_plan.go`
+- [X] T173 [Shared] 实现 ResponsePlanner 骨架：支持结构化 JSON 输出、schema 校验、非法输出稳定错误 `agent.response_plan_invalid`，首版模型选择继承 Agent 默认模型：`backend/internal/server/agent/runtime/response_planner.go`
+- [X] T174 [Shared] 将节点级模型策略扩展到 `response_planner/context_builder/error_explain`，Trace/SSE metadata 输出节点模型选择结果：`backend/internal/server/agent/runtime/model_policy.go`
+- [X] T175 [US3] 改造 Context Builder 按 `response_mode` 注入上下文，`capability_intro/capability_howto` 只能读取当前 Agent 绑定能力，禁止全局候选池进入用户可见上下文：`backend/internal/server/agent/runtime/context_builder.go`
+- [X] T176 [US3] 实现 Final Response mode-specific prompt 模板：覆盖 `capability_intro/capability_howto/skill_execution/clarify_params/normal_chat/error_explain`：`backend/internal/server/agent/runtime/final_response_prompt.go`
+- [X] T177 [US3] 持久化 assistant message meta：写入 `response_mode/capability_ids/response_plan_id/used_context_layers/tool_calls/final_response_model/model_selection`，并提供最近 capability intro 查询：`backend/internal/server/agent/runtime/sink_history.go`, `backend/internal/service/agent/chat_history_service.go`
+- [X] T178 [US3] Agent Stream 输出 `response_plan` debug event，并确保插件 Chat/Web Chat/SSE 调试面板可接收同一事件语义：`backend/internal/transport/http/admin/agent/chat_handler.go`
+- [X] T179 [US7] Agent Trace 增加 `response_planner/context_builder/final_response/history_persist` 节点快照字段：response mode、context layers、target capability ids、model selection、error summary：`backend/internal/service/agent_trace/*`, `backend/internal/server/agent/*`
+- [X] T180 [P] [US3] 单元测试：ResponsePlan schema、mode 选择、非法 JSON、missing fields、repeat intro meta 去重：`backend/internal/server/agent/runtime/*_test.go`
+- [X] T181 [P] [US3] 集成测试：只绑定单个 Skill 的 Agent 询问“你能做什么”时，最终回答与 context package 只包含当前绑定能力，不包含全局 system/public 候选：`backend/tests/integration/skills/skill_agent_response_planning_test.go`
+- [X] T182 [P] [US3] 集成测试：`capability_howto/clarify_params/skill_execution/error_explain` 四种模式可通过 Trace 和 message meta 验证：`backend/tests/integration/skills/skill_agent_response_planning_test.go`
+- [X] T183 [US7] Web Admin Agent Trace 页面展示 response plan、context layers、message meta 摘要，并支持从 Chat 消息跳转到对应 Message Trace：`web-admin/app/pages/agent/traces/`, `web-admin/app/components/agent/trace/*`
+
+---
+
+## Phase 22: Agent Run State Protocol（多任务/多智能体执行状态 UI 协议）
+
+- [X] T184 [Shared] 文档对齐：新增 Agent Run State Protocol 设计并挂接 Runtime、Response Planning、Skill 标准、024 spec/plan/tasks：`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T185 [Shared] 定义 `AgentRunState/AgentTaskState/AgentRunEvent` DTO 与 schema 校验，覆盖 `agent_run.*` 事件和 `pending|awaiting_params|running|completed|failed|skipped` 状态：`backend/internal/server/agent/runtime/*`, `backend/pkg/dto/*`
+- [X] T186 [Shared] Runtime SSE/WS 输出 `agent_run.started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended` 标准事件：`backend/internal/server/agent/runtime/engine.go`, `backend/internal/transport/http/admin/agent/chat_handler.go`
+- [X] T187 [US3] 实现 Pending Task 状态存储与跨轮 slot merge，按 Skill manifest `action_required_args/slot_mapping/pending_task_policy` 校验缺参：`backend/internal/server/agent/runtime/*`, `backend/internal/service/agent/*`
+- [X] T188 [US7] Agent Trace/Report 保存 run state snapshot，并支持按 `session_id/message_id/task_id/node_id` 精确定位：`backend/internal/service/agent_trace/*`, `backend/internal/transport/http/admin/agenttrace/*`
+- [X] T189 [US3] Web Admin Agent Chat、Team Task 与 Trace 页面渲染统一 Run State 面板：`web-admin/app/components/agent/*`, `web-admin/app/pages/agent/traces/`, `web-admin/app/pages/agent/team-tasks*`
+- [X] T190 [US6] 与 PowerXPlugin Framework 对齐 AgentRunState typed events/reducer，确保插件调试 Chat 与 PowerX Web Chat 消费同一状态协议：`PowerXPlugin/framework/backend/go/runtime/powerx/agent/*`, `PowerXPlugin/skeleton/web-admin/*`
+- [X] T191 [P] [US3] 单元测试：缺参任务进入 `awaiting_params`、补参后进入 `running/completed`、无真实 result 时禁止 success 文案：`backend/internal/server/agent/runtime/*_test.go`
+- [X] T192 [P] [US5] 集成测试：Core-only A2A 多 Agent 任务映射为 run state task 列表，失败子任务可跳转 trace：`backend/tests/integration/skills/*agent_run_state*_test.go`
+- [X] T193 [Shared] 将 Agent Run State Protocol 收敛为唯一对外运行状态合同，禁止 UI 消费旧 `intent/plan/node_start/node_end/final/end` 作为状态来源：`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`, `backend/internal/server/agent/runtime/run_state_events.go`
+- [X] T194 [Shared] 扩展 Run Summary / Task Graph 字段：`total_tasks/current_stage/depends_on/stage/parallel_group/parent_task_id/failure_policy`，覆盖串行、并行、多 Agent handoff：`backend/pkg/dto/stream_events.go`, `backend/internal/service/agent_trace/types.go`
+- [X] T195 [US7] Trace snapshot 保存 `summary` 与计划阶段任务，页面刷新后仍能恢复总任务状态和任务拓扑：`backend/internal/service/agent_trace/local_sink.go`
+- [X] T196 [US6] PowerXPlugin 调试页展示 Run 总览、阶段分组、并行/依赖信息，使用 `agent_run.plan_created` 预置 pending 任务并由后续 task 事件更新：`PowerXPlugin/skeleton/web-admin/nuxt/app/pages/_p/com.powerx.plugins.base/admin/agent-skill-bridge/index.vue`
 
 ---
 
@@ -257,6 +370,11 @@
 - Phase 3-6 均依赖 Phase 2 完成。
 - Phase 7 依赖至少一个用户故事完成，最终收敛前需全部故事完成。
 - Phase 15 依赖 Phase 14，作为 A2A 体验与验收收口阶段，发布前必须完成。
+- Phase 16 依赖 Phase 8-11 的 Agent Skill 执行链路与 Phase 5 的 Skill invoke 基线；同时依赖 `007-integration-gateway-and-mcp` 的 STS/delegated gateway 契约和 `009-install-plugin-pxp` 的插件生命周期钩子。
+- Phase 17 依赖 Phase 8 的 Agent Runtime 闭环、Phase 12 的 Context 观测字段、Phase 14 的 A2A trace 字段与 Phase 16 的插件 Skill Bridge trace 字段；首版可先交付 Local Sink + Root Report，Loki Sink 可作为生产增强。
+- Phase 18 依赖 Phase 8 的 Agent Stream 主入口、Phase 13 的 Planner 优化上下文与 Phase 17 的 trace metadata；首版模型策略只提供默认继承与节点级预留点。
+- Phase 19 依赖 Phase 14 的 A2A 数据模型与执行器、Phase 17 的 Agent Trace 报告、Phase 18 的模型策略 metadata；Phase 19 是 PowerX Core-only 验收线，不依赖 Phase 16 的插件桥接。
+- Phase 22 依赖 Phase 17 的 Agent Trace、Phase 19 的 A2A task 字段与 Phase 21 的 Response Planning；它是 UI/Runtime 共享状态协议，不改变插件业务事实源边界。
 
 ### User Story Dependencies
 
@@ -264,6 +382,8 @@
 - US2 依赖 US1 的 registry 与审批能力。
 - US3 依赖 US1 的发布/绑定结果与 US2 的导入资产。
 - US4 贯穿全局，但可在 US1 完成后并行推进。
+- US6 依赖 US1/US2 的 Skill Registry 与导入治理能力，依赖 US3 的 Agent/Skill 执行链路。
+- US7 依赖 Agent 主入口与 Runtime 节点存在稳定 `session_id/message_id/trace_id`，并与 Skill/Tooling/A2A/Plugin Bridge 事件字段对齐。
 
 ### Within Each Story
 

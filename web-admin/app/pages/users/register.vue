@@ -4,6 +4,22 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { resolveDefaultRoute } = useDefaultMenuRoute();
+const runtimeConfig = useRuntimeConfig();
+const setupStatus = useSetupStatus();
+const verificationEnabled = computed(
+  () => String(runtimeConfig.public.saasSignupVerificationEnabled) === "true"
+);
+const signupGateLoaded = ref(false);
+const signupEnabled = computed(() => setupStatus.status.value?.saas_signup_enabled === true);
+
+onMounted(async () => {
+  try {
+    await setupStatus.load({ force: true, timeout: 5000 });
+  } finally {
+    signupGateLoaded.value = true;
+  }
+});
 
 // ========== 强制阅读功能开关 ==========
 // 设置为 false 可以关闭强制阅读功能，用户可以直接勾选同意
@@ -13,15 +29,19 @@ const ENABLE_FORCED_READING = ref(false);
 
 // 表单数据
 const form = reactive({
-  username: "",
-  email: "",
+  tenantName: "",
+  tenantKey: "",
+  contact: "",
+  verificationCode: "",
   password: "",
   confirmPassword: "",
   agree: false,
 });
+const tenantKeyTouched = ref(false);
 
 // 表单验证状态
 const loading = ref(false);
+const sendingCode = ref(false);
 const error = ref("");
 const success = ref(false);
 const countdown = ref(3);
@@ -240,16 +260,32 @@ const passwordStrength = computed(() => {
 
 // 表单验证
 const validateForm = () => {
-  if (!form.username.trim()) {
+  if (!form.tenantName.trim()) {
+    error.value = "请填写租户名称";
+    return false;
+  }
+  if (!form.tenantKey.trim()) {
+    error.value = "请填写组织标识";
+    return false;
+  }
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.tenantKey.trim())) {
+    error.value = "组织标识只能使用小写字母、数字和中横线";
+    return false;
+  }
+  if (!form.contact.trim()) {
     error.value = t("auth.required");
     return false;
   }
-  if (!form.email.trim()) {
-    error.value = t("auth.required");
-    return false;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+  if (form.contact.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact)) {
     error.value = t("auth.invalidEmail");
+    return false;
+  }
+  if (verificationEnabled.value && !form.verificationCode.trim()) {
+    error.value = t("auth.required");
+    return false;
+  }
+  if (verificationEnabled.value && !/^\d{6}$/.test(form.verificationCode.trim())) {
+    error.value = "请输入 6 位验证码";
     return false;
   }
   if (!form.password) {
@@ -271,8 +307,41 @@ const validateForm = () => {
   return true;
 };
 
+const sendVerificationCode = async () => {
+  if (!signupEnabled.value) {
+    error.value = "当前暂未开放新租户注册";
+    return;
+  }
+  const contact = form.contact.trim();
+  if (!contact) {
+    error.value = "请先填写邮箱或手机号";
+    return;
+  }
+  if (contact.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) {
+    error.value = t("auth.invalidEmail");
+    return;
+  }
+  sendingCode.value = true;
+  error.value = "";
+  try {
+    const { useAuthService } = await import(
+      "~/composables/api/services/authService"
+    );
+    const authService = useAuthService();
+    await authService.sendSignupVerificationCode(contact);
+  } catch (err: any) {
+    error.value = err.response?.data?.message || err.message || "验证码发送失败";
+  } finally {
+    sendingCode.value = false;
+  }
+};
+
 // 注册处理
 const handleRegister = async () => {
+  if (!signupEnabled.value) {
+    error.value = "当前暂未开放新租户注册";
+    return;
+  }
   if (!validateForm()) return;
 
   loading.value = true;
@@ -284,17 +353,34 @@ const handleRegister = async () => {
       "~/composables/api/services/authService"
     );
     const authService = useAuthService();
+    const { setAuth } = useAuth();
 
     const registerData = {
-      username: form.username,
-      email: form.email,
+      tenantName: form.tenantName,
+      tenantKey: form.tenantKey,
+      contact: form.contact,
       password: form.password,
-      displayName: form.username, // 使用用户名作为显示名称
+      confirmPassword: form.confirmPassword,
+      verificationCode: verificationEnabled.value ? form.verificationCode : "",
+      displayName: form.contact,
     };
 
     const response = await authService.registerFromForm(registerData);
 
-    if (response.success) {
+    if (response.code === 200 && response.data?.access_token) {
+      setAuth({
+        token_type: response.data.token_type || "Bearer",
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token,
+        expires_in: response.data.expires_in || 3600,
+        scope: response.data.scope || "access",
+      });
+      if (process.client && response.data.context?.current_tenant_uuid) {
+        localStorage.setItem(
+          "px_current_tenant_uuid",
+          String(response.data.context.current_tenant_uuid)
+        );
+      }
       success.value = true;
       countdown.value = 3;
 
@@ -303,9 +389,10 @@ const handleRegister = async () => {
         countdown.value--;
         if (countdown.value <= 0) {
           clearInterval(timer);
-          // 跳转到首页
           const localePath = useLocalePath();
-          navigateTo(localePath("/"));
+          resolveDefaultRoute()
+            .then((path) => navigateTo(localePath(path), { replace: true }))
+            .catch(() => navigateTo(localePath("/home"), { replace: true }));
         }
       }, 1000);
     } else {
@@ -325,6 +412,28 @@ const handleRegister = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const slugifyTenantKey = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+watch(
+  () => form.tenantName,
+  (value) => {
+    if (!tenantKeyTouched.value) {
+      form.tenantKey = slugifyTenantKey(value);
+    }
+  }
+);
+
+const handleTenantKeyInput = (value: string) => {
+  tenantKeyTouched.value = true;
+  form.tenantKey = slugifyTenantKey(value);
 };
 </script>
 
@@ -389,10 +498,32 @@ const handleRegister = async () => {
             </template>
             <template #description>
               <p class="text-green-700">
-                恭喜您注册成功！{{ countdown }}秒后将自动跳转到首页...
+                恭喜您注册成功！{{ countdown }}秒后将自动进入工作台...
               </p>
             </template>
           </UAlert>
+
+          <div v-else-if="!signupGateLoaded" class="py-8 flex justify-center">
+            <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-500" />
+          </div>
+
+          <div v-else-if="!signupEnabled" class="space-y-5">
+            <UAlert
+              color="warning"
+              variant="soft"
+              title="当前暂未开放新租户注册"
+              description="请使用已有账号登录，或联系系统管理员开通租户。"
+            />
+            <UButton
+              block
+              size="lg"
+              color="primary"
+              variant="solid"
+              :to="$localePath('/users/login')"
+            >
+              返回登录
+            </UButton>
+          </div>
 
           <form v-else @submit.prevent="handleRegister" class="space-y-5">
             <!-- 错误提示 -->
@@ -411,44 +542,97 @@ const handleRegister = async () => {
               class="mb-1"
             />
 
-            <!-- 用户名输入 -->
+            <!-- 租户名称输入 -->
             <div class="mb-6">
               <label
-                for="username"
+                for="tenantName"
                 class="block text-sm font-medium text-gray-700 mb-3"
               >
-                {{ $t("auth.register.username") }}
-                <span class="text-red-500">*</span>
+                租户名称 <span class="text-red-500">*</span>
               </label>
               <UInput
-                id="username"
-                name="username"
-                v-model="form.username"
-                :placeholder="$t('auth.register.username')"
+                id="tenantName"
+                name="tenantName"
+                v-model="form.tenantName"
+                placeholder="Acme Inc"
                 size="lg"
                 :disabled="loading"
                 class="w-full"
               />
             </div>
 
-            <!-- 邮箱输入 -->
+            <!-- 联系方式输入 -->
             <div class="mb-6">
               <label
-                for="email"
+                for="tenantKey"
                 class="block text-sm font-medium text-gray-700 mb-3"
               >
-                {{ $t("auth.email") }} <span class="text-red-500">*</span>
+                组织标识 <span class="text-red-500">*</span>
               </label>
               <UInput
-                id="email"
-                name="email"
-                v-model="form.email"
-                type="email"
-                :placeholder="$t('auth.email')"
+                id="tenantKey"
+                name="tenantKey"
+                :model-value="form.tenantKey"
+                placeholder="acme-inc"
+                size="lg"
+                :disabled="loading"
+                class="w-full font-mono"
+                @update:model-value="handleTenantKeyInput(String($event || ''))"
+              />
+              <p class="mt-2 text-xs text-gray-500">
+                用于生成系统唯一标识，只能使用小写字母、数字和中横线。
+              </p>
+            </div>
+
+            <!-- 联系方式输入 -->
+            <div class="mb-6">
+              <label
+                for="contact"
+                class="block text-sm font-medium text-gray-700 mb-3"
+              >
+                邮箱或手机号
+                <span class="text-red-500">*</span>
+              </label>
+              <UInput
+                id="contact"
+                name="contact"
+                v-model="form.contact"
+                placeholder="owner@example.com / 13800000000"
                 size="lg"
                 :disabled="loading"
                 class="w-full"
               />
+            </div>
+
+            <!-- 验证码输入 -->
+            <div v-if="verificationEnabled" class="mb-6">
+              <label
+                for="verificationCode"
+                class="block text-sm font-medium text-gray-700 mb-3"
+              >
+                验证码 <span class="text-red-500">*</span>
+              </label>
+              <div class="flex gap-2">
+                <UInput
+                  id="verificationCode"
+                  name="verificationCode"
+                  v-model="form.verificationCode"
+                  placeholder="6 位验证码"
+                  size="lg"
+                  :disabled="loading"
+                  class="min-w-0 flex-1"
+                />
+                <UButton
+                  type="button"
+                  color="primary"
+                  variant="soft"
+                  :loading="sendingCode"
+                  :disabled="loading || sendingCode"
+                  @click="sendVerificationCode"
+                >
+                  发送验证码
+                </UButton>
+              </div>
             </div>
 
             <!-- 密码输入 -->

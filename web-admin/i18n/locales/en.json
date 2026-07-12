@@ -1,9 +1,14 @@
 {
   "menu": {
     "openMarket": "Open Market",
+    "plugins": "Plugins",
     "openCapabilities": "Platform Capabilities",
     "eventFabric": "Async Tasks",
     "pluginMarketplace": "Plugin Marketplace",
+    "pluginManagement": "Plugin Management",
+    "pluginSubscriptions": "Plugin Subscriptions",
+    "pluginSubscriptionsAvailable": "Available Plugins",
+    "pluginSubscriptionsMine": "My Subscriptions",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
     "aiSettings": "AI Settings",
@@ -40,7 +45,8 @@
     "untitled": "Untitled",
     "section": {
       "untitled": "Untitled Section"
-    }
+    },
+    "aiSettingsAgentAccess": "Agent Authorization"
   },
   "common": {
     "collapse": "Collapse",
@@ -57,7 +63,8 @@
     "reload": "Reload",
     "reset": "Reset",
     "scrollToBottom": "Scroll to bottom",
-    "newMessages": "{count} new messages"
+    "newMessages": "{count} new messages",
+    "unknown": "Unknown"
   },
   "organization": {
     "description": "Manage your organization, members and permissions.",
@@ -249,6 +256,9 @@
       "sections": {
         "general": "General",
         "parameters": "Parameters"
+      },
+      "errors": {
+        "ollamaModelNotFound": "Ollama model not found: {model}. Run ollama pull {model}, or choose an installed local model from the dropdown."
       },
       "actions": {
         "openCostGuard": "Open Cost Guard",
@@ -501,6 +511,7 @@
     }
   },
   "privacyPolicy": "Privacy Policy",
+  "termsOfService": "Terms of Service",
   "header": {
     "searchPlaceholder": "Search…",
     "profile": "Profile",
@@ -520,10 +531,38 @@
     "backToHome": "Back to home",
     "welcomeBack": "Welcome back",
     "loginSubtitle": "Sign in with your account to continue.",
+    "createAccount": "Create account",
+    "registerSubtitle": "Create a tenant and administrator account",
+    "email": "Email",
+    "username": "Username",
     "identifier": "Email or phone",
     "password": "Password",
+    "confirmPassword": "Confirm password",
     "remember": "Remember me",
+    "creatingAccount": "Creating account...",
+    "hasAccount": "Already have an account?",
     "signUpNow": "Sign up now",
+    "signInNow": "Sign in now",
+    "required": "This field is required",
+    "registerFailed": "Registration failed. Please try again.",
+    "registerSuccess": "Registration succeeded.",
+    "redirectingToLogin": "Redirecting to login...",
+    "invalidEmail": "Please enter a valid email address",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match",
+    "mustAgreeTerms": "Please agree to the terms and privacy policy first",
+    "agreeTerms": "I have read and agree to",
+    "and": "and",
+    "termsInfo": "By registering, you agree to the Terms of Service and Privacy Policy.",
+    "passwordStrength": {
+      "weak": "Weak",
+      "medium": "Medium",
+      "strong": "Strong"
+    },
+    "register": {
+      "username": "Username",
+      "confirmPassword": "Confirm password"
+    },
     "login": {
       "noAccount": "Don’t have an account?",
       "forgotPassword": "Forgot password?"
@@ -858,6 +897,175 @@
     "list": {
       "loadFailed": "Failed to load agent list"
     },
+    "management": {
+      "title": "Agent Management",
+      "description": "Manage individual agents and jump quickly into smart chat or team creation.",
+      "enterChat": "Enter smart chat",
+      "create": "New agent",
+      "emptyDescription": "No description",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "sources": {
+        "core": "Core-created",
+        "plugin": "Plugin-managed"
+      },
+      "filters": {
+        "searchPlaceholder": "Search agent name, key, or plugin",
+        "allSources": "All sources",
+        "allStatuses": "All statuses"
+      },
+      "quickCreate": {
+        "name": "New Agent-{suffix}",
+        "description": "Complete the configuration in Agent Management",
+        "success": "Created",
+        "successDescription": "Default agent created",
+        "failed": "Create failed"
+      },
+      "edit": {
+        "title": "Edit Agent",
+        "description": "Maintain basic information, generation policy, and resource bindings",
+        "basicInfo": "Basic Information",
+        "name": "Agent Name",
+        "namePlaceholder": "Enter agent name",
+        "typeId": "Type ID",
+        "typeIdPlaceholder": "e.g. brand.story.v1",
+        "scene": "Scene",
+        "scenePlaceholder": "e.g. brand_story",
+        "status": "Status",
+        "publicDescription": "Public Description (Optional)",
+        "publicDescriptionHelp": "A short list description, recommended 30-80 characters",
+        "publicDescriptionPlaceholder": "Example: generates short-video scripts and ad suggestions",
+        "systemKey": "System Key (Read-only)",
+        "generationPolicy": "Generation Policy",
+        "promptSeed": "System Prompt (Primary Instruction)",
+        "promptSeedHelp": "Required primary policy: task goals, output format, and boundaries go here",
+        "promptSeedPlaceholder": "Enter the primary instruction, including goals, structure, boundaries, and deny rules",
+        "persona": "Persona (Advanced Optional)",
+        "personaHelp": "Use only when fixed persona context is needed; it is appended outside the primary instruction",
+        "personaPlaceholder": "Optional: if empty, only the system prompt is used",
+        "resourceBinding": "Resource Binding",
+        "skillIds": "Skill IDs",
+        "commaSeparated": "Separate with English commas",
+        "skillIdsPlaceholder": "e.g. skill.a,skill.b",
+        "knowledgeBaseIds": "Knowledge Base IDs",
+        "uuidCommaSeparated": "Separate UUIDs with English commas",
+        "knowledgeBaseIdsPlaceholder": "e.g. uuid1,uuid2",
+        "nameRequired": "Name is required",
+        "updated": "Updated",
+        "updateFailed": "Update failed"
+      },
+      "grants": {
+        "title": "Tools and Permissions",
+        "description": "Configure the maximum plugin capabilities this agent may use. Runtime access still intersects with the current user's IAM permissions.",
+        "loading": "Loading capability grants...",
+        "empty": "No synchronized grantable capabilities with permission_code are available. Check plugin capability declarations or resync the capability catalog.",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "ownerPlugin": "Owning plugin",
+        "noDescription": "The plugin did not provide a capability description.",
+        "searchPlaceholder": "Search capability, permission code, or plugin",
+        "filteredEmpty": "No capabilities match the current filters.",
+        "relatedEmpty": "This agent has no grantable capabilities matching its owning plugin. Switch to all capabilities to review cross-plugin grants.",
+        "tabs": {
+          "own": "Own plugin ({count})",
+          "core": "Core ({count})",
+          "other": "Other plugins ({count})"
+        },
+        "hints": {
+          "ownEmpty": "This agent's owning plugin {pluginId} has no synchronized grantable capabilities.",
+          "noOwnerPlugin": "This agent has no owning plugin. Review core or other plugin capabilities.",
+          "coreEmpty": "No synchronized grantable core capabilities are available.",
+          "otherEmpty": "No grantable capabilities from other plugins are available.",
+          "selectModuleFirst": "Select a core module first, then review its capabilities.",
+          "selectPluginFirst": "Select a plugin first, then choose the capabilities to add."
+        },
+        "filters": {
+          "related": "Related",
+          "all": "All",
+          "selectPlugin": "Select plugin",
+          "selectModule": "Select module",
+          "anyAvailability": "Any status",
+          "available": "Available",
+          "unavailable": "Unavailable",
+          "anySelection": "All",
+          "selected": "Selected",
+          "unselected": "Unselected"
+        },
+        "meta": {
+          "permissionCode": "Permission: ",
+          "capabilityId": "Capability ID: ",
+          "pluginId": "Plugin ID: "
+        },
+        "loadFailed": "Failed to load agent grants",
+        "saved": "Permission settings saved",
+        "saveFailed": "Failed to save permission settings"
+      },
+      "actions": {
+        "chat": "Smart chat",
+        "team": "Create team",
+        "permissions": "Configure permissions",
+        "edit": "Edit"
+      },
+      "pagination": {
+        "total": "{total} agents"
+      },
+      "catalog": {
+        "powerxplugin_template_agent": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "powerxplugin_template_agent_local": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "courtmate_basketball_growth_agent_local": {
+          "title": "Basketball Growth Knowledge Agent",
+          "description": "Court Mate built-in agent that turns trusted basketball training sources into reviewable and traceable basketball knowledge candidates."
+        },
+        "product_launch_v1_00000000_0000_0000_0000_00000_1f5333aa0a0ed6c7": {
+          "title": "AI Video Refactoring Master",
+          "description": "Plans and restructures product launch video scripts and production workflows."
+        },
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "Marketing Master",
+          "description": "Creates short-form marketing scripts and campaign messaging."
+        }
+      },
+      "accessGrants": "Use authorization"
+    },
+    "effectivePermissions": {
+      "title": "Effective permissions",
+      "description": "The current session can use only the intersection of user IAM permissions, agent grants, tenant capability enablement, and policy result.",
+      "summary": "{allowed}/{total}",
+      "refresh": "Refresh effective permissions",
+      "empty": "No effective permissions are available for the current agent.",
+      "loadFailed": "Failed to load effective permissions",
+      "columns": {
+        "user": "User permission",
+        "agent": "Agent grant",
+        "tenant": "Tenant enabled",
+        "policy": "Policy allowed",
+        "reason": "Deny reason"
+      },
+      "status": {
+        "allowed": "Allowed",
+        "denied": "Denied"
+      },
+      "reason": {
+        "none": "None",
+        "agent_grant_missing": "Agent grant is missing",
+        "user_permission_missing": "Current user lacks the IAM permission",
+        "tenant_capability_disabled": "Tenant has not enabled this capability",
+        "capability_policy_denied": "Denied by capability policy",
+        "policy_denied": "Denied by policy",
+        "permission_code_invalid": "Capability permission code is invalid",
+        "permission_code_missing": "Capability is missing a structured permission code"
+      }
+    },
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",
@@ -933,6 +1141,128 @@
         "loadMessagesFailed": "Failed to load messages",
         "loadMoreMessagesFailed": "Failed to load more messages"
       }
+    },
+    "accessGrants": {
+      "title": "Agent Use Authorization",
+      "description": "Configure whether members or roles can use a selected agent, and preview a member’s effective permissions.",
+      "backToAgents": "Back to agent management",
+      "unnamedAgent": "Unnamed agent",
+      "unnamedMember": "Unnamed member",
+      "unnamedRole": "Unnamed role",
+      "loading": "Loading access grants...",
+      "emptyAgent": "Select an agent first.",
+      "emptyFiltered": "No subjects match the current filters.",
+      "memberGrantHint": "Turning this on lets the member use the selected agent. The final callable capabilities are still calculated as the intersection of member IAM, agent capability grants, tenant capability enablement, and policies.",
+      "roleGrantHint": "Turning this on lets members in this role use the selected agent. Effective permissions on the right can only be calculated for a concrete member.",
+      "fields": {
+        "agent": "Agent",
+        "search": "Filter subjects"
+      },
+      "placeholders": {
+        "agent": "Select agent",
+        "search": "Search members, roles, or descriptions",
+        "agentSearch": "Search agent name, key, or plugin"
+      },
+      "tabs": {
+        "members": "Member grants",
+        "roles": "Role grants"
+      },
+      "actions": {
+        "toggle": "Toggle use authorization",
+        "preview": "View effective permissions"
+      },
+      "summary": {
+        "enabled": "Authorized"
+      },
+      "status": {
+        "allowed": "Allowed",
+        "denied": "Denied"
+      },
+      "preview": {
+        "title": "Effective Permission Preview",
+        "description": "Preview the final intersection of member IAM, agent use authorization, agent capability grants, tenant capability enablement, and policy result.",
+        "formulaTitle": "Final Permission Calculation",
+        "formulaDescription": "A capability is finally usable only when every condition below allows it.",
+        "interpretation": "There are {total} evaluable capabilities in the system. This member can finally use {allowed} through the selected agent, and {denied} are denied. Denied means the member or agent does not satisfy all required conditions for those capabilities; it does not mean the business flow needs every capability.",
+        "searchPlaceholder": "Search capability name, ID, permission code, plugin, or denied reason",
+        "pageSize": "Items per page",
+        "pageSummary": "Showing {shown} of {total}",
+        "formula": {
+          "user": "Member IAM",
+          "useGrant": "Use grant",
+          "agent": "Agent capabilities",
+          "tenant": "Tenant capabilities",
+          "policy": "Policy",
+          "and": "and"
+        },
+        "loading": "Loading effective permissions...",
+        "empty": "Select a member to view effective permissions.",
+        "emptyItems": "There are no capability permissions to evaluate. Check that this agent has capability grants and the capability catalog has been synced.",
+        "emptyItemsTitle": "No capability permissions to evaluate",
+        "emptyAllowedTitle": "No final allowed capabilities",
+        "emptyAllowedDescription": "Use authorization is enabled, but final permissions are still limited by member IAM, agent capability grants, tenant capability enablement, and policies. Switch to denied details to inspect the reason.",
+        "emptyDeniedTitle": "No denied details",
+        "emptyDeniedDescription": "No capabilities are denied under the current filter.",
+        "selectMemberTitle": "Select a member to view final permissions",
+        "selectMemberDescription": "Select a member from the list on the left. The system will calculate the capabilities that member can actually use through this agent.",
+        "roleSelectedTitle": "Roles cannot preview final permissions directly",
+        "roleSelectedDescription": "Role grants only decide whether a group of members can use the agent. Final permissions are still calculated from each member's IAM permissions.",
+        "denySummaryTitle": "Denied Reason Summary",
+        "accessDenied": "This member is not authorized to use the agent.",
+        "subject": "Current preview subject",
+        "granted": "Use authorized",
+        "notGranted": "Use not authorized",
+        "rolePreviewUnavailable": "Role grants only control whether a role can use this agent. Select a concrete member to preview effective permissions.",
+        "total": "Total",
+        "allowed": "Allowed",
+        "denied": "Denied",
+        "columns": {
+          "user": "IAM",
+          "agent": "Agent",
+          "tenant": "Tenant",
+          "policy": "Policy"
+        },
+        "filters": {
+          "allowed": "Usable",
+          "denied": "Denied details",
+          "all": "All"
+        },
+        "pagination": {
+          "first": "First page",
+          "previous": "Previous page",
+          "next": "Next page",
+          "last": "Last page"
+        },
+        "actions": {
+          "viewDeniedDetails": "View denied details"
+        }
+      },
+      "reasons": {
+        "none": "None",
+        "agent_access_grant_missing": "The member or their roles are not authorized to use this agent",
+        "agent_grant_missing": "Agent grant is missing",
+        "user_permission_missing": "Member lacks the IAM permission",
+        "tenant_capability_disabled": "Tenant has not enabled this capability",
+        "capability_policy_denied": "Denied by capability policy",
+        "policy_denied": "Denied by policy",
+        "permission_code_invalid": "Capability permission code is invalid",
+        "permission_code_missing": "Capability is missing a structured permission code"
+      },
+      "errors": {
+        "loadFailed": "Failed to load access grants",
+        "saveFailed": "Failed to save access grants",
+        "previewFailed": "Failed to load effective permissions"
+      },
+      "sections": {
+        "agents": "Agents",
+        "subjects": "Authorization Subjects"
+      },
+      "emptyAgents": "No configurable agents.",
+      "emptyAgentsDescription": "Create or sync agents in agent management before configuring member and role use authorization.",
+      "currentAgent": "Current agent",
+      "selectAgentTitle": "Select an agent first",
+      "typeToSearchAgent": "Type an agent name, key, or plugin ID to select an agent. The full agent list is not expanded by default.",
+      "moreAgentResults": "{count} more matches. Keep typing to narrow the results."
     }
   },
   "pluginRelease": {
@@ -953,5 +1283,87 @@
     "editTitle": "Update Release Candidate",
     "buildArtifact": "Build Artifact URI",
     "labelsHelp": "JSON object, e.g. channel=dev"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "Selected directory",
+      "drain": {
+        "noticeCreated": "Drain has started and new usage has been blocked. Retry installation later or open the drain progress page.",
+        "noticeRequired": "This plugin still has tenant instances in use. You can start drain now; PowerX will block new usage and wait for existing instances to exit.",
+        "title": "Drain required first",
+        "action": "Start drain",
+        "viewProgress": "View drain progress",
+        "viewDetail": "View details"
+      },
+      "toast": {
+        "drainCreatedTitle": "Drain started",
+        "drainCreatedDesc": "New usage has been blocked. Wait for drain to complete on the plugin details page.",
+        "drainCreateFailedTitle": "Failed to start drain",
+        "drainCreateFailedDesc": "Open the plugin details page to check drain status.",
+        "invalidDirectoryTitle": "Invalid directory",
+        "invalidDirectoryDesc": "The directory must contain plugin.yaml or *.tar.gz/.tgz.",
+        "urlRequired": "Enter the remote plugin URL.",
+        "localDirectoryRequired": "Select a plugin directory.",
+        "successTitle": "Success",
+        "successDesc": "Plugin installed successfully.",
+        "noticeTitle": "Notice",
+        "sourceMissingDesc": "No URL or local directory was selected, so installation was not started.",
+        "alreadyInstalledTitle": "Same version already installed",
+        "alreadyInstalledDesc": "This version already exists. Enable Force and retry, or uninstall the existing version first.",
+        "drainRequiredTitle": "Drain required first",
+        "drainRequiredDesc": "This plugin still has tenant instances in use. Open the plugin details page and complete drain first.",
+        "platformIncompatibleTitle": "Package platform incompatible",
+        "platformIncompatibleTargets": "The package target is {packageTarget}, but this PowerX host is {hostTarget}. Select a plugin artifact built for the current host platform.",
+        "platformIncompatiblePath": "{path} in the package is incompatible with this PowerX host. Select a plugin artifact built for the current host platform.",
+        "platformIncompatibleDesc": "This plugin package is incompatible with the PowerX host architecture. Select a plugin artifact built for the current host platform.",
+        "installFailedTitle": "Installation failed",
+        "installFailedDesc": "An error occurred during plugin installation. Please retry."
+      },
+      "title": "Install plugin",
+      "subtitle": "Choose an install source: remote URL or local upload",
+      "headerTitle": "Install plugin",
+      "headerTitleWithName": "Install plugin: {name}",
+      "meta": "Version: {version} · Author: {author}",
+      "installMethod": "Install method",
+      "enableAfterInstall": "Enable after installation",
+      "packageSource": "Package source (supports px-plugin build artifacts)",
+      "sha256Placeholder": "Optional: expected SHA256 checksum",
+      "chooseLocalSource": "Choose local source",
+      "selectedDirectory": "Selected directory: {name} ({count} files)",
+      "localUploadHelpPrefix": "Local upload: select the plugin directory. It must contain",
+      "localUploadHelpMiddle": "or",
+      "localUploadHelpSuffix": "to install.",
+      "scope": {
+        "label": "Install scope",
+        "system": "System",
+        "org": "Organization",
+        "user": "User"
+      },
+      "namespace": {
+        "label": "Namespace (optional)",
+        "placeholder": "Example: company.crm"
+      },
+      "environment": "Target environment",
+      "autoUpdate": "Auto update",
+      "forceInstall": "Force overwrite same version",
+      "permissions": {
+        "title": "Requested permissions",
+        "network": "Network access (call external APIs)",
+        "storage": "Local storage (read/write plugin data)",
+        "files": "File access (read/upload files)"
+      },
+      "notes": {
+        "label": "Notes (optional)",
+        "placeholder": "Add a note for this installation…"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "install": "Install"
+      },
+      "mode": {
+        "url": "Remote URL",
+        "local": "Local upload"
+      }
+    }
   }
 }

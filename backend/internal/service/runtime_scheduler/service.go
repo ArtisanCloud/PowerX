@@ -10,7 +10,9 @@ import (
 	"time"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
+	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/runtime_scheduler"
+	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -26,6 +28,7 @@ type Service struct {
 	db      *gorm.DB
 	jobs    *repo.JobRepository
 	runs    *repo.RunRepository
+	plugins *reposetting.PluginInstanceConfigRepository
 	eventBu event_bus.EventBus
 	clock   func() time.Time
 }
@@ -48,6 +51,7 @@ func NewService(opts Options) *Service {
 		db:      opts.DB,
 		jobs:    repo.NewJobRepository(opts.DB),
 		runs:    repo.NewRunRepository(opts.DB),
+		plugins: reposetting.NewPluginInstanceConfigRepository(opts.DB),
 		eventBu: opts.EventBus,
 		clock:   clock,
 	}
@@ -128,6 +132,9 @@ func (s *Service) CreateJob(ctx context.Context, spec JobSpec, operator, traceID
 	if err != nil {
 		return nil, err
 	}
+	if err := s.ensureOwnerAcceptsNewUsage(ctx, normalized.OwnerType, normalized.OwnerID); err != nil {
+		return nil, err
+	}
 	payload, err := json.Marshal(normalized.Payload)
 	if err != nil {
 		return nil, appErr(http.StatusBadRequest, "SCHEDULER_INVALID_PAYLOAD", "调度 payload 无法序列化", err)
@@ -166,6 +173,30 @@ func (s *Service) CreateJob(ctx context.Context, spec JobSpec, operator, traceID
 		return nil, mapDBErr(err)
 	}
 	return created, nil
+}
+
+func (s *Service) ensureOwnerAcceptsNewUsage(ctx context.Context, ownerType, ownerID string) error {
+	if !strings.EqualFold(strings.TrimSpace(ownerType), models.OwnerTypePlugin) {
+		return nil
+	}
+	if s == nil || s.plugins == nil {
+		return appErr(http.StatusServiceUnavailable, "SCHEDULER_PLUGIN_USAGE_GUARD_UNAVAILABLE", "插件使用状态检查不可用", nil)
+	}
+	count, err := s.plugins.CountTenantPluginBindings(ctx, reposetting.ListTenantPluginOptions{
+		PluginIDs: []string{strings.TrimSpace(ownerID)},
+		Key:       reposetting.KeyClientCredentials,
+		Statuses: []string{
+			dbsetting.PluginInstanceStatusDrainingRequested,
+			dbsetting.PluginInstanceStatusDisabledByPlatform,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return appErr(http.StatusConflict, "SCHEDULER_PLUGIN_DRAINING", "插件正在 drain 或已被平台禁用，禁止新增调度任务", nil)
+	}
+	return nil
 }
 
 func (s *Service) UpdateJob(ctx context.Context, input UpdateJobInput) (*models.SchedulerJob, error) {

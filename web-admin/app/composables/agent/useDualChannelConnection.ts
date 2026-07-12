@@ -61,6 +61,7 @@ export function useDualChannelConnection(
   let currentSseAbort: AbortController | null = null;
   let sseProbeAbort: AbortController | null = null;
   let lastSseProbeAt = 0;
+  let currentTraceMeta: Record<string, any> = {};
 
   watch(sessionId, (newSessionId, oldSessionId) => {
     if (oldSessionId && messages.value.length > 0) {
@@ -93,6 +94,18 @@ export function useDualChannelConnection(
     typeof window === "undefined"
       ? "Bearer"
       : localStorage.getItem("token_type") || "Bearer";
+  const getCurrentTenantUuid = () => {
+    if (typeof window === "undefined") return "";
+    try {
+      return (
+        localStorage.getItem("px_current_tenant_uuid") ||
+        JSON.parse(localStorage.getItem("user-store") || "{}")?.context?.current_tenant_uuid ||
+        ""
+      );
+    } catch {
+      return localStorage.getItem("px_current_tenant_uuid") || "";
+    }
+  };
   const toBase64Url = (s: string) =>
     btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
@@ -266,6 +279,70 @@ export function useDualChannelConnection(
     }
   }
 
+  function cleanTraceMeta(meta?: Record<string, any> | null) {
+    const out: Record<string, any> = {};
+    if (!meta || typeof meta !== "object") return out;
+    for (const [key, value] of Object.entries(meta)) {
+      if (value == null) continue;
+      const text = String(value).trim();
+      if (!text) continue;
+      out[key] = value;
+    }
+    return out;
+  }
+
+  function hasMessageTraceMeta(meta?: Record<string, any> | null) {
+    const t = cleanTraceMeta(meta);
+    return !!String(t.tenant_uuid || "").trim()
+      && !!String(t.session_id || t.session_id_num || "").trim()
+      && !!String(t.message_id || t.user_message_id || "").trim();
+  }
+
+  function getMessageTraceMeta(message: any) {
+    return cleanTraceMeta(message?.meta?.trace || message?.metadata?.trace);
+  }
+
+  function getLastUserTraceMeta() {
+    for (let i = messages.value.length - 1; i >= 0; i--) {
+      const message = messages.value[i] as any;
+      if (message?.role !== "user") continue;
+      const trace = getMessageTraceMeta(message);
+      if (hasMessageTraceMeta(trace)) return trace;
+      const id = String(message?.id || "").trim();
+      if (/^\d+$/.test(id)) {
+        return cleanTraceMeta({
+          ...trace,
+          tenant_uuid: trace.tenant_uuid || getCurrentTenantUuid(),
+          session_id: trace.session_id || sessionId?.value,
+          message_id: trace.message_id || id,
+        });
+      }
+    }
+    return {};
+  }
+
+  function resolveTraceMetaForAssistantError() {
+    const current = cleanTraceMeta(currentTraceMeta);
+    if (hasMessageTraceMeta(current)) return current;
+    return cleanTraceMeta({
+      ...getLastUserTraceMeta(),
+      ...current,
+    });
+  }
+
+  function attachTraceMeta(message: any, trace: Record<string, any>) {
+    const normalized = cleanTraceMeta(trace);
+    if (Object.keys(normalized).length === 0) return false;
+    message.meta = {
+      ...(message.meta || {}),
+      trace: {
+        ...((message.meta || {}).trace || {}),
+        ...normalized,
+      },
+    };
+    return true;
+  }
+
   // ✅ 文本去重替换策略：杜绝 FINAL/快照把正文重复
   function applyMainContent(prev: string, next: string) {
     const a = (prev || "").trim();
@@ -386,6 +463,100 @@ export function useDualChannelConnection(
           };
         };
 
+        const ensureRunState = (msg: any) => {
+          if (!msg.meta) msg.meta = {};
+          if (!msg.meta.runState) {
+            msg.meta.runState = {
+              run: {},
+              responsePlan: null,
+              intent: null,
+              plan: null,
+              tasks: [],
+              pendingParams: [],
+              results: [],
+              errors: [],
+              traceLinks: [],
+              updatedAt: Date.now(),
+            };
+          }
+          return msg.meta.runState as any;
+        };
+
+        const mergeRunIdentity = (runState: any, payload: any) => {
+          const source = payload?.payload && typeof payload.payload === "object"
+            ? { ...payload, ...payload.payload }
+            : payload;
+          for (const key of ["run_id", "session_id", "message_id", "trace_id"]) {
+            const value = source?.[key];
+            if (value != null && String(value).trim() !== "") {
+              runState.run[key] = value;
+            }
+          }
+        };
+
+        const upsertRunTask = (runState: any, task: any, fallbackStatus?: string) => {
+          const normalized = {
+            ...(task || {}),
+            status: String(task?.status || fallbackStatus || "pending").trim(),
+            updated_at: task?.updated_at || new Date().toISOString(),
+          };
+          const taskId = String(normalized.task_id || normalized.node_id || "").trim();
+          if (!taskId) normalized.task_id = `task_${Date.now()}_${runState.tasks.length}`;
+          const key = String(normalized.task_id || taskId);
+          const idx = runState.tasks.findIndex((item: any) => String(item?.task_id || "") === key);
+          if (idx < 0) runState.tasks.push(normalized);
+          else runState.tasks[idx] = { ...(runState.tasks[idx] || {}), ...normalized };
+          if (normalized.status === "awaiting_params") {
+            runState.pendingParams = runState.tasks.filter((item: any) => item?.status === "awaiting_params");
+          }
+          if (normalized.status === "completed") {
+            runState.results = runState.tasks.filter((item: any) => item?.status === "completed" && (item?.result || item?.links?.length));
+          }
+          if (normalized.status === "failed") {
+            runState.errors = runState.tasks.filter((item: any) => item?.status === "failed");
+          }
+        };
+
+        const applyRunStateEvent = (eventType: string, payload: any) => {
+          const { idx, msg } = getPendingAssistant();
+          if (idx < 0 || !msg) return;
+          const runState = ensureRunState(msg);
+          mergeRunIdentity(runState, payload);
+          const inner = payload?.payload && typeof payload.payload === "object" ? payload.payload : payload;
+          if (eventType === SSE_EVENT_TYPES.AGENT_RUN_RESPONSE_PLAN) {
+            runState.responsePlan = inner;
+          } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_INTENT_DETECTED) {
+            runState.intent = inner;
+          } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_PLAN_CREATED) {
+            runState.plan = inner;
+            const planTasks = inner?.plan?.tasks || inner?.payload?.plan?.tasks;
+            if (Array.isArray(planTasks)) {
+              for (const task of planTasks) upsertRunTask(runState, task, "pending");
+            }
+          } else if (
+            eventType === SSE_EVENT_TYPES.AGENT_RUN_TASK_STATUS ||
+            eventType === SSE_EVENT_TYPES.AGENT_RUN_TASK_STARTED ||
+            eventType === SSE_EVENT_TYPES.AGENT_RUN_TASK_COMPLETED ||
+            eventType === SSE_EVENT_TYPES.AGENT_RUN_TASK_FAILED
+          ) {
+            upsertRunTask(runState, inner);
+          } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_AWAITING_PARAMS) {
+            const missing = Array.isArray(inner?.missing_fields) ? inner.missing_fields : [];
+            upsertRunTask(runState, {
+              ...inner,
+              task_id: inner?.task_id || "pending_params",
+              status: "awaiting_params",
+              missing_fields: missing,
+            });
+          } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_FINAL) {
+            runState.final = inner;
+          } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
+            runState.ended = true;
+          }
+          runState.updatedAt = Date.now();
+          bumpMessagesRef();
+        };
+
         const upsertNodeState = (nodes: any[], eventType: string, payload: any) => {
           const nodeId = String(
             payload?.node_id ?? payload?.task_id ?? payload?.flow_id ?? ""
@@ -393,7 +564,7 @@ export function useDualChannelConnection(
           const statusFromEvent =
             eventType === SSE_EVENT_TYPES.NODE_START
               ? "running"
-              : String(payload?.status || "completed");
+              : String(payload?.status || "pending");
           const patch = {
             node_id: nodeId,
             task_id: payload?.task_id,
@@ -440,6 +611,51 @@ export function useDualChannelConnection(
           bumpMessagesRef();
         };
 
+        const mergeTraceMetaIntoPending = (payload: any) => {
+          const data =
+            payload?.data && typeof payload.data === "object"
+              ? payload.data
+              : {};
+          const patch: Record<string, any> = {};
+          const pick = (key: string, ...aliases: string[]) => {
+            for (const name of [key, ...aliases]) {
+              const value = payload?.[name] ?? data?.[name];
+              if (value != null && String(value).trim() !== "") {
+                patch[key] = value;
+                return;
+              }
+            }
+          };
+          pick("tenant_uuid");
+          pick("trace_id");
+          pick("session_id", "session_id_num");
+          pick("session_uuid");
+          pick("message_id", "user_message_id");
+          pick("agent_id");
+          if (Object.keys(patch).length === 0) return;
+          currentTraceMeta = { ...currentTraceMeta, ...patch };
+          const messageID = String(currentTraceMeta.message_id || "").trim();
+          const clientMsgID = String(
+            payload?.client_msg_id ?? data?.client_msg_id ?? ""
+          ).trim();
+          if (messageID || clientMsgID) {
+            const userIdx = messages.value.findIndex((m) => {
+              const id = String(m.id);
+              return id === messageID || (clientMsgID && id === clientMsgID);
+            });
+            if (userIdx >= 0) {
+              const updated = { ...messages.value[userIdx] };
+              attachTraceMeta(updated, currentTraceMeta);
+              messages.value[userIdx] = updated;
+            }
+          }
+          const { idx, msg } = getPendingAssistant();
+          if (idx >= 0 && msg) {
+            attachTraceMeta(msg, currentTraceMeta);
+            bumpMessagesRef();
+          }
+        };
+
         const finalize = (opts?: {
           errorMessage?: string;
           abort?: boolean;
@@ -453,6 +669,12 @@ export function useDualChannelConnection(
               msg.isError = true;
               msg.content = opts.errorMessage;
             }
+            attachTraceMeta(
+              msg,
+              opts?.errorMessage
+                ? resolveTraceMetaForAssistantError()
+                : currentTraceMeta
+            );
             bumpMessagesRef();
           }
 
@@ -472,24 +694,29 @@ export function useDualChannelConnection(
 
         const connectionTimeout = () => {
           if (!hasReceivedData) {
+            const errorTrace = resolveTraceMetaForAssistantError();
             const { idx } = getPendingAssistant();
             if (idx >= 0) {
-              messages.value[idx] = {
+              const updated = {
                 ...messages.value[idx],
                 isThinking: false,
                 isStreaming: false,
                 isError: true,
                 content: "连接超时：服务器未响应确认包。",
               };
+              attachTraceMeta(updated, errorTrace);
+              messages.value[idx] = updated;
               bumpMessagesRef();
             } else {
-              messages.value.push({
+              const errorMessage: any = {
                 id: `error_${Date.now()}`,
                 role: "assistant",
                 content: "连接超时：服务器未响应确认包。",
                 timestamp: Date.now(),
                 isError: true,
-              });
+              };
+              attachTraceMeta(errorMessage, errorTrace);
+              messages.value.push(errorMessage);
               bumpMessagesRef();
             }
             finalize({ abort: true });
@@ -543,8 +770,14 @@ export function useDualChannelConnection(
           onMessageCallback?.(payload);
           const type = String(payload.type || eventName || "").toLowerCase();
 
+          if (type.startsWith("agent_run.")) {
+            applyRunStateEvent(type, payload);
+            return;
+          }
+
           // meta：用于把“前端临时消息 id”映射到“DB message id”（支持立即重新生成）
           if (type === SSE_EVENT_TYPES.META) {
+            mergeTraceMetaIntoPending(payload);
             const clientMsgId =
               payload?.client_msg_id ?? payload?.data?.client_msg_id;
             const userMessageId =
@@ -552,7 +785,9 @@ export function useDualChannelConnection(
             if (clientMsgId && userMessageId) {
               const idx = messages.value.findIndex((m) => m.id === clientMsgId);
               if (idx >= 0) {
-                messages.value[idx] = { ...messages.value[idx], id: userMessageId };
+                const updated = { ...messages.value[idx], id: userMessageId };
+                attachTraceMeta(updated, currentTraceMeta);
+                messages.value[idx] = updated;
                 bumpMessagesRef();
               }
             }
@@ -577,6 +812,23 @@ export function useDualChannelConnection(
               type === SSE_EVENT_TYPES.NODE_END
             ) {
               applyProcessEvent(type, payload);
+              if (type === SSE_EVENT_TYPES.NODE_START || type === SSE_EVENT_TYPES.NODE_END) {
+                const { idx, msg } = getPendingAssistant();
+                if (idx >= 0 && msg) {
+                  const runState = ensureRunState(msg);
+                  const status =
+                    type === SSE_EVENT_TYPES.NODE_START
+                      ? "running"
+                      : String(payload?.status || "").trim().toLowerCase();
+                  if (status) {
+                    upsertRunTask(runState, {
+                      ...payload,
+                      status,
+                      task_id: payload?.task_id || payload?.node_id || payload?.flow_id,
+                    });
+                  }
+                }
+              }
             }
             return;
           }
@@ -612,6 +864,7 @@ export function useDualChannelConnection(
                 isThinking: true,
                 isError: false,
                 meta: {
+                  trace: currentTraceMeta,
                   think: {
                     blocks: [],
                     current: "",
@@ -652,6 +905,10 @@ export function useDualChannelConnection(
             answer.isThinking = hasActiveThink;
             answer.meta = {
               ...(answer.meta || {}),
+              trace: {
+                ...((answer.meta || {}).trace || {}),
+                ...currentTraceMeta,
+              },
               think: {
                 blocks: completedThinks,
                 current: currentThinkContent,
@@ -680,29 +937,34 @@ export function useDualChannelConnection(
           }
 
           if (type === SSE_EVENT_TYPES.ERROR) {
+            mergeTraceMetaIntoPending(payload);
+            const errorTrace = resolveTraceMetaForAssistantError();
             const { idx, msg } = getPendingAssistant();
-            if (idx >= 0 && msg) {
-              msg.isThinking = false;
-              msg.isStreaming = false;
-              msg.isError = true;
-              msg.content =
+          if (idx >= 0 && msg) {
+            msg.isThinking = false;
+            msg.isStreaming = false;
+            msg.isError = true;
+            msg.content =
+              payload?.message ||
+              payload?.error ||
+              "发生错误：未知的服务端错误。";
+            attachTraceMeta(msg, errorTrace);
+            bumpMessagesRef();
+          } else {
+            const errorMessage: any = {
+              id: `error_${Date.now()}`,
+              role: "assistant",
+              content:
                 payload?.message ||
                 payload?.error ||
-                "发生错误：未知的服务端错误。";
-              bumpMessagesRef();
-            } else {
-              messages.value.push({
-                id: `error_${Date.now()}`,
-                role: "assistant",
-                content:
-                  payload?.message ||
-                  payload?.error ||
-                  "发生错误：未知的服务端错误。",
-                timestamp: Date.now(),
-                isError: true,
-              });
-              bumpMessagesRef();
-            }
+                "发生错误：未知的服务端错误。",
+              timestamp: Date.now(),
+              isError: true,
+            };
+            attachTraceMeta(errorMessage, errorTrace);
+            messages.value.push(errorMessage);
+            bumpMessagesRef();
+          }
             finalize({ abort: true });
             return;
           }
@@ -749,23 +1011,27 @@ export function useDualChannelConnection(
             );
             return { idx: i, msg: i >= 0 ? messages.value[i] : null };
           })();
+          const errorTrace = resolveTraceMetaForAssistantError();
 
-          if (idx >= 0 && msg) {
-            msg.isThinking = false;
-            msg.isStreaming = false;
-            msg.isError = true;
-            msg.content = `发生异常：${(err as any)?.message ?? "未知错误"}`;
-            bumpMessagesRef();
-          } else {
-            messages.value.push({
-              id: `error_${Date.now()}`,
-              role: "assistant",
-              content: `发生异常：${(err as any)?.message ?? "未知错误"}`,
-              timestamp: Date.now(),
-              isError: true,
-            });
-            bumpMessagesRef();
-          }
+      if (idx >= 0 && msg) {
+        msg.isThinking = false;
+        msg.isStreaming = false;
+        msg.isError = true;
+        msg.content = `发生异常：${(err as any)?.message ?? "未知错误"}`;
+        attachTraceMeta(msg, errorTrace);
+        bumpMessagesRef();
+      } else {
+        const errorMessage: any = {
+          id: `error_${Date.now()}`,
+          role: "assistant",
+          content: `发生异常：${(err as any)?.message ?? "未知错误"}`,
+          timestamp: Date.now(),
+          isError: true,
+        };
+        attachTraceMeta(errorMessage, errorTrace);
+        messages.value.push(errorMessage);
+        bumpMessagesRef();
+      }
 
           onErrorCallback?.(err);
         } finally {
@@ -784,21 +1050,25 @@ export function useDualChannelConnection(
         const i = messages.value.findIndex((m) => m.id === pendingAssistantId);
         return { idx: i, msg: i >= 0 ? messages.value[i] : null };
       })();
+      const errorTrace = resolveTraceMetaForAssistantError();
 
       if (idx >= 0 && msg) {
         msg.isThinking = false;
         msg.isStreaming = false;
         msg.isError = true;
         msg.content = `发送失败：${(err as any)?.message ?? "未知错误"}`;
+        attachTraceMeta(msg, errorTrace);
         bumpMessagesRef();
       } else {
-        messages.value.push({
+        const errorMessage: any = {
           id: `error_${Date.now()}`,
           role: "assistant",
           content: `发送失败：${(err as any)?.message ?? "未知错误"}`,
           timestamp: Date.now(),
           isError: true,
-        });
+        };
+        attachTraceMeta(errorMessage, errorTrace);
+        messages.value.push(errorMessage);
         bumpMessagesRef();
       }
 
@@ -826,16 +1096,25 @@ export function useDualChannelConnection(
   ) => {
     const noUserEcho = !!(meta as any)?.noUserEcho;
     const clientMsgId = `u_${Date.now()}`;
+    const initialTraceMeta: Record<string, any> = {
+      tenant_uuid: String((meta as any)?.tenant_uuid || getCurrentTenantUuid() || "").trim(),
+      session_id: String((meta as any)?.session_id || (meta as any)?.sessionId || sessionId?.value || "").trim(),
+    };
+    Object.keys(initialTraceMeta).forEach((key) => {
+      if (!initialTraceMeta[key]) delete initialTraceMeta[key];
+    });
     if (!noUserEcho) {
       messages.value.push({
         id: clientMsgId,
         role: "user",
         content: message,
         timestamp: Date.now(),
+        meta: Object.keys(initialTraceMeta).length > 0 ? { trace: initialTraceMeta } : undefined,
       });
     }
 
     pendingAssistantId = `thinking_${Date.now()}`;
+    currentTraceMeta = { ...initialTraceMeta };
     messages.value.push({
       id: pendingAssistantId,
       role: "assistant",
@@ -846,6 +1125,7 @@ export function useDualChannelConnection(
       done: false,
       isError: false,
       meta: {
+        trace: currentTraceMeta,
         think: {
           blocks: [],
           current: "",

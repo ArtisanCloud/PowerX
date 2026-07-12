@@ -14,9 +14,6 @@
 # Go工作空间文件
 go.work
 
-# 依赖验证文件
-go.sum
-
 # 编辑器和IDE文件
 .vscode/
 .idea/

@@ -23,23 +23,33 @@ import (
 )
 
 type ToolCallCandidate struct {
-	Name           string
-	NodeKind       string
-	NodeRef        string
-	FlowID         string // 兼容旧字段：workflow 场景与 NodeRef 一致
-	AgentID        string
-	SourceScope    string   // system|agent
-	Source         string   // builtin|plugin|third_party|...
-	TenantUUID     string   // tenant scoped candidate
-	Visibility     string   // tenant|public|global|system
-	BindingStatus  string   // active|disabled|deprecated
-	RequiredGrants []string // hard-filter tool grants
-	Description    string
-	RequiredArgs   []string
-	OptionalArgs   []string
-	IntentHints    []string
-	Tags           []string
-	SemanticText   string
+	Name               string
+	DisplayName        string
+	NodeKind           string
+	NodeRef            string
+	FlowID             string // 兼容旧字段：workflow 场景与 NodeRef 一致
+	AgentID            string
+	SourceScope        string   // system|agent
+	Source             string   // builtin|plugin|third_party|...
+	TenantUUID         string   // tenant scoped candidate
+	Visibility         string   // tenant|public|global|system
+	BindingStatus      string   // active|disabled|deprecated
+	RequiredGrants     []string // hard-filter tool grants
+	Description        string
+	RequiredArgs       []string
+	ActionRequiredArgs map[string][]string
+	ActionOptionalArgs map[string][]string
+	SlotMapping        map[string]any
+	PendingTaskPolicy  map[string]any
+	StateContract      map[string]any
+	ResultPresentation map[string]any
+	OptionalArgs       []string
+	Actions            []string
+	Examples           []string
+	ResponseGuidance   []string
+	IntentHints        []string
+	Tags               []string
+	SemanticText       string
 }
 
 type CandidateBuildContext struct {
@@ -47,6 +57,8 @@ type CandidateBuildContext struct {
 	AgentID       string
 	ToolGrantIDs  []string
 	AllowedSource []string
+	BoundSkillIDs []string
+	BoundToolIDs  []string
 }
 
 type toolCallingDecision struct {
@@ -88,6 +100,14 @@ func CandidateBuildContextFromRequest(ctx context.Context) CandidateBuildContext
 	out.AllowedSource = readContextStringSlice(ctx, "skill_source_allowlist")
 	if len(out.AllowedSource) == 0 {
 		out.AllowedSource = readContextStringSlice(ctx, "skills_source_allowlist")
+	}
+	out.BoundSkillIDs = readContextStringSlice(ctx, "agent_bound_skill_ids")
+	if len(out.BoundSkillIDs) == 0 {
+		out.BoundSkillIDs = readContextStringSlice(ctx, "agentBoundSkillIDs")
+	}
+	out.BoundToolIDs = readContextStringSlice(ctx, "agent_bound_tool_ids")
+	if len(out.BoundToolIDs) == 0 {
+		out.BoundToolIDs = readContextStringSlice(ctx, "agentBoundToolIDs")
 	}
 	return out
 }
@@ -251,6 +271,12 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 	}
 	provider := strings.TrimSpace(reqCfg.Provider)
 	model := strings.TrimSpace(reqCfg.ModelName)
+	if routedProvider := strings.TrimSpace(readContextString(ctx, "agent_model_planner_provider")); routedProvider != "" {
+		provider = routedProvider
+	}
+	if routedModel := strings.TrimSpace(readContextString(ctx, "agent_model_planner_model")); routedModel != "" {
+		model = routedModel
+	}
 	if provider == "" || model == "" {
 		return fallback("provider/model missing")
 	}
@@ -279,7 +305,7 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		if decision, ok := readPlannerDecisionCache(ctx, cacheKey); ok {
 			dlogRun.PlannerCacheHit = true
 			dlogRun.Decision = decision
-			out := buildDetectedTasksFromDecision(decision, cands)
+			out := attachUserMessageToDetectedTasks(buildDetectedTasksFromDecision(decision, cands), text)
 			if len(out) > 0 {
 				dlogRun.ResultSource = "planner_cache"
 				dlogRun.Tasks = out
@@ -330,9 +356,9 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		writePlannerDecisionCache(ctx, cacheKey, decision, plannerCfg.DecisionCacheTTLSec)
 	}
 
-	out := buildDetectedTasksFromDecision(decision, cands)
+	out := attachUserMessageToDetectedTasks(buildDetectedTasksFromDecision(decision, cands), text)
 	if len(out) == 0 {
-		return fallback("tool decision produced zero valid tasks")
+		return fallback("tool decision produced zero tasks")
 	}
 	dlogRun.ResultSource = "tool_calling"
 	dlogRun.Tasks = out
@@ -450,6 +476,22 @@ func buildDetectedTasksFromDecision(decision *toolCallingDecision, cands []ToolC
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
 	return dedupeAliasTasks(out)
+}
+
+func attachUserMessageToDetectedTasks(tasks []flowschema.DetectedTask, text string) []flowschema.DetectedTask {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return tasks
+	}
+	for i := range tasks {
+		if tasks[i].Params == nil {
+			tasks[i].Params = map[string]interface{}{}
+		}
+		if strings.TrimSpace(fmt.Sprint(tasks[i].Params["user_message"])) == "" {
+			tasks[i].Params["user_message"] = text
+		}
+	}
+	return tasks
 }
 
 func dedupeAliasTasks(in []flowschema.DetectedTask) []flowschema.DetectedTask {
@@ -952,6 +994,11 @@ func buildToolCallingPrompt(text string, cands []ToolCallCandidate, opt PlannerO
 	b.WriteString("必须只输出 JSON，不要输出解释文本。\\n")
 	b.WriteString(`输出格式: {"tool_calls":[{"name":"<candidate_name>","args":{...},"confidence":0.0-1.0,"reason":"..."}]}` + "\n")
 	b.WriteString("约束: 只能使用下方清单中的 name；args 只允许写该工具声明的参数。\\n\\n")
+	b.WriteString("判断规则:\\n")
+	b.WriteString("- 如果用户只是询问 Agent 自身、能力边界、可用能力或能力说明，且没有要求执行某个候选能力，输出 tool_calls=[]。\\n")
+	b.WriteString("- 这类元问题应该交给最终回答阶段基于能力上下文生成自然语言，不要选择 CRUD/执行型工具。\\n")
+	b.WriteString("- 只要用户明确提出创建、查询、更新、删除、同步、调用、生成等实际动作并命中候选能力，就选择对应 Skill/Tool。\\n")
+	b.WriteString("- 不要因为业务参数不完整而放弃选择；缺参、确认和可执行判断由 Skill prepare 阶段处理。\\n\\n")
 	b.WriteString("能力清单（按类型分区 + source_scope）:\\n")
 	appendCandidateSection(&b, "workflow_catalog", "workflow", cands, opt)
 	appendCandidateSection(&b, "skill_catalog", "skill", cands, opt)
@@ -990,8 +1037,12 @@ func appendCandidateSection(b *strings.Builder, title, kind string, cands []Tool
 		if strings.EqualFold(strings.TrimSpace(opt.PromptSlimMode), "compact") {
 			desc = trimCandidateDesc(desc, 88)
 		}
-		b.WriteString(fmt.Sprintf("  {name:%q, kind:%q, source_scope:%q, ref:%q, required:%v, optional:%v, desc:%q}\n",
-			c.Name, c.NodeKind, c.SourceScope, c.NodeRef, c.RequiredArgs, c.OptionalArgs, desc))
+		displayName := strings.TrimSpace(c.DisplayName)
+		if displayName == "" {
+			displayName = strings.TrimSpace(c.Name)
+		}
+		b.WriteString(fmt.Sprintf("  {name:%q, title:%q, kind:%q, source_scope:%q, ref:%q, actions:%v, required:%v, optional:%v, examples:%v, desc:%q}\n",
+			c.Name, displayName, c.NodeKind, c.SourceScope, c.NodeRef, c.Actions, c.RequiredArgs, c.OptionalArgs, c.Examples, desc))
 	}
 	b.WriteString("]\n")
 }
@@ -1086,6 +1137,10 @@ func scoreCandidateForQuery(query string, c ToolCallCandidate) int {
 	name := strings.ToLower(strings.TrimSpace(c.Name))
 	if strings.Contains(query, name) {
 		score += 120
+	}
+	displayName := strings.ToLower(strings.TrimSpace(c.DisplayName))
+	if displayName != "" && strings.Contains(query, displayName) {
+		score += 100
 	}
 	ref := strings.ToLower(strings.TrimSpace(c.NodeRef))
 	if ref != "" && strings.Contains(query, ref) {
@@ -1239,6 +1294,12 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 	c.TenantUUID = strings.TrimSpace(c.TenantUUID)
 	c.Visibility = strings.ToLower(strings.TrimSpace(c.Visibility))
 	c.BindingStatus = strings.ToLower(strings.TrimSpace(c.BindingStatus))
+	c.ActionRequiredArgs = normalizeCandidateActionRequiredArgs(c.ActionRequiredArgs)
+	c.ActionOptionalArgs = normalizeCandidateActionRequiredArgs(c.ActionOptionalArgs)
+	c.SlotMapping = normalizeCandidateAnyMap(c.SlotMapping)
+	c.PendingTaskPolicy = normalizeCandidateAnyMap(c.PendingTaskPolicy)
+	c.StateContract = normalizeCandidateAnyMap(c.StateContract)
+	c.ResultPresentation = normalizeCandidateAnyMap(c.ResultPresentation)
 	if c.SourceScope == "" {
 		c.SourceScope = "system"
 	}
@@ -1252,6 +1313,56 @@ func normalizeCandidate(c ToolCallCandidate) ToolCallCandidate {
 		c.FlowID = c.NodeRef
 	}
 	return c
+}
+
+func normalizeCandidateAnyMap(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(raw))
+	for key, value := range raw {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeCandidateActionRequiredArgs(raw map[string][]string) map[string][]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(raw))
+	for action, fields := range raw {
+		action = strings.ToLower(strings.TrimSpace(action))
+		if action == "" {
+			continue
+		}
+		seen := map[string]struct{}{}
+		values := make([]string, 0, len(fields))
+		for _, field := range fields {
+			field = strings.TrimSpace(field)
+			if field == "" {
+				continue
+			}
+			key := strings.ToLower(field)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			values = append(values, field)
+		}
+		out[action] = values
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func candidatePriority(c ToolCallCandidate, cctx CandidateBuildContext) int {
@@ -1276,6 +1387,24 @@ func isCandidateAllowed(c ToolCallCandidate, cctx CandidateBuildContext) bool {
 	status := strings.ToLower(strings.TrimSpace(c.BindingStatus))
 	if status == "disabled" || status == "deprecated" {
 		return false
+	}
+	if strings.TrimSpace(cctx.AgentID) != "" {
+		switch strings.ToLower(strings.TrimSpace(c.NodeKind)) {
+		case "skill":
+			if !containsFold(cctx.BoundSkillIDs, candidateBindingRef(c)) {
+				return false
+			}
+		case "tooling":
+			if !containsFold(cctx.BoundToolIDs, candidateBindingRef(c)) {
+				return false
+			}
+		case "workflow":
+			if strings.TrimSpace(c.AgentID) == "" || !strings.EqualFold(strings.TrimSpace(c.AgentID), strings.TrimSpace(cctx.AgentID)) {
+				return false
+			}
+		default:
+			return false
+		}
 	}
 	if c.SourceScope == "agent" && cctx.AgentID != "" && c.AgentID != "" && !strings.EqualFold(c.AgentID, cctx.AgentID) {
 		return false
@@ -1320,6 +1449,26 @@ func isCandidateAllowed(c ToolCallCandidate, cctx CandidateBuildContext) bool {
 		}
 	}
 	return true
+}
+
+func candidateBindingRef(c ToolCallCandidate) string {
+	if ref := strings.TrimSpace(c.NodeRef); ref != "" {
+		return ref
+	}
+	return strings.TrimSpace(c.Name)
+}
+
+func containsFold(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
 }
 
 func readContextString(ctx context.Context, key string) string {

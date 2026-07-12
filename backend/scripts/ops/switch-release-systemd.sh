@@ -7,15 +7,15 @@ Usage:
   $0 <target_tag_or_version> [--with-runner] [--with-setup-trace|--without-setup-trace] [--with-setup-reentry|--without-setup-reentry] [--timeout-sec N]
 
 Description:
-  Switch /opt/powerx symlinks to /opt/powerx/releases/<target_tag_or_version>,
+  Switch release symlinks to the target release,
   restart systemd services, and run backend health check.
   If health check fails, auto rollback to previous symlink targets.
   Production should use immutable git tag names (e.g. v2.0.2).
 
 Options:
-  --with-runner            Also switch/restart powerx-runner.
-  --with-setup-trace       Enable setup/status trace log on powerx-backend.
-  --without-setup-trace    Disable setup/status trace log on powerx-backend.
+  --with-runner            Also switch/restart runner service.
+  --with-setup-trace       Enable setup/status trace log on backend service.
+  --without-setup-trace    Disable setup/status trace log on backend service.
   --with-setup-reentry     Temporarily allow setup write APIs on installed instance.
   --without-setup-reentry  Disable setup reentry (recommended default).
   --timeout-sec N          Health check timeout seconds (default: 90).
@@ -24,10 +24,22 @@ Environment overrides:
   POWERX_RELEASES_ROOT     Default: /opt/powerx/releases
   POWERX_LINKS_ROOT        Default: /opt/powerx
   POWERX_RUNTIME_ROOT      Default: /etc/powerx
+  POWERX_STORAGE_ROOT      Default: /opt/powerx/storage
+  POWERX_PLUGIN_RUNTIME_ROOT
+                            Default: POWERX_LINKS_ROOT/plugins
   POWERX_HEALTH_URL        Default: http://127.0.0.1:8080/api/v1/health
   POWERX_HEALTH_EXPECT     Default: 200
   POWERX_SERVICE_USER      Default: current login user (sudo user), fallback: powerx
   POWERX_SERVICE_GROUP     Default: primary group of POWERX_SERVICE_USER
+  POWERX_BACKEND_SERVICE   Default: powerx-backend
+  POWERX_WEB_ADMIN_SERVICE Default: powerx-web-admin
+  POWERX_RUNNER_SERVICE    Default: powerx-runner
+  POWERX_SYNC_SYSTEMD_UNITS
+                            Default: 1. Set to 0 when dev service unit files are managed separately.
+  POWERX_BOOTSTRAP_BACKEND_PORT
+                            Optional. Used to initialize server.port when runtime config is first created.
+  POWERX_BOOTSTRAP_WEB_ADMIN_PORT
+                            Optional. Used to initialize top-level web_admin_port when runtime config is first created.
 USAGE
 }
 
@@ -100,12 +112,18 @@ RELEASES_ROOT="${POWERX_RELEASES_ROOT:-/opt/powerx/releases}"
 LINKS_ROOT="${POWERX_LINKS_ROOT:-/opt/powerx}"
 RUNTIME_ROOT="${POWERX_RUNTIME_ROOT:-/etc/powerx}"
 PLUGIN_RUNTIME_ROOT="${POWERX_PLUGIN_RUNTIME_ROOT:-${LINKS_ROOT}/plugins}"
+STORAGE_RUNTIME_ROOT="${POWERX_STORAGE_ROOT:-${LINKS_ROOT}/storage}"
 HEALTH_URL="${POWERX_HEALTH_URL:-http://127.0.0.1:8080/api/v1/health}"
 HEALTH_EXPECT="${POWERX_HEALTH_EXPECT:-200}"
 SERVICE_USER="${POWERX_SERVICE_USER:-${SUDO_USER:-powerx}}"
 SERVICE_GROUP="${POWERX_SERVICE_GROUP:-}"
+BACKEND_SERVICE="${POWERX_BACKEND_SERVICE:-powerx-backend}"
+WEB_ADMIN_SERVICE="${POWERX_WEB_ADMIN_SERVICE:-powerx-web-admin}"
+RUNNER_SERVICE="${POWERX_RUNNER_SERVICE:-powerx-runner}"
+SYNC_SYSTEMD_UNITS="${POWERX_SYNC_SYSTEMD_UNITS:-1}"
 RUNTIME_CONFIG_PATH="${RUNTIME_ROOT}/config.yaml"
 RUNTIME_SETUP_DRAFT_PATH="${RUNTIME_ROOT}/setup.wizard.config.json"
+RUNTIME_CONFIG_CREATED=0
 
 TARGET_ROOT="${RELEASES_ROOT}/${TARGET_REF}"
 TARGET_BACKEND="${TARGET_ROOT}/backend"
@@ -157,6 +175,25 @@ echo "[switch-release] target ref: $TARGET_REF"
 echo "[switch-release] releases root: $RELEASES_ROOT"
 echo "[switch-release] links root: $LINKS_ROOT"
 echo "[switch-release] service identity: ${SERVICE_USER}:${SERVICE_GROUP:-<auto>}"
+echo "[switch-release] services: backend=${BACKEND_SERVICE}, web-admin=${WEB_ADMIN_SERVICE}, runner=${RUNNER_SERVICE}"
+
+service_working_dir() {
+  local unit="$1"
+  case "${unit}" in
+    "${BACKEND_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/backend"
+      ;;
+    "${WEB_ADMIN_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/web-admin"
+      ;;
+    "${RUNNER_SERVICE}")
+      printf "%s" "${LINKS_ROOT}/runner"
+      ;;
+    *)
+      printf "%s" "${LINKS_ROOT}"
+      ;;
+  esac
+}
 
 ensure_service_identity() {
   if id -u "${SERVICE_USER}" >/dev/null 2>&1; then
@@ -207,18 +244,8 @@ ensure_service_identity() {
 apply_service_user_override() {
   local unit="$1"
   local dir="/etc/systemd/system/${unit}.service.d"
-  local working_dir="${LINKS_ROOT}"
-  case "${unit}" in
-    powerx-backend)
-      working_dir="${LINKS_ROOT}/backend"
-      ;;
-    powerx-web-admin)
-      working_dir="${LINKS_ROOT}/web-admin"
-      ;;
-    powerx-runner)
-      working_dir="${LINKS_ROOT}/runner"
-      ;;
-  esac
+  local working_dir
+  working_dir="$(service_working_dir "${unit}")"
   install -d -m 0755 "$dir"
   cat > "${dir}/zz-runtime-user.conf" <<EOF
 [Service]
@@ -229,7 +256,7 @@ EOF
 }
 
 apply_setup_trace_override() {
-  local dir="/etc/systemd/system/powerx-backend.service.d"
+  local dir="/etc/systemd/system/${BACKEND_SERVICE}.service.d"
   local file="${dir}/90-setup-trace.conf"
   install -d -m 0755 "$dir"
   cat > "$file" <<EOF
@@ -240,7 +267,7 @@ EOF
 }
 
 remove_setup_trace_override() {
-  local file="/etc/systemd/system/powerx-backend.service.d/90-setup-trace.conf"
+  local file="/etc/systemd/system/${BACKEND_SERVICE}.service.d/90-setup-trace.conf"
   if [[ -f "$file" ]]; then
     rm -f "$file"
     echo "[switch-release] setup trace disabled: ${file}"
@@ -336,7 +363,7 @@ ensure_node_bin_env() {
   if ! node_bin="$(detect_node_bin)"; then
     cat >&2 <<EOF
 [switch-release] error: no executable node found for user '${SERVICE_USER}'.
-[switch-release] required by: powerx-web-admin.service / powerx-runner.service
+[switch-release] required by: ${WEB_ADMIN_SERVICE}.service / ${RUNNER_SERVICE}.service
 [switch-release] options:
   1) install system node and set NODE_BIN=/usr/bin/node
   2) use custom node path and ensure '${SERVICE_USER}' has execute permission on full path (ACL/chmod)
@@ -377,7 +404,7 @@ EOF
 
 sync_http_proxy_base_env() {
   local env_file="${RUNTIME_ROOT}/powerx.env"
-  local proxy_base="http://127.0.0.1:8080"
+  local proxy_base="${POWERX_HTTP_PROXY_BASE:-http://127.0.0.1:8080}"
   local current_value=""
 
   install -d -m 0755 "${RUNTIME_ROOT}"
@@ -441,6 +468,7 @@ ensure_runtime_config_external() {
       cp "${source_cfg}" "${RUNTIME_CONFIG_PATH}"
       chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
       chmod 0644 "${RUNTIME_CONFIG_PATH}"
+      RUNTIME_CONFIG_CREATED=1
       echo "[switch-release] runtime config initialized: ${RUNTIME_CONFIG_PATH} <= ${source_cfg}"
     else
       echo "[switch-release] warning: runtime config source not found, keep release-local config fallback" >&2
@@ -478,6 +506,83 @@ ensure_runtime_config_external() {
     chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_SETUP_DRAFT_PATH}"
     chmod 0644 "${RUNTIME_SETUP_DRAFT_PATH}"
   fi
+}
+
+apply_bootstrap_ports() {
+  if [[ "${RUNTIME_CONFIG_CREATED}" != "1" ]]; then
+    return
+  fi
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    return
+  fi
+
+  local backend_port="${POWERX_BOOTSTRAP_BACKEND_PORT:-}"
+  local web_admin_port="${POWERX_BOOTSTRAP_WEB_ADMIN_PORT:-}"
+  local tmp_file
+
+  if [[ -z "${backend_port}" && -z "${web_admin_port}" ]]; then
+    return
+  fi
+  if [[ -n "${backend_port}" && ! "${backend_port}" =~ ^[0-9]+$ ]]; then
+    echo "[switch-release] invalid POWERX_BOOTSTRAP_BACKEND_PORT=${backend_port}" >&2
+    exit 1
+  fi
+  if [[ -n "${web_admin_port}" && ! "${web_admin_port}" =~ ^[0-9]+$ ]]; then
+    echo "[switch-release] invalid POWERX_BOOTSTRAP_WEB_ADMIN_PORT=${web_admin_port}" >&2
+    exit 1
+  fi
+
+  tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.bootstrap-ports.XXXXXX")"
+  awk -v backend_port="${backend_port}" -v web_admin_port="${web_admin_port}" '
+    BEGIN {
+      in_server = 0
+      server_seen = 0
+      backend_done = backend_port == "" ? 1 : 0
+      web_done = web_admin_port == "" ? 1 : 0
+    }
+    /^[[:space:]]*server:[[:space:]]*$/ {
+      in_server = 1
+      server_seen = 1
+      print
+      next
+    }
+    in_server && /^[^[:space:]]/ {
+      if (!backend_done) {
+        print "  port: " backend_port
+        backend_done = 1
+      }
+      in_server = 0
+    }
+    in_server && /^[[:space:]]*port:[[:space:]]*/ && !backend_done {
+      print "  port: " backend_port
+      backend_done = 1
+      next
+    }
+    /^[[:space:]]*web_admin_port:[[:space:]]*/ && !web_done {
+      print "web_admin_port: " web_admin_port
+      web_done = 1
+      next
+    }
+    { print }
+    END {
+      if (!server_seen && !backend_done) {
+        print "server:"
+        print "  port: " backend_port
+        backend_done = 1
+      } else if (in_server && !backend_done) {
+        print "  port: " backend_port
+        backend_done = 1
+      }
+      if (!web_done) {
+        print "web_admin_port: " web_admin_port
+      }
+    }
+  ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+
+  mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime config bootstrap ports applied: backend=${backend_port:-<unchanged>} web_admin=${web_admin_port:-<unchanged>}"
 }
 
 sync_runtime_plugin_paths() {
@@ -584,6 +689,71 @@ normalize_plugin_runtime_artifacts() {
   echo "[switch-release] plugin runtime artifacts normalized under ${plugin_installed_abs}"
 }
 
+sync_runtime_storage_paths() {
+  if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
+    echo "[switch-release] warning: runtime config missing, skip storage path sync: ${RUNTIME_CONFIG_PATH}" >&2
+    return
+  fi
+
+  local media_abs="${STORAGE_RUNTIME_ROOT}/media"
+  local legacy_paths=()
+  local legacy
+  local tmp_file
+
+  install -d -m 0755 "${media_abs}"
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${STORAGE_RUNTIME_ROOT}"
+
+  legacy_paths+=("${LINK_BACKEND}/storage/media")
+  if [[ -n "${PREV_BACKEND}" ]]; then
+    legacy_paths+=("${PREV_BACKEND}/storage/media")
+  fi
+  legacy_paths+=("${TARGET_BACKEND}/storage/media")
+
+  for legacy in "${legacy_paths[@]}"; do
+    if [[ -d "${legacy}" && "${legacy}" != "${media_abs}" ]]; then
+      if [[ -n "$(find "${legacy}" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]]; then
+        cp -a "${legacy}/." "${media_abs}/" 2>/dev/null || true
+        echo "[switch-release] media storage migrated: ${legacy} -> ${media_abs}"
+      fi
+    fi
+  done
+
+  if grep -Eq '^[[:space:]]*base_path[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
+    tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.storage.XXXXXX")"
+    awk -v val="${media_abs}" '
+      BEGIN { updated = 0; in_storage = 0; in_local = 0 }
+      /^[^[:space:]][^:]*:[[:space:]]*$/ {
+        in_storage = ($0 ~ /^storage[[:space:]]*:/)
+        in_local = 0
+      }
+      in_storage && /^[[:space:]]{2}local[[:space:]]*:[[:space:]]*$/ {
+        in_local = 1
+      }
+      in_storage && /^[[:space:]]{2}[A-Za-z0-9_]+[[:space:]]*:/ && $0 !~ /^[[:space:]]{2}local[[:space:]]*:/ {
+        in_local = 0
+      }
+      in_storage && in_local && /^[[:space:]]*base_path[[:space:]]*:/ && updated == 0 {
+        indent = ""
+        if (match($0, /^[[:space:]]*/)) {
+          indent = substr($0, RSTART, RLENGTH)
+        }
+        print indent "base_path: " val
+        updated = 1
+        next
+      }
+      { print }
+    ' "${RUNTIME_CONFIG_PATH}" > "${tmp_file}"
+    mv "${tmp_file}" "${RUNTIME_CONFIG_PATH}"
+  else
+    echo "[switch-release] warning: key storage.local.base_path not found in ${RUNTIME_CONFIG_PATH}, skip rewrite" >&2
+  fi
+
+  chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${media_abs}"
+  chown "${SERVICE_USER}:${SERVICE_GROUP}" "${RUNTIME_CONFIG_PATH}"
+  chmod 0644 "${RUNTIME_CONFIG_PATH}"
+  echo "[switch-release] runtime media storage synced: base_path=${media_abs}"
+}
+
 sync_runtime_config_version() {
   if [[ ! -f "${RUNTIME_CONFIG_PATH}" ]]; then
     echo "[switch-release] warning: runtime config missing, skip version sync: ${RUNTIME_CONFIG_PATH}" >&2
@@ -638,9 +808,9 @@ rollback() {
   fi
 
   systemctl daemon-reload
-  systemctl restart powerx-backend powerx-web-admin
+  systemctl restart "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
   if [[ "$WITH_RUNNER" == "1" ]]; then
-    systemctl restart powerx-runner
+    systemctl restart "${RUNNER_SERVICE}"
   fi
   echo "[switch-release] rollback done"
 }
@@ -655,19 +825,23 @@ fi
 
 ensure_service_identity
 ensure_runtime_config_external
+apply_bootstrap_ports
 sync_http_proxy_base_env
+sync_runtime_storage_paths
 sync_runtime_plugin_paths
 normalize_plugin_runtime_artifacts
 sync_runtime_config_version
 set_setup_reentry_env
 
-if [[ -d "$TARGET_SYSTEMD" ]]; then
+if [[ "$SYNC_SYSTEMD_UNITS" == "1" && -d "$TARGET_SYSTEMD" ]]; then
   cp "$TARGET_SYSTEMD"/*.service /etc/systemd/system/
+elif [[ "$SYNC_SYSTEMD_UNITS" != "1" ]]; then
+  echo "[switch-release] skip systemd unit sync: POWERX_SYNC_SYSTEMD_UNITS=${SYNC_SYSTEMD_UNITS}"
 fi
-apply_service_user_override "powerx-backend"
-apply_service_user_override "powerx-web-admin"
+apply_service_user_override "${BACKEND_SERVICE}"
+apply_service_user_override "${WEB_ADMIN_SERVICE}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  apply_service_user_override "powerx-runner"
+  apply_service_user_override "${RUNNER_SERVICE}"
 fi
 if [[ "$WITH_SETUP_TRACE" == "1" ]]; then
   apply_setup_trace_override
@@ -677,19 +851,19 @@ if [[ "$WITHOUT_SETUP_TRACE" == "1" ]]; then
 fi
 
 systemctl daemon-reload
-assert_effective_service_user "powerx-backend.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
-assert_effective_service_user "powerx-web-admin.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+assert_effective_service_user "${BACKEND_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+assert_effective_service_user "${WEB_ADMIN_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  assert_effective_service_user "powerx-runner.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
+  assert_effective_service_user "${RUNNER_SERVICE}.service" "${SERVICE_USER}" "${SERVICE_GROUP}"
 fi
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl enable powerx-backend powerx-web-admin powerx-runner
+  systemctl enable "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}" "${RUNNER_SERVICE}"
 else
-  systemctl enable powerx-backend powerx-web-admin
+  systemctl enable "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
 fi
-systemctl restart powerx-backend powerx-web-admin
+systemctl restart "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}"
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl restart powerx-runner
+  systemctl restart "${RUNNER_SERVICE}"
 fi
 
 START_TS="$(date +%s)"
@@ -709,7 +883,7 @@ done
 trap - ERR
 
 echo "[switch-release] success: switched to ${TARGET_REF}"
-systemctl --no-pager --full status powerx-backend powerx-web-admin | sed -n '1,40p'
+systemctl --no-pager --full status "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}" | sed -n '1,40p'
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl --no-pager --full status powerx-runner | sed -n '1,20p'
+  systemctl --no-pager --full status "${RUNNER_SERVICE}" | sed -n '1,20p'
 fi

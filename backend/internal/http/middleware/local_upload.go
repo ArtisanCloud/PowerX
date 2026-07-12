@@ -41,7 +41,8 @@ func RegisterLocalUploadEndpoint(group *gin.RouterGroup, cfg *config.Config, med
 
 	secret := strings.TrimSpace(localOpts.UploadTokenSecret)
 	if secret == "" {
-		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "storage.local.upload_token_secret 未配置，本地上传将跳过 Token 校验")
+		pxlog.Warn(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "storage.local.upload_token_secret 未配置，本地上传端点不会注册")
+		return
 	}
 	maxSize := localOpts.MaxUploadSizeBytes
 	if maxSize < 0 {
@@ -53,6 +54,7 @@ func RegisterLocalUploadEndpoint(group *gin.RouterGroup, cfg *config.Config, med
 		return
 	}
 	group.PUT("/media/assets/:uuid", handler.handle)
+	group.PUT("/media/assets/:uuid/variants/:variant", handler.handle)
 }
 
 type localUploadHandler struct {
@@ -99,6 +101,11 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 		return
 	}
 	objectKey := strings.TrimSpace(c.Param("uuid"))
+	if variant := strings.TrimSpace(c.Param("variant")); variant != "" {
+		objectKey = strings.TrimRight(objectKey, "/") + "/" + strings.TrimLeft(variant, "/")
+	} else if objectKey != "" {
+		objectKey = strings.TrimRight(objectKey, "/") + "/origin"
+	}
 	if objectKey == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "object key required"})
 		return
@@ -136,12 +143,12 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 		return
 	}
 	if err = os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		h.abortUploadError(c, "mkdir_failed", err)
 		return
 	}
 	file, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		h.abortUploadError(c, "open_file_failed", err)
 		return
 	}
 	defer file.Close()
@@ -173,20 +180,23 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
 			return
 		}
-		c.AbortWithStatus(http.StatusInternalServerError)
+		h.abortUploadError(c, "copy_failed", err)
 		return
 	}
 
 	info, err := file.Stat()
 	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		h.abortUploadError(c, "stat_failed", err)
 		return
 	}
 	if strings.TrimSpace(mimeType) == "" {
 		mimeType = detectFileContentType(file)
 	}
 
-	h.syncUploadedAsset(c.Request.Context(), objectKey, info.Size(), mimeType)
+	if err := h.syncUploadedAsset(c.Request.Context(), objectKey, info.Size(), mimeType); err != nil {
+		h.abortUploadError(c, "sync_metadata_failed", err)
+		return
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -232,16 +242,18 @@ func detectFileContentType(f *os.File) string {
 	return http.DetectContentType(buf[:n])
 }
 
-func (h *localUploadHandler) syncUploadedAsset(ctx context.Context, objectKey string, size int64, mimeType string) {
+func (h *localUploadHandler) syncUploadedAsset(ctx context.Context, objectKey string, size int64, mimeType string) error {
 	if h.mediaSvc == nil {
-		return
+		return nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := h.mediaSvc.SyncUploadedFileMetadata(ctx, h.driverName, objectKey, size, mimeType); err != nil {
 		pxlog.Warn(ctx, "sync uploaded asset metadata failed: "+err.Error())
+		return err
 	}
+	return nil
 }
 
 func (h *localUploadHandler) copyToFile(dst *os.File, src io.Reader) (int64, error) {
@@ -253,4 +265,19 @@ func (h *localUploadHandler) copyToFile(dst *os.File, src io.Reader) (int64, err
 		return written, errPayloadTooLarge
 	}
 	return written, nil
+}
+
+func (h *localUploadHandler) abortUploadError(c *gin.Context, reason string, err error) {
+	ctx := c.Request.Context()
+	pxlog.Error(pxlog.WithLogFields(ctx, map[string]interface{}{
+		"module":      "media",
+		"component":   "local_upload",
+		"reason":      reason,
+		"driver":      h.driverName,
+		"request_uri": c.Request.RequestURI,
+	}), "local media upload failed: "+err.Error())
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		"error":  "local media upload failed",
+		"reason": reason,
+	})
 }

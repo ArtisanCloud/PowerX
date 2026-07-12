@@ -15,6 +15,7 @@ export interface Tenant {
 // 租户列表查询参数
 export interface TenantListParams {
   q?: string;
+  tenant_uuid?: string;
   page?: number;
   page_size?: number;
   status?: string;
@@ -45,7 +46,9 @@ export const useTenantService = () => {
     getTenants: async (params?: TenantListParams) => {
       const queryParams = new URLSearchParams();
 
-      if (params?.keyword) queryParams.append("keyword", params.keyword);
+      if (params?.q) queryParams.append("q", params.q);
+      if (params?.tenant_uuid)
+        queryParams.append("tenant_uuid", params.tenant_uuid);
       if (params?.page) queryParams.append("page", params.page.toString());
       if (params?.page_size)
         queryParams.append("page_size", params.page_size.toString());

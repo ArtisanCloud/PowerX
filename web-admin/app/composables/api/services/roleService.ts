@@ -4,6 +4,7 @@ import type { ApiResponse } from "../types/types";
 // 角色接口定义
 export interface Role {
   id: number;
+  uuid: string;
   createdAt: string;
   updatedAt: string;
   DeletedAt?: string | null;

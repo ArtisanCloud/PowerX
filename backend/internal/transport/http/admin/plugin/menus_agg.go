@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -16,6 +18,30 @@ import (
 type PluginMenusPublic struct {
 	Items []admdto.AdminMenuItem
 	I18n  []admdto.MenuI18nPackage
+}
+
+type TenantPluginEnabledChecker func(ctx context.Context, tenantUUID, pluginID string) (bool, error)
+
+var tenantPluginChecker struct {
+	mu sync.RWMutex
+	fn TenantPluginEnabledChecker
+}
+
+func SetTenantPluginEnabledChecker(fn TenantPluginEnabledChecker) {
+	tenantPluginChecker.mu.Lock()
+	defer tenantPluginChecker.mu.Unlock()
+	tenantPluginChecker.fn = fn
+}
+
+func tenantPluginEnabled(ctx context.Context, tenantUUID, pluginID string) bool {
+	tenantPluginChecker.mu.RLock()
+	fn := tenantPluginChecker.fn
+	tenantPluginChecker.mu.RUnlock()
+	if fn == nil {
+		return false
+	}
+	enabled, err := fn(ctx, tenantUUID, pluginID)
+	return err == nil && enabled
 }
 
 func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []string) PluginMenusPublic {
@@ -37,6 +63,11 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 
 	// ★ 新增：总览
 	logger.DebugF(ctx, "[menu-builder] registry=%d", len(list))
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	if tenantUUID == "" {
+		logger.DebugF(ctx, "[menu-builder] skip plugin menus reason=tenant-context-missing")
+		return PluginMenusPublic{Items: []admdto.AdminMenuItem{}}
+	}
 
 	preferredLocales := normalizeLocalePreference(locales)
 	out := PluginMenusPublic{Items: make([]admdto.AdminMenuItem, 0, len(list))}
@@ -47,6 +78,10 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 
 		if p.State != plugin_mgr.StateEnabled {
 			logger.DebugF(ctx, "[menu-builder] skip=%s reason=state=%s", p.ID, p.State)
+			continue
+		}
+		if !tenantPluginEnabled(ctx, tenantUUID, p.ID) {
+			logger.DebugF(ctx, "[menu-builder] skip=%s tenant=%s reason=tenant-plugin-disabled", p.ID, tenantUUID)
 			continue
 		}
 
@@ -105,7 +140,7 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		Origin:        plugin_mgr.OriginPlugin,
 		Visible:       visible,
 		Slot:          slot,
-		Permissions:   m.RequiredPolicies,
+		Permissions:   appendPluginMenuPermission(m.RequiredPolicies, pluginID, m),
 		TitleI18n:     titleI18n,
 		PluginVersion: strings.TrimSpace(pluginVersion),
 	}
@@ -121,6 +156,36 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		}
 	}
 	return item
+}
+
+func appendPluginMenuPermission(existing []string, pluginID string, item plugin_mgr.MenuItem) []string {
+	policy := plugin_mgr.PluginMenuPermissionPolicy(pluginID, item)
+	if strings.TrimSpace(policy) == "" {
+		return dedupePolicies(existing)
+	}
+	out := append([]string{}, existing...)
+	out = append(out, policy)
+	return dedupePolicies(out)
+}
+
+func dedupePolicies(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		normalized := strings.TrimSpace(item)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
 }
 
 func makePluginMenuKey(pluginID string, m plugin_mgr.MenuItem, route string) plugin_mgr.MenuKey {

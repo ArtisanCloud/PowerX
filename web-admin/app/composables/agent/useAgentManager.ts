@@ -2,6 +2,11 @@ import type {
   Agent,
   AgentListResponse,
   AgentDetailResponse,
+  AgentAccessGrant,
+  AgentAccessSubjectType,
+  AgentEffectivePermissions,
+  AgentGrant,
+  AgentGrantableCapability,
   CreateAgentRequest,
   UpdateAgentRequest,
 } from "~/types/agent";
@@ -36,16 +41,23 @@ export const useAgentManager = () => {
   const error = ref<string | null>(null);
   const envStore = useEnvStore();
   const ENV = computed(() => envStore.currentEnv || "dev");
+  const fetchAgentsInFlight = useState<Promise<void> | null>(
+    "px-agent-manager-fetch-agents-inflight",
+    () => null
+  );
 
   // 使用封装的 API 客户端
-  const { get, post, patch, delete: del } = useApiClient();
+  const { get, post, patch, put, delete: del } = useApiClient();
 
   // 获取 Agent 列表
   const fetchAgents = async () => {
+    if (fetchAgentsInFlight.value) {
+      return fetchAgentsInFlight.value;
+    }
     loading.value = true;
     error.value = null;
 
-    try {
+    const run = async () => {
       const response = await get<AgentListResponse>("/admin/agents", {
         params: {
           env: ENV.value,
@@ -57,12 +69,21 @@ export const useAgentManager = () => {
       } else {
         throw new Error(response.message || "获取 Agent 列表失败");
       }
+    };
+
+    const inflight = run();
+    fetchAgentsInFlight.value = inflight;
+    try {
+      await inflight;
     } catch (e: any) {
       error.value = e.message || "网络请求失败";
       console.error("获取 Agent 列表失败:", e);
       throw e;
     } finally {
       loading.value = false;
+      if (fetchAgentsInFlight.value === inflight) {
+        fetchAgentsInFlight.value = null;
+      }
     }
   };
 
@@ -166,6 +187,117 @@ export const useAgentManager = () => {
     }
   };
 
+  const fetchGrantableCapabilities = async () => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentGrantableCapability[] };
+    }>("/admin/agents/grantable-capabilities", {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants catalog failed");
+    }
+    return response.data.items || [];
+  };
+
+  const fetchAgentGrants = async (agentUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentGrant[] };
+    }>(`/admin/agents/${agentUUID}/grants`, {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants failed");
+    }
+    return response.data.items || [];
+  };
+
+  const updateAgentGrants = async (
+    agentUUID: string,
+    grants: Array<{ capability_uuid: string; permission_code: string; enabled: boolean }>
+  ) => {
+    const response = await patch<{
+      code: number;
+      message: string;
+      data: { items: AgentGrant[] };
+    }>(
+      `/admin/agents/${agentUUID}/grants`,
+      { grants },
+      { params: { env: ENV.value } }
+    );
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent grants update failed");
+    }
+    return response.data.items || [];
+  };
+
+  const fetchMyEffectivePermissions = async (agentUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: AgentEffectivePermissions;
+    }>(`/admin/agents/${agentUUID}/my-effective-permissions`, {
+      params: { env: ENV.value },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent effective permissions failed");
+    }
+    return response.data;
+  };
+
+  const fetchEffectivePermissions = async (agentUUID: string, memberUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: AgentEffectivePermissions;
+    }>(`/admin/agents/${agentUUID}/effective-permissions`, {
+      params: { env: ENV.value, member_uuid: memberUUID },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent effective permissions failed");
+    }
+    return response.data;
+  };
+
+  const fetchAgentAccessGrants = async (
+    agentUUID: string,
+    subjectType?: AgentAccessSubjectType
+  ) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentAccessGrant[] };
+    }>(`/admin/agents/${agentUUID}/access-grants`, {
+      params: { env: ENV.value, ...(subjectType ? { subject_type: subjectType } : {}) },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent access grants failed");
+    }
+    return response.data.items || [];
+  };
+
+  const updateAgentAccessGrants = async (
+    agentUUID: string,
+    grants: Array<{ subject_type: AgentAccessSubjectType; subject_uuid: string; enabled: boolean }>
+  ) => {
+    const response = await patch<{
+      code: number;
+      message: string;
+      data: { items: AgentAccessGrant[] };
+    }>(
+      `/admin/agents/${agentUUID}/access-grants`,
+      { grants },
+      { params: { env: ENV.value } }
+    );
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent access grants update failed");
+    }
+    return response.data.items || [];
+  };
+
   return {
     agents: readonly(agents),
     loading: readonly(loading),
@@ -175,5 +307,12 @@ export const useAgentManager = () => {
     createAgent,
     updateAgent,
     deleteAgent,
+    fetchGrantableCapabilities,
+    fetchAgentGrants,
+    updateAgentGrants,
+    fetchMyEffectivePermissions,
+    fetchEffectivePermissions,
+    fetchAgentAccessGrants,
+    updateAgentAccessGrants,
   };
 };

@@ -4,6 +4,7 @@ package agent
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +14,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	chatH := NewAgentChatHandler(deps)
 	shareH := NewShareHandler(deps)
 	teamH := NewTeamHandler(deps)
+	authzH := NewAgentAuthzHandler(deps)
 
 	sessionH := NewAgentSessionHandler(deps)
 	tenantFormH := NewTenantAgentFormHandler(deps)
@@ -66,12 +68,20 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.POST("/settings/context-optimizer/rollback", settingH.rollbackContextOptimizer)
 
 		// 智能体 CRUD
-		agentAdminGroup.POST("", agentH.CreateAgent)
+		agentAdminGroup.POST("", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.CreateAgent)
 		agentAdminGroup.GET("", agentH.ListAgents)
+		agentAdminGroup.GET("/grantable-capabilities", authzH.ListGrantableCapabilities)
 		agentAdminGroup.GET("/:uuid", agentH.GetAgent)
-		agentAdminGroup.PATCH("/:uuid", agentH.UpdateAgent)
+		agentAdminGroup.PATCH("/:uuid", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.UpdateAgent)
 		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
 		agentAdminGroup.POST("/:uuid/disable", agentH.DisableAgent)
+		agentAdminGroup.GET("/:uuid/grants", authzH.ListAgentGrants)
+		agentAdminGroup.PATCH("/:uuid/grants", authzH.PatchAgentGrants)
+		agentAdminGroup.PUT("/:uuid/grants", authzH.ReplaceAgentGrants)
+		agentAdminGroup.GET("/:uuid/access-grants", authzH.ListAgentAccessGrants)
+		agentAdminGroup.PATCH("/:uuid/access-grants", authzH.PatchAgentAccessGrants)
+		agentAdminGroup.GET("/:uuid/my-effective-permissions", authzH.MyEffectivePermissions)
+		agentAdminGroup.GET("/:uuid/effective-permissions", authzH.EffectivePermissions)
 
 		agentAdminGroup.POST("/:uuid/shares", shareH.CreateShare)
 		agentAdminGroup.POST("/shares/:share_id/revoke", shareH.RevokeShare)

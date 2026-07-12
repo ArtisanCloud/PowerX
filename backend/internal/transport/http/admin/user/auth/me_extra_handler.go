@@ -15,14 +15,16 @@ import (
 )
 
 type MeExtraHandler struct {
-	me  *authsvc.MeService
-	org *iamsvc.OrgService
+	me   *authsvc.MeService
+	auth *authsvc.AuthService
+	org  *iamsvc.OrgService
 }
 
 func NewMeExtraHandler(deps *shared.Deps) *MeExtraHandler {
 	return &MeExtraHandler{
-		me:  deps.MeService,
-		org: iamsvc.NewOrgService(deps.DB),
+		me:   deps.MeService,
+		auth: deps.AuthUser,
+		org:  iamsvc.NewOrgService(deps.DB),
 	}
 }
 
@@ -92,9 +94,22 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 			return
 		}
 	}
+	userID := reqctx.GetUserID(baseCtx)
+	if userID == 0 {
+		dto.ResponseError(c, http.StatusUnauthorized, "missing user context", nil)
+		return
+	}
+	tokens, err := h.auth.IssueTokensForTenantSwitch(baseCtx, userID, canonicalTarget)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
 
 	// 用目标 tenantUUID 重建一个“视图上下文”，让后续依赖 reqctx.GetTenantUUID 的逻辑对齐
 	nextCtx := reqctx.WithTenantUUID(baseCtx, canonicalTarget)
+	nextCtx = reqctx.WithTenantID(nextCtx, tokens.TenantID)
+	nextCtx = reqctx.WithMemberID(nextCtx, tokens.MemberID)
+	nextCtx = reqctx.WithMemberUUID(nextCtx, tokens.MemberUUID)
 	c.Request = c.Request.WithContext(nextCtx)
 
 	resp, err := h.me.GetMeContext(nextCtx)
@@ -102,7 +117,14 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "获取上下文失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, resp)
+	dto.ResponseSuccess(c, gin.H{
+		"token_type":    "Bearer",
+		"access_token":  tokens.AccessToken,
+		"refresh_token": tokens.RefreshToken,
+		"expires_in":    int(h.auth.AccessTTL.Seconds()),
+		"scope":         "access",
+		"context":       resp,
+	})
 }
 
 // GET /api/v1/admin/user/auth/me/tenants

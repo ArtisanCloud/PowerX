@@ -209,11 +209,36 @@ Gateway 订阅以下 Topic：
 | 层级         | 策略                           |
 | ---------- | ---------------------------- |
 | **身份认证**   | Agent 使用注册时签发的 `agent_token` |
-| **权限边界**   | 仅可调用 tool_grants 授权的能力       |
+| **权限边界**   | 仅可调用 Agent grant 与当前用户 IAM 权限交集内的能力 |
 | **租户隔离**   | `tenant_id` 注入执行上下文          |
 | **调用深度限制** | 防止循环 A2A（max_depth=3）        |
 | **签名校验**   | 所有 Agent 间消息签名验证             |
 | **配额限制**   | Agent 级与租户级调用频率控制            |
+
+### 10.1 Agent 权限配置与运行时交集
+
+Agent Manager 只负责配置 Agent 自身可使用 capability 的最大边界，存储在 `agent_capability_grants`。登录用户的 IAM 权限不写入 Agent 配置，也不由 Agent 配置覆盖。
+
+运行时实际权限按以下顺序判定：
+
+1. `tenant_uuid`、`agent_uuid`、`capability_id`、`permission_code` 必须存在；
+2. capability 必须在当前租户启用；
+3. Agent grant 必须启用；
+4. 当前用户/member 必须具备 `permission_code` 对应 IAM 权限；
+5. capability policy 必须允许 Agent 使用。
+
+最终结果可通过管理端接口查询：
+
+| Method | Path | 用途 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/agents/grantable-capabilities` | 查询当前租户可授予 Agent 的 capability |
+| `GET` | `/api/v1/admin/agents/{agent_uuid}/grants` | 查询 Agent 最大能力边界 |
+| `PUT` | `/api/v1/admin/agents/{agent_uuid}/grants` | 全量替换 Agent 最大能力边界 |
+| `GET` | `/api/v1/admin/agents/{agent_uuid}/my-effective-permissions` | 查询当前登录用户使用该 Agent 的最终生效权限 |
+
+### 10.2 数据关联规范
+
+Agent、capability、plugin、tenant、user、member 等业务对象在 API、审计、文档和跨模块关联中统一使用 UUID。中间表可以没有自身 UUID，但外键字段必须引用业务对象 UUID，例如 `agent_uuid`、`capability_uuid`、`plugin_uuid`、`tenant_uuid`。
 
 ---
 

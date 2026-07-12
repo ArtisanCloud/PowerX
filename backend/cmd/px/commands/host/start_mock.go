@@ -30,7 +30,7 @@ var (
 
 	startMockCmd = &cobra.Command{
 		Use:   "start",
-		Short: "Start a mock host session (use --mock to emulate local environment)",
+		Short: "Register a local plugin debug host session",
 		RunE:  runStartMock,
 	}
 )
@@ -40,11 +40,11 @@ func init() {
 	startMockCmd.Flags().StringVar(&startMockOpts.api, "api", "http://localhost:8077/api", "PowerX Admin API base URL")
 	startMockCmd.Flags().StringVar(&startMockOpts.token, "token", "", "Bearer token for host API authentication")
 	startMockCmd.Flags().StringVar(&startMockOpts.pluginID, "plugin-id", "", "Plugin identifier to preload")
-	startMockCmd.Flags().StringVar(&startMockOpts.environment, "environment", "local-mock", "Host environment label")
+	startMockCmd.Flags().StringVar(&startMockOpts.environment, "environment", "local", "Host environment label")
 	startMockCmd.Flags().DurationVar(&startMockOpts.ttl, "ttl", startMockOpts.ttl, "Requested host TTL (e.g., 15m)")
-	startMockCmd.Flags().IntVar(&startMockOpts.httpPort, "http-port", 51701, "Mock host HTTP port")
-	startMockCmd.Flags().IntVar(&startMockOpts.grpcPort, "grpc-port", 52701, "Mock host gRPC port")
-	startMockCmd.Flags().StringSliceVar(&startMockOpts.capabilities, "capability", []string{"debug.hot_reload"}, "Capabilities to expose on the mock host")
+	startMockCmd.Flags().IntVar(&startMockOpts.httpPort, "http-port", 51701, "Local debug host HTTP port")
+	startMockCmd.Flags().IntVar(&startMockOpts.grpcPort, "grpc-port", 52701, "Local debug host gRPC port")
+	startMockCmd.Flags().StringSliceVar(&startMockOpts.capabilities, "capability", []string{"debug.hot_reload"}, "Capabilities to expose on the local debug host")
 }
 
 func runStartMock(cmd *cobra.Command, args []string) error {
@@ -68,14 +68,14 @@ func runStartMock(cmd *cobra.Command, args []string) error {
 		Data map[string]any `json:"data"`
 		Err  string         `json:"error"`
 	}
-	if err := doHostRequest(cmd.Context(), http.MethodPost, "/internal/plugins/host/mock", payload, &resp); err != nil {
+	if err := doHostRequest(cmd.Context(), http.MethodPost, "/internal/plugins/debug-hosts", payload, &resp); err != nil {
 		return err
 	}
 	if resp.Err != "" {
 		return errors.New(resp.Err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Mock host started: %v\n", resp.Data)
+	fmt.Fprintf(cmd.OutOrStdout(), "Debug host registered: %v\n", resp.Data)
 	return nil
 }
 

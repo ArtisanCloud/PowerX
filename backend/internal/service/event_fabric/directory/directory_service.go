@@ -53,6 +53,9 @@ type CreateTopicInput struct {
 	CreatedBy       string                 `json:"created_by"`
 }
 
+// UpsertTopicInput 主题声明式同步入参。
+type UpsertTopicInput = CreateTopicInput
+
 // UpdateLifecycleInput 主题生命周期变更入参。
 type UpdateLifecycleInput struct {
 	TopicID      string
@@ -113,24 +116,39 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 	if s.store == nil {
 		return nil, errors.New("topic repository not configured")
 	}
-	if err := validateCreateInput(input); err != nil {
+	record, err := s.prepareTopicDefinition(ctx, input)
+	if err != nil {
 		return nil, err
 	}
 
+	existing, err := s.store.FindByComposite(ctx, record.TenantKey, record.Namespace, record.Name)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, fmt.Errorf("topic %s.%s.%s already exists", record.TenantKey, record.Namespace, record.Name)
+	}
+
+	result, err := s.store.Create(ctx, record)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.grantTopicDefaultACL(ctx, result, record.CreatedBy); err != nil {
+		return nil, err
+	}
+	return convertTopic(result), nil
+}
+
+func (s *DirectoryService) prepareTopicDefinition(ctx context.Context, input CreateTopicInput) (*model.TopicDefinition, error) {
+	if err := validateCreateInput(input); err != nil {
+		return nil, err
+	}
 	tenantKey, err := resolveTenantKey(input.TenantUUID)
 	if err != nil {
 		return nil, err
 	}
 	namespace := normalizeSegment(input.Namespace)
 	name := normalizeSegment(input.Name)
-
-	existing, err := s.store.FindByComposite(ctx, tenantKey, namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	if existing != nil {
-		return nil, fmt.Errorf("topic %s.%s.%s already exists", tenantKey, namespace, name)
-	}
 
 	payloadFormat := strings.TrimSpace(input.PayloadFormat)
 	if payloadFormat == "" {
@@ -170,7 +188,7 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 		createdBy = s.actorResolver(ctx)
 	}
 
-	record := &model.TopicDefinition{
+	return &model.TopicDefinition{
 		ScopeType:       model.TopicScopeTenant,
 		ScopeID:         tenantKey,
 		TenantKey:       tenantKey,
@@ -185,16 +203,51 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 		Metadata:        datatypes.JSON(metadataJSON),
 		CreatedBy:       createdBy,
 		Status:          1,
+	}, nil
+}
+
+// UpsertTopic 按 tenant + namespace + name 同步主题声明。
+func (s *DirectoryService) UpsertTopic(ctx context.Context, input UpsertTopicInput) (*Topic, bool, error) {
+	if s.store == nil {
+		return nil, false, errors.New("topic repository not configured")
+	}
+	prepared, err := s.prepareTopicDefinition(ctx, CreateTopicInput(input))
+	if err != nil {
+		return nil, false, err
 	}
 
-	result, err := s.store.Create(ctx, record)
+	existing, err := s.store.FindByComposite(ctx, prepared.TenantKey, prepared.Namespace, prepared.Name)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	if err := s.grantTopicDefaultACL(ctx, result, createdBy); err != nil {
-		return nil, err
+	if existing == nil {
+		result, err := s.store.Create(ctx, prepared)
+		if err != nil {
+			return nil, false, err
+		}
+		if err := s.grantTopicDefaultACL(ctx, result, prepared.CreatedBy); err != nil {
+			return nil, false, err
+		}
+		return convertTopic(result), true, nil
 	}
-	return convertTopic(result), nil
+
+	existing.PayloadFormat = prepared.PayloadFormat
+	existing.RetentionPolicy = prepared.RetentionPolicy
+	existing.VersioningMode = prepared.VersioningMode
+	existing.MaxRetry = prepared.MaxRetry
+	existing.AckTimeoutSec = prepared.AckTimeoutSec
+	existing.Metadata = prepared.Metadata
+	existing.CreatedBy = prepared.CreatedBy
+	existing.Status = 1
+	if existing.Lifecycle == model.TopicLifecycleRetired || existing.Lifecycle == model.TopicLifecycleDeprecated {
+		existing.Lifecycle = model.TopicLifecycleActive
+		existing.DeprecatedAt = nil
+	}
+	updated, err := s.store.Update(ctx, existing)
+	if err != nil {
+		return nil, false, err
+	}
+	return convertTopic(updated), false, nil
 }
 
 // UpdateLifecycle 修改主题生命周期状态。

@@ -5,6 +5,7 @@ import type {
   ContextMember,
 } from "~/composables/api/services/meService";
 import { useMe } from "~/composables/useMe";
+import { useAuth } from "~/composables/useAuth";
 import { persistTenantUUID } from "~/utils/tenant-context";
 
 export const useUserStore = defineStore("user", {
@@ -20,6 +21,8 @@ export const useUserStore = defineStore("user", {
     lastFetchedAt: null as number | null,
     // 跨标签页 storage 监听是否已初始化
     storageSyncInited: false,
+    contextRefreshInFlight: null as Promise<void> | null,
+    lastForcedContextRefreshAt: 0,
   }),
 
   getters: {
@@ -37,6 +40,15 @@ export const useUserStore = defineStore("user", {
     currentMemberId: (state): number | null =>
       state.context?.current_member_id || null,
 
+    // 当前成员 UUID
+    currentMemberUuid: (state): string | null =>
+      state.context?.current_member_uuid ||
+      state.context?.members?.find(
+        (m: ContextMember) =>
+          m.tenant_uuid === state.context?.current_tenant_uuid
+      )?.member_uuid ||
+      null,
+
     // 用户所属的租户列表
     memberTenants: (state): ContextMember[] => state.context?.members || [],
 
@@ -52,9 +64,20 @@ export const useUserStore = defineStore("user", {
       );
     },
 
+    // 是否为当前租户所有者
+    isCurrentTenantOwner: (state): boolean => {
+      if (state.context?.is_root) return false;
+      const currentTenant =
+        state.context?.members?.find(
+          (m: ContextMember) =>
+            m.tenant_uuid === state.context!.current_tenant_uuid
+        ) || null;
+      return currentTenant?.is_owner || false;
+    },
+
     // 是否为当前租户的管理员
     isCurrentTenantAdmin: (state): boolean => {
-      if (state.context?.is_root) return true;
+      if (state.context?.is_root) return false;
       const currentTenant =
         state.context?.members?.find(
           (m: ContextMember) =>
@@ -101,30 +124,46 @@ export const useUserStore = defineStore("user", {
 
     // 加载用户上下文
     async fetchUserContext({ force = false }: { force?: boolean } = {}) {
-      // 如果正在加载，直接返回
-      if (this.isLoading) return;
+      if (this.contextRefreshInFlight) {
+        return this.contextRefreshInFlight;
+      }
+
+      if (force && Date.now() - this.lastForcedContextRefreshAt < 1000) {
+        return;
+      }
 
       // 如果不强制刷新且缓存未过期（5分钟），直接返回
       if (this.shouldUseCachedContext(force)) {
         return;
       }
 
-      this.isLoading = true;
-      this.error = null;
-
-      try {
+      const run = async () => {
+        this.isLoading = true;
+        this.error = null;
         const { getUserContext } = useMe();
         const response = await getUserContext();
 
         this.context = response;
         this.lastFetchedAt = Date.now();
+        if (force) {
+          this.lastForcedContextRefreshAt = this.lastFetchedAt;
+        }
         this.persistCurrentTenantUUID();
+      };
+
+      const inflight = run();
+      this.contextRefreshInFlight = inflight;
+      try {
+        await inflight;
       } catch (error: any) {
         this.error = error?.message || "网络请求失败";
         console.error("获取用户上下文失败:", error);
         throw error;
       } finally {
         this.isLoading = false;
+        if (this.contextRefreshInFlight === inflight) {
+          this.contextRefreshInFlight = null;
+        }
       }
     },
 
@@ -141,9 +180,16 @@ export const useUserStore = defineStore("user", {
       try {
         const { switchTenant } = useMe();
         const response = await switchTenant(tenantUuid);
+        const { setAuth } = useAuth();
+        setAuth({
+          token_type: response.token_type || "Bearer",
+          access_token: response.access_token,
+          refresh_token: response.refresh_token,
+          expires_in: response.expires_in || 3600,
+          scope: response.scope || "access",
+        });
 
-        // 直接更新上下文，无需再次请求
-        this.context = response;
+        this.context = response.context;
         this.lastFetchedAt = Date.now();
         this.persistCurrentTenantUUID();
       } catch (error: any) {
@@ -196,6 +242,9 @@ export const useUserStore = defineStore("user", {
           key !== "refresh_token" &&
           key !== "expires_at"
         ) {
+          return;
+        }
+        if (event.oldValue === event.newValue) {
           return;
         }
 

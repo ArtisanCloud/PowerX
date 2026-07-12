@@ -19,6 +19,10 @@ type TopicLookup interface {
 	FindByUUID(ctx context.Context, id uuid.UUID) (*eventfabricmodel.TopicDefinition, error)
 }
 
+type TopicTemplateLookup interface {
+	FindTemplateMatch(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error)
+}
+
 type CachedTopicLookupOptions struct {
 	Cache   cache.ICache
 	TTL     time.Duration
@@ -26,7 +30,7 @@ type CachedTopicLookupOptions struct {
 }
 
 type cachedTopicLookupPayload struct {
-	NotFound bool                            `json:"not_found"`
+	NotFound bool                              `json:"not_found"`
 	Topic    *eventfabricmodel.TopicDefinition `json:"topic,omitempty"`
 }
 
@@ -93,6 +97,17 @@ func (c *CachedTopicLookup) FindByUUID(ctx context.Context, id uuid.UUID) (*even
 	return c.base.FindByUUID(ctx, id)
 }
 
+func (c *CachedTopicLookup) FindTemplateMatch(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
+	if c == nil || c.base == nil {
+		return nil, nil
+	}
+	templateLookup, ok := c.base.(TopicTemplateLookup)
+	if !ok {
+		return nil, nil
+	}
+	return templateLookup.FindTemplateMatch(ctx, tenantKey, namespace, name)
+}
+
 func (c *CachedTopicLookup) getCachedComposite(ctx context.Context, key string) (*eventfabricmodel.TopicDefinition, bool, error) {
 	if c == nil || c.cache == nil {
 		return nil, false, nil
@@ -127,4 +142,3 @@ func (c *CachedTopicLookup) setCachedComposite(ctx context.Context, key string, 
 	}
 	return c.cache.Set(ctx, key, raw, ttl)
 }
-

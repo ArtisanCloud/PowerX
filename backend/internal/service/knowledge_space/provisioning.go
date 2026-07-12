@@ -352,6 +352,100 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 	return retired, nil
 }
 
+// DeleteSpace hard-deletes a retired knowledge space and its derived records.
+// It is intended for admin cleanup of test/debug spaces. Production callers should
+// normally retire spaces first so retention/audit workflows can observe the state.
+func (s *Service) DeleteSpace(ctx context.Context, in DeleteSpaceInput) error {
+	if in.SpaceID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	logger := s.inst.Logger(ctx)
+	var dropVectors bool
+	var deleted *models.KnowledgeSpace
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		spaces, _, _, _ := s.repositories(tx)
+		space, err := spaces.FindByUUID(ctx, in.SpaceID)
+		if err != nil {
+			return err
+		}
+		if space == nil {
+			return ErrSpaceNotFound
+		}
+		if tenantUUID := strings.ToLower(strings.TrimSpace(in.TenantUUID)); tenantUUID != "" && tenantUUID != strings.ToLower(strings.TrimSpace(space.TenantUUID)) {
+			return ErrSpaceNotFound
+		}
+		if !in.Force && space.Status != models.KnowledgeSpaceStatusRetired {
+			return ErrSpaceDeleteRequiresRetired
+		}
+		dropVectors = in.DropVectors
+		deleted = space
+
+		var ingestionIDs []uint64
+		if err := tx.Model(&models.IngestionJob{}).
+			Where("space_uuid = ?", in.SpaceID).
+			Pluck("id", &ingestionIDs).Error; err != nil {
+			return err
+		}
+		if len(ingestionIDs) > 0 {
+			if err := tx.Unscoped().Where("ingestion_job_id IN ?", ingestionIDs).Delete(&models.ArtifactBundle{}).Error; err != nil {
+				return err
+			}
+		}
+
+		for _, cleanup := range []func() error{
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.KnowledgeChunk{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.IngestionJob{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.IAMSyncTask{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.FusionStrategyVersion{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.FeedbackCase{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.DeltaJob{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.DecayTask{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.CorpusCheckJob{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID.String()).Delete(&models.SpaceSyncJob{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.KnowledgeVectorIndex{}).Error
+			},
+			func() error {
+				return tx.Unscoped().Where("space_uuid = ?", in.SpaceID).Delete(&models.AuditTrailEntry{}).Error
+			},
+		} {
+			if err := cleanup(); err != nil {
+				return err
+			}
+		}
+
+		return tx.Unscoped().Where("uuid = ?", in.SpaceID).Delete(&models.KnowledgeSpace{}).Error
+	})
+	if err != nil {
+		return err
+	}
+	if s.ingestion != nil && dropVectors {
+		if err := s.ingestion.DropSpaceVectors(ctx, in.SpaceID); err != nil {
+			logger.WarnF(ctx, "[knowledge_space] drop deleted space vectors failed: %v", err)
+		}
+	}
+	s.publishEvent(ctx, "deleted", deleted)
+	return nil
+}
+
 func (s *Service) validateCreateInput(in CreateSpaceInput) (string, error) {
 	tenantUUID, err := normalizeTenantUUID(in.TenantUUID)
 	if err != nil {

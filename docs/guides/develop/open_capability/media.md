@@ -5,13 +5,60 @@ PowerX 底座将媒资读写能力注册为统一的能力记录，Tool Scope `m
 | Capability ID | Intent | Prefer/Fallback | Channels |
 | --- | --- | --- | --- |
 | `com.corex.media.assets.read` | `media.assets.read` | Prefer REST，Fallback gRPC | `GET /media/assets`、`GET /media/assets/{uuid}`；gRPC `ListMediaAssets`、`GetMediaAsset` |
-| `com.corex.media.assets.manage` | `media.assets.write` | Prefer gRPC，Fallback REST | `POST/DELETE /media/assets`、`POST /media/assets/{uuid}/presign`；gRPC `Create/Delete/PresignMediaAsset` |
+| `com.corex.media.assets.manage` | `media.assets.write` | Prefer gRPC，Fallback REST | `POST/DELETE /media/assets`、`POST /media/assets/{uuid}/presign`、`POST/PUT /media/assets/{uuid}/variants/{variant}`、`POST /media/assets/{uuid}/variants/{variant}/presign` |
 
 > 插件调用需携带 `Authorization: Bearer <TENANT_TOKEN>` 与 `JWT claims（tid/tenant_uuid）`，并确保租户启用了 `media.assets` Tool Grant。
 
 ## REST（开放接口 `/api/v1/media`）
 
-OpenAPI 契约：`specs/001-docs-media-storage/contracts/http-openapi.yaml`（默认前缀 `/api/v1`）。
+OpenAPI 契约：`specs/001-media-storage/contracts/http-openapi.yaml`（默认前缀 `/api/v1`）。
+
+## 逻辑资源与 variants
+
+PowerX Media 的权威模型是：**一个 `media_assets.uuid` 表示一个逻辑资源**。原图、预览图、缩略图不是独立 asset，而是同一 asset 的资源版本：
+
+- `origin`：主资源，继续由 `media_assets.storage_key` 承载。
+- `preview`：预览图，写入 `media_asset_variants`。
+- `thumbnail`：缩略图，写入 `media_asset_variants`。
+
+### 预览与原图的使用红线
+
+- 页面列表、详情预览、插件内嵌预览、富文本/邮件/商品图预览等所有 inline 渲染场景，必须使用 `preview` 或 `thumbnail` variant。
+- 原图只允许用于“下载原图”或后端需要处理原始文件的场景，例如 `GET /api/v1/media/assets/{uuid}/resource?disposition=attachment`。
+- 禁止 Web UI 或外部插件用 origin `/resource?disposition=inline` 当预览图；如果 `preview` 尚未生成，调用方应显示“预览未就绪/不可用”并等待重试任务补齐，不允许 fallback 到 origin。
+- 缩略图优先用于列表、网格、选择器等小尺寸场景；详情页主预览使用 `preview`。
+
+插件上传图片时必须先创建 origin asset，再为同一个 asset 创建/上传 preview 或 thumbnail。外部插件需要保存并使用同一个 `asset_uuid`，不要为 preview/thumbnail 再创建独立 asset：
+
+```bash
+ASSET_UUID="<origin asset uuid>"
+
+curl -sS -X POST "$API_PREFIX/media/assets/$ASSET_UUID/variants/preview" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "demo.preview.jpg", "driver": "local", "mimeType": "image/jpeg" }'
+
+curl -sS -X POST "$API_PREFIX/media/assets/$ASSET_UUID/variants/preview/presign" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "action": "upload", "method": "PUT", "expiresInSeconds": 600 }'
+```
+
+本地驱动返回的上传 URL 形如 `/api/v1/media/assets/{uuid}/variants/preview`，PUT 成功后会回写 `media_asset_variants.size_bytes/mime_type`。读取 preview 使用：
+
+```bash
+curl -L "$API_PREFIX/media/assets/$ASSET_UUID/variants/preview/resource?disposition=inline" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -o demo.preview.jpg
+```
+
+下载原图使用 origin 资源接口，并明确 `attachment`：
+
+```bash
+curl -L "$API_PREFIX/media/assets/$ASSET_UUID/resource?disposition=attachment" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -o demo.origin.jpg
+```
 
 > 若你希望在 `draft/under_review/archived` 状态下也能通过公开入口进行“短期可分享访问”，需配置 `storage.local.public_token_secret`（用于 presign(download) 生成 `token+exp`）。
 
@@ -115,7 +162,25 @@ export TENANT_UUID="<tenant-uuid>"
       ```
 
       这种方式不会写入本地或 S3，只是在 Registry 中记录一个“外部可访问 URL + 元数据”。
-4. **下载/访问资源**
+4. **预览与下载资源**
+
+   页面预览、插件预览、邮件附件预览、商品图预览等 inline 展示只允许读取 variant：
+
+   ```bash
+   curl -L "$API_PREFIX/media/assets/$ASSET_UUID/variants/preview/resource?disposition=inline" \
+     -H "Authorization: Bearer $TENANT_TOKEN" \
+     -o demo.preview.jpg
+   ```
+
+   列表缩略图读取 `thumbnail`：
+
+   ```bash
+   curl -L "$API_PREFIX/media/assets/$ASSET_UUID/variants/thumbnail/resource?disposition=inline" \
+     -H "Authorization: Bearer $TENANT_TOKEN" \
+     -o demo.thumbnail.jpg
+   ```
+
+   下载原图才读取 origin：
 
    ```bash
    curl -L "$API_PREFIX/media/assets/$ASSET_UUID/resource?disposition=attachment" \
@@ -127,11 +192,12 @@ export TENANT_UUID="<tenant-uuid>"
    curl -L "http://127.0.0.1:8077/media/$ASSET_UUID/resource" -o demo.png
    ```
 
-   - 说明：鉴权资源接口必须带 `Authorization`（租户由 JWT claims 提供），因此**直接把 `$API_PREFIX/.../resource` 粘贴到浏览器地址栏会提示 `missing or invalid Authorization header`**（浏览器不会自动附加这些 Header）。请用 `curl`/Postman，或改用下方的公开只读入口/预签名下载链接。
-   - 第一个示例为租户鉴权接口，第二个示例为 **公开只读入口**（`GET /media/{uuid}/resource`）。
+   - 说明：鉴权资源接口必须带 `Authorization`（租户由 JWT claims 提供），因此**直接把 `$API_PREFIX/.../resource` 粘贴到浏览器地址栏会提示 `missing or invalid Authorization header`**（浏览器不会自动附加这些 Header）。请用 `curl`/Postman，或改用公开只读入口/预签名下载链接。
+   - `$API_PREFIX/media/assets/{uuid}/resource` 是 origin 资源接口，仅用于原图下载或后端原始文件处理；不要用于页面预览。
+   - 公开 origin 入口为 `GET /media/{uuid}/resource`；公开 variant 入口为 `GET /media/{uuid}/variants/{variant}/resource`。页面预览仍必须选择 `preview`/`thumbnail` variant。
    - 公开入口默认仅允许 `published` 匿名访问；若资源仍为 `draft/under_review/archived`，需要先通过 `POST .../presign`（`action=download`）拿到带 `token+exp` 的短期链接再访问。
    - 若通过 presign 返回相对路径（例如 `/media/{uuid}/resource`），它是相对 **后端服务 origin**（如 `http://127.0.0.1:8077`），不要误拼到前端站点 origin（如 `http://127.0.0.1:3030`），否则会 404。
-   - `disposition` 支持 `inline`（默认）与 `attachment`，可按需让浏览器直接预览或强制下载。
+   - `disposition` 支持 `inline`（默认）与 `attachment`。`inline` 只表示响应头展示方式，不改变资源版本语义；页面预览仍必须选择 `preview`/`thumbnail` variant，原图下载必须使用 `attachment`。
    - 对于外链资产，两种接口都会返回 **302** 跳转到 `externalUrl`。
    - Root 调试可使用 `GET /api/v1/admin/media/assets/{uuid}/resource`，只需把 Header 替换为 `ADMIN_TOKEN`。
 
@@ -250,7 +316,7 @@ curl -sS -X PATCH "http://127.0.0.1:8077/admin/media/assets/$ASSET_UUID" \
 
 ## 本地上传 PUT 端点（仅调试）
 
-生产访问请一律走 `/api/v1/media/assets/{uuid}/resource` 或公开 `/media/{uuid}/resource`，下述 `/media/*` PUT 端点仅在开发/CI 调试阶段用于直传文件，默认不会对外暴露 GET（唯一例外就是上一节提到的 `GET /media/{uuid}/resource`）。
+生产原图下载走 `/api/v1/media/assets/{uuid}/resource?disposition=attachment` 或公开 `/media/{uuid}/resource`；生产页面预览走 `/api/v1/media/assets/{uuid}/variants/{variant}/resource?disposition=inline` 或公开 `/media/{uuid}/variants/{variant}/resource`，其中 `variant` 只能选择 `preview`/`thumbnail`。下述 `/media/*` PUT 端点仅在开发/CI 调试阶段用于直传文件，默认不会对外暴露 GET（唯一例外就是上一节提到的公开资源读取入口）。
 
 默认情况下（参见 `backend/config/defaults.go`）本地驱动的 `base_path` 为 `./storage/media`。所有 `objectKey` 都会被当作相对路径写入该目录，例如 `objectKey=a4e5e92e-4f97-4c57-b9d2-1b6d3d7a8f3a` 会落盘到 `storage/media/a4e5e92e-4f97-4c57-b9d2-1b6d3d7a8f3a`。若创建时未显式提供 `objectKey`，MediaService 会生成一个 UUID 并写入 `media_assets.storage_key`。你也可以在 `backend/config/*.yaml` 中覆盖：
 

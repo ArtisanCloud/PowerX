@@ -37,6 +37,17 @@ type PresignRequest struct {
 	ExpiresInSeconds int64  `json:"expiresInSeconds"`
 }
 
+type CreateVariantRequest struct {
+	Name      string            `json:"name"`
+	Driver    string            `json:"driver"`
+	Bucket    string            `json:"bucket"`
+	BaseURL   string            `json:"baseUrl"`
+	ObjectKey string            `json:"objectKey"`
+	SizeBytes *int64            `json:"sizeBytes"`
+	MimeType  string            `json:"mimeType"`
+	Metadata  map[string]string `json:"metadata"`
+}
+
 type UpdateAssetRequest struct {
 	Name           *string           `json:"name"`
 	Description    *string           `json:"description"`
@@ -60,6 +71,21 @@ type assetViewResponse struct {
 	OwnerSubjectID    string     `json:"ownerSubjectId,omitempty"`
 	Tags              []string   `json:"tags,omitempty"`
 	BusinessStatus    string     `json:"businessStatus"`
+	DownloadURL       string     `json:"downloadUrl,omitempty"`
+	DownloadExpiredAt *time.Time `json:"downloadExpiredAt,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt"`
+}
+
+type assetVariantViewResponse struct {
+	UUID              string     `json:"uuid"`
+	TenantUUID        string     `json:"tenant_uuid"`
+	AssetUUID         string     `json:"assetUuid"`
+	Variant           string     `json:"variant"`
+	Name              string     `json:"name,omitempty"`
+	Driver            string     `json:"driver"`
+	ObjectKey         string     `json:"objectKey"`
+	SizeBytes         *int64     `json:"sizeBytes,omitempty"`
+	MimeType          string     `json:"mimeType,omitempty"`
 	DownloadURL       string     `json:"downloadUrl,omitempty"`
 	DownloadExpiredAt *time.Time `json:"downloadExpiredAt,omitempty"`
 	CreatedAt         time.Time  `json:"createdAt"`

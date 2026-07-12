@@ -15,7 +15,7 @@ import (
 // TestMediaOpenAPIContract ensures the public Media OpenAPI keeps the published
 // endpoints for宿主/插件使用的能力接口。
 func TestMediaOpenAPIContract(t *testing.T) {
-	specPath := filepath.Join(repoRootFromHere(t), "specs", "001-docs-media-storage", "contracts", "http-openapi.yaml")
+	specPath := filepath.Join(repoRootFromHere(t), "specs", "001-media-storage", "contracts", "http-openapi.yaml")
 	loader := &openapi3.Loader{IsExternalRefsAllowed: true}
 	doc, err := loader.LoadFromFile(specPath)
 	require.NoError(t, err, "load media openapi spec")

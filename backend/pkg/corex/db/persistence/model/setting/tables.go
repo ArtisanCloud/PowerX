@@ -13,6 +13,7 @@ const (
 
 	// 插件域（plugin）
 	TablePluginInstanceConfig = "plugin_instance_configs"
+	TablePluginDrainJob       = "plugin_drain_jobs"
 
 	// 可选：枚举
 	HTTPSModeAuto    = "auto"   // ACME/Let's Encrypt

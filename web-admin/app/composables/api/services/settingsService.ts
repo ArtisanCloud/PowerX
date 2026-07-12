@@ -238,6 +238,7 @@ export interface SetupStatus {
   configured?: boolean;
   install_status?: string;
   version?: string;
+  saas_signup_enabled?: boolean;
   desired_ports?: SetupPortStatus;
   effective_ports?: SetupPortStatus;
   restart_required?: boolean;

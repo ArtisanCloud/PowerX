@@ -54,6 +54,15 @@ description: PowerX STS 与插件鉴权规范（Exchange、KeyRing、拦截器�
 - HTTP（如需）：中间件与 STS 对齐验签策略（issuer/secret/kid）。
 - 客户端缓存：仅内存缓存；若剩余寿命 <60s 先刷新；401/403 触发强制刷新再重试一次。
 
+### 5.1 HTTP direct route 边界
+- 插件调用底座能力的推荐主路径是 `/api/v1/tenant/invocations`。
+- 插件 STS token 直接访问 Core HTTP 时，允许集合由 capability governance 管理：
+  `static plugin runtime contracts + formal platform_capabilities REST endpoints - STS blocklist`。
+- 普通开放 REST 能力必须先进入正式 `backend/config/platform_capabilities/*.yaml` 的 REST protocol；不得通过手工改 STS validator 代替能力登记。
+- `/api/v1/admin/*` 是后台用户态 API 命名空间。插件 Admin 页面、PowerX Admin 页面、以及任何携带用户 JWT 的后台请求，仍然由用户鉴权、租户成员、RBAC 和业务权限判定，不受服务态 STS direct blocklist 影响。
+- 普通 STS token 是插件服务态身份，不携带 `uid/mid`，不能代表登录用户调用 `/api/v1/admin/*` 绕过用户 RBAC。插件后端如果要代表当前用户调用底座后台 API，必须引入 delegated/on-behalf-of 机制。
+- 对服务态 STS direct call，`/admin/*`、`/internal/*`、`/public/*`、`/auth/*`、`/setup/*`、debug、migration、root、drain、bootstrap、mock、health、根级动态路径默认不允许。确认为插件服务运行时合同的少量入口必须进入 static allow 并补测试。
+
 ## 6. 安全与审计
 - TTL 建议 2–10 分钟；`client_secret` 安全存储；校验 `aud/scope` 最小权限；
 - 审计：记录 Exchange/业务调用的 `tenant/plugin/subject/trace_id`；异常 401/403 计数告警。

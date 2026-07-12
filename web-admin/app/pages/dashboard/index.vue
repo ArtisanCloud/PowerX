@@ -551,14 +551,16 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
 
 <template>
   <div class="space-y-6 p-4">
-    <section class="rounded-xl border border-gray-200 bg-white p-6">
+    <section
+      class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70"
+    >
       <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div class="max-w-3xl">
-          <p class="text-sm font-semibold text-green-600">PowerX AgentOS</p>
-          <h1 class="mt-2 text-2xl font-semibold text-gray-950">
+          <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">PowerX AgentOS</p>
+          <h1 class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
             企业插件与 AI Agent 的统一运行底座
           </h1>
-          <p class="mt-3 text-sm leading-6 text-gray-600">
+          <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-slate-300">
             统一管理插件运行时、Integration Gateway、Runtime Scheduler、AI Engine 与 Knowledge Space，
             让 SCRM、电商和营销工具插件共享 IAM、权限、调度、通知和可观测能力。
           </p>
@@ -567,11 +569,11 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
           <div
             v-for="item in pluginPortfolio"
             :key="item.name"
-            class="rounded-lg border border-gray-200 bg-gray-50 p-3"
+            class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-950/50"
           >
-            <p class="text-sm font-semibold text-gray-900">{{ item.name }}</p>
-            <p class="mt-1 text-xs font-medium text-green-600">{{ item.status }}</p>
-            <p class="mt-2 text-xs leading-5 text-gray-500">{{ item.desc }}</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ item.name }}</p>
+            <p class="mt-1 text-xs font-medium text-primary-600 dark:text-primary-400">{{ item.status }}</p>
+            <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-slate-400">{{ item.desc }}</p>
           </div>
         </div>
       </div>
@@ -582,8 +584,8 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
       <UCard v-for="stat in stats" :key="stat.title" class="p-6">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">{{ stat.title }}</p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
+            <p class="text-sm font-medium text-gray-600 dark:text-slate-300">{{ stat.title }}</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 dark:text-white">
               {{ stat.value }}
             </p>
             <div class="flex items-center mt-2">
@@ -596,12 +598,12 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
               >
                 {{ stat.change }}
               </span>
-              <span class="text-sm text-gray-500 ml-1">当前状态</span>
+              <span class="text-sm text-gray-500 ml-1 dark:text-slate-400">当前状态</span>
             </div>
           </div>
-          <div class="p-3 bg-blue-50 rounded-lg">
+          <div class="p-3 bg-blue-50 rounded-lg dark:bg-blue-500/15">
             <UIcon
-              class="w-6 h-6 text-blue-600 inline-block"
+              class="w-6 h-6 text-blue-600 inline-block dark:text-blue-300"
               :name="stat.icon"
             />
           </div>
@@ -612,17 +614,17 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       <UCard v-for="module in platformModules" :key="module.name">
         <div class="flex items-start gap-3">
-          <div class="rounded-lg bg-gray-50 p-2">
-            <UIcon :name="module.icon" class="inline-block h-5 w-5 text-green-600" />
+          <div class="rounded-lg bg-gray-50 p-2 dark:bg-slate-800">
+            <UIcon :name="module.icon" class="inline-block h-5 w-5 text-primary-600 dark:text-primary-400" />
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="text-sm font-semibold text-gray-900">{{ module.name }}</h3>
-              <span class="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ module.name }}</h3>
+              <span class="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-400/15 dark:text-green-200">
                 {{ module.status }}
               </span>
             </div>
-            <p class="mt-2 text-xs leading-5 text-gray-500">{{ module.desc }}</p>
+            <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-slate-400">{{ module.desc }}</p>
           </div>
         </div>
       </UCard>
@@ -635,7 +637,7 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-gray-900">底座能力调用趋势</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">底座能力调用趋势</h3>
               <UButton variant="ghost" size="sm"> 查看详情 </UButton>
             </div>
           </template>
@@ -650,7 +652,7 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
       <div>
         <UCard>
           <template #header>
-            <h3 class="text-lg font-semibold text-gray-900">最近运行事件</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">最近运行事件</h3>
           </template>
 
           <div class="space-y-4">
@@ -670,9 +672,9 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
                 <UIcon name="i-heroicons-check" class="h-4 w-4" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900">{{ event.title }}</p>
-                <p class="mt-1 text-xs leading-5 text-gray-500">{{ event.desc }}</p>
-                <p class="text-xs text-gray-400 mt-1">{{ event.time }}</p>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ event.title }}</p>
+                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-slate-400">{{ event.desc }}</p>
+                <p class="text-xs text-gray-400 mt-1 dark:text-slate-500">{{ event.time }}</p>
               </div>
             </div>
           </div>
@@ -689,8 +691,8 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
       <UCard v-for="stat in agentStats" :key="stat.title" class="p-6">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">{{ stat.title }}</p>
-            <p class="text-2xl font-bold text-gray-900 mt-2">
+            <p class="text-sm font-medium text-gray-600 dark:text-slate-300">{{ stat.title }}</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 dark:text-white">
               {{ stat.value }}
             </p>
             <div class="flex items-center mt-2">
@@ -703,14 +705,14 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
               >
                 {{ stat.change }}
               </span>
-              <span class="text-sm text-gray-500 ml-1">{{
+              <span class="text-sm text-gray-500 ml-1 dark:text-slate-400">{{
                 stat.description
               }}</span>
             </div>
           </div>
-          <div class="p-3 bg-purple-50 rounded-lg">
+          <div class="p-3 bg-purple-50 rounded-lg dark:bg-purple-500/15">
             <UIcon
-              class="w-6 h-6 text-purple-600 inline-block"
+              class="w-6 h-6 text-purple-600 inline-block dark:text-purple-300"
               :name="stat.icon"
             />
           </div>
@@ -725,7 +727,7 @@ const revenueSourceOption = computed<EChartsOption>(() => ({
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-gray-900">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 Token 消耗分析
               </h3>
               <UButton variant="ghost" size="sm"> 查看详情 </UButton>

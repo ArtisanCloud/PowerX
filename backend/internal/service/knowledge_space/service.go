@@ -179,6 +179,15 @@ type RetireSpaceInput struct {
 	DropVectors bool
 }
 
+// DeleteSpaceInput captures hard-delete cleanup metadata.
+type DeleteSpaceInput struct {
+	TenantUUID  string
+	SpaceID     uuid.UUID
+	RequestedBy string
+	Force       bool
+	DropVectors bool
+}
+
 func (s *Service) repositories(tx *gorm.DB) (spaces *knowledge.KnowledgeSpaceRepository,
 	policies *knowledge.PolicyTemplateRepository,
 	iam *knowledge.IAMSyncTaskRepository,

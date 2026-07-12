@@ -8,7 +8,7 @@ const pluginId = computed(() => String(route.params.pluginId || ""))
 
 // iframe 基础入口固定为 admin 根路径，避免同插件内跳转时反复重载 iframe
 const src = computed(() => `/_p/${pluginId.value}/admin/?__px_iframe=1`)
-const navigatePath = computed(() => `/_p/${pluginId.value}/admin/`)
+const navigatePath = computed(() => "/")
 
 </script>
 

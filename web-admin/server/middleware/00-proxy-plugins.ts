@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   if (!isUpstreamBypass && !isPluginRoute) return;
 
   const cfg = useRuntimeConfig(event);
-  const upstream = String(cfg.upstream || process.env.POWERX_BACKEND || "http://127.0.0.1:8077").replace(/\/+$/, "");
+  const upstream = String(process.env.POWERX_BACKEND || cfg.upstream || "http://127.0.0.1:8077").replace(/\/+$/, "");
   const accept = String(getHeader(event, "accept") || "").toLowerCase();
   if (isPluginRoute) {
     const secFetchDest = String(getHeader(event, "sec-fetch-dest") || "").toLowerCase();
@@ -73,7 +73,6 @@ export default defineEventHandler(async (event) => {
   const hasAuthHeader = Boolean(String(getHeader(event, "authorization") || "").trim());
   if (!hasAuthHeader) {
     const bearer = String(
-      getCookie(event, "token") ||
       getCookie(event, "access_token") ||
       ""
     ).trim();
@@ -151,7 +150,6 @@ export default defineEventHandler(async (event) => {
     const refreshToken = String(authData?.refresh_token || authData?.refreshToken || "").trim();
 
     if (targetAuthLogin && accessToken) {
-      setCookie(event, "token", accessToken, { path: "/", sameSite: "lax", httpOnly: false });
       setCookie(event, "access_token", accessToken, { path: "/", sameSite: "lax", httpOnly: false });
       if (refreshToken) {
         setCookie(event, "refresh_token", refreshToken, { path: "/", sameSite: "lax", httpOnly: false });
@@ -159,7 +157,6 @@ export default defineEventHandler(async (event) => {
       setResponseHeader(event, "x-px-auth-cookie-sync", "1");
     }
     if (targetAuthLogout) {
-      setCookie(event, "token", "", { path: "/", sameSite: "lax", maxAge: 0, httpOnly: false });
       setCookie(event, "access_token", "", { path: "/", sameSite: "lax", maxAge: 0, httpOnly: false });
       setCookie(event, "refresh_token", "", { path: "/", sameSite: "lax", maxAge: 0, httpOnly: false });
       setResponseHeader(event, "x-px-auth-cookie-sync", "0");

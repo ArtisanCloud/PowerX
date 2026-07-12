@@ -34,6 +34,7 @@
           <img
             :src="previewUrl"
             class="max-h-[520px] max-w-full h-auto w-auto rounded-md object-contain bg-black/5"
+            :data-media-source="previewSource || undefined"
             alt="media preview"
           />
         </div>
@@ -41,9 +42,16 @@
           v-else-if="kind === 'video'"
           :src="previewUrl"
           class="w-full rounded-md bg-black/5"
+          :data-media-source="previewSource || undefined"
           controls
         />
-        <audio v-else-if="kind === 'audio'" :src="previewUrl" class="w-full" controls />
+        <audio
+          v-else-if="kind === 'audio'"
+          :src="previewUrl"
+          :data-media-source="previewSource || undefined"
+          class="w-full"
+          controls
+        />
         <div v-else class="rounded-md border border-[var(--border-color)] p-4">
           <div class="text-sm text-[var(--text-secondary)]">
             当前类型不支持内嵌预览，请下载查看。
@@ -65,6 +73,7 @@ import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetS
 defineProps<{
   asset: MediaAssetAdminView | null;
   previewUrl: string | null;
+  previewSource?: "preview" | "thumbnail" | null;
   state: "idle" | "loading" | "ready" | "error";
   kind: "image" | "video" | "audio" | "unknown";
 }>();

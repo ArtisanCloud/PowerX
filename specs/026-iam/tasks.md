@@ -150,6 +150,144 @@
 
 ---
 
+## Phase 8: User Story 5 - SaaS 自助开通租户 (Priority: P1)
+
+**Goal**: 提供公开 SaaS signup，事务化创建 tenant、owner user/member、默认角色和基础租户配置。
+
+**Independent Test**: 新邮箱创建新租户成功；已有邮箱正确密码创建第二租户成功；错误密码/重复 key/初始化失败不残留半成品数据。
+
+### Tests for User Story 5
+
+- [x] T045 [P] [US5] 新增 SaaS signup HTTP 合同测试：`backend/tests/contract/iam/saas_signup_contract_test.go`
+- [x] T046 [P] [US5] 新增 SaaS signup 集成测试：`backend/tests/integration/iam/saas_signup_bootstrap_integration_test.go`
+- [x] T047 [P] [US5] 新增事务回滚集成测试：`backend/tests/integration/iam/saas_signup_rollback_integration_test.go`
+
+### Implementation for User Story 5
+
+- [x] T048 [US5] 新增公开 SaaS signup handler：`backend/internal/transport/http/public/saas/signup_handler.go`
+- [x] T049 [US5] 新增 SaaS signup service，封装 tenant/user/member/role/default settings 事务：`backend/internal/service/auth/saas_signup_service.go`
+- [x] T050 [US5] 扩展租户 bootstrap 初始化 owner/admin/user 角色绑定：`backend/internal/service/tenant/tenant_service.go`
+- [x] T051 [US5] 注册公开路由并保持 `/api/v1/public/saas/signup` 不依赖已有租户上下文：`backend/internal/http/router.go`
+- [x] T052 [US5] 前端新增或改造 SaaS 注册页：`web-admin/app/pages/auth/register.vue`
+- [x] T053 [US5] 更新 quickstart 的 SaaS signup 验收步骤：`specs/026-iam/quickstart.md`
+
+---
+
+## Phase 9: User Story 6 - Root 平台身份与租户身份隔离 (Priority: P1)
+
+**Goal**: root 默认进入 Platform Console，不自动成为业务租户 admin；进入业务租户必须通过 Support Session。
+
+**Independent Test**: root 登录后看不到租户 AI Settings 和租户插件业务入口；Support Session 创建后可按只读/写入模式审计访问。
+
+### Tests for User Story 6
+
+- [x] T054 [P] [US6] 新增 root 默认菜单合同测试：`backend/tests/contract/iam/root_platform_boundary_contract_test.go`
+- [x] T055 [P] [US6] 新增 root support session 集成测试：`backend/tests/integration/iam/root_support_session_integration_test.go`
+- [x] T056 [P] [US6] 新增前端 root 菜单分流单测：`web-admin/tests/unit/iam/root-platform-boundary.spec.ts`
+
+### Implementation for User Story 6
+
+- [x] T057 [US6] 收紧 `isCurrentTenantAdmin` 语义，禁止由 root 推导租户 admin：`web-admin/app/stores/user.ts`
+- [x] T058 [US6] 调整 root 默认菜单和 Platform Console 入口：`web-admin/app/middleware/01-auth.global.ts`、`web-admin/app/layouts/default.vue`
+- [x] T059 [US6] 新增 root support session 模型与迁移：`backend/pkg/corex/db/persistence/model/iam/root_support_session_gorm.go`、`backend/pkg/corex/db/database/migration.go`
+- [x] T060 [US6] 新增 root support session service/handler：`backend/internal/service/iam/root_support_session_service.go`、`backend/internal/transport/http/admin/root/support_session_handler.go`
+- [x] T061 [US6] AI Settings 与租户业务菜单按 root/support/tenant admin 语义分流：`web-admin/app/pages/settings/ai/index.vue`、`web-admin/app/composables/menu/*`
+- [x] T062 [US6] 写操作审计记录 support session id：`backend/internal/service/audit/*`
+
+---
+
+## Phase 10: User Story 7 - 租户插件实例隔离 (Priority: P2)
+
+**Goal**: 插件物理包全局安装，租户实例独立启用/停用，菜单和代理入口强制校验当前租户实例。
+
+**Independent Test**: 租户 A 启用插件、租户 B 未启用；B 看不到菜单，直接访问插件 admin/api 被拒绝。
+
+### Tests for User Story 7
+
+- [x] T063 [P] [US7] 新增租户插件菜单过滤合同测试：`backend/tests/contract/plugin/tenant_plugin_menu_contract_test.go`
+- [x] T064 [P] [US7] 新增插件代理租户 enabled guard 集成测试：`backend/tests/integration/plugin/tenant_plugin_proxy_guard_integration_test.go`
+- [x] T065 [P] [US7] 新增前端插件市场租户实例单测：`web-admin/tests/unit/plugins/tenant-plugin-instance.spec.ts`
+
+### Implementation for User Story 7
+
+- [x] T066 [US7] 明确 TenantPluginInstance service 读写接口：`backend/internal/service/plugin/tenant_instance_service.go`
+- [x] T067 [US7] 调整租户插件启用/停用 handler，禁止删除全局物理包：`backend/internal/transport/http/admin/plugin/tenant_handler.go`
+- [x] T068 [US7] 菜单聚合按当前租户 enabled 实例过滤：`backend/internal/transport/http/admin/plugin/menus_agg.go`
+- [x] T069 [US7] 插件 admin/api 代理入口增加租户 enabled guard：`backend/internal/infra/plugin/manager/router/router.go`
+- [x] T070 [US7] 前端插件市场区分“全局插件包”和“本租户启用状态”：`web-admin/app/pages/plugins/index.vue`
+- [x] T071 [US7] 更新插件隔离验收说明：`specs/026-iam/quickstart.md`
+- [x] T085 [US7] 收敛插件全局运行时启动 env，移除对单一租户 STS/Gateway 凭证的进程级绑定：`backend/internal/infra/plugin/manager/lifecycle.go`
+- [x] T086 [US7] 明确插件运行时状态接口展示全局进程与租户实例的关系：`backend/internal/transport/http/admin/plugin/status_handler.go`
+- [x] T087 [P] [US7] 新增多租户共享插件进程回归测试：`backend/tests/integration/plugin/tenant_plugin_shared_runtime_integration_test.go`
+- [x] T088 [US7] 实现租户暂停/归档时的插件实例业务入口和后台任务暂停策略：`backend/internal/service/tenant/tenant_service.go`、`backend/internal/service/plugin/tenant_instance_service.go`
+- [x] T089 [US7] 实现插件包全局停用/卸载前的租户实例影响检查：`backend/internal/infra/plugin/manager/uninstall.go`、`backend/internal/transport/http/admin/plugin/uninstall_handler.go`
+- [x] T090 [P] [US7] 新增插件生命周期权限矩阵测试：`backend/tests/contract/plugin/plugin_lifecycle_boundary_contract_test.go`
+- [x] T091 [US7] 实现插件 drain plan service：`backend/internal/service/plugin/drain_job_service.go`
+- [x] T092 [US7] 实现插件 drain/final-uninstall 管理接口：`backend/internal/transport/http/admin/plugin/drain_handler.go`、`backend/internal/transport/http/admin/plugin/uninstall_handler.go`
+- [x] T093 [US7] TenantPluginInstance 增加 `draining_requested`、`disabled_by_platform`、`drained` 状态与迁移：`backend/pkg/corex/db/persistence/model/setting/plugin_instance_config_gorm.go`、`backend/pkg/corex/db/database/migration.go`
+- [x] T094 [US7] 插件代理、Scheduler、Queue、Event Fabric 在 drain 状态下阻断目标插件新增使用：插件代理、Scheduler、Event Fabric manifest seed/publish、Task Queue enqueue/retry 已接入统一 plugin_id guard；ack/nack/历史 retry 不阻断，允许存量任务 drain 完成
+- [x] T095 [US7] replaceInstalledVersion 回归测试覆盖不删除租户实例、订阅、配置和业务数据：`backend/internal/infra/plugin/manager/install_replace_test.go`
+
+---
+
+## Phase 11: User Story 8 - 历史数据语义迁移可控 (Priority: P2)
+
+**Goal**: 保留现有 root/setup/组织架构数据，通过只读巡检和可审计补齐迁移完成 SaaS IAM 语义切换。
+
+**Independent Test**: 巡检能发现 root/system tenant/owner/admin 缺失；自动补齐只处理缺 owner 且有 admin 的租户；缺 admin 只报告。
+
+### Tests for User Story 8
+
+- [x] T072 [P] [US8] 新增 IAM migration report service 单测：`backend/tests/service/iam/iam_migration_report_service_test.go`
+- [x] T073 [P] [US8] 新增 IAM migration report HTTP 合同测试：`backend/tests/contract/iam/iam_migration_report_contract_test.go`
+- [x] T074 [P] [US8] 新增 owner 自动补齐集成测试：`backend/tests/integration/iam/iam_owner_autofix_integration_test.go`
+
+### Implementation for User Story 8
+
+- [x] T075 [US8] 新增 IAM migration report service：`backend/internal/service/iam/iam_migration_report_service.go`
+- [x] T076 [US8] 新增 IAM migration report/fix-owner handler：`backend/internal/transport/http/admin/iam/migration_handler.go`
+- [x] T077 [US8] 巡检保留 root user、system tenant member、setup 完成记录：`backend/cmd/database/seed/seed_admin.go`、`backend/internal/transport/http/admin/system/setup_handler.go`
+- [x] T078 [US8] owner 自动补齐写审计，缺 admin 只报告：`backend/internal/service/iam/iam_migration_report_service.go`
+- [x] T079 [US8] 补充发布前巡检命令或 Make 任务：`Makefile`、`backend/cmd/*`
+- [x] T080 [US8] 更新生产数据迁移说明：`docs/plan/iam/saas-account-and-plugin-isolation.md`、`specs/026-iam/quickstart.md`
+
+---
+
+## Phase 12: Final SaaS IAM Regression
+
+**Purpose**: 对 SaaS IAM、root、插件隔离、历史迁移执行全链路回归。
+
+- [x] T081 [P] [Polish] 更新 OpenAPI 与 gRPC 合同索引：`specs/026-iam/contracts/http-openapi.yaml`、`specs/026-iam/contracts/iam-rbac-admin.proto`
+- [x] T082 [P] [Polish] 补齐前端截图/操作验收说明：`specs/026-iam/quickstart.md`
+- [x] T083 [Polish] 执行后端 IAM/Plugin 回归并记录结果：`go test ./backend/tests/contract/iam ./backend/tests/integration/iam ./backend/tests/contract/plugin ./backend/tests/integration/plugin`
+- [x] T084 [Polish] 执行前端 IAM/Plugin 回归并记录结果：`cd web-admin && npm run test -- tests/unit/iam tests/unit/plugins`
+
+---
+
+## Phase 13: User Story 9 - 角色级菜单权限控制 (Priority: P1)
+
+**Goal**: `/api/v1/admin/menus` 根据当前租户成员的角色权限返回菜单，Pinned 菜单不再全员可见。
+
+**Independent Test**: 同一租户内分别使用 `role_admin`、`role_user`、`role_vendor` 登录，验证菜单返回符合角色授权。
+
+### Tests for User Story 9
+
+- [x] T096 [P] [US9] 校验系统菜单定义包含 `menu:*:read` 权限：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
+- [x] T097 [P] [US9] 校验默认角色 seed 后包含 `role_vendor` 与菜单权限白名单：`backend/cmd/database/seed/seed_permission.go`、`backend/cmd/database/seed/seed_role.go`
+
+### Implementation for User Story 9
+
+- [x] T098 [US9] 新增 `role_vendor` 内置角色常量与默认角色 upsert：`backend/pkg/corex/iam/const.go`、`backend/pkg/corex/db/persistence/repository/iam/role_repo.go`
+- [x] T099 [US9] 注册核心菜单权限 `module=menu/resource/action=read`：`backend/cmd/database/seed/seed_permission.go`
+- [x] T100 [US9] 系统菜单补充 `Permissions`：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
+- [x] T101 [US9] 菜单聚合接口接入 `RBACService.Enforce`：`backend/internal/transport/http/admin/menu/merge_handler.go`
+- [x] T102 [US9] 文档补充角色级菜单权限、供应商角色和验收方法：`specs/026-iam/spec.md`、`specs/026-iam/data-model.md`、`specs/026-iam/quickstart.md`
+- [x] T103 [US9] 插件 manifest 菜单递归同步为 `module=menu/resource=plugin.<plugin_id>.<menu_id>/action=read` 权限：`backend/internal/bootstrap/plugin_permission_sync.go`、`backend/pkg/plugin_mgr/menu_permissions.go`
+- [x] T104 [US9] 插件菜单聚合时自动附加对应菜单权限策略并保留插件声明策略：`backend/internal/transport/http/admin/plugin/menus_agg.go`
+- [x] T105 [US9] 角色权限页把插件/App 菜单权限展示到“已安装 App / 插件名称”分组：`web-admin/app/components/settings/users/PermissionManager.vue`、`web-admin/app/stores/permission.ts`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

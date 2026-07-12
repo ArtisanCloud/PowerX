@@ -61,19 +61,21 @@ func SeedKnowledgePolicyTemplates(db *gorm.DB) error {
 		}
 
 		if err == nil && existing.ID > 0 {
-			// 若已存在，仅在 hash 为空时补齐（避免覆盖你手工调优过的 profile）
-			if strings.TrimSpace(existing.ImmutableHash) == "" {
-				if err := db.WithContext(seedCtx()).
-					Model(&models.PolicyTemplateVersion{}).
-					Where("id = ?", existing.ID).
-					Updates(map[string]any{
-						"immutable_hash": hash,
-						"approved_by":    "seed",
-						"approved_at":    &now,
-					}).Error; err != nil {
-					return err
-				}
+			if err := db.WithContext(seedCtx()).
+				Model(&models.PolicyTemplateVersion{}).
+				Where("id = ?", existing.ID).
+				Updates(map[string]any{
+					"rag_profile":      datatypes.JSON(ragRaw),
+					"graph_profile":    datatypes.JSON(graphRaw),
+					"masking_profile":  datatypes.JSON(maskingRaw),
+					"alerting_profile": datatypes.JSON(alertRaw),
+					"immutable_hash":   hash,
+					"approved_by":      "seed",
+					"approved_at":      &now,
+				}).Error; err != nil {
+				return err
 			}
+			logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] policy templates updated: %s-%s (id=%d)", name, ver, existing.ID)
 			continue
 		}
 

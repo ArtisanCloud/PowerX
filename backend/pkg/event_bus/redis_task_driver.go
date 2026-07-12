@@ -149,18 +149,22 @@ func (d *redisTaskDriver) Ack(ctx context.Context, request AckRequest) error {
 	if strings.TrimSpace(request.TenantKey) == "" || strings.TrimSpace(request.SubscriberID) == "" || strings.TrimSpace(request.MessageID) == "" {
 		return fmt.Errorf("tenant key, subscriber id and message id are required")
 	}
-	raw, err := d.client.HGet(ctx, d.inflightKey(request.TenantKey, request.SubscriberID), request.MessageID).Result()
+	inflightKey := d.inflightKey(request.TenantKey, request.SubscriberID)
+	processingKey := d.processingKey(request.TenantKey, request.SubscriberID)
+	raw, err := d.client.HGet(ctx, inflightKey, request.MessageID).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return nil
+			if err := d.removeProcessingByMessageID(ctx, processingKey, request.MessageID); err != nil {
+				return err
+			}
+			return d.client.HDel(ctx, inflightKey, request.MessageID).Err()
 		}
 		return err
 	}
-	processingKey := d.processingKey(request.TenantKey, request.SubscriberID)
 	if err := d.client.LRem(ctx, processingKey, 1, raw).Err(); err != nil {
 		return err
 	}
-	return d.client.HDel(ctx, d.inflightKey(request.TenantKey, request.SubscriberID), request.MessageID).Err()
+	return d.client.HDel(ctx, inflightKey, request.MessageID).Err()
 }
 
 func (d *redisTaskDriver) Nack(ctx context.Context, request NackRequest) error {
@@ -170,18 +174,22 @@ func (d *redisTaskDriver) Nack(ctx context.Context, request NackRequest) error {
 	if strings.TrimSpace(request.TenantKey) == "" || strings.TrimSpace(request.SubscriberID) == "" || strings.TrimSpace(request.MessageID) == "" {
 		return fmt.Errorf("tenant key, subscriber id and message id are required")
 	}
-	raw, err := d.client.HGet(ctx, d.inflightKey(request.TenantKey, request.SubscriberID), request.MessageID).Result()
+	inflightKey := d.inflightKey(request.TenantKey, request.SubscriberID)
+	processingKey := d.processingKey(request.TenantKey, request.SubscriberID)
+	raw, err := d.client.HGet(ctx, inflightKey, request.MessageID).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return nil
+			if err := d.removeProcessingByMessageID(ctx, processingKey, request.MessageID); err != nil {
+				return err
+			}
+			return d.client.HDel(ctx, inflightKey, request.MessageID).Err()
 		}
 		return err
 	}
-	processingKey := d.processingKey(request.TenantKey, request.SubscriberID)
 	if err := d.client.LRem(ctx, processingKey, 1, raw).Err(); err != nil {
 		return err
 	}
-	if err := d.client.HDel(ctx, d.inflightKey(request.TenantKey, request.SubscriberID), request.MessageID).Err(); err != nil {
+	if err := d.client.HDel(ctx, inflightKey, request.MessageID).Err(); err != nil {
 		return err
 	}
 
@@ -192,6 +200,26 @@ func (d *redisTaskDriver) Nack(ctx context.Context, request NackRequest) error {
 		}).Err()
 	}
 	return d.client.LPush(ctx, d.queueKey(request.TenantKey, request.SubscriberID), raw).Err()
+}
+
+func (d *redisTaskDriver) removeProcessingByMessageID(ctx context.Context, processingKey, messageID string) error {
+	items, err := d.client.LRange(ctx, processingKey, 0, -1).Result()
+	if err != nil {
+		return err
+	}
+	for _, raw := range items {
+		var message TaskMessage
+		if err := json.Unmarshal([]byte(raw), &message); err != nil {
+			continue
+		}
+		if strings.TrimSpace(message.ID) != strings.TrimSpace(messageID) {
+			continue
+		}
+		if err := d.client.LRem(ctx, processingKey, 1, raw).Err(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *redisTaskDriver) Retry(ctx context.Context, request RetryRequest) error {
@@ -280,4 +308,3 @@ func validateTaskMessage(message TaskMessage) error {
 	}
 	return nil
 }
-

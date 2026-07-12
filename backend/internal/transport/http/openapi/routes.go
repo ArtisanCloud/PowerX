@@ -35,7 +35,7 @@ func RegisterAPIRoutes(
 		protectedGroup.Use(authMiddleware)
 	}
 
-	httpmiddleware.RegisterLocalUploadEndpoint(protectedGroup, cfg, deps.MediaSvc)
+	httpmiddleware.RegisterLocalUploadEndpoint(publicGroup, cfg, deps.MediaSvc)
 
 	mediaOpenAPI.RegisterPublicResource(r, deps)
 

@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,58 @@ func TestAuthorizeRejectsTopicWithoutRegistry(t *testing.T) {
 	})
 	client := &Client{TenantUUID: "tenant-authorizer", MemberID: 1}
 	err := authorizer.Authorize(context.Background(), client, "custom.progress")
+	if !errors.Is(err, ErrTopicNotAllowed) {
+		t.Fatalf("expected ErrTopicNotAllowed, got err=%v", err)
+	}
+}
+
+func TestAuthorizePublishRejectsTemplateOnlyTopic(t *testing.T) {
+	topicID := uuid.New()
+	acl := &mockACLStore{allowed: true}
+	authorizer := NewDefaultAuthorizerWithOptions(DefaultAuthorizerOptions{
+		TopicStore: &mockTopicLookup{
+			templateTopic: &eventfabricmodel.TopicDefinition{
+				PowerUUIDModel: coremodel.PowerUUIDModel{UUID: topicID},
+				TenantKey:      "tenant-authorizer",
+				Namespace:      "ai_craft.shopify.product.sync.progress.member.tenant_{{tenant_uuid}}",
+				Name:           "member_{{member_uuid}}",
+			},
+		},
+		ACLStore: acl,
+		Clock:    time.Now,
+	})
+	err := authorizer.AuthorizePublish(context.Background(), PublishAuthorizeInput{
+		TenantUUID: "tenant-authorizer",
+		Topic:      "ai_craft.shopify.product.sync.progress.member.tenant_tenant-authorizer.member_fda3589b-d30b-41b0-a859-c061c179fb58",
+		Principal:  "plugin:com.powerx.plugins.ai-craft",
+	})
+	if err != nil {
+		if !errors.Is(err, ErrTopicNotAllowed) {
+			t.Fatalf("expected ErrTopicNotAllowed, got err=%v", err)
+		}
+		return
+	}
+	t.Fatalf("expected ErrTopicNotAllowed")
+}
+
+func TestAuthorizePublishRejectsUnregisteredTemplateTopic(t *testing.T) {
+	authorizer := NewDefaultAuthorizerWithOptions(DefaultAuthorizerOptions{
+		TopicStore: &mockTopicLookup{
+			templateTopic: &eventfabricmodel.TopicDefinition{
+				PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.New()},
+				TenantKey:      "tenant-authorizer",
+				Namespace:      "ai_craft.shopify.product.sync.progress.member.tenant_{{tenant_uuid}}",
+				Name:           "member_{{member_uuid}}",
+			},
+		},
+		ACLStore: &mockACLStore{allowed: true},
+		Clock:    time.Now,
+	})
+	err := authorizer.AuthorizePublish(context.Background(), PublishAuthorizeInput{
+		TenantUUID: "tenant-authorizer",
+		Topic:      "ai_craft.shopify.product.sync.progress.member.tenant_other-tenant.member_fda3589b-d30b-41b0-a859-c061c179fb58",
+		Principal:  "plugin:com.powerx.plugins.ai-craft",
+	})
 	if !errors.Is(err, ErrTopicNotAllowed) {
 		t.Fatalf("expected ErrTopicNotAllowed, got err=%v", err)
 	}
@@ -94,7 +147,8 @@ func TestAuthorizePublishUsesExplicitPrincipal(t *testing.T) {
 }
 
 type mockTopicLookup struct {
-	topic *eventfabricmodel.TopicDefinition
+	topic         *eventfabricmodel.TopicDefinition
+	templateTopic *eventfabricmodel.TopicDefinition
 }
 
 func (m *mockTopicLookup) FindByComposite(_ context.Context, _, _, _ string) (*eventfabricmodel.TopicDefinition, error) {
@@ -102,6 +156,21 @@ func (m *mockTopicLookup) FindByComposite(_ context.Context, _, _, _ string) (*e
 		return nil, nil
 	}
 	clone := *m.topic
+	return &clone, nil
+}
+
+func (m *mockTopicLookup) FindTemplateMatch(_ context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error) {
+	if m.templateTopic == nil {
+		return nil, nil
+	}
+	expectedNamespace := strings.ReplaceAll(m.templateTopic.Namespace, "{{tenant_uuid}}", tenantKey)
+	if expectedNamespace != namespace {
+		return nil, nil
+	}
+	if !strings.HasPrefix(name, "member_") {
+		return nil, nil
+	}
+	clone := *m.templateTopic
 	return &clone, nil
 }
 

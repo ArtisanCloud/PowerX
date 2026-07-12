@@ -3,7 +3,9 @@ package capability_registry
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )
@@ -11,6 +13,8 @@ import (
 // CapabilityRecord 记录插件上报后的能力目录条目。
 type CapabilityRecord struct {
 	coremodel.PowerModel
+
+	UUID uuid.UUID `gorm:"type:uuid;column:uuid;uniqueIndex;index" json:"uuid"`
 
 	CapabilityID  string         `gorm:"column:capability_id;type:varchar(128);not null;uniqueIndex:uk_capability_record_capability" json:"capability_id"`
 	PluginID      string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_record_plugin" json:"plugin_id"`
@@ -39,6 +43,13 @@ func (CapabilityRecord) TableName() string {
 	return coremodel.PowerXSchema + "." + coremodel.TableCapabilityRegistryCapabilityRecord
 }
 
+func (r *CapabilityRecord) BeforeCreate(tx *gorm.DB) error {
+	if r.UUID == uuid.Nil {
+		r.UUID = uuid.New()
+	}
+	return nil
+}
+
 // ProtocolBinding 描述能力在各协议下的接入详情。
 type ProtocolBinding struct {
 	Channel      string `json:"channel"`
@@ -49,6 +60,9 @@ type ProtocolBinding struct {
 	ToolRef      string `json:"tool_ref,omitempty"`
 	ToolScope    string `json:"tool_scope,omitempty"`
 	AuthType     string `json:"auth_type,omitempty"`
+	ActorContext string `json:"actor_context,omitempty"`
+	ResourceScope string `json:"resource_scope,omitempty"`
+	STSDirect    bool   `json:"sts_direct,omitempty"`
 	HealthState  string `json:"health_state,omitempty"`
 	HealthReason string `json:"health_reason,omitempty"`
 	LatencyP95MS int    `json:"latency_p95_ms,omitempty"`

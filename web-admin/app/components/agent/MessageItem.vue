@@ -20,6 +20,9 @@ const props = defineProps<{
   message: ChatMessage | DeepReadonly<ChatMessage>;
   isStreaming?: boolean;
   agentName?: string;
+  fallbackTraceTenantUuid?: string;
+  fallbackTraceSessionId?: string | number;
+  fallbackTraceMessageId?: string | number;
 }>();
 
 const emit = defineEmits<{
@@ -30,6 +33,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const localePath = useLocalePath();
 
 const canRegenerateFromThisUserMessage = computed(() => {
   const m: any = props.message as any;
@@ -274,6 +278,87 @@ const processMeta = computed(() => {
   return p;
 });
 
+const runStateMeta = computed(() => {
+  const state =
+    (props.message as any)?.meta?.runState ??
+    (props.message as any)?.meta?.run_state ??
+    (props.message as any)?.metadata?.runState ??
+    (props.message as any)?.metadata?.run_state ??
+    null;
+  if (!state || typeof state !== "object") return null;
+  return state;
+});
+
+const traceMeta = computed(() => {
+  const meta =
+    (props.message as any)?.meta?.trace ??
+    (props.message as any)?.metadata?.trace ??
+    null;
+  if (!meta || typeof meta !== "object") return null;
+  const tenantUUID = String(meta.tenant_uuid || "").trim();
+  const sessionID = String(meta.session_id || meta.session_id_num || "").trim();
+  const messageID = String(meta.message_id || meta.user_message_id || "").trim();
+  if (!tenantUUID || !sessionID || !messageID) return null;
+  return {
+    tenantUUID,
+    sessionID,
+    messageID,
+    traceID: String(meta.trace_id || "").trim(),
+  };
+});
+
+const fallbackTraceMeta = computed(() => {
+  const m: any = props.message as any;
+  if (m?.role !== "assistant") return null;
+  if (m?.isError !== true && m?.status !== "error") return null;
+  const msgMeta = m?.meta || m?.metadata || {};
+  const tenantUUID = String(
+    props.fallbackTraceTenantUuid ||
+      msgMeta?.tenant_uuid ||
+      msgMeta?.trace?.tenant_uuid ||
+      ""
+  ).trim();
+  const sessionID = String(
+    props.fallbackTraceSessionId ||
+      msgMeta?.session_id ||
+      msgMeta?.sessionId ||
+      msgMeta?.trace?.session_id ||
+      ""
+  ).trim();
+  const messageID = String(
+    props.fallbackTraceMessageId ||
+      msgMeta?.message_id ||
+      msgMeta?.user_message_id ||
+      msgMeta?.trace?.message_id ||
+      msgMeta?.trace?.user_message_id ||
+      ""
+  ).trim();
+  if (!tenantUUID || !sessionID || !messageID) return null;
+  return {
+    tenantUUID,
+    sessionID,
+    messageID,
+    traceID: String(msgMeta?.trace_id || msgMeta?.trace?.trace_id || "").trim(),
+  };
+});
+
+const resolvedTraceMeta = computed(() => traceMeta.value || fallbackTraceMeta.value);
+
+const traceUrl = computed(() => {
+  if (!resolvedTraceMeta.value) return "";
+  const q = new URLSearchParams({
+    tenant_uuid: resolvedTraceMeta.value.tenantUUID,
+    session_id: resolvedTraceMeta.value.sessionID,
+    message_id: resolvedTraceMeta.value.messageID,
+  });
+  if (resolvedTraceMeta.value.traceID) q.set("trace_id", resolvedTraceMeta.value.traceID);
+  return `${localePath("/agent/traces")}?${q.toString()}`;
+});
+
+const messageTracePayload = computed(() =>
+  buildTracePayload({ error: (props.message as any)?.content })
+);
+
 const processIntentTasks = computed<any[]>(() => {
   const raw = processMeta.value?.intent;
   const tasks = raw?.tasks;
@@ -295,12 +380,37 @@ const processNodes = computed<any[]>(() => {
   const nodes = processMeta.value?.nodes;
   return Array.isArray(nodes) ? nodes : [];
 });
+const runStateTasks = computed<any[]>(() => {
+  const tasks = runStateMeta.value?.tasks;
+  return Array.isArray(tasks) ? tasks : [];
+});
+const runStateSummary = computed(() => buildRunStateSummary(runStateMeta.value, runStateTasks.value));
+const runStateStatus = computed(() => resolveRunStateStatus(runStateSummary.value));
+const runStateProgressPercent = computed(() => {
+  const total = Math.max(0, Number(runStateSummary.value.total || 0));
+  if (!total) return 0;
+  const done = Number(runStateSummary.value.completed || 0) + Number(runStateSummary.value.skipped || 0);
+  return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+});
+const runStateParticipants = computed(() => buildRunStateParticipants(runStateTasks.value));
+const runStateStageGroups = computed(() => groupRunStateTasksByStage(runStateTasks.value));
+const pendingParamTasks = computed<any[]>(() =>
+  runStateTasks.value.filter((task) => String(task?.status || "") === "awaiting_params")
+);
+const completedResultTasks = computed<any[]>(() =>
+  runStateTasks.value.filter((task) => String(task?.status || "") === "completed" && (task?.result || task?.links?.length))
+);
+const failedRunTasks = computed<any[]>(() =>
+  runStateTasks.value.filter((task) => String(task?.status || "") === "failed")
+);
 const nodeKindLabelMap: Record<string, string> = {
   agent_handoff: "子智能体分发",
   workflow: "流程节点",
   skill: "技能节点",
   tooling: "工具节点",
   llm: "模型直答",
+  response_planner: "响应规划",
+  context_builder: "上下文构建",
 };
 const processNodeStats = computed(() => {
   const summary: {
@@ -316,14 +426,14 @@ const processNodeStats = computed(() => {
     failed: 0,
     byKind: {},
   };
-  for (const node of processNodes.value) {
+  for (const node of runStateTasks.value) {
     summary.total += 1;
-    const status = String(node?.status || "completed")
+    const status = String(node?.status || "pending")
       .trim()
       .toLowerCase();
     if (status === "running") summary.running += 1;
     else if (status === "failed") summary.failed += 1;
-    else summary.completed += 1;
+    else if (status === "completed" || status === "skipped") summary.completed += 1;
     const kind = String(node?.node_kind || "node")
       .trim()
       .toLowerCase();
@@ -348,17 +458,182 @@ const formatNodeStatus = (status: string) => {
   const v = String(status || "")
     .trim()
     .toLowerCase();
+  if (v === "pending") return "待执行";
+  if (v === "awaiting_params") return "待补充";
   if (v === "running") return "执行中";
   if (v === "failed") return "失败";
-  return "完成";
+  if (v === "skipped") return "跳过";
+  if (v === "completed") return "完成";
+  return "待执行";
 };
 const buildNodeTitle = (node: any) => {
-  const kind = formatNodeKind(node?.node_kind || "node");
-  const ref = String(node?.node_ref || node?.flow_id || "-");
-  const task = String(node?.task_id || "").trim();
-  if (task) return `${kind} · ${ref} · task=${task}`;
-  return `${kind} · ${ref}`;
+  const kind = formatNodeKind(node?.node_kind || node?.node_ref || "node");
+  const label = String(node?.agent_name || node?.node_ref || node?.skill_id || node?.capability_id || node?.flow_id || "").trim();
+  return label ? `${kind} · ${label}` : kind;
 };
+const taskPrimaryLabel = (node: any) =>
+  String(node?.agent_name || node?.node_ref || node?.skill_id || node?.capability_id || node?.action || "当前智能体").trim();
+const taskAvatarText = (node: any) => {
+  const label = taskPrimaryLabel(node);
+  return label.slice(0, 1).toUpperCase();
+};
+const taskLineDescription = (node: any) => {
+  const readable = readableTaskMessage(node);
+  if (readable) return readable;
+  if (node?.node_desc) return String(node.node_desc);
+  const parts = [formatNodeKind(node?.node_kind || node?.node_ref || "node"), node?.action, node?.failure_policy]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  return parts.join(" / ");
+};
+const readableTaskMessage = (node: any) => {
+  const fromTask = humanReadableValue(node?.message) || humanReadableValue(node?.summary);
+  if (fromTask) return fromTask;
+  return humanReadableValue(node?.result);
+};
+const humanReadableValue = (value: any): string => {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  for (const key of ["message", "summary", "content", "text", "title", "description"]) {
+    const text = value?.[key];
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  return "";
+};
+const errorText = (value: any): string => {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  return String(value.message || value.error || value.code || value.detail || "").trim();
+};
+const compactObject = (value: Record<string, any>) =>
+  Object.fromEntries(Object.entries(value).filter(([, item]) => item !== "" && item !== undefined && item !== null));
+const buildTracePayload = (task?: any) => {
+  const run = runStateMeta.value?.run && typeof runStateMeta.value.run === "object" ? runStateMeta.value.run : {};
+  const meta = resolvedTraceMeta.value;
+  return compactObject({
+    tenant_uuid: meta?.tenantUUID || (props.message as any)?.meta?.tenant_uuid || (props.message as any)?.metadata?.tenant_uuid,
+    trace_id: task?.trace_id || run.trace_id || meta?.traceID,
+    run_id: task?.run_id || run.run_id,
+    session_id: task?.session_id || run.session_id || meta?.sessionID || props.fallbackTraceSessionId,
+    message_id: task?.message_id || run.message_id || meta?.messageID || props.fallbackTraceMessageId,
+    task_id: task?.task_id || task?.node_id,
+    node_kind: task?.node_kind,
+    node_ref: task?.node_ref,
+    agent_id: task?.agent_id,
+    agent_name: task?.agent_name || task?.agent_key,
+    skill_id: task?.skill_id,
+    capability_id: task?.capability_id,
+    action: task?.action,
+    status: task?.status,
+    request_id: task?.request_id || task?.error?.request_id || task?.result?.request_id,
+    error: errorText(task?.error ?? task?.result ?? task?.message ?? task?.summary),
+  });
+};
+const copyTracePayload = (task?: any) => {
+  copyToClipboard(JSON.stringify(buildTracePayload(task), null, 2));
+};
+const taskProgressPercent = (node: any) => {
+  const raw = node?.progress_percent ?? node?.progress ?? node?.percent;
+  const num = Number(raw);
+  if (Number.isFinite(num) && num >= 0) return Math.min(100, Math.max(0, Math.round(num > 1 ? num : num * 100)));
+  const status = String(node?.status || "").toLowerCase();
+  if (status === "completed" || status === "skipped") return 100;
+  if (status === "failed") return 100;
+  if (status === "running") return 35;
+  if (status === "awaiting_params") return 50;
+  return 0;
+};
+const buildRunStateParticipants = (tasks: any[]) => {
+  const map = new Map<string, { key: string; label: string; count: number }>();
+  for (const task of tasks) {
+    const label = String(
+      task?.agent_name ||
+      task?.agent_key ||
+      task?.agent_id ||
+      task?.team_id ||
+      task?.node_ref ||
+      task?.skill_id ||
+      "当前智能体"
+    ).trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    const current = map.get(key);
+    if (current) current.count += 1;
+    else map.set(key, { key, label, count: 1 });
+  }
+  return Array.from(map.values());
+};
+const buildRunStateSummary = (state: any, tasks: any[]) => {
+  const summary = state?.summary && typeof state.summary === "object" ? state.summary : {};
+  const count = (status: string) => tasks.filter((task) => String(task?.status || "") === status).length;
+  const totalStages = Math.max(0, ...tasks.map((task) => Number(task?.stage || 0)));
+  const activeStages = tasks
+    .filter((task) => ["running", "awaiting_params"].includes(String(task?.status || "")))
+    .map((task) => Number(task?.stage || 0))
+    .filter((stage) => stage > 0);
+  const currentStage = activeStages.length ? Math.min(...activeStages) : totalStages;
+  return {
+    total: Number(summary.total_tasks || tasks.length),
+    pending: Number(summary.pending_tasks || count("pending")),
+    awaiting: Number(summary.awaiting_tasks || count("awaiting_params")),
+    running: Number(summary.running_tasks || count("running")),
+    completed: Number(summary.completed_tasks || count("completed")),
+    failed: Number(summary.failed_tasks || count("failed")),
+    skipped: Number(summary.skipped_tasks || count("skipped")),
+    currentStage: Number(summary.current_stage || currentStage || 0),
+    totalStages: Number(summary.total_stages || totalStages || 0),
+    blockedReason: String(summary.blocked_reason || ""),
+  };
+};
+const groupRunStateTasksByStage = (tasks: any[]) => {
+  const groups = new Map<string, any[]>();
+  for (const task of tasks) {
+    const stage = Number(task?.stage || 0);
+    const group = String(task?.parallel_group || (stage > 0 ? `stage_${stage}` : "stage_unknown"));
+    const key = `${stage || 999999}:${group}`;
+    groups.set(key, [...(groups.get(key) || []), task]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => Number(a.split(":")[0]) - Number(b.split(":")[0]))
+    .map(([key, tasks]) => {
+      const [stageRaw, group] = key.split(":");
+      const stage = Number(stageRaw);
+      return {
+        key,
+        label: stage === 999999 ? "未分阶段任务" : `阶段 ${stage}`,
+        group,
+        parallel: tasks.length > 1,
+        tasks,
+      };
+    });
+};
+const taskStatusClass = (status: string) => {
+  const v = String(status || "").toLowerCase();
+  if (v === "running") return "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200";
+  if (v === "awaiting_params") return "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200";
+  if (v === "failed") return "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200";
+  if (v === "skipped") return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
+  if (v === "completed") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
+  return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
+};
+const runStateStatusClass = (status: string) => {
+  const v = String(status || "").toLowerCase();
+  if (v === "running") return "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200";
+  if (v === "awaiting_params") return "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200";
+  if (v === "failed") return "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200";
+  if (v === "pending") return "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
+  return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
+};
+const resolveRunStateStatus = (summary: ReturnType<typeof buildRunStateSummary>) => {
+  if (summary.failed > 0) return "failed";
+  if (summary.awaiting > 0) return "awaiting_params";
+  if (summary.running > 0) return "running";
+  if (summary.pending > 0) return "pending";
+  if (summary.total > 0 && summary.completed + summary.skipped >= summary.total) return "completed";
+  return "pending";
+};
+const formatMissingFields = (fields: any[]) =>
+  fields.map((field) => String(field).replace(/^template\./, "")).join("、");
 
 // ====== 主体渲染内容（纯主内容，剥离 think；流式时走打字机）======
 const processedContent = computed<MessageContent[]>(() => {
@@ -472,128 +747,223 @@ const downloadFile = (url: string, downloadUrl?: string) => {
       <!-- 内容 -->
       <div class="flex-1 min-w-0">
         <!-- 头部 -->
-        <div class="flex items-center space-x-2 mb-2">
-          <span class="font-medium text-gray-900">
-            {{
-              message.role === "user"
-                ? t("agent.chat.you")
-                : message.role === "assistant"
-                  ? agentName || t("agent.chat.assistant")
-                  : t("agent.chat.system")
-            }}
-          </span>
-          <span class="text-xs text-gray-500">{{
-            formatTime(message.timestamp)
-          }}</span>
-          <div
-            v-if="(message as any).isStreaming || isStreaming"
-            class="flex items-center space-x-1"
-          >
-            <div class="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
-            <span class="text-xs text-blue-500">{{
-              t("agent.chat.generating")
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center space-x-2">
+            <span class="truncate font-medium text-gray-900">
+              {{
+                message.role === "user"
+                  ? t("agent.chat.you")
+                  : message.role === "assistant"
+                    ? agentName || t("agent.chat.assistant")
+                    : t("agent.chat.system")
+              }}
+            </span>
+            <span class="shrink-0 text-xs text-gray-500">{{
+              formatTime(message.timestamp)
             }}</span>
+            <div
+              v-if="(message as any).isStreaming || isStreaming"
+              class="flex shrink-0 items-center space-x-1"
+            >
+              <div class="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
+              <span class="text-xs text-blue-500">{{
+                t("agent.chat.generating")
+              }}</span>
+            </div>
           </div>
+          <UButton
+            v-if="message.role === 'assistant' && traceUrl"
+            size="xs"
+            :variant="(message as any).isError ? 'soft' : 'ghost'"
+            icon="i-heroicons-bug-ant"
+            :to="traceUrl"
+          >
+            追踪本轮
+          </UButton>
         </div>
 
-        <!-- 执行过程（intent -> plan -> node_start/node_end） -->
+        <!-- 执行过程：只消费 Agent Run State Protocol -->
         <div
           v-if="
             message.role === 'assistant' &&
-            (processIntentTasks.length > 0 ||
-              processPlanTasks.length > 0 ||
-              processNodes.length > 0)
+            runStateTasks.length > 0
           "
-          class="mb-3 rounded-xl border border-gray-200/80 bg-gray-50/90 dark:border-white/10 dark:bg-white/5 p-3 space-y-2"
+          class="mb-3"
         >
-          <div class="text-xs font-semibold text-gray-700 dark:text-gray-200">
-            执行过程
-          </div>
-
-          <div
-            v-if="processIntentTasks.length > 0"
-            class="text-xs text-gray-600 dark:text-gray-300"
+          <details
+            class="group rounded-md border border-gray-200/80 bg-gray-50/90 dark:border-white/10 dark:bg-white/5"
           >
-            <span class="font-medium">Intent：</span>
-            <span>候选 {{ processIntentTasks.length }} 个</span>
-          </div>
-          <div
-            v-if="processIntentPreview.length > 0"
-            class="space-y-1"
-          >
-            <div
-              v-for="(it, ii) in processIntentPreview"
-              :key="`intent-${it?.task_id || ii}`"
-              class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1"
-            >
-              <div class="text-xs text-gray-700 dark:text-gray-200 truncate">
-                {{ it?.params?._candidate_name || it?.flow_id || "-" }}
-              </div>
-              <div
-                v-if="it?.params?._candidate_desc"
-                class="text-[11px] mt-0.5 text-gray-500 dark:text-gray-400 line-clamp-2"
-              >
-                {{ it?.params?._candidate_desc }}
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-if="processPlanTasks.length > 0"
-            class="text-xs text-gray-600 dark:text-gray-300"
-          >
-            <span class="font-medium">Plan：</span>
-            <span>节点 {{ processPlanTasks.length }} 个</span>
-          </div>
-
-          <div v-if="processNodes.length > 0" class="space-y-1">
-            <div class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1.5">
-              <div class="text-[11px] text-gray-500 dark:text-gray-400">
-                节点总数 {{ processNodeStats.total }} · 进行中 {{ processNodeStats.running }} · 完成 {{ processNodeStats.completed }} · 失败 {{ processNodeStats.failed }}
-              </div>
-              <div
-                v-if="processNodeKindSummary.length > 0"
-                class="mt-1 flex flex-wrap gap-1"
-              >
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs">
+              <div class="flex min-w-0 items-center gap-2">
+                <UIcon name="i-heroicons-bolt" class="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-300" />
+                <span class="shrink-0 font-medium text-gray-800 dark:text-gray-100">执行过程</span>
                 <span
-                  v-for="item in processNodeKindSummary"
-                  :key="`node-kind-${item.kind}`"
-                  class="text-[11px] rounded-full bg-gray-100 dark:bg-white/10 px-2 py-0.5 text-gray-600 dark:text-gray-300"
+                  class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                  :class="runStateStatusClass(runStateStatus)"
                 >
-                  {{ item.label }} {{ item.count }}
+                  {{ formatNodeStatus(runStateStatus) }}
                 </span>
               </div>
-            </div>
-            <div
-              v-for="(n, i) in processNodes"
-              :key="`${n?.node_id || n?.task_id || i}`"
-              class="rounded-md border border-gray-200/80 bg-white dark:border-white/10 dark:bg-black/20 px-2 py-1"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <div class="text-xs text-gray-700 dark:text-gray-200 truncate">
-                  {{ buildNodeTitle(n) }}
-                </div>
-                <div
-                  class="text-[11px] px-2 py-0.5 rounded-full"
-                  :class="
-                    (n?.status || '').toLowerCase() === 'running'
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200'
-                      : (n?.status || '').toLowerCase() === 'failed'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200'
-                  "
+              <div class="flex shrink-0 items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                <span v-if="runStateParticipants.length">参与 {{ runStateParticipants.length }}</span>
+                <span>{{ runStateSummary.completed }}/{{ runStateSummary.total }}</span>
+                <span>{{ runStateProgressPercent }}%</span>
+                <UIcon name="i-heroicons-chevron-down" class="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </div>
+            </summary>
+
+            <div class="space-y-2 border-t border-gray-200/80 p-3 dark:border-white/10">
+              <div v-if="runStateParticipants.length" class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="text-gray-500 dark:text-gray-400">参与</span>
+                <span
+                  v-for="participant in runStateParticipants"
+                  :key="participant.key"
+                  class="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-primary-700 dark:bg-primary-500/10 dark:text-primary-200"
                 >
-                  {{ formatNodeStatus(n?.status || "completed") }}
+                  <UIcon name="i-heroicons-user-circle" class="h-3.5 w-3.5" />
+                  <span>{{ participant.label }}</span>
+                  <span class="text-primary-500 dark:text-primary-300">×{{ participant.count }}</span>
+                </span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="rounded-full bg-white px-2 py-0.5 text-gray-600 dark:bg-black/20 dark:text-gray-300">
+                  总 {{ runStateSummary.total }}
+                </span>
+                <span class="rounded-full bg-white px-2 py-0.5 text-gray-600 dark:bg-black/20 dark:text-gray-300">
+                  进度 {{ runStateSummary.completed }}/{{ runStateSummary.total }}
+                </span>
+                <span class="rounded-full bg-white px-2 py-0.5 text-gray-600 dark:bg-black/20 dark:text-gray-300">
+                  阶段 {{ runStateSummary.currentStage }}/{{ runStateSummary.totalStages }}
+                </span>
+                <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                  运行 {{ runStateSummary.running }}
+                </span>
+                <span class="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
+                  待补 {{ runStateSummary.awaiting }}
+                </span>
+                <span class="rounded-full bg-red-50 px-2 py-0.5 text-red-700 dark:bg-red-500/10 dark:text-red-200">
+                  失败 {{ runStateSummary.failed }}
+                </span>
+              </div>
+
+              <div
+                v-if="pendingParamTasks.length > 0"
+                class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-800 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-100"
+              >
+                <div class="font-medium">等待补充信息</div>
+                <div
+                  v-for="task in pendingParamTasks"
+                  :key="`pending-${task?.task_id}`"
+                  class="mt-1"
+                >
+                  还需要：{{ formatMissingFields(task?.missing_fields || []) || "必要参数" }}
                 </div>
               </div>
+
+              <div v-if="runStateStageGroups.length > 0" class="space-y-2">
+                <div
+                  v-for="group in runStateStageGroups"
+                  :key="group.key"
+                  class="rounded-md border border-gray-200/80 bg-white p-2 dark:border-white/10 dark:bg-black/20"
+                >
+                  <div class="mb-2 flex items-center justify-between gap-2 text-xs">
+                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ group.label }}</div>
+                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                      {{ group.parallel ? "并行" : "串行" }}
+                    </span>
+                  </div>
+                  <div class="space-y-1">
+                    <div
+                      v-for="(n, i) in group.tasks"
+                      :key="`${n?.node_id || n?.task_id || i}`"
+                      class="rounded-md border border-gray-200/80 bg-gray-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5"
+                    >
+                      <div class="flex items-center gap-2.5">
+                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-[11px] font-semibold text-primary-700 dark:bg-primary-500/20 dark:text-primary-100">
+                          {{ taskAvatarText(n) }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center justify-between gap-2">
+                            <div class="truncate text-xs font-medium text-gray-800 dark:text-gray-100">
+                              {{ taskPrimaryLabel(n) }}
+                            </div>
+                            <div class="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">
+                              {{ taskProgressPercent(n) }}%
+                            </div>
+                          </div>
+                          <div class="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400">
+                            {{ taskLineDescription(n) || formatNodeStatus(n?.status || "pending") }}
+                          </div>
+                          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                            <div
+                              class="h-full rounded-full transition-all"
+                              :class="String(n?.status || '').toLowerCase() === 'failed' ? 'bg-red-500' : 'bg-primary-500'"
+                              :style="{ width: `${taskProgressPercent(n)}%` }"
+                            />
+                          </div>
+                        </div>
+                        <div
+                          class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                          :class="taskStatusClass(n?.status || 'pending')"
+                        >
+                          {{ formatNodeStatus(n?.status || "pending") }}
+                        </div>
+                      </div>
+                      <div
+                        v-if="n?.depends_on?.length"
+                        class="mt-1 text-[11px] text-gray-500 dark:text-gray-400"
+                      >
+                        依赖：{{ n.depends_on.join("、") }}
+                      </div>
+                      <div
+                        v-if="n?.node_desc"
+                        class="mt-1 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400"
+                      >
+                        {{ n?.node_desc }}
+                      </div>
+                      <div
+                        v-if="n?.missing_fields?.length"
+                        class="mt-1 text-[11px] text-blue-600 dark:text-blue-200"
+                      >
+                        缺少：{{ formatMissingFields(n.missing_fields) }}
+                      </div>
+                      <div
+                        v-if="n?.error"
+                        class="mt-1 flex items-start justify-between gap-2 text-[11px] text-red-600 dark:text-red-300"
+                      >
+                        <span class="line-clamp-2 min-w-0">
+                          {{ typeof n.error === "string" ? n.error : n.error?.message || n.error?.code || "执行失败" }}
+                        </span>
+                        <UButton
+                          size="xs"
+                          variant="ghost"
+                          color="error"
+                          icon="i-heroicons-clipboard-document"
+                          title="复制追踪信息"
+                          aria-label="复制追踪信息"
+                          @click.stop="copyTracePayload(n)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div
-                v-if="n?.node_desc"
-                class="text-[11px] mt-1 text-gray-500 dark:text-gray-400 line-clamp-2"
+                v-if="completedResultTasks.length > 0"
+                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100"
               >
-                {{ n?.node_desc }}
+                <div class="font-medium">执行结果</div>
+                <div
+                  v-for="task in completedResultTasks"
+                  :key="`result-${task?.task_id}`"
+                  class="mt-1 truncate"
+                >
+                  {{ buildNodeTitle(task) }} 已完成
+                </div>
               </div>
             </div>
-          </div>
+          </details>
         </div>
 
         <!-- “正在思考…” 提示：仅在没有可显示的 ThinkBlock 时出现 -->
@@ -930,7 +1300,8 @@ const downloadFile = (url: string, downloadUrl?: string) => {
 
         <!-- 操作区 -->
         <div
-          class="flex items-center space-x-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity"
+          class="flex items-center space-x-2 mt-3 transition-opacity"
+          :class="(message as any).isError ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
         >
           <UButton
             v-if="canRegenerateFromThisUserMessage"
@@ -947,6 +1318,23 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             icon="i-heroicons-arrow-path"
             @click="emit('retry')"
             >重试</UButton
+          >
+          <UButton
+            v-if="message.role === 'assistant' && traceUrl"
+            size="xs"
+            :variant="(message as any).isError ? 'soft' : 'ghost'"
+            icon="i-heroicons-bug-ant"
+            :to="traceUrl"
+          >
+            追踪本轮
+          </UButton>
+          <UButton
+            v-if="(message as any).isError"
+            size="xs"
+            variant="ghost"
+            icon="i-heroicons-clipboard-document"
+            @click="copyToClipboard(JSON.stringify(messageTracePayload, null, 2))"
+            >复制追踪信息</UButton
           >
           <UButton
             size="xs"

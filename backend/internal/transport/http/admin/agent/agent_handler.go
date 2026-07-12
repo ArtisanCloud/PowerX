@@ -286,8 +286,8 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		Description:      req.Description,
 		TypeID:           utils.FirstNonEmpty(req.TypeID, extractMetaString(req.Meta, "type_id"), extractMetaString(req.Meta, "typeId")),
 		Scene:            utils.FirstNonEmpty(req.Scene, extractMetaString(req.Meta, "scene")),
-		PromptSeed:       utils.FirstNonEmpty(req.PromptSeed, extractMetaString(req.Meta, "prompt_seed"), extractMetaString(req.Meta, "promptSeed")),
-		Persona:          utils.FirstNonEmpty(req.Persona, extractMetaPersona(req.Meta)),
+		PromptSeed:       strings.TrimSpace(req.PromptSeed),
+		Persona:          strings.TrimSpace(req.Persona),
 		Source:           source,
 		OwnerPluginID:    ownerPluginID,
 		OwnerTenantUUID:  ownerTenantUUID,
@@ -312,6 +312,12 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 	if err := h.srv.ReplaceSkillBindings(c.Request.Context(), req.Env, tenantRef, out.ID, skillIDs); err != nil {
 		dtoRequest.ResponseError(c, 400, "sync skill bindings failed", err)
 		return
+	}
+	if out.ManagedByPlugin {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), req.Env, tenantRef, out.UUID, strings.TrimSpace(pointerStringValue(out.OwnerPluginID)), skillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
+			return
+		}
 	}
 	if err := h.srv.ReplaceKnowledgeBindings(c.Request.Context(), req.Env, tenantRef, out.ID, knowledgeIDs); err != nil {
 		dtoRequest.ResponseError(c, 400, "sync knowledge bindings failed", err)
@@ -480,6 +486,12 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	if out.ManagedByPlugin && req.SkillIDs != nil {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), env, tenantRef, out.UUID, strings.TrimSpace(pointerStringValue(out.OwnerPluginID)), *req.SkillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
+			return
+		}
+	}
 	dtoRequest.ResponseSuccess(c, out)
 }
 
@@ -492,22 +504,6 @@ func extractMetaString(meta datatypes.JSONMap, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(v))
-}
-
-func extractMetaPersona(meta datatypes.JSONMap) string {
-	if p := extractMetaString(meta, "persona"); p != "" {
-		return p
-	}
-	raw, ok := meta["parameters"]
-	if !ok {
-		return ""
-	}
-	switch m := raw.(type) {
-	case map[string]interface{}:
-		return strings.TrimSpace(fmt.Sprint(m["persona"]))
-	default:
-		return ""
-	}
 }
 
 func extractMetaStringSlice(meta datatypes.JSONMap, keys ...string) []string {
@@ -671,6 +667,13 @@ func callerPluginIDFromAudience(c *gin.Context) string {
 		return strings.TrimSpace(aud[len("plugin:"):])
 	}
 	return ""
+}
+
+func pointerStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func agentOwnedByPlugin(agent *dbmodel.Agent, pluginID string) bool {

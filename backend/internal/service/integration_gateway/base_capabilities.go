@@ -106,16 +106,19 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 }
 
 type platformCapabilityDefinition struct {
-	CapabilityID string
-	Title        string
-	Description  string
-	Module       string
-	Categories   []string
-	Intents      []string
-	ToolScopes   []string
-	Policy       capabilityPolicy
-	Protocols    []models.ProtocolBinding
-	Docs         []string
+	CapabilityID   string
+	Title          string
+	Description    string
+	Module         string
+	PermissionCode string
+	AgentUsable    *bool
+	RiskLevel      string
+	Categories     []string
+	Intents        []string
+	ToolScopes     []string
+	Policy         capabilityPolicy
+	Protocols      []models.ProtocolBinding
+	Docs           []string
 }
 
 type capabilityPolicy struct {
@@ -124,13 +127,20 @@ type capabilityPolicy struct {
 }
 
 type capabilityAnnotations struct {
-	Source string   `json:"source"`
-	Module string   `json:"module,omitempty"`
-	Docs   []string `json:"docs,omitempty"`
+	Source         string   `json:"source"`
+	Module         string   `json:"module,omitempty"`
+	PermissionCode string   `json:"permission_code,omitempty"`
+	AgentUsable    *bool    `json:"agent_usable,omitempty"`
+	RiskLevel      string   `json:"risk_level,omitempty"`
+	Docs           []string `json:"docs,omitempty"`
 }
 
 func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, now time.Time) *models.CapabilityRecord {
 	publishedAt := now
+	permissionCode := strings.TrimSpace(d.PermissionCode)
+	if permissionCode == "" {
+		permissionCode = derivedPlatformPermissionCode(d.ToolScopes)
+	}
 	record := &models.CapabilityRecord{
 		CapabilityID:         d.CapabilityID,
 		PluginID:             pluginID,
@@ -145,9 +155,12 @@ func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, n
 		WorkflowTemplateRefs: encodeJSONValue([]interface{}{}, "[]"),
 		CompositeGraphs:      encodeJSONValue([]interface{}{}, "[]"),
 		Annotations: encodeJSONValue(capabilityAnnotations{
-			Source: "corex",
-			Module: d.Module,
-			Docs:   d.Docs,
+			Source:         "corex",
+			Module:         d.Module,
+			PermissionCode: permissionCode,
+			AgentUsable:    d.AgentUsable,
+			RiskLevel:      d.RiskLevel,
+			Docs:           d.Docs,
 		}, "{}"),
 		Status:      "published",
 		PublishedAt: &publishedAt,
@@ -177,6 +190,18 @@ func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, n
 	})
 	record.ProtocolHash = hashStruct(d.Protocols)
 	return record
+}
+
+func derivedPlatformPermissionCode(scopes []string) string {
+	for _, scope := range scopes {
+		scope = strings.Trim(strings.ToLower(strings.TrimSpace(scope)), ".")
+		if scope == "" {
+			continue
+		}
+		scope = strings.ReplaceAll(scope, ":", ".")
+		return "corex." + scope + ":use"
+	}
+	return ""
 }
 
 func encodeJSONArray(values []string) datatypes.JSON {
@@ -235,7 +260,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 				Fallback: []string{"grpc"},
 			},
 			Docs: []string{
-				"specs/001-docs-media-storage/contracts/http-openapi.yaml",
+				"specs/001-media-storage/contracts/http-openapi.yaml",
 				"backend/api/grpc/contracts/powerx/media/v1/media_asset.proto",
 			},
 			Protocols: []models.ProtocolBinding{
@@ -243,7 +268,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets",
 					Method:    "GET",
-					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get",
+					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get",
 					AuthType:  "tenant_jwt",
 					ToolScope: "media.assets",
 				},
@@ -251,7 +276,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets/{uuid}",
 					Method:    "GET",
-					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get",
+					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get",
 					AuthType:  "tenant_jwt",
 					ToolScope: "media.assets",
 				},
@@ -286,7 +311,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 				Fallback: []string{"rest"},
 			},
 			Docs: []string{
-				"specs/001-docs-media-storage/contracts/http-openapi.yaml",
+				"specs/001-media-storage/contracts/http-openapi.yaml",
 				"backend/api/grpc/contracts/powerx/media/v1/media_asset.proto",
 			},
 			Protocols: []models.ProtocolBinding{
@@ -294,7 +319,7 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets",
 					Method:    "POST",
-					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post",
+					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post",
 					AuthType:  "tenant_jwt",
 					ToolScope: "media.assets",
 				},
@@ -302,7 +327,14 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets/{uuid}",
 					Method:    "DELETE",
-					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete",
+					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}",
+					Method:    "PUT",
 					AuthType:  "tenant_jwt",
 					ToolScope: "media.assets",
 				},
@@ -310,7 +342,35 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 					Channel:   "rest",
 					Endpoint:  "/api/v1/media/assets/{uuid}/presign",
 					Method:    "POST",
-					SchemaRef: "specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post",
+					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}",
+					Method:    "POST",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}",
+					Method:    "PUT",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}/presign",
+					Method:    "POST",
+					AuthType:  "tenant_jwt",
+					ToolScope: "media.assets",
+				},
+				{
+					Channel:   "rest",
+					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}/resource",
+					Method:    "GET",
 					AuthType:  "tenant_jwt",
 					ToolScope: "media.assets",
 				},
@@ -1036,6 +1096,15 @@ func (s *BaseCapabilitySeeder) buildAdapters(def platformCapabilityDefinition) [
 		}
 		if binding.ToolScope != "" {
 			labels["tool_scope"] = binding.ToolScope
+		}
+		if binding.ActorContext != "" {
+			labels["actor_context"] = binding.ActorContext
+		}
+		if binding.ResourceScope != "" {
+			labels["resource_scope"] = binding.ResourceScope
+		}
+		if binding.STSDirect {
+			labels["sts_direct"] = "true"
 		}
 		adapters = append(adapters, repo.AdapterEndpoint{
 			AdapterID:     adapterID,

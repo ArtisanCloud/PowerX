@@ -34,13 +34,15 @@ func RegisterAdminService(registrar grpc.ServiceRegistrar, deps *shared.Deps) {
 		return
 	}
 	registryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(deps.DB)
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
 	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
 	skillsv1.RegisterSkillAdminServiceServer(registrar, &adminServer{
 		registryRepo: registryRepo,
-		bindingRepo:  skillrepo.NewSkillCapabilityBindingRepository(deps.DB),
-		importSvc:    skillservice.NewImportService(registryRepo, auditSvc),
+		bindingRepo:  bindingRepo,
+		importSvc: skillservice.NewImportService(registryRepo, auditSvc).
+			WithCapabilityBindingRepository(bindingRepo),
 		lifecycleSvc: skillservice.NewLifecycleService(registryRepo, auditSvc),
 	})
 }

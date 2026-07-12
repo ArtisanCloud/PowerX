@@ -4,6 +4,9 @@ capabilities:
     module: agent
     title: Agent Invoke
     description: 非流式调用 Agent 对话。
+    permission_code: corex.agent.invoke:use
+    agent_usable: true
+    risk_level: medium
     categories: [agent, ai]
     intents: [agent.invoke]
     tool_scopes: [agent.runtime]
@@ -19,6 +22,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: agent.runtime
       - channel: grpc
         endpoint: powerx.agent.v1.AgentInvokeService
@@ -30,6 +36,9 @@ capabilities:
     module: agent
     title: Agent Stream
     description: 通过 SSE/gRPC 流式输出 Agent 对话内容。
+    permission_code: corex.agent.stream:use
+    agent_usable: true
+    risk_level: medium
     categories: [agent, ai]
     intents: [agent.stream]
     tool_scopes: [agent.runtime]
@@ -44,6 +53,9 @@ capabilities:
         method: GET
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1stream~1sse/get
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: agent.runtime
       - channel: grpc
         endpoint: powerx.agent.v1.AgentStreamService
@@ -55,6 +67,9 @@ capabilities:
     module: agent
     title: Agent Session Management
     description: 创建会话与管理消息。
+    permission_code: corex.agent.session:manage
+    agent_usable: true
+    risk_level: medium
     categories: [agent, ai]
     intents: [agent.session.manage]
     tool_scopes: [agent.session]
@@ -70,6 +85,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: agent.session
       - channel: grpc
         endpoint: powerx.agent.v1.AgentSessionService

@@ -7,9 +7,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
+	agenttraceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agenttrace"
 	backupHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
+	customerHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/customer"
 	deployHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/deploy"
 	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
@@ -26,6 +28,7 @@ import (
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
+	rootHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/root"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
 	schedulerHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/scheduler"
 	skillsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/skills"
@@ -34,6 +37,7 @@ import (
 	userauth "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/user/auth"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
 	workflowHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
+	publicSaaS "github.com/ArtisanCloud/PowerX/internal/transport/http/public/saas"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,6 +53,7 @@ func RegisterAPIRoutes(
 	publicGroup := r.Group(prefix)
 	// 公开健康检查
 	publicGroup.GET("/health", HealthHandler)
+	publicSaaS.RegisterAPIRoutes(publicGroup, deps)
 
 	// 受保护的API组
 	protectedGroup := r.Group(prefix)
@@ -60,13 +65,15 @@ func RegisterAPIRoutes(
 
 	system.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	customerHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
+	menu.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	userauth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	// Agent admin routes (includes share/revoke APIs under /admin/agents)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentmodelhubHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentlifecycleHTTP.Register(publicGroup, protectedGroup, deps)
+	agenttraceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capabilityRegistryHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
@@ -85,6 +92,7 @@ func RegisterAPIRoutes(
 	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	notifications.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	runtime.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	rootHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	schedulerHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

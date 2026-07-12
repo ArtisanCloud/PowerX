@@ -252,7 +252,7 @@ func normalizePath(value string) string {
 
 func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath string, base reqctx.CoreXClaims) (string, bool, string) {
 	// 超管直通
-	if g.az != nil && g.az.IsSuperAdmin(ctx, base.TenantID, base.UserID, base.Roles) {
+	if base.IsRoot || (g.az != nil && g.az.IsSuperAdmin(ctx, base.TenantID, base.UserID, base.Roles)) {
 		tok, err := g.mintPluginToken(pluginID, base)
 		if err != nil {
 			return "", false, "mint token failed"

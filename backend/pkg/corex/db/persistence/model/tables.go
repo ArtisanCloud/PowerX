@@ -10,6 +10,7 @@ const TableAgentConnectorInstances = "agent_connector_instances"
 const TableAgentCostQuotaLedgers = "agent_cost_quota_ledgers"
 
 const TableMediaAsset = "media_assets"
+const TableMediaAssetVariant = "media_asset_variants"
 const TableSystemNotifications = "system_notifications"
 
 const TableIAMTenant = "iam_tenant"
@@ -32,6 +33,14 @@ const TableIAMRoleBinding = "iam_role_binding"
 const TableIAMAPIKeyProfile = "iam_api_key_profile"
 const TableIAMAPIKeyProfilePermission = "iam_api_key_profile_permission"
 const TableIAMAPIKey = "iam_api_key"
+const TableIAMRootSupportSession = "iam_root_support_sessions"
+
+const TableCustomerAccounts = "customer_accounts"
+const TableCustomerAuthIdentities = "customer_auth_identities"
+const TableCustomerTenantMemberships = "customer_tenant_memberships"
+const TableMiniAppEntries = "mini_app_entries"
+const TableCustomerSessions = "customer_sessions"
+const TableCustomerLoginEvents = "customer_login_events"
 
 const TableAuditEvent = "audit_event"
 

@@ -252,7 +252,25 @@ func (d *Driver) Delete(ctx context.Context, in driver.DeleteObjectInput) error 
 		}
 		return driver.WrapError(d.name, "delete", err)
 	}
+	d.removeEmptyParentDirs(path)
 	return nil
+}
+
+func (d *Driver) removeEmptyParentDirs(path string) {
+	base, err := filepath.Abs(d.basePath)
+	if err != nil {
+		return
+	}
+	current, err := filepath.Abs(filepath.Dir(path))
+	if err != nil {
+		return
+	}
+	for current != base && strings.HasPrefix(current, base+string(os.PathSeparator)) {
+		if err := os.Remove(current); err != nil {
+			return
+		}
+		current = filepath.Dir(current)
+	}
 }
 
 // GenerateURL 返回本地静态访问/上传地址。

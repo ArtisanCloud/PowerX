@@ -25,13 +25,47 @@
 
     <UCard>
       <template #header>
-        <MediaFilterBar
-          v-model="filters"
-          :view-mode="viewMode"
-          @update:viewMode="viewMode = $event"
-          @apply="applyFilters"
-          @reset="resetFilters"
-        />
+        <div class="space-y-3">
+          <MediaFilterBar
+            v-model="filters"
+            :view-mode="viewMode"
+            @update:viewMode="viewMode = $event"
+            @apply="applyFilters"
+            @reset="resetFilters"
+          />
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3">
+            <div class="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <UCheckbox
+                :model-value="allCurrentPageSelected"
+                :indeterminate="someCurrentPageSelected && !allCurrentPageSelected"
+                label="全选当前页"
+                @update:model-value="toggleSelectCurrentPage(Boolean($event))"
+              />
+              <span>已选 {{ selectedCount }} 个</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <UButton
+                size="sm"
+                variant="outline"
+                color="neutral"
+                :disabled="selectedCount === 0 || deletingSelected"
+                @click="clearSelection"
+              >
+                清空选择
+              </UButton>
+              <UButton
+                size="sm"
+                color="error"
+                icon="i-heroicons-trash"
+                :disabled="selectedCount === 0"
+                :loading="deletingSelected"
+                @click="deleteSelected"
+              >
+                {{ filters.onlyDeleted ? "永久删除选中" : "移入回收站" }}
+              </UButton>
+            </div>
+          </div>
+        </div>
       </template>
 
       <div v-if="error" class="mb-4">
@@ -46,13 +80,21 @@
       </div>
 
       <div v-else>
-        <MediaGrid v-if="viewMode === 'grid'" :items="rows" @select="openDetail" />
+        <MediaGrid
+          v-if="viewMode === 'grid'"
+          :items="rows"
+          :selected-uuids="selectedUUIDs"
+          @select="openDetail"
+          @toggle-selected="toggleSelected"
+        />
         <MediaTable
           v-else
           :items="rows"
           :loading="loading"
+          :selected-uuids="selectedUUIDs"
           @select="openDetail"
           @copyLink="copyDownloadLink"
+          @toggle-selected="toggleSelected"
         />
       </div>
 
@@ -81,6 +123,7 @@ import { useToast } from "#imports";
 import { useApiClient } from "~/composables/api";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
 import type { MediaAssetAdminView } from "~/composables/api/services/mediaAssetService";
+import { useConfirm } from "~/composables/useConfirm";
 import MediaFilterBar from "~/components/content/media/MediaFilterBar.vue";
 import MediaGrid from "~/components/content/media/MediaGrid.vue";
 import MediaTable from "~/components/content/media/MediaTable.vue";
@@ -107,6 +150,7 @@ type MediaFilterState = {
 };
 
 const toast = useToast();
+const { confirm } = useConfirm();
 const apiClient = useApiClient();
 const media = useMediaAssetService();
 const localePath = useLocalePath();
@@ -115,6 +159,8 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const viewMode = ref<"grid" | "table">("grid");
 const showUpload = ref(false);
+const deletingSelected = ref(false);
+const selectedUUIDs = ref<string[]>([]);
 
 const filters = ref<MediaFilterState>({
   keyword: "",
@@ -131,6 +177,19 @@ const pagination = reactive({
 });
 
 const rows = ref<MediaAssetAdminView[]>([]);
+
+const currentPageUUIDs = computed(() =>
+  rows.value.map((item) => String(item.uuid || "").trim()).filter(Boolean)
+);
+const selectedSet = computed(() => new Set(selectedUUIDs.value));
+const selectedCount = computed(() => selectedUUIDs.value.length);
+const allCurrentPageSelected = computed(() => {
+  const ids = currentPageUUIDs.value;
+  return ids.length > 0 && ids.every((id) => selectedSet.value.has(id));
+});
+const someCurrentPageSelected = computed(() =>
+  currentPageUUIDs.value.some((id) => selectedSet.value.has(id))
+);
 
 function normalizeTags(input: string): string[] | undefined {
   const parts = input
@@ -159,6 +218,84 @@ function formatTime(value: string) {
 function openDetail(uuid: string) {
   if (!uuid) return;
   navigateTo(localePath(`/content/media/${uuid}`));
+}
+
+function toggleSelected(uuid: string, selected: boolean) {
+  const id = String(uuid || "").trim();
+  if (!id) return;
+  const next = new Set(selectedUUIDs.value);
+  if (selected) {
+    next.add(id);
+  } else {
+    next.delete(id);
+  }
+  selectedUUIDs.value = Array.from(next);
+}
+
+function toggleSelectCurrentPage(selected: boolean) {
+  const next = new Set(selectedUUIDs.value);
+  for (const id of currentPageUUIDs.value) {
+    if (selected) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+  }
+  selectedUUIDs.value = Array.from(next);
+}
+
+function clearSelection() {
+  selectedUUIDs.value = [];
+}
+
+async function deleteSelected() {
+  const ids = selectedUUIDs.value.map((id) => String(id || "").trim()).filter(Boolean);
+  if (ids.length === 0) return;
+  const purge = filters.value.onlyDeleted;
+  const ok = await confirm({
+    title: purge ? "永久删除媒体资产" : "移入回收站",
+    description: purge
+      ? `确认永久删除选中的 ${ids.length} 个媒体资产？该操作会同时删除原图和所有预览版本，无法恢复。`
+      : `确认删除选中的 ${ids.length} 个媒体资产？该操作会进入回收站，可通过回收站筛选查看。`,
+    confirmLabel: purge ? "永久删除" : "移入回收站",
+    confirmColor: "red",
+    cancelLabel: "取消",
+  });
+  if (!ok) return;
+  deletingSelected.value = true;
+  let success = 0;
+  const failures: string[] = [];
+  try {
+    for (const id of ids) {
+      try {
+        if (purge) {
+          await media.purgeAsset(id);
+        } else {
+          await media.deleteAsset(id);
+        }
+        success += 1;
+      } catch (e: any) {
+        failures.push(`${id}: ${String(e?.message || (purge ? "永久删除失败" : "删除失败"))}`);
+      }
+    }
+    selectedUUIDs.value = [];
+    await fetchList();
+    if (failures.length === 0) {
+      toast.add({
+        title: purge ? "永久删除完成" : "已移入回收站",
+        description: purge ? `已永久删除 ${success} 个媒体资产` : `已将 ${success} 个媒体资产移入回收站`,
+      });
+    } else {
+      toast.add({
+        title: purge ? "部分永久删除失败" : "部分移入回收站失败",
+        description: `成功 ${success} 个，失败 ${failures.length} 个`,
+        color: "red",
+      });
+      error.value = failures.slice(0, 5).join("\n");
+    }
+  } finally {
+    deletingSelected.value = false;
+  }
 }
 
 async function copyDownloadLink(uuid: string) {
@@ -201,6 +338,8 @@ async function fetchList() {
     });
     const { items, pagination: pageInfo } = apiClient.unwrapList<MediaAssetAdminView>(resp);
     rows.value = items;
+    const visible = new Set(items.map((item) => String(item.uuid || "").trim()).filter(Boolean));
+    selectedUUIDs.value = selectedUUIDs.value.filter((id) => visible.has(id));
     const total = Number(pageInfo?.total ?? 0);
     pagination.total = Number.isFinite(total) ? total : 0;
   } catch (e: any) {
@@ -241,6 +380,8 @@ function handleUploadDone(asset: MediaAssetAdminView) {
 }
 
 onMounted(() => {
+  const route = useRoute();
+  filters.value.onlyDeleted = route.query.onlyDeleted === "1" || route.query.onlyDeleted === "true";
   fetchList();
 });
 </script>

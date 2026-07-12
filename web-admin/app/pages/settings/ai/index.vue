@@ -287,21 +287,8 @@ const registryLink = computed(() =>
 
 const route = useRoute();
 const userStore = useUserStore();
-const { isRoot } = storeToRefs(userStore);
-
-onMounted(async () => {
-  try {
-    const queryModality = resolveModalityFromQuery(route.query?.modality);
-    if (queryModality) {
-      modality.value = queryModality;
-    }
-    if (!userStore.context) {
-      await userStore.fetchUserContext();
-    }
-  } catch (error) {
-    console.error("加载用户上下文失败:", error);
-  }
-});
+const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
+const allowTenantAISettings = computed(() => isRoot.value || isCurrentTenantAdmin.value);
 
 /**
  * Tab & 环境
@@ -347,6 +334,11 @@ const getErrorMessage = (error: unknown) => {
   const compact = (raw: unknown) => {
     const message = String(raw ?? "").trim();
     if (!message) return "未知错误";
+    const ollamaNotFound = message.match(/OLLAMA_MODEL_NOT_FOUND\s+model=([^:\s]+)/i);
+    if (ollamaNotFound?.[1]) {
+      const model = ollamaNotFound[1];
+      return t("settings.ai.errors.ollamaModelNotFound", { model });
+    }
     const lower = message.toLowerCase();
     if (
       lower.includes("accessdenied.unpurchased") ||
@@ -1073,18 +1065,23 @@ const responseFormatOptions = ["json", "text", "srt", "verbose_json", "vtt"];
 const topKOptions = [5, 10, 20, 50, 100];
 
 function buildPayloadForCurrentModality(promptOverride?: string) {
+  const clean = (value: unknown) => String(value ?? "").trim();
+  const cleanSecret = (value: unknown) => {
+    const text = clean(value);
+    return /^[*•]{6,}$/.test(text) ? "" : text;
+  };
   const baseConn = {
-    provider: currentState.value.provider ?? "",
-    app: currentState.value.app ?? "",
-    model: currentState.value.model ?? "",
-    authMode: currentState.value.authMode ?? "",
-    apiKey: currentState.value.apiKey ?? "",
-    secretId: currentState.value.secretId ?? "",
-    secretKey: currentState.value.secretKey ?? "",
-    baseURL: currentState.value.baseURL ?? "",
-    organization: currentState.value.organization ?? "",
-    region: currentState.value.region ?? "",
-    azureDeployment: currentState.value.azureDeployment ?? "",
+    provider: clean(currentState.value.provider),
+    app: clean(currentState.value.app),
+    model: clean(currentState.value.model),
+    authMode: clean(currentState.value.authMode),
+    apiKey: cleanSecret(currentState.value.apiKey),
+    secretId: cleanSecret(currentState.value.secretId),
+    secretKey: cleanSecret(currentState.value.secretKey),
+    baseURL: clean(currentState.value.baseURL),
+    organization: clean(currentState.value.organization),
+    region: clean(currentState.value.region),
+    azureDeployment: clean(currentState.value.azureDeployment),
   };
 
   let body: Record<string, any> = { ...baseConn };
@@ -1567,6 +1564,17 @@ async function handleEnvChange(nextEnv: string) {
 // 页面初始化
 onMounted(async () => {
   try {
+    const queryModality = resolveModalityFromQuery(route.query?.modality);
+    if (queryModality) {
+      modality.value = queryModality;
+    }
+    if (!userStore.context) {
+      await userStore.fetchUserContext();
+    }
+    if (!allowTenantAISettings.value) {
+      await navigateTo("/dashboard");
+      return;
+    }
     envStore.initialize();
     await aiSettingsStore.initialize(env.value);
     await refreshStateForEnvAndModality();

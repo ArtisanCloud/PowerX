@@ -60,6 +60,11 @@ capabilities:
     name: Say Hello
     transport: grpc
     description: "返回一条问候消息"
+    agent_usable: true
+    risk_level: low
+    permission_code: hello.greeting:execute
+    default_role_grants:
+      - role_user
     input_schema:
       type: object
       properties:
@@ -69,12 +74,17 @@ capabilities:
       properties:
         message: { type: string }
 permissions:
-  capabilities:
-    - hello.say_hello
-  requires_scopes:
-    - tenant
-    - actor
+  capability_permissions:
+    - capability_id: hello.say_hello
+      permission_code: hello.greeting:execute
+      title: Say Hello
+      agent_usable: true
+      risk_level: low
 ```
+
+`permission_code` 是 Agent 授权和用户 IAM 交集计算的强制字段，格式固定为 `module.resource:action`。SDK/CLI 在注册 capability 时必须校验该字段；缺失或格式错误时，PowerX Registry 不得将该 capability 暴露为可授予 Agent 的能力。
+
+插件 capability 同步到 PowerX Core 后，Core 会把 `permission_code` 注册为租户 IAM permission，并默认授予 `role_owner`、`role_admin`。如果能力面向普通成员使用，插件必须在 capability descriptor 或 manifest 中显式声明 `default_role_grants: [role_user]`；否则普通成员即使能访问 Agent，也会在 Agent 与用户权限交集计算时被拒绝。允许的默认角色码只有 `role_owner`、`role_admin`、`role_user`、`role_readonly`、`role_vendor`，非法值必须注册失败。
 
 ---
 
@@ -176,12 +186,33 @@ Plugin SDK → PowerX MCP Gateway → Registry
     {
       "id": "hello.say_hello",
       "transport": "grpc",
-      "endpoint": "grpc://127.0.0.1:40001"
+      "endpoint": "grpc://127.0.0.1:40001",
+      "annotations": {
+        "permission_code": "hello.greeting:execute",
+        "permission_codes": ["hello.greeting:execute"],
+        "agent_usable": true,
+        "risk_level": "low"
+      }
     }
   ],
   "token": "JWT_TOKEN"
 }
 ```
+
+### 6.3 Agent 授权相关 Manifest 字段
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `capabilities[].id` | 是 | 稳定 capability ID，不作为权限码使用 |
+| `capabilities[].permission_code` | 是 | IAM 权限码，必须为 `module.resource:action` |
+| `capabilities[].default_role_grants` | 否 | 除 `role_owner` / `role_admin` 外额外授予的租户默认角色，例如普通成员能力写 `role_user` |
+| `capabilities[].agent_usable` | 是 | 是否允许 Agent 被授予并调用该 capability |
+| `capabilities[].risk_level` | 是 | 风险等级，建议 `low`、`medium`、`high`、`critical` |
+| `permissions.capability_permissions[]` | 是 | 插件声明的 capability 与权限码映射清单 |
+
+Manifest 中不得只声明自由文本 scope、自然语言描述或旧式 capability allowlist。无法映射到结构化 `permission_code` 的能力必须在注册阶段失败。
+
+插件 descriptor 也可以把默认角色授权写在顶层、`security.default_role_grants` 或 `rbac.default_role_grants`。这些字段是授权契约，不是 UI 建议；同步后会直接影响 Agent 运行时的用户权限交集。
 
 ---
 

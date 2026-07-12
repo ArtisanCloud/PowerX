@@ -8,8 +8,18 @@ export interface UserContextData {
   is_root: boolean;
   current_tenant_uuid: string;
   current_member_id?: number | null;
+  current_member_uuid?: string | null;
   user: ContextUser;
   members: ContextMember[];
+}
+
+export interface SwitchTenantResponse {
+  token_type: string;
+  access_token: string;
+  expires_in: number;
+  refresh_token: string;
+  scope: string;
+  context: UserContextData;
 }
 
 export interface ContextUser {
@@ -24,9 +34,13 @@ export interface ContextUser {
 
 export interface ContextMember {
   tenant_uuid: string;
+  tenant_key?: string;
   tenant_name: string;
+  tenant_domain?: string;
   member_id: number;
+  member_uuid?: string;
   is_admin: boolean;
+  is_owner?: boolean;
 }
 
 /**
@@ -52,7 +66,7 @@ export const useMeService = () => {
      * @param tenantUuid 要切换到的租户 UUID
      */
     switchTenant: (tenantUuid: string) => {
-      return apiClient.post<ApiResponse<UserContextData>>(
+      return apiClient.post<ApiResponse<SwitchTenantResponse>>(
         `${baseUrl}/me/switch-tenant`,
         {
           tenant_uuid: tenantUuid,
@@ -196,6 +210,7 @@ export const useUserContext = () => {
 
   // 是否为当前租户的管理员
   const isCurrentTenantAdmin = computed(() => {
+    if (isRoot.value) return false;
     return currentTenant.value?.is_admin ?? false;
   });
 

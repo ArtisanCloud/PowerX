@@ -39,8 +39,8 @@ type APIKeyAdminHandler struct {
 	permRepo *iamrepo.PermissionRepository
 	profPerm *iamrepo.APIKeyProfilePermissionRepository
 
-	ensureTemplateMu      sync.Mutex
-	templatesEnsuredOnce  bool
+	ensureTemplateMu     sync.Mutex
+	templatesEnsuredOnce bool
 }
 
 func NewAPIKeyAdminHandler(db *gorm.DB) *APIKeyAdminHandler {
@@ -947,6 +947,100 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 	})
 }
 
+func (h *APIKeyAdminHandler) AppendAPIKeyProfilePermissions(c *gin.Context) {
+	var req setAPIKeyProfilePermissionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	canonical, err := h.resolveTenantScope(c, "")
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	profile, err := h.resolveAPIKeyProfile(c.Request.Context(), canonical, c.Param("profile_id"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("load api key profile failed", err))
+		return
+	}
+	if profile == nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("api key profile not found", nil))
+		return
+	}
+	if err := h.ensureAPIKeyPermissionTemplates(c.Request.Context()); err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("ensure api key permissions failed", err))
+		return
+	}
+
+	wantIDs := uniqueUint64(req.PermissionIDs)
+	permissionRows, err := h.permRepo.FindByIDs(c.Request.Context(), wantIDs)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("load permissions failed", err))
+		return
+	}
+	validMap := make(map[uint64]struct{}, len(permissionRows))
+	for i := range permissionRows {
+		if permissionRows[i] == nil || permissionRows[i].Status != modelsiam.PermissionStatusActive || !permissionRows[i].AllowAPIKey {
+			continue
+		}
+		if _, ok := toAPIKeyPermissionFromPermission(*permissionRows[i]); !ok {
+			continue
+		}
+		validMap[permissionRows[i].ID] = struct{}{}
+	}
+	validIDs := make([]uint64, 0, len(validMap))
+	invalidIDs := make([]uint64, 0)
+	for _, id := range wantIDs {
+		if _, ok := validMap[id]; ok {
+			validIDs = append(validIDs, id)
+		} else {
+			invalidIDs = append(invalidIDs, id)
+		}
+	}
+	sort.Slice(validIDs, func(i, j int) bool { return validIDs[i] < validIDs[j] })
+	sort.Slice(invalidIDs, func(i, j int) bool { return invalidIDs[i] < invalidIDs[j] })
+	if len(invalidIDs) > 0 {
+		dto.RespondErrorFrom(c, dto.WithDetails(
+			dto.NewBadRequest("contains invalid permission_ids", nil),
+			map[string]interface{}{"invalid_ids": invalidIDs},
+		))
+		return
+	}
+
+	currentIDs, err := h.profPerm.ListPermissionIDsOfProfile(c.Request.Context(), profile.ID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("list current profile permissions failed", err))
+		return
+	}
+	toAdd, _ := diffUint64(currentIDs, validIDs)
+	syncedKeys := 0
+	syncedPermissions := 0
+	err = h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		profPermRepo := iamrepo.NewAPIKeyProfilePermissionRepository(tx)
+		if err := profPermRepo.GrantByIDsTx(tx, profile.ID, toAdd); err != nil {
+			return err
+		}
+		syncedKeys, syncedPermissions, err = h.syncActiveAPIKeySnapshotsForProfileTx(c.Request.Context(), tx, canonical, profile.ID)
+		return err
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("append profile permissions failed", err))
+		return
+	}
+
+	_ = apikeycache.InvalidateAll(c.Request.Context())
+	mergedIDs := mergeUint64(currentIDs, validIDs)
+	dto.ResponseSuccess(c, gin.H{
+		"profile_id":     profile.ID,
+		"profile_key":    profile.Key,
+		"permission_ids": mergedIDs,
+		"added":          toAdd,
+		"removed":        []uint64{},
+		"synced_keys":    syncedKeys,
+		"synced_perms":   syncedPermissions,
+	})
+}
+
 func (h *APIKeyAdminHandler) resolveAPIKeyProfile(ctx context.Context, tenantUUID string, profileOrKey string) (*modelsiam.APIKeyProfile, error) {
 	raw := strings.TrimSpace(profileOrKey)
 	if raw == "" {
@@ -1139,6 +1233,33 @@ func diffUint64(oldIDs []uint64, newIDs []uint64) (toAdd []uint64, toRemove []ui
 	sort.Slice(toAdd, func(i, j int) bool { return toAdd[i] < toAdd[j] })
 	sort.Slice(toRemove, func(i, j int) bool { return toRemove[i] < toRemove[j] })
 	return
+}
+
+func mergeUint64(a []uint64, b []uint64) []uint64 {
+	set := make(map[uint64]struct{}, len(a)+len(b))
+	out := make([]uint64, 0, len(a)+len(b))
+	for _, id := range a {
+		if id == 0 {
+			continue
+		}
+		if _, ok := set[id]; ok {
+			continue
+		}
+		set[id] = struct{}{}
+		out = append(out, id)
+	}
+	for _, id := range b {
+		if id == 0 {
+			continue
+		}
+		if _, ok := set[id]; ok {
+			continue
+		}
+		set[id] = struct{}{}
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 func uniqueUint64(items []uint64) []uint64 {

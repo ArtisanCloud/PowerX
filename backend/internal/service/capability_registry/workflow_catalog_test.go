@@ -73,3 +73,22 @@ func TestWorkflowCatalogRefreshAndSnapshot(t *testing.T) {
 	require.Equal(t, snapshot.Version, cached.Version)
 	require.Len(t, cached.Templates, 1)
 }
+
+func TestWorkflowCatalogRefreshWithoutRedis(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	templateRepo := repo.NewWorkflowTemplateRepository(db)
+	now := time.Unix(1700000000, 0).UTC()
+
+	catalog := NewWorkflowCatalog(WorkflowCatalogOptions{
+		TemplateRepo: templateRepo,
+		Clock: func() time.Time {
+			return now
+		},
+	})
+
+	snapshot, err := catalog.Refresh(ctx)
+	require.NoError(t, err)
+	require.Equal(t, now, snapshot.GeneratedAt)
+	require.Empty(t, snapshot.Templates)
+}

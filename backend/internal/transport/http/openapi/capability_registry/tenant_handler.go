@@ -14,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
@@ -56,6 +57,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			EventBus:    deps.EventBus,
 			Auditor:     deps.Auditor,
 			VersionLock: deps.VersionLockStore,
+			CoreInvoker: customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB)),
 		})
 	}
 	selector := deps.CapabilitySelector

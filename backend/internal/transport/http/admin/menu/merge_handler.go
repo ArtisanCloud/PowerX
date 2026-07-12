@@ -7,8 +7,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
+	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -51,12 +55,13 @@ func filterMenusByPermission(
 ) []admdto.AdminMenuItem {
 	out := make([]admdto.AdminMenuItem, 0, len(items))
 	for _, item := range items {
-		if !allow(item.Permissions) {
-			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
-			continue
-		}
+		allowedSelf := allow(item.Permissions)
 		if len(item.Children) > 0 {
 			item.Children = filterMenusByPermission(item.Children, allow)
+		}
+		if !allowedSelf && len(item.Children) == 0 {
+			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
+			continue
 		}
 		// 目录节点若无可见子项且自身无 path，则跳过，避免空分组
 		if strings.TrimSpace(item.URL) == "" && len(item.Children) == 0 {
@@ -453,102 +458,164 @@ func translateMenuItemsRecursive(nodes []admdto.AdminMenuItem, i18n []admdto.Men
 }
 
 // ---------- Handler ----------
-func AdminMenusHandler(c *gin.Context) {
-	sys := BuildSystemMenus()
-	locales := parseLocaleQuery(c)
-	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
+func AdminMenusHandler(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sys := BuildSystemMenus()
+		locales := parseLocaleQuery(c)
+		plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
-	if i18nDebug {
-		dbgI18n("locales query = %v", locales)
-		dbgI18n("plugin i18n packages = %d", len(plug.I18n))
-		for pi, pkg := range plug.I18n {
-			var keys []string
-			for loc := range pkg.Locales {
-				keys = append(keys, loc)
-			}
-			dbgI18n("pkg#%d locales: %v", pi, keys)
-			for loc, nsMap := range pkg.Locales {
-				var nsKeys []string
-				for ns := range nsMap {
-					nsKeys = append(nsKeys, ns)
+		if i18nDebug {
+			dbgI18n("locales query = %v", locales)
+			dbgI18n("plugin i18n packages = %d", len(plug.I18n))
+			for pi, pkg := range plug.I18n {
+				var keys []string
+				for loc := range pkg.Locales {
+					keys = append(keys, loc)
 				}
-				dbgI18n("  - %s namespaces: %v", loc, nsKeys)
-			}
-		}
-	}
-
-	// 只合并插件 i18n；先解决 cat:market
-	allI18n := plug.I18n
-
-	// 1) 权限过滤
-	isRoot := reqctx.IsRoot(c.Request.Context())
-	allow := func(perms []string) bool {
-		if len(perms) == 0 {
-			return true
-		}
-		for _, pol := range perms {
-			res, act := splitPolicy(pol)
-			switch {
-			case res == "admin" && act == "root":
-				if !isRoot {
-					return false
-				}
-			case res == "admin" && act == "tenant":
-				// 目前菜单侧无租户管理员角色快照，先按安全策略限制为 root 可见。
-				if !isRoot {
-					return false
+				dbgI18n("pkg#%d locales: %v", pi, keys)
+				for loc, nsMap := range pkg.Locales {
+					var nsKeys []string
+					for ns := range nsMap {
+						nsKeys = append(nsKeys, ns)
+					}
+					dbgI18n("  - %s namespaces: %v", loc, nsKeys)
 				}
 			}
-			if res == "" || act == "" {
-				return false
+		}
+
+		// 只合并插件 i18n；先解决 cat:market
+		allI18n := plug.I18n
+
+		// 1) 权限过滤
+		isRoot := reqctx.IsRoot(c.Request.Context())
+		isTenantAdmin := hasTenantAdminRole(c.Request.Context(), deps)
+		rbac := iamsvc.NewRBACService(deps.DB)
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+		memberID := reqctx.GetMemberID(c.Request.Context())
+		actor := iamsvc.ActorContext{
+			IsRoot:     isRoot,
+			TenantUUID: tenantUUID,
+		}
+		rbacDecisionCache := map[string]bool{}
+		allow := func(perms []string) bool {
+			if len(perms) == 0 {
+				return true
 			}
+			for _, pol := range perms {
+				module, res, act := splitPolicyTriple(pol)
+				if module == "" || res == "" || act == "" {
+					continue
+				}
+				if module == "admin" {
+					switch {
+					case res == "root" && isRoot:
+						return true
+					case res == "tenant" && isTenantAdmin:
+						return true
+					case res == "tenant_only" && !isRoot && isTenantAdmin:
+						return true
+					}
+					continue
+				}
+				if isRoot {
+					return true
+				}
+				if tenantUUID == "" || memberID == 0 {
+					continue
+				}
+				cacheKey := module + ":" + res + ":" + act
+				if allowed, ok := rbacDecisionCache[cacheKey]; ok {
+					if allowed {
+						return true
+					}
+					continue
+				}
+				allowed, err := rbac.Enforce(c.Request.Context(), actor, tenantUUID, memberID, module, res, act)
+				if err != nil {
+					logger.WarnF(c.Request.Context(), "[menus] RBAC check failed permission=%s tenant=%s member=%d err=%v", cacheKey, tenantUUID, memberID, err)
+					rbacDecisionCache[cacheKey] = false
+					continue
+				}
+				rbacDecisionCache[cacheKey] = allowed
+				if allowed {
+					return true
+				}
+			}
+			return false
 		}
-		return true
+
+		// 系统菜单与插件菜单共用 admin:* 显式菜单权限。
+		// 插件业务权限仍由插件运行时和 API 自己校验；这里仅负责隐藏 root/tenant 专属入口。
+		sys = filterMenusByPermission(sys, allow)
+		plug.Items = filterMenusByPermission(plug.Items, allow)
+
+		_ = indexSystemSlots(sys)
+
+		// 2) 收集插件顶层
+		var (
+			rootPlugins    []admdto.AdminMenuItem
+			pluginTopLevel = make([]admdto.AdminMenuItem, 0, len(plug.Items))
+		)
+		for _, m := range plug.Items {
+			if !m.Visible {
+				m.Visible = true
+			}
+			switch m.Slot {
+			case plugin_mgr.SlotSettings:
+			case plugin_mgr.SlotDashboard, plugin_mgr.SlotWorkflow, plugin_mgr.SlotAgent:
+			case plugin_mgr.SlotRoot:
+				rootPlugins = append(rootPlugins, m)
+			}
+			pluginTopLevel = append(pluginTopLevel, m)
+		}
+
+		// 3) 排序子节点
+		sortChildrenRecursive(sys)
+
+		// 4) 合并系统 + 插件
+		sys = append(sys, pluginTopLevel...)
+
+		// 5) 翻译（这一步会把 cat:market 的子项在有 i18n 时翻译；无 i18n 时不覆盖）
+		translateMenuItemsRecursive(sys, allI18n, locales)
+
+		// 6) 顶层排序
+		sys = sortTopLevelWithRootFirst(sys, rootPlugins)
+
+		// 7) 分组
+		cats := groupAsCategories(sys, allI18n, locales)
+		payload := gin.H{"categories": cats}
+		if len(plug.I18n) > 0 {
+			payload["i18n"] = plug.I18n
+		}
+		dto.ResponseSuccess(c, payload)
+	}
+}
+
+func hasTenantAdminRole(ctx context.Context, deps *shared.Deps) bool {
+	if deps == nil || deps.DB == nil {
+		return false
+	}
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	memberID := reqctx.GetMemberID(ctx)
+	if tenantUUID == "" || memberID == 0 {
+		return false
 	}
 
-	// 先对系统菜单与插件菜单做递归权限过滤（含子节点）
-	sys = filterMenusByPermission(sys, allow)
-	plug.Items = filterMenusByPermission(plug.Items, allow)
+	tRB := (&modelIAM.RoleBinding{}).GetTableName(true)
+	tRole := (&modelIAM.Role{}).GetTableName(true)
 
-	_ = indexSystemSlots(sys)
-
-	// 2) 收集插件顶层
-	var (
-		rootPlugins    []admdto.AdminMenuItem
-		pluginTopLevel = make([]admdto.AdminMenuItem, 0, len(plug.Items))
-	)
-	for _, m := range plug.Items {
-		if !m.Visible {
-			m.Visible = true
-		}
-		switch m.Slot {
-		case plugin_mgr.SlotSettings:
-		case plugin_mgr.SlotDashboard, plugin_mgr.SlotWorkflow, plugin_mgr.SlotAgent:
-		case plugin_mgr.SlotRoot:
-			rootPlugins = append(rootPlugins, m)
-		}
-		pluginTopLevel = append(pluginTopLevel, m)
+	var count int64
+	err := deps.DB.WithContext(ctx).
+		Table(tRB+" AS rb").
+		Joins("JOIN "+tRole+" AS r ON r.id = rb.role_id").
+		Where("rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?", tenantUUID, modelIAM.SubMember, memberID).
+		Where("r.scope = ? AND r.code IN ?", string(coreiam.RoleScopeTenant), []string{string(coreiam.CodeRoleOwner), string(coreiam.CodeRoleAdmin)}).
+		Count(&count).Error
+	if err != nil {
+		logger.WarnF(ctx, "[menus] tenant role check failed tenant=%s member=%d err=%v", tenantUUID, memberID, err)
+		return false
 	}
-
-	// 3) 排序子节点
-	sortChildrenRecursive(sys)
-
-	// 4) 合并系统 + 插件
-	sys = append(sys, pluginTopLevel...)
-
-	// 5) 翻译（这一步会把 cat:market 的子项在有 i18n 时翻译；无 i18n 时不覆盖）
-	translateMenuItemsRecursive(sys, allI18n, locales)
-
-	// 6) 顶层排序
-	sys = sortTopLevelWithRootFirst(sys, rootPlugins)
-
-	// 7) 分组
-	cats := groupAsCategories(sys, allI18n, locales)
-	payload := gin.H{"categories": cats}
-	if len(plug.I18n) > 0 {
-		payload["i18n"] = plug.I18n
-	}
-	dto.ResponseSuccess(c, payload)
+	return count > 0
 }
 
 func parseLocaleQuery(c *gin.Context) []string {
@@ -652,13 +719,16 @@ func indexSystemSlots(sys []admdto.AdminMenuItem) map[plugin_mgr.MenuKey]*admdto
 	return idx
 }
 
-func splitPolicy(p string) (string, string) {
-	for i := 0; i < len(p); i++ {
-		if p[i] == ':' {
-			return p[:i], p[i+1:]
-		}
+func splitPolicyTriple(p string) (string, string, string) {
+	parts := strings.Split(strings.TrimSpace(p), ":")
+	switch len(parts) {
+	case 2:
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), "view"
+	case 3:
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
+	default:
+		return "", "", ""
 	}
-	return p, "*"
 }
 
 func i18nOrDefault(key, def string, i18n []admdto.MenuI18nPackage, locales []string) string {

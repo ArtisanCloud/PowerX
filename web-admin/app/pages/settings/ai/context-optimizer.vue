@@ -206,7 +206,7 @@ const localePath = useLocalePath();
 const { t } = useI18n({ useScope: "global" });
 const envStore = useEnvStore();
 const userStore = useUserStore();
-const { isRoot } = storeToRefs(userStore);
+const { isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
 
 const modelSettingsLink = computed(() => localePath("/settings/ai"));
 const envOptions = computed(() =>
@@ -432,6 +432,10 @@ watch(scope, () => {
 onMounted(async () => {
   if (!userStore.context) {
     await userStore.fetchUserContext();
+  }
+  if (!isRoot.value && !isCurrentTenantAdmin.value) {
+    await navigateTo("/dashboard");
+    return;
   }
   await reloadAll();
 });

@@ -19,10 +19,14 @@ import (
 
 // ======= 对外返回结构（供 Handler 使用） =======
 type MeMemberBrief struct {
-	TenantUUID string `json:"tenant_uuid"`
-	TenantName string `json:"tenant_name"`
-	MemberID   uint64 `json:"member_id"`
-	IsAdmin    bool   `json:"is_admin"`
+	TenantUUID   string `json:"tenant_uuid"`
+	TenantKey    string `json:"tenant_key"`
+	TenantName   string `json:"tenant_name"`
+	TenantDomain string `json:"tenant_domain"`
+	MemberID     uint64 `json:"member_id"`
+	MemberUUID   string `json:"member_uuid"`
+	IsAdmin      bool   `json:"is_admin"`
+	IsOwner      bool   `json:"is_owner"`
 }
 
 type MeUserBrief struct {
@@ -40,6 +44,7 @@ type MeContextResp struct {
 	IsRoot            bool            `json:"is_root"`
 	CurrentTenantUUID string          `json:"current_tenant_uuid"`
 	CurrentMemberID   *uint64         `json:"current_member_id,omitempty"`
+	CurrentMemberUUID string          `json:"current_member_uuid,omitempty"`
 	User              *MeUserBrief    `json:"user,omitempty"`
 	Members           []MeMemberBrief `json:"members"`
 }
@@ -75,6 +80,7 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	userID := reqctx.GetUserID(ctx)
 	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
 	memberID := reqctx.GetMemberID(ctx)
+	memberUUID := strings.TrimSpace(reqctx.GetMemberUUID(ctx))
 
 	var currentMemberID *uint64
 	if memberID != 0 {
@@ -115,8 +121,9 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	}
 	tenantBasicMap, _ := s.TenantRepo.MapBasicByUUIDs(ctx, tenantUUIDs)
 
-	// 4) 先批量计算成员是否具备租户管理员角色（role_admin）
+	// 4) 先批量计算成员是否具备租户管理员/所有者角色
 	adminMemberIDSet := map[uint64]struct{}{}
+	ownerMemberIDSet := map[uint64]struct{}{}
 	if len(members) > 0 {
 		memberIDs := make([]uint64, 0, len(members))
 		for _, mem := range members {
@@ -126,9 +133,13 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		tRB := (&modelIAM.RoleBinding{}).GetTableName(true)
 		tRole := (&modelIAM.Role{}).GetTableName(true)
 
-		var adminMemberIDs []uint64
+		var rows []struct {
+			SubjectID uint64 `gorm:"column:subject_id"`
+			Code      string `gorm:"column:code"`
+		}
 		err := s.DB.WithContext(ctx).
 			Table(tRB+" AS rb").
+			Select("rb.subject_id, r.code").
 			Joins("JOIN "+tRole+" AS r ON r.id = rb.role_id").
 			Where("rb.subject_type = ? AND rb.subject_id IN ?", modelIAM.SubMember, memberIDs).
 			Where(
@@ -136,18 +147,28 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 				string(coreiam.RoleScopeTenant),
 				[]string{string(coreiam.CodeRoleAdmin), "role_owner"},
 			).
-			Pluck("rb.subject_id", &adminMemberIDs).Error
+			Scan(&rows).Error
 		if err != nil {
 			return nil, dto.NewError(http.StatusInternalServerError, "查询成员管理员角色失败", err)
 		}
-		for _, id := range adminMemberIDs {
-			adminMemberIDSet[id] = struct{}{}
+		for _, row := range rows {
+			code := strings.ToLower(strings.TrimSpace(row.Code))
+			if code == string(coreiam.CodeRoleOwner) {
+				ownerMemberIDSet[row.SubjectID] = struct{}{}
+				adminMemberIDSet[row.SubjectID] = struct{}{}
+				continue
+			}
+			if code == string(coreiam.CodeRoleAdmin) {
+				adminMemberIDSet[row.SubjectID] = struct{}{}
+			}
 		}
 	}
 
 	// 5) 组装 members brief（按 role_binding 实际结果填充 is_admin）
 	brs := make([]MeMemberBrief, 0, len(members))
 	memberByTenant := make(map[string]uint64, len(members))
+	memberUUIDByTenant := make(map[string]string, len(members))
+	memberUUIDByID := make(map[uint64]string, len(members))
 	for _, mem := range members {
 		info := tenantBasicMap[mem.TenantUUID]
 		uuidStr := strings.TrimSpace(mem.TenantUUID)
@@ -156,14 +177,25 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 			uuidStr = info.UUID.String()
 			name = info.Name
 		}
+		memberUUIDStr := mem.UUID.String()
 		memberByTenant[uuidStr] = mem.ID
+		memberUUIDByTenant[uuidStr] = memberUUIDStr
+		memberUUIDByID[mem.ID] = memberUUIDStr
 		_, isAdmin := adminMemberIDSet[mem.ID]
+		_, isOwner := ownerMemberIDSet[mem.ID]
 		brs = append(brs, MeMemberBrief{
-			TenantUUID: uuidStr,
-			TenantName: name,
-			MemberID:   mem.ID,
-			IsAdmin:    isAdmin,
+			TenantUUID:   uuidStr,
+			TenantKey:    info.Key,
+			TenantName:   name,
+			TenantDomain: info.Domain,
+			MemberID:     mem.ID,
+			MemberUUID:   memberUUIDStr,
+			IsAdmin:      isAdmin,
+			IsOwner:      isOwner,
 		})
+	}
+	if memberUUID == "" && memberID != 0 {
+		memberUUID = memberUUIDByID[memberID]
 	}
 
 	// 6) 修正 current_tenant_uuid：
@@ -181,6 +213,7 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 			// root 允许切到“非成员租户”做跨租户管理，但要保证目标租户真实存在。
 			if exists, err := s.TenantExists(ctx, tenantUUID); err == nil && exists {
 				currentMemberID = nil
+				memberUUID = ""
 			} else {
 				tenantUUID = ""
 			}
@@ -196,6 +229,13 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 			tenantUUID = preferred
 			if mid, ok := memberByTenant[tenantUUID]; ok {
 				currentMemberID = &mid
+				memberUUID = memberUUIDByTenant[tenantUUID]
+			}
+		}
+		if memberUUID == "" && tenantUUID != "" {
+			memberUUID = memberUUIDByTenant[tenantUUID]
+			if mid, ok := memberByTenant[tenantUUID]; ok && currentMemberID == nil {
+				currentMemberID = &mid
 			}
 		}
 	}
@@ -204,6 +244,7 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		IsRoot:            isRoot,
 		CurrentTenantUUID: tenantUUID,
 		CurrentMemberID:   currentMemberID,
+		CurrentMemberUUID: memberUUID,
 		User:              userBrief,
 		Members:           brs,
 	}, nil

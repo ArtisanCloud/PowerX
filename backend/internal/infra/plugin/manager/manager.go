@@ -13,9 +13,21 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
-type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
 type PostInstallManifestHook func(ctx context.Context, manifest plugin_mgr.Manifest) error
+type PostEnablePluginHook func(ctx context.Context, plugin plugin_mgr.Plugin, apiBaseURL string) error
 type PostUninstallHook func(ctx context.Context, pluginID string) error
+type TenantPluginInstanceChecker func(ctx context.Context, pluginID string) (int64, error)
+type PluginRuntimeCredentialProvider func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error)
+
+type PluginRuntimeCredential struct {
+	TenantUUID     string
+	ClientID       string
+	ClientSecret   string
+	GRPCAddress    string
+	STSAudience    string
+	STSScope       string
+	GatewayBaseURL string
+}
 
 // Options 注入依赖与基础配置
 type Options struct {
@@ -30,9 +42,11 @@ type Options struct {
 	Registry            Registry
 	HTTP                *router.DynamicRouter
 	Supervisor          *supervisor.Supervisor
-	PostEnable          PostEnableHook
 	PostInstallManifest PostInstallManifestHook
+	PostEnablePlugin    PostEnablePluginHook
 	PostUninstall       PostUninstallHook
+	TenantInstanceCount TenantPluginInstanceChecker
+	RuntimeCredential   PluginRuntimeCredentialProvider
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）
@@ -101,11 +115,13 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		// 启动扫描时补做一次权限同步（upsert 幂等），修复历史安装遗漏。
 		if m.opts.PostInstallManifest != nil {
 			if err := m.opts.PostInstallManifest(ctx, d.Manifest); err != nil {
-				return plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
+				wrapped := plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
 					plugin_mgr.WithOp("bootstrap.register_permissions"),
 					plugin_mgr.WithPlugin(id),
 					plugin_mgr.WithVersion(ver),
 				)
+				logger.WarnF(ctx, "[plugin-bootstrap] plugin permission sync failed, keep manager available: id=%s ver=%s err=%v", id, ver, wrapped)
+				continue
 			}
 		}
 	}
@@ -120,6 +136,30 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
+	if err := m.restoreEnabledPlugins(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *managerImpl) restoreEnabledPlugins(ctx context.Context) error {
+	plugins := m.opts.Registry.List(ctx)
+	for _, p := range plugins {
+		if p.State != plugin_mgr.StateEnabled {
+			continue
+		}
+		logger.InfoF(ctx, "[plugin-bootstrap] restore enabled plugin id=%s ver=%s", p.ID, p.Version)
+		if err := m.Enable(ctx, p.ID); err != nil {
+			return plugin_mgr.Wrap(
+				plugin_mgr.CodeLifecycleError,
+				err,
+				plugin_mgr.WithOp("bootstrap.restore_enabled"),
+				plugin_mgr.WithPlugin(p.ID),
+				plugin_mgr.WithVersion(p.Version),
+			)
+		}
+	}
 	return nil
 }
 

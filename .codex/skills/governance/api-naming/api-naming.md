@@ -19,7 +19,26 @@
 
 - **/api/v1/admin/**：管理端 API（带管理权限）
   - 典型对象：管理控制台、运营/内部管理系统
+  - 典型调用主体：PowerX Admin、插件 Admin 页面
+  - 鉴权语义：用户 JWT + tenant member + RBAC + 业务权限
   - 必须带授权 token
+  - 不作为插件服务态 STS 直连的默认开放域
+
+### 1.2.1 外部业务域（Web / Mini-app / Customer）
+
+- **/api/v1/**：外部业务开放 API
+  - 典型对象：租户侧 Web、mini-app、customer portal、第三方客户端
+  - 典型调用主体：web user、mini-app user、customer actor、service actor
+  - 鉴权语义：用户 JWT、customer token、API Key、OAuth client 或明确声明的 STS
+  - 资源边界：默认 tenant-scoped；customer/mini-app 自助接口必须 owner-scoped/self-scoped
+  - 不得复用 `/api/v1/admin/*` 的全量治理语义
+
+### 1.2.2 Capability 统一调用域
+
+- **/api/v1/tenant/invocations**：服务态 capability 调度入口
+  - 典型对象：插件后端、agent、skill、系统集成
+  - 鉴权语义：STS/API Key/OAuth client + capability registration/grant
+  - 语义：按 `capability_id` 调用已授权能力，而不是直接暴露后台路由
 
 ### 1.3 内部/宿主域（仅内部使用）
 
@@ -45,6 +64,9 @@
 - **所有 `/api/v1/admin` 与 `/api/internal` 必须鉴权**
 - 租户信息必须通过 token（JWT claims）或 `tenant_uuid` 字段解析，不接受遗留租户头注入。
 - 内部接口也需 tenant 校验，禁止跨租户调用
+- 设计新接口前必须声明调用主体：`admin_user`、`service_actor`、`web_user`、`mini_app_user`、`customer_actor`。
+- 后台用户态接口和外部业务接口即使操作同一资源，也必须按 actor、资源范围、风险等级和授权开关判断是否复用同一 capability。
+- customer/mini-app 自助接口不得使用 admin 全量管理权限；默认只能访问当前 customer/user/owner 可见资源。
 
 ---
 
@@ -55,6 +77,20 @@
 - REST 资源采用名词复数：
   - `/api/v1/admin/agents`
   - `/api/v1/admin/knowledge-spaces`
+  - `/api/v1/customer/accounts`
+
+### 4.1.0 Actor 边界命名
+
+- 后台管理：`/api/v1/admin/<resources>`
+  - 示例：`/api/v1/admin/customer/accounts`
+- 外部业务/客户自助：`/api/v1/<domain>/<resources>` 或 `/api/v1/customer/<resources>`
+  - 示例：`/api/v1/customer/account`
+  - 示例：`/api/v1/customer/orders`
+- 服务态开放接口：`/api/v1/<domain>/<resources>`，必须在能力或接口文档中声明允许的 STS/API Key/OAuth actor
+  - 示例：`/api/v1/scheduler/jobs`
+- 统一能力调度：`/api/v1/tenant/invocations`
+
+路径前缀不等于 capability。`/api/v1/admin/<resource>` 与 `/api/v1/<resource>` 如果业务语义和授权边界一致，可以是同一个 capability 的不同 binding；如果 actor 可操作资源范围不同，必须拆 capability。
 
 ### 4.1.1 插件相关命名
 
@@ -108,6 +144,21 @@ GET /api/v1/knowledge-spaces
 
 ```
 POST /api/v1/admin/agents/test/connection
+```
+
+### 7.2.1 Customer / Mini-app API
+
+```
+GET /api/v1/customer/account
+PATCH /api/v1/customer/account/profile
+GET /api/v1/customer/orders
+```
+
+### 7.2.2 Capability Invocation API
+
+```
+POST /api/v1/tenant/invocations
+GET /api/v1/tenant/capabilities
 ```
 
 ### 7.3 内部 API

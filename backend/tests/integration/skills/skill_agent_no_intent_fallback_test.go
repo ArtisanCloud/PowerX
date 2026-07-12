@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/cloudwego/eino/schema"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,9 @@ import (
 
 type noIntentStubAgent struct{}
 
-func (s *noIntentStubAgent) GetInfo() *agentschema.AgentInfo { return &agentschema.AgentInfo{Name: "no-intent-stub"} }
+func (s *noIntentStubAgent) GetInfo() *agentschema.AgentInfo {
+	return &agentschema.AgentInfo{Name: "no-intent-stub"}
+}
 func (s *noIntentStubAgent) ListFlows(context.Context, agentschema.ExecutionMeta) ([]agentschema.FlowRuntimeInfo, error) {
 	return nil, nil
 }
@@ -50,7 +53,9 @@ func (s *noIntentStubAgent) Stream(context.Context, string, flowschema.Context, 
 func (s *noIntentStubAgent) GetExecutionStatus(context.Context, string, agentschema.ExecutionMeta) (*agentschema.ExecutionStatus, error) {
 	return nil, nil
 }
-func (s *noIntentStubAgent) CancelExecution(context.Context, string, agentschema.ExecutionMeta) error { return nil }
+func (s *noIntentStubAgent) CancelExecution(context.Context, string, agentschema.ExecutionMeta) error {
+	return nil
+}
 func (s *noIntentStubAgent) GetExecutionResult(context.Context, string, agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
 	return nil, nil
 }
@@ -98,7 +103,8 @@ func TestSkillAgentNoIntentFallbackToNormalReply(t *testing.T) {
 	require.NoError(t, m.SetDefaultAgent(agentID, flowID))
 
 	sink := &captureSink{}
-	out, plan, err := runtime.NewEngine().RunPlanInvoke(context.Background(), "%%% no intent sentence %%%", nil, "", sink)
+	ctx := reqctx.WithTraceID(reqctx.WithTenantUUID(context.Background(), "tenant-no-intent"), "trace-no-intent")
+	out, plan, err := runtime.NewEngine().RunPlanInvoke(ctx, "%%% no intent sentence %%%", nil, "", sink)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Nil(t, plan)
@@ -108,4 +114,3 @@ func TestSkillAgentNoIntentFallbackToNormalReply(t *testing.T) {
 	require.Equal(t, 0, sink.count(dto.EventNodeStart))
 	require.Equal(t, 0, sink.count(dto.EventNodeEnd))
 }
-

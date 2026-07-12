@@ -9,8 +9,12 @@ const { t, te } = useI18n();
 const route = useRoute();
 const localePath = useLocalePath() as (path: string) => string;
 const userStore = useUserStore();
+const userContactLabel = computed(() => {
+  const user = userStore.user;
+  return user?.email || user?.phone || "";
+});
 const canAccessSettings = computed(
-  () => Boolean(userStore.isRoot || userStore.isCurrentTenantAdmin)
+  () => Boolean(userStore.isCurrentTenantAdmin)
 );
 
 // 使用通知系统
@@ -21,7 +25,13 @@ const wsBus = useWSBus();
 // 获取通知统计信息
 const notificationStats = computed(() => getStats());
 const unreadCount = computed(() => notificationStats.value.unread);
-const { data: menuResponse } = useNuxtData<UserMenusResult>("user-menus");
+const currentMenuDataKey = useState<string>(
+  "px-current-menu-data-key",
+  () => "user-menus"
+);
+const menuResponse = computed(
+  () => useNuxtData<UserMenusResult>(currentMenuDataKey.value).data.value
+);
 
 const pageTitle = computed(() => {
   const raw = route.meta.title;
@@ -556,7 +566,7 @@ const getSearchResultTypeIcon = (type: string) => {
               {{ userStore.displayName || "管理员" }}
             </div>
             <div class="text-xs text-gray-500 dark:text-gray-400">
-              {{ userStore.user?.email || "admin@powerx.com" }}
+              {{ userContactLabel || "-" }}
             </div>
           </div>
 

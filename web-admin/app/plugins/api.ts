@@ -25,6 +25,31 @@ export default defineNuxtPlugin(() => {
         0
     );
   };
+  const resolveRequestPath = (error: any): string => {
+    const raw =
+      error?.request ||
+      error?.options?.url ||
+      error?.response?.url ||
+      error?.cause?.request ||
+      error?.cause?.options?.url ||
+      "";
+    const value = String(raw || "").trim();
+    if (!value) return "";
+    try {
+      const origin = process.client ? window.location.origin : "http://localhost";
+      return new URL(value, origin).pathname;
+    } catch {
+      return value.split("?")[0] || "";
+    }
+  };
+  const isHostAuthFailure = (error: any): boolean => {
+    const path = resolveRequestPath(error);
+    if (!path) return false;
+    if (path.startsWith("/_p/") || path.startsWith("/__up/") || path === "/api/ws") {
+      return false;
+    }
+    return path.startsWith("/api/v1/admin/user/auth/") || path.startsWith("/api/admin/user/auth/");
+  };
 
   setApiConfig({
     baseURL: config.public.apiBase || "/api",
@@ -70,7 +95,7 @@ export default defineNuxtPlugin(() => {
         onResponseError: async (error) => {
           const statusCode = resolveStatusCode(error);
 
-          if (statusCode === 401) {
+          if (statusCode === 401 && isHostAuthFailure(error)) {
             if (process.client) {
               const router = useRouter();
               const setup = await setupStatus.load({ ttlMs: 5000 });

@@ -4,6 +4,9 @@ capabilities:
     module: scheduler
     title: Runtime Scheduler
     description: 管理 PowerX Runtime Scheduler 任务，支持创建、查询、更新、暂停、恢复、手动触发与运行记录查看。
+    permission_code: corex.scheduler.jobs:manage
+    agent_usable: true
+    risk_level: high
     categories: [runtime, scheduler]
     intents: [runtime.scheduler.jobs.manage, runtime.scheduler.jobs.run, runtime.scheduler.jobs.read]
     tool_scopes: [scheduler.job.manage, scheduler.job.run, scheduler.job.read]
@@ -19,48 +22,72 @@ capabilities:
         method: GET
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.read
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs
         method: POST
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.manage
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}
         method: GET
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.read
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}
         method: PATCH
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.manage
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}/trigger
         method: POST
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.run
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}/pause
         method: POST
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.manage
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}/resume
         method: POST
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.manage
       - channel: rest
         endpoint: /api/v1/admin/scheduler/jobs/{job_id}/runs
         method: GET
         schema_ref: specs/028-runtime-scheduler/spec.md#/requirements/FR-002
         auth_type: api_key_or_bearer
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
         tool_scope: scheduler.job.read
       - channel: grpc
         endpoint: powerx.scheduler.v1.SchedulerService
@@ -84,6 +111,9 @@ capabilities:
     module: workflow
     title: Workflow Definition Builder
     description: 在 CoreX Workflow Builder 中创建、发布与管理模板。
+    permission_code: corex.workflow.builder:manage
+    agent_usable: true
+    risk_level: high
     categories: [workflow]
     intents: [workflow.builder.manage]
     tool_scopes: [workflow.builder]

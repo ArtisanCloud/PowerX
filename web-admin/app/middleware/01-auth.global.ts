@@ -53,7 +53,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 2) 只在客户端做 localStorage 鉴权
   if (process.server) return;
 
-  const tokenCookie = useCookie<string | null>("token", {
+  const accessTokenCookie = useCookie<string | null>("access_token", {
+    sameSite: "lax",
+    path: "/",
+  });
+  const refreshTokenCookie = useCookie<string | null>("refresh_token", {
     sameSite: "lax",
     path: "/",
   });
@@ -63,7 +67,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (skipAuth) {
     const localToken = String(localStorage.getItem("access_token") || "").trim();
-    tokenCookie.value = localToken || null;
+    accessTokenCookie.value = localToken || null;
     if (publicHit) return;
     return;
   }
@@ -85,7 +89,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
       "scope",
       "px_current_tenant_uuid",
     ].forEach((k) => localStorage.removeItem(k));
-    tokenCookie.value = null;
+    accessTokenCookie.value = null;
+    refreshTokenCookie.value = null;
   };
 
   const redirectToLogin = () => {
@@ -100,7 +105,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const token = localStorage.getItem("access_token");
   const refreshToken = localStorage.getItem("refresh_token");
   const needRefresh = !token || isTokenExpired();
-  tokenCookie.value = needRefresh ? null : String(token || "").trim() || null;
+  accessTokenCookie.value = needRefresh ? null : String(token || "").trim() || null;
+  refreshTokenCookie.value = String(refreshToken || "").trim() || null;
 
   if (publicHit) return;
 
@@ -126,7 +132,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
         const expiresAt = Date.now() + expiresInSec * 1000;
 
         localStorage.setItem("access_token", String(payload.access_token));
-        tokenCookie.value = String(payload.access_token);
+        accessTokenCookie.value = String(payload.access_token);
         localStorage.setItem("token_type", tokenType);
         localStorage.setItem("expires_in", String(expiresInSec));
         localStorage.setItem("expires_at", String(expiresAt));
@@ -135,6 +141,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
         }
         if (typeof payload.refresh_token === "string" && payload.refresh_token) {
           localStorage.setItem("refresh_token", payload.refresh_token);
+          refreshTokenCookie.value = payload.refresh_token;
         }
 
         return;
@@ -148,5 +155,46 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (needRefresh) {
     clearAuthStorage();
     return redirectToLogin();
+  }
+
+  const shouldCheckMenuRoute = !publicHit;
+  if (shouldCheckMenuRoute) {
+    const { isMenuRouteAllowed, resolveDefaultRoute } = useDefaultMenuRoute();
+    try {
+      const allowed = await isMenuRouteAllowed(to.path);
+      if (!allowed) {
+        const target = await resolveDefaultRoute();
+        if (target !== to.path) {
+          return navigateTo(target, { replace: true });
+        }
+      }
+    } catch {
+      return navigateTo("/home", { replace: true });
+    }
+  }
+
+  const tenantOnlyRoots = [
+    "/settings/ai",
+  ];
+  const isTenantOnlyPath = tenantOnlyRoots.some((path) =>
+    withLocale(path).test(to.path)
+  );
+  if (isTenantOnlyPath) {
+    const userStore = useUserStore();
+    try {
+      if (!userStore.context) {
+        await userStore.fetchUserContext({ force: true });
+      }
+      if (!userStore.isRoot && !userStore.isCurrentTenantAdmin) {
+        const { resolveDefaultRoute } = useDefaultMenuRoute();
+        try {
+          return navigateTo(await resolveDefaultRoute(), { replace: true });
+        } catch {
+          return navigateTo("/home", { replace: true });
+        }
+      }
+    } catch {
+      return redirectToLogin();
+    }
   }
 });

@@ -264,8 +264,8 @@ func (r *PermissionRepository) MemberHasPermissionViaBinding(
 		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
 		Select("COUNT(1)").
 		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" rb ON rb.role_id = rp.role_id AND rb.tenant_uuid = ? AND rb.subject_type = ?", tenantUUID, dbm.SubMember).
-		Where("rb.subject_id = ? AND p.resource = ? AND p.action = ?", memberID, resource, action).
+		Joins("JOIN ("+effectiveRoleIDsForMemberSQL()+") erb ON erb.role_id = rp.role_id", tenantUUID, dbm.SubMember, memberID, tenantUUID, memberID).
+		Where("p.resource = ? AND p.action = ?", resource, action).
 		Count(&cnt).Error
 	return cnt > 0, err
 }
@@ -281,8 +281,30 @@ func (r *PermissionRepository) MemberHasPermissionViaBindingWithModule(
 		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
 		Select("COUNT(1)").
 		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" rb ON rb.role_id = rp.role_id AND rb.tenant_uuid = ? AND rb.subject_type = ?", tenantUUID, dbm.SubMember).
-		Where("rb.subject_id = ? AND p.module = ? AND p.resource = ? AND p.action = ?", memberID, module, resource, action).
+		Joins("JOIN ("+effectiveRoleIDsForMemberSQL()+") erb ON erb.role_id = rp.role_id", tenantUUID, dbm.SubMember, memberID, tenantUUID, memberID).
+		Where("p.module = ? AND p.resource = ? AND p.action = ?", module, resource, action).
 		Count(&cnt).Error
 	return cnt > 0, err
+}
+
+func effectiveRoleIDsForMemberSQL() string {
+	tRB := (&dbm.RoleBinding{}).GetTableName(true)
+	tMA := (&dbm.MemberAssignment{}).GetTableName(true)
+	return `
+		SELECT DISTINCT rb.role_id
+		FROM ` + tRB + ` rb
+		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?
+		UNION
+		SELECT DISTINCT rb.role_id
+		FROM ` + tRB + ` rb
+		JOIN ` + tMA + ` ma
+		  ON ma.tenant_uuid = rb.tenant_uuid
+		 AND rb.subject_id = ma.dim_id
+		 AND rb.subject_type = CASE ma.dim_type
+		   WHEN 'ORG' THEN 'ORG_UNIT'
+		   WHEN 'TEAM' THEN 'TEAM'
+		   WHEN 'POSITION' THEN 'POSITION'
+		   WHEN 'GROUP' THEN 'GROUP'
+		 END
+		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`
 }

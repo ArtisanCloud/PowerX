@@ -52,26 +52,27 @@
 ### 3.1 Capability Grant 模型
 
 ```yaml
-grant_id: grant_a9e3
-issuer: agent:sales_copilot
-subject: agent:crm_helper
+agent_uuid: 9d3f5c02-7a65-47ef-a9ad-f2a8f41d3ef1
+tenant_uuid: 0f7d0d9a-4f7f-43de-9a97-2cbd1c3a6b4e
 capabilities:
-  - crm.lead.fetch
-  - crm.contact.update
-expires_at: 2025-12-31T00:00:00Z
-constraints:
-  max_calls: 1000
-  time_budget_ms: 60000
-  region: cn
-signature: sha256:e3ad...
+  - capability_uuid: 7ec62846-8213-41f5-b5f1-9811e43ef58f
+    capability_id: crm.lead.create
+    permission_code: crm.lead:create
+    status: enabled
+    source: manual
 ```
+
+`agent_capability_grants` 表只表达 Agent 的最大可用能力边界。真实执行时不得只看 Agent grants，必须与当前登录用户 IAM 权限、租户 capability 启用状态、capability policy 取交集。
 
 ### 3.2 校验逻辑
 
-1. 每次 Agent 调用前，Router 检查是否存在有效 Grant；
-2. 若调用目标超出 `capabilities`，直接拒绝；
-3. 每次使用计数 +1，当超过 `max_calls` 自动吊销；
-4. 可通过 `/api/v1/admin/security/tool-grants` 查询与吊销。
+1. 每次 Agent 调用 capability 前，运行时必须解析结构化 `permission_code`，格式为 `module.resource:action`；
+2. 检查当前租户是否启用该 capability，未启用直接拒绝；
+3. 检查 Agent 是否存在启用状态的 `agent_uuid + capability_uuid/capability_id + permission_code` 授权，缺失直接拒绝；
+4. 使用当前登录用户/member 执行 IAM/RBAC `Enforce(module, resource, action)`，缺失直接拒绝；
+5. 输出 `agent.capability_authorize` 结构化日志，至少包含 `tenant_uuid`、`agent_uuid`、`user_uuid`、`member_id`、`capability_id`、`permission_code`、`allowed`、`deny_reason`。
+
+任何缺少 `tenant_uuid`、`agent_uuid`、`permission_code` 的调用上下文都必须失败，不允许从自由文本、旧字段或 capability 名称中猜测授权。
 
 ---
 
@@ -196,6 +197,8 @@ PowerX 支持对每个 Agent 运行的全链路回放：
 * 每条事件包含输入、输出、耗时、授权、状态；
 * 可复现代理调用链、判断越权与性能异常；
 * 敏感字段由 `masking_policy` 控制展示级别。
+
+Agent capability 授权审计使用同一套字段命名，管理操作和运行时调用不得混用 `agent_id` 作为外部关联主键。业务对象关联统一使用 UUID；数值 ID 仅可作为内部诊断辅助字段。
 
 ---
 

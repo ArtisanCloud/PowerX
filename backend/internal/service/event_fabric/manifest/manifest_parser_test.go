@@ -98,6 +98,39 @@ topics:
 	require.Equal(t, "6b5d0240-9920-46da-b707-88200e0f51ea.powerx.runtime.scheduler.triggered.v1", plan.Topics[0].FullTopic)
 }
 
+func TestRenderPreservesRuntimeTopicTemplateTokens(t *testing.T) {
+	data := []byte(`
+version: v1
+topics:
+  - topic: ai_craft.shopify.product.sync.progress.member.tenant_{{tenant_uuid}}.member_{{member_uuid}}
+    acl:
+      - actions: [publish, subscribe]
+`)
+	doc, err := Load(data)
+	require.NoError(t, err)
+	plan, err := doc.Render(SeedContext{
+		TenantUUID:    "6b5d0240-9920-46da-b707-88200e0f51ea",
+		PluginID:      "com.powerx.plugins.ai-craft",
+		PluginVersion: "0.1.0",
+	})
+	require.NoError(t, err)
+	require.Len(t, plan.Topics, 1)
+	require.Equal(t, "ai_craft.shopify.product.sync.progress.member.tenant_6b5d0240-9920-46da-b707-88200e0f51ea", plan.Topics[0].Topic.Namespace)
+	require.Equal(t, "member_{{member_uuid}}", plan.Topics[0].Topic.Name)
+	require.Equal(t, "6b5d0240-9920-46da-b707-88200e0f51ea.ai_craft.shopify.product.sync.progress.member.tenant_6b5d0240-9920-46da-b707-88200e0f51ea.member_{{member_uuid}}", plan.Topics[0].FullTopic)
+}
+
+func TestLoadRejectsUnsupportedRuntimeTopicTemplateToken(t *testing.T) {
+	data := []byte(`
+version: v1
+topics:
+  - topic: ai_craft.bad.member_{{account_uuid}}
+`)
+	_, err := Load(data)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported topic template token")
+}
+
 func TestLoadRejectsDottedExplicitName(t *testing.T) {
 	data := []byte(`
 version: v1

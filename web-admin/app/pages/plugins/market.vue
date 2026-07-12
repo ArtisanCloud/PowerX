@@ -1,14 +1,17 @@
 <template>
   <div class="space-y-6 p-4">
     <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <UButton :variant="'solid'" size="sm" :to="'/plugins/market'">{{
-          $t("menu.pluginsMarket") || "应用市场"
-        }}</UButton>
-        <UButton variant="ghost" size="sm" :to="'/plugins/installed'">{{
-          $t("menu.pluginsInstalled") || "已安装"
-        }}</UButton>
+      <div v-if="isRoot" class="flex items-center gap-2">
+        <UButton :variant="'solid'" size="sm" :to="'/plugins/market'">
+          {{ marketTabLabel }}
+        </UButton>
+        <UButton variant="ghost" size="sm" :to="'/plugins/installed'">
+          {{ installedTabLabel }}
+        </UButton>
       </div>
+      <h1 v-else class="text-lg font-semibold text-[var(--text-primary)]">
+        插件订阅
+      </h1>
       <div class="flex items-center gap-2">
         <UButton
           v-if="isRoot"
@@ -80,8 +83,14 @@
           :is-system-installed="Boolean((p as any).__sys?.isSystemInstalled)"
           :is-system-enabled="Boolean((p as any).__sys?.isSystemEnabled)"
           :system-status="String((p as any).__sys?.systemStatus || '')"
+          :is-tenant-enabled="Boolean((p as any).__tenant?.enabled)"
+          :tenant-status="String((p as any).__tenant?.status || '')"
           :can-install="isRoot"
+          :can-manage-tenant="isTenantAdmin"
+          :show-system-state="isRoot"
+          :can-manage-detail="isRoot || Boolean((p as any).__tenant?.enabled)"
           @install="openInstall"
+          @toggle-tenant="toggleTenant"
         />
       </div>
 
@@ -98,8 +107,16 @@
             class="w-8 h-8 text-gray-400"
           />
         </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">未找到相关插件</h3>
-        <p class="text-gray-500 max-w-sm">尝试调整搜索条件或浏览其他分类</p>
+        <h3 class="text-lg font-medium text-[var(--text-primary)] mb-2">
+          {{ isRoot ? "未找到相关插件" : "未找到可订阅插件" }}
+        </h3>
+        <p class="text-[var(--text-secondary)] max-w-sm">
+          {{
+            isRoot
+              ? "尝试调整搜索条件或浏览其他分类"
+              : "当前没有匹配的插件订阅项"
+          }}
+        </p>
       </div>
 
       <!-- 分页控件：Nuxt UI v3 正确写法 -->
@@ -161,18 +178,18 @@ const categoryOptions = [
   "开发者工具",
 ];
 const sortOptions = ["默认排序", "安装量", "更新时间", "名称"];
-const statusOptions = [
-  "全部状态",
-  "未安装",
-  "已安装（未启用）",
-  "已启用",
-  "已停用",
-  "异常",
-];
-
 // 用户角色（用于权限控制)
 const userStore = useUserStore();
 const isRoot = computed(() => userStore.isRoot);
+const isTenantAdmin = computed(() => userStore.isCurrentTenantAdmin);
+const marketTabLabel = computed(() => "插件市场");
+const installedTabLabel = computed(() => "已安装");
+const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+const statusOptions = computed(() =>
+  isRoot.value
+    ? ["全部状态", "未安装", "已安装（未启用）", "已启用", "已停用", "异常"]
+    : ["全部状态", "未订阅", "已订阅"]
+);
 
 // 后端数据（不使用本地 mock）
 const all = ref<MarketplacePlugin[]>([]);
@@ -200,6 +217,14 @@ async function fetchMarketplace() {
           isSystemEnabled: !!p.isSystemEnabled,
           systemStatus: p.systemStatus || "",
         },
+        __tenant: {
+          enabled: !!(p.tenantInstance?.enabled ?? p.tenantEnabled),
+          status:
+            p.tenantStatus ||
+            p.tenantInstance?.status ||
+            (p.tenantInstance?.enabled ? "enabled" : "not_enabled"),
+          instance: p.tenantInstance || null,
+        },
       }));
     }
   } catch (e) {
@@ -219,20 +244,29 @@ const filtered = computed(() => {
       p.description.toLowerCase().includes(ql) ||
       p.author.toLowerCase().includes(ql);
     const hitC = category.value === "全部分类" || p.category === category.value;
-    // 状态筛选（依赖后端提供的 isSystemInstalled/isSystemEnabled/systemStatus）
     const sys = (p as any).__sys || {};
+    const tenant = (p as any).__tenant || {};
+    if (!isRoot.value && !sys.isSystemEnabled) {
+      return false;
+    }
     const s = String(status.value);
     let hitS = true;
     if (s !== "全部状态") {
       const isInstalled = !!sys.isSystemInstalled;
       const isEnabled = !!sys.isSystemEnabled;
-      if (s === "未安装") hitS = !isInstalled;
-      else if (s === "已安装（未启用）") hitS = isInstalled && !isEnabled;
-      else if (s === "已启用") hitS = isEnabled;
-      else if (s === "已停用")
-        hitS = isInstalled && sys.systemStatus === "disabled";
-      else if (s === "异常")
-        hitS = isInstalled && sys.systemStatus === "broken";
+      const tenantEnabled = !!tenant.enabled;
+      if (isRoot.value) {
+        if (s === "未安装") hitS = !isInstalled;
+        else if (s === "已安装（未启用）") hitS = isInstalled && !isEnabled;
+        else if (s === "已启用") hitS = isEnabled;
+        else if (s === "已停用")
+          hitS = isInstalled && sys.systemStatus === "disabled";
+        else if (s === "异常")
+          hitS = isInstalled && sys.systemStatus === "broken";
+      } else {
+        if (s === "已订阅") hitS = tenantEnabled;
+        else if (s === "未订阅") hitS = !tenantEnabled;
+      }
     }
     return hitQ && hitC && hitS;
   });
@@ -333,6 +367,36 @@ async function onInstalled(payload?: {
     // 6) 清空选中项（下次打开是“通用安装”还是从卡片打开都不受影响）
     selectedPlugin.value = undefined;
   }
+}
+
+async function toggleTenant(p: MarketplacePlugin) {
+  const item = all.value.find((row) => row.id === p.id);
+  if (!item) return;
+  const tenant = (item as any).__tenant || ((item as any).__tenant = {});
+  const enabled = !!tenant.enabled;
+  const { useAdminPluginsService } = await import(
+    "~/composables/api/services/adminPluginsService"
+  );
+  const svc = useAdminPluginsService();
+
+  if (enabled) {
+    const { useConfirm } = await import("~/composables/useConfirm");
+    const { confirm } = useConfirm();
+    const ok = await confirm({
+      title: "停用本租户插件",
+      description: "仅影响当前租户访问，不会停止平台插件进程。",
+      message: `停用 ${item.name} 在本租户？`,
+      confirmLabel: "停用",
+      tone: "warning",
+    });
+    if (!ok) return;
+  }
+
+  await svc.setTenantEnabled(item.id, !enabled);
+  tenant.enabled = !enabled;
+  tenant.status = !enabled ? "enabled" : "disabled";
+  menuRefreshToken.value += 1;
+  await fetchMarketplace();
 }
 
 // 移除临时回调方案

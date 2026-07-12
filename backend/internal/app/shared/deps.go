@@ -31,6 +31,7 @@ import (
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	devhotloadservice "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload"
 	devhotloadinstrumentation "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/instrumentation"
 	devhotloadstore "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
@@ -64,6 +65,7 @@ import (
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	notificationssvc "github.com/ArtisanCloud/PowerX/internal/service/notifications"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
@@ -156,6 +158,7 @@ type Deps struct {
 	EventBus                          event_bus.EventBus
 	CapabilityRegistrySvc             *capabilityRegistry.Service
 	CapabilityCatalogSvc              *capabilitycatalog.RegistryService
+	CapabilityRegistrySyncWorker      *capabilitycatalog.SyncWorker
 	CapabilityRegistryAudit           *capabilitycatalog.AuditService
 	CapabilityRegistryAlerts          capabilitycatalog.CapabilityAlerting
 	CapabilityInvocationSvc           *capabilitycatalog.InvocationService
@@ -383,6 +386,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
 	var capabilitySelector *capabilitycatalog.Selector
+	var capabilitySyncWorker *capabilitycatalog.SyncWorker
 	var workflowCatalog *capabilitycatalog.WorkflowCatalog
 	var workflowTemplateSvc *capabilitycatalog.WorkflowTemplateService
 	var workflowStepAdapter *workflowengine.CapabilityStepAdapter
@@ -478,6 +482,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			HTTPBaseURL:       httpBaseURL,
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
+			CoreInvoker:       customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {
@@ -530,6 +535,15 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Redis:        redisClient,
 			Clock:        time.Now,
 			Telemetry:    workflowTelemetry,
+		})
+		capabilitySyncWorker = capabilitycatalog.NewSyncWorker(capabilitycatalog.SyncWorkerConfig{
+			DB:              db,
+			Redis:           redisClient,
+			EventBus:        bus,
+			Logger:          pxlog.GetGlobalLogger(),
+			Audit:           capAuditSvc,
+			Alerting:        capAlerting,
+			WorkflowCatalog: workflowCatalog,
 		})
 
 		workflowTemplateSvc = capabilitycatalog.NewWorkflowTemplateService(capabilitycatalog.WorkflowTemplateServiceOptions{
@@ -730,6 +744,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		EventBus:                          bus,
 		CapabilityRegistrySvc:             capRegistrySvc,
 		CapabilityCatalogSvc:              capabilityCatalogSvc,
+		CapabilityRegistrySyncWorker:      capabilitySyncWorker,
 		CapabilityRegistryAudit:           capAuditSvc,
 		CapabilityRegistryAlerts:          capAlerting,
 		CapabilityInvocationSvc:           capabilityInvocationSvc,
@@ -1118,13 +1133,15 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 	}
 
 	if directorySvc != nil && aclSvc != nil {
+		pluginUsageGuard := pluginservice.NewPluginDrainJobService(db)
 		seedSvc = manifestService.NewSeedService(manifestService.SeedServiceOptions{
-			Directory: directorySvc,
-			ACL:       aclSvc,
-			Audit:     auditSvcEF,
-			Logger:    pxlog.GetGlobalLogger(),
-			Clock:     time.Now,
-			Bindings:  bindingStore,
+			Directory:        directorySvc,
+			ACL:              aclSvc,
+			Audit:            auditSvcEF,
+			Logger:           pxlog.GetGlobalLogger(),
+			Clock:            time.Now,
+			Bindings:         bindingStore,
+			PluginUsageGuard: pluginUsageGuard.EnsurePluginAcceptsNewUsage,
 		})
 	}
 
@@ -1141,6 +1158,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			Audit:                        auditSvcEF,
 			Metrics:                      metricsRecorder,
 			EnableDatabaseFallbackLookup: retryWorkerFallbackEnabled,
+			PluginUsageGuard:             pluginservice.NewPluginDrainJobService(db).EnsurePluginAcceptsNewUsage,
 		})
 		if err != nil {
 			pxlog.WarnF(pxlog.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "init delivery service failed: %v", err)

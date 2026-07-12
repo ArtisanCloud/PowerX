@@ -38,6 +38,15 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 		}
 
 		tenantUUID := reqctx.GetTenantUUID(c.Request.Context())
+		meta := map[string]any{
+			"status":     status,
+			"latency_ms": time.Since(start).Milliseconds(),
+		}
+		if supportID := reqctx.GetSupportSessionID(c.Request.Context()); supportID > 0 {
+			meta["support_session_id"] = supportID
+			meta["support_session_target_tenant_uuid"] = reqctx.GetSupportSessionTargetTenantUUID(c.Request.Context())
+			meta["support_session_mode"] = reqctx.GetSupportSessionMode(c.Request.Context())
+		}
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
 			TenantUUID:    tenantUUID,
@@ -50,10 +59,7 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ClientIP:      ipPtr,
 			ClientUA:      c.Request.UserAgent(),
 			CorrelationID: CorrelationIDFromContext(c.Request.Context()), // ★ 回填
-			Meta: mustJSON(map[string]any{
-				"status":     status,
-				"latency_ms": time.Since(start).Milliseconds(),
-			}),
+			Meta:          mustJSON(meta),
 		})
 	}
 }

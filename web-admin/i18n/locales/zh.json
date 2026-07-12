@@ -1,9 +1,14 @@
 {
   "menu": {
     "openMarket": "开放市场",
+    "plugins": "插件",
     "openCapabilities": "开放能力",
     "eventFabric": "异步任务",
     "pluginMarketplace": "插件市场",
+    "pluginManagement": "插件管理",
+    "pluginSubscriptions": "插件订阅",
+    "pluginSubscriptionsAvailable": "可订阅插件",
+    "pluginSubscriptionsMine": "我的订阅",
     "pluginReleaseCandidates": "发布候选",
     "agent": "智能体",
     "aiSettings": "AI 设置",
@@ -40,16 +45,45 @@
     "untitled": "未命名菜单",
     "section": {
       "untitled": "未命名分类"
-    }
+    },
+    "aiSettingsAgentAccess": "智能体授权"
   },
   "auth": {
     "backToHome": "返回首页",
     "welcomeBack": "欢迎回来",
     "loginSubtitle": "请登录以继续。",
+    "createAccount": "创建账号",
+    "registerSubtitle": "创建租户并开通管理员账号",
+    "email": "邮箱",
+    "username": "用户名",
     "identifier": "邮箱或手机号",
     "password": "密码",
+    "confirmPassword": "确认密码",
     "remember": "记住我",
+    "creatingAccount": "正在创建账号…",
+    "hasAccount": "已有账号？",
     "signUpNow": "立即注册",
+    "signInNow": "立即登录",
+    "required": "此项必填",
+    "registerFailed": "注册失败，请稍后重试。",
+    "registerSuccess": "注册成功。",
+    "redirectingToLogin": "正在跳转到登录页…",
+    "invalidEmail": "请输入有效邮箱地址",
+    "passwordTooShort": "密码至少需要 6 个字符",
+    "passwordMismatch": "两次输入的密码不一致",
+    "mustAgreeTerms": "请先同意服务条款和隐私政策",
+    "agreeTerms": "我已阅读并同意",
+    "and": "和",
+    "termsInfo": "注册即表示你同意服务条款和隐私政策。",
+    "passwordStrength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "强"
+    },
+    "register": {
+      "username": "用户名",
+      "confirmPassword": "确认密码"
+    },
     "login": {
       "noAccount": "还没有账号？",
       "forgotPassword": "忘记密码？"
@@ -74,7 +108,8 @@
     "reload": "重新加载",
     "reset": "重置",
     "scrollToBottom": "回到底部",
-    "newMessages": "{count} 条新消息"
+    "newMessages": "{count} 条新消息",
+    "unknown": "未知"
   },
   "organization": {
     "description": "管理组织、成员与权限。",
@@ -266,6 +301,9 @@
       "sections": {
         "general": "通用",
         "parameters": "参数"
+      },
+      "errors": {
+        "ollamaModelNotFound": "Ollama 模型不存在：{model}。请先执行 ollama pull {model}，或在模型下拉选择本机已安装的模型。"
       },
       "actions": {
         "openCostGuard": "进入成本防护",
@@ -619,6 +657,7 @@
     }
   },
   "privacyPolicy": "隐私政策",
+  "termsOfService": "服务条款",
   "header": {
     "searchPlaceholder": "搜索…",
     "profile": "个人中心",
@@ -1076,6 +1115,175 @@
     "list": {
       "loadFailed": "加载智能体列表失败"
     },
+    "management": {
+      "title": "智能体管理",
+      "description": "统一管理单智能体，支持快速进入智能会话或创建团队。",
+      "enterChat": "进入智能会话",
+      "create": "新建智能体",
+      "emptyDescription": "暂无描述",
+      "defaultInitial": "智",
+      "status": {
+        "draft": "草稿",
+        "active": "启用",
+        "disabled": "停用"
+      },
+      "sources": {
+        "core": "底座创建",
+        "plugin": "插件托管"
+      },
+      "filters": {
+        "searchPlaceholder": "搜索智能体名称、Key 或插件",
+        "allSources": "全部来源",
+        "allStatuses": "全部状态"
+      },
+      "quickCreate": {
+        "name": "新智能体-{suffix}",
+        "description": "请在智能体管理中完善配置",
+        "success": "创建成功",
+        "successDescription": "已创建默认智能体",
+        "failed": "创建失败"
+      },
+      "edit": {
+        "title": "编辑智能体",
+        "description": "维护基础信息、生成策略与资源绑定",
+        "basicInfo": "基础信息",
+        "name": "智能体名称",
+        "namePlaceholder": "请输入智能体名称",
+        "typeId": "类型标识（Type ID）",
+        "typeIdPlaceholder": "如 brand.story.v1",
+        "scene": "场景（Scene）",
+        "scenePlaceholder": "如 brand_story",
+        "status": "状态",
+        "publicDescription": "对外简介（可选）",
+        "publicDescriptionHelp": "用于列表展示的简短说明，建议 30~80 字",
+        "publicDescriptionPlaceholder": "例如：用于短视频口播脚本生成与投流建议",
+        "systemKey": "系统 Key（只读）",
+        "generationPolicy": "生成策略",
+        "promptSeed": "系统提示词（主指令）",
+        "promptSeedHelp": "必填主策略：任务目标、输出格式、约束边界都写在这里",
+        "promptSeedPlaceholder": "请输入主指令（建议包含目标、结构、边界、禁止项）",
+        "persona": "角色设定（高级可选）",
+        "personaHelp": "仅在你需要补充固定人设时填写；会在主指令之外作为补充上下文",
+        "personaPlaceholder": "可选：如未填写则仅使用系统提示词",
+        "resourceBinding": "资源绑定",
+        "skillIds": "技能 IDs",
+        "commaSeparated": "使用英文逗号分隔",
+        "skillIdsPlaceholder": "如 skill.a,skill.b",
+        "knowledgeBaseIds": "知识库 IDs",
+        "uuidCommaSeparated": "使用英文逗号分隔（UUID）",
+        "knowledgeBaseIdsPlaceholder": "如 uuid1,uuid2",
+        "nameRequired": "名称不能为空",
+        "updated": "更新成功",
+        "updateFailed": "更新失败"
+      },
+      "grants": {
+        "title": "工具与权限",
+        "description": "配置该智能体最多可使用的插件能力；实际执行时仍会与当前用户 IAM 权限取交集。",
+        "loading": "正在加载能力授权...",
+        "empty": "当前暂无已同步且带 permission_code 的可授权能力。请检查插件 capability 声明或重新同步能力目录。",
+        "available": "可授权",
+        "unavailable": "不可授权",
+        "ownerPlugin": "所属插件",
+        "noDescription": "插件未提供能力描述",
+        "searchPlaceholder": "搜索能力、权限码或插件",
+        "filteredEmpty": "没有符合当前筛选条件的能力。",
+        "relatedEmpty": "该智能体当前没有匹配所属插件的可授权能力，可切换到全部能力查看跨插件授权。",
+        "tabs": {
+          "own": "自身插件（{count}）",
+          "core": "底座能力（{count}）",
+          "other": "其他插件（{count}）"
+        },
+        "hints": {
+          "ownEmpty": "该智能体所属插件 {pluginId} 当前没有已同步且可授权的能力。",
+          "noOwnerPlugin": "该智能体没有所属插件，请查看底座能力或其他插件能力。",
+          "coreEmpty": "当前没有已同步且可授权的底座能力。",
+          "otherEmpty": "当前没有其他插件的可授权能力。",
+          "selectModuleFirst": "请先选择底座模块，再查看该模块下的能力。",
+          "selectPluginFirst": "请先选择插件，再选择要追加授权的能力。"
+        },
+        "filters": {
+          "related": "相关能力",
+          "all": "全部能力",
+          "selectPlugin": "选择插件",
+          "selectModule": "选择模块",
+          "anyAvailability": "全部状态",
+          "available": "可授权",
+          "unavailable": "不可授权",
+          "anySelection": "全部",
+          "selected": "已选",
+          "unselected": "未选"
+        },
+        "meta": {
+          "permissionCode": "权限码：",
+          "capabilityId": "能力 ID：",
+          "pluginId": "插件 ID："
+        },
+        "loadFailed": "加载智能体授权失败",
+        "saved": "权限配置已保存",
+        "saveFailed": "保存权限配置失败"
+      },
+      "actions": {
+        "chat": "智能会话",
+        "team": "创建团队",
+        "permissions": "配置权限",
+        "edit": "编辑"
+      },
+      "pagination": {
+        "total": "共 {total} 个智能体"
+      },
+      "catalog": {
+        "powerxplugin_template_agent": {
+          "title": "模板智能体",
+          "description": "面向插件开发者和管理员的 PowerXPlugin 基础模板对象管理智能体，负责解释并执行模板对象的创建、查询、更新、删除和列表等任务。"
+        },
+        "powerxplugin_template_agent_local": {
+          "title": "模板智能体",
+          "description": "面向插件开发者和管理员的 PowerXPlugin 基础模板对象管理智能体，负责解释并执行模板对象的创建、查询、更新、删除和列表等任务。"
+        },
+        "courtmate_basketball_growth_agent_local": {
+          "title": "篮球成长知识智能体",
+          "description": "Court Mate 固有智能体，负责把可信篮球训练来源转化为可审核、可追溯的篮球训练知识库候选。"
+        },
+        "product_launch_v1_00000000_0000_0000_0000_00000_1f5333aa0a0ed6c7": {
+          "title": "智能视频重构大师",
+          "description": "规划并重构产品发布视频脚本和制作流程。"
+        },
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "营销大师",
+          "description": "生成短视频营销脚本和投放传播文案。"
+        }
+      },
+      "accessGrants": "使用授权"
+    },
+    "effectivePermissions": {
+      "title": "生效权限",
+      "description": "当前会话实际可用权限由用户 IAM 权限、Agent 授权、租户能力启用状态和策略结果取交集得出。",
+      "summary": "{allowed}/{total}",
+      "refresh": "刷新生效权限",
+      "empty": "当前 Agent 没有可展示的生效权限。",
+      "loadFailed": "加载生效权限失败",
+      "columns": {
+        "user": "用户权限",
+        "agent": "Agent 授权",
+        "tenant": "租户启用",
+        "policy": "策略允许",
+        "reason": "拒绝原因"
+      },
+      "status": {
+        "allowed": "允许",
+        "denied": "拒绝"
+      },
+      "reason": {
+        "none": "无",
+        "agent_grant_missing": "Agent 未授予该能力",
+        "user_permission_missing": "当前用户缺少 IAM 权限",
+        "tenant_capability_disabled": "租户未启用该能力",
+        "capability_policy_denied": "能力策略拒绝",
+        "policy_denied": "策略拒绝",
+        "permission_code_invalid": "能力权限码无效",
+        "permission_code_missing": "能力缺少结构化权限码"
+      }
+    },
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",
@@ -1202,6 +1410,128 @@
         "loadMessagesFailed": "加载会话消息失败",
         "loadMoreMessagesFailed": "加载更多消息失败"
       }
+    },
+    "accessGrants": {
+      "title": "智能体使用授权",
+      "description": "配置成员或角色是否可以使用指定智能体，并预览成员最终生效权限。",
+      "backToAgents": "返回智能体管理",
+      "unnamedAgent": "未命名智能体",
+      "unnamedMember": "未命名成员",
+      "unnamedRole": "未命名角色",
+      "loading": "正在加载授权关系...",
+      "emptyAgent": "请先选择智能体。",
+      "emptyFiltered": "没有符合当前筛选条件的对象。",
+      "memberGrantHint": "打开开关表示该成员可以使用当前智能体；最终能调用哪些能力，还要继续与成员 IAM、智能体能力授权、租户能力和策略做交集。",
+      "roleGrantHint": "打开开关表示该角色下的成员可以使用当前智能体；右侧生效权限需要选择具体成员才能计算。",
+      "fields": {
+        "agent": "智能体",
+        "search": "筛选对象"
+      },
+      "placeholders": {
+        "agent": "选择智能体",
+        "search": "搜索成员、角色或说明",
+        "agentSearch": "搜索智能体名称、Key 或插件"
+      },
+      "tabs": {
+        "members": "成员授权",
+        "roles": "角色授权"
+      },
+      "actions": {
+        "toggle": "切换使用授权",
+        "preview": "查看生效权限"
+      },
+      "summary": {
+        "enabled": "已授权"
+      },
+      "status": {
+        "allowed": "允许",
+        "denied": "拒绝"
+      },
+      "preview": {
+        "title": "生效权限预览",
+        "description": "预览选中成员使用该智能体时，成员 IAM、智能体使用授权、智能体能力授权、租户能力启用和策略结果的最终交集。",
+        "formulaTitle": "最终权限计算",
+        "formulaDescription": "只有下面条件全部允许时，该能力才会成为最终可用能力。",
+        "interpretation": "当前系统共有 {total} 个可评估能力。该成员通过当前智能体最终允许 {allowed} 个，拒绝 {denied} 个；拒绝表示该成员或该智能体不具备调用这些能力的完整条件，不代表业务流程一定需要全部能力。",
+        "searchPlaceholder": "搜索能力名称、ID、权限码、插件或拒绝原因",
+        "pageSize": "每页数量",
+        "pageSummary": "当前显示 {shown} 条，共 {total} 条",
+        "formula": {
+          "user": "成员 IAM",
+          "useGrant": "使用授权",
+          "agent": "智能体能力",
+          "tenant": "租户能力",
+          "policy": "策略",
+          "and": "且"
+        },
+        "loading": "正在加载生效权限...",
+        "empty": "请选择一个成员后查看生效权限。",
+        "emptyItems": "当前没有可计算的能力权限。请确认该智能体已经配置能力授权，且能力目录已同步。",
+        "emptyItemsTitle": "暂无可计算能力",
+        "emptyAllowedTitle": "当前没有最终允许的能力",
+        "emptyAllowedDescription": "使用授权已经打开，但最终权限还会继续受成员 IAM、智能体能力授权、租户能力和策略限制。请切换到拒绝明细查看原因。",
+        "emptyDeniedTitle": "没有拒绝明细",
+        "emptyDeniedDescription": "当前筛选下没有被拒绝的能力。",
+        "selectMemberTitle": "选择成员查看最终权限",
+        "selectMemberDescription": "先在左侧成员列表中选择一个成员，系统会计算该成员使用当前智能体时真正允许的能力。",
+        "roleSelectedTitle": "角色不能直接预览最终权限",
+        "roleSelectedDescription": "角色授权只决定一组成员是否能使用智能体；最终权限仍要按具体成员的 IAM 权限计算。",
+        "denySummaryTitle": "拒绝原因统计",
+        "accessDenied": "该成员当前未被授权使用此智能体。",
+        "subject": "当前预览对象",
+        "granted": "已授权使用",
+        "notGranted": "未授权使用",
+        "rolePreviewUnavailable": "角色授权只控制角色是否可使用该智能体；最终生效权限需要选择具体成员预览。",
+        "total": "能力总数",
+        "allowed": "最终允许",
+        "denied": "最终拒绝",
+        "columns": {
+          "user": "IAM",
+          "agent": "智能体",
+          "tenant": "租户",
+          "policy": "策略"
+        },
+        "filters": {
+          "allowed": "可用能力",
+          "denied": "拒绝明细",
+          "all": "全部"
+        },
+        "pagination": {
+          "first": "第一页",
+          "previous": "上一页",
+          "next": "下一页",
+          "last": "最后一页"
+        },
+        "actions": {
+          "viewDeniedDetails": "查看拒绝明细"
+        }
+      },
+      "reasons": {
+        "none": "无",
+        "agent_access_grant_missing": "成员或其角色未被授权使用该智能体",
+        "agent_grant_missing": "智能体未授予该能力",
+        "user_permission_missing": "成员缺少 IAM 权限",
+        "tenant_capability_disabled": "租户未启用该能力",
+        "capability_policy_denied": "能力策略拒绝",
+        "policy_denied": "策略拒绝",
+        "permission_code_invalid": "能力权限码无效",
+        "permission_code_missing": "能力缺少结构化权限码"
+      },
+      "errors": {
+        "loadFailed": "加载授权关系失败",
+        "saveFailed": "保存授权关系失败",
+        "previewFailed": "加载生效权限失败"
+      },
+      "sections": {
+        "agents": "智能体",
+        "subjects": "授权对象"
+      },
+      "emptyAgents": "暂无可配置的智能体。",
+      "emptyAgentsDescription": "请先在智能体管理中创建或同步智能体，然后再配置成员和角色的使用授权。",
+      "currentAgent": "当前智能体",
+      "selectAgentTitle": "先选择一个智能体",
+      "typeToSearchAgent": "输入智能体名称、Key 或插件 ID 后选择智能体。不会默认展开全部智能体。",
+      "moreAgentResults": "还有 {count} 个匹配结果，请继续输入关键词缩小范围。"
     }
   },
   "pluginRelease": {
@@ -1222,5 +1552,87 @@
     "editTitle": "更新发布候选",
     "buildArtifact": "构建产物 URI",
     "labelsHelp": "JSON 对象，例如 channel=dev"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "已选目录",
+      "drain": {
+        "noticeCreated": "已发起 drain，并已阻断新增使用入口。可以稍后重试安装，或查看 drain 进度。",
+        "noticeRequired": "当前插件仍有租户实例在使用。可以现在发起 drain，系统会阻断新增使用并等待存量实例退出。",
+        "title": "需要先完成 drain",
+        "action": "发起 drain",
+        "viewProgress": "查看 drain 进度",
+        "viewDetail": "查看详情"
+      },
+      "toast": {
+        "drainCreatedTitle": "已发起 drain",
+        "drainCreatedDesc": "已阻断新增使用入口，请在插件详情页等待 drain 完成。",
+        "drainCreateFailedTitle": "发起 drain 失败",
+        "drainCreateFailedDesc": "请进入插件详情页查看 drain 状态。",
+        "invalidDirectoryTitle": "目录无效",
+        "invalidDirectoryDesc": "目录内需包含 plugin.yaml 或 *.tar.gz/.tgz",
+        "urlRequired": "请填写插件的远程 URL 地址。",
+        "localDirectoryRequired": "请选择插件目录。",
+        "successTitle": "成功",
+        "successDesc": "插件安装成功。",
+        "noticeTitle": "提示",
+        "sourceMissingDesc": "未填写 URL 或未选择本地目录，未发起安装请求。",
+        "alreadyInstalledTitle": "已安装同版本",
+        "alreadyInstalledDesc": "该版本已存在。可勾选“强制覆盖同版本 (Force)”后重试，或先卸载旧版本。",
+        "drainRequiredTitle": "需要先完成 drain",
+        "drainRequiredDesc": "当前插件仍有租户实例在使用。请进入插件详情发起并完成 drain。",
+        "platformIncompatibleTitle": "安装包平台不兼容",
+        "platformIncompatibleTargets": "安装包平台是 {packageTarget}，当前 PowerX 宿主是 {hostTarget}。请重新选择当前宿主平台对应的插件产物后安装。",
+        "platformIncompatiblePath": "安装包中的 {path} 与当前 PowerX 宿主系统不兼容。请重新选择当前宿主平台对应的插件产物后安装。",
+        "platformIncompatibleDesc": "当前安装包与 PowerX 宿主系统架构不兼容。请重新选择当前宿主平台对应的插件产物后安装。",
+        "installFailedTitle": "安装失败",
+        "installFailedDesc": "插件安装过程中发生错误，请重试。"
+      },
+      "title": "安装插件",
+      "subtitle": "选择安装来源：远程 URL 或本地上传",
+      "headerTitle": "安装插件",
+      "headerTitleWithName": "安装插件：{name}",
+      "meta": "版本：{version} · 作者：{author}",
+      "installMethod": "安装方式",
+      "enableAfterInstall": "安装后立即启用",
+      "packageSource": "安装包来源（支持 px-plugin build 产物）",
+      "sha256Placeholder": "可选：期望的 SHA256 校验值",
+      "chooseLocalSource": "选择本地来源",
+      "selectedDirectory": "已选择目录：{name}（{count} 个文件）",
+      "localUploadHelpPrefix": "本地上传：请选择插件目录。目录内包含",
+      "localUploadHelpMiddle": "或",
+      "localUploadHelpSuffix": "即可安装。",
+      "scope": {
+        "label": "安装范围",
+        "system": "系统级",
+        "org": "组织级",
+        "user": "用户级"
+      },
+      "namespace": {
+        "label": "命名空间（可选）",
+        "placeholder": "如: company.crm"
+      },
+      "environment": "目标环境",
+      "autoUpdate": "自动更新",
+      "forceInstall": "强制覆盖同版本（Force）",
+      "permissions": {
+        "title": "申请权限",
+        "network": "网络访问（调用外部 API）",
+        "storage": "本地存储（读写插件数据）",
+        "files": "文件访问（读取/上传文件）"
+      },
+      "notes": {
+        "label": "备注（可选）",
+        "placeholder": "为本次安装记录备注…"
+      },
+      "actions": {
+        "cancel": "取消",
+        "install": "安装"
+      },
+      "mode": {
+        "url": "远程 URL",
+        "local": "本地上传"
+      }
+    }
   }
 }

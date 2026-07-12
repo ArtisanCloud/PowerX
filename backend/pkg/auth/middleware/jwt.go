@@ -76,6 +76,7 @@ func JwtMiddleware(
 		}
 
 		reqCtx := reqctx.WithRequestPath(c.Request.Context(), c.Request.URL.Path)
+		reqCtx = reqctx.WithRequestMethod(reqCtx, c.Request.Method)
 
 		// A. 解析 + 标准校验（Issuer / Audience / exp / nbf / iat / 签名）
 		// 注意：ParseAndValidate 需返回 *reqctx.CoreXClaims（见 pkg/auth/jwt.go）

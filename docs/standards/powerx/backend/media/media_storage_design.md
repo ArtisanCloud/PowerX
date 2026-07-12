@@ -23,7 +23,7 @@ HTTP (Admin REST)
 - **MediaService**
   - 负责业务编排：建档、签名、状态流转（`draft→active`）、审计、多租户校验。
 - **MediaRepository**
-  - 维护 `MediaAsset` 表（详情见 §5），含软删、索引与审计字段。
+  - 维护 `MediaAsset` 与 `MediaAssetVariant` 表（详情见 §5），含软删、索引与审计字段。
 - **MediaManager**
   - 选择驱动、标准化输入输出、统一错误与指标上报（latency、QPS、error）。
 - **StorageDriver（接口）**
@@ -145,6 +145,18 @@ type GenerateURLOutput struct {
 
 ## 5. 数据模型与索引（PostgreSQL）
 
+PowerX Media 的资源边界是：**一个 `MediaAsset` 表示一个逻辑资源**。原图、预览图、缩略图等物理对象必须作为同一 asset 的 variant 管理，不允许为 preview/thumbnail 再创建独立 `MediaAsset`。
+
+- `origin`：主资源，存储在 `media_assets.storage_key`。
+- `preview` / `thumbnail`：派生资源，存储在 `media_asset_variants.storage_key`。
+
+**展示规则**
+
+- Web Admin、外部插件、公开嵌入页面等所有 inline 预览都必须读取 `preview` 或 `thumbnail` variant。
+- `origin` 只用于原图下载或后端原始文件处理，不允许作为页面预览 fallback。
+- 缺少 `preview`/`thumbnail` 时，调用方必须明确显示预览未就绪或触发补偿任务；不得改读 `origin`。
+- 本地/S3 存储键统一为 `{asset_uuid}/origin`、`{asset_uuid}/preview`、`{asset_uuid}/thumbnail`，避免同一个 UUID 同时作为文件和目录。
+
 ```sql
 -- 逻辑示意（非 DDL 最终稿）
 MediaAsset (
@@ -170,6 +182,25 @@ CREATE UNIQUE INDEX ux_asset_tenant_driver_key ON MediaAsset (tenant_id, driver,
 CREATE INDEX ix_asset_tenant_status ON MediaAsset (tenant_id, business_status);
 -- tags 如为 JSONB，建议 GIN 索引：
 -- CREATE INDEX ix_asset_tags_gin ON MediaAsset USING GIN (meta jsonb_path_ops);
+
+MediaAssetVariant (
+  id              bigserial PK,
+  uuid            uuid UNIQUE,
+  tenant_uuid     uuid NOT NULL,
+  asset_uuid      uuid NOT NULL,
+  variant         text NOT NULL, -- origin | preview | thumbnail
+  driver          text NOT NULL,
+  storage_key     text NOT NULL,
+  name            text,
+  mime_type       text,
+  size_bytes      bigint,
+  meta            jsonb,
+  created_at      timestamptz NOT NULL,
+  updated_at      timestamptz NOT NULL
+);
+
+CREATE UNIQUE INDEX ux_asset_variant ON MediaAssetVariant (tenant_uuid, asset_uuid, variant);
+CREATE UNIQUE INDEX ux_asset_variant_driver_key ON MediaAssetVariant (driver, storage_key);
 ```
 
 **约束**
@@ -190,8 +221,22 @@ CREATE INDEX ix_asset_tenant_status ON MediaAsset (tenant_id, business_status);
 
 **Download**
 
-1. `POST /admin/media/assets/{uuid}/presign`（`action=download`）→ 返回 `{method=GET,url}`
-2. 客户端 **GET** 该 `url`
+1. 原图下载：`POST /admin/media/assets/{uuid}/presign`（`action=download`）→ 返回 `{method=GET,url}`
+2. 客户端 **GET** 该 `url`，或使用 `GET /api/v1/media/assets/{uuid}/resource?disposition=attachment`
+
+**Preview/Render**
+
+1. 列表、网格、选择器等小图场景读取 `GET /api/v1/media/assets/{uuid}/variants/thumbnail/resource?disposition=inline`。
+2. 详情页、插件内嵌预览、富文本/邮件/商品图预览读取 `GET /api/v1/media/assets/{uuid}/variants/preview/resource?disposition=inline`。
+3. `GET /api/v1/media/assets/{uuid}/resource?disposition=inline` 不作为 UI 预览接口；实现层和客户端都不得把它当 preview fallback。
+
+**Variant Upload**
+
+1. 已有 origin asset：`POST /api/v1/media/assets/{uuid}`。
+2. 创建版本：`POST /api/v1/media/assets/{uuid}/variants/{variant}`，`variant` 仅允许 `preview` 或 `thumbnail` 等平台声明值。
+3. 生成版本上传链接：`POST /api/v1/media/assets/{uuid}/variants/{variant}/presign`，`action=upload`。
+4. 客户端按返回 URL/Headers 上传；本地驱动 PUT 路径为 `/api/v1/media/assets/{uuid}/variants/{variant}`。
+5. 读取版本：`GET /api/v1/media/assets/{uuid}/variants/{variant}/resource`。页面渲染只能读取 `preview`/`thumbnail`，不能读取 `origin`。
 
 **Multipart**（可选）
 

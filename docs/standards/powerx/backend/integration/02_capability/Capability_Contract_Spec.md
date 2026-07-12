@@ -44,13 +44,22 @@ capabilities:
     description: 创建新的销售线索
     io_schema_ref: ./schemas/crm_lead_create.yaml
     security:
-      scope: crm.lead.write
+      permission_code: crm.lead:create
+      default_role_grants:
+        - role_user
       data_domain: crm
       classification: confidential
+    agent:
+      usable: true
+      risk_level: high
 ```
 
 PowerX 启动插件后，通过 PluginManager 上报并写入 Registry，
 后续的 Transport 层与 Router 会根据运行态信息自动生成端点。
+
+`security.permission_code` 是 capability 接入 IAM 与 Agent 授权的唯一结构化权限字段，格式为 `module.resource:action`。Registry 不得从 `id`、`display_name`、`description`、自由文本 `scope` 或历史字段中推断权限码。
+
+`default_role_grants` 用于声明插件 capability 同步到租户 IAM 后，除默认 owner/admin 外还要授予哪些租户默认角色。PowerX Core 同步插件 capability 时必须注册 `permission_code` 对应 IAM permission，并自动授予当前租户的 `role_owner`、`role_admin`；`role_user`、`role_readonly`、`role_vendor` 必须由 capability descriptor 显式声明后才会授权。允许写在顶层、`security` 或 `rbac` 下，非法 role code 必须导致同步失败，不得静默忽略。
 
 ---
 
@@ -190,18 +199,42 @@ func ResolveCapability(provider Provider, cap Capability) []Endpoint {
 ```yaml
 security:
   auth_mode: delegated      # delegated | token | mtls | none
-  scope: crm.lead.write
+  permission_code: crm.lead:create
+  default_role_grants:
+    - role_user
   data_domain: crm
   classification: confidential
   masking:
     - field: input.phone
       type: partial
+agent:
+  usable: true
+  risk_level: high
 ```
 
 * `auth_mode`: 调用时采用的认证方式。
-* `scope`: IAM/RBAC 权限域。
+* `permission_code`: IAM/RBAC 权限码，必须为 `module.resource:action`。
+* `default_role_grants`: capability 同步到租户 IAM 后额外授予的默认角色列表。`role_owner` 与 `role_admin` 由 Core 自动授予；普通成员需要显式声明 `role_user`。
+* `agent.usable`: 是否允许 Agent grant 授权该能力。
+* `agent.risk_level`: 能力风险等级，用于管理端提示和审批策略。
 * `masking`: 审计输出脱敏规则。
 * Registry 与 Orchestrator 会在运行时注入租户与用户上下文。
+
+### Agent 授权索引字段
+
+Registry 写入 `capability_records` 时必须保留：
+
+| 字段 | 来源 | 用途 |
+| --- | --- | --- |
+| `uuid` | Registry 生成 | capability 业务对象 UUID，供 grant 外键引用 |
+| `capability_id` | manifest | 调用路由稳定 ID |
+| `plugin_id` / `plugin_uuid` | 插件注册 | 插件归属与审计 |
+| `annotations.permission_code` 或 `annotations.permission_codes` | manifest | Agent 与 IAM 交集判断 |
+| `annotations.default_role_grants` | manifest | 插件 capability 同步 IAM permission 后的额外默认角色授权 |
+| `annotations.agent_usable` | manifest | 是否可授予 Agent |
+| `annotations.risk_level` | manifest | 管理端展示与策略 |
+
+缺少合法 `permission_code` 的记录可以存在于 Registry，但不得出现在 `/api/v1/admin/agents/grantable-capabilities`，也不得通过 Agent 运行时授权。
 
 ### 多租户存储语义
 

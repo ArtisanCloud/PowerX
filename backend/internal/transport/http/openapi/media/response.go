@@ -48,3 +48,29 @@ func assetView(asset *mediasvc.Asset) assetViewResponse {
 		CreatedAt:         asset.CreatedAt,
 	}
 }
+
+func assetVariantView(variant *mediasvc.AssetVariant) assetVariantViewResponse {
+	var sizePtr *int64
+	if variant.SizeBytes > 0 {
+		value := variant.SizeBytes
+		sizePtr = &value
+	}
+	var expiresAt *time.Time
+	if variant.DownloadExpiry != nil {
+		expiresAt = variant.DownloadExpiry
+	}
+	return assetVariantViewResponse{
+		UUID:              variant.UUID,
+		TenantUUID:        variant.TenantUUID,
+		AssetUUID:         variant.AssetUUID,
+		Variant:           variant.Variant,
+		Name:              variant.Name,
+		Driver:            variant.Driver,
+		ObjectKey:         variant.StorageKey,
+		SizeBytes:         sizePtr,
+		MimeType:          variant.MimeType,
+		DownloadURL:       variant.DownloadURL,
+		DownloadExpiredAt: expiresAt,
+		CreatedAt:         variant.CreatedAt,
+	}
+}

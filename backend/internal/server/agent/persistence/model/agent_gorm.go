@@ -2,6 +2,8 @@
 package model
 
 import (
+	"time"
+
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -16,10 +18,14 @@ const (
 	TableAgentSkillBinding     = "agent_skill_bindings"
 	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
 	TableAgentPluginLink       = "agent_plugin_links"
+	TableAgentCapabilityGrant  = "agent_capability_grants"
+	TableAgentAccessGrant      = "agent_access_grants"
 
-	TableAgentChatSession   = "agent_chat_sessions"
-	TableAgentChatMessage   = "agent_chat_messages"
-	TableAgentRuntimeConfig = "agent_runtime_configs"
+	TableAgentChatSession       = "agent_chat_sessions"
+	TableAgentChatMessage       = "agent_chat_messages"
+	TableAgentContextSummary    = "agent_chat_context_summaries"
+	TableAgentSessionSkillState = "agent_session_skill_states"
+	TableAgentRuntimeConfig     = "agent_runtime_configs"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------
@@ -44,6 +50,17 @@ const (
 	InstallStatusInstalled = "installed"
 	InstallStatusDisabled  = "disabled"
 	InstallStatusBroken    = "broken"
+
+	AgentCapabilityGrantStatusEnabled  = "enabled"
+	AgentCapabilityGrantStatusDisabled = "disabled"
+	AgentCapabilityGrantSourceManual   = "manual"
+	AgentCapabilityGrantSourcePlugin   = "plugin_registry"
+
+	AgentAccessGrantSubjectMember  = "member"
+	AgentAccessGrantSubjectRole    = "role"
+	AgentAccessGrantStatusEnabled  = "enabled"
+	AgentAccessGrantStatusDisabled = "disabled"
+	AgentAccessGrantSourceManual   = "manual"
 )
 
 // ---------- 1) Agent 主表 ----------
@@ -229,6 +246,38 @@ func (mdl *AgentKnowledgeBinding) GetTableName(needFull bool) string {
 	return TableAgentKnowledgeBinding
 }
 
+// ---------- 7) Agent Session ↔ Skill 工作状态 ----------
+type AgentSessionSkillState struct {
+	coremodel.PowerModel
+
+	Env        string  `gorm:"size:32;index:agent_skill_state_uniq,unique,priority:1;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_skill_state_uniq,unique,priority:2;index" json:"-"`
+
+	SessionID uint64 `gorm:"column:session_id;index:agent_skill_state_uniq,unique,priority:3;index" json:"sessionId"`
+	AgentID   uint64 `gorm:"column:agent_id;index:agent_skill_state_uniq,unique,priority:4;index" json:"agentId"`
+	SkillID   string `gorm:"column:skill_id;size:128;index:agent_skill_state_uniq,unique,priority:5;index" json:"skillId"`
+	StateKey  string `gorm:"column:state_key;size:128;index:agent_skill_state_uniq,unique,priority:6;index" json:"stateKey"`
+
+	SchemaVersion string            `gorm:"column:schema_version;size:32;default:'1.0'" json:"schemaVersion"`
+	Status        string            `gorm:"column:status;size:32;default:'collecting';index" json:"status"`
+	Action        string            `gorm:"column:action;size:64;index" json:"action,omitempty"`
+	State         datatypes.JSONMap `gorm:"column:state;type:jsonb" json:"state"`
+	Meta          datatypes.JSONMap `gorm:"column:meta;type:jsonb" json:"meta"`
+	LastMessageID uint64            `gorm:"column:last_message_id;index" json:"lastMessageId"`
+	Version       int64             `gorm:"column:version;default:1" json:"version"`
+	ExpiresAt     *time.Time        `gorm:"column:expires_at;index" json:"expiresAt,omitempty"`
+}
+
+func (mdl *AgentSessionSkillState) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentSessionSkillState
+}
+func (mdl *AgentSessionSkillState) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentSessionSkillState
+}
+
 func (mdl *AgentPluginLink) TableName() string {
 	return coremodel.PowerXSchema + "." + TableAgentPluginLink
 }
@@ -237,4 +286,64 @@ func (mdl *AgentPluginLink) GetTableName(needFull bool) string {
 		return mdl.TableName()
 	}
 	return TableAgentPluginLink
+}
+
+// AgentCapabilityGrant records the capabilities an Agent is explicitly allowed to use.
+type AgentCapabilityGrant struct {
+	coremodel.PowerUUIDModel
+
+	Env        string `gorm:"column:env;size:32;not null;index:agent_cap_grant_uniq,unique,priority:1" json:"-"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:agent_cap_grant_uniq,unique,priority:2;index" json:"tenant_uuid"`
+
+	AgentUUID      uuid.UUID  `gorm:"column:agent_uuid;type:uuid;not null;index:agent_cap_grant_uniq,unique,priority:3;index" json:"agent_uuid"`
+	CapabilityUUID uuid.UUID  `gorm:"column:capability_uuid;type:uuid;not null;index:agent_cap_grant_uniq,unique,priority:4;index" json:"capability_uuid"`
+	PluginUUID     *uuid.UUID `gorm:"column:plugin_uuid;type:uuid;index" json:"plugin_uuid,omitempty"`
+
+	CapabilityID   string `gorm:"column:capability_id;type:varchar(128);not null;index" json:"capability_id"`
+	PluginID       string `gorm:"column:plugin_id;type:varchar(128);index" json:"plugin_id,omitempty"`
+	PermissionCode string `gorm:"column:permission_code;type:varchar(255);not null;index:agent_cap_grant_uniq,unique,priority:5;index" json:"permission_code"`
+	RiskLevel      string `gorm:"column:risk_level;type:varchar(32);not null;default:'unknown';index" json:"risk_level"`
+	Status         string `gorm:"column:status;type:varchar(16);not null;default:'enabled';index" json:"status"`
+	Source         string `gorm:"column:source;type:varchar(32);not null;default:'manual';index" json:"source"`
+
+	CreatedByUserUUID string `gorm:"column:created_by_user_uuid;type:char(36);index" json:"created_by_user_uuid,omitempty"`
+	UpdatedByUserUUID string `gorm:"column:updated_by_user_uuid;type:char(36);index" json:"updated_by_user_uuid,omitempty"`
+}
+
+func (mdl *AgentCapabilityGrant) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentCapabilityGrant
+}
+func (mdl *AgentCapabilityGrant) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentCapabilityGrant
+}
+
+// AgentAccessGrant records which IAM subject can use an Agent.
+type AgentAccessGrant struct {
+	coremodel.PowerUUIDModel
+
+	Env        string `gorm:"column:env;size:32;not null;index:agent_access_grant_uniq,unique,priority:1" json:"-"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:agent_access_grant_uniq,unique,priority:2;index" json:"tenant_uuid"`
+
+	AgentUUID   uuid.UUID `gorm:"column:agent_uuid;type:uuid;not null;index:agent_access_grant_uniq,unique,priority:3;index" json:"agent_uuid"`
+	SubjectType string    `gorm:"column:subject_type;type:varchar(16);not null;index:agent_access_grant_uniq,unique,priority:4;index" json:"subject_type"`
+	SubjectUUID string    `gorm:"column:subject_uuid;type:char(36);not null;index:agent_access_grant_uniq,unique,priority:5;index" json:"subject_uuid"`
+
+	Status string `gorm:"column:status;type:varchar(16);not null;default:'enabled';index" json:"status"`
+	Source string `gorm:"column:source;type:varchar(32);not null;default:'manual';index" json:"source"`
+
+	CreatedByUserUUID string `gorm:"column:created_by_user_uuid;type:char(36);index" json:"created_by_user_uuid,omitempty"`
+	UpdatedByUserUUID string `gorm:"column:updated_by_user_uuid;type:char(36);index" json:"updated_by_user_uuid,omitempty"`
+}
+
+func (mdl *AgentAccessGrant) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentAccessGrant
+}
+func (mdl *AgentAccessGrant) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentAccessGrant
 }

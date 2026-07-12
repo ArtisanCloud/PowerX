@@ -44,6 +44,8 @@ server:
       max_concurrent_streams: 0
 
 http_security:
+  web_admin_origins:
+    - "https://admin.powerx.io"
   frame_ancestors:
     - "'self'"
     - "http://localhost:3000"
@@ -62,6 +64,8 @@ feature_gate:
   enable_knowledge_space: true
   enable_media_platform: true
   enable_experimental_features: true
+  enable_saas_signup: false
+  enable_saas_signup_verification_code: false
 
 database:
   driver: postgres
@@ -560,9 +564,9 @@ storage:
   default_driver: local
   ttl_seconds: 43200
   local:
-    base_path: ./storage/media
+    base_path: /opt/powerx/storage/media
     public_base_url: http://localhost:8077/media
-    upload_token_secret: ""  # 建议配置强随机密钥，用于校验 PUT 上传请求
+    upload_token_secret: "change-me-local-upload-token-secret"  # 生产环境必须替换为强随机密钥，用于校验 PUT 上传请求
     max_upload_size_bytes: 104857600
   s3:
     endpoint: http://127.0.0.1:9000

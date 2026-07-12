@@ -5,9 +5,12 @@
   "common": {
     "language": "言語",
     "back": "戻る",
+    "cancel": "キャンセル",
+    "save": "保存",
     "reload": "再読み込み",
     "scrollToBottom": "一番下へ",
-    "newMessages": "新着 {count} 件"
+    "newMessages": "新着 {count} 件",
+    "unknown": "不明"
   },
   "user": {
     "admin": "管理者"
@@ -81,6 +84,7 @@
     "roleManagement": "役割管理",
     "systemConfig": "システム構成",
     "monitorCenter": "監視センター",
+    "pluginSubscriptions": "プラグイン購読",
     "loadFailed": "メニュー読み込み失敗",
     "loadFailedDesc": "メニューデータを読み込めません。ネットワーク接続を確認してください。",
     "itemCount": "メニュー項目数",
@@ -91,6 +95,7 @@
     "aiSettings": "モデル設定",
     "aiSettingsModel": "モデル構成",
     "aiSettingsCost": "コスト設定",
+    "aiSettingsContextOptimizer": "コンテキスト最適化",
     "aiSettingsRegistry": "能力レジストリ",
     "pluginCapabilities": "プラグイン能力",
     "intelligentPlatforms": "インテリジェントプラットフォーム",
@@ -100,9 +105,14 @@
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
     "media": "メディア",
+    "plugins": "プラグイン",
     "pluginMarketplace": "マーケット",
+    "pluginManagement": "プラグイン管理",
+    "pluginSubscriptionsAvailable": "購読可能",
+    "pluginSubscriptionsMine": "購読中",
     "pluginsInstalled": "インストール済み",
-    "pluginsMarket": "マーケット"
+    "pluginsMarket": "マーケット",
+    "aiSettingsAgentAccess": "エージェント認可"
   },
   "knowledgeSpaces": {
     "head": {
@@ -675,6 +685,175 @@
     }
   },
   "agent": {
+    "management": {
+      "title": "エージェント管理",
+      "description": "単体エージェントを管理し、スマートチャットやチーム作成へ素早く移動できます。",
+      "enterChat": "スマートチャットへ",
+      "create": "新規エージェント",
+      "emptyDescription": "説明なし",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "下書き",
+        "active": "有効",
+        "disabled": "無効"
+      },
+      "sources": {
+        "core": "基盤作成",
+        "plugin": "プラグイン管理"
+      },
+      "filters": {
+        "searchPlaceholder": "エージェント名、Key、プラグインを検索",
+        "allSources": "すべての作成元",
+        "allStatuses": "すべての状態"
+      },
+      "quickCreate": {
+        "name": "新規エージェント-{suffix}",
+        "description": "エージェント管理で設定を完了してください",
+        "success": "作成しました",
+        "successDescription": "デフォルトエージェントを作成しました",
+        "failed": "作成に失敗しました"
+      },
+      "edit": {
+        "title": "エージェントを編集",
+        "description": "基本情報、生成ポリシー、リソース関連付けを管理します",
+        "basicInfo": "基本情報",
+        "name": "エージェント名",
+        "namePlaceholder": "エージェント名を入力",
+        "typeId": "タイプ ID",
+        "typeIdPlaceholder": "例: brand.story.v1",
+        "scene": "シーン",
+        "scenePlaceholder": "例: brand_story",
+        "status": "ステータス",
+        "publicDescription": "公開説明（任意）",
+        "publicDescriptionHelp": "一覧に表示する短い説明です。30〜80 文字を推奨します",
+        "publicDescriptionPlaceholder": "例: ショート動画台本と広告提案を生成",
+        "systemKey": "システムキー（読み取り専用）",
+        "generationPolicy": "生成ポリシー",
+        "promptSeed": "システムプロンプト（主指示）",
+        "promptSeedHelp": "必須の主ポリシー: 目標、出力形式、制約境界をここに記述します",
+        "promptSeedPlaceholder": "目標、構造、境界、禁止事項を含む主指示を入力",
+        "persona": "ペルソナ（高度な任意項目）",
+        "personaHelp": "固定ペルソナを補足する場合のみ入力します。主指示とは別の補足コンテキストになります",
+        "personaPlaceholder": "任意: 未入力の場合はシステムプロンプトのみ使用します",
+        "resourceBinding": "リソース関連付け",
+        "skillIds": "スキル ID",
+        "commaSeparated": "英字カンマで区切ります",
+        "skillIdsPlaceholder": "例: skill.a,skill.b",
+        "knowledgeBaseIds": "ナレッジベース ID",
+        "uuidCommaSeparated": "UUID を英字カンマで区切ります",
+        "knowledgeBaseIdsPlaceholder": "例: uuid1,uuid2",
+        "nameRequired": "名前は必須です",
+        "updated": "更新しました",
+        "updateFailed": "更新に失敗しました"
+      },
+      "grants": {
+        "title": "ツールと権限",
+        "description": "このエージェントが使用できるプラグイン能力の上限を設定します。実行時は現在ユーザーの IAM 権限と交差判定されます。",
+        "loading": "能力権限を読み込み中...",
+        "empty": "permission_code を持つ同期済みの付与可能な能力がありません。プラグインの capability 宣言を確認するか、能力カタログを再同期してください。",
+        "available": "利用可能",
+        "unavailable": "利用不可",
+        "ownerPlugin": "所有プラグイン",
+        "noDescription": "プラグインは能力の説明を提供していません。",
+        "searchPlaceholder": "能力、権限コード、プラグインを検索",
+        "filteredEmpty": "現在の絞り込み条件に一致する能力はありません。",
+        "relatedEmpty": "このエージェントの所有プラグインに一致する付与可能な能力はありません。全能力に切り替えるとクロスプラグイン権限を確認できます。",
+        "tabs": {
+          "own": "自身プラグイン（{count}）",
+          "core": "基盤能力（{count}）",
+          "other": "他プラグイン（{count}）"
+        },
+        "hints": {
+          "ownEmpty": "このエージェントの所有プラグイン {pluginId} には、同期済みの付与可能な能力がありません。",
+          "noOwnerPlugin": "このエージェントには所有プラグインがありません。基盤能力または他プラグイン能力を確認してください。",
+          "coreEmpty": "同期済みの付与可能な基盤能力はありません。",
+          "otherEmpty": "他プラグインの付与可能な能力はありません。",
+          "selectModuleFirst": "先に基盤モジュールを選択してから、その能力を確認してください。",
+          "selectPluginFirst": "先にプラグインを選択してから、追加する能力を選択してください。"
+        },
+        "filters": {
+          "related": "関連能力",
+          "all": "全能力",
+          "selectPlugin": "プラグインを選択",
+          "selectModule": "モジュールを選択",
+          "anyAvailability": "すべての状態",
+          "available": "利用可能",
+          "unavailable": "利用不可",
+          "anySelection": "すべて",
+          "selected": "選択済み",
+          "unselected": "未選択"
+        },
+        "meta": {
+          "permissionCode": "権限コード：",
+          "capabilityId": "能力 ID：",
+          "pluginId": "プラグイン ID："
+        },
+        "loadFailed": "エージェント権限の読み込みに失敗しました",
+        "saved": "権限設定を保存しました",
+        "saveFailed": "権限設定の保存に失敗しました"
+      },
+      "actions": {
+        "chat": "スマートチャット",
+        "team": "チームを作成",
+        "permissions": "権限を設定",
+        "edit": "編集"
+      },
+      "pagination": {
+        "total": "エージェント {total} 件"
+      },
+      "catalog": {
+        "powerxplugin_template_agent": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "powerxplugin_template_agent_local": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "courtmate_basketball_growth_agent_local": {
+          "title": "Basketball Growth Knowledge Agent",
+          "description": "Court Mate built-in agent that turns trusted basketball training sources into reviewable and traceable basketball knowledge candidates."
+        },
+        "product_launch_v1_00000000_0000_0000_0000_00000_1f5333aa0a0ed6c7": {
+          "title": "AI Video Refactoring Master",
+          "description": "Plans and restructures product launch video scripts and production workflows."
+        },
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "Marketing Master",
+          "description": "Creates short-form marketing scripts and campaign messaging."
+        }
+      },
+      "accessGrants": "利用認可"
+    },
+    "effectivePermissions": {
+      "title": "有効権限",
+      "description": "現在のセッションで実際に使える権限は、ユーザー IAM 権限、Agent 権限、テナントの能力有効化、ポリシー結果の交差で決まります。",
+      "summary": "{allowed}/{total}",
+      "refresh": "有効権限を更新",
+      "empty": "現在の Agent に表示できる有効権限はありません。",
+      "loadFailed": "有効権限の読み込みに失敗しました",
+      "columns": {
+        "user": "ユーザー権限",
+        "agent": "Agent 権限",
+        "tenant": "テナント有効",
+        "policy": "ポリシー許可",
+        "reason": "拒否理由"
+      },
+      "status": {
+        "allowed": "許可",
+        "denied": "拒否"
+      },
+      "reason": {
+        "none": "なし",
+        "agent_grant_missing": "Agent にこの能力が付与されていません",
+        "user_permission_missing": "現在のユーザーに IAM 権限がありません",
+        "tenant_capability_disabled": "テナントでこの能力が有効化されていません",
+        "capability_policy_denied": "能力ポリシーにより拒否されました",
+        "policy_denied": "ポリシーにより拒否されました",
+        "permission_code_invalid": "能力の権限コードが無効です",
+        "permission_code_missing": "能力に構造化された権限コードがありません"
+      }
+    },
     "selector": {
       "title": "AI エージェント",
       "create": "作成",
@@ -808,7 +987,129 @@
         "json": "JSON"
       }
     },
-    "confirmDelete": "このエージェントを削除してもよろしいですか？この操作は元に戻せません。"
+    "confirmDelete": "このエージェントを削除してもよろしいですか？この操作は元に戻せません。",
+    "accessGrants": {
+      "title": "エージェント利用認可",
+      "description": "メンバーまたはロールが指定エージェントを利用できるかを設定し、メンバーの有効権限をプレビューします。",
+      "backToAgents": "エージェント管理へ戻る",
+      "unnamedAgent": "名称未設定のエージェント",
+      "unnamedMember": "名称未設定のメンバー",
+      "unnamedRole": "名称未設定のロール",
+      "loading": "認可関係を読み込み中...",
+      "emptyAgent": "先にエージェントを選択してください。",
+      "emptyFiltered": "条件に一致する対象はありません。",
+      "memberGrantHint": "オンにすると、このメンバーが選択中のエージェントを利用できます。最終的に呼び出せる能力は、メンバー IAM、エージェント能力認可、テナント能力有効化、ポリシーとの交差で計算されます。",
+      "roleGrantHint": "オンにすると、このロールのメンバーが選択中のエージェントを利用できます。右側の有効権限は具体的なメンバーを選択した場合だけ計算できます。",
+      "fields": {
+        "agent": "エージェント",
+        "search": "対象を絞り込み"
+      },
+      "placeholders": {
+        "agent": "エージェントを選択",
+        "search": "メンバー、ロール、説明を検索",
+        "agentSearch": "エージェント名、Key、プラグインを検索"
+      },
+      "tabs": {
+        "members": "メンバー認可",
+        "roles": "ロール認可"
+      },
+      "actions": {
+        "toggle": "利用認可を切り替え",
+        "preview": "有効権限を表示"
+      },
+      "summary": {
+        "enabled": "認可済み"
+      },
+      "status": {
+        "allowed": "許可",
+        "denied": "拒否"
+      },
+      "preview": {
+        "title": "有効権限プレビュー",
+        "description": "メンバー IAM、エージェント利用認可、エージェント能力認可、テナント能力有効化、ポリシー結果の最終交差を確認します。",
+        "formulaTitle": "最終権限の計算",
+        "formulaDescription": "以下の条件がすべて許可された場合にのみ、その能力は最終的に利用可能になります。",
+        "interpretation": "現在システムには {total} 個の評価可能な能力があります。このメンバーは選択したエージェント経由で最終的に {allowed} 個を利用でき、{denied} 個は拒否されています。拒否は、その能力を呼び出すための条件をメンバーまたはエージェントが満たしていないことを示し、業務フローがすべての能力を必要とするという意味ではありません。",
+        "searchPlaceholder": "能力名、ID、権限コード、プラグイン、拒否理由を検索",
+        "pageSize": "1ページあたり",
+        "pageSummary": "{total} 件中 {shown} 件を表示",
+        "formula": {
+          "user": "メンバー IAM",
+          "useGrant": "利用認可",
+          "agent": "エージェント能力",
+          "tenant": "テナント能力",
+          "policy": "ポリシー",
+          "and": "かつ"
+        },
+        "loading": "有効権限を読み込み中...",
+        "empty": "メンバーを選択して有効権限を表示してください。",
+        "emptyItems": "評価できる能力権限がありません。このエージェントに能力認可があり、能力カタログが同期済みであることを確認してください。",
+        "emptyItemsTitle": "評価できる能力がありません",
+        "emptyAllowedTitle": "最終的に許可された能力はありません",
+        "emptyAllowedDescription": "利用認可は有効ですが、最終権限はメンバー IAM、エージェント能力認可、テナント能力、ポリシーにも制限されます。拒否詳細に切り替えて理由を確認してください。",
+        "emptyDeniedTitle": "拒否詳細はありません",
+        "emptyDeniedDescription": "現在の絞り込みでは拒否された能力はありません。",
+        "selectMemberTitle": "メンバーを選択して最終権限を表示",
+        "selectMemberDescription": "左側のメンバー一覧からメンバーを選択すると、そのメンバーがこのエージェント経由で実際に利用できる能力を計算します。",
+        "roleSelectedTitle": "ロールは最終権限を直接プレビューできません",
+        "roleSelectedDescription": "ロール認可はメンバー群がエージェントを利用できるかだけを決めます。最終権限は各メンバーの IAM 権限から計算されます。",
+        "denySummaryTitle": "拒否理由の集計",
+        "accessDenied": "このメンバーはこのエージェントの利用を認可されていません。",
+        "subject": "現在のプレビュー対象",
+        "granted": "利用認可済み",
+        "notGranted": "利用未認可",
+        "rolePreviewUnavailable": "ロール認可はロールがこのエージェントを利用できるかだけを制御します。有効権限のプレビューには具体的なメンバーを選択してください。",
+        "total": "合計",
+        "allowed": "許可",
+        "denied": "拒否",
+        "columns": {
+          "user": "IAM",
+          "agent": "エージェント",
+          "tenant": "テナント",
+          "policy": "ポリシー"
+        },
+        "filters": {
+          "allowed": "利用可能",
+          "denied": "拒否詳細",
+          "all": "すべて"
+        },
+        "pagination": {
+          "first": "最初のページ",
+          "previous": "前のページ",
+          "next": "次のページ",
+          "last": "最後のページ"
+        },
+        "actions": {
+          "viewDeniedDetails": "拒否詳細を表示"
+        }
+      },
+      "reasons": {
+        "none": "なし",
+        "agent_access_grant_missing": "メンバーまたはロールにこのエージェントの利用認可がありません",
+        "agent_grant_missing": "エージェント能力認可がありません",
+        "user_permission_missing": "メンバーに IAM 権限がありません",
+        "tenant_capability_disabled": "テナントでこの能力が有効化されていません",
+        "capability_policy_denied": "能力ポリシーにより拒否されました",
+        "policy_denied": "ポリシーにより拒否されました",
+        "permission_code_invalid": "能力の権限コードが無効です",
+        "permission_code_missing": "能力に構造化権限コードがありません"
+      },
+      "errors": {
+        "loadFailed": "認可関係の読み込みに失敗しました",
+        "saveFailed": "認可関係の保存に失敗しました",
+        "previewFailed": "有効権限の読み込みに失敗しました"
+      },
+      "sections": {
+        "agents": "エージェント",
+        "subjects": "認可対象"
+      },
+      "emptyAgents": "設定可能なエージェントはありません。",
+      "emptyAgentsDescription": "メンバーとロールの利用認可を設定する前に、エージェント管理でエージェントを作成または同期してください。",
+      "currentAgent": "現在のエージェント",
+      "selectAgentTitle": "先にエージェントを選択",
+      "typeToSearchAgent": "エージェント名、Key、プラグイン ID を入力して選択してください。全件は既定では展開しません。",
+      "moreAgentResults": "ほかに {count} 件一致しています。さらに入力して絞り込んでください。"
+    }
   },
   "settings": {
     "ai": {
@@ -978,5 +1279,87 @@
     "chatSignal": "チャット信号",
     "commandChannel": "コマンドチャンネル",
     "reconnect": "再接続"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "選択済みディレクトリ",
+      "drain": {
+        "noticeCreated": "drain を開始し、新規利用をブロックしました。後でインストールを再試行するか、drain の進行状況を確認してください。",
+        "noticeRequired": "このプラグインはまだテナントインスタンスで利用されています。今 drain を開始すると、新規利用をブロックし、既存インスタンスの終了を待ちます。",
+        "title": "先に drain が必要です",
+        "action": "drain を開始",
+        "viewProgress": "drain の進行状況を表示",
+        "viewDetail": "詳細を表示"
+      },
+      "toast": {
+        "drainCreatedTitle": "drain を開始しました",
+        "drainCreatedDesc": "新規利用をブロックしました。プラグイン詳細ページで drain の完了を待ってください。",
+        "drainCreateFailedTitle": "drain の開始に失敗しました",
+        "drainCreateFailedDesc": "プラグイン詳細ページで drain 状態を確認してください。",
+        "invalidDirectoryTitle": "ディレクトリが無効です",
+        "invalidDirectoryDesc": "ディレクトリには plugin.yaml または *.tar.gz/.tgz が必要です。",
+        "urlRequired": "プラグインのリモート URL を入力してください。",
+        "localDirectoryRequired": "プラグインディレクトリを選択してください。",
+        "successTitle": "成功",
+        "successDesc": "プラグインをインストールしました。",
+        "noticeTitle": "通知",
+        "sourceMissingDesc": "URL またはローカルディレクトリが未指定のため、インストールを開始していません。",
+        "alreadyInstalledTitle": "同じバージョンが既にインストール済みです",
+        "alreadyInstalledDesc": "このバージョンは既に存在します。Force を有効にして再試行するか、既存バージョンを先にアンインストールしてください。",
+        "drainRequiredTitle": "先に drain が必要です",
+        "drainRequiredDesc": "このプラグインはまだテナントインスタンスで利用されています。プラグイン詳細ページで drain を完了してください。",
+        "platformIncompatibleTitle": "パッケージのプラットフォームが非互換です",
+        "platformIncompatibleTargets": "パッケージ対象は {packageTarget} ですが、この PowerX ホストは {hostTarget} です。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "platformIncompatiblePath": "パッケージ内の {path} はこの PowerX ホストと互換性がありません。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "platformIncompatibleDesc": "このプラグインパッケージは PowerX ホストのアーキテクチャと互換性がありません。現在のホスト向けにビルドされたプラグイン成果物を選択してください。",
+        "installFailedTitle": "インストールに失敗しました",
+        "installFailedDesc": "プラグインのインストール中にエラーが発生しました。再試行してください。"
+      },
+      "title": "プラグインをインストール",
+      "subtitle": "インストール元を選択: リモート URL またはローカルアップロード",
+      "headerTitle": "プラグインをインストール",
+      "headerTitleWithName": "プラグインをインストール: {name}",
+      "meta": "バージョン: {version} · 作者: {author}",
+      "installMethod": "インストール方法",
+      "enableAfterInstall": "インストール後すぐに有効化",
+      "packageSource": "パッケージ元（px-plugin build 成果物をサポート）",
+      "sha256Placeholder": "任意: 期待する SHA256 チェックサム",
+      "chooseLocalSource": "ローカルソースを選択",
+      "selectedDirectory": "選択済みディレクトリ: {name}（{count} ファイル）",
+      "localUploadHelpPrefix": "ローカルアップロード: プラグインディレクトリを選択してください。ディレクトリには",
+      "localUploadHelpMiddle": "または",
+      "localUploadHelpSuffix": "が必要です。",
+      "scope": {
+        "label": "インストール範囲",
+        "system": "システム",
+        "org": "組織",
+        "user": "ユーザー"
+      },
+      "namespace": {
+        "label": "名前空間（任意）",
+        "placeholder": "例: company.crm"
+      },
+      "environment": "対象環境",
+      "autoUpdate": "自動更新",
+      "forceInstall": "同一バージョンを強制上書き",
+      "permissions": {
+        "title": "要求権限",
+        "network": "ネットワークアクセス（外部 API 呼び出し）",
+        "storage": "ローカルストレージ（プラグインデータの読み書き）",
+        "files": "ファイルアクセス（ファイルの読み取り/アップロード）"
+      },
+      "notes": {
+        "label": "メモ（任意）",
+        "placeholder": "このインストールのメモを入力…"
+      },
+      "actions": {
+        "cancel": "キャンセル",
+        "install": "インストール"
+      },
+      "mode": {
+        "url": "リモート URL",
+        "local": "ローカルアップロード"
+      }
+    }
   }
 }

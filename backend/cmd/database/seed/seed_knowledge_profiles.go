@@ -62,7 +62,15 @@ func ensurePublishedIngestionProfile(db *gorm.DB, tenantUUID, key, name string, 
 		Order("version desc").
 		Take(&existing).Error
 	if err == nil && existing.UUID.String() != "" {
-		return nil
+		return db.WithContext(seedCtx()).
+			Model(&models.IngestionProfileVersion{}).
+			Where("uuid = ?", existing.UUID).
+			Updates(map[string]any{
+				"display_name": name,
+				"config":       cfg,
+				"published_at": now,
+				"published_by": "seed",
+			}).Error
 	}
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
@@ -88,7 +96,15 @@ func ensurePublishedIndexProfile(db *gorm.DB, tenantUUID, key, name string, cfg 
 		Order("version desc").
 		Take(&existing).Error
 	if err == nil && existing.UUID.String() != "" {
-		return nil
+		return db.WithContext(seedCtx()).
+			Model(&models.IndexProfileVersion{}).
+			Where("uuid = ?", existing.UUID).
+			Updates(map[string]any{
+				"display_name": name,
+				"config":       cfg,
+				"published_at": now,
+				"published_by": "seed",
+			}).Error
 	}
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
@@ -114,7 +130,15 @@ func ensurePublishedRAGProfile(db *gorm.DB, tenantUUID, key, name string, cfg da
 		Order("version desc").
 		Take(&existing).Error
 	if err == nil && existing.UUID.String() != "" {
-		return nil
+		return db.WithContext(seedCtx()).
+			Model(&models.RAGProfileVersion{}).
+			Where("uuid = ?", existing.UUID).
+			Updates(map[string]any{
+				"display_name": name,
+				"config":       cfg,
+				"published_at": now,
+				"published_by": "seed",
+			}).Error
 	}
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err

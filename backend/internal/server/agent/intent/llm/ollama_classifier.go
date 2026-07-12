@@ -11,7 +11,7 @@ import (
 
 // 走 /api/chat
 type OllamaClassifier struct {
-	BaseURL string // http://localhost:11434
+	BaseURL string // http://127.0.0.1:11434
 	Model   string // qwen2.5:7b-instruct / llama3.1:8b-instruct 等
 	Timeout time.Duration
 	HTTP    *http.Client
@@ -46,7 +46,7 @@ func (o *OllamaClassifier) client() *http.Client {
 func (o *OllamaClassifier) endpoint() string {
 	base := o.BaseURL
 	if base == "" {
-		base = "http://localhost:11434"
+		base = "http://127.0.0.1:11434"
 	}
 	return base + "/api/chat"
 }

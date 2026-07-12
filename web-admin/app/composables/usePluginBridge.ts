@@ -9,6 +9,7 @@ type PluginMeta = {
   instanceId?: string
   targetOrigin: string
   frame: HTMLIFrameElement
+  lastAuthFingerprint?: string
 }
 
 type PowerXToPlugin =
@@ -43,6 +44,7 @@ type PluginToPowerX =
   | { source: 'plugin'; type: 'ready'; pluginId?: string; instanceId?: string }
   | { source: 'plugin'; type: 'request-sync' }
   | { source: 'plugin'; type: 'ping'; ts: number }
+  | { source: 'powerx-plugin'; type: 'auth-token:request'; pluginId?: string; instanceId?: string }
 
 
 type ThemeKey = "light" | "dark" | "system";
@@ -169,9 +171,25 @@ export function usePluginBridge() {
     return payload
   }
 
+  const authFingerprint = (payload: PowerXToPlugin) => {
+    if (payload.type !== 'auth-token') return ''
+    return [
+      payload.accessToken,
+      payload.refreshToken || '',
+      payload.tokenType || '',
+      payload.tenantUuid || payload.tenant_uuid || '',
+    ].join('::')
+  }
+
   const sendAuthToken = (meta: PluginMeta) => {
     const payload = buildAuthPayload(meta.pluginId)
     if (payload) {
+      const fingerprint = authFingerprint(payload)
+      if (fingerprint && meta.lastAuthFingerprint === fingerprint) {
+        log('skip duplicate auth-token', { pluginId: meta.pluginId })
+        return
+      }
+      meta.lastAuthFingerprint = fingerprint
       log('broadcast auth-token', { pluginId: meta.pluginId })
       sendTo(meta, payload)
     } else {
@@ -280,7 +298,7 @@ export function usePluginBridge() {
   if (process.client && !(window as any).__pxBridgeBound__) {
     window.addEventListener('message', (e: MessageEvent) => {
       const data = e.data as PluginToPowerX
-      if (!data || data.source !== 'plugin') return
+      if (!data || (data.source !== 'plugin' && data.source !== 'powerx-plugin')) return
       // 关键日志：记录插件->宿主的 ready/request-sync
       log('from plugin', { origin: e.origin, data })
       let hit: PluginMeta | undefined
@@ -288,6 +306,10 @@ export function usePluginBridge() {
         if (meta.frame?.contentWindow === e.source) hit = meta
       })
       if (!hit) return
+      if (data.source === 'powerx-plugin' && data.type === 'auth-token:request') {
+        sendAuthToken(hit)
+        return
+      }
       if (data.type === 'ready' || data.type === 'request-sync') {
         // 插件显式告知 ready/request-sync 时，补一次完整同步（含 auth-token）
         log('sync on plugin msg', { type: data.type, pluginId: hit.pluginId, target: hit.targetOrigin })

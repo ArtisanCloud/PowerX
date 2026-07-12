@@ -3,7 +3,10 @@ capabilities:
   - capability_id: com.corex.media.assets.read
     module: media
     title: Media Assets Catalog
-    description: 列出与查询媒资资产，支持多存储驱动筛选。
+    description: 列出与查询媒资资产，支持多存储驱动筛选；页面预览必须读取 preview/thumbnail variant，origin 仅用于原图下载或后端原始文件处理。
+    permission_code: corex.media.assets:read
+    agent_usable: true
+    risk_level: low
     categories: [media, storage]
     intents: [media.assets.read]
     tool_scopes: [media.assets]
@@ -11,26 +14,35 @@ capabilities:
       prefer: rest
       fallback: [grpc]
     docs:
-      - specs/001-docs-media-storage/contracts/http-openapi.yaml
+      - specs/001-media-storage/contracts/http-openapi.yaml
       - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
     protocols:
       - channel: rest
         endpoint: /api/v1/media/assets
         method: GET
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: rest
         endpoint: /api/v1/media/assets/{uuid}
         method: GET
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: rest
         endpoint: /api/v1/media/assets/{uuid}
         method: PATCH
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/patch
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/patch
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: grpc
         endpoint: powerx.media.v1.MediaAssetAdminService
@@ -47,7 +59,10 @@ capabilities:
   - capability_id: com.corex.media.assets.manage
     module: media
     title: Media Assets Management
-    description: 创建、删除媒资，以及生成上传/下载预签名链接。
+    description: 创建、删除媒资，生成上传/下载预签名链接，并管理 preview/thumbnail 等资源版本；外部插件不得为预览图另建 asset，也不得用 origin 作为页面预览 fallback。
+    permission_code: corex.media.assets:manage
+    agent_usable: true
+    risk_level: high
     categories: [media, storage]
     intents: [media.assets.write]
     tool_scopes: [media.assets]
@@ -55,26 +70,70 @@ capabilities:
       prefer: grpc
       fallback: [rest]
     docs:
-      - specs/001-docs-media-storage/contracts/http-openapi.yaml
+      - specs/001-media-storage/contracts/http-openapi.yaml
       - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
     protocols:
       - channel: rest
         endpoint: /api/v1/media/assets
         method: POST
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: rest
         endpoint: /api/v1/media/assets/{uuid}
         method: DELETE
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: rest
         endpoint: /api/v1/media/assets/{uuid}/presign
         method: POST
-        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}/variants/{variant}
+        method: POST
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}/post
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}/variants/{variant}
+        method: PUT
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}/variants/{variant}/presign
+        method: POST
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}~1presign/post
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}/variants/{variant}/resource
+        method: GET
+        schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}~1resource/get
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: media.assets
       - channel: grpc
         endpoint: powerx.media.v1.MediaAssetAdminService

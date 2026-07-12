@@ -9,7 +9,7 @@ defineProps<{
   densityClass: string;
   expandedItems: Set<string>;
   isActive: (path?: string) => boolean;
-  linkFor: (path?: string) => string;
+  linkFor: (path?: string, item?: MenuItem) => string;
   resolveIcon: (name?: string) => string;
   toggleExpanded: (id: string) => void;
   hasActiveChild: (children?: MenuItem[]) => boolean;
@@ -31,55 +31,59 @@ const renderPluginVersion = () => false;
     <div
       v-else-if="item.children && item.children.length > 0"
       class="menu-item group relative w-full"
-      role="treeitem"
-      :aria-expanded="expandedItems.has(item.id)"
-      :aria-controls="`submenu-${item.id}`"
     >
       <button
+        type="button"
+        role="treeitem"
+        :aria-expanded="expandedItems.has(item.id)"
+        :aria-controls="`submenu-${item.id}`"
         @click="toggleExpanded(item.id)"
         :class="[
-          'w-full flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+          'w-full flex items-center rounded-md focus-within:ring-2 focus-within:ring-primary/40',
           collapsed ? 'justify-center px-2' : 'justify-between px-3',
           densityClass,
-          hasActiveChild(item.children)
+          isActive(item.path) || hasActiveChild(item.children)
             ? 'text-primary bg-primary/10 ring-1 ring-primary/15'
             : 'text-slate-700 dark:text-slate-200 hover:bg-slate-900/5 dark:hover:bg-white/5',
         ]"
       >
-        <div v-if="collapsed" class="flex items-center justify-center">
-          <span class="inline-block w-5 h-5">
+        <span
+          :class="[
+            'min-w-0 flex items-center focus-visible:outline-none',
+            collapsed ? 'justify-center' : 'flex-1 gap-3',
+          ]"
+        >
+          <span class="inline-block w-5 h-5 flex-shrink-0">
             <UIcon class="w-5 h-5" :name="resolveIcon(item.icon)" />
           </span>
-        </div>
-        <div v-else class="flex items-center justify-between w-full">
-          <div class="flex items-center gap-3">
-            <span class="inline-block w-5 h-5 flex-shrink-0">
-              <UIcon class="w-5 h-5" :name="resolveIcon(item.icon)" />
-            </span>
-            <div class="min-w-0 flex items-center gap-2">
-              <span class="truncate">{{ item.title }}</span>
-              <UBadge
-                v-if="renderPluginVersion(item)"
-                size="xs"
-                color="neutral"
-                variant="soft"
-                class="shrink-0 uppercase"
-              >
-                v{{ item.pluginVersion }}
-              </UBadge>
-            </div>
+          <div v-if="!collapsed" class="min-w-0 flex items-center gap-2">
+            <span class="truncate">{{ item.title }}</span>
+            <UBadge
+              v-if="renderPluginVersion(item)"
+              size="xs"
+              color="neutral"
+              variant="soft"
+              class="shrink-0 uppercase"
+            >
+              v{{ item.pluginVersion }}
+            </UBadge>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <UBadge v-if="item.badge" size="xs" color="primary">{{
-              item.badge
-            }}</UBadge>
-            <UIcon
-              name="i-heroicons-chevron-right"
-              class="w-4 h-4 transition-transform"
-              :class="{ 'rotate-90': expandedItems.has(item.id) }"
-            />
-          </div>
-        </div>
+        </span>
+
+        <span
+          v-if="!collapsed"
+          class="ml-2 flex flex-shrink-0 items-center gap-2 rounded p-0.5"
+          aria-hidden="true"
+        >
+          <UBadge v-if="item.badge" size="xs" color="primary">{{
+            item.badge
+          }}</UBadge>
+          <UIcon
+            name="i-heroicons-chevron-right"
+            class="w-4 h-4 transition-transform"
+            :class="{ 'rotate-90': expandedItems.has(item.id) }"
+          />
+        </span>
       </button>
 
       <Transition
@@ -116,7 +120,7 @@ const renderPluginVersion = () => false;
     <!-- 2) 无子菜单（有 path） -->
     <NuxtLink
       v-else-if="item.path"
-      :to="linkFor(item.path)"
+      :to="linkFor(item.path, item)"
       :class="[
         'menu-item group relative flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         collapsed ? 'justify-center px-2' : 'justify-between px-3',

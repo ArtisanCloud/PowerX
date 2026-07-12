@@ -12,11 +12,18 @@ import (
 type Authorizer = pmrouter.Authorizer
 type Permission = pmrouter.Permission
 type Policy = pmrouter.Policy
+type TenantPluginGuard = pmrouter.TenantPluginGuard
 
 // 供 Manager -> Router 绑定授权提供者与短期 Token 配置
 func BindAuthorizer(dr *pmrouter.DynamicRouter, az Authorizer, issuer string, ttl time.Duration) {
 	if dr != nil {
 		dr.BindAuthorizer(az, issuer, ttl)
+	}
+}
+
+func BindTenantPluginGuard(dr *pmrouter.DynamicRouter, guard TenantPluginGuard) {
+	if dr != nil {
+		dr.BindTenantPluginGuard(guard)
 	}
 }
 
@@ -93,6 +100,37 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 			}
 		}
 	}
+	for _, route := range routePermissionsFromPlugin(p) {
+		method := strings.ToUpper(strings.TrimSpace(route.Method))
+		relPath := strings.TrimSpace(route.Path)
+		resource := normalizePolicyResource(route.Permission.Resource)
+		action := strings.ToLower(strings.TrimSpace(route.Permission.Action))
+		if method == "" || relPath == "" || resource == "" || action == "" || policyBase == "" {
+			continue
+		}
+		finalPath := normalizePolicyRoutePattern(joinPolicyPath(policyBase, relPath))
+		ensureResourceAction(pol.Resources, resource, action)
+		pol.Routes[method+":"+finalPath] = pmrouter.Permission{Resource: resource, Action: action}
+	}
+	// ⑤ 编译受保护 REST exposure。
+	// 插件对外暴露的 HTTP API 如果声明了 auth + rbac，PowerX 网关必须用该声明做预检；
+	// 未声明 rbac 的业务 API 继续 fail-fast，避免把未知接口隐式放行。
+	for _, ch := range p.Exposure.Channels {
+		if strings.ToLower(strings.TrimSpace(ch.Type)) != "rest" {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(ch.Auth)) == "public" {
+			continue
+		}
+		method := strings.ToUpper(strings.TrimSpace(ch.Method))
+		entrypoint := normalizePolicyRoutePattern(normalizeExposureEntrypoint(ch.Entrypoint, policyBase))
+		resource, action := splitRBACPermission(ch.RBAC)
+		if method == "" || entrypoint == "" || resource == "" || action == "" {
+			continue
+		}
+		ensureResourceAction(pol.Resources, resource, action)
+		pol.Routes[method+":"+entrypoint] = pmrouter.Permission{Resource: resource, Action: action}
+	}
 	// ⑤ 宿主能力网关调试入口：为 POST /integration/capabilities/invoke 提供稳定映射
 	// 兼容插件侧“功能页调试按钮”场景，避免因自动推导命中不到资源而 403。
 	if base := pol.HTTPBase; base != "" {
@@ -127,6 +165,60 @@ func PolicyFromPlugin(p plugin_mgr.Plugin) *pmrouter.Policy {
 		}
 	}
 	return pol
+}
+
+func splitRBACPermission(value string) (resource string, action string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", ""
+	}
+	idx := strings.LastIndex(value, ":")
+	if idx <= 0 || idx >= len(value)-1 {
+		return "", ""
+	}
+	resource = strings.ToLower(strings.TrimSpace(value[:idx]))
+	action = strings.ToLower(strings.TrimSpace(value[idx+1:]))
+	return resource, action
+}
+
+func ensureResourceAction(resources map[string]map[string]bool, resource, action string) {
+	resource = strings.ToLower(strings.TrimSpace(resource))
+	action = strings.ToLower(strings.TrimSpace(action))
+	if resource == "" || action == "" {
+		return
+	}
+	short := resource
+	if i := strings.LastIndex(short, ":"); i >= 0 {
+		short = short[i+1:]
+	}
+	for _, name := range []string{resource, short} {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := resources[name]; !ok {
+			resources[name] = map[string]bool{}
+		}
+		resources[name][action] = true
+	}
+}
+
+func routePermissionsFromPlugin(p plugin_mgr.Plugin) []plugin_mgr.RoutePermissionSpec {
+	if p.Routes == nil || len(p.Routes.Permissions) == 0 {
+		return nil
+	}
+	return p.Routes.Permissions
+}
+
+func normalizePolicyResource(resource string) string {
+	resource = strings.ToLower(strings.TrimSpace(resource))
+	if resource == "" {
+		return ""
+	}
+	if i := strings.LastIndex(resource, ":"); i >= 0 {
+		return strings.TrimSpace(resource[i+1:])
+	}
+	return resource
 }
 
 func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.PublicRoute {
@@ -177,6 +269,26 @@ func normalizeExposureEntrypoint(entrypoint, policyBase string) string {
 		value = "/" + value
 	}
 	return value
+}
+
+func normalizePolicyRoutePattern(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if !strings.HasPrefix(value, "/") {
+		value = "/" + value
+	}
+	parts := strings.Split(value, "/")
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		if strings.HasPrefix(part, ":") || (strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}")) {
+			parts[i] = "*"
+		}
+	}
+	return strings.Join(parts, "/")
 }
 
 // 安装（或更新）某个插件的路由策略到动态路由器

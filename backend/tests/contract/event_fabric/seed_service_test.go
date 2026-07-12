@@ -2,6 +2,7 @@ package eventfabric_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -154,6 +155,45 @@ func TestSeedServiceSkipsACLWhenBindingMatches(t *testing.T) {
 	}
 	if len(aclStub.requests) != 2 {
 		t.Fatalf("expected duplicate ACL to be skipped, got %d grants", len(aclStub.requests))
+	}
+}
+
+func TestSeedServiceRejectsPluginManifestWhenPluginIsDraining(t *testing.T) {
+	dirStub := newDirectoryStub()
+	aclStub := &aclStub{}
+	drainingErr := errors.New("plugin is draining")
+	service := manifest.NewSeedService(manifest.SeedServiceOptions{
+		Directory: dirStub,
+		ACL:       aclStub,
+		Clock:     func() time.Time { return time.Unix(0, 0).UTC() },
+		PluginUsageGuard: func(_ context.Context, pluginID string) error {
+			if pluginID != "demo-plugin" {
+				t.Fatalf("unexpected plugin id: %s", pluginID)
+			}
+			return drainingErr
+		},
+	})
+
+	m, err := manifest.Parse(strings.NewReader(sampleManifest))
+	if err != nil {
+		t.Fatalf("parse manifest: %v", err)
+	}
+	_, err = service.ApplyManifest(context.Background(), m, manifest.SeedContext{
+		TenantUUID:    "tenant-demo",
+		PluginID:      "demo-plugin",
+		PluginVersion: "1.0.0",
+		Variables: map[string]string{
+			"cluster": "east",
+		},
+	})
+	if !errors.Is(err, drainingErr) {
+		t.Fatalf("expected draining error, got %v", err)
+	}
+	if dirStub.createCount != 0 {
+		t.Fatalf("expected no topic created when plugin is draining, count=%d", dirStub.createCount)
+	}
+	if len(aclStub.requests) != 0 {
+		t.Fatalf("expected no acl grant when plugin is draining, got %d", len(aclStub.requests))
 	}
 }
 

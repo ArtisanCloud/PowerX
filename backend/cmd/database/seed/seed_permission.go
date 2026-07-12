@@ -15,14 +15,21 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
-func mAction(plugin, resource, action string) []byte {
+func permissionMeta(plugin, resource, action, typ string) []byte {
+	if typ == "" {
+		typ = "action"
+	}
 	m := map[string]any{
-		"type":   "action",
+		"type":   typ,
 		"module": plugin, // 让 catalog 里落在 plugin>action
 		"label":  fmt.Sprintf("%s.%s.%s", plugin, resource, action),
 	}
 	b, _ := json.Marshal(m)
 	return b
+}
+
+func mAction(plugin, resource, action string) []byte {
+	return permissionMeta(plugin, resource, action, "action")
 }
 
 func systemPerm(module, resource, action string) dbm.Permission {
@@ -35,6 +42,13 @@ func systemPerm(module, resource, action string) dbm.Permission {
 		Meta:       mAction(module, resource, action),
 	}
 	permission.AllowAPIKey = apikeypermissions.DefaultAllowAPIKey(permission)
+	return permission
+}
+
+func menuPerm(resource string) dbm.Permission {
+	permission := systemPerm("menu", resource, "read")
+	permission.Description = fmt.Sprintf("Allow viewing admin menu %s", resource)
+	permission.Meta = permissionMeta("menu", resource, "read", "menu")
 	return permission
 }
 
@@ -60,6 +74,34 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		systemPerm("iam", "permission", "read"),
 		// Admin root guard（用于开放市场/发布候选菜单）
 		systemPerm("admin", "root", "view"),
+		// Admin menu visibility permissions. These only control menu visibility;
+		// route/API authorization must still be enforced by the target module.
+		menuPerm("agent"),
+		menuPerm("agent.chat"),
+		menuPerm("agent.management"),
+		menuPerm("agent.team"),
+		menuPerm("agent.team_tasks"),
+		menuPerm("agent.traces"),
+		menuPerm("skills"),
+		menuPerm("knowledge"),
+		menuPerm("workflow"),
+		menuPerm("media"),
+		menuPerm("dashboard"),
+		menuPerm("monitor"),
+		menuPerm("plugins"),
+		menuPerm("plugins.market"),
+		menuPerm("plugins.subscriptions"),
+		menuPerm("plugins.capabilities"),
+		menuPerm("plugins.release"),
+		menuPerm("settings"),
+		menuPerm("settings.users"),
+		menuPerm("settings.roles"),
+		menuPerm("settings.config"),
+		menuPerm("settings.ai"),
+		menuPerm("settings.ai.model"),
+		menuPerm("settings.ai.cost"),
+		menuPerm("settings.ai.context_optimizer"),
+		menuPerm("settings.integration_api_keys"),
 	}
 
 	// 你仓储里已有 UpsertBatch：幂等插入/更新
@@ -113,13 +155,20 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	if err != nil {
 		return fmt.Errorf("find role_readonly: %w", err)
 	}
+	roleVendor, err := rr.FindByCode(ctx, "tenant", &tenantUUID, "role_vendor")
+	if err != nil {
+		return fmt.Errorf("find role_vendor: %w", err)
+	}
 
 	// 3) 计算权限集合
 	var (
-		allActiveIDs      []uint64 // root 全部
-		readOnlyIDs       []uint64 // system_monitor 只读
-		tenantActiveIDs   []uint64 // role_admin 租户可用
-		tenantReadOnlyIDs []uint64 // role_user 租户只读
+		allActiveIDs         []uint64 // root 全部
+		readOnlyIDs          []uint64 // system_monitor 只读
+		tenantActiveIDs      []uint64 // role_admin 租户可用
+		tenantReadOnlyIDs    []uint64 // role_user 租户非菜单只读
+		allMenuIDs           []uint64
+		tenantDefaultMenuIDs []uint64 // role_user/role_readonly 默认菜单入口
+		vendorIDs            []uint64 // role_vendor 供应商默认权限
 	)
 
 	// root：所有 active
@@ -154,10 +203,39 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 			SELECT id FROM public.iam_permission
 			WHERE status = ?
 			  AND (meta->>'module' IS NULL OR (meta->>'module') != ?)
+			  AND module != 'menu'
 			  AND action IN ('read','list')
 		`, dbm.PermissionStatusActive, "system").
 		Scan(&tenantReadOnlyIDs).Error; err != nil {
 		return fmt.Errorf("list tenant readonly ids: %w", err)
+	}
+
+	if err := db.WithContext(ctx).
+		Model(&dbm.Permission{}).
+		Where("status = ?", dbm.PermissionStatusActive).
+		Where("module = ? AND action = ?", "menu", "read").
+		Pluck("id", &allMenuIDs).Error; err != nil {
+		return fmt.Errorf("list menu ids: %w", err)
+	}
+
+	if err := db.WithContext(ctx).
+		Model(&dbm.Permission{}).
+		Where("status = ?", dbm.PermissionStatusActive).
+		Where("module = ? AND resource IN ? AND action = ?",
+			"menu",
+			[]string{"dashboard", "agent", "agent.chat", "knowledge"},
+			"read",
+		).
+		Pluck("id", &tenantDefaultMenuIDs).Error; err != nil {
+		return fmt.Errorf("list tenant default menu ids: %w", err)
+	}
+
+	if err := db.WithContext(ctx).
+		Model(&dbm.Permission{}).
+		Where("status = ?", dbm.PermissionStatusActive).
+		Where("module = ? AND resource = ? AND action = ?", "iam", "permission", "read").
+		Pluck("id", &vendorIDs).Error; err != nil {
+		return fmt.Errorf("list vendor ids: %w", err)
 	}
 
 	// 4) 授权（幂等）
@@ -185,6 +263,41 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 				return err
 			}
 		}
+		if len(tenantDefaultMenuIDs) > 0 {
+			if err := syncRoleMenuPermissionsTx(tx, rpr, roleUser.ID, allMenuIDs, tenantDefaultMenuIDs); err != nil {
+				return err
+			}
+			if err := syncRoleMenuPermissionsTx(tx, rpr, roleReadonly.ID, allMenuIDs, tenantDefaultMenuIDs); err != nil {
+				return err
+			}
+		}
+		if len(vendorIDs) > 0 {
+			if err := rpr.GrantByIDsTx(tx, roleVendor.ID, vendorIDs); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
+}
+
+func syncRoleMenuPermissionsTx(tx *gorm.DB, rpr *infraiam.RolePermissionRepository, roleID uint64, allMenuIDs, allowedMenuIDs []uint64) error {
+	if len(allMenuIDs) == 0 {
+		return nil
+	}
+	allowed := make(map[uint64]struct{}, len(allowedMenuIDs))
+	for _, id := range allowedMenuIDs {
+		allowed[id] = struct{}{}
+	}
+	revokeIDs := make([]uint64, 0, len(allMenuIDs))
+	for _, id := range allMenuIDs {
+		if _, ok := allowed[id]; !ok {
+			revokeIDs = append(revokeIDs, id)
+		}
+	}
+	if len(revokeIDs) > 0 {
+		if err := rpr.RevokeByIDsTx(tx, roleID, revokeIDs); err != nil {
+			return err
+		}
+	}
+	return rpr.GrantByIDsTx(tx, roleID, allowedMenuIDs)
 }

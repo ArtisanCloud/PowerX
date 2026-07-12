@@ -172,13 +172,14 @@ func (a *auditRecorder) Events() []string {
 
 // memoryAssetRepo implements assetRepository for tests without external DB.
 type memoryAssetRepo struct {
-	mu     sync.RWMutex
-	seq    uint64
-	assets map[string]*mediamodel.MediaAsset
+	mu       sync.RWMutex
+	seq      uint64
+	assets   map[string]*mediamodel.MediaAsset
+	variants map[string]*mediamodel.MediaAssetVariant
 }
 
 func newMemoryAssetRepo() *memoryAssetRepo {
-	return &memoryAssetRepo{assets: make(map[string]*mediamodel.MediaAsset)}
+	return &memoryAssetRepo{assets: make(map[string]*mediamodel.MediaAsset), variants: make(map[string]*mediamodel.MediaAssetVariant)}
 }
 
 func (m *memoryAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error) {
@@ -269,6 +270,46 @@ func (m *memoryAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, s
 	return matches, nil
 }
 
+func (m *memoryAssetRepo) FindVariant(_ context.Context, tenantUUID, assetUUID, variant string) (*mediamodel.MediaAssetVariant, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	item, ok := m.variants[assetUUID+"|"+variant]
+	if !ok || (tenantUUID != "" && item.TenantUUID != tenantUUID) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return cloneVariant(item), nil
+}
+
+func (m *memoryAssetRepo) FindVariantByStorageKey(_ context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, item := range m.variants {
+		if item.Driver == driver && item.StorageKey == storageKey {
+			return cloneVariant(item), nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (m *memoryAssetRepo) CreateVariant(_ context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	clone := cloneVariant(variant)
+	if clone.UUID == uuid.Nil {
+		clone.UUID = uuid.New()
+	}
+	m.variants[clone.AssetUUID+"|"+clone.Variant] = clone
+	return cloneVariant(clone), nil
+}
+
+func (m *memoryAssetRepo) UpdateVariant(_ context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	clone := cloneVariant(variant)
+	m.variants[clone.AssetUUID+"|"+clone.Variant] = clone
+	return cloneVariant(clone), nil
+}
+
 func (m *memoryAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -315,6 +356,41 @@ func (m *memoryAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string,
 	return nil
 }
 
+func (m *memoryAssetRepo) ListVariants(_ context.Context, tenantUUID, assetUUID string, includeDeleted bool) ([]mediamodel.MediaAssetVariant, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var items []mediamodel.MediaAssetVariant
+	for _, item := range m.variants {
+		if item.AssetUUID != assetUUID {
+			continue
+		}
+		if tenantUUID != "" && item.TenantUUID != tenantUUID {
+			continue
+		}
+		if !includeDeleted && item.DeletedAt.Valid {
+			continue
+		}
+		items = append(items, *cloneVariant(item))
+	}
+	return items, nil
+}
+
+func (m *memoryAssetRepo) HardDeleteByUUID(_ context.Context, tenantUUID string, uuid string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	asset, ok := m.assets[uuid]
+	if !ok || (tenantUUID != "" && asset.TenantUUID != tenantUUID) {
+		return gorm.ErrRecordNotFound
+	}
+	delete(m.assets, uuid)
+	for key, item := range m.variants {
+		if item.AssetUUID == uuid && (tenantUUID == "" || item.TenantUUID == tenantUUID) {
+			delete(m.variants, key)
+		}
+	}
+	return nil
+}
+
 func (m *memoryAssetRepo) FindByUUIDGlobal(_ context.Context, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -338,6 +414,17 @@ func cloneAsset(asset *mediamodel.MediaAsset) *mediamodel.MediaAsset {
 	}
 	if asset.Meta != nil {
 		cloned.Meta = append(datatypes.JSON(nil), asset.Meta...)
+	}
+	return &cloned
+}
+
+func cloneVariant(variant *mediamodel.MediaAssetVariant) *mediamodel.MediaAssetVariant {
+	if variant == nil {
+		return nil
+	}
+	cloned := *variant
+	if variant.Meta != nil {
+		cloned.Meta = append(datatypes.JSON(nil), variant.Meta...)
 	}
 	return &cloned
 }

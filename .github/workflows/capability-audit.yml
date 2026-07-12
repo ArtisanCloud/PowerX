@@ -1,0 +1,43 @@
+name: Capability Audit
+
+on:
+  pull_request:
+    paths:
+      - 'backend/config/platform_capabilities/**'
+      - 'backend/config/capability_audit_required.yaml'
+      - 'backend/cmd/capability_audit/**'
+      - 'backend/internal/**'
+      - 'config/**'
+      - 'powerx-plugin/**'
+      - 'Makefile'
+      - 'make_files/capability.mk'
+      - '.github/workflows/capability-audit.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/config/platform_capabilities/**'
+      - 'backend/config/capability_audit_required.yaml'
+      - 'backend/cmd/capability_audit/**'
+      - 'backend/internal/**'
+      - 'config/**'
+      - 'powerx-plugin/**'
+      - 'Makefile'
+      - 'make_files/capability.mk'
+      - '.github/workflows/capability-audit.yml'
+
+jobs:
+  capability-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run capability check
+        run: make capability-check

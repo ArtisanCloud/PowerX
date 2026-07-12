@@ -24,6 +24,10 @@ modalities:
         label: "DeepSeek-Chat (V3.1 non-thinking)"
         tags: ["fast","general","openai-compatible"]
         defaults: { temperature: 0.7, max_tokens: 2048 }
+      - id: deepseek-v4-flash
+        label: "DeepSeek V4 Flash"
+        tags: ["fast","general","openai-compatible"]
+        defaults: { temperature: 0.7, max_tokens: 4096 }
       - id: deepseek-reasoner
         label: "DeepSeek-Reasoner (V3.1 thinking)"
         tags: ["reasoning","chain-of-thought-safe"]

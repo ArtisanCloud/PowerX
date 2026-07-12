@@ -74,6 +74,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	adminGroup.GET("/overview", overviewHandler.GetOverview)
 	adminGroup.GET("/task-queue/stats", overviewHandler.GetTaskQueueStats)
 	adminGroup.GET("/task-queue/messages", overviewHandler.GetTaskQueueMessages)
+	adminGroup.GET("/task-queue/tasks/:task_id", overviewHandler.GetTaskQueueTask)
 
 	if deps.EventFabric != nil && deps.EventFabric.Authorization != nil && deps.EventFabric.Authorization.Service != nil {
 		authHandler := NewAuthorizationHandler(AuthorizationHandlerOptions{

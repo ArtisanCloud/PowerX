@@ -19,7 +19,7 @@ import (
 // 本实现：
 // - Invoke：POST /api/chat + stream=false，解析最终 message.content
 // - Stream：POST /api/chat + stream=true，逐行解析 message.content 增量，并回调 onDelta
-// - 默认 endpoint = http://localhost:11434
+// - 默认 endpoint = http://127.0.0.1:11434
 // - 选项：温度/最大 tokens/TopP 映射到 options
 // - 若服务端不支持流，返回 ErrStreamNotSupported（上层可选择回退到 Invoke）
 
@@ -51,7 +51,7 @@ type ollamaChatResp struct {
 func (c *ollamaClient) endpoint(mc *config.ModelConfig) string {
 	base := strings.TrimRight(mc.Endpoint, "/")
 	if base == "" {
-		base = "http://localhost:11434"
+		base = "http://127.0.0.1:11434"
 	}
 	return base + "/api/chat"
 }

@@ -9,7 +9,7 @@ type Member struct {
 	model.PowerUUIDModel
 	TenantUUID  string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_member_tenant_user" json:"tenant_uuid"`
 	UserID      uint64         `gorm:"column:user_id;not null;index:idx_member_tenant_user" json:"user_id"`
-	Username    string         `gorm:"column:username;type:varchar(64);not null;unique" json:"username"`
+	Username    string         `gorm:"column:username;type:varchar(64);not null" json:"username"`
 	DisplayName string         `gorm:"column:display_name;type:varchar(128)" json:"display_name,omitempty"`
 	AvatarURL   string         `gorm:"column:avatar_url;type:varchar(512)" json:"avatar_url,omitempty"`
 	Status      int16          `gorm:"column:status;default:1;index" json:"status"`

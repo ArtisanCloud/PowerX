@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,13 +13,16 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
-	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
-	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
+	settingservice "github.com/ArtisanCloud/PowerX/internal/service/setting"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -69,12 +71,17 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{RequireUUID: cfg.Tenants.RequireUUID}),
 	)
 	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r, pluginAuth)
+	tenantPluginSvc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	dr.BindTenantPluginGuard(tenantPluginSvc.RequireEnabled)
+	dr.BindPluginUsageGuard(tenantPluginSvc.EnsurePluginAcceptsNewUsage)
 	sup := supervisor.New()
+	skillDiscoverySvc := newPluginSkillDiscoveryService(deps)
 
 	installedRoot := abs(cfg.Plugin.InstalledDir)
 	registryFile := abs(cfg.Plugin.RegistryFile)
 
-	mgr := pmimpl.New(pmimpl.Options{
+	var mgr pm.Manager
+	mgr = pmimpl.New(pmimpl.Options{
 		Enabled:       cfg.Plugin.Enabled,
 		BasePrefix:    cfg.Plugin.BasePrefix,
 		InstalledRoot: installedRoot,
@@ -87,42 +94,49 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
 			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
 		},
-		PostUninstall: func(ctx context.Context, pluginID string) error {
-			return syncPluginPermissionsRemoval(ctx, deps.DB, pluginID)
-		},
-		PostEnable: func(ctx context.Context, tenantUUID, pluginID string) error {
-			svc := setting.NewPluginInstanceConfigService(deps)
-
-			// 注意：EnsureCredentials 有 3 个返回值
-			clientID, clientSecret, err := svc.EnsureCredentials(ctx, tenantUUID, pluginID, nil)
+		PostEnablePlugin: func(ctx context.Context, plugin pm.Plugin, apiBaseURL string) error {
+			requiresDiscovery, err := pluginRequiresSkillDiscovery(plugin)
 			if err != nil {
 				return err
 			}
-
-			// 推送到插件（若首次创建有明文 secret）
-			if clientSecret != "" {
-				if err := pmimplnotify.PushTenantCredentials(ctx, pluginID, tenantUUID, clientID, clientSecret); err != nil {
-					logger.WarnF(ctx, "push credentials to plugin failed: plugin=%s tenant=%s err=%v", pluginID, tenantUUID, err)
-					if !errors.Is(err, pmimplnotify.ErrControlChannelUnavailable) {
-						return err
-					}
-				} else {
-					logger.InfoF(ctx, "pushed credentials to plugin: plugin=%s tenant=%s", pluginID, tenantUUID)
-				}
+			if !requiresDiscovery {
+				logger.InfoF(ctx, "[plugin-enable] plugin=%s skip_plugin_skill_discovery=true", plugin.ID)
+				return nil
 			}
-
-			if err := seedPluginEventFabric(ctx, deps, tenantUUID, pluginID); err != nil {
+			if skillDiscoverySvc == nil {
+				return fmt.Errorf("plugin skill discovery service unavailable")
+			}
+			discoveryToken, err := pmimpl.MintPluginAccessToken(mgr, plugin.ID)
+			if err != nil {
+				return fmt.Errorf("plugin skill discovery token: %w", err)
+			}
+			imported, err := skillDiscoverySvc.DiscoverAndImport(ctx, skillservice.DiscoverPluginSkillsInput{
+				ProviderPluginID: plugin.ID,
+				BaseURL:          apiBaseURL,
+				BearerToken:      discoveryToken,
+				Operator:         "plugin-enable",
+				BundleURI:        fmt.Sprintf("plugin://%s/%s", plugin.ID, plugin.Version),
+			})
+			if err != nil {
 				return err
 			}
-
+			logger.InfoF(ctx, "[plugin-enable] plugin=%s imported_plugin_skills=%d", plugin.ID, len(imported))
 			return nil
 		},
+		PostUninstall: func(ctx context.Context, pluginID string) error {
+			return syncPluginPermissionsRemoval(ctx, deps.DB, pluginID)
+		},
+		TenantInstanceCount: func(ctx context.Context, pluginID string) (int64, error) {
+			return tenantPluginSvc.CountActiveByPlugin(ctx, pluginID)
+		},
+		RuntimeCredential: func(ctx context.Context, pluginID string) (*pmimpl.PluginRuntimeCredential, error) {
+			return ensurePluginRuntimeCredential(ctx, deps, cfg, pluginID)
+		},
 	})
+	pmimpl.InitGlobal(mgr)
 	if err := mgr.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
-
-	pmimpl.InitGlobal(mgr)
 	if !cfg.Plugin.Enabled {
 		return mgr, nil
 	}
@@ -141,6 +155,118 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	}
 
 	return mgr, nil
+}
+
+func pluginRequiresSkillDiscovery(plugin pm.Plugin) (bool, error) {
+	if strings.TrimSpace(plugin.Catalogs.AgentTools) != "" {
+		return true, nil
+	}
+	root := strings.TrimSpace(plugin.Paths.Root)
+	if root != "" {
+		info, err := os.Stat(filepath.Join(root, "skills"))
+		if err == nil && info.IsDir() {
+			return true, nil
+		}
+	}
+	if len(plugin.Agents) > 0 || len(plugin.Tools) > 0 {
+		return false, fmt.Errorf("plugin %s declares legacy agents/tools but does not declare Agent Skill Bridge skills; add skills/ package or catalogs.agent_tools and expose GET /api/v1/plugin/skills", plugin.ID)
+	}
+	return false, nil
+}
+
+func newPluginSkillDiscoveryService(deps *shared.Deps) *skillservice.PluginSkillDiscoveryService {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	registryRepo := skillrepo.NewSkillRegistryRepository(deps.DB)
+	bindingRepo := skillrepo.NewSkillCapabilityBindingRepository(deps.DB)
+	traceRepo := skillrepo.NewSkillExecutionTraceRepository(deps.DB)
+	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(deps.DB)
+	auditSvc := skillservice.NewAuditTraceService(traceRepo, auditRepo)
+	importSvc := skillservice.NewImportService(registryRepo, auditSvc).
+		WithCapabilityBindingRepository(bindingRepo)
+	return skillservice.NewPluginSkillDiscoveryService(importSvc)
+}
+
+func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *config.Config, pluginID string) (*pmimpl.PluginRuntimeCredential, error) {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return nil, fmt.Errorf("plugin_id required")
+	}
+	if deps == nil || deps.DB == nil {
+		return nil, fmt.Errorf("database dependency missing")
+	}
+	if deps.TenantSvc == nil || deps.TenantSvc.Repo == nil {
+		return nil, fmt.Errorf("tenant service unavailable")
+	}
+	systemTenant, err := deps.TenantSvc.Repo.EnsureSystemTenant(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ensure system tenant: %w", err)
+	}
+	systemTenantUUID := strings.TrimSpace(systemTenant.UUID.String())
+	if systemTenantUUID == "" {
+		return nil, fmt.Errorf("%s tenant uuid missing", tenantmodel.SystemTenantKey)
+	}
+
+	credSvc := settingservice.NewPluginInstanceConfigService(deps)
+	clientID, clientSecret, err := credSvc.EnsureCredentials(ctx, systemTenantUUID, pluginID, &settingservice.ClientCredential{
+		AllowedAudiences: []string{"powerx:api"},
+		AllowedScopes:    []string{"access"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ensure plugin runtime credential: %w", err)
+	}
+	if strings.TrimSpace(clientSecret) == "" {
+		clientSecret, err = credSvc.RotateSecret(ctx, systemTenantUUID, pluginID)
+		if err != nil {
+			return nil, fmt.Errorf("rotate plugin runtime credential: %w", err)
+		}
+	}
+
+	return &pmimpl.PluginRuntimeCredential{
+		TenantUUID:     systemTenantUUID,
+		ClientID:       clientID,
+		ClientSecret:   clientSecret,
+		GRPCAddress:    resolvePluginRuntimeGRPCAddress(cfg),
+		STSAudience:    "powerx:api",
+		STSScope:       "access",
+		GatewayBaseURL: resolvePluginRuntimeGatewayBaseURL(cfg),
+	}, nil
+}
+
+func resolvePluginRuntimeGatewayBaseURL(cfg *config.Config) string {
+	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
+	if baseURL != "" {
+		return strings.TrimRight(baseURL, "/")
+	}
+	if cfg == nil || cfg.Server.Port <= 0 {
+		return ""
+	}
+	host := "127.0.0.1"
+	if h := strings.TrimSpace(cfg.Server.Host); h != "" && h != "0.0.0.0" && h != "::" {
+		host = h
+	}
+	return fmt.Sprintf("http://%s:%d", host, cfg.Server.Port)
+}
+
+func resolvePluginRuntimeGRPCAddress(cfg *config.Config) string {
+	if addr := strings.TrimSpace(os.Getenv("POWERX_GRPC_UPSTREAM_ADDRESS")); addr != "" {
+		return addr
+	}
+	if addr := strings.TrimSpace(os.Getenv("POWERX_GRPC_PROXY_ADDR")); addr != "" {
+		return addr
+	}
+	host := "127.0.0.1"
+	port := 9001
+	if cfg != nil {
+		if h := strings.TrimSpace(cfg.Server.GRPC.Host); h != "" && h != "0.0.0.0" && h != "::" {
+			host = h
+		}
+		if cfg.Server.GRPC.Port > 0 {
+			port = cfg.Server.GRPC.Port
+		}
+	}
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
 // StartPluginAutoRestore 在宿主服务完成初始化后异步恢复插件。

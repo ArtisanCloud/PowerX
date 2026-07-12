@@ -306,10 +306,15 @@ const openPluginMarket = (pluginId: string) => {
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <UFormField label="策略包（A0–O）" required>
-          <USelect
+          <USelectMenu
             :model-value="store.strategyPackageKey"
             :items="packageItems"
+            value-key="value"
+            label-key="label"
+            :search-input="{ placeholder: '搜索策略包' }"
+            :portal="true"
             class="w-full"
+            :ui="{ content: 'z-[80] min-w-[min(90vw,900px)] max-h-72 overflow-y-auto', item: 'whitespace-normal break-words' }"
             @update:model-value="(v) => store.setStrategyPackage(v as StrategyPackageKey)"
           />
           <template #help>

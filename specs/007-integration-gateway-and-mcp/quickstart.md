@@ -26,13 +26,19 @@
 
 Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 
-- delegated 模式仅允许以下三项：
+- delegated 模式必须注入以下变量：
   - `PX_GATEWAY_BASE_URL`
   - `PX_GATEWAY_AUTH_SCHEME=bearer`
-  - `PX_PLUGIN_TOOL_TOKEN`（仅用于 bootstrap 探活，可选且短时效）
+  - `POWERX_STS_CLIENT_ID`
+  - `POWERX_STS_CLIENT_SECRET`
+  - `POWERX_STS_AUDIENCE=powerx:api`
+  - `POWERX_STS_SCOPE=access`
+  - `POWERX_GRPC_UPSTREAM_ADDRESS`
+  - `POWERX_GRPC_UPSTREAM_TENANT_UUID`
 - delegated 模式禁止使用：
   - `PX_GATEWAY_API_KEY`
   - `PX_TOOL_TOKEN`
+  - `PX_PLUGIN_TOOL_TOKEN`
 - 业务调用凭证规则：
   - `auth_required=true`：必须执行 STS exchange，并使用 `aud=powerx:api` 的 STS access token
   - `tenant_scoped=true`：STS token 必须带 tenant claim
@@ -40,7 +46,8 @@ Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 - PowerX 在插件启用阶段会执行 fail-fast；缺失时直接失败并返回结构化错误码：
   - `GW_CFG_MISSING_BASE_URL`
   - `GW_CFG_INVALID_AUTH_SCHEME`
-  - `GW_CFG_MISSING_PLUGIN_TOOL_TOKEN`
+  - `GW_CFG_MISSING_STS_CLIENT`
+  - `GW_CFG_MISSING_GRPC_UPSTREAM`
   - `GW_BOOTSTRAP_CONTRACT_BROKEN`
 
 ### Delegated 启用前自检
@@ -52,7 +59,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 若 delegated 插件启用失败，请在宿主日志中检查是否包含以下审计字段：
 - `gateway_base_url_present`
-- `plugin_tool_token_present`
+- `sts_client_present`
 - `auth_scheme`
 - `tenant_uuid_present`
 

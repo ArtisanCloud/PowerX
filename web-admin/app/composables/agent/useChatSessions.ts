@@ -135,13 +135,24 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 将后端消息数据转换为前端格式
    */
   function mapMessageDTO(dto: MessageDTO): ChatMessage {
+    const meta = {
+      ...(dto.meta || {}),
+      session_id: (dto as any).sessionId ?? (dto as any).session_id,
+      agent_id: (dto as any).agentId ?? (dto as any).agent_id,
+    };
+    if ((meta as any).run_state && !(meta as any).runState) {
+      (meta as any).runState = (meta as any).run_state;
+    }
+    if ((meta as any).pending_task && !(meta as any).pendingTask) {
+      (meta as any).pendingTask = (meta as any).pending_task;
+    }
     return {
       id: dto.id,
       role: dto.role,
       content: dto.content,
       timestamp: new Date(dto.createdAt).getTime(),
       isError: dto.isError,
-      meta: dto.meta,
+      meta,
       // 历史消息不应该有流式状态
       isStreaming: false,
       done: true,
@@ -153,6 +164,15 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 加载指定 agent 的会话列表
    */
   async function listSessions(agentId: string, force = false) {
+    const inFlight = useState<Record<string, Promise<void>>>(
+      "px-agent-session-list-inflight",
+      () => ({})
+    );
+    const key = `${ENV.value}:${agentId}`;
+    if (!force && inFlight.value[key]) {
+      return inFlight.value[key];
+    }
+
     // 如果已有缓存且不强制刷新，则跳过
     if (!force && sessionStore.getSessionsByAgent(agentId).length > 0) {
       return;
@@ -161,7 +181,7 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
     sessionStore.setLoading(agentId, true);
     sessionStore.clearError();
 
-    try {
+    const run = async () => {
       const response = await apiClient.get<ApiResponse<SessionDTO>>(
         `/agents/sessions`,
         {
@@ -179,6 +199,12 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
         sessionStore.setSessions(agentId, sessions);
         sessionStore.setHasMore(agentId, false); // 暂时设为false，后续可根据分页信息调整
       }
+    };
+
+    const promise = run();
+    inFlight.value = { ...inFlight.value, [key]: promise };
+    try {
+      await promise;
     } catch (error: any) {
       console.error("加载会话列表失败:", error);
       sessionStore.setError(
@@ -189,6 +215,9 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
       throw error;
     } finally {
       sessionStore.setLoading(agentId, false);
+      const next = { ...inFlight.value };
+      delete next[key];
+      inFlight.value = next;
     }
   }
 

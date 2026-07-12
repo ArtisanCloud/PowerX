@@ -19,6 +19,8 @@ import (
 type directoryClient interface {
 	FindTopicByFullName(ctx context.Context, tenantKey, namespace, name string) (*eventfabricmodel.TopicDefinition, error)
 	CreateTopic(ctx context.Context, input directory.CreateTopicInput) (*directory.Topic, error)
+	UpsertTopic(ctx context.Context, input directory.UpsertTopicInput) (*directory.Topic, bool, error)
+	UpdateLifecycle(ctx context.Context, input directory.UpdateLifecycleInput) (*directory.Topic, error)
 }
 
 // aclClient 抽象 ACL 服务依赖。
@@ -35,6 +37,8 @@ type SeedServiceOptions struct {
 	Clock      func() time.Time
 	MaxRetries int
 	Bindings   BindingStore
+	// PluginUsageGuard rejects new plugin-owned Event Fabric resources while a plugin is draining.
+	PluginUsageGuard func(ctx context.Context, pluginID string) error
 }
 
 // SeedService 根据 manifest 计划自动创建 Topic 与 ACL。
@@ -46,6 +50,7 @@ type SeedService struct {
 	clock      func() time.Time
 	maxRetries int
 	bindings   BindingStore
+	guard      func(ctx context.Context, pluginID string) error
 }
 
 // SeedResult 描述一次播种操作的结果。
@@ -81,6 +86,7 @@ func NewSeedService(opts SeedServiceOptions) *SeedService {
 		clock:      opts.Clock,
 		maxRetries: opts.MaxRetries,
 		bindings:   opts.Bindings,
+		guard:      opts.PluginUsageGuard,
 	}
 }
 
@@ -104,14 +110,19 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 	if s.dir == nil || s.acl == nil {
 		return nil, fmt.Errorf("seed service not fully configured")
 	}
+	if err := s.ensurePluginAcceptsNewUsage(ctx, seedCtx.PluginID); err != nil {
+		return nil, err
+	}
 	result := &SeedResult{Topics: make([]TopicResult, 0, len(plan.Topics))}
 	var combinedErr error
+	currentTopicKeys := make(map[string]struct{}, len(plan.Topics))
 	for _, topicPlan := range plan.Topics {
+		currentTopicKeys[normalizeTopicKey(topicPlan.Key)] = struct{}{}
 		topicRes := TopicResult{
 			Key:       topicPlan.Key,
 			FullTopic: topicPlan.FullTopic,
 		}
-		record, created, err := s.ensureTopic(ctx, topicPlan.Topic)
+		record, created, err := s.upsertTopic(ctx, topicPlan.Topic)
 		if err != nil {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("topic %s: %w", topicPlan.FullTopic, err))
 			result.Topics = append(result.Topics, topicRes)
@@ -141,10 +152,21 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 				record.FullName(), created, grantCount, seedCtx.PluginID, seedCtx.TenantUUID)
 		}
 	}
+	if err := s.pruneStaleTopicBindings(ctx, seedCtx, currentTopicKeys); err != nil {
+		combinedErr = errors.Join(combinedErr, err)
+	}
 	if combinedErr != nil {
 		return result, combinedErr
 	}
 	return result, nil
+}
+
+func (s *SeedService) ensurePluginAcceptsNewUsage(ctx context.Context, pluginID string) error {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" || s.guard == nil {
+		return nil
+	}
+	return s.guard(ctx, pluginID)
 }
 
 func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPlan, record *topicRecord, seedCtx SeedContext) {
@@ -170,6 +192,50 @@ func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPla
 	}
 }
 
+func (s *SeedService) pruneStaleTopicBindings(ctx context.Context, seedCtx SeedContext, currentTopicKeys map[string]struct{}) error {
+	if s.bindings == nil || strings.TrimSpace(seedCtx.PluginID) == "" {
+		return nil
+	}
+	existing, err := s.bindings.ListTopics(ctx, seedCtx.TenantUUID, seedCtx.PluginID)
+	if err != nil {
+		return fmt.Errorf("list stale topic bindings: %w", err)
+	}
+	var combinedErr error
+	for _, binding := range existing {
+		topicKey := normalizeTopicKey(binding.TopicKey)
+		if _, ok := currentTopicKeys[topicKey]; ok {
+			continue
+		}
+		if strings.TrimSpace(binding.TopicID) != "" {
+			if _, err := s.dir.UpdateLifecycle(ctx, directory.UpdateLifecycleInput{
+				TopicID:      binding.TopicID,
+				TargetState:  eventfabricmodel.TopicLifecycleRetired,
+				ChangeReason: fmt.Sprintf("plugin manifest no longer declares topic: plugin=%s version=%s topic_key=%s", seedCtx.PluginID, seedCtx.PluginVersion, binding.TopicKey),
+			}); err != nil {
+				combinedErr = errors.Join(combinedErr, fmt.Errorf("retire stale topic %s: %w", binding.FullTopic, err))
+				continue
+			}
+			s.writeAudit(ctx, "TOPIC_RETIRE", binding.TopicID, binding.FullTopic, seedCtx, map[string]string{
+				"topic_key": binding.TopicKey,
+				"reason":    "manifest_prune",
+			})
+		}
+		if err := s.bindings.DeleteACLByTopic(ctx, seedCtx.TenantUUID, seedCtx.PluginID, binding.TopicKey); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("delete stale acl bindings %s: %w", binding.TopicKey, err))
+			continue
+		}
+		if err := s.bindings.DeleteTopic(ctx, seedCtx.TenantUUID, seedCtx.PluginID, binding.TopicKey); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("delete stale topic binding %s: %w", binding.TopicKey, err))
+			continue
+		}
+		if s.logger != nil {
+			s.logger.InfoF(ctx, "[event_fabric.seed] retired stale topic=%s plugin=%s tenant=%s",
+				binding.FullTopic, seedCtx.PluginID, seedCtx.TenantUUID)
+		}
+	}
+	return combinedErr
+}
+
 func (s *SeedService) recordAclBinding(ctx context.Context, topicKey string, plan ACLPlan, signature string, seedCtx SeedContext) {
 	if s.bindings == nil || strings.TrimSpace(seedCtx.PluginID) == "" {
 		return
@@ -191,6 +257,14 @@ func (s *SeedService) recordAclBinding(ctx context.Context, topicKey string, pla
 		s.logger.WarnF(ctx, "[event_fabric.seed] record acl binding failed tenant=%s plugin=%s topic_key=%s principal=%s err=%v",
 			seedCtx.TenantUUID, seedCtx.PluginID, topicKey, plan.PrincipalID, err)
 	}
+}
+
+func normalizeTopicKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
+	}
+	return value
 }
 
 func (s *SeedService) ensureTopic(ctx context.Context, input directory.CreateTopicInput) (*topicRecord, bool, error) {
@@ -219,6 +293,14 @@ func (s *SeedService) ensureTopic(ctx context.Context, input directory.CreateTop
 		return nil, false, err
 	}
 	return topicFromDTO(dto), true, nil
+}
+
+func (s *SeedService) upsertTopic(ctx context.Context, input directory.CreateTopicInput) (*topicRecord, bool, error) {
+	dto, created, err := s.dir.UpsertTopic(ctx, directory.UpsertTopicInput(input))
+	if err != nil {
+		return nil, false, err
+	}
+	return topicFromDTO(dto), created, nil
 }
 
 func (s *SeedService) applyACL(ctx context.Context, topicKey string, topic *topicRecord, plan ACLPlan, seedCtx SeedContext) (int, error) {

@@ -77,6 +77,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gRoles.GET("/me/check", hRBAC.CheckPermission)
 	}
 
+	hMigration := NewMigrationHandler(service.NewIAMMigrationReportService(deps.DB))
+	gMigration := protectedGroup.Group("/admin/iam/migration")
+	{
+		gMigration.GET("/report", hMigration.Report)
+		gMigration.POST("/fix-owner", hMigration.FixOwner)
+	}
+
 	// permission
 	hPerm := NewPermissionHandler(deps)
 

@@ -1,5 +1,6 @@
 import type { LoginResponse } from "./api/services/authService";
 import { useAuthService } from "./api/services/authService";
+import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
 /**
  * 认证状态管理
  */
@@ -13,28 +14,36 @@ export const useAuth = () => {
    * 保存认证信息
    */
   const setAuth = (authData: LoginResponse) => {
+    const accessToken = String(authData?.access_token || "").trim();
+    const refreshToken = String(authData?.refresh_token || "").trim();
+    const tokenType = String(authData?.token_type || "Bearer").trim();
+    const scope = String(authData?.scope || "access").trim();
+    const expiresIn = Number(authData?.expires_in || 0);
+
+    if (!accessToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
+      throw new Error("invalid auth payload");
+    }
+
     if (process.client) {
       // 保存到localStorage
-      localStorage.setItem("access_token", authData.access_token);
-      localStorage.setItem("refresh_token", authData.refresh_token);
-      localStorage.setItem("token_type", authData.token_type);
-      localStorage.setItem("expires_in", authData.expires_in.toString());
-      localStorage.setItem("scope", authData.scope);
+      localStorage.setItem("access_token", accessToken);
+      if (refreshToken) {
+        localStorage.setItem("refresh_token", refreshToken);
+      }
+      localStorage.setItem("token_type", tokenType);
+      localStorage.setItem("expires_in", expiresIn.toString());
+      localStorage.setItem("scope", scope);
 
       // 计算过期时间
-      const expiresAt = Date.now() + authData.expires_in * 1000;
+      const expiresAt = Date.now() + expiresIn * 1000;
       localStorage.setItem("expires_at", expiresAt.toString());
 
-      // 同步一份 cookie 供 iframe/插件使用（保持与 localStorage 同步）
-      const tokenCookie = useCookie("token", {
-        sameSite: "lax",
-        path: "/",
-      });
-      tokenCookie.value = authData.access_token;
+      // 同步 cookie 供 iframe/插件代理层注入 Authorization。
+      syncAuthCookies(accessToken, refreshToken || undefined);
     }
 
     // 更新状态
-    token.value = authData.access_token;
+    token.value = accessToken;
     isAuthenticated.value = true;
   };
 
@@ -50,11 +59,7 @@ export const useAuth = () => {
       localStorage.removeItem("expires_at");
       localStorage.removeItem("px_current_tenant_uuid");
 
-      const tokenCookie = useCookie<string | null>("token", {
-        sameSite: "lax",
-        path: "/",
-      });
-      tokenCookie.value = null;
+      clearAuthCookies();
     }
 
     token.value = null;

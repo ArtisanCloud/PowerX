@@ -223,6 +223,38 @@ func (s *MemberService) GetMember(ctx context.Context, tenantUUID string, member
 	return &MemberWithProfile{Member: mem, User: u, DeptIDs: deptIDs}, nil
 }
 
+func (s *MemberService) GetMemberByUUID(ctx context.Context, tenantUUID string, memberUUID string) (*MemberWithProfile, error) {
+	tenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	memberUUID = strings.TrimSpace(memberUUID)
+	if memberUUID == "" {
+		return nil, errors.New("member uuid required")
+	}
+	mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
+		model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+		model.TableIAMMember + ".uuid = ?":        memberUUID,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if mem == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	u, err := s.UserRepo.FindByID(ctx, mem.UserID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var deptIDs []uint64
+	if err := s.DB.WithContext(ctx).Table(model.TableIAMMemberDepartment).
+		Where("tenant_uuid = ? AND member_id = ?", tenantUUID, mem.ID).
+		Pluck("department_id", &deptIDs).Error; err != nil {
+		return nil, err
+	}
+	return &MemberWithProfile{Member: mem, User: u, DeptIDs: deptIDs}, nil
+}
+
 func (s *MemberService) GetMemberByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64) (*MemberWithProfile, error) {
 	return s.GetMember(ctx, tenantUUID, memberID)
 }

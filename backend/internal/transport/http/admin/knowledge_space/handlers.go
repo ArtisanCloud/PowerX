@@ -52,6 +52,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("", handler.create)
 		group.PATCH("/:spaceId", handler.update)
 		group.POST("/:spaceId/retire", handler.retire)
+		group.DELETE("/:spaceId", handler.delete)
 		if strategyHandler != nil {
 			group.POST("/strategy/validate", strategyHandler.Validate)
 			group.GET("/:spaceId/strategy/validate", strategyHandler.ValidateForSpace)
@@ -320,6 +321,48 @@ func (h *Handler) retire(c *gin.Context) {
 	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, toResponse(space))
 }
 
+func (h *Handler) delete(c *gin.Context) {
+	var req deleteSpaceRequest
+	if c.Request != nil && c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			dto.ResponseValidationError(c, err)
+			return
+		}
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(c.Param("spaceId")))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "无效的空间 ID", err)
+		return
+	}
+	tenantUUID, ok := tenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if raw := strings.TrimSpace(c.Query("force")); raw != "" {
+		req.Force, _ = strconv.ParseBool(raw)
+	}
+	if raw := strings.TrimSpace(c.Query("dropVectors")); raw != "" {
+		req.DropVectors, _ = strconv.ParseBool(raw)
+	}
+	if strings.TrimSpace(req.RequestedBy) == "" {
+		req.RequestedBy = strings.TrimSpace(c.Query("requestedBy"))
+	}
+	if strings.TrimSpace(req.RequestedBy) == "" {
+		req.RequestedBy = "knowledge-space-admin"
+	}
+	if err := h.svc.DeleteSpace(c.Request.Context(), ksvc.DeleteSpaceInput{
+		TenantUUID:  tenantUUID.String(),
+		SpaceID:     spaceID,
+		RequestedBy: req.RequestedBy,
+		Force:       req.Force,
+		DropVectors: req.DropVectors,
+	}); err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"deleted": true, "spaceId": spaceID.String()})
+}
+
 func (h *Handler) resolvePolicyTemplateVersionID(c *gin.Context, raw string) (uint64, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -429,6 +472,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusNotFound, "知识空间不存在", err)
 	case errors.Is(err, ksvc.ErrInvalidStatusTransition):
 		dto.ResponseError(c, http.StatusBadRequest, "状态转换不被允许", err)
+	case errors.Is(err, ksvc.ErrSpaceDeleteRequiresRetired):
+		dto.ResponseError(c, http.StatusConflict, "请先归档知识空间后再删除", err)
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "服务异常", err)
 	}

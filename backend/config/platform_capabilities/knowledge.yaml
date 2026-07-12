@@ -4,6 +4,9 @@ capabilities:
     module: knowledge_space
     title: Knowledge Space Admin
     description: 管理知识空间配额、策略与增量任务，供插件直接复用。
+    permission_code: corex.knowledge.space:manage
+    agent_usable: true
+    risk_level: high
     categories: [knowledge, ai]
     intents: [knowledge.space.manage]
     tool_scopes: [knowledge.space]

@@ -5,9 +5,12 @@
   "common": {
     "language": "언어",
     "back": "뒤로",
+    "cancel": "취소",
+    "save": "저장",
     "reload": "새로고침",
     "scrollToBottom": "맨 아래로",
-    "newMessages": "새 메시지 {count}개"
+    "newMessages": "새 메시지 {count}개",
+    "unknown": "알 수 없음"
   },
   "user": {
     "admin": "관리자"
@@ -81,6 +84,7 @@
     "roleManagement": "역할 관리",
     "systemConfig": "시스템 구성",
     "monitorCenter": "모니터링 센터",
+    "pluginSubscriptions": "플러그인 구독",
     "loadFailed": "메뉴 로딩 실패",
     "loadFailedDesc": "메뉴 데이터를 로드할 수 없습니다. 네트워크 연결을 확인하세요.",
     "itemCount": "메뉴 항목 수",
@@ -91,6 +95,7 @@
     "aiSettings": "모델 설정",
     "aiSettingsModel": "모델 구성",
     "aiSettingsCost": "코스트 설정",
+    "aiSettingsContextOptimizer": "컨텍스트 최적화",
     "aiSettingsRegistry": "능력 레지스트리",
     "pluginCapabilities": "플러그인 기능",
     "intelligentPlatforms": "지능형 플랫폼",
@@ -100,9 +105,14 @@
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
     "media": "미디어",
+    "plugins": "플러그인",
     "pluginMarketplace": "마켓",
+    "pluginManagement": "플러그인 관리",
+    "pluginSubscriptionsAvailable": "구독 가능",
+    "pluginSubscriptionsMine": "내 구독",
     "pluginsInstalled": "설치됨",
-    "pluginsMarket": "마켓"
+    "pluginsMarket": "마켓",
+    "aiSettingsAgentAccess": "에이전트 권한 부여"
   },
   "knowledgeSpaces": {
     "head": {
@@ -481,6 +491,175 @@
   "privacyPolicy": "개인정보 보호정책",
   "termsOfService": "서비스 약관",
   "agent": {
+    "management": {
+      "title": "에이전트 관리",
+      "description": "개별 에이전트를 관리하고 스마트 채팅 또는 팀 생성으로 빠르게 이동합니다.",
+      "enterChat": "스마트 채팅으로 이동",
+      "create": "새 에이전트",
+      "emptyDescription": "설명 없음",
+      "defaultInitial": "A",
+      "status": {
+        "draft": "초안",
+        "active": "활성",
+        "disabled": "비활성"
+      },
+      "sources": {
+        "core": "기반 생성",
+        "plugin": "플러그인 관리"
+      },
+      "filters": {
+        "searchPlaceholder": "에이전트 이름, Key 또는 플러그인 검색",
+        "allSources": "전체 출처",
+        "allStatuses": "전체 상태"
+      },
+      "quickCreate": {
+        "name": "새 에이전트-{suffix}",
+        "description": "에이전트 관리에서 설정을 완료하세요",
+        "success": "생성 완료",
+        "successDescription": "기본 에이전트를 생성했습니다",
+        "failed": "생성 실패"
+      },
+      "edit": {
+        "title": "에이전트 편집",
+        "description": "기본 정보, 생성 정책, 리소스 바인딩을 관리합니다",
+        "basicInfo": "기본 정보",
+        "name": "에이전트 이름",
+        "namePlaceholder": "에이전트 이름 입력",
+        "typeId": "유형 ID",
+        "typeIdPlaceholder": "예: brand.story.v1",
+        "scene": "시나리오",
+        "scenePlaceholder": "예: brand_story",
+        "status": "상태",
+        "publicDescription": "공개 설명(선택)",
+        "publicDescriptionHelp": "목록에 표시할 짧은 설명입니다. 30~80자를 권장합니다",
+        "publicDescriptionPlaceholder": "예: 숏폼 영상 스크립트와 광고 제안을 생성",
+        "systemKey": "시스템 키(읽기 전용)",
+        "generationPolicy": "생성 정책",
+        "promptSeed": "시스템 프롬프트(주 지시문)",
+        "promptSeedHelp": "필수 주 정책: 작업 목표, 출력 형식, 제약 경계를 여기에 작성합니다",
+        "promptSeedPlaceholder": "목표, 구조, 경계, 금지 항목을 포함한 주 지시문 입력",
+        "persona": "페르소나(고급 선택)",
+        "personaHelp": "고정 페르소나 보강이 필요할 때만 입력합니다. 주 지시문 외 보조 컨텍스트로 사용됩니다",
+        "personaPlaceholder": "선택: 비워두면 시스템 프롬프트만 사용합니다",
+        "resourceBinding": "리소스 바인딩",
+        "skillIds": "스킬 ID",
+        "commaSeparated": "영문 쉼표로 구분",
+        "skillIdsPlaceholder": "예: skill.a,skill.b",
+        "knowledgeBaseIds": "지식 베이스 ID",
+        "uuidCommaSeparated": "UUID를 영문 쉼표로 구분",
+        "knowledgeBaseIdsPlaceholder": "예: uuid1,uuid2",
+        "nameRequired": "이름은 필수입니다",
+        "updated": "업데이트 완료",
+        "updateFailed": "업데이트 실패"
+      },
+      "grants": {
+        "title": "도구 및 권한",
+        "description": "이 에이전트가 사용할 수 있는 플러그인 기능의 최대 범위를 설정합니다. 실행 시 현재 사용자의 IAM 권한과 교집합으로 판정됩니다.",
+        "loading": "기능 권한을 불러오는 중...",
+        "empty": "permission_code가 포함된 동기화된 권한 부여 가능 기능이 없습니다. 플러그인 capability 선언을 확인하거나 기능 카탈로그를 다시 동기화하세요.",
+        "available": "사용 가능",
+        "unavailable": "사용 불가",
+        "ownerPlugin": "소유 플러그인",
+        "noDescription": "플러그인이 기능 설명을 제공하지 않았습니다.",
+        "searchPlaceholder": "기능, 권한 코드 또는 플러그인 검색",
+        "filteredEmpty": "현재 필터와 일치하는 기능이 없습니다.",
+        "relatedEmpty": "이 에이전트의 소유 플러그인과 일치하는 권한 부여 가능 기능이 없습니다. 전체 기능으로 전환해 플러그인 간 권한을 확인하세요.",
+        "tabs": {
+          "own": "자신의 플러그인({count})",
+          "core": "기반 기능({count})",
+          "other": "다른 플러그인({count})"
+        },
+        "hints": {
+          "ownEmpty": "이 에이전트의 소유 플러그인 {pluginId}에는 동기화된 권한 부여 가능 기능이 없습니다.",
+          "noOwnerPlugin": "이 에이전트에는 소유 플러그인이 없습니다. 기반 기능 또는 다른 플러그인 기능을 확인하세요.",
+          "coreEmpty": "동기화된 권한 부여 가능 기반 기능이 없습니다.",
+          "otherEmpty": "다른 플러그인의 권한 부여 가능 기능이 없습니다.",
+          "selectModuleFirst": "먼저 기반 모듈을 선택한 뒤 해당 기능을 확인하세요.",
+          "selectPluginFirst": "먼저 플러그인을 선택한 뒤 추가할 기능을 선택하세요."
+        },
+        "filters": {
+          "related": "관련 기능",
+          "all": "전체 기능",
+          "selectPlugin": "플러그인 선택",
+          "selectModule": "모듈 선택",
+          "anyAvailability": "전체 상태",
+          "available": "사용 가능",
+          "unavailable": "사용 불가",
+          "anySelection": "전체",
+          "selected": "선택됨",
+          "unselected": "미선택"
+        },
+        "meta": {
+          "permissionCode": "권한 코드: ",
+          "capabilityId": "기능 ID: ",
+          "pluginId": "플러그인 ID: "
+        },
+        "loadFailed": "에이전트 권한 로드 실패",
+        "saved": "권한 설정을 저장했습니다",
+        "saveFailed": "권한 설정 저장 실패"
+      },
+      "actions": {
+        "chat": "스마트 채팅",
+        "team": "팀 생성",
+        "permissions": "권한 설정",
+        "edit": "편집"
+      },
+      "pagination": {
+        "total": "에이전트 {total}개"
+      },
+      "catalog": {
+        "powerxplugin_template_agent": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "powerxplugin_template_agent_local": {
+          "title": "Template Agent",
+          "description": "PowerXPlugin base template object management agent for plugin developers and administrators. It explains and executes template object create, read, update, delete, and list tasks."
+        },
+        "courtmate_basketball_growth_agent_local": {
+          "title": "Basketball Growth Knowledge Agent",
+          "description": "Court Mate built-in agent that turns trusted basketball training sources into reviewable and traceable basketball knowledge candidates."
+        },
+        "product_launch_v1_00000000_0000_0000_0000_00000_1f5333aa0a0ed6c7": {
+          "title": "AI Video Refactoring Master",
+          "description": "Plans and restructures product launch video scripts and production workflows."
+        },
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "Marketing Master",
+          "description": "Creates short-form marketing scripts and campaign messaging."
+        }
+      },
+      "accessGrants": "사용 권한"
+    },
+    "effectivePermissions": {
+      "title": "유효 권한",
+      "description": "현재 세션에서 실제로 사용할 수 있는 권한은 사용자 IAM 권한, Agent 권한, 테넌트 기능 활성화, 정책 결과의 교집합으로 결정됩니다.",
+      "summary": "{allowed}/{total}",
+      "refresh": "유효 권한 새로고침",
+      "empty": "현재 Agent에 표시할 유효 권한이 없습니다.",
+      "loadFailed": "유효 권한 로드 실패",
+      "columns": {
+        "user": "사용자 권한",
+        "agent": "Agent 권한",
+        "tenant": "테넌트 활성화",
+        "policy": "정책 허용",
+        "reason": "거부 이유"
+      },
+      "status": {
+        "allowed": "허용",
+        "denied": "거부"
+      },
+      "reason": {
+        "none": "없음",
+        "agent_grant_missing": "Agent에 이 기능이 부여되지 않았습니다",
+        "user_permission_missing": "현재 사용자에게 IAM 권한이 없습니다",
+        "tenant_capability_disabled": "테넌트에서 이 기능이 활성화되지 않았습니다",
+        "capability_policy_denied": "기능 정책에 의해 거부됨",
+        "policy_denied": "정책에 의해 거부됨",
+        "permission_code_invalid": "기능 권한 코드가 유효하지 않습니다",
+        "permission_code_missing": "기능에 구조화된 권한 코드가 없습니다"
+      }
+    },
     "selector": {
       "title": "AI 에이전트",
       "create": "생성",
@@ -614,7 +793,129 @@
         "json": "JSON"
       }
     },
-    "confirmDelete": "이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+    "confirmDelete": "이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "accessGrants": {
+      "title": "에이전트 사용 권한",
+      "description": "멤버 또는 역할이 선택한 에이전트를 사용할 수 있는지 설정하고 멤버의 최종 유효 권한을 미리 봅니다.",
+      "backToAgents": "에이전트 관리로 돌아가기",
+      "unnamedAgent": "이름 없는 에이전트",
+      "unnamedMember": "이름 없는 멤버",
+      "unnamedRole": "이름 없는 역할",
+      "loading": "권한 관계를 불러오는 중...",
+      "emptyAgent": "먼저 에이전트를 선택하세요.",
+      "emptyFiltered": "현재 필터와 일치하는 대상이 없습니다.",
+      "memberGrantHint": "켜면 이 멤버가 선택한 에이전트를 사용할 수 있습니다. 최종 호출 가능 능력은 멤버 IAM, 에이전트 능력 권한, 테넌트 능력 활성화, 정책의 교집합으로 계산됩니다.",
+      "roleGrantHint": "켜면 이 역할의 멤버가 선택한 에이전트를 사용할 수 있습니다. 오른쪽 유효 권한은 구체적인 멤버를 선택해야 계산할 수 있습니다.",
+      "fields": {
+        "agent": "에이전트",
+        "search": "대상 필터"
+      },
+      "placeholders": {
+        "agent": "에이전트 선택",
+        "search": "멤버, 역할 또는 설명 검색",
+        "agentSearch": "에이전트 이름, Key 또는 플러그인 검색"
+      },
+      "tabs": {
+        "members": "멤버 권한",
+        "roles": "역할 권한"
+      },
+      "actions": {
+        "toggle": "사용 권한 전환",
+        "preview": "유효 권한 보기"
+      },
+      "summary": {
+        "enabled": "권한 부여됨"
+      },
+      "status": {
+        "allowed": "허용",
+        "denied": "거부"
+      },
+      "preview": {
+        "title": "유효 권한 미리보기",
+        "description": "멤버 IAM, 에이전트 사용 권한, 에이전트 능력 권한, 테넌트 능력 활성화, 정책 결과의 최종 교집합을 확인합니다.",
+        "formulaTitle": "최종 권한 계산",
+        "formulaDescription": "아래 조건이 모두 허용되어야 해당 기능이 최종적으로 사용 가능합니다.",
+        "interpretation": "현재 시스템에는 평가 가능한 기능이 {total}개 있습니다. 이 멤버는 선택한 에이전트를 통해 최종적으로 {allowed}개를 사용할 수 있고 {denied}개는 거부됩니다. 거부는 해당 기능 호출에 필요한 조건을 멤버 또는 에이전트가 모두 충족하지 못했다는 의미이며, 업무 흐름이 모든 기능을 필요로 한다는 뜻은 아닙니다.",
+        "searchPlaceholder": "기능 이름, ID, 권한 코드, 플러그인 또는 거부 사유 검색",
+        "pageSize": "페이지당 항목 수",
+        "pageSummary": "총 {total}개 중 {shown}개 표시",
+        "formula": {
+          "user": "멤버 IAM",
+          "useGrant": "사용 권한",
+          "agent": "에이전트 능력",
+          "tenant": "테넌트 능력",
+          "policy": "정책",
+          "and": "및"
+        },
+        "loading": "유효 권한을 불러오는 중...",
+        "empty": "멤버를 선택해 유효 권한을 확인하세요.",
+        "emptyItems": "평가할 수 있는 능력 권한이 없습니다. 이 에이전트에 능력 권한이 있고 능력 카탈로그가 동기화되었는지 확인하세요.",
+        "emptyItemsTitle": "평가할 수 있는 능력이 없습니다",
+        "emptyAllowedTitle": "최종 허용된 능력이 없습니다",
+        "emptyAllowedDescription": "사용 권한은 켜져 있지만 최종 권한은 멤버 IAM, 에이전트 능력 권한, 테넌트 능력, 정책의 제한을 계속 받습니다. 거부 상세로 전환해 이유를 확인하세요.",
+        "emptyDeniedTitle": "거부 상세가 없습니다",
+        "emptyDeniedDescription": "현재 필터에서 거부된 능력이 없습니다.",
+        "selectMemberTitle": "멤버를 선택해 최종 권한 보기",
+        "selectMemberDescription": "왼쪽 멤버 목록에서 멤버를 선택하면, 해당 멤버가 이 에이전트를 통해 실제로 사용할 수 있는 능력을 계산합니다.",
+        "roleSelectedTitle": "역할은 최종 권한을 직접 미리 볼 수 없습니다",
+        "roleSelectedDescription": "역할 권한은 멤버 그룹이 에이전트를 사용할 수 있는지만 결정합니다. 최종 권한은 각 멤버의 IAM 권한으로 계산됩니다.",
+        "denySummaryTitle": "거부 사유 요약",
+        "accessDenied": "이 멤버는 이 에이전트를 사용할 권한이 없습니다.",
+        "subject": "현재 미리보기 대상",
+        "granted": "사용 권한 있음",
+        "notGranted": "사용 권한 없음",
+        "rolePreviewUnavailable": "역할 권한은 역할이 이 에이전트를 사용할 수 있는지만 제어합니다. 유효 권한 미리보기는 구체적인 멤버를 선택하세요.",
+        "total": "전체",
+        "allowed": "허용",
+        "denied": "거부",
+        "columns": {
+          "user": "IAM",
+          "agent": "에이전트",
+          "tenant": "테넌트",
+          "policy": "정책"
+        },
+        "filters": {
+          "allowed": "사용 가능",
+          "denied": "거부 상세",
+          "all": "전체"
+        },
+        "pagination": {
+          "first": "첫 페이지",
+          "previous": "이전 페이지",
+          "next": "다음 페이지",
+          "last": "마지막 페이지"
+        },
+        "actions": {
+          "viewDeniedDetails": "거부 상세 보기"
+        }
+      },
+      "reasons": {
+        "none": "없음",
+        "agent_access_grant_missing": "멤버 또는 역할에 이 에이전트 사용 권한이 없습니다",
+        "agent_grant_missing": "에이전트 능력 권한이 없습니다",
+        "user_permission_missing": "멤버에게 IAM 권한이 없습니다",
+        "tenant_capability_disabled": "테넌트에서 이 능력을 활성화하지 않았습니다",
+        "capability_policy_denied": "능력 정책에 의해 거부됨",
+        "policy_denied": "정책에 의해 거부됨",
+        "permission_code_invalid": "능력 권한 코드가 올바르지 않습니다",
+        "permission_code_missing": "능력에 구조화된 권한 코드가 없습니다"
+      },
+      "errors": {
+        "loadFailed": "권한 관계를 불러오지 못했습니다",
+        "saveFailed": "권한 관계 저장에 실패했습니다",
+        "previewFailed": "유효 권한을 불러오지 못했습니다"
+      },
+      "sections": {
+        "agents": "에이전트",
+        "subjects": "권한 대상"
+      },
+      "emptyAgents": "설정 가능한 에이전트가 없습니다.",
+      "emptyAgentsDescription": "멤버와 역할의 사용 권한을 설정하기 전에 에이전트 관리에서 에이전트를 만들거나 동기화하세요.",
+      "currentAgent": "현재 에이전트",
+      "selectAgentTitle": "먼저 에이전트 선택",
+      "typeToSearchAgent": "에이전트 이름, Key 또는 플러그인 ID를 입력해 선택하세요. 전체 목록은 기본으로 펼치지 않습니다.",
+      "moreAgentResults": "일치하는 결과가 {count}개 더 있습니다. 계속 입력해 범위를 좁히세요."
+    }
   },
   "settings": {
     "ai": {
@@ -941,5 +1242,87 @@
     "chatSignal": "채팅 신호",
     "commandChannel": "명령 채널",
     "reconnect": "재연결"
+  },
+  "plugins": {
+    "installDialog": {
+      "selectedDirectoryFallback": "선택한 디렉터리",
+      "drain": {
+        "noticeCreated": "drain을 시작했고 신규 사용 진입을 차단했습니다. 나중에 설치를 다시 시도하거나 drain 진행 상태를 확인하세요.",
+        "noticeRequired": "이 플러그인은 아직 테넌트 인스턴스에서 사용 중입니다. 지금 drain을 시작하면 신규 사용을 차단하고 기존 인스턴스 종료를 기다립니다.",
+        "title": "먼저 drain 필요",
+        "action": "drain 시작",
+        "viewProgress": "drain 진행 보기",
+        "viewDetail": "상세 보기"
+      },
+      "toast": {
+        "drainCreatedTitle": "drain 시작됨",
+        "drainCreatedDesc": "신규 사용 진입을 차단했습니다. 플러그인 상세 페이지에서 drain 완료를 기다리세요.",
+        "drainCreateFailedTitle": "drain 시작 실패",
+        "drainCreateFailedDesc": "플러그인 상세 페이지에서 drain 상태를 확인하세요.",
+        "invalidDirectoryTitle": "유효하지 않은 디렉터리",
+        "invalidDirectoryDesc": "디렉터리에는 plugin.yaml 또는 *.tar.gz/.tgz가 포함되어야 합니다.",
+        "urlRequired": "플러그인의 원격 URL을 입력하세요.",
+        "localDirectoryRequired": "플러그인 디렉터리를 선택하세요.",
+        "successTitle": "성공",
+        "successDesc": "플러그인을 설치했습니다.",
+        "noticeTitle": "알림",
+        "sourceMissingDesc": "URL 또는 로컬 디렉터리를 선택하지 않아 설치를 시작하지 않았습니다.",
+        "alreadyInstalledTitle": "동일 버전이 이미 설치됨",
+        "alreadyInstalledDesc": "이 버전은 이미 존재합니다. Force를 켜고 다시 시도하거나 기존 버전을 먼저 제거하세요.",
+        "drainRequiredTitle": "먼저 drain 필요",
+        "drainRequiredDesc": "이 플러그인은 아직 테넌트 인스턴스에서 사용 중입니다. 플러그인 상세 페이지에서 drain을 완료하세요.",
+        "platformIncompatibleTitle": "패키지 플랫폼 비호환",
+        "platformIncompatibleTargets": "패키지 대상은 {packageTarget}이고 현재 PowerX 호스트는 {hostTarget}입니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "platformIncompatiblePath": "패키지의 {path}는 현재 PowerX 호스트와 호환되지 않습니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "platformIncompatibleDesc": "이 플러그인 패키지는 PowerX 호스트 아키텍처와 호환되지 않습니다. 현재 호스트 플랫폼에 맞게 빌드된 플러그인 산출물을 선택하세요.",
+        "installFailedTitle": "설치 실패",
+        "installFailedDesc": "플러그인 설치 중 오류가 발생했습니다. 다시 시도하세요."
+      },
+      "title": "플러그인 설치",
+      "subtitle": "설치 소스를 선택하세요: 원격 URL 또는 로컬 업로드",
+      "headerTitle": "플러그인 설치",
+      "headerTitleWithName": "플러그인 설치: {name}",
+      "meta": "버전: {version} · 작성자: {author}",
+      "installMethod": "설치 방식",
+      "enableAfterInstall": "설치 후 바로 활성화",
+      "packageSource": "패키지 소스 (px-plugin build 산출물 지원)",
+      "sha256Placeholder": "선택 사항: 예상 SHA256 체크섬",
+      "chooseLocalSource": "로컬 소스 선택",
+      "selectedDirectory": "선택한 디렉터리: {name} ({count}개 파일)",
+      "localUploadHelpPrefix": "로컬 업로드: 플러그인 디렉터리를 선택하세요. 디렉터리에는",
+      "localUploadHelpMiddle": "또는",
+      "localUploadHelpSuffix": "가 있어야 설치할 수 있습니다.",
+      "scope": {
+        "label": "설치 범위",
+        "system": "시스템",
+        "org": "조직",
+        "user": "사용자"
+      },
+      "namespace": {
+        "label": "네임스페이스 (선택 사항)",
+        "placeholder": "예: company.crm"
+      },
+      "environment": "대상 환경",
+      "autoUpdate": "자동 업데이트",
+      "forceInstall": "동일 버전 강제 덮어쓰기",
+      "permissions": {
+        "title": "요청 권한",
+        "network": "네트워크 접근 (외부 API 호출)",
+        "storage": "로컬 스토리지 (플러그인 데이터 읽기/쓰기)",
+        "files": "파일 접근 (파일 읽기/업로드)"
+      },
+      "notes": {
+        "label": "메모 (선택 사항)",
+        "placeholder": "이번 설치에 대한 메모를 입력…"
+      },
+      "actions": {
+        "cancel": "취소",
+        "install": "설치"
+      },
+      "mode": {
+        "url": "원격 URL",
+        "local": "로컬 업로드"
+      }
+    }
   }
 }

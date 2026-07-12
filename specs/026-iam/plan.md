@@ -8,7 +8,11 @@
 聚焦 IAM 管理域收敛三类能力：
 1. root / tenant admin / member 的权限边界一致化；
 2. `/settings/users` 页面交互语义拆分（查看详情、切换租户、跳转行为去耦）；
-3. `me/context` 驱动的前后端状态强一致（以服务端上下文为准），并补齐验收与排障文档。
+3. `me/context` 驱动的前后端状态强一致（以服务端上下文为准）；
+4. SaaS 自助注册 tenant，并把首个成员初始化为 owner/admin/member；
+5. root 默认进入 Platform Console，通过 Support Session 才能进入业务租户上下文；
+6. 插件拆分为全局 Plugin Package 与 Tenant Plugin Instance，保证租户启用/停用隔离；
+7. 历史 IAM 数据通过只读巡检和可审计迁移补齐，不手动破坏生产组织数据。
 
 ## Technical Context
 
@@ -20,7 +24,7 @@
 **Project Type**: CoreX backend + web-admin 双子项目  
 **Performance Goals**: 用户管理页进入后 3 秒内完成角色视图分流；上下文切换后 5 秒内收敛到正确视图  
 **Constraints**: 多租户隔离不可破坏；root 特权仅限平台运维语义；禁止隐式跨租户写操作  
-**Scale/Scope**: 覆盖现有 IAM 管理页与身份上下文链路，优先修复 root/tenant admin/member 三类主路径
+**Scale/Scope**: 覆盖现有 IAM 管理页、身份上下文链路、SaaS signup、root support、租户插件实例隔离和历史数据巡检迁移
 
 ## Constitution Check
 
@@ -54,6 +58,17 @@
   - `web-admin/app/pages/settings/users/index.vue`
   - `web-admin/app/components/settings/users/*`
   - `web-admin/app/stores/user.ts`
+- SaaS 自助注册与租户 bootstrap：
+  - `backend/internal/transport/http/public/saas/*`
+  - `backend/internal/service/tenant/tenant_service.go`
+  - `backend/internal/service/auth/auth_service.go`
+- Root 平台控制台与支持会话：
+  - `backend/internal/transport/http/admin/root/*`
+  - `backend/internal/service/iam/*support*`
+- 插件租户实例隔离：
+  - `backend/internal/transport/http/admin/plugin/tenant_handler.go`
+  - `backend/internal/transport/http/admin/plugin/menus_agg.go`
+  - `backend/internal/infra/plugin/manager/router/router.go`
 - 回包规范：`pkg/dto` 统一响应函数
 
 ## Ruleset Alignment（@dev-crud-grpc）
@@ -87,11 +102,16 @@ backend/
 ├── internal/
 │   ├── service/
 │   │   ├── auth/
+│   │   ├── tenant/
 │   │   └── iam/
 │   └── transport/
 │       ├── http/admin/
 │       │   ├── user/auth/
-│       │   └── iam/
+│       │   ├── iam/
+│       │   ├── root/
+│       │   └── plugin/
+│       ├── http/public/
+│       │   └── saas/
 │       └── grpc/iam/
 ├── api/grpc/contracts/powerx/iam/v1/
 └── pkg/corex/db/persistence/model/iam/

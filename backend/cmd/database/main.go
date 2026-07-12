@@ -3,9 +3,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"github.com/ArtisanCloud/PowerX/cmd/database/seed"
 	"github.com/ArtisanCloud/PowerX/config"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"os"
 	"strings"
 
@@ -15,7 +17,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatalf("Usage: %s [migrate|seed|refresh]", os.Args[0])
+		fatalf("Usage: %s [migrate|seed|refresh|status|iam-report|iam-fix-owner]", os.Args[0])
 	}
 	cmd := os.Args[1]
 	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
@@ -76,6 +78,20 @@ func main() {
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
+	case "iam-report":
+		report, err := iamsvc.NewIAMMigrationReportService(db).Report(ctx)
+		if err != nil {
+			fatalf("iam migration report failed: %v", err)
+		}
+		printJSON(report)
+
+	case "iam-fix-owner":
+		result, err := iamsvc.NewIAMMigrationReportService(db).FixMissingOwnersAsSystem(ctx)
+		if err != nil {
+			fatalf("iam migration fix-owner failed: %v", err)
+		}
+		printJSON(result)
+
 	default:
 		fatalf("Unknown command: %s", cmd)
 	}
@@ -84,4 +100,12 @@ func main() {
 func fatalf(format string, args ...any) {
 	logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), format, args...)
 	os.Exit(1)
+}
+
+func printJSON(v any) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		fatalf("encode json failed: %v", err)
+	}
 }
