@@ -83,6 +83,7 @@ const (
 	KeyAISettingsModel            MenuKey = "ai_settings_model"
 	KeyAISettingsCost             MenuKey = "ai_settings_cost"
 	KeyAISettingsContextOptimizer MenuKey = "ai_settings_context_optimizer"
+	KeyAISettingsAgentAccess      MenuKey = "ai_settings_agent_access"
 	KeyAISettingsRegistry         MenuKey = "ai_settings_registry"
 )
 

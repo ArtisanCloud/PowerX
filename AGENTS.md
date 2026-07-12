@@ -83,8 +83,17 @@ UUID 规范：
 - 修正旧 numeric id 引用时不做兼容兜底，缺 UUID 明确失败并给迁移说明。
 
 STS 插件访问规范：
-- 任何提供给插件通过 STS token 调用的 PowerX Core HTTP 接口，必须在 STS route policy 中显式登记 method、path pattern、匹配模式和用途边界；只注册 Gin 路由不代表插件可访问。
-- STS route policy 必须按最小权限授权到 HTTP method，不允许只按路径放开管理接口。新增 `GET` 查询能力不得隐式放开 `POST`、`PUT`、`PATCH`、`DELETE` 等写操作。
-- 新增或调整插件可调用的 Core API 时，必须同步更新 STS validator 测试，至少覆盖允许的 method/path 和相同 path 下不允许的 method。
-- 不允许为方便插件调用而开放 `/admin/*`、`/tenant/*` 或能力前缀的泛化通配策略；需要逐条登记可访问接口。
+- Capability 是业务授权单元，不是 URL。REST/OpenAPI/Admin/gRPC endpoint 只是同一个 capability 的 protocol binding；同一业务语义、同一授权边界的多个入口 MUST 复用同一个 `capability_id`。
+- 如果 `/api/v1/admin/<resource>` 与 `/api/v1/<resource>` 表达同一业务能力，只是用户态后台入口和服务态开放入口的差异，应登记在同一个 capability 的不同 REST bindings 下；不得因为路径不同生成两个可授权能力。
+- 只有当可操作资源范围、actor 约束、风险等级或授权开关必须独立时，才拆成不同 capability，例如 admin 全量治理能力和插件 owner-scoped 自助能力。
+- API 路径必须先声明调用主体和资源边界：`/api/v1/admin/*` 面向后台用户态（PowerX Admin、插件 Admin 页面，用户 JWT + member + RBAC）；`/api/v1/*` 面向外部业务或服务态开放接口（web、mini-app、customer、第三方、插件服务，按 user/customer/API Key/STS/OAuth 等凭证约束）；`/api/v1/tenant/invocations` 面向服务态 capability 调度（插件后端、agent、skill）。
+- web、mini-app、customer 这类外部业务入口不得复用 admin 全量治理语义。即使底层资源相同，也必须按 actor、资源范围和风险拆分或标注 capability，例如 `*.admin_manage`、`*.service_manage`、`*.self_read`、`*.self_update`。
+- customer/mini-app 自助接口默认只能 owner-scoped/self-scoped，不得通过路径或 capability 继承后台管理员的全租户管理能力。
+- 插件通过 STS token 直接调用 PowerX Core HTTP 接口时，允许集合由正式 `backend/config/platform_capabilities/*.yaml` 中的 REST protocol 自动派生，再扣除 STS blocklist；不得再为普通开放能力手工维护分散白名单。
+- STS direct route policy 的来源是：少量静态插件运行时合同入口（例如 `/tenant/invocations`、`/tenant/invocations/stream`、runtime ws-bus/task-queue、租户查询等）+ 正式 platform capability REST endpoints - blocklist。
+- STS direct 自动开放必须按 HTTP method 精确匹配。新增 `GET` 查询能力不得隐式放开 `POST`、`PUT`、`PATCH`、`DELETE` 等写操作。
+- `/api/v1/admin/*` 是后台用户态 API 命名空间，不等于“禁止插件后台页面使用”。浏览器中的 PowerX Admin、插件 Admin 页面、以及任何携带用户 JWT 的后台请求，仍然按用户鉴权、租户成员、RBAC 和业务权限判断；STS route policy 不得影响用户态 JWT。
+- STS token 是插件服务态身份，不携带 `uid/mid`，不能代表登录用户通过 `/api/v1/admin/*` 绕过用户 RBAC。插件后端如果要代表当前用户调用底座后台 API，必须引入明确的 delegated/on-behalf-of 机制，不能复用普通 `powerx:api` STS token。
+- 默认 blocklist 只约束插件服务态 STS direct call，必须拦截 `/admin/*`、`/internal/*`、`/public/*`、`/auth/*`、`/setup/*`、debug、migration、root、drain、bootstrap、mock、health、根级动态路径等非服务态开放入口。`/admin/*` 若确认为插件服务运行时合同，必须显式加入静态 allow、补充用途说明和 validator 测试。
+- 新增插件可调用的 Core API 时，先实现真实 transport/service/permission/test，再登记到正式 platform capability REST protocol；通过 `make capability-check` 与 STS validator 测试验证自动开放结果。不得只改鉴权 validator 绕过 capability 登记。
 <!-- MANUAL ADDITIONS END -->

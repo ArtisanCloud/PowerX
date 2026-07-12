@@ -72,6 +72,38 @@ func (r *AgentCapabilityGrantRepository) ReplaceByAgent(ctx context.Context, env
 	})
 }
 
+func (r *AgentCapabilityGrantRepository) UpsertByAgent(ctx context.Context, env, tenantUUID string, agentUUID uuid.UUID, rows []dbmodel.AgentCapabilityGrant) error {
+	env = strings.TrimSpace(env)
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if len(rows) == 0 {
+		return nil
+	}
+	for i := range rows {
+		rows[i].Env = env
+		rows[i].TenantUUID = tenantUUID
+		rows[i].AgentUUID = agentUUID
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "env"},
+			{Name: "tenant_uuid"},
+			{Name: "agent_uuid"},
+			{Name: "capability_uuid"},
+			{Name: "permission_code"},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"capability_id",
+			"plugin_id",
+			"plugin_uuid",
+			"risk_level",
+			"status",
+			"source",
+			"updated_by_user_uuid",
+			"updated_at",
+		}),
+	}).Create(&rows).Error
+}
+
 func (r *AgentCapabilityGrantRepository) ReplaceByAgentSource(ctx context.Context, env, tenantUUID string, agentUUID uuid.UUID, source string, rows []dbmodel.AgentCapabilityGrant) error {
 	env = strings.TrimSpace(env)
 	tenantUUID = strings.TrimSpace(tenantUUID)

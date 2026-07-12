@@ -137,6 +137,10 @@ type capabilityAnnotations struct {
 
 func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, now time.Time) *models.CapabilityRecord {
 	publishedAt := now
+	permissionCode := strings.TrimSpace(d.PermissionCode)
+	if permissionCode == "" {
+		permissionCode = derivedPlatformPermissionCode(d.ToolScopes)
+	}
 	record := &models.CapabilityRecord{
 		CapabilityID:         d.CapabilityID,
 		PluginID:             pluginID,
@@ -153,7 +157,7 @@ func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, n
 		Annotations: encodeJSONValue(capabilityAnnotations{
 			Source:         "corex",
 			Module:         d.Module,
-			PermissionCode: d.PermissionCode,
+			PermissionCode: permissionCode,
 			AgentUsable:    d.AgentUsable,
 			RiskLevel:      d.RiskLevel,
 			Docs:           d.Docs,
@@ -186,6 +190,18 @@ func (d platformCapabilityDefinition) toRecord(pluginID, pluginVersion string, n
 	})
 	record.ProtocolHash = hashStruct(d.Protocols)
 	return record
+}
+
+func derivedPlatformPermissionCode(scopes []string) string {
+	for _, scope := range scopes {
+		scope = strings.Trim(strings.ToLower(strings.TrimSpace(scope)), ".")
+		if scope == "" {
+			continue
+		}
+		scope = strings.ReplaceAll(scope, ":", ".")
+		return "corex." + scope + ":use"
+	}
+	return ""
 }
 
 func encodeJSONArray(values []string) datatypes.JSON {
@@ -1080,6 +1096,15 @@ func (s *BaseCapabilitySeeder) buildAdapters(def platformCapabilityDefinition) [
 		}
 		if binding.ToolScope != "" {
 			labels["tool_scope"] = binding.ToolScope
+		}
+		if binding.ActorContext != "" {
+			labels["actor_context"] = binding.ActorContext
+		}
+		if binding.ResourceScope != "" {
+			labels["resource_scope"] = binding.ResourceScope
+		}
+		if binding.STSDirect {
+			labels["sts_direct"] = "true"
 		}
 		adapters = append(adapters, repo.AdapterEndpoint{
 			AdapterID:     adapterID,

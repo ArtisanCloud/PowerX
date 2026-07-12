@@ -56,6 +56,24 @@ func BuildPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 	return out, nil
 }
 
+func RESTPermissionTriple(moduleHint, method, endpoint string) (module, resource, action string, ok bool) {
+	endpoint = canonicalEndpoint(endpoint)
+	method = strings.ToUpper(strings.TrimSpace(method))
+	if method == "" || endpoint == "" {
+		return "", "", "", false
+	}
+	module = strings.TrimSpace(moduleHint)
+	if module == "" {
+		module = moduleFromEndpoint(endpoint)
+	}
+	action = actionFromHTTPMethod(method, endpoint)
+	resource = resourceFromEndpoint(endpoint)
+	if module == "" || resource == "" || action == "" {
+		return "", "", "", false
+	}
+	return module, resource, action, true
+}
+
 func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 	dir, err := resolvePlatformCapabilitiesDir()
 	if err != nil {
@@ -101,13 +119,8 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 					continue
 				}
 
-				module := strings.TrimSpace(capItem.Module)
-				if module == "" {
-					module = moduleFromEndpoint(endpoint)
-				}
-				action := actionFromHTTPMethod(method, endpoint)
-				resource := resourceFromEndpoint(endpoint)
-				if module == "" || action == "" || resource == "" {
+				module, resource, action, ok := RESTPermissionTriple(capItem.Module, method, endpoint)
+				if !ok {
 					continue
 				}
 

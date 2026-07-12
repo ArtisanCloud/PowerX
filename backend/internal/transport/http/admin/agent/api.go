@@ -76,8 +76,12 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
 		agentAdminGroup.POST("/:uuid/disable", agentH.DisableAgent)
 		agentAdminGroup.GET("/:uuid/grants", authzH.ListAgentGrants)
+		agentAdminGroup.PATCH("/:uuid/grants", authzH.PatchAgentGrants)
 		agentAdminGroup.PUT("/:uuid/grants", authzH.ReplaceAgentGrants)
+		agentAdminGroup.GET("/:uuid/access-grants", authzH.ListAgentAccessGrants)
+		agentAdminGroup.PATCH("/:uuid/access-grants", authzH.PatchAgentAccessGrants)
 		agentAdminGroup.GET("/:uuid/my-effective-permissions", authzH.MyEffectivePermissions)
+		agentAdminGroup.GET("/:uuid/effective-permissions", authzH.EffectivePermissions)
 
 		agentAdminGroup.POST("/:uuid/shares", shareH.CreateShare)
 		agentAdminGroup.POST("/shares/:share_id/revoke", shareH.RevokeShare)

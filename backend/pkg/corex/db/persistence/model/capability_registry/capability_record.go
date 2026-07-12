@@ -60,6 +60,9 @@ type ProtocolBinding struct {
 	ToolRef      string `json:"tool_ref,omitempty"`
 	ToolScope    string `json:"tool_scope,omitempty"`
 	AuthType     string `json:"auth_type,omitempty"`
+	ActorContext string `json:"actor_context,omitempty"`
+	ResourceScope string `json:"resource_scope,omitempty"`
+	STSDirect    bool   `json:"sts_direct,omitempty"`
 	HealthState  string `json:"health_state,omitempty"`
 	HealthReason string `json:"health_reason,omitempty"`
 	LatencyP95MS int    `json:"latency_p95_ms,omitempty"`

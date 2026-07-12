@@ -61,6 +61,11 @@ type UserMenusCacheEntry = {
   data: UserMenusResult;
 };
 
+type UserMenusInflightEntry = {
+  key: string;
+  promise: Promise<UserMenusResult>;
+};
+
 const normalizeTenantKey = () => {
   if (!process.client) return "server";
   return String(localStorage.getItem("px_current_tenant_uuid") || "no-tenant");
@@ -81,7 +86,7 @@ export const invalidateUserMenusCache = () => {
     "px-user-menus-cache",
     () => null
   );
-  const inflight = useState<Promise<UserMenusResult> | null>(
+  const inflight = useState<UserMenusInflightEntry | null>(
     "px-user-menus-inflight",
     () => null
   );
@@ -355,7 +360,7 @@ export const useMenuService = () => {
         "px-user-menus-cache",
         () => null
       );
-      const inflight = useState<Promise<UserMenusResult> | null>(
+      const inflight = useState<UserMenusInflightEntry | null>(
         "px-user-menus-inflight",
         () => null
       );
@@ -367,8 +372,8 @@ export const useMenuService = () => {
       ) {
         return cached.data;
       }
-      if (!options.force && inflight.value) {
-        return inflight.value;
+      if (!options.force && inflight.value?.key === cacheKey) {
+        return inflight.value.promise;
       }
 
       const run = async () => {
@@ -400,11 +405,11 @@ export const useMenuService = () => {
       };
 
       const promise = run();
-      inflight.value = promise;
+      inflight.value = { key: cacheKey, promise };
       try {
         return await promise;
       } finally {
-        if (inflight.value === promise) {
+        if (inflight.value?.promise === promise) {
           inflight.value = null;
         }
       }

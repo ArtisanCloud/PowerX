@@ -2,6 +2,8 @@ import type {
   Agent,
   AgentListResponse,
   AgentDetailResponse,
+  AgentAccessGrant,
+  AgentAccessSubjectType,
   AgentEffectivePermissions,
   AgentGrant,
   AgentGrantableCapability,
@@ -217,7 +219,7 @@ export const useAgentManager = () => {
     agentUUID: string,
     grants: Array<{ capability_uuid: string; permission_code: string; enabled: boolean }>
   ) => {
-    const response = await put<{
+    const response = await patch<{
       code: number;
       message: string;
       data: { items: AgentGrant[] };
@@ -246,6 +248,56 @@ export const useAgentManager = () => {
     return response.data;
   };
 
+  const fetchEffectivePermissions = async (agentUUID: string, memberUUID: string) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: AgentEffectivePermissions;
+    }>(`/admin/agents/${agentUUID}/effective-permissions`, {
+      params: { env: ENV.value, member_uuid: memberUUID },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent effective permissions failed");
+    }
+    return response.data;
+  };
+
+  const fetchAgentAccessGrants = async (
+    agentUUID: string,
+    subjectType?: AgentAccessSubjectType
+  ) => {
+    const response = await get<{
+      code: number;
+      message: string;
+      data: { items: AgentAccessGrant[] };
+    }>(`/admin/agents/${agentUUID}/access-grants`, {
+      params: { env: ENV.value, ...(subjectType ? { subject_type: subjectType } : {}) },
+    });
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent access grants failed");
+    }
+    return response.data.items || [];
+  };
+
+  const updateAgentAccessGrants = async (
+    agentUUID: string,
+    grants: Array<{ subject_type: AgentAccessSubjectType; subject_uuid: string; enabled: boolean }>
+  ) => {
+    const response = await patch<{
+      code: number;
+      message: string;
+      data: { items: AgentAccessGrant[] };
+    }>(
+      `/admin/agents/${agentUUID}/access-grants`,
+      { grants },
+      { params: { env: ENV.value } }
+    );
+    if (response.code !== 200) {
+      throw new Error(response.message || "agent access grants update failed");
+    }
+    return response.data.items || [];
+  };
+
   return {
     agents: readonly(agents),
     loading: readonly(loading),
@@ -259,5 +311,8 @@ export const useAgentManager = () => {
     fetchAgentGrants,
     updateAgentGrants,
     fetchMyEffectivePermissions,
+    fetchEffectivePermissions,
+    fetchAgentAccessGrants,
+    updateAgentAccessGrants,
   };
 };

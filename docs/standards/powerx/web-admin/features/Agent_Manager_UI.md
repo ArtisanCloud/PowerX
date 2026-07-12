@@ -106,6 +106,18 @@ GET /api/v1/admin/agents/{agent_uuid}/my-effective-permissions
 
 该面板是诊断和解释视图，不允许在会话页直接提升用户权限或 Agent grant。若某项拒绝，应跳转到对应管理页处理，而不是在前端静默隐藏错误。
 
+生效权限由后端动态计算，前端只展示结果，不在浏览器端重新拼装权限：
+
+```text
+effective_allowed = agent_access_allowed
+  && user_allowed
+  && agent_allowed
+  && tenant_enabled
+  && policy_allowed
+```
+
+其中 `user_allowed` 按后端 IAM 有效角色计算；底座 REST capability 会由后端根据 `method + endpoint` 映射到 IAM `module/resource/action`，插件 capability 使用插件声明的结构化 `permission_code`。前端不能直接用 `permission_code` 自行判断用户 IAM。
+
 ---
 
 ## 8. 测试与验收

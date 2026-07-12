@@ -7,7 +7,9 @@ export interface Agent {
   DeletedAt: string | null;
   key: string;
   name: string;
+  title_i18n?: Record<string, string>;
   description: string;
+  description_i18n?: Record<string, string>;
   typeId?: string;
   scene?: string;
   promptSeed?: string;
@@ -87,8 +89,11 @@ export interface AgentGrantableCapability {
   capability_id: string;
   plugin_id: string;
   plugin_uuid?: string;
+  module?: string;
   display_name: string;
+  title_i18n?: Record<string, string>;
   description?: string;
+  description_i18n?: Record<string, string>;
   permission_code: string;
   risk_level: string;
   agent_usable: boolean;
@@ -105,6 +110,17 @@ export interface AgentGrant {
   plugin_id?: string;
   permission_code: string;
   risk_level: string;
+  status: "enabled" | "disabled";
+  source: string;
+}
+
+export type AgentAccessSubjectType = "member" | "role";
+
+export interface AgentAccessGrant {
+  uuid: string;
+  agent_uuid: string;
+  subject_type: AgentAccessSubjectType;
+  subject_uuid: string;
   status: "enabled" | "disabled";
   source: string;
 }
@@ -129,5 +145,6 @@ export interface AgentEffectivePermissions {
   user_uuid: string;
   member_uuid: string;
   agent_uuid: string;
+  agent_access_allowed: boolean;
   items: AgentEffectivePermissionItem[];
 }

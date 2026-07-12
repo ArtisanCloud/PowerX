@@ -14,13 +14,14 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestReplacePluginRegistryGrantsFromSkillsCreatesEnabledGrants(t *testing.T) {
+func TestReplacePluginRegistryGrantsFromSkillsCreatesEnabledGrantsForOwnerPlugin(t *testing.T) {
 	db := setupPluginGrantDB(t)
 	svc := NewAgentService(db)
 	ctx := context.Background()
 	tenantUUID := "tenant-a"
 	agentUUID := uuid.New()
 	capabilityUUID := uuid.New()
+	anotherCapabilityUUID := uuid.New()
 
 	require.NoError(t, db.Exec(`
 		INSERT INTO skills_capability_bindings (skill_id, capability_id, binding_status)
@@ -35,19 +36,34 @@ func TestReplacePluginRegistryGrantsFromSkillsCreatesEnabledGrants(t *testing.T)
 		Annotations:  datatypes.JSON([]byte(`{"permission_codes":["com.powerx.plugins.base.local.template:create"],"risk_level":"low"}`)),
 		Status:       "published",
 	}).Error)
+	require.NoError(t, db.Create(&capmodels.CapabilityRecord{
+		UUID:         anotherCapabilityUUID,
+		CapabilityID: "com.powerx.plugins.base.local.template.audit",
+		PluginID:     "com.powerx.plugins.base.local",
+		Title:        "Template Audit",
+		ToolScope:    datatypes.JSON([]byte(`["com.powerx.plugins.base.local.template:audit"]`)),
+		Annotations:  datatypes.JSON([]byte(`{"permission_codes":["com.powerx.plugins.base.local.template:audit"],"risk_level":"medium"}`)),
+		Status:       "published",
+	}).Error)
 
-	err := svc.ReplacePluginRegistryGrantsFromSkills(ctx, "dev", &tenantUUID, agentUUID, []string{"powerxplugin.template.basic.local"}, "user-a")
+	err := svc.ReplacePluginRegistryGrantsFromSkills(ctx, "dev", &tenantUUID, agentUUID, "com.powerx.plugins.base.local", []string{"powerxplugin.template.basic.local"}, "user-a")
 	require.NoError(t, err)
 
 	var rows []dbmodel.AgentCapabilityGrant
-	require.NoError(t, db.Where("agent_uuid = ?", agentUUID).Find(&rows).Error)
-	require.Len(t, rows, 1)
-	require.Equal(t, capabilityUUID, rows[0].CapabilityUUID)
-	require.Equal(t, "com.powerx.plugins.base.local.template.create", rows[0].CapabilityID)
-	require.Equal(t, "com.powerx.plugins.base.local.template:create", rows[0].PermissionCode)
+	require.NoError(t, db.Where("agent_uuid = ?", agentUUID).Order("capability_id ASC").Find(&rows).Error)
+	require.Len(t, rows, 2)
+	require.Equal(t, anotherCapabilityUUID, rows[0].CapabilityUUID)
+	require.Equal(t, "com.powerx.plugins.base.local.template.audit", rows[0].CapabilityID)
+	require.Equal(t, "com.powerx.plugins.base.local.template:audit", rows[0].PermissionCode)
 	require.Equal(t, dbmodel.AgentCapabilityGrantStatusEnabled, rows[0].Status)
 	require.Equal(t, dbmodel.AgentCapabilityGrantSourcePlugin, rows[0].Source)
-	require.Equal(t, "low", rows[0].RiskLevel)
+	require.Equal(t, "medium", rows[0].RiskLevel)
+	require.Equal(t, capabilityUUID, rows[1].CapabilityUUID)
+	require.Equal(t, "com.powerx.plugins.base.local.template.create", rows[1].CapabilityID)
+	require.Equal(t, "com.powerx.plugins.base.local.template:create", rows[1].PermissionCode)
+	require.Equal(t, dbmodel.AgentCapabilityGrantStatusEnabled, rows[1].Status)
+	require.Equal(t, dbmodel.AgentCapabilityGrantSourcePlugin, rows[1].Source)
+	require.Equal(t, "low", rows[1].RiskLevel)
 }
 
 func setupPluginGrantDB(t *testing.T) *gorm.DB {

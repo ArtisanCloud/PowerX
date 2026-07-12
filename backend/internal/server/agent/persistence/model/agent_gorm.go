@@ -19,6 +19,7 @@ const (
 	TableAgentKnowledgeBinding = "agent_knowledge_bindings"
 	TableAgentPluginLink       = "agent_plugin_links"
 	TableAgentCapabilityGrant  = "agent_capability_grants"
+	TableAgentAccessGrant      = "agent_access_grants"
 
 	TableAgentChatSession       = "agent_chat_sessions"
 	TableAgentChatMessage       = "agent_chat_messages"
@@ -54,6 +55,12 @@ const (
 	AgentCapabilityGrantStatusDisabled = "disabled"
 	AgentCapabilityGrantSourceManual   = "manual"
 	AgentCapabilityGrantSourcePlugin   = "plugin_registry"
+
+	AgentAccessGrantSubjectMember  = "member"
+	AgentAccessGrantSubjectRole    = "role"
+	AgentAccessGrantStatusEnabled  = "enabled"
+	AgentAccessGrantStatusDisabled = "disabled"
+	AgentAccessGrantSourceManual   = "manual"
 )
 
 // ---------- 1) Agent 主表 ----------
@@ -311,4 +318,32 @@ func (mdl *AgentCapabilityGrant) GetTableName(needFull bool) string {
 		return mdl.TableName()
 	}
 	return TableAgentCapabilityGrant
+}
+
+// AgentAccessGrant records which IAM subject can use an Agent.
+type AgentAccessGrant struct {
+	coremodel.PowerUUIDModel
+
+	Env        string `gorm:"column:env;size:32;not null;index:agent_access_grant_uniq,unique,priority:1" json:"-"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:agent_access_grant_uniq,unique,priority:2;index" json:"tenant_uuid"`
+
+	AgentUUID   uuid.UUID `gorm:"column:agent_uuid;type:uuid;not null;index:agent_access_grant_uniq,unique,priority:3;index" json:"agent_uuid"`
+	SubjectType string    `gorm:"column:subject_type;type:varchar(16);not null;index:agent_access_grant_uniq,unique,priority:4;index" json:"subject_type"`
+	SubjectUUID string    `gorm:"column:subject_uuid;type:char(36);not null;index:agent_access_grant_uniq,unique,priority:5;index" json:"subject_uuid"`
+
+	Status string `gorm:"column:status;type:varchar(16);not null;default:'enabled';index" json:"status"`
+	Source string `gorm:"column:source;type:varchar(32);not null;default:'manual';index" json:"source"`
+
+	CreatedByUserUUID string `gorm:"column:created_by_user_uuid;type:char(36);index" json:"created_by_user_uuid,omitempty"`
+	UpdatedByUserUUID string `gorm:"column:updated_by_user_uuid;type:char(36);index" json:"updated_by_user_uuid,omitempty"`
+}
+
+func (mdl *AgentAccessGrant) TableName() string {
+	return coremodel.PowerXSchema + "." + TableAgentAccessGrant
+}
+func (mdl *AgentAccessGrant) GetTableName(needFull bool) string {
+	if needFull {
+		return mdl.TableName()
+	}
+	return TableAgentAccessGrant
 }

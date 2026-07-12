@@ -908,6 +908,7 @@ func mergePendingTaskParams(ctx context.Context, task flowschema.PlanTask) flows
 	if collected := mapFromAny(pending["collected_params"]); len(collected) > 0 {
 		mergePlanParams(merged, collected)
 	}
+	applyPendingConfirmationParams(pending, merged)
 	task.Params = merged
 	return task
 }
@@ -941,6 +942,7 @@ func pendingDetectedTaskFromContext(ctx context.Context, msg string) (flowschema
 	if userText := strings.TrimSpace(msg); userText != "" {
 		params["user_message"] = userText
 	}
+	applyPendingConfirmationParams(pending, params)
 	return flowschema.DetectedTask{
 		TaskID:   firstNonEmpty(anyToString(pending["task_id"]), fmt.Sprintf("pending_%d", time.Now().UnixNano())),
 		FlowID:   nodeRef,
@@ -950,6 +952,59 @@ func pendingDetectedTaskFromContext(ctx context.Context, msg string) (flowschema
 		Reason:   "resume awaiting-params task with latest user message",
 		Params:   params,
 	}, true
+}
+
+func applyPendingConfirmationParams(pending map[string]any, params map[string]interface{}) {
+	if len(pending) == 0 || params == nil {
+		return
+	}
+	if !pendingMissingField(pending, "confirmation") && !pendingMissingField(pending, "confirmed") {
+		return
+	}
+	userText := strings.TrimSpace(firstNonEmpty(anyToString(params["user_message"]), anyToString(params["message"])))
+	if !isAffirmativeConfirmationText(userText) {
+		return
+	}
+	if !hasPlanParamPath(params, "confirmation") {
+		params["confirmation"] = userText
+	}
+	if !hasPlanParamPath(params, "confirmed") {
+		params["confirmed"] = true
+	}
+}
+
+func pendingMissingField(pending map[string]any, field string) bool {
+	field = strings.ToLower(strings.TrimSpace(field))
+	if len(pending) == 0 || field == "" {
+		return false
+	}
+	for _, missing := range anyStringSlice(pending["missing_fields"]) {
+		if strings.ToLower(strings.TrimSpace(missing)) == field {
+			return true
+		}
+	}
+	if state := mapFromAny(pending["state"]); len(state) > 0 {
+		for _, missing := range anyStringSlice(state["missing"]) {
+			if strings.ToLower(strings.TrimSpace(missing)) == field {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isAffirmativeConfirmationText(text string) bool {
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" {
+		return false
+	}
+	text = strings.Trim(text, " \t\r\n。.!！,，;；")
+	switch text {
+	case "确认", "确认删除", "确定", "确定删除", "同意", "同意删除", "是", "是的", "可以", "执行", "执行删除", "删除吧", "删吧", "yes", "y", "ok", "okay", "confirm", "confirmed":
+		return true
+	default:
+		return false
+	}
 }
 
 func isPendingResumePlan(ctx context.Context, plan *flowschema.ExecutionPlan) bool {

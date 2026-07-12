@@ -62,8 +62,13 @@ func (r *RoleBindingRepository) ListEffectiveForMember(ctx context.Context, tena
 		SELECT DISTINCT rb.* FROM `+tRB+` rb
 		JOIN `+tMA+` ma
 		  ON ma.tenant_uuid = rb.tenant_uuid
-		 AND rb.subject_type = ma.dim_type
 		 AND rb.subject_id = ma.dim_id
+		 AND rb.subject_type = CASE ma.dim_type
+		   WHEN 'ORG' THEN 'ORG_UNIT'
+		   WHEN 'TEAM' THEN 'TEAM'
+		   WHEN 'POSITION' THEN 'POSITION'
+		   WHEN 'GROUP' THEN 'GROUP'
+		 END
 		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`,
 		tenantUUID, dbm.SubMember, memberID,
 		tenantUUID, memberID,

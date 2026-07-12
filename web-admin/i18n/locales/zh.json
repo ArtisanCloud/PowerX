@@ -45,7 +45,8 @@
     "untitled": "未命名菜单",
     "section": {
       "untitled": "未命名分类"
-    }
+    },
+    "aiSettingsAgentAccess": "智能体授权"
   },
   "auth": {
     "backToHome": "返回首页",
@@ -1183,6 +1184,7 @@
         "available": "可授权",
         "unavailable": "不可授权",
         "ownerPlugin": "所属插件",
+        "noDescription": "插件未提供能力描述",
         "searchPlaceholder": "搜索能力、权限码或插件",
         "filteredEmpty": "没有符合当前筛选条件的能力。",
         "relatedEmpty": "该智能体当前没有匹配所属插件的可授权能力，可切换到全部能力查看跨插件授权。",
@@ -1195,18 +1197,26 @@
           "ownEmpty": "该智能体所属插件 {pluginId} 当前没有已同步且可授权的能力。",
           "noOwnerPlugin": "该智能体没有所属插件，请查看底座能力或其他插件能力。",
           "coreEmpty": "当前没有已同步且可授权的底座能力。",
-          "otherEmpty": "当前没有其他插件的可授权能力。"
+          "otherEmpty": "当前没有其他插件的可授权能力。",
+          "selectModuleFirst": "请先选择底座模块，再查看该模块下的能力。",
+          "selectPluginFirst": "请先选择插件，再选择要追加授权的能力。"
         },
         "filters": {
           "related": "相关能力",
           "all": "全部能力",
-          "allPlugins": "全部插件",
+          "selectPlugin": "选择插件",
+          "selectModule": "选择模块",
           "anyAvailability": "全部状态",
           "available": "可授权",
           "unavailable": "不可授权",
           "anySelection": "全部",
           "selected": "已选",
           "unselected": "未选"
+        },
+        "meta": {
+          "permissionCode": "权限码：",
+          "capabilityId": "能力 ID：",
+          "pluginId": "插件 ID："
         },
         "loadFailed": "加载智能体授权失败",
         "saved": "权限配置已保存",
@@ -1220,7 +1230,30 @@
       },
       "pagination": {
         "total": "共 {total} 个智能体"
-      }
+      },
+      "catalog": {
+        "powerxplugin_template_agent": {
+          "title": "模板智能体",
+          "description": "面向插件开发者和管理员的 PowerXPlugin 基础模板对象管理智能体，负责解释并执行模板对象的创建、查询、更新、删除和列表等任务。"
+        },
+        "powerxplugin_template_agent_local": {
+          "title": "模板智能体",
+          "description": "面向插件开发者和管理员的 PowerXPlugin 基础模板对象管理智能体，负责解释并执行模板对象的创建、查询、更新、删除和列表等任务。"
+        },
+        "courtmate_basketball_growth_agent_local": {
+          "title": "篮球成长知识智能体",
+          "description": "Court Mate 固有智能体，负责把可信篮球训练来源转化为可审核、可追溯的篮球训练知识库候选。"
+        },
+        "product_launch_v1_00000000_0000_0000_0000_00000_1f5333aa0a0ed6c7": {
+          "title": "智能视频重构大师",
+          "description": "规划并重构产品发布视频脚本和制作流程。"
+        },
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "营销大师",
+          "description": "生成短视频营销脚本和投放传播文案。"
+        }
+      },
+      "accessGrants": "使用授权"
     },
     "effectivePermissions": {
       "title": "生效权限",
@@ -1377,6 +1410,128 @@
         "loadMessagesFailed": "加载会话消息失败",
         "loadMoreMessagesFailed": "加载更多消息失败"
       }
+    },
+    "accessGrants": {
+      "title": "智能体使用授权",
+      "description": "配置成员或角色是否可以使用指定智能体，并预览成员最终生效权限。",
+      "backToAgents": "返回智能体管理",
+      "unnamedAgent": "未命名智能体",
+      "unnamedMember": "未命名成员",
+      "unnamedRole": "未命名角色",
+      "loading": "正在加载授权关系...",
+      "emptyAgent": "请先选择智能体。",
+      "emptyFiltered": "没有符合当前筛选条件的对象。",
+      "memberGrantHint": "打开开关表示该成员可以使用当前智能体；最终能调用哪些能力，还要继续与成员 IAM、智能体能力授权、租户能力和策略做交集。",
+      "roleGrantHint": "打开开关表示该角色下的成员可以使用当前智能体；右侧生效权限需要选择具体成员才能计算。",
+      "fields": {
+        "agent": "智能体",
+        "search": "筛选对象"
+      },
+      "placeholders": {
+        "agent": "选择智能体",
+        "search": "搜索成员、角色或说明",
+        "agentSearch": "搜索智能体名称、Key 或插件"
+      },
+      "tabs": {
+        "members": "成员授权",
+        "roles": "角色授权"
+      },
+      "actions": {
+        "toggle": "切换使用授权",
+        "preview": "查看生效权限"
+      },
+      "summary": {
+        "enabled": "已授权"
+      },
+      "status": {
+        "allowed": "允许",
+        "denied": "拒绝"
+      },
+      "preview": {
+        "title": "生效权限预览",
+        "description": "预览选中成员使用该智能体时，成员 IAM、智能体使用授权、智能体能力授权、租户能力启用和策略结果的最终交集。",
+        "formulaTitle": "最终权限计算",
+        "formulaDescription": "只有下面条件全部允许时，该能力才会成为最终可用能力。",
+        "interpretation": "当前系统共有 {total} 个可评估能力。该成员通过当前智能体最终允许 {allowed} 个，拒绝 {denied} 个；拒绝表示该成员或该智能体不具备调用这些能力的完整条件，不代表业务流程一定需要全部能力。",
+        "searchPlaceholder": "搜索能力名称、ID、权限码、插件或拒绝原因",
+        "pageSize": "每页数量",
+        "pageSummary": "当前显示 {shown} 条，共 {total} 条",
+        "formula": {
+          "user": "成员 IAM",
+          "useGrant": "使用授权",
+          "agent": "智能体能力",
+          "tenant": "租户能力",
+          "policy": "策略",
+          "and": "且"
+        },
+        "loading": "正在加载生效权限...",
+        "empty": "请选择一个成员后查看生效权限。",
+        "emptyItems": "当前没有可计算的能力权限。请确认该智能体已经配置能力授权，且能力目录已同步。",
+        "emptyItemsTitle": "暂无可计算能力",
+        "emptyAllowedTitle": "当前没有最终允许的能力",
+        "emptyAllowedDescription": "使用授权已经打开，但最终权限还会继续受成员 IAM、智能体能力授权、租户能力和策略限制。请切换到拒绝明细查看原因。",
+        "emptyDeniedTitle": "没有拒绝明细",
+        "emptyDeniedDescription": "当前筛选下没有被拒绝的能力。",
+        "selectMemberTitle": "选择成员查看最终权限",
+        "selectMemberDescription": "先在左侧成员列表中选择一个成员，系统会计算该成员使用当前智能体时真正允许的能力。",
+        "roleSelectedTitle": "角色不能直接预览最终权限",
+        "roleSelectedDescription": "角色授权只决定一组成员是否能使用智能体；最终权限仍要按具体成员的 IAM 权限计算。",
+        "denySummaryTitle": "拒绝原因统计",
+        "accessDenied": "该成员当前未被授权使用此智能体。",
+        "subject": "当前预览对象",
+        "granted": "已授权使用",
+        "notGranted": "未授权使用",
+        "rolePreviewUnavailable": "角色授权只控制角色是否可使用该智能体；最终生效权限需要选择具体成员预览。",
+        "total": "能力总数",
+        "allowed": "最终允许",
+        "denied": "最终拒绝",
+        "columns": {
+          "user": "IAM",
+          "agent": "智能体",
+          "tenant": "租户",
+          "policy": "策略"
+        },
+        "filters": {
+          "allowed": "可用能力",
+          "denied": "拒绝明细",
+          "all": "全部"
+        },
+        "pagination": {
+          "first": "第一页",
+          "previous": "上一页",
+          "next": "下一页",
+          "last": "最后一页"
+        },
+        "actions": {
+          "viewDeniedDetails": "查看拒绝明细"
+        }
+      },
+      "reasons": {
+        "none": "无",
+        "agent_access_grant_missing": "成员或其角色未被授权使用该智能体",
+        "agent_grant_missing": "智能体未授予该能力",
+        "user_permission_missing": "成员缺少 IAM 权限",
+        "tenant_capability_disabled": "租户未启用该能力",
+        "capability_policy_denied": "能力策略拒绝",
+        "policy_denied": "策略拒绝",
+        "permission_code_invalid": "能力权限码无效",
+        "permission_code_missing": "能力缺少结构化权限码"
+      },
+      "errors": {
+        "loadFailed": "加载授权关系失败",
+        "saveFailed": "保存授权关系失败",
+        "previewFailed": "加载生效权限失败"
+      },
+      "sections": {
+        "agents": "智能体",
+        "subjects": "授权对象"
+      },
+      "emptyAgents": "暂无可配置的智能体。",
+      "emptyAgentsDescription": "请先在智能体管理中创建或同步智能体，然后再配置成员和角色的使用授权。",
+      "currentAgent": "当前智能体",
+      "selectAgentTitle": "先选择一个智能体",
+      "typeToSearchAgent": "输入智能体名称、Key 或插件 ID 后选择智能体。不会默认展开全部智能体。",
+      "moreAgentResults": "还有 {count} 个匹配结果，请继续输入关键词缩小范围。"
     }
   },
   "pluginRelease": {

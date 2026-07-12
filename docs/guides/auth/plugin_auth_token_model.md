@@ -108,6 +108,54 @@ STS access token 的主体是插件服务账号，不是当前登录用户。该
 
 插件 SDK 应在内存中缓存 STS token，并在剩余寿命不足时刷新。遇到 401/403 可强制刷新一次后重试；仍失败则直接返回鉴权错误。
 
+### STS direct HTTP 访问边界
+
+插件调用底座能力的推荐主路径是 `/api/v1/tenant/invocations`。该入口由 Capability Registry 做能力选择、租户授权和协议适配，适合插件不想直接绑定底座 REST/gRPC 细节的场景。
+
+插件也可以用 STS token 直接调用底座 REST 接口，但必须同时满足：
+
+1. 接口已经登记在正式 `backend/config/platform_capabilities/*.yaml` 的 REST protocol endpoints 中。
+2. HTTP method 与 capability protocol 中声明的方法精确匹配。
+3. 路径没有命中 STS blocklist。
+
+Capability 是业务授权单元，不是 URL。`/api/v1/admin/<resource>`、`/api/v1/<resource>` 与 gRPC service 如果表达同一业务语义、同一授权边界，应登记为同一个 capability 的不同 protocol bindings。路径前缀只表示入口形态和调用身份边界，不应自动生成多个能力。只有资源范围、actor 约束、风险等级或授权开关必须独立时，才拆成不同 capability。
+
+Web、mini-app、customer 入口属于外部业务调用边界，不属于后台管理边界，也不等同于插件服务态 STS。设计这类接口时必须声明 actor：
+
+```text
+admin_user      -> /api/v1/admin/*，用户 JWT + member + RBAC
+service_actor   -> /api/v1/tenant/invocations 或服务态开放 REST，STS/API Key/OAuth
+web_user        -> /api/v1/*，用户 JWT 或业务 session
+mini_app_user   -> /api/v1/*，小程序会话、用户 JWT 或 customer/user token
+customer_actor  -> /api/v1/customer/*，customer token 或 customer-scoped OAuth/API Key
+```
+
+customer/mini-app 自助接口默认必须 owner-scoped/self-scoped，不能复用 admin 全量管理能力。例如客户门户读取自己的账号应使用 `com.corex.customer.account.self_read`，而不是 `com.corex.customer.accounts.admin_manage`。
+
+STS direct route policy 按以下规则生成：
+
+```text
+static plugin runtime contracts
++ formal platform capability REST endpoints
+- STS blocklist
+```
+
+`/api/v1/admin/*` 是后台用户态 API 命名空间，不等于“禁止插件后台页面使用”。浏览器中的 PowerX Admin、插件 Admin 页面、以及任何携带用户 JWT 的后台请求，仍然按用户鉴权、租户成员、RBAC 和业务权限判断。STS direct route policy 只约束 `issuer=powerx-sts`、`audience=powerx:api` 的插件服务态 token。
+
+普通 STS token 不携带 `uid/mid`，不能代表登录用户通过 `/api/v1/admin/*` 绕过用户 RBAC。插件后端如果要代表当前用户调用底座后台 API，必须引入明确的 delegated/on-behalf-of 机制，不能复用普通 STS token。
+
+对服务态 STS direct call，`/admin/*`、`/internal/*`、`/public/*`、`/auth/*`、`/setup/*`、debug、migration、root、drain、bootstrap、mock、health、根级动态路径等默认不允许。少量确认为插件服务运行时合同的入口，可以进入 static allow，但必须有明确用途说明和 `auth_subject_validator` 测试。
+
+因此，新增插件可直接调用的底座 REST API 时，不应手工改鉴权白名单绕过能力目录。正确顺序是：实现真实 transport/service/permission/test，登记正式 platform capability REST protocol，运行 `make capability-check`，再验证 STS direct policy。
+
+遇到 STS direct HTTP 403 时，按顺序排查：
+
+1. STS token 的 `audience=powerx:api`、`scope=access`、`tenant_uuid` 是否正确。
+2. 目标 endpoint 是否存在于正式 platform capability REST protocols。
+3. HTTP method 是否与 protocol 声明一致。
+4. 路径是否命中 STS blocklist。
+5. 如果走 `/tenant/invocations`，再查租户 registration、adapter、permission code 是否启用。
+
 ## 托管插件运行态凭证
 
 PowerX 托管的插件进程是全局运行态，按 `plugin_id` 启动，不按业务租户复制进程。

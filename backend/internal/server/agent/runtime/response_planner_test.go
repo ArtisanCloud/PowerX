@@ -325,6 +325,54 @@ func TestEnginePendingTaskExtractsMissingSlotFromUserMessage(t *testing.T) {
 	}
 }
 
+func TestEnginePendingTaskConfirmationMergesCollectedParams(t *testing.T) {
+	skillID := "test.skill.pending.confirmation.runtime"
+	ctx := context.WithValue(context.Background(), "agent_pending_task", map[string]any{
+		"node_ref":       skillID,
+		"skill_id":       skillID,
+		"action":         "delete",
+		"status":         "awaiting_params",
+		"missing_fields": []any{"confirmation"},
+		"collected_params": map[string]any{
+			"action":        "delete",
+			"template_id":   5,
+			"template_ref":  "测试模板2",
+			"template_name": "测试模板2",
+		},
+	})
+
+	detected, ok := pendingDetectedTaskFromContext(ctx, "确认")
+	if !ok {
+		t.Fatal("pending task was not resumed")
+	}
+	if detected.Params["confirmation"] != "确认" {
+		t.Fatalf("confirmation=%#v params=%#v", detected.Params["confirmation"], detected.Params)
+	}
+	if detected.Params["confirmed"] != true {
+		t.Fatalf("confirmed=%#v params=%#v", detected.Params["confirmed"], detected.Params)
+	}
+
+	task := mergePendingTaskParams(ctx, flowschema.PlanTask{
+		TaskID:   "task_delete",
+		FlowID:   skillID,
+		NodeKind: "skill",
+		NodeRef:  skillID,
+		Params: map[string]interface{}{
+			"action":       "delete",
+			"user_message": "确认",
+		},
+	})
+	if task.Params["template_id"] != 5 {
+		t.Fatalf("template_id=%#v params=%#v", task.Params["template_id"], task.Params)
+	}
+	if task.Params["template_ref"] != "测试模板2" || task.Params["template_name"] != "测试模板2" {
+		t.Fatalf("template labels lost: %#v", task.Params)
+	}
+	if task.Params["confirmation"] != "确认" || task.Params["confirmed"] != true {
+		t.Fatalf("confirmation not merged: %#v", task.Params)
+	}
+}
+
 func TestEngineInitialTaskExtractsRequiredSlotsFromUserMessage(t *testing.T) {
 	mgr := agent.GetAgentManager()
 	skillID := "test.skill.initial.slot.runtime"

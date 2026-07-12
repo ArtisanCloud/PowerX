@@ -31,15 +31,17 @@ type capabilityCatalogSnapshot struct {
 }
 
 type capabilityCatalogEntry struct {
-	ID          string                 `json:"id"`
-	Version     string                 `json:"version"`
-	Descriptor  string                 `json:"descriptor"`
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Schemas     map[string]string      `json:"schemas"`
-	Protocols   map[string]interface{} `json:"protocols"`
-	Tags        []string               `json:"tags"`
-	Execution   map[string]interface{} `json:"execution"`
+	ID              string                 `json:"id"`
+	Version         string                 `json:"version"`
+	Descriptor      string                 `json:"descriptor"`
+	Title           string                 `json:"title"`
+	TitleI18n       map[string]string      `json:"title_i18n"`
+	Description     string                 `json:"description"`
+	DescriptionI18n map[string]string      `json:"description_i18n"`
+	Schemas         map[string]string      `json:"schemas"`
+	Protocols       map[string]interface{} `json:"protocols"`
+	Tags            []string               `json:"tags"`
+	Execution       map[string]interface{} `json:"execution"`
 }
 
 type catalogExposureDoc struct {
@@ -52,6 +54,35 @@ type catalogExposureChannel struct {
 	Capability string                 `yaml:"capability"`
 	RBAC       string                 `yaml:"rbac"`
 	Security   map[string]interface{} `yaml:"security"`
+}
+
+type catalogDescriptorMetadata struct {
+	Title           string
+	TitleI18n       map[string]string
+	Description     string
+	DescriptionI18n map[string]string
+	PermissionCodes []string
+	RiskLevel       string
+	AgentUsable     *bool
+}
+
+type catalogDescriptorDoc struct {
+	Title           string            `yaml:"title"`
+	TitleI18n       map[string]string `yaml:"title_i18n"`
+	Description     string            `yaml:"description"`
+	DescriptionI18n map[string]string `yaml:"description_i18n"`
+	Security        struct {
+		PermissionCode string `yaml:"permission_code"`
+		RiskLevel      string `yaml:"risk_level"`
+	} `yaml:"security"`
+	Agent struct {
+		Usable    *bool  `yaml:"usable"`
+		RiskLevel string `yaml:"risk_level"`
+	} `yaml:"agent"`
+	RBAC struct {
+		Resource string   `yaml:"resource"`
+		Actions  []string `yaml:"actions"`
+	} `yaml:"rbac"`
 }
 
 type capabilityCatalogAsset struct {
@@ -131,6 +162,10 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 	if err != nil {
 		return err
 	}
+	descriptorMetadata, err := descriptorMetadataFromCatalogAssets(req.Catalog.PluginID, req.Catalog.Entries, req.Assets)
+	if err != nil {
+		return err
+	}
 	manifest := map[string]interface{}{
 		"id":      strings.TrimSpace(req.Catalog.PluginID),
 		"name":    strings.TrimSpace(req.Catalog.PluginID),
@@ -145,7 +180,7 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 			"name":    strings.TrimSpace(req.Catalog.PluginID),
 			"version": firstNonEmpty(strings.TrimSpace(req.Catalog.ManifestVersion), "1.0.0"),
 		},
-		"capabilities": buildSyncCapabilities(req.Catalog, exposurePermissions),
+		"capabilities": buildSyncCapabilities(req.Catalog, exposurePermissions, descriptorMetadata),
 	}
 	if err := writeJSON(filepath.Join(root, "capabilities", "catalog.json"), catalog); err != nil {
 		return err
@@ -158,7 +193,7 @@ func writeCapabilityArtifact(root string, req capabilityCatalogRequest) error {
 	return nil
 }
 
-func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermissions map[string][]string) []map[string]interface{} {
+func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermissions map[string][]string, descriptors map[string]catalogDescriptorMetadata) []map[string]interface{} {
 	now := time.Now().UTC().Format(time.RFC3339)
 	out := make([]map[string]interface{}, 0, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
@@ -166,20 +201,151 @@ func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermission
 		if id == "" {
 			continue
 		}
-		permissionCodes := dedupeCatalogStrings(append(permissionCodesFromEntry(catalog.PluginID, entry), exposurePermissions[id]...))
+		descriptor := descriptors[id]
+		titleI18n := firstCatalogLocaleMap(entry.TitleI18n, descriptor.TitleI18n)
+		descriptionI18n := firstCatalogLocaleMap(entry.DescriptionI18n, descriptor.DescriptionI18n)
+		permissionCodes := dedupeCatalogStrings(append(append(permissionCodesFromEntry(catalog.PluginID, entry), exposurePermissions[id]...), descriptor.PermissionCodes...))
+		annotations := map[string]interface{}{
+			"descriptor":       strings.TrimSpace(entry.Descriptor),
+			"version":          strings.TrimSpace(entry.Version),
+			"permission_codes": permissionCodes,
+			"agent_usable":     firstCatalogBool(descriptor.AgentUsable, true),
+			"title_i18n":       titleI18n,
+			"description_i18n": descriptionI18n,
+		}
+		if risk := strings.TrimSpace(descriptor.RiskLevel); risk != "" {
+			annotations["risk_level"] = risk
+		}
 		out = append(out, map[string]interface{}{
 			"id":           id,
-			"title":        firstNonEmpty(strings.TrimSpace(entry.Title), id),
-			"description":  strings.TrimSpace(entry.Description),
+			"title":        firstNonEmpty(strings.TrimSpace(entry.Title), strings.TrimSpace(descriptor.Title), firstCatalogLocaleValue(titleI18n), id),
+			"description":  firstNonEmpty(strings.TrimSpace(entry.Description), strings.TrimSpace(descriptor.Description), firstCatalogLocaleValue(descriptionI18n)),
 			"categories":   entry.Tags,
 			"tool_scope":   permissionCodes,
 			"protocols":    protocolsForSync(entry),
-			"annotations":  map[string]interface{}{"descriptor": strings.TrimSpace(entry.Descriptor), "version": strings.TrimSpace(entry.Version), "permission_codes": permissionCodes, "agent_usable": true},
+			"annotations":  annotations,
 			"status":       "published",
 			"published_at": now,
 		})
 	}
 	return out
+}
+
+func descriptorMetadataFromCatalogAssets(pluginID string, entries []capabilityCatalogEntry, assets []capabilityCatalogAsset) (map[string]catalogDescriptorMetadata, error) {
+	assetByPath := make(map[string]capabilityCatalogAsset, len(assets))
+	for _, asset := range assets {
+		rel := cleanCatalogAssetPath(asset.Path)
+		if rel == "" {
+			continue
+		}
+		assetByPath[rel] = asset
+	}
+	out := make(map[string]catalogDescriptorMetadata)
+	for _, entry := range entries {
+		capabilityID := strings.TrimSpace(entry.ID)
+		descriptorPath := cleanCatalogAssetPath(entry.Descriptor)
+		if capabilityID == "" || descriptorPath == "" {
+			continue
+		}
+		asset, ok := assetByPath[descriptorPath]
+		if !ok {
+			return nil, fmt.Errorf("capability descriptor asset missing: capability=%s descriptor=%s", capabilityID, descriptorPath)
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(asset.Content))
+		if err != nil {
+			return nil, fmt.Errorf("decode capability descriptor %s: %w", descriptorPath, err)
+		}
+		var doc catalogDescriptorDoc
+		if err := yaml.Unmarshal(raw, &doc); err != nil {
+			return nil, fmt.Errorf("parse capability descriptor %s: %w", descriptorPath, err)
+		}
+		out[capabilityID] = catalogDescriptorMetadata{
+			Title:           strings.TrimSpace(doc.Title),
+			TitleI18n:       cleanCatalogLocaleMap(doc.TitleI18n),
+			Description:     strings.TrimSpace(doc.Description),
+			DescriptionI18n: cleanCatalogLocaleMap(doc.DescriptionI18n),
+			PermissionCodes: permissionCodesFromDescriptor(pluginID, doc),
+			RiskLevel:       firstNonEmpty(strings.TrimSpace(doc.Agent.RiskLevel), strings.TrimSpace(doc.Security.RiskLevel)),
+			AgentUsable:     doc.Agent.Usable,
+		}
+	}
+	return out, nil
+}
+
+func permissionCodesFromDescriptor(pluginID string, doc catalogDescriptorDoc) []string {
+	codes := make([]string, 0)
+	if code := strings.TrimSpace(doc.Security.PermissionCode); code != "" {
+		codes = append(codes, code)
+	}
+	resource := strings.TrimSpace(doc.RBAC.Resource)
+	for _, action := range doc.RBAC.Actions {
+		action = strings.TrimSpace(action)
+		if resource == "" || action == "" {
+			continue
+		}
+		if code := permissionCodeFromCatalogRBAC(pluginID, resource+":"+action); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	return dedupeCatalogStrings(codes)
+}
+
+func cleanCatalogAssetPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Clean(filepath.FromSlash(path)))
+}
+
+func firstCatalogLocaleMap(values ...map[string]string) map[string]string {
+	for _, value := range values {
+		if cleaned := cleanCatalogLocaleMap(value); len(cleaned) > 0 {
+			return cleaned
+		}
+	}
+	return nil
+}
+
+func firstCatalogBool(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func cleanCatalogLocaleMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for locale, value := range in {
+		locale = strings.TrimSpace(locale)
+		value = strings.TrimSpace(value)
+		if locale == "" || value == "" {
+			continue
+		}
+		out[locale] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func firstCatalogLocaleValue(in map[string]string) string {
+	cleaned := cleanCatalogLocaleMap(in)
+	for _, locale := range []string{"zh-CN", "zh", "en", "en-US", "ja", "ko"} {
+		if value := strings.TrimSpace(cleaned[locale]); value != "" {
+			return value
+		}
+	}
+	for _, value := range cleaned {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func permissionCodesFromCatalogAssets(pluginID string, assets []capabilityCatalogAsset) (map[string][]string, error) {

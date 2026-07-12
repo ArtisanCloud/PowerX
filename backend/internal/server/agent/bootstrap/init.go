@@ -327,8 +327,8 @@ func authorizeSkillCapabilityInvoke(ctx context.Context, svc *agentauthz.Service
 		Env:            firstNonEmptyString(in.Env, asStringFromMap(enrichedCtx, "env")),
 		TenantUUID:     firstNonEmptyString(in.TenantUUID, asStringFromMap(enrichedCtx, "tenant_uuid")),
 		UserUUID:       firstNonEmptyString(in.UserUUID, asStringFromMap(enrichedCtx, "user_uuid")),
-		MemberID:       reqctx.GetMemberID(ctx),
-		IsRoot:         reqctx.IsRoot(ctx),
+		MemberID:       firstPositiveUint64(reqctx.GetMemberID(ctx), uint64FromMap(enrichedCtx, "member_id"), uint64FromMap(enrichedCtx, "current_member_id")),
+		IsRoot:         reqctx.IsRoot(ctx) || boolFromMap(enrichedCtx, "is_root"),
 		AgentID:        in.AgentID,
 		CapabilityID:   capabilityID,
 		PermissionCode: firstNonEmptyString(asStringFromMap(enrichedCtx, "permission_code"), asStringFromMap(enrichedCtx, "scope")),
@@ -350,8 +350,8 @@ func authorizeToolingCapabilityInvoke(ctx context.Context, svc *agentauthz.Servi
 		Env:            firstNonEmptyString(in.Env, asStringFromMap(in.Context, "env")),
 		TenantUUID:     firstNonEmptyString(in.TenantUUID, asStringFromMap(in.Context, "tenant_uuid")),
 		UserUUID:       firstNonEmptyString(asStringFromMap(in.Context, "user_uuid"), reqctx.GetUserUUID(ctx)),
-		MemberID:       reqctx.GetMemberID(ctx),
-		IsRoot:         reqctx.IsRoot(ctx),
+		MemberID:       firstPositiveUint64(reqctx.GetMemberID(ctx), uint64FromMap(in.Context, "member_id"), uint64FromMap(in.Context, "current_member_id")),
+		IsRoot:         reqctx.IsRoot(ctx) || boolFromMap(in.Context, "is_root"),
 		AgentID:        firstPositiveUint64FromString(asStringFromMap(in.Context, "agent_id")),
 		CapabilityID:   in.CapabilityID,
 		PermissionCode: firstNonEmptyString(asStringFromMap(in.Context, "permission_code"), asStringFromMap(in.Context, "scope")),
@@ -373,6 +373,67 @@ func firstPositiveUint64FromString(raw string) uint64 {
 	var out uint64
 	_, _ = fmt.Sscanf(raw, "%d", &out)
 	return out
+}
+
+func firstPositiveUint64(values ...uint64) uint64 {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func uint64FromMap(values map[string]any, key string) uint64 {
+	if len(values) == 0 {
+		return 0
+	}
+	return uint64FromAny(values[key])
+}
+
+func uint64FromAny(value any) uint64 {
+	switch typed := value.(type) {
+	case uint64:
+		return typed
+	case uint:
+		return uint64(typed)
+	case int:
+		if typed > 0 {
+			return uint64(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint64(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint64(typed)
+		}
+	case string:
+		return firstPositiveUint64FromString(typed)
+	}
+	return 0
+}
+
+func boolFromAny(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		switch strings.ToLower(strings.TrimSpace(typed)) {
+		case "1", "true", "yes", "y":
+			return true
+		}
+	case int:
+		return typed != 0
+	case int64:
+		return typed != 0
+	case uint64:
+		return typed != 0
+	case float64:
+		return typed != 0
+	}
+	return false
 }
 
 func resolveSkillPrepareCapability(ctx context.Context, repo *skillrepo.SkillRegistryRepository, skillID, version string) (string, error) {
@@ -448,14 +509,7 @@ func boolFromMap(values map[string]any, key string) bool {
 	if values == nil {
 		return false
 	}
-	switch v := values[key].(type) {
-	case bool:
-		return v
-	case string:
-		return strings.EqualFold(strings.TrimSpace(v), "true")
-	default:
-		return false
-	}
+	return boolFromAny(values[key])
 }
 
 func stringSliceFromMap(values map[string]any, key string) []string {

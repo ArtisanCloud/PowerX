@@ -313,8 +313,8 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		dtoRequest.ResponseError(c, 400, "sync skill bindings failed", err)
 		return
 	}
-	if out.ManagedByPlugin && len(skillIDs) > 0 {
-		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), req.Env, tenantRef, out.UUID, skillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+	if out.ManagedByPlugin {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), req.Env, tenantRef, out.UUID, strings.TrimSpace(pointerStringValue(out.OwnerPluginID)), skillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
 			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
 			return
 		}
@@ -487,7 +487,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	if out.ManagedByPlugin && req.SkillIDs != nil {
-		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), env, tenantRef, out.UUID, *req.SkillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
+		if err := h.srv.ReplacePluginRegistryGrantsFromSkills(c.Request.Context(), env, tenantRef, out.UUID, strings.TrimSpace(pointerStringValue(out.OwnerPluginID)), *req.SkillIDs, reqctx.GetUserUUID(c.Request.Context())); err != nil {
 			dtoRequest.ResponseError(c, 400, "sync agent capability grants failed", err)
 			return
 		}
@@ -667,6 +667,13 @@ func callerPluginIDFromAudience(c *gin.Context) string {
 		return strings.TrimSpace(aud[len("plugin:"):])
 	}
 	return ""
+}
+
+func pointerStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func agentOwnedByPlugin(agent *dbmodel.Agent, pluginID string) bool {

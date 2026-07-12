@@ -16,8 +16,12 @@ import (
 
 	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	registryservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	iammodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -25,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RedisClient exposes the subset used by capability record repositories.
@@ -47,12 +52,14 @@ type SyncWorkerConfig struct {
 
 // SyncWorker ingests plugin artifacts and persists CapabilityRecords.
 type SyncWorker struct {
+	db              *gorm.DB
 	recordRepo      *repo.CapabilityRecordRepository
 	templateRepo    *repo.WorkflowTemplateRepository
 	jobRepo         *repo.CapabilitySyncJobRepository
 	eventBus        event_bus.EventBus
 	logger          *pxlog.Logger
 	now             func() time.Time
+	permissionRepo  *iamrepo.PermissionRepository
 	audit           *AuditService
 	alerting        CapabilityAlerting
 	workflowCatalog *WorkflowCatalog
@@ -88,12 +95,14 @@ func NewSyncWorker(cfg SyncWorkerConfig) *SyncWorker {
 	}
 
 	return &SyncWorker{
+		db:              cfg.DB,
 		recordRepo:      recordRepo,
 		templateRepo:    templateRepo,
 		jobRepo:         jobRepo,
 		eventBus:        cfg.EventBus,
 		logger:          logger,
 		now:             clock,
+		permissionRepo:  iamrepo.NewPermissionRepository(cfg.DB),
 		audit:           audit,
 		alerting:        cfg.Alerting,
 		workflowCatalog: cfg.WorkflowCatalog,
@@ -303,8 +312,265 @@ func (w *SyncWorker) syncCapability(ctx context.Context, artifactPath, root stri
 		syncErr = err
 		return syncErr
 	}
+	if err := w.syncCapabilityPermissions(ctx, plugin, capability); err != nil {
+		syncErr = err
+		return syncErr
+	}
 
 	return nil
+}
+
+func (w *SyncWorker) syncCapabilityPermissions(ctx context.Context, plugin pluginMetadata, capability catalogCapability) error {
+	if w == nil || w.permissionRepo == nil {
+		return errors.New("permission repository is not configured")
+	}
+	pluginID := strings.TrimSpace(plugin.ID)
+	if pluginID == "" {
+		return errors.New("plugin id missing")
+	}
+	codes := permissionCodesFromCatalogCapability(pluginID, capability)
+	if len(codes) == 0 {
+		return nil
+	}
+	rows := make([]iammodel.Permission, 0, len(codes))
+	for _, code := range codes {
+		module, resource, action, ok := parsePluginPermissionCode(code, pluginID)
+		if !ok {
+			return fmt.Errorf("invalid capability permission_code: capability=%s permission_code=%s", capability.capabilityID(), code)
+		}
+		rows = append(rows, iammodel.Permission{
+			Module:      module,
+			Resource:    resource,
+			Action:      action,
+			Effect:      "allow",
+			Description: firstNonEmptyCatalogString(strings.TrimSpace(capability.Description), capability.capabilityID()),
+			AllowAPIKey: false,
+			Meta: datatypes.JSON(mustRawJSON(map[string]any{
+				"label":         firstNonEmptyCatalogString(strings.TrimSpace(capability.Title), capability.capabilityID()),
+				"module":        module,
+				"type":          "plugin_capability",
+				"plugin_id":     pluginID,
+				"capability_id": capability.capabilityID(),
+				"permission":    code,
+			})),
+			Status:     iammodel.PermissionStatusActive,
+			Source:     pluginID,
+			Introduced: firstNonEmptyCatalogString(strings.TrimSpace(capability.Version), strings.TrimSpace(plugin.Version)),
+		})
+	}
+	if err := w.permissionRepo.UpsertBatch(ctx, rows); err != nil {
+		return err
+	}
+	return w.grantCapabilityPermissionsToDefaultRoles(ctx, rows, defaultRoleGrantsFromCapability(capability))
+}
+
+func (w *SyncWorker) grantCapabilityPermissionsToDefaultRoles(ctx context.Context, rows []iammodel.Permission, extraRoleCodes []string) error {
+	if w == nil || w.db == nil || len(rows) == 0 {
+		return nil
+	}
+	roleCodes, err := defaultCapabilityRoleCodes(extraRoleCodes)
+	if err != nil {
+		return err
+	}
+	query := w.db.WithContext(ctx).
+		Model(&iammodel.Permission{}).
+		Where("status = ?", iammodel.PermissionStatusActive)
+	tripleWhere := w.db.Where("1 = 0")
+	for _, row := range rows {
+		tripleWhere = tripleWhere.Or("(module = ? AND resource = ? AND action = ?)", row.Module, row.Resource, row.Action)
+	}
+	var permissionIDs []uint64
+	if err := query.Where(tripleWhere).Pluck("id", &permissionIDs).Error; err != nil {
+		return err
+	}
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+
+	roleQuery := w.db.WithContext(ctx).
+		Model(&iammodel.Role{}).
+		Where("scope = ? AND code IN ?", string(coreiam.RoleScopeTenant), roleCodes)
+	if tenantUUID := strings.TrimSpace(w.tenantUUID); tenantUUID != "" {
+		roleQuery = roleQuery.Where("tenant_uuid = ?", tenantUUID)
+	}
+	var roles []iammodel.Role
+	if err := roleQuery.Find(&roles).Error; err != nil {
+		return err
+	}
+	if len(roles) == 0 {
+		return nil
+	}
+
+	now := time.Now().UnixMilli()
+	grants := make([]iammodel.RolePermission, 0, len(roles)*len(permissionIDs))
+	touchedTenants := map[string]struct{}{}
+	for _, role := range roles {
+		touchedTenants[strings.TrimSpace(role.TenantUUID)] = struct{}{}
+		for _, permissionID := range permissionIDs {
+			grants = append(grants, iammodel.RolePermission{
+				RoleID:       role.ID,
+				PermissionID: permissionID,
+				CreatedAt:    now,
+			})
+		}
+	}
+	if err := w.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(&grants).Error; err != nil {
+		return err
+	}
+	for tenantUUID := range touchedTenants {
+		if err := invalidateAgentAuthzIAMCache(ctx, tenantUUID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func defaultCapabilityRoleCodes(extra []string) ([]string, error) {
+	allowed := map[string]struct{}{
+		string(coreiam.CodeRoleOwner):    {},
+		string(coreiam.CodeRoleAdmin):    {},
+		string(coreiam.CodeRoleUser):     {},
+		string(coreiam.CodeRoleReadonly): {},
+		string(coreiam.CodeRoleVendor):   {},
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 2+len(extra))
+	add := func(code string) error {
+		code = strings.TrimSpace(code)
+		if code == "" {
+			return nil
+		}
+		if _, ok := allowed[code]; !ok {
+			return fmt.Errorf("invalid default role grant code: %s", code)
+		}
+		if _, exists := seen[code]; exists {
+			return nil
+		}
+		seen[code] = struct{}{}
+		out = append(out, code)
+		return nil
+	}
+	if err := add(string(coreiam.CodeRoleOwner)); err != nil {
+		return nil, err
+	}
+	if err := add(string(coreiam.CodeRoleAdmin)); err != nil {
+		return nil, err
+	}
+	for _, code := range extra {
+		if err := add(code); err != nil {
+			return nil, err
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func defaultRoleGrantsFromCapability(capability catalogCapability) []string {
+	var annotations map[string]any
+	_ = json.Unmarshal(capability.Annotations, &annotations)
+	candidates := stringListFromAnyCapability(annotations["default_role_grants"])
+	candidates = append(candidates, stringListFromAnyCapability(annotations["default_role_codes"])...)
+	candidates = append(candidates, capability.DefaultRoleGrants...)
+	return dedupeSortedStrings(candidates)
+}
+
+func invalidateAgentAuthzIAMCache(ctx context.Context, tenantUUID string) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil
+	}
+	store := cache.GetCache()
+	if store == nil {
+		return nil
+	}
+	_, err := store.Increment(ctx, fmt.Sprintf("agentauthz:effective:iam-version:%s", strings.ToLower(tenantUUID)), 1)
+	return err
+}
+
+func permissionCodesFromCatalogCapability(pluginID string, capability catalogCapability) []string {
+	var annotations map[string]any
+	_ = json.Unmarshal(capability.Annotations, &annotations)
+	candidates := stringListFromAnyCapability(annotations["permission_codes"])
+	if code := strings.TrimSpace(anyStringCapability(annotations["permission_code"])); code != "" {
+		candidates = append(candidates, code)
+	}
+	if len(candidates) == 0 {
+		for _, scope := range capability.ToolScope {
+			scope = strings.TrimSpace(scope)
+			if scope == "" {
+				continue
+			}
+			if strings.Contains(scope, ":") {
+				candidates = append(candidates, scope)
+				continue
+			}
+			candidates = append(candidates, pluginID+"."+scope+":use")
+		}
+	}
+	return dedupeSortedStrings(candidates)
+}
+
+func parsePluginPermissionCode(code string, pluginID string) (module, resource, action string, ok bool) {
+	left, right, found := strings.Cut(strings.TrimSpace(code), ":")
+	if !found {
+		return "", "", "", false
+	}
+	action = strings.TrimSpace(right)
+	left = strings.TrimSpace(left)
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID != "" {
+		prefix := pluginID + "."
+		if strings.HasPrefix(left, prefix) {
+			resource = strings.TrimSpace(strings.TrimPrefix(left, prefix))
+			if resource == "" || action == "" {
+				return "", "", "", false
+			}
+			return pluginID, resource, action, true
+		}
+	}
+	parts := strings.Split(left, ".")
+	if len(parts) < 2 || action == "" {
+		return "", "", "", false
+	}
+	module = strings.TrimSpace(parts[0])
+	resource = strings.TrimSpace(strings.Join(parts[1:], "."))
+	if module == "" || resource == "" {
+		return "", "", "", false
+	}
+	return module, resource, action, true
+}
+
+func stringListFromAnyCapability(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if s := strings.TrimSpace(anyStringCapability(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func anyStringCapability(value any) string {
+	if value == nil {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case fmt.Stringer:
+		return strings.TrimSpace(typed.String())
+	default:
+		return strings.TrimSpace(fmt.Sprint(value))
+	}
 }
 
 func (w *SyncWorker) syncCapabilityRegistration(ctx context.Context, pluginID string, capabilityID string, capability catalogCapability) error {
@@ -507,8 +773,8 @@ func buildCapabilityRecord(plugin pluginMetadata, capability catalogCapability, 
 		CapabilityID:         capability.capabilityID(),
 		PluginID:             plugin.ID,
 		PluginVersion:        plugin.Version,
-		Title:                capability.Title,
-		Description:          capability.Description,
+		Title:                firstNonEmptyCatalogString(strings.TrimSpace(capability.Title), firstLocaleText(capability.TitleI18n), capability.capabilityID()),
+		Description:          firstNonEmptyCatalogString(strings.TrimSpace(capability.Description), firstLocaleText(capability.DescriptionI18n)),
 		Categories:           toJSON(capability.Categories),
 		Intents:              toJSON(capability.Intents),
 		ToolScope:            toJSON(capability.ToolScope),
@@ -528,6 +794,30 @@ func buildCapabilityRecord(plugin pluginMetadata, capability catalogCapability, 
 	record.CapabilitiesHash = hashJSON(capability.hashSource())
 	record.ProtocolHash = hashJSON(capability.Protocols)
 	return record, nil
+}
+
+func firstLocaleText(in map[string]string) string {
+	cleaned := cleanLocaleTextMap(in)
+	for _, locale := range []string{"zh-CN", "zh", "en", "en-US", "ja", "ko"} {
+		if value := strings.TrimSpace(cleaned[locale]); value != "" {
+			return value
+		}
+	}
+	for _, value := range cleaned {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyCatalogString(values ...string) string {
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func defaultStatus(status string) string {
@@ -810,23 +1100,31 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 	}
 
 	var descriptorDoc struct {
-		ID          string `yaml:"id"`
-		Type        string `yaml:"type"`
-		Version     string `yaml:"version"`
-		Title       string `yaml:"title"`
-		Description string `yaml:"description"`
-		Status      string `yaml:"status"`
-		Security    struct {
-			PermissionCode string `yaml:"permission_code"`
-			RiskLevel      string `yaml:"risk_level"`
+		ID              string            `yaml:"id"`
+		Type            string            `yaml:"type"`
+		Version         string            `yaml:"version"`
+		Title           string            `yaml:"title"`
+		TitleI18n       map[string]string `yaml:"title_i18n"`
+		Description     string            `yaml:"description"`
+		DescriptionI18n map[string]string `yaml:"description_i18n"`
+		Status          string            `yaml:"status"`
+		Security        struct {
+			PermissionCode    string   `yaml:"permission_code"`
+			RiskLevel         string   `yaml:"risk_level"`
+			DefaultRoleGrants []string `yaml:"default_role_grants"`
+			DefaultRoleCodes  []string `yaml:"default_role_codes"`
 		} `yaml:"security"`
-		Agent struct {
+		DefaultRoleGrants []string `yaml:"default_role_grants"`
+		DefaultRoleCodes  []string `yaml:"default_role_codes"`
+		Agent             struct {
 			Usable    *bool  `yaml:"usable"`
 			RiskLevel string `yaml:"risk_level"`
 		} `yaml:"agent"`
 		RBAC struct {
-			Resource string   `yaml:"resource"`
-			Actions  []string `yaml:"actions"`
+			Resource          string   `yaml:"resource"`
+			Actions           []string `yaml:"actions"`
+			DefaultRoleGrants []string `yaml:"default_role_grants"`
+			DefaultRoleCodes  []string `yaml:"default_role_codes"`
 		} `yaml:"rbac"`
 		Metadata struct {
 			Protocols map[string]any `yaml:"protocols"`
@@ -857,14 +1155,24 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 	if version == "" {
 		version = strings.TrimSpace(descriptorDoc.Version)
 	}
+	defaultRoleGrants := dedupeSortedStrings(append(append(append(append(append(
+		append([]string(nil), descriptorDoc.DefaultRoleGrants...),
+		descriptorDoc.DefaultRoleCodes...),
+		descriptorDoc.Security.DefaultRoleGrants...),
+		descriptorDoc.Security.DefaultRoleCodes...),
+		descriptorDoc.RBAC.DefaultRoleGrants...),
+		descriptorDoc.RBAC.DefaultRoleCodes...))
 
 	annotations := mustRawJSON(map[string]any{
-		"descriptor":      descriptor,
-		"type":            strings.TrimSpace(descriptorDoc.Type),
-		"version":         version,
-		"permission_code": strings.TrimSpace(descriptorDoc.Security.PermissionCode),
-		"agent_usable":    descriptorAgentUsable(descriptorDoc.Agent.Usable),
-		"risk_level":      firstNonEmptyDescriptorString(descriptorDoc.Agent.RiskLevel, descriptorDoc.Security.RiskLevel),
+		"descriptor":          descriptor,
+		"type":                strings.TrimSpace(descriptorDoc.Type),
+		"version":             version,
+		"permission_code":     strings.TrimSpace(descriptorDoc.Security.PermissionCode),
+		"default_role_grants": defaultRoleGrants,
+		"agent_usable":        descriptorAgentUsable(descriptorDoc.Agent.Usable),
+		"risk_level":          firstNonEmptyDescriptorString(descriptorDoc.Agent.RiskLevel, descriptorDoc.Security.RiskLevel),
+		"title_i18n":          cleanLocaleTextMap(descriptorDoc.TitleI18n),
+		"description_i18n":    cleanLocaleTextMap(descriptorDoc.DescriptionI18n),
 		"rbac": map[string]any{
 			"resource": strings.TrimSpace(descriptorDoc.RBAC.Resource),
 			"actions":  descriptorDoc.RBAC.Actions,
@@ -879,15 +1187,18 @@ func loadDescriptorCapability(root string, provide capabilityManifestProvide) (c
 	})
 
 	return catalogCapability{
-		ID:          capabilityID,
-		Type:        strings.TrimSpace(descriptorDoc.Type),
-		Version:     version,
-		Title:       title,
-		Description: strings.TrimSpace(descriptorDoc.Description),
-		ToolScope:   append([]string(nil), descriptorDoc.RBAC.Actions...),
-		Protocols:   protocols,
-		Annotations: annotations,
-		Status:      strings.TrimSpace(descriptorDoc.Status),
+		ID:                capabilityID,
+		Type:              strings.TrimSpace(descriptorDoc.Type),
+		Version:           version,
+		Title:             title,
+		TitleI18n:         cleanLocaleTextMap(descriptorDoc.TitleI18n),
+		Description:       strings.TrimSpace(descriptorDoc.Description),
+		DescriptionI18n:   cleanLocaleTextMap(descriptorDoc.DescriptionI18n),
+		ToolScope:         append([]string(nil), descriptorDoc.RBAC.Actions...),
+		DefaultRoleGrants: defaultRoleGrants,
+		Protocols:         protocols,
+		Annotations:       annotations,
+		Status:            strings.TrimSpace(descriptorDoc.Status),
 	}, nil
 }
 
@@ -923,13 +1234,16 @@ func buildProtocolBindings(protocols map[string]any, provide capabilityManifestP
 		}
 		for _, item := range items {
 			binding := models.ProtocolBinding{
-				Channel:   channel,
-				Endpoint:  strings.TrimSpace(readString(item, "path", "endpoint")),
-				Method:    strings.TrimSpace(readString(item, "method")),
-				RPC:       strings.TrimSpace(readString(item, "rpc")),
-				ToolRef:   strings.TrimSpace(readString(item, "tool_ref", "toolRef")),
-				ToolScope: strings.TrimSpace(readString(item, "tool_scope", "toolScope")),
-				AuthType:  strings.TrimSpace(readString(item, "auth_type", "authType")),
+				Channel:       channel,
+				Endpoint:      strings.TrimSpace(readString(item, "path", "endpoint")),
+				Method:        strings.TrimSpace(readString(item, "method")),
+				RPC:           strings.TrimSpace(readString(item, "rpc")),
+				ToolRef:       strings.TrimSpace(readString(item, "tool_ref", "toolRef")),
+				ToolScope:     strings.TrimSpace(readString(item, "tool_scope", "toolScope")),
+				AuthType:      strings.TrimSpace(readString(item, "auth_type", "authType")),
+				ActorContext:  strings.TrimSpace(readString(item, "actor_context", "actorContext")),
+				ResourceScope: strings.TrimSpace(readString(item, "resource_scope", "resourceScope")),
+				STSDirect:     readBool(item, "sts_direct", "stsDirect"),
 			}
 			if schemaRef := schemaRefForChannel(channel, provide); schemaRef != "" {
 				binding.SchemaRef = schemaRef
@@ -971,6 +1285,27 @@ func readString(item map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func readBool(item map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		value, ok := item[key]
+		if !ok {
+			continue
+		}
+		switch v := value.(type) {
+		case bool:
+			return v
+		case string:
+			switch strings.ToLower(strings.TrimSpace(v)) {
+			case "1", "true", "yes", "y", "on":
+				return true
+			case "0", "false", "no", "n", "off":
+				return false
+			}
+		}
+	}
+	return false
 }
 
 func schemaRefForChannel(channel string, provide capabilityManifestProvide) string {
@@ -1029,10 +1364,13 @@ type catalogCapability struct {
 	Type              string                    `json:"-"`
 	Version           string                    `json:"-"`
 	Title             string                    `json:"title"`
+	TitleI18n         map[string]string         `json:"title_i18n"`
 	Description       string                    `json:"description"`
+	DescriptionI18n   map[string]string         `json:"description_i18n"`
 	PermissionCode    string                    `json:"permission_code"`
 	AgentUsable       *bool                     `json:"agent_usable"`
 	RiskLevel         string                    `json:"risk_level"`
+	DefaultRoleGrants []string                  `json:"default_role_grants"`
 	Categories        []string                  `json:"categories"`
 	Intents           []string                  `json:"intents"`
 	ToolScope         []string                  `json:"tool_scope"`
@@ -1066,25 +1404,57 @@ func (c catalogCapability) normalizedAnnotations() json.RawMessage {
 	if risk := strings.TrimSpace(c.RiskLevel); risk != "" {
 		annotations["risk_level"] = risk
 	}
+	if defaultRoleGrants := dedupeSortedStrings(c.DefaultRoleGrants); len(defaultRoleGrants) > 0 {
+		annotations["default_role_grants"] = defaultRoleGrants
+	}
+	if titleI18n := cleanLocaleTextMap(c.TitleI18n); len(titleI18n) > 0 {
+		annotations["title_i18n"] = titleI18n
+	}
+	if descriptionI18n := cleanLocaleTextMap(c.DescriptionI18n); len(descriptionI18n) > 0 {
+		annotations["description_i18n"] = descriptionI18n
+	}
 	return mustRawJSON(annotations)
 }
 
 func (c catalogCapability) hashSource() interface{} {
 	return struct {
-		ID        string
-		Title     string
-		Intents   []string
-		ToolScope []string
-		Protocols []models.ProtocolBinding
-		Policy    json.RawMessage
+		ID              string
+		Title           string
+		TitleI18n       map[string]string
+		DescriptionI18n map[string]string
+		Intents         []string
+		ToolScope       []string
+		Protocols       []models.ProtocolBinding
+		Policy          json.RawMessage
 	}{
-		ID:        c.capabilityID(),
-		Title:     c.Title,
-		Intents:   c.Intents,
-		ToolScope: c.ToolScope,
-		Protocols: c.Protocols,
-		Policy:    c.Policy,
+		ID:              c.capabilityID(),
+		Title:           c.Title,
+		TitleI18n:       cleanLocaleTextMap(c.TitleI18n),
+		DescriptionI18n: cleanLocaleTextMap(c.DescriptionI18n),
+		Intents:         c.Intents,
+		ToolScope:       c.ToolScope,
+		Protocols:       c.Protocols,
+		Policy:          c.Policy,
 	}
+}
+
+func cleanLocaleTextMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for locale, value := range in {
+		locale = strings.TrimSpace(locale)
+		value = strings.TrimSpace(value)
+		if locale == "" || value == "" {
+			continue
+		}
+		out[locale] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 type catalogWorkflowTemplate struct {

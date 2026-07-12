@@ -129,7 +129,7 @@ func SkillStateToPendingTask(row *dbmodel.AgentSessionSkillState) datatypes.JSON
 
 func isPendingSkillStateStatus(status string) bool {
 	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "collecting", "ready", "awaiting_confirmation", "executing":
+	case "awaiting_params", "collecting", "ready", "awaiting_confirmation", "executing":
 		return true
 	default:
 		return false
@@ -138,7 +138,7 @@ func isPendingSkillStateStatus(status string) bool {
 
 func normalizePendingStatus(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "ready", "awaiting_confirmation":
+	case "awaiting_params", "ready", "awaiting_confirmation":
 		return "awaiting_params"
 	case "executing":
 		return "running"

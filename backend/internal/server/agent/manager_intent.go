@@ -533,6 +533,7 @@ func (m *Manager) detectTasksFromUnifiedCandidates(ctx context.Context, text str
 		}
 		if action := inferCandidateAction(text, c.Actions); action != "" {
 			params["action"] = action
+			enrichCandidateRecallParams(params, text, action, c)
 		}
 		if missingRequiredCandidateParams(params, c.RequiredArgs) {
 			continue
@@ -565,6 +566,67 @@ func missingRequiredCandidateParams(params map[string]interface{}, required []st
 		}
 	}
 	return false
+}
+
+func enrichCandidateRecallParams(params map[string]interface{}, text, action string, c ToolCallCandidate) {
+	if params == nil {
+		return
+	}
+	action = strings.ToLower(strings.TrimSpace(action))
+	if action == "" {
+		return
+	}
+	if value, ok := params["template_ref"]; ok && strings.TrimSpace(fmt.Sprint(value)) != "" && strings.TrimSpace(fmt.Sprint(value)) != "<nil>" {
+		return
+	}
+	if ref := extractTemplateRefFromUserText(text, action); ref != "" {
+		params["template_ref"] = ref
+	}
+}
+
+func extractTemplateRefFromUserText(text, action string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	triggers := actionTriggerWords(action)
+	start := -1
+	for _, trigger := range triggers {
+		idx := strings.LastIndex(text, trigger)
+		if idx >= 0 && idx+len(trigger) > start {
+			start = idx + len(trigger)
+		}
+	}
+	if start < 0 || start >= len(text) {
+		return ""
+	}
+	ref := strings.TrimSpace(text[start:])
+	ref = strings.TrimLeft(ref, "掉了掉一下把将：:，,。 .")
+	ref = strings.TrimRight(ref, "。！？!?，,；; ")
+	for _, suffix := range []string{"这个模板", "该模板", "这个模版", "该模版"} {
+		ref = strings.TrimSuffix(ref, suffix)
+	}
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return ""
+	}
+	if strings.Contains(ref, "模板") || strings.Contains(ref, "模版") {
+		return ref
+	}
+	return ""
+}
+
+func actionTriggerWords(action string) []string {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "delete":
+		return []string{"删除掉", "删掉", "删除", "移除", "remove", "delete"}
+	case "get":
+		return []string{"查询", "查看", "获取", "看看", "看一下", "get", "read", "show"}
+	case "update":
+		return []string{"更新", "修改", "编辑", "改一下", "update", "edit"}
+	default:
+		return nil
+	}
 }
 
 func inferCandidateAction(text string, actions []string) string {

@@ -71,6 +71,7 @@ func TestRootDefaultSystemMenusExcludeTenantBusinessConfiguration(t *testing.T) 
 		"/settings/ai",
 		"/settings/ai/cost",
 		"/settings/ai/context-optimizer",
+		"/settings/ai/agent-access-grants",
 	}
 	for _, path := range tenantBusinessPaths {
 		item := findMenuByPath(items, path)

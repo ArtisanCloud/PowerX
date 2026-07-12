@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -47,6 +48,49 @@ func TestSkillStateServiceLatestPendingTaskUsesStoredState(t *testing.T) {
 	require.Equal(t, "com.powerx.plugins.base.local.template.create", task["capability_id"])
 	require.Equal(t, "trace-1", task["trace_id"])
 	require.Equal(t, []string{"template.description", "template.content"}, task["missing_fields"])
+}
+
+func TestSkillStateServiceLatestPendingTaskAcceptsAwaitingParamsStatus(t *testing.T) {
+	db := setupSkillStateServiceDB(t)
+	svc := NewSkillStateService(db)
+	ctx := context.Background()
+	tenant := "tenant-a"
+
+	_, err := svc.Upsert(ctx, SkillStateUpsertInput{
+		Env:        "dev",
+		TenantUUID: &tenant,
+		SessionID:  95,
+		AgentID:    18,
+		SkillID:    "powerxplugin.template.basic.local",
+		StateKey:   "powerxplugin.template.basic.local.delete",
+		Status:     "awaiting_params",
+		Action:     "delete",
+		State: datatypes.JSONMap{
+			"collected": map[string]any{
+				"action":        "delete",
+				"template_id":   5,
+				"template_ref":  "测试模板2",
+				"template_name": "测试模板2",
+			},
+			"missing": []any{"confirmation"},
+		},
+		Meta: datatypes.JSONMap{"trace_id": "trace-confirm"},
+	})
+	require.NoError(t, err)
+
+	task, ok, err := svc.LatestPendingTask(ctx, "dev", &tenant, 95, 18, []string{"powerxplugin.template.basic.local"})
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "awaiting_params", task["status"])
+	require.Equal(t, "delete", task["action"])
+	require.Equal(t, []string{"confirmation"}, task["missing_fields"])
+	require.Equal(t, "trace-confirm", task["trace_id"])
+	collected, ok := task["collected_params"].(datatypes.JSONMap)
+	require.True(t, ok)
+	require.Equal(t, "delete", collected["action"])
+	require.Equal(t, "5", fmt.Sprint(collected["template_id"]))
+	require.Equal(t, "测试模板2", collected["template_ref"])
+	require.Equal(t, "测试模板2", collected["template_name"])
 }
 
 func TestSkillStateServiceIgnoresCompletedState(t *testing.T) {

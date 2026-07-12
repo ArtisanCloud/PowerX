@@ -47,6 +47,9 @@ type capabilityProtocolEntry struct {
 	ToolRef      string `yaml:"tool_ref"`
 	ToolScope    string `yaml:"tool_scope"`
 	AuthType     string `yaml:"auth_type"`
+	ActorContext string `yaml:"actor_context"`
+	ResourceScope string `yaml:"resource_scope"`
+	STSDirect    bool   `yaml:"sts_direct"`
 	HealthState  string `yaml:"health_state"`
 	HealthReason string `yaml:"health_reason"`
 }
@@ -63,6 +66,9 @@ func (entry capabilityConfigEntry) toDefinition() platformCapabilityDefinition {
 			ToolRef:     protocol.ToolRef,
 			ToolScope:   protocol.ToolScope,
 			AuthType:    protocol.AuthType,
+			ActorContext: protocol.ActorContext,
+			ResourceScope: protocol.ResourceScope,
+			STSDirect:   protocol.STSDirect,
 			HealthState: protocol.HealthState,
 		})
 	}

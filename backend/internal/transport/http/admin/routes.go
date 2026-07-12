@@ -11,6 +11,7 @@ import (
 	backupHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
+	customerHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/customer"
 	deployHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/deploy"
 	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
@@ -64,6 +65,7 @@ func RegisterAPIRoutes(
 
 	system.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	customerHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	userauth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

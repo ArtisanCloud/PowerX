@@ -2,11 +2,13 @@ package capability_registry
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/testutil"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -149,6 +151,53 @@ func TestInvocationServiceInvokeRESTForwardsAuthorizationFromContext(t *testing.
 	require.Equal(t, "ok", result["status"])
 }
 
+func TestInvocationServiceInvokeCoreCapabilityBeforeRESTProxy(t *testing.T) {
+	t.Parallel()
+
+	invoker := &stubCoreInvoker{
+		result: map[string]interface{}{"items": []interface{}{"customer-1"}},
+	}
+	svc := &InvocationService{coreInvoker: invoker}
+
+	result, handled, err := svc.invokeCoreCapability(context.Background(), InvocationInput{
+		CapabilityID: "com.corex.customer.accounts.admin_manage",
+		TenantUUID:   "11111111-1111-1111-1111-111111111111",
+		Payload: map[string]interface{}{
+			"method":   http.MethodGet,
+			"endpoint": "/api/v1/admin/customers/accounts",
+			"query": map[string]interface{}{
+				"page": "1",
+			},
+		},
+	}, routerInvokeResultForTest("/api/v1/admin/customers/accounts", http.MethodGet))
+
+	require.NoError(t, err)
+	require.True(t, handled)
+	require.Equal(t, invoker.result, result)
+	require.Equal(t, "com.corex.customer.accounts.admin_manage", invoker.input.CapabilityID)
+	require.Equal(t, "GET", invoker.input.Method)
+	require.Equal(t, "/api/v1/admin/customers/accounts", invoker.input.Endpoint)
+	require.Equal(t, "1", invoker.input.Query["page"])
+}
+
+func TestInvocationServiceInvokeCoreCapabilityNotHandledFallsBack(t *testing.T) {
+	t.Parallel()
+
+	svc := &InvocationService{coreInvoker: &stubCoreInvoker{err: ErrCoreCapabilityNotHandled}}
+	result, handled, err := svc.invokeCoreCapability(context.Background(), InvocationInput{
+		CapabilityID: "com.corex.media.assets.manage",
+		TenantUUID:   "11111111-1111-1111-1111-111111111111",
+		Payload: map[string]interface{}{
+			"method":   http.MethodGet,
+			"endpoint": "/api/v1/admin/media/assets",
+		},
+	}, routerInvokeResultForTest("/api/v1/admin/media/assets", http.MethodGet))
+
+	require.NoError(t, err)
+	require.False(t, handled)
+	require.Nil(t, result)
+}
+
 func TestInvocationServiceInvokeGRPC(t *testing.T) {
 	t.Parallel()
 
@@ -190,6 +239,33 @@ func TestInvocationServiceInvokeGRPC(t *testing.T) {
 	items, ok := dataField["items"].([]interface{})
 	require.True(t, ok)
 	require.Len(t, items, 1)
+}
+
+type stubCoreInvoker struct {
+	input  CoreCapabilityInvokeInput
+	result map[string]interface{}
+	err    error
+}
+
+func (s *stubCoreInvoker) InvokeCoreCapability(_ context.Context, in CoreCapabilityInvokeInput) (map[string]interface{}, error) {
+	s.input = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.result == nil {
+		return nil, errors.New("stub result missing")
+	}
+	return s.result, nil
+}
+
+func routerInvokeResultForTest(endpoint string, method string) router.InvokeResult {
+	return router.InvokeResult{
+		Transport: "rest",
+		Endpoint:  endpoint,
+		Labels: map[string]string{
+			"method": method,
+		},
+	}
 }
 
 func TestShouldUseAIMultimodalTimeoutByLabels(t *testing.T) {

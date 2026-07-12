@@ -42,16 +42,19 @@ type capabilityFile struct {
 }
 
 type capabilityEntry struct {
-	CapabilityID string           `yaml:"capability_id"`
-	Module       string           `yaml:"module"`
-	Title        string           `yaml:"title"`
-	Description  string           `yaml:"description,omitempty"`
-	Categories   []string         `yaml:"categories,omitempty"`
-	Intents      []string         `yaml:"intents,omitempty"`
-	ToolScopes   []string         `yaml:"tool_scopes,omitempty"`
-	Policy       capabilityPolicy `yaml:"policy"`
-	Docs         []string         `yaml:"docs,omitempty"`
-	Protocols    []protocolEntry  `yaml:"protocols"`
+	CapabilityID   string           `yaml:"capability_id"`
+	Module         string           `yaml:"module"`
+	Title          string           `yaml:"title"`
+	Description    string           `yaml:"description,omitempty"`
+	PermissionCode string           `yaml:"permission_code,omitempty"`
+	AgentUsable    *bool            `yaml:"agent_usable,omitempty"`
+	RiskLevel      string           `yaml:"risk_level,omitempty"`
+	Categories     []string         `yaml:"categories,omitempty"`
+	Intents        []string         `yaml:"intents,omitempty"`
+	ToolScopes     []string         `yaml:"tool_scopes,omitempty"`
+	Policy         capabilityPolicy `yaml:"policy"`
+	Docs           []string         `yaml:"docs,omitempty"`
+	Protocols      []protocolEntry  `yaml:"protocols"`
 }
 
 type capabilityPolicy struct {
@@ -60,13 +63,16 @@ type capabilityPolicy struct {
 }
 
 type protocolEntry struct {
-	Channel   string `yaml:"channel"`
-	Endpoint  string `yaml:"endpoint,omitempty"`
-	Method    string `yaml:"method,omitempty"`
-	RPC       string `yaml:"rpc,omitempty"`
-	SchemaRef string `yaml:"schema_ref,omitempty"`
-	AuthType  string `yaml:"auth_type,omitempty"`
-	ToolScope string `yaml:"tool_scope,omitempty"`
+	Channel       string `yaml:"channel"`
+	Endpoint      string `yaml:"endpoint,omitempty"`
+	Method        string `yaml:"method,omitempty"`
+	RPC           string `yaml:"rpc,omitempty"`
+	SchemaRef     string `yaml:"schema_ref,omitempty"`
+	AuthType      string `yaml:"auth_type,omitempty"`
+	ActorContext  string `yaml:"actor_context,omitempty"`
+	ResourceScope string `yaml:"resource_scope,omitempty"`
+	STSDirect     bool   `yaml:"sts_direct,omitempty"`
+	ToolScope     string `yaml:"tool_scope,omitempty"`
 }
 
 type config struct {
@@ -240,22 +246,27 @@ func genFromOpenAPI(path, prefix, auth string) ([]capabilityEntry, error) {
 				scope = "core.api"
 			}
 			entries = append(entries, capabilityEntry{
-				CapabilityID: id,
-				Module:       module,
-				Title:        title,
-				Description:  desc,
-				Categories:   []string{module, "openapi", "generated"},
-				Intents:      []string{module + "." + action},
-				ToolScopes:   []string{scope},
-				Policy:       capabilityPolicy{Prefer: "rest"},
-				Docs:         []string{path},
+				CapabilityID:   id,
+				Module:         module,
+				Title:          title,
+				Description:    desc,
+				PermissionCode: permissionCodeFromID(id),
+				AgentUsable:    boolPtr(false),
+				RiskLevel:      riskFromMethod(method),
+				Categories:     []string{module, "openapi", "generated"},
+				Intents:        []string{module + "." + action},
+				ToolScopes:     []string{scope},
+				Policy:         capabilityPolicy{Prefer: "rest"},
+				Docs:           []string{path},
 				Protocols: []protocolEntry{{
-					Channel:   "rest",
-					Endpoint:  p,
-					Method:    method,
-					SchemaRef: path + "#/paths/" + escapeJSONPointer(p) + "/" + strings.ToLower(method),
-					AuthType:  auth,
-					ToolScope: scope,
+					Channel:       "rest",
+					Endpoint:      p,
+					Method:        method,
+					SchemaRef:     path + "#/paths/" + escapeJSONPointer(p) + "/" + strings.ToLower(method),
+					AuthType:      auth,
+					ActorContext:  inferActorContextFromPath(p),
+					ResourceScope: "tenant",
+					ToolScope:     scope,
 				}},
 			})
 		}
@@ -310,15 +321,18 @@ func genFromProto(path, prefix, auth string) ([]capabilityEntry, error) {
 		id := joinID(prefix, "grpc", module, slug(service), action)
 		title := service + "." + rpc
 		entries = append(entries, capabilityEntry{
-			CapabilityID: id,
-			Module:       module,
-			Title:        title,
-			Description:  "Generated from proto",
-			Categories:   []string{module, "grpc", "generated"},
-			Intents:      []string{module + "." + action},
-			ToolScopes:   []string{scope},
-			Policy:       capabilityPolicy{Prefer: "grpc"},
-			Docs:         []string{path},
+			CapabilityID:   id,
+			Module:         module,
+			Title:          title,
+			Description:    "Generated from proto",
+			PermissionCode: permissionCodeFromID(id),
+			AgentUsable:    boolPtr(false),
+			RiskLevel:      "medium",
+			Categories:     []string{module, "grpc", "generated"},
+			Intents:        []string{module + "." + action},
+			ToolScopes:     []string{scope},
+			Policy:         capabilityPolicy{Prefer: "grpc"},
+			Docs:           []string{path},
 			Protocols: []protocolEntry{{
 				Channel:   "grpc",
 				Endpoint:  endpoint,
@@ -433,7 +447,7 @@ func collectGoFiles(inputs []string) ([]string, error) {
 }
 
 var (
-	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]+)"\)`)
+	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]*)"\)`)
 	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]*)"`)
 )
 
@@ -445,8 +459,13 @@ func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string
 	lines := strings.Split(string(raw), "\n")
 	groupBase := map[string]string{
 		"publicGroup":    "",
+		"public":         "",
 		"protectedGroup": "",
+		"protected":      "",
+		"adminGroup":     "",
+		"tenantGroup":    "/tenant",
 		"group":          "",
+		"g":              "",
 	}
 	out := make([]capabilityEntry, 0, 32)
 	for _, line := range lines {
@@ -489,22 +508,27 @@ func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string
 		}
 		id := joinID(prefix, "rest", module, "gin", action)
 		out = append(out, capabilityEntry{
-			CapabilityID: id,
-			Module:       module,
-			Title:        method + " " + full,
-			Description:  "Generated from Gin route source",
-			Categories:   []string{module, "gin", "generated"},
-			Intents:      []string{module + "." + action},
-			ToolScopes:   []string{scope},
-			Policy:       capabilityPolicy{Prefer: "rest"},
-			Docs:         []string{path},
+			CapabilityID:   id,
+			Module:         module,
+			Title:          method + " " + full,
+			Description:    "Generated from Gin route source",
+			PermissionCode: permissionCodeFromID(id),
+			AgentUsable:    boolPtr(false),
+			RiskLevel:      riskFromMethod(method),
+			Categories:     []string{module, "gin", "generated"},
+			Intents:        []string{module + "." + action},
+			ToolScopes:     []string{scope},
+			Policy:         capabilityPolicy{Prefer: "rest"},
+			Docs:           []string{path},
 			Protocols: []protocolEntry{{
-				Channel:   "rest",
-				Endpoint:  full,
-				Method:    method,
-				SchemaRef: path + "#source",
-				AuthType:  auth,
-				ToolScope: scope,
+				Channel:       "rest",
+				Endpoint:      full,
+				Method:        method,
+				SchemaRef:     path + "#source",
+				AuthType:      auth,
+				ActorContext:  inferActorContextFromPath(full),
+				ResourceScope: "tenant",
+				ToolScope:     scope,
 			}},
 		})
 	}
@@ -563,6 +587,55 @@ func moduleFromPath(path string) string {
 		}
 	}
 	return "core"
+}
+
+func inferActorContextFromPath(path string) string {
+	path = cleanPath(path)
+	if path == "/api/v1/admin" || strings.HasPrefix(path, "/api/v1/admin/") {
+		return "admin_user"
+	}
+	if path == "/api/v1/customer" || strings.HasPrefix(path, "/api/v1/customer/") {
+		return "customer_actor"
+	}
+	return "service_actor"
+}
+
+func permissionCodeFromID(id string) string {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(id), "com.corex.")
+	trimmed = strings.ReplaceAll(trimmed, "/", ".")
+	parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+		return r == '.'
+	})
+	if len(parts) == 0 {
+		return "corex.generated:use"
+	}
+	module := slug(parts[0])
+	action := "use"
+	if len(parts) > 1 {
+		action = slug(parts[len(parts)-1])
+	}
+	if module == "" {
+		module = "generated"
+	}
+	if action == "" {
+		action = "use"
+	}
+	return "corex." + module + ":" + action
+}
+
+func riskFromMethod(method string) string {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS":
+		return "low"
+	case "DELETE":
+		return "high"
+	default:
+		return "medium"
+	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 func moduleFromPackage(pkg string) string {

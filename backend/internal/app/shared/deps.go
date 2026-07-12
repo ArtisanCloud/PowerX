@@ -31,6 +31,7 @@ import (
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	devhotloadservice "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload"
 	devhotloadinstrumentation "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/instrumentation"
 	devhotloadstore "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
@@ -481,6 +482,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			HTTPBaseURL:       httpBaseURL,
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
+			CoreInvoker:       customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {

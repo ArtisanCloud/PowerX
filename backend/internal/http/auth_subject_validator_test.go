@@ -10,8 +10,12 @@ import (
 )
 
 func TestSTSAllowedHTTPRoutesRequireExplicitPolicy(t *testing.T) {
-	seen := make(map[string]struct{}, len(stsAllowedHTTPRoutes))
-	for _, route := range stsAllowedHTTPRoutes {
+	routes := stsAllowedHTTPRoutes()
+	if len(routes) <= len(stsStaticAllowedHTTPRoutes) {
+		t.Fatalf("STS route policy did not load platform capability routes: routes=%d static=%d", len(routes), len(stsStaticAllowedHTTPRoutes))
+	}
+	seen := make(map[string]struct{}, len(routes))
+	for _, route := range routes {
 		if strings.TrimSpace(route.Method) == "" {
 			t.Fatalf("STS route policy missing method: %#v", route)
 		}
@@ -22,6 +26,9 @@ func TestSTSAllowedHTTPRoutesRequireExplicitPolicy(t *testing.T) {
 		case stsRouteMatchSuffix, stsRouteMatchCorePattern:
 		default:
 			t.Fatalf("STS route policy has unsupported match mode: %#v", route)
+		}
+		if route.Match == stsRouteMatchCorePattern && strings.HasPrefix(strings.TrimSpace(route.Pattern), "/api/") {
+			t.Fatalf("STS core route policy must be normalized without api prefix: %#v", route)
 		}
 		key := strings.ToUpper(strings.TrimSpace(route.Method)) + " " + strings.TrimSpace(route.Pattern) + " " + string(route.Match)
 		if _, ok := seen[key]; ok {
@@ -58,7 +65,6 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/media/assets"},
 		{"GET", "/api/v1/media/assets/asset-001"},
 		{"PATCH", "/api/v1/media/assets/asset-001"},
-		{"PUT", "/api/v1/media/assets/asset-001"},
 		{"DELETE", "/api/v1/media/assets/asset-001"},
 		{"POST", "/api/v1/media/assets/asset-001/presign"},
 		{"POST", "/custom-prefix/media/assets/asset-001/presign"},
@@ -79,6 +85,7 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/ai/video/invoke"},
 		{"POST", "/api/v1/ai/tts/invoke"},
 		{"POST", "/api/v1/ai/embedding/invoke"},
+		{"POST", "/api/v1/ai/vlm/invoke"},
 		{"POST", "/custom-prefix/ai/llm/invoke"},
 	} {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
@@ -118,7 +125,6 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		{"GET", "/api/v1/agents/sessions/session-001"},
 		{"POST", "/api/v1/agents/sessions/session-001/messages"},
 		{"GET", "/api/v1/agents/stream/mock"},
-		{"POST", "/api/v1/ai/vlm/invoke"},
 		{"GET", "/api/v1/ai/llm/sessions/session-001/stream"},
 		{"POST", "/api/v1/ai/llm/sessions/session-001/messages/extra"},
 		{"POST", "/api/v1/some-ai-like/path"},
@@ -126,6 +132,9 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		{"GET", "/api/v1/admin/runtime/task-queue/enqueue"},
 		{"POST", "/api/v1/admin/runtime/task-queue/unknown"},
 		{"POST", "/api/v1/admin/tenants"},
+		{"GET", "/api/v1/admin/scheduler/jobs"},
+		{"GET", "/api/v1/internal/plugins/templates"},
+		{"POST", "/api/v1/public/saas/signup"},
 	} {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			ctx := reqctx.WithRequestPath(context.Background(), tt.path)
@@ -133,6 +142,36 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
 			if err := validateSTSRouteOnly(ctx, claims); err == nil {
 				t.Fatal("validateSTSRouteOnly() err = nil, want rejection")
+			}
+		})
+	}
+}
+
+func TestValidateSTSRouteOnlyDoesNotBlockUserJWTAdminRoutes(t *testing.T) {
+	claims := &reqctx.CoreXClaims{
+		TenantUUID: "6b5d0240-9920-46da-b707-88200e0f51ea",
+		UserID:     100,
+		MemberID:   200,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:   "powerx",
+			Audience: jwt.ClaimStrings{"user"},
+		},
+	}
+
+	for _, tt := range []struct {
+		method string
+		path   string
+	}{
+		{"GET", "/api/v1/admin/iam/members"},
+		{"POST", "/api/v1/admin/iam/roles"},
+		{"GET", "/api/v1/admin/plugins"},
+	} {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			ctx := reqctx.WithRequestPath(context.Background(), tt.path)
+			ctx = reqctx.WithRequestMethod(ctx, tt.method)
+			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+			if err := validateSTSRouteOnly(ctx, claims); err != nil {
+				t.Fatalf("validateSTSRouteOnly() err = %v", err)
 			}
 		})
 	}

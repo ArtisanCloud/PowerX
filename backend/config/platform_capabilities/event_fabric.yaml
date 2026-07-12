@@ -4,6 +4,9 @@ capabilities:
     module: event_fabric
     title: Event Fabric Publish & Subscribe
     description: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
+    permission_code: corex.event_fabric:publish
+    agent_usable: true
+    risk_level: medium
     categories: [event, integration]
     intents: [event.fabric.publish]
     tool_scopes: [event.fabric]

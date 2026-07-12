@@ -47,6 +47,7 @@ type InvocationServiceOptions struct {
 	HTTPBaseURL       string
 	GRPCConn          *grpc.ClientConn
 	ModelVerifier     ModelKeyVerifier
+	CoreInvoker       CoreCapabilityInvoker
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
@@ -62,11 +63,30 @@ type InvocationService struct {
 	aiModalHTTPClient *http.Client
 	httpBaseURL       string
 	grpcConn          *grpc.ClientConn
+	coreInvoker       CoreCapabilityInvoker
 }
 
 // ModelKeyVerifier validates tenant-scoped model_key access.
 type ModelKeyVerifier interface {
 	VerifyModelKey(ctx context.Context, tenantUUID, env, modality, modelKey string) error
+}
+
+// CoreCapabilityInvoker handles service_actor Core capabilities without proxying
+// through user-facing admin HTTP routes.
+type CoreCapabilityInvoker interface {
+	InvokeCoreCapability(ctx context.Context, in CoreCapabilityInvokeInput) (map[string]interface{}, error)
+}
+
+// CoreCapabilityInvokeInput describes an internal Core capability invocation.
+type CoreCapabilityInvokeInput struct {
+	CapabilityID string
+	TenantUUID   string
+	Method       string
+	Endpoint     string
+	Query        map[string]string
+	Body         map[string]interface{}
+	Payload      map[string]interface{}
+	Context      map[string]interface{}
 }
 
 // InvocationInput 描述调用��求。
@@ -129,6 +149,7 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		aiModalHTTPClient: aiModalHTTPClient,
 		httpBaseURL:       strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
 		grpcConn:          opts.GRPCConn,
+		coreInvoker:       opts.CoreInvoker,
 	}
 }
 
@@ -332,7 +353,15 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		transport = strings.ToLower(strings.TrimSpace(in.PreferredProtocol))
 	}
 
+	if s.coreInvoker != nil {
+		if corePayload, ok, err := s.invokeCoreCapability(ctx, in, routerResult); ok || err != nil {
+			return corePayload, err
+		}
+	}
+
 	switch transport {
+	case "core_internal":
+		return nil, fmt.Errorf("core_internal adapter selected for unsupported capability %q", strings.TrimSpace(in.CapabilityID))
 	case "http", "rest":
 		if s.httpClient == nil || s.httpBaseURL == "" {
 			return nil, errors.New("rest adapter selected but HTTP client/base URL is not configured")
@@ -357,6 +386,49 @@ func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult
 		return nil, fmt.Errorf("unsupported capability adapter transport %q", transport)
 	}
 }
+
+func (s *InvocationService) invokeCoreCapability(ctx context.Context, in InvocationInput, routerResult router.InvokeResult) (map[string]interface{}, bool, error) {
+	if s == nil || s.coreInvoker == nil {
+		return nil, false, nil
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(in.Payload["method"])))
+	if method == "" {
+		method = strings.ToUpper(strings.TrimSpace(getLabel(routerResult.Labels, "method")))
+	}
+	endpoint := strings.TrimSpace(getString(in.Payload["endpoint"]))
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(routerResult.Endpoint)
+	}
+	body := map[string]interface{}{}
+	if rawBody, ok := toStringAnyMap(in.Payload["body"]); ok {
+		body = rawBody
+	}
+	query := mapStringString(in.Payload["query"])
+	if method == "" || endpoint == "" {
+		return nil, false, nil
+	}
+	payload, err := s.coreInvoker.InvokeCoreCapability(ctx, CoreCapabilityInvokeInput{
+		CapabilityID: strings.TrimSpace(in.CapabilityID),
+		TenantUUID:   strings.TrimSpace(in.TenantUUID),
+		Method:       method,
+		Endpoint:     endpoint,
+		Query:        query,
+		Body:         body,
+		Payload:      in.Payload,
+		Context:      in.Context,
+	})
+	if err != nil {
+		if errors.Is(err, ErrCoreCapabilityNotHandled) {
+			return nil, false, nil
+		}
+		return nil, true, err
+	}
+	return payload, true, nil
+}
+
+// ErrCoreCapabilityNotHandled lets a Core invoker decline a capability so the
+// selected protocol adapter can handle it.
+var ErrCoreCapabilityNotHandled = errors.New("core capability not handled")
 
 func wrapPluginCapabilityInvokePayload(in InvocationInput, endpoint string, labels map[string]string) map[string]interface{} {
 	raw := in.Payload

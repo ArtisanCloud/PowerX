@@ -8,7 +8,7 @@ import (
 )
 
 type Role struct {
-	model.PowerModel
+	model.PowerUUIDModel
 
 	Scope      string       `gorm:"column:scope;type:varchar(16);not null;default:'tenant';index;uniqueIndex:uk_role_scope_tenant_code" json:"scope"`
 	TenantUUID string       `gorm:"column:tenant_uuid;type:char(36);not null;default:'';index;uniqueIndex:uk_role_scope_tenant_code"   json:"tenant_uuid"`

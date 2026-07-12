@@ -4,10 +4,12 @@ package iam
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/service"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 
@@ -57,7 +59,10 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 			return errors.New("forbidden")
 		}
 	}
-	return s.rpr.BindPermissions(ctx, roleID, permIDs...) // 幂等 upsert :contentReference[oaicite:9]{index=9}
+	if err := s.rpr.BindPermissions(ctx, roleID, permIDs...); err != nil {
+		return err
+	}
+	return invalidateAgentEffectivePermissionsIAMCache(ctx, cur.TenantUUID)
 }
 
 // B. 通过 (module,resource,action) 授予（便于API）
@@ -119,9 +124,12 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, actor ActorContext, 
 	}
 
 	// subject_type 用你模型里的常量：SubMember
-	return s.rbr.Create(ctx, &dbm.RoleBinding{
+	if err := s.rbr.Create(ctx, &dbm.RoleBinding{
 		TenantUUID: tenantUUID, RoleID: roleID, SubjectType: dbm.SubMember, SubjectID: memberID,
-	}) // 幂等 on-conflict :contentReference[oaicite:12]{index=12}
+	}); err != nil {
+		return err
+	}
+	return invalidateAgentEffectivePermissionsIAMCache(ctx, tenantUUID)
 }
 
 func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorContext, tenantUUID string, roleBindingID uint64) error {
@@ -141,7 +149,10 @@ func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorConte
 	if strings.TrimSpace(tenantUUID) == "" {
 		return errors.New("tenant uuid required")
 	}
-	return s.rbr.Delete(ctx, tenantUUID, roleBindingID) // :contentReference[oaicite:13]{index=13}
+	if err := s.rbr.Delete(ctx, tenantUUID, roleBindingID); err != nil {
+		return err
+	}
+	return invalidateAgentEffectivePermissionsIAMCache(ctx, tenantUUID)
 }
 
 // ========== 3) 鉴权（root 放行；直绑 + 维度间接绑定） ==========
@@ -194,10 +205,13 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 	}
 
 	// 2) 删除绑定（按 role_id + permission_id）
-	return s.db.WithContext(ctx).
+	if err := s.db.WithContext(ctx).
 		Table("iam_role_permission").
 		Where("role_id = ? AND permission_id IN ?", roleID, permIDs).
-		Delete(nil).Error
+		Delete(nil).Error; err != nil {
+		return err
+	}
+	return invalidateAgentEffectivePermissionsIAMCache(ctx, cur.TenantUUID)
 }
 
 func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
@@ -280,11 +294,29 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 	if err != nil {
 		return SetIDsResult{}, err
 	}
+	if len(toAdd) > 0 || len(toRemove) > 0 {
+		if err := invalidateAgentEffectivePermissionsIAMCache(ctx, role.TenantUUID); err != nil {
+			return SetIDsResult{}, err
+		}
+	}
 
 	slices.Sort(toAdd)
 	slices.Sort(toRemove)
 	slices.Sort(skipped)
 	return SetIDsResult{Added: toAdd, Removed: toRemove, Now: now, SkippedDeprecated: skipped}, nil
+}
+
+func invalidateAgentEffectivePermissionsIAMCache(ctx context.Context, tenantUUID string) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil
+	}
+	store := cache.GetCache()
+	if store == nil {
+		return nil
+	}
+	_, err := store.Increment(ctx, fmt.Sprintf("agentauthz:effective:iam-version:%s", strings.ToLower(tenantUUID)), 1)
+	return err
 }
 
 func (s *RBACService) ListPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64) ([]uint64, error) {

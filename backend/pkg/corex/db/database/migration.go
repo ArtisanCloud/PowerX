@@ -32,6 +32,7 @@ import (
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -125,6 +126,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.RootSupportSession{},
 	)
 	if err != nil {
+		return err
+	}
+	if err = backfillIAMRoleUUID(db); err != nil {
 		return err
 	}
 
@@ -238,6 +242,36 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func backfillIAMRoleUUID(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(db.Dialector.Name()), "postgres") {
+		return nil
+	}
+	type roleRow struct {
+		ID uint64 `gorm:"column:id"`
+	}
+	var rows []roleRow
+	if err := db.Table((&modelIAM.Role{}).GetTableName(true)).
+		Select("id").
+		Where("uuid IS NULL OR uuid = ?", "00000000-0000-0000-0000-000000000000").
+		Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row.ID == 0 {
+			continue
+		}
+		if err := db.Table((&modelIAM.Role{}).GetTableName(true)).
+			Where("id = ?", row.ID).
+			Update("uuid", uuid.New()).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }

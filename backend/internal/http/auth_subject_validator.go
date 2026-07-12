@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,11 +20,16 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
+	"gopkg.in/yaml.v3"
 )
 
 const authSubjectCacheTTL = 60 * time.Second
 
-var authCacheCallbackOnce sync.Once
+var (
+	authCacheCallbackOnce sync.Once
+	stsRouteCacheOnce     sync.Once
+	stsRouteCache         []stsAllowedHTTPRoute
+)
 
 type stsRouteMatchMode string
 
@@ -37,7 +44,23 @@ type stsAllowedHTTPRoute struct {
 	Match   stsRouteMatchMode
 }
 
-var stsAllowedHTTPRoutes = []stsAllowedHTTPRoute{
+type stsCapabilityConfigFile struct {
+	Capabilities []stsCapabilityConfigEntry `yaml:"capabilities"`
+}
+
+type stsCapabilityConfigEntry struct {
+	Protocols []stsCapabilityProtocolEntry `yaml:"protocols"`
+}
+
+type stsCapabilityProtocolEntry struct {
+	Channel      string `yaml:"channel"`
+	Endpoint     string `yaml:"endpoint"`
+	Method       string `yaml:"method"`
+	ActorContext string `yaml:"actor_context"`
+	STSDirect    bool   `yaml:"sts_direct"`
+}
+
+var stsStaticAllowedHTTPRoutes = []stsAllowedHTTPRoute{
 	{Method: "POST", Pattern: "/admin/runtime/ws-bus/grant", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/admin/runtime/ws-bus/publish", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/admin/runtime/task-queue/enqueue", Match: stsRouteMatchSuffix},
@@ -49,29 +72,6 @@ var stsAllowedHTTPRoutes = []stsAllowedHTTPRoute{
 	{Method: "POST", Pattern: "/tenant/invocations", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/tenant/invocations/stream", Match: stsRouteMatchSuffix},
 	{Method: "GET", Pattern: "/admin/tenants", Match: stsRouteMatchSuffix},
-	{Method: "GET", Pattern: "/media/assets", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/media/assets", Match: stsRouteMatchCorePattern},
-	{Method: "GET", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
-	{Method: "PATCH", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
-	{Method: "PUT", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
-	{Method: "DELETE", Pattern: "/media/assets/{uuid}", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/media/assets/{uuid}/presign", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/media/assets/{uuid}/variants/{variant}", Match: stsRouteMatchCorePattern},
-	{Method: "PUT", Pattern: "/media/assets/{uuid}/variants/{variant}", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/media/assets/{uuid}/variants/{variant}/presign", Match: stsRouteMatchCorePattern},
-	{Method: "GET", Pattern: "/media/assets/{uuid}/variants/{variant}/resource", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/agents/invoke", Match: stsRouteMatchCorePattern},
-	{Method: "GET", Pattern: "/agents/stream/sse", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/agents/sessions", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/llm/invoke", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/llm/stream", Match: stsRouteMatchCorePattern},
-	{Method: "GET", Pattern: "/ai/llm/models", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/llm/sessions", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/llm/sessions/{session_id}/messages", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/image/invoke", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/video/invoke", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/tts/invoke", Match: stsRouteMatchCorePattern},
-	{Method: "POST", Pattern: "/ai/embedding/invoke", Match: stsRouteMatchCorePattern},
 }
 
 type userSnapshot struct {
@@ -190,8 +190,202 @@ func isSTSAllowedRequestPath(ctx context.Context) bool {
 	if method == "" || path == "" {
 		return false
 	}
-	for _, route := range stsAllowedHTTPRoutes {
+	for _, route := range stsAllowedHTTPRoutes() {
 		if route.matches(method, path) {
+			return true
+		}
+	}
+	return false
+}
+
+func stsAllowedHTTPRoutes() []stsAllowedHTTPRoute {
+	stsRouteCacheOnce.Do(func() {
+		routes := make([]stsAllowedHTTPRoute, 0, len(stsStaticAllowedHTTPRoutes)+64)
+		seen := map[string]struct{}{}
+		appendRoute := func(route stsAllowedHTTPRoute) {
+			route.Method = strings.ToUpper(strings.TrimSpace(route.Method))
+			route.Pattern = cleanSTSRoutePattern(route.Pattern)
+			if route.Method == "" || route.Pattern == "" {
+				return
+			}
+			key := route.Method + " " + route.Pattern + " " + string(route.Match)
+			if _, ok := seen[key]; ok {
+				return
+			}
+			seen[key] = struct{}{}
+			routes = append(routes, route)
+		}
+		for _, route := range stsStaticAllowedHTTPRoutes {
+			appendRoute(route)
+		}
+		for _, route := range loadSTSPlatformCapabilityRoutes() {
+			appendRoute(route)
+		}
+		stsRouteCache = routes
+	})
+	return append([]stsAllowedHTTPRoute(nil), stsRouteCache...)
+}
+
+func loadSTSPlatformCapabilityRoutes() []stsAllowedHTTPRoute {
+	dir, err := resolveSTSPlatformCapabilitiesDir()
+	if err != nil {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	routes := make([]stsAllowedHTTPRoute, 0, 64)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.ToLower(entry.Name())
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+		fileRoutes := loadSTSPlatformCapabilityRoutesFromFile(filepath.Join(dir, entry.Name()))
+		routes = append(routes, fileRoutes...)
+	}
+	return routes
+}
+
+func loadSTSPlatformCapabilityRoutesFromFile(path string) []stsAllowedHTTPRoute {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var file stsCapabilityConfigFile
+	if err := yaml.Unmarshal(raw, &file); err != nil {
+		return nil
+	}
+	routes := make([]stsAllowedHTTPRoute, 0)
+	for _, capability := range file.Capabilities {
+		for _, protocol := range capability.Protocols {
+			if !isSTSDirectProtocolBinding(protocol) {
+				continue
+			}
+			method := strings.ToUpper(strings.TrimSpace(protocol.Method))
+			pattern := normalizeSTSPlatformEndpoint(protocol.Endpoint)
+			if method == "" || pattern == "" || isSTSPlatformEndpointDenied(method, pattern) {
+				continue
+			}
+			routes = append(routes, stsAllowedHTTPRoute{
+				Method:  method,
+				Pattern: pattern,
+				Match:   stsRouteMatchCorePattern,
+			})
+		}
+	}
+	return routes
+}
+
+func isSTSDirectProtocolBinding(protocol stsCapabilityProtocolEntry) bool {
+	return strings.EqualFold(strings.TrimSpace(protocol.Channel), "rest") &&
+		protocol.STSDirect &&
+		strings.EqualFold(strings.TrimSpace(protocol.ActorContext), "service_actor")
+}
+
+func resolveSTSPlatformCapabilitiesDir() (string, error) {
+	const defaultPlatformCapabilities = "backend/config/platform_capabilities"
+	candidates := make([]string, 0, 5)
+	if custom := strings.TrimSpace(os.Getenv("PLATFORM_CAPABILITIES_DIR")); custom != "" {
+		candidates = append(candidates, custom)
+	}
+	candidates = append(candidates,
+		filepath.Join(".", defaultPlatformCapabilities),
+		filepath.Join("..", defaultPlatformCapabilities),
+		filepath.Join("..", "..", "config", "platform_capabilities"),
+		filepath.Join("..", "..", "..", defaultPlatformCapabilities),
+	)
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		candidates = append(candidates,
+			filepath.Join(execDir, defaultPlatformCapabilities),
+			filepath.Join(execDir, "..", defaultPlatformCapabilities),
+		)
+	}
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		abs, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(abs); err == nil && info.IsDir() {
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("platform capabilities directory not found")
+}
+
+func normalizeSTSPlatformEndpoint(endpoint string) string {
+	endpoint = cleanSTSRoutePattern(endpoint)
+	for _, prefix := range []string{"/api/v1", "/api"} {
+		if endpoint == prefix {
+			return "/"
+		}
+		if strings.HasPrefix(endpoint, prefix+"/") {
+			return cleanSTSRoutePattern(strings.TrimPrefix(endpoint, prefix))
+		}
+	}
+	return endpoint
+}
+
+func cleanSTSRoutePattern(pattern string) string {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return ""
+	}
+	if !strings.HasPrefix(pattern, "/") {
+		pattern = "/" + pattern
+	}
+	for strings.Contains(pattern, "//") {
+		pattern = strings.ReplaceAll(pattern, "//", "/")
+	}
+	if len(pattern) > 1 {
+		pattern = strings.TrimRight(pattern, "/")
+	}
+	return pattern
+}
+
+func isSTSPlatformEndpointDenied(method string, pattern string) bool {
+	_ = method
+	pattern = strings.ToLower(cleanSTSRoutePattern(pattern))
+	if pattern == "" {
+		return true
+	}
+	if pattern == "/" || pattern == "/health" || pattern == "/healthz" {
+		return true
+	}
+	firstSegment := strings.Trim(strings.Split(strings.Trim(pattern, "/"), "/")[0], " ")
+	if strings.HasPrefix(firstSegment, ":") || (strings.HasPrefix(firstSegment, "{") && strings.HasSuffix(firstSegment, "}")) {
+		return true
+	}
+	deniedPrefixes := []string{
+		"/admin",
+		"/internal",
+		"/public",
+		"/auth",
+		"/setup",
+	}
+	for _, prefix := range deniedPrefixes {
+		if pattern == prefix || strings.HasPrefix(pattern, prefix+"/") {
+			return true
+		}
+	}
+	deniedSegments := []string{
+		"/debug",
+		"/debug-",
+		"/migration",
+		"/root",
+		"/drain",
+		"/bootstrap",
+		"/mock",
+	}
+	for _, segment := range deniedSegments {
+		if strings.Contains(pattern, segment) {
 			return true
 		}
 	}
@@ -214,10 +408,13 @@ func (route stsAllowedHTTPRoute) matches(method string, path string) bool {
 
 func isSTSCoreCapabilityPath(path string, pattern string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	for start := range parts {
-		if start > 0 && strings.EqualFold(parts[start-1], "admin") {
-			continue
+	for _, part := range parts {
+		switch strings.ToLower(strings.TrimSpace(part)) {
+		case "admin", "internal", "public", "auth", "setup":
+			return false
 		}
+	}
+	for start := range parts {
 		if matchSTSRoutePattern(parts[start:], pattern) {
 			return true
 		}

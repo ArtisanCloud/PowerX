@@ -192,6 +192,56 @@ func TestDetectTasksFromUnifiedCandidatesRecallsBoundTemplateSkill(t *testing.T)
 	}
 }
 
+func TestDetectTasksFromUnifiedCandidatesExtractsTemplateRefForDeleteFallback(t *testing.T) {
+	m := NewAgentManager()
+	m.SetIntentStrategies(nil, 0.1, 0.6)
+	m.UpsertUnifiedCandidate(ToolCallCandidate{
+		Name:        "powerxplugin.template.basic.local",
+		DisplayName: "模板对象基础能力",
+		NodeKind:    "skill",
+		NodeRef:     "powerxplugin.template.basic.local",
+		FlowID:      "powerxplugin.template.basic.local",
+		SourceScope: "agent",
+		Source:      "plugin",
+		Description: "管理 PowerXPlugin 的基础模板对象。该对象仅包含标题、描述和内容，用于开发者验证插件侧 CRUD、能力注册和 Agent 调用链路。",
+		IntentHints: []string{
+			"删除 ID 为 123 的模板",
+			"列出所有模板",
+		},
+		Actions:      []string{"create", "get", "update", "delete", "list"},
+		OptionalArgs: []string{"template_ref", "template_name", "confirmation"},
+		ActionRequiredArgs: map[string][]string{
+			"delete": {"template_ref", "confirmation"},
+		},
+	})
+
+	ctx := contextWithBoundSkillIDs([]string{"powerxplugin.template.basic.local"})
+	tasks := m.detectTasksFromUnifiedCandidates(ctx, "请删除掉测试模板2")
+	if len(tasks) != 1 {
+		t.Fatalf("expected one recalled task, got %d: %#v", len(tasks), tasks)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(tasks[0].Params["action"])); got != "delete" {
+		t.Fatalf("expected delete action, got %q params=%#v", got, tasks[0].Params)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(tasks[0].Params["template_ref"])); got != "测试模板2" {
+		t.Fatalf("expected template_ref to be extracted, got %q params=%#v", got, tasks[0].Params)
+	}
+}
+
+func TestExtractTemplateRefFromUserText(t *testing.T) {
+	if got := extractTemplateRefFromUserText("请删除掉测试模板2", "delete"); got != "测试模板2" {
+		t.Fatalf("expected template ref, got %q", got)
+	}
+}
+
+func TestEnrichCandidateRecallParams(t *testing.T) {
+	params := map[string]interface{}{}
+	enrichCandidateRecallParams(params, "请删除掉测试模板2", "delete", ToolCallCandidate{})
+	if got := strings.TrimSpace(fmt.Sprint(params["template_ref"])); got != "测试模板2" {
+		t.Fatalf("expected template_ref, got %q params=%#v", got, params)
+	}
+}
+
 func contextWithBoundSkillIDs(ids []string) context.Context {
 	return context.WithValue(context.Background(), "agent_bound_skill_ids", ids)
 }

@@ -198,7 +198,7 @@ func (s *AgentService) ReplaceSkillBindings(ctx context.Context, env string, ten
 	return s.skillBindRepo.Replace(ctx, env, tenantUUID, agentID, normalizeStringSlice(skillIDs))
 }
 
-func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID, skillIDs []string, actorUserUUID string) error {
+func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID, ownerPluginID string, skillIDs []string, actorUserUUID string) error {
 	if s == nil || s.db == nil || s.grantRepo == nil {
 		return nil
 	}
@@ -206,23 +206,17 @@ func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context
 	if env == "" || tenantUUID == nil || strings.TrimSpace(*tenantUUID) == "" || agentUUID == uuid.Nil {
 		return fmt.Errorf("env, tenant_uuid and agent_uuid are required")
 	}
+	ownerPluginID = strings.TrimSpace(ownerPluginID)
+	if ownerPluginID == "" {
+		return fmt.Errorf("plugin registry agent grants require owner_plugin_id")
+	}
 	skillIDs = normalizeStringSlice(skillIDs)
-	if len(skillIDs) == 0 {
-		return s.grantRepo.ReplaceByAgentSource(ctx, env, strings.TrimSpace(*tenantUUID), agentUUID, dbmodel.AgentCapabilityGrantSourcePlugin, nil)
-	}
-	capabilityIDs, err := s.capabilityIDsForSkills(ctx, skillIDs)
+	records, err := s.capabilityRecordsByPlugin(ctx, ownerPluginID)
 	if err != nil {
 		return err
 	}
-	if len(capabilityIDs) == 0 {
-		return fmt.Errorf("plugin registry agent grants require active skill capability bindings: skills=%s", strings.Join(skillIDs, ","))
-	}
-	records, err := s.capabilityRecordsByIDs(ctx, capabilityIDs)
-	if err != nil {
-		return err
-	}
-	if err := ensureCapabilityRecordsComplete(capabilityIDs, records); err != nil {
-		return err
+	if len(records) == 0 {
+		return fmt.Errorf("plugin registry agent grants require published capability records: plugin_id=%s", ownerPluginID)
 	}
 	rows := make([]dbmodel.AgentCapabilityGrant, 0, len(records))
 	for _, rec := range records {
@@ -242,7 +236,10 @@ func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context
 		}
 	}
 	if len(rows) == 0 {
-		return fmt.Errorf("plugin registry agent grants require grantable capability permission codes: skills=%s", strings.Join(skillIDs, ","))
+		if len(skillIDs) > 0 {
+			return fmt.Errorf("plugin registry agent grants require grantable capability permission codes: plugin_id=%s skills=%s", ownerPluginID, strings.Join(skillIDs, ","))
+		}
+		return fmt.Errorf("plugin registry agent grants require grantable capability permission codes: plugin_id=%s", ownerPluginID)
 	}
 	return s.grantRepo.ReplaceByAgentSource(ctx, env, strings.TrimSpace(*tenantUUID), agentUUID, dbmodel.AgentCapabilityGrantSourcePlugin, rows)
 }
@@ -283,6 +280,22 @@ func (s *AgentService) capabilityRecordsByIDs(ctx context.Context, capabilityIDs
 		Model(&capmodels.CapabilityRecord{}).
 		Where("capability_id IN ? AND status IN ?", capabilityIDs, []string{"active", "published", "ready"}).
 		Order("plugin_id ASC, capability_id ASC").
+		Find(&records).Error; err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func (s *AgentService) capabilityRecordsByPlugin(ctx context.Context, pluginID string) ([]capmodels.CapabilityRecord, error) {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return nil, fmt.Errorf("plugin_id is required")
+	}
+	records := make([]capmodels.CapabilityRecord, 0)
+	if err := s.db.WithContext(ctx).
+		Model(&capmodels.CapabilityRecord{}).
+		Where("plugin_id = ? AND status IN ?", pluginID, []string{"active", "published", "ready"}).
+		Order("capability_id ASC").
 		Find(&records).Error; err != nil {
 		return nil, err
 	}

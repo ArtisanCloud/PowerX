@@ -4,6 +4,9 @@ capabilities:
     module: ai
     title: LLM Invoke
     description: 大语言模型无状态调用。
+    permission_code: corex.ai.llm:invoke
+    agent_usable: true
+    risk_level: medium
     categories: [ai, llm]
     intents: [ai.llm.invoke]
     tool_scopes: [ai.llm]
@@ -19,6 +22,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.llm
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalService
@@ -30,6 +36,9 @@ capabilities:
     module: ai
     title: LLM Stream
     description: LLM 无状态流式输出。
+    permission_code: corex.ai.llm:stream
+    agent_usable: true
+    risk_level: medium
     categories: [ai, llm]
     intents: [ai.llm.stream]
     tool_scopes: [ai.llm]
@@ -44,6 +53,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1stream/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.llm
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalService
@@ -55,6 +67,9 @@ capabilities:
     module: ai
     title: LLM Session Create
     description: 创建 LLM 会话。
+    permission_code: corex.ai.llm.session:create
+    agent_usable: true
+    risk_level: medium
     categories: [ai, llm]
     intents: [ai.llm.session.create]
     tool_scopes: [ai.llm.session]
@@ -70,6 +85,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.llm.session
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalSessionService
@@ -81,6 +99,9 @@ capabilities:
     module: ai
     title: LLM Session Append
     description: 追加 LLM 会话消息。
+    permission_code: corex.ai.llm.session:append
+    agent_usable: true
+    risk_level: medium
     categories: [ai, llm]
     intents: [ai.llm.session.append]
     tool_scopes: [ai.llm.session]
@@ -96,6 +117,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1llm~1sessions~1{session_id}~1messages/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.llm.session
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalSessionService
@@ -107,6 +131,9 @@ capabilities:
     module: ai
     title: Image Invoke
     description: 图像生成/理解调用。
+    permission_code: corex.ai.image:invoke
+    agent_usable: true
+    risk_level: medium
     categories: [ai, image]
     intents: [ai.image.invoke]
     tool_scopes: [ai.image]
@@ -122,6 +149,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1image~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.image
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalService
@@ -133,6 +163,9 @@ capabilities:
     module: ai
     title: Video Invoke
     description: 视频生成/理解调用。
+    permission_code: corex.ai.video:invoke
+    agent_usable: true
+    risk_level: medium
     categories: [ai, video]
     intents: [ai.video.invoke]
     tool_scopes: [ai.video]
@@ -148,6 +181,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1video~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.video
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalService
@@ -159,6 +195,9 @@ capabilities:
     module: ai
     title: TTS Invoke
     description: 语音合成调用。
+    permission_code: corex.ai.tts:invoke
+    agent_usable: true
+    risk_level: medium
     categories: [ai, tts]
     intents: [ai.tts.invoke]
     tool_scopes: [ai.tts]
@@ -174,6 +213,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1tts~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.tts
       - channel: grpc
         endpoint: powerx.ai.v1.MultimodalService
@@ -185,6 +227,9 @@ capabilities:
     module: ai
     title: Embedding Invoke
     description: 向量生成（embedding）。
+    permission_code: corex.ai.embedding:invoke
+    agent_usable: true
+    risk_level: medium
     categories: [ai, embedding]
     intents: [ai.embedding.invoke]
     tool_scopes: [ai.embedding]
@@ -200,6 +245,9 @@ capabilities:
         method: POST
         schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1embedding~1invoke/post
         auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
         tool_scope: ai.embedding
       - channel: grpc
         endpoint: powerx.ai.v1.EmbeddingService
@@ -207,3 +255,35 @@ capabilities:
         schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#EmbeddingService
         auth_type: tenant_jwt
         tool_scope: ai.embedding
+  - capability_id: com.corex.ai.vlm.invoke
+    module: ai
+    title: VLM Invoke
+    description: Vision-language model invocation for image and text inputs.
+    permission_code: corex.ai.vlm:invoke
+    agent_usable: true
+    risk_level: medium
+    categories: [ai, vlm]
+    intents: [ai.vlm.invoke]
+    tool_scopes: [ai.vlm]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
+      - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/ai/vlm/invoke
+        method: POST
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1vlm~1invoke/post
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: ai.vlm
+      - channel: grpc
+        endpoint: powerx.ai.v1.MultimodalService
+        rpc: Invoke
+        schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService
+        auth_type: tenant_jwt
+        tool_scope: ai.vlm
