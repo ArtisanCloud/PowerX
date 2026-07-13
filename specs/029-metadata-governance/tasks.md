@@ -53,6 +53,7 @@
 - [ ] T018 [P] Implement shared error codes in `backend/internal/service/metadata/errors.go` and HTTP error mapping in `backend/internal/transport/http/admin/metadata/error_mapping.go`.
 - [ ] T019 Implement admin HTTP router skeleton in `backend/internal/transport/http/admin/metadata/api.go` and mount it from the existing admin router entrypoint.
 - [ ] T020 Implement gRPC service skeleton in `backend/internal/transport/grpc/metadata/server.go` and wire it through the global gRPC bootstrap without creating a module-owned gRPC server.
+- [ ] T020a Add contract parity checks ensuring every REST PATCH/update operation has a matching gRPC Update RPC and gRPC update scalar fields preserve explicit presence for false, zero, disabled, archived, and empty values.
 - [ ] T021 Add metadata permissions to IAM seed/config path used for platform permissions, including `metadata.dictionary:read/manage`, `metadata.taxonomy:read/manage`, `metadata.tag:read/manage`, and `metadata.resource_type:read/manage`.
 - [ ] T022 Add platform capability metadata in `backend/config/platform_capabilities/metadata.yaml` with `permission_code`, `agent_usable: false`, `risk_level`, `actor_context`, `resource_scope`, and no default `sts_direct: true` for admin-user bindings.
 - [ ] T023 Add explicit seed command entrypoint `backend/cmd/metadata_seed/main.go` that validates seed files and requires explicit tenant/bootstrap input; fail fast when required seed definitions are missing.

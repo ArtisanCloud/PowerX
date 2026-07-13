@@ -7,6 +7,7 @@ option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/metad
 service MetadataGovernanceService {
   rpc ListDictionaryNamespaces(ListDictionaryNamespacesRequest) returns (ListDictionaryNamespacesResponse);
   rpc CreateDictionaryNamespace(CreateDictionaryNamespaceRequest) returns (DictionaryNamespaceResponse);
+  rpc UpdateDictionaryNamespace(UpdateDictionaryNamespaceRequest) returns (DictionaryNamespaceResponse);
   rpc ListDictionaryItems(ListDictionaryItemsRequest) returns (ListDictionaryItemsResponse);
   rpc CreateDictionaryItem(CreateDictionaryItemRequest) returns (DictionaryItemResponse);
   rpc UpdateDictionaryItem(UpdateDictionaryItemRequest) returns (DictionaryItemResponse);
@@ -14,8 +15,10 @@ service MetadataGovernanceService {
 
   rpc ListTaxonomies(ListTaxonomiesRequest) returns (ListTaxonomiesResponse);
   rpc CreateTaxonomy(CreateTaxonomyRequest) returns (TaxonomyResponse);
+  rpc UpdateTaxonomy(UpdateTaxonomyRequest) returns (TaxonomyResponse);
   rpc ListTaxonomyNodes(ListTaxonomyNodesRequest) returns (ListTaxonomyNodesResponse);
   rpc CreateTaxonomyNode(CreateTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
+  rpc UpdateTaxonomyNode(UpdateTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
   rpc MoveTaxonomyNode(MoveTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
   rpc DeleteTaxonomyNode(DeleteTaxonomyNodeRequest) returns (DeleteResponse);
 
@@ -172,6 +175,13 @@ message CreateDictionaryNamespaceRequest {
   I18nMap description_i18n = 4;
 }
 
+message UpdateDictionaryNamespaceRequest {
+  string namespace_uuid = 1;
+  I18nMap name_i18n = 2;
+  I18nMap description_i18n = 3;
+  optional MetadataStatus status = 4;
+}
+
 message DictionaryNamespaceResponse {
   DictionaryNamespace data = 1;
 }
@@ -201,8 +211,8 @@ message UpdateDictionaryItemRequest {
   string item_uuid = 1;
   I18nMap label_i18n = 2;
   I18nMap description_i18n = 3;
-  int32 sort_order = 4;
-  MetadataStatus status = 5;
+  optional int32 sort_order = 4;
+  optional MetadataStatus status = 5;
 }
 
 message DictionaryItemResponse {
@@ -234,6 +244,14 @@ message CreateTaxonomyRequest {
   int32 max_depth = 5;
 }
 
+message UpdateTaxonomyRequest {
+  string taxonomy_uuid = 1;
+  I18nMap name_i18n = 2;
+  I18nMap description_i18n = 3;
+  optional int32 max_depth = 4;
+  optional MetadataStatus status = 5;
+}
+
 message TaxonomyResponse {
   Taxonomy data = 1;
 }
@@ -258,10 +276,19 @@ message CreateTaxonomyNodeRequest {
   int32 sort_order = 6;
 }
 
+message UpdateTaxonomyNodeRequest {
+  string node_uuid = 1;
+  I18nMap label_i18n = 2;
+  I18nMap description_i18n = 3;
+  optional int32 sort_order = 4;
+  optional MetadataStatus status = 5;
+  int64 version = 6;
+}
+
 message MoveTaxonomyNodeRequest {
   string node_uuid = 1;
   string target_parent_uuid = 2;
-  int32 sort_order = 3;
+  optional int32 sort_order = 3;
   int64 version = 4;
 }
 
@@ -300,8 +327,8 @@ message UpdateTagRequest {
   string tag_uuid = 1;
   I18nMap label_i18n = 2;
   I18nMap description_i18n = 3;
-  string color = 4;
-  MetadataStatus status = 5;
+  optional string color = 4;
+  optional MetadataStatus status = 5;
 }
 
 message TagResponse {
@@ -363,9 +390,9 @@ message UpdateResourceTypeRequest {
   string resource_type_uuid = 1;
   I18nMap name_i18n = 2;
   I18nMap description_i18n = 3;
-  string validator_key = 4;
-  bool binding_enabled = 5;
-  MetadataStatus status = 6;
+  optional string validator_key = 4;
+  optional bool binding_enabled = 5;
+  optional MetadataStatus status = 6;
 }
 
 message ResourceTypeResponse {

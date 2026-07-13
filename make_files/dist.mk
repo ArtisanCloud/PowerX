@@ -23,6 +23,8 @@ dist-systemd:
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
 	echo "[dist] build database tool"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
+	echo "[dist] build platform capability seed tool"; \
+	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/platform_capability_seed" ./cmd/platform_capability_seed); \
 	echo "[dist] build media tool"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/media_tool" ./cmd/media_tool); \
 		echo "[dist] copy backend runtime config"; \

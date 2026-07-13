@@ -162,6 +162,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaxonomyResponse'
+  /admin/metadata/taxonomies/{taxonomy_uuid}:
+    patch:
+      operationId: updateTaxonomy
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/TaxonomyUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaxonomyRequest'
+      responses:
+        '200':
+          description: Updated taxonomy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyResponse'
   /admin/metadata/taxonomies/{taxonomy_uuid}/nodes:
     get:
       operationId: listTaxonomyNodes
@@ -706,6 +725,18 @@ components:
           type: integer
           minimum: 1
       required: [namespace, module, name_i18n, max_depth]
+    UpdateTaxonomyRequest:
+      type: object
+      properties:
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        max_depth:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
     Taxonomy:
       allOf:
         - $ref: '#/components/schemas/DisplayFields'

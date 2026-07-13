@@ -166,6 +166,7 @@
 - **FR-026**: System MUST require every business module that adopts metadata governance to provide a mapping plan for fields, namespaces, resource types, historical value handling, and reference registration.
 - **FR-027**: System MUST keep external consumer interfaces for web, mini-app, and customer scenarios out of the first release scope.
 - **FR-028**: System MUST produce a clear error when metadata objects are missing instead of accepting deprecated names, inferring namespaces from free text, or returning empty fallback lists.
+- **FR-029**: System MUST preserve PATCH/update field presence across REST and gRPC contracts; gRPC update requests MUST use explicit presence semantics such as `optional` scalar fields or field masks for booleans, numeric values, enums, and strings that can be intentionally set to false, zero, disabled, archived, or empty.
 
 ### Key Entities
 

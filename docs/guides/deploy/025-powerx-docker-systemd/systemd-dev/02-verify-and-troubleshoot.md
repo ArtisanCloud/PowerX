@@ -122,14 +122,17 @@ grep -n "dsn\\|schema" /etc/powerx-dev/config.yaml
 
 ```bash
 cd /opt/powerx-dev/backend
-POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
 ```
 
 补 seed：
 ```bash
 cd /opt/powerx-dev/backend
-POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database seed
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database seed
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./platform_capability_seed
 ```
+
+如果 `/opt/powerx-dev/backend/platform_capability_seed` 不存在，说明当前 dev release 是旧产物；重新执行 `make dist` 并通过 `switch-develop-systemd.sh` 切换到新 release 后再补 seed。
 
 ## 8. 回滚 dev release
 ```bash

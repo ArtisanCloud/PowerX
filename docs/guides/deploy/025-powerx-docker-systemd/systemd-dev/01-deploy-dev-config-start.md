@@ -248,16 +248,18 @@ cd /opt/powerx-dev/backend
 sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
 
 # 需要补齐基础种子数据和 Capability Registry 时执行
-sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database seed
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./platform_capability_seed
 ```
 
-seed 命令语义：
+seed 命令语义按目录区分：
 
-- `make db-seed`：只执行 CoreX / 数据库基础种子。
-- `make capability-seed`：只把 `backend/config/platform_capabilities/*.yaml` 同步到 Capability Registry，并为 active tenants 补齐 registrations。
-- `make seed`：等于 `make db-seed` + `make capability-seed`。
+- `/opt/powerx-dev/backend` 是发布产物目录，不使用 `make`。
+- `./database seed`：只执行 CoreX / 数据库基础种子。
+- `./platform_capability_seed`：只把 `config/platform_capabilities/*.yaml` 同步到 Capability Registry，并为 active tenants 补齐 registrations。
+- 源码目录才使用 `make seed`，例如 `cd /home/ubuntu/workspace/PowerX && sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed`。
 
-如果只是改 Go 业务逻辑或前端页面，通常不需要 seed。如果新增或修改了 `backend/config/platform_capabilities/*.yaml`，需要执行 `make capability-seed` 或 `make seed`。
+如果只是改 Go 业务逻辑或前端页面，通常不需要 seed。如果新增或修改了 `backend/config/platform_capabilities/*.yaml`，切换新 release 后需要执行 `./platform_capability_seed`；如果同时需要基础数据补齐，再执行 `./database seed`。
 
 ### 12.2 手动切换 symlink
 也可以只更新 `/opt/powerx-dev` 下的 symlink，并重启 dev service：
@@ -285,4 +287,4 @@ sudo systemctl restart powerx-dev-backend powerx-dev-web-admin powerx-dev-runner
 - `powerx-web-admin`
 - `powerx-runner`
 
-生产环境可以继续使用默认参数。dev 环境必须按 14.1 同时覆盖 root、service name 和 health url；不能只覆盖 root，否则仍可能重启默认生产 service。
+生产环境可以继续使用默认参数。dev 环境必须使用 `switch-develop-systemd.sh` 或同时覆盖 root、service name 和 health url；不能只覆盖 root，否则仍可能重启默认生产 service。
