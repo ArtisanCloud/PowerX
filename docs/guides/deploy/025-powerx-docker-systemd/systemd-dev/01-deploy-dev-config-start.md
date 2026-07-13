@@ -237,6 +237,28 @@ sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --
 - 默认 dev service 是 `powerx-dev-backend`、`powerx-dev-web-admin`、`powerx-dev-runner`。
 - 如需临时覆盖 dev root 或 service name，仍可通过 `POWERX_RELEASES_ROOT`、`POWERX_LINKS_ROOT`、`POWERX_RUNTIME_ROOT`、`POWERX_BACKEND_SERVICE` 等环境变量覆盖。
 
+### 12.1.1 切换后的 migrate 和 seed
+
+发布切换不会自动执行 migrate 或 seed。需要按变更类型显式执行：
+
+```bash
+cd /opt/powerx-dev/backend
+
+# 有数据库结构变更时执行
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
+
+# 需要补齐基础种子数据和 Capability Registry 时执行
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed
+```
+
+seed 命令语义：
+
+- `make db-seed`：只执行 CoreX / 数据库基础种子。
+- `make capability-seed`：只把 `backend/config/platform_capabilities/*.yaml` 同步到 Capability Registry，并为 active tenants 补齐 registrations。
+- `make seed`：等于 `make db-seed` + `make capability-seed`。
+
+如果只是改 Go 业务逻辑或前端页面，通常不需要 seed。如果新增或修改了 `backend/config/platform_capabilities/*.yaml`，需要执行 `make capability-seed` 或 `make seed`。
+
 ### 12.2 手动切换 symlink
 也可以只更新 `/opt/powerx-dev` 下的 symlink，并重启 dev service：
 

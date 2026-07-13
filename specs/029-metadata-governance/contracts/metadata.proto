@@ -1,0 +1,378 @@
+syntax = "proto3";
+
+package powerx.metadata.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/metadata/v1;metadatav1";
+
+service MetadataGovernanceService {
+  rpc ListDictionaryNamespaces(ListDictionaryNamespacesRequest) returns (ListDictionaryNamespacesResponse);
+  rpc CreateDictionaryNamespace(CreateDictionaryNamespaceRequest) returns (DictionaryNamespaceResponse);
+  rpc ListDictionaryItems(ListDictionaryItemsRequest) returns (ListDictionaryItemsResponse);
+  rpc CreateDictionaryItem(CreateDictionaryItemRequest) returns (DictionaryItemResponse);
+  rpc UpdateDictionaryItem(UpdateDictionaryItemRequest) returns (DictionaryItemResponse);
+  rpc DeleteDictionaryItem(DeleteDictionaryItemRequest) returns (DeleteResponse);
+
+  rpc ListTaxonomies(ListTaxonomiesRequest) returns (ListTaxonomiesResponse);
+  rpc CreateTaxonomy(CreateTaxonomyRequest) returns (TaxonomyResponse);
+  rpc ListTaxonomyNodes(ListTaxonomyNodesRequest) returns (ListTaxonomyNodesResponse);
+  rpc CreateTaxonomyNode(CreateTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
+  rpc MoveTaxonomyNode(MoveTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
+  rpc DeleteTaxonomyNode(DeleteTaxonomyNodeRequest) returns (DeleteResponse);
+
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc CreateTag(CreateTagRequest) returns (TagResponse);
+  rpc UpdateTag(UpdateTagRequest) returns (TagResponse);
+  rpc MergeTags(MergeTagsRequest) returns (MergeTagsResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteResponse);
+
+  rpc ListTagBindings(ListTagBindingsRequest) returns (ListTagBindingsResponse);
+  rpc ReplaceTagBindings(ReplaceTagBindingsRequest) returns (ListTagBindingsResponse);
+
+  rpc ListResourceTypes(ListResourceTypesRequest) returns (ListResourceTypesResponse);
+  rpc RegisterResourceType(RegisterResourceTypeRequest) returns (ResourceTypeResponse);
+  rpc UpdateResourceType(UpdateResourceTypeRequest) returns (ResourceTypeResponse);
+}
+
+enum MetadataStatus {
+  METADATA_STATUS_UNSPECIFIED = 0;
+  METADATA_STATUS_ENABLED = 1;
+  METADATA_STATUS_DISABLED = 2;
+  METADATA_STATUS_ARCHIVED = 3;
+}
+
+message I18nMap {
+  map<string, string> values = 1;
+}
+
+message Display {
+  string display_name = 1;
+  string display_description = 2;
+  string display_locale = 3;
+  bool display_locale_missing = 4;
+}
+
+message PaginationRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message PaginationResponse {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 total = 3;
+}
+
+message ReferenceSummary {
+  string resource_type = 1;
+  string resource_uuid = 2;
+  string field_name = 3;
+  int64 count = 4;
+}
+
+message DictionaryNamespace {
+  string uuid = 1;
+  string namespace = 2;
+  string module = 3;
+  I18nMap name_i18n = 4;
+  I18nMap description_i18n = 5;
+  MetadataStatus status = 6;
+  int64 item_count = 7;
+  Display display = 8;
+}
+
+message DictionaryItem {
+  string uuid = 1;
+  string namespace_uuid = 2;
+  string code = 3;
+  I18nMap label_i18n = 4;
+  I18nMap description_i18n = 5;
+  int32 sort_order = 6;
+  MetadataStatus status = 7;
+  int64 reference_count = 8;
+  Display display = 9;
+}
+
+message Taxonomy {
+  string uuid = 1;
+  string namespace = 2;
+  string module = 3;
+  I18nMap name_i18n = 4;
+  I18nMap description_i18n = 5;
+  int32 max_depth = 6;
+  MetadataStatus status = 7;
+  Display display = 8;
+}
+
+message TaxonomyNode {
+  string uuid = 1;
+  string taxonomy_uuid = 2;
+  string parent_uuid = 3;
+  string code = 4;
+  I18nMap label_i18n = 5;
+  I18nMap description_i18n = 6;
+  string path = 7;
+  int32 depth = 8;
+  int32 sort_order = 9;
+  MetadataStatus status = 10;
+  int64 reference_count = 11;
+  int64 version = 12;
+  Display display = 13;
+}
+
+message Tag {
+  string uuid = 1;
+  string namespace = 2;
+  string resource_type = 3;
+  string code = 4;
+  I18nMap label_i18n = 5;
+  I18nMap description_i18n = 6;
+  string color = 7;
+  MetadataStatus status = 8;
+  int64 usage_count = 9;
+  Display display = 10;
+}
+
+message TagBinding {
+  string tag_uuid = 1;
+  string resource_type = 2;
+  string resource_uuid = 3;
+  Tag tag = 4;
+}
+
+message ResourceType {
+  string uuid = 1;
+  string resource_type = 2;
+  string module = 3;
+  I18nMap name_i18n = 4;
+  I18nMap description_i18n = 5;
+  string validator_key = 6;
+  bool binding_enabled = 7;
+  string validator_status = 8;
+  MetadataStatus status = 9;
+  Display display = 10;
+}
+
+message ListDictionaryNamespacesRequest {
+  string module = 1;
+  MetadataStatus status = 2;
+  string q = 3;
+  string locale = 4;
+  PaginationRequest pagination = 5;
+}
+
+message ListDictionaryNamespacesResponse {
+  repeated DictionaryNamespace data = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CreateDictionaryNamespaceRequest {
+  string namespace = 1;
+  string module = 2;
+  I18nMap name_i18n = 3;
+  I18nMap description_i18n = 4;
+}
+
+message DictionaryNamespaceResponse {
+  DictionaryNamespace data = 1;
+}
+
+message ListDictionaryItemsRequest {
+  string namespace_uuid = 1;
+  MetadataStatus status = 2;
+  string q = 3;
+  string locale = 4;
+  PaginationRequest pagination = 5;
+}
+
+message ListDictionaryItemsResponse {
+  repeated DictionaryItem data = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CreateDictionaryItemRequest {
+  string namespace_uuid = 1;
+  string code = 2;
+  I18nMap label_i18n = 3;
+  I18nMap description_i18n = 4;
+  int32 sort_order = 5;
+}
+
+message UpdateDictionaryItemRequest {
+  string item_uuid = 1;
+  I18nMap label_i18n = 2;
+  I18nMap description_i18n = 3;
+  int32 sort_order = 4;
+  MetadataStatus status = 5;
+}
+
+message DictionaryItemResponse {
+  DictionaryItem data = 1;
+}
+
+message DeleteDictionaryItemRequest {
+  string item_uuid = 1;
+}
+
+message ListTaxonomiesRequest {
+  string module = 1;
+  MetadataStatus status = 2;
+  string q = 3;
+  string locale = 4;
+  PaginationRequest pagination = 5;
+}
+
+message ListTaxonomiesResponse {
+  repeated Taxonomy data = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CreateTaxonomyRequest {
+  string namespace = 1;
+  string module = 2;
+  I18nMap name_i18n = 3;
+  I18nMap description_i18n = 4;
+  int32 max_depth = 5;
+}
+
+message TaxonomyResponse {
+  Taxonomy data = 1;
+}
+
+message ListTaxonomyNodesRequest {
+  string taxonomy_uuid = 1;
+  MetadataStatus status = 2;
+  string q = 3;
+  string locale = 4;
+}
+
+message ListTaxonomyNodesResponse {
+  repeated TaxonomyNode data = 1;
+}
+
+message CreateTaxonomyNodeRequest {
+  string taxonomy_uuid = 1;
+  string parent_uuid = 2;
+  string code = 3;
+  I18nMap label_i18n = 4;
+  I18nMap description_i18n = 5;
+  int32 sort_order = 6;
+}
+
+message MoveTaxonomyNodeRequest {
+  string node_uuid = 1;
+  string target_parent_uuid = 2;
+  int32 sort_order = 3;
+  int64 version = 4;
+}
+
+message TaxonomyNodeResponse {
+  TaxonomyNode data = 1;
+}
+
+message DeleteTaxonomyNodeRequest {
+  string node_uuid = 1;
+}
+
+message ListTagsRequest {
+  string namespace = 1;
+  string resource_type = 2;
+  MetadataStatus status = 3;
+  string q = 4;
+  string locale = 5;
+  PaginationRequest pagination = 6;
+}
+
+message ListTagsResponse {
+  repeated Tag data = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CreateTagRequest {
+  string namespace = 1;
+  string resource_type = 2;
+  string code = 3;
+  I18nMap label_i18n = 4;
+  I18nMap description_i18n = 5;
+  string color = 6;
+}
+
+message UpdateTagRequest {
+  string tag_uuid = 1;
+  I18nMap label_i18n = 2;
+  I18nMap description_i18n = 3;
+  string color = 4;
+  MetadataStatus status = 5;
+}
+
+message TagResponse {
+  Tag data = 1;
+}
+
+message MergeTagsRequest {
+  string source_tag_uuid = 1;
+  string target_tag_uuid = 2;
+}
+
+message MergeTagsResponse {
+  int64 moved_bindings = 1;
+}
+
+message DeleteTagRequest {
+  string tag_uuid = 1;
+}
+
+message ListTagBindingsRequest {
+  string resource_type = 1;
+  string resource_uuid = 2;
+  string locale = 3;
+}
+
+message ListTagBindingsResponse {
+  repeated TagBinding data = 1;
+}
+
+message ReplaceTagBindingsRequest {
+  string resource_type = 1;
+  string resource_uuid = 2;
+  repeated string tag_uuids = 3;
+}
+
+message ListResourceTypesRequest {
+  string module = 1;
+  MetadataStatus status = 2;
+  string q = 3;
+  string locale = 4;
+  PaginationRequest pagination = 5;
+}
+
+message ListResourceTypesResponse {
+  repeated ResourceType data = 1;
+  PaginationResponse pagination = 2;
+}
+
+message RegisterResourceTypeRequest {
+  string resource_type = 1;
+  string module = 2;
+  I18nMap name_i18n = 3;
+  I18nMap description_i18n = 4;
+  string validator_key = 5;
+  bool binding_enabled = 6;
+}
+
+message UpdateResourceTypeRequest {
+  string resource_type_uuid = 1;
+  I18nMap name_i18n = 2;
+  I18nMap description_i18n = 3;
+  string validator_key = 4;
+  bool binding_enabled = 5;
+  MetadataStatus status = 6;
+}
+
+message ResourceTypeResponse {
+  ResourceType data = 1;
+}
+
+message DeleteResponse {
+  bool success = 1;
+  repeated ReferenceSummary references = 2;
+}
