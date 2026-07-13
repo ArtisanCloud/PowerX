@@ -1,0 +1,1112 @@
+openapi: 3.0.3
+info:
+  title: PowerX Metadata Governance Admin API
+  version: 0.1.0
+  description: Design contract for tenant-scoped metadata governance.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /admin/metadata/dictionaries:
+    get:
+      operationId: listDictionaryNamespaces
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/Module'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Dictionary namespaces.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryNamespaceListResponse'
+    post:
+      operationId: createDictionaryNamespace
+      tags: [MetadataDictionaries]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDictionaryNamespaceRequest'
+      responses:
+        '200':
+          description: Created dictionary namespace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryNamespaceResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/metadata/dictionaries/{namespace_uuid}:
+    patch:
+      operationId: updateDictionaryNamespace
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDictionaryNamespaceRequest'
+      responses:
+        '200':
+          description: Updated dictionary namespace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryNamespaceResponse'
+  /admin/metadata/dictionaries/{namespace_uuid}/items:
+    get:
+      operationId: listDictionaryItems
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceUUID'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Dictionary items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryItemListResponse'
+    post:
+      operationId: createDictionaryItem
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDictionaryItemRequest'
+      responses:
+        '200':
+          description: Created dictionary item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryItemResponse'
+  /admin/metadata/dictionary-items/{item_uuid}:
+    patch:
+      operationId: updateDictionaryItem
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/ItemUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDictionaryItemRequest'
+      responses:
+        '200':
+          description: Updated dictionary item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryItemResponse'
+    delete:
+      operationId: deleteDictionaryItem
+      tags: [MetadataDictionaries]
+      parameters:
+        - $ref: '#/components/parameters/ItemUUID'
+      responses:
+        '200':
+          $ref: '#/components/responses/Deleted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/metadata/taxonomies:
+    get:
+      operationId: listTaxonomies
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/Module'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Taxonomies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyListResponse'
+    post:
+      operationId: createTaxonomy
+      tags: [MetadataTaxonomies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaxonomyRequest'
+      responses:
+        '200':
+          description: Created taxonomy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyResponse'
+  /admin/metadata/taxonomies/{taxonomy_uuid}:
+    patch:
+      operationId: updateTaxonomy
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/TaxonomyUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaxonomyRequest'
+      responses:
+        '200':
+          description: Updated taxonomy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyResponse'
+  /admin/metadata/taxonomies/{taxonomy_uuid}/nodes:
+    get:
+      operationId: listTaxonomyNodes
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/TaxonomyUUID'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Taxonomy nodes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyNodeTreeResponse'
+    post:
+      operationId: createTaxonomyNode
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/TaxonomyUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaxonomyNodeRequest'
+      responses:
+        '200':
+          description: Created taxonomy node.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyNodeResponse'
+  /admin/metadata/taxonomy-nodes/{node_uuid}:
+    patch:
+      operationId: updateTaxonomyNode
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/NodeUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaxonomyNodeRequest'
+      responses:
+        '200':
+          description: Updated taxonomy node.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyNodeResponse'
+    delete:
+      operationId: deleteTaxonomyNode
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/NodeUUID'
+      responses:
+        '200':
+          $ref: '#/components/responses/Deleted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/metadata/taxonomy-nodes/{node_uuid}/move:
+    post:
+      operationId: moveTaxonomyNode
+      tags: [MetadataTaxonomies]
+      parameters:
+        - $ref: '#/components/parameters/NodeUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveTaxonomyNodeRequest'
+      responses:
+        '200':
+          description: Moved taxonomy node.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyNodeResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/metadata/tags:
+    get:
+      operationId: listTags
+      tags: [MetadataTags]
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/ResourceType'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Tags.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagListResponse'
+    post:
+      operationId: createTag
+      tags: [MetadataTags]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '200':
+          description: Created tag.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+  /admin/metadata/tags/{tag_uuid}:
+    patch:
+      operationId: updateTag
+      tags: [MetadataTags]
+      parameters:
+        - $ref: '#/components/parameters/TagUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: Updated tag.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+    delete:
+      operationId: deleteTag
+      tags: [MetadataTags]
+      parameters:
+        - $ref: '#/components/parameters/TagUUID'
+      responses:
+        '200':
+          $ref: '#/components/responses/Deleted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/metadata/tags/merge:
+    post:
+      operationId: mergeTags
+      tags: [MetadataTags]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeTagsRequest'
+      responses:
+        '200':
+          description: Merge result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeTagsResponse'
+  /admin/metadata/tag-bindings:
+    get:
+      operationId: listTagBindings
+      tags: [MetadataTagBindings]
+      parameters:
+        - $ref: '#/components/parameters/ResourceType'
+        - $ref: '#/components/parameters/ResourceUUID'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Tag bindings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagBindingListResponse'
+    put:
+      operationId: replaceTagBindings
+      tags: [MetadataTagBindings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceTagBindingsRequest'
+      responses:
+        '200':
+          description: Replaced tag bindings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagBindingListResponse'
+  /admin/metadata/resource-types:
+    get:
+      operationId: listResourceTypes
+      tags: [MetadataResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/Module'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Resource types.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceTypeListResponse'
+    post:
+      operationId: registerResourceType
+      tags: [MetadataResourceTypes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterResourceTypeRequest'
+      responses:
+        '200':
+          description: Registered resource type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceTypeResponse'
+  /admin/metadata/resource-types/{resource_type_uuid}:
+    patch:
+      operationId: updateResourceType
+      tags: [MetadataResourceTypes]
+      parameters:
+        - name: resource_type_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateResourceTypeRequest'
+      responses:
+        '200':
+          description: Updated resource type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceTypeResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Locale:
+      name: locale
+      in: query
+      schema:
+        type: string
+        example: zh-CN
+    Module:
+      name: module
+      in: query
+      schema:
+        type: string
+    Namespace:
+      name: namespace
+      in: query
+      schema:
+        type: string
+    ResourceType:
+      name: resource_type
+      in: query
+      schema:
+        type: string
+    ResourceUUID:
+      name: resource_uuid
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Status:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/MetadataStatus'
+    Search:
+      name: q
+      in: query
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 20
+    NamespaceUUID:
+      name: namespace_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ItemUUID:
+      name: item_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TaxonomyUUID:
+      name: taxonomy_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NodeUUID:
+      name: node_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TagUUID:
+      name: tag_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Deleted:
+      description: Deleted.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessResponse'
+    Conflict:
+      description: Conflict caused by uniqueness, stale version, or protected references.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    MetadataStatus:
+      type: string
+      enum: [enabled, disabled, archived]
+    I18nMap:
+      type: object
+      additionalProperties:
+        type: string
+      required: [zh-CN]
+      example:
+        zh-CN: 客户等级
+        en-US: Customer Level
+    DisplayFields:
+      type: object
+      properties:
+        display_name:
+          type: string
+        display_description:
+          type: string
+        display_locale:
+          type: string
+        display_locale_missing:
+          type: boolean
+      required: [display_name, display_locale, display_locale_missing]
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required: [page, page_size, total]
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            references:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReferenceSummary'
+        request_id:
+          type: string
+        timestamp:
+          type: string
+      required: [success, error]
+    ReferenceSummary:
+      type: object
+      properties:
+        resource_type:
+          type: string
+        resource_uuid:
+          type: string
+          format: uuid
+        field_name:
+          type: string
+        count:
+          type: integer
+      required: [resource_type, count]
+    CreateDictionaryNamespaceRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+        module:
+          type: string
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+      required: [namespace, module, name_i18n]
+    UpdateDictionaryNamespaceRequest:
+      type: object
+      properties:
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+    DictionaryNamespace:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            namespace:
+              type: string
+            module:
+              type: string
+            name_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            description_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+            item_count:
+              type: integer
+          required: [uuid, namespace, module, name_i18n, status]
+    CreateDictionaryItemRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        sort_order:
+          type: integer
+        metadata:
+          type: object
+      required: [code, label_i18n]
+    UpdateDictionaryItemRequest:
+      type: object
+      properties:
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        sort_order:
+          type: integer
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+        metadata:
+          type: object
+    DictionaryItem:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            namespace_uuid:
+              type: string
+              format: uuid
+            code:
+              type: string
+            label_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+            sort_order:
+              type: integer
+            reference_count:
+              type: integer
+          required: [uuid, namespace_uuid, code, label_i18n, status]
+    CreateTaxonomyRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+        module:
+          type: string
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        max_depth:
+          type: integer
+          minimum: 1
+      required: [namespace, module, name_i18n, max_depth]
+    UpdateTaxonomyRequest:
+      type: object
+      properties:
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        max_depth:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+    Taxonomy:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            namespace:
+              type: string
+            module:
+              type: string
+            name_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            max_depth:
+              type: integer
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+          required: [uuid, namespace, module, name_i18n, max_depth, status]
+    CreateTaxonomyNodeRequest:
+      type: object
+      properties:
+        parent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        code:
+          type: string
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        sort_order:
+          type: integer
+      required: [code, label_i18n]
+    UpdateTaxonomyNodeRequest:
+      type: object
+      properties:
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        sort_order:
+          type: integer
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+        version:
+          type: integer
+      required: [version]
+    MoveTaxonomyNodeRequest:
+      type: object
+      properties:
+        target_parent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        sort_order:
+          type: integer
+        version:
+          type: integer
+      required: [version]
+    TaxonomyNode:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            taxonomy_uuid:
+              type: string
+              format: uuid
+            parent_uuid:
+              type: string
+              format: uuid
+              nullable: true
+            code:
+              type: string
+            label_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            path:
+              type: string
+            depth:
+              type: integer
+            sort_order:
+              type: integer
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+            reference_count:
+              type: integer
+            version:
+              type: integer
+          required: [uuid, taxonomy_uuid, code, label_i18n, path, depth, status, version]
+    CreateTagRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+        resource_type:
+          type: string
+        code:
+          type: string
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        color:
+          type: string
+      required: [namespace, resource_type, code, label_i18n]
+    UpdateTagRequest:
+      type: object
+      properties:
+        label_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        color:
+          type: string
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+    Tag:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            namespace:
+              type: string
+            resource_type:
+              type: string
+            code:
+              type: string
+            label_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            color:
+              type: string
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+            usage_count:
+              type: integer
+          required: [uuid, namespace, resource_type, code, label_i18n, status]
+    MergeTagsRequest:
+      type: object
+      properties:
+        source_tag_uuid:
+          type: string
+          format: uuid
+        target_tag_uuid:
+          type: string
+          format: uuid
+      required: [source_tag_uuid, target_tag_uuid]
+    MergeTagsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            moved_bindings:
+              type: integer
+      required: [success, data]
+    ReplaceTagBindingsRequest:
+      type: object
+      properties:
+        resource_type:
+          type: string
+        resource_uuid:
+          type: string
+          format: uuid
+        tag_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [resource_type, resource_uuid, tag_uuids]
+    TagBinding:
+      type: object
+      properties:
+        tag_uuid:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+        resource_uuid:
+          type: string
+          format: uuid
+        tag:
+          $ref: '#/components/schemas/Tag'
+      required: [tag_uuid, resource_type, resource_uuid]
+    RegisterResourceTypeRequest:
+      type: object
+      properties:
+        resource_type:
+          type: string
+        module:
+          type: string
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        validator_key:
+          type: string
+        binding_enabled:
+          type: boolean
+      required: [resource_type, module, name_i18n]
+    UpdateResourceTypeRequest:
+      type: object
+      properties:
+        name_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        description_i18n:
+          $ref: '#/components/schemas/I18nMap'
+        validator_key:
+          type: string
+        binding_enabled:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/MetadataStatus'
+    ResourceType:
+      allOf:
+        - $ref: '#/components/schemas/DisplayFields'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            resource_type:
+              type: string
+            module:
+              type: string
+            name_i18n:
+              $ref: '#/components/schemas/I18nMap'
+            validator_key:
+              type: string
+            binding_enabled:
+              type: boolean
+            validator_status:
+              type: string
+              enum: [available, missing, disabled]
+            status:
+              $ref: '#/components/schemas/MetadataStatus'
+          required: [uuid, resource_type, module, name_i18n, binding_enabled, validator_status, status]
+    DictionaryNamespaceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/DictionaryNamespace'
+      required: [success, data]
+    DictionaryNamespaceListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DictionaryNamespace'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [success, data, pagination]
+    DictionaryItemResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/DictionaryItem'
+      required: [success, data]
+    DictionaryItemListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DictionaryItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [success, data, pagination]
+    TaxonomyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Taxonomy'
+      required: [success, data]
+    TaxonomyListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Taxonomy'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [success, data, pagination]
+    TaxonomyNodeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/TaxonomyNode'
+      required: [success, data]
+    TaxonomyNodeTreeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxonomyNode'
+      required: [success, data]
+    TagResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Tag'
+      required: [success, data]
+    TagListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [success, data, pagination]
+    TagBindingListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagBinding'
+      required: [success, data]
+    ResourceTypeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ResourceType'
+      required: [success, data]
+    ResourceTypeListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [success, data, pagination]

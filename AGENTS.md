@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-05
 - PostgreSQL（IAM 用户/成员/角色数据）、Redis（会话与缓存） (026-iam)
 - Go 1.24（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI (027-monitor-center)
 - PostgreSQL（策略/作业/演练/告警元数据）+ 文件或对象存储（备份产物） (027-monitor-center)
+- Go 1.24 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services. (029-metadata-governance)
+- PostgreSQL tables for metadata definitions, tag bindings, references, audit events through existing audit infrastructure; seed YAML under `backend/config/metadata_governance`. (029-metadata-governance)
 
 - Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI） + Gin HTTP 栈、google.golang.org/grpc、Buf toolchain、GORM + PostgreSQL、Redis（队列与 Feature Flag）、MinIO/S3 SDK（离线包存储）、OpenTelemetry + Prometheus Exporter、PowerX CLI (`powerx`, `px-plugin`) (001-install-plugin-pxp)
 - Go 1.24 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI) + Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters (010-agent-model-setting)
@@ -46,9 +48,9 @@ tests/
 Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）: Follow standard conventions
 
 ## Recent Changes
+- 029-metadata-governance: Added Go 1.24 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services.
 - 027-monitor-center: Added Go 1.24（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI
 - 026-iam: Added Go 1.24（backend），TypeScript（Nuxt 4 / Vue 3，web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI
-- 025-powerx-docker-systemd: Added Go 1.24（backend services）、TypeScript/Nuxt 4（web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、PostgreSQL、Redis、Loki、Grafana、Promtail
 
 
 <!-- MANUAL ADDITIONS START -->

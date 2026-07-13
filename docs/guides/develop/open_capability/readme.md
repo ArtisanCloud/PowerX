@@ -185,6 +185,25 @@ make capability-seed
 
 `make capability-seed` 只做 `backend/config/platform_capabilities/*.yaml` 到 Capability Registry 的同步，并为 active tenants 补齐 registrations；它不执行 migrate，也不执行全量 seed。执行后可以用 `/api/v1/tenant/capabilities/resolve` 验证当前租户是否已经能解析到新增 capability。若新增了真实 HTTP route，还必须重启 PowerX Core 到最新代码，否则 Registry 能解析，但转发到旧进程仍会返回 404。
 
+如果部署后希望同时补齐 CoreX 基础种子数据和 Capability Registry，可以执行：
+
+```bash
+make seed
+```
+
+命令边界：
+
+- `make capability-check`：只做构建/代码侧校验，不写运行库。
+- `make db-seed`：只执行 CoreX / 数据库基础种子。
+- `make capability-seed`：只同步 Capability Registry。
+- `make seed`：等于 `make db-seed` + `make capability-seed`。
+
+远程 dev 环境必须显式指定运行时配置，避免写到错误数据库：
+
+```bash
+POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed
+```
+
 ### 失败时怎么处理
 
 - 缺真实 transport/service：先实现接口、service、repository、权限和测试，再登记 capability。

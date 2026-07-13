@@ -6,6 +6,7 @@ CAPABILITY_AUDIT_CANDIDATE_FILE ?=
 CAPABILITY_AUDIT_FIX ?= 0
 CAPABILITY_AUDIT_FIX_OUTPUT ?= tmp/capability-audit/missing.platform-capabilities.yaml
 CAPABILITY_CHECK_GENERATED ?= tmp/capability-check/generated.platform-capabilities.yaml
+CAPABILITY_SEED_CONFIG ?= $(if $(POWERX_CONFIG),$(POWERX_CONFIG),etc/config.yaml)
 
 capability-audit:
 	cd backend && CAPABILITY_AUDIT_SCAN="$(CAPABILITY_AUDIT_SCAN)" CAPABILITY_AUDIT_REQUIRED="$(CAPABILITY_AUDIT_REQUIRED)" CAPABILITY_AUDIT_CANDIDATE_FILE="$(CAPABILITY_AUDIT_CANDIDATE_FILE)" CAPABILITY_AUDIT_FIX="$(CAPABILITY_AUDIT_FIX)" go run ./cmd/capability_audit \
@@ -19,4 +20,4 @@ capability-check:
 	$(MAKE) capability-audit CAPABILITY_AUDIT_CANDIDATE_FILE="$(CAPABILITY_CHECK_GENERATED)"
 
 capability-seed:
-	cd backend && go run ./cmd/platform_capability_seed -config etc/config.yaml
+	cd backend && go run ./cmd/platform_capability_seed -config "$(CAPABILITY_SEED_CONFIG)"
