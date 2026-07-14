@@ -37,7 +37,7 @@ const pageTitle = computed(() => {
   const raw = route.meta.title;
   const title = Array.isArray(raw) ? raw[0] : raw;
   if (typeof title === "string" && title.trim()) {
-    return title.startsWith("menu.") ? t(title) : title;
+    return te(title) ? t(title) : title;
   }
   return t("dashboard.title");
 });
@@ -64,6 +64,10 @@ const normalizeMenuPath = (path?: string): string => {
 const linkFor = (path?: string) => {
   if (!path) return "";
   return isPluginPath(path) ? path : localePath(path);
+};
+
+const navigateToAppPath = async (path: string) => {
+  await navigateTo(localePath(path));
 };
 
 const toSegments = (path: string): string[] =>
@@ -213,14 +217,14 @@ const userMenuItems = computed(() => {
     {
       label: t("header.profile"),
       icon: "i-heroicons-user",
-      to: "/profile",
+      onSelect: () => navigateToAppPath("/profile"),
     },
   ];
   if (canAccessSettings.value) {
     firstGroup.push({
       label: t("header.settings"),
       icon: "i-heroicons-cog-6-tooth",
-      to: "/settings",
+      onSelect: () => navigateToAppPath("/settings"),
     });
   }
   return [
@@ -255,7 +259,7 @@ const notificationItems = computed(() => {
 
   menuItems.push([
     {
-      label: "清空消息",
+      label: t("header.notifications.clear"),
       icon: "i-heroicons-trash",
       onSelect: handleClearNotifications,
       description: "",
@@ -265,9 +269,9 @@ const notificationItems = computed(() => {
   if (recentNotifications.length > 0) {
     menuItems.push([
       {
-        label: "查看所有通知",
+        label: t("header.notifications.viewAll"),
         icon: "i-heroicons-eye",
-        to: "/notifications",
+        onSelect: () => navigateToAppPath("/notifications"),
         description: "",
         badge: unreadCount.value.toString(),
       },
@@ -275,7 +279,7 @@ const notificationItems = computed(() => {
   } else {
     menuItems.push([
       {
-        label: "暂无通知",
+        label: t("header.notifications.empty"),
         icon: "i-heroicons-bell-slash",
         description: "",
         badge: unreadCount.value > 0 ? unreadCount.value.toString() : undefined,
@@ -563,7 +567,7 @@ const getSearchResultTypeIcon = (type: string) => {
           <!-- 用户信息 -->
           <div class="hidden md:block text-left">
             <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {{ userStore.displayName || "管理员" }}
+              {{ userStore.displayName || t("header.defaultUserName") }}
             </div>
             <div class="text-xs text-gray-500 dark:text-gray-400">
               {{ userContactLabel || "-" }}

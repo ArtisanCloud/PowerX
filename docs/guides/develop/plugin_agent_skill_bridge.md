@@ -42,6 +42,7 @@ PowerX Capability Invocation
 
 - [Open Capability 开发指南](./open_capability/readme.md)
 - [Plugin Auth Token Model](../auth/plugin_auth_token_model.md)
+- [Metadata Governance 开发指南](./metadata_governance.md)
 
 插件 SDK：
 
@@ -125,7 +126,29 @@ PowerX Core 负责：
 
 插件不得要求 Core 为某个业务对象硬编码字段。例如 `template_id`、`template_ref`、删除确认文案、详情链接都应该来自 Skill manifest、prepare result 或 capability result，而不是 Core 写死。
 
-## 5. Template 对象示例
+## 5. Metadata Governance Client
+
+插件如果需要读取底座统一字典、分类、标签或替换标签绑定，必须接入 Metadata Governance 合同。
+
+delegated 模式：
+
+- 通过 `/api/v1/tenant/invocations` 调用底座 capability。
+- 读取资源类型：`com.corex.metadata.resource_type.read`
+- 读取字典项：`com.corex.metadata.dictionary.read`
+- 读取分类节点：`com.corex.metadata.taxonomy.read`
+- 读取标签：`com.corex.metadata.tag.read`
+- 替换标签绑定：`com.corex.metadata.tag.manage`
+- payload 使用 `{ method, endpoint, query, body }` 的 REST selector 结构。
+
+local 模式：
+
+- 只能使用底座 canonical seed 同源文件。
+- seed 缺失、schema 错误或没有 canonical definitions 时，初始化必须失败。
+- 不允许插件维护另一套私有默认字典、分类或标签作为 fallback。
+
+详细规则见 [Metadata Governance 开发指南](./metadata_governance.md)。
+
+## 6. Template 对象示例
 
 以 `powerxplugin.template.basic.local` 为例，典型 action：
 
@@ -144,7 +167,7 @@ PowerX Core 负责：
 - `com.powerx.plugins.base.local.template.update`
 - `com.powerx.plugins.base.local.template.delete`
 
-### 5.1 删除流程
+### 6.1 删除流程
 
 用户输入：
 
@@ -208,7 +231,7 @@ PowerX Core 会读取 pending state，并在缺少 `confirmation` 或 `confirmed
 }
 ```
 
-### 5.2 重名处理
+### 6.2 重名处理
 
 如果 `template_ref` 命中多个对象，不要要求用户手动猜内部 ID。
 

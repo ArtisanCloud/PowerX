@@ -2,7 +2,7 @@
 import AgentWorkspace from "~/components/agent/AgentWorkspace.vue";
 
 definePageMeta({
-  title: "智能会话",
+  title: "agent.sessions.title",
   layout: "default",
 });
 </script>

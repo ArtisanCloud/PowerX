@@ -31,22 +31,24 @@ func TestIAMRBACBoundaryHTTPContract(t *testing.T) {
 	_, ok = switchPath.Post.Responses["403"]
 	require.True(t, ok, "switch-tenant missing 403 response")
 
-	checkPath, ok := doc.Paths["/admin/iam/roles/me/check"]
-	require.True(t, ok, "missing /admin/iam/roles/me/check path")
+	checkPath, ok := doc.Paths["/admin/iam/me/check"]
+	require.True(t, ok, "missing /admin/iam/me/check path")
 	require.NotNil(t, checkPath.Get)
-	require.Len(t, checkPath.Get.Parameters, 2)
+	require.Len(t, checkPath.Get.Parameters, 4)
 
 	seen := map[string]bool{}
 	for _, p := range checkPath.Get.Parameters {
 		if p == nil || p.Value == nil {
 			continue
 		}
-		if p.Value.Name == "action" || p.Value.Name == "resource" {
-			require.True(t, p.Value.Required)
+		if p.Value.Name == "permission" || p.Value.Name == "module" || p.Value.Name == "action" || p.Value.Name == "resource" {
+			require.False(t, p.Value.Required)
 			require.Equal(t, "query", p.Value.In)
 			seen[p.Value.Name] = true
 		}
 	}
+	require.True(t, seen["permission"], "missing query param permission")
+	require.True(t, seen["module"], "missing query param module")
 	require.True(t, seen["action"], "missing required query param action")
 	require.True(t, seen["resource"], "missing required query param resource")
 }

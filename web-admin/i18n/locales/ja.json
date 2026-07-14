@@ -4,7 +4,11 @@
   "register": "登録",
   "common": {
     "language": "言語",
+    "collapse": "折りたたむ",
     "back": "戻る",
+    "toggleDensity": "密度を切り替え",
+    "settings": "設定",
+    "trash": "ごみ箱",
     "cancel": "キャンセル",
     "save": "保存",
     "reload": "再読み込み",
@@ -83,6 +87,7 @@
     "userManagement": "ユーザー管理",
     "roleManagement": "役割管理",
     "systemConfig": "システム構成",
+    "metadataGovernance": "メタデータガバナンス",
     "monitorCenter": "監視センター",
     "pluginSubscriptions": "プラグイン購読",
     "loadFailed": "メニュー読み込み失敗",
@@ -384,7 +389,61 @@
     "settings": "設定",
     "logout": "ログアウト",
     "searchPlaceholder": "ユーザー、コンテンツを検索...",
-    "searchSuggestions": "検索候補"
+    "searchSuggestions": "検索候補",
+    "defaultUserName": "管理者",
+    "notifications": {
+      "clear": "通知をクリア",
+      "viewAll": "すべての通知を表示",
+      "empty": "通知はありません"
+    }
+  },
+  "profile": {
+    "title": "プロフィール",
+    "description": "現在ログインしているアカウントのプロフィールを管理します。",
+    "currentOrganization": "現在の組織",
+    "currentOrganizationHint": "現在のトークンに対応するテナント ID です。個人プロフィール項目ではありません。",
+    "organizationName": "組織名",
+    "organizationKey": "組織キー",
+    "domain": "ドメイン",
+    "displayName": "表示名",
+    "displayNamePlaceholder": "表示名を入力",
+    "email": "メール",
+    "emailPlaceholder": "メールを入力",
+    "phone": "電話番号",
+    "phonePlaceholder": "電話番号を入力",
+    "avatarUrl": "アバター URL",
+    "avatarUrlPlaceholder": "https://...",
+    "changePassword": "パスワード変更",
+    "changePasswordDescription": "現在のパスワードを入力し、新しいパスワードを設定します。",
+    "saveProfile": "プロフィールを保存",
+    "currentPassword": "現在のパスワード",
+    "currentPasswordPlaceholder": "現在のパスワードを入力",
+    "newPassword": "新しいパスワード",
+    "newPasswordPlaceholder": "6 文字以上",
+    "confirmPassword": "新しいパスワードの確認",
+    "confirmPasswordPlaceholder": "新しいパスワードを再入力",
+    "confirmChangePassword": "変更を確定",
+    "roles": {
+      "owner": "テナント所有者",
+      "admin": "テナント管理者",
+      "member": "一般メンバー"
+    },
+    "validation": {
+      "displayNameRequired": "表示名は必須です",
+      "emailRequired": "メールは必須です",
+      "passwordRequired": "パスワード情報をすべて入力してください",
+      "passwordTooShort": "新しいパスワードは 6 文字以上で入力してください",
+      "passwordMismatch": "新しいパスワードが一致しません",
+      "passwordSame": "新しいパスワードは現在のパスワードと同じにできません"
+    },
+    "toasts": {
+      "saveSuccess": "保存しました",
+      "saveFailed": "保存に失敗しました",
+      "profileUpdated": "プロフィールを更新しました",
+      "changeSuccess": "変更しました",
+      "changeFailed": "変更に失敗しました",
+      "passwordUpdated": "パスワードを更新しました。新しいパスワードで再度ログインしてください。"
+    }
   },
   "intro": {
     "nav": {
@@ -685,6 +744,9 @@
     }
   },
   "agent": {
+    "sessions": {
+      "title": "スマートセッション"
+    },
     "management": {
       "title": "エージェント管理",
       "description": "単体エージェントを管理し、スマートチャットやチーム作成へ素早く移動できます。",
@@ -857,7 +919,10 @@
     "selector": {
       "title": "AI エージェント",
       "create": "作成",
+      "editAgent": "エージェントを編集",
+      "newAgent": "新規エージェント",
       "searchPlaceholder": "エージェントを検索...",
+      "searchSessions": "セッションを検索",
       "noResults": "一致するエージェントが見つかりません",
       "noAgents": "エージェントがありません。作成をクリックして最初のエージェントを追加してください",
       "active": "アクティブ",
@@ -868,6 +933,9 @@
       "edit": "編集",
       "delete": "削除",
       "totalCount": "合計 {count} エージェント",
+      "recents": "最近のセッション",
+      "pin": "ピン留め",
+      "rename": "名前を変更",
       "sessions": "最近のセッション",
       "newSession": "新しいセッション",
       "noSessions": "セッションがありません",
@@ -1262,6 +1330,183 @@
         "copySuccess": "クリップボードにコピーしました",
         "copyFailed": "コピーに失敗しました"
       }
+    },
+    "metadataGovernance": {
+      "title": "メタデータガバナンス",
+      "description": "辞書、分類、タグ、リソースタイプを一元管理します。",
+      "actions": {
+        "create": "新規作成"
+      },
+      "create": {
+        "errorTitle": "作成に失敗しました",
+        "validation": {
+          "required": "必須項目を入力してください。",
+          "zhNameRequired": "中国語名を入力してください。",
+          "localizedNameRequired": "簡体字中国語名を入力してください。",
+          "moduleRequired": "選択可能なモジュールを先に用意してください。",
+          "resourceTypeRequired": "バインド可能なリソースタイプを先に用意してください。"
+        },
+        "context": {
+          "dictionary": "現在の辞書：{name}",
+          "taxonomy": "現在の分類体系：{name}"
+        },
+        "dictionaryNamespace": {
+          "button": "辞書を作成",
+          "title": "辞書名前空間を作成",
+          "description": "フラットな辞書項目セットの業務コンテナを作成します。"
+        },
+        "dictionaryItem": {
+          "button": "項目を作成",
+          "title": "辞書項目を作成",
+          "description": "選択した辞書名前空間にフラットな選択肢を作成します。"
+        },
+        "taxonomy": {
+          "button": "分類体系を作成",
+          "title": "分類体系を作成",
+          "description": "親子ノードを持つ分類ツリーを作成します。"
+        },
+        "taxonomyNode": {
+          "button": "分類ノードを作成",
+          "title": "分類ノードを作成",
+          "description": "選択した分類体系にルートノードまたは子ノードを作成します。"
+        },
+        "tag": {
+          "button": "タグを作成",
+          "title": "タグを作成",
+          "description": "リソースのマーキングと絞り込みに使うフラットなタグを作成します。"
+        },
+        "resourceType": {
+          "button": "リソースタイプを作成",
+          "title": "リソースタイプを作成",
+          "description": "タグと参照を紐付けられる業務オブジェクトタイプを宣言します。"
+        }
+      },
+      "form": {
+        "namespace": "名前空間",
+        "namespacePlaceholder": "例 corex.customer.status",
+        "module": "モジュール",
+        "modulePlaceholder": "例 corex.customer",
+        "resourceType": "リソースタイプ",
+        "resourceTypePlaceholder": "例 customer.account",
+        "resourceTypeSelectPlaceholder": "リソースタイプを選択",
+        "code": "コード",
+        "codePlaceholder": "例 enabled",
+        "sortOrder": "並び順",
+        "parentNode": "親ノード",
+        "rootNode": "ルートノード",
+        "maxDepth": "最大階層",
+        "color": "色",
+        "validatorKey": "バリデーター Key",
+        "validatorKeyPlaceholder": "例 customer.account",
+      "bindingEnabled": "バインドを許可",
+      "localizedNames": "多言語名",
+      "localizedDescriptions": "多言語説明",
+      "localizedName": "名前",
+      "localizedDescription": "説明",
+      "localizedNamePlaceholder": "名前を入力",
+      "localizedDescriptionPlaceholder": "説明を入力",
+      "requiredLocaleSection": "既定言語",
+      "requiredLocaleDescription": "バックエンド契約では既定言語の名前が必須です。",
+      "optionalLocaleSection": "その他の言語",
+      "optionalLocaleDescription": "言語を選択して名前と説明を編集します。入力済みの言語は下に表示されます。",
+      "localeSelectPlaceholder": "言語を選択",
+      "localeSearchPlaceholder": "言語を検索",
+      "locale": {
+          "zh_CN": "简体中文",
+          "en": "English",
+          "ja": "日本語",
+          "ko": "한국어"
+        },
+        "zhName": "中国語名",
+        "zhNamePlaceholder": "中国語名を入力",
+        "enName": "英語名",
+        "enNamePlaceholder": "英語名を入力",
+        "zhDescription": "中国語説明",
+        "enDescription": "英語説明"
+      },
+      "tabs": {
+        "dictionaries": "データ辞書",
+        "taxonomies": "分類体系",
+        "tags": "タグ",
+        "resourceTypes": "リソースタイプ"
+      },
+      "intent": {
+        "dictionaries": {
+          "title": "辞書はフラットな列挙です",
+          "description": "辞書名前空間を選択し、その配下の顧客状態や流入元などのフラットな項目を管理します。"
+        },
+        "taxonomies": {
+          "title": "分類体系は階層ツリーです",
+          "description": "分類体系を選択し、ナレッジ分類、業種分類、メディア分類などの親子ノードを管理します。"
+        },
+        "tags": {
+          "title": "タグはフラットなラベル集合です",
+          "description": "タグには親子階層がなく、顧客、ナレッジ、メディアなどのリソースのマーキングと絞り込みに使います。"
+        },
+        "resourceTypes": {
+          "title": "リソースタイプはバインド可能な対象を定義します",
+          "description": "タグ、参照、ガバナンスルールを紐付けられる業務オブジェクトを宣言します。"
+        }
+      },
+      "filters": {
+        "search": "名前、コード、モジュールを検索",
+        "searchTags": "タグ名またはコードを検索",
+        "allModules": "すべてのモジュール",
+        "allResourceTypes": "すべてのリソースタイプ",
+        "allStatus": "すべての状態"
+      },
+      "modules": {
+        "corex_agent": "エージェント",
+        "corex_customer": "顧客",
+        "corex_knowledge": "ナレッジ",
+        "corex_media": "メディア",
+        "corex_metadata": "メタデータ",
+        "corex_sales": "営業"
+      },
+      "states": {
+        "loading": { "title": "読み込み中", "description": "メタデータを読み込んでいます。" },
+        "no_permission": { "title": "権限がありません", "description": "現在のユーザーは閲覧できません。" },
+        "missing_selection": { "title": "項目を選択", "description": "左側の項目を選択してください。" },
+        "empty": { "title": "データなし", "description": "現在の条件に一致するデータがありません。" },
+        "error": { "title": "読み込み失敗", "description": "バックエンドがエラーを返しました。" },
+        "ready": { "title": "読み込み済み", "description": "データを読み込みました。" }
+      },
+      "empty": {
+        "title": "データなし",
+        "description": "表示できる詳細がありません。"
+      },
+      "dictionary": {
+        "namespaces": "辞書名前空間",
+        "items": "辞書項目",
+        "namespaceShape": "1つの業務列挙のコンテナ",
+        "itemShape": "選択した名前空間配下のフラットな選択肢"
+      },
+      "taxonomy": {
+        "list": "分類体系",
+        "nodes": "分類ノード",
+        "taxonomyShape": "1つの分類ツリーの定義",
+        "nodeShape": "親子関係で構成されたツリーノード",
+        "depth": "階層 {depth}",
+        "children": "子ノード {count}",
+        "references": "参照 {count}"
+      },
+      "table": {
+        "name": "名前",
+        "code": "コード",
+        "status": "状態",
+        "references": "参照数",
+        "count": "数",
+        "resourceType": "リソースタイプ",
+        "module": "モジュール",
+        "validator": "バリデーター"
+      },
+      "status": { "enabled": "有効", "disabled": "無効", "archived": "アーカイブ" },
+      "validator": { "available": "利用可能", "missing": "未設定", "disabled": "無効" },
+      "pagination": {
+        "summary": "{start}-{end} / 全 {total} 件、{page} ページ",
+        "pageSize": "1ページあたり"
+      },
+      "localeMissing": "現在の言語がありません"
     }
   },
   "env": {

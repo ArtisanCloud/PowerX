@@ -18,3 +18,4 @@ include $(MAKE_FILES_DIR)/audit_partition.mk
 include $(MAKE_FILES_DIR)/perm.mk
 include $(MAKE_FILES_DIR)/secret.mk
 include $(MAKE_FILES_DIR)/capability.mk
+include $(MAKE_FILES_DIR)/metadata.mk

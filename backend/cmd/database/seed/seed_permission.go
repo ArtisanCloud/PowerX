@@ -74,6 +74,15 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		systemPerm("iam", "permission", "read"),
 		// Admin root guard（用于开放市场/发布候选菜单）
 		systemPerm("admin", "root", "view"),
+		// Metadata Governance
+		systemPerm("metadata", "dictionary", "read"),
+		systemPerm("metadata", "dictionary", "manage"),
+		systemPerm("metadata", "taxonomy", "read"),
+		systemPerm("metadata", "taxonomy", "manage"),
+		systemPerm("metadata", "tag", "read"),
+		systemPerm("metadata", "tag", "manage"),
+		systemPerm("metadata", "resource_type", "read"),
+		systemPerm("metadata", "resource_type", "manage"),
 		// Admin menu visibility permissions. These only control menu visibility;
 		// route/API authorization must still be enforced by the target module.
 		menuPerm("agent"),
@@ -101,6 +110,7 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		menuPerm("settings.ai.model"),
 		menuPerm("settings.ai.cost"),
 		menuPerm("settings.ai.context_optimizer"),
+		menuPerm("settings.metadata_governance"),
 		menuPerm("settings.integration_api_keys"),
 	}
 

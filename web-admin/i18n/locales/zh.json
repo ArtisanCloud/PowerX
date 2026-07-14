@@ -35,6 +35,7 @@
     "userManagement": "用户管理",
     "roleManagement": "角色管理",
     "systemConfig": "系统配置",
+    "metadataGovernance": "元数据治理",
     "monitorCenter": "监控中心",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
@@ -543,6 +544,209 @@
         "copySuccess": "已复制到剪贴板",
         "copyFailed": "复制失败"
       }
+    },
+    "metadataGovernance": {
+      "title": "元数据治理",
+      "description": "统一管理数据字典、分类体系、标签和资源类型。",
+      "actions": {
+        "create": "新增"
+      },
+      "create": {
+        "errorTitle": "创建失败",
+        "validation": {
+          "required": "请填写必填字段。",
+          "zhNameRequired": "请填写中文名称。",
+          "localizedNameRequired": "请填写简体中文名称。",
+          "moduleRequired": "请先准备可选模块。",
+          "resourceTypeRequired": "请先准备可绑定的资源类型。"
+        },
+        "context": {
+          "dictionary": "当前字典：{name}",
+          "taxonomy": "当前分类体系：{name}"
+        },
+        "dictionaryNamespace": {
+          "button": "新增字典",
+          "title": "新增字典命名空间",
+          "description": "创建一组扁平字典项的业务容器。"
+        },
+        "dictionaryItem": {
+          "button": "新增字典项",
+          "title": "新增字典项",
+          "description": "在当前字典命名空间下创建一个扁平选项。"
+        },
+        "taxonomy": {
+          "button": "新增分类体系",
+          "title": "新增分类体系",
+          "description": "创建一棵可维护父子节点的分类树。"
+        },
+        "taxonomyNode": {
+          "button": "新增分类节点",
+          "title": "新增分类节点",
+          "description": "在当前分类体系下创建根节点或子节点。"
+        },
+        "tag": {
+          "button": "新增标签",
+          "title": "新增标签",
+          "description": "创建一个扁平标签，用于资源打标和筛选。"
+        },
+        "resourceType": {
+          "button": "新增资源类型",
+          "title": "新增资源类型",
+          "description": "声明一个可被标签和引用治理绑定的业务对象类型。"
+        }
+      },
+      "form": {
+        "namespace": "命名空间",
+        "namespacePlaceholder": "例如 corex.customer.status",
+        "module": "模块",
+        "modulePlaceholder": "例如 corex.customer",
+        "resourceType": "资源类型",
+        "resourceTypePlaceholder": "例如 customer.account",
+        "resourceTypeSelectPlaceholder": "选择资源类型",
+        "code": "编码",
+        "codePlaceholder": "例如 enabled",
+        "sortOrder": "排序",
+        "parentNode": "父节点",
+        "rootNode": "根节点",
+        "maxDepth": "最大层级",
+        "color": "颜色",
+        "validatorKey": "校验器 Key",
+        "validatorKeyPlaceholder": "例如 customer.account",
+      "bindingEnabled": "允许绑定",
+      "localizedNames": "多语言名称",
+      "localizedDescriptions": "多语言描述",
+      "localizedName": "名称",
+      "localizedDescription": "描述",
+      "localizedNamePlaceholder": "请输入名称",
+      "localizedDescriptionPlaceholder": "请输入描述",
+      "requiredLocaleSection": "默认语言",
+      "requiredLocaleDescription": "后端契约要求默认语言名称必填。",
+      "optionalLocaleSection": "其他语言",
+      "optionalLocaleDescription": "选择一种语言后维护名称和描述，已填写语言会在下方标记。",
+      "localeSelectPlaceholder": "选择语言",
+      "localeSearchPlaceholder": "搜索语言",
+      "locale": {
+          "zh_CN": "简体中文",
+          "en": "English",
+          "ja": "日本語",
+          "ko": "한국어"
+        },
+        "zhName": "中文名称",
+        "zhNamePlaceholder": "请输入中文名称",
+        "enName": "英文名称",
+        "enNamePlaceholder": "请输入英文名称",
+        "zhDescription": "中文描述",
+        "enDescription": "英文描述"
+      },
+      "tabs": {
+        "dictionaries": "数据字典",
+        "taxonomies": "分类体系",
+        "tags": "标签",
+        "resourceTypes": "资源类型"
+      },
+      "intent": {
+        "dictionaries": {
+          "title": "字典是扁平枚举",
+          "description": "先选择一个字典命名空间，再维护该命名空间下的一组扁平字典项，例如客户状态、客户来源。"
+        },
+        "taxonomies": {
+          "title": "分类体系是层级树",
+          "description": "先选择一个分类体系，再维护它下面的父子分类节点，例如知识库目录、行业分类、媒体分类。"
+        },
+        "tags": {
+          "title": "标签是扁平标记池",
+          "description": "标签没有父子层级，用于给客户、知识库、媒体等资源打标和筛选。"
+        },
+        "resourceTypes": {
+          "title": "资源类型定义可绑定对象",
+          "description": "资源类型声明哪些业务对象可以被标签、引用和治理规则绑定。"
+        }
+      },
+      "filters": {
+        "search": "搜索名称、编码或模块",
+        "searchTags": "搜索标签名称或编码",
+        "allModules": "全部模块",
+        "allResourceTypes": "全部资源类型",
+        "allStatus": "全部状态"
+      },
+      "modules": {
+        "corex_agent": "智能体",
+        "corex_customer": "客户",
+        "corex_knowledge": "知识空间",
+        "corex_media": "媒体",
+        "corex_metadata": "元数据",
+        "corex_sales": "销售"
+      },
+      "states": {
+        "loading": {
+          "title": "正在加载",
+          "description": "正在读取元数据治理数据。"
+        },
+        "no_permission": {
+          "title": "无权限",
+          "description": "当前用户没有查看元数据治理的权限。"
+        },
+        "missing_selection": {
+          "title": "请选择对象",
+          "description": "请选择左侧对象后查看明细。"
+        },
+        "empty": {
+          "title": "暂无数据",
+          "description": "当前筛选条件下没有数据。"
+        },
+        "error": {
+          "title": "加载失败",
+          "description": "后端返回错误，请重试。"
+        },
+        "ready": {
+          "title": "已加载",
+          "description": "数据已加载。"
+        }
+      },
+      "empty": {
+        "title": "暂无数据",
+        "description": "当前对象没有可展示的明细。"
+      },
+      "dictionary": {
+        "namespaces": "字典命名空间",
+        "items": "字典项",
+        "namespaceShape": "一类业务枚举的容器",
+        "itemShape": "当前命名空间下的扁平选项"
+      },
+      "taxonomy": {
+        "list": "分类体系",
+        "nodes": "分类节点",
+        "taxonomyShape": "一棵分类树的定义",
+        "nodeShape": "按父子关系组织的树节点",
+        "depth": "层级 {depth}",
+        "children": "子节点 {count}",
+        "references": "引用 {count}"
+      },
+      "table": {
+        "name": "名称",
+        "code": "编码",
+        "status": "状态",
+        "references": "引用数",
+        "count": "数量",
+        "resourceType": "资源类型",
+        "module": "模块",
+        "validator": "校验器"
+      },
+      "status": {
+        "enabled": "启用",
+        "disabled": "停用",
+        "archived": "归档"
+      },
+      "validator": {
+        "available": "可用",
+        "missing": "缺失",
+        "disabled": "未启用"
+      },
+      "pagination": {
+        "summary": "显示 {start}-{end} / 共 {total} 条，第 {page} 页",
+        "pageSize": "每页"
+      },
+      "localeMissing": "当前语言缺失"
     }
   },
   "connection": {
@@ -662,7 +866,61 @@
     "searchPlaceholder": "搜索…",
     "profile": "个人中心",
     "settings": "设置",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "defaultUserName": "管理员",
+    "notifications": {
+      "clear": "清空消息",
+      "viewAll": "查看所有通知",
+      "empty": "暂无通知"
+    }
+  },
+  "profile": {
+    "title": "个人中心",
+    "description": "管理当前登录账号的个人资料",
+    "currentOrganization": "当前组织",
+    "currentOrganizationHint": "当前 token 对应的租户身份，不属于个人资料字段",
+    "organizationName": "组织名称",
+    "organizationKey": "组织标识",
+    "domain": "域名",
+    "displayName": "显示名称",
+    "displayNamePlaceholder": "请输入显示名称",
+    "email": "邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "phone": "手机号",
+    "phonePlaceholder": "请输入手机号",
+    "avatarUrl": "头像 URL",
+    "avatarUrlPlaceholder": "https://...",
+    "changePassword": "修改密码",
+    "changePasswordDescription": "输入当前密码并设置新密码。",
+    "saveProfile": "保存资料",
+    "currentPassword": "当前密码",
+    "currentPasswordPlaceholder": "请输入当前密码",
+    "newPassword": "新密码",
+    "newPasswordPlaceholder": "至少 6 位",
+    "confirmPassword": "确认新密码",
+    "confirmPasswordPlaceholder": "再次输入新密码",
+    "confirmChangePassword": "确认修改",
+    "roles": {
+      "owner": "租户所有者",
+      "admin": "租户管理员",
+      "member": "普通成员"
+    },
+    "validation": {
+      "displayNameRequired": "显示名称不能为空",
+      "emailRequired": "邮箱不能为空",
+      "passwordRequired": "请填写完整密码信息",
+      "passwordTooShort": "新密码至少 6 位",
+      "passwordMismatch": "两次输入的新密码不一致",
+      "passwordSame": "新密码不能与当前密码相同"
+    },
+    "toasts": {
+      "saveSuccess": "保存成功",
+      "saveFailed": "保存失败",
+      "profileUpdated": "个人资料已更新",
+      "changeSuccess": "修改成功",
+      "changeFailed": "修改失败",
+      "passwordUpdated": "密码已更新，请使用新密码重新登录"
+    }
   },
   "home": {
     "footer": "首页底部",
@@ -1093,6 +1351,9 @@
     }
   },
   "agent": {
+    "sessions": {
+      "title": "智能会话"
+    },
     "confirmDelete": "确定删除吗？",
     "teamManagement": {
       "roles": {

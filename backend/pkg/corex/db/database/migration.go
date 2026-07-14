@@ -19,6 +19,7 @@ import (
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	modelMetadata "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	modelNotification "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
 	modelOps "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
@@ -80,6 +81,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migrateCustomerModels(db); err != nil {
+		return err
+	}
+	if err = migrateMetadataModels(db); err != nil {
 		return err
 	}
 
@@ -244,6 +248,19 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return nil
+}
+
+func migrateMetadataModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelMetadata.DictionaryNamespace{},
+		&modelMetadata.DictionaryItem{},
+		&modelMetadata.Taxonomy{},
+		&modelMetadata.TaxonomyNode{},
+		&modelMetadata.Tag{},
+		&modelMetadata.TagBinding{},
+		&modelMetadata.ResourceType{},
+		&modelMetadata.Reference{},
+	)
 }
 
 func backfillIAMRoleUUID(db *gorm.DB) error {

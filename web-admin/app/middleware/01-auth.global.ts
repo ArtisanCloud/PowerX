@@ -20,6 +20,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     withLocale("/users/login"),
     withLocale("/users/register"),
   ];
+  const AUTHENTICATED_NON_MENU_RULES: RegExp[] = [
+    withLocale("/profile"),
+    withLocale("/notifications"),
+    withLocale("/search"),
+  ];
 
   // 1) 首装判定在服务端/客户端都执行，避免首屏 SSR 进入业务页
   const setup = await setupStatus.load({ ttlMs: 5000 });
@@ -157,7 +162,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return redirectToLogin();
   }
 
-  const shouldCheckMenuRoute = !publicHit;
+  const authenticatedNonMenuHit = AUTHENTICATED_NON_MENU_RULES.some((re) =>
+    re.test(to.path)
+  );
+  const shouldCheckMenuRoute = !publicHit && !authenticatedNonMenuHit;
   if (shouldCheckMenuRoute) {
     const { isMenuRouteAllowed, resolveDefaultRoute } = useDefaultMenuRoute();
     try {

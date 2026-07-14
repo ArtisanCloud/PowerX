@@ -86,6 +86,19 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 	require.Equal(t, "completed", degradedResp.GetJob().GetStatus())
 	require.Equal(t, "degraded", degradedResp.GetJob().GetErrorCode())
 
+	noVectorSpace := env.CreateSpaceFixture("grpc-ingest-no-vector-index", policyID)
+	require.NoError(t, env.ClearSpaceActiveVectorIndex(noVectorSpace.UUID))
+	noVectorResp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
+		SpaceId:   noVectorSpace.UUID.String(),
+		Format:    "markdown",
+		SourceUri: "s3://bucket/no-vector.md",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "blocked", noVectorResp.GetJob().GetStatus())
+	require.Equal(t, "vector_index_not_activated", noVectorResp.GetJob().GetErrorCode())
+	require.Equal(t, "no_active_vector_index", noVectorResp.GetJob().GetBlockedReason())
+	require.Equal(t, float32(0), noVectorResp.GetJob().GetEmbeddingSuccessPct())
+
 	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
 		SpaceId:   uuid.New().String(),
 		Format:    "pdf",

@@ -652,6 +652,24 @@ func (s *IngestionService) finalizeIngestion(
 		return job, nil
 	}
 
+	if errors.Is(vectorErr, ErrVectorIndexNotActivated) {
+		job.Status = knowledge.IngestionStatusBlocked
+		job.ErrorCode = outcome.errorCode
+		if strings.TrimSpace(job.ErrorCode) == "" {
+			job.ErrorCode = "vector_index_not_activated"
+		}
+		job.BlockedReason = outcome.reason
+		if strings.TrimSpace(job.BlockedReason) == "" {
+			job.BlockedReason = "no_active_vector_index"
+		}
+		job.EmbeddingSuccessPct = 0
+		job.MetricsSnapshot = mustJSON(outcome.snapshot(completed))
+		_, _ = repo.NewIngestionJobRepository(s.db).Update(ctx, job)
+		s.emitProgress(ctx, job, "finalize", 100, outcome.totalChunks, 0, outcome.maskingPct, space.TenantUUID)
+		s.emitMetrics(job, outcome)
+		return job, nil
+	}
+
 	if vectorErr != nil && !errors.Is(vectorErr, ErrIngestionDegraded) && !errors.Is(vectorErr, ErrVectorIndexNotActivated) {
 		job.Status = knowledge.IngestionStatusFailed
 		job.ErrorCode = "vector_upsert_failed"
@@ -1524,6 +1542,9 @@ func (s *IngestionService) runPipeline(ctx context.Context, in pipelineInput) (p
 		if out.reason == "" {
 			out.reason = embedReason
 		}
+		if embedErrCode == "vector_index_not_activated" {
+			out.status = knowledge.IngestionStatusBlocked
+		}
 	}
 	s.emitProgress(ctx, in.job, "embed", 85, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)
 
@@ -1730,6 +1751,9 @@ func (s *IngestionService) runPipelineFromUnits(ctx context.Context, in pipeline
 		}
 		if out.reason == "" {
 			out.reason = embedReason
+		}
+		if embedErrCode == "vector_index_not_activated" {
+			out.status = knowledge.IngestionStatusBlocked
 		}
 	}
 	s.emitProgress(ctx, in.job, "embed", 85, out.totalChunks, out.embeddingPct, out.maskingPct, in.space.TenantUUID)

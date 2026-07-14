@@ -20,6 +20,7 @@ import (
 	knowledgeSpaceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
+	metadataHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/metadata"
 	migrationHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/migration"
 	monitorHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/monitor"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/notifications"
@@ -97,4 +98,5 @@ func RegisterAPIRoutes(
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	monitorHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	metadataHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

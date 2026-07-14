@@ -68,7 +68,7 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("grant defaults for tenant %s: %w", tenantUUID, err)
 	}
 
-	// 6) 确保 root 用户与凭证（仅从 setup 草稿文件或内置默认读取，不使用环境变量）
+	// 6) 确保 root 用户与凭证（从 setup 运行时草稿文件或内置默认读取）
 	rootUserName := "root"
 	rootIdentifier := "root"
 	rootDisplayName := "root"
@@ -185,10 +185,20 @@ func SeedRoot(db *gorm.DB) error {
 	}
 
 	// 兼容：如果 rootIdentifier 不是 root，再补一条 legacy root 标识，避免旧脚本/文档登录失败。
+	// 如果 legacy 标识已存在，必须同步 hash，否则 setup 密码更新后 root/root 会残留。
 	if rootIdentifier != "root" {
 		if legacyCred, legacyErr := credRepo.FindByProviderIdentifier(seedCtx(), "password", "root"); legacyErr == nil {
 			if legacyCred.UserID != userID {
 				return fmt.Errorf("legacy root identifier already bound to another user")
+			}
+			if err := credRepo.Upsert(seedCtx(), &model.Credential{
+				UserID:     userID,
+				Provider:   "password",
+				Identifier: "root",
+				SecretHash: string(hash),
+				IsPrimary:  false,
+			}, "user_id", "secret_hash", "is_primary"); err != nil {
+				return fmt.Errorf("sync legacy root credential: %w", err)
 			}
 		} else if errors.Is(legacyErr, gorm.ErrRecordNotFound) {
 			if err := credRepo.Create(seedCtx(), &model.Credential{
@@ -257,7 +267,7 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed demo readonly account: %w", err)
 	}
 
-	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] root ready. tenant=%s username=%s identifier=%s password=%s", tenantKey, rootUserName, rootIdentifier, rootPassword)
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] root ready. tenant=%s username=%s identifier=%s password_source=%s", tenantKey, rootUserName, rootIdentifier, rootPasswordSource(hasSetupAdminPassword))
 	return nil
 }
 
@@ -285,11 +295,7 @@ type setupDraftPayload struct {
 }
 
 func loadSetupAdminFromDraft() (setupDraftAdminConfig, bool, bool) {
-	paths := []string{
-		filepath.Join("etc", "setup.wizard.config.json"),
-		filepath.Join("backend", "etc", "setup.wizard.config.json"),
-	}
-	for _, p := range paths {
+	for _, p := range setupDraftCandidatePaths() {
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			continue
@@ -303,6 +309,54 @@ func loadSetupAdminFromDraft() (setupDraftAdminConfig, bool, bool) {
 		return admin, true, hasPassword
 	}
 	return setupDraftAdminConfig{}, false, false
+}
+
+func rootPasswordSource(fromSetupDraft bool) string {
+	if fromSetupDraft {
+		return "setup_draft"
+	}
+	return "built_in_default"
+}
+
+func setupDraftCandidatePaths() []string {
+	const draftFile = "setup.wizard.config.json"
+	paths := make([]string, 0, 8)
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return
+		}
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		for _, existing := range paths {
+			if existing == p {
+				return
+			}
+		}
+		paths = append(paths, p)
+	}
+	addDraftForConfigPath := func(configPath string) {
+		configPath = strings.TrimSpace(configPath)
+		if configPath == "" {
+			return
+		}
+		if abs, err := filepath.Abs(configPath); err == nil {
+			configPath = abs
+		}
+		add(filepath.Join(filepath.Dir(configPath), draftFile))
+	}
+
+	add(os.Getenv("POWERX_SETUP_DRAFT_PATH"))
+	addDraftForConfigPath(os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH"))
+	addDraftForConfigPath(os.Getenv("POWERX_CONFIG"))
+	if root := strings.TrimSpace(os.Getenv("POWERX_RUNTIME_ROOT")); root != "" {
+		add(filepath.Join(root, draftFile))
+	}
+	add(filepath.Join(string(filepath.Separator), "etc", "powerx", draftFile))
+	add(filepath.Join("etc", draftFile))
+	add(filepath.Join("backend", "etc", draftFile))
+	return paths
 }
 
 func SeedDemoReadonlyAccount(db *gorm.DB) error {

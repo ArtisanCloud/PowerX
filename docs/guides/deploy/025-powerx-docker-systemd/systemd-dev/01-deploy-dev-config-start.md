@@ -20,6 +20,12 @@ export POWERX_DEV_WEB_PORT=3001
 sudo apt-get update
 sudo apt-get install -y acl
 
+# Dev unit 默认使用 powerx 作为 systemd service 用户。
+# 如果这台机器尚未部署过生产 PowerX，powerx 用户可能不存在；必须先创建，否则后续 setfacl 的 u:powerx 会失败。
+getent passwd powerx >/dev/null || sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin powerx
+getent passwd ubuntu >/dev/null
+getent passwd powerx >/dev/null
+
 sudo mkdir -p /opt/powerx-dev/{releases,storage,plugins}
 sudo mkdir -p /etc/powerx-dev
 sudo chown -R root:root /opt/powerx-dev /etc/powerx-dev
@@ -32,6 +38,7 @@ sudo setfacl -R -d -m u:ubuntu:rwX,u:powerx:rX /etc/powerx-dev
 说明：
 - `ubuntu` 是 VSCode Remote-SSH 登录用户，拥有 dev 目录写权限。
 - `powerx` 是 systemd service 用户，拥有 release/config 读执行权限。
+- 如果登录用户不是 `ubuntu`，需要把上述 ACL 中的 `u:ubuntu` 替换为实际维护用户；`powerx` 用户默认由 dev unit 使用。
 - `storage` 与 `plugins` 需要服务运行时写入，后续会单独给 `powerx` 写权限。
 
 ## 4. 构建 dev release
@@ -179,7 +186,9 @@ sudo rm -f /etc/powerx/powerx-dev.env
 推荐使用仓库脚本生成 `powerx-dev-*` unit，避免手工复制 production unit 后漏改路径或 service name：
 
 ```bash
-sudo bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
+export POWERX_SERVICE_USER=powerx
+export POWERX_SERVICE_GROUP=powerx
+sudo -E bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 ```
 
 该脚本会写入：
@@ -188,6 +197,11 @@ sudo bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 - `/etc/systemd/system/powerx-dev-runner.service`
 
 这些 unit 会读取 `/etc/powerx-dev/powerx.env`，并通过 `POWERX_CONFIG=/etc/powerx-dev/config.yaml` 使用 dev runtime config。
+
+说明：
+- `install-develop-systemd-units.sh` 默认使用 `powerx:powerx`。
+- 后续 `switch-develop-systemd.sh` 会调用底层 `switch-release-systemd.sh`；底层脚本在 sudo 场景默认使用 `SUDO_USER`（通常是 `ubuntu`）作为 service 用户。
+- 因此 dev 环境建议显式导出 `POWERX_SERVICE_USER=powerx` / `POWERX_SERVICE_GROUP=powerx`，并通过 `sudo -E` 传入脚本，避免 unit 安装与 release 切换时的运行用户不一致。
 
 ## 10. 授权运行目录
 ```bash
@@ -226,7 +240,9 @@ make dist DIST_VERSION=${POWERX_DEV_VERSION} NPM_INSTALL=0
 rm -rf /opt/powerx-dev/releases/${POWERX_DEV_VERSION}
 mv dist/systemd/${POWERX_DEV_VERSION} /opt/powerx-dev/releases/
 
-sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
+export POWERX_SERVICE_USER=powerx
+export POWERX_SERVICE_GROUP=powerx
+sudo -E bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
 ```
 
 说明：

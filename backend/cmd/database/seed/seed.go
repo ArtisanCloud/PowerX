@@ -86,6 +86,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	if err = SeedCapabilityErrorTaxonomies(db); err != nil {
 		return err
 	}
+	if err = SeedMetadataGovernance(ctx, db); err != nil {
+		return err
+	}
 
 	if err = SeedKnowledgePolicyTemplates(db); err != nil {
 		return err

@@ -319,6 +319,7 @@ const viewGroups = computed<MenuGroup[]>(() => {
 
 const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
 const EVENT_MANAGE_PATH = "/settings/event-fabric";
+const METADATA_GOVERNANCE_PATH = "/settings/metadata-governance";
 const SETTINGS_ROOT_PATH = "/settings";
 const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
   const normalizedTarget = normalizeMenuPath(SETTINGS_ROOT_PATH);
@@ -390,12 +391,23 @@ const manualEventManageMenu = computed<MenuItem | null>(() => {
   };
 });
 
+const manualMetadataGovernanceMenu = computed<MenuItem>(() => ({
+  id: "metadata-governance",
+  title: "menu.metadataGovernance",
+  icon: "i-lucide-tags",
+  path: METADATA_GOVERNANCE_PATH,
+  order: 118,
+  visible: true,
+  origin: "system",
+}));
+
 const renderedGroups = computed<MenuGroup[]>(() => {
   const base = viewGroups.value.map((group) => ({
     ...group,
     items: [...group.items],
   }));
   const extras = [
+    manualMetadataGovernanceMenu.value,
     manualOpenCapabilityMenu.value,
     manualEventManageMenu.value,
   ].filter(

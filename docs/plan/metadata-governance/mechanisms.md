@@ -344,10 +344,10 @@ backend/config/metadata_governance/
 
 执行方式：
 
-- 新增显式命令 `metadata-seed`，由运维或 tenant bootstrap 流程调用。
+- Metadata seed 纳入显式 `make seed` / `cmd/database seed` 流程；低层 `metadata-seed` 命令仅用于单租户或单 seed 文件调试/修复。
 - 不在 `cmd/app` 启动时自动 seed。
 - 不在 AutoMigrate 中插入 seed 数据。
-- tenant bootstrap 可在创建租户事务后显式调用 seed service；失败时租户初始化失败并回滚。
+- tenant bootstrap 在租户创建 / 首次 upsert 流程中显式调用 seed service；失败时租户初始化返回失败。当前 TenantService 创建流程不是完整事务包裹，运维需按错误处理租户初始化结果，不允许后台启动时补跑隐式 seed。
 - local 插件使用的 seed 必须从该目录复制或生成，缺失时 fail-fast。
 
 ## 事件与审计

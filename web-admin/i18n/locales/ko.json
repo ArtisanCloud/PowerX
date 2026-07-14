@@ -4,7 +4,11 @@
   "register": "회원가입",
   "common": {
     "language": "언어",
+    "collapse": "접기",
     "back": "뒤로",
+    "toggleDensity": "밀도 전환",
+    "settings": "설정",
+    "trash": "휴지통",
     "cancel": "취소",
     "save": "저장",
     "reload": "새로고침",
@@ -83,6 +87,7 @@
     "userManagement": "사용자 관리",
     "roleManagement": "역할 관리",
     "systemConfig": "시스템 구성",
+    "metadataGovernance": "메타데이터 거버넌스",
     "monitorCenter": "모니터링 센터",
     "pluginSubscriptions": "플러그인 구독",
     "loadFailed": "메뉴 로딩 실패",
@@ -384,7 +389,61 @@
     "settings": "설정",
     "logout": "로그아웃",
     "searchPlaceholder": "사용자, 콘텐츠 검색...",
-    "searchSuggestions": "검색 제안"
+    "searchSuggestions": "검색 제안",
+    "defaultUserName": "관리자",
+    "notifications": {
+      "clear": "알림 지우기",
+      "viewAll": "모든 알림 보기",
+      "empty": "알림 없음"
+    }
+  },
+  "profile": {
+    "title": "프로필",
+    "description": "현재 로그인한 계정의 프로필을 관리합니다.",
+    "currentOrganization": "현재 조직",
+    "currentOrganizationHint": "현재 토큰에 연결된 테넌트 ID입니다. 개인 프로필 항목이 아닙니다.",
+    "organizationName": "조직 이름",
+    "organizationKey": "조직 키",
+    "domain": "도메인",
+    "displayName": "표시 이름",
+    "displayNamePlaceholder": "표시 이름 입력",
+    "email": "이메일",
+    "emailPlaceholder": "이메일 입력",
+    "phone": "전화번호",
+    "phonePlaceholder": "전화번호 입력",
+    "avatarUrl": "아바타 URL",
+    "avatarUrlPlaceholder": "https://...",
+    "changePassword": "비밀번호 변경",
+    "changePasswordDescription": "현재 비밀번호를 입력하고 새 비밀번호를 설정합니다.",
+    "saveProfile": "프로필 저장",
+    "currentPassword": "현재 비밀번호",
+    "currentPasswordPlaceholder": "현재 비밀번호 입력",
+    "newPassword": "새 비밀번호",
+    "newPasswordPlaceholder": "최소 6자",
+    "confirmPassword": "새 비밀번호 확인",
+    "confirmPasswordPlaceholder": "새 비밀번호 다시 입력",
+    "confirmChangePassword": "변경 확인",
+    "roles": {
+      "owner": "테넌트 소유자",
+      "admin": "테넌트 관리자",
+      "member": "일반 멤버"
+    },
+    "validation": {
+      "displayNameRequired": "표시 이름은 필수입니다",
+      "emailRequired": "이메일은 필수입니다",
+      "passwordRequired": "비밀번호 정보를 모두 입력하세요",
+      "passwordTooShort": "새 비밀번호는 최소 6자여야 합니다",
+      "passwordMismatch": "새 비밀번호가 일치하지 않습니다",
+      "passwordSame": "새 비밀번호는 현재 비밀번호와 같을 수 없습니다"
+    },
+    "toasts": {
+      "saveSuccess": "저장됨",
+      "saveFailed": "저장 실패",
+      "profileUpdated": "프로필이 업데이트되었습니다",
+      "changeSuccess": "변경됨",
+      "changeFailed": "변경 실패",
+      "passwordUpdated": "비밀번호가 업데이트되었습니다. 새 비밀번호로 다시 로그인하세요."
+    }
   },
   "intro": {
     "nav": {
@@ -491,6 +550,9 @@
   "privacyPolicy": "개인정보 보호정책",
   "termsOfService": "서비스 약관",
   "agent": {
+    "sessions": {
+      "title": "스마트 세션"
+    },
     "management": {
       "title": "에이전트 관리",
       "description": "개별 에이전트를 관리하고 스마트 채팅 또는 팀 생성으로 빠르게 이동합니다.",
@@ -663,7 +725,10 @@
     "selector": {
       "title": "AI 에이전트",
       "create": "생성",
+      "editAgent": "에이전트 편집",
+      "newAgent": "새 에이전트",
       "searchPlaceholder": "에이전트 검색...",
+      "searchSessions": "세션 검색",
       "noResults": "일치하는 에이전트를 찾을 수 없습니다",
       "noAgents": "에이전트가 없습니다. 생성을 클릭하여 첫 번째 에이전트를 추가하세요",
       "active": "활성",
@@ -674,6 +739,9 @@
       "edit": "편집",
       "delete": "삭제",
       "totalCount": "총 {count}개 에이전트",
+      "recents": "최근 세션",
+      "pin": "고정",
+      "rename": "이름 변경",
       "sessions": "최근 세션",
       "newSession": "새 세션",
       "noSessions": "세션이 없습니다",
@@ -1068,6 +1136,183 @@
         "copySuccess": "클립보드에 복사되었습니다",
         "copyFailed": "복사에 실패했습니다"
       }
+    },
+    "metadataGovernance": {
+      "title": "메타데이터 거버넌스",
+      "description": "데이터 사전, 분류 체계, 태그, 리소스 타입을 통합 관리합니다.",
+      "actions": {
+        "create": "새로 만들기"
+      },
+      "create": {
+        "errorTitle": "생성 실패",
+        "validation": {
+          "required": "필수 항목을 입력하세요.",
+          "zhNameRequired": "중국어 이름을 입력하세요.",
+          "localizedNameRequired": "중국어 간체 이름을 입력하세요.",
+          "moduleRequired": "선택 가능한 모듈을 먼저 준비하세요.",
+          "resourceTypeRequired": "바인딩 가능한 리소스 타입을 먼저 준비하세요."
+        },
+        "context": {
+          "dictionary": "현재 사전: {name}",
+          "taxonomy": "현재 분류 체계: {name}"
+        },
+        "dictionaryNamespace": {
+          "button": "사전 생성",
+          "title": "사전 네임스페이스 생성",
+          "description": "평면 사전 항목 집합을 담는 업무 컨테이너를 생성합니다."
+        },
+        "dictionaryItem": {
+          "button": "항목 생성",
+          "title": "사전 항목 생성",
+          "description": "선택한 사전 네임스페이스 아래에 평면 옵션을 생성합니다."
+        },
+        "taxonomy": {
+          "button": "분류 체계 생성",
+          "title": "분류 체계 생성",
+          "description": "부모-자식 노드를 가질 수 있는 분류 트리를 생성합니다."
+        },
+        "taxonomyNode": {
+          "button": "분류 노드 생성",
+          "title": "분류 노드 생성",
+          "description": "선택한 분류 체계 아래에 루트 노드 또는 하위 노드를 생성합니다."
+        },
+        "tag": {
+          "button": "태그 생성",
+          "title": "태그 생성",
+          "description": "리소스 라벨링과 필터링에 사용할 평면 태그를 생성합니다."
+        },
+        "resourceType": {
+          "button": "리소스 타입 생성",
+          "title": "리소스 타입 생성",
+          "description": "태그와 참조를 바인딩할 수 있는 업무 객체 타입을 선언합니다."
+        }
+      },
+      "form": {
+        "namespace": "네임스페이스",
+        "namespacePlaceholder": "예: corex.customer.status",
+        "module": "모듈",
+        "modulePlaceholder": "예: corex.customer",
+        "resourceType": "리소스 타입",
+        "resourceTypePlaceholder": "예: customer.account",
+        "resourceTypeSelectPlaceholder": "리소스 타입 선택",
+        "code": "코드",
+        "codePlaceholder": "예: enabled",
+        "sortOrder": "정렬 순서",
+        "parentNode": "부모 노드",
+        "rootNode": "루트 노드",
+        "maxDepth": "최대 깊이",
+        "color": "색상",
+        "validatorKey": "검증기 Key",
+        "validatorKeyPlaceholder": "예: customer.account",
+      "bindingEnabled": "바인딩 허용",
+      "localizedNames": "다국어 이름",
+      "localizedDescriptions": "다국어 설명",
+      "localizedName": "이름",
+      "localizedDescription": "설명",
+      "localizedNamePlaceholder": "이름 입력",
+      "localizedDescriptionPlaceholder": "설명 입력",
+      "requiredLocaleSection": "기본 언어",
+      "requiredLocaleDescription": "백엔드 계약상 기본 언어 이름은 필수입니다.",
+      "optionalLocaleSection": "다른 언어",
+      "optionalLocaleDescription": "언어를 선택해 이름과 설명을 편집합니다. 입력된 언어는 아래에 표시됩니다.",
+      "localeSelectPlaceholder": "언어 선택",
+      "localeSearchPlaceholder": "언어 검색",
+      "locale": {
+          "zh_CN": "简体中文",
+          "en": "English",
+          "ja": "日本語",
+          "ko": "한국어"
+        },
+        "zhName": "중국어 이름",
+        "zhNamePlaceholder": "중국어 이름 입력",
+        "enName": "영어 이름",
+        "enNamePlaceholder": "영어 이름 입력",
+        "zhDescription": "중국어 설명",
+        "enDescription": "영어 설명"
+      },
+      "tabs": {
+        "dictionaries": "데이터 사전",
+        "taxonomies": "분류 체계",
+        "tags": "태그",
+        "resourceTypes": "리소스 타입"
+      },
+      "intent": {
+        "dictionaries": {
+          "title": "사전은 평면 열거값입니다",
+          "description": "사전 네임스페이스를 선택한 뒤 고객 상태나 유입 경로 같은 평면 항목을 관리합니다."
+        },
+        "taxonomies": {
+          "title": "분류 체계는 계층 트리입니다",
+          "description": "분류 체계를 선택한 뒤 지식 분류, 업종 분류, 미디어 분류 같은 부모-자식 분류 노드를 관리합니다."
+        },
+        "tags": {
+          "title": "태그는 평면 라벨 풀입니다",
+          "description": "태그에는 부모-자식 계층이 없으며 고객, 지식, 미디어 같은 리소스 표시와 필터링에 사용합니다."
+        },
+        "resourceTypes": {
+          "title": "리소스 타입은 바인딩 가능한 객체를 정의합니다",
+          "description": "태그, 참조, 거버넌스 규칙을 바인딩할 수 있는 업무 객체를 선언합니다."
+        }
+      },
+      "filters": {
+        "search": "이름, 코드 또는 모듈 검색",
+        "searchTags": "태그 이름 또는 코드 검색",
+        "allModules": "전체 모듈",
+        "allResourceTypes": "전체 리소스 타입",
+        "allStatus": "전체 상태"
+      },
+      "modules": {
+        "corex_agent": "에이전트",
+        "corex_customer": "고객",
+        "corex_knowledge": "지식",
+        "corex_media": "미디어",
+        "corex_metadata": "메타데이터",
+        "corex_sales": "영업"
+      },
+      "states": {
+        "loading": { "title": "불러오는 중", "description": "메타데이터 거버넌스 데이터를 불러오고 있습니다." },
+        "no_permission": { "title": "권한 없음", "description": "현재 사용자는 메타데이터 거버넌스를 볼 수 없습니다." },
+        "missing_selection": { "title": "항목 선택", "description": "왼쪽 항목을 선택해 상세를 확인하세요." },
+        "empty": { "title": "데이터 없음", "description": "현재 필터 조건에 맞는 데이터가 없습니다." },
+        "error": { "title": "불러오기 실패", "description": "백엔드에서 오류를 반환했습니다." },
+        "ready": { "title": "불러옴", "description": "데이터를 불러왔습니다." }
+      },
+      "empty": {
+        "title": "데이터 없음",
+        "description": "표시할 상세 정보가 없습니다."
+      },
+      "dictionary": {
+        "namespaces": "사전 네임스페이스",
+        "items": "사전 항목",
+        "namespaceShape": "하나의 업무 열거값 컨테이너",
+        "itemShape": "선택한 네임스페이스 아래의 평면 옵션"
+      },
+      "taxonomy": {
+        "list": "분류 체계",
+        "nodes": "분류 노드",
+        "taxonomyShape": "하나의 분류 트리 정의",
+        "nodeShape": "부모-자식 관계로 구성된 트리 노드",
+        "depth": "깊이 {depth}",
+        "children": "하위 노드 {count}",
+        "references": "참조 {count}"
+      },
+      "table": {
+        "name": "이름",
+        "code": "코드",
+        "status": "상태",
+        "references": "참조 수",
+        "count": "수량",
+        "resourceType": "리소스 타입",
+        "module": "모듈",
+        "validator": "검증기"
+      },
+      "status": { "enabled": "활성", "disabled": "비활성", "archived": "보관됨" },
+      "validator": { "available": "사용 가능", "missing": "누락", "disabled": "비활성" },
+      "pagination": {
+        "summary": "{start}-{end} / 총 {total}개, {page}페이지",
+        "pageSize": "페이지당"
+      },
+      "localeMissing": "현재 언어 누락"
     }
   },
   "env": {
