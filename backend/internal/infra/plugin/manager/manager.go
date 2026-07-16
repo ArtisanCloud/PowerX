@@ -136,6 +136,30 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
+	if err := m.restoreEnabledPlugins(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *managerImpl) restoreEnabledPlugins(ctx context.Context) error {
+	if m.opts.Registry == nil {
+		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("bootstrap.restore_enabled"), plugin_mgr.WithMsg("registry not provided"))
+	}
+	for _, plugin := range m.opts.Registry.List(ctx) {
+		if plugin.State != plugin_mgr.StateEnabled {
+			continue
+		}
+		logger.InfoF(ctx, "[plugin-bootstrap] restore enabled plugin id=%s ver=%s", plugin.ID, plugin.Version)
+		if err := m.Enable(ctx, plugin.ID); err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
+				plugin_mgr.WithOp("bootstrap.restore_enabled"),
+				plugin_mgr.WithPlugin(plugin.ID),
+				plugin_mgr.WithVersion(plugin.Version),
+			)
+		}
+	}
 	return nil
 }
 

@@ -45,6 +45,8 @@ func respondError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusConflict, metasvc.CodeResourceBindingDisabled, err)
 	case errors.Is(err, metasvc.ErrResourceValidatorMissing):
 		dto.ResponseError(c, http.StatusConflict, metasvc.CodeResourceValidatorMissing, err)
+	case errors.Is(err, metasvc.ErrInvalidParentReference):
+		dto.ResponseError(c, http.StatusBadRequest, metasvc.CodeInvalidParentReference, err)
 	default:
 		dto.ResponseError(c, http.StatusNotImplemented, metasvc.CodeNotImplemented, err)
 	}

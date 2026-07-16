@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -47,7 +48,11 @@ func (s *Service) SeedTaxonomies(ctx context.Context, tenantUUID string, seed Se
 		codeToNode := map[string]*model.TaxonomyNode{}
 		for j := range taxonomy.Nodes {
 			node := taxonomy.Nodes[j]
-			parent := codeToNode[strings.TrimSpace(node.ParentCode)]
+			parentCode := strings.TrimSpace(node.ParentCode)
+			parent := codeToNode[parentCode]
+			if parentCode != "" && parent == nil {
+				return result, fmt.Errorf("%w: taxonomy=%s node=%s parent_code=%s", ErrInvalidParentReference, strings.TrimSpace(taxonomy.Namespace), strings.TrimSpace(node.Code), parentCode)
+			}
 			depth := 1
 			var parentUUID *string
 			if parent != nil {

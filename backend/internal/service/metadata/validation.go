@@ -16,6 +16,7 @@ var (
 	ErrAlreadyExists            = errors.New("metadata.already_exists")
 	ErrMissingRequiredLocale    = errors.New("metadata.missing_required_locale")
 	ErrInvalidStatus            = errors.New("metadata.invalid_status")
+	ErrInvalidParentReference   = errors.New("metadata.invalid_parent_reference")
 )
 
 func ValidateMachineIdentifier(value string) error {

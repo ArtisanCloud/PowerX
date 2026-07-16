@@ -49,7 +49,7 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 	require.Equal(t, plugin_mgr.StateInstalled, items[0].State)
 }
 
-func TestBootstrapDefersEnabledPluginRestore(t *testing.T) {
+func TestBootstrapRestoresEnabledPlugin(t *testing.T) {
 	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
 		runBootstrapTestPluginProcess()
 		return
@@ -109,16 +109,11 @@ func TestBootstrapDefersEnabledPluginRestore(t *testing.T) {
 	require.Equal(t, plugin_mgr.StateEnabled, items[0].State)
 
 	resp := performBootstrapDebugRequest(engine)
-	require.NotContains(t, resp, `"com.powerx.plugins.restore-test"`)
-
-	require.NoError(t, m.Enable(ctx, "com.powerx.plugins.restore-test"))
+	require.Contains(t, resp, `"com.powerx.plugins.restore-test"`)
+	require.Contains(t, resp, `"basePath":"/api/v1"`)
 	t.Cleanup(func() {
 		_ = m.Disable(ctx, "com.powerx.plugins.restore-test")
 	})
-
-	resp = performBootstrapDebugRequest(engine)
-	require.Contains(t, resp, `"com.powerx.plugins.restore-test"`)
-	require.Contains(t, resp, `"basePath":"/api/v1"`)
 }
 
 func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {
