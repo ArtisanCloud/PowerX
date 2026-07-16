@@ -726,6 +726,23 @@ func (e *Env) ClearSpaceEmbedding(spaceID uuid.UUID) error {
 		}).Error
 }
 
+func (e *Env) ClearSpaceActiveVectorIndex(spaceID uuid.UUID) error {
+	if e == nil || e.DB == nil {
+		return fmt.Errorf("env not initialized")
+	}
+	res := e.DB.WithContext(context.Background()).
+		Model(&models.KnowledgeSpace{}).
+		Where("uuid = ?", spaceID).
+		UpdateColumn("active_vector_index_key", "")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("space not found: %s", spaceID)
+	}
+	return nil
+}
+
 func (e *Env) ClearTenantEmbeddingConfig() error {
 	if e == nil || e.DB == nil {
 		return fmt.Errorf("env not initialized")

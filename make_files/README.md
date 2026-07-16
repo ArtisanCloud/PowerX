@@ -72,7 +72,9 @@ make_files/
 ### database.mk - 数据库任务
 
 * `make db-migrate` - 数据库迁移
-* `make db-seed` - 数据库种子数据
+* `make db-seed` - 执行 CoreX / Metadata 数据库基础种子数据
+* `make capability-seed` - 只同步 `backend/config/platform_capabilities/*.yaml` 到 Capability Registry
+* `make seed` - 执行 `db-seed`（含 Metadata Governance 与企业基础元数据）后再执行 `capability-seed`
 * `make db-reset` - 重置数据库
 
 ### mcp.mk - MCP 服务任务

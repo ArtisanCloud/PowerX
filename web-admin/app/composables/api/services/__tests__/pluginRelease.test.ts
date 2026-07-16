@@ -275,7 +275,7 @@ describe('PluginReleaseService', () => {
 
       await expect(
         pluginReleaseService.getMarketplaceListings()
-      ).rejects.toThrow('网络错误，请检查网络连接')
+      ).rejects.toThrow('请求超时，请稍后重试')
     })
   })
 

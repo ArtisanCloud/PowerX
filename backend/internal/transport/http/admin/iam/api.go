@@ -59,6 +59,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	// RBAC
 	hRBAC := NewRBACHandler(deps)
+	gRBAC := protectedGroup.Group("/admin/iam")
 	{
 		// 角色 ⇄ 权限
 		gRoles.POST("/:id/permissions/grant-ids", hRBAC.GrantByIDs)
@@ -73,8 +74,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gRoles.GET("/:id/permissions/ids", hRBAC.ListPermIDs)
 		gRoles.PUT("/:id/permissions/set-ids", hRBAC.SetPermIDs)
 
-		// 自测：鉴权
-		gRoles.GET("/me/check", hRBAC.CheckPermission)
+		// 当前登录人鉴权检查。
+		gRBAC.GET("/me/check", hRBAC.CheckPermission)
 	}
 
 	hMigration := NewMigrationHandler(service.NewIAMMigrationReportService(deps.DB))

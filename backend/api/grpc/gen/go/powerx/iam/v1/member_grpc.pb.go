@@ -32,6 +32,8 @@ const (
 //
 // -------- 服务 --------
 type MemberServiceClient interface {
+	// 约束：tenant_uuid 必须为 canonical UUID；
+	// 传输层应优先使用 RequestContext.tenant_uuid，兼容 attributes["tenant_uuid"] 与 ctx fallback。
 	GetMember(ctx context.Context, in *GetMemberRequest, opts ...grpc.CallOption) (*GetMemberResponse, error)
 	BatchGetMembers(ctx context.Context, in *BatchGetMembersRequest, opts ...grpc.CallOption) (*BatchGetMembersResponse, error)
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
@@ -81,6 +83,8 @@ func (c *memberServiceClient) ListMembers(ctx context.Context, in *ListMembersRe
 //
 // -------- 服务 --------
 type MemberServiceServer interface {
+	// 约束：tenant_uuid 必须为 canonical UUID；
+	// 传输层应优先使用 RequestContext.tenant_uuid，兼容 attributes["tenant_uuid"] 与 ctx fallback。
 	GetMember(context.Context, *GetMemberRequest) (*GetMemberResponse, error)
 	BatchGetMembers(context.Context, *BatchGetMembersRequest) (*BatchGetMembersResponse, error)
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)

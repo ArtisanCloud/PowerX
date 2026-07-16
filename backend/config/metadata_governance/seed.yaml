@@ -1,0 +1,68 @@
+version: 1
+module: corex.metadata
+dictionaries:
+  - namespace: corex.metadata.status
+    module: corex.metadata
+    name_i18n:
+      zh-CN: 元数据状态
+      en-US: Metadata Status
+    description_i18n:
+      zh-CN: 元数据治理对象的基础状态集合。
+      en-US: Base status values for metadata governance objects.
+    items:
+      - code: enabled
+        label_i18n:
+          zh-CN: 启用
+          en-US: Enabled
+        sort_order: 10
+      - code: disabled
+        label_i18n:
+          zh-CN: 停用
+          en-US: Disabled
+        sort_order: 20
+      - code: archived
+        label_i18n:
+          zh-CN: 归档
+          en-US: Archived
+        sort_order: 30
+taxonomies:
+  - namespace: corex.metadata.governance_area
+    module: corex.metadata
+    name_i18n:
+      zh-CN: 元数据治理域
+      en-US: Metadata Governance Area
+    max_depth: 2
+    nodes:
+      - code: dictionary
+        label_i18n:
+          zh-CN: 数据字典
+          en-US: Dictionary
+        sort_order: 10
+      - code: taxonomy
+        label_i18n:
+          zh-CN: 分类体系
+          en-US: Taxonomy
+        sort_order: 20
+      - code: tag
+        label_i18n:
+          zh-CN: 标签
+          en-US: Tag
+        sort_order: 30
+resource_types:
+  - resource_type: metadata.demo_resource
+    module: corex.metadata
+    name_i18n:
+      zh-CN: 元数据演示资源
+      en-US: Metadata Demo Resource
+    description_i18n:
+      zh-CN: 用于验证插件 local/delegated 元数据客户端的最小资源类型。
+      en-US: Minimal resource type for plugin local/delegated metadata client verification.
+    binding_enabled: false
+tags:
+  - namespace: corex.metadata.demo
+    resource_type: metadata.demo_resource
+    code: sample
+    label_i18n:
+      zh-CN: 示例
+      en-US: Sample
+    color: "#4f46e5"

@@ -1683,7 +1683,7 @@ func defaultSetupMigrateCmd() string {
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -x ./database ]; then ./database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'database seed tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	return "if [ -x ./database ] && [ -x ./platform_capability_seed ]; then ./database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\" && ./platform_capability_seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && [ -d backend/cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\" && go run ./cmd/platform_capability_seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'seed tools not found (expect ./database + ./platform_capability_seed or go toolchain in dev)' >&2; exit 127; fi"
 }
 
 func asMap(v any) map[string]any {

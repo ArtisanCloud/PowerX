@@ -20,6 +20,12 @@ export POWERX_DEV_WEB_PORT=3001
 sudo apt-get update
 sudo apt-get install -y acl
 
+# Dev unit 默认使用 powerx 作为 systemd service 用户。
+# 如果这台机器尚未部署过生产 PowerX，powerx 用户可能不存在；必须先创建，否则后续 setfacl 的 u:powerx 会失败。
+getent passwd powerx >/dev/null || sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin powerx
+getent passwd ubuntu >/dev/null
+getent passwd powerx >/dev/null
+
 sudo mkdir -p /opt/powerx-dev/{releases,storage,plugins}
 sudo mkdir -p /etc/powerx-dev
 sudo chown -R root:root /opt/powerx-dev /etc/powerx-dev
@@ -32,6 +38,7 @@ sudo setfacl -R -d -m u:ubuntu:rwX,u:powerx:rX /etc/powerx-dev
 说明：
 - `ubuntu` 是 VSCode Remote-SSH 登录用户，拥有 dev 目录写权限。
 - `powerx` 是 systemd service 用户，拥有 release/config 读执行权限。
+- 如果登录用户不是 `ubuntu`，需要把上述 ACL 中的 `u:ubuntu` 替换为实际维护用户；`powerx` 用户默认由 dev unit 使用。
 - `storage` 与 `plugins` 需要服务运行时写入，后续会单独给 `powerx` 写权限。
 
 ## 4. 构建 dev release
@@ -179,7 +186,9 @@ sudo rm -f /etc/powerx/powerx-dev.env
 推荐使用仓库脚本生成 `powerx-dev-*` unit，避免手工复制 production unit 后漏改路径或 service name：
 
 ```bash
-sudo bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
+export POWERX_SERVICE_USER=powerx
+export POWERX_SERVICE_GROUP=powerx
+sudo -E bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 ```
 
 该脚本会写入：
@@ -188,6 +197,11 @@ sudo bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 - `/etc/systemd/system/powerx-dev-runner.service`
 
 这些 unit 会读取 `/etc/powerx-dev/powerx.env`，并通过 `POWERX_CONFIG=/etc/powerx-dev/config.yaml` 使用 dev runtime config。
+
+说明：
+- `install-develop-systemd-units.sh` 默认使用 `powerx:powerx`。
+- 后续 `switch-develop-systemd.sh` 会调用底层 `switch-release-systemd.sh`；底层脚本在 sudo 场景默认使用 `SUDO_USER`（通常是 `ubuntu`）作为 service 用户。
+- 因此 dev 环境建议显式导出 `POWERX_SERVICE_USER=powerx` / `POWERX_SERVICE_GROUP=powerx`，并通过 `sudo -E` 传入脚本，避免 unit 安装与 release 切换时的运行用户不一致。
 
 ## 10. 授权运行目录
 ```bash
@@ -226,7 +240,9 @@ make dist DIST_VERSION=${POWERX_DEV_VERSION} NPM_INSTALL=0
 rm -rf /opt/powerx-dev/releases/${POWERX_DEV_VERSION}
 mv dist/systemd/${POWERX_DEV_VERSION} /opt/powerx-dev/releases/
 
-sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
+export POWERX_SERVICE_USER=powerx
+export POWERX_SERVICE_GROUP=powerx
+sudo -E bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --with-runner --without-setup-trace
 ```
 
 说明：
@@ -236,6 +252,30 @@ sudo bash backend/scripts/ops/switch-develop-systemd.sh ${POWERX_DEV_VERSION} --
 - 默认 dev root 是 `/opt/powerx-dev`，默认 dev runtime config 是 `/etc/powerx-dev`。
 - 默认 dev service 是 `powerx-dev-backend`、`powerx-dev-web-admin`、`powerx-dev-runner`。
 - 如需临时覆盖 dev root 或 service name，仍可通过 `POWERX_RELEASES_ROOT`、`POWERX_LINKS_ROOT`、`POWERX_RUNTIME_ROOT`、`POWERX_BACKEND_SERVICE` 等环境变量覆盖。
+
+### 12.1.1 切换后的 migrate 和 seed
+
+发布切换不会自动执行 migrate 或 seed。需要按变更类型显式执行：
+
+```bash
+cd /opt/powerx-dev/backend
+
+# 有数据库结构变更时执行
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
+
+# 需要补齐基础种子数据和 Capability Registry 时执行
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database seed
+sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./platform_capability_seed
+```
+
+seed 命令语义按目录区分：
+
+- `/opt/powerx-dev/backend` 是发布产物目录，不使用 `make`。
+- `./database seed`：只执行 CoreX / 数据库基础种子。
+- `./platform_capability_seed`：只把 `config/platform_capabilities/*.yaml` 同步到 Capability Registry，并为 active tenants 补齐 registrations。
+- 源码目录才使用 `make seed`，例如 `cd /home/ubuntu/workspace/PowerX && sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed`。
+
+如果只是改 Go 业务逻辑或前端页面，通常不需要 seed。如果新增或修改了 `backend/config/platform_capabilities/*.yaml`，切换新 release 后需要执行 `./platform_capability_seed`；如果同时需要基础数据补齐，再执行 `./database seed`。
 
 ### 12.2 手动切换 symlink
 也可以只更新 `/opt/powerx-dev` 下的 symlink，并重启 dev service：
@@ -263,4 +303,4 @@ sudo systemctl restart powerx-dev-backend powerx-dev-web-admin powerx-dev-runner
 - `powerx-web-admin`
 - `powerx-runner`
 
-生产环境可以继续使用默认参数。dev 环境必须按 14.1 同时覆盖 root、service name 和 health url；不能只覆盖 root，否则仍可能重启默认生产 service。
+生产环境可以继续使用默认参数。dev 环境必须使用 `switch-develop-systemd.sh` 或同时覆盖 root、service name 和 health url；不能只覆盖 root，否则仍可能重启默认生产 service。

@@ -2,3 +2,18 @@ required_capabilities:
   - capability_id: com.corex.customer.accounts.admin_manage
     source: corex.customer.accounts
     reason: Customer account admin management is a required base platform capability for plugin delegated calls.
+  - capability_id: com.corex.metadata.dictionary.read
+    source: corex.metadata
+    reason: Metadata dictionary read is required for plugin delegated metadata clients.
+  - capability_id: com.corex.metadata.taxonomy.read
+    source: corex.metadata
+    reason: Metadata taxonomy read is required for plugin delegated metadata clients.
+  - capability_id: com.corex.metadata.tag.read
+    source: corex.metadata
+    reason: Metadata tag read is required for plugin delegated metadata clients.
+  - capability_id: com.corex.metadata.tag.manage
+    source: corex.metadata
+    reason: Metadata tag binding replacement is required for plugin delegated metadata clients.
+  - capability_id: com.corex.metadata.resource_type.read
+    source: corex.metadata
+    reason: Metadata resource type resolution is required for plugin delegated metadata clients.

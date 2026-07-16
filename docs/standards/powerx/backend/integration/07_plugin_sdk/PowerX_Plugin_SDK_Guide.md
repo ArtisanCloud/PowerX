@@ -2,6 +2,8 @@
 
 > 本文档定义 PowerX 插件侧的 SDK 设计规范、启动流程、能力注册、通信机制与安全约束。
 >
+> Agent/Skill 注册、Skill Bridge、template 示例和调试流程总入口见：[PowerXPlugin Agent / Skill Bridge 开发指南](../../../../../guides/develop/plugin_agent_skill_bridge.md)。
+>
 > SDK 是插件与 PowerX 基座之间的唯一通信层：
 >
 > * 负责注册能力（capabilities）

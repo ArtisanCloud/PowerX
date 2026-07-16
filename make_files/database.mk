@@ -37,7 +37,11 @@ db-rollback:
 	@echo "执行数据库回滚..."
 	@cd backend && go run ./cmd/database rollback
 
-.PHONY: db-seed
+.PHONY: seed db-seed
+seed:
+	$(MAKE) db-seed
+	$(MAKE) capability-seed
+
 db-seed:
 	@echo "填充数据库种子数据..."
 	@cd backend && go run ./cmd/database seed
@@ -70,8 +74,9 @@ iam-migration-fix-owner:
 help:
 	@echo "数据库操作命令:"
 	@echo "  make db-migrate    - 执行数据库迁移"
+	@echo "  make seed          - 填充 CoreX / Metadata 种子数据并同步 Capability Registry"
 	@echo "  make db-rollback   - 回滚数据库迁移"
-	@echo "  make db-seed       - 填充数据库种子数据"
+	@echo "  make db-seed       - 填充 CoreX / Metadata 数据库种子数据"
 	@echo "  make db-refresh    - 刷新数据库（回滚+迁移+种子）"
 	@echo "  make db-status     - 查看数据库迁移状态"
 	@echo "  make db-check      - 检查数据库是否存在"

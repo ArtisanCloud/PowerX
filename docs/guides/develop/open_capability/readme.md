@@ -2,6 +2,8 @@
 
 本指南面向需要调试 PowerX 底座（`source=corex`）开放能力的开发者，帮助你在本地或测试环境中快速定位能力元数据、确认协议定义，并拿到可以直接调试的 API/CLI 命令。
 
+如果你要从 PowerXPlugin 注册 Agent/Skill，并通过 Skill action 调用 capability，请先阅读：[PowerXPlugin Agent / Skill Bridge 开发指南](../plugin_agent_skill_bridge.md)。
+
 > **前提条件**
 >
 > - 你需要一个 `IsRoot=true` 的管理员账号才能访问底座能力目录。
@@ -183,6 +185,25 @@ make capability-seed
 
 `make capability-seed` 只做 `backend/config/platform_capabilities/*.yaml` 到 Capability Registry 的同步，并为 active tenants 补齐 registrations；它不执行 migrate，也不执行全量 seed。执行后可以用 `/api/v1/tenant/capabilities/resolve` 验证当前租户是否已经能解析到新增 capability。若新增了真实 HTTP route，还必须重启 PowerX Core 到最新代码，否则 Registry 能解析，但转发到旧进程仍会返回 404。
 
+如果部署后希望同时补齐 CoreX 基础种子数据和 Capability Registry，可以执行：
+
+```bash
+make seed
+```
+
+命令边界：
+
+- `make capability-check`：只做构建/代码侧校验，不写运行库。
+- `make db-seed`：只执行 CoreX / 数据库基础种子。
+- `make capability-seed`：只同步 Capability Registry。
+- `make seed`：等于 `make db-seed` + `make capability-seed`。
+
+远程 dev 环境必须显式指定运行时配置，避免写到错误数据库：
+
+```bash
+POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed
+```
+
 ### 失败时怎么处理
 
 - 缺真实 transport/service：先实现接口、service、repository、权限和测试，再登记 capability。
@@ -299,6 +320,71 @@ curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
   - 错误场景下同样会在 `data.payload` 中返回底层错误内容，同时 HTTP 状态码与 `code` 字段会指示失败原因。
 
 因此，当你希望“统一入口 + 自动协议适配”时就用 `/tenant/invocations`；若只是简单的 REST 调试，也可以直接调用文档中的业务接口。两者可以并行使用。
+
+### Metadata Governance 能力
+
+插件读取底座统一元数据时，必须使用 Metadata Governance 能力，不读取插件私有默认值作为 fallback。
+
+可发现能力：
+
+```bash
+curl -sS "$API_ORIGIN/api/v1/tenant/capabilities?source=corex&page_size=500" \
+  -H "Authorization: Bearer $TOKEN" \
+  | jq '.data.items[] | select(.capability_id | startswith("com.corex.metadata."))'
+```
+
+插件 delegated 模式使用以下能力：
+
+| 场景 | capability_id | permission_code |
+| --- | --- | --- |
+| 读取资源类型 | `com.corex.metadata.resource_type.read` | `metadata.resource_type:read` |
+| 读取字典命名空间和字典项 | `com.corex.metadata.dictionary.read` | `metadata.dictionary:read` |
+| 读取分类体系和节点 | `com.corex.metadata.taxonomy.read` | `metadata.taxonomy:read` |
+| 读取标签和标签绑定 | `com.corex.metadata.tag.read` | `metadata.tag:read` |
+| 替换标签绑定 | `com.corex.metadata.tag.manage` | `metadata.tag:manage` |
+
+读取标签示例：
+
+```bash
+curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.metadata.tag.read",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "GET",
+          "endpoint": "/api/v1/admin/metadata/tags",
+          "query": {
+            "resource_type": "metadata.demo_resource",
+            "locale": "zh-CN"
+          }
+        }
+      }'
+```
+
+替换标签绑定示例：
+
+```bash
+curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.metadata.tag.manage",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "PUT",
+          "endpoint": "/api/v1/admin/metadata/tag-bindings",
+          "body": {
+            "resource_type": "metadata.demo_resource",
+            "resource_uuid": "<business-object-uuid>",
+            "tag_uuids": ["<tag-uuid>"]
+          }
+        }
+      }'
+```
+
+local 模式必须使用 `backend/config/metadata_governance/seed.yaml` 同源 seed。seed 缺失、schema 错误或没有 canonical definitions 时必须初始化失败。
 
 ### Direct REST 调用与 STS 自动开放
 

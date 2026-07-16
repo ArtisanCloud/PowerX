@@ -79,6 +79,7 @@ const (
 	KeyUserManagement             MenuKey = "user_management"
 	KeyRoleManagement             MenuKey = "role_management"
 	KeySystemConfig               MenuKey = "system_config"
+	KeyMetadataGovernance         MenuKey = "metadata_governance"
 	KeyAISettings                 MenuKey = "ai_settings"
 	KeyAISettingsModel            MenuKey = "ai_settings_model"
 	KeyAISettingsCost             MenuKey = "ai_settings_cost"

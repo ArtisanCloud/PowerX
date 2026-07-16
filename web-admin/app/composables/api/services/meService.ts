@@ -132,11 +132,13 @@ export const useMeService = () => {
      * @param resource 资源标识（可选）
      */
     checkPermission: (permission: string, resource?: string) => {
-      return apiClient.post<ApiResponse<{ has_permission: boolean }>>(
-        `${baseUrl}/me/check-permission`,
+      return apiClient.get<ApiResponse<{ ok: boolean; has_permission: boolean }>>(
+        "/admin/iam/me/check",
         {
-          permission,
-          resource,
+          params: {
+            permission,
+            resource,
+          },
         }
       );
     },

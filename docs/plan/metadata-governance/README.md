@@ -10,6 +10,10 @@ PowerX 当前存在多个零散的元数据形态：
 
 这些做法会导致同一个业务概念在底座、插件、页面、Agent 能力里出现多份定义。`metadata-governance` 的目标是把“数据字典、分类体系、标签”沉淀为底座治理能力，插件和业务模块通过统一 API / capability / framework client 使用。
 
+## 目标 Spec
+
+后续正式开发规范使用 `specs/029-metadata-governance`。当前 `docs/plan/metadata-governance` 只作为前置规划与决策记录，不直接替代 feature spec。
+
 ## 范围
 
 本 feature 包含三类对象，但不把它们混成一张泛化表：
@@ -24,6 +28,7 @@ PowerX 当前存在多个零散的元数据形态：
 - 全文检索标签推荐模型。
 - 历史业务表的自动回填迁移。
 - 插件私有元数据的兼容读取。
+- 对 web、mini-app、customer 等外部服务对象开放独立公开接口。
 
 ## 设计原则
 
@@ -48,11 +53,12 @@ PowerX 当前存在多个零散的元数据形态：
 - 提供字典、分类、标签三组 admin API。
 - 声明 platform capabilities，并纳入 `make capability-check`。
 - 新增 service/repository 测试。
+- 新增 canonical seed 目录和显式 seed 命令，不放进后台启动流程。
 
 ### 第二批：管理页面
 
 - 设置区新增“元数据治理”入口。
-- 页面分为“数据字典 / 分类体系 / 标签”三个 tab。
+- 页面分为“数据字典 / 分类体系 / 标签 / 资源类型”四个 tab。
 - 支持按 namespace、模块、状态筛选。
 - 所有用户可见文案进入 locale 文件。
 
@@ -61,6 +67,7 @@ PowerX 当前存在多个零散的元数据形态：
 - framework 提供 MetadataClient。
 - 插件侧通过 gateway capability 或 REST binding 访问底座。
 - local 模式只用于插件独立开发，seed 与底座 canonical seed 同源。
+- 首版 framework 只提供读取字典、读取分类、读取标签、替换标签绑定；不提供插件侧管理 namespace/item/tag 的写入能力。
 
 ### 第四批：业务接入
 

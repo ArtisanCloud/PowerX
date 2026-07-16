@@ -3588,6 +3588,656 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
           auth_type: tenant_jwt
           tool_scope: media.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.createdictionaryitem
+      module: metadata
+      title: MetadataGovernanceService.CreateDictionaryItem
+      description: Generated from proto
+      permission_code: corex.grpc:createdictionaryitem
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.createdictionaryitem
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: CreateDictionaryItem
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.createdictionarynamespace
+      module: metadata
+      title: MetadataGovernanceService.CreateDictionaryNamespace
+      description: Generated from proto
+      permission_code: corex.grpc:createdictionarynamespace
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.createdictionarynamespace
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: CreateDictionaryNamespace
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.createtag
+      module: metadata
+      title: MetadataGovernanceService.CreateTag
+      description: Generated from proto
+      permission_code: corex.grpc:createtag
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.createtag
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: CreateTag
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.createtaxonomy
+      module: metadata
+      title: MetadataGovernanceService.CreateTaxonomy
+      description: Generated from proto
+      permission_code: corex.grpc:createtaxonomy
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.createtaxonomy
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: CreateTaxonomy
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.createtaxonomynode
+      module: metadata
+      title: MetadataGovernanceService.CreateTaxonomyNode
+      description: Generated from proto
+      permission_code: corex.grpc:createtaxonomynode
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.createtaxonomynode
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: CreateTaxonomyNode
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.deletedictionaryitem
+      module: metadata
+      title: MetadataGovernanceService.DeleteDictionaryItem
+      description: Generated from proto
+      permission_code: corex.grpc:deletedictionaryitem
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.deletedictionaryitem
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: DeleteDictionaryItem
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.deletetag
+      module: metadata
+      title: MetadataGovernanceService.DeleteTag
+      description: Generated from proto
+      permission_code: corex.grpc:deletetag
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.deletetag
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: DeleteTag
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.deletetaxonomynode
+      module: metadata
+      title: MetadataGovernanceService.DeleteTaxonomyNode
+      description: Generated from proto
+      permission_code: corex.grpc:deletetaxonomynode
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.deletetaxonomynode
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: DeleteTaxonomyNode
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listdictionaryitems
+      module: metadata
+      title: MetadataGovernanceService.ListDictionaryItems
+      description: Generated from proto
+      permission_code: corex.grpc:listdictionaryitems
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listdictionaryitems
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListDictionaryItems
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listdictionarynamespaces
+      module: metadata
+      title: MetadataGovernanceService.ListDictionaryNamespaces
+      description: Generated from proto
+      permission_code: corex.grpc:listdictionarynamespaces
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listdictionarynamespaces
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListDictionaryNamespaces
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listresourcetypes
+      module: metadata
+      title: MetadataGovernanceService.ListResourceTypes
+      description: Generated from proto
+      permission_code: corex.grpc:listresourcetypes
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listresourcetypes
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListResourceTypes
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listtagbindings
+      module: metadata
+      title: MetadataGovernanceService.ListTagBindings
+      description: Generated from proto
+      permission_code: corex.grpc:listtagbindings
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listtagbindings
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListTagBindings
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listtags
+      module: metadata
+      title: MetadataGovernanceService.ListTags
+      description: Generated from proto
+      permission_code: corex.grpc:listtags
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listtags
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListTags
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listtaxonomies
+      module: metadata
+      title: MetadataGovernanceService.ListTaxonomies
+      description: Generated from proto
+      permission_code: corex.grpc:listtaxonomies
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listtaxonomies
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListTaxonomies
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.listtaxonomynodes
+      module: metadata
+      title: MetadataGovernanceService.ListTaxonomyNodes
+      description: Generated from proto
+      permission_code: corex.grpc:listtaxonomynodes
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.listtaxonomynodes
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ListTaxonomyNodes
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.mergetags
+      module: metadata
+      title: MetadataGovernanceService.MergeTags
+      description: Generated from proto
+      permission_code: corex.grpc:mergetags
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.mergetags
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: MergeTags
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.movetaxonomynode
+      module: metadata
+      title: MetadataGovernanceService.MoveTaxonomyNode
+      description: Generated from proto
+      permission_code: corex.grpc:movetaxonomynode
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.movetaxonomynode
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: MoveTaxonomyNode
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.registerresourcetype
+      module: metadata
+      title: MetadataGovernanceService.RegisterResourceType
+      description: Generated from proto
+      permission_code: corex.grpc:registerresourcetype
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.registerresourcetype
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: RegisterResourceType
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.replacetagbindings
+      module: metadata
+      title: MetadataGovernanceService.ReplaceTagBindings
+      description: Generated from proto
+      permission_code: corex.grpc:replacetagbindings
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.replacetagbindings
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: ReplaceTagBindings
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updatedictionaryitem
+      module: metadata
+      title: MetadataGovernanceService.UpdateDictionaryItem
+      description: Generated from proto
+      permission_code: corex.grpc:updatedictionaryitem
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updatedictionaryitem
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateDictionaryItem
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updatedictionarynamespace
+      module: metadata
+      title: MetadataGovernanceService.UpdateDictionaryNamespace
+      description: Generated from proto
+      permission_code: corex.grpc:updatedictionarynamespace
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updatedictionarynamespace
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateDictionaryNamespace
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updateresourcetype
+      module: metadata
+      title: MetadataGovernanceService.UpdateResourceType
+      description: Generated from proto
+      permission_code: corex.grpc:updateresourcetype
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updateresourcetype
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateResourceType
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updatetag
+      module: metadata
+      title: MetadataGovernanceService.UpdateTag
+      description: Generated from proto
+      permission_code: corex.grpc:updatetag
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updatetag
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateTag
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updatetaxonomy
+      module: metadata
+      title: MetadataGovernanceService.UpdateTaxonomy
+      description: Generated from proto
+      permission_code: corex.grpc:updatetaxonomy
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updatetaxonomy
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateTaxonomy
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
+    - capability_id: com.corex.grpc.metadata.metadatagovernanceservice.updatetaxonomynode
+      module: metadata
+      title: MetadataGovernanceService.UpdateTaxonomyNode
+      description: Generated from proto
+      permission_code: corex.grpc:updatetaxonomynode
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - metadata
+        - grpc
+        - generated
+      intents:
+        - metadata.updatetaxonomynode
+      tool_scopes:
+        - metadata.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/metadata/v1/metadata.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.metadata.v1.MetadataGovernanceService
+          rpc: UpdateTaxonomyNode
+          schema_ref: api/grpc/contracts/powerx/metadata/v1/metadata.proto#MetadataGovernanceService
+          auth_type: tenant_jwt
+          tool_scope: metadata.grpc
     - capability_id: com.corex.grpc.platform_ops.opsadminservice.getdeployhealth
       module: platform_ops
       title: OpsAdminService.GetDeployHealth
@@ -5514,6 +6164,90 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_metadata_dictionary_items_item_uuid
+      module: admin
+      title: DELETE /api/v1/admin/metadata/dictionary-items/:item_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_admin_metadata_dictionary_items_item_uuid
+      agent_usable: false
+      risk_level: high
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.delete_api_v1_admin_metadata_dictionary_items_item_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionary-items/:item_uuid
+          method: DELETE
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_metadata_tags_tag_uuid
+      module: admin
+      title: DELETE /api/v1/admin/metadata/tags/:tag_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_admin_metadata_tags_tag_uuid
+      agent_usable: false
+      risk_level: high
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.delete_api_v1_admin_metadata_tags_tag_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tags/:tag_uuid
+          method: DELETE
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      module: admin
+      title: DELETE /api/v1/admin/metadata/taxonomy-nodes/:node_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      agent_usable: false
+      risk_level: high
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.delete_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomy-nodes/:node_uuid
+          method: DELETE
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_notifications
       module: admin
       title: DELETE /api/v1/admin/notifications
@@ -7250,6 +7984,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_iam_me_check
+      module: admin
+      title: GET /api/v1/admin/iam/me/check
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_iam_me_check
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_iam_me_check
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/iam/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/iam/me/check
+          method: GET
+          schema_ref: internal/transport/http/admin/iam/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_iam_members
       module: admin
       title: GET /api/v1/admin/iam/members
@@ -7496,34 +8258,6 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/iam/roles/:id/permissions/ids
-          method: GET
-          schema_ref: internal/transport/http/admin/iam/api.go#source
-          auth_type: tenant_jwt
-          actor_context: admin_user
-          resource_scope: tenant
-          tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_iam_roles_me_check
-      module: admin
-      title: GET /api/v1/admin/iam/roles/me/check
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_admin_iam_roles_me_check
-      agent_usable: false
-      risk_level: low
-      categories:
-        - admin
-        - gin
-        - generated
-      intents:
-        - admin.get_api_v1_admin_iam_roles_me_check
-      tool_scopes:
-        - admin.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/iam/api.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/admin/iam/roles/me/check
           method: GET
           schema_ref: internal/transport/http/admin/iam/api.go#source
           auth_type: tenant_jwt
@@ -8450,6 +9184,202 @@ capabilities:
           endpoint: /api/v1/admin/menus
           method: GET
           schema_ref: internal/transport/http/admin/menu/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_dictionaries
+      module: admin
+      title: GET /api/v1/admin/metadata/dictionaries
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_dictionaries
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_dictionaries
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionaries
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      module: admin
+      title: GET /api/v1/admin/metadata/dictionaries/:namespace_uuid/items
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionaries/:namespace_uuid/items
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_resource_types
+      module: admin
+      title: GET /api/v1/admin/metadata/resource-types
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_resource_types
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_resource_types
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/resource-types
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_tag_bindings
+      module: admin
+      title: GET /api/v1/admin/metadata/tag-bindings
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_tag_bindings
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_tag_bindings
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tag-bindings
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_tags
+      module: admin
+      title: GET /api/v1/admin/metadata/tags
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_tags
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_tags
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tags
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_taxonomies
+      module: admin
+      title: GET /api/v1/admin/metadata/taxonomies
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_taxonomies
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_taxonomies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomies
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      module: admin
+      title: GET /api/v1/admin/metadata/taxonomies/:taxonomy_uuid/nodes
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomies/:taxonomy_uuid/nodes
+          method: GET
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -10522,6 +11452,174 @@ capabilities:
           endpoint: /api/v1/admin/media/assets/:uuid
           method: PATCH
           schema_ref: internal/transport/http/admin/media/router.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_dictionaries_namespace_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/dictionaries/:namespace_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_dictionaries_namespace_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_dictionaries_namespace_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionaries/:namespace_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_dictionary_items_item_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/dictionary-items/:item_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_dictionary_items_item_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_dictionary_items_item_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionary-items/:item_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_resource_types_resource_type_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/resource-types/:resource_type_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_resource_types_resource_type_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_resource_types_resource_type_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/resource-types/:resource_type_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_tags_tag_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/tags/:tag_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_tags_tag_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_tags_tag_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tags/:tag_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_taxonomies_taxonomy_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/taxonomies/:taxonomy_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_taxonomies_taxonomy_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_taxonomies_taxonomy_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomies/:taxonomy_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      module: admin
+      title: PATCH /api/v1/admin/metadata/taxonomy-nodes/:node_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_metadata_taxonomy_nodes_node_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomy-nodes/:node_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -12962,6 +14060,230 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_dictionaries
+      module: admin
+      title: POST /api/v1/admin/metadata/dictionaries
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_dictionaries
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_dictionaries
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionaries
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      module: admin
+      title: POST /api/v1/admin/metadata/dictionaries/:namespace_uuid/items
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_dictionaries_namespace_uuid_items
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/dictionaries/:namespace_uuid/items
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_resource_types
+      module: admin
+      title: POST /api/v1/admin/metadata/resource-types
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_resource_types
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_resource_types
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/resource-types
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_tags
+      module: admin
+      title: POST /api/v1/admin/metadata/tags
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_tags
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_tags
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tags
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_tags_merge
+      module: admin
+      title: POST /api/v1/admin/metadata/tags/merge
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_tags_merge
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_tags_merge
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tags/merge
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_taxonomies
+      module: admin
+      title: POST /api/v1/admin/metadata/taxonomies
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_taxonomies
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_taxonomies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomies
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      module: admin
+      title: POST /api/v1/admin/metadata/taxonomies/:taxonomy_uuid/nodes
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_taxonomies_taxonomy_uuid_nodes
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomies/:taxonomy_uuid/nodes
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_taxonomy_nodes_node_uuid_move
+      module: admin
+      title: POST /api/v1/admin/metadata/taxonomy-nodes/:node_uuid/move
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_taxonomy_nodes_node_uuid_move
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_taxonomy_nodes_node_uuid_move
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/taxonomy-nodes/:node_uuid/move
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_migration_runbooks_migrationid_acceptance
       module: admin
       title: POST /api/v1/admin/migration/runbooks/:migrationId/acceptance
@@ -15310,6 +16632,34 @@ capabilities:
           endpoint: /api/v1/admin/integration/api-key-profiles/:profile_id/permissions
           method: PUT
           schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_metadata_tag_bindings
+      module: admin
+      title: PUT /api/v1/admin/metadata/tag-bindings
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_admin_metadata_tag_bindings
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_metadata_tag_bindings
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tag-bindings
+          method: PUT
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
