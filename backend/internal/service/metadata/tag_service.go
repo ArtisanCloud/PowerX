@@ -9,6 +9,7 @@ import (
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	metarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/metadata"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var (
@@ -83,11 +84,26 @@ func (s *Service) CreateTag(ctx context.Context, in CreateTagInput) (metadto.Tag
 	if err := ValidateMachineIdentifier(resourceType); err != nil {
 		return metadto.TagResponse{}, err
 	}
+	resourceTypeRow, err := s.resourceTypeRepo().GetByResourceType(ctx, tenantUUID, resourceType)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return metadto.TagResponse{}, ErrResourceTypeMissing
+	}
+	if err != nil {
+		return metadto.TagResponse{}, err
+	}
+	if err := ValidateNamespaceInModule(namespace, resourceTypeRow.Module); err != nil {
+		return metadto.TagResponse{}, err
+	}
 	code := strings.TrimSpace(in.Code)
 	if err := ValidateMachineIdentifier(code); err != nil {
 		return metadto.TagResponse{}, err
 	}
 	if err := ValidateRequiredI18n(in.LabelI18n, "zh-CN"); err != nil {
+		return metadto.TagResponse{}, err
+	}
+	if _, err := s.tagRepo().GetTagByKey(ctx, tenantUUID, namespace, resourceType, code); err == nil {
+		return metadto.TagResponse{}, ErrAlreadyExists
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return metadto.TagResponse{}, err
 	}
 	row := &model.Tag{

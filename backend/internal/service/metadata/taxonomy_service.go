@@ -11,6 +11,7 @@ import (
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	metarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/metadata"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var (
@@ -119,7 +120,7 @@ func (s *Service) CreateTaxonomy(ctx context.Context, in CreateTaxonomyInput) (m
 		return metadto.TaxonomyResponse{}, err
 	}
 	module := strings.TrimSpace(in.Module)
-	if err := ValidateMachineIdentifier(module); err != nil {
+	if err := ValidateNamespaceInModule(namespace, module); err != nil {
 		return metadto.TaxonomyResponse{}, err
 	}
 	if err := ValidateRequiredI18n(in.NameI18n, "zh-CN"); err != nil {
@@ -127,6 +128,11 @@ func (s *Service) CreateTaxonomy(ctx context.Context, in CreateTaxonomyInput) (m
 	}
 	if in.MaxDepth < 1 {
 		return metadto.TaxonomyResponse{}, ErrInvalidDepth
+	}
+	if _, err := s.taxonomyRepo().GetTaxonomyByNamespace(ctx, tenantUUID, namespace); err == nil {
+		return metadto.TaxonomyResponse{}, ErrAlreadyExists
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return metadto.TaxonomyResponse{}, err
 	}
 	row := &model.Taxonomy{
 		TenantUUID:      tenantUUID,

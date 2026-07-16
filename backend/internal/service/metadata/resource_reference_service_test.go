@@ -42,6 +42,15 @@ func TestResourceReferenceServiceValidatorRules(t *testing.T) {
 		t.Fatalf("expected register enabled type without validator to fail, got %v", err)
 	}
 
+	if _, err := svc.RegisterResourceType(ctx, RegisterResourceTypeInput{
+		TenantUUID:     tenantUUID,
+		ResourceType:   "product.sku",
+		Module:         "corex.product",
+		NameI18n:       map[string]string{"zh-CN": "商品"},
+		BindingEnabled: false,
+	}); err != nil {
+		t.Fatalf("register disabled resource type: %v", err)
+	}
 	tag, err := svc.CreateTag(ctx, CreateTagInput{
 		TenantUUID:   tenantUUID,
 		Namespace:    "corex.product",
@@ -51,21 +60,6 @@ func TestResourceReferenceServiceValidatorRules(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create tag: %v", err)
-	}
-	if _, err := svc.ReplaceTagBindings(ctx, ReplaceTagBindingsInput{
-		TenantUUID: tenantUUID, ResourceType: "product.sku", ResourceUUID: uuid.New().String(), TagUUIDs: []string{tag.UUID},
-	}); !errors.Is(err, ErrResourceTypeMissing) {
-		t.Fatalf("expected missing resource type, got %v", err)
-	}
-
-	if _, err := svc.RegisterResourceType(ctx, RegisterResourceTypeInput{
-		TenantUUID:     tenantUUID,
-		ResourceType:   "product.sku",
-		Module:         "corex.product",
-		NameI18n:       map[string]string{"zh-CN": "商品"},
-		BindingEnabled: false,
-	}); err != nil {
-		t.Fatalf("register disabled resource type: %v", err)
 	}
 	if _, err := svc.ReplaceTagBindings(ctx, ReplaceTagBindingsInput{
 		TenantUUID: tenantUUID, ResourceType: "product.sku", ResourceUUID: uuid.New().String(), TagUUIDs: []string{tag.UUID},

@@ -2,6 +2,8 @@ package metadata
 
 const (
 	CodeInvalidMachineIdentifier  = "METADATA_INVALID_MACHINE_IDENTIFIER"
+	CodeNamespaceModuleMismatch   = "METADATA_NAMESPACE_MODULE_MISMATCH"
+	CodeAlreadyExists             = "METADATA_ALREADY_EXISTS"
 	CodeMissingRequiredLocale     = "METADATA_MISSING_REQUIRED_LOCALE"
 	CodeInvalidStatus             = "METADATA_INVALID_STATUS"
 	CodeInvalidDepth              = "METADATA_INVALID_DEPTH"

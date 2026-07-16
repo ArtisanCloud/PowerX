@@ -499,7 +499,7 @@ const searchPlaceholder = computed(() =>
 );
 const resourceTypeItems = computed(() =>
   store.resourceTypes.map((item) => ({
-    label: `${item.display_name} · ${item.resource_type}`,
+    label: item.display_name,
     value: item.resource_type,
     module: item.module,
   })),
@@ -525,12 +525,6 @@ const createContextTitle = computed(() => {
   return "";
 });
 const createContextDescription = computed(() => {
-  if (createTarget.value === "dictionaryItem" && selectedDictionary.value) {
-    return `${selectedDictionary.value.namespace} · ${moduleLabel(selectedDictionary.value.module)}`;
-  }
-  if (createTarget.value === "taxonomyNode" && selectedTaxonomy.value) {
-    return `${selectedTaxonomy.value.namespace} · ${moduleLabel(selectedTaxonomy.value.module)}`;
-  }
   return "";
 });
 

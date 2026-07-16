@@ -118,6 +118,55 @@ func TestTagServiceMergeMovesBindings(t *testing.T) {
 	}
 }
 
+func TestTagServiceRejectsNamespaceMismatchAndDuplicate(t *testing.T) {
+	db := newServiceTagTestDB(t)
+	svc, err := NewService(Deps{DB: db, ValidatorRegistry: NewStaticResourceValidatorRegistry(map[string]ResourceValidator{"product_validator": tagTestValidator{}})})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	tenantUUID := uuid.New().String()
+	if _, err := svc.RegisterResourceType(ctx, RegisterResourceTypeInput{
+		TenantUUID:     tenantUUID,
+		ResourceType:   "product.sku",
+		Module:         "corex.product",
+		NameI18n:       map[string]string{"zh-CN": "商品"},
+		ValidatorKey:   "product_validator",
+		BindingEnabled: true,
+	}); err != nil {
+		t.Fatalf("register resource type: %v", err)
+	}
+	_, err = svc.CreateTag(ctx, CreateTagInput{
+		TenantUUID:   tenantUUID,
+		Namespace:    "corex.sales",
+		ResourceType: "product.sku",
+		Code:         "featured",
+		LabelI18n:    map[string]string{"zh-CN": "推荐"},
+	})
+	if !errors.Is(err, ErrNamespaceModuleMismatch) {
+		t.Fatalf("expected namespace module mismatch, got %v", err)
+	}
+	if _, err := svc.CreateTag(ctx, CreateTagInput{
+		TenantUUID:   tenantUUID,
+		Namespace:    "corex.product",
+		ResourceType: "product.sku",
+		Code:         "featured",
+		LabelI18n:    map[string]string{"zh-CN": "推荐"},
+	}); err != nil {
+		t.Fatalf("create tag: %v", err)
+	}
+	_, err = svc.CreateTag(ctx, CreateTagInput{
+		TenantUUID:   tenantUUID,
+		Namespace:    "corex.product",
+		ResourceType: "product.sku",
+		Code:         "featured",
+		LabelI18n:    map[string]string{"zh-CN": "推荐 2"},
+	})
+	if !errors.Is(err, ErrAlreadyExists) {
+		t.Fatalf("expected already exists, got %v", err)
+	}
+}
+
 func newServiceTagTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	oldSchema := coremodel.PowerXSchema

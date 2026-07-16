@@ -17,6 +17,34 @@ func TestValidateMachineIdentifier(t *testing.T) {
 	}
 }
 
+func TestValidateNamespaceInModule(t *testing.T) {
+	valid := []struct {
+		namespace string
+		module    string
+	}{
+		{namespace: "corex.customer", module: "corex.customer"},
+		{namespace: "corex.customer.level", module: "corex.customer"},
+	}
+	for _, tc := range valid {
+		if err := ValidateNamespaceInModule(tc.namespace, tc.module); err != nil {
+			t.Fatalf("expected namespace %q in module %q to pass: %v", tc.namespace, tc.module, err)
+		}
+	}
+	invalid := []struct {
+		namespace string
+		module    string
+	}{
+		{namespace: "corex.sales.level", module: "corex.customer"},
+		{namespace: "corex.customer_level", module: "corex.customer"},
+		{namespace: "客户等级", module: "corex.customer"},
+	}
+	for _, tc := range invalid {
+		if err := ValidateNamespaceInModule(tc.namespace, tc.module); err == nil {
+			t.Fatalf("expected namespace %q in module %q to fail", tc.namespace, tc.module)
+		}
+	}
+}
+
 func TestValidateRequiredI18n(t *testing.T) {
 	if err := ValidateRequiredI18n(map[string]string{"zh-CN": "客户等级"}, "zh-CN"); err != nil {
 		t.Fatalf("expected zh-CN label to pass: %v", err)

@@ -27,27 +27,34 @@
 
         <div v-if="needsDefinitionFields" class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <UFormField :label="t('settings.metadataGovernance.form.module')" required>
-            <UInput
+            <USelectMenu
               v-model="form.module"
+              value-key="value"
+              label-key="label"
+              :items="moduleOptions"
+              :portal="false"
+              :content="selectContent"
+              :ui="selectMenuUi"
               class="w-full"
               :placeholder="t('settings.metadataGovernance.form.modulePlaceholder')"
+              :search-input="{ placeholder: t('settings.metadataGovernance.form.moduleSearchPlaceholder') }"
             />
-            <div v-if="moduleOptions.length > 0" class="mt-2 flex flex-wrap gap-2">
-              <UButton
-                v-for="moduleItem in moduleOptions"
-                :key="moduleItem.value"
-                type="button"
-                size="xs"
-                variant="soft"
-                color="neutral"
-                @click="form.module = moduleItem.value"
-              >
-                {{ moduleItem.label }}
-              </UButton>
-            </div>
           </UFormField>
-          <UFormField :label="namespaceLabel" required>
-            <UInput v-model="form.namespace" class="w-full" :placeholder="namespacePlaceholder" />
+          <UFormField :label="t('settings.metadataGovernance.form.namespaceSuffix')" required>
+            <div class="flex w-full overflow-hidden rounded-md ring ring-inset ring-accented focus-within:ring-2 focus-within:ring-primary">
+              <div
+                class="flex max-w-[45%] shrink-0 items-center truncate bg-muted px-3 text-sm text-muted"
+                :title="namespacePrefix"
+              >
+                {{ namespacePrefix }}
+              </div>
+              <UInput
+                v-model="form.namespaceSuffix"
+                class="min-w-0 flex-1"
+                :ui="{ base: 'rounded-l-none ring-0 focus-visible:ring-0' }"
+                :placeholder="namespaceSuffixPlaceholder"
+              />
+            </div>
           </UFormField>
         </div>
 
@@ -56,24 +63,18 @@
             <UInput v-model="form.resourceType" class="w-full" :placeholder="t('settings.metadataGovernance.form.resourceTypePlaceholder')" />
           </UFormField>
           <UFormField :label="t('settings.metadataGovernance.form.module')" required>
-            <UInput
+            <USelectMenu
               v-model="form.module"
+              value-key="value"
+              label-key="label"
+              :items="moduleOptions"
+              :portal="false"
+              :content="selectContent"
+              :ui="selectMenuUi"
               class="w-full"
               :placeholder="t('settings.metadataGovernance.form.modulePlaceholder')"
+              :search-input="{ placeholder: t('settings.metadataGovernance.form.moduleSearchPlaceholder') }"
             />
-            <div v-if="moduleOptions.length > 0" class="mt-2 flex flex-wrap gap-2">
-              <UButton
-                v-for="moduleItem in moduleOptions"
-                :key="moduleItem.value"
-                type="button"
-                size="xs"
-                variant="soft"
-                color="neutral"
-                @click="form.module = moduleItem.value"
-              >
-                {{ moduleItem.label }}
-              </UButton>
-            </div>
           </UFormField>
         </div>
 
@@ -85,18 +86,34 @@
               label-key="label"
               :items="resourceTypeOptions"
               :portal="false"
+              :content="selectContent"
+              :ui="selectMenuUi"
               class="w-full"
               :placeholder="t('settings.metadataGovernance.form.resourceTypeSelectPlaceholder')"
+              :search-input="{ placeholder: t('settings.metadataGovernance.form.resourceTypeSearchPlaceholder') }"
             />
           </UFormField>
-          <UFormField :label="t('settings.metadataGovernance.form.namespace')" required>
-            <UInput v-model="form.namespace" class="w-full" :placeholder="t('settings.metadataGovernance.form.namespacePlaceholder')" />
+          <UFormField :label="t('settings.metadataGovernance.form.namespaceSuffix')" required>
+            <div class="flex w-full overflow-hidden rounded-md ring ring-inset ring-accented focus-within:ring-2 focus-within:ring-primary">
+              <div
+                class="flex max-w-[45%] shrink-0 items-center truncate bg-muted px-3 text-sm text-muted"
+                :title="namespacePrefix"
+              >
+                {{ namespacePrefix }}
+              </div>
+              <UInput
+                v-model="form.namespaceSuffix"
+                class="min-w-0 flex-1"
+                :ui="{ base: 'rounded-l-none ring-0 focus-visible:ring-0' }"
+                :placeholder="namespaceSuffixPlaceholder"
+              />
+            </div>
           </UFormField>
         </div>
 
         <div v-if="hasCodeField" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <UFormField :label="t('settings.metadataGovernance.form.code')" required>
-            <UInput v-model="form.code" class="w-full" :placeholder="t('settings.metadataGovernance.form.codePlaceholder')" />
+          <UFormField :label="t('settings.metadataGovernance.form.machineIdentifier')" required>
+            <UInput v-model="form.code" class="w-full" :placeholder="t('settings.metadataGovernance.form.machineIdentifierPlaceholder')" />
           </UFormField>
           <UFormField v-if="hasSortOrderField" :label="t('settings.metadataGovernance.form.sortOrder')">
             <UInput v-model.number="form.sortOrder" class="w-full" type="number" min="0" />
@@ -164,7 +181,7 @@
         </div>
 
         <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-          <div class="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div class="mb-3">
             <div>
               <div class="text-sm font-medium text-gray-900 dark:text-white">
                 {{ t("settings.metadataGovernance.form.optionalLocaleSection") }}
@@ -173,34 +190,27 @@
                 {{ t("settings.metadataGovernance.form.optionalLocaleDescription") }}
               </div>
             </div>
-            <div class="w-full md:w-72">
-              <UInput
-                v-model="localeSearch"
-                icon="i-lucide-search"
-                class="w-full"
-                :placeholder="t('settings.metadataGovernance.form.localeSearchPlaceholder')"
-              />
-              <div
-                v-if="filteredOptionalLocaleOptions.length > 0"
-                class="mt-2 flex max-h-28 flex-wrap gap-2 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-gray-800"
-              >
-                <UButton
-                  v-for="localeItem in filteredOptionalLocaleOptions"
-                  :key="localeItem.value"
-                  type="button"
-                  size="xs"
-                  :variant="localeItem.value === selectedOptionalLocale ? 'solid' : 'soft'"
-                  :color="localeItem.value === selectedOptionalLocale ? 'primary' : 'neutral'"
-                  @click="selectedOptionalLocale = localeItem.value"
-                >
-                  {{ localeItem.label }}
-                </UButton>
-              </div>
-            </div>
+          </div>
+          <div class="mb-4 max-w-md">
+            <USelectMenu
+              v-model="selectedOptionalLocale"
+              value-key="value"
+              label-key="label"
+              :items="optionalLocaleOptions"
+              :portal="false"
+              :content="optionalLocaleSelectContent"
+              :ui="optionalLocaleSelectUi"
+              class="w-full"
+              :placeholder="t('settings.metadataGovernance.form.localeSelectPlaceholder')"
+              :search-input="{ placeholder: t('settings.metadataGovernance.form.localeSearchPlaceholder') }"
+            />
           </div>
 
           <div v-if="selectedOptionalLocale" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <UFormField :label="t('settings.metadataGovernance.form.localizedName')">
+            <UFormField
+              :label="t('settings.metadataGovernance.form.localizedName')"
+              :required="requiresEnglishName && selectedOptionalLocale === englishLocale"
+            >
               <UInput
                 v-model="form.names[selectedOptionalLocale]"
                 class="w-full"
@@ -268,6 +278,26 @@ const { t } = useI18n();
 const runtimeConfig = useRuntimeConfig();
 const ROOT_NODE = "__root";
 const requiredLocale = "zh-CN";
+const englishLocale = "en";
+const MACHINE_IDENTIFIER_RE = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
+const optionalLocaleSelectContent = {
+  side: "top" as const,
+  sideOffset: 8,
+  collisionPadding: 12,
+  position: "popper" as const,
+};
+const optionalLocaleSelectUi = {
+  content: "z-[90] max-h-56 overflow-y-auto",
+};
+const selectContent = {
+  side: "bottom" as const,
+  sideOffset: 8,
+  collisionPadding: 12,
+  position: "popper" as const,
+};
+const selectMenuUi = {
+  content: "z-[90] max-h-56 overflow-y-auto",
+};
 
 const normalizeLocale = (value: string) => {
   const raw = String(value || "").trim();
@@ -285,6 +315,7 @@ const availableLocaleCodes = computed(() =>
 const localeOptions = computed(() => {
   const values = new Set<string>(availableLocaleCodes.value);
   values.add(requiredLocale);
+  values.add(englishLocale);
   const active = normalizeLocale(props.activeLocale || "");
   if (active) values.add(active);
   return Array.from(values).map((value) => ({
@@ -297,6 +328,9 @@ const requiredLocaleLabel = computed(() =>
 );
 const optionalLocaleOptions = computed(() => localeOptions.value.filter((item) => item.value !== requiredLocale));
 const defaultOptionalLocale = () => {
+  if (props.target === "dictionaryItem" && optionalLocaleOptions.value.some((item) => item.value === englishLocale)) {
+    return englishLocale;
+  }
   const active = normalizeLocale(props.activeLocale || "");
   if (active && active !== requiredLocale && optionalLocaleOptions.value.some((item) => item.value === active)) {
     return active;
@@ -314,39 +348,47 @@ const openModel = computed({
   set: (value: boolean) => emit("update:open", value),
 });
 
-const emptyForm = () => ({
-  namespace: "",
-  module: props.defaultModule || moduleOptions.value[0]?.value || "",
-  resourceType: resourceTypeOptions.value[0]?.value || "",
-  code: "",
-  names: Object.fromEntries(localeOptions.value.map((item) => [item.value, ""])) as Record<string, string>,
-  descriptions: Object.fromEntries(localeOptions.value.map((item) => [item.value, ""])) as Record<string, string>,
-  sortOrder: 0,
-  maxDepth: 3,
-  color: "#2563eb",
-  validatorKey: "",
-  bindingEnabled: true,
-  parentUuid: ROOT_NODE,
-});
-const defaultTagNamespace = () => String(resourceTypeOptions.value[0]?.module || "").trim();
+const defaultModuleValue = () => props.defaultModule || moduleOptions.value[0]?.value || "";
+const defaultResourceTypeValue = () => resourceTypeOptions.value[0]?.value || "";
+const namespacePrefixForModule = (moduleValue: string) => {
+  const normalized = String(moduleValue || "").trim();
+  return normalized ? `${normalized}.` : "";
+};
+const namespacePrefixForResourceType = (resourceTypeValue: string) => {
+  const moduleValue = String(resourceTypeOptions.value.find((item) => item.value === resourceTypeValue)?.module || "").trim();
+  return moduleValue ? `${moduleValue}.` : "";
+};
+const defaultNamespaceSuffix = () => {
+  return "";
+};
+const emptyForm = () => {
+  const moduleValue = defaultModuleValue();
+  const resourceTypeValue = defaultResourceTypeValue();
+  return {
+    module: moduleValue,
+    resourceType: resourceTypeValue,
+    namespaceSuffix: defaultNamespaceSuffix(),
+    code: "",
+    names: Object.fromEntries(localeOptions.value.map((item) => [item.value, ""])) as Record<string, string>,
+    descriptions: Object.fromEntries(localeOptions.value.map((item) => [item.value, ""])) as Record<string, string>,
+    sortOrder: 0,
+    maxDepth: 3,
+    color: "#2563eb",
+    validatorKey: "",
+    bindingEnabled: true,
+    parentUuid: ROOT_NODE,
+  };
+};
 
 const form = reactive(emptyForm());
 const validationError = ref("");
 const selectedOptionalLocale = ref(defaultOptionalLocale());
-const localeSearch = ref("");
 const error = computed(() => validationError.value || props.errorMessage || "");
 const filledOptionalLocales = computed(() =>
   optionalLocaleOptions.value.filter((item) =>
     String(form.names[item.value] || "").trim() || String(form.descriptions[item.value] || "").trim(),
   ),
 );
-const filteredOptionalLocaleOptions = computed(() => {
-  const query = localeSearch.value.trim().toLowerCase();
-  if (!query) return optionalLocaleOptions.value;
-  return optionalLocaleOptions.value.filter((item) =>
-    item.label.toLowerCase().includes(query) || item.value.toLowerCase().includes(query),
-  );
-});
 
 watch(
   () => [
@@ -359,43 +401,34 @@ watch(
   () => {
     Object.assign(form, emptyForm());
     selectedOptionalLocale.value = defaultOptionalLocale();
-    localeSearch.value = "";
-    if (props.target === "tag" && !form.namespace.trim()) {
-      form.namespace = defaultTagNamespace();
-    }
     validationError.value = "";
   },
 );
 
 watch(
   () => form.module,
-  (moduleValue, oldModuleValue) => {
+  (moduleValue) => {
     if (!needsDefinitionFields.value) return;
     const trimmed = String(moduleValue || "").trim();
     if (!trimmed) return;
-    if (!form.namespace.trim() || form.namespace.trim() === `${oldModuleValue}.`) {
-      form.namespace = `${trimmed}.`;
-    }
-  },
-);
-
-watch(
-  () => form.resourceType,
-  () => {
-    if (props.target !== "tag") return;
-    const moduleValue = String(selectedResourceType.value?.module || "").trim();
-    if (moduleValue && !form.namespace.trim()) {
-      form.namespace = moduleValue;
-    }
   },
 );
 
 const needsDefinitionFields = computed(() => props.target === "dictionaryNamespace" || props.target === "taxonomy");
 const needsResourceTypeField = computed(() => props.target === "resourceType");
-const hasCodeField = computed(() => props.target === "dictionaryItem" || props.target === "taxonomyNode" || props.target === "tag");
+const hasCodeField = computed(() => props.target === "taxonomyNode" || props.target === "tag");
 const hasSortOrderField = computed(() => props.target === "dictionaryItem");
-const namespaceLabel = computed(() => t("settings.metadataGovernance.form.namespace"));
-const namespacePlaceholder = computed(() => t("settings.metadataGovernance.form.namespacePlaceholder"));
+const requiresEnglishName = computed(() => props.target === "dictionaryItem");
+const namespacePrefix = computed(() => {
+  if (props.target === "tag") return namespacePrefixForResourceType(form.resourceType);
+  return namespacePrefixForModule(form.module);
+});
+const namespaceValue = computed(() => `${namespacePrefix.value}${String(form.namespaceSuffix || "").trim()}`);
+const namespaceSuffixPlaceholder = computed(() =>
+  props.target === "tag"
+    ? t("settings.metadataGovernance.form.namespaceSuffixPlaceholderTag")
+    : t("settings.metadataGovernance.form.namespaceSuffixPlaceholder"),
+);
 const parentNodeItems = computed(() => [
   { label: t("settings.metadataGovernance.form.rootNode"), value: ROOT_NODE },
   ...(props.taxonomyNodes ?? []).map((node) => ({
@@ -439,22 +472,31 @@ const submit = () => {
   };
 
   if (props.target === "dictionaryNamespace") {
-    if (!form.namespace.trim() || !form.module.trim()) return failRequired();
-    emit("submit", { namespace: form.namespace.trim(), module: form.module.trim(), ...namePayload });
+    const namespace = namespaceValue.value;
+    if (!namespace || !form.namespaceSuffix.trim() || !form.module.trim()) return failRequired();
+    if (!isMachineIdentifier(namespace) || !isMachineIdentifier(form.module)) return failMachineIdentifierInvalid();
+    if (!isNamespaceInModule(namespace, form.module)) return failNamespaceModuleMismatch();
+    emit("submit", { namespace, module: form.module.trim(), ...namePayload });
     return;
   }
   if (props.target === "dictionaryItem") {
-    if (!form.code.trim()) return failRequired();
-    emit("submit", { code: form.code.trim(), sort_order: Number(form.sortOrder) || 0, ...labelPayload });
+    const code = generatedCode.value;
+    if (!code) return failEnglishNameRequired();
+    if (!isMachineIdentifier(code)) return failMachineIdentifierInvalid();
+    emit("submit", { code, sort_order: Number(form.sortOrder) || 0, ...labelPayload });
     return;
   }
   if (props.target === "taxonomy") {
-    if (!form.namespace.trim() || !form.module.trim() || Number(form.maxDepth) < 1) return failRequired();
-    emit("submit", { namespace: form.namespace.trim(), module: form.module.trim(), max_depth: Number(form.maxDepth), ...namePayload });
+    const namespace = namespaceValue.value;
+    if (!namespace || !form.namespaceSuffix.trim() || !form.module.trim() || Number(form.maxDepth) < 1) return failRequired();
+    if (!isMachineIdentifier(namespace) || !isMachineIdentifier(form.module)) return failMachineIdentifierInvalid();
+    if (!isNamespaceInModule(namespace, form.module)) return failNamespaceModuleMismatch();
+    emit("submit", { namespace, module: form.module.trim(), max_depth: Number(form.maxDepth), ...namePayload });
     return;
   }
   if (props.target === "taxonomyNode") {
     if (!form.code.trim()) return failRequired();
+    if (!isMachineIdentifier(form.code)) return failMachineIdentifierInvalid();
     emit("submit", {
       parent_uuid: form.parentUuid === ROOT_NODE ? null : form.parentUuid,
       code: form.code.trim(),
@@ -465,9 +507,12 @@ const submit = () => {
   }
   if (props.target === "tag") {
     if (resourceTypeOptions.value.length === 0) return failNoResourceType();
-    if (!form.namespace.trim() || !form.resourceType.trim() || !form.code.trim()) return failRequired();
+    const namespace = namespaceValue.value;
+    if (!namespace || !form.namespaceSuffix.trim() || !form.resourceType.trim() || !form.code.trim()) return failRequired();
+    if (!isMachineIdentifier(namespace) || !isMachineIdentifier(form.resourceType) || !isMachineIdentifier(form.code)) return failMachineIdentifierInvalid();
+    if (!isNamespaceInModule(namespace, String(selectedResourceType.value?.module || ""))) return failNamespaceModuleMismatch();
     emit("submit", {
-      namespace: form.namespace.trim(),
+      namespace,
       resource_type: form.resourceType.trim(),
       code: form.code.trim(),
       color: form.color.trim(),
@@ -477,6 +522,7 @@ const submit = () => {
   }
   if (props.target === "resourceType") {
     if (!form.resourceType.trim() || !form.module.trim()) return failRequired();
+    if (!isMachineIdentifier(form.resourceType) || !isMachineIdentifier(form.module)) return failMachineIdentifierInvalid();
     emit("submit", {
       resource_type: form.resourceType.trim(),
       module: form.module.trim(),
@@ -492,5 +538,35 @@ const failRequired = () => {
 };
 const failNoResourceType = () => {
   validationError.value = t("settings.metadataGovernance.create.validation.resourceTypeRequired");
+};
+const failEnglishNameRequired = () => {
+  validationError.value = t("settings.metadataGovernance.create.validation.englishNameRequired");
+};
+const failMachineIdentifierInvalid = () => {
+  validationError.value = t("settings.metadataGovernance.create.validation.machineIdentifierInvalid");
+};
+const failNamespaceModuleMismatch = () => {
+  validationError.value = t("settings.metadataGovernance.create.validation.namespaceModuleMismatch");
+};
+
+const generatedCode = computed(() => {
+  const source = String(form.names[englishLocale] || "").trim();
+  if (!source) return "";
+  const ascii = source
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .replace(/[._-]{2,}/g, "_");
+  return ascii.slice(0, 64).replace(/[._-]+$/g, "");
+});
+
+const isMachineIdentifier = (value: string) => {
+  return MACHINE_IDENTIFIER_RE.test(String(value || "").trim());
+};
+const isNamespaceInModule = (namespace: string, module: string) => {
+  const normalizedNamespace = String(namespace || "").trim();
+  const normalizedModule = String(module || "").trim();
+  return Boolean(normalizedModule) && (normalizedNamespace === normalizedModule || normalizedNamespace.startsWith(`${normalizedModule}.`));
 };
 </script>

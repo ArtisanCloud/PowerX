@@ -101,6 +101,14 @@ func (r *TaxonomyRepository) GetTaxonomy(ctx context.Context, tenantUUID, taxono
 	return &row, nil
 }
 
+func (r *TaxonomyRepository) GetTaxonomyByNamespace(ctx context.Context, tenantUUID, namespace string) (*model.Taxonomy, error) {
+	var row model.Taxonomy
+	if err := r.DB().WithContext(ctx).Where("tenant_uuid = ? AND namespace = ?", tenantUUID, namespace).First(&row).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
 func (r *TaxonomyRepository) ListTaxonomies(ctx context.Context, opt TaxonomyListOptions) ([]model.Taxonomy, int64, error) {
 	q := r.DB().WithContext(ctx).Model(&model.Taxonomy{}).Where("tenant_uuid = ?", opt.TenantUUID)
 	if module := strings.TrimSpace(opt.Module); module != "" {

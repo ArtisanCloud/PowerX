@@ -71,6 +71,16 @@ func (r *TagRepository) GetTag(ctx context.Context, tenantUUID, tagUUID string) 
 	return &row, nil
 }
 
+func (r *TagRepository) GetTagByKey(ctx context.Context, tenantUUID, namespace, resourceType, code string) (*model.Tag, error) {
+	var row model.Tag
+	if err := r.DB().WithContext(ctx).
+		Where("tenant_uuid = ? AND namespace = ? AND resource_type = ? AND code = ?", tenantUUID, namespace, resourceType, code).
+		First(&row).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
 func (r *TagRepository) ListTags(ctx context.Context, opt TagListOptions) ([]model.Tag, int64, error) {
 	q := r.DB().WithContext(ctx).Model(&model.Tag{}).Where("tenant_uuid = ?", opt.TenantUUID)
 	if namespace := strings.TrimSpace(opt.Namespace); namespace != "" {

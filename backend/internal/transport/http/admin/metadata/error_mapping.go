@@ -13,6 +13,10 @@ func respondError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, metasvc.ErrInvalidMachineIdentifier):
 		dto.ResponseError(c, http.StatusBadRequest, metasvc.CodeInvalidMachineIdentifier, err)
+	case errors.Is(err, metasvc.ErrNamespaceModuleMismatch):
+		dto.ResponseError(c, http.StatusBadRequest, metasvc.CodeNamespaceModuleMismatch, err)
+	case errors.Is(err, metasvc.ErrAlreadyExists):
+		dto.ResponseError(c, http.StatusConflict, metasvc.CodeAlreadyExists, err)
 	case errors.Is(err, metasvc.ErrMissingRequiredLocale):
 		dto.ResponseError(c, http.StatusBadRequest, metasvc.CodeMissingRequiredLocale, err)
 	case errors.Is(err, metasvc.ErrInvalidStatus):

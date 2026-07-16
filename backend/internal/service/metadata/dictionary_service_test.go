@@ -87,6 +87,42 @@ func TestDictionaryServiceRejectsMissingRequiredLocale(t *testing.T) {
 	}
 }
 
+func TestDictionaryServiceRejectsNamespaceMismatchAndDuplicate(t *testing.T) {
+	db := newServiceDictionaryTestDB(t)
+	svc, err := NewService(Deps{DB: db})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	tenantUUID := uuid.New().String()
+	_, err = svc.CreateDictionaryNamespace(ctx, CreateDictionaryNamespaceInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.sales.level",
+		Module:     "corex.customer",
+		NameI18n:   map[string]string{"zh-CN": "客户等级"},
+	})
+	if !errors.Is(err, ErrNamespaceModuleMismatch) {
+		t.Fatalf("expected namespace module mismatch, got %v", err)
+	}
+	if _, err := svc.CreateDictionaryNamespace(ctx, CreateDictionaryNamespaceInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.customer.level",
+		Module:     "corex.customer",
+		NameI18n:   map[string]string{"zh-CN": "客户等级"},
+	}); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+	_, err = svc.CreateDictionaryNamespace(ctx, CreateDictionaryNamespaceInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.customer.level",
+		Module:     "corex.customer",
+		NameI18n:   map[string]string{"zh-CN": "客户等级 2"},
+	})
+	if !errors.Is(err, ErrAlreadyExists) {
+		t.Fatalf("expected already exists, got %v", err)
+	}
+}
+
 func newServiceDictionaryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	oldSchema := coremodel.PowerXSchema

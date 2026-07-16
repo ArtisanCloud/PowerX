@@ -123,6 +123,45 @@ func TestTaxonomyServiceRejectsMaxDepthAndReferenceDelete(t *testing.T) {
 	}
 }
 
+func TestTaxonomyServiceRejectsNamespaceMismatchAndDuplicate(t *testing.T) {
+	db := newServiceTaxonomyTestDB(t)
+	svc, err := NewService(Deps{DB: db})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	tenantUUID := uuid.New().String()
+	_, err = svc.CreateTaxonomy(ctx, CreateTaxonomyInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.sales.category",
+		Module:     "corex.product",
+		NameI18n:   map[string]string{"zh-CN": "商品分类"},
+		MaxDepth:   3,
+	})
+	if !errors.Is(err, ErrNamespaceModuleMismatch) {
+		t.Fatalf("expected namespace module mismatch, got %v", err)
+	}
+	if _, err := svc.CreateTaxonomy(ctx, CreateTaxonomyInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.product.category",
+		Module:     "corex.product",
+		NameI18n:   map[string]string{"zh-CN": "商品分类"},
+		MaxDepth:   3,
+	}); err != nil {
+		t.Fatalf("create taxonomy: %v", err)
+	}
+	_, err = svc.CreateTaxonomy(ctx, CreateTaxonomyInput{
+		TenantUUID: tenantUUID,
+		Namespace:  "corex.product.category",
+		Module:     "corex.product",
+		NameI18n:   map[string]string{"zh-CN": "商品分类 2"},
+		MaxDepth:   3,
+	})
+	if !errors.Is(err, ErrAlreadyExists) {
+		t.Fatalf("expected already exists, got %v", err)
+	}
+}
+
 func newServiceTaxonomyTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	oldSchema := coremodel.PowerXSchema

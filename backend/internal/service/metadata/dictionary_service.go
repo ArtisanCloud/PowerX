@@ -108,10 +108,15 @@ func (s *Service) CreateDictionaryNamespace(ctx context.Context, in CreateDictio
 		return metadto.DictionaryNamespaceResponse{}, err
 	}
 	module := strings.TrimSpace(in.Module)
-	if err := ValidateMachineIdentifier(module); err != nil {
+	if err := ValidateNamespaceInModule(namespace, module); err != nil {
 		return metadto.DictionaryNamespaceResponse{}, err
 	}
 	if err := ValidateRequiredI18n(in.NameI18n, "zh-CN"); err != nil {
+		return metadto.DictionaryNamespaceResponse{}, err
+	}
+	if _, err := s.dictionaryRepo().GetNamespaceByNamespace(ctx, tenantUUID, namespace); err == nil {
+		return metadto.DictionaryNamespaceResponse{}, ErrAlreadyExists
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return metadto.DictionaryNamespaceResponse{}, err
 	}
 	row := &model.DictionaryNamespace{
