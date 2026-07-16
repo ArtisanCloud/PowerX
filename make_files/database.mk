@@ -38,7 +38,9 @@ db-rollback:
 	@cd backend && go run ./cmd/database rollback
 
 .PHONY: seed db-seed
-seed: db-seed capability-seed
+seed:
+	$(MAKE) db-seed
+	$(MAKE) capability-seed
 
 db-seed:
 	@echo "填充数据库种子数据..."

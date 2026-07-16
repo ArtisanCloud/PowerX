@@ -124,7 +124,7 @@ PowerX Core 负责：
 - Agent Run State
 - Trace / Audit / Metrics
 
-插件不得要求 Core 为某个业务对象硬编码字段。例如 `template_id`、`template_ref`、删除确认文案、详情链接都应该来自 Skill manifest、prepare result 或 capability result，而不是 Core 写死。
+插件不得要求 Core 为某个业务对象硬编码字段。例如 `template_uuid`、`template_ref`、删除确认文案、详情链接都应该来自 Skill manifest、prepare result 或 capability result，而不是 Core 写死。
 
 ## 5. Metadata Governance Client
 
@@ -195,7 +195,7 @@ Agent Runtime 命中 Skill：
 ```json
 {
   "action": "delete",
-  "template_id": 5,
+  "template_uuid": "018f6d8a-9c32-7a61-bf10-5c0b6f61a101",
   "template_ref": "测试模板2",
   "template_name": "测试模板2"
 }
@@ -225,7 +225,7 @@ PowerX Core 会读取 pending state，并在缺少 `confirmation` 或 `confirmed
     "capability_id": "com.powerx.plugins.base.local.template.delete",
     "payload": {
       "action": "delete",
-      "template_id": 5
+      "template_uuid": "018f6d8a-9c32-7a61-bf10-5c0b6f61a101"
     }
   }
 }
@@ -250,7 +250,7 @@ PowerX Core 会读取 pending state，并在缺少 `confirmation` 或 `confirmed
 插件返回给用户的详情链接应是业务页面 URL，例如：
 
 ```text
-/templates/crud?template_id=5
+/templates/crud?template_uuid=018f6d8a-9c32-7a61-bf10-5c0b6f61a101
 ```
 
 Core 只负责透传和展示，不解析插件私有业务对象。

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package powerx.metadata.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/metadata/v1;metadatav1";
 
 service MetadataGovernanceService {
@@ -93,6 +95,7 @@ message DictionaryItem {
   MetadataStatus status = 7;
   int64 reference_count = 8;
   Display display = 9;
+  google.protobuf.Struct metadata = 10;
 }
 
 message Taxonomy {
@@ -209,6 +212,7 @@ message CreateDictionaryItemRequest {
   I18nMap label_i18n = 3;
   I18nMap description_i18n = 4;
   int32 sort_order = 5;
+  google.protobuf.Struct metadata = 6;
 }
 
 message UpdateDictionaryItemRequest {
@@ -217,6 +221,7 @@ message UpdateDictionaryItemRequest {
   I18nMap description_i18n = 3;
   optional int32 sort_order = 4;
   optional MetadataStatus status = 5;
+  google.protobuf.Struct metadata = 6;
 }
 
 message CreateDictionaryItemResponse {
