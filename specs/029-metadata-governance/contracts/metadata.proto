@@ -2,38 +2,40 @@ syntax = "proto3";
 
 package powerx.metadata.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/metadata/v1;metadatav1";
 
 service MetadataGovernanceService {
   rpc ListDictionaryNamespaces(ListDictionaryNamespacesRequest) returns (ListDictionaryNamespacesResponse);
-  rpc CreateDictionaryNamespace(CreateDictionaryNamespaceRequest) returns (DictionaryNamespaceResponse);
-  rpc UpdateDictionaryNamespace(UpdateDictionaryNamespaceRequest) returns (DictionaryNamespaceResponse);
+  rpc CreateDictionaryNamespace(CreateDictionaryNamespaceRequest) returns (CreateDictionaryNamespaceResponse);
+  rpc UpdateDictionaryNamespace(UpdateDictionaryNamespaceRequest) returns (UpdateDictionaryNamespaceResponse);
   rpc ListDictionaryItems(ListDictionaryItemsRequest) returns (ListDictionaryItemsResponse);
-  rpc CreateDictionaryItem(CreateDictionaryItemRequest) returns (DictionaryItemResponse);
-  rpc UpdateDictionaryItem(UpdateDictionaryItemRequest) returns (DictionaryItemResponse);
-  rpc DeleteDictionaryItem(DeleteDictionaryItemRequest) returns (DeleteResponse);
+  rpc CreateDictionaryItem(CreateDictionaryItemRequest) returns (CreateDictionaryItemResponse);
+  rpc UpdateDictionaryItem(UpdateDictionaryItemRequest) returns (UpdateDictionaryItemResponse);
+  rpc DeleteDictionaryItem(DeleteDictionaryItemRequest) returns (DeleteDictionaryItemResponse);
 
   rpc ListTaxonomies(ListTaxonomiesRequest) returns (ListTaxonomiesResponse);
-  rpc CreateTaxonomy(CreateTaxonomyRequest) returns (TaxonomyResponse);
-  rpc UpdateTaxonomy(UpdateTaxonomyRequest) returns (TaxonomyResponse);
+  rpc CreateTaxonomy(CreateTaxonomyRequest) returns (CreateTaxonomyResponse);
+  rpc UpdateTaxonomy(UpdateTaxonomyRequest) returns (UpdateTaxonomyResponse);
   rpc ListTaxonomyNodes(ListTaxonomyNodesRequest) returns (ListTaxonomyNodesResponse);
-  rpc CreateTaxonomyNode(CreateTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
-  rpc UpdateTaxonomyNode(UpdateTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
-  rpc MoveTaxonomyNode(MoveTaxonomyNodeRequest) returns (TaxonomyNodeResponse);
-  rpc DeleteTaxonomyNode(DeleteTaxonomyNodeRequest) returns (DeleteResponse);
+  rpc CreateTaxonomyNode(CreateTaxonomyNodeRequest) returns (CreateTaxonomyNodeResponse);
+  rpc UpdateTaxonomyNode(UpdateTaxonomyNodeRequest) returns (UpdateTaxonomyNodeResponse);
+  rpc MoveTaxonomyNode(MoveTaxonomyNodeRequest) returns (MoveTaxonomyNodeResponse);
+  rpc DeleteTaxonomyNode(DeleteTaxonomyNodeRequest) returns (DeleteTaxonomyNodeResponse);
 
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
-  rpc CreateTag(CreateTagRequest) returns (TagResponse);
-  rpc UpdateTag(UpdateTagRequest) returns (TagResponse);
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse);
   rpc MergeTags(MergeTagsRequest) returns (MergeTagsResponse);
-  rpc DeleteTag(DeleteTagRequest) returns (DeleteResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
 
   rpc ListTagBindings(ListTagBindingsRequest) returns (ListTagBindingsResponse);
-  rpc ReplaceTagBindings(ReplaceTagBindingsRequest) returns (ListTagBindingsResponse);
+  rpc ReplaceTagBindings(ReplaceTagBindingsRequest) returns (ReplaceTagBindingsResponse);
 
   rpc ListResourceTypes(ListResourceTypesRequest) returns (ListResourceTypesResponse);
-  rpc RegisterResourceType(RegisterResourceTypeRequest) returns (ResourceTypeResponse);
-  rpc UpdateResourceType(UpdateResourceTypeRequest) returns (ResourceTypeResponse);
+  rpc RegisterResourceType(RegisterResourceTypeRequest) returns (RegisterResourceTypeResponse);
+  rpc UpdateResourceType(UpdateResourceTypeRequest) returns (UpdateResourceTypeResponse);
 }
 
 enum MetadataStatus {
@@ -93,6 +95,7 @@ message DictionaryItem {
   MetadataStatus status = 7;
   int64 reference_count = 8;
   Display display = 9;
+  google.protobuf.Struct metadata = 10;
 }
 
 message Taxonomy {
@@ -182,7 +185,11 @@ message UpdateDictionaryNamespaceRequest {
   optional MetadataStatus status = 4;
 }
 
-message DictionaryNamespaceResponse {
+message CreateDictionaryNamespaceResponse {
+  DictionaryNamespace data = 1;
+}
+
+message UpdateDictionaryNamespaceResponse {
   DictionaryNamespace data = 1;
 }
 
@@ -205,6 +212,7 @@ message CreateDictionaryItemRequest {
   I18nMap label_i18n = 3;
   I18nMap description_i18n = 4;
   int32 sort_order = 5;
+  google.protobuf.Struct metadata = 6;
 }
 
 message UpdateDictionaryItemRequest {
@@ -213,9 +221,14 @@ message UpdateDictionaryItemRequest {
   I18nMap description_i18n = 3;
   optional int32 sort_order = 4;
   optional MetadataStatus status = 5;
+  google.protobuf.Struct metadata = 6;
 }
 
-message DictionaryItemResponse {
+message CreateDictionaryItemResponse {
+  DictionaryItem data = 1;
+}
+
+message UpdateDictionaryItemResponse {
   DictionaryItem data = 1;
 }
 
@@ -252,7 +265,11 @@ message UpdateTaxonomyRequest {
   optional MetadataStatus status = 5;
 }
 
-message TaxonomyResponse {
+message CreateTaxonomyResponse {
+  Taxonomy data = 1;
+}
+
+message UpdateTaxonomyResponse {
   Taxonomy data = 1;
 }
 
@@ -292,7 +309,15 @@ message MoveTaxonomyNodeRequest {
   int64 version = 4;
 }
 
-message TaxonomyNodeResponse {
+message CreateTaxonomyNodeResponse {
+  TaxonomyNode data = 1;
+}
+
+message UpdateTaxonomyNodeResponse {
+  TaxonomyNode data = 1;
+}
+
+message MoveTaxonomyNodeResponse {
   TaxonomyNode data = 1;
 }
 
@@ -331,7 +356,11 @@ message UpdateTagRequest {
   optional MetadataStatus status = 5;
 }
 
-message TagResponse {
+message CreateTagResponse {
+  Tag data = 1;
+}
+
+message UpdateTagResponse {
   Tag data = 1;
 }
 
@@ -355,6 +384,10 @@ message ListTagBindingsRequest {
 }
 
 message ListTagBindingsResponse {
+  repeated TagBinding data = 1;
+}
+
+message ReplaceTagBindingsResponse {
   repeated TagBinding data = 1;
 }
 
@@ -395,11 +428,25 @@ message UpdateResourceTypeRequest {
   optional MetadataStatus status = 6;
 }
 
-message ResourceTypeResponse {
+message RegisterResourceTypeResponse {
   ResourceType data = 1;
 }
 
-message DeleteResponse {
+message UpdateResourceTypeResponse {
+  ResourceType data = 1;
+}
+
+message DeleteDictionaryItemResponse {
+  bool success = 1;
+  repeated ReferenceSummary references = 2;
+}
+
+message DeleteTaxonomyNodeResponse {
+  bool success = 1;
+  repeated ReferenceSummary references = 2;
+}
+
+message DeleteTagResponse {
   bool success = 1;
   repeated ReferenceSummary references = 2;
 }

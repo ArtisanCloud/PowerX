@@ -674,6 +674,7 @@ components:
           type: integer
         metadata:
           type: object
+          additionalProperties: true
       required: [code, label_i18n]
     UpdateDictionaryItemRequest:
       type: object
@@ -688,6 +689,7 @@ components:
           $ref: '#/components/schemas/MetadataStatus'
         metadata:
           type: object
+          additionalProperties: true
     DictionaryItem:
       allOf:
         - $ref: '#/components/schemas/DisplayFields'
@@ -709,6 +711,9 @@ components:
               type: integer
             reference_count:
               type: integer
+            metadata:
+              type: object
+              additionalProperties: true
           required: [uuid, namespace_uuid, code, label_i18n, status]
     CreateTaxonomyRequest:
       type: object

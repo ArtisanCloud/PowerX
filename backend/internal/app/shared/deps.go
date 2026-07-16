@@ -64,6 +64,7 @@ import (
 	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	metadatasvc "github.com/ArtisanCloud/PowerX/internal/service/metadata"
 	notificationssvc "github.com/ArtisanCloud/PowerX/internal/service/notifications"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
@@ -158,6 +159,7 @@ type Deps struct {
 	EventBus                          event_bus.EventBus
 	CapabilityRegistrySvc             *capabilityRegistry.Service
 	CapabilityCatalogSvc              *capabilitycatalog.RegistryService
+	MetadataResourceValidatorRegistry metadatasvc.ResourceValidatorRegistry
 	CapabilityRegistrySyncWorker      *capabilitycatalog.SyncWorker
 	CapabilityRegistryAudit           *capabilitycatalog.AuditService
 	CapabilityRegistryAlerts          capabilitycatalog.CapabilityAlerting
@@ -247,6 +249,15 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
+	metadataSeedPath := strings.TrimSpace(os.Getenv("POWERX_METADATA_SEED_FILE"))
+	if metadataSeedPath == "" {
+		metadataSeedPath = metadatasvc.DefaultSeedPath
+	}
+	if metadataSeedSvc, err := metadatasvc.NewSeedService(metadatasvc.SeedServiceOptions{DB: db, SeedPath: metadataSeedPath}); err != nil {
+		pxlog.WarnF(ctx, "[metadata] initialize tenant bootstrap seed service failed: %v", err)
+	} else {
+		tenantSvc.MetadataBootstrapper = metadataSeedSvc
+	}
 	// --- Media Manager & Service ---
 	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
 

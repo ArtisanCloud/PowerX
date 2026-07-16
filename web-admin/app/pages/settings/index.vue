@@ -207,6 +207,7 @@ definePageMeta({
 
 // 国际化
 const localePath = useLocalePath();
+const { t } = useI18n();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
 
@@ -296,7 +297,18 @@ const baseSettingCategories = [
 ];
 
 const settingCategories = computed(() => {
-  const items = [...baseSettingCategories];
+  const items = [
+    ...baseSettingCategories,
+    {
+      key: "metadata-governance",
+      title: t("settings.metadataGovernance.title"),
+      description: t("settings.metadataGovernance.description"),
+      icon: "i-lucide-tags",
+      iconBg: "bg-sky-50 dark:bg-sky-900/20",
+      iconColor: "text-sky-600",
+      path: "/settings/metadata-governance",
+    },
+  ];
   if (isRoot.value) {
     items.push({
       key: "open-capabilities",

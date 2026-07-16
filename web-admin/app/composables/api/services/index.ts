@@ -117,3 +117,5 @@ export type {
   MonitorRetentionRun,
   MonitorRetentionRuns,
 } from "./monitorService";
+
+export { useMetadataGovernanceService } from "./metadataGovernanceService";

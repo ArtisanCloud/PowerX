@@ -1,0 +1,7 @@
+version: 1
+required_locale: zh-CN
+sections:
+  dictionaries: []
+  taxonomies: []
+  resource_types: []
+  tags: []

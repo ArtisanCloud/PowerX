@@ -23,10 +23,15 @@ import (
 
 type TenantService struct {
 	*service.BaseService
-	Repo            *tenantRepo.TenantRepository
-	Auth            *authsvc.AuthService // 复用 Register
-	RoleRepo        *iamrepo.RoleRepository
-	RoleBindingRepo *iamrepo.RoleBindingRepository
+	Repo                 *tenantRepo.TenantRepository
+	Auth                 *authsvc.AuthService // 复用 Register
+	RoleRepo             *iamrepo.RoleRepository
+	RoleBindingRepo      *iamrepo.RoleBindingRepository
+	MetadataBootstrapper MetadataBootstrapper
+}
+
+type MetadataBootstrapper interface {
+	BootstrapTenantMetadata(ctx context.Context, tenantUUID string) error
 }
 
 func NewTenantService(db *gorm.DB, auth *authsvc.AuthService) *TenantService {
@@ -173,6 +178,9 @@ func (s *TenantService) Create(ctx context.Context, in CreateTenantInput) (uint6
 			return out.ID, err // 视需求：出错可回滚或保留租户
 		}
 	}
+	if err := s.bootstrapMetadata(ctx, out.UUID.String()); err != nil {
+		return out.ID, err
+	}
 	return out.ID, nil
 }
 
@@ -233,7 +241,19 @@ func (s *TenantService) Upsert(ctx context.Context, in UpsertTenantInput) (uint6
 			return out.ID, err
 		}
 	}
+	if isCreate {
+		if err := s.bootstrapMetadata(ctx, out.UUID.String()); err != nil {
+			return out.ID, err
+		}
+	}
 	return out.ID, nil
+}
+
+func (s *TenantService) bootstrapMetadata(ctx context.Context, tenantUUID string) error {
+	if s == nil || s.MetadataBootstrapper == nil {
+		return nil
+	}
+	return s.MetadataBootstrapper.BootstrapTenantMetadata(ctx, tenantUUID)
 }
 
 // ---------- 初始化管理员（复用 AuthService.Register） ----------

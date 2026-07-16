@@ -35,6 +35,7 @@
     "userManagement": "User Management",
     "roleManagement": "Role Management",
     "systemConfig": "System Config",
+    "metadataGovernance": "Metadata Governance",
     "monitorCenter": "Monitor Center",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
@@ -498,6 +499,220 @@
         "copySuccess": "Snippet copied to clipboard",
         "copyFailed": "Copy failed"
       }
+    },
+    "metadataGovernance": {
+      "title": "Metadata Governance",
+      "description": "Manage dictionaries, taxonomies, tags, and resource types in one place.",
+      "actions": {
+        "create": "Create"
+      },
+      "create": {
+        "errorTitle": "Create failed",
+        "validation": {
+          "required": "Fill in all required fields.",
+          "zhNameRequired": "Fill in the Chinese name.",
+          "localizedNameRequired": "Fill in the Simplified Chinese name.",
+          "englishNameRequired": "Fill in the English name. The English identifier is generated from it.",
+          "machineIdentifierInvalid": "The English identifier must start with a lowercase letter and contain only lowercase letters, numbers, and . _ - separators.",
+          "namespaceModuleMismatch": "The namespace identifier must belong to the selected module, for example corex.customer or corex.customer.level.",
+          "moduleRequired": "Prepare selectable modules first.",
+          "resourceTypeRequired": "Prepare bindable resource types first."
+        },
+        "context": {
+          "dictionary": "Current dictionary: {name}",
+          "taxonomy": "Current taxonomy: {name}"
+        },
+        "dictionaryNamespace": {
+          "button": "Create dictionary",
+          "title": "Create dictionary namespace",
+          "description": "Create a business container for a flat set of dictionary items."
+        },
+        "dictionaryItem": {
+          "button": "Create item",
+          "title": "Create dictionary item",
+          "description": "Create a flat option under the selected dictionary namespace."
+        },
+        "taxonomy": {
+          "button": "Create taxonomy",
+          "title": "Create taxonomy",
+          "description": "Create a category tree that can contain parent-child nodes."
+        },
+        "taxonomyNode": {
+          "button": "Create node",
+          "title": "Create taxonomy node",
+          "description": "Create a root node or child node under the selected taxonomy."
+        },
+        "tag": {
+          "button": "Create tag",
+          "title": "Create tag",
+          "description": "Create a flat tag for resource labeling and filtering."
+        },
+        "resourceType": {
+          "button": "Create resource type",
+          "title": "Create resource type",
+          "description": "Declare a business object type that can be bound by tags and references."
+        }
+      },
+      "form": {
+        "namespace": "Namespace",
+        "namespacePlaceholder": "For example corex.customer.status",
+        "namespaceSuffixPlaceholder": "For example level or status",
+        "namespaceSuffixPlaceholderTag": "For example tag",
+        "namespaceSuffix": "Namespace suffix",
+        "module": "Module",
+        "modulePlaceholder": "Select module",
+        "moduleSearchPlaceholder": "Search modules",
+        "resourceType": "Resource type",
+        "resourceTypePlaceholder": "For example customer.account",
+        "resourceTypeSelectPlaceholder": "Select resource type",
+        "resourceTypeSearchPlaceholder": "Search resource types",
+        "code": "English identifier",
+        "codePlaceholder": "For example enabled",
+        "machineIdentifier": "English identifier",
+        "machineIdentifierPlaceholder": "For example enabled or vip_customer",
+        "machineNamespace": "Namespace identifier",
+        "sortOrder": "Sort order",
+        "parentNode": "Parent node",
+        "rootNode": "Root node",
+        "maxDepth": "Max depth",
+        "color": "Color",
+        "validatorKey": "Validator key",
+        "validatorKeyPlaceholder": "For example customer.account",
+      "bindingEnabled": "Binding enabled",
+      "localizedNames": "Localized names",
+      "localizedDescriptions": "Localized descriptions",
+      "localizedName": "Name",
+      "localizedDescription": "Description",
+      "localizedNamePlaceholder": "Enter name",
+      "localizedDescriptionPlaceholder": "Enter description",
+      "requiredLocaleSection": "Default language",
+      "requiredLocaleDescription": "The backend contract requires a default-language name.",
+      "optionalLocaleSection": "Other languages",
+      "optionalLocaleDescription": "Select one language to edit its name and description. Filled languages are shown below.",
+      "localeSelectPlaceholder": "Select language",
+      "localeSearchPlaceholder": "Search language",
+      "locale": {
+          "zh_CN": "简体中文",
+          "en": "English",
+          "ja": "日本語",
+          "ko": "한국어"
+        },
+        "zhName": "Chinese name",
+        "zhNamePlaceholder": "Enter Chinese name",
+        "enName": "English name",
+        "enNamePlaceholder": "Enter English name",
+        "zhDescription": "Chinese description",
+        "enDescription": "English description"
+      },
+      "tabs": {
+        "dictionaries": "Dictionaries",
+        "taxonomies": "Taxonomies",
+        "tags": "Tags",
+        "resourceTypes": "Resource Types"
+      },
+      "intent": {
+        "dictionaries": {
+          "title": "Dictionaries are flat enumerations",
+          "description": "Select a dictionary namespace, then manage the flat item set under it, such as customer status or customer source."
+        },
+        "taxonomies": {
+          "title": "Taxonomies are hierarchical trees",
+          "description": "Select a taxonomy, then manage its parent-child category nodes, such as knowledge categories, industries, or media categories."
+        },
+        "tags": {
+          "title": "Tags are flat label pools",
+          "description": "Tags have no parent-child hierarchy and are used to mark and filter customers, knowledge spaces, media assets, and similar resources."
+        },
+        "resourceTypes": {
+          "title": "Resource types define bindable objects",
+          "description": "Resource types declare which business objects can be bound by tags, references, and governance rules."
+        }
+      },
+      "filters": {
+        "search": "Search names, codes, or modules",
+        "searchTags": "Search tag names or codes",
+        "allModules": "All modules",
+        "allResourceTypes": "All resource types",
+        "allStatus": "All status"
+      },
+      "modules": {
+        "corex_agent": "Agents",
+        "corex_customer": "Customers",
+        "corex_knowledge": "Knowledge",
+        "corex_media": "Media",
+        "corex_metadata": "Metadata",
+        "corex_sales": "Sales"
+      },
+      "states": {
+        "loading": {
+          "title": "Loading",
+          "description": "Loading metadata governance data."
+        },
+        "no_permission": {
+          "title": "No permission",
+          "description": "Current user cannot view metadata governance."
+        },
+        "missing_selection": {
+          "title": "Select an item",
+          "description": "Select an item on the left to view details."
+        },
+        "empty": {
+          "title": "No data",
+          "description": "No data matches the current filters."
+        },
+        "error": {
+          "title": "Load failed",
+          "description": "The backend returned an error. Retry the request."
+        },
+        "ready": {
+          "title": "Loaded",
+          "description": "Data is loaded."
+        }
+      },
+      "empty": {
+        "title": "No data",
+        "description": "This object has no details to show."
+      },
+      "dictionary": {
+        "namespaces": "Dictionary namespaces",
+        "items": "Dictionary items",
+        "namespaceShape": "Container for one business enumeration",
+        "itemShape": "Flat options under the selected namespace"
+      },
+      "taxonomy": {
+        "list": "Taxonomies",
+        "nodes": "Taxonomy nodes",
+        "taxonomyShape": "Definition of one category tree",
+        "nodeShape": "Tree nodes organized by parent-child links",
+        "depth": "Depth {depth}",
+        "children": "Children {count}",
+        "references": "References {count}"
+      },
+      "table": {
+        "name": "Name",
+        "code": "Code",
+        "status": "Status",
+        "references": "References",
+        "count": "Count",
+        "resourceType": "Resource type",
+        "module": "Module",
+        "validator": "Validator"
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "archived": "Archived"
+      },
+      "validator": {
+        "available": "Available",
+        "missing": "Missing",
+        "disabled": "Disabled"
+      },
+      "pagination": {
+        "summary": "Showing {start}-{end} of {total}, page {page}",
+        "pageSize": "Per page"
+      },
+      "localeMissing": "Current locale missing"
     }
   },
   "connection": {
@@ -516,7 +731,61 @@
     "searchPlaceholder": "Search…",
     "profile": "Profile",
     "settings": "Settings",
-    "logout": "Logout"
+    "logout": "Logout",
+    "defaultUserName": "Administrator",
+    "notifications": {
+      "clear": "Clear notifications",
+      "viewAll": "View all notifications",
+      "empty": "No notifications"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "description": "Manage the current signed-in account profile.",
+    "currentOrganization": "Current organization",
+    "currentOrganizationHint": "Tenant identity from the current token. It is not part of the personal profile.",
+    "organizationName": "Organization name",
+    "organizationKey": "Organization key",
+    "domain": "Domain",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Enter display name",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
+    "phone": "Phone",
+    "phonePlaceholder": "Enter phone number",
+    "avatarUrl": "Avatar URL",
+    "avatarUrlPlaceholder": "https://...",
+    "changePassword": "Change password",
+    "changePasswordDescription": "Enter the current password and set a new password.",
+    "saveProfile": "Save profile",
+    "currentPassword": "Current password",
+    "currentPasswordPlaceholder": "Enter current password",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "At least 6 characters",
+    "confirmPassword": "Confirm new password",
+    "confirmPasswordPlaceholder": "Enter new password again",
+    "confirmChangePassword": "Confirm change",
+    "roles": {
+      "owner": "Tenant owner",
+      "admin": "Tenant administrator",
+      "member": "Member"
+    },
+    "validation": {
+      "displayNameRequired": "Display name is required",
+      "emailRequired": "Email is required",
+      "passwordRequired": "Complete password information is required",
+      "passwordTooShort": "New password must be at least 6 characters",
+      "passwordMismatch": "The two new passwords do not match",
+      "passwordSame": "New password cannot be the same as current password"
+    },
+    "toasts": {
+      "saveSuccess": "Saved",
+      "saveFailed": "Save failed",
+      "profileUpdated": "Profile updated",
+      "changeSuccess": "Changed",
+      "changeFailed": "Change failed",
+      "passwordUpdated": "Password updated. Please sign in again with the new password."
+    }
   },
   "home": {
     "footer": "Home footer",
@@ -876,6 +1145,9 @@
     }
   },
   "agent": {
+    "sessions": {
+      "title": "Smart sessions"
+    },
     "teamManagement": {
       "roles": {
         "retriever": "Retriever",
@@ -1075,6 +1347,9 @@
       "totalCount": "Total",
       "newSession": "New session",
       "recents": "Recent sessions",
+      "pin": "Pin",
+      "rename": "Rename",
+      "delete": "Delete",
       "noSessions": "No sessions",
       "clearSessions": "Clear all sessions for this agent"
     },

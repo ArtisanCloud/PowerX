@@ -191,12 +191,27 @@ func (h *RBACHandler) UnbindRoleFromMember(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"unbound": true})
 }
 
-// 自测：鉴权检查（当前登录人）
-// GET /api/v1/admin/iam/me/check?plugin=iam&resource=role&action=read
+// 当前登录人鉴权检查。
+// GET /api/v1/admin/iam/me/check?permission=metadata.dictionary:read
+// GET /api/v1/admin/iam/me/check?module=iam&resource=role&action=read
 func (h *RBACHandler) CheckPermission(c *gin.Context) {
-	plugin := c.Query("plugin")
-	resource := c.Query("resource")
-	action := c.Query("action")
+	module := strings.TrimSpace(c.Query("module"))
+	if module == "" {
+		module = strings.TrimSpace(c.Query("plugin"))
+	}
+	resource := strings.TrimSpace(c.Query("resource"))
+	action := strings.TrimSpace(c.Query("action"))
+	permission := strings.TrimSpace(c.Query("permission"))
+	if permission != "" {
+		parsedModule, parsedResource, parsedAction, err := parsePermissionCode(permission)
+		if err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "invalid permission", err)
+			return
+		}
+		module = parsedModule
+		resource = parsedResource
+		action = parsedAction
+	}
 
 	actor, ok := h.actorContextFromGin(c)
 	if !ok {
@@ -207,13 +222,42 @@ func (h *RBACHandler) CheckPermission(c *gin.Context) {
 		return
 	}
 	memberID, _ := strconv.ParseUint(c.Query("member_id"), 10, 64) // 可选，不传用上下文
+	if memberID == 0 {
+		memberID = reqctx.GetMemberID(c.Request.Context())
+	}
 
-	pass, err := h.svc.Enforce(c.Request.Context(), actor, tenantUUID, memberID, plugin, resource, action)
+	pass, err := h.svc.Enforce(c.Request.Context(), actor, tenantUUID, memberID, module, resource, action)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "鉴权检查失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"ok": pass})
+	dto.ResponseSuccess(c, gin.H{
+		"ok":             pass,
+		"has_permission": pass,
+		"module":         module,
+		"resource":       resource,
+		"action":         action,
+	})
+}
+
+func parsePermissionCode(code string) (module string, resource string, action string, err error) {
+	code = strings.TrimSpace(code)
+	actionSep := strings.LastIndex(code, ":")
+	if actionSep <= 0 || actionSep == len(code)-1 {
+		return "", "", "", errors.New("permission must use module.resource:action")
+	}
+	left := strings.TrimSpace(code[:actionSep])
+	action = strings.TrimSpace(code[actionSep+1:])
+	resourceSep := strings.LastIndex(left, ".")
+	if resourceSep <= 0 || resourceSep == len(left)-1 || action == "" {
+		return "", "", "", errors.New("permission must use module.resource:action")
+	}
+	module = strings.TrimSpace(left[:resourceSep])
+	resource = strings.TrimSpace(left[resourceSep+1:])
+	if module == "" || resource == "" {
+		return "", "", "", errors.New("permission must use module.resource:action")
+	}
+	return module, resource, action, nil
 }
 
 type setIDsReq struct {

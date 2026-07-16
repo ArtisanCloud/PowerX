@@ -321,6 +321,71 @@ curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
 
 因此，当你希望“统一入口 + 自动协议适配”时就用 `/tenant/invocations`；若只是简单的 REST 调试，也可以直接调用文档中的业务接口。两者可以并行使用。
 
+### Metadata Governance 能力
+
+插件读取底座统一元数据时，必须使用 Metadata Governance 能力，不读取插件私有默认值作为 fallback。
+
+可发现能力：
+
+```bash
+curl -sS "$API_ORIGIN/api/v1/tenant/capabilities?source=corex&page_size=500" \
+  -H "Authorization: Bearer $TOKEN" \
+  | jq '.data.items[] | select(.capability_id | startswith("com.corex.metadata."))'
+```
+
+插件 delegated 模式使用以下能力：
+
+| 场景 | capability_id | permission_code |
+| --- | --- | --- |
+| 读取资源类型 | `com.corex.metadata.resource_type.read` | `metadata.resource_type:read` |
+| 读取字典命名空间和字典项 | `com.corex.metadata.dictionary.read` | `metadata.dictionary:read` |
+| 读取分类体系和节点 | `com.corex.metadata.taxonomy.read` | `metadata.taxonomy:read` |
+| 读取标签和标签绑定 | `com.corex.metadata.tag.read` | `metadata.tag:read` |
+| 替换标签绑定 | `com.corex.metadata.tag.manage` | `metadata.tag:manage` |
+
+读取标签示例：
+
+```bash
+curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.metadata.tag.read",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "GET",
+          "endpoint": "/api/v1/admin/metadata/tags",
+          "query": {
+            "resource_type": "metadata.demo_resource",
+            "locale": "zh-CN"
+          }
+        }
+      }'
+```
+
+替换标签绑定示例：
+
+```bash
+curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.metadata.tag.manage",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "PUT",
+          "endpoint": "/api/v1/admin/metadata/tag-bindings",
+          "body": {
+            "resource_type": "metadata.demo_resource",
+            "resource_uuid": "<business-object-uuid>",
+            "tag_uuids": ["<tag-uuid>"]
+          }
+        }
+      }'
+```
+
+local 模式必须使用 `backend/config/metadata_governance/seed.yaml` 同源 seed。seed 缺失、schema 错误或没有 canonical definitions 时必须初始化失败。
+
 ### Direct REST 调用与 STS 自动开放
 
 插件使用 STS token 直接调用底座 REST 接口时，不再为普通开放能力逐条维护手工白名单。PowerX 会从正式能力目录自动派生可访问路由：

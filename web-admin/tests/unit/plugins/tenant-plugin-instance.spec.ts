@@ -86,6 +86,7 @@ beforeEach(() => {
   vi.stubGlobal("computed", computed);
   vi.stubGlobal("watch", watch);
   vi.stubGlobal("onMounted", onMounted);
+  vi.stubGlobal("useState", <T,>(_key: string, init: () => T) => ref(init()));
 });
 
   it("必须区分全局插件包已启用和当前租户实例已启用", async () => {

@@ -146,6 +146,34 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		require.Equal(t, "ocr_failed", apiResp.Data.ErrorCode)
 	})
 
+	t.Run("blocks when vector index is not activated", func(t *testing.T) {
+		noVectorSpace := env.CreateSpaceFixture("http-ingest-no-vector-index", tplID)
+		require.NoError(t, env.ClearSpaceActiveVectorIndex(noVectorSpace.UUID))
+		body := map[string]any{
+			"format":    "markdown",
+			"sourceUri": "s3://bucket/no-vector.md",
+		}
+		payload, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/ingestion-jobs", noVectorSpace.UUID), bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
+		require.Equal(t, http.StatusAccepted, resp.Code)
+
+		var apiResp struct {
+			Data struct {
+				Status              string  `json:"status"`
+				ErrorCode           string  `json:"errorCode"`
+				Reason              string  `json:"reason"`
+				EmbeddingSuccessPct float64 `json:"embeddingSuccessPct"`
+			} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &apiResp))
+		require.Equal(t, "blocked", apiResp.Data.Status)
+		require.Equal(t, "vector_index_not_activated", apiResp.Data.ErrorCode)
+		require.Equal(t, "no_active_vector_index", apiResp.Data.Reason)
+		require.Equal(t, 0.0, apiResp.Data.EmbeddingSuccessPct)
+	})
+
 	t.Run("returns 404 for unknown space", func(t *testing.T) {
 		body := map[string]any{
 			"format":    "pdf",

@@ -35,6 +35,7 @@ import (
 	integrationGatewayGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
+	metadatagrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/metadata"
 	opsgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/ops"
 	pluginreleasegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/plugin_release"
 	schedulergrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/scheduler"
@@ -158,6 +159,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	schedulergrpc.RegisterServer(s, deps)
 	skillsgrpc.RegisterAdminService(s, deps)
 	skillsgrpc.RegisterInvokeService(s, deps)
+	metadatagrpc.RegisterServer(s, deps)
 	if opsAdminHandler := opsgrpc.NewDeployHandler(deps); opsAdminHandler != nil {
 		platformopsv1.RegisterOpsAdminServiceServer(s, opsAdminHandler)
 	}

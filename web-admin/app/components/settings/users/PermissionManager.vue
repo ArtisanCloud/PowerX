@@ -309,6 +309,11 @@ const menuLabels: Record<
     group: "系统设置",
     icon: "i-heroicons-wrench-screwdriver",
   },
+  "settings.metadata_governance": {
+    label: "元数据治理",
+    group: "系统设置",
+    icon: "i-lucide-tags",
+  },
   "settings.ai": {
     label: "AI 设置",
     group: "系统设置",
@@ -358,6 +363,7 @@ const menuOrder = [
   "settings.users",
   "settings.roles",
   "settings.config",
+  "settings.metadata_governance",
   "settings.ai",
   "settings.ai.model",
   "settings.ai.cost",

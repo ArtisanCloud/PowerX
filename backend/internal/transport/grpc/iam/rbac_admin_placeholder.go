@@ -11,6 +11,5 @@ package iam
 // - CheckPermission：统一权限检查返回 allowed/reason
 //
 // 当前状态：
-// - HTTP 路由已实现对应语义（/admin/user/auth/me/* 与 /admin/iam/roles/me/check）
+// - HTTP 路由已实现对应语义（/admin/user/auth/me/* 与 /admin/iam/me/check）
 // - gRPC 管理语义暂未接入正式服务注册；此文件用于明确契约对齐与后续实现入口。
-

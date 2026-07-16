@@ -1,0 +1,367 @@
+version: 1
+module: corex.enterprise
+dictionaries:
+  - namespace: corex.customer.level
+    module: corex.customer
+    name_i18n:
+      zh-CN: 客户级别
+      en-US: Customer Level
+    description_i18n:
+      zh-CN: 企业客户分层和经营优先级。
+      en-US: Customer segmentation and operating priority.
+    items:
+      - code: standard
+        label_i18n:
+          zh-CN: 普通客户
+          en-US: Standard Customer
+        sort_order: 10
+      - code: key_account
+        label_i18n:
+          zh-CN: 重点客户
+          en-US: Key Account
+        sort_order: 20
+      - code: strategic
+        label_i18n:
+          zh-CN: 战略客户
+          en-US: Strategic Customer
+        sort_order: 30
+  - namespace: corex.customer.source
+    module: corex.customer
+    name_i18n:
+      zh-CN: 客户来源
+      en-US: Customer Source
+    description_i18n:
+      zh-CN: 客户首次进入系统的来源渠道。
+      en-US: Original acquisition channel for customer records.
+    items:
+      - code: website
+        label_i18n:
+          zh-CN: 官网
+          en-US: Website
+        sort_order: 10
+      - code: sales_entry
+        label_i18n:
+          zh-CN: 销售录入
+          en-US: Sales Entry
+        sort_order: 20
+      - code: campaign
+        label_i18n:
+          zh-CN: 市场活动
+          en-US: Campaign
+        sort_order: 30
+      - code: referral
+        label_i18n:
+          zh-CN: 推荐
+          en-US: Referral
+        sort_order: 40
+      - code: plugin_import
+        label_i18n:
+          zh-CN: 插件导入
+          en-US: Plugin Import
+        sort_order: 50
+  - namespace: corex.customer.status
+    module: corex.customer
+    name_i18n:
+      zh-CN: 客户状态
+      en-US: Customer Status
+    description_i18n:
+      zh-CN: 客户生命周期状态。
+      en-US: Customer lifecycle status.
+    items:
+      - code: prospect
+        label_i18n:
+          zh-CN: 潜在客户
+          en-US: Prospect
+        sort_order: 10
+      - code: active
+        label_i18n:
+          zh-CN: 活跃客户
+          en-US: Active
+        sort_order: 20
+      - code: suspended
+        label_i18n:
+          zh-CN: 冻结
+          en-US: Suspended
+        sort_order: 30
+      - code: churned
+        label_i18n:
+          zh-CN: 流失
+          en-US: Churned
+        sort_order: 40
+  - namespace: corex.sales.stage
+    module: corex.sales
+    name_i18n:
+      zh-CN: 销售阶段
+      en-US: Sales Stage
+    description_i18n:
+      zh-CN: 商机和销售推进阶段。
+      en-US: Opportunity and sales progression stages.
+    items:
+      - code: lead
+        label_i18n:
+          zh-CN: 线索
+          en-US: Lead
+        sort_order: 10
+      - code: contacted
+        label_i18n:
+          zh-CN: 已沟通
+          en-US: Contacted
+        sort_order: 20
+      - code: proposal
+        label_i18n:
+          zh-CN: 报价
+          en-US: Proposal
+        sort_order: 30
+      - code: contract
+        label_i18n:
+          zh-CN: 合同
+          en-US: Contract
+        sort_order: 40
+      - code: won
+        label_i18n:
+          zh-CN: 成交
+          en-US: Won
+        sort_order: 50
+      - code: lost
+        label_i18n:
+          zh-CN: 失败
+          en-US: Lost
+        sort_order: 60
+  - namespace: corex.sales.priority
+    module: corex.sales
+    name_i18n:
+      zh-CN: 销售优先级
+      en-US: Sales Priority
+    description_i18n:
+      zh-CN: 销售跟进优先级。
+      en-US: Sales follow-up priority.
+    items:
+      - code: low
+        label_i18n:
+          zh-CN: 低
+          en-US: Low
+        sort_order: 10
+      - code: medium
+        label_i18n:
+          zh-CN: 中
+          en-US: Medium
+        sort_order: 20
+      - code: high
+        label_i18n:
+          zh-CN: 高
+          en-US: High
+        sort_order: 30
+      - code: urgent
+        label_i18n:
+          zh-CN: 紧急
+          en-US: Urgent
+        sort_order: 40
+  - namespace: corex.knowledge.visibility
+    module: corex.knowledge
+    name_i18n:
+      zh-CN: 知识可见性
+      en-US: Knowledge Visibility
+    description_i18n:
+      zh-CN: 知识空间和内容的默认可见范围。
+      en-US: Default visibility scope for knowledge spaces and content.
+    items:
+      - code: private
+        label_i18n:
+          zh-CN: 私有
+          en-US: Private
+        sort_order: 10
+      - code: team
+        label_i18n:
+          zh-CN: 团队
+          en-US: Team
+        sort_order: 20
+      - code: tenant
+        label_i18n:
+          zh-CN: 全租户
+          en-US: Tenant
+        sort_order: 30
+taxonomies:
+  - namespace: corex.knowledge.category
+    module: corex.knowledge
+    name_i18n:
+      zh-CN: 知识分类
+      en-US: Knowledge Category
+    description_i18n:
+      zh-CN: 知识空间和知识内容的层级分类。
+      en-US: Hierarchical categories for knowledge spaces and content.
+    max_depth: 3
+    nodes:
+      - code: product_docs
+        label_i18n:
+          zh-CN: 产品文档
+          en-US: Product Docs
+        sort_order: 10
+      - parent_code: product_docs
+        code: installation
+        label_i18n:
+          zh-CN: 安装部署
+          en-US: Installation
+        sort_order: 10
+      - parent_code: installation
+        code: docker
+        label_i18n:
+          zh-CN: Docker 部署
+          en-US: Docker Deployment
+        sort_order: 10
+      - parent_code: installation
+        code: systemd
+        label_i18n:
+          zh-CN: systemd 部署
+          en-US: systemd Deployment
+        sort_order: 20
+      - parent_code: product_docs
+        code: api_reference
+        label_i18n:
+          zh-CN: API 文档
+          en-US: API Reference
+        sort_order: 20
+      - code: operations
+        label_i18n:
+          zh-CN: 运营文档
+          en-US: Operations Docs
+        sort_order: 20
+      - parent_code: operations
+        code: troubleshooting
+        label_i18n:
+          zh-CN: 故障排查
+          en-US: Troubleshooting
+        sort_order: 10
+  - namespace: corex.customer.industry
+    module: corex.customer
+    name_i18n:
+      zh-CN: 客户行业
+      en-US: Customer Industry
+    description_i18n:
+      zh-CN: 客户所属行业的层级分类。
+      en-US: Hierarchical industry classification for customers.
+    max_depth: 3
+    nodes:
+      - code: technology
+        label_i18n:
+          zh-CN: 科技
+          en-US: Technology
+        sort_order: 10
+      - parent_code: technology
+        code: saas
+        label_i18n:
+          zh-CN: SaaS
+          en-US: SaaS
+        sort_order: 10
+      - parent_code: technology
+        code: ecommerce
+        label_i18n:
+          zh-CN: 电商
+          en-US: E-commerce
+        sort_order: 20
+      - code: manufacturing
+        label_i18n:
+          zh-CN: 制造业
+          en-US: Manufacturing
+        sort_order: 20
+      - parent_code: manufacturing
+        code: automotive_parts
+        label_i18n:
+          zh-CN: 汽车零部件
+          en-US: Automotive Parts
+        sort_order: 10
+      - code: services
+        label_i18n:
+          zh-CN: 服务业
+          en-US: Services
+        sort_order: 30
+  - namespace: corex.media.category
+    module: corex.media
+    name_i18n:
+      zh-CN: 媒体分类
+      en-US: Media Category
+    description_i18n:
+      zh-CN: 媒体资产的层级分类。
+      en-US: Hierarchical categories for media assets.
+    max_depth: 2
+    nodes:
+      - code: image
+        label_i18n:
+          zh-CN: 图片
+          en-US: Image
+        sort_order: 10
+      - parent_code: image
+        code: product_image
+        label_i18n:
+          zh-CN: 产品图
+          en-US: Product Image
+        sort_order: 10
+      - parent_code: image
+        code: marketing_image
+        label_i18n:
+          zh-CN: 营销图
+          en-US: Marketing Image
+        sort_order: 20
+      - code: document
+        label_i18n:
+          zh-CN: 文档
+          en-US: Document
+        sort_order: 20
+resource_types:
+  - resource_type: customer.account
+    module: corex.customer
+    name_i18n:
+      zh-CN: 客户
+      en-US: Customer Account
+    description_i18n:
+      zh-CN: 客户主数据对象。
+      en-US: Customer master data object.
+    binding_enabled: false
+  - resource_type: knowledge.space
+    module: corex.knowledge
+    name_i18n:
+      zh-CN: 知识空间
+      en-US: Knowledge Space
+    description_i18n:
+      zh-CN: 知识库空间对象。
+      en-US: Knowledge space object.
+    binding_enabled: false
+  - resource_type: agent.profile
+    module: corex.agent
+    name_i18n:
+      zh-CN: 智能体
+      en-US: Agent Profile
+    description_i18n:
+      zh-CN: 智能体配置对象。
+      en-US: Agent configuration object.
+    binding_enabled: false
+  - resource_type: media.asset
+    module: corex.media
+    name_i18n:
+      zh-CN: 媒体资产
+      en-US: Media Asset
+    description_i18n:
+      zh-CN: 媒体资产对象。
+      en-US: Media asset object.
+    binding_enabled: false
+tags:
+  - namespace: corex.customer.tag
+    resource_type: customer.account
+    code: important
+    label_i18n:
+      zh-CN: 重要
+      en-US: Important
+    color: "#0ea5e9"
+  - namespace: corex.customer.tag
+    resource_type: customer.account
+    code: follow_up
+    label_i18n:
+      zh-CN: 待跟进
+      en-US: Follow Up
+    color: "#f59e0b"
+  - namespace: corex.knowledge.tag
+    resource_type: knowledge.space
+    code: internal
+    label_i18n:
+      zh-CN: 内部资料
+      en-US: Internal
+    color: "#6366f1"

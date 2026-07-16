@@ -162,19 +162,27 @@ paths:
       responses:
         '200':
           description: Permissions list
-  /admin/iam/roles/me/check:
+  /admin/iam/me/check:
     get:
       summary: Check permission for current principal
       operationId: checkPermission
-      tags: [IAMRoles]
+      tags: [IAMRBAC]
       parameters:
+        - name: permission
+          in: query
+          required: false
+          schema: { type: string }
         - name: action
           in: query
-          required: true
+          required: false
           schema: { type: string }
         - name: resource
           in: query
-          required: true
+          required: false
+          schema: { type: string }
+        - name: module
+          in: query
+          required: false
           schema: { type: string }
       responses:
         '200':
