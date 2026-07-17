@@ -306,11 +306,11 @@ const state = reactive({
   namespace: "",
   env: envOptions[0].value,
   autoUpdate: true,
-  forceInstall: false,
+  forceInstall: true,
   perms: {
     network: true,
     storage: true,
-    files: false,
+    files: true,
   },
   notes: "",
 });

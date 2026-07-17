@@ -51,6 +51,7 @@ const POWERX_CORE_BASE =
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  buildDir: ".nuxt",
   ssr: false,
   router: {
     options: {

@@ -40,7 +40,7 @@ type updateMyProfileReq struct {
 }
 
 type changeMyPasswordReq struct {
-	CurrentPassword string `json:"current_password" validate:"required,min=6,max=64"`
+	CurrentPassword string `json:"current_password" validate:"required,max=64"`
 	NewPassword     string `json:"new_password" validate:"required,min=6,max=64"`
 }
 
