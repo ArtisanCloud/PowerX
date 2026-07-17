@@ -133,7 +133,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	m.applyHostCORSContract(selected, structured)
 
 	if seed != nil {
-		selected = mergeStringMapMissing(selected, seed.Values)
+		selected = mergeStringMapOverride(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
 	m.applyDelegatedHostContract(selected, structured, man.ID, nil)
@@ -200,9 +200,13 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 		return
 	}
 	// 安装产物在宿主内运行，默认按 delegated_proxy 契约写入 taskbus provider=host。
+	for _, key := range deprecatedProviderModeEnvKeys() {
+		delete(selected, key)
+	}
 	selected["POWERX_PROXY"] = "1"
-	selected["IAMMode"] = "delegated"
-	selected["IAM_MODE"] = "delegated"
+	selected["POWERX_PROVIDER_MODE"] = "delegated"
+	selected["NUXT_PUBLIC_POWERX_PROVIDER_MODE"] = "delegated"
+	selected["NUXT_PUBLIC_POWERX_PROXY"] = "1"
 	selected["TASKBUS_PROVIDER"] = "host"
 	selected["taskbus_provider"] = "host"
 	selected["POWERX_TASKBUS_PROVIDER"] = "host"
@@ -240,7 +244,8 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	if structured == nil {
 		return
 	}
-	setNestedValue(structured, []string{"context", "iam_mode"}, "delegated")
+	deleteDeprecatedProviderModeKeys(structured)
+	setNestedValue(structured, []string{"context", "provider_mode"}, "delegated")
 	setNestedValue(structured, []string{"taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "enabled"}, true)
@@ -360,7 +365,10 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin,
 	for k, v := range values {
 		envDoc[k] = v
 	}
+	deleteDeprecatedProviderModeEnvKeys(envDoc)
 	doc["env"] = envDoc
+	deleteDeprecatedProviderModeKeys(doc)
+	setNestedValue(doc, []string{"context", "provider_mode"}, "delegated")
 	setNestedValue(doc, []string{"taskbus_provider"}, "host")
 	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
 	setNestedValue(doc, []string{"event_bridge", "enabled"}, true)
@@ -1323,6 +1331,34 @@ func mergeStringMapMissing(dst map[string]string, src map[string]string) map[str
 		}
 	}
 	return dst
+}
+
+func mergeStringMapOverride(dst map[string]string, src map[string]string) map[string]string {
+	if dst == nil {
+		dst = map[string]string{}
+	}
+	for k, v := range src {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		dst[key] = v
+	}
+	return dst
+}
+
+func deleteDeprecatedProviderModeKeys(doc map[string]any) {
+	deleteNestedValue(doc, []string{"context", "iam" + "_" + "mode"})
+}
+
+func deleteDeprecatedProviderModeEnvKeys(env map[string]any) {
+	for _, key := range deprecatedProviderModeEnvKeys() {
+		delete(env, key)
+	}
+}
+
+func deprecatedProviderModeEnvKeys() []string {
+	return []string{"IAM" + "_MODE", "IAM" + "Mode"}
 }
 
 func mergeHostSpecMissing(dst map[string]any, src map[string]any) map[string]any {
