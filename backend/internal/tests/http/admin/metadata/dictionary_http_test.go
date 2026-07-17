@@ -25,7 +25,9 @@ func TestDictionaryHTTPCreateAndList(t *testing.T) {
 	router := gin.New()
 	protected := router.Group("/api/v1")
 	protected.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(reqctx.WithTenantUUID(c.Request.Context(), tenantUUID))
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+		ctx = reqctx.WithIsRoot(ctx, true)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
 	adminhttp.RegisterAPIRoutes(router.Group("/api/v1"), protected, &shared.Deps{DB: db})
@@ -60,7 +62,7 @@ func TestDictionaryHTTPRequiresTenantContext(t *testing.T) {
 	router := gin.New()
 	adminhttp.RegisterAPIRoutes(router.Group("/api/v1"), router.Group("/api/v1"), &shared.Deps{DB: db})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/metadata/dictionaries", nil).WithContext(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/metadata/dictionaries", nil).WithContext(reqctx.WithIsRoot(context.Background(), true))
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected tenant context failure, got %d", rec.Code)

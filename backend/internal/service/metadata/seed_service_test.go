@@ -84,6 +84,32 @@ tags:
 	}
 }
 
+func TestSeedServiceRejectsUnresolvedTaxonomyParent(t *testing.T) {
+	db := newSeedServiceTestDB(t)
+	path := writeSeedTestFile(t, `
+version: 1
+module: corex.metadata
+taxonomies:
+  - namespace: corex.metadata.category
+    name_i18n:
+      zh-CN: 分类
+    max_depth: 3
+    nodes:
+      - code: child
+        parent_code: missing_parent
+        label_i18n:
+          zh-CN: 子节点
+`)
+	svc, err := NewSeedService(SeedServiceOptions{DB: db, SeedPath: path})
+	if err != nil {
+		t.Fatalf("new seed service: %v", err)
+	}
+	_, _, err = svc.Execute(context.Background(), SeedExecutionInput{TenantUUID: uuid.New().String()})
+	if !errors.Is(err, ErrInvalidParentReference) {
+		t.Fatalf("expected invalid parent reference, got %v", err)
+	}
+}
+
 func writeSeedTestFile(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "seed.yaml")

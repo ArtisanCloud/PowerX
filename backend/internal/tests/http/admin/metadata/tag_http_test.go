@@ -32,7 +32,9 @@ func TestTagHTTPCreateReplaceBindingAndList(t *testing.T) {
 	router := gin.New()
 	protected := router.Group("/api/v1")
 	protected.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(reqctx.WithTenantUUID(c.Request.Context(), tenantUUID))
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+		ctx = reqctx.WithIsRoot(ctx, true)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
 	adminhttp.RegisterAPIRoutes(router.Group("/api/v1"), protected, &shared.Deps{

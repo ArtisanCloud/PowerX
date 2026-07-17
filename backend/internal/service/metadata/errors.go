@@ -18,5 +18,6 @@ const (
 	CodeResourceTypeMissing       = "METADATA_RESOURCE_TYPE_MISSING"
 	CodeResourceBindingDisabled   = "METADATA_RESOURCE_BINDING_DISABLED"
 	CodeResourceValidatorMissing  = "METADATA_RESOURCE_VALIDATOR_MISSING"
+	CodeInvalidParentReference    = "METADATA_INVALID_PARENT_REFERENCE"
 	CodeNotImplemented            = "METADATA_NOT_IMPLEMENTED"
 )

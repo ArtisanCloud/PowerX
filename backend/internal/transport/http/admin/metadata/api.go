@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	metasvc "github.com/ArtisanCloud/PowerX/internal/service/metadata"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -24,35 +25,81 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		}
 	}
 	g := protected.Group("/admin/metadata")
-	g.GET("/dictionaries", h.listDictionaryNamespaces)
-	g.POST("/dictionaries", h.createDictionaryNamespace)
-	g.PATCH("/dictionaries/:namespace_uuid", h.updateDictionaryNamespace)
-	g.GET("/dictionaries/:namespace_uuid/items", h.listDictionaryItems)
-	g.POST("/dictionaries/:namespace_uuid/items", h.createDictionaryItem)
-	g.PATCH("/dictionary-items/:item_uuid", h.updateDictionaryItem)
-	g.DELETE("/dictionary-items/:item_uuid", h.deleteDictionaryItem)
-	g.GET("/taxonomies", h.listTaxonomies)
-	g.POST("/taxonomies", h.createTaxonomy)
-	g.PATCH("/taxonomies/:taxonomy_uuid", h.updateTaxonomy)
-	g.GET("/taxonomies/:taxonomy_uuid/nodes", h.listTaxonomyNodes)
-	g.POST("/taxonomies/:taxonomy_uuid/nodes", h.createTaxonomyNode)
-	g.PATCH("/taxonomy-nodes/:node_uuid", h.updateTaxonomyNode)
-	g.DELETE("/taxonomy-nodes/:node_uuid", h.deleteTaxonomyNode)
-	g.POST("/taxonomy-nodes/:node_uuid/move", h.moveTaxonomyNode)
-	g.GET("/tags", h.listTags)
-	g.POST("/tags", h.createTag)
-	g.PATCH("/tags/:tag_uuid", h.updateTag)
-	g.DELETE("/tags/:tag_uuid", h.deleteTag)
-	g.POST("/tags/merge", h.mergeTags)
-	g.GET("/tag-bindings", h.listTagBindings)
-	g.PUT("/tag-bindings", h.replaceTagBindings)
-	g.GET("/resource-types", h.listResourceTypes)
-	g.POST("/resource-types", h.registerResourceType)
-	g.PATCH("/resource-types/:resource_type_uuid", h.updateResourceType)
+	dictionaryRead := requireMetadataPermission(deps, "dictionary", "read")
+	dictionaryManage := requireMetadataPermission(deps, "dictionary", "manage")
+	taxonomyRead := requireMetadataPermission(deps, "taxonomy", "read")
+	taxonomyManage := requireMetadataPermission(deps, "taxonomy", "manage")
+	tagRead := requireMetadataPermission(deps, "tag", "read")
+	tagManage := requireMetadataPermission(deps, "tag", "manage")
+	resourceTypeRead := requireMetadataPermission(deps, "resource_type", "read")
+	resourceTypeManage := requireMetadataPermission(deps, "resource_type", "manage")
+
+	g.GET("/dictionaries", dictionaryRead, h.listDictionaryNamespaces)
+	g.POST("/dictionaries", dictionaryManage, h.createDictionaryNamespace)
+	g.PATCH("/dictionaries/:namespace_uuid", dictionaryManage, h.updateDictionaryNamespace)
+	g.GET("/dictionaries/:namespace_uuid/items", dictionaryRead, h.listDictionaryItems)
+	g.POST("/dictionaries/:namespace_uuid/items", dictionaryManage, h.createDictionaryItem)
+	g.PATCH("/dictionary-items/:item_uuid", dictionaryManage, h.updateDictionaryItem)
+	g.DELETE("/dictionary-items/:item_uuid", dictionaryManage, h.deleteDictionaryItem)
+	g.GET("/taxonomies", taxonomyRead, h.listTaxonomies)
+	g.POST("/taxonomies", taxonomyManage, h.createTaxonomy)
+	g.PATCH("/taxonomies/:taxonomy_uuid", taxonomyManage, h.updateTaxonomy)
+	g.GET("/taxonomies/:taxonomy_uuid/nodes", taxonomyRead, h.listTaxonomyNodes)
+	g.POST("/taxonomies/:taxonomy_uuid/nodes", taxonomyManage, h.createTaxonomyNode)
+	g.PATCH("/taxonomy-nodes/:node_uuid", taxonomyManage, h.updateTaxonomyNode)
+	g.DELETE("/taxonomy-nodes/:node_uuid", taxonomyManage, h.deleteTaxonomyNode)
+	g.POST("/taxonomy-nodes/:node_uuid/move", taxonomyManage, h.moveTaxonomyNode)
+	g.GET("/tags", tagRead, h.listTags)
+	g.POST("/tags", tagManage, h.createTag)
+	g.PATCH("/tags/:tag_uuid", tagManage, h.updateTag)
+	g.DELETE("/tags/:tag_uuid", tagManage, h.deleteTag)
+	g.POST("/tags/merge", tagManage, h.mergeTags)
+	g.GET("/tag-bindings", tagRead, h.listTagBindings)
+	g.PUT("/tag-bindings", tagManage, h.replaceTagBindings)
+	g.GET("/resource-types", resourceTypeRead, h.listResourceTypes)
+	g.POST("/resource-types", resourceTypeManage, h.registerResourceType)
+	g.PATCH("/resource-types/:resource_type_uuid", resourceTypeManage, h.updateResourceType)
 }
 
 type handler struct {
 	service *metasvc.Service
+}
+
+func requireMetadataPermission(deps *shared.Deps, resource, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if deps == nil || deps.DB == nil {
+			dto.ResponseError(c, http.StatusInternalServerError, "metadata.authorization_unavailable", nil)
+			c.Abort()
+			return
+		}
+
+		ctx := c.Request.Context()
+		actor := iamsvc.ActorContext{IsRoot: reqctx.IsRoot(ctx), TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx))}
+		if actor.IsRoot {
+			c.Next()
+			return
+		}
+
+		memberID := reqctx.GetMemberID(ctx)
+		if memberID == 0 || actor.TenantUUID == "" {
+			dto.ResponseError(c, http.StatusUnauthorized, "metadata.authorization_context_required", nil)
+			c.Abort()
+			return
+		}
+
+		pass, err := iamsvc.NewRBACService(deps.DB).Enforce(ctx, actor, actor.TenantUUID, memberID, "metadata", resource, action)
+		if err != nil {
+			dto.ResponseError(c, http.StatusForbidden, "metadata.rbac_check_failed", err)
+			c.Abort()
+			return
+		}
+		if !pass {
+			dto.ResponseError(c, http.StatusForbidden, "metadata.permission_denied", nil)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }
 
 func (h *handler) notImplemented(c *gin.Context) {
