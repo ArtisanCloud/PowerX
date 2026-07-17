@@ -294,6 +294,88 @@ func TestCreateAsset_ObjectKeyMustBeUUID(t *testing.T) {
 	assert.Equal(t, 0, repo.createCalls)
 }
 
+func TestCreateAsset_ReturnsExistingForSameContentSHA256(t *testing.T) {
+	repo := newStubAssetRepo()
+	audit := &stubAuditService{}
+	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+	contentSHA256 := strings.Repeat("a", 64)
+
+	first, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID:   mediaTenantUUID,
+		Name:         "design.png",
+		Driver:       "local",
+		UploadMethod: UploadMethodPresign,
+		Metadata:     map[string]any{"content_sha256": contentSHA256},
+	})
+	require.NoError(t, err)
+
+	second, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID:   mediaTenantUUID,
+		Name:         "design copy.png",
+		Driver:       "local",
+		UploadMethod: UploadMethodPresign,
+		Metadata:     map[string]any{"content_sha256": strings.ToUpper(contentSHA256)},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, first.UUID, second.UUID)
+	assert.Equal(t, first.StorageKey, second.StorageKey)
+	assert.Equal(t, 1, repo.createCalls)
+}
+
+func TestCreateAsset_InvalidContentSHA256(t *testing.T) {
+	repo := newStubAssetRepo()
+	audit := &stubAuditService{}
+	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+
+	_, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID:   mediaTenantUUID,
+		Name:         "design.png",
+		Driver:       "local",
+		UploadMethod: UploadMethodPresign,
+		Metadata:     map[string]any{"content_sha256": "not-a-sha256"},
+	})
+	require.ErrorIs(t, err, ErrContentSHA256Invalid)
+	assert.Equal(t, 0, repo.createCalls)
+}
+
+func TestCreateAsset_ReturnsExistingForSameExternalURL(t *testing.T) {
+	testutil.SkipIfNoLocalListener(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "2048")
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	repo := newStubAssetRepo()
+	audit := &stubAuditService{}
+	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+	externalURL := server.URL + "/design.png"
+
+	first, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID:   mediaTenantUUID,
+		Name:         "design.png",
+		Driver:       "local",
+		UploadMethod: UploadMethodExternalLink,
+		ExternalURL:  externalURL,
+	})
+	require.NoError(t, err)
+
+	second, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID:   mediaTenantUUID,
+		Name:         "design copy.png",
+		Driver:       "local",
+		UploadMethod: UploadMethodExternalLink,
+		ExternalURL:  externalURL,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, first.UUID, second.UUID)
+	assert.Equal(t, first.StorageKey, second.StorageKey)
+	assert.Equal(t, 1, repo.createCalls)
+}
+
 func TestDeleteAsset_EmitAudit(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()

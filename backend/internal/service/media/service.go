@@ -40,6 +40,8 @@ var (
 	ErrExternalURLRequired = errors.New("external url required for upload method")
 	// ErrObjectKeyMustBeUUID 表示 object key 只能为 UUID。
 	ErrObjectKeyMustBeUUID = errors.New("object key must be uuid")
+	// ErrContentSHA256Invalid 表示 content_sha256 元数据格式非法。
+	ErrContentSHA256Invalid = errors.New("content_sha256 must be 64 hex characters")
 )
 
 // UploadMethod 定义媒体上传方式。
@@ -350,10 +352,22 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		}
 	}
 
+	contentSHA256, err := contentSHA256FromMetadata(in.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
 	storageKey := strings.TrimSpace(in.StorageKey)
 	var assetUUID uuid.UUID
 	if storageKey == "" {
-		assetUUID = uuid.New()
+		switch {
+		case method == UploadMethodExternalLink:
+			assetUUID = deterministicAssetUUID("external_link:" + strings.TrimSpace(in.ExternalURL))
+		case contentSHA256 != "":
+			assetUUID = deterministicAssetUUID("content_sha256:" + contentSHA256)
+		default:
+			assetUUID = uuid.New()
+		}
 		storageKey = mediaAssetOriginStorageKey(assetUUID.String())
 	} else {
 		parsed, parseErr := uuid.Parse(storageKey)
@@ -1255,6 +1269,37 @@ func cloneMetadata(meta map[string]any) map[string]any {
 
 func normalizeTags(tags []string) []string {
 	return normalizeStrings(tags)
+}
+
+func contentSHA256FromMetadata(meta map[string]any) (string, error) {
+	if len(meta) == 0 {
+		return "", nil
+	}
+	raw, ok := meta["content_sha256"]
+	if !ok || raw == nil {
+		return "", nil
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return "", ErrContentSHA256Invalid
+	}
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if len(normalized) != sha256.Size*2 {
+		return "", ErrContentSHA256Invalid
+	}
+	if _, err := hex.DecodeString(normalized); err != nil {
+		return "", ErrContentSHA256Invalid
+	}
+	return normalized, nil
+}
+
+func deterministicAssetUUID(seed string) uuid.UUID {
+	sum := sha256.Sum256([]byte(seed))
+	raw := make([]byte, 16)
+	copy(raw, sum[:16])
+	raw[6] = (raw[6] & 0x0f) | 0x50
+	raw[8] = (raw[8] & 0x3f) | 0x80
+	return uuid.Must(uuid.FromBytes(raw))
 }
 
 func normalizeVariantName(value string) string {

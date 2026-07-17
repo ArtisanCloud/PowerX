@@ -167,7 +167,6 @@ import { useToast } from "#imports";
 import { useMediaAssetService } from "~/composables/api/services/mediaAssetService";
 import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 import { useFileHash } from "~/composables/useFileHash";
-import { useUserStore } from "~/stores/user";
 import type {
   MediaAssetAdminView,
 } from "~/composables/api/services/mediaAssetService";
@@ -189,7 +188,6 @@ const open = computed({
 const toast = useToast();
 const media = useMediaAssetService();
 const { buildStorageKeyFromFile } = useFileHash();
-const userStore = useUserStore();
 
 const tabs = [
   { label: "预签名上传（推荐）", value: "presign" },
@@ -303,12 +301,10 @@ async function startPresignUpload() {
 
     setBusy("创建资产记录...", 10);
     const tenantUuid = resolveTenantUUIDForRequest();
-    const userScopeId =
-      userStore.currentMemberId ||
-      userStore.user?.id ||
-      "";
-    const scopeKey = userScopeId ? `${tenantUuid}:${userScopeId}` : tenantUuid;
-    const hashInfo = await buildStorageKeyFromFile(file.value, scopeKey);
+    if (!tenantUuid) {
+      throw new Error("缺少租户上下文");
+    }
+    const hashInfo = await buildStorageKeyFromFile(file.value, tenantUuid);
     const created = await media.createAsset({
       name,
       driver: presignForm.driver || undefined,
