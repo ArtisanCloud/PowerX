@@ -112,10 +112,16 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 		}
 		ctx := c.Request.Context()
 		meta := coalesceInstallMetadata(c, req.Metadata)
+		hostSeed, err := installTenantHostConfigSeed(c)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_TENANT_CONTEXT_REQUIRED", err)
+			return
+		}
 		p, err := mgr.InstallFromFile(ctx, srcPath, plugin_mgr.InstallOptions{
-			AutoEnable: req.Enable,
-			Force:      req.Force,
-			Metadata:   meta,
+			AutoEnable:     req.Enable,
+			Force:          req.Force,
+			HostConfigSeed: hostSeed,
+			Metadata:       meta,
 		})
 		if err != nil {
 			respondPluginInstallError(c, "安装失败", err)
@@ -592,11 +598,17 @@ func PluginInstallURLHandler(deps *shared.Deps) gin.HandlerFunc {
 
 		// 安装（只登记、不自动启用）
 		meta := coalesceInstallMetadata(c, req.Metadata)
+		hostSeed, err := installTenantHostConfigSeed(c)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_TENANT_CONTEXT_REQUIRED", err)
+			return
+		}
 		p, err := mgr.InstallFromURL(ctx, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
 			VerifyChecksum:  req.SHA256 != "", // 传了就校验
 			VerifySignature: false,            // 先关；后续接公钥再开
 			AutoEnable:      req.Enable,
 			Force:           req.Force,
+			HostConfigSeed:  hostSeed,
 			Metadata:        meta,
 		})
 		if err != nil {
@@ -730,6 +742,24 @@ func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) pl
 	}
 	meta := mergeInstallMetadata(body, fromForm)
 	return normalizeInstallMetadata(meta)
+}
+
+func installTenantHostConfigSeed(c *gin.Context) (*plugin_mgr.HostConfig, error) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		return nil, err
+	}
+	tenantUUID, err = reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	return &plugin_mgr.HostConfig{
+		Values: map[string]string{
+			"PLUGIN_IAM_TENANT_KEY":            tenantUUID,
+			"POWERX_GRPC_UPSTREAM_TENANT_UUID": tenantUUID,
+			"POWERX_INSTALL_TENANT_UUID":       tenantUUID,
+		},
+	}, nil
 }
 
 func mergeInstallMetadata(primary, secondary plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {

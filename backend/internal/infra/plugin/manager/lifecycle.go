@@ -179,10 +179,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	// 宿主托管插件始终按 delegated_proxy 运行，不因启动时是否有租户上下文切换 runtime mode。
 	envAPI["POWERX_PROXY"] = "1"
 	applyDelegatedRuntimeEnv(envAPI)
-	logger.InfoF(ctx, "[plugin-enable] plugin=%s delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+	logger.InfoF(ctx, "[plugin-enable] plugin=%s delegated_runtime_env provider_mode=%s proxy=%s auth_scheme=%s",
 		p.ID,
-		strings.TrimSpace(envAPI["IAMMode"]),
-		strings.TrimSpace(envAPI["IAM_MODE"]),
+		strings.TrimSpace(envAPI["POWERX_PROVIDER_MODE"]),
 		strings.TrimSpace(envAPI["POWERX_PROXY"]),
 		strings.TrimSpace(envAPI["PX_GATEWAY_AUTH_SCHEME"]),
 	)
@@ -406,10 +405,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 		envADM["POWERX_PROXY"] = "1"
 		applyDelegatedRuntimeEnv(envADM)
-		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env mode=%s mode_legacy=%s proxy=%s auth_scheme=%s",
+		logger.InfoF(ctx, "[plugin-enable] plugin=%s admin_delegated_runtime_env provider_mode=%s proxy=%s auth_scheme=%s",
 			p.ID,
-			strings.TrimSpace(envADM["IAMMode"]),
-			strings.TrimSpace(envADM["IAM_MODE"]),
+			strings.TrimSpace(envADM["POWERX_PROVIDER_MODE"]),
 			strings.TrimSpace(envADM["POWERX_PROXY"]),
 			strings.TrimSpace(envADM["PX_GATEWAY_AUTH_SCHEME"]),
 		)
@@ -704,10 +702,11 @@ func applyDelegatedRuntimeEnv(env map[string]string) {
 	if env == nil {
 		return
 	}
-	// Enforce delegated IAM for managed plugin runtimes.
+	// Enforce delegated business providers for managed plugin runtimes.
 	env["POWERX_PROXY"] = "1"
-	env["IAMMode"] = "delegated"
-	env["IAM_MODE"] = "delegated"
+	env["POWERX_PROVIDER_MODE"] = "delegated"
+	env["NUXT_PUBLIC_POWERX_PROVIDER_MODE"] = "delegated"
+	env["NUXT_PUBLIC_POWERX_PROXY"] = "1"
 	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 
 	env["TASKBUS_PROVIDER"] = "host"

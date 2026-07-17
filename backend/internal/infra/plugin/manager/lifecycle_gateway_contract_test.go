@@ -124,10 +124,15 @@ func TestDelegatedHostContractPrefersRuntimeEnvOverStaleHostValues(t *testing.T)
 func TestEnsureDelegatedHostContractForEnableWritesRuntimeSTSToHostValues(t *testing.T) {
 	dir := t.TempDir()
 	hostValuesPath := filepath.Join(dir, "host-values.yaml")
+	deprecatedKeys := deprecatedProviderModeEnvKeys()
 	initial := []byte(`
 env:
   PX_GATEWAY_BASE_URL: http://127.0.0.1:8077
   PX_GATEWAY_AUTH_SCHEME: bearer
+  ` + deprecatedKeys[0] + `: delegated
+  ` + deprecatedKeys[1] + `: delegated
+context:
+  ` + "iam" + "_" + "mode" + `: delegated
 `)
 	if err := os.WriteFile(hostValuesPath, initial, 0o640); err != nil {
 		t.Fatal(err)
@@ -180,6 +185,30 @@ env:
 	}
 	if got := env["POWERX_GRPC_UPSTREAM_ADDRESS"]; got != cred.GRPCAddress {
 		t.Fatalf("POWERX_GRPC_UPSTREAM_ADDRESS = %q, want %q", got, cred.GRPCAddress)
+	}
+	if got := env["POWERX_PROVIDER_MODE"]; got != "delegated" {
+		t.Fatalf("POWERX_PROVIDER_MODE = %q, want delegated", got)
+	}
+	if got := env["NUXT_PUBLIC_POWERX_PROVIDER_MODE"]; got != "delegated" {
+		t.Fatalf("NUXT_PUBLIC_POWERX_PROVIDER_MODE = %q, want delegated", got)
+	}
+	if got := env["POWERX_PROXY"]; got != "1" {
+		t.Fatalf("POWERX_PROXY = %q, want 1", got)
+	}
+	for _, key := range deprecatedKeys {
+		if _, ok := env[key]; ok {
+			t.Fatalf("%s should not be set in host-values env", key)
+		}
+	}
+	contextDoc, ok := doc["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("host-values context missing: %#v", doc)
+	}
+	if got := contextDoc["provider_mode"]; got != "delegated" {
+		t.Fatalf("context.provider_mode = %q, want delegated", got)
+	}
+	if _, ok := contextDoc["iam"+"_"+"mode"]; ok {
+		t.Fatal("deprecated context provider mode key should not be set in host-values")
 	}
 }
 

@@ -16,18 +16,20 @@
   - 统一运行时接口（`/api/v1/admin/runtime/*`）
 - PowerXPlugin framework
   - 统一 contract、client/provider 抽象
-  - 模式切换（`POWERX_PROXY` / `IAMMode`）
+  - Provider 模式切换（`POWERX_PROVIDER_MODE`）与宿主链路开关（`POWERX_PROXY`）
   - skeleton 模板能力沉淀
 - 业务插件（如 SCRM）
   - 业务编排（线索、作业、回执）
   - 不直接耦合第三方渠道 SDK
 
-## 3. 模式语义
+## 3. Provider 与运行时链路语义
 
-- `POWERX_PROXY=0`：standalone（插件自运行）
-- `POWERX_PROXY=1`：host/proxy（经底座网关与 Runtime）
-- `IAMMode=local`：本地 IAM 语义
-- `IAMMode=delegated`：宿主委派 IAM 语义
+- `POWERX_PROVIDER_MODE=local`：插件业务 provider 使用本地 service / DB。
+- `POWERX_PROVIDER_MODE=delegated`：插件业务 provider 委派到 PowerX Core 能力。
+- `POWERX_PROXY=0`：不连接 PowerX 宿主代理、网关、WS、Scheduler 等运行时链路。
+- `POWERX_PROXY=1`：连接 PowerX 宿主代理、网关、WS、Scheduler 等运行时链路。
+
+`POWERX_PROXY` 不得推导或覆盖 `POWERX_PROVIDER_MODE`。例如 `POWERX_PROVIDER_MODE=local` 且 `POWERX_PROXY=1` 表示业务数据仍走插件本地 provider，但运行时链路连接宿主。
 
 要求：同一业务接口在两种模式下返回语义一致。
 
