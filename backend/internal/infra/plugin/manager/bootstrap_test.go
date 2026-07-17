@@ -49,7 +49,7 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 	require.Equal(t, plugin_mgr.StateInstalled, items[0].State)
 }
 
-func TestBootstrapRestoresEnabledPlugin(t *testing.T) {
+func TestBootstrapDoesNotRestoreEnabledPluginSynchronously(t *testing.T) {
 	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
 		runBootstrapTestPluginProcess()
 		return
@@ -109,11 +109,117 @@ func TestBootstrapRestoresEnabledPlugin(t *testing.T) {
 	require.Equal(t, plugin_mgr.StateEnabled, items[0].State)
 
 	resp := performBootstrapDebugRequest(engine)
+	require.NotContains(t, resp, `"com.powerx.plugins.restore-test"`)
+}
+
+func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
+	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
+		runBootstrapTestPluginProcess()
+		return
+	}
+
+	ctx := context.Background()
+	root := t.TempDir()
+	installedRoot := filepath.Join(root, "installed")
+	registry := NewJSONRegistry(filepath.Join(root, "registry.json"))
+	require.NoError(t, registry.Load(ctx))
+	pluginRoot := filepath.Join(installedRoot, "com.powerx.plugins.restore-test", "0.1.0")
+	writeBootstrapRestoreTestPlugin(t, pluginRoot)
+
+	desc, err := NewFSLoader().LoadDescriptor(ctx, pluginRoot)
+	require.NoError(t, err)
+	require.NoError(t, registry.Put(ctx, desc, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.UpdateState(ctx, desc.Manifest.ID, desc.Manifest.Version, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.Save(ctx))
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	dr := router.NewDynamicRouter("/_p", engine)
+	m := &managerImpl{
+		opts: Options{
+			Enabled:       true,
+			InstalledRoot: installedRoot,
+			Registry:      registry,
+			Loader:        NewFSLoader(),
+			HTTP:          dr,
+			Supervisor:    supervisor.New(),
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8077},
+			},
+			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
+				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
+				return &PluginRuntimeCredential{
+					TenantUUID:     "00000000-0000-0000-0000-000000000001",
+					ClientID:       "com.powerx.plugins.restore-test.00000000-0000-0000-0000-000000000001",
+					ClientSecret:   "runtime-secret",
+					GRPCAddress:    "127.0.0.1:9001",
+					STSAudience:    "powerx:api",
+					STSScope:       "access",
+					GatewayBaseURL: "http://127.0.0.1:8077",
+				}, nil
+			},
+		},
+		http: dr,
+		sup:  supervisor.New(),
+	}
+	m.sup = m.opts.Supervisor
+
+	require.NoError(t, m.Bootstrap(ctx))
+	require.NoError(t, m.restoreEnabledPlugins(ctx))
+
+	resp := performBootstrapDebugRequest(engine)
 	require.Contains(t, resp, `"com.powerx.plugins.restore-test"`)
 	require.Contains(t, resp, `"basePath":"/api/v1"`)
 	t.Cleanup(func() {
 		_ = m.Disable(ctx, "com.powerx.plugins.restore-test")
 	})
+}
+
+func TestBootstrapKeepsManagerAvailableWhenEnabledPluginRestoreFails(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	root := t.TempDir()
+	installedRoot := filepath.Join(root, "installed")
+	registry := NewJSONRegistry(filepath.Join(root, "registry.json"))
+	require.NoError(t, registry.Load(ctx))
+	pluginRoot := filepath.Join(installedRoot, "com.powerx.plugins.restore-fails", "0.1.0")
+	writeBootstrapRestoreTestPlugin(t, pluginRoot)
+
+	desc, err := NewFSLoader().LoadDescriptor(ctx, pluginRoot)
+	require.NoError(t, err)
+	require.NoError(t, registry.Put(ctx, desc, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.UpdateState(ctx, desc.Manifest.ID, desc.Manifest.Version, plugin_mgr.StateEnabled))
+	require.NoError(t, registry.Save(ctx))
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	dr := router.NewDynamicRouter("/_p", engine)
+	m := &managerImpl{
+		opts: Options{
+			Enabled:       true,
+			InstalledRoot: installedRoot,
+			Registry:      registry,
+			Loader:        NewFSLoader(),
+			HTTP:          dr,
+			Supervisor:    supervisor.New(),
+			CoreConfig: &config.Config{
+				Server: config.ServerConfig{Port: 8077},
+			},
+			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
+				return nil, errors.New("runtime credential unavailable")
+			},
+		},
+		http: dr,
+		sup:  supervisor.New(),
+	}
+	m.sup = m.opts.Supervisor
+
+	require.NoError(t, m.Bootstrap(ctx))
+	items, err := m.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, plugin_mgr.StateEnabled, items[0].State)
 }
 
 func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {

@@ -76,6 +76,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		if dbSection.Schema != "" {
 			setNestedValue(structured, []string{"database", "schema"}, dbSection.Schema)
 			selected["POWERX_PLUGIN_DB_SCHEMA"] = dbSection.Schema
+			selected["POWERX_DB_SCHEMA"] = dbSection.Schema
 		}
 		if dbSection.User != "" {
 			setNestedValue(structured, []string{"database", "user"}, dbSection.User)
@@ -103,6 +104,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			deleteNestedValue(structured, []string{"database", "password"})
 			deleteNestedValue(structured, []string{"database", "user_host"})
 			delete(selected, "POWERX_PLUGIN_DB_SCHEMA")
+			delete(selected, "POWERX_DB_SCHEMA")
 		}
 	}
 

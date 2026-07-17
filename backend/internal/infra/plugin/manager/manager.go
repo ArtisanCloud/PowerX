@@ -135,11 +135,6 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		// 插件系统处于禁用模式，仅同步注册表快照
 		return nil
 	}
-
-	if err := m.restoreEnabledPlugins(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -153,11 +148,13 @@ func (m *managerImpl) restoreEnabledPlugins(ctx context.Context) error {
 		}
 		logger.InfoF(ctx, "[plugin-bootstrap] restore enabled plugin id=%s ver=%s", plugin.ID, plugin.Version)
 		if err := m.Enable(ctx, plugin.ID); err != nil {
-			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
+			wrapped := plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
 				plugin_mgr.WithOp("bootstrap.restore_enabled"),
 				plugin_mgr.WithPlugin(plugin.ID),
 				plugin_mgr.WithVersion(plugin.Version),
 			)
+			logger.ErrorF(ctx, "[plugin-bootstrap] restore enabled plugin failed, keep core available: id=%s ver=%s err=%v", plugin.ID, plugin.Version, wrapped)
+			continue
 		}
 	}
 	return nil

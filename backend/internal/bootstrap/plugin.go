@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v3"
 )
 
 // ---- 一个最小可跑的 Authorizer 占位实现 ----
@@ -217,9 +219,9 @@ func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *
 		return nil, fmt.Errorf("ensure plugin runtime credential: %w", err)
 	}
 	if strings.TrimSpace(clientSecret) == "" {
-		clientSecret, err = credSvc.RotateSecret(ctx, systemTenantUUID, pluginID)
+		clientSecret, err = loadInstalledPluginClientSecret(ctx, credSvc, cfg, systemTenantUUID, pluginID, clientID)
 		if err != nil {
-			return nil, fmt.Errorf("rotate plugin runtime credential: %w", err)
+			return nil, fmt.Errorf("load installed plugin runtime credential: %w", err)
 		}
 	}
 
@@ -232,6 +234,79 @@ func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *
 		STSScope:       "access",
 		GatewayBaseURL: resolvePluginRuntimeGatewayBaseURL(cfg),
 	}, nil
+}
+
+func loadInstalledPluginClientSecret(ctx context.Context, credSvc *settingservice.PluginInstanceConfigService, cfg *config.Config, tenantUUID, pluginID, clientID string) (string, error) {
+	if credSvc == nil {
+		return "", fmt.Errorf("plugin credential service unavailable")
+	}
+	installedRoot := ""
+	if cfg != nil {
+		installedRoot = strings.TrimSpace(cfg.Plugin.InstalledDir)
+	}
+	if installedRoot == "" {
+		return "", fmt.Errorf("plugin installed directory missing")
+	}
+	pattern := filepath.Join(abs(installedRoot), pluginID, "*", "config", "host-values.yaml")
+	candidates, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("scan installed host-values: %w", err)
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("runtime credential exists but host-values.yaml is missing for plugin=%s; rotate credentials explicitly or reinstall plugin", pluginID)
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return fileModTime(candidates[i]).After(fileModTime(candidates[j]))
+	})
+	for _, candidate := range candidates {
+		secret, ok := readSTSClientSecretFromHostValues(candidate, clientID)
+		if !ok {
+			continue
+		}
+		if err := credSvc.VerifyClient(ctx, tenantUUID, pluginID, clientID, secret, "powerx:api", "access", ""); err == nil {
+			return secret, nil
+		}
+	}
+	return "", fmt.Errorf("installed host-values STS secret does not match registry credentials for plugin=%s tenant_uuid=%s; rotate credentials explicitly or reinstall plugin", pluginID, tenantUUID)
+}
+
+func fileModTime(path string) time.Time {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
+}
+
+func readSTSClientSecretFromHostValues(path string, clientID string) (string, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil || len(raw) == 0 {
+		return "", false
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return "", false
+	}
+	env, ok := doc["env"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	if strings.TrimSpace(asString(env["POWERX_STS_CLIENT_ID"])) != strings.TrimSpace(clientID) {
+		return "", false
+	}
+	secret := strings.TrimSpace(asString(env["POWERX_STS_CLIENT_SECRET"]))
+	return secret, secret != ""
+}
+
+func asString(v any) string {
+	switch value := v.(type) {
+	case string:
+		return value
+	case fmt.Stringer:
+		return value.String()
+	default:
+		return fmt.Sprint(value)
+	}
 }
 
 func resolvePluginRuntimeGatewayBaseURL(cfg *config.Config) string {
