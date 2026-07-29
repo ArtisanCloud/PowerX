@@ -226,6 +226,15 @@ capabilities:
         sts_direct: false
         tool_scope: workflow.instance.manage
       - channel: rest
+        endpoint: /api/v1/admin/workflows/instances
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.instance.read
+      - channel: rest
         endpoint: /api/v1/admin/workflows/instances/export
         method: GET
         schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances/export
