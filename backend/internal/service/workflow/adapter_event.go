@@ -47,7 +47,17 @@ func (a *EventAdapter) Validate(step StepDefinition) error {
 }
 
 func (a *EventAdapter) Execute(ctx context.Context, exec NodeExecutionContext) (NodeResult, error) {
-	if a == nil || a.publisher == nil {
+	if a == nil {
+		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: ErrWorkflowEventPublisherUnavailable.Error()}, ErrWorkflowEventPublisherUnavailable
+	}
+	if workflowInputBool(exec, "request", "payload", "dry_run") {
+		return NodeResult{Status: NodeResultStatusSucceeded, Output: map[string]any{
+			"topic":     configString(exec.Step.Config, "topic"),
+			"dry_run":   true,
+			"simulated": true,
+		}}, nil
+	}
+	if a.publisher == nil {
 		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: ErrWorkflowEventPublisherUnavailable.Error()}, ErrWorkflowEventPublisherUnavailable
 	}
 	if err := a.publisher.PublishWorkflowEvent(ctx, WorkflowEventPublishRequest{

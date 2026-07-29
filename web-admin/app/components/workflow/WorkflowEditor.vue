@@ -484,6 +484,12 @@
                   <pre>{{ formatReviewPayload(selectedNodeReviewTask.payload) }}</pre>
                 </div>
               </template>
+              <template v-else-if="selectedNodeRunStep">
+                <div class="runtime-payload-card">
+                  <span>{{ t("workflow.editor.nodeRunRecord") }}</span>
+                  <pre>{{ formatStepRunPayload(selectedNodeRunStep) }}</pre>
+                </div>
+              </template>
               <div v-else-if="selectedNode.data.kind === 'human.review' && latestRunState === 'waiting'" class="runtime-empty-card">
                 {{ t("workflow.editor.noReviewTaskForNode") }}
               </div>
@@ -570,6 +576,17 @@
               <UBadge :color="workflowRuntimeConnectionColor" variant="subtle">
                 {{ workflowRuntimeConnectionLabel }}
               </UBadge>
+              <UButton
+                v-if="!workflowRuntimeBus.connected.value"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-heroicons-arrow-path"
+                :loading="workflowRuntimeBus.connecting.value"
+                @click="workflowRuntimeBus.connect()"
+              >
+                {{ t("workflow.editor.runtimeReconnect") }}
+              </UButton>
               <UButton
                 v-if="canCancelLatestRun"
                 size="xs"
@@ -674,9 +691,22 @@
               <span>{{ t("workflow.editor.workflowToRun") }}</span>
               <strong>{{ workflowDisplayName }}</strong>
             </div>
-            <UBadge :color="workflowRuntimeConnectionColor" variant="subtle">
-              {{ workflowRuntimeConnectionLabel }}
-            </UBadge>
+            <div class="run-dialog-status">
+              <UBadge :color="workflowRuntimeConnectionColor" variant="subtle">
+                {{ workflowRuntimeConnectionLabel }}
+              </UBadge>
+              <UButton
+                v-if="!workflowRuntimeBus.connected.value"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-heroicons-arrow-path"
+                :loading="workflowRuntimeBus.connecting.value"
+                @click="workflowRuntimeBus.connect()"
+              >
+                {{ t("workflow.editor.runtimeReconnect") }}
+              </UButton>
+            </div>
           </div>
           <div v-if="isApprovalGuardedCapabilityWorkflow" class="debug-input-form">
             <UAlert
@@ -744,7 +774,10 @@
             </UFormField>
             <label class="debug-input-switch">
               <USwitch v-model="approvalDebugForm.dry_run" />
-              <span>{{ t("workflow.fields.dry_run") }}</span>
+              <span>
+                <strong>{{ t("workflow.fields.dry_run") }}</strong>
+                <small>{{ t("workflow.editor.dryRunHint") }}</small>
+              </span>
             </label>
             <UFormField :label="t('workflow.fields.note')">
               <UTextarea
@@ -811,7 +844,7 @@ import "@vue-flow/controls/dist/style.css";
 import "@vue-flow/minimap/dist/style.css";
 import { useWorkflowManager } from "~/composables/workflow/useWorkflowManager";
 import GenericNode from "./nodes/GenericNode.vue";
-import { useWorkflowService, type HumanReviewTask, type WorkflowInstance } from "~/composables/api/services/workflowService";
+import { useWorkflowService, type HumanReviewTask, type WorkflowInstance, type WorkflowStepRecord } from "~/composables/api/services/workflowService";
 import { useWorkflowRuntimeBus, type WorkflowRuntimeEvent } from "~/composables/workflow/useWorkflowRuntimeBus";
 import { PlatformCapabilityService, type PlatformCapability } from "~/composables/api/services/platformCapabilityService";
 
@@ -1215,6 +1248,15 @@ function paletteCategoryForKind(kind: string) {
 function formatReviewPayload(payload?: Record<string, any>) {
   if (!payload || Object.keys(payload).length === 0) return t("workflow.editor.emptyPayload");
   return JSON.stringify(payload, null, 2);
+}
+
+function formatStepRunPayload(step: WorkflowStepRecord) {
+  return JSON.stringify({
+    state: normalizeStepState(step.state),
+    payload_in: step.payload_in || {},
+    payload_out: step.payload_out || {},
+    error: step.error_message || step.failure_reason || step.error_code || "",
+  }, null, 2);
 }
 
 function updateHumanReviewRoles(value: string) {
@@ -1686,9 +1728,18 @@ async function actReviewTask(task: HumanReviewTask, action: "approve" | "reject"
   actingReviewTaskUUID.value = task.review_task_uuid;
   actingReviewAction.value = action;
   try {
+    const reviewPayload = task.payload && typeof task.payload === "object" && !Array.isArray(task.payload)
+      ? { ...task.payload }
+      : {};
     await workflowService.actReviewTask(task.review_task_uuid, {
       action,
       payload: {
+        ...reviewPayload,
+        review: {
+          workflow_instance_uuid: task.workflow_instance_uuid,
+          step_id: task.step_id,
+          action,
+        },
         workflow_instance_uuid: task.workflow_instance_uuid,
         step_id: task.step_id,
       },
@@ -2823,6 +2874,13 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+.run-dialog-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .run-dialog-footer {
   display: flex;
   width: 100%;
@@ -2868,10 +2926,26 @@ onBeforeUnmount(() => {
 
 .debug-input-switch {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   color: var(--wf-text);
   font-size: 13px;
+}
+
+.debug-input-switch span {
+  display: grid;
+  gap: 3px;
+}
+
+.debug-input-switch strong {
+  color: var(--wf-text);
+  font-size: 13px;
+}
+
+.debug-input-switch small {
+  color: var(--wf-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .run-field-hint {

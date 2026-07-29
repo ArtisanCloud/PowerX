@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 )
 
 type testSkillInvoker struct {
@@ -15,9 +17,14 @@ func (i *testSkillInvoker) InvokeSkill(_ context.Context, req SkillInvokeRequest
 	return SkillInvokeResponse{Output: map[string]any{"skill": req.SkillID}}, nil
 }
 
-type testCapabilityInvoker struct{}
+type testCapabilityInvoker struct {
+	calls int
+	req   CapabilityInvokeRequest
+}
 
-func (i testCapabilityInvoker) InvokeCapability(context.Context, CapabilityInvokeRequest) (CapabilityInvokeResponse, error) {
+func (i *testCapabilityInvoker) InvokeCapability(_ context.Context, req CapabilityInvokeRequest) (CapabilityInvokeResponse, error) {
+	i.calls++
+	i.req = req
 	return CapabilityInvokeResponse{Output: map[string]any{"capability": true}}, nil
 }
 
@@ -82,7 +89,7 @@ func TestAdaptersValidateRequiredConfig(t *testing.T) {
 	}{
 		{
 			name:    "capability",
-			adapter: NewCapabilityAdapter(testCapabilityInvoker{}),
+			adapter: NewCapabilityAdapter(&testCapabilityInvoker{}),
 			step: StepDefinition{ID: "cap", Config: map[string]any{
 				"capability_id":      "com.corex.demo",
 				"preferred_protocol": "rest",
@@ -146,5 +153,35 @@ func TestAdaptersValidateRequiredConfig(t *testing.T) {
 				t.Fatalf("expected succeeded, got %#v", result)
 			}
 		})
+	}
+}
+
+func TestCapabilityAdapterDryRunSkipsInvokerAndResolvesInputPlaceholder(t *testing.T) {
+	invoker := &testCapabilityInvoker{}
+	adapter := NewCapabilityAdapter(invoker)
+	result, err := adapter.Execute(context.Background(), NodeExecutionContext{
+		Instance: &modelworkflow.WorkflowInstance{
+			InputContext: toJSONOrEmpty(map[string]any{
+				"capability_id": "com.corex.llm.models.list",
+				"request": map[string]any{
+					"payload": map[string]any{"dry_run": true},
+				},
+			}),
+		},
+		Step: StepDefinition{ID: "invoke", Config: map[string]any{
+			"capability_id":      "${capability_id}",
+			"preferred_protocol": "rest",
+			"input_path":         "$.artifacts.request",
+			"output_path":        "$.vars.capability_result",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("execute dry-run capability: %v", err)
+	}
+	if result.Status != NodeResultStatusSucceeded || invoker.calls != 0 {
+		t.Fatalf("unexpected dry-run result=%#v calls=%d", result, invoker.calls)
+	}
+	if result.Output["capability_id"] != "com.corex.llm.models.list" || result.Output["dry_run"] != true {
+		t.Fatalf("unexpected dry-run output=%#v", result.Output)
 	}
 }

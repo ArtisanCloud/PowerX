@@ -102,6 +102,10 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 		},
 		{ID: "publish", Type: "system", NodeKind: "knowledge.publish", DependsOn: []string{"review"}},
 	}
+	registry := NewNodeAdapterRegistry()
+	if err := registry.Register(testNodeAdapter{spec: NodeAdapterSpec{NodeKind: "knowledge.publish"}}); err != nil {
+		t.Fatalf("register adapter: %v", err)
+	}
 	stepStore := &runnerStepStore{nextID: 1, records: []modelworkflow.WorkflowStepRecord{{
 		PowerModel:     coremodel.PowerModel{ID: 1},
 		InstanceUUID:   instanceUUID,
@@ -134,6 +138,7 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 		instances:   instanceStore,
 		steps:       stepStore,
 		reviews:     reviewStore,
+		adapters:    registry,
 		now: func() time.Time {
 			return time.Unix(2000, 0).UTC()
 		},
@@ -159,10 +164,10 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 	if len(records) != 2 {
 		t.Fatalf("expected approved route queued, got records=%#v", records)
 	}
-	if records[0].State != "completed" || records[1].StepID != "publish" || records[1].State != "queued" {
+	if records[0].State != "completed" || records[1].StepID != "publish" || records[1].State != "completed" {
 		t.Fatalf("unexpected records: %#v", records)
 	}
-	if instanceStore.instance.State != "running" {
-		t.Fatalf("expected instance running, got %s", instanceStore.instance.State)
+	if instanceStore.instance.State != "succeeded" {
+		t.Fatalf("expected instance succeeded, got %s", instanceStore.instance.State)
 	}
 }

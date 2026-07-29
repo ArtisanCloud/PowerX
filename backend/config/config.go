@@ -235,6 +235,7 @@ type Config struct {
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
 	Scheduler          SchedulerConfig          `yaml:"scheduler"`           // 全局调度器
+	Workflow           WorkflowConfig           `yaml:"workflow"`            // Workflow Runner 配置
 	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
 	CapabilityRegistry CapabilityRegistryConfig `yaml:"capability_registry"` // Capability Registry 配置
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
@@ -252,6 +253,14 @@ type Config struct {
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
 	Install            InstallConfig            `yaml:"install"`
+}
+
+type WorkflowConfig struct {
+	RunnerIntervalSeconds      int `yaml:"runner_interval_seconds"`
+	RunnerMaxIntervalSeconds   int `yaml:"runner_max_interval_seconds"`
+	RunnerLeaseDurationSeconds int `yaml:"runner_lease_duration_seconds"`
+	RunnerBatchSize            int `yaml:"runner_batch_size"`
+	RunnerMaxIterations        int `yaml:"runner_max_iterations"`
 }
 
 // AuditConfig controls audit persistence and sink behaviour.

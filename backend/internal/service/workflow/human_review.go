@@ -237,14 +237,28 @@ func (s *Service) applyHumanReviewDecision(ctx context.Context, task *modelworkf
 		"decision":       action,
 	})
 	runner := &Runner{
-		instances: s.instances,
-		steps:     s.steps,
-		router:    DefaultExecutorRouter(),
-		now:       s.now,
-		publish:   s.publishRuntimeEvent,
+		definitions: s.definitions,
+		instances:   s.instances,
+		steps:       s.steps,
+		adapters:    s.adapters,
+		router:      DefaultExecutorRouter(),
+		now:         s.now,
+		leaseOwner:  "workflow-review-action",
+		leaseTTL:    defaultRunnerLeaseDuration,
+		batchSize:   defaultRunnerBatchSize,
+		publish:     s.publishRuntimeEvent,
 	}
-	if err := runner.enqueueNextSteps(ctx, instance, validation, nextStepIDs); err != nil {
+	if err := runner.enqueueNextSteps(ctx, instance, validation, nextStepIDs, result.Output); err != nil {
 		return err
+	}
+	for i := 0; i < defaultRunnerDrainLimit; i++ {
+		current, err := runner.RunDueSteps(ctx)
+		if err != nil {
+			return err
+		}
+		if current.Leased == 0 || current.Waiting > 0 || current.Failed > 0 {
+			return runner.convergeInstanceState(ctx, instance)
+		}
 	}
 	return runner.convergeInstanceState(ctx, instance)
 }

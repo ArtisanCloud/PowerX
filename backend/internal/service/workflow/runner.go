@@ -270,7 +270,7 @@ func (r *Runner) runLeasedStep(ctx context.Context, record *modelworkflow.Workfl
 		if err != nil {
 			return "failed", r.failStep(ctx, record, instance, "workflow.next_step_resolution_failed", err.Error())
 		}
-		if err := r.enqueueNextSteps(ctx, instance, validation, nextStepIDs); err != nil {
+		if err := r.enqueueNextSteps(ctx, instance, validation, nextStepIDs, nodeResult.Output); err != nil {
 			return "failed", err
 		}
 		if err := r.convergeInstanceState(ctx, instance); err != nil {
@@ -393,7 +393,7 @@ func (r *Runner) failStep(ctx context.Context, record *modelworkflow.WorkflowSte
 	return nil
 }
 
-func (r *Runner) enqueueNextSteps(ctx context.Context, instance *modelworkflow.WorkflowInstance, validation *ValidationResult, nextStepIDs []string) error {
+func (r *Runner) enqueueNextSteps(ctx context.Context, instance *modelworkflow.WorkflowInstance, validation *ValidationResult, nextStepIDs []string, payload map[string]any) error {
 	now := r.now().UTC()
 	for _, stepID := range normalizeStrings(nextStepIDs) {
 		step, ok := validation.StepByID(stepID)
@@ -421,6 +421,7 @@ func (r *Runner) enqueueNextSteps(ctx context.Context, instance *modelworkflow.W
 			State:          "queued",
 			InputMapping:   toJSONOrEmpty(step.InputMapping),
 			OutputMapping:  toJSONOrEmpty(step.OutputMapping),
+			PayloadIn:      toJSONOrEmpty(payload),
 			ScheduledAt:    now,
 			LastTransition: now,
 		}

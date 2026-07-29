@@ -58,6 +58,7 @@ export const useWorkflowRuntimeBus = () => {
     connecting: computed(() => wsBus.connecting.value),
     lastError: computed(() => wsBus.lastError.value),
     activeTenant: wsBus.activeTenant,
+    connect: wsBus.connect,
     subscribe,
   };
 };

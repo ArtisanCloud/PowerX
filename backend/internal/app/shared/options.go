@@ -123,9 +123,14 @@ type EventFabricAuthorizationSecretsOptions struct {
 	CacheTTLSeconds         int
 }
 
-// WorkflowOptions 描述工作流域的运行配置（占位，后续完善）。
+// WorkflowOptions 描述工作流域运行配置。
 type WorkflowOptions struct {
-	RetryKeyPrefix string
+	RetryKeyPrefix      string
+	RunnerInterval      time.Duration
+	RunnerMaxInterval   time.Duration
+	RunnerLeaseDuration time.Duration
+	RunnerBatchSize     int
+	RunnerMaxIterations int
 }
 
 // IntegrationGatewayOptions 描述集成网关所需的基础运行配置。

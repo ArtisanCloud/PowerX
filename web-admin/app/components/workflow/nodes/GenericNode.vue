@@ -343,14 +343,27 @@ const emit = defineEmits(['update:props']);
 .wf-node-run-running,
 .wf-node-run-queued,
 .wf-node-run-compensating {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), 0 12px 26px rgba(15, 23, 42, 0.12);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 0 0 7px rgba(59, 130, 246, 0.08), 0 12px 26px rgba(15, 23, 42, 0.12);
 }
 
 .wf-node-run-waiting,
 .wf-node-run-pending {
   border-color: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16), 0 12px 26px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.24), 0 0 0 7px rgba(245, 158, 11, 0.1), 0 12px 26px rgba(15, 23, 42, 0.12);
+}
+
+.wf-node.selected.wf-node-run-waiting,
+.wf-node.selected.wf-node-run-pending {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 0 9px rgba(245, 158, 11, 0.13), 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+
+.wf-node.selected.wf-node-run-running,
+.wf-node.selected.wf-node-run-queued,
+.wf-node.selected.wf-node-run-compensating {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.26), 0 0 0 9px rgba(59, 130, 246, 0.12), 0 14px 30px rgba(15, 23, 42, 0.16);
 }
 
 .wf-node-run-failed,

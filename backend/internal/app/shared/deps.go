@@ -115,6 +115,50 @@ type noopAuditRepository struct{}
 
 func (noopAuditRepository) InsertBatch(context.Context, []dbm.AuditEvent) error { return nil }
 
+type workflowCapabilityInvoker struct {
+	invocation *capabilitycatalog.InvocationService
+}
+
+func (i workflowCapabilityInvoker) InvokeCapability(ctx context.Context, req workflowsvc.CapabilityInvokeRequest) (workflowsvc.CapabilityInvokeResponse, error) {
+	if i.invocation == nil {
+		return workflowsvc.CapabilityInvokeResponse{}, fmt.Errorf("workflow.capability_invoker_unavailable")
+	}
+	result, err := i.invocation.Invoke(ctx, capabilitycatalog.InvocationInput{
+		CapabilityID:      strings.TrimSpace(req.CapabilityID),
+		TenantUUID:        strings.TrimSpace(req.TenantUUID),
+		PreferredProtocol: strings.TrimSpace(req.PreferredProtocol),
+		TraceID:           strings.TrimSpace(req.TraceID),
+		Payload:           req.Input,
+		Context: map[string]interface{}{
+			"source":   "workflow",
+			"node_ref": strings.TrimSpace(req.NodeRef),
+			"config":   req.Config,
+		},
+	})
+	if err != nil {
+		return workflowsvc.CapabilityInvokeResponse{}, err
+	}
+	return workflowsvc.CapabilityInvokeResponse{Output: result.Result}, nil
+}
+
+type workflowEventPublisher struct {
+	bus event_bus.EventBus
+}
+
+func (p workflowEventPublisher) PublishWorkflowEvent(ctx context.Context, req workflowsvc.WorkflowEventPublishRequest) error {
+	if p.bus == nil {
+		return fmt.Errorf("workflow.event_publisher_unavailable")
+	}
+	payload := map[string]interface{}{
+		"tenant_uuid": strings.TrimSpace(req.TenantUUID),
+		"topic":       strings.TrimSpace(req.Topic),
+		"config":      req.Config,
+		"payload":     req.Payload,
+	}
+	p.bus.Publish(strings.TrimSpace(req.Topic), payload, ctx)
+	return nil
+}
+
 func (r auditViolationReporter) Report(ctx context.Context, violation security.Violation) {
 	if r.audit == nil {
 		return
@@ -347,10 +391,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			workflowScheduler = workflowsvc.NewScheduler(workflowReliable)
 		}
 	}
-	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{
-		ReliableQueue: workflowReliable,
-		Scheduler:     workflowScheduler,
-	})
+	var workflowSvc *workflowsvc.Service
 	runtimeSchedulerSvc := runtimescheduler.NewService(runtimescheduler.Options{
 		DB:       db,
 		EventBus: bus,
@@ -741,6 +782,22 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		pluginCompatSvc = plugincompat.NewService(pluginCompatRepo, time.Now)
 	}
 
+	workflowSvc = workflowsvc.NewService(db, workflowsvc.ServiceOptions{
+		ReliableQueue:     workflowReliable,
+		Scheduler:         workflowScheduler,
+		CapabilityInvoker: workflowCapabilityInvoker{invocation: capabilityInvocationSvc},
+		EventPublisher:    workflowEventPublisher{bus: bus},
+	})
+	workflowRunnerWorker := workers.NewWorkflowRunnerWorker(workers.WorkflowRunnerWorkerOptions{
+		Service:       workflowSvc,
+		Interval:      opts.Workflow.RunnerInterval,
+		MaxInterval:   opts.Workflow.RunnerMaxInterval,
+		LeaseDuration: opts.Workflow.RunnerLeaseDuration,
+		BatchSize:     opts.Workflow.RunnerBatchSize,
+		MaxIterations: opts.Workflow.RunnerMaxIterations,
+		Logger:        pxlog.GetGlobalLogger(),
+	})
+
 	return &Deps{
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
@@ -790,6 +847,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,
 			ReliableQueue: workflowReliable,
+			RunnerWorker:  workflowRunnerWorker,
 		},
 		RuntimeScheduler: &RuntimeSchedulerDeps{
 			Service:           runtimeSchedulerSvc,
@@ -880,6 +938,7 @@ type WorkflowDeps struct {
 	Service       *workflowsvc.Service
 	Scheduler     *workflowsvc.Scheduler
 	ReliableQueue event_bus.ReliableQueue
+	RunnerWorker  *workers.WorkflowRunnerWorker
 }
 
 type RuntimeSchedulerDeps struct {

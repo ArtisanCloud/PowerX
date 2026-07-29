@@ -123,6 +123,11 @@ type ServiceOptions struct {
 	EventRecorder         EventRecorder
 	NodeAdapterRegistry   *NodeAdapterRegistry
 	NodeCatalogProviders  []NodeCatalogProvider
+	SkillInvoker          SkillInvoker
+	CapabilityInvoker     CapabilityInvoker
+	MetadataClassifier    MetadataClassifier
+	KnowledgeOperator     KnowledgeOperator
+	EventPublisher        WorkflowEventPublisher
 	Clock                 func() time.Time
 	Scheduler             *Scheduler
 	ReliableQueue         eventbus.ReliableQueue
@@ -173,7 +178,12 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 	if adapterRegistry == nil {
 		adapterRegistry = NewNodeAdapterRegistry()
 		if err := RegisterWorkflowNodeAdapters(adapterRegistry, WorkflowNodeAdapterDeps{
-			HumanReviewStore: reviewStore,
+			SkillInvoker:       opts.SkillInvoker,
+			CapabilityInvoker:  opts.CapabilityInvoker,
+			MetadataClassifier: opts.MetadataClassifier,
+			KnowledgeOperator:  opts.KnowledgeOperator,
+			EventPublisher:     opts.EventPublisher,
+			HumanReviewStore:   reviewStore,
 		}); err != nil {
 			panic(err)
 		}
@@ -477,6 +487,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 			State:          "queued",
 			InputMapping:   toJSONOrEmpty(stepDef.InputMapping),
 			OutputMapping:  toJSONOrEmpty(stepDef.OutputMapping),
+			PayloadIn:      toJSONOrEmpty(input.Input),
 			ScheduledAt:    now,
 			LastTransition: now,
 		}

@@ -93,6 +93,9 @@ export interface WorkflowInstance {
   definition_uuid: string;
   definition_version: number;
   state: WorkflowInstanceState;
+  input_context?: Record<string, any> | null;
+  runtime_context?: Record<string, any> | null;
+  output_context?: Record<string, any> | null;
   trace_id?: string;
   current_step_id?: string;
   last_error?: string;
