@@ -36,6 +36,7 @@
     "roleManagement": "Role Management",
     "systemConfig": "System Config",
     "metadataGovernance": "Metadata Governance",
+    "integrationApiKeys": "API Key Management",
     "monitorCenter": "Monitor Center",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
@@ -66,6 +67,423 @@
     "scrollToBottom": "Scroll to bottom",
     "newMessages": "{count} new messages",
     "unknown": "Unknown"
+  },
+  "workflow": {
+    "list": {
+      "title": "Workflow Management",
+      "description": "Create, publish and run automation workflows.",
+      "search": "Search workflows",
+      "create": "New Workflow",
+      "definitions": "Workflow Definitions",
+      "emptyTitle": "No workflows yet",
+      "emptyDescription": "Create a workflow definition to open the builder.",
+      "noDescription": "No description",
+      "version": "Version {version}",
+      "pack": "Pack {key}",
+      "builtinPack": "Built-in",
+      "actions": "Workflow actions"
+    },
+    "stats": {
+      "total": "Total",
+      "published": "Published",
+      "draft": "Draft"
+    },
+    "status": {
+      "all": "All statuses",
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "state": {
+      "queued": "Queued",
+      "running": "Running",
+      "waiting": "Waiting",
+      "succeeded": "Succeeded",
+      "completed": "Completed",
+      "failed": "Failed",
+      "canceled": "Canceled",
+      "compensating": "Compensating",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "pending": "Pending",
+      "skipped": "Skipped"
+    },
+    "actions": {
+      "edit": "Edit",
+      "run": "Run"
+    },
+    "pagination": {
+      "total": "{total} total",
+      "pageSize": "{value} per page"
+    },
+    "create": {
+      "title": "New Workflow",
+      "description": "Create a workflow definition with an input capture start node.",
+      "name": "Workflow name",
+      "namePlaceholder": "Enter workflow name",
+      "definitionDescription": "Description",
+      "descriptionPlaceholder": "Enter workflow description",
+      "submit": "Create"
+    },
+    "editor": {
+      "pageTitle": "Workflow Editor - PowerX",
+      "nodeCatalog": "Node Catalog",
+      "searchNodes": "Search nodes",
+      "nodeProperties": "Node Properties",
+      "undo": "Undo",
+      "redo": "Redo",
+      "fitView": "Fit View",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetZoom": "Reset zoom",
+      "centerView": "Center View",
+      "fullscreen": "Fullscreen",
+      "toggleMinimap": "Toggle Minimap",
+      "save": "Save",
+      "run": "Run",
+      "runTest": "Run Test",
+      "publish": "Publish",
+      "propertyCount": "{count} properties",
+      "untitled": "Untitled Workflow",
+      "version": "Version {version}",
+      "nodeCount": "{count} nodes",
+      "edgeCount": "{count} edges",
+      "globalSearch": "Search agents, workflows, plugins...",
+      "toggleTheme": "Toggle theme",
+      "metricNodes": "Nodes",
+      "metricEdges": "Edges",
+      "metricVersion": "Version",
+      "metricStatus": "Status",
+      "componentLibrary": "Component Library",
+      "nodeConfig": "Node Config",
+      "nodeRuntime": "Runtime",
+      "nodeHelp": "Node Help",
+      "nodeKind": "Node kind",
+      "requiredFields": "Required fields",
+      "outputPorts": "Output ports",
+      "none": "None",
+      "selectNodeHint": "Select a node to view properties",
+      "runRecords": "Run Records",
+      "debugLogs": "Debug Logs",
+      "variableSnapshots": "Variable Snapshots",
+      "evaluationResults": "Evaluation Results",
+      "latestRun": "Latest Run",
+      "runDetail": "Run Detail",
+      "noRuns": "Not run yet",
+      "runStarted": "Workflow run started",
+      "runFailed": "Workflow run failed",
+      "runtimeConnected": "Realtime connected",
+      "runtimeConnecting": "Realtime connecting",
+      "runtimeDisconnected": "Realtime disconnected",
+      "instanceShort": "Instance {uuid}",
+      "traceId": "Trace {trace}",
+      "pendingReviewCount": "{count} pending review task(s)",
+      "logs": "Logs",
+      "noLogs": "No run logs yet",
+      "noSnapshots": "No variable snapshots yet",
+      "noEvaluations": "No evaluation results yet",
+      "openReviewTasks": "Open review tasks",
+      "stepLogTitle": "{step} · {kind}",
+      "stepLogMessage": "State {state}, started {started}, completed {completed}",
+      "notStarted": "not started",
+      "notCompleted": "not completed",
+      "stepList": "Step run list",
+      "viewNode": "View node",
+      "stepStartedAt": "Started at {time}",
+      "stepCompletedAt": "Completed at {time}",
+      "stepSkippedByCancel": "The current run was canceled, so this node was not executed.",
+      "resizeBottomPanel": "Resize bottom panel",
+      "waitingReviewTitle": "Waiting for human review",
+      "waitingReviewDescription": "The workflow continues after approval and follows the rejection branch if rejected.",
+      "currentNodeState": "Current node state",
+      "reviewRequest": "Review request",
+      "reviewPayload": "Review payload",
+      "emptyPayload": "No review payload",
+      "noReviewTaskForNode": "The workflow is waiting for review, but the selected node has no pending review task.",
+      "noRuntimeForNode": "No runtime record for this node.",
+      "copyStepId": "Copy step ID",
+      "copied": "Copied",
+      "copyUnavailable": "Copy is unavailable in this browser",
+      "unknownNodeKind": "Unknown node kind",
+      "stepKindWithValue": "Node kind: {kind}",
+      "debugInput": "Debug Input",
+      "runDialogTitle": "Test Run",
+      "runDialogDescription": "Enter the input parameters for this test run. A workflow instance is created only after confirmation.",
+      "workflowToRun": "Workflow",
+      "startRun": "Start Run",
+      "cancelRun": "Cancel Run",
+      "cancelRunSuccess": "Current run canceled",
+      "cancelRunFailed": "Failed to cancel current run",
+      "resetDebugInput": "Restore Example",
+      "debugInputInvalid": "Debug input validation failed",
+      "debugInputInvalidDescription": "Enter a JSON object.",
+      "debugInputObjectRequired": "Debug input must be a JSON object.",
+      "debugCapabilityModuleRequired": "Capability module is required.",
+      "debugCapabilityRequired": "Capability is required.",
+      "debugCapabilityMustSelect": "Select a valid capability from the capability list.",
+      "debugReasonMustSelect": "Select an execution intent.",
+      "debugNotePlaceholder": "Optional, for example: verify approval before listing LLM models",
+      "runCapabilityModuleLabel": "Capability module",
+      "capabilityModuleSelectPlaceholder": "Search and select a module",
+      "capabilityModuleSearchPlaceholder": "Search module",
+      "capabilityModuleSelectHint": "Modules come from Platform Capabilities; this list only includes business capabilities suitable for workflow test runs.",
+      "capabilityModuleOptionLabel": "{module} · {count} capabilities",
+      "runCapabilityLabel": "Capability to execute after approval",
+      "capabilitySelectPlaceholder": "Search and select a capability",
+      "capabilitySearchPlaceholder": "Search capability name",
+      "capabilitySelectHint": "After human approval, the workflow capability node invokes the selected PowerX Capability Registry business authorization unit.",
+      "workflowCapabilitySourceTitle": "Capabilities come from Platform Capabilities",
+      "workflowCapabilitySourceDescription": "This is not a separate capability system. It filters Platform Capabilities down to business capabilities that are suitable for workflow test runs; low-level REST, gRPC, and Gin route capabilities are hidden here.",
+      "capabilityOptionsLoading": "Capability list is still loading. Try again shortly.",
+      "capabilityOptionsLoadFailed": "Failed to load capability list",
+      "capabilityOptionsEmpty": "No capabilities are available. Confirm the platform capability catalog has been generated and is accessible.",
+      "unnamedCapability": "Unnamed capability",
+      "capabilityOptionLabel": "{title} · {module}",
+      "executionReasonPlaceholder": "Select execution intent",
+      "executionReasonSearchPlaceholder": "Search execution intent",
+      "executionReasonHint": "Execution intent is written into audit and trace records to explain why this capability call was triggered.",
+      "approverRolesPlaceholder": "For example workflow_reviewer",
+      "runtimeCapabilityHint": "This capability is read from capability_id in runtime debug input. Enter a formal Capability ID here only when the workflow must use a fixed capability.",
+      "inputCaptureConfigHint": "This config defines the input capture schema and output location, not this run's input values. Use the top Test Run action to enter test parameters.",
+      "paletteCategory": {
+        "input_output": "Input & Output",
+        "ai_skill": "AI & Skills",
+        "platform_capability": "Platform Capabilities",
+        "flow_control": "Flow Control",
+        "data_knowledge": "Data & Knowledge",
+        "exception": "Exception Handling"
+      }
+    },
+    "protocol": {
+      "rest": "REST",
+      "grpc": "gRPC",
+      "skill": "Skill"
+    },
+    "executionReason": {
+      "workflowDebugApprovalGuardedCapability": "Approval-guarded capability debug",
+      "permissionBoundaryTest": "Permission boundary test",
+      "businessDryRun": "Business workflow dry run"
+    },
+    "capabilityModule": {
+      "admin": "Admin",
+      "metadata": "Metadata Governance",
+      "workflow": "Workflow",
+      "media": "Media Assets",
+      "knowledge": "Knowledge",
+      "agent": "Agents",
+      "agents": "Agents",
+      "agentModelHub": "Model Capability Hub",
+      "customer": "Customer Management",
+      "ai": "AI Capabilities",
+      "alerts": "Alerts",
+      "eventFabric": "Event Fabric",
+      "notifications": "Notifications",
+      "iam": "Organization & Permissions",
+      "integrationGateway": "Integration Gateway",
+      "modelRouting": "Model Routing",
+      "providerRegistry": "Model Providers",
+      "scheduler": "Scheduler",
+      "settings": "System Settings",
+      "monitor": "Monitor Center",
+      "plugin": "Plugins",
+      "plugins": "Plugins"
+    },
+    "capability": {
+      "metadataDictionaryRead": "Read Metadata Dictionaries",
+      "metadataDictionaryManage": "Manage Metadata Dictionaries",
+      "metadataTaxonomyRead": "Read Taxonomies",
+      "metadataTaxonomyManage": "Manage Taxonomies",
+      "metadataTagRead": "Read Tags",
+      "metadataTagManage": "Manage Tags",
+      "metadataResourceTypeRead": "Read Resource Types",
+      "metadataResourceTypeManage": "Manage Resource Types",
+      "workflowRuntimeScheduler": "Schedule Workflow Runtime",
+      "workflowDefinitionBuilder": "Build Workflow Definitions",
+      "workflowRuntimeInstances": "Manage Workflow Instances",
+      "workflowNodeCatalog": "Workflow Node Catalog",
+      "workflowHumanReviewTasks": "Workflow Human Reviews",
+      "workflowPacks": "Workflow Packs",
+      "schedulerJobs": "Manage Scheduler Jobs",
+      "workflowBuilder": "Build Workflow Definitions",
+      "workflowInstancesAdminManage": "Manage Workflow Instances",
+      "workflowNodeCatalogRead": "Read Workflow Node Catalog",
+      "workflowReviewTasksAdminManage": "Manage Workflow Human Reviews",
+      "workflowPacksAdminManage": "Manage Workflow Packs",
+      "mediaAssetsCatalog": "Media Asset Catalog",
+      "mediaAssetsRead": "Read Media Assets",
+      "mediaAssetsManage": "Manage Media Assets",
+      "knowledgeSpaceAdmin": "Manage Knowledge Spaces",
+      "knowledgeSpace": "Manage Knowledge Spaces",
+      "agentInvoke": "Invoke Agent",
+      "agentStream": "Stream Agent",
+      "agentSessionManage": "Manage Agent Sessions",
+      "customerAccountsAdminManage": "Manage Customer Accounts",
+      "aiLlmInvoke": "Invoke LLM",
+      "aiLlmStream": "Stream LLM",
+      "aiLlmSessionCreate": "Create LLM Session",
+      "aiLlmSessionAppend": "Append LLM Session Message",
+      "aiImageInvoke": "Invoke Image Generation",
+      "aiVideoInvoke": "Invoke Video Generation",
+      "aiTtsInvoke": "Invoke Text To Speech",
+      "aiEmbeddingInvoke": "Invoke Embedding",
+      "aiVlmInvoke": "Invoke Vision Language Model",
+      "aiLlmModelsList": "Read LLM Models",
+      "eventfabricPublish": "Publish Event",
+      "notificationsTest": "Send Test Notification"
+    },
+    "step": {
+      "approvalGuardedCapability": {
+        "captureRequest": {
+          "name": "Capture execution request"
+        },
+        "reviewRequest": {
+          "name": "Review execution request"
+        },
+        "invokeCapability": {
+          "name": "Invoke platform capability"
+        },
+        "emitCompleted": {
+          "name": "Emit completion event"
+        },
+        "emitRejected": {
+          "name": "Emit rejection event"
+        }
+      }
+    },
+    "fields": {
+      "method": "Method",
+      "endpoint": "Endpoint",
+      "query": "Query",
+      "body": "Body",
+      "capability_id": "Capability",
+      "preferred_protocol": "Protocol",
+      "input_path": "Input path",
+      "output_path": "Output path",
+      "skill_id": "Skill",
+      "review_type": "Review type",
+      "approver_roles": "Approver roles",
+      "approver_policy": "Approver policy",
+      "review_payload_path": "Review payload path",
+      "approved_route": "Approved route",
+      "rejected_route": "Rejected route",
+      "input_schema_ref": "Input form schema reference",
+      "input_schema_ref_placeholder": "For example workflow.input.approval_request",
+      "source_text": "Allow text input",
+      "source_form": "Allow form input",
+      "artifact_output_path": "Capture output path",
+      "artifact_output_path_placeholder": "For example $.artifacts.request",
+      "topic": "Event topic",
+      "payload_path": "Payload path",
+      "event_schema_ref": "Event schema",
+      "reason": "Execution intent",
+      "dry_run": "Dry run only",
+      "note": "Note"
+    },
+    "node": {
+      "input": {
+        "capture": "Input Capture"
+      },
+      "skill": {
+        "invoke": "Invoke Skill"
+      },
+      "capability": {
+        "invoke": "Invoke Capability"
+      },
+      "metadata": {
+        "classify": "Metadata Classify"
+      },
+      "knowledge": {
+        "stage": "Stage Knowledge",
+        "publish": "Publish Knowledge"
+      },
+      "decision": {
+        "gateway": "Decision Gateway"
+      },
+      "parallel": {
+        "fanout": "Parallel Fanout",
+        "join": "Parallel Join"
+      },
+      "human": {
+        "review": "Human Review"
+      },
+      "event": {
+        "emit": "Emit Event"
+      },
+      "compensation": {
+        "rollback": "Compensation Rollback"
+      }
+    },
+    "pack": {
+      "expertKnowledgeCapture": {
+        "name": "Expert Knowledge Capture",
+        "description": "Capture expert text, media and links, then parse, classify, review and publish them into a knowledge space."
+      },
+      "marketingKnowledgeCapture": {
+        "name": "Marketing Knowledge Capture",
+        "description": "Turn marketing materials, interviews and reviews into reviewable marketing methodology knowledge."
+      },
+      "campaignReviewToMethodology": {
+        "name": "Campaign Review To Methodology",
+        "description": "Extract metrics, conclusions and methodology from campaign reviews, then route them through human review."
+      },
+      "approvalGuardedCapability": {
+        "name": "Approval Guarded Capability",
+        "description": "Capture a request, require human approval, then invoke the configured platform capability and emit a completion event."
+      },
+      "intakeClassifyReview": {
+        "name": "Intake Classification Review",
+        "description": "Capture generic business material, classify metadata and route the result through human review."
+      },
+      "skillReviewPublishEvent": {
+        "name": "Skill Review Publish Event",
+        "description": "Invoke a configured skill, review the result and publish an event for plugins and agents to reuse."
+      }
+    },
+    "instance": {
+      "title": "Workflow Instance",
+      "state": "State",
+      "definition": "Definition",
+      "trace": "Trace",
+      "steps": "Step Records",
+      "noSteps": "No step records"
+    },
+    "review": {
+      "title": "Human Review",
+      "empty": "No review tasks",
+      "instance": "Instance {uuid}",
+      "openInstance": "Open instance",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveSuccess": "Review approved",
+      "rejectSuccess": "Review rejected",
+      "actionFailed": "Review action failed",
+      "type": {
+        "capabilityExecution": "Capability execution review",
+        "knowledgePublish": "Knowledge publish review",
+        "metadataClassification": "Metadata classification review",
+        "skillResult": "Skill result review"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "changes_requested": "Changes requested",
+        "canceled": "Canceled"
+      }
+    },
+    "errors": {
+      "loadNodeCatalog": "Failed to load node catalog",
+      "loadDefinition": "Failed to load workflow definition",
+      "nodeCatalogMissing": "Node is missing",
+      "noCurrentDefinition": "Current workflow definition is missing",
+      "createDefinition": "Failed to create workflow definition",
+      "listDefinitions": "Failed to load workflows"
+    },
+    "test": {
+      "pageTitle": "Workflow Editor Test - PowerX",
+      "baseEditor": "Base Editor",
+      "dragExample": "Drag Example"
+    }
   },
   "organization": {
     "description": "Manage your organization, members and permissions.",
@@ -154,6 +572,10 @@
       "form": {
         "name": "Name",
         "username": "Username",
+        "usernamePlaceholder": "Enter tenant sign-in username",
+        "usernameHint": "Username is used for tenant sign-in. Changing it affects this member's login name; use lowercase letters, numbers, dots, underscores, and hyphens.",
+        "usernameCreatePlaceholder": "Required for tenant sign-in",
+        "usernameEditPlaceholder": "Tenant sign-in username",
         "email": "Email",
         "phone": "Phone",
         "phonePlaceholder": "Enter phone number",
@@ -166,6 +588,7 @@
         "inactive": "Inactive",
         "selectDepartment": "Select department",
         "selectRole": "Select role",
+        "searchRole": "Search roles",
         "addUser": "Add user",
         "addUserDesc": "Create a new user in current tenant.",
         "editUser": "Edit user",
@@ -212,7 +635,32 @@
       },
       "validation": {
         "requiredFields": "Please fill required fields",
-        "passwordMismatch": "Passwords do not match"
+        "passwordMismatch": "Passwords do not match",
+        "usernameRequired": "Username is required",
+        "usernameFormat": "Username must start with a lowercase letter, be 3-64 characters long, and contain only lowercase letters, numbers, dots, underscores, and hyphens",
+        "roleRequired": "Select at least one role",
+        "missingUserId": "This record is missing the user identifier. Refresh and try again.",
+        "rootEditSelfOnly": "Only root can edit the root account.",
+        "rootResetSelfOnly": "Only root can reset the root account password.",
+        "passwordMinLength": "New password must be at least 6 characters."
+      },
+      "toast": {
+        "validationFailed": "Validation failed",
+        "created": "User created",
+        "updated": "User updated",
+        "saveFailed": "Save failed",
+        "deleted": "User deleted",
+        "deleteFailed": "Delete failed",
+        "statusUpdated": "Status updated",
+        "statusUpdateFailed": "Status update failed",
+        "editDenied": "No permission to edit",
+        "openEditFailed": "Failed to open editor",
+        "resetPasswordDenied": "No permission to reset password",
+        "operationFailed": "Operation failed",
+        "passwordReset": "Password reset",
+        "passwordResetDescription": "{name}'s new password is now active.",
+        "resetPasswordFailed": "Password reset failed",
+        "retryLater": "Try again later"
       }
     },
     "permission": {
@@ -472,6 +920,7 @@
       },
       "filters": {
         "searchPlaceholder": "Search capability ID, title, or description",
+        "moduleSearchPlaceholder": "Search modules",
         "reset": "Clear filters",
         "moduleAll": "All modules",
         "protocolAll": "All protocols"
@@ -483,6 +932,31 @@
       },
       "loading": "Loading platform capabilities...",
       "defaultModuleDescription": "CoreX built-in capabilities shared with host and skeleton plugins.",
+      "module": {
+        "admin": "Admin",
+        "agent": "Agents",
+        "agents": "Agents",
+        "agentModelHub": "Model Capability Hub",
+        "ai": "AI Capabilities",
+        "alerts": "Alerts",
+        "customer": "Customer Management",
+        "eventFabric": "Event Fabric",
+        "iam": "Organization & Permissions",
+        "integrationGateway": "Integration Gateway",
+        "knowledge": "Knowledge",
+        "media": "Media Assets",
+        "metadata": "Metadata Governance",
+        "modelRouting": "Model Routing",
+        "monitor": "Monitor Center",
+        "notifications": "Notifications",
+        "plugin": "Plugins",
+        "plugins": "Plugins",
+        "providerRegistry": "Model Providers",
+        "scheduler": "Scheduler",
+        "settings": "System Settings",
+        "workflow": "Workflow",
+        "unknown": "Unknown Module"
+      },
       "status": {
         "active": "Active",
         "degraded": "Degraded",
@@ -578,20 +1052,20 @@
         "color": "Color",
         "validatorKey": "Validator key",
         "validatorKeyPlaceholder": "For example customer.account",
-      "bindingEnabled": "Binding enabled",
-      "localizedNames": "Localized names",
-      "localizedDescriptions": "Localized descriptions",
-      "localizedName": "Name",
-      "localizedDescription": "Description",
-      "localizedNamePlaceholder": "Enter name",
-      "localizedDescriptionPlaceholder": "Enter description",
-      "requiredLocaleSection": "Default language",
-      "requiredLocaleDescription": "The backend contract requires a default-language name.",
-      "optionalLocaleSection": "Other languages",
-      "optionalLocaleDescription": "Select one language to edit its name and description. Filled languages are shown below.",
-      "localeSelectPlaceholder": "Select language",
-      "localeSearchPlaceholder": "Search language",
-      "locale": {
+        "bindingEnabled": "Binding enabled",
+        "localizedNames": "Localized names",
+        "localizedDescriptions": "Localized descriptions",
+        "localizedName": "Name",
+        "localizedDescription": "Description",
+        "localizedNamePlaceholder": "Enter name",
+        "localizedDescriptionPlaceholder": "Enter description",
+        "requiredLocaleSection": "Default language",
+        "requiredLocaleDescription": "The backend contract requires a default-language name.",
+        "optionalLocaleSection": "Other languages",
+        "optionalLocaleDescription": "Select one language to edit its name and description. Filled languages are shown below.",
+        "localeSelectPlaceholder": "Select language",
+        "localeSearchPlaceholder": "Search language",
+        "locale": {
           "zh_CN": "简体中文",
           "en": "English",
           "ja": "日本語",

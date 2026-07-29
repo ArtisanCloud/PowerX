@@ -34,8 +34,10 @@ const (
 type RoleBinding struct {
 	ID          uint64      `gorm:"primaryKey"`
 	TenantUUID  string      `gorm:"column:tenant_uuid;type:char(36);index;not null"`
+	RoleUUID    string      `gorm:"column:role_uuid;type:char(36);index;not null;default:''"`
 	RoleID      uint64      `gorm:"index;not null"`
 	SubjectType SubjectType `gorm:"type:varchar(24);index;not null"`
+	SubjectUUID string      `gorm:"column:subject_uuid;type:char(36);index;not null;default:''"`
 	SubjectID   uint64      `gorm:"index;not null"`
 
 	// 数据域与条件

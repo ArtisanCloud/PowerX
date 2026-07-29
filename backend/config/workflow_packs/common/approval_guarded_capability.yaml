@@ -1,0 +1,63 @@
+workflow_key: approval_guarded_capability
+display_name_i18n_key: workflow.pack.approvalGuardedCapability.name
+description_i18n_key: workflow.pack.approvalGuardedCapability.description
+category: governance
+version: 1
+owner_scope: tenant
+required_node_kinds:
+  - input.capture
+  - human.review
+  - capability.invoke
+  - event.emit
+required_capabilities: []
+default_retry_policy:
+  max_attempts: 2
+  initial_interval_seconds: 15
+steps:
+  - id: capture_request
+    type: system
+    node_kind: input.capture
+    config:
+      input_schema_ref: workflow.input.approval_guarded_capability.v1
+      source_policy:
+        text: true
+        form: true
+      artifact_output_path: $.artifacts.request
+    next_step_ids: [review_request]
+  - id: review_request
+    type: human_approval
+    node_kind: human.review
+    depends_on: [capture_request]
+    config:
+      review_type: capability_execution
+      approver_policy:
+        roles: [workflow_reviewer]
+      review_payload_path: $.artifacts.request
+      approved_route: invoke_capability
+      rejected_route: emit_rejected
+  - id: invoke_capability
+    type: system
+    node_kind: capability.invoke
+    depends_on: [review_request]
+    config:
+      capability_id: ${capability_id}
+      preferred_protocol: rest
+      input_path: $.artifacts.request
+      output_path: $.vars.capability_result
+    next_step_ids: [emit_completed]
+  - id: emit_completed
+    type: system
+    node_kind: event.emit
+    depends_on: [invoke_capability]
+    config:
+      topic: workflow.capability.completed
+      payload_path: $.vars.capability_result
+      event_schema_ref: workflow.capability.completed.v1
+  - id: emit_rejected
+    type: system
+    node_kind: event.emit
+    depends_on: [review_request]
+    config:
+      topic: workflow.capability.rejected
+      payload_path: $.review
+      event_schema_ref: workflow.capability.rejected.v1

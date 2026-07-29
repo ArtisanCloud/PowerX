@@ -1,0 +1,70 @@
+workflow_key: intake_classify_review
+display_name_i18n_key: workflow.pack.intakeClassifyReview.name
+description_i18n_key: workflow.pack.intakeClassifyReview.description
+category: governance
+version: 1
+owner_scope: tenant
+required_node_kinds:
+  - input.capture
+  - metadata.classify
+  - human.review
+  - event.emit
+required_capabilities:
+  - com.corex.metadata.taxonomy.read
+  - com.corex.metadata.dictionary.read
+  - com.corex.metadata.tag.manage
+  - com.corex.metadata.resource_type.read
+default_retry_policy:
+  max_attempts: 2
+  initial_interval_seconds: 15
+steps:
+  - id: capture_intake
+    type: system
+    node_kind: input.capture
+    config:
+      input_schema_ref: workflow.input.metadata_intake.v1
+      source_policy:
+        text: true
+        media: true
+        link: true
+      artifact_output_path: $.artifacts.intake
+    next_step_ids: [classify_intake]
+  - id: classify_intake
+    type: system
+    node_kind: metadata.classify
+    depends_on: [capture_intake]
+    config:
+      taxonomy_namespace: ${taxonomy_namespace}
+      tag_namespace: ${tag_namespace}
+      dictionary_namespace: ${dictionary_namespace}
+      resource_type_namespace: ${resource_type_namespace}
+      input_path: $.artifacts.intake
+      output_path: $.vars.metadata
+    next_step_ids: [review_classification]
+  - id: review_classification
+    type: human_approval
+    node_kind: human.review
+    depends_on: [classify_intake]
+    config:
+      review_type: metadata_classification
+      approver_policy:
+        roles: [metadata_reviewer]
+      review_payload_path: $.vars.metadata
+      approved_route: emit_approved
+      rejected_route: emit_rejected
+  - id: emit_approved
+    type: system
+    node_kind: event.emit
+    depends_on: [review_classification]
+    config:
+      topic: workflow.metadata_classification.approved
+      payload_path: $.vars.metadata
+      event_schema_ref: workflow.metadata_classification.approved.v1
+  - id: emit_rejected
+    type: system
+    node_kind: event.emit
+    depends_on: [review_classification]
+    config:
+      topic: workflow.metadata_classification.rejected
+      payload_path: $.review
+      event_schema_ref: workflow.metadata_classification.rejected.v1

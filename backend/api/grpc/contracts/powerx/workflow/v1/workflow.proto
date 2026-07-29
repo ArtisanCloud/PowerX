@@ -2,18 +2,18 @@ syntax = "proto3";
 
 package powerx.workflow.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1;workflowv1";
-option java_package = "com.powerx.workflow.v1";
-option java_multiple_files = true;
-option csharp_namespace = "PowerX.Workflow.V1";
-option php_namespace = "PowerX\\Workflow\\V1";
-option php_metadata_namespace = "GPBMetadata\\PowerX\\Workflow\\V1";
-
-import "google/protobuf/struct.proto";
-import "google/protobuf/timestamp.proto";
 import "common/v1/context.proto";
 import "common/v1/pagination.proto";
 import "common/v1/response.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "PowerX.Workflow.V1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1;workflowv1";
+option java_multiple_files = true;
+option java_package = "com.powerx.workflow.v1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Workflow\\V1";
+option php_namespace = "PowerX\\Workflow\\V1";
 
 // WorkflowService 暴露工作流定义管理、实例运行与人工控制相关能力。
 service WorkflowService {
@@ -28,6 +28,18 @@ service WorkflowService {
   rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
   rpc ControlInstance(ControlInstanceRequest) returns (ControlInstanceResponse);
   rpc ExportInstances(ExportInstancesRequest) returns (ExportInstancesResponse);
+
+  rpc ValidateDefinition(ValidateDefinitionRequest) returns (ValidateDefinitionResponse);
+  rpc ListNodeCatalog(ListNodeCatalogRequest) returns (ListNodeCatalogResponse);
+  rpc GetNodeCatalogItem(GetNodeCatalogItemRequest) returns (GetNodeCatalogItemResponse);
+
+  rpc ListHumanReviewTasks(ListHumanReviewTasksRequest) returns (ListHumanReviewTasksResponse);
+  rpc GetHumanReviewTask(GetHumanReviewTaskRequest) returns (GetHumanReviewTaskResponse);
+  rpc ActHumanReviewTask(ActHumanReviewTaskRequest) returns (ActHumanReviewTaskResponse);
+
+  rpc ListWorkflowPacks(ListWorkflowPacksRequest) returns (ListWorkflowPacksResponse);
+  rpc SeedWorkflowPacks(SeedWorkflowPacksRequest) returns (SeedWorkflowPacksResponse);
+  rpc GetWorkflowPack(GetWorkflowPackRequest) returns (GetWorkflowPackResponse);
 }
 
 // -------- 定义管理 --------
@@ -50,7 +62,7 @@ message CreateDefinitionResponse {
 
 message PublishDefinitionRequest {
   common.v1.RequestContext ctx = 1;
-  string definition_id = 2;
+  string definition_uuid = 2;
   string change_note = 3;
 }
 
@@ -61,7 +73,7 @@ message PublishDefinitionResponse {
 
 message ArchiveDefinitionRequest {
   common.v1.RequestContext ctx = 1;
-  string definition_id = 2;
+  string definition_uuid = 2;
   string reason = 3;
 }
 
@@ -72,7 +84,7 @@ message ArchiveDefinitionResponse {
 
 message GetDefinitionRequest {
   common.v1.RequestContext ctx = 1;
-  string definition_id = 2;
+  string definition_uuid = 2;
   int32 version = 3;
 }
 
@@ -98,11 +110,12 @@ message ListDefinitionsResponse {
 
 message StartInstanceRequest {
   common.v1.RequestContext ctx = 1;
-  string definition_id = 2;
+  string definition_uuid = 2;
   int32 definition_version = 3;
   google.protobuf.Struct input = 4;
   google.protobuf.Struct tags = 5;
   string correlation_id = 6;
+  string agent_uuid = 7;
 }
 
 message StartInstanceResponse {
@@ -112,7 +125,7 @@ message StartInstanceResponse {
 
 message GetInstanceRequest {
   common.v1.RequestContext ctx = 1;
-  string instance_id = 2;
+  string instance_uuid = 2;
   bool include_steps = 3;
 }
 
@@ -124,12 +137,12 @@ message GetInstanceResponse {
 message ListInstancesRequest {
   common.v1.RequestContext ctx = 1;
   common.v1.PageRequest page = 2;
-  string definition_id = 3;
+  string definition_uuid = 3;
   WorkflowInstanceState state = 4;
   google.protobuf.Timestamp created_from = 5;
   google.protobuf.Timestamp created_to = 6;
   bool include_steps = 7;
-  string agent_id = 8;
+  string agent_uuid = 8;
 }
 
 message ListInstancesResponse {
@@ -140,7 +153,7 @@ message ListInstancesResponse {
 
 message ControlInstanceRequest {
   common.v1.RequestContext ctx = 1;
-  string instance_id = 2;
+  string instance_uuid = 2;
   ControlAction action = 3;
   string step_id = 4;
   string assignment_id = 5;
@@ -156,7 +169,7 @@ message ControlInstanceResponse {
 message ExportInstancesRequest {
   common.v1.RequestContext ctx = 1;
   ExportFormat format = 2;
-  string definition_id = 3;
+  string definition_uuid = 3;
   WorkflowInstanceState state = 4;
   google.protobuf.Timestamp created_from = 5;
   google.protobuf.Timestamp created_to = 6;
@@ -172,7 +185,7 @@ message ExportInstancesResponse {
 // -------- 结构定义 --------
 
 message WorkflowDefinition {
-  string definition_id = 1;
+  string definition_uuid = 1;
   string tenant_uuid = 2;
   string name = 3;
   string description = 4;
@@ -187,6 +200,10 @@ message WorkflowDefinition {
   google.protobuf.Timestamp updated_at = 13;
   google.protobuf.Timestamp published_at = 14;
   string created_by = 15;
+  google.protobuf.Struct input_schema = 16;
+  string workflow_pack_key = 17;
+  string source_type = 18;
+  string checksum = 19;
 }
 
 message WorkflowStepDefinition {
@@ -197,12 +214,16 @@ message WorkflowStepDefinition {
   bool compensatable = 5;
   repeated string next_step_ids = 6;
   repeated string depends_on = 7;
+  string node_kind = 8;
+  string node_ref = 9;
+  google.protobuf.Struct input_mapping = 10;
+  google.protobuf.Struct output_mapping = 11;
 }
 
 message WorkflowInstance {
-  string instance_id = 1;
+  string instance_uuid = 1;
   string tenant_uuid = 2;
-  string definition_id = 3;
+  string definition_uuid = 3;
   int32 definition_version = 4;
   WorkflowInstanceState state = 5;
   google.protobuf.Struct input = 6;
@@ -215,6 +236,11 @@ message WorkflowInstance {
   google.protobuf.Timestamp completed_at = 13;
   map<string, string> tags = 14;
   repeated WorkflowStepSummary steps = 15;
+  string agent_uuid = 16;
+  string initiator_user_uuid = 17;
+  string trace_id = 18;
+  string correlation_id = 19;
+  google.protobuf.Struct runtime_context = 20;
 }
 
 message WorkflowStepSummary {
@@ -223,7 +249,7 @@ message WorkflowStepSummary {
   StepType type = 3;
   WorkflowStepState state = 4;
   StepSubjectType subject_type = 5;
-  string subject_id = 6;
+  string subject_uuid = 6;
   int64 tool_grant_version = 7;
   int32 attempt = 8;
   google.protobuf.Timestamp scheduled_at = 9;
@@ -233,11 +259,15 @@ message WorkflowStepSummary {
   google.protobuf.Struct payload_out = 13;
   string failure_reason = 14;
   bool awaiting_manual_approval = 15;
+  string node_kind = 16;
+  string node_ref = 17;
+  string error_code = 18;
+  string error_message = 19;
 }
 
 message WorkflowInstanceExportRow {
-  string instance_id = 1;
-  string definition_id = 2;
+  string instance_uuid = 1;
+  string definition_uuid = 2;
   int32 definition_version = 3;
   WorkflowInstanceState state = 4;
   google.protobuf.Timestamp started_at = 5;
@@ -252,11 +282,171 @@ message StepExecutionExport {
   StepType type = 2;
   WorkflowStepState state = 3;
   StepSubjectType subject_type = 4;
-  string subject_id = 5;
+  string subject_uuid = 5;
   int32 attempts = 6;
   int64 tool_grant_version = 7;
   google.protobuf.Timestamp last_transition_at = 8;
   string last_error = 9;
+  string node_kind = 10;
+  string node_ref = 11;
+  string error_code = 12;
+}
+
+// -------- 节点目录 --------
+
+message ValidateDefinitionRequest {
+  common.v1.RequestContext ctx = 1;
+  string definition_uuid = 2;
+}
+
+message ValidateDefinitionResponse {
+  common.v1.ResponseMeta meta = 1;
+  bool valid = 2;
+  repeated WorkflowValidationIssue issues = 3;
+}
+
+message WorkflowValidationIssue {
+  string step_id = 1;
+  string node_kind = 2;
+  string code = 3;
+  string message = 4;
+  google.protobuf.Struct details = 5;
+}
+
+message ListNodeCatalogRequest {
+  common.v1.RequestContext ctx = 1;
+  string category = 2;
+  string keyword = 3;
+}
+
+message ListNodeCatalogResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowNodeCatalogItem items = 2;
+}
+
+message GetNodeCatalogItemRequest {
+  common.v1.RequestContext ctx = 1;
+  string node_kind = 2;
+}
+
+message GetNodeCatalogItemResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowNodeCatalogItem item = 2;
+}
+
+message WorkflowNodeCatalogItem {
+  string node_kind = 1;
+  string display_name_i18n_key = 2;
+  string description_i18n_key = 3;
+  string category = 4;
+  StepType step_type = 5;
+  google.protobuf.Struct input_schema = 6;
+  google.protobuf.Struct output_schema = 7;
+  google.protobuf.Struct config_schema = 8;
+  repeated string required_permissions = 9;
+  repeated string required_capabilities = 10;
+  bool idempotency_required = 11;
+  bool compensation_supported = 12;
+  WorkflowNodeSourceStatus source_status = 13;
+}
+
+// -------- 人工审核 --------
+
+message ListHumanReviewTasksRequest {
+  common.v1.RequestContext ctx = 1;
+  common.v1.PageRequest page = 2;
+  HumanReviewTaskStatus status = 3;
+  string workflow_instance_uuid = 4;
+  string review_type = 5;
+}
+
+message ListHumanReviewTasksResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated HumanReviewTask review_tasks = 2;
+  common.v1.PageResponse page = 3;
+}
+
+message GetHumanReviewTaskRequest {
+  common.v1.RequestContext ctx = 1;
+  string review_task_uuid = 2;
+}
+
+message GetHumanReviewTaskResponse {
+  common.v1.ResponseMeta meta = 1;
+  HumanReviewTask review_task = 2;
+}
+
+message ActHumanReviewTaskRequest {
+  common.v1.RequestContext ctx = 1;
+  string review_task_uuid = 2;
+  HumanReviewAction action = 3;
+  string comment = 4;
+  google.protobuf.Struct decision_payload = 5;
+}
+
+message ActHumanReviewTaskResponse {
+  common.v1.ResponseMeta meta = 1;
+  HumanReviewTask review_task = 2;
+}
+
+message HumanReviewTask {
+  string review_task_uuid = 1;
+  string tenant_uuid = 2;
+  string workflow_instance_uuid = 3;
+  string step_id = 4;
+  string review_type = 5;
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Struct approver_policy = 7;
+  HumanReviewTaskStatus status = 8;
+  string reviewer_user_uuid = 9;
+  string decision = 10;
+  google.protobuf.Struct decision_payload = 11;
+  string comment = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp completed_at = 14;
+}
+
+// -------- Workflow Pack --------
+
+message ListWorkflowPacksRequest {
+  common.v1.RequestContext ctx = 1;
+  string keyword = 2;
+}
+
+message SeedWorkflowPacksRequest {
+  common.v1.RequestContext ctx = 1;
+  repeated string workflow_keys = 2;
+}
+
+message SeedWorkflowPacksResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowPack packs = 2;
+}
+
+message GetWorkflowPackRequest {
+  common.v1.RequestContext ctx = 1;
+  string workflow_key = 2;
+}
+
+message GetWorkflowPackResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowPack pack = 2;
+}
+
+message ListWorkflowPacksResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowPack packs = 2;
+}
+
+message WorkflowPack {
+  string workflow_key = 1;
+  string display_name_i18n_key = 2;
+  string description_i18n_key = 3;
+  int32 version = 4;
+  WorkflowPackStatus status = 5;
+  string definition_uuid = 6;
+  int32 definition_version = 7;
+  string checksum = 8;
 }
 
 message RetryPolicy {
@@ -342,6 +532,39 @@ enum StepSubjectType {
   STEP_SUBJECT_TYPE_SYSTEM = 1;
   STEP_SUBJECT_TYPE_AGENT = 2;
   STEP_SUBJECT_TYPE_HUMAN = 3;
+}
+
+enum WorkflowNodeSourceStatus {
+  WORKFLOW_NODE_SOURCE_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_NODE_SOURCE_STATUS_AVAILABLE = 1;
+  WORKFLOW_NODE_SOURCE_STATUS_MISSING_DEPENDENCY = 2;
+  WORKFLOW_NODE_SOURCE_STATUS_PERMISSION_DENIED = 3;
+  WORKFLOW_NODE_SOURCE_STATUS_DISABLED = 4;
+}
+
+enum HumanReviewTaskStatus {
+  HUMAN_REVIEW_TASK_STATUS_UNSPECIFIED = 0;
+  HUMAN_REVIEW_TASK_STATUS_PENDING = 1;
+  HUMAN_REVIEW_TASK_STATUS_APPROVED = 2;
+  HUMAN_REVIEW_TASK_STATUS_REJECTED = 3;
+  HUMAN_REVIEW_TASK_STATUS_CHANGES_REQUESTED = 4;
+  HUMAN_REVIEW_TASK_STATUS_CANCELED = 5;
+  HUMAN_REVIEW_TASK_STATUS_EXPIRED = 6;
+}
+
+enum HumanReviewAction {
+  HUMAN_REVIEW_ACTION_UNSPECIFIED = 0;
+  HUMAN_REVIEW_ACTION_APPROVE = 1;
+  HUMAN_REVIEW_ACTION_REJECT = 2;
+  HUMAN_REVIEW_ACTION_REQUEST_CHANGES = 3;
+  HUMAN_REVIEW_ACTION_CANCEL = 4;
+}
+
+enum WorkflowPackStatus {
+  WORKFLOW_PACK_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_PACK_STATUS_MISSING = 1;
+  WORKFLOW_PACK_STATUS_SEEDED = 2;
+  WORKFLOW_PACK_STATUS_DEPENDENCY_FAILED = 3;
 }
 
 enum ControlAction {

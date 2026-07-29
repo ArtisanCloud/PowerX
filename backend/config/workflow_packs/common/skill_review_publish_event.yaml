@@ -1,0 +1,64 @@
+workflow_key: skill_review_publish_event
+display_name_i18n_key: workflow.pack.skillReviewPublishEvent.name
+description_i18n_key: workflow.pack.skillReviewPublishEvent.description
+category: automation
+version: 1
+owner_scope: tenant
+required_node_kinds:
+  - input.capture
+  - skill.invoke
+  - human.review
+  - event.emit
+required_capabilities: []
+default_retry_policy:
+  max_attempts: 3
+  initial_interval_seconds: 20
+steps:
+  - id: capture_input
+    type: system
+    node_kind: input.capture
+    config:
+      input_schema_ref: workflow.input.skill_review.v1
+      source_policy:
+        text: true
+        media: true
+        link: true
+      artifact_output_path: $.artifacts.input
+    next_step_ids: [invoke_skill]
+  - id: invoke_skill
+    type: system
+    node_kind: skill.invoke
+    node_ref: ${skill_id}
+    depends_on: [capture_input]
+    config:
+      skill_id: ${skill_id}
+      input_path: $.artifacts.input
+      output_path: $.vars.skill_result
+    next_step_ids: [review_result]
+  - id: review_result
+    type: human_approval
+    node_kind: human.review
+    depends_on: [invoke_skill]
+    config:
+      review_type: skill_result_publish
+      approver_policy:
+        roles: [workflow_reviewer]
+      review_payload_path: $.vars.skill_result
+      approved_route: emit_published
+      rejected_route: emit_rejected
+  - id: emit_published
+    type: system
+    node_kind: event.emit
+    depends_on: [review_result]
+    config:
+      topic: workflow.skill_result.published
+      payload_path: $.vars.skill_result
+      event_schema_ref: workflow.skill_result.published.v1
+  - id: emit_rejected
+    type: system
+    node_kind: event.emit
+    depends_on: [review_result]
+    config:
+      topic: workflow.skill_result.rejected
+      payload_path: $.review
+      event_schema_ref: workflow.skill_result.rejected.v1

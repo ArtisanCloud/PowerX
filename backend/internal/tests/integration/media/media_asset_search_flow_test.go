@@ -35,6 +35,7 @@ func (env *mediaIntegrationTestEnv) SeedSearchFixtures(ctx context.Context) erro
 		Name:       "homepage-banner",
 		Driver:     "local",
 		Tags:       []string{"homepage"},
+		Metadata:   map[string]any{"content_sha256": mediaFixtureContentSHA256("tenant_a", "homepage-banner")},
 	})
 	if err != nil {
 		return err
@@ -47,6 +48,7 @@ func (env *mediaIntegrationTestEnv) SeedSearchFixtures(ctx context.Context) erro
 		Name:       "archived-banner",
 		Driver:     "local",
 		Tags:       []string{"homepage"},
+		Metadata:   map[string]any{"content_sha256": mediaFixtureContentSHA256("tenant_a", "archived-banner")},
 	})
 	if err != nil {
 		return err

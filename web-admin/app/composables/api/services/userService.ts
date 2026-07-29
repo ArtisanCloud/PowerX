@@ -7,7 +7,6 @@ import type {
 
 // 用户相关接口类型定义
 export interface User {
-  id: number;
   uuid: string;
   createdAt: string;
   updatedAt: string;
@@ -22,13 +21,12 @@ export interface User {
 }
 
 export interface Member {
-  id: number;
   uuid: string;
   createdAt: string;
   updatedAt: string;
   DeletedAt?: string | null;
   tenant_uuid: string;
-  user_id: number;
+  user_uuid: string;
   username: string;
   display_name: string;
   avatar_url?: string;
@@ -44,13 +42,15 @@ export interface MemberWithProfile {
 
 export interface UserListParams extends PaginationParams {
   q?: string; // 关键词搜索
-  tenant_uuid?: string; // 租户筛选
+  tenant_uuid: string; // 租户筛选
   status?: number; // 状态筛选
   sort_by?: string;
   sort_order?: string;
 }
 
 export interface CreateSystemUserParams {
+  tenant_uuid: string;
+
   // User 基础字段
   email?: string;
   phone?: string;
@@ -63,10 +63,12 @@ export interface CreateSystemUserParams {
   username: string;
   initial_password?: string;
   dept_ids?: number[];
-  role_ids?: number[];
+  role_uuids?: string[];
 }
 
 export interface UpdateUserParams {
+  tenant_uuid: string;
+  username: string;
   email?: string;
   phone?: string;
   display_name?: string;
@@ -90,7 +92,8 @@ export interface AddUserToTenantParams {
 }
 
 export interface SetUserRolesParams {
-  role_ids: number[];
+  tenant_uuid: string;
+  role_uuids: string[];
 }
 
 export interface UserLoginParams {
@@ -117,7 +120,7 @@ export const useUserService = () => {
      * 获取用户列表
      * GET /api/admin/system/users
      */
-    getUsers: (params?: UserListParams) => {
+    getUsers: (params: UserListParams) => {
       return apiClient.get<ApiResponse<PaginatedResponse<MemberWithProfile>>>(
         baseUrl,
         {
@@ -128,10 +131,12 @@ export const useUserService = () => {
 
     /**
      * 获取指定用户信息
-     * GET /api/admin/system/users/:id
+     * GET /api/admin/system/users/:user_uuid
      */
-    getUser: (id: number) => {
-      return apiClient.get<ApiResponse<MemberWithProfile>>(`${baseUrl}/${id}`);
+    getUser: (userUuid: string) => {
+      return apiClient.get<ApiResponse<MemberWithProfile>>(
+        `${baseUrl}/${userUuid}`
+      );
     },
 
     /**
@@ -139,118 +144,103 @@ export const useUserService = () => {
      * POST /api/admin/system/users
      */
     createSystemUser: (data: CreateSystemUserParams) => {
-      return apiClient.post<ApiResponse<{ id: number }>>(baseUrl, data);
+      return apiClient.post<ApiResponse<{ user_uuid: string }>>(baseUrl, data);
     },
 
     /**
      * 更新用户信息
-     * PATCH /api/admin/system/users/:id
+     * PATCH /api/admin/system/users/:user_uuid
      */
-    updateUser: (id: number, data: UpdateUserParams) => {
+    updateUser: (userUuid: string, data: UpdateUserParams) => {
       return apiClient.patch<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}`,
+        `${baseUrl}/${userUuid}`,
         data
       );
     },
 
     /**
      * 设置用户状态
-     * PUT /api/admin/system/users/:id/status
+     * PUT /api/admin/system/users/:user_uuid/status
      */
-    setUserStatus: (id: number, data: SetStatusParams) => {
+    setUserStatus: (userUuid: string, data: SetStatusParams) => {
       return apiClient.put<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/status`,
+        `${baseUrl}/${userUuid}/status`,
         data
       );
     },
 
     /**
      * 删除用户
-     * DELETE /api/admin/system/users/:id
+     * DELETE /api/admin/system/users/:user_uuid
      */
-    deleteUser: (id: number) => {
-      return apiClient.delete<ApiResponse<{ ok: boolean }>>(`${baseUrl}/${id}`);
+    deleteUser: (userUuid: string) => {
+      return apiClient.delete<ApiResponse<{ ok: boolean }>>(
+        `${baseUrl}/${userUuid}`
+      );
     },
 
     /**
      * 恢复用户
-     * PUT /api/admin/system/users/:id/restore
+     * PUT /api/admin/system/users/:user_uuid/restore
      */
-    restoreUser: (id: number) => {
+    restoreUser: (userUuid: string) => {
       return apiClient.put<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/restore`
+        `${baseUrl}/${userUuid}/restore`
       );
     },
 
     /**
      * 强制用户下线
-     * POST /api/admin/system/users/:id/force-logout
+     * POST /api/admin/system/users/:user_uuid/force-logout
      */
-    forceLogout: (id: number, data: ForceLogoutParams) => {
+    forceLogout: (userUuid: string, data: ForceLogoutParams) => {
       return apiClient.post<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/force-logout`,
+        `${baseUrl}/${userUuid}/force-logout`,
         data
       );
     },
 
     /**
      * 管理员重置用户密码
-     * PUT /api/admin/system/users/:id/password
+     * PUT /api/admin/system/users/:user_uuid/password
      */
-    resetUserPassword: (id: number, data: ResetPasswordParams) => {
+    resetUserPassword: (userUuid: string, data: ResetPasswordParams) => {
       return apiClient.put<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/password`,
+        `${baseUrl}/${userUuid}/password`,
         data
       );
     },
 
     /**
      * 获取用户在当前租户下的角色 ID 列表
-     * GET /api/admin/system/users/:id/roles
+     * GET /api/admin/system/users/:user_uuid/roles
      */
-    getUserRoles: (id: number) => {
-      return apiClient.get<ApiResponse<{ role_ids: number[] }>>(
-        `${baseUrl}/${id}/roles`
+    getUserRoles: (userUuid: string, params: { tenant_uuid: string }) => {
+      return apiClient.get<ApiResponse<{ role_uuids: string[] }>>(
+        `${baseUrl}/${userUuid}/roles`,
+        { params }
       );
     },
 
     /**
      * 设置用户在当前租户下的角色
-     * PUT /api/admin/system/users/:id/roles
+     * PUT /api/admin/system/users/:user_uuid/roles
      */
-    setUserRoles: (id: number, data: SetUserRolesParams) => {
+    setUserRoles: (userUuid: string, data: SetUserRolesParams) => {
       return apiClient.put<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/roles`,
+        `${baseUrl}/${userUuid}/roles`,
         data
       );
     },
 
     /**
      * 将已存在的用户加入某个租户
-     * PATCH /api/admin/system/users/:id/add-to-tenant
+     * PATCH /api/admin/system/users/:user_uuid/add-to-tenant
      */
-    addUserToTenant: (id: number, data: AddUserToTenantParams) => {
-      return apiClient.patch<ApiResponse<{ member_id: number }>>(
-        `${baseUrl}/${id}/add-to-tenant`,
+    addUserToTenant: (userUuid: string, data: AddUserToTenantParams) => {
+      return apiClient.patch<ApiResponse<{ member_uuid: string }>>(
+        `${baseUrl}/${userUuid}/add-to-tenant`,
         data
-      );
-    },
-
-    // 兼容性方法（保持向后兼容）
-    /**
-     * @deprecated 使用 createSystemUser 替代
-     */
-    createUser: (data: CreateSystemUserParams) => {
-      return apiClient.post<ApiResponse<{ id: number }>>(baseUrl, data);
-    },
-
-    /**
-     * @deprecated 使用 setUserStatus 替代
-     */
-    updateUserStatus: (id: number, status: number) => {
-      return apiClient.put<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${id}/status`,
-        { status }
       );
     },
   };

@@ -16,7 +16,7 @@
         :color="activeTab === 'editor' ? 'primary' : 'neutral'"
         @click="activeTab = 'editor'"
       >
-        基础编辑器
+        {{ t("workflow.test.baseEditor") }}
       </UButton>
       <UButton
         icon="i-heroicons-arrows-up-down"
@@ -26,7 +26,7 @@
         :color="activeTab === 'dnd' ? 'primary' : 'neutral'"
         @click="activeTab = 'dnd'"
       >
-        拖拽示例
+        {{ t("workflow.test.dragExample") }}
       </UButton>
     </div>
 
@@ -42,6 +42,7 @@
 import TestWorkflowEditor from "~/components/workflow/test/base/index.vue";
 import TestDnDWorkflow from "~/components/workflow/test/drag-drop/index.vue";
 
+const { t } = useI18n();
 const activeTab = ref<"editor" | "dnd">("editor");
 
 // 禁用布局，避免样式冲突
@@ -52,7 +53,7 @@ definePageMeta({
 
 // 设置页面标题
 useHead({
-  title: "工作流编辑器测试 - PowerX",
+  title: t("workflow.test.pageTitle"),
 });
 </script>
 

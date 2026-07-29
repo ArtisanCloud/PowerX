@@ -18,14 +18,18 @@ var allowedStepTypes = map[string]struct{}{
 
 // StepDefinition 描述工作流定义中的单个步骤。
 type StepDefinition struct {
-	ID            string                 `json:"id"`
-	DisplayName   string                 `json:"display_name,omitempty"`
-	Type          string                 `json:"type"`
-	Config        map[string]any         `json:"config,omitempty"`
-	NextStepIDs   []string               `json:"next_step_ids,omitempty"`
-	DependsOn     []string               `json:"depends_on,omitempty"`
-	Compensatable bool                   `json:"compensatable,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	ID            string                 `json:"id" yaml:"id"`
+	DisplayName   string                 `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Type          string                 `json:"type" yaml:"type"`
+	NodeKind      string                 `json:"node_kind,omitempty" yaml:"node_kind,omitempty"`
+	NodeRef       string                 `json:"node_ref,omitempty" yaml:"node_ref,omitempty"`
+	InputMapping  map[string]any         `json:"input_mapping,omitempty" yaml:"input_mapping,omitempty"`
+	OutputMapping map[string]any         `json:"output_mapping,omitempty" yaml:"output_mapping,omitempty"`
+	Config        map[string]any         `json:"config,omitempty" yaml:"config,omitempty"`
+	NextStepIDs   []string               `json:"next_step_ids,omitempty" yaml:"next_step_ids,omitempty"`
+	DependsOn     []string               `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	Compensatable bool                   `json:"compensatable,omitempty" yaml:"compensatable,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // ValidationResult 返回校验后便于执行所需的派生数据。
@@ -151,6 +155,8 @@ func normalizeStep(step StepDefinition) StepDefinition {
 	deps := append([]string{}, step.DependsOn...)
 	step.NextStepIDs = uniqueStrings(trimStrings(next))
 	step.DependsOn = uniqueStrings(trimStrings(deps))
+	step.NodeKind = strings.TrimSpace(strings.ToLower(step.NodeKind))
+	step.NodeRef = strings.TrimSpace(step.NodeRef)
 	return step
 }
 

@@ -12,7 +12,9 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
+	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -47,7 +49,7 @@ type PublishDefinitionRequest struct {
 
 // StartInstanceRequest DTO.
 type StartInstanceRequest struct {
-	DefinitionID      string            `json:"definition_id" validate:"required,uuid4"`
+	DefinitionUUID    string            `json:"definition_uuid" validate:"required,uuid4"`
 	DefinitionVersion int32             `json:"definition_version"`
 	Initiator         string            `json:"initiator" validate:"omitempty,uuid4"`
 	Input             map[string]any    `json:"input"`
@@ -61,6 +63,20 @@ type ControlInstanceRequest struct {
 	AssignmentID uint64         `json:"assignment_id"`
 	Reason       string         `json:"reason"`
 	Payload      map[string]any `json:"payload"`
+}
+
+type ValidateDefinitionRequest struct {
+	Steps []workflow.StepDefinition `json:"steps" validate:"required,dive"`
+}
+
+type HumanReviewActionRequest struct {
+	Action  string         `json:"action" validate:"required"`
+	Comment string         `json:"comment"`
+	Payload map[string]any `json:"payload"`
+}
+
+type WorkflowPackSeedRequest struct {
+	Keys []string `json:"keys"`
 }
 
 func (h *Handler) CreateDefinition(c *gin.Context) {
@@ -115,9 +131,9 @@ func (h *Handler) PublishDefinition(c *gin.Context) {
 		return
 	}
 
-	definitionUUID, err := uuid.Parse(c.Param("definitionId"))
+	definitionUUID, err := uuid.Parse(c.Param("definition_uuid"))
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_id", err))
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_uuid", err))
 		return
 	}
 
@@ -199,7 +215,7 @@ func (h *Handler) GetDefinition(c *gin.Context) {
 		return
 	}
 
-	definitionUUID, err := uuid.Parse(c.Param("definitionId"))
+	definitionUUID, err := uuid.Parse(c.Param("definition_uuid"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition id", err))
 		return
@@ -237,9 +253,9 @@ func (h *Handler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	defID, err := uuid.Parse(req.DefinitionID)
+	defID, err := uuid.Parse(req.DefinitionUUID)
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_id", err))
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_uuid", err))
 		return
 	}
 
@@ -261,7 +277,22 @@ func (h *Handler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, mapInstance(instance, nil, tenantUUID))
+	if _, err := h.svc.DrainDueSteps(c.Request.Context(), workflow.DrainDueStepsOptions{
+		InstanceUUID:  instance.UUID,
+		LeaseOwner:    "workflow-http-start",
+		MaxIterations: 50,
+	}); err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("run workflow instance failed", err))
+		return
+	}
+
+	updated, records, err := h.svc.GetInstance(c.Request.Context(), tenantUUID, instance.UUID, true)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("instance not found", err))
+		return
+	}
+
+	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, mapInstance(updated, records, tenantUUID))
 }
 
 func (h *Handler) GetInstance(c *gin.Context) {
@@ -275,7 +306,7 @@ func (h *Handler) GetInstance(c *gin.Context) {
 		return
 	}
 
-	instanceUUID, err := uuid.Parse(c.Param("instanceId"))
+	instanceUUID, err := uuid.Parse(c.Param("instance_uuid"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid instance id", err))
 		return
@@ -292,6 +323,61 @@ func (h *Handler) GetInstance(c *gin.Context) {
 	dto.ResponseSuccess(c, mapInstance(instance, records, tenantUUID))
 }
 
+func (h *Handler) ListInstances(c *gin.Context) {
+	if h.svc == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
+		return
+	}
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
+	var definitionUUID uuid.UUID
+	if raw := strings.TrimSpace(c.Query("definition_uuid")); raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_uuid", err))
+			return
+		}
+		definitionUUID = parsed
+	}
+
+	page := parsePositiveInt(c.Query("page"), 1)
+	pageSize := parsePositiveInt(c.Query("page_size"), 20)
+	instances, total, err := h.svc.ListInstances(c.Request.Context(), workflowrepo.InstanceListFilter{
+		TenantUUID:     tenantUUID,
+		DefinitionUUID: definitionUUID,
+		State:          strings.TrimSpace(c.Query("state")),
+		Page:           page,
+		PageSize:       pageSize,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("list instances failed", err))
+		return
+	}
+
+	items := make([]map[string]any, 0, len(instances))
+	includeSteps := c.DefaultQuery("include_steps", "false") == "true"
+	for i := range instances {
+		var records []modelworkflow.WorkflowStepRecord
+		if includeSteps {
+			_, stepRecords, stepErr := h.svc.GetInstance(c.Request.Context(), tenantUUID, instances[i].UUID, true)
+			if stepErr != nil {
+				dto.RespondErrorFrom(c, dto.NewBadRequest("load instance steps failed", stepErr))
+				return
+			}
+			records = stepRecords
+		}
+		items = append(items, mapInstance(&instances[i], records, tenantUUID))
+	}
+
+	dto.ResponseSuccess(c, map[string]any{
+		"items": items,
+		"total": total,
+	})
+}
+
 func (h *Handler) ExportInstances(c *gin.Context) {
 	if h.svc == nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
@@ -304,10 +390,10 @@ func (h *Handler) ExportInstances(c *gin.Context) {
 	}
 
 	var definitionUUID *uuid.UUID
-	if definitionParam := strings.TrimSpace(c.Query("definition_id")); definitionParam != "" {
+	if definitionParam := strings.TrimSpace(c.Query("definition_uuid")); definitionParam != "" {
 		id, parseErr := uuid.Parse(definitionParam)
 		if parseErr != nil {
-			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_id", parseErr))
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_uuid", parseErr))
 			return
 		}
 		definitionUUID = &id
@@ -356,8 +442,8 @@ func (h *Handler) ExportInstances(c *gin.Context) {
 	rows := make([]map[string]any, 0, len(result.Rows))
 	for _, row := range result.Rows {
 		payload := map[string]any{
-			"instance_id":        row.InstanceID,
-			"definition_id":      row.DefinitionID,
+			"instance_uuid":      row.InstanceID,
+			"definition_uuid":    row.DefinitionID,
 			"definition_version": row.DefinitionVersion,
 			"state":              row.State,
 			"tenant_uuid":        row.TenantUUID,
@@ -414,7 +500,7 @@ func (h *Handler) ControlInstance(c *gin.Context) {
 		return
 	}
 
-	instanceUUID, err := uuid.Parse(c.Param("instanceId"))
+	instanceUUID, err := uuid.Parse(c.Param("instance_uuid"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid instance id", err))
 		return
@@ -454,6 +540,191 @@ func (h *Handler) ControlInstance(c *gin.Context) {
 	dto.ResponseSuccess(c, mapInstance(inst, records, tenantUUID))
 }
 
+func (h *Handler) ValidateDefinition(c *gin.Context) {
+	var req ValidateDefinitionRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid payload", err))
+		return
+	}
+	result, err := workflow.ValidateStepDefinitions(req.Steps)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("workflow.definition_invalid", err))
+		return
+	}
+	dto.ResponseSuccess(c, map[string]any{
+		"valid":          true,
+		"start_step_ids": result.StartStepIDs,
+	})
+}
+
+func (h *Handler) ListNodeCatalog(c *gin.Context) {
+	items, err := h.svc.ListNodeCatalog(c.Request.Context())
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("list node catalog failed", err))
+		return
+	}
+	out := make([]map[string]any, 0, len(items))
+	for i := range items {
+		out = append(out, mapNodeCatalogItem(items[i]))
+	}
+	dto.ResponseSuccess(c, map[string]any{"items": out})
+}
+
+func (h *Handler) GetNodeCatalogItem(c *gin.Context) {
+	item, err := h.svc.GetNodeCatalogItem(c.Request.Context(), c.Param("node_kind"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("node catalog item not found", err))
+		return
+	}
+	dto.ResponseSuccess(c, mapNodeCatalogItem(item))
+}
+
+func (h *Handler) ListHumanReviewTasks(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	var instanceUUID uuid.UUID
+	if raw := strings.TrimSpace(c.Query("workflow_instance_uuid")); raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid workflow_instance_uuid", err))
+			return
+		}
+		instanceUUID = parsed
+	}
+	tasks, total, err := h.svc.ListHumanReviewTasks(c.Request.Context(), workflow.HumanReviewListInput{
+		TenantUUID:           tenantUUID,
+		Status:               c.Query("status"),
+		WorkflowInstanceUUID: instanceUUID,
+		ReviewType:           c.Query("review_type"),
+		Page:                 page,
+		PageSize:             pageSize,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("list review tasks failed", err))
+		return
+	}
+	items := make([]map[string]any, 0, len(tasks))
+	for i := range tasks {
+		items = append(items, mapHumanReviewTask(&tasks[i]))
+	}
+	dto.ResponseSuccess(c, map[string]any{"items": items, "total": total})
+}
+
+func (h *Handler) GetHumanReviewTask(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	taskUUID, err := uuid.Parse(c.Param("review_task_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid review_task_uuid", err))
+		return
+	}
+	task, err := h.svc.GetHumanReviewTask(c.Request.Context(), tenantUUID, taskUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("review task not found", err))
+		return
+	}
+	dto.ResponseSuccess(c, mapHumanReviewTask(task))
+}
+
+func (h *Handler) ActHumanReviewTask(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	taskUUID, err := uuid.Parse(c.Param("review_task_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid review_task_uuid", err))
+		return
+	}
+	var req HumanReviewActionRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid payload", err))
+		return
+	}
+	reviewerUUID, err := uuid.Parse(strings.TrimSpace(reqctx.GetUserUUID(c.Request.Context())))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("reviewer user uuid missing from request context", err))
+		return
+	}
+	task, err := h.svc.ActHumanReviewTask(c.Request.Context(), workflow.HumanReviewActionInput{
+		TenantUUID:     tenantUUID,
+		ReviewTaskUUID: taskUUID,
+		Action:         req.Action,
+		ReviewerUUID:   reviewerUUID,
+		Comment:        req.Comment,
+		Payload:        req.Payload,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("act review task failed", err))
+		return
+	}
+	dto.ResponseSuccess(c, mapHumanReviewTask(task))
+}
+
+func (h *Handler) ListWorkflowPacks(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	records, total, err := h.svc.ListWorkflowPacks(c.Request.Context(), tenantUUID, c.Query("keyword"), limit, offset)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("list workflow packs failed", err))
+		return
+	}
+	items := make([]map[string]any, 0, len(records))
+	for i := range records {
+		items = append(items, mapWorkflowPackSeedRecord(&records[i]))
+	}
+	dto.ResponseSuccess(c, map[string]any{"items": items, "total": total})
+}
+
+func (h *Handler) SeedWorkflowPacks(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	var req WorkflowPackSeedRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid payload", err))
+		return
+	}
+	result, err := h.svc.SeedWorkflowPacks(c.Request.Context(), workflow.WorkflowPackSeedInput{
+		TenantUUID: tenantUUID,
+		ConfigDir:  "config/workflow_packs",
+		Keys:       req.Keys,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("seed workflow packs failed", err))
+		return
+	}
+	seeded := make([]map[string]any, 0, len(result.Seeded))
+	for i := range result.Seeded {
+		seeded = append(seeded, mapWorkflowPackSeedRecord(&result.Seeded[i]))
+	}
+	dto.ResponseSuccess(c, map[string]any{"seeded": seeded, "skipped": result.Skipped})
+}
+
+func (h *Handler) GetWorkflowPack(c *gin.Context) {
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	record, err := h.svc.GetWorkflowPack(c.Request.Context(), tenantUUID, c.Param("workflow_key"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewNotFound("workflow pack not found", err))
+		return
+	}
+	dto.ResponseSuccess(c, mapWorkflowPackSeedRecord(record))
+}
+
 func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map[string]any {
 	if def == nil {
 		return nil
@@ -470,11 +741,71 @@ func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map
 		"compensation_policy":    jsonToInterface(def.CompensationPolicy),
 		"sla_policy":             jsonToInterface(def.SlaPolicy),
 		"metadata":               jsonToInterface(def.Metadata),
+		"input_schema":           jsonToInterface(def.InputSchema),
+		"workflow_pack_key":      def.WorkflowPackKey,
+		"source_type":            def.SourceType,
+		"checksum":               def.Checksum,
 		"created_at":             def.CreatedAt,
 		"updated_at":             def.UpdatedAt,
 		"published_at":           def.PublishedAt,
 		"archived_at":            def.ArchivedAt,
 		"initial_context_schema": jsonToInterface(def.InitialContextSchema),
+	}
+}
+
+func mapNodeCatalogItem(item workflow.NodeCatalogItem) map[string]any {
+	return map[string]any{
+		"node_kind":              item.NodeKind,
+		"display_name_i18n_key":  item.DisplayNameI18nKey,
+		"description_i18n_key":   item.DescriptionI18nKey,
+		"category":               item.Category,
+		"step_type":              item.StepType,
+		"input_schema":           item.InputSchema,
+		"output_schema":          item.OutputSchema,
+		"config_schema":          item.ConfigSchema,
+		"required_permissions":   item.RequiredPermissions,
+		"required_capabilities":  item.RequiredCapabilities,
+		"idempotency_required":   item.IdempotencyRequired,
+		"compensation_supported": item.CompensationSupported,
+		"source_status":          item.SourceStatus,
+		"metadata":               item.Metadata,
+	}
+}
+
+func mapHumanReviewTask(task *modelworkflow.HumanReviewTask) map[string]any {
+	if task == nil {
+		return nil
+	}
+	return map[string]any{
+		"review_task_uuid":       task.UUID.String(),
+		"tenant_uuid":            task.TenantUUID,
+		"workflow_instance_uuid": task.WorkflowInstanceUUID.String(),
+		"step_id":                task.StepID,
+		"review_type":            task.ReviewType,
+		"payload":                jsonToInterface(task.Payload),
+		"approver_policy":        jsonToInterface(task.ApproverPolicy),
+		"status":                 task.Status,
+		"reviewer_user_uuid":     task.ReviewerUserUUID.String(),
+		"decision":               task.Decision,
+		"decision_payload":       jsonToInterface(task.DecisionPayload),
+		"comment":                task.Comment,
+		"due_at":                 task.DueAt,
+		"completed_at":           task.CompletedAt,
+	}
+}
+
+func mapWorkflowPackSeedRecord(record *modelworkflow.WorkflowPackSeedRecord) map[string]any {
+	if record == nil {
+		return nil
+	}
+	return map[string]any{
+		"workflow_key":       record.WorkflowKey,
+		"version":            record.Version,
+		"definition_uuid":    record.DefinitionUUID.String(),
+		"definition_version": record.DefinitionVersion,
+		"checksum":           record.Checksum,
+		"source":             record.Source,
+		"seeded_at":          record.SeededAt,
 	}
 }
 
@@ -484,20 +815,24 @@ func mapInstance(inst *modelworkflow.WorkflowInstance, steps []modelworkflow.Wor
 	}
 
 	payload := map[string]any{
-		"uuid":               inst.UUID.String(),
-		"tenant_uuid":        tenantUUID,
-		"definition_uuid":    inst.DefinitionUUID.String(),
-		"definition_version": inst.DefinitionVersion,
-		"state":              inst.State,
-		"input_context":      jsonToInterface(inst.InputContext),
-		"output_context":     jsonToInterface(inst.OutputContext),
-		"tags":               jsonToStringMap(inst.Tags),
-		"last_error":         inst.LastError,
-		"started_at":         inst.StartedAt,
-		"completed_at":       inst.CompletedAt,
-		"current_step_id":    inst.CurrentStepID,
-		"next_heartbeat_due": inst.NextHeartbeatDue,
-		"last_transition_at": inst.LastTransitionAt,
+		"uuid":                inst.UUID.String(),
+		"tenant_uuid":         tenantUUID,
+		"definition_uuid":     inst.DefinitionUUID.String(),
+		"definition_version":  inst.DefinitionVersion,
+		"state":               inst.State,
+		"input_context":       jsonToInterface(inst.InputContext),
+		"runtime_context":     jsonToInterface(inst.RuntimeContext),
+		"output_context":      jsonToInterface(inst.OutputContext),
+		"tags":                jsonToStringMap(inst.Tags),
+		"last_error":          inst.LastError,
+		"agent_uuid":          inst.AgentUUID,
+		"initiator_user_uuid": inst.InitiatorUserUUID,
+		"trace_id":            inst.TraceID,
+		"started_at":          inst.StartedAt,
+		"completed_at":        inst.CompletedAt,
+		"current_step_id":     inst.CurrentStepID,
+		"next_heartbeat_due":  inst.NextHeartbeatDue,
+		"last_transition_at":  inst.LastTransitionAt,
 	}
 
 	if len(steps) > 0 {
@@ -507,15 +842,21 @@ func mapInstance(inst *modelworkflow.WorkflowInstance, steps []modelworkflow.Wor
 				"id":              steps[i].ID,
 				"step_id":         steps[i].StepID,
 				"type":            steps[i].Type,
+				"node_kind":       steps[i].NodeKind,
+				"node_ref":        steps[i].NodeRef,
 				"state":           steps[i].State,
 				"subject_type":    steps[i].SubjectType,
 				"subject_uuid":    steps[i].SubjectUUID,
 				"tool_grant_id":   steps[i].ToolGrantID,
 				"tool_grant_ver":  steps[i].ToolGrantVer,
 				"attempt":         steps[i].Attempt,
+				"input_mapping":   jsonToInterface(steps[i].InputMapping),
+				"output_mapping":  jsonToInterface(steps[i].OutputMapping),
 				"payload_in":      jsonToInterface(steps[i].PayloadIn),
 				"payload_out":     jsonToInterface(steps[i].PayloadOut),
 				"failure_reason":  steps[i].FailureReason,
+				"error_code":      steps[i].ErrorCode,
+				"error_message":   steps[i].ErrorMessage,
 				"scheduled_at":    steps[i].ScheduledAt,
 				"started_at":      steps[i].StartedAt,
 				"completed_at":    steps[i].CompletedAt,
@@ -526,6 +867,14 @@ func mapInstance(inst *modelworkflow.WorkflowInstance, steps []modelworkflow.Wor
 		payload["steps"] = stepItems
 	}
 	return payload
+}
+
+func parsePositiveInt(raw string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func jsonToInterface(data datatypes.JSON) any {

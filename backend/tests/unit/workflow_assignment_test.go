@@ -116,6 +116,25 @@ func (s *stubStepStore) UpdateState(ctx context.Context, id uint64, nextState st
 	return nil
 }
 
+func (s *stubStepStore) LeaseQueuedSteps(ctx context.Context, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error) {
+	return nil, nil
+}
+
+func (s *stubStepStore) LeaseQueuedStepsByInstance(ctx context.Context, instanceUUID uuid.UUID, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error) {
+	return nil, nil
+}
+
+func (s *stubStepStore) UpdateStateForAttempt(ctx context.Context, id uint64, attempt int32, nextState string, updates map[string]interface{}) (bool, error) {
+	rec, ok := s.records[id]
+	if !ok || rec.Attempt != attempt {
+		return false, nil
+	}
+	if err := s.UpdateState(ctx, id, nextState, updates); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 type stubAssignmentStore struct {
 	nextID      uint64
 	assignments map[uint64]*modelworkflow.AgentAssignment

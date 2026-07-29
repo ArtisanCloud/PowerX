@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/google/uuid"
 
 	"gorm.io/gorm"
 
@@ -123,9 +124,29 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, actor ActorContext, 
 		return errors.New("tenant uuid required")
 	}
 
-	// subject_type 用你模型里的常量：SubMember
+	var role dbm.Role
+	if err := s.db.WithContext(ctx).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, roleID).
+		First(&role).Error; err != nil {
+		return err
+	}
+	var member dbm.Member
+	if err := s.db.WithContext(ctx).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).
+		First(&member).Error; err != nil {
+		return err
+	}
+	if role.UUID == uuid.Nil || member.UUID == uuid.Nil {
+		return errors.New("role/member uuid required")
+	}
+
 	if err := s.rbr.Create(ctx, &dbm.RoleBinding{
-		TenantUUID: tenantUUID, RoleID: roleID, SubjectType: dbm.SubMember, SubjectID: memberID,
+		TenantUUID:  tenantUUID,
+		RoleUUID:    role.UUID.String(),
+		RoleID:      roleID,
+		SubjectType: dbm.SubMember,
+		SubjectUUID: member.UUID.String(),
+		SubjectID:   memberID,
 	}); err != nil {
 		return err
 	}

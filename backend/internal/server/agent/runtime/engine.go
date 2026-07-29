@@ -45,7 +45,8 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
 	if traceErr != nil {
-		return sink.Emit(dto.EventError, map[string]any{"message": "Agent Trace 初始化失败", "detail": traceErr.Error()})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "trace.init_error", "Agent Trace 初始化失败", traceErr, "")
+		return traceErr
 	}
 	if rs, ok := sink.(*RunStateSink); ok {
 		rs.SetRunStateRecorder(func(event string, payload any) {
@@ -55,6 +56,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	runStatus := agenttrace.RunStatusCompleted
 	var runErr error
 	var finalText string
+	var streamBuffer strings.Builder
 	defer func() {
 		if runErr != nil {
 			runStatus = agenttrace.RunStatusFailed
@@ -80,7 +82,8 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if err != nil {
 		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
 		runErr = err
-		return sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
+		return err
 	}
 	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
 	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
@@ -103,8 +106,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		err := fmt.Errorf("agent execution target selected but no executable task was produced: target_capability_ids=%s", strings.Join(responseTargetIDs(responsePlan), ","))
 		tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
 		runErr = err
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行计划生成失败", "detail": err.Error()})
-		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "planner.no_executable_task", "执行计划生成失败", err, "")
 		return err
 	}
 	// skill/tooling 等非 workflow 节点必须走统一 Plan 执行链路，
@@ -134,7 +136,9 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	// 3) 路由 & 执行
 	ag, fallbackFlowID, err := e.mgr.GetDefaultRoute()
 	if err != nil {
-		return sink.Emit(dto.EventError, map[string]any{"message": "创建 Agent 失败", "detail": err.Error()})
+		runErr = err
+		emitAgentRunFailure(ctx, sink, flowID, "route.default_error", "创建 Agent 失败", err, "")
+		return err
 	}
 	if flowID == "" {
 		flowID = fallbackFlowID
@@ -166,7 +170,8 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	if err != nil {
 		tr.failNode(ctx, streamNode, "llm_call", flowID, err)
 		runErr = err
-		return sink.Emit(dto.EventError, map[string]any{"message": "流式聊天执行失败", "detail": err.Error()})
+		emitAgentRunFailure(ctx, sink, flowID, "stream.start_error", "流式聊天执行失败", err, "")
+		return err
 	}
 
 	// 4) 转发流事件
@@ -191,14 +196,64 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	hb := time.NewTicker(15 * time.Second)
 	defer hb.Stop()
 	lastRecvAt := time.Now()
+	emitBufferedFinal := func(reason string) bool {
+		content := SanitizeAssistantVisibleText(streamBuffer.String())
+		if strings.TrimSpace(content) == "" {
+			return false
+		}
+		finalText = BuildFinalResponseContent(responsePlan, content, nil)
+		contextLayers := responseContextLayersFromContext(ctx)
+		cbNode := tr.startNode(ctx, "context_builder", responseModeString(responsePlan), map[string]any{
+			"response_mode":       responseModeString(responsePlan),
+			"used_context_layers": contextLayers,
+			"model_selection":     modelSelectionFromContext(ctx, ModelPolicyNodeContextBuilder),
+			"finalize_reason":     reason,
+		})
+		tr.endNode(ctx, cbNode, "context_builder", responseModeString(responsePlan), map[string]any{"used_context_layers": contextLayers})
+		finalNode := tr.startNode(ctx, "final_response", reason, map[string]any{
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+		})
+		_ = sink.Emit(dto.EventFinal, map[string]any{
+			"success": true,
+			"data": map[string]any{
+				"content": finalText,
+			},
+			"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
+				"trace_id":              strings.TrimSpace(reqctx.GetTraceID(ctx)),
+				"finalized_from_buffer": true,
+				"finalize_reason":       reason,
+			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
+		})
+		tr.endNode(ctx, finalNode, "final_response", reason, map[string]any{
+			"content_digest":        digestString(finalText),
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"used_context_layers":   contextLayers,
+		})
+		return true
+	}
+	failMissingFinal := func(reason string) error {
+		err := fmt.Errorf("agent stream ended without final response: flow_id=%s reason=%s", flowID, reason)
+		tr.failNode(ctx, streamNode, "llm_call", flowID, err)
+		runErr = err
+		payload := agentRunFailurePayload(ctx, flowID, "stream.missing_final", err, streamBuffer.String())
+		payload["message"] = "Agent Run State 协议错误：运行已结束但未收到 final。"
+		_ = sink.Emit(dto.EventError, payload)
+		_ = sink.Emit(dto.EventEnd, agentRunEndFailurePayload(payload))
+		return err
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			tr.failNode(ctx, streamNode, "llm_call", flowID, ctx.Err())
 			runErr = ctx.Err()
-			_ = sink.Emit(dto.EventError, map[string]any{"message": "请求超时或已取消", "detail": ctx.Err().Error()})
-			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+			payload := agentRunFailurePayload(ctx, flowID, "context.done", ctx.Err(), streamBuffer.String())
+			payload["message"] = "请求超时或已取消"
+			_ = sink.Emit(dto.EventError, payload)
+			_ = sink.Emit(dto.EventEnd, agentRunEndFailurePayload(payload))
 			return ctx.Err()
 		case <-hb.C:
 			// 心跳：让前端/网关确认连接仍然活着（前端可选择忽略，仅用于避免“看似挂死”）。
@@ -208,20 +263,27 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			})
 		case it, ok := <-recvCh:
 			if !ok {
-				tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true})
-				_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
-				return nil
-			}
-			if it.err != nil {
-				if errors.Is(it.err, io.EOF) {
-					tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true})
+				if emitBufferedFinal("stream.eof") {
+					tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true, "finalized_from_buffer": true})
 					_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
 					return nil
 				}
+				return failMissingFinal("stream.closed")
+			}
+			if it.err != nil {
+				if errors.Is(it.err, io.EOF) {
+					if emitBufferedFinal("stream.eof") {
+						tr.endNode(ctx, streamNode, "llm_call", flowID, map[string]any{"eof": true, "finalized_from_buffer": true})
+						_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+						return nil
+					}
+					return failMissingFinal("io.eof")
+				}
 				tr.failNode(ctx, streamNode, "llm_call", flowID, it.err)
 				runErr = it.err
-				_ = sink.Emit(dto.EventError, map[string]any{"message": it.err.Error()})
-				_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+				payload := agentRunFailurePayload(ctx, flowID, "stream.recv_error", it.err, streamBuffer.String())
+				_ = sink.Emit(dto.EventError, payload)
+				_ = sink.Emit(dto.EventEnd, agentRunEndFailurePayload(payload))
 				return it.err
 			}
 			lastRecvAt = time.Now()
@@ -231,6 +293,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 			}
 
 			if delta, ok := ch.Metadata["delta_text"].(string); ok && delta != "" {
+				streamBuffer.WriteString(delta)
 				_ = sink.Emit(dto.EventToken, map[string]any{"delta": delta, "step_id": ch.StepID, "timestamp": ch.Timestamp})
 				continue
 			}
@@ -286,7 +349,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
 	if traceErr != nil {
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "Agent Trace 初始化失败", "detail": traceErr.Error()})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "trace.init_error", "Agent Trace 初始化失败", traceErr, "")
 		return nil, nil, traceErr
 	}
 	if rs, ok := sink.(*RunStateSink); ok {
@@ -321,8 +384,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 	if err != nil {
 		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
 		runErr = err
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "意图识别失败", "detail": err.Error()})
-		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
 		return nil, nil, err
 	}
 	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
@@ -345,8 +407,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		err := fmt.Errorf("agent execution target selected but no executable task was produced: target_capability_ids=%s", strings.Join(responseTargetIDs(responsePlan), ","))
 		tr.failNode(ctx, plannerNode, "planner", "BuildPlan", err)
 		runErr = err
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行计划生成失败", "detail": err.Error()})
-		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		emitAgentRunFailure(ctx, sink, explicitFlow, "planner.no_executable_task", "执行计划生成失败", err, "")
 		return nil, nil, err
 	}
 
@@ -401,8 +462,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		if dispatchErr != nil {
 			tr.failNode(ctx, dispatchNode, "llm_call", "Dispatch", dispatchErr)
 			runErr = dispatchErr
-			_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": dispatchErr.Error()})
-			_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+			emitAgentRunFailure(ctx, sink, "Dispatch", "dispatch.error", "执行失败", dispatchErr, "")
 			return nil, nil, dispatchErr
 		}
 		content := BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
@@ -1493,6 +1553,73 @@ func humanizeExecutionError(err error) string {
 		}
 		return "执行失败：" + raw
 	}
+}
+
+func agentRunFailurePayload(ctx context.Context, flowID, reason string, err error, partial string) map[string]any {
+	code := "agent_run.failed"
+	retryable := false
+	if err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			code = "agent_run.canceled"
+			retryable = true
+		case errors.Is(err, context.DeadlineExceeded):
+			code = "agent_run.timeout"
+			retryable = true
+		case strings.Contains(strings.ToLower(err.Error()), "without final response"):
+			code = "agent_run.missing_final"
+		}
+	}
+	detail := ""
+	if err != nil {
+		detail = err.Error()
+	}
+	message := detail
+	if strings.TrimSpace(message) == "" {
+		message = code
+	}
+	payload := map[string]any{
+		"success":    false,
+		"code":       code,
+		"reason":     strings.TrimSpace(reason),
+		"message":    message,
+		"detail":     detail,
+		"retryable":  retryable,
+		"flow_id":    strings.TrimSpace(flowID),
+		"trace_id":   strings.TrimSpace(reqctx.GetTraceID(ctx)),
+		"error":      map[string]any{"code": code, "reason": strings.TrimSpace(reason), "detail": detail, "retryable": retryable},
+		"metadata":   map[string]any{"terminal": true, "failure_code": code, "failure_reason": strings.TrimSpace(reason)},
+		"created_at": time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if content := strings.TrimSpace(SanitizeAssistantVisibleText(partial)); content != "" {
+		payload["partial_content"] = content
+		if errMap, ok := payload["error"].(map[string]any); ok {
+			errMap["partial_content"] = content
+		}
+	}
+	return payload
+}
+
+func emitAgentRunFailure(ctx context.Context, sink EventSink, flowID, reason, message string, err error, partial string) {
+	payload := agentRunFailurePayload(ctx, flowID, reason, err, partial)
+	if strings.TrimSpace(message) != "" {
+		payload["message"] = strings.TrimSpace(message)
+		if errMap, ok := payload["error"].(map[string]any); ok {
+			errMap["message"] = strings.TrimSpace(message)
+		}
+	}
+	_ = sink.Emit(dto.EventError, payload)
+	_ = sink.Emit(dto.EventEnd, agentRunEndFailurePayload(payload))
+}
+
+func agentRunEndFailurePayload(errorPayload map[string]any) map[string]any {
+	out := map[string]any{"success": false}
+	for _, key := range []string{"code", "reason", "message", "detail", "retryable", "flow_id", "trace_id", "partial_content", "error", "metadata"} {
+		if v, ok := errorPayload[key]; ok {
+			out[key] = v
+		}
+	}
+	return out
 }
 
 func responsePlanFromContext(ctx context.Context) *ResponsePlan {

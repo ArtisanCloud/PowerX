@@ -17,6 +17,7 @@ type CreateAssetRequest struct {
 	ObjectKey        string         `json:"objectKey"`
 	SizeBytes        *int64         `json:"sizeBytes"`
 	MimeType         string         `json:"mimeType"`
+	ContentSHA256    string         `json:"contentSha256"`
 	Metadata         map[string]any `json:"metadata"`
 }
 

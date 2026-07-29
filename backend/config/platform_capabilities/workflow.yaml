@@ -112,31 +112,344 @@ capabilities:
     title: Workflow Definition Builder
     description: 在 CoreX Workflow Builder 中创建、发布与管理模板。
     permission_code: corex.workflow.builder:manage
-    agent_usable: true
+    agent_usable: false
     risk_level: high
     categories: [workflow]
-    intents: [workflow.builder.manage]
-    tool_scopes: [workflow.builder]
+    intents: [workflow.builder.manage, workflow.builder.read, workflow.builder.validate]
+    tool_scopes: [workflow.builder.manage, workflow.builder.read, workflow.builder.validate]
     policy:
-      prefer: grpc
+      prefer: rest
+      fallback: [grpc]
     docs:
       - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/006-workflow-and-agent/contracts/http-openapi.yaml
     protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/definitions
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/definitions
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.builder.manage
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/definitions
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/definitions
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.builder.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/definitions/{definition_uuid}
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/definitions/{definition_uuid}
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.builder.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/definitions/{definition_uuid}/publish
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/definitions/{definition_uuid}/publish
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.builder.manage
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/definitions/{definition_uuid}/validate
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/definitions/{definition_uuid}/validate
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.builder.validate
       - channel: grpc
         endpoint: powerx.workflow.v1.WorkflowService
         rpc: CreateDefinition
         schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
         auth_type: tenant_jwt
-        tool_scope: workflow.builder
+        tool_scope: workflow.builder.manage
       - channel: grpc
         endpoint: powerx.workflow.v1.WorkflowService
         rpc: PublishDefinition
         schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
         auth_type: tenant_jwt
-        tool_scope: workflow.builder
+        tool_scope: workflow.builder.manage
       - channel: grpc
         endpoint: powerx.workflow.v1.WorkflowService
         rpc: ListDefinitions
         schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
         auth_type: tenant_jwt
-        tool_scope: workflow.builder
+        tool_scope: workflow.builder.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: GetDefinition
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.builder.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ValidateDefinition
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.builder.validate
+  - capability_id: com.corex.workflow.instances.admin_manage
+    module: workflow
+    title: Workflow Runtime Instances
+    description: 管理 Workflow 实例启动、查看、控制与审计导出。
+    permission_code: corex.workflow.instances:manage
+    agent_usable: false
+    risk_level: high
+    categories: [workflow, runtime]
+    intents: [workflow.instances.manage, workflow.instances.read, workflow.instances.export]
+    tool_scopes: [workflow.instance.manage, workflow.instance.read, workflow.instance.export]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/006-workflow-and-agent/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/instances
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.instance.manage
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/instances/export
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances/export
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.instance.export
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/instances/{instance_uuid}
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances/{instance_uuid}
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.instance.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/instances/{instance_uuid}/actions
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/instances/{instance_uuid}/actions
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.instance.manage
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: StartInstance
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.instance.manage
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: GetInstance
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.instance.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListInstances
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.instance.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ControlInstance
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.instance.manage
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ExportInstances
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.instance.export
+  - capability_id: com.corex.workflow.node_catalog.read
+    module: workflow
+    title: Workflow Node Catalog
+    description: 查询 Workflow Builder 可用节点目录和节点配置 schema。
+    permission_code: corex.workflow.node_catalog:read
+    agent_usable: false
+    risk_level: low
+    categories: [workflow]
+    intents: [workflow.node_catalog.read]
+    tool_scopes: [workflow.node_catalog.read]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/006-workflow-and-agent/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/node-catalog
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/node-catalog
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.node_catalog.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/node-catalog/{node_kind}
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/node-catalog/{node_kind}
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.node_catalog.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListNodeCatalog
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.node_catalog.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: GetNodeCatalogItem
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.node_catalog.read
+  - capability_id: com.corex.workflow.review_tasks.admin_manage
+    module: workflow
+    title: Workflow Human Review Tasks
+    description: 查询和处理 Workflow 人工审核任务。
+    permission_code: corex.workflow.review_tasks:manage
+    agent_usable: false
+    risk_level: medium
+    categories: [workflow, review]
+    intents: [workflow.review_tasks.manage, workflow.review_tasks.read]
+    tool_scopes: [workflow.review_task.manage, workflow.review_task.read]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/006-workflow-and-agent/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/review-tasks
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/review-tasks
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.review_task.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/review-tasks/{review_task_uuid}
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/review-tasks/{review_task_uuid}
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.review_task.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/review-tasks/{review_task_uuid}/actions
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/review-tasks/{review_task_uuid}/actions
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.review_task.manage
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListHumanReviewTasks
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.review_task.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: GetHumanReviewTask
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.review_task.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ActHumanReviewTask
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.review_task.manage
+  - capability_id: com.corex.workflow.packs.admin_manage
+    module: workflow
+    title: Workflow Packs
+    description: 查询和 seed PowerX 内置 Workflow Pack。
+    permission_code: corex.workflow.packs:manage
+    agent_usable: false
+    risk_level: medium
+    categories: [workflow]
+    intents: [workflow.packs.manage, workflow.packs.read]
+    tool_scopes: [workflow.pack.manage, workflow.pack.read]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      - specs/006-workflow-and-agent/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/packs
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/packs
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.pack.read
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/packs/seed
+        method: POST
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/packs/seed
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.pack.manage
+      - channel: rest
+        endpoint: /api/v1/admin/workflows/packs/{workflow_key}
+        method: GET
+        schema_ref: specs/006-workflow-and-agent/contracts/http-openapi.yaml#/packs/{workflow_key}
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: workflow.pack.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListWorkflowPacks
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.pack.read
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: SeedWorkflowPacks
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.pack.manage
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: GetWorkflowPack
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.pack.read

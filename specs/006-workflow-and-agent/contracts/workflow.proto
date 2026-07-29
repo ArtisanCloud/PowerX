@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package powerx.workflow.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1;workflowv1";
 
 // WorkflowService exposes definition and runtime controls via gRPC.
@@ -14,22 +16,34 @@ service WorkflowService {
   rpc GetInstance(GetInstanceRequest) returns (WorkflowInstance);
   rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
   rpc ControlInstance(ControlInstanceRequest) returns (ControlInstanceResponse);
+
+  rpc ListNodeCatalog(ListNodeCatalogRequest) returns (ListNodeCatalogResponse);
+  rpc GetNodeCatalogItem(GetNodeCatalogItemRequest) returns (NodeCatalogItem);
+  rpc ValidateDefinition(ValidateDefinitionRequest) returns (ValidateDefinitionResponse);
+
+  rpc ListHumanReviewTasks(ListHumanReviewTasksRequest) returns (ListHumanReviewTasksResponse);
+  rpc GetHumanReviewTask(GetHumanReviewTaskRequest) returns (HumanReviewTask);
+  rpc ActHumanReviewTask(ActHumanReviewTaskRequest) returns (HumanReviewTask);
+
+  rpc ListWorkflowPacks(ListWorkflowPacksRequest) returns (ListWorkflowPacksResponse);
+  rpc SeedWorkflowPacks(SeedWorkflowPacksRequest) returns (SeedWorkflowPacksResponse);
 }
 
 message CreateDefinitionRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string name = 2;
   string description = 3;
   RetryPolicy retry_policy = 4;
   repeated WorkflowStep steps = 5;
+  google.protobuf.Struct input_schema = 6;
 }
 
 message PublishDefinitionRequest {
-  string definition_id = 1;
+  string definition_uuid = 1;
 }
 
 message ListDefinitionsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string status = 2;
 }
 
@@ -38,8 +52,8 @@ message ListDefinitionsResponse {
 }
 
 message WorkflowDefinition {
-  string id = 1;
-  string tenant_id = 2;
+  string definition_uuid = 1;
+  string tenant_uuid = 2;
   string name = 3;
   int32 version = 4;
   string status = 5;
@@ -47,14 +61,20 @@ message WorkflowDefinition {
   repeated WorkflowStep steps = 7;
   string created_at = 8;
   string updated_at = 9;
+  string workflow_pack_key = 10;
+  string source_type = 11;
 }
 
 message WorkflowStep {
   string id = 1;
   StepType type = 2;
-  map<string, string> config = 3;
+  google.protobuf.Struct config = 3;
   repeated string branches = 4;
   repeated WorkflowStep children = 5;
+  string node_kind = 6;
+  string node_ref = 7;
+  google.protobuf.Struct input_mapping = 8;
+  google.protobuf.Struct output_mapping = 9;
 }
 
 enum StepType {
@@ -75,18 +95,22 @@ message RetryPolicy {
 }
 
 message StartInstanceRequest {
-  string definition_id = 1;
-  map<string, string> input = 2;
+  string definition_uuid = 1;
+  google.protobuf.Struct input = 2;
+  int32 definition_version = 3;
+  string agent_uuid = 4;
+  string correlation_id = 5;
 }
 
 message GetInstanceRequest {
-  string instance_id = 1;
+  string instance_uuid = 1;
 }
 
 message ListInstancesRequest {
-  string tenant_id = 1;
-  string definition_id = 2;
+  string tenant_uuid = 1;
+  string definition_uuid = 2;
   string state = 3;
+  string agent_uuid = 4;
 }
 
 message ListInstancesResponse {
@@ -94,21 +118,25 @@ message ListInstancesResponse {
 }
 
 message WorkflowInstance {
-  string id = 1;
-  string definition_id = 2;
-  string tenant_id = 3;
+  string instance_uuid = 1;
+  string definition_uuid = 2;
+  string tenant_uuid = 3;
   string state = 4;
   string started_at = 5;
   string completed_at = 6;
   string sla_deadline = 7;
   string last_error = 8;
+  int32 definition_version = 9;
+  string agent_uuid = 10;
+  string trace_id = 11;
+  string correlation_id = 12;
 }
 
 message ControlInstanceRequest {
-  string instance_id = 1;
+  string instance_uuid = 1;
   ControlAction action = 2;
   string step_id = 3;
-  string agent_id = 4;
+  string agent_uuid = 4;
   string notes = 5;
 }
 
@@ -123,4 +151,117 @@ enum ControlAction {
   CONTROL_ACTION_CANCEL = 3;
   CONTROL_ACTION_RETRY_STEP = 4;
   CONTROL_ACTION_REASSIGN = 5;
+}
+
+message ListNodeCatalogRequest {
+  string category = 1;
+  string keyword = 2;
+}
+
+message GetNodeCatalogItemRequest {
+  string node_kind = 1;
+}
+
+message ListNodeCatalogResponse {
+  repeated NodeCatalogItem items = 1;
+}
+
+message NodeCatalogItem {
+  string node_kind = 1;
+  string display_name_i18n_key = 2;
+  string description_i18n_key = 3;
+  string category = 4;
+  StepType step_type = 5;
+  google.protobuf.Struct input_schema = 6;
+  google.protobuf.Struct output_schema = 7;
+  google.protobuf.Struct config_schema = 8;
+  repeated string required_permissions = 9;
+  repeated string required_capabilities = 10;
+  bool idempotency_required = 11;
+  bool compensation_supported = 12;
+  string source_status = 13;
+}
+
+message ValidateDefinitionRequest {
+  string definition_uuid = 1;
+}
+
+message ValidateDefinitionResponse {
+  bool valid = 1;
+  repeated WorkflowValidationIssue issues = 2;
+}
+
+message WorkflowValidationIssue {
+  string step_id = 1;
+  string node_kind = 2;
+  string code = 3;
+  string message = 4;
+}
+
+message ListHumanReviewTasksRequest {
+  string tenant_uuid = 1;
+  string status = 2;
+  string workflow_instance_uuid = 3;
+  int32 page_size = 4;
+  int32 offset = 5;
+}
+
+message ListHumanReviewTasksResponse {
+  repeated HumanReviewTask items = 1;
+  int64 total = 2;
+}
+
+message GetHumanReviewTaskRequest {
+  string review_task_uuid = 1;
+}
+
+message HumanReviewTask {
+  string review_task_uuid = 1;
+  string tenant_uuid = 2;
+  string workflow_instance_uuid = 3;
+  string step_id = 4;
+  string review_type = 5;
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Struct approver_policy = 7;
+  string status = 8;
+  string reviewer_user_uuid = 9;
+  string decision = 10;
+  google.protobuf.Struct decision_payload = 11;
+  string comment = 12;
+  string created_at = 13;
+  string completed_at = 14;
+}
+
+message ActHumanReviewTaskRequest {
+  string review_task_uuid = 1;
+  string action = 2;
+  string comment = 3;
+  google.protobuf.Struct decision_payload = 4;
+}
+
+message ListWorkflowPacksRequest {
+  string tenant_uuid = 1;
+}
+
+message SeedWorkflowPacksRequest {
+  string tenant_uuid = 1;
+  repeated string workflow_keys = 2;
+}
+
+message SeedWorkflowPacksResponse {
+  repeated WorkflowPack packs = 1;
+}
+
+message ListWorkflowPacksResponse {
+  repeated WorkflowPack packs = 1;
+}
+
+message WorkflowPack {
+  string workflow_key = 1;
+  string display_name_i18n_key = 2;
+  int32 version = 3;
+  string status = 4;
+  string definition_uuid = 5;
+  int32 definition_version = 6;
+  string checksum = 7;
 }

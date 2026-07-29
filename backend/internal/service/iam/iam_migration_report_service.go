@@ -16,6 +16,7 @@ import (
 	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -286,10 +287,24 @@ func (s *IAMMigrationReportService) fixTenantOwner(ctx context.Context, db *gorm
 	if adminMemberID == 0 {
 		return false, nil
 	}
+	if ownerRole.UUID == uuid.Nil {
+		return false, dto.NewInternal("租户 owner 角色缺少 UUID", nil)
+	}
+	var adminMember modeliam.Member
+	if err := db.WithContext(ctx).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, adminMemberID).
+		Take(&adminMember).Error; err != nil {
+		return false, dto.NewInternal("查询租户管理员成员失败", err)
+	}
+	if adminMember.UUID == uuid.Nil {
+		return false, dto.NewInternal("租户管理员成员缺少 UUID", nil)
+	}
 	binding := &modeliam.RoleBinding{
 		TenantUUID:  tenantUUID,
+		RoleUUID:    ownerRole.UUID.String(),
 		RoleID:      ownerRole.ID,
 		SubjectType: modeliam.SubMember,
+		SubjectUUID: adminMember.UUID.String(),
 		SubjectID:   adminMemberID,
 		DataScope:   modeliam.ScopeTenant,
 	}

@@ -104,6 +104,8 @@ const TableWorkflowStepRecords = "workflow_step_records"
 const TableWorkflowStepCompensations = "workflow_step_compensations"
 const TableWorkflowAgentAssignments = "workflow_agent_assignments"
 const TableWorkflowEvents = "workflow_events"
+const TableWorkflowHumanReviewTasks = "workflow_human_review_tasks"
+const TableWorkflowPackSeedRecords = "workflow_pack_seed_records"
 
 const TablePluginReleaseCandidates = "plugin_release_candidates"
 const TablePluginReleasePlans = "plugin_release_plans"

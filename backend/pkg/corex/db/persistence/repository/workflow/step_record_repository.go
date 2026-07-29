@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -97,4 +98,109 @@ func (r *StepRecordRepository) UpdateState(ctx context.Context, id uint64, nextS
 		Model(&modelworkflow.WorkflowStepRecord{}).
 		Where("id = ?", id).
 		Updates(updates).Error
+}
+
+// LeaseQueuedSteps leases queued step records for a runner worker.
+func (r *StepRecordRepository) LeaseQueuedSteps(ctx context.Context, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error) {
+	return r.leaseQueuedSteps(ctx, uuid.Nil, limit, leaseOwner, leaseUntil)
+}
+
+// LeaseQueuedStepsByInstance leases queued step records for a single workflow instance.
+func (r *StepRecordRepository) LeaseQueuedStepsByInstance(ctx context.Context, instanceUUID uuid.UUID, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error) {
+	if instanceUUID == uuid.Nil {
+		return nil, errors.New("instance uuid is required")
+	}
+	return r.leaseQueuedSteps(ctx, instanceUUID, limit, leaseOwner, leaseUntil)
+}
+
+func (r *StepRecordRepository) leaseQueuedSteps(ctx context.Context, instanceUUID uuid.UUID, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error) {
+	leaseOwner = strings.TrimSpace(leaseOwner)
+	if leaseOwner == "" {
+		return nil, errors.New("lease owner is required")
+	}
+	if leaseUntil.IsZero() {
+		return nil, errors.New("lease_until is required")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var leased []modelworkflow.WorkflowStepRecord
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var records []modelworkflow.WorkflowStepRecord
+		now := time.Now().UTC()
+		query := tx.
+			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("state = ?", "queued").
+			Where("scheduled_at <= ?", now).
+			Where("(lease_until IS NULL OR lease_until < ?)", now)
+		if instanceUUID != uuid.Nil {
+			query = query.Where("instance_uuid = ?", instanceUUID)
+		}
+		if err := query.Order("scheduled_at ASC, id ASC").Limit(limit).Find(&records).Error; err != nil {
+			return err
+		}
+		if len(records) == 0 {
+			leased = nil
+			return nil
+		}
+		ids := make([]uint64, 0, len(records))
+		for _, record := range records {
+			ids = append(ids, record.ID)
+		}
+		updates := map[string]interface{}{
+			"state":              "in_progress",
+			"lease_owner":        leaseOwner,
+			"lease_until":        leaseUntil.UTC(),
+			"started_at":         now,
+			"last_transition_at": now,
+		}
+		if err := tx.Model(&modelworkflow.WorkflowStepRecord{}).
+			Where("id IN ?", ids).
+			Where("state = ?", "queued").
+			Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id IN ?", ids).Order("scheduled_at ASC, id ASC").Find(&leased).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return leased, err
+}
+
+// UpdateStateForAttempt updates a step only when the attempt still matches.
+func (r *StepRecordRepository) UpdateStateForAttempt(ctx context.Context, id uint64, attempt int32, nextState string, updates map[string]interface{}) (bool, error) {
+	if id == 0 {
+		return false, errors.New("step record id is required")
+	}
+	if attempt < 0 {
+		return false, errors.New("attempt must be non-negative")
+	}
+	if updates == nil {
+		updates = map[string]interface{}{}
+	}
+	if nextState != "" {
+		updates["state"] = nextState
+	}
+	now := time.Now().UTC()
+	updates["last_transition_at"] = now
+	switch nextState {
+	case "completed", "failed", "compensated":
+		updates["completed_at"] = now
+		updates["lease_owner"] = ""
+		updates["lease_until"] = nil
+	}
+
+	result := r.db.WithContext(ctx).
+		Model(&modelworkflow.WorkflowStepRecord{}).
+		Where("id = ? AND attempt = ?", id, attempt).
+		Updates(updates)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }

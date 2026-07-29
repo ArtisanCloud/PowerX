@@ -152,7 +152,7 @@ const loadRoles = async () => {
   try {
     const params: Record<string, any> = {
       page: pagination.page,
-      page_size: pagination.pageSize,
+      size: pagination.pageSize,
     };
     const kw = (searchQuery.value ?? "").trim();
     if (kw) params.keyword = kw;

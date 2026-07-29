@@ -32,6 +32,10 @@ type WorkflowDefinition struct {
 	LastChangeNote       string         `gorm:"column:last_change_note;type:varchar(256)" json:"last_change_note,omitempty"`
 	VersionAlias         string         `gorm:"column:version_alias;type:varchar(64);index:idx_workflow_definitions_alias_tenant_uuid,priority:2" json:"version_alias,omitempty"`
 	InitialContextSchema datatypes.JSON `gorm:"column:initial_context_schema;type:jsonb;not null;default:'{}'::jsonb" json:"initial_context_schema,omitempty"`
+	InputSchema          datatypes.JSON `gorm:"column:input_schema;type:jsonb;not null;default:'{}'::jsonb" json:"input_schema,omitempty"`
+	WorkflowPackKey      string         `gorm:"column:workflow_pack_key;type:varchar(128);index:idx_workflow_definitions_pack_key" json:"workflow_pack_key,omitempty"`
+	SourceType           string         `gorm:"column:source_type;type:varchar(32);not null;default:'manual';index:idx_workflow_definitions_source_type" json:"source_type,omitempty"`
+	Checksum             string         `gorm:"column:checksum;type:varchar(128)" json:"checksum,omitempty"`
 }
 
 func (WorkflowDefinition) TableName() string {
@@ -54,6 +58,9 @@ func (m *WorkflowDefinition) BeforeCreate(tx *gorm.DB) error {
 	}
 	if m.Status == "" {
 		m.Status = "draft"
+	}
+	if m.SourceType == "" {
+		m.SourceType = "manual"
 	}
 	if m.CreatedBy == uuid.Nil {
 		return errors.New("created_by is required")

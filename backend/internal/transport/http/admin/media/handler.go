@@ -42,31 +42,59 @@ func (h *Handler) CreateAsset(c *gin.Context) {
 	if req.SizeBytes != nil {
 		size = *req.SizeBytes
 	}
+	metadata, err := createAssetMetadata(req)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "媒体资产内容哈希不一致", err)
+		return
+	}
 
 	asset, err := h.svc.CreateAsset(c.Request.Context(), mediasvc.CreateAssetInput{
-		TenantUUID:   tenantUUID,
-		OperatorID:   operatorID,
-		Name:         req.Name,
-		Description:  req.Description,
-		Driver:       req.Driver,
-		Bucket:       req.Bucket,
-		BaseURL:      req.BaseURL,
-		Folder:       req.Folder,
-		StorageKey:   req.ObjectKey,
-		SizeBytes:    size,
-		MimeType:     req.MimeType,
-		OwnerType:    req.OwnerSubjectType,
-		OwnerID:      req.OwnerSubjectID,
-		Tags:         req.Tags,
-		UploadMethod: mediasvc.UploadMethod(req.UploadMethod),
-		ExternalURL:  req.ExternalURL,
-		Metadata:     req.Metadata,
+		TenantUUID:    tenantUUID,
+		OperatorID:    operatorID,
+		Name:          req.Name,
+		Description:   req.Description,
+		Driver:        req.Driver,
+		Bucket:        req.Bucket,
+		BaseURL:       req.BaseURL,
+		Folder:        req.Folder,
+		StorageKey:    req.ObjectKey,
+		SizeBytes:     size,
+		MimeType:      req.MimeType,
+		OwnerType:     req.OwnerSubjectType,
+		OwnerID:       req.OwnerSubjectID,
+		Tags:          req.Tags,
+		UploadMethod:  mediasvc.UploadMethod(req.UploadMethod),
+		ExternalURL:   req.ExternalURL,
+		ContentSHA256: req.ContentSHA256,
+		Metadata:      metadata,
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "创建媒体资产失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, h.assetViewWithVariants(c, tenantUUID, asset, false))
+}
+
+func createAssetMetadata(req CreateAssetRequest) (map[string]any, error) {
+	metadata := make(map[string]any, len(req.Metadata)+1)
+	for key, value := range req.Metadata {
+		if strings.TrimSpace(key) == "" || value == nil {
+			continue
+		}
+		metadata[key] = value
+	}
+	contentSHA256 := strings.ToLower(strings.TrimSpace(req.ContentSHA256))
+	if contentSHA256 == "" {
+		return metadata, nil
+	}
+	if existing, ok := metadata["content_sha256"]; ok && existing != nil {
+		existingValue, ok := existing.(string)
+		if !ok || !strings.EqualFold(strings.TrimSpace(existingValue), contentSHA256) {
+			return nil, fmt.Errorf("contentSha256 conflicts with metadata.content_sha256")
+		}
+	}
+	metadata["content_sha256"] = contentSHA256
+	return metadata, nil
 }
 
 func (h *Handler) ListAssets(c *gin.Context) {

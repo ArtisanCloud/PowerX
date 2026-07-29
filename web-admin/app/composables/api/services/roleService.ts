@@ -23,7 +23,7 @@ export interface RoleListParams {
   keyword?: string;
   builtin?: boolean;
   page?: number;
-  page_size?: number;
+  size?: number;
   sort?: string;
 }
 
@@ -92,8 +92,7 @@ export const useRoleService = () => {
       if (params?.builtin !== undefined)
         queryParams.append("builtin", params.builtin.toString());
       if (params?.page) queryParams.append("page", params.page.toString());
-      if (params?.page_size)
-        queryParams.append("page_size", params.page_size.toString());
+      if (params?.size) queryParams.append("size", params.size.toString());
       if (params?.sort) queryParams.append("sort", params.sort);
 
       const url = queryParams.toString()

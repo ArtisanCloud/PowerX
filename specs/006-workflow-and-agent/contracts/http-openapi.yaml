@@ -14,6 +14,9 @@ tags:
   - name: Definitions
   - name: Instances
   - name: Exports
+  - name: NodeCatalog
+  - name: HumanReview
+  - name: Packs
 security:
   - bearerAuth: []
 components:
@@ -71,13 +74,13 @@ components:
     WorkflowDefinition:
       type: object
       required:
-        - definition_id
+        - definition_uuid
         - name
         - version
         - status
         - steps
       properties:
-        definition_id:
+        definition_uuid:
           type: string
           format: uuid
         tenant_uuid:
@@ -120,7 +123,7 @@ components:
           format: uuid
     WorkflowStepDefinition:
       type: object
-      required: [id, type]
+      required: [id, type, node_kind]
       properties:
         id:
           type: string
@@ -130,6 +133,31 @@ components:
         type:
           type: string
           enum: [agent, system, decision, parallel, human_approval, compensation]
+        node_kind:
+          type: string
+          enum:
+            [
+              input.capture,
+              skill.invoke,
+              capability.invoke,
+              metadata.classify,
+              knowledge.stage,
+              decision.gateway,
+              parallel.fanout,
+              parallel.join,
+              human.review,
+              knowledge.publish,
+              event.emit,
+              compensation.rollback
+            ]
+        node_ref:
+          type: string
+        input_mapping:
+          type: object
+          additionalProperties: true
+        output_mapping:
+          type: object
+          additionalProperties: true
         config:
           type: object
           description: Declarative configuration for the step executor
@@ -186,9 +214,9 @@ components:
           type: integer
     WorkflowInstanceCreateRequest:
       type: object
-      required: [definition_id]
+      required: [definition_uuid]
       properties:
-        definition_id:
+        definition_uuid:
           type: string
           format: uuid
         definition_version:
@@ -205,15 +233,15 @@ components:
           type: string
     WorkflowInstance:
       type: object
-      required: [instance_id, definition_id, state]
+      required: [instance_uuid, definition_uuid, state]
       properties:
-        instance_id:
+        instance_uuid:
           type: string
           format: uuid
         tenant_uuid:
           type: string
           format: uuid
-        definition_id:
+        definition_uuid:
           type: string
           format: uuid
         definition_version:
@@ -274,13 +302,17 @@ components:
         type:
           type: string
           enum: [agent, system, decision, parallel, human_approval, compensation]
+        node_kind:
+          type: string
+        node_ref:
+          type: string
         state:
           type: string
           enum: [queued, in_progress, waiting, completed, failed, compensating, compensated]
         subject_type:
           type: string
           enum: [system, agent, human]
-        subject_id:
+        subject_uuid:
           type: string
         tool_grant_version:
           type: integer
@@ -302,6 +334,10 @@ components:
           type: object
           additionalProperties: true
         failure_reason:
+          type: string
+        error_code:
+          type: string
+        error_message:
           type: string
         awaiting_manual_approval:
           type: boolean
@@ -402,9 +438,9 @@ components:
     ExportRow:
       type: object
       properties:
-        instance_id:
+        instance_uuid:
           type: string
-        definition_id:
+        definition_uuid:
           type: string
         definition_version:
           type: integer
@@ -433,7 +469,7 @@ components:
                 type: string
               subject_type:
                 type: string
-              subject_id:
+              subject_uuid:
                 type: string
               attempts:
                 type: integer
@@ -455,7 +491,163 @@ components:
         details:
           type: array
           items:
+            oneOf:
+              - type: string
+              - type: object
+                additionalProperties: true
+    NodeCatalogItem:
+      type: object
+      required: [node_kind, display_name_i18n_key, category, step_type, config_schema]
+      properties:
+        node_kind:
+          type: string
+        display_name_i18n_key:
+          type: string
+        description_i18n_key:
+          type: string
+        category:
+          type: string
+        step_type:
+          type: string
+          enum: [agent, system, decision, parallel, human_approval, compensation]
+        input_schema:
+          type: object
+          additionalProperties: true
+        output_schema:
+          type: object
+          additionalProperties: true
+        config_schema:
+          type: object
+          additionalProperties: true
+        required_permissions:
+          type: array
+          items:
             type: string
+        required_capabilities:
+          type: array
+          items:
+            type: string
+        idempotency_required:
+          type: boolean
+        compensation_supported:
+          type: boolean
+        source_status:
+          type: string
+          enum: [available, missing_dependency, permission_denied, disabled]
+    NodeCatalogResponse:
+      type: object
+      required: [meta, items]
+      properties:
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeCatalogItem'
+    HumanReviewTask:
+      type: object
+      required: [review_task_uuid, workflow_instance_uuid, step_id, status]
+      properties:
+        review_task_uuid:
+          type: string
+          format: uuid
+        tenant_uuid:
+          type: string
+          format: uuid
+        workflow_instance_uuid:
+          type: string
+          format: uuid
+        step_id:
+          type: string
+        review_type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        approver_policy:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [pending, approved, rejected, changes_requested, canceled, expired]
+        reviewer_user_uuid:
+          type: string
+          format: uuid
+        decision:
+          type: string
+        decision_payload:
+          type: object
+          additionalProperties: true
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+    HumanReviewActionRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, reject, request_changes, cancel]
+        comment:
+          type: string
+        decision_payload:
+          type: object
+          additionalProperties: true
+    HumanReviewTaskResponse:
+      type: object
+      required: [meta, review_task]
+      properties:
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+        review_task:
+          $ref: '#/components/schemas/HumanReviewTask'
+    ListHumanReviewTasksResponse:
+      type: object
+      required: [meta, page, items]
+      properties:
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+        page:
+          $ref: '#/components/schemas/PageResponse'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewTask'
+    WorkflowPack:
+      type: object
+      required: [workflow_key, version, status]
+      properties:
+        workflow_key:
+          type: string
+        display_name_i18n_key:
+          type: string
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [missing, seeded, dependency_failed]
+        definition_uuid:
+          type: string
+          format: uuid
+        definition_version:
+          type: integer
+        checksum:
+          type: string
+    ListWorkflowPacksResponse:
+      type: object
+      required: [meta, items]
+      properties:
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowPack'
 paths:
   /definitions:
     post:
@@ -512,14 +704,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListDefinitionsResponse'
-  /definitions/{definitionId}:
+  /definitions/{definition_uuid}:
     get:
       tags: [Definitions]
       summary: Get workflow definition
       operationId: getDefinition
       parameters:
         - in: path
-          name: definitionId
+          name: definition_uuid
           required: true
           schema:
             type: string
@@ -541,14 +733,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /definitions/{definitionId}/publish:
+  /definitions/{definition_uuid}/publish:
     post:
       tags: [Definitions]
       summary: Publish workflow definition
       operationId: publishDefinition
       parameters:
         - in: path
-          name: definitionId
+          name: definition_uuid
           required: true
           schema:
             type: string
@@ -574,14 +766,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /definitions/{definitionId}/archive:
+  /definitions/{definition_uuid}/archive:
     post:
       tags: [Definitions]
       summary: Archive workflow definition
       operationId: archiveDefinition
       parameters:
         - in: path
-          name: definitionId
+          name: definition_uuid
           required: true
           schema:
             type: string
@@ -601,6 +793,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DefinitionResponse'
+  /definitions/{definition_uuid}/validate:
+    post:
+      tags: [Definitions]
+      summary: Validate workflow definition dependencies before publish
+      operationId: validateDefinition
+      parameters:
+        - in: path
+          name: definition_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Definition dependency validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefinitionResponse'
+        '400':
+          description: Definition invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /node-catalog:
+    get:
+      tags: [NodeCatalog]
+      summary: List executable workflow node kinds
+      operationId: listNodeCatalog
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: keyword
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeCatalogResponse'
+  /node-catalog/{node_kind}:
+    get:
+      tags: [NodeCatalog]
+      summary: Get executable workflow node kind
+      operationId: getNodeCatalogItem
+      parameters:
+        - in: path
+          name: node_kind
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node catalog item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [meta, item]
+                properties:
+                  meta:
+                    $ref: '#/components/schemas/ResponseMeta'
+                  item:
+                    $ref: '#/components/schemas/NodeCatalogItem'
   /instances:
     post:
       tags: [Instances]
@@ -625,7 +887,7 @@ paths:
       operationId: listInstances
       parameters:
         - in: query
-          name: definition_id
+          name: definition_uuid
           schema:
             type: string
             format: uuid
@@ -647,7 +909,7 @@ paths:
                 compensation_failed
               ]
         - in: query
-          name: agent_id
+          name: agent_uuid
           schema:
             type: string
         - in: query
@@ -682,14 +944,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListInstancesResponse'
-  /instances/{instanceId}:
+  /instances/{instance_uuid}:
     get:
       tags: [Instances]
       summary: Get workflow instance
       operationId: getInstance
       parameters:
         - in: path
-          name: instanceId
+          name: instance_uuid
           required: true
           schema:
             type: string
@@ -712,14 +974,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /instances/{instanceId}/actions:
+  /instances/{instance_uuid}/actions:
     post:
       tags: [Instances]
       summary: Execute manual control action
       operationId: controlInstance
       parameters:
         - in: path
-          name: instanceId
+          name: instance_uuid
           required: true
           schema:
             type: string
@@ -743,6 +1005,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instance_uuid}/steps:
+    get:
+      tags: [Instances]
+      summary: List step records for workflow instance
+      operationId: listInstanceSteps
+      parameters:
+        - in: path
+          name: instance_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Step records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [meta, items]
+                properties:
+                  meta:
+                    $ref: '#/components/schemas/ResponseMeta'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowStepSummary'
+  /review-tasks:
+    get:
+      tags: [HumanReview]
+      summary: List workflow human review tasks
+      operationId: listHumanReviewTasks
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: workflow_instance_uuid
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Review task page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListHumanReviewTasksResponse'
+  /review-tasks/{review_task_uuid}:
+    get:
+      tags: [HumanReview]
+      summary: Get workflow human review task
+      operationId: getHumanReviewTask
+      parameters:
+        - in: path
+          name: review_task_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Review task detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanReviewTaskResponse'
+  /review-tasks/{review_task_uuid}/actions:
+    post:
+      tags: [HumanReview]
+      summary: Complete workflow human review task
+      operationId: actHumanReviewTask
+      parameters:
+        - in: path
+          name: review_task_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HumanReviewActionRequest'
+      responses:
+        '202':
+          description: Review action accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanReviewTaskResponse'
   /instances/export:
     get:
       tags: [Exports]
@@ -750,7 +1115,7 @@ paths:
       operationId: exportInstances
       parameters:
         - in: query
-          name: definition_id
+          name: definition_uuid
           schema:
             type: string
             format: uuid
@@ -792,3 +1157,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExportResponse'
+  /packs:
+    get:
+      tags: [Packs]
+      summary: List workflow packs
+      operationId: listWorkflowPacks
+      responses:
+        '200':
+          description: Workflow packs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWorkflowPacksResponse'
+  /packs/seed:
+    post:
+      tags: [Packs]
+      summary: Seed workflow packs
+      operationId: seedWorkflowPacks
+      responses:
+        '202':
+          description: Workflow pack seed accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWorkflowPacksResponse'
+  /packs/{workflow_key}:
+    get:
+      tags: [Packs]
+      summary: Get workflow pack seed status
+      operationId: getWorkflowPack
+      parameters:
+        - in: path
+          name: workflow_key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow pack
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [meta, pack]
+                properties:
+                  meta:
+                    $ref: '#/components/schemas/ResponseMeta'
+                  pack:
+                    $ref: '#/components/schemas/WorkflowPack'

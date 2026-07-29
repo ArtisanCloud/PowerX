@@ -11,6 +11,7 @@ import (
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"github.com/google/uuid"
 )
 
 type RoleBindingRepository struct {
@@ -27,12 +28,23 @@ func NewRoleBindingRepository(db *gorm.DB) *RoleBindingRepository {
 
 // 幂等创建绑定（建议你在表上建唯一键：tenant_uuid,role_id,subject_type,subject_id）
 func (r *RoleBindingRepository) Create(ctx context.Context, rb *dbm.RoleBinding) error {
-	if rb == nil || strings.TrimSpace(rb.TenantUUID) == "" || rb.RoleID == 0 || rb.SubjectID == 0 || rb.SubjectType == "" {
+	if rb == nil ||
+		strings.TrimSpace(rb.TenantUUID) == "" ||
+		isBlankBusinessUUID(rb.RoleUUID) ||
+		rb.RoleID == 0 ||
+		isBlankBusinessUUID(rb.SubjectUUID) ||
+		rb.SubjectID == 0 ||
+		rb.SubjectType == "" {
 		return errors.New("invalid role binding")
 	}
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
 		Create(rb).Error
+}
+
+func isBlankBusinessUUID(value string) bool {
+	value = strings.TrimSpace(value)
+	return value == "" || value == uuid.Nil.String()
 }
 
 func (r *RoleBindingRepository) Delete(ctx context.Context, tenantUUID string, id uint64) error {
@@ -84,7 +96,7 @@ func (r *RoleBindingRepository) ListRolesByMember(ctx context.Context, tenantUUI
 	err := r.db.WithContext(ctx).
 		Table((&dbm.Role{}).GetTableName(true)+" AS r").
 		Select("r.*").
-		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" AS rb ON rb.role_id = r.id").
+		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" AS rb ON rb.role_uuid = CAST(r.uuid AS TEXT)").
 		Where("rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?", tenantUUID, dbm.SubMember, memberID).
 		Find(&roles).Error
 	return roles, err
@@ -123,12 +135,28 @@ func (r *RoleBindingRepository) AssignRolesByCodes(ctx context.Context, tenantUU
 		Find(&roles).Error; err != nil {
 		return err
 	}
+	var member dbm.Member
+	if err := r.db.WithContext(ctx).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).
+		First(&member).Error; err != nil {
+		return err
+	}
+	if member.UUID == uuid.Nil {
+		return errors.New("member missing uuid")
+	}
+	memberUUID := member.UUID.String()
 	// 逐个 upsert 绑定
 	for _, role := range roles {
+		if role.UUID == uuid.Nil {
+			return errors.New("role missing uuid")
+		}
+		roleUUID := role.UUID.String()
 		rb := &dbm.RoleBinding{
 			TenantUUID:  tenantUUID,
+			RoleUUID:    roleUUID,
 			RoleID:      role.ID,
 			SubjectType: dbm.SubMember,
+			SubjectUUID: memberUUID,
 			SubjectID:   memberID,
 			// DataScope/ScopeDim/ScopeID/Condition 可按需要补
 		}

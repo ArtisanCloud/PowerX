@@ -113,6 +113,16 @@ func BuildFinalResponseContent(plan *ResponsePlan, rawContent string, execErr er
 			return fmt.Sprintf("我还需要你补充这些信息：%s。请直接用自然语言说明。", strings.Join(humanizeMissingFields(plan.MissingFields), "、"))
 		}
 		return "我还需要你补充必要信息后才能继续。请直接用自然语言说明。"
+	case ResponseModeCapabilityIntro:
+		if content != "" && !isExecutionCompletionPlaceholder(content) {
+			return content
+		}
+		return capabilityIntroFallback(plan)
+	case ResponseModeCapabilityHowTo:
+		if content != "" && !isExecutionCompletionPlaceholder(content) {
+			return content
+		}
+		return "你可以直接用自然语言描述想完成的目标、已有素材和限制条件；如果当前已绑定能力需要更多信息，我会继续追问缺失项，不会在信息不足时假装已经执行。"
 	case ResponseModeSkillExecution:
 		if content != "" {
 			return content
@@ -127,6 +137,17 @@ func BuildFinalResponseContent(plan *ResponsePlan, rawContent string, execErr er
 		}
 		return "本轮没有生成技能或能力执行结果，因此不能确认任务已经完成。"
 	}
+}
+
+func capabilityIntroFallback(plan *ResponsePlan) string {
+	count := 0
+	if plan != nil {
+		count = len(plan.TargetCapabilityIDs)
+	}
+	if count > 0 {
+		return fmt.Sprintf("你好，我是当前智能体。当前已绑定 %d 个能力，可以围绕这些能力帮你梳理可执行任务、确认所需信息，并在信息完整后进入执行；如果缺少必要条件，我会先追问，不会直接假装完成。", count)
+	}
+	return "你好，我是当前智能体。你可以直接问我当前能做什么，或描述你的目标、素材和限制条件；如果需要执行任务，我会先确认当前已绑定能力和必要信息。"
 }
 
 func claimsBusinessCompletion(content string) bool {
@@ -157,6 +178,14 @@ func claimsBusinessCompletion(content string) bool {
 		}
 	}
 	return false
+}
+
+func isExecutionCompletionPlaceholder(content string) bool {
+	normalized := strings.TrimSpace(content)
+	if normalized == "" {
+		return false
+	}
+	return strings.HasPrefix(normalized, "任务已执行完成") || strings.HasPrefix(normalized, "本轮任务已执行完成")
 }
 
 func finalResponseModePrompt(mode ResponseMode) string {

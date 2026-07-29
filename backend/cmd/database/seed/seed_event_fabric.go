@@ -30,6 +30,7 @@ func SeedEventFabricTopics(db *gorm.DB) error {
 		eventbus.TopicKnowledgeIngestionJob,
 		eventbus.TopicKnowledgeCorpusCheckJob,
 		eventbus.TopicSystemNotification,
+		eventbus.TopicWorkflowInstance,
 		eventbus.TopicIntegrationGatewayRouteCreated,
 		eventbus.TopicIntegrationGatewayRouteUpdated,
 		eventbus.TopicIntegrationGatewayInvocationSucceeded,

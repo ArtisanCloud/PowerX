@@ -112,6 +112,8 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		menuPerm("settings.ai.context_optimizer"),
 		menuPerm("settings.metadata_governance"),
 		menuPerm("settings.integration_api_keys"),
+		menuPerm("settings.open_capabilities"),
+		menuPerm("settings.event_fabric"),
 	}
 
 	// 你仓储里已有 UpsertBatch：幂等插入/更新

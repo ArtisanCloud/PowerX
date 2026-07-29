@@ -42,6 +42,8 @@ var (
 	ErrObjectKeyMustBeUUID = errors.New("object key must be uuid")
 	// ErrContentSHA256Invalid 表示 content_sha256 元数据格式非法。
 	ErrContentSHA256Invalid = errors.New("content_sha256 must be 64 hex characters")
+	// ErrContentSHA256Required 表示上传类资产必须提供内容哈希。
+	ErrContentSHA256Required = errors.New("content_sha256 is required for direct_upload and presign_upload")
 )
 
 // UploadMethod 定义媒体上传方式。
@@ -174,23 +176,24 @@ func (s *MediaService) CanAccessPublicResource(asset *Asset, expStr, token strin
 
 // CreateAssetInput 定义创建媒体资产所需参数。
 type CreateAssetInput struct {
-	TenantUUID   string
-	OperatorID   *uint64
-	Name         string
-	Description  string
-	Driver       string
-	Bucket       string
-	BaseURL      string
-	Folder       string
-	StorageKey   string
-	SizeBytes    int64
-	MimeType     string
-	OwnerType    string
-	OwnerID      string
-	Tags         []string
-	UploadMethod UploadMethod
-	ExternalURL  string
-	Metadata     map[string]any
+	TenantUUID    string
+	OperatorID    *uint64
+	Name          string
+	Description   string
+	Driver        string
+	Bucket        string
+	BaseURL       string
+	Folder        string
+	StorageKey    string
+	SizeBytes     int64
+	MimeType      string
+	OwnerType     string
+	OwnerID       string
+	Tags          []string
+	UploadMethod  UploadMethod
+	ExternalURL   string
+	ContentSHA256 string
+	Metadata      map[string]any
 }
 
 // UpdateAssetInput 定义更新媒体资产所需参数。
@@ -352,9 +355,16 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		}
 	}
 
-	contentSHA256, err := contentSHA256FromMetadata(in.Metadata)
+	metadata, err := mergeCreateAssetMetadata(in.Metadata, in.ContentSHA256)
 	if err != nil {
 		return nil, err
+	}
+	contentSHA256, err := contentSHA256FromMetadata(metadata)
+	if err != nil {
+		return nil, err
+	}
+	if (method == UploadMethodDirect || method == UploadMethodPresign) && contentSHA256 == "" {
+		return nil, ErrContentSHA256Required
 	}
 
 	storageKey := strings.TrimSpace(in.StorageKey)
@@ -390,8 +400,8 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		return nil, fmt.Errorf("encode tags failed: %w", err)
 	}
 
-	meta := make(map[string]any, len(in.Metadata)+4)
-	for k, v := range in.Metadata {
+	meta := make(map[string]any, len(metadata)+4)
+	for k, v := range metadata {
 		if strings.TrimSpace(k) == "" || v == nil {
 			continue
 		}
@@ -1291,6 +1301,29 @@ func contentSHA256FromMetadata(meta map[string]any) (string, error) {
 		return "", ErrContentSHA256Invalid
 	}
 	return normalized, nil
+}
+
+func mergeCreateAssetMetadata(meta map[string]any, topLevelContentSHA256 string) (map[string]any, error) {
+	merged := make(map[string]any, len(meta)+1)
+	for key, value := range meta {
+		if strings.TrimSpace(key) == "" || value == nil {
+			continue
+		}
+		merged[key] = value
+	}
+
+	contentSHA256 := strings.ToLower(strings.TrimSpace(topLevelContentSHA256))
+	if contentSHA256 == "" {
+		return merged, nil
+	}
+	if existing, ok := merged["content_sha256"]; ok && existing != nil {
+		existingValue, ok := existing.(string)
+		if !ok || !strings.EqualFold(strings.TrimSpace(existingValue), contentSHA256) {
+			return nil, fmt.Errorf("contentSha256 conflicts with metadata.content_sha256")
+		}
+	}
+	merged["content_sha256"] = contentSHA256
+	return merged, nil
 }
 
 func deterministicAssetUUID(seed string) uuid.UUID {
