@@ -34,6 +34,6 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	group.POST("/review-tasks/:review_task_uuid/actions", handler.ActHumanReviewTask)
 
 	group.GET("/packs", handler.ListWorkflowPacks)
-	group.POST("/packs/seed", handler.SeedWorkflowPacks)
+	group.POST("/packs/seed", requireWorkflowTenantAdmin(deps), handler.SeedWorkflowPacks)
 	group.GET("/packs/:workflow_key", handler.GetWorkflowPack)
 }

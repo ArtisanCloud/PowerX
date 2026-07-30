@@ -35,6 +35,7 @@ import (
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Migrate 执行数据库迁移
@@ -552,10 +553,65 @@ func migrateWorkflowModels(db *gorm.DB) error {
 		&modelWorkflow.WorkflowEvent{},
 		&modelWorkflow.HumanReviewTask{},
 		&modelWorkflow.WorkflowPackSeedRecord{},
+		&modelWorkflow.WorkflowPackInstallation{},
 	); err != nil {
 		return err
 	}
-	return migration.EnsureWorkflowDefinitionPackColumnsMigration(db)
+	if err := migration.EnsureWorkflowDefinitionPackColumnsMigration(db); err != nil {
+		return err
+	}
+	return ensureWorkflowPackInstallationBackfill(db)
+}
+
+func ensureWorkflowPackInstallationBackfill(db *gorm.DB) error {
+	var records []modelWorkflow.WorkflowPackSeedRecord
+	if err := db.
+		Order("tenant_uuid ASC, workflow_key ASC, version DESC, id DESC").
+		Find(&records).Error; err != nil {
+		return fmt.Errorf("list workflow pack seed records for installation backfill failed: %w", err)
+	}
+	latestByKey := make(map[string]modelWorkflow.WorkflowPackSeedRecord, len(records))
+	for _, record := range records {
+		tenantUUID := strings.ToLower(strings.TrimSpace(record.TenantUUID))
+		if tenantUUID == "" {
+			return fmt.Errorf("workflow_pack_seed_records contains tenantless record workflow_key=%s uuid=%s; remove or migrate it before enabling workflow pack installation state", record.WorkflowKey, record.UUID)
+		}
+		workflowKey := strings.TrimSpace(record.WorkflowKey)
+		if workflowKey == "" {
+			return fmt.Errorf("workflow_pack_seed_records contains empty workflow_key uuid=%s", record.UUID)
+		}
+		key := tenantUUID + "\x00" + workflowKey
+		if _, ok := latestByKey[key]; ok {
+			continue
+		}
+		latestByKey[key] = record
+	}
+	for _, record := range latestByKey {
+		seededAt := record.SeededAt
+		installation := modelWorkflow.WorkflowPackInstallation{
+			TenantUUID:        strings.ToLower(strings.TrimSpace(record.TenantUUID)),
+			WorkflowKey:       strings.TrimSpace(record.WorkflowKey),
+			Version:           record.Version,
+			Checksum:          record.Checksum,
+			Status:            modelWorkflow.WorkflowPackInstallationStatusEnabled,
+			DefinitionUUID:    record.DefinitionUUID,
+			DefinitionVersion: record.DefinitionVersion,
+			Source:            record.Source,
+			InstalledAt:       &seededAt,
+			LastSeededAt:      &seededAt,
+			LastAction:        "backfill",
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "tenant_uuid"},
+				{Name: "workflow_key"},
+			},
+			DoNothing: true,
+		}).Create(&installation).Error; err != nil {
+			return fmt.Errorf("backfill workflow pack installation tenant_uuid=%s workflow_key=%s failed: %w", installation.TenantUUID, installation.WorkflowKey, err)
+		}
+	}
+	return nil
 }
 
 func migrateKnowledgeModels(db *gorm.DB) error {

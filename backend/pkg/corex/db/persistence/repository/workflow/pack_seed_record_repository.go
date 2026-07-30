@@ -36,16 +36,15 @@ func (r *WorkflowPackSeedRecordRepository) CreateRecord(ctx context.Context, rec
 
 // GetLatestByKey 查询指定租户/平台下某 workflow_key 的最新 seed 记录。
 func (r *WorkflowPackSeedRecordRepository) GetLatestByKey(ctx context.Context, tenantUUID string, workflowKey string) (*modelworkflow.WorkflowPackSeedRecord, error) {
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return nil, errors.New("tenant uuid is required")
+	}
 	workflowKey = strings.TrimSpace(workflowKey)
 	if workflowKey == "" {
 		return nil, errors.New("workflow_key is required")
 	}
-	q := r.db.WithContext(ctx).Where("workflow_key = ?", workflowKey)
-	if tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID)); tenantUUID != "" {
-		q = q.Where("tenant_uuid = ?", tenantUUID)
-	} else {
-		q = q.Where("tenant_uuid = '' OR tenant_uuid IS NULL")
-	}
+	q := r.db.WithContext(ctx).Where("tenant_uuid = ? AND workflow_key = ?", tenantUUID, workflowKey)
 	var record modelworkflow.WorkflowPackSeedRecord
 	if err := q.Order("version DESC, id DESC").First(&record).Error; err != nil {
 		return nil, err
@@ -55,12 +54,11 @@ func (r *WorkflowPackSeedRecordRepository) GetLatestByKey(ctx context.Context, t
 
 // ListByTenant 列出指定租户或平台 seed 记录。
 func (r *WorkflowPackSeedRecordRepository) ListByTenant(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]modelworkflow.WorkflowPackSeedRecord, int64, error) {
-	q := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowPackSeedRecord{})
-	if tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID)); tenantUUID != "" {
-		q = q.Where("tenant_uuid = ?", tenantUUID)
-	} else {
-		q = q.Where("tenant_uuid = '' OR tenant_uuid IS NULL")
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return nil, 0, errors.New("tenant uuid is required")
 	}
+	q := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowPackSeedRecord{}).Where("tenant_uuid = ?", tenantUUID)
 	if kw := strings.TrimSpace(keyword); kw != "" {
 		q = q.Where("LOWER(workflow_key) LIKE ?", "%"+strings.ToLower(kw)+"%")
 	}

@@ -12,9 +12,9 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/workflow"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -184,10 +184,20 @@ func (h *Handler) ListDefinitions(c *gin.Context) {
 
 	status := c.QueryArray("status")
 	keyword := c.Query("keyword")
+	sourceType := c.Query("source_type")
+	category := c.Query("category")
 	limit, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	definitions, total, err := h.svc.ListDefinitions(c.Request.Context(), tenantUUID, status, keyword, limit, offset)
+	definitions, total, err := h.svc.ListDefinitions(c.Request.Context(), workflowrepo.DefinitionListFilter{
+		TenantUUID: tenantUUID,
+		Status:     status,
+		Keyword:    keyword,
+		SourceType: sourceType,
+		Category:   category,
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("list definitions failed", err))
 		return
@@ -729,6 +739,7 @@ func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map
 	if def == nil {
 		return nil
 	}
+	metadata := jsonToInterface(def.Metadata)
 	return map[string]any{
 		"uuid":                   def.UUID.String(),
 		"tenant_uuid":            tenantUUID,
@@ -740,7 +751,8 @@ func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map
 		"default_retry_policy":   jsonToInterface(def.DefaultRetryPolicy),
 		"compensation_policy":    jsonToInterface(def.CompensationPolicy),
 		"sla_policy":             jsonToInterface(def.SlaPolicy),
-		"metadata":               jsonToInterface(def.Metadata),
+		"metadata":               metadata,
+		"category":               workflowDefinitionCategory(metadata),
 		"input_schema":           jsonToInterface(def.InputSchema),
 		"workflow_pack_key":      def.WorkflowPackKey,
 		"source_type":            def.SourceType,
@@ -751,6 +763,18 @@ func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map
 		"archived_at":            def.ArchivedAt,
 		"initial_context_schema": jsonToInterface(def.InitialContextSchema),
 	}
+}
+
+func workflowDefinitionCategory(metadata any) string {
+	asMap, ok := metadata.(map[string]any)
+	if !ok {
+		return ""
+	}
+	category, ok := asMap["category"].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(strings.ToLower(category))
 }
 
 func mapNodeCatalogItem(item workflow.NodeCatalogItem) map[string]any {

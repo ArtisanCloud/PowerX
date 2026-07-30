@@ -31,7 +31,7 @@ native-agent 的知识库增量迭代必须依赖 Workflow Runtime，不提供 S
 | 缺少语义节点目录 | native-agent 需要的 `skill.invoke`、`knowledge.stage` 等无法标准化 |
 | 缺少节点适配器 | Skill、Capability、Knowledge、Metadata、EventBus 没有统一执行入口 |
 | 缺少 Human Review 任务模型 | `human_approval` 不能支撑审核任务、确认、驳回和审计 |
-| 缺少 Workflow Pack seed | 没有 `expert_knowledge_capture`、`marketing_knowledge_capture` 等可复用流程 |
+| 缺少 Workflow Pack Catalog / 安装状态 | 没有 `expert_knowledge_capture`、`marketing_knowledge_capture` 等可复用流程，或租户无法显式启用 |
 | 前端仍有 mock | `/workflow` 页面和 service 未对齐真实 `/admin/workflows` API |
 | 节点目录未接 capability registry | Workflow Builder 无法从正式能力目录加载 Core/Plugin 节点 |
 
@@ -63,7 +63,7 @@ Agent / Admin / Event
 - `specs/node-catalog.md`：Workflow 语义节点目录和底层 StepType 映射。
 - `specs/runtime-contract.md`：Runner、节点适配器、上下文和状态契约。
 - `specs/admin-api-contract.md`：Admin HTTP、Node Catalog、Human Review、Workflow Pack 的目标接口。
-- `specs/workflow-pack-seed.md`：内置 Workflow Pack seed 规格。
+- `specs/workflow-pack-seed.md`：内置 Workflow Pack Catalog、租户显式安装和 seed 规格。
 - `pages/workflow-builder.md`：Web Admin Workflow Builder 页面计划。
 - `pages/frontend-implementation-adjustment.md`：现有 Web Admin workflow 页面、API client、类型和 i18n 的具体调整落点。
 - `pages/human-review-and-monitor.md`：Workflow 实例监控与人工审核页面计划。
@@ -76,7 +76,7 @@ Agent / Admin / Event
 2. 实现 Runner：支持实例自动推进、节点完成回调、分支、并行、等待和失败处理。
 3. 实现 Node Adapter Registry：统一调度 Skill、Capability、Knowledge、Metadata、EventBus、Human Review。
 4. 实现 Human Review：审核任务、确认、驳回、超时和审计。
-5. 实现 Workflow Pack seed：内置专家知识库和营销知识库迭代流程。
+5. 实现 Workflow Pack Catalog 与租户显式安装：内置专家知识库和营销知识库迭代流程。
 6. 改造 Web Admin：移除 mock，接真实 `/admin/workflows` 和节点目录 API。
 7. 接入 native-agent：Agent 来源快照绑定 Workflow Pack，启用前做 Workflow 依赖预检。
 

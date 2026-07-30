@@ -35,7 +35,7 @@ func (s runnerDefinitionStore) GetLatestPublished(context.Context, string, uuid.
 	return s.definition, nil
 }
 
-func (s runnerDefinitionStore) ListByTenant(context.Context, string, []string, string, int, int) ([]modelworkflow.WorkflowDefinition, int64, error) {
+func (s runnerDefinitionStore) ListByTenant(context.Context, workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	return nil, 0, errors.New("not used")
 }
 
@@ -213,14 +213,19 @@ func TestRunnerCompletesStepAndEnqueuesNextStep(t *testing.T) {
 	instanceUUID := uuid.New()
 	definitionUUID := uuid.New()
 	steps := []StepDefinition{
-		{ID: "capture", Type: "system", NodeKind: "system.invoke", NextStepIDs: []string{"publish"}},
-		{ID: "publish", Type: "system", NodeKind: "system.invoke", DependsOn: []string{"capture"}},
+		{ID: "capture", Type: "system", NodeKind: "input.capture", Config: map[string]any{
+			"input_schema_ref":     "workflow.input.test",
+			"source_policy":        map[string]any{"text": true},
+			"artifact_output_path": "$.artifacts.source",
+		}, NextStepIDs: []string{"publish"}},
+		{ID: "publish", Type: "system", NodeKind: "system.invoke", DependsOn: []string{"capture"}, NextStepIDs: []string{"end"}},
+		{ID: "end", Type: "system", NodeKind: "workflow.end", DependsOn: []string{"publish"}},
 	}
 	stepStore := &runnerStepStore{nextID: 1, records: []modelworkflow.WorkflowStepRecord{{
 		InstanceUUID: instanceUUID,
 		StepID:       "capture",
 		Type:         "system",
-		NodeKind:     "system.invoke",
+		NodeKind:     "input.capture",
 		State:        "queued",
 		SubjectType:  "system",
 	}}}
@@ -250,9 +255,9 @@ func TestRunnerConvergesInstanceToSucceededWhenNoActiveStepsRemain(t *testing.T)
 	definitionUUID := uuid.New()
 	stepStore := &runnerStepStore{nextID: 1, records: []modelworkflow.WorkflowStepRecord{{
 		InstanceUUID: instanceUUID,
-		StepID:       "only",
+		StepID:       "end",
 		Type:         "system",
-		NodeKind:     "system.invoke",
+		NodeKind:     "workflow.end",
 		State:        "queued",
 		SubjectType:  "system",
 	}}}
@@ -264,7 +269,12 @@ func TestRunnerConvergesInstanceToSucceededWhenNoActiveStepsRemain(t *testing.T)
 		State:             "running",
 	}}
 	runner := newTestRunnerWithStores(t, runnerDefinitionStore{definition: testDefinition(definitionUUID, []StepDefinition{
-		{ID: "only", Type: "system", NodeKind: "system.invoke"},
+		{ID: "capture", Type: "system", NodeKind: "input.capture", Config: map[string]any{
+			"input_schema_ref":     "workflow.input.test",
+			"source_policy":        map[string]any{"text": true},
+			"artifact_output_path": "$.artifacts.source",
+		}, NextStepIDs: []string{"end"}},
+		{ID: "end", Type: "system", NodeKind: "workflow.end", DependsOn: []string{"capture"}},
 	})}, instanceStore, stepStore, NodeResult{Status: NodeResultStatusSucceeded})
 
 	if _, err := runner.RunDueSteps(context.Background()); err != nil {
@@ -293,6 +303,12 @@ func newTestRunnerWithStores(t *testing.T, defStore runnerDefinitionStore, insta
 	registry := NewNodeAdapterRegistry()
 	if err := registry.Register(runnerAdapter{result: result}); err != nil {
 		t.Fatalf("register adapter: %v", err)
+	}
+	if err := registry.Register(NewInputCaptureAdapter()); err != nil {
+		t.Fatalf("register input adapter: %v", err)
+	}
+	if err := registry.Register(NewWorkflowEndAdapter()); err != nil {
+		t.Fatalf("register end adapter: %v", err)
 	}
 	runner, err := NewRunner(RunnerOptions{
 		DefinitionStore: defStore,

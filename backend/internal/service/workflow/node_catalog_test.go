@@ -33,18 +33,27 @@ func TestNodeCatalogServiceListsRegisteredAdaptersWithEnrichment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list catalog: %v", err)
 	}
-	if len(items) != 12 {
-		t.Fatalf("expected 12 items, got %d", len(items))
+	if len(items) != 13 {
+		t.Fatalf("expected 13 items, got %d", len(items))
 	}
 	var capability NodeCatalogItem
+	var workflowEnd NodeCatalogItem
 	for _, item := range items {
 		if item.NodeKind == "capability.invoke" {
 			capability = item
-			break
+		}
+		if item.NodeKind == "workflow.end" {
+			workflowEnd = item
 		}
 	}
 	if capability.NodeKind == "" {
 		t.Fatal("capability.invoke missing")
+	}
+	if workflowEnd.NodeKind == "" {
+		t.Fatal("workflow.end missing")
+	}
+	if workflowEnd.StepType != "system" || workflowEnd.DisplayNameI18nKey != "workflow.node.workflow.end" {
+		t.Fatalf("unexpected workflow.end catalog item: %#v", workflowEnd)
 	}
 	if capability.StepType != "system" || capability.SourceStatus != "missing_dependency" || !capability.IdempotencyRequired {
 		t.Fatalf("unexpected capability catalog item: %#v", capability)

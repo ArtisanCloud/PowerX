@@ -35,6 +35,30 @@ func (a *InputCaptureAdapter) Execute(ctx context.Context, exec NodeExecutionCon
 	return NodeResult{Status: NodeResultStatusSucceeded, Output: cloneMap(exec.Payload)}, nil
 }
 
+type WorkflowEndAdapter struct{}
+
+func NewWorkflowEndAdapter() *WorkflowEndAdapter {
+	return &WorkflowEndAdapter{}
+}
+
+func (a *WorkflowEndAdapter) Spec() NodeAdapterSpec {
+	return NodeAdapterSpec{
+		NodeKind:     "workflow.end",
+		DisplayName:  "workflow.node.workflow.end",
+		Category:     "output",
+		InputSchema:  objectSchema(),
+		OutputSchema: objectSchema(),
+	}
+}
+
+func (a *WorkflowEndAdapter) Validate(step StepDefinition) error {
+	return nil
+}
+
+func (a *WorkflowEndAdapter) Execute(ctx context.Context, exec NodeExecutionContext) (NodeResult, error) {
+	return NodeResult{Status: NodeResultStatusSucceeded, Output: cloneMap(exec.Payload)}, nil
+}
+
 type DecisionGatewayAdapter struct{}
 
 func NewDecisionGatewayAdapter() *DecisionGatewayAdapter {

@@ -99,7 +99,7 @@ Native Agent、知识库策展和插件复合能力需要通过 Workflow Runtime
 - **FR-013**: System MUST provide a NodeAdapterRegistry. Workflow publication MUST fail if any `node_kind` is unknown, unavailable, or has invalid config.
 - **FR-014**: System MUST expose Node Catalog API for Workflow Builder. Frontend MUST NOT hardcode or mock executable node kinds.
 - **FR-015**: System MUST model Human Review as a first-class runtime task with reviewer policy, approve/reject/request_changes actions, audit records, and Runner wake-up.
-- **FR-016**: System MUST support Workflow Pack seed for native-agent flows, including `expert_knowledge_capture`, `marketing_knowledge_capture`, and `campaign_review_to_methodology`.
+- **FR-016**: System MUST support Workflow Pack Catalog validation and tenant-explicit installation for native-agent flows, including `expert_knowledge_capture`, `marketing_knowledge_capture`, and `campaign_review_to_methodology`; regular database seed MUST NOT materialize built-in packs for every tenant.
 - **FR-017**: Knowledge publishing MUST go through `knowledge.stage -> human.review -> knowledge.publish`; direct formal Knowledge Space writes from unreviewed workflow output are forbidden.
 - **FR-018**: Workflow Admin APIs, gRPC contracts, events, audit records, and frontend routes MUST use UUID-based business references. Numeric IDs are internal only and MUST NOT be API identifiers.
 - **FR-019**: Workflow Runtime MUST validate Skill, Capability, Knowledge Space, Metadata namespace, and RBAC dependencies before definition publication and before step execution.

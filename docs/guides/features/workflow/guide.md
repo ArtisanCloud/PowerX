@@ -12,13 +12,13 @@ Workflow 是 PowerX 用来编排租户业务流程的运行时能力。它面向
 - 创建 draft 工作流定义并打开编辑器。
 - 在编辑器中拖入节点、连线、配置节点、保存和运行测试。
 - 通过 Admin API 创建、发布、启动和查询 Workflow。
-- 通过 seed 初始化内置 Workflow Pack。
+- 校验内置 Workflow Pack Catalog，并按租户显式启用内置 WorkflowDefinition。
 - 通过实例详情和 Review Task 页面进行基础运行巡检。
 
 当前边界：
 
 - Web Admin 编辑器已接入真实 `/api/v1/admin/workflows` API 和 Node Catalog。
-- 内置 Workflow Pack 通过 `make seed` 的 `db-seed` 阶段写入。
+- 内置 Workflow Pack Catalog 通过 `make seed` 的 `db-seed` 阶段校验；租户 WorkflowDefinition 只在显式启用 Pack 时写入。
 - 当前 Runner、节点适配器、Human Review 处理链路仍需按 `docs/plan/ai_engineering/workflow` 继续完善；手册中标注的验收必须以当前实现为准。
 
 ## 2. 角色与适用范围
@@ -58,7 +58,7 @@ flowchart LR
   WorkflowSvc --> StepRepo[(WorkflowStepRecord)]
   WorkflowSvc --> ReviewRepo[(HumanReviewTask)]
   WorkflowSvc --> Catalog[Node Adapter Registry / Node Catalog]
-  WorkflowSvc --> Packs[Workflow Pack Seed]
+  WorkflowSvc --> Packs[Workflow Pack Catalog / Installation]
   Catalog --> Skill[Skill Adapter]
   Catalog --> Capability[Capability Adapter]
   Catalog --> Knowledge[Knowledge Adapter]
@@ -75,7 +75,7 @@ flowchart LR
 | Workflow Admin API | 定义、实例、节点目录、审核任务、Workflow Pack |
 | Workflow Service | 定义校验、发布、实例启动、控制、seed、事件记录 |
 | Node Catalog | 将语义节点 `skill.invoke`、`human.review` 等暴露给编辑器 |
-| Workflow Pack Seed | 初始化内置可复用流程定义 |
+| Workflow Pack Catalog | 校验内置可复用流程模板；租户显式启用后生成自己的流程定义 |
 
 ## 4. 核心流程
 
@@ -163,7 +163,8 @@ make seed
 
 - `make migrate` 执行数据库迁移。
 - `make seed` 顺序执行 `db-seed` 和 `capability-seed`。
-- `db-seed` 当前包含 CoreX、Metadata、Workflow Pack 等种子数据。
+- `db-seed` 当前包含 CoreX、Metadata 等基础种子数据，并校验 Workflow Pack Catalog。
+- Workflow Pack Catalog 校验不会给所有租户批量写入 WorkflowDefinition；当前租户需要通过页面或 `POST /api/v1/admin/workflows/packs/seed` 显式启用。
 
 远程 systemd dev 环境不要在没有 Makefile 的发布包 backend 目录里直接跑 `make seed`。应使用发布包实际包含的二进制或部署脚本约定，例如：
 
@@ -210,7 +211,7 @@ Web Admin -> /workflow
 失败处理：
 
 - 页面空白：检查 `GET /api/v1/admin/workflows/definitions` 是否 200。
-- 没有内置包：确认已执行 `make seed` 或远程环境的 `./database seed`。
+- 没有内置流程：先确认已执行 `make seed` 或远程环境的 `./database seed` 完成 catalog 校验，再对当前租户显式启用内置 Workflow Pack。
 - 401/403：检查当前登录用户的后台权限。
 
 ### 7.2 页面操作：新建工作流
@@ -435,7 +436,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/node-catalog" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-触发 Workflow Pack seed：
+当前租户显式启用 Workflow Pack：
 
 ```bash
 curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
@@ -521,7 +522,7 @@ go test ./internal/transport/http/admin/workflow -count=1
 | Runner | `backend/internal/service/workflow/runner.go` |
 | Node Catalog / Adapter Registry | `backend/internal/service/workflow/node_catalog.go`、`node_adapter.go` |
 | Human Review | `backend/internal/service/workflow/human_review.go` |
-| Workflow Pack seed | `backend/cmd/database/seed/seed_workflow_packs.go`、`backend/config/workflow_packs` |
+| Workflow Pack catalog / install state | `backend/cmd/database/seed/seed_workflow_packs.go`、`backend/config/workflow_packs`、`workflow_pack_installations` |
 | 数据库 seed 入口 | `backend/cmd/database/seed/seed.go` |
 | Make seed | `make_files/database.mk` |
 | 前端 API client | `web-admin/app/composables/api/services/workflowService.ts` |
@@ -547,7 +548,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 
 处理：
 
-- 如果 API 返回空列表但 seed 预期有内置流程，执行 `make seed` 或远程发布包 seed。
+- 如果 API 返回空列表但预期有内置流程，先执行 `make seed` 或远程发布包 seed 校验 catalog，再调用 `POST /api/v1/admin/workflows/packs/seed` 启用当前租户的 Pack。
 - 如果 API 401/403，检查登录用户权限。
 - 如果 API 404，确认后端注册了 workflow 路由。
 

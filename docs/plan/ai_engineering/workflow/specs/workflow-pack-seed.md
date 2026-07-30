@@ -2,7 +2,15 @@
 
 ## 1. 目标
 
-Workflow Pack 是一组可发布的 WorkflowDefinition seed，用于内置智能体和插件智能体。它不是页面上的独立主对象，而是 Agent 来源快照绑定的流程能力。
+Workflow Pack 是一组可发布的 WorkflowDefinition 模板来源，用于内置智能体和插件智能体。它不是页面上的独立主对象，而是 Agent 来源快照绑定的流程能力。
+
+关键边界：
+
+- 全局 YAML 目录是内置 Workflow Pack Catalog 的来源。
+- `make seed` 只校验 catalog 文件和节点依赖，不给所有租户自动生成 WorkflowDefinition。
+- 租户必须通过显式启用/安装动作，才会 materialize 成自己的 `workflow_definitions`。
+- 租户删除或禁用内置 Pack 后，系统记录 installation tombstone；后续 seed 不自动补回。
+- YAML checksum 变化只表示 Pack 有新版，不能静默覆盖用户已编辑或已删除的租户实例。
 
 ## 2. Seed 目录建议
 
@@ -189,7 +197,15 @@ make migrate
 make seed
 ```
 
-只触发 Workflow Pack seed：
+这一步只会校验：
+
+- `backend/config/workflow_packs/**/*.yaml` 可解析。
+- `workflow_key/version/required_node_kinds/steps` 完整。
+- 节点类型能被当前 Node Adapter Registry 识别。
+
+它不会遍历所有租户，也不会批量写入 `workflow_definitions`。
+
+当前租户显式启用内置 Workflow Pack：
 
 ```bash
 export POWERX_BASE_URL="http://127.0.0.1:8077"
@@ -201,7 +217,7 @@ curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
   -d '{"keys":[]}'
 ```
 
-指定 seed：
+只启用一个：
 
 ```bash
 curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
@@ -216,6 +232,8 @@ curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
 curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/packs?page_size=20&offset=0" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
+
+`workflow_pack_installations` 是租户级安装状态表，用来判断是否已启用、已禁用、已删除，避免日常 seed 重新生成用户明确删除的内置工作流。
 
 查看被 seed 出来的 WorkflowDefinition：
 

@@ -8,7 +8,7 @@ export interface KindSpec {
   defaultProps: Record<string, any>;
   schema: Record<string, any>;
   ui: {
-    shape: "card" | "diamond" | "pill" | "minimal";
+    shape: "card" | "diamond" | "pill" | "oval" | "minimal";
     colorToken?: string;
     icon?: string;
     size?: { w: number; h: number };

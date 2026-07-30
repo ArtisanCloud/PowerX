@@ -9,6 +9,7 @@ required_node_kinds:
   - human.review
   - capability.invoke
   - event.emit
+  - workflow.end
 required_capabilities: []
 default_retry_policy:
   max_attempts: 2
@@ -53,6 +54,7 @@ steps:
       topic: workflow.capability.completed
       payload_path: $.vars.capability_result
       event_schema_ref: workflow.capability.completed.v1
+    next_step_ids: [end]
   - id: emit_rejected
     type: system
     node_kind: event.emit
@@ -61,3 +63,8 @@ steps:
       topic: workflow.capability.rejected
       payload_path: $.review
       event_schema_ref: workflow.capability.rejected.v1
+    next_step_ids: [end]
+  - id: end
+    type: system
+    node_kind: workflow.end
+    config: {}

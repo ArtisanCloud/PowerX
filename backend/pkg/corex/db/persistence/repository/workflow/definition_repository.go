@@ -23,6 +23,16 @@ type DefinitionRepository struct {
 	db *gorm.DB
 }
 
+type DefinitionListFilter struct {
+	TenantUUID string
+	Status     []string
+	Keyword    string
+	SourceType string
+	Category   string
+	Limit      int
+	Offset     int
+}
+
 // NewDefinitionRepository 创建仓储实例。
 func NewDefinitionRepository(db *gorm.DB) *DefinitionRepository {
 	return &DefinitionRepository{
@@ -99,17 +109,27 @@ func (r *DefinitionRepository) GetLatestPublished(ctx context.Context, tenantUUI
 }
 
 // ListByTenant 按条件分页查询定义。
-func (r *DefinitionRepository) ListByTenant(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
-	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+func (r *DefinitionRepository) ListByTenant(ctx context.Context, filter DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
+	tenantUUID := strings.TrimSpace(strings.ToLower(filter.TenantUUID))
 	if tenantUUID == "" {
 		return nil, 0, errors.New("tenant uuid is required")
 	}
 
 	q := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowDefinition{}).Where("tenant_uuid = ?", tenantUUID)
-	if len(status) > 0 {
-		q = q.Where("status IN ?", status)
+	if len(filter.Status) > 0 {
+		q = q.Where("status IN ?", filter.Status)
 	}
-	if kw := strings.TrimSpace(keyword); kw != "" {
+	if sourceType := strings.TrimSpace(strings.ToLower(filter.SourceType)); sourceType != "" {
+		q = q.Where("LOWER(source_type) = ?", sourceType)
+	}
+	if category := strings.TrimSpace(strings.ToLower(filter.Category)); category != "" {
+		if category == "uncategorized" {
+			q = q.Where("COALESCE(NULLIF(TRIM(metadata ->> 'category'), ''), 'uncategorized') = ?", category)
+		} else {
+			q = q.Where("LOWER(metadata ->> 'category') = ?", category)
+		}
+	}
+	if kw := strings.TrimSpace(filter.Keyword); kw != "" {
 		like := "%" + strings.ToLower(kw) + "%"
 		q = q.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", like, like)
 	}
@@ -119,12 +139,14 @@ func (r *DefinitionRepository) ListByTenant(ctx context.Context, tenantUUID stri
 		return nil, 0, err
 	}
 
+	limit := filter.Limit
 	if limit <= 0 {
 		limit = 20
 	}
 	if limit > 100 {
 		limit = 100
 	}
+	offset := filter.Offset
 	if offset < 0 {
 		offset = 0
 	}

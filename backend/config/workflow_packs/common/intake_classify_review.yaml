@@ -9,6 +9,7 @@ required_node_kinds:
   - metadata.classify
   - human.review
   - event.emit
+  - workflow.end
 required_capabilities:
   - com.corex.metadata.taxonomy.read
   - com.corex.metadata.dictionary.read
@@ -60,6 +61,7 @@ steps:
       topic: workflow.metadata_classification.approved
       payload_path: $.vars.metadata
       event_schema_ref: workflow.metadata_classification.approved.v1
+    next_step_ids: [end]
   - id: emit_rejected
     type: system
     node_kind: event.emit
@@ -68,3 +70,8 @@ steps:
       topic: workflow.metadata_classification.rejected
       payload_path: $.review
       event_schema_ref: workflow.metadata_classification.rejected.v1
+    next_step_ids: [end]
+  - id: end
+    type: system
+    node_kind: workflow.end
+    config: {}

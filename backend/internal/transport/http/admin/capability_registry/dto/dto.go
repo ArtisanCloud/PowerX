@@ -411,9 +411,40 @@ func parsePlatformAnnotations(record *modelregistry.CapabilityRecord) platformAn
 	}
 	payload.Module = normalizeModuleKey(payload.Module)
 	if payload.Module == "" {
-		payload.Module = deriveModuleFromCapability(record.CapabilityID)
+		payload.Module = deriveModuleFromRecord(record)
 	}
 	return payload
+}
+
+func deriveModuleFromRecord(record *modelregistry.CapabilityRecord) string {
+	if record == nil {
+		return "corex"
+	}
+	if capabilitycatalog.CapabilitySource(record) == capabilitycatalog.CapabilitySourcePlugin {
+		if module := derivePluginModule(record.PluginID); module != "" {
+			return module
+		}
+	}
+	return deriveModuleFromCapability(record.CapabilityID)
+}
+
+func derivePluginModule(pluginID string) string {
+	parts := strings.Split(pluginID, ".")
+	for i, part := range parts {
+		part = strings.TrimSpace(strings.ToLower(part))
+		if part != "plugins" {
+			continue
+		}
+		if i+1 >= len(parts) {
+			return ""
+		}
+		module := normalizeModuleKey(parts[i+1])
+		if module == "local" {
+			return ""
+		}
+		return module
+	}
+	return ""
 }
 
 func deriveModuleFromCapability(capabilityID string) string {
@@ -423,7 +454,7 @@ func deriveModuleFromCapability(capabilityID string) string {
 		if part == "" {
 			continue
 		}
-		if part == "com" || part == "corex" {
+		if part == "com" || part == "corex" || part == "powerx" || part == "plugins" {
 			continue
 		}
 		return normalizeModuleKey(part)

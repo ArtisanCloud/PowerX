@@ -39,6 +39,7 @@ export interface WorkflowDefinition {
   compensation_policy?: Record<string, any>;
   sla_policy?: Record<string, any>;
   metadata?: Record<string, any>;
+  category?: string;
   input_schema?: Record<string, any>;
   workflow_pack_key?: string;
   source_type?: string;
@@ -62,6 +63,8 @@ export interface CreateWorkflowDefinitionRequest {
 export interface ListWorkflowDefinitionParams extends PaginationParams {
   keyword?: string;
   status?: WorkflowDefinitionStatus | WorkflowDefinitionStatus[];
+  source_type?: string;
+  category?: string;
 }
 
 export interface NodeSchema {
@@ -178,6 +181,8 @@ export const useWorkflowService = () => {
           offset,
           keyword: params?.keyword,
           status: params?.status,
+          source_type: params?.source_type,
+          category: params?.category,
         },
       });
       return unwrap<ListResponse<WorkflowDefinition>>(response);

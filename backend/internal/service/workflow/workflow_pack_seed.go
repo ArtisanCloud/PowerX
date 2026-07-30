@@ -103,6 +103,9 @@ func ValidateWorkflowPack(pack WorkflowPack) error {
 	if strings.TrimSpace(pack.WorkflowKey) == "" {
 		return errors.New("workflow_key is required")
 	}
+	if strings.TrimSpace(pack.Category) == "" {
+		return errors.New("category is required")
+	}
 	if pack.Version <= 0 {
 		return errors.New("version is required")
 	}
@@ -120,10 +123,13 @@ func ValidateWorkflowPack(pack WorkflowPack) error {
 
 func (s *Service) SeedWorkflowPacks(ctx context.Context, input WorkflowPackSeedInput) (WorkflowPackSeedResult, error) {
 	result := WorkflowPackSeedResult{}
-	if s == nil || s.packSeeds == nil || s.definitions == nil || s.adapters == nil {
+	if s == nil || s.packSeeds == nil || s.packInstalls == nil || s.definitions == nil || s.adapters == nil {
 		return result, ErrWorkflowPackSeedUnavailable
 	}
-	tenantUUID := strings.TrimSpace(strings.ToLower(input.TenantUUID))
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return result, err
+	}
 	packs, err := LoadWorkflowPacks(input.ConfigDir)
 	if err != nil {
 		return result, err
@@ -138,16 +144,55 @@ func (s *Service) SeedWorkflowPacks(ctx context.Context, input WorkflowPackSeedI
 		if err := s.validateWorkflowPackDependencies(pack); err != nil {
 			return result, err
 		}
-		latest, err := s.packSeeds.GetLatestByKey(ctx, tenantUUID, pack.WorkflowKey)
-		if err == nil && latest.Checksum == pack.Checksum {
-			result.Skipped = append(result.Skipped, pack.WorkflowKey)
-			continue
+		definitionCurrent := false
+		installation, err := s.packInstalls.GetByTenantKey(ctx, tenantUUID, pack.WorkflowKey)
+		if err == nil {
+			if installation.Status == modelworkflow.WorkflowPackInstallationStatusDeleted || installation.Status == modelworkflow.WorkflowPackInstallationStatusDisabled {
+				result.Skipped = append(result.Skipped, pack.WorkflowKey)
+				continue
+			}
+			if installation.Checksum == pack.Checksum {
+				definitionCurrent, err = s.workflowPackDefinitionCurrent(ctx, tenantUUID, pack, installation)
+				if err != nil {
+					return result, err
+				}
+			}
+			if installation.Status == modelworkflow.WorkflowPackInstallationStatusEnabled && installation.Checksum == pack.Checksum && definitionCurrent {
+				result.Skipped = append(result.Skipped, pack.WorkflowKey)
+				continue
+			}
 		}
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return result, err
 		}
+		latest, latestErr := s.packSeeds.GetLatestByKey(ctx, tenantUUID, pack.WorkflowKey)
+		if latestErr == nil && installation == nil {
+			return result, fmt.Errorf("workflow pack installation missing for existing seed record: tenant_uuid=%s workflow_key=%s definition_uuid=%s", tenantUUID, pack.WorkflowKey, latest.DefinitionUUID)
+		}
+		if latestErr != nil && !errors.Is(latestErr, gorm.ErrRecordNotFound) {
+			return result, latestErr
+		}
+		if latestErr == nil && latest.Checksum == pack.Checksum && installation != nil && definitionCurrent {
+			result.Skipped = append(result.Skipped, pack.WorkflowKey)
+			continue
+		}
 		record, err := s.seedWorkflowPack(ctx, tenantUUID, pack)
 		if err != nil {
+			return result, err
+		}
+		lastSeededAt := record.SeededAt
+		if _, err := s.packInstalls.UpsertEnabled(ctx, &modelworkflow.WorkflowPackInstallation{
+			TenantUUID:        tenantUUID,
+			WorkflowKey:       pack.WorkflowKey,
+			Version:           pack.Version,
+			Checksum:          pack.Checksum,
+			DefinitionUUID:    record.DefinitionUUID,
+			DefinitionVersion: record.DefinitionVersion,
+			Source:            "builtin",
+			InstalledAt:       &lastSeededAt,
+			LastSeededAt:      &lastSeededAt,
+			LastAction:        "install",
+		}); err != nil {
 			return result, err
 		}
 		result.Seeded = append(result.Seeded, *record)
@@ -155,18 +200,50 @@ func (s *Service) SeedWorkflowPacks(ctx context.Context, input WorkflowPackSeedI
 	return result, nil
 }
 
+func (s *Service) ValidateWorkflowPackCatalog(configDir string, keys []string) ([]WorkflowPack, error) {
+	if s == nil || s.adapters == nil {
+		return nil, ErrWorkflowPackSeedUnavailable
+	}
+	packs, err := LoadWorkflowPacks(configDir)
+	if err != nil {
+		return nil, err
+	}
+	keyFilter := normalizeKeyFilter(keys)
+	validated := make([]WorkflowPack, 0, len(packs))
+	for _, pack := range packs {
+		if len(keyFilter) > 0 {
+			if _, ok := keyFilter[pack.WorkflowKey]; !ok {
+				continue
+			}
+		}
+		if err := s.validateWorkflowPackDependencies(pack); err != nil {
+			return nil, err
+		}
+		validated = append(validated, pack)
+	}
+	return validated, nil
+}
+
 func (s *Service) ListWorkflowPacks(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]modelworkflow.WorkflowPackSeedRecord, int64, error) {
 	if s == nil || s.packSeeds == nil {
 		return nil, 0, ErrWorkflowPackSeedUnavailable
 	}
-	return s.packSeeds.ListByTenant(ctx, strings.ToLower(strings.TrimSpace(tenantUUID)), keyword, limit, offset)
+	normalizedTenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.packSeeds.ListByTenant(ctx, normalizedTenantUUID, keyword, limit, offset)
 }
 
 func (s *Service) GetWorkflowPack(ctx context.Context, tenantUUID string, workflowKey string) (*modelworkflow.WorkflowPackSeedRecord, error) {
 	if s == nil || s.packSeeds == nil {
 		return nil, ErrWorkflowPackSeedUnavailable
 	}
-	return s.packSeeds.GetLatestByKey(ctx, strings.ToLower(strings.TrimSpace(tenantUUID)), workflowKey)
+	normalizedTenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	return s.packSeeds.GetLatestByKey(ctx, normalizedTenantUUID, workflowKey)
 }
 
 func (s *Service) validateWorkflowPackDependencies(pack WorkflowPack) error {
@@ -207,7 +284,7 @@ func (s *Service) seedWorkflowPack(ctx context.Context, tenantUUID string, pack 
 		DefaultRetryPolicy:   toJSONOrEmpty(pack.DefaultRetryPolicy),
 		CompensationPolicy:   toJSONOrEmpty(pack.CompensationPolicy),
 		SlaPolicy:            toJSONOrEmpty(pack.SlaPolicy),
-		Metadata:             toJSONOrEmpty(pack.Metadata),
+		Metadata:             toJSONOrEmpty(workflowPackDefinitionMetadata(pack)),
 		CreatedBy:            workflowPackSeedActorUUID,
 		PublishedAt:          &now,
 		LastPublishedBy:      workflowPackSeedActorUUID,
@@ -232,6 +309,45 @@ func (s *Service) seedWorkflowPack(ctx context.Context, tenantUUID string, pack 
 		Source:            "builtin",
 		SeededAt:          now,
 	})
+}
+
+func (s *Service) workflowPackDefinitionCurrent(ctx context.Context, tenantUUID string, pack WorkflowPack, installation *modelworkflow.WorkflowPackInstallation) (bool, error) {
+	if installation == nil || installation.DefinitionUUID == uuid.Nil || installation.DefinitionVersion <= 0 {
+		return false, nil
+	}
+	version := installation.DefinitionVersion
+	definition, err := s.definitions.GetByUUID(ctx, tenantUUID, installation.DefinitionUUID, &version)
+	if err != nil {
+		return false, err
+	}
+	metadata := map[string]any{}
+	if len(definition.Metadata) > 0 {
+		if err := json.Unmarshal(definition.Metadata, &metadata); err != nil {
+			return false, err
+		}
+	}
+	expected := workflowPackDefinitionMetadata(pack)
+	for _, key := range []string{"category", "workflow_pack_key", "display_name_i18n_key", "description_i18n_key", "owner_scope"} {
+		if strings.TrimSpace(fmt.Sprint(metadata[key])) != strings.TrimSpace(fmt.Sprint(expected[key])) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func workflowPackDefinitionMetadata(pack WorkflowPack) map[string]any {
+	metadata := map[string]any{}
+	for key, value := range pack.Metadata {
+		metadata[key] = value
+	}
+	metadata["category"] = strings.TrimSpace(strings.ToLower(pack.Category))
+	metadata["workflow_pack_key"] = strings.TrimSpace(pack.WorkflowKey)
+	metadata["display_name_i18n_key"] = strings.TrimSpace(pack.DisplayNameI18nKey)
+	metadata["description_i18n_key"] = strings.TrimSpace(pack.DescriptionI18nKey)
+	metadata["owner_scope"] = strings.TrimSpace(pack.OwnerScope)
+	metadata["required_node_kinds"] = pack.RequiredNodeKinds
+	metadata["required_capabilities"] = pack.RequiredCapabilities
+	return metadata
 }
 
 func normalizeKeyFilter(keys []string) map[string]struct{} {

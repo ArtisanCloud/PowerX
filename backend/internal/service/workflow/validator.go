@@ -50,6 +50,7 @@ var (
 	errInvalidStepType = errors.New("invalid step type")
 	errNoEntryStep     = errors.New("no entry step detected (steps without depends_on)")
 	errCycleDetected   = errors.New("step graph contains cycle")
+	errInvalidBoundary = errors.New("workflow must contain exactly one input.capture start node and one workflow.end end node")
 )
 
 // ValidateStepDefinitions 检查步骤配置是否满足编排执行要求，并返回标准化结果。
@@ -89,8 +90,16 @@ func ValidateStepDefinitions(rawSteps []StepDefinition) (*ValidationResult, erro
 
 	adj := make(map[string][]string, len(steps))
 	reverse := make(map[string][]string, len(steps))
+	startNodeIDs := make([]string, 0, 1)
+	endNodeIDs := make([]string, 0, 1)
 
 	for _, step := range steps {
+		switch step.NodeKind {
+		case "input.capture":
+			startNodeIDs = append(startNodeIDs, step.ID)
+		case "workflow.end":
+			endNodeIDs = append(endNodeIDs, step.ID)
+		}
 		for _, nextID := range step.NextStepIDs {
 			if _, ok := idSet[nextID]; !ok {
 				return nil, fmt.Errorf("next_step_ids references unknown step: %s -> %s", step.ID, nextID)
@@ -105,6 +114,15 @@ func ValidateStepDefinitions(rawSteps []StepDefinition) (*ValidationResult, erro
 			reverse[step.ID] = appendUnique(reverse[step.ID], depID)
 			adj[depID] = appendUnique(adj[depID], step.ID)
 		}
+	}
+	if len(startNodeIDs) != 1 || len(endNodeIDs) != 1 {
+		return nil, fmt.Errorf("%w: starts=%d ends=%d", errInvalidBoundary, len(startNodeIDs), len(endNodeIDs))
+	}
+	if len(reverse[startNodeIDs[0]]) != 0 {
+		return nil, fmt.Errorf("%w: start node %s must not have incoming edges", errInvalidBoundary, startNodeIDs[0])
+	}
+	if len(adj[endNodeIDs[0]]) != 0 {
+		return nil, fmt.Errorf("%w: end node %s must not have outgoing edges", errInvalidBoundary, endNodeIDs[0])
 	}
 
 	if hasCycle(adj, idSet) {

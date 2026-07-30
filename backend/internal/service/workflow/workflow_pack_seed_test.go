@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
+	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
 )
 
 type packDefinitionStore struct {
@@ -33,15 +35,24 @@ func (s *packDefinitionStore) NextVersion(context.Context, string, string) (int3
 	return s.nextVersion, nil
 }
 
-func (s *packDefinitionStore) GetByUUID(context.Context, string, uuid.UUID, *int32) (*modelworkflow.WorkflowDefinition, error) {
-	return nil, errors.New("not used")
+func (s *packDefinitionStore) GetByUUID(_ context.Context, _ string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error) {
+	for _, definition := range s.created {
+		if definition.UUID != definitionUUID {
+			continue
+		}
+		if version != nil && definition.Version != *version {
+			continue
+		}
+		return definition, nil
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 func (s *packDefinitionStore) GetLatestPublished(context.Context, string, uuid.UUID) (*modelworkflow.WorkflowDefinition, error) {
 	return nil, errors.New("not used")
 }
 
-func (s *packDefinitionStore) ListByTenant(context.Context, string, []string, string, int, int) ([]modelworkflow.WorkflowDefinition, int64, error) {
+func (s *packDefinitionStore) ListByTenant(context.Context, workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	return nil, 0, errors.New("not used")
 }
 
@@ -83,6 +94,59 @@ func (s *packSeedStore) ListByDefinition(context.Context, uuid.UUID) ([]modelwor
 	return nil, nil
 }
 
+type packInstallStore struct {
+	items map[string]*modelworkflow.WorkflowPackInstallation
+}
+
+func newPackInstallStore() *packInstallStore {
+	return &packInstallStore{items: map[string]*modelworkflow.WorkflowPackInstallation{}}
+}
+
+func (s *packInstallStore) key(tenantUUID string, workflowKey string) string {
+	return tenantUUID + "\x00" + workflowKey
+}
+
+func (s *packInstallStore) GetByTenantKey(_ context.Context, tenantUUID string, workflowKey string) (*modelworkflow.WorkflowPackInstallation, error) {
+	if item, ok := s.items[s.key(tenantUUID, workflowKey)]; ok {
+		copied := *item
+		return &copied, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (s *packInstallStore) UpsertEnabled(_ context.Context, installation *modelworkflow.WorkflowPackInstallation) (*modelworkflow.WorkflowPackInstallation, error) {
+	if installation.UUID == uuid.Nil {
+		installation.PowerUUIDModel = coremodel.PowerUUIDModel{UUID: uuid.New()}
+	}
+	installation.Status = modelworkflow.WorkflowPackInstallationStatusEnabled
+	copied := *installation
+	s.items[s.key(installation.TenantUUID, installation.WorkflowKey)] = &copied
+	return installation, nil
+}
+
+func (s *packInstallStore) MarkDeleted(_ context.Context, tenantUUID string, workflowKey string, actorUUID uuid.UUID) error {
+	item, ok := s.items[s.key(tenantUUID, workflowKey)]
+	if !ok {
+		return gorm.ErrRecordNotFound
+	}
+	now := testClock()
+	item.Status = modelworkflow.WorkflowPackInstallationStatusDeleted
+	item.RemovedAt = &now
+	item.RemovedBy = actorUUID
+	item.LastAction = "delete"
+	return nil
+}
+
+func (s *packInstallStore) ListByTenant(_ context.Context, tenantUUID string, _ string, _ int, _ int) ([]modelworkflow.WorkflowPackInstallation, int64, error) {
+	var items []modelworkflow.WorkflowPackInstallation
+	for _, item := range s.items {
+		if item.TenantUUID == tenantUUID {
+			items = append(items, *item)
+		}
+	}
+	return items, int64(len(items)), nil
+}
+
 func TestLoadWorkflowPacksReadsBuiltinConfig(t *testing.T) {
 	packs, err := LoadWorkflowPacks("../../../config/workflow_packs")
 	if err != nil {
@@ -119,16 +183,19 @@ func TestSeedWorkflowPacksCreatesPublishedDefinitionAndSkipsUnchangedChecksum(t 
 	}
 	definitions := &packDefinitionStore{}
 	packSeeds := newPackSeedStore()
+	packInstalls := newPackInstallStore()
 	service := &Service{
-		definitions: definitions,
-		packSeeds:   packSeeds,
-		adapters:    registry,
-		now:         testClock,
+		definitions:  definitions,
+		packSeeds:    packSeeds,
+		packInstalls: packInstalls,
+		adapters:     registry,
+		now:          testClock,
 	}
 
 	result, err := service.SeedWorkflowPacks(context.Background(), WorkflowPackSeedInput{
-		ConfigDir: "../../../config/workflow_packs",
-		Keys:      []string{"marketing_knowledge_capture"},
+		TenantUUID: "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		ConfigDir:  "../../../config/workflow_packs",
+		Keys:       []string{"marketing_knowledge_capture"},
 	})
 	if err != nil {
 		t.Fatalf("seed workflow packs: %v", err)
@@ -139,16 +206,118 @@ func TestSeedWorkflowPacksCreatesPublishedDefinitionAndSkipsUnchangedChecksum(t 
 	if definitions.created[0].Status != "published" || definitions.created[0].WorkflowPackKey != "marketing_knowledge_capture" {
 		t.Fatalf("unexpected definition: %#v", definitions.created[0])
 	}
+	var metadata map[string]any
+	if err := json.Unmarshal(definitions.created[0].Metadata, &metadata); err != nil {
+		t.Fatalf("unmarshal definition metadata: %v", err)
+	}
+	if metadata["category"] != "knowledge_curation" || metadata["workflow_pack_key"] != "marketing_knowledge_capture" {
+		t.Fatalf("unexpected workflow pack metadata: %#v", metadata)
+	}
 
 	result, err = service.SeedWorkflowPacks(context.Background(), WorkflowPackSeedInput{
-		ConfigDir: "../../../config/workflow_packs",
-		Keys:      []string{"marketing_knowledge_capture"},
+		TenantUUID: "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		ConfigDir:  "../../../config/workflow_packs",
+		Keys:       []string{"marketing_knowledge_capture"},
 	})
 	if err != nil {
 		t.Fatalf("seed unchanged workflow packs: %v", err)
 	}
 	if len(result.Skipped) != 1 || result.Skipped[0] != "marketing_knowledge_capture" {
 		t.Fatalf("expected unchanged pack skipped, got %#v", result)
+	}
+}
+
+func TestSeedWorkflowPacksSkipsDeletedInstallation(t *testing.T) {
+	registry := NewNodeAdapterRegistry()
+	if err := RegisterWorkflowNodeAdapters(registry, WorkflowNodeAdapterDeps{}); err != nil {
+		t.Fatalf("register adapters: %v", err)
+	}
+	definitions := &packDefinitionStore{}
+	packInstalls := newPackInstallStore()
+	packInstalls.items[packInstalls.key("9ddc11dc-a205-49df-851a-3ec47a58d9d4", "marketing_knowledge_capture")] = &modelworkflow.WorkflowPackInstallation{
+		TenantUUID:  "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		WorkflowKey: "marketing_knowledge_capture",
+		Version:     1,
+		Checksum:    "old",
+		Status:      modelworkflow.WorkflowPackInstallationStatusDeleted,
+		Source:      "builtin",
+		LastAction:  "delete",
+	}
+	service := &Service{
+		definitions:  definitions,
+		packSeeds:    newPackSeedStore(),
+		packInstalls: packInstalls,
+		adapters:     registry,
+		now:          testClock,
+	}
+
+	result, err := service.SeedWorkflowPacks(context.Background(), WorkflowPackSeedInput{
+		TenantUUID: "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		ConfigDir:  "../../../config/workflow_packs",
+		Keys:       []string{"marketing_knowledge_capture"},
+	})
+	if err != nil {
+		t.Fatalf("seed deleted workflow pack: %v", err)
+	}
+	if len(result.Seeded) != 0 || len(definitions.created) != 0 {
+		t.Fatalf("deleted installation must not seed definitions, result=%#v definitions=%d", result, len(definitions.created))
+	}
+	if len(result.Skipped) != 1 || result.Skipped[0] != "marketing_knowledge_capture" {
+		t.Fatalf("expected deleted pack skipped, got %#v", result)
+	}
+}
+
+func TestSeedWorkflowPacksUpdatesEnabledInstallationWhenChecksumChanges(t *testing.T) {
+	registry := NewNodeAdapterRegistry()
+	if err := RegisterWorkflowNodeAdapters(registry, WorkflowNodeAdapterDeps{}); err != nil {
+		t.Fatalf("register adapters: %v", err)
+	}
+	definitions := &packDefinitionStore{nextVersion: 2}
+	packSeeds := newPackSeedStore()
+	packSeeds.latest["marketing_knowledge_capture"] = &modelworkflow.WorkflowPackSeedRecord{
+		TenantUUID:        "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		WorkflowKey:       "marketing_knowledge_capture",
+		Version:           1,
+		DefinitionUUID:    uuid.New(),
+		DefinitionVersion: 1,
+		Checksum:          "old",
+		Source:            "builtin",
+		SeededAt:          testClock(),
+	}
+	packInstalls := newPackInstallStore()
+	packInstalls.items[packInstalls.key("9ddc11dc-a205-49df-851a-3ec47a58d9d4", "marketing_knowledge_capture")] = &modelworkflow.WorkflowPackInstallation{
+		TenantUUID:        "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		WorkflowKey:       "marketing_knowledge_capture",
+		Version:           1,
+		Checksum:          "old",
+		Status:            modelworkflow.WorkflowPackInstallationStatusEnabled,
+		DefinitionUUID:    uuid.New(),
+		DefinitionVersion: 1,
+		Source:            "builtin",
+		LastAction:        "install",
+	}
+	service := &Service{
+		definitions:  definitions,
+		packSeeds:    packSeeds,
+		packInstalls: packInstalls,
+		adapters:     registry,
+		now:          testClock,
+	}
+
+	result, err := service.SeedWorkflowPacks(context.Background(), WorkflowPackSeedInput{
+		TenantUUID: "9ddc11dc-a205-49df-851a-3ec47a58d9d4",
+		ConfigDir:  "../../../config/workflow_packs",
+		Keys:       []string{"marketing_knowledge_capture"},
+	})
+	if err != nil {
+		t.Fatalf("seed changed workflow pack: %v", err)
+	}
+	if len(result.Seeded) != 1 || len(definitions.created) != 1 {
+		t.Fatalf("expected changed pack seeded once, result=%#v definitions=%d", result, len(definitions.created))
+	}
+	installation := packInstalls.items[packInstalls.key("9ddc11dc-a205-49df-851a-3ec47a58d9d4", "marketing_knowledge_capture")]
+	if installation.Checksum == "old" || installation.DefinitionVersion != 2 {
+		t.Fatalf("expected installation updated to new definition, got %#v", installation)
 	}
 }
 

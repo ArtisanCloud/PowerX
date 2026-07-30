@@ -2,7 +2,9 @@
 
 ## 1. 先看结论
 
-当前 PowerX 会 seed 6 个 Workflow Pack。这里按“一个 seed 一个文件”说明，不再把所有内容塞进一页。
+当前 PowerX 内置 6 个 Workflow Pack。这里按“一个 seed 一个文件”说明，不再把所有内容塞进一页。
+
+注意：`make seed` 只校验这些内置 Pack 的 YAML 和节点依赖，不会给所有租户批量创建工作流。某个租户要使用内置 Pack 时，需要在 Web Admin 或 API 中显式启用，启用后才会生成该租户自己的 published WorkflowDefinition。
 
 Web Admin 页面显示的是中文名，seed 文件和 API 使用的是 `workflow_key`。两者必须同时写清楚，否则无法从页面卡片对应到文档。
 
@@ -63,7 +65,9 @@ make migrate
 make seed
 ```
 
-只触发 Workflow Pack seed：
+这一步只验证 catalog，不会生成租户工作流。
+
+当前租户显式启用所有内置 Workflow Pack：
 
 ```bash
 export POWERX_BASE_URL="http://127.0.0.1:8077"
@@ -75,7 +79,7 @@ curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
   -d '{"keys":[]}'
 ```
 
-只 seed 一个：
+当前租户只启用一个：
 
 ```bash
 curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \

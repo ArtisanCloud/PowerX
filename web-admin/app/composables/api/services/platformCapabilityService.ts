@@ -144,13 +144,24 @@ const mapModule = (
 
 export class PlatformCapabilityService {
   static async listModules(
-    params: { module?: string } = {}
+    params: {
+      module?: string;
+      source?: "all" | "corex" | "plugin";
+      page?: number;
+      pageSize?: number;
+    } = {}
   ): Promise<PlatformCapabilityModuleList> {
     const client = useApiClient();
+    const query: Record<string, string> = {};
+    if (params.module) query.module = params.module;
+    if (params.source) query.source = params.source;
+    if (params.page) query.page = String(params.page);
+    if (params.pageSize) query.page_size = String(params.pageSize);
     const response = await client.get<PlatformCapabilityModuleListAPI>(
       "/admin/platform-capabilities",
       {
-        params: params.module ? { module: params.module } : undefined,
+        params: Object.keys(query).length ? query : undefined,
+        useGlobalLoading: false,
       }
     );
     const data = unwrap<PlatformCapabilityModuleListAPI>(response) || {};
@@ -166,7 +177,8 @@ export class PlatformCapabilityService {
   }
 
   static async getModule(
-    moduleKey: string
+    moduleKey: string,
+    params: { source?: "all" | "corex" | "plugin" } = {}
   ): Promise<PlatformCapabilityModule | null> {
     const key = moduleKey?.trim();
     if (!key) {
@@ -174,7 +186,11 @@ export class PlatformCapabilityService {
     }
     const client = useApiClient();
     const response = await client.get<PlatformCapabilityModuleResponseAPI>(
-      `/admin/platform-capabilities/${encodeURIComponent(key)}`
+      `/admin/platform-capabilities/${encodeURIComponent(key)}`,
+      {
+        params: params.source ? { source: params.source } : undefined,
+        useGlobalLoading: false,
+      }
     );
     const data = unwrap<PlatformCapabilityModuleResponseAPI>(response) || {};
     if (!data.module) {

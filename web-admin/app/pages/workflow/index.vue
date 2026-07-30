@@ -22,19 +22,54 @@
           label-key="label"
           class="w-40"
         />
+        <USelectMenu
+          v-model="sourceFilter"
+          :items="sourceOptions"
+          value-key="value"
+          label-key="label"
+          class="w-40"
+        />
+        <USelectMenu
+          v-model="categoryFilter"
+          :items="categoryOptions"
+          value-key="value"
+          label-key="label"
+          :loading="workflowCategoryLoading"
+          class="w-44"
+        />
+        <UButton
+          v-if="canInitializeBuiltinWorkflows"
+          icon="i-heroicons-sparkles"
+          color="neutral"
+          variant="subtle"
+          :loading="initializingBuiltinWorkflows"
+          @click="initializeBuiltinWorkflows"
+        >
+          {{ t("workflow.list.initializeBuiltin") }}
+        </UButton>
         <UButton
           icon="i-heroicons-arrow-path"
           color="neutral"
           variant="ghost"
           :aria-label="t('common.refresh')"
           :loading="loading"
-          @click="loadDefinitions"
+          @click="refreshPageData"
         />
         <UButton icon="i-heroicons-document-plus" color="primary" @click="openCreateModal">
           {{ t("workflow.list.create") }}
         </UButton>
       </div>
     </div>
+
+    <UAlert
+      v-if="workflowCategoryLoadFailed"
+      icon="i-heroicons-exclamation-triangle"
+      color="error"
+      variant="soft"
+      :title="t('workflow.category.loadFailed')"
+      :description="t('workflow.category.loadFailedDescription')"
+      class="mb-5"
+    />
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
       <UCard>
@@ -122,6 +157,9 @@
               <UBadge v-if="definition.workflow_pack_key" color="neutral" variant="subtle" size="sm">
                 {{ t("workflow.list.builtinPack") }}
               </UBadge>
+              <UBadge :color="categoryColor(definitionCategory(definition))" variant="soft" size="sm">
+                {{ categoryLabel(definitionCategory(definition)) }}
+              </UBadge>
               <UDropdownMenu :items="workflowActions(definition)" @click.stop>
                 <UButton
                   icon="i-heroicons-ellipsis-vertical"
@@ -188,16 +226,31 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { useI18n } from "#imports";
+import { useI18n, useToast } from "#imports";
+import { useMetadataGovernanceService } from "~/composables/api/services/metadataGovernanceService";
 import { useWorkflowService, type WorkflowDefinition, type WorkflowDefinitionStatus } from "~/composables/api/services/workflowService";
+import { useUserStore } from "~/stores/user";
+import type { DictionaryItem } from "~/types/metadata-governance";
 
-const { t, te } = useI18n();
+const WORKFLOW_CATEGORY_MODULE = "corex.workflow";
+const WORKFLOW_CATEGORY_NAMESPACE = "corex.workflow.category";
+
+const { t, te, locale } = useI18n();
+const toast = useToast();
+const metadataService = useMetadataGovernanceService();
 const workflowService = useWorkflowService();
+const userStore = useUserStore();
 
 const loading = ref(false);
 const creating = ref(false);
+const initializingBuiltinWorkflows = ref(false);
+const workflowCategoryLoading = ref(false);
+const workflowCategoryLoadFailed = ref(false);
+const workflowCategoryItems = ref<DictionaryItem[]>([]);
 const searchQuery = ref("");
 const statusFilter = ref("all");
+const sourceFilter = ref("all");
+const categoryFilter = ref("all");
 const page = ref(1);
 const pageSize = ref(12);
 const total = ref(0);
@@ -212,6 +265,20 @@ const statusOptions = computed(() => [
   { label: t("workflow.status.archived"), value: "archived" },
 ]);
 
+const sourceOptions = computed(() => [
+  { label: t("workflow.source.all"), value: "all" },
+  { label: t("workflow.source.workflowPack"), value: "workflow_pack" },
+  { label: t("workflow.source.manual"), value: "manual" },
+]);
+
+const categoryOptions = computed(() => [
+  { label: t("workflow.category.all"), value: "all" },
+  ...workflowCategoryItems.value.map((item) => ({
+    label: dictionaryItemLabel(item),
+    value: item.code,
+  })),
+]);
+
 const pageSizeOptions = computed(() => [10, 12, 20, 50].map((value) => ({
   label: t("workflow.pagination.pageSize", { value }),
   value,
@@ -219,8 +286,11 @@ const pageSizeOptions = computed(() => [10, 12, 20, 50].map((value) => ({
 
 const publishedCount = computed(() => definitions.value.filter((item) => item.status === "published").length);
 const draftCount = computed(() => definitions.value.filter((item) => item.status === "draft").length);
+const canInitializeBuiltinWorkflows = computed(() =>
+  userStore.isRoot || userStore.isCurrentTenantOwner || userStore.isCurrentTenantAdmin
+);
 
-watch([searchQuery, statusFilter, pageSize], () => {
+watch([searchQuery, statusFilter, sourceFilter, categoryFilter, pageSize], () => {
   page.value = 1;
   loadDefinitions();
 });
@@ -237,11 +307,81 @@ async function loadDefinitions() {
       pageSize: pageSize.value,
       keyword: searchQuery.value.trim() || undefined,
       status: statusFilter.value === "all" ? undefined : (statusFilter.value as WorkflowDefinitionStatus),
+      source_type: sourceFilter.value === "all" ? undefined : sourceFilter.value,
+      category: categoryFilter.value === "all" ? undefined : categoryFilter.value,
     });
     definitions.value = result.items;
     total.value = result.total;
   } finally {
     loading.value = false;
+  }
+}
+
+async function refreshPageData() {
+  await Promise.all([loadWorkflowCategories(), loadDefinitions()]);
+}
+
+async function loadWorkflowCategories() {
+  workflowCategoryLoading.value = true;
+  workflowCategoryLoadFailed.value = false;
+  try {
+    const namespaces = await metadataService.listDictionaries({
+      module: WORKFLOW_CATEGORY_MODULE,
+      q: WORKFLOW_CATEGORY_NAMESPACE,
+      status: "enabled",
+      locale: metadataLocale(),
+      page_size: 20,
+    });
+    const namespace = namespaces.items.find((item) => item.namespace === WORKFLOW_CATEGORY_NAMESPACE);
+    if (!namespace) {
+      throw new Error("workflow_category_dictionary_missing");
+    }
+    const items = await metadataService.listDictionaryItems(namespace.uuid, {
+      status: "enabled",
+      locale: metadataLocale(),
+      page_size: 100,
+    });
+    workflowCategoryItems.value = items.items;
+    if (categoryFilter.value !== "all" && !workflowCategoryItems.value.some((item) => item.code === categoryFilter.value)) {
+      categoryFilter.value = "all";
+    }
+  } catch {
+    workflowCategoryItems.value = [];
+    workflowCategoryLoadFailed.value = true;
+    if (categoryFilter.value !== "all") {
+      categoryFilter.value = "all";
+    }
+    toast.add({
+      title: t("workflow.category.loadFailed"),
+      description: t("workflow.category.loadFailedDescription"),
+      color: "error",
+    });
+  } finally {
+    workflowCategoryLoading.value = false;
+  }
+}
+
+async function initializeBuiltinWorkflows() {
+  initializingBuiltinWorkflows.value = true;
+  try {
+    const result = await workflowService.seedWorkflowPacks([]);
+    await loadDefinitions();
+    toast.add({
+      title: t("workflow.list.initializeBuiltinSuccess"),
+      description: t("workflow.list.initializeBuiltinResult", {
+        seeded: result.seeded.length,
+        skipped: result.skipped.length,
+      }),
+      color: "success",
+    });
+  } catch (error: any) {
+    toast.add({
+      title: t("workflow.list.initializeBuiltinFailed"),
+      description: error?.message || t("common.unknown"),
+      color: "error",
+    });
+  } finally {
+    initializingBuiltinWorkflows.value = false;
   }
 }
 
@@ -257,7 +397,25 @@ async function createWorkflow() {
     const definition = await workflowService.createDefinition({
       name,
       description: newWorkflow.description.trim(),
-      steps: [{ id: "input", type: "system", node_kind: "input.capture", config: {} }],
+      steps: [
+        {
+          id: "input",
+          type: "system",
+          node_kind: "input.capture",
+          config: {
+            input_schema_ref: "workflow.input.manual.v1",
+            source_policy: { text: true, form: true },
+            artifact_output_path: "$.artifacts.source",
+          },
+          next_step_ids: ["end"],
+        },
+        {
+          id: "end",
+          type: "system",
+          node_kind: "workflow.end",
+          config: {},
+        },
+      ],
     });
     showCreateModal.value = false;
     newWorkflow.name = "";
@@ -307,6 +465,29 @@ function statusLabel(status: string) {
   return t(`workflow.status.${status}`);
 }
 
+function definitionCategory(definition: WorkflowDefinition) {
+  const raw = definition.category || definition.metadata?.category;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : "uncategorized";
+}
+
+function categoryLabel(category: string) {
+  const item = workflowCategoryItems.value.find((candidate) => candidate.code === category);
+  if (item) {
+    return dictionaryItemLabel(item);
+  }
+  if (category === "uncategorized") {
+    return t("workflow.category.uncategorized");
+  }
+  return t("workflow.category.unknown");
+}
+
+function categoryColor(category: string) {
+  if (category === "knowledge_curation") return "primary";
+  if (category === "governance") return "warning";
+  if (category === "automation") return "success";
+  return "neutral";
+}
+
 function definitionDisplayName(definition: WorkflowDefinition) {
   const packNameKey = workflowPackI18nKey(definition, "name");
   if (packNameKey && te(packNameKey)) {
@@ -333,6 +514,18 @@ function workflowPackI18nKey(definition: WorkflowDefinition, field: "name" | "de
   return `workflow.pack.${camelCase(packKey)}.${field}`;
 }
 
+function dictionaryItemLabel(item: DictionaryItem) {
+  const labels = item.label_i18n || {};
+  return labels[metadataLocale()] || item.display_name || labels["zh-CN"] || labels["en-US"] || t("workflow.category.unknown");
+}
+
+function metadataLocale() {
+  const value = String(locale.value || "");
+  if (value.toLowerCase().startsWith("zh")) return "zh-CN";
+  if (value.toLowerCase().startsWith("en")) return "en-US";
+  return value || "zh-CN";
+}
+
 function camelCase(value: string) {
   return value.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
@@ -342,7 +535,10 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-onMounted(loadDefinitions);
+onMounted(() => {
+  void userStore.fetchUserContext().catch(() => undefined);
+  void refreshPageData();
+});
 </script>
 
 <style scoped>

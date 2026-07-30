@@ -32,6 +32,18 @@
       />
 
       <div class="workflow-top-actions">
+        <button
+          class="workflow-realtime-status"
+          :class="`state-${workflowRuntimeConnectionState}`"
+          type="button"
+          :title="workflowRuntimeConnectionTitle"
+          :aria-label="workflowRuntimeConnectionTitle"
+          @click="workflowRuntimeBus.connected.value ? undefined : workflowRuntimeBus.connect()"
+        >
+          <span class="workflow-realtime-dot" />
+          <span>{{ workflowRuntimeConnectionLabel }}</span>
+          <Icon v-if="!workflowRuntimeBus.connected.value" name="i-heroicons-arrow-path" />
+        </button>
         <UButton
           icon="i-heroicons-sun"
           color="neutral"
@@ -78,6 +90,16 @@
       </div>
     </section>
 
+    <UAlert
+      v-if="workflowStructureIssues.length"
+      color="warning"
+      variant="soft"
+      icon="i-heroicons-exclamation-triangle"
+      :title="t('workflow.editor.structureIssueTitle')"
+      :description="workflowStructureIssues.join(' ')"
+      class="workflow-structure-alert"
+    />
+
     <div class="workflow-main">
       <aside class="workflow-palette">
         <div class="palette-header">
@@ -101,7 +123,10 @@
               v-for="item in group.items"
               :key="item.id"
               class="palette-item"
-              draggable="true"
+              :class="{ disabled: isPaletteItemDisabled(item.kind) }"
+              :draggable="!isPaletteItemDisabled(item.kind)"
+              :title="paletteItemTitle(item.kind)"
+              :aria-disabled="isPaletteItemDisabled(item.kind)"
               @dragstart="onDragStart($event, item.id)"
             >
               <div class="palette-item-icon" :class="`palette-icon-${group.key}`">
@@ -297,6 +322,10 @@
 
             <div v-if="propertiesTab === 'config'" class="properties-form">
               <template v-if="selectedNode.data.kind === 'human.review'">
+                <div class="business-config-card">
+                  <strong>{{ t("workflow.editor.humanReviewBusinessTitle") }}</strong>
+                  <span>{{ t("workflow.editor.humanReviewBusinessDescription") }}</span>
+                </div>
                 <UFormField class="properties-field" :label="t('workflow.fields.review_type')">
                   <USelect
                     v-model="selectedNode.data.props.review_type"
@@ -306,14 +335,13 @@
                   />
                 </UFormField>
                 <UFormField class="properties-field" :label="t('workflow.fields.approver_roles')">
-                  <UInput
-                    :model-value="humanReviewRolesText"
-                    :placeholder="t('workflow.editor.approverRolesPlaceholder')"
-                    @update:model-value="updateHumanReviewRoles(String($event || ''))"
+                  <USelect
+                    :model-value="primaryHumanReviewRole"
+                    :items="humanReviewRoleOptions"
+                    value-key="value"
+                    label-key="label"
+                    @update:model-value="updatePrimaryHumanReviewRole(String($event || ''))"
                   />
-                </UFormField>
-                <UFormField class="properties-field" :label="t('workflow.fields.review_payload_path')">
-                  <UInput v-model="selectedNode.data.props.review_payload_path" />
                 </UFormField>
                 <UFormField class="properties-field" :label="t('workflow.fields.approved_route')">
                   <USelect
@@ -334,14 +362,9 @@
               </template>
 
               <template v-else-if="selectedNode.data.kind === 'input.capture'">
-                <UFormField class="properties-field" :label="t('workflow.fields.input_schema_ref')">
-                  <UInput
-                    v-model="selectedNode.data.props.input_schema_ref"
-                    :placeholder="t('workflow.fields.input_schema_ref_placeholder')"
-                  />
-                </UFormField>
-                <div class="properties-note">
-                  {{ t("workflow.editor.inputCaptureConfigHint") }}
+                <div class="business-config-card">
+                  <strong>{{ t("workflow.editor.startNodeBusinessTitle") }}</strong>
+                  <span>{{ t("workflow.editor.startNodeBusinessDescription") }}</span>
                 </div>
                 <div class="properties-switch-grid">
                   <label>
@@ -353,46 +376,145 @@
                     <span>{{ t('workflow.fields.source_form') }}</span>
                   </label>
                 </div>
-                <UFormField class="properties-field" :label="t('workflow.fields.artifact_output_path')">
-                  <UInput
-                    v-model="selectedNode.data.props.artifact_output_path"
-                    :placeholder="t('workflow.fields.artifact_output_path_placeholder')"
-                  />
+              </template>
+
+              <template v-else-if="selectedNode.data.kind === 'skill.invoke'">
+                <div class="business-config-card">
+                  <strong>{{ t("workflow.editor.skillBusinessTitle") }}</strong>
+                  <span>{{ t("workflow.editor.skillBusinessDescription") }}</span>
+                </div>
+                <UFormField class="properties-field" :label="t('workflow.editor.skillNodeSkillLabel')">
+                  <div class="readonly-business-value">
+                    {{ selectedNodeSkillLabel }}
+                  </div>
                 </UFormField>
+                <div class="business-config-grid">
+                  <div
+                    v-for="entry in selectedNodeBusinessConfigEntries"
+                    :key="entry.key"
+                    class="business-config-item"
+                  >
+                    <span>{{ entry.label }}</span>
+                    <strong>{{ entry.value }}</strong>
+                  </div>
+                </div>
               </template>
 
               <template v-else-if="selectedNode.data.kind === 'capability.invoke'">
-                <div v-if="isRuntimeTemplateValue(selectedNode.data.props.capability_id)" class="properties-note">
-                  {{ t("workflow.editor.runtimeCapabilityHint") }}
+                <div class="business-config-card">
+                  <strong>{{ t("workflow.editor.capabilityBusinessTitle") }}</strong>
+                  <span>{{ capabilityBusinessDescription }}</span>
                 </div>
-                <UFormField class="properties-field" :label="t('workflow.fields.capability_id')">
-                  <UInput v-model="selectedNode.data.props.capability_id" />
+                <UFormField class="properties-field" :label="t('workflow.editor.nodeCapabilitySourceLabel')">
+                  <USelectMenu
+                    v-model="selectedNodeCapabilitySource"
+                    :items="capabilitySourceSelectItems"
+                    label-key="label"
+                    :portal="false"
+                    :content="runDialogSelectContent"
+                    :ui="runDialogSelectUi"
+                    class="w-full"
+                    :placeholder="t('workflow.editor.capabilitySourceSelectPlaceholder')"
+                    :search-input="{ placeholder: t('workflow.editor.capabilitySourceSearchPlaceholder') }"
+                    :disabled="capabilitySourceSelectItems.length === 0"
+                  />
+                </UFormField>
+                <UFormField class="properties-field" :label="t('workflow.editor.nodeCapabilityModuleLabel')">
+                  <USelectMenu
+                    v-model="selectedNodeCapabilityModule"
+                    :items="selectedNodeCapabilityModuleSelectItems"
+                    label-key="label"
+                    :portal="false"
+                    :content="runDialogSelectContent"
+                    :ui="runDialogSelectUi"
+                    class="w-full"
+                    :placeholder="t('workflow.editor.capabilityModuleSelectPlaceholder')"
+                    :search-input="{ placeholder: t('workflow.editor.capabilityModuleSearchPlaceholder') }"
+                    :disabled="!selectedNodeCapabilitySource || selectedNodeCapabilityModuleSelectItems.length === 0"
+                  />
+                </UFormField>
+                <UFormField class="properties-field" :label="t('workflow.editor.nodeCapabilityLabel')">
+                  <USelectMenu
+                    v-model="selectedNodeCapability"
+                    :items="selectedNodeCapabilitySelectItems"
+                    label-key="label"
+                    :portal="false"
+                    :content="runDialogSelectContent"
+                    :ui="runDialogSelectUi"
+                    class="w-full"
+                    :placeholder="t('workflow.editor.capabilitySelectPlaceholder')"
+                    :search-input="{ placeholder: t('workflow.editor.capabilitySearchPlaceholder') }"
+                    :disabled="!selectedNodeCapabilitySource || !selectedNodeCapabilityModule || selectedNodeCapabilitySelectItems.length === 0"
+                  />
                 </UFormField>
                 <UFormField class="properties-field" :label="t('workflow.fields.preferred_protocol')">
                   <USelect
                     v-model="selectedNode.data.props.preferred_protocol"
-                    :items="protocolOptions"
+                    :items="selectedNodeProtocolOptions"
                     value-key="value"
                     label-key="label"
+                    class="w-full"
+                    :disabled="selectedNodeProtocolOptions.length === 0"
                   />
                 </UFormField>
-                <UFormField class="properties-field" :label="t('workflow.fields.input_path')">
-                  <UInput v-model="selectedNode.data.props.input_path" />
-                </UFormField>
-                <UFormField class="properties-field" :label="t('workflow.fields.output_path')">
-                  <UInput v-model="selectedNode.data.props.output_path" />
-                </UFormField>
+                <div v-if="capabilityOptionsError" class="properties-note state-error">
+                  {{ capabilityOptionsError }}
+                </div>
+                <div v-else-if="selectedNodeCapabilityRecord" class="properties-note">
+                  {{ t("workflow.editor.selectedCapabilityHint", { capability: capabilityOptionLabel(selectedNodeCapabilityRecord) }) }}
+                </div>
               </template>
 
               <template v-else-if="selectedNode.data.kind === 'event.emit'">
-                <UFormField class="properties-field" :label="t('workflow.fields.topic')">
-                  <UInput v-model="selectedNode.data.props.topic" />
+                <div class="business-config-card">
+                  <strong>{{ eventBusinessTitle }}</strong>
+                  <span>{{ eventBusinessDescription }}</span>
+                </div>
+                <UFormField class="properties-field" :label="t('workflow.editor.eventTriggerLabel')">
+                  <div class="readonly-business-value">
+                    {{ eventTriggerLabel }}
+                  </div>
                 </UFormField>
-                <UFormField class="properties-field" :label="t('workflow.fields.payload_path')">
-                  <UInput v-model="selectedNode.data.props.payload_path" />
+              </template>
+
+              <template v-else-if="selectedNode.data.kind === 'workflow.end'">
+                <div class="business-config-card">
+                  <strong>{{ t("workflow.editor.endNodeBusinessTitle") }}</strong>
+                  <span>{{ t("workflow.editor.endNodeBusinessDescription") }}</span>
+                </div>
+                <UFormField class="properties-field" :label="t('workflow.editor.eventTriggerLabel')">
+                  <div class="readonly-business-value">
+                    {{ t("workflow.editor.eventTriggerEnd") }}
+                  </div>
                 </UFormField>
-                <UFormField class="properties-field" :label="t('workflow.fields.event_schema_ref')">
-                  <UInput v-model="selectedNode.data.props.event_schema_ref" />
+              </template>
+
+              <template v-else-if="selectedNodeBusinessSummary">
+                <div class="business-config-card">
+                  <strong>{{ selectedNodeBusinessSummary.title }}</strong>
+                  <span>{{ selectedNodeBusinessSummary.description }}</span>
+                </div>
+                <div
+                  v-if="selectedNodeBusinessConfigEntries.length"
+                  class="business-config-grid"
+                >
+                  <div
+                    v-for="entry in selectedNodeBusinessConfigEntries"
+                    :key="entry.key"
+                    class="business-config-item"
+                  >
+                    <span>{{ entry.label }}</span>
+                    <strong>{{ entry.value }}</strong>
+                  </div>
+                </div>
+                <UFormField
+                  v-if="selectedNodeBusinessSummary.result"
+                  class="properties-field"
+                  :label="t('workflow.editor.nodeBusinessResultLabel')"
+                >
+                  <div class="readonly-business-value">
+                    {{ selectedNodeBusinessSummary.result }}
+                  </div>
                 </UFormField>
               </template>
 
@@ -443,6 +565,28 @@
                   </UFormField>
                 </template>
               </template>
+
+              <div v-if="advancedNodeConfigEntries.length" class="advanced-config-section">
+                <button
+                  class="advanced-config-toggle"
+                  type="button"
+                  @click="showAdvancedNodeConfig = !showAdvancedNodeConfig"
+                >
+                  <span>{{ t("workflow.editor.advancedConfig") }}</span>
+                  <Icon :name="showAdvancedNodeConfig ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
+                </button>
+                <div v-if="showAdvancedNodeConfig" class="advanced-config-list">
+                  <div
+                    v-for="entry in advancedNodeConfigEntries"
+                    :key="entry.key"
+                    class="advanced-config-row"
+                  >
+                    <span>{{ entry.label }}</span>
+                    <code>{{ entry.value }}</code>
+                  </div>
+                  <p>{{ t("workflow.editor.advancedConfigHint") }}</p>
+                </div>
+              </div>
             </div>
             <div v-else-if="propertiesTab === 'runtime'" class="node-runtime-panel">
               <div class="node-runtime-summary" :class="`state-${selectedNodeRunState}`">
@@ -479,15 +623,33 @@
                     </UButton>
                   </div>
                 </div>
-                <div class="runtime-payload-card">
+                <div class="runtime-summary-card">
                   <span>{{ t("workflow.editor.reviewPayload") }}</span>
-                  <pre>{{ formatReviewPayload(selectedNodeReviewTask.payload) }}</pre>
+                  <div class="runtime-summary-list">
+                    <div
+                      v-for="entry in selectedReviewPayloadEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
                 </div>
               </template>
               <template v-else-if="selectedNodeRunStep">
-                <div class="runtime-payload-card">
+                <div class="runtime-summary-card">
                   <span>{{ t("workflow.editor.nodeRunRecord") }}</span>
-                  <pre>{{ formatStepRunPayload(selectedNodeRunStep) }}</pre>
+                  <div class="runtime-summary-list">
+                    <div
+                      v-for="entry in selectedNodeRunSummaryEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
                 </div>
               </template>
               <div v-else-if="selectedNode.data.kind === 'human.review' && latestRunState === 'waiting'" class="runtime-empty-card">
@@ -495,6 +657,27 @@
               </div>
               <div v-else class="runtime-empty-card">
                 {{ t("workflow.editor.noRuntimeForNode") }}
+              </div>
+              <div v-if="selectedRuntimeDiagnosticsEntries.length" class="advanced-config-section">
+                <button
+                  class="advanced-config-toggle"
+                  type="button"
+                  @click="showRuntimeDiagnostics = !showRuntimeDiagnostics"
+                >
+                  <span>{{ t("workflow.editor.runtimeDiagnostics") }}</span>
+                  <Icon :name="showRuntimeDiagnostics ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
+                </button>
+                <div v-if="showRuntimeDiagnostics" class="advanced-config-list">
+                  <div
+                    v-for="entry in selectedRuntimeDiagnosticsEntries"
+                    :key="entry.key"
+                    class="advanced-config-row"
+                  >
+                    <span>{{ entry.label }}</span>
+                    <code>{{ entry.value }}</code>
+                  </div>
+                  <p>{{ t("workflow.editor.runtimeDiagnosticsHint") }}</p>
+                </div>
               </div>
             </div>
             <div v-else class="node-help-panel">
@@ -573,20 +756,6 @@
             <div class="run-detail-header">
               <strong>{{ t("workflow.editor.runDetail") }}</strong>
               <UBadge :color="latestRunBadgeColor" variant="soft">{{ latestRunStateLabel }}</UBadge>
-              <UBadge :color="workflowRuntimeConnectionColor" variant="subtle">
-                {{ workflowRuntimeConnectionLabel }}
-              </UBadge>
-              <UButton
-                v-if="!workflowRuntimeBus.connected.value"
-                size="xs"
-                color="neutral"
-                variant="soft"
-                icon="i-heroicons-arrow-path"
-                :loading="workflowRuntimeBus.connecting.value"
-                @click="workflowRuntimeBus.connect()"
-              >
-                {{ t("workflow.editor.runtimeReconnect") }}
-              </UButton>
               <UButton
                 v-if="canCancelLatestRun"
                 size="xs"
@@ -717,17 +886,32 @@
               :title="t('workflow.editor.workflowCapabilitySourceTitle')"
               :description="t('workflow.editor.workflowCapabilitySourceDescription')"
             />
-            <UFormField :label="t('workflow.editor.runCapabilityModuleLabel')">
+            <UFormField :label="t('workflow.editor.runCapabilitySourceLabel')">
               <USelectMenu
-                v-model="selectedRunCapabilityModule"
-                :items="capabilityModuleSelectItems"
+                v-model="selectedRunCapabilitySource"
+                :items="capabilitySourceSelectItems"
                 label-key="label"
                 :portal="runDialogSelectPortal"
                 :content="runDialogSelectContent"
                 :ui="runDialogSelectUi"
                 class="w-full"
                 :loading="capabilityOptionsLoading"
-                :disabled="capabilityOptionsLoading || capabilityModuleSelectItems.length === 0"
+                :disabled="capabilityOptionsLoading || capabilitySourceSelectItems.length === 0"
+                :placeholder="t('workflow.editor.capabilitySourceSelectPlaceholder')"
+                :search-input="{ placeholder: t('workflow.editor.capabilitySourceSearchPlaceholder') }"
+              />
+            </UFormField>
+            <UFormField :label="t('workflow.editor.runCapabilityModuleLabel')">
+              <USelectMenu
+                v-model="selectedRunCapabilityModule"
+                :items="runCapabilityModuleSelectItems"
+                label-key="label"
+                :portal="runDialogSelectPortal"
+                :content="runDialogSelectContent"
+                :ui="runDialogSelectUi"
+                class="w-full"
+                :loading="capabilityOptionsLoading"
+                :disabled="capabilityOptionsLoading || !selectedRunCapabilitySource || runCapabilityModuleSelectItems.length === 0"
                 :placeholder="t('workflow.editor.capabilityModuleSelectPlaceholder')"
                 :search-input="{ placeholder: t('workflow.editor.capabilityModuleSearchPlaceholder') }"
               />
@@ -745,7 +929,7 @@
                 :ui="runDialogSelectUi"
                 class="w-full"
                 :loading="capabilityOptionsLoading"
-                :disabled="capabilityOptionsLoading || !selectedRunCapabilityModule || capabilitySelectItems.length === 0"
+                :disabled="capabilityOptionsLoading || !selectedRunCapabilitySource || !selectedRunCapabilityModule || capabilitySelectItems.length === 0"
                 :placeholder="t('workflow.editor.capabilitySelectPlaceholder')"
                 :search-input="{ placeholder: t('workflow.editor.capabilitySearchPlaceholder') }"
               />
@@ -878,7 +1062,7 @@ const {
   zoomIn,
   zoomOut,
   zoomTo,
-  project,
+  screenToFlowCoordinate,
   addNodes,
 } = useVueFlow();
 
@@ -897,6 +1081,8 @@ const latestRun = ref<WorkflowInstance | null>(null);
 const latestReviewTasks = ref<HumanReviewTask[]>([]);
 const runError = ref("");
 const debugInputText = ref("{}");
+const runtimeEventQueue: WorkflowRuntimeEvent[] = [];
+let runtimeEventQueueProcessing = false;
 type RunCapabilityOption = PlatformCapability & {
   moduleDisplayName: string;
 };
@@ -908,6 +1094,7 @@ type SelectOption = {
 const capabilityOptions = ref<RunCapabilityOption[]>([]);
 const capabilityOptionsLoading = ref(false);
 const capabilityOptionsError = ref("");
+const selectedRunCapabilitySource = ref<SelectOption | null>(null);
 const selectedRunCapabilityModule = ref<SelectOption | null>(null);
 const selectedRunCapability = ref<SelectOption | null>(null);
 const selectedExecutionReason = ref<SelectOption | null>(null);
@@ -920,6 +1107,8 @@ const approvalDebugForm = reactive({
   note: "",
 });
 const bottomPanelHeight = ref(260);
+const showAdvancedNodeConfig = ref(false);
+const showRuntimeDiagnostics = ref(false);
 let stopBottomResize: (() => void) | null = null;
 let unsubscribeWorkflowRuntime: (() => void) | null = null;
 
@@ -956,44 +1145,176 @@ const reviewTypeOptions = computed(() => [
 const protocolOptions = computed(() => [
   { label: t("workflow.protocol.rest"), value: "rest" },
   { label: t("workflow.protocol.grpc"), value: "grpc" },
-  { label: t("workflow.protocol.skill"), value: "skill" },
+  { label: t("workflow.protocol.agentTool"), value: "agent_tool" },
 ]);
+
+const humanReviewRoleOptions = computed(() => {
+  const values = new Set(["workflow_reviewer"]);
+  for (const role of currentHumanReviewRoles.value) {
+    values.add(role);
+  }
+  return [...values].map((value) => ({
+    label: roleDisplayName(value),
+    value,
+  }));
+});
 
 const workflowRunnableCapabilities = computed(() =>
   [...capabilityOptions.value].filter((capability) => isWorkflowRunnableBusinessCapability(capability))
 );
 
-const capabilityModuleSelectItems = computed<SelectOption[]>(() => {
-  const modules = new Map<string, { label: string; count: number }>();
+const platformCapabilitySourceKey = "platform";
+
+type CapabilityModuleOptionMeta = {
+  label: string;
+  count: number;
+  sourceKey: string;
+  moduleKey: string;
+};
+
+const capabilitySourceSelectItems = computed<SelectOption[]>(() => {
+  const sources = new Map<string, { label: string; count: number; plugin: boolean }>();
   for (const capability of workflowRunnableCapabilities.value) {
-    const moduleKey = capability.module || "corex";
-    const current = modules.get(moduleKey);
+    const sourceKey = capabilitySourceKey(capability);
+    const current = sources.get(sourceKey);
     if (current) {
       current.count += 1;
       continue;
     }
-    modules.set(moduleKey, {
-      label: capabilityModuleLabel(capability),
+    sources.set(sourceKey, {
+      label: capabilitySourceLabel(capability),
       count: 1,
+      plugin: capability.source === "plugin",
     });
   }
-  return [...modules.entries()]
-    .sort((left, right) => left[1].label.localeCompare(right[1].label))
+  return [...sources.entries()]
+    .sort((left, right) => {
+      if (left[0] === platformCapabilitySourceKey) return -1;
+      if (right[0] === platformCapabilitySourceKey) return 1;
+      return left[1].label.localeCompare(right[1].label);
+    })
     .map(([value, item]) => ({
-      label: t("workflow.editor.capabilityModuleOptionLabel", { module: item.label, count: item.count }),
+      label: item.plugin
+        ? t("workflow.editor.pluginCapabilitySourceOptionLabel", { plugin: item.label, count: item.count })
+        : t("workflow.editor.platformCapabilitySourceOptionLabel", { platform: item.label, count: item.count }),
       value,
     }));
 });
 
+const runCapabilityModuleSelectItems = computed<SelectOption[]>(() =>
+  buildCapabilityModuleSelectItems(selectedRunCapabilitySource.value?.value || "")
+);
+
 const capabilitySelectItems = computed<SelectOption[]>(() =>
   workflowRunnableCapabilities.value
-    .filter((capability) => capability.module === selectedRunCapabilityModule.value?.value)
+    .filter((capability) => capabilityMatchesModuleOption(capability, selectedRunCapabilityModule.value?.value || ""))
     .sort((left, right) => Number(hasLocalizedCapabilityName(right)) - Number(hasLocalizedCapabilityName(left)))
     .map((capability) => ({
       label: capabilityOptionLabel(capability),
       value: capability.capabilityId,
     }))
 );
+
+const selectedNodeCapabilityRecord = computed(() => {
+  const capabilityID = String(selectedNode.value?.data?.props?.capability_id || "").trim();
+  if (!capabilityID || isRuntimeTemplateValue(capabilityID)) return null;
+  return workflowRunnableCapabilities.value.find((capability) => capability.capabilityId === capabilityID) || null;
+});
+
+const selectedNodeCapabilitySource = computed<SelectOption | null>({
+  get() {
+    const sourceKey =
+      (selectedNodeCapabilityRecord.value ? capabilitySourceKey(selectedNodeCapabilityRecord.value) : "") ||
+      String(selectedNode.value?.data?.props?.capability_source || "").trim();
+    if (!sourceKey) return null;
+    return capabilitySourceSelectItems.value.find((item) => item.value === sourceKey) || null;
+  },
+  set(sourceOption) {
+    const sourceKey = sourceOption?.value || "";
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "capability.invoke") return;
+    if (!sourceKey) {
+      clearSelectedNodeCapability();
+      return;
+    }
+    node.data.props = {
+      ...(node.data.props || {}),
+      capability_source: sourceKey,
+      capability_source_label: sourceOption?.label || "",
+      capability_module: "",
+      capability_module_label: "",
+      capability_id: "",
+      capability_label: "",
+      preferred_protocol: "",
+    };
+  },
+});
+
+const selectedNodeCapabilityModuleSelectItems = computed<SelectOption[]>(() =>
+  buildCapabilityModuleSelectItems(selectedNodeCapabilitySource.value?.value || "")
+);
+
+const selectedNodeCapabilityModule = computed<SelectOption | null>({
+  get() {
+    const moduleKey =
+      (selectedNodeCapabilityRecord.value ? capabilityModuleOptionValue(selectedNodeCapabilityRecord.value) : "") ||
+      String(selectedNode.value?.data?.props?.capability_module || "").trim();
+    if (!moduleKey) return null;
+    return selectedNodeCapabilityModuleSelectItems.value.find((item) => item.value === moduleKey) || null;
+  },
+  set(moduleOption) {
+    const moduleKey = moduleOption?.value || "";
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "capability.invoke") return;
+    if (!moduleKey) {
+      clearSelectedNodeCapability();
+      return;
+    }
+    node.data.props = {
+      ...(node.data.props || {}),
+      capability_module: moduleKey,
+      capability_module_label: moduleOption?.label || "",
+      capability_id: "",
+      capability_label: "",
+      preferred_protocol: "",
+    };
+  },
+});
+
+const selectedNodeCapabilitySelectItems = computed<SelectOption[]>(() => {
+  const moduleKey = selectedNodeCapabilityModule.value?.value || "";
+  if (!moduleKey) return [];
+  return workflowRunnableCapabilities.value
+    .filter((capability) => capabilityMatchesModuleOption(capability, moduleKey))
+    .sort((left, right) => Number(hasLocalizedCapabilityName(right)) - Number(hasLocalizedCapabilityName(left)))
+    .map((capability) => ({
+      label: capabilityOptionLabel(capability),
+      value: capability.capabilityId,
+    }));
+});
+
+const selectedNodeCapability = computed<SelectOption | null>({
+  get() {
+    const capabilityID = selectedNodeCapabilityRecord.value?.capabilityId || "";
+    if (!capabilityID) return null;
+    return selectedNodeCapabilitySelectItems.value.find((item) => item.value === capabilityID) || null;
+  },
+  set(capabilityOption) {
+    applyCapabilityToSelectedNode(capabilityOption?.value || "");
+  },
+});
+
+const selectedNodeProtocolOptions = computed<SelectOption[]>(() => {
+  if (!selectedNodeCapabilityRecord.value) return [];
+  const channels = selectedNodeCapabilityRecord.value?.protocols
+    ?.map((protocol) => String(protocol.channel || "").trim())
+    .filter(isWorkflowCapabilityInvokeProtocol) || [];
+  const values = [...new Set(channels)];
+  return values.map((value) => ({
+    label: protocolLabel(value),
+    value,
+  }));
+});
 
 const executionReasonOptions = computed<SelectOption[]>(() => [
   {
@@ -1020,7 +1341,7 @@ const runDialogSelectContent = {
 const runDialogSelectPortal = false;
 
 const runDialogSelectUi = {
-  content: "z-50 max-h-72 overflow-y-auto",
+  content: "z-[90] max-h-72 overflow-y-auto",
 };
 
 const selectedRunCapabilityDetail = computed(() => {
@@ -1036,15 +1357,27 @@ watch(selectedRunCapabilityModule, (moduleOption) => {
   const moduleKey = moduleOption?.value || "";
   const selectedCapabilityID = selectedRunCapability.value?.value || "";
   const selectedCapability = capabilityOptions.value.find((item) => item.capabilityId === selectedCapabilityID);
-  if (selectedCapability && selectedCapability.module === moduleKey) return;
+  if (selectedCapability && capabilityMatchesModuleOption(selectedCapability, moduleKey)) return;
   selectedRunCapability.value = capabilitySelectItems.value[0] || null;
   approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
 });
 
-const humanReviewRolesText = computed(() => {
-  const roles = selectedNode.value?.data?.props?.approver_policy?.roles;
-  return Array.isArray(roles) ? roles.join(", ") : "";
+watch(selectedRunCapabilitySource, (sourceOption) => {
+  if (!isApprovalGuardedCapabilityWorkflow.value) return;
+  const sourceKey = sourceOption?.value || "";
+  const selectedCapabilityID = selectedRunCapability.value?.value || "";
+  const selectedCapability = capabilityOptions.value.find((item) => item.capabilityId === selectedCapabilityID);
+  if (selectedCapability && capabilitySourceKey(selectedCapability) === sourceKey) return;
+  selectedRunCapabilityModule.value = runCapabilityModuleSelectItems.value[0] || null;
+  selectedRunCapability.value = capabilitySelectItems.value[0] || null;
+  approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
 });
+
+const currentHumanReviewRoles = computed(() => {
+  const roles = selectedNode.value?.data?.props?.approver_policy?.roles;
+  return Array.isArray(roles) ? roles.map((role) => String(role).trim()).filter(Boolean) : [];
+});
+const primaryHumanReviewRole = computed(() => currentHumanReviewRoles.value[0] || "workflow_reviewer");
 
 const zoomPercent = computed(() => `${Math.round((viewport.value?.zoom || 1) * 100)}%`);
 const workflowEditorStyle = computed(() => ({
@@ -1073,6 +1406,18 @@ const workflowRuntimeConnectionLabel = computed(() => {
   if (workflowRuntimeBus.connecting.value) return t("workflow.editor.runtimeConnecting");
   return t("workflow.editor.runtimeDisconnected");
 });
+const workflowRuntimeConnectionTitle = computed(() => {
+  const reason = String(workflowRuntimeBus.lastError.value || "").trim();
+  if (!reason) return workflowRuntimeConnectionLabel.value;
+  return t("workflow.editor.runtimeDisconnectedWithReason", {
+    reason: workflowRuntimeErrorLabel(reason),
+  });
+});
+const workflowRuntimeConnectionState = computed(() => {
+  if (workflowRuntimeBus.connected.value) return "connected";
+  if (workflowRuntimeBus.connecting.value) return "connecting";
+  return "disconnected";
+});
 const workflowRuntimeConnectionColor = computed(() => {
   if (workflowRuntimeBus.connected.value) return "success";
   if (workflowRuntimeBus.connecting.value) return "warning";
@@ -1089,13 +1434,43 @@ const latestRunCardClass = computed(() => {
 
 const latestRunSteps = computed(() => {
   const steps = latestRun.value?.steps || [];
-  if (steps.length) {
-    return steps.map((step) => {
+  if (latestRun.value) {
+    const stepByID = new Map(steps.map((step) => [step.step_id, step]));
+    const rows = nodes.value.map((node) => {
+      const step = stepByID.get(node.id);
+      if (step) {
+        const state = normalizeEffectiveStepState(step.state);
+        const startedAt = formatRunTimestamp(step.started_at || step.scheduled_at || "");
+        const completedAt = formatRunTimestamp(step.completed_at || "");
+        const error = step.error_message || step.failure_reason || step.error_code || "";
+        return {
+          id: step.step_id,
+          label: stepDisplayName(step.step_id),
+          kindLabel: stepKindLabel(step),
+          stateLabel: t(`workflow.state.${state}`),
+          stateClass: `state-${state}`,
+          badgeColor: runStateColor(state),
+          message: stepRunMessage(state, startedAt, completedAt, error),
+        };
+      }
+      const state = effectiveNodeRunState(node.id);
+      return {
+        id: node.id,
+        label: displayLabel(node.data.label),
+        kindLabel: node.data.kind ? t("workflow.editor.stepKindWithValue", { kind: getKindLabel(node.data.kind) }) : t("workflow.editor.unknownNodeKind"),
+        stateLabel: t(`workflow.state.${state}`),
+        stateClass: `state-${state}`,
+        badgeColor: runStateColor(state),
+        message: state === "skipped" ? t("workflow.editor.stepSkippedByBranch") : "",
+      };
+    });
+    for (const step of steps) {
+      if (nodes.value.some((node) => node.id === step.step_id)) continue;
       const state = normalizeEffectiveStepState(step.state);
       const startedAt = formatRunTimestamp(step.started_at || step.scheduled_at || "");
       const completedAt = formatRunTimestamp(step.completed_at || "");
       const error = step.error_message || step.failure_reason || step.error_code || "";
-      return {
+      rows.push({
         id: step.step_id,
         label: stepDisplayName(step.step_id),
         kindLabel: stepKindLabel(step),
@@ -1103,18 +1478,18 @@ const latestRunSteps = computed(() => {
         stateClass: `state-${state}`,
         badgeColor: runStateColor(state),
         message: stepRunMessage(state, startedAt, completedAt, error),
-      };
-    });
+      });
+    }
+    return rows;
   }
-  const state = latestRun.value ? normalizeEffectiveStepState("pending") : "";
   return nodes.value.map((node) => ({
     id: node.id,
     label: displayLabel(node.data.label),
     kindLabel: node.data.kind ? t("workflow.editor.stepKindWithValue", { kind: getKindLabel(node.data.kind) }) : t("workflow.editor.unknownNodeKind"),
-    stateLabel: state ? t(`workflow.state.${state}`) : t("workflow.editor.noRuns"),
-    stateClass: state ? `state-${state}` : "",
-    badgeColor: runStateColor(state),
-    message: state === "skipped" ? t("workflow.editor.stepSkippedByCancel") : "",
+    stateLabel: t("workflow.editor.noRuns"),
+    stateClass: "",
+    badgeColor: runStateColor(""),
+    message: "",
   }));
 });
 
@@ -1178,6 +1553,19 @@ const groupedPalette = computed(() => {
     }));
 });
 
+const startNodeCount = computed(() => nodes.value.filter((node) => node.data?.kind === "input.capture").length);
+const endNodeCount = computed(() => nodes.value.filter((node) => node.data?.kind === "workflow.end").length);
+const workflowStructureIssues = computed(() => {
+  const issues: string[] = [];
+  if (startNodeCount.value !== 1) {
+    issues.push(t("workflow.editor.structureStartIssue", { count: startNodeCount.value }));
+  }
+  if (endNodeCount.value !== 1) {
+    issues.push(t("workflow.editor.structureEndIssue", { count: endNodeCount.value }));
+  }
+  return issues;
+});
+
 const selectedNodeReviewTask = computed(() => {
   const stepID = selectedNode.value?.id || "";
   if (!stepID) return null;
@@ -1190,10 +1578,193 @@ const selectedNodeRunStep = computed(() => {
   return latestRun.value?.steps?.find((step) => step.step_id === stepID) || null;
 });
 
-const selectedNodeRunState = computed(() => normalizeStepState(selectedNodeRunStep.value?.state || selectedNode.value?.data?.runState || ""));
+const selectedNodeRunState = computed(() => effectiveNodeRunState(selectedNode.value?.id || ""));
 const selectedNodeRunStateLabel = computed(() => {
   if (!latestRun.value) return t("workflow.editor.noRuns");
   return t(`workflow.state.${selectedNodeRunState.value || "pending"}`);
+});
+
+const capabilityBusinessDescription = computed(() => {
+  const capabilityID = String(selectedNode.value?.data?.props?.capability_id || "");
+  if (isRuntimeTemplateValue(capabilityID)) return t("workflow.editor.capabilityBusinessRuntimeDescription");
+  return t("workflow.editor.capabilityBusinessFixedDescription");
+});
+
+const eventBusinessTitle = computed(() => {
+  if (isRejectedEventNode(selectedNode.value?.id || "", selectedNode.value?.data?.props?.topic)) {
+    return t("workflow.editor.eventRejectedBusinessTitle");
+  }
+  return t("workflow.editor.eventCompletedBusinessTitle");
+});
+
+const eventBusinessDescription = computed(() => {
+  if (isRejectedEventNode(selectedNode.value?.id || "", selectedNode.value?.data?.props?.topic)) {
+    return t("workflow.editor.eventRejectedBusinessDescription");
+  }
+  return t("workflow.editor.eventCompletedBusinessDescription");
+});
+
+const eventTriggerLabel = computed(() => {
+  if (isRejectedEventNode(selectedNode.value?.id || "", selectedNode.value?.data?.props?.topic)) {
+    return t("workflow.editor.eventTriggerRejected");
+  }
+  return t("workflow.editor.eventTriggerCompleted");
+});
+
+const selectedNodeSkillLabel = computed(() => {
+  const skillID = String(selectedNode.value?.data?.props?.skill_id || "").trim();
+  if (!skillID) return t("workflow.editor.noSkillConfigured");
+  return humanizeSkillID(skillID);
+});
+
+const selectedNodeBusinessSummary = computed(() => {
+  const kind = selectedNode.value?.data?.kind || "";
+  const summaryKeyByKind: Record<string, string> = {
+    "metadata.classify": "metadataClassify",
+    "knowledge.stage": "knowledgeStage",
+    "knowledge.publish": "knowledgePublish",
+    "decision.gateway": "decisionGateway",
+    "parallel.fanout": "parallelFanout",
+    "parallel.join": "parallelJoin",
+    "compensation.rollback": "compensationRollback",
+  };
+  const summaryKey = summaryKeyByKind[kind];
+  if (!summaryKey) return null;
+  return {
+    title: t(`workflow.editor.nodeBusiness.${summaryKey}.title`),
+    description: t(`workflow.editor.nodeBusiness.${summaryKey}.description`),
+    result: t(`workflow.editor.nodeBusiness.${summaryKey}.result`),
+  };
+});
+
+const selectedNodeBusinessConfigEntries = computed(() => {
+  const node = selectedNode.value;
+  if (!node) return [];
+  const props = node.data.props || {};
+  const kind = node.data.kind || "";
+  const entry = (key: string, labelKey: string, value: unknown) => ({
+    key,
+    label: t(labelKey),
+    value: formatBusinessConfigValue(key, value),
+  });
+  switch (kind) {
+    case "skill.invoke":
+      return [
+        entry("input_path", "workflow.editor.businessInputSource", props.input_path),
+        entry("output_path", "workflow.editor.businessOutputTarget", props.output_path),
+      ];
+    case "metadata.classify":
+      return [
+        entry("taxonomy_namespace", "workflow.fields.taxonomy_namespace", props.taxonomy_namespace),
+        entry("tag_namespace", "workflow.fields.tag_namespace", props.tag_namespace),
+        entry("dictionary_namespace", "workflow.fields.dictionary_namespace", props.dictionary_namespace),
+        entry("resource_type_namespace", "workflow.fields.resource_type_namespace", props.resource_type_namespace),
+        entry("output_path", "workflow.editor.businessOutputTarget", props.output_path),
+      ];
+    case "knowledge.stage":
+      return [
+        entry("knowledge_space_uuid", "workflow.fields.knowledge_space_uuid", props.knowledge_space_uuid),
+        entry("draft_schema_ref", "workflow.fields.draft_schema_ref", props.draft_schema_ref),
+        entry("input_path", "workflow.editor.businessInputSource", props.input_path),
+      ];
+    case "knowledge.publish":
+      return [
+        entry("knowledge_space_uuid", "workflow.fields.knowledge_space_uuid", props.knowledge_space_uuid),
+        entry("publish_policy", "workflow.fields.publish_policy", props.publish_policy),
+        entry("draft_refs_path", "workflow.fields.draft_refs_path", props.draft_refs_path),
+      ];
+    case "decision.gateway":
+      return [
+        entry("default_route", "workflow.fields.default_route", props.default_route),
+        entry("condition_source_path", "workflow.fields.condition_source_path", props.condition_source_path),
+      ];
+    default:
+      return [];
+  }
+});
+
+const advancedNodeConfigEntries = computed(() => {
+  const props = selectedNode.value?.data?.props || {};
+  const hiddenKeys = hiddenBusinessConfigKeys(selectedNode.value?.data?.kind || "");
+  return Object.entries(props)
+    .filter(([key]) => !hiddenKeys.has(key))
+    .map(([key, value]) => ({
+      key,
+      label: schemaFieldLabel(key),
+      value: formatTechnicalValue(value),
+    }));
+});
+
+const selectedReviewPayloadEntries = computed(() => {
+  const payload = selectedNodeReviewTask.value?.payload || {};
+  return [
+    {
+      key: "capability",
+      label: t("workflow.editor.runtimeCapability"),
+      value: capabilityLabelForID(String(payload.capability_id || "")),
+    },
+    {
+      key: "reason",
+      label: t("workflow.fields.reason"),
+      value: executionReasonLabel(String(payload.request?.reason || "")),
+    },
+    {
+      key: "dry_run",
+      label: t("workflow.fields.dry_run"),
+      value: payload.request?.payload?.dry_run ? t("common.yes") : t("common.no"),
+    },
+    {
+      key: "note",
+      label: t("workflow.fields.note"),
+      value: String(payload.request?.payload?.note || t("workflow.editor.none")),
+    },
+  ];
+});
+
+const selectedNodeRunSummaryEntries = computed(() => {
+  const step = selectedNodeRunStep.value;
+  if (!step) return [];
+  return [
+    {
+      key: "state",
+      label: t("workflow.editor.currentNodeState"),
+      value: t(`workflow.state.${normalizeEffectiveStepState(step.state)}`),
+    },
+    {
+      key: "started",
+      label: t("workflow.editor.startedAt"),
+      value: formatRunTimestamp(step.started_at || step.scheduled_at || "") || t("workflow.editor.notStarted"),
+    },
+    {
+      key: "completed",
+      label: t("workflow.editor.completedAt"),
+      value: formatRunTimestamp(step.completed_at || "") || t("workflow.editor.notCompleted"),
+    },
+    {
+      key: "attempt",
+      label: t("workflow.editor.attempt"),
+      value: String(step.attempt || 1),
+    },
+  ];
+});
+
+const selectedRuntimeDiagnosticsEntries = computed(() => {
+  const entries: Array<{ key: string; label: string; value: string }> = [];
+  if (selectedNodeReviewTask.value?.payload) {
+    entries.push({
+      key: "review_payload",
+      label: t("workflow.editor.reviewPayload"),
+      value: formatTechnicalValue(selectedNodeReviewTask.value.payload),
+    });
+  }
+  if (selectedNodeRunStep.value) {
+    entries.push({
+      key: "step_record",
+      label: t("workflow.editor.nodeRunRecord"),
+      value: formatStepRunPayload(selectedNodeRunStep.value),
+    });
+  }
+  return entries;
 });
 
 // 获取节点类型标签
@@ -1235,8 +1806,19 @@ function reviewTypeLabel(reviewType: string) {
   return te(key) ? t(key) : reviewType;
 }
 
+function executionReasonLabel(reason: string) {
+  if (!reason.trim()) return t("workflow.editor.none");
+  const key = `workflow.executionReason.${camelCase(reason)}`;
+  return te(key) ? t(key) : humanizeModuleKey(reason);
+}
+
+function workflowRuntimeErrorLabel(reason: string) {
+  const key = `workflow.runtimeError.${camelCase(reason)}`;
+  return te(key) ? t(key) : reason;
+}
+
 function paletteCategoryForKind(kind: string) {
-  if (kind === "input.capture" || kind === "event.emit") return "input_output";
+  if (kind === "input.capture" || kind === "workflow.end" || kind === "event.emit") return "input_output";
   if (kind === "skill.invoke" || kind === "llm.invoke") return "ai_skill";
   if (kind === "capability.invoke") return "platform_capability";
   if (kind === "human.review" || kind === "decision.gateway" || kind === "parallel.fanout" || kind === "parallel.join") return "flow_control";
@@ -1259,20 +1841,97 @@ function formatStepRunPayload(step: WorkflowStepRecord) {
   }, null, 2);
 }
 
-function updateHumanReviewRoles(value: string) {
+function updatePrimaryHumanReviewRole(value: string) {
   if (!selectedNode.value) return;
-  const roles = value
-    .split(",")
-    .map((role) => role.trim())
-    .filter(Boolean);
   selectedNode.value.data.props.approver_policy = {
     ...(selectedNode.value.data.props.approver_policy || {}),
-    roles,
+    roles: value ? [value] : [],
   };
 }
 
 function isRuntimeTemplateValue(value: unknown) {
   return typeof value === "string" && /^\$\{[a-zA-Z0-9_]+\}$/.test(value.trim());
+}
+
+function roleDisplayName(role: string) {
+  const key = `workflow.role.${camelCase(role)}`;
+  if (te(key)) return t(key);
+  return humanizeModuleKey(role);
+}
+
+function capabilityLabelForID(capabilityID: string) {
+  if (!capabilityID.trim()) return t("workflow.editor.noCapabilityConfigured");
+  const capability = capabilityOptions.value.find((item) => item.capabilityId === capabilityID);
+  if (capability) return capabilityOptionLabel(capability);
+  const localizedKey = capabilityI18nKey(capabilityID);
+  if (te(localizedKey)) return t(localizedKey);
+  return t("workflow.editor.fixedCapabilityConfigured");
+}
+
+function isRejectedEventNode(nodeID: string, topic: unknown) {
+  const topicValue = String(topic || "").toLowerCase();
+  return nodeID.toLowerCase().includes("reject") || topicValue.includes("reject");
+}
+
+function isPaletteItemDisabled(kind: string) {
+  return (kind === "input.capture" && startNodeCount.value >= 1) || (kind === "workflow.end" && endNodeCount.value >= 1);
+}
+
+function paletteItemTitle(kind: string) {
+  if (kind === "input.capture" && startNodeCount.value >= 1) return t("workflow.editor.startNodeAlreadyExists");
+  if (kind === "workflow.end" && endNodeCount.value >= 1) return t("workflow.editor.endNodeAlreadyExists");
+  return "";
+}
+
+function humanizeSkillID(skillID: string) {
+  const localizedKey = `workflow.skill.${camelCase(skillID.replace(/[^a-zA-Z0-9]+/g, "_"))}`;
+  if (te(localizedKey)) return t(localizedKey);
+  return humanizeModuleKey(skillID);
+}
+
+function hiddenBusinessConfigKeys(kind: string) {
+  const shared = new Set(["capability_label", "capability_module_label"]);
+  const byKind: Record<string, string[]> = {
+    "skill.invoke": ["skill_id", "input_path", "output_path"],
+    "metadata.classify": ["taxonomy_namespace", "tag_namespace", "dictionary_namespace", "resource_type_namespace", "input_path", "output_path"],
+    "knowledge.stage": ["knowledge_space_uuid", "draft_schema_ref", "input_path", "output_path"],
+    "knowledge.publish": ["knowledge_space_uuid", "draft_refs_path", "review_result_path", "publish_policy"],
+    "decision.gateway": ["routes", "default_route", "condition_source_path"],
+  };
+  for (const key of byKind[kind] || []) {
+    shared.add(key);
+  }
+  return shared;
+}
+
+function formatBusinessConfigValue(key: string, value: unknown) {
+  if (value === undefined || value === null || value === "") return t("workflow.editor.notConfigured");
+  if (key.endsWith("_path") || key === "draft_refs_path" || key === "condition_source_path") {
+    return businessPathLabel(String(value));
+  }
+  if (key === "skill_id") return humanizeSkillID(String(value));
+  if (key === "knowledge_space_uuid" && isRuntimeTemplateValue(value)) return t("workflow.editor.runInputProvided");
+  if (key.endsWith("_namespace")) return humanizeModuleKey(String(value));
+  if (key.endsWith("_route") || key === "default_route") return stepDisplayName(String(value));
+  if (key === "publish_policy") {
+    const i18nKey = `workflow.publishPolicy.${camelCase(String(value))}`;
+    return te(i18nKey) ? t(i18nKey) : humanizeModuleKey(String(value));
+  }
+  if (typeof value === "object") return t("workflow.editor.configured");
+  return humanizeModuleKey(String(value));
+}
+
+function businessPathLabel(path: string) {
+  const key = `workflow.path.${camelCase(path.replace(/^\$\./, ""))}`;
+  if (te(key)) return t(key);
+  if (path.startsWith("$.")) return t("workflow.editor.workflowVariablePath");
+  return path;
+}
+
+function formatTechnicalValue(value: unknown) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
 }
 
 function normalizeSelectedNodeProps(node: Node) {
@@ -1302,6 +1961,11 @@ async function copyToClipboard(value: string) {
 
 // 拖拽开始
 function onDragStart(event: DragEvent, paletteId: string) {
+  const paletteItem = palette.value.find((item) => item.id === paletteId);
+  if (paletteItem && isPaletteItemDisabled(paletteItem.kind)) {
+    event.preventDefault();
+    return;
+  }
   if (event.dataTransfer) {
     event.dataTransfer.setData("application/vueflow", paletteId);
     event.dataTransfer.effectAllowed = "move";
@@ -1314,17 +1978,36 @@ function onDrop(event: DragEvent) {
 
   const paletteId = event.dataTransfer.getData("application/vueflow");
   if (!paletteId) return;
+  const paletteItem = palette.value.find((item) => item.id === paletteId);
+  if (paletteItem && isPaletteItemDisabled(paletteItem.kind)) {
+    toast.add({
+      title: paletteItemTitle(paletteItem.kind),
+      color: "warning",
+    });
+    return;
+  }
 
-  // 获取放置位置
-  const position = project({
+  const cursorPosition = screenToFlowCoordinate({
     x: event.clientX,
     y: event.clientY,
   });
+  const nodeSize = kinds.value[paletteId]?.ui?.size || { w: 240, h: 96 };
+  const position = {
+    x: cursorPosition.x - (nodeSize.w || 240) / 2,
+    y: cursorPosition.y - (nodeSize.h || 96) / 2,
+  };
 
-  // 添加节点
   const newNode = addNodeFromPalette(paletteId, position);
   if (newNode) {
-    addNodes([newNode]);
+    nodes.value = nodes.value.map((node) => ({ ...node, selected: false }));
+    const selectedNewNode = { ...newNode, selected: true };
+    addNodes([selectedNewNode]);
+    normalizeSelectedNodeProps(selectedNewNode);
+    selectedNode.value = selectedNewNode;
+    propertiesTab.value = "config";
+    if (selectedNewNode.data.kind === "capability.invoke") {
+      void loadCapabilityReferenceData({ notify: false }).then(normalizeSelectedNodePreferredProtocol);
+    }
   }
 }
 
@@ -1361,26 +2044,32 @@ function startBottomResize(event: PointerEvent) {
   event.preventDefault();
 
   stopBottomResize?.();
-  const startY = event.clientY;
-  const startHeight = bottomPanelHeight.value;
   const minHeight = 160;
   const maxHeight = 520;
+  document.body.style.cursor = "ns-resize";
+  document.body.style.userSelect = "none";
 
   const onPointerMove = (moveEvent: PointerEvent) => {
-    const nextHeight = startHeight + startY - moveEvent.clientY;
+    const nextHeight = window.innerHeight - moveEvent.clientY;
     bottomPanelHeight.value = Math.min(maxHeight, Math.max(minHeight, nextHeight));
   };
 
   const onPointerUp = () => {
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
     stopBottomResize?.();
     stopBottomResize = null;
   };
 
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp, { once: true });
+  window.addEventListener("pointercancel", onPointerUp, { once: true });
   stopBottomResize = () => {
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerUp);
   };
 }
 
@@ -1425,7 +2114,7 @@ function onNodeDragStop() {
 
 // 画布准备完成
 function onReady() {
-  fitView();
+  fitView({ padding: 0.28, duration: 0 });
 }
 
 // 点击节点
@@ -1438,6 +2127,9 @@ function onNodeClick(event: { node: Node }) {
   };
   normalizeSelectedNodeProps(node);
   selectedNode.value = node;
+  if (node.data.kind === "capability.invoke") {
+    void loadCapabilityReferenceData({ notify: false }).then(normalizeSelectedNodePreferredProtocol);
+  }
   propertiesTab.value = latestReviewTasks.value.some((task) => task.step_id === node.id && task.status === "pending")
     ? "runtime"
     : "config";
@@ -1522,11 +2214,17 @@ function openRunDialog() {
 }
 
 async function loadRunDialogReferenceData() {
-  if (!isApprovalGuardedCapabilityWorkflow.value || capabilityOptions.value.length || capabilityOptionsLoading.value) return;
+  if (!isApprovalGuardedCapabilityWorkflow.value) return;
+  await loadCapabilityReferenceData({ notify: true });
+}
+
+async function loadCapabilityReferenceData(options: { notify?: boolean } = {}) {
+  if (capabilityOptions.value.length || capabilityOptionsLoading.value) return;
+  const notify = options.notify ?? true;
   capabilityOptionsLoading.value = true;
   capabilityOptionsError.value = "";
   try {
-    const result = await PlatformCapabilityService.listModules();
+    const result = await PlatformCapabilityService.listModules({ source: "all", pageSize: 200 });
     capabilityOptions.value = result.modules.flatMap((module) =>
       module.capabilities.map((capability) => ({
         ...capability,
@@ -1534,21 +2232,26 @@ async function loadRunDialogReferenceData() {
       }))
     );
     syncRunDialogSelects();
-    if (!capabilityModuleSelectItems.value.length) {
+    normalizeSelectedNodePreferredProtocol();
+    if (!capabilitySourceSelectItems.value.length) {
       capabilityOptionsError.value = t("workflow.editor.capabilityOptionsEmpty");
+      if (notify) {
+        toast.add({
+          title: t("workflow.editor.capabilityOptionsLoadFailed"),
+          description: capabilityOptionsError.value,
+          color: "error",
+        });
+      }
+    }
+  } catch (err: any) {
+    capabilityOptionsError.value = err?.message || t("workflow.editor.capabilityOptionsLoadFailed");
+    if (notify) {
       toast.add({
         title: t("workflow.editor.capabilityOptionsLoadFailed"),
         description: capabilityOptionsError.value,
         color: "error",
       });
     }
-  } catch (err: any) {
-    capabilityOptionsError.value = err?.message || t("workflow.editor.capabilityOptionsLoadFailed");
-    toast.add({
-      title: t("workflow.editor.capabilityOptionsLoadFailed"),
-      description: capabilityOptionsError.value,
-      color: "error",
-    });
   } finally {
     capabilityOptionsLoading.value = false;
   }
@@ -1559,12 +2262,174 @@ function capabilityOptionLabel(capability: RunCapabilityOption) {
   return te(localizedKey) ? t(localizedKey) : readableCapabilityTitle(capability);
 }
 
+function protocolLabel(value: string) {
+  const key = `workflow.protocol.${camelCase(value)}`;
+  return te(key) ? t(key) : humanizeModuleKey(value);
+}
+
+function isWorkflowCapabilityInvokeProtocol(value: string) {
+  return ["rest", "grpc", "agent_tool"].includes(String(value || "").trim().toLowerCase());
+}
+
+function hasWorkflowCapabilityInvokeProtocol(capability: RunCapabilityOption) {
+  return (capability.protocols || []).some((protocol) =>
+    isWorkflowCapabilityInvokeProtocol(String(protocol.channel || ""))
+  );
+}
+
+function resolveDefaultWorkflowCapabilityProtocol(capability: RunCapabilityOption) {
+  const channels = (capability.protocols || [])
+    .map((protocol) => String(protocol.channel || "").trim().toLowerCase())
+    .filter(isWorkflowCapabilityInvokeProtocol);
+  const preferred = String(capability.preferredProtocol || "").trim().toLowerCase();
+  if (isWorkflowCapabilityInvokeProtocol(preferred) && channels.includes(preferred)) return preferred;
+  for (const protocol of ["rest", "grpc", "agent_tool"]) {
+    if (channels.includes(protocol)) return protocol;
+  }
+  return "";
+}
+
+function normalizeSelectedNodePreferredProtocol() {
+  const node = selectedNode.value;
+  const capability = selectedNodeCapabilityRecord.value;
+  if (!node || node.data.kind !== "capability.invoke" || !capability) return;
+  const current = String(node.data.props?.preferred_protocol || "").trim().toLowerCase();
+  const available = selectedNodeProtocolOptions.value.map((item) => item.value);
+  if (available.includes(current)) return;
+  const next = resolveDefaultWorkflowCapabilityProtocol(capability);
+  if (!next) return;
+  node.data.props = {
+    ...(node.data.props || {}),
+    preferred_protocol: next,
+  };
+}
+
+function applyCapabilityToSelectedNode(capabilityID: string) {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "capability.invoke") return;
+  const capability = workflowRunnableCapabilities.value.find((item) => item.capabilityId === capabilityID);
+  if (!capability) {
+    clearSelectedNodeCapability();
+    return;
+  }
+  const preferredProtocol = resolveDefaultWorkflowCapabilityProtocol(capability);
+  node.data.props = {
+    ...(node.data.props || {}),
+    capability_source: capabilitySourceKey(capability),
+    capability_source_label: capabilitySourceLabel(capability),
+    capability_module: capabilityModuleOptionValue(capability),
+    capability_module_label: capabilityModuleLabel(capability),
+    capability_id: capability.capabilityId,
+    capability_label: capabilityOptionLabel(capability),
+    preferred_protocol: preferredProtocol,
+    input_path: String(node.data.props?.input_path || "request.payload"),
+    output_path: String(node.data.props?.output_path || "capability_result"),
+  };
+}
+
+function clearSelectedNodeCapability() {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "capability.invoke") return;
+  node.data.props = {
+    ...(node.data.props || {}),
+    capability_source: "",
+    capability_source_label: "",
+    capability_module: "",
+    capability_module_label: "",
+    capability_id: "",
+    capability_label: "",
+    preferred_protocol: "",
+  };
+}
+
 function capabilityModuleLabel(capability: RunCapabilityOption) {
-  const moduleKey = `workflow.capabilityModule.${camelCase(capability.module || "")}`;
+  const moduleKey = `workflow.capabilityModule.${camelCase(capabilityBusinessModuleKey(capability))}`;
   if (te(moduleKey)) return t(moduleKey);
+  if (capability.source === "plugin") return humanizeModuleKey(capabilityBusinessModuleKey(capability));
   const displayName = capability.moduleDisplayName?.trim() || "";
   if (displayName && displayName !== capability.module) return displayName;
   return humanizeModuleKey(capability.module || "");
+}
+
+function capabilitySourceKey(capability: RunCapabilityOption) {
+  if (capability.source === "plugin") {
+    return String(capability.pluginId || "plugin").trim() || "plugin";
+  }
+  return platformCapabilitySourceKey;
+}
+
+function capabilitySourceLabel(capability: RunCapabilityOption) {
+  if (capability.source === "plugin") return humanizePluginID(capability.pluginId || capability.capabilityId);
+  return t("workflow.editor.platformCapabilitySourceName");
+}
+
+function capabilityBusinessModuleKey(capability: RunCapabilityOption) {
+  if (capability.source !== "plugin") return capability.module || "corex";
+  const capabilityID = String(capability.capabilityId || "").trim();
+  const pluginID = String(capability.pluginId || "").trim();
+  let businessPart = capabilityID;
+  if (pluginID && capabilityID.startsWith(`${pluginID}.`)) {
+    businessPart = capabilityID.slice(pluginID.length + 1);
+  } else {
+    businessPart = businessPart
+      .replace(/^com\.powerx\.plugins\./, "")
+      .replace(/^com\./, "");
+  }
+  const segment = businessPart.split(".").map((item) => item.trim()).find(Boolean);
+  return normalizeCapabilitySegment(segment || capability.module || "plugin");
+}
+
+function capabilityModuleOptionValue(capability: RunCapabilityOption) {
+  return `${capabilitySourceKey(capability)}::${capabilityBusinessModuleKey(capability)}`;
+}
+
+function capabilityMatchesModuleOption(capability: RunCapabilityOption, optionValue: string) {
+  return capabilityModuleOptionValue(capability) === optionValue;
+}
+
+function buildCapabilityModuleSelectItems(sourceKey: string) {
+  if (!sourceKey) return [];
+  const modules = new Map<string, CapabilityModuleOptionMeta>();
+  for (const capability of workflowRunnableCapabilities.value) {
+    if (capabilitySourceKey(capability) !== sourceKey) continue;
+    const moduleKey = capabilityBusinessModuleKey(capability);
+    const optionValue = capabilityModuleOptionValue(capability);
+    const current = modules.get(optionValue);
+    if (current) {
+      current.count += 1;
+      continue;
+    }
+    modules.set(optionValue, {
+      label: capabilityModuleLabel(capability),
+      count: 1,
+      sourceKey,
+      moduleKey,
+    });
+  }
+  return [...modules.entries()]
+    .sort((left, right) => left[1].label.localeCompare(right[1].label))
+    .map(([value, item]) => ({
+      label: t("workflow.editor.capabilityModuleOptionLabel", { module: item.label, count: item.count }),
+      value,
+    }));
+}
+
+function humanizePluginID(pluginID: string) {
+  const raw = String(pluginID || "").trim();
+  const withoutPrefix = raw
+    .replace(/^com\.powerx\.plugins\./, "")
+    .replace(/^com\.powerx\.plugin\./, "")
+    .replace(/^com\./, "");
+  const withoutLocal = withoutPrefix.replace(/\.local$/, "");
+  return humanizeModuleKey(withoutLocal || raw || "plugin");
+}
+
+function normalizeCapabilitySegment(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "plugin";
 }
 
 function hasLocalizedCapabilityName(capability: RunCapabilityOption) {
@@ -1578,6 +2443,7 @@ function capabilityI18nKey(capabilityID: string) {
 function readableCapabilityTitle(capability: RunCapabilityOption) {
   const title = capability.title?.trim() || "";
   if (title && !looksLikeTechnicalCapabilityTitle(title)) return title;
+  if (capability.source === "plugin") return humanizePluginCapabilityTitle(capability);
   return t("workflow.editor.unnamedCapability");
 }
 
@@ -1590,11 +2456,27 @@ function isWorkflowRunnableBusinessCapability(capability: RunCapabilityOption) {
   const capabilityID = capability.capabilityId || "";
   if (capabilityID.startsWith("com.corex.grpc.") || capabilityID.startsWith("com.corex.rest.")) return false;
   if (capabilityID.includes(".gin.")) return false;
+  if (!hasWorkflowCapabilityInvokeProtocol(capability)) return false;
+  if (capability.source === "plugin") return true;
   return hasLocalizedCapabilityName(capability) || hasReadableCapabilityTitle(capability);
 }
 
 function looksLikeTechnicalCapabilityTitle(title: string) {
   return /^(GET|POST|PUT|PATCH|DELETE)\s+\/api\//i.test(title) || title === title.toLowerCase() && title.includes(".");
+}
+
+function humanizePluginCapabilityTitle(capability: RunCapabilityOption) {
+  const capabilityID = String(capability.capabilityId || "").trim();
+  const pluginID = String(capability.pluginId || "").trim();
+  let businessPart = capabilityID;
+  if (pluginID && capabilityID.startsWith(`${pluginID}.`)) {
+    businessPart = capabilityID.slice(pluginID.length + 1);
+  } else {
+    businessPart = businessPart
+      .replace(/^com\.powerx\.plugins\./, "")
+      .replace(/^com\./, "");
+  }
+  return humanizeModuleKey(businessPart);
 }
 
 // 运行工作流
@@ -1604,6 +2486,7 @@ async function runWorkflow() {
     runError.value = t("workflow.errors.noCurrentDefinition");
     return;
   }
+  if (!ensureWorkflowRuntimeConnected()) return;
   const debugInput = parseDebugInput();
   if (!debugInput) return;
 
@@ -1674,9 +2557,13 @@ function syncRunDialogSelects() {
   const selectedCapability = workflowRunnableCapabilities.value.find(
     (item) => item.capabilityId === approvalDebugForm.capability_id
   );
+  selectedRunCapabilitySource.value =
+    capabilitySourceSelectItems.value.find((item) => item.value === (selectedCapability ? capabilitySourceKey(selectedCapability) : "")) ||
+    capabilitySourceSelectItems.value[0] ||
+    null;
   selectedRunCapabilityModule.value =
-    capabilityModuleSelectItems.value.find((item) => item.value === selectedCapability?.module) ||
-    capabilityModuleSelectItems.value[0] ||
+    runCapabilityModuleSelectItems.value.find((item) => item.value === (selectedCapability ? capabilityModuleOptionValue(selectedCapability) : "")) ||
+    runCapabilityModuleSelectItems.value[0] ||
     null;
   selectedRunCapability.value = selectedCapability
     ? capabilitySelectItems.value.find((item) => item.value === selectedCapability.capabilityId) || null
@@ -1725,8 +2612,12 @@ async function refreshReviewTasksForRun(run: WorkflowInstance | null) {
 }
 
 async function actReviewTask(task: HumanReviewTask, action: "approve" | "reject") {
+  if (!ensureWorkflowRuntimeConnected()) return;
   actingReviewTaskUUID.value = task.review_task_uuid;
   actingReviewAction.value = action;
+  const previousRun = cloneRuntimeValue(latestRun.value);
+  const previousReviewTasks = cloneRuntimeValue(latestReviewTasks.value);
+  applyOptimisticReviewAction(task, action);
   try {
     const reviewPayload = task.payload && typeof task.payload === "object" && !Array.isArray(task.payload)
       ? { ...task.payload }
@@ -1748,8 +2639,10 @@ async function actReviewTask(task: HumanReviewTask, action: "approve" | "reject"
       title: action === "approve" ? t("workflow.review.approveSuccess") : t("workflow.review.rejectSuccess"),
       color: action === "approve" ? "success" : "warning",
     });
-    await restoreLatestRun(currentWorkflow.value?.uuid || "");
   } catch (err: any) {
+    latestRun.value = previousRun;
+    latestReviewTasks.value = previousReviewTasks || [];
+    applyRunStateToCanvas();
     toast.add({
       title: t("workflow.review.actionFailed"),
       description: err?.message || t("workflow.review.actionFailed"),
@@ -1759,6 +2652,70 @@ async function actReviewTask(task: HumanReviewTask, action: "approve" | "reject"
     actingReviewTaskUUID.value = "";
     actingReviewAction.value = "";
   }
+}
+
+function ensureWorkflowRuntimeConnected() {
+  if (workflowRuntimeBus.connected.value) return true;
+  toast.add({
+    title: t("workflow.editor.runtimeDisconnected"),
+    description: t("workflow.editor.runtimeRequiredForDebugRun"),
+    color: "error",
+  });
+  return false;
+}
+
+function applyOptimisticReviewAction(task: HumanReviewTask, action: "approve" | "reject") {
+  const run = latestRun.value;
+  if (!run) return;
+  const nextStepID = nextStepIDForReviewAction(task.step_id, action);
+  const steps = [...(run.steps || [])];
+  const reviewStepIndex = steps.findIndex((step) => step.step_id === task.step_id);
+  if (reviewStepIndex >= 0) {
+    steps[reviewStepIndex] = {
+      ...steps[reviewStepIndex],
+      state: "completed",
+      awaiting_human: false,
+      completed_at: new Date().toISOString(),
+      payload_out: {
+        ...(steps[reviewStepIndex].payload_out || {}),
+        review: {
+          action,
+          workflow_instance_uuid: task.workflow_instance_uuid,
+          step_id: task.step_id,
+        },
+      },
+    };
+  }
+  if (nextStepID && !steps.some((step) => step.step_id === nextStepID)) {
+    const nextNode = nodes.value.find((node) => node.id === nextStepID);
+    steps.push({
+      step_id: nextStepID,
+      type: "system",
+      node_kind: String(nextNode?.data?.kind || ""),
+      state: "queued",
+      scheduled_at: new Date().toISOString(),
+      attempt: 1,
+    });
+  }
+  latestRun.value = {
+    ...run,
+    state: nextStepID ? "running" : run.state,
+    current_step_id: nextStepID || task.step_id,
+    steps,
+  };
+  latestReviewTasks.value = latestReviewTasks.value.filter((item) => item.review_task_uuid !== task.review_task_uuid);
+  applyRunStateToCanvas();
+}
+
+function nextStepIDForReviewAction(stepID: string, action: "approve" | "reject") {
+  const handle = action === "approve" ? "approved" : "rejected";
+  const edge = edges.value.find((item) => item.source === stepID && (item.sourceHandle || "out") === handle);
+  return edge?.target || "";
+}
+
+function cloneRuntimeValue<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 async function cancelLatestRun() {
@@ -1801,16 +2758,64 @@ function normalizeEffectiveStepState(state?: string) {
   return "skipped";
 }
 
+function effectiveNodeRunState(stepID: string) {
+  if (!latestRun.value) return "";
+  const step = latestRun.value.steps?.find((item) => item.step_id === stepID);
+  if (step) return normalizeEffectiveStepState(step.state);
+  if (isTerminalRunState(latestRunState.value)) return "skipped";
+  return "pending";
+}
+
+function isTerminalRunState(state?: string) {
+  return ["succeeded", "failed", "canceled"].includes(normalizeStepState(state));
+}
+
 function stepRunMessage(state: string, startedAt: string, completedAt: string, error: string) {
   if (error) return error;
-  if (state === "skipped") return t("workflow.editor.stepSkippedByCancel");
+  if (state === "skipped") return latestRunState.value === "canceled"
+    ? t("workflow.editor.stepSkippedByCancel")
+    : t("workflow.editor.stepSkippedByBranch");
   if (completedAt) return t("workflow.editor.stepCompletedAt", { time: completedAt });
   if (startedAt) return t("workflow.editor.stepStartedAt", { time: startedAt });
   return t("workflow.editor.notStarted");
 }
 
 function handleWorkflowRuntimeEvent(event: WorkflowRuntimeEvent) {
-  applyWorkflowRuntimeInstance(event.instance);
+  runtimeEventQueue.push(event);
+  void drainWorkflowRuntimeEventQueue();
+}
+
+async function drainWorkflowRuntimeEventQueue() {
+  if (runtimeEventQueueProcessing) return;
+  runtimeEventQueueProcessing = true;
+  try {
+    while (runtimeEventQueue.length > 0) {
+      const event = runtimeEventQueue.shift();
+      if (!event) continue;
+      applyWorkflowRuntimeInstance(event.instance);
+      await waitForRuntimeEventFrame(event);
+    }
+  } finally {
+    runtimeEventQueueProcessing = false;
+  }
+}
+
+async function waitForRuntimeEventFrame(event: WorkflowRuntimeEvent) {
+  if (!isRuntimeStepTransitionEvent(event.event_type || "")) return;
+  await new Promise((resolve) => window.setTimeout(resolve, 260));
+}
+
+function isRuntimeStepTransitionEvent(eventType: string) {
+  return [
+    "workflow.step.queued",
+    "workflow.step.started",
+    "workflow.step.waiting",
+    "workflow.step.completed",
+    "workflow.step.failed",
+    "workflow.instance.running",
+    "workflow.instance.succeeded",
+    "workflow.instance.failed",
+  ].includes(eventType);
 }
 
 function applyWorkflowRuntimeInstance(instance: WorkflowInstance) {
@@ -1823,25 +2828,22 @@ function applyWorkflowRuntimeInstance(instance: WorkflowInstance) {
 }
 
 function applyRunStateToCanvas() {
-  const stepStates = new Map<string, string>();
-  for (const step of latestRun.value?.steps || []) {
-    stepStates.set(step.step_id, normalizeStepState(step.state));
-  }
+  const nodeStates = new Map(nodes.value.map((node) => [node.id, effectiveNodeRunState(node.id)]));
 
   nodes.value = nodes.value.map((node) => ({
     ...node,
     data: {
       ...node.data,
-      runState: latestRun.value ? stepStates.get(node.id) || "pending" : "",
+      runState: nodeStates.get(node.id) || "",
     },
   }));
 
   edges.value = edges.value.map((edge) => {
-    const runState = edgeRunState(stepStates.get(edge.source), stepStates.get(edge.target));
+    const runState = edgeRunState(nodeStates.get(edge.source), nodeStates.get(edge.target));
     return {
       ...edge,
       animated: runState === "active",
-      class: runState ? `workflow-run-edge workflow-run-edge-${runState}` : "",
+      class: runState ? `workflow-run-edge workflow-run-edge-${runState}` : "workflow-run-edge",
       data: {
         ...(edge.data || {}),
         runState,
@@ -1852,6 +2854,7 @@ function applyRunStateToCanvas() {
 
 function edgeRunState(sourceState?: string, targetState?: string) {
   if (!latestRun.value) return "";
+  if (sourceState === "skipped" || targetState === "skipped") return "skipped";
   if (!sourceState) return "pending";
   if (!targetState) return isFailureState(sourceState) ? "blocked" : "pending";
   if (isFailureState(targetState)) return "failed";
@@ -1876,7 +2879,7 @@ function clearCanvasRunState() {
   edges.value = edges.value.map((edge) => ({
     ...edge,
     animated: false,
-    class: "",
+    class: "workflow-run-edge",
     data: {
       ...(edge.data || {}),
       runState: "",
@@ -1893,6 +2896,9 @@ function selectRunStep(stepID: string) {
   }
   normalizeSelectedNodeProps(node);
   selectedNode.value = node;
+  if (node.data.kind === "capability.invoke") {
+    void loadCapabilityReferenceData({ notify: false }).then(normalizeSelectedNodePreferredProtocol);
+  }
   propertiesTab.value = "runtime";
 }
 
@@ -1902,6 +2908,9 @@ function focusRuntimeStep(stepID: string) {
   if (!node) return;
   normalizeSelectedNodeProps(node);
   selectedNode.value = node;
+  if (node.data.kind === "capability.invoke") {
+    void loadCapabilityReferenceData({ notify: false }).then(normalizeSelectedNodePreferredProtocol);
+  }
   propertiesTab.value = "runtime";
 }
 
@@ -1923,15 +2932,17 @@ function toggleFullscreen() {
 function syncWorkflowToCanvas() {
   const workflow = currentWorkflow.value;
   if (!workflow) return;
-  nodes.value = workflow.nodes.map(workflowNodeToVueFlowNode);
   edges.value = workflow.edges.map(workflowEdgeToVueFlowEdge);
+  nodes.value = workflow.nodes.map((node) => workflowNodeToVueFlowNode(node));
   selectedNode.value = null;
   hasLoadedCanvas.value = true;
   applyRunStateToCanvas();
-  nextTick(() => fitView());
+  nextTick(() => fitView({ padding: 0.28, duration: 0 }));
 }
 
 function workflowNodeToVueFlowNode(node: WfNode): Node {
+  const ui = normalizeWorkflowNodeUi(node.kind, node.ui);
+  const label = workflowNodeDisplayLabel(node);
   return {
     id: node.id,
     type: "generic",
@@ -1939,18 +2950,69 @@ function workflowNodeToVueFlowNode(node: WfNode): Node {
     data: {
       kind: node.kind,
       paletteId: node.paletteId,
-      label: node.label,
+      label,
       props: node.props || {},
-      ui: node.ui,
-      ports: kinds.value[node.kind]?.ports || {
-        inputs: [{ name: "in" }],
-        outputs: [{ name: "out" }, { name: "error" }],
-      },
+      ui,
+      ports: kinds.value[node.kind]?.ports || workflowNodePorts(node.kind),
       schema: kinds.value[node.kind]?.schema || { type: "object", properties: {} },
     },
-    width: node.ui.size?.w,
-    height: node.ui.size?.h,
+    width: ui.size?.w,
+    height: ui.size?.h,
   };
+}
+
+function workflowNodeDisplayLabel(node: WfNode) {
+  if (node.kind === "input.capture") return "workflow.node.start";
+  if (node.kind === "workflow.end") return "workflow.node.end";
+  return node.label;
+}
+
+function normalizeWorkflowNodeUi(kind: string, ui: WfNode["ui"]) {
+  const visual = workflowNodeVisual(kind);
+  return {
+    ...ui,
+    colorToken: visual.colorToken,
+    icon: visual.icon,
+    shape: workflowNodeShape(kind),
+    size: {
+      w: workflowNodeSize(kind, ui).w,
+      h: workflowNodeSize(kind, ui).h,
+    },
+  };
+}
+
+function workflowNodePorts(kind: string) {
+  if (kind === "input.capture") return { inputs: [], outputs: [{ name: "out" }] };
+  if (kind === "workflow.end") return { inputs: [{ name: "in" }], outputs: [] };
+  return {
+    inputs: [{ name: "in" }],
+    outputs: [{ name: "out" }, { name: "error" }],
+  };
+}
+
+function workflowNodeShape(kind: string) {
+  if (kind === "input.capture" || kind === "workflow.end") return "oval";
+  return "card";
+}
+
+function workflowNodeSize(kind: string, ui: WfNode["ui"]) {
+  if (kind === "input.capture" || kind === "workflow.end") return { w: 172, h: 76 };
+  return { w: ui.size?.w || 240, h: ui.size?.h || 96 };
+}
+
+function workflowNodeVisual(kind: string) {
+  if (kind === "input.capture") return { colorToken: "start", icon: "i-heroicons-play" };
+  if (kind === "workflow.end") return { colorToken: "end", icon: "i-heroicons-stop" };
+  if (kind.startsWith("skill.")) return { colorToken: "skill", icon: "i-heroicons-command-line" };
+  if (kind.startsWith("capability.")) return { colorToken: "capability", icon: "i-heroicons-bolt" };
+  if (kind.startsWith("knowledge.")) return { colorToken: "knowledge", icon: "i-heroicons-book-open" };
+  if (kind.startsWith("metadata.")) return { colorToken: "metadata", icon: "i-heroicons-tag" };
+  if (kind.startsWith("human.")) return { colorToken: "human", icon: "i-heroicons-user-circle" };
+  if (kind.startsWith("decision.")) return { colorToken: "decision", icon: "i-heroicons-adjustments-horizontal" };
+  if (kind.startsWith("parallel.")) return { colorToken: "parallel", icon: "i-heroicons-arrows-right-left" };
+  if (kind.startsWith("event.")) return { colorToken: "event", icon: "i-heroicons-megaphone" };
+  if (kind.startsWith("compensation.")) return { colorToken: "compensation", icon: "i-heroicons-arrow-uturn-left" };
+  return { colorToken: "default", icon: "i-heroicons-square-3-stack-3d" };
 }
 
 function workflowEdgeToVueFlowEdge(edge: WorkflowEdge): Edge {
@@ -1960,10 +3022,30 @@ function workflowEdgeToVueFlowEdge(edge: WorkflowEdge): Edge {
     sourceHandle: edge.sourceHandle || "out",
     target: edge.target,
     targetHandle: edge.targetHandle || "in",
-    label: edge.label,
+    label: shouldRenderEdgeLabel(edge) ? edge.label : "",
     type: edge.type || "smoothstep",
     animated: false,
+    class: "workflow-run-edge",
+    labelStyle: {
+      fill: "var(--wf-edge-label-text)",
+      fontSize: "12px",
+      fontWeight: 800,
+    },
+    labelBgStyle: {
+      fill: "var(--wf-edge-label-bg)",
+      fillOpacity: 1,
+      stroke: "var(--wf-edge-label-border)",
+      strokeWidth: 2,
+    },
+    labelBgPadding: [18, 9],
+    labelBgBorderRadius: 8,
   };
+}
+
+function shouldRenderEdgeLabel(edge: WorkflowEdge) {
+  const sourceHandle = String(edge.sourceHandle || "").trim();
+  const label = String(edge.label || "").trim();
+  return !["approved", "rejected"].includes(sourceHandle) && !["approved", "rejected"].includes(label);
 }
 
 function workflowPackI18nKey(field: "name" | "description") {
@@ -2046,7 +3128,7 @@ function camelCase(value: string) {
 function humanizeModuleKey(value: string) {
   return value
     .trim()
-    .replace(/[_-]+/g, " ")
+    .replace(/[._-]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -2094,6 +3176,7 @@ onMounted(async () => {
     resetDebugInput();
     await restoreLatestRun(workflowId);
   }
+  void loadCapabilityReferenceData({ notify: false });
 });
 
 onBeforeUnmount(() => {
@@ -2116,9 +3199,14 @@ onBeforeUnmount(() => {
   --wf-accent: #2563eb;
   --wf-canvas: #fbfcff;
   --wf-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  --wf-edge-label-bg: #f8fafc;
+  --wf-edge-label-border: rgba(37, 99, 235, 0.62);
+  --wf-edge-label-text: #0f172a;
+  --workflow-palette-width: 248px;
   display: grid;
-  grid-template-rows: 72px 34px minmax(0, 1fr) var(--workflow-bottom-height, 260px);
-  height: 100vh;
+  grid-template-rows: 72px 34px auto minmax(0, 1fr) var(--workflow-bottom-height, 260px);
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
   overflow: hidden;
   background: var(--wf-bg);
@@ -2136,9 +3224,13 @@ onBeforeUnmount(() => {
   --wf-accent: #60a5fa;
   --wf-canvas: #0f172a;
   --wf-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  --wf-edge-label-bg: #0f172a;
+  --wf-edge-label-border: rgba(96, 165, 250, 0.74);
+  --wf-edge-label-text: #f8fafc;
 }
 
 .workflow-topbar {
+  grid-row: 1;
   display: grid;
   grid-template-columns: minmax(320px, 1fr) minmax(320px, 520px) minmax(360px, 1fr);
   align-items: center;
@@ -2172,10 +3264,69 @@ onBeforeUnmount(() => {
 
 .workflow-subtitle {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   margin-top: 4px;
   color: var(--wf-muted);
   font-size: 12px;
+}
+
+.workflow-realtime-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  max-width: 190px;
+  min-width: 0;
+  flex: none;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-panel-soft) 78%, var(--wf-panel));
+  padding: 0 10px;
+  color: var(--wf-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workflow-realtime-status span:last-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-realtime-status :deep(svg) {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.workflow-realtime-status.state-disconnected {
+  border-color: color-mix(in srgb, #ef4444 38%, var(--wf-border));
+  background: color-mix(in srgb, #ef4444 9%, var(--wf-panel));
+  color: #f87171;
+}
+
+.workflow-realtime-status.state-connecting {
+  border-color: color-mix(in srgb, #f59e0b 38%, var(--wf-border));
+  background: color-mix(in srgb, #f59e0b 9%, var(--wf-panel));
+  color: #fbbf24;
+}
+
+.workflow-realtime-status.state-connected {
+  border-color: color-mix(in srgb, #22c55e 34%, var(--wf-border));
+  background: color-mix(in srgb, #22c55e 9%, var(--wf-panel));
+  color: #22c55e;
+}
+
+.workflow-realtime-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .workflow-global-search {
@@ -2183,6 +3334,7 @@ onBeforeUnmount(() => {
 }
 
 .workflow-metrics {
+  grid-row: 2;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   min-height: 0;
@@ -2215,8 +3367,9 @@ onBeforeUnmount(() => {
 }
 
 .workflow-main {
+  grid-row: 4;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) 360px;
+  grid-template-columns: var(--workflow-palette-width) minmax(0, 1fr) 420px;
   min-height: 0;
   overflow: hidden;
 }
@@ -2232,6 +3385,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--wf-border);
 }
 
@@ -2259,7 +3413,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 12px 14px;
+  padding: 0 12px 32px;
 }
 
 .palette-group {
@@ -2296,6 +3450,14 @@ onBeforeUnmount(() => {
 .palette-item:hover {
   border-color: color-mix(in srgb, var(--wf-accent) 45%, var(--wf-border));
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+}
+
+.palette-item.disabled,
+.palette-item.disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.46;
+  border-color: var(--wf-border);
+  box-shadow: none;
 }
 
 .palette-item-icon,
@@ -2364,6 +3526,7 @@ onBeforeUnmount(() => {
 
 .workflow-canvas-shell {
   position: relative;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   background: var(--wf-canvas);
@@ -2443,10 +3606,17 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
+.workflow-structure-alert {
+  grid-row: 3;
+  margin: 10px 14px 0;
+}
+
 .workflow-properties {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
   border-left: 1px solid var(--wf-border);
 }
 
@@ -2471,6 +3641,7 @@ onBeforeUnmount(() => {
 
 .properties-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 18px;
 }
@@ -2505,6 +3676,15 @@ onBeforeUnmount(() => {
   margin-top: 18px;
 }
 
+.properties-field,
+.properties-field :deep(.w-full),
+.properties-field :deep(button),
+.properties-field :deep(input),
+.properties-field :deep(textarea) {
+  width: 100%;
+  min-width: 0;
+}
+
 .properties-switch-grid {
   display: grid;
   gap: 10px;
@@ -2528,6 +3708,140 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
+.properties-note.state-error {
+  border-color: color-mix(in srgb, #ef4444 46%, var(--wf-border));
+  background: color-mix(in srgb, #ef4444 10%, var(--wf-panel));
+  color: #ef4444;
+}
+
+.business-config-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--wf-accent) 32%, var(--wf-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-accent) 7%, var(--wf-panel));
+  padding: 12px;
+}
+
+.business-config-card strong {
+  color: var(--wf-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.business-config-card span {
+  color: var(--wf-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.business-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.business-config-item {
+  min-width: 0;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel-soft);
+  padding: 9px 10px;
+}
+
+.business-config-item span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--wf-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.business-config-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--wf-text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.readonly-business-value {
+  min-height: 34px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel-soft);
+  padding: 8px 10px;
+  color: var(--wf-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.advanced-config-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  border-top: 1px solid var(--wf-border);
+  padding-top: 12px;
+}
+
+.advanced-config-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel-soft);
+  padding: 8px 10px;
+  color: var(--wf-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.advanced-config-toggle:hover {
+  border-color: color-mix(in srgb, var(--wf-accent) 38%, var(--wf-border));
+  color: var(--wf-accent);
+}
+
+.advanced-config-list {
+  display: grid;
+  gap: 8px;
+}
+
+.advanced-config-row {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-panel-soft) 72%, var(--wf-panel));
+  padding: 8px 10px;
+}
+
+.advanced-config-row span {
+  color: var(--wf-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.advanced-config-row code {
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--wf-text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.advanced-config-list p {
+  color: var(--wf-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .node-runtime-panel {
   display: grid;
   gap: 14px;
@@ -2535,6 +3849,7 @@ onBeforeUnmount(() => {
 
 .node-runtime-summary,
 .runtime-review-card,
+.runtime-summary-card,
 .runtime-payload-card,
 .runtime-empty-card {
   border: 1px solid var(--wf-border);
@@ -2607,6 +3922,46 @@ onBeforeUnmount(() => {
 .runtime-payload-card {
   display: grid;
   gap: 8px;
+}
+
+.runtime-summary-card {
+  display: grid;
+  gap: 10px;
+}
+
+.runtime-summary-card > span {
+  color: var(--wf-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.runtime-summary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.runtime-summary-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--wf-panel) 58%, transparent);
+  padding: 8px 10px;
+}
+
+.runtime-summary-row span {
+  color: var(--wf-dim);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.runtime-summary-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--wf-text);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .runtime-payload-card pre {
@@ -2684,7 +4039,9 @@ onBeforeUnmount(() => {
 }
 
 .workflow-bottom-panel {
+  grid-row: 5;
   position: relative;
+  z-index: 20;
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr);
   min-height: 0;
@@ -3199,9 +4556,10 @@ onBeforeUnmount(() => {
 }
 
 :deep(.vue-flow__minimap) {
-  z-index: 8;
-  left: 18px;
-  bottom: 16px;
+  position: fixed;
+  z-index: 30;
+  left: calc(var(--workflow-palette-width) + 18px);
+  bottom: calc(var(--workflow-bottom-height, 260px) + 16px);
   margin: 0;
   border: 1px solid var(--wf-border);
   border-radius: 8px;
@@ -3214,9 +4572,33 @@ onBeforeUnmount(() => {
   transition: stroke 160ms ease, stroke-width 160ms ease, opacity 160ms ease;
 }
 
+:deep(.workflow-run-edge .vue-flow__edge-text) {
+  paint-order: stroke;
+  stroke: var(--wf-edge-label-bg);
+  stroke-width: 6px;
+  fill: var(--wf-edge-label-text) !important;
+  pointer-events: none;
+}
+
+:deep(.workflow-run-edge .vue-flow__edge-textbg) {
+  rx: 4;
+  ry: 4;
+  fill: var(--wf-edge-label-bg) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--wf-edge-label-border) !important;
+  stroke-width: 2px !important;
+  pointer-events: none;
+}
+
 :deep(.workflow-run-edge-pending .vue-flow__edge-path) {
   stroke: rgba(148, 163, 184, 0.42);
   opacity: 0.55;
+}
+
+:deep(.workflow-run-edge-skipped .vue-flow__edge-path) {
+  stroke: rgba(148, 163, 184, 0.5);
+  opacity: 0.45;
+  stroke-dasharray: 6 5;
 }
 
 :deep(.workflow-run-edge-passed .vue-flow__edge-path) {
@@ -3238,9 +4620,10 @@ onBeforeUnmount(() => {
 }
 
 :deep(.vue-flow__controls) {
-  z-index: 9;
-  left: 206px;
-  bottom: 16px;
+  position: fixed;
+  z-index: 31;
+  left: calc(var(--workflow-palette-width) + 206px);
+  bottom: calc(var(--workflow-bottom-height, 260px) + 16px);
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--wf-border);
@@ -3268,9 +4651,56 @@ onBeforeUnmount(() => {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3) !important;
 }
 
+.workflow-editor.dark :deep(.wf-node-start) {
+  background: linear-gradient(180deg, rgba(20, 184, 166, 0.16), #131d2b) !important;
+  border-color: #14b8a6 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-end) {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.16), #131d2b) !important;
+  border-color: #94a3b8 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-skill) {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), #131d2b) !important;
+  border-color: #8b5cf6 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-capability) {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), #131d2b) !important;
+  border-color: #3b82f6 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-metadata) {
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.18), #131d2b) !important;
+  border-color: #06b6d4 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-knowledge) {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.16), #131d2b) !important;
+  border-color: #22c55e !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-human),
+.workflow-editor.dark :deep(.wf-node-decision),
+.workflow-editor.dark :deep(.wf-node-parallel) {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.18), #131d2b) !important;
+  border-color: #f59e0b !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-event) {
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.18), #131d2b) !important;
+  border-color: #0ea5e9 !important;
+}
+
+.workflow-editor.dark :deep(.wf-node-compensation) {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.18), #131d2b) !important;
+  border-color: #ef4444 !important;
+}
+
 .workflow-editor.dark :deep(.wf-node.selected) {
-  border-color: #6f9df5 !important;
-  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.18), 0 14px 30px rgba(0, 0, 0, 0.34) !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.24), 0 0 26px rgba(34, 197, 94, 0.34), 0 14px 30px rgba(0, 0, 0, 0.34) !important;
 }
 
 .workflow-editor.dark :deep(.wf-node-header) {

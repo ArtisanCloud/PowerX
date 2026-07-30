@@ -123,7 +123,13 @@ func (s *Server) ListDefinitions(ctx context.Context, req *workflowv1.ListDefini
 		}
 	}
 
-	defs, total, err := s.svc.ListDefinitions(ctx, tenantUUID, statusFilter, req.GetKeyword(), limit, offset)
+	defs, total, err := s.svc.ListDefinitions(ctx, workflowrepo.DefinitionListFilter{
+		TenantUUID: tenantUUID,
+		Status:     statusFilter,
+		Keyword:    req.GetKeyword(),
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

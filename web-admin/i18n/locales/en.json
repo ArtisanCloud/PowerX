@@ -62,13 +62,20 @@
     "trash": "Trash",
     "cancel": "Cancel",
     "save": "Save",
+    "refresh": "Refresh",
     "reload": "Reload",
     "reset": "Reset",
     "scrollToBottom": "Scroll to bottom",
     "newMessages": "{count} new messages",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "yes": "Yes",
+    "no": "No"
   },
   "workflow": {
+    "port": {
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
     "list": {
       "title": "Workflow Management",
       "description": "Create, publish and run automation workflows.",
@@ -81,7 +88,11 @@
       "version": "Version {version}",
       "pack": "Pack {key}",
       "builtinPack": "Built-in",
-      "actions": "Workflow actions"
+      "actions": "Workflow actions",
+      "initializeBuiltin": "Initialize Built-in Workflows",
+      "initializeBuiltinSuccess": "Built-in workflows initialized",
+      "initializeBuiltinResult": "{seeded} created or upgraded, {skipped} skipped.",
+      "initializeBuiltinFailed": "Failed to initialize built-in workflows"
     },
     "stats": {
       "total": "Total",
@@ -93,6 +104,18 @@
       "draft": "Draft",
       "published": "Published",
       "archived": "Archived"
+    },
+    "source": {
+      "all": "All sources",
+      "workflowPack": "Built-in workflows",
+      "manual": "Manual workflows"
+    },
+    "category": {
+      "all": "All categories",
+      "uncategorized": "Uncategorized",
+      "unknown": "Unknown category",
+      "loadFailed": "Workflow categories failed to load",
+      "loadFailedDescription": "Check corex.workflow.category in Settings > Metadata Governance > Dictionaries."
     },
     "state": {
       "queued": "Queued",
@@ -175,6 +198,8 @@
       "runtimeConnected": "Realtime connected",
       "runtimeConnecting": "Realtime connecting",
       "runtimeDisconnected": "Realtime disconnected",
+      "runtimeDisconnectedWithReason": "Realtime disconnected: {reason}",
+      "runtimeRequiredForDebugRun": "Workflow debugging requires realtime node-state events. Reconnect before running this test.",
       "runtimeReconnect": "Reconnect",
       "instanceShort": "Instance {uuid}",
       "traceId": "Trace {trace}",
@@ -193,6 +218,7 @@
       "stepStartedAt": "Started at {time}",
       "stepCompletedAt": "Completed at {time}",
       "stepSkippedByCancel": "The current run was canceled, so this node was not executed.",
+      "stepSkippedByBranch": "This run did not enter this branch, so the node was not executed.",
       "resizeBottomPanel": "Resize bottom panel",
       "waitingReviewTitle": "Waiting for human review",
       "waitingReviewDescription": "The workflow continues after approval and follows the rejection branch if rejected.",
@@ -200,9 +226,15 @@
       "reviewRequest": "Review request",
       "reviewPayload": "Review payload",
       "nodeRunRecord": "Node run record",
+      "runtimeCapability": "Capability",
+      "runtimeDiagnostics": "Diagnostics",
+      "runtimeDiagnosticsHint": "These are raw runtime records for debugging engine inputs and outputs. They are not the normal operation entry.",
       "emptyPayload": "No review payload",
       "noReviewTaskForNode": "The workflow is waiting for review, but the selected node has no pending review task.",
       "noRuntimeForNode": "No runtime record for this node.",
+      "startedAt": "Started at",
+      "completedAt": "Completed at",
+      "attempt": "Attempt",
       "copyStepId": "Copy step ID",
       "copied": "Copied",
       "copyUnavailable": "Copy is unavailable in this browser",
@@ -227,14 +259,25 @@
       "debugNotePlaceholder": "Optional, for example: verify approval before listing LLM models",
       "dryRunHint": "Creates run records, human review, and simulated outputs only. It does not invoke real PowerX capabilities or emit real events.",
       "runCapabilityModuleLabel": "Capability module",
+      "runCapabilitySourceLabel": "Capability system",
+      "nodeCapabilitySourceLabel": "Fixed capability system",
+      "nodeCapabilityModuleLabel": "Fixed capability module",
+      "capabilitySourceSelectPlaceholder": "Search and select platform or plugin system",
+      "capabilitySourceSearchPlaceholder": "Search platform or plugin system",
       "capabilityModuleSelectPlaceholder": "Search and select a module",
       "capabilityModuleSearchPlaceholder": "Search module",
       "capabilityModuleSelectHint": "Modules come from Platform Capabilities; this list only includes business capabilities suitable for workflow test runs.",
       "capabilityModuleOptionLabel": "{module} · {count} capabilities",
+      "platformCapabilitySourceName": "Platform Capabilities",
+      "platformCapabilitySourceOptionLabel": "{platform} · {count} capabilities",
+      "pluginCapabilitySourceOptionLabel": "Plugin: {plugin} · {count} capabilities",
+      "pluginCapabilityModuleOptionLabel": "Plugin: {module} · {count} capabilities",
       "runCapabilityLabel": "Capability to execute after approval",
+      "nodeCapabilityLabel": "Fixed capability",
       "capabilitySelectPlaceholder": "Search and select a capability",
       "capabilitySearchPlaceholder": "Search capability name",
       "capabilitySelectHint": "After human approval, the workflow capability node invokes the selected PowerX Capability Registry business authorization unit.",
+      "selectedCapabilityHint": "This node will call: {capability}",
       "workflowCapabilitySourceTitle": "Capabilities come from Platform Capabilities",
       "workflowCapabilitySourceDescription": "This is not a separate capability system. It filters Platform Capabilities down to business capabilities that are suitable for workflow test runs; low-level REST, gRPC, and Gin route capabilities are hidden here.",
       "capabilityOptionsLoading": "Capability list is still loading. Try again shortly.",
@@ -248,6 +291,84 @@
       "approverRolesPlaceholder": "For example workflow_reviewer",
       "runtimeCapabilityHint": "This capability is read from capability_id in runtime debug input. Enter a formal Capability ID here only when the workflow must use a fixed capability.",
       "inputCaptureConfigHint": "This config defines the input capture schema and output location, not this run's input values. Use the top Test Run action to enter test parameters.",
+      "startNodeBusinessTitle": "Start node: collect input",
+      "startNodeBusinessDescription": "The workflow receives this run's input here, such as text, form data, media, or links. Later nodes continue from this input.",
+      "endNodeBusinessTitle": "End node: output result",
+      "endNodeBusinessDescription": "The workflow ends here and hands the publish, rejection, or notification result to run records and downstream event subscribers.",
+      "startNodeAlreadyExists": "A workflow can only have one start node",
+      "endNodeAlreadyExists": "A workflow can only have one end node",
+      "structureIssueTitle": "Workflow structure is incomplete",
+      "structureStartIssue": "This workflow currently has {count} start node(s). A workflow must have exactly one start node.",
+      "structureEndIssue": "This workflow currently has {count} end node(s). A workflow must have exactly one end node; old built-in definitions need to be re-enabled or upgraded.",
+      "businessInputSource": "Input source",
+      "businessOutputTarget": "Output target",
+      "notConfigured": "Not configured",
+      "configured": "Configured",
+      "runInputProvided": "Provided during Test Run",
+      "workflowVariablePath": "Workflow variable",
+      "inputCaptureBusinessTitle": "Collect business input for this run",
+      "inputCaptureBusinessDescription": "The Test Run form input enters this node and is organized into the execution request used by review and capability nodes.",
+      "skillBusinessTitle": "Execute business skill",
+      "skillBusinessDescription": "This node invokes a registered Skill and transforms the previous output into structured results for downstream nodes.",
+      "skillNodeSkillLabel": "Skill to execute",
+      "noSkillConfigured": "No skill configured",
+      "humanReviewBusinessTitle": "Require human confirmation before continuing",
+      "humanReviewBusinessDescription": "Approval follows the capability execution route; rejection follows the rejection event route.",
+      "capabilityBusinessTitle": "Execute a platform capability after approval",
+      "capabilityBusinessRuntimeDescription": "The capability is selected in the Test Run dialog, so the same workflow can test different platform capabilities.",
+      "capabilityBusinessFixedDescription": "This node is fixed to one platform capability, which is suitable for a published standard workflow.",
+      "capabilitySourceLabel": "Capability source",
+      "runtimeSelectedCapability": "Capability selected during Test Run",
+      "fixedCapabilityConfigured": "A platform capability is fixed",
+      "noCapabilityConfigured": "No capability configured",
+      "eventCompletedBusinessTitle": "Emit completion notification event",
+      "eventCompletedBusinessDescription": "After capability execution succeeds, this emits a completion event for logs, audit, or downstream subscribers.",
+      "eventRejectedBusinessTitle": "Emit rejection notification event",
+      "eventRejectedBusinessDescription": "After human review rejects the request, this emits a rejection event for logs, audit, or downstream subscribers.",
+      "eventTriggerLabel": "Trigger",
+      "eventTriggerCompleted": "Triggered after capability execution succeeds",
+      "eventTriggerRejected": "Triggered after human review rejects",
+      "eventTriggerEnd": "The workflow ends when execution reaches this node",
+      "nodeBusinessResultLabel": "Node output",
+      "nodeBusiness": {
+        "metadataClassify": {
+          "title": "Identify and enrich metadata",
+          "description": "Detect classifications, tags, or dictionary data from the previous output for review, search, and governance.",
+          "result": "Structured metadata"
+        },
+        "knowledgeStage": {
+          "title": "Stage candidate knowledge",
+          "description": "Place extracted results in a review area first, so unconfirmed content does not enter the formal knowledge base.",
+          "result": "Reviewable knowledge snippets"
+        },
+        "knowledgePublish": {
+          "title": "Publish formal knowledge",
+          "description": "After approval, publish candidate content into the target knowledge base for agents, skills, and search flows.",
+          "result": "Formal knowledge version"
+        },
+        "decisionGateway": {
+          "title": "Choose the next route",
+          "description": "Select the next branch based on review decisions, execution results, or rule conditions.",
+          "result": "Branch decision"
+        },
+        "parallelFanout": {
+          "title": "Fan out parallel work",
+          "description": "Send the same input to multiple downstream nodes for parallel classification, extraction, or validation.",
+          "result": "Parallel tasks"
+        },
+        "parallelJoin": {
+          "title": "Join parallel results",
+          "description": "Wait for parallel branches to complete, then combine their outputs for the next node.",
+          "result": "Merged output"
+        },
+        "compensationRollback": {
+          "title": "Run failure compensation",
+          "description": "Undo side effects after a workflow fails or is canceled, keeping business state recoverable.",
+          "result": "Compensation result"
+        }
+      },
+      "advancedConfig": "Advanced Parameters",
+      "advancedConfigHint": "These fields are technical contracts used by the workflow engine. Normal test runs do not require editing them.",
       "paletteCategory": {
         "input_output": "Input & Output",
         "ai_skill": "AI & Skills",
@@ -260,12 +381,45 @@
     "protocol": {
       "rest": "REST",
       "grpc": "gRPC",
+      "agentTool": "Agent Tool",
       "skill": "Skill"
     },
     "executionReason": {
       "workflowDebugApprovalGuardedCapability": "Approval-guarded capability debug",
       "permissionBoundaryTest": "Permission boundary test",
       "businessDryRun": "Business workflow dry run"
+    },
+    "publishPolicy": {
+      "reviewRequired": "Publish after review approval"
+    },
+    "path": {
+      "artifactsSource": "Captured source material",
+      "varsParsed": "Parsed material",
+      "varsExtracted": "Extracted knowledge structure",
+      "varsMetadata": "Enriched metadata",
+      "varsDrafts": "Knowledge drafts awaiting review",
+      "varsPublished": "Published result",
+      "review": "Human review result"
+    },
+    "skill": {
+      "marketingAudioOrDocumentParse": "Parse marketing audio or document",
+      "marketingExtractMethodology": "Extract marketing methodology"
+    },
+    "runtimeError": {
+      "tokenMissing": "Missing login credential",
+      "tenantMissing": "Missing tenant context",
+      "tenantInvalid": "Invalid tenant context",
+      "tenantChanged": "Tenant changed, reconnecting",
+      "tokenChanged": "Credential changed, reconnecting",
+      "manualDisconnect": "Disconnected manually",
+      "connectionFailed": "Connection failed",
+      "connectionClosed": "Connection closed",
+      "networkOffline": "Network offline",
+      "reconnectExhausted": "WebSocket retry limit reached. Check network, tenant context, or backend /api/ws.",
+      "reconnectFailedTitle": "Realtime connection failed"
+    },
+    "role": {
+      "workflowReviewer": "Workflow Reviewer"
     },
     "capabilityModule": {
       "admin": "Admin",
@@ -289,7 +443,8 @@
       "settings": "System Settings",
       "monitor": "Monitor Center",
       "plugin": "Plugins",
-      "plugins": "Plugins"
+      "plugins": "Plugins",
+      "powerx": "Plugin Capabilities"
     },
     "capability": {
       "metadataDictionaryRead": "Read Metadata Dictionaries",
@@ -378,11 +533,27 @@
       "topic": "Event topic",
       "payload_path": "Payload path",
       "event_schema_ref": "Event schema",
+      "taxonomy_namespace": "Taxonomy",
+      "tag_namespace": "Tags",
+      "dictionary_namespace": "Dictionary",
+      "resource_type_namespace": "Resource type",
+      "knowledge_space_uuid": "Target knowledge base",
+      "draft_schema_ref": "Candidate knowledge schema",
+      "draft_refs_path": "Candidate knowledge source",
+      "review_result_path": "Review result",
+      "publish_policy": "Publish policy",
+      "default_route": "Default route",
+      "condition_source_path": "Decision source",
       "reason": "Execution intent",
       "dry_run": "Dry run only",
       "note": "Note"
     },
     "node": {
+      "start": "Start",
+      "end": "End",
+      "workflow": {
+        "end": "End"
+      },
       "input": {
         "capture": "Input Capture"
       },

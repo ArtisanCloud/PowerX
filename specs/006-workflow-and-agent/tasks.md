@@ -210,7 +210,7 @@ Task: "T006 [P] [Found] 实现 WorkflowInstance 模型 (pkg/corex/db/persistence
 - [X] T072 [P0] 更新 `backend/internal/transport/http/admin/workflow/routes.go`，路径参数统一为 `definition_uuid`、`instance_uuid`，新增 node-catalog、review-tasks、packs 路由。
 - [X] T073 [P0] 更新 `backend/internal/transport/grpc/workflow/server.go` 和 proto 生成代码，补齐 Node Catalog、Human Review、Workflow Pack RPC。
 - [X] T074 [P0] 更新 `backend/config/platform_capabilities/workflow.yaml`，覆盖新增 Admin API 和 gRPC capability，并运行 `make capability-check`。
-- [X] T075 [P0] 把 workflow seed 纳入 `make seed` 的顺序执行链路；不得作为隐藏手工步骤。
+- [X] T075 [P0] 把 Workflow Pack Catalog 校验纳入 `make seed` 的顺序执行链路；租户 WorkflowDefinition 必须通过显式启用生成，不得在 seed 中全租户批量 materialize。
 
 ### Web Admin
 

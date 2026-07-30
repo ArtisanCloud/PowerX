@@ -88,10 +88,12 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 	definitionUUID := uuid.New()
 	taskUUID := uuid.New()
 	steps := []StepDefinition{
+		{ID: "capture", Type: "system", NodeKind: "input.capture", NextStepIDs: []string{"review"}},
 		{
-			ID:       "review",
-			Type:     "human_approval",
-			NodeKind: "human.review",
+			ID:        "review",
+			Type:      "human_approval",
+			NodeKind:  "human.review",
+			DependsOn: []string{"capture"},
 			Config: map[string]any{
 				"review_type":         "knowledge_publish",
 				"approver_policy":     map[string]any{"roles": []any{"knowledge_reviewer"}},
@@ -100,11 +102,15 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 				"rejected_route":      "revise",
 			},
 		},
-		{ID: "publish", Type: "system", NodeKind: "knowledge.publish", DependsOn: []string{"review"}},
+		{ID: "publish", Type: "system", NodeKind: "knowledge.publish", DependsOn: []string{"review"}, NextStepIDs: []string{"end"}},
+		{ID: "end", Type: "system", NodeKind: "workflow.end", DependsOn: []string{"publish"}},
 	}
 	registry := NewNodeAdapterRegistry()
 	if err := registry.Register(testNodeAdapter{spec: NodeAdapterSpec{NodeKind: "knowledge.publish"}}); err != nil {
 		t.Fatalf("register adapter: %v", err)
+	}
+	if err := registry.Register(NewWorkflowEndAdapter()); err != nil {
+		t.Fatalf("register end adapter: %v", err)
 	}
 	stepStore := &runnerStepStore{nextID: 1, records: []modelworkflow.WorkflowStepRecord{{
 		PowerModel:     coremodel.PowerModel{ID: 1},
@@ -161,10 +167,10 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 	if err != nil {
 		t.Fatalf("list steps: %v", err)
 	}
-	if len(records) != 2 {
+	if len(records) != 3 {
 		t.Fatalf("expected approved route queued, got records=%#v", records)
 	}
-	if records[0].State != "completed" || records[1].StepID != "publish" || records[1].State != "completed" {
+	if records[0].State != "completed" || records[1].StepID != "publish" || records[1].State != "completed" || records[2].StepID != "end" || records[2].State != "completed" {
 		t.Fatalf("unexpected records: %#v", records)
 	}
 	if instanceStore.instance.State != "succeeded" {

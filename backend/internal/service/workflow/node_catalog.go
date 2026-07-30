@@ -66,6 +66,7 @@ func RegisterWorkflowNodeAdapters(registry *NodeAdapterRegistry, deps WorkflowNo
 	}
 	for _, adapter := range []NodeAdapter{
 		NewInputCaptureAdapter(),
+		NewWorkflowEndAdapter(),
 		NewSkillAdapter(deps.SkillInvoker),
 		NewCapabilityAdapter(deps.CapabilityInvoker),
 		NewMetadataAdapter(deps.MetadataClassifier),
@@ -228,7 +229,7 @@ func mergeNodeCatalogEnrichment(current NodeCatalogEnrichment, next NodeCatalogE
 
 func stepTypeForNodeKind(nodeKind string) string {
 	switch normalizeNodeKind(nodeKind) {
-	case "input.capture":
+	case "input.capture", "workflow.end":
 		return "system"
 	case "skill.invoke", "capability.invoke", "metadata.classify", "knowledge.stage", "knowledge.publish", "event.emit":
 		return "system"

@@ -10,6 +10,17 @@ const emptyStepGraph = (): WorkflowStepDefinition[] => [
     id: "input",
     type: "system",
     node_kind: "input.capture",
+    config: {
+      input_schema_ref: "workflow.input.manual.v1",
+      source_policy: { text: true, form: true },
+      artifact_output_path: "$.artifacts.source",
+    },
+    next_step_ids: ["end"],
+  },
+  {
+    id: "end",
+    type: "system",
+    node_kind: "workflow.end",
     config: {},
   },
 ];
@@ -72,23 +83,20 @@ export function useWorkflowManager() {
       const nextPalette: PaletteItem[] = [];
 
       for (const item of catalog) {
-        const label = item.display_name_i18n_key;
+        const label = workflowNodeLabelForKind(item.node_kind, item.display_name_i18n_key);
         const schema = normalizeSchema(item.config_schema as Record<string, any>);
         nextKinds[item.node_kind] = {
           kind: item.node_kind,
           version: "1",
           label,
-          ports: {
-            inputs: [{ name: "in" }],
-            outputs: [{ name: "out" }, { name: "error" }],
-          },
+          ports: workflowNodePorts(item.node_kind),
           defaultProps: defaultPropsFromSchema(schema),
           schema,
           ui: {
-            shape: item.node_kind === "decision.gateway" ? "diamond" : "card",
-            colorToken: item.category === "human" ? "warning" : "primary",
+            shape: shapeForNodeKind(item.node_kind),
+            colorToken: colorTokenForNodeKind(item.node_kind, item.category),
             icon: iconForNodeKind(item.node_kind),
-            size: { w: 240, h: 96 },
+            size: sizeForNodeKind(item.node_kind),
             badges: [item.category],
           },
         };
@@ -192,6 +200,8 @@ export function useWorkflowManager() {
 }
 
 function iconForNodeKind(nodeKind: string) {
+  if (nodeKind === "input.capture") return "i-heroicons-play";
+  if (nodeKind === "workflow.end") return "i-heroicons-stop";
   if (nodeKind.startsWith("skill.")) return "i-heroicons-command-line";
   if (nodeKind.startsWith("capability.")) return "i-heroicons-bolt";
   if (nodeKind.startsWith("knowledge.")) return "i-heroicons-book-open";
@@ -200,7 +210,53 @@ function iconForNodeKind(nodeKind: string) {
   if (nodeKind.startsWith("decision.")) return "i-heroicons-adjustments-horizontal";
   if (nodeKind.startsWith("parallel.")) return "i-heroicons-arrows-right-left";
   if (nodeKind.startsWith("event.")) return "i-heroicons-megaphone";
+  if (nodeKind.startsWith("compensation.")) return "i-heroicons-arrow-uturn-left";
   return "i-heroicons-square-3-stack-3d";
+}
+
+function workflowNodeLabelForKind(nodeKind: string, fallback: string) {
+  if (nodeKind === "input.capture") return "workflow.node.start";
+  if (nodeKind === "workflow.end") return "workflow.node.end";
+  return fallback;
+}
+
+function workflowNodePorts(nodeKind: string) {
+  if (nodeKind === "input.capture") {
+    return { inputs: [], outputs: [{ name: "out" }] };
+  }
+  if (nodeKind === "workflow.end") {
+    return { inputs: [{ name: "in" }], outputs: [] };
+  }
+  return {
+    inputs: [{ name: "in" }],
+    outputs: [{ name: "out" }, { name: "error" }],
+  };
+}
+
+function shapeForNodeKind(nodeKind: string): "card" | "diamond" | "pill" | "oval" | "minimal" {
+  if (nodeKind === "input.capture" || nodeKind === "workflow.end") return "oval";
+  return "card";
+}
+
+function sizeForNodeKind(nodeKind: string) {
+  if (nodeKind === "input.capture" || nodeKind === "workflow.end") return { w: 172, h: 76 };
+  return { w: 240, h: 96 };
+}
+
+function colorTokenForNodeKind(nodeKind: string, category?: string) {
+  if (nodeKind === "input.capture") return "start";
+  if (nodeKind === "workflow.end") return "end";
+  if (nodeKind.startsWith("skill.")) return "skill";
+  if (nodeKind.startsWith("capability.")) return "capability";
+  if (nodeKind.startsWith("knowledge.")) return "knowledge";
+  if (nodeKind.startsWith("metadata.")) return "metadata";
+  if (nodeKind.startsWith("human.")) return "human";
+  if (nodeKind.startsWith("decision.")) return "decision";
+  if (nodeKind.startsWith("parallel.")) return "parallel";
+  if (nodeKind.startsWith("event.")) return "event";
+  if (nodeKind.startsWith("compensation.")) return "compensation";
+  if (category === "human") return "human";
+  return "default";
 }
 
 function stepGraphToWorkflowNodes(steps: WorkflowStepDefinition[]): WfNode[] {
@@ -214,10 +270,10 @@ function stepGraphToWorkflowNodes(steps: WorkflowStepDefinition[]): WfNode[] {
       label: `workflow.node.${kind}`,
       props: { ...(step.config || {}) },
       ui: {
-        shape: kind === "decision.gateway" ? "diamond" : "card",
-        colorToken: kind.startsWith("human.") ? "warning" : "primary",
+        shape: shapeForNodeKind(kind),
+        colorToken: colorTokenForNodeKind(kind),
         icon: iconForNodeKind(kind),
-        size: { w: 240, h: 96 },
+        size: sizeForNodeKind(kind),
         badges: [nodeKindCategory(kind)],
       },
       position,
