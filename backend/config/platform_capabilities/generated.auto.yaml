@@ -5512,6 +5512,32 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/skills/v1/skills.proto#SkillInvokeService
           auth_type: tenant_jwt
           tool_scope: skills.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.acthumanreviewtask
+      module: workflow
+      title: WorkflowService.ActHumanReviewTask
+      description: Generated from proto
+      permission_code: corex.grpc:acthumanreviewtask
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.acthumanreviewtask
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: ActHumanReviewTask
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
     - capability_id: com.corex.grpc.workflow.workflowservice.archivedefinition
       module: workflow
       title: WorkflowService.ArchiveDefinition
@@ -5642,6 +5668,32 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.gethumanreviewtask
+      module: workflow
+      title: WorkflowService.GetHumanReviewTask
+      description: Generated from proto
+      permission_code: corex.grpc:gethumanreviewtask
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.gethumanreviewtask
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: GetHumanReviewTask
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
     - capability_id: com.corex.grpc.workflow.workflowservice.getinstance
       module: workflow
       title: WorkflowService.GetInstance
@@ -5665,6 +5717,58 @@ capabilities:
         - channel: grpc
           endpoint: powerx.workflow.v1.WorkflowService
           rpc: GetInstance
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.getnodecatalogitem
+      module: workflow
+      title: WorkflowService.GetNodeCatalogItem
+      description: Generated from proto
+      permission_code: corex.grpc:getnodecatalogitem
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.getnodecatalogitem
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: GetNodeCatalogItem
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.getworkflowpack
+      module: workflow
+      title: WorkflowService.GetWorkflowPack
+      description: Generated from proto
+      permission_code: corex.grpc:getworkflowpack
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.getworkflowpack
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: GetWorkflowPack
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
@@ -5694,6 +5798,32 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.listhumanreviewtasks
+      module: workflow
+      title: WorkflowService.ListHumanReviewTasks
+      description: Generated from proto
+      permission_code: corex.grpc:listhumanreviewtasks
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.listhumanreviewtasks
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: ListHumanReviewTasks
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
     - capability_id: com.corex.grpc.workflow.workflowservice.listinstances
       module: workflow
       title: WorkflowService.ListInstances
@@ -5717,6 +5847,58 @@ capabilities:
         - channel: grpc
           endpoint: powerx.workflow.v1.WorkflowService
           rpc: ListInstances
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.listnodecatalog
+      module: workflow
+      title: WorkflowService.ListNodeCatalog
+      description: Generated from proto
+      permission_code: corex.grpc:listnodecatalog
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.listnodecatalog
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: ListNodeCatalog
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.listworkflowpacks
+      module: workflow
+      title: WorkflowService.ListWorkflowPacks
+      description: Generated from proto
+      permission_code: corex.grpc:listworkflowpacks
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.listworkflowpacks
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: ListWorkflowPacks
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
@@ -5746,6 +5928,32 @@ capabilities:
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.seedworkflowpacks
+      module: workflow
+      title: WorkflowService.SeedWorkflowPacks
+      description: Generated from proto
+      permission_code: corex.grpc:seedworkflowpacks
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.seedworkflowpacks
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: SeedWorkflowPacks
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
     - capability_id: com.corex.grpc.workflow.workflowservice.startinstance
       module: workflow
       title: WorkflowService.StartInstance
@@ -5769,6 +5977,32 @@ capabilities:
         - channel: grpc
           endpoint: powerx.workflow.v1.WorkflowService
           rpc: StartInstance
+          schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+          auth_type: tenant_jwt
+          tool_scope: workflow.grpc
+    - capability_id: com.corex.grpc.workflow.workflowservice.validatedefinition
+      module: workflow
+      title: WorkflowService.ValidateDefinition
+      description: Generated from proto
+      permission_code: corex.grpc:validatedefinition
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - workflow
+        - grpc
+        - generated
+      intents:
+        - workflow.validatedefinition
+      tool_scopes:
+        - workflow.grpc
+      policy:
+        prefer: grpc
+      docs:
+        - api/grpc/contracts/powerx/workflow/v1/workflow.proto
+      protocols:
+        - channel: grpc
+          endpoint: powerx.workflow.v1.WorkflowService
+          rpc: ValidateDefinition
           schema_ref: api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
           auth_type: tenant_jwt
           tool_scope: workflow.grpc
@@ -10896,11 +11130,11 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_definitions_definitionid
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_definitions_definition_uuid
       module: admin
-      title: GET /api/v1/admin/workflows/definitions/:definitionId
+      title: GET /api/v1/admin/workflows/definitions/:definition_uuid
       description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_admin_workflows_definitions_definitionid
+      permission_code: corex.rest:get_api_v1_admin_workflows_definitions_definition_uuid
       agent_usable: false
       risk_level: low
       categories:
@@ -10908,7 +11142,7 @@ capabilities:
         - gin
         - generated
       intents:
-        - admin.get_api_v1_admin_workflows_definitions_definitionid
+        - admin.get_api_v1_admin_workflows_definitions_definition_uuid
       tool_scopes:
         - admin.api
       policy:
@@ -10917,7 +11151,7 @@ capabilities:
         - internal/transport/http/admin/workflow/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/workflows/definitions/:definitionId
+          endpoint: /api/v1/admin/workflows/definitions/:definition_uuid
           method: GET
           schema_ref: internal/transport/http/admin/workflow/routes.go#source
           auth_type: tenant_jwt
@@ -10952,11 +11186,11 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_instances_instanceid
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_instances_instance_uuid
       module: admin
-      title: GET /api/v1/admin/workflows/instances/:instanceId
+      title: GET /api/v1/admin/workflows/instances/:instance_uuid
       description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_admin_workflows_instances_instanceid
+      permission_code: corex.rest:get_api_v1_admin_workflows_instances_instance_uuid
       agent_usable: false
       risk_level: low
       categories:
@@ -10964,7 +11198,7 @@ capabilities:
         - gin
         - generated
       intents:
-        - admin.get_api_v1_admin_workflows_instances_instanceid
+        - admin.get_api_v1_admin_workflows_instances_instance_uuid
       tool_scopes:
         - admin.api
       policy:
@@ -10973,7 +11207,175 @@ capabilities:
         - internal/transport/http/admin/workflow/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/workflows/instances/:instanceId
+          endpoint: /api/v1/admin/workflows/instances/:instance_uuid
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_node_catalog
+      module: admin
+      title: GET /api/v1/admin/workflows/node-catalog
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_node_catalog
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_node_catalog
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/node-catalog
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_node_catalog_node_kind
+      module: admin
+      title: GET /api/v1/admin/workflows/node-catalog/:node_kind
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_node_catalog_node_kind
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_node_catalog_node_kind
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/node-catalog/:node_kind
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_packs
+      module: admin
+      title: GET /api/v1/admin/workflows/packs
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_packs
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_packs
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/packs
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_packs_workflow_key
+      module: admin
+      title: GET /api/v1/admin/workflows/packs/:workflow_key
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_packs_workflow_key
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_packs_workflow_key
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/packs/:workflow_key
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_review_tasks
+      module: admin
+      title: GET /api/v1/admin/workflows/review-tasks
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_review_tasks
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_review_tasks
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/review-tasks
+          method: GET
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_workflows_review_tasks_review_task_uuid
+      module: admin
+      title: GET /api/v1/admin/workflows/review-tasks/:review_task_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_workflows_review_tasks_review_task_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_workflows_review_tasks_review_task_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/review-tasks/:review_task_uuid
           method: GET
           schema_ref: internal/transport/http/admin/workflow/routes.go#source
           auth_type: tenant_jwt
@@ -16216,11 +16618,11 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_definitions_definitionid_publish
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_definitions_definition_uuid_publish
       module: admin
-      title: POST /api/v1/admin/workflows/definitions/:definitionId/publish
+      title: POST /api/v1/admin/workflows/definitions/:definition_uuid/publish
       description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_admin_workflows_definitions_definitionid_publish
+      permission_code: corex.rest:post_api_v1_admin_workflows_definitions_definition_uuid_publish
       agent_usable: false
       risk_level: medium
       categories:
@@ -16228,7 +16630,7 @@ capabilities:
         - gin
         - generated
       intents:
-        - admin.post_api_v1_admin_workflows_definitions_definitionid_publish
+        - admin.post_api_v1_admin_workflows_definitions_definition_uuid_publish
       tool_scopes:
         - admin.api
       policy:
@@ -16237,7 +16639,35 @@ capabilities:
         - internal/transport/http/admin/workflow/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/workflows/definitions/:definitionId/publish
+          endpoint: /api/v1/admin/workflows/definitions/:definition_uuid/publish
+          method: POST
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_definitions_definition_uuid_validate
+      module: admin
+      title: POST /api/v1/admin/workflows/definitions/:definition_uuid/validate
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_workflows_definitions_definition_uuid_validate
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_workflows_definitions_definition_uuid_validate
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/definitions/:definition_uuid/validate
           method: POST
           schema_ref: internal/transport/http/admin/workflow/routes.go#source
           auth_type: tenant_jwt
@@ -16272,11 +16702,11 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_instances_instanceid_actions
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_instances_instance_uuid_actions
       module: admin
-      title: POST /api/v1/admin/workflows/instances/:instanceId/actions
+      title: POST /api/v1/admin/workflows/instances/:instance_uuid/actions
       description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_admin_workflows_instances_instanceid_actions
+      permission_code: corex.rest:post_api_v1_admin_workflows_instances_instance_uuid_actions
       agent_usable: false
       risk_level: medium
       categories:
@@ -16284,7 +16714,7 @@ capabilities:
         - gin
         - generated
       intents:
-        - admin.post_api_v1_admin_workflows_instances_instanceid_actions
+        - admin.post_api_v1_admin_workflows_instances_instance_uuid_actions
       tool_scopes:
         - admin.api
       policy:
@@ -16293,7 +16723,63 @@ capabilities:
         - internal/transport/http/admin/workflow/routes.go
       protocols:
         - channel: rest
-          endpoint: /api/v1/admin/workflows/instances/:instanceId/actions
+          endpoint: /api/v1/admin/workflows/instances/:instance_uuid/actions
+          method: POST
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_packs_seed
+      module: admin
+      title: POST /api/v1/admin/workflows/packs/seed
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_workflows_packs_seed
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_workflows_packs_seed
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/packs/seed
+          method: POST
+          schema_ref: internal/transport/http/admin/workflow/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_workflows_review_tasks_review_task_uuid_actions
+      module: admin
+      title: POST /api/v1/admin/workflows/review-tasks/:review_task_uuid/actions
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_workflows_review_tasks_review_task_uuid_actions
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_workflows_review_tasks_review_task_uuid_actions
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/workflow/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/workflows/review-tasks/:review_task_uuid/actions
           method: POST
           schema_ref: internal/transport/http/admin/workflow/routes.go#source
           auth_type: tenant_jwt

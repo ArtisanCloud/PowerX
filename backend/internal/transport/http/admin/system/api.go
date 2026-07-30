@@ -41,18 +41,17 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	gSysUsers := gSys.Group("/users") // 仅 Root 可访问
 	{
 		gSysUsers.GET("", hUser.List)
-		gSysUsers.GET("/:id", hUser.Get)
+		gSysUsers.GET("/:user_uuid", hUser.Get)
 		gSysUsers.POST("", hUser.Create)
-		gSysUsers.POST("/:id/members", hUser.Create)
-		gSysUsers.PATCH("/:id/add-to-tenant", hUser.AddToTenant)
-		gSysUsers.PATCH("/:id", hUser.Update)
-		gSysUsers.PUT("/:id/status", hUser.SetStatus)
-		gSysUsers.PUT("/:id/password", hUser.ResetPassword)
-		gSysUsers.GET("/:id/roles", hUser.ListRoles)
-		gSysUsers.PUT("/:id/roles", hUser.SetRoles)
-		gSysUsers.DELETE("/:id", hUser.Delete)
-		gSysUsers.PUT("/:id/restore", hUser.Restore)
-		gSysUsers.POST("/:id/force-logout", hUser.ForceLogout)
+		gSysUsers.PATCH("/:user_uuid/add-to-tenant", hUser.AddToTenant)
+		gSysUsers.PATCH("/:user_uuid", hUser.Update)
+		gSysUsers.PUT("/:user_uuid/status", hUser.SetStatus)
+		gSysUsers.PUT("/:user_uuid/password", hUser.ResetPassword)
+		gSysUsers.GET("/:user_uuid/roles", hUser.ListRoles)
+		gSysUsers.PUT("/:user_uuid/roles", hUser.SetRoles)
+		gSysUsers.DELETE("/:user_uuid", hUser.Delete)
+		gSysUsers.PUT("/:user_uuid/restore", hUser.Restore)
+		gSysUsers.POST("/:user_uuid/force-logout", hUser.ForceLogout)
 	}
 
 	h := NewSettingHandler(deps.DB)

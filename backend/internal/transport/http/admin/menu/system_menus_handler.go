@@ -417,7 +417,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 				},
 				{
 					Key:      "integration_api_keys",
-					Title:    "API Key 管理",
+					Title:    "menu.integrationApiKeys",
 					Icon:     "i-heroicons-key",
 					URL:      "/settings/integration-api-keys",
 					Order:    6,
@@ -426,6 +426,34 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID: plugin_mgr.KeySettings,
 					Permissions: []string{
 						"menu:settings.integration_api_keys:read",
+					},
+				},
+				{
+					Key:      "open_capabilities",
+					Title:    "menu.openCapabilities",
+					Icon:     "i-heroicons-bolt",
+					URL:      "/settings/open-capabilities",
+					Order:    7,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"admin:tenant",
+						"menu:settings.open_capabilities:read",
+					},
+				},
+				{
+					Key:      "event_fabric",
+					Title:    "menu.eventFabric",
+					Icon:     "i-heroicons-queue-list",
+					URL:      "/settings/event-fabric",
+					Order:    8,
+					Visible:  true,
+					Origin:   plugin_mgr.OriginSystem,
+					ParentID: plugin_mgr.KeySettings,
+					Permissions: []string{
+						"admin:tenant",
+						"menu:settings.event_fabric:read",
 					},
 				},
 			},

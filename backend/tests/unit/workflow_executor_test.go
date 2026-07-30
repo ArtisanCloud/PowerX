@@ -34,7 +34,7 @@ func TestValidateStepDefinitionsUnknownReference(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestValidateHumanApprovalRequiresApprovers(t *testing.T) {
+func TestValidateHumanApprovalRequiresReviewConfig(t *testing.T) {
 	steps := []workflowsvc.StepDefinition{
 		{ID: "review", Type: "human_approval"},
 	}
@@ -43,19 +43,22 @@ func TestValidateHumanApprovalRequiresApprovers(t *testing.T) {
 	require.Contains(t, err.Error(), "requires config")
 }
 
-func TestValidateHumanApprovalRejectsEmptyApprovers(t *testing.T) {
+func TestValidateHumanApprovalRejectsMissingReviewRoute(t *testing.T) {
 	steps := []workflowsvc.StepDefinition{
 		{
 			ID:   "review",
 			Type: "human_approval",
 			Config: map[string]any{
-				"approvers": []any{},
+				"review_type":         "knowledge_publish",
+				"approver_policy":     map[string]any{"roles": []any{"knowledge_reviewer"}},
+				"review_payload_path": "$.draft",
+				"approved_route":      "approved",
 			},
 		},
 	}
 	_, err := workflowsvc.ValidateStepDefinitions(steps)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "approvers")
+	require.Contains(t, err.Error(), "rejected_route")
 }
 
 func TestDecisionExecutorRoutesByResult(t *testing.T) {
@@ -99,12 +102,14 @@ func TestParallelExecutorSelectedBranches(t *testing.T) {
 func TestHumanApprovalExecutorRejectsRoute(t *testing.T) {
 	router := workflowsvc.NewExecutorRouter()
 	step := workflowsvc.StepDefinition{
-		ID:          "approval",
-		Type:        "human_approval",
-		NextStepIDs: []string{"approved"},
+		ID:   "approval",
+		Type: "human_approval",
 		Config: map[string]any{
-			"approvers": []any{"user-1"},
-			"on_reject": []any{"rejected"},
+			"review_type":         "knowledge_publish",
+			"approver_policy":     map[string]any{"roles": []any{"knowledge_reviewer"}},
+			"review_payload_path": "$.draft",
+			"approved_route":      "approved",
+			"rejected_route":      "rejected",
 		},
 	}
 	require.NoError(t, router.Validate(step))

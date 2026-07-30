@@ -18,14 +18,22 @@ func (h *humanApprovalExecutor) Validate(step StepDefinition) error {
 	if step.Config == nil {
 		return fmt.Errorf("human_approval step %s requires config", step.ID)
 	}
-	approvers, err := asStringSlice(step.Config["approvers"])
-	if err != nil || len(approvers) == 0 {
-		return fmt.Errorf("human_approval step %s requires non-empty approvers", step.ID)
-	}
-	if reject, ok := step.Config["on_reject"]; ok && reject != nil {
-		if _, err := asStringSlice(reject); err != nil {
-			return fmt.Errorf("human_approval step %s on_reject: %w", step.ID, err)
+	for _, key := range []string{"review_type", "approver_policy", "review_payload_path", "approved_route", "rejected_route"} {
+		if _, ok := step.Config[key]; !ok {
+			return fmt.Errorf("human_approval step %s requires config.%s", step.ID, key)
 		}
+	}
+	if configString(step.Config, "review_type") == "" {
+		return fmt.Errorf("human_approval step %s requires non-empty review_type", step.ID)
+	}
+	if configString(step.Config, "review_payload_path") == "" {
+		return fmt.Errorf("human_approval step %s requires non-empty review_payload_path", step.ID)
+	}
+	if _, err := singleRoute(step.Config["approved_route"]); err != nil {
+		return fmt.Errorf("human_approval step %s approved_route: %w", step.ID, err)
+	}
+	if _, err := singleRoute(step.Config["rejected_route"]); err != nil {
+		return fmt.Errorf("human_approval step %s rejected_route: %w", step.ID, err)
 	}
 	return nil
 }
@@ -35,23 +43,39 @@ func (h *humanApprovalExecutor) Next(step StepDefinition, result StepResult) ([]
 		return nil, fmt.Errorf("human_approval step %s missing approval result", step.ID)
 	}
 	if result.Approved {
-		return cloneStrings(step.NextStepIDs), nil
+		target, err := singleRoute(step.Config["approved_route"])
+		if err != nil {
+			return nil, err
+		}
+		return []string{target}, nil
 	}
 
 	if step.Config != nil {
-		if reject, ok := step.Config["on_reject"]; ok {
-			targets, err := asStringSlice(reject)
-			if err != nil {
-				return nil, err
-			}
-			targets = normalizeStrings(targets)
-			if len(targets) > 0 {
-				return targets, nil
+		target, err := singleRoute(step.Config["rejected_route"])
+		if err != nil {
+			return nil, err
+		}
+		return []string{target}, nil
+	}
+	return nil, fmt.Errorf("human_approval step %s rejected without rejected_route", step.ID)
+}
+
+func singleRoute(value any) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		if route := configString(map[string]any{"route": typed}, "route"); route != "" {
+			return route, nil
+		}
+	case []string:
+		if len(typed) == 1 && typed[0] != "" {
+			return typed[0], nil
+		}
+	case []any:
+		if len(typed) == 1 {
+			if route, ok := typed[0].(string); ok && route != "" {
+				return route, nil
 			}
 		}
 	}
-	if len(step.NextStepIDs) > 0 {
-		return cloneStrings(step.NextStepIDs), nil
-	}
-	return nil, fmt.Errorf("human_approval step %s rejected without fallback route", step.ID)
+	return "", fmt.Errorf("route must contain exactly one target")
 }

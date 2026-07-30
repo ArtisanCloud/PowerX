@@ -14,7 +14,7 @@ export function useWorkflowTranslator() {
     position = { x: 120, y: 100 }
   ): Node {
     const k = kindMap[p.kind];
-    if (!k) throw new Error(`未知节点类型: ${p.kind}`);
+    if (!k) throw new Error(`workflow.node_kind_unknown:${p.kind}`);
 
     const mergedUI = { ...k.ui, ...(p.uiOverrides || {}) };
     const props = { ...k.defaultProps, ...(p.defaultProps || {}) };
@@ -32,11 +32,11 @@ export function useWorkflowTranslator() {
       schema: k.schema, // 供属性面板渲染与即时校验
     };
 
-    // Vue Flow 的 node.type 建议统一用 "wf-generic"（通用渲染器）
+    // Vue Flow 的 node.type 对应 WorkflowEditor.vue 中的 #node-generic slot。
     // 若 mergedUI.component 存在，可在渲染器内走注册表加载定制组件
     const node: Node = {
       id,
-      type: 'wf-generic',
+      type: 'generic',
       position,
       data,
       width: mergedUI.size?.w,

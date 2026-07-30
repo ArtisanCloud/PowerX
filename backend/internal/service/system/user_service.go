@@ -5,17 +5,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/internal/service/iam"
 	coremdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"strconv"
-	"strings"
 )
+
+var tenantUsernamePattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{2,63}$`)
 
 type UserService struct {
 	DB               *gorm.DB
@@ -176,6 +181,20 @@ func (s *UserService) GetUser(ctx context.Context, id uint64) (*m.User, error) {
 	return s.UserRepo.FindByID(ctx, id)
 }
 
+func (s *UserService) ResolveUserIDByUUID(ctx context.Context, userUUID string) (uint64, error) {
+	canonical, err := normalizeBusinessUUID(userUUID, "user_uuid")
+	if err != nil {
+		return 0, err
+	}
+	var user m.User
+	if err := s.DB.WithContext(ctx).
+		Where("uuid = ?", canonical).
+		First(&user).Error; err != nil {
+		return 0, err
+	}
+	return user.ID, nil
+}
+
 // CreateSystemUser - Root 创建全局 User，并在指定租户创建一个 Member；可选写入密码凭证和部门关系
 func (s *UserService) CreateSystemUser(
 	ctx context.Context,
@@ -184,17 +203,18 @@ func (s *UserService) CreateSystemUser(
 	username string, // 租户内用户名（唯一）
 	initialPwd string, // 可选：初始化密码
 	deptIDs []uint64, // 可选：部门
-	roleIDs []uint64, // 可选：角色ID（为空时默认 role_user）
-) (uint64, error) {
+	roleUUIDs []string, // 可选：角色 UUID（为空时默认 role_user）
+) (string, error) {
 
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if tenantUUID == "" {
-		return 0, errors.New("tenant_uuid required")
+		return "", errors.New("tenant_uuid required")
 	}
-	username = utils.TrimLower(username)
-	if username == "" {
-		return 0, errors.New("username required")
+	normalizedUsername, err := normalizeTenantUsername(username)
+	if err != nil {
+		return "", err
 	}
+	username = normalizedUsername
 
 	// 兜底 user 字段整理
 	user.Email = utils.TrimLower(user.Email)
@@ -203,37 +223,34 @@ func (s *UserService) CreateSystemUser(
 	user.AvatarURL = utils.Trim(user.AvatarURL)
 	user.Status = utils.IfZeroInt16(user.Status, 1)
 
-	var userID uint64
-	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1) Create User
-		if _, err := s.UserRepo.WithDB(tx).Create(ctx, user); err != nil {
+		if err := tx.WithContext(ctx).Create(user).Error; err != nil {
 			return err
 		}
-		userID = user.ID
-
 		// 2) 校验：同租户内 username 唯一；同租户是否已存在该 user 的 member
-		if dup, err := s.MemberRepo.
-			WithDB(tx).
-			GetByCondition(ctx, map[string]any{
-				coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
-				coremdl.TableIAMMember + ".username = ?":    username,
-			}, nil); err != nil {
+		var dup m.Member
+		if err := tx.WithContext(ctx).
+			Where("tenant_uuid = ? AND username = ?", tenantUUID, username).
+			First(&dup).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
-		} else if dup != nil {
+		} else if err == nil {
 			return errors.New("username already taken in this tenant")
 		}
-		if existed, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
-			coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
-			coremdl.TableIAMMember + ".user_id = ?":     user.ID,
-		}, nil); err != nil {
+
+		var existed m.Member
+		if err := tx.WithContext(ctx).
+			Where("tenant_uuid = ? AND user_id = ?", tenantUUID, user.ID).
+			First(&existed).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
-		} else if existed != nil {
+		} else if err == nil {
 			return errors.New("already a member of this tenant")
 		}
 
 		// 3) Create Member
 		mem := &m.Member{
 			TenantUUID:  tenantUUID,
+			UserUUID:    user.UUID.String(),
 			UserID:      user.ID,
 			Username:    username,
 			DisplayName: utils.FirstNonEmpty(user.DisplayName, username),
@@ -241,13 +258,11 @@ func (s *UserService) CreateSystemUser(
 			Status:      user.Status,
 			Meta:        user.Meta,
 		}
-		if _, err := s.MemberRepo.
-			WithDB(tx).
-			Create(ctx, mem); err != nil {
+		if err := tx.WithContext(ctx).Create(mem).Error; err != nil {
 			return err
 		}
 		// 角色绑定：有显式角色时使用显式角色；否则默认 role_user。
-		if err := s.applyMemberRolesTx(ctx, tx, tenantUUID, mem.ID, roleIDs); err != nil {
+		if err := s.applyMemberRoleUUIDsTx(ctx, tx, tenantUUID, mem.ID, roleUUIDs); err != nil {
 			return err
 		}
 
@@ -264,15 +279,13 @@ func (s *UserService) CreateSystemUser(
 			if identifier == "" {
 				identifier = username
 			}
-			if _, err = s.CredRepo.
-				WithDB(tx).
-				Create(ctx, &m.Credential{
-					UserID:     user.ID,
-					Provider:   "password",
-					Identifier: identifier,
-					SecretHash: string(hash), // bcrypt
-					IsPrimary:  true,
-				}); err != nil {
+			if err = tx.WithContext(ctx).Create(&m.Credential{
+				UserID:     user.ID,
+				Provider:   "password",
+				Identifier: identifier,
+				SecretHash: string(hash), // bcrypt
+				IsPrimary:  true,
+			}).Error; err != nil {
 				return err
 			}
 		}
@@ -287,23 +300,24 @@ func (s *UserService) CreateSystemUser(
 					DepartmentID: did,
 				})
 			}
-			if _, err := s.MemberDeptRepo.
-				WithDB(tx).
-				CreateBatch(ctx, rows); err != nil {
+			if err := tx.WithContext(ctx).Create(&rows).Error; err != nil {
 				return err
 			}
 		}
 
 		return nil
 	})
-	return userID, err
+	if err != nil {
+		return "", err
+	}
+	return user.UUID.String(), nil
 }
 
 // AddUserToTenant - 把已存在的 User 加入指定租户（创建 member）
-func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenantUUID string) (memberID uint64, err error) {
+func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenantUUID string) (memberUUID string, err error) {
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if userID == 0 || tenantUUID == "" {
-		return 0, errors.New("user_id/tenant_uuid required")
+		return "", errors.New("user_id/tenant_uuid required")
 	}
 
 	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -347,6 +361,7 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 
 		mem := &m.Member{
 			TenantUUID:  tenantUUID,
+			UserUUID:    u.UUID.String(),
 			UserID:      userID,
 			Username:    username,
 			DisplayName: displayName,
@@ -361,13 +376,13 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 		if err := s.applyMemberRolesTx(ctx, tx, tenantUUID, mem.ID, nil); err != nil {
 			return err
 		}
-		memberID = mem.ID
+		memberUUID = mem.UUID.String()
 		return nil
 	})
-	return memberID, err
+	return memberUUID, err
 }
 
-func (s *UserService) ListUserRoleIDs(ctx context.Context, userID uint64, tenantUUID string) ([]uint64, error) {
+func (s *UserService) ListUserRoleUUIDs(ctx context.Context, userID uint64, tenantUUID string) ([]string, error) {
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if userID == 0 || tenantUUID == "" {
 		return nil, errors.New("user_id/tenant_uuid required")
@@ -381,21 +396,21 @@ func (s *UserService) ListUserRoleIDs(ctx context.Context, userID uint64, tenant
 		return nil, err
 	}
 	if member == nil {
-		return []uint64{}, nil
+		return []string{}, nil
 	}
 
 	roles, err := repoi.NewRoleBindingRepository(s.DB).ListRolesByMember(ctx, tenantUUID, member.ID)
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]uint64, 0, len(roles))
+	ids := make([]string, 0, len(roles))
 	for _, role := range roles {
-		ids = append(ids, role.ID)
+		ids = append(ids, role.UUID.String())
 	}
 	return ids, nil
 }
 
-func (s *UserService) SetUserRoleIDs(ctx context.Context, userID uint64, tenantUUID string, roleIDs []uint64) error {
+func (s *UserService) SetUserRoleUUIDs(ctx context.Context, userID uint64, tenantUUID string, roleUUIDs []string) error {
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if userID == 0 || tenantUUID == "" {
 		return errors.New("user_id/tenant_uuid required")
@@ -413,63 +428,115 @@ func (s *UserService) SetUserRoleIDs(ctx context.Context, userID uint64, tenantU
 	}
 
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return s.applyMemberRolesTx(ctx, tx, tenantUUID, member.ID, roleIDs)
+		return s.applyMemberRoleUUIDsTx(ctx, tx, tenantUUID, member.ID, roleUUIDs)
 	})
 }
 
-func (s *UserService) applyMemberRolesTx(ctx context.Context, tx *gorm.DB, tenantUUID string, memberID uint64, roleIDs []uint64) error {
+func (s *UserService) applyMemberRoleUUIDsTx(ctx context.Context, tx *gorm.DB, tenantUUID string, memberID uint64, roleUUIDs []string) error {
+	roles, err := resolveTenantRolesByUUIDsTx(ctx, tx, tenantUUID, roleUUIDs)
+	if err != nil {
+		return err
+	}
+	return s.applyMemberRolesTx(ctx, tx, tenantUUID, memberID, roles)
+}
+
+func resolveTenantRolesByUUIDsTx(ctx context.Context, tx *gorm.DB, tenantUUID string, roleUUIDs []string) ([]m.Role, error) {
+	if len(roleUUIDs) == 0 {
+		return nil, nil
+	}
+	normalized := make([]string, 0, len(roleUUIDs))
+	seen := make(map[string]struct{}, len(roleUUIDs))
+	for _, raw := range roleUUIDs {
+		roleUUID, err := normalizeBusinessUUID(raw, "role_uuid")
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[roleUUID]; ok {
+			continue
+		}
+		seen[roleUUID] = struct{}{}
+		normalized = append(normalized, roleUUID)
+	}
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+
+	var roles []m.Role
+	if err := tx.WithContext(ctx).
+		Where("scope = ? AND tenant_uuid = ? AND uuid IN ?", "tenant", tenantUUID, normalized).
+		Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	if len(roles) != len(normalized) {
+		return nil, errors.New("contains invalid tenant role uuids")
+	}
+	for _, role := range roles {
+		if role.ID == 0 || role.UUID == uuid.Nil {
+			return nil, errors.New("tenant role missing uuid")
+		}
+	}
+	return roles, nil
+}
+
+func (s *UserService) applyMemberRolesTx(ctx context.Context, tx *gorm.DB, tenantUUID string, memberID uint64, roles []m.Role) error {
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if tenantUUID == "" || memberID == 0 {
 		return errors.New("tenant_uuid/member_id required")
 	}
 
-	targetRoleIDs := make([]uint64, 0, len(roleIDs))
-	seen := make(map[uint64]struct{}, len(roleIDs))
-	for _, id := range roleIDs {
-		if id == 0 {
+	var member m.Member
+	if err := tx.WithContext(ctx).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).
+		First(&member).Error; err != nil {
+		return err
+	}
+	memberUUID := strings.TrimSpace(member.UUID.String())
+	if member.UUID == uuid.Nil || memberUUID == "" {
+		return errors.New("member missing uuid")
+	}
+
+	targetRoles := make([]m.Role, 0, len(roles))
+	seen := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		roleUUID := strings.TrimSpace(role.UUID.String())
+		if role.ID == 0 || role.UUID == uuid.Nil || roleUUID == "" {
+			return errors.New("tenant role missing uuid")
+		}
+		if _, ok := seen[roleUUID]; ok {
 			continue
 		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		targetRoleIDs = append(targetRoleIDs, id)
+		seen[roleUUID] = struct{}{}
+		targetRoles = append(targetRoles, role)
 	}
 
 	// 没有显式角色时，兜底到 role_user。
-	if len(targetRoleIDs) == 0 {
+	if len(targetRoles) == 0 {
 		var roleUser m.Role
 		if err := tx.WithContext(ctx).
 			Where("scope = ? AND tenant_uuid = ? AND code = ?", "tenant", tenantUUID, "role_user").
 			First(&roleUser).Error; err != nil {
 			return err
 		}
-		targetRoleIDs = []uint64{roleUser.ID}
-	}
-
-	var validRoleIDs []uint64
-	if err := tx.WithContext(ctx).
-		Model(&m.Role{}).
-		Where("scope = ? AND tenant_uuid = ? AND id IN ?", "tenant", tenantUUID, targetRoleIDs).
-		Pluck("id", &validRoleIDs).Error; err != nil {
-		return err
-	}
-	if len(validRoleIDs) != len(targetRoleIDs) {
-		return errors.New("contains invalid tenant role ids")
+		if roleUser.ID == 0 || roleUser.UUID == uuid.Nil {
+			return errors.New("tenant role_user missing uuid")
+		}
+		targetRoles = []m.Role{roleUser}
 	}
 
 	if err := tx.WithContext(ctx).
-		Where("tenant_uuid = ? AND subject_type = ? AND subject_id = ?", tenantUUID, m.SubMember, memberID).
+		Where("tenant_uuid = ? AND subject_type = ? AND subject_uuid = ?", tenantUUID, m.SubMember, memberUUID).
 		Delete(&m.RoleBinding{}).Error; err != nil {
 		return err
 	}
 
-	bindings := make([]m.RoleBinding, 0, len(validRoleIDs))
-	for _, rid := range validRoleIDs {
+	bindings := make([]m.RoleBinding, 0, len(targetRoles))
+	for _, role := range targetRoles {
 		bindings = append(bindings, m.RoleBinding{
 			TenantUUID:  tenantUUID,
-			RoleID:      rid,
+			RoleUUID:    role.UUID.String(),
+			RoleID:      role.ID,
 			SubjectType: m.SubMember,
+			SubjectUUID: memberUUID,
 			SubjectID:   memberID,
 		})
 	}
@@ -548,6 +615,182 @@ func (s *UserService) UpdateUser(ctx context.Context, id uint64, updates map[str
 	}
 	_, err := s.UserRepo.Patch(ctx, map[string]any{"id": id}, updates)
 	return err
+}
+
+func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantUUID string, updates map[string]any, username *string) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if id == 0 || tenantUUID == "" {
+		return errors.New("user_id/tenant_uuid required")
+	}
+
+	userFields := map[string]any{}
+	memberFields := map[string]any{}
+	if v, ok := updates["email"].(string); ok {
+		userFields["email"] = utils.TrimLower(v)
+	}
+	if v, ok := updates["phone"].(string); ok {
+		userFields["phone"] = utils.Trim(v)
+	}
+	if v, ok := updates["display_name"].(string); ok {
+		trimmed := utils.Trim(v)
+		userFields["display_name"] = trimmed
+		memberFields["display_name"] = trimmed
+	}
+	if v, ok := updates["avatar_url"].(string); ok {
+		trimmed := utils.Trim(v)
+		userFields["avatar_url"] = trimmed
+		memberFields["avatar_url"] = trimmed
+	}
+	if v, ok := updates["status"].(int16); ok {
+		userFields["status"] = v
+		memberFields["status"] = v
+	}
+	if v, ok := updates["status"].(int); ok {
+		userFields["status"] = v
+		memberFields["status"] = v
+	}
+	if username != nil {
+		normalized, err := normalizeTenantUsername(*username)
+		if err != nil {
+			return err
+		}
+		memberFields["username"] = normalized
+	}
+
+	if len(userFields) == 0 && len(memberFields) == 0 {
+		return nil
+	}
+
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user m.User
+		if err := tx.Where("id = ?", id).First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("user not found")
+			}
+			return err
+		}
+
+		var member m.Member
+		if err := tx.Where("tenant_uuid = ? AND user_id = ?", tenantUUID, id).First(&member).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("member not found in tenant")
+			}
+			return err
+		}
+
+		if candidate, ok := memberFields["username"].(string); ok && candidate != "" && candidate != member.Username {
+			var dup m.Member
+			if err := tx.Where("tenant_uuid = ? AND username = ?", tenantUUID, candidate).First(&dup).Error; err != nil {
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+			} else if dup.UserID != id {
+				return errors.New("username already taken in this tenant")
+			}
+		}
+
+		nextEmail := user.Email
+		if v, ok := userFields["email"].(string); ok {
+			nextEmail = v
+		}
+		nextPhone := user.Phone
+		if v, ok := userFields["phone"].(string); ok {
+			nextPhone = v
+		}
+		nextUsername := member.Username
+		if v, ok := memberFields["username"].(string); ok {
+			nextUsername = v
+		}
+		if err := syncPasswordCredentialIdentifierTx(ctx, tx, id, user.Email, nextEmail); err != nil {
+			return err
+		}
+		if err := syncPasswordCredentialIdentifierTx(ctx, tx, id, user.Phone, nextPhone); err != nil {
+			return err
+		}
+		if err := syncPasswordCredentialIdentifierTx(ctx, tx, id, member.Username, nextUsername); err != nil {
+			return err
+		}
+
+		if len(userFields) > 0 {
+			if err := tx.Model(&m.User{}).Where("id = ?", id).Updates(userFields).Error; err != nil {
+				return err
+			}
+		}
+		if len(memberFields) > 0 {
+			if err := tx.Model(&m.Member{}).
+				Where("tenant_uuid = ? AND user_id = ?", tenantUUID, id).
+				Updates(memberFields).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func syncPasswordCredentialIdentifierTx(ctx context.Context, tx *gorm.DB, userID uint64, oldIdentifier string, newIdentifier string) error {
+	oldIdentifier = utils.TrimLower(oldIdentifier)
+	newIdentifier = utils.TrimLower(newIdentifier)
+	if oldIdentifier == newIdentifier {
+		return nil
+	}
+	if oldIdentifier == "" {
+		return nil
+	}
+
+	var oldCred m.Credential
+	if err := tx.WithContext(ctx).
+		Where("provider = ? AND identifier = ?", "password", oldIdentifier).
+		First(&oldCred).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if oldCred.UserID != userID {
+		return fmt.Errorf("identifier %s is already used by another user", oldIdentifier)
+	}
+	if newIdentifier == "" {
+		return tx.WithContext(ctx).Delete(&oldCred).Error
+	}
+
+	var newCred m.Credential
+	if err := tx.WithContext(ctx).
+		Where("provider = ? AND identifier = ?", "password", newIdentifier).
+		First(&newCred).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		return tx.WithContext(ctx).
+			Model(&m.Credential{}).
+			Where("id = ?", oldCred.ID).
+			Update("identifier", newIdentifier).Error
+	}
+	if newCred.UserID != userID {
+		return fmt.Errorf("identifier %s is already used by another user", newIdentifier)
+	}
+	if newCred.ID != oldCred.ID {
+		return tx.WithContext(ctx).Delete(&oldCred).Error
+	}
+	return nil
+}
+
+func normalizeTenantUsername(raw string) (string, error) {
+	username := utils.TrimLower(raw)
+	if username == "" {
+		return "", errors.New("username required")
+	}
+	if !tenantUsernamePattern.MatchString(username) {
+		return "", errors.New("username format invalid")
+	}
+	return username, nil
+}
+
+func normalizeBusinessUUID(raw string, field string) (string, error) {
+	parsed, err := uuid.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed == uuid.Nil {
+		return "", fmt.Errorf("%s invalid", field)
+	}
+	return parsed.String(), nil
 }
 
 func (s *UserService) SetUserStatus(ctx context.Context, id uint64, status int16) error {

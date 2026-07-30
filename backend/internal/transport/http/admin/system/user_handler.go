@@ -4,11 +4,11 @@ package system
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	svciam "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	systemsvc "github.com/ArtisanCloud/PowerX/internal/service/system"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
@@ -23,6 +23,15 @@ import (
 type UserHandler struct {
 	S          *systemsvc.UserService
 	tenantRepo *tenantrepo.TenantRepository
+}
+
+func (h *UserHandler) requireUserIDFromUUIDParam(c *gin.Context) (uint64, bool) {
+	userID, err := h.S.ResolveUserIDByUUID(c.Request.Context(), c.Param("user_uuid"))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "缺少有效用户参数", err)
+		return 0, false
+	}
+	return userID, true
 }
 
 func NewUserHandler(deps *shared.Deps) *UserHandler {
@@ -49,7 +58,7 @@ func tenantRepoFromDeps(deps *shared.Deps) *tenantrepo.TenantRepository {
 // ============= DTO（仅包含模型没有的扩展字段） =============
 
 type UserDTO struct {
-	ID          uint64      `json:"id"`
+	UUID        string      `json:"uuid"`
 	Email       string      `json:"email,omitempty"`
 	Phone       string      `json:"phone,omitempty"`
 	DisplayName string      `json:"display_name"`
@@ -57,27 +66,97 @@ type UserDTO struct {
 	Status      int16       `json:"status"`
 	LastLoginAt *int64      `json:"last_login_at,omitempty"`
 	Meta        interface{} `json:"meta,omitempty"`
-	MemberID    *uint64     `json:"member_id,omitempty"`
+	MemberUUID  *string     `json:"member_uuid,omitempty"`
 	UserName    *string     `json:"username,omitempty"`
+}
+
+type MemberDTO struct {
+	UUID        string      `json:"uuid"`
+	TenantUUID  string      `json:"tenant_uuid"`
+	UserUUID    string      `json:"user_uuid"`
+	UserName    string      `json:"username"`
+	DisplayName string      `json:"display_name"`
+	AvatarURL   string      `json:"avatar_url,omitempty"`
+	Status      int16       `json:"status"`
+	Meta        interface{} `json:"meta,omitempty"`
+}
+
+type MemberWithProfileDTO struct {
+	Member  *MemberDTO `json:"Member"`
+	User    *UserDTO   `json:"User"`
+	DeptIDs []uint64   `json:"DeptIDs,omitempty"`
+}
+
+func toMemberWithProfileDTOs(items []svciam.MemberWithProfile) []MemberWithProfileDTO {
+	out := make([]MemberWithProfileDTO, 0, len(items))
+	for i := range items {
+		out = append(out, toMemberWithProfileDTO(items[i]))
+	}
+	return out
+}
+
+func toMemberWithProfileDTO(item svciam.MemberWithProfile) MemberWithProfileDTO {
+	var userDTO *UserDTO
+	if item.User != nil {
+		userDTO = &UserDTO{
+			UUID:        item.User.UUID.String(),
+			Email:       item.User.Email,
+			Phone:       item.User.Phone,
+			DisplayName: item.User.DisplayName,
+			AvatarURL:   item.User.AvatarURL,
+			Status:      item.User.Status,
+			LastLoginAt: item.User.LastLoginAt,
+			Meta:        item.User.Meta,
+		}
+	}
+
+	var memberDTO *MemberDTO
+	if item.Member != nil {
+		memberUUID := item.Member.UUID.String()
+		memberDTO = &MemberDTO{
+			UUID:        memberUUID,
+			TenantUUID:  item.Member.TenantUUID,
+			UserUUID:    item.Member.UserUUID,
+			UserName:    item.Member.Username,
+			DisplayName: item.Member.DisplayName,
+			AvatarURL:   item.Member.AvatarURL,
+			Status:      item.Member.Status,
+			Meta:        item.Member.Meta,
+		}
+		if userDTO != nil {
+			userDTO.MemberUUID = &memberUUID
+			userDTO.UserName = &item.Member.Username
+		}
+	}
+
+	return MemberWithProfileDTO{
+		Member:  memberDTO,
+		User:    userDTO,
+		DeptIDs: item.DeptIDs,
+	}
 }
 
 type ListUsersReq struct {
 	dto.PaginationRequest
-	Keyword string `form:"q"`
-	Status  *int16 `form:"status"`
+	TenantUUID string `form:"tenant_uuid" validate:"required"`
+	Keyword    string `form:"q"`
+	Status     *int16 `form:"status"`
 }
 
 // 创建用户并把该用户加入租户时需要的扩展字段（模型字段直接来自 m.User）
 type CreateSystemUserReq struct {
 	m.User `json:",inline"`
 
+	TenantUUID      string   `json:"tenant_uuid" validate:"required"`
 	UserName        string   `json:"username" validate:"required,min=3,max=64"` // 在租户内的用户名
 	InitialPassword string   `json:"initial_password" validate:"omitempty,min=6,max=64"`
-	DeptIDs         []uint64 `json:"dept_ids"` // 创建 member 时绑定的部门（可选）
-	RoleIDs         []uint64 `json:"role_ids"` // 创建 member 时绑定的角色（可选，空则默认 role_user）
+	DeptIDs         []uint64 `json:"dept_ids"`   // 创建 member 时绑定的部门（可选）
+	RoleUUIDs       []string `json:"role_uuids"` // 创建 member 时绑定的角色（可选，空则默认 role_user）
 }
 
 type UpdateUserReq struct {
+	TenantUUID  string  `json:"tenant_uuid" validate:"required"`
+	UserName    *string `json:"username" validate:"omitempty,min=3,max=64"`
 	Email       *string `json:"email" validate:"omitempty,email"`
 	Phone       *string `json:"phone"`
 	DisplayName *string `json:"display_name"`
@@ -102,7 +181,12 @@ type AddUserToTenantReq struct {
 }
 
 type SetUserRolesReq struct {
-	RoleIDs []uint64 `json:"role_ids"`
+	TenantUUID string   `json:"tenant_uuid" validate:"required"`
+	RoleUUIDs  []string `json:"role_uuids"`
+}
+
+type ListUserRolesReq struct {
+	TenantUUID string `form:"tenant_uuid" validate:"required"`
 }
 
 // ============= Handlers（全部转发给 Service） =============
@@ -116,7 +200,7 @@ func (h *UserHandler) List(c *gin.Context) {
 	}
 	req.SetDefaultPagination()
 
-	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	tenantCtx, ok := requireTenantContextByUUID(c, h.tenantRepo, req.TenantUUID)
 	if !ok {
 		return
 	}
@@ -136,12 +220,15 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	dto.ResponseList(c, users, &dto.PaginationResponse{Total: total, Page: req.Page, PageSize: req.PageSize})
+	dto.ResponseList(c, toMemberWithProfileDTOs(users), &dto.PaginationResponse{Total: total, Page: req.Page, PageSize: req.PageSize})
 }
 
-// GET /api/admin/system/users/:id
+// GET /api/admin/system/users/:user_uuid
 func (h *UserHandler) Get(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	ctx := c.Request.Context()
 
 	// Service：GetUser(ctx, id) (*m.User, error)
@@ -151,7 +238,7 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, UserDTO{
-		ID:          u.ID,
+		UUID:        u.UUID.String(),
 		Email:       u.Email,
 		Phone:       u.Phone,
 		DisplayName: u.DisplayName,
@@ -170,7 +257,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	tenantCtx, ok := requireTenantContextByUUID(c, h.tenantRepo, req.TenantUUID)
 	if !ok {
 		return
 	}
@@ -185,27 +272,29 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Meta:        req.Meta,
 	}
 
-	// Service：CreateSystemUser(ctx, user *m.User, tenantID uint64, username, initialPassword string, deptIDs []uint64) (userID uint64, err error)
-	id, err := h.S.CreateSystemUser(
+	userUUID, err := h.S.CreateSystemUser(
 		ctx,
 		u,
 		tenantCtx.UUID(),
 		strings.ToLower(strings.TrimSpace(req.UserName)),
 		strings.TrimSpace(req.InitialPassword),
 		req.DeptIDs,
-		req.RoleIDs,
+		req.RoleUUIDs,
 	)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "创建失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"id": id})
+	dto.ResponseSuccess(c, gin.H{"user_uuid": userUUID})
 }
 
-// PATCH /api/admin/system/users/:id/add-to-tenant
+// PATCH /api/admin/system/users/:user_uuid/add-to-tenant
 // Root 视角：把已存在的 User 加入某个租户（创建 Member）
 func (h *UserHandler) AddToTenant(c *gin.Context) {
-	userID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	userID, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 
 	var req AddUserToTenantReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -218,20 +307,27 @@ func (h *UserHandler) AddToTenant(c *gin.Context) {
 		return
 	}
 
-	memberID, err := h.S.AddUserToTenant(c.Request.Context(), userID, tenantCtx.UUID())
+	memberUUID, err := h.S.AddUserToTenant(c.Request.Context(), userID, tenantCtx.UUID())
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "加入租户失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"member_id": memberID})
+	dto.ResponseSuccess(c, gin.H{"member_uuid": memberUUID})
 }
 
-// PATCH /api/admin/system/users/:id
+// PATCH /api/admin/system/users/:user_uuid
 func (h *UserHandler) Update(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	var req UpdateUserReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
+		return
+	}
+	tenantCtx, ok := requireTenantContextByUUID(c, h.tenantRepo, req.TenantUUID)
+	if !ok {
 		return
 	}
 	ctx := c.Request.Context()
@@ -252,22 +348,25 @@ func (h *UserHandler) Update(c *gin.Context) {
 	if req.Status != nil {
 		updates["status"] = *req.Status
 	}
-	if len(updates) == 0 {
+	if len(updates) == 0 && req.UserName == nil {
 		dto.ResponseSuccess(c, gin.H{"ok": true})
 		return
 	}
 
-	// Service：UpdateUser(ctx, id uint64, updates map[string]any) error
-	if err := h.S.UpdateUser(ctx, id, updates); err != nil {
+	// Service：UpdateUserInTenant(ctx, id, tenant_uuid, updates, username) error
+	if err := h.S.UpdateUserInTenant(ctx, id, tenantCtx.UUID(), updates, req.UserName); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "更新用户失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// PUT /api/admin/system/users/:id/status
+// PUT /api/admin/system/users/:user_uuid/status
 func (h *UserHandler) SetStatus(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	var req SetStatusReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -283,9 +382,12 @@ func (h *UserHandler) SetStatus(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// DELETE /api/admin/system/users/:id
+// DELETE /api/admin/system/users/:user_uuid
 func (h *UserHandler) Delete(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	ctx := c.Request.Context()
 
 	// Service：DeleteUser(ctx, id uint64) error
@@ -296,9 +398,12 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// PUT /api/admin/system/users/:id/restore
+// PUT /api/admin/system/users/:user_uuid/restore
 func (h *UserHandler) Restore(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	ctx := c.Request.Context()
 
 	// Service：RestoreUser(ctx, id uint64) error
@@ -309,9 +414,8 @@ func (h *UserHandler) Restore(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// POST /api/admin/system/users/:id/force-logout
+// POST /api/admin/system/users/:user_uuid/force-logout
 func (h *UserHandler) ForceLogout(c *gin.Context) {
-	_, _ = strconv.ParseUint(c.Param("id"), 10, 64) // 仅路径占位；真正按 JTI 撤销
 	var req ForceLogoutReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -331,9 +435,12 @@ func (h *UserHandler) ForceLogout(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// PUT /api/admin/system/users/:id/password
+// PUT /api/admin/system/users/:user_uuid/password
 func (h *UserHandler) ResetPassword(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	var req ResetPasswordReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -346,34 +453,45 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// GET /api/admin/system/users/:id/roles
+// GET /api/admin/system/users/:user_uuid/roles
 func (h *UserHandler) ListRoles(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	id, ok := h.requireUserIDFromUUIDParam(c)
 	if !ok {
 		return
 	}
-	roleIDs, err := h.S.ListUserRoleIDs(c.Request.Context(), id, tenantCtx.UUID())
+	var req ListUserRolesReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	tenantCtx, ok := requireTenantContextByUUID(c, h.tenantRepo, req.TenantUUID)
+	if !ok {
+		return
+	}
+	roleUUIDs, err := h.S.ListUserRoleUUIDs(c.Request.Context(), id, tenantCtx.UUID())
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询用户角色失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"role_ids": roleIDs})
+	dto.ResponseSuccess(c, gin.H{"role_uuids": roleUUIDs})
 }
 
-// PUT /api/admin/system/users/:id/roles
+// PUT /api/admin/system/users/:user_uuid/roles
 func (h *UserHandler) SetRoles(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := h.requireUserIDFromUUIDParam(c)
+	if !ok {
+		return
+	}
 	var req SetUserRolesReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	tenantCtx, ok := requireTenantContextByUUID(c, h.tenantRepo, req.TenantUUID)
 	if !ok {
 		return
 	}
-	if err := h.S.SetUserRoleIDs(c.Request.Context(), id, tenantCtx.UUID(), req.RoleIDs); err != nil {
+	if err := h.S.SetUserRoleUUIDs(c.Request.Context(), id, tenantCtx.UUID(), req.RoleUUIDs); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置用户角色失败", err)
 		return
 	}

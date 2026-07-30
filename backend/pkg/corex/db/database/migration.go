@@ -35,6 +35,7 @@ import (
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Migrate 执行数据库迁移
@@ -133,6 +134,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = backfillIAMRoleUUID(db); err != nil {
+		return err
+	}
+	if err = backfillIAMRelationshipUUIDs(db); err != nil {
 		return err
 	}
 
@@ -290,6 +294,94 @@ func backfillIAMRoleUUID(db *gorm.DB) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func backfillIAMRelationshipUUIDs(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(db.Dialector.Name()), "postgres") {
+		return nil
+	}
+
+	userTable := (&modelIAM.User{}).GetTableName(true)
+	memberTable := (&modelIAM.Member{}).GetTableName(true)
+	roleTable := (&modelIAM.Role{}).GetTableName(true)
+	roleBindingTable := (&modelIAM.RoleBinding{}).GetTableName(true)
+
+	if err := db.Exec(fmt.Sprintf(`
+		UPDATE %s AS m
+		SET user_uuid = u.uuid::text
+		FROM %s AS u
+		WHERE m.user_id = u.id
+		  AND (m.user_uuid IS NULL OR m.user_uuid = '' OR m.user_uuid = '00000000-0000-0000-0000-000000000000')
+	`, memberTable, userTable)).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec(fmt.Sprintf(`
+		UPDATE %s AS rb
+		SET role_uuid = r.uuid::text
+		FROM %s AS r
+		WHERE rb.role_id = r.id
+		  AND (rb.role_uuid IS NULL OR rb.role_uuid = '' OR rb.role_uuid = '00000000-0000-0000-0000-000000000000')
+	`, roleBindingTable, roleTable)).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec(fmt.Sprintf(`
+		UPDATE %s AS rb
+		SET subject_uuid = m.uuid::text
+		FROM %s AS m
+		WHERE rb.subject_type = ?
+		  AND rb.subject_id = m.id
+		  AND rb.tenant_uuid = m.tenant_uuid
+		  AND (rb.subject_uuid IS NULL OR rb.subject_uuid = '' OR rb.subject_uuid = '00000000-0000-0000-0000-000000000000')
+	`, roleBindingTable, memberTable), modelIAM.SubMember).Error; err != nil {
+		return err
+	}
+
+	var missingMemberUserUUID int64
+	if err := db.Raw(fmt.Sprintf(`
+		SELECT COUNT(1)
+		FROM %s
+		WHERE user_id > 0
+		  AND (user_uuid IS NULL OR user_uuid = '' OR user_uuid = '00000000-0000-0000-0000-000000000000')
+	`, memberTable)).Scan(&missingMemberUserUUID).Error; err != nil {
+		return err
+	}
+	if missingMemberUserUUID > 0 {
+		return fmt.Errorf("iam_member has %d row(s) without resolvable user_uuid", missingMemberUserUUID)
+	}
+
+	var missingRoleBindingRoleUUID int64
+	if err := db.Raw(fmt.Sprintf(`
+		SELECT COUNT(1)
+		FROM %s
+		WHERE role_id > 0
+		  AND (role_uuid IS NULL OR role_uuid = '' OR role_uuid = '00000000-0000-0000-0000-000000000000')
+	`, roleBindingTable)).Scan(&missingRoleBindingRoleUUID).Error; err != nil {
+		return err
+	}
+	if missingRoleBindingRoleUUID > 0 {
+		return fmt.Errorf("iam_role_binding has %d row(s) without resolvable role_uuid", missingRoleBindingRoleUUID)
+	}
+
+	var missingRoleBindingSubjectUUID int64
+	if err := db.Raw(fmt.Sprintf(`
+		SELECT COUNT(1)
+		FROM %s
+		WHERE subject_type = ?
+		  AND subject_id > 0
+		  AND (subject_uuid IS NULL OR subject_uuid = '' OR subject_uuid = '00000000-0000-0000-0000-000000000000')
+	`, roleBindingTable), modelIAM.SubMember).Scan(&missingRoleBindingSubjectUUID).Error; err != nil {
+		return err
+	}
+	if missingRoleBindingSubjectUUID > 0 {
+		return fmt.Errorf("iam_role_binding has %d member binding row(s) without resolvable subject_uuid", missingRoleBindingSubjectUUID)
+	}
+
 	return nil
 }
 
@@ -452,14 +544,74 @@ func migrateRuntimeSchedulerModels(db *gorm.DB) error {
 }
 
 func migrateWorkflowModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelWorkflow.WorkflowDefinition{},
 		&modelWorkflow.WorkflowInstance{},
 		&modelWorkflow.WorkflowStepRecord{},
 		&modelWorkflow.WorkflowStepCompensation{},
 		&modelWorkflow.AgentAssignment{},
 		&modelWorkflow.WorkflowEvent{},
-	)
+		&modelWorkflow.HumanReviewTask{},
+		&modelWorkflow.WorkflowPackSeedRecord{},
+		&modelWorkflow.WorkflowPackInstallation{},
+	); err != nil {
+		return err
+	}
+	if err := migration.EnsureWorkflowDefinitionPackColumnsMigration(db); err != nil {
+		return err
+	}
+	return ensureWorkflowPackInstallationBackfill(db)
+}
+
+func ensureWorkflowPackInstallationBackfill(db *gorm.DB) error {
+	var records []modelWorkflow.WorkflowPackSeedRecord
+	if err := db.
+		Order("tenant_uuid ASC, workflow_key ASC, version DESC, id DESC").
+		Find(&records).Error; err != nil {
+		return fmt.Errorf("list workflow pack seed records for installation backfill failed: %w", err)
+	}
+	latestByKey := make(map[string]modelWorkflow.WorkflowPackSeedRecord, len(records))
+	for _, record := range records {
+		tenantUUID := strings.ToLower(strings.TrimSpace(record.TenantUUID))
+		if tenantUUID == "" {
+			return fmt.Errorf("workflow_pack_seed_records contains tenantless record workflow_key=%s uuid=%s; remove or migrate it before enabling workflow pack installation state", record.WorkflowKey, record.UUID)
+		}
+		workflowKey := strings.TrimSpace(record.WorkflowKey)
+		if workflowKey == "" {
+			return fmt.Errorf("workflow_pack_seed_records contains empty workflow_key uuid=%s", record.UUID)
+		}
+		key := tenantUUID + "\x00" + workflowKey
+		if _, ok := latestByKey[key]; ok {
+			continue
+		}
+		latestByKey[key] = record
+	}
+	for _, record := range latestByKey {
+		seededAt := record.SeededAt
+		installation := modelWorkflow.WorkflowPackInstallation{
+			TenantUUID:        strings.ToLower(strings.TrimSpace(record.TenantUUID)),
+			WorkflowKey:       strings.TrimSpace(record.WorkflowKey),
+			Version:           record.Version,
+			Checksum:          record.Checksum,
+			Status:            modelWorkflow.WorkflowPackInstallationStatusEnabled,
+			DefinitionUUID:    record.DefinitionUUID,
+			DefinitionVersion: record.DefinitionVersion,
+			Source:            record.Source,
+			InstalledAt:       &seededAt,
+			LastSeededAt:      &seededAt,
+			LastAction:        "backfill",
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "tenant_uuid"},
+				{Name: "workflow_key"},
+			},
+			DoNothing: true,
+		}).Create(&installation).Error; err != nil {
+			return fmt.Errorf("backfill workflow pack installation tenant_uuid=%s workflow_key=%s failed: %w", installation.TenantUUID, installation.WorkflowKey, err)
+		}
+	}
+	return nil
 }
 
 func migrateKnowledgeModels(db *gorm.DB) error {

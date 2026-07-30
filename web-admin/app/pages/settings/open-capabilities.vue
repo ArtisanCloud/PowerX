@@ -84,12 +84,14 @@
         </template>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <USelect
+          <USelectMenu
             v-model="filters.module"
             :items="moduleOptions"
-            option-attribute="label"
-            value-attribute="value"
+            value-key="value"
+            label-key="label"
             icon="i-heroicons-squares-2x2"
+            class="w-full"
+            :search-input="{ placeholder: $t('settings.openCapabilities.filters.moduleSearchPlaceholder') }"
           />
           <USelect
             v-model="filters.protocol"
@@ -298,7 +300,7 @@ definePageMeta({
   order: 15,
 });
 
-const { t } = useI18n({ useScope: "global" });
+const { t, te } = useI18n({ useScope: "global" });
 const toast = useToast();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
@@ -336,7 +338,7 @@ const moduleOptions = computed(() => {
       return true;
     })
     .map((mod) => ({
-      label: mod.displayName || mod.module,
+      label: formatModuleName(mod),
       value: mod.module,
     }));
   return [
@@ -386,6 +388,7 @@ const renderedModules = computed<ModuleView[]>(() => {
           cap.title,
           cap.description,
           cap.module,
+          formatModuleName(mod),
         ]
           .filter(Boolean)
           .map((val) => (val as string).toLowerCase());
@@ -444,8 +447,29 @@ watch(
   }
 );
 
-const formatModuleName = (mod: PlatformCapabilityModule) =>
-  mod.displayName || mod.module;
+const toCamelKey = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, char: string) => char.toUpperCase())
+    .replace(/^[A-Z]/, (char) => char.toLowerCase());
+
+const humanizeModuleKey = (value: string) =>
+  value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatModuleName = (mod: PlatformCapabilityModule) => {
+  const moduleKey = String(mod.module || "").trim();
+  if (moduleKey) {
+    const i18nKey = `settings.openCapabilities.module.${toCamelKey(moduleKey)}`;
+    if (te(i18nKey)) return t(i18nKey);
+  }
+  const displayName = String(mod.displayName || "").trim();
+  if (displayName && displayName !== moduleKey) return displayName;
+  return moduleKey ? humanizeModuleKey(moduleKey) : t("settings.openCapabilities.module.unknown");
+};
 
 const formatProtocol = (channel?: string) =>
   channel ? channel.toUpperCase() : "-";

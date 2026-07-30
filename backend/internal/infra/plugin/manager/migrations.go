@@ -143,7 +143,19 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 		envMap["POWERX_PLUGIN_VERSION"] = desc.Manifest.Version
 	}
 
-	cmdEnv := mergeEnv(os.Environ(), envMap)
+	migrationEnv := sanitizePluginMigrationEnv(envMap)
+	if err := m.validatePluginMigrationEnv(desc, migrationEnv); err != nil {
+		record.LastStatus = plugin_mgr.MigrationStatusFailed
+		record.LastError = err.Error()
+		return record, plugin_mgr.Wrap(
+			plugin_mgr.CodeMigrationFailed,
+			err,
+			plugin_mgr.WithOp("run_plugin_migrate"),
+			plugin_mgr.WithPlugin(desc.Manifest.ID),
+			plugin_mgr.WithVersion(desc.Manifest.Version),
+		)
+	}
+	cmdEnv := mergeEnv(pluginMigrationBaseEnv(os.Environ()), migrationEnv)
 
 	runCtx := ctx
 	var cancel context.CancelFunc
@@ -276,6 +288,113 @@ func mergeEnv(base []string, overrides map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func pluginMigrationBaseEnv(base []string) []string {
+	allowedPrefixes := []string{
+		"PATH=",
+		"HOME=",
+		"TMPDIR=",
+		"TEMP=",
+		"TMP=",
+		"LANG=",
+		"LC_",
+		"TZ=",
+		"SSL_CERT_FILE=",
+		"SSL_CERT_DIR=",
+		"NO_PROXY=",
+		"no_proxy=",
+		"HTTP_PROXY=",
+		"http_proxy=",
+		"HTTPS_PROXY=",
+		"https_proxy=",
+	}
+	filtered := make([]string, 0, len(base))
+	for _, item := range base {
+		if pluginMigrationEnvAllowed(item, allowedPrefixes) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func pluginMigrationEnvAllowed(item string, allowedPrefixes []string) bool {
+	key, _, ok := strings.Cut(item, "=")
+	if !ok || strings.TrimSpace(key) == "" {
+		return false
+	}
+	for _, prefix := range allowedPrefixes {
+		if strings.HasSuffix(prefix, "=") {
+			if strings.HasPrefix(item, prefix) {
+				return true
+			}
+			continue
+		}
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func sanitizePluginMigrationEnv(env map[string]string) map[string]string {
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		key := strings.TrimSpace(k)
+		if key == "" || pluginMigrationEnvDenied(key) {
+			continue
+		}
+		out[key] = v
+	}
+	return out
+}
+
+func pluginMigrationEnvDenied(key string) bool {
+	switch key {
+	case
+		"POWERX_CONFIG",
+		"POWERX_RUNTIME_ROOT",
+		"POWERX_SETUP_RUNTIME_CONFIG_PATH",
+		"POWERX_SETUP_ALLOW_REENTRY",
+		"POWERX_RELEASES_ROOT",
+		"POWERX_LINKS_ROOT",
+		"POWERX_STORAGE_ROOT",
+		"POWERX_PLUGIN_RUNTIME_ROOT":
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *managerImpl) validatePluginMigrationEnv(desc Descriptor, env map[string]string) error {
+	if !pluginMigrationDelegatedMode(env) {
+		return nil
+	}
+
+	pluginSchema := strings.TrimSpace(env["POWERX_PLUGIN_DB_SCHEMA"])
+	dbSchema := strings.TrimSpace(env["POWERX_DB_SCHEMA"])
+	if pluginSchema == "" {
+		return fmt.Errorf("delegated plugin migration requires POWERX_PLUGIN_DB_SCHEMA for isolated plugin seed: plugin=%s", desc.Manifest.ID)
+	}
+	if dbSchema == "" {
+		return fmt.Errorf("delegated plugin migration requires POWERX_DB_SCHEMA for isolated plugin seed: plugin=%s", desc.Manifest.ID)
+	}
+	if pluginSchema != dbSchema {
+		return fmt.Errorf("delegated plugin migration schema mismatch: POWERX_PLUGIN_DB_SCHEMA=%s POWERX_DB_SCHEMA=%s plugin=%s", pluginSchema, dbSchema, desc.Manifest.ID)
+	}
+	if err := m.assertPluginSchemaSafeToDrop(pluginSchema); err != nil {
+		return fmt.Errorf("delegated plugin migration refuses unsafe schema %q: %w", pluginSchema, err)
+	}
+	return nil
+}
+
+func pluginMigrationDelegatedMode(env map[string]string) bool {
+	if env == nil {
+		return false
+	}
+	providerMode := strings.ToLower(strings.TrimSpace(env["POWERX_PROVIDER_MODE"]))
+	proxy := strings.TrimSpace(env["POWERX_PROXY"])
+	return providerMode == "delegated" || proxy == "1" || strings.EqualFold(proxy, "true")
 }
 
 func makeMigrationHash(entry string, args []string) string {

@@ -25,6 +25,35 @@ dictionaries:
           zh-CN: 归档
           en-US: Archived
         sort_order: 30
+  - namespace: corex.workflow.category
+    module: corex.workflow
+    name_i18n:
+      zh-CN: 工作流分类
+      en-US: Workflow Category
+    description_i18n:
+      zh-CN: 工作流列表和固有工作流包使用的分类。
+      en-US: Categories used by workflow lists and built-in workflow packs.
+    items:
+      - code: knowledge_curation
+        label_i18n:
+          zh-CN: 知识沉淀
+          en-US: Knowledge Curation
+        sort_order: 10
+      - code: governance
+        label_i18n:
+          zh-CN: 治理审核
+          en-US: Governance Review
+        sort_order: 20
+      - code: automation
+        label_i18n:
+          zh-CN: 自动化
+          en-US: Automation
+        sort_order: 30
+      - code: uncategorized
+        label_i18n:
+          zh-CN: 未分类
+          en-US: Uncategorized
+        sort_order: 999
 taxonomies:
   - namespace: corex.metadata.governance_area
     module: corex.metadata

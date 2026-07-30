@@ -6,7 +6,6 @@
 | --- | --- | --- |
 | `com.corex.ai.llm.invoke` | 无状态 LLM 调用 | `POST /api/v1/ai/llm/invoke` |
 | `com.corex.ai.llm.models/list` | 模型目录列表 | `GET /api/v1/ai/llm/models` |
-| `com.corex.ai.llm.models.read/list` | 模型目录列表（兼容 ID） | `GET /api/v1/ai/llm/models` |
 | `com.corex.ai.llm.session.create` | 创建会话 | `POST /api/v1/ai/llm/sessions` |
 | `com.corex.ai.llm.session.append` | 追加会话消息 | `POST /api/v1/ai/llm/sessions/{session_id}/messages` |
 | `com.corex.ai.llm.stream` | 会话流式输出 | `GET /api/v1/ai/llm/sessions/{session_id}/stream` |

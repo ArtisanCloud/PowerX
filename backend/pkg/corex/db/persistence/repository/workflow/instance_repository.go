@@ -70,6 +70,18 @@ func (r *InstanceRepository) GetByUUID(ctx context.Context, tenantUUID string, i
 	return &instance, nil
 }
 
+// GetByUUIDAnyTenant resolves an instance by UUID after the caller has already obtained a durable workflow-owned reference.
+func (r *InstanceRepository) GetByUUIDAnyTenant(ctx context.Context, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error) {
+	if instanceUUID == uuid.Nil {
+		return nil, errors.New("instance uuid is required")
+	}
+	var instance modelworkflow.WorkflowInstance
+	if err := r.db.WithContext(ctx).Where("uuid = ?", instanceUUID).First(&instance).Error; err != nil {
+		return nil, err
+	}
+	return &instance, nil
+}
+
 // ListInstances 根据过滤条件分页查询实例。
 func (r *InstanceRepository) ListInstances(ctx context.Context, filter InstanceListFilter) ([]modelworkflow.WorkflowInstance, int64, error) {
 	tenantUUID := strings.ToLower(strings.TrimSpace(filter.TenantUUID))

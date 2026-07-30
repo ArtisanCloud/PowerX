@@ -1145,7 +1145,7 @@ func defaultModalityForCapability(capabilityID string) string {
 
 func isModelListCapability(capabilityID string) bool {
 	lower := strings.ToLower(strings.TrimSpace(capabilityID))
-	return lower == "com.corex.ai.llm.models/list" || lower == "com.corex.ai.llm.models.read/list"
+	return lower == "com.corex.ai.llm.models/list"
 }
 
 func shouldSkipModelKeyVerification(capabilityID string, payload map[string]interface{}, modelKey string) bool {

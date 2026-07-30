@@ -93,3 +93,15 @@ func TestLoadSetupAdminFromDraftWithoutPasswordSkipsDefaultRoot(t *testing.T) {
 		t.Fatalf("unexpected admin payload: %+v", admin)
 	}
 }
+
+func TestShouldWriteRootPasswordCredentialPreservesExistingByDefault(t *testing.T) {
+	if !shouldWriteRootPasswordCredential(0, false) {
+		t.Fatal("missing credential should be created")
+	}
+	if shouldWriteRootPasswordCredential(1, false) {
+		t.Fatal("existing credential must not be overwritten without explicit reset")
+	}
+	if !shouldWriteRootPasswordCredential(1, true) {
+		t.Fatal("explicit reset should allow credential overwrite")
+	}
+}

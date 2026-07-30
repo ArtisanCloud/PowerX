@@ -7,6 +7,7 @@ import {
   h,
   resolveComponent,
   onMounted,
+  nextTick,
   watch,
 } from "vue";
 import { storeToRefs } from "pinia";
@@ -37,8 +38,8 @@ const { user: currentUser, isRoot, isCurrentTenantAdmin } = storeToRefs(userStor
 type StatusType = "active" | "inactive";
 
 interface RowUser {
-  id: number; // Member ID
-  userId?: number; // User ID
+  id: string; // Member UUID
+  userUuid?: string; // User UUID
   name: string;
   username?: string;
   email?: string;
@@ -85,17 +86,29 @@ const roleFilterItems = ref([
   { label: t("organization.user.role.user"), value: "user" },
 ]);
 
-type RoleOption = { label: string; value: number; code?: string };
+type RoleOption = { label: string; value: string; code?: string };
 const tenantRoleOptions = ref<RoleOption[]>([]);
 const loadingRoles = ref(false);
-const selectedRoleOptions = ref<RoleOption[]>([]);
+const usernamePattern = /^[a-z][a-z0-9._-]{2,63}$/;
+const roleSelectContent = {
+  side: "bottom" as const,
+  sideOffset: 8,
+  collisionPadding: 16,
+  position: "popper" as const,
+};
+const roleSelectUi = {
+  content:
+    "z-[120] min-w-[var(--reka-combobox-trigger-width)] max-h-72 overflow-y-auto",
+};
 
-const currentUserId = computed(() => Number(currentUser.value?.id || 0));
+const currentUserUuid = computed(() => String(currentUser.value?.uuid || ""));
 const canViewRootUsers = computed(() => Boolean(isCurrentTenantAdmin.value));
 
 function canOperateRootUser(row: RowUser): boolean {
   if (!row.isRoot) return true;
-  return Boolean(isRoot.value && row.userId && currentUserId.value === row.userId);
+  return Boolean(
+    isRoot.value && row.userUuid && currentUserUuid.value === row.userUuid
+  );
 }
 
 // ====== 导入导出 ======
@@ -195,7 +208,7 @@ const importExportItems = computed(() => [
 // ====== 新增/编辑 ======
 const showForm = ref(false);
 const isEditing = ref(false);
-const editingId = ref<number | null>(null); // system user id
+const editingUserUuid = ref<string | null>(null);
 
 // 统一"扁平表单" -> 后端映射 User+Member（我们之前对齐的）
 const userForm = reactive({
@@ -204,12 +217,23 @@ const userForm = reactive({
   email: "",
   phone: "",
   departmentId: null as number | null,
-  roleIds: [] as number[],
+  roleUuids: [] as string[],
   avatarUrl: "",
   password: "",
   confirmPassword: "",
   status: "active" as "active" | "disabled" | "locked",
   meta: {} as Record<string, any>,
+});
+const selectedRoleOptions = computed<RoleOption[]>({
+  get() {
+    const selected = new Set(normalizeRoleUUIDs(userForm.roleUuids));
+    return tenantRoleOptions.value.filter((option) =>
+      selected.has(option.value)
+    );
+  },
+  set(options) {
+    userForm.roleUuids = normalizeRoleUUIDs(options);
+  },
 });
 
 const showResetPassword = ref(false);
@@ -219,25 +243,18 @@ const resetPasswordForm = reactive({
   confirmPassword: "",
 });
 
-function normalizeRoleIds(input: unknown): number[] {
+function normalizeRoleUUIDs(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
-  const out: number[] = [];
+  const out: string[] = [];
   for (const item of input) {
     let raw: unknown = item;
     if (item && typeof item === "object" && "value" in (item as any)) {
       raw = (item as any).value;
     }
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) out.push(n);
+    const value = String(raw || "").trim();
+    if (value) out.push(value);
   }
   return Array.from(new Set(out));
-}
-
-function syncSelectedRoleOptionsFromIds() {
-  const selected = new Set(normalizeRoleIds(userForm.roleIds));
-  selectedRoleOptions.value = tenantRoleOptions.value.filter((option) =>
-    selected.has(option.value)
-  );
 }
 
 function parseApiMessage(error: any, fallback: string): string {
@@ -268,15 +285,14 @@ function resetForm() {
   userForm.email = "";
   userForm.phone = "";
   userForm.departmentId = null;
-  userForm.roleIds = [];
+  userForm.roleUuids = [];
   userForm.avatarUrl = "";
   userForm.password = "";
   userForm.confirmPassword = "";
   userForm.status = "active";
   userForm.meta = {};
   isEditing.value = false;
-  editingId.value = null;
-  selectedRoleOptions.value = [];
+  editingUserUuid.value = null;
 }
 
 async function openAddForm() {
@@ -286,32 +302,42 @@ async function openAddForm() {
     const roleUser = tenantRoleOptions.value.find(
       (role) => role.code === "role_user"
     );
-    userForm.roleIds = [roleUser?.value || tenantRoleOptions.value[0].value];
+    userForm.roleUuids = [roleUser?.value || tenantRoleOptions.value[0].value];
   }
-  syncSelectedRoleOptionsFromIds();
   showForm.value = true;
+  await nextTick();
+  userForm.username = "";
+  userForm.email = "";
+  userForm.phone = "";
+  if (typeof window !== "undefined") {
+    window.requestAnimationFrame(() => {
+      userForm.username = "";
+      userForm.email = "";
+      userForm.phone = "";
+    });
+  }
 }
 
 async function openEditForm(row: RowUser) {
   if (!canOperateRootUser(row)) {
     toast.add({
-      title: "无权限编辑",
-      description: "仅 root 本人可编辑 root 账号",
+      title: String(t("organization.user.toast.editDenied")),
+      description: String(t("organization.user.validation.rootEditSelfOnly")),
       color: "warning",
     });
     return;
   }
-  if (!row.userId) {
+  if (!row.userUuid) {
     toast.add({
-      title: "打开编辑失败",
-      description: "当前记录缺少 user_id，请刷新后重试",
+      title: String(t("organization.user.toast.openEditFailed")),
+      description: String(t("organization.user.validation.missingUserId")),
       color: "error",
     });
     return;
   }
   resetForm();
   isEditing.value = true;
-  editingId.value = row.userId;
+  editingUserUuid.value = row.userUuid;
 
   // 将行数据映射回表单
   userForm.name = row.name;
@@ -322,87 +348,107 @@ async function openEditForm(row: RowUser) {
   userForm.status = row.status === "active" ? "active" : "disabled";
   userForm.meta = row.meta || {};
   await loadTenantRoles();
-  await loadUserRoles(editingId.value);
-  syncSelectedRoleOptionsFromIds();
+  await loadUserRoles(editingUserUuid.value);
   showForm.value = true;
 }
 
 async function saveUser() {
-  userForm.roleIds = normalizeRoleIds(
-    selectedRoleOptions.value.map((option) => option.value)
-  );
+  userForm.roleUuids = normalizeRoleUUIDs(userForm.roleUuids);
+  const displayName = userForm.name.trim();
+  const email = userForm.email.trim();
+  const username = userForm.username.trim().toLowerCase();
+  const phone = userForm.phone.trim();
+
   // 基础校验
-  if (!userForm.name || !userForm.email) {
+  if (!displayName || !email) {
     toast.add({
-      title: "校验失败",
+      title: String(t("organization.user.toast.validationFailed")),
       description: String(t("organization.user.validation.requiredFields")),
       color: "warning",
     });
     return;
   }
-  if (!isEditing.value && !userForm.username) {
+  if (!username) {
     toast.add({
-      title: "校验失败",
-      description: "用户名为必填项",
+      title: String(t("organization.user.toast.validationFailed")),
+      description: String(t("organization.user.validation.usernameRequired")),
+      color: "warning",
+    });
+    return;
+  }
+  if (!usernamePattern.test(username)) {
+    toast.add({
+      title: String(t("organization.user.toast.validationFailed")),
+      description: String(t("organization.user.validation.usernameFormat")),
       color: "warning",
     });
     return;
   }
   if (!isEditing.value && userForm.password !== userForm.confirmPassword) {
     toast.add({
-      title: "校验失败",
+      title: String(t("organization.user.toast.validationFailed")),
       description: String(t("organization.user.validation.passwordMismatch")),
       color: "warning",
     });
     return;
   }
-  if (userForm.roleIds.length === 0) {
+  if (userForm.roleUuids.length === 0) {
     toast.add({
-      title: "校验失败",
-      description: "请至少选择一个角色",
+      title: String(t("organization.user.toast.validationFailed")),
+      description: String(t("organization.user.validation.roleRequired")),
       color: "warning",
     });
     return;
   }
 
   try {
-    if (isEditing.value && editingId.value) {
+    if (isEditing.value && editingUserUuid.value) {
       // 更新用户
       const updatePayload = {
-        display_name: userForm.name,
-        email: userForm.email,
-        phone: userForm.phone,
-        avatar_url: userForm.avatarUrl,
+        tenant_uuid: props.tenantUuid,
+        username,
+        display_name: displayName,
+        email,
+        phone,
+        avatar_url: userForm.avatarUrl.trim(),
         status: userForm.status === "active" ? 1 : 0,
       };
-      await userService.updateUser(editingId.value, updatePayload);
-      await userService.setUserRoles(editingId.value, {
-        role_ids: userForm.roleIds,
+      await userService.updateUser(editingUserUuid.value, updatePayload);
+      await userService.setUserRoles(editingUserUuid.value, {
+        tenant_uuid: props.tenantUuid,
+        role_uuids: userForm.roleUuids,
       });
     } else {
       // 创建系统用户
       const createPayload = {
-        display_name: userForm.name,
-        email: userForm.email,
-        phone: userForm.phone,
-        avatar_url: userForm.avatarUrl,
+        tenant_uuid: props.tenantUuid,
+        display_name: displayName,
+        email,
+        phone: phone || undefined,
+        avatar_url: userForm.avatarUrl.trim(),
         status: userForm.status === "active" ? 1 : 0,
         meta: userForm.meta ?? {},
-        username: userForm.username || userForm.email.split("@")[0],
+        username,
         initial_password: userForm.password,
         dept_ids: userForm.departmentId ? [userForm.departmentId] : [],
-        role_ids: userForm.roleIds,
+        role_uuids: userForm.roleUuids,
       };
       await userService.createSystemUser(createPayload);
     }
     showForm.value = false;
     await loadUsers(); // 重新加载数据
     toast.add({
-      title: isEditing.value ? "用户已更新" : "用户已创建",
+      title: isEditing.value
+        ? String(t("organization.user.toast.updated"))
+        : String(t("organization.user.toast.created")),
       color: "success",
     });
   } catch (e: any) {
-    notifyError("保存失败", e, "保存失败");
+    notifyError(
+      String(t("organization.user.toast.saveFailed")),
+      e,
+      String(t("organization.user.toast.saveFailed"))
+    );
   }
 }
 
@@ -414,18 +460,15 @@ async function loadTenantRoles() {
       scope: "tenant",
       tenant_uuid: props.tenantUuid,
       page: 1,
-      page_size: 200,
+      size: 200,
     });
     tenantRoleOptions.value = (response.data?.items || []).map((role: any) => {
       return {
         label: role.name,
-        value: role.id,
+        value: role.uuid,
         code: role.code,
       };
     });
-    if (userForm.roleIds.length > 0) {
-      syncSelectedRoleOptionsFromIds();
-    }
   } catch (error) {
     console.error("加载角色失败:", error);
     tenantRoleOptions.value = [];
@@ -434,21 +477,21 @@ async function loadTenantRoles() {
   }
 }
 
-async function loadUserRoles(userId: number | null) {
-  if (!userId) return;
+async function loadUserRoles(userUuid: string | null) {
+  if (!userUuid) return;
   try {
-    const response = await userService.getUserRoles(userId);
-    userForm.roleIds = normalizeRoleIds(response.data?.role_ids || []);
-    syncSelectedRoleOptionsFromIds();
+    const response = await userService.getUserRoles(userUuid, {
+      tenant_uuid: props.tenantUuid,
+    });
+    userForm.roleUuids = normalizeRoleUUIDs(response.data?.role_uuids || []);
   } catch (error) {
     console.error("加载用户角色失败:", error);
-    userForm.roleIds = [];
-    selectedRoleOptions.value = [];
+    userForm.roleUuids = [];
   }
 }
 
-const roleNameById = computed(() => {
-  const map = new Map<number, string>();
+const roleNameByUUID = computed(() => {
+  const map = new Map<string, string>();
   tenantRoleOptions.value.forEach((role) => map.set(role.value, role.label));
   return map;
 });
@@ -456,15 +499,17 @@ const roleNameById = computed(() => {
 async function hydrateRowsRoles(rows: RowUser[]) {
   await Promise.all(
     rows.map(async (row) => {
-      if (!row.userId) {
+      if (!row.userUuid) {
         row.roles = [];
         return;
       }
       try {
-        const response = await userService.getUserRoles(row.userId);
-        const roleIds = normalizeRoleIds(response.data?.role_ids || []);
-        row.roles = roleIds.map(
-          (id) => roleNameById.value.get(id) || `#${id}`
+        const response = await userService.getUserRoles(row.userUuid, {
+          tenant_uuid: props.tenantUuid,
+        });
+        const roleUUIDs = normalizeRoleUUIDs(response.data?.role_uuids || []);
+        row.roles = roleUUIDs.map(
+          (roleUUID) => roleNameByUUID.value.get(roleUUID) || "-"
         );
       } catch (error) {
         console.error("加载用户角色失败:", error);
@@ -474,49 +519,63 @@ async function hydrateRowsRoles(rows: RowUser[]) {
   );
 }
 
-async function deleteUser(id: number) {
+async function deleteUser(userUuid: string) {
   if (!confirm(t("organization.user.confirmDelete"))) return;
   try {
-    await userService.deleteUser(id);
+    await userService.deleteUser(userUuid);
     await loadUsers(); // 重新加载数据
-    toast.add({ title: "用户已删除", color: "success" });
+    toast.add({
+      title: String(t("organization.user.toast.deleted")),
+      color: "success",
+    });
   } catch (e: any) {
-    notifyError("删除失败", e, "删除失败");
+    notifyError(
+      String(t("organization.user.toast.deleteFailed")),
+      e,
+      String(t("organization.user.toast.deleteFailed"))
+    );
   }
 }
 
 async function toggleUserStatus(row: RowUser) {
-  if (!row.userId) {
+  if (!row.userUuid) {
     toast.add({
-      title: "状态更新失败",
-      description: "当前记录缺少 user_id，请刷新后重试",
+      title: String(t("organization.user.toast.statusUpdateFailed")),
+      description: String(t("organization.user.validation.missingUserId")),
       color: "error",
     });
     return;
   }
   try {
     const newStatus = row.status === "active" ? 0 : 1;
-    await userService.setUserStatus(row.userId, { status: newStatus });
+    await userService.setUserStatus(row.userUuid, { status: newStatus });
     await loadUsers(); // 重新加载数据
-    toast.add({ title: "状态已更新", color: "success" });
+    toast.add({
+      title: String(t("organization.user.toast.statusUpdated")),
+      color: "success",
+    });
   } catch (e: any) {
-    notifyError("状态更新失败", e, "状态更新失败");
+    notifyError(
+      String(t("organization.user.toast.statusUpdateFailed")),
+      e,
+      String(t("organization.user.toast.statusUpdateFailed"))
+    );
   }
 }
 
 function openResetPassword(row: RowUser) {
   if (!canOperateRootUser(row)) {
     toast.add({
-      title: "无权限重置密码",
-      description: "仅 root 本人可重置 root 账号密码",
+      title: String(t("organization.user.toast.resetPasswordDenied")),
+      description: String(t("organization.user.validation.rootResetSelfOnly")),
       color: "warning",
     });
     return;
   }
-  if (!row.userId) {
+  if (!row.userUuid) {
     toast.add({
-      title: "操作失败",
-      description: "当前记录缺少 user_id，请刷新后重试",
+      title: String(t("organization.user.toast.operationFailed")),
+      description: String(t("organization.user.validation.missingUserId")),
       color: "error",
     });
     return;
@@ -532,32 +591,40 @@ async function submitResetPassword() {
   if (!target) return;
   if (!resetPasswordForm.password || resetPasswordForm.password.length < 6) {
     toast.add({
-      title: "校验失败",
-      description: "新密码至少 6 位",
+      title: String(t("organization.user.toast.validationFailed")),
+      description: String(t("organization.user.validation.passwordMinLength")),
       color: "warning",
     });
     return;
   }
   if (resetPasswordForm.password !== resetPasswordForm.confirmPassword) {
     toast.add({
-      title: "校验失败",
-      description: "两次密码不一致",
+      title: String(t("organization.user.toast.validationFailed")),
+      description: String(t("organization.user.validation.passwordMismatch")),
       color: "warning",
     });
     return;
   }
   try {
-    await userService.resetUserPassword(target.userId, {
+    await userService.resetUserPassword(target.userUuid || "", {
       new_password: resetPasswordForm.password,
     });
     showResetPassword.value = false;
     toast.add({
-      title: "密码已重置",
-      description: `${target.name} 的新密码已生效`,
+      title: String(t("organization.user.toast.passwordReset")),
+      description: String(
+        t("organization.user.toast.passwordResetDescription", {
+          name: target.name,
+        })
+      ),
       color: "success",
     });
   } catch (e: any) {
-    notifyError("重置密码失败", e, "请稍后重试");
+    notifyError(
+      String(t("organization.user.toast.resetPasswordFailed")),
+      e,
+      String(t("organization.user.toast.retryLater"))
+    );
   }
 }
 
@@ -763,15 +830,17 @@ const columns = computed(() => {
                 variant: "ghost",
                 icon: "i-heroicons-trash",
                 onClick: () => {
-                  if (!u.userId) {
+                  if (!u.userUuid) {
                     toast.add({
-                      title: "删除失败",
-                      description: "当前记录缺少 user_id，请刷新后重试",
+                      title: String(t("organization.user.toast.deleteFailed")),
+                      description: String(
+                        t("organization.user.validation.missingUserId")
+                      ),
                       color: "error",
                     });
                     return;
                   }
-                  deleteUser(u.userId);
+                  deleteUser(u.userUuid);
                 },
               },
               () => t("organization.common.delete")
@@ -794,10 +863,9 @@ function maskPhone(phone: string): string {
 // 转换API数据为组件需要的格式
 function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
   const { Member, User } = memberWithProfile as any;
-  const resolvedUserID = User?.id || Member?.user_id;
   return {
-    id: Member.id, // 使用Member的ID作为主要ID
-    userId: resolvedUserID, // 保存User的ID以备后用
+    id: Member.uuid,
+    userUuid: User?.uuid,
     name: Member.display_name || User?.display_name,
     username: Member.username,
     email: User?.email || "",
@@ -824,6 +892,7 @@ async function loadUsers() {
   try {
     loading.value = true;
     const params: any = {
+      tenant_uuid: props.tenantUuid,
       page: pagination.page,
       page_size: pagination.pageSize,
       status: filters.status
@@ -1021,31 +1090,48 @@ onMounted(async () => {
           <form
             @submit.prevent="saveUser"
             class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            autocomplete="off"
           >
             <UFormField :label="$t('organization.user.form.name')" required>
-              <UInput v-model="userForm.name" />
+              <UInput
+                v-model="userForm.name"
+                name="px-user-display-name"
+                autocomplete="off"
+              />
             </UFormField>
             <UFormField
               :label="$t('organization.user.form.username')"
-              :required="!isEditing"
+              required
             >
               <UInput
                 v-model="userForm.username"
-                :placeholder="isEditing ? '编辑时可选' : '必填，用于租户内登录'"
+                :placeholder="$t('organization.user.form.usernamePlaceholder')"
+                name="px-tenant-username"
+                autocomplete="new-password"
               />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ $t("organization.user.form.usernameHint") }}
+              </p>
             </UFormField>
             <UFormField
               :label="$t('organization.user.form.email')"
               required
               class="md:col-span-2"
             >
-              <UInput v-model="userForm.email" type="email" />
+              <UInput
+                v-model="userForm.email"
+                type="email"
+                name="px-user-email"
+                autocomplete="off"
+              />
             </UFormField>
             <UFormField :label="$t('organization.user.form.phone')">
               <UInput
                 v-model="userForm.phone"
                 type="tel"
                 :placeholder="$t('organization.user.form.phonePlaceholder')"
+                name="px-user-phone"
+                autocomplete="new-password"
               />
             </UFormField>
             <UFormField :label="$t('organization.user.form.role')" required>
@@ -1054,8 +1140,15 @@ onMounted(async () => {
                 :items="tenantRoleOptions"
                 multiple
                 searchable
+                label-key="label"
                 :loading="loadingRoles"
                 :placeholder="$t('organization.user.form.selectRole')"
+                :search-input="{
+                  placeholder: $t('organization.user.form.searchRole'),
+                }"
+                :portal="true"
+                :content="roleSelectContent"
+                :ui="roleSelectUi"
                 class="w-full"
               />
             </UFormField>
@@ -1063,13 +1156,21 @@ onMounted(async () => {
               v-if="!isEditing"
               :label="$t('organization.user.form.password')"
               :required="!isEditing"
-              ><UInput v-model="userForm.password" type="password"
+              ><UInput
+                v-model="userForm.password"
+                type="password"
+                name="px-user-initial-password"
+                autocomplete="new-password"
             /></UFormField>
             <UFormField
               v-if="!isEditing"
               :label="$t('organization.user.form.confirmPassword')"
               :required="!isEditing"
-              ><UInput v-model="userForm.confirmPassword" type="password"
+              ><UInput
+                v-model="userForm.confirmPassword"
+                type="password"
+                name="px-user-confirm-password"
+                autocomplete="new-password"
             /></UFormField>
             <div class="md:col-span-2 flex justify-end gap-3 mt-2">
               <UButton

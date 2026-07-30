@@ -40,6 +40,10 @@ var (
 	ErrExternalURLRequired = errors.New("external url required for upload method")
 	// ErrObjectKeyMustBeUUID 表示 object key 只能为 UUID。
 	ErrObjectKeyMustBeUUID = errors.New("object key must be uuid")
+	// ErrContentSHA256Invalid 表示 content_sha256 元数据格式非法。
+	ErrContentSHA256Invalid = errors.New("content_sha256 must be 64 hex characters")
+	// ErrContentSHA256Required 表示上传类资产必须提供内容哈希。
+	ErrContentSHA256Required = errors.New("content_sha256 is required for direct_upload and presign_upload")
 )
 
 // UploadMethod 定义媒体上传方式。
@@ -172,23 +176,24 @@ func (s *MediaService) CanAccessPublicResource(asset *Asset, expStr, token strin
 
 // CreateAssetInput 定义创建媒体资产所需参数。
 type CreateAssetInput struct {
-	TenantUUID   string
-	OperatorID   *uint64
-	Name         string
-	Description  string
-	Driver       string
-	Bucket       string
-	BaseURL      string
-	Folder       string
-	StorageKey   string
-	SizeBytes    int64
-	MimeType     string
-	OwnerType    string
-	OwnerID      string
-	Tags         []string
-	UploadMethod UploadMethod
-	ExternalURL  string
-	Metadata     map[string]any
+	TenantUUID    string
+	OperatorID    *uint64
+	Name          string
+	Description   string
+	Driver        string
+	Bucket        string
+	BaseURL       string
+	Folder        string
+	StorageKey    string
+	SizeBytes     int64
+	MimeType      string
+	OwnerType     string
+	OwnerID       string
+	Tags          []string
+	UploadMethod  UploadMethod
+	ExternalURL   string
+	ContentSHA256 string
+	Metadata      map[string]any
 }
 
 // UpdateAssetInput 定义更新媒体资产所需参数。
@@ -350,10 +355,29 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		}
 	}
 
+	metadata, err := mergeCreateAssetMetadata(in.Metadata, in.ContentSHA256)
+	if err != nil {
+		return nil, err
+	}
+	contentSHA256, err := contentSHA256FromMetadata(metadata)
+	if err != nil {
+		return nil, err
+	}
+	if (method == UploadMethodDirect || method == UploadMethodPresign) && contentSHA256 == "" {
+		return nil, ErrContentSHA256Required
+	}
+
 	storageKey := strings.TrimSpace(in.StorageKey)
 	var assetUUID uuid.UUID
 	if storageKey == "" {
-		assetUUID = uuid.New()
+		switch {
+		case method == UploadMethodExternalLink:
+			assetUUID = deterministicAssetUUID("external_link:" + strings.TrimSpace(in.ExternalURL))
+		case contentSHA256 != "":
+			assetUUID = deterministicAssetUUID("content_sha256:" + contentSHA256)
+		default:
+			assetUUID = uuid.New()
+		}
 		storageKey = mediaAssetOriginStorageKey(assetUUID.String())
 	} else {
 		parsed, parseErr := uuid.Parse(storageKey)
@@ -376,8 +400,8 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		return nil, fmt.Errorf("encode tags failed: %w", err)
 	}
 
-	meta := make(map[string]any, len(in.Metadata)+4)
-	for k, v := range in.Metadata {
+	meta := make(map[string]any, len(metadata)+4)
+	for k, v := range metadata {
 		if strings.TrimSpace(k) == "" || v == nil {
 			continue
 		}
@@ -1255,6 +1279,60 @@ func cloneMetadata(meta map[string]any) map[string]any {
 
 func normalizeTags(tags []string) []string {
 	return normalizeStrings(tags)
+}
+
+func contentSHA256FromMetadata(meta map[string]any) (string, error) {
+	if len(meta) == 0 {
+		return "", nil
+	}
+	raw, ok := meta["content_sha256"]
+	if !ok || raw == nil {
+		return "", nil
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return "", ErrContentSHA256Invalid
+	}
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if len(normalized) != sha256.Size*2 {
+		return "", ErrContentSHA256Invalid
+	}
+	if _, err := hex.DecodeString(normalized); err != nil {
+		return "", ErrContentSHA256Invalid
+	}
+	return normalized, nil
+}
+
+func mergeCreateAssetMetadata(meta map[string]any, topLevelContentSHA256 string) (map[string]any, error) {
+	merged := make(map[string]any, len(meta)+1)
+	for key, value := range meta {
+		if strings.TrimSpace(key) == "" || value == nil {
+			continue
+		}
+		merged[key] = value
+	}
+
+	contentSHA256 := strings.ToLower(strings.TrimSpace(topLevelContentSHA256))
+	if contentSHA256 == "" {
+		return merged, nil
+	}
+	if existing, ok := merged["content_sha256"]; ok && existing != nil {
+		existingValue, ok := existing.(string)
+		if !ok || !strings.EqualFold(strings.TrimSpace(existingValue), contentSHA256) {
+			return nil, fmt.Errorf("contentSha256 conflicts with metadata.content_sha256")
+		}
+	}
+	merged["content_sha256"] = contentSHA256
+	return merged, nil
+}
+
+func deterministicAssetUUID(seed string) uuid.UUID {
+	sum := sha256.Sum256([]byte(seed))
+	raw := make([]byte, 16)
+	copy(raw, sum[:16])
+	raw[6] = (raw[6] & 0x0f) | 0x50
+	raw[8] = (raw[8] & 0x3f) | 0x80
+	return uuid.Must(uuid.FromBytes(raw))
 }
 
 func normalizeVariantName(value string) string {

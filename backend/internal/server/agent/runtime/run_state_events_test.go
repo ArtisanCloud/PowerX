@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
@@ -149,5 +150,67 @@ func TestEnrichTaskEndPayloadIncludesSkillBusinessResult(t *testing.T) {
 	links, ok := payload["links"].([]map[string]any)
 	if !ok || len(links) != 1 || links[0]["href"] != "/templates/crud?template_id=12" {
 		t.Fatalf("bad links: %#v", payload["links"])
+	}
+}
+
+func TestAgentRunFailurePayloadClassifiesCancellation(t *testing.T) {
+	payload := agentRunFailurePayload(context.Background(), "base_flow", "context.done", context.Canceled, "partial answer")
+
+	if payload["code"] != "agent_run.canceled" {
+		t.Fatalf("code=%v", payload["code"])
+	}
+	if payload["reason"] != "context.done" {
+		t.Fatalf("reason=%v", payload["reason"])
+	}
+	if payload["retryable"] != true {
+		t.Fatalf("retryable=%v", payload["retryable"])
+	}
+	if payload["partial_content"] != "partial answer" {
+		t.Fatalf("partial_content=%v", payload["partial_content"])
+	}
+	end := agentRunEndFailurePayload(payload)
+	if end["success"] != false || end["code"] != "agent_run.canceled" || end["partial_content"] != "partial answer" {
+		t.Fatalf("bad end payload: %#v", end)
+	}
+}
+
+func TestAgentRunFailurePayloadClassifiesMissingFinal(t *testing.T) {
+	err := errors.New("agent stream ended without final response: flow_id=base_flow reason=io.eof")
+	payload := agentRunFailurePayload(context.Background(), "base_flow", "io.eof", err, "")
+
+	if payload["code"] != "agent_run.missing_final" {
+		t.Fatalf("code=%v", payload["code"])
+	}
+	if payload["retryable"] != false {
+		t.Fatalf("retryable=%v", payload["retryable"])
+	}
+	if _, ok := payload["partial_content"]; ok {
+		t.Fatalf("unexpected partial_content: %#v", payload)
+	}
+}
+
+func TestEmitAgentRunFailureEmitsErrorAndEnd(t *testing.T) {
+	sink := &captureSink{}
+	emitAgentRunFailure(context.Background(), sink, "base_flow", "intent.detect_error", "意图识别失败", errors.New("detect failed"), "")
+
+	if len(sink.events) != 2 {
+		t.Fatalf("events=%v", sink.events)
+	}
+	if sink.events[0] != dto.EventError || sink.events[1] != dto.EventEnd {
+		t.Fatalf("events=%v", sink.events)
+	}
+	errPayload, ok := sink.data[0].(map[string]any)
+	if !ok {
+		t.Fatalf("error payload type=%T", sink.data[0])
+	}
+	if errPayload["success"] != false || errPayload["code"] != "agent_run.failed" || errPayload["reason"] != "intent.detect_error" {
+		t.Fatalf("bad error payload: %#v", errPayload)
+	}
+	endPayload, ok := sink.data[1].(map[string]any)
+	if !ok {
+		t.Fatalf("end payload type=%T", sink.data[1])
+	}
+	if endPayload["success"] != false || endPayload["code"] != "agent_run.failed" || endPayload["reason"] != "intent.detect_error" {
+		t.Fatalf("bad end payload: %#v", endPayload)
 	}
 }

@@ -105,7 +105,7 @@
 - [X] T037 [US2] 实现 AgentAssignment 状态跟踪与超时处理 (`internal/service/workflow/assignment_tracker.go`)
 - [X] T038 [US2] 增加 SLA breach 指标与 OTEL 观测 (`internal/service/workflow/metrics.go`)
 - [X] T053 [US2] 在派发阶段校验 Tool Grant 资格并记录版本 (`internal/service/workflow/service_instance.go`, `internal/service/workflow/assignment_tracker.go`)
-- [X] T059 [US2] 加固租户过滤：仓储查询统一强制 tenant_id (`pkg/corex/db/persistence/repository/workflow`, `internal/service/workflow/service_control.go`)
+- [X] T059 [US2] 加固租户过滤：仓储查询统一强制 tenant_uuid (`pkg/corex/db/persistence/repository/workflow`, `internal/service/workflow/service_control.go`)
 
 **Checkpoint**: User Stories 1 + 2 均可独立演示
 
@@ -185,6 +185,58 @@ Task: "T006 [P] [Found] 实现 WorkflowInstance 模型 (pkg/corex/db/persistence
 5. **Polish**：补齐测试、文档、观测；按需迭代
 
 每个阶段结束前执行 Checkpoint，保证可独立交付与回归测试。
+
+---
+
+## Phase 7: Runtime Completion for Native Agent (Required)
+
+**Purpose**: 现有 `[X]` 任务代表 006 早期骨架完成，不代表 native-agent 所需 Workflow Runtime 完成。本阶段是启用专家知识库迭代、营销智能体 Workflow Pack、Human Review 和真实 Workflow Builder 的硬前置。
+
+### Backend Runtime
+
+- [X] T062 [P0] 在 `specs/006-workflow-and-agent/spec.md`、`data-model.md`、`contracts/http-openapi.yaml`、`contracts/workflow.proto` 对齐 `node_kind`、Node Catalog、Human Review、Workflow Pack seed、UUID 参数命名。
+- [X] T063 [P0] 为 `pkg/corex/db/persistence/model/workflow/*` 增加 `node_kind`、`node_ref`、`input_mapping`、`output_mapping`、结构化错误字段。
+- [X] T064 [P0] 新增 `HumanReviewTask` 和 `WorkflowPackSeedRecord` 模型、迁移和 repository。
+- [X] T065 [P0] 在 `pkg/corex/db/persistence/repository/workflow/step_record_repository.go` 增加 queued step lease 和 attempt-safe update。
+- [X] T066 [P0] 实现 `backend/internal/service/workflow/node_adapter.go`，定义 NodeAdapter、NodeResult、NodeAdapterRegistry。
+- [X] T067 [P0] 实现 `backend/internal/service/workflow/runner.go`，支持 step lease、adapter 执行、next step 计算、waiting/succeeded/failed/compensating 状态收敛。
+- [X] T068 [P0] 实现 adapters：`adapter_skill.go`、`adapter_capability.go`、`adapter_metadata.go`、`adapter_knowledge.go`、`adapter_event.go`。
+- [X] T069 [P0] 实现 `backend/internal/service/workflow/human_review.go`，支持 approve/reject/request_changes/cancel 和 Runner wake-up。
+- [X] T070 [P0] 实现 `backend/internal/service/workflow/node_catalog.go`，从 adapter registry、Skill Registry、Capability Registry、Knowledge、Metadata 汇总节点目录。
+- [X] T071 [P0] 实现 `backend/internal/service/workflow/workflow_pack_seed.go` 和 `backend/config/workflow_packs`，包含 `expert_knowledge_capture`、`marketing_knowledge_capture`、`campaign_review_to_methodology`。
+
+### HTTP / gRPC / Capability
+
+- [X] T072 [P0] 更新 `backend/internal/transport/http/admin/workflow/routes.go`，路径参数统一为 `definition_uuid`、`instance_uuid`，新增 node-catalog、review-tasks、packs 路由。
+- [X] T073 [P0] 更新 `backend/internal/transport/grpc/workflow/server.go` 和 proto 生成代码，补齐 Node Catalog、Human Review、Workflow Pack RPC。
+- [X] T074 [P0] 更新 `backend/config/platform_capabilities/workflow.yaml`，覆盖新增 Admin API 和 gRPC capability，并运行 `make capability-check`。
+- [X] T075 [P0] 把 Workflow Pack Catalog 校验纳入 `make seed` 的顺序执行链路；租户 WorkflowDefinition 必须通过显式启用生成，不得在 seed 中全租户批量 materialize。
+
+### Web Admin
+
+- [X] T076 [P0] 更新 `web-admin/app/composables/api/services/workflowService.ts`，baseUrl 改为 `/admin/workflows`，移除 `getKinds()`、`getPalette()` mock。
+- [X] T077 [P0] 更新 `web-admin/app/pages/workflow/index.vue`，移除内置 workflow list，接真实 definitions API、分页、搜索和状态筛选。
+- [X] T078 [P0] 更新 `web-admin/app/components/workflow/WorkflowEditor.vue`，左侧节点目录来自 Node Catalog API，属性面板按 schema 渲染。
+- [X] T079 [P0] 新增实例监控与审核页面：`web-admin/app/pages/workflow/instances/*`、`web-admin/app/pages/workflow/review-tasks/*`。
+- [X] T080 [P0] 补齐 workflow 前端 i18n；节点名称、按钮、错误、状态不得硬编码用户可见文案。
+
+### Tests
+
+- [X] T081 [P0] 单测：NodeAdapterRegistry、Runner route、HumanReview、Knowledge publish review gate。
+- [X] T082 [P0] 集成测试：`expert_knowledge_capture` 完整链路。
+- [X] T083 [P0] 集成测试：`marketing_knowledge_capture` 完整链路。
+- [X] T084 [P0] HTTP 合同测试：definitions/instances/node-catalog/review-tasks/packs。
+- [X] T085 [P0] gRPC 合同测试：WorkflowService 与 HTTP 能力对齐。
+- [X] T086 [P0] 前端测试：Workflow Builder 无 mock 数据，节点目录来自 API。
+
+**Completion Definition**:
+
+1. `marketing_knowledge_capture` 可以真实启动并推进到 Human Review。
+2. Human Review approve 后可以发布到 Knowledge Space。
+3. reject 后不会发布正式知识。
+4. 所有节点都有 StepRecord、WorkflowEvent 和 trace_id。
+5. Web Admin 不再使用 mock workflow 数据。
+6. native-agent 启用时能校验 Workflow Pack 是否可执行。
 
 - 2025-10-21 13:20 UTC：`make test-all` 执行完成，全部 API 套件通过；Redis/Grafana 监控方案通过新增运行手册与仪表板模板覆盖；单元回归 `GOCACHE=$(pwd)/.gocache go test ./tests/unit/...`、导出合同 `./tests/contract/workflow -run Export` 已验证。
 - 2025-10-21 13:35 UTC：尝试 `scripts/demo/event_fabric_quickstart.sh`，后端返回 HTTP 404（能力创建失败）；需待管理端服务上线后重试确认。

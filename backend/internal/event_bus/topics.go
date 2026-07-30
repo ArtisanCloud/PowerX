@@ -5,6 +5,7 @@ const (
 	TopicKnowledgeCorpusCheckJob    = "_topic.knowledge.corpus_check.job"
 	TopicKnowledgeFeedbackReprocess = "_topic.knowledge.space.feedback.reprocess"
 	TopicSystemNotification         = "_topic.system.notification"
+	TopicWorkflowInstance           = "_topic.workflow.instance"
 
 	TopicIntegrationGatewayRouteCreated = "_topic.integration.gateway.route.created"
 	TopicIntegrationGatewayRouteUpdated = "_topic.integration.gateway.route.updated"

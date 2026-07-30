@@ -77,6 +77,7 @@ func SeedRoot(db *gorm.DB) error {
 	rootPassword := "root"
 
 	setupAdmin, hasSetupDraft, hasSetupAdminPassword := loadSetupAdminFromDraft()
+	allowRootPasswordReset := isTruthyEnv("POWERX_SEED_RESET_ROOT_PASSWORD")
 	if hasSetupAdminPassword {
 		if v := strings.TrimSpace(setupAdmin.Username); v != "" {
 			rootUserName = v
@@ -167,52 +168,31 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("hash password: %w", err)
+	var existingPasswordCreds int64
+	if err := db.Model(&model.Credential{}).
+		Where("user_id = ? AND provider = ?", userID, "password").
+		Count(&existingPasswordCreds).Error; err != nil {
+		return fmt.Errorf("count root password credentials: %w", err)
 	}
 	if cred != nil && cred.UserID != userID {
 		return fmt.Errorf("root identifier already bound to another user: %s", rootIdentifier)
 	}
-	if err := credRepo.Upsert(seedCtx(), &model.Credential{
-		UserID:     userID,
-		Provider:   "password",
-		Identifier: rootIdentifier,
-		SecretHash: string(hash),
-		IsPrimary:  true,
-	}, "user_id", "secret_hash", "is_primary"); err != nil {
-		return fmt.Errorf("upsert credential: %w", err)
-	}
-
-	// 兼容：如果 rootIdentifier 不是 root，再补一条 legacy root 标识，避免旧脚本/文档登录失败。
-	// 如果 legacy 标识已存在，必须同步 hash，否则 setup 密码更新后 root/root 会残留。
-	if rootIdentifier != "root" {
-		if legacyCred, legacyErr := credRepo.FindByProviderIdentifier(seedCtx(), "password", "root"); legacyErr == nil {
-			if legacyCred.UserID != userID {
-				return fmt.Errorf("legacy root identifier already bound to another user")
-			}
-			if err := credRepo.Upsert(seedCtx(), &model.Credential{
-				UserID:     userID,
-				Provider:   "password",
-				Identifier: "root",
-				SecretHash: string(hash),
-				IsPrimary:  false,
-			}, "user_id", "secret_hash", "is_primary"); err != nil {
-				return fmt.Errorf("sync legacy root credential: %w", err)
-			}
-		} else if errors.Is(legacyErr, gorm.ErrRecordNotFound) {
-			if err := credRepo.Create(seedCtx(), &model.Credential{
-				UserID:     userID,
-				Provider:   "password",
-				Identifier: "root",
-				SecretHash: string(hash),
-				IsPrimary:  false,
-			}); err != nil {
-				return fmt.Errorf("create legacy root credential: %w", err)
-			}
-		} else {
-			return fmt.Errorf("find legacy root credential: %w", legacyErr)
+	if shouldWriteRootPasswordCredential(existingPasswordCreds, allowRootPasswordReset) {
+		hash, err := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("hash password: %w", err)
 		}
+		if err := credRepo.Upsert(seedCtx(), &model.Credential{
+			UserID:     userID,
+			Provider:   "password",
+			Identifier: rootIdentifier,
+			SecretHash: string(hash),
+			IsPrimary:  true,
+		}, "user_id", "secret_hash", "is_primary"); err != nil {
+			return fmt.Errorf("upsert credential: %w", err)
+		}
+	} else {
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] preserve existing root password credentials. user_id=%d credentials=%d", userID, existingPasswordCreds)
 	}
 
 	// 7) 在 system 租户确保 root 成员。
@@ -227,8 +207,13 @@ func SeedRoot(db *gorm.DB) error {
 	}
 
 	if mem == nil || errors.Is(err, gorm.ErrRecordNotFound) {
+		userUUID, err := rootUserUUID(db, userID)
+		if err != nil {
+			return err
+		}
 		m := &model.Member{
 			TenantUUID:  tenantUUID,
+			UserUUID:    userUUID,
 			UserID:      userID,
 			Username:    rootUserName,
 			DisplayName: rootDisplayName,
@@ -244,6 +229,13 @@ func SeedRoot(db *gorm.DB) error {
 			"username":     rootUserName,
 			"display_name": rootDisplayName,
 		}
+		if strings.TrimSpace(mem.UserUUID) == "" {
+			userUUID, err := rootUserUUID(db, userID)
+			if err != nil {
+				return err
+			}
+			memberUpdates["user_uuid"] = userUUID
+		}
 		if err := db.Model(&model.Member{}).Where("id = ?", memberID).Updates(memberUpdates).Error; err != nil {
 			return fmt.Errorf("update root member: %w", err)
 		}
@@ -254,10 +246,16 @@ func SeedRoot(db *gorm.DB) error {
 	if err != nil {
 		return fmt.Errorf("find role_admin: %w", err)
 	}
+	memberUUID, err := rootMemberUUID(db, memberID)
+	if err != nil {
+		return err
+	}
 	if err := rbRepo.Create(seedCtx(), &model.RoleBinding{
 		TenantUUID:  tenantUUID,
+		RoleUUID:    adminRole.UUID.String(),
 		RoleID:      adminRole.ID,
 		SubjectType: model.SubMember, // 你模型里定义的常量
+		SubjectUUID: memberUUID,
 		SubjectID:   memberID,
 	}); err != nil {
 		return fmt.Errorf("bind role_admin to root member: %w", err)
@@ -267,8 +265,36 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed demo readonly account: %w", err)
 	}
 
-	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] root ready. tenant=%s username=%s identifier=%s password_source=%s", tenantKey, rootUserName, rootIdentifier, rootPasswordSource(hasSetupAdminPassword))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] root ready. tenant=%s username=%s identifier=%s password_source=%s password_reset=%t", tenantKey, rootUserName, rootIdentifier, rootPasswordSource(hasSetupAdminPassword), allowRootPasswordReset)
 	return nil
+}
+
+func shouldWriteRootPasswordCredential(existingPasswordCreds int64, allowReset bool) bool {
+	return existingPasswordCreds == 0 || allowReset
+}
+
+func rootUserUUID(db *gorm.DB, userID uint64) (string, error) {
+	var out string
+	if err := db.Model(&model.User{}).Where("id = ?", userID).Pluck("uuid", &out).Error; err != nil {
+		return "", fmt.Errorf("resolve root user uuid: %w", err)
+	}
+	out = strings.TrimSpace(out)
+	if out == "" || out == "00000000-0000-0000-0000-000000000000" {
+		return "", fmt.Errorf("root user missing uuid")
+	}
+	return out, nil
+}
+
+func rootMemberUUID(db *gorm.DB, memberID uint64) (string, error) {
+	var out string
+	if err := db.Model(&model.Member{}).Where("id = ?", memberID).Pluck("uuid", &out).Error; err != nil {
+		return "", fmt.Errorf("resolve root member uuid: %w", err)
+	}
+	out = strings.TrimSpace(out)
+	if out == "" || out == "00000000-0000-0000-0000-000000000000" {
+		return "", fmt.Errorf("root member missing uuid")
+	}
+	return out, nil
 }
 
 type permissionRegistrar struct {
@@ -484,8 +510,13 @@ func SeedDemoReadonlyAccount(db *gorm.DB) error {
 	}
 	var memberID uint64
 	if member == nil {
+		userUUID, err := rootUserUUID(db, userID)
+		if err != nil {
+			return err
+		}
 		m := &model.Member{
 			TenantUUID:  tenantUUID,
+			UserUUID:    userUUID,
 			UserID:      userID,
 			Username:    username,
 			DisplayName: displayName,
@@ -497,11 +528,19 @@ func SeedDemoReadonlyAccount(db *gorm.DB) error {
 		memberID = m.ID
 	} else {
 		memberID = member.ID
-		if err := db.Model(&model.Member{}).Where("id = ?", memberID).Updates(map[string]any{
+		memberUpdates := map[string]any{
 			"username":     username,
 			"display_name": displayName,
 			"status":       1,
-		}).Error; err != nil {
+		}
+		if strings.TrimSpace(member.UserUUID) == "" {
+			userUUID, err := rootUserUUID(db, userID)
+			if err != nil {
+				return err
+			}
+			memberUpdates["user_uuid"] = userUUID
+		}
+		if err := db.Model(&model.Member{}).Where("id = ?", memberID).Updates(memberUpdates).Error; err != nil {
 			return fmt.Errorf("update demo member: %w", err)
 		}
 	}
@@ -511,10 +550,16 @@ func SeedDemoReadonlyAccount(db *gorm.DB) error {
 		Delete(&model.RoleBinding{}).Error; err != nil {
 		return fmt.Errorf("clear demo member role bindings: %w", err)
 	}
+	memberUUID, err := rootMemberUUID(db, memberID)
+	if err != nil {
+		return err
+	}
 	if err := infraiam.NewRoleBindingRepository(db).Create(ctx, &model.RoleBinding{
 		TenantUUID:  tenantUUID,
+		RoleUUID:    readonlyRole.UUID.String(),
 		RoleID:      readonlyRole.ID,
 		SubjectType: model.SubMember,
+		SubjectUUID: memberUUID,
 		SubjectID:   memberID,
 	}); err != nil {
 		return fmt.Errorf("bind demo readonly role: %w", err)

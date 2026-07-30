@@ -148,12 +148,13 @@ dist-systemd:
 	fi; \
 	echo "[dist] build web-admin"; \
 	if [ "$(NPM_INSTALL)" = "1" ]; then (cd web-admin && npm ci); fi; \
+	rm -rf web-admin/.nuxt web-admin/.output web-admin/node_modules/.cache/nuxt; \
 	if [ -f web-admin/.env.prod ]; then \
 		echo "[dist] web-admin env: use web-admin/.env.prod"; \
-		(cd web-admin && set -a && . ./.env.prod && set +a && npm run build); \
+		(cd web-admin && set -a && . ./.env.prod && set +a && NUXT_BUILD_DIR=.nuxt npm run build); \
 	else \
 		echo "[dist] web-admin env: use built-in prod defaults"; \
-		(cd web-admin && POWERX_ENV=prod POWERX_BUILD_TARGET=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws npm run build); \
+		(cd web-admin && NUXT_BUILD_DIR=.nuxt POWERX_ENV=prod POWERX_BUILD_TARGET=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws npm run build); \
 	fi; \
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \

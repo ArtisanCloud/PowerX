@@ -34,19 +34,29 @@ func (h *platformCapabilityHandler) ListModules(c *gin.Context) {
 	if pageSize <= 0 {
 		pageSize = 20
 	}
-	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Query("module")), false, page, pageSize)
+	source, err := resolvePlatformCapabilitySource(c.Query("source"))
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
+		return
+	}
+	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Query("module")), source, false, page, pageSize)
 }
 
 func (h *platformCapabilityHandler) GetModule(c *gin.Context) {
-	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Param("moduleKey")), true, 1, 1)
+	source, err := resolvePlatformCapabilitySource(c.Query("source"))
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
+		return
+	}
+	h.handleResponse(c, capability_registrydto.NormalizePlatformModuleKey(c.Param("moduleKey")), source, true, 1, 1)
 }
 
-func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter string, single bool, page int, pageSize int) {
+func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter string, source string, single bool, page int, pageSize int) {
 	if !reqctx.IsRoot(c.Request.Context()) {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithHint("仅 Root 管理员可查看平台能力"), nil)
 		return
 	}
-	modules, totalCapabilities, err := h.loadModules(c, moduleFilter)
+	modules, totalCapabilities, err := h.loadModules(c, moduleFilter, source)
 	if err != nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
@@ -91,7 +101,7 @@ func (h *platformCapabilityHandler) handleResponse(c *gin.Context, moduleFilter 
 	})
 }
 
-func (h *platformCapabilityHandler) loadModules(c *gin.Context, moduleFilter string) ([]capability_registrydto.PlatformCapabilityModuleDTO, int, error) {
+func (h *platformCapabilityHandler) loadModules(c *gin.Context, moduleFilter string, source string) ([]capability_registrydto.PlatformCapabilityModuleDTO, int, error) {
 	ctx := c.Request.Context()
 	grouped := map[string]*capability_registrydto.PlatformCapabilityModuleDTO{}
 	moduleChannels := map[string]map[string]struct{}{}
@@ -102,7 +112,7 @@ func (h *platformCapabilityHandler) loadModules(c *gin.Context, moduleFilter str
 	for {
 		includeTotal := offset == 0
 		opts := capabilitycatalog.CapabilityListOptions{
-			Source:       capabilitycatalog.CapabilitySourceCoreX,
+			Source:       source,
 			Limit:        platformCapabilitiesPageSize,
 			Offset:       offset,
 			IncludeTotal: includeTotal,
@@ -176,6 +186,13 @@ func (h *platformCapabilityHandler) loadModules(c *gin.Context, moduleFilter str
 	})
 
 	return modules, totalCapabilities, nil
+}
+
+func resolvePlatformCapabilitySource(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return capabilitycatalog.CapabilitySourceCoreX, nil
+	}
+	return capabilitycatalog.NormalizeCapabilitySource(raw)
 }
 
 func deduplicateAndSort(set map[string]struct{}) []string {

@@ -504,6 +504,23 @@ func TestSkillExecutionFallbackDoesNotClaimCompletionWithoutResult(t *testing.T)
 	}
 }
 
+func TestCapabilityIntroFiltersExecutionPlaceholder(t *testing.T) {
+	content := BuildFinalResponseContent(&ResponsePlan{
+		ResponseMode:        ResponseModeCapabilityIntro,
+		TargetCapabilityIDs: []string{"mediax.video_rebuilder.basic.local"},
+	}, "任务已执行完成（status=completed）。", nil)
+	for _, forbidden := range []string{"任务已执行完成", "status=completed", "不能确认任务已经完成"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("capability intro exposed execution placeholder %q in %s", forbidden, content)
+		}
+	}
+	for _, want := range []string{"当前智能体", "已绑定", "能力"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("capability intro fallback missing %q in %s", want, content)
+		}
+	}
+}
+
 func TestNormalChatFiltersBusinessCompletionWithoutExecutionResult(t *testing.T) {
 	content := BuildFinalResponseContent(&ResponsePlan{ResponseMode: ResponseModeNormalChat}, "已为您创建标题为“测试模板”的模板，操作已完成。", nil)
 	for _, forbidden := range []string{"已为您创建", "操作已完成", "创建成功"} {

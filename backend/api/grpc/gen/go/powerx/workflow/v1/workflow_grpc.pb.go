@@ -19,16 +19,25 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkflowService_CreateDefinition_FullMethodName  = "/powerx.workflow.v1.WorkflowService/CreateDefinition"
-	WorkflowService_PublishDefinition_FullMethodName = "/powerx.workflow.v1.WorkflowService/PublishDefinition"
-	WorkflowService_ArchiveDefinition_FullMethodName = "/powerx.workflow.v1.WorkflowService/ArchiveDefinition"
-	WorkflowService_ListDefinitions_FullMethodName   = "/powerx.workflow.v1.WorkflowService/ListDefinitions"
-	WorkflowService_GetDefinition_FullMethodName     = "/powerx.workflow.v1.WorkflowService/GetDefinition"
-	WorkflowService_StartInstance_FullMethodName     = "/powerx.workflow.v1.WorkflowService/StartInstance"
-	WorkflowService_GetInstance_FullMethodName       = "/powerx.workflow.v1.WorkflowService/GetInstance"
-	WorkflowService_ListInstances_FullMethodName     = "/powerx.workflow.v1.WorkflowService/ListInstances"
-	WorkflowService_ControlInstance_FullMethodName   = "/powerx.workflow.v1.WorkflowService/ControlInstance"
-	WorkflowService_ExportInstances_FullMethodName   = "/powerx.workflow.v1.WorkflowService/ExportInstances"
+	WorkflowService_CreateDefinition_FullMethodName     = "/powerx.workflow.v1.WorkflowService/CreateDefinition"
+	WorkflowService_PublishDefinition_FullMethodName    = "/powerx.workflow.v1.WorkflowService/PublishDefinition"
+	WorkflowService_ArchiveDefinition_FullMethodName    = "/powerx.workflow.v1.WorkflowService/ArchiveDefinition"
+	WorkflowService_ListDefinitions_FullMethodName      = "/powerx.workflow.v1.WorkflowService/ListDefinitions"
+	WorkflowService_GetDefinition_FullMethodName        = "/powerx.workflow.v1.WorkflowService/GetDefinition"
+	WorkflowService_StartInstance_FullMethodName        = "/powerx.workflow.v1.WorkflowService/StartInstance"
+	WorkflowService_GetInstance_FullMethodName          = "/powerx.workflow.v1.WorkflowService/GetInstance"
+	WorkflowService_ListInstances_FullMethodName        = "/powerx.workflow.v1.WorkflowService/ListInstances"
+	WorkflowService_ControlInstance_FullMethodName      = "/powerx.workflow.v1.WorkflowService/ControlInstance"
+	WorkflowService_ExportInstances_FullMethodName      = "/powerx.workflow.v1.WorkflowService/ExportInstances"
+	WorkflowService_ValidateDefinition_FullMethodName   = "/powerx.workflow.v1.WorkflowService/ValidateDefinition"
+	WorkflowService_ListNodeCatalog_FullMethodName      = "/powerx.workflow.v1.WorkflowService/ListNodeCatalog"
+	WorkflowService_GetNodeCatalogItem_FullMethodName   = "/powerx.workflow.v1.WorkflowService/GetNodeCatalogItem"
+	WorkflowService_ListHumanReviewTasks_FullMethodName = "/powerx.workflow.v1.WorkflowService/ListHumanReviewTasks"
+	WorkflowService_GetHumanReviewTask_FullMethodName   = "/powerx.workflow.v1.WorkflowService/GetHumanReviewTask"
+	WorkflowService_ActHumanReviewTask_FullMethodName   = "/powerx.workflow.v1.WorkflowService/ActHumanReviewTask"
+	WorkflowService_ListWorkflowPacks_FullMethodName    = "/powerx.workflow.v1.WorkflowService/ListWorkflowPacks"
+	WorkflowService_SeedWorkflowPacks_FullMethodName    = "/powerx.workflow.v1.WorkflowService/SeedWorkflowPacks"
+	WorkflowService_GetWorkflowPack_FullMethodName      = "/powerx.workflow.v1.WorkflowService/GetWorkflowPack"
 )
 
 // WorkflowServiceClient is the client API for WorkflowService service.
@@ -47,6 +56,15 @@ type WorkflowServiceClient interface {
 	ListInstances(ctx context.Context, in *ListInstancesRequest, opts ...grpc.CallOption) (*ListInstancesResponse, error)
 	ControlInstance(ctx context.Context, in *ControlInstanceRequest, opts ...grpc.CallOption) (*ControlInstanceResponse, error)
 	ExportInstances(ctx context.Context, in *ExportInstancesRequest, opts ...grpc.CallOption) (*ExportInstancesResponse, error)
+	ValidateDefinition(ctx context.Context, in *ValidateDefinitionRequest, opts ...grpc.CallOption) (*ValidateDefinitionResponse, error)
+	ListNodeCatalog(ctx context.Context, in *ListNodeCatalogRequest, opts ...grpc.CallOption) (*ListNodeCatalogResponse, error)
+	GetNodeCatalogItem(ctx context.Context, in *GetNodeCatalogItemRequest, opts ...grpc.CallOption) (*GetNodeCatalogItemResponse, error)
+	ListHumanReviewTasks(ctx context.Context, in *ListHumanReviewTasksRequest, opts ...grpc.CallOption) (*ListHumanReviewTasksResponse, error)
+	GetHumanReviewTask(ctx context.Context, in *GetHumanReviewTaskRequest, opts ...grpc.CallOption) (*GetHumanReviewTaskResponse, error)
+	ActHumanReviewTask(ctx context.Context, in *ActHumanReviewTaskRequest, opts ...grpc.CallOption) (*ActHumanReviewTaskResponse, error)
+	ListWorkflowPacks(ctx context.Context, in *ListWorkflowPacksRequest, opts ...grpc.CallOption) (*ListWorkflowPacksResponse, error)
+	SeedWorkflowPacks(ctx context.Context, in *SeedWorkflowPacksRequest, opts ...grpc.CallOption) (*SeedWorkflowPacksResponse, error)
+	GetWorkflowPack(ctx context.Context, in *GetWorkflowPackRequest, opts ...grpc.CallOption) (*GetWorkflowPackResponse, error)
 }
 
 type workflowServiceClient struct {
@@ -157,6 +175,96 @@ func (c *workflowServiceClient) ExportInstances(ctx context.Context, in *ExportI
 	return out, nil
 }
 
+func (c *workflowServiceClient) ValidateDefinition(ctx context.Context, in *ValidateDefinitionRequest, opts ...grpc.CallOption) (*ValidateDefinitionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateDefinitionResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ValidateDefinition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) ListNodeCatalog(ctx context.Context, in *ListNodeCatalogRequest, opts ...grpc.CallOption) (*ListNodeCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNodeCatalogResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ListNodeCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) GetNodeCatalogItem(ctx context.Context, in *GetNodeCatalogItemRequest, opts ...grpc.CallOption) (*GetNodeCatalogItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNodeCatalogItemResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_GetNodeCatalogItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) ListHumanReviewTasks(ctx context.Context, in *ListHumanReviewTasksRequest, opts ...grpc.CallOption) (*ListHumanReviewTasksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListHumanReviewTasksResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ListHumanReviewTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) GetHumanReviewTask(ctx context.Context, in *GetHumanReviewTaskRequest, opts ...grpc.CallOption) (*GetHumanReviewTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetHumanReviewTaskResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_GetHumanReviewTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) ActHumanReviewTask(ctx context.Context, in *ActHumanReviewTaskRequest, opts ...grpc.CallOption) (*ActHumanReviewTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActHumanReviewTaskResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ActHumanReviewTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) ListWorkflowPacks(ctx context.Context, in *ListWorkflowPacksRequest, opts ...grpc.CallOption) (*ListWorkflowPacksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWorkflowPacksResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ListWorkflowPacks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) SeedWorkflowPacks(ctx context.Context, in *SeedWorkflowPacksRequest, opts ...grpc.CallOption) (*SeedWorkflowPacksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SeedWorkflowPacksResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_SeedWorkflowPacks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) GetWorkflowPack(ctx context.Context, in *GetWorkflowPackRequest, opts ...grpc.CallOption) (*GetWorkflowPackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWorkflowPackResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_GetWorkflowPack_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowServiceServer is the server API for WorkflowService service.
 // All implementations must embed UnimplementedWorkflowServiceServer
 // for forward compatibility.
@@ -173,6 +281,15 @@ type WorkflowServiceServer interface {
 	ListInstances(context.Context, *ListInstancesRequest) (*ListInstancesResponse, error)
 	ControlInstance(context.Context, *ControlInstanceRequest) (*ControlInstanceResponse, error)
 	ExportInstances(context.Context, *ExportInstancesRequest) (*ExportInstancesResponse, error)
+	ValidateDefinition(context.Context, *ValidateDefinitionRequest) (*ValidateDefinitionResponse, error)
+	ListNodeCatalog(context.Context, *ListNodeCatalogRequest) (*ListNodeCatalogResponse, error)
+	GetNodeCatalogItem(context.Context, *GetNodeCatalogItemRequest) (*GetNodeCatalogItemResponse, error)
+	ListHumanReviewTasks(context.Context, *ListHumanReviewTasksRequest) (*ListHumanReviewTasksResponse, error)
+	GetHumanReviewTask(context.Context, *GetHumanReviewTaskRequest) (*GetHumanReviewTaskResponse, error)
+	ActHumanReviewTask(context.Context, *ActHumanReviewTaskRequest) (*ActHumanReviewTaskResponse, error)
+	ListWorkflowPacks(context.Context, *ListWorkflowPacksRequest) (*ListWorkflowPacksResponse, error)
+	SeedWorkflowPacks(context.Context, *SeedWorkflowPacksRequest) (*SeedWorkflowPacksResponse, error)
+	GetWorkflowPack(context.Context, *GetWorkflowPackRequest) (*GetWorkflowPackResponse, error)
 	mustEmbedUnimplementedWorkflowServiceServer()
 }
 
@@ -212,6 +329,33 @@ func (UnimplementedWorkflowServiceServer) ControlInstance(context.Context, *Cont
 }
 func (UnimplementedWorkflowServiceServer) ExportInstances(context.Context, *ExportInstancesRequest) (*ExportInstancesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExportInstances not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ValidateDefinition(context.Context, *ValidateDefinitionRequest) (*ValidateDefinitionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateDefinition not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ListNodeCatalog(context.Context, *ListNodeCatalogRequest) (*ListNodeCatalogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNodeCatalog not implemented")
+}
+func (UnimplementedWorkflowServiceServer) GetNodeCatalogItem(context.Context, *GetNodeCatalogItemRequest) (*GetNodeCatalogItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNodeCatalogItem not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ListHumanReviewTasks(context.Context, *ListHumanReviewTasksRequest) (*ListHumanReviewTasksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListHumanReviewTasks not implemented")
+}
+func (UnimplementedWorkflowServiceServer) GetHumanReviewTask(context.Context, *GetHumanReviewTaskRequest) (*GetHumanReviewTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHumanReviewTask not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ActHumanReviewTask(context.Context, *ActHumanReviewTaskRequest) (*ActHumanReviewTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ActHumanReviewTask not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ListWorkflowPacks(context.Context, *ListWorkflowPacksRequest) (*ListWorkflowPacksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWorkflowPacks not implemented")
+}
+func (UnimplementedWorkflowServiceServer) SeedWorkflowPacks(context.Context, *SeedWorkflowPacksRequest) (*SeedWorkflowPacksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SeedWorkflowPacks not implemented")
+}
+func (UnimplementedWorkflowServiceServer) GetWorkflowPack(context.Context, *GetWorkflowPackRequest) (*GetWorkflowPackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWorkflowPack not implemented")
 }
 func (UnimplementedWorkflowServiceServer) mustEmbedUnimplementedWorkflowServiceServer() {}
 func (UnimplementedWorkflowServiceServer) testEmbeddedByValue()                         {}
@@ -414,6 +558,168 @@ func _WorkflowService_ExportInstances_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowService_ValidateDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateDefinitionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ValidateDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ValidateDefinition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ValidateDefinition(ctx, req.(*ValidateDefinitionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_ListNodeCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNodeCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ListNodeCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ListNodeCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ListNodeCatalog(ctx, req.(*ListNodeCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_GetNodeCatalogItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNodeCatalogItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).GetNodeCatalogItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_GetNodeCatalogItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).GetNodeCatalogItem(ctx, req.(*GetNodeCatalogItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_ListHumanReviewTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListHumanReviewTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ListHumanReviewTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ListHumanReviewTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ListHumanReviewTasks(ctx, req.(*ListHumanReviewTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_GetHumanReviewTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHumanReviewTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).GetHumanReviewTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_GetHumanReviewTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).GetHumanReviewTask(ctx, req.(*GetHumanReviewTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_ActHumanReviewTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActHumanReviewTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ActHumanReviewTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ActHumanReviewTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ActHumanReviewTask(ctx, req.(*ActHumanReviewTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_ListWorkflowPacks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWorkflowPacksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ListWorkflowPacks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ListWorkflowPacks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ListWorkflowPacks(ctx, req.(*ListWorkflowPacksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_SeedWorkflowPacks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeedWorkflowPacksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).SeedWorkflowPacks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_SeedWorkflowPacks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).SeedWorkflowPacks(ctx, req.(*SeedWorkflowPacksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_GetWorkflowPack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorkflowPackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).GetWorkflowPack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_GetWorkflowPack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).GetWorkflowPack(ctx, req.(*GetWorkflowPackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowService_ServiceDesc is the grpc.ServiceDesc for WorkflowService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -460,6 +766,42 @@ var WorkflowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportInstances",
 			Handler:    _WorkflowService_ExportInstances_Handler,
+		},
+		{
+			MethodName: "ValidateDefinition",
+			Handler:    _WorkflowService_ValidateDefinition_Handler,
+		},
+		{
+			MethodName: "ListNodeCatalog",
+			Handler:    _WorkflowService_ListNodeCatalog_Handler,
+		},
+		{
+			MethodName: "GetNodeCatalogItem",
+			Handler:    _WorkflowService_GetNodeCatalogItem_Handler,
+		},
+		{
+			MethodName: "ListHumanReviewTasks",
+			Handler:    _WorkflowService_ListHumanReviewTasks_Handler,
+		},
+		{
+			MethodName: "GetHumanReviewTask",
+			Handler:    _WorkflowService_GetHumanReviewTask_Handler,
+		},
+		{
+			MethodName: "ActHumanReviewTask",
+			Handler:    _WorkflowService_ActHumanReviewTask_Handler,
+		},
+		{
+			MethodName: "ListWorkflowPacks",
+			Handler:    _WorkflowService_ListWorkflowPacks_Handler,
+		},
+		{
+			MethodName: "SeedWorkflowPacks",
+			Handler:    _WorkflowService_SeedWorkflowPacks_Handler,
+		},
+		{
+			MethodName: "GetWorkflowPack",
+			Handler:    _WorkflowService_GetWorkflowPack_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

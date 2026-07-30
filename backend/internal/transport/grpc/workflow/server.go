@@ -73,7 +73,7 @@ func (s *Server) PublishDefinition(ctx context.Context, req *workflowv1.PublishD
 	if err != nil {
 		return nil, err
 	}
-	defUUID, err := uuid.Parse(req.GetDefinitionId())
+	defUUID, err := uuid.Parse(req.GetDefinitionUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid definition_id")
 	}
@@ -123,7 +123,13 @@ func (s *Server) ListDefinitions(ctx context.Context, req *workflowv1.ListDefini
 		}
 	}
 
-	defs, total, err := s.svc.ListDefinitions(ctx, tenantUUID, statusFilter, req.GetKeyword(), limit, offset)
+	defs, total, err := s.svc.ListDefinitions(ctx, workflowrepo.DefinitionListFilter{
+		TenantUUID: tenantUUID,
+		Status:     statusFilter,
+		Keyword:    req.GetKeyword(),
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -150,7 +156,7 @@ func (s *Server) GetDefinition(ctx context.Context, req *workflowv1.GetDefinitio
 	if err != nil {
 		return nil, err
 	}
-	defUUID, err := uuid.Parse(req.GetDefinitionId())
+	defUUID, err := uuid.Parse(req.GetDefinitionUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid definition_id")
 	}
@@ -179,7 +185,7 @@ func (s *Server) StartInstance(ctx context.Context, req *workflowv1.StartInstanc
 	if err != nil {
 		return nil, err
 	}
-	defUUID, err := uuid.Parse(req.GetDefinitionId())
+	defUUID, err := uuid.Parse(req.GetDefinitionUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid definition_id")
 	}
@@ -210,7 +216,7 @@ func (s *Server) GetInstance(ctx context.Context, req *workflowv1.GetInstanceReq
 	if err != nil {
 		return nil, err
 	}
-	instUUID, err := uuid.Parse(req.GetInstanceId())
+	instUUID, err := uuid.Parse(req.GetInstanceUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
 	}
@@ -252,8 +258,8 @@ func (s *Server) ListInstances(ctx context.Context, req *workflowv1.ListInstance
 			filter.Page = int(pageReq.GetOffset())/size + 1
 		}
 	}
-	if req.GetDefinitionId() != "" {
-		if defUUID, err := uuid.Parse(req.GetDefinitionId()); err == nil {
+	if req.GetDefinitionUuid() != "" {
+		if defUUID, err := uuid.Parse(req.GetDefinitionUuid()); err == nil {
 			filter.DefinitionUUID = defUUID
 		}
 	}
@@ -296,7 +302,7 @@ func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlIns
 	if err != nil {
 		return nil, err
 	}
-	instUUID, err := uuid.Parse(req.GetInstanceId())
+	instUUID, err := uuid.Parse(req.GetInstanceUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
 	}
@@ -345,8 +351,8 @@ func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInst
 		Format:             protoFormatToInternal(req.GetFormat()),
 	}
 
-	if req.GetDefinitionId() != "" {
-		definitionUUID, err := uuid.Parse(req.GetDefinitionId())
+	if req.GetDefinitionUuid() != "" {
+		definitionUUID, err := uuid.Parse(req.GetDefinitionUuid())
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid definition_id")
 		}
@@ -375,6 +381,232 @@ func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInst
 		Rows:        rows,
 		DownloadUrl: result.DownloadURL,
 	}, nil
+}
+
+func (s *Server) ValidateDefinition(ctx context.Context, req *workflowv1.ValidateDefinitionRequest) (*workflowv1.ValidateDefinitionResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	definitionUUID, err := uuid.Parse(req.GetDefinitionUuid())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid definition_uuid")
+	}
+	definition, err := s.svc.GetDefinition(ctx, tenantUUID, definitionUUID, nil)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	_, err = workflowsvc.ValidateStepDefinitions(decodeSteps(definition.StepGraph))
+	if err != nil {
+		return &workflowv1.ValidateDefinitionResponse{
+			Meta:  okMeta(ctx),
+			Valid: false,
+			Issues: []*workflowv1.WorkflowValidationIssue{{
+				Code:    "workflow.definition_invalid",
+				Message: err.Error(),
+			}},
+		}, nil
+	}
+	return &workflowv1.ValidateDefinitionResponse{
+		Meta:  okMeta(ctx),
+		Valid: true,
+	}, nil
+}
+
+func (s *Server) ListNodeCatalog(ctx context.Context, req *workflowv1.ListNodeCatalogRequest) (*workflowv1.ListNodeCatalogResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	if _, err := s.requireTenantContext(ctx, req.GetCtx()); err != nil {
+		return nil, err
+	}
+	items, err := s.svc.ListNodeCatalog(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	out := make([]*workflowv1.WorkflowNodeCatalogItem, 0, len(items))
+	category := strings.TrimSpace(req.GetCategory())
+	keyword := strings.ToLower(strings.TrimSpace(req.GetKeyword()))
+	for _, item := range items {
+		if category != "" && item.Category != category {
+			continue
+		}
+		if keyword != "" && !strings.Contains(strings.ToLower(item.NodeKind+" "+item.DisplayNameI18nKey+" "+item.Category), keyword) {
+			continue
+		}
+		out = append(out, nodeCatalogItemToPB(item))
+	}
+	return &workflowv1.ListNodeCatalogResponse{Meta: okMeta(ctx), Items: out}, nil
+}
+
+func (s *Server) GetNodeCatalogItem(ctx context.Context, req *workflowv1.GetNodeCatalogItemRequest) (*workflowv1.GetNodeCatalogItemResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	if _, err := s.requireTenantContext(ctx, req.GetCtx()); err != nil {
+		return nil, err
+	}
+	item, err := s.svc.GetNodeCatalogItem(ctx, req.GetNodeKind())
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &workflowv1.GetNodeCatalogItemResponse{Meta: okMeta(ctx), Item: nodeCatalogItemToPB(item)}, nil
+}
+
+func (s *Server) ListHumanReviewTasks(ctx context.Context, req *workflowv1.ListHumanReviewTasksRequest) (*workflowv1.ListHumanReviewTasksResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	pageSize := 20
+	page := 1
+	if req.GetPage() != nil {
+		if req.GetPage().GetPageSize() > 0 {
+			pageSize = int(req.GetPage().GetPageSize())
+		}
+		if req.GetPage().GetOffset() > 0 {
+			page = int(req.GetPage().GetOffset())/pageSize + 1
+		}
+	}
+	var instanceUUID uuid.UUID
+	if req.GetWorkflowInstanceUuid() != "" {
+		parsed, err := uuid.Parse(req.GetWorkflowInstanceUuid())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid workflow_instance_uuid")
+		}
+		instanceUUID = parsed
+	}
+	tasks, total, err := s.svc.ListHumanReviewTasks(ctx, workflowsvc.HumanReviewListInput{
+		TenantUUID:           tenantUUID,
+		Status:               humanReviewStatusFilter(req.GetStatus()),
+		WorkflowInstanceUUID: instanceUUID,
+		ReviewType:           req.GetReviewType(),
+		Page:                 page,
+		PageSize:             pageSize,
+	})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	out := make([]*workflowv1.HumanReviewTask, 0, len(tasks))
+	for i := range tasks {
+		out = append(out, humanReviewTaskToPB(&tasks[i]))
+	}
+	return &workflowv1.ListHumanReviewTasksResponse{
+		Meta:        okMeta(ctx),
+		ReviewTasks: out,
+		Page:        &commonv1.PageResponse{Total: total},
+	}, nil
+}
+
+func (s *Server) GetHumanReviewTask(ctx context.Context, req *workflowv1.GetHumanReviewTaskRequest) (*workflowv1.GetHumanReviewTaskResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	taskUUID, err := uuid.Parse(req.GetReviewTaskUuid())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid review_task_uuid")
+	}
+	task, err := s.svc.GetHumanReviewTask(ctx, tenantUUID, taskUUID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &workflowv1.GetHumanReviewTaskResponse{Meta: okMeta(ctx), ReviewTask: humanReviewTaskToPB(task)}, nil
+}
+
+func (s *Server) ActHumanReviewTask(ctx context.Context, req *workflowv1.ActHumanReviewTaskRequest) (*workflowv1.ActHumanReviewTaskResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	taskUUID, err := uuid.Parse(req.GetReviewTaskUuid())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid review_task_uuid")
+	}
+	task, err := s.svc.ActHumanReviewTask(ctx, workflowsvc.HumanReviewActionInput{
+		TenantUUID:     tenantUUID,
+		ReviewTaskUUID: taskUUID,
+		Action:         humanReviewActionString(req.GetAction()),
+		ReviewerUUID:   memberUUIDFromContext(req.GetCtx()),
+		Comment:        req.GetComment(),
+		Payload:        structToMap(req.GetDecisionPayload()),
+	})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &workflowv1.ActHumanReviewTaskResponse{Meta: okMeta(ctx), ReviewTask: humanReviewTaskToPB(task)}, nil
+}
+
+func (s *Server) ListWorkflowPacks(ctx context.Context, req *workflowv1.ListWorkflowPacksRequest) (*workflowv1.ListWorkflowPacksResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	records, _, err := s.svc.ListWorkflowPacks(ctx, tenantUUID, req.GetKeyword(), 50, 0)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	out := make([]*workflowv1.WorkflowPack, 0, len(records))
+	for i := range records {
+		out = append(out, workflowPackRecordToPB(&records[i]))
+	}
+	return &workflowv1.ListWorkflowPacksResponse{
+		Meta:  okMeta(ctx),
+		Packs: out,
+	}, nil
+}
+
+func (s *Server) SeedWorkflowPacks(ctx context.Context, req *workflowv1.SeedWorkflowPacksRequest) (*workflowv1.SeedWorkflowPacksResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.svc.SeedWorkflowPacks(ctx, workflowsvc.WorkflowPackSeedInput{
+		TenantUUID: tenantUUID,
+		ConfigDir:  "config/workflow_packs",
+		Keys:       req.GetWorkflowKeys(),
+	})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	out := make([]*workflowv1.WorkflowPack, 0, len(result.Seeded))
+	for i := range result.Seeded {
+		out = append(out, workflowPackRecordToPB(&result.Seeded[i]))
+	}
+	return &workflowv1.SeedWorkflowPacksResponse{Meta: okMeta(ctx), Packs: out}, nil
+}
+
+func (s *Server) GetWorkflowPack(ctx context.Context, req *workflowv1.GetWorkflowPackRequest) (*workflowv1.GetWorkflowPackResponse, error) {
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantUUID, err := s.requireTenantContext(ctx, req.GetCtx())
+	if err != nil {
+		return nil, err
+	}
+	record, err := s.svc.GetWorkflowPack(ctx, tenantUUID, req.GetWorkflowKey())
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &workflowv1.GetWorkflowPackResponse{Meta: okMeta(ctx), Pack: workflowPackRecordToPB(record)}, nil
 }
 
 func (s *Server) requireTenantContext(ctx context.Context, rpcCtx *commonv1.RequestContext) (string, error) {
@@ -472,8 +704,8 @@ func convertExportRowsToPB(rows []workflowsvc.ExportRow, tenantUUID string) []*w
 	payload := make([]*workflowv1.WorkflowInstanceExportRow, 0, len(rows))
 	for _, row := range rows {
 		item := &workflowv1.WorkflowInstanceExportRow{
-			InstanceId:        row.InstanceID,
-			DefinitionId:      row.DefinitionID,
+			InstanceUuid:      row.InstanceID,
+			DefinitionUuid:    row.DefinitionID,
 			DefinitionVersion: row.DefinitionVersion,
 			State:             workflowInstanceState(row.State),
 			TenantUuid:        row.TenantUUID,
@@ -493,7 +725,7 @@ func convertExportRowsToPB(rows []workflowsvc.ExportRow, tenantUUID string) []*w
 					Type:             workflowStepType(step.Type),
 					State:            workflowStepState(step.State),
 					SubjectType:      stepSubjectType(step.SubjectType),
-					SubjectId:        step.SubjectID,
+					SubjectUuid:      step.SubjectID,
 					Attempts:         int32(step.Attempts),
 					ToolGrantVersion: step.ToolGrantVersion,
 					LastError:        step.LastError,

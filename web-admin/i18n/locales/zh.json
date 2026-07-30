@@ -36,6 +36,7 @@
     "roleManagement": "角色管理",
     "systemConfig": "系统配置",
     "metadataGovernance": "元数据治理",
+    "integrationApiKeys": "API Key 管理",
     "monitorCenter": "监控中心",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
@@ -110,7 +111,597 @@
     "reset": "重置",
     "scrollToBottom": "回到底部",
     "newMessages": "{count} 条新消息",
-    "unknown": "未知"
+    "unknown": "未知",
+    "yes": "是",
+    "no": "否"
+  },
+  "workflow": {
+    "port": {
+      "approved": "通过",
+      "rejected": "驳回"
+    },
+    "list": {
+      "title": "流程管理",
+      "description": "创建、发布和运行自动化流程。",
+      "search": "搜索流程",
+      "create": "新建流程",
+      "definitions": "流程定义",
+      "emptyTitle": "暂无流程",
+      "emptyDescription": "创建第一个流程定义后即可进入编排器。",
+      "noDescription": "暂无描述",
+      "version": "版本 {version}",
+      "pack": "内置包 {key}",
+      "builtinPack": "内置包",
+      "actions": "流程操作",
+      "initializeBuiltin": "初始化固有工作流",
+      "initializeBuiltinSuccess": "固有工作流已初始化",
+      "initializeBuiltinResult": "新增或升级 {seeded} 个，跳过 {skipped} 个。",
+      "initializeBuiltinFailed": "初始化固有工作流失败"
+    },
+    "stats": {
+      "total": "总流程",
+      "published": "已发布",
+      "draft": "草稿"
+    },
+    "status": {
+      "all": "全部状态",
+      "draft": "草稿",
+      "published": "已发布",
+      "archived": "已归档"
+    },
+    "source": {
+      "all": "全部来源",
+      "workflowPack": "固有工作流",
+      "manual": "手动创建"
+    },
+    "category": {
+      "all": "全部分类",
+      "uncategorized": "未分类",
+      "unknown": "未知分类",
+      "loadFailed": "工作流分类加载失败",
+      "loadFailedDescription": "请在设置 > 元数据治理 > 数据字典中检查 corex.workflow.category。"
+    },
+    "state": {
+      "queued": "排队中",
+      "running": "运行中",
+      "waiting": "等待中",
+      "succeeded": "已成功",
+      "completed": "已完成",
+      "failed": "已失败",
+      "canceled": "已取消",
+      "compensating": "补偿中",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "pending": "待处理",
+      "skipped": "已跳过"
+    },
+    "actions": {
+      "edit": "编辑",
+      "run": "运行"
+    },
+    "pagination": {
+      "total": "共 {total} 条",
+      "pageSize": "每页 {value} 条"
+    },
+    "create": {
+      "title": "新建流程",
+      "description": "创建一个包含起始输入节点的流程定义。",
+      "name": "流程名称",
+      "namePlaceholder": "输入流程名称",
+      "definitionDescription": "描述",
+      "descriptionPlaceholder": "输入流程描述",
+      "submit": "创建"
+    },
+    "editor": {
+      "pageTitle": "流程编辑器 - PowerX",
+      "nodeCatalog": "节点目录",
+      "searchNodes": "搜索节点",
+      "nodeProperties": "节点属性",
+      "undo": "撤销",
+      "redo": "重做",
+      "fitView": "适应视图",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "resetZoom": "重置缩放",
+      "centerView": "居中视图",
+      "fullscreen": "全屏",
+      "toggleMinimap": "切换小地图",
+      "save": "保存",
+      "run": "运行",
+      "runTest": "运行测试",
+      "publish": "发布",
+      "propertyCount": "{count} 个属性",
+      "untitled": "未命名工作流",
+      "version": "版本 {version}",
+      "nodeCount": "{count} 个节点",
+      "edgeCount": "{count} 条连线",
+      "globalSearch": "搜索智能体、工作流、插件...",
+      "toggleTheme": "切换主题",
+      "metricNodes": "节点数",
+      "metricEdges": "连线数",
+      "metricVersion": "版本",
+      "metricStatus": "状态",
+      "componentLibrary": "组件库",
+      "nodeConfig": "节点配置",
+      "nodeRuntime": "运行状态",
+      "nodeHelp": "节点说明",
+      "nodeKind": "节点类型",
+      "requiredFields": "必填字段",
+      "outputPorts": "输出端口",
+      "none": "无",
+      "selectNodeHint": "选择节点以查看属性",
+      "runRecords": "运行记录",
+      "debugLogs": "调试日志",
+      "variableSnapshots": "变量快照",
+      "evaluationResults": "评估结果",
+      "latestRun": "最近运行",
+      "runDetail": "运行详情",
+      "noRuns": "尚未运行",
+      "runStarted": "工作流已启动",
+      "runFailed": "工作流运行失败",
+      "runtimeConnected": "实时通道已连接",
+      "runtimeConnecting": "实时通道连接中",
+      "runtimeDisconnected": "实时通道已断开",
+      "runtimeDisconnectedWithReason": "实时通道已断开：{reason}",
+      "runtimeRequiredForDebugRun": "工作流调试需要实时通道推送节点状态，请先点击重新连接。",
+      "runtimeReconnect": "重新连接",
+      "instanceShort": "实例 {uuid}",
+      "traceId": "Trace {trace}",
+      "pendingReviewCount": "{count} 个待审核任务",
+      "logs": "日志",
+      "noLogs": "暂无运行日志",
+      "noSnapshots": "暂无变量快照",
+      "noEvaluations": "暂无评估结果",
+      "openReviewTasks": "打开审核任务",
+      "stepLogTitle": "{step} · {kind}",
+      "stepLogMessage": "状态 {state}，开始 {started}，完成 {completed}",
+      "notStarted": "未开始",
+      "notCompleted": "未完成",
+      "stepList": "步骤运行列表",
+      "viewNode": "查看节点",
+      "stepStartedAt": "开始于 {time}",
+      "stepCompletedAt": "完成于 {time}",
+      "stepSkippedByCancel": "当前运行已取消，此节点未继续执行。",
+      "stepSkippedByBranch": "本次运行未进入这条分支，所以此节点未执行。",
+      "resizeBottomPanel": "调整底部面板高度",
+      "waitingReviewTitle": "当前等待人工审核",
+      "waitingReviewDescription": "审核通过后流程会继续执行；审核拒绝后会进入拒绝分支。",
+      "currentNodeState": "当前节点状态",
+      "reviewRequest": "审核执行请求",
+      "reviewPayload": "审核内容",
+      "nodeRunRecord": "节点运行记录",
+      "runtimeCapability": "执行能力",
+      "runtimeDiagnostics": "诊断数据",
+      "runtimeDiagnosticsHint": "这些是运行时原始数据，用于排查引擎输入输出，不作为正常操作入口。",
+      "emptyPayload": "无审核内容",
+      "noReviewTaskForNode": "当前流程在等待审核，但选中节点没有待处理审核任务。",
+      "noRuntimeForNode": "当前节点暂无运行记录。",
+      "startedAt": "开始时间",
+      "completedAt": "完成时间",
+      "attempt": "尝试次数",
+      "copyStepId": "复制节点 ID",
+      "copied": "已复制",
+      "copyUnavailable": "当前浏览器不允许复制",
+      "unknownNodeKind": "未知节点类型",
+      "stepKindWithValue": "节点类型：{kind}",
+      "debugInput": "调试输入",
+      "runDialogTitle": "运行测试",
+      "runDialogDescription": "填写本次测试运行的输入参数，确认后才会创建工作流实例。",
+      "workflowToRun": "运行工作流",
+      "startRun": "开始运行",
+      "cancelRun": "取消当前运行",
+      "cancelRunSuccess": "当前运行已取消",
+      "cancelRunFailed": "取消当前运行失败",
+      "resetDebugInput": "恢复示例",
+      "debugInputInvalid": "调试输入校验失败",
+      "debugInputInvalidDescription": "请输入一个 JSON 对象。",
+      "debugInputObjectRequired": "调试输入必须是 JSON 对象。",
+      "debugCapabilityModuleRequired": "能力模块不能为空。",
+      "debugCapabilityRequired": "能力不能为空。",
+      "debugCapabilityMustSelect": "请选择能力列表中的有效能力。",
+      "debugReasonMustSelect": "请选择一个执行意图。",
+      "debugNotePlaceholder": "可选，例如：验证审批后调用大模型列表能力",
+      "dryRunHint": "只创建运行记录、人工审核和模拟输出，不真实调用 PowerX 能力，也不发送真实事件。",
+      "runCapabilityModuleLabel": "能力模块",
+      "runCapabilitySourceLabel": "能力系统",
+      "nodeCapabilitySourceLabel": "固定能力系统",
+      "nodeCapabilityModuleLabel": "固定能力模块",
+      "capabilitySourceSelectPlaceholder": "搜索并选择平台或插件系统",
+      "capabilitySourceSearchPlaceholder": "搜索平台或插件系统",
+      "capabilityModuleSelectPlaceholder": "搜索并选择模块",
+      "capabilityModuleSearchPlaceholder": "搜索模块",
+      "capabilityModuleSelectHint": "模块来自开放能力目录；这里只显示适合工作流调试调用的业务能力模块。",
+      "capabilityModuleOptionLabel": "{module} · {count} 个能力",
+      "platformCapabilitySourceName": "平台能力",
+      "platformCapabilitySourceOptionLabel": "{platform} · {count} 个能力",
+      "pluginCapabilitySourceOptionLabel": "插件：{plugin} · {count} 个能力",
+      "pluginCapabilityModuleOptionLabel": "插件：{module} · {count} 个能力",
+      "runCapabilityLabel": "审核通过后执行的能力",
+      "nodeCapabilityLabel": "固定调用能力",
+      "capabilitySelectPlaceholder": "搜索并选择能力",
+      "capabilitySearchPlaceholder": "搜索能力名称",
+      "capabilitySelectHint": "人工审核通过后，工作流的“调用能力”节点会调用这里选择的 PowerX Capability Registry 业务授权单元。",
+      "selectedCapabilityHint": "当前节点会固定调用：{capability}",
+      "workflowCapabilitySourceTitle": "能力来自开放能力目录",
+      "workflowCapabilitySourceDescription": "这里不是另一套能力系统，而是从开放能力目录中过滤出可用于工作流调试的业务能力；低层 REST、gRPC 和 Gin 路由能力不会出现在此处。",
+      "capabilityOptionsLoading": "能力列表正在加载，请稍后再运行。",
+      "capabilityOptionsLoadFailed": "能力列表加载失败",
+      "capabilityOptionsEmpty": "当前没有可选择的能力，请先确认平台能力目录已生成并可访问。",
+      "unnamedCapability": "未命名能力",
+      "capabilityOptionLabel": "{title} · {module}",
+      "executionReasonPlaceholder": "选择本次执行意图",
+      "executionReasonSearchPlaceholder": "搜索执行意图",
+      "executionReasonHint": "执行意图会进入本次能力调用的审计和追踪记录，用来说明为什么触发这次调用。",
+      "approverRolesPlaceholder": "例如 workflow_reviewer",
+      "runtimeCapabilityHint": "当前能力来自运行时调试输入的 capability_id。需要固定能力时，可以在这里填写正式 Capability ID。",
+      "inputCaptureConfigHint": "这里配置输入采集节点的结构和输出位置，不是本次运行的参数值。本次测试参数请点击顶部“运行测试”填写。",
+      "startNodeBusinessTitle": "开始节点：收集输入",
+      "startNodeBusinessDescription": "工作流从这里接收本次运行的输入，例如文本、表单、媒体或链接；后续节点会基于这些输入继续处理。",
+      "endNodeBusinessTitle": "结束节点：输出结果",
+      "endNodeBusinessDescription": "流程在这里结束，并把发布、拒绝或通知结果交给运行记录和下游事件订阅方。",
+      "startNodeAlreadyExists": "一个工作流只能有一个开始节点",
+      "endNodeAlreadyExists": "一个工作流只能有一个结束节点",
+      "structureIssueTitle": "当前流程结构不完整",
+      "structureStartIssue": "当前有 {count} 个开始节点，一个工作流必须且只能有 1 个开始节点。",
+      "structureEndIssue": "当前有 {count} 个结束节点，一个工作流必须且只能有 1 个结束节点；内置旧版本需要重新启用或升级后才会补齐。",
+      "businessInputSource": "输入来源",
+      "businessOutputTarget": "输出去向",
+      "notConfigured": "未配置",
+      "configured": "已配置",
+      "runInputProvided": "运行测试时提供",
+      "workflowVariablePath": "工作流变量",
+      "inputCaptureBusinessTitle": "收集本次运行的业务输入",
+      "inputCaptureBusinessDescription": "运行测试时填写的表单会进入这里，并整理成后续审核和能力调用需要的执行请求。",
+      "skillBusinessTitle": "执行业务技能",
+      "skillBusinessDescription": "当前节点调用一个已登记的 Skill，把上一步产物转换成后续节点需要的结构化结果。",
+      "skillNodeSkillLabel": "执行技能",
+      "noSkillConfigured": "未配置技能",
+      "humanReviewBusinessTitle": "人工确认后再继续执行",
+      "humanReviewBusinessDescription": "审核通过会进入执行能力路线；审核拒绝会进入拒绝事件路线。",
+      "capabilityBusinessTitle": "审核通过后执行平台能力",
+      "capabilityBusinessRuntimeDescription": "具体执行哪个能力由顶部“运行测试”弹窗选择，方便同一个工作流测试不同平台能力。",
+      "capabilityBusinessFixedDescription": "当前节点固定调用一个平台能力，适合发布后的标准流程。",
+      "capabilitySourceLabel": "能力来源",
+      "runtimeSelectedCapability": "运行测试时选择的能力",
+      "fixedCapabilityConfigured": "已固定一个平台能力",
+      "noCapabilityConfigured": "未配置能力",
+      "eventCompletedBusinessTitle": "发送完成通知事件",
+      "eventCompletedBusinessDescription": "能力执行成功后发送完成事件，供日志、审计或后续系统订阅。",
+      "eventRejectedBusinessTitle": "发送拒绝通知事件",
+      "eventRejectedBusinessDescription": "人工审核拒绝后发送拒绝事件，供日志、审计或后续系统订阅。",
+      "eventTriggerLabel": "触发条件",
+      "eventTriggerCompleted": "能力执行成功后触发",
+      "eventTriggerRejected": "人工审核拒绝后触发",
+      "eventTriggerEnd": "流程执行到这里后结束",
+      "nodeBusinessResultLabel": "节点产物",
+      "nodeBusiness": {
+        "metadataClassify": {
+          "title": "识别并补齐元数据",
+          "description": "根据上一步产物识别分类、标签或数据字典信息，方便后续审核、检索和治理。",
+          "result": "结构化元数据"
+        },
+        "knowledgeStage": {
+          "title": "暂存候选知识",
+          "description": "把抽取结果先放入待审核区域，避免未经确认的内容直接进入正式知识库。",
+          "result": "待审核知识片段"
+        },
+        "knowledgePublish": {
+          "title": "发布正式知识",
+          "description": "审核通过后把候选内容发布到目标知识库，供智能体、技能和搜索流程使用。",
+          "result": "正式知识版本"
+        },
+        "decisionGateway": {
+          "title": "判断下一步路线",
+          "description": "根据审核结果、执行结果或规则条件选择后续分支，让流程进入对应路径。",
+          "result": "分支选择结果"
+        },
+        "parallelFanout": {
+          "title": "并行分发任务",
+          "description": "把同一份输入分发到多个下游节点并行处理，适合同时分类、抽取和校验。",
+          "result": "多个并行任务"
+        },
+        "parallelJoin": {
+          "title": "汇总并行结果",
+          "description": "等待多个并行分支完成后汇总结果，再交给后续节点继续处理。",
+          "result": "汇总后的产物"
+        },
+        "compensationRollback": {
+          "title": "失败后执行补偿",
+          "description": "当流程失败或取消时撤销已经产生的副作用，保持业务状态可恢复。",
+          "result": "补偿处理结果"
+        }
+      },
+      "advancedConfig": "高级参数",
+      "advancedConfigHint": "这些字段是工作流引擎使用的技术合同，普通调试不需要修改。",
+      "paletteCategory": {
+        "input_output": "输入与输出",
+        "ai_skill": "AI 与技能",
+        "platform_capability": "平台能力",
+        "flow_control": "流程控制",
+        "data_knowledge": "数据与知识",
+        "exception": "异常处理"
+      }
+    },
+    "protocol": {
+      "rest": "REST",
+      "grpc": "gRPC",
+      "agentTool": "Agent Tool",
+      "skill": "Skill"
+    },
+    "executionReason": {
+      "workflowDebugApprovalGuardedCapability": "审批后执行能力调试",
+      "permissionBoundaryTest": "权限边界测试",
+      "businessDryRun": "业务流程试运行"
+    },
+    "publishPolicy": {
+      "reviewRequired": "审核通过后发布"
+    },
+    "path": {
+      "artifactsSource": "采集到的原始材料",
+      "varsParsed": "解析后的材料",
+      "varsExtracted": "抽取后的知识结构",
+      "varsMetadata": "补齐后的元数据",
+      "varsDrafts": "待审核知识草稿",
+      "varsPublished": "已发布结果",
+      "review": "人工审核结果"
+    },
+    "skill": {
+      "marketingAudioOrDocumentParse": "解析营销音频或文档",
+      "marketingExtractMethodology": "提取营销方法论"
+    },
+    "runtimeError": {
+      "tokenMissing": "缺少登录凭证",
+      "tenantMissing": "缺少租户上下文",
+      "tenantInvalid": "租户上下文无效",
+      "tenantChanged": "租户已切换，正在重连",
+      "tokenChanged": "登录凭证已更新，正在重连",
+      "manualDisconnect": "已手动断开",
+      "connectionFailed": "连接失败",
+      "connectionClosed": "连接被关闭",
+      "networkOffline": "网络已断开",
+      "reconnectExhausted": "WebSocket 重试已达上限，请检查网络、租户上下文或后端 /api/ws。",
+      "reconnectFailedTitle": "实时连接失败"
+    },
+    "role": {
+      "workflowReviewer": "工作流审核员"
+    },
+    "capabilityModule": {
+      "admin": "后台管理",
+      "metadata": "元数据治理",
+      "workflow": "工作流",
+      "media": "媒体资产",
+      "knowledge": "知识库",
+      "agent": "智能体",
+      "agents": "智能体",
+      "agentModelHub": "模型能力中心",
+      "customer": "客户管理",
+      "ai": "AI 能力",
+      "alerts": "告警",
+      "eventFabric": "事件总线",
+      "notifications": "通知",
+      "iam": "组织与权限",
+      "integrationGateway": "集成网关",
+      "modelRouting": "模型路由",
+      "providerRegistry": "模型供应商",
+      "scheduler": "调度任务",
+      "settings": "系统设置",
+      "monitor": "监控中心",
+      "plugin": "插件",
+      "plugins": "插件",
+      "powerx": "插件能力"
+    },
+    "capability": {
+      "metadataDictionaryRead": "读取数据字典",
+      "metadataDictionaryManage": "管理数据字典",
+      "metadataTaxonomyRead": "读取分类体系",
+      "metadataTaxonomyManage": "管理分类体系",
+      "metadataTagRead": "读取标签",
+      "metadataTagManage": "管理标签",
+      "metadataResourceTypeRead": "读取资源类型",
+      "metadataResourceTypeManage": "管理资源类型",
+      "workflowRuntimeScheduler": "工作流运行调度",
+      "workflowDefinitionBuilder": "工作流定义编排",
+      "workflowRuntimeInstances": "工作流实例管理",
+      "workflowNodeCatalog": "工作流节点目录",
+      "workflowHumanReviewTasks": "工作流人工审核",
+      "workflowPacks": "工作流模板包",
+      "schedulerJobs": "调度任务管理",
+      "workflowBuilder": "工作流定义编排",
+      "workflowInstancesAdminManage": "工作流实例管理",
+      "workflowNodeCatalogRead": "读取工作流节点目录",
+      "workflowReviewTasksAdminManage": "工作流人工审核",
+      "workflowPacksAdminManage": "工作流模板包",
+      "mediaAssetsCatalog": "媒体资产目录",
+      "mediaAssetsRead": "读取媒体资产",
+      "mediaAssetsManage": "媒体资产管理",
+      "knowledgeSpaceAdmin": "知识空间管理",
+      "knowledgeSpace": "知识空间管理",
+      "agentInvoke": "调用智能体",
+      "agentStream": "流式调用智能体",
+      "agentSessionManage": "智能体会话管理",
+      "customerAccountsAdminManage": "客户账户后台管理",
+      "aiLlmInvoke": "调用大语言模型",
+      "aiLlmStream": "流式调用大语言模型",
+      "aiLlmSessionCreate": "创建大模型会话",
+      "aiLlmSessionAppend": "追加大模型会话消息",
+      "aiImageInvoke": "调用图像生成",
+      "aiVideoInvoke": "调用视频生成",
+      "aiTtsInvoke": "调用语音合成",
+      "aiEmbeddingInvoke": "调用向量嵌入",
+      "aiVlmInvoke": "调用视觉语言模型",
+      "aiLlmModelsList": "读取大模型列表",
+      "eventfabricPublish": "发布事件",
+      "notificationsTest": "发送测试通知"
+    },
+    "step": {
+      "approvalGuardedCapability": {
+        "captureRequest": {
+          "name": "采集执行请求"
+        },
+        "reviewRequest": {
+          "name": "审核执行请求"
+        },
+        "invokeCapability": {
+          "name": "执行平台能力"
+        },
+        "emitCompleted": {
+          "name": "发送完成事件"
+        },
+        "emitRejected": {
+          "name": "发送拒绝事件"
+        }
+      }
+    },
+    "fields": {
+      "method": "方法",
+      "endpoint": "端点",
+      "query": "查询参数",
+      "body": "请求体",
+      "capability_id": "能力",
+      "preferred_protocol": "调用协议",
+      "input_path": "输入路径",
+      "output_path": "输出路径",
+      "skill_id": "技能",
+      "review_type": "审核类型",
+      "approver_roles": "审批角色",
+      "approver_policy": "审批策略",
+      "review_payload_path": "审核内容路径",
+      "approved_route": "通过路由",
+      "rejected_route": "拒绝路由",
+      "input_schema_ref": "输入表单结构引用",
+      "input_schema_ref_placeholder": "例如 workflow.input.approval_request",
+      "source_text": "允许文本输入",
+      "source_form": "允许表单输入",
+      "artifact_output_path": "采集输出路径",
+      "artifact_output_path_placeholder": "例如 $.artifacts.request",
+      "topic": "事件主题",
+      "payload_path": "事件载荷路径",
+      "event_schema_ref": "事件结构",
+      "taxonomy_namespace": "分类体系",
+      "tag_namespace": "标签体系",
+      "dictionary_namespace": "数据字典",
+      "resource_type_namespace": "资源类型",
+      "knowledge_space_uuid": "目标知识库",
+      "draft_schema_ref": "候选知识结构",
+      "draft_refs_path": "候选知识来源",
+      "review_result_path": "审核结果",
+      "publish_policy": "发布策略",
+      "default_route": "默认路线",
+      "condition_source_path": "判断依据",
+      "reason": "本次执行意图",
+      "dry_run": "仅模拟执行",
+      "note": "备注"
+    },
+    "node": {
+      "start": "开始",
+      "end": "结束",
+      "workflow": {
+        "end": "结束"
+      },
+      "input": {
+        "capture": "输入采集"
+      },
+      "skill": {
+        "invoke": "调用技能"
+      },
+      "capability": {
+        "invoke": "调用能力"
+      },
+      "metadata": {
+        "classify": "元数据分类"
+      },
+      "knowledge": {
+        "stage": "暂存知识",
+        "publish": "发布知识"
+      },
+      "decision": {
+        "gateway": "决策网关"
+      },
+      "parallel": {
+        "fanout": "并行分发",
+        "join": "并行汇聚"
+      },
+      "human": {
+        "review": "人工审核"
+      },
+      "event": {
+        "emit": "发送事件"
+      },
+      "compensation": {
+        "rollback": "补偿回滚"
+      }
+    },
+    "pack": {
+      "expertKnowledgeCapture": {
+        "name": "专家知识采集",
+        "description": "采集专业人士的文本、媒体和链接资料，经过解析、分类、审核后发布到知识空间。"
+      },
+      "marketingKnowledgeCapture": {
+        "name": "营销知识采集",
+        "description": "将营销素材、访谈和复盘内容沉淀为可审核发布的营销方法论知识。"
+      },
+      "campaignReviewToMethodology": {
+        "name": "活动复盘沉淀",
+        "description": "从营销活动复盘中提取指标、结论和方法论，并进入人工审核发布流程。"
+      },
+      "approvalGuardedCapability": {
+        "name": "审批后执行能力",
+        "description": "先采集请求并经过人工审核，再调用指定平台能力并发送完成事件。"
+      },
+      "intakeClassifyReview": {
+        "name": "采集分类审核",
+        "description": "采集通用业务材料，执行元数据分类，并交由人工审核确认。"
+      },
+      "skillReviewPublishEvent": {
+        "name": "技能执行审核发布",
+        "description": "调用指定技能生成结果，经人工审核后发布事件，适合插件和智能体复用。"
+      }
+    },
+    "instance": {
+      "title": "流程实例",
+      "state": "状态",
+      "definition": "流程定义",
+      "trace": "Trace",
+      "steps": "步骤记录",
+      "noSteps": "暂无步骤记录"
+    },
+    "review": {
+      "title": "人工审核",
+      "empty": "暂无审核任务",
+      "instance": "实例 {uuid}",
+      "openInstance": "查看实例",
+      "approve": "通过",
+      "reject": "拒绝",
+      "approveSuccess": "审核已通过",
+      "rejectSuccess": "审核已拒绝",
+      "actionFailed": "审核操作失败",
+      "type": {
+        "capabilityExecution": "能力执行审核",
+        "knowledgePublish": "知识发布审核",
+        "metadataClassification": "元数据分类审核",
+        "skillResult": "技能结果审核"
+      },
+      "status": {
+        "pending": "待处理",
+        "approved": "已通过",
+        "rejected": "已拒绝",
+        "changes_requested": "要求修改",
+        "canceled": "已取消"
+      }
+    },
+    "errors": {
+      "loadNodeCatalog": "节点目录加载失败",
+      "loadDefinition": "流程定义加载失败",
+      "nodeCatalogMissing": "节点不存在",
+      "noCurrentDefinition": "当前流程定义不存在",
+      "createDefinition": "流程定义创建失败",
+      "listDefinitions": "流程列表加载失败"
+    },
+    "test": {
+      "pageTitle": "流程编辑器测试 - PowerX",
+      "baseEditor": "基础编辑器",
+      "dragExample": "拖拽示例"
+    }
   },
   "organization": {
     "description": "管理组织、成员与权限。",
@@ -199,6 +790,10 @@
       "form": {
         "name": "姓名",
         "username": "用户名",
+        "usernamePlaceholder": "请输入租户内登录用户名",
+        "usernameHint": "用户名用于租户内登录。修改后会影响该成员的登录名；允许小写字母、数字、点、下划线和短横线。",
+        "usernameCreatePlaceholder": "必填，用于租户内登录",
+        "usernameEditPlaceholder": "用于租户内登录",
         "email": "邮箱",
         "phone": "手机号",
         "phonePlaceholder": "请输入手机号",
@@ -211,6 +806,7 @@
         "inactive": "停用",
         "selectDepartment": "选择部门",
         "selectRole": "选择角色",
+        "searchRole": "搜索角色",
         "addUser": "新增用户",
         "addUserDesc": "创建一个新用户并加入当前租户。",
         "editUser": "编辑用户",
@@ -257,7 +853,32 @@
       },
       "validation": {
         "requiredFields": "请填写必填字段",
-        "passwordMismatch": "两次输入的密码不一致"
+        "passwordMismatch": "两次输入的密码不一致",
+        "usernameRequired": "用户名为必填项",
+        "usernameFormat": "用户名必须以小写字母开头，长度 3-64，只能包含小写字母、数字、点、下划线和短横线",
+        "roleRequired": "请至少选择一个角色",
+        "missingUserId": "当前记录缺少用户标识，请刷新后重试",
+        "rootEditSelfOnly": "仅 root 本人可编辑 root 账号",
+        "rootResetSelfOnly": "仅 root 本人可重置 root 账号密码",
+        "passwordMinLength": "新密码至少 6 位"
+      },
+      "toast": {
+        "validationFailed": "校验失败",
+        "created": "用户已创建",
+        "updated": "用户已更新",
+        "saveFailed": "保存失败",
+        "deleted": "用户已删除",
+        "deleteFailed": "删除失败",
+        "statusUpdated": "状态已更新",
+        "statusUpdateFailed": "状态更新失败",
+        "editDenied": "无权限编辑",
+        "openEditFailed": "打开编辑失败",
+        "resetPasswordDenied": "无权限重置密码",
+        "operationFailed": "操作失败",
+        "passwordReset": "密码已重置",
+        "passwordResetDescription": "{name} 的新密码已生效",
+        "resetPasswordFailed": "重置密码失败",
+        "retryLater": "请稍后重试"
       }
     },
     "permission": {
@@ -517,6 +1138,7 @@
       },
       "filters": {
         "searchPlaceholder": "搜索能力 ID、标题或描述",
+        "moduleSearchPlaceholder": "搜索模块",
         "reset": "清空筛选",
         "moduleAll": "全部模块",
         "protocolAll": "全部协议"
@@ -528,6 +1150,31 @@
       },
       "loading": "正在加载平台能力…",
       "defaultModuleDescription": "该模块聚合 CoreX 内置能力，确保宿主与 Skeleton 插件共享。",
+      "module": {
+        "admin": "后台管理",
+        "agent": "智能体",
+        "agents": "智能体",
+        "agentModelHub": "模型能力中心",
+        "ai": "AI 能力",
+        "alerts": "告警",
+        "customer": "客户管理",
+        "eventFabric": "事件总线",
+        "iam": "组织与权限",
+        "integrationGateway": "集成网关",
+        "knowledge": "知识库",
+        "media": "媒体资产",
+        "metadata": "元数据治理",
+        "modelRouting": "模型路由",
+        "monitor": "监控中心",
+        "notifications": "通知",
+        "plugin": "插件",
+        "plugins": "插件",
+        "providerRegistry": "模型供应商",
+        "scheduler": "调度任务",
+        "settings": "系统设置",
+        "workflow": "工作流",
+        "unknown": "未知模块"
+      },
       "status": {
         "active": "可用",
         "degraded": "降级",
@@ -623,20 +1270,20 @@
         "color": "颜色",
         "validatorKey": "校验器 Key",
         "validatorKeyPlaceholder": "例如 customer.account",
-      "bindingEnabled": "允许绑定",
-      "localizedNames": "多语言名称",
-      "localizedDescriptions": "多语言描述",
-      "localizedName": "名称",
-      "localizedDescription": "描述",
-      "localizedNamePlaceholder": "请输入名称",
-      "localizedDescriptionPlaceholder": "请输入描述",
-      "requiredLocaleSection": "默认语言",
-      "requiredLocaleDescription": "后端契约要求默认语言名称必填。",
-      "optionalLocaleSection": "其他语言",
-      "optionalLocaleDescription": "选择一种语言后维护名称和描述，已填写语言会在下方标记。",
-      "localeSelectPlaceholder": "选择语言",
-      "localeSearchPlaceholder": "搜索语言",
-      "locale": {
+        "bindingEnabled": "允许绑定",
+        "localizedNames": "多语言名称",
+        "localizedDescriptions": "多语言描述",
+        "localizedName": "名称",
+        "localizedDescription": "描述",
+        "localizedNamePlaceholder": "请输入名称",
+        "localizedDescriptionPlaceholder": "请输入描述",
+        "requiredLocaleSection": "默认语言",
+        "requiredLocaleDescription": "后端契约要求默认语言名称必填。",
+        "optionalLocaleSection": "其他语言",
+        "optionalLocaleDescription": "选择一种语言后维护名称和描述，已填写语言会在下方标记。",
+        "localeSelectPlaceholder": "选择语言",
+        "localeSearchPlaceholder": "搜索语言",
+        "locale": {
           "zh_CN": "简体中文",
           "en": "English",
           "ja": "日本語",

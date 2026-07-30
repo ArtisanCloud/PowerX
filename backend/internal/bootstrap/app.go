@@ -309,6 +309,13 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				},
 			},
 		},
+		Workflow: shared.WorkflowOptions{
+			RunnerInterval:      time.Duration(cfg.Workflow.RunnerIntervalSeconds) * time.Second,
+			RunnerMaxInterval:   time.Duration(cfg.Workflow.RunnerMaxIntervalSeconds) * time.Second,
+			RunnerLeaseDuration: time.Duration(cfg.Workflow.RunnerLeaseDurationSeconds) * time.Second,
+			RunnerBatchSize:     cfg.Workflow.RunnerBatchSize,
+			RunnerMaxIterations: cfg.Workflow.RunnerMaxIterations,
+		},
 		IntegrationGateway: shared.IntegrationGatewayOptions{
 			RateLimitPrefix: cfg.IntegrationGateway.RateLimitPrefix,
 			RedisAddr:       cfg.IntegrationGateway.RedisAddr,

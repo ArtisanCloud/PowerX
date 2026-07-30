@@ -17,6 +17,7 @@ type CreateAssetRequest struct {
 	ObjectKey        string            `form:"objectKey" json:"objectKey"`
 	SizeBytes        *int64            `form:"sizeBytes" json:"sizeBytes"`
 	MimeType         string            `form:"mimeType" json:"mimeType"`
+	ContentSHA256    string            `form:"contentSha256" json:"contentSha256"`
 	Metadata         map[string]string `form:"metadata" json:"metadata"`
 }
 

@@ -7,6 +7,8 @@
 
 设计目标是为 CoreX 提供工作流与多智能体编排能力：支持工作流定义的版本化发布、实例运行时的重试与补偿、Agent 工具授权校验，以及审计导出与观测指标。技术路线遵循研究结论——以 PostgreSQL/GORM 持久化工作流状态，Redis 实现调度与延迟队列，gRPC/HTTP 双协议暴露接口并复用现有 Tool Grant 安全栈；安全层面将通过 HTTP 与 gRPC 双协议的 JWT/JWKS + RBAC 契约测试与拦截器复用进行验证。
 
+2026-07 Runtime Completion 更新：现有实现已覆盖定义、发布、实例、基础 step record、控制和导出骨架，但还未满足 native-agent 知识库增量迭代所需的完整 Workflow Runtime。补齐范围以 `docs/plan/ai_engineering/workflow/README.md` 为准，必须新增 WorkflowRunner、NodeAdapterRegistry、Node Catalog API、Human Review、Workflow Pack seed、Skill/Capability/Knowledge/Metadata adapters，并移除 Web Admin workflow mock 数据。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（遵循仓库 go.mod）  
@@ -50,10 +52,17 @@ specs/006-workflow-and-agent/
 api/grpc/contracts/powerx/workflow/v1/workflow.proto   # gRPC 服务合同
 api/grpc/gen/go/powerx/workflow/v1/                    # 生成代码（T004）
 internal/service/workflow/                             # 服务层：definition.go, instance.go, control.go, scheduler.go, compensation.go, reporting.go, validator.go, event_emitter.go
+internal/service/workflow/runner.go                    # WorkflowRunner：租约、推进、状态收敛
+internal/service/workflow/node_adapter.go              # NodeAdapterRegistry 和 adapter 接口
+internal/service/workflow/node_catalog.go              # Builder/Runtime 共享节点目录
+internal/service/workflow/human_review.go              # Human Review first-class task
+internal/service/workflow/workflow_pack_seed.go        # Workflow Pack seed
 internal/transport/grpc/workflow/                      # gRPC Handlers（definition/control/reporting）
-internal/transport/http/admin/workflow/                # HTTP Handlers（definitions/instances/export）
+internal/transport/http/admin/workflow/                # HTTP Handlers（definitions/instances/export/node-catalog/review/packs）
 pkg/corex/db/persistence/model/workflow/               # 数据模型（definition/instance/step/compensation/assignment/event）
 pkg/corex/db/persistence/repository/workflow/          # 仓储封装
+backend/config/workflow_packs/                         # 内置 Workflow Pack seed
+web-admin/app/pages/workflow/                          # Workflow Builder 和 Instance Monitor，必须接真实 Admin API
 internal/app/shared/{deps.go,options.go}               # 依赖注入
 internal/server/grpc/server.go                         # gRPC 注册入口
 deploy/observability/workflow_dashboard.json           # 观测与告警模板

@@ -1,6 +1,6 @@
 import { computed, ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
-import { useMe } from "~/composables/useMe";
+import { useUserStore } from "~/stores/user";
 import { WS_BUS_CMD, WS_BUS_TYPE, type WSBusCommand, type WSBusEnvelope } from "~/composables/wsBus";
 
 type TopicHandler = (payload: any, envelope: WSBusEnvelope) => void;
@@ -138,7 +138,7 @@ const scheduleReconnect = (token: string | null) => {
   if (reconnectTimer) return;
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     allowReconnect = false;
-    wsError.value = "连接失败，请检查配置或联系管理员";
+    wsError.value = "reconnect_exhausted";
     if (notifyReconnectFailed && hasActiveSubscriptions()) {
       notifyReconnectFailed();
     }
@@ -154,13 +154,18 @@ const scheduleReconnect = (token: string | null) => {
 
 const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
   if (!process.client) return;
-  if (!token) return;
+  if (!token) {
+    wsConnecting.value = false;
+    wsConnected.value = false;
+    wsError.value = "token_missing";
+    return;
+  }
   const normalizedTenant = String(tenantUUID || "").trim();
   // WS Bus 当前依赖 tenant_uuid；无租户上下文时不建立连接，避免无意义重试噪音。
   if (!isValidTenantUUID(normalizedTenant)) {
     wsConnecting.value = false;
     wsConnected.value = false;
-    wsError.value = null;
+    wsError.value = normalizedTenant ? "tenant_invalid" : "tenant_missing";
     return;
   }
   if (wsInstance && wsConnected.value) return;
@@ -188,17 +193,17 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     wsInstance = null;
     if (shouldBlockReconnectForCloseCode(event.code)) {
       allowReconnect = false;
-      wsError.value = "租户上下文无效";
+      wsError.value = "tenant_invalid";
       return;
     }
-    wsError.value = "连接被关闭";
+    wsError.value = "connection_closed";
     scheduleReconnect(token);
   };
   ws.onerror = () => {
     if (wsInstance !== ws) return;
     wsConnected.value = false;
     wsConnecting.value = false;
-    wsError.value = "连接失败";
+    wsError.value = "connection_failed";
     wsInstance = null;
     scheduleReconnect(token);
   };
@@ -229,8 +234,9 @@ const sendCommand = (cmd: WSBusCommand) => {
 
 export const useWSBus = () => {
   const toast = useToast();
+  const { t } = useI18n();
   const auth = useAuth();
-  const me = useMe();
+  const userStore = useUserStore();
   const accessTokenCookie = useCookie<string | null>("access_token", {
     sameSite: "lax",
     path: "/",
@@ -246,7 +252,7 @@ export const useWSBus = () => {
     }
     return fresh || auth.token.value || cookieToken || null;
   });
-  const getTenantForConnection = () => me.currentTenantUuid.value;
+  const getTenantForConnection = () => userStore.currentTenantUuid;
 
   if (process.client && !watchersInitialized) {
     watchersInitialized = true;
@@ -292,7 +298,7 @@ export const useWSBus = () => {
         ensureConnection(token.value || null, getTenantForConnection());
       });
       window.addEventListener("offline", () => {
-        wsError.value = "网络断开";
+        wsError.value = "network_offline";
       });
     }
   }
@@ -309,8 +315,8 @@ export const useWSBus = () => {
   if (!notifyReconnectFailed) {
     notifyReconnectFailed = () => {
       toast.add({
-        title: "实时连接失败",
-        description: "WebSocket 重试已达上限，请检查网络或联系管理员。",
+        title: t("workflow.runtimeError.reconnectFailedTitle"),
+        description: t("workflow.runtimeError.reconnectExhausted"),
         color: "error",
       });
     };

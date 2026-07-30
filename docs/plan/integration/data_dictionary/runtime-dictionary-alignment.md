@@ -7,7 +7,7 @@
 目标效果：
 
 - 插件安装后即可使用（有默认 seed）。
-- `IAMMode=local` 与 `IAMMode=delegated` 行为一致。
+- `POWERX_PROVIDER_MODE=local` 与 `POWERX_PROVIDER_MODE=delegated` 行为一致。
 - 避免每个插件维护私有字典造成分叉。
 
 ## 2. 统一接口（Runtime）
@@ -35,8 +35,9 @@
 
 ## 4. 模式分流规范
 
-- `IAMMode=local`：读取插件本地字典存储。
-- `IAMMode=delegated`：插件通过 `AuthProxy` 透传底座字典接口。
+- `POWERX_PROVIDER_MODE=local`：读取插件本地字典存储。
+- `POWERX_PROVIDER_MODE=delegated`：插件通过 framework delegated provider 调用 PowerX Core 字典能力。
+- `POWERX_PROXY` 只控制是否连接 PowerX 宿主运行时链路，不参与字典 provider 分流。
 
 原则：业务层只调一个 `DictionaryService`，模式分流在服务内部完成。
 

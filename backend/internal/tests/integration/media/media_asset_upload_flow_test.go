@@ -2,6 +2,8 @@ package media
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -87,12 +89,18 @@ func (env *mediaIntegrationTestEnv) UploadDraftAsset(ctx context.Context, req Me
 		Driver:       req.Driver,
 		Tags:         req.Tags,
 		UploadMethod: mediasvc.UploadMethod(req.UploadMethod),
+		Metadata:     map[string]any{"content_sha256": mediaFixtureContentSHA256(req.TenantID, req.Name, req.UploadMethod)},
 	})
 	if err != nil {
 		return "", err
 	}
 	env.assetTenants[asset.UUID] = tenantUUID
 	return asset.UUID, nil
+}
+
+func mediaFixtureContentSHA256(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, ":")))
+	return hex.EncodeToString(sum[:])
 }
 
 func (env *mediaIntegrationTestEnv) TriggerProcessingFailure(ctx context.Context, assetID string) error {

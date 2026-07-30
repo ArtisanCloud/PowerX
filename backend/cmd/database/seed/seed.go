@@ -94,6 +94,10 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
+	if err = SeedWorkflowPacks(ctx, db); err != nil {
+		return err
+	}
+
 	if err = SeedKnowledgeProfiles(db, "system"); err != nil {
 		return err
 	}

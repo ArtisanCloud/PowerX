@@ -40,6 +40,8 @@ type ExportFilter struct {
 type ExportStep struct {
 	StepID           string
 	Type             string
+	NodeKind         string
+	NodeRef          string
 	State            string
 	SubjectType      string
 	SubjectID        string
@@ -47,6 +49,7 @@ type ExportStep struct {
 	ToolGrantVersion int64
 	LastTransitionAt time.Time
 	LastError        string
+	ErrorCode        string
 }
 
 // ExportRow 描述单个实例的导出数据。
@@ -177,19 +180,31 @@ func buildExportSteps(records []modelworkflow.WorkflowStepRecord) []ExportStep {
 		steps = append(steps, ExportStep{
 			StepID:           rec.StepID,
 			Type:             rec.Type,
+			NodeKind:         rec.NodeKind,
+			NodeRef:          rec.NodeRef,
 			State:            rec.State,
 			SubjectType:      rec.SubjectType,
 			SubjectID:        subjectID,
 			Attempts:         int(rec.Attempt),
 			ToolGrantVersion: rec.ToolGrantVer,
 			LastTransitionAt: rec.LastTransition,
-			LastError:        rec.FailureReason,
+			LastError:        firstNonEmpty(rec.ErrorMessage, rec.FailureReason),
+			ErrorCode:        rec.ErrorCode,
 		})
 	}
 	sort.SliceStable(steps, func(i, j int) bool {
 		return steps[i].LastTransitionAt.Before(steps[j].LastTransitionAt)
 	})
 	return steps
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func (s *Service) emitExportEvent(ctx context.Context, filter ExportFilter, result ExportResult) {

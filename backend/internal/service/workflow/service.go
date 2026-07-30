@@ -27,7 +27,7 @@ type DefinitionStore interface {
 	NextVersion(ctx context.Context, tenantUUID string, name string) (int32, error)
 	GetByUUID(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error)
 	GetLatestPublished(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error)
-	ListByTenant(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error)
+	ListByTenant(ctx context.Context, filter workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error)
 	UpdateStatus(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error
 }
 
@@ -35,6 +35,7 @@ type DefinitionStore interface {
 type InstanceStore interface {
 	CreateInstance(ctx context.Context, instance *modelworkflow.WorkflowInstance) (*modelworkflow.WorkflowInstance, error)
 	GetByUUID(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error)
+	GetByUUIDAnyTenant(ctx context.Context, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error)
 	ListInstances(ctx context.Context, filter workflowrepo.InstanceListFilter) ([]modelworkflow.WorkflowInstance, int64, error)
 	UpdateState(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID, nextState string, updates map[string]interface{}) error
 }
@@ -46,6 +47,9 @@ type StepRecordStore interface {
 	ListByInstance(ctx context.Context, instanceUUID uuid.UUID) ([]modelworkflow.WorkflowStepRecord, error)
 	FindLatestByStep(ctx context.Context, instanceUUID uuid.UUID, stepID string) (*modelworkflow.WorkflowStepRecord, error)
 	UpdateState(ctx context.Context, id uint64, nextState string, updates map[string]interface{}) error
+	LeaseQueuedSteps(ctx context.Context, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error)
+	LeaseQueuedStepsByInstance(ctx context.Context, instanceUUID uuid.UUID, limit int, leaseOwner string, leaseUntil time.Time) ([]modelworkflow.WorkflowStepRecord, error)
+	UpdateStateForAttempt(ctx context.Context, id uint64, attempt int32, nextState string, updates map[string]interface{}) (bool, error)
 }
 
 // AssignmentStore Agent 派发持久化接口。
@@ -64,6 +68,30 @@ type CompensationStore interface {
 	UpdateState(ctx context.Context, id uint64, state string, updates map[string]interface{}) error
 }
 
+// HumanReviewStore 管理 workflow 人工审核任务。
+type HumanReviewStore interface {
+	CreateTask(ctx context.Context, task *modelworkflow.HumanReviewTask) (*modelworkflow.HumanReviewTask, error)
+	GetByUUID(ctx context.Context, tenantUUID string, taskUUID uuid.UUID) (*modelworkflow.HumanReviewTask, error)
+	ListTasks(ctx context.Context, filter workflowrepo.HumanReviewTaskListFilter) ([]modelworkflow.HumanReviewTask, int64, error)
+	UpdateDecision(ctx context.Context, tenantUUID string, taskUUID uuid.UUID, status string, updates map[string]interface{}) error
+}
+
+// WorkflowPackSeedStore 记录 Workflow Pack seed 结果。
+type WorkflowPackSeedStore interface {
+	CreateRecord(ctx context.Context, record *modelworkflow.WorkflowPackSeedRecord) (*modelworkflow.WorkflowPackSeedRecord, error)
+	GetLatestByKey(ctx context.Context, tenantUUID string, workflowKey string) (*modelworkflow.WorkflowPackSeedRecord, error)
+	ListByTenant(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]modelworkflow.WorkflowPackSeedRecord, int64, error)
+	ListByDefinition(ctx context.Context, definitionUUID uuid.UUID) ([]modelworkflow.WorkflowPackSeedRecord, error)
+}
+
+// WorkflowPackInstallationStore 记录租户对内置 Workflow Pack 的显式安装状态。
+type WorkflowPackInstallationStore interface {
+	GetByTenantKey(ctx context.Context, tenantUUID string, workflowKey string) (*modelworkflow.WorkflowPackInstallation, error)
+	UpsertEnabled(ctx context.Context, installation *modelworkflow.WorkflowPackInstallation) (*modelworkflow.WorkflowPackInstallation, error)
+	MarkDeleted(ctx context.Context, tenantUUID string, workflowKey string, actorUUID uuid.UUID) error
+	ListByTenant(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]modelworkflow.WorkflowPackInstallation, int64, error)
+}
+
 // EventRecorder 记录工作流事件。
 type EventRecorder interface {
 	RecordEvent(ctx context.Context, evt *modelworkflow.WorkflowEvent) error
@@ -78,7 +106,12 @@ type Service struct {
 	steps         StepRecordStore
 	assignments   AssignmentStore
 	compensations CompensationStore
+	reviews       HumanReviewStore
+	packSeeds     WorkflowPackSeedStore
+	packInstalls  WorkflowPackInstallationStore
 	events        EventRecorder
+	adapters      *NodeAdapterRegistry
+	nodeCatalog   *NodeCatalogService
 	scheduler     *Scheduler
 	tracker       *AssignmentTracker
 	metrics       MetricsRecorder
@@ -89,19 +122,29 @@ type Service struct {
 
 // ServiceOptions 用于注入自定义依赖。
 type ServiceOptions struct {
-	DefinitionStore      DefinitionStore
-	InstanceStore        InstanceStore
-	StepStore            StepRecordStore
-	AssignmentStore      AssignmentStore
-	CompensationStore    CompensationStore
-	EventRecorder        EventRecorder
-	Clock                func() time.Time
-	Scheduler            *Scheduler
-	ReliableQueue        eventbus.ReliableQueue
-	AssignmentTracker    *AssignmentTracker
-	AssignmentAckTimeout time.Duration
-	GrantValidator       ToolGrantValidator
-	Metrics              MetricsRecorder
+	DefinitionStore          DefinitionStore
+	InstanceStore            InstanceStore
+	StepStore                StepRecordStore
+	AssignmentStore          AssignmentStore
+	CompensationStore        CompensationStore
+	HumanReviewStore         HumanReviewStore
+	WorkflowPackSeedStore    WorkflowPackSeedStore
+	WorkflowPackInstallStore WorkflowPackInstallationStore
+	EventRecorder            EventRecorder
+	NodeAdapterRegistry      *NodeAdapterRegistry
+	NodeCatalogProviders     []NodeCatalogProvider
+	SkillInvoker             SkillInvoker
+	CapabilityInvoker        CapabilityInvoker
+	MetadataClassifier       MetadataClassifier
+	KnowledgeOperator        KnowledgeOperator
+	EventPublisher           WorkflowEventPublisher
+	Clock                    func() time.Time
+	Scheduler                *Scheduler
+	ReliableQueue            eventbus.ReliableQueue
+	AssignmentTracker        *AssignmentTracker
+	AssignmentAckTimeout     time.Duration
+	GrantValidator           ToolGrantValidator
+	Metrics                  MetricsRecorder
 }
 
 // NewService 构建工作流服务实例。
@@ -130,6 +173,37 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 	if compStore == nil {
 		compStore = workflowrepo.NewCompensationRepository(db)
 	}
+
+	reviewStore := opts.HumanReviewStore
+	if reviewStore == nil {
+		reviewStore = workflowrepo.NewHumanReviewTaskRepository(db)
+	}
+
+	packSeedStore := opts.WorkflowPackSeedStore
+	if packSeedStore == nil {
+		packSeedStore = workflowrepo.NewWorkflowPackSeedRecordRepository(db)
+	}
+
+	packInstallStore := opts.WorkflowPackInstallStore
+	if packInstallStore == nil {
+		packInstallStore = workflowrepo.NewWorkflowPackInstallationRepository(db)
+	}
+
+	adapterRegistry := opts.NodeAdapterRegistry
+	if adapterRegistry == nil {
+		adapterRegistry = NewNodeAdapterRegistry()
+		if err := RegisterWorkflowNodeAdapters(adapterRegistry, WorkflowNodeAdapterDeps{
+			SkillInvoker:       opts.SkillInvoker,
+			CapabilityInvoker:  opts.CapabilityInvoker,
+			MetadataClassifier: opts.MetadataClassifier,
+			KnowledgeOperator:  opts.KnowledgeOperator,
+			EventPublisher:     opts.EventPublisher,
+			HumanReviewStore:   reviewStore,
+		}); err != nil {
+			panic(err)
+		}
+	}
+	nodeCatalog := NewNodeCatalogService(adapterRegistry, opts.NodeCatalogProviders...)
 
 	eventStore := opts.EventRecorder
 	if eventStore == nil {
@@ -174,7 +248,12 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 		steps:         stepStore,
 		assignments:   assignStore,
 		compensations: compStore,
+		reviews:       reviewStore,
+		packSeeds:     packSeedStore,
+		packInstalls:  packInstallStore,
 		events:        eventStore,
+		adapters:      adapterRegistry,
+		nodeCatalog:   nodeCatalog,
 		scheduler:     scheduler,
 		tracker:       tracker,
 		metrics:       metrics,
@@ -329,6 +408,8 @@ type StartInstanceInput struct {
 	DefinitionUUID    uuid.UUID
 	DefinitionVersion int32
 	Initiator         uuid.UUID
+	AgentUUID         uuid.UUID
+	TraceID           string
 	Input             map[string]any
 	Tags              map[string]string
 	CorrelationID     string
@@ -376,9 +457,13 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 		DefinitionVersion: definition.Version,
 		State:             "running",
 		InputContext:      toJSONOrEmpty(input.Input),
+		RuntimeContext:    datatypes.JSON([]byte(`{}`)),
 		OutputContext:     datatypes.JSON([]byte(`{}`)),
 		SlaSnapshot:       datatypes.JSON([]byte(`{}`)),
 		CorrelationID:     strings.TrimSpace(input.CorrelationID),
+		AgentUUID:         input.AgentUUID,
+		InitiatorUserUUID: input.Initiator,
+		TraceID:           strings.TrimSpace(input.TraceID),
 		Tags:              toJSONOrEmpty(input.Tags),
 		SlaDeadline:       nil,
 		StartedAt:         &now,
@@ -393,6 +478,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 	if err != nil {
 		return nil, err
 	}
+	createdStepRecords := make([]*modelworkflow.WorkflowStepRecord, 0, len(validation.StartStepIDs))
 
 	for _, stepID := range validation.StartStepIDs {
 		stepDef, ok := validation.StepByID(stepID)
@@ -411,8 +497,13 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 			InstanceUUID:   instance.UUID,
 			StepID:         stepID,
 			Type:           stepDef.Type,
+			NodeKind:       stepDef.NodeKind,
+			NodeRef:        stepDef.NodeRef,
 			SubjectType:    subjectType,
 			State:          "queued",
+			InputMapping:   toJSONOrEmpty(stepDef.InputMapping),
+			OutputMapping:  toJSONOrEmpty(stepDef.OutputMapping),
+			PayloadIn:      toJSONOrEmpty(input.Input),
 			ScheduledAt:    now,
 			LastTransition: now,
 		}
@@ -423,6 +514,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 		if err != nil {
 			return nil, err
 		}
+		createdStepRecords = append(createdStepRecords, created)
 		if s.tracker != nil && strings.EqualFold(stepDef.Type, "agent") {
 			agentID, capability := extractAgentConfig(stepDef)
 			if agentID != uuid.Nil {
@@ -450,6 +542,18 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 			"version":         instance.DefinitionVersion,
 		},
 	))
+	for _, record := range createdStepRecords {
+		if record == nil {
+			continue
+		}
+		s.publishRuntimeEvent(ctx, instance.TenantUUID, instance.UUID, "workflow.step.queued", record.StepID, map[string]any{
+			"step_record_id": record.ID,
+		})
+	}
+	s.publishRuntimeEvent(ctx, instance.TenantUUID, instance.UUID, "workflow.instance.started", instance.CurrentStepID, map[string]any{
+		"definition_uuid": instance.DefinitionUUID.String(),
+		"version":         instance.DefinitionVersion,
+	})
 
 	return instance, nil
 }
@@ -475,11 +579,11 @@ func (s *Service) GetDefinition(ctx context.Context, tenantUUID string, definiti
 }
 
 // ListDefinitions 分页查询工作流定义。
-func (s *Service) ListDefinitions(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
+func (s *Service) ListDefinitions(ctx context.Context, filter workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	if s == nil {
 		return nil, 0, errors.New("workflow service unavailable")
 	}
-	return s.definitions.ListByTenant(ctx, tenantUUID, status, keyword, limit, offset)
+	return s.definitions.ListByTenant(ctx, filter)
 }
 
 // GetInstance 获取实例及可选的步骤列表。

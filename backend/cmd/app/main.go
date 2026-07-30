@@ -169,6 +169,9 @@ func main() {
 				logger.WarnF(ctx, "runtime scheduler notification probe disabled: %v", err)
 			}
 		}
+		if deps.Workflow != nil && deps.Workflow.RunnerWorker != nil {
+			go deps.Workflow.RunnerWorker.Run(ctx)
+		}
 	}
 	if err := assertGlobalWrapKeyInitialized(); err != nil {
 		logger.ErrorF(ctx, "startup aborted: %v", err)

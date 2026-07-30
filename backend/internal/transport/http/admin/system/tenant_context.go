@@ -2,6 +2,7 @@ package system
 
 import (
 	"net/http"
+	"strings"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -31,6 +32,24 @@ func requireTenantContext(c *gin.Context, repo *tenantrepo.TenantRepository) (*t
 		return nil, false
 	}
 	tenant, err := repo.GetByUUID(c.Request.Context(), tenantUUID.String())
+	if err != nil || tenant == nil || tenant.ID == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "解析租户失败", err)
+		return nil, false
+	}
+	return &tenantContext{uuid: tenant.UUID.String()}, true
+}
+
+func requireTenantContextByUUID(c *gin.Context, repo *tenantrepo.TenantRepository, rawTenantUUID string) (*tenantContext, bool) {
+	canonical, err := reqctx.CanonicalTenantUUID(strings.TrimSpace(rawTenantUUID))
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "缺少有效租户参数", err)
+		return nil, false
+	}
+	if repo == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "tenant repository 未配置", nil)
+		return nil, false
+	}
+	tenant, err := repo.GetByUUID(c.Request.Context(), canonical)
 	if err != nil || tenant == nil || tenant.ID == 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "解析租户失败", err)
 		return nil, false

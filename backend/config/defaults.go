@@ -188,6 +188,13 @@ func GetDefaults() *Config {
 			Driver:          "builtin",
 			IntervalSeconds: 5,
 		},
+		Workflow: WorkflowConfig{
+			RunnerIntervalSeconds:      1,
+			RunnerMaxIntervalSeconds:   10,
+			RunnerLeaseDurationSeconds: 30,
+			RunnerBatchSize:            20,
+			RunnerMaxIterations:        50,
+		},
 		IntegrationGateway: IntegrationGatewayConfig{
 			RateLimitPrefix: "integration_gateway:rl",
 			DefaultRateLimit: IntegrationGatewayRateLimitConfig{

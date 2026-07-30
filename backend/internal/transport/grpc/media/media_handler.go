@@ -39,17 +39,22 @@ func (s *MediaAssetServer) CreateMediaAsset(ctx context.Context, req *corexmedia
 	operator := parseOperatorID(req.GetOperatorId())
 
 	asset, err := s.svc.CreateAsset(ctx, mediasvc.CreateAssetInput{
-		TenantUUID:   tenantUUID,
-		OperatorID:   operator,
-		Name:         req.GetName(),
-		Description:  req.GetDescription(),
-		Driver:       req.GetDriver(),
-		Folder:       req.GetFolder(),
-		OwnerType:    req.GetOwnerSubjectType(),
-		OwnerID:      req.GetOwnerSubjectId(),
-		Tags:         req.GetTags(),
-		UploadMethod: uploadMethodFromChannel(req.GetUploadChannel()),
-		ExternalURL:  req.GetExternalUrl(),
+		TenantUUID:    tenantUUID,
+		OperatorID:    operator,
+		Name:          req.GetName(),
+		Description:   req.GetDescription(),
+		Driver:        req.GetDriver(),
+		Folder:        req.GetFolder(),
+		StorageKey:    req.GetObjectKey(),
+		SizeBytes:     req.GetSizeBytes(),
+		MimeType:      req.GetMimeType(),
+		OwnerType:     req.GetOwnerSubjectType(),
+		OwnerID:       req.GetOwnerSubjectId(),
+		Tags:          req.GetTags(),
+		UploadMethod:  uploadMethodFromChannel(req.GetUploadChannel()),
+		ExternalURL:   req.GetExternalUrl(),
+		ContentSHA256: req.GetContentSha256(),
+		Metadata:      stringMapToAny(req.GetMetadata()),
 	})
 	if err != nil {
 		return mediaServiceErrorResponse(ctx, err)
@@ -372,6 +377,22 @@ func metadataToStringMap(meta map[string]any) map[string]string {
 	return out
 }
 
+func stringMapToAny(src map[string]string) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(src))
+	for k, v := range src {
+		if strings.TrimSpace(k) != "" {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func presignActionToString(action corexmediav1.PresignAction) string {
 	switch action {
 	case corexmediav1.PresignAction_PRESIGN_ACTION_UPLOAD:
@@ -418,7 +439,11 @@ func classifyMediaError(err error) (int, bool) {
 		return http.StatusNotFound, false
 	case errors.Is(err, mediasvc.ErrInvalidStatusTransition):
 		return http.StatusPreconditionFailed, false
-	case errors.Is(err, mediasvc.ErrInvalidUploadMethod), errors.Is(err, mediasvc.ErrExternalURLRequired):
+	case errors.Is(err, mediasvc.ErrInvalidUploadMethod),
+		errors.Is(err, mediasvc.ErrExternalURLRequired),
+		errors.Is(err, mediasvc.ErrObjectKeyMustBeUUID),
+		errors.Is(err, mediasvc.ErrContentSHA256Invalid),
+		errors.Is(err, mediasvc.ErrContentSHA256Required):
 		return http.StatusBadRequest, false
 	case errors.Is(err, driver.ErrInvalidArgument):
 		return http.StatusBadRequest, false

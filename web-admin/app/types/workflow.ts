@@ -1,14 +1,15 @@
-// Kind 规格（服务端下发）
+import type { WorkflowDefinition, WorkflowNodeCatalogItem } from "~/composables/api/services/workflowService";
+
 export interface KindSpec {
-  kind: string;            // 如 "llm"
+  kind: string;
   version: string;
   label: string;
-  ports: { inputs: {name:string}[]; outputs: {name:string; label?:string}[] };
+  ports: { inputs: { name: string }[]; outputs: { name: string; label?: string }[] };
   defaultProps: Record<string, any>;
-  schema: Record<string, any>;  // JSON Schema
+  schema: Record<string, any>;
   ui: {
-    shape: "card" | "diamond" | "pill" | "minimal";
-    colorToken?: string;        // primary/warning/info/...
+    shape: "card" | "diamond" | "pill" | "oval" | "minimal";
+    colorToken?: string;
     icon?: string;
     size?: { w: number; h: number };
     badges?: string[];
@@ -16,48 +17,48 @@ export interface KindSpec {
   };
 }
 
-// Palette 模板（服务端下发）
 export interface PaletteItem {
-  id: string;              // 如 "http.post.json"
-  kind: string;            // 指向 Kind
+  id: string;
+  kind: string;
   label: string;
   icon?: string;
   defaultProps?: Record<string, any>;
   uiOverrides?: Partial<KindSpec["ui"]> & { previewTpl?: string; component?: string };
+  catalogItem?: WorkflowNodeCatalogItem;
 }
 
-// 画布实例（保存）
 export interface WfNode {
   id: string;
-  kind: string;            // 决定执行行为
-  paletteId: string;       // 来源模板
+  kind: string;
+  paletteId: string;
   label: string;
   props: Record<string, any>;
   ui: {
-    shape: string; 
-    colorToken?: string; 
-    icon?: string; 
-    size?: {w:number;h:number};
-    badges?: string[]; 
-    previewTpl?: string; 
+    shape: string;
+    colorToken?: string;
+    icon?: string;
+    size?: { w: number; h: number };
+    badges?: string[];
+    previewTpl?: string;
     component?: string;
   };
   position: { x: number; y: number };
 }
 
-// 工作流定义
 export interface Workflow {
   id: string;
+  uuid: string;
   name: string;
   description?: string;
   nodes: WfNode[];
   edges: Edge[];
   version: string;
+  status?: string;
   createdAt: string;
   updatedAt: string;
+  raw?: WorkflowDefinition;
 }
 
-// 边定义
 export interface Edge {
   id: string;
   source: string;
@@ -68,19 +69,18 @@ export interface Edge {
   type?: string;
 }
 
-// 端口定义
 export interface Port {
   name: string;
   label?: string;
 }
 
-// 节点数据
 export interface NodeData {
   kind: string;
   paletteId: string;
   label: string;
   props: Record<string, any>;
-  ui: KindSpec['ui'] & { previewTpl?: string; component?: string };
+  ui: KindSpec["ui"] & { previewTpl?: string; component?: string };
   ports: { inputs: Port[]; outputs: Port[] };
   schema: Record<string, any>;
+  runState?: string;
 }

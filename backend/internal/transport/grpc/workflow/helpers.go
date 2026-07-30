@@ -38,6 +38,10 @@ func pbStepsToInternal(defs []*workflowv1.WorkflowStepDefinition) []workflowsvc.
 			ID:            pb.GetStepId(),
 			DisplayName:   pb.GetDisplayName(),
 			Type:          stepTypeString(pb.GetType()),
+			NodeKind:      pb.GetNodeKind(),
+			NodeRef:       pb.GetNodeRef(),
+			InputMapping:  structToMap(pb.GetInputMapping()),
+			OutputMapping: structToMap(pb.GetOutputMapping()),
 			Config:        config,
 			NextStepIDs:   pb.GetNextStepIds(),
 			DependsOn:     pb.GetDependsOn(),
@@ -79,6 +83,10 @@ func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition, tenantUUID strin
 			StepId:        step.ID,
 			DisplayName:   step.DisplayName,
 			Type:          workflowStepType(step.Type),
+			NodeKind:      step.NodeKind,
+			NodeRef:       step.NodeRef,
+			InputMapping:  mapToStruct(step.InputMapping),
+			OutputMapping: mapToStruct(step.OutputMapping),
 			Config:        cfg,
 			Compensatable: step.Compensatable,
 			NextStepIds:   step.NextStepIDs,
@@ -87,7 +95,7 @@ func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition, tenantUUID strin
 	}
 
 	return &workflowv1.WorkflowDefinition{
-		DefinitionId:       def.UUID.String(),
+		DefinitionUuid:     def.UUID.String(),
 		TenantUuid:         tenantUUID,
 		Name:               def.Name,
 		Description:        def.Description,
@@ -111,9 +119,9 @@ func modelInstanceToPB(instance *modelworkflow.WorkflowInstance, records []model
 	}
 
 	pb := &workflowv1.WorkflowInstance{
-		InstanceId:        instance.UUID.String(),
+		InstanceUuid:      instance.UUID.String(),
 		TenantUuid:        tenantUUID,
-		DefinitionId:      instance.DefinitionUUID.String(),
+		DefinitionUuid:    instance.DefinitionUUID.String(),
 		DefinitionVersion: instance.DefinitionVersion,
 		State:             workflowInstanceState(instance.State),
 		Input:             jsonToStruct(instance.InputContext),
@@ -139,7 +147,7 @@ func modelInstanceToPB(instance *modelworkflow.WorkflowInstance, records []model
 				Type:                   workflowStepType(rec.Type),
 				State:                  workflowStepState(rec.State),
 				SubjectType:            stepSubjectType(rec.SubjectType),
-				SubjectId:              rec.SubjectUUID.String(),
+				SubjectUuid:            rec.SubjectUUID.String(),
 				ToolGrantVersion:       rec.ToolGrantVer,
 				Attempt:                rec.Attempt,
 				ScheduledAt:            timestamppb.New(rec.ScheduledAt),
@@ -147,6 +155,10 @@ func modelInstanceToPB(instance *modelworkflow.WorkflowInstance, records []model
 				PayloadOut:             jsonToStruct(rec.PayloadOut),
 				FailureReason:          rec.FailureReason,
 				AwaitingManualApproval: rec.AwaitingHuman,
+				NodeKind:               rec.NodeKind,
+				NodeRef:                rec.NodeRef,
+				ErrorCode:              rec.ErrorCode,
+				ErrorMessage:           rec.ErrorMessage,
 			})
 			if rec.StartedAt != nil {
 				pbSteps[len(pbSteps)-1].StartedAt = timestamppb.New(*rec.StartedAt)
@@ -290,6 +302,74 @@ func workflowInstanceState(state string) workflowv1.WorkflowInstanceState {
 	}
 }
 
+func workflowNodeSourceStatus(value string) workflowv1.WorkflowNodeSourceStatus {
+	switch strings.ToLower(value) {
+	case "available":
+		return workflowv1.WorkflowNodeSourceStatus_WORKFLOW_NODE_SOURCE_STATUS_AVAILABLE
+	case "missing_dependency":
+		return workflowv1.WorkflowNodeSourceStatus_WORKFLOW_NODE_SOURCE_STATUS_MISSING_DEPENDENCY
+	case "permission_denied":
+		return workflowv1.WorkflowNodeSourceStatus_WORKFLOW_NODE_SOURCE_STATUS_PERMISSION_DENIED
+	case "disabled":
+		return workflowv1.WorkflowNodeSourceStatus_WORKFLOW_NODE_SOURCE_STATUS_DISABLED
+	default:
+		return workflowv1.WorkflowNodeSourceStatus_WORKFLOW_NODE_SOURCE_STATUS_UNSPECIFIED
+	}
+}
+
+func humanReviewTaskStatus(value string) workflowv1.HumanReviewTaskStatus {
+	switch strings.ToLower(value) {
+	case "pending":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_PENDING
+	case "approved":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_APPROVED
+	case "rejected":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_REJECTED
+	case "changes_requested":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_CHANGES_REQUESTED
+	case "canceled":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_CANCELED
+	case "expired":
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_EXPIRED
+	default:
+		return workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_UNSPECIFIED
+	}
+}
+
+func humanReviewStatusFilter(status workflowv1.HumanReviewTaskStatus) string {
+	switch status {
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_PENDING:
+		return "pending"
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_APPROVED:
+		return "approved"
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_REJECTED:
+		return "rejected"
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_CHANGES_REQUESTED:
+		return "changes_requested"
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_CANCELED:
+		return "canceled"
+	case workflowv1.HumanReviewTaskStatus_HUMAN_REVIEW_TASK_STATUS_EXPIRED:
+		return "expired"
+	default:
+		return ""
+	}
+}
+
+func humanReviewActionString(action workflowv1.HumanReviewAction) string {
+	switch action {
+	case workflowv1.HumanReviewAction_HUMAN_REVIEW_ACTION_APPROVE:
+		return "approve"
+	case workflowv1.HumanReviewAction_HUMAN_REVIEW_ACTION_REJECT:
+		return "reject"
+	case workflowv1.HumanReviewAction_HUMAN_REVIEW_ACTION_REQUEST_CHANGES:
+		return "request_changes"
+	case workflowv1.HumanReviewAction_HUMAN_REVIEW_ACTION_CANCEL:
+		return "cancel"
+	default:
+		return ""
+	}
+}
+
 func jsonToStruct(data datatypes.JSON) *structpb.Struct {
 	if len(data) == 0 {
 		return nil
@@ -303,6 +383,89 @@ func jsonToStruct(data datatypes.JSON) *structpb.Struct {
 		return nil
 	}
 	return st
+}
+
+func mapToStruct(data map[string]any) *structpb.Struct {
+	if len(data) == 0 {
+		return nil
+	}
+	st, err := structpb.NewStruct(data)
+	if err != nil {
+		return nil
+	}
+	return st
+}
+
+func nodeSchemaToStruct(schema workflowsvc.NodeSchema) *structpb.Struct {
+	raw := map[string]any{}
+	if schema.Type != "" {
+		raw["type"] = schema.Type
+	}
+	if len(schema.Required) > 0 {
+		values := make([]any, 0, len(schema.Required))
+		for _, item := range schema.Required {
+			values = append(values, item)
+		}
+		raw["required"] = values
+	}
+	if len(schema.Properties) > 0 {
+		raw["properties"] = schema.Properties
+	}
+	return mapToStruct(raw)
+}
+
+func nodeCatalogItemToPB(item workflowsvc.NodeCatalogItem) *workflowv1.WorkflowNodeCatalogItem {
+	return &workflowv1.WorkflowNodeCatalogItem{
+		NodeKind:              item.NodeKind,
+		DisplayNameI18NKey:    item.DisplayNameI18nKey,
+		DescriptionI18NKey:    item.DescriptionI18nKey,
+		Category:              item.Category,
+		StepType:              workflowStepType(item.StepType),
+		InputSchema:           nodeSchemaToStruct(item.InputSchema),
+		OutputSchema:          nodeSchemaToStruct(item.OutputSchema),
+		ConfigSchema:          nodeSchemaToStruct(item.ConfigSchema),
+		RequiredPermissions:   item.RequiredPermissions,
+		RequiredCapabilities:  item.RequiredCapabilities,
+		IdempotencyRequired:   item.IdempotencyRequired,
+		CompensationSupported: item.CompensationSupported,
+		SourceStatus:          workflowNodeSourceStatus(item.SourceStatus),
+	}
+}
+
+func humanReviewTaskToPB(task *modelworkflow.HumanReviewTask) *workflowv1.HumanReviewTask {
+	if task == nil {
+		return nil
+	}
+	return &workflowv1.HumanReviewTask{
+		ReviewTaskUuid:       task.UUID.String(),
+		TenantUuid:           task.TenantUUID,
+		WorkflowInstanceUuid: task.WorkflowInstanceUUID.String(),
+		StepId:               task.StepID,
+		ReviewType:           task.ReviewType,
+		Payload:              jsonToStruct(task.Payload),
+		ApproverPolicy:       jsonToStruct(task.ApproverPolicy),
+		Status:               humanReviewTaskStatus(task.Status),
+		ReviewerUserUuid:     task.ReviewerUserUUID.String(),
+		Decision:             task.Decision,
+		DecisionPayload:      jsonToStruct(task.DecisionPayload),
+		Comment:              task.Comment,
+		CreatedAt:            timestamppb.New(task.CreatedAt),
+		CompletedAt:          timestampOrNil(task.CompletedAt),
+	}
+}
+
+func workflowPackRecordToPB(record *modelworkflow.WorkflowPackSeedRecord) *workflowv1.WorkflowPack {
+	if record == nil {
+		return nil
+	}
+	return &workflowv1.WorkflowPack{
+		WorkflowKey:       record.WorkflowKey,
+		Version:           record.Version,
+		Status:            workflowv1.WorkflowPackStatus_WORKFLOW_PACK_STATUS_SEEDED,
+		DefinitionUuid:    record.DefinitionUUID.String(),
+		DefinitionVersion: record.DefinitionVersion,
+		Checksum:          record.Checksum,
+	}
 }
 
 func jsonToStringMap(data datatypes.JSON) map[string]string {

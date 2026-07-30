@@ -18,14 +18,18 @@ var allowedStepTypes = map[string]struct{}{
 
 // StepDefinition 描述工作流定义中的单个步骤。
 type StepDefinition struct {
-	ID            string                 `json:"id"`
-	DisplayName   string                 `json:"display_name,omitempty"`
-	Type          string                 `json:"type"`
-	Config        map[string]any         `json:"config,omitempty"`
-	NextStepIDs   []string               `json:"next_step_ids,omitempty"`
-	DependsOn     []string               `json:"depends_on,omitempty"`
-	Compensatable bool                   `json:"compensatable,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	ID            string                 `json:"id" yaml:"id"`
+	DisplayName   string                 `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Type          string                 `json:"type" yaml:"type"`
+	NodeKind      string                 `json:"node_kind,omitempty" yaml:"node_kind,omitempty"`
+	NodeRef       string                 `json:"node_ref,omitempty" yaml:"node_ref,omitempty"`
+	InputMapping  map[string]any         `json:"input_mapping,omitempty" yaml:"input_mapping,omitempty"`
+	OutputMapping map[string]any         `json:"output_mapping,omitempty" yaml:"output_mapping,omitempty"`
+	Config        map[string]any         `json:"config,omitempty" yaml:"config,omitempty"`
+	NextStepIDs   []string               `json:"next_step_ids,omitempty" yaml:"next_step_ids,omitempty"`
+	DependsOn     []string               `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	Compensatable bool                   `json:"compensatable,omitempty" yaml:"compensatable,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // ValidationResult 返回校验后便于执行所需的派生数据。
@@ -46,6 +50,7 @@ var (
 	errInvalidStepType = errors.New("invalid step type")
 	errNoEntryStep     = errors.New("no entry step detected (steps without depends_on)")
 	errCycleDetected   = errors.New("step graph contains cycle")
+	errInvalidBoundary = errors.New("workflow must contain exactly one input.capture start node and one workflow.end end node")
 )
 
 // ValidateStepDefinitions 检查步骤配置是否满足编排执行要求，并返回标准化结果。
@@ -85,8 +90,16 @@ func ValidateStepDefinitions(rawSteps []StepDefinition) (*ValidationResult, erro
 
 	adj := make(map[string][]string, len(steps))
 	reverse := make(map[string][]string, len(steps))
+	startNodeIDs := make([]string, 0, 1)
+	endNodeIDs := make([]string, 0, 1)
 
 	for _, step := range steps {
+		switch step.NodeKind {
+		case "input.capture":
+			startNodeIDs = append(startNodeIDs, step.ID)
+		case "workflow.end":
+			endNodeIDs = append(endNodeIDs, step.ID)
+		}
 		for _, nextID := range step.NextStepIDs {
 			if _, ok := idSet[nextID]; !ok {
 				return nil, fmt.Errorf("next_step_ids references unknown step: %s -> %s", step.ID, nextID)
@@ -101,6 +114,15 @@ func ValidateStepDefinitions(rawSteps []StepDefinition) (*ValidationResult, erro
 			reverse[step.ID] = appendUnique(reverse[step.ID], depID)
 			adj[depID] = appendUnique(adj[depID], step.ID)
 		}
+	}
+	if len(startNodeIDs) != 1 || len(endNodeIDs) != 1 {
+		return nil, fmt.Errorf("%w: starts=%d ends=%d", errInvalidBoundary, len(startNodeIDs), len(endNodeIDs))
+	}
+	if len(reverse[startNodeIDs[0]]) != 0 {
+		return nil, fmt.Errorf("%w: start node %s must not have incoming edges", errInvalidBoundary, startNodeIDs[0])
+	}
+	if len(adj[endNodeIDs[0]]) != 0 {
+		return nil, fmt.Errorf("%w: end node %s must not have outgoing edges", errInvalidBoundary, endNodeIDs[0])
 	}
 
 	if hasCycle(adj, idSet) {
@@ -151,6 +173,8 @@ func normalizeStep(step StepDefinition) StepDefinition {
 	deps := append([]string{}, step.DependsOn...)
 	step.NextStepIDs = uniqueStrings(trimStrings(next))
 	step.DependsOn = uniqueStrings(trimStrings(deps))
+	step.NodeKind = strings.TrimSpace(strings.ToLower(step.NodeKind))
+	step.NodeRef = strings.TrimSpace(step.NodeRef)
 	return step
 }
 

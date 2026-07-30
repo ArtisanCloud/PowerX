@@ -58,11 +58,13 @@ func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInpu
 		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "suspended", "workflow.instance.paused", fmt.Sprintf("workflow instance %s paused", instance.UUID.String()), input.Operator, map[string]any{
 			"reason": reason,
 		})
+		s.publishRuntimeEvent(ctx, instance.TenantUUID, instance.UUID, "workflow.instance.paused", instance.CurrentStepID, map[string]any{"reason": reason})
 	case "resume":
 		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "running", map[string]interface{}{"last_error": ""}); err != nil {
 			return nil, err
 		}
 		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "running", "workflow.instance.resumed", fmt.Sprintf("workflow instance %s resumed", instance.UUID.String()), input.Operator, map[string]any{})
+		s.publishRuntimeEvent(ctx, instance.TenantUUID, instance.UUID, "workflow.instance.resumed", instance.CurrentStepID, nil)
 	case "cancel":
 		reason := strings.TrimSpace(input.Reason)
 		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "canceled", map[string]interface{}{"last_error": reason}); err != nil {
@@ -71,6 +73,7 @@ func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInpu
 		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "canceled", "workflow.instance.canceled", fmt.Sprintf("workflow instance %s canceled", instance.UUID.String()), input.Operator, map[string]any{
 			"reason": reason,
 		})
+		s.publishRuntimeEvent(ctx, instance.TenantUUID, instance.UUID, "workflow.instance.canceled", instance.CurrentStepID, map[string]any{"reason": reason})
 	case "retry_step":
 		if input.StepID == "" {
 			return nil, errors.New("step_id is required for retry_step")
@@ -224,8 +227,12 @@ func (s *Service) manualRetryStep(ctx context.Context, tenantUUID string, instan
 		InstanceUUID:   instance.UUID,
 		StepID:         stepDef.ID,
 		Type:           stepDef.Type,
+		NodeKind:       stepDef.NodeKind,
+		NodeRef:        stepDef.NodeRef,
 		State:          "queued",
 		SubjectType:    strings.ToLower(stepDef.Type),
+		InputMapping:   toJSONOrEmpty(stepDef.InputMapping),
+		OutputMapping:  toJSONOrEmpty(stepDef.OutputMapping),
 		PayloadIn:      toJSONOrEmpty(payload),
 		ScheduledAt:    now,
 		LastTransition: now,

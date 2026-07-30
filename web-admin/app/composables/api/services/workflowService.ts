@@ -1,541 +1,316 @@
 import { useApiClient } from "../index";
-import type {
-  ApiResponse,
-  PaginatedResponse,
-  PaginationParams,
-} from "../types/types";
-import type {
-  KindSpec,
-  PaletteItem,
-  Workflow,
-  WfNode,
-  Edge,
-} from "~/types/workflow";
+import type { PaginationParams } from "../types/types";
 
-/**
- * 工作流相关类型定义
- */
-export interface WorkflowCreateParams {
+export type WorkflowDefinitionStatus = "draft" | "published" | "archived";
+export type WorkflowInstanceState =
+  | "queued"
+  | "running"
+  | "waiting"
+  | "succeeded"
+  | "failed"
+  | "canceled"
+  | "compensating";
+export type HumanReviewStatus = "pending" | "approved" | "rejected" | "changes_requested" | "canceled";
+
+export interface WorkflowStepDefinition {
+  id: string;
+  type: "agent" | "system" | "decision" | "parallel" | "human_approval" | "compensation";
+  node_kind: string;
+  node_ref?: string;
+  depends_on?: string[];
+  next_step_ids?: string[];
+  routes?: Record<string, string[]>;
+  input_mapping?: Record<string, any>;
+  output_mapping?: Record<string, any>;
+  config?: Record<string, any>;
+  retry_policy?: Record<string, any>;
+  timeout_seconds?: number;
+}
+
+export interface WorkflowDefinition {
+  uuid: string;
+  tenant_uuid: string;
   name: string;
   description?: string;
+  version: number;
+  status: WorkflowDefinitionStatus;
+  step_graph: WorkflowStepDefinition[];
+  default_retry_policy?: Record<string, any>;
+  compensation_policy?: Record<string, any>;
+  sla_policy?: Record<string, any>;
+  metadata?: Record<string, any>;
   category?: string;
-  tags?: string[];
-  isPublic?: boolean;
+  input_schema?: Record<string, any>;
+  workflow_pack_key?: string;
+  source_type?: string;
+  checksum?: string;
+  created_at?: string;
+  updated_at?: string;
+  published_at?: string | null;
+  archived_at?: string | null;
 }
 
-export interface WorkflowUpdateParams {
-  name?: string;
-  description?: string;
-  category?: string;
-  tags?: string[];
-  isPublic?: boolean;
-  nodes?: WfNode[];
-  edges?: Edge[];
-  status?: "draft" | "published" | "archived";
-}
-
-export interface WorkflowFilters extends PaginationParams {
-  category?: string;
-  status?: "draft" | "published" | "archived";
-  tags?: string[];
-  search?: string;
-  authorId?: string;
-  isPublic?: boolean;
-}
-
-export interface WorkflowExecutionParams {
-  input?: Record<string, any>;
-  context?: Record<string, any>;
-  variables?: Record<string, any>;
-}
-
-export interface WorkflowExecution {
-  id: string;
-  workflowId: string;
-  status: "running" | "completed" | "failed" | "cancelled";
-  input: Record<string, any>;
-  output?: Record<string, any>;
-  error?: string;
-  startedAt: string;
-  completedAt?: string;
-  duration?: number;
-  nodeExecutions: NodeExecution[];
-}
-
-export interface NodeExecution {
-  id: string;
-  nodeId: string;
-  status: "pending" | "running" | "completed" | "failed" | "skipped";
-  input?: Record<string, any>;
-  output?: Record<string, any>;
-  error?: string;
-  startedAt?: string;
-  completedAt?: string;
-  duration?: number;
-}
-
-export interface WorkflowTemplate {
-  id: string;
+export interface CreateWorkflowDefinitionRequest {
   name: string;
-  description: string;
+  description?: string;
+  steps: WorkflowStepDefinition[];
+  default_retry_policy?: Record<string, any>;
+  compensation_policy?: Record<string, any>;
+  sla_policy?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface ListWorkflowDefinitionParams extends PaginationParams {
+  keyword?: string;
+  status?: WorkflowDefinitionStatus | WorkflowDefinitionStatus[];
+  source_type?: string;
+  category?: string;
+}
+
+export interface NodeSchema {
+  type?: string;
+  required?: string[];
+  properties?: Record<string, any>;
+}
+
+export interface WorkflowNodeCatalogItem {
+  node_kind: string;
+  display_name_i18n_key: string;
+  description_i18n_key?: string;
   category: string;
-  tags: string[];
-  thumbnail?: string;
-  workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt">;
-  usageCount: number;
-  rating: number;
-  author: {
-    id: string;
-    name: string;
-    avatar?: string;
+  step_type: string;
+  input_schema?: NodeSchema;
+  output_schema?: NodeSchema;
+  config_schema?: NodeSchema;
+  required_permissions?: string[];
+  required_capabilities?: string[];
+  idempotency_required?: boolean;
+  compensation_supported?: boolean;
+  source_status: string;
+  metadata?: Record<string, any>;
+}
+
+export interface WorkflowInstance {
+  uuid: string;
+  tenant_uuid: string;
+  definition_uuid: string;
+  definition_version: number;
+  state: WorkflowInstanceState;
+  input_context?: Record<string, any> | null;
+  runtime_context?: Record<string, any> | null;
+  output_context?: Record<string, any> | null;
+  trace_id?: string;
+  current_step_id?: string;
+  last_error?: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  steps?: WorkflowStepRecord[];
+}
+
+export interface WorkflowStepRecord {
+  step_id: string;
+  type: string;
+  node_kind: string;
+  node_ref?: string;
+  state: string;
+  error_code?: string;
+  error_message?: string;
+  failure_reason?: string;
+  payload_in?: Record<string, any> | null;
+  payload_out?: Record<string, any> | null;
+  scheduled_at?: string | null;
+  attempt?: number;
+  awaiting_human?: boolean;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface HumanReviewTask {
+  review_task_uuid: string;
+  tenant_uuid: string;
+  workflow_instance_uuid: string;
+  step_id: string;
+  review_type: string;
+  payload?: Record<string, any>;
+  approver_policy?: Record<string, any>;
+  status: HumanReviewStatus;
+  reviewer_user_uuid?: string;
+  decision?: string;
+  decision_payload?: Record<string, any>;
+  comment?: string;
+  due_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface WorkflowPackSeedRecord {
+  workflow_key: string;
+  version: number;
+  definition_uuid: string;
+  definition_version: number;
+  checksum: string;
+  source: string;
+  seeded_at: string;
+}
+
+export interface ListResponse<T> {
+  items: T[];
+  total: number;
+}
+
+const toOffset = (params?: PaginationParams) => {
+  const pageSize = Number(params?.pageSize || 20);
+  const page = Math.max(1, Number(params?.page || 1));
+  return {
+    page_size: pageSize,
+    offset: (page - 1) * pageSize,
   };
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
-export interface WorkflowListResponse {
-  workflows: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    category?: string;
-    tags: string[];
-    status: "draft" | "published" | "archived";
-    isPublic: boolean;
-    nodeCount: number;
-    executionCount: number;
-    lastExecutedAt?: string;
-    createdAt: string;
-    updatedAt: string;
-  }>;
-}
-
-export interface KindsResponse {
-  apiVersion: string;
-  kinds: KindSpec[];
-}
-
-export interface PaletteResponse {
-  apiVersion: string;
-  palette: PaletteItem[];
-}
-
-export interface WorkflowValidationResult {
-  valid: boolean;
-  errors: Array<{
-    type: "error" | "warning";
-    message: string;
-    nodeId?: string;
-    edgeId?: string;
-  }>;
-}
-
-export interface WorkflowStats {
-  totalWorkflows: number;
-  publishedWorkflows: number;
-  totalExecutions: number;
-  successRate: number;
-  avgExecutionTime: number;
-  popularCategories: Array<{
-    category: string;
-    count: number;
-  }>;
-}
-
-/**
- * 工作流服务 API
- */
 export const useWorkflowService = () => {
   const apiClient = useApiClient();
-  const baseUrl = "/workflow";
+  const baseUrl = "/admin/workflows";
+
+  const unwrap = <T>(response: any): T => apiClient.unwrap<T>(response);
 
   return {
-    /**
-     * 获取节点类型规格
-     */
-    getKinds: (): Promise<KindsResponse> => {
-      // 模拟数据 - 实际应该调用 API
-      const mockKinds: KindsResponse = {
-        apiVersion: "corex.wf/v1",
-        kinds: [
-          {
-            kind: "llm",
-            version: "1.0.0",
-            label: "大模型",
-            ports: {
-              inputs: [{ name: "in" }],
-              outputs: [{ name: "out" }, { name: "error" }],
-            },
-            defaultProps: {
-              model: "gpt-4o",
-              prompt: "",
-              temperature: 0.3,
-            },
-            schema: {
-              type: "object",
-              required: ["model", "prompt"],
-              properties: {
-                model: { type: "string" },
-                prompt: { type: "string", minLength: 0 },
-                temperature: { type: "number", minimum: 0, maximum: 1 },
-              },
-            },
-            ui: {
-              shape: "card",
-              colorToken: "primary",
-              icon: "i-heroicons-cpu-chip",
-              size: { w: 220, h: 96 },
-              badges: ["AI"],
-              handles: {
-                left: ["in"],
-                right: ["out", "error"],
-              },
-            },
-          },
-          {
-            kind: "http",
-            version: "1.0.0",
-            label: "HTTP 请求",
-            ports: {
-              inputs: [{ name: "in" }],
-              outputs: [{ name: "ok" }, { name: "fail" }],
-            },
-            defaultProps: {
-              method: "GET",
-              url: "",
-              headers: {},
-              body: {},
-            },
-            schema: {
-              type: "object",
-              required: ["method", "url"],
-              properties: {
-                method: {
-                  type: "string",
-                  enum: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-                },
-                url: { type: "string" },
-                headers: {
-                  type: "object",
-                  additionalProperties: { type: "string" },
-                },
-                body: { type: "object" },
-              },
-            },
-            ui: {
-              shape: "card",
-              colorToken: "info",
-              icon: "i-heroicons-globe-alt",
-              size: { w: 260, h: 110 },
-              badges: ["IO"],
-            },
-          },
-          {
-            kind: "selector",
-            version: "1.0.0",
-            label: "条件",
-            ports: {
-              inputs: [{ name: "in" }],
-              outputs: [{ name: "true" }, { name: "false" }],
-            },
-            defaultProps: {
-              expr: "vars.score >= 80",
-            },
-            schema: {
-              type: "object",
-              required: ["expr"],
-              properties: {
-                expr: { type: "string" },
-              },
-            },
-            ui: {
-              shape: "diamond",
-              colorToken: "warning",
-              icon: "i-heroicons-arrow-path",
-              size: { w: 160, h: 120 },
-            },
-          },
-        ],
-      };
-
-      return Promise.resolve(mockKinds);
-      // 实际实现应该是：
-      // return apiClient.get<KindsResponse>(`${baseUrl}/kinds`);
-    },
-
-    /**
-     * 获取节点模板清单
-     */
-    getPalette: (): Promise<PaletteResponse> => {
-      // 模拟数据 - 实际应该调用 API
-      const mockPalette: PaletteResponse = {
-        apiVersion: "corex.wf/v1",
-        palette: [
-          {
-            id: "llm.basic",
-            kind: "llm",
-            label: "LLM（通用）",
-            icon: "i-heroicons-cpu-chip",
-            defaultProps: {
-              model: "gpt-4o",
-              temperature: 0.2,
-              prompt: "请根据输入生成摘要",
-            },
-            uiOverrides: {
-              colorToken: "primary",
-              previewTpl: "{{props.model}} · T={{props.temperature}}",
-            },
-          },
-          {
-            id: "llm.summarize",
-            kind: "llm",
-            label: "LLM（摘要）",
-            icon: "i-heroicons-document-text",
-            defaultProps: {
-              model: "gpt-4o",
-              temperature: 0.1,
-              prompt: "请对以下内容进行摘要，提取关键信息：",
-            },
-            uiOverrides: {
-              colorToken: "success",
-              previewTpl: "摘要生成器",
-            },
-          },
-          {
-            id: "http.get",
-            kind: "http",
-            label: "HTTP GET",
-            icon: "i-heroicons-arrow-down-on-square",
-            defaultProps: {
-              method: "GET",
-              url: "https://api.example.com/v1/items",
-            },
-            uiOverrides: {
-              colorToken: "info",
-              previewTpl: "{{props.method}} {{props.url}}",
-            },
-          },
-          {
-            id: "http.post.json",
-            kind: "http",
-            label: "HTTP POST(JSON)",
-            icon: "i-heroicons-arrow-up-on-square",
-            defaultProps: {
-              method: "POST",
-              url: "https://api.example.com/v1/items",
-              headers: { "Content-Type": "application/json" },
-              body: { name: "" },
-            },
-            uiOverrides: {
-              colorToken: "success",
-            },
-          },
-          {
-            id: "selector.score",
-            kind: "selector",
-            label: "高意向？(score>=80)",
-            icon: "i-heroicons-adjustments-horizontal",
-            defaultProps: {
-              expr: "vars.score >= 80",
-            },
-          },
-        ],
-      };
-
-      return Promise.resolve(mockPalette);
-      // 实际实现应该是：
-      // return apiClient.get<PaletteResponse>(`${baseUrl}/palette`);
-    },
-
-    /**
-     * 获取工作流列表
-     */
-    getWorkflows: (filters?: WorkflowFilters) => {
-      return apiClient.get<
-        ApiResponse<PaginatedResponse<WorkflowListResponse>>
-      >(baseUrl, { params: filters });
-    },
-
-    /**
-     * 获取指定工作流
-     */
-    getWorkflow: (id: string) => {
-      return apiClient.get<ApiResponse<Workflow>>(`${baseUrl}/${id}`);
-    },
-
-    /**
-     * 创建工作流
-     */
-    createWorkflow: (data: WorkflowCreateParams) => {
-      return apiClient.post<ApiResponse<Workflow>>(baseUrl, data);
-    },
-
-    /**
-     * 更新工作流
-     */
-    updateWorkflow: (id: string, data: WorkflowUpdateParams) => {
-      return apiClient.put<ApiResponse<Workflow>>(`${baseUrl}/${id}`, data);
-    },
-
-    /**
-     * 删除工作流
-     */
-    deleteWorkflow: (id: string) => {
-      return apiClient.delete<ApiResponse<null>>(`${baseUrl}/${id}`);
-    },
-
-    /**
-     * 复制工作流
-     */
-    duplicateWorkflow: (id: string, name?: string) => {
-      return apiClient.post<ApiResponse<Workflow>>(
-        `${baseUrl}/${id}/duplicate`,
-        {
-          name,
-        }
-      );
-    },
-
-    /**
-     * 发布工作流
-     */
-    publishWorkflow: (id: string) => {
-      return apiClient.post<ApiResponse<Workflow>>(`${baseUrl}/${id}/publish`);
-    },
-
-    /**
-     * 归档工作流
-     */
-    archiveWorkflow: (id: string) => {
-      return apiClient.post<ApiResponse<Workflow>>(`${baseUrl}/${id}/archive`);
-    },
-
-    /**
-     * 验证工作流
-     */
-    validateWorkflow: (workflow: Partial<Workflow>) => {
-      return apiClient.post<ApiResponse<WorkflowValidationResult>>(
-        `${baseUrl}/validate`,
-        workflow
-      );
-    },
-
-    /**
-     * 执行工作流
-     */
-    executeWorkflow: (id: string, params?: WorkflowExecutionParams) => {
-      return apiClient.post<ApiResponse<WorkflowExecution>>(
-        `${baseUrl}/${id}/execute`,
-        params
-      );
-    },
-
-    /**
-     * 停止工作流执行
-     */
-    stopExecution: (executionId: string) => {
-      return apiClient.post<ApiResponse<null>>(
-        `${baseUrl}/executions/${executionId}/stop`
-      );
-    },
-
-    /**
-     * 获取工作流执行历史
-     */
-    getExecutions: (workflowId: string, filters?: PaginationParams) => {
-      return apiClient.get<ApiResponse<PaginatedResponse<WorkflowExecution>>>(
-        `${baseUrl}/${workflowId}/executions`,
-        { params: filters }
-      );
-    },
-
-    /**
-     * 获取执行详情
-     */
-    getExecution: (executionId: string) => {
-      return apiClient.get<ApiResponse<WorkflowExecution>>(
-        `${baseUrl}/executions/${executionId}`
-      );
-    },
-
-    /**
-     * 获取工作流模板
-     */
-    getTemplates: (filters?: WorkflowFilters) => {
-      return apiClient.get<ApiResponse<PaginatedResponse<WorkflowTemplate>>>(
-        `${baseUrl}/templates`,
-        { params: filters }
-      );
-    },
-
-    /**
-     * 从模板创建工作流
-     */
-    createFromTemplate: (templateId: string, name: string) => {
-      return apiClient.post<ApiResponse<Workflow>>(
-        `${baseUrl}/templates/${templateId}/create`,
-        { name }
-      );
-    },
-
-    /**
-     * 导出工作流
-     */
-    exportWorkflow: (id: string, format: "json" | "yaml" = "json") => {
-      return apiClient.get<Blob>(`${baseUrl}/${id}/export`, {
-        params: { format },
+    listDefinitions: async (params?: ListWorkflowDefinitionParams): Promise<ListResponse<WorkflowDefinition>> => {
+      const { page_size, offset } = toOffset(params);
+      const response = await apiClient.get(`${baseUrl}/definitions`, {
+        params: {
+          page_size,
+          offset,
+          keyword: params?.keyword,
+          status: params?.status,
+          source_type: params?.source_type,
+          category: params?.category,
+        },
       });
+      return unwrap<ListResponse<WorkflowDefinition>>(response);
     },
 
-    /**
-     * 导入工作流
-     */
-    importWorkflow: (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      return apiClient.upload<ApiResponse<Workflow>>(
-        `${baseUrl}/import`,
-        formData
-      );
+    getDefinition: async (definitionUUID: string): Promise<WorkflowDefinition> => {
+      const response = await apiClient.get(`${baseUrl}/definitions/${definitionUUID}`);
+      return unwrap<WorkflowDefinition>(response);
     },
 
-    /**
-     * 获取工作流统计
-     */
-    getStats: () => {
-      return apiClient.get<ApiResponse<WorkflowStats>>(`${baseUrl}/stats`);
+    createDefinition: async (data: CreateWorkflowDefinitionRequest): Promise<WorkflowDefinition> => {
+      const response = await apiClient.post(`${baseUrl}/definitions`, data);
+      return unwrap<WorkflowDefinition>(response);
     },
 
-    /**
-     * 搜索工作流
-     */
-    searchWorkflows: (
-      query: string,
-      filters?: Omit<WorkflowFilters, "search">
-    ) => {
-      return apiClient.get<
-        ApiResponse<PaginatedResponse<WorkflowListResponse>>
-      >(`${baseUrl}/search`, { params: { search: query, ...filters } });
+    validateDefinition: async (definitionUUID: string, steps: WorkflowStepDefinition[]) => {
+      const response = await apiClient.post(`${baseUrl}/definitions/${definitionUUID}/validate`, { steps });
+      return unwrap<{ valid: boolean; start_step_ids: string[] }>(response);
     },
 
-    /**
-     * 获取工作流分类
-     */
-    getCategories: () => {
-      return apiClient.get<ApiResponse<Array<{ name: string; count: number }>>>(
-        `${baseUrl}/categories`
-      );
+    listNodeCatalog: async (): Promise<WorkflowNodeCatalogItem[]> => {
+      const response = await apiClient.get(`${baseUrl}/node-catalog`);
+      return unwrap<{ items: WorkflowNodeCatalogItem[] }>(response).items;
     },
 
-    /**
-     * 获取热门标签
-     */
-    getPopularTags: (limit?: number) => {
-      return apiClient.get<ApiResponse<Array<{ tag: string; count: number }>>>(
-        `${baseUrl}/tags/popular`,
-        { params: { limit } }
-      );
+    getNodeCatalogItem: async (nodeKind: string): Promise<WorkflowNodeCatalogItem> => {
+      const response = await apiClient.get(`${baseUrl}/node-catalog/${encodeURIComponent(nodeKind)}`);
+      return unwrap<WorkflowNodeCatalogItem>(response);
+    },
+
+    startInstance: async (definitionUUID: string, input?: Record<string, any>): Promise<WorkflowInstance> => {
+      const response = await apiClient.post(`${baseUrl}/instances`, {
+        definition_uuid: definitionUUID,
+        input: input || {},
+      });
+      return unwrap<WorkflowInstance>(response);
+    },
+
+    getInstance: async (instanceUUID: string, includeSteps = true): Promise<WorkflowInstance> => {
+      const response = await apiClient.get(`${baseUrl}/instances/${instanceUUID}`, {
+        params: { include_steps: includeSteps ? "true" : "false" },
+      });
+      return unwrap<WorkflowInstance>(response);
+    },
+
+    listInstances: async (params?: PaginationParams & {
+      definition_uuid?: string;
+      state?: WorkflowInstanceState;
+      include_steps?: boolean;
+    }): Promise<ListResponse<WorkflowInstance>> => {
+      const { page_size, offset } = toOffset(params);
+      const page = Math.max(1, Math.floor(offset / page_size) + 1);
+      const response = await apiClient.get(`${baseUrl}/instances`, {
+        params: {
+          page,
+          page_size,
+          definition_uuid: params?.definition_uuid,
+          state: params?.state,
+          include_steps: params?.include_steps ? "true" : "false",
+        },
+      });
+      return unwrap<ListResponse<WorkflowInstance>>(response);
+    },
+
+    controlInstance: async (
+      instanceUUID: string,
+      payload: {
+        action: "pause" | "resume" | "cancel" | "retry_step" | "trigger_compensation";
+        step_id?: string;
+        assignment_id?: number;
+        reason?: string;
+        payload?: Record<string, any>;
+      },
+    ): Promise<WorkflowInstance> => {
+      const response = await apiClient.post(`${baseUrl}/instances/${instanceUUID}/actions`, payload);
+      return unwrap<WorkflowInstance>(response);
+    },
+
+    listReviewTasks: async (params?: PaginationParams & {
+      status?: HumanReviewStatus;
+      workflow_instance_uuid?: string;
+      review_type?: string;
+    }): Promise<ListResponse<HumanReviewTask>> => {
+      const response = await apiClient.get(`${baseUrl}/review-tasks`, {
+        params: {
+          page: params?.page,
+          page_size: params?.pageSize,
+          status: params?.status,
+          workflow_instance_uuid: params?.workflow_instance_uuid,
+          review_type: params?.review_type,
+        },
+      });
+      return unwrap<ListResponse<HumanReviewTask>>(response);
+    },
+
+    actReviewTask: async (
+      reviewTaskUUID: string,
+      payload: { action: "approve" | "reject" | "changes_requested"; comment?: string; payload?: Record<string, any> },
+    ): Promise<HumanReviewTask> => {
+      const response = await apiClient.post(`${baseUrl}/review-tasks/${reviewTaskUUID}/actions`, payload);
+      return unwrap<HumanReviewTask>(response);
+    },
+
+    listWorkflowPacks: async (params?: PaginationParams & { keyword?: string }): Promise<ListResponse<WorkflowPackSeedRecord>> => {
+      const { page_size, offset } = toOffset(params);
+      const response = await apiClient.get(`${baseUrl}/packs`, {
+        params: {
+          page_size,
+          offset,
+          keyword: params?.keyword,
+        },
+      });
+      return unwrap<ListResponse<WorkflowPackSeedRecord>>(response);
+    },
+
+    seedWorkflowPacks: async (keys?: string[]) => {
+      const response = await apiClient.post(`${baseUrl}/packs/seed`, { keys: keys || [] });
+      return unwrap<{ seeded: WorkflowPackSeedRecord[]; skipped: string[] }>(response);
+    },
+
+    getWorkflowPack: async (workflowKey: string): Promise<WorkflowPackSeedRecord> => {
+      const response = await apiClient.get(`${baseUrl}/packs/${encodeURIComponent(workflowKey)}`);
+      return unwrap<WorkflowPackSeedRecord>(response);
+    },
+
+    exportInstances: async (params?: Record<string, any>) => {
+      const response = await apiClient.get(`${baseUrl}/instances/export`, { params });
+      return unwrap(response);
     },
   };
 };

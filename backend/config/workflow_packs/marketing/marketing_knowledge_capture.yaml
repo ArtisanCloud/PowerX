@@ -1,0 +1,132 @@
+workflow_key: marketing_knowledge_capture
+display_name_i18n_key: workflow.pack.marketingKnowledgeCapture.name
+description_i18n_key: workflow.pack.marketingKnowledgeCapture.description
+category: knowledge_curation
+version: 1
+owner_scope: tenant
+required_node_kinds:
+  - input.capture
+  - skill.invoke
+  - metadata.classify
+  - knowledge.stage
+  - decision.gateway
+  - human.review
+  - knowledge.publish
+  - event.emit
+  - workflow.end
+required_capabilities:
+  - com.corex.knowledge.space
+  - com.corex.metadata.taxonomy.read
+  - com.corex.metadata.dictionary.read
+  - com.corex.metadata.tag.manage
+  - com.corex.metadata.resource_type.read
+default_retry_policy:
+  max_attempts: 3
+  initial_interval_seconds: 30
+steps:
+  - id: capture_input
+    type: system
+    node_kind: input.capture
+    config:
+      input_schema_ref: workflow.input.marketing_source.v1
+      source_policy:
+        media: true
+        text: true
+        link: true
+      artifact_output_path: $.artifacts.source
+    next_step_ids: [parse_source]
+  - id: parse_source
+    type: system
+    node_kind: skill.invoke
+    node_ref: marketing.audio_or_document_parse
+    depends_on: [capture_input]
+    config:
+      skill_id: marketing.audio_or_document_parse
+      input_path: $.artifacts.source
+      output_path: $.vars.parsed
+    next_step_ids: [extract_marketing]
+  - id: extract_marketing
+    type: system
+    node_kind: skill.invoke
+    node_ref: marketing.extract_methodology
+    depends_on: [parse_source]
+    config:
+      skill_id: marketing.extract_methodology
+      input_path: $.vars.parsed
+      output_path: $.vars.extracted
+    next_step_ids: [classify_metadata]
+  - id: classify_metadata
+    type: system
+    node_kind: metadata.classify
+    depends_on: [extract_marketing]
+    config:
+      taxonomy_namespace: corex.marketing.methodology
+      tag_namespace: corex.marketing
+      dictionary_namespace: corex.marketing
+      resource_type_namespace: corex.knowledge
+      input_path: $.vars.extracted
+      output_path: $.vars.metadata
+    next_step_ids: [stage_knowledge]
+  - id: stage_knowledge
+    type: system
+    node_kind: knowledge.stage
+    depends_on: [classify_metadata]
+    config:
+      knowledge_space_uuid: ${knowledge_space_uuid}
+      draft_schema_ref: knowledge.draft.marketing_methodology.v1
+      input_path: $.vars.metadata
+      output_path: $.vars.drafts
+    next_step_ids: [conflict_check]
+  - id: conflict_check
+    type: decision
+    node_kind: decision.gateway
+    depends_on: [stage_knowledge]
+    config:
+      routes:
+        needs_review: review_knowledge
+      default_route: needs_review
+      condition_source_path: $.vars.drafts
+    next_step_ids: [review_knowledge]
+  - id: review_knowledge
+    type: human_approval
+    node_kind: human.review
+    depends_on: [conflict_check]
+    config:
+      review_type: knowledge_publish
+      approver_policy:
+        roles: [knowledge_reviewer]
+      review_payload_path: $.vars.drafts
+      approved_route: publish_knowledge
+      rejected_route: emit_rejected
+  - id: publish_knowledge
+    type: system
+    node_kind: knowledge.publish
+    depends_on: [review_knowledge]
+    config:
+      knowledge_space_uuid: ${knowledge_space_uuid}
+      draft_refs_path: $.vars.drafts
+      review_result_path: $.review
+      publish_policy: review_required
+    next_step_ids: [emit_published]
+  - id: emit_published
+    type: system
+    node_kind: event.emit
+    depends_on: [publish_knowledge]
+    config:
+      topic: workflow.knowledge.published
+      payload_path: $.vars.published
+      event_schema_ref: workflow.knowledge.published.v1
+    next_step_ids: [end]
+  - id: emit_rejected
+    type: system
+    node_kind: event.emit
+    depends_on: [review_knowledge]
+    config:
+      topic: workflow.knowledge.rejected
+      payload_path: $.review
+      event_schema_ref: workflow.knowledge.rejected.v1
+    next_step_ids: [end]
+  - id: end
+    type: system
+    node_kind: workflow.end
+    config: {}

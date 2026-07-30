@@ -670,7 +670,7 @@ const loadOptions = async () => {
     await agentManager.fetchAgents();
     agents.value = [...agentManager.agents.value];
     members.value = await memberService.getMemberList({ page: 1, page_size: 100, sort_by: "created_at", sort_order: "asc" });
-    const roleResp = await roleService.getRoles({ page: 1, page_size: 100, scope: "tenant" });
+    const roleResp = await roleService.getRoles({ page: 1, size: 100, scope: "tenant" });
     roles.value = roleResp?.data?.items || [];
     if (selectedAgentUUID.value) {
       grants.value = await agentManager.fetchAgentAccessGrants(selectedAgentUUID.value);

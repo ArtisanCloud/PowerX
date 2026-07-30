@@ -20,10 +20,14 @@ type WorkflowInstance struct {
 	DefinitionVersion int32          `gorm:"column:definition_version;type:int;not null;default:1" json:"definition_version"`
 	State             string         `gorm:"column:state;type:varchar(32);not null;default:'draft';index:idx_workflow_instances_state" json:"state"`
 	InputContext      datatypes.JSON `gorm:"column:input_context;type:jsonb;not null;default:'{}'::jsonb" json:"input_context,omitempty"`
+	RuntimeContext    datatypes.JSON `gorm:"column:runtime_context;type:jsonb;not null;default:'{}'::jsonb" json:"runtime_context,omitempty"`
 	OutputContext     datatypes.JSON `gorm:"column:output_context;type:jsonb;not null;default:'{}'::jsonb" json:"output_context,omitempty"`
 	SlaSnapshot       datatypes.JSON `gorm:"column:sla_snapshot;type:jsonb;not null;default:'{}'::jsonb" json:"sla_snapshot,omitempty"`
 	LastError         string         `gorm:"column:last_error;type:text" json:"last_error,omitempty"`
 	CorrelationID     string         `gorm:"column:correlation_id;type:varchar(128);index:idx_workflow_instances_correlation,priority:2" json:"correlation_id,omitempty"`
+	AgentUUID         uuid.UUID      `gorm:"column:agent_uuid;type:uuid;index:idx_workflow_instances_agent_uuid" json:"agent_uuid,omitempty"`
+	InitiatorUserUUID uuid.UUID      `gorm:"column:initiator_user_uuid;type:uuid;index:idx_workflow_instances_initiator_user_uuid" json:"initiator_user_uuid,omitempty"`
+	TraceID           string         `gorm:"column:trace_id;type:varchar(128);index:idx_workflow_instances_trace_id" json:"trace_id,omitempty"`
 	Tags              datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'{}'::jsonb" json:"tags,omitempty"`
 	SlaDeadline       *time.Time     `gorm:"column:sla_deadline;type:timestamp with time zone;index:idx_workflow_instances_sla_deadline" json:"sla_deadline,omitempty"`
 	StartedAt         *time.Time     `gorm:"column:started_at;type:timestamp with time zone;index:idx_workflow_instances_started_at" json:"started_at,omitempty"`

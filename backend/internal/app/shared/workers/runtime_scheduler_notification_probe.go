@@ -111,9 +111,9 @@ func (w *RuntimeSchedulerNotificationProbe) handleEvent(evt event_bus.Event) err
 		"fired_at":        firedAt,
 	})
 
-	ctx := evt.Ctx
-	if ctx == nil {
-		ctx = context.Background()
+	ctx := context.Background()
+	if evt.Ctx != nil {
+		ctx = context.WithoutCancel(evt.Ctx)
 	}
 	ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
 	if traceID != "" {
