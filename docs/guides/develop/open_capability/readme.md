@@ -225,6 +225,7 @@ POWERX_CONFIG=/etc/powerx-dev/config.yaml make seed
    - [Event Fabric 能力](./event_fabric.md)
    - [Workflow & Scheduler 能力](./workflow.md)
    - [Knowledge Space 能力](./knowledge_space.md)
+   - [IAM Provisioning 能力](./iam.md)
    - [AI 能力总览](./ai/README.md)
 2. 文档中包含：
    - 可直接复制的 REST `curl` 与 `grpcurl` 命令

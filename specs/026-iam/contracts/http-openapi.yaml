@@ -56,6 +56,128 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/roles:
+    get:
+      summary: List bindable tenant roles for plugin service workflows
+      operationId: listTenantProvisionRoles
+      tags: [IAMSvcProvisioning]
+      security:
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for plugin backends. The tenant is resolved from
+        the STS token. The result includes only bindable roles for provisioning:
+        role_user and plugin-managed roles. It does not expose admin, owner,
+        root, system, or numeric role identifiers.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: include_builtin
+          in: query
+          schema: { type: boolean, default: true }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Bindable role page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMProvisionRoleListResponse'
+        '400':
+          description: Invalid role list request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not a PowerX STS service actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/roles/provision:
+    post:
+      summary: Provision a plugin-managed tenant role
+      operationId: provisionTenantRole
+      tags: [IAMSvcProvisioning]
+      security:
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for plugin backends. The tenant is resolved from
+        the STS token and cannot be supplied in the request body. Role codes
+        must use the plugin_ prefix and cannot create owner, admin, system, root,
+        builtin, or unrestricted roles.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMProvisionRoleRequest'
+      responses:
+        '201':
+          description: Role provisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMProvisionRoleResponse'
+        '400':
+          description: Invalid role provisioning request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not a PowerX STS service actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/members/provision:
+    post:
+      summary: Provision a tenant user and member for plugin service workflows
+      operationId: provisionTenantMember
+      tags: [IAMSvcProvisioning]
+      security:
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for plugin backends. The tenant is resolved from
+        the STS token and cannot be supplied in the request body. New users need
+        an initial password. Existing users are matched by email. The endpoint
+        cannot create root or system administrator users and can bind only
+        role_user or plugin-managed roles.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMProvisionMemberRequest'
+      responses:
+        '201':
+          description: Member provisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMProvisionMemberResponse'
+        '400':
+          description: Invalid member provisioning request or provisioning conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not a PowerX STS service actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /admin/user/auth/me/context:
     get:
       summary: Get current identity context for UI routing
@@ -377,6 +499,12 @@ paths:
         '404':
           description: Drain job not found
 components:
+  securitySchemes:
+    StsTenantJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: PowerX STS token with issuer powerx-sts and audience powerx:api.
   schemas:
     MeContextResponse:
       type: object
@@ -459,6 +587,123 @@ components:
             refresh_token: { type: string }
             context:
               $ref: '#/components/schemas/MeContext'
+    IAMProvisionRoleRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          pattern: '^plugin_[a-z0-9_]{1,57}$'
+          description: Plugin-managed tenant role code. Must start with plugin_.
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 2000
+    IAMProvisionRoleResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/IAMProvisionRole'
+    IAMProvisionRoleListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/IAMProvisionRole'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+    IAMProvisionRole:
+      type: object
+      required: [role_uuid, code, name, builtin, tenant_uuid]
+      properties:
+        role_uuid:
+          type: string
+          format: uuid
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        builtin: { type: boolean }
+        tenant_uuid:
+          type: string
+          format: uuid
+    IAMProvisionMemberRequest:
+      type: object
+      required: [username, email, display_name]
+      properties:
+        username:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{2,63}$'
+        email:
+          type: string
+          format: email
+          maxLength: 128
+        display_name:
+          type: string
+          maxLength: 128
+        avatar_url:
+          type: string
+        status:
+          type: string
+          enum: [active, enabled, inactive, disabled]
+        initial_password:
+          type: string
+          format: password
+          minLength: 8
+          description: Required when the email does not already identify an existing user.
+        role_codes:
+          type: array
+          items:
+            type: string
+          description: Empty means role_user. Non-role_user entries must use the plugin_ prefix.
+        source_external_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    IAMProvisionMemberResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/IAMProvisionMember'
+    IAMProvisionMember:
+      type: object
+      required: [user_uuid, member_uuid, username, email, role_codes, tenant_uuid]
+      properties:
+        user_uuid:
+          type: string
+          format: uuid
+        member_uuid:
+          type: string
+          format: uuid
+        username: { type: string }
+        email:
+          type: string
+          format: email
+        role_codes:
+          type: array
+          items:
+            type: string
+        tenant_uuid:
+          type: string
+          format: uuid
     SwitchTenantResponse:
       type: object
       properties:
@@ -644,3 +889,10 @@ components:
         message: { type: string }
         error: { type: string }
         request_id: { type: string }
+    Pagination:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+        pages: { type: integer }

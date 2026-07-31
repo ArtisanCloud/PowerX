@@ -139,6 +139,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = backfillIAMRelationshipUUIDs(db); err != nil {
 		return err
 	}
+	if err = ensureIAMUserPhoneIndex(db); err != nil {
+		return err
+	}
+	if err = ensureIAMRoleBindingTenantMemberIndex(db); err != nil {
+		return err
+	}
 
 	err = db.AutoMigrate(
 		&modelSetting.SystemSetting{},
@@ -649,6 +655,73 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},
 	)
+}
+
+func ensureIAMUserPhoneIndex(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	table := (&modelIAM.User{}).TableName()
+	if err := db.Exec(`DROP INDEX IF EXISTS uk_user_phone`).Error; err != nil {
+		return fmt.Errorf("drop legacy iam user phone index: %w", err)
+	}
+	if db.Dialector != nil && db.Dialector.Name() == "postgres" {
+		if parts := strings.Split(strings.TrimSpace(table), "."); len(parts) == 2 {
+			schema := strings.Trim(parts[0], `"`)
+			if schema != "" {
+				stmt := fmt.Sprintf(`DROP INDEX IF EXISTS "%s".uk_user_phone`, schema)
+				if err := db.Exec(stmt).Error; err != nil {
+					return fmt.Errorf("drop schema legacy iam user phone index: %w", err)
+				}
+			}
+		}
+		stmt := fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_iam_user_phone_nonempty ON %s (phone) WHERE phone IS NOT NULL AND btrim(phone) <> ''`, table)
+		if err := db.Exec(stmt).Error; err != nil {
+			return fmt.Errorf("create iam user phone nonempty index: %w", err)
+		}
+		return nil
+	}
+	sqliteTable := table
+	if parts := strings.Split(strings.TrimSpace(table), "."); len(parts) == 2 {
+		sqliteTable = parts[1]
+	}
+	stmt := fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_iam_user_phone_nonempty ON %s (phone) WHERE phone IS NOT NULL AND trim(phone) <> ''`, sqliteTable)
+	if err := db.Exec(stmt).Error; err != nil {
+		return fmt.Errorf("create iam user phone nonempty index: %w", err)
+	}
+	return nil
+}
+
+func ensureIAMRoleBindingTenantMemberIndex(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	table := (&modelIAM.RoleBinding{}).TableName()
+	indexName := "idx_iam_role_binding_member_tenant_role"
+	if db.Dialector != nil && db.Dialector.Name() == "postgres" {
+		stmt := fmt.Sprintf(
+			`CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (tenant_uuid, subject_type, subject_uuid, role_uuid, data_scope) WHERE subject_type = 'MEMBER' AND data_scope = 'TENANT' AND role_uuid IS NOT NULL AND btrim(role_uuid) <> '' AND subject_uuid IS NOT NULL AND btrim(subject_uuid) <> ''`,
+			indexName,
+			table,
+		)
+		if err := db.Exec(stmt).Error; err != nil {
+			return fmt.Errorf("create iam role binding tenant member index: %w", err)
+		}
+		return nil
+	}
+	sqliteTable := table
+	if parts := strings.Split(strings.TrimSpace(table), "."); len(parts) == 2 {
+		sqliteTable = parts[1]
+	}
+	stmt := fmt.Sprintf(
+		`CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (tenant_uuid, subject_type, subject_uuid, role_uuid, data_scope) WHERE subject_type = 'MEMBER' AND data_scope = 'TENANT' AND role_uuid IS NOT NULL AND trim(role_uuid) <> '' AND subject_uuid IS NOT NULL AND trim(subject_uuid) <> ''`,
+		indexName,
+		sqliteTable,
+	)
+	if err := db.Exec(stmt).Error; err != nil {
+		return fmt.Errorf("create iam role binding tenant member index: %w", err)
+	}
+	return nil
 }
 
 func migrateDevHotloadModels(db *gorm.DB) error {
