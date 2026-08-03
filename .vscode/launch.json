@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PowerX Backend: debug cmd/app",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/backend/cmd/app",
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "LOG_LEVEL": "debug"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "PowerX Backend: run make dev",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "make dev",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "PowerX Web Admin: Nuxt dev",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev -- --host 127.0.0.1 --port 3030",
+      "cwd": "${workspaceFolder}/web-admin",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "PowerX: backend + web-admin",
+      "configurations": [
+        "PowerX Backend: debug cmd/app",
+        "PowerX Web Admin: Nuxt dev"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "PowerX: make dev + web-admin",
+      "configurations": [
+        "PowerX Backend: run make dev",
+        "PowerX Web Admin: Nuxt dev"
+      ],
+      "stopAll": true
+    }
+  ]
+}
