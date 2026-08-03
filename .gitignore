@@ -7,6 +7,7 @@
 
 # 测试二进制文件，使用go test -c构建
 *.test
+__debug_bin*
 
 # 输出的二进制文件
 *.out

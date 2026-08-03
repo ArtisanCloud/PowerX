@@ -20,9 +20,10 @@
       <div v-else class="space-y-2">
         <div v-for="task in tasks" :key="task.review_task_uuid" class="task-row">
           <div>
-            <div class="task-title">{{ task.review_type }}</div>
+            <div class="task-title">{{ reviewTypeLabel(task.review_type) }}</div>
             <div class="task-meta">
               {{ t("workflow.review.instance", { uuid: shortUUID(task.workflow_instance_uuid) }) }}
+              <span>{{ t("workflow.review.step", { step: task.step_id }) }}</span>
             </div>
           </div>
           <div class="task-actions">
@@ -34,7 +35,7 @@
               variant="soft"
               size="sm"
               :loading="actingTaskUUID === task.review_task_uuid && actingAction === 'approve'"
-              @click="actTask(task, 'approve')"
+              @click="openActionDialog(task, 'approve')"
             >
               {{ t("workflow.review.approve") }}
             </UButton>
@@ -45,7 +46,7 @@
               variant="soft"
               size="sm"
               :loading="actingTaskUUID === task.review_task_uuid && actingAction === 'reject'"
-              @click="actTask(task, 'reject')"
+              @click="openActionDialog(task, 'reject')"
             >
               {{ t("workflow.review.reject") }}
             </UButton>
@@ -64,6 +65,64 @@
         <UPagination v-model:page="page" :total="total" :page-count="pageSize" :max="5" />
       </div>
     </UCard>
+
+    <UModal
+      v-model:open="actionDialogOpen"
+      :title="actionDialogTitle"
+      :description="actionDialogDescription"
+      :close="{ disabled: Boolean(actingTaskUUID) }"
+      :ui="{ content: 'max-w-xl w-full' }"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <div v-if="selectedTask" class="review-summary">
+            <div>
+              <span>{{ t("workflow.review.reviewType") }}</span>
+              <strong>{{ reviewTypeLabel(selectedTask.review_type) }}</strong>
+            </div>
+            <div>
+              <span>{{ t("workflow.review.instanceLabel") }}</span>
+              <strong>{{ shortUUID(selectedTask.workflow_instance_uuid) }}</strong>
+            </div>
+            <div>
+              <span>{{ t("workflow.review.stepLabel") }}</span>
+              <strong>{{ selectedTask.step_id }}</strong>
+            </div>
+          </div>
+          <UFormField :label="t('workflow.review.commentLabel')">
+            <UTextarea
+              v-model="actionComment"
+              class="w-full"
+              :rows="4"
+              :placeholder="t('workflow.review.commentPlaceholder')"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="modal-footer">
+          <UButton
+            type="button"
+            color="neutral"
+            variant="subtle"
+            :disabled="Boolean(actingTaskUUID)"
+            @click="closeActionDialog"
+          >
+            {{ t("common.cancel") }}
+          </UButton>
+          <UButton
+            type="button"
+            :color="selectedAction === 'approve' ? 'success' : 'error'"
+            :icon="selectedAction === 'approve' ? 'i-heroicons-check' : 'i-heroicons-x-mark'"
+            :loading="Boolean(actingTaskUUID)"
+            :disabled="!selectedTask || !selectedAction"
+            @click="confirmAction"
+          >
+            {{ selectedAction === "approve" ? t("workflow.review.confirmApprove") : t("workflow.review.confirmReject") }}
+          </UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -72,7 +131,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n, useToast } from "#imports";
 import { useWorkflowService, type HumanReviewStatus, type HumanReviewTask } from "~/composables/api/services/workflowService";
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 const toast = useToast();
 const workflowService = useWorkflowService();
 const loading = ref(false);
@@ -83,6 +142,10 @@ const pageSize = ref(20);
 const status = ref("pending");
 const actingTaskUUID = ref("");
 const actingAction = ref("");
+const actionDialogOpen = ref(false);
+const selectedTask = ref<HumanReviewTask | null>(null);
+const selectedAction = ref<"approve" | "reject" | "">("");
+const actionComment = ref("");
 
 const statusOptions = computed(() => [
   { label: t("workflow.review.status.pending"), value: "pending" },
@@ -93,6 +156,18 @@ const statusOptions = computed(() => [
 ]);
 
 watch([page, status], loadTasks);
+
+const actionDialogTitle = computed(() => {
+  if (selectedAction.value === "approve") return t("workflow.review.approveDialogTitle");
+  if (selectedAction.value === "reject") return t("workflow.review.rejectDialogTitle");
+  return t("workflow.review.actionDialogTitle");
+});
+
+const actionDialogDescription = computed(() => {
+  if (selectedAction.value === "approve") return t("workflow.review.approveDialogDescription");
+  if (selectedAction.value === "reject") return t("workflow.review.rejectDialogDescription");
+  return "";
+});
 
 async function loadTasks() {
   loading.value = true;
@@ -109,12 +184,33 @@ async function loadTasks() {
   }
 }
 
+function openActionDialog(task: HumanReviewTask, action: "approve" | "reject") {
+  selectedTask.value = task;
+  selectedAction.value = action;
+  actionComment.value = "";
+  actionDialogOpen.value = true;
+}
+
+function closeActionDialog() {
+  if (actingTaskUUID.value) return;
+  actionDialogOpen.value = false;
+  selectedTask.value = null;
+  selectedAction.value = "";
+  actionComment.value = "";
+}
+
+async function confirmAction() {
+  if (!selectedTask.value || !selectedAction.value) return;
+  await actTask(selectedTask.value, selectedAction.value);
+}
+
 async function actTask(task: HumanReviewTask, action: "approve" | "reject") {
   actingTaskUUID.value = task.review_task_uuid;
   actingAction.value = action;
   try {
     await workflowService.actReviewTask(task.review_task_uuid, {
       action,
+      comment: actionComment.value.trim(),
       payload: {
         workflow_instance_uuid: task.workflow_instance_uuid,
         step_id: task.step_id,
@@ -124,6 +220,7 @@ async function actTask(task: HumanReviewTask, action: "approve" | "reject") {
       title: action === "approve" ? t("workflow.review.approveSuccess") : t("workflow.review.rejectSuccess"),
       color: action === "approve" ? "success" : "warning",
     });
+    closeActionDialog();
     await loadTasks();
   } catch (err: any) {
     toast.add({
@@ -135,6 +232,18 @@ async function actTask(task: HumanReviewTask, action: "approve" | "reject") {
     actingTaskUUID.value = "";
     actingAction.value = "";
   }
+}
+
+function reviewTypeLabel(value: string) {
+  const key = `workflow.review.type.${camelCase(value)}`;
+  return te(key) ? t(key) : value.replace(/_/g, " ");
+}
+
+function camelCase(value: string) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, char: string) => char.toUpperCase())
+    .replace(/^[A-Z]/, (char) => char.toLowerCase());
 }
 
 function statusColor(value: string) {
@@ -201,6 +310,12 @@ onMounted(loadTasks);
   color: var(--ui-text-muted);
 }
 
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .empty {
   padding: 32px;
   text-align: center;
@@ -211,5 +326,35 @@ onMounted(loadTasks);
   justify-content: space-between;
   align-items: center;
   padding-top: 14px;
+}
+
+.review-summary {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.review-summary div {
+  display: grid;
+  gap: 4px;
+}
+
+.review-summary span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.review-summary strong {
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+}
+
+.modal-footer {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>

@@ -384,10 +384,58 @@
                   <span>{{ t("workflow.editor.skillBusinessDescription") }}</span>
                 </div>
                 <UFormField class="properties-field" :label="t('workflow.editor.skillNodeSkillLabel')">
-                  <div class="readonly-business-value">
-                    {{ selectedNodeSkillLabel }}
+                  <USelectMenu
+                    v-model="selectedNodeSkill"
+                    :items="skillSelectItems"
+                    label-key="label"
+                    :portal="false"
+                    :content="runDialogSelectContent"
+                    :ui="runDialogSelectUi"
+                    class="w-full"
+                    :loading="skillsLoading"
+                    :placeholder="t('workflow.editor.skillSelectPlaceholder')"
+                    :search-input="{ placeholder: t('workflow.editor.skillSearchPlaceholder') }"
+                    :disabled="skillsLoading || skillSelectItems.length === 0"
+                  />
+                  <div v-if="skillsError" class="properties-note state-error">
+                    {{ skillsError }}
+                  </div>
+                  <div v-else-if="selectedNodeSkillRecord" class="properties-note">
+                    {{ selectedNodeSkillDetail }}
                   </div>
                 </UFormField>
+                <div class="skill-model-grid">
+                  <UFormField class="properties-field" :label="t('workflow.editor.skillModelModalityLabel')">
+                    <USelect
+                      v-model="selectedNodeSkillModelModality"
+                      :items="skillModelModalityOptions"
+                      value-key="value"
+                      label-key="label"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField class="properties-field" :label="t('workflow.editor.skillModelProfileLabel')">
+                    <USelectMenu
+                      v-model="selectedNodeSkillModelProfile"
+                      :items="selectedNodeSkillModelProfileItems"
+                      label-key="label"
+                      :portal="false"
+                      :content="runDialogSelectContent"
+                      :ui="runDialogSelectUi"
+                      class="w-full"
+                      :loading="modelProfilesLoading"
+                      :placeholder="t('workflow.editor.skillModelProfilePlaceholder')"
+                      :search-input="{ placeholder: t('workflow.editor.skillModelProfileSearchPlaceholder') }"
+                      :disabled="modelProfilesLoading || selectedNodeSkillModelProfileItems.length === 0"
+                    />
+                  </UFormField>
+                </div>
+                <div v-if="modelProfilesError" class="properties-note state-error">
+                  {{ modelProfilesError }}
+                </div>
+                <div v-else class="properties-note">
+                  {{ t("workflow.editor.skillModelOverrideHint") }}
+                </div>
                 <div class="business-config-grid">
                   <div
                     v-for="entry in selectedNodeBusinessConfigEntries"
@@ -494,6 +542,83 @@
                   <strong>{{ selectedNodeBusinessSummary.title }}</strong>
                   <span>{{ selectedNodeBusinessSummary.description }}</span>
                 </div>
+                <template v-if="selectedNode.data.kind === 'metadata.classify'">
+                  <UFormField class="properties-field" :label="t('workflow.editor.metadataStrategyLabel')">
+                    <USelect
+                      v-model="selectedNodeMetadataStrategy"
+                      :items="metadataStrategyOptions"
+                      value-key="value"
+                      label-key="label"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField class="properties-field" :label="t('workflow.fields.taxonomy_namespace')">
+                    <USelectMenu
+                      v-model="selectedNodeTaxonomy"
+                      :items="metadataTaxonomySelectItems"
+                      label-key="label"
+                      :portal="false"
+                      :content="runDialogSelectContent"
+                      :ui="runDialogSelectUi"
+                      class="w-full"
+                      :loading="metadataOptionsLoading"
+                      :placeholder="t('workflow.editor.metadataTaxonomyPlaceholder')"
+                      :search-input="{ placeholder: t('workflow.editor.metadataTaxonomySearchPlaceholder') }"
+                      :disabled="metadataOptionsLoading || metadataTaxonomySelectItems.length === 0"
+                    />
+                  </UFormField>
+                  <UFormField class="properties-field" :label="t('workflow.fields.tag_namespace')">
+                    <USelectMenu
+                      v-model="selectedNodeTagNamespace"
+                      :items="metadataTagNamespaceSelectItems"
+                      label-key="label"
+                      :portal="false"
+                      :content="runDialogSelectContent"
+                      :ui="runDialogSelectUi"
+                      class="w-full"
+                      :loading="metadataOptionsLoading"
+                      :placeholder="t('workflow.editor.metadataTagNamespacePlaceholder')"
+                      :search-input="{ placeholder: t('workflow.editor.metadataTagNamespaceSearchPlaceholder') }"
+                      :disabled="metadataOptionsLoading || metadataTagNamespaceSelectItems.length === 0"
+                    />
+                  </UFormField>
+                  <UFormField class="properties-field" :label="t('workflow.fields.dictionary_namespace')">
+                    <USelectMenu
+                      v-model="selectedNodeDictionary"
+                      :items="metadataDictionarySelectItems"
+                      label-key="label"
+                      :portal="false"
+                      :content="runDialogSelectContent"
+                      :ui="runDialogSelectUi"
+                      class="w-full"
+                      :loading="metadataOptionsLoading"
+                      :placeholder="t('workflow.editor.metadataDictionaryPlaceholder')"
+                      :search-input="{ placeholder: t('workflow.editor.metadataDictionarySearchPlaceholder') }"
+                      :disabled="metadataOptionsLoading || metadataDictionarySelectItems.length === 0"
+                    />
+                  </UFormField>
+                  <UFormField class="properties-field" :label="t('workflow.fields.resource_type_namespace')">
+                    <USelectMenu
+                      v-model="selectedNodeResourceType"
+                      :items="metadataResourceTypeSelectItems"
+                      label-key="label"
+                      :portal="false"
+                      :content="runDialogSelectContent"
+                      :ui="runDialogSelectUi"
+                      class="w-full"
+                      :loading="metadataOptionsLoading"
+                      :placeholder="t('workflow.editor.metadataResourceTypePlaceholder')"
+                      :search-input="{ placeholder: t('workflow.editor.metadataResourceTypeSearchPlaceholder') }"
+                      :disabled="metadataOptionsLoading || metadataResourceTypeSelectItems.length === 0"
+                    />
+                  </UFormField>
+                  <div v-if="metadataOptionsError" class="properties-note state-error">
+                    {{ metadataOptionsError }}
+                  </div>
+                  <div v-else class="properties-note">
+                    {{ t("workflow.editor.metadataConfigHint") }}
+                  </div>
+                </template>
                 <div
                   v-if="selectedNodeBusinessConfigEntries.length"
                   class="business-config-grid"
@@ -975,6 +1100,107 @@
               {{ capabilityOptionsError }}
             </div>
           </div>
+          <div v-else-if="isMarketingKnowledgeCaptureWorkflow" class="debug-input-form">
+            <UAlert
+              class="run-dialog-notice"
+              icon="i-heroicons-information-circle"
+              color="info"
+              variant="subtle"
+              :title="t('workflow.editor.marketingRunFormTitle')"
+              :description="t('workflow.editor.marketingRunFormDescription')"
+            />
+            <UFormField :label="t('workflow.editor.marketingKnowledgeSpaceLabel')" required>
+              <USelectMenu
+                v-model="selectedMarketingKnowledgeSpace"
+                :items="marketingKnowledgeSpaceSelectItems"
+                label-key="label"
+                :portal="runDialogSelectPortal"
+                :content="runDialogSelectContent"
+                :ui="runDialogSelectUi"
+                class="w-full"
+                :loading="knowledgeSpacesLoading"
+                :disabled="knowledgeSpacesLoading || marketingKnowledgeSpaceSelectItems.length === 0"
+                :placeholder="t('workflow.editor.marketingKnowledgeSpacePlaceholder')"
+                :search-input="{ placeholder: t('workflow.editor.marketingKnowledgeSpaceSearchPlaceholder') }"
+              />
+              <div v-if="knowledgeSpacesError" class="run-field-hint state-error">
+                {{ knowledgeSpacesError }}
+              </div>
+              <div v-else class="run-field-hint">
+                {{ t("workflow.editor.marketingKnowledgeSpaceHint") }}
+              </div>
+            </UFormField>
+            <UFormField :label="t('workflow.editor.marketingSourceTypeLabel')" required>
+              <USelect
+                v-model="marketingDebugForm.source_type"
+                :items="marketingSourceTypeOptions"
+                value-key="value"
+                label-key="label"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              v-if="marketingDebugForm.source_type === 'text'"
+              :label="t('workflow.editor.marketingSourceTextLabel')"
+              required
+            >
+              <UTextarea
+                v-model="marketingDebugForm.text"
+                :placeholder="t('workflow.editor.marketingSourceTextPlaceholder')"
+                :rows="7"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              v-if="marketingDebugForm.source_type === 'link'"
+              :label="t('workflow.editor.marketingSourceUrlLabel')"
+              required
+            >
+              <UInput
+                v-model="marketingDebugForm.url"
+                :placeholder="t('workflow.editor.marketingSourceUrlPlaceholder')"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              v-if="marketingDebugForm.source_type === 'audio' || marketingDebugForm.source_type === 'document'"
+              :label="t('workflow.editor.marketingSourceAssetLabel')"
+              required
+            >
+              <UInput
+                v-model="marketingDebugForm.asset_uuid"
+                :placeholder="t('workflow.editor.marketingSourceAssetPlaceholder')"
+                class="w-full"
+              />
+              <div class="run-field-hint">
+                {{ t("workflow.editor.marketingSourceAssetHint") }}
+              </div>
+            </UFormField>
+            <UFormField :label="t('workflow.editor.marketingContextLabel')">
+              <UInput
+                v-model="marketingDebugForm.context"
+                :placeholder="t('workflow.editor.marketingContextPlaceholder')"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField :label="t('workflow.editor.marketingLanguageLabel')">
+              <USelect
+                v-model="marketingDebugForm.language"
+                :items="marketingLanguageOptions"
+                value-key="value"
+                label-key="label"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField :label="t('workflow.editor.marketingRunNoteLabel')">
+              <UTextarea
+                v-model="marketingDebugForm.note"
+                :placeholder="t('workflow.editor.marketingRunNotePlaceholder')"
+                :rows="3"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
           <UTextarea
             v-else
             v-model="debugInputText"
@@ -1031,6 +1257,9 @@ import GenericNode from "./nodes/GenericNode.vue";
 import { useWorkflowService, type HumanReviewTask, type WorkflowInstance, type WorkflowStepRecord } from "~/composables/api/services/workflowService";
 import { useWorkflowRuntimeBus, type WorkflowRuntimeEvent } from "~/composables/workflow/useWorkflowRuntimeBus";
 import { PlatformCapabilityService, type PlatformCapability } from "~/composables/api/services/platformCapabilityService";
+import { AISettingService, useMetadataGovernanceService, useSkillsService, type AgentProfile, type SkillRecord } from "~/composables/api/services";
+import { useKnowledgeSpaces, type KnowledgeSpaceRecord } from "~/composables/useKnowledgeSpaces";
+import type { DictionaryNamespace, MetadataTag, ResourceType, Taxonomy } from "~/types/metadata-governance";
 
 // 主题支持
 const colorMode = useColorMode();
@@ -1040,6 +1269,9 @@ const route = useRoute();
 const toast = useToast();
 const workflowService = useWorkflowService();
 const workflowRuntimeBus = useWorkflowRuntimeBus();
+const knowledgeSpacesApi = useKnowledgeSpaces();
+const skillsService = useSkillsService();
+const metadataGovernanceService = useMetadataGovernanceService();
 
 // 工作流管理器
 const {
@@ -1090,6 +1322,15 @@ type SelectOption = {
   label: string;
   value: string;
 };
+type SkillSelectOption = SelectOption & {
+  skillID: string;
+  version: string;
+};
+type ModelProfileSelectOption = SelectOption & {
+  modality: string;
+  provider: string;
+  model: string;
+};
 
 const capabilityOptions = ref<RunCapabilityOption[]>([]);
 const capabilityOptionsLoading = ref(false);
@@ -1098,12 +1339,38 @@ const selectedRunCapabilitySource = ref<SelectOption | null>(null);
 const selectedRunCapabilityModule = ref<SelectOption | null>(null);
 const selectedRunCapability = ref<SelectOption | null>(null);
 const selectedExecutionReason = ref<SelectOption | null>(null);
+const knowledgeSpaces = ref<KnowledgeSpaceRecord[]>([]);
+const knowledgeSpacesLoading = ref(false);
+const knowledgeSpacesError = ref("");
+const selectedMarketingKnowledgeSpace = ref<SelectOption | null>(null);
+const skillRecords = ref<SkillRecord[]>([]);
+const skillsLoading = ref(false);
+const skillsError = ref("");
+const modelProfiles = ref<AgentProfile[]>([]);
+const modelProfilesLoading = ref(false);
+const modelProfilesError = ref("");
+const metadataTaxonomies = ref<Taxonomy[]>([]);
+const metadataDictionaries = ref<DictionaryNamespace[]>([]);
+const metadataTags = ref<MetadataTag[]>([]);
+const metadataResourceTypes = ref<ResourceType[]>([]);
+const metadataOptionsLoading = ref(false);
+const metadataOptionsError = ref("");
 const actingReviewTaskUUID = ref("");
 const actingReviewAction = ref("");
 const approvalDebugForm = reactive({
   capability_id: "com.corex.metadata.dictionary.read",
   reason: "workflow_debug_approval_guarded_capability",
   dry_run: true,
+  note: "",
+});
+const marketingDebugForm = reactive({
+  knowledge_space_uuid: "",
+  source_type: "text",
+  text: "",
+  url: "",
+  asset_uuid: "",
+  context: "",
+  language: "zh",
   note: "",
 });
 const bottomPanelHeight = ref(260);
@@ -1373,6 +1640,16 @@ watch(selectedRunCapabilitySource, (sourceOption) => {
   approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
 });
 
+watch(selectedMarketingKnowledgeSpace, (spaceOption) => {
+  marketingDebugForm.knowledge_space_uuid = spaceOption?.value || "";
+});
+
+watch(() => marketingDebugForm.source_type, (sourceType) => {
+  if (sourceType !== "text") marketingDebugForm.text = "";
+  if (sourceType !== "link") marketingDebugForm.url = "";
+  if (sourceType !== "audio" && sourceType !== "document") marketingDebugForm.asset_uuid = "";
+});
+
 const currentHumanReviewRoles = computed(() => {
   const roles = selectedNode.value?.data?.props?.approver_policy?.roles;
   return Array.isArray(roles) ? roles.map((role) => String(role).trim()).filter(Boolean) : [];
@@ -1393,6 +1670,279 @@ const workflowDisplayName = computed(() => {
 });
 const currentWorkflowPackKey = computed(() => currentWorkflow.value?.raw?.workflow_pack_key?.trim() || "");
 const isApprovalGuardedCapabilityWorkflow = computed(() => currentWorkflowPackKey.value === "approval_guarded_capability");
+const isMarketingKnowledgeCaptureWorkflow = computed(() => currentWorkflowPackKey.value === "marketing_knowledge_capture");
+
+const marketingKnowledgeSpaceSelectItems = computed<SelectOption[]>(() =>
+  knowledgeSpaces.value.map((space) => ({
+    label: knowledgeSpaceOptionLabel(space),
+    value: space.spaceId,
+  }))
+);
+
+const marketingSourceTypeOptions = computed<SelectOption[]>(() => [
+  { label: t("workflow.marketingInput.sourceType.text"), value: "text" },
+  { label: t("workflow.marketingInput.sourceType.audio"), value: "audio" },
+  { label: t("workflow.marketingInput.sourceType.document"), value: "document" },
+  { label: t("workflow.marketingInput.sourceType.link"), value: "link" },
+]);
+
+const marketingLanguageOptions = computed<SelectOption[]>(() => [
+  { label: t("workflow.marketingInput.language.zh"), value: "zh" },
+  { label: t("workflow.marketingInput.language.en"), value: "en" },
+  { label: t("workflow.marketingInput.language.ja"), value: "ja" },
+  { label: t("workflow.marketingInput.language.ko"), value: "ko" },
+]);
+
+const skillSelectItems = computed<SkillSelectOption[]>(() =>
+  skillRecords.value
+    .filter((skill) => skill.status === "published")
+    .map((skill) => ({
+      label: skillOptionLabel(skill),
+      value: `${skill.skill_id}@${skill.version}`,
+      skillID: skill.skill_id,
+      version: skill.version,
+    }))
+);
+
+const selectedNodeSkillRecord = computed(() => {
+  const skillID = String(selectedNode.value?.data?.props?.skill_id || "").trim();
+  const version = String(selectedNode.value?.data?.props?.skill_version || "").trim();
+  if (!skillID) return null;
+  return skillRecords.value.find((skill) =>
+    skill.skill_id === skillID && (!version || skill.version === version)
+  ) || null;
+});
+
+const selectedNodeSkill = computed<SkillSelectOption | null>({
+  get() {
+    const skillID = String(selectedNode.value?.data?.props?.skill_id || "").trim();
+    const version = String(selectedNode.value?.data?.props?.skill_version || "").trim();
+    if (!skillID) return null;
+    return skillSelectItems.value.find((item) =>
+      item.skillID === skillID && (!version || item.version === version)
+    ) || null;
+  },
+  set(skillOption) {
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "skill.invoke") return;
+    if (!skillOption) {
+      node.data.props = {
+        ...(node.data.props || {}),
+        skill_id: "",
+        skill_version: "",
+        skill_source: "",
+        skill_status: "",
+      };
+      return;
+    }
+    const skill = skillRecords.value.find((item) =>
+      item.skill_id === skillOption.skillID && item.version === skillOption.version
+    );
+    node.data.props = {
+      ...(node.data.props || {}),
+      skill_id: skillOption.skillID,
+      skill_version: skillOption.version,
+      skill_source: skill?.source || "",
+      skill_status: skill?.status || "",
+      input_path: String(node.data.props?.input_path || "$.vars.parsed"),
+      output_path: String(node.data.props?.output_path || "$.vars.extracted"),
+    };
+  },
+});
+
+const selectedNodeSkillDetail = computed(() => {
+  const skill = selectedNodeSkillRecord.value;
+  if (!skill) return "";
+  return t("workflow.editor.skillSelectedHint", {
+    source: skillSourceLabel(skill.source),
+    version: skill.version || t("workflow.editor.notConfigured"),
+    status: skillStatusLabel(skill.status),
+  });
+});
+
+const skillModelModalityOptions = computed<SelectOption[]>(() => [
+  { label: t("workflow.modelModality.llm"), value: "llm" },
+  { label: t("workflow.modelModality.vlm"), value: "vlm" },
+  { label: t("workflow.modelModality.audioAsr"), value: "audio_asr" },
+  { label: t("workflow.modelModality.documentParse"), value: "document_parse" },
+  { label: t("workflow.modelModality.embedding"), value: "embedding" },
+]);
+
+const selectedNodeSkillModelModality = computed<string>({
+  get() {
+    return String(selectedNode.value?.data?.props?.model_override?.modality || "llm");
+  },
+  set(modality) {
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "skill.invoke") return;
+    node.data.props = {
+      ...(node.data.props || {}),
+      model_override: {
+        ...(node.data.props?.model_override || {}),
+        modality,
+        profile_uuid: "",
+        profile_label: "",
+        provider: "",
+        model: "",
+      },
+    };
+  },
+});
+
+const selectedNodeSkillModelProfileItems = computed<ModelProfileSelectOption[]>(() => {
+  const modality = selectedNodeSkillModelModality.value;
+  return modelProfiles.value
+    .filter((profile) => modelProfileMatchesModality(profile, modality))
+    .map((profile) => ({
+      label: modelProfileOptionLabel(profile),
+      value: modelProfileOptionValue(profile),
+      modality: profile.modality,
+      provider: profile.provider,
+      model: profile.model,
+    }));
+});
+
+const selectedNodeSkillModelProfile = computed<ModelProfileSelectOption | null>({
+  get() {
+    const profileUUID = String(selectedNode.value?.data?.props?.model_override?.profile_uuid || "").trim();
+    const provider = String(selectedNode.value?.data?.props?.model_override?.provider || "").trim();
+    const model = String(selectedNode.value?.data?.props?.model_override?.model || "").trim();
+    if (!profileUUID && (!provider || !model)) return null;
+    return selectedNodeSkillModelProfileItems.value.find((item) =>
+      item.value === profileUUID || (item.provider === provider && item.model === model)
+    ) || null;
+  },
+  set(profileOption) {
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "skill.invoke") return;
+    node.data.props = {
+      ...(node.data.props || {}),
+      model_override: profileOption
+        ? {
+            ...(node.data.props?.model_override || {}),
+            modality: profileOption.modality,
+            profile_uuid: profileOption.value,
+            profile_label: profileOption.label,
+            provider: profileOption.provider,
+            model: profileOption.model,
+          }
+        : {
+            ...(node.data.props?.model_override || {}),
+            modality: selectedNodeSkillModelModality.value,
+            profile_uuid: "",
+            profile_label: "",
+            provider: "",
+            model: "",
+          },
+    };
+  },
+});
+
+const metadataStrategyOptions = computed<SelectOption[]>(() => [
+  { label: t("workflow.metadataStrategy.ruleBased"), value: "rule_based" },
+  { label: t("workflow.metadataStrategy.llmAssisted"), value: "llm_assisted" },
+  { label: t("workflow.metadataStrategy.hybrid"), value: "hybrid" },
+]);
+
+const selectedNodeMetadataStrategy = computed<string>({
+  get() {
+    return String(selectedNode.value?.data?.props?.classification_strategy || "rule_based");
+  },
+  set(strategy) {
+    const node = selectedNode.value;
+    if (!node || node.data.kind !== "metadata.classify") return;
+    node.data.props = {
+      ...(node.data.props || {}),
+      classification_strategy: strategy,
+    };
+  },
+});
+
+const metadataTaxonomySelectItems = computed<SelectOption[]>(() =>
+  metadataTaxonomies.value
+    .filter((item) => item.status === "enabled")
+    .map((item) => ({
+      label: metadataTaxonomyOptionLabel(item),
+      value: item.namespace,
+    }))
+);
+
+const metadataDictionarySelectItems = computed<SelectOption[]>(() =>
+  metadataDictionaries.value
+    .filter((item) => item.status === "enabled")
+    .map((item) => ({
+      label: metadataDictionaryOptionLabel(item),
+      value: item.namespace,
+    }))
+);
+
+const metadataTagNamespaceSelectItems = computed<SelectOption[]>(() => {
+  const namespaces = new Map<string, { label: string; count: number }>();
+  for (const tag of metadataTags.value.filter((item) => item.status === "enabled")) {
+    const namespace = String(tag.namespace || "").trim();
+    if (!namespace) continue;
+    const current = namespaces.get(namespace);
+    if (current) {
+      current.count += 1;
+      continue;
+    }
+    namespaces.set(namespace, {
+      label: metadataNamespaceHumanLabel(namespace),
+      count: 1,
+    });
+  }
+  return [...namespaces.entries()]
+    .sort((left, right) => left[1].label.localeCompare(right[1].label))
+    .map(([value, item]) => ({
+      label: t("workflow.editor.metadataTagNamespaceOptionLabel", { name: item.label, count: item.count }),
+      value,
+    }));
+});
+
+const metadataResourceTypeSelectItems = computed<SelectOption[]>(() =>
+  metadataResourceTypes.value
+    .filter((item) => item.status === "enabled")
+    .map((item) => ({
+      label: metadataResourceTypeOptionLabel(item),
+      value: item.resource_type,
+    }))
+);
+
+const selectedNodeTaxonomy = computed<SelectOption | null>({
+  get() {
+    return selectedNodeMetadataOption("taxonomy_namespace", metadataTaxonomySelectItems.value);
+  },
+  set(option) {
+    updateSelectedNodeMetadataProp("taxonomy_namespace", option?.value || "");
+  },
+});
+
+const selectedNodeDictionary = computed<SelectOption | null>({
+  get() {
+    return selectedNodeMetadataOption("dictionary_namespace", metadataDictionarySelectItems.value);
+  },
+  set(option) {
+    updateSelectedNodeMetadataProp("dictionary_namespace", option?.value || "");
+  },
+});
+
+const selectedNodeTagNamespace = computed<SelectOption | null>({
+  get() {
+    return selectedNodeMetadataOption("tag_namespace", metadataTagNamespaceSelectItems.value);
+  },
+  set(option) {
+    updateSelectedNodeMetadataProp("tag_namespace", option?.value || "");
+  },
+});
+
+const selectedNodeResourceType = computed<SelectOption | null>({
+  get() {
+    return selectedNodeMetadataOption("resource_type_namespace", metadataResourceTypeSelectItems.value);
+  },
+  set(option) {
+    updateSelectedNodeMetadataProp("resource_type_namespace", option?.value || "");
+  },
+});
 
 const latestRunState = computed(() => latestRun.value?.state || "");
 const latestRunStateLabel = computed(() => latestRunState.value ? t(`workflow.state.${latestRunState.value}`) : t("workflow.editor.noRuns"));
@@ -1650,11 +2200,14 @@ const selectedNodeBusinessConfigEntries = computed(() => {
   switch (kind) {
     case "skill.invoke":
       return [
+        entry("skill_id", "workflow.editor.skillNodeSkillLabel", props.skill_id),
+        entry("model_override", "workflow.editor.skillModelOverride", props.model_override),
         entry("input_path", "workflow.editor.businessInputSource", props.input_path),
         entry("output_path", "workflow.editor.businessOutputTarget", props.output_path),
       ];
     case "metadata.classify":
       return [
+        entry("classification_strategy", "workflow.editor.metadataStrategyLabel", props.classification_strategy),
         entry("taxonomy_namespace", "workflow.fields.taxonomy_namespace", props.taxonomy_namespace),
         entry("tag_namespace", "workflow.fields.tag_namespace", props.tag_namespace),
         entry("dictionary_namespace", "workflow.fields.dictionary_namespace", props.dictionary_namespace),
@@ -1892,8 +2445,8 @@ function humanizeSkillID(skillID: string) {
 function hiddenBusinessConfigKeys(kind: string) {
   const shared = new Set(["capability_label", "capability_module_label"]);
   const byKind: Record<string, string[]> = {
-    "skill.invoke": ["skill_id", "input_path", "output_path"],
-    "metadata.classify": ["taxonomy_namespace", "tag_namespace", "dictionary_namespace", "resource_type_namespace", "input_path", "output_path"],
+    "skill.invoke": ["skill_id", "skill_version", "skill_source", "skill_status", "model_override", "input_path", "output_path"],
+    "metadata.classify": ["classification_strategy", "taxonomy_namespace", "tag_namespace", "dictionary_namespace", "resource_type_namespace", "input_path", "output_path"],
     "knowledge.stage": ["knowledge_space_uuid", "draft_schema_ref", "input_path", "output_path"],
     "knowledge.publish": ["knowledge_space_uuid", "draft_refs_path", "review_result_path", "publish_policy"],
     "decision.gateway": ["routes", "default_route", "condition_source_path"],
@@ -1910,6 +2463,19 @@ function formatBusinessConfigValue(key: string, value: unknown) {
     return businessPathLabel(String(value));
   }
   if (key === "skill_id") return humanizeSkillID(String(value));
+  if (key === "model_override" && typeof value === "object") {
+    const override = value as Record<string, any>;
+    const label = String(override.profile_label || "").trim();
+    const provider = String(override.provider || "").trim();
+    const model = String(override.model || "").trim();
+    if (label) return label;
+    if (provider && model) return `${provider}/${model}`;
+    return t("workflow.editor.notConfigured");
+  }
+  if (key === "classification_strategy") {
+    const i18nKey = `workflow.metadataStrategy.${camelCase(String(value))}`;
+    return te(i18nKey) ? t(i18nKey) : humanizeModuleKey(String(value));
+  }
   if (key === "knowledge_space_uuid" && isRuntimeTemplateValue(value)) return t("workflow.editor.runInputProvided");
   if (key.endsWith("_namespace")) return humanizeModuleKey(String(value));
   if (key.endsWith("_route") || key === "default_route") return stepDisplayName(String(value));
@@ -2130,6 +2696,12 @@ function onNodeClick(event: { node: Node }) {
   if (node.data.kind === "capability.invoke") {
     void loadCapabilityReferenceData({ notify: false }).then(normalizeSelectedNodePreferredProtocol);
   }
+  if (node.data.kind === "skill.invoke") {
+    void loadSkillNodeReferenceData({ notify: false });
+  }
+  if (node.data.kind === "metadata.classify") {
+    void loadMetadataReferenceData({ notify: false });
+  }
   propertiesTab.value = latestReviewTasks.value.some((task) => task.step_id === node.id && task.status === "pending")
     ? "runtime"
     : "config";
@@ -2214,8 +2786,13 @@ function openRunDialog() {
 }
 
 async function loadRunDialogReferenceData() {
-  if (!isApprovalGuardedCapabilityWorkflow.value) return;
-  await loadCapabilityReferenceData({ notify: true });
+  if (isApprovalGuardedCapabilityWorkflow.value) {
+    await loadCapabilityReferenceData({ notify: true });
+    return;
+  }
+  if (isMarketingKnowledgeCaptureWorkflow.value) {
+    await loadKnowledgeSpaceReferenceData({ notify: true });
+  }
 }
 
 async function loadCapabilityReferenceData(options: { notify?: boolean } = {}) {
@@ -2255,6 +2832,254 @@ async function loadCapabilityReferenceData(options: { notify?: boolean } = {}) {
   } finally {
     capabilityOptionsLoading.value = false;
   }
+}
+
+async function loadKnowledgeSpaceReferenceData(options: { notify?: boolean } = {}) {
+  if (knowledgeSpaces.value.length || knowledgeSpacesLoading.value) return;
+  const notify = options.notify ?? true;
+  knowledgeSpacesLoading.value = true;
+  knowledgeSpacesError.value = "";
+  try {
+    knowledgeSpaces.value = await knowledgeSpacesApi.listSpaces({ limit: 100, status: "active" });
+    syncMarketingKnowledgeSpaceSelect();
+    if (!marketingKnowledgeSpaceSelectItems.value.length) {
+      knowledgeSpacesError.value = t("workflow.editor.marketingKnowledgeSpacesEmpty");
+      if (notify) {
+        toast.add({
+          title: t("workflow.editor.marketingKnowledgeSpacesLoadFailed"),
+          description: knowledgeSpacesError.value,
+          color: "error",
+        });
+      }
+    }
+  } catch (err: any) {
+    knowledgeSpacesError.value = err?.message || t("workflow.editor.marketingKnowledgeSpacesLoadFailed");
+    if (notify) {
+      toast.add({
+        title: t("workflow.editor.marketingKnowledgeSpacesLoadFailed"),
+        description: knowledgeSpacesError.value,
+        color: "error",
+      });
+    }
+  } finally {
+    knowledgeSpacesLoading.value = false;
+  }
+}
+
+async function loadSkillNodeReferenceData(options: { notify?: boolean } = {}) {
+  await Promise.all([
+    loadSkillReferenceData(options),
+    loadModelProfileReferenceData(options),
+  ]);
+}
+
+async function loadSkillReferenceData(options: { notify?: boolean } = {}) {
+  if (skillRecords.value.length || skillsLoading.value) return;
+  const notify = options.notify ?? true;
+  skillsLoading.value = true;
+  skillsError.value = "";
+  try {
+    const resp = await skillsService.list({ status: "published", page: 1, page_size: 200 });
+    skillRecords.value = resp?.data?.items || [];
+    if (!skillSelectItems.value.length) {
+      skillsError.value = t("workflow.editor.skillOptionsEmpty");
+      if (notify) {
+        toast.add({
+          title: t("workflow.editor.skillOptionsLoadFailed"),
+          description: skillsError.value,
+          color: "error",
+        });
+      }
+    }
+  } catch (err: any) {
+    skillsError.value = err?.message || t("workflow.editor.skillOptionsLoadFailed");
+    if (notify) {
+      toast.add({
+        title: t("workflow.editor.skillOptionsLoadFailed"),
+        description: skillsError.value,
+        color: "error",
+      });
+    }
+  } finally {
+    skillsLoading.value = false;
+  }
+}
+
+async function loadModelProfileReferenceData(options: { notify?: boolean } = {}) {
+  if (modelProfiles.value.length || modelProfilesLoading.value) return;
+  const notify = options.notify ?? true;
+  modelProfilesLoading.value = true;
+  modelProfilesError.value = "";
+  try {
+    const result = await AISettingService.getProfiles("default", ["llm", "vlm", "audio_asr", "embedding"]);
+    modelProfiles.value = result.profiles || [];
+    if (!modelProfiles.value.length) {
+      modelProfilesError.value = t("workflow.editor.modelProfileOptionsEmpty");
+      if (notify) {
+        toast.add({
+          title: t("workflow.editor.modelProfileOptionsLoadFailed"),
+          description: modelProfilesError.value,
+          color: "error",
+        });
+      }
+    }
+  } catch (err: any) {
+    modelProfilesError.value = err?.message || t("workflow.editor.modelProfileOptionsLoadFailed");
+    if (notify) {
+      toast.add({
+        title: t("workflow.editor.modelProfileOptionsLoadFailed"),
+        description: modelProfilesError.value,
+        color: "error",
+      });
+    }
+  } finally {
+    modelProfilesLoading.value = false;
+  }
+}
+
+async function loadMetadataReferenceData(options: { notify?: boolean } = {}) {
+  if (
+    (metadataTaxonomies.value.length || metadataDictionaries.value.length || metadataTags.value.length || metadataResourceTypes.value.length) ||
+    metadataOptionsLoading.value
+  ) {
+    return;
+  }
+  const notify = options.notify ?? true;
+  metadataOptionsLoading.value = true;
+  metadataOptionsError.value = "";
+  try {
+    const [taxonomies, dictionaries, tags, resourceTypes] = await Promise.all([
+      metadataGovernanceService.listTaxonomies({ page: 1, page_size: 200, status: "enabled" }),
+      metadataGovernanceService.listDictionaries({ page: 1, page_size: 200, status: "enabled" }),
+      metadataGovernanceService.listTags({ page: 1, page_size: 500, status: "enabled" }),
+      metadataGovernanceService.listResourceTypes({ page: 1, page_size: 200, status: "enabled" }),
+    ]);
+    metadataTaxonomies.value = taxonomies.items || [];
+    metadataDictionaries.value = dictionaries.items || [];
+    metadataTags.value = tags.items || [];
+    metadataResourceTypes.value = resourceTypes.items || [];
+    if (
+      !metadataTaxonomySelectItems.value.length ||
+      !metadataDictionarySelectItems.value.length ||
+      !metadataTagNamespaceSelectItems.value.length ||
+      !metadataResourceTypeSelectItems.value.length
+    ) {
+      metadataOptionsError.value = t("workflow.editor.metadataOptionsIncomplete");
+      if (notify) {
+        toast.add({
+          title: t("workflow.editor.metadataOptionsLoadFailed"),
+          description: metadataOptionsError.value,
+          color: "error",
+        });
+      }
+    }
+  } catch (err: any) {
+    metadataOptionsError.value = err?.message || t("workflow.editor.metadataOptionsLoadFailed");
+    if (notify) {
+      toast.add({
+        title: t("workflow.editor.metadataOptionsLoadFailed"),
+        description: metadataOptionsError.value,
+        color: "error",
+      });
+    }
+  } finally {
+    metadataOptionsLoading.value = false;
+  }
+}
+
+function syncMarketingKnowledgeSpaceSelect() {
+  selectedMarketingKnowledgeSpace.value =
+    marketingKnowledgeSpaceSelectItems.value.find((item) => item.value === marketingDebugForm.knowledge_space_uuid) ||
+    marketingKnowledgeSpaceSelectItems.value[0] ||
+    null;
+  marketingDebugForm.knowledge_space_uuid = selectedMarketingKnowledgeSpace.value?.value || marketingDebugForm.knowledge_space_uuid;
+}
+
+function knowledgeSpaceOptionLabel(space: KnowledgeSpaceRecord) {
+  const name = String(space.spaceName || "").trim();
+  const department = String(space.departmentCode || "").trim();
+  if (name && department) return t("workflow.editor.marketingKnowledgeSpaceOptionLabel", { name, department });
+  return name || t("workflow.editor.marketingKnowledgeSpaceUnnamed");
+}
+
+function skillOptionLabel(skill: SkillRecord) {
+  const name = humanizeSkillID(skill.skill_id);
+  return t("workflow.editor.skillOptionLabel", {
+    name,
+    source: skillSourceLabel(skill.source),
+    version: skill.version || t("workflow.editor.notConfigured"),
+  });
+}
+
+function skillSourceLabel(source: string) {
+  const key = `workflow.skillSource.${camelCase(source)}`;
+  return te(key) ? t(key) : humanizeModuleKey(source);
+}
+
+function skillStatusLabel(status: string) {
+  const key = `workflow.skillStatus.${camelCase(status)}`;
+  return te(key) ? t(key) : humanizeModuleKey(status);
+}
+
+function modelProfileMatchesModality(profile: AgentProfile, modality: string) {
+  const profileModality = String(profile.modality || "").trim();
+  if (modality === "document_parse") return profileModality === "llm" || profileModality === "vlm";
+  return profileModality === modality;
+}
+
+function modelProfileOptionValue(profile: AgentProfile) {
+  return String(profile.uuid || `${profile.provider}/${profile.model}`).trim();
+}
+
+function modelProfileOptionLabel(profile: AgentProfile) {
+  const label = String(profile.label || "").trim();
+  const provider = String(profile.provider || "").trim();
+  const model = String(profile.model || "").trim();
+  if (label && provider && model) {
+    return t("workflow.editor.modelProfileOptionLabel", { label, provider, model });
+  }
+  if (provider && model) return `${provider}/${model}`;
+  return t("workflow.editor.modelProfileUnnamed");
+}
+
+function selectedNodeMetadataOption(key: string, items: SelectOption[]) {
+  const value = String(selectedNode.value?.data?.props?.[key] || "").trim();
+  if (!value) return null;
+  return items.find((item) => item.value === value) || null;
+}
+
+function updateSelectedNodeMetadataProp(key: string, value: string) {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "metadata.classify") return;
+  node.data.props = {
+    ...(node.data.props || {}),
+    [key]: value,
+  };
+}
+
+function metadataTaxonomyOptionLabel(item: Taxonomy) {
+  return t("workflow.editor.metadataGovernanceOptionLabel", {
+    name: item.display_name || metadataNamespaceHumanLabel(item.namespace),
+    namespace: item.namespace,
+  });
+}
+
+function metadataDictionaryOptionLabel(item: DictionaryNamespace) {
+  return t("workflow.editor.metadataGovernanceOptionLabel", {
+    name: item.display_name || metadataNamespaceHumanLabel(item.namespace),
+    namespace: item.namespace,
+  });
+}
+
+function metadataResourceTypeOptionLabel(item: ResourceType) {
+  return t("workflow.editor.metadataGovernanceOptionLabel", {
+    name: item.display_name || metadataNamespaceHumanLabel(item.resource_type),
+    namespace: item.resource_type,
+  });
+}
+
+function metadataNamespaceHumanLabel(namespace: string) {
+  return humanizeModuleKey(String(namespace || "").replace(/^corex\./, ""));
 }
 
 function capabilityOptionLabel(capability: RunCapabilityOption) {
@@ -2523,6 +3348,9 @@ function parseDebugInput() {
     if (isApprovalGuardedCapabilityWorkflow.value) {
       return buildApprovalDebugInputFromForm();
     }
+    if (isMarketingKnowledgeCaptureWorkflow.value) {
+      return buildMarketingKnowledgeCaptureInputFromForm();
+    }
     const parsed = JSON.parse(debugInputText.value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error(t("workflow.editor.debugInputObjectRequired"));
@@ -2549,6 +3377,9 @@ function resetDebugInput() {
     approvalDebugForm.dry_run = Boolean(input.request?.payload?.dry_run);
     approvalDebugForm.note = String(input.request?.payload?.note || "");
     syncRunDialogSelects();
+  } else if (isMarketingKnowledgeCaptureWorkflow.value) {
+    applyMarketingDebugInput(input);
+    syncMarketingKnowledgeSpaceSelect();
   }
   debugInputText.value = JSON.stringify(input, null, 2);
 }
@@ -3059,6 +3890,9 @@ function buildDebugInputForCurrentWorkflow() {
   if (packKey === "approval_guarded_capability") {
     return buildApprovalDebugInputFromForm(false);
   }
+  if (packKey === "marketing_knowledge_capture") {
+    return buildMarketingKnowledgeCaptureInputFromForm(false);
+  }
   if (packKey === "intake_classify_review") {
     return {
       taxonomy_namespace: "corex.marketing.methodology",
@@ -3115,6 +3949,63 @@ function buildApprovalDebugInputFromForm(validate = true) {
         note: approvalDebugForm.note.trim(),
       },
     },
+  };
+}
+
+function applyMarketingDebugInput(input: Record<string, any>) {
+  marketingDebugForm.knowledge_space_uuid = String(input.knowledge_space_uuid || "");
+  marketingDebugForm.source_type = String(input.source?.type || "text");
+  marketingDebugForm.text = String(input.source?.content || "");
+  marketingDebugForm.url = String(input.source?.url || "");
+  marketingDebugForm.asset_uuid = String(input.source?.asset_uuid || "");
+  marketingDebugForm.context = String(input.source?.context || t("workflow.editor.marketingContextDefault"));
+  marketingDebugForm.language = String(input.source?.language || "zh");
+  marketingDebugForm.note = String(input.note || "");
+}
+
+function buildMarketingKnowledgeCaptureInputFromForm(validate = true) {
+  if (validate || selectedMarketingKnowledgeSpace.value) {
+    marketingDebugForm.knowledge_space_uuid = selectedMarketingKnowledgeSpace.value?.value || "";
+  }
+  const sourceType = String(marketingDebugForm.source_type || "").trim();
+  if (validate) {
+    if (knowledgeSpacesLoading.value) {
+      throw new Error(t("workflow.editor.marketingKnowledgeSpacesLoading"));
+    }
+    if (!marketingDebugForm.knowledge_space_uuid.trim()) {
+      throw new Error(t("workflow.editor.marketingKnowledgeSpaceRequired"));
+    }
+    if (!marketingSourceTypeOptions.value.some((item) => item.value === sourceType)) {
+      throw new Error(t("workflow.editor.marketingSourceTypeRequired"));
+    }
+    if (sourceType === "text" && !marketingDebugForm.text.trim()) {
+      throw new Error(t("workflow.editor.marketingSourceTextRequired"));
+    }
+    if (sourceType === "link" && !marketingDebugForm.url.trim()) {
+      throw new Error(t("workflow.editor.marketingSourceUrlRequired"));
+    }
+    if ((sourceType === "audio" || sourceType === "document") && !marketingDebugForm.asset_uuid.trim()) {
+      throw new Error(t("workflow.editor.marketingSourceAssetRequired"));
+    }
+  }
+
+  const source: Record<string, any> = {
+    type: sourceType || "text",
+    context: marketingDebugForm.context.trim() || t("workflow.editor.marketingContextDefault"),
+    language: marketingDebugForm.language.trim() || "zh",
+  };
+  if (source.type === "text") {
+    source.content = marketingDebugForm.text.trim() || t("workflow.editor.marketingSourceTextExample");
+  } else if (source.type === "link") {
+    source.url = marketingDebugForm.url.trim();
+  } else {
+    source.asset_uuid = marketingDebugForm.asset_uuid.trim();
+  }
+
+  return {
+    knowledge_space_uuid: marketingDebugForm.knowledge_space_uuid.trim(),
+    source,
+    note: marketingDebugForm.note.trim(),
   };
 }
 
@@ -3696,6 +4587,18 @@ onBeforeUnmount(() => {
   gap: 10px;
   color: var(--wf-text);
   font-size: 13px;
+}
+
+.skill-model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1280px) {
+  .skill-model-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .properties-note {

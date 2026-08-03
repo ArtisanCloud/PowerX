@@ -81,7 +81,7 @@ review_knowledge
 | `capture_input` | `input.capture` | 接收营销材料。 | `$.artifacts.source` |
 | `parse_source` | `skill.invoke` | 调用 `marketing.audio_or_document_parse`，解析录音、文档或链接。 | `$.vars.parsed` |
 | `extract_marketing` | `skill.invoke` | 调用 `marketing.extract_methodology`，抽取营销方法论。 | `$.vars.extracted` |
-| `classify_metadata` | `metadata.classify` | 按营销方法论分类、标签和字典治理。 | `$.vars.metadata` |
+| `classify_metadata` | `metadata.classify` | 按所选分类策略、分类体系、标签、字典和资源类型补齐元数据。 | `$.vars.metadata` |
 | `stage_knowledge` | `knowledge.stage` | 写入知识草稿。 | `$.vars.drafts` |
 | `conflict_check` | `decision.gateway` | 判断是否需要审核，当前默认进审核。 | `review_knowledge` |
 | `review_knowledge` | `human.review` | 审核营销知识草稿。 | `$.review` |
@@ -137,7 +137,157 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 /workflow -> 营销知识采集
 ```
 
-## 10. Agent 怎么启动它
+## 10. Web Admin 怎么调试输入
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 进入编排器 -> 运行测试
+```
+
+`marketing_knowledge_capture` 在 Web Admin 中使用业务表单输入，不要求运营人员手写 JSON。
+
+表单字段：
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| 目标知识库 | 是 | 下拉选择已启用的 Knowledge Space，界面显示知识库名称，提交时使用 `knowledge_space_uuid`。 |
+| 素材类型 | 是 | `文本`、`音频`、`文档`、`链接`。 |
+| 营销材料文本 | 文本类型必填 | 粘贴访谈、活动复盘、渠道策略讨论或内容脚本。 |
+| 素材链接 | 链接类型必填 | 输入要解析的公开或内部资料链接。 |
+| 素材资产引用 | 音频/文档类型必填 | 当前阶段先粘贴媒体库或文档库资产引用；后续接入选择器。 |
+| 业务场景 | 否 | 例如“营销总监访谈”“活动复盘”“渠道策略讨论”。 |
+| 内容语言 | 否 | `zh`、`en`、`ja`、`ko`。 |
+| 运行备注 | 否 | 仅用于本次调试记录。 |
+
+表单会构造成如下结构提交给 `POST /api/v1/admin/workflows/instances`：
+
+```json
+{
+  "knowledge_space_uuid": "<KNOWLEDGE_SPACE_UUID>",
+  "source": {
+    "type": "text",
+    "content": "新品发布复盘：高意向客户识别不足导致转化延迟...",
+    "context": "活动复盘",
+    "language": "zh"
+  },
+  "note": "验证营销方法论抽取效果"
+}
+```
+
+当前边界：
+
+- Web Admin 已将运行测试输入表单化，避免用户直接面对 `$.vars.extracted` 这类引擎变量路径。
+- 变量路径仍保留在节点高级参数中，供研发和排障使用。
+- `marketing.audio_or_document_parse`、`marketing.extract_methodology`、`metadata.classify`、`knowledge.stage`、`knowledge.publish` 的真实执行依赖后续阶段接入 SkillInvoker、MetadataClassifier 和 KnowledgeOperator。
+
+## 11. Web Admin 怎么配置 Skill 节点
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 进入编排器 -> 点击 parse_source 或 extract_marketing 节点
+```
+
+`skill.invoke` 节点现在提供业务化配置，不要求运营或配置人员直接理解 `$.vars.parsed`、`$.vars.extracted`。
+
+可配置项：
+
+| 字段 | 必填 | 写入节点配置 | 说明 |
+| --- | --- | --- | --- |
+| 执行技能 | 是 | `skill_id`、`skill_version`、`skill_source`、`skill_status` | 从 `/api/v1/admin/skills?status=published` 加载已发布 Skill。界面显示 Skill 名称、来源和版本。 |
+| 模型模态 | 否 | `model_override.modality` | 可选 `llm`、`vlm`、`audio_asr`、`document_parse`、`embedding`。 |
+| 模型 Profile | 否 | `model_override.profile_uuid`、`provider`、`model`、`profile_label` | 从 `/api/v1/admin/agents/settings/profiles` 加载 PowerX AI Settings 中已保存的模型 Profile。 |
+
+节点配置示例：
+
+```json
+{
+  "skill_id": "marketing.extract_methodology",
+  "skill_version": "1.0.0",
+  "skill_source": "builtin",
+  "skill_status": "published",
+  "model_override": {
+    "modality": "llm",
+    "profile_uuid": "<AI_MODEL_PROFILE_UUID>",
+    "profile_label": "Marketing extraction model · openai/gpt-4o-mini",
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  },
+  "input_path": "$.vars.parsed",
+  "output_path": "$.vars.extracted"
+}
+```
+
+交互边界：
+
+- 普通配置人员只需要选择“执行技能”和可选“模型 Profile”。
+- `input_path` / `output_path` 仍在“高级参数”里展示，用于研发排障和合同校验。
+- 本阶段已实现节点配置保存入口；后端 `WorkflowService` 仍未注入真实 `SkillInvoker`，运行到 `skill.invoke` 时如果执行器缺失，会明确失败为 `workflow.skill_invoker_unavailable`。
+
+## 12. Web Admin 怎么配置元数据分类节点
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 进入编排器 -> 点击 classify_metadata 节点
+```
+
+可配置项：
+
+| 字段 | 必填 | 写入节点配置 | 说明 |
+| --- | --- | --- | --- |
+| 分类策略 | 是 | `classification_strategy` | `rule_based`、`llm_assisted`、`hybrid`，当前 seed 默认 `rule_based`。 |
+| 分类体系 | 是 | `taxonomy_namespace` | 从元数据治理 Taxonomy 中选择已启用对象。 |
+| 标签命名空间 | 是 | `tag_namespace` | 从已启用标签聚合出的 namespace 中选择。 |
+| 数据字典 | 是 | `dictionary_namespace` | 从元数据治理 Dictionary Namespace 中选择已启用对象。 |
+| 资源类型 | 是 | `resource_type_namespace` | 从元数据治理 Resource Type 中选择已启用对象。 |
+
+节点配置示例：
+
+```json
+{
+  "classification_strategy": "rule_based",
+  "taxonomy_namespace": "corex.marketing.methodology",
+  "tag_namespace": "corex.marketing",
+  "dictionary_namespace": "corex.marketing",
+  "resource_type_namespace": "corex.knowledge",
+  "input_path": "$.vars.extracted",
+  "output_path": "$.vars.metadata"
+}
+```
+
+交互边界：
+
+- 普通配置人员选择“分类策略”和治理对象，不需要手写 namespace。
+- UI 保存的仍是工作流引擎需要的 namespace 合同，便于后端 Adapter 严格校验。
+- 后端 `WorkflowService` 仍未注入真实 `MetadataClassifier` 时，运行到 `metadata.classify` 会明确失败，不做静默跳过。
+
+## 13. 人工审核什么时候介入
+
+人工只在流程推进到 `review_knowledge` 节点后介入。前面的输入采集、Skill 解析/抽取、元数据分类、知识暂存和冲突判断都是自动节点。
+
+入口：
+
+```text
+/workflow -> 人工审核
+```
+
+审核员看到 pending 任务后：
+
+1. 点击“通过”或“拒绝”。
+2. 在确认弹窗中核对审核类型、实例和节点。
+3. 填写可选审核意见。
+4. 确认提交。
+
+动作结果：
+
+| 动作 | 后续路线 | 结果 |
+| --- | --- | --- |
+| 通过 | `publish_knowledge` -> `emit_published` | 候选营销知识发布到目标 Knowledge Space。 |
+| 拒绝 | `emit_rejected` | 候选知识不发布，只记录拒绝事件和审核意见。 |
+
+## 14. Agent 怎么启动它
 
 示例输入：
 
@@ -152,16 +302,21 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 }
 ```
 
-## 11. 常见失败点
+## 15. 常见失败点
 
 | 失败 | 原因 | 处理 |
 | --- | --- | --- |
+| 运行测试无法启动 | 未选择目标知识库，或素材类型对应的内容为空。 | 在运行测试表单中补齐必填项。 |
+| Skill 下拉为空 | 没有已发布 Skill，或 `/api/v1/admin/skills` 不可访问。 | 到 AI 设置 > Skills 导入并发布 `marketing.audio_or_document_parse` 与 `marketing.extract_methodology`。 |
+| 模型 Profile 下拉为空 | AI Settings 未保存对应模态的模型 Profile。 | 到 AI 设置 > 模型配置保存 LLM、VLM、ASR 或 Embedding Profile。 |
+| 元数据治理选项不完整 | 缺分类体系、标签、数据字典或资源类型。 | 到设置 > 元数据治理启用营销相关治理对象。 |
 | 解析失败 | 音频或文档解析 Skill 未实现或未授权。 | 检查 `marketing.audio_or_document_parse`。 |
 | 抽取结果太泛 | `marketing.extract_methodology` prompt 或 schema 不完整。 | 优化 Skill。 |
 | 分类失败 | 营销 metadata namespace 没有 seed。 | 先 seed metadata governance。 |
+| 没有待审核任务 | 流程还没走到 `review_knowledge`，或前置节点已失败。 | 在实例详情查看当前步骤和 `trace_id`。 |
 | 发布失败 | `knowledge_space_uuid` 缺失或知识库权限不足。 | 检查知识库和权限。 |
 
-## 12. 适合不适合
+## 16. 适合不适合
 
 适合：
 

@@ -307,9 +307,168 @@ Web Admin -> /workflow
 - 详情页无步骤：确认请求包含 `include_steps=true`，并检查后端 StepRecord 是否写入。
 - 实例失败：复制 `trace_id` 和失败步骤，查后端日志。
 
-### 7.5 页面操作：查看人工审核任务
+### 7.5 页面操作：营销知识采集运行测试表单
 
-动作：查看 Human Review 待办。
+动作：用业务表单启动 `marketing_knowledge_capture` 测试运行。
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 编辑 -> 运行测试
+```
+
+操作：
+
+1. 在“目标知识库”中选择一个已启用的 Knowledge Space。
+2. 选择“素材类型”：文本、音频、文档或链接。
+3. 按素材类型填写对应输入：
+   - 文本：填写“营销材料文本”。
+   - 链接：填写“素材链接”。
+   - 音频/文档：填写“素材资产引用”。
+4. 填写可选的业务场景、内容语言和运行备注。
+5. 点击“开始运行”。
+
+提交到后端的结构：
+
+```json
+{
+  "knowledge_space_uuid": "<knowledge_space_uuid>",
+  "source": {
+    "type": "text",
+    "content": "新品发布复盘：高意向客户识别不足导致转化延迟...",
+    "context": "活动复盘",
+    "language": "zh"
+  },
+  "note": "验证营销方法论抽取效果"
+}
+```
+
+预期结果：
+
+- 表单缺少必填项时不会创建实例，并显示明确校验错误。
+- 知识空间下拉显示空间名称和部门，不把 UUID 作为主要可见标签。
+- 成功提交后创建 Workflow Instance，并在底部运行记录中展示节点状态。
+
+当前边界：
+
+- 本阶段完成 Web Admin 输入表单化和结构化 payload 构造。
+- `skill.invoke`、`metadata.classify`、`knowledge.stage`、`knowledge.publish` 的真实业务执行仍依赖后续接入 `SkillInvoker`、`MetadataClassifier` 和 `KnowledgeOperator`。
+- 如果后端未接入上述依赖，流程会在对应节点明确失败，而不是静默降级。
+
+失败处理：
+
+- 知识库列表为空：先进入 `/knowledge-spaces` 创建并启用 Knowledge Space。
+- 运行后卡在或失败于 Skill 节点：检查 `marketing.audio_or_document_parse` 和 `marketing.extract_methodology` 是否已登记并授权。
+- 运行后失败于 Metadata/Knowledge 节点：检查 metadata seed 和知识库发布接口接入状态。
+
+### 7.6 页面操作：配置营销知识采集 Skill 节点
+
+动作：给 `marketing_knowledge_capture` 的 `skill.invoke` 节点选择已发布 Skill，并按节点指定可选模型 Profile。
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 编辑 -> 点击 parse_source 或 extract_marketing 节点
+```
+
+操作：
+
+1. 在右侧“节点配置”中选择“执行技能”。
+2. 可选：选择“模型模态”，例如大语言模型、视觉语言模型、语音识别或文档解析。
+3. 可选：选择“模型 Profile”。列表来自 AI Settings 中已保存的模型配置。
+4. 点击顶部“保存”保存工作流定义。
+5. 需要排障时展开“高级参数”，查看 `input_path`、`output_path` 等引擎变量路径。
+
+写入节点配置的结构：
+
+```json
+{
+  "skill_id": "marketing.extract_methodology",
+  "skill_version": "1.0.0",
+  "skill_source": "builtin",
+  "skill_status": "published",
+  "model_override": {
+    "modality": "llm",
+    "profile_uuid": "<ai_model_profile_uuid>",
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  },
+  "input_path": "$.vars.parsed",
+  "output_path": "$.vars.extracted"
+}
+```
+
+预期结果：
+
+- Skill 下拉只显示已发布 Skill，并展示名称、来源和版本。
+- 模型 Profile 下拉显示可读名称和 `provider/model`，UUID 只作为保存值。
+- `$.vars.extracted` 等变量路径不作为普通配置入口，只在高级参数和技术诊断中出现。
+
+当前边界：
+
+- 本阶段完成 Web Admin 节点配置入口和定义保存。
+- 后端 `WorkflowService` 尚未注入真实 `SkillInvoker` 时，运行到 `skill.invoke` 会明确失败为 `workflow.skill_invoker_unavailable`。
+- `model_override` 是节点级模型选择合同，真实执行还需要后续在 `backend/internal/service/workflow/adapter_skill.go` 接入 Skill 调用与模型策略透传。
+
+失败处理：
+
+- Skill 列表为空：进入 AI 设置 > Skills，确认目标 Skill 已导入并发布。
+- 模型 Profile 列表为空：进入 AI 设置 > 模型配置，保存对应模态的 Provider/Model。
+- 保存后运行仍失败：检查后端是否已将 `SkillInvoker` 注入 `WorkflowService`，并查看实例 `trace_id` 对应日志。
+
+### 7.7 页面操作：配置营销知识采集元数据分类节点
+
+动作：给 `metadata.classify` 节点选择分类策略和已启用的元数据治理对象。
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 编辑 -> 点击 classify_metadata 节点
+```
+
+操作：
+
+1. 在右侧“节点配置”中选择“分类策略”。
+2. 选择“分类体系”。
+3. 选择“标签命名空间”。
+4. 选择“数据字典”。
+5. 选择“资源类型”。
+6. 点击顶部“保存”保存工作流定义。
+7. 需要排障时展开“高级参数”，查看 `input_path`、`output_path` 等引擎变量路径。
+
+写入节点配置的结构：
+
+```json
+{
+  "classification_strategy": "rule_based",
+  "taxonomy_namespace": "corex.marketing.methodology",
+  "tag_namespace": "corex.marketing",
+  "dictionary_namespace": "corex.marketing",
+  "resource_type_namespace": "corex.knowledge",
+  "input_path": "$.vars.extracted",
+  "output_path": "$.vars.metadata"
+}
+```
+
+预期结果：
+
+- 下拉选项来自设置 > 元数据治理中的已启用 Taxonomy、Tag、Dictionary 和 Resource Type。
+- 列表显示可读名称和 namespace，不把 UUID 当作主要可见标签。
+- 保存后的节点仍使用后端 `metadata.classify` Adapter 需要的 namespace 合同。
+
+当前边界：
+
+- 本阶段完成 Web Admin 配置入口和 seed 默认策略。
+- 后端 `WorkflowService` 尚未注入真实 `MetadataClassifier` 时，运行到 `metadata.classify` 会明确失败，不会静默跳过分类。
+
+失败处理：
+
+- 下拉为空或提示治理对象不完整：进入设置 > 元数据治理，启用营销相关分类体系、标签、数据字典和资源类型。
+- 保存后运行仍失败：检查 metadata seed、`MetadataClassifier` 注入和实例 `trace_id` 对应日志。
+
+### 7.8 页面操作：人工审核任务干预
+
+动作：当实例运行到 `human.review` 节点并进入 `waiting` 状态后，由审核员人工通过或拒绝。
 
 入口：
 
@@ -322,19 +481,25 @@ Web Admin -> /workflow
 
 1. 选择任务状态：pending、approved、rejected、changes_requested、canceled。
 2. 点击刷新。
-3. 点击任务右侧查看按钮进入实例详情。
+3. 对 pending 任务点击“通过”或“拒绝”。
+4. 在确认弹窗中核对审核类型、实例和节点，填写可选审核意见。
+5. 点击“确认通过”或“确认拒绝”。
+6. 点击任务右侧查看按钮进入实例详情。
 
 预期结果：
 
-- 列表展示 `review_type`、实例 UUID 摘要、任务状态。
+- 列表展示可读审核类型、实例摘要、节点和任务状态。
+- 通过后工作流沿 `approved_route` 继续执行，例如进入 `publish_knowledge`。
+- 拒绝后工作流沿 `rejected_route` 继续执行，例如进入 `emit_rejected`，不发布候选知识。
 - 可跳转到对应 Workflow Instance。
 
 失败处理：
 
 - pending 为空：确认工作流中是否存在 `human.review` 节点，以及实例是否推进到该节点。
-- 审核动作不可见：当前页面只提供基础查看入口，动作能力需按 Human Review 页面计划继续完善。
+- 审核动作不可见：确认任务状态仍是 pending；非 pending 任务只允许查看，不允许重复提交动作。
+- 审核动作失败：复制实例 `trace_id`，检查 `/api/v1/admin/workflows/review-tasks/:review_task_uuid/actions` 返回和后端日志。
 
-### 7.6 接口调用：创建、发布、运行和查询
+### 7.9 接口调用：创建、发布、运行和查询
 
 准备：
 
