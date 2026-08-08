@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: go run cmd/app",
+      "type": "shell",
+      "command": "set -a; . ./.env; set +a; LOG_LEVEL=debug go run ./cmd/app",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "web-admin: npm run dev",
+      "type": "shell",
+      "command": "npm run dev -- --host 127.0.0.1 --port 3030",
+      "options": {
+        "cwd": "${workspaceFolder}/web-admin"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "powerx: backend + web-admin",
+      "dependsOn": [
+        "backend: go run cmd/app",
+        "web-admin: npm run dev"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    }
+  ]
+}

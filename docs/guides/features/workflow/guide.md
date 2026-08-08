@@ -163,8 +163,10 @@ make seed
 
 - `make migrate` 执行数据库迁移。
 - `make seed` 顺序执行 `db-seed` 和 `capability-seed`。
-- `db-seed` 当前包含 CoreX、Metadata 等基础种子数据，并校验 Workflow Pack Catalog。
+- `db-seed` 当前包含 CoreX、Metadata 等基础种子数据，校验 Workflow Pack Catalog，并为 `system` 租户初始化一个 active 的 `插件联调知识空间`。
 - Workflow Pack Catalog 校验不会给所有租户批量写入 WorkflowDefinition；当前租户需要通过页面或 `POST /api/v1/admin/workflows/packs/seed` 显式启用。
+- 新租户通过后台租户创建或 SaaS 注册成功后，会执行统一的租户固有对象初始化：生成该租户自己的 active 内置知识库，并启用内置 Workflow Pack。
+- `/knowledge-spaces` 的“初始化固有知识库”和 `/workflow` 的“初始化内置工作流”按钮是手动重试/修复入口，不是首次注册的主流程。
 
 远程 systemd dev 环境不要在没有 Makefile 的发布包 backend 目录里直接跑 `make seed`。应使用发布包实际包含的二进制或部署脚本约定，例如：
 
@@ -281,6 +283,21 @@ Web Admin -> /workflow
 - 画布空白：确认 URL 中 `id` 是有效 `workflow_definition_uuid`。
 - 节点不能发布：检查节点必填字段、能力授权、Skill/Capability/Knowledge Space 引用是否存在。
 
+开始节点输入字段配置：
+
+1. 选中画布中的“开始”节点。
+2. 在右侧“节点配置”中确认“输入表单结构引用”，例如 `workflow.input.marketing_source.v1`。
+3. 在“输入字段”里配置本工作流启动时需要填写的字段。
+4. 每个字段配置显示名称、字段类型、填写提示和是否必填；字段键与提交路径属于内部运行合同，页面不作为普通配置项展示。
+5. 下拉字段在“可选项”中勾选允许用户选择的内容。
+6. 需要选择知识库的字段打开“知识库选择器”，运行测试时会加载当前租户 active 知识库。
+
+预期结果：
+
+- “运行测试”弹窗按开始节点“输入字段”动态生成表单。
+- 用户不需要手写 `$.vars.*` 变量路径；变量路径只在后续节点配置中表达数据流。
+- 自定义 workflow 不需要新增前端专属弹窗，只需要在开始节点维护输入字段。
+
 ### 7.4 页面操作：运行实例和查看详情
 
 动作：从列表启动 Workflow Instance。
@@ -307,9 +324,191 @@ Web Admin -> /workflow
 - 详情页无步骤：确认请求包含 `include_steps=true`，并检查后端 StepRecord 是否写入。
 - 实例失败：复制 `trace_id` 和失败步骤，查后端日志。
 
-### 7.5 页面操作：查看人工审核任务
+### 7.5 页面操作：开始节点输入表单运行测试
 
-动作：查看 Human Review 待办。
+动作：用开始节点输入表单启动任意已发布 WorkflowDefinition 的测试运行。
+
+入口：
+
+```text
+/workflow -> 选择工作流 -> 编辑 -> 运行测试
+```
+
+操作：
+
+1. 点击右上角“运行测试”。
+2. 系统读取工作流第一个 `input.capture` 节点的 `input_schema.x-run-form.fields`；如果该节点还没有自定义字段，则按 `input_schema_ref` 加载内置字段模板。
+3. 页面按字段结构动态渲染输入框、下拉框、开关、数字框和 JSON 对象输入框。
+4. 按字段填写本次运行输入；资源型字段会加载当前租户可用对象，例如 active 知识库和可运行 Capability。
+5. 点击“开始运行”。
+
+现有 seed 工作流已经登记的输入结构：
+
+| input_schema_ref | 用途 | 表单重点 |
+| --- | --- | --- |
+| `workflow.input.approval_guarded_capability.v1` | 审核后调用 Capability | Capability、执行意图、dry-run、备注 |
+| `workflow.input.marketing_source.v1` | 营销知识采集 | 目标知识库、素材类型、文本/链接/资产、语言 |
+| `workflow.input.knowledge_source.v1` | 专家知识采集 | 目标知识库、来源类型、文本/链接/资产、语言 |
+| `workflow.input.campaign_review.v1` | 活动复盘沉淀方法论 | 目标知识库、来源材料、语言 |
+| `workflow.input.metadata_intake.v1` | 元数据分类审核 | taxonomy/tag/dictionary/resource type namespace、待分类内容 |
+| `workflow.input.skill_review.v1` | 技能执行结果审核 | skill_id、技能输入文本 |
+
+自定义工作流规则：
+
+- 推荐由后端随 WorkflowDefinition 返回 `input_schema.x-run-form.fields`，页面直接按 schema 渲染。
+- 如果只返回 `input_schema_ref`，后端必须提供该 ref 对应的正式 schema；前端不应为每个客户工作流新增专属 UI 分支。
+- 如果 workflow 引用了未知 `input_schema_ref` 且没有内联 `x-run-form`，运行弹窗会显示“开始节点输入配置错误”，并禁用“开始运行”。
+- 字段的内部 `path` 决定提交 payload 写入位置，例如 `source.content` 会生成 `{"source":{"content":"..."}}`；普通配置界面不直接暴露该字段。
+
+提交到后端的结构：
+
+```json
+{
+  "knowledge_space_uuid": "<knowledge_space_uuid>",
+  "source": {
+    "type": "text",
+    "content": "新品发布复盘：高意向客户识别不足导致转化延迟...",
+    "context": "活动复盘",
+    "language": "zh"
+  },
+  "note": "验证营销方法论抽取效果"
+}
+```
+
+预期结果：
+
+- 表单缺少必填项时不会创建实例，并显示明确校验错误。
+- 知识空间下拉显示空间名称和部门，不把 UUID 作为主要可见标签。
+- 成功提交后创建 Workflow Instance，并在底部运行记录中展示节点状态。
+- 用户不需要理解 `$.vars.extracted`、`$.artifacts.source` 这类引擎内部变量路径；这些路径只在节点配置和高级诊断中出现。
+
+当前边界：
+
+- Web Admin 运行输入表单由开始节点 schema 驱动，不按 workflow key 写专属弹窗。
+- 后端 `WorkflowService` 已接入 `SkillInvoker`、`MetadataClassifier` 和 `KnowledgeOperator`。
+- 正式测试前必须确认目标 Skill 已发布、元数据治理对象已启用、目标 Knowledge Space 为 active，并且 `knowledge_chunks` 表已完成迁移。
+
+失败处理：
+
+- 运行弹窗显示“开始节点输入配置错误”：补充 `input_schema.x-run-form`，或让后端返回 `input_schema_ref` 对应的 schema。
+- 知识库为空：进入 `/knowledge-spaces` 初始化或创建 active 知识库。
+- Capability 为空：确认平台能力目录已 seed，并且能力协议适合工作流运行。
+- 后端返回节点执行失败：进入实例详情查看 StepRecord、`trace_id` 和失败节点错误。
+
+营销知识采集额外排障：
+
+- 知识库列表为空：说明租户固有对象初始化未完成或失败，先进入 `/knowledge-spaces` 点击“初始化固有知识库”，或创建并启用 Knowledge Space。
+- 运行后卡在或失败于 Skill 节点：检查 `marketing.audio_or_document_parse` 和 `marketing.extract_methodology` 是否已登记并授权。
+- 运行后失败于 Metadata/Knowledge 节点：检查 metadata seed、Knowledge Space 状态、`knowledge_chunks` 迁移和实例 `trace_id` 对应日志。
+
+### 7.6 页面操作：配置营销知识采集 Skill 节点
+
+动作：给 `marketing_knowledge_capture` 的 `skill.invoke` 节点选择已发布 Skill，并按节点指定可选模型 Profile。
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 编辑 -> 点击 parse_source 或 extract_marketing 节点
+```
+
+操作：
+
+1. 在右侧“节点配置”中选择“执行技能”。
+2. 可选：选择“模型模态”，例如大语言模型、视觉语言模型、语音识别或文档解析。
+3. 可选：选择“模型 Profile”。列表来自 AI Settings 中已保存的模型配置。
+4. 点击顶部“保存”保存工作流定义。
+5. 需要排障时切到“运行状态”，展开“诊断数据”查看 `input_path`、`output_path` 等引擎变量路径。
+
+写入节点配置的结构：
+
+```json
+{
+  "skill_id": "marketing.extract_methodology",
+  "skill_version": "1.0.0",
+  "skill_source": "builtin",
+  "skill_status": "published",
+  "model_override": {
+    "modality": "llm",
+    "profile_uuid": "<ai_model_profile_uuid>",
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  },
+  "input_path": "$.vars.parsed",
+  "output_path": "$.vars.extracted"
+}
+```
+
+预期结果：
+
+- Skill 下拉只显示已发布 Skill，并展示名称、来源和版本。
+- 模型 Profile 下拉显示可读名称和 `provider/model`，UUID 只作为保存值。
+- `$.vars.extracted` 等变量路径不作为普通配置入口，只在运行状态的诊断数据中出现。
+
+当前边界：
+
+- Web Admin 节点配置会保存 Skill、版本和可选模型 Profile。
+- 后端通过 Skill Registry 查找已发布 Skill，并将节点级 `model_override` 透传给 Skill 执行上下文。
+- Skill 未发布、版本不存在或执行器不支持时，流程会在 `skill.invoke` 明确失败。
+
+失败处理：
+
+- Skill 列表为空：进入 AI 设置 > Skills，确认目标 Skill 已导入并发布。
+- 模型 Profile 列表为空：进入 AI 设置 > 模型配置，保存对应模态的 Provider/Model。
+- 保存后运行仍失败：检查 Skill 发布版本、执行器支持情况和实例 `trace_id` 对应日志。
+
+### 7.7 页面操作：配置营销知识采集元数据分类节点
+
+动作：给 `metadata.classify` 节点选择分类策略和已启用的元数据治理对象。
+
+入口：
+
+```text
+/workflow -> 营销知识采集 -> 编辑 -> 点击 classify_metadata 节点
+```
+
+操作：
+
+1. 在右侧“节点配置”中选择“分类策略”。
+2. 选择“分类体系”。
+3. 选择“标签命名空间”。
+4. 选择“数据字典”。
+5. 选择“资源类型”。
+6. 点击顶部“保存”保存工作流定义。
+7. 需要排障时切到“运行状态”，展开“诊断数据”查看 `input_path`、`output_path` 等引擎变量路径。
+
+写入节点配置的结构：
+
+```json
+{
+  "classification_strategy": "rule_based",
+  "taxonomy_namespace": "corex.marketing.methodology",
+  "tag_namespace": "corex.marketing",
+  "dictionary_namespace": "corex.marketing",
+  "resource_type_namespace": "corex.knowledge",
+  "input_path": "$.vars.extracted",
+  "output_path": "$.vars.metadata"
+}
+```
+
+预期结果：
+
+- 下拉选项来自设置 > 元数据治理中的已启用 Taxonomy、Tag、Dictionary 和 Resource Type。
+- 列表显示可读名称和 namespace，不把 UUID 当作主要可见标签。
+- 保存后的节点仍使用后端 `metadata.classify` Adapter 需要的 namespace 合同。
+
+当前边界：
+
+- 本阶段完成 Web Admin 配置入口和 seed 默认策略。
+- 后端会校验 Taxonomy、Tag、Dictionary 和 Resource Type 都属于当前租户且处于 enabled 状态；缺任一治理对象都会明确失败。
+
+失败处理：
+
+- 下拉为空或提示治理对象不完整：进入设置 > 元数据治理，启用营销相关分类体系、标签、数据字典和资源类型。
+- 保存后运行仍失败：检查 metadata seed、治理对象状态和实例 `trace_id` 对应日志。
+
+### 7.8 页面操作：人工审核任务干预
+
+动作：当实例运行到 `human.review` 节点并进入 `waiting` 状态后，由审核员人工通过或拒绝。
 
 入口：
 
@@ -322,19 +521,25 @@ Web Admin -> /workflow
 
 1. 选择任务状态：pending、approved、rejected、changes_requested、canceled。
 2. 点击刷新。
-3. 点击任务右侧查看按钮进入实例详情。
+3. 对 pending 任务点击“通过”或“拒绝”。
+4. 在确认弹窗中核对审核类型、实例和节点，填写可选审核意见。
+5. 点击“确认通过”或“确认拒绝”。
+6. 点击任务右侧查看按钮进入实例详情。
 
 预期结果：
 
-- 列表展示 `review_type`、实例 UUID 摘要、任务状态。
+- 列表展示可读审核类型、实例摘要、节点和任务状态。
+- 通过后工作流沿 `approved_route` 继续执行，例如进入 `publish_knowledge`。
+- 拒绝后工作流沿 `rejected_route` 继续执行，例如进入 `emit_rejected`，不发布候选知识。
 - 可跳转到对应 Workflow Instance。
 
 失败处理：
 
 - pending 为空：确认工作流中是否存在 `human.review` 节点，以及实例是否推进到该节点。
-- 审核动作不可见：当前页面只提供基础查看入口，动作能力需按 Human Review 页面计划继续完善。
+- 审核动作不可见：确认任务状态仍是 pending；非 pending 任务只允许查看，不允许重复提交动作。
+- 审核动作失败：复制实例 `trace_id`，检查 `/api/v1/admin/workflows/review-tasks/:review_task_uuid/actions` 返回和后端日志。
 
-### 7.6 接口调用：创建、发布、运行和查询
+### 7.9 接口调用：创建、发布、运行和查询
 
 准备：
 
@@ -445,7 +650,7 @@ curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
   -d '{"keys":[]}'
 ```
 
-### 7.7 本地联调步骤
+### 7.10 本地联调步骤
 
 动作：本地启动并验证主链路。
 

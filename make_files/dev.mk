@@ -23,7 +23,7 @@ dev-agent:
 	@echo "🚀 启动 Agent 开发服务器..."
 	@echo "服务地址: http://$(DEV_HOST):$(DEV_PORT)"
 	@echo "按 Ctrl+C 停止服务器"
-	@LOG_LEVEL=$(LOG_LEVEL) go run cmd/agent/main.go
+	@LOG_LEVEL=$(LOG_LEVEL) $(GO) run cmd/agent/main.go
 
 # 启动演示服务器
 dev-demo:
@@ -31,7 +31,7 @@ dev-demo:
 	@echo "服务地址: http://$(DEV_HOST):$(DEV_PORT)"
 	@echo "API 文档: http://$(DEV_HOST):$(DEV_PORT)/api/v1/docs"
 	@echo "按 Ctrl+C 停止服务器"
-	@cd backend && set -a; [ -f .env ] && . ./.env; set +a; LOG_LEVEL=$(LOG_LEVEL) go run ./cmd/app
+	@cd backend && set -a; [ -f .env ] && . ./.env; set +a; LOG_LEVEL=$(LOG_LEVEL) $(GO) run ./cmd/app
 
 # 监控文件变化并自动重启（需要安装 air）
 dev-watch:
@@ -47,7 +47,7 @@ dev-watch:
 # Capability Sync Worker
 capability-sync:
 	@echo "⚙️  启动 Capability Sync Worker..."
-	@cd backend && go run ./cmd/capability_sync -config $(CAPABILITY_SYNC_CONFIG) -artifacts $(CAPABILITY_SYNC_ARTIFACTS) $(CAPABILITY_SYNC_FLAGS)
+	@cd backend && $(GO) run ./cmd/capability_sync -config $(CAPABILITY_SYNC_CONFIG) -artifacts $(CAPABILITY_SYNC_ARTIFACTS) $(CAPABILITY_SYNC_FLAGS)
 
 # Capability 配置自动生成（OpenAPI/gRPC -> platform_capabilities YAML）
 capability-gen:

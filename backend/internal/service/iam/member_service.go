@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	repoIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -348,6 +349,10 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 		mem.ID = 0
 		mem.TenantUUID = tenantUUID
 		mem.UserID = u.ID
+		if u.UUID == uuid.Nil {
+			return errors.New("iam.user_uuid_required")
+		}
+		mem.UserUUID = u.UUID.String()
 		if mem.Status == 0 {
 			mem.Status = u.Status
 		}

@@ -144,6 +144,7 @@ const skillsService = useSkillsService();
 const userStore = useUserStore();
 const { isRoot } = storeToRefs(userStore);
 const route = useRoute();
+const { t, te } = useI18n();
 
 definePageMeta({
   title: "Skills",
@@ -230,6 +231,7 @@ const categoryOptions = [
   { label: "device", value: "device" },
   { label: "channel", value: "channel" },
   { label: "security", value: "security" },
+  { label: "marketing", value: "marketing" },
 ];
 const FILTER_ALL_CATALOG = "__all_catalog__";
 const catalogFilters = reactive({
@@ -319,7 +321,11 @@ const catalogColumns = computed(() => {
       header: "状态",
       cell: ({ row }: any) => (row?.original?.active ? "active" : "disabled"),
     },
-    { accessorKey: "summary", header: "说明" },
+    {
+      accessorKey: "summary",
+      header: "说明",
+      cell: ({ row }: any) => localizedCatalogText(row?.original?.summary),
+    },
     {
       id: "actions",
       header: "操作",
@@ -556,6 +562,12 @@ async function fetchCatalog() {
   } finally {
     loadingCatalog.value = false;
   }
+}
+
+function localizedCatalogText(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return te(raw) ? t(raw) : raw;
 }
 
 async function fetchRegistry() {

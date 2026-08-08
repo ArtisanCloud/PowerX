@@ -11,6 +11,7 @@ import (
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type SignupHandler struct {
@@ -26,6 +27,11 @@ func NewSignupHandler(deps *shared.Deps) *SignupHandler {
 		if cfg := config.GetGlobalConfig(); cfg != nil && cfg.FeatureGate.EnableSaaSSignupVerificationCode {
 			verifier = authsvc.NewSignupVerificationService(authsvc.LocalSignupVerificationDriver{}, 10*time.Minute)
 			opt.Verifier = verifier
+		}
+		if deps.TenantBuiltinObjects != nil {
+			opt.BuiltinObjectFactory = func(db *gorm.DB) authsvc.BuiltinObjectBootstrapper {
+				return deps.TenantBuiltinObjects(db)
+			}
 		}
 		svc = authsvc.NewSaaSSignupService(deps.DB, deps.AuthUser, opt)
 	}

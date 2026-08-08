@@ -1,0 +1,74 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.roles.read
+    module: iam
+    title: IAM Tenant Role Catalog
+    description: List bindable tenant roles for plugin service workflows. The endpoint returns role_user and plugin-managed roles in the current STS tenant without exposing admin, owner, root, system, or numeric role identifiers.
+    permission_code: corex.iam.roles:read
+    agent_usable: false
+    risk_level: high
+    categories: [iam, provisioning]
+    intents: [iam.roles.read]
+    tool_scopes: [iam.roles.read]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/iam/roles
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1roles/get
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: iam.roles.read
+  - capability_id: com.corex.iam.roles.provision
+    module: iam
+    title: IAM Tenant Role Provisioning
+    description: Provision plugin-managed tenant roles for the current STS tenant. This service identity capability cannot create system, owner, admin, builtin, or unrestricted IAM roles.
+    permission_code: corex.iam.roles:provision
+    agent_usable: false
+    risk_level: critical
+    categories: [iam, provisioning]
+    intents: [iam.roles.provision]
+    tool_scopes: [iam.roles.provision]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/iam/roles/provision
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1roles~1provision/post
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: iam.roles.provision
+  - capability_id: com.corex.iam.members.provision
+    module: iam
+    title: IAM Tenant Member Provisioning
+    description: Provision tenant users and members from a plugin service identity. The endpoint is tenant-scoped, forbids root/system admin creation, and only binds role_user or plugin-managed roles.
+    permission_code: corex.iam.members:provision
+    agent_usable: false
+    risk_level: critical
+    categories: [iam, provisioning]
+    intents: [iam.members.provision]
+    tool_scopes: [iam.members.provision]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/iam/members/provision
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members~1provision/post
+        auth_type: tenant_jwt
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: iam.members.provision

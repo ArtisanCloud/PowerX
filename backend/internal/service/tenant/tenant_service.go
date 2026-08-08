@@ -28,11 +28,18 @@ type TenantService struct {
 	RoleRepo             *iamrepo.RoleRepository
 	RoleBindingRepo      *iamrepo.RoleBindingRepository
 	MetadataBootstrapper MetadataBootstrapper
+	BuiltinObjectFactory BuiltinObjectBootstrapperFactory
 }
 
 type MetadataBootstrapper interface {
 	BootstrapTenantMetadata(ctx context.Context, tenantUUID string) error
 }
+
+type BuiltinObjectBootstrapper interface {
+	BootstrapTenantBuiltinObjects(ctx context.Context, tenantUUID string) error
+}
+
+type BuiltinObjectBootstrapperFactory func(db *gorm.DB) BuiltinObjectBootstrapper
 
 func NewTenantService(db *gorm.DB, auth *authsvc.AuthService) *TenantService {
 	return &TenantService{
@@ -181,6 +188,9 @@ func (s *TenantService) Create(ctx context.Context, in CreateTenantInput) (uint6
 	if err := s.bootstrapMetadata(ctx, out.UUID.String()); err != nil {
 		return out.ID, err
 	}
+	if err := s.bootstrapBuiltinObjects(ctx, out.UUID.String()); err != nil {
+		return out.ID, err
+	}
 	return out.ID, nil
 }
 
@@ -245,6 +255,9 @@ func (s *TenantService) Upsert(ctx context.Context, in UpsertTenantInput) (uint6
 		if err := s.bootstrapMetadata(ctx, out.UUID.String()); err != nil {
 			return out.ID, err
 		}
+		if err := s.bootstrapBuiltinObjects(ctx, out.UUID.String()); err != nil {
+			return out.ID, err
+		}
 	}
 	return out.ID, nil
 }
@@ -254,6 +267,17 @@ func (s *TenantService) bootstrapMetadata(ctx context.Context, tenantUUID string
 		return nil
 	}
 	return s.MetadataBootstrapper.BootstrapTenantMetadata(ctx, tenantUUID)
+}
+
+func (s *TenantService) bootstrapBuiltinObjects(ctx context.Context, tenantUUID string) error {
+	if s == nil || s.BuiltinObjectFactory == nil {
+		return nil
+	}
+	bootstrapper := s.BuiltinObjectFactory(s.DB)
+	if bootstrapper == nil {
+		return fmt.Errorf("tenant builtin object bootstrapper unavailable")
+	}
+	return bootstrapper.BootstrapTenantBuiltinObjects(ctx, tenantUUID)
 }
 
 // ---------- 初始化管理员（复用 AuthService.Register） ----------

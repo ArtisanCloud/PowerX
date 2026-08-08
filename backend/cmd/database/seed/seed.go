@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 
@@ -102,6 +103,13 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 	if err = SeedDefaultAIConfig(db, cfg); err != nil {
+		return err
+	}
+	systemTenant, err := tenantrepo.NewTenantRepository(db).EnsureByKey(ctx, tenantmodel.SystemTenantKey, "System", tenantmodel.TenantPlanFree, tenantmodel.TenantTypeSystem)
+	if err != nil {
+		return err
+	}
+	if err = SeedBuiltinKnowledgeSpaces(db, cfg, systemTenant.UUID.String()); err != nil {
 		return err
 	}
 

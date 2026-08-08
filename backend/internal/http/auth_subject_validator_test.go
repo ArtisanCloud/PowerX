@@ -53,6 +53,9 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 	}{
 		{"POST", "/api/v1/tenant/invocations"},
 		{"POST", "/api/v1/tenant/invocations/stream"},
+		{"GET", "/api/v1/tenant/iam/roles"},
+		{"POST", "/api/v1/tenant/iam/roles/provision"},
+		{"POST", "/api/v1/tenant/iam/members/provision"},
 		{"POST", "/api/v1/admin/runtime/ws-bus/grant"},
 		{"POST", "/api/v1/admin/runtime/ws-bus/publish"},
 		{"POST", "/api/v1/admin/runtime/task-queue/enqueue"},
@@ -113,6 +116,9 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		path   string
 	}{
 		{"GET", "/api/v1/admin/iam/members"},
+		{"POST", "/api/v1/tenant/iam/roles"},
+		{"GET", "/api/v1/tenant/iam/members/provision"},
+		{"POST", "/api/v1/admin/iam/members"},
 		{"GET", "/api/v1/admin/ai/settings"},
 		{"GET", "/api/v1/admin/media/assets"},
 		{"GET", "/api/v1/admin/media/assets/asset-001"},

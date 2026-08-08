@@ -54,6 +54,40 @@ dictionaries:
           zh-CN: 未分类
           en-US: Uncategorized
         sort_order: 999
+  - namespace: corex.marketing
+    module: corex.marketing
+    name_i18n:
+      zh-CN: 营销方法论字典
+      en-US: Marketing Methodology Dictionary
+    description_i18n:
+      zh-CN: 营销知识采集工作流使用的方法论类型。
+      en-US: Methodology types used by the marketing knowledge capture workflow.
+    items:
+      - code: observation
+        label_i18n:
+          zh-CN: 观察
+          en-US: Observation
+        sort_order: 10
+      - code: principle
+        label_i18n:
+          zh-CN: 原则
+          en-US: Principle
+        sort_order: 20
+      - code: method
+        label_i18n:
+          zh-CN: 方法
+          en-US: Method
+        sort_order: 30
+      - code: sop
+        label_i18n:
+          zh-CN: SOP
+          en-US: SOP
+        sort_order: 40
+      - code: case
+        label_i18n:
+          zh-CN: 案例
+          en-US: Case
+        sort_order: 50
 taxonomies:
   - namespace: corex.metadata.governance_area
     module: corex.metadata
@@ -77,6 +111,41 @@ taxonomies:
           zh-CN: 标签
           en-US: Tag
         sort_order: 30
+  - namespace: corex.marketing.methodology
+    module: corex.marketing
+    name_i18n:
+      zh-CN: 营销方法论分类
+      en-US: Marketing Methodology Taxonomy
+    description_i18n:
+      zh-CN: 营销知识采集工作流发布候选知识时使用的分类体系。
+      en-US: Taxonomy used when publishing candidate knowledge from the marketing capture workflow.
+    max_depth: 2
+    nodes:
+      - code: positioning
+        label_i18n:
+          zh-CN: 定位
+          en-US: Positioning
+        sort_order: 10
+      - code: campaign
+        label_i18n:
+          zh-CN: 活动
+          en-US: Campaign
+        sort_order: 20
+      - code: content
+        label_i18n:
+          zh-CN: 内容
+          en-US: Content
+        sort_order: 30
+      - code: growth
+        label_i18n:
+          zh-CN: 增长
+          en-US: Growth
+        sort_order: 40
+      - code: sales_enablement
+        label_i18n:
+          zh-CN: 销售赋能
+          en-US: Sales Enablement
+        sort_order: 50
 resource_types:
   - resource_type: metadata.demo_resource
     module: corex.metadata
@@ -87,6 +156,15 @@ resource_types:
       zh-CN: 用于验证插件 local/delegated 元数据客户端的最小资源类型。
       en-US: Minimal resource type for plugin local/delegated metadata client verification.
     binding_enabled: false
+  - resource_type: corex.knowledge
+    module: corex.knowledge
+    name_i18n:
+      zh-CN: 知识条目
+      en-US: Knowledge Item
+    description_i18n:
+      zh-CN: 工作流和知识空间中可被分类、标记和发布的知识内容。
+      en-US: Knowledge content that can be classified, tagged, and published by workflows and knowledge spaces.
+    binding_enabled: false
 tags:
   - namespace: corex.metadata.demo
     resource_type: metadata.demo_resource
@@ -95,3 +173,31 @@ tags:
       zh-CN: 示例
       en-US: Sample
     color: "#4f46e5"
+  - namespace: corex.marketing
+    resource_type: corex.knowledge
+    code: marketing_methodology
+    label_i18n:
+      zh-CN: 营销方法论
+      en-US: Marketing Methodology
+    color: "#2563eb"
+  - namespace: corex.marketing
+    resource_type: corex.knowledge
+    code: campaign_review
+    label_i18n:
+      zh-CN: 活动复盘
+      en-US: Campaign Review
+    color: "#16a34a"
+  - namespace: corex.marketing
+    resource_type: corex.knowledge
+    code: growth_experiment
+    label_i18n:
+      zh-CN: 增长实验
+      en-US: Growth Experiment
+    color: "#9333ea"
+  - namespace: corex.marketing
+    resource_type: corex.knowledge
+    code: content_strategy
+    label_i18n:
+      zh-CN: 内容策略
+      en-US: Content Strategy
+    color: "#ea580c"

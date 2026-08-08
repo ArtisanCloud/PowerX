@@ -9,7 +9,7 @@ CAPABILITY_CHECK_GENERATED ?= tmp/capability-check/generated.platform-capabiliti
 CAPABILITY_SEED_CONFIG ?= $(if $(POWERX_CONFIG),$(POWERX_CONFIG),etc/config.yaml)
 
 capability-audit:
-	cd backend && CAPABILITY_AUDIT_SCAN="$(CAPABILITY_AUDIT_SCAN)" CAPABILITY_AUDIT_REQUIRED="$(CAPABILITY_AUDIT_REQUIRED)" CAPABILITY_AUDIT_CANDIDATE_FILE="$(CAPABILITY_AUDIT_CANDIDATE_FILE)" CAPABILITY_AUDIT_FIX="$(CAPABILITY_AUDIT_FIX)" go run ./cmd/capability_audit \
+	cd backend && CAPABILITY_AUDIT_SCAN="$(CAPABILITY_AUDIT_SCAN)" CAPABILITY_AUDIT_REQUIRED="$(CAPABILITY_AUDIT_REQUIRED)" CAPABILITY_AUDIT_CANDIDATE_FILE="$(CAPABILITY_AUDIT_CANDIDATE_FILE)" CAPABILITY_AUDIT_FIX="$(CAPABILITY_AUDIT_FIX)" $(GO) run ./cmd/capability_audit \
 		-repo-root .. \
 		-platform-dir backend/config/platform_capabilities \
 		-required-file backend/config/capability_audit_required.yaml \
@@ -20,4 +20,4 @@ capability-check:
 	$(MAKE) capability-audit CAPABILITY_AUDIT_CANDIDATE_FILE="$(CAPABILITY_CHECK_GENERATED)"
 
 capability-seed:
-	cd backend && go run ./cmd/platform_capability_seed -config "$(CAPABILITY_SEED_CONFIG)"
+	cd backend && $(GO) run ./cmd/platform_capability_seed -config "$(CAPABILITY_SEED_CONFIG)"

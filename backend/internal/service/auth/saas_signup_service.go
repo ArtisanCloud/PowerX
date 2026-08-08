@@ -33,16 +33,24 @@ var (
 )
 
 type SaaSSignupService struct {
-	DB         *gorm.DB
-	auth       *AuthService
-	keyWrapper tenantkeys.KeyWrapper
-	verifier   *SignupVerificationService
+	DB                   *gorm.DB
+	auth                 *AuthService
+	keyWrapper           tenantkeys.KeyWrapper
+	verifier             *SignupVerificationService
+	builtinObjectFactory BuiltinObjectBootstrapperFactory
 }
 
 type SaaSSignupOptions struct {
-	KeyWrapper tenantkeys.KeyWrapper
-	Verifier   *SignupVerificationService
+	KeyWrapper           tenantkeys.KeyWrapper
+	Verifier             *SignupVerificationService
+	BuiltinObjectFactory BuiltinObjectBootstrapperFactory
 }
+
+type BuiltinObjectBootstrapper interface {
+	BootstrapTenantBuiltinObjects(ctx context.Context, tenantUUID string) error
+}
+
+type BuiltinObjectBootstrapperFactory func(db *gorm.DB) BuiltinObjectBootstrapper
 
 type SaaSSignupInput struct {
 	TenantKey        string
@@ -68,7 +76,7 @@ func NewSaaSSignupService(db *gorm.DB, auth *AuthService, opts ...SaaSSignupOpti
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	return &SaaSSignupService{DB: db, auth: auth, keyWrapper: opt.KeyWrapper, verifier: opt.Verifier}
+	return &SaaSSignupService{DB: db, auth: auth, keyWrapper: opt.KeyWrapper, verifier: opt.Verifier, builtinObjectFactory: opt.BuiltinObjectFactory}
 }
 
 func (s *SaaSSignupService) AccessTTL() time.Duration {
@@ -103,10 +111,11 @@ func (s *SaaSSignupService) Signup(ctx context.Context, in SaaSSignupInput) (*Sa
 	var result SaaSSignupResult
 	if err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txSvc := &SaaSSignupService{
-			DB:         tx,
-			auth:       cloneAuthServiceWithDB(s.auth, tx),
-			keyWrapper: s.keyWrapper,
-			verifier:   s.verifier,
+			DB:                   tx,
+			auth:                 cloneAuthServiceWithDB(s.auth, tx),
+			keyWrapper:           s.keyWrapper,
+			verifier:             s.verifier,
+			builtinObjectFactory: s.builtinObjectFactory,
 		}
 		created, createErr := txSvc.signupInTx(ctx, normalized)
 		if createErr != nil {
@@ -220,6 +229,9 @@ func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) 
 	if _, err := keySvc.EnsureActiveKeyPair(ctx, "default", tenantUUID); err != nil {
 		return nil, err
 	}
+	if err := s.bootstrapBuiltinObjects(ctx, tenantUUID); err != nil {
+		return nil, err
+	}
 
 	access, refresh, err := s.auth.issueTokensFor(ctx, createdTenant, user, member)
 	if err != nil {
@@ -232,6 +244,17 @@ func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) 
 		User:         user,
 		Member:       member,
 	}, nil
+}
+
+func (s *SaaSSignupService) bootstrapBuiltinObjects(ctx context.Context, tenantUUID string) error {
+	if s == nil || s.builtinObjectFactory == nil {
+		return nil
+	}
+	bootstrapper := s.builtinObjectFactory(s.DB)
+	if bootstrapper == nil {
+		return fmt.Errorf("tenant builtin object bootstrapper unavailable")
+	}
+	return bootstrapper.BootstrapTenantBuiltinObjects(ctx, tenantUUID)
 }
 
 func normalizeSaaSSignupInput(in SaaSSignupInput) (SaaSSignupInput, error) {

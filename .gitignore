@@ -7,6 +7,7 @@
 
 # 测试二进制文件，使用go test -c构建
 *.test
+__debug_bin*
 
 # 输出的二进制文件
 *.out
@@ -16,6 +17,11 @@ go.work
 
 # 编辑器和IDE文件
 .vscode/
+!/.vscode/
+/.vscode/*
+!/.vscode/launch.json
+!/.vscode/tasks.json
+!/.vscode/extensions.json
 .idea/
 *.swp
 *.swo

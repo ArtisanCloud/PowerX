@@ -47,6 +47,13 @@ export interface KnowledgeSpaceRecord {
   retentionExpiresAt?: string | null;
 }
 
+export interface BuiltinKnowledgeSeedResult {
+  spaces: KnowledgeSpaceRecord[];
+  created: number;
+  updated: number;
+  skipped: string[];
+}
+
 export interface ProfileVersionRecord {
   uuid: string;
   profileKey: string;
@@ -381,6 +388,14 @@ export const useKnowledgeSpaces = () => {
       { useGlobalLoading: false } as any,
     );
     return response.data ?? [];
+  };
+
+  const seedBuiltinKnowledgeSpaces = async (): Promise<BuiltinKnowledgeSeedResult> => {
+    const response = await apiClient.post<ApiResponse<BuiltinKnowledgeSeedResult>>(
+      `${adminBase}/builtin/seed`,
+      {},
+    );
+    return response.data;
   };
 
   const getSpace = async (spaceId: string): Promise<KnowledgeSpaceRecord> => {
@@ -816,6 +831,7 @@ const listRagProfiles = async (
 
   return {
     createSpace,
+    seedBuiltinKnowledgeSpaces,
     updateSpace,
     retireSpace,
     listSpaces,

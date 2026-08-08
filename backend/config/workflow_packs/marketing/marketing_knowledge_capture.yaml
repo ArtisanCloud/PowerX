@@ -60,6 +60,7 @@ steps:
     node_kind: metadata.classify
     depends_on: [extract_marketing]
     config:
+      classification_strategy: rule_based
       taxonomy_namespace: corex.marketing.methodology
       tag_namespace: corex.marketing
       dictionary_namespace: corex.marketing

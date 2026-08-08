@@ -30,12 +30,12 @@ migrate: db-migrate
 
 db-migrate:
 	@echo "执行数据库迁移..."
-	@cd backend && go run ./cmd/database migrate
+	@cd backend && $(GO) run ./cmd/database migrate
 
 .PHONY: db-rollback
 db-rollback:
 	@echo "执行数据库回滚..."
-	@cd backend && go run ./cmd/database rollback
+	@cd backend && $(GO) run ./cmd/database rollback
 
 .PHONY: seed db-seed
 seed:
@@ -44,29 +44,39 @@ seed:
 
 db-seed:
 	@echo "填充数据库种子数据..."
-	@cd backend && go run ./cmd/database seed
+	@cd backend && $(GO) run ./cmd/database seed
 
 .PHONY: db-refresh
 db-refresh:
 	@echo "⚠️  将刷新数据库（回滚+迁移+种子），该操作会清空当前数据库数据。"
 	@printf "确认继续？[y/N] " ; read ans; case "$$ans" in y|Y|yes|YES) echo "继续执行...";; *) echo "已取消"; exit 1;; esac
 	@echo "刷新数据库（回滚+迁移+种子）..."
-	@cd backend && go run ./cmd/database refresh
+	@cd backend && $(GO) run ./cmd/database refresh
 
 .PHONY: db-status
 db-status:
 	@echo "查看数据库迁移状态..."
-	@cd backend && go run ./cmd/database status
+	@cd backend && $(GO) run ./cmd/database status
 
 .PHONY: iam-migration-report
 iam-migration-report:
 	@echo "执行 IAM SaaS 语义迁移只读巡检..."
-	@cd backend && go run ./cmd/database iam-report
+	@cd backend && $(GO) run ./cmd/database iam-report
 
 .PHONY: iam-migration-fix-owner
 iam-migration-fix-owner:
 	@echo "执行 IAM owner 自动补齐（仅处理有 active admin 的租户）..."
-	@cd backend && go run ./cmd/database iam-fix-owner
+	@cd backend && $(GO) run ./cmd/database iam-fix-owner
+
+.PHONY: iam-role-binding-duplicates-report
+iam-role-binding-duplicates-report:
+	@echo "巡检 IAM 重复角色绑定..."
+	@cd backend && $(GO) run ./cmd/database iam-fix-role-binding-duplicates
+
+.PHONY: iam-role-binding-duplicates-fix
+iam-role-binding-duplicates-fix:
+	@echo "修复 IAM 重复角色绑定..."
+	@cd backend && $(GO) run ./cmd/database iam-fix-role-binding-duplicates -confirm
 
 
 # 帮助信息
@@ -82,3 +92,5 @@ help:
 	@echo "  make db-check      - 检查数据库是否存在"
 	@echo "  make iam-migration-report     - IAM SaaS 语义迁移只读巡检"
 	@echo "  make iam-migration-fix-owner  - 自动补齐缺 owner 且有 active admin 的租户"
+	@echo "  make iam-role-binding-duplicates-report - 只读巡检重复角色绑定"
+	@echo "  make iam-role-binding-duplicates-fix    - 显式修复重复角色绑定"

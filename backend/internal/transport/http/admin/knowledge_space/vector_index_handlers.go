@@ -28,6 +28,18 @@ func NewVectorIndexHandler(deps *shared.Deps) *VectorIndexHandler {
 		return nil
 	}
 
+	return &VectorIndexHandler{
+		svc: ksvc.NewVectorIndexService(ksvc.VectorIndexServiceOptions{
+			DB:       deps.DB,
+			PGVector: buildPGVectorConfig(cfg),
+		}),
+	}
+}
+
+func buildPGVectorConfig(cfg *config.Config) pgvector.Config {
+	if cfg == nil {
+		return pgvector.Config{}
+	}
 	// DSN selection rule: pgvector.dsn -> database.dsn -> compose.
 	pgCfg := cfg.KnowledgeSpace.VectorStore.PgVector
 	dsn := strings.TrimSpace(pgCfg.DSN)
@@ -51,21 +63,15 @@ func NewVectorIndexHandler(deps *shared.Deps) *VectorIndexHandler {
 			" sslmode=" + sslmode +
 			" TimeZone=" + tz
 	}
-
-	return &VectorIndexHandler{
-		svc: ksvc.NewVectorIndexService(ksvc.VectorIndexServiceOptions{
-			DB: deps.DB,
-			PGVector: pgvector.Config{
-				DSN:            dsn,
-				Schema:         strings.TrimSpace(pgCfg.Schema),
-				Table:          strings.TrimSpace(pgCfg.Table),
-				Dimensions:     pgCfg.Dimensions,
-				EnableMigrations: false,
-				BatchSize:      pgCfg.BatchSize,
-				Lists:          pgCfg.Lists,
-				TimeoutSeconds: pgCfg.TimeoutSeconds,
-			},
-		}),
+	return pgvector.Config{
+		DSN:              dsn,
+		Schema:           strings.TrimSpace(pgCfg.Schema),
+		Table:            strings.TrimSpace(pgCfg.Table),
+		Dimensions:       pgCfg.Dimensions,
+		EnableMigrations: false,
+		BatchSize:        pgCfg.BatchSize,
+		Lists:            pgCfg.Lists,
+		TimeoutSeconds:   pgCfg.TimeoutSeconds,
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	agentOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent"
 	aiOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/ai"
 	capabilityRegistryOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry"
+	iamOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/iam"
 	integrationGatewayOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/integration_gateway"
 	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	mediaOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media"
@@ -41,6 +42,7 @@ func RegisterAPIRoutes(
 
 	agentOpenAPI.Register(publicGroup, protectedGroup, deps)
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	iamOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	integrationGatewayOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	notificationsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
