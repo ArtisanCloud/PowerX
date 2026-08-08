@@ -33,3 +33,12 @@ capabilities:
         schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
         auth_type: tenant_jwt
         tool_scope: knowledge.space
+      - channel: rest
+        endpoint: /api/v1/admin/knowledge-spaces/builtin/seed
+        method: POST
+        schema_ref: backend/internal/transport/http/admin/knowledge_space/handlers.go#source
+        auth_type: tenant_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: knowledge.space
