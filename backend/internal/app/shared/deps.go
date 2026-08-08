@@ -92,6 +92,7 @@ import (
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
 	vectorstorepkg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	kafkadriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/kafka"
@@ -234,11 +235,18 @@ type Deps struct {
 	CapabilityDefaultHTTPTimeout      time.Duration
 	CapabilityAIMultimodalHTTPTimeout time.Duration
 
-	EventFabric      *EventFabricDeps
-	Workflow         *WorkflowDeps
-	RuntimeScheduler *RuntimeSchedulerDeps
-	KnowledgeSpace   *KnowledgeSpaceDeps
+	EventFabric          *EventFabricDeps
+	Workflow             *WorkflowDeps
+	RuntimeScheduler     *RuntimeSchedulerDeps
+	KnowledgeSpace       *KnowledgeSpaceDeps
+	TenantBuiltinObjects TenantBuiltinObjectBootstrapperFactory
 }
+
+type TenantBuiltinObjectBootstrapper interface {
+	BootstrapTenantBuiltinObjects(ctx context.Context, tenantUUID string) error
+}
+
+type TenantBuiltinObjectBootstrapperFactory func(db *gorm.DB) TenantBuiltinObjectBootstrapper
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	ctx := context.Background()
@@ -783,10 +791,13 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	workflowSvc = workflowsvc.NewService(db, workflowsvc.ServiceOptions{
-		ReliableQueue:     workflowReliable,
-		Scheduler:         workflowScheduler,
-		CapabilityInvoker: workflowCapabilityInvoker{invocation: capabilityInvocationSvc},
-		EventPublisher:    workflowEventPublisher{bus: bus},
+		ReliableQueue:      workflowReliable,
+		Scheduler:          workflowScheduler,
+		SkillInvoker:       newWorkflowSkillInvoker(db),
+		CapabilityInvoker:  workflowCapabilityInvoker{invocation: capabilityInvocationSvc},
+		MetadataClassifier: workflowMetadataClassifier{db: db},
+		KnowledgeOperator:  workflowKnowledgeOperator{db: db},
+		EventPublisher:     workflowEventPublisher{bus: bus},
 	})
 	workflowRunnerWorker := workers.NewWorkflowRunnerWorker(workers.WorkflowRunnerWorkerOptions{
 		Service:       workflowSvc,
@@ -797,6 +808,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		MaxIterations: opts.Workflow.RunnerMaxIterations,
 		Logger:        pxlog.GetGlobalLogger(),
 	})
+	tenantBuiltinObjectFactory := newTenantBuiltinObjectBootstrapperFactory(opts.KnowledgeSpace)
+	tenantSvc.BuiltinObjectFactory = func(db *gorm.DB) tenantsvc.BuiltinObjectBootstrapper {
+		return tenantBuiltinObjectFactory(db)
+	}
 
 	return &Deps{
 		DB:                                db,
@@ -854,6 +869,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Dispatcher:        runtimeSchedulerWorker,
 			NotificationProbe: runtimeSchedulerNotificationProbe,
 		},
+		TenantBuiltinObjects: tenantBuiltinObjectFactory,
 	}
 }
 
@@ -2091,5 +2107,67 @@ func newCachedTenantKeyProvider(tenantSvc *tenantsvc.TenantService, ttl time.Dur
 		mu.Unlock()
 
 		return filtered, nil
+	}
+}
+
+type tenantBuiltinObjectBootstrapper struct {
+	db        *gorm.DB
+	ksOptions KnowledgeSpaceOptions
+}
+
+func newTenantBuiltinObjectBootstrapperFactory(ksOptions KnowledgeSpaceOptions) TenantBuiltinObjectBootstrapperFactory {
+	return func(db *gorm.DB) TenantBuiltinObjectBootstrapper {
+		if db == nil {
+			return nil
+		}
+		return &tenantBuiltinObjectBootstrapper{db: db, ksOptions: ksOptions}
+	}
+}
+
+func (b *tenantBuiltinObjectBootstrapper) BootstrapTenantBuiltinObjects(ctx context.Context, tenantUUID string) error {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	if tenantUUID == "" {
+		return fmt.Errorf("tenant_uuid required")
+	}
+	if b == nil || b.db == nil {
+		return fmt.Errorf("tenant builtin object bootstrapper unavailable")
+	}
+
+	initializer := knowledgeService.NewBuiltinKnowledgeInitializer(knowledgeService.BuiltinKnowledgeInitializerOptions{
+		DB:           b.db,
+		SpaceService: knowledgeService.NewService(knowledgeService.ServiceOptions{DB: b.db}),
+		VectorIndex: knowledgeService.NewVectorIndexService(knowledgeService.VectorIndexServiceOptions{
+			DB:       b.db,
+			PGVector: buildTenantBootstrapPGVectorConfig(b.ksOptions),
+		}),
+	})
+	if _, err := initializer.EnsureTenantBuiltinKnowledge(ctx, knowledgeService.BuiltinKnowledgeSeedInput{
+		TenantUUID:  tenantUUID,
+		RequestedBy: "tenant-builtin-bootstrap",
+	}); err != nil {
+		return fmt.Errorf("bootstrap builtin knowledge spaces: %w", err)
+	}
+
+	workflowSvc := workflowsvc.NewService(b.db, workflowsvc.ServiceOptions{})
+	if _, err := workflowSvc.SeedWorkflowPacks(ctx, workflowsvc.WorkflowPackSeedInput{
+		TenantUUID: tenantUUID,
+		ConfigDir:  "config/workflow_packs",
+	}); err != nil {
+		return fmt.Errorf("bootstrap builtin workflow packs: %w", err)
+	}
+	return nil
+}
+
+func buildTenantBootstrapPGVectorConfig(opts KnowledgeSpaceOptions) pgvectorcfg.Config {
+	pgCfg := opts.VectorStore.PGVector
+	return pgvectorcfg.Config{
+		DSN:              strings.TrimSpace(pgCfg.DSN),
+		Schema:           strings.TrimSpace(pgCfg.Schema),
+		Table:            strings.TrimSpace(pgCfg.Table),
+		Dimensions:       pgCfg.Dimensions,
+		EnableMigrations: false,
+		BatchSize:        pgCfg.BatchSize,
+		Lists:            pgCfg.Lists,
+		TimeoutSeconds:   pgCfg.TimeoutSeconds,
 	}
 }

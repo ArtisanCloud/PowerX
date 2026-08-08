@@ -699,6 +699,9 @@ func ensureIAMRoleBindingTenantMemberIndex(db *gorm.DB) error {
 	table := (&modelIAM.RoleBinding{}).TableName()
 	indexName := "idx_iam_role_binding_member_tenant_role"
 	if db.Dialector != nil && db.Dialector.Name() == "postgres" {
+		if err := ensureNoDuplicateIAMRoleBindingTenantMembers(db, table, true); err != nil {
+			return err
+		}
 		stmt := fmt.Sprintf(
 			`CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (tenant_uuid, subject_type, subject_uuid, role_uuid, data_scope) WHERE subject_type = 'MEMBER' AND data_scope = 'TENANT' AND role_uuid IS NOT NULL AND btrim(role_uuid) <> '' AND subject_uuid IS NOT NULL AND btrim(subject_uuid) <> ''`,
 			indexName,
@@ -713,6 +716,9 @@ func ensureIAMRoleBindingTenantMemberIndex(db *gorm.DB) error {
 	if parts := strings.Split(strings.TrimSpace(table), "."); len(parts) == 2 {
 		sqliteTable = parts[1]
 	}
+	if err := ensureNoDuplicateIAMRoleBindingTenantMembers(db, sqliteTable, false); err != nil {
+		return err
+	}
 	stmt := fmt.Sprintf(
 		`CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (tenant_uuid, subject_type, subject_uuid, role_uuid, data_scope) WHERE subject_type = 'MEMBER' AND data_scope = 'TENANT' AND role_uuid IS NOT NULL AND trim(role_uuid) <> '' AND subject_uuid IS NOT NULL AND trim(subject_uuid) <> ''`,
 		indexName,
@@ -722,6 +728,73 @@ func ensureIAMRoleBindingTenantMemberIndex(db *gorm.DB) error {
 		return fmt.Errorf("create iam role binding tenant member index: %w", err)
 	}
 	return nil
+}
+
+type iamRoleBindingDuplicateGroup struct {
+	TenantUUID     string
+	SubjectUUID    string
+	RoleUUID       string
+	DataScope      string
+	DuplicateCount int64
+	RowIDs         string
+}
+
+func ensureNoDuplicateIAMRoleBindingTenantMembers(db *gorm.DB, table string, postgres bool) error {
+	trimFunc := "trim"
+	rowIDsExpr := "group_concat(CAST(id AS TEXT), ',')"
+	if postgres {
+		trimFunc = "btrim"
+		rowIDsExpr = "string_agg(id::text, ',' ORDER BY id)"
+	}
+	filter := fmt.Sprintf(
+		`subject_type = 'MEMBER' AND data_scope = 'TENANT' AND role_uuid IS NOT NULL AND %s(role_uuid) <> '' AND subject_uuid IS NOT NULL AND %s(subject_uuid) <> ''`,
+		trimFunc,
+		trimFunc,
+	)
+	groupSQL := fmt.Sprintf(`
+		SELECT tenant_uuid, subject_uuid, role_uuid, data_scope, COUNT(*) AS duplicate_count, %s AS row_ids
+		FROM %s
+		WHERE %s
+		GROUP BY tenant_uuid, subject_uuid, role_uuid, data_scope
+		HAVING COUNT(*) > 1
+	`, rowIDsExpr, table, filter)
+
+	var duplicateGroups int64
+	if err := db.Raw(fmt.Sprintf(`SELECT COUNT(1) FROM (%s) AS duplicate_role_bindings`, groupSQL)).Scan(&duplicateGroups).Error; err != nil {
+		return err
+	}
+	if duplicateGroups == 0 {
+		return nil
+	}
+
+	var samples []iamRoleBindingDuplicateGroup
+	if err := db.Raw(groupSQL + ` ORDER BY duplicate_count DESC, tenant_uuid, subject_uuid, role_uuid LIMIT 5`).Scan(&samples).Error; err != nil {
+		return err
+	}
+	return fmt.Errorf(
+		"iam_role_binding.duplicate_member_tenant_role_bindings: duplicate_groups=%d samples=%s",
+		duplicateGroups,
+		formatIAMRoleBindingDuplicateSamples(samples),
+	)
+}
+
+func formatIAMRoleBindingDuplicateSamples(samples []iamRoleBindingDuplicateGroup) string {
+	if len(samples) == 0 {
+		return "[]"
+	}
+	parts := make([]string, 0, len(samples))
+	for _, sample := range samples {
+		parts = append(parts, fmt.Sprintf(
+			"{tenant_uuid=%s subject_uuid=%s role_uuid=%s data_scope=%s duplicate_count=%d row_ids=%s}",
+			sample.TenantUUID,
+			sample.SubjectUUID,
+			sample.RoleUUID,
+			sample.DataScope,
+			sample.DuplicateCount,
+			sample.RowIDs,
+		))
+	}
+	return "[" + strings.Join(parts, " ") + "]"
 }
 
 func migrateDevHotloadModels(db *gorm.DB) error {

@@ -16,6 +16,8 @@ DOCS_DIR ?= docs
 
 # Go 编译配置
 GO_VERSION := $(shell go version | cut -d' ' -f3)
+GO_TOOLCHAIN ?= go1.24.0
+GO ?= GOTOOLCHAIN=$(GO_TOOLCHAIN) go
 GO_BUILD_FLAGS ?= -v -ldflags="-s -w -X main.version=$(PROJECT_VERSION) -X main.commit=$(PROJECT_COMMIT) -X main.buildTime=$(BUILD_TIME)"
 GO_TEST_FLAGS ?= -v -race
 GO_LINT_FLAGS ?= --timeout=5m
@@ -114,6 +116,7 @@ export REPORTS_DIR
 export DOCS_DIR
 export GO_BUILD_FLAGS
 export GO_TEST_FLAGS
+export GO_TOOLCHAIN
 export DEV_PORT
 export DEV_HOST
 export LOG_LEVEL

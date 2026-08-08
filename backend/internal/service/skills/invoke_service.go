@@ -64,6 +64,7 @@ func NewInvokeService(
 			newIncidentTriageExecutor(),
 			newPromptTemplateExecutor(),
 			newVideoFramesExecutor(),
+			newMarketingKnowledgeExecutor(),
 		},
 	}
 }

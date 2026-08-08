@@ -108,6 +108,17 @@ review_knowledge
 
 ## 8. 怎么 seed
 
+先准备当前租户的内置知识库。`make seed` 已为 `system` 租户准备 active 的 `插件联调知识空间`；新租户在后台创建或 SaaS 注册成功后会自动生成自己的 active 内置知识库。已有租户如果列表为空，可以在 `/knowledge-spaces` 点击“初始化固有知识库”，或调用：
+
+```bash
+curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/knowledge-spaces/builtin/seed" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+再启用当前租户的 Workflow Pack：
+
 ```bash
 curl -sS -X POST "$POWERX_BASE_URL/api/v1/admin/workflows/packs/seed" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -151,7 +162,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
-| 目标知识库 | 是 | 下拉选择已启用的 Knowledge Space，界面显示知识库名称，提交时使用 `knowledge_space_uuid`。 |
+| 目标知识库 | 是 | 下拉选择已启用的 Knowledge Space，界面显示知识库名称，提交时使用 `knowledge_space_uuid`。如果列表为空，先在 `/knowledge-spaces` 初始化固有知识库。 |
 | 素材类型 | 是 | `文本`、`音频`、`文档`、`链接`。 |
 | 营销材料文本 | 文本类型必填 | 粘贴访谈、活动复盘、渠道策略讨论或内容脚本。 |
 | 素材链接 | 链接类型必填 | 输入要解析的公开或内部资料链接。 |
@@ -179,7 +190,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 
 - Web Admin 已将运行测试输入表单化，避免用户直接面对 `$.vars.extracted` 这类引擎变量路径。
 - 变量路径仍保留在节点高级参数中，供研发和排障使用。
-- `marketing.audio_or_document_parse`、`marketing.extract_methodology`、`metadata.classify`、`knowledge.stage`、`knowledge.publish` 的真实执行依赖后续阶段接入 SkillInvoker、MetadataClassifier 和 KnowledgeOperator。
+- 后端 `WorkflowService` 已接入真实 `SkillInvoker`、`MetadataClassifier` 和 `KnowledgeOperator`。正式测试前必须确认目标 Skill 已发布、元数据治理对象已启用、目标 Knowledge Space 为 active，并且 `knowledge_chunks` 表已完成迁移。
 
 ## 11. Web Admin 怎么配置 Skill 节点
 
@@ -223,7 +234,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 
 - 普通配置人员只需要选择“执行技能”和可选“模型 Profile”。
 - `input_path` / `output_path` 仍在“高级参数”里展示，用于研发排障和合同校验。
-- 本阶段已实现节点配置保存入口；后端 `WorkflowService` 仍未注入真实 `SkillInvoker`，运行到 `skill.invoke` 时如果执行器缺失，会明确失败为 `workflow.skill_invoker_unavailable`。
+- 后端通过 Skill Registry 查找已发布 Skill，并将节点级 `model_override` 透传给 Skill 执行上下文。Skill 未发布、版本不存在或执行器不支持时会明确失败。
 
 ## 12. Web Admin 怎么配置元数据分类节点
 
@@ -261,7 +272,7 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 
 - 普通配置人员选择“分类策略”和治理对象，不需要手写 namespace。
 - UI 保存的仍是工作流引擎需要的 namespace 合同，便于后端 Adapter 严格校验。
-- 后端 `WorkflowService` 仍未注入真实 `MetadataClassifier` 时，运行到 `metadata.classify` 会明确失败，不做静默跳过。
+- 后端会校验 Taxonomy、Tag、Dictionary 和 Resource Type 都属于当前租户且处于 enabled 状态；缺任一治理对象都会明确失败，不做静默跳过。
 
 ## 13. 人工审核什么时候介入
 
@@ -310,11 +321,12 @@ curl -sS "$POWERX_BASE_URL/api/v1/admin/workflows/definitions?page_size=20&offse
 | Skill 下拉为空 | 没有已发布 Skill，或 `/api/v1/admin/skills` 不可访问。 | 到 AI 设置 > Skills 导入并发布 `marketing.audio_or_document_parse` 与 `marketing.extract_methodology`。 |
 | 模型 Profile 下拉为空 | AI Settings 未保存对应模态的模型 Profile。 | 到 AI 设置 > 模型配置保存 LLM、VLM、ASR 或 Embedding Profile。 |
 | 元数据治理选项不完整 | 缺分类体系、标签、数据字典或资源类型。 | 到设置 > 元数据治理启用营销相关治理对象。 |
-| 解析失败 | 音频或文档解析 Skill 未实现或未授权。 | 检查 `marketing.audio_or_document_parse`。 |
+| 解析失败 | 输入缺少结构化 `source` 对象，或 `source.type` 对应必填字段缺失。 | 文本补 `source.content`，链接补 `source.url`，音频/文档补 `source.asset_uuid`。 |
 | 抽取结果太泛 | `marketing.extract_methodology` prompt 或 schema 不完整。 | 优化 Skill。 |
 | 分类失败 | 营销 metadata namespace 没有 seed。 | 先 seed metadata governance。 |
 | 没有待审核任务 | 流程还没走到 `review_knowledge`，或前置节点已失败。 | 在实例详情查看当前步骤和 `trace_id`。 |
-| 发布失败 | `knowledge_space_uuid` 缺失或知识库权限不足。 | 检查知识库和权限。 |
+| 暂存失败 | `knowledge_space_uuid` 缺失、知识库不是 active，或 `knowledge_chunks` 表未迁移。 | 检查知识库状态和知识 chunk store 迁移；租户没有可用库时先执行固有知识库初始化。 |
+| 发布失败 | 审核通过前没有生成 `draft_refs`，或草稿 chunk 已不存在。 | 检查 `stage_knowledge` 输出和实例 `trace_id`。 |
 
 ## 16. 适合不适合
 

@@ -45,11 +45,15 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	strategyHandler := NewStrategyHandler(deps)
 	sourceHandler := NewSourceHandler(deps)
 	vectorIndexHandler := NewVectorIndexHandler(deps)
+	builtinHandler := NewBuiltinHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.GET("", handler.list)
-		group.GET("/:spaceId", handler.get)
 		group.POST("", handler.create)
+		if builtinHandler != nil {
+			group.POST("/builtin/seed", builtinHandler.Seed)
+		}
+		group.GET("/:spaceId", handler.get)
 		group.PATCH("/:spaceId", handler.update)
 		group.POST("/:spaceId/retire", handler.retire)
 		group.DELETE("/:spaceId", handler.delete)

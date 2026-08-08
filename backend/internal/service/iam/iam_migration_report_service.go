@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,11 +52,29 @@ type IAMMigrationReport struct {
 	TenantAdminMissing     []string                  `json:"tenant_admin_missing"`
 	AutoFixCandidates      []string                  `json:"auto_fix_candidates"`
 	ManualFixRequired      []string                  `json:"manual_fix_required"`
+	DuplicateRoleBindings  []IAMRoleBindingDuplicate `json:"duplicate_role_bindings"`
+}
+
+type IAMRoleBindingDuplicate struct {
+	TenantUUID     string `json:"tenant_uuid"`
+	SubjectUUID    string `json:"subject_uuid"`
+	RoleUUID       string `json:"role_uuid"`
+	DataScope      string `json:"data_scope"`
+	DuplicateCount int64  `json:"duplicate_count"`
+	RowIDs         string `json:"row_ids"`
 }
 
 type IAMMigrationFixOwnerResult struct {
 	FixedTenantUUIDs []string            `json:"fixed_tenant_uuids"`
 	Report           *IAMMigrationReport `json:"report"`
+}
+
+type IAMMigrationFixDuplicateRoleBindingsResult struct {
+	DryRun                   bool                      `json:"dry_run"`
+	DuplicateGroups          []IAMRoleBindingDuplicate `json:"duplicate_groups"`
+	DeletedIDs               []uint64                  `json:"deleted_ids"`
+	KeptIDs                  []uint64                  `json:"kept_ids"`
+	RemainingDuplicateGroups []IAMRoleBindingDuplicate `json:"remaining_duplicate_groups"`
 }
 
 func NewIAMMigrationReportService(db *gorm.DB) *IAMMigrationReportService {
@@ -92,6 +111,11 @@ func (s *IAMMigrationReportService) Report(ctx context.Context) (*IAMMigrationRe
 		}
 	}
 	report.RootSystemMemberStatus = s.rootSystemMemberStatus(ctx, s.DB, systemTenant, rootUsers)
+	duplicates, err := s.listDuplicateRoleBindings(ctx, s.DB)
+	if err != nil {
+		return nil, dto.NewInternal("查询重复角色绑定失败", err)
+	}
+	report.DuplicateRoleBindings = duplicates
 
 	tenants, err := s.listBusinessTenants(ctx, s.DB)
 	if err != nil {
@@ -128,6 +152,72 @@ func (s *IAMMigrationReportService) FixMissingOwners(ctx context.Context) (*IAMM
 
 func (s *IAMMigrationReportService) FixMissingOwnersAsSystem(ctx context.Context) (*IAMMigrationFixOwnerResult, error) {
 	return s.fixMissingOwners(ctx, false)
+}
+
+func (s *IAMMigrationReportService) FixDuplicateRoleBindingsAsSystem(ctx context.Context, confirm bool) (*IAMMigrationFixDuplicateRoleBindingsResult, error) {
+	return s.fixDuplicateRoleBindings(ctx, false, confirm)
+}
+
+func (s *IAMMigrationReportService) FixDuplicateRoleBindings(ctx context.Context, confirm bool) (*IAMMigrationFixDuplicateRoleBindingsResult, error) {
+	return s.fixDuplicateRoleBindings(ctx, true, confirm)
+}
+
+func (s *IAMMigrationReportService) fixDuplicateRoleBindings(ctx context.Context, requireRoot bool, confirm bool) (*IAMMigrationFixDuplicateRoleBindingsResult, error) {
+	if s == nil || s.DB == nil {
+		return nil, dto.NewInternal("IAM migration report service 未初始化", nil)
+	}
+	if requireRoot {
+		if err := s.requireRootActor(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	result := &IAMMigrationFixDuplicateRoleBindingsResult{DryRun: !confirm}
+	duplicates, err := s.listDuplicateRoleBindings(ctx, s.DB)
+	if err != nil {
+		return nil, dto.NewInternal("查询重复角色绑定失败", err)
+	}
+	result.DuplicateGroups = duplicates
+	if !confirm {
+		return result, nil
+	}
+
+	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		deleteIDs := make([]uint64, 0)
+		keepIDs := make([]uint64, 0, len(duplicates))
+		for _, duplicate := range duplicates {
+			ids, err := parseIAMRoleBindingRowIDs(duplicate.RowIDs)
+			if err != nil {
+				return err
+			}
+			if len(ids) <= 1 {
+				continue
+			}
+			keepIDs = append(keepIDs, ids[0])
+			deleteIDs = append(deleteIDs, ids[1:]...)
+		}
+		if len(deleteIDs) == 0 {
+			result.KeptIDs = keepIDs
+			return nil
+		}
+		if err := tx.Where("id IN ?", deleteIDs).Delete(&modeliam.RoleBinding{}).Error; err != nil {
+			return dto.NewInternal("删除重复角色绑定失败", err)
+		}
+		result.DeletedIDs = deleteIDs
+		result.KeptIDs = keepIDs
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(result.DeletedIDs, func(i, j int) bool { return result.DeletedIDs[i] < result.DeletedIDs[j] })
+	sort.Slice(result.KeptIDs, func(i, j int) bool { return result.KeptIDs[i] < result.KeptIDs[j] })
+	remaining, err := s.listDuplicateRoleBindings(ctx, s.DB)
+	if err != nil {
+		return nil, dto.NewInternal("查询剩余重复角色绑定失败", err)
+	}
+	result.RemainingDuplicateGroups = remaining
+	return result, nil
 }
 
 func (s *IAMMigrationReportService) fixMissingOwners(ctx context.Context, requireRoot bool) (*IAMMigrationFixOwnerResult, error) {
@@ -256,6 +346,52 @@ func (s *IAMMigrationReportService) listBusinessTenants(ctx context.Context, db 
 		Order("id ASC").
 		Find(&tenants).Error
 	return tenants, err
+}
+
+func (s *IAMMigrationReportService) listDuplicateRoleBindings(ctx context.Context, db *gorm.DB) ([]IAMRoleBindingDuplicate, error) {
+	table := (&modeliam.RoleBinding{}).GetTableName(true)
+	trimFunc := "trim"
+	rowIDsExpr := "group_concat(CAST(id AS TEXT), ',')"
+	if db.Dialector != nil && db.Dialector.Name() == "postgres" {
+		trimFunc = "btrim"
+		rowIDsExpr = "string_agg(id::text, ',' ORDER BY id)"
+	}
+	query := `
+		SELECT tenant_uuid, subject_uuid, role_uuid, data_scope, COUNT(*) AS duplicate_count, ` + rowIDsExpr + ` AS row_ids
+		FROM ` + table + `
+		WHERE subject_type = ?
+		  AND data_scope = ?
+		  AND role_uuid IS NOT NULL
+		  AND ` + trimFunc + `(role_uuid) <> ''
+		  AND subject_uuid IS NOT NULL
+		  AND ` + trimFunc + `(subject_uuid) <> ''
+		GROUP BY tenant_uuid, subject_uuid, role_uuid, data_scope
+		HAVING COUNT(*) > 1
+		ORDER BY duplicate_count DESC, tenant_uuid, subject_uuid, role_uuid
+	`
+	var out []IAMRoleBindingDuplicate
+	if err := db.WithContext(ctx).Raw(query, modeliam.SubMember, modeliam.ScopeTenant).Scan(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func parseIAMRoleBindingRowIDs(value string) ([]uint64, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]uint64, 0, len(parts))
+	for _, part := range parts {
+		id, err := strconv.ParseUint(strings.TrimSpace(part), 10, 64)
+		if err != nil {
+			return nil, dto.NewInternal("重复角色绑定 row_ids 格式无效", err)
+		}
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out, nil
 }
 
 func (s *IAMMigrationReportService) tenantHasActiveRole(ctx context.Context, db *gorm.DB, tenantUUID string, code coreiam.RoleCode) (bool, error) {

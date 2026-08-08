@@ -302,8 +302,38 @@
       "debugReasonMustSelect": "请选择一个执行意图。",
       "debugNotePlaceholder": "可选，例如：验证审批后调用大模型列表能力",
       "dryRunHint": "只创建运行记录、人工审核和模拟输出，不真实调用 PowerX 能力，也不发送真实事件。",
+      "startNodeRunFormTitle": "开始节点输入",
+      "startNodeRunFormTitleWithName": "开始节点输入：{name}",
+      "startNodeRunFormDescription": "本次运行参数来自开始节点的输入结构，提交后会作为结构化输入进入后续节点。",
+      "runFormStartNodeLabel": "绑定开始节点",
+      "inlineInputSchema": "内联输入结构",
+      "runFormFieldCount": "{count} 个输入字段",
+      "runFormConfigErrorTitle": "开始节点输入配置错误",
+      "runFormSchemaRefMissing": "当前工作流引用了输入结构 {ref}，但前端没有收到对应的 x-run-form 表单定义。请在工作流定义的 input_schema 中声明 x-run-form，或让后端返回该 schema ref 的正式定义。",
+      "runFormFieldRequired": "请填写 {field}。",
+      "knowledgeSourceRunFormTitle": "知识来源输入",
+      "knowledgeSourceRunFormDescription": "填写本次采集的知识来源和目标知识库，后续节点会解析、抽取、分类并进入审核发布流程。",
+      "campaignReviewRunFormTitle": "活动复盘输入",
+      "campaignReviewRunFormDescription": "填写活动复盘材料和目标知识库，后续节点会抽取指标、总结方法论并进入审核发布流程。",
+      "metadataIntakeRunFormTitle": "元数据采集输入",
+      "metadataIntakeRunFormDescription": "填写待分类内容及元数据治理命名空间，后续节点会执行分类并提交人工审核。",
+      "skillReviewRunFormTitle": "技能审核输入",
+      "skillReviewRunFormDescription": "填写要调用的技能和输入内容，后续节点会执行技能并提交结果审核。",
+      "sourceTypeLabel": "来源类型",
+      "sourceTextLabel": "来源文本",
+      "sourceTextPlaceholder": "粘贴需要解析或抽取的业务材料...",
+      "sourceUrlLabel": "来源链接",
+      "sourceUrlPlaceholder": "https://example.com/source",
+      "sourceAssetLabel": "来源资产引用",
+      "sourceAssetPlaceholder": "从媒体库或文档库选择后填入资产引用",
+      "sourceAssetHint": "当前阶段先支持粘贴资产引用；后续可接入媒体/文档选择器。",
+      "intakeTextLabel": "待分类内容",
+      "intakeTextPlaceholder": "输入需要执行元数据分类的文本内容...",
+      "intakeSourceLabel": "采集来源",
+      "skillReviewInputTextLabel": "技能输入文本",
+      "skillReviewInputTextPlaceholder": "输入要交给技能处理的内容...",
       "marketingRunFormTitle": "营销知识采集输入",
-      "marketingRunFormDescription": "像 Coze/Dify 的开始节点一样，在这里填写本次运行的业务输入；系统会整理为结构化输入交给后续解析、抽取和审核节点。",
+      "marketingRunFormDescription": "填写本次运行的营销素材输入，系统会整理为结构化输入交给后续解析、抽取和审核节点。",
       "marketingKnowledgeSpaceLabel": "目标知识库",
       "marketingKnowledgeSpacePlaceholder": "选择营销方法论知识库",
       "marketingKnowledgeSpaceSearchPlaceholder": "搜索知识库",
@@ -366,8 +396,34 @@
       "approverRolesPlaceholder": "例如 workflow_reviewer",
       "runtimeCapabilityHint": "当前能力来自运行时调试输入的 capability_id。需要固定能力时，可以在这里填写正式 Capability ID。",
       "inputCaptureConfigHint": "这里配置输入采集节点的结构和输出位置，不是本次运行的参数值。本次测试参数请点击顶部“运行测试”填写。",
+      "inputSchemaRefHint": "输入结构引用用于加载已有字段模板；下方字段才是开始节点实际要求用户填写的输入项。",
       "startNodeBusinessTitle": "开始节点：收集输入",
       "startNodeBusinessDescription": "工作流从这里接收本次运行的输入，例如文本、表单、媒体或链接；后续节点会基于这些输入继续处理。",
+      "inputFieldsTitle": "输入字段",
+      "inputFieldsDescription": "运行测试会按这里生成表单。",
+      "inputFieldsEmpty": "还没有配置输入字段。",
+      "addInputField": "添加字段",
+      "addInputFieldShort": "添加",
+      "editInputField": "编辑字段",
+      "removeInputField": "删除字段",
+      "inputFieldDialogDescription": "配置一个开始节点输入字段，保存后会写入本节点的输入结构。",
+      "inputFieldBasicSection": "基础信息",
+      "inputFieldContractSection": "字段设置",
+      "inputFieldUiSection": "显示提示",
+      "inputFieldBehaviorSection": "行为设置",
+      "inputFieldLabelLabel": "显示名称",
+      "inputFieldLabelPlaceholder": "例如 营销材料文本",
+      "inputFieldKindLabel": "字段类型",
+      "inputFieldPlaceholderLabel": "占位提示",
+      "inputFieldPlaceholderPlaceholder": "用户填写前看到的提示",
+      "inputFieldOptionsLabel": "可选项",
+      "inputFieldOptionsPlaceholder": "选择这个下拉字段允许用户选择的内容",
+      "inputFieldRequiredLabel": "必填",
+      "inputFieldKnowledgeSpaceResourceLabel": "知识库选择器",
+      "newInputFieldLabel": "输入字段 {index}",
+      "inputFieldInvalidTitle": "输入字段配置不完整",
+      "inputFieldInvalidDescription": "显示名称不能为空。",
+      "inputFieldOptionsRequiredDescription": "下拉字段至少需要勾选一个可选项。",
       "endNodeBusinessTitle": "结束节点：输出结果",
       "endNodeBusinessDescription": "流程在这里结束，并把发布、拒绝或通知结果交给运行记录和下游事件订阅方。",
       "startNodeAlreadyExists": "一个工作流只能有一个开始节点",
@@ -412,7 +468,7 @@
       "metadataDictionarySearchPlaceholder": "搜索数据字典",
       "metadataResourceTypePlaceholder": "选择资源类型",
       "metadataResourceTypeSearchPlaceholder": "搜索资源类型",
-      "metadataConfigHint": "这里选择已有元数据治理对象，并保存为工作流引擎需要的 namespace 合同；变量路径仍在高级参数中查看。",
+      "metadataConfigHint": "这里选择已有元数据治理对象，并保存为工作流引擎需要的 namespace 合同；变量路径仅在运行状态的诊断数据中查看。",
       "metadataOptionsLoadFailed": "元数据治理选项加载失败",
       "metadataOptionsIncomplete": "元数据治理对象不完整，请先在设置 > 元数据治理中启用分类体系、标签、数据字典和资源类型。",
       "metadataGovernanceOptionLabel": "{name} · {namespace}",
@@ -472,8 +528,6 @@
           "result": "补偿处理结果"
         }
       },
-      "advancedConfig": "高级参数",
-      "advancedConfigHint": "这些字段是工作流引擎使用的技术合同，普通调试不需要修改。",
       "paletteCategory": {
         "input_output": "输入与输出",
         "ai_skill": "AI 与技能",
@@ -519,6 +573,14 @@
         "ja": "日文",
         "ko": "韩文"
       }
+    },
+    "inputFieldKind": {
+      "text": "单行文本",
+      "textarea": "多行文本",
+      "select": "下拉选项",
+      "boolean": "开关",
+      "number": "数字",
+      "object": "JSON 对象"
     },
     "modelModality": {
       "llm": "大语言模型",
@@ -727,6 +789,16 @@
       },
       "compensation": {
         "rollback": "补偿回滚"
+      }
+    },
+    "skill": {
+      "marketingSourceParse": {
+        "summary": "解析营销文本、链接、音频或文档素材。",
+        "releaseNote": "内置营销素材解析技能。"
+      },
+      "marketingMethodologyExtract": {
+        "summary": "从营销素材中抽取可审核的方法论草稿。",
+        "releaseNote": "内置营销方法论抽取技能。"
       }
     },
     "pack": {
@@ -1774,6 +1846,13 @@
         "docs": "文档",
         "docsDesc": "查看使用指南"
       }
+    },
+    "builtin": {
+      "initialize": "初始化固有知识库",
+      "initializeDesc": "创建当前租户默认知识库",
+      "initializeSuccess": "固有知识库已初始化",
+      "initializeResult": "新建 {created} 个，更新 {updated} 个。",
+      "initializeFailed": "初始化固有知识库失败"
     },
     "governance": {
       "title": "治理",

@@ -47,6 +47,7 @@ const spacesLoading = ref(false);
 const spacesError = ref<string | null>(null);
 const spaces = ref<KnowledgeSpaceRecord[]>([]);
 const spacesLoaded = ref(false);
+const initializingBuiltinKnowledge = ref(false);
 const pendingOpenIngestion = ref(false);
 const spaceQuery = ref("");
 const systemPanelsOpen = ref(false);
@@ -86,6 +87,30 @@ const loadSpaces = async () => {
   }
 };
 
+const initializeBuiltinKnowledgeSpaces = async () => {
+	initializingBuiltinKnowledge.value = true;
+	try {
+		const result = await api.seedBuiltinKnowledgeSpaces();
+		await loadSpaces();
+		toast.add({
+			color: "success",
+			title: t("knowledgeSpaces.builtin.initializeSuccess"),
+			description: t("knowledgeSpaces.builtin.initializeResult", {
+				created: result?.created ?? 0,
+				updated: result?.updated ?? 0,
+			}),
+		});
+	} catch (error: any) {
+		toast.add({
+			color: "error",
+			title: t("knowledgeSpaces.builtin.initializeFailed"),
+			description: error?.message || t("common.unknown"),
+		});
+	} finally {
+		initializingBuiltinKnowledge.value = false;
+	}
+};
+
 const quickActions = computed(() => [
   {
     icon: "i-heroicons-plus-circle",
@@ -93,6 +118,13 @@ const quickActions = computed(() => [
     description: t("knowledgeSpaces.hero.actions.createDesc"),
     onClick: goCreateSpace,
     primary: true,
+  },
+  {
+    icon: "i-heroicons-sparkles",
+    title: t("knowledgeSpaces.builtin.initialize"),
+    description: t("knowledgeSpaces.builtin.initializeDesc"),
+    onClick: initializeBuiltinKnowledgeSpaces,
+    loading: initializingBuiltinKnowledge.value,
   },
   {
     icon: "i-heroicons-magnifying-glass",
@@ -1935,11 +1967,15 @@ const applyRemediationAction = (action: any) => {
           :key="action.title"
           :to="action.onClick ? undefined : action.to"
           :type="action.onClick ? 'button' : undefined"
+          :disabled="Boolean(action.loading)"
           class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-gray-50"
-          :class="action.primary ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-500' : 'border-gray-200 text-gray-700'"
+          :class="[
+            action.primary ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-500' : 'border-gray-200 text-gray-700',
+            action.loading ? 'cursor-wait opacity-70' : '',
+          ]"
           @click="action.onClick ? action.onClick() : undefined"
         >
-          <UIcon :name="action.icon" class="w-5 h-5" />
+          <UIcon :name="action.loading ? 'i-heroicons-arrow-path' : action.icon" class="w-5 h-5" :class="action.loading ? 'animate-spin' : ''" />
           <span>{{ action.title }}</span>
         </component>
       </div>

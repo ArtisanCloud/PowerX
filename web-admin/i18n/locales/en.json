@@ -258,8 +258,38 @@
       "debugReasonMustSelect": "Select an execution intent.",
       "debugNotePlaceholder": "Optional, for example: verify approval before listing LLM models",
       "dryRunHint": "Creates run records, human review, and simulated outputs only. It does not invoke real PowerX capabilities or emit real events.",
+      "startNodeRunFormTitle": "Start node input",
+      "startNodeRunFormTitleWithName": "Start node input: {name}",
+      "startNodeRunFormDescription": "Run parameters come from the start node input schema and are submitted as structured input for later nodes.",
+      "runFormStartNodeLabel": "Bound start node",
+      "inlineInputSchema": "Inline input schema",
+      "runFormFieldCount": "{count} input fields",
+      "runFormConfigErrorTitle": "Start node input configuration error",
+      "runFormSchemaRefMissing": "This workflow references input schema {ref}, but the frontend did not receive a matching x-run-form definition. Declare x-run-form in the workflow input_schema or return the formal schema definition for this schema ref from the backend.",
+      "runFormFieldRequired": "Enter {field}.",
+      "knowledgeSourceRunFormTitle": "Knowledge source input",
+      "knowledgeSourceRunFormDescription": "Enter the source material and target knowledge base for this run. Later nodes parse, extract, classify, review, and publish it.",
+      "campaignReviewRunFormTitle": "Campaign review input",
+      "campaignReviewRunFormDescription": "Enter campaign review material and the target knowledge base. Later nodes extract metrics, summarize methodology, review, and publish it.",
+      "metadataIntakeRunFormTitle": "Metadata intake input",
+      "metadataIntakeRunFormDescription": "Enter content to classify and the metadata governance namespaces. Later nodes classify it and submit it for human review.",
+      "skillReviewRunFormTitle": "Skill review input",
+      "skillReviewRunFormDescription": "Enter the skill and input content. Later nodes invoke the skill and submit the result for review.",
+      "sourceTypeLabel": "Source type",
+      "sourceTextLabel": "Source text",
+      "sourceTextPlaceholder": "Paste business material to parse or extract...",
+      "sourceUrlLabel": "Source URL",
+      "sourceUrlPlaceholder": "https://example.com/source",
+      "sourceAssetLabel": "Source asset reference",
+      "sourceAssetPlaceholder": "Select an asset from media or documents and paste its reference",
+      "sourceAssetHint": "For now, paste an asset reference. A media/document picker can be connected later.",
+      "intakeTextLabel": "Content to classify",
+      "intakeTextPlaceholder": "Enter text for metadata classification...",
+      "intakeSourceLabel": "Intake source",
+      "skillReviewInputTextLabel": "Skill input text",
+      "skillReviewInputTextPlaceholder": "Enter content to pass into the skill...",
       "marketingRunFormTitle": "Marketing knowledge capture input",
-      "marketingRunFormDescription": "Enter this run's business input here, similar to a Coze/Dify start node. The form is converted into structured input for parsing, extraction, and review nodes.",
+      "marketingRunFormDescription": "Enter the marketing source input for this run. The form is converted into structured input for parsing, extraction, and review nodes.",
       "marketingKnowledgeSpaceLabel": "Target knowledge base",
       "marketingKnowledgeSpacePlaceholder": "Select a marketing methodology knowledge base",
       "marketingKnowledgeSpaceSearchPlaceholder": "Search knowledge bases",
@@ -322,8 +352,34 @@
       "approverRolesPlaceholder": "For example workflow_reviewer",
       "runtimeCapabilityHint": "This capability is read from capability_id in runtime debug input. Enter a formal Capability ID here only when the workflow must use a fixed capability.",
       "inputCaptureConfigHint": "This config defines the input capture schema and output location, not this run's input values. Use the top Test Run action to enter test parameters.",
+      "inputSchemaRefHint": "The input schema reference loads an existing field template. The fields below are the actual inputs required by the start node.",
       "startNodeBusinessTitle": "Start node: collect input",
       "startNodeBusinessDescription": "The workflow receives this run's input here, such as text, form data, media, or links. Later nodes continue from this input.",
+      "inputFieldsTitle": "Input fields",
+      "inputFieldsDescription": "Test Run renders its form from these fields.",
+      "inputFieldsEmpty": "No input fields configured yet.",
+      "addInputField": "Add field",
+      "addInputFieldShort": "Add",
+      "editInputField": "Edit field",
+      "removeInputField": "Remove field",
+      "inputFieldDialogDescription": "Configure one start-node input field. Saving writes it into this node's input schema.",
+      "inputFieldBasicSection": "Basics",
+      "inputFieldContractSection": "Field settings",
+      "inputFieldUiSection": "Display hints",
+      "inputFieldBehaviorSection": "Behavior",
+      "inputFieldLabelLabel": "Display label",
+      "inputFieldLabelPlaceholder": "For example Marketing source text",
+      "inputFieldKindLabel": "Field type",
+      "inputFieldPlaceholderLabel": "Placeholder",
+      "inputFieldPlaceholderPlaceholder": "Hint shown before the user enters a value",
+      "inputFieldOptionsLabel": "Available options",
+      "inputFieldOptionsPlaceholder": "Choose which options this select field should expose",
+      "inputFieldRequiredLabel": "Required",
+      "inputFieldKnowledgeSpaceResourceLabel": "Knowledge base selector",
+      "newInputFieldLabel": "Input field {index}",
+      "inputFieldInvalidTitle": "Input field configuration is incomplete",
+      "inputFieldInvalidDescription": "Display label is required.",
+      "inputFieldOptionsRequiredDescription": "Select fields need at least one available option.",
       "endNodeBusinessTitle": "End node: output result",
       "endNodeBusinessDescription": "The workflow ends here and hands the publish, rejection, or notification result to run records and downstream event subscribers.",
       "startNodeAlreadyExists": "A workflow can only have one start node",
@@ -368,7 +424,7 @@
       "metadataDictionarySearchPlaceholder": "Search dictionaries",
       "metadataResourceTypePlaceholder": "Select resource type",
       "metadataResourceTypeSearchPlaceholder": "Search resource types",
-      "metadataConfigHint": "This selects existing Metadata Governance objects and saves the namespace contract required by the workflow engine. Variable paths remain in Advanced Parameters.",
+      "metadataConfigHint": "This selects existing Metadata Governance objects and saves the namespace contract required by the workflow engine. Variable paths are only visible in Runtime diagnostics.",
       "metadataOptionsLoadFailed": "Failed to load metadata governance options",
       "metadataOptionsIncomplete": "Metadata Governance objects are incomplete. Enable a taxonomy, tags, dictionary, and resource type in Settings > Metadata Governance first.",
       "metadataGovernanceOptionLabel": "{name} · {namespace}",
@@ -428,8 +484,6 @@
           "result": "Compensation result"
         }
       },
-      "advancedConfig": "Advanced Parameters",
-      "advancedConfigHint": "These fields are technical contracts used by the workflow engine. Normal test runs do not require editing them.",
       "paletteCategory": {
         "input_output": "Input & Output",
         "ai_skill": "AI & Skills",
@@ -475,6 +529,14 @@
         "ja": "Japanese",
         "ko": "Korean"
       }
+    },
+    "inputFieldKind": {
+      "text": "Single-line text",
+      "textarea": "Multi-line text",
+      "select": "Select",
+      "boolean": "Switch",
+      "number": "Number",
+      "object": "JSON object"
     },
     "modelModality": {
       "llm": "Large language model",
@@ -683,6 +745,16 @@
       },
       "compensation": {
         "rollback": "Compensation Rollback"
+      }
+    },
+    "skill": {
+      "marketingSourceParse": {
+        "summary": "Parse marketing text, links, audio, or document material.",
+        "releaseNote": "Built-in marketing source parsing skill."
+      },
+      "marketingMethodologyExtract": {
+        "summary": "Extract reviewable methodology drafts from marketing material.",
+        "releaseNote": "Built-in marketing methodology extraction skill."
       }
     },
     "pack": {
@@ -1612,6 +1684,13 @@
         "docs": "Docs",
         "docsDesc": "Read the guide"
       }
+    },
+    "builtin": {
+      "initialize": "Initialize Built-in Base",
+      "initializeDesc": "Create the tenant default knowledge base",
+      "initializeSuccess": "Built-in knowledge base initialized",
+      "initializeResult": "Created {created}, updated {updated}.",
+      "initializeFailed": "Failed to initialize built-in knowledge base"
     },
     "governance": {
       "title": "Governance",

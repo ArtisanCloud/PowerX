@@ -362,19 +362,71 @@
               </template>
 
               <template v-else-if="selectedNode.data.kind === 'input.capture'">
-                <div class="business-config-card">
-                  <strong>{{ t("workflow.editor.startNodeBusinessTitle") }}</strong>
-                  <span>{{ t("workflow.editor.startNodeBusinessDescription") }}</span>
-                </div>
-                <div class="properties-switch-grid">
-                  <label>
-                    <USwitch v-model="selectedNode.data.props.source_policy.text" />
-                    <span>{{ t('workflow.fields.source_text') }}</span>
-                  </label>
-                  <label>
-                    <USwitch v-model="selectedNode.data.props.source_policy.form" />
-                    <span>{{ t('workflow.fields.source_form') }}</span>
-                  </label>
+                <div class="input-fields-editor">
+                  <div class="input-fields-header">
+                    <div>
+                      <strong>{{ t("workflow.editor.inputFieldsTitle") }}</strong>
+                      <span>{{ t("workflow.editor.inputFieldsDescription") }}</span>
+                    </div>
+                    <UButton
+                      size="xs"
+                      color="primary"
+                      variant="soft"
+                      icon="i-heroicons-plus"
+                      :aria-label="t('workflow.editor.addInputField')"
+                      @click="addInputRunFormField"
+                    >
+                      {{ t("workflow.editor.addInputFieldShort") }}
+                    </UButton>
+                  </div>
+                  <div v-if="selectedInputRunFormFields.length" class="input-field-list">
+                    <div
+                      v-for="(field, fieldIndex) in selectedInputRunFormFields"
+                      :key="field.key || fieldIndex"
+                      class="input-field-list-item"
+                    >
+                      <div class="input-field-list-head">
+                        <strong>{{ inputFieldDisplayLabel(field, fieldIndex) }}</strong>
+                        <div class="input-field-list-actions">
+                          <UButton
+                            size="xs"
+                            color="neutral"
+                            variant="ghost"
+                            icon="i-heroicons-pencil-square"
+                            :aria-label="t('workflow.editor.editInputField')"
+                            @click="openInputFieldDialog(fieldIndex)"
+                          />
+                          <UButton
+                            size="xs"
+                            color="error"
+                            variant="ghost"
+                            icon="i-heroicons-trash"
+                            :aria-label="t('workflow.editor.removeInputField')"
+                            @click="removeInputRunFormField(fieldIndex)"
+                          />
+                        </div>
+                      </div>
+                      <div class="input-field-list-badges">
+                        <UBadge class="input-field-badge" color="neutral" variant="subtle">
+                          {{ inputFieldKindLabel(field.kind) }}
+                        </UBadge>
+                        <UBadge v-if="field.required" class="input-field-badge" color="error" variant="subtle">
+                          {{ t("workflow.editor.inputFieldRequiredLabel") }}
+                        </UBadge>
+                        <UBadge
+                          v-if="field.resource === 'knowledge_space'"
+                          class="input-field-badge"
+                          color="primary"
+                          variant="subtle"
+                        >
+                          {{ t("workflow.editor.inputFieldKnowledgeSpaceResourceLabel") }}
+                        </UBadge>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="input-field-empty">
+                    {{ t("workflow.editor.inputFieldsEmpty") }}
+                  </div>
                 </div>
               </template>
 
@@ -691,27 +743,6 @@
                 </template>
               </template>
 
-              <div v-if="advancedNodeConfigEntries.length" class="advanced-config-section">
-                <button
-                  class="advanced-config-toggle"
-                  type="button"
-                  @click="showAdvancedNodeConfig = !showAdvancedNodeConfig"
-                >
-                  <span>{{ t("workflow.editor.advancedConfig") }}</span>
-                  <Icon :name="showAdvancedNodeConfig ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
-                </button>
-                <div v-if="showAdvancedNodeConfig" class="advanced-config-list">
-                  <div
-                    v-for="entry in advancedNodeConfigEntries"
-                    :key="entry.key"
-                    class="advanced-config-row"
-                  >
-                    <span>{{ entry.label }}</span>
-                    <code>{{ entry.value }}</code>
-                  </div>
-                  <p>{{ t("workflow.editor.advancedConfigHint") }}</p>
-                </div>
-              </div>
             </div>
             <div v-else-if="propertiesTab === 'runtime'" class="node-runtime-panel">
               <div class="node-runtime-summary" :class="`state-${selectedNodeRunState}`">
@@ -1002,204 +1033,114 @@
               </UButton>
             </div>
           </div>
-          <div v-if="isApprovalGuardedCapabilityWorkflow" class="debug-input-form">
+          <div v-if="runFormFields.length > 0" class="debug-input-form">
             <UAlert
               class="run-dialog-notice"
               icon="i-heroicons-information-circle"
               color="info"
               variant="subtle"
-              :title="t('workflow.editor.workflowCapabilitySourceTitle')"
-              :description="t('workflow.editor.workflowCapabilitySourceDescription')"
+              :title="runFormTitle"
+              :description="runFormDescription"
             />
-            <UFormField :label="t('workflow.editor.runCapabilitySourceLabel')">
-              <USelectMenu
-                v-model="selectedRunCapabilitySource"
-                :items="capabilitySourceSelectItems"
-                label-key="label"
-                :portal="runDialogSelectPortal"
-                :content="runDialogSelectContent"
-                :ui="runDialogSelectUi"
-                class="w-full"
-                :loading="capabilityOptionsLoading"
-                :disabled="capabilityOptionsLoading || capabilitySourceSelectItems.length === 0"
-                :placeholder="t('workflow.editor.capabilitySourceSelectPlaceholder')"
-                :search-input="{ placeholder: t('workflow.editor.capabilitySourceSearchPlaceholder') }"
-              />
-            </UFormField>
-            <UFormField :label="t('workflow.editor.runCapabilityModuleLabel')">
-              <USelectMenu
-                v-model="selectedRunCapabilityModule"
-                :items="runCapabilityModuleSelectItems"
-                label-key="label"
-                :portal="runDialogSelectPortal"
-                :content="runDialogSelectContent"
-                :ui="runDialogSelectUi"
-                class="w-full"
-                :loading="capabilityOptionsLoading"
-                :disabled="capabilityOptionsLoading || !selectedRunCapabilitySource || runCapabilityModuleSelectItems.length === 0"
-                :placeholder="t('workflow.editor.capabilityModuleSelectPlaceholder')"
-                :search-input="{ placeholder: t('workflow.editor.capabilityModuleSearchPlaceholder') }"
-              />
-              <div class="run-field-hint">
-                {{ t("workflow.editor.capabilityModuleSelectHint") }}
+            <div class="run-start-node-card">
+              <div class="run-start-node-icon">
+                <UIcon name="i-heroicons-play" />
               </div>
-            </UFormField>
-            <UFormField :label="t('workflow.editor.runCapabilityLabel')">
-              <USelectMenu
-                v-model="selectedRunCapability"
-                :items="capabilitySelectItems"
-                label-key="label"
-                :portal="runDialogSelectPortal"
-                :content="runDialogSelectContent"
-                :ui="runDialogSelectUi"
-                class="w-full"
-                :loading="capabilityOptionsLoading"
-                :disabled="capabilityOptionsLoading || !selectedRunCapabilitySource || !selectedRunCapabilityModule || capabilitySelectItems.length === 0"
-                :placeholder="t('workflow.editor.capabilitySelectPlaceholder')"
-                :search-input="{ placeholder: t('workflow.editor.capabilitySearchPlaceholder') }"
-              />
-              <div class="run-field-hint">
-                {{ t("workflow.editor.capabilitySelectHint") }}
+              <div class="run-start-node-content">
+                <span>{{ t("workflow.editor.runFormStartNodeLabel") }}</span>
+                <strong>{{ runFormStartNodeName }}</strong>
               </div>
-              <div v-if="selectedRunCapabilityDetail" class="run-capability-detail">
-                {{ selectedRunCapabilityDetail }}
+              <div class="run-start-node-meta">
+                <UBadge color="primary" variant="subtle">
+                  {{ currentInputSchemaRef || t("workflow.editor.inlineInputSchema") }}
+                </UBadge>
+                <UBadge color="neutral" variant="subtle">
+                  {{ t("workflow.editor.runFormFieldCount", { count: runFormFields.length }) }}
+                </UBadge>
               </div>
-            </UFormField>
-            <UFormField :label="t('workflow.fields.reason')">
-              <USelectMenu
-                v-model="selectedExecutionReason"
-                :items="executionReasonOptions"
-                label-key="label"
-                :portal="runDialogSelectPortal"
-                :content="runDialogSelectContent"
-                :ui="runDialogSelectUi"
-                class="w-full"
-                :placeholder="t('workflow.editor.executionReasonPlaceholder')"
-                :search-input="{ placeholder: t('workflow.editor.executionReasonSearchPlaceholder') }"
-              />
-              <div class="run-field-hint">
-                {{ t("workflow.editor.executionReasonHint") }}
-              </div>
-            </UFormField>
-            <label class="debug-input-switch">
-              <USwitch v-model="approvalDebugForm.dry_run" />
-              <span>
-                <strong>{{ t("workflow.fields.dry_run") }}</strong>
-                <small>{{ t("workflow.editor.dryRunHint") }}</small>
-              </span>
-            </label>
-            <UFormField :label="t('workflow.fields.note')">
-              <UTextarea
-                v-model="approvalDebugForm.note"
-                :placeholder="t('workflow.editor.debugNotePlaceholder')"
-                :rows="3"
-                class="w-full"
-              />
-            </UFormField>
-            <div v-if="capabilityOptionsError" class="run-dialog-error">
-              {{ capabilityOptionsError }}
             </div>
+            <template v-for="field in visibleRunFormFields" :key="field.key">
+              <UFormField :label="runFormFieldLabel(field)" :required="field.required">
+                <USelectMenu
+                  v-if="field.resource === 'knowledge_space'"
+                  :model-value="genericSelectValue(field)"
+                  :items="marketingKnowledgeSpaceSelectItems"
+                  label-key="label"
+                  :portal="runDialogSelectPortal"
+                  :content="runDialogSelectContent"
+                  :ui="runDialogSelectUi"
+                  class="w-full"
+                  :loading="knowledgeSpacesLoading"
+                  :disabled="knowledgeSpacesLoading || marketingKnowledgeSpaceSelectItems.length === 0"
+                  :placeholder="runFormFieldPlaceholder(field)"
+                  :search-input="{ placeholder: t('workflow.editor.marketingKnowledgeSpaceSearchPlaceholder') }"
+                  @update:model-value="setGenericSelectValue(field, $event as SelectOption | null)"
+                />
+                <USelectMenu
+                  v-else-if="field.resource === 'capability'"
+                  :model-value="genericSelectValue(field)"
+                  :items="genericCapabilitySelectItems"
+                  label-key="label"
+                  :portal="runDialogSelectPortal"
+                  :content="runDialogSelectContent"
+                  :ui="runDialogSelectUi"
+                  class="w-full"
+                  :loading="capabilityOptionsLoading"
+                  :disabled="capabilityOptionsLoading || genericCapabilitySelectItems.length === 0"
+                  :placeholder="runFormFieldPlaceholder(field)"
+                  :search-input="{ placeholder: t('workflow.editor.capabilitySearchPlaceholder') }"
+                  @update:model-value="setGenericSelectValue(field, $event as SelectOption | null)"
+                />
+                <USelect
+                  v-else-if="field.kind === 'select'"
+                  v-model="runFormValues[field.key]"
+                  :items="runFormFieldOptions(field)"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                />
+                <UTextarea
+                  v-else-if="field.kind === 'textarea' || field.kind === 'object'"
+                  v-model="runFormValues[field.key]"
+                  :placeholder="runFormFieldPlaceholder(field)"
+                  :rows="field.rows || (field.kind === 'object' ? 8 : 4)"
+                  class="w-full"
+                />
+                <label v-else-if="field.kind === 'boolean'" class="debug-input-switch">
+                  <USwitch v-model="runFormValues[field.key]" />
+                  <span>
+                    <strong>{{ runFormFieldLabel(field) }}</strong>
+                    <small v-if="runFormFieldHint(field)">{{ runFormFieldHint(field) }}</small>
+                  </span>
+                </label>
+                <UInput
+                  v-else
+                  v-model="runFormValues[field.key]"
+                  :type="field.kind === 'number' ? 'number' : 'text'"
+                  :placeholder="runFormFieldPlaceholder(field)"
+                  class="w-full"
+                />
+                <div v-if="runFormFieldHint(field) && field.kind !== 'boolean'" class="run-field-hint">
+                  {{ runFormFieldHint(field) }}
+                </div>
+                <div v-if="field.resource === 'knowledge_space' && knowledgeSpacesError" class="run-field-hint state-error">
+                  {{ knowledgeSpacesError }}
+                </div>
+                <div v-if="field.resource === 'capability' && capabilityOptionsError" class="run-field-hint state-error">
+                  {{ capabilityOptionsError }}
+                </div>
+              </UFormField>
+            </template>
           </div>
-          <div v-else-if="isMarketingKnowledgeCaptureWorkflow" class="debug-input-form">
+          <div v-else-if="runFormConfigError" class="debug-input-form">
             <UAlert
               class="run-dialog-notice"
-              icon="i-heroicons-information-circle"
-              color="info"
+              icon="i-heroicons-exclamation-triangle"
+              color="error"
               variant="subtle"
-              :title="t('workflow.editor.marketingRunFormTitle')"
-              :description="t('workflow.editor.marketingRunFormDescription')"
+              :title="t('workflow.editor.runFormConfigErrorTitle')"
+              :description="runFormConfigError"
             />
-            <UFormField :label="t('workflow.editor.marketingKnowledgeSpaceLabel')" required>
-              <USelectMenu
-                v-model="selectedMarketingKnowledgeSpace"
-                :items="marketingKnowledgeSpaceSelectItems"
-                label-key="label"
-                :portal="runDialogSelectPortal"
-                :content="runDialogSelectContent"
-                :ui="runDialogSelectUi"
-                class="w-full"
-                :loading="knowledgeSpacesLoading"
-                :disabled="knowledgeSpacesLoading || marketingKnowledgeSpaceSelectItems.length === 0"
-                :placeholder="t('workflow.editor.marketingKnowledgeSpacePlaceholder')"
-                :search-input="{ placeholder: t('workflow.editor.marketingKnowledgeSpaceSearchPlaceholder') }"
-              />
-              <div v-if="knowledgeSpacesError" class="run-field-hint state-error">
-                {{ knowledgeSpacesError }}
-              </div>
-              <div v-else class="run-field-hint">
-                {{ t("workflow.editor.marketingKnowledgeSpaceHint") }}
-              </div>
-            </UFormField>
-            <UFormField :label="t('workflow.editor.marketingSourceTypeLabel')" required>
-              <USelect
-                v-model="marketingDebugForm.source_type"
-                :items="marketingSourceTypeOptions"
-                value-key="value"
-                label-key="label"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField
-              v-if="marketingDebugForm.source_type === 'text'"
-              :label="t('workflow.editor.marketingSourceTextLabel')"
-              required
-            >
-              <UTextarea
-                v-model="marketingDebugForm.text"
-                :placeholder="t('workflow.editor.marketingSourceTextPlaceholder')"
-                :rows="7"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField
-              v-if="marketingDebugForm.source_type === 'link'"
-              :label="t('workflow.editor.marketingSourceUrlLabel')"
-              required
-            >
-              <UInput
-                v-model="marketingDebugForm.url"
-                :placeholder="t('workflow.editor.marketingSourceUrlPlaceholder')"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField
-              v-if="marketingDebugForm.source_type === 'audio' || marketingDebugForm.source_type === 'document'"
-              :label="t('workflow.editor.marketingSourceAssetLabel')"
-              required
-            >
-              <UInput
-                v-model="marketingDebugForm.asset_uuid"
-                :placeholder="t('workflow.editor.marketingSourceAssetPlaceholder')"
-                class="w-full"
-              />
-              <div class="run-field-hint">
-                {{ t("workflow.editor.marketingSourceAssetHint") }}
-              </div>
-            </UFormField>
-            <UFormField :label="t('workflow.editor.marketingContextLabel')">
-              <UInput
-                v-model="marketingDebugForm.context"
-                :placeholder="t('workflow.editor.marketingContextPlaceholder')"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField :label="t('workflow.editor.marketingLanguageLabel')">
-              <USelect
-                v-model="marketingDebugForm.language"
-                :items="marketingLanguageOptions"
-                value-key="value"
-                label-key="label"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField :label="t('workflow.editor.marketingRunNoteLabel')">
-              <UTextarea
-                v-model="marketingDebugForm.note"
-                :placeholder="t('workflow.editor.marketingRunNotePlaceholder')"
-                :rows="3"
-                class="w-full"
-              />
-            </UFormField>
           </div>
           <UTextarea
             v-else
@@ -1227,7 +1168,7 @@
             color="primary"
             icon="i-heroicons-play"
             :loading="runLoading"
-            :disabled="capabilityOptionsLoading"
+            :disabled="capabilityOptionsLoading || Boolean(runFormConfigError)"
             @click="runWorkflow"
           >
             {{ t("workflow.editor.startRun") }}
@@ -1235,6 +1176,97 @@
         </div>
       </template>
     </UModal>
+
+    <UModal
+      v-model:open="inputFieldDialogOpen"
+      :title="inputFieldDialogTitle"
+      :description="t('workflow.editor.inputFieldDialogDescription')"
+      :ui="{ content: 'input-field-dialog max-w-4xl w-[88vw]', body: 'w-full', footer: 'w-full' }"
+    >
+      <template #body>
+        <div class="input-field-dialog-form">
+          <section class="input-field-editor-section">
+            <div class="input-field-editor-section-title">
+              <strong>{{ t("workflow.editor.inputFieldBasicSection") }}</strong>
+            </div>
+            <div class="input-field-grid">
+              <UFormField :label="t('workflow.editor.inputFieldLabelLabel')" required>
+                <UInput
+                  v-model="inputFieldDraft.label"
+                  :placeholder="t('workflow.editor.inputFieldLabelPlaceholder')"
+                />
+              </UFormField>
+              <UFormField :label="t('workflow.editor.inputFieldKindLabel')" required>
+                <USelect
+                  v-model="inputFieldDraft.kind"
+                  :items="inputFieldKindOptions"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                  @update:model-value="handleInputFieldKindChange"
+                />
+              </UFormField>
+            </div>
+          </section>
+          <section class="input-field-editor-section">
+            <div class="input-field-editor-section-title">
+              <strong>{{ t("workflow.editor.inputFieldUiSection") }}</strong>
+            </div>
+            <UFormField class="properties-field" :label="t('workflow.editor.inputFieldPlaceholderLabel')">
+              <UInput
+                v-model="inputFieldDraft.placeholder"
+                :placeholder="t('workflow.editor.inputFieldPlaceholderPlaceholder')"
+              />
+            </UFormField>
+            <UFormField
+              v-if="inputFieldDraft.kind === 'select' && !inputFieldDraft.knowledgeSpaceResource"
+              class="properties-field"
+              :label="t('workflow.editor.inputFieldOptionsLabel')"
+            >
+              <div class="input-field-option-grid">
+                <label
+                  v-for="option in inputFieldDraft.options"
+                  :key="option.value"
+                  class="input-field-option-choice"
+                >
+                  <UCheckbox v-model="option.selected" />
+                  <span>{{ option.label }}</span>
+                </label>
+              </div>
+            </UFormField>
+          </section>
+          <section class="input-field-editor-section">
+            <div class="input-field-editor-section-title">
+              <strong>{{ t("workflow.editor.inputFieldBehaviorSection") }}</strong>
+            </div>
+            <div class="input-field-flags">
+              <label>
+                <USwitch v-model="inputFieldDraft.required" />
+                <span>{{ t("workflow.editor.inputFieldRequiredLabel") }}</span>
+              </label>
+              <label>
+                <USwitch
+                  v-model="inputFieldDraft.knowledgeSpaceResource"
+                  @update:model-value="handleInputFieldKnowledgeSpaceResourceChange"
+                />
+                <span>{{ t("workflow.editor.inputFieldKnowledgeSpaceResourceLabel") }}</span>
+              </label>
+            </div>
+          </section>
+        </div>
+      </template>
+      <template #footer>
+        <div class="input-field-dialog-footer">
+          <UButton color="neutral" variant="subtle" @click="closeInputFieldDialog">
+            {{ t("common.cancel") }}
+          </UButton>
+          <UButton color="primary" icon="i-heroicons-check" @click="saveInputFieldDialog">
+            {{ t("common.save") }}
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
   </div>
 </template>
 
@@ -1322,6 +1354,44 @@ type SelectOption = {
   label: string;
   value: string;
 };
+type RunFormFieldKind = "text" | "textarea" | "select" | "boolean" | "number" | "object";
+type RunFormField = {
+  key: string;
+  path: string;
+  kind: RunFormFieldKind;
+  labelKey?: string;
+  label?: string;
+  placeholderKey?: string;
+  placeholder?: string;
+  hintKey?: string;
+  hint?: string;
+  required?: boolean;
+  rows?: number;
+  defaultValue?: any;
+  options?: Array<SelectOption & { labelKey?: string }>;
+  resource?: "knowledge_space" | "capability";
+  visibleWhen?: { field: string; equals?: string | string[]; notEquals?: string | string[] };
+};
+type RunFormDefinition = {
+  titleKey?: string;
+  title?: string;
+  descriptionKey?: string;
+  description?: string;
+  fields: RunFormField[];
+};
+type InputFieldOptionDraft = SelectOption & {
+  selected: boolean;
+};
+type InputFieldDraft = {
+  key: string;
+  path: string;
+  kind: RunFormFieldKind;
+  label: string;
+  placeholder: string;
+  required: boolean;
+  options: InputFieldOptionDraft[];
+  knowledgeSpaceResource: boolean;
+};
 type SkillSelectOption = SelectOption & {
   skillID: string;
   version: string;
@@ -1335,14 +1405,23 @@ type ModelProfileSelectOption = SelectOption & {
 const capabilityOptions = ref<RunCapabilityOption[]>([]);
 const capabilityOptionsLoading = ref(false);
 const capabilityOptionsError = ref("");
-const selectedRunCapabilitySource = ref<SelectOption | null>(null);
-const selectedRunCapabilityModule = ref<SelectOption | null>(null);
-const selectedRunCapability = ref<SelectOption | null>(null);
-const selectedExecutionReason = ref<SelectOption | null>(null);
 const knowledgeSpaces = ref<KnowledgeSpaceRecord[]>([]);
 const knowledgeSpacesLoading = ref(false);
 const knowledgeSpacesError = ref("");
-const selectedMarketingKnowledgeSpace = ref<SelectOption | null>(null);
+const runFormValues = reactive<Record<string, any>>({});
+const runFormSelectValues = ref<Record<string, SelectOption | null>>({});
+const inputFieldDialogOpen = ref(false);
+const editingInputFieldIndex = ref<number | null>(null);
+const inputFieldDraft = reactive<InputFieldDraft>({
+  key: "",
+  path: "",
+  kind: "text",
+  label: "",
+  placeholder: "",
+  required: false,
+  options: [],
+  knowledgeSpaceResource: false,
+});
 const skillRecords = ref<SkillRecord[]>([]);
 const skillsLoading = ref(false);
 const skillsError = ref("");
@@ -1357,24 +1436,7 @@ const metadataOptionsLoading = ref(false);
 const metadataOptionsError = ref("");
 const actingReviewTaskUUID = ref("");
 const actingReviewAction = ref("");
-const approvalDebugForm = reactive({
-  capability_id: "com.corex.metadata.dictionary.read",
-  reason: "workflow_debug_approval_guarded_capability",
-  dry_run: true,
-  note: "",
-});
-const marketingDebugForm = reactive({
-  knowledge_space_uuid: "",
-  source_type: "text",
-  text: "",
-  url: "",
-  asset_uuid: "",
-  context: "",
-  language: "zh",
-  note: "",
-});
 const bottomPanelHeight = ref(260);
-const showAdvancedNodeConfig = ref(false);
 const showRuntimeDiagnostics = ref(false);
 let stopBottomResize: (() => void) | null = null;
 let unsubscribeWorkflowRuntime: (() => void) | null = null;
@@ -1467,20 +1529,6 @@ const capabilitySourceSelectItems = computed<SelectOption[]>(() => {
       value,
     }));
 });
-
-const runCapabilityModuleSelectItems = computed<SelectOption[]>(() =>
-  buildCapabilityModuleSelectItems(selectedRunCapabilitySource.value?.value || "")
-);
-
-const capabilitySelectItems = computed<SelectOption[]>(() =>
-  workflowRunnableCapabilities.value
-    .filter((capability) => capabilityMatchesModuleOption(capability, selectedRunCapabilityModule.value?.value || ""))
-    .sort((left, right) => Number(hasLocalizedCapabilityName(right)) - Number(hasLocalizedCapabilityName(left)))
-    .map((capability) => ({
-      label: capabilityOptionLabel(capability),
-      value: capability.capabilityId,
-    }))
-);
 
 const selectedNodeCapabilityRecord = computed(() => {
   const capabilityID = String(selectedNode.value?.data?.props?.capability_id || "").trim();
@@ -1583,21 +1631,6 @@ const selectedNodeProtocolOptions = computed<SelectOption[]>(() => {
   }));
 });
 
-const executionReasonOptions = computed<SelectOption[]>(() => [
-  {
-    label: t("workflow.executionReason.workflowDebugApprovalGuardedCapability"),
-    value: "workflow_debug_approval_guarded_capability",
-  },
-  {
-    label: t("workflow.executionReason.permissionBoundaryTest"),
-    value: "permission_boundary_test",
-  },
-  {
-    label: t("workflow.executionReason.businessDryRun"),
-    value: "business_dry_run",
-  },
-]);
-
 const runDialogSelectContent = {
   side: "bottom" as const,
   sideOffset: 8,
@@ -1610,45 +1643,6 @@ const runDialogSelectPortal = false;
 const runDialogSelectUi = {
   content: "z-[90] max-h-72 overflow-y-auto",
 };
-
-const selectedRunCapabilityDetail = computed(() => {
-  const capabilityID = selectedRunCapability.value?.value || "";
-  if (!capabilityID) return "";
-  const capability = capabilityOptions.value.find((item) => item.capabilityId === capabilityID);
-  if (!capability?.description?.trim()) return "";
-  return capability.description.trim();
-});
-
-watch(selectedRunCapabilityModule, (moduleOption) => {
-  if (!isApprovalGuardedCapabilityWorkflow.value) return;
-  const moduleKey = moduleOption?.value || "";
-  const selectedCapabilityID = selectedRunCapability.value?.value || "";
-  const selectedCapability = capabilityOptions.value.find((item) => item.capabilityId === selectedCapabilityID);
-  if (selectedCapability && capabilityMatchesModuleOption(selectedCapability, moduleKey)) return;
-  selectedRunCapability.value = capabilitySelectItems.value[0] || null;
-  approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
-});
-
-watch(selectedRunCapabilitySource, (sourceOption) => {
-  if (!isApprovalGuardedCapabilityWorkflow.value) return;
-  const sourceKey = sourceOption?.value || "";
-  const selectedCapabilityID = selectedRunCapability.value?.value || "";
-  const selectedCapability = capabilityOptions.value.find((item) => item.capabilityId === selectedCapabilityID);
-  if (selectedCapability && capabilitySourceKey(selectedCapability) === sourceKey) return;
-  selectedRunCapabilityModule.value = runCapabilityModuleSelectItems.value[0] || null;
-  selectedRunCapability.value = capabilitySelectItems.value[0] || null;
-  approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
-});
-
-watch(selectedMarketingKnowledgeSpace, (spaceOption) => {
-  marketingDebugForm.knowledge_space_uuid = spaceOption?.value || "";
-});
-
-watch(() => marketingDebugForm.source_type, (sourceType) => {
-  if (sourceType !== "text") marketingDebugForm.text = "";
-  if (sourceType !== "link") marketingDebugForm.url = "";
-  if (sourceType !== "audio" && sourceType !== "document") marketingDebugForm.asset_uuid = "";
-});
 
 const currentHumanReviewRoles = computed(() => {
   const roles = selectedNode.value?.data?.props?.approver_policy?.roles;
@@ -1668,9 +1662,6 @@ const workflowDisplayName = computed(() => {
   if (packNameKey && te(packNameKey)) return t(packNameKey);
   return workflow.name || t("workflow.editor.untitled");
 });
-const currentWorkflowPackKey = computed(() => currentWorkflow.value?.raw?.workflow_pack_key?.trim() || "");
-const isApprovalGuardedCapabilityWorkflow = computed(() => currentWorkflowPackKey.value === "approval_guarded_capability");
-const isMarketingKnowledgeCaptureWorkflow = computed(() => currentWorkflowPackKey.value === "marketing_knowledge_capture");
 
 const marketingKnowledgeSpaceSelectItems = computed<SelectOption[]>(() =>
   knowledgeSpaces.value.map((space) => ({
@@ -1679,19 +1670,404 @@ const marketingKnowledgeSpaceSelectItems = computed<SelectOption[]>(() =>
   }))
 );
 
-const marketingSourceTypeOptions = computed<SelectOption[]>(() => [
-  { label: t("workflow.marketingInput.sourceType.text"), value: "text" },
-  { label: t("workflow.marketingInput.sourceType.audio"), value: "audio" },
-  { label: t("workflow.marketingInput.sourceType.document"), value: "document" },
-  { label: t("workflow.marketingInput.sourceType.link"), value: "link" },
+const genericCapabilitySelectItems = computed<SelectOption[]>(() =>
+  workflowRunnableCapabilities.value
+    .sort((left, right) => Number(hasLocalizedCapabilityName(right)) - Number(hasLocalizedCapabilityName(left)))
+    .map((capability) => ({
+      label: capabilityOptionLabel(capability),
+      value: capability.capabilityId,
+    }))
+);
+
+const currentInputCaptureStep = computed(() =>
+  (currentWorkflow.value?.raw?.step_graph || []).find((step) => step.node_kind === "input.capture") || null
+);
+
+const currentInputCaptureNode = computed(() =>
+  nodes.value.find((node) => node.data?.kind === "input.capture") || null
+);
+
+const currentInputSchemaRef = computed(() =>
+  String(
+    currentInputCaptureNode.value?.data?.props?.input_schema_ref ||
+    currentInputCaptureStep.value?.config?.input_schema_ref ||
+    currentWorkflow.value?.raw?.metadata?.input_schema_ref ||
+    ""
+  ).trim()
+);
+
+const runFormDefinition = computed<RunFormDefinition | null>(() => {
+  const fromNodeSchema = runFormDefinitionFromSchema(currentInputCaptureNode.value?.data?.props?.input_schema);
+  if (fromNodeSchema) return fromNodeSchema;
+  const fromWorkflowSchema = runFormDefinitionFromSchema(currentWorkflow.value?.raw?.input_schema);
+  if (fromWorkflowSchema) return fromWorkflowSchema;
+  const fromStepSchema = runFormDefinitionFromSchema(currentInputCaptureStep.value?.config?.input_schema);
+  if (fromStepSchema) return fromStepSchema;
+  const schema = currentWorkflow.value?.raw?.input_schema;
+  const fromSchema = runFormDefinitionFromSchema(schema);
+  if (fromSchema) return fromSchema;
+  return builtinRunFormDefinitions[currentInputSchemaRef.value] || null;
+});
+
+const runFormFields = computed<RunFormField[]>(() => runFormDefinition.value?.fields || []);
+const visibleRunFormFields = computed(() => runFormFields.value.filter(isRunFormFieldVisible));
+const runFormConfigError = computed(() => {
+  if (!currentInputSchemaRef.value || runFormDefinition.value) return "";
+  return t("workflow.editor.runFormSchemaRefMissing", { ref: currentInputSchemaRef.value });
+});
+const runFormStartNodeName = computed(() => {
+  const stepID = String(currentInputCaptureNode.value?.id || currentInputCaptureStep.value?.id || "").trim();
+  if (!stepID) return t("workflow.editor.notConfigured");
+  return stepDisplayName(stepID);
+});
+const runFormTitle = computed(() => {
+  const form = runFormDefinition.value;
+  if (!form) return t("workflow.editor.startNodeRunFormTitle");
+  const title = form.titleKey && te(form.titleKey) ? t(form.titleKey) : form.title || t("workflow.editor.startNodeRunFormTitle");
+  return t("workflow.editor.startNodeRunFormTitleWithName", { name: title });
+});
+const runFormDescription = computed(() => {
+  const form = runFormDefinition.value;
+  if (!form) return t("workflow.editor.startNodeRunFormDescription");
+  if (form.descriptionKey && te(form.descriptionKey)) return t(form.descriptionKey);
+  return form.description || t("workflow.editor.startNodeRunFormDescription");
+});
+
+const inputFieldKindOptions = computed<SelectOption[]>(() => [
+  { label: t("workflow.inputFieldKind.text"), value: "text" },
+  { label: t("workflow.inputFieldKind.textarea"), value: "textarea" },
+  { label: t("workflow.inputFieldKind.select"), value: "select" },
+  { label: t("workflow.inputFieldKind.boolean"), value: "boolean" },
+  { label: t("workflow.inputFieldKind.number"), value: "number" },
+  { label: t("workflow.inputFieldKind.object"), value: "object" },
 ]);
 
-const marketingLanguageOptions = computed<SelectOption[]>(() => [
-  { label: t("workflow.marketingInput.language.zh"), value: "zh" },
-  { label: t("workflow.marketingInput.language.en"), value: "en" },
-  { label: t("workflow.marketingInput.language.ja"), value: "ja" },
-  { label: t("workflow.marketingInput.language.ko"), value: "ko" },
-]);
+const selectedInputRunFormFields = computed<RunFormField[]>(() => {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "input.capture") return [];
+  return editableInputRunFormFields(node);
+});
+
+const inputFieldDialogTitle = computed(() =>
+  editingInputFieldIndex.value === null ? t("workflow.editor.addInputField") : t("workflow.editor.editInputField")
+);
+
+const builtinRunFormDefinitions: Record<string, RunFormDefinition> = {
+  "workflow.input.approval_guarded_capability.v1": {
+    titleKey: "workflow.editor.startNodeRunFormTitle",
+    descriptionKey: "workflow.editor.startNodeRunFormDescription",
+    fields: [
+      {
+        key: "capability_id",
+        path: "capability_id",
+        kind: "select",
+        resource: "capability",
+        required: true,
+        labelKey: "workflow.editor.runCapabilityLabel",
+        placeholderKey: "workflow.editor.capabilitySelectPlaceholder",
+        hintKey: "workflow.editor.capabilitySelectHint",
+        defaultValue: "com.corex.metadata.dictionary.read",
+      },
+      {
+        key: "reason",
+        path: "request.reason",
+        kind: "select",
+        required: true,
+        labelKey: "workflow.fields.reason",
+        placeholderKey: "workflow.editor.executionReasonPlaceholder",
+        hintKey: "workflow.editor.executionReasonHint",
+        defaultValue: "workflow_debug_approval_guarded_capability",
+        options: [
+          { labelKey: "workflow.executionReason.workflowDebugApprovalGuardedCapability", label: "", value: "workflow_debug_approval_guarded_capability" },
+          { labelKey: "workflow.executionReason.permissionBoundaryTest", label: "", value: "permission_boundary_test" },
+          { labelKey: "workflow.executionReason.businessDryRun", label: "", value: "business_dry_run" },
+        ],
+      },
+      {
+        key: "dry_run",
+        path: "request.payload.dry_run",
+        kind: "boolean",
+        labelKey: "workflow.fields.dry_run",
+        hintKey: "workflow.editor.dryRunHint",
+        defaultValue: true,
+      },
+      {
+        key: "note",
+        path: "request.payload.note",
+        kind: "textarea",
+        rows: 3,
+        labelKey: "workflow.fields.note",
+        placeholderKey: "workflow.editor.debugNotePlaceholder",
+        defaultValue: "",
+      },
+    ],
+  },
+  "workflow.input.marketing_source.v1": {
+    titleKey: "workflow.editor.marketingRunFormTitle",
+    descriptionKey: "workflow.editor.startNodeRunFormDescription",
+    fields: [
+      {
+        key: "knowledge_space_uuid",
+        path: "knowledge_space_uuid",
+        kind: "select",
+        resource: "knowledge_space",
+        required: true,
+        labelKey: "workflow.editor.marketingKnowledgeSpaceLabel",
+        placeholderKey: "workflow.editor.marketingKnowledgeSpacePlaceholder",
+        hintKey: "workflow.editor.marketingKnowledgeSpaceHint",
+      },
+      {
+        key: "source_type",
+        path: "source.type",
+        kind: "select",
+        required: true,
+        labelKey: "workflow.editor.marketingSourceTypeLabel",
+        defaultValue: "text",
+        options: [
+          { labelKey: "workflow.marketingInput.sourceType.text", label: "", value: "text" },
+          { labelKey: "workflow.marketingInput.sourceType.audio", label: "", value: "audio" },
+          { labelKey: "workflow.marketingInput.sourceType.document", label: "", value: "document" },
+          { labelKey: "workflow.marketingInput.sourceType.link", label: "", value: "link" },
+        ],
+      },
+      {
+        key: "text",
+        path: "source.content",
+        kind: "textarea",
+        rows: 7,
+        required: true,
+        labelKey: "workflow.editor.marketingSourceTextLabel",
+        placeholderKey: "workflow.editor.marketingSourceTextPlaceholder",
+        defaultValue: t("workflow.editor.marketingSourceTextExample"),
+        visibleWhen: { field: "source_type", equals: "text" },
+      },
+      {
+        key: "url",
+        path: "source.url",
+        kind: "text",
+        required: true,
+        labelKey: "workflow.editor.marketingSourceUrlLabel",
+        placeholderKey: "workflow.editor.marketingSourceUrlPlaceholder",
+        defaultValue: "",
+        visibleWhen: { field: "source_type", equals: "link" },
+      },
+      {
+        key: "asset_uuid",
+        path: "source.asset_uuid",
+        kind: "text",
+        required: true,
+        labelKey: "workflow.editor.marketingSourceAssetLabel",
+        placeholderKey: "workflow.editor.marketingSourceAssetPlaceholder",
+        hintKey: "workflow.editor.marketingSourceAssetHint",
+        defaultValue: "",
+        visibleWhen: { field: "source_type", equals: ["audio", "document"] },
+      },
+      {
+        key: "context",
+        path: "source.context",
+        kind: "text",
+        labelKey: "workflow.editor.marketingContextLabel",
+        placeholderKey: "workflow.editor.marketingContextPlaceholder",
+        defaultValue: t("workflow.editor.marketingContextDefault"),
+      },
+      {
+        key: "language",
+        path: "source.language",
+        kind: "select",
+        labelKey: "workflow.editor.marketingLanguageLabel",
+        defaultValue: "zh",
+        options: [
+          { labelKey: "workflow.marketingInput.language.zh", label: "", value: "zh" },
+          { labelKey: "workflow.marketingInput.language.en", label: "", value: "en" },
+          { labelKey: "workflow.marketingInput.language.ja", label: "", value: "ja" },
+          { labelKey: "workflow.marketingInput.language.ko", label: "", value: "ko" },
+        ],
+      },
+      {
+        key: "note",
+        path: "note",
+        kind: "textarea",
+        rows: 3,
+        labelKey: "workflow.editor.marketingRunNoteLabel",
+        placeholderKey: "workflow.editor.marketingRunNotePlaceholder",
+        defaultValue: "",
+      },
+    ],
+  },
+};
+
+builtinRunFormDefinitions["workflow.input.knowledge_source.v1"] = {
+  titleKey: "workflow.editor.knowledgeSourceRunFormTitle",
+  descriptionKey: "workflow.editor.knowledgeSourceRunFormDescription",
+  fields: [
+    {
+      key: "knowledge_space_uuid",
+      path: "knowledge_space_uuid",
+      kind: "select",
+      resource: "knowledge_space",
+      required: true,
+      labelKey: "workflow.fields.knowledge_space_uuid",
+      placeholderKey: "workflow.editor.marketingKnowledgeSpacePlaceholder",
+      hintKey: "workflow.editor.marketingKnowledgeSpaceHint",
+    },
+    {
+      key: "source_type",
+      path: "source.type",
+      kind: "select",
+      required: true,
+      labelKey: "workflow.editor.sourceTypeLabel",
+      defaultValue: "text",
+      options: [
+        { labelKey: "workflow.marketingInput.sourceType.text", label: "", value: "text" },
+        { labelKey: "workflow.marketingInput.sourceType.audio", label: "", value: "audio" },
+        { labelKey: "workflow.marketingInput.sourceType.document", label: "", value: "document" },
+        { labelKey: "workflow.marketingInput.sourceType.link", label: "", value: "link" },
+      ],
+    },
+    {
+      key: "text",
+      path: "source.content",
+      kind: "textarea",
+      rows: 7,
+      required: true,
+      labelKey: "workflow.editor.sourceTextLabel",
+      placeholderKey: "workflow.editor.sourceTextPlaceholder",
+      defaultValue: "",
+      visibleWhen: { field: "source_type", equals: "text" },
+    },
+    {
+      key: "url",
+      path: "source.url",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.editor.sourceUrlLabel",
+      placeholderKey: "workflow.editor.sourceUrlPlaceholder",
+      defaultValue: "",
+      visibleWhen: { field: "source_type", equals: "link" },
+    },
+    {
+      key: "asset_uuid",
+      path: "source.asset_uuid",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.editor.sourceAssetLabel",
+      placeholderKey: "workflow.editor.sourceAssetPlaceholder",
+      hintKey: "workflow.editor.sourceAssetHint",
+      defaultValue: "",
+      visibleWhen: { field: "source_type", equals: ["audio", "document"] },
+    },
+    {
+      key: "language",
+      path: "source.language",
+      kind: "select",
+      labelKey: "workflow.editor.marketingLanguageLabel",
+      defaultValue: "zh",
+      options: [
+        { labelKey: "workflow.marketingInput.language.zh", label: "", value: "zh" },
+        { labelKey: "workflow.marketingInput.language.en", label: "", value: "en" },
+        { labelKey: "workflow.marketingInput.language.ja", label: "", value: "ja" },
+        { labelKey: "workflow.marketingInput.language.ko", label: "", value: "ko" },
+      ],
+    },
+    {
+      key: "note",
+      path: "note",
+      kind: "textarea",
+      rows: 3,
+      labelKey: "workflow.fields.note",
+      placeholderKey: "workflow.editor.marketingRunNotePlaceholder",
+      defaultValue: "",
+    },
+  ],
+};
+
+builtinRunFormDefinitions["workflow.input.campaign_review.v1"] = {
+  ...builtinRunFormDefinitions["workflow.input.knowledge_source.v1"],
+  titleKey: "workflow.editor.campaignReviewRunFormTitle",
+  descriptionKey: "workflow.editor.campaignReviewRunFormDescription",
+};
+
+builtinRunFormDefinitions["workflow.input.metadata_intake.v1"] = {
+  titleKey: "workflow.editor.metadataIntakeRunFormTitle",
+  descriptionKey: "workflow.editor.metadataIntakeRunFormDescription",
+  fields: [
+    {
+      key: "taxonomy_namespace",
+      path: "taxonomy_namespace",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.fields.taxonomy_namespace",
+      defaultValue: "corex.marketing.methodology",
+    },
+    {
+      key: "tag_namespace",
+      path: "tag_namespace",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.fields.tag_namespace",
+      defaultValue: "corex.marketing",
+    },
+    {
+      key: "dictionary_namespace",
+      path: "dictionary_namespace",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.fields.dictionary_namespace",
+      defaultValue: "corex.marketing",
+    },
+    {
+      key: "resource_type_namespace",
+      path: "resource_type_namespace",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.fields.resource_type_namespace",
+      defaultValue: "corex.knowledge",
+    },
+    {
+      key: "intake_text",
+      path: "intake.text",
+      kind: "textarea",
+      rows: 6,
+      required: true,
+      labelKey: "workflow.editor.intakeTextLabel",
+      placeholderKey: "workflow.editor.intakeTextPlaceholder",
+      defaultValue: "workflow_debug_metadata_intake",
+    },
+    {
+      key: "intake_source",
+      path: "intake.source",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.editor.intakeSourceLabel",
+      defaultValue: "workflow_editor_run_test",
+    },
+  ],
+};
+
+builtinRunFormDefinitions["workflow.input.skill_review.v1"] = {
+  titleKey: "workflow.editor.skillReviewRunFormTitle",
+  descriptionKey: "workflow.editor.skillReviewRunFormDescription",
+  fields: [
+    {
+      key: "skill_id",
+      path: "skill_id",
+      kind: "text",
+      required: true,
+      labelKey: "workflow.fields.skill_id",
+      defaultValue: "debug.echo",
+    },
+    {
+      key: "text",
+      path: "input.text",
+      kind: "textarea",
+      rows: 6,
+      required: true,
+      labelKey: "workflow.editor.skillReviewInputTextLabel",
+      placeholderKey: "workflow.editor.skillReviewInputTextPlaceholder",
+      defaultValue: "workflow_debug_skill_review",
+    },
+  ],
+};
 
 const skillSelectItems = computed<SkillSelectOption[]>(() =>
   skillRecords.value
@@ -2236,18 +2612,6 @@ const selectedNodeBusinessConfigEntries = computed(() => {
   }
 });
 
-const advancedNodeConfigEntries = computed(() => {
-  const props = selectedNode.value?.data?.props || {};
-  const hiddenKeys = hiddenBusinessConfigKeys(selectedNode.value?.data?.kind || "");
-  return Object.entries(props)
-    .filter(([key]) => !hiddenKeys.has(key))
-    .map(([key, value]) => ({
-      key,
-      label: schemaFieldLabel(key),
-      value: formatTechnicalValue(value),
-    }));
-});
-
 const selectedReviewPayloadEntries = computed(() => {
   const payload = selectedNodeReviewTask.value?.payload || {};
   return [
@@ -2442,21 +2806,6 @@ function humanizeSkillID(skillID: string) {
   return humanizeModuleKey(skillID);
 }
 
-function hiddenBusinessConfigKeys(kind: string) {
-  const shared = new Set(["capability_label", "capability_module_label"]);
-  const byKind: Record<string, string[]> = {
-    "skill.invoke": ["skill_id", "skill_version", "skill_source", "skill_status", "model_override", "input_path", "output_path"],
-    "metadata.classify": ["classification_strategy", "taxonomy_namespace", "tag_namespace", "dictionary_namespace", "resource_type_namespace", "input_path", "output_path"],
-    "knowledge.stage": ["knowledge_space_uuid", "draft_schema_ref", "input_path", "output_path"],
-    "knowledge.publish": ["knowledge_space_uuid", "draft_refs_path", "review_result_path", "publish_policy"],
-    "decision.gateway": ["routes", "default_route", "condition_source_path"],
-  };
-  for (const key of byKind[kind] || []) {
-    shared.add(key);
-  }
-  return shared;
-}
-
 function formatBusinessConfigValue(key: string, value: unknown) {
   if (value === undefined || value === null || value === "") return t("workflow.editor.notConfigured");
   if (key.endsWith("_path") || key === "draft_refs_path" || key === "condition_source_path") {
@@ -2500,6 +2849,203 @@ function formatTechnicalValue(value: unknown) {
   return String(value);
 }
 
+function editableInputRunFormFields(node: Node) {
+  const form = ensureInputRunFormSchema(node);
+  return form.fields;
+}
+
+function ensureInputRunFormSchema(node: Node): RunFormDefinition {
+  node.data.props = node.data.props || {};
+  const props = node.data.props;
+  const inputSchema = props.input_schema && typeof props.input_schema === "object" && !Array.isArray(props.input_schema)
+    ? props.input_schema
+    : {};
+  props.input_schema = inputSchema;
+
+  const existing = inputSchema["x-run-form"] || inputSchema["x_run_form"];
+  if (existing && typeof existing === "object" && Array.isArray(existing.fields)) {
+    const normalizedFields = existing.fields.map((field: any) => normalizeRunFormField(field)).filter(Boolean) as RunFormField[];
+    inputSchema["x-run-form"] = {
+      ...existing,
+      fields: normalizedFields,
+    };
+    delete inputSchema["x_run_form"];
+    return inputSchema["x-run-form"] as RunFormDefinition;
+  }
+
+  const ref = String(props.input_schema_ref || "").trim();
+  const builtin = ref ? builtinRunFormDefinitions[ref] : null;
+  inputSchema["x-run-form"] = {
+    title: builtin ? runFormTitleForEditor(builtin) : t("workflow.editor.startNodeRunFormTitle"),
+    description: builtin ? runFormDescriptionForEditor(builtin) : t("workflow.editor.startNodeRunFormDescription"),
+    fields: builtin ? builtin.fields.map(cloneRunFormFieldForEditor) : [],
+  };
+  return inputSchema["x-run-form"] as RunFormDefinition;
+}
+
+function cloneRunFormFieldForEditor(field: RunFormField): RunFormField {
+  return {
+    key: field.key,
+    path: field.path || field.key,
+    kind: field.kind,
+    label: runFormFieldLabel(field),
+    placeholder: runFormFieldPlaceholder(field),
+    hint: runFormFieldHint(field),
+    required: Boolean(field.required),
+    rows: field.rows,
+    defaultValue: field.defaultValue,
+    options: runFormFieldOptions(field),
+    resource: field.resource,
+    visibleWhen: field.visibleWhen,
+  };
+}
+
+function runFormTitleForEditor(form: RunFormDefinition) {
+  if (form.titleKey && te(form.titleKey)) return t(form.titleKey);
+  return form.title || t("workflow.editor.startNodeRunFormTitle");
+}
+
+function runFormDescriptionForEditor(form: RunFormDefinition) {
+  if (form.descriptionKey && te(form.descriptionKey)) return t(form.descriptionKey);
+  return form.description || t("workflow.editor.startNodeRunFormDescription");
+}
+
+function addInputRunFormField() {
+  openInputFieldDialog(null);
+}
+
+function openInputFieldDialog(index: number | null) {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "input.capture") return;
+  const form = ensureInputRunFormSchema(node);
+  editingInputFieldIndex.value = index;
+  const field = index === null ? null : form.fields[index] || null;
+  const nextIndex = form.fields.length + 1;
+  inputFieldDraft.key = field?.key || `input_${nextIndex}`;
+  inputFieldDraft.path = field?.path || field?.key || `input_${nextIndex}`;
+  inputFieldDraft.kind = field?.kind || "text";
+  inputFieldDraft.label = field?.label || field?.key || t("workflow.editor.newInputFieldLabel", { index: nextIndex });
+  inputFieldDraft.placeholder = field?.placeholder || "";
+  inputFieldDraft.required = Boolean(field?.required);
+  inputFieldDraft.options = inputFieldOptionsForDraft(field, inputFieldDraft.key);
+  inputFieldDraft.knowledgeSpaceResource = field?.resource === "knowledge_space";
+  inputFieldDialogOpen.value = true;
+}
+
+function closeInputFieldDialog() {
+  inputFieldDialogOpen.value = false;
+}
+
+function saveInputFieldDialog() {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "input.capture") return;
+  const form = ensureInputRunFormSchema(node);
+  const key = inputFieldDraft.key.trim() || `input_${form.fields.length + 1}`;
+  const path = inputFieldDraft.path.trim() || key;
+  if (!inputFieldDraft.label.trim()) {
+    toast.add({
+      title: t("workflow.editor.inputFieldInvalidTitle"),
+      description: t("workflow.editor.inputFieldInvalidDescription"),
+      color: "error",
+    });
+    return;
+  }
+  const selectedOptions = inputFieldDraft.options.filter((option) => option.selected);
+  if (!inputFieldDraft.knowledgeSpaceResource && inputFieldDraft.kind === "select" && selectedOptions.length === 0) {
+    toast.add({
+      title: t("workflow.editor.inputFieldInvalidTitle"),
+      description: t("workflow.editor.inputFieldOptionsRequiredDescription"),
+      color: "error",
+    });
+    return;
+  }
+  const field: RunFormField = {
+    key,
+    path,
+    kind: inputFieldDraft.knowledgeSpaceResource ? "select" : inputFieldDraft.kind,
+    label: inputFieldDraft.label.trim(),
+    placeholder: inputFieldDraft.placeholder.trim(),
+    required: inputFieldDraft.required,
+    options: inputFieldDraft.knowledgeSpaceResource
+      ? []
+      : inputFieldDraft.kind === "select"
+        ? selectedOptions.map(({ label, value }) => ({ label, value }))
+        : [],
+    resource: inputFieldDraft.knowledgeSpaceResource ? "knowledge_space" : undefined,
+  };
+  if (editingInputFieldIndex.value === null) {
+    form.fields.push(field);
+  } else {
+    form.fields.splice(editingInputFieldIndex.value, 1, field);
+  }
+  closeInputFieldDialog();
+}
+
+function removeInputRunFormField(index: number) {
+  const node = selectedNode.value;
+  if (!node || node.data.kind !== "input.capture") return;
+  const form = ensureInputRunFormSchema(node);
+  form.fields.splice(index, 1);
+}
+
+function handleInputFieldKindChange(value: string | number | boolean | Record<string, any> | undefined) {
+  const nextKind = String(value || "") as RunFormFieldKind;
+  if (nextKind === "select" && inputFieldDraft.options.length === 0) {
+    inputFieldDraft.options = defaultInputFieldOptionDrafts(inputFieldDraft.key);
+  }
+}
+
+function handleInputFieldKnowledgeSpaceResourceChange(value: boolean | "indeterminate") {
+  const enabled = value === true;
+  inputFieldDraft.knowledgeSpaceResource = enabled;
+  if (enabled) {
+    inputFieldDraft.kind = "select";
+    return;
+  }
+  if (inputFieldDraft.kind === "select" && inputFieldDraft.options.length === 0) {
+    inputFieldDraft.options = defaultInputFieldOptionDrafts(inputFieldDraft.key);
+  }
+}
+
+function inputFieldOptionsForDraft(field: RunFormField | null, key: string): InputFieldOptionDraft[] {
+  const options = field?.options || [];
+  if (options.length > 0) {
+    return options.map((option) => ({
+      label: option.labelKey && te(option.labelKey) ? t(option.labelKey) : option.label || option.value,
+      value: option.value,
+      selected: true,
+    }));
+  }
+  return field?.kind === "select" ? defaultInputFieldOptionDrafts(key) : [];
+}
+
+function defaultInputFieldOptionDrafts(key: string): InputFieldOptionDraft[] {
+  const normalizedKey = key.toLowerCase();
+  if (normalizedKey.includes("language") || normalizedKey.includes("locale")) {
+    return [
+      { label: t("workflow.marketingInput.language.zh"), value: "zh", selected: true },
+      { label: t("workflow.marketingInput.language.en"), value: "en", selected: true },
+      { label: t("workflow.marketingInput.language.ja"), value: "ja", selected: true },
+      { label: t("workflow.marketingInput.language.ko"), value: "ko", selected: true },
+    ];
+  }
+  return [
+    { label: t("workflow.marketingInput.sourceType.text"), value: "text", selected: true },
+    { label: t("workflow.marketingInput.sourceType.audio"), value: "audio", selected: true },
+    { label: t("workflow.marketingInput.sourceType.document"), value: "document", selected: true },
+    { label: t("workflow.marketingInput.sourceType.link"), value: "link", selected: true },
+  ];
+}
+
+function inputFieldDisplayLabel(field: RunFormField, index: number) {
+  return field.label || field.key || t("workflow.editor.newInputFieldLabel", { index: index + 1 });
+}
+
+function inputFieldKindLabel(kind: RunFormFieldKind) {
+  const key = `workflow.inputFieldKind.${kind}`;
+  return te(key) ? t(key) : kind;
+}
+
 function normalizeSelectedNodeProps(node: Node) {
   node.data.props = node.data.props || {};
   if (node.data.kind === "human.review") {
@@ -2507,6 +3053,8 @@ function normalizeSelectedNodeProps(node: Node) {
   }
   if (node.data.kind === "input.capture") {
     node.data.props.source_policy = node.data.props.source_policy || { text: false, form: false };
+    node.data.props.artifact_output_path = String(node.data.props.artifact_output_path || "$.artifacts.source");
+    ensureInputRunFormSchema(node);
   }
 }
 
@@ -2786,13 +3334,15 @@ function openRunDialog() {
 }
 
 async function loadRunDialogReferenceData() {
-  if (isApprovalGuardedCapabilityWorkflow.value) {
-    await loadCapabilityReferenceData({ notify: true });
-    return;
+  const tasks: Promise<void>[] = [];
+  if (runFormFields.value.some((field) => field.resource === "capability")) {
+    tasks.push(loadCapabilityReferenceData({ notify: true }));
   }
-  if (isMarketingKnowledgeCaptureWorkflow.value) {
-    await loadKnowledgeSpaceReferenceData({ notify: true });
+  if (runFormFields.value.some((field) => field.resource === "knowledge_space")) {
+    tasks.push(loadKnowledgeSpaceReferenceData({ notify: true }));
   }
+  await Promise.all(tasks);
+  syncRunFormSelects();
 }
 
 async function loadCapabilityReferenceData(options: { notify?: boolean } = {}) {
@@ -2807,9 +3357,9 @@ async function loadCapabilityReferenceData(options: { notify?: boolean } = {}) {
         ...capability,
         moduleDisplayName: module.displayName || module.module,
       }))
-    );
-    syncRunDialogSelects();
-    normalizeSelectedNodePreferredProtocol();
+	    );
+	    syncRunFormSelects();
+	    normalizeSelectedNodePreferredProtocol();
     if (!capabilitySourceSelectItems.value.length) {
       capabilityOptionsError.value = t("workflow.editor.capabilityOptionsEmpty");
       if (notify) {
@@ -2841,7 +3391,7 @@ async function loadKnowledgeSpaceReferenceData(options: { notify?: boolean } = {
   knowledgeSpacesError.value = "";
   try {
     knowledgeSpaces.value = await knowledgeSpacesApi.listSpaces({ limit: 100, status: "active" });
-    syncMarketingKnowledgeSpaceSelect();
+    syncRunFormSelects();
     if (!marketingKnowledgeSpaceSelectItems.value.length) {
       knowledgeSpacesError.value = t("workflow.editor.marketingKnowledgeSpacesEmpty");
       if (notify) {
@@ -2985,14 +3535,6 @@ async function loadMetadataReferenceData(options: { notify?: boolean } = {}) {
   } finally {
     metadataOptionsLoading.value = false;
   }
-}
-
-function syncMarketingKnowledgeSpaceSelect() {
-  selectedMarketingKnowledgeSpace.value =
-    marketingKnowledgeSpaceSelectItems.value.find((item) => item.value === marketingDebugForm.knowledge_space_uuid) ||
-    marketingKnowledgeSpaceSelectItems.value[0] ||
-    null;
-  marketingDebugForm.knowledge_space_uuid = selectedMarketingKnowledgeSpace.value?.value || marketingDebugForm.knowledge_space_uuid;
 }
 
 function knowledgeSpaceOptionLabel(space: KnowledgeSpaceRecord) {
@@ -3345,11 +3887,11 @@ async function runWorkflow() {
 
 function parseDebugInput() {
   try {
-    if (isApprovalGuardedCapabilityWorkflow.value) {
-      return buildApprovalDebugInputFromForm();
+    if (runFormConfigError.value) {
+      throw new Error(runFormConfigError.value);
     }
-    if (isMarketingKnowledgeCaptureWorkflow.value) {
-      return buildMarketingKnowledgeCaptureInputFromForm();
+    if (runFormFields.value.length > 0) {
+      return buildDebugInputFromRunForm();
     }
     const parsed = JSON.parse(debugInputText.value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -3371,37 +3913,11 @@ function parseDebugInput() {
 
 function resetDebugInput() {
   const input = buildDebugInputForCurrentWorkflow();
-  if (isApprovalGuardedCapabilityWorkflow.value) {
-    approvalDebugForm.capability_id = String(input.capability_id || "");
-    approvalDebugForm.reason = String(input.request?.reason || "");
-    approvalDebugForm.dry_run = Boolean(input.request?.payload?.dry_run);
-    approvalDebugForm.note = String(input.request?.payload?.note || "");
-    syncRunDialogSelects();
-  } else if (isMarketingKnowledgeCaptureWorkflow.value) {
-    applyMarketingDebugInput(input);
-    syncMarketingKnowledgeSpaceSelect();
+  if (runFormFields.value.length > 0) {
+    applyRunFormInput(input);
+    syncRunFormSelects();
   }
   debugInputText.value = JSON.stringify(input, null, 2);
-}
-
-function syncRunDialogSelects() {
-  const selectedCapability = workflowRunnableCapabilities.value.find(
-    (item) => item.capabilityId === approvalDebugForm.capability_id
-  );
-  selectedRunCapabilitySource.value =
-    capabilitySourceSelectItems.value.find((item) => item.value === (selectedCapability ? capabilitySourceKey(selectedCapability) : "")) ||
-    capabilitySourceSelectItems.value[0] ||
-    null;
-  selectedRunCapabilityModule.value =
-    runCapabilityModuleSelectItems.value.find((item) => item.value === (selectedCapability ? capabilityModuleOptionValue(selectedCapability) : "")) ||
-    runCapabilityModuleSelectItems.value[0] ||
-    null;
-  selectedRunCapability.value = selectedCapability
-    ? capabilitySelectItems.value.find((item) => item.value === selectedCapability.capabilityId) || null
-    : capabilitySelectItems.value[0] || null;
-  approvalDebugForm.capability_id = selectedRunCapability.value?.value || approvalDebugForm.capability_id;
-  selectedExecutionReason.value =
-    executionReasonOptions.value.find((item) => item.value === approvalDebugForm.reason) || executionReasonOptions.value[0] || null;
 }
 
 async function restoreLatestRun(definitionUUID: string) {
@@ -3886,127 +4402,235 @@ function workflowPackI18nKey(field: "name" | "description") {
 }
 
 function buildDebugInputForCurrentWorkflow() {
-  const packKey = currentWorkflow.value?.raw?.workflow_pack_key?.trim();
-  if (packKey === "approval_guarded_capability") {
-    return buildApprovalDebugInputFromForm(false);
-  }
-  if (packKey === "marketing_knowledge_capture") {
-    return buildMarketingKnowledgeCaptureInputFromForm(false);
-  }
-  if (packKey === "intake_classify_review") {
-    return {
-      taxonomy_namespace: "corex.marketing.methodology",
-      tag_namespace: "corex.marketing",
-      dictionary_namespace: "corex.marketing",
-      resource_type_namespace: "corex.knowledge",
-      intake: {
-        text: "workflow_debug_metadata_intake",
-        source: "workflow_editor_run_test",
-      },
-    };
-  }
-  if (packKey === "skill_review_publish_event") {
-    return {
-      skill_id: "debug.echo",
-      input: {
-        text: "workflow_debug_skill_review",
-      },
-    };
+  if (runFormFields.value.length > 0) {
+    return buildDebugInputFromRunForm(false);
   }
   return {};
 }
 
-function buildApprovalDebugInputFromForm(validate = true) {
-  if (validate || selectedRunCapability.value) {
-    approvalDebugForm.capability_id = selectedRunCapability.value?.value || "";
+function runFormDefinitionFromSchema(schema?: Record<string, any>): RunFormDefinition | null {
+  if (!schema || typeof schema !== "object") return null;
+  const explicit = (schema["x-run-form"] || schema["x_run_form"]) as Record<string, any> | undefined;
+  if (explicit && Array.isArray(explicit.fields)) {
+    return {
+      title: typeof explicit.title === "string" ? explicit.title : undefined,
+      titleKey: typeof explicit.titleKey === "string" ? explicit.titleKey : typeof explicit.title_i18n_key === "string" ? explicit.title_i18n_key : undefined,
+      description: typeof explicit.description === "string" ? explicit.description : undefined,
+      descriptionKey:
+        typeof explicit.descriptionKey === "string"
+          ? explicit.descriptionKey
+          : typeof explicit.description_i18n_key === "string"
+            ? explicit.description_i18n_key
+            : undefined,
+      fields: explicit.fields.map(normalizeRunFormField).filter(Boolean) as RunFormField[],
+    };
   }
-  if (validate || selectedExecutionReason.value) {
-    approvalDebugForm.reason = selectedExecutionReason.value?.value || "";
-  }
-  if (validate) {
-    if (capabilityOptionsLoading.value) {
-      throw new Error(t("workflow.editor.capabilityOptionsLoading"));
-    }
-    if (!selectedRunCapabilityModule.value?.value) {
-      throw new Error(t("workflow.editor.debugCapabilityModuleRequired"));
-    }
-    if (!approvalDebugForm.capability_id.trim()) {
-      throw new Error(t("workflow.editor.debugCapabilityRequired"));
-    }
-    if (!capabilitySelectItems.value.some((item) => item.value === approvalDebugForm.capability_id.trim())) {
-      throw new Error(t("workflow.editor.debugCapabilityMustSelect"));
-    }
-    if (!executionReasonOptions.value.some((item) => item.value === approvalDebugForm.reason.trim())) {
-      throw new Error(t("workflow.editor.debugReasonMustSelect"));
-    }
-  }
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object") return null;
+  const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
+  const fields = Object.entries(properties).map(([key, property]) => {
+    const spec = (property || {}) as Record<string, any>;
+    return normalizeRunFormField({
+      key,
+      path: key,
+      kind: schemaFieldKind(spec),
+      label: spec.title || key,
+      placeholder: spec.description || "",
+      required: required.has(key),
+      defaultValue: spec.default,
+      options: Array.isArray(spec.enum)
+        ? spec.enum.map((value: any) => ({ label: String(value), value: String(value) }))
+        : undefined,
+    });
+  }).filter(Boolean) as RunFormField[];
+  return fields.length > 0 ? { fields } : null;
+}
+
+function normalizeRunFormField(raw: Record<string, any>): RunFormField | null {
+  const key = String(raw.key || raw.name || "").trim();
+  if (!key) return null;
+  const resource = raw.resource === "knowledge_space" || raw.resource === "capability" ? raw.resource : undefined;
+  const kind = normalizeRunFormFieldKind(String(raw.kind || raw.type || (resource ? "select" : "text")));
+  const options = Array.isArray(raw.options)
+    ? raw.options.map((item: any) => ({
+      label: String(item.label || item.value || ""),
+      labelKey: typeof item.labelKey === "string" ? item.labelKey : typeof item.label_i18n_key === "string" ? item.label_i18n_key : undefined,
+      value: String(item.value ?? ""),
+    })).filter((item: SelectOption) => item.value)
+    : undefined;
   return {
-    capability_id: approvalDebugForm.capability_id.trim(),
-    request: {
-      reason: approvalDebugForm.reason.trim(),
-      payload: {
-        dry_run: approvalDebugForm.dry_run,
-        note: approvalDebugForm.note.trim(),
-      },
-    },
+    key,
+    path: String(raw.path || key).trim(),
+    kind,
+    label: typeof raw.label === "string" ? raw.label : undefined,
+    labelKey: typeof raw.labelKey === "string" ? raw.labelKey : typeof raw.label_i18n_key === "string" ? raw.label_i18n_key : undefined,
+    placeholder: typeof raw.placeholder === "string" ? raw.placeholder : undefined,
+    placeholderKey:
+      typeof raw.placeholderKey === "string" ? raw.placeholderKey : typeof raw.placeholder_i18n_key === "string" ? raw.placeholder_i18n_key : undefined,
+    hint: typeof raw.hint === "string" ? raw.hint : undefined,
+    hintKey: typeof raw.hintKey === "string" ? raw.hintKey : typeof raw.hint_i18n_key === "string" ? raw.hint_i18n_key : undefined,
+    required: Boolean(raw.required),
+    rows: Number(raw.rows || 0) || undefined,
+    defaultValue: raw.defaultValue ?? raw.default,
+    options,
+    resource,
+    visibleWhen: raw.visibleWhen || raw.visible_when,
   };
 }
 
-function applyMarketingDebugInput(input: Record<string, any>) {
-  marketingDebugForm.knowledge_space_uuid = String(input.knowledge_space_uuid || "");
-  marketingDebugForm.source_type = String(input.source?.type || "text");
-  marketingDebugForm.text = String(input.source?.content || "");
-  marketingDebugForm.url = String(input.source?.url || "");
-  marketingDebugForm.asset_uuid = String(input.source?.asset_uuid || "");
-  marketingDebugForm.context = String(input.source?.context || t("workflow.editor.marketingContextDefault"));
-  marketingDebugForm.language = String(input.source?.language || "zh");
-  marketingDebugForm.note = String(input.note || "");
+function schemaFieldKind(spec: Record<string, any>): RunFormFieldKind {
+  if (Array.isArray(spec.enum)) return "select";
+  if (spec.format === "textarea" || spec["x-ui"] === "textarea") return "textarea";
+  if (spec.type === "boolean") return "boolean";
+  if (spec.type === "number" || spec.type === "integer") return "number";
+  if (spec.type === "object" || spec.type === "array") return "object";
+  return "text";
 }
 
-function buildMarketingKnowledgeCaptureInputFromForm(validate = true) {
-  if (validate || selectedMarketingKnowledgeSpace.value) {
-    marketingDebugForm.knowledge_space_uuid = selectedMarketingKnowledgeSpace.value?.value || "";
+function normalizeRunFormFieldKind(kind: string): RunFormFieldKind {
+  if (kind === "textarea" || kind === "select" || kind === "boolean" || kind === "number" || kind === "object") return kind;
+  if (kind === "integer") return "number";
+  return "text";
+}
+
+function isRunFormFieldVisible(field: RunFormField) {
+  const condition = field.visibleWhen;
+  if (!condition?.field) return true;
+  const actual = String(runFormValues[condition.field] ?? "");
+  if (typeof condition.equals !== "undefined") {
+    const expected = Array.isArray(condition.equals) ? condition.equals.map(String) : [String(condition.equals)];
+    return expected.includes(actual);
   }
-  const sourceType = String(marketingDebugForm.source_type || "").trim();
-  if (validate) {
-    if (knowledgeSpacesLoading.value) {
+  if (typeof condition.notEquals !== "undefined") {
+    const denied = Array.isArray(condition.notEquals) ? condition.notEquals.map(String) : [String(condition.notEquals)];
+    return !denied.includes(actual);
+  }
+  return true;
+}
+
+function runFormFieldLabel(field: RunFormField) {
+  if (field.labelKey && te(field.labelKey)) return t(field.labelKey);
+  return field.label || humanizeModuleKey(field.key);
+}
+
+function runFormFieldPlaceholder(field: RunFormField) {
+  if (field.placeholderKey && te(field.placeholderKey)) return t(field.placeholderKey);
+  return field.placeholder || "";
+}
+
+function runFormFieldHint(field: RunFormField) {
+  if (field.hintKey && te(field.hintKey)) return t(field.hintKey);
+  return field.hint || "";
+}
+
+function runFormFieldOptions(field: RunFormField) {
+  return (field.options || []).map((option) => ({
+    label: option.labelKey && te(option.labelKey) ? t(option.labelKey) : option.label,
+    value: option.value,
+  }));
+}
+
+function genericSelectValue(field: RunFormField) {
+  return runFormSelectValues.value[field.key] || null;
+}
+
+function setGenericSelectValue(field: RunFormField, option: SelectOption | null) {
+  runFormSelectValues.value = {
+    ...runFormSelectValues.value,
+    [field.key]: option,
+  };
+  runFormValues[field.key] = option?.value || "";
+}
+
+function applyRunFormInput(input: Record<string, any>) {
+  for (const key of Object.keys(runFormValues)) delete runFormValues[key];
+  runFormSelectValues.value = {};
+  for (const field of runFormFields.value) {
+    const value = valueAtPath(input, field.path);
+    runFormValues[field.key] = typeof value === "undefined" ? defaultRunFormFieldValue(field) : formValueForField(field, value);
+  }
+}
+
+function syncRunFormSelects() {
+  const next: Record<string, SelectOption | null> = {};
+  for (const field of runFormFields.value) {
+    const value = String(runFormValues[field.key] ?? "");
+    if (field.resource === "knowledge_space") {
+      next[field.key] = marketingKnowledgeSpaceSelectItems.value.find((item) => item.value === value) || null;
+    } else if (field.resource === "capability") {
+      next[field.key] = genericCapabilitySelectItems.value.find((item) => item.value === value) || null;
+    }
+  }
+  runFormSelectValues.value = next;
+}
+
+function defaultRunFormFieldValue(field: RunFormField) {
+  if (typeof field.defaultValue !== "undefined") return field.defaultValue;
+  if (field.kind === "boolean") return false;
+  if (field.kind === "number") return 0;
+  if (field.kind === "object") return "{}";
+  return "";
+}
+
+function formValueForField(field: RunFormField, value: any) {
+  if (field.kind === "object") return typeof value === "string" ? value : JSON.stringify(value ?? {}, null, 2);
+  if (field.kind === "boolean") return Boolean(value);
+  if (field.kind === "number") return Number(value);
+  return typeof value === "undefined" || value === null ? "" : String(value);
+}
+
+function buildDebugInputFromRunForm(validate = true) {
+  const result: Record<string, any> = {};
+  for (const field of visibleRunFormFields.value) {
+    if (field.resource === "knowledge_space" && validate && knowledgeSpacesLoading.value) {
       throw new Error(t("workflow.editor.marketingKnowledgeSpacesLoading"));
     }
-    if (!marketingDebugForm.knowledge_space_uuid.trim()) {
-      throw new Error(t("workflow.editor.marketingKnowledgeSpaceRequired"));
+    if (field.resource === "capability" && validate && capabilityOptionsLoading.value) {
+      throw new Error(t("workflow.editor.capabilityOptionsLoading"));
     }
-    if (!marketingSourceTypeOptions.value.some((item) => item.value === sourceType)) {
-      throw new Error(t("workflow.editor.marketingSourceTypeRequired"));
+    const rawValue = runFormValues[field.key];
+    if (validate && field.required && isEmptyRunFormValue(rawValue)) {
+      throw new Error(t("workflow.editor.runFormFieldRequired", { field: runFormFieldLabel(field) }));
     }
-    if (sourceType === "text" && !marketingDebugForm.text.trim()) {
-      throw new Error(t("workflow.editor.marketingSourceTextRequired"));
-    }
-    if (sourceType === "link" && !marketingDebugForm.url.trim()) {
-      throw new Error(t("workflow.editor.marketingSourceUrlRequired"));
-    }
-    if ((sourceType === "audio" || sourceType === "document") && !marketingDebugForm.asset_uuid.trim()) {
-      throw new Error(t("workflow.editor.marketingSourceAssetRequired"));
-    }
+    assignPath(result, field.path, payloadValueForField(field, rawValue));
   }
+  return result;
+}
 
-  const source: Record<string, any> = {
-    type: sourceType || "text",
-    context: marketingDebugForm.context.trim() || t("workflow.editor.marketingContextDefault"),
-    language: marketingDebugForm.language.trim() || "zh",
-  };
-  if (source.type === "text") {
-    source.content = marketingDebugForm.text.trim() || t("workflow.editor.marketingSourceTextExample");
-  } else if (source.type === "link") {
-    source.url = marketingDebugForm.url.trim();
-  } else {
-    source.asset_uuid = marketingDebugForm.asset_uuid.trim();
+function isEmptyRunFormValue(value: any) {
+  if (typeof value === "boolean") return false;
+  if (typeof value === "number") return !Number.isFinite(value);
+  return String(value ?? "").trim() === "";
+}
+
+function payloadValueForField(field: RunFormField, value: any) {
+  if (field.kind === "boolean") return Boolean(value);
+  if (field.kind === "number") return Number(value);
+  if (field.kind === "object") {
+    if (typeof value !== "string") return value ?? {};
+    const trimmed = value.trim();
+    if (!trimmed) return {};
+    return JSON.parse(trimmed);
   }
+  return typeof value === "string" ? value.trim() : value;
+}
 
-  return {
-    knowledge_space_uuid: marketingDebugForm.knowledge_space_uuid.trim(),
-    source,
-    note: marketingDebugForm.note.trim(),
-  };
+function valueAtPath(source: Record<string, any>, path: string) {
+  return path.split(".").filter(Boolean).reduce((current: any, segment) => current?.[segment], source);
+}
+
+function assignPath(target: Record<string, any>, path: string, value: any) {
+  const parts = path.split(".").filter(Boolean);
+  if (parts.length === 0) return;
+  let cursor = target;
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const part = parts[index];
+    if (!cursor[part] || typeof cursor[part] !== "object" || Array.isArray(cursor[part])) {
+      cursor[part] = {};
+    }
+    cursor = cursor[part];
+  }
+  cursor[parts[parts.length - 1]] = value;
 }
 
 function camelCase(value: string) {
@@ -4534,14 +5158,15 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px;
+  padding: 12px 12px 14px;
+  scroll-padding-top: 12px;
 }
 
 .properties-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .properties-header h4 {
@@ -4563,8 +5188,8 @@ onBeforeUnmount(() => {
 .properties-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .properties-field,
@@ -4587,6 +5212,203 @@ onBeforeUnmount(() => {
   gap: 10px;
   color: var(--wf-text);
   font-size: 13px;
+}
+
+.input-fields-editor {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--wf-border);
+  padding-top: 10px;
+}
+
+.input-fields-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+}
+
+.input-fields-header div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.input-fields-header strong {
+  color: var(--wf-text);
+  font-size: 13px;
+}
+
+.input-fields-header span {
+  color: var(--wf-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.input-field-list {
+  display: grid;
+  gap: 6px;
+}
+
+.input-field-list-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel);
+  padding: 8px 8px 7px;
+}
+
+.input-field-list-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.input-field-list-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--wf-text);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-field-list-badges,
+.input-field-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-field-list-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.input-field-badge {
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.input-field-empty {
+  border: 1px dashed var(--wf-border);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--wf-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.input-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.input-field-dialog-form {
+  display: grid;
+  width: 100%;
+  gap: 12px;
+  padding: 0;
+}
+
+:deep(.input-field-dialog [data-slot="body"]) {
+  width: 100%;
+}
+
+:deep(.input-field-dialog [data-slot="footer"]) {
+  width: 100%;
+}
+
+.input-field-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-field-editor-section {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.input-field-editor-section + .input-field-editor-section {
+  border-top: 1px solid color-mix(in srgb, var(--wf-border) 74%, transparent);
+  padding-top: 10px;
+}
+
+.input-field-editor-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-field-editor-section-title::after {
+  display: block;
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--wf-border) 70%, transparent);
+  content: "";
+}
+
+.input-field-editor-section-title strong {
+  color: var(--wf-dim);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.input-field-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.input-field-option-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel);
+  padding: 9px 10px;
+  color: var(--wf-text);
+  font-size: 13px;
+}
+
+.input-field-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.input-field-flags label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel);
+  padding: 8px 10px;
+  color: var(--wf-text);
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .input-field-grid,
+  .input-field-option-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .skill-model-grid {
@@ -5182,6 +6004,54 @@ onBeforeUnmount(() => {
 
 .run-dialog-notice {
   grid-column: 1 / -1;
+}
+
+.run-start-node-card {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--wf-accent) 34%, var(--wf-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-accent) 7%, var(--wf-panel));
+  padding: 12px;
+}
+
+.run-start-node-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-accent) 18%, var(--wf-panel-soft));
+  color: var(--wf-accent);
+}
+
+.run-start-node-content {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.run-start-node-content span {
+  color: var(--wf-muted);
+  font-size: 12px;
+}
+
+.run-start-node-content strong {
+  overflow: hidden;
+  color: var(--wf-text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-start-node-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .debug-input-switch {

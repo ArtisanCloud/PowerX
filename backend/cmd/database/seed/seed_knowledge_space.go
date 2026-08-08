@@ -5,13 +5,17 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"github.com/ArtisanCloud/PowerX/config"
+	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
@@ -96,4 +100,67 @@ func SeedKnowledgePolicyTemplates(db *gorm.DB) error {
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] policy templates ready: %s-%s (id=%d)", name, ver, row.ID)
 	}
 	return nil
+}
+
+func SeedBuiltinKnowledgeSpaces(db *gorm.DB, cfg *config.Config, tenantUUID string) error {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return ksvc.ErrInvalidInput
+	}
+	pgCfg := buildSeedPGVectorConfig(cfg)
+	initializer := ksvc.NewBuiltinKnowledgeInitializer(ksvc.BuiltinKnowledgeInitializerOptions{
+		DB:           db,
+		SpaceService: ksvc.NewService(ksvc.ServiceOptions{DB: db}),
+		VectorIndex: ksvc.NewVectorIndexService(ksvc.VectorIndexServiceOptions{
+			DB:       db,
+			PGVector: pgCfg,
+		}),
+	})
+	result, err := initializer.EnsureTenantBuiltinKnowledge(seedCtx(), ksvc.BuiltinKnowledgeSeedInput{
+		TenantUUID:  tenantUUID,
+		RequestedBy: "cmd/database seed",
+	})
+	if err != nil {
+		return err
+	}
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] builtin knowledge spaces ready: tenant_uuid=%s %s", tenantUUID, ksvc.FormatBuiltinKnowledgeSeedSummary(result))
+	return nil
+}
+
+func buildSeedPGVectorConfig(cfg *config.Config) pgvector.Config {
+	if cfg == nil {
+		return pgvector.Config{}
+	}
+	pgCfg := cfg.KnowledgeSpace.VectorStore.PgVector
+	dsn := strings.TrimSpace(pgCfg.DSN)
+	if dsn == "" {
+		dsn = strings.TrimSpace(cfg.Database.DSN)
+	}
+	if dsn == "" && strings.TrimSpace(cfg.Database.Host) != "" {
+		sslmode := strings.TrimSpace(cfg.Database.SSLMode)
+		if sslmode == "" {
+			sslmode = "disable"
+		}
+		tz := strings.TrimSpace(cfg.Database.Timezone)
+		if tz == "" {
+			tz = "UTC"
+		}
+		dsn = "host=" + strings.TrimSpace(cfg.Database.Host) +
+			" port=" + strconv.Itoa(cfg.Database.Port) +
+			" user=" + strings.TrimSpace(cfg.Database.UserName) +
+			" password=" + strings.TrimSpace(cfg.Database.Password) +
+			" dbname=" + strings.TrimSpace(cfg.Database.Database) +
+			" sslmode=" + sslmode +
+			" TimeZone=" + tz
+	}
+	return pgvector.Config{
+		DSN:              dsn,
+		Schema:           strings.TrimSpace(pgCfg.Schema),
+		Table:            strings.TrimSpace(pgCfg.Table),
+		Dimensions:       pgCfg.Dimensions,
+		EnableMigrations: false,
+		BatchSize:        pgCfg.BatchSize,
+		Lists:            pgCfg.Lists,
+		TimeoutSeconds:   pgCfg.TimeoutSeconds,
+	}
 }

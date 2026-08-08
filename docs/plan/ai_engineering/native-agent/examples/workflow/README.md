@@ -6,6 +6,8 @@
 
 注意：`make seed` 只校验这些内置 Pack 的 YAML 和节点依赖，不会给所有租户批量创建工作流。某个租户要使用内置 Pack 时，需要在 Web Admin 或 API 中显式启用，启用后才会生成该租户自己的 published WorkflowDefinition。
 
+知识库和 WorkflowDefinition 都是租户级对象：`make seed` 会给 `system` 租户准备一个 active 的 `插件联调知识空间`，用于本地和 system 租户调试。新租户通过后台租户创建或 SaaS 注册成功后，会统一初始化该租户自己的 active 内置知识库，并启用内置 Workflow Pack。页面上的“初始化固有知识库”和“初始化内置工作流”保留为手动重试/修复入口。
+
 Web Admin 页面显示的是中文名，seed 文件和 API 使用的是 `workflow_key`。两者必须同时写清楚，否则无法从页面卡片对应到文档。
 
 页面入口：
@@ -43,7 +45,7 @@ docs/plan/ai_engineering/native-agent/examples/workflow/seeds/
 | Web Admin 显示名 | workflow_key | 说明文档 | seed 配置 | 当前是否适合单独测试 |
 | --- | --- | --- | --- | --- |
 | 技能执行审核发布 | `skill_review_publish_event` | [技能执行审核发布（skill_review_publish_event）](seeds/skill_review_publish_event.md) | `backend/config/workflow_packs/common/skill_review_publish_event.yaml` | 部分适合。需要已有 Skill，否则只能测创建、查看、人审节点。 |
-| 营销知识采集 | `marketing_knowledge_capture` | [营销知识采集（marketing_knowledge_capture）](seeds/marketing_knowledge_capture.md) | `backend/config/workflow_packs/marketing/marketing_knowledge_capture.yaml` | 不适合完整单测。依赖 Knowledge、Skill、Metadata。 |
+| 营销知识采集 | `marketing_knowledge_capture` | [营销知识采集（marketing_knowledge_capture）](seeds/marketing_knowledge_capture.md) | `backend/config/workflow_packs/marketing/marketing_knowledge_capture.yaml` | 可正式测试。需已发布营销 Skill、已启用 Metadata 治理对象、active Knowledge Space 和 `knowledge_chunks` 表。 |
 | 采集分类审核 | `intake_classify_review` | [采集分类审核（intake_classify_review）](seeds/intake_classify_review.md) | `backend/config/workflow_packs/common/intake_classify_review.yaml` | 适合先测。主要验证输入、元数据分类、人审和事件。 |
 | 专家知识采集 | `expert_knowledge_capture` | [专家知识采集（expert_knowledge_capture）](seeds/expert_knowledge_capture.md) | `backend/config/workflow_packs/knowledge/expert_knowledge_capture.yaml` | 不适合完整单测。依赖 Knowledge、Skill、Metadata。 |
 | 活动复盘沉淀 | `campaign_review_to_methodology` | [活动复盘沉淀（campaign_review_to_methodology）](seeds/campaign_review_to_methodology.md) | `backend/config/workflow_packs/marketing/campaign_review_to_methodology.yaml` | 不适合完整单测。依赖营销抽取 Skill 和 Knowledge。 |

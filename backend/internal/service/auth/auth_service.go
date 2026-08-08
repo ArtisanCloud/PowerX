@@ -370,6 +370,19 @@ func (s *AuthService) IssueTokensForTenantSwitch(ctx context.Context, userID uin
 	}
 	m, err := s.MemberRepo.FindByTenantAndUser(ctx, ten.UUID.String(), u.ID)
 	if err != nil {
+		if u.IsRoot {
+			_ = s.UserRepo.UpdateLastTenantUUID(ctx, u.ID, ten.UUID.String())
+			access, refresh, err := s.issueRootTenantTokens(ctx, ten, u)
+			if err != nil {
+				return nil, err
+			}
+			return &TenantSwitchTokenResult{
+				AccessToken:  access,
+				RefreshToken: refresh,
+				TenantID:     ten.ID,
+				TenantUUID:   ten.UUID.String(),
+			}, nil
+		}
 		return nil, errors.New("no membership in tenant")
 	}
 	if m.Status != model.UserStatusActive {
@@ -391,6 +404,45 @@ func (s *AuthService) IssueTokensForTenantSwitch(ctx context.Context, userID uin
 		MemberID:     m.ID,
 		MemberUUID:   m.UUID.String(),
 	}, nil
+}
+
+func (s *AuthService) issueRootTenantTokens(ctx context.Context, ten *tenantmdl.Tenant, u *model.User) (access, refresh string, err error) {
+	if s.Audience == "" {
+		return "", "", errors.New("audience misconfigured")
+	}
+	claims := reqctx.CoreXClaims{
+		Env:        s.DefaultEnv,
+		TenantUUID: ten.UUID.String(),
+		TenantID:   ten.ID,
+		UserUUID:   u.UUID.String(),
+		UserID:     u.ID,
+		Email:      strings.ToLower(strings.TrimSpace(u.Email)),
+		Phone:      strings.TrimSpace(u.Phone),
+		Platforms:  s.Platforms,
+		IsRoot:     true,
+	}
+	jti := uuid.NewString()
+	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+	if err != nil {
+		return "", "", err
+	}
+	refresh, err = pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
+	if err != nil {
+		return "", "", err
+	}
+	_ = s.RTRepo.Issue(ctx, &model.RefreshToken{
+		JTI:        jti,
+		TenantUUID: ten.UUID.String(),
+		MemberUUID: "",
+		UserUUID:   u.UUID.String(),
+		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
+	})
+	if s.Cache != nil {
+		ttl := 10 * time.Minute
+		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, middleware.KTenant(ten.ID), utils.MustJSONBytes(ten.ToLite()), ttl)
+	}
+	return access, refresh, nil
 }
 
 // tenantByUUID 解析并加载租户记录（仅接受 UUID）
