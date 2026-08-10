@@ -150,6 +150,45 @@ capabilities:
         resource_scope: platform
         sts_direct: false
         tool_scope: iam.registration_policy.admin_manage
+  - capability_id: com.corex.iam.permissions.catalog_read
+    module: iam
+    title: IAM Permission Catalog Read
+    description: Read IAM permission catalogs from the admin surface, including plugin-grouped permission catalogs used by role and permission configuration pages.
+    permission_code: corex.iam.permissions:read
+    agent_usable: false
+    risk_level: medium
+    categories: [iam, permissions, admin]
+    intents: [iam.permissions.catalog_read]
+    tool_scopes: [iam.permissions.catalog_read]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions/catalog
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions/plugin-catalog
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
   - capability_id: com.corex.iam.roles.read
     module: iam
     title: IAM Tenant Role Catalog

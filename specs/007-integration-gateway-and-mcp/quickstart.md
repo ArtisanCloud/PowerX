@@ -198,7 +198,7 @@ local 模式通过同一份 descriptor `permissions[]` 生成调试快照，不�
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-     "$POWERX_BASE_URL/admin/iam/permissions/catalog?source=plugin:$PLUGIN_ID"
+     "$POWERX_BASE_URL/admin/iam/permissions/plugin-catalog?plugin_id=$PLUGIN_ID"
 ```
 
 给测试角色只授予 `production.sample_track:read` 和 `production.sample_track:factory_schedule` 后：
