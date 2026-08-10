@@ -244,6 +244,35 @@
 - [ ] **T114 [P]** PowerXPlugin 集成测试：覆盖 delegated 启动校验、入口 guard 统一错误结构、无旧变量回退行为。
 - [ ] **T115** E2E 联调：宿主启用插件后访问 `/_p/<plugin>/admin/.../catalog`，验证不再出现 `has_tool_token=false` / `gateway_base_url=false`。
 
+## Phase 15: 插件细颗粒度权限统一登记与授权（FR-034~FR-040）
+
+**目标**：插件声明 `menu/page/action/api` 细颗粒度权限，PowerX 安装/同步后写入 Capability Registry 与 IAM Permission；角色权限中心统一授权，Gateway 和插件后端按同一 `permission_code` 执行。
+
+### Design / Contracts
+
+- [x] **T116 [P][FR-034]** 权限声明 schema：在 `specs/007-integration-gateway-and-mcp/contracts/` 新增插件权限声明 JSON Schema/OpenAPI 片段，覆盖 `type/permission_code/i18n/risk/default_role_grants/protocol_bindings/data_scope`。
+- [x] **T117 [P][FR-034~FR-040]** 文档对齐：更新 `specs/007-integration-gateway-and-mcp/quickstart.md`、`docs/plan/integration/powerx_capability.md`、`docs/plan/ai_engineering/multi_plugin_capability_guide.md`，补充生产单权限矩阵与 fail-fast 规则。
+- [x] **T118 [P][FR-038]** 授权传递契约：在 delegated gateway contract 中补充 `permission claims + policy_version/perms_hash` 与 authz/introspection 响应结构，明确过期/缺失时拒绝。
+
+### PowerX Implementation
+
+- [x] **T119 [FR-034]** Capability Sync Worker 扩展：解析插件权限声明，校验 i18n、`permission_code`、REST method/path、`actor_context/resource_scope` 和真实 transport，失败写入 `capability.catalog.sync_failed`。
+- [x] **T120 [FR-035]** Registry + IAM 同步：将 `source=plugin` 权限写入 CapabilityRecord，并同步 IAM Permission；默认只授予 owner/admin，显式 `default_role_grants` 才授予普通角色。
+- [x] **T121 [FR-036]** 角色权限中心 API：扩展 IAM 权限目录接口，按插件、模块、菜单、页面、动作分组返回授权项，展示文案只来自 i18n 元数据。
+- [x] **T122 [FR-036]** Web Admin 授权 UI：在角色权限页展示插件权限分组，支持勾选授权和查看登记失败状态；UUID/raw route 仅作为调试元数据。
+- [x] **T123 [FR-037]** Gateway 预检：为 `/_p/<plugin_id>/admin/**` 和插件 API 用户态请求增加 `plugin_id + method + path -> permission_code` 映射校验，缺 binding 或无权限时返回明确 403。
+- [x] **T124 [FR-038]** 有效权限快照：在用户 token claims 或 authz/introspection 中提供 `permission_codes + policy_version/perms_hash`，权限版本过期时 fail-fast。
+- [x] **T125 [FR-039]** local 模式模拟：提供基于同一插件权限声明的本地模拟授权结果，字段与 delegated 模式一致；插件设置页只显示调试/登记状态。
+- [x] **T126 [FR-040]** 旧粗权限迁移报告：输出 `operations.order:read/manage` 等粗权限到细权限的迁移报告和缺失授权清单，不保留长期兼容 alias。
+
+### Tests
+
+- [x] **T127 [P][FR-034]** 声明校验合同测试：覆盖缺 `permission_code`、缺 i18n、缺 method、缺 actor/resource scope、只有 API 无业务 action 等失败场景。
+- [x] **T128 [P][FR-035~FR-036]** Registry/IAM 同步测试：安装示例插件后验证 CapabilityRecord、IAM Permission、默认角色授权和角色权限目录分组一致。
+- [x] **T129 [P][FR-037]** Gateway 权限矩阵测试：对 sample_track read/factory_schedule/delivery 三类权限验证允许/拒绝、method 精确匹配和审计字段。
+- [x] **T130 [P][FR-038~FR-039]** delegated/local 一致性测试：验证 token claims/introspection/local mock 三种来源输出相同权限字段，过期 hash 被拒绝。
+- [x] **T131 [FR-040]** 粗权限迁移测试：模拟旧 `operations.order:*` 权限数据，验证迁移报告完整且缺少细权限时运行时拒绝。
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。
@@ -253,6 +282,7 @@
 5. **Polish**：所有核心功能完成后再执行。
 6. **Base Capability Exposure**：依赖 Phase 2~6 的 Registry/Gateway 基础能力，T051~T055 可在核心链路稳定后并行推进；T056 收尾文档。
 7. **Delegated Contract v1**：T104~T108（PowerX）先落地，再执行 T109~T112（PowerXPlugin），最后跑 T113~T115 联调回归。
+8. **细颗粒度插件权限**：T116~T118 先完成契约，T119~T124 是 PowerX 主链路，T125 可与插件 local 模式并行，T127~T131 作为发布准入回归。
 
 ### 平行执行示例
 ```bash

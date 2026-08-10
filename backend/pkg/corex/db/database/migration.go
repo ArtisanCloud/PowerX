@@ -129,6 +129,11 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.APIKeyProfilePermission{},
 		&modelIAM.APIKey{},
 		&modelIAM.RootSupportSession{},
+		&modelIAM.RegistrationPolicy{},
+		&modelIAM.RegistrationInviteBatch{},
+		&modelIAM.RegistrationInviteCode{},
+		&modelIAM.RegistrationRequest{},
+		&modelIAM.RegistrationPolicyAuditEvent{},
 	)
 	if err != nil {
 		return err

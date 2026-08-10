@@ -86,10 +86,12 @@
 - **FR-012**: Router 执行 fallback 后需同步回 Registry，确保后续健康评估包含失败次数与恢复时间，避免误判。
 - **FR-013**: 必须提供自助测试接口（sandbox mode），允许在不影响生产的前提下模拟策略与路由结果。
 - **FR-014**: 支持跨区域/多集群部署，Router 在同城内使用本地缓存优先，跨区域失败时可回源 Registry 或请求远端 Router。
+- **FR-015**: Registry 必须保存插件细颗粒度权限元数据，包括 `source=plugin`、`permission_code`、`type=menu|page|action|api`、i18n key、默认角色建议、风险等级和 protocol binding，并向 IAM 角色权限中心、Gateway 预检和插件运行时授权快照提供一致查询。
 
 ### Key Entities
 
 - **CapabilityRegistration**: Registry 中的能力主记录，以能力 ID 与租户为唯一键，包含契约引用、状态、适配器列表、版本信息与策略元数据。
+- **PluginPermissionRegistration**: 插件权限登记快照，记录 `permission_code`、授权类型、i18n、协议 binding 与同步状态，是 IAM Permission 同步和 Gateway enforcement 的来源。
 - **AdapterEndpoint**: 代表单个可路由目标，描述协议、地址、健康窗口、权重、并发限制和标签。
 - **RoutingPolicy**: 定义权重策略、租户/环境过滤、fallback 顺序、熔断规则和限流阈值。
 - **HealthProbeResult**: 保存主动/被动探测结果、故障原因、置信度与过期时间，供 Router 判定，并记录默认 60 秒的恢复冷却窗口及最近写入版本号。

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://powerx.local/schemas/plugin-permissions.schema.json",
+  "title": "PowerX Plugin Permission Declarations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["permissions"],
+  "properties": {
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/permission" }
+    }
+  },
+  "$defs": {
+    "localeText": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z]{2}(-[A-Z]{2})?$": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "permissionCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+:[a-z][a-z0-9_]*$"
+    },
+    "roleCode": {
+      "type": "string",
+      "enum": ["role_owner", "role_admin", "role_user", "role_readonly", "role_vendor"]
+    },
+    "permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "permission_code", "title_i18n", "description_i18n", "risk_level"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["menu", "page", "action", "api"]
+        },
+        "permission_code": { "$ref": "#/$defs/permissionCode" },
+        "module": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title_i18n": { "$ref": "#/$defs/localeText" },
+        "description_i18n": { "$ref": "#/$defs/localeText" },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "data_scope": {
+          "type": "string",
+          "enum": ["tenant", "owner", "self", "factory", "department", "global"]
+        },
+        "default_role_grants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/roleCode" },
+          "uniqueItems": true
+        },
+        "business_permission_code": { "$ref": "#/$defs/permissionCode" },
+        "independent": {
+          "type": "boolean",
+          "default": false
+        },
+        "protocol_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/protocolBinding" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "api" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["protocol_bindings"],
+            "anyOf": [
+              { "required": ["business_permission_code"] },
+              {
+                "properties": { "independent": { "const": true } },
+                "required": ["independent"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "protocolBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "method", "path", "actor_context", "resource_scope"],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["rest"]
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^/"
+        },
+        "actor_context": {
+          "type": "string",
+          "enum": ["admin_user", "service_actor", "web_user", "mini_app_user", "customer_actor"]
+        },
+        "resource_scope": {
+          "type": "string",
+          "enum": ["tenant", "owner", "self", "department", "global"]
+        }
+      }
+    }
+  }
+}

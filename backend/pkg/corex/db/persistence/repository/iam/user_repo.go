@@ -27,6 +27,22 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 
 // ---- 全局查找 ----
 
+func (r *UserRepository) Create(ctx context.Context, u *dbm.User) (*dbm.User, error) {
+	if u == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
+	u.Phone = strings.TrimSpace(u.Phone)
+	query := r.db.WithContext(ctx)
+	if u.Email == "" {
+		query = query.Omit("email")
+	}
+	if err := query.Create(u).Error; err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
 func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*dbm.User, error) {
 	var u dbm.User
 	if err := r.db.WithContext(ctx).First(&u, id).Error; err != nil {

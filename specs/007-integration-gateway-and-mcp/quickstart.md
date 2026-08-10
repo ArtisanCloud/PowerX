@@ -135,6 +135,93 @@ ORDER BY created_at ASC;
 3. 检查 Redis 中的缓存键：`redis-cli keys 'capability_registry:cache:*' | xargs -r redis-cli ttl`，确认 TTL < 180s，必要时执行 `POST /admin/capabilities/cache:flush` 后重新回源。
 4. 失败时查看 `backend/logs/capability_sync.log`，并关注 `capability.catalog.sync_failed` 事件。
 
+### 步骤 1.5：验证插件细颗粒度权限声明同步
+
+示例插件需要在能力声明中包含 `menu/page/action/api` 权限项。最小示例：
+
+```yaml
+permissions:
+  - capability_id: com.powerx.plugin.production.sample_track.factory_schedule
+    permission_code: production.sample_track:factory_schedule
+    type: action
+    module: production
+    title_i18n: production.permissions.sample_track_factory_schedule
+    description_i18n: production.permissions.sample_track_factory_schedule_desc
+    risk_level: medium
+    protocols:
+      rest:
+        - method: POST
+          path: /sample-tracks/{uuid}/nodes/sample-schedule
+          actor_context: admin_user
+          resource_scope: tenant
+```
+
+同步后检查 Registry 和 IAM Permission：
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "$POWERX_BASE_URL/admin/capabilities?plugin_id=$PLUGIN_ID&source=plugin"
+```
+
+```sql
+SELECT plugin, resource, action, source, meta
+FROM public.iam_permission
+WHERE source = 'plugin:' || :'PLUGIN_ID'
+ORDER BY plugin, resource, action;
+```
+
+预期：
+
+- 每个 `menu/page/action` 授权项都有稳定 `permission_code` 和 i18n 元数据。
+- REST binding 精确包含 HTTP method、path、`actor_context`、`resource_scope`。
+- 缺少 `permission_code`、i18n、method/path 或 actor/resource scope 时同步失败，并产生 `capability.catalog.sync_failed`。
+- `api` binding 默认不作为管理员可见勾选项，除非它被显式声明为独立业务授权能力。
+
+local 模式通过同一份 descriptor `permissions[]` 生成调试快照，不维护独立正式授权语义。开发插件调用本地 catalog 同步接口后，响应必须包含 delegated 兼容字段：
+
+```json
+{
+  "local_permission_snapshot": {
+    "plugin_id": "com.powerx.plugins.production.local",
+    "source": "local_mock",
+    "permission_codes": [
+      "production.sample_track:factory_schedule",
+      "production.sample_track_api:sample_schedule"
+    ],
+    "perms_hash": "sha256:<hash>",
+    "policy_version": "iam:sha256:<hash>"
+  }
+}
+```
+
+角色授权矩阵验证：
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "$POWERX_BASE_URL/admin/iam/permissions/plugin-catalog?plugin_id=$PLUGIN_ID"
+```
+
+给测试角色只授予 `production.sample_track:read` 和 `production.sample_track:factory_schedule` 后：
+
+- 插件菜单和页面只显示已授权入口。
+- `sample_schedule` 按钮可见，`delivery` 按钮不可见。
+- 直接调用 `POST /sample-tracks/{uuid}/nodes/delivery` 必须返回 403。
+- 审计记录包含 `tenant_uuid/member_uuid/plugin_id/capability_id/permission_code/route/method/trace_id`。
+
+旧粗权限迁移只输出报告和缺失授权清单，不生成运行时 alias：
+
+```bash
+node scripts/migrations/plugin-permission-granularity-report.mjs . --format=markdown
+```
+
+报告会扫描 `operations.order:read/manage` 使用点，并输出需要补齐的细权限，例如 `production.sample_track:read`、`production.sample_track:factory_schedule`、`production.bulk_order:manage`。缺少细权限时，网关和插件后端都必须拒绝请求。
+
+迁移报告回归测试：
+
+```bash
+node scripts/migrations/plugin-permission-granularity-report.test.mjs
+```
+
 ### 步骤 2：验证管理端/租户 API 一致性
 1. 管理员查看单个能力：
    ```bash

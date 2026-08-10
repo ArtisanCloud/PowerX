@@ -1,5 +1,194 @@
 version: 1
 capabilities:
+  - capability_id: com.corex.iam.registration_policy.admin_manage
+    module: iam
+    title: IAM Registration Policy Administration
+    description: Manage platform tenant registration policy, invite code batches, and registration request approvals from the root admin surface.
+    permission_code: corex.iam.registration_policy:admin_manage
+    agent_usable: false
+    risk_level: high
+    categories: [iam, registration, admin]
+    intents: [iam.registration_policy.admin_manage]
+    tool_scopes: [iam.registration_policy.admin_manage]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/registration-policy
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-policy/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-policy
+        method: PUT
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-policy/put
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-policy/history
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-policy~1history/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-policy/activate
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-policy~1activate/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches
+        method: DELETE
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches/delete
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches/{batch_uuid}/codes
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches~1{batch_uuid}~1codes/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches/{batch_uuid}/codes
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches~1{batch_uuid}~1codes/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches/{batch_uuid}/codes/reset-missing-plain
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches~1{batch_uuid}~1codes~1reset-missing-plain/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches/{batch_uuid}/pause
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches~1{batch_uuid}~1pause/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-invite-batches/{batch_uuid}/revoke
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-invite-batches~1{batch_uuid}~1revoke/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-requests
+        method: GET
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-requests/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-requests/{request_uuid}/approve
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-requests~1{request_uuid}~1approve/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/registration-requests/{request_uuid}/reject
+        method: POST
+        schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1admin~1registration-requests~1{request_uuid}~1reject/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.registration_policy.admin_manage
+  - capability_id: com.corex.iam.permissions.catalog_read
+    module: iam
+    title: IAM Permission Catalog Read
+    description: Read IAM permission catalogs from the admin surface, including plugin-grouped permission catalogs used by role and permission configuration pages.
+    permission_code: corex.iam.permissions:read
+    agent_usable: false
+    risk_level: medium
+    categories: [iam, permissions, admin]
+    intents: [iam.permissions.catalog_read]
+    tool_scopes: [iam.permissions.catalog_read]
+    policy:
+      prefer: rest
+    docs:
+      - specs/026-iam/contracts/http-openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions/catalog
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
+      - channel: rest
+        endpoint: /api/v1/admin/iam/permissions/plugin-catalog
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: platform
+        sts_direct: false
+        tool_scope: iam.permissions.catalog_read
   - capability_id: com.corex.iam.roles.read
     module: iam
     title: IAM Tenant Role Catalog

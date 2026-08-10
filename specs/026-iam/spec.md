@@ -163,6 +163,30 @@
 5. **Given** 供应商成员绑定 `role_vendor`，**When** 加载后台菜单，**Then** 默认只看到供应商默认入口，例如 Dashboard、Agent 对话和插件智能体对话入口。
 6. **Given** 插件声明了 `frontend.admin.menus` 且已安装/启用，**When** 插件 manifest 权限同步完成，**Then** 系统自动生成 `module=menu, resource=plugin.<plugin_id>.<menu_id>, action=read` 的插件菜单权限，管理员可在角色权限页授权该 App 菜单。
 7. **Given** 某角色未拥有目标插件菜单权限，**When** 请求 `/api/v1/admin/menus`，**Then** 即使租户已启用该插件，也不返回该插件菜单入口。
+8. **Given** 插件通过 Capability Sync 声明了 `menu/page/action/api` 细颗粒度权限，**When** 租户管理员进入角色权限页，**Then** 页面按插件、模块、菜单、页面、动作分组展示可授权项，角色绑定同一 `permission_code`，接口 binding 只作为 enforcement 元数据。
+9. **Given** 角色未拥有插件 action 权限，**When** 用户进入插件业务页，**Then** 对应按钮不展示；若直接调用绑定接口，Gateway 和插件后端都必须按同一 `permission_code` 拒绝。
+
+---
+
+### User Story 10 - 租户注册准入与灰度开放 (Priority: P1)
+
+作为 PowerX SaaS 平台 root，我希望在 setup 安装阶段和 root 后台统一配置租户注册准入策略，以便在正式上线前支持关闭注册、邀请制、候补名单、人工审核、白名单、灰度放量和最终完全开放。
+
+**Why this priority**: SaaS signup 是租户增长入口。单一 `enable_saas_signup` 布尔开关无法支撑内测、分批放量、邀请码、每日配额、审核和紧急关闭；若没有后端强制策略，前端隐藏按钮也无法形成安全边界。
+
+**Independent Test**: 依次激活 `closed`、`invite_only`、`waitlist`、`approval_required`、`allowlist`、`progressive_rollout`、`open` 策略，分别调用 effective policy、验证码发送、signup 和 root 审核接口，验证准入结果、租户创建、申请记录、邀请码消耗、审计事件和回滚行为符合策略。
+
+**Acceptance Scenarios**:
+
+1. **Given** 当前 active 策略为 `closed`，**When** 用户请求验证码或提交 signup，**Then** 系统拒绝并返回机器可读错误码 `registration_closed`，且不创建 tenant/user/member。
+2. **Given** 当前 active 策略为 `open`，**When** 用户提交符合基础校验的 signup，**Then** 系统按 US5 事务语义创建 tenant、owner user/member 和默认角色，并记录准入审计。
+3. **Given** 当前 active 策略为 `invite_only`，**When** signup 未提交有效结构化 `invite_code`，**Then** 系统拒绝；**When** invite code 有效，**Then** 邀请码消耗与租户创建在同一事务中完成。
+4. **Given** 当前 active 策略为 `waitlist`，**When** 用户提交注册申请，**Then** 系统仅创建 `registration_request`，不创建 tenant/user/member。
+5. **Given** 当前 active 策略为 `approval_required`，**When** 用户提交完整开户资料，**Then** 系统创建待审核申请；**When** root 审核通过，**Then** 才执行租户创建事务。
+6. **Given** 当前 active 策略为 `allowlist`，**When** 用户 contact、邮箱域名或渠道未命中白名单，**Then** 系统明确拒绝并记录 `reason_code`；命中时才继续注册链路。
+7. **Given** 当前 active 策略为 `progressive_rollout`，**When** 用户被稳定百分比、时间窗口、配额或批次规则命中，**Then** 系统返回可解释准入结果；同一 contact 在同一策略版本下的百分比命中结果必须稳定。
+8. **Given** root 在后台切换策略，**When** 策略激活，**Then** 系统生成新策略版本并归档旧版本，所有后续准入审计必须记录策略 UUID 和版本。
+9. **Given** 缺少 active 注册策略、策略 mode 未知或规则 type 未知，**When** 请求 effective policy、验证码或 signup，**Then** 系统 fail fast，不回退到旧布尔配置或默认开放。
 
 ---
 
@@ -185,6 +209,11 @@
 - `iam_user.last_tenant_uuid` 只是最近使用偏好，不代表权限；每次使用前必须重新校验当前 user 是否拥有目标租户 active member。
 - 手机号注册用户不得被写入虚假的默认邮箱；界面展示应优先使用真实 email，否则使用 phone。
 - 历史租户缺少 owner/admin 时必须显式报告，不允许静默降级为 root 代管。
+- 注册准入策略缺失、未知模式、未知规则类型、时间窗口不匹配或配额耗尽时，必须明确拒绝，不得自动回退到开放注册。
+- 邀请码不得明文落库；失败注册不得消耗邀请码。
+- 候补名单和人工审核模式不得提前创建 active 租户。
+- 百分比灰度不得使用每次请求随机值；同一 contact 在同一策略版本下必须得到稳定结果。
+- 验证码发送必须同样执行注册准入策略，不能在注册关闭或邀请制未满足时泄露可用入口。
 
 ## Requirements *(mandatory)*
 
@@ -210,12 +239,26 @@
 - **FR-017A**: 登录必须以全局 user 凭证为准，支持邮箱或手机号登录；未传租户时必须按 `last_tenant_uuid`、第一个 active member 的顺序选择默认租户。
 - **FR-017B**: `last_tenant_uuid` 只能作为登录默认租户偏好，不得绕过 active member 校验；登录和切换成功后必须更新该字段。
 - **FR-017C**: SaaS signup 的 `tenant_key` 支持用户显式填写；未填写时由系统根据 `tenant_name` 自动生成唯一 key，显式 key 冲突必须失败并回滚。
-- **FR-017D**: SaaS signup 验证码必须由配置开关控制；关闭时前端不展示验证码字段，后端不要求 `verification_code`。
+- **FR-017D**: SaaS signup 验证码必须由注册准入策略的 `requires_verification` 控制；关闭时前端不展示验证码字段，后端不要求 `verification_code`。
+- **FR-017E**: 系统必须提供权威租户注册准入策略，支持 `closed`、`open`、`invite_only`、`waitlist`、`approval_required`、`allowlist`、`progressive_rollout` 模式。
+- **FR-017F**: setup 安装流程和 root 后台必须写入同一份注册准入策略对象，公开注册接口不得直接读取旧 `enable_saas_signup` 布尔开关作为运行时兜底。
+- **FR-017G**: 公开注册页必须通过 effective policy 查询当前注册模式、是否需要验证码、是否需要邀请码、是否进入候补或审核，不得把前端隐藏控件作为准入边界。
+- **FR-017H**: `POST /api/v1/public/saas/signup/verification-code` 与 `POST /api/v1/public/saas/signup` 都必须先执行注册准入策略判定。
+- **FR-017I**: 邀请制注册必须校验结构化 `invite_code`，且邀请码消耗必须与租户创建在同一事务中完成；失败时不得消耗邀请码。
+- **FR-017J**: 候补名单模式必须只创建注册申请记录，不得创建 tenant/user/member。
+- **FR-017K**: 人工审核模式必须在 root 审核通过后才执行租户创建事务；拒绝时保留申请与拒绝原因。
+- **FR-017L**: 白名单与灰度规则必须结构化保存；系统不得从自由文本字段解析邀请码、渠道或灰度标识。
+- **FR-017M**: 灰度百分比规则必须使用稳定 seed，例如 contact hash；同一 contact 在同一策略版本下的准入结果必须稳定。
+- **FR-017N**: 注册准入审计必须记录 `policy_uuid`、`policy_version`、`mode`、`decision`、`reason_code`、`matched_rules`、可选 `invite_code_uuid`、`registration_request_uuid` 和创建成功后的 `tenant_uuid`。
+- **FR-017O**: 缺少 active 策略、未知 mode、未知规则 type、配额耗尽、时间窗口不匹配时必须 fail fast 并返回机器可读错误码，不得自动回退到开放注册。
 - **FR-018**: root 默认必须进入 Platform Console，且不得被自动视为当前业务租户 owner/admin。
 - **FR-019**: root 访问业务租户上下文必须通过 Support Session，并记录 target tenant、reason、actor、start/end time 和写操作审计。
 - **FR-020**: 系统必须区分全局 Plugin Package 与 Tenant Plugin Instance。
 - **FR-021**: 插件菜单、`/_p/<plugin>/admin`、`/_p/<plugin>/api` 必须校验当前租户是否启用对应插件实例。
 - **FR-022**: 租户启用/停用插件不得删除或重装全局插件物理包，也不得影响其他租户实例。
+- **FR-022A**: 角色权限目录必须消费 Capability Registry/IAM Permission 中 `source=plugin` 的细颗粒度权限，并按插件、模块、菜单、页面、动作分组展示；用户可见标题和说明必须来自 i18n 元数据。
+- **FR-022B**: 角色授权必须绑定插件声明的 `permission_code`，不得绑定 URL、数字 ID、临时 action key 或旧粗权限 alias；API binding 只用于 Gateway 与插件后端校验。
+- **FR-022C**: 插件权限登记失败、缺 i18n、缺 `permission_code` 或缺 binding 元数据时，角色权限页必须显示登记失败状态，不允许管理员授权半登记权限。
 - **FR-027**: 插件运行时进程必须按全局插件包维度管理，同一 PowerX 节点内同一 `plugin_id` 不得因多个租户启用而启动多组进程。
 - **FR-028**: 租户插件实例启用/停用只能改变租户级可见性、配置、凭证和 capability 状态，不得直接停止全局插件进程。
 - **FR-029**: 插件后端必须从每次请求或事件上下文解析 `tenant_uuid + member_uuid`，禁止把进程启动时注入的某个租户作为全局当前租户。
@@ -254,6 +297,11 @@
 - **Role Capability Boundary**: 角色对应的可见范围与可执行动作集合，用于页面分流与操作授权判定。
 - **User Management Action**: 用户管理页面内可触发的动作语义实体，至少包含查看详情、切换上下文、页面跳转三类。
 - **SaaS Signup Request**: 公开注册新租户的请求，包含 tenant name、可选 tenant key、owner identifier、凭证和初始套餐。
+- **Registration Policy**: 租户注册准入策略，定义注册模式、验证码要求、邀请码要求、审核要求、时间窗口、配额和灰度规则。
+- **Registration Invite Batch**: 邀请码批次，定义邀请码生成范围、可用次数、有效期、允许套餐和允许渠道。
+- **Registration Invite Code**: 单个邀请码，使用 hash 存储，参与注册准入校验和事务化消耗。
+- **Registration Request**: 候补名单或人工审核申请，记录申请资料、审核状态、策略版本和转换后的租户 UUID。
+- **Registration Policy Audit Event**: 注册准入与策略变更审计，记录每次 allow/deny/pending 决策和命中规则。
 - **Root Support Session**: root 进入某业务租户上下文的显式支持会话，必须具备原因和审计边界。
 - **Tenant Plugin Instance**: 某租户启用某全局插件包后的租户实例状态和配置。
 - **Plugin Drain Job**: root 发起的插件下架或卸载前 drain 计划，负责按目标插件/版本逐租户关闭新增入口、等待存量任务清零并驱动 final uninstall。
@@ -275,6 +323,10 @@
 - **SC-009**: IAM 历史数据巡检报告覆盖 root、system tenant、owner/admin 缺失三类问题，漏报率为 0%。
 - **SC-010**: 插件 uninstall 回归中，存在租户实例时同步卸载拒绝率为 100%，且响应可定位到 drain required。
 - **SC-011**: 插件 replace 回归中，目标版本替换后租户实例、订阅、配置和业务数据保留率为 100%。
+- **SC-012**: 注册准入策略回归中，七种注册模式的后端判定准确率达到 100%，且验证码发送与 signup 判定一致。
+- **SC-013**: 邀请码注册在成功、失败、重复提交和事务回滚场景下的邀请码错误消耗率为 0%。
+- **SC-014**: 灰度百分比规则在同一 contact、同一策略版本下的准入结果稳定率为 100%。
+- **SC-015**: root 一键切换到 `closed` 后，公开验证码发送和 signup 新增租户阻断率为 100%。
 
 ## Assumptions
 

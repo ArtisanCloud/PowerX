@@ -7,6 +7,8 @@
 
 交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`px publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
 
+补充：插件发布/安装包必须携带权限声明资产，供 `specs/007-integration-gateway-and-mcp` 的 Capability Sync Worker 登记 `menu/page/action/api` 细颗粒度权限。plugin_release 只负责打包、扫描和阻断不合法资产，不负责正式角色授权；授权入口归属 IAM 角色权限中心。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）  
@@ -151,6 +153,7 @@ web-admin/
 - **Telemetry**: 扩展 `backend/internal/service/plugin_release/instrumentation`，新增 `debug.hot_reload.*`、`debug.host.version_mismatch_total`、`debug.report.generate_ms`、`sandbox.*`、`version.scan.*` 指标与 trace。
 - **Storage**: 需要新的表/视图：`plugin_scaffold_templates`（元数据）、`plugin_import_runs`、`debug_sessions`、`sandbox_validation_runs`、`version_governance_reports`、`compat_exceptions`。
 - **Docs & Tooling**: Update `specs/009-install-plugin-pxp/quickstart.md` + README，新增 CLI 手册章节；在 `docs/use_cases/_from_hub/...` 反向链接新的实现路径。
+- **Permission Manifest Gate**: 发布与安装校验必须检查插件包内权限声明资产是否存在、schema 是否合法、i18n key 是否完整、REST method/path 与 actor/resource scope 是否明确；失败时阻断发布或安装。
 
 ## Registry Publish API（Phase 4~6）落地补充
 

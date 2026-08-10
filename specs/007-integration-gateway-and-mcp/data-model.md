@@ -37,6 +37,58 @@
   - REST 通道需声明 `method`，gRPC 通道需声明 `rpc` 名称，MCP 通道需包含 `tool_scope`。
   - `health_state=offline` 时必须附加 `reason`。
 
+### PluginPermissionDeclaration
+- **Identifiers**: `capability_id`（全局稳定）、`plugin_id`、`permission_code`
+- **Attributes**:
+  - `type`（enum: menu/page/action/api）
+  - `module`
+  - `title_i18n`, `description_i18n`
+  - `risk_level`
+  - `default_role_grants`
+  - `data_scope`（JSONB，描述 tenant/self/owner/department 等数据范围需求）
+  - `protocol_bindings`（数组，参照 PermissionProtocolBinding）
+  - `status`（active/deprecated/invalid）
+- **Relationships**:
+  - 1:1 或 N:1 → `CapabilityRecord`（`source=plugin`）
+  - 1:1 → `iam_permission.permission_code`
+  - N:1 → 插件包版本与 `CapabilitySyncJob`
+- **Validation**:
+  - `permission_code` 必须为唯一授权语义，不得从 `capability_id`、标题、描述或路径推导。
+  - 用户可见标题和说明必须使用 i18n key，不允许使用 UUID、raw route 或 `capability_id` 作为主展示文案。
+  - `type=api` 默认必须绑定已有 `menu/page/action` 业务授权项；除非该 API 被显式标记为独立授权业务能力。
+  - 普通成员默认授权必须显式写入 `default_role_grants: [role_user]`，否则只默认授予 owner/admin。
+
+### PermissionProtocolBinding
+- **Identifiers**: `permission_code` + `protocol` + `method/rpc/tool` + `path`
+- **Attributes**:
+  - `protocol`（rest/grpc/mcp/workflow）
+  - `method`（REST 必填，精确匹配）
+  - `path` / `rpc` / `tool`
+  - `actor_context`（admin_user/service_actor/web_user/mini_app_user/customer_actor）
+  - `resource_scope`（tenant/self/owner/global 等）
+  - `auth_mode`（user_jwt/sts/api_key/delegated）
+- **Relationships**:
+  - N:1 → `PluginPermissionDeclaration`
+  - 被 Gateway 预检和插件后端二次校验共同消费
+- **Validation**:
+  - REST binding 不允许 method wildcard；`GET` 授权不得隐式放开写方法。
+  - `/api/v1/admin/**` 默认是用户态后台入口，不得被普通服务态 STS direct call 继承。
+  - 缺少 actor 或资源范围时同步失败。
+
+### EffectivePluginPermissionSnapshot
+- **Identifiers**: `tenant_uuid` + `member_uuid` + `plugin_id` + `policy_version`
+- **Attributes**:
+  - `permission_codes[]`
+  - `perms_hash`
+  - `issued_at`, `expires_at`
+  - `source`（claims/introspection/local_mock）
+- **Relationships**:
+  - 由 PowerX IAM/RBAC 计算后写入 token claims 或 authz/introspection 响应。
+  - 插件前端、Gateway、插件后端校验同一份权限结果。
+- **Validation**:
+  - `policy_version` 或 `perms_hash` 过期时必须拒绝或重新 introspection。
+  - local 模式的 snapshot 字段必须与 delegated 模式一致，不允许另设运行时字段。
+
 ### WorkflowTemplateRef
 - **Identifiers**: `template_id`（插件内唯一）、`capability_id`
 - **Attributes**:

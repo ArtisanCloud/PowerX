@@ -37,6 +37,27 @@ make proto-gen proto-lint           # 生成/校验 plugin_release proto
 go run cmd/database/migrate.go up   # 自动迁移 plugin_release 表
 ```
 
+## 2.5 校验插件权限声明资产
+
+插件包必须携带权限声明资产，供 PowerX 安装/同步后登记 `menu/page/action/api` 细颗粒度权限。plugin_release 阶段只做资产校验和发布阻断，正式角色授权在 PowerX IAM 角色权限中心完成。
+
+最小校验项：
+
+- `permission_code` 存在且稳定；
+- 用户可见标题和说明使用 i18n key；
+- `menu/page/action/api` 类型明确；
+- REST binding 显式声明 method、path、`actor_context`、`resource_scope`；
+- 缺字段时打包、发布或安装必须失败，不允许生成半登记权限。
+
+示例本地校验：
+
+```bash
+px-plugin capabilities lint --strict
+px-plugin build --target local
+```
+
+预期：若权限声明缺少 i18n、`permission_code`、method/path 或 actor/resource scope，CLI 返回非 0，并输出机器可读错误码。后续 Capability Sync 和角色权限中心验收见 `specs/007-integration-gateway-and-mcp/quickstart.md` 与 `specs/026-iam/quickstart.md`。
+
 ## 3. 启动 CoreX 服务
 ```bash
 cd backend

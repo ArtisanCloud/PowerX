@@ -21,8 +21,10 @@ import (
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	agentsetting "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	settingsvc "github.com/ArtisanCloud/PowerX/internal/service/system"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	iamm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
@@ -367,6 +369,11 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
 		return
 	}
+	if err := h.ensureSetupDefaultRegistrationPolicy(c.Request.Context(), draft); err != nil {
+		_ = os.WriteFile(runtimePath, original, 0o644)
+		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
+		return
+	}
 
 	if err := writeRuntimeConfig(runtimePath, draft, "installed"); err != nil {
 		_ = os.WriteFile(runtimePath, original, 0o644)
@@ -401,6 +408,48 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 	if h.db == nil && !isGoTestProcess() {
 		scheduleSetupOnlyAutoRestart(runtimePath)
 	}
+}
+
+func (h *SetupHandler) ensureSetupDefaultRegistrationPolicy(ctx context.Context, draft setupConfigPayload) error {
+	db := h.db
+	var opened *gorm.DB
+	if db == nil {
+		next, err := openSetupDatabase(draft.Database)
+		if err != nil {
+			return fmt.Errorf("setup.registration_policy.open_db_failed: %w", err)
+		}
+		opened = next
+		db = next
+	}
+	if opened != nil {
+		if sqlDB, err := opened.DB(); err == nil {
+			defer sqlDB.Close()
+		}
+	}
+	var count int64
+	if err := db.WithContext(ctx).Model(&iamm.RegistrationPolicy{}).
+		Where("status = ?", iamm.RegistrationPolicyStatusActive).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("setup.registration_policy.check_failed: %w", err)
+	}
+	if count > 0 {
+		return nil
+	}
+	svc := authsvc.NewRegistrationPolicyService(db)
+	draftPolicy, err := svc.CreateDraft(ctx, authsvc.RegistrationPolicyUpsertInput{
+		Mode:                 iamm.RegistrationPolicyModeClosed,
+		RequiresVerification: false,
+		RequiresInviteCode:   false,
+		RequiresRootApproval: false,
+		ActorUserUUID:        "setup",
+	})
+	if err != nil {
+		return fmt.Errorf("setup.registration_policy.create_failed: %w", err)
+	}
+	if _, err := svc.Activate(ctx, draftPolicy.UUID.String(), "setup"); err != nil {
+		return fmt.Errorf("setup.registration_policy.activate_failed: %w", err)
+	}
+	return nil
 }
 
 func (h *SetupHandler) Provision(c *gin.Context) {

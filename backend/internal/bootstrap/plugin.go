@@ -144,7 +144,7 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	}
 
 	// ★ 绑定 Authorizer（issuer/ttl 可配）
-	pmimpl.BindAuthorizer(dr, devAuthorizer{}, "powerx-auth", 60*time.Second)
+	pmimpl.BindAuthorizer(dr, pluginIAMAuthorizer{db: deps.DB}, "powerx-auth", 60*time.Second)
 
 	// ★ 为每个已知插件安装策略（基于 HTTPBasePath + RBAC.Resources）
 	if list, err := mgr.List(ctx); err == nil {

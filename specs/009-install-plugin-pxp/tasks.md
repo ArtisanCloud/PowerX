@@ -210,6 +210,16 @@
 
 ---
 
+## Phase 14: Plugin Permission Manifest Gate（Planned / FR-024~FR-025）
+
+- [ ] T091 [P] [FR-024] 发布包权限声明校验：在 plugin release gate 中校验插件包内权限声明资产存在且符合 `specs/007-integration-gateway-and-mcp` schema，覆盖 `menu/page/action/api`、`permission_code`、i18n、risk、binding 元数据。
+- [ ] T092 [P] [FR-024] CLI 打包校验：扩展 `px-plugin build/package/publish` 流程，缺少权限声明或存在非法 binding 时本地失败，并输出机器可读错误码。
+- [ ] T093 [FR-024] 安装阻断：在 install/local install/offline import 流程中接入权限声明 gate，阻断半登记权限进入 Capability Sync Worker。
+- [ ] T094 [FR-025] 文档对齐：更新 `specs/009-install-plugin-pxp/quickstart.md`，说明 plugin_release 只校验权限声明资产，正式授权归属 PowerX IAM 角色权限中心。
+- [ ] T095 [P] [FR-024] 合同测试：新增发布包缺 i18n、缺 `permission_code`、缺 method/path、缺 actor/resource scope 的失败用例，验证不会创建 release candidate 或安装记录。
+
+---
+
 ## Regression & Certification
 
 - [X] TR001 将 Phase 9–11 场景映射到可重复执行的自动化：新增 `scripts/ci/regression_pxp.sh` + `make regression-pxp`，根据 `docs/use_cases/_from_hub/SCN-DEV-PLUGIN-{INIT,DEBUG,PUBLISH,VERSION-COMPAT}-001` 归档的 acceptance 覆盖 CLI/Service/HTTP 路由，并在 `specs/009-install-plugin-pxp/checklists/regression.md` 记录执行清单。

@@ -1,0 +1,9 @@
+routes:
+  - method: GET
+    path: /api/v1/public/saas/registration-policy/effective
+    category: public_registration
+    reason: Public registration policy summary is anonymous signup UX metadata and must not be registered as a tenant capability.
+  - method: POST
+    path: /api/v1/public/saas/registration-requests
+    category: public_registration
+    reason: Public registration request submission is an anonymous tenant signup entry and must not be registered as a tenant capability.

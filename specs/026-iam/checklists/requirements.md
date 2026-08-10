@@ -29,8 +29,16 @@
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
+## Tenant Registration Rollout Readiness
+
+- [x] Registration modes cover closed, open, invite-only, waitlist, approval-required, allowlist, and progressive rollout.
+- [x] Signup and verification-code entrypoints both require backend policy evaluation.
+- [x] Invite code consumption, waitlist, approval, allowlist, rollout quotas, and audit requirements are testable.
+- [x] Migration from legacy boolean signup switches is specified as policy conversion, not runtime fallback.
+- [x] Root/setup configuration uses one authoritative policy object.
+
 ## Notes
 
-- Validation iteration: 1
-- Result: PASS（全部检查项通过，可进入 `/speckit.clarify` 或 `/speckit.plan`）
+- Validation iteration: 2
+- Result: PASS（全部检查项通过；2026-08 注册准入与灰度开放扩展已补齐）
 - 目录名说明：已按当前需求统一为 `026-iam`。

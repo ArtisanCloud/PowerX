@@ -30,6 +30,8 @@ var (
 	ErrSaaSSignupTenantDomainExists = errors.New("tenant domain already exists")
 	ErrSaaSSignupInvalidCredentials = errors.New("invalid credentials")
 	ErrSaaSSignupUserDisabled       = errors.New("user disabled")
+	ErrSaaSSignupRegistrationDenied = errors.New("saas signup denied by registration policy")
+	ErrSaaSSignupContactExists      = errors.New("saas signup contact already exists")
 )
 
 type SaaSSignupService struct {
@@ -37,12 +39,16 @@ type SaaSSignupService struct {
 	auth                 *AuthService
 	keyWrapper           tenantkeys.KeyWrapper
 	verifier             *SignupVerificationService
+	registrationPolicy   *RegistrationPolicyService
+	inviteCodes          *InviteCodeService
 	builtinObjectFactory BuiltinObjectBootstrapperFactory
 }
 
 type SaaSSignupOptions struct {
 	KeyWrapper           tenantkeys.KeyWrapper
 	Verifier             *SignupVerificationService
+	RegistrationPolicy   *RegistrationPolicyService
+	InviteCodes          *InviteCodeService
 	BuiltinObjectFactory BuiltinObjectBootstrapperFactory
 }
 
@@ -61,6 +67,9 @@ type SaaSSignupInput struct {
 	OwnerPassword    string
 	OwnerDisplayName string
 	VerificationCode string
+	InviteCode       string
+	Channel          string
+	Campaign         string
 }
 
 type SaaSSignupResult struct {
@@ -76,7 +85,15 @@ func NewSaaSSignupService(db *gorm.DB, auth *AuthService, opts ...SaaSSignupOpti
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	return &SaaSSignupService{DB: db, auth: auth, keyWrapper: opt.KeyWrapper, verifier: opt.Verifier, builtinObjectFactory: opt.BuiltinObjectFactory}
+	policy := opt.RegistrationPolicy
+	if policy == nil && db != nil {
+		policy = NewRegistrationPolicyService(db)
+	}
+	inviteCodes := opt.InviteCodes
+	if inviteCodes == nil && db != nil {
+		inviteCodes = NewInviteCodeService(db)
+	}
+	return &SaaSSignupService{DB: db, auth: auth, keyWrapper: opt.KeyWrapper, verifier: opt.Verifier, registrationPolicy: policy, inviteCodes: inviteCodes, builtinObjectFactory: opt.BuiltinObjectFactory}
 }
 
 func (s *SaaSSignupService) AccessTTL() time.Duration {
@@ -102,7 +119,17 @@ func (s *SaaSSignupService) Signup(ctx context.Context, in SaaSSignupInput) (*Sa
 		}
 		normalized.TenantKey = tenantKey
 	}
-	if s.verifier != nil {
+	evaluation, err := s.evaluateRegistrationPolicy(ctx, normalized)
+	if err != nil {
+		return nil, err
+	}
+	if !evaluation.CanSignup {
+		return nil, fmt.Errorf("%w: %s", ErrSaaSSignupRegistrationDenied, evaluation.ReasonCode)
+	}
+	if evaluation.RequiresVerification {
+		if s.verifier == nil {
+			return nil, errors.New("signup verification service not configured")
+		}
 		if err := s.verifier.Verify(ctx, chooseSaaSIdentifier(normalized.OwnerEmail, normalized.OwnerPhone), normalized.VerificationCode); err != nil {
 			return nil, err
 		}
@@ -115,9 +142,11 @@ func (s *SaaSSignupService) Signup(ctx context.Context, in SaaSSignupInput) (*Sa
 			auth:                 cloneAuthServiceWithDB(s.auth, tx),
 			keyWrapper:           s.keyWrapper,
 			verifier:             s.verifier,
+			registrationPolicy:   s.registrationPolicy,
+			inviteCodes:          cloneInviteCodeServiceWithDB(s.inviteCodes, tx),
 			builtinObjectFactory: s.builtinObjectFactory,
 		}
-		created, createErr := txSvc.signupInTx(ctx, normalized)
+		created, createErr := txSvc.signupInTx(ctx, normalized, evaluation)
 		if createErr != nil {
 			return createErr
 		}
@@ -129,7 +158,28 @@ func (s *SaaSSignupService) Signup(ctx context.Context, in SaaSSignupInput) (*Sa
 	return &result, nil
 }
 
-func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) (*SaaSSignupResult, error) {
+func (s *SaaSSignupService) EvaluateRegistrationPolicy(ctx context.Context, in SaaSSignupInput) (*RegistrationPolicyEvaluation, error) {
+	normalized, err := normalizeSaaSSignupInputForPolicy(in)
+	if err != nil {
+		return nil, err
+	}
+	return s.evaluateRegistrationPolicy(ctx, normalized)
+}
+
+func (s *SaaSSignupService) evaluateRegistrationPolicy(ctx context.Context, in SaaSSignupInput) (*RegistrationPolicyEvaluation, error) {
+	if s == nil || s.registrationPolicy == nil {
+		return nil, ErrRegistrationPolicyServiceNotConfigured
+	}
+	return s.registrationPolicy.Evaluate(ctx, RegistrationPolicyEvaluateInput{
+		Email:      in.OwnerEmail,
+		Phone:      in.OwnerPhone,
+		InviteCode: in.InviteCode,
+		Channel:    in.Channel,
+		Campaign:   in.Campaign,
+	})
+}
+
+func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput, evaluation *RegistrationPolicyEvaluation) (*SaaSSignupResult, error) {
 	tenantRepo := repotenant.NewTenantRepository(s.DB)
 	userRepo := repoiam.NewUserRepository(s.DB)
 	credRepo := repoiam.NewCredentialRepository(s.DB)
@@ -175,6 +225,10 @@ func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) 
 	if user == nil {
 		created, err := createSaaSOwnerUser(ctx, userRepo, credRepo, in, identifier)
 		if err != nil {
+			if repository.IsUniqueViolation(err, "uk_user_email") ||
+				repository.IsUniqueViolation(err, "uk_cred_provider_identifier") {
+				return nil, ErrSaaSSignupContactExists
+			}
 			return nil, err
 		}
 		user = created
@@ -200,6 +254,10 @@ func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) 
 		return nil, err
 	}
 	tenantUUID := createdTenant.UUID.String()
+
+	if err := s.consumeSignupInviteCode(ctx, in, evaluation, tenantUUID); err != nil {
+		return nil, err
+	}
 
 	if err := roleRepo.EnsureDefaultRoles(ctx, tenantUUID); err != nil {
 		return nil, err
@@ -246,6 +304,30 @@ func (s *SaaSSignupService) signupInTx(ctx context.Context, in SaaSSignupInput) 
 	}, nil
 }
 
+func (s *SaaSSignupService) consumeSignupInviteCode(ctx context.Context, in SaaSSignupInput, evaluation *RegistrationPolicyEvaluation, tenantUUID string) error {
+	if evaluation == nil || !evaluation.RequiresInviteCode {
+		return nil
+	}
+	if s == nil || s.inviteCodes == nil {
+		return ErrRegistrationInviteServiceNotConfigured
+	}
+	if strings.TrimSpace(in.InviteCode) == "" {
+		return fmt.Errorf("%w: invite_code_required", ErrSaaSSignupRegistrationDenied)
+	}
+	_, err := s.inviteCodes.Consume(ctx, s.DB, InviteCodeConsumeInput{
+		Code:       in.InviteCode,
+		Contact:    chooseSaaSIdentifier(in.OwnerEmail, in.OwnerPhone),
+		Email:      in.OwnerEmail,
+		Channel:    in.Channel,
+		Plan:       in.Plan,
+		TenantUUID: tenantUUID,
+	})
+	if err != nil {
+		return fmt.Errorf("%w: invite_code_invalid: %v", ErrSaaSSignupRegistrationDenied, err)
+	}
+	return nil
+}
+
 func (s *SaaSSignupService) bootstrapBuiltinObjects(ctx context.Context, tenantUUID string) error {
 	if s == nil || s.builtinObjectFactory == nil {
 		return nil
@@ -267,6 +349,9 @@ func normalizeSaaSSignupInput(in SaaSSignupInput) (SaaSSignupInput, error) {
 		OwnerPassword:    strings.TrimSpace(in.OwnerPassword),
 		OwnerDisplayName: strings.TrimSpace(in.OwnerDisplayName),
 		VerificationCode: strings.TrimSpace(in.VerificationCode),
+		InviteCode:       strings.TrimSpace(in.InviteCode),
+		Channel:          strings.TrimSpace(in.Channel),
+		Campaign:         strings.TrimSpace(in.Campaign),
 	}
 	if out.Plan == "" {
 		out.Plan = modeltenant.TenantPlanFree
@@ -289,6 +374,20 @@ func normalizeSaaSSignupInput(in SaaSSignupInput) (SaaSSignupInput, error) {
 	}
 	if len(out.OwnerPassword) < 6 {
 		return out, fmt.Errorf("%w: owner_password too short", ErrSaaSSignupInvalidRequest)
+	}
+	return out, nil
+}
+
+func normalizeSaaSSignupInputForPolicy(in SaaSSignupInput) (SaaSSignupInput, error) {
+	out := SaaSSignupInput{
+		OwnerEmail: strings.ToLower(strings.TrimSpace(in.OwnerEmail)),
+		OwnerPhone: strings.TrimSpace(in.OwnerPhone),
+		InviteCode: strings.TrimSpace(in.InviteCode),
+		Channel:    strings.TrimSpace(in.Channel),
+		Campaign:   strings.TrimSpace(in.Campaign),
+	}
+	if out.OwnerEmail == "" && out.OwnerPhone == "" {
+		return out, fmt.Errorf("%w: owner_email or owner_phone required", ErrSaaSSignupInvalidRequest)
 	}
 	return out, nil
 }
@@ -347,6 +446,20 @@ func tenantDomainForKey(key string) string {
 }
 
 func createSaaSOwnerUser(ctx context.Context, userRepo *repoiam.UserRepository, credRepo *repoiam.CredentialRepository, in SaaSSignupInput, identifier string) (*modeliam.User, error) {
+	if in.OwnerEmail != "" {
+		if existed, err := userRepo.FindByEmail(ctx, in.OwnerEmail); err == nil && existed != nil {
+			return nil, ErrSaaSSignupContactExists
+		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+	if in.OwnerPhone != "" {
+		if existed, err := userRepo.FindByPhone(ctx, in.OwnerPhone); err == nil && existed != nil {
+			return nil, ErrSaaSSignupContactExists
+		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
 	user := &modeliam.User{
 		Email:       in.OwnerEmail,
 		Phone:       in.OwnerPhone,
@@ -405,6 +518,13 @@ func cloneAuthServiceWithDB(src *AuthService, db *gorm.DB) *AuthService {
 		AllowedEnvs:      src.AllowedEnvs,
 		Cache:            src.Cache,
 	})
+}
+
+func cloneInviteCodeServiceWithDB(src *InviteCodeService, db *gorm.DB) *InviteCodeService {
+	if src == nil {
+		return nil
+	}
+	return &InviteCodeService{DB: db, now: src.now}
 }
 
 func (s *AuthService) issueTokensFor(ctx context.Context, ten *modeltenant.Tenant, u *modeliam.User, m *modeliam.Member) (string, string, error) {

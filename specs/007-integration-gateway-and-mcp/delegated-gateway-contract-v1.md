@@ -60,8 +60,56 @@
 - `GW_CFG_MISSING_GRPC_UPSTREAM`
 - `GW_CFG_APIKEY_FORBIDDEN_IN_DELEGATED`
 - `GW_BOOTSTRAP_CONTRACT_BROKEN`
+- `GW_AUTHZ_PERMISSION_CLAIMS_MISSING`
+- `GW_AUTHZ_POLICY_VERSION_EXPIRED`
+- `GW_AUTHZ_PERMISSION_DENIED`
 
-## 6. 版本策略
+## 6. 授权传递契约（MUST）
+
+delegated 模式下，PowerX 是权限源，插件只声明并执行权限结果。PowerX 下发给插件前端、插件后端或网关的授权快照必须包含：
+
+```json
+{
+  "subject": {
+    "tenant_uuid": "tenant_uuid",
+    "user_uuid": "user_uuid",
+    "member_uuid": "member_uuid"
+  },
+  "permission_codes": [
+    "production.sample_track:read",
+    "production.sample_track:factory_schedule"
+  ],
+  "policy_version": "2026-08-10T10:00:00Z",
+  "perms_hash": "sha256:..."
+}
+```
+
+强约束：
+
+1. `permission_codes` 必须来自插件注册到 PowerX 的 `menu/page/action/api` 权限声明，不得由 URL、前端路由或自由文本临时推导。
+2. `policy_version` 与 `perms_hash` 必须同时存在；缺失时插件后端和 Gateway 均按 `GW_AUTHZ_PERMISSION_CLAIMS_MISSING` 拒绝。
+3. PowerX 角色授权变更后必须推进权限策略版本；插件后端发现版本过期时返回 `GW_AUTHZ_POLICY_VERSION_EXPIRED`，不得继续使用旧快照。
+4. Gateway 转发插件 API 前按 `plugin_id + method + path` 映射到注册的 `permission_code` 并先行拦截；插件后端仍需按同一 `permission_code` 做二次校验。
+5. local 模式只能用同一份权限声明模拟 PowerX 的授权快照，字段名、hash/version 语义必须与 delegated 模式一致。
+
+如果采用 introspection 而不是 token claims，响应结构必须与上述快照等价：
+
+```json
+{
+  "allowed": true,
+  "permission_code": "production.sample_track:factory_schedule",
+  "permission_codes": [
+    "production.sample_track:read",
+    "production.sample_track:factory_schedule"
+  ],
+  "policy_version": "2026-08-10T10:00:00Z",
+  "perms_hash": "sha256:..."
+}
+```
+
+`allowed=false` 时必须返回稳定错误码和被拒绝的 `permission_code`，不能只返回布尔值。
+
+## 7. 版本策略
 
 本方案为 breaking change，不提供兼容期。实施顺序：
 

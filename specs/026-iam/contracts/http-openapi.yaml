@@ -6,6 +6,48 @@ info:
 servers:
   - url: https://api.powerx.local/api/v1
 paths:
+  /public/saas/registration-policy/effective:
+    get:
+      summary: Get effective SaaS tenant registration policy for public signup UI
+      operationId: getEffectiveSaaSRegistrationPolicy
+      tags: [SaaSRegistrationPolicy]
+      responses:
+        '200':
+          description: Public-safe effective registration policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPolicyEffectiveResponse'
+        '503':
+          description: Registration policy is not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /public/saas/registration-requests:
+    post:
+      summary: Submit waitlist or approval-required registration request
+      operationId: submitSaaSRegistrationRequest
+      tags: [SaaSRegistrationPolicy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequestCreateRequest'
+      responses:
+        '202':
+          description: Registration request accepted for waitlist or review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationRequestResponse'
+        '400':
+          description: Invalid request or current policy does not accept requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /public/saas/signup/verification-code:
     post:
       summary: Send SaaS signup verification code
@@ -21,7 +63,7 @@ paths:
         '200':
           description: Verification code sent
         '400':
-          description: Invalid contact
+          description: Invalid contact or registration policy rejected verification
           content:
             application/json:
               schema:
@@ -56,6 +98,298 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Registration is closed, waitlisted, approval-required, quota-limited, or invite-gated by active policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/registration-policy:
+    get:
+      summary: Get current tenant registration policy
+      operationId: getTenantRegistrationPolicy
+      tags: [SaaSRegistrationAdmin]
+      responses:
+        '200':
+          description: Current registration policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPolicyAdminResponse'
+    put:
+      summary: Create a draft tenant registration policy version
+      operationId: updateTenantRegistrationPolicyDraft
+      tags: [SaaSRegistrationAdmin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationPolicyUpdateRequest'
+      responses:
+        '200':
+          description: Draft policy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPolicyAdminResponse'
+  /admin/registration-policy/history:
+    get:
+      summary: List tenant registration policy versions
+      operationId: listTenantRegistrationPolicyHistory
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Registration policy version history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPolicyHistoryResponse'
+  /admin/registration-policy/activate:
+    post:
+      summary: Activate a tenant registration policy version
+      operationId: activateTenantRegistrationPolicy
+      tags: [SaaSRegistrationAdmin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_uuid]
+              properties:
+                policy_uuid:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Policy activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPolicyAdminResponse'
+  /admin/registration-invite-batches:
+    get:
+      summary: List registration invite batches
+      operationId: listRegistrationInviteBatches
+      tags: [SaaSRegistrationAdmin]
+      responses:
+        '200':
+          description: Invite batch list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteBatchListResponse'
+    post:
+      summary: Create registration invite batch
+      operationId: createRegistrationInviteBatch
+      tags: [SaaSRegistrationAdmin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationInviteBatchCreateRequest'
+      responses:
+        '201':
+          description: Invite batch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteBatchResponse'
+    delete:
+      summary: Delete unused registration invite batches
+      operationId: deleteRegistrationInviteBatches
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: query
+          required: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Invite batches deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteBatchDeleteResponse'
+  /admin/registration-invite-batches/{batch_uuid}/codes:
+    get:
+      summary: List saved invite codes for a registration invite batch
+      operationId: listRegistrationInviteCodes
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 1000 }
+      responses:
+        '200':
+          description: Saved invite code list for root administration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteCodeListResponse'
+    post:
+      summary: Generate invite codes for a registration invite batch
+      operationId: generateRegistrationInviteCodes
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000
+      responses:
+        '201':
+          description: Invite codes generated and saved to the batch for root administration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteCodeGenerateResponse'
+  /admin/registration-invite-batches/{batch_uuid}/codes/reset-missing-plain:
+    post:
+      summary: Reset missing plaintext for unused invite codes in a batch
+      operationId: resetMissingPlainRegistrationInviteCodes
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Missing plaintext was regenerated for unused active codes, and the refreshed code list is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteCodeListResponse'
+  /admin/registration-invite-batches/{batch_uuid}/pause:
+    post:
+      summary: Pause a registration invite batch
+      operationId: pauseRegistrationInviteBatch
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invite batch paused
+  /admin/registration-invite-batches/{batch_uuid}/revoke:
+    post:
+      summary: Revoke a registration invite batch
+      operationId: revokeRegistrationInviteBatch
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: batch_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invite batch revoked
+  /admin/registration-requests:
+    get:
+      summary: List waitlist and approval registration requests
+      operationId: listRegistrationRequests
+      tags: [SaaSRegistrationAdmin]
+      responses:
+        '200':
+          description: Registration request list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationRequestListResponse'
+  /admin/registration-requests/{request_uuid}/approve:
+    post:
+      summary: Approve registration request and create tenant when required
+      operationId: approveRegistrationRequest
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: request_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Registration request approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationRequestResponse'
+  /admin/registration-requests/{request_uuid}/reject:
+    post:
+      summary: Reject registration request
+      operationId: rejectRegistrationRequest
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: request_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason_code]
+              properties:
+                reason_code: { type: string }
+      responses:
+        '200':
+          description: Registration request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationRequestResponse'
+  /admin/registration-requests/{request_uuid}/issue-invite:
+    post:
+      summary: Issue invite code from a registration request
+      operationId: issueInviteForRegistrationRequest
+      tags: [SaaSRegistrationAdmin]
+      parameters:
+        - name: request_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Invite code issued and saved for root administration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationInviteCodeGenerateResponse'
   /tenant/iam/roles:
     get:
       summary: List bindable tenant roles for plugin service workflows
@@ -567,7 +901,20 @@ components:
         owner_display_name: { type: string }
         verification_code:
           type: string
-          description: Required only when feature_gate.enable_saas_signup_verification_code is enabled.
+          description: Required only when active registration policy requires verification.
+        invite_code:
+          type: string
+          description: Required when active registration policy is invite_only or requires an invite code.
+        channel:
+          type: string
+          description: Structured signup channel used by allowlist or rollout rules.
+        campaign:
+          type: string
+          description: Structured signup campaign used by rollout audit and rules.
+        registration_request_uuid:
+          type: string
+          format: uuid
+          description: Optional approved registration request to convert into a tenant.
     SaaSSignupVerificationCodeRequest:
       type: object
       required: [contact]
@@ -575,6 +922,310 @@ components:
         contact:
           type: string
           description: Email address or mobile number.
+        invite_code:
+          type: string
+          description: Optional invite code when policy requires invite validation before sending verification code.
+        channel:
+          type: string
+        campaign:
+          type: string
+    RegistrationPolicyEffectiveResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/RegistrationPolicyEffective'
+    RegistrationPolicyEffective:
+      type: object
+      required: [mode, requires_verification, requires_invite_code, requires_root_approval]
+      properties:
+        mode:
+          type: string
+          enum: [closed, open, invite_only, waitlist, approval_required, allowlist, progressive_rollout]
+        requires_verification: { type: boolean }
+        requires_invite_code: { type: boolean }
+        requires_root_approval: { type: boolean }
+        accepts_registration_request: { type: boolean }
+        reason_code:
+          type: string
+          description: Public-safe machine reason for disabled or pending states.
+    RegistrationPolicyAdminResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/RegistrationPolicy'
+    RegistrationPolicy:
+      type: object
+      required: [uuid, version, mode, status, requires_verification, requires_invite_code, requires_root_approval]
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        version: { type: integer }
+        mode:
+          type: string
+          enum: [closed, open, invite_only, waitlist, approval_required, allowlist, progressive_rollout]
+        status:
+          type: string
+          enum: [draft, active, archived]
+        requires_verification: { type: boolean }
+        requires_invite_code: { type: boolean }
+        requires_root_approval: { type: boolean }
+        daily_tenant_quota:
+          type: integer
+          nullable: true
+        total_tenant_quota:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+        end_at:
+          type: string
+          format: date-time
+          nullable: true
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistrationPolicyRule'
+        activated_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by_user_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        updated_by_user_uuid:
+          type: string
+          format: uuid
+          nullable: true
+    RegistrationPolicyUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/RegistrationPolicy'
+    RegistrationPolicyHistoryResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationPolicy'
+    RegistrationPolicyRule:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [email_domain_allowlist, contact_allowlist, invite_batch, channel_allowlist, percentage, time_window, daily_quota, total_quota]
+        values:
+          type: array
+          items: { type: string }
+        batch_uuid:
+          type: string
+          format: uuid
+        value:
+          type: integer
+        seed:
+          type: string
+          enum: [contact, email, phone]
+    RegistrationInviteBatchCreateRequest:
+      type: object
+      required: [name, max_codes, max_uses_per_code]
+      properties:
+        name: { type: string }
+        max_codes: { type: integer, minimum: 1 }
+        max_uses_per_code: { type: integer, minimum: 1 }
+        allowed_plan: { type: string }
+        allowed_email_domains:
+          type: array
+          items: { type: string }
+        allowed_channels:
+          type: array
+          items: { type: string }
+        starts_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    RegistrationInviteBatch:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name: { type: string }
+        status:
+          type: string
+          enum: [draft, active, paused, expired, revoked]
+        max_codes: { type: integer }
+        max_uses_per_code: { type: integer }
+        allowed_plan: { type: string }
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    RegistrationInviteBatchResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/RegistrationInviteBatch'
+    RegistrationInviteBatchListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationInviteBatch'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+    RegistrationInviteBatchDeleteResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            deleted:
+              type: integer
+              minimum: 0
+    RegistrationInviteCodeGenerateResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            batch_uuid:
+              type: string
+              format: uuid
+            plain_codes:
+              type: array
+              description: Generated invite codes, also saved on the batch for later root administration.
+              items: { type: string }
+    RegistrationInviteCode:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        batch_uuid:
+          type: string
+          format: uuid
+        plain_code:
+          type: string
+          description: Root-visible invite code value saved for batch administration.
+        status:
+          type: string
+          enum: [active, consumed, revoked]
+        max_uses: { type: integer }
+        use_count: { type: integer }
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        consumed_tenant_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+    RegistrationInviteCodeListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationInviteCode'
+    RegistrationRequestCreateRequest:
+      type: object
+      required: [tenant_name]
+      properties:
+        tenant_key: { type: string }
+        tenant_name: { type: string }
+        plan: { type: string, default: free }
+        owner_email: { type: string }
+        owner_phone: { type: string }
+        owner_display_name: { type: string }
+        invite_code: { type: string }
+        channel: { type: string }
+        campaign: { type: string }
+    RegistrationRequest:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [waitlist, approval_required]
+        status:
+          type: string
+          enum: [submitted, approved, rejected, converted, cancelled]
+        tenant_name: { type: string }
+        tenant_key: { type: string }
+        plan: { type: string }
+        policy_uuid:
+          type: string
+          format: uuid
+        policy_version: { type: integer }
+        created_tenant_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        reject_reason_code:
+          type: string
+          nullable: true
+    RegistrationRequestResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/RegistrationRequest'
+    RegistrationRequestListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistrationRequest'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
     SaaSSignupResponse:
       type: object
       properties:

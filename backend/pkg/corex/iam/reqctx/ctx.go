@@ -47,6 +47,10 @@ type CoreXClaims struct {
 	Platforms  []string `json:"plats,omitempty"`
 	Scope      string   `json:"scope"`
 
+	PermissionCodes []string `json:"permission_codes,omitempty"`
+	PolicyVersion   string   `json:"policy_version,omitempty"`
+	PermsHash       string   `json:"perms_hash,omitempty"`
+
 	jwt.RegisteredClaims
 }
 

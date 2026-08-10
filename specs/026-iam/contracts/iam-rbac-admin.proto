@@ -9,6 +9,15 @@ service IamRbacAdminService {
   rpc SwitchTenant(SwitchTenantRequest) returns (SwitchTenantResponse);
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
   rpc SignupSaaSTenant(SignupSaaSTenantRequest) returns (SignupSaaSTenantResponse);
+  rpc GetEffectiveRegistrationPolicy(GetEffectiveRegistrationPolicyRequest) returns (RegistrationPolicyEffectiveResponse);
+  rpc GetRegistrationPolicy(GetRegistrationPolicyRequest) returns (RegistrationPolicyResponse);
+  rpc UpsertRegistrationPolicyDraft(UpsertRegistrationPolicyDraftRequest) returns (RegistrationPolicyResponse);
+  rpc ActivateRegistrationPolicy(ActivateRegistrationPolicyRequest) returns (RegistrationPolicyResponse);
+  rpc CreateRegistrationInviteBatch(CreateRegistrationInviteBatchRequest) returns (RegistrationInviteBatchResponse);
+  rpc GenerateRegistrationInviteCodes(GenerateRegistrationInviteCodesRequest) returns (GenerateRegistrationInviteCodesResponse);
+  rpc SubmitRegistrationRequest(SubmitRegistrationRequestRequest) returns (RegistrationRequestResponse);
+  rpc ApproveRegistrationRequest(ApproveRegistrationRequestRequest) returns (RegistrationRequestResponse);
+  rpc RejectRegistrationRequest(RejectRegistrationRequestRequest) returns (RegistrationRequestResponse);
   rpc GetIAMMigrationReport(GetIAMMigrationReportRequest) returns (IAMMigrationReportResponse);
   rpc FixMissingTenantOwner(FixMissingTenantOwnerRequest) returns (IAMMigrationFixOwnerResponse);
   rpc StartRootSupportSession(StartRootSupportSessionRequest) returns (RootSupportSessionResponse);
@@ -76,12 +85,130 @@ message SignupSaaSTenantRequest {
   string owner_password = 6;
   string owner_display_name = 7;
   string verification_code = 8;
+  string invite_code = 9;
+  string channel = 10;
+  string campaign = 11;
+  string registration_request_uuid = 12;
 }
 
 message SignupSaaSTenantResponse {
   string access_token = 1;
   string refresh_token = 2;
   GetMeContextResponse context = 3;
+}
+
+message GetEffectiveRegistrationPolicyRequest {}
+
+message RegistrationPolicyEffectiveResponse {
+  string mode = 1;
+  bool requires_verification = 2;
+  bool requires_invite_code = 3;
+  bool requires_root_approval = 4;
+  bool accepts_registration_request = 5;
+  string reason_code = 6;
+}
+
+message GetRegistrationPolicyRequest {}
+
+message RegistrationPolicyResponse {
+  string uuid = 1;
+  int64 version = 2;
+  string mode = 3;
+  string status = 4;
+  bool requires_verification = 5;
+  bool requires_invite_code = 6;
+  bool requires_root_approval = 7;
+  int64 daily_tenant_quota = 8;
+  int64 total_tenant_quota = 9;
+  string start_at = 10;
+  string end_at = 11;
+  repeated RegistrationPolicyRule rules = 12;
+}
+
+message UpsertRegistrationPolicyDraftRequest {
+  string mode = 1;
+  bool requires_verification = 2;
+  bool requires_invite_code = 3;
+  bool requires_root_approval = 4;
+  int64 daily_tenant_quota = 5;
+  int64 total_tenant_quota = 6;
+  string start_at = 7;
+  string end_at = 8;
+  repeated RegistrationPolicyRule rules = 9;
+}
+
+message ActivateRegistrationPolicyRequest {
+  string policy_uuid = 1;
+}
+
+message RegistrationPolicyRule {
+  string type = 1;
+  repeated string values = 2;
+  string batch_uuid = 3;
+  int64 value = 4;
+  string seed = 5;
+}
+
+message CreateRegistrationInviteBatchRequest {
+  string name = 1;
+  int64 max_codes = 2;
+  int64 max_uses_per_code = 3;
+  string allowed_plan = 4;
+  repeated string allowed_email_domains = 5;
+  repeated string allowed_channels = 6;
+  string starts_at = 7;
+  string expires_at = 8;
+}
+
+message RegistrationInviteBatchResponse {
+  string uuid = 1;
+  string name = 2;
+  string status = 3;
+  int64 max_codes = 4;
+  int64 max_uses_per_code = 5;
+}
+
+message GenerateRegistrationInviteCodesRequest {
+  string batch_uuid = 1;
+  int64 count = 2;
+}
+
+message GenerateRegistrationInviteCodesResponse {
+  string batch_uuid = 1;
+  repeated string plain_codes = 2;
+}
+
+message SubmitRegistrationRequestRequest {
+  string tenant_key = 1;
+  string tenant_name = 2;
+  string plan = 3;
+  string owner_email = 4;
+  string owner_phone = 5;
+  string owner_display_name = 6;
+  string invite_code = 7;
+  string channel = 8;
+  string campaign = 9;
+}
+
+message ApproveRegistrationRequestRequest {
+  string request_uuid = 1;
+}
+
+message RejectRegistrationRequestRequest {
+  string request_uuid = 1;
+  string reason_code = 2;
+}
+
+message RegistrationRequestResponse {
+  string uuid = 1;
+  string mode = 2;
+  string status = 3;
+  string tenant_name = 4;
+  string tenant_key = 5;
+  string policy_uuid = 6;
+  int64 policy_version = 7;
+  string created_tenant_uuid = 8;
+  string reject_reason_code = 9;
 }
 
 message GetIAMMigrationReportRequest {}

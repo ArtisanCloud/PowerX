@@ -2,12 +2,38 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "powerx: stop backend ports",
+      "type": "shell",
+      "command": "bash -lc 'set -euo pipefail\nstop_ports() {\n  for port in \"$@\"; do\n    pids=$(lsof -tiTCP:${port} -sTCP:LISTEN 2>/dev/null || true)\n    [ -z \"$pids\" ] && continue\n    for pid in $pids; do\n      pgid=$(ps -o pgid= -p \"$pid\" 2>/dev/null | tr -d \" \")\n      if [ -n \"$pgid\" ]; then\n        kill -TERM -- -\"$pgid\" 2>/dev/null || kill -TERM \"$pid\" 2>/dev/null || true\n      else\n        kill -TERM \"$pid\" 2>/dev/null || true\n      fi\n    done\n  done\n}\nstop_ports 8077 9001\nsleep 1\nfor port in 8077 9001; do\n  if lsof -tiTCP:${port} -sTCP:LISTEN >/dev/null 2>&1; then\n    pids=$(lsof -tiTCP:${port} -sTCP:LISTEN 2>/dev/null || true)\n    [ -n \"$pids\" ] && kill -KILL $pids 2>/dev/null || true\n  fi\ndone'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "powerx: stop web-admin port",
+      "type": "shell",
+      "command": "bash -lc 'set -euo pipefail\npids=$(lsof -tiTCP:3030 -sTCP:LISTEN 2>/dev/null || true)\nif [ -n \"$pids\" ]; then\n  for pid in $pids; do\n    pgid=$(ps -o pgid= -p \"$pid\" 2>/dev/null | tr -d \" \")\n    if [ -n \"$pgid\" ]; then\n      kill -TERM -- -\"$pgid\" 2>/dev/null || kill -TERM \"$pid\" 2>/dev/null || true\n    else\n      kill -TERM \"$pid\" 2>/dev/null || true\n    fi\n  done\nfi\nsleep 1\npids=$(lsof -tiTCP:3030 -sTCP:LISTEN 2>/dev/null || true)\n[ -n \"$pids\" ] && kill -KILL $pids 2>/dev/null || true'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
       "label": "backend: go run cmd/app",
       "type": "shell",
       "command": "set -a; . ./.env; set +a; LOG_LEVEL=debug go run ./cmd/app",
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },
+      "dependsOn": [
+        "powerx: stop backend ports"
+      ],
+      "dependsOrder": "sequence",
       "isBackground": true,
       "problemMatcher": []
     },
@@ -18,6 +44,10 @@
       "options": {
         "cwd": "${workspaceFolder}/web-admin"
       },
+      "dependsOn": [
+        "powerx: stop web-admin port"
+      ],
+      "dependsOrder": "sequence",
       "isBackground": true,
       "problemMatcher": []
     },

@@ -77,10 +77,12 @@ Dependencies/Assumptions: Follows Integration Architecture baseline; Security & 
 - **FR-010**: 系统需提供契约查询 API/grpc SDK，供调用方按能力 ID、版本、传输偏好获取元数据与错误模型。
 - **FR-011**: 契约发布或版本升级需触发审计日志与事件（含版本、发布者、影响范围）以便其他模块订阅。
 - **FR-012**: Adapter 层必须输出统一的 metrics（调用耗时、错误率、活跃会话）和 tracing span，符合 Observability 规范。
+- **FR-013**: 插件 Capability Contract 的安全定义必须允许声明 `menu/page/action/api` 细颗粒度权限、`permission_code`、i18n 展示元数据、默认角色建议、风险等级和协议 binding；缺少必填授权字段时契约发布失败。
 
 ### Key Entities *(include if feature involves data)*
 
 - **CapabilityContract**: 描述能力的唯一标识、版本、显示信息、IO Schema 引用、安全策略、可观测配置与传输偏好，是所有调用的语义源头。
+- **PluginPermissionContract**: CapabilityContract 中面向插件业务权限的扩展结构，描述菜单、页面、动作、接口 binding 与 IAM `permission_code` 的关系，供 PowerX 统一角色授权消费。
 - **CapabilityVersionPolicy**: 定义版本兼容矩阵、默认策略、废弃状态与替代关系，供发布与路由决策使用。
 - **IOSchemaDescriptor**: 记录输入/输出结构及验证规则，支持 JSON Schema/Protobuf 等引用形式。
 - **TransportProfile**: 描述每个能力在不同协议下的执行策略（超时、重试、流式能力、prefer/fallback）。
