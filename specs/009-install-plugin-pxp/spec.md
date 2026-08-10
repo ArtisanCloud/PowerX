@@ -139,6 +139,8 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-021**: 兼容性引擎需在安装/升级前调用 `POST /internal/version/compat/check`，阻断不兼容请求、输出冲突项并支持 `POST /internal/version/compat/exception` 例外审批与审计。
 - **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
 - **FR-023**: Registry 必须暴露 `/internal/plugins/releases` REST API（`POST` 创建、`GET /:id` 查询、`PATCH /:id` 审核状态、`POST /:id/artifacts` 追加制品），供 `px-plugin publish` 及 Web Admin 发布入口统一接入；接口需校验插件/租户可见性、版本号唯一性、artifact 签名与 manifest 元数据，成功后返回 release candidate ID、审计引用与下一步处理指引（如审批/灰度计划）。API 应复用 AdminOnly/Token 校验，失败时提供机器可读错误码，便于 CLI 重试与补件。
+- **FR-024**: 插件包必须携带可被 Capability Sync Worker 消费的权限声明资产，覆盖 `menu/page/action/api` 细颗粒度授权项、`permission_code`、i18n key、风险等级、默认角色建议和协议 binding；安装/发布校验发现缺失或不合法时必须阻断，不得生成半登记权限。
+- **FR-025**: 发布与安装流程只负责校验并交付权限声明资产，不负责正式角色授权。正式授权入口归属 PowerX IAM 角色权限中心，主流程规格见 `specs/007-integration-gateway-and-mcp` 与 `specs/026-iam`。
 
 ### API 扩展：安装元数据（新增）
 
@@ -196,6 +198,7 @@ Web Admin 安装弹窗会将上述字段写入请求；未提供时后端会按�
 - **Sandbox Validation Run**: 存储数据集版本、测试脚本、覆盖率/性能指标与脱敏结论，用于 QA 回归与合规抽查。
 - **Version Governance Report**: 记录扫描批次、租户清单、推荐版本、风险等级与管理员决策，供版本态势看板消费。
 - **Compatibility Exception**: 保存被阻断的安装/升级请求、冲突项、审批链、附加监控要求与执行结果，支撑 365 天追溯。
+- **Plugin Permission Manifest**: 插件包内的权限声明资产，描述菜单、页面、动作、接口 binding、i18n 与默认授权建议，作为安装/升级和 Capability Sync 的输入。
 
 ## Success Criteria *(mandatory)*
 

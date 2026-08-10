@@ -1,14 +1,14 @@
 package iam
 
 import (
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -79,6 +79,32 @@ func (h *PermissionHandler) List(c *gin.Context) {
 
 func (h *PermissionHandler) Catalog(c *gin.Context) {
 	data, err := h.svc.ListCatalog(c.Request.Context())
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "查询失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, data)
+}
+
+type PluginPermissionCatalogQuery struct {
+	PluginID string `form:"plugin_id"`
+	Module   string `form:"module"`
+	Type     string `form:"type"`
+	Status   string `form:"status"`
+}
+
+func (h *PermissionHandler) PluginCatalog(c *gin.Context) {
+	var q PluginPermissionCatalogQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
+		return
+	}
+	data, err := h.svc.ListPluginCatalog(c.Request.Context(), iamsvc.PluginPermissionCatalogFilter{
+		PluginID: strings.TrimSpace(q.PluginID),
+		Module:   strings.TrimSpace(q.Module),
+		Type:     strings.TrimSpace(q.Type),
+		Status:   strings.TrimSpace(q.Status),
+	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询失败", err)
 		return

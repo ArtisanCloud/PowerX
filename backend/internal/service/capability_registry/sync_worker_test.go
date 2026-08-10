@@ -215,6 +215,95 @@ func TestSyncWorkerGrantsCapabilityPermissionsToDeclaredDefaultRoles(t *testing.
 	require.Equal(t, int64(1), count)
 }
 
+func TestSyncWorkerRegistersPluginPermissionDeclarationsToIAM(t *testing.T) {
+	ctx := context.Background()
+	db := newMemoryDB(t)
+	tenantUUID := "tenant-corex"
+	roles := []iammodel.Role{
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_owner", Name: "Tenant Owner", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_admin", Name: "Tenant Admin", Builtin: true},
+		{Scope: "tenant", TenantUUID: tenantUUID, Code: "role_user", Name: "Tenant User", Builtin: true},
+	}
+	require.NoError(t, db.Create(&roles).Error)
+
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db, TenantUUID: tenantUUID})
+	root := buildPermissionDescriptorPlugin(t, "")
+	require.NoError(t, worker.ProcessArtifact(ctx, root))
+
+	recordRepo := repo.NewCapabilityRecordRepository(db, nil)
+	record, err := recordRepo.GetByCapabilityID(ctx, "demo.permissions.capability")
+	require.NoError(t, err)
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Len(t, annotations["permissions"], 2)
+
+	var actionPerm iammodel.Permission
+	require.NoError(t, db.WithContext(ctx).
+		Where("module = ? AND resource = ? AND action = ?", "production", "sample_track", "factory_schedule").
+		First(&actionPerm).Error)
+	require.Equal(t, "plugin:demo.plugin", actionPerm.Source)
+	require.Equal(t, iammodel.PermissionStatusActive, actionPerm.Status)
+
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(actionPerm.Meta, &meta))
+	require.Equal(t, "action", meta["type"])
+	require.Equal(t, "demo.plugin", meta["plugin_id"])
+	require.Equal(t, "demo.permissions.capability", meta["capability_id"])
+	require.Equal(t, "medium", meta["risk_level"])
+	require.Equal(t, map[string]any{"zh-CN": "小样打样排产", "en": "Sample schedule"}, meta["title_i18n"])
+
+	var count int64
+	require.NoError(t, db.WithContext(ctx).
+		Model(&iammodel.RolePermission{}).
+		Where("role_id = ? AND permission_id = ?", roles[2].ID, actionPerm.ID).
+		Count(&count).Error)
+	require.Equal(t, int64(1), count)
+
+	var apiPerm iammodel.Permission
+	require.NoError(t, db.WithContext(ctx).
+		Where("module = ? AND resource = ? AND action = ?", "production", "sample_track_api", "sample_schedule").
+		First(&apiPerm).Error)
+	require.NoError(t, json.Unmarshal(apiPerm.Meta, &meta))
+	require.Equal(t, "api", meta["type"])
+	require.Equal(t, "production.sample_track:factory_schedule", meta["business_permission_code"])
+	require.Len(t, meta["protocol_bindings"], 1)
+}
+
+func TestSyncWorkerFailsInvalidPluginPermissionDeclarations(t *testing.T) {
+	cases := []struct {
+		name        string
+		invalidCase string
+		want        string
+	}{
+		{name: "missing permission code", invalidCase: "missing_permission_code", want: "invalid permission_code"},
+		{name: "missing title i18n", invalidCase: "missing_title", want: "title_i18n missing"},
+		{name: "missing rest method", invalidCase: "missing_method", want: "invalid method"},
+		{name: "missing actor context", invalidCase: "missing_actor", want: "actor_context missing"},
+		{name: "missing resource scope", invalidCase: "missing_resource_scope", want: "resource_scope missing"},
+		{name: "missing api business action", invalidCase: "missing_business_permission", want: "api permission requires business_permission_code or independent=true"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := newMemoryDB(t)
+			worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+
+			root := buildPermissionDescriptorPlugin(t, tc.invalidCase)
+			err := worker.ProcessArtifact(ctx, root)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.want)
+
+			jobRepo := repo.NewCapabilitySyncJobRepository(db)
+			jobs, err := jobRepo.List(ctx, repo.CapabilitySyncJobFilter{})
+			require.NoError(t, err)
+			require.Len(t, jobs, 1)
+			require.Equal(t, "failed", jobs[0].Status)
+			require.Contains(t, jobs[0].ErrorSummary, tc.want)
+		})
+	}
+}
+
 func TestRegistrationAdapterFromProtocolPrefixesPluginProxyForREST(t *testing.T) {
 	adapter := registrationAdapterFromProtocol("demo.capability", "demo.plugin", models.ProtocolBinding{
 		Channel:  "rest",
@@ -323,6 +412,103 @@ capabilities:
     - id: demo.fallback.template.create
       version: "1.0.0"
       descriptor: contracts/capabilities/missing.yaml
+`), 0o644))
+
+	return root
+}
+
+func buildPermissionDescriptorPlugin(t *testing.T, invalidCase string) string {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
+id: demo.plugin
+name: Demo Plugin
+version: "1.0.0"
+runtime:
+  type: golang
+  entry: ./cmd/app/main.go
+`), 0o644))
+
+	pluginD := filepath.Join(root, "plugin.d")
+	require.NoError(t, os.MkdirAll(pluginD, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pluginD, "capabilities.yaml"), []byte(`
+capabilities:
+  provides:
+    - id: demo.permissions.capability
+      version: "1.0.0"
+      descriptor: capabilities/permissions.yaml
+`), 0o644))
+
+	titleI18n := `
+      zh-CN: 小样打样排产
+      en: Sample schedule`
+	if invalidCase == "missing_title" {
+		titleI18n = ` {}`
+	}
+	actionPermissionCode := "production.sample_track:factory_schedule"
+	if invalidCase == "missing_permission_code" {
+		actionPermissionCode = ""
+	}
+	apiMethod := "POST"
+	if invalidCase == "missing_method" {
+		apiMethod = ""
+	}
+	apiActorContext := "admin_user"
+	if invalidCase == "missing_actor" {
+		apiActorContext = ""
+	}
+	apiResourceScope := "tenant"
+	if invalidCase == "missing_resource_scope" {
+		apiResourceScope = ""
+	}
+	businessPermissionCode := "production.sample_track:factory_schedule"
+	if invalidCase == "missing_business_permission" {
+		businessPermissionCode = ""
+	}
+
+	capDir := filepath.Join(root, "capabilities")
+	require.NoError(t, os.MkdirAll(capDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(capDir, "permissions.yaml"), []byte(`
+id: demo.permissions.capability
+type: tool
+version: "1.0.0"
+title: Permission Descriptor Capability
+description: Permission descriptor capability
+metadata:
+  protocols:
+    rest:
+      path: /api/v1/sample-tracks/{uuid}/nodes/sample-schedule
+      method: POST
+      auth_type: tenant_jwt
+permissions:
+  - type: action
+    permission_code: `+actionPermissionCode+`
+    module: production
+    title_i18n:`+titleI18n+`
+    description_i18n:
+      zh-CN: 允许提交小样打样排产节点
+      en: Allows submitting sample schedule node
+    risk_level: medium
+    data_scope: tenant
+    default_role_grants:
+      - role_user
+  - type: api
+    permission_code: production.sample_track_api:sample_schedule
+    module: production
+    title_i18n:
+      zh-CN: 小样打样排产接口
+      en: Sample schedule API
+    description_i18n:
+      zh-CN: 允许调用小样打样排产接口
+      en: Allows calling sample schedule API
+    risk_level: medium
+    data_scope: tenant
+    business_permission_code: `+businessPermissionCode+`
+    protocol_bindings:
+      - channel: rest
+        method: `+apiMethod+`
+        path: /api/v1/sample-tracks/{uuid}/nodes/sample-schedule
+        actor_context: `+apiActorContext+`
+        resource_scope: `+apiResourceScope+`
 `), 0o644))
 
 	return root

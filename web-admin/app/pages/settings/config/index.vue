@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from "#ui/types";
+import RegistrationPolicyPanel from "~/components/settings/RegistrationPolicyPanel.vue";
 
 definePageMeta({
   title: "系统配置",
@@ -8,6 +9,7 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const route = useRoute();
 
 // 配置分类
 interface ConfigCategory {
@@ -29,6 +31,12 @@ const categories: ConfigCategory[] = [
     name: "安全设置",
     icon: "i-heroicons-shield-check",
     description: "密码策略、登录限制等安全配置",
+  },
+  {
+    id: "registration",
+    name: t("registration.admin.title"),
+    icon: "i-heroicons-user-plus",
+    description: t("registration.admin.configCategoryDescription"),
   },
   {
     id: "notification",
@@ -57,7 +65,9 @@ const categories: ConfigCategory[] = [
 ];
 
 // 当前选中的分类
-const selectedCategory = ref("basic");
+const selectedCategory = ref(
+  route.query.section === "registration" ? "registration" : "basic"
+);
 
 // 基础设置表单
 const basicForm = reactive({
@@ -458,6 +468,25 @@ const testConnection = async (type: string) => {
             </div>
           </UForm>
         </UCard>
+
+        <!-- 租户注册策略 -->
+        <div v-if="selectedCategory === 'registration'">
+          <ClientOnly>
+            <RegistrationPolicyPanel />
+            <template #fallback>
+              <UCard>
+                <div class="space-y-2">
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ t("registration.admin.title") }}
+                  </h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("common.loading") }}
+                  </p>
+                </div>
+              </UCard>
+            </template>
+          </ClientOnly>
+        </div>
 
         <!-- 通知设置 -->
         <UCard v-if="selectedCategory === 'notification'">

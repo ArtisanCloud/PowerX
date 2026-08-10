@@ -1,21 +1,37 @@
 <script setup lang="ts">
+import { registrationPolicyModeState } from "~/composables/domain/registrationPolicy";
+
 definePageMeta({
   layout: false, // 禁用layout
 });
 
 const { t } = useI18n();
 const { resolveDefaultRoute } = useDefaultMenuRoute();
-const runtimeConfig = useRuntimeConfig();
-const setupStatus = useSetupStatus();
-const verificationEnabled = computed(
-  () => String(runtimeConfig.public.saasSignupVerificationEnabled) === "true"
-);
+const registrationPolicy = ref<any | null>(null);
 const signupGateLoaded = ref(false);
-const signupEnabled = computed(() => setupStatus.status.value?.saas_signup_enabled === true);
+const policyState = computed(() => registrationPolicyModeState(registrationPolicy.value));
+const signupEnabled = computed(() => policyState.value.canSignup);
+const requestEnabled = computed(() => policyState.value.canRequest);
+const verificationEnabled = computed(
+  () => registrationPolicy.value?.requires_verification === true
+);
+const inviteRequired = computed(
+  () => registrationPolicy.value?.requires_invite_code === true
+);
 
 onMounted(async () => {
   try {
-    await setupStatus.load({ force: true, timeout: 5000 });
+    const { useRegistrationPolicyService } = await import(
+      "~/composables/api/services/registrationPolicyService"
+    );
+    const service = useRegistrationPolicyService();
+    const resp: any = await service.getEffectivePolicy();
+    registrationPolicy.value = resp?.data?.policy || null;
+  } catch (err: any) {
+    error.value =
+      err.response?.data?.message ||
+      err.message ||
+      t("registration.public.policyLoadFailed");
   } finally {
     signupGateLoaded.value = true;
   }
@@ -33,6 +49,8 @@ const form = reactive({
   tenantKey: "",
   contact: "",
   verificationCode: "",
+  inviteCode: "",
+  channel: "web",
   password: "",
   confirmPassword: "",
   agree: false,
@@ -280,13 +298,20 @@ const validateForm = () => {
     error.value = t("auth.invalidEmail");
     return false;
   }
-  if (verificationEnabled.value && !form.verificationCode.trim()) {
+  if (signupEnabled.value && verificationEnabled.value && !form.verificationCode.trim()) {
     error.value = t("auth.required");
     return false;
   }
-  if (verificationEnabled.value && !/^\d{6}$/.test(form.verificationCode.trim())) {
-    error.value = "请输入 6 位验证码";
+  if (signupEnabled.value && verificationEnabled.value && !/^\d{6}$/.test(form.verificationCode.trim())) {
+    error.value = t("registration.public.invalidVerificationCode");
     return false;
+  }
+  if (signupEnabled.value && inviteRequired.value && !form.inviteCode.trim()) {
+    error.value = t("registration.public.inviteCodeRequired");
+    return false;
+  }
+  if (requestEnabled.value) {
+    return true;
   }
   if (!form.password) {
     error.value = t("auth.required");
@@ -309,12 +334,12 @@ const validateForm = () => {
 
 const sendVerificationCode = async () => {
   if (!signupEnabled.value) {
-    error.value = "当前暂未开放新租户注册";
+    error.value = t(policyState.value.descriptionKey);
     return;
   }
   const contact = form.contact.trim();
   if (!contact) {
-    error.value = "请先填写邮箱或手机号";
+    error.value = t("registration.public.contactRequired");
     return;
   }
   if (contact.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) {
@@ -328,18 +353,51 @@ const sendVerificationCode = async () => {
       "~/composables/api/services/authService"
     );
     const authService = useAuthService();
-    await authService.sendSignupVerificationCode(contact);
+    await authService.sendSignupVerificationCode(contact, form.channel);
   } catch (err: any) {
-    error.value = err.response?.data?.message || err.message || "验证码发送失败";
+    error.value =
+      err.response?.data?.message ||
+      err.message ||
+      t("registration.public.verificationSendFailed");
   } finally {
     sendingCode.value = false;
   }
 };
 
+const signupErrorMessage = (err: any) => {
+  const data = err?.response?.data || err?.data || err?.cause?.response?._data || {};
+  const responseMessage = typeof data?.message === "string" ? data.message : "";
+  const responseError = typeof data?.error === "string" ? data.error : "";
+  const fallbackMessage = typeof err?.message === "string" ? err.message : "";
+  const errorCode = typeof data?.error_code === "string" ? data.error_code : "";
+  const raw = `${responseMessage} ${responseError} ${fallbackMessage}`;
+  const code = String(errorCode || responseMessage);
+  if (/invite_code_invalid|registration invite unavailable/i.test(raw)) {
+    return t("registration.public.errors.inviteCodeInvalid");
+  }
+  const keyByCode: Record<string, string> = {
+    signup_contact_exists: "registration.public.errors.contactExists",
+    tenant_key_exists: "registration.public.errors.tenantKeyExists",
+    tenant_domain_exists: "registration.public.errors.tenantDomainExists",
+    invalid_credentials: "registration.public.errors.invalidCredentials",
+    registration_denied: "registration.public.errors.registrationDenied",
+    registration_policy_missing: "registration.public.errors.policyMissing",
+    registration_policy_invalid: "registration.public.errors.policyInvalid",
+    signup_failed: "auth.registerFailed",
+  };
+  if (keyByCode[code]) {
+    return t(keyByCode[code]);
+  }
+  if (/duplicate key|unique constraint|SQLSTATE|uk_/i.test(raw)) {
+    return t("registration.public.errors.conflict");
+  }
+  return responseMessage || fallbackMessage || t("auth.registerFailed");
+};
+
 // 注册处理
 const handleRegister = async () => {
-  if (!signupEnabled.value) {
-    error.value = "当前暂未开放新租户注册";
+  if (!signupEnabled.value && !requestEnabled.value) {
+    error.value = t(policyState.value.descriptionKey);
     return;
   }
   if (!validateForm()) return;
@@ -348,13 +406,6 @@ const handleRegister = async () => {
   error.value = "";
 
   try {
-    // 调用注册接口
-    const { useAuthService } = await import(
-      "~/composables/api/services/authService"
-    );
-    const authService = useAuthService();
-    const { setAuth } = useAuth();
-
     const registerData = {
       tenantName: form.tenantName,
       tenantKey: form.tenantKey,
@@ -362,9 +413,38 @@ const handleRegister = async () => {
       password: form.password,
       confirmPassword: form.confirmPassword,
       verificationCode: verificationEnabled.value ? form.verificationCode : "",
+      inviteCode: form.inviteCode,
+      channel: form.channel,
       displayName: form.contact,
     };
 
+    if (requestEnabled.value) {
+      const { useRegistrationPolicyService } = await import(
+        "~/composables/api/services/registrationPolicyService"
+      );
+      const requestService = useRegistrationPolicyService();
+      const contact = form.contact.trim();
+      const isEmail = contact.includes("@");
+      await requestService.submitRegistrationRequest({
+        tenant_key: form.tenantKey,
+        tenant_name: form.tenantName,
+        owner_email: isEmail ? contact : undefined,
+        owner_phone: isEmail ? undefined : contact,
+        owner_display_name: contact,
+        plan: "free",
+        invite_code: form.inviteCode || undefined,
+        channel: form.channel,
+      });
+      success.value = true;
+      countdown.value = 0;
+      return;
+    }
+
+    const { useAuthService } = await import(
+      "~/composables/api/services/authService"
+    );
+    const authService = useAuthService();
+    const { setAuth } = useAuth();
     const response = await authService.registerFromForm(registerData);
 
     if (response.code === 200 && response.data?.access_token) {
@@ -399,16 +479,7 @@ const handleRegister = async () => {
       error.value = response.message || t("auth.registerFailed");
     }
   } catch (err: any) {
-    console.error("注册失败:", err);
-
-    // 处理不同类型的错误
-    if (err.response?.data?.message) {
-      error.value = err.response.data.message;
-    } else if (err.message) {
-      error.value = err.message;
-    } else {
-      error.value = t("auth.registerFailed");
-    }
+    error.value = signupErrorMessage(err);
   } finally {
     loading.value = false;
   }
@@ -507,12 +578,12 @@ const handleTenantKeyInput = (value: string) => {
             <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-500" />
           </div>
 
-          <div v-else-if="!signupEnabled" class="space-y-5">
+          <div v-else-if="!signupEnabled && !requestEnabled" class="space-y-5">
             <UAlert
-              color="warning"
+              :color="policyState.color"
               variant="soft"
-              title="当前暂未开放新租户注册"
-              description="请使用已有账号登录，或联系系统管理员开通租户。"
+              :title="$t(policyState.titleKey)"
+              :description="$t(policyState.descriptionKey)"
             />
             <UButton
               block
@@ -521,11 +592,19 @@ const handleTenantKeyInput = (value: string) => {
               variant="solid"
               :to="$localePath('/users/login')"
             >
-              返回登录
+              {{ $t("registration.public.backToLogin") }}
             </UButton>
           </div>
 
           <form v-else @submit.prevent="handleRegister" class="space-y-5">
+            <UAlert
+              :color="policyState.color"
+              variant="soft"
+              :title="$t(policyState.titleKey)"
+              :description="$t(policyState.descriptionKey)"
+              class="mb-1"
+            />
+
             <!-- 错误提示 -->
             <UAlert
               v-if="error"
@@ -604,8 +683,27 @@ const handleTenantKeyInput = (value: string) => {
               />
             </div>
 
+            <div v-if="signupEnabled && inviteRequired" class="mb-6">
+              <label
+                for="inviteCode"
+                class="block text-sm font-medium text-gray-700 mb-3"
+              >
+                {{ $t("registration.public.inviteCode") }}
+                <span class="text-red-500">*</span>
+              </label>
+              <UInput
+                id="inviteCode"
+                name="inviteCode"
+                v-model="form.inviteCode"
+                :placeholder="$t('registration.public.inviteCodePlaceholder')"
+                size="lg"
+                :disabled="loading"
+                class="w-full"
+              />
+            </div>
+
             <!-- 验证码输入 -->
-            <div v-if="verificationEnabled" class="mb-6">
+            <div v-if="signupEnabled && verificationEnabled" class="mb-6">
               <label
                 for="verificationCode"
                 class="block text-sm font-medium text-gray-700 mb-3"
@@ -636,7 +734,7 @@ const handleTenantKeyInput = (value: string) => {
             </div>
 
             <!-- 密码输入 -->
-            <div class="mb-6">
+            <div v-if="signupEnabled" class="mb-6">
               <label
                 for="password"
                 class="block text-sm font-medium text-gray-700 mb-3"
@@ -684,7 +782,7 @@ const handleTenantKeyInput = (value: string) => {
             </div>
 
             <!-- 确认密码输入 -->
-            <div class="mb-6">
+            <div v-if="signupEnabled" class="mb-6">
               <label
                 for="confirmPassword"
                 class="block text-sm font-medium text-gray-700 mb-3"
@@ -769,7 +867,9 @@ const handleTenantKeyInput = (value: string) => {
                 {{
                   loading
                     ? $t("auth.creatingAccount")
-                    : $t("auth.createAccount")
+                    : requestEnabled
+                      ? $t("registration.public.submitRequest")
+                      : $t("auth.createAccount")
                 }}
               </UButton>
             </div>

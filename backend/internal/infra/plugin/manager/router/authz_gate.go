@@ -2,6 +2,8 @@ package router
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"path"
@@ -14,6 +16,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
+var (
+	ErrPermissionSnapshotClaimsMissing = errors.New("GW_AUTHZ_PERMISSION_CLAIMS_MISSING")
+	ErrPermissionSnapshotExpired       = errors.New("GW_AUTHZ_POLICY_VERSION_EXPIRED")
+)
+
 // --------- 1) 抽象：Authorizer（外部注入，实现从 DB/缓存等取“谁拥有什么”） ---------
 
 type Authorizer interface {
@@ -23,9 +30,18 @@ type Authorizer interface {
 	IsSuperAdmin(ctx context.Context, tenantID, userID uint64, roles []string) bool
 }
 
+type ClaimsAuthorizer interface {
+	PermissionsForClaims(ctx context.Context, claims reqctx.CoreXClaims, pluginID string) (perms []string, policyVersion string, err error)
+}
+
+type RoutePermissionResolver interface {
+	RoutePermission(ctx context.Context, pluginID, method, reqPath string) (*Permission, error)
+}
+
 // --------- 2) 路由 -> 所需权限 ---------
 
 type Permission struct {
+	Module   string `json:"module,omitempty" yaml:"module"`
 	Resource string `json:"resource" yaml:"resource"`
 	Action   string `json:"action"  yaml:"action"`
 }
@@ -251,8 +267,29 @@ func normalizePath(value string) string {
 }
 
 func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath string, base reqctx.CoreXClaims) (string, bool, string) {
+	var need *Permission
+	resolvedByAuthz := false
+	if resolver, ok := g.az.(RoutePermissionResolver); ok {
+		resolved, err := resolver.RoutePermission(ctx, pluginID, method, reqPath)
+		if err != nil {
+			return "", false, "authz route permission unavailable"
+		}
+		if resolved == nil {
+			return "", false, "no registered permission binding for this route"
+		}
+		need = resolved
+		resolvedByAuthz = true
+		logger.DebugF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s registered_permission=%s",
+			pluginID, method, reqPath, formatPermission(need))
+	}
+
 	// 超管直通
 	if base.IsRoot || (g.az != nil && g.az.IsSuperAdmin(ctx, base.TenantID, base.UserID, base.Roles)) {
+		if need != nil {
+			base.PermissionCodes = []string{formatPermission(need)}
+			base.PermsHash = permissionCodesHash(base.PermissionCodes)
+			base.PolicyVersion = permissionPolicyVersion(base.PermsHash)
+		}
 		tok, err := g.mintPluginToken(pluginID, base)
 		if err != nil {
 			return "", false, "mint token failed"
@@ -261,8 +298,9 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 	}
 
 	// 找到路由所需权限（显式 or 自动）
-	var need *Permission
-	if pol := g.policies[pluginID]; pol != nil {
+	if resolvedByAuthz {
+		// already resolved by registered plugin permission declarations
+	} else if pol := g.policies[pluginID]; pol != nil {
 		need = pol.Required(method, reqPath)
 		logger.DebugF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s policy_base=%s routes=%d resources=%d need=%s",
 			pluginID, method, reqPath, strings.TrimSpace(pol.HTTPBase), len(pol.Routes), len(pol.Resources), formatPermission(need))
@@ -275,7 +313,14 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 
 	// 拉取授权（谁拥有什么）
 	if g.az != nil {
-		perms, _, err := g.az.Permissions(ctx, base.TenantID, base.UserID, pluginID)
+		var perms []string
+		var policyVersion string
+		var err error
+		if claimsAuthorizer, ok := g.az.(ClaimsAuthorizer); ok {
+			perms, policyVersion, err = claimsAuthorizer.PermissionsForClaims(ctx, base, pluginID)
+		} else {
+			perms, policyVersion, err = g.az.Permissions(ctx, base.TenantID, base.UserID, pluginID)
+		}
 		if err != nil {
 			return "", false, "authz backend unavailable"
 		}
@@ -283,6 +328,13 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 			logger.WarnF(ctx, "[GATE-CHECK] plugin=%s method=%s reqPath=%s deny=permission_miss need=%s user_perms=%s",
 				pluginID, method, reqPath, formatPermission(need), strings.Join(normalizePermsForLog(perms), ","))
 			return "", false, fmt.Sprintf("permission required: %s:%s", need.Resource, need.Action)
+		}
+		base.PermissionCodes = dedupeSortedPermissionCodes(perms)
+		base.PermsHash = permissionCodesHash(base.PermissionCodes)
+		if strings.TrimSpace(policyVersion) != "" {
+			base.PolicyVersion = strings.TrimSpace(policyVersion)
+		} else {
+			base.PolicyVersion = permissionPolicyVersion(base.PermsHash)
 		}
 	}
 
@@ -297,6 +349,9 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 func formatPermission(p *Permission) string {
 	if p == nil {
 		return "<nil>"
+	}
+	if module := strings.TrimSpace(p.Module); module != "" {
+		return module + "." + strings.TrimSpace(p.Resource) + ":" + strings.TrimSpace(p.Action)
 	}
 	return strings.TrimSpace(p.Resource) + ":" + strings.TrimSpace(p.Action)
 }
@@ -334,6 +389,10 @@ func (g *authzGate) mintPluginToken(pluginID string, base reqctx.CoreXClaims) (s
 		Phone:      strings.TrimSpace(base.Phone),
 		IsRoot:     base.IsRoot,
 		Roles:      append([]string(nil), base.Roles...),
+
+		PermissionCodes: append([]string(nil), base.PermissionCodes...),
+		PolicyVersion:   strings.TrimSpace(base.PolicyVersion),
+		PermsHash:       strings.TrimSpace(base.PermsHash),
 	}
 
 	aud := []string{"plugin:" + pluginID}
@@ -341,20 +400,79 @@ func (g *authzGate) mintPluginToken(pluginID string, base reqctx.CoreXClaims) (s
 	return auth.GenerateAccessJWT(c, g.issuer, aud, g.ttl, secret)
 }
 
+func dedupeSortedPermissionCodes(items []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, exists := seen[item]; exists {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func permissionCodesHash(items []string) string {
+	codes := dedupeSortedPermissionCodes(items)
+	sum := sha256.Sum256([]byte(strings.Join(codes, "\n")))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func permissionPolicyVersion(permsHash string) string {
+	permsHash = strings.TrimSpace(permsHash)
+	if permsHash == "" {
+		return ""
+	}
+	return "iam:" + permsHash
+}
+
+func ValidatePermissionSnapshot(claims reqctx.CoreXClaims, expectedPolicyVersion string) error {
+	if len(claims.PermissionCodes) == 0 || strings.TrimSpace(claims.PermsHash) == "" || strings.TrimSpace(claims.PolicyVersion) == "" {
+		return ErrPermissionSnapshotClaimsMissing
+	}
+	actualHash := permissionCodesHash(claims.PermissionCodes)
+	if !strings.EqualFold(strings.TrimSpace(claims.PermsHash), actualHash) {
+		return ErrPermissionSnapshotExpired
+	}
+	expectedPolicyVersion = strings.TrimSpace(expectedPolicyVersion)
+	if expectedPolicyVersion != "" && strings.TrimSpace(claims.PolicyVersion) != expectedPolicyVersion {
+		return ErrPermissionSnapshotExpired
+	}
+	if expectedPolicyVersion == "" && strings.TrimSpace(claims.PolicyVersion) != permissionPolicyVersion(actualHash) {
+		return ErrPermissionSnapshotExpired
+	}
+	return nil
+}
+
 func hasPermission(userPerms []string, need Permission) bool {
 	if len(userPerms) == 0 {
 		return false
 	}
-	want := need.Resource + ":" + need.Action
+	resource := strings.TrimSpace(need.Resource)
+	action := strings.TrimSpace(need.Action)
+	module := strings.TrimSpace(need.Module)
+	want := resource + ":" + action
+	if module != "" {
+		want = module + "." + resource + ":" + action
+	}
 	for _, p := range userPerms {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
 		}
-		if p == want || p == "*" || p == need.Resource+":*" {
+		if p == want || p == "*" || p == resource+":*" {
 			return true
 		}
-		if strings.HasSuffix(p, ":*") && strings.TrimSuffix(p, ":*") == need.Resource {
+		if module != "" && p == module+"."+resource+":*" {
+			return true
+		}
+		if strings.HasSuffix(p, ":*") && strings.TrimSuffix(p, ":*") == resource {
 			return true
 		}
 	}

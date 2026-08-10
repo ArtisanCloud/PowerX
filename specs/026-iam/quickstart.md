@@ -86,6 +86,26 @@ source=plugin:<plugin_id>
 
 角色权限页面会把这类权限展示在“已安装 App / <插件名称>”分组；管理员只负责勾选授权，不维护菜单资源本身。
 
+插件页面与页面内动作权限同样不通过人工创建。插件通过 Capability Sync 声明 `menu/page/action/api` 后，PowerX 同步为 `source=plugin:<plugin_id>` 的 IAM Permission。角色权限页面负责授权 `permission_code`，接口 binding 只作为 Gateway 和插件后端的校验元数据。
+
+示例：
+
+```text
+production.sample_track:read
+production.sample_track:factory_schedule
+production.sample_track:delivery
+production.sample_track:planner_review
+production.sample_track:designer_acceptance
+production.bulk_order:manage
+```
+
+页面展示要求：
+
+- 按“已安装 App / <插件名称> / <模块> / 菜单|页面|动作”分组；
+- 主展示文案来自插件声明的 i18n key；
+- UUID、`capability_id`、raw route 只能作为调试元数据；
+- 同步失败或缺 i18n/binding 的权限只显示登记失败状态，不允许勾选授权。
+
 验证步骤：
 
 1. 执行 seed，确保内置权限和角色写入：
@@ -112,6 +132,15 @@ FROM public.iam_permission
 WHERE module = 'menu'
   AND resource LIKE 'plugin.%'
 ORDER BY resource;
+```
+
+检查插件细颗粒度权限：
+
+```sql
+SELECT plugin, resource, action, source, meta
+FROM public.iam_permission
+WHERE source = 'plugin:' || :'PLUGIN_ID'
+ORDER BY plugin, resource, action;
 ```
 
 3. 检查供应商角色是否存在：
@@ -146,6 +175,9 @@ curl --noproxy '*' -sS "$BASE/admin/menus" \
 - `role_vendor` 默认只拥有 Dashboard、Agent、Agent Chat、Plugin Chat 等供应商工作台入口；
 - 插件/App 菜单只有在插件 manifest 同步出 `menu:plugin.<plugin_id>.<menu_id>:read`，且当前角色拥有该权限时才显示；
 - 没有对应 `menu:*:read` 的菜单不应出现在响应里。
+- 插件 action 权限只影响对应按钮和接口，不得靠菜单权限隐式放行写操作；
+- 角色未拥有 `production.sample_track:delivery` 时，交付按钮不展示，直接调用 delivery 接口必须返回 403；
+- local 模式调试权限必须来自同一份插件声明，不能成为正式授权来源。
 
 页面设计：
 - 第一版复用 `/settings/users` 的角色权限管理，不新增系统菜单 CRUD。
@@ -158,9 +190,9 @@ curl --noproxy '*' -sS "$BASE/admin/menus" \
 - 调用 `POST /api/v1/public/saas/signup` 创建新租户；
 - 验证返回 token/context 指向新 `tenant_uuid + member_id/member_uuid`；
 - 验证首个成员同时拥有 `role_owner`、`role_admin`、`role_user`；
-- 页面要求用户填写租户名称、组织标识、邮箱或手机号、密码；验证码仅在开关开启时展示；
+- 页面要求用户填写租户名称、组织标识、邮箱或手机号、密码；验证码、邀请码、候补或审核入口由 active 注册准入策略决定；
 - `tenant_key` 默认由系统根据租户名称生成，用户可以手动修改；显式填写的 `tenant_key` 必须全局唯一，冲突时注册失败且不得留下半成品数据；
-- 验证码由 `feature_gate.enable_saas_signup_verification_code` 控制，默认关闭；关闭时页面不展示验证码字段，注册接口也不要求 `verification_code`；
+- 验证码由 active `RegistrationPolicy.requires_verification` 控制；关闭时页面不展示验证码字段，注册接口也不要求 `verification_code`；
 - 未显式填写 `tenant_key` 时，重复租户名称允许存在，系统应生成 `acme-inc`、`acme-inc-2` 这类唯一 key；
 - 已有邮箱/手机号错误密码、显式 key 冲突、初始化失败都不得留下半成品数据。
 
@@ -179,11 +211,26 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/public/saas/signup \
   }'
 ```
 
-启用验证码后：
+查询当前公开注册策略：
+
+```bash
+curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/public/saas/registration-policy/effective
+```
+
+预期：
+
+- `mode=closed` 时注册页显示关闭，验证码和 signup 都拒绝。
+- `mode=invite_only` 时注册页要求邀请码。
+- `mode=waitlist` 时注册页提交候补申请，不创建租户。
+- `mode=approval_required` 时注册页提交审核申请，root 审核通过后才创建租户。
+- `mode=progressive_rollout` 时页面只展示公开安全字段，不展示完整白名单或内部配额细节。
+
+启用验证码后，策略应写入：
 
 ```yaml
-feature_gate:
-  enable_saas_signup_verification_code: true
+platform.registration.policy:
+  mode: open
+  requires_verification: true
 ```
 
 ```bash
@@ -193,6 +240,60 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/public/saas/signup/verificat
 ```
 
 当前默认驱动是本地开发驱动，会把验证码写入后端日志；生产接入 SMTP/短信服务时替换 `SignupVerificationDriver`。
+
+注册准入策略回归：
+
+1. `closed`：
+   - 激活 `mode=closed` 策略。
+   - 调用验证码和 signup，必须返回 `registration_closed`，不创建 tenant/user/member。
+2. `invite_only`：
+   - 创建 active invite batch 并生成邀请码。
+   - 无邀请码或错误邀请码必须拒绝。
+   - 有效邀请码注册成功后，邀请码 `used_count` 增加；失败注册不得消耗邀请码。
+3. `waitlist`：
+   - 调用 `POST /api/v1/public/saas/registration-requests`。
+   - 必须创建 `registration_request.status=submitted`，不得创建 tenant。
+4. `approval_required`：
+   - 提交申请后不创建 tenant。
+   - root 调用 `POST /api/v1/admin/registration-requests/{request_uuid}/approve` 后才创建租户。
+5. `allowlist`：
+   - 未命中 contact/domain/channel 白名单必须拒绝并写 `reason_code`。
+   - 命中白名单后继续 signup。
+6. `progressive_rollout`：
+   - 设置 `percentage` 规则，使用同一 contact 重复调用 effective/signup 前置判定，结果必须稳定。
+   - 超过 `daily_tenant_quota` 或时间窗口不匹配时必须明确拒绝。
+7. `open`：
+   - 符合基础校验即可注册，仍执行验证码、速率限制和审计。
+
+root 后台策略操作合同：
+
+```bash
+curl --noproxy '*' -sS "$BASE/admin/registration-policy" \
+  -H "Authorization: Bearer $ROOT_TOKEN"
+
+curl --noproxy '*' -sS -X PUT "$BASE/admin/registration-policy" \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "mode": "progressive_rollout",
+    "status": "draft",
+    "requires_verification": true,
+    "requires_invite_code": false,
+    "requires_root_approval": false,
+    "daily_tenant_quota": 100,
+    "rules": [
+      {"type": "email_domain_allowlist", "values": ["powerx.ai"]},
+      {"type": "percentage", "value": 10, "seed": "contact"}
+    ]
+  }'
+```
+
+生产发布前必须确认：
+
+- setup 已初始化 active `RegistrationPolicy`。
+- 旧 `feature_gate.enable_saas_signup` 只在迁移时转换为策略，不作为运行时 fallback。
+- 缺 active 策略、未知 mode 或未知 rule type 时，后端 fail fast。
+- 注册准入审计可按 `policy_uuid + policy_version + reason_code` 查询。
 
 登录默认租户回归：
 - 使用同一邮箱或手机号创建两个租户；
@@ -364,7 +465,8 @@ cd backend && go run ./cmd/database iam-fix-owner
 5. 执行 `make iam-migration-report`。
 6. 若存在 `auto_fix_candidates`，执行 `make iam-migration-fix-owner`。
 7. 若存在 `manual_fix_required`，由 root 在 Platform Console 人工指定管理员后再次巡检。
-8. 巡检通过后再开放 SaaS signup 与租户插件实例隔离能力。
+8. 巡检通过后，先激活 `mode=closed` 的注册准入策略，再按邀请制、灰度、候补/审核或开放阶段逐步放量。
+9. 不允许直接依赖旧 `enable_saas_signup=true` 开放生产注册。
 
 ## 5. 排障与日志
 

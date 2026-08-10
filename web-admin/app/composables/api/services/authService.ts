@@ -34,6 +34,8 @@ export interface RegisterFormData {
   confirmPassword: string;
   verificationCode: string;
   tenantKey?: string;
+  inviteCode?: string;
+  channel?: string;
   email?: string;
   phone?: string;
   displayName?: string;
@@ -132,6 +134,9 @@ export interface SaaSSignupParams {
   owner_password: string;
   owner_display_name?: string;
   verification_code?: string;
+  invite_code?: string;
+  channel?: string;
+  campaign?: string;
 }
 
 export interface SaaSSignupResponse {
@@ -231,6 +236,8 @@ export const useAuthService = () => {
         owner_password: formData.password,
         owner_display_name: formData.displayName || contact,
         verification_code: formData.verificationCode || undefined,
+        invite_code: formData.inviteCode || undefined,
+        channel: formData.channel || undefined,
         plan: "free",
       };
       return apiClient.post<ApiResponse<SaaSSignupResponse>>(
@@ -240,10 +247,10 @@ export const useAuthService = () => {
       );
     },
 
-    sendSignupVerificationCode: (contact: string) => {
+    sendSignupVerificationCode: (contact: string, channel?: string) => {
       return apiClient.post<ApiResponse<{ sent: boolean; contact: string }>>(
         "/public/saas/signup/verification-code",
-        { contact },
+        { contact, channel },
         { skipAuth: true }
       );
     },

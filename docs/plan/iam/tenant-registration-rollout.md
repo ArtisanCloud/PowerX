@@ -1,6 +1,6 @@
 # 租户注册准入与灰度开放机制计划
 
-> 状态：规划方案。目标是支撑 PowerX SaaS 上线前的内测、邀请制、逐步放量和最终开放注册。
+> 状态：已进入 `026-iam` 实现。目标是支撑 PowerX SaaS 上线前的内测、邀请制、逐步放量和最终开放注册。
 
 ## 1. 背景
 
@@ -10,9 +10,9 @@ PowerX 当前已有 SaaS 注册主链路：
 2. 公开接口 `POST /api/v1/public/saas/signup`。
 3. 验证码接口 `POST /api/v1/public/saas/signup/verification-code`。
 4. `SaaSSignupService` 负责创建租户、owner 用户、member、默认角色、租户密钥和租户固有对象。
-5. `setup/status` 目前只向前端暴露 `saas_signup_enabled` 布尔值。
+5. `GET /api/v1/public/saas/registration-policy/effective` 向公开注册页暴露安全摘要。
 
-这个布尔开关不足以支撑 SaaS 上线过程。上线前需要按阶段控制谁可以注册、每天可以注册多少租户、是否需要邀请码、是否需要人工审核，以及灰度规则命中后如何审计。
+旧布尔开关不再作为权威注册开关。上线前必须按策略对象控制谁可以注册、每天可以注册多少租户、是否需要邀请码、是否需要人工审核，以及灰度规则命中后如何审计。
 
 ## 2. 目标
 
@@ -225,7 +225,7 @@ platform.registration.policy
 2. 修改策略必须生成新版本，旧版本归档。
 3. 注册审计必须记录命中的策略 UUID 和版本。
 
-如果短期内不建独立表，也可以先放入 `system_settings`，但需要保留同样的版本、状态和审计字段语义。
+当前实现已使用独立 `registration_policies` 表，不再把 `system_settings` 布尔开关作为注册准入兜底来源。
 
 ### 6.2 `registration_invite_batches`
 
@@ -422,6 +422,8 @@ POST /api/v1/public/saas/signup
 POST /api/v1/public/saas/registration-requests
 ```
 
+公开入口只返回和接收安全字段，不暴露完整 allowlist、quota 内部计数或灰度规则明细。
+
 ### 8.2 root 后台接口
 
 策略读取与更新：
@@ -448,8 +450,9 @@ POST /api/v1/admin/registration-invite-batches/:batchUuid/revoke
 GET /api/v1/admin/registration-requests
 POST /api/v1/admin/registration-requests/:requestUuid/approve
 POST /api/v1/admin/registration-requests/:requestUuid/reject
-POST /api/v1/admin/registration-requests/:requestUuid/issue-invite
 ```
+
+`issue-invite` 仍是合同候选，不登记为 capability，也不作为可调用入口，直到真实 handler、service 和测试完成。
 
 Capability 边界：
 
@@ -476,6 +479,8 @@ setup 增加“租户注册策略”配置块：
 
 ```text
 设置 > 平台设置 > 租户注册
+设置 > 系统配置 > 租户注册策略
+/settings/config?section=registration
 ```
 
 页面能力：
@@ -722,7 +727,26 @@ feature_gate:
 8. 补审计、指标和运行指南。
 9. 执行灰度阶段验收。
 
-## 15. 代码映射
+## 15. 当前实现对齐
+
+已落地：
+
+1. setup 完成安装时，如果没有 active 策略，初始化 `closed` active 策略。
+2. `RegistrationPolicyService.Evaluate` 支持 `closed`、`open`、`invite_only`、`waitlist`、`approval_required`、`allowlist`、`progressive_rollout`。
+3. 验证码发送和 `POST /api/v1/public/saas/signup` 都执行策略前置判定。
+4. 邀请码批次和邀请码已入库，邀请码明文只在生成时返回，校验按 hash。
+5. 候补/审核申请已入库，并记录策略版本、审核状态和审计事件。
+6. public effective policy 与 registration request handler 已落地。
+7. root 后台策略、邀请码和审核 handler 已落地，handler 明确要求 root。
+8. Web Admin 已在 `/settings/config?section=registration` 的系统配置页新增“租户注册策略”分类，公开注册页按 effective policy 展示。
+9. `com.corex.iam.registration_policy.admin_manage` 已登记到 `backend/config/platform_capabilities/iam.yaml`，所有 admin 注册治理 REST binding 均为 `actor_context: admin_user`、`resource_scope: platform`、`sts_direct: false`、`agent_usable: false`。
+
+待后续决策：
+
+1. `approval_required` 审核通过后立即创建 owner/user/member 需要申请合同携带 `owner_password` 或采用邀请/重置密码流程。当前实现没有伪造密码，也没有静默创建半成品租户；未注入 tenant creator 时会明确失败。
+2. `issue-invite` 需要真实 handler、service 和测试后才能成为可调用入口。
+
+## 16. 代码映射
 
 当前相关入口：
 
@@ -732,15 +756,13 @@ feature_gate:
 | 验证码服务 | `backend/internal/service/auth/signup_verification_service.go` |
 | SaaS 注册 HTTP | `backend/internal/transport/http/public/saas/signup_handler.go` |
 | setup 状态 | `backend/internal/transport/http/admin/system/setup_handler.go` |
-| 系统设置服务 | `backend/internal/service/system/setting_service.go` |
-| 系统设置模型 | `backend/pkg/corex/db/persistence/model/setting/system_setting_gorm.go` |
 | 租户模型 | `backend/pkg/corex/db/persistence/model/tenant/tenant_gorm.go` |
 | 注册页 | `web-admin/app/pages/users/register.vue` |
 | setup 页 | `web-admin/app/pages/setup/index.vue` |
 | setup 状态 composable | `web-admin/app/composables/useSetupStatus.ts` |
 | IAM 使用指南 | `docs/guides/features/026-iam/guide.md` |
 
-建议新增：
+已新增：
 
 | 模块 | 路径 |
 | --- | --- |
@@ -752,5 +774,8 @@ feature_gate:
 | 注册申请模型 | `backend/pkg/corex/db/persistence/model/iam/registration_request_gorm.go` |
 | root 后台 HTTP | `backend/internal/transport/http/admin/iam/registration_policy_handler.go` |
 | public effective policy HTTP | `backend/internal/transport/http/public/saas/registration_policy_handler.go` |
-| root 后台页面 | `web-admin/app/pages/settings/registration/index.vue` |
-
+| root 后台页面 | `web-admin/app/pages/settings/config/index.vue` |
+| 注册策略设置面板 | `web-admin/app/components/settings/RegistrationPolicyPanel.vue` |
+| 注册策略前端 API | `web-admin/app/composables/api/services/registrationPolicyService.ts` |
+| 注册策略领域类型 | `web-admin/app/composables/domain/registrationPolicy.ts` |
+| 注册策略 capability | `backend/config/platform_capabilities/iam.yaml` |

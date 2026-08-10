@@ -9,6 +9,7 @@
 - 插件侧已按《006 — 插件能力多协议暴露与复合任务设计》在安装阶段输出统一能力目录（原子 + 复合 + Workflow/Agent 协议）。
 - PowerX Core 现有实现（`capability_registry`、Integration Gateway、Agent Hub）分散记录了调用逻辑，但缺少面向“多插件智能体调用”的一份 PRD 来描述宿主如何消费上述目录并提供一致的开发体验。
 - 本文聚焦于 **PowerX 底座 → 多插件 → 智能体/Workflow/租户 API** 的调用链，输出一套统一标准，指导 Integration Gateway、Agent Hub、Workflow Builder、Selector 与 Capability Registry 的协作。
+- 插件菜单、页面、页面内动作和业务接口权限的统一登记与角色授权，以 `docs/plan/integration/powerx_capability.md` 的“插件细颗粒度权限注册与授权目标架构”为准；本文只描述 Agent/Workflow/Integration Gateway 如何消费已经登记且已授权的能力。
 
 **业务目标**
 1. 在插件提交 `.pxp` 包或通过 `px-plugin capabilities submit` 后 ≤3 分钟，PowerX 能在 `agent hub + workflow builder + integration gateway` 三个入口展示并调用最新能力。
@@ -26,7 +27,7 @@
 | 角色/系统 | 职责 |
 |-----------|------|
 | 插件（PowerXPlugin） | 通过 `capabilities/*.yaml` + `contracts/exposure/*` 声明所有协议通道，执行 `capabilities submit/export` 提交。
-| Capability Registry Service | 存储能力目录、协议引用、版本哈希；对外提供查询 API（供 Agent Hub/Integration Gateway/Workflow Builder）。
+| Capability Registry Service | 存储能力目录、协议引用、版本哈希、权限码和插件授权元数据；对外提供查询 API（供 Agent Hub/Integration Gateway/Workflow Builder/角色权限中心）。
 | Integration Gateway | 管理/租户 API + MCP Server（见 `specs/007`），负责租户 HTTP 调用与 MCP 工具拉取。
 | Agent Hub & Selector | 根据意图、租户、能力策略选择插件通道；执行多插件调用并协调 Workflow。
 | Workflow Builder/Engine | 读取插件提供的 Workflow Step 模板，在编排期/执行期复用插件能力。
@@ -43,6 +44,7 @@
 4. **选择器优先**：读场景支持 MCP↔gRPC 并发竞速；写场景强制走 gRPC；复合/智能任务走 Workflow/Agent（参见 `docs/standards/powerx/backend/plugins/readme.md`）。
 5. **可观测性内置**：Registry/Selector/Gateway 输出一致的 Trace/Metric，事件主题沿用 `integration.gateway.*`。
 6. **多插件隔离**：每次调用都绑定 `plugin_id + capability_id + tenant_uuid`，Selector 不得混淆不同插件的上下文/配额。
+7. **授权来源一致**：Agent/Workflow 只能调用当前租户已授权的插件能力。插件业务页的菜单、页面、按钮、接口校验也必须使用同一 `permission_code`，不得在插件设置页另设正式授权来源。
 
 ---
 

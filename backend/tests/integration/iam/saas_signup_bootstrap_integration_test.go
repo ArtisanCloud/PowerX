@@ -64,6 +64,7 @@ func TestSaaSSignupBootstrapCreatesTenantOwnerAndTokens(t *testing.T) {
 
 func TestSaaSSignupWithVerifierRequiresCode(t *testing.T) {
 	fx := setupIAMFixture(t)
+	setActiveRegistrationPolicyVerification(t, fx.DB, true)
 	verifier := authsvc.NewSignupVerificationService(authsvc.LocalSignupVerificationDriver{}, time.Minute)
 	require.NoError(t, verifier.IssueForTest("verified@example.com", "123456", time.Minute))
 	svc := authsvc.NewSaaSSignupService(fx.DB, authsvc.NewAuthService(fx.DB, authsvc.AuthOptions{
@@ -92,6 +93,100 @@ func TestSaaSSignupWithVerifierRequiresCode(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "verified-inc", result.Tenant.Key)
+}
+
+func TestSaaSSignupInviteOnlyRejectsUnknownInviteCode(t *testing.T) {
+	fx := setupIAMFixture(t)
+	setActiveRegistrationPolicyInviteOnly(t, fx.DB)
+	batch := createInviteBatch(t, fx.DB, modeliam.RegistrationInviteBatchStatusActive)
+	createInviteCode(t, fx.DB, batch.UUID.String(), "PX-82EA97C1BE8A6FB22C53")
+	svc := authsvc.NewSaaSSignupService(fx.DB, authsvc.NewAuthService(fx.DB, authsvc.AuthOptions{
+		JWTSecret:  []byte("0123456789abcdef0123456789abcdef"),
+		Issuer:     "powerx-test",
+		Audience:   "powerx-user",
+		Platforms:  []string{"web"},
+		AccessTTL:  time.Hour,
+		RefreshTTL: 24 * time.Hour,
+		DefaultEnv: "test",
+	}))
+
+	_, err := svc.Signup(context.Background(), authsvc.SaaSSignupInput{
+		TenantName:    "Wrong Invite Inc",
+		OwnerEmail:    "wrong-invite@example.com",
+		OwnerPassword: "secret123",
+		InviteCode:    "PX-82EA97C1BE8A6FB22C52",
+		Channel:       "internal_beta",
+	})
+	require.ErrorIs(t, err, authsvc.ErrSaaSSignupRegistrationDenied)
+
+	var tenantCount int64
+	require.NoError(t, fx.DB.Model(&modeltenant.Tenant{}).Where("name = ?", "Wrong Invite Inc").Count(&tenantCount).Error)
+	require.EqualValues(t, 0, tenantCount)
+	var code modeliam.RegistrationInviteCode
+	require.NoError(t, fx.DB.Where("plain_code = ?", "PX-82EA97C1BE8A6FB22C53").First(&code).Error)
+	require.Equal(t, 0, code.UseCount)
+	require.Empty(t, code.ConsumedTenantUUID)
+}
+
+func TestSaaSSignupInviteOnlyConsumesValidInviteCode(t *testing.T) {
+	fx := setupIAMFixture(t)
+	setActiveRegistrationPolicyInviteOnly(t, fx.DB)
+	batch := createInviteBatch(t, fx.DB, modeliam.RegistrationInviteBatchStatusActive)
+	createInviteCode(t, fx.DB, batch.UUID.String(), "PX-VALID-SIGNUP-001")
+	svc := authsvc.NewSaaSSignupService(fx.DB, authsvc.NewAuthService(fx.DB, authsvc.AuthOptions{
+		JWTSecret:  []byte("0123456789abcdef0123456789abcdef"),
+		Issuer:     "powerx-test",
+		Audience:   "powerx-user",
+		Platforms:  []string{"web"},
+		AccessTTL:  time.Hour,
+		RefreshTTL: 24 * time.Hour,
+		DefaultEnv: "test",
+	}))
+
+	result, err := svc.Signup(context.Background(), authsvc.SaaSSignupInput{
+		TenantName:    "Valid Invite Inc",
+		OwnerEmail:    "valid-invite@example.com",
+		OwnerPassword: "secret123",
+		InviteCode:    "PX-VALID-SIGNUP-001",
+		Channel:       "internal_beta",
+	})
+	require.NoError(t, err)
+
+	var code modeliam.RegistrationInviteCode
+	require.NoError(t, fx.DB.Where("plain_code = ?", "PX-VALID-SIGNUP-001").First(&code).Error)
+	require.Equal(t, modeliam.RegistrationInviteCodeStatusConsumed, code.Status)
+	require.Equal(t, 1, code.UseCount)
+	require.Equal(t, result.Tenant.UUID.String(), code.ConsumedTenantUUID)
+}
+
+func TestSaaSSignupPhoneOnlyDoesNotReuseBlankEmail(t *testing.T) {
+	fx := setupIAMFixture(t)
+	svc := authsvc.NewSaaSSignupService(fx.DB, authsvc.NewAuthService(fx.DB, authsvc.AuthOptions{
+		JWTSecret:  []byte("0123456789abcdef0123456789abcdef"),
+		Issuer:     "powerx-test",
+		Audience:   "powerx-user",
+		Platforms:  []string{"web"},
+		AccessTTL:  time.Hour,
+		RefreshTTL: 24 * time.Hour,
+		DefaultEnv: "test",
+	}))
+	ctx := context.Background()
+
+	first, err := svc.Signup(ctx, authsvc.SaaSSignupInput{
+		TenantName:    "Phone Only One",
+		OwnerPhone:    "18616325543",
+		OwnerPassword: "secret123",
+	})
+	require.NoError(t, err)
+	second, err := svc.Signup(ctx, authsvc.SaaSSignupInput{
+		TenantName:    "Phone Only Two",
+		OwnerPhone:    "18616325544",
+		OwnerPassword: "secret123",
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, first.User.ID, second.User.ID)
+	require.Empty(t, first.User.Email)
+	require.Empty(t, second.User.Email)
 }
 
 func TestSaaSSignupExistingUserWithValidPasswordCreatesSecondTenant(t *testing.T) {

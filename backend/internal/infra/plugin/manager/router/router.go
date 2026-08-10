@@ -311,6 +311,18 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
 		return
 	}
+	if r.requiresAdminPagePermission(c.Request, clientPath) {
+		claims := claimsFromGinContext(c)
+		gatePath := normalizeAdminGatePath(clientPath)
+		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
+		if !allowed {
+			logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
+				pluginID, c.Request.Method, clientPath, gatePath, reason)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+			return
+		}
+		_ = tok
+	}
 
 	// 反代优先
 	r.mu.RLock()
@@ -677,7 +689,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		}
 	}
 	if r.gate != nil && publicRoute != true {
-		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, gatePath, claims)
+		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, reason)
@@ -785,6 +797,99 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.Host = up.target.Host
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func (r *DynamicRouter) checkPluginRoutePermission(c *gin.Context, pluginID, method, gatePath string, claims reqctx.CoreXClaims) (string, bool, string) {
+	if r == nil || r.gate == nil {
+		return "", true, ""
+	}
+	return r.gate.CheckAndMint(c.Request.Context(), pluginID, method, gatePath, claims)
+}
+
+func (r *DynamicRouter) requiresAdminPagePermission(req *http.Request, clientPath string) bool {
+	if r == nil || r.gate == nil || req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return true
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return false
+	}
+	if ext := strings.ToLower(filepath.Ext(lower)); ext != "" {
+		return false
+	}
+	return true
+}
+
+func normalizeAdminGatePath(clientPath string) string {
+	clientPath = strings.TrimSpace(clientPath)
+	if clientPath == "" || clientPath == "/" {
+		return "/admin"
+	}
+	if !strings.HasPrefix(clientPath, "/") {
+		clientPath = "/" + clientPath
+	}
+	return normalizePath("/admin" + clientPath)
+}
+
+func claimsFromGinContext(c *gin.Context) reqctx.CoreXClaims {
+	var claims reqctx.CoreXClaims
+	if c == nil || c.Request == nil {
+		return claims
+	}
+	if v, ok := c.Get("auth_claims"); ok {
+		if cc, ok := v.(reqctx.CoreXClaims); ok {
+			claims = cc
+		}
+	}
+	ctx := c.Request.Context()
+	if tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx)); tenantUUID != "" {
+		claims.TenantUUID = tenantUUID
+	}
+	if claims.UserID == 0 {
+		claims.UserID = reqctx.GetUserID(ctx)
+	}
+	if claims.MemberID == 0 {
+		claims.MemberID = reqctx.GetMemberID(ctx)
+	}
+	if claims.MemberUUID == "" {
+		claims.MemberUUID = strings.TrimSpace(reqctx.GetSubject(ctx))
+	}
+	if rc := reqctx.GetClaims(ctx); rc != nil {
+		if claims.TenantUUID == "" {
+			claims.TenantUUID = strings.TrimSpace(rc.TenantUUID)
+		}
+		if claims.UserUUID == "" {
+			claims.UserUUID = strings.TrimSpace(rc.UserUUID)
+		}
+		if claims.Email == "" {
+			claims.Email = strings.TrimSpace(rc.Email)
+		}
+		if claims.Phone == "" {
+			claims.Phone = strings.TrimSpace(rc.Phone)
+		}
+		if !claims.IsRoot {
+			claims.IsRoot = rc.IsRoot
+		}
+		if len(claims.Roles) == 0 && len(rc.Roles) > 0 {
+			claims.Roles = append([]string(nil), rc.Roles...)
+		}
+	}
+	if !claims.IsRoot {
+		claims.IsRoot = reqctx.IsRoot(ctx)
+	}
+	return claims
 }
 
 func normalizeGatePathForPolicy(clientPath, basePath string) string {

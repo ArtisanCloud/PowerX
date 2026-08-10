@@ -12,7 +12,9 @@
 4. SaaS 自助注册 tenant，并把首个成员初始化为 owner/admin/member；
 5. root 默认进入 Platform Console，通过 Support Session 才能进入业务租户上下文；
 6. 插件拆分为全局 Plugin Package 与 Tenant Plugin Instance，保证租户启用/停用隔离；
-7. 历史 IAM 数据通过只读巡检和可审计迁移补齐，不手动破坏生产组织数据。
+7. 历史 IAM 数据通过只读巡检和可审计迁移补齐，不手动破坏生产组织数据；
+8. SaaS 租户注册准入升级为权威策略对象，支持关闭、开放、邀请制、候补、审核、白名单和灰度放量。
+9. 角色权限中心消费插件通过 Capability Sync 登记的 `menu/page/action` 细颗粒度权限，按插件与业务模块统一授权；插件设置页不作为正式角色授权入口。
 
 ## Technical Context
 
@@ -24,7 +26,7 @@
 **Project Type**: CoreX backend + web-admin 双子项目  
 **Performance Goals**: 用户管理页进入后 3 秒内完成角色视图分流；上下文切换后 5 秒内收敛到正确视图  
 **Constraints**: 多租户隔离不可破坏；root 特权仅限平台运维语义；禁止隐式跨租户写操作  
-**Scale/Scope**: 覆盖现有 IAM 管理页、身份上下文链路、SaaS signup、root support、租户插件实例隔离和历史数据巡检迁移
+**Scale/Scope**: 覆盖现有 IAM 管理页、身份上下文链路、SaaS signup、注册准入策略、root support、租户插件实例隔离和历史数据巡检迁移
 
 ## Constitution Check
 
@@ -62,6 +64,13 @@
   - `backend/internal/transport/http/public/saas/*`
   - `backend/internal/service/tenant/tenant_service.go`
   - `backend/internal/service/auth/auth_service.go`
+- 租户注册准入与灰度：
+  - `backend/internal/service/auth/registration_policy_service.go`
+  - `backend/internal/service/auth/registration_invite_service.go`
+  - `backend/internal/service/auth/registration_request_service.go`
+  - `backend/internal/transport/http/public/saas/registration_policy_handler.go`
+  - `backend/internal/transport/http/admin/iam/registration_policy_handler.go`
+  - `backend/pkg/corex/db/persistence/model/iam/registration_*_gorm.go`
 - Root 平台控制台与支持会话：
   - `backend/internal/transport/http/admin/root/*`
   - `backend/internal/service/iam/*support*`
@@ -69,6 +78,13 @@
   - `backend/internal/transport/http/admin/plugin/tenant_handler.go`
   - `backend/internal/transport/http/admin/plugin/menus_agg.go`
   - `backend/internal/infra/plugin/manager/router/router.go`
+- 插件细颗粒度权限授权视图：
+  - `backend/internal/service/iam/rbac_service.go`
+  - `backend/internal/transport/http/admin/iam/*permission*`
+  - `web-admin/app/pages/settings/users/index.vue`
+  - `web-admin/app/components/settings/users/*`
+  - `web-admin/app/stores/permission.ts`
+  - 权限声明与同步主流程归属 `specs/007-integration-gateway-and-mcp`
 - 回包规范：`pkg/dto` 统一响应函数
 
 ## Ruleset Alignment（@dev-crud-grpc）
@@ -124,7 +140,8 @@ web-admin/
     └── composables/api/services/
         ├── authService.ts
         ├── userService.ts
-        └── tenantService.ts
+        ├── tenantService.ts
+        └── registrationPolicyService.ts
 ```
 
 **Structure Decision**: 保持现有 CoreX 单体后端 + Nuxt 管理端结构，不新增项目；以现有 IAM/Auth 模块增量修复角色语义与上下文一致性。

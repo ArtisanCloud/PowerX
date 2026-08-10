@@ -15,6 +15,8 @@
 
 补充：Gateway 鉴权统一采用 **API Key / JWT 单凭证分流**，并覆盖所有 OpenAPI Gateway 入口（含 internal/ws-bus）。详细方案见 `specs/007-integration-gateway-and-mcp/authn-authz-apikey-first.md`。
 
+补充：插件页面、按钮和业务接口的细颗粒度权限也纳入本 spec。插件只声明 `menu/page/action/api` 权限及协议 binding；PowerX 在安装/同步时登记到 Capability Registry 与 IAM Permission，由角色权限中心统一授权。local 模式读取同一声明模拟授权结果，插件设置页不作为正式角色授权入口。
+
 ## Admin 开放能力页面设计（T057）
 
 - **入口 & 权限**：Web Admin 侧边栏 “设置” 下新增 “开放能力” 菜单（建议路由 `/settings/open-capabilities`），仅当当前用户 `isRoot=true` 时渲染，同时接口层面也需校验。
@@ -76,6 +78,15 @@
 4. **管理面能力**：Web Admin 提供租户级 API Key 管理（创建/轮换/吊销/审计）与 `api_key_profile` 主体管理，root/admin 租户可显式配置更高 scope。
 5. **插件模式兼容**：Host 模式使用 JWT；Standalone proxy 与外部平台使用 API Key。
 
+## 插件细颗粒度权限统一登记
+
+1. **声明来源**：插件包必须携带权限声明，覆盖 `menu/page/action/api` 类型、`permission_code`、i18n key、风险等级、默认角色建议、REST/gRPC/MCP binding 和数据范围字段。
+2. **同步校验**：Capability Sync Worker 在安装/升级时校验声明完整性；缺少 `permission_code`、i18n、method/path、`actor_context`、`resource_scope` 或真实 transport 时同步失败，不做粗权限降级。
+3. **Registry + IAM**：同步成功后写入 `source=plugin` CapabilityRecord，并同步到 IAM Permission。角色绑定只保存 `permission_code`，接口 binding 只用于 Gateway 和插件后端 enforcement。
+4. **授权 UI**：PowerX 角色权限页按插件、模块、菜单、页面和动作分组展示授权项；raw route、UUID 和 `capability_id` 仅作为调试/审计元数据。
+5. **运行时执行**：Gateway 对 `/_p/<plugin_id>/admin/**` 和插件 API 用户态请求做预检；delegated 模式通过 `permission claims + policy_version/perms_hash` 或 authz/introspection 传递授权结果；插件后端按同一 `permission_code` 二次校验。
+6. **local 模式**：local 角色/用户配置只模拟 PowerX 下发的授权结果，字段结构与 delegated 模式一致，不保留独立正式权限配置语义。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend）、Node 20（脚本+CLI）  
@@ -85,7 +96,7 @@
 **Target Platform**: Linux container / Kubernetes，单体 CoreX 服务 + px-plugin CLI  
 **Project Type**: Backend mono-repo（`backend` + `specs` + `powerx-plugin`）  
 **Performance Goals**: Registry 更新 ≤3 分钟同步；Integration Gateway 读调用 p95 < 200ms，写调用全部 gRPC（幂等）  
-**Constraints**: 多租户隔离、RBAC/Tool Grant 必须生效；所有协议携带 Trace/Audit；HTTP 与 gRPC 均需保持向后兼容；Gateway 鉴权统一为 API Key / JWT 单凭证分流  
+**Constraints**: 多租户隔离、RBAC/Tool Grant 必须生效；所有协议携带 Trace/Audit；Gateway 鉴权统一为 API Key / JWT 单凭证分流；插件细颗粒度权限缺声明必须 fail-fast，不做旧粗权限兼容分支
 **Scale/Scope**: 100+ 插件、每租户 1k+ 能力、每秒 200 次能力调用（读+写），Workflow/Agent 双栈共享治理
 
 ## Constitution Check

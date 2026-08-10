@@ -61,6 +61,7 @@
     "settings": "Settings",
     "trash": "Trash",
     "cancel": "Cancel",
+    "close": "Close",
     "save": "Save",
     "refresh": "Refresh",
     "reload": "Reload",
@@ -1028,6 +1029,13 @@
       "roleConfig": "Role Permission Config",
       "configDesc": "Select permissions for the current role and save.",
       "add": "Add role",
+      "pluginCatalog": {
+        "title": "Plugin declared permissions",
+        "description": "View registered menu, page, action and API permissions by plugin, business module and permission type.",
+        "plugin": "Plugin",
+        "invalid": "Registration issue",
+        "businessPermission": "Business action permission"
+      },
       "empty": {
         "title": "No roles yet",
         "create": "Create the first role"
@@ -1554,6 +1562,170 @@
     "footer": {
       "contactUs": "Contact Us",
       "aboutUs": "About Us"
+    }
+  },
+  "registration": {
+    "policy": {
+      "mode": {
+        "closed": "Registration closed",
+        "open": "Open registration",
+        "invite_only": "Invite only",
+        "waitlist": "Waitlist",
+        "approval_required": "Manual approval",
+        "allowlist": "Allowlist",
+        "progressive_rollout": "Progressive rollout"
+      }
+    },
+    "public": {
+      "open": "Tenant signup is open.",
+      "closed": "New tenant signup is currently closed. Sign in with an existing account or contact an administrator.",
+      "inviteOnly": "Tenant signup currently requires an invite code.",
+      "waitlist": "PowerX is in private waitlist. Submit a request and wait for notification.",
+      "approvalRequired": "Tenant signup currently requires root approval before activation.",
+      "allowlist": "Only allowed contacts, domains, or channels can register.",
+      "progressiveRollout": "PowerX is in progressive rollout. Access is evaluated by policy.",
+      "policyLoadFailed": "Failed to load registration policy",
+      "invalidVerificationCode": "Enter a 6-digit verification code",
+      "inviteCodeRequired": "Enter an invite code",
+      "inviteCode": "Invite code",
+      "inviteCodePlaceholder": "Enter invite code",
+      "contactRequired": "Enter email or phone first",
+      "verificationSendFailed": "Failed to send verification code",
+      "backToLogin": "Back to login",
+      "submitRequest": "Submit request",
+      "errors": {
+        "contactExists": "This email or phone is already registered. Sign in to create or switch tenants.",
+        "tenantKeyExists": "This organization key is already taken. Choose another one.",
+        "tenantDomainExists": "This tenant domain is already taken. Change the organization key and try again.",
+        "invalidCredentials": "This account already exists, but the password is incorrect.",
+        "inviteCodeInvalid": "The invite code is invalid or unavailable. Check it and try again.",
+        "registrationDenied": "The current registration policy does not allow tenant creation. Check the invite code or contact an administrator.",
+        "policyMissing": "Registration policy is not initialized. Contact an administrator.",
+        "policyInvalid": "Registration policy is misconfigured. Contact an administrator.",
+        "conflict": "The registration data conflicts with an existing record. Change the email, phone, or organization key and try again."
+      }
+    },
+    "admin": {
+      "title": "Tenant Registration Policy",
+      "subtitle": "Configure SaaS tenant admission, rollout, invite codes, and review.",
+      "configCategoryDescription": "SaaS tenant admission, invite codes, and review",
+      "notInitialized": "Not initialized. Save and activate the first policy.",
+      "loadFailed": "Failed to load registration policy",
+      "saveFailed": "Failed to save registration policy",
+      "inviteFailed": "Failed to create invite batch",
+      "draftUuidMissing": "Registration policy draft UUID is missing",
+      "batchUuidMissing": "Invite batch UUID is missing",
+      "activePolicy": "Active policy",
+      "activePolicyDescription": "Review the registration policy currently in force and its version history.",
+      "updatePolicy": "Update policy",
+      "updatePolicyDescription": "Create a new policy version and activate it immediately.",
+      "tabs": {
+        "activePolicy": "Active policy",
+        "inviteManagement": "Invite management",
+        "requests": "Registration requests"
+      },
+      "mode": "Registration mode",
+      "version": "Version",
+      "requiresVerification": "Requires verification",
+      "requiresInvite": "Requires invite",
+      "requiresApproval": "Requires root approval",
+      "policyHistory": "Policy history",
+      "noPolicyHistory": "No policy history",
+      "policyStatus": {
+        "draft": "Draft",
+        "active": "Active",
+        "archived": "Archived",
+        "unknown": "Unknown"
+      },
+      "policyHistoryTable": {
+        "version": "Version",
+        "mode": "Registration mode",
+        "status": "Status",
+        "gates": "Admission gates",
+        "activatedAt": "Activated at"
+      },
+      "modeHint": {
+        "closed": "Closed registration rejects verification-code sends and tenant signup requests. Invite codes, approval, and quotas do not participate in the decision.",
+        "open": "Open registration lets users create tenants after base validation. Verification and quotas can still be enabled.",
+        "invite_only": "Invite-only registration requires a valid invite code. Verification is optional, and the invite code is consumed in the tenant-creation transaction.",
+        "waitlist": "Waitlist mode only submits a registration request. It does not create a tenant or consume an invite code.",
+        "approval_required": "Manual approval submits a full registration request and waits for root review. The approval-to-tenant credential flow still needs the contract decision.",
+        "allowlist": "Allowlist mode is enforced by backend structured rules for contacts, email domains, or channels. Verification and quotas can be added.",
+        "progressive_rollout": "Progressive rollout evaluates rules, time windows, channels, quotas, and stable percentage buckets. Verification can be added."
+      },
+      "dailyQuota": "Daily tenant quota",
+      "totalQuota": "Total tenant quota",
+      "saveAndActivate": "Save and activate",
+      "inviteBatches": "Invite batches",
+      "batchName": "Batch name",
+      "defaultBatchName": "{mode} batch {timestamp}",
+      "allowedDomains": "Allowed email domains, comma-separated",
+      "allowedChannels": "Allowed channels, comma-separated",
+      "allowedPlan": "Allowed plan",
+      "createCodes": "Create and generate",
+      "details": "Details",
+      "selectedInviteBatches": "{count} batches selected",
+      "selectAllInviteBatches": "Select all invite batches",
+      "selectInviteBatch": "Select invite batch: {name}",
+      "deleteSelectedInviteBatches": "Bulk delete",
+      "deleteInviteBatchesTitle": "Delete invite batches",
+      "deleteInviteBatchesDescription": "This will delete {count} selected invite batches and their unused invite codes.",
+      "deleteInviteBatchesWarning": "Batches with used invite codes will not be deleted; the system will return an explicit error.",
+      "confirmDeleteInviteBatches": "Delete",
+      "deleteInviteBatchesFailed": "Failed to delete invite batches",
+      "copyCodes": "Copy codes",
+      "copySingleCode": "Copy this invite code",
+      "clickToCopy": "Click to copy",
+      "codeCopied": "Copied",
+      "downloadCodes": "Download CSV",
+      "generatedCodesTitle": "Invite codes generated in this run",
+      "generatedCodesDescription": "Invite codes are saved to this batch and can be viewed, copied, or downloaded later from batch details.",
+      "batchDetailTitle": "Invite batch details",
+      "batchCodes": "Batch invite codes",
+      "loadingCodes": "Loading invite codes…",
+      "noInviteCodes": "No invite codes in this batch",
+      "missingPlainCode": "Reset required",
+      "missingPlainCodeNotice": "This historical batch has no recoverable plaintext invite codes. Select Reset and show plaintext to generate and save new codes for unused rows. Root can then view, copy, and download them later.",
+      "resetMissingPlainCodes": "Reset and show plaintext",
+      "resetMissingPlainCodesFailed": "Failed to reset missing plaintext",
+      "noInviteBatches": "No invite batches yet",
+      "inviteStatus": {
+        "draft": "Draft",
+        "active": "Active",
+        "consumed": "Consumed",
+        "paused": "Paused",
+        "expired": "Expired",
+        "revoked": "Revoked",
+        "unknown": "Unknown"
+      },
+      "codeUsageStatus": {
+        "unused": "Unused",
+        "partiallyUsed": "Partially used",
+        "used": "Used",
+        "revoked": "Revoked"
+      },
+      "batchTable": {
+        "name": "Batch name",
+        "status": "Status",
+        "maxCodes": "Max codes",
+        "maxUses": "Uses per code",
+        "channels": "Channels",
+        "emailDomains": "Email domains",
+        "startsAt": "Starts at",
+        "expiresAt": "Expires at",
+        "actions": "Actions"
+      },
+      "codeTable": {
+        "code": "Invite code",
+        "status": "Status",
+        "uses": "Uses",
+        "lastUsedAt": "Last used at",
+        "consumedTenant": "Consumed tenant"
+      },
+      "loadCodesFailed": "Failed to load invite codes",
+      "requests": "Registration requests",
+      "approve": "Approve",
+      "reject": "Reject"
     }
   },
   "privacyPolicy": "Privacy Policy",

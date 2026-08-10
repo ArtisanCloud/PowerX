@@ -105,6 +105,7 @@
     "settings": "设置",
     "trash": "回收站",
     "cancel": "取消",
+    "close": "关闭",
     "delete": "删除",
     "save": "保存",
     "reload": "重新加载",
@@ -1072,6 +1073,13 @@
       "roleConfig": "角色权限配置",
       "configDesc": "为当前角色勾选并保存权限项。",
       "add": "新增角色",
+      "pluginCatalog": {
+        "title": "插件声明权限",
+        "description": "按插件、业务模块和权限类型展示已登记的菜单、页面、动作和接口权限。",
+        "plugin": "插件",
+        "invalid": "登记异常",
+        "businessPermission": "业务动作权限"
+      },
       "empty": {
         "title": "暂无角色",
         "create": "创建第一个角色"
@@ -1699,6 +1707,170 @@
     "footer": {
       "contactUs": "联系我们",
       "aboutUs": "关于我们"
+    }
+  },
+  "registration": {
+    "policy": {
+      "mode": {
+        "closed": "关闭注册",
+        "open": "完全开放",
+        "invite_only": "邀请制",
+        "waitlist": "候补名单",
+        "approval_required": "人工审核",
+        "allowlist": "白名单",
+        "progressive_rollout": "灰度放量"
+      }
+    },
+    "public": {
+      "open": "当前允许直接创建租户。",
+      "closed": "当前暂未开放新租户注册，请使用已有账号登录或联系系统管理员。",
+      "inviteOnly": "当前仅允许持邀请码的用户创建租户。",
+      "waitlist": "当前处于内测候补阶段，提交申请后等待通知。",
+      "approvalRequired": "当前需要 root 审核，通过后再开通租户。",
+      "allowlist": "当前仅允许命中白名单的邮箱、手机号或渠道注册。",
+      "progressiveRollout": "当前处于灰度放量阶段，系统会按策略判断是否准入。",
+      "policyLoadFailed": "注册策略加载失败",
+      "invalidVerificationCode": "请输入 6 位验证码",
+      "inviteCodeRequired": "请填写邀请码",
+      "inviteCode": "邀请码",
+      "inviteCodePlaceholder": "输入邀请码",
+      "contactRequired": "请先填写邮箱或手机号",
+      "verificationSendFailed": "验证码发送失败",
+      "backToLogin": "返回登录",
+      "submitRequest": "提交申请",
+      "errors": {
+        "contactExists": "该邮箱或手机号已注册，请直接登录后创建或切换租户。",
+        "tenantKeyExists": "组织标识已被占用，请更换后再试。",
+        "tenantDomainExists": "租户域名已被占用，请更换组织标识后再试。",
+        "invalidCredentials": "该账号已存在，密码不正确。",
+        "inviteCodeInvalid": "邀请码无效或不可用，请检查后再试。",
+        "registrationDenied": "当前注册策略不允许创建租户，请检查邀请码或联系管理员。",
+        "policyMissing": "注册策略尚未初始化，请联系管理员。",
+        "policyInvalid": "注册策略配置异常，请联系管理员。",
+        "conflict": "注册信息与已有数据冲突，请更换邮箱、手机号或组织标识后再试。"
+      }
+    },
+    "admin": {
+      "title": "租户注册策略",
+      "subtitle": "配置 SaaS 租户注册准入、灰度、邀请码和审核。",
+      "configCategoryDescription": "SaaS 租户注册准入、邀请码和审核",
+      "notInitialized": "尚未初始化，请保存并激活第一条策略",
+      "loadFailed": "注册策略加载失败",
+      "saveFailed": "注册策略保存失败",
+      "inviteFailed": "邀请码批次创建失败",
+      "draftUuidMissing": "注册策略草稿缺少 UUID",
+      "batchUuidMissing": "邀请码批次缺少 UUID",
+      "activePolicy": "当前生效策略",
+      "activePolicyDescription": "查看当前正在执行的注册策略和历史版本。",
+      "updatePolicy": "更新策略",
+      "updatePolicyDescription": "创建新的策略版本并立即激活。",
+      "tabs": {
+        "activePolicy": "生效策略",
+        "inviteManagement": "邀请码管理",
+        "requests": "注册申请"
+      },
+      "mode": "注册模式",
+      "version": "版本",
+      "requiresVerification": "需要验证码",
+      "requiresInvite": "需要邀请码",
+      "requiresApproval": "需要 root 审核",
+      "policyHistory": "策略历史",
+      "noPolicyHistory": "暂无策略历史",
+      "policyStatus": {
+        "draft": "草稿",
+        "active": "生效中",
+        "archived": "已归档",
+        "unknown": "未知"
+      },
+      "policyHistoryTable": {
+        "version": "版本",
+        "mode": "注册模式",
+        "status": "状态",
+        "gates": "准入要求",
+        "activatedAt": "激活时间"
+      },
+      "modeHint": {
+        "closed": "关闭注册会拒绝验证码发送和租户注册请求，邀请码、审核和配额不会参与判定。",
+        "open": "完全开放允许符合基础校验的用户直接创建租户，可按需开启验证码和配额限制。",
+        "invite_only": "邀请制强制要求有效邀请码；验证码可选，邀请码会在租户创建事务内消耗。",
+        "waitlist": "候补名单只提交注册申请，不创建租户，也不消耗邀请码。",
+        "approval_required": "人工审核会提交完整注册申请并等待 root 审核；审核通过创建租户的凭证流程需按合同补齐。",
+        "allowlist": "白名单模式由后端按结构化规则校验联系人、邮箱域名或渠道，可按需叠加验证码和配额。",
+        "progressive_rollout": "灰度放量按规则、时间窗口、渠道、配额和稳定百分比桶判定，可按需叠加验证码。"
+      },
+      "dailyQuota": "每日租户限额",
+      "totalQuota": "总租户限额",
+      "saveAndActivate": "保存并激活",
+      "inviteBatches": "邀请码批次",
+      "batchName": "批次名称",
+      "defaultBatchName": "{mode}批次 {timestamp}",
+      "allowedDomains": "允许邮箱域名，逗号分隔",
+      "allowedChannels": "允许渠道，逗号分隔",
+      "allowedPlan": "允许套餐",
+      "createCodes": "创建并生成",
+      "details": "详情",
+      "selectedInviteBatches": "已选择 {count} 个批次",
+      "selectAllInviteBatches": "选择全部邀请码批次",
+      "selectInviteBatch": "选择邀请码批次：{name}",
+      "deleteSelectedInviteBatches": "批量删除",
+      "deleteInviteBatchesTitle": "确认删除邀请码批次",
+      "deleteInviteBatchesDescription": "将删除已选择的 {count} 个邀请码批次及其未使用的邀请码。",
+      "deleteInviteBatchesWarning": "已使用过的邀请码批次不会被删除，系统会明确返回错误。",
+      "confirmDeleteInviteBatches": "确认删除",
+      "deleteInviteBatchesFailed": "邀请码批次删除失败",
+      "copyCodes": "复制邀请码",
+      "copySingleCode": "复制当前邀请码",
+      "clickToCopy": "点击复制",
+      "codeCopied": "已复制",
+      "downloadCodes": "下载 CSV",
+      "generatedCodesTitle": "本次生成的邀请码",
+      "generatedCodesDescription": "邀请码已保存到当前批次，后续可在批次详情中查看、复制或下载。",
+      "batchDetailTitle": "邀请码批次详情",
+      "batchCodes": "批次邀请码",
+      "loadingCodes": "正在加载邀请码清单…",
+      "noInviteCodes": "当前批次暂无邀请码",
+      "missingPlainCode": "需重置生成",
+      "missingPlainCodeNotice": "这个历史批次的邀请码没有可恢复明文。点击“重置并显示明文”会为未使用的邀请码生成新码并保存，之后 root 可随时查看、复制和下载。",
+      "resetMissingPlainCodes": "重置并显示明文",
+      "resetMissingPlainCodesFailed": "重置缺失明文失败",
+      "noInviteBatches": "暂无邀请码批次",
+      "inviteStatus": {
+        "draft": "草稿",
+        "active": "启用中",
+        "consumed": "已使用",
+        "paused": "已暂停",
+        "expired": "已过期",
+        "revoked": "已撤销",
+        "unknown": "未知"
+      },
+      "codeUsageStatus": {
+        "unused": "未使用",
+        "partiallyUsed": "部分使用",
+        "used": "已使用",
+        "revoked": "已撤销"
+      },
+      "batchTable": {
+        "name": "批次名称",
+        "status": "状态",
+        "maxCodes": "最大码数",
+        "maxUses": "单码次数",
+        "channels": "允许渠道",
+        "emailDomains": "允许邮箱域名",
+        "startsAt": "开始时间",
+        "expiresAt": "过期时间",
+        "actions": "操作"
+      },
+      "codeTable": {
+        "code": "邀请码",
+        "status": "状态",
+        "uses": "使用次数",
+        "lastUsedAt": "最后使用时间",
+        "consumedTenant": "消耗租户"
+      },
+      "loadCodesFailed": "邀请码清单加载失败",
+      "requests": "注册申请",
+      "approve": "通过",
+      "reject": "拒绝"
     }
   },
   "privacyPolicy": "隐私政策",

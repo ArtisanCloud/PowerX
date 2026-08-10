@@ -81,7 +81,8 @@ const { roles } = storeToRefs(roleStore);
 roleStore.ensureInitialized?.();
 
 const permissionStore = usePermissionStore();
-const { normalizedList, roleSelection } = storeToRefs(permissionStore);
+const { normalizedList, roleSelection, pluginCatalog } =
+  storeToRefs(permissionStore);
 
 // 租户相关状态
 interface TreeNode {
@@ -147,8 +148,14 @@ const menuPermissions = computed(() =>
         menuPermissionOrder(a.resource) - menuPermissionOrder(b.resource),
     ),
 );
+const isPluginSourcePermission = (perm: Permission) =>
+  String((perm as any).__raw?.source || "").startsWith("plugin:");
 const nonMenuPermissions = computed(() =>
-  permissions.value.filter((p) => !(p.module === "menu" || p.type === "menu")),
+  permissions.value.filter(
+    (p) =>
+      !(p.module === "menu" || p.type === "menu") &&
+      !isPluginSourcePermission(p),
+  ),
 );
 
 /** ====== 当前选中角色 ====== */
@@ -193,7 +200,10 @@ const roleForm = reactive({
 
 /** ====== 首屏加载权限 & 当前角色权限 ====== */
 onMounted(async () => {
-  await permissionStore.fetchAllActive(); // ← 改成全量拉取
+  await Promise.all([
+    permissionStore.fetchAllActive(),
+    permissionStore.fetchPluginCatalog(),
+  ]);
   if (selectedRole.value?.id) {
     await permissionStore.fetchRolePermissionIDs(selectedRole.value.id);
   }
@@ -775,6 +785,36 @@ const hasPermission = (permissionId: number) => {
   return (roleSelection.value[roleId] || []).includes(permissionId);
 };
 
+const pluginPermissionPlugins = computed(() => pluginCatalog.value.plugins || []);
+
+const localeText = (value?: Record<string, string>) => {
+  if (!value) return "";
+  const current = String(locale.value || "").trim();
+  return (
+    value[current] ||
+    value["zh-CN"] ||
+    value.zh ||
+    value.en ||
+    value["en-US"] ||
+    Object.values(value).find((item) => String(item || "").trim()) ||
+    ""
+  );
+};
+
+const pluginPermissionTitle = (item: any) =>
+  localeText(item.title_i18n) || item.permission_code;
+
+const pluginPermissionDescription = (item: any) =>
+  localeText(item.description_i18n);
+
+const isPluginPermissionSelectable = (item: any) =>
+  item.status === "active" && item.registration_status === "registered";
+
+const togglePluginPermission = (item: any) => {
+  if (!isPluginPermissionSelectable(item)) return;
+  togglePermission(Number(item.id));
+};
+
 // ✅ 新增：是否有改动（对比初始态）
 const dirty = computed(() => {
   const roleId = selectedRole.value?.id;
@@ -1206,6 +1246,144 @@ const isFormModulePartiallySelected = (module: string) => {
           </div>
 
           <div v-else class="p-4 max-h-[600px] overflow-y-auto">
+            <div v-if="pluginPermissionPlugins.length" class="mb-6 space-y-4">
+              <div class="flex items-center gap-2">
+                <UIcon
+                  name="i-heroicons-puzzle-piece"
+                  class="h-5 w-5 text-primary-600"
+                />
+                <div>
+                  <h4 class="text-lg font-bold text-gray-900">
+                    {{ $t("organization.permission.pluginCatalog.title") }}
+                  </h4>
+                  <p class="text-xs text-gray-500">
+                    {{
+                      $t("organization.permission.pluginCatalog.description")
+                    }}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                v-for="plugin in pluginPermissionPlugins"
+                :key="plugin.plugin_id"
+                class="rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+              >
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h5 class="text-sm font-semibold text-gray-900">
+                      {{ $t("organization.permission.pluginCatalog.plugin") }}
+                    </h5>
+                    <p class="font-mono text-xs text-gray-500">
+                      {{ plugin.plugin_id }}
+                    </p>
+                  </div>
+                  <UBadge size="xs" color="neutral" variant="subtle">
+                    {{
+                      plugin.modules
+                        .flatMap((module) => module.types)
+                        .reduce(
+                          (total, group) =>
+                            total + group.permissions.length,
+                          0,
+                        )
+                    }}
+                  </UBadge>
+                </div>
+
+                <div
+                  v-for="module in plugin.modules"
+                  :key="`${plugin.plugin_id}:${module.module}`"
+                  class="mb-4 last:mb-0"
+                >
+                  <div class="mb-2 text-sm font-medium text-gray-700">
+                    {{ module.module }}
+                  </div>
+                  <div
+                    v-for="group in module.types"
+                    :key="`${plugin.plugin_id}:${module.module}:${group.type}`"
+                    class="mb-3 last:mb-0"
+                  >
+                    <div
+                      class="mb-2 border-b border-gray-200 pb-1 text-xs font-medium text-gray-500"
+                    >
+                      {{ getPermissionTypeLabel(group.type) }}
+                    </div>
+                    <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <div
+                        v-for="perm in group.permissions"
+                        :key="perm.id"
+                        class="flex items-start rounded-md border border-gray-200 bg-white p-3"
+                        :class="
+                          isPluginPermissionSelectable(perm)
+                            ? ''
+                            : 'opacity-60'
+                        "
+                      >
+                        <UCheckbox
+                          :model-value="hasPermission(Number(perm.id))"
+                          :disabled="!isPluginPermissionSelectable(perm)"
+                          @update:model-value="togglePluginPermission(perm)"
+                        />
+                        <div class="ml-2 min-w-0 flex-1">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-sm font-medium text-gray-900">
+                              {{ pluginPermissionTitle(perm) }}
+                            </span>
+                            <UBadge
+                              v-if="perm.risk_level"
+                              size="xs"
+                              color="neutral"
+                              variant="subtle"
+                            >
+                              {{ perm.risk_level }}
+                            </UBadge>
+                            <UBadge
+                              v-if="
+                                perm.registration_status &&
+                                perm.registration_status !== 'registered'
+                              "
+                              size="xs"
+                              color="error"
+                              variant="subtle"
+                            >
+                              {{
+                                $t(
+                                  "organization.permission.pluginCatalog.invalid",
+                                )
+                              }}
+                            </UBadge>
+                          </div>
+                          <p
+                            v-if="pluginPermissionDescription(perm)"
+                            class="mt-1 text-xs text-gray-500"
+                          >
+                            {{ pluginPermissionDescription(perm) }}
+                          </p>
+                          <p class="mt-2 break-all font-mono text-xs text-gray-400">
+                            {{ perm.permission_code }}
+                          </p>
+                          <p
+                            v-if="perm.business_permission_code"
+                            class="mt-1 break-all text-xs text-gray-500"
+                          >
+                            {{
+                              $t(
+                                "organization.permission.pluginCatalog.businessPermission",
+                              )
+                            }}:
+                            <span class="font-mono">{{
+                              perm.business_permission_code
+                            }}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div
               v-for="(typeGroups, module) in permissionGroups"
               :key="module"

@@ -76,3 +76,29 @@
 - Alternatives considered:
   - 手动改生产数据库：不可审计，风险高。
   - 静默 fallback 到 root 代管缺失租户：会掩盖数据问题，继续扩大 root 权限边界。
+
+## Decision 11: SaaS 注册准入升级为权威策略对象
+
+- Decision: 用 active `RegistrationPolicy` 替代运行时 `enable_saas_signup` 布尔开关，统一表达 `closed`、`open`、`invite_only`、`waitlist`、`approval_required`、`allowlist`、`progressive_rollout` 七种注册模式。
+- Rationale: PowerX SaaS 上线需要经历关闭注册、邀请码内测、白名单灰度、百分比放量、候补/审核和最终开放。单一布尔开关不能表达邀请码、每日配额、时间窗口、审核、灰度命中原因和一键关闭，也无法为运营和审计提供策略版本。
+- Alternatives considered:
+  - 继续扩展布尔配置：会快速演变为多个互相冲突的开关，无法解释当前准入结果。
+  - 只在前端隐藏注册入口：不能作为安全边界，验证码和 signup API 仍可被直接调用。
+  - 把每种模式做成独立接口：会分裂 SaaS signup 事务语义，导致邀请码、审核、租户创建和审计难以一致。
+
+## Decision 12: 灰度注册必须可解释且稳定
+
+- Decision: `progressive_rollout` 使用结构化规则组合，支持邮箱域、contact 白名单、邀请批次、渠道、时间窗口、每日/总额度和稳定百分比。百分比命中使用 contact hash 等稳定 seed，不使用每次请求随机数。
+- Rationale: 注册灰度是生产准入控制，必须能解释为什么允许或拒绝某个用户，并能在同一策略版本下保持一致结果，便于客服、运营和事故回滚。
+- Alternatives considered:
+  - 随机百分比：同一用户多次刷新可能在 allow/deny 间跳变，无法审计。
+  - 只靠邀请码灰度：适合早期内测，但不适合从公开入口逐步扩大自然流量。
+  - 静默超过配额后降级为 waitlist：属于隐藏 fallback，应明确返回 `quota_exceeded` 或由 root 激活新的策略。
+
+## Decision 13: 邀请码和审核不提前创建 active 租户
+
+- Decision: 邀请码消耗必须与租户创建在同一事务中完成；`waitlist` 只创建申请记录；`approval_required` 在 root 审核通过后才执行租户创建事务。
+- Rationale: 邀请码和审核是准入边界，不是注册后的补充标签。提前创建租户会留下未激活或半成品数据，增加清理和安全风险。
+- Alternatives considered:
+  - 先创建 disabled 租户再审核：会让租户固有对象、角色和插件初始化提前发生，回滚成本高。
+  - 邀请码先扣减再注册：注册失败会造成邀请码误消耗。

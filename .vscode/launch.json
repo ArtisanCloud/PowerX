@@ -12,6 +12,7 @@
       "env": {
         "LOG_LEVEL": "debug"
       },
+      "preLaunchTask": "powerx: stop backend ports",
       "console": "integratedTerminal"
     },
     {
@@ -20,6 +21,7 @@
       "request": "launch",
       "command": "make dev",
       "cwd": "${workspaceFolder}",
+      "preLaunchTask": "powerx: stop backend ports",
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -28,6 +30,7 @@
       "request": "launch",
       "command": "npm run dev -- --host 127.0.0.1 --port 3030",
       "cwd": "${workspaceFolder}/web-admin",
+      "preLaunchTask": "powerx: stop web-admin port",
       "internalConsoleOptions": "neverOpen"
     }
   ],

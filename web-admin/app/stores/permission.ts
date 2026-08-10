@@ -54,6 +54,39 @@ export type PermissionDTO = {
 // Catalog 类型：module -> type -> Permission[]
 export type PermissionCatalog = Record<string, Record<string, Permission[]>>;
 
+export interface PluginPermissionCatalogItem {
+  id: number;
+  permission_code: string;
+  title_i18n?: Record<string, string>;
+  description_i18n?: Record<string, string>;
+  risk_level?: string;
+  data_scope?: string;
+  business_permission_code?: string;
+  protocol_bindings?: unknown;
+  default_role_grants?: string[];
+  status: "active" | "deprecated";
+  registration_status: "registered" | "invalid" | string;
+}
+
+export interface PluginPermissionCatalogTypeGroup {
+  type: "menu" | "page" | "action" | "api" | string;
+  permissions: PluginPermissionCatalogItem[];
+}
+
+export interface PluginPermissionCatalogModule {
+  module: string;
+  types: PluginPermissionCatalogTypeGroup[];
+}
+
+export interface PluginPermissionCatalogPlugin {
+  plugin_id: string;
+  modules: PluginPermissionCatalogModule[];
+}
+
+export interface PluginPermissionCatalogResponse {
+  plugins: PluginPermissionCatalogPlugin[];
+}
+
 // List 查询参数
 export interface PermissionListQuery {
   plugin?: string;
@@ -98,6 +131,7 @@ export const usePermissionStore = defineStore("permission", () => {
 
   // 状态
   const catalog = ref<PermissionCatalog>({});
+  const pluginCatalog = ref<PluginPermissionCatalogResponse>({ plugins: [] });
   const listData = ref<PermissionListResponse>({
     items: [],
     pagination: { total: 0, page: 1, page_size: 20, pages: 0 },
@@ -170,6 +204,13 @@ export const usePermissionStore = defineStore("permission", () => {
       .flatMap((items) => items).length;
   });
 
+  const pluginPermissionCount = computed(() =>
+    pluginCatalog.value.plugins
+      .flatMap((plugin) => plugin.modules)
+      .flatMap((module) => module.types)
+      .reduce((total, group) => total + group.permissions.length, 0),
+  );
+
   // 获取权限目录（用于角色授权树形结构）
   const fetchCatalog = async (forceRefresh = false) => {
     if (!forceRefresh && Object.keys(catalog.value).length > 0) {
@@ -207,6 +248,30 @@ export const usePermissionStore = defineStore("permission", () => {
       return listData.value;
     } catch (err) {
       error.value = err instanceof Error ? err.message : "获取权限列表失败";
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const fetchPluginCatalog = async (query: {
+    plugin_id?: string;
+    module?: string;
+    type?: string;
+    status?: "active" | "deprecated";
+  } = {}) => {
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const response = await get<any>(`${baseUrl}/permissions/plugin-catalog`, {
+        params: query,
+      });
+      pluginCatalog.value = response.data || response || { plugins: [] };
+      return pluginCatalog.value;
+    } catch (err) {
+      error.value =
+        err instanceof Error ? err.message : "plugin_permission_catalog_load_failed";
       throw err;
     } finally {
       isLoading.value = false;
@@ -453,6 +518,7 @@ export const usePermissionStore = defineStore("permission", () => {
   return {
     // 状态
     catalog: readonly(catalog),
+    pluginCatalog: readonly(pluginCatalog),
     listData: readonly(listData),
     tenantPermissions: readonly(tenantPermissions),
     isLoading: readonly(isLoading),
@@ -464,12 +530,14 @@ export const usePermissionStore = defineStore("permission", () => {
     catalogTree,
     enabledPermissionsCount,
     totalPermissionsCount,
+    pluginPermissionCount,
     normalizedList,
     roleSelection,
     roleInitialSelection,
 
     // 方法
     fetchCatalog,
+    fetchPluginCatalog,
     fetchList,
     fetchAllActive,
     createPermission,
