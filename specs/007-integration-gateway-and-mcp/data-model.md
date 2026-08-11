@@ -73,7 +73,8 @@
   - 被 Gateway 预检和插件后端二次校验共同消费
 - **Validation**:
   - REST binding 不允许 method wildcard；`GET` 授权不得隐式放开写方法。
-  - page REST binding 的 `path` 必须是插件内稳定业务路由，动态段使用 `{uuid}` 等结构化参数，不允许使用真实 UUID 样本或自由文本占位。
+  - page REST binding 的 `path` 必须是插件内稳定业务路由，动态段统一使用 `*`，不允许使用 `{uuid}`、`:id`、真实 UUID 样本或自由文本占位。
+  - 插件发布检查必须基于 effective manifest，对 route dump、后端 RBAC route 表和 `protocol_bindings` 做差异审计。
   - `/api/v1/admin/**` 默认是用户态后台入口，不得被普通服务态 STS direct call 继承。
   - 缺少 actor 或资源范围时同步失败。
 
@@ -88,8 +89,8 @@
   - 由 PowerX IAM/RBAC 计算后写入 token claims 或 authz/introspection 响应。
   - 插件前端、Gateway、插件后端校验同一份权限结果。
 - **Validation**:
-  - `policy_version` 或 `perms_hash` 过期时必须拒绝或重新 introspection。
-  - local 模式的 snapshot 字段必须与 delegated 模式一致，不允许另设运行时字段。
+  - `policy_version` 或 `perms_hash` 过期时必须拒绝或重新 introspection；过期和 hash mismatch 的判断必须来自 PowerX signed context 或 authz/introspection 响应。
+  - local 模式的 snapshot 字段必须与 delegated 模式一致，不允许另设运行时字段或另一份正式授权定义。
 
 ### WorkflowTemplateRef
 - **Identifiers**: `template_id`（插件内唯一）、`capability_id`

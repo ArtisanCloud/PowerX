@@ -37,7 +37,7 @@
 | `menu` | 控制插件菜单入口是否展示 | `production.sample_tracks.view` |
 | `page` | 控制页面/路由是否可访问 | `production.bulk_orders.view` |
 | `action` | 控制页面内按钮、节点操作、业务流转动作 | `sample_track.factory_schedule`、`sample_track.delivery` |
-| `api` | 描述 HTTP/gRPC/MCP 等接口与业务权限的绑定关系 | `POST /sample-tracks/{uuid}/nodes/sample-schedule -> sample_track.factory_schedule` |
+| `api` | 描述 HTTP/gRPC/MCP 等接口与业务权限的绑定关系 | `POST /sample-tracks/*/nodes/sample-schedule -> sample_track.factory_schedule` |
 
 `menu/page/action` 是管理员在角色权限页可理解、可勾选的业务授权项。`api` 是这些授权项的 protocol binding 和后端 enforcement mapping，不应默认把每个 raw URL 暴露成管理员需要理解的权限项。只有当接口本身代表独立业务授权边界时，才拆成单独 capability。
 
@@ -61,7 +61,7 @@ permissions:
         resource_scope: tenant
       - channel: rest
         method: GET
-        path: /admin/operations/ai-craft/production/sample-tracks/{uuid}
+        path: /admin/operations/ai-craft/production/sample-tracks/*
         actor_context: admin_user
         resource_scope: tenant
 
@@ -75,7 +75,7 @@ permissions:
     protocols:
       rest:
         - method: POST
-          path: /sample-tracks/{uuid}/nodes/sample-schedule
+          path: /sample-tracks/*/nodes/sample-schedule
           actor_context: admin_user
           resource_scope: tenant
 ```
@@ -86,10 +86,11 @@ permissions:
 2. `permission_code` 是 IAM/RBAC 的唯一结构化权限字段，格式采用 `module.resource:action`，不得从标题、描述、路径或历史字段推导。
 3. 用户可见标题、说明、分组名称必须通过 i18n key 声明，不能把 `capability_id`、UUID、raw route 作为主要展示文案。
 4. `type=page` 是插件后台页面访问授权项。每个用户可访问的 SPA 逻辑页面和详情页必须声明 page 权限，并提供 GET `protocol_bindings`；静态资产、`/_nuxt/**`、图片、CSS、JS、health、debug bridge 等非业务路由不声明 page 权限。
-5. page binding 的 `path` 使用插件内部稳定业务路由，例如 `/admin/operations/ai-craft/production/sample-tracks`；动态详情页使用 `{uuid}` 这类结构化参数，不写真实 UUID。
-6. 所有 REST binding 必须显式声明 `method/path/actor_context/resource_scope`，不得用 path-only 或 method wildcard 隐式放开写操作。
-7. 新增插件普通成员默认可用能力时，必须显式声明 `default_role_grants: [role_user]`；否则 Core 只默认授予租户 owner/admin。
-8. 缺少 `permission_code`、i18n key、page/api binding 元数据或真实 transport 的声明必须同步失败，不得静默忽略或降级为粗权限。迁移窗口内对历史插件页面的 warn/allow 只属于运维保护，不改变新插件声明准入规则。
+5. page binding 的 `path` 使用插件内部稳定业务路由，例如 `/admin/operations/ai-craft/production/sample-tracks`；插件权限声明里的动态路径统一使用 `*`，不使用 `{uuid}`、`:id` 或真实 UUID 样本。
+6. 插件打包发布必须检查合并 catalog 后的 effective manifest，并用 route dump / 后端 RBAC route 表与 `permissions[].protocol_bindings` 做差异审计，确保所有真实业务接口都有 `type=api` binding。
+7. 所有 REST binding 必须显式声明 `method/path/actor_context/resource_scope`，不得用 path-only 或 method wildcard 隐式放开写操作。
+8. 新增插件普通成员默认可用能力时，必须显式声明 `default_role_grants: [role_user]`；否则 Core 只默认授予租户 owner/admin。
+9. 缺少 `permission_code`、i18n key、page/api binding 元数据或真实 transport 的声明必须同步失败，不得静默忽略或降级为粗权限。迁移窗口内对历史插件页面的 warn/allow 只属于运维保护，不改变新插件声明准入规则。
 
 ### 授权与运行时链路
 
@@ -118,7 +119,8 @@ local 模式是 delegated 模式的本地模拟，不是独立正式授权体系
 1. local 权限目录必须来自同一份插件权限声明。
 2. local 角色/用户配置只模拟 PowerX 统一授权结果，用于开发、调试和测试。
 3. local 模式生成的权限结果字段必须与 delegated 模式消费字段一致。
-4. local 页面可以展示“本插件声明了哪些权限”和“当前模拟角色获得哪些权限”，但不得引入与 PowerX 角色权限页不同的正式配置语义。
+4. local 模式不得维护另一份正式授权定义；只能输出 `permission_codes/policy_version/perms_hash/source=local_mock` 结构来模拟 PowerX delegated 授权快照。
+5. local 页面可以展示“本插件声明了哪些权限”和“当前模拟角色获得哪些权限”，但不得引入与 PowerX 角色权限页不同的正式配置语义。
 
 ### 生产单示例
 
@@ -127,11 +129,11 @@ local 模式是 delegated 模式的本地模拟，不是独立正式授权体系
 | 授权项 | 类型 | 权限码 | 接口 binding |
 | --- | --- | --- | --- |
 | 生产单 / 小样跟踪单 | `menu` | `production.sample_track:view_menu` | - |
-| 小样跟踪单读取 | `page` | `production.sample_track:read` | `GET /sample-tracks`、`GET /sample-tracks/{uuid}` |
-| 小样打样排产 | `action` | `production.sample_track:factory_schedule` | `POST /sample-tracks/{uuid}/nodes/sample-schedule` |
-| 小样交付资料 | `action` | `production.sample_track:delivery` | `POST /sample-tracks/{uuid}/nodes/delivery` |
-| 企划审核 | `action` | `production.sample_track:planner_review` | `POST /sample-tracks/{uuid}/nodes/planner-review/{decision}` |
-| 设计师验收 | `action` | `production.sample_track:designer_acceptance` | `POST /sample-tracks/{uuid}/nodes/designer-acceptance/{decision}` |
+| 小样跟踪单读取 | `page` | `production.sample_track:read` | `GET /sample-tracks`、`GET /sample-tracks/*` |
+| 小样打样排产 | `action` | `production.sample_track:factory_schedule` | `POST /sample-tracks/*/nodes/sample-schedule` |
+| 小样交付资料 | `action` | `production.sample_track:delivery` | `POST /sample-tracks/*/nodes/delivery` |
+| 企划审核 | `action` | `production.sample_track:planner_review` | `POST /sample-tracks/*/nodes/planner-review/*` |
+| 设计师验收 | `action` | `production.sample_track:designer_acceptance` | `POST /sample-tracks/*/nodes/designer-acceptance/*` |
 | 生产单 / 大货跟踪单 | `menu` | `production.bulk_order:view_menu` | - |
 | 大货单全部操作 | `action` | `production.bulk_order:manage` | 大货单写接口集合 |
 

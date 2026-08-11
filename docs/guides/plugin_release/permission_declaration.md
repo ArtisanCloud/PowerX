@@ -34,6 +34,7 @@ PowerX 在插件安装或同步时校验这些声明，登记到 Capability Regi
 - 老的 `rbac.resources`、`routes.permissions`、`required_policies` 只属于插件本地运行时或历史兼容元数据，不能替代 PowerX Gateway 的正式权限登记。
 - PowerX Gateway 只按安装后登记成功的 `permissions[].protocol_bindings` 做预检；没有登记的接口会直接 403，不会转发给插件后端。
 - delegated/host 模式下，PowerX 下发给插件后端的授权字段固定为 `permission_codes`、`policy_version`、`perms_hash`。插件后端不得只读取旧 `permissions` 字段，也不得在 claims 缺失时回退到旧粗权限。
+- `policy_version/perms_hash` 的新鲜度和 hash mismatch 判断必须来自 PowerX 可验证来源：PowerX signed context、短期 signed claims，或 authz/introspection 响应。插件后端至少要校验字段存在和签名/来源有效；如果插件无法验证快照是否最新，必须调用 PowerX introspection 或明确拒绝，不得自行猜测。
 - 插件服务态 STS token 的 `aud` 固定表达目标受众，例如 `powerx:api`；插件身份固定来自 `plugin_id` claim。不得把 `plugin:<plugin_id>` 塞进 audience，也不得从 audience 反推插件身份。
 - 插件后端通过 STS 调用 PowerX runtime ws-bus/taskbus 发布事件时，`event_fabric` manifest 必须给插件 principal 显式授权，例如 `principal_type: plugin` + `principal_id: "{{plugin_id}}"` + `actions: [publish]`。只给 `member:system` 或 `role:role_admin` 授权不能代表插件服务态 principal。
 - 插件后端通过 STS 调用 PowerX Core HTTP 接口时，还必须满足 STS direct route policy。Host Scheduler 是明确的插件服务运行时合同，`/api/v1/admin/scheduler/jobs` 系列必须由 PowerX Core 静态放行；Event Fabric topic bootstrap 的推荐入口是正式能力 `POST /api/v1/event-fabric/topics`，历史 admin 入口 `POST /api/v1/admin/event-fabric/topics` 仅作为显式运行时合同例外。否则会返回 `sts token not allowed for this route`。这不是插件 page/api RBAC，也不是 topic ACL。
@@ -207,7 +208,7 @@ permissions:
         resource_scope: tenant
       - channel: rest
         method: GET
-        path: /admin/example/records/{uuid}
+        path: /admin/example/records/*
         actor_context: admin_user
         resource_scope: tenant
 
@@ -238,7 +239,7 @@ permissions:
     protocol_bindings:
       - channel: rest
         method: POST
-        path: /records/{uuid}/approve
+        path: /records/*/approve
         actor_context: admin_user
         resource_scope: tenant
 ```
@@ -296,7 +297,7 @@ permissions:
 | 页面类型 | 是否声明 | 示例 |
 |---|---:|---|
 | 列表页 | 是 | `/admin/example/records` |
-| 详情页 | 是 | `/admin/example/records/{uuid}` |
+| 详情页 | 是 | `/admin/example/records/*` |
 | 工具工作台 | 是 | `/admin/example/workbench` |
 | `/_nuxt/**` 静态资源 | 否 | JS/CSS chunk |
 | 图片、字体、manifest | 否 | `/assets/logo.png` |
@@ -507,13 +508,38 @@ routes:
 
 1. 打包插件。
 2. 确认包内 descriptor 能被 PowerX 读取。
-3. 用 schema 或本地 catalog 接口做预检查。
+3. 对 effective manifest 执行权限声明检查。
+4. 对插件暴露 HTTP route 和 `permissions[].protocol_bindings` 做差异审计。
+5. 用 schema 或本地 catalog 接口做预检查。
 
 命令示例：
 
 ```bash
 px-plugin build --target release
 ```
+
+如果插件仓库使用 Makefile，`make dist` 或 release target 必须强制执行插件权限声明检查。检查对象必须是合并 catalog 后的 effective manifest，而不是只读取主 `plugin.yaml`。使用 `catalogs.rbac` 时，检查脚本必须读取 `plugin.d/rbac.yaml` 中的 `permissions[]`，并拒绝主 manifest 与分片 catalog 的重复声明。
+
+推荐 Makefile 约束：
+
+```bash
+make plugin-permission-declaration-check
+make route-permission-audit
+make dist
+```
+
+`route-permission-audit` 必须覆盖插件实际暴露的所有业务 HTTP route，不得只扫描某个业务目录。可接受的实现方式：
+
+- Gin route dump：从已注册 router 输出 method/path 列表。
+- 后端 RBAC route 表 dump：输出 runtime guard 实际使用的 method/path/permission。
+- Manifest diff：将 route dump 与 effective `permissions[].protocol_bindings` 做差异对比。
+
+审计必须至少报告：
+
+- 未声明 `type=api` binding 的业务接口。
+- 声明了 binding 但后端没有真实 route 的死声明。
+- route guard 使用的权限与 effective 权限不一致。
+- 动态路径没有使用 `*` 的声明。
 
 如果插件仓库已接入 PowerX 本地 catalog 调试接口，安装前检查响应中应包含：
 
@@ -620,6 +646,7 @@ delegated 模式只代表身份来源、租户上下文和授权快照由 PowerX
 - 对每个敏感接口按 `effective_permission_code` 语义做二次校验。
 - 使用 PowerX 下发的 `permission_codes`、`policy_version`、`perms_hash` 作为授权输入。
 - 在缺少授权快照或 route permission 映射时明确失败，不得退回旧粗权限或纯路径推断。
+- `policy_version/perms_hash` 过期或 hash mismatch 的判定必须依赖 PowerX signed context 或 introspection。没有可验证来源时，插件后端只能把快照视为不可验证并拒绝，或调用 PowerX introspection 获取最新授权结果。
 
 后端 route guard 必须与 `effective_permission_code` 使用同一语义。若插件后端仍使用 `Resource + Action` 结构，映射规则固定为：
 
@@ -638,7 +665,7 @@ delegated 模式只代表身份来源、租户上下文和授权快照由 PowerX
 - 不得继续校验旧粗权限，例如 `legacy.record:read/manage`。
 - 不得把插件 ID 拼进业务资源名，例如 `com.example.plugin:example.record`。
 - 不得用 PowerX Gateway 已预检作为插件后端放弃二次校验的理由。
-- delegated token 中的授权字段名固定为 `permission_codes`，不是 `permissions`、`scopes` 或插件自定义字段。插件后端必须同时校验 `policy_version` 或 `perms_hash`，并在字段缺失、过期或 hash 不匹配时明确拒绝。
+- delegated token 中的授权字段名固定为 `permission_codes`，不是 `permissions`、`scopes` 或插件自定义字段。插件后端必须同时校验 `policy_version` 或 `perms_hash`；字段缺失时明确拒绝，字段过期或 hash 不匹配时必须依据 PowerX signed context 或 introspection 结果判断。
 
 运行时基础设施入口必须显式分类，不得被自由路径推断成业务权限：
 
@@ -714,6 +741,8 @@ topics:
 - PowerX `plugin-catalog` 能查到插件权限。
 - 未授权用户访问页面或接口返回明确 403。
 - local 模式和 delegated 模式输出同结构的 `permission_codes/policy_version/perms_hash`。
+- local 模式只能从同一 `permissions[]` 生成 delegated 兼容授权快照，不得维护另一份正式授权定义、另一套路由权限表或另一组字段名。
+- 打包流程已执行 effective manifest 权限检查和 route-permission audit。
 - delegated 模式插件后端仍加载显式 route permission 表，并按 PowerX 授权快照做二次校验。
 - health、静态资源、runtime contract、debug/test-flow 入口已被明确排除或独立授权，不依赖路径推断。
 - 插件后端 403 响应中的 `required_resource/required_action` 与已声明的 `permission_code` 语义一致。
@@ -843,6 +872,7 @@ PUT /_p/com.powerx.plugins.base/api/v1/templates/17: 403 Forbidden
 处理：
 
 - local 权限目录必须从同一 `permissions[]` 生成。
+- local mock 输出必须包含 delegated 兼容字段：`permission_codes/policy_version/perms_hash/source=local_mock`。
 - delegated 缺 claims 时走 PowerX authz/introspection 或明确拒绝。
 - 移除 `legacy.record:*` 运行时判断。
 - delegated 模式先验证 PowerX 身份来源，再按 route permission 表和 `permission_codes` 校验接口权限。

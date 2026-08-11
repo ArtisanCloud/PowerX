@@ -48,7 +48,7 @@ permissions:
         resource_scope: tenant
       - channel: rest
         method: GET
-        path: /admin/operations/ai-craft/production/sample-tracks/{uuid}
+        path: /admin/operations/ai-craft/production/sample-tracks/*
         actor_context: admin_user
         resource_scope: tenant
 
@@ -79,7 +79,7 @@ permissions:
     protocol_bindings:
       - channel: rest
         method: POST
-        path: /sample-tracks/{uuid}/nodes/sample-schedule
+        path: /sample-tracks/*/nodes/sample-schedule
         actor_context: admin_user
         resource_scope: tenant
 ```
@@ -89,13 +89,15 @@ permissions:
 1. `permission_code` 是唯一授权键，格式为 `module.resource:action`；不得从 URL、按钮名称、页面标题或历史粗权限推导。
 2. `menu/page/action/api` 都要声明本地化标题和描述；用户可见文案不得使用 UUID、raw route 或 capability id 作为主名称。
 3. 插件后台每个用户可访问的 SPA 逻辑页面都必须声明 `type: page`，并提供 `protocol_bindings`。页面 binding 固定使用 `channel: rest`、`method: GET`、`actor_context: admin_user`、`resource_scope: tenant`，`path` 使用插件内稳定业务路由，例如 `/admin/operations/ai-craft/production/sample-tracks`。
-4. `page` 声明覆盖业务页面和详情页，不覆盖静态资产、`/_nuxt/**`、图片、CSS、JS、health、debug bridge 等非业务路由。动态详情页使用 `{uuid}` 这类结构化路径参数，不把真实 UUID 写入声明。
+4. `page` 声明覆盖业务页面和详情页，不覆盖静态资产、`/_nuxt/**`、图片、CSS、JS、health、debug bridge 等非业务路由。插件权限声明里的动态路径统一使用 `*`，不使用 `{uuid}`、`:id` 或真实 UUID 样本。
 5. `api` 权限必须绑定真实接口，至少包含 `channel/method/path/actor_context/resource_scope`；如果接口只是某个业务动作的技术入口，必须用 `business_permission_code` 指向业务动作权限。
 6. PowerX 网关会先按 `plugin_id + method + path` 做预检；插件后端仍必须按同一 `permission_code` 做二次校验。
 7. 插件前端按钮、菜单和页面访问必须消费 PowerX 下发的 `permission_codes`，不得在插件设置页另做正式授权配置。
-8. local 模式只能用同一份 `permissions[]` 生成 `local_permission_snapshot`，字段必须与 delegated 模式一致：`permission_codes/perms_hash/policy_version/source=local_mock`。
-9. 旧粗权限如 `operations.order:read/manage` 只能通过迁移报告输出缺失授权清单，不允许作为运行时 alias 继续放行。
-10. 缺少 page binding 是插件注册缺陷。目标运行态按 fail-fast 拒绝访问；迁移窗口内如底座对历史插件页面做 warn/allow，只能作为临时运维保护，不能成为新插件或新版本的兼容路径。
+8. local 模式只能用同一份 `permissions[]` 生成 `local_permission_snapshot`，字段必须与 delegated 模式一致：`permission_codes/perms_hash/policy_version/source=local_mock`；不得维护另一份正式授权定义或另一套字段结构。
+9. 打包发布必须对 effective manifest 执行权限声明检查，并对 Gin route dump、后端 RBAC route 表和 `permissions[].protocol_bindings` 做差异审计，确保所有真实业务接口都有 `type=api` binding。
+10. `policy_version/perms_hash` 的过期和 hash mismatch 判断依赖 PowerX signed context 或 authz/introspection；插件无法验证新鲜度时必须 introspection 或拒绝。
+11. 旧粗权限如 `operations.order:read/manage` 只能通过迁移报告输出缺失授权清单，不允许作为运行时 alias 继续放行。
+12. 缺少 page binding 是插件注册缺陷。目标运行态按 fail-fast 拒绝访问；迁移窗口内如底座对历史插件页面做 warn/allow，只能作为临时运维保护，不能成为新插件或新版本的兼容路径。
 
 插件侧升级 checklist：
 
@@ -106,6 +108,7 @@ permissions:
 [ ] 前端菜单、页面、按钮改为读取 permission_codes
 [ ] 后端每个敏感接口声明 required permission_code 并二次校验
 [ ] local 模式从同一份 permissions[] 生成 local_permission_snapshot
+[ ] make dist/release 执行 effective manifest 权限检查和 route-permission audit
 [ ] 移除 operations.order:read/manage 等旧粗权限运行时判断
 ```
 

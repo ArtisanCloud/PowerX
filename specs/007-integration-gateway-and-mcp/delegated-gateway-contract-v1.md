@@ -88,10 +88,10 @@ delegated 模式下，PowerX 是权限源，插件只声明并执行权限结果
 
 1. `permission_codes` 必须来自插件注册到 PowerX 的 `menu/page/action/api` 权限声明，不得由 URL、前端路由或自由文本临时推导。
 2. `policy_version` 与 `perms_hash` 必须同时存在；缺失时插件后端和 Gateway 均按 `GW_AUTHZ_PERMISSION_CLAIMS_MISSING` 拒绝。
-3. PowerX 角色授权变更后必须推进权限策略版本；插件后端发现版本过期时返回 `GW_AUTHZ_POLICY_VERSION_EXPIRED`，不得继续使用旧快照。
+3. PowerX 角色授权变更后必须推进权限策略版本；插件后端发现版本过期时返回 `GW_AUTHZ_POLICY_VERSION_EXPIRED`，不得继续使用旧快照。版本过期和 hash mismatch 的判断必须来自 PowerX signed context、短期 signed claims 或 authz/introspection 响应；插件无法验证新鲜度时必须 introspection 或拒绝。
 4. 插件服务态 STS token 的 `aud` 固定表达目标受众，例如 `powerx:api`；插件身份固定来自 `plugin_id` claim。底座和插件不得把 `plugin:<plugin_id>` 放进 audience，也不得从 audience 推断插件 owner。
 5. Gateway 转发插件 API 前按 `plugin_id + method + path` 映射到注册的 effective permission 并先行拦截；插件后端仍需按同一 effective permission 做二次校验。effective 规则固定为：API 有 `business_permission_code` 时使用业务权限；API 显式 `independent: true` 时才使用 raw API `permission_code`；否则声明无效。
-6. local 模式只能用同一份权限声明模拟 PowerX 的授权快照，字段名、hash/version 语义必须与 delegated 模式一致。
+6. local 模式只能用同一份权限声明模拟 PowerX 的授权快照，字段名、hash/version 语义必须与 delegated 模式一致，不得维护另一份正式授权定义。
 7. delegated 插件后端使用 STS 调用 runtime ws-bus/taskbus 发布事件时，Event Fabric ACL 必须授权 `plugin:<plugin_id>` publish。`member:system` 与 `role:role_admin` 不代表插件服务态 principal。
 
 如果采用 introspection 而不是 token claims，响应结构必须与上述快照等价：

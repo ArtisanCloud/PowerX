@@ -131,11 +131,12 @@
 
 **Acceptance Scenarios**：
 
-1. **Given** 插件包声明 `example.record:approve` 且绑定 `POST /records/{uuid}/approve`，**When** Capability Sync Worker 校验成功，**Then** Registry 中出现对应 `source=plugin` 能力，IAM Permission 中出现同一 `permission_code`，并可在角色权限页看到本地化标题。
+1. **Given** 插件包声明 `example.record:approve` 且绑定 `POST /records/*/approve`，**When** Capability Sync Worker 校验成功，**Then** Registry 中出现对应 `source=plugin` 能力，IAM Permission 中出现同一 `permission_code`，并可在角色权限页看到本地化标题。
 2. **Given** 插件声明缺少 `permission_code`、i18n key、REST method、`actor_context`、`resource_scope`，或后台业务页面缺少 `type=page` GET binding，**When** 插件安装/同步执行，**Then** 同步失败并记录 `capability.catalog.sync_failed`，不得把该能力降级成粗权限或静默忽略。
-3. **Given** 角色没有 `example.record:delete`，**When** 用户访问删除按钮或直接调用 `POST /records/{uuid}/delete`，**Then** 前端不展示按钮，Gateway 拒绝未授权请求，插件后端二次校验也返回明确 403。
+3. **Given** 角色没有 `example.record:delete`，**When** 用户访问删除按钮或直接调用 `POST /records/*/delete`，**Then** 前端不展示按钮，Gateway 拒绝未授权请求，插件后端二次校验也返回明确 403。
 4. **Given** 插件运行在 local 模式，**When** 开发者配置本地模拟角色，**Then** local 模式读取同一份权限声明生成授权结果，字段结构与 delegated 模式一致，不产生独立正式授权语义。
-5. **Given** 旧插件仍使用粗权限 `legacy.record:read/manage`，**When** 升级到细颗粒度权限模型，**Then** 系统输出迁移报告和缺失授权清单；缺少细权限时明确失败，不保留长期兼容分支。
+5. **Given** 插件打包 release，**When** 执行发布检查，**Then** 检查对象必须是合并 catalog 后的 effective manifest，并通过 route dump / 后端 RBAC route 表与 `permissions[].protocol_bindings` 的差异审计。
+6. **Given** 旧插件仍使用粗权限 `legacy.record:read/manage`，**When** 升级到细颗粒度权限模型，**Then** 系统输出迁移报告和缺失授权清单；缺少细权限时明确失败，不保留长期兼容分支。
 
 ## Requirements *(mandatory)*
 
@@ -178,8 +179,8 @@
 - **FR-035**: 插件权限声明同步成功后，PowerX 必须将 `source=plugin` 的授权项写入 Capability Registry，并同步到 IAM Permission；角色授权必须绑定 `permission_code`，不得绑定 URL、数字 ID 或临时 action key。
 - **FR-036**: 管理端角色权限页必须按插件、模块、菜单、页面和动作分组展示插件权限；用户可见标题和描述必须来自 i18n 元数据，UUID、`capability_id` 和 raw route 只能作为调试/审计元数据展示。
 - **FR-037**: Gateway 对进入插件的用户态请求必须按 `plugin_id + method + path + permission_code` 做预检；插件后端必须按同一 `permission_code` 做二次校验。缺少 binding 或缺少授权上下文时必须拒绝，不允许放行。
-- **FR-038**: delegated 模式的权限传递必须支持 `permission claims + policy_version/perms_hash` 或 `authz/introspection`；权限版本过期、claims 缺失、introspection 失败或主体上下文缺失时必须 fail-fast。
-- **FR-039**: local 模式必须读取同一份插件权限声明来模拟 PowerX 授权结果，输出字段与 delegated 模式一致；插件设置页不得成为正式角色授权入口。
+- **FR-038**: delegated 模式的权限传递必须支持 `permission claims + policy_version/perms_hash` 或 `authz/introspection`；权限版本过期、claims 缺失、introspection 失败或主体上下文缺失时必须 fail-fast。版本过期和 hash mismatch 的判断必须来自 PowerX signed context、短期 signed claims 或 introspection。
+- **FR-039**: local 模式必须读取同一份插件权限声明来模拟 PowerX 授权结果，输出字段与 delegated 模式一致；插件设置页不得成为正式角色授权入口，local 不得维护另一份正式授权定义。
 - **FR-040**: 旧粗权限升级到细颗粒度权限时，系统必须输出迁移报告和缺失授权清单；不得长期保留旧 permission_code、旧字段名或兼容 alias 作为运行时授权路径。
 
 #### Gateway Proxy Envelope（请求/响应）

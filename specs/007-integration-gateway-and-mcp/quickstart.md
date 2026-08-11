@@ -185,7 +185,7 @@ permissions:
     protocols:
       rest:
         - method: POST
-          path: /records/{uuid}/approve
+          path: /records/*/approve
           actor_context: admin_user
           resource_scope: tenant
 ```
@@ -229,6 +229,10 @@ local 模式通过同一份 descriptor `permissions[]` 生成调试快照，不�
 }
 ```
 
+local mock 只能模拟 PowerX delegated 授权快照，不得维护另一份正式授权定义。字段名必须保持 `permission_codes/policy_version/perms_hash/source=local_mock`，插件前端和后端不得在 local 模式读取另一套字段。
+
+发布包检查必须基于合并 catalog 后的 effective manifest。使用 Makefile 的插件，`make dist` 或 release target 必须执行权限声明检查，并对实际 route dump / 后端 RBAC route 表与 `permissions[].protocol_bindings` 做差异审计。
+
 角色授权矩阵验证：
 
 ```bash
@@ -240,7 +244,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 - 插件菜单和页面只显示已授权入口。
 - `approve` 按钮可见，`delete` 按钮不可见。
-- 直接调用 `POST /records/{uuid}/delete` 必须返回 403。
+- 直接调用 `POST /records/*/delete` 必须返回 403。
 - 审计记录包含 `tenant_uuid/member_uuid/plugin_id/capability_id/permission_code/route/method/trace_id`。
 
 旧粗权限迁移只输出报告和缺失授权清单，不生成运行时 alias：
