@@ -72,6 +72,79 @@ func TestBuildPluginPermissionRowsKeepsManifestPermissionsAndMenuPermissions(t *
 	require.Equal(t, "read", rows[2].Action)
 }
 
+func TestBuildPluginPermissionRowsSupportsGranularPermissionDeclarations(t *testing.T) {
+	manifest := plugin_mgr.Manifest{
+		ID:      "com.example.plugins.workflow",
+		Version: "1.0.0",
+		Permissions: []plugin_mgr.PermissionSpec{
+			{
+				Type:           "page",
+				PermissionCode: "workspace.case_file:read",
+				Module:         "workspace",
+				TitleI18n: map[string]string{
+					"zh-CN": "示例记录读取",
+					"en":    "Read example records",
+				},
+				DescriptionI18n: map[string]string{
+					"zh-CN": "允许查看示例记录列表。",
+					"en":    "Allows reading example records.",
+				},
+				RiskLevel: "low",
+				DataScope: "tenant",
+				ProtocolBindings: []plugin_mgr.PermissionProtocolBinding{
+					{
+						Channel:       "rest",
+						Method:        "GET",
+						Path:          "/admin/example/records",
+						ActorContext:  "admin_user",
+						ResourceScope: "tenant",
+					},
+				},
+			},
+			{
+				Type:                   "api",
+				PermissionCode:         "workspace.case_file_api:approve",
+				BusinessPermissionCode: "workspace.case_file:approve",
+				Module:                 "workspace",
+				RiskLevel:              "medium",
+				DataScope:              "tenant",
+				ProtocolBindings: []plugin_mgr.PermissionProtocolBinding{
+					{
+						Channel:       "rest",
+						Method:        "POST",
+						Path:          "/admin/example/records/{uuid}/approve",
+						ActorContext:  "admin_user",
+						ResourceScope: "tenant",
+					},
+				},
+			},
+		},
+	}
+
+	rows := buildPluginPermissionRows(manifest)
+
+	require.Len(t, rows, 2)
+	require.Equal(t, "workspace", rows[0].Module)
+	require.Equal(t, "case_file", rows[0].Resource)
+	require.Equal(t, "read", rows[0].Action)
+	require.Equal(t, "plugin:com.example.plugins.workflow", rows[0].Source)
+
+	var pageMeta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &pageMeta))
+	require.Equal(t, "page", pageMeta["type"])
+	require.Equal(t, "workspace.case_file:read", pageMeta["permission"])
+	require.Equal(t, "com.example.plugins.workflow", pageMeta["plugin_id"])
+	require.Equal(t, "low", pageMeta["risk_level"])
+	require.NotEmpty(t, pageMeta["protocol_bindings"])
+
+	var apiMeta map[string]any
+	require.NoError(t, json.Unmarshal(rows[1].Meta, &apiMeta))
+	require.Equal(t, "api", apiMeta["type"])
+	require.Equal(t, "workspace.case_file_api:approve", apiMeta["permission"])
+	require.Equal(t, "workspace.case_file:approve", apiMeta["business_permission_code"])
+	require.NotEmpty(t, apiMeta["protocol_bindings"])
+}
+
 func TestBuildPluginPermissionRowsAllowsLongPluginMenuResources(t *testing.T) {
 	manifest := plugin_mgr.Manifest{
 		ID:      "com.powerx.plugins.base",

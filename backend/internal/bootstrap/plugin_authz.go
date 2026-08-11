@@ -49,7 +49,7 @@ func (a pluginIAMAuthorizer) PermissionsForClaims(ctx context.Context, claims re
 	}
 	perms := make([]string, 0, len(rows))
 	for _, row := range rows {
-		code := permissionCodeFromIAMRow(row)
+		code := effectivePermissionCodeFromIAMRow(row)
 		if code == "" {
 			continue
 		}
@@ -97,11 +97,9 @@ func (a pluginIAMAuthorizer) RoutePermission(ctx context.Context, pluginID, meth
 		if !pluginPermissionMetaMatchesRoute(meta, method, reqPath) {
 			continue
 		}
-		return &pmrouter.Permission{
-			Module:   strings.TrimSpace(row.Module),
-			Resource: strings.TrimSpace(row.Resource),
-			Action:   strings.TrimSpace(row.Action),
-		}, nil
+		if permission, ok := effectivePermissionFromIAMRow(row, meta); ok {
+			return &permission, nil
+		}
 	}
 	return nil, nil
 }
@@ -128,10 +126,66 @@ func effectivePluginRoleIDsForMemberSQL() string {
 		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`
 }
 
-func permissionCodeFromIAMRow(row dbm.Permission) string {
-	module := strings.TrimSpace(row.Module)
-	resource := strings.TrimSpace(row.Resource)
-	action := strings.TrimSpace(row.Action)
+func effectivePermissionCodeFromIAMRow(row dbm.Permission) string {
+	var meta map[string]any
+	_ = json.Unmarshal(row.Meta, &meta)
+	permission, ok := effectivePermissionFromIAMRow(row, meta)
+	if !ok {
+		return ""
+	}
+	return permissionCodeFromRoutePermission(permission)
+}
+
+func effectivePermissionFromIAMRow(row dbm.Permission, meta map[string]any) (pmrouter.Permission, bool) {
+	permissionType := strings.TrimSpace(anyPluginAuthzString(meta["type"]))
+	if permissionType == "api" {
+		if businessPermissionCode := strings.TrimSpace(anyPluginAuthzString(meta["business_permission_code"])); businessPermissionCode != "" {
+			return routePermissionFromCode(businessPermissionCode)
+		}
+		if !anyPluginAuthzBool(meta["independent"]) {
+			return pmrouter.Permission{}, false
+		}
+	}
+	return routePermissionFromIAMRow(row)
+}
+
+func routePermissionFromIAMRow(row dbm.Permission) (pmrouter.Permission, bool) {
+	permission := pmrouter.Permission{
+		Module:   strings.TrimSpace(row.Module),
+		Resource: strings.TrimSpace(row.Resource),
+		Action:   strings.TrimSpace(row.Action),
+	}
+	if permission.Resource == "" || permission.Action == "" {
+		return pmrouter.Permission{}, false
+	}
+	return permission, true
+}
+
+func routePermissionFromCode(code string) (pmrouter.Permission, bool) {
+	left, action, ok := strings.Cut(strings.TrimSpace(code), ":")
+	if !ok {
+		return pmrouter.Permission{}, false
+	}
+	left = strings.TrimSpace(left)
+	action = strings.TrimSpace(action)
+	if left == "" || action == "" {
+		return pmrouter.Permission{}, false
+	}
+	parts := strings.Split(left, ".")
+	if len(parts) < 2 {
+		return pmrouter.Permission{Resource: left, Action: action}, true
+	}
+	return pmrouter.Permission{
+		Module:   strings.TrimSpace(parts[0]),
+		Resource: strings.TrimSpace(strings.Join(parts[1:], ".")),
+		Action:   action,
+	}, true
+}
+
+func permissionCodeFromRoutePermission(permission pmrouter.Permission) string {
+	module := strings.TrimSpace(permission.Module)
+	resource := strings.TrimSpace(permission.Resource)
+	action := strings.TrimSpace(permission.Action)
 	if resource == "" || action == "" {
 		return ""
 	}
@@ -221,6 +275,17 @@ func anyPluginAuthzString(value any) string {
 		return strings.TrimSpace(typed)
 	default:
 		return strings.TrimSpace(fmt.Sprint(value))
+	}
+}
+
+func anyPluginAuthzBool(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		return strings.EqualFold(strings.TrimSpace(typed), "true")
+	default:
+		return false
 	}
 }
 

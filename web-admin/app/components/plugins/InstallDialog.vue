@@ -322,6 +322,7 @@ const drainCreated = ref(false);
 const drainPluginId = ref("");
 const localDirInputRef = ref<HTMLInputElement | null>(null);
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+const multipartDirectoryPackageThreshold = 400;
 
 watch(
   () => props.modelValue,
@@ -401,6 +402,143 @@ function buildInstallMetadataPayload() {
     },
     notes: (state.notes || "").trim(),
   };
+}
+
+async function buildLocalInstallFormData(files: File[]) {
+  const formData = new FormData();
+  const shouldPackage =
+    files.length >= multipartDirectoryPackageThreshold &&
+    typeof (globalThis as any).CompressionStream === "function";
+
+  if (shouldPackage) {
+    const archive = await createTarGzFromFiles(files);
+    const name = safeArchiveName(state.localDirName || "plugin-upload");
+    formData.append("file", archive, `${name}.tar.gz`);
+    return formData;
+  }
+
+  const filePaths: string[] = [];
+  for (const file of files) {
+    const relPath = (file as any)?.webkitRelativePath || file.name;
+    formData.append("files", file, relPath);
+    filePaths.push(relPath);
+  }
+  formData.append("file_paths_json", JSON.stringify(filePaths));
+  return formData;
+}
+
+function safeArchiveName(name: string) {
+  const cleaned = String(name || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleaned || "plugin-upload";
+}
+
+async function createTarGzFromFiles(files: File[]) {
+  const chunks: BlobPart[] = [];
+  const archivePaths = archiveRelativePaths(files);
+  for (const file of files) {
+    const relPath = archivePaths.get(file) || file.name;
+    chunks.push(createTarHeader(relPath, file.size, Math.floor((file.lastModified || Date.now()) / 1000)));
+    chunks.push(file);
+    const padding = tarPadding(file.size);
+    if (padding > 0) {
+      chunks.push(new Uint8Array(padding));
+    }
+  }
+  chunks.push(new Uint8Array(1024));
+
+  const tarBlob = new Blob(chunks, { type: "application/x-tar" });
+  const CompressionStreamCtor = (globalThis as any).CompressionStream;
+  const compressed = tarBlob.stream().pipeThrough(new CompressionStreamCtor("gzip"));
+  const gzipBlob = await new Response(compressed).blob();
+  return new File([gzipBlob], `${safeArchiveName(state.localDirName || "plugin-upload")}.tar.gz`, {
+    type: "application/gzip",
+  });
+}
+
+function archiveRelativePaths(files: File[]) {
+  const rawPaths = files.map((file) => String((file as any)?.webkitRelativePath || file.name || ""));
+  const firstSegments = rawPaths
+    .filter((path) => path.includes("/"))
+    .map((path) => path.split("/")[0]);
+  const commonRoot =
+    firstSegments.length === rawPaths.length &&
+    firstSegments.every((segment) => segment === firstSegments[0])
+      ? firstSegments[0]
+      : "";
+
+  const out = new Map<File, string>();
+  files.forEach((file, idx) => {
+    const raw = rawPaths[idx] || file.name;
+    const rel = commonRoot && raw.startsWith(`${commonRoot}/`) ? raw.slice(commonRoot.length + 1) : raw;
+    out.set(file, rel || file.name);
+  });
+  return out;
+}
+
+function createTarHeader(path: string, size: number, mtime: number) {
+  const header = new Uint8Array(512);
+  const { name, prefix } = splitTarPath(path);
+  writeTarString(header, 0, 100, name);
+  writeTarOctal(header, 100, 8, 0o644);
+  writeTarOctal(header, 108, 8, 0);
+  writeTarOctal(header, 116, 8, 0);
+  writeTarOctal(header, 124, 12, size);
+  writeTarOctal(header, 136, 12, mtime);
+  for (let i = 148; i < 156; i += 1) {
+    header[i] = 0x20;
+  }
+  header[156] = "0".charCodeAt(0);
+  writeTarString(header, 257, 6, "ustar");
+  writeTarString(header, 263, 2, "00");
+  writeTarString(header, 345, 155, prefix);
+
+  let checksum = 0;
+  for (const value of header) {
+    checksum += value;
+  }
+  writeTarOctal(header, 148, 8, checksum);
+  return header;
+}
+
+function splitTarPath(path: string) {
+  const cleaned = String(path || "")
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/(^|\/)\.\.(?=\/|$)/g, "")
+    .replace(/\/+/g, "/");
+  const encoded = new TextEncoder().encode(cleaned);
+  if (encoded.length <= 100) {
+    return { name: cleaned, prefix: "" };
+  }
+
+  const parts = cleaned.split("/");
+  for (let idx = parts.length - 1; idx > 0; idx -= 1) {
+    const name = parts.slice(idx).join("/");
+    const prefix = parts.slice(0, idx).join("/");
+    if (new TextEncoder().encode(name).length <= 100 && new TextEncoder().encode(prefix).length <= 155) {
+      return { name, prefix };
+    }
+  }
+  throw new Error(`uploaded path is too long for tar header: ${cleaned}`);
+}
+
+function writeTarString(header: Uint8Array, offset: number, length: number, value: string) {
+  const bytes = new TextEncoder().encode(value);
+  header.set(bytes.slice(0, length), offset);
+}
+
+function writeTarOctal(header: Uint8Array, offset: number, length: number, value: number) {
+  const encoded = Math.max(0, value).toString(8).padStart(length - 1, "0").slice(-(length - 1));
+  writeTarString(header, offset, length - 1, encoded);
+  header[offset + length - 1] = 0;
+}
+
+function tarPadding(size: number) {
+  const remainder = size % 512;
+  return remainder === 0 ? 0 : 512 - remainder;
 }
 
 function onLocalDirChange(event: Event) {
@@ -570,12 +708,7 @@ async function confirmInstall() {
         "~/composables/api/services/adminPluginsService"
       );
       const svc = useAdminPluginsService();
-      const formData = new FormData();
-      for (const file of state.localDirFiles) {
-        const relPath = (file as any)?.webkitRelativePath || file.name;
-        formData.append("files", file, relPath);
-        formData.append("file_paths", relPath);
-      }
+      const formData = await buildLocalInstallFormData(state.localDirFiles);
       formData.append("enable", String(!!state.enableAfterInstall));
       formData.append("force", String(!!state.forceInstall));
       formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));

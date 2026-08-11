@@ -355,7 +355,7 @@ func (w *SyncWorker) syncCapabilityPermissions(ctx context.Context, plugin plugi
 				"permission":    code,
 			})),
 			Status:     iammodel.PermissionStatusActive,
-			Source:     pluginID,
+			Source:     "plugin:" + pluginID,
 			Introduced: firstNonEmptyCatalogString(strings.TrimSpace(capability.Version), strings.TrimSpace(plugin.Version)),
 		})
 	}

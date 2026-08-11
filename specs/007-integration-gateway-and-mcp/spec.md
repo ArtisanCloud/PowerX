@@ -123,19 +123,19 @@
 
 ### User Story 5 - 插件细颗粒度权限统一登记与授权（Priority: P1）
 
-作为租户管理员，我希望插件安装或升级后，PowerX 能把插件声明的菜单、页面、页面内动作和接口权限统一登记到角色权限中心，以便我在一个地方给工厂、设计师、企划、运营等角色授权，而不是进入每个插件设置页重复配置。
+作为租户管理员，我希望插件安装或升级后，PowerX 能把插件声明的菜单、页面、页面内动作和接口权限统一登记到角色权限中心，以便我在一个地方给不同岗位角色授权，而不是进入每个插件设置页重复配置。
 
 **Why this priority**：插件业务权限如果分散在插件设置页、前端按钮判断和后端接口中，会导致菜单、按钮和接口各自为政，出现越权、误隐藏和排障困难。PowerX 必须成为正式角色授权的唯一主入口。
 
-**Independent Test**：准备一个示例插件，其 capability descriptor 声明 `menu/page/action/api` 权限。安装并同步后，在 PowerX 角色权限页给一个角色只授予 `production.sample_track:read` 与 `production.sample_track:factory_schedule`，验证菜单/页面/按钮可见性、Gateway 预检和插件后端二次校验均按同一 `permission_code` 生效。
+**Independent Test**：准备一个示例插件，其 capability descriptor 声明 `menu/page/action/api` 权限，其中每个插件后台业务页面都有 `type=page` 与 GET `protocol_bindings`。安装并同步后，在 PowerX 角色权限页给一个角色只授予 `example.record:read` 与 `example.record:approve`，验证菜单/页面/按钮可见性、Gateway 预检和插件后端二次校验均按同一 `permission_code` 生效。
 
 **Acceptance Scenarios**：
 
-1. **Given** 插件包声明 `production.sample_track:factory_schedule` 且绑定 `POST /sample-tracks/{uuid}/nodes/sample-schedule`，**When** Capability Sync Worker 校验成功，**Then** Registry 中出现对应 `source=plugin` 能力，IAM Permission 中出现同一 `permission_code`，并可在角色权限页看到本地化标题。
-2. **Given** 插件声明缺少 `permission_code`、i18n key、REST method、`actor_context` 或 `resource_scope`，**When** 插件安装/同步执行，**Then** 同步失败并记录 `capability.catalog.sync_failed`，不得把该能力降级成粗权限或静默忽略。
-3. **Given** 角色没有 `production.sample_track:delivery`，**When** 用户访问交付按钮或直接调用 `POST /sample-tracks/{uuid}/nodes/delivery`，**Then** 前端不展示按钮，Gateway 拒绝未授权请求，插件后端二次校验也返回明确 403。
+1. **Given** 插件包声明 `example.record:approve` 且绑定 `POST /records/{uuid}/approve`，**When** Capability Sync Worker 校验成功，**Then** Registry 中出现对应 `source=plugin` 能力，IAM Permission 中出现同一 `permission_code`，并可在角色权限页看到本地化标题。
+2. **Given** 插件声明缺少 `permission_code`、i18n key、REST method、`actor_context`、`resource_scope`，或后台业务页面缺少 `type=page` GET binding，**When** 插件安装/同步执行，**Then** 同步失败并记录 `capability.catalog.sync_failed`，不得把该能力降级成粗权限或静默忽略。
+3. **Given** 角色没有 `example.record:delete`，**When** 用户访问删除按钮或直接调用 `POST /records/{uuid}/delete`，**Then** 前端不展示按钮，Gateway 拒绝未授权请求，插件后端二次校验也返回明确 403。
 4. **Given** 插件运行在 local 模式，**When** 开发者配置本地模拟角色，**Then** local 模式读取同一份权限声明生成授权结果，字段结构与 delegated 模式一致，不产生独立正式授权语义。
-5. **Given** 旧插件仍使用粗权限 `operations.order:read/manage`，**When** 升级到细颗粒度权限模型，**Then** 系统输出迁移报告和缺失授权清单；缺少细权限时明确失败，不保留长期兼容分支。
+5. **Given** 旧插件仍使用粗权限 `legacy.record:read/manage`，**When** 升级到细颗粒度权限模型，**Then** 系统输出迁移报告和缺失授权清单；缺少细权限时明确失败，不保留长期兼容分支。
 
 ## Requirements *(mandatory)*
 

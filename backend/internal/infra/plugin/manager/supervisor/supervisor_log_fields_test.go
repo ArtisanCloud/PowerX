@@ -3,21 +3,21 @@ package supervisor
 import "testing"
 
 func TestExtractPluginRuntimeLogFieldsFromJSONLine(t *testing.T) {
-	fields := extractPluginRuntimeLogFields(`{"message":"ai craft trace emitted","node_name":"N03_unified_llm","trace_type":"agent-llm-unified-request","session_id":"email-cs-1","request_id":"req-1"}`)
+	fields := extractPluginRuntimeLogFields(`{"message":"plugin runtime trace emitted","node_name":"N03_task_run","trace_type":"plugin-task-request","session_id":"session-1","request_id":"req-1"}`)
 
-	if got := fields["node_name"]; got != "N03_unified_llm" {
+	if got := fields["node_name"]; got != "N03_task_run" {
 		t.Fatalf("node_name = %v", got)
 	}
-	if got := fields["trace_type"]; got != "agent-llm-unified-request" {
+	if got := fields["trace_type"]; got != "plugin-task-request" {
 		t.Fatalf("trace_type = %v", got)
 	}
-	if got := fields["plugin_message"]; got != "ai craft trace emitted" {
+	if got := fields["plugin_message"]; got != "plugin runtime trace emitted" {
 		t.Fatalf("plugin_message = %v", got)
 	}
 }
 
 func TestExtractPluginRuntimeLogFieldsFromLogrusTextLine(t *testing.T) {
-	line := "\x1b[36mINFO\x1b[0m[2026-05-12 00:40:43]logger.go:308 logger.logrusEntryBridge.Info ai craft trace emitted " +
+	line := "\x1b[36mINFO\x1b[0m[2026-05-12 00:40:43]logger.go:308 logger.logrusEntryBridge.Info plugin runtime trace emitted " +
 		"\x1b[36mnode_name\x1b[0m=N02_context_build " +
 		"\x1b[36mnode_seq\x1b[0m=2 " +
 		"\x1b[36mtrace_type\x1b[0m=agent-llm-slot-state " +

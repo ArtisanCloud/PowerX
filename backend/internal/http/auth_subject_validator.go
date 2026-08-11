@@ -36,6 +36,7 @@ type stsRouteMatchMode string
 const (
 	stsRouteMatchSuffix      stsRouteMatchMode = "suffix"
 	stsRouteMatchCorePattern stsRouteMatchMode = "core_pattern"
+	stsRouteMatchExact       stsRouteMatchMode = "exact"
 )
 
 type stsAllowedHTTPRoute struct {
@@ -72,6 +73,15 @@ var stsStaticAllowedHTTPRoutes = []stsAllowedHTTPRoute{
 	{Method: "POST", Pattern: "/tenant/invocations", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/tenant/invocations/stream", Match: stsRouteMatchSuffix},
 	{Method: "GET", Pattern: "/admin/tenants", Match: stsRouteMatchSuffix},
+	{Method: "POST", Pattern: "/admin/event-fabric/topics", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/admin/scheduler/jobs", Match: stsRouteMatchExact},
+	{Method: "POST", Pattern: "/admin/scheduler/jobs", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/admin/scheduler/jobs/:job_id", Match: stsRouteMatchExact},
+	{Method: "PATCH", Pattern: "/admin/scheduler/jobs/:job_id", Match: stsRouteMatchExact},
+	{Method: "POST", Pattern: "/admin/scheduler/jobs/:job_id/trigger", Match: stsRouteMatchExact},
+	{Method: "POST", Pattern: "/admin/scheduler/jobs/:job_id/pause", Match: stsRouteMatchExact},
+	{Method: "POST", Pattern: "/admin/scheduler/jobs/:job_id/resume", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/admin/scheduler/jobs/:job_id/runs", Match: stsRouteMatchExact},
 }
 
 type userSnapshot struct {
@@ -401,9 +411,17 @@ func (route stsAllowedHTTPRoute) matches(method string, path string) bool {
 		return strings.HasSuffix(path, route.Pattern)
 	case stsRouteMatchCorePattern:
 		return isSTSCoreCapabilityPath(path, route.Pattern)
+	case stsRouteMatchExact:
+		return isSTSExplicitCapabilityPath(path, route.Pattern)
 	default:
 		return false
 	}
+}
+
+func isSTSExplicitCapabilityPath(path string, pattern string) bool {
+	path = normalizeSTSPlatformEndpoint(path)
+	pattern = cleanSTSRoutePattern(pattern)
+	return matchSTSRoutePattern(strings.Split(strings.Trim(path, "/"), "/"), pattern)
 }
 
 func isSTSCoreCapabilityPath(path string, pattern string) bool {
@@ -432,6 +450,9 @@ func matchSTSRoutePattern(pathParts []string, pattern string) bool {
 		expected := strings.TrimSpace(patternParts[i])
 		if actual == "" || expected == "" {
 			return false
+		}
+		if strings.HasPrefix(expected, ":") {
+			continue
 		}
 		if strings.HasPrefix(expected, "{") && strings.HasSuffix(expected, "}") {
 			continue

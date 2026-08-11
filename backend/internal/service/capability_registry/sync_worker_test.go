@@ -149,7 +149,7 @@ func TestSyncWorkerRegistersCapabilityPermissionCodesToIAM(t *testing.T) {
 	require.NoError(t, db.WithContext(ctx).
 		Where("module = ? AND resource = ? AND action = ?", "demo.plugin", "template", "create").
 		First(&perm).Error)
-	require.Equal(t, "demo.plugin", perm.Source)
+	require.Equal(t, "plugin:demo.plugin", perm.Source)
 	require.Equal(t, iammodel.PermissionStatusActive, perm.Status)
 	require.False(t, perm.AllowAPIKey)
 }
@@ -263,6 +263,7 @@ func TestSyncWorkerRegistersPluginPermissionDeclarationsToIAM(t *testing.T) {
 	require.NoError(t, db.WithContext(ctx).
 		Where("module = ? AND resource = ? AND action = ?", "production", "sample_track_api", "sample_schedule").
 		First(&apiPerm).Error)
+	require.Equal(t, "plugin:demo.plugin", apiPerm.Source)
 	require.NoError(t, json.Unmarshal(apiPerm.Meta, &meta))
 	require.Equal(t, "api", meta["type"])
 	require.Equal(t, "production.sample_track:factory_schedule", meta["business_permission_code"])

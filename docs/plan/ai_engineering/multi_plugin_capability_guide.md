@@ -10,6 +10,7 @@
 - PowerX Core 现有实现（`capability_registry`、Integration Gateway、Agent Hub）分散记录了调用逻辑，但缺少面向“多插件智能体调用”的一份 PRD 来描述宿主如何消费上述目录并提供一致的开发体验。
 - 本文聚焦于 **PowerX 底座 → 多插件 → 智能体/Workflow/租户 API** 的调用链，输出一套统一标准，指导 Integration Gateway、Agent Hub、Workflow Builder、Selector 与 Capability Registry 的协作。
 - 插件菜单、页面、页面内动作和业务接口权限的统一登记与角色授权，以 `docs/plan/integration/powerx_capability.md` 的“插件细颗粒度权限注册与授权目标架构”为准；本文只描述 Agent/Workflow/Integration Gateway 如何消费已经登记且已授权的能力。
+- 对外插件发布、打包和安装时的执行指南见 `docs/guides/plugin_release/permission_declaration.md`。插件开发者和外部插件项目应优先阅读 guide；本 plan 只保留内部方案、目标架构和 spec 对齐内容。
 
 **业务目标**
 1. 在插件提交 `.pxp` 包或通过 `px-plugin capabilities submit` 后 ≤3 分钟，PowerX 能在 `agent hub + workflow builder + integration gateway` 三个入口展示并调用最新能力。
@@ -19,6 +20,103 @@
 **非目标**
 - 不重新描述插件侧如何编写 Handler/协议资产（沿用插件文档）。
 - 不在本 PRD 中设计新的 Agent 语言或 Workflow DSL，复用 `specs/007` 及 `docs/standards/powerx/backend/plugins/*.md` 的既定规范。
+
+## 1.1 插件侧权限颗粒度对接要求
+
+插件侧能力对接不只包含 Agent/Workflow/MCP 能力目录，还必须声明菜单、页面、页面内动作和业务接口权限。PowerX 是正式授权源，插件只负责声明和执行授权结果。
+
+插件包必须在 capability descriptor 中提交 `permissions[]`，并与 `metadata.protocols` 中的真实协议入口对齐：
+
+```yaml
+permissions:
+  - type: page
+    permission_code: production.sample_track:read
+    module: production
+    title_i18n:
+      zh-CN: 小样生产单读取
+      en: Read sample production orders
+    description_i18n:
+      zh-CN: 允许查看小样生产单列表、详情和完整节点信息。
+      en: Allows reading sample production order lists, details, and lifecycle nodes.
+    risk_level: low
+    data_scope: tenant
+    protocol_bindings:
+      - channel: rest
+        method: GET
+        path: /admin/operations/ai-craft/production/sample-tracks
+        actor_context: admin_user
+        resource_scope: tenant
+      - channel: rest
+        method: GET
+        path: /admin/operations/ai-craft/production/sample-tracks/{uuid}
+        actor_context: admin_user
+        resource_scope: tenant
+
+  - type: action
+    permission_code: production.sample_track:factory_schedule
+    module: production
+    title_i18n:
+      zh-CN: 小样打样排产
+      en: Factory schedule
+    description_i18n:
+      zh-CN: 允许执行小样打样排产。
+      en: Allows factory schedule.
+    risk_level: medium
+    data_scope: tenant
+    default_role_grants:
+      - role_admin
+
+  - type: api
+    permission_code: production.sample_track_api:sample_schedule
+    business_permission_code: production.sample_track:factory_schedule
+    title_i18n:
+      zh-CN: 小样排产接口
+      en: Sample schedule API
+    description_i18n:
+      zh-CN: 允许调用小样排产接口。
+      en: Allows sample schedule API calls.
+    risk_level: medium
+    protocol_bindings:
+      - channel: rest
+        method: POST
+        path: /sample-tracks/{uuid}/nodes/sample-schedule
+        actor_context: admin_user
+        resource_scope: tenant
+```
+
+插件侧必须遵守以下规则：
+
+1. `permission_code` 是唯一授权键，格式为 `module.resource:action`；不得从 URL、按钮名称、页面标题或历史粗权限推导。
+2. `menu/page/action/api` 都要声明本地化标题和描述；用户可见文案不得使用 UUID、raw route 或 capability id 作为主名称。
+3. 插件后台每个用户可访问的 SPA 逻辑页面都必须声明 `type: page`，并提供 `protocol_bindings`。页面 binding 固定使用 `channel: rest`、`method: GET`、`actor_context: admin_user`、`resource_scope: tenant`，`path` 使用插件内稳定业务路由，例如 `/admin/operations/ai-craft/production/sample-tracks`。
+4. `page` 声明覆盖业务页面和详情页，不覆盖静态资产、`/_nuxt/**`、图片、CSS、JS、health、debug bridge 等非业务路由。动态详情页使用 `{uuid}` 这类结构化路径参数，不把真实 UUID 写入声明。
+5. `api` 权限必须绑定真实接口，至少包含 `channel/method/path/actor_context/resource_scope`；如果接口只是某个业务动作的技术入口，必须用 `business_permission_code` 指向业务动作权限。
+6. PowerX 网关会先按 `plugin_id + method + path` 做预检；插件后端仍必须按同一 `permission_code` 做二次校验。
+7. 插件前端按钮、菜单和页面访问必须消费 PowerX 下发的 `permission_codes`，不得在插件设置页另做正式授权配置。
+8. local 模式只能用同一份 `permissions[]` 生成 `local_permission_snapshot`，字段必须与 delegated 模式一致：`permission_codes/perms_hash/policy_version/source=local_mock`。
+9. 旧粗权限如 `operations.order:read/manage` 只能通过迁移报告输出缺失授权清单，不允许作为运行时 alias 继续放行。
+10. 缺少 page binding 是插件注册缺陷。目标运行态按 fail-fast 拒绝访问；迁移窗口内如底座对历史插件页面做 warn/allow，只能作为临时运维保护，不能成为新插件或新版本的兼容路径。
+
+插件侧升级 checklist：
+
+```text
+[ ] descriptor 增加 menu/page/action/api permissions[]
+[ ] 梳理插件后台 SPA 页面清单，每个业务页面和详情页都有 type=page + GET protocol_bindings
+[ ] metadata.protocols 与 api/page protocol_bindings 完全匹配；静态资产和 _nuxt 路由不声明权限
+[ ] 前端菜单、页面、按钮改为读取 permission_codes
+[ ] 后端每个敏感接口声明 required permission_code 并二次校验
+[ ] local 模式从同一份 permissions[] 生成 local_permission_snapshot
+[ ] 移除 operations.order:read/manage 等旧粗权限运行时判断
+```
+
+PowerX 侧对应验证入口：
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$POWERX_BASE_URL/admin/iam/permissions/plugin-catalog?plugin_id=$PLUGIN_ID"
+
+node scripts/migrations/plugin-permission-granularity-report.mjs . --format=markdown
+```
 
 ---
 

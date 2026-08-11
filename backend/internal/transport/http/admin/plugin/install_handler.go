@@ -61,8 +61,9 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 					dtoRequest.ResponseError(c, 400, "安装失败", plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("file or files is required")))
 					return
 				}
-				logLocalInstallUpload(c, "multipart_received", "", form.File["files"], form.Value["file_paths"], nil)
-				uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], form.Value["file_paths"])
+				relPaths := uploadedDirRelPaths(form)
+				logLocalInstallUpload(c, "multipart_received", "", form.File["files"], relPaths, nil)
+				uploadedPath, cleanup, err = saveUploadedDirToTemp(form.File["files"], relPaths)
 			}
 			if err != nil {
 				dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
@@ -171,6 +172,31 @@ func logLocalInstallUpload(c *gin.Context, stage string, uploadedPath string, fi
 		zap.String("uploaded_path", uploadedPath),
 		zap.Error(err),
 	)
+}
+
+func uploadedDirRelPaths(form *multipart.Form) []string {
+	if form == nil {
+		return nil
+	}
+	if relPaths := form.Value["file_paths"]; len(relPaths) > 0 {
+		return relPaths
+	}
+	raw := strings.TrimSpace(firstString(form.Value["file_paths_json"]))
+	if raw == "" {
+		return nil
+	}
+	var relPaths []string
+	if err := json.Unmarshal([]byte(raw), &relPaths); err != nil {
+		return nil
+	}
+	return relPaths
+}
+
+func firstString(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
 
 func logLocalInstallResolve(c *gin.Context, stage string, src string) {

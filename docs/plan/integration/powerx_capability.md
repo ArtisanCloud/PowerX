@@ -53,6 +53,17 @@ permissions:
     description_i18n: production.permissions.sample_track_read_desc
     risk_level: low
     default_role_grants: []
+    protocol_bindings:
+      - channel: rest
+        method: GET
+        path: /admin/operations/ai-craft/production/sample-tracks
+        actor_context: admin_user
+        resource_scope: tenant
+      - channel: rest
+        method: GET
+        path: /admin/operations/ai-craft/production/sample-tracks/{uuid}
+        actor_context: admin_user
+        resource_scope: tenant
 
   - capability_id: com.powerx.plugin.production.sample_track.factory_schedule
     permission_code: production.sample_track:factory_schedule
@@ -74,9 +85,11 @@ permissions:
 1. `capability_id` 必须全局稳定，插件能力使用 `com.powerx.plugin.<domain>.<resource>.<action>` 命名。
 2. `permission_code` 是 IAM/RBAC 的唯一结构化权限字段，格式采用 `module.resource:action`，不得从标题、描述、路径或历史字段推导。
 3. 用户可见标题、说明、分组名称必须通过 i18n key 声明，不能把 `capability_id`、UUID、raw route 作为主要展示文案。
-4. 所有 REST binding 必须显式声明 `method/path/actor_context/resource_scope`，不得用 path-only 或 method wildcard 隐式放开写操作。
-5. 新增插件普通成员默认可用能力时，必须显式声明 `default_role_grants: [role_user]`；否则 Core 只默认授予租户 owner/admin。
-6. 缺少 `permission_code`、i18n key、binding 元数据或真实 transport 的声明必须同步失败，不得静默忽略或降级为粗权限。
+4. `type=page` 是插件后台页面访问授权项。每个用户可访问的 SPA 逻辑页面和详情页必须声明 page 权限，并提供 GET `protocol_bindings`；静态资产、`/_nuxt/**`、图片、CSS、JS、health、debug bridge 等非业务路由不声明 page 权限。
+5. page binding 的 `path` 使用插件内部稳定业务路由，例如 `/admin/operations/ai-craft/production/sample-tracks`；动态详情页使用 `{uuid}` 这类结构化参数，不写真实 UUID。
+6. 所有 REST binding 必须显式声明 `method/path/actor_context/resource_scope`，不得用 path-only 或 method wildcard 隐式放开写操作。
+7. 新增插件普通成员默认可用能力时，必须显式声明 `default_role_grants: [role_user]`；否则 Core 只默认授予租户 owner/admin。
+8. 缺少 `permission_code`、i18n key、page/api binding 元数据或真实 transport 的声明必须同步失败，不得静默忽略或降级为粗权限。迁移窗口内对历史插件页面的 warn/allow 只属于运维保护，不改变新插件声明准入规则。
 
 ### 授权与运行时链路
 

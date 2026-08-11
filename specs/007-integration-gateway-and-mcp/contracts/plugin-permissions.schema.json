@@ -87,6 +87,33 @@
               }
             ]
           }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "page" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["protocol_bindings"],
+            "properties": {
+              "protocol_bindings": {
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    { "$ref": "#/$defs/protocolBinding" },
+                    {
+                      "properties": {
+                        "channel": { "const": "rest" },
+                        "method": { "const": "GET" },
+                        "actor_context": { "const": "admin_user" },
+                        "resource_scope": { "const": "tenant" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
         }
       ]
     },

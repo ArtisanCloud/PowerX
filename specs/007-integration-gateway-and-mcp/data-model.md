@@ -56,6 +56,7 @@
   - `permission_code` 必须为唯一授权语义，不得从 `capability_id`、标题、描述或路径推导。
   - 用户可见标题和说明必须使用 i18n key，不允许使用 UUID、raw route 或 `capability_id` 作为主展示文案。
   - `type=api` 默认必须绑定已有 `menu/page/action` 业务授权项；除非该 API 被显式标记为独立授权业务能力。
+  - `type=page` 必须声明 `protocol_bindings`，且 REST binding 必须为 `GET` 页面访问入口。页面声明只覆盖插件后台业务页面和详情页，不覆盖静态资产、`/_nuxt/**`、图片、CSS、JS 或 debug/health 路由。
   - 普通成员默认授权必须显式写入 `default_role_grants: [role_user]`，否则只默认授予 owner/admin。
 
 ### PermissionProtocolBinding
@@ -72,6 +73,7 @@
   - 被 Gateway 预检和插件后端二次校验共同消费
 - **Validation**:
   - REST binding 不允许 method wildcard；`GET` 授权不得隐式放开写方法。
+  - page REST binding 的 `path` 必须是插件内稳定业务路由，动态段使用 `{uuid}` 等结构化参数，不允许使用真实 UUID 样本或自由文本占位。
   - `/api/v1/admin/**` 默认是用户态后台入口，不得被普通服务态 STS direct call 继承。
   - 缺少 actor 或资源范围时同步失败。
 
